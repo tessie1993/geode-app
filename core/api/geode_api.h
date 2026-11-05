@@ -371,6 +371,28 @@ GEODE_API int     geode_export_range_clamp(int64_t start_ms, int64_t end_ms, int
                                            int64_t* out_start_ms, int64_t* out_duration_ms);
 GEODE_API int64_t geode_export_range_min_ms(void);
 
+/* Project render plan (output/RenderPlan): the first enabled scene clip on the first live visual lane, over the
+ * earliest enabled song on the first live audio lane that it overlaps. Per clip, `spans` holds
+ * GEODE_PLAN_CLIP_LONGS longs (start ms, end ms, source in ms, source duration ms; 0 = unbounded) and `lanes`
+ * GEODE_PLAN_CLIP_INTS ints (the lane's index in the timeline, GEODE_PLAN_* flags). 1 with *out filled, or 0
+ * (out untouched) for no visual, no song under it, or less than min_duration_ms of the two together. */
+#define GEODE_PLAN_CLIP_LONGS 4
+#define GEODE_PLAN_CLIP_INTS 2
+#define GEODE_PLAN_ENABLED 1   /* the clip plays */
+#define GEODE_PLAN_WANTED 2    /* a scene on a visual lane, a song on an audio lane */
+#define GEODE_PLAN_LANE_LIVE 4 /* its lane is not muted or hidden */
+typedef struct geode_render_plan {
+    int32_t visual;             /* index into the visual clips */
+    int32_t song;               /* index into the audio clips */
+    int64_t programme_start_ms;
+    int64_t duration_ms;
+    int64_t song_start_ms;
+    int32_t whole_song;         /* 1: the whole song from its start, so no range is passed to the exporter */
+} geode_render_plan;
+GEODE_API int     geode_render_plan_of(const int64_t* visual_spans, const int32_t* visual_lanes, int visual_count,
+                                       const int64_t* audio_spans, const int32_t* audio_lanes, int audio_count,
+                                       int64_t min_duration_ms, geode_render_plan* out);
+
 /* Time left for a render (output/RenderEta). The caller keeps the state; a zeroed one is a fresh estimate,
  * so starting over is a memset. -1 while there is not yet enough steady progress to say. */
 typedef struct geode_render_eta {

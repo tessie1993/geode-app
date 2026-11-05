@@ -1,7 +1,7 @@
 // Host-side checks for the offline render's planning (core/output: FrameClock, LoopPlan, EncodePlan,
-// Chapters, ExportRange, RenderEta) and its C ABI. Built and run by CI (.github/workflows/android.yml,
+// Chapters, ExportRange, RenderEta, RenderPlan) and its C ABI. Built and run by CI (.github/workflows/android.yml,
 // "Native export planning tests") with the system compiler; no device. Where a value pins the Kotlin it
-// replaces (VideoExporter, LoopSpec, LoopExtendPlan, MuxerBudget, ExportAspect, fallbackExportFps,
+// replaces (VideoExporter, ProjectRenderPlan, LoopSpec, LoopExtendPlan, MuxerBudget, ExportAspect, fallbackExportFps,
 // ChapterMarkers, ExportRange.of, RenderEta and its JVM RenderEtaTest), the comment says so; the deliberate
 // changes (exact pts, the seam budget's lost frame, the 0:00 lead-in) say why.
 #include <cstdint>
@@ -16,6 +16,7 @@
 #include "output/FrameClock.hpp"
 #include "output/LoopPlan.hpp"
 #include "output/RenderEta.hpp"
+#include "output/RenderPlan.hpp"
 #include "viz/FrameStep.hpp"
 
 using namespace geode::output;
@@ -234,6 +235,123 @@ void exportRange() {
     check(geode_export_range_min_ms() == 1'000, "ABI minimum");
 }
 
+// Pins the Kotlin ProjectRenderPlan.plan (#636) it replaces, rule by rule. Live = an enabled clip of the wanted
+// kind on a live lane; MIN_CLIP_DURATION_MS is 33.
+constexpr int kLive = PlanClip::kEnabled | PlanClip::kWanted | PlanClip::kLaneLive;
+constexpr int64_t kMin = 33;
+
+PlanClip scene(int64_t start, int64_t end, int lane = 0, int flags = kLive) { return {start, end, 0, 0, lane, flags}; }
+
+PlanClip song(int64_t start, int64_t end, int64_t in = 0, int64_t source = 0, int lane = 1, int flags = kLive) {
+    return {start, end, in, source, lane, flags};
+}
+
+bool plan(const std::vector<PlanClip>& v, const std::vector<PlanClip>& a, RenderPlan* out) {
+    return planRender(v.data(), static_cast<int>(v.size()), a.data(), static_cast<int>(a.size()), kMin, out);
+}
+
+void renderPlan() {
+    RenderPlan p;
+
+    // A take: one scene over the whole of a song the project knows the length of.
+    check(plan({scene(0, 180'000)}, {song(0, 180'000, 0, 180'000)}, &p) && p.visual == 0 && p.song == 0 &&
+              p.programmeStartMs == 0 && p.durationMs == 180'000 && p.songStartMs == 0 && p.wholeSong,
+          "plan: the whole song");
+    check(plan({scene(0, 180'000)}, {song(0, 180'000)}, &p) && !p.wholeSong && p.durationMs == 180'000,
+          "plan: an unbounded song is a range");
+    check(plan({scene(0, 180'000)}, {song(0, 120'000, 0, 180'000)}, &p) && !p.wholeSong && p.durationMs == 120'000,
+          "plan: a song clip shorter than its source is a range");
+    check(plan({scene(0, 200'000)}, {song(0, 200'000, 0, 180'000)}, &p) && p.wholeSong,
+          "plan: a song clip at least as long as its source is the whole song");
+
+    // Cut against each other, programme time mapped to song time.
+    check(plan({scene(10'000, 50'000)}, {song(0, 180'000, 0, 180'000)}, &p) && p.programmeStartMs == 10'000 &&
+              p.durationMs == 40'000 && p.songStartMs == 10'000 && !p.wholeSong,
+          "plan: a scene inside the song");
+    check(plan({scene(0, 100'000)}, {song(20'000, 80'000, 5'000, 180'000)}, &p) && p.programmeStartMs == 20'000 &&
+              p.durationMs == 60'000 && p.songStartMs == 5'000 && !p.wholeSong,
+          "plan: a song with sourceInMs > 0 starts there and is a range");
+    check(plan({scene(30'000, 100'000)}, {song(20'000, 80'000, 5'000, 180'000)}, &p) && p.songStartMs == 15'000 &&
+              p.durationMs == 50'000,
+          "plan: source in plus the cut into the song");
+    check(plan({scene(0, 10'000)}, {song(0, 10'000, -4'000, 0)}, &p) && p.songStartMs == 0,
+          "plan: song start floors at 0");
+
+    // Nothing to render.
+    check(!plan({}, {song(0, 1'000)}, &p), "plan: no visual");
+    check(!plan({scene(0, 1'000)}, {}, &p), "plan: no song");
+    check(!plan({scene(0, 1'000)}, {song(1'000, 2'000)}, &p), "plan: touching is no overlap");
+    p = RenderPlan{};
+    p.visual = 7;
+    check(!plan({scene(0, 1'032)}, {song(1'000, 2'000)}, &p) && p.visual == 7, "plan: 32 ms is under the floor");
+    check(plan({scene(0, 1'033)}, {song(1'000, 2'000)}, &p) && p.durationMs == 33, "plan: exactly the floor");
+
+    // The earliest clip wins, on each side, whatever order the clips arrive in.
+    check(plan({scene(50'000, 60'000), scene(10'000, 20'000)}, {song(0, 100'000)}, &p) && p.visual == 1 &&
+              p.programmeStartMs == 10'000,
+          "plan: the earliest scene");
+    check(plan({scene(0, 100'000)}, {song(60'000, 90'000), song(30'000, 50'000)}, &p) && p.song == 1 &&
+              p.programmeStartMs == 30'000,
+          "plan: the earliest overlapping song");
+    check(plan({scene(10'000, 20'000), scene(10'000, 30'000)}, {song(0, 100'000)}, &p) && p.visual == 0,
+          "plan: a tie keeps the first");
+    check(plan({scene(40'000, 60'000)}, {song(0, 30'000), song(50'000, 90'000)}, &p) && p.song == 1,
+          "plan: an earlier song that misses the scene is passed over");
+
+    // Lanes: the first live lane holding what it needs, by lane index; muted and hidden lanes skipped.
+    check(plan({scene(10'000, 20'000, 2), scene(50'000, 60'000, 0)}, {song(0, 100'000)}, &p) && p.visual == 1,
+          "plan: the first visual lane, not the earliest clip");
+    check(plan({scene(10'000, 20'000, 0, PlanClip::kEnabled | PlanClip::kWanted), scene(50'000, 60'000, 2)},
+               {song(0, 100'000)}, &p) &&
+              p.visual == 1,
+          "plan: a hidden visual lane is skipped");
+    check(plan({scene(0, 100'000)},
+               {song(0, 100'000, 0, 0, 1, PlanClip::kEnabled | PlanClip::kWanted), song(40'000, 90'000, 0, 0, 3)}, &p) &&
+              p.song == 1,
+          "plan: a muted audio lane is skipped");
+    check(plan({scene(0, 1'000, 0, PlanClip::kLaneLive | PlanClip::kWanted), scene(50'000, 60'000, 1)},
+               {song(0, 100'000)}, &p) &&
+              p.visual == 1,
+          "plan: a visual lane with only disabled scenes is skipped");
+    check(plan({scene(0, 1'000, 0, PlanClip::kLaneLive | PlanClip::kEnabled), scene(50'000, 60'000, 1)},
+               {song(0, 100'000)}, &p) &&
+              p.visual == 1,
+          "plan: a visual lane with no scene is skipped");
+    check(!plan({scene(0, 100'000)},
+                {song(0, 100'000, 0, 0, 1, PlanClip::kLaneLive | PlanClip::kEnabled), song(0, 100'000, 0, 0, 3)}, &p),
+          "plan: the first live audio lane holding any enabled clip is the only one tried");
+    check(plan({scene(0, 100'000)},
+               {song(0, 100'000, 0, 0, 1, PlanClip::kLaneLive | PlanClip::kWanted), song(40'000, 90'000, 0, 0, 3)}, &p) &&
+              p.song == 1,
+          "plan: an audio lane with only disabled clips is skipped");
+    check(plan({scene(0, 100'000)},
+               {song(0, 100'000, 0, 0, 1, PlanClip::kLaneLive | PlanClip::kWanted), song(40'000, 90'000)}, &p) &&
+              p.song == 1,
+          "plan: a disabled song is skipped on the same lane");
+    check(plan({scene(0, 1'000, 0, PlanClip::kLaneLive | PlanClip::kWanted), scene(50'000, 60'000)}, {song(0, 100'000)},
+               &p) &&
+              p.visual == 1,
+          "plan: a disabled scene is skipped on the same lane");
+
+    // The ABI: flat spans and lanes, the same answer.
+    const int64_t vSpans[] = {50'000, 60'000, 0, 0, 10'000, 30'000, 0, 0};
+    const int32_t vLanes[] = {0, GEODE_PLAN_ENABLED | GEODE_PLAN_WANTED | GEODE_PLAN_LANE_LIVE, 0,
+                              GEODE_PLAN_ENABLED | GEODE_PLAN_WANTED | GEODE_PLAN_LANE_LIVE};
+    const int64_t aSpans[] = {5'000, 100'000, 2'000, 180'000};
+    const int32_t aLanes[] = {1, GEODE_PLAN_ENABLED | GEODE_PLAN_WANTED | GEODE_PLAN_LANE_LIVE};
+    geode_render_plan abi{};
+    check(geode_render_plan_of(vSpans, vLanes, 2, aSpans, aLanes, 1, kMin, &abi) == 1 && abi.visual == 1 &&
+              abi.song == 0 && abi.programme_start_ms == 10'000 && abi.duration_ms == 20'000 &&
+              abi.song_start_ms == 7'000 && abi.whole_song == 0,
+          "plan: ABI");
+    check(geode_render_plan_of(vSpans, vLanes, 2, aSpans, aLanes, 1, 20'001, &abi) == 0 && abi.visual == 1,
+          "plan: ABI floor is the caller's, out untouched");
+    check(geode_render_plan_of(nullptr, nullptr, 0, aSpans, aLanes, 1, kMin, &abi) == 0, "plan: ABI no visuals");
+    const int64_t wSpans[] = {0, 180'000, 0, 180'000};
+    check(geode_render_plan_of(wSpans, vLanes, 1, wSpans, aLanes, 1, kMin, &abi) == 1 && abi.whole_song == 1,
+          "plan: ABI whole song");
+}
+
 // QA #24, moved from the JVM RenderEtaTest: a fast lead-in (analysis, audio transcode) made the old estimate
 // start low, climb, then count down. The lead-in is flagged not steady and must not bend the estimate.
 void renderEta() {
@@ -315,6 +433,7 @@ int main() {
     chapters();
     exportRange();
     renderEta();
+    renderPlan();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

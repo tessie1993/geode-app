@@ -4,6 +4,7 @@
 // to forget; NDK "JNI tips", Region calls), and every New<Type>Array is checked before it is filled.
 #include <jni.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <vector>
 
@@ -15,6 +16,8 @@ namespace {
 constexpr jsize kLoopSpecLongs = 7;
 // Size of the render-ETA state double[]; GeodeNative.ETA_STATE_DOUBLES is the same.
 constexpr jsize kEtaStateDoubles = 9;
+// Size of the render-plan long[]; GeodeNative.RENDER_PLAN_LONGS is the same.
+constexpr jsize kRenderPlanLongs = 6;
 
 void writeLoopSpec(JNIEnv* env, const geode_loop_spec& s, jlongArray out) {
     if (!out || env->GetArrayLength(out) < kLoopSpecLongs) return;
@@ -28,6 +31,13 @@ std::vector<int64_t> longs(JNIEnv* env, jlongArray array) {
     const jsize n = array ? env->GetArrayLength(array) : 0;
     std::vector<int64_t> v(static_cast<size_t>(n));
     if (n > 0) env->GetLongArrayRegion(array, 0, n, reinterpret_cast<jlong*>(v.data()));
+    return v;
+}
+
+std::vector<int32_t> ints(JNIEnv* env, jintArray array) {
+    const jsize n = array ? env->GetArrayLength(array) : 0;
+    std::vector<int32_t> v(static_cast<size_t>(n));
+    if (n > 0) env->GetIntArrayRegion(array, 0, n, reinterpret_cast<jint*>(v.data()));
     return v;
 }
 
@@ -184,6 +194,35 @@ JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportRangeC
 
 JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportRangeMinMs(JNIEnv*, jobject) {
     return geode_export_range_min_ms();
+}
+
+// Project render plan (output/RenderPlan). Clips whose ints and longs disagree in count are cut to the shorter;
+// out gets kRenderPlanLongs values in GeodeNative.RENDER_PLAN_* order when a plan is returned.
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderPlan(JNIEnv* env, jobject,
+                                                                                jlongArray visualSpans,
+                                                                                jintArray visualLanes,
+                                                                                jlongArray audioSpans,
+                                                                                jintArray audioLanes,
+                                                                                jlong minDurationMs, jlongArray out) {
+    const auto vSpans = longs(env, visualSpans);
+    const auto vLanes = ints(env, visualLanes);
+    const auto aSpans = longs(env, audioSpans);
+    const auto aLanes = ints(env, audioLanes);
+    const int vCount =
+        static_cast<int>(std::min(vSpans.size() / GEODE_PLAN_CLIP_LONGS, vLanes.size() / GEODE_PLAN_CLIP_INTS));
+    const int aCount =
+        static_cast<int>(std::min(aSpans.size() / GEODE_PLAN_CLIP_LONGS, aLanes.size() / GEODE_PLAN_CLIP_INTS));
+    geode_render_plan plan{};
+    if (!geode_render_plan_of(vSpans.data(), vLanes.data(), vCount, aSpans.data(), aLanes.data(), aCount, minDurationMs,
+                              &plan)) {
+        return JNI_FALSE;
+    }
+    if (out && env->GetArrayLength(out) >= kRenderPlanLongs) {
+        const jlong values[kRenderPlanLongs] = {plan.visual,        plan.song,          plan.programme_start_ms,
+                                                plan.duration_ms,   plan.song_start_ms, plan.whole_song};
+        env->SetLongArrayRegion(out, 0, kRenderPlanLongs, values);
+    }
+    return JNI_TRUE;
 }
 
 // Render ETA (output/RenderEta). The state is the caller's double[kEtaStateDoubles], in GeodeNative.ETA_*

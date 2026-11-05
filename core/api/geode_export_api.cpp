@@ -1,6 +1,6 @@
 // The C ABI over the export planning and clip maths (geode_api.h, "Export planning and clip maths"). Only
 // argument checks and copies live here; the rules are in output/ (FrameClock, LoopPlan, EncodePlan, Chapters,
-// ExportRange, RenderEta), signal/timeline/ (Keyframes, SpeedRamp, Cues), viz/ClipGrade,
+// ExportRange, RenderEta, RenderPlan), signal/timeline/ (Keyframes, SpeedRamp, Cues), viz/ClipGrade,
 // util/CubeLut and audio/dsp/PcmConvert, each host-tested in core/tests.
 #include <algorithm>
 #include <memory>
@@ -15,6 +15,7 @@
 #include "output/ExportRange.hpp"
 #include "output/FrameClock.hpp"
 #include "output/LoopPlan.hpp"
+#include "output/RenderPlan.hpp"
 #include "output/RenderEta.hpp"
 #include "signal/timeline/Cues.hpp"
 #include "signal/timeline/Keyframes.hpp"
@@ -263,6 +264,46 @@ int geode_export_range_clamp(int64_t start_ms, int64_t end_ms, int64_t track_ms,
 }
 
 int64_t geode_export_range_min_ms(void) { return out::kMinExportRangeMs; }
+
+static_assert(GEODE_PLAN_ENABLED == out::PlanClip::kEnabled && GEODE_PLAN_WANTED == out::PlanClip::kWanted &&
+              GEODE_PLAN_LANE_LIVE == out::PlanClip::kLaneLive);
+
+namespace {
+
+std::vector<out::PlanClip> planClips(const int64_t* spans, const int32_t* lanes, int count) {
+    std::vector<out::PlanClip> clips;
+    if (!spans || !lanes || count <= 0) return clips;
+    clips.resize(static_cast<size_t>(count));
+    for (size_t i = 0; i < clips.size(); ++i) {
+        const int64_t* s = spans + i * GEODE_PLAN_CLIP_LONGS;
+        const int32_t* l = lanes + i * GEODE_PLAN_CLIP_INTS;
+        clips[i] = out::PlanClip{s[0], s[1], s[2], s[3], l[0], l[1]};
+    }
+    return clips;
+}
+
+}  // namespace
+
+int geode_render_plan_of(const int64_t* visual_spans, const int32_t* visual_lanes, int visual_count,
+                         const int64_t* audio_spans, const int32_t* audio_lanes, int audio_count,
+                         int64_t min_duration_ms, geode_render_plan* o) {
+    const auto visuals = planClips(visual_spans, visual_lanes, visual_count);
+    const auto audio = planClips(audio_spans, audio_lanes, audio_count);
+    out::RenderPlan plan;
+    if (!out::planRender(visuals.data(), static_cast<int>(visuals.size()), audio.data(),
+                         static_cast<int>(audio.size()), min_duration_ms, &plan)) {
+        return 0;
+    }
+    if (o) {
+        o->visual = plan.visual;
+        o->song = plan.song;
+        o->programme_start_ms = plan.programmeStartMs;
+        o->duration_ms = plan.durationMs;
+        o->song_start_ms = plan.songStartMs;
+        o->whole_song = plan.wholeSong ? 1 : 0;
+    }
+    return 1;
+}
 
 int64_t geode_render_eta_sample(geode_render_eta* state, float progress, int64_t at_ms, int steady) {
     if (!state) return -1;

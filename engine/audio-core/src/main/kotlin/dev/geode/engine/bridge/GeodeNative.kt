@@ -716,6 +716,36 @@ object GeodeNative {
 
     external fun exportRangeMinMs(): Long
 
+    /** Per clip, [renderPlan]'s spans hold start ms, end ms, source in ms and source duration ms (0 = unbounded). */
+    const val PLAN_CLIP_LONGS: Int = 4
+
+    /** Per clip, [renderPlan]'s lanes hold the lane's index in the timeline, then the PLAN_* flags. */
+    const val PLAN_CLIP_INTS: Int = 2
+    const val PLAN_ENABLED: Int = 1
+
+    /** A scene on a visual lane, a song on an audio lane. */
+    const val PLAN_WANTED: Int = 2
+
+    /** The clip's lane is not muted or hidden. */
+    const val PLAN_LANE_LIVE: Int = 4
+
+    /** Size of [renderPlan]'s out: visual index, song index, programme start, duration, song start, whole song (1/0). */
+    const val RENDER_PLAN_LONGS: Int = 6
+
+    /**
+     * One visual over one song (core/output/RenderPlan): the first enabled scene on the first live visual lane over
+     * the earliest enabled song it overlaps on the first live audio lane. True with [out] filled; false for no visual,
+     * no song under it, or less than [minDurationMs] of the two together.
+     */
+    external fun renderPlan(
+        visualSpans: LongArray,
+        visualLanes: IntArray,
+        audioSpans: LongArray,
+        audioLanes: IntArray,
+        minDurationMs: Long,
+        out: LongArray,
+    ): Boolean
+
     /**
      * Size of the render-ETA state [renderEtaSample] carries: steady, based, shown (1.0 or 0.0), base
      * progress, latest progress, shown seconds, steady-since ms, base ms, shown-at ms. All zeros is a fresh

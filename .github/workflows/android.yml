@@ -31,8 +31,15 @@ on:
 permissions:
   contents: read
 
+# One build per commit. A push to a claude/** branch with an open PR fires both
+# a push run and a pull_request run for the same commit; keying the group on the
+# branch name (head_ref on a PR, ref_name on a push) puts them in one group, so the
+# later one cancels the earlier and the commit builds once instead of twice. The
+# check results attach to the commit either way, so the PR still shows them.
+# The head repository is part of the key, so a fork's PR from a same-named
+# branch never shares (and cancels) this repository's runs.
 concurrency:
-  group: geode-debug-${{ github.workflow }}-${{ github.ref }}
+  group: geode-debug-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 env:

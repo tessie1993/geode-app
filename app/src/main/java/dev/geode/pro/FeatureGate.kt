@@ -52,10 +52,29 @@ data class FeatureGate(
     /** The longest an export may run, or null for no limit. */
     val exportCapMs: Long? get() = if (allows(ProFeature.FULL_LENGTH_EXPORT)) null else FreeTier.FREE_MAX_EXPORT_MS
 
+    /**
+     * What a render under this entitlement may produce, as one value the render itself applies
+     * (`ExportController.renderProject`). Every project render (a stopped take, Studio's
+     * Render) reads this where it runs, so no entry point can forget the cap or the wordmark, which
+     * is how a trial take once came out clean and full length (#354).
+     */
+    val renderLimits: RenderLimits get() = RenderLimits(exportCapMs, watermarksExports)
+
     companion object {
         val FREE: FeatureGate = FeatureGate(Entitlement.Free)
 
         /** What separates a Pro export from a trial one. */
         private val EXPORT_LIMITS = setOf(ProFeature.NO_WATERMARK, ProFeature.FULL_LENGTH_EXPORT)
+    }
+}
+
+/** The export limits of one entitlement: the longest a render may run ([capMs], null for no limit), and whether it carries the wordmark. */
+data class RenderLimits(
+    val capMs: Long?,
+    val watermark: Boolean,
+) {
+    companion object {
+        /** Pro's: full length, no wordmark. */
+        val NONE: RenderLimits = RenderLimits(capMs = null, watermark = false)
     }
 }

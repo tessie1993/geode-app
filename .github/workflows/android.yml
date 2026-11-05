@@ -152,6 +152,9 @@ jobs:
           # Liquid mode's pure maths: thermal modes, inject weight, the random dive, gestures, born clock, drop flare.
           g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/liquid_test.cpp core/viz/liquid/LiquidMath.cpp -o liquid_test
           ./liquid_test
+          # Which built scenes stay on the GPU (#378): a bounded LRU with pins, spares by thermal tier, lazy resize.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/scene_residency_test.cpp -o scene_residency_test
+          ./scene_residency_test
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_test.cpp core/sound/*.cpp -o sound_test
           ./sound_test
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/musical_test.cpp core/sound/*.cpp -o musical_test

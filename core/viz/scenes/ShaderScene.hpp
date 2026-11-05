@@ -2,6 +2,7 @@
 #include <GLES3/gl3.h>
 
 #include <array>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -11,6 +12,7 @@
 #include "viz/Scene.hpp"
 #include "viz/SoundUniforms.hpp"
 #include "viz/Texture.hpp"
+#include "viz/world/MorphDriver.hpp"
 
 namespace geode::viz {
 
@@ -55,6 +57,7 @@ private:
     void uploadMotion();
     void uploadTouch();
     void uploadCamera();
+    void uploadWorld();
     void set1f(const char* name, float value);
     float marchSteps(float detail);
 
@@ -100,6 +103,12 @@ private:
     bool drawsCamera_ = false;
     std::array<float, TouchField::kPointStride> touchAnchor_{};
     std::array<float, TouchField::kMaxPoints * TouchField::kPointStride> touchPoints_{};
+
+    // Morph World (shaders/morph_world_frag, lib_world): the World Genome's driver, built only for that
+    // style. Stepped in update() from the sound and the controls, moved along by the camera in draw().
+    std::unique_ptr<world::MorphDriver> world_;
+    float worldDt_ = 0.0f;
+    bool worldSeeded_ = false;
 
     float stepsDetail_ = -1.0f;
     float stepsBudget_ = 0.0f;

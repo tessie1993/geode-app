@@ -564,4 +564,28 @@ object GeodeNative {
         nowMs: Long,
         heardAtMs: Long,
     ): Boolean
+
+    // Cover-art palette (core/viz/ArtPalette): Settings' artwork palette and the widget's glow.
+
+    /** Index of the base hue (0..1) in [artPalette]'s out. */
+    const val ART_HUE = 0
+
+    /** Index of the hue span (0.06..1, a fraction of the wheel) in [artPalette]'s out. */
+    const val ART_SPAN = 1
+
+    /** Index of the confidence (0..1, the share of pixels with a colour) in [artPalette]'s out. */
+    const val ART_CONFIDENCE = 2
+
+    /** The size of [artPalette]'s out. */
+    const val ART_PALETTE_SIZE = 3
+
+    /**
+     * The palette of [pixels], packed ARGB as `Bitmap.getPixels` gives them: fills [out] (3 floats, at
+     * [ART_HUE], [ART_SPAN] and [ART_CONFIDENCE]) and returns true, or false with [out] untouched when no
+     * pixel has a colour (greys, blacks, blown highlights).
+     */
+    external fun artPalette(
+        pixels: IntArray,
+        out: FloatArray,
+    ): Boolean
 }

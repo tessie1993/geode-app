@@ -187,6 +187,9 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/luminance_drive_test.cpp core/viz/Adsr.cpp core/viz/Lfo.cpp \
             core/viz/FlashLimiter.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp -o luminance_drive_test
           ./luminance_drive_test
+          # The cover-art palette (core/viz/ArtPalette), ported from Kotlin (ADR 0003): hue bins, seam, span, confidence.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/art_palette_test.cpp core/api/geode_palette_api.cpp -o art_palette_test
+          ./art_palette_test
 
       # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes, ranges, and
       # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.

@@ -276,6 +276,12 @@ GEODE_API long long       geode_silence_heard_at(const float* const* channels, i
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
 
+/* Cover-art palette (viz/ArtPalette): the hue the artwork leans to, for Settings' artwork palette and the
+ * widget's glow. argb is count packed 0xAARRGGBB pixels as Bitmap.getPixels gives them (alpha ignored).
+ * Returns 1 and fills out[3] = { base hue 0..1, hue span 0.06..1, confidence 0..1 (the share of pixels with a
+ * colour) }, or 0 with out untouched when no pixel has one (greys, blacks, blown highlights). Pure. */
+GEODE_API int             geode_art_palette(const uint32_t* argb, int count, float* out);
+
 #ifdef __cplusplus
 }
 #endif

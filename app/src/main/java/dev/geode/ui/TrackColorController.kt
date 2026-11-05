@@ -5,8 +5,8 @@ import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import dev.geode.R
-import dev.geode.analysis.ArtPalette
 import dev.geode.data.PaletteStore
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,20 +39,28 @@ internal class TrackColorController(
             }
         scope.launch(Dispatchers.IO) {
             val pixels = artworkPixels(uri)
-            val extracted = pixels?.let { ArtPalette.extract(it) }
+            val palette = FloatArray(GeodeNative.ART_PALETTE_SIZE)
+            val found = pixels != null && GeodeNative.artPalette(pixels, palette)
             withContext(Dispatchers.Main) {
                 if (host.currentUri != uri) return@withContext
                 when {
                     pixels == null -> _artPaletteNote.value = application.getString(R.string.palette_art_no_artwork)
-                    extracted == null ->
+                    !found ->
                         _artPaletteNote.value =
                             application.getString(R.string.palette_art_greyscale)
                     else -> {
                         host.setSceneParams(
-                            PaletteStore.applyGradient(host.params, extracted.baseHue, extracted.span),
+                            PaletteStore.applyGradient(
+                                host.params,
+                                palette[GeodeNative.ART_HUE],
+                                palette[GeodeNative.ART_SPAN],
+                            ),
                         )
                         _artPaletteNote.value =
-                            application.getString(R.string.palette_art_taken, (extracted.confidence * 100).roundToInt())
+                            application.getString(
+                                R.string.palette_art_taken,
+                                (palette[GeodeNative.ART_CONFIDENCE] * 100).roundToInt(),
+                            )
                     }
                 }
             }

@@ -759,4 +759,31 @@ Java_dev_geode_engine_bridge_GeodeNative_thermalPush(JNIEnv*, jobject, jint stat
     geode_thermal_push(status, headroom);
 }
 
+// Cast's HLS timing (core/viz/frame/HlsSegments): the init segment's and a fragment's bytes in, its media seconds out.
+JNIEXPORT jdouble JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_hlsFragmentSeconds(JNIEnv* env, jobject, jbyteArray init, jbyteArray fragment) {
+    if (!init || !fragment) return 0.0;
+    const jsize initSize = env->GetArrayLength(init);
+    const jsize fragmentSize = env->GetArrayLength(fragment);
+    auto* i = static_cast<const uint8_t*>(env->GetPrimitiveArrayCritical(init, nullptr));
+    auto* f = static_cast<const uint8_t*>(env->GetPrimitiveArrayCritical(fragment, nullptr));
+    const double seconds = (i && f) ? geode_hls_fragment_seconds(i, static_cast<size_t>(initSize), f, static_cast<size_t>(fragmentSize)) : 0.0;
+    if (f) env->ReleasePrimitiveArrayCritical(fragment, const_cast<uint8_t*>(f), JNI_ABORT);
+    if (i) env->ReleasePrimitiveArrayCritical(init, const_cast<uint8_t*>(i), JNI_ABORT);
+    return seconds;
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_hlsPlaylist(JNIEnv* env, jobject, jlong firstSequence, jdoubleArray durations,
+                                                     jstring initUri, jstring segmentPrefix, jstring segmentSuffix) {
+    if (!durations) return nullptr;
+    const jsize count = std::min<jsize>(env->GetArrayLength(durations), GEODE_HLS_WINDOW);
+    double d[GEODE_HLS_WINDOW] = {};
+    env->GetDoubleArrayRegion(durations, 0, count, d);
+    geode::jni::Utf8Chars uri(env, initUri), prefix(env, segmentPrefix), suffix(env, segmentSuffix);
+    char text[1024];
+    const int n = geode_hls_playlist(firstSequence, d, count, uri.get(), prefix.get(), suffix.get(), text, sizeof text);
+    return n > 0 ? env->NewStringUTF(text) : nullptr;
+}
+
 }

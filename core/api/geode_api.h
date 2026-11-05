@@ -546,6 +546,17 @@ GEODE_API int64_t geode_pcm_samples_before_us(int64_t us, int rate, int channels
  * out_pts_us when not NULL. A buffer that straddles the start keeps the frames from the start on. */
 GEODE_API int64_t geode_pcm_trim_s16(int64_t start_us, int64_t buf_pts_us, int64_t bytes, int rate, int channels,
                                      int64_t* out_pts_us);
+/* Cast's live HLS timing (viz/frame/HlsSegments): a segment lasts the media time its fragment holds (the
+ * video track's trun sample durations over its mdhd timescale), never the wall time between cuts. */
+#define GEODE_HLS_WINDOW 6           /* segments kept and listed */
+#define GEODE_HLS_START_SEGMENTS 3   /* listed before the playlist is served */
+GEODE_API double          geode_hls_fragment_seconds(const uint8_t* init, size_t init_size,
+                                                     const uint8_t* fragment, size_t fragment_size);   /* 0 = unknown */
+/* The playlist for count segments numbered from first_sequence into out (NUL-terminated); returns its
+ * length, or 0 while fewer than GEODE_HLS_START_SEGMENTS are listed or when it would not fit in cap. */
+GEODE_API int             geode_hls_playlist(int64_t first_sequence, const double* durations, int count,
+                                             const char* init_uri, const char* segment_prefix,
+                                             const char* segment_suffix, char* out, int cap);
 
 #ifdef __cplusplus
 }

@@ -169,6 +169,7 @@ private fun MomentRow(
     val hasStrength = row.routes > 0
     val motion = LocalGeodeMotion.current
     val toggleLabel = stringResource(if (expanded) R.string.music_moment_hide_strength else R.string.music_moment_show_strength)
+    val expandedState = stringResource(if (expanded) R.string.customize_card_expanded else R.string.customize_card_collapsed)
     val turn by animateFloatAsState(if (expanded && hasStrength) HALF_TURN else 0f, motion.fastSpatialSpec(), label = "moment chevron")
     Column {
         Row(Modifier.fillMaxWidth().heightIn(min = MOMENT_ROW_HEIGHT), verticalAlignment = Alignment.CenterVertically) {
@@ -185,7 +186,7 @@ private fun MomentRow(
                     // A heading, so TalkBack's headings control steps from moment to moment.
                     .semantics(mergeDescendants = true) {
                         heading()
-                        if (hasStrength) stateDescription = if (expanded) "Expanded" else "Collapsed"
+                        if (hasStrength) stateDescription = expandedState
                     },
                 verticalAlignment = Alignment.CenterVertically,
             ) {

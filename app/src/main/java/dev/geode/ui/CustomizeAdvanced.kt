@@ -95,7 +95,7 @@ internal class AdvancedHost(
 internal fun ProCrown(modifier: Modifier = Modifier) {
     StoneIconArt(
         StoneIcon.CROWN,
-        contentDescription = "Pro",
+        contentDescription = stringResource(R.string.customize_a11y_pro),
         modifier = modifier.padding(horizontal = 4.dp).size(18.dp),
         tint = accentTextColor(),
     )
@@ -327,6 +327,7 @@ private fun RateSecondsSlider(
     val hi = LfoConfig.MAX_RATE_SECONDS
     val t = (ln(seconds.coerceIn(lo, hi) / lo) / ln(hi / lo)).coerceIn(0f, 1f)
     val shown = ParamFormat.format(seconds, ParamUnit.SECONDS)
+    val cycleLabel = stringResource(R.string.customize_a11y_one_cycle)
     Column(Modifier.padding(vertical = 2.dp)) {
         Text("One cycle · $shown", style = MaterialTheme.typography.bodyMedium)
         Slider(
@@ -336,7 +337,7 @@ private fun RateSecondsSlider(
             // A thumb at 0 sits in the back-gesture strip; without the exclusion a drag from it leaves the screen.
             modifier =
                 Modifier.fillMaxWidth().systemGestureExclusion().semantics {
-                    contentDescription = "One cycle"
+                    contentDescription = cycleLabel
                     stateDescription = shown
                 },
         )

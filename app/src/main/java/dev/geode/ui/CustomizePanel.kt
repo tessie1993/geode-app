@@ -247,18 +247,19 @@ private fun CustomizeHeader(
         IconButton(onClick = { onSearching(!searching) }) {
             Icon(
                 if (searching) Icons.Filled.Close else Icons.Filled.Search,
-                contentDescription = if (searching) "Close search" else "Search every control",
+                contentDescription =
+                    stringResource(if (searching) R.string.customize_a11y_close_search else R.string.customize_a11y_search),
             )
         }
         IconButton(onClick = randomize) {
-            Icon(Icons.Filled.Casino, contentDescription = "Randomize ${target.title}")
+            Icon(Icons.Filled.Casino, contentDescription = stringResource(R.string.customize_a11y_randomize, target.title))
         }
         IconButton(onClick = visualsViewModel::undoParams, enabled = history.canUndo) {
-            Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo")
+            Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.customize_a11y_undo))
         }
         Box {
             IconButton(onClick = { menuOpen = true }) {
-                Icon(Icons.Filled.MoreVert, contentDescription = "More options")
+                Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.customize_a11y_more_options))
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 DropdownMenuItem(

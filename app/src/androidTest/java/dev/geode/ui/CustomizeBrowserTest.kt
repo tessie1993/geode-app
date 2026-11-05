@@ -18,6 +18,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import dev.geode.R
 import dev.geode.render.scene.ParamKeys
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -93,7 +94,9 @@ class CustomizeBrowserTest {
     fun nextStepsFromLookToShapeAndBackReturnsToTheList() {
         setBrowser()
         compose.onNodeWithText("Look").performClick()
-        compose.onNodeWithContentDescription("Next: Shape").performClick()
+        // The label is the app's own string, as TalkBack reads it, not a copy of its English.
+        val next = compose.activity.getString(R.string.customize_a11y_next_named, CustomizeCategory.SHAPE.title)
+        compose.onNodeWithContentDescription(next).performClick()
         compose.onNodeWithText(ParamKeys.MORPH).assertIsDisplayed()
         assertEquals(CustomizeCategory.SHAPE.name, nav.openCategory)
         // Sideways, not forward: one back closes the category, whichever one it stepped to.

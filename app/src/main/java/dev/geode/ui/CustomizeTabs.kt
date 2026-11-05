@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -42,9 +41,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -136,6 +137,8 @@ internal fun ProGated(
         content()
         return
     }
+    val unlockLabel = stringResource(R.string.customize_a11y_unlock_pro)
+    val lockedLabel = stringResource(R.string.customize_a11y_part_of_pro, label)
     Box {
         CompositionLocalProvider(LocalLockedByPro provides true) {
             // A Column, so a block of several rows (a whole Advanced page in search) still stacks.
@@ -144,9 +147,9 @@ internal fun ProGated(
         Box(
             Modifier
                 .matchParentSize()
-                .clickable(onClickLabel = "Unlock with Pro", role = Role.Button, onClick = lock.onLocked)
+                .clickable(onClickLabel = unlockLabel, role = Role.Button, onClick = lock.onLocked)
                 .semantics {
-                    contentDescription = "$label, part of Pro"
+                    contentDescription = lockedLabel
                     if (value != null) stateDescription = value
                 },
         )
@@ -228,7 +231,11 @@ private fun RowMenu(
     Box {
         // 40 dp drawn; IconButton still answers to the 48 dp target around it.
         IconButton(onClick = { open = true }, modifier = Modifier.size(40.dp)) {
-            Icon(Icons.Filled.MoreVert, contentDescription = "More for $name", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(
+                Icons.Filled.MoreVert,
+                contentDescription = stringResource(R.string.customize_a11y_more_for, name),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             if (about != null) {
@@ -288,7 +295,7 @@ private fun KeptMark(lockKey: String) {
     if (lockKey !in LocalParamLocks.current.first) return
     Icon(
         Icons.Filled.PushPin,
-        contentDescription = "Kept when randomizing",
+        contentDescription = stringResource(R.string.customize_a11y_kept),
         modifier = Modifier.padding(start = 4.dp).size(14.dp),
         tint = accentTextColor(),
     )
@@ -364,13 +371,14 @@ internal fun DropdownRow(
     val enabled = !LocalLockedByPro.current
     val value = options.getOrNull(selectedIndex) ?: placeholder
     var open by remember { mutableStateOf(false) }
+    val chooseLabel = stringResource(R.string.customize_a11y_choose, name)
     Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.weight(1f)) {
             Row(
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = GeodeSpacing.TouchTarget)
-                    .clickable(enabled = enabled, role = Role.DropdownList, onClickLabel = "Choose $name") { open = true }
+                    .clickable(enabled = enabled, role = Role.DropdownList, onClickLabel = chooseLabel) { open = true }
                     // TalkBack: "Mode, Step, drop-down list" once, not the value twice (as text and as state).
                     .semantics(mergeDescendants = true) {
                         contentDescription = name
@@ -397,7 +405,13 @@ internal fun DropdownRow(
                         text = { Text(label) },
                         trailingIcon =
                             if (i == selectedIndex) {
-                                { Icon(Icons.Filled.Check, contentDescription = "Selected", tint = accentTextColor()) }
+                                {
+                                    Icon(
+                                        Icons.Filled.Check,
+                                        contentDescription = stringResource(R.string.customize_a11y_selected),
+                                        tint = accentTextColor(),
+                                    )
+                                }
                             } else {
                                 null
                             },
@@ -486,8 +500,19 @@ internal fun ParamChips(
 }
 
 /**
- * One slider row, two lines and about 64 dp: "Name  value ⋮" over the track. A double tap on the
+ * One slider row, two lines and about 80 dp: "Name  value ⋮" over the track. A double tap on the
  * name puts it back to [default]; the ⋮ has Reset and Keep as well.
+ *
+ * WHY a "Reset" custom action on the name row as well (issue #554's audit): a double tap is a
+ * pointer gesture TalkBack cannot make (its own double tap is "activate"), so without it the
+ * gesture has no accessible equivalent (WCAG 2.5.1). The action calls the same [reset], and is
+ * offered only while the double tap would do something: a value off its default, not Pro-locked.
+ *
+ * WHY the track's box is at least 48 dp tall (issue #554 row 3): it was forced to 32 dp, which
+ * clipped the slider's touch target and let it overlap the rows beside it. `heightIn(min =)` lets
+ * the Slider keep its own drawn track and thumb, centred in a target of [GeodeSpacing.TouchTarget]
+ * (Compose › API defaults › "Minimum touch target sizes": at least 48 dp, so touch areas cannot
+ * overlap). The row grows by 16 dp; nothing is drawn differently.
  *
  * The value goes through [ParamFormat] (a % for amounts, × for multipliers, s/ms, Hz, °) and reads
  * "Default" at the default. A unit suffix in the key ("Particle life (s)") is dropped from the
@@ -518,13 +543,29 @@ internal fun LabeledSlider(
     // The value before a locked drag began, put back on release.
     var before by remember(label) { mutableStateOf<Float?>(null) }
     val reset: (() -> Unit)? = default?.takeIf { abs(value - it) > RESET_EPSILON }?.let { d -> { onChange(d) } }
+    val resetLabel = stringResource(R.string.customize_a11y_reset)
+    val sliderLabel = if (locked) stringResource(R.string.customize_a11y_part_of_pro, name) else name
     Column(Modifier.alpha(if (locked) LOCKED_ALPHA else 1f)) {
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = 32.dp)
-                    .pointerInput(label, locked, reset) { detectTapGestures(onDoubleTap = { if (!locked) reset?.invoke() }) },
+                    .pointerInput(label, locked, reset) { detectTapGestures(onDoubleTap = { if (!locked) reset?.invoke() }) }
+                    // Merged, so the row is one TalkBack stop ("Name, value") that can carry the action;
+                    // the ⋮ inside keeps its own stop, being clickable.
+                    .semantics(mergeDescendants = true) {
+                        val action = reset?.takeIf { !locked }
+                        if (action != null) {
+                            customActions =
+                                listOf(
+                                    CustomAccessibilityAction(resetLabel) {
+                                        action()
+                                        true
+                                    },
+                                )
+                        }
+                    },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(name, style = MaterialTheme.typography.bodyMedium)
@@ -552,8 +593,8 @@ internal fun LabeledSlider(
                 },
             // A thumb at 0 sits in the back-gesture strip; without the exclusion a drag from it leaves the screen.
             modifier =
-                Modifier.fillMaxWidth().height(32.dp).systemGestureExclusion().semantics {
-                    contentDescription = if (locked) "$name, part of Pro" else name
+                Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget).systemGestureExclusion().semantics {
+                    contentDescription = sliderLabel
                     stateDescription = shown
                 },
         )

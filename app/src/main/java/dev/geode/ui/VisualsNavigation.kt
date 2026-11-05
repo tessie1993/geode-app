@@ -154,6 +154,11 @@ internal class VisualsNavState(
     /**
      * The pages the panel's NavDisplay draws: the route with each sub-page folded into its page.
      * Each page is on the route once and its sub-pages sit right on it, so no page repeats here.
+     *
+     * Folded means NavDisplay's predictive pop only ever previews a page leaving. So the open
+     * Customize category takes the gesture before NavDisplay does (`rememberCardBack` in
+     * CustomizeBrowser.kt, issue #557): its preview is the card fading back into the category list,
+     * and its commit is [closeCustomizeCard]'s step, the same one [pop] would take.
      */
     val backStack: List<VisualsPage> by derivedStateOf {
         buildList { route.forEach { key -> if (lastOrNull() != key.page) add(key.page) } }

@@ -1,12 +1,13 @@
 package dev.geode.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -27,20 +28,30 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.NavigationEventTransitionState
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
+import dev.geode.R
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
@@ -132,43 +143,124 @@ internal fun CustomizeBrowser(
     sectionContent: @Composable (CustomizeSection) -> Unit,
 ) {
     val open = categories.firstOrNull { it.name == nav.openCategory }
-    BackHandler(enabled = open != null) { nav.close() }
+    val back = rememberCardBack(enabled = open != null, onClose = nav::close)
     Column(modifier) {
         header(open)
         if (open == null) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding =
-                    PaddingValues(start = GeodeSpacing.M, end = GeodeSpacing.M, top = GeodeSpacing.XS, bottom = GeodeSpacing.XL),
-                verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
-            ) {
-                items(categories, key = { it.name }) { category ->
-                    CategoryRow(category, summaryOf(category)) { nav.open(category.name) }
+            CategoryList(categories, listState, summaryOf, nav, Modifier.weight(1f).fillMaxWidth())
+        } else {
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                // The predictive preview: the list the gesture returns to, under the card, fading in
+                // as the card fades out. Drawn only while a gesture is in flight, and a picture only
+                // (no semantics), so TalkBack never meets two lists.
+                if (back.inProgress) {
+                    CategoryList(
+                        categories,
+                        listState,
+                        summaryOf,
+                        nav,
+                        Modifier.fillMaxSize().graphicsLayer { alpha = back.progress }.clearAndSetSemantics {},
+                    )
+                }
+                Column(Modifier.fillMaxSize().graphicsLayer { alpha = 1f - back.progress }) {
+                    val order = categories.map { it.name }
+                    CategoryHeader(
+                        category = open,
+                        at = order.indexOf(open.name),
+                        count = order.size,
+                        previous = categories.getOrNull(order.indexOf(open.name) - 1),
+                        next = categories.getOrNull(order.indexOf(open.name) + 1),
+                        onBack = nav::close,
+                        onStep = { delta -> nav.step(order, delta) },
+                    )
+                    // One scroll per category, so › to the next starts at its top.
+                    key(open) {
+                        CategoryBody(
+                            sections = sectionsOf(open),
+                            openSections = openSections,
+                            onToggleSection = onToggleSection,
+                            sectionLocked = sectionLocked,
+                            sectionContent = sectionContent,
+                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                        )
+                    }
                 }
             }
-        } else {
-            val order = categories.map { it.name }
-            CategoryHeader(
-                category = open,
-                at = order.indexOf(open.name),
-                count = order.size,
-                previous = categories.getOrNull(order.indexOf(open.name) - 1),
-                next = categories.getOrNull(order.indexOf(open.name) + 1),
-                onBack = nav::close,
-                onStep = { delta -> nav.step(order, delta) },
-            )
-            // One scroll per category, so › to the next starts at its top.
-            key(open) {
-                CategoryBody(
-                    sections = sectionsOf(open),
-                    openSections = openSections,
-                    onToggleSection = onToggleSection,
-                    sectionLocked = sectionLocked,
-                    sectionContent = sectionContent,
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                )
-            }
+        }
+    }
+}
+
+/**
+ * How far a back gesture over an open category has gone, for the card's predictive preview.
+ * [progress] is read inside `graphicsLayer` blocks only, so a gesture redraws the card each frame
+ * without recomposing it (compose-animations skill, step 5: frame-rate state stays in the draw
+ * phase); [inProgress] is derived, so it changes twice a gesture, when the list underneath is
+ * composed and dropped, not on every progress event.
+ */
+@Stable
+private class CardBack(
+    private val transition: () -> NavigationEventTransitionState,
+) {
+    val inProgress: Boolean by derivedStateOf { transition() is NavigationEventTransitionState.InProgress }
+
+    val progress: Float
+        get() = (transition() as? NavigationEventTransitionState.InProgress)?.latestEvent?.progress ?: 0f
+}
+
+/**
+ * Back over an open category closes it, following the gesture (issue #557 point 1).
+ *
+ * WHY a handler here and not a deeper Nav3 stack: the panel's NavDisplay draws pages, and the open
+ * category is a [VisualsKey.CustomizeCard] folded into Customize ([VisualsNavState.backStack]), so
+ * NavDisplay's own predictive pop would preview Customize sliding off to the page before it while
+ * the commit only closes the card. Folding cards into NavDisplay's stack would take a NavEntry per
+ * category, with the list's scroll and the toolbar shared across entries: a rewrite of the Visuals
+ * host (`VisualsHub`, which #406 rewrites). The navigation-event skill's own rule ("if Navigation 3
+ * is in use, use its built-in back support") covers destinations NavDisplay owns; a card inside one
+ * entry is the in-screen case its handle-back guide shows instead: `NavigationBackHandler` with a
+ * hoisted `NavigationEventState`, whose `transitionState` drives the preview. That is the API the
+ * skill names for SDK 36+ in place of `BackHandler` (#408's first cut here, which closed the card
+ * but previewed nothing). `navigationevent-compose` comes with activity-compose 1.13 as an api
+ * dependency (1.1.1 here, through navigation3-ui 1.2.0), so no build change is needed.
+ *
+ * It wins over NavDisplay because the dispatcher asks its handlers last-in first-out
+ * (`NavigationEventProcessor.findHandler`), and this one is composed inside a NavEntry, after
+ * NavDisplay registered its own (NavDisplay.kt, navigation3-ui 1.2.0). Disabled while no category
+ * is open, so back then falls through to NavDisplay and pops the page as before. One state, one
+ * handler, called unconditionally, as the skill requires.
+ *
+ * The preview is a cross-fade between the card and the list, not a slide or a shrink: a fade is
+ * what reduced motion keeps ([dev.geode.ui.theme.GeodeMotionScheme]), and the finger is the clock,
+ * so it needs no spec of its own. A cancelled gesture puts the progress back to 0, the card whole.
+ */
+@Composable
+private fun rememberCardBack(
+    enabled: Boolean,
+    onClose: () -> Unit,
+): CardBack {
+    val state = rememberNavigationEventState(currentInfo = NavigationEventInfo.None)
+    NavigationBackHandler(state = state, isBackEnabled = enabled, onBackCompleted = onClose)
+    return remember(state) { CardBack { state.transitionState } }
+}
+
+/** The ten category rows. One [LazyListState] for every call, so the list comes back where it was. */
+@Composable
+private fun CategoryList(
+    categories: List<CustomizeCategory>,
+    listState: LazyListState,
+    summaryOf: @Composable (CustomizeCategory) -> String,
+    nav: CustomizeNav,
+    modifier: Modifier,
+) {
+    LazyColumn(
+        state = listState,
+        modifier = modifier,
+        contentPadding =
+            PaddingValues(start = GeodeSpacing.M, end = GeodeSpacing.M, top = GeodeSpacing.XS, bottom = GeodeSpacing.XL),
+        verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
+    ) {
+        items(categories, key = { it.name }) { category ->
+            CategoryRow(category, summaryOf(category)) { nav.open(category.name) }
         }
     }
 }
@@ -183,12 +275,13 @@ private fun CategoryRow(
     onOpen: () -> Unit,
 ) {
     val shape = RoundedCornerShape(GeodeRadius.Large)
+    val openLabel = stringResource(R.string.customize_a11y_open)
     Row(
         Modifier
             .fillMaxWidth()
             .floatingGlass(shape = shape, elevation = 4.dp)
             .heightIn(min = ROW_HEIGHT)
-            .clickable(role = Role.Button, onClickLabel = "Open", onClick = onOpen)
+            .clickable(role = Role.Button, onClickLabel = openLabel, onClick = onOpen)
             .semantics(mergeDescendants = true) {}
             .padding(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.S),
         verticalAlignment = Alignment.CenterVertically,
@@ -220,7 +313,7 @@ private fun CategoryHeader(
 ) {
     Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to Customize")
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.customize_a11y_back))
         }
         Text(
             category.title,
@@ -233,10 +326,20 @@ private fun CategoryHeader(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         IconButton(onClick = { onStep(-1) }, enabled = previous != null) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = previous?.let { "Previous: ${it.title}" } ?: "Previous")
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                contentDescription =
+                    previous?.let { stringResource(R.string.customize_a11y_previous_named, it.title) }
+                        ?: stringResource(R.string.customize_a11y_previous),
+            )
         }
         IconButton(onClick = { onStep(1) }, enabled = next != null) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = next?.let { "Next: ${it.title}" } ?: "Next")
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription =
+                    next?.let { stringResource(R.string.customize_a11y_next_named, it.title) }
+                        ?: stringResource(R.string.customize_a11y_next),
+            )
         }
     }
 }
@@ -283,15 +386,17 @@ private fun SectionBlock(
 ) {
     val motion = LocalGeodeMotion.current
     val turn = if (expanded) 0f else -HALF_TURN / 2
+    val toggleLabel = stringResource(if (expanded) R.string.customize_a11y_close else R.string.customize_a11y_open)
+    val openState = stringResource(if (expanded) R.string.customize_a11y_state_open else R.string.customize_a11y_state_closed)
     Column(Modifier.fillMaxWidth().animateContentSize(motion.defaultSpatialSpec())) {
         Row(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = GeodeSpacing.TouchTarget)
-                .clickable(role = Role.Button, onClickLabel = if (expanded) "Close" else "Open", onClick = onToggle)
+                .clickable(role = Role.Button, onClickLabel = toggleLabel, onClick = onToggle)
                 .semantics(mergeDescendants = true) {
                     heading()
-                    stateDescription = if (expanded) "Open" else "Closed"
+                    stateDescription = openState
                 },
             verticalAlignment = Alignment.CenterVertically,
         ) {

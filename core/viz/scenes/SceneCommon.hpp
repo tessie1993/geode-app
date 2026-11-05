@@ -6,6 +6,7 @@
 
 #include "api/geode_api.h"
 #include "viz/MotionField.hpp"
+#include "viz/PcmHandoff.hpp"
 #include "viz/Program.hpp"
 #include "viz/TouchField.hpp"
 
@@ -53,32 +54,6 @@ inline void hsv(float h, float s, float v, float* out) {
 }
 inline void rgb(float h, float saturation, float* out) { hsv(h, std::clamp(saturation, 0.0f, 1.0f), 1.0f, out); }
 }  // namespace hue
-
-// The peak of the newest PCM block, decaying per second.
-class PcmPulse {
-public:
-    explicit PcmPulse(float decayPerSecond = 4.0f, float ceiling = 1.5f) : decay_(decayPerSecond), ceiling_(ceiling) {}
-
-    void accept(const float* samples, int count) {
-        float peak = 0.0f;
-        for (int i = 0; i < count; ++i) {
-            const float s = samples[i];
-            if (std::isfinite(s)) peak = std::max(peak, std::fabs(s));
-        }
-        if (peak > level_) level_ = std::min(peak, ceiling_);
-    }
-
-    float tick(float dt) {
-        const float out = level_;
-        level_ = std::max(level_ - dt * decay_, 0.0f);
-        return out;
-    }
-
-private:
-    float decay_;
-    float ceiling_;
-    float level_ = 0.0f;
-};
 
 // How particles look: glow from bloom, size from the viewport height.
 namespace particle_look {

@@ -25,6 +25,7 @@
 #include "viz/NoteResponse.hpp"
 #include "viz/Overlays.hpp"
 #include "viz/Params.hpp"
+#include "viz/PcmHandoff.hpp"
 #include "viz/ProgramBinaryCache.hpp"
 #include "viz/ProgramStager.hpp"
 #include "viz/Reactions.hpp"
@@ -274,8 +275,8 @@ private:
     std::atomic<float> sceneSpin_{0.0f};
     float morphFadeSec_ = 0.0f;
     float morphRemainSec_ = 0.0f;
-    std::vector<float> pcm_;
-    int pcmCount_ = 0;
+    PcmHandoff pcm_;
+    int framePcmCount_ = 0;  // GL thread: samples of pcmDeliverScratch_ this frame's scenes get.
     std::vector<float> pcmDeliverScratch_;
     std::vector<std::pair<std::string, std::string>> pendingShaders_;
     std::vector<std::pair<std::string, std::string>> customShaders_;

@@ -28,7 +28,7 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           [this] { return marchScale_.load(std::memory_order_relaxed); },
                           [this] { return &notes_.uniforms(); }}),
       compositePass_(assets_, &programCache_),
-      pcm_(kPcmCapacity, 0.0f),
+      pcm_(kPcmCapacity),
       pcmDeliverScratch_(kPcmCapacity, 0.0f) {
     programCache_.install(cacheDir_);
 }
@@ -65,10 +65,7 @@ void Renderer::beginParamMorph(float seconds) {
 
 void Renderer::pushPcm(const float* samples, int count) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    const int n = std::min(count, kPcmCapacity);
-    if (n <= 0) return;
-    std::copy(samples + (count - n), samples + count, pcm_.begin());
-    pcmCount_ = n;
+    pcm_.push(samples, count);
 }
 
 void Renderer::writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz) {

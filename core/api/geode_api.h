@@ -276,6 +276,24 @@ GEODE_API long long       geode_silence_heard_at(const float* const* channels, i
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
 
+/* Surface run rule (viz/SurfaceRun): when the live wallpaper and the dream draw. flags are the GEODE_SURFACE_*
+ * bits the caller observed; animate_until_ms is the wall-clock time the entitlement lets the visual move until
+ * (GEODE_SURFACE_FOREVER for Pro, a trial's end, 0 for free). Pure: the caller restates on every change, and
+ * after geode_surface_recheck_in_ms (-1 = never), since nothing announces a trial's end. */
+#define GEODE_SURFACE_HAS_SURFACE            (1u << 0)
+#define GEODE_SURFACE_VISIBLE                (1u << 1)
+#define GEODE_SURFACE_PREVIEW                (1u << 2)
+#define GEODE_SURFACE_COVERED                (1u << 3)
+#define GEODE_SURFACE_BATTERY_SAVER          (1u << 4)
+#define GEODE_SURFACE_PAUSE_IN_BATTERY_SAVER (1u << 5)
+#define GEODE_SURFACE_SILENT                 (1u << 6)
+#define GEODE_SURFACE_REST_WHEN_SILENT       (1u << 7)
+#define GEODE_SURFACE_FOREVER                9223372036854775807LL
+GEODE_API int             geode_surface_run_mode(unsigned flags, long long animate_until_ms, long long now_ms);   /* 0 stopped, 1 still, 2 animated */
+GEODE_API int             geode_surface_listening(unsigned flags, long long animate_until_ms, long long now_ms);  /* 1 = hear sound */
+GEODE_API int             geode_surface_entitled(long long animate_until_ms, long long now_ms);                   /* 1 = may move */
+GEODE_API long long       geode_surface_recheck_in_ms(long long animate_until_ms, long long now_ms);              /* -1 = never */
+
 #ifdef __cplusplus
 }
 #endif

@@ -23,16 +23,6 @@ data class FeatureGate(
 ) {
     val isPro: Boolean get() = entitlement == Entitlement.Pro
 
-    /**
-     * How long until this gate's answers change on their own, or null when they never do: only a
-     * running trial ends without anyone acting. Surfaces that run with no app around them (the live
-     * wallpaper, the dream) read the gate once per change they hear about, and no broadcast marks
-     * the trial's end, so they wake themselves this long from [nowMs] and read it again (#376).
-     * Zero once the end has passed, so a late reader re-checks at once.
-     */
-    fun msUntilTrialEnds(nowMs: Long): Long? =
-        (entitlement as? Entitlement.Trial)?.let { (it.endsAtMs - nowMs).coerceAtLeast(0L) }
-
     fun allows(feature: ProFeature): Boolean =
         when (entitlement) {
             Entitlement.Pro -> true

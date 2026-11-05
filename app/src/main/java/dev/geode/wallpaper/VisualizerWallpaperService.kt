@@ -183,40 +183,35 @@ class VisualizerWallpaperService : WallpaperService() {
         }
 
         /**
-         * Restates the run mode from scratch ([wallpaperRunMode] has the rule). Called on every
-         * change that can move it: visibility, surface, cover, battery saver, unlock, silence.
+         * Restates the run mode from scratch (the native rule, [WallpaperConditions.runMode]). Called
+         * on every change that can move it: visibility, surface, cover, battery saver, unlock,
+         * silence, and a trial's end.
          */
         private fun syncRunState() {
             if (renderer == null) return
-            // Pro feature. Re-read on every change, so a purchase or a trial made in the app
-            // animates the wallpaper the next time the home screen shows. Nothing announces a
-            // trial's end, so a running trial also books a restate for its last moment, else the
-            // wallpaper would animate on until the next visibility change (#376).
-            val gate = ProSnapshot.gate(this@VisualizerWallpaperService)
-            val animated = gate.allows(ProFeature.LIVE_WALLPAPER)
-            handler.removeCallbacks(trialEnded)
-            gate.msUntilTrialEnds(WallClock.SYSTEM.nowMs())?.let {
-                handler.postDelayed(trialEnded, it + TRIAL_END_SLACK_MS)
-            }
+            // The rule is native (core/viz/SurfaceRun); this only gathers what the engine sees. The
+            // entitlement is re-read on every change, so a purchase or a trial made in the app
+            // animates the wallpaper the next time the home screen shows, and the native rule says
+            // when a running trial's end needs a restate, since nothing announces it (#376).
+            val now = WallClock.SYSTEM.nowMs()
+            val until = ProSnapshot.animateUntilMs(this@VisualizerWallpaperService, ProFeature.LIVE_WALLPAPER)
             val conditions =
                 WallpaperConditions(
                     surfaceAvailable = surfaceAvailable,
                     visible = visible,
-                    animationAllowed = animated,
                     preview = isPreview,
                     covered = covered,
                     batterySaver = powerManager?.isPowerSaveMode == true,
-                    silent = false,
+                    silent = sound.silent,
                     settings = settings,
+                    animateUntilMs = until,
                 )
-            // Listen whenever the wallpaper would animate if there were sound: that is what wakes
-            // a resting wallpaper. Hidden, battery saver and free hear nothing. A cover (the shade,
-            // recents) keeps listening: pulling the shade is a second's glance, and stopping would
-            // release the capture and restart the silence clock each time.
-            syncListening(wallpaperRunMode(conditions.copy(covered = false)) == WallpaperRunMode.ANIMATED)
+            handler.removeCallbacks(trialEnded)
+            conditions.recheckInMs(now)?.let { handler.postDelayed(trialEnded, it) }
+            syncListening(conditions.listening(now))
             wallpaperRenderer?.edge = currentLook() == WallpaperLook.EDGE
             val previous = runMode
-            runMode = wallpaperRunMode(conditions.copy(silent = sound.silent))
+            runMode = conditions.runMode(now)
             if (runMode != WallpaperRunMode.STILL) handler.removeCallbacks(endStillSettle)
             when (runMode) {
                 WallpaperRunMode.ANIMATED -> {
@@ -449,9 +444,6 @@ class VisualizerWallpaperService : WallpaperService() {
 
         /** How long a still frame keeps drawing first, so a scene being built finishes on screen. */
         const val STILL_SETTLE_MS = 2_000L
-
-        /** Past the trial's end before the re-check, so wall-clock rounding cannot read it as still running. */
-        const val TRIAL_END_SLACK_MS = 1_000L
 
         /**
          * The same target the app renders at, deliberately — not the 24–30 fps §4.4 of the

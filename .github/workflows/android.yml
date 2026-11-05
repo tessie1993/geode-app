@@ -159,6 +159,9 @@ jobs:
           ./sound_test
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/musical_test.cpp core/sound/*.cpp -o musical_test
           ./musical_test
+          # Which sound the wallpaper and dream hear (#773): a fed ring wins, a stall falls back, no flapping, no permission = ring.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/sound_source_test.cpp core/api/geode_sound_api.cpp -o sound_source_test
+          ./sound_source_test
           # Every GeodeSoundFrame scalar per frame over a synthetic song, against core/tests/golden/; also
           # reports the 30/120 fps drift of the frame-clocked fields. Regenerate with --write on purpose.
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_golden_test.cpp core/sound/*.cpp -o sound_golden_test

@@ -573,6 +573,18 @@ object GeodeNative {
      */
     external fun configSchemaText(): String
 
+    /** A pinch's scale factor applied to Zoom, clamped to its schema range (core/viz/TouchTransform). */
+    external fun touchZoom(
+        current: Float,
+        scaleFactor: Float,
+    ): Float
+
+    /** A twist in degrees added to Rotation, clamped to its schema range (core/viz/TouchTransform). */
+    external fun touchRotation(
+        current: Float,
+        degrees: Float,
+    ): Float
+
     /** Every rolled control as `TAB|ParamKeys string` lines, in roll order (core/viz/ParamRandomizer). Static. */
     external fun paramsRollKeys(): String
 

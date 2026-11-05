@@ -317,6 +317,10 @@ GEODE_API const char* geode_params_schema_text(void);
  * index = the row's place in its group (for lfo and adsr the float index of geode_viz_set_lfo / _adsr, for macro
  * the knob). A sibling of geode_params_schema_text, whose format it leaves alone. Static; parse once. */
 GEODE_API const char* geode_config_schema_text(void);
+/* The two-finger transform on the visual (core/viz/TouchTransform): a pinch's scale factor times Zoom, a twist in
+ * degrees added to Rotation, each clamped to its schema range; a broken gesture value returns current unchanged. */
+GEODE_API float       geode_touch_zoom(float current, float scale_factor);
+GEODE_API float       geode_touch_rotation(float current, float degrees);
 
 /* Customize panel map (core/viz/CustomizeMap): ten categories, each a free Basics section and Pro sections, and
  * which control lives in which. geode_customize_text is its versioned '|'-separated line table (rows in

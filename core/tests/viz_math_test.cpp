@@ -655,6 +655,7 @@ void followerScalesASoundClockWithoutJumps() {
     const float at = one.value;
     one.step(source, 1.5f, 7100.0f);
     check(one.value == at, "a Speed change with no source advance leaves the clock where it is");
+}
 // #359: the drift's spin is a rate, so it must stay bounded and never jump. It used to add the
 // wrapped drift angle itself: the spin climbed to the clamp, then reversed in one frame at the wrap.
 void motionFieldDriftSpinIsBoundedAndContinuous() {

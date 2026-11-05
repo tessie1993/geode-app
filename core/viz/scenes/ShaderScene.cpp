@@ -6,6 +6,7 @@
 
 #include "viz/Catalogue.hpp"
 #include "viz/EndlessZoom.hpp"
+#include "viz/NoteResponse.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 
 namespace geode::viz {
@@ -39,6 +40,7 @@ ShaderScene::ShaderScene(std::string id, std::string vertexSrc, std::string frag
       cache_(cache),
       host_(std::move(host)) {
     pendingFragment_ = currentFragment_;
+    if (id_ == catalogue::kMorphWorld) world_ = std::make_unique<world::MorphDriver>();
 }
 
 ShaderScene::~ShaderScene() { release(); }
@@ -83,6 +85,25 @@ void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
     motionField_.step(sound, dt, p.speed);
     const float soundTimes[3] = {sound.bassTime, sound.midTime, sound.trebleTime};
     for (int b = 0; b < 3; ++b) soundTimeSped_[b].step(soundTimes[b], p.speed, kTimeWrapSeconds);
+    if (world_) {
+        // A new seed is a new play: the world starts over from one of its seeds.
+        const uint64_t seed = host_.playSeed ? host_.playSeed() : 0;
+        if (!worldSeeded_ || seed != world_->seedValue()) {
+            world_->reset(seed);
+            worldSeeded_ = true;
+        }
+        world::DriverInput in = world::DriverInput::fromSound(sound);
+        in.morph = p.morph;
+        in.warp = p.warp;
+        in.turbulence = p.turbulence;
+        in.detail = p.marchDetail;
+        in.intensity = p.intensity;
+        if (const NoteUniforms* notes = host_.notes ? host_.notes() : nullptr) {
+            std::copy(notes->knobs.begin(), notes->knobs.end(), in.knobs.begin());
+        }
+        world_->step(in, dt);
+        worldDt_ = dt;
+    }
 }
 
 void ShaderScene::draw(float timeSeconds) {
@@ -115,6 +136,7 @@ void ShaderScene::draw(float timeSeconds) {
     uploadMotion();
     uploadTouch();
     uploadCamera();
+    uploadWorld();
     // The whole GeodeSoundFrame for lib_sound; its texture takes unit 3 (1 and 2 are the flow and the palette LUT).
     sound_.upload(uniforms_, p.audioDrive);
     glBindVertexArray(vao_);
@@ -248,6 +270,15 @@ void ShaderScene::uploadCamera() {
         set1f("uCamDolly", c.dolly);
         glUniform3f(uniforms_.loc("uCamLook"), c.yaw, c.pitch, c.roll);
     }
+}
+
+void ShaderScene::uploadWorld() {
+    if (!world_) return;
+    // The rig was stepped before this draw: the world's z phase and wake follow the eye.
+    if (camera_) world_->travel(camera_->pos, worldDt_);
+    worldDt_ = 0.0f;
+    const auto& u = world_->uniforms();
+    glUniform4fv(uniforms_.loc("uWorld"), uniforms_.arrayCount("uWorld", world::kVec4), u.data());
 }
 
 void ShaderScene::set1f(const char* name, float value) {

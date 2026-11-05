@@ -276,6 +276,40 @@ GEODE_API long long       geode_silence_heard_at(const float* const* channels, i
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
 
+/* Native ingest ring (audio/ingest/Ring, #480): one per audio source (player tap, mic, another app's audio,
+ * the wallpaper's output mix, a decoded file for export). The source writes raw interleaved PCM bytes
+ * (little-endian) straight from its buffer; every channel is kept with its layout. Single writer, any number
+ * of readers, lock-free: native readers each own an audio/ingest/Cursor, which hands out every sample once,
+ * in order, as the stereo downmix (ITU-R BS.775), each block with the rate, epoch and restart flag it was
+ * written with. A reader that falls more than the ring behind skips to the oldest safe sample. The rate,
+ * layout and epoch are published with the write position, so a sample is never paired with another
+ * format. Positions (geode_ingest_written) count frames over every epoch and never go back.
+ * The ring must outlive every reader; create and destroy with no call in flight. */
+typedef struct geode_ingest geode_ingest;
+enum { GEODE_PCM_S16 = 2, GEODE_PCM_U8 = 3, GEODE_PCM_F32 = 4 };   /* = android.media.AudioFormat ENCODING_* */
+enum { GEODE_PCM_S24_PACKED = 21, GEODE_PCM_S32 = 22 };            /* also ENCODING_*; hi-res sources */
+/* capacity_frames is rounded up to a power of two (256 .. 2^24); max_channels is clamped to 1..24, and a
+ * source with more keeps its first max_channels. NULL on a non-positive argument. */
+GEODE_API geode_ingest* geode_ingest_create(int capacity_frames, int max_channels);
+GEODE_API void          geode_ingest_destroy(geode_ingest*);
+/* Writer thread only. Starts a new epoch: a discontinuity (seek, track/source change). Readers restart on
+ * its first sample. channel_mask is AudioFormat CHANNEL_OUT_*; one that does not name `channels` speakers
+ * (0 included) means the default layout for the count. A rate or channel count of 0 drops writes until the
+ * next usable format. */
+GEODE_API void          geode_ingest_begin_epoch(geode_ingest*, int sample_rate, int channels, int channel_mask);
+/* Writer thread only. Same epoch, new format (e.g. a flush for speed/pitch): no reset for readers. */
+GEODE_API void          geode_ingest_set_format(geode_ingest*, int sample_rate, int channels, int channel_mask);
+/* Writer thread only. `frames` frames of the current format in `encoding` (GEODE_PCM_*); never blocks,
+ * never allocates. Dropped before any format, or for an unknown encoding. */
+GEODE_API void          geode_ingest_write(geode_ingest*, const void* bytes, size_t frames, int encoding);
+/* The same, sized in bytes (the whole frames that fit); returns the frames taken. What the JNI uses, so a
+ * buffer's length is all the shell has to know. */
+GEODE_API size_t        geode_ingest_write_bytes(geode_ingest*, const void* bytes, size_t byte_count, int encoding);
+GEODE_API long long     geode_ingest_written(const geode_ingest*);
+/* 1 = may rest (core/sound/Silence rule, fed by the ring; no writes for the hold also = silent). The first
+ * poll counts as sound, so a surface rests 6 s after it starts at the earliest. */
+GEODE_API int           geode_ingest_resting(geode_ingest*, long long now_ms);
+
 #ifdef __cplusplus
 }
 #endif

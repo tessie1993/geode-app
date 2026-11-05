@@ -6,6 +6,9 @@ add_library(geode_core STATIC
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
     api/geode_sound_api.cpp
+    api/geode_ingest_api.cpp
+    audio/ingest/Ring.cpp
+    audio/ingest/Cursor.cpp
     sound/Fft.cpp
     sound/Emotion.cpp
     sound/Form.cpp

@@ -111,4 +111,36 @@ Java_dev_geode_engine_bridge_GeodeNative_librarySearch(JNIEnv* env, jobject, job
     return total;
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_libraryFilter(JNIEnv* env, jobject, jobjectArray cells, jint fieldsPerRow,
+                                                       jbooleanArray preferred, jbyteArray query, jintArray out) {
+    // cells: per row a key (null = never merged) then fieldsPerRow fields, UTF-8 byte arrays; preferred: one
+    // flag per row or null. Only marshalling here; the matching is core/library/Search (filterRows).
+    if (!cells || !query || !out || fieldsPerRow < 0) return 0;
+    const jsize count = env->GetArrayLength(cells);
+    const jsize rows = count / (fieldsPerRow + 1);
+    std::vector<std::optional<std::string>> owned(static_cast<size_t>(count));
+    std::vector<const char*> pointers(static_cast<size_t>(count));
+    for (jsize i = 0; i < count; ++i) {
+        owned[static_cast<size_t>(i)] = stringAt(env, cells, i);  // deletes each element's local ref
+        const std::optional<std::string>& value = owned[static_cast<size_t>(i)];
+        pointers[static_cast<size_t>(i)] = value ? value->c_str() : nullptr;
+    }
+    std::vector<jboolean> flags;
+    if (preferred && env->GetArrayLength(preferred) >= rows) {
+        flags.resize(static_cast<size_t>(rows));
+        if (rows > 0) env->GetBooleanArrayRegion(preferred, 0, rows, flags.data());
+    }
+    const jsize queryBytes = env->GetArrayLength(query);
+    std::string asked(static_cast<size_t>(queryBytes), '\0');
+    if (queryBytes > 0) env->GetByteArrayRegion(query, 0, queryBytes, reinterpret_cast<jbyte*>(asked.data()));
+    const jsize capacity = env->GetArrayLength(out);
+    std::vector<jint> kept(static_cast<size_t>(capacity));
+    const int written = geode_library_filter(pointers.data(), static_cast<int>(rows), static_cast<int>(fieldsPerRow),
+                                             flags.empty() ? nullptr : flags.data(), asked.c_str(), kept.data(),
+                                             static_cast<int>(capacity));
+    if (written > 0) env->SetIntArrayRegion(out, 0, static_cast<jsize>(written), kept.data());
+    return written;
+}
+
 }  // extern "C"

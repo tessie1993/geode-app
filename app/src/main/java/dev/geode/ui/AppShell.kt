@@ -86,7 +86,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
-import dev.geode.analysis.SearchMatcher
 import dev.geode.data.BootAnimationStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.model.TutorialChapter
@@ -685,9 +684,9 @@ fun SearchScreen(
     }
     val dismiss = rememberPredictiveDismiss(onDismiss = onClose)
 
-    val terms = remember(debounced) { SearchMatcher.terms(debounced) }
-    val trackResults =
-        remember(terms, deviceTracks, library.tracks) {
+    // The matching is native (core/library/Search, filterRows); each table encodes its list once.
+    val trackTable =
+        remember(deviceTracks, library.tracks) {
             val candidates =
                 deviceTracks.map { t ->
                     SearchTrackRow(
@@ -707,22 +706,13 @@ fun SearchScreen(
                             fromDevice = false,
                         )
                     }
-            SearchMatcher.filterTracks(
-                terms = terms,
-                items = candidates,
-                uriOf = { it.uri },
-                fieldsOf = { it.fields },
-                preferred = { it.fromDevice },
-            )
+            SearchFilter(candidates, fieldsPerRow = 4, keyOf = { it.uri }, preferredOf = { it.fromDevice }) { it.fields }
         }
-    val playlistResults =
-        remember(terms, library.playlists) {
-            library.playlists.filter { SearchMatcher.matches(terms, listOf(it.name)) }
-        }
-    val presetResults =
-        remember(terms, viz.presets) {
-            viz.presets.filter { SearchMatcher.matches(terms, listOf(it.name)) }
-        }
+    val playlistTable = remember(library.playlists) { SearchFilter(library.playlists, fieldsPerRow = 1) { listOf(it.name) } }
+    val presetTable = remember(viz.presets) { SearchFilter(viz.presets, fieldsPerRow = 1) { listOf(it.name) } }
+    val trackResults = remember(debounced, trackTable) { trackTable.filter(debounced, SearchFilter.TRACK_LIMIT) }
+    val playlistResults = remember(debounced, playlistTable) { playlistTable.filter(debounced) }
+    val presetResults = remember(debounced, presetTable) { presetTable.filter(debounced) }
 
     Box(Modifier.fillMaxSize().dismissTransform(dismiss).background(MaterialTheme.colorScheme.background)) {
         Column(
@@ -743,7 +733,7 @@ fun SearchScreen(
                 IconButton(onClick = onClose) { StoneIconArt(StoneIcon.CLOSE, stringResource(R.string.search_close)) }
             }
             LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (terms.isEmpty()) {
+                if (debounced.isBlank()) {
                     item {
                         Text(
                             stringResource(R.string.search_hint),

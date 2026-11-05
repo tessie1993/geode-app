@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <string>
+#include <unordered_map>
 
 namespace geode::library {
 namespace {
@@ -44,22 +45,73 @@ std::u32string decode(std::string_view s) {
     return out;
 }
 
-// Simple case folding for the scripts a music library mostly holds: ASCII, Latin-1, Latin Extended-A,
-// Greek and Cyrillic. Anything else compares exactly.
+// Simple case folding, one letter to one letter, so a folded substring search answers what Kotlin's
+// `contains(ignoreCase = true)` answers: ASCII, Latin-1, Latin Extended-A and the paired runs of Extended-B
+// and Extended Additional (Pinyin, Vietnamese), Greek, Cyrillic, Armenian, full-width Latin, and the few
+// letters whose upper or lower case is a plain letter (Turkish i, long s, Kelvin, Angstrom, Ohm, micro).
+// Anything else compares exactly.
 char32_t fold(char32_t c) {
-    if (c >= U'A' && c <= U'Z') return c + 32;
+    if (c < 0x80) return (c >= U'A' && c <= U'Z') ? c + 32 : c;
+    switch (c) {
+        case 0x130:  // capital I with dot
+        case 0x131:  // dotless i: Kotlin matches it with I and i through their upper case
+            return U'i';
+        case 0x17F:  // long s
+            return U's';
+        case 0x178:  // capital Y with diaeresis
+            return 0xFF;
+        case 0xB5:  // micro sign, to Greek mu
+            return 0x3BC;
+        case 0x1E9E:  // capital sharp s
+            return 0xDF;
+        case 0x212A:  // Kelvin sign
+            return U'k';
+        case 0x212B:  // Angstrom sign
+            return 0xE5;
+        case 0x2126:  // Ohm sign
+            return 0x3C9;
+        case 0x386:  // Greek capital alpha with tonos
+            return 0x3AC;
+        case 0x38C:  // Greek capital omicron with tonos
+            return 0x3CC;
+        case 0x3C2:  // final sigma
+            return 0x3C3;
+        case 0x4C0:  // Cyrillic palochka
+            return 0x4CF;
+        case 0x1A0:  // Vietnamese O with horn
+        case 0x1AF:  // Vietnamese U with horn
+            return c + 1;
+        default:
+            break;
+    }
     if (c >= 0xC0 && c <= 0xDE && c != 0xD7) return c + 32;
-    if (c == 0x178) return 0xFF;  // Ÿ
-    if (c >= 0x100 && c <= 0x17F && c != 0x130 && c != 0x131 && c != 0x138 && c != 0x149 && c != 0x17F) {
+    if (c >= 0x100 && c <= 0x17F && c != 0x138 && c != 0x149) {
         // Latin Extended-A pairs upper/lower on even/odd, except the 0x139..0x148 and 0x179..0x17E runs,
         // which pair odd/even.
         const bool oddUpper = (c >= 0x139 && c <= 0x148) || (c >= 0x179 && c <= 0x17E);
         if (oddUpper) return (c % 2 == 1) ? c + 1 : c;
         return (c % 2 == 0) ? c + 1 : c;
     }
+    if (c >= 0x1CD && c <= 0x1DC) return (c % 2 == 1) ? c + 1 : c;  // Pinyin's caron and diaeresis vowels
+    if ((c >= 0x1DE && c <= 0x1EF) || (c >= 0x1F8 && c <= 0x21F) || (c >= 0x222 && c <= 0x233)) {
+        return (c % 2 == 0) ? c + 1 : c;
+    }
+    if (c >= 0x388 && c <= 0x38A) return c + 37;  // Greek capitals with tonos: epsilon, eta, iota
+    if (c >= 0x38E && c <= 0x38F) return c + 63;  // upsilon, omega
     if (c >= 0x391 && c <= 0x3AB && c != 0x3A2) return c + 32;
     if (c >= 0x410 && c <= 0x42F) return c + 32;
     if (c >= 0x400 && c <= 0x40F) return c + 80;
+    if ((c >= 0x460 && c <= 0x481) || (c >= 0x48A && c <= 0x4BF) || (c >= 0x4D0 && c <= 0x52F)) {
+        return (c % 2 == 0) ? c + 1 : c;
+    }
+    if (c >= 0x4C1 && c <= 0x4CE) return (c % 2 == 1) ? c + 1 : c;
+    if (c >= 0x531 && c <= 0x556) return c + 48;                      // Armenian
+    if ((c >= 0x1E00 && c <= 0x1E95) || (c >= 0x1EA0 && c <= 0x1EFF)) {  // Latin Extended Additional
+        return (c % 2 == 0) ? c + 1 : c;
+    }
+    if (c >= 0x2160 && c <= 0x216F) return c + 16;  // Roman numerals
+    if (c >= 0x24B6 && c <= 0x24CF) return c + 26;  // circled letters
+    if (c >= 0xFF21 && c <= 0xFF3A) return c + 32;  // full-width Latin
     return c;
 }
 
@@ -209,6 +261,125 @@ std::vector<int> searchTracks(const std::vector<SearchRow>& rows, const SearchRe
         if (allWordsIn(terms, {lib[i].title, lib[i].artist, lib[i].album})) hits.push_back(static_cast<int>(i));
     }
     return hits;
+}
+
+// --- Library text filter (#341) ----------------------------------------------------------------------------
+namespace {
+
+// Kotlin's `Char.isWhitespace`: what `trim()` strips and `isNotBlank()` looks through.
+bool isKotlinWhitespace(char32_t c) {
+    return (c >= 0x09 && c <= 0x0D) || (c >= 0x1C && c <= 0x20) || c == 0x85 || c == 0xA0 || c == 0x1680 ||
+           (c >= 0x2000 && c <= 0x200A) || c == 0x2028 || c == 0x2029 || c == 0x202F || c == 0x205F ||
+           c == 0x3000;
+}
+
+// Java's `\s` without UNICODE_CHARACTER_CLASS: the split the Kotlin SearchMatcher.terms used.
+bool isRegexSpace(char32_t c) { return c == U' ' || (c >= 0x09 && c <= 0x0D); }
+
+// The query as SearchMatcher.terms read it (trimmed, split on `\s+`, blank pieces dropped), then folded.
+std::vector<std::u32string> queryTerms(std::string_view query) {
+    const std::u32string text = decode(query);
+    size_t from = 0;
+    size_t until = text.size();
+    while (from < until && isKotlinWhitespace(text[from])) ++from;
+    while (until > from && isKotlinWhitespace(text[until - 1])) --until;
+    std::vector<std::u32string> out;
+    std::u32string cur;
+    const auto flush = [&] {
+        if (!std::all_of(cur.begin(), cur.end(), isKotlinWhitespace)) out.push_back(cur);
+        cur.clear();
+    };
+    for (size_t i = from; i < until; ++i) {
+        if (isRegexSpace(text[i])) {
+            flush();
+        } else {
+            cur.push_back(fold(text[i]));
+        }
+    }
+    flush();
+    return out;
+}
+
+// `folded`, into a buffer the caller reuses row after row, so a 15k-track search does not allocate per field.
+void foldInto(std::string_view s, std::u32string& out) {
+    out.clear();
+    // Plain ASCII, the bulk of most libraries' tags, skips the decoder.
+    if (std::all_of(s.begin(), s.end(), [](char ch) { return static_cast<unsigned char>(ch) < 0x80; })) {
+        for (char ch : s) out.push_back(fold(static_cast<char32_t>(static_cast<unsigned char>(ch))));
+        return;
+    }
+    out = decode(s);
+    for (char32_t& c : out) c = fold(c);
+}
+
+std::string encode(const std::u32string& s) {
+    std::string out;
+    for (char32_t c : s) {
+        if (c < 0x80) {
+            out.push_back(static_cast<char>(c));
+        } else if (c < 0x800) {
+            out.push_back(static_cast<char>(0xC0 | (c >> 6)));
+            out.push_back(static_cast<char>(0x80 | (c & 0x3F)));
+        } else if (c < 0x10000) {
+            out.push_back(static_cast<char>(0xE0 | (c >> 12)));
+            out.push_back(static_cast<char>(0x80 | ((c >> 6) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | (c & 0x3F)));
+        } else {
+            out.push_back(static_cast<char>(0xF0 | (c >> 18)));
+            out.push_back(static_cast<char>(0x80 | ((c >> 12) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | ((c >> 6) & 0x3F)));
+            out.push_back(static_cast<char>(0x80 | (c & 0x3F)));
+        }
+    }
+    return out;
+}
+
+}  // namespace
+
+std::vector<std::string> filterTerms(std::string_view query) {
+    std::vector<std::string> out;
+    for (const auto& term : queryTerms(query)) out.push_back(encode(term));
+    return out;
+}
+
+std::vector<int> filterRows(std::span<const FilterRow> rows, std::string_view query, std::size_t max) {
+    const std::vector<std::u32string> terms = queryTerms(query);
+    if (terms.empty() || max == 0) return {};
+
+    // One slot per kept row, in first-match order; a key's slot can be taken over by a preferred row.
+    std::vector<int> kept;
+    std::unordered_map<std::string_view, size_t> slotOf;
+    std::vector<std::u32string> fields;
+    const auto matches = [&](const FilterRow& row) {
+        if (fields.size() < row.fields.size()) fields.resize(row.fields.size());
+        for (size_t f = 0; f < row.fields.size(); ++f) foldInto(row.fields[f], fields[f]);
+        return std::all_of(terms.begin(), terms.end(), [&](const std::u32string& term) {
+            for (size_t f = 0; f < row.fields.size(); ++f) {
+                if (fields[f].find(term) != std::u32string::npos) return true;
+            }
+            return false;
+        });
+    };
+    for (size_t i = 0; i < rows.size(); ++i) {
+        const FilterRow& row = rows[i];
+        if (!row.key) {
+            // Rows past `max` would be cut anyway, so a full list skips the matching.
+            if (kept.size() < max && matches(row)) kept.push_back(static_cast<int>(i));
+            continue;
+        }
+        const auto found = slotOf.find(*row.key);
+        if (found == slotOf.end()) {
+            if (kept.size() >= max || !matches(row)) continue;
+            slotOf.emplace(*row.key, kept.size());
+            kept.push_back(static_cast<int>(i));
+        } else {
+            // Only a preferred row can take a key's slot over, and only from one that is not preferred.
+            const auto holder = static_cast<size_t>(kept[found->second]);
+            if (!row.preferred || rows[holder].preferred || !matches(row)) continue;
+            kept[found->second] = static_cast<int>(i);
+        }
+    }
+    return kept;
 }
 
 }  // namespace geode::library

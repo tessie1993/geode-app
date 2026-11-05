@@ -4,7 +4,7 @@
 //                                 run the checks; with lib_world, also check that its WG_* names
 //                                 index the same fields; with the baked assets, check their sizes
 //                                 and probe every world with the real shapes (else spheres)
-//   world_genome_test --dump <seed>          print seed <seed>'s uWorld (68 floats, comma separated)
+//   world_genome_test --dump <seed>          print seed <seed>'s uWorld (72 floats, comma separated)
 //                                            for tools/glslcheck --set uWorld=...
 //   world_genome_test --names [shapes.bin]   print the seeds' names and open-space probes
 #include <array>
@@ -73,7 +73,7 @@ void lerpEndpointsAreExact() {
 }
 
 void seedsAreValid() {
-    check(seedCount() >= 8 && seedCount() <= 40, "8 to 40 seed worlds");
+    check(seedCount() >= 8 && seedCount() <= 64, "8 to 64 seed worlds");
     std::map<std::string, int> names;
     for (int i = 0; i < seedCount(); ++i) {
         const Seed& s = seed(i);
@@ -323,6 +323,7 @@ void glslNamesMatch(const char* path) {
         {"WG_PAL_SPAN", PalSpan},   {"WG_EMISSION", Emission},  {"WG_FOG", Fog},            {"WG_CORRIDOR", Corridor},
         {"WG_Z_PHASE", ZPhase},     {"WG_GAIN", Gain},          {"WG_ITER_CAP", IterCap},   {"WG_HUE_TURN", HueTurn},
         {"WG_WAKE_X", WakeX},       {"WG_WAKE_Y", WakeY},       {"WG_WAKE_Z", WakeZ},
+        {"WG_ROLL", Roll},          {"WG_LENS", Lens},          {"WG_ROLL_ANGLE", RollAngle}, {"WG_LENS_NOW", LensNow},
     };
     const char comps[4] = {'x', 'y', 'z', 'w'};
     for (const auto& [name, index] : expect) {
@@ -330,7 +331,7 @@ void glslNamesMatch(const char* path) {
         std::snprintf(want, sizeof want, "#define %s uWorld[%d].%c", name.c_str(), index / 4, comps[index % 4]);
         check(src.find(want) != std::string::npos, std::string("lib_world has ") + want);
     }
-    check(src.find("uniform vec4 uWorld[" + std::to_string(kVec4) + "];") != std::string::npos, "lib_world declares uWorld[17]");
+    check(src.find("uniform vec4 uWorld[" + std::to_string(kVec4) + "];") != std::string::npos, "lib_world declares uWorld[18]");
 }
 
 std::vector<uint8_t> readAll(const char* path) {

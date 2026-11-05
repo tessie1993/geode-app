@@ -2,7 +2,7 @@
 
 `morph_world` (`lib_world`, `core/viz/world/`) draws two baked files beside its own SDF primitives:
 
-- `app/src/main/assets/shaders/world_shapes.bin`: twelve models as 32³ signed-distance volumes (384 KB). They are the genome's seventh primitive (`PMesh`, picked and blended by `MeshPick`).
+- `app/src/main/assets/shaders/world_shapes.bin`: sixteen models as 32³ signed-distance volumes (384 KB). They are the genome's seventh primitive (`PMesh`, picked and blended by `MeshPick`).
 - `app/src/main/assets/shaders/world_textures.bin`: eight material maps as 128² grey detail layers (128 KB). They vary surface albedo (`TexAmount`) and pattern the light (`TexEmit`). They are grey on purpose: colour still comes only from `pal()`.
 
 Every source asset is **CC0** (public domain dedication) from [BlenderKit](https://www.blenderkit.com), pinned by asset id in `tools/morph_world_assets/assets.json`. `fetch.py` refuses any asset the API does not report as `cc_zero`. CC0 needs no attribution; the authors are credited here anyway.
@@ -23,6 +23,10 @@ Every source asset is **CC0** (public domain dedication) from [BlenderKit](https
 | 9 | Crystalline Iceplant | Poly Haven | `6880c55f-95e5-4477-b4fe-f9276252c603` | CC0 |
 | 10 | Dead Tree Trunk 02 | Poly Haven | `059bb822-bb9d-41b3-9923-6b84f9a518e4` | CC0 |
 | 11 | Cheiridopsis Succulent | Poly Haven | `ff359c53-c43e-4e36-a5a8-347607e4ea77` | CC0 |
+| 12 | Japanese Stone Lantern | Davide Tirindelli | `4b71dbf8-4f14-4e34-8ebf-f889f478acb4` | CC0 |
+| 13 | Buddha | Eme Uve | `8ac726bb-9e5b-487c-b86c-34fa1bbab12b` | CC0 |
+| 14 | Antique Ceramic Vase 01 | Poly Haven | `dec67dba-388e-4e8d-ac23-4c87c63e6249` | CC0 |
+| 15 | Owl decor | abd3d | `cf2072c1-f974-44b0-a512-2b1ca634274a` | CC0 |
 
 ## Materials (`world_textures.bin`, layer order)
 

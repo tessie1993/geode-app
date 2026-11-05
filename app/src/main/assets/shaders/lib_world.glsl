@@ -31,6 +31,12 @@
 // thin iso-band around the surfaces as glowing sheets. The style blends them by the genome's
 // mode weights and skips a mode whose weight is nil, so a steady world pays for one march.
 //
+// THE CAMERA'S FEEL (worldCamera()): the eye is the shared rig's, but each world banks and
+// focuses its own way: WG_ROLL_ANGLE turns the view about its forward axis (a slow barrel roll,
+// a sway, a lean into sideways motion) and WG_LENS_NOW scales the focal length (a wide lens for
+// vast halls, a long one for close detail, a punch on the kick). Only the ray turns: the eye and
+// its corridor stay where they are, so no roll or lens can put the camera in matter.
+//
 // Colour only through pal() (lib_palette) and the style's grade(). Include after lib_camera,
 // lib_palette and lib_scene_grade.
 //
@@ -40,7 +46,7 @@
 // baked models and material maps are CC0 assets from BlenderKit (docs/morph-world-assets.md).
 
 /** The genome and the driver's runtime values; WorldGenome.hpp's Field and Runtime order. */
-uniform vec4 uWorld[17];
+uniform vec4 uWorld[18];
 
 #define WG_REP_XY uWorld[0].x
 #define WG_CELL_XY uWorld[0].y
@@ -102,23 +108,36 @@ uniform vec4 uWorld[17];
 #define WG_TEX_PICK uWorld[14].y
 #define WG_TEX_SCALE uWorld[14].z
 #define WG_TEX_EMIT uWorld[14].w
-#define WG_Z_PHASE uWorld[15].x
-#define WG_GAIN uWorld[15].y
-#define WG_ITER_CAP uWorld[15].z
-#define WG_HUE_TURN uWorld[15].w
-#define WG_WAKE_X uWorld[16].x
-#define WG_WAKE_Y uWorld[16].y
-#define WG_WAKE_Z uWorld[16].z
-#define WG_ASSETS uWorld[16].w
+#define WG_ROLL uWorld[15].x
+#define WG_LENS uWorld[15].y
+#define WG_Z_PHASE uWorld[15].z
+#define WG_GAIN uWorld[15].w
+#define WG_ITER_CAP uWorld[16].x
+#define WG_HUE_TURN uWorld[16].y
+#define WG_WAKE_X uWorld[16].z
+#define WG_WAKE_Y uWorld[16].w
+#define WG_WAKE_Z uWorld[17].x
+#define WG_ASSETS uWorld[17].y
+#define WG_ROLL_ANGLE uWorld[17].z
+#define WG_LENS_NOW uWorld[17].w
 
 /**
- * The baked CC0 assets (core/viz/world/WorldAssets, tools/morph_world_assets): six models as signed
- * distance volumes, one 32^3 slab each stacked along z (32 x 32 x 384, R8, linear, clamped), and
+ * The baked CC0 assets (core/viz/world/WorldAssets, tools/morph_world_assets): sixteen models as signed
+ * distance volumes, one 32^3 slab each stacked along z (32 x 32 x 512, R8, linear, clamped), and
  * eight grey material detail maps (128^2 layers, mirrored repeat). Read only while WG_ASSETS is 1.
  */
 uniform highp sampler3D uWorldShapes;
 uniform highp sampler2DArray uWorldTex;
-#define WG_SHAPES 12.0
+
+/** The rig's eye and this world's view ray: rolled about the view axis, through this world's lens. */
+void worldCamera(vec2 uv, out vec3 ro, out vec3 rd) {
+    float c = cos(WG_ROLL_ANGLE);
+    float s = sin(WG_ROLL_ANGLE);
+    vec2 turned = vec2(c * uv.x - s * uv.y, s * uv.x + c * uv.y);
+    ro = uCamPos;
+    rd = normalize(uCamBasis * vec3(turned, uCamFocal * WG_LENS_NOW));
+}
+#define WG_SHAPES 16.0
 #define WG_SHAPE_RES 32.0
 #define WG_SHAPE_LO -0.25
 #define WG_SHAPE_HI 0.75

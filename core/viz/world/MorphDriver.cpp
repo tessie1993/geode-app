@@ -139,6 +139,11 @@ void MorphDriver::step(const DriverInput& in, float dt) {
     const float eased = ease(gain_, want, 1.5f, dt);
     const float limit = kGainRatePerSecond * dt;
     gain_ = std::clamp(eased, gain_ - limit, gain_ + limit);
+
+    // The view's roll: the world's own rate, a little faster with the energy, kept in one turn.
+    roll_ += dt * live_[Roll] * (0.7f + 0.6f * energy_);
+    roll_ -= kTau * std::floor(roll_ / kTau + 0.5f);
+    swayPhase_ = wrap01(swayPhase_ + dt * 0.07f);
     publish();
 }
 
@@ -190,6 +195,12 @@ void MorphDriver::publish() {
     uniforms_[WakeY] = wake[1];
     uniforms_[WakeZ] = wake[2];
     uniforms_[Assets] = hasShapes() && texturesBound_ ? 1.0f : 0.0f;
+    // The bank: the roll, a slow sway (deeper when the song is loud), and a lean into sideways motion.
+    const float sway = (0.05f + 0.1f * energy_) * std::sin(kTau * swayPhase_);
+    const float lean = std::clamp(-0.03f * vel_[0], -0.2f, 0.2f);
+    uniforms_[RollAngle] = roll_ + sway + lean;
+    // The lens: the world's, punched in a touch on the kick.
+    uniforms_[LensNow] = std::clamp(live_[Lens] * (1.0f + 0.05f * kick_), 0.7f, 1.45f);
 }
 
 }  // namespace geode::viz::world

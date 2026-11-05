@@ -54,7 +54,7 @@ constexpr Bounds kBounds[kFieldCount] = {
     {0.0f, 1.0f},     // PApollo
     {0.2f, 2.4f},     // PrimSize
     {0.03f, 0.45f},   // PrimThick
-    {0.0f, 11.0f},    // MeshPick (kShapeCount - 1)
+    {0.0f, 15.0f},    // MeshPick (kShapeCount - 1)
     {0.6f, 2.6f},     // MeshSize
     {2.0f, 9.0f},     // BulbPower
     {0.8f, 4.0f},     // GyroScale
@@ -76,6 +76,8 @@ constexpr Bounds kBounds[kFieldCount] = {
     {0.0f, 7.0f},     // TexPick (kTexCount - 1)
     {0.25f, 3.0f},    // TexScale
     {0.0f, 1.0f},     // TexEmit
+    {-0.5f, 0.5f},    // Roll
+    {0.75f, 1.35f},   // Lens
 };
 static_assert(sizeof(kBounds) / sizeof(kBounds[0]) == kFieldCount, "a bound per field");
 
@@ -408,6 +410,8 @@ Genome base() {
     g[GyroScale] = 1.6f;
     g[BoxScale] = 2.0f;
     g[TexScale] = 1.0f;
+    g[Roll] = 0.0f;
+    g[Lens] = 1.0f;
     return g;
 }
 
@@ -424,7 +428,7 @@ Genome make(const Set (&sets)[N]) {
     return g;
 }
 
-std::array<Seed, 34> buildSeeds() {
+std::array<Seed, 41> buildSeeds() {
     return {{
         // A nave of soap-thin spheres, inverted into one another: bubbles inside bubbles, lit from within.
         {"Bubble Nave", 0.35f, 0.7f, 0.5f,
@@ -516,12 +520,12 @@ std::array<Seed, 34> buildSeeds() {
          make({{RepXY, 1.0f}, {CellXY, 4.0f}, {CellZ, 3.5f}, {CellShift, 1.0f}, {Polar, 1.0f}, {PolarN, 7.0f},
                {PolarTwist, 0.25f}, {PTorus, 0.6f}, {PShell, 0.4f}, {PrimSize, 1.0f}, {PrimThick, 0.1f}, {Mirror, 0.4f},
                {MirrorOff, 0.3f}, {MSurface, 0.6f}, {MGlow, 0.4f}, {TrapR, 0.6f}, {PalOffset, 0.95f}, {PalSpan, 0.5f},
-               {Emission, 1.1f}, {Fog, 0.03f}})},
+               {Emission, 1.1f}, {Fog, 0.03f}, {Roll, 0.1f}})},
         // Horses ridden round the travel axis, eight of them: a carousel without end.
         {"Carousel", 0.65f, 0.7f, 0.55f,
          make({{RepXY, 0.3f}, {CellXY, 7.0f}, {CellZ, 4.5f}, {CellShift, 0.9f}, {Polar, 1.0f}, {PolarN, 8.0f},
                {PMesh, 1.0f}, {MeshPick, 4.0f}, {MeshSize, 1.4f}, {MSurface, 0.75f}, {MGlow, 0.25f}, {TrapR, 0.5f},
-               {PalOffset, 0.4f}, {PalSpan, 0.35f}, {Emission, 1.2f}, {Fog, 0.03f}, {TexAmount, 0.6f}, {TexPick, 0.0f}})},
+               {PalOffset, 0.4f}, {PalSpan, 0.35f}, {Emission, 1.2f}, {Fog, 0.03f}, {TexAmount, 0.6f}, {TexPick, 0.0f}, {Roll, -0.12f}})},
         // Bull and cow skulls melted into one another, five round the way, in a lichen haze.
         {"Bone Orchard", 0.3f, 0.3f, 0.5f,
          make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 5.0f},
@@ -533,7 +537,7 @@ std::array<Seed, 34> buildSeeds() {
          make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 4.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 9.0f},
                {PolarTwist, 0.35f}, {PMesh, 1.0f}, {MeshPick, 0.0f}, {MeshSize, 1.5f}, {MSurface, 0.5f}, {MGlow, 0.5f},
                {TrapR, 0.6f}, {PalOffset, 0.75f}, {PalSpan, 0.5f}, {Emission, 1.1f}, {Fog, 0.03f}, {TexEmit, 0.4f},
-               {TexPick, 4.0f}})},
+               {TexPick, 4.0f}, {Roll, 0.15f}})},
         // Mushrooms ringed eight ways in a grove, a gyroid moss between them, cedar-bark skin.
         {"Mushroom Grove", 0.3f, 0.55f, 0.6f,
          make({{RepXY, 1.0f}, {CellXY, 5.5f}, {CellZ, 5.0f}, {CellShift, 1.0f}, {PMesh, 0.8f}, {PGyroid, 0.2f},
@@ -577,7 +581,7 @@ std::array<Seed, 34> buildSeeds() {
         {"Box Cathedral", 0.6f, 0.45f, 0.65f,
          make({{RepXY, 0.4f}, {CellXY, 7.0f}, {CellZ, 5.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 8.0f},
                {PMandelbox, 1.0f}, {BoxScale, 2.6f}, {PrimSize, 1.3f}, {MSurface, 0.6f}, {MGlow, 0.4f}, {TrapR, 0.6f},
-               {PalOffset, 0.08f}, {PalSpan, 0.5f}, {Emission, 1.15f}, {Fog, 0.03f}, {TexEmit, 0.3f}, {TexPick, 7.0f}})},
+               {PalOffset, 0.08f}, {PalSpan, 0.5f}, {Emission, 1.15f}, {Fog, 0.03f}, {TexEmit, 0.3f}, {TexPick, 7.0f}, {Roll, 0.05f}})},
         // Sierpinski tetrahedra folded three ways round the way: a triangular forest of spires.
         {"Sierpinski Spires", 0.55f, 0.6f, 0.55f,
          make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 3.0f},
@@ -610,7 +614,7 @@ std::array<Seed, 34> buildSeeds() {
          make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 5.0f},
                {PolarTwist, 0.3f}, {PBulb, 1.0f}, {BulbPower, 4.0f}, {PrimSize, 1.2f}, {MSurface, 0.7f}, {MGlow, 0.3f},
                {TrapR, 0.6f}, {PalOffset, 0.45f}, {PalSpan, 0.5f}, {Emission, 1.15f}, {Fog, 0.03f}, {TexAmount, 0.4f},
-               {TexPick, 2.0f}})},
+               {TexPick, 2.0f}, {Roll, 0.1f}})},
         // Folded quartz turned six ways: the crystal of Folded Quartz as a round kaleidoscope.
         {"Quartz Kaleido", 0.55f, 0.6f, 0.65f,
          make({{RepXY, 0.8f}, {CellXY, 6.0f}, {CellZ, 6.0f}, {CellShift, 0.6f}, {Polar, 1.0f}, {PolarN, 6.0f},
@@ -618,11 +622,53 @@ std::array<Seed, 34> buildSeeds() {
                {Scale, 2.2f}, {IfsAngA, 0.25f}, {IfsAngB, 0.45f}, {IfsOffX, 1.2f}, {IfsOffY, 1.0f}, {IfsOffZ, 1.1f},
                {MSurface, 0.7f}, {MGlow, 0.3f}, {TrapX, 0.4f}, {TrapZ, 0.5f}, {PalOffset, 0.42f}, {PalSpan, 0.4f},
                {Emission, 1.1f}, {Fog, 0.035f}, {TexAmount, 0.5f}, {TexPick, 4.0f}})},
+        // The iceplant's star rosettes, large, in mirrored cells folded eight ways and rolling slowly:
+        // a field of frost flowers turning round the way.
+        {"Frost Flowers", 0.4f, 0.75f, 0.6f,
+         make({{RepXY, 1.0f}, {CellXY, 4.5f}, {CellZ, 4.0f}, {CellShift, 1.0f}, {Polar, 1.0f}, {PolarN, 8.0f},
+               {PMesh, 0.8f}, {PTorus, 0.2f}, {MeshPick, 9.0f}, {MeshSize, 2.6f}, {PrimSize, 1.4f}, {PrimThick, 0.05f},
+               {MSurface, 0.5f}, {MGlow, 0.5f}, {TrapR, 0.6f}, {TrapY, 0.3f}, {PalOffset, 0.55f}, {PalSpan, 0.45f},
+               {Emission, 1.2f}, {Fog, 0.03f}, {TexAmount, 0.5f}, {TexPick, 4.0f}, {Roll, 0.12f}, {Lens, 0.9f}})},
+        // Iceplant rosettes on a gyroid sheet through ice: a frozen garden seen through a long lens.
+        {"Ice Garden", 0.3f, 0.65f, 0.7f,
+         make({{RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.5f}, {CellShift, 1.0f}, {PMesh, 0.7f}, {PGyroid, 0.3f},
+               {MeshPick, 9.0f}, {MeshSize, 2.5f}, {GyroScale, 1.4f}, {PrimThick, 0.08f}, {MSurface, 0.6f},
+               {MDensity, 0.4f}, {DensBand, 0.12f}, {TrapR, 0.5f}, {TrapX, 0.3f}, {PalOffset, 0.6f}, {PalSpan, 0.35f},
+               {Emission, 1.2f}, {Fog, 0.035f}, {TexAmount, 0.7f}, {TexPick, 4.0f}, {TexScale, 1.3f}, {Lens, 1.2f}})},
+        // Iceplant stars folded twelve ways with a spiral: a mandala of frost the view rolls through.
+        {"Frost Mandala", 0.65f, 0.7f, 0.55f,
+         make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 4.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 12.0f},
+               {PolarTwist, 0.25f}, {PMesh, 0.8f}, {PShell, 0.2f}, {MeshPick, 9.0f}, {MeshSize, 2.4f}, {PrimSize, 1.2f},
+               {PrimThick, 0.05f}, {MSurface, 0.35f}, {MGlow, 0.65f}, {TrapR, 0.6f}, {PalOffset, 0.85f}, {PalSpan, 0.55f},
+               {Emission, 1.15f}, {Fog, 0.03f}, {TexEmit, 0.5f}, {TexPick, 4.0f}, {Roll, -0.2f}, {Lens, 0.85f}})},
+        // Stone lanterns in rows along the way, warm light, a long lens: a night path to a shrine.
+        {"Lantern Path", 0.35f, 0.55f, 0.45f,
+         make({{RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.0f}, {CellShift, 1.0f}, {PMesh, 1.0f}, {MeshPick, 12.0f},
+               {MeshSize, 1.8f}, {MSurface, 0.8f}, {MGlow, 0.2f}, {TrapR, 0.5f}, {TrapY, 0.4f}, {PalOffset, 0.05f},
+               {PalSpan, 0.3f}, {Emission, 1.25f}, {Fog, 0.04f}, {TexAmount, 0.6f}, {TexPick, 3.0f}, {Lens, 1.15f}})},
+        // Seated figures folded six ways round the way under a slow roll: a round hall of calm.
+        {"Buddha Hall", 0.25f, 0.6f, 0.5f,
+         make({{RepXY, 0.5f}, {CellXY, 6.5f}, {CellZ, 5.0f}, {CellShift, 0.9f}, {Polar, 1.0f}, {PolarN, 6.0f},
+               {PMesh, 1.0f}, {MeshPick, 13.0f}, {MeshSize, 1.9f}, {MSurface, 0.75f}, {MGlow, 0.25f}, {TrapR, 0.6f},
+               {PalOffset, 0.12f}, {PalSpan, 0.3f}, {Emission, 1.2f}, {Fog, 0.03f}, {TexAmount, 0.5f}, {TexPick, 0.0f},
+               {Roll, 0.06f}, {Lens, 0.85f}})},
+        // Ceramic vases in an eight-way spiral that the view rolls against: a turning potter's wheel of light.
+        {"Vase Carousel", 0.6f, 0.65f, 0.6f,
+         make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.9f}, {Polar, 1.0f}, {PolarN, 8.0f},
+               {PolarTwist, 0.3f}, {PMesh, 1.0f}, {MeshPick, 14.0f}, {MeshSize, 1.7f}, {MSurface, 0.55f}, {MGlow, 0.45f},
+               {TrapR, 0.5f}, {TrapX, 0.3f}, {PalOffset, 0.32f}, {PalSpan, 0.5f}, {Emission, 1.15f}, {Fog, 0.03f},
+               {TexAmount, 0.5f}, {TexPick, 6.0f}, {Roll, -0.15f}})},
+        // Owls in mirrored cells, through bark and a glowing mist: a night wood.
+        {"Owl Wood", 0.4f, 0.45f, 0.65f,
+         make({{RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.5f}, {CellShift, 1.0f}, {PMesh, 1.0f}, {MeshPick, 15.0f},
+               {MeshSize, 1.6f}, {MSurface, 0.65f}, {MDensity, 0.35f}, {DensBand, 0.1f}, {TrapR, 0.6f}, {TrapZ, 0.3f},
+               {PalOffset, 0.72f}, {PalSpan, 0.45f}, {Emission, 1.2f}, {Fog, 0.035f}, {TexAmount, 0.6f}, {TexPick, 5.0f},
+               {Lens, 1.1f}})},
     }};
 }
 
-const std::array<Seed, 34>& seeds() {
-    static const std::array<Seed, 34> kSeeds = buildSeeds();
+const std::array<Seed, 41>& seeds() {
+    static const std::array<Seed, 41> kSeeds = buildSeeds();
     return kSeeds;
 }
 
@@ -731,7 +777,7 @@ const Seed& seed(int index) { return seeds()[static_cast<size_t>(std::clamp(inde
 Genome random(uint64_t seedValue, const Constraints& c, int* picked) {
     uint64_t s = mix64(seedValue ^ 0x4D6F727068576F72ull);
     // Pick the seed world: closeness to the music's wants, the current world far less likely.
-    float weights[48];
+    float weights[64];
     float total = 0.0f;
     for (int i = 0; i < seedCount(); ++i) {
         const Seed& sd = seed(i);
@@ -760,7 +806,7 @@ Genome random(uint64_t seedValue, const Constraints& c, int* picked) {
     for (int f = 0; f < kFieldCount; ++f) {
         const Bounds b = kBounds[f];
         const float span = b.hi - b.lo;
-        const float scale = (f >= PBox && f <= MDensity) ? 0.6f : 1.0f;
+        const float scale = (f >= PBox && f <= MDensity) ? 0.6f : (f == Roll ? 0.4f : 1.0f);
         m[f] += (unit(s) * 2.0f - 1.0f) * amount * span * scale * 0.5f;
     }
     // Far mutations also wake operators the seed leaves off: a new kind of fold, not only new numbers.

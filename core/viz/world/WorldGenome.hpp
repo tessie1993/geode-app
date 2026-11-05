@@ -102,10 +102,13 @@ enum Field : int {
     TexPick,     // 0..kTexCount-1: which map, fractional = a blend of two neighbours
     TexScale,    // repeats per world unit
     TexEmit,     // 0..1: how much the detail patterns the light (rims, glow, density)
+    // The camera's feel in this world: the view only (the eye and its corridor never move).
+    Roll,        // radians per second the view banks round the way (signed): a slow barrel roll
+    Lens,        // the focal length's factor: under 1 a wide lens (vast halls), over 1 a long one (close detail)
     kFieldCount,
 };
 
-// Four runtime values the driver writes after the genome (never lerped, never mutated).
+// The runtime values the driver writes after the genome (never lerped, never mutated).
 enum Runtime : int {
     ZPhase = kFieldCount,  // the z offset (world units, 0..2 CellZ) that keeps the travel seamless as CellZ morphs
     Gain,                  // the smoothed brightness envelope (retargets never flash)
@@ -115,12 +118,14 @@ enum Runtime : int {
     WakeY,
     WakeZ,
     Assets,                // 1 when the baked shapes and maps are bound, else 0 (mesh = sphere, no detail)
+    RollAngle,             // the view's bank, radians: Roll integrated, a slow sway, a lean into sideways motion
+    LensNow,               // Lens with the kick's punch on top: the factor lib_world's ray takes on uCamFocal
     kUniformCount,
 };
 
 constexpr int kVec4 = kUniformCount / 4;
 static_assert(kUniformCount % 4 == 0, "uWorld is whole vec4s");
-static_assert(kVec4 == 17, "lib_world declares uWorld[17]");
+static_assert(kVec4 == 18, "lib_world declares uWorld[18]");
 
 constexpr int kMaxIfsSteps = 5;
 // The corridor's eye bubble (lib_world's WG_EYE_RADIUS): what is always open around the eye.

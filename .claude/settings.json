@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "skillOverrides": {
+    "3d-visualizer": "name-only",
+    "aesthetic-dreaming": "name-only",
+    "aesthetic-motion-temporal": "name-only",
+    "aesthetic-pattern-miner": "name-only",
+    "amazon-colouring-book-research": "name-only",
+    "android-for-cars-parked-apps": "name-only",
+    "anthropic-skills:3d-visualizer": "name-only",
+    "anthropic-skills:aesthetic-dreaming": "name-only",
+    "anthropic-skills:aesthetic-motion-temporal": "name-only",
+    "anthropic-skills:aesthetic-pattern-miner": "name-only",
+    "anthropic-skills:amazon-colouring-book-research": "name-only",
+    "anthropic-skills:antigravity-design-expert": "name-only",
+    "anthropic-skills:architecture-reference": "name-only",
+    "anthropic-skills:artifact-emulator": "name-only",
+    "anthropic-skills:character-design": "name-only",
+    "anthropic-skills:economic-systems": "name-only",
+    "anthropic-skills:fun-mode": "name-only",
+    "anthropic-skills:geometry-nodes": "name-only",
+    "anthropic-skills:google-flow-tool": "name-only",
+    "anthropic-skills:import-memory": "name-only",
+    "anthropic-skills:kdp-canva-format": "name-only",
+    "anthropic-skills:kdp-coloring-book-spec": "name-only",
+    "anthropic-skills:modeling-from-reference-in-blender": "name-only",
+    "anthropic-skills:morning": "name-only",
+    "anthropic-skills:newchat": "name-only",
+    "anthropic-skills:perchance-generator-builder": "name-only",
+    "anthropic-skills:pokemon-designer": "name-only",
+    "anthropic-skills:prompt-architect": "name-only",
+    "anthropic-skills:rpg": "name-only",
+    "anthropic-skills:web-ui-component-skill": "name-only",
+    "anthropic-skills:world-builder": "name-only",
+    "anthropic-skills:world-roleplay": "name-only",
+    "anthropic-skills:writers-room-story-engine": "name-only",
+    "antigravity-design-expert": "name-only",
+    "appfunctions": "name-only",
+    "architecture-reference": "name-only",
+    "artifact-emulator": "name-only",
+    "camerax": "name-only",
+    "changelog": "name-only",
+    "character-design": "name-only",
+    "chief-of-staff": "name-only",
+    "deliver-spec": "name-only",
+    "display-glasses-with-jetpack-compose-glimmer": "name-only",
+    "economic-systems": "name-only",
+    "engage-sdk-integration": "name-only",
+    "fun-mode": "name-only",
+    "geometry-nodes": "name-only",
+    "google-flow-tool": "name-only",
+    "grounded-writing": "name-only",
+    "implement-with-subagents": "name-only",
+    "import-memory": "name-only",
+    "ink-app-builder": "name-only",
+    "ink-custom-brush-builder": "name-only",
+    "kdp-canva-format": "name-only",
+    "kdp-coloring-book-spec": "name-only",
+    "leanback-to-compose-tv-migration": "name-only",
+    "litert-lm": "name-only",
+    "litert-runtime": "name-only",
+    "migrate-to-shoehorn": "name-only",
+    "migrate-xml-views-to-jetpack-compose": "name-only",
+    "ml-kit-genai-prompt-api": "name-only",
+    "mlkit-agent-api": "name-only",
+    "modeling-from-reference-in-blender": "name-only",
+    "morning": "name-only",
+    "newchat": "name-only",
+    "perchance-generator-builder": "name-only",
+    "pokemon-designer": "name-only",
+    "projected-hardware": "name-only",
+    "prompt-architect": "name-only",
+    "release-kotlin-library": "name-only",
+    "restore-credentials": "name-only",
+    "rpg": "name-only",
+    "run-github-project": "name-only",
+    "scaffold-exercises": "name-only",
+    "setup-ts-deep-modules": "name-only",
+    "shepherd": "name-only",
+    "software-factory": "name-only",
+    "subagent-delegation": "name-only",
+    "to-plan": "name-only",
+    "using-chrisbanes-skills": "name-only",
+    "verified-email": "name-only",
+    "wear-compose-m3": "name-only",
+    "wear-widgets": "name-only",
+    "web-ui-component-skill": "name-only",
+    "world-builder": "name-only",
+    "world-roleplay": "name-only",
+    "writers-room-story-engine": "name-only",
+    "writing-beats": "name-only",
+    "writing-fragments": "name-only",
+    "writing-shape": "name-only"
+  },
+  "enabledPlugins": {
+    "shader-skills@shader-skills": true,
+    "systems-programming@claude-code-workflows": true,
+    "code-refactoring@claude-code-workflows": true,
+    "mattpocock-skills@mattpocock": true,
+    "superpowers@claude-plugins-official": true,
+    "clangd-lsp@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "claude-code-workflows": {
+      "source": {
+        "source": "github",
+        "repo": "wshobson/agents"
+      }
+    },
+    "shader-skills": {
+      "source": {
+        "source": "github",
+        "repo": "gokayfem/shader-skills"
+      }
+    },
+    "mattpocock": {
+      "source": {
+        "source": "github",
+        "repo": "mattpocock/skills"
+      }
+    },
+    "claude-plugins-official": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
+      }
+    }
+  }
+}

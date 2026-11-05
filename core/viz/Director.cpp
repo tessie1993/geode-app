@@ -15,6 +15,7 @@ namespace {
 
 std::atomic<float> gAmount{0.0f};
 std::atomic<uint64_t> gSeed{0};
+std::atomic<bool> gSwitch{false};
 
 // Where each GEMS feeling sits on the colour wheel (red 0, yellow 1/6, green 1/3, blue 2/3), after the
 // colour-emotion studies: joy yellow-orange, power and tension red, sadness blue, peace green-teal,
@@ -185,11 +186,17 @@ constexpr int kTries = 12;
 }  // namespace
 
 namespace director {
-void setGlobal(float amount, uint64_t seed) {
+void setGlobal(bool on, float amount, uint64_t seed) {
+    gSwitch.store(on, std::memory_order_relaxed);
     gAmount.store(std::isfinite(amount) ? std::clamp(amount, 0.0f, 1.0f) : 0.0f, std::memory_order_relaxed);
     gSeed.store(seed, std::memory_order_relaxed);
 }
 DirectorConfig global() { return {gAmount.load(std::memory_order_relaxed), gSeed.load(std::memory_order_relaxed)}; }
+bool switchOn() { return gSwitch.load(std::memory_order_relaxed); }
+DirectorConfig forExport(bool switchOn, uint64_t seed, bool entitled, long long durationMs) {
+    const bool directed = switchOn && (entitled || durationMs <= kFreeTasteMs);
+    return {directed ? 1.0f : 0.0f, seed};
+}
 }  // namespace director
 
 void Director::reset() {

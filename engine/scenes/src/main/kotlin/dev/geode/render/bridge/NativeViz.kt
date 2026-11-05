@@ -218,13 +218,11 @@ class NativeViz(
     /** What Liquid mode ran last frame (0 off, 1 full, 2 lite, 3 warp, 4 paused); 0 before the handle exists. */
     fun liquidMode(): Int = if (handle != 0L) GeodeNative.vizLiquidMode(handle) else 0
 
-    /** Pins this renderer's auto-director; see [GeodeNative.vizSetDirector]. */
-    fun setDirector(
-        amount: Float,
-        seed: Long,
-    ) {
-        if (handle != 0L) GeodeNative.vizSetDirector(handle, amount, seed)
-    }
+    /** Pins an export's engine settings and returns the pinned hand mask; see [GeodeNative.vizPinEngineSettings]. */
+    fun pinEngineSettings(
+        entitled: Boolean,
+        durationMs: Long,
+    ): Int = if (handle != 0L) GeodeNative.vizPinEngineSettings(handle, entitled, durationMs) else 0
 
     fun setOffscreen(on: Boolean) {
         if (handle != 0L) GeodeNative.vizSetOffscreen(handle, on)

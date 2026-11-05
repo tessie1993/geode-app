@@ -343,7 +343,9 @@ int geode_react_source_catalog(char* out, int capacity) {
 
 void geode_macros_set(const float* knobs, int count) { macros::setGlobal(macros::clamped(knobs, count)); }
 
-void geode_director_set(float amount, long long seed) { director::setGlobal(amount, static_cast<uint64_t>(seed)); }
+void geode_director_set(int on, float amount, long long seed) {
+    director::setGlobal(on != 0, amount, static_cast<uint64_t>(seed));
+}
 
 void geode_note_response_set(int enabled) { note_response::setGlobal(enabled != 0); }
 
@@ -404,8 +406,8 @@ int geode_viz_liquid_mode(const geode_viz* v) {
     return v ? v->renderer.liquidMode() : 0;
 }
 
-void geode_viz_set_director(geode_viz* v, float amount, long long seed) {
-    if (v) v->renderer.pinDirector(amount, static_cast<uint64_t>(seed));
+unsigned geode_viz_pin_engine_settings(geode_viz* v, int entitled, long long duration_ms) {
+    return v ? static_cast<unsigned>(v->renderer.pinEngineSettings(entitled != 0, duration_ms)) : 0u;
 }
 
 void geode_viz_set_offscreen(geode_viz* v, int on) {

@@ -56,9 +56,11 @@ GEODE_API void        geode_macros_set(const float* knobs, int count);
 GEODE_API void        geode_macros_surprise(const float* knobs, int count, unsigned lock_mask, long long seed, float* out);
 GEODE_API int         geode_macro_starters(char* out, int capacity);
 /* The auto-director (core/viz/Director): the music's feeling deciding palette, behaviour and routing over
- * every style. amount 0 off .. 1 full, eased in and out by each renderer; seed is the play's, so a new seed
- * is a new play (the renderer forgets the song so far) and an export given the same seed makes the same film. */
-GEODE_API void        geode_director_set(float amount, long long seed);
+ * every style. on is the user's switch as set (1/0), which an export directs by (geode_viz_pin_engine_settings);
+ * amount 0 off .. 1 full is what live surfaces drive with now, eased in and out by each renderer; seed is the
+ * play's, so a new seed is a new play (the renderer forgets the song so far) and an export pinned with it
+ * makes the same film. */
+GEODE_API void        geode_director_set(int on, float amount, long long seed);
 /* Note & key reactions (core/viz/NoteResponse): notes, chords, key and mood driving the style knobs, note
  * colours, blooms and a gentle shape and distortion on every style. Process-wide like the director; each
  * renderer eases it in and out, and off (0) is exactly the picture without it. The seed is the director's. */
@@ -122,9 +124,14 @@ GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
  * An offscreen (export) renderer never draws it. */
 GEODE_API void        geode_viz_set_ui_blur_region(geode_viz*, float left, float top, float right, float bottom,
                                                    float strength, float corner_px);
-/* An export's own auto-director (amount 0..1, the play's seed): from now on this renderer ignores
- * geode_director_set, so the live player's switch, track and free taste never reach the render. */
-GEODE_API void        geode_viz_set_director(geode_viz*, float amount, long long seed);
+/* An export's engine settings (signal::SettingsLatch, #350), once at prepare: from now on this renderer never
+ * reads geode_macros_set, geode_note_response_set, geode_hand_set or geode_director_set again, so live edits,
+ * the player's next track and its free taste never reach the render. The macros, the Note & key switch and the
+ * hand mask are copied as they are now; the director is the user's switch and the play's seed, full for the
+ * whole export when entitled (Pro or the trial, 1/0) or when duration_ms fits the free taste, else off
+ * (director::forExport); the note entropy is 0, so an export is deterministic. Returns the pinned hand mask,
+ * for the export's route merge (geode_style_reactions_hand); 0 for a null handle. */
+GEODE_API unsigned    geode_viz_pin_engine_settings(geode_viz*, int entitled, long long duration_ms);
 GEODE_API int         geode_viz_knows(geode_viz*, const char* scene_id);
 GEODE_API size_t      geode_viz_scene_ids(geode_viz*, char* out, size_t capacity);   /* newline-joined; returns the full length */
 GEODE_API const char* geode_viz_last_error(geode_viz*);   /* "" when clean */

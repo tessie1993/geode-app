@@ -43,8 +43,21 @@ struct DirectorConfig {
 };
 
 namespace director {
-void setGlobal(float amount, uint64_t seed);
+// The free taste (pro/FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS, which times the live taste in the shell): a free
+// user's director drives the first minute of each song, and an export no longer than that throughout.
+constexpr long long kFreeTasteMs = 60'000;
+// `on` is the user's switch (Settings › Behaviour › Auto-director) as set, before any entitlement; `amount`
+// is what live surfaces drive with now (the switch cut to the free taste by the shell's live rule).
+void setGlobal(bool on, float amount, uint64_t seed);
+// What live surfaces drive with: the live amount and the play's seed.
 DirectorConfig global();
+// The user's switch, as set.
+bool switchOn();
+// An export of `durationMs` (#350): directed throughout, or not at all, never by the live amount (the live
+// taste may have run out while the range to render is short). Off when the switch is off; full when
+// `entitled` (Pro or the trial); otherwise full only when the whole export fits the free taste. The play's
+// `seed`, so it makes the same film. A pure function, so it is host-tested (resolver_test).
+DirectorConfig forExport(bool switchOn, uint64_t seed, bool entitled, long long durationMs);
 }  // namespace director
 
 class Director {

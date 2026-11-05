@@ -38,8 +38,10 @@ namespace geode::viz {
 // Variation: each play gets a personality (how many blooms at once, how fast they may come, how big, how
 // strongly the notes tint the whole picture, how fast the field travels, how far the flowers tilt), and
 // every new section and every drop rolls it again, eased over a couple of seconds. The user chose this to
-// be truly random per play: the renderer mixes fresh entropy into the seed at each new play
-// (Renderer::noteEntropyFor, EngineSettings::noteEntropy), so the same song looks different every time, and an export is its own play.
+// be truly random per live play: a live renderer mixes fresh entropy into the seed at each new play
+// (signal::SettingsLatch, EngineSettings::noteEntropy), so the same song looks different every time. An
+// export pins its settings with no entropy (#350), so it is deterministic: the same play exported twice
+// draws the same note response, though not the one the live screen drew.
 //
 // Real time only: everything reads the frame just heard; nothing anticipates. Given a seed it is a pure
 // function of (seed, frames, dt): no clock, no randomness of its own (splitmix64 keyed by the seed and the

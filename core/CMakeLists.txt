@@ -21,6 +21,7 @@ add_library(geode_core STATIC
     audio/dsp/PcmResampler.cpp
     audio/dsp/Loudness.cpp
     api/geode_export_dsp_api.cpp
+    signal/EngineSettings.cpp
     signal/Resolver.cpp
     viz/ShaderSource.cpp
     viz/GlCaps.cpp

@@ -1,6 +1,7 @@
 #include <memory>
 
 #include "api/geode_api.h"
+#include "audio/ingest/Cursor.hpp"
 #include "audio/ingest/Ring.hpp"
 
 namespace {
@@ -49,7 +50,25 @@ long long geode_ingest_written(const geode_ingest* ingest) {
 }
 
 int geode_ingest_resting(geode_ingest* ingest, long long now_ms) {
-    return ingest && ingest->ring.resting(now_ms) ? 1 : 0;
+    // No ring is nothing heard: a surface with no source rests like one whose source went quiet.
+    return !ingest || ingest->ring.resting(now_ms) ? 1 : 0;
+}
+
+float geode_ingest_level(geode_ingest* ingest, long long now_ms) {
+    if (!ingest) return 0.0f;
+    using geode::audio::ingest::Cursor;
+    const geode::audio::ingest::Ring& ring = ingest->ring;
+    return ingest->level.poll(ring.written(), now_ms, [&ring](float* out, int n) {
+        // A cursor made for this poll and moved to the newest n frames reads them through the one downmix,
+        // then hands back their mono tail: the same samples projectM's tail is made of. No allocation; a
+        // read stops at each format boundary, so a few reads cover the window.
+        Cursor cursor(ring, Cursor::Start::Oldest);
+        cursor.skipToNewest(n);
+        float stereo[2 * 128];
+        for (int reads = 0; reads < 64 && cursor.read(stereo, 128).frames > 0; ++reads) {
+        }
+        return cursor.rawMonoTail(out, n);
+    });
 }
 
 void geode_ingest_set_source_kind(geode_ingest* ingest, int kind) {

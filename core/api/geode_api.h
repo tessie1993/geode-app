@@ -285,14 +285,6 @@ GEODE_API void            geode_loudness_feed(geode_loudness*, const float* inte
 GEODE_API int             geode_loudness_has_block(geode_loudness*);   /* 1 once a 400 ms block exists */
 GEODE_API void            geode_loudness_finish(geode_loudness*, geode_loudness_report* out);   /* non-destructive */
 
-/* Rest when silent (sound/Silence): the live wallpaper's and the dream's silence rule. A poll hands in the
- * newest planar samples written since the last one (frames 0 when nothing was written) and the time sound
- * was last heard, and gets that time back, moved to now when any sample is above about -42 dBFS. Resting is
- * nothing heard for 6 s. Pure: the caller keeps the one timestamp. */
-GEODE_API long long       geode_silence_heard_at(const float* const* channels, int channel_count, int frames,
-                                                 long long now_ms, long long heard_at_ms);
-GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
-
 /* Native ingest ring (audio/ingest/Ring, #480): one per audio source (player tap, mic, another app's audio,
  * the wallpaper's output mix, a decoded file for export). The source writes raw interleaved PCM bytes
  * (little-endian) straight from its buffer; every channel is kept with its layout. Single writer, any number
@@ -323,9 +315,15 @@ GEODE_API void          geode_ingest_write(geode_ingest*, const void* bytes, siz
  * buffer's length is all the shell has to know. */
 GEODE_API size_t        geode_ingest_write_bytes(geode_ingest*, const void* bytes, size_t byte_count, int encoding);
 GEODE_API long long     geode_ingest_written(const geode_ingest*);
-/* 1 = may rest (core/sound/Silence rule, fed by the ring; no writes for the hold also = silent). The first
- * poll counts as sound, so a surface rests 6 s after it starts at the earliest. */
+/* 1 = may rest (core/sound/Silence rule, fed by the ring; no writes for the hold also = silent). The one
+ * silence answer every surface reads (#491): the writer stamps audible writes with CLOCK_MONOTONIC, so this
+ * is a pure read and any number of pollers agree. now_ms is CLOCK_MONOTONIC in ms (SystemClock.uptimeMillis).
+ * A new ring counts as just heard (it rests 6 s after it is made at the earliest); NULL rests. */
 GEODE_API int           geode_ingest_resting(geode_ingest*, long long now_ms);
+/* A ring's level for the UI (audio/ingest/Level.hpp, #491): the RMS of its newest 512 mono samples (the
+ * downmix's (L + R) / 2), 0 once nothing was written for 100 ms, judged between polls on now_ms. Any thread
+ * but the writer's; safe from several pollers. 0 for NULL. */
+GEODE_API float         geode_ingest_level(geode_ingest*, long long now_ms);
 /* What feeds a ring: set once after create (the player's ring keeps the default, GEODE_SOURCE_PLAYER). A
  * renderer hearing the ring reads it, so the sound engine knows whether the player is the source (#460). */
 enum { GEODE_SOURCE_PLAYER = 0, GEODE_SOURCE_MIC = 1, GEODE_SOURCE_CAPTURE = 2, GEODE_SOURCE_OUTPUT_MIX = 3,

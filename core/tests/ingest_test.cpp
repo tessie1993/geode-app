@@ -11,7 +11,9 @@
 // - int16, u8, float (and 24- and 32-bit) PCM convert to the same floats;
 // - the BS.775 downmix weights for 5.1 and 7.1, stereo bit-exact, mono centred;
 // - the raw mono tail projectM takes ends at the cursor and stays inside the epoch;
-// - the ring's silence answer rests after the hold, and a ring nobody writes rests too.
+// - the ring's silence answer rests after the hold, and a ring nobody writes rests too; it is a pure read of
+//   the writer's stamp, so pollers on several threads, and one that starts late, get one answer (#491);
+// - the ring's UI level is the newest samples' RMS while written, 0 once the ring stops (#491);
 // - switching sources player → mic → player (#485): each switch restarts the reader, and no frame is read
 //   at the other source's rate.
 #include <atomic>
@@ -27,6 +29,7 @@
 #include "api/geode_api.h"
 #include "audio/ingest/Cursor.hpp"
 #include "audio/ingest/Ring.hpp"
+#include "sound/Silence.hpp"
 
 using geode::audio::ingest::Cursor;
 using geode::audio::ingest::Ring;
@@ -475,27 +478,125 @@ void rawMonoTail() {
     geode_ingest_destroy(ing);
 }
 
+// The ring's clock in these tests: the time the writer stamps audible chunks with. Atomic because the
+// concurrent check reads it from a writer thread.
+std::atomic<int64_t> fakeNowMs{0};
+int64_t fakeClock() {
+    return fakeNowMs.load();
+}
+
+void writeAt(geode_ingest* ing, int64_t nowMs, const float* pcm, size_t frames) {
+    fakeNowMs = nowMs;
+    geode_ingest_write(ing, pcm, frames, GEODE_PCM_F32);
+}
+
 void restingAfterTheHold() {
+    fakeNowMs = 0;
     geode_ingest* ing = geode_ingest_create(4096, 2);
+    ing->ring.setClock(&fakeClock);
     geode_ingest_begin_epoch(ing, 48000, 1, 0);
-    const float loud[64] = {0.5f};
+    float loud[64] = {};
+    loud[0] = 0.5f;
     const float quiet[64] = {};
-    check(geode_ingest_resting(ing, 0) == 0, "the first poll counts as sound");
-    geode_ingest_write(ing, loud, 64, GEODE_PCM_F32);
+    check(geode_ingest_resting(ing, 0) == 0, "a new ring counts as just heard");
+    writeAt(ing, 1000, loud, 64);
     check(geode_ingest_resting(ing, 1000) == 0, "audible: awake");
     check(geode_ingest_resting(ing, 6900) == 0, "within the hold: awake");
     check(geode_ingest_resting(ing, 7001) == 1, "after the hold: may rest");
-    geode_ingest_write(ing, quiet, 64, GEODE_PCM_F32);
+    writeAt(ing, 8000, quiet, 64);
     check(geode_ingest_resting(ing, 8000) == 1, "digital silence written: still resting");
-    geode_ingest_write(ing, loud, 64, GEODE_PCM_F32);
+    writeAt(ing, 8100, loud, 64);
     check(geode_ingest_resting(ing, 8100) == 0, "sound wakes it at once");
     check(geode_ingest_resting(ing, 14100) == 0, "no writes, within the hold");
     check(geode_ingest_resting(ing, 14101) == 1, "no writes for the hold: silent");
 
+    fakeNowMs = 0;
     geode_ingest* idle = geode_ingest_create(1024, 2);
-    check(geode_ingest_resting(idle, 5000) == 0 && geode_ingest_resting(idle, 11001) == 1,
-          "a ring nobody writes rests after the hold");
+    idle->ring.setClock(&fakeClock);
+    check(geode_ingest_resting(idle, 5000) == 0 && geode_ingest_resting(idle, 6001) == 1,
+          "a ring nobody writes rests the hold after it was made");
+    check(geode_ingest_resting(nullptr, 0) == 1, "no ring rests");
     geode_ingest_destroy(idle);
+    geode_ingest_destroy(ing);
+}
+
+// The wallpaper, the dream, the edge glow and the capture screen poll one ring, each on its own schedule
+// (#491). The answer is the writer's stamp against the poller's now, so it never depends on who polled
+// first, how often, or on which thread.
+void restingIsOneAnswerForManyPollers() {
+    fakeNowMs = 0;
+    geode_ingest* ing = geode_ingest_create(4096, 2);
+    ing->ring.setClock(&fakeClock);
+    geode_ingest_begin_epoch(ing, 48000, 1, 0);
+    float loud[64] = {};
+    loud[0] = 0.5f;
+    writeAt(ing, 20000, loud, 64);
+
+    // A poller that starts late agrees with one that polled all along: the answer has no poll-side state.
+    for (int64_t t = 20000; t <= 26000; t += 250) check(geode_ingest_resting(ing, t) == 0, "the regular poller: awake");
+    check(geode_ingest_resting(ing, 26001) == 1, "the regular poller: resting after the hold");
+    geode_ingest* fresh = geode_ingest_create(4096, 2);
+    fresh->ring.setClock(&fakeClock);
+    geode_ingest_begin_epoch(fresh, 48000, 1, 0);
+    writeAt(fresh, 20000, loud, 64);
+    check(geode_ingest_resting(fresh, 26001) == 1,
+          "a first poll gets no fresh grace: it sees how long the ring has really been quiet");
+    geode_ingest_destroy(fresh);
+
+    // Two poller threads while the writer keeps writing sound stamped at 30000: every answer is a function
+    // of the poller's now alone.
+    std::atomic<bool> stop{false};
+    std::thread writer([&] {
+        while (!stop.load()) writeAt(ing, 30000, loud, 64);
+    });
+    while (geode_ingest_resting(ing, 30000) != 0) std::this_thread::yield();   // the writer has stamped
+    std::atomic<int> wrong{0};
+    auto poller = [&](int64_t offset) {
+        for (int64_t i = 0; i < 20000; ++i) {
+            const int64_t now = 30000 + (i * 7 + offset) % 12000;
+            const int expected = now - 30000 > geode::sound::silence::kRestAfterMs ? 1 : 0;
+            if (geode_ingest_resting(ing, now) != expected) ++wrong;
+        }
+    };
+    std::thread a(poller, 0);
+    std::thread b(poller, 3);
+    a.join();
+    b.join();
+    stop = true;
+    writer.join();
+    check(wrong.load() == 0, "two poller threads get one answer while the writer runs");
+    geode_ingest_destroy(ing);
+}
+
+void writeSine(geode_ingest* ing, int frames, float amplitude, int64_t& phase) {
+    std::vector<float> pcm(static_cast<size_t>(frames) * 2);
+    for (int i = 0; i < frames; ++i, ++phase) {
+        const auto v = static_cast<float>(amplitude * std::sin(2.0 * M_PI * 440.0 * static_cast<double>(phase) / 48000.0));
+        pcm[2 * static_cast<size_t>(i)] = v;
+        pcm[2 * static_cast<size_t>(i) + 1] = v;
+    }
+    geode_ingest_write(ing, pcm.data(), static_cast<size_t>(frames), GEODE_PCM_F32);
+}
+
+// The edge glow's level (#491): the newest samples' RMS, read natively from the ring the surface hears.
+void levelFollowsTheRing() {
+    geode_ingest* ing = geode_ingest_create(1 << 14, 2);
+    geode_ingest_begin_epoch(ing, 48000, 2, 0);
+    int64_t phase = 0;
+    writeSine(ing, 4800, 0.5f, phase);
+    check(geode_ingest_level(ing, 0) == 0.0f, "the first poll: what was written before anyone listened is old news");
+    writeSine(ing, 480, 0.5f, phase);
+    const float level = geode_ingest_level(ing, 10);
+    check(level > 0.33f && level < 0.38f, "a 0.5 sine on both sides reads its RMS, 0.354");
+    check(near(geode_ingest_level(ing, 10), level), "a second poller at the same moment reads the same level");
+    check(geode_ingest_level(ing, 11 + geode::audio::ingest::level::kStaleMs) == 0.0f,
+          "no writes for longer than kStaleMs: 0, so a paused tap never freezes the glow");
+    writeSine(ing, 480, 0.0f, phase);
+    writeSine(ing, 480, 0.0f, phase);
+    check(geode_ingest_level(ing, 500) == 0.0f, "written silence reads 0");
+    writeSine(ing, 480, 0.5f, phase);
+    check(geode_ingest_level(ing, 520) > 0.1f, "sound again: the level comes back on the next poll");
+    check(geode_ingest_level(nullptr, 0) == 0.0f, "no ring reads 0");
     geode_ingest_destroy(ing);
 }
 
@@ -632,6 +733,8 @@ int main() {
     monoCentred();
     rawMonoTail();
     restingAfterTheHold();
+    restingIsOneAnswerForManyPollers();
+    levelFollowsTheRing();
     recordRingOverrun();
     sourceSwitchRestartsWithoutAWrongRateBurst();
     sourceKind();

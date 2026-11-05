@@ -175,11 +175,15 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/pcm_handoff_test.cpp -o pcm_handoff_test
           ./pcm_handoff_test
           # The native ingest ring (#480): every sample once, in order, with its rate; overrun; epoch vs format;
-          # int16/u8/float conversion; the BS.775 5.1/7.1 downmix; mono centred; the ring's silence answer;
-          # switching sources player → mic → player restarts the reader, never a wrong-rate burst (#485).
+          # int16/u8/float conversion; the BS.775 5.1/7.1 downmix; mono centred; the ring's one silence answer and
+          # level, the same for every poller (#491); switching sources player → mic → player restarts the reader,
+          # never a wrong-rate burst (#485).
           g++ -std=c++20 -O1 -Wall -Wextra -pthread -Icore -Icore/tests/stub core/tests/ingest_test.cpp core/audio/ingest/Ring.cpp \
             core/audio/ingest/Cursor.cpp core/api/geode_ingest_api.cpp -o ingest_test
           ./ingest_test
+          # A ring's UI level meter alone: the newest samples' RMS while written, 0 once it stops (#491).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/ingest_level_test.cpp -o ingest_level_test
+          ./ingest_level_test
           # A renderer's own cursor on the native ingest ring (#481): fed through the ring it steps to the same sound
           # frames as a direct write; epochs reset, formats don't; a stall keeps the newest; 5.1 centre; cast's int16 reader.
           g++ -std=c++20 -O1 -Wall -Wextra -pthread -Icore -Icore/tests/stub core/tests/sound_feed_test.cpp core/viz/SoundFeed.cpp \

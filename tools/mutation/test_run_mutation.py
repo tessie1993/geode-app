@@ -58,7 +58,10 @@ class ParserTest(unittest.TestCase):
         self.assertNotIn("c_test", [t.name for t in rm.parse_host_tests(WORKFLOW)])
 
     def test_logical_lines(self):
-        self.assertEqual(rm.logical_lines("a \\\n  b\n# c\n\nd"), ["a   b", "d"])
+        # A continuation joins into one command; the exact whitespace between its tokens is
+        # irrelevant (commands are split on whitespace), so assert on the tokens.
+        lines = rm.logical_lines("a \\\n  b\n# c\n\nd")
+        self.assertEqual([ln.split() for ln in lines], [["a", "b"], ["d"]])
 
     def test_glob_expansion(self):
         with tempfile.TemporaryDirectory() as d:

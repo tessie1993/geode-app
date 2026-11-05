@@ -8,6 +8,7 @@
 #include "viz/EndlessZoom.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/scenes/SceneCommon.hpp"
+#include "viz/world/WorldAssets.hpp"
 
 namespace geode::viz {
 
@@ -54,6 +55,13 @@ void ShaderScene::setFragmentSource(const std::string& source) {
     std::lock_guard<std::mutex> lock(pendingLock_);
     // "" is a cleared shader override (viz/ShaderOverrides): back to the built-in style.
     pendingFragment_ = source.empty() ? stockFragment_ : source;
+}
+
+void ShaderScene::setWorldAssets(const std::string& shapes, const std::string& maps) {
+    if (shapes.size() != world::kShapeBytes || maps.size() != world::kTexBytes) return;
+    world::setShapeVolumes(std::vector<uint8_t>(shapes.begin(), shapes.end()));
+    worldShapes_ = shapes;
+    worldMaps_ = maps;
 }
 
 void ShaderScene::init() {
@@ -274,6 +282,39 @@ void ShaderScene::uploadCamera() {
 
 void ShaderScene::uploadWorld() {
     if (!world_) return;
+    if (worldShapesTex_ == 0 && !worldShapes_.empty()) {
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glGenTextures(1, &worldShapesTex_);
+        glBindTexture(GL_TEXTURE_3D, worldShapesTex_);
+        glTexImage3D(GL_TEXTURE_3D, 0, GL_R8, world::kShapeRes, world::kShapeRes, world::kShapeRes * world::kShapeCount, 0,
+                     GL_RED, GL_UNSIGNED_BYTE, worldShapes_.data());
+        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+        glGenTextures(1, &worldMapsTex_);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, worldMapsTex_);
+        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_R8, world::kTexRes, world::kTexRes, world::kTexCount, 0, GL_RED,
+                     GL_UNSIGNED_BYTE, worldMaps_.data());
+        glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        world_->setAssetsBound(worldShapesTex_ != 0 && worldMapsTex_ != 0);
+    }
+    if (worldShapesTex_ != 0) {
+        // Units 4 and 5: 1 is the flow, 2 the palette LUT, 3 the sound texture.
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_3D, worldShapesTex_);
+        glUniform1i(uniforms_.loc("uWorldShapes"), 4);
+        glActiveTexture(GL_TEXTURE5);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, worldMapsTex_);
+        glUniform1i(uniforms_.loc("uWorldTex"), 5);
+        glActiveTexture(GL_TEXTURE0);
+    }
     // The rig was stepped before this draw: the world's z phase and wake follow the eye.
     if (camera_) world_->travel(camera_->pos, worldDt_);
     worldDt_ = 0.0f;
@@ -319,6 +360,11 @@ void ShaderScene::release() {
     if (program_ != 0) glDeleteProgram(program_);
     if (vao_ != 0) glDeleteVertexArrays(1, &vao_);
     sound_.release();
+    if (worldShapesTex_ != 0) glDeleteTextures(1, &worldShapesTex_);
+    if (worldMapsTex_ != 0) glDeleteTextures(1, &worldMapsTex_);
+    worldShapesTex_ = 0;
+    worldMapsTex_ = 0;
+    if (world_) world_->setAssetsBound(false);
     program_ = 0;
     vao_ = 0;
     uniforms_ = UniformCache(0);

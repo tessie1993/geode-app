@@ -15,9 +15,12 @@
 //
 // THE CHAIN, in lib_world's order (world() there; sdf() below is the same function on the CPU):
 //   z repeat (always on: the travel axis is endless), x/y repeat (RepXY fades it, CellShift moves
-//   the cells off the axis, so the way runs between structures rather than through them), twist along
+//   the cells off the axis, so the way runs between structures rather than through them), a polar
+//   kaleidoscope fold about the travel axis (N-fold, round tunnels, a spiral), twist along
 //   travel, global scale, mirror fold, up to five IFS steps (rotate-fold, fractional count),
-//   sphere inversion, abs-inversion, then six primitives blended by weight, then the corridor
+//   sphere inversion, abs-inversion, then thirteen primitives blended by weight (six simple ones, a
+//   baked CC0 model from WorldAssets, and six fractals: gyroid, Menger sponge, Mandelbulb, Mandelbox,
+//   Sierpinski tetrahedron, Apollonian packing), then the corridor
 //   carved out around the camera's way. Three render modes read that one world: a hard surface,
 //   a glow-through volume (translucent glowing plates) and an emissive density (thin glowing
 //   sheets); their weights are in the genome too, so a world can melt from stone into light.
@@ -53,6 +56,9 @@ enum Field : int {
     AbsInv,      // 0..1: abs-inversion strength (abs(p) / |p|^2 - c)
     AbsInvC,     // its constant
     Twist,       // radians: the xy turn along travel, a sine over one z period
+    Polar,       // 0..1: kaleidoscope fold around the travel axis (round, N-fold tunnels, not the 4-way cross)
+    PolarN,      // 3..12 segments, fractional = a blend of the two neighbouring counts
+    PolarTwist,  // radians per world unit: the fold turns along travel, a spiral
     Scale,       // the whole world's scale
     // Primitives: weights (normalized to sum 1), then their size and wall thickness.
     PBox,
@@ -61,8 +67,20 @@ enum Field : int {
     PTorus,
     PShell,
     PSlab,
+    PMesh,       // a baked model (WorldAssets), sized by MeshSize
+    PGyroid,     // a gyroid sheet: one endless, smooth, organic surface (GyroScale, PrimThick)
+    PMenger,     // a Menger sponge, three levels (PrimSize)
+    PBulb,       // a Mandelbulb (BulbPower, PrimSize)
+    PMandelbox,  // a Mandelbox: box fold, sphere fold, scale (BoxScale, PrimSize)
+    PSierp,      // a Sierpinski tetrahedron, folded seven times (PrimSize)
+    PApollo,     // an Apollonian packing: spheres inverted into spheres, endless (PrimSize)
     PrimSize,
     PrimThick,
+    MeshPick,    // 0..kShapeCount-1: which baked model, fractional = a blend of two neighbours
+    MeshSize,    // the model's half-size, world units before Scale
+    BulbPower,   // the Mandelbulb's power, 2..9
+    GyroScale,   // the gyroid's frequency
+    BoxScale,    // the Mandelbox's scale, 1.5..3 (applied negative: the folded, cathedral-like box)
     // Render modes: weights (normalized to sum 1), then the density mode's band half-width.
     MSurface,
     MGlow,
@@ -79,10 +97,18 @@ enum Field : int {
     Emission,
     Fog,
     Corridor,    // the radius of the open tube along the travel axis
+    // Surface detail from the baked material maps (WorldAssets), grey so colour stays pal()'s.
+    TexAmount,   // 0..1: how much the detail varies the surface's albedo
+    TexPick,     // 0..kTexCount-1: which map, fractional = a blend of two neighbours
+    TexScale,    // repeats per world unit
+    TexEmit,     // 0..1: how much the detail patterns the light (rims, glow, density)
+    // The camera's feel in this world: the view only (the eye and its corridor never move).
+    Roll,        // radians per second the view banks round the way (signed): a slow barrel roll
+    Lens,        // the focal length's factor: under 1 a wide lens (vast halls), over 1 a long one (close detail)
     kFieldCount,
 };
 
-// Four runtime values the driver writes after the genome (never lerped, never mutated).
+// The runtime values the driver writes after the genome (never lerped, never mutated).
 enum Runtime : int {
     ZPhase = kFieldCount,  // the z offset (world units, 0..2 CellZ) that keeps the travel seamless as CellZ morphs
     Gain,                  // the smoothed brightness envelope (retargets never flash)
@@ -91,12 +117,15 @@ enum Runtime : int {
     WakeX,                 // where the camera is heading, times how far: the corridor's wake
     WakeY,
     WakeZ,
+    Assets,                // 1 when the baked shapes and maps are bound, else 0 (mesh = sphere, no detail)
+    RollAngle,             // the view's bank, radians: Roll integrated, a slow sway, a lean into sideways motion
+    LensNow,               // Lens with the kick's punch on top: the factor lib_world's ray takes on uCamFocal
     kUniformCount,
 };
 
 constexpr int kVec4 = kUniformCount / 4;
 static_assert(kUniformCount % 4 == 0, "uWorld is whole vec4s");
-static_assert(kVec4 == 12, "lib_world declares uWorld[12]");
+static_assert(kVec4 == 18, "lib_world declares uWorld[18]");
 
 constexpr int kMaxIfsSteps = 5;
 // The corridor's eye bubble (lib_world's WG_EYE_RADIUS): what is always open around the eye.

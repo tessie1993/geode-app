@@ -21,7 +21,8 @@ out vec4 fragColor;
 // picks: a drop rushes into a new world in a second and a half, a new section may glide into one
 // over many seconds, and a calm song may keep its world all song.
 //
-// The camera is the shared rig (lib_camera, camFly): no path of our own. The world is open in
+// The camera is the shared rig (lib_camera): no path of our own, but each world rolls and
+// focuses it its own way (worldCamera: the genome's Roll and Lens, the driver's sway and kick). The world is open in
 // every direction around it and the corridor is carved out of the distance field, so a morph never
 // closes on the eye.
 //
@@ -49,7 +50,7 @@ void main() {
     vec2 uv = view();
     vec3 ro;
     vec3 rd;
-    camFly(uv, ro, rd);
+    worldCamera(uv, ro, rd);
 
     float jitter = worldJitter(gl_FragCoord.xy);
     float wS = WG_M_SURFACE;

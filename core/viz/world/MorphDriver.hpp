@@ -21,6 +21,11 @@
 // HOW FAST. A verse glides over many seconds; a drop rushes in about a second and a half, still
 // eased at both ends. The k2 FLOW knob speeds or slows every glide.
 //
+// THE VIEW. Each world rolls the view at its own rate (Roll) and looks through its own lens (Lens);
+// on top, a slow sway that the energy deepens, a lean into the camera's sideways motion, and a
+// small punch-in of the lens on the kick. Only the ray turns (lib_world's worldCamera), never the
+// eye, so the corridor still holds.
+//
 // ON TOP. Small live wobble from the sound and the controls: the bass breathes the inversion and
 // the IFS scale, the chord turns the palette, the kick lifts the emission, Warp adds twist,
 // Turbulence the IFS strength, the knobs their shares. All summed once and clamped once into the
@@ -79,6 +84,9 @@ public:
     const Genome& live() const { return live_; }
     Way way() const;
 
+    // Whether the scene bound the baked maps and shape volume (WorldAssets) for the shader.
+    void setAssetsBound(bool bound) { texturesBound_ = bound; }
+
     const Genome& target() const { return to_; }
     int targetSeed() const { return toSeed_; }
     int retargets() const { return retargets_; }
@@ -121,6 +129,9 @@ private:
     float buildUp_ = 0.0f;
     float iterCap_ = static_cast<float>(kMaxIfsSteps);
     float gain_ = 1.0f;
+    // The camera's feel: the roll integrated from the genome's Roll, the sway's phase.
+    float roll_ = 0.0f;
+    float swayPhase_ = 0.0f;
 
     // Travel.
     float zCells_ = 0.0f;  // the phase along travel, in periods (two mirrored cells), kept in 0..1
@@ -128,6 +139,7 @@ private:
     std::array<float, 3> eye_{0.0f, 0.0f, 0.0f};
     std::array<float, 3> vel_{0.0f, 0.0f, 0.0f};
 
+    bool texturesBound_ = false;
     std::array<float, kUniformCount> uniforms_{};
 };
 

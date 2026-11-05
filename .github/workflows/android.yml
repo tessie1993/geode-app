@@ -211,9 +211,10 @@ jobs:
           # Morph World: the World Genome (bounds, lerp, seeds, 1000 random worlds open and lit, the
           # corridor at the camera), the morph driver (replayable, seeded, no flash) and lib_world's names.
           g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/world_genome_test.cpp core/viz/world/WorldGenome.cpp \
-            core/viz/world/MorphDriver.cpp core/viz/CameraRig.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+            core/viz/world/MorphDriver.cpp core/viz/world/WorldAssets.cpp core/viz/CameraRig.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
             core/viz/VisualSafety.cpp core/viz/Lfo.cpp -o world_genome_test
-          ./world_genome_test app/src/main/assets/shaders/lib_world.glsl
+          ./world_genome_test app/src/main/assets/shaders/lib_world.glsl \
+            app/src/main/assets/shaders/world_shapes.bin app/src/main/assets/shaders/world_textures.bin
 
       # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes, ranges, and
       # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.

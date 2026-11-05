@@ -39,6 +39,9 @@ public:
     void setCamera(const CameraPose* pose) override { camera_ = pose; }
     bool drawsCamera() const override { return drawsCamera_; }
     void setFragmentSource(const std::string& source) override;
+    // Morph World's baked assets (WorldAssets: world_shapes.bin, world_textures.bin), uploaded on the
+    // GL thread at the first draw. The shapes also go to the CPU port, process-wide.
+    void setWorldAssets(const std::string& shapes, const std::string& maps);
 
 private:
     static constexpr float kTimeWrapSeconds = 7100.0f;
@@ -109,6 +112,10 @@ private:
     // style. Stepped in update() from the sound and the controls, moved along by the camera in draw().
     std::unique_ptr<world::MorphDriver> world_;
     float worldDt_ = 0.0f;
+    std::string worldShapes_;
+    std::string worldMaps_;
+    GLuint worldShapesTex_ = 0;
+    GLuint worldMapsTex_ = 0;
     bool worldSeeded_ = false;
 
     float stepsDetail_ = -1.0f;

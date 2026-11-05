@@ -178,14 +178,8 @@ data class LfoConfig(
     }
 }
 
-// Modulation is applied natively every frame (see core/viz/RendererFrame.cpp, which ticks its own
-// LfoEngine/AdsrEngine against the configs pushed by geode_viz_set_lfo/geode_viz_set_adsr), so this
-// class only needs to hold the config the UI edits and NativeViz.setLfoConfigs forwards; it does not
-// run the oscillator/follower/apply logic itself.
-class LfoEngine {
-    @Volatile
-    var configs: List<LfoConfig> = List(SLOTS) { LfoConfig() }
-
+// The LFO slots' configs only; native runs the oscillator, follower and apply logic (see [PushedConfigs]).
+class LfoEngine : PushedConfigs<LfoConfig>(List(SLOTS) { LfoConfig() }) {
     companion object {
         const val SLOTS: Int = 3
     }

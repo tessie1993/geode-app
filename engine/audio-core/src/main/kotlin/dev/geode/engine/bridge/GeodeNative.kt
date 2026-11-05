@@ -362,7 +362,9 @@ object GeodeNative {
      * [vizRender]: hand over what the shell holds every frame; native applies only what changed. [pacedFps]
      * is this surface's own cap (0 free-running; the thermal cap is applied under it natively); the rest is
      * Settings › Performance, with [liquidHotPolicy] 0 simplify, 1 full, 2 pause (`liquid::HotPolicy`).
-     * Answers a bitmask of the `FRAME_*` bits.
+     * The four versions are the shell's counters for its params, LFO, ADSR and tuning (`core/viz/frame/
+     * PushVersions`): native sets a `FRAME_PUSH_*` bit for each it has not applied, and the shell pushes
+     * exactly those before [vizRender]. Answers a bitmask of the `FRAME_*` bits.
      */
     external fun vizFrameBegin(
         handle: Long,
@@ -372,6 +374,10 @@ object GeodeNative {
         postFx: Boolean,
         adaptive: Boolean,
         liquidHotPolicy: Int,
+        paramsVersion: Long,
+        lfoVersion: Long,
+        adsrVersion: Long,
+        tuningVersion: Long,
     ): Int
 
     /** Mirrors GEODE_FRAME_CLEAR_ONLY: native cleared a new surface's first frame; present it, do nothing else. */
@@ -385,6 +391,18 @@ object GeodeNative {
 
     /** Mirrors GEODE_FRAME_LIQUID_MODE: 0 off, 1 full, 2 lite, 3 warp, 4 paused (`liquid::Mode`). */
     fun frameLiquidMode(due: Int): Int = (due ushr 8) and 0xF
+
+    /** Mirrors GEODE_FRAME_PUSH_PARAMS: push the scene params ([vizSetParams]). */
+    const val FRAME_PUSH_PARAMS: Int = 0x10
+
+    /** Mirrors GEODE_FRAME_PUSH_LFO: push every LFO slot ([vizSetLfo]). */
+    const val FRAME_PUSH_LFO: Int = 0x20
+
+    /** Mirrors GEODE_FRAME_PUSH_ADSR: push every ADSR slot ([vizSetAdsr]). */
+    const val FRAME_PUSH_ADSR: Int = 0x40
+
+    /** Mirrors GEODE_FRAME_PUSH_TUNING: push the sound tuning ([vizSetSoundTuning]). */
+    const val FRAME_PUSH_TUNING: Int = 0x80
 
     /**
      * Pins this renderer's auto-director (an export's): from then on it ignores [directorSet], so the live

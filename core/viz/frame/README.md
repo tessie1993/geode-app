@@ -11,6 +11,8 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 
 Export post-passes: `ExportPasses` (watermark, loop seam, Studio GL transition and its capture; #442) with their pure maths in `ExportPassMath.hpp` (`core/tests/export_passes_test.cpp`), driven through `geode_export_*` until `FrameGraph::run` owns the export frame.
 
+**Here now:** `PushVersions.hpp`, which of the shell's pushed inputs a live frame still owes native (#751). The shell keeps a version per input (scene params, LFO configs, ADSR configs, sound tuning; one counter that every write raises, `VisualizerRenderer.kt` and `PushedConfigs`) and hands the four to `geode_viz_frame_begin`; native answers `GEODE_FRAME_PUSH_*` for each version it has not applied (an equal or older one is skipped, so a stale write cannot undo a newer push; a new surface wants all four again), and the shell packs and pushes exactly those. Reaction routes are not here yet. Tested by `core/tests/push_versions_test.cpp`.
+
 **Owns:** the one frame function every surface runs (screen, PiP, second screen, wallpaper, dream, Studio preview, export, thumbnails), and the pieces it is built from.
 - `FrameCtx`: this frame's effective params (from `core/signal`), the sound frame and source snapshot, camera pose, touch, flow, palette LUT, knobs. Replaces the ~20 `Scene` setters (`setFlow`, `setPaletteLut`, `setTouchField`, `setCamera`, …; `core/viz/Scene.hpp:22-62`) and the `SceneHost` callbacks (`:65-76`).
 - `Pass`: `prepare(FrameCtx)`, `draw(inputs, target)`. Trail, Liquid, Composite, UiBlur, and the post-passes (watermark and loop seam, still Kotlin GL; edge glow, native since #439) all implement it.

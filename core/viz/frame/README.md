@@ -1,6 +1,8 @@
-# core/viz/frame (skeleton, empty)
+# core/viz/frame (skeleton)
 
-Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md). Nothing here yet.
+Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md).
+
+**Here so far:** `OfflineStep.hpp` (#573), an export's frame grid: frame N → render ms, the audio cut its sound engine hears first, and the params an export pins; behind `geode_viz_prepare_offscreen`, `geode_viz_render_offscreen_frame`, `geode_offline_frame_ms` and `geode_offline_audio_until`, tested by `core/tests/offline_step_test.cpp`.
 
 **Owns:** the one frame function every surface runs (screen, PiP, second screen, wallpaper, dream, Studio preview, export, thumbnails), and the pieces it is built from.
 - `FrameCtx`: this frame's effective params (from `core/signal`), the sound frame and source snapshot, camera pose, touch, flow, palette LUT, knobs. Replaces the ~20 `Scene` setters (`setFlow`, `setPaletteLut`, `setTouchField`, `setCamera`, …; `core/viz/Scene.hpp:22-62`) and the `SceneHost` callbacks (`:65-76`).

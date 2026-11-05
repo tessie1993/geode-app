@@ -445,6 +445,33 @@ object GeodeNative {
         targetFbo: Int,
     )
 
+    /** Pins this renderer for an export (`geode_viz_prepare_offscreen`): offscreen tier, cut, fixed quality. */
+    external fun vizPrepareOffscreen(handle: Long)
+
+    /** Draws export frame [frame] at [fpsNum]/[fpsDen] fps on the native frame grid (`core/viz/frame/OfflineStep`). */
+    external fun vizRenderOffscreenFrame(
+        handle: Long,
+        frame: Long,
+        fpsNum: Int,
+        fpsDen: Int,
+        targetFbo: Int,
+    )
+
+    /** Export frame [frame]'s render time in whole ms from the range start. */
+    external fun offlineFrameMs(
+        frame: Long,
+        fpsNum: Int,
+        fpsDen: Int,
+    ): Long
+
+    /** The track frames at [sampleRate] the engine must have heard before export frame [frame] (0 if unknown). */
+    external fun offlineAudioUntil(
+        frame: Long,
+        fpsNum: Int,
+        fpsDen: Int,
+        sampleRate: Int,
+    ): Long
+
     external fun vizReleaseScenes(handle: Long)
 
     /**

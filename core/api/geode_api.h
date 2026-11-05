@@ -150,6 +150,16 @@ GEODE_API void        geode_viz_set_style_schedule(geode_viz*, const double* at_
                                                    const char* const* cut_ids, int cut_count, int every_beats,
                                                    const char* const* locked_ids, int locked_count);
 GEODE_API void        geode_viz_render(geode_viz*, double time_seconds, uint32_t target_fbo);
+/* Offline (export) render, core/viz/frame/OfflineStep. prepare pins the renderer for it: the offscreen tier
+ * (geode_viz_set_offscreen(1)), cut transitions, and fixed fluid quality on every later set_params. Any
+ * thread. render_offscreen_frame (GL thread) draws frame `frame` of a render at fps_num/fps_den frames a
+ * second (30/1, 30000/1001) at its grid time. frame_ms is that time in whole ms (for keyframes);
+ * audio_until is how many track frames at sample_rate the engine must have heard first (0 if unknown). */
+GEODE_API void        geode_viz_prepare_offscreen(geode_viz*);
+GEODE_API void        geode_viz_render_offscreen_frame(geode_viz*, int64_t frame, int32_t fps_num, int32_t fps_den,
+                                                       uint32_t target_fbo);
+GEODE_API int64_t     geode_offline_frame_ms(int64_t frame, int32_t fps_num, int32_t fps_den);
+GEODE_API int64_t     geode_offline_audio_until(int64_t frame, int32_t fps_num, int32_t fps_den, int32_t sample_rate);
 GEODE_API void        geode_viz_release_scenes(geode_viz*);
 
 /* Playback DSP: gain -> 10-band equalizer -> crossfeed -> lookahead limiter on float interleaved PCM, one

@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <cstring>
 #include <memory>
@@ -14,6 +15,7 @@
 #include "viz/ReactionDna.hpp"
 #include "viz/Renderer.hpp"
 #include "viz/SceneRegistry.hpp"
+#include "viz/frame/OfflineStep.hpp"
 
 struct geode_viz {
     geode_viz(AAssetManager* assets, std::string cacheDir) : renderer(assets, std::move(cacheDir)) {}
@@ -22,6 +24,8 @@ struct geode_viz {
     std::mutex configLock;
     std::array<geode::viz::LfoConfig, geode::viz::LfoEngine::kSlots> lfo{};
     std::array<geode::viz::AdsrConfig, geode::viz::AdsrEngine::kCount> adsr{};
+    // Set by geode_viz_prepare_offscreen: every set_params then carries the export's pinned params.
+    std::atomic<bool> offline{false};
 };
 
 namespace {
@@ -76,6 +80,7 @@ void geode_viz_set_params(geode_viz* v, const float* values, int count) {
     const auto& names = SceneParams::fieldNames();
     SceneParams p;
     for (int i = 0; i < count; ++i) p.set(names[static_cast<size_t>(i)], values[i]);
+    if (v->offline.load(std::memory_order_relaxed)) geode::viz::frame::pinOfflineParams(p);
     v->renderer.setParams(p);
 }
 
@@ -517,6 +522,30 @@ void geode_viz_cut(geode_viz* v) {
 
 void geode_viz_render(geode_viz* v, double time_seconds, uint32_t target_fbo) {
     if (v) v->renderer.render(time_seconds, target_fbo);
+}
+
+void geode_viz_prepare_offscreen(geode_viz* v) {
+    if (!v) return;
+    // Pinned to the full tier: an export renders as fast as the encoder takes frames, so its wall-clock
+    // frame time says nothing about the device.
+    geode_viz_set_offscreen(v, 1);
+    // A schedule's style switch lands on its frame: the CUT transition, which safety::transitionId turns
+    // into a fade, at 0 ms (held to 1 ms by setTransition), exactly what the Kotlin shell used to ask for.
+    v->renderer.setTransition(transitionStyleId(TransitionStyle::Cut), 0);
+    v->offline.store(true, std::memory_order_relaxed);
+}
+
+void geode_viz_render_offscreen_frame(geode_viz* v, int64_t index, int32_t fps_num, int32_t fps_den,
+                                      uint32_t target_fbo) {
+    if (v) v->renderer.render(geode::viz::frame::frameSeconds(index, {fps_num, fps_den}), target_fbo);
+}
+
+int64_t geode_offline_frame_ms(int64_t index, int32_t fps_num, int32_t fps_den) {
+    return geode::viz::frame::frameMs(index, {fps_num, fps_den});
+}
+
+int64_t geode_offline_audio_until(int64_t index, int32_t fps_num, int32_t fps_den, int32_t sample_rate) {
+    return geode::viz::frame::audioUntil(index, {fps_num, fps_den}, sample_rate);
 }
 
 void geode_viz_release_scenes(geode_viz* v) {

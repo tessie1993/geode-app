@@ -284,6 +284,21 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizRender(handle, timeSeconds, targetFbo)
     }
 
+    /** Pins this renderer for an export; see [GeodeNative.vizPrepareOffscreen]. */
+    fun prepareOffscreen() {
+        if (handle != 0L) GeodeNative.vizPrepareOffscreen(handle)
+    }
+
+    /** Draws export frame [frame] at [fpsNum]/[fpsDen] fps; see [GeodeNative.vizRenderOffscreenFrame]. */
+    fun renderOffscreenFrame(
+        frame: Int,
+        fpsNum: Int,
+        fpsDen: Int,
+        targetFbo: Int,
+    ) {
+        if (handle != 0L) GeodeNative.vizRenderOffscreenFrame(handle, frame.toLong(), fpsNum, fpsDen, targetFbo)
+    }
+
     fun releaseScenes() {
         if (handle != 0L) GeodeNative.vizReleaseScenes(handle)
     }
@@ -311,11 +326,26 @@ class NativeViz(
         onChange(error.ifEmpty { null })
     }
 
-    private companion object {
+    companion object {
+        /** Export frame [frame]'s time in ms; see [GeodeNative.offlineFrameMs]. */
+        fun offlineFrameMs(
+            frame: Int,
+            fpsNum: Int,
+            fpsDen: Int,
+        ): Long = GeodeNative.offlineFrameMs(frame.toLong(), fpsNum, fpsDen)
+
+        /** The audio cut before export frame [frame]; see [GeodeNative.offlineAudioUntil]. */
+        fun offlineAudioUntil(
+            frame: Int,
+            fpsNum: Int,
+            fpsDen: Int,
+            sampleRate: Int,
+        ): Long = GeodeNative.offlineAudioUntil(frame.toLong(), fpsNum, fpsDen, sampleRate)
+
         @Volatile
         private var verified = false
 
-        fun verifyLayouts() {
+        private fun verifyLayouts() {
             if (verified) return
             SceneParamsCodec.verify(GeodeNative.vizParamNames())
             verified = true

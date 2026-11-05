@@ -448,6 +448,28 @@ Java_dev_geode_engine_bridge_GeodeNative_vizRender(JNIEnv*, jobject, jlong handl
 }
 
 JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizPrepareOffscreen(JNIEnv*, jobject, jlong handle) {
+    geode_viz_prepare_offscreen(vizOf(handle));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizRenderOffscreenFrame(JNIEnv*, jobject, jlong handle, jlong frame,
+                                                                 jint fpsNum, jint fpsDen, jint targetFbo) {
+    geode_viz_render_offscreen_frame(vizOf(handle), frame, fpsNum, fpsDen, static_cast<uint32_t>(targetFbo));
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_offlineFrameMs(JNIEnv*, jobject, jlong frame, jint fpsNum, jint fpsDen) {
+    return geode_offline_frame_ms(frame, fpsNum, fpsDen);
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_offlineAudioUntil(JNIEnv*, jobject, jlong frame, jint fpsNum, jint fpsDen,
+                                                           jint sampleRate) {
+    return geode_offline_audio_until(frame, fpsNum, fpsDen, sampleRate);
+}
+
+JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizReleaseScenes(JNIEnv*, jobject, jlong handle) {
     geode_viz_release_scenes(vizOf(handle));
 }

@@ -10,7 +10,6 @@ import dev.geode.render.LfoConfig
 import dev.geode.render.ReactionRoute
 import dev.geode.render.SceneFactory
 import dev.geode.render.StyleReactionsCache
-import dev.geode.render.TransitionStyle
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.bridge.StyleSchedule
 import dev.geode.render.scene.SceneParams
@@ -96,15 +95,13 @@ class OffscreenSceneRenderer(
     fun prepare() {
         val viz = NativeViz(context)
         check(viz.create()) { "native renderer could not be created" }
-        // Pinned to the full tier: an export renders as fast as the encoder takes frames, so its
-        // wall-clock frame time says nothing about the device.
-        viz.setOffscreen(true)
+        // The offscreen tier, cut transitions and fixed quality are native (core/viz/frame/OfflineStep).
+        viz.prepareOffscreen()
         viz.surfaceCreated()
         viz.surfaceChanged(spec.width, spec.height)
         check(viz.setScene(sceneFactory.sceneId)) { "native renderer cannot draw \"${sceneFactory.sceneId}\"" }
         sceneFactory.milkPresetPath?.let { viz.loadMilkPreset(it) }
         viz.setStyleSchedule(spec.styleSchedule)
-        viz.setTransition(TransitionStyle.CUT.name.lowercase(), 0L)
         viz.setReducedMotion(spec.reducedMotion)
         if (spec.lfoConfigs.isNotEmpty()) viz.setLfoConfigs(spec.lfoConfigs)
         if (spec.adsrConfigs.isNotEmpty()) viz.setAdsrConfigs(spec.adsrConfigs)
@@ -132,11 +129,8 @@ class OffscreenSceneRenderer(
         targetFbo: Int = 0,
     ) {
         val viz = checkNotNull(native) { "renderFrame() before prepare()" }
-        val fps = spec.fps
-        val timeMs = frame * 1000L / fps
-        val nextTimeMs = (frame + 1) * 1000L / fps
-        // Quality never adapts downward in an export; the thermal half is the offscreen pin above.
-        val p = (spec.paramsAt?.invoke(timeMs) ?: spec.baseParams).copy(fluidAutoQuality = false)
+        // The frame grid and the audio cut are native, on the absolute frame index (core/viz/frame/OfflineStep).
+        val p = spec.paramsAt?.invoke(NativeViz.offlineFrameMs(frame, spec.fps, 1)) ?: spec.baseParams
         viz.setParams(p)
         // Keyframes can change reactSeed mid-export, so this resolves per frame like live does.
         val routes = styleReactions.routesFor(sceneFactory.sceneId, p.reactSeed, spec.reactions, HandMask.current)
@@ -145,8 +139,11 @@ class OffscreenSceneRenderer(
             nativeReactions = routes
         }
         // Exactly the audio up to the end of this frame, then a render steps the engine by 1/fps.
-        audio?.deliverUntilMs(nextTimeMs) { pcm, frames, channels, rate -> viz.writeAudio(pcm, frames, channels, rate) }
-        viz.render(timeMs / 1000.0, targetFbo)
+        audio?.let { a ->
+            val until = NativeViz.offlineAudioUntil(frame, spec.fps, 1, a.sampleRate())
+            a.deliverUntil(until) { pcm, n, ch, rate -> viz.writeAudio(pcm, n, ch, rate) }
+        }
+        viz.renderOffscreenFrame(frame, spec.fps, 1, targetFbo)
     }
 
     /** Frees the native renderer. Safe to call more than once. */

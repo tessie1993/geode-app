@@ -171,6 +171,9 @@ jobs:
           # The raw-PCM hand-off: each pushed block reaches the scenes once, so a paused pulse decays.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/pcm_handoff_test.cpp -o pcm_handoff_test
           ./pcm_handoff_test
+          # An export segment's style schedule: every later style is gated by the entitlement (#357).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/style_schedule_test.cpp core/viz/StyleSchedule.cpp -o style_schedule_test
+          ./style_schedule_test
 
       # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes, ranges, and
       # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.

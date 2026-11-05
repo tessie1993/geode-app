@@ -10,7 +10,13 @@ namespace {
 constexpr int kBeatCountWrap = 4096;
 }
 
-void StyleSchedule::set(std::vector<StyleCue> cues, std::vector<std::string> beatCutIds, int everyBeats) {
+void StyleSchedule::set(std::vector<StyleCue> cues, std::vector<std::string> beatCutIds, int everyBeats,
+                        const std::vector<std::string>& lockedIds) {
+    const auto locked = [&lockedIds](const std::string& id) {
+        return std::find(lockedIds.begin(), lockedIds.end(), id) != lockedIds.end();
+    };
+    std::erase_if(cues, [&locked](const StyleCue& cue) { return locked(cue.sceneId); });
+    std::erase_if(beatCutIds, locked);
     std::stable_sort(cues.begin(), cues.end(), [](const StyleCue& a, const StyleCue& b) { return a.atMs < b.atMs; });
     cues_ = std::move(cues);
     cut_ = std::move(beatCutIds);

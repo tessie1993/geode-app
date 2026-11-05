@@ -37,6 +37,7 @@ add_library(geode_core STATIC
     viz/Params.cpp
     viz/ParamsFields.cpp
     viz/Lfo.cpp
+    viz/ModTargets.cpp
     viz/Macros.cpp
     viz/Director.cpp
     viz/NoteResponse.cpp

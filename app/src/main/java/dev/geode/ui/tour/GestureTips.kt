@@ -3,6 +3,7 @@ package dev.geode.ui.tour
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.annotation.StringRes
+import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -84,7 +85,35 @@ object GestureTips {
     internal suspend fun attach(context: Context) {
         if (seen != null) return
         val file = withContext(Dispatchers.IO) { context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE) }
-        val read = withContext(Dispatchers.IO) { file.getStringSet(KEY_SEEN, emptySet()).orEmpty().toMutableSet() }
+        val read = withContext(Dispatchers.IO) { seenIn(file) }
+        use(file, read)
+    }
+
+    /**
+     * Test seam (#330): the same attach from a preferences object, read on the caller's thread, so
+     * a JVM test can hand in an in-memory file instead of a [Context] it cannot build.
+     */
+    @VisibleForTesting
+    internal fun attachTo(file: SharedPreferences) = use(file, seenIn(file))
+
+    /**
+     * Test seam (#330): forgets the attached file and everything counted, as a fresh process
+     * would. The object lives as long as the test JVM, so each test starts from here.
+     */
+    @VisibleForTesting
+    internal fun detach() {
+        counts.clear()
+        showing = null
+        prefs = null
+        seen = null
+    }
+
+    private fun seenIn(file: SharedPreferences) = file.getStringSet(KEY_SEEN, emptySet()).orEmpty().toMutableSet()
+
+    private fun use(
+        file: SharedPreferences,
+        read: MutableSet<String>,
+    ) {
         prefs = file
         seen = read
     }

@@ -34,6 +34,22 @@ class CatalogueTest {
     }
 
     @Test
+    fun everyStyleCarriesItsLookGroup() {
+        // The look column sits between the kind and the per-style scopes; a shifted field would show
+        // up here as a scope name read as a look, or Detail lost from a marched style.
+        val looks = setOf("FLOWING", "LIVING", "PSYCHEDELIC", "FRACTALS", "SPACE", "FLY_THROUGH", "GLASS", "PATTERNS", "CLASSIC")
+        Catalogue.styles.forEach { assertTrue(it.id, it.look in looks) }
+        assertEquals(looks, Catalogue.styles.mapTo(mutableSetOf()) { it.look })
+        assertEquals("FLOWING", Catalogue.style("silk_web")?.look)
+        assertEquals("CLASSIC", Catalogue.style(SceneIds.MILKDROP)?.look)
+        assertEquals("FLY_THROUGH", Catalogue.style("terra_ridge")?.look)
+        assertEquals("PSYCHEDELIC", Catalogue.style("winter")?.look)
+        assertEquals("FRACTALS", Catalogue.style("mandelbox_cathedral")?.look)
+        assertEquals(setOf(ParamScope.MARCH_DETAIL), Catalogue.style("mandelbox_cathedral")?.scopes)
+        assertEquals(emptySet<ParamScope>(), Catalogue.style(SceneIds.PLASMA)?.scopes)
+    }
+
+    @Test
     fun everyDedicatedRendererStyleHasALabel() {
         val labelled = setOf(SceneKind.SILK, SceneKind.LIFE, SceneKind.MYCELIUM, SceneKind.ACID, SceneKind.FLUID, SceneKind.CYMATICS)
         Catalogue.styles.filter { it.kind in labelled }.forEach { style ->

@@ -47,45 +47,75 @@ constexpr std::array<const char*, 25> kLooseMarched = {
     "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral",
 };
 
+// The look group of each loose shader style (the owner's tags, first drafted in the Styles page's
+// StyleLookTags). Every loose style is listed; catalogue_test fails a loose style missing here, so a
+// new one is placed on purpose. Winter had no tag there and showed under Psychedelic; it keeps that.
+struct LooseLook {
+    const char* id;
+    Look look;
+};
+constexpr std::array<LooseLook, 60> kLooseLooks = {{
+    {"julia", Look::Fractals},           {"tunnel", Look::FlyThrough},       {"mandel", Look::Fractals},
+    {"kaleido", Look::Patterns},         {"plasma", Look::Flowing},          {"bars", Look::Classic},
+    {"ring", Look::Classic},             {"scope", Look::Classic},           {"liss", Look::Classic},
+    {"warp", Look::Flowing},             {"grid", Look::Patterns},           {"voronoi", Look::Patterns},
+    {"metaballs", Look::Flowing},        {"ripples", Look::Flowing},         {"starfield", Look::Space},
+    {"waves", Look::Classic},            {"hexgrid", Look::Patterns},        {"spiral", Look::Patterns},
+    {"aurora", Look::Space},             {"solar", Look::Space},             {"winter", Look::Psychedelic},
+    {"lava", Look::Flowing},             {"vanishing", Look::FlyThrough},    {"morphogen", Look::Flowing},
+    {"nebula", Look::Space},             {"noneuclid", Look::FlyThrough},    {"kifs", Look::Fractals},
+    {"orb_lattice", Look::Glass},        {"rod_tunnel", Look::FlyThrough},   {"neon_tiles", Look::Glass},
+    {"chroma_orb", Look::Glass},         {"mandala_dome", Look::Patterns},   {"bead_vortex", Look::Glass},
+    {"merkaba_grid", Look::Glass},       {"spiral_eye", Look::Patterns},     {"blacklight_bloom", Look::Glass},
+    {"fractal_temple", Look::Fractals},  {"curl_bloom", Look::Flowing},      {"nectar_flow", Look::Flowing},
+    {"crystal_canyon", Look::FlyThrough}, {"neon_city", Look::Glass},        {"particle_tunnel", Look::FlyThrough},
+    {"chrome_nebula", Look::Space},      {"fractal_dive", Look::FlyThrough}, {"aurora_ocean", Look::Space},
+    {"spectrum_terrain", Look::FlyThrough}, {"outrun_drive", Look::FlyThrough}, {"menger_core", Look::Fractals},
+    {"gyroid_cavern", Look::FlyThrough}, {"ringed_planet", Look::Space},     {"jelly_abyss", Look::Flowing},
+    {"ribbon_storm", Look::Flowing},     {"prism_rain", Look::Glass},        {"supershape", Look::Fractals},
+    {"fractal_tunnel", Look::FlyThrough}, {"glow_vortex", Look::Glass},      {"neon_chrome_sea", Look::Glass},
+    {"black_hole", Look::Space},         {"hex_hive", Look::Patterns},       {"mandelbox_cathedral", Look::Fractals},
+}};
+
 constexpr std::array<Family, 10> kFamilies = {{
     // Fractal trees: branching folded distance fields, flown through or orbited.
-    {"arbor", "arbor_", "lib_arbor",
+    {"arbor", "arbor_", "lib_arbor", Look::Fractals,
      {"arbor_grove", "arbor_willow", "arbor_coral", "arbor_frost", "arbor_bolt", "arbor_roots", "arbor_bonsai", "arbor_canopy",
       "arbor_rosette", "arbor_spire", "arbor_synapse", "arbor_sakura"}},
     // Ray-marched power-N Mandelbulbs and their Julia relatives.
-    {"bulb", "bulb_", "lib_bulb",
+    {"bulb", "bulb_", "lib_bulb", Look::Fractals,
      {"bulb_classic", "bulb_julia", "bulb_slice", "bulb_lotus", "bulb_ink", "bulb_glow", "bulb_cavern", "bulb_shell",
       "bulb_prism", "bulb_contour", "bulb_chrome", "bulb_hybrid"}},
     // Polar petal fields and mandalas that bloom out of a glowing core.
-    {"chrysanthemum", "chrys_", "lib_chrys",
+    {"chrysanthemum", "chrys_", "lib_chrys", Look::Psychedelic,
      {"chrys_bloom", "chrys_phyllo", "chrys_dahlia", "chrys_lotus", "chrys_meadow", "chrys_corolla", "chrys_glass", "chrys_ink",
       "chrys_neon", "chrys_fall", "chrys_kaleido", "chrys_tunnel"}},
     // Nested domain warps, often folded into a kaleidoscope.
-    {"lucid", "lucid_", "lib_lucid",
+    {"lucid", "lucid_", "lib_lucid", Look::Psychedelic,
      {"lucid_weave", "lucid_mandala", "lucid_spiral", "lucid_tunnel", "lucid_disc", "lucid_hive", "lucid_ink", "lucid_mirror",
       "lucid_bulge", "lucid_petal", "lucid_lattice", "lucid_vortex"}},
     // Fly-through dives along five camera paths.
-    {"dive", "dive_", "lib_dive",
+    {"dive", "dive_", "lib_dive", Look::FlyThrough,
      {"dive_lattice", "dive_jewel", "dive_mushroom", "dive_gyro", "dive_mandala", "dive_serpent", "dive_helix",
       "dive_accordion", "dive_orbit", "dive_neon", "dive_cycle", "dive_show"}},
     // Ray-traced glass: refraction, dispersion, thin films and caustic light.
-    {"glass", "glass_", "lib_glass",
+    {"glass", "glass_", "lib_glass", Look::Glass,
      {"glass_orb", "glass_pool", "glass_prism", "glass_lens", "glass_drops", "glass_bubbles", "glass_marble", "glass_caustic",
       "glass_cubes", "glass_gem", "glass_ice", "glass_knot"}},
     // Galaxies and gas clouds.
-    {"nebula", "nebula_", "lib_nebula",
+    {"nebula", "nebula_", "lib_nebula", Look::Space,
      {"nebula_dust", "nebula_spiral", "nebula_ring", "nebula_veil", "nebula_pulsar", "nebula_cluster", "nebula_nova",
       "nebula_horizon", "nebula_pillars", "nebula_flight", "nebula_storm", "nebula_web"}},
     // Ray-marched heightfield landscapes.
-    {"terrain", "terra_", "lib_terra",
+    {"terrain", "terra_", "lib_terra", Look::FlyThrough,
      {"terra_ridge", "terra_dunes", "terra_canyon", "terra_glacier", "terra_isles", "terra_mesa", "terra_volcano",
       "terra_terraces", "terra_moon", "terra_night", "terra_topo", "terra_wire"}},
     // Truchet tilings whose paths rewire on the beat.
-    {"truchet", "truchet_", "lib_truchet",
+    {"truchet", "truchet_", "lib_truchet", Look::Patterns,
      {"truchet_arcs", "truchet_hex", "truchet_weave", "truchet_maze", "truchet_tri", "truchet_quad", "truchet_tubes",
       "truchet_neon", "truchet_flow", "truchet_knot", "truchet_tunnel", "truchet_relief"}},
     // Falls and orbits through a 3D Apollonian sphere packing (after PR #7), one material each.
-    {"foam", "foam_", "lib_foam",
+    {"foam", "foam_", "lib_foam", Look::Fractals,
      {"foam_fall", "foam_neon", "foam_soap", "foam_chrome", "foam_ember", "foam_ice", "foam_orb",
       "foam_kaleido", "foam_ink", "foam_coral", "foam_ghost", "foam_show"}},
 }};
@@ -228,6 +258,26 @@ constexpr const char* kScopeNames[kScopeCount] = {
     "FLOW_FIELD_SIM", "RIPPLE_OVERLAY",
 };
 
+constexpr const char* kLookNames[kLookCount] = {"FLOWING", "LIVING", "PSYCHEDELIC", "FRACTALS", "SPACE",
+                                                "FLY_THROUGH", "GLASS", "PATTERNS", "CLASSIC"};
+
+// A dedicated renderer's styles all share one group; shader styles go by family or by their own tag.
+Look kindLook(Kind k) {
+    switch (k) {
+        case Kind::Silk:
+        case Kind::Fluid:
+        case Kind::CurlFlow:
+        case Kind::Water: return Look::Flowing;
+        case Kind::Life:
+        case Kind::Mycelium: return Look::Living;
+        case Kind::Acid: return Look::Psychedelic;
+        case Kind::Cymatics: return Look::Patterns;
+        case Kind::Milkdrop: return Look::Classic;
+        case Kind::Shader: break;
+    }
+    return Look::Psychedelic;
+}
+
 template <typename Table>
 bool listed(const Table& table, const std::string& id) {
     for (const char* known : table) {
@@ -307,7 +357,7 @@ std::string build() {
         out += '\n';
     }
     for (const auto& id : allIds()) {
-        out += "style|" + id + "|" + name(kindOf(id));
+        out += "style|" + id + "|" + name(kindOf(id)) + "|" + name(lookOf(id));
         if (isMarched(id)) out += "|MARCH_DETAIL";
         out += '\n';
     }
@@ -391,6 +441,19 @@ float spinRate(const std::string& id) {
 
 const std::array<Family, 10>& families() { return kFamilies; }
 
+Look lookOf(const std::string& id) {
+    for (const auto& family : kFamilies) {
+        if (listed(family.ids, id)) return family.look;
+    }
+    const Kind kind = kindOf(id);
+    if (kind != Kind::Shader) return kindLook(kind);
+    for (const LooseLook& loose : kLooseLooks) {
+        if (id == loose.id) return loose.look;
+    }
+    // A loose style nobody tagged still shows somewhere; catalogue_test fails it so it gets a tag.
+    return Look::Psychedelic;
+}
+
 Scope scopeOf(const std::string& paramKey) {
     for (const auto& entry : kKeyScopes) {
         if (paramKey == entry.key) return entry.scope;
@@ -405,6 +468,7 @@ bool reaches(Scope scope, const std::string& styleId) {
 
 const char* name(Kind kind) { return kKindNames[static_cast<int>(kind)]; }
 const char* name(Scope scope) { return kScopeNames[static_cast<int>(scope)]; }
+const char* name(Look look) { return kLookNames[static_cast<int>(look)]; }
 
 const std::string& text() {
     static const std::string kText = build();

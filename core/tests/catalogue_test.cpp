@@ -273,6 +273,72 @@ void paramScopesMatchTheOldParamScope() {
     for (const auto& id : catalogue::allIds()) check(catalogue::reaches(Scope::Universal, id), id + " is reached by universal");
 }
 
+// The Styles page's look groups, as the Kotlin StyleLookTags placed them before the tags moved here:
+// a family style by its family, a dedicated renderer's style by its kind, a loose shader one by one,
+// and an untagged loose style under Psychedelic (only Winter was).
+const std::map<std::string, std::string> kOldFamilyLooks = {
+    {"bulb", "FRACTALS"}, {"arbor", "FRACTALS"}, {"foam", "FRACTALS"},       {"dive", "FLY_THROUGH"},
+    {"terrain", "FLY_THROUGH"}, {"nebula", "SPACE"}, {"glass", "GLASS"},     {"truchet", "PATTERNS"},
+    {"lucid", "PSYCHEDELIC"},   {"chrysanthemum", "PSYCHEDELIC"},
+};
+const std::map<Kind, std::string> kOldKindLooks = {
+    {Kind::Silk, "FLOWING"}, {Kind::Fluid, "FLOWING"},     {Kind::CurlFlow, "FLOWING"}, {Kind::Water, "FLOWING"},
+    {Kind::Life, "LIVING"},  {Kind::Mycelium, "LIVING"},   {Kind::Acid, "PSYCHEDELIC"}, {Kind::Cymatics, "PATTERNS"},
+    {Kind::Milkdrop, "CLASSIC"},
+};
+const std::map<std::string, std::string> kOldLooseLooks = [] {
+    std::map<std::string, std::string> out;
+    const auto put = [&out](std::initializer_list<const char*> ids, const char* look) {
+        for (const char* id : ids) out[id] = look;
+    };
+    put({"julia", "mandel", "kifs", "fractal_temple", "menger_core", "mandelbox_cathedral", "supershape"}, "FRACTALS");
+    put({"tunnel", "rod_tunnel", "particle_tunnel", "fractal_dive", "fractal_tunnel", "outrun_drive", "vanishing",
+         "crystal_canyon", "spectrum_terrain", "gyroid_cavern", "noneuclid"},
+        "FLY_THROUGH");
+    put({"starfield", "nebula", "solar", "chrome_nebula", "ringed_planet", "black_hole", "aurora", "aurora_ocean"}, "SPACE");
+    put({"orb_lattice", "neon_tiles", "chroma_orb", "blacklight_bloom", "prism_rain", "glow_vortex", "neon_chrome_sea",
+         "neon_city", "merkaba_grid", "bead_vortex"},
+        "GLASS");
+    put({"kaleido", "grid", "voronoi", "hexgrid", "spiral", "mandala_dome", "hex_hive", "spiral_eye"}, "PATTERNS");
+    put({"bars", "ring", "scope", "liss", "waves"}, "CLASSIC");
+    put({"plasma", "warp", "metaballs", "lava", "morphogen", "curl_bloom", "nectar_flow", "jelly_abyss", "ribbon_storm",
+         "ripples"},
+        "FLOWING");
+    put({"winter"}, "PSYCHEDELIC");
+    return out;
+}();
+
+void everyStyleKeepsItsOldLookGroup() {
+    const std::set<std::string> names = {"FLOWING", "LIVING", "PSYCHEDELIC", "FRACTALS", "SPACE",
+                                         "FLY_THROUGH", "GLASS", "PATTERNS", "CLASSIC"};
+    std::set<std::string> used;
+    for (int l = 0; l < catalogue::kLookCount; ++l) used.insert(catalogue::name(static_cast<catalogue::Look>(l)));
+    check(used == names, "look names are Kotlin's StyleLook entries");
+    std::map<std::string, std::string> familyOf;
+    for (const auto& family : catalogue::families()) {
+        for (const char* id : family.ids) familyOf[id] = family.name;
+    }
+    int loose = 0;
+    for (const auto& id : catalogue::allIds()) {
+        const std::string got = catalogue::name(catalogue::lookOf(id));
+        std::string want;
+        if (const auto f = familyOf.find(id); f != familyOf.end()) {
+            want = kOldFamilyLooks.at(f->second);
+        } else if (catalogue::kindOf(id) != Kind::Shader) {
+            want = kOldKindLooks.at(catalogue::kindOf(id));
+        } else {
+            ++loose;
+            const auto tag = kOldLooseLooks.find(id);
+            check(tag != kOldLooseLooks.end(), "loose style " + id + " has a look tag");
+            if (tag != kOldLooseLooks.end()) want = tag->second;
+        }
+        check(names.count(got) == 1, id + " has a look group");
+        check(got == want, "look of " + id + ": got " + got + ", the Kotlin tags gave " + want);
+    }
+    check(loose == 60 && kOldLooseLooks.size() == 60, "every loose style is tagged once");
+    check(catalogue::lookOf("no_such_style") == catalogue::Look::Flowing, "an unknown id is silk, so flowing");
+}
+
 std::vector<std::string> split(const std::string& s, char sep) {
     std::vector<std::string> out;
     std::string cur;
@@ -291,7 +357,8 @@ void textRoundTrips() {
         if (f[0] == "style") {
             styleIds.push_back(f[1]);
             check(f[2] == catalogue::name(catalogue::kindOf(f[1])), "kind row of " + f[1]);
-            check((f.size() == 4 && f[3] == "MARCH_DETAIL") == catalogue::isMarched(f[1]), "marched field of " + f[1]);
+            check(f.size() >= 4 && f[3] == catalogue::name(catalogue::lookOf(f[1])), "look field of " + f[1]);
+            check((f.size() == 5 && f[4] == "MARCH_DETAIL") == catalogue::isMarched(f[1]), "marched field of " + f[1]);
         } else if (f[0] == "kind") {
             ++kinds;
         } else if (f[0] == "family") {
@@ -352,6 +419,7 @@ int main(int argc, char** argv) {
     spinRateAndShaderStyleAgree();
     marchedStylesMatchTheOldSet();
     paramScopesMatchTheOldParamScope();
+    everyStyleKeepsItsOldLookGroup();
     textRoundTrips();
     textEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/catalogue.txt");
     if (failures == 0) std::printf("catalogue_test: all checks passed\n");

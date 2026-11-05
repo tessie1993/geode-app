@@ -87,7 +87,7 @@ function resolveIncludes(source, registry, chain = []) {
   return out.join('\n');
 }
 
-// `style|<id>|<KIND>[|MARCH_DETAIL]`, in catalogue order; SHADER is the kind
+// `style|<id>|<KIND>|<LOOK>[|MARCH_DETAIL]`, in catalogue order; SHADER is the kind
 // ShaderScene draws from shaders/<id>_frag.glsl (the loose styles and every
 // style family).
 function shaderIds() {

@@ -139,8 +139,10 @@ uniform vec4 uWorld[22];
 
 /**
  * The baked CC0 assets (core/viz/world/WorldAssets, tools/morph_world_assets): twenty-four models as signed
- * distance volumes, one 32^3 slab each stacked along z (32 x 32 x 768, R8, linear, clamped), and
- * eight grey material detail maps (128^2 layers, mirrored repeat). Read only while WG_ASSETS is 1.
+ * distance volumes, one 32^3 tile each in a 6 x 4 atlas side by side in x and y (192 x 128 x 32, R8,
+ * linear, clamped; ShaderScene repacks the file's z-stacked slabs at upload so no side passes the
+ * 256 GLES 3.0 promises), and eight grey material detail maps (128^2 layers, mirrored repeat).
+ * Read only while WG_ASSETS is 1.
  */
 uniform highp sampler3D uWorldShapes;
 uniform highp sampler2DArray uWorldTex;
@@ -155,6 +157,9 @@ void worldCamera(vec2 uv, out vec3 ro, out vec3 rd) {
 }
 #define WG_SHAPES 24.0
 #define WG_SHAPE_RES 32.0
+/** The atlas grid (WorldAssets kAtlasCols, kAtlasRows): shape i at tile (i mod cols, i / cols). */
+#define WG_ATLAS_COLS 6.0
+#define WG_ATLAS_ROWS 4.0
 #define WG_SHAPE_LO -0.25
 #define WG_SHAPE_HI 0.75
 
@@ -306,9 +311,14 @@ float wShape(float index, vec3 m) {
     vec3 c = clamp(m, -1.0, 1.0);
     float out_ = length(m - c);
     vec3 uvw = c * 0.5 + 0.5;
-    // The slab's own texel rows only, so linear filtering never reads the next model.
-    float z = (index * WG_SHAPE_RES + clamp(uvw.z * WG_SHAPE_RES, 0.5, WG_SHAPE_RES - 0.5)) / (WG_SHAPES * WG_SHAPE_RES);
-    float d = mix(WG_SHAPE_LO, WG_SHAPE_HI, texture(uWorldShapes, vec3(uvw.xy, z)).r);
+    // The tile's own texel centres only, so linear filtering never reads a neighbouring model
+    // (WorldAssets::atlasDistance is this addressing on the CPU).
+    float i = clamp(floor(index + 0.5), 0.0, WG_SHAPES - 1.0);
+    float row = floor((i + 0.5) / WG_ATLAS_COLS);
+    vec3 origin = vec3(i - row * WG_ATLAS_COLS, row, 0.0) * WG_SHAPE_RES;
+    vec3 inTile = clamp(uvw * WG_SHAPE_RES, 0.5, WG_SHAPE_RES - 0.5);
+    vec3 size = vec3(WG_ATLAS_COLS, WG_ATLAS_ROWS, 1.0) * WG_SHAPE_RES;
+    float d = mix(WG_SHAPE_LO, WG_SHAPE_HI, texture(uWorldShapes, (origin + inTile) / size).r);
     return out_ > 0.0 ? max(out_, d - out_) : d;
 }
 

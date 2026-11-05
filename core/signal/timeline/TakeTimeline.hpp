@@ -1,7 +1,9 @@
 #pragma once
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 // A track take's choices on song time (#457, ADR 0008): the style, MilkDrop preset and every param the
@@ -65,6 +67,33 @@ private:
     uint64_t seed_;
     bool songTime_;
     std::vector<TakeChoice> choices_;
+};
+
+// Render again (#457): a take played back by an export segment's own renderer, frame by frame, with no shell in the
+// loop. The renderer holds its own copy of the timeline (taken when the segment is set up, so the shell can close its
+// handle whenever it likes) and asks for each frame's choice by render time. A take clip plays its take at speed 1
+// from an offset, so render time ms is song time songStartMs + ms. `changed` is false while the same choice stays in
+// force, so the renderer pushes params only when the performer changed something.
+class TakeReplay {
+public:
+    struct Frame {
+        const TakeChoice* choice = nullptr;  // null for an empty timeline
+        bool changed = false;
+    };
+
+    TakeReplay(TakeTimeline timeline, int64_t songStartMs) : timeline_(std::move(timeline)), songStartMs_(songStartMs) {}
+
+    // Any render time, in any order: an export renders forward, but a retried segment starts again from 0.
+    Frame at(int64_t renderMs);
+
+    uint64_t seed() const { return timeline_.seed(); }
+    int64_t songStartMs() const { return songStartMs_; }
+
+private:
+    TakeTimeline timeline_;
+    int64_t songStartMs_;
+    // The last frame's choice by index, not pointer, so a copied or moved replay never compares against another's.
+    std::ptrdiff_t last_ = -1;
 };
 
 }  // namespace geode::signal

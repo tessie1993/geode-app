@@ -260,9 +260,11 @@ class NativeViz(
 
     fun setScene(sceneId: String): Boolean = handle != 0L && GeodeNative.vizSetScene(handle, sceneId)
 
-    /** An export segment's style switches; see [GeodeNative.vizSetStyleSchedule]. */
+    /** An export segment's style switches and the take it renders again; see [GeodeNative.vizSetStyleSchedule]. */
     fun setStyleSchedule(schedule: StyleSchedule) {
-        if (handle == 0L || schedule.isEmpty) return
+        if (handle == 0L) return
+        if (schedule.takeHandle != 0L) GeodeNative.vizSetTake(handle, schedule.takeHandle, schedule.takeSongMs)
+        if (schedule.isEmpty) return
         GeodeNative.vizSetStyleSchedule(
             handle,
             schedule.cues.map { it.atMs.toDouble() }.toDoubleArray(),
@@ -273,6 +275,9 @@ class NativeViz(
             schedule.lockedStyleIds.toTypedArray(),
         )
     }
+
+    /** Render again: the take's params for this frame, applied natively; their reactSeed, or -1 with no take. */
+    fun takeFrame(renderMs: Long): Int = if (handle != 0L) GeodeNative.vizTakeFrame(handle, renderMs) else -1
 
     fun warmTransition(id: String) {
         if (handle != 0L) GeodeNative.vizWarmTransition(handle, id)

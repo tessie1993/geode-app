@@ -4,7 +4,8 @@
 // What is pinned: the timeline round-trips through its file exactly (style, preset, every param bit for bit, the
 // seed, the clock); recording keeps only changes, thins a drag, punches in on a seek back and stops at its cap;
 // replay finds the choice in force at any song position and lists every style switch; a mic or capture take does
-// not render again; a damaged file is refused rather than half read.
+// not render again; a damaged file is refused rather than half read; Render again's replay maps a segment's render
+// time onto song time, flags only the frames where the choice changed, and keeps its own copy and the take's seed.
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -15,6 +16,7 @@
 #include "signal/timeline/TakeTimeline.hpp"
 
 using geode::signal::TakeChoice;
+using geode::signal::TakeReplay;
 using geode::signal::TakeTimeline;
 
 namespace {
@@ -142,6 +144,44 @@ void aDamagedFileIsRefused() {
           "a choice carries every param it does not change from the one before");
 }
 
+void renderAgainReplaysOnSongTime() {
+    TakeTimeline t(42);
+    auto a = params(6.0f);
+    auto b = params(7.0f);
+    t.note(10'000, "a", "", a.data(), kFields);
+    t.note(12'000, "a", "", b.data(), kFields);
+    t.note(15'000, "b", "y.milk", b.data(), kFields);
+    // A segment that starts 11 s into the song: render time 0 is song 11 000.
+    TakeReplay replay(t, 11'000);
+    t = TakeTimeline();  // the shell may free its handle: the replay holds its own copy
+    check(replay.seed() == 42, "the replay keeps the take's seed for the director");
+    auto f = replay.at(0);
+    check(f.choice && f.changed && bitsEqual(f.choice->params, a), "the first frame applies the choice in force at song 11 s");
+    f = replay.at(500);
+    check(f.choice && !f.changed, "a frame under the same choice pushes nothing");
+    f = replay.at(1'000);
+    check(f.choice && f.changed && bitsEqual(f.choice->params, b), "song 12 s: the drag's next choice");
+    f = replay.at(3'999);
+    check(f.choice && !f.changed && f.choice->sceneId == "a", "just before the switch, still the old style");
+    f = replay.at(4'000);
+    check(f.choice && f.changed && f.choice->sceneId == "b" && f.choice->milkPath == "y.milk", "song 15 s: the switch");
+    f = replay.at(0);
+    check(f.choice && f.changed && bitsEqual(f.choice->params, a), "a retried segment starts again from its opening choice");
+    TakeReplay copy = replay;
+    check(!copy.at(0).changed, "a copy carries on from where it was");
+
+    TakeReplay empty(TakeTimeline(1), 0);
+    const auto none = empty.at(0);
+    check(none.choice == nullptr && !none.changed, "an empty take replays nothing");
+    const auto file = TakeTimeline::decode("geode-take 1\nseed 9\nclock song\nc 5000\ta\t\t2\t0:1,1:2\n");
+    check(file.has_value(), "a stored take decodes for a replay");
+    if (file) {
+        TakeReplay early(*file, 0);
+        const auto first = early.at(0);
+        check(first.choice && first.choice->atMs == 5000 && early.seed() == 9, "before the first choice, the opening look");
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -152,6 +192,7 @@ int main() {
     aWallTimeTakeDoesNotRenderAgain();
     aFullTimelineKeepsNoMore();
     aDamagedFileIsRefused();
+    renderAgainReplaysOnSongTime();
     if (failures == 0) std::printf("take_timeline_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

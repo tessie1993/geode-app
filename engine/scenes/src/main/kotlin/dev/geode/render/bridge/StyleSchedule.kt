@@ -15,8 +15,9 @@ data class StyleSchedule(
     val beatCutIds: List<String> = emptyList(),
     val everyBeats: Int = 4,
     val lockedStyleIds: List<String> = emptyList(),
-    /** The take's play seed (#457): the render's director then makes the take's kinds of choices. Null: the live play's. */
-    val directorSeed: Long? = null,
+    /** Render again (#457): a take's native choices (copied natively; 0 = none) from song position [takeSongMs]. */
+    val takeHandle: Long = 0L,
+    val takeSongMs: Long = 0L,
 ) {
     /** Switch to [sceneId] (and the MilkDrop preset [milkPath], if any) at [atMs] since the segment began. */
     data class Cue(

@@ -135,6 +135,14 @@ std::vector<const TakeChoice*> TakeTimeline::styleChanges() const {
     return out;
 }
 
+TakeReplay::Frame TakeReplay::at(int64_t renderMs) {
+    const TakeChoice* choice = timeline_.stateAt(songStartMs_ + renderMs);
+    const std::ptrdiff_t index = choice ? choice - timeline_.choices().data() : -1;
+    const bool changed = index != last_;
+    last_ = index;
+    return Frame{choice, changed};
+}
+
 std::string TakeTimeline::encode() const {
     std::ostringstream out;
     out << kMagic << ' ' << kVersion << '\n';

@@ -335,6 +335,14 @@ GEODE_API int         geode_take_timeline_state_at(const geode_take_timeline*, i
 GEODE_API int64_t     geode_take_timeline_choice_at_ms(const geode_take_timeline*, int index);
 GEODE_API size_t      geode_take_timeline_choice_style(const geode_take_timeline*, int index, char* out, size_t capacity);
 GEODE_API int         geode_take_timeline_style_changes(const geode_take_timeline*, int* indices, int capacity);
+/* Render again (#457), on an export renderer: the take this segment replays. The renderer copies the timeline (the
+ * handle may be destroyed straight after) and plays it from song position song_start_ms at render time 0 (a take clip
+ * plays at speed 1). The director pinned by geode_viz_set_director, before or after, runs on the take's seed instead
+ * of the one it was given. NULL clears it. take_frame, on the render thread before geode_viz_render, applies the
+ * take's params at render_ms (only when the choice in force changed) and returns their reactSeed, so the shell can
+ * resolve the style's reactions; -1 when no take is set, and the shell sets params itself. */
+GEODE_API void        geode_viz_set_take(geode_viz*, const geode_take_timeline*, int64_t song_start_ms);
+GEODE_API int         geode_viz_take_frame(geode_viz*, int64_t render_ms);
 
 #ifdef __cplusplus
 }

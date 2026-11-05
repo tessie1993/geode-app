@@ -14,6 +14,7 @@ import dev.geode.data.ExportPrefsStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GuiPrefs
 import dev.geode.data.SaveTarget
+import dev.geode.data.TakeChoices
 import dev.geode.data.TakeReplay
 import dev.geode.data.TakeStore
 import dev.geode.editor.AnimatableParams
@@ -772,8 +773,11 @@ internal class ExportController(
             sheet.tracks.any {
                 it.enabled && (it.clipId == null || it.clipId == clip.id) && AnimatableParams.find(it.paramId)?.isScene == true
             }
+        // Render again (#457): a take's native choices play inside the export's renderer, params and seed alike
+        // (OffscreenSceneRenderer asks it per frame); only keyframes over the clip keep the look in Kotlin here.
+        val native = take as? TakeChoices
         val paramsAt: ((Long) -> SceneParams)? =
-            if (take == null && !animated) {
+            if ((take == null || native != null) && !animated) {
                 null
             } else {
                 { ms: Long ->
@@ -790,8 +794,8 @@ internal class ExportController(
             }
         // Every later style is gated natively against the entitlement (#357); the opening one in render().
         val gated = if (switches.isEmpty) switches else switches.copy(lockedStyleIds = lockedStyleIds())
-        // A take with choices renders with the seed it was performed with (#457).
-        val styleSchedule = take?.seed?.let { gated.copy(directorSeed = it) } ?: gated
+        // The renderer copies the choices and runs its director on the take's seed (#457).
+        val styleSchedule = native?.let { gated.copy(takeHandle = it.nativeHandle, takeSongMs = it.songMs(takeStartMs)) } ?: gated
         return SegmentLook(factoryFor(sceneId, milkPath), paramsAt, styleSchedule)
     }
 

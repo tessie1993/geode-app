@@ -101,4 +101,15 @@ Java_dev_geode_engine_bridge_GeodeNative_takeTimelineStyleChanges(JNIEnv* env, j
     return out;
 }
 
+// Render again (#457): an export renderer replays the take natively; see geode_viz_set_take.
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetTake(JNIEnv*, jobject, jlong viz, jlong take, jlong songStartMs) {
+    geode_viz_set_take(reinterpret_cast<geode_viz*>(viz), timelineOf(take), static_cast<int64_t>(songStartMs));
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizTakeFrame(JNIEnv*, jobject, jlong viz, jlong renderMs) {
+    return geode_viz_take_frame(reinterpret_cast<geode_viz*>(viz), static_cast<int64_t>(renderMs));
+}
+
 }

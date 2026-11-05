@@ -21,7 +21,8 @@ import dev.geode.util.bestEffort
  * automation that drives it.
  *
  * [paramsAt] supplies the keyframed parameters for a timeline position, measured from the start
- * of the exported range; when it is null every frame uses [baseParams].
+ * of the exported range; when it is null every frame uses [baseParams], or a take's own params
+ * when [styleSchedule] carries one (Render again, played natively).
  */
 data class OffscreenRenderSpec(
     val width: Int,
@@ -135,11 +136,13 @@ class OffscreenSceneRenderer(
         val fps = spec.fps
         val timeMs = frame * 1000L / fps
         val nextTimeMs = (frame + 1) * 1000L / fps
-        // Quality never adapts downward in an export; the thermal half is the offscreen pin above.
-        val p = (spec.paramsAt?.invoke(timeMs) ?: spec.baseParams).copy(fluidAutoQuality = false)
-        viz.setParams(p)
-        // Keyframes can change reactSeed mid-export, so this resolves per frame like live does.
-        val routes = styleReactions.routesFor(sceneFactory.sceneId, p.reactSeed, spec.reactions, HandMask.current)
+        // A take rendered again plays its params natively and answers their reactSeed (-1: none, or keyframes own them).
+        val takeSeed = if (spec.paramsAt == null) viz.takeFrame(timeMs) else -1
+        val p = spec.paramsAt?.invoke(timeMs) ?: spec.baseParams
+        if (takeSeed < 0) viz.setParams(p)
+        // Keyframes and takes can change reactSeed mid-export, so this resolves per frame like live does.
+        val seed = if (takeSeed < 0) p.reactSeed else takeSeed
+        val routes = styleReactions.routesFor(sceneFactory.sceneId, seed, spec.reactions, HandMask.current)
         if (routes !== nativeReactions) {
             viz.setReactions(routes)
             nativeReactions = routes

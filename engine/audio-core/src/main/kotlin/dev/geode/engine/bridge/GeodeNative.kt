@@ -666,6 +666,22 @@ object GeodeNative {
     /** The indices of every style switch, the first choice included. */
     external fun takeTimelineStyleChanges(handle: Long): IntArray
 
+    /**
+     * Render again (#457), on export renderer [handle]: replays take choices [take] (copied natively, so it may be
+     * destroyed after; 0 clears) from song position [songStartMs] at render time 0, and pins the director on its seed.
+     */
+    external fun vizSetTake(
+        handle: Long,
+        take: Long,
+        songStartMs: Long,
+    )
+
+    /** Applies the take's params at [renderMs] natively; their reactSeed, or -1 with no take (set params yourself). */
+    external fun vizTakeFrame(
+        handle: Long,
+        renderMs: Long,
+    ): Int
+
     /** Ends the take and finishes its MP4: its length in ms, or -1 with no picture. Blocks; never on Main. */
     external fun takeEnd(): Long
 

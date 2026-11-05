@@ -53,6 +53,12 @@ class TakeChoices private constructor(
     /** Whether "Render again" is offered: a track take with choices (native decides; #458's takes are not). */
     val rendersAgain: Boolean get() = handle != 0L && GeodeNative.takeTimelineRendersAgain(handle)
 
+    /** The native choices an export renderer copies to render the take again (`geode_viz_set_take`); 0 once closed. */
+    val nativeHandle: Long get() = handle
+
+    /** The song position of take time [ms], where an export renderer starts replaying the choices. */
+    fun songMs(ms: Long): Long = ms + offsetMs
+
     override fun stateAt(ms: Long): PerformanceTake.State? {
         val index = stateIndex(ms + offsetMs)
         if (index < 0) return null

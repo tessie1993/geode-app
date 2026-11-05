@@ -3,13 +3,9 @@
 #include <string>
 
 #include "api/geode_api.h"
-#include "signal/timeline/TakeTimeline.hpp"
+#include "api/take_timeline_handle.hpp"
 
 using geode::signal::TakeTimeline;
-
-struct geode_take_timeline {
-    TakeTimeline timeline;
-};
 
 namespace {
 

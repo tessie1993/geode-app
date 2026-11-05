@@ -188,10 +188,23 @@ jobs:
             core/viz/FlashLimiter.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp -o luminance_drive_test
           ./luminance_drive_test
           # glTF import (#474): #455's limits on fixture .glb files built by the test, the 4x decimation
-          # with before/after counts, refusals, and the low-detail copy. Uses the cgltf and meshoptimizer submodules.
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Ithird_party/cgltf -Ithird_party/meshoptimizer/src core/tests/gltf_import_test.cpp \
-            core/scene/object/GltfImport.cpp third_party/meshoptimizer/src/simplifier.cpp third_party/meshoptimizer/src/vertexcodec.cpp \
-            third_party/meshoptimizer/src/indexcodec.cpp third_party/meshoptimizer/src/vertexfilter.cpp -o gltf_import_test
+          # with before/after counts, refusals, and the low-detail copy; and the textures (PNG, JPEG,
+          # KTX2 built in the test): role caps, mips, ASTC/ETC2 blocks decoded back, the memory budget
+          # fit and drops. Uses the cgltf, meshoptimizer and basis_universal submodules. Basis builds
+          # as upstream does (C++17, NDEBUG, its warnings off), in parallel, the same file list as
+          # geode_basisu in core/CMakeLists.txt.
+          BASISU=third_party/basis_universal
+          BASISU_DEFS="-DBASISU_SUPPORT_SSE=0 -DBASISU_SUPPORT_OPENCL=0 -DBASISD_SUPPORT_KTX2=1 -DBASISD_SUPPORT_KTX2_ZSTD=1"
+          mkdir -p basisu_obj
+          sed -n '/add_library(geode_basisu STATIC/,/zstd.c)/p' core/CMakeLists.txt | grep -oE 'encoder/[A-Za-z0-9_/]+\.cpp|transcoder/[A-Za-z0-9_]+\.cpp' \
+            | xargs -P "$(nproc)" -I{} sh -c 'g++ -std=c++17 -O2 -DNDEBUG -w -fno-strict-aliasing '"$BASISU_DEFS"' -DBASISU_SUPPORT_ASTCENC=0 \
+                -c "'"$BASISU"'/$0" -o "basisu_obj/$(echo "$0" | tr / _).o"' {}
+          gcc -O2 -DNDEBUG -w -c "$BASISU/zstd/zstd.c" -o basisu_obj/zstd.o
+          test "$(ls basisu_obj/*.o | wc -l)" -eq 32
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Ithird_party/cgltf -Ithird_party/meshoptimizer/src -I"$BASISU" $BASISU_DEFS \
+            core/tests/gltf_import_test.cpp core/scene/object/GltfImport.cpp core/scene/object/ModelTextures.cpp \
+            third_party/meshoptimizer/src/simplifier.cpp third_party/meshoptimizer/src/vertexcodec.cpp \
+            third_party/meshoptimizer/src/indexcodec.cpp third_party/meshoptimizer/src/vertexfilter.cpp basisu_obj/*.o -pthread -o gltf_import_test
           ./gltf_import_test
 
       # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes, ranges, and

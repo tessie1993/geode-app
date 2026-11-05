@@ -544,6 +544,16 @@ object GeodeNative {
     external fun paramsSchemaText(): String
 
     /**
+     * The config params schema (core/viz/ConfigTable.inc) as its versioned line table: per row the group
+     * (lfo, adsr, macro, palette, look, clip, theme), its index in the group, name, kind, default, control
+     * range and unit (`geode_config_schema_text`). The stores' clamps and defaults are to read it. Static; parse once.
+     */
+    external fun configSchemaText(): String
+
+    /** Every rolled control as `TAB|ParamKeys string` lines, in roll order (core/viz/ParamRandomizer). Static. */
+    external fun paramsRollKeys(): String
+
+    /**
      * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
      * the controls of [tab] (a ParamRandomizer roll group name; null = every group) that reach [styleId] (null = any),
      * except the newline-joined ParamKeys in [locked]. Same arguments, same look. True when it changed

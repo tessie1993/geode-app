@@ -468,6 +468,12 @@ object GeodeNative {
     external fun catalogueText(): String
 
     /**
+     * The catalogue's presets section (core/viz/CataloguePresets): the bundled looks and every bundled
+     * preset, as its versioned line table (`geode_catalogue_presets_text`). Static; parse once (ui/BuiltInPresets does).
+     */
+    external fun cataloguePresetsText(): String
+
+    /**
      * The scene params schema (core/viz/ParamTable.inc) as its versioned line table: per wire slot the
      * field's name, kind, default, control range and FADE/HOLD (`geode_params_schema_text`). Static; parse once.
      */

@@ -836,7 +836,9 @@ void SoundEngine::musical(float dt, bool warm, bool silent, GeodeSoundFrame& out
     out.hfc = s.hfc.ratio();
 
     harmony_.step(pitchMag_.data(), dt, silent, out);
-    if (out.harmonicChange > 0.0f) rhythm_.harmonyAccent(out.harmonicChange);
+    // A chord change says where the bar starts only when there are chords: on drums alone the chroma
+    // reads spill, and its "changes" would push the downbeat around.
+    if (out.harmonicChange > 0.0f) rhythm_.harmonyAccent(out.harmonicChange * harmony_.tonality());
 
     Form::Input in{};
     const float peak = std::max(s.levelPeak, 1e-6f);

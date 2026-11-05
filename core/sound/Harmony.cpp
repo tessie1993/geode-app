@@ -181,9 +181,14 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
             // classes together and no scale stood out. Log-compressed over the frame's own peak (Müller's
             // CLP chroma), so loudness divides out and a quiet third still counts beside a loud root.
             std::array<float, 12> raw{};
+            double bandPower = 0.0;
+            double peakPower = 0.0;
+            for (int k = from_; k < to_; k++) bandPower += static_cast<double>(mag[k]) * mag[k];
             for (int k = from_; k < to_; k++) {
                 const float m = mag[k];
                 if (m < 0.03f * top || m <= mag[k - 1] || m < mag[k + 1]) continue;
+                peakPower += static_cast<double>(mag[k - 1]) * mag[k - 1] + static_cast<double>(m) * m +
+                             static_cast<double>(mag[k + 1]) * mag[k + 1];
                 const float a = mag[k - 1];
                 const float c = mag[k + 1];
                 const float curve = a - 2.0f * m + c;
@@ -232,6 +237,12 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
                 medium_[i] = settle(medium_[i], raw[i], kMediumTau);
                 slow_[i] = settle(slow_[i], raw[i], kSlowTau);
             }
+            // How tonal the band is: the share of its power on the picked peaks (each peak's bin and the
+            // two beside it, a Hann main lobe). Notes put nearly all of it there; a drum's spill is a
+            // smooth slope with few local maxima and little power on them. At the medium chroma's pace,
+            // the one a harmonic change is read from.
+            const float tonal = bandPower > 0.0 ? static_cast<float>(std::min(1.0, peakPower / bandPower)) : 0.0f;
+            tonality_ = settle(tonality_, tonal, kMediumTau);
         }
     }
     normalise(fast_, out.chromaFast);

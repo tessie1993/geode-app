@@ -90,7 +90,9 @@ void testScales() {
                 t += 2.0 * part;
                 const int step = c.steps[static_cast<size_t>(t / 0.25) % c.steps.size()];
                 const double hz = hzOf(c.root + step);
-                const double drone = hzOf(c.root);
+                // The drone marks the root, so it sits where the chroma listens (Harmony hears 250–2000 Hz):
+                // A3 is 220 Hz, and the A cases drone an octave up instead of going unheard.
+                const double drone = hzOf(hzOf(c.root) < 250.0 ? c.root + 12 : c.root);
                 return static_cast<float>(0.2 * std::sin(kTau * hz * t) + 0.1 * std::sin(2 * kTau * hz * t) + 0.12 * std::sin(kTau * drone * t));
             }, 2.0);
             char at[64];

@@ -33,6 +33,9 @@ public:
     // Fills keyHue … harmonicChange and the three chroma arrays. Silence holds everything.
     void step(const float* mag, float dt, bool silent, GeodeSoundFrame& out);
     void reset();
+    // 0..1: how much of the chroma band's power sits on spectral peaks (notes) rather than a smooth
+    // spread (a drum's spill). A harmonic change counts toward the bar only as far as it is tonal.
+    float tonality() const { return tonality_; }
 
 private:
     void detectScale();
@@ -48,6 +51,7 @@ private:
     std::array<float, 12> medium_{};
     std::array<float, 12> slow_{};
     bool heard_ = false;
+    float tonality_ = 0.0f;
     float heardSeconds_ = 0.0f;  // audio the chromas have averaged, up to their mean-to-average handover
     int key_ = -1;          // 0..11 major on that tonic, 12..23 minor; -1 before any
     float keyHold_ = 0.0f;  // how long the current key has fitted worse than another

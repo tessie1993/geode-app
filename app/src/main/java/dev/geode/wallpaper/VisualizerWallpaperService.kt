@@ -176,7 +176,7 @@ class VisualizerWallpaperService : WallpaperService() {
             engine.lfoEngine.configs = modulation.load()
             engine.adsrEngine.configs = modulation.loadAdsrs()
             engine.reactions = modulation.loadReactions()
-            HandMask.set(modulation.loadHandMask())
+            HandMask.set(modulation.loadHandMask(), engine.reactions != null)
         }
 
         /**

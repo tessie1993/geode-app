@@ -29,15 +29,6 @@ void FlowField::queueVortex(float clipX, float clipY, float spin, float radius) 
     }
 }
 
-void FlowField::queueBurst(float clipX, float clipY, float speed, float radius) {
-    constexpr int kArms = 8;
-    const float a = std::max(sim_.aspect(), 1e-3f);
-    for (int i = 0; i < kArms; i++) {
-        const float t = 6.2831853f * (static_cast<float>(i) + 0.5f) / kArms;
-        queueKick(clipX + std::cos(t) * radius / a, clipY + std::sin(t) * radius, std::cos(t) * speed, std::sin(t) * speed, radius * 0.7f);
-    }
-}
-
 void FlowField::setGrid(int cells, bool macCormack) {
     sim_.macCormack = macCormack;
     if (cells > 0 && sim_.available()) sim_.applyResolution(cells, sim_.dyeRes);

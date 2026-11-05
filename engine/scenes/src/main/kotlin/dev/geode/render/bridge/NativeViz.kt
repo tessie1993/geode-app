@@ -45,7 +45,6 @@ class NativeViz(
     @Synchronized
     fun create(): Boolean {
         if (handle == 0L) {
-            verifyLayouts()
             handle = GeodeNative.vizCreate(assets, cacheDir)
             if (handle != 0L) {
                 GeodeNative.vizSetMilkTextureDir(handle, milkTextureDir)
@@ -309,16 +308,5 @@ class NativeViz(
         if (error == reportedError) return
         reportedError = error
         onChange(error.ifEmpty { null })
-    }
-
-    private companion object {
-        @Volatile
-        private var verified = false
-
-        fun verifyLayouts() {
-            if (verified) return
-            SceneParamsCodec.verify(GeodeNative.vizParamNames())
-            verified = true
-        }
     }
 }

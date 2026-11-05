@@ -127,8 +127,7 @@ object ParamRandomizer {
         into: FloatArray,
     ) {
         MOVED_FIELDS[key].orEmpty().forEach { field ->
-            val i = SceneParamsCodec.NAMES.indexOf(field)
-            if (i >= 0) into[i] = from[i]
+            ParamSchema[field]?.let { into[it.slot] = from[it.slot] }
         }
     }
 }

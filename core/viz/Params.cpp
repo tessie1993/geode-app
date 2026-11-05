@@ -30,9 +30,10 @@ float SceneParams::paletteRange() const { return paletteRangeOverride >= 0.0f ? 
 float SceneParams::palette2Base() const { return palette2BaseOverride >= 0.0f ? palette2BaseOverride : paletteAt(palette2).base; }
 float SceneParams::palette2Range() const { return palette2RangeOverride >= 0.0f ? palette2RangeOverride : paletteAt(palette2).range; }
 
-// The wire's float count. Kotlin's SceneParamsCodec.FIELDS and its NAMES list must change with it: a
-// row added to viz/ParamTable.inc without them fails here first, on purpose.
-static_assert(SceneParams::kFieldCount == 163, "a ParamTable.inc row was added or removed: update SceneParamsCodec too");
+// The wire's float count. Kotlin's SceneParamsCodec packs by the schema text, so it follows on its own,
+// but the Kotlin SceneParams data class needs the new field and core/tests/params_schema.txt needs
+// rewriting (params_schema_test --write): a row added to viz/ParamTable.inc fails here first, on purpose.
+static_assert(SceneParams::kFieldCount == 163, "a ParamTable.inc row was added or removed: update SceneParams.kt and params_schema.txt too");
 
 namespace {
 

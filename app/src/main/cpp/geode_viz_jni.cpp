@@ -54,16 +54,6 @@ Java_dev_geode_engine_bridge_GeodeNative_vizDestroy(JNIEnv*, jobject, jlong hand
     geode_viz_destroy(vizOf(handle));
 }
 
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizParamNames(JNIEnv* env, jobject) {
-    std::string joined;
-    for (int i = 0; i < geode_viz_param_count(); ++i) {
-        if (i > 0) joined += '\n';
-        joined += geode_viz_param_name(i);
-    }
-    return env->NewStringUTF(joined.c_str());
-}
-
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetParams(JNIEnv* env, jobject, jlong handle, jfloatArray values) {
     FloatElements data(env, values);

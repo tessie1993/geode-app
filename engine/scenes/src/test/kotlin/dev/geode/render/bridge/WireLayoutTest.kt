@@ -4,51 +4,84 @@ import dev.geode.render.LfoTarget
 import dev.geode.render.ReactMode
 import dev.geode.render.ReactSource
 import dev.geode.render.ReactionRoute
+import dev.geode.render.scene.ParamSchema
+import dev.geode.render.scene.ParamSpec
 import dev.geode.render.scene.SceneParams
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
+import java.lang.reflect.Field
+import java.lang.reflect.Modifier
 
+/**
+ * The wire frames as Kotlin packs them. The scene params frame is the native schema's (core/viz/ParamTable.inc,
+ * read here from core/tests/params_schema.txt, which params_schema_test proves equal to what C++ emits), so
+ * these hold the Kotlin data class to that schema: one field per row, the same kinds and defaults, and a frame
+ * that survives a round trip bit for bit.
+ */
 class WireLayoutTest {
+    // The data class's wire fields: every instance field but the Kotlin-only ones.
+    private val kotlinFields: Map<String, Field> =
+        SceneParams::class.java.declaredFields
+            .filter { !Modifier.isStatic(it.modifiers) && it.name !in SceneParams.NOT_RENDERED }
+            .associateBy { it.name }
+
+    private fun slot(name: String): Int = checkNotNull(ParamSchema[name]) { "no schema row $name" }.slot
+
     @Test
-    fun sceneParamsNamesMatchTheFrameSize() {
-        assertEquals(SceneParamsCodec.FIELDS, SceneParamsCodec.NAMES.size)
-        assertEquals(SceneParamsCodec.NAMES.size, SceneParamsCodec.NAMES.toSet().size)
+    fun everyKotlinFieldHasASchemaRowAndEveryRowAField() {
+        assertEquals(ParamSchema.params.size, SceneParamsCodec.FIELDS)
+        assertEquals(kotlinFields.keys, ParamSchema.params.map { it.name }.toSet())
+        SceneParams.NOT_RENDERED.keys.forEach { assertNull(it, ParamSchema[it]) }
     }
 
     @Test
-    fun cameraFieldsLandInTheirWireSlots() {
-        val out = FloatArray(SceneParamsCodec.FIELDS)
-        SceneParamsCodec.pack(SceneParams(camFly = 1.25f, camPath = 2, camGyro = true, reactSeed = 9), out)
-        assertEquals(1.25f, out[SceneParamsCodec.NAMES.indexOf("camFly")])
-        assertEquals(2f, out[SceneParamsCodec.NAMES.indexOf("camPath")])
-        assertEquals(1f, out[SceneParamsCodec.NAMES.indexOf("camGyro")])
-        assertEquals(9f, out[SceneParamsCodec.NAMES.indexOf("reactSeed")])
+    fun kindsAndDefaultsAgree() {
+        val defaults = SceneParamsCodec.pack(SceneParams.DEFAULT)
+        ParamSchema.params.forEach { spec ->
+            val type =
+                when (spec.kind) {
+                    ParamSpec.Kind.FLOAT, ParamSpec.Kind.CIRCULAR -> Float::class.javaPrimitiveType
+                    ParamSpec.Kind.INT -> Int::class.javaPrimitiveType
+                    ParamSpec.Kind.BOOL -> Boolean::class.javaPrimitiveType
+                }
+            assertEquals(spec.name, type, kotlinFields.getValue(spec.name).type)
+            assertEquals(spec.name, spec.default, defaults[spec.slot])
+        }
     }
 
     @Test
-    fun liquidFieldsAreAppendedLast() {
-        // core/viz/ParamsFields.cpp: kFieldCount 163, Liquid mode's pickers last.
+    fun theWireRoundTripsAtEveryRangeEnd() {
+        for (top in listOf(false, true)) {
+            val frame = FloatArray(SceneParamsCodec.FIELDS) { ParamSchema[it].range.let { r -> if (top) r.endInclusive else r.start } }
+            val p = SceneParamsCodec.unpack(frame, SceneParams.DEFAULT)
+            assertArrayEquals(frame, SceneParamsCodec.pack(p), 0f)
+            assertEquals(p, SceneParamsCodec.unpack(SceneParamsCodec.pack(p), SceneParams.DEFAULT))
+        }
+    }
+
+    @Test
+    fun fieldsLandInTheirSchemaSlots() {
+        val p = SceneParams(camFly = 1.25f, camPath = 2, camGyro = true, reactSeed = 9, noteDrums = 1.75f, liquidSurface = 1)
+        val out = SceneParamsCodec.pack(p)
+        assertEquals(1.25f, out[slot("camFly")])
+        assertEquals(2f, out[slot("camPath")])
+        assertEquals(1f, out[slot("camGyro")])
+        assertEquals(9f, out[slot("reactSeed")])
+        assertEquals(1.75f, out[slot("noteDrums")])
+        assertEquals(1f, out[slot("liquidSurface")])
+        assertEquals(p, SceneParamsCodec.unpack(out, SceneParams.DEFAULT))
+    }
+
+    @Test
+    fun appendedFieldsKeepTheirSlots() {
+        // core/viz/ParamTable.inc only appends: a slot that moved would misread every frame and saved look.
         assertEquals(163, SceneParamsCodec.FIELDS)
-        val tail = listOf("noteDrums", "liquidBorn", "liquidAge", "liquidSurface")
-        assertEquals(tail, SceneParamsCodec.NAMES.takeLast(tail.size))
-        val p = SceneParams(liquidBorn = 3, liquidAge = 2, liquidSurface = 1)
-        val out = SceneParamsCodec.pack(p)
-        assertEquals(3f, out[160])
-        assertEquals(2f, out[161])
-        assertEquals(1f, out[162])
-        assertEquals(p, SceneParamsCodec.unpack(out, SceneParams.DEFAULT))
-    }
-
-    @Test
-    fun noteAndKeyFieldsAreAppendedAfterReactSeed() {
-        // core/viz/ParamsFields.cpp: the Note & key fields after reactSeed, in this order, then Liquid mode's.
-        val tail = listOf("noteColor", "notePitch", "noteIntervals", "noteTension", "noteChords", "noteDrums")
-        assertEquals(listOf("reactSeed") + tail, SceneParamsCodec.NAMES.drop(153).take(tail.size + 1))
-        val p = SceneParams(noteColor = 0.25f, noteDrums = 1.75f)
-        val out = SceneParamsCodec.pack(p)
-        assertEquals(0.25f, out[SceneParamsCodec.NAMES.indexOf("noteColor")])
-        assertEquals(1.75f, out[SceneParamsCodec.NAMES.indexOf("noteDrums")])
-        assertEquals(p, SceneParamsCodec.unpack(out, SceneParams.DEFAULT))
+        assertEquals(0, slot("speed"))
+        assertEquals(108, slot("flowCurl"))
+        assertEquals(153, slot("reactSeed"))
+        assertEquals(listOf("noteDrums", "liquidBorn", "liquidAge", "liquidSurface"), ParamSchema.params.takeLast(4).map { it.name })
     }
 
     @Test

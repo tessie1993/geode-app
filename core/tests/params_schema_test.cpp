@@ -2,9 +2,17 @@
 // core/viz/ParamsFields): one row per field gives its name, kind, default, range and wire slot, and the
 // struct, the wire, get/set, lerpParams, the LFO clamps and the shell's text table all come from it.
 // Built and run by CI (.github/workflows/android.yml, "Native host tests") with the system compiler; no GL.
+//
+//   params_schema_test core/tests/params_schema.txt           checks, including schemaText() against the fixture
+//   params_schema_test --write core/tests/params_schema.txt   rewrites the fixture after a deliberate change
+//
+// The fixture is what the shell's JVM tests read in place of geode_params_schema_text (the geode.paramsSchema
+// property, dev.geode.render.scene.ParamSchema), so this check is what keeps their schema the device's.
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <fstream>
 #include <set>
 #include <sstream>
 #include <string>
@@ -269,9 +277,45 @@ void theTextIsTheTable() {
     check(SceneParams::schemaText().find("|waterDamping|FLOAT|0.985|0.9|0.999|FADE\n") != std::string::npos, "short numbers stay short");
 }
 
+std::string readFile(const char* path) {
+    std::ifstream in(path, std::ios::binary);
+    std::string out;
+    for (char c; in.get(c);) {
+        if (c != '\r') out += c;  // a Windows checkout
+    }
+    return out;
+}
+
+void textEqualsTheFixture(const char* path) {
+    const std::string fixture = readFile(path);
+    check(!fixture.empty(), std::string("fixture readable: ") + path);
+    if (fixture == SceneParams::schemaText()) return;
+    std::istringstream want(fixture);
+    std::istringstream got(SceneParams::schemaText());
+    for (int line = 1;; ++line) {
+        std::string w;
+        std::string g;
+        const bool hasW = static_cast<bool>(std::getline(want, w));
+        const bool hasG = static_cast<bool>(std::getline(got, g));
+        if (!hasW && !hasG) break;
+        if (!hasW) w = "<end>";
+        if (!hasG) g = "<end>";
+        if (w != g) {
+            check(false, "schemaText() differs from " + std::string(path) + " at line " + std::to_string(line) + ": fixture [" + w +
+                             "] native [" + g + "]; after a deliberate change run params_schema_test --write " + path);
+            return;
+        }
+    }
+    check(false, "schemaText() differs from " + std::string(path) + " only in its line ends; run params_schema_test --write " + path);
+}
+
 }  // namespace
 
-int main() {
+int main(int argc, char** argv) {
+    if (argc == 3 && std::strcmp(argv[1], "--write") == 0) {
+        std::ofstream(argv[2], std::ios::binary) << SceneParams::schemaText();
+        return 0;
+    }
     theTableIsTheWire();
     everyRowIsWellFormed();
     getAndSetRoundTripByNameAndSlot();
@@ -280,6 +324,7 @@ int main() {
     theLfoClampsAreTheTablesRanges();
     theCataloguesRangesAgree();
     theTextIsTheTable();
+    textEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/params_schema.txt");
     if (failures == 0) std::printf("params_schema_test: all checks passed\n");
     return failures;
 }

@@ -45,11 +45,6 @@ internal class CaptureController(
         fun resetSound()
 
         fun setSoundRate(rateHz: Int)
-
-        fun setMicReactivePref(on: Boolean)
-
-        /** The persisted "mic was on" preference, read once on [start] to restore capture. */
-        val micReactivePref: Boolean
     }
 
     private val micCapture = MicCapture(application, capture)
@@ -116,13 +111,10 @@ internal class CaptureController(
      * constructed instead.
      */
     fun start() {
-        // Restore a mic-reactive session across process death. The pref was written on every
-        // mic toggle but never read back, so a restart silently dropped it. Never request the
-        // permission here: if it has since been revoked, leave the pref as-is and stay silent —
-        // the person can re-enable it from the mic control, which will prompt as usual.
-        if (host.micReactivePref && !micCapture.active && hasMicPermission()) {
-            setMicEnabled(true)
-        }
+        // Live input always starts off. It is never restored after Android kills the app (owner,
+        // #367): restoring it paused whatever the person had started meanwhile from the
+        // notification, a headset or the car, and a mic that switches itself on is a surprise.
+        // Within one process the background pause still resumes ([onForeground]).
         scope.launch {
             dev.geode.audio.MediaProjectionHolder.projection
                 .collect { projection ->
@@ -158,7 +150,6 @@ internal class CaptureController(
             host.resetSound()
             host.setSoundRate(playbackRateFallback())
             _micState.value = MicState(active = false)
-            host.setMicReactivePref(false)
             return null
         }
         if (micCapture.active) return null
@@ -171,7 +162,6 @@ internal class CaptureController(
         }
         host.resetSound()
         _micState.value = MicState(active = true)
-        host.setMicReactivePref(true)
         return null
     }
 
@@ -267,12 +257,18 @@ internal class CaptureController(
         }
     }
 
+    /**
+     * The session's poll (every 500 ms, background included) asks whether the mic was lost. The
+     * background pause is the app's own choice, not a loss: without this guard the poll read
+     * "on screen says active, capture stopped" as a failed mic half a second after Home and
+     * showed UNAVAILABLE until the app came back (#367).
+     */
     fun refreshMicState() {
+        if (micPausedInBackground) return
         if (!_micState.value.active || micCapture.active) return
         host.resetSound()
         host.setSoundRate(playbackRateFallback())
         _micState.value = MicState(active = false, failure = MicCapture.Failure.UNAVAILABLE)
-        host.setMicReactivePref(false)
     }
 
     fun shutdown() {

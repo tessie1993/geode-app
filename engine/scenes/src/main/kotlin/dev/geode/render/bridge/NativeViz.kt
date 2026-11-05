@@ -190,13 +190,6 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetLook(handle, yaw, pitch)
     }
 
-    fun setThermal(
-        platformStatus: Int,
-        headroom: Float,
-    ) {
-        if (handle != 0L) GeodeNative.vizSetThermal(handle, platformStatus, headroom)
-    }
-
     fun setPacedFps(fps: Float) {
         if (handle != 0L) GeodeNative.vizSetPacedFps(handle, fps)
     }
@@ -215,8 +208,8 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetLiquidHotPolicy(handle, policy)
     }
 
-    /** What Liquid mode ran last frame (0 off, 1 full, 2 lite, 3 warp, 4 paused); 0 before the handle exists. */
-    fun liquidMode(): Int = if (handle != 0L) GeodeNative.vizLiquidMode(handle) else 0
+    /** Liquid mode when it changed since the last take (0 off … 4 paused), else -1; see [GeodeNative.vizTakeLiquidMode]. */
+    fun takeLiquidMode(): Int = if (handle != 0L) GeodeNative.vizTakeLiquidMode(handle) else -1
 
     /** Pins this renderer's auto-director; see [GeodeNative.vizSetDirector]. */
     fun setDirector(

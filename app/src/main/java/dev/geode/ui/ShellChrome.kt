@@ -38,7 +38,9 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalAccessibilityManager
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -291,6 +293,25 @@ internal data class DockItem(
 /**
  * The tab bar as a floating pill of matte glass: the standard M3 NavigationBar (Android's own
  * bottom navigation), with no window insets of its own because the pill sits above them.
+ *
+ * WHY the labels can step aside (#558): five `labelSmall` labels in a pill share less than a
+ * fifth of the window each, so at a large font or on a narrow phone they overran and clipped.
+ * Compose's "Support user-scalable content" guide asks that content reflow to fit its container
+ * rather than be cut off (Context7 `/websites/developer_android_develop_ui_compose`,
+ * accessibility/scalable-content), so when [compactTabLabels] says the room is short only the
+ * selected tab keeps its label, the M3 pattern `NavigationBarItem`'s `alwaysShowLabel = false`
+ * stands for (components/navigation-bar: the label is optional, the icon carries the item). We
+ * drop the unselected labels outright (`label = null`) rather than set `alwaysShowLabel = false`,
+ * because that flag only fades the label to alpha 0 and still lays it out, which is the
+ * overflow we are removing; the name moves to the icon's content description instead, so
+ * TalkBack reads every tab exactly once whichever way it is drawn. Every label that is drawn
+ * still ends in an ellipsis (`TextOverflow.Ellipsis`, text/configure-layout: "indicate a
+ * TextOverflow, which is only shown if the displayed text is truncated"), the last guard for a
+ * translation longer than its slot.
+ *
+ * The height stays safe at large fonts: in the compact look at most one label is drawn, one
+ * line high, and the shell measures the pill (`onSizeChanged` in `AppShell`) rather than
+ * assuming its height, so whatever height the bar takes the screen above it makes room.
  */
 @Composable
 internal fun FloatingTabBar(
@@ -301,24 +322,58 @@ internal fun FloatingTabBar(
     modifier: Modifier = Modifier,
 ) {
     val view = LocalView.current
+    val compact = compactTabLabels()
     Box(modifier.fillMaxWidth().floatingGlass(RoundedCornerShape(50), fillAlpha = opacity)) {
         NavigationBar(containerColor = Color.Transparent, tonalElevation = 0.dp, windowInsets = WindowInsets(0, 0, 0, 0)) {
             items.forEachIndexed { i, item ->
+                val isSelected = i == selected
+                val showLabel = !compact || isSelected
                 NavigationBarItem(
-                    selected = i == selected,
+                    selected = isSelected,
                     onClick = {
                         view.performStoneHaptic(StoneHapticCue.TAP)
                         onSelect(i)
                     },
-                    icon = { StoneIconArt(item.icon, null, selected = i == selected) },
-                    label = { Text(item.label, style = MaterialTheme.typography.labelSmall, maxLines = 1) },
+                    // A drawn label names the item for TalkBack (the item merges its children);
+                    // an icon-only item names itself, so the name is read once either way.
+                    icon = { StoneIconArt(item.icon, if (showLabel) null else item.label, selected = isSelected) },
+                    label = if (showLabel) {
+                        {
+                            Text(
+                                item.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    } else {
+                        null
+                    },
                 )
             }
         }
     }
 }
 
+/**
+ * Whether the tab bar is short of room for five labels: a window under [COMPACT_TAB_WIDTH] wide,
+ * or a font scale of [COMPACT_TAB_FONT_SCALE] or more. WHY the window and not the pill: the pill
+ * is inset from the window's edges, so measuring it would put every common 360 dp phone into the
+ * compact look at font scale 1.0, which keeps today's look there. WHY 1.5: Android's font
+ * scaling is non-linear (accessibility/scalable-content) but small text such as `labelSmall`
+ * grows almost in step with the scale, and from 1.5 the longest of the five labels no longer
+ * fits its fifth of a 360 dp pill.
+ */
+@Composable
+private fun compactTabLabels(): Boolean {
+    val density = LocalDensity.current
+    val windowWidth = with(density) { LocalWindowInfo.current.containerSize.width.toDp() }
+    return windowWidth < COMPACT_TAB_WIDTH || density.fontScale >= COMPACT_TAB_FONT_SCALE
+}
+
 private const val SWIPE_DP = 24
+private const val COMPACT_TAB_FONT_SCALE = 1.5f
+private val COMPACT_TAB_WIDTH = 360.dp
 private const val PROGRESS_DP = 2
 private const val TRACK_ALPHA = 0.2f
 private const val HANDLE_ALPHA = 0.7f

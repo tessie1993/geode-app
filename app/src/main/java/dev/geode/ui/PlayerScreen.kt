@@ -53,6 +53,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -66,6 +68,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import androidx.window.core.layout.WindowSizeClass
@@ -148,13 +151,25 @@ fun PlayerScreen(
             modifier = readable.padding(horizontal = 16.dp),
         )
     }
+    // The transport's measured height, for the side-by-side art below (#558). It starts at the
+    // 1.0-scale allowance so the first frame looks like today's, then follows the card.
+    val density = LocalDensity.current
+    var transportHeight by remember { mutableStateOf(TRANSPORT_HEIGHT) }
     val transport: @Composable () -> Unit = {
         TransportCard(
             viewModel = viewModel,
             state = state,
             position = { position.value },
             abLoop = abLoop,
-            modifier = readable.padding(horizontal = 16.dp),
+            modifier =
+                readable
+                    .padding(horizontal = 16.dp)
+                    .onSizeChanged { size ->
+                        if (size.height > 0) {
+                            val measured = with(density) { size.height.toDp() } + TRANSPORT_GAP
+                            transportHeight = max(TRANSPORT_HEIGHT, measured)
+                        }
+                    },
         )
     }
 
@@ -211,8 +226,11 @@ fun PlayerScreen(
                 ) {
                     header()
                     // The art takes what height is left under the header, the title rows and,
-                    // when it is on this side, the transport.
-                    val chrome = if (transportWithArt) HERO_CHROME + TRANSPORT_HEIGHT else HERO_CHROME
+                    // when it is on this side, the transport as measured, so at a large font
+                    // the art shrinks while the transport grows instead of pushing it off the
+                    // pane (#558; Compose's scalable-content guide: content reflows to fit its
+                    // container, Context7 `/websites/developer_android_develop_ui_compose`).
+                    val chrome = if (transportWithArt) HERO_CHROME + transportHeight else HERO_CHROME
                     hero((paneHeight - chrome).coerceIn(MIN_ART, MAX_ART))
                     if (transportWithArt) transport()
                 }
@@ -283,8 +301,16 @@ private val SHORT_HEIGHT = 480.dp
 /** A readable column: wider than this, a block stops growing and centres. */
 private val COLUMN_MAX_WIDTH = 600.dp
 
-/** The transport card's height (seek row, buttons, A–B and Auto), when it sits under the art. */
+/**
+ * The least room the art leaves for the transport card (seek row, buttons, A–B and Auto) under
+ * it, gap included. WHY a floor and not the answer: it was the whole answer until #558, and the
+ * layout at font scale 1.0 was tuned against it, so the card's measured height only takes over
+ * when it needs more (a large font, a long translation), and today's look is kept at 1.0.
+ */
 private val TRANSPORT_HEIGHT = 180.dp
+
+/** The hero column's `spacedBy` gap above the transport, which its measured height leaves out. */
+private val TRANSPORT_GAP = 16.dp
 
 /** On a phone the art fills the width; on anything wider it stops here. */
 private val MAX_ART = 420.dp

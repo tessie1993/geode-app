@@ -14,6 +14,7 @@
 #include "viz/ReactionDna.hpp"
 #include "viz/Renderer.hpp"
 #include "viz/SceneRegistry.hpp"
+#include "viz/frame/Pacer.hpp"
 
 struct geode_viz {
     geode_viz(AAssetManager* assets, std::string cacheDir) : renderer(assets, std::move(cacheDir)) {}
@@ -201,6 +202,25 @@ void geode_viz_set_adsr(geode_viz* v, int slot, const float* c, int count) {
     std::lock_guard<std::mutex> lock(v->configLock);
     v->adsr[static_cast<size_t>(slot)] = std::move(cfg);
     v->renderer.setAdsrConfigs(v->adsr);
+}
+
+double geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap_fps) {
+    namespace frame = geode::viz::frame;
+    static_assert(frame::kPacerStateLongs == GEODE_PACER_STATE_LONGS);
+    static_assert(sizeof(long long) == sizeof(int64_t));
+    auto* wire = reinterpret_cast<int64_t*>(state);
+    frame::PacerState s = frame::unpack(wire);
+    const double dt = frame::Pacer::onVsync(s, frame_time_ns, cap_fps);
+    frame::pack(s, wire);
+    return dt;
+}
+
+void geode_pacer_resume(long long* state) {
+    namespace frame = geode::viz::frame;
+    auto* wire = reinterpret_cast<int64_t*>(state);
+    frame::PacerState s = frame::unpack(wire);
+    frame::Pacer::resume(s);
+    frame::pack(s, wire);
 }
 
 }  // extern "C"

@@ -604,4 +604,19 @@ object GeodeNative {
     const val SURFACE_SILENT = 1 shl 6
     const val SURFACE_REST_WHEN_SILENT = 1 shl 7
     const val SURFACE_FOREVER = Long.MAX_VALUE
+
+    // The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt.
+
+    /** Six longs the caller owns, zeroed at first, stepped in place: the pacer's whole state. */
+    const val PACER_STATE_LONGS = 6
+
+    /** One vsync: the dt in seconds to draw with, or 0 to skip it. [capFps] <= 0 draws every vsync. */
+    external fun pacerOnVsync(
+        state: LongArray,
+        frameTimeNanos: Long,
+        capFps: Float,
+    ): Double
+
+    /** A start after a stop: forget the gap, keep the panel's period. */
+    external fun pacerResume(state: LongArray)
 }

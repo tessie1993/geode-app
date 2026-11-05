@@ -356,10 +356,31 @@ void testDeterministic() {
 
 }  // namespace
 
+// A pause is not a new track (#368): five seconds with nothing written (the player paused) must not
+// re-warm the engine, so on resume the tempo it locked is still there. Only written silence re-warms.
+void testPauseKeepsTempo() {
+    const double bpm = 128.0;
+    const double period = 60.0 / bpm;
+    SoundEngine e(44100);
+    double offset = 0.0;
+    const auto click = [&](double t) {
+        t += offset;
+        const double u = t - std::floor(t / period) * period;
+        return static_cast<float>(0.8 * std::exp(-u * 25.0) * std::sin(kTau * 60.0 * u) + 0.3 * std::exp(-u * 200.0) * std::sin(kTau * 3000.0 * u));
+    };
+    GeodeSoundFrame f = run(e, click, 15.0);
+    offset = 15.0;
+    CHECK(std::fabs(f.bpm / bpm - 1.0) < 0.02, "before the pause read %.2f", f.bpm);
+    for (int i = 0; i < 5 * 60; i++) e.step(1.0f / 60.0f, f);  // paused: frames go on, no audio
+    f = run(e, click, 0.5);
+    CHECK(std::fabs(f.bpm / bpm - 1.0) < 0.02, "half a second after a 5 s pause read %.2f BPM (re-warmed?)", f.bpm);
+}
+
 int main() {
     testCatalogue();
     testScales();
     testClickTracks();
+    testPauseKeepsTempo();
     testChordProgression();
     testBuildAndDrop();
     testSectionsReturn();

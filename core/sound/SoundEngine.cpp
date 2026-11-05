@@ -273,7 +273,10 @@ void SoundEngine::analyse() {
     for (float v : mono_) squares += static_cast<double>(v) * v;
     out.rms = static_cast<float>(std::sqrt(squares / n_));
     const bool silent = out.rms < kDigitalSilence;
-    if (silent) {
+    if (starved_) {
+        // Nothing arrived (a pause, a stall): a transport event, not the music going quiet, so it never
+        // counts toward a new track (#368). The player restarts the engine itself on a track change.
+    } else if (silent) {
         s.quietSeconds += dt;
     } else {
         if (s.quietSeconds >= kRewarmAfter) {

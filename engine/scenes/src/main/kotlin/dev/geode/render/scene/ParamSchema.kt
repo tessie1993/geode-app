@@ -11,8 +11,8 @@ import java.io.File
  * the shell asks for it once through [GeodeNative.paramsSchemaText] and parses the line table it gets
  * back, the way [Catalogue] reads the style catalogue. This is the one place Kotlin learns a param's
  * name, kind, default, range or slot: the wire codec (`render/bridge/SceneParamsCodec`) packs by it,
- * and preset JSON and the slider and keyframe ranges are to read it too, so nothing in Kotlin keeps a
- * second copy that could drift. What stays Kotlin is what is not engine: labels and page placement.
+ * the slider and keyframe ranges read it (`model/ControlRange` in :app), and preset JSON is to, so
+ * nothing in Kotlin keeps a second copy that could drift. What stays Kotlin is what is not engine: labels and page placement.
  *
  * JVM unit tests cannot load libgeode. The build sets the [TEXT_FILE_PROPERTY] system property on
  * every unit-test task to `core/tests/params_schema.txt`, a checked-in copy of the table that the

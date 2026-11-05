@@ -103,6 +103,7 @@ import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.UiSound
 import kotlin.math.ln
 import kotlin.math.pow
+import kotlin.reflect.KProperty1
 
 /**
  * Customize's deeper pages: each one opens from a row on its page and drills in, replacing the
@@ -339,35 +340,34 @@ internal fun ListenPage(
         ControlHint("Everything here reads the sound as it arrives, so the mic behaves exactly like a song.")
         LabeledSlider(
             ParamKeys.AUDIO_DRIVE,
-            p.audioDrive,
-            0.2f..2.5f,
+            p,
+            SceneParams::audioDrive,
             display = "Sound strength",
-            default = SceneParams.DEFAULT.audioDrive,
         ) {
             onChange(p.copy(audioDrive = it))
         }
         SectionHeader("Slow motion under the music")
         ControlHint("The picture breathes with the bass, drifts with the mids and leans its colour toward the song's key. Zero settles it.")
-        LabeledSlider(ParamKeys.MOTION_AMOUNT, p.motionAmount, 0f..1f, default = SceneParams.DEFAULT.motionAmount) {
+        LabeledSlider(ParamKeys.MOTION_AMOUNT, p, SceneParams::motionAmount) {
             onChange(p.copy(motionAmount = it))
         }
-        LabeledSlider(ParamKeys.MOTION_BREATH, p.motionBreath, 0f..1f, default = SceneParams.DEFAULT.motionBreath) {
+        LabeledSlider(ParamKeys.MOTION_BREATH, p, SceneParams::motionBreath) {
             onChange(p.copy(motionBreath = it))
         }
-        LabeledSlider(ParamKeys.MOTION_DRIFT, p.motionDrift, 0f..1f, default = SceneParams.DEFAULT.motionDrift) {
+        LabeledSlider(ParamKeys.MOTION_DRIFT, p, SceneParams::motionDrift) {
             onChange(p.copy(motionDrift = it))
         }
-        LabeledSlider(ParamKeys.MOTION_HUE, p.motionHue, 0f..1f, default = SceneParams.DEFAULT.motionHue) {
+        LabeledSlider(ParamKeys.MOTION_HUE, p, SceneParams::motionHue) {
             onChange(p.copy(motionHue = it))
         }
         SectionHeader("Bass, mids and highs", ParamScope.BAND_GAINS)
-        LabeledSlider(ParamKeys.BASS_GAIN, p.bassGain, 0f..2f, display = "Bass", default = SceneParams.DEFAULT.bassGain) {
+        LabeledSlider(ParamKeys.BASS_GAIN, p, SceneParams::bassGain, display = "Bass") {
             onChange(p.copy(bassGain = it))
         }
-        LabeledSlider(ParamKeys.MID_GAIN, p.midGain, 0f..2f, display = "Mids", default = SceneParams.DEFAULT.midGain) {
+        LabeledSlider(ParamKeys.MID_GAIN, p, SceneParams::midGain, display = "Mids") {
             onChange(p.copy(midGain = it))
         }
-        LabeledSlider(ParamKeys.TREBLE_GAIN, p.trebGain, 0f..2f, display = "Highs", default = SceneParams.DEFAULT.trebGain) {
+        LabeledSlider(ParamKeys.TREBLE_GAIN, p, SceneParams::trebGain, display = "Highs") {
             onChange(p.copy(trebGain = it))
         }
         SectionHeader("Rise and fall", ParamScope.BAND_GAINS)
@@ -715,7 +715,7 @@ internal fun LayersPage() {
 }
 
 /**
- * One Note & key strength: a 0..2 slider (1 = as designed) with its one-line hint under it. The key is
+ * One Note & key strength: a 0..2 slider (1 = as designed; the range is the schema's) with its one-line hint under it. The key is
  * the shown name, since these are not catalogue parameters: they have no style scope (every style hears
  * notes) and the randomizer never rolls them, so the scope and unit are given rather than looked up.
  */
@@ -723,12 +723,12 @@ internal fun LayersPage() {
 private fun NoteKeySlider(
     @StringRes name: Int,
     @StringRes hint: Int,
-    value: Float,
-    default: Float,
+    p: SceneParams,
+    param: KProperty1<SceneParams, Float>,
     onChange: (Float) -> Unit,
 ) {
     val label = stringResource(name)
-    LabeledSlider(label, value, 0f..2f, scope = ParamScope.UNIVERSAL, default = default, unit = ParamUnit.TIMES, onChange = onChange)
+    LabeledSlider(label, p, param, scope = ParamScope.UNIVERSAL, unit = ParamUnit.TIMES, onChange = onChange)
     if (visible(label, ParamScope.UNIVERSAL)) ControlHint(stringResource(hint))
 }
 
@@ -747,23 +747,22 @@ private fun NoteKeyPage(
     val running by remember { NoteResponseStore.get(context) }.enabled.collectAsStateWithLifecycle()
     if (!running && sectionVisible()) ControlHint(stringResource(R.string.note_key_off))
     ControlHint(stringResource(R.string.note_key_intro))
-    val d = SceneParams.DEFAULT
-    NoteKeySlider(R.string.note_key_color, R.string.note_key_color_hint, p.noteColor, d.noteColor) {
+    NoteKeySlider(R.string.note_key_color, R.string.note_key_color_hint, p, SceneParams::noteColor) {
         onChange(p.copy(noteColor = it))
     }
-    NoteKeySlider(R.string.note_key_pitch, R.string.note_key_pitch_hint, p.notePitch, d.notePitch) {
+    NoteKeySlider(R.string.note_key_pitch, R.string.note_key_pitch_hint, p, SceneParams::notePitch) {
         onChange(p.copy(notePitch = it))
     }
-    NoteKeySlider(R.string.note_key_intervals, R.string.note_key_intervals_hint, p.noteIntervals, d.noteIntervals) {
+    NoteKeySlider(R.string.note_key_intervals, R.string.note_key_intervals_hint, p, SceneParams::noteIntervals) {
         onChange(p.copy(noteIntervals = it))
     }
-    NoteKeySlider(R.string.note_key_tension, R.string.note_key_tension_hint, p.noteTension, d.noteTension) {
+    NoteKeySlider(R.string.note_key_tension, R.string.note_key_tension_hint, p, SceneParams::noteTension) {
         onChange(p.copy(noteTension = it))
     }
-    NoteKeySlider(R.string.note_key_chords, R.string.note_key_chords_hint, p.noteChords, d.noteChords) {
+    NoteKeySlider(R.string.note_key_chords, R.string.note_key_chords_hint, p, SceneParams::noteChords) {
         onChange(p.copy(noteChords = it))
     }
-    NoteKeySlider(R.string.note_key_drums, R.string.note_key_drums_hint, p.noteDrums, d.noteDrums) {
+    NoteKeySlider(R.string.note_key_drums, R.string.note_key_drums_hint, p, SceneParams::noteDrums) {
         onChange(p.copy(noteDrums = it))
     }
 }
@@ -787,15 +786,15 @@ private fun CameraPage(
     ) {
         onChange(p.copy(camPath = it))
     }
-    LabeledSlider(ParamKeys.CAM_FLY, p.camFly, 0f..2f, default = SceneParams.DEFAULT.camFly) { onChange(p.copy(camFly = it)) }
-    LabeledSlider(ParamKeys.CAM_ORBIT, p.camOrbit, 0f..1f, default = SceneParams.DEFAULT.camOrbit) { onChange(p.copy(camOrbit = it)) }
-    LabeledSlider(ParamKeys.CAM_FOV, p.camFov, 0.5f..2f, default = SceneParams.DEFAULT.camFov) { onChange(p.copy(camFov = it)) }
-    LabeledSlider(ParamKeys.CAM_PUSH, p.camPush, -1f..1f, default = SceneParams.DEFAULT.camPush) { onChange(p.copy(camPush = it)) }
-    LabeledSlider(ParamKeys.CAM_YAW, p.camYaw, -1f..1f, default = SceneParams.DEFAULT.camYaw) { onChange(p.copy(camYaw = it)) }
-    LabeledSlider(ParamKeys.CAM_PITCH, p.camPitch, -1f..1f, default = SceneParams.DEFAULT.camPitch) { onChange(p.copy(camPitch = it)) }
-    LabeledSlider(ParamKeys.CAM_ROLL, p.camRoll, -1f..1f, default = SceneParams.DEFAULT.camRoll) { onChange(p.copy(camRoll = it)) }
-    LabeledSlider(ParamKeys.CAM_SHAKE, p.camShake, 0f..1f, default = SceneParams.DEFAULT.camShake) { onChange(p.copy(camShake = it)) }
-    LabeledSlider(ParamKeys.CAM_SMOOTH, p.camSmooth, 0f..1f, default = SceneParams.DEFAULT.camSmooth) { onChange(p.copy(camSmooth = it)) }
+    LabeledSlider(ParamKeys.CAM_FLY, p, SceneParams::camFly) { onChange(p.copy(camFly = it)) }
+    LabeledSlider(ParamKeys.CAM_ORBIT, p, SceneParams::camOrbit) { onChange(p.copy(camOrbit = it)) }
+    LabeledSlider(ParamKeys.CAM_FOV, p, SceneParams::camFov) { onChange(p.copy(camFov = it)) }
+    LabeledSlider(ParamKeys.CAM_PUSH, p, SceneParams::camPush) { onChange(p.copy(camPush = it)) }
+    LabeledSlider(ParamKeys.CAM_YAW, p, SceneParams::camYaw) { onChange(p.copy(camYaw = it)) }
+    LabeledSlider(ParamKeys.CAM_PITCH, p, SceneParams::camPitch) { onChange(p.copy(camPitch = it)) }
+    LabeledSlider(ParamKeys.CAM_ROLL, p, SceneParams::camRoll) { onChange(p.copy(camRoll = it)) }
+    LabeledSlider(ParamKeys.CAM_SHAKE, p, SceneParams::camShake) { onChange(p.copy(camShake = it)) }
+    LabeledSlider(ParamKeys.CAM_SMOOTH, p, SceneParams::camSmooth) { onChange(p.copy(camSmooth = it)) }
     CheckRow(ParamKeys.CAM_TOUCH, p.camTouch) { onChange(p.copy(camTouch = it)) }
     CheckRow(ParamKeys.CAM_GYRO, p.camGyro) { onChange(p.copy(camGyro = it)) }
     ControlHint("Exports always fly the recorded path; the phone's tilt is never baked in.")
@@ -859,7 +858,7 @@ private fun TransitionsPage(
     }
     SectionHeader("Glide between settings")
     ControlHint("Slider changes and preset loads glide to their new values over this time.")
-    LabeledSlider(PARAM_FADE, p.paramFadeSec, 0f..5f, default = SceneParams.DEFAULT.paramFadeSec, unit = ParamUnit.SECONDS) {
+    LabeledSlider(PARAM_FADE, p, SceneParams::paramFadeSec, unit = ParamUnit.SECONDS) {
         onChange(p.copy(paramFadeSec = it))
     }
 }
@@ -890,24 +889,22 @@ internal fun LiquidPage(
         )
     }
     if (p.flowEnabled) {
-        val d = SceneParams.DEFAULT
         LabeledSlider(
             ParamKeys.FLOW_STRENGTH,
-            p.flowStrength,
-            0f..1f,
+            p,
+            SceneParams::flowStrength,
             display = "Liquidity",
             scope = ParamScope.UNIVERSAL,
-            default = d.flowStrength,
         ) {
             onChange(p.copy(flowStrength = it))
         }
-        LabeledSlider(ParamKeys.FLOW_FORCE, p.flowForce, 0f..3f, display = "Push", scope = ParamScope.UNIVERSAL, default = d.flowForce) {
+        LabeledSlider(ParamKeys.FLOW_FORCE, p, SceneParams::flowForce, display = "Push", scope = ParamScope.UNIVERSAL) {
             onChange(p.copy(flowForce = it))
         }
-        LabeledSlider(ParamKeys.FLOW_CURL, p.flowCurl, 0f..50f, display = "Swirl", scope = ParamScope.UNIVERSAL, default = d.flowCurl) {
+        LabeledSlider(ParamKeys.FLOW_CURL, p, SceneParams::flowCurl, display = "Swirl", scope = ParamScope.UNIVERSAL) {
             onChange(p.copy(flowCurl = it))
         }
-        LabeledSlider(ParamKeys.DIVE_SPEED, p.endlessZoomSpeed, 0f..1.2f, scope = ParamScope.UNIVERSAL, default = d.endlessZoomSpeed) {
+        LabeledSlider(ParamKeys.DIVE_SPEED, p, SceneParams::endlessZoomSpeed, scope = ParamScope.UNIVERSAL) {
             onChange(p.copy(endlessZoomSpeed = it))
         }
         ParamChips(ParamKeys.LIQUID_BORN, LIQUID_BORN_OPTIONS, p.liquidBorn.coerceIn(0, 3), scope = ParamScope.UNIVERSAL) {
@@ -949,20 +946,19 @@ private fun RipplesPage(
     )
     CheckRow(RIPPLES_ENABLED, p.rippleOverlayEnabled, scope = ParamScope.RIPPLE_OVERLAY) { onChange(p.copy(rippleOverlayEnabled = it)) }
     if (p.rippleOverlayEnabled && !isWaterScene) {
-        LabeledSlider(ParamKeys.WAVE_SPEED, p.waterWaveSpeed, 0.2f..2f, default = SceneParams.DEFAULT.waterWaveSpeed) {
+        LabeledSlider(ParamKeys.WAVE_SPEED, p, SceneParams::waterWaveSpeed) {
             onChange(p.copy(waterWaveSpeed = it))
         }
-        LabeledSlider(ParamKeys.DAMPING, p.waterDamping, 0.9f..0.999f, display = "Calming", default = SceneParams.DEFAULT.waterDamping) {
+        LabeledSlider(ParamKeys.DAMPING, p, SceneParams::waterDamping, display = "Calming") {
             onChange(p.copy(waterDamping = it))
         }
         LabeledSlider(
             ParamKeys.RIPPLE_OVERLAY_STRENGTH,
-            p.rippleOverlayStrength,
-            0f..1f,
+            p,
+            SceneParams::rippleOverlayStrength,
             display = "Ripple strength",
-            default = SceneParams.DEFAULT.rippleOverlayStrength,
         ) { onChange(p.copy(rippleOverlayStrength = it)) }
-        LabeledSlider(ParamKeys.RIPPLE_GLINT, p.rippleOverlaySpecular, 0f..1f, default = SceneParams.DEFAULT.rippleOverlaySpecular) {
+        LabeledSlider(ParamKeys.RIPPLE_GLINT, p, SceneParams::rippleOverlaySpecular) {
             onChange(p.copy(rippleOverlaySpecular = it))
         }
     }

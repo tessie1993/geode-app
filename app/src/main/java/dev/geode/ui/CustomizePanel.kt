@@ -61,6 +61,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.AutoDirectorStore
 import dev.geode.data.MacroStore
+import dev.geode.model.ControlRange
 import dev.geode.pro.FreeTier
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
@@ -377,7 +378,8 @@ private fun pageSummary(
         }
         CustomizeTab.STYLE -> sceneDisplayLabel(sceneId)
         CustomizeTab.MOTION -> {
-            val shown = ParamFormat.format(p.speed, ParamFormat.unitFor(ParamKeys.SPEED, SPEED_RANGE), SceneParams.DEFAULT.speed)
+            val unit = ParamFormat.unitFor(ParamKeys.SPEED, ControlRange.of(SceneParams::speed))
+            val shown = ParamFormat.format(p.speed, unit, SceneParams.DEFAULT.speed)
             stringResource(R.string.motion_summary, shown)
         }
         CustomizeTab.MUSIC -> {
@@ -398,8 +400,6 @@ private fun pageSummary(
         else -> subs.joinToString { it.title }
     }
 
-/** Motion › Speed's range, as MovementSections slides it, for the card's summary of it. */
-private val SPEED_RANGE = 0.05f..4f
 private const val KNOB_EPSILON = 0.005f
 
 /** What a card's ⋮ › What is this says about the page. */

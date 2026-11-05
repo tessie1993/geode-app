@@ -198,9 +198,25 @@ class NativeViz(
         postFx: Boolean,
         adaptive: Boolean,
         liquidHotPolicy: Int,
+        paramsVersion: Long,
+        lfoVersion: Long,
+        adsrVersion: Long,
+        tuningVersion: Long,
     ): Int {
         if (handle == 0L) return 0
-        return GeodeNative.vizFrameBegin(handle, pacedFps, renderScale, marchScale, postFx, adaptive, liquidHotPolicy)
+        return GeodeNative.vizFrameBegin(
+            handle,
+            pacedFps,
+            renderScale,
+            marchScale,
+            postFx,
+            adaptive,
+            liquidHotPolicy,
+            paramsVersion,
+            lfoVersion,
+            adsrVersion,
+            tuningVersion,
+        )
     }
 
     /** Pins this renderer's auto-director; see [GeodeNative.vizSetDirector]. */

@@ -335,9 +335,11 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetAdsr(JNIEnv* env, jobject, jlong 
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizFrameBegin(JNIEnv*, jobject, jlong handle, jfloat pacedFps,
                                                        jfloat renderScale, jfloat marchScale, jboolean postFx,
-                                                       jboolean adaptive, jint liquidHotPolicy) {
+                                                       jboolean adaptive, jint liquidHotPolicy, jlong paramsVersion,
+                                                       jlong lfoVersion, jlong adsrVersion, jlong tuningVersion) {
     return geode_viz_frame_begin(vizOf(handle), pacedFps, renderScale, marchScale, postFx == JNI_TRUE ? 1 : 0,
-                                 adaptive == JNI_TRUE ? 1 : 0, liquidHotPolicy);
+                                 adaptive == JNI_TRUE ? 1 : 0, liquidHotPolicy, paramsVersion, lfoVersion,
+                                 adsrVersion, tuningVersion);
 }
 
 JNIEXPORT void JNICALL

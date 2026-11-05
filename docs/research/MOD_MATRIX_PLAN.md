@@ -1,7 +1,7 @@
 # PR E plan: the Pro modulation matrix
 
 Status: **agreed with the owner on 2026-11-01**, not built. `MOD_MATRIX_UX.md` beside this file holds the research
-(patch bays, VJ tools, phone patching, Android MIDI) and the detailed UX spec (§6). `REACTIVE_VISUALS.md` holds the
+(patch bays, VJ tools, phone patching, Android MIDI) and the detailed UX spec (§6). `REACTIVE_VISUALS.md` (since removed; in git history) held the
 earlier brief. Tempo comes from the sound engine's one beat clock, agreed with the sound engine session (PR #213,
 `docs/research/sound-engine-v2.md` §8b, "stage 0").
 

@@ -1,5 +1,6 @@
 ---
 status: accepted
+superseded_in_part_by: 0005 (its order, for Studio, Visuals and Customize)
 ---
 
 # Ship to Play before the module split; only the layer fix goes first

@@ -2,7 +2,7 @@
 
 Status: **agreed design (2026-11-01); implementation follows stage by stage (§10)**. Builds on `core/sound` as it is on
 `claude/geode-finish` (FFT, `Rhythm`, `Harmony`, `Form`, `Emotion`) and on the auto-director
-(`auto-director.md`). Everything here is engine logic, so it is C++ in `core/` (ADR 0003); Kotlin only
+(`auto-director.md`, since removed; `core/viz/Director` is the code). Everything here is engine logic, so it is C++ in `core/` (ADR 0003); Kotlin only
 schedules scans and stores files.
 
 ## 1. Decisions (from the owner's grilling, 2026-11-01)

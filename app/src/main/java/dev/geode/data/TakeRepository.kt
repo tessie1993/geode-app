@@ -28,7 +28,14 @@ interface TakeRepository {
     /** Where takes render to, or null when the user has not been asked yet. */
     suspend fun saveTarget(): SaveTarget?
 
-    suspend fun chooseSaveTarget(target: SaveTarget)
+    /**
+     * Where this take renders: [target], kept as the default for later takes when [remember] is
+     * set. False when the target cannot be used, so the caller asks again.
+     */
+    suspend fun chooseSaveTarget(
+        target: SaveTarget,
+        remember: Boolean,
+    ): Boolean
 
     /** The take's project with [saveTo] written into its export settings, ready to render. */
     suspend fun projectToRender(
@@ -62,9 +69,10 @@ class FileTakeRepository(
 
     override suspend fun saveTarget(): SaveTarget? = withContext(Dispatchers.IO) { store.saveTarget() }
 
-    override suspend fun chooseSaveTarget(target: SaveTarget) {
-        withContext(Dispatchers.IO) { store.chooseSaveTarget(target) }
-    }
+    override suspend fun chooseSaveTarget(
+        target: SaveTarget,
+        remember: Boolean,
+    ): Boolean = withContext(Dispatchers.IO) { store.chooseSaveTarget(target, remember) }
 
     override suspend fun projectToRender(
         name: String,

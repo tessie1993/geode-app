@@ -31,6 +31,7 @@ import dev.geode.data.Preset
 import dev.geode.data.PresetFolders
 import dev.geode.data.PresetRepository
 import dev.geode.data.PresetStore
+import dev.geode.data.SaveTarget
 import dev.geode.data.SessionRepository
 import dev.geode.data.SessionStore
 import dev.geode.data.SharedPrefsFavouritesRepository
@@ -871,6 +872,13 @@ class PlayerSession internal constructor(
     fun startRecording() = takeController.startRecording()
 
     fun stopRecording(name: String? = null) = takeController.stopRecording(name)
+
+    fun chooseTakeSaveTarget(
+        target: SaveTarget,
+        remember: Boolean,
+    ) = takeController.chooseSaveTarget(target, remember)
+
+    fun skipTakeSave() = takeController.skipPendingSave()
 
     fun playTake(name: String) = takeController.playTake(name)
 

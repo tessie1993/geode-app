@@ -475,6 +475,16 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsSchemaText(JNIEnv* env, jobject) 
     return env->NewStringUTF(geode_params_schema_text());
 }
 
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_touchZoom(JNIEnv*, jobject, jfloat current, jfloat scaleFactor) {
+    return geode_touch_zoom(current, scaleFactor);
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_touchRotation(JNIEnv*, jobject, jfloat current, jfloat degrees) {
+    return geode_touch_rotation(current, degrees);
+}
+
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_paramsRollKeys(JNIEnv* env, jobject) {
     return env->NewStringUTF(geode_params_roll_keys());

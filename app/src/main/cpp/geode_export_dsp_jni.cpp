@@ -9,6 +9,17 @@ namespace {
 
 geode_resampler* resamplerOf(jlong handle) { return reinterpret_cast<geode_resampler*>(handle); }
 geode_loudness* loudnessOf(jlong handle) { return reinterpret_cast<geode_loudness*>(handle); }
+geode_file_feed* feedOf(jlong handle) { return reinterpret_cast<geode_file_feed*>(handle); }
+
+// The bytes [offset, offset + byteCount) of a direct ByteBuffer (a MediaCodec output buffer), or null when
+// the buffer is not direct or the range does not fit inside it.
+const unsigned char* directRange(JNIEnv* env, jobject buffer, jint offset, jint byteCount) {
+    if (!buffer || offset < 0 || byteCount < 0) return nullptr;
+    auto* base = static_cast<const unsigned char*>(env->GetDirectBufferAddress(buffer));
+    const jlong capacity = env->GetDirectBufferCapacity(buffer);
+    if (!base || capacity < 0 || static_cast<jlong>(offset) + byteCount > capacity) return nullptr;
+    return base + offset;
+}
 
 // Layout of the double[] loudnessFinish fills; GeodeNative.loudnessFinish documents the same order.
 constexpr jsize kReportDoubles = 5;
@@ -63,14 +74,6 @@ Java_dev_geode_engine_bridge_GeodeNative_loudnessDestroy(JNIEnv*, jobject, jlong
     geode_loudness_destroy(loudnessOf(handle));
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_loudnessFeed(JNIEnv* env, jobject, jlong handle, jfloatArray samples, jint count) {
-    geode::jni::FloatElements view(env, samples);
-    if (!view.get() || count <= 0) return;
-    const jsize n = count < view.length() ? count : view.length();
-    geode_loudness_feed(loudnessOf(handle), view.get(), static_cast<size_t>(n));
-}
-
 JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_loudnessHasBlock(JNIEnv*, jobject, jlong handle) {
     return geode_loudness_has_block(loudnessOf(handle)) ? JNI_TRUE : JNI_FALSE;
@@ -87,6 +90,52 @@ Java_dev_geode_engine_bridge_GeodeNative_loudnessFinish(JNIEnv* env, jobject, jl
         env->SetDoubleArrayRegion(out, 0, kReportDoubles, values);
     }
     return report.has_integrated ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_loudnessFeedPcm(JNIEnv* env, jobject, jlong handle, jobject buffer, jint offset,
+                                                         jint byteCount, jint encoding) {
+    const unsigned char* bytes = directRange(env, buffer, offset, byteCount);
+    if (!bytes) return JNI_FALSE;
+    return geode_loudness_feed_pcm(loudnessOf(handle), bytes, static_cast<size_t>(byteCount), encoding) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_fileFeedCreate(JNIEnv*, jobject, jlong startUs) {
+    return reinterpret_cast<jlong>(geode_file_feed_create(startUs));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_fileFeedDestroy(JNIEnv*, jobject, jlong handle) {
+    geode_file_feed_destroy(feedOf(handle));
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_fileFeedWrite(JNIEnv* env, jobject, jlong handle, jobject buffer, jint offset,
+                                                       jint byteCount, jint encoding, jint sampleRate, jint channels,
+                                                       jlong ptsUs) {
+    const unsigned char* bytes = directRange(env, buffer, offset, byteCount);
+    if (!bytes) return -1;
+    return geode_file_feed_write(feedOf(handle), bytes, static_cast<size_t>(byteCount), encoding, sampleRate, channels, ptsUs);
+}
+
+// AIFF: AiffPcm already hands 16-bit samples in a short[] (no timestamps; the feed counts from the top).
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_fileFeedWriteShorts(JNIEnv* env, jobject, jlong handle, jshortArray samples,
+                                                             jint count, jint sampleRate, jint channels) {
+    if (!samples || count <= 0) return 0;
+    const jint n = count < env->GetArrayLength(samples) ? count : env->GetArrayLength(samples);
+    void* data = env->GetPrimitiveArrayCritical(samples, nullptr);
+    if (!data) return -1;
+    const long long kept = geode_file_feed_write(feedOf(handle), data, static_cast<size_t>(n) * sizeof(jshort),
+                                                 2 /* ENCODING_PCM_16BIT */, sampleRate, channels, -1);
+    env->ReleasePrimitiveArrayCritical(samples, data, JNI_ABORT);
+    return kept;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_fileFeedNeeds(JNIEnv*, jobject, jlong handle, jlong frameIndex, jint fps) {
+    return geode_file_feed_needs(feedOf(handle), frameIndex, fps) ? JNI_TRUE : JNI_FALSE;
 }
 
 }

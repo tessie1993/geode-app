@@ -144,6 +144,16 @@ class NativeViz(
         if (handle != 0L && frames > 0) GeodeNative.vizWriteAudio(handle, interleaved, frames, channels, sampleRateHz)
     }
 
+    /**
+     * The export's file feed ([dev.geode.render.offscreen.TrackAudio]): writes exactly the samples of
+     * frames up to [frameIndex] at [fps] into the sound engine, natively. Returns the frames written.
+     */
+    fun feedFile(
+        feed: Long,
+        frameIndex: Long,
+        fps: Int,
+    ): Int = if (handle != 0L && feed != 0L) GeodeNative.vizFeedFile(handle, feed, frameIndex, fps) else 0
+
     fun resetAudio() {
         if (handle != 0L) GeodeNative.vizResetAudio(handle)
     }

@@ -109,8 +109,11 @@ pins this.
 **2. The tap stays first.** Live and export run the same `core/sound` code, so
 they can only agree if they hear the same audio. Live, the tap writes the ring
 that each renderer's sound engine reads. Export, `render/offscreen/TrackAudio`
-decodes the file itself (MediaExtractor and MediaCodec) and feeds the export
-renderer's own engine at 1/fps; that decode has no user DSP in it. Put
+decodes the file itself (MediaExtractor and MediaCodec) and hands the decoder's
+bytes to a native file ring (`core/audio/ingest/FileFeed`), which feeds the
+export renderer's own engine exactly each frame's samples at 1/fps, through the
+same ingest conversion and stereo downmix as live; that decode has no user DSP
+in it. Put
 user-tunable DSP upstream of the tap and live visuals diverge from every
 exported video, differently for every user and every preset.
 

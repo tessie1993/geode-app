@@ -134,7 +134,6 @@ class OffscreenSceneRenderer(
         val viz = checkNotNull(native) { "renderFrame() before prepare()" }
         val fps = spec.fps
         val timeMs = frame * 1000L / fps
-        val nextTimeMs = (frame + 1) * 1000L / fps
         // Quality never adapts downward in an export; the thermal half is the offscreen pin above.
         val p = (spec.paramsAt?.invoke(timeMs) ?: spec.baseParams).copy(fluidAutoQuality = false)
         viz.setParams(p)
@@ -144,8 +143,9 @@ class OffscreenSceneRenderer(
             viz.setReactions(routes)
             nativeReactions = routes
         }
-        // Exactly the audio up to the end of this frame, then a render steps the engine by 1/fps.
-        audio?.deliverUntilMs(nextTimeMs) { pcm, frames, channels, rate -> viz.writeAudio(pcm, frames, channels, rate) }
+        // Exactly this frame's samples (native, frame-exact: core/audio/ingest/FileFeed), then a render
+        // steps the engine by 1/fps.
+        audio?.deliverFrame(viz, frame, fps)
         viz.render(timeMs / 1000.0, targetFbo)
     }
 

@@ -1,5 +1,7 @@
 package dev.geode.engine.bridge
 
+import java.nio.ByteBuffer
+
 object GeodeNative {
     init {
         System.loadLibrary("geode")
@@ -187,6 +189,14 @@ object GeodeNative {
         channels: Int,
         sampleRate: Int,
     )
+
+    /** Writes the file feed's samples for frames up to [frameIndex] into the renderer's engine. */
+    external fun vizFeedFile(
+        handle: Long,
+        feed: Long,
+        frameIndex: Long,
+        fps: Int,
+    ): Int
 
     external fun vizResetAudio(handle: Long)
 
@@ -527,14 +537,59 @@ object GeodeNative {
 
     external fun loudnessDestroy(handle: Long)
 
-    /** Consumes [count] interleaved samples (not frames) of [samples], each in -1..1. */
-    external fun loudnessFeed(
+    /**
+     * Feeds the decoder's bytes [offset, offset + byteCount) of the direct [buffer] (a MediaCodec output
+     * buffer), interleaved PCM in [encoding] (`AudioFormat.ENCODING_PCM_16BIT`, `_8BIT` or `_FLOAT`). The
+     * conversion is native. False for an encoding it cannot read or a buffer that is not direct.
+     */
+    external fun loudnessFeedPcm(
         handle: Long,
-        samples: FloatArray,
-        count: Int,
-    )
+        buffer: ByteBuffer,
+        offset: Int,
+        byteCount: Int,
+        encoding: Int,
+    ): Boolean
 
     external fun loudnessHasBlock(handle: Long): Boolean
+
+    // The export's file ring (core/audio/ingest/FileFeed): a decoded track handed to the export renderer
+    // frame-exact. Decode while [fileFeedNeeds], then [vizFeedFile], then render.
+
+    /** A feed for the range starting [startUs] into the track; samples before it are dropped. */
+    external fun fileFeedCreate(startUs: Long): Long
+
+    external fun fileFeedDestroy(handle: Long)
+
+    /**
+     * One decoder chunk: bytes [offset, offset + byteCount) of the direct [buffer] in [encoding], at
+     * [ptsUs] (the chunk's presentation time). Returns the frames kept, or -1 when unusable.
+     */
+    external fun fileFeedWrite(
+        handle: Long,
+        buffer: ByteBuffer,
+        offset: Int,
+        byteCount: Int,
+        encoding: Int,
+        sampleRate: Int,
+        channels: Int,
+        ptsUs: Long,
+    ): Long
+
+    /** [count] interleaved 16-bit samples of a source without timestamps (AIFF), right after the last. */
+    external fun fileFeedWriteShorts(
+        handle: Long,
+        samples: ShortArray,
+        count: Int,
+        sampleRate: Int,
+        channels: Int,
+    ): Long
+
+    /** True while video frame [frameIndex] at [fps] still needs samples not written yet. */
+    external fun fileFeedNeeds(
+        handle: Long,
+        frameIndex: Long,
+        fps: Int,
+    ): Boolean
 
     /**
      * Fills [out] (5 doubles: integrated LUFS, true peak dBTP, sample peak dBFS, measured ms, gated

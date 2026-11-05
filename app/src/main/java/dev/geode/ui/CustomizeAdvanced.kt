@@ -183,7 +183,7 @@ private fun ReactionCard(
             )
             Switch(checked = route.enabled, onCheckedChange = { onChange(route.copy(enabled = it)) })
         }
-        if (route.target != LfoTarget.NONE && !ModTable.reaches(route.target, sceneId)) {
+        if (route.target != LfoTarget.NONE && !ModTable.offeredTo(route.target, sceneId, ModTable.REACTION)) {
             ControlHint("${route.target.label} does nothing on this style.")
         }
         if (expanded) {
@@ -235,7 +235,7 @@ private fun ReactionCard(
                         }
                     } else {
                         LfoTarget.entries
-                            .filter { it != LfoTarget.NONE && ModTable.chainSlot(it) == null && ModTable.reaches(it, sceneId) }
+                            .filter { it != LfoTarget.NONE && ModTable.offeredTo(it, sceneId, ModTable.REACTION) }
                             .forEach { t ->
                                 TextButton(onClick = {
                                     onChange(route.copy(target = t))
@@ -265,7 +265,7 @@ internal fun ModulatorCard(
         }
         if (config.enabled) {
             TextButton(onClick = { showTargetPicker = true }) { Text("Moves: ${config.target.label}") }
-            if (config.target != LfoTarget.NONE && !ModTable.reaches(config.target, sceneId)) {
+            if (config.target != LfoTarget.NONE && !ModTable.offeredTo(config.target, sceneId, index)) {
                 ControlHint("${config.target.label} does nothing on this style - pick another.")
             }
             DropdownRow("Follows", ModSource.entries.map { it.label }, ModSource.entries.indexOf(config.source)) {
@@ -298,11 +298,8 @@ internal fun ModulatorCard(
             text = {
                 Column(modifier = Modifier.height(360.dp).verticalScroll(rememberScrollState())) {
                     LfoTarget.entries.forEach { t ->
-                        // A chain target may only point at a LATER wave, and a scene-parameter
-                        // target is only offered where it can actually move the picture.
-                        val chain = ModTable.chainSlot(t)
-                        val offered = ModTable.reaches(t, sceneId) && (chain == null || index < chain)
-                        if (offered) {
+                        // Native decides what this wave may move (a later wave, or what reaches the style).
+                        if (ModTable.offeredTo(t, sceneId, index)) {
                             TextButton(onClick = {
                                 onChange(config.copy(target = t))
                                 showTargetPicker = false

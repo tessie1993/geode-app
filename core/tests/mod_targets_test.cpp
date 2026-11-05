@@ -9,6 +9,7 @@
 // The fixture is what the shell's JVM tests read in place of geode_mod_targets_text (the geode.modTargets
 // property, dev.geode.render.ModTable). The expected scopes below are the Kotlin LfoTarget table this
 // replaced, so the port changed no target's reach.
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -114,11 +115,57 @@ void followersStartUpOnly() {
     }
 }
 
+// Who picks a target decides what it may move (#642 review): a reaction route moves scene params only
+// (ReactionEngine skips chained routes); an envelope may steer any wave; a wave only a LATER wave, the
+// order LfoEngine::step reads them in. Scene targets follow the style's reach for every picker.
+void pickersOfferWhatTheEngineRuns() {
+    using modtargets::kPickerEnvelope;
+    using modtargets::kPickerReaction;
+    check(!modtargets::offeredTo(LfoTarget::Lfo1Rate, "julia", kPickerReaction), "a reaction steers no wave");
+    check(modtargets::offeredTo(LfoTarget::Lfo1Rate, "julia", kPickerEnvelope), "an envelope steers wave 1");
+    check(modtargets::offeredTo(LfoTarget::Lfo3Depth, "milkdrop", kPickerEnvelope), "an envelope steers wave 3 anywhere");
+    check(!modtargets::offeredTo(LfoTarget::Lfo1Rate, "julia", 0), "wave 1 does not steer itself");
+    check(modtargets::offeredTo(LfoTarget::Lfo2Rate, "julia", 0) && modtargets::offeredTo(LfoTarget::Lfo3Depth, "julia", 0),
+          "wave 1 steers the later waves");
+    check(!modtargets::offeredTo(LfoTarget::Lfo1Depth, "julia", 1), "wave 2 does not steer an earlier wave");
+    for (int i = 0; i < modtargets::kTargetCount; ++i) {
+        const auto t = static_cast<LfoTarget>(i);
+        if (modtargets::chainSlot(t) >= 0) check(!modtargets::offeredTo(t, "julia", 2), "the last wave steers no wave");
+    }
+    for (int picker : {kPickerReaction, kPickerEnvelope, 0, 1, 2}) {
+        check(modtargets::offeredTo(LfoTarget::Morph, "julia", picker) && !modtargets::offeredTo(LfoTarget::Morph, "silk_web", picker),
+              "a scene target follows the style's reach for picker " + std::to_string(picker));
+        check(!modtargets::offeredTo(LfoTarget::Retired25, "julia", picker), "the retired slot is offered to no picker");
+    }
+    check(!modtargets::offeredTo(LfoTarget::Zoom, "julia", 3) && !modtargets::offeredTo(LfoTarget::Zoom, "julia", -3),
+          "an unknown picker is offered nothing");
+}
+
+void offerMaskHasABitPerTarget() {
+    for (const auto& id : catalogue::allIds()) {
+        for (int picker = modtargets::kPickerReaction; picker < LfoEngine::kSlots; ++picker) {
+            std::uint64_t want = 0;
+            for (int i = 0; i < modtargets::kTargetCount; ++i) {
+                if (modtargets::offeredTo(static_cast<LfoTarget>(i), id, picker)) want |= std::uint64_t{1} << i;
+            }
+            check(modtargets::offerMask(id, picker) == want, "offer mask of " + id + " for picker " + std::to_string(picker));
+        }
+        check(modtargets::offerMask(id, modtargets::kPickerEnvelope) ==
+                  [&] {
+                      std::uint64_t m = 0;
+                      for (int i = 0; i < modtargets::kTargetCount; ++i)
+                          if (modtargets::reaches(static_cast<LfoTarget>(i), id)) m |= std::uint64_t{1} << i;
+                      return m;
+                  }(),
+              "an envelope is offered exactly what reaches " + id);
+    }
+}
+
 bool hasLine(const std::string& text, const std::string& line) { return text.find("\n" + line + "\n") != std::string::npos; }
 
 void textCarriesEveryRow() {
     const std::string& t = modtargets::text();
-    check(t.rfind("modulation|1\n", 0) == 0, "header first");
+    check(t.rfind("modulation|2\n", 0) == 0, "header first");
     check(hasLine(t, "config|2|0.05|60|0.3|3"), "config row: default rate, rate range, default depth, slots");
     check(hasLine(t, "target|10|MORPH|SHADER_LOOK|-1|1"), "a scene target row");
     check(hasLine(t, "target|25|RETIRED_25|UNIVERSAL|-1|0"), "the retired row is not offered");
@@ -126,6 +173,19 @@ void textCarriesEveryRow() {
     check(hasLine(t, "source|0|LFO|BIPOLAR") && hasLine(t, "source|1|BASS|POSITIVE") && hasLine(t, "source|8|STEREO_PAN|BIPOLAR"),
           "source rows carry their natural polarity");
     check(hasLine(t, "curve|3|SMOOTH") && hasLine(t, "wave|4|RANDOM") && hasLine(t, "polarity|2|NEGATIVE"), "enum rows");
+    // One reach row per style (and "*" for an id the catalogue does not know): the offer mask, in hex, for a
+    // reaction, an envelope and each wave slot, so the shell reads the answer and never works it out.
+    const auto row = [](const std::string& id) {
+        char buf[32];
+        std::string out = "reach|" + id;
+        for (int picker = modtargets::kPickerReaction; picker < LfoEngine::kSlots; ++picker) {
+            std::snprintf(buf, sizeof buf, "|%llx", static_cast<unsigned long long>(modtargets::offerMask(id, picker)));
+            out += buf;
+        }
+        return out;
+    };
+    for (const auto& id : catalogue::allIds()) check(hasLine(t, row(id)), "reach row of " + id);
+    check(hasLine(t, "reach|*" + row("").substr(6)), "the fallback reach row answers as an unknown id");
     check(t.back() == '\n', "ends with a newline");
 }
 
@@ -152,6 +212,8 @@ int main(int argc, char** argv) {
     musicActionsReachWhatTheirTargetsReach();
     chainedTargetsSteerTheirSlot();
     followersStartUpOnly();
+    pickersOfferWhatTheEngineRuns();
+    offerMaskHasABitPerTarget();
     textCarriesEveryRow();
     textEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/mod_targets.txt");
     if (failures) {

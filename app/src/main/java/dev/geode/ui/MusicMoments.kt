@@ -6,6 +6,7 @@ import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.HandReactions
 import dev.geode.render.bridge.ModConfigCodec
 import dev.geode.render.scene.BuildStyleReactionsUseCase
+import dev.geode.util.bestEffort
 
 /**
  * A musical moment on Customize › Music: one row ("Kick", "Drop") that the user gives actions to.
@@ -70,10 +71,13 @@ internal object MusicMoments {
     private const val OP_TOGGLE = 0
     private const val OP_STRENGTH = 1
     private const val OP_RESET = 2
+    private const val TAG = "MusicMoments"
 
     /** The actions whose target reaches [sceneId] (native decides; geode_music_actions_for): the page hides the rest. */
     fun actionsFor(sceneId: String): List<MusicAction> {
-        val bits = runCatching { GeodeNative.musicActionsFor(sceneId) }.getOrDefault(-1)
+        // Native unreachable: show every chip rather than none, and log it.
+        var bits = -1
+        bestEffort(TAG, "musicActionsFor($sceneId)") { bits = GeodeNative.musicActionsFor(sceneId) }
         return MusicAction.entries.filter { bits and (1 shl it.ordinal) != 0 }
     }
 

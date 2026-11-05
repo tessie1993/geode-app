@@ -17,7 +17,7 @@
 namespace geode::viz::modtargets {
 
 // Bumped whenever a row type or field changes meaning; Kotlin refuses a table it cannot read.
-constexpr int kTextVersion = 1;
+constexpr int kTextVersion = 2;
 constexpr int kTargetCount = static_cast<int>(LfoTarget::EndlessZoomSpeed) + 1;
 
 // The wire name; "" outside the enum.
@@ -30,6 +30,17 @@ int chainSlot(LfoTarget target);
 // Whether moving `target` changes anything on `styleId`. A chained target steers another slot, so it
 // reaches every style; the retired slot and anything outside the enum reach none.
 bool reaches(LfoTarget target, const std::string& styleId);
+// Who is picking a target, for offeredTo: a reaction route, an envelope, or a wave slot by its index
+// (0..LfoEngine::kSlots-1). Anything else is offered nothing.
+constexpr int kPickerReaction = -2;
+constexpr int kPickerEnvelope = -1;
+// Whether `picker` may move `target` on `styleId`: what reaches the style, minus what the engine would
+// not run for that picker. A reaction route moves scene params only (ReactionEngine::apply skips a
+// chained route); an envelope may steer any wave; a wave only a LATER wave, because LfoEngine::step
+// runs the slots in order and a chain back to itself or an earlier slot would land a frame late.
+bool offeredTo(LfoTarget target, const std::string& styleId, int picker);
+// Bit per LfoTarget ordinal that offeredTo says yes to.
+std::uint64_t offerMask(const std::string& styleId, int picker);
 // Bit per MusicAction (viz/ReactionDna) whose target reaches `styleId`: Customize › Music hides the rest.
 std::uint32_t musicActionsFor(const std::string& styleId);
 // An oscillator swings both ways; a follower reads 0 in silence, so a bipolar follower would shove the
@@ -44,6 +55,8 @@ ModPolarity naturalPolarity(ModSource source);
 //   polarity|<ordinal>|<NAME>
 //   curve|<ordinal>|<NAME>
 //   wave|<ordinal>|<NAME>
+//   reach|<style id>|<reaction>|<envelope>|<wave 1>|<wave 2>|<wave 3>         offerMask per picker, hex;
+//        one row per catalogue id in allIds() order, then "*", the answer for an id the catalogue lacks
 const std::string& text();
 
 }  // namespace geode::viz::modtargets

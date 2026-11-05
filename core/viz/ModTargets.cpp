@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "viz/ReactionDna.hpp"
+#include "viz/TableNumber.hpp"
 
 namespace geode::viz::modtargets {
 
@@ -89,10 +90,14 @@ static_assert(kWaveNames.size() == static_cast<size_t>(LfoWave::RandomGlide) + 1
 
 bool known(LfoTarget t) { return static_cast<int>(t) >= 0 && static_cast<int>(t) < kTargetCount; }
 
-std::string num(float v) {
+void reachRow(std::string& out, const std::string& id, const std::string& asId) {
     char buf[32];
-    std::snprintf(buf, sizeof buf, "%g", static_cast<double>(v));
-    return buf;
+    out += "reach|" + asId;
+    for (int picker = kPickerReaction; picker < LfoEngine::kSlots; ++picker) {
+        std::snprintf(buf, sizeof buf, "|%llx", static_cast<unsigned long long>(offerMask(id, picker)));
+        out += buf;
+    }
+    out += "\n";
 }
 
 template <typename Names>
@@ -103,8 +108,8 @@ void enumRows(std::string& out, const char* tag, const Names& names) {
 std::string build() {
     std::string out = "modulation|" + std::to_string(kTextVersion) + "\n";
     const LfoConfig d{};
-    out += "config|" + num(LfoConfig::kDefaultRateSeconds) + "|" + num(LfoConfig::kMinRateSeconds) + "|" +
-           num(LfoConfig::kMaxRateSeconds) + "|" + num(d.depth) + "|" + std::to_string(LfoEngine::kSlots) + "\n";
+    out += "config|" + tableNumber(LfoConfig::kDefaultRateSeconds) + "|" + tableNumber(LfoConfig::kMinRateSeconds) + "|" +
+           tableNumber(LfoConfig::kMaxRateSeconds) + "|" + tableNumber(d.depth) + "|" + std::to_string(LfoEngine::kSlots) + "\n";
     for (int i = 0; i < kTargetCount; ++i) {
         const auto t = static_cast<LfoTarget>(i);
         out += "target|" + std::to_string(i) + "|" + name(t) + "|" + catalogue::name(scopeOf(t)) + "|" +
@@ -118,6 +123,8 @@ std::string build() {
     enumRows(out, "polarity", kPolarityNames);
     enumRows(out, "curve", kCurveNames);
     enumRows(out, "wave", kWaveNames);
+    for (const auto& id : catalogue::allIds()) reachRow(out, id, id);
+    reachRow(out, "", "*");
     return out;
 }
 
@@ -138,6 +145,22 @@ bool reaches(LfoTarget target, const std::string& styleId) {
     if (!offered(target)) return false;
     if (chainSlot(target) >= 0) return true;
     return catalogue::reaches(scopeOf(target), styleId);
+}
+
+bool offeredTo(LfoTarget target, const std::string& styleId, int picker) {
+    if (picker < kPickerReaction || picker >= LfoEngine::kSlots || !reaches(target, styleId)) return false;
+    const int slot = chainSlot(target);
+    if (slot < 0) return true;
+    if (picker == kPickerReaction) return false;
+    return picker == kPickerEnvelope || picker < slot;
+}
+
+std::uint64_t offerMask(const std::string& styleId, int picker) {
+    std::uint64_t bits = 0;
+    for (int i = 0; i < kTargetCount; ++i) {
+        if (offeredTo(static_cast<LfoTarget>(i), styleId, picker)) bits |= std::uint64_t{1} << i;
+    }
+    return bits;
 }
 
 std::uint32_t musicActionsFor(const std::string& styleId) {

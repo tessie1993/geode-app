@@ -1,10 +1,9 @@
 #include "viz/CataloguePresets.hpp"
 
-#include <cstdio>
-#include <cstdlib>
 #include <set>
 
 #include "viz/Catalogue.hpp"
+#include "viz/TableNumber.hpp"
 
 namespace geode::viz::catalogue {
 namespace {
@@ -202,21 +201,11 @@ std::vector<std::string> looseShaderIds() {
     return out;
 }
 
-// The shortest %g form that reads back to exactly v (core/viz/ParamsFields.cpp writes the schema so).
-std::string number(float v) {
-    char buf[32];
-    for (int digits = 6; digits <= 9; ++digits) {
-        std::snprintf(buf, sizeof buf, "%.*g", digits, static_cast<double>(v));
-        if (std::strtof(buf, nullptr) == v) break;
-    }
-    return buf;
-}
-
 std::string lookRow(const char* key, float attack, float decay, const std::vector<Value>& values) {
-    std::string out = std::string("look|") + key + "|" + number(attack) + "|" + number(decay) + "|";
+    std::string out = std::string("look|") + key + "|" + tableNumber(attack) + "|" + tableNumber(decay) + "|";
     for (size_t i = 0; i < values.size(); ++i) {
         if (i > 0) out += ',';
-        out += std::string(values[i].name) + "=" + number(values[i].value);
+        out += std::string(values[i].name) + "=" + tableNumber(values[i].value);
     }
     return out + "\n";
 }

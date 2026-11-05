@@ -309,11 +309,10 @@ GEODE_API long long       geode_silence_heard_at(const float* const* channels, i
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
 
-/* ── Export planning and clip maths (ADR 0006: core/output, core/signal/timeline; ADR 0003 ports) ──────────
+/* ── Export planning (ADR 0006: core/output, core/signal/timeline; ADR 0003 ports) ─────────────────────────
  * Pure functions and plain handles, any thread, no GL. The Kotlin exporters (VideoExporter, LoopRender,
- * LoopExtend, StudioExporter, the Media3 clip effects, AudioTranscoder) call these instead of carrying the
- * maths themselves; the classes behind them are output/FrameClock, LoopPlan, EncodePlan, Chapters,
- * signal/timeline/Keyframes, SpeedRamp, viz/ClipGrade, util/CubeLut and audio/dsp/PcmConvert. */
+ * LoopExtend, AudioTranscoder) call these instead of carrying the maths themselves; the classes behind them are output/FrameClock, LoopPlan, EncodePlan, Chapters,
+ * signal/timeline/Keyframes and audio/dsp/PcmConvert. */
 
 /* Frame clock (output/FrameClock): each value from the frame index alone, so nothing accumulates. */
 GEODE_API int64_t geode_export_total_frames(int64_t duration_us, int fps);            /* >= 1 */
@@ -389,16 +388,6 @@ GEODE_API int64_t geode_render_eta_sample(geode_render_eta* state, float progres
  * minutes or hours (0 for the first two). */
 GEODE_API int     geode_render_eta_phrase(int64_t seconds_left, int64_t* out_count);
 
-/* Caption cues (signal/timeline/Cues): the text-lane cues touching [span_start_ms, span_end_ms), re-based to
- * the item's first frame, written as up to `cap` (start ms, end ms, source index) triples into out_triples;
- * returns how many (0 when none touches the span). The text stays Kotlin, keyed by source index. Stateless:
- * the caller keeps the triples and the origin pair, so no handle has to outlive a Media3 overlay. */
-GEODE_API int geode_cues_for_span(const int64_t* starts_ms, const int64_t* ends_ms, int count, int64_t span_start_ms,
-                                  int64_t span_end_ms, int64_t* out_triples, int cap);
-/* The source index of the cue on screen at a frame's presentation time, -1 for none. origin2 is the item's clock
- * (has origin, origin us), kept by the caller and all zeros before its first frame, which fixes it. */
-GEODE_API int geode_cues_at(const int64_t* triples, int count, int64_t* origin2, int64_t presentation_us);
-
 /* Keyframe tracks (signal/timeline/Keyframes). kind: 0 scalar, 1 vector2, 2 colour (4 floats), 3 toggle,
  * 4 choice; interp: 0 hold, 1 linear, 2 bezier (c1x, c1y, c2x, c2y; the Ease presets are beziers too).
  * A key at a time that already has one replaces it. One thread at a time per track. */
@@ -411,31 +400,6 @@ GEODE_API void         geode_track_add_key(geode_track*, int64_t at_ms, int kind
 /* 1 and the value (kind, 4 floats) at t_ms; 0 when the track has no keys. */
 GEODE_API int          geode_track_value_at(const geode_track*, int64_t t_ms, int* out_kind, float* out_value4);
 GEODE_API float        geode_bezier_eval(float c1x, float c1y, float c2x, float c2y, float x);
-
-/* Clip speed ramps (signal/timeline/SpeedRamp) for Media3's SpeedProvider, which asks in source time. */
-typedef struct geode_speed_ramp geode_speed_ramp;
-GEODE_API geode_speed_ramp* geode_speed_ramp_create(const geode_track* speed_track, int64_t clip_start_ms,
-                                                    int64_t clip_duration_ms, int64_t step_ms); /* NULL: no keys */
-GEODE_API void              geode_speed_ramp_destroy(geode_speed_ramp*);
-GEODE_API float             geode_speed_ramp_speed_at(const geode_speed_ramp*, int64_t source_us);
-GEODE_API int64_t           geode_speed_ramp_next_change_us(const geode_speed_ramp*, int64_t source_us); /* -1: none */
-GEODE_API int64_t           geode_speed_ramp_source_span_us(const geode_speed_ramp*);
-/* Copies min(count, capacity) segment starts (source µs) and speeds; returns the segment count. */
-GEODE_API int               geode_speed_ramp_segments(const geode_speed_ramp*, int64_t* out_starts_us, float* out_speeds,
-                                                      int capacity);
-GEODE_API float             geode_clip_speed_sanitize(float speed);  /* NaN/<=0 -> 1, else 0.25..4 */
-
-/* Clip grade (viz/ClipGrade): hue . saturation . contrast . brightness as a column-major 4x4. */
-GEODE_API void    geode_clip_grade_matrix(float brightness, float contrast, float saturation_percent,
-                                          float hue_degrees, float* out16);
-
-/* Colour cubes (util/CubeLut): size^3 opaque ARGB, [r][g][b]. */
-typedef struct geode_cube_lut geode_cube_lut;
-GEODE_API geode_cube_lut* geode_cube_lut_parse(const char* text, size_t length);   /* NULL: not a usable .cube */
-GEODE_API geode_cube_lut* geode_cube_lut_gamma(float red, float green, float blue, int size);
-GEODE_API void            geode_cube_lut_destroy(geode_cube_lut*);
-GEODE_API int             geode_cube_lut_size(const geode_cube_lut*);
-GEODE_API const uint32_t* geode_cube_lut_argb(const geode_cube_lut*);              /* size^3 entries */
 
 /* PCM conversions (audio/dsp/PcmConvert). downmix returns the frames written (0: not a downmix). */
 GEODE_API size_t  geode_pcm_downmix_s16(const int16_t* in, size_t frames, int src_channels, int dst_channels,

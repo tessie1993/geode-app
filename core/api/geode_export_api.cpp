@@ -1,11 +1,8 @@
-// The C ABI over the export planning and clip maths (geode_api.h, "Export planning and clip maths"). Only
-// argument checks and copies live here; the rules are in output/ (FrameClock, LoopPlan, EncodePlan, Chapters,
-// ExportRange, RenderEta), signal/timeline/ (Keyframes, SpeedRamp, Cues), viz/ClipGrade,
-// util/CubeLut and audio/dsp/PcmConvert, each host-tested in core/tests.
+// The C ABI over the export planning (geode_api.h, "Export planning"). Only argument checks and copies live
+// here; the rules are in output/ (FrameClock, LoopPlan, EncodePlan, Chapters, ExportRange, RenderEta),
+// signal/timeline/Keyframes and audio/dsp/PcmConvert, each host-tested in core/tests.
 #include <algorithm>
 #include <memory>
-#include <string_view>
-#include <utility>
 #include <vector>
 
 #include "api/geode_api.h"
@@ -16,25 +13,13 @@
 #include "output/FrameClock.hpp"
 #include "output/LoopPlan.hpp"
 #include "output/RenderEta.hpp"
-#include "signal/timeline/Cues.hpp"
 #include "signal/timeline/Keyframes.hpp"
-#include "signal/timeline/SpeedRamp.hpp"
-#include "util/CubeLut.hpp"
-#include "viz/ClipGrade.hpp"
 
 namespace tl = geode::signal::timeline;
 namespace out = geode::output;
 
 struct geode_track {
     tl::Track track;
-};
-
-struct geode_speed_ramp {
-    tl::SpeedRamp ramp;
-};
-
-struct geode_cube_lut {
-    geode::util::CubeLut lut;
 };
 
 namespace {
@@ -192,58 +177,6 @@ float geode_bezier_eval(float c1x, float c1y, float c2x, float c2y, float x) {
     return tl::BezierCurve(c1x, c1y, c2x, c2y).eval(x);
 }
 
-geode_speed_ramp* geode_speed_ramp_create(const geode_track* speed_track, int64_t clip_start_ms, int64_t clip_duration_ms,
-                                          int64_t step_ms) {
-    if (!speed_track || speed_track->track.empty()) return nullptr;
-    return new geode_speed_ramp{tl::SpeedRamp::fromTrack(speed_track->track, clip_start_ms, clip_duration_ms,
-                                                         step_ms > 0 ? step_ms : tl::SpeedRamp::kDefaultStepMs)};
-}
-
-void geode_speed_ramp_destroy(geode_speed_ramp* r) { std::unique_ptr<geode_speed_ramp> owned(r); }
-
-float geode_speed_ramp_speed_at(const geode_speed_ramp* r, int64_t source_us) { return r ? r->ramp.speedAt(source_us) : 1.0f; }
-
-int64_t geode_speed_ramp_next_change_us(const geode_speed_ramp* r, int64_t source_us) {
-    return r ? r->ramp.nextChangeUs(source_us) : -1;
-}
-
-int64_t geode_speed_ramp_source_span_us(const geode_speed_ramp* r) { return r ? r->ramp.sourceSpanUs() : 0; }
-
-int geode_speed_ramp_segments(const geode_speed_ramp* r, int64_t* out_starts_us, float* out_speeds, int capacity) {
-    if (!r) return 0;
-    const auto& starts = r->ramp.startsUs();
-    const auto& speeds = r->ramp.speeds();
-    const int n = static_cast<int>(starts.size());
-    const int writable = std::min(n, std::max(capacity, 0));
-    for (int i = 0; i < writable; ++i) {
-        if (out_starts_us) out_starts_us[i] = starts[static_cast<size_t>(i)];
-        if (out_speeds) out_speeds[i] = speeds[static_cast<size_t>(i)];
-    }
-    return n;
-}
-
-float geode_clip_speed_sanitize(float speed) { return tl::sanitizeClipSpeed(speed); }
-
-void geode_clip_grade_matrix(float brightness, float contrast, float saturation_percent, float hue_degrees, float* out16) {
-    if (out16) geode::viz::clipGradeMatrix(brightness, contrast, saturation_percent, hue_degrees, out16);
-}
-
-geode_cube_lut* geode_cube_lut_parse(const char* text, size_t length) {
-    if (!text) return nullptr;
-    auto lut = geode::util::CubeLut::parse(std::string_view(text, length));
-    return lut ? new geode_cube_lut{std::move(*lut)} : nullptr;
-}
-
-geode_cube_lut* geode_cube_lut_gamma(float red, float green, float blue, int size) {
-    return new geode_cube_lut{geode::util::CubeLut::gamma(red, green, blue, size)};
-}
-
-void geode_cube_lut_destroy(geode_cube_lut* l) { std::unique_ptr<geode_cube_lut> owned(l); }
-
-int geode_cube_lut_size(const geode_cube_lut* l) { return l ? l->lut.size() : 0; }
-
-const uint32_t* geode_cube_lut_argb(const geode_cube_lut* l) { return l ? l->lut.argb().data() : nullptr; }
-
 size_t geode_pcm_downmix_s16(const int16_t* in, size_t frames, int src_channels, int dst_channels, int16_t* o) {
     return geode::audio::downmixS16(in, frames, src_channels, dst_channels, o);
 }
@@ -291,28 +224,6 @@ int64_t geode_render_eta_sample(geode_render_eta* state, float progress, int64_t
 
 int geode_render_eta_phrase(int64_t seconds_left, int64_t* out_count) {
     return static_cast<int>(out::renderEtaPhrase(seconds_left, out_count));
-}
-
-int geode_cues_for_span(const int64_t* starts_ms, const int64_t* ends_ms, int count, int64_t span_start_ms,
-                        int64_t span_end_ms, int64_t* out_triples, int cap) {
-    const auto table = tl::CueTable::forSpan(starts_ms, ends_ms, count, span_start_ms, span_end_ms);
-    const int n = std::min(static_cast<int>(table.cues().size()), out_triples ? std::max(cap, 0) : 0);
-    for (int i = 0; i < n; ++i) {
-        const auto& c = table.cues()[static_cast<size_t>(i)];
-        out_triples[i * 3] = c.startMs;
-        out_triples[i * 3 + 1] = c.endMs;
-        out_triples[i * 3 + 2] = c.source;
-    }
-    return n;
-}
-
-int geode_cues_at(const int64_t* triples, int count, int64_t* origin2, int64_t presentation_us) {
-    if (!triples || !origin2 || count <= 0) return -1;
-    tl::CueClock clock{origin2[0], origin2[1]};
-    const int64_t atMs = clock.itemMs(presentation_us);
-    origin2[0] = clock.hasOrigin;
-    origin2[1] = clock.originUs;
-    return tl::CueTable::atTriples(triples, count, atMs);
 }
 
 }  // extern "C"

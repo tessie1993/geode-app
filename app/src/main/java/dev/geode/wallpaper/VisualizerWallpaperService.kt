@@ -16,6 +16,7 @@ import android.view.MotionEvent
 import android.view.SurfaceHolder
 import androidx.core.content.ContextCompat
 import dev.geode.billing.ProSnapshot
+import dev.geode.billing.WallClock
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PerformanceStore
 import dev.geode.data.PresetStore
@@ -66,6 +67,9 @@ class VisualizerWallpaperService : WallpaperService() {
 
         /** Ends the settle burst of [WallpaperRunMode.STILL]. */
         private val endStillSettle = Runnable { if (runMode == WallpaperRunMode.STILL) pacer.stop() }
+
+        /** Re-reads the gate when a running trial ends, so the wallpaper stills on time (#376). */
+        private val trialEnded = Runnable { syncRunState() }
 
         private val powerManager = getSystemService(PowerManager::class.java)
         private val keyguardManager = getSystemService(KeyguardManager::class.java)
@@ -185,8 +189,15 @@ class VisualizerWallpaperService : WallpaperService() {
         private fun syncRunState() {
             if (renderer == null) return
             // Pro feature. Re-read on every change, so a purchase or a trial made in the app
-            // animates the wallpaper the next time the home screen shows.
-            val animated = ProSnapshot.gate(this@VisualizerWallpaperService).allows(ProFeature.LIVE_WALLPAPER)
+            // animates the wallpaper the next time the home screen shows. Nothing announces a
+            // trial's end, so a running trial also books a restate for its last moment, else the
+            // wallpaper would animate on until the next visibility change (#376).
+            val gate = ProSnapshot.gate(this@VisualizerWallpaperService)
+            val animated = gate.allows(ProFeature.LIVE_WALLPAPER)
+            handler.removeCallbacks(trialEnded)
+            gate.msUntilTrialEnds(WallClock.SYSTEM.nowMs())?.let {
+                handler.postDelayed(trialEnded, it + TRIAL_END_SLACK_MS)
+            }
             val conditions =
                 WallpaperConditions(
                     surfaceAvailable = surfaceAvailable,
@@ -389,6 +400,7 @@ class VisualizerWallpaperService : WallpaperService() {
 
         override fun onDestroy() {
             handler.removeCallbacks(endStillSettle)
+            handler.removeCallbacks(trialEnded)
             pacer.stop()
             sound.stop()
             bestEffort(TAG, "unregister system receiver") { unregisterReceiver(systemReceiver) }
@@ -437,6 +449,9 @@ class VisualizerWallpaperService : WallpaperService() {
 
         /** How long a still frame keeps drawing first, so a scene being built finishes on screen. */
         const val STILL_SETTLE_MS = 2_000L
+
+        /** Past the trial's end before the re-check, so wall-clock rounding cannot read it as still running. */
+        const val TRIAL_END_SLACK_MS = 1_000L
 
         /**
          * The same target the app renders at, deliberately — not the 24–30 fps §4.4 of the

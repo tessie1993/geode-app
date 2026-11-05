@@ -25,6 +25,15 @@ class FeatureGateTest {
     }
 
     @Test
+    fun `only a running trial changes on its own`() {
+        val running = FeatureGate(Entitlement.Trial(endsAtMs = 10_000L))
+        assertEquals(4_000L, running.msUntilTrialEnds(nowMs = 6_000L))
+        assertEquals(0L, running.msUntilTrialEnds(nowMs = 12_000L))
+        assertNull(free.msUntilTrialEnds(nowMs = 6_000L))
+        assertNull(pro.msUntilTrialEnds(nowMs = 6_000L))
+    }
+
+    @Test
     fun `pro allows everything`() {
         ProFeature.entries.forEach { assertTrue(it.name, pro.allows(it)) }
         assertTrue(pro.allowsStyle("not-a-free-style"))

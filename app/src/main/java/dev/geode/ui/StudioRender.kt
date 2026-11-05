@@ -1,7 +1,8 @@
 package dev.geode.ui
 
 import android.os.Build
-import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,10 +28,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -38,6 +42,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -73,7 +78,10 @@ import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
 import dev.geode.ui.pro.PaywallViewModel
+import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.floatingGlass
+import kotlinx.coroutines.launch
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * The Studio destination: two tabs, in the order a first visit meets them.
@@ -111,9 +119,43 @@ fun StudioHub(
     val history = remember(route) { NavHistory(route) }
     LaunchedEffect(section) { history.open(section) }
 
-    BackHandler(enabled = history.canPop) {
-        history.pop()
-        select(history.top)
+    // How far a back gesture has pulled the tab under this one into view: 0 at rest, 1 committed.
+    val backProgress = remember { Animatable(0f) }
+    val settleSpec = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
+    val settleScope = rememberCoroutineScope()
+    // The tab back would land on, composed under this one only while a gesture previews it.
+    val previous = history.keys.getOrNull(history.keys.lastIndex - 1)
+    // Read per frame only by the layers' alpha; the composition hears just "previewing or not".
+    val previewing by remember { derivedStateOf { backProgress.value > 0f } }
+
+    /*
+     * Predictive back over the tab history: the gesture cross-fades from this tab to the one before
+     * it, so the user sees where back lands before letting go (#557). This is the documented shape
+     * of `PredictiveBackHandler` (developer.android.com/develop/ui/compose/system/predictive-back-progress,
+     * "Access progress manually"): the handler gets a `Flow<BackEventCompat>` whose `progress` runs
+     * 0 → 1 with the swipe; the flow completing normally is the commit, and a cancelled gesture
+     * arrives as a `CancellationException` thrown out of `collect`, which must be rethrown.
+     *
+     * On commit the fade is finished with the theme's effects spec before the route pops, so the
+     * swap lands on a frame that already shows the old tab fully. On cancel the handler's own
+     * coroutine is being cancelled and cannot animate, so the settle back to the current tab runs
+     * in the composition's scope instead. Only a fade is used, never a slide or a zoom: fades are
+     * what [LocalGeodeMotion]'s reduced scheme keeps (WCAG 2.3.3), so the preview reads the same
+     * with "Remove animations" on and nothing travels. A plain back press (three-button nav, no
+     * gesture) completes the flow at once, so it gets the same short commit fade and lands where
+     * the old `BackHandler` did.
+     */
+    PredictiveBackHandler(enabled = history.canPop) { events ->
+        try {
+            events.collect { event -> backProgress.snapTo(event.progress) }
+            backProgress.animateTo(1f, settleSpec)
+            history.pop()
+            select(history.top)
+            backProgress.snapTo(0f)
+        } catch (cancelled: CancellationException) {
+            settleScope.launch { backProgress.animateTo(0f, settleSpec) }
+            throw cancelled
+        }
     }
     Column(Modifier.fillMaxSize()) {
         GlowTitle(
@@ -130,16 +172,33 @@ fun StudioHub(
             selected = section.ordinal,
             onSelect = { select(StudioSection.entries[it]) },
         )
-        when (section) {
-            StudioSection.RENDER -> StudioRenderTab(viewModel, visualizerView, gate)
-            StudioSection.MY_VIDEOS ->
-                MyVideosTab(
-                    viewModel = studioViewModel,
-                    onRenderTake = { name ->
-                        studioViewModel.setExportTake(name)
-                        select(StudioSection.RENDER)
-                    },
-                )
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            // The previous tab (only mid-gesture) under the current one. Each tab is keyed by
+            // itself, so on commit the previewed tab keeps the composition, scroll and state it
+            // was drawn with instead of being rebuilt in the current tab's slot.
+            val shown = if (previewing && previous != null) listOf(previous, section) else listOf(section)
+            shown.forEach { tab ->
+                key(tab) {
+                    val isPreview = tab != section
+                    Box(
+                        Modifier.fillMaxSize().graphicsLayer {
+                            alpha = if (isPreview) backProgress.value else 1f - backProgress.value
+                        },
+                    ) {
+                        when (tab) {
+                            StudioSection.RENDER -> StudioRenderTab(viewModel, visualizerView, gate)
+                            StudioSection.MY_VIDEOS ->
+                                MyVideosTab(
+                                    viewModel = studioViewModel,
+                                    onRenderTake = { name ->
+                                        studioViewModel.setExportTake(name)
+                                        select(StudioSection.RENDER)
+                                    },
+                                )
+                        }
+                    }
+                }
+            }
         }
     }
 }

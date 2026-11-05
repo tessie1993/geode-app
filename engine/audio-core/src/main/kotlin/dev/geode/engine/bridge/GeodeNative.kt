@@ -569,6 +569,21 @@ object GeodeNative {
     /** One frame at [fps] in nanoseconds, truncated. */
     external fun exportFrameDurationNs(fps: Int): Long
 
+    // Muxer budget (core/output/MuxerBudget): the bit-rate cap for MediaMuxer's 4 GB MP4 limit.
+
+    /**
+     * [requestedBps], or the lower rate at which [durationUs] of video plus [audioBytes] fits 3.8e9 bytes;
+     * never below 2 Mbit/s (or the request, when lower). An unknown duration (<= 0) keeps the request.
+     */
+    external fun muxerCappedVideoBps(
+        requestedBps: Int,
+        durationUs: Long,
+        audioBytes: Long,
+    ): Int
+
+    /** What [durationUs] of the export's 192 kbit/s AAC takes, for estimating before the audio exists. */
+    external fun muxerAacBytes(durationUs: Long): Long
+
     // Rest when silent (core/sound/Silence): the wallpaper's and the dream's silence rule.
 
     /**

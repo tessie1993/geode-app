@@ -279,6 +279,14 @@ GEODE_API int             geode_export_fps(int requested_fps);
 GEODE_API int             geode_export_total_frames(int64_t duration_us, int fps);
 GEODE_API int64_t         geode_export_frame_duration_ns(int fps);
 
+/* Muxer budget (output/MuxerBudget): the video bit rate that keeps a render under MediaMuxer's 4 GB MP4 limit.
+ * Pure, any thread. Capped: requested_bps, or the rate at which duration_us of video plus audio_bytes fits
+ * 3.8e9 bytes (truncated), never above the request and never below 2 Mbit/s (or the request, when lower);
+ * duration_us <= 0 or requested_bps <= 0 returns the request. AAC bytes: max(duration_us, 0) * 192 kbit/s
+ * / 8e6, truncated, the size of audio the export has not transcoded yet. */
+GEODE_API int             geode_muxer_capped_video_bps(int requested_bps, int64_t duration_us, int64_t audio_bytes);
+GEODE_API int64_t         geode_muxer_aac_bytes(int64_t duration_us);
+
 /* Rest when silent (sound/Silence): the live wallpaper's and the dream's silence rule. A poll hands in the
  * newest planar samples written since the last one (frames 0 when nothing was written) and the time sound
  * was last heard, and gets that time back, moved to now when any sample is above about -42 dBFS. Resting is

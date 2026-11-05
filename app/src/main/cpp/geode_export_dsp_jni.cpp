@@ -114,4 +114,16 @@ Java_dev_geode_engine_bridge_GeodeNative_exportFrameDurationNs(JNIEnv*, jobject,
     return geode_export_frame_duration_ns(fps);
 }
 
+// Muxer budget (core/output/MuxerBudget): marshalling only.
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_muxerCappedVideoBps(JNIEnv*, jobject, jint requestedBps, jlong durationUs,
+                                                            jlong audioBytes) {
+    return geode_muxer_capped_video_bps(requestedBps, durationUs, audioBytes);
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_muxerAacBytes(JNIEnv*, jobject, jlong durationUs) {
+    return geode_muxer_aac_bytes(durationUs);
+}
+
 }

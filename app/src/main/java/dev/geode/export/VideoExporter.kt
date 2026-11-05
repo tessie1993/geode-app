@@ -396,7 +396,7 @@ class VideoExporter(
                     .also { aacRef = it }
             // The encoder opens after the audio, which is what tells it how long the file will be:
             // a long 4K or 1080p track at the preset's rate would pass MediaMuxer's 4 GB ceiling.
-            val bitRate = MuxerBudget.cappedVideoBps(aspect.bitRate, aac.durationUs, aac.file.length())
+            val bitRate = GeodeNative.muxerCappedVideoBps(aspect.bitRate, aac.durationUs, aac.file.length())
             if (bitRate < aspect.bitRate) {
                 RingLog.note(TAG, "video bit rate capped to $bitRate for a ${aac.durationUs / 1000} ms render")
             }

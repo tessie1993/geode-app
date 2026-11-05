@@ -217,6 +217,14 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/export_geometry_test.cpp core/api/geode_output_api.cpp -o export_geometry_test
           ./export_geometry_test
 
+      # The muxer budget (core/output/MuxerBudget, #774): the bit-rate cap that keeps a long render under
+      # MediaMuxer's 4 GB, ported exactly from Kotlin's export/MuxerBudget.
+      - name: Native muxer budget tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/muxer_budget_test.cpp core/api/geode_output_api.cpp -o muxer_budget_test
+          ./muxer_budget_test
+
       # The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/Params).
       - name: Params host tests
         working-directory: ${{ env.PROJECT_DIR }}

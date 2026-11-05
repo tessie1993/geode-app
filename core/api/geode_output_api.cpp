@@ -1,6 +1,8 @@
-// The export geometry ABI (core/output/ExportGeometry): thin C wrappers, no logic of their own.
+// The export output ABI (core/output/ExportGeometry, core/output/MuxerBudget): thin C wrappers, no logic of
+// their own.
 #include "api/geode_api.h"
 #include "output/ExportGeometry.hpp"
+#include "output/MuxerBudget.hpp"
 
 extern "C" {
 
@@ -18,5 +20,11 @@ int geode_export_total_frames(int64_t duration_us, int fps) {
 }
 
 int64_t geode_export_frame_duration_ns(int fps) { return geode::output::exportFrameDurationNs(fps); }
+
+int geode_muxer_capped_video_bps(int requested_bps, int64_t duration_us, int64_t audio_bytes) {
+    return geode::output::cappedVideoBps(requested_bps, duration_us, audio_bytes);
+}
+
+int64_t geode_muxer_aac_bytes(int64_t duration_us) { return geode::output::audioBytes(duration_us); }
 
 }  // extern "C"

@@ -15,6 +15,7 @@ import dev.geode.RingLog
 import dev.geode.billing.ProSnapshot
 import dev.geode.data.AutoDirectorStore
 import dev.geode.engine.audio.SoundTuning
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
 import dev.geode.render.SceneFactory
@@ -590,7 +591,7 @@ class LoopRender(
         // here is the only point it can still change: past MediaMuxer's 4 GB the extend would fail
         // after the whole reel had rendered.
         val longFormUs = longFormMs * 1000L
-        val bitRate = MuxerBudget.cappedVideoBps(aspect.bitRate, longFormUs, MuxerBudget.audioBytes(longFormUs))
+        val bitRate = GeodeNative.muxerCappedVideoBps(aspect.bitRate, longFormUs, GeodeNative.muxerAacBytes(longFormUs))
         if (bitRate < aspect.bitRate) RingLog.note(TAG, "loop bit rate capped to $bitRate for a $longFormMs ms long form")
         val candidates =
             listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->

@@ -243,6 +243,14 @@ GEODE_API const char* geode_params_roll_keys(void);
  * slots 0..count-1 in order; ints and bools as numbers, like the wire. Static: the pointer stays valid for the
  * process; the shell parses it once. Labels and page placement stay in Kotlin. */
 GEODE_API const char* geode_params_schema_text(void);
+/* The config params schema (core/viz/ConfigTable.inc): the values the data stores hold beside the scene params
+ * (LFO and envelope slots, macro knobs, the palette maker's gradient, the look's envelope, the Studio clip edit,
+ * the preset morph), one row each, as a versioned '|'-separated line table:
+ *   configs|<version>|<count>
+ *   config|<group>|<index>|<name>|<FLOAT|INT|BOOL>|<default>|<min>|<max>|<NONE|SECONDS|FRACTION|TURNS|DEGREES|POINTS|TIMES>
+ * index = the row's place in its group (for lfo and adsr the float index of geode_viz_set_lfo / _adsr, for macro
+ * the knob). A sibling of geode_params_schema_text, whose format it leaves alone. Static; parse once. */
+GEODE_API const char* geode_config_schema_text(void);
 
 /* Export resampler (audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC encoder's rate; box filter
  * down, linear up. Streaming: state carries across calls. Any one thread at a time. There is no flush: a

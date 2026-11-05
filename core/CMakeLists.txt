@@ -21,6 +21,15 @@ add_library(geode_core STATIC
     audio/dsp/PcmResampler.cpp
     audio/dsp/Loudness.cpp
     api/geode_export_dsp_api.cpp
+    api/geode_export_api.cpp
+    audio/dsp/PcmConvert.cpp
+    output/FrameClock.cpp
+    output/LoopPlan.cpp
+    output/EncodePlan.cpp
+    output/Chapters.cpp
+    signal/timeline/Keyframes.cpp
+    signal/timeline/SpeedRamp.cpp
+    util/CubeLut.cpp
     viz/ShaderSource.cpp
     viz/GlCaps.cpp
     viz/GlProber.cpp
@@ -53,6 +62,7 @@ add_library(geode_core STATIC
     viz/TouchField.cpp
     viz/Transition.cpp
     viz/CompositeGrade.cpp
+    viz/ClipGrade.cpp
     viz/CompositePass.cpp
     viz/TrailPass.cpp
     viz/Catalogue.cpp

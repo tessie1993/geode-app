@@ -264,7 +264,6 @@ class LoudnessMeter(
     private companion object {
         const val DEQUEUE_TIMEOUT_US = 10_000L
         const val STALL_LIMIT = 1_000
-        const val SHORT_SCALE = 32_768f
         const val CODEC_STATE = "The audio decoder returned no buffer, which means it has failed."
         const val FORMAT_CHANGED =
             "This file changes sample rate or channel count part-way through, so it cannot be measured in one pass."
@@ -294,7 +293,8 @@ class LoudnessMeter(
         ): Int {
             val shorts = buffer.order(ByteOrder.nativeOrder()).asShortBuffer()
             val count = minOf(shorts.remaining(), into.size)
-            for (i in 0 until count) into[i] = shorts.get(i) / SHORT_SCALE
+            // The 1/32768 scale is native (core/audio/dsp/PcmConvert); only the bulk copy is here.
+            if (count > 0) GeodeNative.pcmS16ToFloat(ShortArray(count).also { shorts.get(it) }, count, into)
             return count
         }
 
@@ -304,7 +304,7 @@ class LoudnessMeter(
         ): Int {
             val floats = buffer.order(ByteOrder.nativeOrder()).asFloatBuffer()
             val count = minOf(floats.remaining(), into.size)
-            for (i in 0 until count) into[i] = floats.get(i)
+            floats.get(into, 0, count)
             return count
         }
 

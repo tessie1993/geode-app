@@ -417,6 +417,30 @@ void tiersDescendAndKeepTheLowEndCheap() {
     check(quality::tier(0).dyeRes % 4 == 0 && quality::tier(0).dyeRes / quality::tier(0).simRes == 4, "dye stays four times the sim grid");
 }
 
+bool near(float a, float b, float tol) { return std::fabs(a - b) <= tol; }
+
+// #383: a frame's simulated time is all of its dt, split into steps the fluid is stable under.
+void substepsKeepTheFluidAtTrueSpeed() {
+    using math::kMaxSimStep;
+    using math::substeps;
+    const auto at60 = substeps(1.0f / 60.0f);
+    check(at60.count == 1 && near(at60.step, 1.0f / 60.0f, 1e-7f), "60 fps is one step of 1/60 s");
+    const auto at30 = substeps(1.0f / 30.0f);
+    check(at30.count == 1 && near(at30.step, kMaxSimStep, 1e-7f), "30 fps is one step at the limit");
+    const auto at24 = substeps(1.0f / 24.0f);
+    check(at24.count == 2 && near(at24.step * 2.0f, 1.0f / 24.0f, 1e-6f), "24 fps is two steps covering the whole frame");
+    const auto at25 = substeps(1.0f / 25.0f);
+    check(at25.count == 2 && near(at25.step * 2.0f, 1.0f / 25.0f, 1e-6f), "25 fps is two steps covering the whole frame");
+    const auto stall = substeps(1.0f);
+    check(stall.count == math::kMaxSubsteps && near(stall.step, kMaxSimStep, 1e-6f), "a stall is capped");
+    check(substeps(0.0f).step == 0.0f && substeps(-1.0f).step == 0.0f && substeps(NAN).step == 0.0f, "no time, no step");
+    for (int fps : {24, 25, 30, 50, 60}) {
+        const auto s = substeps(1.0f / static_cast<float>(fps));
+        check(s.step <= kMaxSimStep + 1e-7f, "every step stays inside the stable range");
+        check(near(s.step * static_cast<float>(s.count), 1.0f / static_cast<float>(fps), 1e-6f), "and the frame is simulated in full");
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -431,6 +455,7 @@ int main() {
     particleExposureKeepsLightSane();
     rk2HoldsAVortexOrbit();
     tiersDescendAndKeepTheLowEndCheap();
+    substepsKeepTheFluidAtTrueSpeed();
     if (failures == 0) std::printf("fluid_math_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

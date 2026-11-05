@@ -6,6 +6,8 @@
 #include <cstring>
 #include <string>
 
+#include "viz/frame/FixedRateClock.hpp"
+
 namespace geode::viz::frame::hls {
 
 // The timing of Cast's live HLS stream (#656), beside the frame clock that stamps its PTS (#572).
@@ -17,6 +19,10 @@ namespace geode::viz::frame::hls {
 // its trun, over the timescale that track's mdhd names. It used to be the wall time between two cuts,
 // which follows how fast the encoder happened to drain, not what the TV will play: a slow drain then a
 // quick one made a 1.4 s and a 0.6 s EXTINF for two one-second fragments, and TARGETDURATION jumped to 2.
+// TARGETDURATION is now fixed for the stream from the nominal segment length (the cast keyframe
+// interval), since RFC 8216 6.2.1 forbids changing it, and a fragment that cannot be read is listed at
+// that nominal length. Media3 1.11's FragmentedMp4Muxer writes tfhd flags 0x000001 (a base data offset),
+// trun version 1 with flags 0x701 and no tfdt; tfdt and composition offsets (0xF01) parse too.
 //
 // Only the boxes on the way are read (moov/trak/{tkhd,mdia/{mdhd,hdlr}}, moov/mvex/trex,
 // moof/traf/{tfhd,trun}); a box that claims more bytes than its parent has ends the walk, so nothing is
@@ -24,7 +30,7 @@ namespace geode::viz::frame::hls {
 
 constexpr int kWindow = 6;          // segments kept and listed: about six seconds at one-second fragments
 constexpr int kStartSegments = 3;   // HLS players start three segments back from the live edge
-constexpr double kMinSegmentSec = 0.001;
+constexpr double kNominalSegmentSec = CastFormat::kKeyframeIntervalSec;   // one fragment per keyframe
 constexpr int kMaxTracks = 8;
 
 namespace detail {
@@ -54,7 +60,17 @@ void forEachBox(const uint8_t* p, size_t n, F&& f) {
     }
 }
 
-inline bool is(const uint8_t* type, const char* name) { return std::memcmp(type, name, 4) == 0; }
+inline bool isType(const uint8_t* type, const char* name) { return std::memcmp(type, name, 4) == 0; }
+
+// tkhd's track_ID and mdhd's timescale both follow the version-dependent creation and modification
+// times (two 32-bit fields in version 0, two 64-bit ones in version 1) after the full-box header.
+inline bool readFieldAfterTimes(const uint8_t* body, size_t len, uint32_t& out) {
+    if (len < 4) return false;
+    const size_t off = body[0] == 1 ? 4 + 16 : 4 + 8;
+    if (len < off + 4) return false;
+    out = be32(body + off);
+    return true;
+}
 
 struct TrackTiming {
     uint32_t id = 0;
@@ -64,55 +80,50 @@ struct TrackTiming {
 };
 
 struct Tracks {
-    TrackTiming t[kMaxTracks];
+    TrackTiming list[kMaxTracks];
     int count = 0;
 
     TrackTiming* find(uint32_t id) {
         for (int i = 0; i < count; ++i)
-            if (t[i].id == id) return &t[i];
+            if (list[i].id == id) return &list[i];
         return nullptr;
     }
 };
 
-inline void readTrak(const uint8_t* p, size_t n, Tracks& out) {
+inline void readTrak(const uint8_t* trak, size_t trakLen, Tracks& out) {
     TrackTiming track;
     bool haveId = false;
-    forEachBox(p, n, [&](const uint8_t* type, const uint8_t* b, size_t len) {
-        if (is(type, "tkhd") && len >= 4) {
-            const size_t off = b[0] == 1 ? 4 + 16 : 4 + 8;
-            if (len >= off + 4) {
-                track.id = be32(b + off);
-                haveId = true;
-            }
-        } else if (is(type, "mdia")) {
-            forEachBox(b, len, [&](const uint8_t* t2, const uint8_t* b2, size_t len2) {
-                if (is(t2, "mdhd") && len2 >= 4) {
-                    const size_t off = b2[0] == 1 ? 4 + 16 : 4 + 8;
-                    if (len2 >= off + 4) track.timescale = be32(b2 + off);
-                } else if (is(t2, "hdlr") && len2 >= 12) {
-                    track.video = is(b2 + 8, "vide");
+    forEachBox(trak, trakLen, [&](const uint8_t* type, const uint8_t* body, size_t len) {
+        if (isType(type, "tkhd")) {
+            haveId = readFieldAfterTimes(body, len, track.id);
+        } else if (isType(type, "mdia")) {
+            forEachBox(body, len, [&](const uint8_t* mdiaType, const uint8_t* mdiaBody, size_t mdiaLen) {
+                if (isType(mdiaType, "mdhd")) {
+                    readFieldAfterTimes(mdiaBody, mdiaLen, track.timescale);
+                } else if (isType(mdiaType, "hdlr") && mdiaLen >= 12) {
+                    track.video = isType(mdiaBody + 8, "vide");
                 }
             });
         }
     });
-    if (haveId && out.count < kMaxTracks) out.t[out.count++] = track;
+    if (haveId && out.count < kMaxTracks) out.list[out.count++] = track;
 }
 
 // Every track's id, timescale, kind and trex default, from the init segment (ftyp + moov, or moov alone).
 inline Tracks readTracks(const uint8_t* init, size_t n) {
     Tracks out;
     if (!init) return out;
-    forEachBox(init, n, [&](const uint8_t* type, const uint8_t* b, size_t len) {
-        if (!is(type, "moov")) return;
-        forEachBox(b, len, [&](const uint8_t* t2, const uint8_t* b2, size_t len2) {
-            if (is(t2, "trak")) readTrak(b2, len2, out);
+    forEachBox(init, n, [&](const uint8_t* type, const uint8_t* moov, size_t moovLen) {
+        if (!isType(type, "moov")) return;
+        forEachBox(moov, moovLen, [&](const uint8_t* childType, const uint8_t* trak, size_t trakLen) {
+            if (isType(childType, "trak")) readTrak(trak, trakLen, out);
         });
         // trex after every trak, whatever order moov lists them in.
-        forEachBox(b, len, [&](const uint8_t* t2, const uint8_t* b2, size_t len2) {
-            if (!is(t2, "mvex")) return;
-            forEachBox(b2, len2, [&](const uint8_t* t3, const uint8_t* b3, size_t len3) {
-                if (!is(t3, "trex") || len3 < 16) return;
-                if (TrackTiming* t = out.find(be32(b3 + 4))) t->defaultDuration = be32(b3 + 12);
+        forEachBox(moov, moovLen, [&](const uint8_t* childType, const uint8_t* mvex, size_t mvexLen) {
+            if (!isType(childType, "mvex")) return;
+            forEachBox(mvex, mvexLen, [&](const uint8_t* mvexType, const uint8_t* trex, size_t trexLen) {
+                if (!isType(mvexType, "trex") || trexLen < 16) return;
+                if (TrackTiming* track = out.find(be32(trex + 4))) track->defaultDuration = be32(trex + 12);
             });
         });
     });
@@ -126,7 +137,7 @@ inline void readTraf(const uint8_t* p, size_t n, Tracks& tracks, uint32_t& track
     trackId = 0;
     units = 0;
     forEachBox(p, n, [&](const uint8_t* type, const uint8_t* b, size_t len) {
-        if (!is(type, "tfhd") || len < 8) return;
+        if (!isType(type, "tfhd") || len < 8) return;
         const uint32_t flags = be32(b) & 0xFFFFFF;
         trackId = be32(b + 4);
         size_t off = 8;
@@ -140,7 +151,7 @@ inline void readTraf(const uint8_t* p, size_t n, Tracks& tracks, uint32_t& track
     const TrackTiming* track = tracks.find(trackId);
     const uint32_t fallback = haveTfhdDefault ? tfhdDefault : (track ? track->defaultDuration : 0);
     forEachBox(p, n, [&](const uint8_t* type, const uint8_t* b, size_t len) {
-        if (!is(type, "trun") || len < 8) return;
+        if (!isType(type, "trun") || len < 8) return;
         const uint32_t flags = be32(b) & 0xFFFFFF;
         const uint32_t count = be32(b + 4);
         size_t off = 8;
@@ -161,19 +172,19 @@ inline void readTraf(const uint8_t* p, size_t n, Tracks& tracks, uint32_t& track
 
 // How long a fragment (its moof box, alone or followed by its mdat) plays, in seconds of media time:
 // its video track's samples over the video timescale; with no video track, the longest track. 0 when
-// the init segment or the fragment says nothing usable.
+// the init segment or the fragment says nothing usable (the playlist then lists the nominal length).
 inline double fragmentSeconds(const uint8_t* init, size_t initSize, const uint8_t* fragment, size_t fragmentSize) {
     detail::Tracks tracks = detail::readTracks(init, initSize);
     if (!fragment || tracks.count == 0) return 0.0;
     double video = -1.0;
     double longest = 0.0;
     detail::forEachBox(fragment, fragmentSize, [&](const uint8_t* type, const uint8_t* b, size_t len) {
-        if (!detail::is(type, "moof")) return;
-        detail::forEachBox(b, len, [&](const uint8_t* t2, const uint8_t* b2, size_t len2) {
-            if (!detail::is(t2, "traf")) return;
+        if (!detail::isType(type, "moof")) return;
+        detail::forEachBox(b, len, [&](const uint8_t* moofType, const uint8_t* traf, size_t trafLen) {
+            if (!detail::isType(moofType, "traf")) return;
             uint32_t id = 0;
             uint64_t units = 0;
-            detail::readTraf(b2, len2, tracks, id, units);
+            detail::readTraf(traf, trafLen, tracks, id, units);
             const detail::TrackTiming* track = tracks.find(id);
             if (!track || track->timescale == 0) return;
             const double sec = static_cast<double>(units) / track->timescale;
@@ -184,27 +195,33 @@ inline double fragmentSeconds(const uint8_t* init, size_t initSize, const uint8_
     return video >= 0.0 ? video : longest;
 }
 
-// EXT-X-TARGETDURATION: the longest listed segment rounded up to whole seconds, at least 1. A duration
-// within a microsecond of a whole second counts as that second, so float noise on an exact one-second
-// fragment never makes the target 2.
-inline int targetDuration(const double* durations, int count) {
-    double longest = 0.0;
-    for (int i = 0; i < count; ++i)
-        if (durations[i] > longest) longest = durations[i];
-    const int target = static_cast<int>(std::ceil(longest - 1e-6));
+// EXT-X-TARGETDURATION for a stream whose segments nominally last nominalSec: fixed for the whole
+// stream (RFC 8216 6.2.1: it MUST NOT change), never recomputed over the window, where one late keyframe
+// (a 31-frame, 1.033 s fragment) used to move it 1 -> 2 -> 1 between reloads. Rounded to the nearest
+// second like the EXTINF rule it bounds (4.3.3.1: each EXTINF rounded to the nearest integer is at most
+// it), at least 1, so fragments up to half a second over the keyframe interval stay within it.
+inline int targetDuration(double nominalSec) {
+    const int target = static_cast<int>(std::lround(nominalSec));
     return target > 1 ? target : 1;
 }
 
 // The live media playlist for the listed segments (sequence first, first + 1, …), or "" until there are
-// kStartSegments of them: a playlist shorter than where the receiver starts stalls it. The URIs are the
+// kStartSegments of them: a playlist shorter than where the receiver starts stalls it. Only the newest
+// kWindow are listed. A duration of 0 (a fragment that could not be read) is listed as the nominal
+// segment, which is what the fragment really holds near enough, not as a 1 ms sliver. The URIs are the
 // server's (cast/LiveHttpServer routes them): the init segment's, and each segment's prefix + sequence +
 // suffix.
 inline std::string playlist(int64_t firstSequence, const double* durations, int count, const char* initUri,
                             const char* segmentPrefix, const char* segmentSuffix) {
     if (!durations || count < kStartSegments) return {};
+    if (count > kWindow) {
+        durations += count - kWindow;
+        firstSequence += count - kWindow;
+        count = kWindow;
+    }
     std::string out = "#EXTM3U\n#EXT-X-VERSION:7\n";
     char line[96];
-    std::snprintf(line, sizeof line, "#EXT-X-TARGETDURATION:%d\n", targetDuration(durations, count));
+    std::snprintf(line, sizeof line, "#EXT-X-TARGETDURATION:%d\n", targetDuration(kNominalSegmentSec));
     out += line;
     std::snprintf(line, sizeof line, "#EXT-X-MEDIA-SEQUENCE:%lld\n", static_cast<long long>(firstSequence));
     out += line;
@@ -212,7 +229,7 @@ inline std::string playlist(int64_t firstSequence, const double* durations, int 
     out += initUri ? initUri : "";
     out += "\"\n";
     for (int i = 0; i < count; ++i) {
-        const double d = durations[i] > kMinSegmentSec ? durations[i] : kMinSegmentSec;
+        const double d = durations[i] > 0.0 ? durations[i] : kNominalSegmentSec;
         std::snprintf(line, sizeof line, "#EXTINF:%.3f,\n", d);
         out += line;
         out += segmentPrefix ? segmentPrefix : "";

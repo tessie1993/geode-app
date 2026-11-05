@@ -3,9 +3,12 @@
 //
 // What is pinned: a segment's duration is media time read from the fragment itself (the video track's
 // sample durations in its trun, over the timescale its mdhd gives), never how long the encoder took;
-// the trex and tfhd default durations are honoured; without a video track the longest track counts;
-// TARGETDURATION is the ceiling of the longest listed segment; and the playlist text (header, media
-// sequence, init map, one EXTINF per segment) is not served until START segments are listed.
+// Media3 1.11's real box layout (tfhd base offset, trun v1 0x701, no tfdt) and the tfdt/0xF01 one both
+// parse; the trex and tfhd default durations are honoured; without a video track the longest track
+// counts; an unreadable fragment is listed at the nominal segment length (the cast keyframe interval);
+// TARGETDURATION is fixed per stream from that nominal length (RFC 8216 6.2.1, 4.3.3.1); and the
+// playlist text (header, media sequence, init map, one EXTINF per segment, the newest WINDOW only) is
+// not served until START segments are listed.
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -130,22 +133,40 @@ Bytes init(const std::vector<Track>& tracks, const Bytes& mvex = {}) {
     return cat({box("ftyp", ftyp), box("moov", moov)});
 }
 
-// A traf whose trun lists each sample's duration (flags 0x001 data offset, 0x100 duration, 0x200 size,
-// 0x400 flags, 0x800 composition offset: what FragmentedMp4Muxer writes), or none when durations is
-// empty and count samples take the tfhd/trex default instead.
+// A traf in Media3 1.11's real layout (FragmentedMp4Muxer, Boxes.tfhd/trun): tfhd flags 0x000001 with
+// an 8-byte base_data_offset (plus 0x08 and a default duration when tfhdDefault is given), no tfdt, and
+// trun version 1 with flags 0x701 (data offset, then per sample: duration, size, flags), or 0x601 and
+// no durations when durations is empty, so count samples take the tfhd/trex default instead.
 Bytes traf(uint32_t id, const std::vector<uint32_t>& durations, uint32_t count = 0, int64_t tfhdDefault = -1) {
-    Bytes tfhd = full(0, tfhdDefault >= 0 ? 0x020008 : 0x020000);
+    Bytes tfhd = full(0, tfhdDefault >= 0 ? 0x000009 : 0x000001);
     u32(tfhd, id);
+    u64(tfhd, 123456);   // base data offset: never read
     if (tfhdDefault >= 0) u32(tfhd, static_cast<uint32_t>(tfhdDefault));
-    Bytes tfdt = full(1, 0);
-    u64(tfdt, 900000);   // a base decode time: segment timing must not depend on it
     const bool perSample = !durations.empty();
-    Bytes trun = full(0, perSample ? 0xF01 : 0xE01);
+    Bytes trun = full(1, perSample ? 0x701 : 0x601);
     const uint32_t n = perSample ? static_cast<uint32_t>(durations.size()) : count;
     u32(trun, n);
     u32(trun, 0);   // data offset
     for (uint32_t i = 0; i < n; ++i) {
         if (perSample) u32(trun, durations[i]);
+        u32(trun, 100);   // size
+        u32(trun, 0);     // flags
+    }
+    return box("traf", cat({box("tfhd", tfhd), box("trun", trun)}));
+}
+
+// The other layout a muxer may write (Media3 with B-frames, or another muxer): tfhd with no base offset
+// (0x020000), a tfdt, and trun version 0 with flags 0xF01 (a composition offset per sample as well).
+Bytes trafWithTfdt(uint32_t id, const std::vector<uint32_t>& durations) {
+    Bytes tfhd = full(0, 0x020000);
+    u32(tfhd, id);
+    Bytes tfdt = full(1, 0);
+    u64(tfdt, 900000);   // a base decode time: segment timing must not depend on it
+    Bytes trun = full(0, 0xF01);
+    u32(trun, static_cast<uint32_t>(durations.size()));
+    u32(trun, 0);   // data offset
+    for (uint32_t d : durations) {
+        u32(trun, d);
         u32(trun, 100);   // size
         u32(trun, 0);     // flags
         u32(trun, 0);     // composition offset
@@ -188,6 +209,12 @@ void testDefaultsFromTrexAndTfhd() {
     const Bytes withTrex = init(kCast, cat({trex(1, 3000), trex(2, 1024)}));
     check(near(seconds(withTrex, moof({traf(1, {}, 30)})), 1.0), "trex's default sample duration counts when trun lists none");
     check(near(seconds(withTrex, moof({traf(1, {}, 30, 1500)})), 0.5), "tfhd's default beats trex's");
+}
+
+void testTfdtAndCompositionOffsetsLayout() {
+    const Bytes i = init(kCast);
+    const Bytes m = moof({trafWithTfdt(1, repeat(3000, 30)), trafWithTfdt(2, repeat(1024, 47))});
+    check(near(seconds(i, m), 1.0), "a tfdt and per-sample composition offsets change nothing");
 }
 
 void testVersionOneHeaders() {
@@ -238,25 +265,38 @@ void testPlaylistWaitsForStartSegments() {
 void testPlaylistText() {
     const std::string p = playlist(41, {1.0, 0.98, 1.0333333});
     const std::string want =
-        "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:2\n#EXT-X-MEDIA-SEQUENCE:41\n"
+        "#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:1\n#EXT-X-MEDIA-SEQUENCE:41\n"
         "#EXT-X-MAP:URI=\"init.mp4\"\n"
         "#EXTINF:1.000,\nseg41.m4s\n#EXTINF:0.980,\nseg42.m4s\n#EXTINF:1.033,\nseg43.m4s\n";
     check(p == want, "the playlist names the init map and each segment with its media-time EXTINF");
     if (p != want) std::printf("got:\n%s\n", p.c_str());
 }
 
-int target(const std::vector<double>& d) { return hls::targetDuration(d.data(), static_cast<int>(d.size())); }
-
-void testTargetDurationIsCeilOfLongest() {
-    check(target({1.0, 1.0, 1.0}) == 1, "exact one-second segments target 1");
-    check(target({1.0, 1.001, 0.5}) == 2, "a hair over a second rounds up");
-    check(target({0.2, 0.3, 0.1}) == 1, "never below 1");
-    check(target({2.5, 1.0, 3.0}) == 3, "the longest segment sets it");
+void testTargetDurationIsFixedPerStream() {
+    // RFC 8216 6.2.1: TARGETDURATION never changes within a stream; 4.3.3.1: each EXTINF rounded to the
+    // nearest integer is at most it. So it is the nominal segment rounded, never the window's longest.
+    check(hls::targetDuration(1.0) == 1, "one-second fragments target 1");
+    check(hls::targetDuration(0.2) == 1, "never below 1");
+    check(hls::targetDuration(2.0) == 2 && hls::targetDuration(2.4) == 2, "rounded to the nearest second");
+    const std::string calm = playlist(0, {1.0, 1.0, 1.0});
+    const std::string late = playlist(1, {1.0, 1.0333, 1.0});
+    const std::string slow = playlist(2, {1.0333, 1.0, 1.4});
+    const char* one = "#EXT-X-TARGETDURATION:1\n";
+    check(calm.find(one) != std::string::npos && late.find(one) != std::string::npos && slow.find(one) != std::string::npos,
+          "a late keyframe (1.033 s) or a slow fragment never moves the target between reloads");
 }
 
-void testZeroDurationSegmentStillListed() {
+void testUnknownDurationIsTheNominalSegment() {
     const std::string p = playlist(0, {0.0, 1.0, 1.0});
-    check(p.find("#EXTINF:0.001,\nseg0.m4s") != std::string::npos, "a segment with no timing is listed at the 1 ms floor");
+    check(p.find("#EXTINF:1.000,\nseg0.m4s") != std::string::npos, "a fragment that could not be read is listed at the nominal segment length");
+    check(hls::kNominalSegmentSec == geode::viz::frame::CastFormat::kKeyframeIntervalSec, "the nominal segment is the cast keyframe interval");
+}
+
+void testPlaylistListsOnlyTheNewestWindow() {
+    std::vector<double> d(static_cast<size_t>(hls::kWindow + 2), 1.0);
+    const std::string p = playlist(10, d);
+    check(p.find("#EXT-X-MEDIA-SEQUENCE:12\n") != std::string::npos, "more than the window: the oldest are dropped");
+    check(p.find("seg11.m4s") == std::string::npos && p.find("seg17.m4s") != std::string::npos, "and the newest kept");
 }
 
 // ---- The C ABI, as LiveSegments calls it ----
@@ -271,7 +311,11 @@ void testAbi() {
     check(n > 0 && std::string(out, static_cast<size_t>(n)) == playlist(5, {1.0, 1.0, 1.0}), "geode_hls_playlist writes the text");
     check(out[n] == '\0', "and terminates it");
     check(geode_hls_playlist(5, d, 2, "init.mp4", "seg", ".m4s", out, sizeof out) == 0, "0 while not ready");
-    check(geode_hls_playlist(5, d, 3, "init.mp4", "seg", ".m4s", out, 16) == 0, "0 when the text would not fit");
+    char small[16];
+    const int needed = geode_hls_playlist(5, d, 3, "init.mp4", "seg", ".m4s", small, sizeof small);
+    check(needed == n && small[0] == '\0', "too small a buffer: nothing written, the length it needs returned");
+    check(geode_hls_playlist(5, d, 3, "init.mp4", "seg", ".m4s", nullptr, 0) == n, "a size query with no buffer");
+    check(geode_hls_window() == hls::kWindow, "Kotlin reads the window from native");
     check(geode_hls_playlist(5, nullptr, 3, "init.mp4", "seg", ".m4s", out, sizeof out) == 0, "0 without durations");
 }
 
@@ -281,14 +325,16 @@ int main() {
     testVideoTrackDurationIsMediaTime();
     testVariableFrameDurationsAddUp();
     testDefaultsFromTrexAndTfhd();
+    testTfdtAndCompositionOffsetsLayout();
     testVersionOneHeaders();
     testNoVideoTrackTakesTheLongest();
     testLargeSizeBoxes();
     testBrokenInputIsZero();
     testPlaylistWaitsForStartSegments();
     testPlaylistText();
-    testTargetDurationIsCeilOfLongest();
-    testZeroDurationSegmentStillListed();
+    testTargetDurationIsFixedPerStream();
+    testUnknownDurationIsTheNominalSegment();
+    testPlaylistListsOnlyTheNewestWindow();
     testAbi();
     if (failures) {
         std::printf("%d failure(s)\n", failures);

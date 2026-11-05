@@ -56,7 +56,10 @@ void geode_cast_format(int* out) {
     out[0] = CastFormat::kWidth;
     out[1] = CastFormat::kHeight;
     out[2] = CastFormat::kFps;
+    out[3] = CastFormat::kKeyframeIntervalSec;
 }
+
+int geode_hls_window(void) { return hls::kWindow; }
 
 double geode_hls_fragment_seconds(const uint8_t* init, size_t init_size, const uint8_t* fragment, size_t fragment_size) {
     return hls::fragmentSeconds(init, init_size, fragment, fragment_size);
@@ -64,13 +67,12 @@ double geode_hls_fragment_seconds(const uint8_t* init, size_t init_size, const u
 
 int geode_hls_playlist(int64_t first_sequence, const double* durations, int count, const char* init_uri,
                        const char* segment_prefix, const char* segment_suffix, char* out, int cap) {
-    if (!out || cap <= 0) return 0;
     const std::string text = hls::playlist(first_sequence, durations, count, init_uri, segment_prefix, segment_suffix);
-    if (text.empty() || text.size() + 1 > static_cast<size_t>(cap)) {
+    if (out && cap > 0 && text.size() + 1 <= static_cast<size_t>(cap)) {
+        std::memcpy(out, text.c_str(), text.size() + 1);
+    } else if (out && cap > 0) {
         out[0] = '\0';
-        return 0;
     }
-    std::memcpy(out, text.c_str(), text.size() + 1);
     return static_cast<int>(text.size());
 }
 

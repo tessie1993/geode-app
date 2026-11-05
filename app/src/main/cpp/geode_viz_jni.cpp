@@ -591,10 +591,10 @@ Java_dev_geode_engine_bridge_GeodeNative_frameClockAudioUntilUs(JNIEnv* env, job
 
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_castFormat(JNIEnv* env, jobject, jintArray out) {
-    if (!out || env->GetArrayLength(out) < 3) return;
-    int f[3];
+    if (!out || env->GetArrayLength(out) < 4) return;
+    int f[4];
     geode_cast_format(f);
-    env->SetIntArrayRegion(out, 0, 3, reinterpret_cast<const jint*>(f));
+    env->SetIntArrayRegion(out, 0, 4, reinterpret_cast<const jint*>(f));
 }
 
 // Export post-passes (core/viz/frame/ExportPasses): marshalling only.
@@ -773,17 +773,24 @@ Java_dev_geode_engine_bridge_GeodeNative_hlsFragmentSeconds(JNIEnv* env, jobject
     return seconds;
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_hlsWindow(JNIEnv*, jobject) {
+    return geode_hls_window();
+}
+
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_hlsPlaylist(JNIEnv* env, jobject, jlong firstSequence, jdoubleArray durations,
                                                      jstring initUri, jstring segmentPrefix, jstring segmentSuffix) {
     if (!durations) return nullptr;
-    const jsize count = std::min<jsize>(env->GetArrayLength(durations), GEODE_HLS_WINDOW);
-    double d[GEODE_HLS_WINDOW] = {};
-    env->GetDoubleArrayRegion(durations, 0, count, d);
+    std::vector<double> d(static_cast<size_t>(env->GetArrayLength(durations)));
+    env->GetDoubleArrayRegion(durations, 0, static_cast<jsize>(d.size()), d.data());
     geode::jni::Utf8Chars uri(env, initUri), prefix(env, segmentPrefix), suffix(env, segmentSuffix);
-    char text[1024];
-    const int n = geode_hls_playlist(firstSequence, d, count, uri.get(), prefix.get(), suffix.get(), text, sizeof text);
-    return n > 0 ? env->NewStringUTF(text) : nullptr;
+    const auto write = [&](char* out, int cap) {
+        return geode_hls_playlist(firstSequence, d.data(), static_cast<int>(d.size()), uri.get(), prefix.get(),
+                                  suffix.get(), out, cap);
+    };
+    std::vector<char> text(static_cast<size_t>(write(nullptr, 0)) + 1);
+    return write(text.data(), static_cast<int>(text.size())) > 0 ? env->NewStringUTF(text.data()) : nullptr;
 }
 
 }

@@ -96,7 +96,6 @@ bool decodeMeshopt(cgltf_data* data) {
             case cgltf_meshopt_compression_filter_octahedral: meshopt_decodeFilterOct(out, mc.count, mc.stride); break;
             case cgltf_meshopt_compression_filter_quaternion: meshopt_decodeFilterQuat(out, mc.count, mc.stride); break;
             case cgltf_meshopt_compression_filter_exponential: meshopt_decodeFilterExp(out, mc.count, mc.stride); break;
-            case cgltf_meshopt_compression_filter_color: meshopt_decodeFilterColor(out, mc.count, mc.stride); break;
             default: break;
         }
     }

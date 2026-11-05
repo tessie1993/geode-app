@@ -170,7 +170,7 @@ float dive_box2(vec2 v, vec2 b) {
 // ---- the macros -------------------------------------------------------------
 
 float diveTime() {
-    return uTime * uSpeed;
+    return uTime;  // already integrates Speed (ShaderScene::update)
 }
 
 float diveEnergy() {

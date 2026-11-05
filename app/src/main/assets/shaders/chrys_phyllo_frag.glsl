@@ -43,7 +43,7 @@ out vec4 fragColor;
 void main() {
     vec2 uv = view();
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
-    float t = uTime * uSpeed;
+    float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float onset = clamp(SND_ONSET_ENV * uIntensity, 0.0, 1.5);
     float sub = clamp(sndSpectrum(0.10) * uIntensity, 0.0, 1.5);
     float chaos = clamp(uTurbulence + uWarp, 0.0, 2.0);

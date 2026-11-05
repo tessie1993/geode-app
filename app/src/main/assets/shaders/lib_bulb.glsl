@@ -127,7 +127,7 @@ int bulbIters(int hi) {
 
 /** Animation time under the Speed macro. */
 float bulbTime() {
-    return uTime * uSpeed;
+    return uTime;  // already integrates Speed (ShaderScene::update)
 }
 
 /** The Energy macro as a gain on in-shader audio reaction, clamped so a high setting cannot fling geometry out of its bound. */

@@ -135,7 +135,7 @@ mat2 nebRot(float a) {
 
 /** Animation time under the Speed macro. */
 float nebTime() {
-    return uTime * uSpeed;
+    return uTime;  // already integrates Speed (ShaderScene::update)
 }
 
 /** Travel under the Speed macro: uFlowPhase only ever advances, loudness sets its rate. */

@@ -208,6 +208,12 @@ jobs:
           ./resampler_test
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/loudness_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/api/geode_export_dsp_api.cpp -o loudness_test
           ./loudness_test
+          # The export's file ring (#490): frame-exact samples per video frame at 24/30/60 fps over random
+          # decoder chunks, the pre-start drop, encodings, and the loudness meter fed the decoder's bytes.
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/file_feed_test.cpp core/audio/ingest/FileFeed.cpp \
+            core/audio/ingest/Ring.cpp core/audio/ingest/Cursor.cpp core/api/geode_file_feed_api.cpp \
+            core/api/geode_export_dsp_api.cpp core/audio/dsp/Loudness.cpp core/audio/dsp/PcmResampler.cpp -o file_feed_test
+          ./file_feed_test
           # The playback DSP's format hand-off (#356): the old format's tail drains through its own chain
           # until flush, and no block is ever processed past its buffer.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/dsp_handoff_test.cpp core/api/geode_dsp_api.cpp \

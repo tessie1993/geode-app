@@ -581,6 +581,13 @@ Scene* Renderer::readyScene(const std::string& id) {
     return scene;
 }
 
+// A secondary target's way in (the layer, Liquid's next style): waits while the stager works for the
+// other secondary target, so the two take turns instead of clearing each other's staging (#369).
+Scene* Renderer::readySecondary(const std::string& id, const std::string& other) {
+    if (!builtScene(id) && prep_.yieldsTo(id, other)) return nullptr;
+    return readyScene(id);
+}
+
 // One staged build of `id`: the whole setup buildScene does, with every program build answered
 // by the stager. Deferred (a program still compiling) drops the scene and its placeholders.
 Scene* Renderer::attemptScene(const std::string& id) {

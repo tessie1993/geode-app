@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -21,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.GuiPrefs
+import dev.geode.data.MinTrackLength
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 
@@ -31,7 +33,12 @@ internal fun FolderSettingsTab() {
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     SettingsTabColumn {
         item { SettingsGroup(stringResource(R.string.folders_group_preset)) { PresetFolderGroup(settingsViewModel, gui) } }
-        item { SettingsGroup(stringResource(R.string.folders_group_music)) { MusicFoldersEditor(libraryViewModel) } }
+        item {
+            SettingsGroup(stringResource(R.string.folders_group_music)) {
+                MusicFoldersEditor(libraryViewModel)
+                MinTrackLengthRow(libraryViewModel)
+            }
+        }
         item {
             SettingsGroup(stringResource(R.string.folders_group_export)) {
                 Text(
@@ -146,6 +153,35 @@ internal fun MusicFoldersEditor(viewModel: LibraryViewModel) {
         }
         Text(
             stringResource(R.string.folders_rescan_explainer),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * "Hide tracks shorter than": the library's short-file filter ([dev.geode.data.MinTrackLength]),
+ * 30 s by default. A change re-queries MediaStore at once, so the library answers without a
+ * restart.
+ */
+@Composable
+private fun MinTrackLengthRow(viewModel: LibraryViewModel) {
+    val seconds by viewModel.minTrackSeconds.collectAsStateWithLifecycle()
+    val off = stringResource(R.string.folders_min_track_off)
+    Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(stringResource(R.string.folders_min_track_label), style = MaterialTheme.typography.labelMedium)
+        val label: @Composable (Int) -> String = { s ->
+            if (s <= 0) off else stringResource(R.string.folders_min_track_seconds, s)
+        }
+        LibraryDropdownRow(
+            value = label(seconds),
+            options = (MinTrackLength.CHOICES + seconds).distinct().sorted(),
+            label = label,
+            isSelected = { it == seconds },
+            onPick = viewModel::setMinTrackSeconds,
+        )
+        Text(
+            stringResource(R.string.folders_min_track_explainer),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

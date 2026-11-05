@@ -92,6 +92,18 @@ class GeodeAppState(
         dest = destination
     }
 
+    /**
+     * A Settings tab another screen asked for, shown once by `AppSettingsTab` and then cleared.
+     * Not saved: a process-death restore lands on Settings' own remembered tab.
+     */
+    var settingsTabRequest by mutableStateOf<Int?>(null)
+
+    /** Opens Settings › Folders: where music folders and the short-track filter live. */
+    fun openSettingsFolders() {
+        settingsTabRequest = SETTINGS_TAB_FOLDERS
+        dest = GeodeDestination.SETTINGS
+    }
+
     /** Opens Studio › Render: the one place export, loop render and their defaults live. */
     fun openStudioRender() {
         studioSection = StudioSection.RENDER

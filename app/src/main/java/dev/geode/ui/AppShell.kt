@@ -244,7 +244,11 @@ fun AppRoot() {
                         if (twoPane) {
                             Row(Modifier.fillMaxSize()) {
                                 Box(Modifier.weight(1f)) {
-                                    LibraryScreen(onOpenSearch = appState::openSearch)
+                                    LibraryScreen(
+                                        onOpenSearch = appState::openSearch,
+                                        onOpenFolders = appState::openSettingsFolders,
+                                        onOpenVisuals = { appState.navigateTo(GeodeDestination.VISUALS) },
+                                    )
                                 }
                                 VerticalDivider()
                                 Box(Modifier.weight(1f)) {
@@ -257,7 +261,11 @@ fun AppRoot() {
                                 }
                             }
                         } else {
-                            LibraryScreen(onOpenSearch = appState::openSearch)
+                            LibraryScreen(
+                                        onOpenSearch = appState::openSearch,
+                                        onOpenFolders = appState::openSettingsFolders,
+                                        onOpenVisuals = { appState.navigateTo(GeodeDestination.VISUALS) },
+                                    )
                         }
                     GeodeDestination.VISUALS ->
                         // The visual fills Visuals, so these bounds are the PiP window's source rect and aspect,
@@ -289,6 +297,8 @@ fun AppRoot() {
                     GeodeDestination.SETTINGS ->
                         SettingsScreen(
                             viewModel,
+                            requestedTab = appState.settingsTabRequest,
+                            onRequestedTabShown = { appState.settingsTabRequest = null },
                             onOpenStudioRender = appState::openStudioRender,
                             onPlayTutorial = { tutorial.start(it) },
                             onResetTutorials = {
@@ -614,6 +624,8 @@ private fun LayoutCoordinates.windowRect(): android.graphics.Rect {
 @Composable
 fun SettingsScreen(
     viewModel: PlayerViewModel,
+    requestedTab: Int? = null,
+    onRequestedTabShown: () -> Unit = {},
     onOpenStudioRender: () -> Unit,
     onPlayTutorial: (List<TutorialChapter>) -> Unit,
     onResetTutorials: () -> Unit,
@@ -635,6 +647,8 @@ fun SettingsScreen(
         }
         AppSettingsTab(
             viewModel,
+            requestedTab = requestedTab,
+            onRequestedTabShown = onRequestedTabShown,
             onOpenStudioRender = onOpenStudioRender,
             onPlayTutorial = onPlayTutorial,
             onResetTutorials = onResetTutorials,

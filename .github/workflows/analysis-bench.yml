@@ -3,7 +3,7 @@ name: Analysis bench
 # Scores Geode's analysers against labelled clips (#462, spec #455 § Analysis). The lab
 # (tools/analysis_lab/lab.py, librosa pinned) synthesizes the clips and their exact answers and writes
 # librosa's answers as goldens; the C++ bench (core/tests/analysis_bench.cpp) scores librosa, the live
-# sound engine and, from #463, the offline analyser with mir_eval's conventions, and fails when a score
+# sound engine and the offline analyser (core/sound/offline) with mir_eval's conventions, and fails when a score
 # drops below core/tests/analysis/bench_baseline.tsv. Its own workflow, not a step of android.yml: it needs
 # Python and librosa but no Android toolchain, so it reports in about two minutes instead of after the APK.
 # Nothing the lab writes is committed; the scores and a re-recorded baseline are uploaded as an artifact.
@@ -59,9 +59,18 @@ jobs:
 
       - name: Build the bench
         run: |
-          g++ -std=c++20 -O2 -Wall -Wextra -Werror -Icore core/tests/analysis_bench.cpp core/sound/*.cpp -o analysis_bench
+          g++ -std=c++20 -O2 -Wall -Wextra -Werror -Icore core/tests/analysis_bench.cpp core/sound/*.cpp \
+            core/sound/offline/*.cpp -o analysis_bench
+          g++ -std=c++20 -O2 -Wall -Wextra -Werror -Icore core/tests/offline_beats_test.cpp \
+            core/sound/offline/OfflineBeats.cpp core/sound/Fft.cpp -o offline_beats_test
+
+      # The offline analyser (core/sound/offline) against librosa's own output on the same clips, within the
+      # tolerances offline_beats_test.cpp states. Before the bench, so a broken port fails as a port.
+      - name: Offline analyser against the librosa goldens
+        run: ./offline_beats_test --goldens build/analysis-lab
 
       - name: Score every analyser against the baseline
+        if: ${{ !cancelled() }}
         run: ./analysis_bench build/analysis-lab core/tests/analysis/bench_baseline.tsv --write build/analysis-lab/bench_baseline.new.tsv
 
       # The new baseline is printed as well as uploaded, so a deliberate change can be recorded straight from

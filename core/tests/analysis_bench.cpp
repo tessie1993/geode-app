@@ -1,7 +1,7 @@
 // The analysis accuracy bench (#462): scores every analyser over the lab's labelled clips and fails when a
 // score drops below its recorded baseline. Run by .github/workflows/analysis-bench.yml after the lab:
 //   python3 tools/analysis_lab/lab.py --out build/analysis-lab
-//   g++ -std=c++20 -O2 -Wall -Wextra -Werror -Icore core/tests/analysis_bench.cpp core/sound/*.cpp -o analysis_bench
+//   g++ -std=c++20 -O2 -Wall -Wextra -Werror -Icore core/tests/analysis_bench.cpp core/sound/*.cpp core/sound/offline/*.cpp -o analysis_bench
 //   ./analysis_bench build/analysis-lab core/tests/analysis/bench_baseline.tsv [--write <new baseline>]
 //
 // Analysers, each scored only on what it claims:
@@ -11,6 +11,7 @@
 //            downbeat triggers (placed at the oscillator's beat, frame time - beatPhase · period),
 //            sectionChange as it fires (it means "a section began a bar ago", and the bench scores where
 //            it lands, which is what a visual sees), the key and tempo held over the clip's second half
+//   offline  core/sound/offline's whole-track analyser (#463): the beat grid, its downbeats and tempo
 //
 // Metrics are core/tests/analysis/MirEval.hpp (mir_eval's conventions). Before scoring anything the bench
 // recomputes librosa's scores and compares them with mir_eval's own (<clip>.mir_eval.tsv): a mismatch fails,
@@ -34,6 +35,7 @@
 #include <vector>
 
 #include "sound/SoundEngine.hpp"
+#include "sound/offline/OfflineBeats.hpp"
 #include "tests/analysis/Annotations.hpp"
 #include "tests/analysis/MirEval.hpp"
 #include "tests/analysis/Wav.hpp"
@@ -98,6 +100,19 @@ Answers runLive(const Wav& wav) {
     return a;
 }
 
+// ---- offline: core/sound/offline, the whole track at once -------------------------------------------------
+
+Answers runOffline(const Wav& wav) {
+    const std::vector<float> mono = wav.mono();
+    const geode::sound::offline::BeatGrid grid = geode::sound::offline::analyse(mono.data(), mono.size(), wav.sampleRate);
+    Answers a;
+    a.hasDownbeats = true;
+    a.tempo = grid.bpm;
+    a.beats = grid.beats;
+    a.downbeats = grid.downbeats;
+    return a;
+}
+
 // ---- Scoring ---------------------------------------------------------------------------------------------
 
 using Scores = std::map<std::string, double>;  // metric -> score
@@ -151,6 +166,7 @@ int main(int argc, char** argv) {
     std::map<std::string, std::vector<double>> perMetric;  // analyser\tmetric -> clip scores
     const Claims librosaClaims{.beats = true, .downbeats = false, .tempo = true, .key = true, .sections = true};
     const Claims liveClaims{.beats = true, .downbeats = true, .tempo = true, .key = true, .sections = true};
+    const Claims offlineClaims{.beats = true, .downbeats = true, .tempo = true, .key = false, .sections = false};
 
     for (const auto& clipRow : clipRows) {
         const std::string clip = clipRow[0];
@@ -168,6 +184,7 @@ int main(int argc, char** argv) {
         std::vector<std::pair<std::string, Scores>> analysers;
         analysers.emplace_back("librosa", score(truth, librosa, librosaClaims));
         analysers.emplace_back("live", score(truth, runLive(wav), liveClaims));
+        analysers.emplace_back("offline", score(truth, runOffline(wav), offlineClaims));
 
         // The bench's maths against mir_eval's, on the same answers.
         for (const auto& [metric, expected] : readScores(base + ".mir_eval.tsv")) {

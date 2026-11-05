@@ -78,6 +78,19 @@ constexpr Bounds kBounds[kFieldCount] = {
     {0.0f, 1.0f},     // TexEmit
     {-0.5f, 0.5f},    // Roll
     {0.75f, 1.35f},   // Lens
+    {0.0f, 1.0f},     // Floor
+    {-6.0f, -1.8f},   // FloorY
+    {0.0f, 1.0f},     // FloorGloss
+    {0.0f, 1.0f},     // Sky
+    {0.0f, 1.0f},     // SkyHue
+    {0.0f, 1.0f},     // Horizon
+    {0.0f, 1.0f},     // Terrain
+    {0.5f, 4.0f},     // TerrainHeight
+    {0.05f, 0.5f},    // TerrainScale
+    {-0.8f, 0.8f},    // LatticeTilt
+    {-0.8f, 0.8f},    // LatticeYaw
+    {0.0f, 0.5f},     // GazePitch
+    {0.0f, 0.6f},     // GazeYaw
 };
 static_assert(sizeof(kBounds) / sizeof(kBounds[0]) == kFieldCount, "a bound per field");
 
@@ -412,6 +425,19 @@ Genome base() {
     g[TexScale] = 1.0f;
     g[Roll] = 0.0f;
     g[Lens] = 1.0f;
+    g[Floor] = 0.0f;
+    g[FloorY] = -3.0f;
+    g[FloorGloss] = 0.5f;
+    g[Sky] = 0.0f;
+    g[SkyHue] = 0.5f;
+    g[Horizon] = 0.0f;
+    g[Terrain] = 0.0f;
+    g[TerrainHeight] = 1.5f;
+    g[TerrainScale] = 0.15f;
+    g[LatticeTilt] = 0.0f;
+    g[LatticeYaw] = 0.0f;
+    g[GazePitch] = 0.0f;
+    g[GazeYaw] = 0.0f;
     return g;
 }
 

@@ -20,7 +20,8 @@
 //   travel, global scale, mirror fold, up to five IFS steps (rotate-fold, fractional count),
 //   sphere inversion, abs-inversion, then thirteen primitives blended by weight (six simple ones, a
 //   baked CC0 model from WorldAssets, and six fractals: gyroid, Menger sponge, Mandelbulb, Mandelbox,
-//   Sierpinski tetrahedron, Apollonian packing), then the corridor
+//   Sierpinski tetrahedron, Apollonian packing), joined by min to the landscape (Terrain: a ridged
+//   fBm height field in world space on FloorY, valley walls to the sides), then the corridor
 //   carved out around the camera's way. Three render modes read that one world: a hard surface,
 //   a glow-through volume (translucent glowing plates) and an emissive density (thin glowing
 //   sheets); their weights are in the genome too, so a world can melt from stone into light.
@@ -186,6 +187,10 @@ struct Way {
 float sdf(const Genome& g, const Way& way, const std::array<float, 3>& p);
 // The same without the corridor: the bare world, for the open-space probe.
 float sdfUncarved(const Genome& g, const Way& way, const std::array<float, 3>& p);
+
+// lib_world's wTerrain alone: the landscape layer's distance at world point p (FAR while Terrain is
+// 0). It is a bound: it never changes faster than p moves, so the tracer never overshoots it.
+float terrainSdf(const Genome& g, const std::array<float, 3>& p);
 
 // The share of probe points around the camera's way (a 12-unit box about the travel axis, eye at
 // the origin) that are open air (> 0.25 from matter) and that are near matter (< 0.6). A good

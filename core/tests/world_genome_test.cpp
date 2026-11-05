@@ -156,6 +156,101 @@ void corridorIsOpenAtTheCamera() {
     check(worst >= kEyeRadius * 0.99f, "the eye keeps at least its bubble's radius (" + std::to_string(worst) + ")");
 }
 
+// A uniform 0..1 from the one generator.
+float unit01(uint64_t& s) {
+    s = mix64(s);
+    return static_cast<float>((s >> 40) & 0xFFFFFFu) / 16777216.0f;
+}
+
+void landscapesAreOpenAndHoldTheCorridor() {
+    // With Terrain at 1 the landscape seeds are valid worlds, and on every rig path, at every
+    // orbit, along the whole travel (the rig's wrap included) the eye and its wake stay in air.
+    int landscapes = 0;
+    for (int i = 0; i < seedCount(); ++i) {
+        const Seed& sd = seed(i);
+        if (sd.genome[Terrain] < 0.99f) continue;
+        ++landscapes;
+        const Genome& g = sd.genome;
+        check(valid(g), std::string(sd.name) + " (a landscape) is open and has matter");
+        float worst = 1e9f;
+        for (int path = 0; path < 4; ++path) {
+            for (float orbit : {0.0f, 0.5f, 1.0f}) {
+                for (float travel : {0.0f, 3.1f, 17.0f, 250.0f, 1999.5f, 7700.0f, 8000.0f, 8150.0f, 8191.0f}) {
+                    const auto here = CameraRig::pathPoint(path, orbit, travel);
+                    const auto ahead = CameraRig::pathPoint(path, orbit, travel + 1.6f);
+                    Way way;
+                    way.eye = here;
+                    way.zPhase = std::fmod(travel * 0.37f, 2.0f * g[CellZ]);
+                    way.wake = {ahead[0] - here[0], ahead[1] - here[1], ahead[2] - here[2]};
+                    const float d = sdf(g, way, here);
+                    worst = std::fmin(worst, d);
+                    check(d > 0.0f, std::string(sd.name) + ": the eye is in air (path " + std::to_string(path) + ")");
+                    for (float h : {0.25f, 0.5f, 1.0f}) {
+                        const std::array<float, 3> p{here[0] + way.wake[0] * h, here[1] + way.wake[1] * h, here[2] + way.wake[2] * h};
+                        check(sdf(g, way, p) > 0.0f, std::string(sd.name) + ": the wake is open (path " + std::to_string(path) + ")");
+                    }
+                }
+            }
+        }
+        check(worst >= kEyeRadius * 0.99f, std::string(sd.name) + ": the eye keeps its bubble (" + std::to_string(worst) + ")");
+    }
+    check(landscapes >= 2, "two or more landscape seeds (" + std::to_string(landscapes) + ")");
+}
+
+void terrainIsABoundAndSeamless() {
+    // The slope bound holds: the landscape's distance never changes faster than the point moves, at
+    // full strength and while fading, near the origin and in the wrap's blend, so the sphere tracer
+    // never steps through a ridge. (The small absolute slack is float noise at z near 8192.)
+    uint64_t s = 0x7E22A1Full;
+    int pairs = 0;
+    int landscapes = 0;
+    for (int i = 0; i < seedCount(); ++i) {
+        if (seed(i).genome[Terrain] < 0.99f) continue;
+        ++landscapes;
+        for (float on : {1.0f, 0.4f, 0.05f}) {
+            Genome g = seed(i).genome;
+            g[Terrain] = on;
+            for (int n = 0; n < 3000; ++n) {
+                const bool nearWrap = n % 3 == 2;
+                const std::array<float, 3> a{-30.0f + 60.0f * unit01(s), -8.0f + 14.0f * unit01(s),
+                                             nearWrap ? 7600.0f + 600.0f * unit01(s) : -40.0f + 80.0f * unit01(s)};
+                float dx = unit01(s) * 2.0f - 1.0f;
+                float dy = unit01(s) * 2.0f - 1.0f;
+                float dz = unit01(s) * 2.0f - 1.0f;
+                const float len = std::sqrt(dx * dx + dy * dy + dz * dz);
+                if (len < 1e-3f) continue;
+                dx *= 0.25f / len;
+                dy *= 0.25f / len;
+                dz *= 0.25f / len;
+                const std::array<float, 3> b{a[0] + dx, a[1] + dy, a[2] + dz};
+                const float moved = std::sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]) + (b[2] - a[2]) * (b[2] - a[2]));
+                const float change = std::fabs(terrainSdf(g, b) - terrainSdf(g, a));
+                check(change <= moved * 1.01f + 2e-3f, "the landscape's distance is a bound (" + std::to_string(change) + " over " +
+                                                           std::to_string(moved) + ", Terrain " + std::to_string(on) + ")");
+                ++pairs;
+            }
+        }
+        // Across the rig's travel wrap a point and its image 8192 behind it stand on the same ground.
+        const Genome& g = seed(i).genome;
+        for (float z : {8092.5f, 8120.0f, 8150.25f, 8191.75f, 8230.0f}) {
+            for (float x : {-12.0f, -3.0f, 0.0f, 2.5f, 9.0f}) {
+                for (float y : {-5.0f, -2.5f, 0.0f}) {
+                    const float d0 = terrainSdf(g, {x, y, z});
+                    const float d1 = terrainSdf(g, {x, y, z - 8192.0f});
+                    check(std::fabs(d0 - d1) < 2e-3f, "the landscape is seamless across the travel wrap (" + std::to_string(d0) + " vs " +
+                                                          std::to_string(d1) + ")");
+                }
+            }
+        }
+        // Off, the layer is out of reach; and the ground stays under the eye's tube at the axis' far
+        // sides only through the corridor's carve, which sdf() already checks above.
+        Genome off = seed(i).genome;
+        off[Terrain] = 0.0f;
+        check(terrainSdf(off, {0.0f, -4.0f, 0.0f}) >= 79.0f, "Terrain 0 puts the landscape out of reach");
+    }
+    check(landscapes == 0 || pairs > 0, "sampled the landscape");
+}
+
 // A synthetic song: a calm intro, a verse, a build, a drop, a breakdown, repeated.
 GeodeSoundFrame songFrame(int frame, float fps) {
     GeodeSoundFrame f{};
@@ -392,6 +487,8 @@ int main(int argc, char** argv) {
     seedsAreValid();
     randomGenomesAreValid();
     corridorIsOpenAtTheCamera();
+    landscapesAreOpenAndHoldTheCorridor();
+    terrainIsABoundAndSeamless();
     driverIsReplayableAndSeeded();
     aCalmSongCanKeepItsWorld();
     dropRushesAndVerseGlides();

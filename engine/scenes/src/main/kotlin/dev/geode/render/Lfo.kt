@@ -176,9 +176,9 @@ data class LfoConfig(
     }
 }
 
-// The LFO slots' configs only; native runs the oscillator, follower and apply logic (see [PushedConfigs]).
-class LfoEngine : PushedConfigs<LfoConfig>(List(SLOTS) { LfoConfig() }) {
-    companion object {
-        const val SLOTS: Int = 3
-    }
+// Modulation runs natively every frame (core/viz/RendererFrame.cpp ticks its own LfoEngine against the
+// configs geode_viz_set_lfo pushes); the configs themselves ride in the LookSnapshot (render/look). Only the slot
+// count is Kotlin's, for the stores and the editor.
+object LfoEngine {
+    const val SLOTS: Int = 3
 }

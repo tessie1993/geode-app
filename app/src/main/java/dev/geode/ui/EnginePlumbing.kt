@@ -6,11 +6,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.geode.data.GuiPrefs
 import dev.geode.geodeContainer
+import dev.geode.render.AdsrConfig
 import dev.geode.render.BlendMode
+import dev.geode.render.LfoConfig
+import dev.geode.render.ReactionRoute
 import dev.geode.render.VisualizerView
+import dev.geode.render.look.LookSnapshot
+import dev.geode.render.look.LookUnderlay
 import dev.geode.ui.theme.rememberSystemReducedMotion
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -30,6 +37,35 @@ object LayersBus {
     val activeSceneId = MutableStateFlow<String?>(null)
 }
 
+/**
+ * The stage's look from the session's state (#345): the one builder live Visuals and every export
+ * (which pins it, ExportController.Host.look) share, so the two cannot drift apart.
+ */
+internal fun liveLook(
+    viz: VizUiState,
+    lfos: List<LfoConfig>,
+    adsrs: List<AdsrConfig>,
+    reactions: List<ReactionRoute>?,
+    gui: GuiPrefs,
+    // Android's "Remove animations" (data/SystemMotion, #336), the only reduced-motion flag.
+    reducedMotion: Boolean,
+    underlay: LookUnderlay? = null,
+): LookSnapshot =
+    LookSnapshot(
+        sceneId = viz.sceneId,
+        params = viz.params,
+        lfos = lfos,
+        adsrs = adsrs,
+        reactions = reactions,
+        soundTuning = gui.soundTuning,
+        reducedMotion = reducedMotion,
+        transitionId = viz.transitionId,
+        transitionMs = (viz.transitionDurationSec * MS_PER_SECOND).toLong(),
+        underlay = underlay,
+    )
+
+private const val MS_PER_SECOND = 1000
+
 @Composable
 fun VisualizerEngineBindings(
     viewModel: PlayerViewModel,
@@ -38,16 +74,13 @@ fun VisualizerEngineBindings(
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
-    val lfos by visualsViewModel.lfos.collectAsStateWithLifecycle()
-    val adsrs by visualsViewModel.adsrs.collectAsStateWithLifecycle()
-    val reactions by visualsViewModel.reactions.collectAsStateWithLifecycle()
     val playerPrefs by settingsViewModel.playerPrefs.collectAsStateWithLifecycle()
-    val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     val layers by LayersBus.state.collectAsStateWithLifecycle()
     val performanceStore = LocalContext.current.geodeContainer.performance
     val performance by performanceStore.settings.collectAsStateWithLifecycle()
-    val background by visualsViewModel.backgroundPush.collectAsStateWithLifecycle()
     val mainScope = rememberCoroutineScope()
+    // Watched live: turning it on while the visual plays calms the visual at once.
+    val reducedMotion = rememberSystemReducedMotion()
 
     LaunchedEffect(Unit) {
         visualizerView.visualizerRenderer.onShaderError = viewModel::reportShaderError
@@ -61,29 +94,25 @@ fun VisualizerEngineBindings(
         }
         LayersBus.availableScenes.value = visualizerView.visualizerRenderer.availableSceneIds()
     }
-    // One collector rather than LaunchedEffect(viz.params): a slider drag or a pinch edits params at
-    // pointer rate, and keying an effect on them cancelled and relaunched a coroutine per edit, each
-    // landing a frame late. distinctUntilChanged keeps unrelated vizState changes from re-pushing.
-    LaunchedEffect(Unit) {
-        viewModel.vizState.map { it.params }.distinctUntilChanged().collect { params ->
-            visualizerView.visualizerRenderer.sceneParams = params
-            visualizerView.gyroWanted = params.camGyro
-        }
+    // The look is one value fed from one collector (#345): a slider drag or a pinch edits params at
+    // pointer rate, and an effect keyed on them relaunched a coroutine per edit, each a frame late. The
+    // renderer's LookApplier pushes only what changed, so an unrelated vizState change costs nothing.
+    // The underlay is mapped once per background push: a new instance would re-send the whole image.
+    LaunchedEffect(reducedMotion) {
+        val underlay =
+            visualsViewModel.backgroundPush.map { b ->
+                b.pixels?.let { LookUnderlay(it.pixels, it.width, it.height, b.blend.ordinal, b.amount) }
+            }
+        val vm = visualsViewModel
+        val modulation = combine(vm.lfos, vm.adsrs, vm.reactions) { l, a, r -> Triple(l, a, r) }
+        combine(viewModel.vizState, modulation, settingsViewModel.guiPrefs, underlay) { v, m, gui, u ->
+            liveLook(v, m.first, m.second, m.third, gui, reducedMotion, u)
+        }.collect { visualizerView.visualizerRenderer.look = it }
     }
-    LaunchedEffect(background) {
-        val pixels = background.pixels
-        visualizerView.queueEvent {
-            visualizerView.visualizerRenderer.setUnderlay(
-                pixels?.pixels,
-                pixels?.width ?: 0,
-                pixels?.height ?: 0,
-                background.blend,
-                background.amount,
-            )
-        }
+    LaunchedEffect(Unit) {
+        viewModel.vizState.map { it.params.camGyro }.distinctUntilChanged().collect { visualizerView.gyroWanted = it }
     }
     LaunchedEffect(viz.sceneId) {
-        visualizerView.visualizerRenderer.requestedSceneId = viz.sceneId
         LayersBus.activeSceneId.value = viz.sceneId
     }
     LaunchedEffect(layers) {
@@ -94,35 +123,17 @@ fun VisualizerEngineBindings(
     LaunchedEffect(playerPrefs.keepScreenOn) {
         visualizerView.keepScreenOn = playerPrefs.keepScreenOn
     }
-    LaunchedEffect(lfos, adsrs) {
-        visualizerView.visualizerRenderer.lfoEngine.configs = lfos
-        visualizerView.visualizerRenderer.adsrEngine.configs = adsrs
-    }
-    LaunchedEffect(reactions) {
-        visualizerView.visualizerRenderer.reactions = reactions
-    }
-    LaunchedEffect(viz.transitionId, viz.transitionDurationSec) {
-        // A requested cut becomes a fade natively (core/viz/VisualSafety, applied by Renderer::setTransition).
+    LaunchedEffect(viz.transitionId) {
+        // The look carries the transition; this only compiles it ahead of the next style change.
         val id = viz.transitionId
         val renderer = visualizerView.visualizerRenderer
-        renderer.transitionId = id
-        renderer.transitionDurationMs = (viz.transitionDurationSec * 1000).toLong()
         visualizerView.queueEvent { renderer.warmTransition(id) }
-    }
-    LaunchedEffect(gui.soundTuning) {
-        visualizerView.visualizerRenderer.soundTuning = gui.soundTuning
     }
     LaunchedEffect(performance) {
         visualizerView.applyPerformance(performance)
     }
     LaunchedEffect(Unit) {
         visualizerView.visualizerRenderer.liquidMode.collect { viewModel.reportLiquidMode(it) }
-    }
-    // Android's "Remove animations" (data/SystemMotion, #336), watched live: turning it on while
-    // the visual plays calms the visual at once.
-    val reducedMotion = rememberSystemReducedMotion()
-    LaunchedEffect(reducedMotion) {
-        visualizerView.visualizerRenderer.reducedMotion = reducedMotion
     }
     LaunchedEffect(Unit) {
         viewModel.morphFade.collect { visualizerView.visualizerRenderer.beginParamMorph(it) }

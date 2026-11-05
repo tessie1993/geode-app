@@ -25,9 +25,8 @@ data class AdsrConfig(
     val retrigger: Boolean = true,
 )
 
-// The envelopes' configs only; native runs the envelope and apply logic (see [PushedConfigs]).
-class AdsrEngine : PushedConfigs<AdsrConfig>(List(COUNT) { AdsrConfig() }) {
-    companion object {
-        const val COUNT = 2
-    }
+// Envelopes run natively every frame (core/viz/RendererFrame.cpp, against the configs geode_viz_set_adsr
+// pushes); the configs ride in the LookSnapshot (render/look). Only the count is Kotlin's.
+object AdsrEngine {
+    const val COUNT = 2
 }

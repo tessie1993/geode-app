@@ -9,7 +9,7 @@
 //   shaders/world_shapes.bin    kShapeCount slabs of a kShapeRes^3 R8 signed distance grid over the
 //                               cube [-1, 1]^3, x fastest then y then z; the byte maps the distance
 //                               in cube units over [kShapeLo, kShapeHi]. lib_world samples it as one
-//                               32 x 32 x 512 GL_TEXTURE_3D (LINEAR, CLAMP_TO_EDGE), the slab picked
+//                               32 x 32 x 768 GL_TEXTURE_3D (LINEAR, CLAMP_TO_EDGE), the slab picked
 //                               by z; shapeDistance() below reads it the same way on the CPU.
 //   shaders/world_textures.bin  kTexCount layers of kTexRes^2 R8 surface detail (a material's base
 //                               colour as luminance), a GL_TEXTURE_2D_ARRAY with MIRRORED_REPEAT.
@@ -19,7 +19,7 @@
 // Until then the mesh primitive is a sphere, on both sides (WG_ASSETS = 0 in lib_world).
 namespace geode::viz::world {
 
-constexpr int kShapeCount = 16;
+constexpr int kShapeCount = 24;
 constexpr int kShapeRes = 32;
 constexpr float kShapeLo = -0.25f;
 constexpr float kShapeHi = 0.75f;

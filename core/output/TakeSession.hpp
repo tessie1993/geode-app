@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "output/TakeClock.hpp"
+#include "output/TakeRules.hpp"
 
 struct ANativeWindow;
 
@@ -52,6 +53,12 @@ public:
     // The running take has reached its cap (TakeLimits::capMs): the shell should stop it.
     bool reachedCap() const;
 
+    // Settings › Behaviour › Record (TakeRules), for the next take to begin. Any thread.
+    void setRule(TakeRule rule) { rule_.store(static_cast<int>(rule), std::memory_order_relaxed); }
+    // What the player did; the running take holds, releases or carries on as its rule says, and the answer
+    // comes back so the shell can stop a take that ended. Roll while no take runs, and for a mic or capture take.
+    TakeAction event(TakeEvent event);
+
     // The record tap, on the playback thread: interleaved 16-bit PCM as the performer hears it.
     void writeAudio(const int16_t* pcm, int frames, int channels, int rateHz);
     // The mic or another app's audio, on its capture thread: interleaved float PCM as it arrives (#458).
@@ -70,6 +77,7 @@ private:
     std::shared_ptr<Take> take_;
     std::atomic<int> stageW_{0};
     std::atomic<int> stageH_{0};
+    std::atomic<int> rule_{static_cast<int>(kDefaultTakeRule)};
     uint64_t generations_ = 0;
 };
 
@@ -103,6 +111,8 @@ private:
     ANativeWindow* window_ = nullptr;
     TakeSize size_{};
     TakeLimits limits_;
+    std::mutex rulesLock_;  // events arrive on the main thread; one at a time
+    TakeRules rules_;
     std::atomic<bool> closing_{false};
     std::atomic<int> inFlight_{0};
 };

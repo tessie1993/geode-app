@@ -606,6 +606,15 @@ object GeodeNative {
     /** The running take has reached its cap: stop it. */
     external fun takeReachedCap(): Boolean
 
+    /** Settings › Behaviour › Record for the next take (`geode_take_set_rule`): 0 default, 1 continuous, 2 seek ends. */
+    external fun takeSetRule(rule: Int)
+
+    /**
+     * What the player did (0 pause, 1 resume, 2 seek, 3 track change); returns what the running take did
+     * (0 roll, 1 hold, 2 release, 3 cut, 4 end: stop and save it). The rule decides, natively.
+     */
+    external fun takeEvent(event: Int): Int
+
     /** Ends the take and finishes its MP4: its length in ms, or -1 with no picture. Blocks; never on Main. */
     external fun takeEnd(): Long
 

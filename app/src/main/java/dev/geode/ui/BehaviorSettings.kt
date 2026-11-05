@@ -30,6 +30,7 @@ internal fun BehaviorSettingsTab(viewModel: SettingsViewModel) {
         item { SettingsGroup(stringResource(R.string.behavior_group_auto)) { AutoVisualsGroup(playerViewModel) } }
         item { SettingsGroup(stringResource(R.string.behavior_group_director)) { AutoDirectorGroup() } }
         item { SettingsGroup(stringResource(R.string.behavior_group_notes)) { NoteResponseGroup() } }
+        item { SettingsGroup(stringResource(R.string.behavior_group_record)) { RecordGroup() } }
         item { SettingsGroup(stringResource(R.string.behavior_group_wallpaper)) { LiveWallpaperGroup() } }
         item { SettingsGroup(stringResource(R.string.behavior_group_pip)) { PictureInPictureGroup(viewModel, gui) } }
     }

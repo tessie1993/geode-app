@@ -2,6 +2,7 @@ package dev.geode.ui
 
 import dev.geode.data.PerformanceTake
 import dev.geode.data.SaveTarget
+import dev.geode.data.TakeEvent
 import dev.geode.data.TakeInfo
 import dev.geode.data.TakeRepository
 import dev.geode.data.TakeVideo
@@ -94,6 +95,12 @@ internal class TakeController(
          */
         fun beginCapture(fromInput: Boolean): Boolean
 
+        /**
+         * Tells the running capture what the player did; true when Settings › Behaviour › Record's rule
+         * ended the take (native decides: `core/output/TakeRules`).
+         */
+        fun reportToCapture(event: TakeEvent): Boolean
+
         /** The running capture reached the entitlement's cap (a trial take's minute); native decides. */
         fun captureReachedCap(): Boolean
 
@@ -171,15 +178,28 @@ internal class TakeController(
     }
 
     /**
-     * One look at the live state while recording. A different song (the queue moved on) ends the
-     * take first: its track time would otherwise read as a seek back and punch out everything
-     * recorded. Repeat-one looping the same song reads as a seek back, a punch-in, like any other.
+     * The player paused, resumed or seeked during a take: the capture holds, releases, cuts or ends
+     * as Settings › Behaviour › Record says, natively; an ended take is stopped and saved here.
+     */
+    fun onPlayback(event: TakeEvent) {
+        if (recorder == null) return
+        if (host.reportToCapture(event)) stopRecording()
+    }
+
+    /**
+     * One look at the live state while recording. A different song (the queue moved on) is a track
+     * change for the take rule: the default ends and saves the take, since its track time would
+     * otherwise read as a seek back and punch out everything recorded; Continuous keeps rolling on
+     * the new song. Repeat-one looping the same song reads as a seek back, a punch-in, like any other.
      */
     private fun sample(live: VizUiState) {
         val rec = recorder ?: return
         if (recordTrackUri != null && host.trackUri != recordTrackUri) {
-            stopRecording()
-            return
+            if (host.reportToCapture(TakeEvent.TRACK_CHANGE)) {
+                stopRecording()
+                return
+            }
+            recordTrackUri = host.trackUri
         }
         rec.append(takeClockMs(), live.sceneId, live.params, host.activeMilkPath)
         _state.update { it.copy(recordedEvents = rec.size, recordedMs = rec.durationMs) }

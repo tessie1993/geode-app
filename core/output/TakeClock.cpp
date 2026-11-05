@@ -44,8 +44,10 @@ TakeFramePicker::TakeFramePicker(int64_t startNs, float fps, int64_t capUs)
     : startNs_(startNs), minGapUs_(std::llround(600000.0 / takeFps(fps))), capUs_(std::max<int64_t>(capUs, 0)) {}
 
 std::optional<int64_t> TakeFramePicker::admit(int64_t frameNs) {
-    if (frameNs < startNs_) return std::nullopt;
-    const int64_t us = (frameNs - startNs_) / kNsPerUs;
+    if (frameNs < startNs_ || holdSinceNs_.load(std::memory_order_acquire) != 0) return std::nullopt;
+    const int64_t us = (frameNs - startNs_ - heldNs_.load(std::memory_order_acquire)) / kNsPerUs;
+    // A frame drawn just before a release can carry a time already handed out: times only go forward.
+    if (us <= lastUs_) return std::nullopt;
     if (capUs_ > 0 && us > capUs_) {
         reachedCap_.store(true, std::memory_order_relaxed);
         return std::nullopt;
@@ -54,6 +56,18 @@ std::optional<int64_t> TakeFramePicker::admit(int64_t frameNs) {
     lastUs_ = us;
     ++frames_;
     return us;
+}
+
+void TakeFramePicker::hold(int64_t nowNs) {
+    int64_t running = 0;
+    holdSinceNs_.compare_exchange_strong(running, std::max<int64_t>(nowNs, 1), std::memory_order_acq_rel);
+}
+
+void TakeFramePicker::release(int64_t nowNs) {
+    const int64_t since = holdSinceNs_.load(std::memory_order_acquire);
+    if (since == 0) return;
+    heldNs_.fetch_add(std::max<int64_t>(nowNs - since, 0), std::memory_order_acq_rel);
+    holdSinceNs_.store(0, std::memory_order_release);
 }
 
 void toPcm16(const float* in, int samples, int16_t* out) {
@@ -84,6 +98,7 @@ void TakeAudio::write(const int16_t* pcm, int frames, int channels, int rateHz, 
         stereo_[static_cast<size_t>(f) * 2 + 1] = channels > 1 ? in[1] : in[0];
     }
     std::lock_guard<std::mutex> guard(lock_);
+    if (holding_) return;
     if (!resampler_ || resamplerRate_ != rateHz) {
         resampler_ = std::make_unique<audio::PcmResampler>(rateHz, kRate, kChannels);
         resamplerRate_ = rateHz;
@@ -108,7 +123,7 @@ int TakeAudio::read(int16_t* out, int maxFrames, int64_t nowNs) {
     // Nothing written for a while: keep the track running in silence, kGapNs behind now, so a block that
     // arrives late still finds its place ahead of the fill.
     const int64_t fillTo = nowNs - kGapNs;
-    if (pendingLocked() == 0 && fillTo > endNsLocked()) {
+    if (!holding_ && pendingLocked() == 0 && fillTo > endNsLocked()) {
         padFramesLocked((fillTo - endNsLocked()) * kRate / kNsPerSecond);
         anchored_ = true;
         lastWasPad_ = true;
@@ -133,6 +148,21 @@ void TakeAudio::padTo(int64_t endUs) {
     std::lock_guard<std::mutex> guard(lock_);
     const int64_t want = endUs * kRate / kUsPerSecond;
     if (want > framesIn_) padFramesLocked(want - framesIn_);
+}
+
+void TakeAudio::hold(int64_t nowNs) {
+    std::lock_guard<std::mutex> guard(lock_);
+    if (holding_) return;
+    holding_ = true;
+    holdSinceNs_ = nowNs;
+}
+
+void TakeAudio::release(int64_t nowNs) {
+    std::lock_guard<std::mutex> guard(lock_);
+    if (!holding_) return;
+    holding_ = false;
+    // Time zero moves on by the hold, so the stream's end and the wall clock line up again where they did.
+    startNs_ += std::max<int64_t>(nowNs - holdSinceNs_, 0);
 }
 
 int64_t TakeAudio::nextReadPtsUs() const {

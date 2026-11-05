@@ -453,6 +453,8 @@ class PlayerSession internal constructor(
 
                 override fun captureReachedCap(): Boolean = takeCapture.reachedCap()
 
+                override fun reportToCapture(event: dev.geode.data.TakeEvent): Boolean = takeCapture.report(event)
+
                 override fun endCapture(): TakeVideo? = takeCapture.end()
 
                 override fun publishCapture(
@@ -1304,6 +1306,21 @@ class PlayerSession internal constructor(
                         PlaybackErrors.Action.StopSourceUnavailable,
                         -> player.pause()
                     }
+                }
+
+                // A take's rule (Settings › Behaviour › Record) hears the user's pause, resume and seek.
+                override fun onPlayWhenReadyChanged(
+                    playWhenReady: Boolean,
+                    reason: Int,
+                ) = takeController.onPlayback(if (playWhenReady) dev.geode.data.TakeEvent.RESUME else dev.geode.data.TakeEvent.PAUSE)
+
+                override fun onPositionDiscontinuity(
+                    oldPosition: Player.PositionInfo,
+                    newPosition: Player.PositionInfo,
+                    reason: Int,
+                ) {
+                    val sameSong = oldPosition.mediaItemIndex == newPosition.mediaItemIndex
+                    if (reason == Player.DISCONTINUITY_REASON_SEEK && sameSong) takeController.onPlayback(dev.geode.data.TakeEvent.SEEK)
                 }
 
                 override fun onIsPlayingChanged(isPlaying: Boolean) {

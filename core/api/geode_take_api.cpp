@@ -30,6 +30,13 @@ int geode_take_begin_from(int fd, float display_fps, int64_t cap_ms, const uint3
 
 int geode_take_reached_cap(void) { return TakeSession::shared().reachedCap() ? 1 : 0; }
 
+void geode_take_set_rule(int rule) { TakeSession::shared().setRule(geode::output::takeRuleOf(rule)); }
+
+int geode_take_event(int event) {
+    if (event < 0 || event > static_cast<int>(geode::output::TakeEvent::TrackChange)) return 0;
+    return static_cast<int>(TakeSession::shared().event(static_cast<geode::output::TakeEvent>(event)));
+}
+
 void geode_take_write_input(const float* interleaved, int frames, int channels, int sample_rate) {
     TakeSession::shared().writeInput(interleaved, frames, channels, sample_rate);
 }

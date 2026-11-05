@@ -290,6 +290,11 @@ GEODE_API int         geode_studio_move_takes_out(const char* projects_dir, cons
  * process; the shell parses it once. Display labels and the Pro rule are not in it. */
 GEODE_API const char* geode_catalogue_text(void);
 
+/* The catalogue's presets section (core/viz/CataloguePresets, #648): the bundled looks, each a named set of
+ * param values by #346's param name, and every bundled preset (name, style id, look), as one versioned
+ * '|'-separated line table (see CataloguePresets.hpp for the rows). Static, like geode_catalogue_text. */
+GEODE_API const char* geode_catalogue_presets_text(void);
+
 /* Customize randomizer and Reset tab (core/viz/ParamRandomizer) over SceneParams
  * in the geode_viz_param_name wire order: geode_viz_param_count floats, ints and flags as floats. Pure: no viz
  * handle; the same arguments always give the same result. Controls are named by their ParamKeys strings, tabs

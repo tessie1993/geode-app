@@ -318,7 +318,6 @@ void Renderer::onSurfaceCreated() {
     releaseScenes();
     trailPass_.release();
     compositePass_.release();
-    bloomPass_.release();
     uiBlurPass_.release();
     liquidPass_.release();
     overlays_.release();

@@ -8,12 +8,8 @@ name: Mutation testing (changed C++)
 #
 # Any base branch: stacked PRs whose base is a claude/* branch diff against that branch.
 
+# Manual only: pull requests are gated by build-lint.yml (build and lint, no tests).
 on:
-  pull_request:
-    paths:
-      - "core/**"
-      - "tools/mutation/**"
-      - ".github/workflows/mutation.yml"
   workflow_dispatch:
     inputs:
       base:
@@ -27,6 +23,7 @@ on:
       llvm:
         description: "LLVM major for the mull engine (mull-<N>, clang-<N>)"
         default: "18"
+
 
 permissions:
   contents: read

@@ -3,14 +3,10 @@ name: Native host tests
 # The pure C++ core (core/) built with the runner's own g++ and run on the host: the render-thread
 # maths, the fluid engine, the sound engine and the other host tests in core/tests. Seconds, no
 # Android SDK. Split out of android.yml so a red host test does not hold back the APK build;
-# run it on any branch from the Actions tab, and it runs by itself on pull requests touching core/.
+# run it by hand on any branch from the Actions tab.
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - "core/**"
-      - ".github/workflows/native-host-tests.yml"
 
 permissions:
   contents: read

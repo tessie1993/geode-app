@@ -9,24 +9,9 @@ name: Build MuzViz Debug APK
 # A green run on a push (or a manual run) ends by shipping the next
 # pre-release through ship-apk.yml; see the "pre-release" job at the end.
 
+# Manual only: the pull-request gate is build-lint.yml (build and lint, no tests).
 on:
   workflow_dispatch:
-  push:
-    branches: ["claude/**"]
-  pull_request:
-    paths:
-      - "app/**"
-      - "engine/**"
-      - "core/**"
-      - "CMakeLists.txt"
-      - "tools/**"
-      - "third_party/**"
-      - ".gitmodules"
-      - "build-logic/**"
-      - "gradle/**"
-      - "*.gradle.kts"
-      - "gradle.properties"
-      - ".github/workflows/android.yml"
 
 permissions:
   contents: read

@@ -1,7 +1,8 @@
 // Host test for core/sound/SoundSource: which sound the wallpaper and the dream hear (#773).
 //
-// g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/sound_source_test.cpp \
-//     core/api/geode_sound_api.cpp -o sound_source_test && ./sound_source_test
+// Build and run (one command):
+//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/sound_source_test.cpp
+//   core/api/geode_sound_api.cpp -o sound_source_test && ./sound_source_test
 #include <cstdio>
 #include <cstdlib>
 #include <initializer_list>

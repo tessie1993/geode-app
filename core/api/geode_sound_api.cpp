@@ -2,7 +2,6 @@
 #include "sound/Silence.hpp"
 #include "sound/SoundSource.hpp"
 
-#include <cstring>
 
 namespace {
 namespace src = geode::sound::source;
@@ -11,13 +10,29 @@ static_assert(src::kUseCapture == GEODE_SOUND_SOURCE_USE_CAPTURE && src::kStartC
                   src::kStopCapture == GEODE_SOUND_SOURCE_STOP_CAPTURE,
               "answer bits cross the ABI");
 
-// The caller's long array in and out of the struct by copy, so long long and int64_t never alias.
+// The caller's long array in and out of the struct, one slot per field in declaration order.
 src::State load(const long long* state) {
     src::State s;
-    std::memcpy(&s, state, sizeof s);
+    s.mode = state[0];
+    s.ringSeen = state[1];
+    s.ringId = state[2];
+    s.ringWritten = state[3];
+    s.fedAtMs = state[4];
+    s.fedSinceMs = state[5];
+    s.retryAtMs = state[6];
+    s.permitted = state[7];
     return s;
 }
-void save(const src::State& s, long long* state) { std::memcpy(state, &s, sizeof s); }
+void save(const src::State& s, long long* state) {
+    state[0] = s.mode;
+    state[1] = s.ringSeen;
+    state[2] = s.ringId;
+    state[3] = s.ringWritten;
+    state[4] = s.fedAtMs;
+    state[5] = s.fedSinceMs;
+    state[6] = s.retryAtMs;
+    state[7] = s.permitted;
+}
 }  // namespace
 
 extern "C" {

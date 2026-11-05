@@ -24,6 +24,18 @@
 // The orbit trap is gathered on the way (gWTrap) and colours the world for free: its channels,
 // weighted by the genome, are the palette coordinate, and its radius is the cheap occlusion.
 //
+// THE GROUND (end of world()): a plane at WG_FLOOR_Y joined to the world by a smooth min, then
+// faded in by WG_FLOOR (a mix between the world alone and the world on its ground), so a morph can
+// raise a floor or sink it away with no pop: at a small weight the joined surface lies far under
+// the plane and rises to it as the weight grows. The ground is in world(), so the corridor carves
+// it like any matter; FloorY's bounds keep it under the deepest eye every rig path flies, bubble
+// included, so in practice it never needs to. gWFloor says how much of the last point was ground.
+//
+// THE SKY (worldFogColour()): where a ray escapes, and what the fog fades toward, is one colour by
+// direction: the dark air of the world's own palette, crossfaded by WG_SKY into a gradient from
+// pal(WG_SKY_HUE) (brightest at the horizon, darker up high and below), plus a glow band at the
+// horizon (WG_HORIZON). Far ground fogs into that band, so the floor meets the sky without a seam.
+//
 // THE CORRIDOR (worldCarved()): the world minus a tube along the travel axis, a bubble around
 // the eye and a capsule along where the eye is heading (the wake), joined smoothly. The smooth
 // max never lies below max(), so the eye always has at least WG_EYE_RADIUS of air: no genome,
@@ -186,11 +198,15 @@ void worldCamera(vec2 uv, out vec3 ro, out vec3 rd) {
 
 /** The air always kept around the eye (WorldGenome.hpp kEyeRadius). */
 #define WG_EYE_RADIUS 0.9
+/** How softly the ground joins the world's matter (WorldGenome.cpp kFloorBlend). */
+#define WG_FLOOR_BLEND 0.4
 #define WG_TAU 6.2831853
 #define WG_MAX_IFS 5
 
 /** The orbit trap of the last world() call: |x|, |y|, |z| and |p|^2 at their smallest. */
 vec4 gWTrap;
+/** How much of the last world() point was the ground, 0..1 (WG_FLOOR times the smooth min's share). */
+float gWFloor;
 
 float wSmin(float a, float b, float k) {
     float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
@@ -630,6 +646,14 @@ float world(vec3 p) {
     k *= mix(1.0, 1.0 / r2, WG_ABS_INV);
     gWTrap = min(gWTrap, vec4(abs(q), dot(q, q)));
     float d = wPrims(q) / k;
+    gWFloor = 0.0;
+    if (WG_FLOOR > 0.0) {
+        // The ground, joined smoothly, then faded in: continuous in WG_FLOOR, the identity at 0.
+        float fd = p.y - WG_FLOOR_Y;
+        float h = clamp(0.5 + 0.5 * (fd - d) / WG_FLOOR_BLEND, 0.0, 1.0);
+        gWFloor = WG_FLOOR * (1.0 - h);
+        d = mix(d, wSmin(d, fd, WG_FLOOR_BLEND), WG_FLOOR);
+    }
     if (WG_TERRAIN > 0.0) d = wWithTerrain(p, d);
     return d;
 }
@@ -688,9 +712,43 @@ vec3 worldNormal(vec3 p, float t) {
                      + h.yxy * worldCarved(p + h.yxy * e) + h.xxx * worldCarved(p + h.xxx * e));
 }
 
-/** The air's colour: a dark tint of the world's own palette. */
+/**
+ * The air's colour along rd: what an escaped ray shows and what the fog fades toward. A dark tint
+ * of the world's own palette, crossfaded by WG_SKY into the sky's gradient (brightest at the
+ * horizon, dimmer toward the zenith, dimmer still below, continuous at rd.y = 0), plus the
+ * horizon's glow band (WG_HORIZON), narrow and symmetric about the horizon.
+ */
 vec3 worldFogColour(vec3 rd) {
-    return pal(WG_PAL_OFFSET + WG_HUE_TURN + 0.5 + 0.1 * rd.y) * 0.035;
+    vec3 air = pal(WG_PAL_OFFSET + WG_HUE_TURN + 0.5 + 0.1 * rd.y) * 0.035;
+    float up = clamp(rd.y, -1.0, 1.0);
+    vec3 col = air;
+    if (WG_SKY > 0.0) {
+        float level = up >= 0.0 ? 0.06 + 0.22 * exp(-3.5 * up) : 0.04 + 0.24 * exp(5.0 * up);
+        vec3 sky = pal(WG_SKY_HUE + WG_HUE_TURN + 0.15 * up) * level;
+        col = mix(air, sky, WG_SKY);
+    }
+    if (WG_HORIZON > 0.0) col += pal(WG_SKY_HUE + WG_HUE_TURN + 0.08) * exp(-abs(up) * 18.0) * 0.45 * WG_HORIZON;
+    return col;
+}
+
+/**
+ * What the glossy ground mirrors: a short sphere trace along the reflected ray r from p, the
+ * world's colour where it lands (lit flat, fogged), else the air. `budget` steps, at most 24.
+ */
+vec3 worldMirror(vec3 p, vec3 r, float budget) {
+    float far = worldFar();
+    float t = 0.08;
+    for (int i = 0; i < 24; i++) {
+        if (float(i) >= budget) break;
+        float d = worldCarved(p + r * t);
+        if (d < 0.004 * (1.0 + t)) {
+            vec3 c = pal(worldHue(gWTrap)) * (0.2 + 0.4 * WG_EMISSION);
+            return mix(c, worldFogColour(r), 1.0 - exp(-t * WG_FOG));
+        }
+        t += d * 0.85;
+        if (t > far) break;
+    }
+    return worldFogColour(r);
 }
 
 /**
@@ -719,16 +777,27 @@ vec3 worldSurface(vec3 ro, vec3 rd, float budget) {
     vec3 n = worldNormal(p, t);
     world(p);
     vec4 trap = gWTrap;
+    float ground = gWFloor;
     float detail = worldDetail(p, n);
     vec3 base = pal(worldHue(trap)) * mix(1.0, 0.3 + 1.4 * detail, WG_TEX_AMOUNT);
+    // The ground takes the world's palette, darker, so the structures stand on it, not in it.
+    base *= 1.0 - 0.45 * ground;
     float pattern = mix(1.0, 2.0 * detail, WG_TEX_EMIT);
     vec3 l = normalize(uCamBasis[1] * 0.8 - rd * 0.6 + vec3(0.0, 0.3, 0.0));
     float diff = max(dot(n, l), 0.0);
     float rim = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
     float occ = clamp(1.0 - used / max(budget, 1.0), 0.15, 1.0) * clamp(0.35 + sqrt(trap.w) * 0.5, 0.25, 1.0);
-    vec3 col = base * (0.12 + 1.0 * diff) * occ + base * rim * 0.45 * WG_EMISSION * pattern;
+    // The far ground is seen at a grazing angle, where the rim would light all of it: damp it there.
+    vec3 col = base * (0.12 + 1.0 * diff) * occ + base * rim * 0.45 * WG_EMISSION * pattern * (1.0 - 0.7 * ground);
     float spec = pow(max(dot(reflect(rd, n), l), 0.0), 24.0);
     col += vec3(spec) * 0.25 * occ;
+    float gloss = ground * WG_FLOOR_GLOSS;
+    if (gloss > 0.02) {
+        // A glossy ground: Schlick's fresnel weighs what it mirrors, more at grazing angles.
+        vec3 r = reflect(rd, n);
+        float fres = 0.04 + 0.96 * pow(1.0 - max(dot(n, -rd), 0.0), 5.0);
+        col = mix(col, worldMirror(p + n * 0.01, r, budget * 0.25), gloss * (0.25 + 0.75 * fres));
+    }
     return mix(col, fogCol, 1.0 - exp(-t * WG_FOG));
 }
 

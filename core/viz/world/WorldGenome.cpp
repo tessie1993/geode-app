@@ -13,6 +13,8 @@ namespace {
 using V3 = std::array<float, 3>;
 
 constexpr float kTau = 6.2831853f;
+// How softly the ground joins the world's matter (lib_world's WG_FLOOR_BLEND).
+constexpr float kFloorBlend = 0.4f;
 
 // Field bounds, in Field order. Wide enough that the worlds differ, narrow enough that every corner
 // still renders: no scale that blows the IFS up, no inversion sphere smaller than a cell's detail.
@@ -83,7 +85,7 @@ constexpr Bounds kBounds[kFieldCount] = {
     {-0.5f, 0.5f},    // Roll
     {0.75f, 1.35f},   // Lens
     {0.0f, 1.0f},     // Floor
-    {-6.0f, -1.8f},   // FloorY
+    {-6.0f, -3.0f},   // FloorY (under the deepest eye: the spiral path's -2.0, less the 0.9 bubble)
     {0.0f, 1.0f},     // FloorGloss
     {0.0f, 1.0f},     // Sky
     {0.0f, 1.0f},     // SkyHue
@@ -551,7 +553,12 @@ float bareWorld(const Genome& g, const Way& way, const V3& p) {
         for (float& c : q) c = mixf(c, std::fabs(c) / r2 - g[AbsInvC], a);
         k *= mixf(1.0f, 1.0f / r2, a);
     }
-    const float d = prims(g, q) / k;
+    float d = prims(g, q) / k;
+    if (g[Floor] > 0.0f) {
+        // The ground, joined smoothly, then faded in: continuous in Floor, the identity at 0.
+        const float fd = p[1] - g[FloorY];
+        d = mixf(d, smin(d, fd, kFloorBlend), g[Floor]);
+    }
     // The landscape, joined by min (lib_world's wWithTerrain).
     return g[Terrain] > 0.0f ? std::min(d, terrain(g, p)) : d;
 }
@@ -647,12 +654,13 @@ std::array<Seed, 67> buildSeeds() {
          make({{LatticeTilt, 0.35f}, {LatticeYaw, 0.25f}, {RepXY, 1.0f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {CellShift, 1.0f}, {PShell, 1.0f}, {PrimSize, 1.6f}, {PrimThick, 0.05f},
                {Invert, 0.6f}, {InvRadius, 1.1f}, {Mirror, 0.5f}, {MirrorOff, 0.6f}, {MSurface, 0.8f}, {MGlow, 0.2f},
                {TrapR, 0.8f}, {TrapX, 0.2f}, {PalOffset, 0.55f}, {PalSpan, 0.4f}, {Emission, 0.9f}, {Fog, 0.04f}, {GazePitch, 0.3f}, {GazeYaw, 0.3f}})},
-        // Girders crossing girders, folded: the inside of a crane built by a crystal.
+        // Girders crossing girders, folded: the inside of a crane built by a crystal, over a wet yard at dusk.
         {"Girder Yard", 0.7f, 0.45f, 0.75f,
          make({{LatticeTilt, 0.45f}, {LatticeYaw, -0.3f}, {RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.0f}, {CellShift, 0.5f}, {PBar, 1.0f}, {PrimThick, 0.07f}, {Mirror, 1.0f},
                {MirrorOff, 0.9f}, {Ifs, 0.8f}, {IfsIter, 2.0f}, {IfsScale, 1.5f}, {IfsAngA, 0.35f}, {IfsAngB, 0.2f},
                {IfsOffX, 0.8f}, {IfsOffY, 0.6f}, {IfsOffZ, 0.7f}, {MSurface, 1.0f}, {TrapX, 0.6f}, {TrapY, 0.3f},
-               {PalOffset, 0.08f}, {PalSpan, 0.6f}, {Emission, 1.0f}, {Fog, 0.05f}, {TexAmount, 0.6f}, {TexPick, 1.0f}, {TexScale, 1.5f}, {GazePitch, 0.4f}, {GazeYaw, 0.3f}})},
+               {PalOffset, 0.08f}, {PalSpan, 0.6f}, {Emission, 1.0f}, {Fog, 0.05f}, {TexAmount, 0.6f}, {TexPick, 1.0f}, {TexScale, 1.5f}, {GazePitch, 0.4f}, {GazeYaw, 0.3f},
+               {Floor, 1.0f}, {FloorY, -3.5f}, {FloorGloss, 0.6f}, {Sky, 0.7f}, {SkyHue, 0.12f}, {Horizon, 0.6f}})},
         // Plates of light, cracked and turned: march through them and every edge glows.
         {"Shard Plates", 0.8f, 0.6f, 0.45f,
          make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {PSlab, 1.0f}, {PrimThick, 0.05f}, {Ifs, 1.0f},
@@ -682,17 +690,20 @@ std::array<Seed, 67> buildSeeds() {
          make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 6.0f}, {PSlab, 0.6f}, {PTube, 0.4f}, {PrimSize, 3.2f / 1.6f},
                {PrimThick, 0.06f}, {Twist, 1.1f}, {Mirror, 0.3f}, {MirrorOff, 0.8f}, {MDensity, 1.0f}, {DensBand, 0.1f},
                {TrapY, 0.5f}, {TrapR, 0.4f}, {PalOffset, 0.45f}, {PalSpan, 0.3f}, {Emission, 0.85f}, {Fog, 0.025f}})},
-        // Arches on arches, a mirrored aqueduct with no end.
+        // Arches on arches, a mirrored aqueduct with no end, standing in still water under a pale sky.
         {"Endless Arches", 0.45f, 0.4f, 0.6f,
          make({{LatticeTilt, 0.15f}, {LatticeYaw, 0.3f}, {RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.0f}, {PTube, 0.7f}, {PBar, 0.3f}, {PrimSize, 1.4f},
                {PrimThick, 0.16f}, {Mirror, 1.0f}, {MirrorOff, 0.5f}, {Invert, 0.2f}, {InvRadius, 1.2f}, {MSurface, 1.0f},
-               {TrapX, 0.5f}, {TrapZ, 0.3f}, {PalOffset, 0.15f}, {PalSpan, 0.3f}, {Emission, 0.9f}, {Fog, 0.055f}, {TexAmount, 0.7f}, {TexPick, 0.0f}, {TexScale, 0.8f}, {GazePitch, 0.35f}, {GazeYaw, 0.35f}})},
-        // A lattice of small boxes thrown through an abs-inversion: blossoms of light along every edge.
+               {TrapX, 0.5f}, {TrapZ, 0.3f}, {PalOffset, 0.15f}, {PalSpan, 0.3f}, {Emission, 0.9f}, {Fog, 0.055f}, {TexAmount, 0.7f}, {TexPick, 0.0f}, {TexScale, 0.8f}, {GazePitch, 0.35f}, {GazeYaw, 0.35f},
+               {Floor, 1.0f}, {FloorY, -3.2f}, {FloorGloss, 0.8f}, {Sky, 0.8f}, {SkyHue, 0.6f}, {Horizon, 0.7f}})},
+        // A lattice of small boxes thrown through an abs-inversion: blossoms of light along every edge,
+        // mirrored in a dark glass floor.
         {"Lattice Bloom", 0.65f, 0.8f, 0.5f,
          make({{LatticeTilt, 0.5f}, {LatticeYaw, 0.5f}, {RepXY, 1.0f}, {CellXY, 4.0f}, {CellZ, 4.0f}, {PBox, 0.6f}, {PShell, 0.4f}, {PrimSize, 0.5f},
                {PrimThick, 0.06f}, {AbsInv, 0.6f}, {AbsInvC, 0.4f}, {Mirror, 0.7f}, {MirrorOff, 0.4f}, {MGlow, 0.7f},
                {MSurface, 0.3f}, {TrapX, 0.4f}, {TrapR, 0.6f}, {PalOffset, 0.85f}, {PalSpan, 0.55f}, {Emission, 1.1f},
-               {Fog, 0.04f}, {TexEmit, 0.7f}, {TexPick, 7.0f}, {TexScale, 1.2f}, {GazePitch, 0.25f}, {GazeYaw, 0.25f}})},
+               {Fog, 0.04f}, {TexEmit, 0.7f}, {TexPick, 7.0f}, {TexScale, 1.2f}, {GazePitch, 0.25f}, {GazeYaw, 0.25f},
+               {Floor, 0.7f}, {FloorY, -4.0f}, {FloorGloss, 0.9f}, {Sky, 0.5f}, {SkyHue, 0.85f}, {Horizon, 0.8f}})},
         // Folded spheres under a tide of light: a reef half stone, half glowing mist.
         {"Coral Drift", 0.4f, 0.6f, 0.65f,
          make({{LatticeTilt, -0.25f}, {LatticeYaw, 0.3f}, {RepXY, 0.8f}, {CellXY, 5.5f}, {CellZ, 5.5f}, {PShell, 0.7f}, {PTorus, 0.3f}, {PrimSize, 0.9f},
@@ -750,12 +761,13 @@ std::array<Seed, 67> buildSeeds() {
                {PolarTwist, 0.35f}, {PMesh, 1.0f}, {MeshPick, 0.0f}, {MeshSize, 1.5f}, {MSurface, 0.5f}, {MGlow, 0.5f},
                {TrapR, 0.6f}, {PalOffset, 0.75f}, {PalSpan, 0.5f}, {Emission, 1.1f}, {Fog, 0.03f}, {TexEmit, 0.4f},
                {TexPick, 4.0f}, {Roll, 0.15f}})},
-        // Mushrooms ringed eight ways in a grove, a gyroid moss between them, cedar-bark skin.
+        // Mushrooms ringed eight ways in a grove, a gyroid moss between them, cedar-bark skin, on a forest floor.
         {"Mushroom Grove", 0.3f, 0.55f, 0.6f,
          make({{RepXY, 1.0f}, {CellXY, 5.5f}, {CellZ, 5.0f}, {CellShift, 1.0f}, {PMesh, 0.8f}, {PGyroid, 0.2f},
                {MeshPick, 6.0f}, {MeshSize, 1.8f}, {GyroScale, 2.5f}, {PrimThick, 0.06f}, {Polar, 1.0f}, {PolarN, 8.0f},
                {MSurface, 0.8f}, {MGlow, 0.2f}, {TrapR, 0.5f}, {PalOffset, 0.45f}, {PalSpan, 0.45f}, {Emission, 1.1f}, {Fog, 0.03f}, {TexAmount, 0.6f},
-               {TexPick, 5.0f}, {GazePitch, 0.2f}, {GazeYaw, 0.3f}})},
+               {TexPick, 5.0f}, {GazePitch, 0.2f}, {GazeYaw, 0.3f},
+               {Floor, 1.0f}, {FloorY, -3.4f}, {FloorGloss, 0.15f}, {Sky, 0.6f}, {SkyHue, 0.4f}, {Horizon, 0.5f}})},
         // Ferns hung six ways round the way and lit from within: a green cathedral.
         {"Fern Cathedral", 0.4f, 0.65f, 0.45f,
          make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 6.0f},
@@ -772,12 +784,13 @@ std::array<Seed, 67> buildSeeds() {
          make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 4.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 10.0f},
                {PMesh, 1.0f}, {MeshPick, 11.0f}, {MeshSize, 1.6f}, {MSurface, 0.6f}, {MDensity, 0.4f}, {DensBand, 0.1f},
                {TrapR, 0.5f}, {PalOffset, 0.6f}, {PalSpan, 0.45f}, {Emission, 1.15f}, {Fog, 0.03f}})},
-        // Quiver trees ringed seven ways under a glow: a desert forest at dusk.
+        // Quiver trees ringed seven ways under a glow: a desert forest at dusk, its sand meeting a burning horizon.
         {"Quiver Forest", 0.35f, 0.5f, 0.5f,
          make({{RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 5.0f}, {CellShift, 1.0f}, {PMesh, 1.0f}, {MeshPick, 8.0f},
                {MeshSize, 2.4f}, {Polar, 1.0f}, {PolarN, 7.0f}, {MSurface, 0.6f}, {MGlow, 0.4f}, {TrapR, 0.5f},
                {PalOffset, 0.3f}, {PalSpan, 0.4f},
-               {Emission, 1.15f}, {Fog, 0.03f}, {TexAmount, 0.5f}, {TexPick, 5.0f}, {GazePitch, 0.3f}, {GazeYaw, 0.25f}})},
+               {Emission, 1.15f}, {Fog, 0.03f}, {TexAmount, 0.5f}, {TexPick, 5.0f}, {GazePitch, 0.3f}, {GazeYaw, 0.25f},
+               {Floor, 1.0f}, {FloorY, -3.6f}, {FloorGloss, 0.1f}, {Sky, 0.9f}, {SkyHue, 0.05f}, {Horizon, 0.9f}})},
         // Low-power bulbs fused with sponges, folded five ways, in circuit light: a crystal machine.
         {"Crystal Bulb", 0.75f, 0.6f, 0.6f,
          make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.7f}, {Polar, 1.0f}, {PolarN, 5.0f},
@@ -853,11 +866,12 @@ std::array<Seed, 67> buildSeeds() {
                {PolarTwist, 0.25f}, {PMesh, 0.8f}, {PShell, 0.2f}, {MeshPick, 9.0f}, {MeshSize, 2.4f}, {PrimSize, 1.2f},
                {PrimThick, 0.05f}, {MSurface, 0.35f}, {MGlow, 0.65f}, {TrapR, 0.6f}, {PalOffset, 0.85f}, {PalSpan, 0.55f},
                {Emission, 1.15f}, {Fog, 0.03f}, {TexEmit, 0.5f}, {TexPick, 4.0f}, {Roll, -0.2f}, {Lens, 0.85f}, {GazePitch, 0.06f}, {GazeYaw, 0.06f}})},
-        // Stone lanterns in rows along the way, warm light, a long lens: a night path to a shrine.
+        // Stone lanterns in rows along the way, warm light, a long lens: a night path to a shrine, its stones wet.
         {"Lantern Path", 0.35f, 0.55f, 0.45f,
          make({{LatticeYaw, 0.45f}, {RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.0f}, {CellShift, 1.0f}, {PMesh, 1.0f}, {MeshPick, 12.0f},
                {MeshSize, 1.8f}, {MSurface, 0.8f}, {MGlow, 0.2f}, {TrapR, 0.5f}, {TrapY, 0.4f}, {PalOffset, 0.05f},
-               {PalSpan, 0.3f}, {Emission, 1.25f}, {Fog, 0.04f}, {TexAmount, 0.6f}, {TexPick, 3.0f}, {Lens, 1.15f}, {GazePitch, 0.25f}, {GazeYaw, 0.45f}})},
+               {PalSpan, 0.3f}, {Emission, 1.25f}, {Fog, 0.04f}, {TexAmount, 0.6f}, {TexPick, 3.0f}, {Lens, 1.15f}, {GazePitch, 0.25f}, {GazeYaw, 0.45f},
+               {Floor, 1.0f}, {FloorY, -3.3f}, {FloorGloss, 0.5f}, {Sky, 0.4f}, {SkyHue, 0.7f}, {Horizon, 0.4f}})},
         // Seated figures folded six ways round the way under a slow roll: a round hall of calm.
         {"Buddha Hall", 0.25f, 0.6f, 0.5f,
          make({{RepXY, 0.5f}, {CellXY, 6.5f}, {CellZ, 5.0f}, {CellShift, 0.9f}, {Polar, 1.0f}, {PolarN, 6.0f},
@@ -1121,6 +1135,8 @@ float sdf(const Genome& g, const Way& way, const std::array<float, 3>& p) {
 Space openSpace(const Genome& g) {
     // A jittered 6 x 6 x 6 lattice in a 12-unit box about the eye, which sits on the travel axis.
     const Way way;
+    // The open threshold plus the blend: above this, the ground alone never makes a point "not open".
+    constexpr float kFloorReach = 0.25f + kFloorBlend;
     int open = 0;
     int near = 0;
     int total = 0;
@@ -1130,6 +1146,10 @@ Space openSpace(const Genome& g) {
             for (int k = 0; k < 6; ++k) {
                 const V3 p{-6.0f + 2.0f * (static_cast<float>(i) + unit(s)), -6.0f + 2.0f * (static_cast<float>(j) + unit(s)),
                            -6.0f + 2.0f * (static_cast<float>(k) + unit(s))};
+                // The ground and what lies under it are not the camera's space: a point there, or in
+                // the band the ground's own surface and blend reach, is not judged at all, so a floor
+                // never fails a world for the rock beneath it (every point above the band still is).
+                if (g[Floor] > 0.0f && p[1] < g[FloorY] + kFloorReach) continue;
                 const float d = bareWorld(g, way, p);
                 if (d > 0.25f) ++open;
                 if (d < 0.6f) ++near;
@@ -1137,6 +1157,7 @@ Space openSpace(const Genome& g) {
             }
         }
     }
+    if (total == 0) return {};
     return {static_cast<float>(open) / static_cast<float>(total), static_cast<float>(near) / static_cast<float>(total)};
 }
 
@@ -1193,7 +1214,7 @@ Genome random(uint64_t seedValue, const Constraints& c, int* picked) {
                   static_cast<int>(Polar), static_cast<int>(PGyroid), static_cast<int>(PMenger), static_cast<int>(PBulb),
                   static_cast<int>(PMandelbox), static_cast<int>(PSierp), static_cast<int>(PApollo),
                   static_cast<int>(PJulia), static_cast<int>(PKlein), static_cast<int>(PKifs),
-                  static_cast<int>(Terrain)}) {
+                  static_cast<int>(Terrain), static_cast<int>(Floor), static_cast<int>(Sky)}) {
         if (origin[f] < 0.05f && unit(s) < amount * 0.5f) m[f] = unit(s) * amount;
     }
     m = clampFields(m);

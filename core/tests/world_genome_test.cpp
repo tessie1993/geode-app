@@ -288,6 +288,76 @@ void terrainIsABoundAndSeamless() {
     check(landscapes == 0 || pairs > 0, "sampled the landscape");
 }
 
+void groundKeepsEveryWorldOpen() {
+    const float highest = bounds(FloorY).hi;
+    // The ground's highest bound lies under the eye's bubble on every rig path, at every orbit.
+    float lowestEye = 1e9f;
+    for (int path = 0; path < 4; ++path) {
+        for (float orbit : {0.0f, 0.25f, 0.5f, 0.75f, 1.0f}) {
+            for (int s = 0; s < 4000; ++s) {
+                const auto here = CameraRig::pathPoint(path, orbit, 0.37f * static_cast<float>(s));
+                lowestEye = std::fmin(lowestEye, here[1]);
+                check(here[1] - kEyeRadius > highest, "the ground stays under the eye's bubble (path " + std::to_string(path) + ")");
+            }
+        }
+    }
+    check(lowestEye - kEyeRadius > highest, "the deepest eye clears the highest ground (" + std::to_string(lowestEye) + ")");
+
+    // Floor 0 is the identity, and the fade is continuous: a hair of floor moves the field a hair.
+    const Way still;
+    for (int i = 0; i < seedCount(); ++i) {
+        Genome off = seed(i).genome;
+        off[Floor] = 0.0f;
+        Genome hair = off;
+        hair[Floor] = 1e-4f;
+        for (float y : {-5.5f, -3.4f, -1.0f, 0.0f, 2.5f}) {
+            const std::array<float, 3> p{1.3f, y, 0.7f};
+            check(std::fabs(sdfUncarved(hair, still, p) - sdfUncarved(off, still, p)) < 2e-3f,
+                  std::string("the floor fades in continuously in ") + seed(i).name);
+        }
+        // At full weight, under the ground is matter.
+        Genome full = off;
+        full[Floor] = 1.0f;
+        full[FloorY] = highest;
+        check(sdfUncarved(full, still, {0.5f, highest - 1.0f, 0.3f}) < 0.0f, std::string("under the ground is solid in ") + seed(i).name);
+        // Every seed, given a full floor at its highest, is still open and has something to see.
+        check(valid(full), std::string(seed(i).name) + " stays valid on a floor");
+        Genome half = full;
+        half[Floor] = 0.5f;
+        check(valid(half), std::string(seed(i).name) + " stays valid on a half-grown floor");
+    }
+
+    // The corridor holds on the four paths with a full floor at its highest, in random worlds.
+    float worst = 1e9f;
+    for (int i = 0; i < 60; ++i) {
+        Constraints c;
+        c.mutation = static_cast<float>(i % 6) / 5.0f;
+        Genome g = random(5000u + static_cast<uint64_t>(i), c);
+        g[Floor] = 1.0f;
+        g[FloorY] = highest;
+        for (int path = 0; path < 4; ++path) {
+            for (float orbit : {0.0f, 0.5f, 1.0f}) {
+                for (int s = 0; s < 6; ++s) {
+                    const float travel = 41.0f * static_cast<float>(s + i);
+                    const auto here = CameraRig::pathPoint(path, orbit, travel);
+                    const auto ahead = CameraRig::pathPoint(path, orbit, travel + 1.6f);
+                    Way way;
+                    way.eye = here;
+                    way.zPhase = std::fmod(travel * 0.37f, 2.0f * g[CellZ]);
+                    way.wake = {ahead[0] - here[0], ahead[1] - here[1], ahead[2] - here[2]};
+                    const float d = sdf(g, way, here);
+                    worst = std::fmin(worst, d);
+                    for (float h : {0.25f, 0.5f, 1.0f}) {
+                        const std::array<float, 3> p{here[0] + way.wake[0] * h, here[1] + way.wake[1] * h, here[2] + way.wake[2] * h};
+                        check(sdf(g, way, p) > 0.0f, "the wake ahead of the eye is open over a floor");
+                    }
+                }
+            }
+        }
+    }
+    check(worst >= kEyeRadius * 0.99f, "over a floor the eye keeps its bubble (" + std::to_string(worst) + ")");
+}
+
 // A synthetic song: a calm intro, a verse, a build, a drop, a breakdown, repeated.
 GeodeSoundFrame songFrame(int frame, float fps) {
     GeodeSoundFrame f{};
@@ -701,6 +771,7 @@ int main(int argc, char** argv) {
     corridorIsOpenAtTheCamera();
     landscapesAreOpenAndHoldTheCorridor();
     terrainIsABoundAndSeamless();
+    groundKeepsEveryWorldOpen();
     driverIsReplayableAndSeeded();
     gazeIsBoundedReplayableAndRateLimited();
     aCalmSongKeepsItsGaze();

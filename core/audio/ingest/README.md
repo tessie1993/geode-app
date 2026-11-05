@@ -17,7 +17,7 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 - Rates above 88.2 kHz may be decimated on read; that is the reader's choice.
 
 **Still to move in**
-- `engine/audio-core/.../audio/SampleRing.kt`, `SoundCursor.kt`, `SoundInput.kt`, `PcmSink.kt` and `app/.../audio/PcmRingBuffer.kt` are deleted when their callers switch (#481, #485, #486).
+- `engine/audio-core/.../audio/SampleRing.kt`, `SoundCursor.kt`, `SoundInput.kt`, `PcmSink.kt` are deleted when their callers switch (#481, #485); `app/.../audio/PcmRingBuffer.kt` is gone (#486: MilkDrop's raw PCM is the mono mix of what each renderer heard, `core/viz/PcmHandoff`).
 - The per-sample int16 -> float loops in `engine/audio-android/.../PcmTap.kt`, `app/.../audio/AudioCapturePump.kt`, `app/.../audio/dsp/NativeDspProcessor.kt`.
 - The capture level and silence guesses in `app/.../audio/MicCapture.kt` and `PlaybackCapture.kt` (#491).
 

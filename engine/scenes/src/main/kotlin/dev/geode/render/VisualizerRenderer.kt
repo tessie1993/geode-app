@@ -8,7 +8,6 @@ import dev.geode.engine.audio.SoundCursor
 import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.bridge.NativeViz
-import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -93,9 +92,6 @@ class VisualizerRenderer(
     // Assigned from Main (EnginePlumbing.kt), invoked on the GL thread from onSurfaceChanged.
     @Volatile
     var onSurfaceSizeChanged: (width: Int, height: Int) -> Unit = { _, _ -> }
-
-    @Volatile
-    var pcmProvider: () -> PcmChunk? = { null }
 
     /**
      * The audio this surface's sound engine hears (core/sound, owned by the native renderer). Read on the
@@ -373,7 +369,6 @@ class VisualizerRenderer(
             liquidModeSampleMs = now
             liquidModeState.value = nativeViz.liquidMode()
         }
-        pcmProvider()?.let { chunk -> nativeViz.pushPcm(chunk.data, chunk.count) }
         val tuning = soundTuning
         if (tuning !== nativeSoundTuning) {
             nativeViz.setSoundTuning(tuning.toFloats())

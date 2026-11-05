@@ -93,7 +93,10 @@ bool AiffReader::parse() {
         }
         case Step::kSsndHead: {
             if (available() < 8) return false;
-            skip_ = be32(p);   // the offset to the first sample frame; block size is unused
+            // The offset to the first sample frame, signed and ignored at or below zero (the Kotlin reader's
+            // rule); block size is unused.
+            const auto offset = static_cast<int32_t>(be32(p));
+            skip_ = offset > 0 ? static_cast<uint64_t>(offset) : 0;
             head_ += 8;
             if (channels_ <= 0 || rate_ <= 0 || (bits_ != 8 && bits_ != 16 && bits_ != 24 && bits_ != 32)) {
                 state_ = State::kRefused;
@@ -122,6 +125,9 @@ int AiffReader::read(int16_t* out, int capacity) {
     if (state_ == State::kRefused) return -1;
     if (state_ != State::kReady || !out || capacity <= 0) return 0;
     int64_t frames = capacity / channels_;
+    // Under one frame can never be filled: end the read, as the Kotlin reader did, so a caller looping on 0
+    // does not buffer the rest of the file.
+    if (frames == 0) return -1;
     if (totalFrames_ > 0) {
         const int64_t remaining = totalFrames_ - framesRead_;
         if (remaining <= 0) return -1;

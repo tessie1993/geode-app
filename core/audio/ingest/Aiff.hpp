@@ -34,17 +34,13 @@ public:
     State write(const uint8_t* bytes, size_t count);
 
     // Up to `capacity` s16 samples (whole frames only) from the bytes written so far. Returns the samples
-    // written to `out`, 0 when it needs more bytes (or `capacity` is under one frame), -1 once COMM's frame
-    // count has been read or the file was refused.
+    // written to `out`, 0 when it needs more bytes, -1 once COMM's frame count has been read, the file was
+    // refused, or `capacity` is under one frame (which no read could fill).
     int read(int16_t* out, int capacity);
 
     State state() const { return state_; }
     int channels() const { return channels_; }
     int sampleRate() const { return rate_; }
-    int bits() const { return bits_; }
-    bool littleEndian() const { return littleEndian_; }
-    int64_t totalFrames() const { return totalFrames_; }
-    int64_t framesRead() const { return framesRead_; }
     // framesRead / totalFrames in [0, 1]; 0 when the total is unknown.
     float progress() const;
 

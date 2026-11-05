@@ -301,8 +301,6 @@ typedef struct geode_aiff geode_aiff;
 typedef struct geode_aiff_format {
     int channels;
     int sample_rate;   /* COMM's 80-bit float, whole hertz */
-    int bits;
-    long long total_frames;
 } geode_aiff_format;
 GEODE_API geode_aiff* geode_aiff_create(void);
 GEODE_API void        geode_aiff_destroy(geode_aiff*);
@@ -310,7 +308,7 @@ GEODE_API void        geode_aiff_destroy(geode_aiff*);
  * -1 when it is not an AIFF this can read. */
 GEODE_API int         geode_aiff_write(geode_aiff*, const void* bytes, size_t count);
 /* Up to `capacity` samples, whole frames only. Returns the samples, 0 when more bytes are needed, -1 once
- * COMM's frame count is read (or refused). */
+ * COMM's frame count is read, the file is refused, or `capacity` is under one frame. */
 GEODE_API int         geode_aiff_read_s16(geode_aiff*, int16_t* out, int capacity);
 /* The header's format (zeros before it is read). Returns 1 once ready, else 0. */
 GEODE_API int         geode_aiff_get_format(const geode_aiff*, geode_aiff_format* out);

@@ -27,7 +27,7 @@ int geode_aiff_read_s16(geode_aiff* a, int16_t* out, int capacity) {
 int geode_aiff_get_format(const geode_aiff* a, geode_aiff_format* out) {
     if (!a || !out) return 0;
     const auto& r = a->reader;
-    *out = {r.channels(), r.sampleRate(), r.bits(), r.totalFrames()};
+    *out = {r.channels(), r.sampleRate()};
     return r.state() == geode::audio::ingest::AiffReader::State::kReady ? 1 : 0;
 }
 

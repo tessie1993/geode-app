@@ -28,8 +28,7 @@ class AiffPcm private constructor(
             val n = GeodeNative.aiffRead(handle, out, out.size)
             if (n != 0) return n
             val got = input.read(raw)
-            if (got <= 0) return -1
-            GeodeNative.aiffWrite(handle, raw, got)
+            if (got <= 0 || GeodeNative.aiffWrite(handle, raw, got) == AIFF_REFUSED) return -1
         }
     }
 
@@ -52,15 +51,15 @@ class AiffPcm private constructor(
         private fun parse(input: InputStream): AiffPcm? {
             val handle = GeodeNative.aiffCreate()
             val raw = ByteArray(CHUNK_BYTES)
-            var state = 0
+            var state = AIFF_HEADER
             try {
-                while (state == 0) {
+                while (state == AIFF_HEADER) {
                     val got = input.read(raw)
                     if (got <= 0) break
                     state = GeodeNative.aiffWrite(handle, raw, got)
                 }
                 val format = IntArray(2)
-                if (state == 1 && GeodeNative.aiffFormat(handle, format)) {
+                if (state == AIFF_READY && GeodeNative.aiffFormat(handle, format)) {
                     return AiffPcm(input, handle, format[0], format[1])
                 }
             } catch (t: Throwable) {
@@ -75,3 +74,8 @@ class AiffPcm private constructor(
 
 private const val TAG = "AiffPcm"
 private const val CHUNK_BYTES = 1 shl 16
+
+// aiffWrite's results, the native AiffReader::State.
+private const val AIFF_HEADER = 0
+private const val AIFF_READY = 1
+private const val AIFF_REFUSED = -1

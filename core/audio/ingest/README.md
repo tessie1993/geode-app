@@ -21,6 +21,7 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 **Still to move in**
 - `engine/audio-core/.../audio/SampleRing.kt`, `SoundCursor.kt`, `SoundInput.kt`, `PcmSink.kt` and `app/.../audio/PcmRingBuffer.kt` are deleted when their callers switch (#481, #485, #486).
 - The per-sample int16 -> float loops in `engine/audio-android/.../PcmTap.kt`, `app/.../audio/AudioCapturePump.kt`, `app/.../audio/dsp/NativeDspProcessor.kt`.
+- The playback side's duplicate AIFF parser: `app/.../audio/AiffExtractor.kt`'s COMM/SSND walk (`parseComm`) and `parseExtendedFloat80`, which decodes COMM's rate apart from `Aiff`'s `aiffExtendedRate`; it should call `Aiff` so playback and export read a file one way.
 - The capture level and silence guesses in `app/.../audio/MicCapture.kt` and `PlaybackCapture.kt` (#491).
 
 **fosfora:** `audio/capture.rs` (SPSC ring, no DSP in the callback), `audio/decimate.rs` (rates above 88.2 kHz halved first).

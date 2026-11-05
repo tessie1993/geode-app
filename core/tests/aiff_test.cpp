@@ -304,12 +304,23 @@ void layout() {
     check(geode_aiff_read_s16(a, out.data(), 500) == -1, "past the frame count reads -1");
     geode_aiff_destroy(a);
 
-    // Before any bytes nothing is ready; a capacity below one frame reads nothing.
+    // Before any bytes nothing is ready. A capacity below one frame ends the read (-1, as the Kotlin
+    // reader did), so a caller that loops on 0 never buffers the whole file.
     geode_aiff* b = geode_aiff_create();
     check(geode_aiff_read_s16(b, out.data(), 500) == 0, "nothing to read before the header");
     geode_aiff_write(b, file.data(), file.size());
-    check(geode_aiff_read_s16(b, out.data(), 1) == 0, "a capacity under one frame reads nothing");
+    check(geode_aiff_read_s16(b, out.data(), 1) == -1, "a capacity under one frame ends the read");
     geode_aiff_destroy(b);
+
+    // SSND's offset is signed, and one at or below zero is ignored (the Kotlin rule): a high bit set never
+    // skips 4 GB into the file.
+    Spec plain;
+    plain.frames = 2;
+    Bytes negative = aiff(plain, {0, 1, 0, 2, 0, 3, 0, 4});
+    const auto ssnd = std::search(negative.begin(), negative.end(), "SSND", "SSND" + 4);
+    std::fill(ssnd + 8, ssnd + 12, 0xFF);   // offset -1
+    const Read neg = readAll(negative, 1 << 16);
+    check(neg.state == 1 && same(neg.samples, {1, 2, 3, 4}), "a negative SSND offset is ignored");
 }
 
 void refused() {

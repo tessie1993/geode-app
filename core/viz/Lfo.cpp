@@ -7,6 +7,15 @@
 
 namespace geode::viz {
 
+// The lfo rows' enum ranges are these enums' ordinals (viz/ConfigTable.inc): a value appended to one
+// moves its row's max in the same change.
+static_assert(config::spec(config::Slot::lfo_source).max == static_cast<float>(ModSource::StereoPan), "lfo source row");
+static_assert(config::spec(config::Slot::lfo_target).max == static_cast<float>(LfoTarget::EndlessZoomSpeed), "lfo target row");
+static_assert(config::spec(config::Slot::lfo_wave).max == static_cast<float>(LfoWave::Random), "lfo wave row");
+static_assert(config::spec(config::Slot::lfo_polarity).max == static_cast<float>(ModPolarity::Negative), "lfo polarity row");
+static_assert(config::spec(config::Slot::lfo_curve).max == static_cast<float>(ModCurve::Smooth), "lfo curve row");
+static_assert(config::indexInGroup(config::Slot::lfo_curve) == GEODE_LFO_CONFIG_FLOATS - 1, "one lfo row per wire float");
+
 bool chainOf(LfoTarget target, ModChain& out) {
     switch (target) {
         case LfoTarget::Lfo1Rate: out = {0, ModChainField::Rate}; return true;
@@ -157,7 +166,7 @@ const std::array<float, LfoEngine::kSlots>& LfoEngine::tick(float dt, const Geod
     for (int i = 0; i < kSlots; i++) {
         const LfoConfig& c = configs[i];
         if (!c.enabled || c.target == LfoTarget::None) continue;
-        const float depth = std::clamp(c.depth + depthAdd_[i], 0.0f, 2.0f);
+        const float depth = std::clamp(c.depth + depthAdd_[i], config::spec(config::Slot::lfo_depth).min, kMaxModulatedDepth);
         float raw = 0.0f;
         switch (c.source) {
             case ModSource::Lfo: raw = oscillator(i, c, dt); break;

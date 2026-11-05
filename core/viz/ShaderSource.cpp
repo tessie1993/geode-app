@@ -9,30 +9,11 @@ namespace geode::viz {
 
 namespace {
 
-// Sized by the compiler: branches that each add a library would otherwise each bump a
-// hand-kept count, and merging two of them overflows it (excess elements in struct initializer).
+// The allow-list lives in ShaderIncludes.inc, which tools/check_shaders.py and
+// tools/glslcheck read too: one list, so the checks cannot drift from the app.
+// Sized by the compiler, so adding a library is one line there and nothing here.
 constexpr const char* kIncludes[] = {
-    "lib_palette",      "lib_scene_uniforms",  "lib_scene_grade",    "lib_sdf3",
-    "lib_touch",        "lib_psrdnoise2",      "lib_particle_common", "lib_particle_shade",
-    "lib_scene_motion", "lib_dmt",             "lib_camera",
-    // The sound engine's frame (core/sound): uSound, uSoundTex and the SND_* names.
-    "lib_sound",
-    // Endless zoom's two octave layers (core/viz/EndlessZoom.hpp); pasted by lib_scene_uniforms.
-    "lib_zoom",
-    // The simulation scenes' shared 2.5D look (parallax relief, light, eight materials); after lib_sound.
-    "lib_relief",
-    // One library per style family (StyleFamilies.kt): the twelve styles of a family share it.
-    "lib_arbor",        "lib_bulb",            "lib_chrys",           "lib_lucid",
-    "lib_dive",
-    "lib_glass",
-    "lib_nebula",
-    "lib_terra",
-    "lib_truchet",
-    "lib_foam",
-    // The neon set (five loose styles): normalized shape controls, the palette pull, shared sound drives.
-    "lib_neon",
-    // The note blooms' four looks (note_bloom_frag, NoteBloomPass).
-    "lib_bloom",
+#include "viz/ShaderIncludes.inc"
 };
 
 struct AssetClose {

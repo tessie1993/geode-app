@@ -30,7 +30,8 @@ value).
   catalogue, so `--all` covers what the app ships: the loose styles and every
   style family.
 - Includes are resolved the way `core/viz/ShaderSource.cpp` resolves them:
-  the registered names are parsed out of that file's `kIncludes`, the line
+  the registered names are read from `core/viz/ShaderIncludes.inc`, the
+  allow-list that file compiles in (`kIncludes`), the line
   pattern is the same anchored `//#include <name>`, nested includes are
   resolved too (`lib_sound` inside `lib_scene_uniforms`), and an unknown or
   circular name is a hard error.

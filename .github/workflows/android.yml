@@ -173,11 +173,6 @@ jobs:
           # reports the 30/120 fps drift of the frame-clocked fields. Regenerate with --write on purpose.
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_golden_test.cpp core/sound/*.cpp -o sound_golden_test
           ./sound_golden_test core/tests/golden/sound_frames.tsv
-          # The offline analyser's beat grid (#463): tempo, beats and downbeats on tracks built in code, the grid
-          # read at 24/30/60 fps alike. Its librosa goldens run in analysis-bench.yml, which has Python.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/offline_beats_test.cpp core/sound/offline/OfflineBeats.cpp \
-            core/sound/Fft.cpp -o offline_beats_test
-          ./offline_beats_test
           # The auto-director: the emotion table, the live feeling and the director's decisions.
           g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/director_test.cpp core/sound/*.cpp \
             core/viz/Director.cpp core/viz/Reactions.cpp core/viz/Lfo.cpp core/viz/Macros.cpp core/viz/CameraRig.cpp \

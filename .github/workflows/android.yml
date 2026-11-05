@@ -178,6 +178,11 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/offline_beats_test.cpp core/sound/offline/OfflineBeats.cpp \
             core/sound/Fft.cpp -o offline_beats_test
           ./offline_beats_test
+          # The offline analyser's frame features (#464): chroma and key of a held chord, drums in the percussive
+          # part, every hit once at 24/30/60 fps, silence, and which GeodeSoundFrame scalars it writes.
+          g++ -std=c++20 -O2 -Wall -Wextra -Werror -Icore core/tests/offline_features_test.cpp core/sound/offline/*.cpp \
+            core/sound/Fft.cpp -o offline_features_test
+          ./offline_features_test
           # The auto-director: the emotion table, the live feeling and the director's decisions.
           g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/director_test.cpp core/sound/*.cpp \
             core/viz/Director.cpp core/viz/Reactions.cpp core/viz/Lfo.cpp core/viz/Macros.cpp core/viz/CameraRig.cpp \

@@ -1,22 +1,7 @@
 package dev.geode.export
 
 import androidx.annotation.StringRes
-import androidx.media3.common.Effect
-import androidx.media3.common.MediaItem
-import androidx.media3.common.audio.SpeedProvider
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.effect.Brightness
-import androidx.media3.effect.Contrast
-import androidx.media3.effect.HslAdjustment
-import androidx.media3.effect.OverlayEffect
-import androidx.media3.effect.Presentation
-import androidx.media3.effect.RgbFilter
-import androidx.media3.effect.ScaleAndRotateTransformation
-import androidx.media3.effect.SingleColorLut
-import androidx.media3.effect.StaticOverlaySettings
-import androidx.media3.effect.TextOverlay
 import dev.geode.R
-import dev.geode.engine.bridge.GeodeNative
 
 enum class ClipLook(
     @param:StringRes val labelRes: Int,
@@ -125,92 +110,4 @@ data class ClipEdit(
             caption.isBlank() &&
             lutUri == null &&
             !hasGamma
-
-    fun clipping(): MediaItem.ClippingConfiguration =
-        MediaItem.ClippingConfiguration
-            .Builder()
-            .setStartPositionMs(startMs.coerceAtLeast(0L))
-            .apply { if (endMs > startMs) setEndPositionMs(endMs) }
-            .build()
-
-    /** [lut] is the loaded table behind [lutUri]; callers resolve it because loading needs a content resolver. */
-    @UnstableApi
-    fun videoEffects(lut: CubeLut? = null): List<Effect> = gradeEffects(lut) + listOfNotNull(captionEffect())
-
-    /** Grade, LUT, gamma, rotation and reframe, in that order; the caption is drawn after everything else. */
-    @UnstableApi
-    fun gradeEffects(lut: CubeLut? = null): List<Effect> =
-        buildList {
-            if (brightness != 0f) add(Brightness(brightness))
-            if (contrast != 0f) add(Contrast(contrast))
-            if (saturation != 0f || hueDegrees != 0f) {
-                add(
-                    HslAdjustment
-                        .Builder()
-                        .adjustSaturation(saturation)
-                        .adjustHue(hueDegrees)
-                        .build(),
-                )
-            }
-            if (monochrome) add(RgbFilter.createGrayscaleFilter())
-            if (invert) add(RgbFilter.createInvertedFilter())
-            if (lut != null) add(SingleColorLut.createFromCube(lut.cube))
-            if (hasGamma) add(SingleColorLut.createFromCube(CubeLut.gamma(gammaRed, gammaGreen, gammaBlue).cube))
-            if (rotationDegrees != 0f) {
-                add(
-                    ScaleAndRotateTransformation
-                        .Builder()
-                        .setRotationDegrees(rotationDegrees)
-                        .build(),
-                )
-            }
-            ratio?.let { r ->
-                val aspect = ExportAspect.of(quality, r)
-                add(
-                    Presentation.createForWidthAndHeight(
-                        aspect.width,
-                        aspect.height,
-                        Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP,
-                    ),
-                )
-            }
-        }
-
-    @UnstableApi
-    fun captionEffect(): Effect? =
-        caption.takeIf { it.isNotBlank() }?.let { text ->
-            OverlayEffect(
-                listOf(
-                    TextOverlay.createStaticTextOverlay(
-                        android.text.SpannableString(text),
-                        StaticOverlaySettings
-                            .Builder()
-                            .setBackgroundFrameAnchor(0f, -0.82f)
-                            .setOverlayFrameAnchor(0f, -1f)
-                            .build(),
-                    ),
-                ),
-            )
-        }
-
-    /**
-     * The clip's fixed speed for Media3, made safe natively first: a saved project can carry 0, a
-     * negative or NaN speed (the JSON reader takes it as written), which Media3 cannot play.
-     */
-    @UnstableApi
-    fun speedProvider(): SpeedProvider? {
-        val safe = safeSpeed()
-        return if (safe == 1f) {
-            null
-        } else {
-            object : SpeedProvider {
-                override fun getSpeed(timeUs: Long): Float = safe
-
-                override fun getNextSpeedChangeTimeUs(timeUs: Long): Long = androidx.media3.common.C.TIME_UNSET
-            }
-        }
-    }
-
-    /** [speed] as Media3 may play it: NaN, infinite, 0 or negative is 1x, else 0.25..4 (`core/signal/timeline/SpeedRamp`). */
-    fun safeSpeed(): Float = GeodeNative.clipSpeedSanitize(speed)
 }

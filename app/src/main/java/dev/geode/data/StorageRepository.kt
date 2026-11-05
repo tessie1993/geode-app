@@ -106,7 +106,7 @@ class StorageRepository
         private companion object {
             const val TAG = "Storage"
 
-            /** Kept in step with `GeodeContainer.RENDER_SCRATCH_PREFIXES` (AudioTranscoder, LoopRender, StudioExporter). */
+            /** Kept in step with `GeodeContainer.RENDER_SCRATCH_PREFIXES` (AudioTranscoder, LoopRender, and old `studio-` leftovers). */
             val RENDER_SCRATCH_PREFIXES = listOf("geode_aac_", "geode_loop_", "studio-")
 
             fun isRenderScratch(name: String): Boolean = RENDER_SCRATCH_PREFIXES.any { name.startsWith(it) }

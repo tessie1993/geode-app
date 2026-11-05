@@ -285,7 +285,8 @@ void textRoundTrips() {
     const auto lines = split(catalogue::text(), '\n');
     check(!lines.empty() && lines[0] == "catalogue|" + std::to_string(catalogue::kTextVersion), "versioned header");
     std::vector<std::string> styleIds;
-    int kinds = 0, families = 0, keys = 0, overrides = 0;
+    std::vector<std::string> railIds;
+    int kinds = 0, families = 0, keys = 0, overrides = 0, railRows = 0;
     for (const auto& line : lines) {
         const auto f = split(line, '|');
         if (f[0] == "style") {
@@ -301,6 +302,10 @@ void textRoundTrips() {
             ++overrides;
             check(styles::cymatics(f[1]) && f[2] == "Geometry" && std::stoi(f[3]) == styles::cymatics(f[1])->geometryOverride,
                   "geometry override of " + f[1]);
+        } else if (f[0] == "rails") {
+            ++railRows;
+            check(f.size() == 2, "rails row has one field");
+            if (f.size() == 2) railIds = split(f[1], ',');
         } else if (f[0] == "key") {
             ++keys;
             check(f[2] == catalogue::name(catalogue::scopeOf(f[1])), "scope row of " + f[1]);
@@ -308,6 +313,14 @@ void textRoundTrips() {
         }
     }
     check(styleIds == catalogue::allIds(), "style rows in picker order");
+    // The rails row round-trips: read back, it is exactly the styles cameraMode puts on rails, in picker order.
+    std::vector<std::string> wantRails;
+    for (const auto& id : catalogue::allIds()) {
+        if (catalogue::cameraMode(id) == catalogue::CameraMode::Rails) wantRails.push_back(id);
+    }
+    check(railRows == 1, "one rails row");
+    check(railIds == wantRails, "rails row lists the rails styles in picker order");
+    check(!lines.empty() && lines.back().rfind("rails|", 0) == 0, "the rails row comes last");
     check(kinds == catalogue::kKindCount && families == 10 && keys == 80 && overrides == 8, "row counts");
 }
 
@@ -368,6 +381,27 @@ void everyStyleHasOneBloomLook() {
     check(catalogue::resolveBloomLook(9, "water") == catalogue::BloomLook::Ripple, "an out-of-range pick is the style's own");
 }
 
+void marchedStylesStartOnRails() {
+    // #473: every marched style, loose (25) and family (63), starts on rails; a port flips its own entry.
+    using catalogue::CameraMode;
+    int rails = 0;
+    for (const auto& id : catalogue::allIds()) {
+        const CameraMode mode = catalogue::cameraMode(id);
+        if (catalogue::isMarched(id)) {
+            check(mode == CameraMode::Rails, id + " marches and starts on rails");
+            ++rails;
+        } else {
+            check(mode == CameraMode::None, id + " does not march and has no Scene camera");
+        }
+    }
+    check(rails == 25 + 63, "88 styles on rails, got " + std::to_string(rails));
+    check(catalogue::cameraMode("milkdrop") == CameraMode::None, "MilkDrop gets no Scene camera");
+    check(catalogue::cameraMode("plasma") == CameraMode::None, "a 2D shader gets no Scene camera");
+    check(catalogue::cameraMode("dive_lattice") == CameraMode::Rails, "a family march is on rails");
+    check(catalogue::cameraMode("neon_chrome_sea") == CameraMode::Rails, "a loose march is on rails");
+    check(catalogue::cameraMode("no_such_style") == CameraMode::None, "an unknown id has no Scene camera");
+}
+
 int main(int argc, char** argv) {
     if (argc == 3 && std::strcmp(argv[1], "--write") == 0) {
         std::ofstream(argv[2], std::ios::binary) << catalogue::text();
@@ -379,6 +413,7 @@ int main(int argc, char** argv) {
     marchedStylesMatchTheOldSet();
     paramScopesMatchTheOldParamScope();
     everyStyleHasOneBloomLook();
+    marchedStylesStartOnRails();
     textRoundTrips();
     textEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/catalogue.txt");
     if (failures == 0) std::printf("catalogue_test: all checks passed\n");

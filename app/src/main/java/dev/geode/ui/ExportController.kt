@@ -29,6 +29,7 @@ import dev.geode.editor.ProjectId
 import dev.geode.editor.ProjectRender
 import dev.geode.editor.StudioProject
 import dev.geode.editor.Timeline
+import dev.geode.editor.cappedAt
 import dev.geode.editor.sourceTimeAt
 import dev.geode.export.BatchOutcome
 import dev.geode.export.BatchTrack
@@ -137,6 +138,13 @@ internal class ExportController(
 
         /** Offers Pro for a locked style; safe from any thread (the paywall request is a StateFlow). */
         fun onStyleLocked()
+
+        /**
+         * The entitlement's export limits right now (FeatureGate.renderLimits). [renderProject] reads
+         * them itself rather than trusting its caller, so a take's background render is capped and
+         * watermarked like the one-tap Render (#354).
+         */
+        fun renderLimits(): dev.geode.pro.RenderLimits
     }
 
     private val exporter = VideoExporter(application)
@@ -480,14 +488,20 @@ internal class ExportController(
      * render goes through (Render, a stopped recording, a batch of projects from a template); see
      * [render] for how each clip is drawn. [onRendered] gets the finished video for the project's
      * list ([dev.geode.ui.EditorController.recordRender]), on the main thread, where edits run.
+     *
+     * The entitlement's limits ([Host.renderLimits]) apply here, to what is drawn: past the cap the
+     * edit is cut ([cappedAt]) and the wordmark goes on when the gate says so. Pro renders are
+     * untouched; a trial or free render of a take is the same first minute, watermarked, that the
+     * one-tap Render gives.
      */
     fun renderProject(
         project: StudioProject,
         destination: Uri? = null,
-        watermark: Boolean = false,
         onRendered: (ProjectRender) -> Unit = {},
     ) {
         if (_studio.value.phase.isBusy || ExportRun.running) return
+        val limits = host.renderLimits()
+        val edit = project.cappedAt(limits.capMs).edit
         _studio.update { it.copy(phase = ExportPhase.Running(0f), notice = null) }
         ExportRun.begin(project.name.ifBlank { application.getString(dev.geode.R.string.render_video_label) })
         ExportService.start(application)
@@ -495,15 +509,15 @@ internal class ExportController(
             ExportRun.launch {
                 runStudioRender {
                     val export = project.export
-                    val plan = ProjectComposition.plan(project.edit)
+                    val plan = ProjectComposition.plan(edit)
                     val notice = plan.report.message(application)
                     val name = "muzviz_cut_${System.currentTimeMillis()}.mp4"
                     val target = destination ?: withContext(Dispatchers.IO) { folderDocument(export.saveTo, name) }
                     val result =
                         render(
-                            project = project.edit,
+                            project = edit,
                             plan = plan,
-                            spec = RenderSpec(ExportAspect.of(export.quality, export.ratio), export, watermark),
+                            spec = RenderSpec(ExportAspect.of(export.quality, export.ratio), export, limits.watermark),
                             takes = { takeId -> loadTake(project.id, takeId) },
                             factoryFor = ::plainSceneFactory,
                             fileName = name,

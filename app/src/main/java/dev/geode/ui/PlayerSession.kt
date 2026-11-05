@@ -893,6 +893,12 @@ class PlayerSession internal constructor(
     /** What a refused style does: the provider opens the paywall. */
     internal var onStyleLocked: () -> Unit = {}
 
+    /**
+     * The entitlement's export limits for every project render (a take, Studio's Render), set by the
+     * provider like [allowsStyle]; open until set.
+     */
+    internal var renderLimits: () -> dev.geode.pro.RenderLimits = { dev.geode.pro.RenderLimits.NONE }
+
     /** The Pro gate for Record (part 2D), set by the provider like [allowsStyle]; open until set. */
     internal var allowsRecording: () -> Boolean = { true }
 
@@ -1059,6 +1065,8 @@ class PlayerSession internal constructor(
                 override fun allowsStyle(sceneId: String) = this@PlayerSession.allowsStyle(sceneId)
 
                 override fun onStyleLocked() = this@PlayerSession.onStyleLocked()
+
+                override fun renderLimits() = this@PlayerSession.renderLimits()
             },
         )
 

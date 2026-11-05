@@ -395,6 +395,17 @@ internal fun EditorProject.fittedTo(
     )
 }
 
+/**
+ * This project as a render capped at [capMs] may draw it: every clip that starts at or after the cap
+ * is dropped and every clip that runs past it ends there (its source in-point kept, so the first
+ * minute looks and sounds exactly as in the full render). Null, or a programme already within the
+ * cap, leaves the project as it is. The cap is the entitlement's ([dev.geode.pro.RenderLimits]);
+ * applying it to the edit, before the plan, means the scene segments, footage, captions and the song
+ * all stop at the same programme time.
+ */
+fun StudioProject.cappedAt(capMs: Long?): StudioProject =
+    if (capMs == null || capMs <= 0L || lengthMs <= capMs) this else copy(edit = edit.fittedTo(0L, capMs))
+
 /** The last clip end of an edit, 0 when it has no clips. */
 internal fun EditorProject.contentEndMs(): Long = timeline.lanes.maxOfOrNull { lane -> lane.clips.maxOfOrNull { it.endMs } ?: 0L } ?: 0L
 

@@ -79,6 +79,7 @@ import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.UiSound
 import kotlin.math.ln
 import kotlin.math.pow
+import kotlin.reflect.KProperty1
 
 /** What a deeper page edits, gathered once so each page reads plain values. */
 internal class AdvancedHost(
@@ -436,7 +437,7 @@ internal fun LayersPage() {
 }
 
 /**
- * One Note & key strength: a 0..2 slider (1 = as designed) with its one-line hint under it. The key is
+ * One Note & key strength: a 0..2 slider (1 = as designed; the range is the schema's) with its one-line hint under it. The key is
  * the shown name, since these are not catalogue parameters: they have no style scope (every style hears
  * notes) and the randomizer never rolls them, so the scope and unit are given rather than looked up.
  */
@@ -444,12 +445,12 @@ internal fun LayersPage() {
 private fun NoteKeySlider(
     @StringRes name: Int,
     @StringRes hint: Int,
-    value: Float,
-    default: Float,
+    p: SceneParams,
+    param: KProperty1<SceneParams, Float>,
     onChange: (Float) -> Unit,
 ) {
     val label = stringResource(name)
-    LabeledSlider(label, value, 0f..2f, scope = ParamScope.UNIVERSAL, default = default, unit = ParamUnit.TIMES, onChange = onChange)
+    LabeledSlider(label, p, param, scope = ParamScope.UNIVERSAL, unit = ParamUnit.TIMES, onChange = onChange)
     if (visible(label, ParamScope.UNIVERSAL)) ControlHint(stringResource(hint))
 }
 
@@ -468,23 +469,22 @@ internal fun NoteKeyPage(
     val running by remember { NoteResponseStore.get(context) }.enabled.collectAsStateWithLifecycle()
     if (!running && sectionVisible()) ControlHint(stringResource(R.string.note_key_off))
     ControlHint(stringResource(R.string.note_key_intro))
-    val d = SceneParams.DEFAULT
-    NoteKeySlider(R.string.note_key_color, R.string.note_key_color_hint, p.noteColor, d.noteColor) {
+    NoteKeySlider(R.string.note_key_color, R.string.note_key_color_hint, p, SceneParams::noteColor) {
         onChange(p.copy(noteColor = it))
     }
-    NoteKeySlider(R.string.note_key_pitch, R.string.note_key_pitch_hint, p.notePitch, d.notePitch) {
+    NoteKeySlider(R.string.note_key_pitch, R.string.note_key_pitch_hint, p, SceneParams::notePitch) {
         onChange(p.copy(notePitch = it))
     }
-    NoteKeySlider(R.string.note_key_intervals, R.string.note_key_intervals_hint, p.noteIntervals, d.noteIntervals) {
+    NoteKeySlider(R.string.note_key_intervals, R.string.note_key_intervals_hint, p, SceneParams::noteIntervals) {
         onChange(p.copy(noteIntervals = it))
     }
-    NoteKeySlider(R.string.note_key_tension, R.string.note_key_tension_hint, p.noteTension, d.noteTension) {
+    NoteKeySlider(R.string.note_key_tension, R.string.note_key_tension_hint, p, SceneParams::noteTension) {
         onChange(p.copy(noteTension = it))
     }
-    NoteKeySlider(R.string.note_key_chords, R.string.note_key_chords_hint, p.noteChords, d.noteChords) {
+    NoteKeySlider(R.string.note_key_chords, R.string.note_key_chords_hint, p, SceneParams::noteChords) {
         onChange(p.copy(noteChords = it))
     }
-    NoteKeySlider(R.string.note_key_drums, R.string.note_key_drums_hint, p.noteDrums, d.noteDrums) {
+    NoteKeySlider(R.string.note_key_drums, R.string.note_key_drums_hint, p, SceneParams::noteDrums) {
         onChange(p.copy(noteDrums = it))
     }
 }

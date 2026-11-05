@@ -75,7 +75,7 @@ uint32_t channel(float v) {
     return static_cast<uint32_t>(scaled < 0.0f ? 0.0f : (scaled > 255.0f ? 255.0f : scaled));
 }
 
-uint32_t argb(float r, float g, float b) { return 0xFF000000u | (channel(r) << 16) | (channel(g) << 8) | channel(b); }
+uint32_t packArgb(float r, float g, float b) { return 0xFF000000u | (channel(r) << 16) | (channel(g) << 8) | channel(b); }
 
 }  // namespace
 
@@ -127,7 +127,8 @@ std::optional<CubeLut> CubeLut::parse(std::string_view text) {
             for (int g = 0; g < n; ++g) {
                 for (int b = 0; b < n; ++b) {
                     const Rgb& row = rows[static_cast<size_t>(r + g * n + b * n * n)];
-                    table[static_cast<size_t>((r * n + g) * n + b)] = argb(norm(row[0], 0), norm(row[1], 1), norm(row[2], 2));
+                    table[static_cast<size_t>((r * n + g) * n + b)] =
+                        packArgb(norm(row[0], 0), norm(row[1], 1), norm(row[2], 2));
                 }
             }
         }
@@ -140,7 +141,7 @@ std::optional<CubeLut> CubeLut::parse(std::string_view text) {
             for (int g = 0; g < n; ++g) {
                 for (int b = 0; b < n; ++b) {
                     table[static_cast<size_t>((r * n + g) * n + b)] =
-                        argb(norm(rows[static_cast<size_t>(r)][0], 0), norm(rows[static_cast<size_t>(g)][1], 1),
+                        packArgb(norm(rows[static_cast<size_t>(r)][0], 0), norm(rows[static_cast<size_t>(g)][1], 1),
                              norm(rows[static_cast<size_t>(b)][2], 2));
                 }
             }
@@ -167,7 +168,7 @@ CubeLut CubeLut::gamma(float red, float green, float blue, int size) {
         for (int gi = 0; gi < n; ++gi) {
             for (int bi = 0; bi < n; ++bi) {
                 table[static_cast<size_t>((ri * n + gi) * n + bi)] =
-                    argb(r[static_cast<size_t>(ri)], g[static_cast<size_t>(gi)], b[static_cast<size_t>(bi)]);
+                    packArgb(r[static_cast<size_t>(ri)], g[static_cast<size_t>(gi)], b[static_cast<size_t>(bi)]);
             }
         }
     }

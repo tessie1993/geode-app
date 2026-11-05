@@ -3,7 +3,9 @@
 // The loop render's seam driver (#603): which source frames a loop stashes and which it presents, at what
 // presentation time, and how long a seam the GPU can afford. Pure maths, no GL, so core/tests/loop_seam_test.cpp
 // pins it on the host; geode_export_seam_frame and geode_export_seam_budgeted_crossfade_ms
-// (core/api/geode_export_pass_api.cpp) run it beside the SeamPass of ExportPasses.hpp. Each function is a
+// (core/api/geode_export_pass_api.cpp) run it beside the SeamPass of ExportPasses.hpp, and
+// geode_export_loop_progress and geode_export_loop_reported_crossfade_ms give the shell its report (#752).
+// Each function is a
 // port of the Kotlin it replaced (export/LoopRender.kt's drawFrames and budgetedSpec), integer for integer,
 // because a loop rendered before and after the move must be the same file.
 //
@@ -70,6 +72,29 @@ inline int64_t budgetedCrossfadeMs(int64_t crossfadeMs, int crossfadeFrames, int
     if (crossfadeFrames <= affordable || fps <= 0) return crossfadeMs;
     const int64_t shortened = static_cast<int64_t>(affordable) * 1000LL / fps;
     return shortened < 1 ? 1 : shortened;
+}
+
+// The crossfade a finished reel reports: seamFrames at fps in whole milliseconds, truncated (Kotlin's
+// `seamFrames * 1000L / fps`, which renderStops used to work out). seamFrames is the shortest seam any stop
+// of the reel kept, so when the stash budget cut the seam this is budgetedCrossfadeMs's own figure. No frame
+// rate reads as one frame a second, as frameDurationNs does.
+inline int64_t reportedCrossfadeMs(int seamFrames, int fps) {
+    return static_cast<int64_t>(seamFrames) * 1000LL / (fps > 0 ? fps : 1);
+}
+
+// The fraction of a whole loop render done once source frame `frame` of stop `stop` (of `stops`) is drawn,
+// each stop a 1/stops share of loopFrames + seamFrames source frames. Worked in double from whole counts, so
+// it rises with every frame (a later stop's first frame is past an earlier stop's last, even when a later
+// stop kept fewer seam frames), and the last frame of the last stop lands on exactly 1. Clamped to 0..1, so a
+// caller's stray index never reports past the ends.
+inline float progress(int stop, int stops, int frame, int loopFrames, int seamFrames) {
+    if (stops <= 0) return 1.0f;
+    const int sourceFrames = loopFrames + seamFrames;
+    const double within = sourceFrames > 0 ? static_cast<double>(frame + 1) / sourceFrames : 1.0;
+    const double done = (static_cast<double>(stop) + within) / stops;
+    if (!(done > 0.0)) return 0.0f;
+    if (done >= 1.0) return 1.0f;
+    return static_cast<float>(done);
 }
 
 }  // namespace geode::viz::frame::loopseam

@@ -149,6 +149,14 @@ int64_t geode_export_seam_budgeted_crossfade_ms(int64_t crossfade_ms, int crossf
     return loopseam::budgetedCrossfadeMs(crossfade_ms, crossfade_frames, fps, width, height);
 }
 
+float geode_export_loop_progress(int stop, int stops, int frame, int loop_frames, int seam_frames) {
+    return loopseam::progress(stop, stops, frame, loop_frames, seam_frames);
+}
+
+int64_t geode_export_loop_reported_crossfade_ms(int seam_frames, int fps) {
+    return loopseam::reportedCrossfadeMs(seam_frames, fps);
+}
+
 geode_export_pass* geode_export_transition_create(AAssetManager* assets, const char* id, int64_t duration_us) {
     auto* h = make<TransitionPass>(assets);
     if (h && !as<TransitionPass>(h)->create(h->source, id ? id : "", duration_us, &h->error) && h->error.empty()) {

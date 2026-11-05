@@ -587,6 +587,17 @@ Java_dev_geode_engine_bridge_GeodeNative_exportSeamBudgetedCrossfadeMs(JNIEnv*, 
     return geode_export_seam_budgeted_crossfade_ms(crossfadeMs, crossfadeFrames, fps, width, height);
 }
 
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportLoopProgress(JNIEnv*, jobject, jint stop, jint stops, jint frame,
+                                                           jint loopFrames, jint seamFrames) {
+    return geode_export_loop_progress(stop, stops, frame, loopFrames, seamFrames);
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportLoopReportedCrossfadeMs(JNIEnv*, jobject, jint seamFrames, jint fps) {
+    return geode_export_loop_reported_crossfade_ms(seamFrames, fps);
+}
+
 JNIEXPORT jlong JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_exportTransitionCreate(JNIEnv* env, jobject, jobject assetManager, jstring id,
                                                                jlong durationUs) {

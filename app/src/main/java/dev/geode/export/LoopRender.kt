@@ -361,8 +361,8 @@ class LoopRender(
                         stop = stop,
                         file = file,
                         crossfadeFrames = seamFrames,
-                        progressBase = index / phases.size.toFloat(),
-                        progressSpan = 1f / phases.size,
+                        stopIndex = index,
+                        stopCount = phases.size,
                         onProgress = onProgress,
                         isCancelled = isCancelled,
                     )
@@ -395,7 +395,7 @@ class LoopRender(
             return discard(rendered, pending, failed(R.string.export_error_loop_shader_compile, e.message.orEmpty()))
         }
         onProgress(1f)
-        val effective = job.spec.copy(crossfadeMs = seamFrames * 1000L / job.spec.fps)
+        val effective = job.spec.copy(crossfadeMs = GeodeNative.exportLoopReportedCrossfadeMs(seamFrames, job.spec.fps))
         return Result.Rendered(
             LoopReel(
                 loops = rendered.toList(),
@@ -411,8 +411,8 @@ class LoopRender(
         stop: DriftStop,
         file: File,
         crossfadeFrames: Int,
-        progressBase: Float,
-        progressSpan: Float,
+        stopIndex: Int,
+        stopCount: Int,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
     ): StopOutcome {
@@ -449,8 +449,8 @@ class LoopRender(
                     loopFrames = loopFrames,
                     seamFrames = seamFrames,
                     fps = job.choice.fps,
-                    progressBase = progressBase,
-                    progressSpan = progressSpan,
+                    stopIndex = stopIndex,
+                    stopCount = stopCount,
                     onProgress = onProgress,
                     isCancelled = isCancelled,
                     mark = mark,
@@ -478,8 +478,8 @@ class LoopRender(
         loopFrames: Int,
         seamFrames: Int,
         fps: Int,
-        progressBase: Float,
-        progressSpan: Float,
+        stopIndex: Int,
+        stopCount: Int,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
         mark: WatermarkOverlay?,
@@ -500,7 +500,7 @@ class LoopRender(
                 egl.swapBuffers()
                 writer.drain(untilEndOfStream = false)
             }
-            onProgress(progressBase + progressSpan * (frame + 1) / sourceFrames)
+            onProgress(GeodeNative.exportLoopProgress(stopIndex, stopCount, frame, loopFrames, seamFrames))
             frame++
         }
         return if (cancelled) StopOutcome.Cancelled else StopOutcome.Done(seamFrames)

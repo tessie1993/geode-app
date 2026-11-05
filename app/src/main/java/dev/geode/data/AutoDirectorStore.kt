@@ -83,6 +83,9 @@ class AutoDirectorStore private constructor(
         push()
     }
 
+    /** This play's seed, kept with a take's choices so rendering it again makes the same kinds of choices (#457). */
+    val playSeed: Long get() = seed
+
     /** What an export of [durationMs] renders with: the switch, cut by [gate], and this play's seed. */
     fun exportPin(
         gate: FeatureGate,

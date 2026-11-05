@@ -13,8 +13,9 @@ import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GuiPrefs
-import dev.geode.data.PerformanceTake
 import dev.geode.data.SaveTarget
+import dev.geode.data.TakeReplay
+import dev.geode.data.TakeStore
 import dev.geode.editor.AnimatableParams
 import dev.geode.editor.BeatCut
 import dev.geode.editor.Clip
@@ -102,7 +103,7 @@ data class LoopUiState(
 )
 
 internal fun exportSceneIdFor(
-    take: PerformanceTake.Timeline?,
+    take: TakeReplay?,
     liveSceneId: String,
 ): String =
     take
@@ -131,7 +132,7 @@ internal class ExportController(
 
         fun reactions(): List<dev.geode.render.ReactionRoute>?
 
-        suspend fun loadExportTake(): PerformanceTake.Timeline?
+        suspend fun loadExportTake(): TakeReplay?
 
         /** Whether the entitlement allows rendering [sceneId] (FeatureGate.allowsStyle). */
         fun allowsStyle(sceneId: String): Boolean
@@ -208,9 +209,10 @@ internal class ExportController(
         ExportService.start(application)
         exportJob =
             ExportRun.launch {
+                var exportTake: TakeReplay? = null
                 try {
                     val name = "muzviz_${System.currentTimeMillis()}.mp4"
-                    val exportTake = host.loadExportTake()
+                    exportTake = host.loadExportTake()
                     val sceneId =
                         if (exportTake != null && sceneFactoryFor != null) {
                             exportSceneIdFor(exportTake, host.sceneId)
@@ -257,6 +259,7 @@ internal class ExportController(
                         _exportState.value = ExportUiState(phase = ExportPhase.Failed(detail))
                     }
                 } finally {
+                    exportTake?.close()
                     ExportRun.finish()
                 }
             }
@@ -299,7 +302,7 @@ internal class ExportController(
         range: ExportRange?,
         sceneId: String,
         milkPath: String?,
-        take: PerformanceTake.Timeline?,
+        take: TakeReplay?,
     ): EditorProject {
         val startMs = range?.startMs ?: 0L
         val lengthMs = range?.durationMs ?: WHOLE_SONG_MS
@@ -507,7 +510,9 @@ internal class ExportController(
         ExportService.start(application)
         studioJob =
             ExportRun.launch {
-                runStudioRender {
+                // Every take the render reads back, closed once it is drawn (a take's choices are native).
+                val opened = mutableListOf<TakeReplay>()
+                runStudioRender(onEnd = { opened.forEach(TakeReplay::close) }) {
                     val export = project.export
                     val plan = ProjectComposition.plan(edit)
                     val notice = plan.report.message(application)
@@ -518,7 +523,7 @@ internal class ExportController(
                             project = edit,
                             plan = plan,
                             spec = RenderSpec(ExportAspect.of(export.quality, export.ratio), export, limits.watermark),
-                            takes = { takeId -> loadTake(project.id, takeId) },
+                            takes = { takeId -> loadTake(project.id, takeId)?.also { opened += it } },
                             factoryFor = ::plainSceneFactory,
                             fileName = name,
                             destination = target,
@@ -553,7 +558,10 @@ internal class ExportController(
     }
 
     /** The shared ending of a Studio render: failures to [ExportPhase.Failed], the run released. */
-    private suspend fun runStudioRender(block: suspend () -> Unit) {
+    private suspend fun runStudioRender(
+        onEnd: () -> Unit = {},
+        block: suspend () -> Unit,
+    ) {
         try {
             block()
         } catch (c: kotlinx.coroutines.CancellationException) {
@@ -569,6 +577,7 @@ internal class ExportController(
                 }
             _studio.update { it.copy(phase = phase) }
         } finally {
+            onEnd()
             studioJob = null
             ExportRun.finish()
         }
@@ -633,7 +642,7 @@ internal class ExportController(
         project: EditorProject,
         plan: ProjectComposition.RenderPlan,
         spec: RenderSpec,
-        takes: suspend (String) -> PerformanceTake.Timeline?,
+        takes: suspend (String) -> TakeReplay?,
         factoryFor: (String, String?) -> SceneFactory,
         fileName: String,
         destination: Uri?,
@@ -749,7 +758,7 @@ internal class ExportController(
     private fun lookFor(
         segment: SceneSegment,
         sheet: KeyframeSheet,
-        take: PerformanceTake.Timeline?,
+        take: TakeReplay?,
         factoryFor: (String, String?) -> SceneFactory,
     ): SegmentLook {
         val clip = segment.clip
@@ -780,7 +789,9 @@ internal class ExportController(
                 else -> StyleSchedule.NONE
             }
         // Every later style is gated natively against the entitlement (#357); the opening one in render().
-        val styleSchedule = if (switches.isEmpty) switches else switches.copy(lockedStyleIds = lockedStyleIds())
+        val gated = if (switches.isEmpty) switches else switches.copy(lockedStyleIds = lockedStyleIds())
+        // A take with choices renders with the seed it was performed with (#457).
+        val styleSchedule = take?.seed?.let { gated.copy(directorSeed = it) } ?: gated
         return SegmentLook(factoryFor(sceneId, milkPath), paramsAt, styleSchedule)
     }
 
@@ -790,7 +801,7 @@ internal class ExportController(
      * the factory's, so only later switches are cues.
      */
     private fun takeSchedule(
-        take: PerformanceTake.Timeline,
+        take: TakeReplay,
         takeStartMs: Long,
         durationMs: Long,
     ): StyleSchedule =
@@ -822,13 +833,17 @@ internal class ExportController(
     private suspend fun loadTake(
         id: ProjectId,
         takeId: String,
-    ): PerformanceTake.Timeline? {
+    ): TakeReplay? {
         if (id.value.isEmpty()) return null
         return withContext(Dispatchers.IO) {
-            projectStore
-                .loadTake(id, takeId)
-                ?.let { json -> runCatching { PerformanceTake.Timeline(json) }.getOrNull() }
-                ?.takeUnless { it.isEmpty }
+            TakeStore(projectStore).replayOf(id, takeId)?.let { replay ->
+                if (replay.isEmpty) {
+                    replay.close()
+                    null
+                } else {
+                    replay
+                }
+            }
         }
     }
 

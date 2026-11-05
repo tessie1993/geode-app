@@ -312,6 +312,30 @@ GEODE_API int64_t     geode_take_end(void);
 GEODE_API int         geode_take_active(void);
 GEODE_API void        geode_take_write_audio(const int16_t* interleaved, int frames, int channels, int sample_rate);
 
+/* A track take's choices on song time (core/signal/timeline/TakeTimeline, #457): style, preset and params from the
+ * song position where each changed, and the play's seed, so "Render again" renders the performance offline. The
+ * recording rules (only changes, a drag thinned, a seek back punches in, a cap) and the file format are native.
+ * One thread at a time per handle. song_time 0: a mic or capture take on wall time, which does not render again.
+ * encode writes at most capacity bytes (NUL-terminated when it fits) and returns the length it needs; decode
+ * returns NULL for a damaged file. state_at fills `capacity` params of the choice in force at ms and returns its
+ * index, -1 for an empty timeline; choice_style writes "scene\tmilk" for a choice; style_changes writes the
+ * indices of every style switch (the first choice included) and returns how many there are. */
+typedef struct geode_take_timeline geode_take_timeline;
+GEODE_API geode_take_timeline* geode_take_timeline_create(uint64_t seed, int song_time);
+GEODE_API geode_take_timeline* geode_take_timeline_decode(const char* text);
+GEODE_API void        geode_take_timeline_destroy(geode_take_timeline*);
+GEODE_API void        geode_take_timeline_note(geode_take_timeline*, int64_t at_ms, const char* scene_id, const char* milk_path,
+                                               const float* params, int count);
+GEODE_API int         geode_take_timeline_full(const geode_take_timeline*);
+GEODE_API size_t      geode_take_timeline_encode(const geode_take_timeline*, char* out, size_t capacity);
+GEODE_API uint64_t    geode_take_timeline_seed(const geode_take_timeline*);
+GEODE_API int         geode_take_timeline_renders_again(const geode_take_timeline*);
+GEODE_API int64_t     geode_take_timeline_end_ms(const geode_take_timeline*);
+GEODE_API int         geode_take_timeline_state_at(const geode_take_timeline*, int64_t ms, float* params, int capacity);
+GEODE_API int64_t     geode_take_timeline_choice_at_ms(const geode_take_timeline*, int index);
+GEODE_API size_t      geode_take_timeline_choice_style(const geode_take_timeline*, int index, char* out, size_t capacity);
+GEODE_API int         geode_take_timeline_style_changes(const geode_take_timeline*, int* indices, int capacity);
+
 #ifdef __cplusplus
 }
 #endif

@@ -2,8 +2,10 @@ package dev.geode.ui
 
 import dev.geode.data.PerformanceTake
 import dev.geode.data.SaveTarget
+import dev.geode.data.TakeChoices
 import dev.geode.data.TakeEvent
 import dev.geode.data.TakeInfo
+import dev.geode.data.TakeReplay
 import dev.geode.data.TakeRepository
 import dev.geode.data.TakeVideo
 import dev.geode.editor.ProjectId
@@ -15,6 +17,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 
 private const val TAKE_REPLAY_HZ = 30L
@@ -116,6 +119,13 @@ internal class TakeController(
         /** Deletes a capture nobody keeps (a mis-tap). Blocking. */
         fun discardCapture(video: TakeVideo)
 
+        /**
+         * A recorder for the take's choices (#457), seeded with this play's seed so "Render again" makes the
+         * same kinds of choices; [songTime] false for a take on wall time.
+         */
+        fun newChoices(songTime: Boolean): TakeChoices.Recorder
+
+
         /** Keeps [render] on project [id]'s list of renders. Main thread. */
         fun recordRender(
             id: ProjectId,
@@ -128,6 +138,9 @@ internal class TakeController(
     val state: StateFlow<TakeUiState> = _state
 
     private var recorder: PerformanceTake.Recorder? = null
+
+    /** The take's choices on song time, beside [recorder]; native keeps what the rules say (#457). */
+    private var choices: TakeChoices.Recorder? = null
 
     /** The capture waiting for the save sheet's answer, beside [TakeUiState.pendingSave]. */
     @Volatile
@@ -159,6 +172,10 @@ internal class TakeController(
         recordTrackUri = if (fromInput) null else host.trackUri
         wallStartMs = android.os.SystemClock.elapsedRealtime()
         recorder = PerformanceTake.Recorder(s.sceneId, s.params, host.activeMilkPath, startTrackMs = takeClockMs())
+        choices =
+            host.newChoices(songTime = recordTrackUri != null).also {
+                it.note(takeClockMs(), s.sceneId, s.params, host.activeMilkPath)
+            }
         _state.update { it.copy(recording = true, recordedEvents = 1, recordedMs = 0L, note = null) }
         recordJob =
             scope.launch {
@@ -200,8 +217,13 @@ internal class TakeController(
                 return
             }
             recordTrackUri = host.trackUri
+            // Rolling on into another song: the choices sit on one song's time, so they stop here rather than
+            // punch out on the new song's zero, and the take keeps its video without "Render again" (#457).
+            choices?.close()
+            choices = null
         }
         rec.append(takeClockMs(), live.sceneId, live.params, host.activeMilkPath)
+        choices?.note(takeClockMs(), live.sceneId, live.params, host.activeMilkPath)
         _state.update { it.copy(recordedEvents = rec.size, recordedMs = rec.durationMs) }
         if (!rec.hasRoom) stopRecording()
     }
@@ -211,6 +233,8 @@ internal class TakeController(
         if (recorder == null) return
         stopSampling()
         recorder = null
+        choices?.close()
+        choices = null
         _state.update { it.copy(recording = false, recordedEvents = 0, recordedMs = 0L) }
         showNote(CAPTURE_FAILED_NOTE)
     }
@@ -234,6 +258,13 @@ internal class TakeController(
         // The look and song position are read now, so the take ends on what was on screen at stop;
         // the JSON is built once the name is known. Nothing else touches the recorder after this.
         val pending = { label: String -> rec.finish(label, trackUri, stopMs, live.sceneId, live.params, milk) }
+        // The choices end on the look at stop too, and leave memory as their file.
+        val chosen =
+            choices?.let { c ->
+                c.note(stopMs, live.sceneId, live.params, milk)
+                c.encode().also { c.close() }
+            }
+        choices = null
         _state.update { it.copy(recording = false, recordedEvents = 0, recordedMs = 0L) }
         val tooShort = maxOf(rec.durationMs, stopMs - rec.startTrackMs) < MIN_TAKE_MS
         storeScope.launch {
@@ -246,7 +277,7 @@ internal class TakeController(
                 video == null -> showNote(CAPTURE_EMPTY_NOTE)
                 else -> {
                     val label = requested ?: defaultTakeName()
-                    val saved = takes.save(label, pending(label))
+                    val saved = takes.save(label, pending(label), chosen)
                     onTakeSaved(saved, video)
                 }
             }
@@ -360,6 +391,8 @@ internal class TakeController(
         replayJob =
             scope.launch {
                 val timeline = takes.load(name) ?: return@launch
+                // Closed when the replay ends or is stopped (the job's cancellation runs this too).
+                coroutineContext.job.invokeOnCompletion { timeline.close() }
                 if (timeline.isEmpty) return@launch
                 val endMs = maxOf(timeline.lastEventMs(), timeline.durationMs)
                 _state.update { it.copy(replaying = name, replayMs = 0L, replayEndMs = endMs) }
@@ -420,10 +453,13 @@ internal class TakeController(
         _state.update { it.copy(exportTake = name) }
     }
 
-    suspend fun loadExportTake(): PerformanceTake.Timeline? =
-        _state.value.exportTake
-            ?.let { takes.load(it) }
-            ?.takeUnless { it.isEmpty }
+
+    suspend fun loadExportTake(): TakeReplay? {
+        val replay = _state.value.exportTake?.let { takes.load(it) } ?: return null
+        if (!replay.isEmpty) return replay
+        replay.close()
+        return null
+    }
 
     private companion object {
         const val TAKE_DISCARDED_NOTE = "Too short — take not saved"

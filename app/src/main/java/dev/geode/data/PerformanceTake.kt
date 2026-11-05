@@ -179,19 +179,19 @@ object PerformanceTake {
     /** A recorded take read back; [stateAt] takes take time (ms from the take's start). */
     class Timeline(
         json: String,
-    ) {
+    ) : TakeReplay {
         private val root = JSONObject(json)
         private val events: JSONArray = root.optJSONArray("events") ?: JSONArray()
 
         val name: String = root.optString("name", "Take")
         val trackUri: String? = root.optString("trackUri", "").takeIf { it.isNotEmpty() }
-        val durationMs: Long = root.optLong("durationMs", 0L)
+        override val durationMs: Long = root.optLong("durationMs", 0L)
 
         /** The song position the take starts at. */
         val trackOffsetMs: Long = root.optLong("trackOffsetMs", 0L)
         val eventCount: Int get() = events.length()
 
-        val isEmpty: Boolean get() = events.length() == 0
+        override val isEmpty: Boolean get() = events.length() == 0
 
         /** The style the take opens on, or "" for an empty take. */
         val firstSceneId: String get() = events.optJSONObject(0)?.optString("s", "").orEmpty()
@@ -202,7 +202,7 @@ object PerformanceTake {
         private var milkPath: String? = null
         private var appliedThroughMs = Long.MIN_VALUE
 
-        fun stateAt(ms: Long): State? {
+        override fun stateAt(ms: Long): State? {
             if (events.length() == 0) return null
             if (ms < appliedThroughMs) rewind()
             while (cursor < events.length()) {
@@ -216,14 +216,14 @@ object PerformanceTake {
             return State(sceneId, PresetStore.paramsFromJson(accum), milkPath)
         }
 
-        fun lastEventMs(): Long = events.optJSONObject(events.length() - 1)?.optLong("t", 0L) ?: 0L
+        override fun lastEventMs(): Long = events.optJSONObject(events.length() - 1)?.optLong("t", 0L) ?: 0L
 
         /**
          * Every switch of style or MilkDrop preset in the take, in order, each with the full look it
          * switches to (take time, style, preset). An export hands them to the native renderer, which
          * times them (`core/viz/StyleSchedule`), so a take renders every style it was performed in.
          */
-        fun styleChanges(): List<StyleChange> {
+        override fun styleChanges(): List<StyleChange> {
             val out = mutableListOf<StyleChange>()
             var scene = ""
             var milk: String? = null

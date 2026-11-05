@@ -7,6 +7,8 @@ add_library(geode_core STATIC
     api/geode_params_api.cpp
     api/geode_sound_api.cpp
     api/geode_take_api.cpp
+    api/geode_timeline_api.cpp
+    signal/timeline/TakeTimeline.cpp
     output/TakeClock.cpp
     output/TakeRules.cpp
     output/TakeSession.cpp

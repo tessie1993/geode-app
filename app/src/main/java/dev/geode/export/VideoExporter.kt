@@ -433,7 +433,8 @@ class VideoExporter(
 
             // Pinned now: the live player moving on must not change this render's director.
             val directorStore = AutoDirectorStore.get(context)
-            val director = directorStore.exportPin(ProSnapshot.gate(context), exportDurationUs / 1000L)
+            val pin = directorStore.exportPin(ProSnapshot.gate(context), exportDurationUs / 1000L)
+            val director = styleSchedule.directorSeed?.let { pin.copy(seed = it) } ?: pin
             val renderer =
                 OffscreenSceneRenderer(
                     context = context,

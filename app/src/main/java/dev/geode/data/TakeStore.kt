@@ -26,6 +26,8 @@ data class TakeInfo(
     val sizeBytes: Long,
     val projectId: ProjectId,
     val createdAtMs: Long,
+    /** Whether My videos offers "Render again": the take's choices say so natively (a track take, #457). */
+    val rendersAgain: Boolean = false,
 )
 
 /**
@@ -65,17 +67,34 @@ class TakeStore(
                     sizeBytes = projects.sizeOf(p.id),
                     projectId = p.id,
                     createdAtMs = p.createdAtMs,
+                    rendersAgain = p.takeIds.firstOrNull()?.let { rendersAgain(p, it) } ?: false,
                 )
             }
 
-    /** The first take of the project called [name]. */
+    /**
+     * The first take of the project called [name], for replay or a render: its choices on song time when it has
+     * them (#457), else its look automation. The caller closes it.
+     */
     @WorkerThread
-    fun load(name: String): PerformanceTake.Timeline? {
+    fun load(name: String): TakeReplay? {
         val project = byName(name) ?: return null
         val takeId = project.takeIds.firstOrNull() ?: return null
-        return runCatching { projects.loadTake(project.id, takeId)?.let(PerformanceTake::Timeline) }
-            .onFailure { dev.geode.RingLog.note("TakeStore", "take failed to load: $name", it) }
-            .getOrNull()
+        return replayOf(project.id, takeId, name)
+    }
+
+    /** The take [takeId] of project [id] read back (choices first, see [load]), or null. */
+    @WorkerThread
+    fun replayOf(
+        id: ProjectId,
+        takeId: String,
+        label: String = takeId,
+    ): TakeReplay? {
+        val legacy =
+            runCatching { projects.loadTake(id, takeId)?.let(PerformanceTake::Timeline) }
+                .onFailure { dev.geode.RingLog.note("TakeStore", "take failed to load: $label", it) }
+                .getOrNull()
+        val choices = projects.loadChoices(id, takeId) ?: return legacy
+        return TakeChoices.read(choices, legacy?.trackOffsetMs ?: 0L, legacy?.durationMs ?: 0L) ?: legacy
     }
 
     @WorkerThread
@@ -89,6 +108,7 @@ class TakeStore(
     fun save(
         name: String,
         json: String,
+        choices: String? = null,
     ): String {
         val taken = projects.list().map { it.name }.toSet()
         var candidate = name
@@ -122,6 +142,7 @@ class TakeStore(
                 }.getOrDefault(json)
             }
         projects.saveTake(project.id, takeId, body)
+        choices?.takeIf { it.isNotEmpty() }?.let { projects.saveChoices(project.id, takeId, it) }
         projects.save(project)
         return candidate
     }
@@ -171,6 +192,14 @@ class TakeStore(
         val project = byName(from) ?: return false
         if (target.isEmpty() || byName(target) != null) return false
         return projects.save(projects.touch(project.copy(name = target)))
+    }
+
+    private fun rendersAgain(
+        project: StudioProject,
+        takeId: String,
+    ): Boolean {
+        val text = projects.loadChoices(project.id, takeId) ?: return false
+        return TakeChoices.read(text, 0L, 0L)?.use { it.rendersAgain } ?: false
     }
 
     private fun takeEvents(

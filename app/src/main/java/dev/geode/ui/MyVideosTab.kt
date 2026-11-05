@@ -96,7 +96,7 @@ internal fun MyVideosTab(
         editor.projects.flatMap { project ->
             project.renders.map { MyVideo.Render(project.id, it.uri, it.label.ifBlank { project.name }, it.createdAtMs, it.durationMs) }
         }
-    val takeItems = takes.takes.map { MyVideo.Take(it.projectId, it.name, it.createdAtMs, it.durationMs) }
+    val takeItems = takes.takes.map { MyVideo.Take(it.projectId, it.name, it.createdAtMs, it.durationMs, it.rendersAgain) }
     val shown =
         when (filter) {
             VideoFilter.ALL -> renders + takeItems
@@ -191,13 +191,17 @@ private sealed interface MyVideo {
         override val title: String,
         override val createdAtMs: Long,
         override val durationMs: Long,
+        /** A track take with choices (#457); a mic or capture take has nothing to render again over. */
+        val rendersAgain: Boolean,
     ) : MyVideo {
         override val key: String get() = "take:$title"
     }
 }
 
 /**
- * A tap does the obvious thing: a render plays, a take renders (Render opens with the take chosen).
+ * A tap does the obvious thing: a render plays, a take renders again (#457: Render opens with the take
+ * chosen, so its choices render offline at whatever format is picked there). A mic or capture take has no
+ * song under it, so it offers nothing to render again; its video is the render beside it.
  * The rest sits behind the card's ⋮, as on every row in the app: Share (a render) and Delete, with
  * Undo.
  */
@@ -211,11 +215,12 @@ private fun MyVideoCard(
 ) {
     var menu by remember { mutableStateOf(false) }
     val primaryLabel = stringResource(if (item is MyVideo.Render) R.string.my_videos_play else R.string.my_videos_render)
+    val canRender = item is MyVideo.Render || (item is MyVideo.Take && item.rendersAgain)
     Column(
         Modifier
             .fillMaxWidth()
             .floatingGlass()
-            .clickable(onClickLabel = primaryLabel, onClick = if (item is MyVideo.Render) onPlay else onRender)
+            .clickable(enabled = canRender, onClickLabel = primaryLabel, onClick = if (item is MyVideo.Render) onPlay else onRender)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {

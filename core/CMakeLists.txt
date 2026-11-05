@@ -81,6 +81,7 @@ add_library(geode_core STATIC
     viz/liquid/LiquidPass.cpp
     viz/world/WorldGenome.cpp
     viz/world/MorphDriver.cpp
+    viz/world/WorldAssets.cpp
     viz/scenes/StyleCatalog.cpp
     viz/scenes/CymaticsMath.cpp
     viz/scenes/CymaticsScene.cpp

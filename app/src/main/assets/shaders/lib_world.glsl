@@ -10,7 +10,9 @@
 // THE CHAIN (world()): mirrored z repeat (always: travel is endless) -> mirrored x/y repeat (WG_REP_XY fades it,
 // WG_CELL_SHIFT moves the cells off the axis) -> a twist along travel (a sine over one z period,
 // so it stays periodic) -> scale -> mirror fold -> up to five rotate-fold IFS steps (fractional:
-// the last one fades in) -> sphere inversion -> abs-inversion -> six primitives blended by weight.
+// the last one fades in) -> sphere inversion -> abs-inversion -> seven primitives blended by weight,
+// the seventh a baked CC0 model (uWorldShapes). Grey CC0 material maps (uWorldTex) add surface
+// detail and pattern the light; their colour never reaches the screen, pal() still owns it.
 // The orbit trap is gathered on the way (gWTrap) and colours the world for free: its channels,
 // weighted by the genome, are the palette coordinate, and its radius is the cheap occlusion.
 //
@@ -31,10 +33,11 @@
 //
 // Provenance: written from scratch for Geode from textbook maths (signed distance functions,
 // domain repetition, reflection folds, iterated function systems, sphere inversion, orbit traps,
-// sphere tracing, emission-absorption volume rendering). No code was taken from any shader.
+// sphere tracing, emission-absorption volume rendering). No code was taken from any shader. The
+// baked models and material maps are CC0 assets from BlenderKit (docs/morph-world-assets.md).
 
 /** The genome and the driver's runtime values; WorldGenome.hpp's Field and Runtime order. */
-uniform vec4 uWorld[12];
+uniform vec4 uWorld[14];
 
 #define WG_REP_XY uWorld[0].x
 #define WG_CELL_XY uWorld[0].y
@@ -62,28 +65,48 @@ uniform vec4 uWorld[12];
 #define WG_P_TORUS uWorld[5].w
 #define WG_P_SHELL uWorld[6].x
 #define WG_P_SLAB uWorld[6].y
-#define WG_PRIM_SIZE uWorld[6].z
-#define WG_PRIM_THICK uWorld[6].w
-#define WG_M_SURFACE uWorld[7].x
-#define WG_M_GLOW uWorld[7].y
-#define WG_M_DENSITY uWorld[7].z
-#define WG_DENS_BAND uWorld[7].w
-#define WG_TRAP_X uWorld[8].x
-#define WG_TRAP_Y uWorld[8].y
-#define WG_TRAP_Z uWorld[8].z
-#define WG_TRAP_R uWorld[8].w
-#define WG_PAL_OFFSET uWorld[9].x
-#define WG_PAL_SPAN uWorld[9].y
-#define WG_EMISSION uWorld[9].z
-#define WG_FOG uWorld[9].w
-#define WG_CORRIDOR uWorld[10].x
-#define WG_Z_PHASE uWorld[10].y
-#define WG_GAIN uWorld[10].z
-#define WG_ITER_CAP uWorld[10].w
-#define WG_HUE_TURN uWorld[11].x
-#define WG_WAKE_X uWorld[11].y
-#define WG_WAKE_Y uWorld[11].z
-#define WG_WAKE_Z uWorld[11].w
+#define WG_P_MESH uWorld[6].z
+#define WG_PRIM_SIZE uWorld[6].w
+#define WG_PRIM_THICK uWorld[7].x
+#define WG_MESH_PICK uWorld[7].y
+#define WG_MESH_SIZE uWorld[7].z
+#define WG_M_SURFACE uWorld[7].w
+#define WG_M_GLOW uWorld[8].x
+#define WG_M_DENSITY uWorld[8].y
+#define WG_DENS_BAND uWorld[8].z
+#define WG_TRAP_X uWorld[8].w
+#define WG_TRAP_Y uWorld[9].x
+#define WG_TRAP_Z uWorld[9].y
+#define WG_TRAP_R uWorld[9].z
+#define WG_PAL_OFFSET uWorld[9].w
+#define WG_PAL_SPAN uWorld[10].x
+#define WG_EMISSION uWorld[10].y
+#define WG_FOG uWorld[10].z
+#define WG_CORRIDOR uWorld[10].w
+#define WG_TEX_AMOUNT uWorld[11].x
+#define WG_TEX_PICK uWorld[11].y
+#define WG_TEX_SCALE uWorld[11].z
+#define WG_TEX_EMIT uWorld[11].w
+#define WG_Z_PHASE uWorld[12].x
+#define WG_GAIN uWorld[12].y
+#define WG_ITER_CAP uWorld[12].z
+#define WG_HUE_TURN uWorld[12].w
+#define WG_WAKE_X uWorld[13].x
+#define WG_WAKE_Y uWorld[13].y
+#define WG_WAKE_Z uWorld[13].z
+#define WG_ASSETS uWorld[13].w
+
+/**
+ * The baked CC0 assets (core/viz/world/WorldAssets, tools/morph_world_assets): six models as signed
+ * distance volumes, one 32^3 slab each stacked along z (32 x 32 x 192, R8, linear, clamped), and
+ * eight grey material detail maps (128^2 layers, mirrored repeat). Read only while WG_ASSETS is 1.
+ */
+uniform highp sampler3D uWorldShapes;
+uniform highp sampler2DArray uWorldTex;
+#define WG_SHAPES 6.0
+#define WG_SHAPE_RES 32.0
+#define WG_SHAPE_LO -0.25
+#define WG_SHAPE_HI 0.75
 
 /** The air always kept around the eye (WorldGenome.hpp kEyeRadius). */
 #define WG_EYE_RADIUS 0.9
@@ -116,7 +139,33 @@ float wBox(vec3 q, float b) {
     return length(max(d, 0.0)) + min(max(d.x, max(d.y, d.z)), 0.0);
 }
 
-/** The six primitives, blended by weight (the weights sum to one). Tube and torus ring the travel axis. */
+/**
+ * A baked model's signed distance at cube point m, in cube units (WorldAssets::shapeDistance):
+ * the volume's sample inside the cube; outside, never more than the true distance.
+ */
+float wShape(float index, vec3 m) {
+    if (WG_ASSETS < 0.5) return length(m) - 0.6;
+    vec3 c = clamp(m, -1.0, 1.0);
+    float out_ = length(m - c);
+    vec3 uvw = c * 0.5 + 0.5;
+    // The slab's own texel rows only, so linear filtering never reads the next model.
+    float z = (index * WG_SHAPE_RES + clamp(uvw.z * WG_SHAPE_RES, 0.5, WG_SHAPE_RES - 0.5)) / (WG_SHAPES * WG_SHAPE_RES);
+    float d = mix(WG_SHAPE_LO, WG_SHAPE_HI, texture(uWorldShapes, vec3(uvw.xy, z)).r);
+    return out_ > 0.0 ? max(out_, d - out_) : d;
+}
+
+/** Two neighbouring baked models, blended by the pick's fraction, at the genome's size. */
+float wMesh(vec3 q) {
+    float size = WG_MESH_SIZE;
+    float a = floor(WG_MESH_PICK);
+    float f = WG_MESH_PICK - a;
+    vec3 m = q / size;
+    float da = wShape(a, m);
+    float db = f > 0.0 ? wShape(min(a + 1.0, WG_SHAPES - 1.0), m) : da;
+    return mix(da, db, f) * size;
+}
+
+/** The seven primitives, blended by weight (the weights sum to one). Tube and torus ring the travel axis. */
 float wPrims(vec3 q) {
     float s = WG_PRIM_SIZE;
     float t = WG_PRIM_THICK;
@@ -128,6 +177,7 @@ float wPrims(vec3 q) {
     if (WG_P_TORUS > 0.0) d += WG_P_TORUS * (length(vec2(length(q.xy) - s, q.z)) - t);
     if (WG_P_SHELL > 0.0) d += WG_P_SHELL * (abs(length(q) - s) - t);
     if (WG_P_SLAB > 0.0) d += WG_P_SLAB * (a.y - t);
+    if (WG_P_MESH > 0.0) d += WG_P_MESH * wMesh(q);
     return d;
 }
 
@@ -193,6 +243,29 @@ float worldHue(vec4 trap) {
     return WG_PAL_OFFSET + WG_HUE_TURN + WG_PAL_SPAN * c * 0.6;
 }
 
+/** One detail map, or the blend of two neighbours by the pick's fraction, at uv. 0..1, grey. */
+float worldDetailAt(vec2 uv) {
+    float a = floor(WG_TEX_PICK);
+    float f = WG_TEX_PICK - a;
+    float va = texture(uWorldTex, vec3(uv, a)).r;
+    return f > 0.0 ? mix(va, texture(uWorldTex, vec3(uv, min(a + 1.0, 7.0))).r, f) : va;
+}
+
+/** The surface detail at p with normal n: the map projected along each axis, weighted by the normal. */
+float worldDetail(vec3 p, vec3 n) {
+    if (WG_ASSETS < 0.5) return 0.5;
+    vec3 w = pow(abs(n), vec3(4.0));
+    w /= w.x + w.y + w.z;
+    vec3 s = p * WG_TEX_SCALE;
+    return w.x * worldDetailAt(s.yz) + w.y * worldDetailAt(s.xz) + w.z * worldDetailAt(s.xy);
+}
+
+/** The same, cheaply, for the volume modes: one projection, across the travel axis. */
+float worldDetailFlat(vec3 p) {
+    if (WG_ASSETS < 0.5) return 0.5;
+    return worldDetailAt(p.xy * WG_TEX_SCALE + vec2(0.0, p.z * 0.37 * WG_TEX_SCALE));
+}
+
 /** How far the eye sees: the fog's visibility, capped so a march ends. */
 float worldFar() { return min(4.0 / max(WG_FOG, 0.015), 70.0); }
 
@@ -234,12 +307,14 @@ vec3 worldSurface(vec3 ro, vec3 rd, float budget) {
     vec3 n = worldNormal(p, t);
     world(p);
     vec4 trap = gWTrap;
-    vec3 base = pal(worldHue(trap));
+    float detail = worldDetail(p, n);
+    vec3 base = pal(worldHue(trap)) * mix(1.0, 0.3 + 1.4 * detail, WG_TEX_AMOUNT);
+    float pattern = mix(1.0, 2.0 * detail, WG_TEX_EMIT);
     vec3 l = normalize(uCamBasis[1] * 0.8 - rd * 0.6 + vec3(0.0, 0.3, 0.0));
     float diff = max(dot(n, l), 0.0);
     float rim = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
     float occ = clamp(1.0 - used / max(budget, 1.0), 0.15, 1.0) * clamp(0.35 + sqrt(trap.w) * 0.5, 0.25, 1.0);
-    vec3 col = base * (0.08 + 0.75 * diff) * occ + base * rim * 0.45 * WG_EMISSION;
+    vec3 col = base * (0.12 + 1.0 * diff) * occ + base * rim * 0.45 * WG_EMISSION * pattern;
     float spec = pow(max(dot(reflect(rd, n), l), 0.0), 24.0);
     col += vec3(spec) * 0.25 * occ;
     return mix(col, fogCol, 1.0 - exp(-t * WG_FOG));
@@ -258,7 +333,8 @@ vec3 worldGlow(vec3 ro, vec3 rd, float budget, float jitter) {
         vec3 p = ro + rd * t;
         float d = abs(worldCarved(p));
         float stepLen = max(d * 0.6, 0.06 + t * 0.012);
-        acc += pal(worldHue(gWTrap)) * exp(-d * 9.0) * stepLen * exp(-t * WG_FOG);
+        float pattern = WG_TEX_EMIT > 0.01 ? mix(1.0, 2.0 * worldDetailFlat(p), WG_TEX_EMIT) : 1.0;
+        acc += pal(worldHue(gWTrap)) * exp(-d * 9.0) * stepLen * exp(-t * WG_FOG) * pattern;
         t += stepLen;
         if (t > far) break;
     }
@@ -282,6 +358,7 @@ vec3 worldDensity(vec3 ro, vec3 rd, float budget, float jitter) {
         vec3 p = ro + rd * t;
         float d = worldCarved(p);
         float dens = exp(-(d * d) / (band * band)) * (0.6 + 0.6 * clamp(1.0 - sqrt(gWTrap.w) * 0.3, 0.0, 1.0));
+        if (WG_TEX_EMIT > 0.01) dens *= mix(1.0, 2.0 * worldDetailFlat(p), WG_TEX_EMIT);
         float a = 1.0 - exp(-dens * dt * 1.4);
         acc += trans * a * pal(worldHue(gWTrap)) * exp(-t * WG_FOG * 0.5);
         trans *= 1.0 - a * 0.5;

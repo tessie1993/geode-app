@@ -1,5 +1,7 @@
 #include "viz/world/WorldGenome.hpp"
 
+#include "viz/world/WorldAssets.hpp"
+
 #include <algorithm>
 #include <cmath>
 
@@ -40,8 +42,11 @@ constexpr Bounds kBounds[kFieldCount] = {
     {0.0f, 1.0f},     // PTorus
     {0.0f, 1.0f},     // PShell
     {0.0f, 1.0f},     // PSlab
+    {0.0f, 1.0f},     // PMesh
     {0.2f, 2.4f},     // PrimSize
     {0.03f, 0.45f},   // PrimThick
+    {0.0f, 5.0f},     // MeshPick (kShapeCount - 1)
+    {0.6f, 2.6f},     // MeshSize
     {0.0f, 1.0f},     // MSurface
     {0.0f, 1.0f},     // MGlow
     {0.0f, 1.0f},     // MDensity
@@ -55,7 +60,12 @@ constexpr Bounds kBounds[kFieldCount] = {
     {0.3f, 1.6f},     // Emission
     {0.015f, 0.12f},  // Fog
     {1.3f, 2.6f},     // Corridor
+    {0.0f, 1.0f},     // TexAmount
+    {0.0f, 7.0f},     // TexPick (kTexCount - 1)
+    {0.25f, 3.0f},    // TexScale
+    {0.0f, 1.0f},     // TexEmit
 };
+static_assert(sizeof(kBounds) / sizeof(kBounds[0]) == kFieldCount, "a bound per field");
 
 enum class Ease { Space, Linear, Wheel };
 
@@ -132,6 +142,17 @@ float prims(const Genome& g, const V3& q) {
     if (g[PTorus] > 0.0f) d += g[PTorus] * (len2(len2(q[0], q[1]) - s, q[2]) - t);
     if (g[PShell] > 0.0f) d += g[PShell] * (std::fabs(len3(q) - s) - t);
     if (g[PSlab] > 0.0f) d += g[PSlab] * (ay - t);
+    if (g[PMesh] > 0.0f) {
+        // lib_world's wMesh: two neighbouring baked models, blended by the pick's fraction.
+        const float size = g[MeshSize];
+        const float pick = g[MeshPick];
+        const int a = static_cast<int>(std::floor(pick));
+        const int b = std::min(a + 1, kShapeCount - 1);
+        const float f = pick - static_cast<float>(a);
+        const float da = shapeDistance(a, q[0] / size, q[1] / size, q[2] / size);
+        const float db = f > 0.0f ? shapeDistance(b, q[0] / size, q[1] / size, q[2] / size) : da;
+        d += g[PMesh] * (da + (db - da) * f) * size;
+    }
     return d;
 }
 
@@ -217,6 +238,8 @@ Genome base() {
     g[Emission] = 0.9f;
     g[Fog] = 0.05f;
     g[Corridor] = 1.6f;
+    g[MeshSize] = 1.4f;
+    g[TexScale] = 1.0f;
     return g;
 }
 
@@ -228,12 +251,12 @@ template <size_t N>
 Genome make(const Set (&sets)[N]) {
     Genome g = base();
     for (const Set& s : sets) g[s.field] = s.value;
-    normalize(g, PBox, 6, nullptr);
+    normalize(g, PBox, 7, nullptr);
     normalize(g, MSurface, 3, nullptr);
     return g;
 }
 
-std::array<Seed, 10> buildSeeds() {
+std::array<Seed, 12> buildSeeds() {
     return {{
         // A nave of soap-thin spheres, inverted into one another: bubbles inside bubbles, lit from within.
         {"Bubble Nave", 0.35f, 0.7f, 0.5f,
@@ -245,7 +268,7 @@ std::array<Seed, 10> buildSeeds() {
          make({{RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.0f}, {CellShift, 0.5f}, {PBar, 1.0f}, {PrimThick, 0.07f}, {Mirror, 1.0f},
                {MirrorOff, 0.9f}, {Ifs, 0.8f}, {IfsIter, 2.0f}, {IfsScale, 1.5f}, {IfsAngA, 0.35f}, {IfsAngB, 0.2f},
                {IfsOffX, 0.8f}, {IfsOffY, 0.6f}, {IfsOffZ, 0.7f}, {MSurface, 1.0f}, {TrapX, 0.6f}, {TrapY, 0.3f},
-               {PalOffset, 0.08f}, {PalSpan, 0.6f}, {Emission, 1.0f}, {Fog, 0.05f}})},
+               {PalOffset, 0.08f}, {PalSpan, 0.6f}, {Emission, 1.0f}, {Fog, 0.05f}, {TexAmount, 0.6f}, {TexPick, 1.0f}, {TexScale, 1.5f}})},
         // Plates of light, cracked and turned: march through them and every edge glows.
         {"Shard Plates", 0.8f, 0.6f, 0.45f,
          make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {PSlab, 1.0f}, {PrimThick, 0.05f}, {Ifs, 1.0f},
@@ -257,13 +280,13 @@ std::array<Seed, 10> buildSeeds() {
          make({{RepXY, 0.8f}, {CellXY, 6.0f}, {CellZ, 6.0f}, {PBox, 1.0f}, {PrimSize, 0.6f}, {PrimThick, 0.1f},
                {Ifs, 1.0f}, {IfsIter, 4.0f}, {IfsScale, 1.9f}, {Scale, 2.2f}, {CellShift, 0.4f}, {IfsAngA, 0.25f}, {IfsAngB, 0.45f}, {IfsOffX, 1.2f},
                {IfsOffY, 1.0f}, {IfsOffZ, 1.1f}, {MSurface, 0.85f}, {MGlow, 0.15f}, {TrapX, 0.4f}, {TrapZ, 0.5f},
-               {PalOffset, 0.4f}, {PalSpan, 0.35f}, {Emission, 0.95f}, {Fog, 0.045f}})},
+               {PalOffset, 0.4f}, {PalSpan, 0.35f}, {Emission, 0.95f}, {Fog, 0.045f}, {TexAmount, 0.5f}, {TexPick, 4.0f}, {TexEmit, 0.3f}})},
         // Rings that hold heat, twisted down the travel: a furnace you drive through.
         {"Ember Rings", 0.85f, 0.35f, 0.55f,
          make({{RepXY, 0.4f}, {CellXY, 7.0f}, {CellZ, 3.5f}, {PTorus, 1.0f}, {PrimSize, 2.4f}, {PrimThick, 0.2f},
                {Twist, 0.9f}, {Mirror, 0.6f}, {MirrorOff, 0.3f}, {Invert, 0.35f}, {InvRadius, 2.0f}, {MSurface, 0.6f},
                {MGlow, 0.4f}, {TrapR, 0.6f}, {TrapY, 0.4f}, {PalOffset, 0.02f}, {PalSpan, 0.25f}, {Emission, 1.2f},
-               {Fog, 0.06f}})},
+               {Fog, 0.06f}, {TexAmount, 0.5f}, {TexPick, 2.0f}, {TexEmit, 0.6f}})},
         // A gas of folded inversions: no surface at all, a cloud with a fractal inside.
         {"Fractal Gas", 0.25f, 0.5f, 0.3f,
          make({{RepXY, 0.7f}, {CellXY, 5.0f}, {CellZ, 5.0f}, {PShell, 1.0f}, {PrimSize, 0.7f}, {PrimThick, 0.08f},
@@ -279,24 +302,36 @@ std::array<Seed, 10> buildSeeds() {
         {"Endless Arches", 0.45f, 0.4f, 0.6f,
          make({{RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.0f}, {PTube, 0.7f}, {PBar, 0.3f}, {PrimSize, 1.4f},
                {PrimThick, 0.16f}, {Mirror, 1.0f}, {MirrorOff, 0.5f}, {Invert, 0.2f}, {InvRadius, 1.2f}, {MSurface, 1.0f},
-               {TrapX, 0.5f}, {TrapZ, 0.3f}, {PalOffset, 0.15f}, {PalSpan, 0.3f}, {Emission, 0.9f}, {Fog, 0.055f}})},
+               {TrapX, 0.5f}, {TrapZ, 0.3f}, {PalOffset, 0.15f}, {PalSpan, 0.3f}, {Emission, 0.9f}, {Fog, 0.055f}, {TexAmount, 0.7f}, {TexPick, 0.0f}, {TexScale, 0.8f}})},
         // A lattice of small boxes thrown through an abs-inversion: blossoms of light along every edge.
         {"Lattice Bloom", 0.65f, 0.8f, 0.5f,
          make({{RepXY, 1.0f}, {CellXY, 4.0f}, {CellZ, 4.0f}, {PBox, 0.6f}, {PShell, 0.4f}, {PrimSize, 0.5f},
                {PrimThick, 0.06f}, {AbsInv, 0.6f}, {AbsInvC, 0.4f}, {Mirror, 0.7f}, {MirrorOff, 0.4f}, {MGlow, 0.7f},
                {MSurface, 0.3f}, {TrapX, 0.4f}, {TrapR, 0.6f}, {PalOffset, 0.85f}, {PalSpan, 0.55f}, {Emission, 1.1f},
-               {Fog, 0.04f}})},
+               {Fog, 0.04f}, {TexEmit, 0.7f}, {TexPick, 7.0f}, {TexScale, 1.2f}})},
         // Folded spheres under a tide of light: a reef half stone, half glowing mist.
         {"Coral Drift", 0.4f, 0.6f, 0.65f,
          make({{RepXY, 0.8f}, {CellXY, 5.5f}, {CellZ, 5.5f}, {PShell, 0.7f}, {PTorus, 0.3f}, {PrimSize, 0.9f},
                {PrimThick, 0.12f}, {Ifs, 0.9f}, {IfsIter, 3.0f}, {IfsScale, 1.45f}, {IfsAngA, 0.4f}, {IfsAngB, 0.6f}, {Scale, 2.6f}, {CellShift, 0.35f},
                {IfsOffX, 0.6f}, {IfsOffY, 0.9f}, {IfsOffZ, 0.4f}, {MSurface, 0.55f}, {MDensity, 0.45f}, {DensBand, 0.15f},
                {TrapR, 0.7f}, {TrapZ, 0.4f}, {PalOffset, 0.3f}, {PalSpan, 0.5f}, {Emission, 1.0f}, {Fog, 0.045f}})},
+        // Statues and skulls in mirrored niches down a marble gallery: the baked models (WorldAssets).
+        {"Reliquary", 0.3f, 0.35f, 0.6f,
+         make({{RepXY, 1.0f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {CellShift, 1.0f}, {PMesh, 1.0f}, {MeshPick, 1.0f},
+               {MeshSize, 1.8f}, {Mirror, 0.3f}, {MirrorOff, 0.4f}, {MSurface, 1.0f}, {TrapX, 0.3f}, {TrapR, 0.5f},
+               {PalOffset, 0.12f}, {PalSpan, 0.3f}, {Emission, 1.4f}, {Fog, 0.03f}, {TexAmount, 0.7f}, {TexPick, 0.0f},
+               {TexScale, 1.2f}})},
+        // Shells and chandeliers hung in light, half glass, half glow.
+        {"Shell Choir", 0.6f, 0.75f, 0.45f,
+         make({{RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.5f}, {CellShift, 1.0f}, {PMesh, 0.85f}, {PShell, 0.15f},
+               {PrimSize, 1.2f}, {PrimThick, 0.04f}, {MeshPick, 5.0f}, {MeshSize, 2.3f}, {Invert, 0.2f}, {InvRadius, 1.6f},
+               {MSurface, 0.65f}, {MGlow, 0.35f}, {TrapR, 0.6f}, {TrapY, 0.3f}, {PalOffset, 0.7f}, {PalSpan, 0.45f},
+               {Emission, 1.05f}, {Fog, 0.04f}, {TexEmit, 0.5f}, {TexPick, 3.0f}, {TexScale, 1.4f}})},
     }};
 }
 
-const std::array<Seed, 10>& seeds() {
-    static const std::array<Seed, 10> kSeeds = buildSeeds();
+const std::array<Seed, 12>& seeds() {
+    static const std::array<Seed, 12> kSeeds = buildSeeds();
     return kSeeds;
 }
 
@@ -344,7 +379,7 @@ Genome clampFields(Genome g) {
         if (!std::isfinite(g[f])) g[f] = kBounds[f].lo;
         g[f] = wraps(f) ? wrap01(g[f]) : std::clamp(g[f], kBounds[f].lo, kBounds[f].hi);
     }
-    normalize(g, PBox, 6, nullptr);
+    normalize(g, PBox, 7, nullptr);
     normalize(g, MSurface, 3, nullptr);
     return g;
 }
@@ -356,7 +391,7 @@ bool inBounds(const Genome& g) {
         if (wraps(f) ? (g[f] < 0.0f || g[f] >= 1.0f) : (g[f] < b.lo - 1e-5f || g[f] > b.hi + 1e-5f)) return false;
     }
     for (int first : {static_cast<int>(PBox), static_cast<int>(MSurface)}) {
-        const int n = first == PBox ? 6 : 3;
+        const int n = first == PBox ? 7 : 3;
         float sum = 0.0f;
         for (int i = 0; i < n; ++i) sum += g[first + i];
         if (std::fabs(sum - 1.0f) > 1e-3f) return false;
@@ -405,7 +440,7 @@ const Seed& seed(int index) { return seeds()[static_cast<size_t>(std::clamp(inde
 Genome random(uint64_t seedValue, const Constraints& c, int* picked) {
     uint64_t s = mix64(seedValue ^ 0x4D6F727068576F72ull);
     // Pick the seed world: closeness to the music's wants, the current world far less likely.
-    float weights[10];
+    float weights[16];
     float total = 0.0f;
     for (int i = 0; i < seedCount(); ++i) {
         const Seed& sd = seed(i);
@@ -438,7 +473,8 @@ Genome random(uint64_t seedValue, const Constraints& c, int* picked) {
         m[f] += (unit(s) * 2.0f - 1.0f) * amount * span * scale * 0.5f;
     }
     // Far mutations also wake operators the seed leaves off: a new kind of fold, not only new numbers.
-    for (int f : {static_cast<int>(Mirror), static_cast<int>(Ifs), static_cast<int>(Invert), static_cast<int>(AbsInv)}) {
+    for (int f : {static_cast<int>(Mirror), static_cast<int>(Ifs), static_cast<int>(Invert), static_cast<int>(AbsInv),
+                  static_cast<int>(PMesh), static_cast<int>(TexAmount), static_cast<int>(TexEmit)}) {
         if (origin[f] < 0.05f && unit(s) < amount * 0.5f) m[f] = unit(s) * amount;
     }
     m = clampFields(m);

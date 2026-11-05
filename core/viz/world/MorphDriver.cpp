@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "viz/world/WorldAssets.hpp"
+
 namespace geode::viz::world {
 
 namespace {
@@ -187,6 +189,7 @@ void MorphDriver::publish() {
     uniforms_[WakeX] = wake[0];
     uniforms_[WakeY] = wake[1];
     uniforms_[WakeZ] = wake[2];
+    uniforms_[Assets] = hasShapes() && texturesBound_ ? 1.0f : 0.0f;
 }
 
 }  // namespace geode::viz::world

@@ -192,10 +192,20 @@ const SHADER_VALUES = {
   uCamDolly: 0, uCamLook: [0, 0, 0],
   // Morph World's genome (lib_world): seed 0, Bubble Nave, as `world_genome_test --dump 0` prints it.
   // Every seed: `--set uWorld=$(world_genome_test --dump <i>)`.
-  uWorld: [1, 6, 5, 1, 0.5, 0.6, 0, 3, 1.6, -1.3, -1.3, 0, 0, 0, 0.6, 1.1, 0, 0.6, 0, 1, 0, 0, 0, 0, 1, 0, 1.6, 0.05, 0.8, 0.2, 0, 0.12, 0.2, 0, 0, 0.8, 0.55, 0.4, 0.9, 0.04, 1.6, 0, 1.47569, 5, 0, 0, 0, 1.9],
+  uWorld: [1, 6, 5, 1, 0.5, 0.6, 0, 3, 1.6, 0.3, 0.3, 0.8, 0.8, 0.8, 0.6, 1.1, 0, 0.6, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1.6, 0.05, 0, 1.4, 0.8, 0.2, 0, 0.12, 0.2, 0, 0, 0.8, 0.55, 0.4, 0.9, 0.04, 1.6, 0, 0, 1, 0, 0, 1.47569, 5, 0, 0, 0, 1.9, 1],
 };
 
-const SHADER_TEXTURES = { uSoundTex: 'sound', uPalLut: 'palette' };
+const SHADER_TEXTURES = { uSoundTex: 'sound', uPalLut: 'palette', uWorldShapes: 'world_shapes', uWorldTex: 'world_tex' };
+
+// Morph World's baked assets (core/viz/world/WorldAssets), handed to the page as the app uploads them:
+// the shape volumes as one 32 x 32 x 192 R8 TEXTURE_3D, the detail maps as an 8-layer R8 TEXTURE_2D_ARRAY.
+function worldAssets() {
+  const read = (f) => fs.readFileSync(path.join(SHADERS, f)).toString('base64');
+  return {
+    world_shapes: { target: '3d', w: 32, h: 32, d: 192, b64: read('world_shapes.bin') },
+    world_tex: { target: 'array', w: 128, h: 128, d: 8, b64: read('world_textures.bin') },
+  };
+}
 
 // FluidLook::drawDisplay with mid-loudness audio.
 const FLUID_VALUES = {
@@ -208,7 +218,7 @@ function plan(uniforms, values, textures, width, height) {
   const missing = [];
   const out = [];
   for (const u of uniforms) {
-    if (u.type === 'sampler2D') {
+    if (u.type.startsWith('sampler')) {
       if (!(u.name in textures)) missing.push(u.name);
       else out.push({ ...u, texture: textures[u.name] });
       continue;
@@ -442,7 +452,9 @@ async function main() {
     const values = { ...SHADER_VALUES };
     if (args.time !== null) values.uTime = args.time;
     applyOverrides(values, args);
-    jobs.push({ name: id, vert: quadVert, frag, uniforms: plan(parseUniforms(frag), values, SHADER_TEXTURES, args.size, args.height ?? args.size) });
+    const uniforms = plan(parseUniforms(frag), values, SHADER_TEXTURES, args.size, args.height ?? args.size);
+    const assets = uniforms.some((u) => u.texture && u.texture.startsWith('world_')) ? worldAssets() : undefined;
+    jobs.push({ name: id, vert: quadVert, frag, uniforms, assets });
   }
   if (args.fluidDisplay) {
     const vert = fs.readFileSync(path.join(SHADERS, 'fluid_base_vert.glsl'), 'utf8');

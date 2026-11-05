@@ -79,6 +79,9 @@ public:
     const Genome& live() const { return live_; }
     Way way() const;
 
+    // Whether the scene bound the baked maps and shape volume (WorldAssets) for the shader.
+    void setAssetsBound(bool bound) { texturesBound_ = bound; }
+
     const Genome& target() const { return to_; }
     int targetSeed() const { return toSeed_; }
     int retargets() const { return retargets_; }
@@ -128,6 +131,7 @@ private:
     std::array<float, 3> eye_{0.0f, 0.0f, 0.0f};
     std::array<float, 3> vel_{0.0f, 0.0f, 0.0f};
 
+    bool texturesBound_ = false;
     std::array<float, kUniformCount> uniforms_{};
 };
 

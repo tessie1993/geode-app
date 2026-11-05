@@ -1,0 +1,21 @@
+{
+  "_comment": "Morph World's baked assets: CC0 (license cc_zero) BlenderKit assets, pinned by assetBaseId. fetch.py refuses any that the API does not report as cc_zero. Order is the bake order: material i is layer i of world_textures.bin, model i is slab i of world_shapes.bin.",
+  "materials": [
+    {"id": "cb2ba137-0fcb-4c4c-913c-4e22b1735605", "name": "Marble Tiles"},
+    {"id": "0faa32f0-80ce-4b4f-94a4-51047252020d", "name": "Corrugated Iron"},
+    {"id": "b73e2a0e-7967-4d27-8eca-b5208c4a4916", "name": "Volcanic Rock Tiles"},
+    {"id": "7372ddd4-5513-469e-a942-970d5fa50fd5", "name": "Lichen Rock"},
+    {"id": "7805955b-1f11-40e5-bbed-fa2ad44601d8", "name": "Ice 02"},
+    {"id": "785ae9c1-5c95-4345-89ef-728b4b12738a", "name": "Chinese Cedar Bark"},
+    {"id": "e8feb6dc-2e14-4b9c-8aa1-b43bb881bb33", "name": "Clay Roof Tiles"},
+    {"id": "d2985100-fe7a-481d-902b-02d5965a446d", "name": "Computer Texture"}
+  ],
+  "models": [
+    {"id": "19b1ef54-c54a-4c0c-b309-28f1b266686f", "name": "Lambis Shell"},
+    {"id": "46610f9c-5817-439e-be91-dd0e2c4ad1a9", "name": "Gothic Statue"},
+    {"id": "b5292b3a-ce6d-4721-8cd7-f214f62e7889", "name": "Bull Head"},
+    {"id": "a37f703c-8986-4488-8053-b47422a87175", "name": "Cow Skull"},
+    {"id": "953a5b75-6bef-4c80-9371-9d99a4aa9122", "name": "Horse Statue 01"},
+    {"id": "9bcdea77-1798-4d4a-a69e-bab56a4ea261", "name": "Chandelier 03"}
+  ]
+}

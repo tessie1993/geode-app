@@ -1,15 +1,18 @@
 // Morph World's genome and morph driver (core/viz/world), on the host.
 //
-//   world_genome_test [path/to/lib_world.glsl]   run the checks; with the path, also check that
-//                                                lib_world's WG_* names index the same fields
-//   world_genome_test --dump <seed>              print seed <seed>'s uWorld (48 floats, comma
-//                                                separated) for tools/glslcheck --set uWorld=...
-//   world_genome_test --names                    print the seeds' names and open-space probes
+//   world_genome_test [lib_world.glsl [world_shapes.bin world_textures.bin]]
+//                                 run the checks; with lib_world, also check that its WG_* names
+//                                 index the same fields; with the baked assets, check their sizes
+//                                 and probe every world with the real shapes (else spheres)
+//   world_genome_test --dump <seed>          print seed <seed>'s uWorld (56 floats, comma separated)
+//                                            for tools/glslcheck --set uWorld=...
+//   world_genome_test --names [shapes.bin]   print the seeds' names and open-space probes
 #include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <iterator>
 #include <map>
 #include <sstream>
 #include <string>
@@ -17,6 +20,7 @@
 
 #include "viz/CameraRig.hpp"
 #include "viz/world/MorphDriver.hpp"
+#include "viz/world/WorldAssets.hpp"
 #include "viz/world/WorldGenome.hpp"
 
 using namespace geode::viz;
@@ -308,7 +312,9 @@ void glslNamesMatch(const char* path) {
         {"WG_IFS_OFF_Z", IfsOffZ},  {"WG_INVERT", Invert},      {"WG_INV_RADIUS", InvRadius}, {"WG_ABS_INV", AbsInv},
         {"WG_ABS_INV_C", AbsInvC},  {"WG_TWIST", Twist},        {"WG_SCALE", Scale},        {"WG_P_BOX", PBox},
         {"WG_P_BAR", PBar},         {"WG_P_TUBE", PTube},       {"WG_P_TORUS", PTorus},     {"WG_P_SHELL", PShell},
-        {"WG_P_SLAB", PSlab},       {"WG_PRIM_SIZE", PrimSize}, {"WG_PRIM_THICK", PrimThick}, {"WG_M_SURFACE", MSurface},
+        {"WG_P_SLAB", PSlab},       {"WG_P_MESH", PMesh},       {"WG_PRIM_SIZE", PrimSize},
+        {"WG_MESH_PICK", MeshPick}, {"WG_MESH_SIZE", MeshSize}, {"WG_TEX_AMOUNT", TexAmount}, {"WG_TEX_PICK", TexPick},
+        {"WG_TEX_SCALE", TexScale}, {"WG_TEX_EMIT", TexEmit},   {"WG_ASSETS", Assets}, {"WG_PRIM_THICK", PrimThick}, {"WG_M_SURFACE", MSurface},
         {"WG_M_GLOW", MGlow},       {"WG_M_DENSITY", MDensity}, {"WG_DENS_BAND", DensBand}, {"WG_TRAP_X", TrapX},
         {"WG_TRAP_Y", TrapY},       {"WG_TRAP_Z", TrapZ},       {"WG_TRAP_R", TrapR},       {"WG_PAL_OFFSET", PalOffset},
         {"WG_PAL_SPAN", PalSpan},   {"WG_EMISSION", Emission},  {"WG_FOG", Fog},            {"WG_CORRIDOR", Corridor},
@@ -321,7 +327,35 @@ void glslNamesMatch(const char* path) {
         std::snprintf(want, sizeof want, "#define %s uWorld[%d].%c", name.c_str(), index / 4, comps[index % 4]);
         check(src.find(want) != std::string::npos, std::string("lib_world has ") + want);
     }
-    check(src.find("uniform vec4 uWorld[" + std::to_string(kVec4) + "];") != std::string::npos, "lib_world declares uWorld[12]");
+    check(src.find("uniform vec4 uWorld[" + std::to_string(kVec4) + "];") != std::string::npos, "lib_world declares uWorld[14]");
+}
+
+std::vector<uint8_t> readAll(const char* path) {
+    std::ifstream in(path, std::ios::binary);
+    return {std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
+}
+
+void loadAssets(const char* shapes, const char* textures) {
+    const auto s = readAll(shapes);
+    check(s.size() == kShapeBytes, "world_shapes.bin is " + std::to_string(kShapeBytes) + " bytes");
+    check(setShapeVolumes(s) && hasShapes(), "the shapes load");
+    if (textures != nullptr) check(readAll(textures).size() == kTexBytes, "world_textures.bin is " + std::to_string(kTexBytes) + " bytes");
+    // Every baked model has an inside and an outside, and the distance outside the cube is a bound.
+    for (int i = 0; i < kShapeCount; ++i) {
+        float lo = 1e9f;
+        float hi = -1e9f;
+        for (int k = 0; k < 4096; ++k) {
+            const float x = -0.95f + 1.9f * static_cast<float>(k % 16) / 15.0f;
+            const float y = -0.95f + 1.9f * static_cast<float>((k / 16) % 16) / 15.0f;
+            const float z = -0.95f + 1.9f * static_cast<float>(k / 256) / 15.0f;
+            const float d = shapeDistance(i, x, y, z);
+            lo = std::fmin(lo, d);
+            hi = std::fmax(hi, d);
+        }
+        check(lo < 0.0f && hi > 0.0f, "baked shape " + std::to_string(i) + " has an inside and an outside");
+        check(shapeDistance(i, 3.0f, 0.0f, 0.0f) <= 2.0f + 1e-4f && shapeDistance(i, 3.0f, 0.0f, 0.0f) >= 2.0f - 1e-4f,
+              "outside the cube the distance is the way to the cube");
+    }
 }
 
 }  // namespace
@@ -334,11 +368,13 @@ int main(int argc, char** argv) {
         u[Gain] = std::fmin(std::fmax(0.85f / std::fmax(brightness(g), 0.2f), 0.6f), 1.5f);
         u[IterCap] = 5.0f;
         u[WakeZ] = 1.9f;
+        u[Assets] = 1.0f;
         for (int i = 0; i < kUniformCount; ++i) std::printf("%s%g", i ? "," : "", static_cast<double>(u[static_cast<size_t>(i)]));
         std::printf("\n");
         return 0;
     }
-    if (argc == 2 && std::string(argv[1]) == "--names") {
+    if (argc >= 2 && std::string(argv[1]) == "--names") {
+        if (argc == 3) setShapeVolumes(readAll(argv[2]));
         for (int i = 0; i < seedCount(); ++i) {
             const Space sp = openSpace(seed(i).genome);
             std::printf("%s\topen %.2f\tnear %.2f\tbright %.2f\n", seed(i).name, static_cast<double>(sp.open),
@@ -346,6 +382,7 @@ int main(int argc, char** argv) {
         }
         return 0;
     }
+    if (argc == 4) loadAssets(argv[2], argv[3]);
     lerpEndpointsAreExact();
     seedsAreValid();
     randomGenomesAreValid();
@@ -354,7 +391,7 @@ int main(int argc, char** argv) {
     aCalmSongCanKeepItsWorld();
     dropRushesAndVerseGlides();
     travelIsSeamless();
-    if (argc == 2) glslNamesMatch(argv[1]);
+    if (argc >= 2) glslNamesMatch(argv[1]);
     if (failures == 0) std::printf("world_genome_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

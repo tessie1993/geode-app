@@ -37,6 +37,27 @@ function link(vertSrc, fragSrc) {
 // Stand-in textures. Each is named for what the app binds there so a report
 // line can say which one it was.
 const textures = {};
+// The binding target of each texture by name; TEXTURE_2D unless defineAsset() said otherwise.
+const targets = {};
+// A texture handed over by the job (check.mjs worldAssets()): R8 bytes, base64, as the app uploads them.
+function defineAsset(name, a) {
+  if (textures[name]) return;
+  const bytes = Uint8Array.from(atob(a.b64), (c) => c.charCodeAt(0));
+  const target = a.target === '3d' ? gl.TEXTURE_3D : gl.TEXTURE_2D_ARRAY;
+  const t = gl.createTexture();
+  gl.bindTexture(target, t);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage3D(target, 0, gl.R8, a.w, a.h, a.d, 0, gl.RED, gl.UNSIGNED_BYTE, bytes);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+  gl.texParameteri(target, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(target, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  const wrap = a.target === '3d' ? gl.CLAMP_TO_EDGE : gl.MIRRORED_REPEAT;
+  gl.texParameteri(target, gl.TEXTURE_WRAP_S, wrap);
+  gl.texParameteri(target, gl.TEXTURE_WRAP_T, wrap);
+  gl.texParameteri(target, gl.TEXTURE_WRAP_R, wrap);
+  textures[name] = t;
+  targets[name] = target;
+}
 function makeTexture(name, w, h, fill) {
   const data = new Uint8Array(w * h * 4);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) fill(x, y, data.subarray((y * w + x) * 4, (y * w + x) * 4 + 4));
@@ -91,7 +112,7 @@ function upload(program, u) {
   if (loc === null) return false;
   if (u.texture) {
     gl.activeTexture(gl.TEXTURE0 + u.unit);
-    gl.bindTexture(gl.TEXTURE_2D, textures[u.texture]);
+    gl.bindTexture(targets[u.texture] || gl.TEXTURE_2D, textures[u.texture]);
     gl.uniform1i(loc, u.unit);
     return true;
   }
@@ -123,6 +144,7 @@ window.__render = async function (job) {
   try {
     canvas.width = job.width;
     canvas.height = job.height;
+    if (job.assets) for (const [name, a] of Object.entries(job.assets)) defineAsset(name, a);
     program = link(job.vert, job.frag);
     gl.useProgram(program);
     let unit = 0;

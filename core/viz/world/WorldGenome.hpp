@@ -17,7 +17,8 @@
 //   z repeat (always on: the travel axis is endless), x/y repeat (RepXY fades it, CellShift moves
 //   the cells off the axis, so the way runs between structures rather than through them), twist along
 //   travel, global scale, mirror fold, up to five IFS steps (rotate-fold, fractional count),
-//   sphere inversion, abs-inversion, then six primitives blended by weight, then the corridor
+//   sphere inversion, abs-inversion, then seven primitives blended by weight (the seventh a baked
+//   CC0 model, WorldAssets), then the corridor
 //   carved out around the camera's way. Three render modes read that one world: a hard surface,
 //   a glow-through volume (translucent glowing plates) and an emissive density (thin glowing
 //   sheets); their weights are in the genome too, so a world can melt from stone into light.
@@ -61,8 +62,11 @@ enum Field : int {
     PTorus,
     PShell,
     PSlab,
+    PMesh,       // a baked model (WorldAssets), sized by MeshSize
     PrimSize,
     PrimThick,
+    MeshPick,    // 0..kShapeCount-1: which baked model, fractional = a blend of two neighbours
+    MeshSize,    // the model's half-size, world units before Scale
     // Render modes: weights (normalized to sum 1), then the density mode's band half-width.
     MSurface,
     MGlow,
@@ -79,6 +83,11 @@ enum Field : int {
     Emission,
     Fog,
     Corridor,    // the radius of the open tube along the travel axis
+    // Surface detail from the baked material maps (WorldAssets), grey so colour stays pal()'s.
+    TexAmount,   // 0..1: how much the detail varies the surface's albedo
+    TexPick,     // 0..kTexCount-1: which map, fractional = a blend of two neighbours
+    TexScale,    // repeats per world unit
+    TexEmit,     // 0..1: how much the detail patterns the light (rims, glow, density)
     kFieldCount,
 };
 
@@ -91,12 +100,13 @@ enum Runtime : int {
     WakeX,                 // where the camera is heading, times how far: the corridor's wake
     WakeY,
     WakeZ,
+    Assets,                // 1 when the baked shapes and maps are bound, else 0 (mesh = sphere, no detail)
     kUniformCount,
 };
 
 constexpr int kVec4 = kUniformCount / 4;
 static_assert(kUniformCount % 4 == 0, "uWorld is whole vec4s");
-static_assert(kVec4 == 12, "lib_world declares uWorld[12]");
+static_assert(kVec4 == 14, "lib_world declares uWorld[14]");
 
 constexpr int kMaxIfsSteps = 5;
 // The corridor's eye bubble (lib_world's WG_EYE_RADIUS): what is always open around the eye.

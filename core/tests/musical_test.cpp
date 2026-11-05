@@ -100,7 +100,9 @@ void testScales() {
 }
 
 // Kick-like click tracks with an accented first beat: tempo within 2%, locked, every beat trigger within
-// 50 ms of a click from 10 s on, and every downbeat on an accented click.
+// 50 ms of a click from 10 s on, every downbeat on an accented click, and the beat phase on the click: its
+// mean signed offset from the clicks within 5 ms (beat triggers land on frames, 17 ms apart; the phase is
+// read at the frame's own instant, so it says where the oscillator puts the beat).
 void testClickTracks() {
     for (double bpm : {90.0, 128.0, 174.0}) {
         const double period = 60.0 / bpm;
@@ -109,6 +111,8 @@ void testClickTracks() {
         int aligned = 0;
         int downs = 0;
         int downAligned = 0;
+        double offset = 0.0;  // the beat phase's signed lead over the clicks, s, summed over locked frames
+        int phased = 0;
         GeodeSoundFrame last{};
         const int rate = e.sampleRateHz();
         std::vector<float> buf;
@@ -130,6 +134,10 @@ void testClickTracks() {
             e.step(1.0f / 60.0f, last);
             const double t = i / 60.0;
             if (t <= 10.0) continue;
+            if (last.beatConf > 0.35f) {
+                offset += std::remainder(static_cast<double>(last.beatPhase) - t / period, 1.0) * period;
+                phased++;
+            }
             if (last.beat > 0.0f) {
                 beats++;
                 if (std::fabs(std::remainder(t, period)) < 0.05) aligned++;
@@ -140,6 +148,9 @@ void testClickTracks() {
             }
         }
         const int expected = static_cast<int>(10.0 / period);
+        const double lead = phased > 0 ? offset / phased : 1.0;
+        std::printf("  click %3.0f BPM: beat phase %+.1f ms from the clicks\n", bpm, 1000.0 * lead);
+        CHECK(std::fabs(lead) < 0.005, "%.0f BPM: the beat phase runs %+.1f ms from the clicks", bpm, 1000.0 * lead);
         CHECK(std::fabs(last.bpm / bpm - 1.0) < 0.02, "%.0f BPM read %.2f", bpm, last.bpm);
         CHECK(last.beatConf > 0.35f, "%.0f BPM confidence %f", bpm, last.beatConf);
         CHECK(beats >= expected - 1 && aligned == beats, "%.0f BPM: %d beats (%d expected), %d on a click", bpm, beats, expected, aligned);

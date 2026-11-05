@@ -114,9 +114,12 @@ void Rhythm::hop(const std::array<float, kBands>& power) {
     ring_[ringHead_] = std::max(0.0f, odf - localMean_);
     ringHead_ = (ringHead_ + 1) % kRing;
 
+    // Predict, then correct: the oscillator steps to this hop first, so the pulse measured at this hop is
+    // compared with the oscillator at the same instant (#373; compared before the step, every beat ran a
+    // hop early).
+    advance();
     if (hops_ >= kTempoAfter && hops_ % kTempoEvery == 0) estimateTempo();
     if (period_ > 0.0f && hops_ % kPhaseEvery == 0) measurePhase();
-    advance();
 }
 
 void Rhythm::estimateTempo() {

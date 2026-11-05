@@ -15,6 +15,10 @@
 // Not the renderer's SoundEngine on purpose: a resting surface draws no frames, so the engine that
 // rides the render loop hears nothing exactly when this has to listen. The caller polls on its own
 // clock (a few times a second) and keeps one timestamp, so there is no state here to own or free.
+// That caller is the ingest ring itself (geode_ingest_resting, #491): its writer judges each chunk
+// with kPeak and stamps the time, and resting() is a pure read of that stamp, so every surface that
+// hears one ring (the wallpaper, the dream, the edge glow, the capture screen) gets one answer with
+// one hold. audible() and heardAt() are the same rule for planar callers.
 namespace geode::sound::silence {
 
 // About -42 dBFS: under the quietest music, above the output mix's 8-bit floor of zero.

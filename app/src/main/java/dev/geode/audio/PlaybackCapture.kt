@@ -6,7 +6,9 @@ import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
 import android.media.projection.MediaProjection
 import android.os.Build
+import android.os.SystemClock
 import androidx.annotation.RequiresApi
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
 
 enum class CaptureFailure {

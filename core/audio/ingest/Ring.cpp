@@ -4,6 +4,7 @@
 #include <bit>
 #include <cmath>
 #include <cstring>
+#include <ctime>
 
 #include "audio/ingest/Downmix.hpp"
 #include "sound/Silence.hpp"
@@ -76,7 +77,21 @@ Ring::Ring(int capacityFrames, int maxChannels)
       // Kotlin SampleRing used the same divisor.
       runway_(capacity_ / 4),
       mask_(static_cast<int64_t>(capacity_) - 1),
-      data_(static_cast<size_t>(capacity_) * static_cast<size_t>(stride_), 0.0f) {}
+      data_(static_cast<size_t>(capacity_) * static_cast<size_t>(stride_), 0.0f),
+      heardAtMs_(monotonicMs()) {}
+
+int64_t Ring::monotonicMs() {
+    // CLOCK_MONOTONIC on purpose, not steady_clock's unspecified epoch: SystemClock.uptimeMillis, which every
+    // Kotlin poller passes as now_ms, reads the same clock.
+    timespec ts{};
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return static_cast<int64_t>(ts.tv_sec) * 1000 + static_cast<int64_t>(ts.tv_nsec / 1000000);
+}
+
+void Ring::setClock(Clock clock) {
+    clock_ = clock ? clock : &Ring::monotonicMs;
+    heardAtMs_.store(clock_(), std::memory_order_release);
+}
 
 void Ring::publish(const Record& r) {
     const int64_t index = recordCount_.load(std::memory_order_relaxed);
@@ -161,7 +176,8 @@ size_t Ring::write(const void* bytes, size_t frames, int encoding) {
         pen_ += static_cast<int64_t>(n);
         done += n;
         written_.store(pen_, std::memory_order_release);
-        if (peak > geode::sound::silence::kPeak) audibleAt_.store(pen_, std::memory_order_release);
+        // One clock read per audible chunk (a vDSO call, no syscall): the stamp every poller reads.
+        if (peak > geode::sound::silence::kPeak) heardAtMs_.store(clock_(), std::memory_order_release);
     }
     return frames;
 }
@@ -173,18 +189,8 @@ size_t Ring::writeBytes(const void* bytes, size_t byteCount, int encoding) {
     return write(bytes, byteCount / frameBytes, encoding);
 }
 
-bool Ring::resting(int64_t nowMs) {
-    int64_t heard = heardAtMs_.load(std::memory_order_relaxed);
-    if (heard == kNeverPolled) {
-        heard = nowMs;
-        heardAtMs_.store(heard, std::memory_order_relaxed);
-    }
-    const int64_t audible = audibleAt_.load(std::memory_order_acquire);
-    if (seenAudible_.exchange(audible, std::memory_order_relaxed) != audible) {
-        heard = std::max(heard, nowMs);
-        heardAtMs_.store(heard, std::memory_order_relaxed);
-    }
-    return geode::sound::silence::resting(nowMs, heard);
+bool Ring::resting(int64_t nowMs) const {
+    return geode::sound::silence::resting(nowMs, heardAtMs_.load(std::memory_order_acquire));
 }
 
 }  // namespace geode::audio::ingest

@@ -558,26 +558,6 @@ object GeodeNative {
         out: DoubleArray,
     ): Boolean
 
-    // Rest when silent (core/sound/Silence): the wallpaper's and the dream's silence rule.
-
-    /**
-     * The time sound was last heard, given this poll's newest [frames] samples per channel (0 when
-     * nothing new was written): [nowMs] when any is above about -42 dBFS, else [heardAtMs].
-     */
-    external fun silenceHeardAt(
-        left: FloatArray,
-        right: FloatArray,
-        frames: Int,
-        nowMs: Long,
-        heardAtMs: Long,
-    ): Long
-
-    /** Whether a surface may rest: nothing heard for 6 s. */
-    external fun silenceResting(
-        nowMs: Long,
-        heardAtMs: Long,
-    ): Boolean
-
     // Native ingest ring (core/audio/ingest): one per audio source. The ring, the conversion, the downmix,
     // the cursors and the silence rule are all native; these only hand over a handle and a buffer.
 
@@ -620,11 +600,24 @@ object GeodeNative {
     /** Frames written over every epoch. */
     external fun ingestWritten(handle: Long): Long
 
-    /** Whether a surface reading this ring may rest: nothing audible written for 6 s. */
+    // The one silence answer per ring (#491): the wallpaper, the dream, the edge glow and the capture
+    // screen all ask the ring they hear, so they never disagree. nowMs is SystemClock.uptimeMillis
+    // (CLOCK_MONOTONIC, the clock the ring stamps its audible writes with) on every caller.
+
+    /**
+     * Whether a surface reading this ring may rest: nothing audible written for 6 s, judged on the
+     * writer's own clock, so any number of pollers get one answer. A handle of 0 rests.
+     */
     external fun ingestResting(
         handle: Long,
         nowMs: Long,
     ): Boolean
+
+    /** RMS of the ring's newest 512 mono samples, 0 once nothing was written for 100 ms; 0 for a handle of 0. */
+    external fun ingestLevel(
+        handle: Long,
+        nowMs: Long,
+    ): Float
 
     /** What feeds the ring (`GEODE_SOURCE_*`: player 0, mic 1, capture 2, output mix 3, file 4); set once after create. */
     external fun ingestSetSourceKind(

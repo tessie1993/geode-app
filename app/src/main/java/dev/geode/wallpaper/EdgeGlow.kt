@@ -69,10 +69,11 @@ class WallpaperRenderer(
  * The edge look: the visual stays along the screen's rounded rim and fades to black inward.
  *
  * The black is real black, so on an OLED panel most of the screen is switched off, and icons and
- * the lock clock sit on black instead of on a busy picture. The band opens while the ring is fed
- * and not resting (the native silence answer, `geode_ingest_resting`) and closes when it rests or
- * stops being written, attack fast and release slow. Its beat pulse went with the Kotlin ring: the
- * level now belongs to the one native silence and level answer (#491), not to a loop here.
+ * the lock clock sit on black instead of on a busy picture. The band breathes with the ring's
+ * level, asked of the ring natively each frame ([GeodeNative.ingestLevel]: the RMS of its newest
+ * samples, 0 once it stops being written, #491), then eased attack fast and release slow, the way
+ * a VU meter moves, so it pulses on the beat without the renderer's frame data crossing the JNI
+ * line and without a sample loop here.
  *
  * GL thread only. One attribute-less triangle covers the screen; the shader is a rounded-rect
  * distance field. The GL state it changes is saved and put back, so the visual's next frame
@@ -87,8 +88,6 @@ internal class EdgeGlow {
     private var surfaceWidth = 1
     private var surfaceHeight = 1
 
-    private var heardRing = 0L
-    private var heardWritten = -1L
     private var level = 0f
 
     private val saved = IntArray(SAVED_INTS)
@@ -139,20 +138,8 @@ internal class EdgeGlow {
     }
 
     private fun updateLevel(ring: Long) {
-        var target = 0f
-        if (ring != 0L) {
-            val written = GeodeNative.ingestWritten(ring)
-            val fresh = ring != heardRing || written != heardWritten
-            heardRing = ring
-            heardWritten = written
-            if (fresh) {
-                // uptimeMillis: the one clock every poller of a ring passes (SoundSource, the capture pumps).
-                target = if (GeodeNative.ingestResting(ring, SystemClock.uptimeMillis())) 0f else FED_LEVEL
-            } else {
-                // Nothing new since the last frame (paused, between captures): ease off.
-                target = level * HOLD_DECAY
-            }
-        }
+        val heard = GeodeNative.ingestLevel(ring, SystemClock.uptimeMillis())
+        val target = (heard * LEVEL_GAIN).coerceIn(0f, 1f)
         level += (target - level) * if (target > level) ATTACK else RELEASE
     }
 
@@ -240,11 +227,9 @@ internal class EdgeGlow {
         /** Close to a modern phone's display corners; the black hides any small mismatch. */
         const val CORNER_FRACTION = 0.09f
 
-        /** The band while the ring is fed and not resting: about where music used to hold it. */
-        const val FED_LEVEL = 0.6f
+        const val LEVEL_GAIN = 3.5f
         const val ATTACK = 0.5f
         const val RELEASE = 0.08f
-        const val HOLD_DECAY = 0.9f
 
         val CAPS =
             intArrayOf(

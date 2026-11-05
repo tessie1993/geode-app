@@ -37,8 +37,8 @@ data class WallpaperConditions(
  * - Covered by the shade or recents: stopped too. Visibility stays true there, so without this
  *   the wallpaper rendered at full rate behind a blur nobody reads.
  * - No Pro: a still frame.
- * - Battery saver (when the user keeps that option on) and silence (after the grace in
- *   [SoundSource]): a still frame. The preview is exempt from both, so picking the wallpaper
+ * - Battery saver (when the user keeps that option on) and silence (the ring [SoundSource]
+ *   hears resting: the one native answer and hold every surface reads, #491): a still frame. The preview is exempt from both, so picking the wallpaper
  *   in a quiet room never shows what looks like a frozen picture.
  */
 fun wallpaperRunMode(c: WallpaperConditions): WallpaperRunMode =

@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "audio/ingest/Level.hpp"
+
 // The native ingest ring (ADR 0006, #478, #480): one per audio source (the player's tap, the mic, another
 // app's audio, the wallpaper's output-mix capture, a decoded file for export). The source writes raw PCM
 // bytes straight from its buffer; every renderer and analyzer reads it through its own Cursor (Cursor.hpp).
@@ -123,9 +125,19 @@ public:
 
     // The core/sound/Silence rule, fed by this ring: 1 when nothing above about -42 dBFS has been written
     // for the hold (6 s). No writes at all counts as silence, so a source that stops is resting after the
-    // same hold. The first poll counts as hearing something, so a surface never rests the instant it
-    // starts. Any thread; meant for one poller, and two pollers only ever move the heard time forward.
-    bool resting(int64_t nowMs);
+    // same hold. A new ring counts as just heard, so it rests 6 s after it was made at the earliest.
+    //
+    // The writer stamps each audible chunk with the clock (heardAtMs_), so this is a pure read: any number
+    // of pollers (the wallpaper, the dream, the edge glow, the capture screen, #491) get one answer, and a
+    // surface that starts polling late sees how long the ring has really been quiet. nowMs must be on the
+    // same clock: CLOCK_MONOTONIC in ms, which is Android's SystemClock.uptimeMillis. Any thread.
+    bool resting(int64_t nowMs) const;
+
+    // The ring's clock: CLOCK_MONOTONIC in ms. A test swaps in its own before the first write; setting it
+    // restamps the ring as just heard on the new clock. Not for use while a writer runs.
+    using Clock = int64_t (*)();
+    static int64_t monotonicMs();
+    void setClock(Clock clock);
 
 private:
     struct RecordSlot {
@@ -149,18 +161,15 @@ private:
 
     std::atomic<int64_t> written_{0};
     std::atomic<int64_t> recordCount_{0};
-    std::atomic<int64_t> audibleAt_{-1};   // write position just past the newest audible chunk
+    // When the writer last wrote an audible chunk, on clock_; the creation time until then.
+    Clock clock_ = &Ring::monotonicMs;
+    std::atomic<int64_t> heardAtMs_{0};
     std::atomic<int> sourceKind_{kSourcePlayer};
 
     // Writer-only state.
     Record current_{};
     int64_t pen_ = 0;
     bool hasFormat_ = false;
-
-    // Poller state for resting().
-    static constexpr int64_t kNeverPolled = INT64_MIN;
-    std::atomic<int64_t> heardAtMs_{kNeverPolled};
-    std::atomic<int64_t> seenAudible_{-1};
 };
 
 }  // namespace geode::audio::ingest
@@ -169,4 +178,6 @@ private:
 struct geode_ingest {
     geode_ingest(int capacityFrames, int maxChannels) : ring(capacityFrames, maxChannels) {}
     geode::audio::ingest::Ring ring;
+    // geode_ingest_level's poll-side state (Level.hpp, #491); the writer never touches it.
+    geode::audio::ingest::level::Meter level;
 };

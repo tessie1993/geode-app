@@ -22,6 +22,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <numbers>
@@ -240,15 +241,16 @@ struct Run {
     std::vector<std::vector<float>> feel;      // per frame, kFeelCount emotion values
 };
 
-Run run(const std::vector<float>& song, double fps) {
-    SoundEngine engine(kRate);
+// `song` is interleaved stereo at `rate`; it is fed the way the export path feeds the engine.
+Run run(const std::vector<float>& song, double fps, int rate = kRate) {
+    SoundEngine engine(rate);
     Run r;
     const int64_t total = static_cast<int64_t>(song.size() / 2);
-    const int frames = static_cast<int>(std::llround(kSeconds * fps));
+    const int frames = static_cast<int>(std::floor(static_cast<double>(total) / rate * fps));
     int64_t done = 0;
     GeodeSoundFrame f{};
     for (int i = 1; i <= frames; i++) {
-        const int64_t end = std::min(total, static_cast<int64_t>(std::llround(i * kRate / fps)));
+        const int64_t end = std::min(total, static_cast<int64_t>(std::llround(i * rate / fps)));
         engine.write(song.data() + 2 * done, static_cast<int>(end - done), 2);
         done = end;
         engine.step(static_cast<float>(1.0 / fps), f);
@@ -437,9 +439,70 @@ int compareRates(const Run& base, const Run& other, double fps) {
     return bad;
 }
 
+// ---- Real music (--pcm) -----------------------------------------------------------------------------------
+//
+// A decoded track (raw interleaved stereo float32, e.g. `ffmpeg -i t.mp3 -f f32le -ac 2 -ar 44100 t.f32`)
+// through the same frame-rate check as the synthetic song, plus what the engine heard, for an ear to judge:
+// there are no labels to assert against.
+
+int fieldIndex(const char* name) {
+    for (int k = 0; k < kFieldCount; k++) {
+        if (std::strcmp(kFields[k].name, name) == 0) return k;
+    }
+    return -1;
+}
+
+std::string keyName(float root, float major) {
+    static const char* kNames[12] = {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};
+    const int r = static_cast<int>(std::lround(root * 12.0f)) % 12;
+    return std::string(kNames[(r + 12) % 12]) + (major >= 0.5f ? " major" : " minor");
+}
+
+void reportTrack(const Run& r, const char* label) {
+    const auto at = [&](size_t i, const char* name) { return r.values[i][fieldIndex(name)]; };
+    const size_t n = r.values.size();
+    if (n == 0) return;
+    int sections = 0;
+    int drops = 0;
+    for (size_t i = 0; i < n; i++) {
+        if (at(i, "sectionChange") > 0.0f) sections++;
+        if (at(i, "drop") > 0.0f) drops++;
+    }
+    std::printf("\n%s: %.1f s, %d section changes, %d drops\n", label, r.time.back(), sections, drops);
+    for (size_t i = 0; i < n; i += static_cast<size_t>(std::max<size_t>(1, n / 12))) {
+        const float scale = at(i, "scale");
+        std::printf("  %6.1f s  %6.1f BPM (conf %.2f)  key %-9s (clarity %.2f)  scale %-24s on %-2s  section %.0f  build %.2f\n",
+                    r.time[i], at(i, "bpm"), at(i, "beatConf"), keyName(at(i, "keyRoot"), at(i, "keyMajor")).c_str(),
+                    at(i, "keyClarity"), scale >= 0.0f ? geode::sound::scaleInfo(static_cast<int>(scale)).id : "-",
+                    keyName(at(i, "scaleRoot"), 1.0f).substr(0, 2).c_str(), at(i, "sectionId"), at(i, "buildUp"));
+    }
+}
+
+int runPcm(const char* path, int rate) {
+    std::ifstream in(path, std::ios::binary | std::ios::ate);
+    if (!in || rate <= 0) {
+        std::printf("FAIL cannot read %s at %d Hz\n", path, rate);
+        return 1;
+    }
+    const auto bytes = static_cast<size_t>(in.tellg());
+    std::vector<float> song(bytes / sizeof(float) / 2 * 2);  // whole stereo frames
+    in.seekg(0);
+    in.read(reinterpret_cast<char*>(song.data()), static_cast<std::streamsize>(song.size() * sizeof(float)));
+    if (!in || song.empty()) {
+        std::printf("FAIL %s is not stereo float32\n", path);
+        return 1;
+    }
+    const Run at60 = run(song, 60.0, rate);
+    reportTrack(at60, path);
+    int failures = compareRates(at60, run(song, 30.0, rate), 30.0);
+    failures += compareRates(at60, run(song, 120.0, rate), 120.0);
+    return failures;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
+    if (argc == 4 && std::strcmp(argv[1], "--pcm") == 0) return runPcm(argv[2], std::atoi(argv[3])) == 0 ? 0 : 1;
     const std::vector<float> song = buildSong();
     const Run at60 = run(song, 60.0);
     if (argc == 3 && std::strcmp(argv[1], "--write") == 0) {

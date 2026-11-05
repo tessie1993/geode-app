@@ -65,6 +65,35 @@ jobs:
           retention-days: 14
       - name: Check against the committed golden, and across frame rates
         run: ./sound_golden_test core/tests/golden/sound_frames.tsv
+      # Real music: the owner's test tracks live on the orphan branch claude/test-music, so the app's
+      # history never carries the audio. Each must read the same at 30, 60 and 120 fps; the report
+      # (tempo, key, scale, sections) is for an ear to judge, since the tracks carry no labels.
+      - name: Check out the test music
+        if: ${{ !cancelled() }}
+        uses: actions/checkout@v7
+        with:
+          ref: claude/test-music
+          path: test-music
+      - name: Real music across frame rates
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          command -v ffmpeg >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg; }
+          mkdir -p golden-out
+          status=0
+          for f in test-music/*.mp3; do
+            ffmpeg -v error -i "$f" -f f32le -ac 2 -ar 44100 "${f%.mp3}.f32"
+            ./sound_golden_test --pcm "${f%.mp3}.f32" 44100 | tee -a golden-out/music.txt || status=1
+          done
+          exit $status
+      - name: Upload the real-music report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: sound-music
+          path: golden-out/music.txt
+          if-no-files-found: warn
+          retention-days: 14
 
   build-debug-apk:
     name: Build debug APK

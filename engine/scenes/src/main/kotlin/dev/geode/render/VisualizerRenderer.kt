@@ -128,7 +128,7 @@ class VisualizerRenderer(
     @Volatile
     var reactions: List<ReactionRoute>? = null
 
-    /** The phone's raw yaw and pitch, radians, NaN while off, and [GyroLook]'s registration count. */
+    /** The phone's raw yaw and pitch, radians, NaN while off, and [GyroSensor]'s registration count. */
     @Volatile
     var gyroYaw: Float = Float.NaN
 

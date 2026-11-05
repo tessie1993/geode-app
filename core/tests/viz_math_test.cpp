@@ -1065,33 +1065,31 @@ void stagedBuildFinishesInBoundedFrames() {
     check(mostCompilesInAFrame == 1, "no frame compiles more than one program without the parallel extension");
 }
 
-}  // namespace
-
 void gyroLookIsRelativeWrappedAndClamped() {
     // Phone tilt as a look (GyroLook): the first sample is the base, so the view starts centred
     // however the phone is held; kFullLook (0.6 rad) of tilt reads as a full look to one side.
     GyroLook g;
     const float nan = std::nanf("");
-    auto l = g.read(1.0f, -0.2f);
+    auto l = g.read(1.0f, -0.2f, 0);
     check(l.yaw == 0.0f && l.pitch == 0.0f, "gyro: the first sample is the base, the look is centred");
-    l = g.read(1.3f, -0.5f);
+    l = g.read(1.3f, -0.5f, 0);
     check(std::fabs(l.yaw - 0.5f) < 1e-5f && std::fabs(l.pitch + 0.5f) < 1e-5f, "gyro: tilt over 0.6 rad is the look");
-    l = g.read(2.0f, 1.0f);
+    l = g.read(2.0f, 1.0f, 0);
     check(l.yaw == 1.0f && l.pitch == 1.0f, "gyro: the look clamps to -1..1");
     // Yaw wraps the short way across +-pi: from just under pi to just over -pi is a small turn.
     GyroLook w;
-    w.read(3.1f, 0.0f);
-    l = w.read(-3.1f, 0.0f);
+    w.read(3.1f, 0.0f, 0);
+    l = w.read(-3.1f, 0.0f, 0);
     const float turn = 2.0f * 3.14159265f - 6.2f;
     check(std::fabs(l.yaw - turn / GyroLook::kFullLook) < 1e-3f, "gyro: yaw wraps the short way across pi");
-    l = w.read(3.1f - 0.3f, 0.0f);
+    l = w.read(3.1f - 0.3f, 0.0f, 0);
     check(std::fabs(l.yaw + 0.5f) < 1e-4f, "gyro: turning the other way reads negative");
     // NaN is "the gyro is off": centred, and the next sample is a new base.
-    l = g.read(nan, nan);
+    l = g.read(nan, nan, 0);
     check(l.yaw == 0.0f && l.pitch == 0.0f, "gyro: off centres the look");
-    l = g.read(-2.0f, 0.4f);
+    l = g.read(-2.0f, 0.4f, 0);
     check(l.yaw == 0.0f && l.pitch == 0.0f, "gyro: turning it on again recaptures the base");
-    l = g.read(-2.0f + 0.06f, 0.4f - 0.06f);
+    l = g.read(-2.0f + 0.06f, 0.4f - 0.06f, 0);
     check(std::fabs(l.yaw - 0.1f) < 1e-4f && std::fabs(l.pitch + 0.1f) < 1e-4f, "gyro: the look reads from the new base");
     // Off and on again between two drawn frames (a view nobody watched draws nothing): the GL thread
     // never sees the NaN, but the shell's registration count moved, so the base is taken again.
@@ -1103,6 +1101,8 @@ void gyroLookIsRelativeWrappedAndClamped() {
     l = r.read(0.9f + 0.3f, 0.1f, 2);
     check(std::fabs(l.yaw - 0.5f) < 1e-4f, "gyro: and the look reads from it");
 }
+
+}  // namespace
 
 int main() {
     foldIsBoundedAndContinuous();

@@ -138,7 +138,7 @@ public:
     static constexpr float kFullLook = 0.6f;  // radians of tilt for a full look
 
     // The look, -1..1 per axis; centred while off and on the sample that sets the base.
-    CameraRig::LookInput read(float rawYaw, float rawPitch, int registration = 0);
+    CameraRig::LookInput read(float rawYaw, float rawPitch, int registration);
 
 private:
     bool hasBase_ = false;

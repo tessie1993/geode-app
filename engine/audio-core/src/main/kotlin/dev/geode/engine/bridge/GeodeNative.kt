@@ -340,7 +340,7 @@ object GeodeNative {
     /** Mirrors GEODE_MUSIC_STATE_FLOATS: mine, route count, strength, on-action bits, fits-action bits. */
     const val MUSIC_STATE_FLOATS: Int = 5
 
-    /** Raw phone yaw and pitch, radians, NaN while off, and the sensor's registration count (viz GyroLook). */
+    /** Raw phone yaw and pitch, radians, NaN while off, and the sensor's registration count (GyroSensor; viz::GyroLook). */
     external fun vizSetGyro(
         handle: Long,
         yaw: Float,

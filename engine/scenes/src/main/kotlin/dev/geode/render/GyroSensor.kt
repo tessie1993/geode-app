@@ -13,7 +13,7 @@ import android.hardware.SensorManager
  * (`viz::GyroLook` in core/viz/CameraRig) makes them a look relative to how the phone was held when
  * it came on, so a new registration is a new base even if no frame saw the NaN. Live view only.
  */
-class GyroLook(
+class GyroSensor(
     context: Context,
     private val onLook: (yaw: Float, pitch: Float, registration: Int) -> Unit,
 ) : SensorEventListener {

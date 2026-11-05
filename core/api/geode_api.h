@@ -276,6 +276,15 @@ GEODE_API long long       geode_silence_heard_at(const float* const* channels, i
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
 
+/* What the player tells every live renderer's sound engine that the tap cannot hear (sound/PlayerSignals).
+ * A track boundary: a new track (or the same one again) is a new play with `seed`; each live engine forgets
+ * the tempo, key and sections at its next frame and fires sectionChange at full strength, crossfaded and
+ * gapless tracks included. Returns the boundary's epoch (1, 2, …). The fade gain, 0..1: the player's pause
+ * and skip fades times the crossfade, which the tap (before the volume) never hears; the frame carries it as
+ * fadeGain, a reaction source. Both process-wide and latched, any thread; an export renderer reads neither. */
+GEODE_API long long       geode_sound_track_boundary(long long seed);
+GEODE_API void            geode_sound_set_fade_gain(float gain);
+
 #ifdef __cplusplus
 }
 #endif

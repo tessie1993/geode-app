@@ -564,4 +564,19 @@ object GeodeNative {
         nowMs: Long,
         heardAtMs: Long,
     ): Boolean
+
+    // What the player tells the sound engines that the tap cannot hear (core/sound/PlayerSignals).
+
+    /**
+     * A new track (or the same one again) begins a new play with [seed]: every live renderer's sound engine
+     * forgets the tempo, key and sections at its next frame and fires a full-strength section change, so a
+     * crossfaded or gapless next track starts fresh. Returns the boundary's epoch. Any thread.
+     */
+    external fun soundTrackBoundary(seed: Long): Long
+
+    /**
+     * The player's fade gain, 0..1 (the UI fades times the crossfade), which the tap before the volume never
+     * hears; the sound frame carries it as `fadeGain`, a reaction source. Live renderers only. Any thread.
+     */
+    external fun soundSetFadeGain(gain: Float)
 }

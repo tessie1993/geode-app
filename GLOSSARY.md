@@ -221,6 +221,12 @@ _Avoid_: Beat clock (the hit clock is a different thing)
 A stretch of the song that sounds of a piece (verse, chorus, breakdown). A section change fires on a downbeat, one bar after the boundary; a returning section keeps its number.
 _Avoid_: Scene (a scene is a visual), part
 
+**Track boundary**:
+The player telling the engine a new track (or the same one again) has begun, with the new play's seed. The musical layer starts over and a section change fires at once, at full strength, even when the track follows gapless or crossfaded. The mic and other apps' audio have no player, so 2 s of silence stands in for it.
+
+**Fade gain**:
+The player's fades (pause, skip and sleep fades times the crossfade), 0..1, told to the engine because the tap sits before the volume and never hears them. A reaction source; always 1 in an export.
+
 **Section state**:
 The song part a section is read as: intro, verse, build, drop, breakdown or outro.
 

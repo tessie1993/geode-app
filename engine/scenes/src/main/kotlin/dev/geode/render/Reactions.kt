@@ -137,6 +137,7 @@ enum class ReactSource(
     SECTION_ID("Which section", ReactSourceGroup.FORM),
     BUILD_UP("Build-up", ReactSourceGroup.FORM),
     DROP("Drop", ReactSourceGroup.FORM, isEvent = true),
+    FADE_GAIN("Player fade", ReactSourceGroup.LEVELS),
 }
 
 /** The Customize picker's sections, in the order it shows them. */

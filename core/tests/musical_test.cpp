@@ -320,6 +320,98 @@ void testSectionsReturn() {
 }
 
 // The same input gives the same frames, bit for bit (live and export agree).
+// One frame the way a live renderer takes it: the frame's audio is written, then (when the player named a
+// track boundary since the last frame) trackBoundary(), then the step (VisualizerRenderer's feed, then
+// Renderer::beginFrame).
+void frameOf(SoundEngine& e, const std::function<float(double)>& signal, int i, bool boundary, GeodeSoundFrame& f,
+             std::vector<float>& buf) {
+    const int rate = e.sampleRateHz();
+    const int64_t from = std::llround((i - 1) * rate / 60.0);
+    const int64_t end = std::llround(i * rate / 60.0);
+    buf.resize(static_cast<size_t>(2 * (end - from)));
+    for (int64_t s = from; s < end; s++) buf[2 * (s - from)] = buf[2 * (s - from) + 1] = signal(static_cast<double>(s) / rate);
+    e.write(buf.data(), static_cast<int>(end - from), 2);
+    if (boundary) e.trackBoundary();
+    e.step(1.0f / 60.0f, f);
+}
+
+// Clicks at `bpm` from `start` (the same click as testClickTracks), the downbeat loud.
+float clicks(double t, double start, double bpm) {
+    const double period = 60.0 / bpm;
+    const double local = t - start;
+    const int k = static_cast<int>(local / period);
+    const double u = local - k * period;
+    const double amp = k % 4 == 0 ? 0.8 : 0.35;
+    return static_cast<float>(amp * std::exp(-u * 25.0) * std::sin(kTau * 60.0 * u) +
+                              0.3 * std::exp(-u * 200.0) * std::sin(kTau * 3000.0 * u));
+}
+
+// A gapless next track (#460): 90 BPM clicks for 20 s, then 128 BPM with no gap and no silence, so neither
+// the tap's epoch nor the 2 s silence rule can tell. The engine the player named the boundary to forgets the
+// tempo at once and fires a full section change; the one it was not named to still holds the old tempo on
+// that frame. Twenty seconds later the named one reads the new track's own tempo.
+void testTrackBoundaryTempo() {
+    constexpr double kSwitch = 20.0;
+    auto song = [](double t) { return t < kSwitch ? clicks(t, 0.0, 90.0) : clicks(t, kSwitch, 128.0); };
+    SoundEngine named(44100);
+    SoundEngine unnamed(44100);
+    std::vector<float> buf;
+    GeodeSoundFrame a{};
+    GeodeSoundFrame b{};
+    const int switchFrame = static_cast<int>(kSwitch * 60.0) + 1;  // the first frame of the new track
+    int changesAfter = 0;
+    for (int i = 1; i <= 60 * 40; i++) {
+        const bool boundary = i == switchFrame;
+        frameOf(named, song, i, boundary, a, buf);
+        frameOf(unnamed, song, i, false, b, buf);
+        if (boundary) {
+            CHECK(a.sectionChange == 1.0f, "the boundary fires a full section change, read %f", a.sectionChange);
+            CHECK(a.bpm == 0.0f && a.beatCount == 0.0f, "the tempo starts over: bpm %f, beat %f", a.bpm, a.beatCount);
+            CHECK(a.sectionId == 0.0f && a.sectionBars == 0.0f, "the form starts over: section %f, bars %f", a.sectionId, a.sectionBars);
+            CHECK(b.bpm > 0.0f && b.beatCount > 0.0f, "unnamed, the old tempo carries on: bpm %f, beat %f", b.bpm, b.beatCount);
+        } else if (i > switchFrame && a.sectionChange > 0.0f) {
+            changesAfter++;
+        }
+    }
+    CHECK(std::fabs(a.bpm / 128.0 - 1.0) < 0.03, "the next track's own tempo: read %.2f", a.bpm);
+    CHECK(changesAfter <= 1, "the boundary is one event, not a burst: %d more section changes", changesAfter);
+}
+
+// The same for the key: I–vi–IV–V in C for 24 s, then the same in F# with no gap. On the boundary frame the
+// named engine's key clarity starts again from nothing while the unnamed one is still sure of C; by the end
+// the named one reads F# major.
+void testTrackBoundaryKey() {
+    const int chords[4][3] = {{60, 64, 67}, {57, 60, 64}, {53, 57, 60}, {55, 59, 62}};
+    constexpr double kSwitch = 24.0;
+    auto song = [&chords](double t) {
+        const int shift = t < kSwitch ? 0 : 6;
+        const int* c = chords[static_cast<int>(t / 2.0) % 4];
+        double v = 0.0;
+        for (int n = 0; n < 3; n++) {
+            const double hz = hzOf(c[n] + 12 + shift);
+            v += 0.1 * std::sin(kTau * hz * t) + 0.04 * std::sin(2 * kTau * hz * t);
+        }
+        return static_cast<float>(v);
+    };
+    SoundEngine named(44100);
+    SoundEngine unnamed(44100);
+    std::vector<float> buf;
+    GeodeSoundFrame a{};
+    GeodeSoundFrame b{};
+    const int switchFrame = static_cast<int>(kSwitch * 60.0) + 1;
+    for (int i = 1; i <= 60 * 56; i++) {
+        const bool boundary = i == switchFrame;
+        frameOf(named, song, i, boundary, a, buf);
+        frameOf(unnamed, song, i, false, b, buf);
+        if (boundary) {
+            CHECK(a.keyClarity < 0.05f, "the key starts over: clarity %f", a.keyClarity);
+            CHECK(b.keyClarity > 0.25f, "unnamed, still sure of the old key: clarity %f", b.keyClarity);
+        }
+    }
+    CHECK(std::lround(a.keyRoot * 12.0f) % 12 == 6 && a.keyMajor > 0.5f, "the next track's key: root %f major %f",
+          a.keyRoot * 12.0f, a.keyMajor);
+}
+
 void testDeterministic() {
     auto music = [](double t) {
         const double beat = std::fmod(t, 0.5);
@@ -341,6 +433,8 @@ int main() {
     testChordProgression();
     testBuildAndDrop();
     testSectionsReturn();
+    testTrackBoundaryTempo();
+    testTrackBoundaryKey();
     testDeterministic();
     if (failures == 0) std::printf("musical_test: all passed\n");
     return failures == 0 ? 0 : 1;

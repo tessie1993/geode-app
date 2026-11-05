@@ -222,11 +222,9 @@ void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
     } else {
         if (s.quietSeconds >= kRewarmAfter) {
             // Sound after two seconds of silence is most likely a new track: its tempo, key and
-            // sections are its own.
-            s.warmSeconds = kWarmSeconds;
-            rhythm_.reset();
-            harmony_.reset();
-            form_.reset();
+            // sections are its own. The player names its boundaries (trackBoundary); this rule is for
+            // the mic and other apps' audio, and for a player track that starts after a long gap.
+            rewarm();
         }
         s.quietSeconds = 0.0f;
     }
@@ -251,7 +249,31 @@ void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
     melody(dt, out);
     clocks(dt, out);
     musical(dt, warm, silent, out);
+    if (boundaryPending_) {
+        // Form was just reset, so it cannot fire on its own for eight bars: the boundary is the event.
+        out.sectionChange = 1.0f;
+        boundaryPending_ = false;
+    }
+    out.fadeGain = fadeGain_;
 }
+
+void SoundEngine::rewarm() {
+    state_.warmSeconds = kWarmSeconds;
+    rhythm_.reset();
+    harmony_.reset();
+    form_.reset();
+}
+
+void SoundEngine::trackBoundary() {
+    rewarm();
+    // The hop restarts with the rhythm, so the new track's first hop is a whole one.
+    hopFill_ = 0;
+    // A boundary during silence must not re-warm a second time when the sound comes.
+    state_.quietSeconds = 0.0f;
+    boundaryPending_ = true;
+}
+
+void SoundEngine::setFadeGain(float gain) { fadeGain_ = std::isfinite(gain) ? std::clamp(gain, 0.0f, 1.0f) : 1.0f; }
 
 void SoundEngine::levels(float dt, bool warm, bool silent, GeodeSoundFrame& out) {
     State& s = state_;

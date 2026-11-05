@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "sound/PlayerSignals.hpp"
 #include "sound/SoundEngine.hpp"
 #include "viz/Adsr.hpp"
 #include "viz/CameraRig.hpp"
@@ -265,6 +266,9 @@ private:
     std::unique_ptr<sound::SoundEngine> sound_;
     GeodeSoundTuning soundTuning_ = sound::SoundEngine::defaultTuning();
     GeodeSoundFrame soundFrame_{};
+    // The player's last track boundary this renderer passed to its engine (core/sound/PlayerSignals). Starts
+    // at the current one: an engine built after a boundary is already fresh. Live renderers only.
+    uint64_t boundarySeen_ = sound::player::boundary().epoch;
     // Customize › Macros: this frame's knobs, and the ones the sound engine's tuning was last built from.
     MacroKnobs frameKnobs_{};
     // The user's knobs with the director's laid over them, this frame; what the params and the camera read.

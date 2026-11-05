@@ -60,6 +60,16 @@ float Renderer::beginFrame(double timeSeconds) {
             tunedKnobs_ = frameKnobs_;
             sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
         }
+        // What the player told the engines (core/sound/PlayerSignals), live renderers only: an export hears
+        // its own track, with no boundaries but its own and no player fades, so it keeps fadeGain at 1.
+        if (!offscreen_.load(std::memory_order_relaxed)) {
+            const sound::player::Boundary boundary = sound::player::boundary();
+            if (boundary.epoch != boundarySeen_) {
+                boundarySeen_ = boundary.epoch;
+                if (sound_) sound_->trackBoundary();
+            }
+            if (sound_) sound_->setFadeGain(sound::player::fadeGain());
+        }
         if (sound_) sound_->step(dt, soundFrame_);
     }
     applyStyleSchedule();

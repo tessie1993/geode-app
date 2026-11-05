@@ -11,6 +11,7 @@
 #include <numbers>
 #include <vector>
 
+#include "sound/PlayerSignals.hpp"
 #include "sound/SoundEngine.hpp"
 
 using geode::sound::SoundEngine;
@@ -359,6 +360,77 @@ void testHardCut() {
     CHECK(steadyCuts == 0, "hard cuts on steady noise %d", steadyCuts);
 }
 
+// The player's fade gain (#460): the frame carries it as fadeGain and nothing else moves, since the tap sits
+// before the volume and the engine never hears a fade. Clamped to 0..1, 1 when not a number, kept by reset().
+void testFadeGain() {
+    const int rate = 48000;
+    SoundEngine plain(rate);
+    SoundEngine faded(rate);
+    faded.setFadeGain(0.25f);
+    std::vector<GeodeSoundFrame> plainFrames;
+    run(plain, noise(0.2f), 2.0, 60.0, [&](double, const GeodeSoundFrame& f) { plainFrames.push_back(f); });
+    size_t i = 0;
+    int differ = 0;
+    int wrongGain = 0;
+    // noise() starts from the same state each time, so this is the same audio.
+    run(faded, noise(0.2f), 2.0, 60.0, [&](double, const GeodeSoundFrame& f) {
+        if (f.fadeGain != 0.25f || plainFrames[i].fadeGain != 1.0f) wrongGain++;
+        GeodeSoundFrame g = f;
+        g.fadeGain = plainFrames[i].fadeGain;
+        if (std::memcmp(&g, &plainFrames[i], sizeof g) != 0) differ++;
+        i++;
+    });
+    CHECK(wrongGain == 0, "%d frames carried the wrong gain", wrongGain);
+    CHECK(differ == 0, "the fade moved %d frames' other values", differ);
+
+    GeodeSoundFrame f{};
+    faded.setFadeGain(2.0f);
+    faded.step(1.0f / 60.0f, f);
+    CHECK(f.fadeGain == 1.0f, "above 1 clamps to 1, read %f", f.fadeGain);
+    faded.setFadeGain(-1.0f);
+    faded.step(1.0f / 60.0f, f);
+    CHECK(f.fadeGain == 0.0f, "below 0 clamps to 0, read %f", f.fadeGain);
+    faded.setFadeGain(NAN);
+    faded.step(1.0f / 60.0f, f);
+    CHECK(f.fadeGain == 1.0f, "not a number reads 1, read %f", f.fadeGain);
+    faded.setFadeGain(0.5f);
+    faded.reset();
+    faded.step(1.0f / 60.0f, f);
+    CHECK(f.fadeGain == 0.5f, "reset keeps the gain, read %f", f.fadeGain);
+}
+
+// The process-wide signals the player pushes and each live renderer latches once a frame.
+void testPlayerSignals() {
+    namespace player = geode::sound::player;
+    const uint64_t before = player::boundary().epoch;
+    const uint64_t first = player::trackBoundary(0x1234);
+    CHECK(first == before + 1, "a boundary adds one to the epoch: %llu after %llu", static_cast<unsigned long long>(first),
+          static_cast<unsigned long long>(before));
+    const player::Boundary b = player::boundary();
+    CHECK(b.epoch == first && b.seed == 0x1234, "the latched boundary carries its seed");
+    CHECK(player::trackBoundary(0x1234) == first + 1, "the same seed again is still a new boundary (a replay)");
+    player::setFadeGain(0.3f);
+    CHECK(player::fadeGain() == 0.3f, "the fade gain latches as pushed");
+    player::setFadeGain(1.0f);
+}
+
+// A boundary fires one full-strength section change, on the next step only, and survives a reset() between
+// (a seek or a source switch on the same frame).
+void testBoundaryEvent() {
+    const int rate = 48000;
+    SoundEngine e(rate);
+    int changes = 0;
+    run(e, noise(0.2f), 2.0, 60.0, [&](double, const GeodeSoundFrame& f) { changes += f.sectionChange > 0.0f ? 1 : 0; });
+    CHECK(changes == 0, "steady noise fires no section change, fired %d", changes);
+    GeodeSoundFrame f{};
+    e.trackBoundary();
+    e.reset();
+    e.step(1.0f / 60.0f, f);
+    CHECK(f.sectionChange == 1.0f, "the boundary fires at full strength, read %f", f.sectionChange);
+    e.step(1.0f / 60.0f, f);
+    CHECK(f.sectionChange == 0.0f, "once, read %f on the next frame", f.sectionChange);
+}
+
 }  // namespace
 
 int main() {
@@ -374,6 +446,9 @@ int main() {
     testWaveformHoldsStill();
     testStarvedGoesQuiet();
     testHardCut();
+    testFadeGain();
+    testPlayerSignals();
+    testBoundaryEvent();
     if (failures == 0) std::printf("sound_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

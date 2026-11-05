@@ -237,6 +237,21 @@ GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, f
  * each tab's Randomize and Reset cover. Static: the pointer stays valid for the process. */
 GEODE_API const char* geode_params_roll_keys(void);
 
+/* Customize panel map (core/viz/CustomizeMap): ten categories, each a free Basics section and Pro sections, and
+ * which control lives in which. geode_customize_text is its versioned '|'-separated line table (rows in
+ * CustomizeMap.hpp). Static: the pointer stays valid for the process. geode_customize_shown lists what the panel
+ * offers on style_id ("CATEGORY" and "CATEGORY/section" lines); the pointer stays valid until this thread's next call.
+ * geode_customize_randomize rolls one category's controls (named by its CustomizeMap name; an unknown one rolls
+ * nothing), holding every other control and the newline-joined ParamKeys in locked; 1 when it changed something.
+ * geode_customize_reset puts back every field the category's controls write. Wire as geode_params_randomize. */
+GEODE_API const char* geode_customize_text(void);
+/* 1 when the control named key (a ParamKeys string) is one a roll can move, so the panel offers to keep it. */
+GEODE_API int         geode_customize_lockable(const char* key);
+GEODE_API const char* geode_customize_shown(const char* style_id);
+GEODE_API int         geode_customize_randomize(const char* style_id, const char* category, const char* locked, uint64_t seed,
+                                                const float* in, float* out);
+GEODE_API void        geode_customize_reset(const char* category, const float* in, float* out);
+
 /* Export resampler (audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC encoder's rate; box filter
  * down, linear up. Streaming: state carries across calls. Any one thread at a time. There is no flush: a
  * partial output frame at the end is dropped, as the export always did. */

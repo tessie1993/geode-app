@@ -101,12 +101,8 @@ object GeodeColors {
  * floor too, a little darker than the old 0.62.
  */
 object GeodeGlass {
-    /**
-     * Black at this alpha over the visual, for the glass with no opacity setting (the tab bar,
-     * stage icons and mini player). It is the floor itself: `floatingGlass` clamps to
-     * [MATTE_FILL_MIN], so a lighter default would be drawn at the floor anyway.
-     */
-    const val MATTE_FILL = 0.72f
+    /** The default glass is the floor: the lowest alpha that passes contrast ([MATTE_FILL_MIN]). */
+    const val MATTE_FILL = MATTE_FILL_MIN
 
     /**
      * The range the user's sheet-opacity setting moves the glass in. The floor is the lowest alpha

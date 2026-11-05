@@ -12,7 +12,7 @@
 namespace geode::viz::fluid {
 
 // A velocity-only fluid: the flow Liquid mode's liquid rides (viz/liquid). The sound stirs it through
-// the emitters, a finger pushes it or spins a whirlpool in it, a drop bursts it open.
+// the emitters, and a finger pushes it or spins a whirlpool in it.
 class FlowField {
 public:
     explicit FlowField(const ProgramLoader& loader) : sim_(loader, true) {
@@ -33,8 +33,6 @@ public:
     void queueKick(float clipX, float clipY, float velX, float velY, float radius);
     // A whirlpool: kicks around a small ring, each along the tangent; `spin` signed, clip units/s.
     void queueVortex(float clipX, float clipY, float spin, float radius);
-    // A burst: kicks around a ring, each pointing away from the centre.
-    void queueBurst(float clipX, float clipY, float speed, float radius);
     // Liquid mode's grid (liquid::planFor): cells along the short side, and second-order advection.
     void setGrid(int cells, bool macCormack);
     // uv displacement per (velocity * second), per axis: the liquid's back-trace scale.

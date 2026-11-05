@@ -514,4 +514,19 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsResetTab(JNIEnv* env, jobject, js
     env->SetFloatArrayRegion(out, 0, static_cast<jsize>(output.size()), output.data());
 }
 
+// Cover-art palette (core/viz/ArtPalette): the Bitmap's getPixels() ints in, { hue, span, confidence } out.
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_artPalette(JNIEnv* env, jobject, jintArray pixels, jfloatArray out) {
+    if (!pixels || !out || env->GetArrayLength(out) < 3) return JNI_FALSE;
+    const jsize count = env->GetArrayLength(pixels);
+    jint* argb = env->GetIntArrayElements(pixels, nullptr);
+    if (!argb) return JNI_FALSE;
+    float result[3] = {};
+    const int found = geode_art_palette(reinterpret_cast<const uint32_t*>(argb), static_cast<int>(count), result);
+    env->ReleaseIntArrayElements(pixels, argb, JNI_ABORT);
+    if (!found) return JNI_FALSE;
+    env->SetFloatArrayRegion(out, 0, 3, result);
+    return JNI_TRUE;
+}
+
 }

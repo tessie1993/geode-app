@@ -320,6 +320,12 @@ GEODE_API long long       geode_playback_sleep_fade_ms(void);   /* the sleep tim
 GEODE_API float           geode_playback_sleep_fade_volume(long long remaining_ms, long long fade_ms);
 GEODE_API float           geode_playback_snap(float value, float step);   /* nearest step; step <= 0 = as is */
 
+/* Cover-art palette (viz/ArtPalette): the hue the artwork leans to, for Settings' artwork palette and the
+ * widget's glow. argb is count packed 0xAARRGGBB pixels as Bitmap.getPixels gives them (alpha ignored).
+ * Returns 1 and fills out[3] = { base hue 0..1, hue span 0.06..1, confidence 0..1 (the share of pixels with a
+ * colour) }, or 0 with out untouched when no pixel has one (greys, blacks, blown highlights). Pure. */
+GEODE_API int             geode_art_palette(const uint32_t* argb, int count, float* out);
+
 #ifdef __cplusplus
 }
 #endif

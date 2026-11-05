@@ -8,7 +8,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RadialGradient
 import android.graphics.Shader
-import dev.geode.analysis.ArtPalette
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.scene.VisualStyleCatalog
 import kotlin.math.PI
 import kotlin.math.abs
@@ -85,13 +85,17 @@ internal object WidgetVisual {
             else -> FALLBACK_HUE
         }
 
-    /** The artwork's palette, for [WidgetState.artHue] and [WidgetState.artSpan]; null when it has no colour. */
-    fun paletteOf(art: Bitmap): ArtPalette.Extracted? {
+    /**
+     * The artwork's palette (native, [GeodeNative.artPalette]: read at [GeodeNative.ART_HUE] and
+     * [GeodeNative.ART_SPAN]), for [WidgetState.artHue] and [WidgetState.artSpan]; null when it has no colour.
+     */
+    fun paletteOf(art: Bitmap): FloatArray? {
         val small = Bitmap.createScaledBitmap(art, PALETTE_SIDE, PALETTE_SIDE, true)
         val pixels = IntArray(PALETTE_SIDE * PALETTE_SIDE)
         small.getPixels(pixels, 0, PALETTE_SIDE, 0, 0, PALETTE_SIDE, PALETTE_SIDE)
         if (small !== art) small.recycle()
-        return ArtPalette.extract(pixels)
+        val palette = FloatArray(GeodeNative.ART_PALETTE_SIZE)
+        return palette.takeIf { GeodeNative.artPalette(pixels, it) }
     }
 
     private class Light(

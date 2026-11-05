@@ -10,6 +10,7 @@
 #include "viz/EndlessZoom.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Quad.hpp"
+#include "viz/frame/Pacer.hpp"
 
 namespace geode::viz {
 
@@ -46,8 +47,9 @@ GeodeSoundFrame gainAdjusted(const GeodeSoundFrame& f, const SceneParams& p) {
 float Renderer::beginFrame(double timeSeconds) {
     resetFrameState();
     frameNowS_ = timeSeconds;
-    const double elapsed = lastTimeS_ < 0.0 ? 1.0 / 60.0 : timeSeconds - lastTimeS_;
-    const float dt = static_cast<float>(std::clamp(elapsed, 0.001, 0.1));
+    // The one dt rule every clock shares (core/viz/frame/Pacer).
+    const double elapsed = lastTimeS_ < 0.0 ? frame::kFirstDtSeconds : timeSeconds - lastTimeS_;
+    const float dt = static_cast<float>(frame::clampDt(elapsed));
     lastTimeS_ = timeSeconds;
     thermal_.onFrame(dt);
     timeSeconds_ = std::fmod(timeSeconds_ + dt, kTimeWrapSeconds);

@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace geode::viz::world {
 
@@ -52,6 +53,9 @@ constexpr Bounds kBounds[kFieldCount] = {
     {0.0f, 1.0f},     // PMandelbox
     {0.0f, 1.0f},     // PSierp
     {0.0f, 1.0f},     // PApollo
+    {0.0f, 1.0f},     // PJulia
+    {0.0f, 1.0f},     // PKlein
+    {0.0f, 1.0f},     // PKifs
     {0.2f, 2.4f},     // PrimSize
     {0.03f, 0.45f},   // PrimThick
     {0.0f, 15.0f},    // MeshPick (kShapeCount - 1)
@@ -91,6 +95,12 @@ constexpr Bounds kBounds[kFieldCount] = {
     {-0.8f, 0.8f},    // LatticeYaw
     {0.0f, 0.5f},     // GazePitch
     {0.0f, 0.6f},     // GazeYaw
+    {-0.8f, 0.4f},    // JuliaCX: mostly inside the Mandelbrot set's main body, so the set holds together
+    {-0.8f, 0.8f},    // JuliaCY
+    {-0.8f, 0.8f},    // JuliaCZ
+    {-0.8f, 0.8f},    // JuliaCW
+    {0.8f, 1.25f},    // KleinBox
+    {1.8f, 2.8f},     // KifsScale
 };
 static_assert(sizeof(kBounds) / sizeof(kBounds[0]) == kFieldCount, "a bound per field");
 
@@ -271,6 +281,61 @@ float apollonian(const V3& q, float s) {
     return 0.25f * std::fabs(p[1]) / scale * s;
 }
 
+// lib_world's wJulia: a quaternion Julia set z -> z^2 + c on the slice w = 0, real part x, filling
+// about s, eight iterations; the Hubbard-Douady bound 0.5 |z| log |z| / |dz|, held at one unit
+// deep inside the set.
+float julia(const V3& q, float s, const std::array<float, 4>& c) {
+    const float k = 0.7f * s;
+    std::array<float, 4> z{q[0] / k, q[1] / k, q[2] / k, 0.0f};
+    float dr = 1.0f;
+    for (int i = 0; i < 8; ++i) {
+        const float r2 = z[0] * z[0] + z[1] * z[1] + z[2] * z[2] + z[3] * z[3];
+        if (r2 > 16.0f) break;
+        dr = 2.0f * std::sqrt(r2) * dr;
+        const float v2 = z[1] * z[1] + z[2] * z[2] + z[3] * z[3];
+        const float a = z[0];
+        z = {a * a - v2 + c[0], 2.0f * a * z[1] + c[1], 2.0f * a * z[2] + c[2], 2.0f * a * z[3] + c[3]};
+    }
+    const float r = std::max(std::sqrt(z[0] * z[0] + z[1] * z[1] + z[2] * z[2] + z[3] * z[3]), 1e-6f);
+    return std::max(0.5f * std::log(r) * r / std::max(dr, 1e-6f), -1.0f) * k;
+}
+
+// lib_world's wKlein: a pseudo-Kleinian limit set. Fold into the box of half-size b by its face
+// reflections (the mirrored cell), invert in the unit sphere (stretch capped at 16), seven times;
+// one last fold, then a slab of half-thickness t; held in a ball of 1.3 s.
+float klein(const V3& q, float s, float b, float t) {
+    const float k = 0.5f * s;
+    V3 z{q[0] / k, q[1] / k, q[2] / k};
+    float dr = 1.0f;
+    for (int i = 0; i < 7; ++i) {
+        for (float& c : z) c = cell(c, 2.0f * b);
+        const float m = clampf(1.0f / std::max(dot3(z), 1e-4f), 1.0f, 16.0f);
+        for (float& c : z) c *= m;
+        dr *= m;
+    }
+    for (float& c : z) c = cell(c, 2.0f * b);
+    const float d = (std::fabs(z[1]) - t) / dr * k;
+    return std::max(d, len3(q) - 1.3f * s);
+}
+
+// lib_world's wKifs: an octahedral kaleidoscopic IFS. Fold across the octahedron's mirror planes
+// (abs, then sort x >= y >= z), scale by sc about the vertex (1, 0, 0), seven times; the distance
+// to the unit octahedron at the last level. Its hull is the octahedron of radius 1.2 s.
+float kifs(const V3& q, float s, float sc) {
+    const float k = 1.2f * s;
+    V3 z{q[0] / k, q[1] / k, q[2] / k};
+    float scale = 1.0f;
+    for (int i = 0; i < 7; ++i) {
+        for (float& c : z) c = std::fabs(c);
+        if (z[0] < z[1]) std::swap(z[0], z[1]);
+        if (z[0] < z[2]) std::swap(z[0], z[2]);
+        if (z[1] < z[2]) std::swap(z[1], z[2]);
+        z = {z[0] * sc - (sc - 1.0f), z[1] * sc, z[2] * sc};
+        scale *= sc;
+    }
+    return (std::fabs(z[0]) + std::fabs(z[1]) + std::fabs(z[2]) - 1.0f) * 0.57735f / scale * k;
+}
+
 // lib_world's wPolar: the plane about the travel axis folded into one mirrored wedge of n.
 void polarFold(float& x, float& y, float n) {
     const float r = len2(x, y);
@@ -281,7 +346,7 @@ void polarFold(float& x, float& y, float n) {
     y = r * std::sin(a);
 }
 
-// lib_world's wPrims: the thirteen primitives, blended by weight.
+// lib_world's wPrims: the sixteen primitives, blended by weight.
 float prims(const Genome& g, const V3& q) {
     const float s = g[PrimSize];
     const float t = g[PrimThick];
@@ -312,6 +377,9 @@ float prims(const Genome& g, const V3& q) {
     if (g[PMandelbox] > 0.0f) d += g[PMandelbox] * mandelbox(q, s, g[BoxScale]);
     if (g[PSierp] > 0.0f) d += g[PSierp] * sierpinski(q, s);
     if (g[PApollo] > 0.0f) d += g[PApollo] * apollonian(q, s);
+    if (g[PJulia] > 0.0f) d += g[PJulia] * julia(q, s, {g[JuliaCX], g[JuliaCY], g[JuliaCZ], g[JuliaCW]});
+    if (g[PKlein] > 0.0f) d += g[PKlein] * klein(q, s, g[KleinBox], t);
+    if (g[PKifs] > 0.0f) d += g[PKifs] * kifs(q, s, g[KifsScale]);
     return d;
 }
 
@@ -438,6 +506,12 @@ Genome base() {
     g[LatticeYaw] = 0.0f;
     g[GazePitch] = 0.0f;
     g[GazeYaw] = 0.0f;
+    g[JuliaCX] = -0.2f;
+    g[JuliaCY] = 0.6f;
+    g[JuliaCZ] = 0.0f;
+    g[JuliaCW] = 0.0f;
+    g[KleinBox] = 1.0f;
+    g[KifsScale] = 2.0f;
     return g;
 }
 
@@ -449,12 +523,12 @@ template <size_t N>
 Genome make(const Set (&sets)[N]) {
     Genome g = base();
     for (const Set& s : sets) g[s.field] = s.value;
-    normalize(g, PBox, 13, nullptr);
+    normalize(g, PBox, kPrimCount, nullptr);
     normalize(g, MSurface, 3, nullptr);
     return g;
 }
 
-std::array<Seed, 41> buildSeeds() {
+std::array<Seed, 48> buildSeeds() {
     return {{
         // A nave of soap-thin spheres, inverted into one another: bubbles inside bubbles, lit from within.
         {"Bubble Nave", 0.35f, 0.7f, 0.5f,
@@ -690,11 +764,56 @@ std::array<Seed, 41> buildSeeds() {
                {MeshSize, 1.6f}, {MSurface, 0.65f}, {MDensity, 0.35f}, {DensBand, 0.1f}, {TrapR, 0.6f}, {TrapZ, 0.3f},
                {PalOffset, 0.72f}, {PalSpan, 0.45f}, {Emission, 1.2f}, {Fog, 0.035f}, {TexAmount, 0.6f}, {TexPick, 5.0f},
                {Lens, 1.1f}})},
+        // The newer fractals, each round the way by an odd fold (never the 4-way cross). The Julia
+        // constants all sit inside the Mandelbrot set's main cardioid, so each set is one body.
+        // Quaternion Julia sets, five round the way: soft fruit grown from z^2 + c.
+        {"Julia Bloom", 0.45f, 0.7f, 0.55f,
+         make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 5.0f},
+               {PJulia, 1.0f}, {JuliaCX, -0.2f}, {JuliaCY, 0.6f}, {JuliaCZ, 0.0f}, {JuliaCW, 0.0f}, {PrimSize, 1.4f},
+               {MSurface, 0.75f}, {MGlow, 0.25f}, {TrapR, 0.6f}, {TrapX, 0.3f}, {PalOffset, 0.58f}, {PalSpan, 0.5f},
+               {Emission, 1.15f}, {Fog, 0.03f}, {TexAmount, 0.4f}, {TexPick, 4.0f}})},
+        // A Julia set leaning off its axis, seven ways in a slow spiral, half stone, half mist: a reef.
+        {"Quaternion Reef", 0.4f, 0.55f, 0.6f,
+         make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 7.0f},
+               {PolarTwist, 0.2f}, {PJulia, 1.0f}, {JuliaCX, -0.4f}, {JuliaCY, 0.55f}, {JuliaCZ, 0.0f}, {JuliaCW, 0.15f},
+               {PrimSize, 1.3f}, {MSurface, 0.55f}, {MDensity, 0.45f}, {DensBand, 0.14f}, {TrapR, 0.6f}, {TrapZ, 0.4f},
+               {PalOffset, 0.3f}, {PalSpan, 0.45f}, {Emission, 1.15f}, {Fog, 0.03f}, {Roll, 0.08f}})},
+        // Three round Julia bodies lit through: lanterns of a set that never escapes.
+        {"Julia Lanterns", 0.3f, 0.65f, 0.45f,
+         make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 3.0f},
+               {PJulia, 1.0f}, {JuliaCX, -0.3f}, {JuliaCY, 0.45f}, {JuliaCZ, 0.1f}, {JuliaCW, 0.1f}, {PrimSize, 1.5f},
+               {MSurface, 0.4f}, {MGlow, 0.6f}, {TrapR, 0.7f}, {TrapY, 0.3f}, {PalOffset, 0.08f}, {PalSpan, 0.4f},
+               {Emission, 1.1f}, {Fog, 0.03f}, {TexEmit, 0.4f}, {TexPick, 7.0f}, {Lens, 1.1f}})},
+        // Balls of Kleinian foam, five round the way: discs nested in discs, without end.
+        {"Klein Foam", 0.5f, 0.6f, 0.6f,
+         make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 5.0f},
+               {PKlein, 1.0f}, {KleinBox, 1.0f}, {PrimSize, 1.2f}, {PrimThick, 0.08f}, {MSurface, 0.7f}, {MGlow, 0.3f},
+               {TrapR, 0.6f}, {TrapX, 0.3f}, {PalOffset, 0.66f}, {PalSpan, 0.5f}, {Emission, 1.15f}, {Fog, 0.03f},
+               {TexAmount, 0.4f}, {TexPick, 0.0f}})},
+        // The limit set nine ways round in a slow counter-spiral, glowing sheets: a nave of caps and rings.
+        {"Limit Set Nave", 0.6f, 0.5f, 0.55f,
+         make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 9.0f},
+               {PolarTwist, -0.15f}, {PKlein, 1.0f}, {KleinBox, 0.9f}, {PrimSize, 1.1f}, {PrimThick, 0.06f},
+               {MSurface, 0.35f}, {MGlow, 0.4f}, {MDensity, 0.25f}, {DensBand, 0.12f}, {TrapR, 0.7f}, {TrapY, 0.3f},
+               {PalOffset, 0.9f}, {PalSpan, 0.55f}, {Emission, 1.1f}, {Fog, 0.03f}, {TexEmit, 0.3f}, {TexPick, 4.0f},
+               {Roll, -0.1f}, {Lens, 0.9f}})},
+        // Octahedral fractals, three round the way: spires of octahedra on octahedra.
+        {"Octa Spires", 0.6f, 0.55f, 0.6f,
+         make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 3.0f},
+               {PKifs, 1.0f}, {KifsScale, 2.0f}, {PrimSize, 1.2f}, {MSurface, 0.8f}, {MGlow, 0.2f}, {TrapR, 0.5f},
+               {TrapX, 0.4f}, {PalOffset, 0.2f}, {PalSpan, 0.45f}, {Emission, 1.15f}, {Fog, 0.03f}, {TexAmount, 0.5f},
+               {TexPick, 6.0f}})},
+        // A sparser octahedral dust eleven ways round, spiralling and glowing: a choir of crystals.
+        {"Octahedral Choir", 0.7f, 0.7f, 0.5f,
+         make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 11.0f},
+               {PolarTwist, 0.2f}, {PKifs, 1.0f}, {KifsScale, 2.4f}, {PrimSize, 1.1f}, {MSurface, 0.45f}, {MGlow, 0.55f},
+               {TrapR, 0.6f}, {TrapZ, 0.3f}, {PalOffset, 0.76f}, {PalSpan, 0.55f}, {Emission, 1.1f}, {Fog, 0.03f},
+               {TexEmit, 0.5f}, {TexPick, 7.0f}, {Roll, 0.12f}})},
     }};
 }
 
-const std::array<Seed, 41>& seeds() {
-    static const std::array<Seed, 41> kSeeds = buildSeeds();
+const std::array<Seed, 48>& seeds() {
+    static const std::array<Seed, 48> kSeeds = buildSeeds();
     return kSeeds;
 }
 
@@ -742,7 +861,7 @@ Genome clampFields(Genome g) {
         if (!std::isfinite(g[f])) g[f] = kBounds[f].lo;
         g[f] = wraps(f) ? wrap01(g[f]) : std::clamp(g[f], kBounds[f].lo, kBounds[f].hi);
     }
-    normalize(g, PBox, 13, nullptr);
+    normalize(g, PBox, kPrimCount, nullptr);
     normalize(g, MSurface, 3, nullptr);
     return g;
 }
@@ -754,7 +873,7 @@ bool inBounds(const Genome& g) {
         if (wraps(f) ? (g[f] < 0.0f || g[f] >= 1.0f) : (g[f] < b.lo - 1e-5f || g[f] > b.hi + 1e-5f)) return false;
     }
     for (int first : {static_cast<int>(PBox), static_cast<int>(MSurface)}) {
-        const int n = first == PBox ? 13 : 3;
+        const int n = first == PBox ? kPrimCount : 3;
         float sum = 0.0f;
         for (int i = 0; i < n; ++i) sum += g[first + i];
         if (std::fabs(sum - 1.0f) > 1e-3f) return false;
@@ -839,7 +958,8 @@ Genome random(uint64_t seedValue, const Constraints& c, int* picked) {
     for (int f : {static_cast<int>(Mirror), static_cast<int>(Ifs), static_cast<int>(Invert), static_cast<int>(AbsInv),
                   static_cast<int>(PMesh), static_cast<int>(TexAmount), static_cast<int>(TexEmit),
                   static_cast<int>(Polar), static_cast<int>(PGyroid), static_cast<int>(PMenger), static_cast<int>(PBulb),
-                  static_cast<int>(PMandelbox), static_cast<int>(PSierp), static_cast<int>(PApollo)}) {
+                  static_cast<int>(PMandelbox), static_cast<int>(PSierp), static_cast<int>(PApollo),
+                  static_cast<int>(PJulia), static_cast<int>(PKlein), static_cast<int>(PKifs)}) {
         if (origin[f] < 0.05f && unit(s) < amount * 0.5f) m[f] = unit(s) * amount;
     }
     m = clampFields(m);

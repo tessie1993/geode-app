@@ -44,6 +44,17 @@ enum Encoding : int {
     kPcm32 = 22,
 };
 
+// What feeds a ring (geode_api.h GEODE_SOURCE_*). Set once by whoever creates it; the player's is the default.
+// A renderer reads it off the ring it hears, so "is the player the source" (#460: no silence re-warm while
+// the song is only paused) follows the ring itself, with no flag of its own to drift from the source switch.
+enum SourceKind : int {
+    kSourcePlayer = 0,
+    kSourceMic = 1,
+    kSourceCapture = 2,
+    kSourceOutputMix = 3,
+    kSourceFile = 4,
+};
+
 // Bytes per sample of an encoding; 0 for one the ring cannot read.
 int bytesPerSample(int encoding);
 
@@ -91,6 +102,11 @@ public:
     // Reads record `index`; false when it is not published yet or its slot has been reused since.
     bool record(int64_t index, Record& out) const;
 
+    // What feeds this ring (SourceKind). Set once after create; any thread reads it. An unknown kind reads
+    // as the player.
+    void setSourceKind(int kind) { sourceKind_.store(kind, std::memory_order_release); }
+    int sourceKind() const { return sourceKind_.load(std::memory_order_acquire); }
+
     int capacity() const { return capacity_; }
     int maxChannels() const { return stride_; }
     int runway() const { return runway_; }
@@ -134,6 +150,7 @@ private:
     std::atomic<int64_t> written_{0};
     std::atomic<int64_t> recordCount_{0};
     std::atomic<int64_t> audibleAt_{-1};   // write position just past the newest audible chunk
+    std::atomic<int> sourceKind_{kSourcePlayer};
 
     // Writer-only state.
     Record current_{};

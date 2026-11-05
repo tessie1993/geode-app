@@ -96,6 +96,8 @@ public:
     // engine is stepped. writeAudio stays for callers that still push PCM (export, and the capture rings
     // until #485); only one source plays at a time, so each just writes what it has.
     void setSoundSource(const audio::ingest::Ring* ring);
+    // SoundFeed::playerIsSource for the ring taken up at the last beginFrame. GL thread.
+    bool playerIsSource() const { return soundFeed_.playerIsSource(); }
     // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
     void setSoundTuning(const GeodeSoundTuning& tuning);
     void setCustomShader(const std::string& sceneId, const std::string& fragmentSource);

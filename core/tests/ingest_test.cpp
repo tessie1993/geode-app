@@ -607,6 +607,17 @@ void sourceSwitchRestartsWithoutAWrongRateBurst() {
     geode_ingest_destroy(player);
 }
 
+void sourceKind() {
+    geode_ingest* ring = geode_ingest_create(1024, 2);
+    check(geode_ingest_source_kind(ring) == GEODE_SOURCE_PLAYER, "source kind: a new ring is the player's");
+    geode_ingest_set_source_kind(ring, GEODE_SOURCE_MIC);
+    check(geode_ingest_source_kind(ring) == GEODE_SOURCE_MIC, "source kind: set, then read back");
+    check(ringOf(ring).sourceKind() == geode::audio::ingest::kSourceMic, "source kind: the ring holds it");
+    check(geode_ingest_source_kind(nullptr) == GEODE_SOURCE_PLAYER, "source kind: NULL reads as the player");
+    geode_ingest_set_source_kind(nullptr, GEODE_SOURCE_MIC);   // no crash
+    geode_ingest_destroy(ring);
+}
+
 }  // namespace
 
 int main() {
@@ -623,6 +634,7 @@ int main() {
     restingAfterTheHold();
     recordRingOverrun();
     sourceSwitchRestartsWithoutAWrongRateBurst();
+    sourceKind();
     if (failures) {
         std::printf("%d ingest check(s) failed\n", failures);
         return 1;

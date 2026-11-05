@@ -148,6 +148,10 @@ void geode_viz_set_sound_source(geode_viz* v, geode_ingest* ingest) {
     if (v) v->renderer.setSoundSource(ingest ? &ingest->ring : nullptr);
 }
 
+int geode_viz_player_is_source(geode_viz* v) {
+    return v && v->renderer.playerIsSource() ? 1 : 0;
+}
+
 void geode_viz_set_sound_tuning(geode_viz* v, const GeodeSoundTuning* tuning) {
     if (v && tuning) v->renderer.setSoundTuning(*tuning);
 }

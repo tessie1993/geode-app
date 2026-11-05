@@ -625,4 +625,12 @@ object GeodeNative {
         handle: Long,
         nowMs: Long,
     ): Boolean
+
+    /** What feeds the ring (`GEODE_SOURCE_*`: player 0, mic 1, capture 2, output mix 3, file 4); set once after create. */
+    external fun ingestSetSourceKind(
+        handle: Long,
+        kind: Int,
+    )
+
+    external fun ingestSourceKind(handle: Long): Int
 }

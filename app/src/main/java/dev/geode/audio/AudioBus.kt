@@ -26,13 +26,25 @@ object AudioBus {
     var soundSource: Long = 0L
 
     /** The mic's ring; [MicCapture]'s worker is its one writer. */
-    val micRing: Long by lazy { GeodeNative.ingestCreate(CAPTURE_RING_FRAMES, CAPTURE_MAX_CHANNELS) }
+    val micRing: Long by lazy { ring(CAPTURE_RING_FRAMES, CAPTURE_MAX_CHANNELS, SOURCE_MIC) }
 
     /** Other apps' audio (MediaProjection); [PlaybackCapture]'s worker is its one writer. */
-    val captureRing: Long by lazy { GeodeNative.ingestCreate(CAPTURE_RING_FRAMES, CAPTURE_MAX_CHANNELS) }
+    val captureRing: Long by lazy { ring(CAPTURE_RING_FRAMES, CAPTURE_MAX_CHANNELS, SOURCE_CAPTURE) }
 
     /** The wallpaper's and dream's output-mix capture; written on the main thread (`OutputMixCapture`). */
-    val outputMixRing: Long by lazy { GeodeNative.ingestCreate(CAPTURE_RING_FRAMES, 1) }
+    val outputMixRing: Long by lazy { ring(CAPTURE_RING_FRAMES, 1, SOURCE_OUTPUT_MIX) }
+
+    /** A capture ring tagged with what feeds it, so a renderer hearing it knows the player is not the source. */
+    private fun ring(
+        frames: Int,
+        channels: Int,
+        kind: Int,
+    ): Long = GeodeNative.ingestCreate(frames, channels).also { GeodeNative.ingestSetSourceKind(it, kind) }
+
+    /** `GEODE_SOURCE_*` in `geode_api.h`; the player's ring keeps the default, the player. */
+    private const val SOURCE_MIC = 1
+    private const val SOURCE_CAPTURE = 2
+    private const val SOURCE_OUTPUT_MIX = 3
 
     /** About 1.4 s at 48 kHz: a renderer reads every frame, so this is only the stall it can ride out. */
     private const val CAPTURE_RING_FRAMES = 1 shl 16

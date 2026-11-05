@@ -42,7 +42,9 @@ the player's or the mic's or another app's (each source has its own, `AudioBus`)
 published as `AudioBus.soundSource`; each renderer's native side reads its own
 cursor on it every frame (`core/viz/SoundFeed`, `geode_viz_set_sound_source`) into
 its own `core/sound` engine, as the stereo downmix, so a 5.1 or 7.1 file's centre
-and LFE reach the visuals (#362). Stages 2–4 are downstream of the tap.
+and LFE reach the visuals (#362). Each ring carries what feeds it
+(`geode_ingest_set_source_kind`, set once by `AudioBus`), so a renderer knows
+whether the player is its source from the ring it hears (`geode_viz_player_is_source`). Stages 2–4 are downstream of the tap.
 
 ## Why the chain is owned rather than configured
 

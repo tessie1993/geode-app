@@ -71,6 +71,16 @@ Java_dev_geode_engine_bridge_GeodeNative_ingestWritten(JNIEnv*, jobject, jlong h
     return geode_ingest_written(ingestOf(handle));
 }
 
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_ingestSetSourceKind(JNIEnv*, jobject, jlong handle, jint kind) {
+    geode_ingest_set_source_kind(ingestOf(handle), kind);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_ingestSourceKind(JNIEnv*, jobject, jlong handle) {
+    return geode_ingest_source_kind(ingestOf(handle));
+}
+
 JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_ingestResting(JNIEnv*, jobject, jlong handle, jlong nowMs) {
     return geode_ingest_resting(ingestOf(handle), nowMs) ? JNI_TRUE : JNI_FALSE;

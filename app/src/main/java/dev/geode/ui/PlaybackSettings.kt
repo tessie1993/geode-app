@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -30,39 +31,18 @@ private val REPLAYGAIN_MODES =
         ReplayGain.MODE_ALBUM to R.string.playback_replaygain_album,
     )
 
+/**
+ * Settings › Playback › Basics: what people reach for first in a music player's playback
+ * settings (docs/research/settings-behaviour.md): the crossfade between tracks, the fade on play
+ * and pause, pausing when headphones come out, resuming on launch and the sleep timer.
+ */
 @Composable
-fun PlaybackSettingsSection(viewModel: SettingsViewModel) {
+internal fun PlaybackBasics(viewModel: SettingsViewModel) {
     val playerViewModel: PlayerViewModel = geodeViewModel()
     val prefs by viewModel.playerPrefs.collectAsStateWithLifecycle()
     val sleepRemainingMs by playerViewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-            stringResource(R.string.audio_dsp_visuals_notice),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Column {
-            Text(
-                stringResource(R.string.playback_speed, "%.2f".format(prefs.speed)),
-                style = MaterialTheme.typography.labelMedium,
-            )
-            CrystalSlider(
-                value = prefs.speed,
-                onValueChange = { viewModel.setPlayerPrefs(prefs.copy(speed = PlaybackMath.snap(it, 0.05f))) },
-                valueRange = 0.5f..2f,
-            )
-        }
-        Column {
-            Text(
-                stringResource(R.string.playback_pitch, "%.1f".format(prefs.pitchSemitones)),
-                style = MaterialTheme.typography.labelMedium,
-            )
-            CrystalSlider(
-                value = prefs.pitchSemitones,
-                onValueChange = { viewModel.setPlayerPrefs(prefs.copy(pitchSemitones = PlaybackMath.snap(it, 0.5f))) },
-                valueRange = -6f..6f,
-            )
-        }
+        CrossfadeSlider(prefs) { viewModel.setPlayerPrefs(it) }
         Column {
             Text(
                 if (prefs.fadeMs <= 0) {
@@ -85,28 +65,12 @@ fun PlaybackSettingsSection(viewModel: SettingsViewModel) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        ReplayGainSettings(prefs) { viewModel.setPlayerPrefs(it) }
-        BitPerfectSettings(prefs) { viewModel.setPlayerPrefs(it) }
-        PlaybackSwitchRow(stringResource(R.string.playback_skip_silence), prefs.skipSilence) {
-            viewModel.setPlayerPrefs(prefs.copy(skipSilence = it))
-        }
         PlaybackSwitchRow(stringResource(R.string.playback_pause_unplugged), prefs.pauseOnNoisy) {
             viewModel.setPlayerPrefs(prefs.copy(pauseOnNoisy = it))
-        }
-        PlaybackSwitchRow(stringResource(R.string.playback_keep_screen_on), prefs.keepScreenOn) {
-            viewModel.setPlayerPrefs(prefs.copy(keepScreenOn = it))
         }
         PlaybackSwitchRow(stringResource(R.string.playback_auto_resume), prefs.autoResume) {
             viewModel.setPlayerPrefs(prefs.copy(autoResume = it))
         }
-        PlaybackSwitchRow(stringResource(R.string.playback_resume_long_tracks), prefs.resumeLongTracks) {
-            viewModel.setPlayerPrefs(prefs.copy(resumeLongTracks = it))
-        }
-        Text(
-            stringResource(R.string.playback_resume_long_tracks_explainer),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
         Column {
             Text(stringResource(R.string.playback_sleep_timer), style = MaterialTheme.typography.labelMedium)
             Row(
@@ -157,6 +121,103 @@ fun PlaybackSettingsSection(viewModel: SettingsViewModel) {
             }
         }
     }
+}
+
+/**
+ * Crossfade (#338): Off, then 1–12 s in whole seconds, off by default. Written to
+ * [PlayerPrefs.crossfadeMs], which `playback/TrackCrossfade` reads at the next track change, so a
+ * change applies to the next join with no restart.
+ */
+@Composable
+private fun CrossfadeSlider(
+    prefs: PlayerPrefs,
+    onChange: (PlayerPrefs) -> Unit,
+) {
+    val seconds = prefs.crossfadeMs / PlayerPrefs.CROSSFADE_STEP_MS
+    val maxSeconds = PlayerPrefs.MAX_CROSSFADE_MS / PlayerPrefs.CROSSFADE_STEP_MS
+    Column {
+        Text(
+            if (seconds <= 0) {
+                stringResource(R.string.playback_crossfade_off)
+            } else {
+                pluralStringResource(R.plurals.playback_crossfade_seconds, seconds, seconds)
+            },
+            style = MaterialTheme.typography.labelMedium,
+        )
+        CrystalSlider(
+            value = seconds.toFloat(),
+            onValueChange = { onChange(prefs.copy(crossfadeMs = PlayerPrefs.crossfadeMsFromSeconds(it))) },
+            valueRange = 0f..maxSeconds.toFloat(),
+            // One stop per whole second between Off and the longest.
+            steps = maxSeconds - 1,
+        )
+        Text(
+            stringResource(R.string.playback_crossfade_explainer),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Settings › Playback › Speed & pitch. */
+@Composable
+internal fun SpeedPitchSection(viewModel: SettingsViewModel) {
+    val prefs by viewModel.playerPrefs.collectAsStateWithLifecycle()
+    Column {
+        Text(
+            stringResource(R.string.playback_speed, "%.2f".format(prefs.speed)),
+            style = MaterialTheme.typography.labelMedium,
+        )
+        CrystalSlider(
+            value = prefs.speed,
+            onValueChange = { viewModel.setPlayerPrefs(prefs.copy(speed = PlaybackMath.snap(it, 0.05f))) },
+            valueRange = 0.5f..2f,
+        )
+    }
+    Column {
+        Text(
+            stringResource(R.string.playback_pitch, "%.1f".format(prefs.pitchSemitones)),
+            style = MaterialTheme.typography.labelMedium,
+        )
+        CrystalSlider(
+            value = prefs.pitchSemitones,
+            onValueChange = { viewModel.setPlayerPrefs(prefs.copy(pitchSemitones = PlaybackMath.snap(it, 0.5f))) },
+            valueRange = -6f..6f,
+        )
+    }
+    Text(
+        stringResource(R.string.audio_dsp_visuals_notice),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/** Settings › Playback › Volume levelling: ReplayGain. */
+@Composable
+internal fun VolumeLevellingSection(viewModel: SettingsViewModel) {
+    val prefs by viewModel.playerPrefs.collectAsStateWithLifecycle()
+    ReplayGainSettings(prefs) { viewModel.setPlayerPrefs(it) }
+}
+
+/** Settings › Playback › Output and more: bit-perfect USB, skipping silence, Player's screen, long tracks. */
+@Composable
+internal fun PlaybackMoreSection(viewModel: SettingsViewModel) {
+    val prefs by viewModel.playerPrefs.collectAsStateWithLifecycle()
+    BitPerfectSettings(prefs) { viewModel.setPlayerPrefs(it) }
+    PlaybackSwitchRow(stringResource(R.string.playback_skip_silence), prefs.skipSilence) {
+        viewModel.setPlayerPrefs(prefs.copy(skipSilence = it))
+    }
+    PlaybackSwitchRow(stringResource(R.string.playback_keep_screen_on), prefs.keepScreenOn) {
+        viewModel.setPlayerPrefs(prefs.copy(keepScreenOn = it))
+    }
+    PlaybackSwitchRow(stringResource(R.string.playback_resume_long_tracks), prefs.resumeLongTracks) {
+        viewModel.setPlayerPrefs(prefs.copy(resumeLongTracks = it))
+    }
+    Text(
+        stringResource(R.string.playback_resume_long_tracks_explainer),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable

@@ -52,7 +52,15 @@ class ShellTabsTest {
         compose.tap("Studio")
         compose.waitForIdle()
 
+        // Settings is a list of groups; a group opens as its page, ‹ › step to the next one and ←
+        // returns to the list.
         compose.tap("Settings")
+        compose.awaitNode(hasText("Export"))
+        compose.tap("Behaviour & gestures")
+        compose.awaitNode(hasText("Open on"))
+        compose.tap("Next group")
+        compose.awaitNode(hasText("Flashing and motion"))
+        compose.tap("Back to Settings")
         compose.awaitNode(hasText("Export"))
 
         compose.tap("Player")

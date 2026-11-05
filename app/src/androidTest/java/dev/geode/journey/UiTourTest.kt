@@ -264,7 +264,10 @@ class UiTourTest {
         }
     }
 
-    /** Every Settings tab, scrolled to its end, with the dialogs and drill-ins under them, then Go Pro. */
+    /**
+     * Every Settings group (the list of groups, each its own page since the Settings rebuild),
+     * scrolled to its end, with the dialogs and drill-ins under it, then back to the list; then Go Pro.
+     */
     @Test
     @TourCase(index = 9, area = "settings")
     fun settings() {
@@ -274,6 +277,7 @@ class UiTourTest {
             tour.step("settings", "tab-${slug(tab)}", "the $tab tab") { tour.tap(tab) }
             tour.pages("settings", slug(tab), pages = 5)
             settingsDrillIns(tab)
+            tour.tapIfPresent(SETTINGS_BACK)
         }
         tour.step("settings", "go-pro", "the paywall from Settings' Go Pro row") {
             tour.tap(GO_PRO)
@@ -546,7 +550,6 @@ class UiTourTest {
 
     private fun settingsDrillIns(tab: String) {
         when (tab) {
-            AUDIO -> tour.step("settings", "audio-advanced", "the sound tuning's Advanced controls") { tour.tap(ADVANCED) }
             ABOUT -> aboutDialogs()
             EXPORT -> exportLink()
             else -> Unit
@@ -563,9 +566,9 @@ class UiTourTest {
 
     private fun exportLink() {
         tour.step("settings", "export-open-studio", "Settings › Export opens Studio › Render") { tour.tap(OPEN_STUDIO_RENDER) }
-        tour.step("settings", "export-return", "back in Settings, Export tab") {
+        tour.step("settings", "export-return", "back in Settings, Export group") {
             tour.tap(SETTINGS)
-            tour.tap(EXPORT)
+            tour.tapIfPresent(EXPORT)
             null
         }
     }
@@ -681,11 +684,11 @@ class UiTourTest {
         const val SETS_AND_MACROS = "Sets & macros"
         const val TOUR_NEXT = "Next"
         const val TOUR_DONE = "Done"
-        const val TUTORIALS = "Tutorials"
+        const val TUTORIALS = "Tutorials & help"
         const val RENDER = "Render"
         const val MY_VIDEOS = "My videos"
-        const val AUDIO = "Audio"
-        const val ABOUT = "About"
+        const val ABOUT = "Backup & about"
+        const val SETTINGS_BACK = "Back to Settings"
         const val EXPORT = "Export"
         const val ADVANCED = "Advanced"
         const val LICENSES = "Open source licenses"
@@ -696,7 +699,18 @@ class UiTourTest {
 
         val LIBRARY_TABS = listOf("Tracks", "Albums", "Artists", "Folders", "Playlists", "Duplicates")
         val SETTINGS_TABS =
-            listOf("Look", AUDIO, "Lyrics", EXPORT, "Folders", "Behavior", "Performance", "Help", TUTORIALS, "Backup", ABOUT)
+            listOf(
+                "Playback",
+                "Behaviour & gestures",
+                "Visuals",
+                "Sound input",
+                "Look",
+                "Performance",
+                "Library & lyrics",
+                EXPORT,
+                TUTORIALS,
+                ABOUT,
+            )
         val RENDER_SCOPES = listOf("Play queue", "Playlist", "Chosen tracks")
         val RENDER_OPTIONS = listOf("Made for", "Segment", "Whole track", "Loop", "Ask where each time", "Videos library (Movies/MuzViz)")
         val RENDER_OPTIONS_THAT_OPEN = setOf("Made for", "Loop")

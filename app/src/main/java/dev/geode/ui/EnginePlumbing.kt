@@ -9,6 +9,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.geodeContainer
 import dev.geode.render.BlendMode
 import dev.geode.render.VisualizerView
+import dev.geode.ui.theme.rememberSystemReducedMotion
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -119,8 +120,11 @@ fun VisualizerEngineBindings(
     LaunchedEffect(Unit) {
         visualizerView.visualizerRenderer.liquidMode.collect { viewModel.reportLiquidMode(it) }
     }
-    LaunchedEffect(gui.reducedMotion) {
-        visualizerView.visualizerRenderer.reducedMotion = gui.reducedMotion
+    // Android's "Remove animations" (data/SystemMotion, #336), watched live: turning it on while
+    // the visual plays calms the visual at once.
+    val reducedMotion = rememberSystemReducedMotion()
+    LaunchedEffect(reducedMotion) {
+        visualizerView.visualizerRenderer.reducedMotion = reducedMotion
     }
     LaunchedEffect(Unit) {
         viewModel.morphFade.collect { visualizerView.visualizerRenderer.beginParamMorph(it) }

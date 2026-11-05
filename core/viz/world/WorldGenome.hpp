@@ -18,8 +18,9 @@
 //   the cells off the axis, so the way runs between structures rather than through them), a polar
 //   kaleidoscope fold about the travel axis (N-fold, round tunnels, a spiral), twist along
 //   travel, global scale, mirror fold, up to five IFS steps (rotate-fold, fractional count),
-//   sphere inversion, abs-inversion, then ten primitives blended by weight (six simple ones, a baked
-//   CC0 model from WorldAssets, a gyroid, a Menger sponge and a Mandelbulb), then the corridor
+//   sphere inversion, abs-inversion, then thirteen primitives blended by weight (six simple ones, a
+//   baked CC0 model from WorldAssets, and six fractals: gyroid, Menger sponge, Mandelbulb, Mandelbox,
+//   Sierpinski tetrahedron, Apollonian packing), then the corridor
 //   carved out around the camera's way. Three render modes read that one world: a hard surface,
 //   a glow-through volume (translucent glowing plates) and an emissive density (thin glowing
 //   sheets); their weights are in the genome too, so a world can melt from stone into light.
@@ -70,12 +71,16 @@ enum Field : int {
     PGyroid,     // a gyroid sheet: one endless, smooth, organic surface (GyroScale, PrimThick)
     PMenger,     // a Menger sponge, three levels (PrimSize)
     PBulb,       // a Mandelbulb (BulbPower, PrimSize)
+    PMandelbox,  // a Mandelbox: box fold, sphere fold, scale (BoxScale, PrimSize)
+    PSierp,      // a Sierpinski tetrahedron, folded seven times (PrimSize)
+    PApollo,     // an Apollonian packing: spheres inverted into spheres, endless (PrimSize)
     PrimSize,
     PrimThick,
     MeshPick,    // 0..kShapeCount-1: which baked model, fractional = a blend of two neighbours
     MeshSize,    // the model's half-size, world units before Scale
     BulbPower,   // the Mandelbulb's power, 2..9
     GyroScale,   // the gyroid's frequency
+    BoxScale,    // the Mandelbox's scale, 1.5..3 (applied negative: the folded, cathedral-like box)
     // Render modes: weights (normalized to sum 1), then the density mode's band half-width.
     MSurface,
     MGlow,
@@ -115,7 +120,7 @@ enum Runtime : int {
 
 constexpr int kVec4 = kUniformCount / 4;
 static_assert(kUniformCount % 4 == 0, "uWorld is whole vec4s");
-static_assert(kVec4 == 16, "lib_world declares uWorld[16]");
+static_assert(kVec4 == 17, "lib_world declares uWorld[17]");
 
 constexpr int kMaxIfsSteps = 5;
 // The corridor's eye bubble (lib_world's WG_EYE_RADIUS): what is always open around the eye.

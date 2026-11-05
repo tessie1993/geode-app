@@ -13,7 +13,8 @@
 // WG_CELL_SHIFT moves the cells off the axis) -> a twist along travel (a sine over one z period,
 // so it stays periodic) -> scale -> mirror fold -> up to five rotate-fold IFS steps (fractional:
 // the last one fades in) -> sphere inversion -> abs-inversion -> ten primitives blended by weight:
-// six simple ones, a baked CC0 model (uWorldShapes), a gyroid, a Menger sponge and a Mandelbulb. Grey CC0 material maps (uWorldTex) add surface
+// six simple ones, a baked CC0 model (uWorldShapes), and six fractals (gyroid, Menger sponge,
+// Mandelbulb, Mandelbox, Sierpinski tetrahedron, Apollonian packing). Grey CC0 material maps (uWorldTex) add surface
 // detail and pattern the light; their colour never reaches the screen, pal() still owns it.
 // The orbit trap is gathered on the way (gWTrap) and colours the world for free: its channels,
 // weighted by the genome, are the palette coordinate, and its radius is the cheap occlusion.
@@ -39,7 +40,7 @@
 // baked models and material maps are CC0 assets from BlenderKit (docs/morph-world-assets.md).
 
 /** The genome and the driver's runtime values; WorldGenome.hpp's Field and Runtime order. */
-uniform vec4 uWorld[16];
+uniform vec4 uWorld[17];
 
 #define WG_REP_XY uWorld[0].x
 #define WG_CELL_XY uWorld[0].y
@@ -74,37 +75,41 @@ uniform vec4 uWorld[16];
 #define WG_P_GYROID uWorld[7].z
 #define WG_P_MENGER uWorld[7].w
 #define WG_P_BULB uWorld[8].x
-#define WG_PRIM_SIZE uWorld[8].y
-#define WG_PRIM_THICK uWorld[8].z
-#define WG_MESH_PICK uWorld[8].w
-#define WG_MESH_SIZE uWorld[9].x
-#define WG_BULB_POWER uWorld[9].y
-#define WG_GYRO_SCALE uWorld[9].z
-#define WG_M_SURFACE uWorld[9].w
-#define WG_M_GLOW uWorld[10].x
-#define WG_M_DENSITY uWorld[10].y
-#define WG_DENS_BAND uWorld[10].z
-#define WG_TRAP_X uWorld[10].w
-#define WG_TRAP_Y uWorld[11].x
-#define WG_TRAP_Z uWorld[11].y
-#define WG_TRAP_R uWorld[11].z
-#define WG_PAL_OFFSET uWorld[11].w
-#define WG_PAL_SPAN uWorld[12].x
-#define WG_EMISSION uWorld[12].y
-#define WG_FOG uWorld[12].z
-#define WG_CORRIDOR uWorld[12].w
-#define WG_TEX_AMOUNT uWorld[13].x
-#define WG_TEX_PICK uWorld[13].y
-#define WG_TEX_SCALE uWorld[13].z
-#define WG_TEX_EMIT uWorld[13].w
-#define WG_Z_PHASE uWorld[14].x
-#define WG_GAIN uWorld[14].y
-#define WG_ITER_CAP uWorld[14].z
-#define WG_HUE_TURN uWorld[14].w
-#define WG_WAKE_X uWorld[15].x
-#define WG_WAKE_Y uWorld[15].y
-#define WG_WAKE_Z uWorld[15].z
-#define WG_ASSETS uWorld[15].w
+#define WG_P_MANDELBOX uWorld[8].y
+#define WG_P_SIERP uWorld[8].z
+#define WG_P_APOLLO uWorld[8].w
+#define WG_PRIM_SIZE uWorld[9].x
+#define WG_PRIM_THICK uWorld[9].y
+#define WG_MESH_PICK uWorld[9].z
+#define WG_MESH_SIZE uWorld[9].w
+#define WG_BULB_POWER uWorld[10].x
+#define WG_GYRO_SCALE uWorld[10].y
+#define WG_BOX_SCALE uWorld[10].z
+#define WG_M_SURFACE uWorld[10].w
+#define WG_M_GLOW uWorld[11].x
+#define WG_M_DENSITY uWorld[11].y
+#define WG_DENS_BAND uWorld[11].z
+#define WG_TRAP_X uWorld[11].w
+#define WG_TRAP_Y uWorld[12].x
+#define WG_TRAP_Z uWorld[12].y
+#define WG_TRAP_R uWorld[12].z
+#define WG_PAL_OFFSET uWorld[12].w
+#define WG_PAL_SPAN uWorld[13].x
+#define WG_EMISSION uWorld[13].y
+#define WG_FOG uWorld[13].z
+#define WG_CORRIDOR uWorld[13].w
+#define WG_TEX_AMOUNT uWorld[14].x
+#define WG_TEX_PICK uWorld[14].y
+#define WG_TEX_SCALE uWorld[14].z
+#define WG_TEX_EMIT uWorld[14].w
+#define WG_Z_PHASE uWorld[15].x
+#define WG_GAIN uWorld[15].y
+#define WG_ITER_CAP uWorld[15].z
+#define WG_HUE_TURN uWorld[15].w
+#define WG_WAKE_X uWorld[16].x
+#define WG_WAKE_Y uWorld[16].y
+#define WG_WAKE_Z uWorld[16].z
+#define WG_ASSETS uWorld[16].w
 
 /**
  * The baked CC0 assets (core/viz/world/WorldAssets, tools/morph_world_assets): six models as signed
@@ -198,6 +203,57 @@ float wBulb(vec3 q, float s, float n) {
     return 0.5 * log(r) * r / dr * k;
 }
 
+/** A Mandelbox of scale -b, six iterations, extent brought to about 2 s (WorldGenome.cpp mandelbox()). */
+float wMandelbox(vec3 q, float s, float b) {
+    float k = 0.35 * s;
+    vec3 p = q / k;
+    float scale = -b;
+    vec3 z = p;
+    float dr = 1.0;
+    for (int i = 0; i < 6; i++) {
+        z = clamp(z, -1.0, 1.0) * 2.0 - z;
+        float r2 = dot(z, z);
+        if (r2 < 0.25) {
+            z *= 4.0;
+            dr *= 4.0;
+        } else if (r2 < 1.0) {
+            z /= r2;
+            dr /= r2;
+        }
+        z = z * scale + p;
+        dr = dr * abs(scale) + 1.0;
+    }
+    return length(z) / abs(dr) * k;
+}
+
+/** A Sierpinski tetrahedron, seven folds toward the nearest corner (WorldGenome.cpp sierpinski()). */
+float wSierp(vec3 q, float s) {
+    vec3 z = q / s;
+    float scale = 1.0;
+    for (int i = 0; i < 7; i++) {
+        if (z.x + z.y < 0.0) z.xy = -z.yx;
+        if (z.x + z.z < 0.0) z.xz = -z.zx;
+        if (z.y + z.z < 0.0) z.yz = -z.zy;
+        z = z * 2.0 - 1.0;
+        scale *= 2.0;
+    }
+    return (length(z) - 1.0) / scale * s;
+}
+
+/** An Apollonian packing, seven inversions in a lattice of unit cells (WorldGenome.cpp apollonian()). */
+float wApollo(vec3 q, float s) {
+    vec3 p = q / s;
+    float scale = 1.0;
+    for (int i = 0; i < 7; i++) {
+        vec3 h = 0.5 * p + 0.5;
+        p = -1.0 + 2.0 * (h - floor(h));
+        float k = 1.2 / max(dot(p, p), 1e-4);
+        p *= k;
+        scale *= k;
+    }
+    return 0.25 * abs(p.y) / scale * s;
+}
+
 /** The plane about the travel axis folded into one mirrored wedge of n (WorldGenome.cpp polarFold()). */
 vec2 wPolar(vec2 v, float n) {
     float r = length(v);
@@ -233,8 +289,9 @@ float wMesh(vec3 q) {
 }
 
 /**
- * The ten primitives, blended by weight (the weights sum to one): six simple ones (tube and torus
- * ring the travel axis), a baked model, a gyroid, a Menger sponge and a Mandelbulb.
+ * The thirteen primitives, blended by weight (the weights sum to one): six simple ones (tube and
+ * torus ring the travel axis), a baked model, and six fractals: a gyroid, a Menger sponge, a
+ * Mandelbulb, a Mandelbox, a Sierpinski tetrahedron and an Apollonian packing.
  */
 float wPrims(vec3 q) {
     float s = WG_PRIM_SIZE;
@@ -251,6 +308,9 @@ float wPrims(vec3 q) {
     if (WG_P_GYROID > 0.0) d += WG_P_GYROID * wGyroid(q, WG_GYRO_SCALE, t);
     if (WG_P_MENGER > 0.0) d += WG_P_MENGER * wMenger(q, s);
     if (WG_P_BULB > 0.0) d += WG_P_BULB * wBulb(q, s, WG_BULB_POWER);
+    if (WG_P_MANDELBOX > 0.0) d += WG_P_MANDELBOX * wMandelbox(q, s, WG_BOX_SCALE);
+    if (WG_P_SIERP > 0.0) d += WG_P_SIERP * wSierp(q, s);
+    if (WG_P_APOLLO > 0.0) d += WG_P_APOLLO * wApollo(q, s);
     return d;
 }
 

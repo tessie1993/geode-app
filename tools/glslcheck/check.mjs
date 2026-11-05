@@ -192,7 +192,7 @@ const SHADER_VALUES = {
   uCamDolly: 0, uCamLook: [0, 0, 0],
   // Morph World's genome (lib_world): seed 0, Bubble Nave, as `world_genome_test --dump 0` prints it.
   // Every seed: `--set uWorld=$(world_genome_test --dump <i>)`.
-  uWorld: [1, 6, 5, 1, 0.5, 0.6, 0, 3, 1.6, 0.3, 0.3, 0.8, 0.8, 0.8, 0.6, 1.1, 0, 0.6, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1.6, 0.05, 0, 1.4, 0.8, 0.2, 0, 0.12, 0.2, 0, 0, 0.8, 0.55, 0.4, 0.9, 0.04, 1.6, 0, 0, 1, 0, 0, 1.47569, 5, 0, 0, 0, 1.9, 1],
+  uWorld: [1, 6, 5, 1, 0.5, 0.6, 0, 3, 1.6, 0.3, 0.3, 0.8, 0.8, 0.8, 0.6, 1.1, 0, 0.6, 0, 0, 6, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1.6, 0.05, 0, 1.4, 8, 1.6, 2, 0.8, 0.2, 0, 0.12, 0.2, 0, 0, 0.8, 0.55, 0.4, 0.9, 0.04, 1.6, 0, 0, 1, 0, 0, 1.47569, 5, 0, 0, 0, 1.9, 1],
 };
 
 const SHADER_TEXTURES = { uSoundTex: 'sound', uPalLut: 'palette', uWorldShapes: 'world_shapes', uWorldTex: 'world_tex' };

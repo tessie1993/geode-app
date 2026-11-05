@@ -4,7 +4,7 @@
 //                                 run the checks; with lib_world, also check that its WG_* names
 //                                 index the same fields; with the baked assets, check their sizes
 //                                 and probe every world with the real shapes (else spheres)
-//   world_genome_test --dump <seed>          print seed <seed>'s uWorld (56 floats, comma separated)
+//   world_genome_test --dump <seed>          print seed <seed>'s uWorld (68 floats, comma separated)
 //                                            for tools/glslcheck --set uWorld=...
 //   world_genome_test --names [shapes.bin]   print the seeds' names and open-space probes
 #include <array>
@@ -73,7 +73,7 @@ void lerpEndpointsAreExact() {
 }
 
 void seedsAreValid() {
-    check(seedCount() >= 8 && seedCount() <= 32, "8 to 32 seed worlds");
+    check(seedCount() >= 8 && seedCount() <= 40, "8 to 40 seed worlds");
     std::map<std::string, int> names;
     for (int i = 0; i < seedCount(); ++i) {
         const Seed& s = seed(i);
@@ -312,7 +312,8 @@ void glslNamesMatch(const char* path) {
         {"WG_IFS_OFF_Z", IfsOffZ},  {"WG_INVERT", Invert},      {"WG_INV_RADIUS", InvRadius}, {"WG_ABS_INV", AbsInv},
         {"WG_ABS_INV_C", AbsInvC},  {"WG_TWIST", Twist},        {"WG_SCALE", Scale},
         {"WG_POLAR", Polar},        {"WG_POLAR_N", PolarN},     {"WG_POLAR_TWIST", PolarTwist}, {"WG_P_GYROID", PGyroid},
-        {"WG_P_MENGER", PMenger},   {"WG_P_BULB", PBulb},       {"WG_BULB_POWER", BulbPower}, {"WG_GYRO_SCALE", GyroScale},        {"WG_P_BOX", PBox},
+        {"WG_P_MENGER", PMenger},   {"WG_P_BULB", PBulb},       {"WG_BULB_POWER", BulbPower}, {"WG_GYRO_SCALE", GyroScale},
+        {"WG_P_MANDELBOX", PMandelbox}, {"WG_P_SIERP", PSierp}, {"WG_P_APOLLO", PApollo}, {"WG_BOX_SCALE", BoxScale},        {"WG_P_BOX", PBox},
         {"WG_P_BAR", PBar},         {"WG_P_TUBE", PTube},       {"WG_P_TORUS", PTorus},     {"WG_P_SHELL", PShell},
         {"WG_P_SLAB", PSlab},       {"WG_P_MESH", PMesh},       {"WG_PRIM_SIZE", PrimSize},
         {"WG_MESH_PICK", MeshPick}, {"WG_MESH_SIZE", MeshSize}, {"WG_TEX_AMOUNT", TexAmount}, {"WG_TEX_PICK", TexPick},
@@ -329,7 +330,7 @@ void glslNamesMatch(const char* path) {
         std::snprintf(want, sizeof want, "#define %s uWorld[%d].%c", name.c_str(), index / 4, comps[index % 4]);
         check(src.find(want) != std::string::npos, std::string("lib_world has ") + want);
     }
-    check(src.find("uniform vec4 uWorld[" + std::to_string(kVec4) + "];") != std::string::npos, "lib_world declares uWorld[16]");
+    check(src.find("uniform vec4 uWorld[" + std::to_string(kVec4) + "];") != std::string::npos, "lib_world declares uWorld[17]");
 }
 
 std::vector<uint8_t> readAll(const char* path) {

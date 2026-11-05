@@ -30,6 +30,29 @@ class VisualGesturesTest {
     }
 
     @Test
+    fun beforeTheFirstPlacementEveryDownIsOurs() {
+        // No report yet: the origin is a guess, so no down is given to the system's strips.
+        val safe = gestureSafeArea(window, left = 40f, top = 100f, right = 40f, bottom = 60f)
+        val unplaced = WindowPlacement()
+        assertTrue(unplaced.isOurs(Offset(10f, 10f), safe))
+        assertTrue(unplaced.isOurs(Offset(540f, 2380f), safe))
+    }
+
+    @Test
+    fun oncePlacedOnlyDownsOutsideTheStripsAreOurs() {
+        val safe = gestureSafeArea(window, left = 40f, top = 0f, right = 40f, bottom = 0f)
+        val beside =
+            WindowPlacement().apply {
+                origin = Offset(80f, 0f)
+                placed = true
+            }
+        val atEdge = WindowPlacement().apply { placed = true }
+        assertTrue(beside.isOurs(Offset(10f, 1200f), safe))
+        assertFalse(atEdge.isOurs(Offset(10f, 1200f), safe))
+        assertTrue(atEdge.isOurs(Offset(540f, 1200f), safe))
+    }
+
+    @Test
     fun aDownInTheBottomStripIsTheSystems() {
         val safe = gestureSafeArea(window, left = 0f, top = 0f, right = 0f, bottom = 60f)
         assertTrue(safe.contains(Offset(540f, 2300f)))

@@ -31,18 +31,18 @@ import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.findRootCoordinates
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.layout.onLayoutRectChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toOffset
 import androidx.compose.ui.unit.toSize
 import dev.geode.R
 import dev.geode.data.CanvasGesture
@@ -131,9 +131,12 @@ internal class VisualActions(
  * is the union of the system, mandatory and tappable gesture insets, so it also covers the
  * three-button bar's and the tappable shade's edge, which `systemGestures` alone misses. Insets are
  * distances from the window's edges, so a down is compared in window coordinates
- * (`LayoutCoordinates.positionInWindow`, kept by [WindowPlacement]): in the expanded shell the stage sits
- * beside the rail inside `safeDrawingPadding()`, and its own (0, 0) is not the window's. A tap there
- * is still ours, since Android does nothing with a tap.
+ * (the stage's window position, kept by [WindowPlacement]; the window itself is
+ * `LocalWindowInfo.containerSize` from (0, 0)): in the expanded shell the stage sits beside the rail
+ * inside `safeDrawingPadding()`, and its own (0, 0) is not the window's. Until the stage's first
+ * placement is reported no down is in a strip ([WindowPlacement.isOurs]): an unplaced origin would
+ * put every down in the top-left strips and drop the first gesture after the screen opens. A tap in
+ * a strip is still ours, since Android does nothing with a tap.
  *
  * The ring shows at `ViewConfiguration.longPressTimeoutMillis`, which on Android is the platform's
  * long-press timeout, so it follows Accessibility › Touch & hold delay; a lift before that is a tap,
@@ -180,6 +183,7 @@ internal fun Modifier.visualGestures(
     val context = LocalContext.current
     val doubleSlop = remember(context) { PlatformViewConfiguration.get(context).scaledDoubleTapSlop.toFloat() }
     val placement = remember { WindowPlacement() }
+    val windowInfo = LocalWindowInfo.current
     return this
         .windowPlacement(placement)
         .pointerInput(edges, direction, doubleSlop) {
@@ -188,13 +192,13 @@ internal fun Modifier.visualGestures(
             val ours = { local: Offset ->
                 val safe =
                     gestureSafeArea(
-                        window = placement.window,
+                        window = Rect(Offset.Zero, windowInfo.containerSize.toSize()),
                         left = edges.getLeft(this, direction).toFloat(),
                         top = edges.getTop(this).toFloat(),
                         right = edges.getRight(this, direction).toFloat(),
                         bottom = edges.getBottom(this).toFloat(),
                     )
-                safe.contains(placement.toWindow(local))
+                placement.isOurs(local, safe)
             }
             awaitEachGesture {
                 var next: PointerInputChange? = awaitFirstDown(requireUnconsumed = false)
@@ -380,27 +384,41 @@ internal fun isSecondTap(
 internal fun swirlAttempted(turnRad: Float): Boolean = abs(turnRad) > SWIRL_ATTEMPT_RAD
 
 /**
- * Where a layout sits in the window, kept from its last placement so a pointer handler, which only
- * gets local positions, can compare a down with the window insets. [window] is the Compose root's
- * bounds, which insets are measured from.
+ * Where a layout sits in the window, kept from its last reported placement so a pointer handler,
+ * which only gets local positions, can compare a down with the window insets (measured from the
+ * window's edges). A plain object, not state: nothing draws from it, so a move must not recompose.
+ *
+ * [placed] stays false until the first report. Before it [origin] is (0, 0) whatever the stage's
+ * real place, so [isOurs] gives every down to the app rather than guess: the strips are back from
+ * the first report on, which `onLayoutRectChanged` sends one debounce after the first layout.
  */
 internal class WindowPlacement {
     var origin = Offset.Zero
-    var window = Rect.Zero
+    var placed = false
 
     fun toWindow(local: Offset): Offset = origin + local
+
+    /** Whether a down at [local] is the app's: anywhere until placed, then only inside [safe] (window px). */
+    fun isOurs(
+        local: Offset,
+        safe: Rect,
+    ): Boolean = !placed || safe.contains(toWindow(local))
 }
 
 /**
- * Keeps [placement] current. `onGloballyPositioned` runs after each layout that may move this node
- * in the window, and its place in the modifier chain does not change what it reports (Compose
- * reference, `OnGloballyPositionedModifier`).
+ * Keeps [placement] current through `Modifier.onLayoutRectChanged`, not `onGloballyPositioned`: the
+ * jetpack-compose-performance skill (references/layouts.md, "Throttled Bounds Tracking") names it
+ * for window-relative bounds, since it is throttled and debounced where `onGloballyPositioned` runs
+ * after every layout pass that may move the node. The stage only moves when the shell relayouts
+ * (rotation, the rail, a resized window), so the default 64 ms debounce costs nothing: the report
+ * lands once the move settles, and a down before it is read by [WindowPlacement.isOurs].
+ * `RelativeLayoutBounds.positionInWindow` is the node's top-left in window coordinates, the frame
+ * the insets are in.
  */
 internal fun Modifier.windowPlacement(placement: WindowPlacement): Modifier =
-    onGloballyPositioned { coordinates ->
-        placement.origin = coordinates.positionInWindow()
-        val root = coordinates.findRootCoordinates()
-        placement.window = Rect(root.positionInWindow(), root.size.toSize())
+    onLayoutRectChanged { bounds ->
+        placement.origin = bounds.positionInWindow.toOffset()
+        placement.placed = true
     }
 
 /**

@@ -4,8 +4,6 @@ package dev.geode.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeGestures
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,7 +37,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.platform.LocalDensity
@@ -63,9 +59,7 @@ import dev.geode.ui.theme.floatingGlass
 import dev.geode.ui.theme.performStoneHaptic
 import dev.geode.ui.tour.GestureTip
 import dev.geode.ui.tour.GestureTips
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /**
  * Whether the floating mini player (and, on Visuals, the stage icons and the tab bar) is awake.
@@ -154,12 +148,14 @@ private const val MILLIS_PER_SECOND = 1000f
  * on). The buttons are the only way to skip, so a sideways brush never changes the song.
  *
  * A swipe must travel [SWIPE_DP] (48 dp, a full touch target): at 24 dp the brush of a tap aimed
- * at play or next was enough to open Player or hide the bar. A drag that starts in the bottom
- * `WindowInsets.safeGestures` strip is Android's home or recents gesture (Compose's insets guide:
- * `safeGestures` "avoids system gestures clashing with app gestures"), so it is ignored. The down
- * is compared in window coordinates ([WindowPlacement]), since insets are measured from the
- * window's edges, and it is read on the Initial pass without consuming, because
- * `detectVerticalDragGestures` only reports where the drag passed its slop, not where it began.
+ * at play or next was enough to open Player or hide the bar.
+ *
+ * Unlike the visual ([visualGestures]), it needs no system-strip check. The pill floats above the
+ * bottom insets, so no part of it lies in the bottom gesture strip, and a drag that does start in
+ * that strip never reaches it: the strip is `WindowInsets.mandatorySystemGestures`, "a subset of
+ * the system gestures that will always be handled by the system" (Compose's "About window insets",
+ * the inset types table; the edge-to-edge skill keeps touch targets out of the system insets the
+ * same way), so Android takes home and recents there before the app sees the touch.
  */
 @Composable
 internal fun FloatingMiniPlayer(
@@ -180,8 +176,6 @@ internal fun FloatingMiniPlayer(
     val openLabel = stringResource(R.string.mini_player_open)
     val hideLabel = stringResource(R.string.mini_player_hide)
     val view = LocalView.current
-    val edges = WindowInsets.safeGestures
-    val placement = remember { WindowPlacement() }
     // A tap is a light tick; a swipe that changes the screen (Player opens, the player hides) confirms.
     val tap = { action: () -> Unit ->
         view.performStoneHaptic(StoneHapticCue.TAP)
@@ -195,31 +189,18 @@ internal fun FloatingMiniPlayer(
         modifier
             .fillMaxWidth()
             .floatingGlass(fillAlpha = opacity)
-            .windowPlacement(placement)
-            .pointerInput(edges) {
+            .pointerInput(Unit) {
                 var dy = 0f
-                var fromStrip = false
-                coroutineScope {
-                    launch {
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-                            fromStrip = placement.toWindow(down.position).y >= placement.window.bottom - edges.getBottom(this)
+                detectVerticalDragGestures(
+                    onDragStart = { dy = 0f },
+                    onDragEnd = {
+                        val far = SWIPE_DP.dp.toPx()
+                        when {
+                            dy < -far -> confirm(onOpenPlayer)
+                            dy > far -> confirm(onHide)
                         }
-                    }
-                    launch {
-                        detectVerticalDragGestures(
-                            onDragStart = { dy = 0f },
-                            onDragEnd = {
-                                val far = SWIPE_DP.dp.toPx()
-                                when {
-                                    fromStrip -> Unit
-                                    dy < -far -> confirm(onOpenPlayer)
-                                    dy > far -> confirm(onHide)
-                                }
-                            },
-                        ) { _, delta -> dy += delta }
-                    }
-                }
+                    },
+                ) { _, delta -> dy += delta }
             }.clickable(onClickLabel = stringResource(R.string.mini_player_pin)) {
                 // A tap is the long way to Player: the tip says a swipe up opens it.
                 GestureTips.nudge(GestureTip.SWIPE_UP_PLAYER)

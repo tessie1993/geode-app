@@ -7,11 +7,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeGestures
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -28,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.WindowInsetsRulers
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -35,6 +33,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.BehaviourPrefs
@@ -162,17 +161,32 @@ internal fun BoxScope.StageIcons(
     }
     // ‹ › centre in the part of the visual in view: shrunk by the panel at the end (landscape) and
     // the sheet at the bottom (portrait), so Center* aligns to the visible area, not the whole stage.
-    // They sit beside the side strips, not in them: `safeGestures` (left and right only) keeps them
-    // out of the back gesture's reach, so pressing one never starts Back and Back never lands on one.
-    val sideStrips = WindowInsets.safeGestures.only(WindowInsetsSides.Horizontal)
+    // They sit beside the side strips, not in them, so pressing one never starts Back and Back never
+    // lands on one. A strip only matters where the visible part of the stage reaches it: with the
+    // landscape panel open › sits mid-window, and in the expanded shell ‹ sits beside the rail, so a
+    // fixed `windowInsetsPadding(safeGestures)` would push them in for nothing (and, being made of
+    // insets the shell's `safeDrawingPadding` did not consume, by the wrong amount). The
+    // `WindowInsetsRulers.SafeGestures` rulers give each strip's inner edge in this layout's own
+    // coordinates (Compose reference, `WindowInsetsRulers`; the edge-to-edge skill's rulers route),
+    // so the visible area is cut only by the part of a strip that overlaps it. Rulers are read in
+    // the placement block, which is why the child is measured there (the reference's own sample).
     Box(
         Modifier
             .matchParentSize()
             .layout { measurable, constraints ->
-                val width = (constraints.maxWidth - endPx().roundToInt()).coerceAtLeast(0)
-                val height = (constraints.maxHeight - sheetTopPx().roundToInt()).coerceAtLeast(0)
-                val placeable = measurable.measure(Constraints.fixed(width, height))
-                layout(constraints.maxWidth, constraints.maxHeight) { placeable.placeRelative(0, 0) }
+                layout(constraints.maxWidth, constraints.maxHeight) {
+                    val strips = WindowInsetsRulers.SafeGestures.current
+                    val end = endPx().roundToInt()
+                    val ltr = layoutDirection == LayoutDirection.Ltr
+                    // The visible part of the stage, in physical px: the panel is on the end side.
+                    val visibleLeft = if (ltr) 0 else end
+                    val visibleRight = constraints.maxWidth - if (ltr) end else 0
+                    val left = (strips.left.current(0f).roundToInt() - visibleLeft).coerceAtLeast(0)
+                    val right = (visibleRight - strips.right.current(constraints.maxWidth.toFloat()).roundToInt()).coerceAtLeast(0)
+                    val width = (visibleRight - visibleLeft - left - right).coerceAtLeast(0)
+                    val height = (constraints.maxHeight - sheetTopPx().roundToInt()).coerceAtLeast(0)
+                    measurable.measure(Constraints.fixed(width, height)).place(visibleLeft + left, 0)
+                }
             },
     ) {
         StageIconButton(
@@ -185,7 +199,6 @@ internal fun BoxScope.StageIcons(
             },
             Modifier
                 .align(Alignment.CenterStart)
-                .windowInsetsPadding(sideStrips)
                 .padding(GeodeSpacing.S)
                 .faded(shown)
                 .then(glass),
@@ -200,7 +213,6 @@ internal fun BoxScope.StageIcons(
             },
             Modifier
                 .align(Alignment.CenterEnd)
-                .windowInsetsPadding(sideStrips)
                 .padding(GeodeSpacing.S)
                 .faded(shown)
                 .then(glass),

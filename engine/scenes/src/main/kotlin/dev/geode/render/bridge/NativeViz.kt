@@ -96,7 +96,11 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetLayer(handle, sceneId ?: "", mix, blend.ordinal)
     }
 
-    /** Generators (#471): [slot] 0 sky, 1 wall, 2 material, 3 camera plane; null or "" empties it. */
+    /**
+     * Generators (#471): [slot] 0 sky, 1 wall, 2 material, 3 camera plane; null or "" empties it.
+     * Customize › Environment calls these and [generatorText] through `VisualizerRenderer.nativeViz`
+     * inside `VisualizerView.queueEvent`, so a call never meets a handle the GL thread is destroying.
+     */
     fun setGenerator(
         slot: Int,
         styleId: String?,

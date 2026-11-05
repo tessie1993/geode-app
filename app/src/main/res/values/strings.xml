@@ -1084,4 +1084,16 @@
     <!-- The Macros drawer (ui/MacrosDrawer.kt). -->
     <string name="macros_drawer_title">Macros</string>
     <string name="macros_drawer_edit">Edit and make macros</string>
+    <!-- Customize › Advanced › Environment (ui/EnvironmentPage.kt): generators on a Scene's surfaces (#471, #472). -->
+    <string name="environment_intro">Any 2D style or simulation can paint a surface of a 3D scene: its sky, its walls, its material, or a plane in front of the camera. Only scenes that use that surface show it; a style on its own fills the screen as before.</string>
+    <string name="environment_none">None</string>
+    <string name="environment_sky">Sky</string>
+    <string name="environment_wall">Wall</string>
+    <string name="environment_material">Material</string>
+    <string name="environment_plane">Camera plane</string>
+    <string name="environment_pin">Pin %1$s</string>
+    <string name="environment_policy">Who changes them</string>
+    <string name="environment_policy_hint">A pinned surface always keeps your choice. An empty one stays empty.</string>
+    <string name="environment_policy_only_me">Only I change them</string>
+    <string name="environment_policy_director">Director may swap unpinned at sections and drops</string>
 </resources>

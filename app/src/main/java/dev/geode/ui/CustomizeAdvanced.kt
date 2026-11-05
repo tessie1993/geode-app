@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Gradient
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.Landscape
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Timeline
@@ -137,6 +138,7 @@ internal enum class CustomizeSubPage(
     REACTIONS("Reactions", Icons.Filled.Bolt, CustomizeTab.MODULATE),
     ENVELOPES("Envelopes", Icons.Filled.Insights, CustomizeTab.MODULATE),
     WAVES("Waves", Icons.Filled.Timeline, CustomizeTab.MODULATE),
+    ENVIRONMENT("Environment", Icons.Filled.Landscape, CustomizeTab.ADVANCED),
     LAYERS("Layers", Icons.Filled.Layers, CustomizeTab.ADVANCED),
     TRANSITIONS("Transitions", Icons.Filled.Animation, CustomizeTab.ADVANCED),
     SHADER_CODE("Shader code", Icons.Filled.Code, CustomizeTab.ADVANCED),
@@ -300,6 +302,7 @@ internal fun SubPageBody(
             ReactionsSection(p, reactions, host.visualsViewModel::setReactions, host.visualsViewModel::rerollReactions, handMask)
         }
         CustomizeSubPage.NOTE_KEY -> NoteKeyPage(p, onChange)
+        CustomizeSubPage.ENVIRONMENT -> EnvironmentPage(host.visualizerView)
         CustomizeSubPage.LAYERS -> LayersPage()
         CustomizeSubPage.CAMERA -> CameraPage(p, onChange)
         CustomizeSubPage.TRANSITIONS ->

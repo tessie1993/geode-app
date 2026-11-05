@@ -130,12 +130,6 @@ class PlayerSession internal constructor(
                 override fun setSoundRate(rateHz: Int) {
                     playback.sampleRateHz = rateHz
                 }
-
-                override fun setMicReactivePref(on: Boolean) {
-                    setGuiPrefs(guiPrefs.value.copy(micReactive = on))
-                }
-
-                override val micReactivePref: Boolean get() = guiPrefs.value.micReactive
             },
         )
 

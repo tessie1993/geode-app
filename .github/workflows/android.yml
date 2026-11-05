@@ -52,6 +52,23 @@ jobs:
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
 
+      # glslcheck (tools/glslcheck) renders one style headlessly: its include
+      # resolution, uniform table and catalogue reading against the app's real
+      # files. Nothing else runs it, so without this it broke silently once
+      # (the allow-list moved and every render failed). One style, seconds,
+      # before the slow steps. Node 22 for the global WebSocket cdp.mjs uses;
+      # the runner's Chrome renders through SwiftShader.
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: glslcheck one style
+        working-directory: ${{ env.PROJECT_DIR }}/tools/glslcheck
+        run: |
+          export MUSICVIZ_CHROMIUM="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          node check.mjs --shader neon_chrome_sea --size 128 --out out/neon_chrome_sea.png
+
       - name: Set up Java 21
         uses: actions/setup-java@v5
         with:

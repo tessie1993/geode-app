@@ -276,6 +276,11 @@ GEODE_API long long       geode_silence_heard_at(const float* const* channels, i
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
 
+/* The GL Transitions library (gl_transitions.json, core/viz/TransitionLibrary): the shell's one read of it,
+   as the table encodeTransitionTable describes (UTF-8, control-separated). Read from the APK once per
+   process; "" when the asset is missing. The pointer stays valid for the process. */
+GEODE_API const char*     geode_transitions_table(AAssetManager* assets);
+
 #ifdef __cplusplus
 }
 #endif

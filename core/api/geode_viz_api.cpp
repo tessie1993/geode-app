@@ -14,6 +14,8 @@
 #include "viz/ReactionDna.hpp"
 #include "viz/Renderer.hpp"
 #include "viz/SceneRegistry.hpp"
+#include "viz/ShaderSource.hpp"
+#include "viz/TransitionLibrary.hpp"
 
 struct geode_viz {
     geode_viz(AAssetManager* assets, std::string cacheDir) : renderer(assets, std::move(cacheDir)) {}
@@ -201,6 +203,19 @@ void geode_viz_set_adsr(geode_viz* v, int slot, const float* c, int count) {
     std::lock_guard<std::mutex> lock(v->configLock);
     v->adsr[static_cast<size_t>(slot)] = std::move(cfg);
     v->renderer.setAdsrConfigs(v->adsr);
+}
+
+const char* geode_transitions_table(AAssetManager* assets) {
+    static std::mutex lock;
+    static std::string table;
+    static bool loaded = false;
+    std::lock_guard<std::mutex> guard(lock);
+    if (!loaded && assets) {
+        loaded = true;
+        const auto text = geode::viz::ShaderSource(assets).readAsset("gl_transitions.json");
+        if (text) table = geode::viz::encodeTransitionTable(geode::viz::parseTransitionLibrary(*text));
+    }
+    return table.c_str();
 }
 
 }  // extern "C"

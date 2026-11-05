@@ -46,7 +46,7 @@
 // baked models and material maps are CC0 assets from BlenderKit (docs/morph-world-assets.md).
 
 /** The genome and the driver's runtime values; WorldGenome.hpp's Field and Runtime order. */
-uniform vec4 uWorld[18];
+uniform vec4 uWorld[22];
 
 #define WG_REP_XY uWorld[0].x
 #define WG_CELL_XY uWorld[0].y
@@ -110,16 +110,32 @@ uniform vec4 uWorld[18];
 #define WG_TEX_EMIT uWorld[14].w
 #define WG_ROLL uWorld[15].x
 #define WG_LENS uWorld[15].y
-#define WG_Z_PHASE uWorld[15].z
-#define WG_GAIN uWorld[15].w
-#define WG_ITER_CAP uWorld[16].x
-#define WG_HUE_TURN uWorld[16].y
-#define WG_WAKE_X uWorld[16].z
-#define WG_WAKE_Y uWorld[16].w
-#define WG_WAKE_Z uWorld[17].x
-#define WG_ASSETS uWorld[17].y
-#define WG_ROLL_ANGLE uWorld[17].z
-#define WG_LENS_NOW uWorld[17].w
+#define WG_FLOOR uWorld[15].z
+#define WG_FLOOR_Y uWorld[15].w
+#define WG_FLOOR_GLOSS uWorld[16].x
+#define WG_SKY uWorld[16].y
+#define WG_SKY_HUE uWorld[16].z
+#define WG_HORIZON uWorld[16].w
+#define WG_TERRAIN uWorld[17].x
+#define WG_TERRAIN_HEIGHT uWorld[17].y
+#define WG_TERRAIN_SCALE uWorld[17].z
+#define WG_LATTICE_TILT uWorld[17].w
+#define WG_LATTICE_YAW uWorld[18].x
+#define WG_GAZE_PITCH uWorld[18].y
+#define WG_GAZE_YAW uWorld[18].z
+#define WG_Z_PHASE uWorld[18].w
+#define WG_GAIN uWorld[19].x
+#define WG_ITER_CAP uWorld[19].y
+#define WG_HUE_TURN uWorld[19].z
+#define WG_WAKE_X uWorld[19].w
+#define WG_WAKE_Y uWorld[20].x
+#define WG_WAKE_Z uWorld[20].y
+#define WG_ASSETS uWorld[20].z
+#define WG_ROLL_ANGLE uWorld[20].w
+#define WG_LENS_NOW uWorld[21].x
+#define WG_GAZE_X uWorld[21].y
+#define WG_GAZE_Y uWorld[21].z
+#define WG_SPARE uWorld[21].w
 
 /**
  * The baked CC0 assets (core/viz/world/WorldAssets, tools/morph_world_assets): sixteen models as signed

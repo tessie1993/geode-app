@@ -335,6 +335,16 @@ object GeodeNative {
         pitch: Float,
     )
 
+    /** One gyro reading (azimuth, pitch in radians from SensorManager.getOrientation); core/viz/GyroLook makes the look. */
+    external fun vizGyroSample(
+        handle: Long,
+        azimuth: Float,
+        pitch: Float,
+    )
+
+    /** Gyro off or switched on again: recentre the look and recapture the baseline on the next sample. */
+    external fun vizGyroReset(handle: Long)
+
     external fun vizSetThermal(
         handle: Long,
         platformStatus: Int,

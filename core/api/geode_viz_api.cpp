@@ -9,6 +9,7 @@
 
 #include "api/geode_api.h"
 #include "viz/Director.hpp"
+#include "viz/GyroLook.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/Macros.hpp"
 #include "viz/ReactionDna.hpp"
@@ -22,6 +23,7 @@ struct geode_viz {
     std::mutex configLock;
     std::array<geode::viz::LfoConfig, geode::viz::LfoEngine::kSlots> lfo{};
     std::array<geode::viz::AdsrConfig, geode::viz::AdsrEngine::kCount> adsr{};
+    geode::viz::GyroLook gyro;  // GL thread only (geode_viz_gyro_*)
 };
 
 namespace {
@@ -380,6 +382,18 @@ int geode_style_reactions(const char* style_id, int seed, float* out, int capaci
 
 void geode_viz_set_look(geode_viz* v, float yaw, float pitch) {
     if (v) v->renderer.setLook(std::clamp(yaw, -1.0f, 1.0f), std::clamp(pitch, -1.0f, 1.0f));
+}
+
+void geode_viz_gyro_sample(geode_viz* v, float azimuth, float pitch) {
+    if (!v) return;
+    const GyroLook::Look look = v->gyro.sample(azimuth, pitch);
+    v->renderer.setLook(look.yaw, look.pitch);
+}
+
+void geode_viz_gyro_reset(geode_viz* v) {
+    if (!v) return;
+    const GyroLook::Look look = v->gyro.reset();
+    v->renderer.setLook(look.yaw, look.pitch);
 }
 
 void geode_viz_set_thermal(geode_viz* v, int platform_status, float headroom) {

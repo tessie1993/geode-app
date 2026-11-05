@@ -190,6 +190,17 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetLook(handle, yaw, pitch)
     }
 
+    fun gyroSample(
+        azimuth: Float,
+        pitch: Float,
+    ) {
+        if (handle != 0L) GeodeNative.vizGyroSample(handle, azimuth, pitch)
+    }
+
+    fun gyroReset() {
+        if (handle != 0L) GeodeNative.vizGyroReset(handle)
+    }
+
     fun setThermal(
         platformStatus: Int,
         headroom: Float,

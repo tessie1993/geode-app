@@ -116,8 +116,9 @@ SceneParams applyLfoTarget(const SceneParams& r, LfoTarget target, float v) {
         case LfoTarget::FlowCurl: o.flowCurl = std::clamp(r.flowCurl + v * 25.0f, 0.0f, 50.0f); break;
         case LfoTarget::FlowForce: o.flowForce = std::clamp(r.flowForce + v * 1.5f, 0.0f, 3.0f); break;
         case LfoTarget::EndlessZoomSpeed: o.endlessZoomSpeed = std::clamp(r.endlessZoomSpeed + v * 0.5f, 0.0f, 1.2f); break;
-        case LfoTarget::None: case LfoTarget::Lfo1Rate: case LfoTarget::Lfo1Depth: case LfoTarget::Lfo2Rate:
-        case LfoTarget::Lfo2Depth: case LfoTarget::Lfo3Rate: case LfoTarget::Lfo3Depth:
+        // Retired25 was Glitch: the composite effect is gone, so an old route on it writes nothing.
+        case LfoTarget::None: case LfoTarget::Retired25: case LfoTarget::Lfo1Rate: case LfoTarget::Lfo1Depth:
+        case LfoTarget::Lfo2Rate: case LfoTarget::Lfo2Depth: case LfoTarget::Lfo3Rate: case LfoTarget::Lfo3Depth:
             break;
     }
     return o;

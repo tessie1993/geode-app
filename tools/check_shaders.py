@@ -71,31 +71,41 @@ SIM_BODIES = {
 
 COMMENTS = re.compile(r"//[^\n]*|/\*.*?\*/", re.S)
 PREPROCESSOR = re.compile(r"^[ \t]*#[^\n]*", re.M)
-U_TIME = re.compile(r"\buTime\b")
-U_SPEED = re.compile(r"\buSpeed\b")
+# Accumulated clocks. Speed is integrated natively into uTime, uFlowTime and
+# uSoundTimeSped (so those already carry it), and uFlowPhase and the SND_*_TIME
+# band clocks are the unscaled forms: none of them may meet uSpeed in a statement.
+U_TIME = re.compile(r"\b(uTime|uFlowPhase|uFlowTime|uSoundTimeSped|SND_(BASS|MID|TREBLE|CURVED)_TIME)\b")
+# A plain alias (`float spd = uSpeed;`) counts as uSpeed in the rest of the file.
+SPEED_ALIAS = re.compile(r"\b(\w+)\s*=\s*uSpeed\s*;")
 
 
 def speed_twice(text):
-    """Line numbers of statements that put uTime and uSpeed in one expression.
+    """Line numbers of statements that put an accumulated clock and uSpeed together.
 
     The time rule: uTime is ShaderScene's speed-INTEGRATED clock
     (shaderTime_ += speed * dt, core/viz/scenes/ShaderScene.cpp), so a shader
     never multiplies it by uSpeed again. `uTime * uSpeed` squares Speed and,
     because it is elapsed time times the live slider, any Speed change (the
     slider, an LFO, a macro, a reaction route) jumps the picture by
-    elapsed * delta-speed. Read per statement, comments stripped, so
-    `uTime * 0.2 * uSpeed` is caught too and prose about the rule is not.
+    elapsed * delta-speed. The motion field's flow phase and the sound
+    engine's band clocks are accumulated the same way: their Speed-scaled
+    forms are uFlowTime and uSoundTimeSped (core/viz/SpeedClock.hpp). Read per
+    statement, comments stripped, so `uTime * 0.2 * uSpeed` is caught too and
+    prose about the rule is not.
     """
     code = COMMENTS.sub(lambda m: "\n" * m.group(0).count("\n"), text)
     # A preprocessor line ends at its newline, not at a `;`: close each one as its
     # own statement, so a #define never merges into the code after it (and one
     # that itself multiplies uTime by uSpeed is still caught).
     code = PREPROCESSOR.sub(lambda m: m.group(0) + ";", code)
+    names = ["uSpeed"] + sorted(set(SPEED_ALIAS.findall(code)))
+    u_speed = re.compile(r"\b(" + "|".join(map(re.escape, names)) + r")\b")
     hits = []
     pos = 0
     for stmt in re.split(r"([;{}])", code):
-        if U_TIME.search(stmt) and U_SPEED.search(stmt):
-            hits.append(code.count("\n", 0, pos + U_SPEED.search(stmt).start()) + 1)
+        speed = u_speed.search(stmt)
+        if speed and U_TIME.search(stmt):
+            hits.append(code.count("\n", 0, pos + speed.start()) + 1)
         pos += len(stmt)
     return hits
 
@@ -106,11 +116,14 @@ def check_speed_rule():
     assert speed_twice("// uTime * uSpeed\nx = 1.0 +\n  uTime * 0.3 * uSpeed;") == [3]
     assert speed_twice("#define T (uTime * 0.1)\nfloat w = uSpeed * 2.0;") == []
     assert speed_twice("#define T (uTime * uSpeed)\nfloat w = 2.0;") == [1]
-    assert speed_twice("float t = uTime;\nfloat f = uFlowPhase * uSpeed; // not uTime * uSpeed") == []
+    assert speed_twice("float f = uFlowPhase * 0.6 * uSpeed;") == [1]
+    assert speed_twice("float spd = uSpeed;\nfloat c = SND_MID_TIME * spd;") == [2]
+    assert speed_twice("float f = uFlowTime * uSpeed;") == [1]
+    assert speed_twice("float t = uTime * 0.3;\nfloat f = uFlowTime; float w = uSpeed * 2.0; // uTime * uSpeed") == []
     bad = [f"{p.name}:{line}" for p in sorted(SHADERS.glob("*.glsl"))
            for line in speed_twice(p.read_text(encoding="utf-8"))]
     for b in bad:
-        print(f"FAIL {b}: uTime is already speed-integrated; do not multiply it by uSpeed")
+        print(f"FAIL {b}: an accumulated clock times uSpeed jumps when Speed moves; read uTime, uFlowTime or uSoundTimeSped")
     return bad
 
 
@@ -174,7 +187,7 @@ def main():
                     print(f"FAIL {label}\n{r.stderr.strip()}\n")
     print(f"{total - len(failed)}/{total} shaders compiled")
     if speed_failed:
-        print(f"{len(speed_failed)} statement(s) multiply uTime by uSpeed")
+        print(f"{len(speed_failed)} statement(s) multiply an accumulated clock by uSpeed")
     sys.exit(1 if failed or speed_failed else 0)
 
 

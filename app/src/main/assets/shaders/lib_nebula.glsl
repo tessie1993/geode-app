@@ -61,8 +61,8 @@
 //
 // The app's macros move standard scene params. Every Nebula style answers
 // them through the helpers below, and at their defaults each is the identity:
-// Speed is already in uTime (nebTime: ShaderScene integrates it, so it
-// is never multiplied by uSpeed again) and uSpeed on the flow phase (nebFlow); Complexity is uMorph on octaves
+// Speed is already in uTime (nebTime) and uFlowTime (nebFlow): ShaderScene
+// integrates both, so neither is ever multiplied by uSpeed; Complexity is uMorph on octaves
 // (nebOctaves); Chaos is uWarp and uTurbulence as a curl-like domain warp
 // (nebWarp2, nebWarp3) - a curl field rather than a plain displacement
 // because it swirls the gas without pinching it into hard bright knots; uTwist
@@ -141,7 +141,7 @@ float nebTime() {
 
 /** Travel under the Speed macro: uFlowPhase only ever advances, loudness sets its rate. */
 float nebFlow() {
-    return uFlowPhase * uSpeed;
+    return uFlowTime;
 }
 
 /** The Energy macro as a gain on in-shader audio, clamped so a high setting cannot fling gas off screen. */

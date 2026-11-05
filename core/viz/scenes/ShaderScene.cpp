@@ -79,7 +79,9 @@ void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
     zoomPhase_ = p.endlessZoom ? endless::advance(zoomPhase_, p.endlessZoomSpeed * endless::musicRate(sound, p.audioDrive), dt) : 0.0f;
     if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
     // Wave three: the continuous motion layer, never a transient/beat trigger.
-    motionField_.step(sound, dt);
+    motionField_.step(sound, dt, p.speed);
+    const float soundTimes[3] = {sound.bassTime, sound.midTime, sound.trebleTime};
+    for (int b = 0; b < 3; ++b) soundTimeSped_[b].step(soundTimes[b], p.speed, kTimeWrapSeconds);
 }
 
 void ShaderScene::draw(float timeSeconds) {
@@ -203,6 +205,8 @@ void ShaderScene::uploadMotion() {
     set1f("uDrift", m.drift);
     set1f("uBreath", m.breath);
     set1f("uFlowPhase", m.flowPhase);
+    set1f("uFlowTime", m.flowTime);
+    glUniform3f(uniforms_.loc("uSoundTimeSped"), soundTimeSped_[0].value, soundTimeSped_[1].value, soundTimeSped_[2].value);
     set1f("uMotion", std::clamp(params_.motionAmount, 0.0f, 1.0f));
 
     // Legacy since wave three, held at their neutral constant until R08

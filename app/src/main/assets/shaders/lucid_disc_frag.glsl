@@ -56,7 +56,7 @@ vec2 cdiv(vec2 a, vec2 b) { return cmul(a, vec2(b.x, -b.y)) / max(dot(b, b), 1e-
 void main() {
     vec2 uv = lucidView(false);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
-    float flow = uFlowPhase * uSpeed;
+    float flow = uFlowTime;
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float treb = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5) * uIntensity;
     float seed = lucidSeed(SND_CUT_COUNT, SND_HELD_HARD_CUT);

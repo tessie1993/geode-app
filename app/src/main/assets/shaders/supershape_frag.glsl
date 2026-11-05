@@ -365,10 +365,11 @@ vec3 satOrbit(int i, float sec, float bassC, float width, out float sizeH, out f
 
 void main() {
     vec2 uv = view();
-    float spd = uSpeed;
-    float midC = SND_MID_TIME * spd;
-    float bassC = SND_BASS_TIME * spd;
-    float trebC = SND_TREBLE_TIME * spd;
+    // The band clocks at Speed's rate, integrated natively (uSoundTimeSped), not
+    // SND_*_TIME * uSpeed: that jumped the whole shape whenever Speed moved.
+    float bassC = uSoundTimeSped.x;
+    float midC = uSoundTimeSped.y;
+    float trebC = uSoundTimeSped.z;
 
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
     float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);

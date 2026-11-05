@@ -186,6 +186,9 @@ const SHADER_VALUES = {
   uEnergyRel: 0.5, uBassRel: 0.5, uMidRel: 0.5, uTrebRel: 0.5, uMotionBright: 0.5, uHarmony: 0.6,
   uKeyHue: 0.3, uKeyStrength: 0.5, uBeatOsc: 0.4, uBarOsc: 0.6, uOrbit: [0.3, -0.2], uDrift: 0.2,
   uBreath: 0.5, uMotion: 0.5,
+  // The Speed-integrated clocks (core/viz/SpeedClock.hpp) at uSpeed 1, where they equal the unscaled
+  // ones: uFlowTime is uFlowPhase, uSoundTimeSped the BASS_TIME MID_TIME TREBLE_TIME scalars below.
+  uFlowTime: 12.5, uSoundTimeSped: [37, 35, 33],
   // SoundUniforms::upload: the frame, the Audio drive slider at its default, held events, counts.
   uSound: SOUND_SCALARS, uSoundDrive: 1, uSoundEvents: [0.2, 0, 0, 0], uSoundCounts: [41, 3],
   // CameraRig at rest: eye on the path at the base height, looking down +z, base focal.

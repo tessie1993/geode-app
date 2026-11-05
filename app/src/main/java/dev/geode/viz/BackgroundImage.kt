@@ -4,11 +4,11 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.UnderlayBlend
 import dev.geode.render.offscreen.OffscreenUnderlay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlin.math.max
 
 /** The user's background image choice, not yet decoded - an export decodes it at its own render size. */
 data class BackgroundExportSpec(
@@ -35,7 +35,9 @@ class BackgroundPixels(
  * Decodes a user-picked background image to exactly `renderWidth`x`renderHeight` ARGB pixels for
  * `NativeViz.setUnderlay` (live) or the offscreen renderer's equivalent (export, at export size).
  *
- * Every call runs on [Dispatchers.IO]; nothing here ever runs on Main.
+ * Every call runs on [Dispatchers.IO]; nothing here ever runs on Main. Only the platform's part is
+ * here (decode, the cut and filtered scale, reading the pixels); where to cut, the blur and the dim are
+ * native (core/viz/Underlay), so one bake serves the live underlay and every export.
  */
 object BackgroundImage {
     /** [decode]s [spec] at [renderWidth]x[renderHeight], wrapped for [dev.geode.render.offscreen.OffscreenRenderSpec.underlay]. */
@@ -71,12 +73,11 @@ object BackgroundImage {
                         if (it !== cropped) cropped.recycle()
                     }
                 }
-            val blurred = if (blurRadius > 0) downscaleUpscaleBlur(scaled, blurRadius) else scaled
-            if (blurred !== scaled) scaled.recycle()
             val out = IntArray(targetW * targetH)
-            blurred.getPixels(out, 0, targetW, 0, 0, targetW, targetH)
-            blurred.recycle()
-            if (dim > 0f) applyDim(out, dim)
+            scaled.getPixels(out, 0, targetW, 0, 0, targetW, targetH)
+            scaled.recycle()
+            // Blur, then dim, natively (core/viz/Underlay), the same bake for live and export.
+            GeodeNative.underlayFinish(out, targetW, targetH, blurRadius, dim)
             BackgroundPixels(out, targetW, targetH)
         }
 
@@ -106,66 +107,13 @@ object BackgroundImage {
         }
     }
 
-    /** Crops [src] to [targetW]:[targetH]'s aspect ratio, centred; never upsizes. */
+    /** Cuts [src] to [targetW]:[targetH]'s aspect at the centred rect core/viz/Underlay picks; never upsizes. */
     private fun centerCropToAspect(
         src: Bitmap,
         targetW: Int,
         targetH: Int,
     ): Bitmap {
-        val targetAspect = targetW.toFloat() / targetH
-        val srcAspect = src.width.toFloat() / src.height
-        return when {
-            srcAspect > targetAspect -> {
-                val cropW = (src.height * targetAspect).toInt().coerceIn(1, src.width)
-                Bitmap.createBitmap(src, (src.width - cropW) / 2, 0, cropW, src.height)
-            }
-            srcAspect < targetAspect -> {
-                val cropH = (src.width / targetAspect).toInt().coerceIn(1, src.height)
-                Bitmap.createBitmap(src, 0, (src.height - cropH) / 2, src.width, cropH)
-            }
-            else -> src
-        }
+        val (x, y, w, h) = GeodeNative.underlayCropRect(src.width, src.height, targetW, targetH)
+        return if (w == src.width && h == src.height) src else Bitmap.createBitmap(src, x, y, w, h)
     }
-
-    /**
-     * Cheap blur: downscale by (1 + [radius]) then scale back up with bilinear filtering.
-     *
-     * A real multi-pass box blur over the full-size bitmap is the more faithful result, but there
-     * is no native path to lean on here, so it costs O(pixels x passes) in plain Kotlin. Shrinking
-     * first turns every output pixel's neighbourhood average into one bilinear sample the GPU-backed
-     * bitmap scaler already does for free, so the same softening costs O(pixels / divisor^2) instead
-     * — cheap enough to redo on every pick or slider drag without a visible stall, which matters more
-     * for a background layer than an exact blur kernel shape.
-     */
-    private fun downscaleUpscaleBlur(
-        src: Bitmap,
-        radius: Int,
-    ): Bitmap {
-        val divisor = (1 + radius).coerceIn(1, MAX_BLUR_DIVISOR)
-        if (divisor <= 1) return src
-        val smallW = max(1, src.width / divisor)
-        val smallH = max(1, src.height / divisor)
-        val small = Bitmap.createScaledBitmap(src, smallW, smallH, true)
-        val back = Bitmap.createScaledBitmap(small, src.width, src.height, true)
-        small.recycle()
-        return back
-    }
-
-    /** Darkens [pixels] toward black by [dim] (0 = untouched, 1 = black), alpha unchanged. */
-    private fun applyDim(
-        pixels: IntArray,
-        dim: Float,
-    ) {
-        val keep = 1f - dim.coerceIn(0f, 1f)
-        for (i in pixels.indices) {
-            val p = pixels[i]
-            val a = p ushr 24 and 0xFF
-            val r = ((p ushr 16 and 0xFF) * keep).toInt()
-            val g = ((p ushr 8 and 0xFF) * keep).toInt()
-            val b = ((p and 0xFF) * keep).toInt()
-            pixels[i] = (a shl 24) or (r shl 16) or (g shl 8) or b
-        }
-    }
-
-    private const val MAX_BLUR_DIVISOR = 32
 }

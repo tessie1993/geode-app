@@ -19,8 +19,8 @@ import android.provider.Settings
  * - the paywall's hero, through the same value in `ui/AppShell`;
  * - exports, casts and the wallpaper, read with [isReduced] when they start.
  *
- * Kept in `data` (it reads a stored system setting) so the wallpaper and cast, which may not name
- * `dev.geode.ui`, read the same rule.
+ * Kept in `data` (it reads a stored system setting) so the wallpaper and cast, which may not
+ * reach into the UI package, read the same rule.
  */
 object SystemMotion {
     /** The scale Android reports when nothing has set one: animations at normal speed. */

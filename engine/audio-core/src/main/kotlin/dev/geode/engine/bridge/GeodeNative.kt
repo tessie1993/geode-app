@@ -487,7 +487,7 @@ object GeodeNative {
     /**
      * The Customize panel's map (core/viz/CustomizeMap) as its versioned line table: the ten
      * categories, their Basics and Pro sections, and the controls in each. Static; parse once
-     * (dev.geode.ui.CustomizeMapTable does).
+     * (the app's CustomizeMapTable does).
      */
     external fun customizeText(): String
 

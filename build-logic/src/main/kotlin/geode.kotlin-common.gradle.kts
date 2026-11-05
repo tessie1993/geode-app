@@ -61,4 +61,6 @@ tasks.withType<io.gitlab.arturbosch.detekt.DetektCreateBaselineTask>().configure
 tasks.withType<Test>().configureEach {
     systemProperty("geode.catalogue", rootProject.file("core/tests/catalogue.txt").absolutePath)
     systemProperty("geode.paramsSchema", rootProject.file("core/tests/params_schema.txt").absolutePath)
+    // dev.geode.render.ModTable's copy, proven by core/tests/mod_targets_test (#642).
+    systemProperty("geode.modTargets", rootProject.file("core/tests/mod_targets.txt").absolutePath)
 }

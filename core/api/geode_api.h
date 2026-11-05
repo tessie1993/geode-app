@@ -302,11 +302,18 @@ typedef struct geode_loop_spec {
 GEODE_API void    geode_loop_spec_of(int64_t loop_ms, int64_t crossfade_ms, int fps, geode_loop_spec* out);
 /* The dissolve shortened to what the seam stash holds at width x height; out may alias in. */
 GEODE_API void    geode_loop_spec_budgeted(const geode_loop_spec* in, int width, int height, geode_loop_spec* out);
+/* Fills the derived fields of a spec as given (no clamping): loop, crossfade and source frames, duration. */
+GEODE_API void    geode_loop_spec_fill(geode_loop_spec* spec);
 GEODE_API float   geode_loop_seam_weight(int tail, int seam_frames);
 /* The repeats that fill total_us, spread over `loops` drift stops. Writes min(repeats, capacity) offsets and
  * loop indices (either may be NULL for a count) and returns the repeat count. */
 GEODE_API int     geode_loop_extend_plan(int64_t loop_us, int64_t total_us, int loops,
                                          int64_t* out_offsets_us, int32_t* out_loop_index, int capacity);
+/* What the long file will weigh (every repeat copies the loop again, plus 2 % for the sample tables), and
+ * the video bit rate that keeps a file total_us long under limit_bytes. */
+GEODE_API int64_t geode_loop_estimated_bytes(int64_t loop_us, int64_t total_us, int64_t loop_bytes,
+                                             int64_t soundtrack_bytes);
+GEODE_API int     geode_loop_fitting_bit_rate(int64_t total_us, int64_t limit_bytes, int64_t soundtrack_bytes);
 
 /* Encoder requests (output/EncodePlan). limit_bytes <= 0 means the render target, 3.8 GB. */
 GEODE_API int     geode_export_capped_video_bps(int requested_bps, int64_t duration_us, int64_t audio_bytes,
@@ -346,6 +353,9 @@ GEODE_API void              geode_speed_ramp_destroy(geode_speed_ramp*);
 GEODE_API float             geode_speed_ramp_speed_at(const geode_speed_ramp*, int64_t source_us);
 GEODE_API int64_t           geode_speed_ramp_next_change_us(const geode_speed_ramp*, int64_t source_us); /* -1: none */
 GEODE_API int64_t           geode_speed_ramp_source_span_us(const geode_speed_ramp*);
+/* Copies min(count, capacity) segment starts (source µs) and speeds; returns the segment count. */
+GEODE_API int               geode_speed_ramp_segments(const geode_speed_ramp*, int64_t* out_starts_us, float* out_speeds,
+                                                      int capacity);
 GEODE_API float             geode_clip_speed_sanitize(float speed);  /* NaN/<=0 -> 1, else 0.25..4 */
 
 /* Clip grade (viz/ClipGrade): hue . saturation . contrast . brightness as a column-major 4x4. */

@@ -177,6 +177,10 @@ void speedRamp() {
     geode_track_add_key(abi, 0, 0, two, 1, 0.0f, 0.0f, 0.0f, 0.0f);
     geode_speed_ramp* r = geode_speed_ramp_create(abi, 0, 1000, 0);
     check(r && geode_speed_ramp_source_span_us(r) == 2'000'000 && geode_speed_ramp_speed_at(r, 0) == 2.0f, "ABI ramp");
+    int64_t startsOut[2] = {-1, -1};
+    float speedsOut[2] = {0.0f, 0.0f};
+    check(geode_speed_ramp_segments(r, startsOut, speedsOut, 2) == 1 && startsOut[0] == 0 && speedsOut[0] == 2.0f,
+          "ABI ramp segments");
     geode_speed_ramp_destroy(r);
     geode_track_clear(abi);
     check(geode_speed_ramp_create(abi, 0, 1000, 40) == nullptr, "ABI: an empty track has no ramp");

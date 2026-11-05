@@ -89,6 +89,15 @@ void geode_loop_spec_budgeted(const geode_loop_spec* in, int width, int height, 
     fill(s.budgeted(width, height), o);
 }
 
+void geode_loop_spec_fill(geode_loop_spec* spec) {
+    if (!spec) return;
+    out::LoopSpec s;
+    s.loopMs = spec->loop_ms;
+    s.crossfadeMs = spec->crossfade_ms;
+    s.fps = spec->fps;
+    fill(s, spec);
+}
+
 float geode_loop_seam_weight(int tail, int seam_frames) { return out::seamWeight(tail, seam_frames); }
 
 int geode_loop_extend_plan(int64_t loop_us, int64_t total_us, int loops, int64_t* offsets, int32_t* loop_index,
@@ -101,6 +110,14 @@ int geode_loop_extend_plan(int64_t loop_us, int64_t total_us, int loops, int64_t
         if (loop_index) loop_index[i] = writes[static_cast<size_t>(i)].loopIndex;
     }
     return plan.repeats();
+}
+
+int64_t geode_loop_estimated_bytes(int64_t loop_us, int64_t total_us, int64_t loop_bytes, int64_t soundtrack_bytes) {
+    return out::LoopExtendPlan::of(loop_us, total_us, 1).estimatedBytes(loop_bytes, soundtrack_bytes);
+}
+
+int geode_loop_fitting_bit_rate(int64_t total_us, int64_t limit_bytes, int64_t soundtrack_bytes) {
+    return out::LoopExtendPlan::of(total_us, total_us, 1).fittingBitRate(limit_bytes, soundtrack_bytes);
 }
 
 int geode_export_capped_video_bps(int requested_bps, int64_t duration_us, int64_t audio_bytes, int64_t limit_bytes) {
@@ -187,6 +204,19 @@ int64_t geode_speed_ramp_next_change_us(const geode_speed_ramp* r, int64_t sourc
 }
 
 int64_t geode_speed_ramp_source_span_us(const geode_speed_ramp* r) { return r ? r->ramp.sourceSpanUs() : 0; }
+
+int geode_speed_ramp_segments(const geode_speed_ramp* r, int64_t* out_starts_us, float* out_speeds, int capacity) {
+    if (!r) return 0;
+    const auto& starts = r->ramp.startsUs();
+    const auto& speeds = r->ramp.speeds();
+    const int n = static_cast<int>(starts.size());
+    const int writable = std::min(n, std::max(capacity, 0));
+    for (int i = 0; i < writable; ++i) {
+        if (out_starts_us) out_starts_us[i] = starts[static_cast<size_t>(i)];
+        if (out_speeds) out_speeds[i] = speeds[static_cast<size_t>(i)];
+    }
+    return n;
+}
 
 float geode_clip_speed_sanitize(float speed) { return tl::sanitizeClipSpeed(speed); }
 

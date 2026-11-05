@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import dev.geode.engine.audio.SoundTuning
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.HandMask
 import dev.geode.render.LfoConfig
@@ -133,8 +134,9 @@ class OffscreenSceneRenderer(
     ) {
         val viz = checkNotNull(native) { "renderFrame() before prepare()" }
         val fps = spec.fps
-        val timeMs = frame * 1000L / fps
-        val nextTimeMs = (frame + 1) * 1000L / fps
+        // The export frame clock is native (core/output/FrameClock): frame n shows floor(n * 1000 / fps) ms.
+        val timeMs = GeodeNative.exportFrameTimeMs(frame.toLong(), fps)
+        val nextTimeMs = GeodeNative.exportFrameTimeMs(frame + 1L, fps)
         // Quality never adapts downward in an export; the thermal half is the offscreen pin above.
         val p = (spec.paramsAt?.invoke(timeMs) ?: spec.baseParams).copy(fluidAutoQuality = false)
         viz.setParams(p)

@@ -113,10 +113,19 @@ void loopExtend() {
     check(geode_loop_extend_plan(30'000'000, 100'000'000, 3, offsets.data(), loops.data(), 8) == 4 &&
               offsets[3] == 90'000'000 && loops[2] == 1,
           "ABI plan");
+    check(geode_loop_estimated_bytes(30'000'000, 100'000'000, 1000, 500) == 4590, "ABI estimated bytes");
+    check(geode_loop_fitting_bit_rate(100'000'000, 4'000'000, 1'000'000) == 240'000, "ABI fitting bit rate");
     geode_loop_spec s{};
     geode_loop_spec_of(60'000, 1'000, 60, &s);
     geode_loop_spec_budgeted(&s, 3200, 2000, &s);
     check(s.crossfade_frames == 7 && s.loop_frames == 3600 && s.source_frames == 3607, "ABI loop spec, aliased");
+    geode_loop_spec raw{};
+    raw.loop_ms = 1000;
+    raw.crossfade_ms = 100;
+    raw.fps = 30;
+    geode_loop_spec_fill(&raw);
+    check(raw.loop_ms == 1000 && raw.loop_frames == 30 && raw.crossfade_frames == 3 && raw.loop_duration_us == 1'000'000,
+          "ABI fill derives without clamping");
 }
 
 void encodePlan() {

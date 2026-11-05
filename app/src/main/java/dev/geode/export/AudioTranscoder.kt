@@ -6,6 +6,7 @@ import android.media.MediaCodecInfo
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
 import java.io.BufferedOutputStream
 import java.io.File
@@ -40,6 +41,11 @@ class AudioTranscoder(
         val flags: Int,
     )
 
+    /**
+     * Interleaved s16 from [srcCh] down to [dstCh] channels: a 5.1 or 7.1 fold (the rest's mean, halved,
+     * on each side) or a mono mean. Native (`core/audio/dsp/PcmConvert`, tested by
+     * `core/tests/clip_media_test.cpp`); this only moves the samples in and out of the buffers.
+     */
     private fun downmix(
         src: ByteBuffer,
         srcCh: Int,
@@ -47,23 +53,14 @@ class AudioTranscoder(
     ): ByteBuffer {
         val sb = src.duplicate().order(java.nio.ByteOrder.nativeOrder()).asShortBuffer()
         val frames = sb.remaining() / srcCh
-        val out = ByteBuffer.allocate(frames * dstCh * 2).order(java.nio.ByteOrder.nativeOrder())
-        val ob = out.asShortBuffer()
-        for (f in 0 until frames) {
-            val base = f * srcCh
-            if (dstCh == 1) {
-                var acc = 0
-                for (c in 0 until srcCh) acc += sb.get(base + c)
-                ob.put((acc / srcCh).toShort())
-            } else {
-                var rest = 0
-                for (c in 2 until srcCh) rest += sb.get(base + c)
-                val fold = if (srcCh > 2) rest / (srcCh - 2) / 2 else 0
-                ob.put((sb.get(base).toInt() + fold).coerceIn(-32768, 32767).toShort())
-                ob.put((sb.get(base + 1).toInt() + fold).coerceIn(-32768, 32767).toShort())
-            }
-        }
-        out.limit(frames * dstCh * 2)
+        val input = ShortArray(frames * srcCh).also { sb.get(it) }
+        return shortsToBuffer(GeodeNative.pcmDownmixS16(input, frames, srcCh, dstCh))
+    }
+
+    private fun shortsToBuffer(samples: ShortArray): ByteBuffer {
+        val out = ByteBuffer.allocate(samples.size * 2).order(java.nio.ByteOrder.nativeOrder())
+        out.asShortBuffer().put(samples)
+        out.limit(samples.size * 2)
         return out
     }
 
@@ -155,21 +152,12 @@ class AudioTranscoder(
                         srcDone = true
                     } else {
                         val frames = n / aiff.channels
-                        val bb = ByteBuffer.allocate(frames * channels * 2).order(java.nio.ByteOrder.nativeOrder())
-                        val sb = bb.asShortBuffer()
-                        if (aiff.channels <= 2) {
-                            sb.put(readBuf, 0, n)
-                        } else {
-                            for (f in 0 until frames) {
-                                val base = f * aiff.channels
-                                var rest = 0
-                                for (c in 2 until aiff.channels) rest += readBuf[base + c]
-                                val fold = rest / (aiff.channels - 2) / 2
-                                sb.put((readBuf[base] + fold).coerceIn(-32768, 32767).toShort())
-                                sb.put((readBuf[base + 1] + fold).coerceIn(-32768, 32767).toShort())
+                        val bb =
+                            if (aiff.channels <= 2) {
+                                shortsToBuffer(readBuf.copyOf(n))
+                            } else {
+                                shortsToBuffer(GeodeNative.pcmDownmixS16(readBuf, frames, aiff.channels, channels))
                             }
-                        }
-                        bb.limit(frames * channels * 2)
                         pcmCarry = resample(bb, resampler, channels)
                         onProgress(aiff.progress)
                     }
@@ -413,13 +401,8 @@ class AudioTranscoder(
                             val copy: ByteBuffer
                             if (pcmEnc == android.media.AudioFormat.ENCODING_PCM_FLOAT) {
                                 val fb = buf.order(java.nio.ByteOrder.nativeOrder()).asFloatBuffer()
-                                val n = fb.remaining()
-                                copy = ByteBuffer.allocate(n * 2).order(java.nio.ByteOrder.nativeOrder())
-                                val sb = copy.asShortBuffer()
-                                for (i in 0 until n) {
-                                    sb.put((fb.get(i).coerceIn(-1f, 1f) * 32767f).toInt().toShort())
-                                }
-                                copy.limit(n * 2)
+                                val floats = FloatArray(fb.remaining()).also { fb.get(it) }
+                                copy = shortsToBuffer(GeodeNative.pcmFloatToS16(floats, floats.size))
                             } else {
                                 copy = ByteBuffer.allocate(decInfo.size)
                                 copy.put(buf)

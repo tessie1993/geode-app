@@ -545,6 +545,189 @@ object GeodeNative {
         out: DoubleArray,
     ): Boolean
 
+    // Export planning and clip maths (core/output, core/signal/timeline, viz/ClipGrade, util/CubeLut,
+    // audio/dsp/PcmConvert). Pure functions, any thread; the Kotlin exporters only marshal through these.
+
+    /** Frames a render of [durationUs] draws at [fps], at least 1. */
+    external fun exportTotalFrames(
+        durationUs: Long,
+        fps: Int,
+    ): Long
+
+    /** Encoder timestamp of [frame]: floor(frame * 1e9 / fps), exact over any length. */
+    external fun exportFramePtsNs(
+        frame: Long,
+        fps: Int,
+    ): Long
+
+    /** Programme time [frame] shows, floor(frame * 1000 / fps) ms. */
+    external fun exportFrameTimeMs(
+        frame: Long,
+        fps: Int,
+    ): Long
+
+    /** Fields of the long[7] [loopSpecOf] and [loopSpecBudgeted] fill. */
+    const val LOOP_SPEC_LOOP_MS = 0
+    const val LOOP_SPEC_CROSSFADE_MS = 1
+    const val LOOP_SPEC_FPS = 2
+    const val LOOP_SPEC_LOOP_FRAMES = 3
+    const val LOOP_SPEC_CROSSFADE_FRAMES = 4
+    const val LOOP_SPEC_SOURCE_FRAMES = 5
+    const val LOOP_SPEC_LOOP_DURATION_US = 6
+    const val LOOP_SPEC_LONGS = 7
+
+    /** Loose UI numbers clamped into a valid loop spec, written to [out] (LOOP_SPEC_* order). */
+    external fun loopSpecOf(
+        loopMs: Long,
+        crossfadeMs: Long,
+        fps: Int,
+        out: LongArray,
+    )
+
+    /** The derived fields of the spec as given, no clamping, into [out] (LOOP_SPEC_* order). */
+    external fun loopSpecDerive(
+        loopMs: Long,
+        crossfadeMs: Long,
+        fps: Int,
+        out: LongArray,
+    )
+
+    /** The spec with its dissolve shortened to what the seam stash holds at [width] x [height]. */
+    external fun loopSpecBudgeted(
+        loopMs: Long,
+        crossfadeMs: Long,
+        fps: Int,
+        width: Int,
+        height: Int,
+        out: LongArray,
+    )
+
+    external fun loopSeamWeight(
+        tail: Int,
+        seamFrames: Int,
+    ): Float
+
+    /** Every repeat of a long-form loop as (offset µs, loop index) pairs. */
+    external fun loopExtendPlan(
+        loopUs: Long,
+        totalUs: Long,
+        loops: Int,
+    ): LongArray
+
+    /** What the long file weighs: every repeat copies [loopBytes] again, plus 2 % for the sample tables. */
+    external fun loopEstimatedBytes(
+        loopUs: Long,
+        totalUs: Long,
+        loopBytes: Long,
+        soundtrackBytes: Long,
+    ): Long
+
+    /** The video bit rate that keeps a file [totalUs] long under [limitBytes]. */
+    external fun loopFittingBitRate(
+        totalUs: Long,
+        limitBytes: Long,
+        soundtrackBytes: Long,
+    ): Int
+
+    /** [requestedBps], lowered so the file fits [limitBytes] (<= 0: the 3.8 GB render target). */
+    external fun exportCappedVideoBps(
+        requestedBps: Int,
+        durationUs: Long,
+        audioBytes: Long,
+        limitBytes: Long,
+    ): Int
+
+    external fun exportAudioBytes(
+        durationUs: Long,
+        bps: Int,
+    ): Long
+
+    /** Where a long-form copy stops writing: 4 GiB less 64 MiB for the index. */
+    external fun exportMuxerHardLimitBytes(): Long
+
+    /** The encoded frame for a short side and a ratio, into out[0] (width) and out[1] (height). */
+    external fun exportFrameSize(
+        shortSide: Int,
+        wRatio: Int,
+        hRatio: Int,
+        out: IntArray,
+    )
+
+    external fun exportFallbackFps(requestedFps: Int): Int
+
+    /** Chapter spans as (start ms, duration ms, source) triples; empty under two clips. */
+    external fun chaptersFromClips(
+        startsMs: LongArray,
+        durationsMs: LongArray,
+    ): LongArray
+
+    /** Chapter spans from markers as triples; source -1 is the lead-in that makes the list start at 0:00. */
+    external fun chaptersFromMarkers(
+        markersMs: LongArray,
+        totalMs: Long,
+    ): LongArray
+
+    /**
+     * A keyframed clip speed as Media3 segments. Keys are parallel arrays: [keyTimesMs], [keyKinds]
+     * (0 scalar, 1 vector2, 2 colour, 3 toggle, 4 choice), [keyInterps] (0 hold, 1 linear, 2 bezier),
+     * four [keyValues] and four [keyCurves] floats per key. Returns [source span µs, segment starts µs…]
+     * with the speeds written to [speedsOut]; null when there are no keys.
+     */
+    external fun speedRampBuild(
+        keyTimesMs: LongArray,
+        keyKinds: IntArray,
+        keyValues: FloatArray,
+        keyInterps: IntArray,
+        keyCurves: FloatArray,
+        clipStartMs: Long,
+        clipDurationMs: Long,
+        stepMs: Long,
+        speedsOut: FloatArray,
+    ): LongArray?
+
+    /** A saved clip speed made safe: NaN, infinite, 0 or negative is 1x, else 0.25..4. */
+    external fun clipSpeedSanitize(speed: Float): Float
+
+    /** The clip grade as a column-major 4x4 into [out] (16 floats). */
+    external fun clipGradeMatrix(
+        brightness: Float,
+        contrast: Float,
+        saturationPercent: Float,
+        hueDegrees: Float,
+        out: FloatArray,
+    )
+
+    /** A .cube file's ARGB entries, size^3 in [r][g][b] order; null when it is not a usable cube. */
+    external fun cubeLutParse(text: ByteArray): IntArray?
+
+    external fun cubeLutGamma(
+        red: Float,
+        green: Float,
+        blue: Float,
+        size: Int,
+    ): IntArray
+
+    /** Interleaved s16 [frames] from [srcChannels] down to [dstChannels] (1 or 2); empty when not a downmix. */
+    external fun pcmDownmixS16(
+        input: ShortArray,
+        frames: Int,
+        srcChannels: Int,
+        dstChannels: Int,
+    ): ShortArray
+
+    /** Float PCM to s16: clamp, x32767, truncate; NaN is 0. */
+    external fun pcmFloatToS16(
+        input: FloatArray,
+        count: Int,
+    ): ShortArray
+
+    /** s16 to float by 1/32768 into [out]. */
+    external fun pcmS16ToFloat(
+        input: ShortArray,
+        count: Int,
+        out: FloatArray,
+    )
+
     // Rest when silent (core/sound/Silence): the wallpaper's and the dream's silence rule.
 
     /**

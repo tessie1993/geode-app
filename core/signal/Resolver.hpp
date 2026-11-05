@@ -87,13 +87,13 @@ public:
     // A new surface: the stages' state starts over (their configuration and the fade are kept).
     void reset();
 
-    // One frame. `camFlat` is the camera rig's flat projection from the previous frame (the rig steps after).
+    // One frame.
     const Frame& step(const viz::SceneParams& requested, const GeodeSoundFrame& sound, float dt,
-                      const EngineSettings& settings, const StyleContext& style, const std::array<float, 4>& camFlat);
+                      const EngineSettings& settings, const StyleContext& style);
 
     // The last step's result.
     const Frame& frame() const { return frame_; }
-    // The note blooms, knobs and tint the last step published; the scenes and the bloom pass read them.
+    // The note knobs, hues and tint the last step published; the scenes and the composite read them.
     // The reference stays valid for the resolver's life.
     const viz::NoteUniforms& noteUniforms() const { return notes_.uniforms(); }
 

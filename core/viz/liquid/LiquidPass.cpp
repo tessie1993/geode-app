@@ -137,7 +137,6 @@ GLuint LiquidPass::run(const Frame& f) {
     glUniform1f(uniforms_.loc("uBornR"), f.bornRadius);
     glUniform1f(uniforms_.loc("uBornGain"), fresh_ ? 0.0f : f.bornGain);
     glUniform1i(uniforms_.loc("uBornMode"), f.bornMode);
-    glUniform1f(uniforms_.loc("uFlare"), f.flare);
     glUniform1i(uniforms_.loc("uAge"), f.age);
     glUniform1i(uniforms_.loc("uSurface"), f.surface);
     glUniform1i(uniforms_.loc("uFeedback"), f.feedback ? 1 : 0);

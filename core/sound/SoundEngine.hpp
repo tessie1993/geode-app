@@ -63,6 +63,11 @@ public:
     // The player's fade gain, carried as the frame's fadeGain from the next step on: clamped to 0..1, and 1
     // when it is not a number. Not the engine's state: reset() keeps it.
     void setFadeGain(float gain);
+    // Whether the player writes what this engine hears (core/sound/PlayerSignals; an export's decoded track
+    // counts as the player). The player's pauses hold the musical memory, so the 2 s silence re-warm runs
+    // only for other sources, and fadeGain reads 1 for them. Off by default: a bare engine guesses at
+    // boundaries the way it always has.
+    void setPlayerSource(bool on) { playerSource_ = on; }
 
 private:
     struct BinRange {
@@ -218,6 +223,7 @@ private:
     // keeps it, since the boundary still began a new song.
     bool boundaryPending_ = false;
     float fadeGain_ = 1.0f;
+    bool playerSource_ = false;
 
     State state_;
 };

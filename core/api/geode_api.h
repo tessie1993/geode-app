@@ -281,9 +281,12 @@ GEODE_API int             geode_silence_resting(long long now_ms, long long hear
  * the tempo, key and sections at its next frame and fires sectionChange at full strength, crossfaded and
  * gapless tracks included. Returns the boundary's epoch (1, 2, …). The fade gain, 0..1: the player's pause
  * and skip fades times the crossfade, which the tap (before the volume) never hears; the frame carries it as
- * fadeGain, a reaction source. Both process-wide and latched, any thread; an export renderer reads neither. */
+ * fadeGain, a reaction source. Player is source: 1 while the player writes the app's ring, 0 once the mic or
+ * another app's audio takes it; a pause then holds the tempo, key and sections (no 2 s silence re-warm),
+ * and fadeGain reads 1 under the others. All process-wide and latched, any thread; an export reads none. */
 GEODE_API long long       geode_sound_track_boundary(long long seed);
 GEODE_API void            geode_sound_set_fade_gain(float gain);
+GEODE_API void            geode_sound_set_player_source(int on);
 
 #ifdef __cplusplus
 }

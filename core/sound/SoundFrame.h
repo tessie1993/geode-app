@@ -179,7 +179,7 @@ typedef struct GeodeSoundFrame {
      * gapless or crossfaded next track, which the tap cannot hear) also fires sectionChange at full strength
      * (1) on the frame it lands, at once rather than on a downbeat: the next song is the biggest section. */
     float fadeGain;     /* the player's fades, 0..1: pause and skip fades times the crossfade; 1 while none runs,
-                         * and always 1 in an export. The tap is before the volume, so nothing else hears it */
+                         * under the mic or another app's audio, and always in an export. The tap is before the volume, so nothing else hears it */
     /* TouchDesigner Band EQ centres (25 Hz … 22 kHz), each relative. */
     float eq[GEODE_SOUND_EQ_BANDS];
     /* Log-spaced spectrum 20 Hz–20 kHz, tilted like the bands, over a slow peak: 0..1 for textures. */

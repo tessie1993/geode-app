@@ -47,6 +47,7 @@ import dev.geode.data.TemplateRepository
 import dev.geode.data.TemplateWrite
 import dev.geode.data.UserDataRepository
 import dev.geode.data.VideoTemplate
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
@@ -66,6 +67,7 @@ import dev.geode.render.UnderlayBlend
 import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneParams
+import dev.geode.util.bestEffort
 import dev.geode.widget.WidgetStyles
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -123,8 +125,9 @@ class PlayerSession internal constructor(
             object : CaptureController.Host {
                 override fun pausePlayback() = player.pause()
 
-                override fun resetSound() {
+                override fun resetSound(playerOwnsRing: Boolean) {
                     playback.sampleRing.beginEpoch()
+                    bestEffort("PlayerSession", "player source") { GeodeNative.soundSetPlayerSource(playerOwnsRing) }
                 }
 
                 override fun setSoundRate(rateHz: Int) {

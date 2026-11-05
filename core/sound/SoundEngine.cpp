@@ -220,10 +220,11 @@ void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
     if (silent) {
         s.quietSeconds += dt;
     } else {
-        if (s.quietSeconds >= kRewarmAfter) {
-            // Sound after two seconds of silence is most likely a new track: its tempo, key and
-            // sections are its own. The player names its boundaries (trackBoundary); this rule is for
-            // the mic and other apps' audio, and for a player track that starts after a long gap.
+        if (s.quietSeconds >= kRewarmAfter && !playerSource_) {
+            // Sound after two seconds of silence from the mic or another app is most likely a new
+            // track: its tempo, key and sections are its own. The player is never guessed at: a pause
+            // holds the song (the owner's rule), and only a track boundary it names (trackBoundary) or a
+            // seek (the ring's new epoch, reset()) starts fresh.
             rewarm();
         }
         s.quietSeconds = 0.0f;
@@ -254,7 +255,8 @@ void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
         out.sectionChange = 1.0f;
         boundaryPending_ = false;
     }
-    out.fadeGain = fadeGain_;
+    // The fade is the player's; under the mic or another app's audio nothing fades what the engine hears.
+    out.fadeGain = playerSource_ ? fadeGain_ : 1.0f;
 }
 
 void SoundEngine::rewarm() {

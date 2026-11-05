@@ -579,4 +579,11 @@ object GeodeNative {
      * hears; the sound frame carries it as `fadeGain`, a reaction source. Live renderers only. Any thread.
      */
     external fun soundSetFadeGain(gain: Float)
+
+    /**
+     * Whether the player writes the app's ring (true) or the mic or another app's audio has taken it. While
+     * the player is the source a pause holds the tempo, key and sections; the others keep the 2 s silence
+     * re-warm, and read a fade gain of 1. Any thread.
+     */
+    external fun soundSetPlayerSource(on: Boolean)
 }

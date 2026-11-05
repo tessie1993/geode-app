@@ -412,6 +412,69 @@ void testTrackBoundaryKey() {
           a.keyRoot * 12.0f, a.keyMajor);
 }
 
+// A pause holds the song (the owner's rule, #460): 20 s of 128 BPM clicks, 5 s with nothing written (a
+// paused player writes no audio), then the clicks again. With the player as the source the first frame
+// back still has the tempo; with the mic or another app's audio as the source the 2 s silence rule
+// re-warms, and the tempo starts over.
+void testPauseHoldsTempo() {
+    auto song = [](double t) { return clicks(t, 0.0, 128.0); };
+    SoundEngine player(44100);
+    SoundEngine capture(44100);
+    player.setPlayerSource(true);
+    std::vector<float> buf;
+    GeodeSoundFrame a{};
+    GeodeSoundFrame b{};
+    const int pauseFrom = 20 * 60 + 1;
+    const int pauseTo = 25 * 60;  // the last silent frame
+    for (int i = 1; i <= pauseTo + 1; i++) {
+        if (i >= pauseFrom && i <= pauseTo) {
+            player.step(1.0f / 60.0f, a);
+            capture.step(1.0f / 60.0f, b);
+            continue;
+        }
+        frameOf(player, song, i, false, a, buf);
+        frameOf(capture, song, i, false, b, buf);
+    }
+    CHECK(std::fabs(a.bpm / 128.0 - 1.0) < 0.03, "the player's pause holds the tempo: read %.2f", a.bpm);
+    CHECK(a.beatCount > 0.0f, "and the beat count, read %f", a.beatCount);
+    CHECK(b.bpm == 0.0f && b.beatCount == 0.0f, "a capture's silence re-warms: bpm %f, beat %f", b.bpm, b.beatCount);
+}
+
+// The same for the key: I–vi–IV–V in C for 24 s, 5 s with nothing written, then C again. Under the player
+// the key and its clarity hold; under a capture the key's clarity starts over from nothing.
+void testPauseHoldsKey() {
+    const int chords[4][3] = {{60, 64, 67}, {57, 60, 64}, {53, 57, 60}, {55, 59, 62}};
+    auto song = [&chords](double t) {
+        const int* c = chords[static_cast<int>(t / 2.0) % 4];
+        double v = 0.0;
+        for (int n = 0; n < 3; n++) {
+            const double hz = hzOf(c[n] + 12);
+            v += 0.1 * std::sin(kTau * hz * t) + 0.04 * std::sin(2 * kTau * hz * t);
+        }
+        return static_cast<float>(v);
+    };
+    SoundEngine player(44100);
+    SoundEngine capture(44100);
+    player.setPlayerSource(true);
+    std::vector<float> buf;
+    GeodeSoundFrame a{};
+    GeodeSoundFrame b{};
+    const int pauseFrom = 24 * 60 + 1;
+    const int pauseTo = 29 * 60;
+    for (int i = 1; i <= pauseTo + 1; i++) {
+        if (i >= pauseFrom && i <= pauseTo) {
+            player.step(1.0f / 60.0f, a);
+            capture.step(1.0f / 60.0f, b);
+            continue;
+        }
+        frameOf(player, song, i, false, a, buf);
+        frameOf(capture, song, i, false, b, buf);
+    }
+    CHECK(std::lround(a.keyRoot * 12.0f) % 12 == 0 && a.keyClarity > 0.25f, "the player's pause holds the key: root %f clarity %f",
+          a.keyRoot * 12.0f, a.keyClarity);
+    CHECK(b.keyClarity < 0.05f, "a capture's silence re-warms the key: clarity %f", b.keyClarity);
+}
+
 void testDeterministic() {
     auto music = [](double t) {
         const double beat = std::fmod(t, 0.5);
@@ -435,6 +498,8 @@ int main() {
     testSectionsReturn();
     testTrackBoundaryTempo();
     testTrackBoundaryKey();
+    testPauseHoldsTempo();
+    testPauseHoldsKey();
     testDeterministic();
     if (failures == 0) std::printf("musical_test: all passed\n");
     return failures == 0 ? 0 : 1;

@@ -17,10 +17,16 @@ namespace geode::sound::player {
 // pause fade or a crossfade. The player hands the gain over as a number and the frame carries it as
 // fadeGain, a source a reaction route can follow.
 //
+// Player is source: whether the player writes the app's ring, or the mic or another app's audio has taken it
+// (the capture glue's source switch). A pause holds the song's tempo, key and sections, so while the player
+// is the source the engines' 2 s silence re-warm is off and only a boundary or a seek (the ring's new
+// epoch) starts fresh; for the mic and capture, which have no player to name their boundaries, the silence
+// rule stays, and fadeGain reads 1 (SoundEngine::setPlayerSource).
+//
 // Process-wide and latched like the macros and the director: written on the main thread, read once per
-// frame on each GL thread. An export renderer reads neither (Renderer::beginFrame): a render has its own
-// track and no player fades. The 2 s silence rule stays in SoundEngine for the mic and other apps' audio,
-// which have no player to name their boundaries.
+// frame on each GL thread. An export renderer reads none of them (Renderer::beginFrame): a render has its
+// own track, no player fades, and counts as the player. One flag for the process: a wallpaper hearing the
+// output mix (wallpaper/OutputMixCapture, its own ring) still reads the app ring's source.
 //
 // Group C's native ring (core/audio/ingest) carries an epoch with every write; once it lands, the ring can
 // stamp the first sample of the new track with the epoch trackBoundary() returns, so the reset lands on
@@ -35,6 +41,7 @@ namespace detail {
 inline std::atomic<uint64_t> gEpoch{0};
 inline std::atomic<uint64_t> gSeed{0};
 inline std::atomic<float> gFadeGain{1.0f};
+inline std::atomic<bool> gPlayerIsSource{true};  // the player owns the ring until a capture takes it
 }  // namespace detail
 
 // A new track (or the same one again) begins a new play with `seed`. Returns the boundary's epoch.
@@ -54,5 +61,8 @@ inline Boundary boundary() {
 // The player's fade gain as it pushes it; SoundEngine::setFadeGain clamps it into 0..1.
 inline void setFadeGain(float gain) { detail::gFadeGain.store(gain, std::memory_order_relaxed); }
 inline float fadeGain() { return detail::gFadeGain.load(std::memory_order_relaxed); }
+
+inline void setPlayerIsSource(bool on) { detail::gPlayerIsSource.store(on, std::memory_order_relaxed); }
+inline bool playerIsSource() { return detail::gPlayerIsSource.load(std::memory_order_relaxed); }
 
 }  // namespace geode::sound::player

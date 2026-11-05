@@ -366,6 +366,8 @@ void testFadeGain() {
     const int rate = 48000;
     SoundEngine plain(rate);
     SoundEngine faded(rate);
+    plain.setPlayerSource(true);
+    faded.setPlayerSource(true);
     faded.setFadeGain(0.25f);
     std::vector<GeodeSoundFrame> plainFrames;
     run(plain, noise(0.2f), 2.0, 60.0, [&](double, const GeodeSoundFrame& f) { plainFrames.push_back(f); });
@@ -397,6 +399,14 @@ void testFadeGain() {
     faded.reset();
     faded.step(1.0f / 60.0f, f);
     CHECK(f.fadeGain == 0.5f, "reset keeps the gain, read %f", f.fadeGain);
+
+    // Under the mic or another app's audio the player's fade is not what the engine hears: it reads 1.
+    faded.setPlayerSource(false);
+    faded.step(1.0f / 60.0f, f);
+    CHECK(f.fadeGain == 1.0f, "a capture source reads a fade gain of 1, read %f", f.fadeGain);
+    faded.setPlayerSource(true);
+    faded.step(1.0f / 60.0f, f);
+    CHECK(f.fadeGain == 0.5f, "back on the player the fade returns, read %f", f.fadeGain);
 }
 
 // The process-wide signals the player pushes and each live renderer latches once a frame.
@@ -412,6 +422,10 @@ void testPlayerSignals() {
     player::setFadeGain(0.3f);
     CHECK(player::fadeGain() == 0.3f, "the fade gain latches as pushed");
     player::setFadeGain(1.0f);
+    CHECK(player::playerIsSource(), "the player owns the ring until a capture takes it");
+    player::setPlayerIsSource(false);
+    CHECK(!player::playerIsSource(), "a capture takes the ring");
+    player::setPlayerIsSource(true);
 }
 
 // A boundary fires one full-strength section change, on the next step only, and survives a reset() between

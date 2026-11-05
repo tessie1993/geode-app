@@ -19,4 +19,6 @@ long long geode_sound_track_boundary(long long seed) {
 
 void geode_sound_set_fade_gain(float gain) { geode::sound::player::setFadeGain(gain); }
 
+void geode_sound_set_player_source(int on) { geode::sound::player::setPlayerIsSource(on != 0); }
+
 }  // extern "C"

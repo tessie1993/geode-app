@@ -33,4 +33,9 @@ Java_dev_geode_engine_bridge_GeodeNative_soundSetFadeGain(JNIEnv*, jobject, jflo
     geode_sound_set_fade_gain(gain);
 }
 
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_soundSetPlayerSource(JNIEnv*, jobject, jboolean on) {
+    geode_sound_set_player_source(on == JNI_TRUE ? 1 : 0);
+}
+
 }  // extern "C"

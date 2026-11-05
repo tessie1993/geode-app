@@ -276,6 +276,14 @@ GEODE_API long long       geode_silence_heard_at(const float* const* channels, i
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
 
+/* Playback maths (audio/PlaybackMath): the pitch shift, the sleep timer's fade and the slider steps,
+ * so the shell keeps no audio maths. Pure, any thread. */
+GEODE_API float           geode_playback_semitones_to_ratio(float semitones);   /* 2^(st/12), Media3's pitch */
+GEODE_API long long       geode_playback_sleep_fade_ms(void);   /* the sleep timer's fade length */
+/* Volume with remaining_ms left: 1 down to 0 over the last fade_ms, clamped; fade_ms <= 0 = no fade. */
+GEODE_API float           geode_playback_sleep_fade_volume(long long remaining_ms, long long fade_ms);
+GEODE_API float           geode_playback_snap(float value, float step);   /* nearest step; step <= 0 = as is */
+
 #ifdef __cplusplus
 }
 #endif

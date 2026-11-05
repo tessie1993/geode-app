@@ -564,4 +564,24 @@ object GeodeNative {
         nowMs: Long,
         heardAtMs: Long,
     ): Boolean
+
+    // Playback maths (core/audio/PlaybackMath): the pitch shift, the sleep fade, slider steps.
+
+    /** Media3's pitch factor for a shift of [semitones]: 2^(semitones / 12). */
+    external fun playbackSemitonesToRatio(semitones: Float): Float
+
+    /** How long the sleep timer fades to silence before it pauses. */
+    external fun playbackSleepFadeMs(): Long
+
+    /** The sleep timer's volume with [remainingMs] left: 1 down to 0 over the last [fadeMs]. */
+    external fun playbackSleepFadeVolume(
+        remainingMs: Long,
+        fadeMs: Long,
+    ): Float
+
+    /** [value] on the nearest multiple of [step]; a step <= 0 leaves it as it is. */
+    external fun playbackSnap(
+        value: Float,
+        step: Float,
+    ): Float
 }

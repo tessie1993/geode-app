@@ -21,7 +21,7 @@ void NoteBloomPass::release() {
     uniforms_ = UniformCache(0);
 }
 
-void NoteBloomPass::draw(const NoteUniforms& notes, int width, int height, GLuint quadVao) {
+void NoteBloomPass::draw(const NoteUniforms& notes, int width, int height, GLuint quadVao, float gain) {
     if (program_ == 0 || notes.bloomCount <= 0 || notes.amount <= 0.0f || width <= 0 || height <= 0) return;
     const int count = std::min(notes.bloomCount, NoteUniforms::kBlooms);
     // The blooms' bounding box, in window pixels (y up, as gl_FragCoord and the bloom positions are).
@@ -56,7 +56,7 @@ void NoteBloomPass::draw(const NoteUniforms& notes, int width, int height, GLuin
     glUniform4fv(uniforms_.loc("uBloomD"), uniforms_.arrayCount("uBloomD", NoteUniforms::kBlooms), notes.bloomD[0].data());
     glUniform1i(uniforms_.loc("uBloomLook"), notes.look);
     glUniform1fv(uniforms_.loc("uNoteHues"), uniforms_.arrayCount("uNoteHues", NoteUniforms::kHues), notes.hues.data());
-    glUniform1f(uniforms_.loc("uBloomGain"), kGain);
+    glUniform1f(uniforms_.loc("uBloomGain"), gain);
 
     glEnable(GL_SCISSOR_TEST);
     glScissor(sx, sy, ex - sx, ey - sy);

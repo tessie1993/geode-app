@@ -12,7 +12,8 @@ enum class BlendMode { Normal, Screen, Add, Multiply, Difference, Overlay, Light
 const char* transitionStyleId(TransitionStyle style);
 BlendMode blendModeFromOrdinal(int i);
 
-// The unconditional flash and luminance clamp.
+// The unconditional flash and luminance clamp on the params. The measured limit on what is actually
+// drawn is FlashLimiter.hpp.
 namespace safety {
 
 constexpr float kWcagFlashesPerSecond = 3.0f;
@@ -30,31 +31,5 @@ std::string transitionId(const std::string& requested);
 float layerMix(float requested, BlendMode mode);
 
 }  // namespace safety
-
-// The flash budget: three rising edges per rolling second.
-class FlashBudget {
-public:
-    static constexpr float kRiskThreshold = 0.08f;
-
-    explicit FlashBudget(float maxPerSecond = safety::kWcagFlashesPerSecond) : maxPerSecond_(maxPerSecond) {}
-    void reset();
-    float gainFor(float timeSeconds, float impulse);
-
-private:
-    static constexpr float kSuppressedScale = 0.6f;
-    static constexpr float kMinGain = 0.05f;
-    static constexpr float kWindowSeconds = 1.0f;
-    static constexpr int kCapacity = 16;
-
-    void dropOlderThan(float cutoff);
-    void record(float timeSeconds);
-
-    float maxPerSecond_;
-    float edges_[kCapacity] = {};
-    int head_ = 0;
-    int count_ = 0;
-    bool above_ = false;
-    float lastTime_ = -3.0e38f;
-};
 
 }  // namespace geode::viz

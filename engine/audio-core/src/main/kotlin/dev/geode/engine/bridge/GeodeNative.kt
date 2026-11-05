@@ -717,6 +717,19 @@ object GeodeNative {
     external fun exportRangeMinMs(): Long
 
     /**
+     * The free tier's cap on a render range, cut natively; whether and how long is `pro/FreeTier`'s.
+     * [hasRange] false is the whole track; [capMs] <= 0 is no cap. True with [out] = (start ms, duration ms);
+     * false (out untouched) only for the whole track with no cap.
+     */
+    external fun exportRangeCap(
+        hasRange: Boolean,
+        startMs: Long,
+        durationMs: Long,
+        capMs: Long,
+        out: LongArray,
+    ): Boolean
+
+    /**
      * Size of the render-ETA state [renderEtaSample] carries: steady, based, shown (1.0 or 0.0), base
      * progress, latest progress, shown seconds, steady-since ms, base ms, shown-at ms. All zeros is a fresh
      * estimate, so starting over is `fill(0.0)`.

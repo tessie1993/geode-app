@@ -186,6 +186,22 @@ JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportRangeMinM
     return geode_export_range_min_ms();
 }
 
+// The free tier's cap on a render range (output/ExportRange). out gets (start ms, duration ms) when a range
+// is returned; false is the whole track, uncapped.
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportRangeCap(JNIEnv* env, jobject,
+                                                                                    jboolean hasRange, jlong startMs,
+                                                                                    jlong durationMs, jlong capMs,
+                                                                                    jlongArray out) {
+    int64_t start = 0;
+    int64_t duration = 0;
+    if (!geode_export_range_cap(hasRange ? 1 : 0, startMs, durationMs, capMs, &start, &duration)) return JNI_FALSE;
+    if (out && env->GetArrayLength(out) >= 2) {
+        const jlong values[2] = {start, duration};
+        env->SetLongArrayRegion(out, 0, 2, values);
+    }
+    return JNI_TRUE;
+}
+
 // Render ETA (output/RenderEta). The state is the caller's double[kEtaStateDoubles], in GeodeNative.ETA_*
 // order; all zeros is a fresh estimate. Read in, stepped, written back.
 JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaSample(JNIEnv* env, jobject,

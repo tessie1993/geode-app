@@ -19,4 +19,12 @@ struct ExportRange {
 // the part is under kMinExportRangeMs, or it covers the whole track anyway.
 bool clampExportRange(int64_t startMs, int64_t endMs, int64_t trackDurationMs, ExportRange* out);
 
+// The free tier's export cap (ported from the Kotlin PlayerViewModel.capRange). Whether a user is capped and
+// for how long stay Kotlin's (pro/FreeTier, through FeatureGate.exportCapMs); this only cuts the range.
+// range null is the whole track; capMs <= 0 is no cap. With no cap the range comes back as it was; with one,
+// the whole track becomes its first capMs and a longer range keeps its start and is cut to capMs. A range no
+// longer than the cap is untouched. The track's length is not read: the audio transcode stops at the range's
+// end, so a track shorter than the cap is unaffected. False (out untouched) only for the whole track uncapped.
+bool capExportRange(const ExportRange* range, int64_t capMs, ExportRange* out);
+
 }  // namespace geode::output

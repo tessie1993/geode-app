@@ -14,4 +14,18 @@ bool clampExportRange(int64_t startMs, int64_t endMs, int64_t trackDurationMs, E
     return true;
 }
 
+bool capExportRange(const ExportRange* range, int64_t capMs, ExportRange* out) {
+    ExportRange r;
+    if (capMs <= 0) {
+        if (!range) return false;
+        r = *range;
+    } else if (!range) {
+        r = {0, capMs};
+    } else {
+        r = {range->startMs, std::min(range->durationMs, capMs)};
+    }
+    if (out) *out = r;
+    return true;
+}
+
 }  // namespace geode::output

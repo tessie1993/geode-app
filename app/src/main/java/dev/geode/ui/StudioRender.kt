@@ -226,14 +226,17 @@ internal fun StudioRenderTab(
                     }
             }
         }
+    // A native call that copies every candidate URI in, so it runs only when its inputs change.
     val batchTracks =
-        RenderScope.tracksFor(
-            selection.scope,
-            current = null,
-            queue = queue.tracks.map { BatchTrack(it.uri, it.title.ifBlank { it.uri.substringAfterLast('/') }) },
-            playlist = playlists.firstOrNull { it.name == selection.playlistName }?.tracks.orEmpty(),
-            chosen = selection.chosenUris.map { BatchTrack(it, titles[it] ?: it.substringAfterLast('/')) },
-        )
+        remember(selection, queue.tracks, playlists, titles) {
+            RenderScope.tracksFor(
+                selection.scope,
+                current = null,
+                queue = queue.tracks.map { BatchTrack(it.uri, it.title.ifBlank { it.uri.substringAfterLast('/') }) },
+                playlist = playlists.firstOrNull { it.name == selection.playlistName }?.tracks.orEmpty(),
+                chosen = selection.chosenUris.map { BatchTrack(it, titles[it] ?: it.substringAfterLast('/')) },
+            )
+        }
     val lookPresets =
         remember(viz.presets) {
             (viz.presets + BuiltInPresets.ALL)

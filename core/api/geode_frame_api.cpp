@@ -1,6 +1,8 @@
 #include "api/geode_api.h"
+#include "viz/frame/CastAudio.hpp"
 #include "viz/frame/FixedRateClock.hpp"
 
+using geode::viz::frame::CastAudio;
 using geode::viz::frame::CastFormat;
 using geode::viz::frame::FixedRateClock;
 
@@ -18,6 +20,19 @@ void store(const FixedRateClock& c, int64_t* state) {
     state[0] = c.startNs;
     state[1] = c.next;
     state[2] = c.fps;
+}
+
+CastAudio loadAudio(const int64_t* state) {
+    CastAudio a = CastAudio::started(static_cast<int>(state[2]));
+    a.produced = state[0];
+    a.held = state[1];
+    return a;
+}
+
+void storeAudio(const CastAudio& a, int64_t* state) {
+    state[0] = a.produced;
+    state[1] = a.held;
+    state[2] = a.rateHz;
 }
 
 }  // namespace
@@ -50,6 +65,26 @@ void geode_cast_format(int* out) {
     out[0] = CastFormat::kWidth;
     out[1] = CastFormat::kHeight;
     out[2] = CastFormat::kFps;
+}
+
+int geode_cast_audio_start(int64_t* state, int rate_hz) {
+    if (!state) return 0;
+    const CastAudio a = CastAudio::started(rate_hz);
+    storeAudio(a, state);
+    return static_cast<int>(a.capacity());
+}
+
+void geode_cast_audio_step(int64_t* state, int64_t gained_frames, int64_t until_us, int64_t* out) {
+    if (!state || !out) return;
+    CastAudio a = loadAudio(state);
+    const CastAudio::Step s = a.step(gained_frames, until_us);
+    storeAudio(a, state);
+    out[0] = s.evict;
+    out[1] = s.skip;
+    out[2] = s.keep;
+    out[3] = s.take;
+    out[4] = s.pad;
+    out[5] = s.ptsUs;
 }
 
 }  // extern "C"

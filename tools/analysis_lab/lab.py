@@ -16,6 +16,9 @@ What it writes into --out (nothing here is committed; CI rebuilds it on every ru
   <clip>.truth.tsv     the answers, exact by construction: tempo, beats, downbeats, section boundaries, key
   <clip>.librosa.tsv   librosa's answers (the reference analyser): tempo, beats, key, boundaries
   <clip>.onset.tsv     librosa's onset strength envelope, one value per frame (what the offline port matches)
+  <clip>.features.tsv  librosa's frame features (#464): rms, spectral centroid, rolloff and flatness, mean
+                       onset strength, HPSS harmonic and percussive energy, CQT chroma (tuning 0)
+  <clip>.onsets.tsv    librosa.onset.onset_detect's onset times on the mean onset strength
   <clip>.mir_eval.tsv  mir_eval's scores of librosa's answers against the truth; the C++ bench recomputes
                        them with its own metrics and fails if the two disagree, so the bench's maths is
                        pinned to mir_eval's conventions without Python in the C++ path
@@ -195,6 +198,7 @@ def render(clip):
         out[start:end, 1] += piece * (1.0 + 0.3 * pan)
 
     truth_beats, truth_downbeats, boundaries = [], [], []
+    drums = {"kick": [], "snare": [], "hat": []}  # every drum hit the score places, for the drum F-measures
     bar_index = 0
     for s_index, s in enumerate(clip["sections"]):
         if s_index > 0:
@@ -211,19 +215,24 @@ def render(clip):
                     place(t_bar + k * beat, click(rng, 1500.0, 1.0) if k == 0 else click(rng, 1000.0, 0.55), gain=g)
             for pos in s.get("kick", []):
                 place(t_bar + pos * beat, kick(), gain=0.9 * g)
+                drums["kick"].append(t_bar + pos * beat)
             for pos in s.get("snare", []):
                 place(t_bar + pos * beat, snare(rng), pan=0.1, gain=0.7 * g)
+                drums["snare"].append(t_bar + pos * beat)
             for pos in s.get("rim", []):
                 place(t_bar + pos * beat, snare(rng, gain=0.4), pan=-0.2, gain=g)
+                drums["snare"].append(t_bar + pos * beat)
             hats = s.get("hats")
             if hats:
                 steps = 8 if hats == "eighth" else 16
                 for k in range(steps):
                     accent = 1.0 if k % (steps // 4) == 0 else 0.6
                     place(t_bar + k * bar / steps, hat(rng), pan=0.4, gain=accent * g)
+                    drums["hat"].append(t_bar + k * bar / steps)
             if s.get("open_hat"):
                 for k in range(4):
                     place(t_bar + (k + 0.5) * beat, hat(rng, open_hat=True), pan=-0.4, gain=0.8 * g)
+                    drums["hat"].append(t_bar + (k + 0.5) * beat)
             if chord is not None:
                 root, quality = chord
                 bass = s.get("bass")
@@ -246,6 +255,7 @@ def render(clip):
             t, step = 0.0, beat / 2
             while t < length - 1e-9:
                 place(t0 + t, snare(rng, gain=0.3 + 0.5 * t / length), gain=g)
+                drums["snare"].append(t0 + t)
                 t += step
                 step = max(beat / 8, step * 0.93)
         if s.get("riser"):
@@ -257,6 +267,7 @@ def render(clip):
         duration=duration, tempo=float(bpm),
         beats=np.round(np.array(truth_beats), TIME_DECIMALS),
         downbeats=np.round(np.array(truth_downbeats), TIME_DECIMALS),
+        drums={k: np.round(np.array(sorted(set(v))), TIME_DECIMALS) for k, v in drums.items()},
         boundaries=np.round(np.array(boundaries), TIME_DECIMALS),
         key=clip["key"],
     )
@@ -293,7 +304,8 @@ def librosa_reference(y, truth):
     tempo, beat_frames = librosa.beat.beat_track(onset_envelope=env, sr=SR, hop_length=HOP, units="frames")
     tempo = float(np.atleast_1d(tempo)[0])
     beats = np.round(librosa.frames_to_time(beat_frames, sr=SR, hop_length=HOP), TIME_DECIMALS)
-    chroma = librosa.feature.chroma_cqt(y=y, sr=SR, hop_length=HOP)
+    # tuning=0: the clips are synthesized at A440, and the offline port does not estimate tuning (yet).
+    chroma = librosa.feature.chroma_cqt(y=y, sr=SR, hop_length=HOP, tuning=0.0)
     key = kk_key(chroma.mean(axis=1))
 
     # Sections: beat-synchronous chroma and MFCCs, clustered in time (librosa.segment.agglomerative) into as
@@ -310,7 +322,25 @@ def librosa_reference(y, truth):
         bounds = librosa.segment.agglomerative(feat, k=len(truth["boundaries"]) + 1)
         times = librosa.frames_to_time(frames[bounds], sr=SR, hop_length=HOP)
         boundaries = np.round(np.array([t for t in times if 0.0 < t < truth["duration"]]), TIME_DECIMALS)
-    return dict(env=env, tempo=tempo, beats=beats, key=key, boundaries=boundaries)
+    # Frame features for the offline analyser's second slice (#464), every one at the same hop and FFT.
+    stft = librosa.stft(y, n_fft=N_FFT, hop_length=HOP)
+    mag = np.abs(stft)
+    harm, perc = librosa.decompose.hpss(mag)
+    mean_env = librosa.onset.onset_strength(y=y, sr=SR, hop_length=HOP, n_fft=N_FFT)
+    onsets = librosa.onset.onset_detect(onset_envelope=mean_env, sr=SR, hop_length=HOP, units="time")
+    columns = [
+        librosa.feature.rms(y=y, frame_length=N_FFT, hop_length=HOP)[0],
+        librosa.feature.spectral_centroid(S=mag, sr=SR, n_fft=N_FFT)[0],
+        librosa.feature.spectral_rolloff(S=mag, sr=SR, n_fft=N_FFT)[0],
+        librosa.feature.spectral_flatness(S=mag)[0],
+        mean_env,
+        np.sum(harm ** 2, axis=0),
+        np.sum(perc ** 2, axis=0),
+    ] + list(chroma)
+    frames = min(len(c) for c in columns)
+    features = np.stack([c[:frames] for c in columns], axis=1)
+    return dict(env=env, tempo=tempo, beats=beats, key=key, boundaries=boundaries, features=features,
+                onsets=np.round(onsets, TIME_DECIMALS))
 
 
 def mir_eval_scores(truth, ref):
@@ -386,6 +416,8 @@ def main():
             rows.append(("key", truth["key"][0], truth["key"][1]))
         rows += times_rows("beat", truth["beats"]) + times_rows("downbeat", truth["downbeats"])
         rows += times_rows("boundary", truth["boundaries"])
+        for kind in ("kick", "snare", "hat"):
+            rows += times_rows(kind, truth["drums"][kind])
         write_rows(os.path.join(args.out, clip["name"] + ".truth.tsv"), rows)
 
         if args.no_librosa:
@@ -401,6 +433,11 @@ def main():
         rows += times_rows("beat", ref["beats"]) + times_rows("boundary", ref["boundaries"])
         write_rows(os.path.join(args.out, clip["name"] + ".librosa.tsv"), rows)
         write_rows(os.path.join(args.out, clip["name"] + ".onset.tsv"), [(f"{v:.9g}",) for v in ref["env"]])
+        write_rows(os.path.join(args.out, clip["name"] + ".features.tsv"),
+                   [("# rms", "centroid_hz", "rolloff_hz", "flatness", "onset_mean", "harmonic", "percussive")
+                    + tuple(f"chroma_{p}" for p in PITCH_NAMES)]
+                   + [tuple(f"{v:.9g}" for v in row) for row in ref["features"]])
+        write_rows(os.path.join(args.out, clip["name"] + ".onsets.tsv"), times_rows("onset", ref["onsets"]))
         write_rows(os.path.join(args.out, clip["name"] + ".mir_eval.tsv"),
                    [(k, f"{v:.9f}") for k, v in mir_eval_scores(truth, ref).items()])
         print(f"{clip['name']}: librosa tempo {ref['tempo']:.2f} (truth {truth['tempo']:g}), "

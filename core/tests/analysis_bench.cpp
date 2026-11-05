@@ -11,7 +11,11 @@
 //            downbeat triggers (placed at the oscillator's beat, frame time - beatPhase · period),
 //            sectionChange as it fires (it means "a section began a bar ago", and the bench scores where
 //            it lands, which is what a visual sees), the key and tempo held over the clip's second half
-//   offline  core/sound/offline's whole-track analyser (#463): the beat grid, its downbeats and tempo
+//   offline  core/sound/offline's whole-track analyser (#463): the beat grid, its downbeats and tempo;
+//            (#464) the key and the drums found in the percussive part
+//   Drums (kick_f, snare_f, hat_f): every hit the score places, matched within 50 ms (mir_eval.onset's
+//   window), untrimmed; scored for live (its kick, snare, hat triggers) and offline, on clips that play
+//   that drum
 //
 // Metrics are core/tests/analysis/MirEval.hpp (mir_eval's conventions). Before scoring anything the bench
 // recomputes librosa's scores and compares them with mir_eval's own (<clip>.mir_eval.tsv): a mismatch fails,
@@ -36,6 +40,7 @@
 
 #include "sound/SoundEngine.hpp"
 #include "sound/offline/OfflineBeats.hpp"
+#include "sound/offline/OfflineFeatures.hpp"
 #include "tests/analysis/Annotations.hpp"
 #include "tests/analysis/MirEval.hpp"
 #include "tests/analysis/Wav.hpp"
@@ -49,7 +54,7 @@ constexpr double kClipTolerance = 0.05;
 constexpr double kMirEvalTolerance = 1e-6;
 
 struct Claims {
-    bool beats = false, downbeats = false, tempo = false, key = false, sections = false;
+    bool beats = false, downbeats = false, tempo = false, key = false, sections = false, drums = false;
 };
 
 // ---- live: core/sound's SoundEngine at 60 fps -------------------------------------------------------------
@@ -77,6 +82,9 @@ Answers runLive(const Wav& wav) {
         if (frame.beat > 0.0f) a.beats.push_back(beatAt);
         if (frame.downbeat > 0.0f) a.downbeats.push_back(beatAt);
         if (frame.sectionChange > 0.0f) a.boundaries.push_back(t);
+        if (frame.kick > 0.0f) a.kicks.push_back(t);
+        if (frame.snare > 0.0f) a.snares.push_back(t);
+        if (frame.hat > 0.0f) a.hats.push_back(t);
         if (t >= duration / 2) {
             if (frame.bpm > 0.0f) bpms.push_back(frame.bpm);
             if (frame.keyClarity > 0.0f && frame.keyMajor != 0.5f) {
@@ -110,6 +118,13 @@ Answers runOffline(const Wav& wav) {
     a.tempo = grid.bpm;
     a.beats = grid.beats;
     a.downbeats = grid.downbeats;
+    const geode::sound::offline::Features features = geode::sound::offline::analyseFeatures(mono.data(), mono.size(), wav.sampleRate);
+    a.hasKey = true;
+    a.keyRoot = features.keyRoot;
+    a.keyMajor = features.keyMajor;
+    a.kicks = features.kicks;
+    a.snares = features.snares;
+    a.hats = features.hats;
     return a;
 }
 
@@ -130,6 +145,11 @@ Scores score(const Answers& truth, const Answers& est, const Claims& claims) {
     if (claims.sections && truth.hasBoundaries) {
         s["boundary_f_0.5"] = boundaryF(truth.boundaries, est.boundaries, 0.5);
         s["boundary_f_3"] = boundaryF(truth.boundaries, est.boundaries, 3.0);
+    }
+    if (claims.drums) {
+        if (!truth.kicks.empty()) s["kick_f"] = fMeasure(truth.kicks, est.kicks, 0.05);
+        if (!truth.snares.empty()) s["snare_f"] = fMeasure(truth.snares, est.snares, 0.05);
+        if (!truth.hats.empty()) s["hat_f"] = fMeasure(truth.hats, est.hats, 0.05);
     }
     return s;
 }
@@ -164,9 +184,9 @@ int main(int argc, char** argv) {
     int failures = 0;
     std::vector<Row> rows;
     std::map<std::string, std::vector<double>> perMetric;  // analyser\tmetric -> clip scores
-    const Claims librosaClaims{.beats = true, .downbeats = false, .tempo = true, .key = true, .sections = true};
-    const Claims liveClaims{.beats = true, .downbeats = true, .tempo = true, .key = true, .sections = true};
-    const Claims offlineClaims{.beats = true, .downbeats = true, .tempo = true, .key = false, .sections = false};
+    const Claims librosaClaims{.beats = true, .downbeats = false, .tempo = true, .key = true, .sections = true, .drums = false};
+    const Claims liveClaims{.beats = true, .downbeats = true, .tempo = true, .key = true, .sections = true, .drums = true};
+    const Claims offlineClaims{.beats = true, .downbeats = true, .tempo = true, .key = true, .sections = false, .drums = true};
 
     for (const auto& clipRow : clipRows) {
         const std::string clip = clipRow[0];

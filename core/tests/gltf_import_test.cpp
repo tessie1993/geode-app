@@ -44,6 +44,14 @@ void check(bool ok, const char* what) {
     }
 }
 
+// A failed check on an import also prints its refusals and warnings, so a dropped texture says why.
+void check(bool ok, const char* what, const ImportResult& r) {
+    check(ok, what);
+    if (ok) return;
+    for (const RefusalNote& n : r.refusals) std::printf("    refusal %d: %s\n", static_cast<int>(n.code), n.detail.c_str());
+    for (const WarningNote& n : r.warnings) std::printf("    warning %d: %s\n", static_cast<int>(n.code), n.detail.c_str());
+}
+
 std::string join(const std::vector<std::string>& items) {
     std::string out;
     for (std::size_t i = 0; i < items.size(); ++i) out += (i ? "," : "") + items[i];
@@ -662,10 +670,10 @@ void pngBaseColourIsMade() {
     const Texel colour{10, 200, 90, 255};
     glb.addGridWith(glb.addMaterial(baseColourMaterial(glb.addTexture(glb.addImage(solidPng(64, 32, colour), "image/png")))));
     const ImportResult r = run(glb);
-    check(r.ok && r.warnings.empty(), "a model with a PNG base colour imports silently");
-    check(r.textures.size() == 1 && r.counts.textures == 1 && r.counts.texturesDropped == 0, "one texture made");
+    check(r.ok && r.warnings.empty(), "a model with a PNG base colour imports silently", r);
+    check(r.textures.size() == 1 && r.counts.textures == 1 && r.counts.texturesDropped == 0, "one texture made", r);
     check(r.materials.size() == 1 && r.materials[0].baseColourTexture.texture == 0 && r.meshes[0].material == 0,
-          "the mesh's material reads it as base colour");
+          "the mesh's material reads it as base colour", r);
     if (r.textures.size() != 1) return;
     const ModelTexture& t = r.textures[0];
     check(t.role == TextureRole::BaseColour && t.srgb && !t.hasAlpha && t.source == ImageCodec::Png, "an opaque sRGB PNG");
@@ -701,7 +709,7 @@ void downscalesToTheRoleCaps() {
     const int normalTex = glb.addTexture(glb.addImage(solidPng(128, 128, {128, 128, 255, 255}), "image/png"));
     glb.addGridWith(glb.addMaterial(baseColourMaterial(colourTex) + ",\"normalTexture\":" + textureInfo(normalTex)));
     const ImportResult r = run(glb, limits);
-    check(r.ok && r.textures.size() == 2 && r.counts.texturesDownscaled == 2, "both textures are made smaller");
+    check(r.ok && r.textures.size() == 2 && r.counts.texturesDownscaled == 2, "both textures are made smaller", r);
     if (r.textures.size() != 2) return;
     const ModelTexture& colour = r.textures[r.materials[0].baseColourTexture.texture];
     const ModelTexture& normal = r.textures[r.materials[0].normalTexture.texture];
@@ -719,7 +727,7 @@ void alphaKeepsItsChannel() {
     glb.addGridWith(glb.addMaterial(baseColourMaterial(glb.addTexture(glb.addImage(solidPng(16, 16, colour), "image/png"))) +
                                     ",\"alphaMode\":\"BLEND\""));
     const ImportResult r = run(glb);
-    check(r.ok && r.textures.size() == 1 && r.textures[0].hasAlpha, "a translucent base colour is marked as such");
+    check(r.ok && r.textures.size() == 1 && r.textures[0].hasAlpha, "a translucent base colour is marked as such", r);
     check(r.ok && r.materials[0].alphaMode == AlphaMode::Blend, "and its material blends");
     if (r.textures.size() != 1) return;
     const TextureLevel& top = r.textures[0].levels[0];
@@ -839,7 +847,7 @@ void sharedImageIsMadeOnce() {
         "\"extensions\":{\"KHR_materials_unlit\":{},\"KHR_materials_emissive_strength\":{\"emissiveStrength\":4}}"));
     glb.used = {"KHR_texture_transform", "KHR_materials_unlit", "KHR_materials_emissive_strength"};
     const ImportResult r = run(glb);
-    check(r.ok && r.textures.size() == 1, "an image in two roles is made once");
+    check(r.ok && r.textures.size() == 1, "an image in two roles is made once", r);
     if (r.textures.size() != 1 || r.materials.size() != 1) return;
     const ModelMaterial& m = r.materials[0];
     check(r.textures[0].role == TextureRole::BaseColour && r.textures[0].srgb, "for its most demanding role");

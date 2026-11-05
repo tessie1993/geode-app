@@ -213,9 +213,12 @@ bool fromMalloc(void* pixels, uint32_t w, uint32_t h, Image& out) {
     return w > 0 && h > 0;
 }
 
+// Two statements on purpose: load_png fills w and h through references and fromMalloc takes them by
+// value, so in one call the compiler may copy them (still 0) before load_png runs. GCC does.
 bool decodePng(const uint8_t* b, std::size_t size, Image& out) {
     uint32_t w = 0, h = 0, chans = 0;
-    return fromMalloc(pv_png::load_png(b, size, 4, w, h, chans), w, h, out);
+    void* px = pv_png::load_png(b, size, 4, w, h, chans);
+    return fromMalloc(px, w, h, out);
 }
 
 bool decodeJpeg(const uint8_t* b, std::size_t size, Image& out) {

@@ -218,6 +218,11 @@ GEODE_API int         geode_library_search(const char* const* rows, int track_co
                                            const char* focus, const char* artist, const char* album,
                                            const char* title, int* out, int max_out);
 
+/* Studio's folders (core/library/StudioFiles): moves takes saved inside project folders
+ * (projects_dir/<id>/takes/) to takes_dir/<id>/, once; a take already there wins. Returns how many could not
+ * be moved (they stay where they were). Paths are UTF-8. */
+GEODE_API int         geode_studio_move_takes_out(const char* projects_dir, const char* takes_dir);
+
 /* Scene and style catalogue (core/viz/Catalogue): every style id, its renderer kind, the style families,
  * which Customize controls reach which styles, and the ranges the shell's controls quote, as one versioned
  * '|'-separated line table (see Catalogue.hpp for the rows). Static: the pointer stays valid for the

@@ -12,8 +12,8 @@ import java.io.File
 
 /**
  * #384: a project's takes live in `project-takes/<id>/`, beside the project folder, so cloud backup
- * can leave them out by one fixed path. These pin where takes are written, that a project's delete
- * and size see them there, and that takes saved inside the project folder before the move are moved.
+ * can leave them out by one fixed path. These pin where takes are written and that a project's
+ * delete and size see them there. Moving older takes out is native: core/tests/studio_files_test.cpp.
  */
 class EditorProjectStoreTakesTest {
     @get:Rule
@@ -58,41 +58,5 @@ class EditorProjectStoreTakesTest {
         store.saveTake(id, "t1", "1234567890")
 
         assertEquals(15L, store.sizeOf(id))
-    }
-
-    @Test
-    fun takesSavedInsideAProjectAreMovedOutOnce() {
-        val old = File(projects, "p1/takes").apply { mkdirs() }
-        File(old, "t1.json").writeText("old one")
-        File(old, "t2.json").writeText("old two")
-
-        EditorProjectStore.moveTakesOut(projects, takes)
-
-        assertFalse(old.exists())
-        assertEquals("old one", File(takes, "p1/t1.json").readText())
-        assertEquals("old two", store().loadTake(id, "t2"))
-
-        // A second start finds nothing left to move and changes nothing.
-        EditorProjectStore.moveTakesOut(projects, takes)
-        assertEquals("old one", File(takes, "p1/t1.json").readText())
-    }
-
-    @Test
-    fun aTakeAlreadyAtTheNewPlaceWinsOverTheOldCopy() {
-        File(takes, "p1").mkdirs()
-        File(takes, "p1/t1.json").writeText("new")
-        val old = File(projects, "p1/takes").apply { mkdirs() }
-        File(old, "t1.json").writeText("old")
-
-        EditorProjectStore.moveTakesOut(projects, takes)
-
-        assertEquals("new", File(takes, "p1/t1.json").readText())
-        assertFalse(old.exists())
-    }
-
-    @Test
-    fun noProjectsFolderIsNotAnError() {
-        EditorProjectStore.moveTakesOut(projects, takes)
-        assertFalse(takes.exists())
     }
 }

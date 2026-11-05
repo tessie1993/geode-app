@@ -6,6 +6,7 @@ import dev.geode.RingLog
 import dev.geode.editor.ProjectId
 import dev.geode.editor.ProjectTemplate
 import dev.geode.editor.StudioProject
+import dev.geode.engine.bridge.GeodeNative
 import java.io.File
 import java.util.UUID
 
@@ -28,7 +29,8 @@ import java.util.UUID
  * `projects/<any id>/takes`, so the takes live under one root that `backup_rules.xml` and
  * `data_extraction_rules.xml` exclude, while the small `project.json` still backs up and My videos
  * keeps its list after a restore. A phone-to-phone transfer and the manual backup zip carry takes.
- * Takes saved before the move are moved once, when the store is built ([moveTakesOut]).
+ * Takes saved before the move are moved once, when the store is built, by native code
+ * (`core/library/StudioFiles`, `GeodeNative.studioMoveTakesOut`).
  *
  * The folder name is the project id, never the user's name for it, so renaming is one field and two
  * projects may share a name. Rendered videos are not in the folder: they live where the user saved
@@ -55,7 +57,9 @@ class EditorProjectStore(
         defaultsFor = ExportPrefsStore(GeodePrefsFiles(context).general)::loadFor,
     ) {
         startFresh(context.filesDir)
-        moveTakesOut(projectsDir, takesDir)
+        // Takes saved inside project folders before #384 move out, once; the move is native.
+        val notMoved = GeodeNative.studioMoveTakesOut(projectsDir.path, takesDir.path)
+        if (notMoved > 0) RingLog.note(TAG, "$notMoved takes not moved out of their projects")
     }
 
     fun newId(): ProjectId = ProjectId(UUID.randomUUID().toString())
@@ -166,9 +170,6 @@ class EditorProjectStore(
         /** Every project's takes, one folder per project id. Kept out of cloud backup by name (#384). */
         const val TAKES_DIR = "project-takes"
 
-        /** Where a project's takes were saved before #384: inside the project folder. */
-        private const val OLD_TAKES_SUBDIR = "takes"
-
         /**
          * Wave 1 starts fresh (pre-launch, testers only): the one global "Untitled" project in
          * `files/editor` and the loose takes in `files/takes` are deleted, not migrated. A take
@@ -178,32 +179,6 @@ class EditorProjectStore(
 
         private fun startFresh(filesDir: File) {
             LEGACY_DIRS.map { File(filesDir, it) }.filter { it.exists() }.forEach { it.deleteRecursively() }
-        }
-
-        /**
-         * Moves takes saved inside a project folder (`projects/<id>/takes/`, before #384) to
-         * `project-takes/<id>/`, once; a later run finds nothing to move. A take already at the new
-         * place wins (it was written after the move began), and the old copy is dropped. A take that
-         * cannot be moved stays where it was, so nothing is lost; [loadTake] just will not see it.
-         * Also runs after a restore of an older backup zip, whose projects still carry their takes.
-         */
-        @WorkerThread
-        internal fun moveTakesOut(
-            projectsDir: File,
-            takesDir: File,
-        ) {
-            val projects = projectsDir.listFiles { f -> f.isDirectory }.orEmpty()
-            for (project in projects) {
-                val old = File(project, OLD_TAKES_SUBDIR)
-                if (!old.isDirectory) continue
-                val target = File(takesDir, project.name).apply { mkdirs() }
-                old.listFiles { f -> f.isFile }.orEmpty().forEach { take ->
-                    val dest = File(target, take.name)
-                    val moved = if (dest.exists()) take.delete() else take.renameTo(dest)
-                    if (!moved) RingLog.note(TAG, "take not moved out of its project: ${project.name}/${take.name}")
-                }
-                if (old.listFiles().isNullOrEmpty()) old.delete()
-            }
         }
     }
 }

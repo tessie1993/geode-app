@@ -104,6 +104,15 @@ object GeodeNative {
         out: IntArray,
     ): Int
 
+    /**
+     * Moves takes saved inside project folders ([projectsDir]`/<id>/takes/`) to [takesDir]`/<id>/`,
+     * once (core/library/StudioFiles, #384). Returns how many could not be moved.
+     */
+    external fun studioMoveTakesOut(
+        projectsDir: String,
+        takesDir: String,
+    ): Int
+
     /** [assets] is the app's `android.content.res.AssetManager`; typed as Any because this module has no Android SDK. */
     external fun vizCreate(
         assets: Any,

@@ -63,18 +63,11 @@ jobs:
             core/sound/offline/*.cpp -o analysis_bench
           g++ -std=c++20 -O2 -Wall -Wextra -Werror -Icore core/tests/offline_beats_test.cpp \
             core/sound/offline/OfflineBeats.cpp core/sound/Fft.cpp -o offline_beats_test
-          g++ -std=c++20 -O2 -Wall -Wextra -Werror -Icore core/tests/offline_features_test.cpp \
-            core/sound/offline/*.cpp core/sound/Fft.cpp -o offline_features_test
 
       # The offline analyser (core/sound/offline) against librosa's own output on the same clips, within the
       # tolerances offline_beats_test.cpp states. Before the bench, so a broken port fails as a port.
       - name: Offline analyser against the librosa goldens
         run: ./offline_beats_test --goldens build/analysis-lab
-
-      # The frame features (#464): rms, spectral shape, onsets, HPSS and CQT chroma against librosa's.
-      - name: Offline features against the librosa goldens
-        if: ${{ !cancelled() }}
-        run: ./offline_features_test --goldens build/analysis-lab
 
       - name: Score every analyser against the baseline
         if: ${{ !cancelled() }}

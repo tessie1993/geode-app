@@ -1,7 +1,6 @@
 #pragma once
 // The lab's TSV files (tools/analysis_lab/lab.py): one row per value, its kind first.
 //   duration <s> | tempo <bpm> | key <root 0..11> <major|minor> | beat <s> | downbeat <s> | boundary <s>
-//   kick <s> | snare <s> | hat <s>
 // The same reader takes a truth file (<clip>.truth.tsv), librosa's answers (<clip>.librosa.tsv) and any
 // analyser's answers the bench builds itself, so every analyser is scored through one shape.
 #include <fstream>
@@ -23,7 +22,6 @@ struct Answers {
     std::vector<double> beats;
     std::vector<double> downbeats;
     std::vector<double> boundaries;
-    std::vector<double> kicks, snares, hats;  // a truth file lists a drum only if the clip plays it
 };
 
 inline std::vector<std::vector<std::string>> readRows(const std::string& path, bool* ok = nullptr) {
@@ -53,9 +51,6 @@ inline Answers readAnswers(const std::string& path, bool* ok = nullptr) {
         else if (kind == "beat") a.beats.push_back(v);
         else if (kind == "downbeat") a.downbeats.push_back(v), a.hasDownbeats = true;
         else if (kind == "boundary") a.boundaries.push_back(v), a.hasBoundaries = true;
-        else if (kind == "kick") a.kicks.push_back(v);
-        else if (kind == "snare") a.snares.push_back(v);
-        else if (kind == "hat") a.hats.push_back(v);
         else if (kind == "key" && r.size() > 2) {
             a.hasKey = true;
             a.keyRoot = static_cast<int>(v);

@@ -28,11 +28,14 @@ class NativeViz(
     private val cacheDir: String = context.cacheDir.absolutePath
     private val milkTextureDir: String = File(context.filesDir, "milk/textures").absolutePath
 
-    // The scene camera's comfort a new handle starts on (core/scene/camera): Calm on the ambient
-    // surfaces, the wallpaper and the dream, which are watched for hours from the corner of an eye;
-    // Normal everywhere else. The surface is known only by the Context it was built with.
-    private val cameraComfort: Int =
-        if (context is WallpaperService || context is DreamService) COMFORT_CALM else COMFORT_NORMAL
+    // Which Android surface this is, known only by the Context it was built with; native decides what
+    // follows from it (`geode_viz_set_surface_kind`). An export says so in [setOffscreen].
+    private val surfaceKind: Int =
+        when (context) {
+            is WallpaperService -> SURFACE_WALLPAPER
+            is DreamService -> SURFACE_DREAM
+            else -> SURFACE_LIVE
+        }
 
     // Written on the GL thread (surfaceCreated) and read/written from composition-time call
     // sites on the main thread (e.g. milkdropAvailable, loadMilkPreset); @Volatile keeps every
@@ -57,7 +60,7 @@ class NativeViz(
             handle = GeodeNative.vizCreate(assets, cacheDir)
             if (handle != 0L) {
                 GeodeNative.vizSetMilkTextureDir(handle, milkTextureDir)
-                GeodeNative.vizSetCameraComfort(handle, cameraComfort)
+                GeodeNative.vizSetSurfaceKind(handle, surfaceKind)
                 onCreated()
             }
         }
@@ -236,7 +239,9 @@ class NativeViz(
     }
 
     fun setOffscreen(on: Boolean) {
-        if (handle != 0L) GeodeNative.vizSetOffscreen(handle, on)
+        if (handle == 0L) return
+        GeodeNative.vizSetOffscreen(handle, on)
+        GeodeNative.vizSetSurfaceKind(handle, if (on) SURFACE_EXPORT else surfaceKind)
     }
 
     /** The glass sheet's blur region; see [GeodeNative.vizSetUiBlurRegion]. A no-op before the handle exists. */
@@ -321,9 +326,11 @@ class NativeViz(
     }
 
     private companion object {
-        // scene::camera::Comfort ordinals.
-        const val COMFORT_CALM = 0
-        const val COMFORT_NORMAL = 1
+        // scene::camera::Surface ordinals (Group E's frame::Surface order).
+        const val SURFACE_LIVE = 0
+        const val SURFACE_WALLPAPER = 1
+        const val SURFACE_DREAM = 2
+        const val SURFACE_EXPORT = 3
 
         @Volatile
         private var verified = false

@@ -406,7 +406,8 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
     look.yaw = std::clamp(look.yaw, -1.0f, 1.0f);
     look.pitch = std::clamp(look.pitch, -1.0f, 1.0f);
     camera_.setMoves(director_.moves(macros::camera(directedKnobs_)));
-    camera_.setComfort(static_cast<scene::camera::Comfort>(cameraComfort_.load(std::memory_order_relaxed)));
+    camera_.setComfort(scene::camera::comfortFor(static_cast<scene::camera::Surface>(surfaceKind_.load(std::memory_order_relaxed)),
+                                                 cameraComfort_.load(std::memory_order_relaxed)));
     // Endless zoom flies the rig only for a style that marches it (EndlessZoom.hpp); the
     // families still on the old law keep their old camera too.
     SceneParams rigParams = p;

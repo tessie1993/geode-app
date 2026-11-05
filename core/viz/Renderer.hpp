@@ -60,9 +60,12 @@ public:
     // Any thread.
     void setParams(const SceneParams& params);
     void setReducedMotion(bool on) { reducedMotion_.store(on, std::memory_order_relaxed); }
-    // The scene camera's comfort level (scene::camera::Comfort: 0 Calm, 1 Normal, 2 Wild); any thread,
-    // taken on the next frame. Reduced motion forces Calm whatever this says.
+    // The scene camera's comfort level (scene::camera::Comfort: 0 Calm, 1 Normal, 2 Wild), chosen explicitly;
+    // until then the surface kind's default (scene::camera::comfortFor). Any thread, taken on the next
+    // frame. Reduced motion forces Calm whatever this says.
     void setCameraComfort(int level) { cameraComfort_.store(level, std::memory_order_relaxed); }
+    // Which surface this renderer draws (scene::camera::Surface: 0 Live, 1 Wallpaper, 2 Dream, 3 Export).
+    void setSurfaceKind(int kind) { surfaceKind_.store(kind, std::memory_order_relaxed); }
     // Settings › Performance, live surfaces only: an offscreen (export) renderer never calls this,
     // so it keeps full quality. renderScale and marchScale are 0..1 multipliers stacked under the
     // thermal tier; postFx = false drops the same optional passes a hot tier does, plus fluid bloom.
@@ -266,7 +269,8 @@ private:
     bool noteSeeded_ = false;
     // The one camera every surface steps (core/scene/camera): today's CameraRig is its base driver.
     scene::camera::SceneCamera camera_;
-    std::atomic<int> cameraComfort_{static_cast<int>(scene::camera::Comfort::Normal)};
+    std::atomic<int> cameraComfort_{-1};  // -1: nobody chose; the surface's default plays
+    std::atomic<int> surfaceKind_{static_cast<int>(scene::camera::Surface::Live)};
     // One engine per renderer (one per surface), so each is frame-locked to its own dt. Guarded by soundLock_
     // only because writeAudio and soundFrame are public; in practice one thread does everything.
     mutable std::mutex soundLock_;

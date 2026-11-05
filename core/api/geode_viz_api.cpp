@@ -87,6 +87,10 @@ void geode_viz_set_camera_comfort(geode_viz* v, int level) {
     if (v) v->renderer.setCameraComfort(level >= 0 && level <= 2 ? level : 1);
 }
 
+void geode_viz_set_surface_kind(geode_viz* v, int kind) {
+    if (v) v->renderer.setSurfaceKind(kind >= 0 && kind <= 3 ? kind : 0);
+}
+
 void geode_viz_set_layer(geode_viz* v, const char* scene_id, float mix, int blend_mode) {
     if (v) v->renderer.setLayer(text(scene_id), mix, blend_mode);
 }

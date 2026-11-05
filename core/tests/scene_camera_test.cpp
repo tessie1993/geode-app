@@ -422,6 +422,22 @@ void wildFreedom() {
     check(std::fabs(dot(c.right, c.up)) < 1e-4f && std::fabs(dot(c.up, c.fwd)) < 1e-4f, "the basis stays orthonormal");
 }
 
+void surfaceKindPicksTheDefault() {
+    check(defaultComfort(Surface::Wallpaper) == Comfort::Calm && defaultComfort(Surface::Dream) == Comfort::Calm,
+          "the wallpaper and the dream start on Calm");
+    check(defaultComfort(Surface::Live) == Comfort::Normal && defaultComfort(Surface::Export) == Comfort::Normal,
+          "live and export start on Normal");
+    check(comfortFor(Surface::Dream, -1) == Comfort::Calm && comfortFor(Surface::Live, -1) == Comfort::Normal,
+          "with no explicit choice the surface's default plays");
+    check(comfortFor(Surface::Dream, 2) == Comfort::Wild && comfortFor(Surface::Live, 0) == Comfort::Calm,
+          "an explicit choice wins over the surface's default");
+    check(comfortFor(static_cast<Surface>(7), 9) == Comfort::Normal, "an unknown kind and level fall back to Live's Normal");
+    check(static_cast<int>(Surface::Live) == 0 && static_cast<int>(Surface::Wallpaper) == 1 && static_cast<int>(Surface::Dream) == 2 &&
+              static_cast<int>(Surface::Export) == 3,
+          "surface kinds keep frame::Surface's order (the ABI ordinals)");
+    check(SceneCamera::effectiveComfort(comfortFor(Surface::Live, 2), true) == Comfort::Calm, "reduced motion still forces Calm");
+}
+
 void mathRoundTrips() {
     const Look l{0.4f, -0.3f, 0.2f};
     const Look back = toLook(fromLook(l));
@@ -439,6 +455,7 @@ void mathRoundTrips() {
 
 int main() {
     mathRoundTrips();
+    surfaceKindPicksTheDefault();
     railsIsTodaysRig();
     railsClampsWhatIsLaidOver();
     comfortCapsTurnSpeed();

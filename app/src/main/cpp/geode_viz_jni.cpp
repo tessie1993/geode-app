@@ -81,6 +81,11 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetCameraComfort(JNIEnv*, jobject, j
 }
 
 JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetSurfaceKind(JNIEnv*, jobject, jlong handle, jint kind) {
+    geode_viz_set_surface_kind(vizOf(handle), kind);
+}
+
+JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetLayer(JNIEnv* env, jobject, jlong handle, jstring sceneId, jfloat mix,
                                                      jint blendMode) {
     Utf8Chars id(env, sceneId);

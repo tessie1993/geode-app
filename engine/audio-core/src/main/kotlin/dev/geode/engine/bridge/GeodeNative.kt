@@ -130,6 +130,12 @@ object GeodeNative {
         level: Int,
     )
 
+    /** Which surface a renderer draws: 0 Live, 1 Wallpaper, 2 Dream, 3 Export (`geode_viz_set_surface_kind`). */
+    external fun vizSetSurfaceKind(
+        handle: Long,
+        kind: Int,
+    )
+
     external fun vizSetLayer(
         handle: Long,
         sceneId: String,

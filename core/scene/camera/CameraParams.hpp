@@ -14,6 +14,23 @@ namespace geode::scene::camera {
 
 enum class Comfort : int { Calm = 0, Normal = 1, Wild = 2 };
 
+// Which surface a renderer draws (geode_viz_set_surface_kind). The order is Group E's frame::Surface
+// (Live, Wallpaper, Dream, Export), so the two can merge into one.
+enum class Surface : int { Live = 0, Wallpaper = 1, Dream = 2, Export = 3 };
+
+// The comfort a surface starts on: Calm on the ambient surfaces (the wallpaper and the dream, watched for
+// hours from the corner of an eye), Normal on the others. An unknown kind is Live.
+constexpr Comfort defaultComfort(Surface s) {
+    return (s == Surface::Wallpaper || s == Surface::Dream) ? Comfort::Calm : Comfort::Normal;
+}
+
+// The level a renderer runs at: one chosen explicitly (geode_viz_set_camera_comfort, 0..2) wins over the
+// surface's default; chosen < 0 (or out of range) means nobody chose. Reduced motion still forces Calm on
+// top of this (SceneCamera::effectiveComfort).
+constexpr Comfort comfortFor(Surface s, int chosen) {
+    return (chosen >= 0 && chosen <= 2) ? static_cast<Comfort>(chosen) : defaultComfort(s);
+}
+
 enum CameraParam : signal::ParamId {
     kComfort = 0,       // Int 0..2: Calm, Normal (default), Wild. Reduced motion forces Calm.
     kYawRate,           // rad/s about the camera's up, integrated (SixDof only)

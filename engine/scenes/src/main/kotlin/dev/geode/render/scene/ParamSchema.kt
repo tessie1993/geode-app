@@ -42,29 +42,16 @@ object ParamSchema {
 
     /**
      * Reads the `geode_params_schema_text` table: a `params|<version>|<count>` header, then one
-     * `param|slot|name|KIND|default|min|max|FADE|HOLD` row per slot, in slot order. Throws on a
-     * version this shell does not read, a row out of order or a count that disagrees, since a
-     * misread schema would put every param in the wrong wire slot.
+     * `param|slot|name|KIND|default|min|max|FADE` row per slot, in slot order. Throws on a version
+     * this shell does not read, a row out of order or a count that disagrees, since a misread schema
+     * would put every param in the wrong wire slot.
      */
-    internal fun parse(text: String): List<ParamSpec> {
-        val rows = text.lines().filter { it.isNotBlank() }.map { it.split('|') }
-        val header = rows.firstOrNull().orEmpty()
-        check(header.size == 3 && header[0] == "params" && header[1] == VERSION.toString()) {
-            "native params schema is $header, this shell reads version $VERSION"
-        }
-        val params =
-            rows.drop(1).mapIndexed { slot, f ->
-                check(f.size == 8 && f[0] == "param" && f[1] == slot.toString()) { "params schema row $slot is $f" }
-                ParamSpec(slot, f[2], ParamSpec.Kind.valueOf(f[3]), f[4].toFloat(), f[5].toFloat()..f[6].toFloat(), f[7] == "FADE")
-            }
-        check(params.size == header[2].toInt()) { "params schema has ${params.size} rows, its header says ${header[2]}" }
-        return params
-    }
+    internal fun parse(text: String): List<ParamSpec> = schemaSpecs(schemaRows(text, "params|$VERSION"), "param")
 }
 
 /**
- * One schema row (core/viz/Params.hpp's `ParamSpec`). Ints and flags carry their [default] and [range]
- * as floats, as the wire does: a flag is 0..1, a picker its first..last index.
+ * One schema row (core/viz/Params.hpp's `ParamSpec`; for a [ConfigSchema] row, [slot] is its group index). Ints and
+ * flags carry their [default] and [range] as floats, as the wire does: a flag is 0..1, a picker its first..last index.
  */
 data class ParamSpec(
     val slot: Int,
@@ -72,7 +59,7 @@ data class ParamSpec(
     val kind: Kind,
     val default: Float,
     val range: ClosedFloatingPointRange<Float>,
-    /** True when a param fade glides it; false when it snaps to the new value (every int and flag). */
+    /** True when a param fade glides it; false when it snaps to the new value (every int and flag, every config). */
     val fades: Boolean,
 ) {
     /** CIRCULAR is a float that wraps: the LFO adds to it unclamped. */

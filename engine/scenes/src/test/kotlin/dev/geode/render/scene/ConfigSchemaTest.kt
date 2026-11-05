@@ -1,5 +1,8 @@
 package dev.geode.render.scene
 
+import dev.geode.render.scene.ParamSpec.Kind.BOOL
+import dev.geode.render.scene.ParamSpec.Kind.FLOAT
+import dev.geode.render.scene.ParamSpec.Kind.INT
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -25,11 +28,11 @@ class ConfigSchemaTest {
 
     @Test
     fun rowsCarryDefaultAndRange() {
-        assertEquals(ConfigSpec("rateSeconds", 2f, 0.05f..60f), ConfigSchema["lfo", "rateSeconds"])
-        assertEquals(ConfigSpec("attack", 0.05f, 0.005f..1f), ConfigSchema["adsr", "attack"])
-        assertEquals(ConfigSpec("retrigger", 1f, 0f..1f), ConfigSchema["adsr", "retrigger"])
-        assertEquals(ConfigSpec("chaos", 0f, -1f..1f), ConfigSchema["macro", "chaos"])
-        assertEquals(ConfigSpec("presetMorphSeconds", 2f, 0f..8f), ConfigSchema["theme", "presetMorphSeconds"])
+        assertEquals(ParamSpec(4, "rateSeconds", FLOAT, 2f, 0.05f..60f, false), ConfigSchema["lfo", "rateSeconds"])
+        assertEquals(ParamSpec(1, "attack", FLOAT, 0.05f, 0.005f..1f, false), ConfigSchema["adsr", "attack"])
+        assertEquals(ParamSpec(9, "retrigger", BOOL, 1f, 0f..1f, false), ConfigSchema["adsr", "retrigger"])
+        assertEquals(ParamSpec(5, "chaos", FLOAT, 0f, -1f..1f, false), ConfigSchema["macro", "chaos"])
+        assertEquals(ParamSpec(0, "presetMorphSeconds", FLOAT, 2f, 0f..8f, false), ConfigSchema["theme", "presetMorphSeconds"])
         assertThrows(NoSuchElementException::class.java) { ConfigSchema["lfo", "rateHz"] }
     }
 
@@ -45,8 +48,8 @@ class ConfigSchemaTest {
         val text = "configs|1|3\nconfig|a|0|x|FLOAT|0.5|0|1|NONE\nconfig|b|0|y|BOOL|1|0|1|NONE\nconfig|a|1|z|INT|2|0|4|NONE\n"
         assertEquals(
             mapOf(
-                "a" to listOf(ConfigSpec("x", 0.5f, 0f..1f), ConfigSpec("z", 2f, 0f..4f)),
-                "b" to listOf(ConfigSpec("y", 1f, 0f..1f)),
+                "a" to listOf(ParamSpec(0, "x", FLOAT, 0.5f, 0f..1f, false), ParamSpec(1, "z", INT, 2f, 0f..4f, false)),
+                "b" to listOf(ParamSpec(0, "y", BOOL, 1f, 0f..1f, false)),
             ),
             ConfigSchema.parse(text),
         )
@@ -60,6 +63,7 @@ class ConfigSchemaTest {
         assertThrows(IllegalStateException::class.java) { ConfigSchema.parse("configs|1|2\n$row") }
         assertThrows(IllegalStateException::class.java) { ConfigSchema.parse("configs|1|1\nconfig|a|1|x|FLOAT|0.5|0|1|NONE") }
         assertThrows(IllegalStateException::class.java) { ConfigSchema.parse("configs|1|1\nconfig|a|0|x|FLOAT|0.5|0|1") }
+        assertThrows(IllegalStateException::class.java) { ConfigSchema.parse("configs|1|1\nx") }
         assertThrows(IllegalStateException::class.java) { ConfigSchema.parse("") }
     }
 

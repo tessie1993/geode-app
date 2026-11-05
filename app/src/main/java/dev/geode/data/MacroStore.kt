@@ -5,7 +5,7 @@ import android.content.SharedPreferences
 import dev.geode.RingLog
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.scene.ConfigSchema
-import dev.geode.render.scene.ConfigSpec
+import dev.geode.render.scene.ParamSpec
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -117,7 +117,7 @@ class MacroStore private constructor(
 
     companion object {
         /** The knobs: the config schema's "macro" rows, in core/viz/Macros' order, each -1..1 with 0 as styled. */
-        private val KNOBS: List<ConfigSpec> = ConfigSchema.group("macro")
+        private val KNOBS: List<ParamSpec> = ConfigSchema.group("macro")
         val COUNT: Int = KNOBS.size
 
         private const val TAG = "MacroStore"

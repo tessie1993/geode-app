@@ -881,7 +881,7 @@ object GeodeNative {
     external fun castFormat(out: IntArray)
     // Export post-passes (core/viz/frame/ExportPasses): the watermark, a loop's seam, a Studio transition and
     // its capture. [assets] is the app's AssetManager (typed as Any, as for [vizCreate]); every call but the
-    // three watermark sizes and the seam weight needs the export's GL context current, destroy included.
+    // three watermark sizes and the seam budget needs the export's GL context current, destroy included.
 
     /** "" when the pass built; otherwise why not (the handle must still be destroyed). */
     external fun exportPassError(handle: Long): String
@@ -923,18 +923,27 @@ object GeodeNative {
         requested: Int,
     ): Int
 
-    external fun exportSeamCapture(
+    /**
+     * After the scene drew source [frame] of a stop of [loopFrames] + [seamFrames]: stashes an opening frame
+     * (returns -1, not presented) or blends the stash over a closing one, and returns the presentation time
+     * in ns at [fps] (core/viz/frame/LoopSeam).
+     */
+    external fun exportSeamFrame(
         handle: Long,
-        index: Int,
-    )
-
-    /** Lays stash frame [index] over the default framebuffer at closing frame [tail] of [seamFrames]. */
-    external fun exportSeamBlend(
-        handle: Long,
-        index: Int,
-        tail: Int,
+        frame: Int,
+        loopFrames: Int,
         seamFrames: Int,
-    )
+        fps: Int,
+    ): Long
+
+    /** The crossfade a loop keeps under the seam stash's GPU budget; [crossfadeMs] when it fits. Pure. */
+    external fun exportSeamBudgetedCrossfadeMs(
+        crossfadeMs: Long,
+        crossfadeFrames: Int,
+        fps: Int,
+        width: Int,
+        height: Int,
+    ): Long
 
     /** [id]: a GL Transitions name; an unknown one only copies. */
     external fun exportTransitionCreate(

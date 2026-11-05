@@ -41,11 +41,17 @@ void MorphDriver::reset(uint64_t seed) {
     *this = MorphDriver{};
     seed_ = seed;
     rng_ = mix64(seed ^ 0x576F726C64447276ull);
+    gazeRng_ = mix64(seed ^ 0x47617A6553747265ull);
 }
 
 float MorphDriver::draw() {
     rng_ = mix64(rng_);
     return static_cast<float>((rng_ >> 40) & 0xFFFFFFu) / 16777216.0f;
+}
+
+float MorphDriver::drawGaze() {
+    gazeRng_ = mix64(gazeRng_);
+    return static_cast<float>((gazeRng_ >> 40) & 0xFFFFFFu) / 16777216.0f;
 }
 
 void MorphDriver::retarget(const DriverInput& in, bool drop) {
@@ -113,6 +119,14 @@ void MorphDriver::step(const DriverInput& in, float dt) {
         const float chance = std::clamp(0.12f + 0.78f * energy_, 0.12f, 0.9f);
         if (draw() < chance) retarget(in, false);
     }
+    // The gaze's moments: every section and drop draws a new look (wider when the song is loud);
+    // a drop first holds the view at centre while it lands.
+    if (dropEdge || sectionEdge) {
+        const float reach = 0.45f + 0.55f * energy_;
+        lookX_ = (drawGaze() * 2.0f - 1.0f) * reach;
+        lookY_ = (drawGaze() * 2.0f - 1.0f) * reach;
+        if (dropEdge) dropHold_ = kDropGazeHold;
+    }
 
     // How fast: FLOW (k2) scales every glide, 0.5x .. 1.5x.
     const float flow = 0.5f + clamp01(in.knobs[2]);
@@ -144,7 +158,34 @@ void MorphDriver::step(const DriverInput& in, float dt) {
     roll_ += dt * live_[Roll] * (0.7f + 0.6f * energy_);
     roll_ -= kTau * std::floor(roll_ / kTau + 0.5f);
     swayPhase_ = wrap01(swayPhase_ + dt * 0.07f);
+    lookAround(dt);
     publish();
+}
+
+void MorphDriver::lookAround(float dt) {
+    bassSlow_ = ease(bassSlow_, bass_ / 1.5f, 2.0f, dt);
+    // The live world's reach: it glides with the genome, so a retarget widens or narrows it smoothly.
+    const float yawRange = std::max(live_[GazeYaw], 0.0f);
+    const float pitchRange = std::max(live_[GazePitch], 0.0f);
+    float nx = 0.0f;
+    float ny = 0.0f;
+    float tau = 0.3f;
+    if (dropHold_ > 0.0f) {
+        // The drop: back to centre, as fast as the rate allows (about a second from the widest look).
+        dropHold_ = std::max(0.0f, dropHold_ - dt);
+    } else {
+        // The section's look, the chord's sideways drift, the build-up's rise, the bass's weight.
+        nx = lookX_ + 0.15f * hueY_;
+        ny = lookY_ + 0.8f * buildUp_ * (1.0f - lookY_) - 0.1f * bassSlow_;
+        tau = 2.2f;
+    }
+    const float tx = std::clamp(nx, -1.0f, 1.0f) * yawRange;
+    const float ty = std::clamp(ny, -1.0f, 1.0f) * pitchRange;
+    const float limit = kGazeRatePerSecond * dt;
+    gazeX_ = std::clamp(ease(gazeX_, tx, tau, dt), gazeX_ - limit, gazeX_ + limit);
+    gazeY_ = std::clamp(ease(gazeY_, ty, tau, dt), gazeY_ - limit, gazeY_ + limit);
+    gazeX_ = std::clamp(gazeX_, -yawRange, yawRange);
+    gazeY_ = std::clamp(gazeY_, -pitchRange, pitchRange);
 }
 
 void MorphDriver::travel(const std::array<float, 3>& eye, float dt) {
@@ -201,6 +242,9 @@ void MorphDriver::publish() {
     uniforms_[RollAngle] = roll_ + sway + lean;
     // The lens: the world's, punched in a touch on the kick.
     uniforms_[LensNow] = std::clamp(live_[Lens] * (1.0f + 0.05f * kick_), 0.7f, 1.45f);
+    // The gaze: yaw about the view's up, pitch about its right (lib_world's worldCamera).
+    uniforms_[GazeX] = gazeX_;
+    uniforms_[GazeY] = gazeY_;
 }
 
 }  // namespace geode::viz::world

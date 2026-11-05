@@ -35,7 +35,10 @@
 // focuses its own way: WG_ROLL_ANGLE turns the view about its forward axis (a slow barrel roll,
 // a sway, a lean into sideways motion) and WG_LENS_NOW scales the focal length (a wide lens for
 // vast halls, a long one for close detail, a punch on the kick). Only the ray turns: the eye and
-// its corridor stay where they are, so no roll or lens can put the camera in matter.
+// its corridor stay where they are, so no roll or lens can put the camera in matter. After the
+// roll the ray also looks around (the gaze): WG_GAZE_Y pitches it about the view's right axis and
+// WG_GAZE_X yaws it about its up axis, within the world's WG_GAZE_PITCH and WG_GAZE_YAW (the driver
+// keeps it there); still only the ray turns.
 //
 // Colour only through pal() (lib_palette) and the style's grade(). Include after lib_camera,
 // lib_palette and lib_scene_grade.
@@ -145,13 +148,22 @@ uniform vec4 uWorld[22];
 uniform highp sampler3D uWorldShapes;
 uniform highp sampler2DArray uWorldTex;
 
-/** The rig's eye and this world's view ray: rolled about the view axis, through this world's lens. */
+/** The rig's eye and this world's view ray: rolled about the view axis, through this world's lens, turned by the gaze. */
 void worldCamera(vec2 uv, out vec3 ro, out vec3 rd) {
     float c = cos(WG_ROLL_ANGLE);
     float s = sin(WG_ROLL_ANGLE);
     vec2 turned = vec2(c * uv.x - s * uv.y, s * uv.x + c * uv.y);
+    vec3 v = vec3(turned, uCamFocal * WG_LENS_NOW);
+    // The gaze, in the view's own frame (uCamBasis' right, up, forward): pitch about right (+ looks
+    // up), then yaw about up (+ looks right).
+    float cp = cos(WG_GAZE_Y);
+    float sp = sin(WG_GAZE_Y);
+    v = vec3(v.x, cp * v.y + sp * v.z, cp * v.z - sp * v.y);
+    float cy = cos(WG_GAZE_X);
+    float sy = sin(WG_GAZE_X);
+    v = vec3(cy * v.x + sy * v.z, v.y, cy * v.z - sy * v.x);
     ro = uCamPos;
-    rd = normalize(uCamBasis * vec3(turned, uCamFocal * WG_LENS_NOW));
+    rd = normalize(uCamBasis * v);
 }
 #define WG_SHAPES 16.0
 #define WG_SHAPE_RES 32.0

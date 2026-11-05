@@ -55,7 +55,7 @@ class CatalogueTest {
     @Test
     fun scopesReachTheStylesTheyShould() {
         assertTrue(ParamScope.MARCH_DETAIL.appliesTo(SceneIds.VANISHING))
-        assertFalse(ParamScope.MARCH_DETAIL.appliesTo(SceneIds.PLASMA))
+        assertFalse(ParamScope.MARCH_DETAIL.appliesTo("lucid_weave"))
         assertTrue(ParamScope.FLUID_SIM.appliesTo("fluid_ink"))
         assertFalse(ParamScope.FLOW_FIELD_SIM.appliesTo(SceneIds.FLUID))
         assertFalse(ParamScope.SCENE_CLOCK.appliesTo(SceneIds.MILKDROP))

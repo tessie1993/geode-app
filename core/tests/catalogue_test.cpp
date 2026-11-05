@@ -233,7 +233,11 @@ void marchedStylesMatchTheOldSet() {
         "terra_volcano", "terra_wire", "truchet_relief", "vanishing",
         "foam_fall", "foam_neon", "foam_soap", "foam_chrome", "foam_ember", "foam_ice",
         "foam_orb", "foam_kaleido", "foam_ink", "foam_coral", "foam_ghost", "foam_show",
-        "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral"};
+        "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral",
+        "julia", "tunnel", "mandel", "kaleido", "plasma", "bars", "ring", "scope", "liss", "warp", "grid", "voronoi",
+        "metaballs", "ripples", "starfield", "waves", "hexgrid", "spiral", "aurora", "solar", "winter", "lava",
+        "orb_lattice", "neon_tiles", "chroma_orb", "mandala_dome", "bead_vortex", "merkaba_grid", "spiral_eye",
+        "blacklight_bloom", "fractal_temple", "glow_vortex"};
     std::set<std::string> marched;
     for (const auto& id : catalogue::allIds()) {
         if (catalogue::isMarched(id)) marched.insert(id);

@@ -36,15 +36,21 @@ constexpr std::array<const char*, 60> kLooseShaders = {
 };
 
 // The loose styles that raymarch, and so spend the Detail budget. Per STYLE rather than per kind:
-// Plasma and Vanishing are both shader styles and only one has a march to spend steps on.
-constexpr std::array<const char*, 25> kLooseMarched = {
+// Lucid Weave and Vanishing are both shader styles and only one has a march to spend steps on.
+constexpr std::array<const char*, 57> kLooseMarched = {
     "vanishing", "morphogen", "nebula", "noneuclid", "kifs", "rod_tunnel",
     // Curl Bloom marches a distance field, Nectar Flow a volume; Detail is the budget for both.
     "curl_bloom", "nectar_flow", "crystal_canyon", "neon_city", "particle_tunnel", "chrome_nebula", "fractal_dive",
     "aurora_ocean", "spectrum_terrain", "menger_core", "gyroid_cavern", "jelly_abyss", "prism_rain",
     "supershape", "fractal_tunnel",
-    // The neon set's marches; Glow Vortex is its one style without a march.
+    // The neon set's marches (Glow Vortex, its flat one, is in the 3D wave below).
     "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral",
+    // The flat styles rebuilt in 3D on the camera rig, one ticket each (the style3d wave): marched from
+    // here so the parallel rewrites never touch this list.
+    "julia", "tunnel", "mandel", "kaleido", "plasma", "bars", "ring", "scope", "liss", "warp", "grid", "voronoi",
+    "metaballs", "ripples", "starfield", "waves", "hexgrid", "spiral", "aurora", "solar", "winter", "lava",
+    "orb_lattice", "neon_tiles", "chroma_orb", "mandala_dome", "bead_vortex", "merkaba_grid", "spiral_eye",
+    "blacklight_bloom", "fractal_temple", "glow_vortex",
 };
 
 constexpr std::array<Family, 10> kFamilies = {{

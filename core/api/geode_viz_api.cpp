@@ -408,6 +408,10 @@ void geode_viz_set_director(geode_viz* v, float amount, long long seed) {
     if (v) v->renderer.pinDirector(amount, static_cast<uint64_t>(seed));
 }
 
+void geode_viz_set_frame_rate(geode_viz* v, int fps) {
+    if (v) v->renderer.setFixedFrameRate(fps);
+}
+
 void geode_viz_set_offscreen(geode_viz* v, int on) {
     if (!v) return;
     // An export never shows a half-built scene: each one is built whole on the frame that asks for it.

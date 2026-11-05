@@ -68,6 +68,8 @@ public:
     void setBlockingBuilds(bool on) { blockingBuilds_.store(on, std::memory_order_relaxed); }
     // Export (geode_viz_set_offscreen): never draws the UI blur, whatever region it was given.
     void setOffscreen(bool on) { offscreen_.store(on, std::memory_order_relaxed); }
+    // Export: step every frame by exactly 1/fps (viz/FrameStep); 0 measures the frame time, as live does.
+    void setFixedFrameRate(int fps) { fixedFps_.store(fps > 0 ? fps : 0, std::memory_order_relaxed); }
     // The app's glass sheet over the live visual (UiBlurPass): latched for the next frame. Any thread.
     void setUiBlurRegion(const UiBlurRegion& region);
     // Settings › Performance › Liquid on a hot phone (liquid::HotPolicy). Any thread.
@@ -252,6 +254,7 @@ private:
     UiBlurRegion uiBlurRegion_;
     std::atomic<bool> uiBlurOn_{false};
     std::atomic<bool> offscreen_{false};
+    std::atomic<int> fixedFps_{0};
     // The note layer's seed: the director's play seed mixed with fresh entropy whenever that seed changes,
     // so every play (and every export) varies on its own, as the user chose (NoteResponse's class comment).
     uint64_t noteSeed(uint64_t playSeed);

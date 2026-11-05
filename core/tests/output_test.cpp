@@ -12,6 +12,7 @@
 #include "output/EncodePlan.hpp"
 #include "output/FrameClock.hpp"
 #include "output/LoopPlan.hpp"
+#include "viz/FrameStep.hpp"
 
 using namespace geode::output;
 
@@ -56,6 +57,15 @@ void frameClock() {
         }
     }
     check(FrameClock(0, 48000).fps() == 1, "a zero rate is taken as 1 fps, not a division by zero");
+
+    // The renderer's step (#377): an export steps exactly 1/fps on every frame, the first included.
+    using geode::viz::frameStepSeconds;
+    check(frameStepSeconds(60, -1.0, 0.0) == static_cast<float>(1.0 / 60), "export frame 0 steps 1/fps");
+    check(frameStepSeconds(24, -1.0, 0.0) == static_cast<float>(1.0 / 24), "a 24 fps export's first frame is 1/24 s");
+    check(frameStepSeconds(60, 0.016, 0.033) == static_cast<float>(1.0 / 60), "ms-truncated times no longer leak in");
+    check(frameStepSeconds(0, -1.0, 5.0) == static_cast<float>(1.0 / 60), "live's first frame is 1/60 s");
+    check(frameStepSeconds(0, 1.0, 1.02) > 0.0199f && frameStepSeconds(0, 1.0, 1.02) < 0.0201f, "live measures");
+    check(frameStepSeconds(0, 1.0, 3.0) == 0.1f && frameStepSeconds(0, 1.0, 1.0) == 0.001f, "live is clamped");
 }
 
 void loopSpec() {

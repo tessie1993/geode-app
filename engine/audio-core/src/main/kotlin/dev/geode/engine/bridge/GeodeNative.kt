@@ -378,6 +378,12 @@ object GeodeNative {
         on: Boolean,
     )
 
+    /** Export: step every frame by exactly 1/[fps] instead of measuring frame times; 0 = live. */
+    external fun vizSetFrameRate(
+        handle: Long,
+        fps: Int,
+    )
+
     /**
      * Frosted glass under the app's sheet (`core/viz/UiBlurPass`): the renderer blurs its finished frame
      * inside one rounded rect. The rect is normalised to the viewport, y down (view pixels over the

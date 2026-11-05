@@ -115,6 +115,8 @@ GEODE_API void        geode_viz_set_liquid_hot_policy(geode_viz*, int policy);
 /* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode). 0 for a null handle. */
 GEODE_API int         geode_viz_liquid_mode(const geode_viz*);
 GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
+/* Export: step every frame by exactly 1/fps instead of measuring the time between frames (#377); 0 = live. */
+GEODE_API void        geode_viz_set_frame_rate(geode_viz*, int fps);
 /* Frosted glass under the app's sheet (core/viz/UiBlurPass): blurs the finished frame inside one rounded
  * rect, after the composite. The rect is normalised to the viewport with y DOWN (a view's left/top/right/
  * bottom in pixels over the visual's width/height); strength 0..1 mixes the blur in, 0 turns it off and

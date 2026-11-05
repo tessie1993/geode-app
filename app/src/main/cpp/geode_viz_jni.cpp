@@ -514,4 +514,47 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsResetTab(JNIEnv* env, jobject, js
     env->SetFloatArrayRegion(out, 0, static_cast<jsize>(output.size()), output.data());
 }
 
+// Fixed-rate frame clock (Cast): the state is a caller-owned long[GEODE_FRAME_CLOCK_STATE], copied in and out.
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_frameClockStart(JNIEnv* env, jobject, jlongArray state, jint fps, jlong nowNs) {
+    if (!state || env->GetArrayLength(state) < GEODE_FRAME_CLOCK_STATE) return;
+    int64_t s[GEODE_FRAME_CLOCK_STATE] = {};
+    geode_frame_clock_start(s, fps, nowNs);
+    env->SetLongArrayRegion(state, 0, GEODE_FRAME_CLOCK_STATE, reinterpret_cast<const jlong*>(s));
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_frameClockWaitNs(JNIEnv* env, jobject, jlongArray state, jlong nowNs) {
+    if (!state || env->GetArrayLength(state) < GEODE_FRAME_CLOCK_STATE) return 0;
+    int64_t s[GEODE_FRAME_CLOCK_STATE];
+    env->GetLongArrayRegion(state, 0, GEODE_FRAME_CLOCK_STATE, reinterpret_cast<jlong*>(s));
+    return geode_frame_clock_wait_ns(s, nowNs);
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_frameClockTake(JNIEnv* env, jobject, jlongArray state, jlong nowNs) {
+    if (!state || env->GetArrayLength(state) < GEODE_FRAME_CLOCK_STATE) return 0;
+    int64_t s[GEODE_FRAME_CLOCK_STATE];
+    env->GetLongArrayRegion(state, 0, GEODE_FRAME_CLOCK_STATE, reinterpret_cast<jlong*>(s));
+    const int64_t pts = geode_frame_clock_take(s, nowNs);
+    env->SetLongArrayRegion(state, 0, GEODE_FRAME_CLOCK_STATE, reinterpret_cast<const jlong*>(s));
+    return pts;
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_frameClockAudioUntilUs(JNIEnv* env, jobject, jlongArray state) {
+    if (!state || env->GetArrayLength(state) < GEODE_FRAME_CLOCK_STATE) return 0;
+    int64_t s[GEODE_FRAME_CLOCK_STATE];
+    env->GetLongArrayRegion(state, 0, GEODE_FRAME_CLOCK_STATE, reinterpret_cast<jlong*>(s));
+    return geode_frame_clock_audio_until_us(s);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_castFormat(JNIEnv* env, jobject, jintArray out) {
+    if (!out || env->GetArrayLength(out) < 3) return;
+    int f[3];
+    geode_cast_format(f);
+    env->SetIntArrayRegion(out, 0, 3, reinterpret_cast<const jint*>(f));
+}
+
 }

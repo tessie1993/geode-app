@@ -72,6 +72,30 @@ the original numbering as cited by the changelog.
   pool's kick ripple and the drops sliding on onsets, none of them stepping
   the whole frame's brightness.
 
+- **43** — Per-Scene frame time (#470). CI's visual gate (glslcheck stills,
+  `core/tests/visual_gate.cpp`) judges how each style *looks* on SwiftShader;
+  it cannot say what a frame costs on a phone GPU. On one Adreno 6xx and one
+  Mali-G57-class device, at Performance Balanced, 1080p, default Detail, with
+  a beat-heavy track playing and Auto off, for each Scene touched by the
+  change (every style for a release; for a PR, the styles it edits and every
+  style that shares the `lib_*` it edits):
+  - Load the style, wait 10 s for the build (`ScenePrep`) and the thermals to
+    settle, then record 30 s of Perfetto (`gfx` and `view` categories, or
+    Android Studio's System Trace). Read the `GLThread`'s frame slices
+    (`VisualizerRenderer.onDrawFrame`) and the SurfaceView layer's actual
+    frame timeline; `dumpsys gfxinfo` does not see a `GLSurfaceView`'s
+    thread. Record the median and the 95th percentile per style in the PR.
+  - Pass: median under 16.6 ms and p95 under 20 ms (60 fps with headroom),
+    and Settings › Performance's adaptive step-down does not kick in during
+    the 30 s. A style over budget is lowered (`uSteps`, Detail's cap, fewer
+    taps) before it ships, never left to the step-down.
+  - Watch the drop and the build too: a style whose cost rises with the
+    sound (more march steps, more blooms on a loud bar) is measured during
+    the loudest stretch, not in a verse.
+  - Then switch to the next style without pausing: the switch must not
+    hitch (a scene builds across frames, `ProgramStager`), and the old one
+    keeps drawing until the new one is ready.
+
 ## See also
 
 Several early fluid rounds carried their own inline ON-DEVICE checklists in

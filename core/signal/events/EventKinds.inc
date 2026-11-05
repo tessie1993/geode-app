@@ -4,7 +4,8 @@
 // Musical events come from the sound frame (SoundEvents.cpp says which field or rule raises each);
 // engine events are pushed by whoever owns the moment (the renderer for a style switch).
 //
-// To add one: a row here, and either a row in SoundEvents.cpp's trigger table (a sound-frame trigger)
+// To add one: a row here, and either a row in SoundEvents.cpp's trigger table (a sound-frame trigger,
+// with its frame counter if it has one)
 // or a rule in SoundEvents::detect (a derived event), or a push from the engine. Nothing else changes.
 
 // Drums and onsets

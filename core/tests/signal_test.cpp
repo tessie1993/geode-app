@@ -306,36 +306,93 @@ void testSoundEvents() {
     detect.detect(f, 3.0, 1.0f / 60.0f, q);
     check(q.size() == 1 && q[0].kind == EventKind::SectionChange && q[0].value == 3, "a section change carries its id");
 
-    // Key: needs a second of a clear key; a wobble restarts the wait.
+    // Counters: two beats between drawn frames are two Beat events, not one.
+    SoundEvents grid;
+    GeodeSoundFrame g = quietFrame();
+    g.beatCount = 10.0f;
+    g.barCount = 2.0f;
+    q.clear();
+    grid.detect(g, 5.0, 1.0f / 60.0f, q);
+    check(q.empty(), "the first frame only seeds the counters");
+    g.beat = 0.9f;
+    g.beatCount = 12.0f;
+    q.clear();
+    grid.detect(g, 5.1, 1.0f / 60.0f, q);
+    check(q.size() == 2 && q[0].kind == EventKind::Beat && q[1].kind == EventKind::Beat && near(q[1].strength, 0.9f),
+          "two beats between frames raise two Beat events");
+    g.beat = 1.0f;
+    g.downbeat = 1.0f;
+    g.beatCount = 13.0f;
+    g.barCount = 3.0f;
+    q.clear();
+    grid.detect(g, 5.2, 1.0f / 60.0f, q);
+    check(q.size() == 2 && q[0].kind == EventKind::Beat && q[1].kind == EventKind::Downbeat, "one beat, one downbeat");
+    g.beat = 0.0f;
+    g.downbeat = 0.0f;
+    g.beatCount = 15.0f;
+    q.clear();
+    grid.detect(g, 5.3, 1.0f / 60.0f, q);
+    check(q.empty(), "unlocked beats tick the counter but raise nothing (no trigger)");
+    g.beat = 1.0f;
+    g.beatCount = 100.0f;
+    q.clear();
+    grid.detect(g, 5.4, 1.0f / 60.0f, q);
+    check(q.size() == static_cast<std::size_t>(SoundEvents::kMaxBurst), "a stall's burst is capped");
+    g.beat = 1.0f;
+    g.downbeat = 1.0f;
+    g.beatCount = 1.0f;
+    g.barCount = 0.0f;
+    q.clear();
+    grid.detect(g, 5.5, 1.0f / 60.0f, q);
+    check(q.empty(), "a counter going backwards (a reset) is a resync and raises nothing");
+    g.beatCount = 2.0f;
+    g.barCount = 1.0f;
+    q.clear();
+    grid.detect(g, 5.6, 1.0f / 60.0f, q);
+    check(q.size() == 2 && q[0].kind == EventKind::Beat && q[1].kind == EventKind::Downbeat, "and counts on from the new base");
+    g.downbeat = 0.0f;
+    g.beatCount = 4095.0f;
+    grid.detect(g, 5.7, 1.0f / 60.0f, q);
+    g.beatCount = 1.0f;
+    q.clear();
+    grid.detect(g, 5.8, 1.0f / 60.0f, q);
+    check(q.size() == 2 && q[0].kind == EventKind::Beat && q[1].kind == EventKind::Beat, "the 4096 wrap counts forward");
+
+    // Key: the frame's key (Harmony's, already held) changing value; no rule of our own on top.
+    const auto setKey = [](GeodeSoundFrame& fr, int tonic, bool minor) {
+        fr.keyRoot = static_cast<float>(tonic) / 12.0f;
+        fr.keyHue = static_cast<float>(((minor ? tonic + 3 : tonic) * 7) % 12) / 12.0f;
+        fr.keyMajor = minor ? 0.2f : 0.8f;
+    };
     SoundEvents keys;
     GeodeSoundFrame k = quietFrame();
     k.keyClarity = 0.8f;
-    k.keyRoot = 7.0f / 12.0f;  // G
-    k.keyMajor = 1.0f;
-    int raised = 0;
-    for (int i = 0; i < 70; ++i) {
-        q.clear();
-        keys.detect(k, i / 60.0, 1.0f / 60.0f, q);
-        for (const Event& e : q) {
-            if (e.kind == EventKind::KeyChange) {
-                ++raised;
-                check(e.value == 7, "G major is key 7");
-            }
-        }
-    }
-    check(raised == 1, "the first clear key is raised once, after a second");
-    k.keyMajor = 0.0f;  // G minor, briefly
-    for (int i = 0; i < 30; ++i) {
-        q.clear();
-        keys.detect(k, 2.0 + i / 60.0, 1.0f / 60.0f, q);
-        check(q.empty(), "half a second of another key raises nothing");
-    }
-    k.keyMajor = 1.0f;
-    k.keyClarity = 0.1f;
+    setKey(k, 7, false);  // G major
+    check(keyOf(k) == 7, "G major is key 7");
+    setKey(k, 7, true);
+    check(keyOf(k) == 19, "G minor is key 19");
+    setKey(k, 7, false);
     q.clear();
-    keys.detect(k, 3.0, 1.0f / 60.0f, q);
-    check(q.empty(), "an unclear key raises nothing");
-    check(keyOf(k, SoundEvents::kKeyClarity) == -1, "and reads as no key");
+    keys.detect(k, 6.0, 1.0f / 60.0f, q);
+    check(q.empty(), "the first frame seeds the key");
+    q.clear();
+    keys.detect(k, 6.1, 1.0f / 60.0f, q);
+    check(q.empty(), "the same key raises nothing");
+    setKey(k, 7, true);
+    k.keyClarity = 0.1f;  // no clarity rule: Harmony's key is the key
+    q.clear();
+    keys.detect(k, 6.2, 1.0f / 60.0f, q);
+    check(q.size() == 1 && q[0].kind == EventKind::KeyChange && q[0].value == 19 && near(q[0].strength, 0.1f),
+          "a change of the frame's key raises KeyChange at once, with its clarity");
+    k.keyMajor = 0.9f;  // keyMajor is a lean, not the key: it does not change the key
+    q.clear();
+    keys.detect(k, 6.3, 1.0f / 60.0f, q);
+    check(q.empty(), "keyMajor alone changes nothing");
+    k.keyHue = 0.5f;  // names no key with this tonic
+    check(keyOf(k) == -1, "an inconsistent root and hue name no key");
+    q.clear();
+    keys.detect(k, 6.4, 1.0f / 60.0f, q);
+    check(q.empty(), "and raise nothing");
 
     // NaN in the frame raises nothing and breaks nothing.
     q.clear();

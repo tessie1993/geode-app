@@ -299,6 +299,19 @@ GEODE_API int             geode_surface_listening(unsigned flags, long long anim
 GEODE_API int             geode_surface_entitled(long long animate_until_ms, long long now_ms);                   /* 1 = may move */
 GEODE_API long long       geode_surface_recheck_in_ms(long long animate_until_ms, long long now_ms);              /* -1 = never */
 
+/* Live input (audio/LiveInput): the microphone's on/off state machine. The shell keeps the state and reports
+ * events; the step returns the next state and fills *actions_out with the GEODE_LIVE_INPUT_ACT_* bits to carry
+ * out, in bit order. Pure. States: 0 off, 1 on, 2 paused in the background, 3 lost. Events: 0 turn on,
+ * 1 turn off, 2 start failed, 3 music starts, 4 app background, 5 app foreground, 6 capture stopped. */
+#define GEODE_LIVE_INPUT_ACT_STOP_OTHER_APP_AUDIO (1u << 0)
+#define GEODE_LIVE_INPUT_ACT_PAUSE_MUSIC          (1u << 1)
+#define GEODE_LIVE_INPUT_ACT_START_CAPTURE        (1u << 2)
+#define GEODE_LIVE_INPUT_ACT_STOP_CAPTURE         (1u << 3)
+#define GEODE_LIVE_INPUT_ACT_RESET_SOUND          (1u << 4)
+#define GEODE_LIVE_INPUT_ACT_PLAYER_RATE          (1u << 5)
+GEODE_API int             geode_live_input_step(int state, int event, int has_permission, unsigned* actions_out);
+GEODE_API int             geode_live_input_is_on(int state);   /* 1 = on or paused in the background */
+
 #ifdef __cplusplus
 }
 #endif

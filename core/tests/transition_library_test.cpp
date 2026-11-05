@@ -118,6 +118,26 @@ void parseRules() {
     check(encodeTransitionTable({}).empty() && decode("").empty(), "an empty library is an empty table");
 }
 
+// JSON can spell the table's separators (\u001c..\u001f) in any field; the encoder writes them as spaces,
+// so the table still splits into the same defs and params the shell's parseTable expects.
+void separatorsInFields() {
+    const std::string json = R"([
+      {"name": "a\u001eb", "author": "c\u001fd", "license": "e\u001df", "glsl": "// g\u001ch\nvec4 transition(vec2 uv) { return vec4(1); }",
+       "paramsTypes": {"p\u001cq": "fl\u001doat", "r": "float"}, "defaultParams": {"p\u001cq": 1, "r": 2}},
+      {"name": "next", "glsl": "x"}
+    ])";
+    const auto defs = parseTransitionLibrary(json);
+    check(defs.size() == 2 && defs[0].name == "a\x1e" "b", "the JSON escapes reach the parse");
+    const auto decoded = decode(encodeTransitionTable(defs));
+    check(decoded.size() == 2, "a separator in a field does not split the table");
+    if (decoded.size() != 2) return;
+    const TransitionDef& d = decoded[0];
+    check(d.name == "a b" && d.author == "c d" && d.license == "e f", "separators in name, author, license read as spaces");
+    check(d.glsl.find("// g h\n") == 0, "a separator in the GLSL reads as a space");
+    check(d.params.size() == 2 && d.params[0].type == "fl oat" && d.params[0].values == std::vector<float>{1.0f}, "a separator in a param reads as a space");
+    check(decoded[1].name == "next", "the next def is intact");
+}
+
 void shippedAsset() {
     std::ifstream in("app/src/main/assets/gl_transitions.json", std::ios::binary);
     if (!in) {
@@ -139,6 +159,7 @@ void shippedAsset() {
 
 int main() {
     parseRules();
+    separatorsInFields();
     shippedAsset();
     if (failures == 0) std::printf("transition_library_test: all checks passed\n");
     return failures == 0 ? 0 : 1;

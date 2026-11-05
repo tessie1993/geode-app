@@ -25,7 +25,9 @@ struct TransitionDef {
     std::string glsl;
 };
 
-// The shell's table. GLSL holds newlines and tabs but never ASCII control separators, so:
+// The shell's table, split on the four ASCII control separators. GLSL holds newlines and tabs but
+// never these (outside a comment they do not compile), yet JSON can spell any of them as \u001c..\u001f,
+// so the encoder writes each one inside a field as a space: the table always splits back cleanly.
 //   defs  separated by RS (0x1e)
 //   def   name US author US license US params US glsl         (US = 0x1f)
 //   params separated by GS (0x1d), each name FS type FS values (FS = 0x1c), values comma-separated
@@ -51,6 +53,11 @@ inline std::vector<float> floatsOf(const json::Value* value) {
         }
         default: return {0.0f};
     }
+}
+
+// A field of the table: the separators (0x1c..0x1f) inside it become spaces.
+inline void appendField(std::string& out, const std::string& field) {
+    for (const char c : field) out += (c >= '\x1c' && c <= '\x1f') ? ' ' : c;
 }
 
 }  // namespace transition_detail
@@ -88,18 +95,18 @@ inline std::string encodeTransitionTable(const std::vector<TransitionDef>& defs)
     for (size_t d = 0; d < defs.size(); ++d) {
         const TransitionDef& def = defs[d];
         if (d > 0) out += kTableDef;
-        out += def.name;
+        transition_detail::appendField(out, def.name);
         out += kTableField;
-        out += def.author;
+        transition_detail::appendField(out, def.author);
         out += kTableField;
-        out += def.license;
+        transition_detail::appendField(out, def.license);
         out += kTableField;
         for (size_t p = 0; p < def.params.size(); ++p) {
             const TransitionParam& param = def.params[p];
             if (p > 0) out += kTableParam;
-            out += param.name;
+            transition_detail::appendField(out, param.name);
             out += kTableParamField;
-            out += param.type;
+            transition_detail::appendField(out, param.type);
             out += kTableParamField;
             for (size_t v = 0; v < param.values.size(); ++v) {
                 if (v > 0) out += ',';
@@ -108,7 +115,7 @@ inline std::string encodeTransitionTable(const std::vector<TransitionDef>& defs)
             }
         }
         out += kTableField;
-        out += def.glsl;
+        transition_detail::appendField(out, def.glsl);
     }
     return out;
 }

@@ -14,7 +14,6 @@ add_library(geode_core STATIC
     sound/SoundEngine.cpp
     sound/offline/OfflineBeats.cpp
     sound/offline/OfflineFeatures.cpp
-    sound/offline/OfflineForm.cpp
     library/Tags.cpp
     library/Search.cpp
     audio/dsp/DspProcessor.cpp

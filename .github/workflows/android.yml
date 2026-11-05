@@ -183,11 +183,6 @@ jobs:
           g++ -std=c++20 -O2 -Wall -Wextra -Werror -Icore core/tests/offline_features_test.cpp core/sound/offline/*.cpp \
             core/sound/Fft.cpp -o offline_features_test
           ./offline_features_test
-          # The offline analyser's form (#465): boundaries, the drop and its build, section states and returning
-          # sections on songs built in code, read at 24/30/60 fps alike.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/offline_form_test.cpp core/sound/offline/OfflineForm.cpp \
-            core/sound/offline/OfflineBeats.cpp core/sound/Fft.cpp -o offline_form_test
-          ./offline_form_test
           # The auto-director: the emotion table, the live feeling and the director's decisions.
           g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/director_test.cpp core/sound/*.cpp \
             core/viz/Director.cpp core/viz/Reactions.cpp core/viz/Lfo.cpp core/viz/Macros.cpp core/viz/CameraRig.cpp \

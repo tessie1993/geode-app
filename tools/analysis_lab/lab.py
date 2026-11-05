@@ -13,7 +13,7 @@ What it writes into --out (nothing here is committed; CI rebuilds it on every ru
   clips.txt            the clip names, one per line, in bench order
   manifest.tsv         clip, source, licence, sha256 of the WAV (every clip must be redistributable)
   <clip>.wav           44.1 kHz stereo PCM16
-  <clip>.truth.tsv     the answers, exact by construction: tempo, beats, downbeats, section boundaries, drops, key
+  <clip>.truth.tsv     the answers, exact by construction: tempo, beats, downbeats, section boundaries, key
   <clip>.librosa.tsv   librosa's answers (the reference analyser): tempo, beats, key, boundaries
   <clip>.onset.tsv     librosa's onset strength envelope, one value per frame (what the offline port matches)
   <clip>.features.tsv  librosa's frame features (#464): rms, spectral centroid, rolloff and flatness, mean
@@ -197,14 +197,12 @@ def render(clip):
         out[start:end, 0] += piece * (1.0 - 0.3 * pan)
         out[start:end, 1] += piece * (1.0 + 0.3 * pan)
 
-    truth_beats, truth_downbeats, boundaries, drops = [], [], [], []
+    truth_beats, truth_downbeats, boundaries = [], [], []
     drums = {"kick": [], "snare": [], "hat": []}  # every drum hit the score places, for the drum F-measures
     bar_index = 0
     for s_index, s in enumerate(clip["sections"]):
         if s_index > 0:
             boundaries.append(LEAD + bar_index * bar)
-        if s["name"] == "drop":  # a drop's first beat (#465): the bass comes back after the build
-            drops.append(LEAD + bar_index * bar)
         g = s.get("gain", 1.0)
         for b in range(s["bars"]):
             t_bar = LEAD + (bar_index + b) * bar
@@ -271,7 +269,6 @@ def render(clip):
         downbeats=np.round(np.array(truth_downbeats), TIME_DECIMALS),
         drums={k: np.round(np.array(sorted(set(v))), TIME_DECIMALS) for k, v in drums.items()},
         boundaries=np.round(np.array(boundaries), TIME_DECIMALS),
-        drops=np.round(np.array(drops), TIME_DECIMALS),
         key=clip["key"],
     )
     return out, truth
@@ -421,7 +418,6 @@ def main():
         rows += times_rows("boundary", truth["boundaries"])
         for kind in ("kick", "snare", "hat"):
             rows += times_rows(kind, truth["drums"][kind])
-        rows += times_rows("drop", truth["drops"])
         write_rows(os.path.join(args.out, clip["name"] + ".truth.tsv"), rows)
 
         if args.no_librosa:

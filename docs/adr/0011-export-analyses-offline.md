@@ -21,7 +21,6 @@ On 2026-11-05 the owner settled analysis for Spec 3.0 ([#455](https://github.com
    - The live one is `core/sound` and later ADR 0006's `core/sound/hop`. It stays causal for every input: track, mic, other apps' audio, wallpaper and dream.
    - The offline one lives in `core/sound/offline`. It is new code, not a mode of the live detectors. They share no stages, only primitives such as `Fft`, so neither is bound by the other's constraints. Group D's hop work (#324, #380, #411) does not move it.
 2. **One schema.** The offline analyser writes the same `GeodeSoundFrame` fields as live, with the same meanings: the triggers fire on one frame, the counts count, the phases run 0 to 1. Routes, Scenes and the director therefore read an export exactly as they read the screen. The first slice is `offline::sample()` for the rhythm fields.
-   - Offline triggers land on the event itself (a section change fires on its boundary); live confirms a bar later. A steady loop reads as VERSE offline, because a drop needs a rise before it.
 3. **Methods follow librosa, and the lab holds them to it.**
    - Each offline method is a step-by-step port of the librosa function it names, pinned at librosa 0.11.0.
    - `tools/analysis_lab` writes librosa's output on labelled clips as goldens, and `core/tests/offline_*_test.cpp --goldens` checks the port against them within stated tolerances.

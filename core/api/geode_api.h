@@ -74,7 +74,8 @@ GEODE_API size_t      geode_viz_custom_shader(geode_viz*, const char* scene_id, 
 GEODE_API void        geode_viz_set_lfo(geode_viz*, int slot, const float* config, int count);
 GEODE_API void        geode_viz_set_adsr(geode_viz*, int slot, const float* config, int count);
 /* The routes layout: GEODE_REACT_ROUTE_FLOATS per route. What the reaction matrix plays is resolved natively
-   (core/viz/ReactionResolve, #750) from the scene asked for (geode_viz_set_scene), the params' reactSeed, and
+   (core/viz/ReactionResolve, #750) from the scene drawn (geode_viz_set_scene, or a later switch of the export's
+   style schedule, #771, which re-resolves on its own frame), the params' reactSeed, and
    the user's routes under the hand mask set here: the style's DNA with no user list (has_user 0, routes and
    mask ignored), else geode_style_reactions_hand's merge. It is worked out again before a render only when one
    of those changed, so the shell pushes the user's side only when it changes. */
@@ -148,7 +149,8 @@ GEODE_API void        geode_viz_cut(geode_viz*);
  * segment began, style id, MilkDrop preset path or "" for none) and a beat cut stepping through
  * `cut_count` style ids every `every_beats` beats of the renderer's own sound engine. Both empty
  * clears it. `locked_ids` is the entitlement: the `locked_count` styles this user may not draw (none
- * for Pro); cues and cut ids naming one are dropped. Strings are copied. */
+ * for Pro); cues and cut ids naming one are dropped. Strings are copied. Each switch also moves the
+ * reaction routes to the new style's DNA, under the same user routes and hand mask (#771). */
 GEODE_API void        geode_viz_set_style_schedule(geode_viz*, const double* at_ms, const char* const* scene_ids,
                                                    const char* const* milk_paths, int count,
                                                    const char* const* cut_ids, int cut_count, int every_beats,

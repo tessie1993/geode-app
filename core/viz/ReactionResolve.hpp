@@ -8,8 +8,8 @@ namespace geode::viz {
 
 // What one renderer's reaction matrix plays, and when to work it out again (#750).
 //
-// The routes are a pure function of four inputs: the scene the shell asked for (geode_viz_set_scene; an
-// export's scheduled switches do not change it, as before), the params' reactSeed, the user's routes and
+// The routes are a pure function of four inputs: the scene drawn (the one the shell asked for through
+// geode_viz_set_scene, or the one an export's StyleSchedule switched to since, #771), the params' reactSeed, the user's routes and
 // Customize › Music's hand mask. With no list of the user's that is the style's DNA (buildStyleDna); with one
 // it is mergeHand, the hand winning per moment. Building the DNA every frame would be wasted work, so this
 // keeps the inputs and resolves only when they differ from the ones it last resolved. The mask means
@@ -27,6 +27,16 @@ public:
     void setScene(std::string_view id) {
         scene_.assign(id);
         sceneSet_ = true;
+    }
+
+    // A switch the renderer made on its own, mid-segment (an export's StyleSchedule, by time or by beat; #771):
+    // the new style is the scene from now on, and what plays is worked out at once, under the same seed, user
+    // routes and hand mask, so the switch frame already plays the new style's DNA. The same as setScene then
+    // resolve; true when `out` was written. Live, every switch (Auto, the director's moments, a swipe) comes
+    // in through geode_viz_set_scene instead.
+    bool followScene(std::string_view id, RouteArray& out) {
+        setScene(id);
+        return resolve(out);
     }
 
     void setSeed(int seed) { seed_ = seed; }

@@ -480,7 +480,10 @@ void Renderer::applyStyleSchedule() {
         requestedMilk = lastMilkPreset_;
     }
     // The segment's first look is already requested (prepare()); asking again would only reload it.
-    if (cue->sceneId != requestedScene) setScene(cue->sceneId);
+    // A switch the renderer accepted is handed to the hook, so the reaction routes follow the new style (#771).
+    if (cue->sceneId != requestedScene && setScene(cue->sceneId) && scheduledSceneHook_) {
+        scheduledSceneHook_(scheduledSceneContext_, cue->sceneId);
+    }
     if (!cue->milkPath.empty() && cue->milkPath != requestedMilk) loadMilkPreset(cue->milkPath);
 }
 

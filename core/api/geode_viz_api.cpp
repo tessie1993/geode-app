@@ -20,7 +20,9 @@
 #include "viz/frame/OfflineStep.hpp"
 
 struct geode_viz {
-    geode_viz(AAssetManager* assets, std::string cacheDir) : renderer(assets, std::move(cacheDir)) {}
+    geode_viz(AAssetManager* assets, std::string cacheDir) : renderer(assets, std::move(cacheDir)) {
+        renderer.setScheduledSceneHook(&followScheduledScene, this);
+    }
 
     geode::viz::Renderer renderer;
     std::mutex configLock;
@@ -36,6 +38,16 @@ struct geode_viz {
     static geode::viz::StyleTraits styleTraits(std::string_view id) {
         const std::string s(id);
         return {geode::viz::SceneRegistry::spinRate(s), geode::viz::SceneRegistry::isShaderStyle(s)};
+    }
+
+    // The style schedule switched the scene mid-segment (#771): the GL thread, inside beginFrame, before this
+    // frame's reaction matrix ticks. The routes follow the new style's DNA under the same user routes and hand
+    // mask. Lock order as syncReactions: reactLock, then the renderer's own (setReactionRoutes).
+    static void followScheduledScene(void* context, const std::string& sceneId) {
+        auto* v = static_cast<geode_viz*>(context);
+        geode::viz::RouteArray routes{};
+        std::lock_guard<std::mutex> lock(v->reactLock);
+        if (v->reactions.followScene(sceneId, routes)) v->renderer.setReactionRoutes(routes);
     }
 };
 

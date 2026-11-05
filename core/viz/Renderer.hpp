@@ -132,6 +132,16 @@ public:
     // Styles in `lockedIds` (the entitlement) are dropped from it.
     void setStyleSchedule(std::vector<StyleCue> cues, std::vector<std::string> beatCutIds, int everyBeats,
                           const std::vector<std::string>& lockedIds);
+    // Called on the GL thread, inside beginFrame, each time the style schedule itself switches the scene
+    // (a take's timed switch or a beat cut), after setScene accepted it and before this frame's reaction
+    // matrix ticks (#771). The schedule is the one switch the renderer makes on its own; every other one
+    // comes in through setScene, so its owner already knows. geode_viz sets it once, before any frame, so
+    // the routes follow the new style's DNA on the switch frame. Null (the default) calls nothing.
+    using ScheduledSceneHook = void (*)(void* context, const std::string& sceneId);
+    void setScheduledSceneHook(ScheduledSceneHook hook, void* context) {
+        scheduledSceneHook_ = hook;
+        scheduledSceneContext_ = context;
+    }
     void warmTransition(const std::string& id);
     void cut();
     void render(double timeSeconds, GLuint targetFbo);
@@ -320,6 +330,9 @@ private:
     // setStyleSchedule's latest schedule, moved into styleSchedule_ by the GL thread (stateLock_).
     std::optional<StyleSchedule> styleScheduleRequest_;
     StyleSchedule styleSchedule_;
+    // setScheduledSceneHook's; set before the GL thread runs a frame, then only read there.
+    ScheduledSceneHook scheduledSceneHook_ = nullptr;
+    void* scheduledSceneContext_ = nullptr;
     bool milkReloadRequested_ = false;
     std::string milkTextureDir_;
     bool milkTextureDirDirty_ = false;

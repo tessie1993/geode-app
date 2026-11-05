@@ -10,15 +10,25 @@ import java.io.File
 import java.util.UUID
 
 /**
- * Studio's projects and templates on disk. A project is a folder:
+ * Studio's projects and templates on disk. A project is a folder, and its takes sit in a sibling
+ * folder of the same id:
  *
  * ```
  * files/projects/<id>/
  *   project.json        the StudioProject: edit, kind, export settings, renders (EditorProjectJson)
- *   takes/<takeId>.json every take recorded into it (PerformanceTake's format)
+ * files/project-takes/<id>/
+ *   <takeId>.json       every take recorded into it (PerformanceTake's format)
  * files/project-templates/<id>/
  *   template.json       a ProjectTemplate: a project minus its audio
  * ```
+ *
+ * Why the takes are not inside the project folder (#384): a long take is megabytes of JSON, and
+ * Android's cloud backup stops backing up *everything* (presets, playlists, history) once the app
+ * passes its ~25 MB quota. The backup rules can only exclude a fixed path, never
+ * `projects/<any id>/takes`, so the takes live under one root that `backup_rules.xml` and
+ * `data_extraction_rules.xml` exclude, while the small `project.json` still backs up and My videos
+ * keeps its list after a restore. A phone-to-phone transfer and the manual backup zip carry takes.
+ * Takes saved before the move are moved once, when the store is built ([moveTakesOut]).
  *
  * The folder name is the project id, never the user's name for it, so renaming is one field and two
  * projects may share a name. Rendered videos are not in the folder: they live where the user saved
@@ -34,15 +44,18 @@ import java.util.UUID
 class EditorProjectStore(
     private val projectsDir: File,
     private val templatesDir: File,
+    private val takesDir: File = File(projectsDir.parentFile, TAKES_DIR),
     val defaultsFor: (ExportDestination) -> ExportDefaults = { it.factoryDefaults() },
     val clock: () -> Long = System::currentTimeMillis,
 ) {
     constructor(context: Context) : this(
         projectsDir = File(context.filesDir, PROJECTS_DIR),
         templatesDir = File(context.filesDir, TEMPLATES_DIR),
+        takesDir = File(context.filesDir, TAKES_DIR),
         defaultsFor = ExportPrefsStore(GeodePrefsFiles(context).general)::loadFor,
     ) {
         startFresh(context.filesDir)
+        moveTakesOut(projectsDir, takesDir)
     }
 
     fun newId(): ProjectId = ProjectId(UUID.randomUUID().toString())
@@ -70,9 +83,15 @@ class EditorProjectStore(
 
     fun touch(project: StudioProject): StudioProject = project.copy(updatedAtMs = clock())
 
-    /** Removes the folder and everything in it. The rendered videos stay where they were saved. */
+    /** The folder [id]'s takes are saved in (beside the project folder, not inside it; see the class KDoc). */
+    fun takesFolderOf(id: ProjectId): File = File(takesDir, safeId(id))
+
+    /** Removes the folder, its takes and everything in them. The rendered videos stay where they were saved. */
     @WorkerThread
-    fun delete(id: ProjectId): Boolean = folderOf(id).deleteRecursively()
+    fun delete(id: ProjectId): Boolean {
+        val takesGone = takesFolderOf(id).deleteRecursively()
+        return folderOf(id).deleteRecursively() && takesGone
+    }
 
     @WorkerThread
     fun saveTake(
@@ -80,7 +99,7 @@ class EditorProjectStore(
         takeId: String,
         json: String,
     ): Boolean {
-        val dir = File(folderOf(id), TAKES_DIR).apply { mkdirs() }
+        val dir = takesFolderOf(id).apply { mkdirs() }
         return AtomicWrite.text(File(dir, PresetStore.safeFileName(takeId) + ".json"), json)
     }
 
@@ -90,16 +109,15 @@ class EditorProjectStore(
         id: ProjectId,
         takeId: String,
     ): String? =
-        File(File(folderOf(id), TAKES_DIR), PresetStore.safeFileName(takeId) + ".json")
+        File(takesFolderOf(id), PresetStore.safeFileName(takeId) + ".json")
             .takeIf { it.isFile }
             ?.let { runCatching { it.readText() }.getOrNull() }
 
-    /** Bytes the folder takes on disk (project file plus takes), for My videos' details line. */
+    /** Bytes the project takes on disk (project file plus takes), for My videos' details line. */
     @WorkerThread
     fun sizeOf(id: ProjectId): Long =
-        folderOf(id)
-            .walkTopDown()
-            .filter { it.isFile }
+        listOf(folderOf(id), takesFolderOf(id))
+            .flatMap { it.walkTopDown().filter(File::isFile).toList() }
             .sumOf { it.length() }
 
     @WorkerThread
@@ -144,7 +162,12 @@ class EditorProjectStore(
         const val TEMPLATES_DIR = "project-templates"
         const val PROJECT_FILE = "project.json"
         const val TEMPLATE_FILE = "template.json"
-        const val TAKES_DIR = "takes"
+
+        /** Every project's takes, one folder per project id. Kept out of cloud backup by name (#384). */
+        const val TAKES_DIR = "project-takes"
+
+        /** Where a project's takes were saved before #384: inside the project folder. */
+        private const val OLD_TAKES_SUBDIR = "takes"
 
         /**
          * Wave 1 starts fresh (pre-launch, testers only): the one global "Untitled" project in
@@ -155,6 +178,32 @@ class EditorProjectStore(
 
         private fun startFresh(filesDir: File) {
             LEGACY_DIRS.map { File(filesDir, it) }.filter { it.exists() }.forEach { it.deleteRecursively() }
+        }
+
+        /**
+         * Moves takes saved inside a project folder (`projects/<id>/takes/`, before #384) to
+         * `project-takes/<id>/`, once; a later run finds nothing to move. A take already at the new
+         * place wins (it was written after the move began), and the old copy is dropped. A take that
+         * cannot be moved stays where it was, so nothing is lost; [loadTake] just will not see it.
+         * Also runs after a restore of an older backup zip, whose projects still carry their takes.
+         */
+        @WorkerThread
+        internal fun moveTakesOut(
+            projectsDir: File,
+            takesDir: File,
+        ) {
+            val projects = projectsDir.listFiles { f -> f.isDirectory }.orEmpty()
+            for (project in projects) {
+                val old = File(project, OLD_TAKES_SUBDIR)
+                if (!old.isDirectory) continue
+                val target = File(takesDir, project.name).apply { mkdirs() }
+                old.listFiles { f -> f.isFile }.orEmpty().forEach { take ->
+                    val dest = File(target, take.name)
+                    val moved = if (dest.exists()) take.delete() else take.renameTo(dest)
+                    if (!moved) RingLog.note(TAG, "take not moved out of its project: ${project.name}/${take.name}")
+                }
+                if (old.listFiles().isNullOrEmpty()) old.delete()
+            }
         }
     }
 }

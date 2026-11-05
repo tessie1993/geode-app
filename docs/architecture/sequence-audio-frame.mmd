@@ -1,0 +1,29 @@
+sequenceDiagram
+  autonumber
+  participant EXO as ExoPlayer playback thread
+  participant TAP as PcmTap
+  participant CH as MvzAudioProcessorChain
+  participant RING as SampleRing and PcmRingBuffer
+  participant GL as GL thread VisualizerRenderer
+  participant NV as NativeViz and GeodeNative
+  participant SND as core/sound engine
+  participant VZ as core/viz Renderer
+  participant OUT as Screen or MediaCodec
+
+  EXO->>TAP: decoded PCM buffer (first in the chain)
+  TAP->>RING: write stereo, plus mono mix
+  TAP->>CH: pass buffer on
+  CH->>CH: NativeDspProcessor (core/audio/dsp EQ, crossfeed, limiter, gain)
+  Note over CH: TrackCrossfade gain is applied from Kotlin (flagged)
+  loop every rendered frame
+    GL->>RING: SoundCursor.take(): each sample once
+    GL->>NV: vizWriteAudio(handle, samples, rate)
+    NV->>SND: write(), Rhythm hops on written samples
+    GL->>NV: vizRender(handle, dt)
+    NV->>VZ: beginFrame(dt)
+    VZ->>SND: step to GeodeSoundFrame
+    VZ->>VZ: Director, NoteResponse, LFO, ADSR, Reactions, MotionField, safety
+    VZ->>VZ: scene draw, composite, UiBlurPass (flagged)
+    VZ->>OUT: present
+  end
+  Note over GL,OUT: Export runs the same path via OffscreenSceneRenderer, TrackAudio stepped at 1/fps

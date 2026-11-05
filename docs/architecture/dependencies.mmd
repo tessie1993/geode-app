@@ -1,0 +1,70 @@
+flowchart LR
+  classDef app fill:#eef4ff,stroke:#3a5fa8,color:#102040
+  classDef eng fill:#eaf7ea,stroke:#2e7d32,color:#0b300d
+  classDef hot fill:#fff3cd,stroke:#b58900,color:#4a3800
+  subgraph APPM[":app - one strongly connected component of 14 packages"]
+    ui["ui (152 files)"]:::hot
+    data["data (52)"]:::app
+    editor["editor (8)"]:::app
+    export["export (27)"]:::app
+    pro["pro (8)"]:::app
+    model["model (8)"]:::app
+    playback["playback (16)"]:::app
+    audio["audio (13)"]:::app
+    wallpaper["wallpaper (9)"]:::app
+    cast["cast (9)"]:::app
+    billing["billing (7)"]:::app
+    di["di (3)"]:::app
+    widget["widget (5)"]:::app
+    viz["viz (1)"]:::app
+    tile["tile (1)"]:::app
+    root["root: GeodeApp, GeodeContainer, RingLog"]:::app
+  end
+  subgraph SCM[":engine:scenes"]
+    render["dev.geode.render (scenes)"]:::eng
+    util["dev.geode.util (scenes)"]:::eng
+    analysis["dev.geode.analysis (scenes)"]:::eng
+  end
+  acore[":engine:audio-core"]:::eng
+  aand[":engine:audio-android"]:::eng
+  ui -->|232| data
+  ui -->|156| render
+  ui -->|136| editor
+  ui -->|78| export
+  ui -->|55| pro
+  data -->|42| editor
+  ui -->|36| model
+  data -->|26| render
+  playback -->|25| data
+  ui -->|18| audio
+  export -->|18| editor
+  billing -->|17| pro
+  data ==>|16| export
+  export -->|15| render
+  ui -->|9| playback
+  wallpaper -->|9| render
+  wallpaper -->|9| data
+  di -->|9| billing
+  render -->|9| acore
+  ui -->|8| root
+  di -->|8| pro
+  root -->|7| data
+  ui -->|7| acore
+  export -->|7| util
+  data -->|7| root
+  wallpaper -->|7| acore
+  data -->|6| model
+  data -->|6| util
+  data -->|6| acore
+  ui -->|5| di
+  cast -->|5| root
+  audio -->|5| util
+  playback -->|5| audio
+  render -->|5| util
+  export ==>|3| data
+  data ==>|3| di
+  editor ==>|2| export
+  editor ==>|2| data
+  billing ==>|2| root
+  playback ==>|1| widget
+  linkStyle 12,34,35,36,37,38,39 stroke:#d00000,stroke-width:3px,color:#d00000

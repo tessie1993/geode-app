@@ -1,0 +1,71 @@
+flowchart TB
+  classDef moved fill:#fff3cd,stroke:#b58900,stroke-width:2px,color:#4a3800
+  classDef ok fill:#eef4ff,stroke:#3a5fa8,color:#102040
+  classDef nat fill:#eaf7ea,stroke:#2e7d32,color:#0b300d
+  classDef new fill:#e6e0ff,stroke:#5b3fb5,color:#241552
+
+  subgraph SHELL["Kotlin shell: Android APIs, threads, wiring, UI, persistence"]
+    APP[":app - MainActivity, GeodeApp, Nav3 NavDisplay, wallpaper, widget, DI wiring"]:::ok
+    subgraph FEAT["feature modules - ADR 0001 step 6"]
+      FV[":feature:visuals - VisualsHub, Customize, sheet layout, UiBlur region provider"]:::new
+      FS[":feature:studio"]:::new
+      FP[":feature:player, :feature:library, :feature:settings, :feature:onboarding"]:::new
+    end
+    DS[":core:designsystem - ui/theme, glass, blur"]:::new
+    subgraph CORES["core modules"]
+      CM[":core:model - JVM, editor, pure data types, repository interfaces"]:::new
+      CD[":core:domain - use cases incl. ResolveExportDirectorUseCase"]:::moved
+      CDATA[":core:data - stores, prefs"]:::new
+      CPB[":core:playback - PlaybackEngine, capture, TrackCrossfade as a command to native Gain"]:::moved
+      CEX[":core:export - VideoExporter and LoopRender take a resolved DirectorPin"]:::moved
+    end
+    subgraph ENG["engine modules - shell around native"]
+      SM[":engine:scene-model - JVM, ids, params, ParamKeys"]:::new
+      SC[":engine:scenes - GL adapter, NativeViz, thin ParamRandomizer call"]:::ok
+      AC[":engine:audio-core - GeodeNative and PCM handoff only"]:::ok
+      AA[":engine:audio-android - PcmTap"]:::ok
+    end
+  end
+
+  subgraph NATIVE["libgeode.so - all audio-visual engine logic, no UI concepts"]
+    API["core/api: extern C ABI"]:::nat
+    SND["core/sound"]:::nat
+    VZ["core/viz: Renderer, Director, passes - region-agnostic PostMask pass"]:::moved
+    DSP["core/audio/dsp: Gain, Loudness, PcmResampler, plus fade envelope and ring and clock"]:::moved
+    OV["core/viz or core/overlay: EdgeGlow pass, GLSL and RMS envelope"]:::moved
+    PRM["core/viz/Params: ParamRandomizer with MOVED_FIELDS and multi-group reset"]:::moved
+    SIL["core/sound/Silence: device-rate-aware capture feed"]:::moved
+    STU["core/studio"]:::nat
+    LIB["core/library"]:::nat
+  end
+
+  APP --> FV
+  APP --> FS
+  APP --> FP
+  FV --> CD
+  FS --> CD
+  FP --> CD
+  FV --> DS
+  FS --> DS
+  FV -.->|"passes a generic mask rect and strength"| SC
+  CD --> CM
+  CDATA --> CM
+  CPB --> CM
+  CEX --> CM
+  CEX --> CDATA
+  CPB --> AA
+  CPB --> AC
+  CEX --> SC
+  SC --> SM
+  CM --> SM
+  SC --> AC
+  AA --> AC
+  AC -->|"JNI"| API
+  API --> SND
+  API --> VZ
+  API --> DSP
+  API --> OV
+  API --> PRM
+  API --> SIL
+  API --> STU
+  API --> LIB

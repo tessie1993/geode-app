@@ -118,6 +118,7 @@ void grade() {
     }
     check(hueLumaKept, "a hue turn never changes a colour's luminance");
 
+    geode::viz::clipGradeMatrix(0.0f, 0.0f, 0.0f, 180.0f, m);
     float abi[16];
     geode_clip_grade_matrix(0.0f, 0.0f, 0.0f, 180.0f, abi);
     check(std::memcmp(abi, m, sizeof m) == 0, "ABI grade matches");

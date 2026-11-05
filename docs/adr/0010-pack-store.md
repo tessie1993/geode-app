@@ -1,10 +1,12 @@
 ---
-status: proposed
+status: deferred
 ---
 
 # The pack store: our packs, sold per pack, downloaded from a static catalogue
 
 Until now, Cast to TV has been the app's only internet use. The owner set that rule on 2026-11-02, and CI, the privacy policy and the Data safety form all depend on it. On 2026-11-05 the owner decided, in the 3.0 spec (#455, answer 20 on #433), that **style packs come from an in-app online store**. That is a second internet use. This ADR sets its limits. It amends the Cast-only rule. It does not change how Cast works.
+
+**Deferred (2026-11-05).** The owner shelved the pack store: there are no paid packs for launch, and the store tickets are closed as not planned for now (owner's answer on PR #492). This ADR is kept as the design to start from if the store comes back. Until then, Cast to TV stays the app's only internet use, and nothing below changes any gate, policy or form. The owner's one answer for later: **a refund stops and deletes the pack** (open question 4, as proposed). Hosting, pricing and packs without Pro are dropped for now, and questions 5–7 were not needed.
 
 Nothing in this ADR is built yet. Tracked in #475. Store code (#476) waits for the owner to accept this ADR. The CI gates, the manifest, the privacy policy and the Data safety form change in the same PR as the store code, not before. § CI gates and § Privacy policy and Data safety list exactly what each will change.
 
@@ -114,7 +116,7 @@ Both `docs/privacy-policy.html` and `docs/privacy-policy.md` change:
 1. **Hosting.** Which host serves the files? GitHub Pages is free but can't turn off access logs and caps bandwidth. Cloudflare R2 or Pages lets logs be turned off. A plain CDN bucket is another option. The answer decides the Data safety row above and the policy's log sentence.
 2. **Pricing.** What is the price tier per pack (one tier, or by size)? Is there a bundle? A bundle is one more product id that grants several packs.
 3. **Free users.** Does a bought pack work without Pro (proposed: yes, since it is "not included in Pro")? Can a user try a pack's generator live while the purchase sheet is open, like Pro styles (`PlayerSession.leaveScenePreview`)?
-4. **Refunds.** A refund revokes on Play's next full list. Proposed: the pack's content stops loading, and its files are deleted on the next store open. A Scene or preset that used it falls back to the default generator and says why.
+4. **Refunds.** *Answered (2026-11-05): stop and delete, as proposed.* A refund revokes on Play's next full list. Proposed: the pack's content stops loading, and its files are deleted on the next store open. A Scene or preset that used it falls back to the default generator and says why.
 5. **Withdrawn packs.** When the catalogue drops a pack, proposed: owners keep it installed and working forever. The catalogue keeps a `withdrawn` row, hidden from browsing, so owners can still restore it after a reinstall. The Play product is deactivated, not deleted: Play still returns owned purchases for inactive products. Does the owner commit to hosting withdrawn packs indefinitely?
 6. **Updates.** Should a new pack version install automatically on the next store open (proposed), or wait for the user to tap it? The old version is kept until the new one verifies.
 7. **Signing key custody.** Who holds the offline Ed25519 key, and where is its backup kept?

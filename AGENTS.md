@@ -10,6 +10,13 @@ Read before you change structure:
 - [`GLOSSARY.md`](GLOSSARY.md): domain words. Name things with them.
 - [`docs/AUDIO_CHAIN.md`](docs/AUDIO_CHAIN.md): read it before touching the playback audio path.
 
+## What is where, and why (absolute)
+
+- **Kotlin runs only on the main thread**: Compose UI, ViewModels' UI state, and thin Android glue (lifecycle, Media3 session and player wiring, permissions, MediaStore, MediaCodec and Transformer calls, billing IPC).
+- **Everything else is C++ in `core/`, behind `core/api/geode_api.h`, never Kotlin**: every worker, GL, audio and export thread; all logic and decisions; all audio code; params (ranges, defaults, clamping, modulation, routing); clocks and scheduling; shaders (GLSL driven from `core/viz`); the engine's inner workings. `core/sound` hears, `core/viz` renders (params, Director, Reactions, safety), `core/audio/dsp` is DSP, `core/studio` the clock. `*_jni.cpp` only marshals values.
+- **Why**: one engine for live, export, wallpaper and dream (no drift); deterministic and host-tested in `core/tests`; no GC or JNI chatter on real-time threads (ADR 0003, ADR 0006).
+- If a change touches logic that is in Kotlin today, put the logic in C++ and leave Kotlin a thin caller.
+
 ## Modules
 
 ```

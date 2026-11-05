@@ -196,9 +196,4 @@ bool BornClock::step(float dt, bool trigger, bool locked) {
     return swap;
 }
 
-float dropFlare(float flare, bool drop, float dt) {
-    if (drop) return 1.0f;
-    return std::max(0.0f, finiteOr(flare, 0.0f) * std::exp(-std::clamp(finiteOr(dt, 0.0f), 0.0f, 0.1f) / 0.3f));
-}
-
 }  // namespace geode::viz::liquid

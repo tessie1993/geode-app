@@ -1018,6 +1018,40 @@ void scenePrepRetargetsAndCaps() {
     check(!prep.active() && prep.retarget("fluid"), "a finished target is forgotten");
 }
 
+// #369: a layer and Liquid's next style, each staged through the one ScenePrep, take turns.
+void scenePrepSecondariesTakeTurns() {
+    ScenePrep prep;
+    check(!prep.yieldsTo("layer_style", "born_style"), "with nothing staged, nobody waits");
+    prep.retarget("born_style");
+    check(prep.yieldsTo("layer_style", "born_style"), "the layer waits while the next style is staged");
+    check(!prep.yieldsTo("born_style", "layer_style"), "the next style keeps its own staging");
+    check(!prep.yieldsTo("layer_style", ""), "a target nobody asks for any more is taken over");
+    check(!prep.yieldsTo("layer_style", "other_style"), "only the other secondary's live staging is waited on");
+    check(!prep.yieldsTo("born_style", "born_style"), "a scene never waits for itself");
+
+    // Both ask every frame; each frame the layer asks first. Before the fix each ask retargeted and
+    // cleared the other, so neither finished. Now the first to start finishes, then the other runs.
+    ScenePrep turns;
+    int layerAttempts = 0;
+    int bornAttempts = 0;
+    bool layerBuilt = false;
+    bool bornBuilt = false;
+    for (int frame = 0; frame < 40 && !(layerBuilt && bornBuilt); ++frame) {
+        auto ask = [&](const std::string& id, const std::string& other, int& attempts, bool& built) {
+            if (built || turns.yieldsTo(id, other)) return;
+            turns.retarget(id);
+            if (turns.next(true) == ScenePrep::Step::Attempt && ++attempts == 2) {
+                built = true;
+                turns.done();
+            }
+        };
+        ask("layer_style", bornBuilt ? "" : "born_style", layerAttempts, layerBuilt);
+        ask("born_style", layerBuilt ? "" : "layer_style", bornAttempts, bornBuilt);
+    }
+    check(layerBuilt && bornBuilt, "both secondary targets finish staging");
+    check(layerAttempts == 2 && bornAttempts == 2, "neither restarts the other's attempts");
+}
+
 // The renderer's staged protocol against a stand-in stager: the first attempt discovers the scene's
 // programs, waits compile one per frame, and the attempt after the stager goes idle succeeds.
 void stagedBuildFinishesInBoundedFrames() {
@@ -1118,6 +1152,7 @@ int main() {
     endlessZoomReducedMotionScalesTheDiveOnce();
     buildBudgetBoundsAFrame();
     scenePrepRetargetsAndCaps();
+    scenePrepSecondariesTakeTurns();
     stagedBuildFinishesInBoundedFrames();
     if (failures == 0) std::printf("viz_math_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;

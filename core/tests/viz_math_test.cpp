@@ -9,6 +9,7 @@
 #include <string>
 
 #include "viz/CameraRig.hpp"
+#include "viz/Circular.hpp"
 #include "viz/VisualSafety.hpp"
 #include "viz/EndlessZoom.hpp"
 #include "viz/Macros.hpp"
@@ -53,6 +54,65 @@ void followRouteTracksSource() {
     check(std::fabs(e.output(0) - 0.4f) < 1e-4f, "follow with zero smoothing outputs amount * source");
     const SceneParams p = e.apply(SceneParams{});
     check(std::fabs(p.zoom - 1.4f) < 1e-4f, "follow route lands on its target param");
+}
+
+// ---- Circular sources (viz/Circular.hpp): hues take the short arc, phases only go forward ----
+
+void circularHelpersTakeTheShortWay() {
+    check(std::fabs(circular::arcDelta(0.95f, 0.05f) - 0.1f) < 1e-5f, "0.95 -> 0.05 is +0.1 round the seam, not -0.9");
+    check(std::fabs(circular::arcDelta(0.05f, 0.95f) + 0.1f) < 1e-5f, "and back is -0.1");
+    check(std::fabs(circular::mixHue(0.9f, 0.1f, 0.5f)) < 1e-5f, "halfway from 0.9 to 0.1 is 0.0, not 0.5");
+    check(std::fabs(circular::phaseDelta(0.98f, 0.02f) - 0.04f) < 1e-5f, "a phase wrap is a small step forward");
+    check(circular::phaseDelta(0.5f, 0.45f) == 0.0f, "a phase a little behind holds, never runs back");
+    check(std::fabs(circular::phaseDelta(0.6f, 0.0f) - 0.4f) < 1e-5f, "a phase reset to 0 goes forward through the seam");
+    check(circular::wrap01(1.0f) == 0.0f && circular::wrap01(-0.25f) == 0.75f && circular::wrap01(NAN) == 0.0f, "wrap01 lands in [0, 1)");
+    check(std::fabs(circular::follow(Circle::None, 0.95f, 0.05f, 0.5f) - 0.5f) < 1e-5f, "a plain value still eases on its line");
+}
+
+// Before: 0.95 -> 0.05 on a chord-hue route eased back through 0.5, every colour on the wheel in one glide.
+void hueRouteWrapsTheShortWay() {
+    ReactionEngine e;
+    e.routes[0] = {true, ReactSource::ChordHue, LfoTarget::ColorShift, ReactMode::Follow, 1.0f, ModCurve::Linear, 0.3f, 0.3f};
+    GeodeSoundFrame f = silence();
+    f.chordHue = 0.95f;
+    for (int i = 0; i < 240; ++i) e.tick(f, 1.0f / 60.0f);
+    check(std::fabs(e.output(0) - 0.95f) < 1e-3f, "the hue route settles on its chord");
+    f.chordHue = 0.05f;
+    e.tick(f, 1.0f / 60.0f);
+    check(e.output(0) > 0.95f, "the first step goes up toward the seam, not down toward 0.5");
+    bool visitedMiddle = false;
+    for (int i = 0; i < 240; ++i) {
+        e.tick(f, 1.0f / 60.0f);
+        const float v = e.output(0);
+        visitedMiddle = visitedMiddle || (v > 0.1f && v < 0.9f);
+    }
+    check(!visitedMiddle, "0.95 -> 0.05 crosses 1.0 = 0.0 and never visits 0.5");
+    check(std::fabs(e.output(0) - 0.05f) < 1e-3f, "and lands on the new chord");
+}
+
+// A beat phase ramps and wraps every beat; smoothed, it must keep turning forward through each wrap.
+void phaseRouteStaysMonotonic() {
+    ReactionEngine e;
+    e.routes[0] = {true, ReactSource::BeatPhase, LfoTarget::ColorShift, ReactMode::Follow, 1.0f, ModCurve::Linear, 0.1f, 0.5f};
+    GeodeSoundFrame f = silence();
+    const float dt = 1.0f / 60.0f;
+    float prev = 0.0f;
+    float travelled = 0.0f;
+    bool backward = false;
+    for (int i = 0; i < 600; ++i) {  // 10 s at 120 bpm: 20 wraps
+        const float t = static_cast<float>(i) * dt;
+        f.beatPhase = 2.0f * t - std::floor(2.0f * t);
+        e.tick(f, dt);
+        const float v = e.output(0);
+        if (i >= 60) {  // after the route's ease-in
+            const float d = circular::wrap01(v - prev + 0.5f) - 0.5f;
+            backward = backward || d < -1e-5f;
+            travelled += d;
+        }
+        prev = v;
+    }
+    check(!backward, "a smoothed beat phase never steps backward, wraps included");
+    check(std::fabs(travelled - 18.0f) < 0.1f, "and turns once per beat (18 beats in the checked 9 s)");
 }
 
 void stepRouteJumpsOncePerEdge() {
@@ -540,6 +600,12 @@ void sourceCatalogueIsCompleteAndUnique() {
     }
     check(static_cast<int>(names.size()) == kReactSourceCount, "source names are unique (they are the saved names)");
     check(reactSourceInfo(ReactSource::Kick).event && !reactSourceInfo(ReactSource::KickEnv).event, "hits are events, envelopes are levels");
+    check(reactSourceInfo(ReactSource::ChordHue).circle == Circle::Hue && reactSourceInfo(ReactSource::KeyHue).circle == Circle::Hue,
+          "hue sources are marked circular");
+    check(reactSourceInfo(ReactSource::BeatPhase).circle == Circle::Phase && reactSourceInfo(ReactSource::PhrasePhase).circle == Circle::Phase,
+          "phase sources are marked as phases");
+    check(reactSourceInfo(ReactSource::Bass).circle == Circle::None && reactSourceInfo(ReactSource::Tension).circle == Circle::None,
+          "levels are lines");
 }
 
 // ---- Customize › Macros (viz/Macros) ----
@@ -857,6 +923,9 @@ void stagedBuildFinishesInBoundedFrames() {
 int main() {
     foldIsBoundedAndContinuous();
     followRouteTracksSource();
+    circularHelpersTakeTheShortWay();
+    hueRouteWrapsTheShortWay();
+    phaseRouteStaysMonotonic();
     stepRouteJumpsOncePerEdge();
     luminanceRoutesAreSlewLimited();
     triggersHoldAndSilenceIsQuiet();

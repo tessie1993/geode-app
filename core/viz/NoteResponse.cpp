@@ -5,6 +5,8 @@
 #include <cmath>
 #include <initializer_list>
 
+#include "viz/Circular.hpp"
+
 namespace geode::viz {
 
 namespace {
@@ -15,9 +17,9 @@ constexpr float kTau = 6.2831853f;
 
 // Both NaN-safe: a garbage frame (a NaN from a driver or a bad file) reads as 0, never poisons a filter.
 float clamp01(float x) { return x > 0.0f ? (x < 1.0f ? x : 1.0f) : 0.0f; }
-float wrap01(float h) { return std::isfinite(h) ? h - std::floor(h) : 0.0f; }
-float hueDelta(float from, float to) { return wrap01(to - from + 0.5f) - 0.5f; }
-float mixHue(float from, float to, float k) { return wrap01(from + hueDelta(from, to) * k); }
+// The colour wheel's one set of helpers (viz/Circular.hpp): every hue here eases the short way round.
+using circular::mixHue;
+using circular::wrap01;
 float smooth(float x) {
     const float t = clamp01(x);
     return t * t * (3.0f - 2.0f * t);

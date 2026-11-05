@@ -137,6 +137,41 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopFittingBitRa
     return geode_loop_fitting_bit_rate(totalUs, limitBytes, soundtrackBytes);
 }
 
+// Time-of-day drift (output/LoopDrift).
+
+JNIEXPORT jfloatArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopDriftStops(JNIEnv* env, jobject,
+                                                                                       jfloat hueTurns, jfloat warmth,
+                                                                                       jint stops) {
+    const int count = geode_loop_drift_stops(hueTurns, warmth, stops, nullptr, nullptr, 0);
+    std::vector<float> hue(static_cast<size_t>(count));
+    std::vector<float> warm(static_cast<size_t>(count));
+    geode_loop_drift_stops(hueTurns, warmth, stops, hue.data(), warm.data(), count);
+    std::vector<jfloat> flat(static_cast<size_t>(count) * 2);
+    for (int i = 0; i < count; ++i) {
+        flat[static_cast<size_t>(i) * 2] = hue[static_cast<size_t>(i)];
+        flat[static_cast<size_t>(i) * 2 + 1] = warm[static_cast<size_t>(i)];
+    }
+    jfloatArray result = env->NewFloatArray(static_cast<jsize>(flat.size()));
+    if (result && !flat.empty()) env->SetFloatArrayRegion(result, 0, static_cast<jsize>(flat.size()), flat.data());
+    return result;
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopDriftStopCount(JNIEnv*, jobject, jlong totalMs,
+                                                                                    jfloat hueTurns, jfloat warmth) {
+    return geode_loop_drift_stop_count(totalMs, hueTurns, warmth);
+}
+
+JNIEXPORT jfloat JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopDriftColorShift(JNIEnv*, jobject, jfloat colorShift,
+                                                                                       jfloat hueOffset) {
+    return geode_loop_drift_color_shift(colorShift, hueOffset);
+}
+
+JNIEXPORT jfloat JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopDriftTemperature(JNIEnv*, jobject,
+                                                                                        jfloat temperature,
+                                                                                        jfloat warmthOffset) {
+    return geode_loop_drift_temperature(temperature, warmthOffset);
+}
+
 // Encoder requests (output/EncodePlan).
 
 JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportCappedVideoBps(JNIEnv*, jobject, jint requestedBps,

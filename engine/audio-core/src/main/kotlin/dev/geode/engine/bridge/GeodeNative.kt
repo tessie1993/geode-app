@@ -635,6 +635,35 @@ object GeodeNative {
         soundtrackBytes: Long,
     ): Int
 
+    /**
+     * A time-of-day drift's stops as (hue offset, warmth offset) pairs, stop i at pair i: none at the first,
+     * the full [hueTurns] and [warmth] at the last, one zero stop when nothing moves (`core/output/LoopDrift`).
+     */
+    external fun loopDriftStops(
+        hueTurns: Float,
+        warmth: Float,
+        stops: Int,
+    ): FloatArray
+
+    /** How many stops a drift over [totalMs] gets: one per 20 minutes, 1..8, and 1 when nothing moves. */
+    external fun loopDriftStopCount(
+        totalMs: Long,
+        hueTurns: Float,
+        warmth: Float,
+    ): Int
+
+    /** [colorShift] moved by a drift stop's [hueOffset], wrapped into one turn. */
+    external fun loopDriftColorShift(
+        colorShift: Float,
+        hueOffset: Float,
+    ): Float
+
+    /** [temperature] moved by a drift stop's [warmthOffset], clamped to -1..1. */
+    external fun loopDriftTemperature(
+        temperature: Float,
+        warmthOffset: Float,
+    ): Float
+
     /** [requestedBps], lowered so the file fits [limitBytes] (<= 0: the 3.8 GB render target). */
     external fun exportCappedVideoBps(
         requestedBps: Int,

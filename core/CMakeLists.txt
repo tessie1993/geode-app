@@ -25,6 +25,7 @@ add_library(geode_core STATIC
     audio/dsp/PcmConvert.cpp
     output/FrameClock.cpp
     output/LoopPlan.cpp
+    output/LoopDrift.cpp
     output/EncodePlan.cpp
     output/Chapters.cpp
     signal/timeline/Keyframes.cpp

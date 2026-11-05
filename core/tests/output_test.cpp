@@ -1,8 +1,9 @@
-// Host-side checks for the offline render's planning (core/output: FrameClock, LoopPlan, EncodePlan,
-// Chapters) and its C ABI. Built and run by CI (.github/workflows/android.yml, "Native export planning
+// Host-side checks for the offline render's planning (core/output: FrameClock, LoopPlan, LoopDrift,
+// EncodePlan, Chapters) and its C ABI. Built and run by CI (.github/workflows/android.yml, "Native export planning
 // tests") with the system compiler; no device. Where a value pins the Kotlin it replaces (VideoExporter,
 // LoopSpec, LoopExtendPlan, MuxerBudget, ExportAspect, fallbackExportFps, ChapterMarkers), the comment says
 // so; the deliberate changes (exact pts, the seam budget's lost frame, the 0:00 lead-in) say why.
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <vector>
@@ -11,6 +12,7 @@
 #include "output/Chapters.hpp"
 #include "output/EncodePlan.hpp"
 #include "output/FrameClock.hpp"
+#include "output/LoopDrift.hpp"
 #include "output/LoopPlan.hpp"
 #include "viz/FrameStep.hpp"
 
@@ -138,6 +140,78 @@ void loopExtend() {
           "ABI fill derives without clamping");
 }
 
+// Time-of-day drift (#424). Every value pins the Kotlin TimeOfDayDrift and DriftStop it replaces (the
+// same float divide and multiply per stop, the same floor wrap and coerceIn clamps).
+void loopDrift() {
+    const TimeOfDayDrift three{0.3f, -0.6f, 3};
+    check(three.drifts(), "three stops with a hue move drift");
+    const auto p3 = three.stopPhases();
+    check(p3.size() == 3, "one phase per stop");
+    check(p3[0].index == 0 && p3[0].hueOffset == 0.0f && p3[0].warmthOffset == 0.0f, "the first stop has no offset");
+    check(p3[1].index == 1 && p3[1].hueOffset == 0.3f * (1.0f / 2.0f) && p3[1].warmthOffset == -0.6f * 0.5f,
+          "the middle stop is half way, in float");
+    check(p3[2].index == 2 && p3[2].hueOffset == 0.3f && p3[2].warmthOffset == -0.6f, "the last stop is the full drift");
+
+    // Eight stops: progress is index / 7 in float, then times the drift, exactly as Kotlin computed it.
+    const TimeOfDayDrift eight{1.25f, 0.4f, 8};
+    const auto p8 = eight.stopPhases();
+    check(p8.size() == 8, "eight stops");
+    bool same = true;
+    for (int i = 0; i < 8; ++i) {
+        const float progress = static_cast<float>(i) / 7.0f;
+        if (p8[static_cast<size_t>(i)].hueOffset != 1.25f * progress) same = false;
+        if (p8[static_cast<size_t>(i)].warmthOffset != 0.4f * progress) same = false;
+        if (p8[static_cast<size_t>(i)].index != i) same = false;
+    }
+    check(same, "eight stops match the Kotlin float maths bit for bit");
+    check(p8[7].hueOffset == 1.25f, "a drift past one turn is kept whole; the wrap is per frame");
+
+    const TimeOfDayDrift single{0.5f, 0.5f, 1};
+    check(!single.drifts() && single.stopPhases().size() == 1 && single.stopPhases()[0].hueOffset == 0.0f,
+          "a single stop is one render with no drift");
+    const TimeOfDayDrift still{0.0f, 0.0f, 5};
+    check(!still.drifts() && still.stopPhases().size() == 1 && still.stopPhases()[0].warmthOffset == 0.0f,
+          "stops with nothing to move are one stop");
+    const TimeOfDayDrift warmOnly{0.0f, 0.2f, 2};
+    check(warmOnly.drifts() && warmOnly.stopPhases()[1].warmthOffset == 0.2f, "warmth alone drifts");
+    // Kotlin's constructor rejects these; native takes them into 1..8 rather than misbehave.
+    check(TimeOfDayDrift{0.5f, 0.0f, 0}.stopPhases().size() == 1, "no stops is one stop");
+    check(TimeOfDayDrift{0.5f, 0.0f, 20}.stopPhases().size() == 8, "too many stops is eight");
+
+    // over(): one stop per 20 minutes, 1..8, and None when nothing moves.
+    check(TimeOfDayDrift::stopsOver(3LL * 3'600'000, 0.25f, 0.0f) == 8, "three hours is capped at eight stops");
+    check(TimeOfDayDrift::stopsOver(60LL * 60'000, 0.25f, 0.0f) == 3, "an hour is three stops");
+    check(TimeOfDayDrift::stopsOver(59LL * 60'000, 0.25f, 0.0f) == 2, "the count truncates");
+    check(TimeOfDayDrift::stopsOver(10LL * 60'000, 0.25f, 0.0f) == 1, "under twenty minutes is one stop");
+    check(TimeOfDayDrift::stopsOver(-5, 0.25f, 0.0f) == 1, "a negative length is one stop");
+    check(TimeOfDayDrift::stopsOver(3LL * 3'600'000, 0.0f, 0.0f) == 1, "nothing to move is one stop");
+    check(TimeOfDayDrift::stopsOver(3LL * 3'600'000, 0.0f, -0.1f) == 8, "warmth alone counts stops");
+
+    // The wrap at one turn (the palette's midnight) and the warmth clamp.
+    check(driftColorShift(0.25f, 0.5f) == 0.75f, "a shift inside the turn is unchanged");
+    check(driftColorShift(0.75f, 0.5f) == (1.25f - 1.0f), "a shift past 1.0 wraps to the start of the turn");
+    check(driftColorShift(0.5f, 0.5f) == 0.0f, "exactly 1.0 wraps to 0");
+    check(driftColorShift(0.25f, -0.5f) == 0.75f, "a negative shift wraps from the top");
+    check(driftColorShift(0.0f, 2.0f) == 0.0f, "whole turns vanish");
+    const float tiny = -1e-9f;
+    check(driftColorShift(0.0f, tiny) == 1.0f, "a hair under 0 rounds to 1.0, as Kotlin's float floor did");
+    check(driftColorShift(0.1f, 0.3f) == (0.1f + 0.3f) - std::floor(0.1f + 0.3f), "the same float sum and floor");
+    check(std::isnan(driftColorShift(std::nanf(""), 0.1f)), "a NaN shift stays NaN, as coerceIn left it");
+    check(driftTemperature(0.5f, 0.25f) == 0.75f, "warmth inside the range");
+    check(driftTemperature(0.8f, 0.6f) == 1.0f, "warmth clamps at 1");
+    check(driftTemperature(-0.8f, -0.6f) == -1.0f, "warmth clamps at -1");
+
+    float hue[8];
+    float warm[8];
+    check(geode_loop_drift_stops(0.3f, -0.6f, 3, nullptr, nullptr, 0) == 3, "ABI stop count query");
+    check(geode_loop_drift_stops(0.3f, -0.6f, 3, hue, warm, 8) == 3 && hue[2] == 0.3f && warm[1] == -0.3f,
+          "ABI stops");
+    check(geode_loop_drift_stops(0.0f, 0.0f, 4, hue, warm, 8) == 1 && hue[0] == 0.0f, "ABI no-drift stop");
+    check(geode_loop_drift_stop_count(60LL * 60'000, 0.1f, 0.0f) == 3, "ABI stopsOver");
+    check(geode_loop_drift_color_shift(0.75f, 0.5f) == 0.25f && geode_loop_drift_temperature(0.9f, 0.5f) == 1.0f,
+          "ABI per-frame apply");
+}
+
 void encodePlan() {
     using namespace encode;
     const int64_t hourUs = 3'600'000'000LL;
@@ -208,6 +282,7 @@ int main() {
     frameClock();
     loopSpec();
     loopExtend();
+    loopDrift();
     encodePlan();
     chapters();
     if (failures) {

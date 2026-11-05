@@ -116,6 +116,10 @@ data class LoopSpec(
  * own palette offset, and each fills its share of the running time. A step lands on a loop seam,
  * where the motion has already dissolved, and a few degrees of hue an hour reads as drift rather
  * than as a cut.
+ *
+ * This is the data the loop sheet and the request carry; the maths (the stops' offsets, the stop
+ * count, the wrap and clamp on each frame) is native, `core/output/LoopDrift`, tested by
+ * `core/tests/output_test.cpp`.
  */
 data class TimeOfDayDrift(
     val hueTurns: Float,
@@ -128,47 +132,32 @@ data class TimeOfDayDrift(
         require(warmth.isFinite()) { "warmth must be finite, was $warmth" }
     }
 
-    val drifts: Boolean get() = stops > 1 && (hueTurns != 0f || warmth != 0f)
-
-    /**
-     * The palette offset for each stop, from none at the start to the full drift at the end.
-     * One stop means one render and no drift.
-     */
+    /** The palette offset for each stop, from none at the start to the full drift at the end; one stop is no drift. */
     fun stopPhases(): List<DriftStop> {
-        if (!drifts) return listOf(DriftStop(0, 0f, 0f))
-        val last = (stops - 1).toFloat()
-        return List(stops) { index ->
-            val progress = index / last
-            DriftStop(index, hueTurns * progress, warmth * progress)
-        }
+        val pairs = GeodeNative.loopDriftStops(hueTurns, warmth, stops)
+        return List(pairs.size / 2) { DriftStop(it, pairs[it * 2], pairs[it * 2 + 1]) }
     }
 
     companion object {
         val None: TimeOfDayDrift = TimeOfDayDrift(0f, 0f, 1)
 
+        /** Matches `TimeOfDayDrift::kMaxStops` in `core/output/LoopDrift.hpp`. */
         const val MAX_STOPS: Int = 8
-        const val MIN_STOP_MS: Long = 20 * 60_000
 
         /**
-         * Spreads a drift over [totalMs] at no more than one step every [MIN_STOP_MS].
-         *
-         * Each stop is a whole extra loop render, so the count stays small: eight stops across a
-         * three-hour video cost eight minutes of rendering rather than three hours of it, and a
-         * palette step every twenty minutes is already slower than anyone watches for.
+         * Spreads a drift over [totalMs] at no more than one step every twenty minutes: each stop is a
+         * whole extra loop render, so eight stops across three hours cost eight minutes of rendering.
+         * Nothing to move is one stop, which is [None].
          */
         fun over(
             totalMs: Long,
             hueTurns: Float,
             warmth: Float = 0f,
-        ): TimeOfDayDrift {
-            if (hueTurns == 0f && warmth == 0f) return None
-            val stops = (totalMs / MIN_STOP_MS).toInt().coerceIn(1, MAX_STOPS)
-            return TimeOfDayDrift(hueTurns, warmth, stops)
-        }
+        ): TimeOfDayDrift = TimeOfDayDrift(hueTurns, warmth, GeodeNative.loopDriftStopCount(totalMs, hueTurns, warmth))
     }
 }
 
-/** One palette position along the drift, and the parameter change that realises it. */
+/** One palette position along the drift, and the parameter change that realises it (native wrap and clamp). */
 data class DriftStop(
     val index: Int,
     val hueOffset: Float,
@@ -176,14 +165,9 @@ data class DriftStop(
 ) {
     fun applyTo(params: SceneParams): SceneParams =
         params.copy(
-            colorShift = wrapTurn(params.colorShift + hueOffset),
-            temperature = (params.temperature + warmthOffset).coerceIn(-1f, 1f),
+            colorShift = GeodeNative.loopDriftColorShift(params.colorShift, hueOffset),
+            temperature = GeodeNative.loopDriftTemperature(params.temperature, warmthOffset),
         )
-
-    private fun wrapTurn(value: Float): Float {
-        val fraction = value - kotlin.math.floor(value)
-        return fraction.coerceIn(0f, 1f)
-    }
 }
 
 /** One rendered loop: a self-contained, video-only MP4 that starts on a keyframe. */

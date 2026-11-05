@@ -215,7 +215,7 @@ jobs:
       - name: Native export planning tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          EXPORT_SRCS="core/api/geode_export_api.cpp core/output/FrameClock.cpp core/output/LoopPlan.cpp core/output/EncodePlan.cpp core/output/Chapters.cpp core/signal/timeline/Keyframes.cpp core/signal/timeline/SpeedRamp.cpp core/viz/ClipGrade.cpp core/util/CubeLut.cpp core/audio/dsp/PcmConvert.cpp"
+          EXPORT_SRCS="core/api/geode_export_api.cpp core/output/FrameClock.cpp core/output/LoopPlan.cpp core/output/LoopDrift.cpp core/output/EncodePlan.cpp core/output/Chapters.cpp core/signal/timeline/Keyframes.cpp core/signal/timeline/SpeedRamp.cpp core/viz/ClipGrade.cpp core/util/CubeLut.cpp core/audio/dsp/PcmConvert.cpp"
           for t in output_test timeline_test clip_media_test; do
             g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/$t.cpp $EXPORT_SRCS -o $t
             ./$t

@@ -67,5 +67,4 @@ object SceneIds {
     const val BLACK_HOLE: String = "black_hole"
     const val HEX_HIVE: String = "hex_hive"
     const val MANDELBOX_CATHEDRAL: String = "mandelbox_cathedral"
-    const val MORPH_WORLD: String = "morph_world"
 }

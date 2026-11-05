@@ -12,7 +12,7 @@ namespace {
 
 // The loose fragment styles (ShaderScene compiles shaders/<id>_frag.glsl), in picker order. The
 // families' styles follow them.
-constexpr std::array<const char*, 60> kLooseShaders = {
+constexpr std::array<const char*, 61> kLooseShaders = {
     "julia", "tunnel", "mandel", "kaleido", "plasma", "bars", "ring", "scope", "liss", "warp", "grid", "voronoi",
     "metaballs", "ripples", "starfield", "waves", "hexgrid", "spiral", "aurora", "solar", "winter", "lava",
     // Built on the shared GLSL libraries (lib_scene_uniforms, lib_scene_grade, lib_sdf3, lib_touch).
@@ -33,11 +33,13 @@ constexpr std::array<const char*, 60> kLooseShaders = {
     // The neon set, written from scratch on lib_neon: a 2D spiral web,
     // then four marches (a chrome sea, a lensed singularity, a hex-pillar tunnel, a Mandelbox nave).
     "glow_vortex", "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral",
+    // An iterated fold, growth and circle inversion coloured by orbit traps; 2D, no raymarch.
+    "inversion_garden",
 };
 
 // The loose styles that raymarch, and so spend the Detail budget. Per STYLE rather than per kind:
 // Plasma and Vanishing are both shader styles and only one has a march to spend steps on.
-constexpr std::array<const char*, 25> kLooseMarched = {
+constexpr std::array<const char*, 26> kLooseMarched = {
     "vanishing", "morphogen", "nebula", "noneuclid", "kifs", "rod_tunnel",
     // Curl Bloom marches a distance field, Nectar Flow a volume; Detail is the budget for both.
     "curl_bloom", "nectar_flow", "crystal_canyon", "neon_city", "particle_tunnel", "chrome_nebula", "fractal_dive",
@@ -45,6 +47,8 @@ constexpr std::array<const char*, 25> kLooseMarched = {
     "supershape", "fractal_tunnel",
     // The neon set's marches; Glow Vortex is its one style without a march.
     "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral",
+    // Inversion Garden does not march: Detail is its iteration depth, so a hot phone sheds depth too.
+    "inversion_garden",
 };
 
 constexpr std::array<Family, 10> kFamilies = {{
@@ -143,6 +147,7 @@ constexpr LookOf kLooseLooks[] = {
     {"supershape", BloomLook::Flower}, {"fractal_tunnel", BloomLook::Flower}, {"fractal_dive", BloomLook::Flower},
     {"glow_vortex", BloomLook::Flower}, {"neon_chrome_sea", BloomLook::Flower}, {"black_hole", BloomLook::Flower},
     {"hex_hive", BloomLook::Flower}, {"mandelbox_cathedral", BloomLook::Flower},
+    {"inversion_garden", BloomLook::Flower},
     // Water, waves, scopes, bars and landscapes: a ring spreading from the note, like a drop on a surface.
     {"ripples", BloomLook::Ripple}, {"waves", BloomLook::Ripple}, {"ring", BloomLook::Ripple},
     {"scope", BloomLook::Ripple}, {"liss", BloomLook::Ripple}, {"bars", BloomLook::Ripple},

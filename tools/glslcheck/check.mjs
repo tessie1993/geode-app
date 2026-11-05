@@ -59,7 +59,7 @@ const FLUID_LOOK_HPP = path.join(ROOT, 'core', 'viz', 'fluid', 'FluidLook.hpp');
 
 function parseIncludeRegistry() {
   const src = fs.readFileSync(SHADER_SOURCE_CPP, 'utf8');
-  const m = src.match(/kIncludes\s*=\s*\{([\s\S]*?)\};/);
+  const m = src.match(/kIncludes(?:\[\])?\s*=\s*\{([\s\S]*?)\};/);
   if (!m) throw new Error(`could not find kIncludes in ${SHADER_SOURCE_CPP}`);
   return [...m[1].matchAll(/"([A-Za-z0-9_]+)"/g)].map((x) => x[1]);
 }

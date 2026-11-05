@@ -626,8 +626,16 @@ private object StyleLookTags {
 
     private val LOOSE: Map<String, StyleLook> =
         buildMap {
-            listOf("julia", "mandel", "kifs", "fractal_temple", "menger_core", "mandelbox_cathedral", "supershape")
-                .forEach { put(it, StyleLook.FRACTALS) }
+            listOf(
+                "julia",
+                "mandel",
+                "kifs",
+                "fractal_temple",
+                "menger_core",
+                "mandelbox_cathedral",
+                "supershape",
+                "inversion_garden",
+            ).forEach { put(it, StyleLook.FRACTALS) }
             listOf(
                 "tunnel",
                 "rod_tunnel",

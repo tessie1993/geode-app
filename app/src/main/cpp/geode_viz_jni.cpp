@@ -249,9 +249,9 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetLfo(JNIEnv* env, jobject, jlong h
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetReactions(JNIEnv* env, jobject, jlong handle, jfloatArray routes) {
-    FloatElements data(env, routes);
-    if (data.get()) geode_viz_set_reactions(vizOf(handle), data.get(), data.length());
+Java_dev_geode_engine_bridge_GeodeNative_vizSetUserReactions(JNIEnv* env, jobject, jlong handle, jfloatArray user) {
+    FloatElements routes(env, user);
+    geode_viz_set_user_reactions(vizOf(handle), routes.get(), routes.length(), user ? 1 : 0);
 }
 
 JNIEXPORT jfloatArray JNICALL

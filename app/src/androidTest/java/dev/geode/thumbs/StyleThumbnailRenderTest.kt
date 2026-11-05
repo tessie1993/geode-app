@@ -14,7 +14,6 @@ import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.services.storage.TestStorage
 import dev.geode.engine.audio.SoundTuning
-import dev.geode.render.StyleReactionsCache
 import dev.geode.render.TransitionStyle
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.scene.Catalogue
@@ -42,7 +41,7 @@ import kotlin.math.abs
  *
  * Each style gets a fresh [NativeViz], prepared the way [dev.geode.render.offscreen.OffscreenSceneRenderer]
  * prepares an export (offscreen tier, cut transition, the style's own reaction DNA from
- * [StyleReactionsCache]), hears [SyntheticGroove] frame by frame and runs [WARMUP_SECONDS] of
+ * native, no user list), hears [SyntheticGroove] frame by frame and runs [WARMUP_SECONDS] of
  * frames before the one that is kept, so simulations have grown and reactions are mid-groove
  * rather than at their silent rest pose. NativeViz is driven directly rather than through
  * OffscreenSceneRenderer because that one only hears a decoded track (TrackAudio), and the
@@ -186,7 +185,8 @@ class StyleThumbnailRenderTest {
             // Default Customize values: the thumb shows the style as a new user first meets it.
             val params = SceneParams(fluidAutoQuality = false)
             viz.setParams(params)
-            viz.setReactions(StyleReactionsCache().routesFor(id, params.reactSeed))
+            // No list of the user's: native plays the style's own DNA at params.reactSeed.
+            viz.setUserReactions(null)
 
             val groove = SyntheticGroove()
             val samplesPerFrame = groove.sampleRateHz / fps

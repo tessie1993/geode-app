@@ -405,6 +405,16 @@ object GeodeNative {
         cornerPx: Float,
     )
 
+    /**
+     * The wallpaper's edge look (`core/viz/frame/EdgeGlowPass`), `GEODE_EDGE_GLOW_FLOATS` floats: enabled
+     * (> 0.5), then the on-screen window in surface pixels, y down (left, top, width, height; a size <= 0
+     * is the whole surface). Any thread, latched for the next frame; ignored offscreen.
+     */
+    external fun vizSetEdgeGlow(
+        handle: Long,
+        opts: FloatArray?,
+    )
+
     external fun vizKnows(
         handle: Long,
         sceneId: String,

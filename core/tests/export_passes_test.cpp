@@ -6,6 +6,7 @@
 // were worked from the Kotlin expressions, float for float), because the acceptance is the same frames
 // before and after.
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <limits>
 
@@ -122,6 +123,121 @@ void transitionRatioAndPassthrough() {
     check(!tr::passthrough(true, 0.99f), "inside the window it blends");
 }
 
+// ---- Added by the mutation pass on #552. Every expected value is a hand-worked literal. ----
+
+// Kills: truncate -> round or ceil (95.2 * 1.35 = 128.52 would round up past 128); kTileSpacing nudged
+// down (96 * 1.35 = 129.6 must spill into the 256 tile; at 1.3 it would stay 128).
+void tileWidthTruncatesTextPlusGapBeforeRounding() {
+    check(wm::tileWidth(95.2f) == 128, "128.52 px of text plus gap truncates to 128, already a power of two");
+    check(wm::tileWidth(96.0f) == 256, "129.6 px of text plus gap needs the 256 tile");
+    check(wm::tileWidth(94.0f) == 128, "126.9 px of text plus gap fits the 128 tile");
+    check(wm::tileWidth(-500.0f) == 64, "a negative width keeps the 64 px floor");
+}
+
+// Kills: the 1 << 14 cap's signed overflow. nextPowerOfTwo(v > 2^30) shifts 2^30 left once, which C++20
+// defines as INT_MIN (cppreference, "Bitwise shift operators", since C++20), and min(INT_MIN, cap) keeps
+// it. The header promises a power of two of at least kMinTilePx for any measured width.
+// EXPECTED TO FAIL on #552 as written for widths above about 8e8 px: a latent defect, not reachable
+// through Paint.measureText at a real frame's text size today.
+void tileWidthStaysAPositivePowerOfTwoForAbsurdWidths() {
+    const float absurd[] = {12'000.0f, 1.0e6f, 8.0e8f, 1.0e9f, 1.0e12f, std::numeric_limits<float>::infinity()};
+    for (float w : absurd) {
+        const int t = wm::tileWidth(w);
+        if (!(t >= 64 && (t & (t - 1)) == 0)) {
+            std::printf("  tileWidth(%g) = %d\n", static_cast<double>(w), t);
+            check(false, "the tile width stays a power of two of at least 64 for any text width");
+        }
+    }
+}
+
+// Kills: tileWidth / 2 -> / 4 or no halving (every caller passes tileWidth()'s power-of-two output).
+void tileHeightIsHalfTheTileWidth() {
+    const int widths[] = {64, 128, 256, 512, 1024, 2048, 4096};
+    const int heights[] = {32, 64, 128, 256, 512, 1024, 2048};
+    for (int i = 0; i < 7; i++) check(wm::tileHeight(widths[i]) == heights[i], "a power-of-two tile is half as high as wide");
+}
+
+// Kills: kTextFraction or kMinTextPx nudged, max -> min; pins 4K and odd short sides and the floor's edge.
+void textPxAtFourKAndOddFrames() {
+    check(std::fabs(wm::textPx(2160) - 97.2f) < 1e-4f, "4K's short side gives 97.2 px of wordmark");
+    check(std::fabs(wm::textPx(1081) - 48.645f) < 1e-4f, "an odd 1081 px short side gives 48.645 px");
+    // 14 / 0.045 = 311.1: a 311 px short side is under the floor, 312 just over it.
+    check(wm::textPx(311) == 14.0f, "a 311 px short side is still on the 14 px floor");
+    check(wm::textPx(312) > 14.0f, "a 312 px short side is just above it");
+}
+
+// Kills: `||` -> `&&` in the zero-tile guard (one zero side would divide by zero), u and v swapped,
+// integer division. Odd and 4K frames in both orientations; each quotient is exact in binary.
+void tilesAtFourKAndOddFramesBothOrientations() {
+    const auto land4k = wm::tiles(3840, 2160, 512, 256);
+    check(land4k.u == 7.5f && land4k.v == 8.4375f, "4K landscape: 7.5 tiles across, 8.4375 down");
+    const auto port4k = wm::tiles(2160, 3840, 512, 256);
+    check(port4k.u == 4.21875f && port4k.v == 15.0f, "4K portrait: 4.21875 across, 15 down");
+    const auto odd = wm::tiles(1919, 1081, 512, 256);
+    check(odd.u == 3.748046875f && odd.v == 4.22265625f, "odd 1919 x 1081: fractional tiles, no rounding");
+    const auto oddPortrait = wm::tiles(1081, 1919, 256, 128);
+    check(oddPortrait.u == 4.22265625f && oddPortrait.v == 14.9921875f, "odd portrait likewise");
+    const auto noWidth = wm::tiles(1920, 1080, 0, 256);
+    check(noWidth.u == 0.0f && noWidth.v == 0.0f, "a tile with no width tiles nothing");
+    const auto noHeight = wm::tiles(1920, 1080, 512, 0);
+    check(noHeight.u == 0.0f && noHeight.v == 0.0f, "a tile with no height tiles nothing");
+    const auto negative = wm::tiles(1920, 1080, -512, 256);
+    check(negative.u == 0.0f && negative.v == 0.0f, "a negative tile tiles nothing");
+}
+
+// Kills: `seamFrames > 1` -> `> 2` (a two-frame seam must still go 0 then 1), `- 1.0f` -> `+ 1.0f` or
+// dropped. The dissolve's two weights (stashed opening frame w, closing frame 1 - w) mirror about the
+// seam's middle, so closing frame `tail` and frame `n - 1 - tail` together weigh exactly one.
+void seamWeightsMirrorAndStepEvenly() {
+    check(seam::weight(0, 2) == 0.0f && seam::weight(1, 2) == 1.0f, "a two-frame seam is one plain frame each side");
+    check(seam::weight(1, 3) == 0.5f, "a three-frame seam's middle frame is half and half");
+    check(seam::weight(1, 5) == 0.25f && seam::weight(3, 5) == 0.75f, "a five-frame seam steps by quarters");
+    for (int n = 2; n <= 240; n++) {
+        check(seam::weight(n - 1, n) == 1.0f, "every seam ends exactly on the stashed frame");
+        check(seam::weight(0, n) == 0.0f, "and starts exactly on the render");
+        for (int tail = 0; tail < n; tail++) {
+            const float w = seam::weight(tail, n);
+            const float mirror = seam::weight(n - 1 - tail, n);
+            if (std::fabs(w + mirror - 1.0f) > 1e-6f) {
+                std::printf("  weight(%d,%d) + weight(%d,%d) = %g\n", tail, n, n - 1 - tail, n, static_cast<double>(w + mirror));
+                check(false, "the dissolve mirrors about the seam's middle");
+                return;
+            }
+        }
+    }
+    check(seam::weight(3, -4) == 1.0f, "a negative seam length weighs one, like no seam");
+}
+
+// Kills: `durationUs <= 0` -> `< 0` (zero duration at the origin is 0 / 0 = NaN, which std::clamp passes
+// through) or `== 0` (a negative duration would run backwards and clamp to 0).
+void transitionWithNoDurationIsOverAtEveryFrame() {
+    check(tr::progress(1'000'000, 1'000'000, 0) == 1.0f, "zero duration on the clip's first frame is already over");
+    check(tr::progress(1'000'005, 1'000'000, -1) == 1.0f, "a negative duration is already over");
+    check(tr::progress(999'000, 1'000'000, -500'000) == 1.0f, "even before the origin");
+}
+
+// Kills: float(pts) - float(origin) in place of float(pts - origin). An hour into a render the microsecond
+// clock is 3.6e12, where a float's step is 262144 us, so converting before subtracting loses a whole
+// half-second transition; the difference must be taken in 64 bits first, as the Kotlin did.
+void transitionProgressHoldsAnHourIntoTheRender() {
+    const int64_t hour = 3'600'000'000'000LL;
+    check(tr::progress(hour, hour, 500'000) == 0.0f, "an hour in, the clip's first frame is still the start");
+    check(tr::progress(hour + 250'000, hour, 500'000) == 0.5f, "and half its duration later is 0.5");
+    check(tr::progress(hour + 125'000, hour, 500'000) == 0.25f, "and a quarter of it is 0.25");
+}
+
+// Kills: either clamp bound dropped or swapped; passthrough's end test moved to the start (progress >= 0).
+void transitionProgressRisesFromZeroToOne() {
+    float last = -1.0f;
+    for (int64_t t = -100'000; t <= 700'000; t += 12'500) {
+        const float p = tr::progress(t, 0, 500'000);
+        check(p >= 0.0f && p <= 1.0f, "progress stays inside 0..1");
+        check(p >= last, "and never falls back");
+        last = p;
+    }
+    check(!tr::passthrough(true, 0.0f), "the first frame of a transition with an outgoing frame blends");
+}
+
 }  // namespace
 
 int main() {
@@ -132,6 +248,15 @@ int main() {
     seamWeightReachesBothEnds();
     transitionProgressFromTheFirstFrame();
     transitionRatioAndPassthrough();
+    tileWidthTruncatesTextPlusGapBeforeRounding();
+    tileWidthStaysAPositivePowerOfTwoForAbsurdWidths();
+    tileHeightIsHalfTheTileWidth();
+    textPxAtFourKAndOddFrames();
+    tilesAtFourKAndOddFramesBothOrientations();
+    seamWeightsMirrorAndStepEvenly();
+    transitionWithNoDurationIsOverAtEveryFrame();
+    transitionProgressHoldsAnHourIntoTheRender();
+    transitionProgressRisesFromZeroToOne();
     if (failures == 0) std::printf("export_passes_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

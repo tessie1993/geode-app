@@ -3,9 +3,9 @@ package dev.geode.export
 import dev.geode.editor.Clip
 import dev.geode.editor.ClipContent
 import dev.geode.editor.EditorProject
-import dev.geode.editor.Lane
 import dev.geode.editor.LaneKind
 import dev.geode.editor.MIN_CLIP_DURATION_MS
+import dev.geode.engine.bridge.GeodeNative
 
 /**
  * What a project render draws: one visual over one song (issue #232, narrowed when Studio dropped
@@ -37,41 +37,41 @@ object ProjectRenderPlan {
     )
 
     /**
-     * The segment [project] renders: the first enabled scene clip on the first shown visual lane,
-     * over the first song on the first unmuted audio lane that it overlaps. Null when there is no
-     * visual, no song, or less than a clip's minimum length of the two together. Pure: no file, no GL.
+     * The segment [project] renders: the first enabled scene clip on the first shown visual lane, over the
+     * first song on the first unmuted audio lane that it overlaps. Null when there is no visual, no song, or
+     * less than a clip's minimum length of the two together. Native picks and times it (`core/output/RenderPlan`).
      */
     fun plan(project: EditorProject): SceneSegment? {
-        val lanes = project.timeline.lanes
-        val visual = lanes.firstOrNull { it.kind == LaneKind.Visual && !it.muted && it.firstScene() != null } ?: return null
-        val clip = visual.firstScene() ?: return null
-        val scene = clip.content as ClipContent.Scene
-        val songLane = lanes.firstOrNull { it.kind == LaneKind.Audio && !it.muted && it.clips.any(Clip::enabled) } ?: return null
-        val song =
-            songLane.clips
-                .filter { it.enabled && it.content is ClipContent.Audio && it.overlaps(clip) }
-                .minByOrNull(Clip::startMs) ?: return null
-        val start = maxOf(clip.startMs, song.startMs)
-        val end = minOf(clip.endMs, song.endMs)
-        val duration = end - start
-        if (duration < MIN_CLIP_DURATION_MS) return null
-        val songStart = (song.sourceInMs + (start - song.startMs)).coerceAtLeast(0L)
-        val wholeSong =
-            songStart == 0L &&
-                start == song.startMs &&
-                end == song.endMs &&
-                song.hasBoundedSource &&
-                song.durationMs >= song.sourceDurationMs
+        val visuals = project.clipsOn(LaneKind.Visual)
+        val songs = project.clipsOn(LaneKind.Audio)
+        val out = LongArray(GeodeNative.RENDER_PLAN_LONGS)
+        if (!GeodeNative.renderPlan(visuals.spans(), visuals.lanes(), songs.spans(), songs.lanes(), MIN_CLIP_DURATION_MS, out)) return null
+        val clip = visuals[out[0].toInt()].third
         return SceneSegment(
             clip = clip,
-            scene = scene,
-            programmeStartMs = start,
-            durationMs = duration,
-            songUri = (song.content as ClipContent.Audio).uri,
-            songStartMs = songStart,
-            range = if (wholeSong) null else ExportRange(songStart, duration),
+            scene = clip.content as ClipContent.Scene,
+            programmeStartMs = out[2],
+            durationMs = out[3],
+            songUri = (songs[out[1].toInt()].third.content as ClipContent.Audio).uri,
+            songStartMs = out[4],
+            range = if (out[5] != 0L) null else ExportRange(out[4], out[3]),
         )
     }
 
-    private fun Lane.firstScene(): Clip? = clips.filter { it.enabled && it.content is ClipContent.Scene }.minByOrNull(Clip::startMs)
+    /** Each clip on [kind] lanes as (its lane's index in the timeline, since lane order is "first"; PLAN_* flags; it). */
+    private fun EditorProject.clipsOn(kind: LaneKind): List<Triple<Int, Int, Clip>> =
+        timeline.lanes.withIndex().filter { it.value.kind == kind }.flatMap { (index, lane) ->
+            lane.clips.map {
+                val wanted = if (kind == LaneKind.Visual) it.content is ClipContent.Scene else it.content is ClipContent.Audio
+                val flags = it.enabled.bit(GeodeNative.PLAN_ENABLED) or wanted.bit(GeodeNative.PLAN_WANTED)
+                Triple(index, flags or (!lane.muted).bit(GeodeNative.PLAN_LANE_LIVE), it)
+            }
+        }
+
+    private fun Boolean.bit(flag: Int): Int = if (this) flag else 0
+
+    private fun List<Triple<Int, Int, Clip>>.spans(): LongArray =
+        flatMap { it.third.run { listOf(startMs, endMs, sourceInMs, sourceDurationMs) } }.toLongArray()
+
+    private fun List<Triple<Int, Int, Clip>>.lanes(): IntArray = flatMap { listOf(it.first, it.second) }.toIntArray()
 }

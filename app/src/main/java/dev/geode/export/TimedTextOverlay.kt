@@ -5,14 +5,24 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.StaticOverlaySettings
 import androidx.media3.effect.TextOverlay
 import dev.geode.editor.SubtitleCue
+import dev.geode.engine.bridge.GeodeNative
 
 /**
- * Captions that change with time: the cue spanning the frame, or a blank when none does. Cue times
- * are from the clip's first frame; the first timestamp seen is that origin.
+ * Captions that change with time: the cue spanning the frame, or a blank when none does. Which cues
+ * touch the item, their re-basing to its first frame and the per-frame lookup are native
+ * (`core/signal/timeline/Cues`, pinned by `core/tests/timeline_test`); only the text is held here.
+ *
+ * The native table lives from [forSpan] until Media3 releases the overlay. A frame asked for after a
+ * release (Transformer retrying the export) builds it again, and its first frame becomes the origin.
  */
 @UnstableApi
-class TimedTextOverlay(
-    private val cues: List<SubtitleCue>,
+class TimedTextOverlay private constructor(
+    private val startsMs: LongArray,
+    private val endsMs: LongArray,
+    private val texts: List<String>,
+    private val spanStartMs: Long,
+    private val spanEndMs: Long,
+    private var table: Long,
 ) : TextOverlay() {
     private val settings =
         StaticOverlaySettings
@@ -20,26 +30,32 @@ class TimedTextOverlay(
             .setBackgroundFrameAnchor(0f, -0.82f)
             .setOverlayFrameAnchor(0f, -1f)
             .build()
-    private var originUs = -1L
 
     override fun getText(presentationTimeUs: Long): SpannableString {
-        if (originUs < 0) originUs = presentationTimeUs
-        val atMs = (presentationTimeUs - originUs) / 1000L
+        if (table == 0L) table = GeodeNative.cuesForSpan(startsMs, endsMs, spanStartMs, spanEndMs)
         // A zero-width layout cannot become a bitmap, so an empty frame draws one space.
-        return SpannableString(cues.firstOrNull { it.spans(atMs) }?.text ?: " ")
+        return SpannableString(texts.getOrNull(GeodeNative.cuesAt(table, presentationTimeUs)) ?: " ")
     }
 
     override fun getOverlaySettings(presentationTimeUs: Long) = settings
 
+    override fun release() {
+        super.release()
+        GeodeNative.cuesDestroy(table)
+        table = 0L
+    }
+
     companion object {
-        /** The cues touching [startMs, endMs), re-based so the clip's first frame is 0. */
+        /** The captions over [startMs, endMs) of project time, or null when no cue touches it. */
         fun forSpan(
             cues: List<SubtitleCue>,
             startMs: Long,
             endMs: Long,
-        ): List<SubtitleCue> =
-            cues
-                .filter { it.endMs > startMs && it.startMs < endMs }
-                .map { SubtitleCue((it.startMs - startMs).coerceAtLeast(0L), (it.endMs - startMs).coerceAtMost(endMs - startMs), it.text) }
+        ): TimedTextOverlay? {
+            val starts = LongArray(cues.size) { cues[it].startMs }
+            val ends = LongArray(cues.size) { cues[it].endMs }
+            val table = GeodeNative.cuesForSpan(starts, ends, startMs, endMs)
+            return if (table == 0L) null else TimedTextOverlay(starts, ends, cues.map(SubtitleCue::text), startMs, endMs, table)
+        }
     }
 }

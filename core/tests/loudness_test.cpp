@@ -1,7 +1,8 @@
 // Host-side checks for the BS.1770 meter (audio/dsp/Loudness). Built and run by CI (see
 // .github/workflows/android.yml, "Native export DSP tests") with the system compiler; no device.
 // References: EBU Tech 3341 (a 997 Hz stereo sine at -23 dBFS reads -23.0 LUFS) and BS.1770 itself
-// (a full-scale mono sine near 1 kHz reads -3.01 LUFS).
+// (a full-scale mono sine near 1 kHz reads -3.01 LUFS). The loudness-target cases (audio/dsp/LoudnessTarget)
+// pin the Kotlin LoudnessTargets.advise they replace (#422): which advice, the gain and the numbers quoted.
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -9,9 +10,13 @@
 
 #include "api/geode_api.h"
 #include "audio/dsp/Loudness.hpp"
+#include "audio/dsp/LoudnessTarget.hpp"
 
 using geode::audio::LoudnessAnalyser;
 using geode::audio::LoudnessReport;
+using geode::audio::AdviceKind;
+using geode::audio::LoudnessTargetId;
+using geode::audio::adviseLoudness;
 
 namespace {
 
@@ -145,6 +150,86 @@ void cAbiGuards() {
     geode_loudness_destroy(nullptr);
 }
 
+LoudnessReport measured(double lufs, double truePeakDbtp) {
+    LoudnessReport r;
+    r.hasIntegrated = true;
+    r.integratedLufs = lufs;
+    r.truePeakDbtp = truePeakDbtp;
+    return r;
+}
+
+// YouTube aims at -14 LUFS (band -15..-13) under a -1 dBTP ceiling; short-form at -11 (-12..-10), same ceiling.
+void loudnessTargets() {
+    const auto yt = LoudnessTargetId::YouTube;
+    check(adviseLoudness(LoudnessReport{}, yt).kind == AdviceKind::NothingToMeasure, "advise: under the gate");
+    check(adviseLoudness(LoudnessReport{}, LoudnessTargetId::AsIs).kind == AdviceKind::NothingToMeasure,
+          "advise: under the gate, as-is too");
+
+    auto a = adviseLoudness(measured(-14.5, -3.0), yt);
+    check(a.kind == AdviceKind::OnTarget && a.gainDb == 0.0 && a.ceilingDbtp == -1.0, "advise: in band, peak safe");
+
+    a = adviseLoudness(measured(-20.0, -10.0), yt);
+    check(a.kind == AdviceKind::Raise && near(a.gainDb, 6.0, 1e-12) && near(a.gainForLevelDb, 6.0, 1e-12) &&
+              near(a.resultingLufs, -14.0, 1e-12) && near(a.resultingTruePeakDbtp, -4.0, 1e-12),
+          "advise: quiet with headroom is raised to the level");
+
+    a = adviseLoudness(measured(-20.0, -3.0), yt);
+    check(a.kind == AdviceKind::RaiseLimited && near(a.gainDb, 2.0, 1e-12) && near(a.gainForLevelDb, 6.0, 1e-12) &&
+              near(a.resultingLufs, -18.0, 1e-12) && near(a.resultingTruePeakDbtp, -1.0, 1e-12),
+          "advise: the ceiling stops a raise short");
+
+    a = adviseLoudness(measured(-20.0, 0.5), yt);
+    check(a.kind == AdviceKind::LowerClipping && near(a.gainDb, -1.5, 1e-12), "advise: quiet but clipping is lowered");
+
+    a = adviseLoudness(measured(-8.0, -0.5), yt);
+    check(a.kind == AdviceKind::LowerLoud && near(a.gainDb, -6.0, 1e-12) && near(a.resultingTruePeakDbtp, -6.5, 1e-12),
+          "advise: loud is lowered to the level");
+
+    a = adviseLoudness(measured(-10.0, 5.0), yt);
+    check(a.kind == AdviceKind::LowerLoudLimited && near(a.gainDb, -6.0, 1e-12) && near(a.gainForLevelDb, -4.0, 1e-12) &&
+              near(a.resultingLufs, -16.0, 1e-12),
+          "advise: loud and peaky goes under the level to meet the ceiling");
+
+    a = adviseLoudness(measured(-14.0, 0.0), yt);
+    check(a.kind == AdviceKind::LowerPeak && near(a.gainDb, -1.0, 1e-12) && near(a.resultingLufs, -15.0, 1e-12),
+          "advise: level fine, peak over: only the ceiling moves it");
+
+    a = adviseLoudness(measured(-14.0, -0.98), yt);
+    check(a.kind == AdviceKind::OnTarget, "advise: 0.02 dB over the ceiling is rounding");
+    a = adviseLoudness(measured(-20.0, -0.93), yt);
+    check(a.kind == AdviceKind::OnTarget && a.gainDb == 0.0, "advise: an inaudible gain is on target, even out of band");
+
+    a = adviseLoudness(measured(-20.0, -10.0), LoudnessTargetId::Shorts);
+    check(a.kind == AdviceKind::Raise && near(a.gainDb, 9.0, 1e-12) && near(a.resultingTruePeakDbtp, -1.0, 1e-12),
+          "advise: short-form aims louder");
+    a = adviseLoudness(measured(-11.5, -2.0), LoudnessTargetId::Shorts);
+    check(a.kind == AdviceKind::OnTarget, "advise: short-form band");
+
+    a = adviseLoudness(measured(-20.0, -0.5), LoudnessTargetId::AsIs);
+    check(a.kind == AdviceKind::AsMixed && a.gainDb == 0.0 && near(a.quietUnderYouTubeLu, 6.0, 1e-12) && a.peakWarning,
+          "advise: as-is says how far under YouTube and warns of the peak");
+    a = adviseLoudness(measured(-14.5, -2.0), LoudnessTargetId::AsIs);
+    check(a.kind == AdviceKind::AsMixed && a.quietUnderYouTubeLu == 0.0 && !a.peakWarning,
+          "advise: half an LU under is not worth saying");
+    check(adviseLoudness(measured(-20.0, -10.0), static_cast<LoudnessTargetId>(7)).kind == AdviceKind::AsMixed,
+          "advise: an unknown target is as-is");
+
+    geode_loudness_report report{};
+    report.has_integrated = 1;
+    report.integrated_lufs = -20.0;
+    report.true_peak_dbtp = -3.0;
+    geode_loudness_advice out{};
+    check(geode_loudness_advise(&report, GEODE_LOUDNESS_TARGET_YOUTUBE, &out) == GEODE_LOUDNESS_ADVICE_RAISE_LIMITED &&
+              out.kind == GEODE_LOUDNESS_ADVICE_RAISE_LIMITED && near(out.gain_db, 2.0, 1e-12) &&
+              near(out.gain_for_level_db, 6.0, 1e-12) && out.ceiling_dbtp == -1.0,
+          "abi: advise");
+    check(geode_loudness_advise(nullptr, GEODE_LOUDNESS_TARGET_YOUTUBE, &out) == GEODE_LOUDNESS_ADVICE_NOTHING_TO_MEASURE,
+          "abi: a null report is nothing to measure");
+    report.true_peak_dbtp = 0.5;
+    check(geode_loudness_advise(&report, GEODE_LOUDNESS_TARGET_AS_IS, nullptr) == GEODE_LOUDNESS_ADVICE_AS_MIXED,
+          "abi: the kind alone");
+}
+
 }  // namespace
 
 int main() {
@@ -156,6 +241,7 @@ int main() {
     oddChunksMatchOneChunk();
     surroundSkipsTheLfe();
     cAbiGuards();
+    loudnessTargets();
     if (failures == 0) std::printf("loudness_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

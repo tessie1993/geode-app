@@ -1,5 +1,6 @@
 package dev.geode.export
 
+import dev.geode.engine.bridge.GeodeNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -18,7 +19,11 @@ object ExportRun {
         val secondsRemaining: Long? = null,
     )
 
-    private val eta = RenderEta()
+    /**
+     * The render-ETA state `core/output/RenderEta` steps on each [publish]. Kotlin only holds it; all
+     * zeros is a fresh estimate, so [begin] and [finish] clear it without a native call.
+     */
+    private val eta = DoubleArray(GeodeNative.ETA_STATE_DOUBLES)
 
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state
@@ -65,14 +70,14 @@ object ExportRun {
     }
 
     fun begin(label: String) {
-        eta.reset()
+        eta.fill(0.0)
         cancelRequested = false
         _state.value = State(running = true, progress = null, label = label)
     }
 
     /**
      * [steady] is false for the quick lead-in phase (the audio transcode): it moves the
-     * bar but says nothing about how fast the render will go, so [RenderEta] skips it.
+     * bar but says nothing about how fast the render will go, so the native estimate skips it.
      */
     fun publish(
         progress: Float,
@@ -82,12 +87,13 @@ object ExportRun {
         val current = _state.value
         if (!current.running) return
         val clamped = progress.coerceIn(0f, 1f)
-        _state.value = current.copy(progress = clamped, secondsRemaining = eta.sample(clamped, atMs, steady))
+        val left = GeodeNative.renderEtaSample(eta, clamped, atMs, steady)
+        _state.value = current.copy(progress = clamped, secondsRemaining = left.takeIf { it >= 0 })
     }
 
     fun finish() {
         job = null
-        eta.reset()
+        eta.fill(0.0)
         _state.value = State()
     }
 }

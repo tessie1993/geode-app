@@ -1,18 +1,16 @@
 package dev.geode.editor
 
-import dev.geode.model.LyricLine
-
 data class SubtitleCue(
     val startMs: Long,
     val endMs: Long,
     val text: String,
-) {
-    fun spans(atMs: Long): Boolean = atMs >= startMs && atMs < endMs
-}
+)
 
-/** SubRip in and out, and the two conversions the editor needs: lyric lines to cues, cues to and from a text lane. */
+/**
+ * SubRip in and out, and cues to and from a text lane. Which cue a rendered frame shows is native
+ * (`core/signal/timeline/Cues`, through `export/TimedTextOverlay`).
+ */
 object Subtitles {
-    const val MAX_LYRIC_CUE_MS: Long = 8_000L
     private const val MIN_CUE_MS: Long = MIN_CLIP_DURATION_MS
 
     fun parseSrt(text: String): List<SubtitleCue> =
@@ -37,19 +35,6 @@ object Subtitles {
             .sortedBy { it.startMs }
             .mapIndexed { index, cue -> "${index + 1}\n${stamp(cue.startMs)} --> ${stamp(cue.endMs)}\n${cue.text}\n" }
             .joinToString("\n")
-
-    /** Each synced line shows until the next one starts, at most [MAX_LYRIC_CUE_MS]; the last runs to [endMs]. */
-    fun fromLyrics(
-        lines: List<LyricLine>,
-        endMs: Long,
-    ): List<SubtitleCue> {
-        val timed = lines.filter { it.timeMs >= 0 && it.text.isNotBlank() }.sortedBy { it.timeMs }
-        return timed.mapIndexedNotNull { index, line ->
-            val next = timed.getOrNull(index + 1)?.timeMs ?: endMs
-            val end = minOf(next, line.timeMs + MAX_LYRIC_CUE_MS)
-            if (end - line.timeMs < MIN_CUE_MS) null else SubtitleCue(line.timeMs, end, line.text)
-        }
-    }
 
     fun cuesFrom(lanes: List<Lane>): List<SubtitleCue> =
         lanes

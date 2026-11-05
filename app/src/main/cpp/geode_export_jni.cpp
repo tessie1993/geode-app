@@ -13,6 +13,8 @@ namespace {
 
 // Field order of the long[] the loop-spec calls fill; GeodeNative.LOOP_SPEC_* documents the same order.
 constexpr jsize kLoopSpecLongs = 7;
+// Size of the render-ETA state double[]; GeodeNative.ETA_STATE_DOUBLES is the same.
+constexpr jsize kEtaStateDoubles = 9;
 
 void writeLoopSpec(JNIEnv* env, const geode_loop_spec& s, jlongArray out) {
     if (!out || env->GetArrayLength(out) < kLoopSpecLongs) return;
@@ -164,6 +166,83 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportFrameSize(
 
 JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportFallbackFps(JNIEnv*, jobject, jint requestedFps) {
     return geode_export_fallback_fps(requestedFps);
+}
+
+// Render range (output/ExportRange). out gets (start ms, duration ms) when a part is returned.
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportRangeClamp(JNIEnv* env, jobject,
+                                                                                      jlong startMs, jlong endMs,
+                                                                                      jlong trackMs, jlongArray out) {
+    int64_t start = 0;
+    int64_t duration = 0;
+    if (!geode_export_range_clamp(startMs, endMs, trackMs, &start, &duration)) return JNI_FALSE;
+    if (out && env->GetArrayLength(out) >= 2) {
+        const jlong values[2] = {start, duration};
+        env->SetLongArrayRegion(out, 0, 2, values);
+    }
+    return JNI_TRUE;
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportRangeMinMs(JNIEnv*, jobject) {
+    return geode_export_range_min_ms();
+}
+
+// Render ETA (output/RenderEta). The state is the caller's double[kEtaStateDoubles], in GeodeNative.ETA_*
+// order; all zeros is a fresh estimate. Read in, stepped, written back.
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaSample(JNIEnv* env, jobject,
+                                                                                 jdoubleArray state, jfloat progress,
+                                                                                 jlong atMs, jboolean steady) {
+    if (!state || env->GetArrayLength(state) < kEtaStateDoubles) return -1;
+    jdouble v[kEtaStateDoubles];
+    env->GetDoubleArrayRegion(state, 0, kEtaStateDoubles, v);
+    geode_render_eta eta{};
+    eta.steady = v[0] != 0.0 ? 1 : 0;
+    eta.based = v[1] != 0.0 ? 1 : 0;
+    eta.shown = v[2] != 0.0 ? 1 : 0;
+    eta.base_progress = static_cast<float>(v[3]);
+    eta.latest_progress = static_cast<float>(v[4]);
+    eta.shown_seconds = static_cast<float>(v[5]);
+    eta.steady_since_ms = static_cast<int64_t>(v[6]);
+    eta.base_ms = static_cast<int64_t>(v[7]);
+    eta.shown_at_ms = static_cast<int64_t>(v[8]);
+    const int64_t left = geode_render_eta_sample(&eta, progress, atMs, steady ? 1 : 0);
+    const jdouble back[kEtaStateDoubles] = {
+        static_cast<jdouble>(eta.steady),          static_cast<jdouble>(eta.based),
+        static_cast<jdouble>(eta.shown),           eta.base_progress,
+        eta.latest_progress,                       eta.shown_seconds,
+        static_cast<jdouble>(eta.steady_since_ms), static_cast<jdouble>(eta.base_ms),
+        static_cast<jdouble>(eta.shown_at_ms)};
+    env->SetDoubleArrayRegion(state, 0, kEtaStateDoubles, back);
+    return left;
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_renderEtaPhrase(JNIEnv* env, jobject, jlong secondsLeft,
+                                                                                jlongArray outCount) {
+    int64_t count = 0;
+    const int phrase = geode_render_eta_phrase(secondsLeft, &count);
+    if (outCount && env->GetArrayLength(outCount) >= 1) {
+        const jlong value = count;
+        env->SetLongArrayRegion(outCount, 0, 1, &value);
+    }
+    return phrase;
+}
+
+// Caption cues (signal/timeline/Cues).
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_cuesForSpan(JNIEnv* env, jobject, jlongArray startsMs,
+                                                                             jlongArray endsMs, jlong spanStartMs,
+                                                                             jlong spanEndMs) {
+    const auto starts = longs(env, startsMs);
+    const auto ends = longs(env, endsMs);
+    const int count = static_cast<int>(starts.size() < ends.size() ? starts.size() : ends.size());
+    return reinterpret_cast<jlong>(geode_cues_for_span(starts.data(), ends.data(), count, spanStartMs, spanEndMs));
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_cuesDestroy(JNIEnv*, jobject, jlong handle) {
+    geode_cues_destroy(reinterpret_cast<geode_cues*>(handle));
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_cuesAt(JNIEnv*, jobject, jlong handle,
+                                                                       jlong presentationUs) {
+    return geode_cues_at(reinterpret_cast<geode_cues*>(handle), presentationUs);
 }
 
 // Chapters (output/Chapters).

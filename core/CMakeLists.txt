@@ -20,6 +20,7 @@ add_library(geode_core STATIC
     audio/dsp/Limiter.cpp
     audio/dsp/PcmResampler.cpp
     audio/dsp/Loudness.cpp
+    audio/dsp/LoudnessTarget.cpp
     api/geode_export_dsp_api.cpp
     api/geode_export_api.cpp
     audio/dsp/PcmConvert.cpp
@@ -27,8 +28,11 @@ add_library(geode_core STATIC
     output/LoopPlan.cpp
     output/EncodePlan.cpp
     output/Chapters.cpp
+    output/ExportRange.cpp
+    output/RenderEta.cpp
     signal/timeline/Keyframes.cpp
     signal/timeline/SpeedRamp.cpp
+    signal/timeline/Cues.cpp
     util/CubeLut.cpp
     viz/ShaderSource.cpp
     viz/GlCaps.cpp

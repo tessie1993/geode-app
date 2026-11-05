@@ -1,5 +1,6 @@
 // The C ABI over the export planning and clip maths (geode_api.h, "Export planning and clip maths"). Only
-// argument checks and copies live here; the rules are in output/, signal/timeline/, viz/ClipGrade,
+// argument checks and copies live here; the rules are in output/ (FrameClock, LoopPlan, EncodePlan, Chapters,
+// ExportRange, RenderEta), signal/timeline/ (Keyframes, SpeedRamp, Cues), viz/ClipGrade,
 // util/CubeLut and audio/dsp/PcmConvert, each host-tested in core/tests.
 #include <algorithm>
 #include <memory>
@@ -11,8 +12,11 @@
 #include "audio/dsp/PcmConvert.hpp"
 #include "output/Chapters.hpp"
 #include "output/EncodePlan.hpp"
+#include "output/ExportRange.hpp"
 #include "output/FrameClock.hpp"
 #include "output/LoopPlan.hpp"
+#include "output/RenderEta.hpp"
+#include "signal/timeline/Cues.hpp"
 #include "signal/timeline/Keyframes.hpp"
 #include "signal/timeline/SpeedRamp.hpp"
 #include "util/CubeLut.hpp"
@@ -27,6 +31,10 @@ struct geode_track {
 
 struct geode_speed_ramp {
     tl::SpeedRamp ramp;
+};
+
+struct geode_cues {
+    tl::CueTable table;
 };
 
 struct geode_cube_lut {
@@ -247,5 +255,57 @@ size_t geode_pcm_downmix_s16(const int16_t* in, size_t frames, int src_channels,
 void geode_pcm_float_to_s16(const float* in, size_t samples, int16_t* o) { geode::audio::floatToS16(in, samples, o); }
 
 void geode_pcm_s16_to_float(const int16_t* in, size_t samples, float* o) { geode::audio::s16ToFloat(in, samples, o); }
+
+
+int geode_export_range_clamp(int64_t start_ms, int64_t end_ms, int64_t track_ms, int64_t* out_start_ms,
+                             int64_t* out_duration_ms) {
+    out::ExportRange r;
+    if (!out::clampExportRange(start_ms, end_ms, track_ms, &r)) return 0;
+    if (out_start_ms) *out_start_ms = r.startMs;
+    if (out_duration_ms) *out_duration_ms = r.durationMs;
+    return 1;
+}
+
+int64_t geode_export_range_min_ms(void) { return out::kMinExportRangeMs; }
+
+int64_t geode_render_eta_sample(geode_render_eta* state, float progress, int64_t at_ms, int steady) {
+    if (!state) return -1;
+    out::RenderEtaState s;
+    s.steady = state->steady != 0;
+    s.steadySinceMs = state->steady_since_ms;
+    s.based = state->based != 0;
+    s.baseMs = state->base_ms;
+    s.baseProgress = state->base_progress;
+    s.latestProgress = state->latest_progress;
+    s.shown = state->shown != 0;
+    s.shownSeconds = state->shown_seconds;
+    s.shownAtMs = state->shown_at_ms;
+    const int64_t left = out::renderEtaSample(s, progress, at_ms, steady != 0);
+    state->steady = s.steady ? 1 : 0;
+    state->steady_since_ms = s.steadySinceMs;
+    state->based = s.based ? 1 : 0;
+    state->base_ms = s.baseMs;
+    state->base_progress = s.baseProgress;
+    state->latest_progress = s.latestProgress;
+    state->shown = s.shown ? 1 : 0;
+    state->shown_seconds = s.shownSeconds;
+    state->shown_at_ms = s.shownAtMs;
+    return left;
+}
+
+int geode_render_eta_phrase(int64_t seconds_left, int64_t* out_count) {
+    return static_cast<int>(out::renderEtaPhrase(seconds_left, out_count));
+}
+
+geode_cues* geode_cues_for_span(const int64_t* starts_ms, const int64_t* ends_ms, int count, int64_t span_start_ms,
+                                int64_t span_end_ms) {
+    auto table = tl::CueTable::forSpan(starts_ms, ends_ms, count, span_start_ms, span_end_ms);
+    if (table.empty()) return nullptr;
+    return new geode_cues{std::move(table)};
+}
+
+void geode_cues_destroy(geode_cues* c) { std::unique_ptr<geode_cues> owned(c); }
+
+int geode_cues_at(geode_cues* c, int64_t presentation_us) { return c ? c->table.atPresentationUs(presentation_us) : -1; }
 
 }  // extern "C"

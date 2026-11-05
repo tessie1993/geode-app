@@ -20,6 +20,14 @@ namespace geode::sound {
 // drop needs no wait: it fires the moment the bass returns and moves the downbeat there.
 class Form {
 public:
+    // The one floor for Form's two events, drop and sectionChange: the novelty a section change must pass
+    // and the build peak that arms a drop. An event fires with its strength (novelty, or the build's peak)
+    // and never below this, so a frame either carries one at kEventFloor..1 or holds 0. Consumers act on
+    // the event (dropped(), sectionChanged() below), never on a threshold of their own over the strength:
+    // a second threshold above this one silently drops the events in between (the director once acted
+    // only above 0.5, and missed every drop and section change at 0.4–0.5).
+    static constexpr float kEventFloor = 0.4f;
+
     struct Input {
         std::array<float, GEODE_SOUND_EQ_BANDS> eq;  // each band in dB over the track's peak, 0 (-60 dB) .. 1
         float centroid;
@@ -110,5 +118,10 @@ private:
     int stateBars_ = 0;
     int quietBars_ = 0;
 };
+
+// Form fired an event this frame. The strength (f.drop, f.sectionChange) says how big it was, for whoever
+// scales by it; whether it happened is this, and only this.
+inline bool dropped(const GeodeSoundFrame& f) { return f.drop > 0.0f; }
+inline bool sectionChanged(const GeodeSoundFrame& f) { return f.sectionChange > 0.0f; }
 
 }  // namespace geode::sound

@@ -135,6 +135,7 @@ uniform vec2 uSoundCounts;
 #define SND_SECTION_BARS           uSound[26].y
 #define SND_BUILD_UP               uSound[26].z
 #define SND_DROP                   uSound[26].w
+// SND_SECTION_CHANGE and SND_DROP are triggers: 0, or a strength at 0.4..1 (core/sound Form::kEventFloor). Test > 0.0.
 
 #define SND_HELD_HARD_CUT      uSoundEvents.x
 #define SND_HELD_SURGE         uSoundEvents.y

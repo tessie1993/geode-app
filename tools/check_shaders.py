@@ -5,7 +5,8 @@ against the same allow-list (core/viz/ShaderIncludes.inc: an unknown or
 missing include fails here as it fails on the phone), then compiles for an
 OpenGL target. The Silk simulation bodies (silk_step, silk_show) are not whole
 shaders; they are compiled inside the preamble core/viz/compute/SimGlsl.cpp
-wraps them in. glslc will not take `#version 300 es`
+wraps them in. Before compiling it lints every shader and lib for the time
+rule (see speed_twice). glslc will not take `#version 300 es`
 for SPIR-V, so the check bumps it to 310 es: it catches syntax, type and
 undeclared-name errors, not ES 3.00-only restrictions.
 
@@ -68,6 +69,44 @@ SIM_BODIES = {
 }
 
 
+COMMENTS = re.compile(r"//[^\n]*|/\*.*?\*/", re.S)
+U_TIME = re.compile(r"\buTime\b")
+U_SPEED = re.compile(r"\buSpeed\b")
+
+
+def speed_twice(text):
+    """Line numbers of statements that put uTime and uSpeed in one expression.
+
+    The time rule: uTime is ShaderScene's speed-INTEGRATED clock
+    (shaderTime_ += speed * dt, core/viz/scenes/ShaderScene.cpp), so a shader
+    never multiplies it by uSpeed again. `uTime * uSpeed` squares Speed and,
+    because it is elapsed time times the live slider, any Speed change (the
+    slider, an LFO, a macro, a reaction route) jumps the picture by
+    elapsed * delta-speed. Read per statement, comments stripped, so
+    `uTime * 0.2 * uSpeed` is caught too and prose about the rule is not.
+    """
+    code = COMMENTS.sub(lambda m: "\n" * m.group(0).count("\n"), text)
+    hits = []
+    pos = 0
+    for stmt in re.split(r"([;{}])", code):
+        if U_TIME.search(stmt) and U_SPEED.search(stmt):
+            hits.append(code.count("\n", 0, pos + U_SPEED.search(stmt).start()) + 1)
+        pos += len(stmt)
+    return hits
+
+
+def check_speed_rule():
+    # The guard guards itself first, so a regex slip cannot pass everything.
+    assert speed_twice("float t = uTime * uSpeed;") == [1]
+    assert speed_twice("// uTime * uSpeed\nx = 1.0 +\n  uTime * 0.3 * uSpeed;") == [3]
+    assert speed_twice("float t = uTime;\nfloat f = uFlowPhase * uSpeed; // not uTime * uSpeed") == []
+    bad = [f"{p.name}:{line}" for p in sorted(SHADERS.glob("*.glsl"))
+           for line in speed_twice(p.read_text(encoding="utf-8"))]
+    for b in bad:
+        print(f"FAIL {b}: uTime is already speed-integrated; do not multiply it by uSpeed")
+    return bad
+
+
 def allow_list():
     # Every double-quoted name outside a `//` comment, as the .inc's header says.
     text = re.sub(r"//[^\n]*", "", INCLUDES_INC.read_text(encoding="utf-8"))
@@ -99,6 +138,7 @@ def resolve(text, path):
 
 
 def main():
+    speed_failed = check_speed_rule()
     glslc = sys.argv[1]
     names = sys.argv[2:] or sorted(p.name for p in SHADERS.glob("*_frag.glsl")) + sorted(
         p.name for p in SHADERS.glob("*_vert.glsl")) + sorted(SIM_BODIES)
@@ -126,7 +166,9 @@ def main():
                     failed.append(label)
                     print(f"FAIL {label}\n{r.stderr.strip()}\n")
     print(f"{total - len(failed)}/{total} shaders compiled")
-    sys.exit(1 if failed else 0)
+    if speed_failed:
+        print(f"{len(speed_failed)} statement(s) multiply uTime by uSpeed")
+    sys.exit(1 if failed or speed_failed else 0)
 
 
 if __name__ == "__main__":

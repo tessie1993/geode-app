@@ -8,7 +8,7 @@ description: Use when changing how Geode hears music - the playback audio chain,
 Geode's visuals are only as good as what they hear. Two separate paths carry sound and they must not be confused:
 
 1. **Playback chain** (Kotlin, Media3): ExoPlayer runs `MvzAudioProcessorChain` on its playback thread. `PcmTap` is first, before any DSP, so DSP never moves the visuals. Read `docs/AUDIO_CHAIN.md` in full before touching it. Two rules never bend: the tap stays first, and the chain never gets float output.
-2. **Sound engine** (C++, `core/sound`): every renderer owns one. On each GL frame it is fed the ring's new PCM (`AudioBus.soundInput`) and stepped with that frame's dt into a `GeodeSoundFrame` (`core/sound/SoundFrame.h`). Styles read it through `lib_sound`.
+2. **Sound engine** (C++, `core/sound`): every renderer owns one. On each GL frame it is fed its ring's new PCM natively (`AudioBus.soundSource`, `core/viz/SoundFeed`) and stepped with that frame's dt into a `GeodeSoundFrame` (`core/sound/SoundFrame.h`). Styles read it through `lib_sound`.
 
 ## Where things are
 

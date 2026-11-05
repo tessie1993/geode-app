@@ -116,16 +116,11 @@ class PlayerSession internal constructor(
         CaptureController(
             application,
             scope,
-            playback.captureSink,
             object : CaptureController.Host {
                 override fun pausePlayback() = player.pause()
 
-                override fun resetSound() {
-                    playback.sampleRing.beginEpoch()
-                }
-
-                override fun setSoundRate(rateHz: Int) {
-                    playback.sampleRateHz = rateHz
+                override fun hearSource(ring: Long) {
+                    dev.geode.audio.AudioBus.soundSource = if (ring != 0L) ring else playback.ingest
                 }
 
                 override fun setMicReactivePref(on: Boolean) {
@@ -155,10 +150,6 @@ class PlayerSession internal constructor(
     fun stopExternalAudio() = captureController.stopExternalAudio()
 
     fun notificationAccessIntent(): Intent = captureController.notificationAccessIntent()
-
-    init {
-        playback.onAudioFormat = captureController.audioFormatHook
-    }
 
     private val presetLibrary: PresetLibraryController =
         PresetLibraryController(
@@ -1164,7 +1155,6 @@ class PlayerSession internal constructor(
         playerListener?.let { player.removeListener(it) }
         queueController.release()
         playerListener = null
-        if (playback.onAudioFormat === captureController.audioFormatHook) playback.onAudioFormat = null
         if (sleepTimer.onFadeVolume === fades.sleepFadeHook) sleepTimer.onFadeVolume = null
         if (!playback.playbackWanted) PlaybackService.stop(application)
         PlaybackEngine.releaseUi()

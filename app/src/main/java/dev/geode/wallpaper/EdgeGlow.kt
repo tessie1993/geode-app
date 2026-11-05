@@ -2,13 +2,12 @@ package dev.geode.wallpaper
 
 import android.opengl.GLES30
 import android.opengl.GLSurfaceView
+import android.os.SystemClock
 import dev.geode.RingLog
-import dev.geode.engine.audio.SampleRing
-import dev.geode.engine.audio.SoundInput
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.VisualizerRenderer
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
-import kotlin.math.sqrt
 
 /**
  * The wallpaper's GL renderer: the visual, then, in [WallpaperLook.EDGE], the edge glow over it.
@@ -19,8 +18,8 @@ import kotlin.math.sqrt
  */
 class WallpaperRenderer(
     private val visual: VisualizerRenderer,
-    /** The sound the glow breathes with; the same input the visual hears. */
-    private val sound: () -> SoundInput?,
+    /** The ring the glow breathes with (a native ingest handle, 0 for none); the one the visual hears. */
+    private val sound: () -> Long,
 ) : GLSurfaceView.Renderer {
     /** Set on the main thread, read once per frame on the GL thread. */
     @Volatile var edge: Boolean = false
@@ -70,10 +69,10 @@ class WallpaperRenderer(
  * The edge look: the visual stays along the screen's rounded rim and fades to black inward.
  *
  * The black is real black, so on an OLED panel most of the screen is switched off, and icons and
- * the lock clock sit on black instead of on a busy picture. The band breathes with the sound's
- * level, read straight off the ring each frame (the newest [LEVEL_FRAMES], attack fast and
- * release slow, the way a VU meter moves), so it pulses on the beat without the renderer's
- * frame data crossing the JNI line.
+ * the lock clock sit on black instead of on a busy picture. The band opens while the ring is fed
+ * and not resting (the native silence answer, `geode_ingest_resting`) and closes when it rests or
+ * stops being written, attack fast and release slow. Its beat pulse went with the Kotlin ring: the
+ * level now belongs to the one native silence and level answer (#491), not to a loop here.
  *
  * GL thread only. One attribute-less triangle covers the screen; the shader is a rounded-rect
  * distance field. The GL state it changes is saved and put back, so the visual's next frame
@@ -88,8 +87,7 @@ internal class EdgeGlow {
     private var surfaceWidth = 1
     private var surfaceHeight = 1
 
-    private val levelWindow = Array(1) { FloatArray(LEVEL_FRAMES) }
-    private var heardRing: SampleRing? = null
+    private var heardRing = 0L
     private var heardWritten = -1L
     private var level = 0f
 
@@ -111,11 +109,11 @@ internal class EdgeGlow {
 
     fun draw(
         window: FloatArray,
-        input: SoundInput?,
+        ring: Long,
     ) {
         if (failed) return
         if (program == 0 && !build()) return
-        updateLevel(input)
+        updateLevel(ring)
         val shortSide = minOf(window[2], window[3])
         val band = shortSide * (BAND_MIN + BAND_SWING * level)
         val radius = shortSide * CORNER_FRACTION
@@ -140,19 +138,17 @@ internal class EdgeGlow {
         restoreState()
     }
 
-    private fun updateLevel(input: SoundInput?) {
-        val ring = input?.ring
+    private fun updateLevel(ring: Long) {
         var target = 0f
-        if (ring != null) {
-            val written = ring.writtenFrames
-            val fresh = ring !== heardRing || written != heardWritten
+        if (ring != 0L) {
+            val written = GeodeNative.ingestWritten(ring)
+            val fresh = ring != heardRing || written != heardWritten
             heardRing = ring
             heardWritten = written
-            if (fresh && ring.snapshotLatest(levelWindow)) {
-                var sum = 0f
-                for (s in levelWindow[0]) sum += s * s
-                target = (sqrt(sum / LEVEL_FRAMES) * LEVEL_GAIN).coerceIn(0f, 1f)
-            } else if (!fresh) {
+            if (fresh) {
+                // uptimeMillis: the one clock every poller of a ring passes (SoundSource, the capture pumps).
+                target = if (GeodeNative.ingestResting(ring, SystemClock.uptimeMillis())) 0f else FED_LEVEL
+            } else {
                 // Nothing new since the last frame (paused, between captures): ease off.
                 target = level * HOLD_DECAY
             }
@@ -236,7 +232,6 @@ internal class EdgeGlow {
 
     private companion object {
         const val TAG = "WallpaperEdge"
-        const val LEVEL_FRAMES = 512
 
         /** The band at rest and at full level, as fractions of the screen's short side. */
         const val BAND_MIN = 0.045f
@@ -244,7 +239,9 @@ internal class EdgeGlow {
 
         /** Close to a modern phone's display corners; the black hides any small mismatch. */
         const val CORNER_FRACTION = 0.09f
-        const val LEVEL_GAIN = 3.5f
+
+        /** The band while the ring is fed and not resting: about where music used to hold it. */
+        const val FED_LEVEL = 0.6f
         const val ATTACK = 0.5f
         const val RELEASE = 0.08f
         const val HOLD_DECAY = 0.9f

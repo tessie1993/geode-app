@@ -37,12 +37,12 @@ AudioTrack ──▶ platform audiofx (Equalizer / BassBoost / Loudness) ──�
 The tap (`engine/audio-android/.../PcmTap.kt`) hands each buffer, as bytes, to the
 player's native ingest ring (`geode_ingest_write`, `core/audio/ingest`) and begins
 the ring's new epoch on each flush, on the playback thread, before the next stream's
-first sample (#361). No sample is converted in Kotlin. The ring is published as
-`AudioBus.playerIngest`; each renderer's native side reads its own cursor on it
-every frame (`core/viz/SoundFeed`, `geode_viz_set_sound_source`) into its own
-`core/sound` engine, as the stereo downmix, so a 5.1 or 7.1 file's centre and LFE
-reach the visuals (#362). Stages 2–4 are downstream of it. The mic and other apps'
-audio still write the Kotlin `SampleRing` (`AudioBus.soundInput`) until #485.
+first sample (#361). No sample is converted in Kotlin. The ring the visuals hear,
+the player's or the mic's or another app's (each source has its own, `AudioBus`), is
+published as `AudioBus.soundSource`; each renderer's native side reads its own
+cursor on it every frame (`core/viz/SoundFeed`, `geode_viz_set_sound_source`) into
+its own `core/sound` engine, as the stereo downmix, so a 5.1 or 7.1 file's centre
+and LFE reach the visuals (#362). Stages 2–4 are downstream of the tap.
 
 ## Why the chain is owned rather than configured
 

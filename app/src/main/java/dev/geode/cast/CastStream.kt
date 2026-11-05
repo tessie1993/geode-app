@@ -25,9 +25,9 @@ import java.net.InetAddress
  * 2026-11-02), when the screen's view is paused. It shows what the screen would: the saved live
  * look: the stage's style and params as they change ([CastMirror], previews included), else the
  * saved live state; modulation and the MilkDrop preset (which the renderer restores itself), re-read
- * whenever the app saves them; the same sound (the player's native ring, [AudioBus.playerIngest], read
- * by the native renderer itself, and the capture ring [AudioBus.soundInput] until #485), from which the
- * native renderer also takes MilkDrop's raw PCM itself (core/viz/PcmHandoff), as the screen's does.
+ * whenever the app saves them; the same sound (whichever native ring the visuals hear, [AudioBus.soundSource]:
+ * the player's, or the mic's or capture's while one owns the visuals, read by the native renderer itself), from
+ * which the native renderer also takes MilkDrop's raw PCM itself (core/viz/PcmHandoff), as the screen's does.
  *
  * If the render loop dies after the stream started, [onFailed] runs (on the render thread): a
  * frozen picture on the TV with a muted phone is worse than ending the cast.
@@ -107,8 +107,7 @@ internal class CastStream(
         val audio = AudioPump(encoder, music)
         try {
             egl.makeCurrent()
-            renderer.soundSource = { AudioBus.playerIngest }
-            renderer.soundInput = { AudioBus.soundInput }
+            renderer.soundSource = { AudioBus.soundSource }
             renderer.onSurfaceCreated(null, null)
             renderer.onSurfaceChanged(null, encoder.width, encoder.height)
             val startNs = System.nanoTime()

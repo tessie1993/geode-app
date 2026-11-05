@@ -10,6 +10,23 @@ namespace geode::viz {
 
 MotionField::MotionField() { reset(); }
 
+double MotionField::wrapDrift(double angle) {
+    if (!std::isfinite(angle)) return 0.0;
+    const double period = kDriftWrapTurns * kTwoPiD;
+    double a = std::fmod(angle, period);
+    if (a > 0.5 * period) a -= period;
+    else if (a <= -0.5 * period) a += period;
+    return a;
+}
+
+float MotionField::spinAngle(float drift) {
+    const double period = 2.0 * kTwoPiD;
+    double a = std::fmod(static_cast<double>(drift), period);
+    if (a > 0.5 * period) a -= period;
+    else if (a <= -0.5 * period) a += period;
+    return static_cast<float>(a);
+}
+
 void MotionField::reset() {
     rhythmLock_ = 0.0f;
     keyHuePhase_ = 0.0f;
@@ -18,7 +35,7 @@ void MotionField::reset() {
     orbitCurX_ = 0.0f;
     orbitCurY_ = 0.0f;
     orbitRetargetLockout_ = 0.0f;
-    driftAngle_ = 0.0f;
+    driftAngle_ = 0.0;
     driftSign_ = 1.0f;
     driftSignTarget_ = 1.0f;
     barSin_ = 0.0f;
@@ -137,13 +154,11 @@ void MotionField::step(const GeodeSoundFrame& f, float dt, float speed) {
     if (bigMoment) driftSignTarget_ = nextRandom() < 0.5f ? -1.0f : 1.0f;
     driftSign_ = oneOle(driftSign_, driftSignTarget_, dt, kDriftSignEaseSeconds);
     const float driftRate = driftSign_ * (kDriftBaseRadPerSec + kDriftMidRadPerSec * state_.midRel);
-    // Wrapped rather than free-running: state_.drift only ever feeds a bounded
-    // rotation-rate contribution in apply(), never an absolute angle drawn on
-    // screen, so wrapping it costs nothing and keeps float precision over a
-    // long session.
-    driftAngle_ = std::fmod(driftAngle_ + driftRate * dt + 2.0f * kTwoPi, 2.0f * kTwoPi);
-    if (driftAngle_ > kTwoPi) driftAngle_ -= 2.0f * kTwoPi;
-    state_.drift = driftAngle_;
+    // Wrapped rather than free-running, to keep float precision over a long
+    // session, but at a period every shader's fraction of uDrift turns whole
+    // turns through (kDriftWrapTurns), so the wrap never shows on screen.
+    driftAngle_ = wrapDrift(driftAngle_ + static_cast<double>(driftRate) * static_cast<double>(dt));
+    state_.drift = static_cast<float>(driftAngle_);
 
     // ---- breath: a slow, low-amplitude scale wobble --------------------------
     const float breathTarget = 1.0f + kBreathBassWeight * (state_.bassRel - 1.0f) + kBreathBarWeight * (state_.barOsc - 0.5f);
@@ -178,7 +193,7 @@ SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion, float s
     const float breath = 1.0f + (s.breath - 1.0f) * motionBreath;
     o.zoom = std::clamp(p.zoom * breath, 0.3f, 3.0f);
     if (spin != 0.0f) {
-        o.rotation = std::clamp(p.rotation + s.drift * motionDrift * spin, -3.0f, 3.0f);
+        o.rotation = std::clamp(p.rotation + spinAngle(s.drift) * motionDrift * spin, -3.0f, 3.0f);
         o.sway = std::clamp(p.sway + motionAmount * 0.35f * std::fabs(barSin_) * rhythmLock_, 0.0f, 1.0f);
     }
     o.warp = std::clamp(p.warp + motionAmount * 0.3f * (1.0f - s.harmony), 0.0f, 1.0f);

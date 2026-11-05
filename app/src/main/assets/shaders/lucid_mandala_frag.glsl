@@ -40,7 +40,9 @@ out vec4 fragColor;
 // twists the plane. Kaleido: when uKaleido is on, uSymmetry replaces the 8-arm
 // rest count (the user's fold is this style's fold, never applied twice).
 // Color: pal() picks every stone. Energy: uIntensity scales the hat-driven
-// arms and the uDrift spin. Space: uZoom/uRotation through lucidView.
+// arms. Space: uZoom/uRotation through lucidView. The uDrift spin is a fixed
+// 0.35 of it: a uniform times uDrift would pop when uDrift wraps and spin the
+// figure whenever Energy moved (see MotionField::kDriftWrapTurns).
 
 vec2 wedge(vec2 uv, float segs) {
     float lo = 2.0 * floor(segs * 0.5);
@@ -60,7 +62,7 @@ void main() {
     int depth = lucidDetail(4, 3);
     int oct = lucidDetail(3, 2);
 
-    uv = lucidRot(uDrift * 0.35 * uIntensity + t * 0.02) * uv;
+    uv = lucidRot(uDrift * 0.35 + t * 0.02) * uv;
     float rest = (uKaleido > 0.5 && uSymmetry >= 2.0) ? uSymmetry : 8.0;
     float segs = rest + 4.0 * hat + 4.0 * clamp(uMorph, 0.0, 1.0);
     vec2 p = wedge(uv, segs);

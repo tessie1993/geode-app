@@ -82,6 +82,27 @@ public:
 
     const State& state() const { return state_; }
 
+    // uDrift's wrap: the drift angle runs in (-50, 50] whole turns and jumps by
+    // exactly kDriftWrapTurns turns when it wraps. Shaders turn by a fraction
+    // of uDrift (0.07, 0.08, 0.1, 0.12, 0.15, 0.25, 0.3, 0.35, 0.5, 1 today),
+    // and that fraction of a 100-turn jump is still a whole number of turns,
+    // so no style pops at the wrap. A smaller period does not: at 2 turns
+    // (the old (-2pi, 2pi] wrap) 0.3 * uDrift jumped by 0.6 of a turn. The
+    // bound (|uDrift| <= 100pi ~ 314) keeps a float ulp near 3e-5 rad, and at
+    // the fastest drift (0.1 rad/s, see step()) a wrap comes once an hour at
+    // most. A new multiplier must make kDriftWrapTurns * k whole:
+    // viz_math_test reads every shader and fails on one that does not, or on
+    // a uDrift scaled by anything but a constant (a uniform times uDrift jumps
+    // at the wrap and spins whenever that uniform moves).
+    static constexpr int kDriftWrapTurns = 100;
+    // Folds an accumulated drift angle (radians) into uDrift's range,
+    // (-kDriftWrapTurns/2, kDriftWrapTurns/2] turns.
+    static double wrapDrift(double angle);
+    // The drift angle apply() spins with: uDrift folded to (-2pi, 2pi], the
+    // value it read before uDrift's period grew, so apply() is unchanged.
+    // Exact because 4pi divides uDrift's period.
+    static float spinAngle(float drift);
+
 private:
 
     // Relative-level attack/release (seconds).
@@ -109,6 +130,7 @@ private:
     static constexpr float kDriftBaseRadPerSec = 0.02f;
     static constexpr float kDriftMidRadPerSec = 0.08f;
     static constexpr float kDriftSignEaseSeconds = 3.0f;
+    static constexpr double kTwoPiD = 6.283185307179586;
 
     // Breath shaping.
     static constexpr float kBreathBassWeight = 0.06f;
@@ -141,7 +163,9 @@ private:
     float orbitCurY_ = 0.0f;
     float orbitRetargetLockout_ = 0.0f;
 
-    float driftAngle_ = 0.0f;
+    // Double: a frame's increment (~2e-3 rad) is ~30 float ulps at 314 rad, so
+    // a float accumulator would drift off the music's rate near the bounds.
+    double driftAngle_ = 0.0;
     float driftSign_ = 1.0f;
     float driftSignTarget_ = 1.0f;
 

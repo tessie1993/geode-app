@@ -1,12 +1,18 @@
 // Host-side checks for the pure render-thread math: the reaction matrix and
 // the camera rig. Built and run by CI (see .github/workflows/android.yml,
 // "Native host tests") with the system compiler; no GL, no device.
+#include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 
+#include <filesystem>
+#include <fstream>
 #include <set>
+#include <sstream>
 #include <string>
+#include <vector>
 
 #include "viz/CameraRig.hpp"
 #include "viz/Circular.hpp"
@@ -654,6 +660,178 @@ void followerScalesASoundClockWithoutJumps() {
     const float at = one.value;
     one.step(source, 1.5f, 7100.0f);
     check(one.value == at, "a Speed change with no source advance leaves the clock where it is");
+// ---- uDrift's wrap (MotionField::kDriftWrapTurns) ----
+
+// Every multiplier ShaderScene's styles apply to uDrift, read from the shader
+// sources (the test runs from the repo root, as CI does). A use is `uDrift`,
+// `c * uDrift` or `uDrift * c` with c a number literal; anything else (a
+// uniform or a division beside it) returns false, since only a constant
+// fraction of a whole-turn jump can stay whole. Outer `dir * (...)` signs of
+// +-1 (the chrys rings) keep whole turns whole and are not seen here.
+const char* kShaderDir = "app/src/main/assets/shaders";
+
+std::string withoutComments(const std::string& src) {
+    std::string out;
+    for (std::size_t i = 0; i < src.size();) {
+        if (src.compare(i, 2, "//") == 0) {
+            while (i < src.size() && src[i] != '\n') ++i;
+        } else if (src.compare(i, 2, "/*") == 0) {
+            const std::size_t end = src.find("*/", i + 2);
+            i = end == std::string::npos ? src.size() : end + 2;
+        } else {
+            out += src[i++];
+        }
+    }
+    return out;
+}
+
+bool isWordChar(char c) { return std::isalnum(static_cast<unsigned char>(c)) || c == '_'; }
+bool isNumberChar(char c) { return std::isdigit(static_cast<unsigned char>(c)) || c == '.'; }
+
+// Reads the drift multipliers of one shader's code into `out`; false (and a
+// message) on a use that is not a constant fraction.
+bool driftMultipliers(const std::string& name, const std::string& code, std::vector<double>& out, bool report = true) {
+    static const std::string kTok = "uDrift";
+    bool ok = true;
+    for (std::size_t at = code.find(kTok); at != std::string::npos; at = code.find(kTok, at + kTok.size())) {
+        const std::size_t end = at + kTok.size();
+        if ((at > 0 && isWordChar(code[at - 1])) || (end < code.size() && isWordChar(code[end]))) continue;  // uDriftX
+        if (code.rfind("uniform float ", at) == at - 14) continue;  // the declaration
+        double k = 1.0;
+        // Right: `* number`, and nothing multiplying or dividing after it.
+        std::size_t r = end;
+        while (r < code.size() && code[r] == ' ') ++r;
+        if (r < code.size() && (code[r] == '*' || code[r] == '/')) {
+            const bool div = code[r] == '/';
+            ++r;
+            while (r < code.size() && code[r] == ' ') ++r;
+            std::size_t n = r;
+            while (n < code.size() && isNumberChar(code[n])) ++n;
+            if (div || n == r) {
+                ok = false;
+                if (report) std::printf("FAIL: %s: uDrift is scaled by something other than a constant\n", name.c_str());
+                continue;
+            }
+            k *= std::stod(code.substr(r, n - r));
+            r = n;
+            while (r < code.size() && code[r] == ' ') ++r;
+            if (r < code.size() && (code[r] == '*' || code[r] == '/')) {
+                ok = false;
+                if (report) std::printf("FAIL: %s: uDrift * %s is scaled again\n", name.c_str(), code.substr(r).substr(0, 24).c_str());
+                continue;
+            }
+        }
+        // Left: `number *`, and nothing multiplying or dividing before it.
+        std::size_t l = at;
+        while (l > 0 && code[l - 1] == ' ') --l;
+        if (l > 0 && (code[l - 1] == '*' || code[l - 1] == '/')) {
+            const bool div = code[l - 1] == '/';
+            --l;
+            while (l > 0 && code[l - 1] == ' ') --l;
+            std::size_t n = l;
+            while (n > 0 && isNumberChar(code[n - 1])) --n;
+            if (div || n == l || (n > 0 && isWordChar(code[n - 1]))) {
+                ok = false;
+                if (report) std::printf("FAIL: %s: uDrift is scaled by something other than a constant\n", name.c_str());
+                continue;
+            }
+            k *= std::stod(code.substr(n, l - n));
+            l = n;
+            while (l > 0 && code[l - 1] == ' ') --l;
+            if (l > 0 && (code[l - 1] == '*' || code[l - 1] == '/')) {
+                ok = false;
+                if (report) std::printf("FAIL: %s: c * uDrift is scaled again\n", name.c_str());
+                continue;
+            }
+        }
+        out.push_back(k);
+    }
+    return ok;
+}
+
+void everyDriftMultiplierTurnsWholeTurnsAtTheWrap() {
+    namespace fs = std::filesystem;
+    if (!fs::is_directory(kShaderDir)) {
+        check(false, "the shader folder is readable (run from the repo root)");
+        return;
+    }
+    // Scenes that upload a uDrift of their own, not MotionField's: Silk's
+    // curved sound clock and Acid's vec2 offset.
+    const std::set<std::string> ownDrift = {"silk_step.glsl", "acid_step_frag.glsl"};
+    int uses = 0;
+    for (const auto& e : fs::directory_iterator(kShaderDir)) {
+        const std::string name = e.path().filename().string();
+        if (e.path().extension() != ".glsl" || ownDrift.count(name) != 0) continue;
+        std::ifstream in(e.path());
+        std::stringstream text;
+        text << in.rdbuf();
+        std::vector<double> ks;
+        check(driftMultipliers(name, withoutComments(text.str()), ks), "uDrift is only ever scaled by a constant");
+        for (const double k : ks) {
+            ++uses;
+            const double turns = k * MotionField::kDriftWrapTurns;
+            if (std::fabs(turns - std::round(turns)) > 1e-6) {
+                std::printf("FAIL: %s: %g * uDrift jumps %g turns at the wrap\n", name.c_str(), k, turns);
+                ++failures;
+            }
+        }
+    }
+    check(uses >= 9, "the scan finds the styles that turn on uDrift");
+    // The parser itself, so a slip cannot pass everything.
+    std::vector<double> ks;
+    check(driftMultipliers("t", "a = rotY(0.3 * uDrift) + uDrift*0.07 + f(uDrift);", ks) && ks.size() == 3 &&
+              std::fabs(ks[0] - 0.3) < 1e-12 && std::fabs(ks[1] - 0.07) < 1e-12 && ks[2] == 1.0,
+          "the drift scan reads constant multipliers");
+    ks.clear();
+    check(!driftMultipliers("t", "a = uDrift * 0.35 * uIntensity;", ks, false) && !driftMultipliers("t", "a = uIntensity * uDrift;", ks, false), "the drift scan refuses a uniform factor");
+}
+
+// The angle a shader turns by, 0.3 * uDrift and the rest, never jumps from one
+// frame to the next, including across uDrift's own wrap; uDrift stays bounded;
+// and apply() still spins with the old (-2pi, 2pi] angle.
+void driftCrossesItsWrapWithoutAPop() {
+    MotionField m;
+    GeodeSoundFrame f = playing();
+    const double kTwoPi = 6.283185307179586;
+    const double bound = 0.5 * MotionField::kDriftWrapTurns * kTwoPi;
+    const double ks[] = {0.07, 0.08, 0.1, 0.12, 0.15, 0.25, 0.3, 0.35, 0.5, 1.0};
+    const float dt = 0.1f;
+    float prev = m.state().drift;
+    double total = 0.0;  // the unwrapped angle, for apply()'s reference
+    bool wrapped = false;
+    double worst = 0.0;
+    for (int i = 0; i < 2000000 && !wrapped; ++i) {
+        m.step(f, dt);
+        const float cur = m.state().drift;
+        check(std::fabs(cur) <= bound + 1e-3, "uDrift stays inside its wrap");
+        double d = static_cast<double>(cur) - prev;
+        if (std::fabs(d) > bound) {
+            wrapped = true;
+            d -= std::copysign(2.0 * bound, d);
+        }
+        total += d;
+        for (const double k : ks) {
+            // The screen angle's step, on the circle: tiny, wrap or no wrap.
+            const double step = std::remainder(k * cur - k * prev, kTwoPi);
+            worst = std::max(worst, std::fabs(step));
+        }
+        // apply() reads the old law's angle.
+        double old = std::remainder(total, 2.0 * kTwoPi);
+        if (std::fabs(std::fabs(old) - kTwoPi) > 1e-2) {
+            const SceneParams p;
+            const float want = std::clamp(p.rotation + static_cast<float>(old) * p.motionDrift, -3.0f, 3.0f);
+            if (std::fabs(m.apply(p, false).rotation - want) > 2e-3f) {
+                check(false, "apply() spins with the old (-2pi, 2pi] drift angle");
+                break;
+            }
+        }
+        prev = cur;
+    }
+    check(wrapped, "the drift reaches its wrap");
+    check(worst < 0.05, "no style's drift turn jumps between frames, even across the wrap");
+    check(std::fabs(MotionField::wrapDrift(bound + 0.5) - (0.5 - bound)) < 1e-9, "wrapDrift folds past the top to the bottom");
+    check(MotionField::wrapDrift(-bound) == bound, "wrapDrift's range is (-bound, bound]");
+    check(MotionField::wrapDrift(NAN) == 0.0, "a non-finite drift restarts at 0");
 }
 
 void sourceCatalogueIsCompleteAndUnique() {
@@ -1020,6 +1198,8 @@ int main() {
     flowTimeIsFlowPhaseAtSpeedOne();
     flowTimeRunsAtSpeedAndNeverJumps();
     followerScalesASoundClockWithoutJumps();
+    everyDriftMultiplierTurnsWholeTurnsAtTheWrap();
+    driftCrossesItsWrapWithoutAPop();
     sourceCatalogueIsCompleteAndUnique();
     macrosAtRestChangeNothing();
     macrosTurnTowardTheEndsAndStayInRange();

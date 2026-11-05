@@ -14,9 +14,11 @@ namespace geode::sound {
 // a phone dropping to 40 and an export stepping at 1/30 s hear the same beats in the same places. step()
 // only reads where the oscillator is now.
 //
-//   band powers ─► log, over each band's own mean ─► positive change (20 ms) ─► onset envelope (100 Hz)
+//   band powers ─► log, over each band's own mean ─► positive change (20 ms) ─┬► weighted by register
+//      (low 0.6, middle 0.28, high 0.12) ─► onset envelope (100 Hz)          └► low and kick ─► low envelope
 //      onset envelope ─► minus its local mean ─► 6 s ring ─┬► autocorrelation × tempo prior ─► period
 //                                                          └► 4 s windowed Fourier at that period ─► phase
+//      low envelope ─► its Fourier at twice the period (the half-bar anchor) ─► beat or "and"
 //      period + phase ─► phase-locked oscillator ─► beats ─► kick/snare accent per beat slot ─► downbeat
 //
 // The tempogram is Grosche & Müller's autocorrelation tempogram restricted to its best lag, and the
@@ -94,6 +96,9 @@ private:
     int64_t hops_ = 0;
     static constexpr int kRing = 600;  // 6 s
     std::array<float, kRing> ring_{};
+    // The low band's own onset envelope (low and kick), on the same head: the half-bar anchor reads it.
+    std::array<float, kRing> lowRing_{};
+    float lowLocalMean_ = 0.0f;
     int ringHead_ = 0;  // the next slot to write
     std::array<float, 3> bandFluxPeak_{};
 

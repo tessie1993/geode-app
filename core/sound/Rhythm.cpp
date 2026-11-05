@@ -29,6 +29,18 @@ constexpr float kPhaseGain = 0.2f;         // share of the phase error corrected
 constexpr float kLatencyHops = 1.5f;
 constexpr float kCountWrap = 4096.0f;
 constexpr float kHarmonyLatency = 0.35f;   // a harmonic change is heard this long after the chord moved
+// What each band's onset counts for in the envelope (they sum to 1), in Rhythm::Band order. Each band is
+// read over its own mean, so with equal weights a hat 20 dB down counts as much as the kick, and a kick
+// on the beat under an open hat on the "and" cancels in the pulse at the beat period. Beats live low:
+// low and kick together carry 0.6, the snare's body and the middle 0.28, the highs 0.12 (fosfora's
+// onset.rs weights, the same split by register).
+constexpr std::array<float, Rhythm::kBands> kOnsetWeight = {0.30f, 0.14f, 0.04f, 0.30f, 0.14f, 0.04f, 0.04f};
+// The half-bar anchor: the low band's pulse at twice the beat period. A note on every beat, or on every
+// "and", cancels there; what is left repeats each half bar (a kick on 1 and 3) and sits on beats, so it
+// says which half of the beat period is the beat when the pulse at the period sits on an off-beat bass.
+constexpr float kAnchorWeight = 2.0f;      // its pull against the pulse at the period, ...
+constexpr float kAnchorSquare = 0.7f;      // ... counted only when it names φ or φ + ½ (|cos| past this)
+constexpr float kAnchorHold = 0.05f;       // a choice closer than this keeps the half the beat is on
 
 float wrapHalf(float x) { return x - std::round(x); }
 float frac(double x) { return static_cast<float>(x - std::floor(x)); }
@@ -87,17 +99,20 @@ void Rhythm::hop(const std::array<float, kBands>& power) {
         change[b] = std::max(0.0f, x - bandLog_[b][1]);
         bandLog_[b][1] = bandLog_[b][0];
         bandLog_[b][0] = x;
-        odf += change[b];
+        odf += kOnsetWeight[b] * change[b];
     }
-    odf /= static_cast<float>(kBands);
     bandFluxPeak_[0] = std::max(bandFluxPeak_[0], change[kLow]);
     bandFluxPeak_[1] = std::max(bandFluxPeak_[1], change[kMiddle]);
     bandFluxPeak_[2] = std::max(bandFluxPeak_[2], change[kHigh]);
     hopKick_ = change[kKick] + 0.5f * change[kLow];
     hopSnare_ = std::min(change[kSnareBody], change[kSnareNoise]);
 
-    localMean_ += (1.0f - std::exp(-kHopSeconds / kLocalMeanSeconds)) * (odf - localMean_);
+    const float localK = 1.0f - std::exp(-kHopSeconds / kLocalMeanSeconds);
+    localMean_ += localK * (odf - localMean_);
     ring_[ringHead_] = std::max(0.0f, odf - localMean_);
+    const float low = 0.5f * (change[kLow] + change[kKick]);
+    lowLocalMean_ += localK * (low - lowLocalMean_);
+    lowRing_[ringHead_] = std::max(0.0f, low - lowLocalMean_);
     ringHead_ = (ringHead_ + 1) % kRing;
 
     if (hops_ >= kTempoAfter && hops_ % kTempoEvery == 0) estimateTempo();
@@ -199,22 +214,54 @@ void Rhythm::measurePhase() {
     // beat we are, and the magnitude over the mass says how much of the envelope sits on one phase.
     const float p = period_;
     const int m = static_cast<int>(std::min<int64_t>(hops_, kPhaseWindow));
+    // The low band's coefficient at 2P rides along in the same loop: the half-bar anchor (kAnchorWeight).
     const std::complex<float> rot = std::polar(1.0f, 2.0f * std::numbers::pi_v<float> / p);
+    const std::complex<float> rotHalf = std::polar(1.0f, std::numbers::pi_v<float> / p);
     const float decay = std::exp(-1.0f / kPhaseDecay);
     std::complex<float> z(1.0f, 0.0f);
+    std::complex<float> zHalf(1.0f, 0.0f);
     std::complex<float> sum(0.0f, 0.0f);
+    std::complex<float> lowSum(0.0f, 0.0f);
     float mass = 0.0f;
+    float lowMass = 0.0f;
     float w = 1.0f;
     for (int i = 0; i < m; i++) {
-        const float o = ring_[(ringHead_ - 1 - i + kRing) % kRing] * w;
+        const int at = (ringHead_ - 1 - i + kRing) % kRing;
+        const float o = ring_[at] * w;
+        const float lo = lowRing_[at] * w;
         sum += o * z;
         mass += o;
+        lowSum += lo * zHalf;
+        lowMass += lo;
         z *= rot;
+        zHalf *= rotHalf;
         w *= decay;
     }
-    plpConf_ = mass > 1e-9f ? std::clamp(std::abs(sum) / mass, 0.0f, 1.0f) : 0.0f;
+    const float pulse = mass > 1e-9f ? std::clamp(std::abs(sum) / mass, 0.0f, 1.0f) : 0.0f;
+    plpConf_ = pulse;
     if (mass > 1e-9f) {
-        measured_ = frac(std::arg(sum) / (2.0 * std::numbers::pi) + kLatencyHops / p);
+        const float tau = 2.0f * std::numbers::pi_v<float>;
+        const float phase = std::arg(sum) / tau;
+        // Which of φ and φ + ½ is the beat: the pulse at P votes for φ with its strength; the anchor's
+        // doubled angle names a beat phase, and it votes for whichever half it lands on. Both votes are
+        // functions of the envelope alone, not of the oscillator, so the choice cannot feed on itself.
+        float vote = pulse;
+        if (lowMass > 1e-9f) {
+            const float anchor = std::clamp(std::abs(lowSum) / lowMass, 0.0f, 1.0f);
+            const float c = std::cos(2.0f * std::arg(lowSum) - tau * phase);
+            const float square = std::clamp((std::fabs(c) - kAnchorSquare) / (1.0f - kAnchorSquare), 0.0f, 1.0f);
+            vote += kAnchorWeight * anchor * square * (c < 0.0f ? -1.0f : 1.0f);
+            plpConf_ = std::max(pulse, anchor * square);
+        }
+        const float on = frac(phase + kLatencyHops / p);
+        const float off = frac(on + 0.5);
+        if (std::fabs(vote) < kAnchorHold) {
+            // Too close to call: stay on the half the oscillator is on.
+            const float now = frac(theta_);
+            measured_ = std::fabs(wrapHalf(on - now)) <= std::fabs(wrapHalf(off - now)) ? on : off;
+        } else {
+            measured_ = vote > 0.0f ? on : off;
+        }
     }
 
     const float dt = kPhaseEvery * kHopSeconds;

@@ -390,11 +390,14 @@ void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
 // After stepOverlays, so the look follows this frame's touch anchor. One path for every surface: live,
 // export (OffscreenSceneRenderer), wallpaper, dream and Cast all step this camera.
 void Renderer::stepCamera(const SceneParams& p, float dt) {
+    // Read every frame, so the base is the pose the gyro came on in, whatever camGyro did since.
+    const CameraRig::LookInput gyro =
+        gyroLook_.read(gyroYaw_.load(std::memory_order_relaxed), gyroPitch_.load(std::memory_order_relaxed),
+                       gyroRegistration_.load(std::memory_order_relaxed));
     CameraRig::LookInput look;
     bool lookActive = false;
     if (p.camGyro) {
-        look.yaw = lookYaw_.load(std::memory_order_relaxed);
-        look.pitch = lookPitch_.load(std::memory_order_relaxed);
+        look = gyro;
         lookActive = true;
     }
     if (p.camTouch) {

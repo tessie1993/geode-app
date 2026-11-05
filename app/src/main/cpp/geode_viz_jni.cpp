@@ -332,8 +332,9 @@ Java_dev_geode_engine_bridge_GeodeNative_musicActionTarget(JNIEnv*, jobject, jin
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetLook(JNIEnv*, jobject, jlong handle, jfloat yaw, jfloat pitch) {
-    geode_viz_set_look(vizOf(handle), yaw, pitch);
+Java_dev_geode_engine_bridge_GeodeNative_vizSetGyro(JNIEnv*, jobject, jlong handle, jfloat yaw, jfloat pitch,
+                                                    jint registration) {
+    geode_viz_set_gyro(vizOf(handle), yaw, pitch, registration);
 }
 
 JNIEXPORT void JNICALL

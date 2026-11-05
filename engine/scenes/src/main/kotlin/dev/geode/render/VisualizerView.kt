@@ -25,9 +25,10 @@ class VisualizerView(
     val framePacer: FramePacer = FramePacer { requestRender() }
 
     private val gyroLook =
-        GyroLook(context) { yaw, pitch ->
-            visualizerRenderer.lookYaw = yaw
-            visualizerRenderer.lookPitch = pitch
+        GyroLook(context) { yaw, pitch, registration ->
+            visualizerRenderer.gyroRegistration = registration
+            visualizerRenderer.gyroYaw = yaw
+            visualizerRenderer.gyroPitch = pitch
         }
 
     /** The camera's "Tilt phone to look" setting; the sensor only runs while this view is also watched. */

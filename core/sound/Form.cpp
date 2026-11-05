@@ -13,14 +13,14 @@ constexpr float kArcEvery = 0.25f;
 // The arc starts after this much sound: the engine's means, the onset rate and the level peak all climb
 // from nothing at first, which reads exactly like a build.
 constexpr float kArcWarm = 4.0f;
-constexpr float kNoveltyOn = 0.4f;      // novelty a section change must reach ...
+constexpr float kNoveltyOn = Form::kEventFloor;  // novelty a section change must pass ...
 constexpr float kNoveltyOverMean = 1.6f; // ... and this many times its own running mean
 constexpr int kMinSectionBars = 8;
 constexpr int kMinDropBars = 4;         // a drop may cut a section shorter: builds run 4–8 bars
 constexpr float kSameSection = 0.3f;    // a returning section sits this close, against how far apart sections are
 constexpr float kBuildOn = 0.55f;
 constexpr float kBuildOff = 0.25f;
-constexpr float kDropAfterBuild = 0.4f;  // the build's peak, in the last 4 s, that arms a drop
+constexpr float kDropAfterBuild = Form::kEventFloor;  // the build's peak, in the last 4 s, that arms a drop
 // ... and it must have been a build, not a swell: at least 2 s of the last 4 at kBuildOn. A piano cover's
 // louder phrase peaks the build reading for a moment and its left hand returns; that is not a drop.
 constexpr int kHeldBuildSamples = 8;

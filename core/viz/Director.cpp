@@ -4,6 +4,7 @@
 #include <atomic>
 #include <cmath>
 
+#include "sound/Form.hpp"
 #include "viz/Circular.hpp"
 
 namespace geode::viz {
@@ -378,9 +379,11 @@ void Director::step(const GeodeSoundFrame& f, float dt) {
         // in the first seconds the key detector is still settling, and the first look should not be
         // made for a key the song is not in.
         if (heard_ >= 4.0f && (s.confidence > 0.5f || heard_ >= 12.0f)) commit(Reason::First, 2.0f);
-    } else if (f.drop > 0.5f) {
+    } else if (sound::dropped(f)) {
+        // Every event Form fires: it owns the floor (Form::kEventFloor), so a threshold here would only
+        // lose the weaker ones.
         commit(Reason::Drop, 0.25f);
-    } else if (f.sectionChange > 0.5f && sinceCommit_ >= 4.0f) {
+    } else if (sound::sectionChanged(f) && sinceCommit_ >= 4.0f) {
         commit(Reason::Section, barGlide);
     } else {
         // A modulation counts once it has held six seconds and lands on a downbeat (or anywhere, when

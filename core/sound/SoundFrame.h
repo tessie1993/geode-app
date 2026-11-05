@@ -166,12 +166,14 @@ typedef struct GeodeSoundFrame {
     /* Form, from core/sound/Form: per-beat features in a 32-beat ring, Foote's checkerboard novelty, and
      * the energy arc. */
     float novelty;      /* how unlike the bar just played is to the 16 beats before it, 0..1 */
-    float sectionChange; /* trigger on a downbeat, at least 8 bars after the last: a new section began a bar ago */
+    float sectionChange; /* trigger on a downbeat, at least 8 bars after the last: a new section began a bar ago.
+                          * 0, or its strength at 0.4..1 (Form::kEventFloor): act on > 0 */
     float sectionId;    /* which section this is, 0..7; a returning chorus gets its old number back */
     float sectionState; /* GEODE_SECTION_*: intro, verse, build, drop, breakdown, outro */
     float sectionBars;  /* bars since the section (state) began, wrapping at 4096 */
     float buildUp;      /* 0..1: a build is under way (louder, brighter, busier, bass pulled out) */
-    float drop;         /* trigger: the bass came back after a build */
+    float drop;         /* trigger: the bass came back after a build. 0, or the build's peak at 0.4..1
+                         * (Form::kEventFloor): act on > 0 */
     /* TouchDesigner Band EQ centres (25 Hz … 22 kHz), each relative. */
     float eq[GEODE_SOUND_EQ_BANDS];
     /* Log-spaced spectrum 20 Hz–20 kHz, tilted like the bands, over a slow peak: 0..1 for textures. */

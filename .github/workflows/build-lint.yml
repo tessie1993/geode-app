@@ -59,6 +59,19 @@ jobs:
       - name: Assemble debug APK
         run: ./gradlew :app:assembleDebug --stacktrace --no-daemon
 
+      # The APK this gate just built, downloadable from the run's Summary page, so every
+      # pull request has an installable debug build without waiting for the tests in
+      # android.yml (now manual). Uploaded before the linters, so a lint finding still
+      # leaves the APK to try. Debug-signed with app/debug.keystore, so it installs over
+      # the other CI builds.
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: geode-debug-pr${{ github.event.pull_request.number || 'branch' }}-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
       - name: detekt
         if: success() || failure()
         run: ./gradlew :app:detekt :engine:audio-core:detekt :engine:scenes:detekt :engine:audio-android:detekt --continue --stacktrace --no-daemon

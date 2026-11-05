@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
@@ -40,6 +41,7 @@ import dev.geode.data.PlayerPosition
 import dev.geode.ui.theme.isReadableOnCanvas
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 /** Settings › Look › Basics: the accent and the interface sounds. */
 @Composable
@@ -183,7 +185,9 @@ private fun FontColorSwatch(
             stringResource(choice.labelRes),
             style = MaterialTheme.typography.labelSmall,
             color = if (selected) accentTextColor() else cs.onSurfaceVariant,
+            // One line under a 30 dp swatch: at a large font scale the name ends in … instead of being cut (#558).
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -193,12 +197,16 @@ private fun LayoutGroup(
     viewModel: SettingsViewModel,
     gui: GuiPrefs,
 ) {
+    // The glass's own clamp, shared with Visuals' quick settings (#559): the old 0.2..1 range had a
+    // dead bottom (floatingGlass draws no less than 35 %) and named fills that were never drawn. The
+    // label shows the clamped value, rounded as quick settings rounds it, so both read the same %.
+    val drawnOpacity = gui.barOpacity.coerceIn(SHEET_OPACITY_RANGE)
     Column {
-        Text(stringResource(R.string.look_bar_opacity, (gui.barOpacity * 100).toInt()), style = MaterialTheme.typography.labelMedium)
+        Text(stringResource(R.string.look_bar_opacity, (drawnOpacity * 100).roundToInt()), style = MaterialTheme.typography.labelMedium)
         CrystalSlider(
-            value = gui.barOpacity,
+            value = drawnOpacity,
             onValueChange = { viewModel.setGuiPrefs(gui.copy(barOpacity = it)) },
-            valueRange = 0.2f..1f,
+            valueRange = SHEET_OPACITY_RANGE,
         )
     }
     Column {

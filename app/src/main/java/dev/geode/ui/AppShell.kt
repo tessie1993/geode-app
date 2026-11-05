@@ -3,6 +3,7 @@ package dev.geode.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -48,6 +49,7 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -59,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.boundsInWindow
@@ -84,6 +87,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.NavigationEventTransitionState
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
 import dev.geode.analysis.SearchMatcher
@@ -97,6 +104,7 @@ import dev.geode.render.scene.SceneIds
 import dev.geode.ui.pro.PaywallHost
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeGlass
+import dev.geode.ui.theme.GeodeMotionScheme
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.StoneIcon
@@ -109,6 +117,43 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 private const val CRASH_REPORT_MAX_BYTES = 64 * 1024
+
+/** How far a tab fades at the end of a back gesture's travel: still legible, clearly leaving. */
+private const val BACK_TO_PLAYER_FADE = 0.5f
+
+/**
+ * Back from any tab but Player goes to Player, the app's home (#557 point 6), and the gesture
+ * previews it: the returned state is how far the back gesture has travelled (0..1), which the shell
+ * turns into the tab's fade. On completion [GeodeAppState.resetToPlayer] commits; on cancel the
+ * progress returns to 0 and the tab settles back. Either way the value eases on the theme's effects
+ * spring ([GeodeMotionScheme.fastEffectsSpec]), so Player fades in from where the gesture left it
+ * and a cancel settles rather than jumps. A fade and no slide or scale, so the reduced-motion scheme
+ * keeps it as it is (spatial specs would snap there).
+ *
+ * The API: NavigationEvent's [NavigationBackHandler] with its [rememberNavigationEventState], whose
+ * [NavigationEventTransitionState.InProgress] carries the progress. The navigation-event skill (and
+ * its "Handle back gestures and predictive back animations" guide) names it for Compose on SDK 36+
+ * in place of activity's `BackHandler`/`PredictiveBackHandler`: no Flow to collect and no
+ * CancellationException to tell a cancel apart, and the state is snapshot state the fade reads
+ * directly. It shares the activity's one dispatcher with every `BackHandler` and Nav3's `NavDisplay`,
+ * and the last registered enabled handler wins, which is why the caller composes this before every
+ * screen: a screen's own back (Visuals' pages, Studio's tabs, a sheet) comes first. It is disabled on
+ * Player, so Back there is the system's back-to-home, with the system's own preview.
+ */
+@Composable
+private fun rememberBackToPlayer(
+    appState: GeodeAppState,
+    motion: GeodeMotionScheme,
+): State<Float> {
+    val backState = rememberNavigationEventState(currentInfo = NavigationEventInfo.None)
+    NavigationBackHandler(
+        state = backState,
+        isBackEnabled = !appState.onPlayer,
+        onBackCompleted = appState::resetToPlayer,
+    )
+    val travel = (backState.transitionState as? NavigationEventTransitionState.InProgress)?.latestEvent?.progress ?: 0f
+    return animateFloatAsState(travel, motion.fastEffectsSpec(), label = "backToPlayer")
+}
 
 /**
  * A destination paired with the resolved label and icon the navigation surfaces draw for it.
@@ -190,7 +235,6 @@ fun AppRoot() {
             }
     }
     VisualizerEngineBindings(viewModel, visualizerView)
-    androidx.activity.compose.BackHandler(enabled = !appState.onPlayer) { appState.resetToPlayer() }
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     // The accent follows the visual: the middle of its palette's hues; MilkDrop paints its own.
     val accentTarget =
@@ -199,6 +243,9 @@ fun AppRoot() {
     // Android's "Remove animations" alone (data/SystemMotion, #336); the paywall below reads it too.
     val reducedMotion = rememberSystemReducedMotion()
     val motion = geodeMotionScheme(reducedMotion)
+    // Player is home: Back from any other tab goes there, previewed by the gesture (#557). Composed
+    // before the theme and every screen, so their own back handlers, registered later, win first.
+    val backToPlayer = rememberBackToPlayer(appState, motion)
     val accent by animateColorAsState(accentTarget, motion.slowEffectsSpec(), label = "accent")
     // The mini player (and on Visuals the tab bar and stage icons) wakes on a new screen or track.
     // A PiP window shows the visual alone (the sheet and the chrome hidden) until it closes.
@@ -231,73 +278,77 @@ fun AppRoot() {
         // layout, which would otherwise drop every screen's saved tab and scroll state.
         val destinationState = rememberSaveableStateHolder()
         val destinationContent: @Composable (twoPane: Boolean) -> Unit = { twoPane ->
+            // The tab fades toward Player as a back gesture travels (rememberBackToPlayer); the banner
+            // stays lit, since it belongs to playback, not to the tab.
             if (!inPip) PlaybackNoticeBanner(viewModel)
-            destinationState.SaveableStateProvider(appState.dest.name) {
-                when (appState.dest) {
-                    GeodeDestination.PLAYER ->
-                        PlayerScreen(
-                            viewModel,
-                            onOpenSearch = appState::openSearch,
-                            // The old live view is gone (owner): this opens Visuals, whose full screen is the sheet hidden.
-                            onExpand = { appState.navigateTo(GeodeDestination.VISUALS) },
-                            onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
-                        )
-                    GeodeDestination.LIBRARY ->
-                        if (twoPane) {
-                            Row(Modifier.fillMaxSize()) {
-                                Box(Modifier.weight(1f)) {
-                                    LibraryScreen(onOpenSearch = appState::openSearch)
+            Box(Modifier.graphicsLayer { alpha = 1f - BACK_TO_PLAYER_FADE * backToPlayer.value }) {
+                destinationState.SaveableStateProvider(appState.dest.name) {
+                    when (appState.dest) {
+                        GeodeDestination.PLAYER ->
+                            PlayerScreen(
+                                viewModel,
+                                onOpenSearch = appState::openSearch,
+                                // The old live view is gone (owner): this opens Visuals, whose full screen is the sheet hidden.
+                                onExpand = { appState.navigateTo(GeodeDestination.VISUALS) },
+                                onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
+                            )
+                        GeodeDestination.LIBRARY ->
+                            if (twoPane) {
+                                Row(Modifier.fillMaxSize()) {
+                                    Box(Modifier.weight(1f)) {
+                                        LibraryScreen(onOpenSearch = appState::openSearch)
+                                    }
+                                    VerticalDivider()
+                                    Box(Modifier.weight(1f)) {
+                                        PlayerScreen(
+                                            viewModel,
+                                            onOpenSearch = appState::openSearch,
+                                            onExpand = { appState.navigateTo(GeodeDestination.VISUALS) },
+                                            onOpenLibrary = {},
+                                        )
+                                    }
                                 }
-                                VerticalDivider()
-                                Box(Modifier.weight(1f)) {
-                                    PlayerScreen(
-                                        viewModel,
-                                        onOpenSearch = appState::openSearch,
-                                        onExpand = { appState.navigateTo(GeodeDestination.VISUALS) },
-                                        onOpenLibrary = {},
-                                    )
-                                }
+                            } else {
+                                LibraryScreen(onOpenSearch = appState::openSearch)
                             }
-                        } else {
-                            LibraryScreen(onOpenSearch = appState::openSearch)
-                        }
-                    GeodeDestination.VISUALS ->
-                        // The visual fills Visuals, so these bounds are the PiP window's source rect and aspect,
-                        // and where the shell lays the visual out.
-                        Box(
-                            Modifier.fillMaxSize().onGloballyPositioned {
-                                VisualizerPipCoordinator.canvasBoundsPx = it.windowRect()
-                                visualsBounds.value = it.boundsInRoot().roundToIntRect()
-                            },
-                        ) {
-                            VisualsHub(
+                        GeodeDestination.VISUALS ->
+                            // The visual fills Visuals, so these bounds are the PiP window's source rect and aspect,
+                            // and where the shell lays the visual out.
+                            Box(
+                                Modifier.fillMaxSize().onGloballyPositioned {
+                                    VisualizerPipCoordinator.canvasBoundsPx = it.windowRect()
+                                    visualsBounds.value = it.boundsInRoot().roundToIntRect()
+                                },
+                            ) {
+                                VisualsHub(
+                                    viewModel,
+                                    visualizerView,
+                                    chrome = chrome,
+                                    bottomReserve = visualsReserve,
+                                    // The glass slider (Visuals quick settings) tunes only the sheet over the visual, so the change shows.
+                                    sheetOpacity = gui.barOpacity,
+                                    onOpenStudioRender = appState::openStudioRender,
+                                    pip = inPip,
+                                )
+                            }
+                        GeodeDestination.STUDIO ->
+                            StudioHub(
                                 viewModel,
                                 visualizerView,
-                                chrome = chrome,
-                                bottomReserve = visualsReserve,
-                                // The glass slider (Visuals quick settings) tunes only the sheet over the visual, so the change shows.
-                                sheetOpacity = gui.barOpacity,
-                                onOpenStudioRender = appState::openStudioRender,
-                                pip = inPip,
+                                appState.studioSection,
+                                onSection = { appState.studioSection = it },
                             )
-                        }
-                    GeodeDestination.STUDIO ->
-                        StudioHub(
-                            viewModel,
-                            visualizerView,
-                            appState.studioSection,
-                            onSection = { appState.studioSection = it },
-                        )
-                    GeodeDestination.SETTINGS ->
-                        SettingsScreen(
-                            viewModel,
-                            onOpenStudioRender = appState::openStudioRender,
-                            onPlayTutorial = { tutorial.start(it) },
-                            onResetTutorials = {
-                                tutorial.autoOfferUsed = true
-                                settingsViewModel.setGuiPrefs(gui.copy(tutorialSeen = false, tutorialProgress = TutorialProgress()))
-                            },
-                        )
+                        GeodeDestination.SETTINGS ->
+                            SettingsScreen(
+                                viewModel,
+                                onOpenStudioRender = appState::openStudioRender,
+                                onPlayTutorial = { tutorial.start(it) },
+                                onResetTutorials = {
+                                    tutorial.autoOfferUsed = true
+                                    settingsViewModel.setGuiPrefs(gui.copy(tutorialSeen = false, tutorialProgress = TutorialProgress()))
+                                },
+                            )
+                    }
                 }
             }
         }

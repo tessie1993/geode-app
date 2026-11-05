@@ -115,14 +115,15 @@ fun UiTour.runGesture(
     val before = state()
     val shotBefore = screenshot(area, "${g.name}-before")
     val driven = attempt(g.drive)
-    SystemClock.sleep(GESTURE_SETTLE_MS)
-    val after = state()
+    val after = awaitChange(before, GESTURE_TIMEOUT_MS, GESTURE_SETTLE_MS)
     val focus = focus()
     val shotAfter = screenshot(area, "${g.name}-after")
     val changes = after.changesFrom(before)
     val startEdge = window.gestureEdge(g.start)
     val endEdge = window.gestureEdge(g.end)
-    val collision = startEdge != null || endEdge != null
+    val safeStart = window.safeGesturesEdge(g.start)
+    val safeEnd = window.safeGesturesEdge(g.end)
+    val collision = startEdge != null || endEdge != null || safeStart != null || safeEnd != null
     // Focus alone over-reads: a popup of the app's own has no package in its window name.
     val systemTook = !after.resumed || focus == "shade" || focus == "home"
     // A side swipe the system turns into back reaches the app as back, which brings a hidden
@@ -152,6 +153,8 @@ fun UiTour.runGesture(
             .put("startInset", startEdge ?: JSONObject.NULL)
             .put("endInset", endEdge ?: JSONObject.NULL)
             .put("startMandatoryInset", window.mandatoryEdge(g.start) ?: JSONObject.NULL)
+            .put("startSafeGesturesInset", safeStart ?: JSONObject.NULL)
+            .put("endSafeGesturesInset", safeEnd ?: JSONObject.NULL)
             .put("insetCollision", if (collision) "yes" else "no")
             .put("focusAfter", focus)
             .put("systemTook", systemTook)
@@ -254,7 +257,11 @@ private const val CHROME_SLEEP_MS = 12_000L
 private const val POLL_MS = 150L
 
 /**
- * After a gesture: a single tap waits out the double-tap timeout before it fires, and the live
- * state the style is read from is saved through a 400 ms window (`VizStateStore`).
+ * How long a gesture's effect may take to show: a single tap waits out the double-tap timeout
+ * before it fires, and a hold fills its ring first. A gesture that changes nothing (pinch, touch
+ * play) costs this whole wait, which is the price of not judging "nothing" too early.
  */
-private const val GESTURE_SETTLE_MS = 1_500L
+private const val GESTURE_TIMEOUT_MS = 3_000L
+
+/** Once something changed: the live state the style is read from is saved through a 400 ms window (`VizStateStore`). */
+private const val GESTURE_SETTLE_MS = 700L

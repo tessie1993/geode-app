@@ -90,6 +90,14 @@ jobs:
           adb shell settings get secure navigation_mode > "$OUT/navigation_mode.txt" || true
           adb shell cmd overlay list | grep -i navbar > "$OUT/navbar_overlays.txt" || true
           adb shell input keyevent 82
+          # SystemUI demo mode: a fixed clock, full battery and signal and no notification icons, so
+          # screenshots differ only where the app does (screenshot evidence must be deterministic).
+          adb shell settings put global sysui_demo_allowed 1 || true
+          adb shell am broadcast -a com.android.systemui.demo -e command enter || true
+          adb shell am broadcast -a com.android.systemui.demo -e command clock -e hhmm 1200 || true
+          adb shell am broadcast -a com.android.systemui.demo -e command battery -e level 100 -e plugged false || true
+          adb shell am broadcast -a com.android.systemui.demo -e command network -e wifi show -e level 4 || true
+          adb shell am broadcast -a com.android.systemui.demo -e command notifications -e visible false || true
           timeout 30 adb logcat -G 16M >/dev/null 2>&1 || true
           adb logcat -b main,system,crash,events -v threadtime > "$OUT/logcat.txt" 2>&1 &
           LOGCAT_PID=$!
@@ -187,12 +195,19 @@ jobs:
               if not folder.exists():
                   continue
               lines = [f"# UI tour: {cfg}", "", f"Device and insets: `{json.dumps(device)}`", ""]
-              lines += ["| case | step | screenshots | expected | observed | inset collision | error |", "|---|---|---|---|---|---|---|"]
+              lines += ["✅ the step ran, ❌ it could not be done (see error). Each screenshot has its accessibility tree beside it",
+                        "(`<name>.layout.json`, `android layout`'s shape); *unlabeled* lists actionable nodes TalkBack cannot name.", ""]
+              lines += ["| | case | step | screenshots | expected | observed | inset collision | unlabeled | error |",
+                        "|---|---|---|---|---|---|---|---|---|"]
               for row in rows:
+                  shots_md = " ".join(f"[{name}]({name})" for name in row.get("screenshots", []))
                   lines.append("| " + " | ".join(cell(v) for v in [
-                      row.get("case"), f"{row.get('area')}/{row.get('step')}", " ".join(row.get("screenshots", [])),
-                      row.get("expected"), row.get("observed"), row.get("insetCollision", ""), row.get("error"),
+                      "❌" if row.get("error") else "✅", row.get("case"), f"{row.get('area')}/{row.get('step')}", shots_md,
+                      row.get("expected"), row.get("observed"), row.get("insetCollision", ""),
+                      "; ".join(row.get("unlabeledInteractive", [])), row.get("error"),
                   ]) + " |")
+              unlabeled = sorted({u for row in rows for u in row.get("unlabeledInteractive", [])})
+              lines += ["", f"## Actionable nodes with no label ({len(unlabeled)})", ""] + [f"- {u}" for u in unlabeled]
               (folder / "ui-tour-report.md").write_text("\n".join(lines) + "\n")
               (folder / "ui-tour-report.json").write_text(json.dumps(everything["configs"][cfg], indent=2))
 
@@ -203,6 +218,12 @@ jobs:
                   "Per-config tables: `<config>/ui-tour-report.md`. Screenshots: `<config>/NNN_<area>_<step>_<orientation>_<fontscale>.png`."]
           (out / "ui-tour-report.md").write_text("\n".join(head + summary + tail) + "\n")
           (out / "ui-tour-report.json").write_text(json.dumps(everything, indent=2))
+
+          # Recording is checked on its own: a run that "passed" proves nothing about the files.
+          missing = [cfg for cfg in configs if not list((out / cfg).glob("*.png"))]
+          (out / "missing-screenshots.txt").write_text(" ".join(missing))
+          for cfg in configs:
+              print(f"{cfg}: {len(list((out / cfg).glob('*.png')))} screenshots in ui-tour-out/{cfg}/")
           with open(__import__("os").environ.get("GITHUB_STEP_SUMMARY", "/dev/null"), "a") as s:
               s.write("\n".join(head + summary + tail) + "\n")
 
@@ -221,11 +242,15 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Fail if a config's run failed
+      - name: Fail if a config's run failed or recorded nothing
         if: always()
         run: |
           failed=$(cat ui-tour-out/failed-configs.txt 2>/dev/null || echo "unknown (the tour script did not finish)")
+          missing=$(cat ui-tour-out/missing-screenshots.txt 2>/dev/null || echo "all")
+          if [ -n "$missing" ]; then
+            echo "::error::No screenshots were recorded for: $missing (expected ui-tour-out/<config>/NNN_*.png)."
+          fi
           if [ -n "$failed" ]; then
             echo "::error::UI tour run failed for: $failed (the app crashed or the activity never came up). Screenshots and reports were still uploaded."
-            exit 1
           fi
+          if [ -n "$failed$missing" ]; then exit 1; fi

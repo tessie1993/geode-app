@@ -63,6 +63,9 @@ class UiTour(
     private val rows = JSONArray()
     private var shots = 0
     private var device: JSONObject = JSONObject()
+
+    /** What the last screenshot's accessibility tree held that a user can act on but not hear. */
+    private var lastUnlabeled: List<String> = emptyList()
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val dir: String get() = "ui-tour/${config.id}"
     private val reportName: String get() = "report-%03d-%s".format(case.index * CASE_STRIDE, case.area)
@@ -143,13 +146,22 @@ class UiTour(
                 .put("observed", observed)
                 .put("error", error ?: JSONObject.NULL)
                 .put("ms", ms)
+                .put("unlabeledInteractive", JSONArray(lastUnlabeled))
         extra?.keys()?.forEach { key -> row.put(key, extra.get(key)) }
         rows.put(row)
         Log.i(TAG, "${config.id} $area/$step: ${error ?: observed.ifEmpty { "ok" }}")
         writeReport()
     }
 
-    /** The next numbered screenshot, or null when the device would not give one. */
+    /**
+     * The next numbered screenshot, or null when the device would not give one, with the
+     * accessibility tree of the same moment beside it as `<name>.layout.json` ([TourLayout]).
+     *
+     * Compose is idled first, then a fixed beat follows. That beat is not waiting on Compose (the
+     * compose-ui-testing guidance is right that a sleep is the wrong way to wait for it): it is
+     * the GL thread's next frame and the compositor, which Compose's idling cannot see, and the
+     * screenshot is of what the compositor shows.
+     */
     fun screenshot(
         area: String,
         name: String,
@@ -157,12 +169,42 @@ class UiTour(
         runCatching { compose.waitForIdle() }
         SystemClock.sleep(SHOT_SETTLE_MS)
         val n = case.index * CASE_STRIDE + shots++
-        val file = "%03d_%s_%s_%s_%s.png".format(n, slug(area), slug(name), config.orientationTag, config.fontTag)
+        val base = "%03d_%s_%s_%s_%s".format(n, slug(area), slug(name), config.orientationTag, config.fontTag)
+        val layout = attempt { TourLayout.dump() }.getOrNull()
+        lastUnlabeled = layout?.unlabeled.orEmpty()
+        layout?.let { dump ->
+            runCatching {
+                storage.openOutputFile("$dir/$base.layout.json").use { it.write(dump.nodes.toString(1).toByteArray()) }
+            }
+        }
         val bitmap = runCatching { TourDevice.automation.takeScreenshot() }.getOrNull() ?: return null
         return runCatching {
-            storage.openOutputFile("$dir/$file").use { bitmap.compress(Bitmap.CompressFormat.PNG, PNG_QUALITY, it) }
-            file
+            storage.openOutputFile("$dir/$base.png").use { bitmap.compress(Bitmap.CompressFormat.PNG, PNG_QUALITY, it) }
+            "$base.png"
         }.getOrNull().also { bitmap.recycle() }
+    }
+
+    /**
+     * Polls [state] until it differs from [before] (then once more after [settleMs], so a change
+     * still landing, such as the style saved through `VizStateStore`'s 400 ms window, is caught),
+     * or until [timeoutMs]. A bounded wait on a real condition rather than a fixed sleep.
+     */
+    fun awaitChange(
+        before: TourState,
+        timeoutMs: Long,
+        settleMs: Long,
+    ): TourState {
+        val deadline = SystemClock.uptimeMillis() + timeoutMs
+        var now = state()
+        while (now == before && SystemClock.uptimeMillis() < deadline) {
+            SystemClock.sleep(POLL_MS)
+            now = state()
+        }
+        if (now != before) {
+            SystemClock.sleep(settleMs)
+            now = state()
+        }
+        return now
     }
 
     // -- finding and touching things ---------------------------------------------------------
@@ -307,8 +349,9 @@ class UiTour(
     /**
      * Reads the window size and its insets from the activity's root view: the system gesture
      * insets (where Android owns a swipe: back at the sides, home at the bottom, the shade at the
-     * top), the mandatory ones (which no app can opt out of) and the tappable element (where a
-     * tap lands on the system bars). Also written into the report's device block.
+     * top), the mandatory ones (which no app can opt out of), the tappable element (where a tap
+     * lands on the system bars), their union `safeGestures`, the drawing insets and the root's
+     * gesture exclusion rects. Also written into the report's device block.
      */
     fun measureWindow() {
         val activity = runCatching { compose.activity }.getOrNull() ?: return
@@ -328,6 +371,9 @@ class UiTour(
                         mandatory = insets?.getInsets(WindowInsetsCompat.Type.mandatorySystemGestures()) ?: Insets.NONE,
                         tappable = insets?.getInsets(WindowInsetsCompat.Type.tappableElement()) ?: Insets.NONE,
                         bars = insets?.getInsets(WindowInsetsCompat.Type.systemBars()) ?: Insets.NONE,
+                        cutout = insets?.getInsets(WindowInsetsCompat.Type.displayCutout()) ?: Insets.NONE,
+                        ime = insets?.getInsets(WindowInsetsCompat.Type.ime()) ?: Insets.NONE,
+                        exclusions = ViewCompat.getSystemGestureExclusionRects(view).map { it.flattenToString() },
                     )
                 }
             }.getOrDefault(TourWindow.EMPTY)
@@ -401,17 +447,23 @@ class UiTour(
             appendLine()
             appendLine("Device: `$device`")
             appendLine()
-            appendLine("| step | screenshots | expected | observed | inset collision | error |")
-            appendLine("|---|---|---|---|---|---|")
+            appendLine("✅ the step ran; ❌ it could not be done (see error). Unlabeled: actionable nodes TalkBack cannot name.")
+            appendLine()
+            appendLine("| | step | screenshots | expected | observed | inset collision | unlabeled | error |")
+            appendLine("|---|---|---|---|---|---|---|---|")
             for (i in 0 until rows.length()) {
                 val r = rows.getJSONObject(i)
+                val files = r.getJSONArray("screenshots")
+                val shotsCell = (0 until files.length()).joinToString(" ") { "[${files.getString(it)}](${files.getString(it)})" }
                 val cells =
                     listOf(
+                        if (r.isNull("error")) "✅" else "❌",
                         "${r.getString("area")}/${r.getString("step")}",
-                        r.getJSONArray("screenshots").join(" ").replace("\"", ""),
+                        shotsCell,
                         r.getString("expected"),
                         r.getString("observed"),
                         r.optString("insetCollision", ""),
+                        r.optJSONArray("unlabeledInteractive")?.join("; ")?.replace("\"", "").orEmpty(),
                         if (r.isNull("error")) "" else r.getString("error"),
                     )
                 appendLine(cells.joinToString(" | ", "| ", " |") { cell(it) })
@@ -493,11 +545,29 @@ data class TourWindow(
     val mandatory: Insets,
     val tappable: Insets,
     val bars: Insets,
+    val cutout: Insets,
+    val ime: Insets,
+    /** The root view's own system-gesture exclusion rects (`View.setSystemGestureExclusionRects`). */
+    val exclusions: List<String>,
 ) {
+    /**
+     * Compose's `WindowInsets.safeGestures`: system gestures, mandatory gestures and the tappable
+     * element together, the strips where an app gesture can clash with the system. The insets
+     * guidance (the edge-to-edge skill, and "About window insets" on developer.android.com) names
+     * it as the one to keep app gestures out of, so the report judges collisions against it as
+     * well as against the `systemGestures` the detector actually uses.
+     */
+    val safeGestures: Insets get() = Insets.max(Insets.max(gestures, mandatory), tappable)
+
+    /** Compose's `WindowInsets.safeDrawing`: system bars, cutout and keyboard together. */
+    val safeDrawing: Insets get() = Insets.max(Insets.max(bars, cutout), ime)
+
     /** Whether [p] (window pixels) lies in a system gesture strip, and which: "left", "top", … */
     fun gestureEdge(p: PointF): String? = edge(p, gestures)
 
     fun mandatoryEdge(p: PointF): String? = edge(p, mandatory)
+
+    fun safeGesturesEdge(p: PointF): String? = edge(p, safeGestures)
 
     private fun edge(
         p: PointF,
@@ -522,6 +592,11 @@ data class TourWindow(
             .put("mandatorySystemGestures", insetsJson(mandatory))
             .put("tappableElement", insetsJson(tappable))
             .put("systemBars", insetsJson(bars))
+            .put("displayCutout", insetsJson(cutout))
+            .put("ime", insetsJson(ime))
+            .put("safeGestures", insetsJson(safeGestures))
+            .put("safeDrawing", insetsJson(safeDrawing))
+            .put("systemGestureExclusionRects", JSONArray(exclusions))
 
     private fun insetsJson(i: Insets) =
         JSONObject()
@@ -531,7 +606,8 @@ data class TourWindow(
             .put("bottom", i.bottom)
 
     companion object {
-        val EMPTY = TourWindow(0, 0, 0, 0, 1f, Insets.NONE, Insets.NONE, Insets.NONE, Insets.NONE)
+        val EMPTY =
+            TourWindow(0, 0, 0, 0, 1f, Insets.NONE, Insets.NONE, Insets.NONE, Insets.NONE, Insets.NONE, Insets.NONE, emptyList())
     }
 }
 

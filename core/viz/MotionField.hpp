@@ -53,6 +53,9 @@ public:
         float drift = 0.0f;       // uDrift: accumulated angle, radians
         float breath = 1.0f;      // uBreath, 0.9..1.1
         float flowPhase = 0.0f;   // uFlowPhase: monotonic integrator
+        // The rate flowPhase advanced at on the last step (phase units per second). ShaderScene
+        // integrates speed x this into uFlowTravel, so Speed changes the rate, never the phase.
+        float flowRate = 0.0f;
     };
 
     MotionField();

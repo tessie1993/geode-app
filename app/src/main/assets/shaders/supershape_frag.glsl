@@ -365,10 +365,11 @@ vec3 satOrbit(int i, float sec, float bassC, float width, out float sizeH, out f
 
 void main() {
     vec2 uv = view();
-    float spd = uSpeed;
-    float midC = SND_MID_TIME * spd;
-    float bassC = SND_BASS_TIME * spd;
-    float trebC = SND_TREBLE_TIME * spd;
+    // The sound clocks with Speed in their rate (uSoundTravel = bass, mid, treble), never
+    // SND_*_TIME * uSpeed, which jumps every motion by clock x delta-speed when Speed moves.
+    float midC = uSoundTravel.y;
+    float bassC = uSoundTravel.x;
+    float trebC = uSoundTravel.z;
 
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
     float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);

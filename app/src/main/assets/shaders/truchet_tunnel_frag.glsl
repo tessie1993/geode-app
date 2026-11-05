@@ -60,7 +60,7 @@ void main() {
 
     float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float screw = 4.0 * drop * (1.0 - drop) * e;
-    float travel = uFlowPhase * uSpeed * 0.6 + t * 0.12;
+    float travel = uFlowTravel * 0.6 + t * 0.12;
 
     vec2 q = vec2(ang * k, depth * k - travel);
     q.x += (0.35 + 1.4 * screw) * depth * k;

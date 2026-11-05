@@ -105,7 +105,7 @@ void main() {
     float flux = clamp(sndLevel(SND_FLUX), 0.0, 1.0) * energy;
     float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float dropBump = 4.0 * drop * (1.0 - drop) * energy;
-    float phase = uFlowPhase * 0.6 * uSpeed;
+    float phase = uFlowTravel * 0.6;
 
     gChaos = arbChaos();
     gGrow = arbLevels(5.0, 1.0);

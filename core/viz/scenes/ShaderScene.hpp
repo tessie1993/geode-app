@@ -82,6 +82,14 @@ private:
     float zoomPhase_ = 0.0f;
     float cyclePhase_ = 0.0f;
     float shaderTime_ = 0.0f;
+    // uFlowTravel: uFlowPhase's increments times Speed, so Speed sets its rate and a Speed change
+    // never moves it (the uTime rule, for the loudness-rated flow).
+    float flowTravel_ = 0.0f;
+    // uSoundTravel: the bass, mid and treble sound clocks (SND_*_TIME) stepped the same way, seeded
+    // on the clocks' own values on the first update so Speed 1 reads them unchanged.
+    std::array<float, 3> soundTravel_{};
+    std::array<float, 3> soundClockLast_{};
+    bool soundClocksSeen_ = false;
 
     GLuint flowTex_ = 0;
     float flowStrength_ = 0.0f;

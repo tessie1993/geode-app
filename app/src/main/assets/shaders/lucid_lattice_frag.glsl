@@ -65,7 +65,7 @@ float quasi(vec2 p, float waves, float phase, out vec2 grad) {
 void main() {
     vec2 uv = lucidView(false);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
-    float flow = uFlowPhase * uSpeed;
+    float flow = uFlowTravel;
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
     // 1 = smooth crystal, 0 = fully ridged.
     float smoothness = clamp(mix(1.0, clamp(uHarmony, 0.0, 1.0), clamp(uIntensity, 0.0, 1.5)), 0.0, 1.0);

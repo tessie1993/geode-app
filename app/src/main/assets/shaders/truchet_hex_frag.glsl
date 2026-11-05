@@ -64,7 +64,7 @@ void main() {
     float body = truchetLine(a.d, hw, px);
     float crown = sqrt(1.0 - u * u);
     float stripes = 2.0 + floor(morph * 2.0 + 0.5);
-    float band = 0.5 + 0.5 * cos(TRUCHET_TAU * (a.s * stripes - uFlowPhase * uSpeed * 0.35));
+    float band = 0.5 + 0.5 * cos(TRUCHET_TAU * (a.s * stripes - uFlowTravel * 0.35));
     vec3 cord = mix(pal(hue + 0.12 + 0.12 * field), pal(hue + 0.32 + 0.12 * field), smoothstep(0.35, 0.65, band));
     vec3 lit = cord * (0.25 + 0.75 * crown) + vec3(1.0) * pow(crown, 12.0) * 0.18;
     // Dark lip at the ribbon edge, so neighbouring cords separate.

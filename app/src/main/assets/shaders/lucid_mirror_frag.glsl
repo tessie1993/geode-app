@@ -64,7 +64,7 @@ vec2 mirrorBox(vec2 p, float h, out float seam) {
 void main() {
     vec2 uv = lucidView(false);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
-    float flow = uFlowPhase * uSpeed;
+    float flow = uFlowTravel;
     float treb = clamp(sndShaped(SND_HIGH), 0.0, 1.5);
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
 

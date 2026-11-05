@@ -78,6 +78,20 @@ uniform float uMotion;
  * stall into a stutter.
  */
 uniform float uFlowPhase;
+/**
+ * uFlowPhase with Speed in its rate: ShaderScene steps it by uSpeed times
+ * uFlowPhase's own increment, so it equals uFlowPhase at Speed 1 and a Speed
+ * change only changes how fast it runs. Read this, never uFlowPhase * uSpeed:
+ * an integrator times the live slider jumps the picture by phase x delta-speed
+ * on every Speed change (tools/check_shaders.py fails the build on it).
+ */
+uniform float uFlowTravel;
+/**
+ * The bass, mid and treble sound clocks (SND_BASS_TIME, SND_MID_TIME,
+ * SND_TREBLE_TIME) with Speed in their rate, the same way: never write
+ * SND_*_TIME * uSpeed.
+ */
+uniform vec3 uSoundTravel;
 
 // ---- legacy: constant since wave three; removed in R08 --------------------
 //

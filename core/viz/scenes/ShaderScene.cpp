@@ -29,6 +29,13 @@ float paletteRowCoordinate(int index) {
 
 float flag(bool on) { return on ? 1.0f : 0.0f; }
 
+// A sound clock's advance since the last frame: never negative, and 0 across its wrap (core/sound
+// wraps them at an hour) or any other leap, so a travel built from it never jumps.
+float clockAdvance(float now, float last) {
+    const float d = now - last;
+    return (std::isfinite(d) && d > 0.0f && d < 2.0f) ? d : 0.0f;
+}
+
 }  // namespace
 
 ShaderScene::ShaderScene(std::string id, std::string vertexSrc, std::string fragmentSrc, ProgramBinaryCache* cache, SceneHost host)
@@ -80,6 +87,22 @@ void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
     if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
     // Wave three: the continuous motion layer, never a transient/beat trigger.
     motionField_.step(sound, dt);
+    // The speed rule for integrators (as shaderTime_ above): Speed scales the RATE a phase advances
+    // at, never the phase itself. A shader that wrote uFlowPhase * uSpeed or SND_MID_TIME * uSpeed
+    // multiplied an integrator by the live speed, so every Speed change (slider, LFO, macro,
+    // route, and MotionField::apply's own energy scaling, which moves p.speed every frame) jumped
+    // the picture by phase x delta-speed. Here p.speed only sets the rate: at a resolved speed of
+    // 1, uFlowTravel steps by exactly the increment MotionField gave uFlowPhase, and the sound
+    // travels, seeded on the clocks' current values, step with them.
+    flowTravel_ = std::fmod(flowTravel_ + p.speed * (dt * motionField_.state().flowRate), kTimeWrapSeconds);
+    const std::array<float, 3> clocks{sound.bassTime, sound.midTime, sound.trebleTime};
+    for (std::size_t i = 0; i < clocks.size(); i++) {
+        soundTravel_[i] = soundClocksSeen_
+                              ? std::fmod(soundTravel_[i] + p.speed * clockAdvance(clocks[i], soundClockLast_[i]), kTimeWrapSeconds)
+                              : clocks[i];
+        soundClockLast_[i] = clocks[i];
+    }
+    soundClocksSeen_ = true;
 }
 
 void ShaderScene::draw(float timeSeconds) {
@@ -203,6 +226,9 @@ void ShaderScene::uploadMotion() {
     set1f("uDrift", m.drift);
     set1f("uBreath", m.breath);
     set1f("uFlowPhase", m.flowPhase);
+    // The speed-integrated travels (see update()): what a style reads where it wants Speed on a clock.
+    set1f("uFlowTravel", flowTravel_);
+    glUniform3f(uniforms_.loc("uSoundTravel"), soundTravel_[0], soundTravel_[1], soundTravel_[2]);
     set1f("uMotion", std::clamp(params_.motionAmount, 0.0f, 1.0f));
 
     // Legacy since wave three, held at their neutral constant until R08

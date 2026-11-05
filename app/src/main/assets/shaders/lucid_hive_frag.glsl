@@ -44,7 +44,7 @@ out vec4 fragColor;
 void main() {
     vec2 uv = lucidView(true);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
-    float flow = uFlowPhase * uSpeed;
+    float flow = uFlowTravel;
     float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float calm = clamp(uHarmony, 0.0, 1.0);

@@ -14,7 +14,7 @@ Shaders are GLSL ES 3.00 (`#version 300 es`) in `app/src/main/assets/shaders/`. 
 - 3D styles read the camera through `lib_camera` (`core/viz/CameraRig`). They dive by flying the rig, never by zooming UV.
 - 2D styles get endless zoom from `lib_zoom` (two layers an octave apart). In Liquid mode `LiquidPass` replaces it.
 - Families share `lib_<family>` (`arbor`, `bulb`, `chrys`, `lucid`, `dive`, `glass`, `nebula`, `terra`, `truchet`, `foam`); the neon set shares `lib_neon`; simulation scenes present through `lib_relief`. The catalogue of ids, kinds and families is `core/viz/Catalogue.cpp`.
-- Time rule: `uTime` is the speed-integrated clock (`ShaderScene` adds `speed * dt` each frame), so a shader never multiplies it by `uSpeed` again: that squares Speed and makes every Speed change (slider, LFO, macro, route) jump the picture. Write `uTime * 0.3`, not `uTime * uSpeed * 0.3`; `tools/check_shaders.py` fails on any statement with both.
+- Time rule: `uTime` is the speed-integrated clock (`ShaderScene` adds `speed * dt` each frame), so a shader never multiplies it by `uSpeed` again: that squares Speed and makes every Speed change (slider, LFO, macro, route) jump the picture. Write `uTime * 0.3`, not `uTime * uSpeed * 0.3`; `tools/check_shaders.py` fails on any statement with both. The same goes for every other integrator: never `uFlowPhase * uSpeed` (read `uFlowTravel`) or `SND_*_TIME * uSpeed` (read `uSoundTravel`, bass/mid/treble), which `ShaderScene` steps by Speed times the clock's own increment; the check catches those too, through a `float spd = uSpeed;` alias as well.
 - Photosensitivity: every frame goes through `safety::apply` (`core/viz/VisualSafety`). Never add a path around it.
 
 ## Check without a device

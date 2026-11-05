@@ -150,7 +150,8 @@ void MotionField::step(const GeodeSoundFrame& f, float dt) {
     state_.breath = std::clamp(oneOle(state_.breath, breathTarget, dt, kBreathSeconds), kBreathLo, kBreathHi);
 
     // ---- flow phase: monotonic, rate set by loudness, never the sign --------
-    state_.flowPhase = std::fmod(state_.flowPhase + dt * (kFlowBaseHz + kFlowEnergyHz * state_.energyRel), kTimeWrapSeconds);
+    state_.flowRate = kFlowBaseHz + kFlowEnergyHz * state_.energyRel;
+    state_.flowPhase = std::fmod(state_.flowPhase + dt * state_.flowRate, kTimeWrapSeconds);
 }
 
 // Reshapes every family's parameters from the continuous state step() just

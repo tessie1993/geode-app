@@ -5,7 +5,7 @@ against the same allow-list (core/viz/ShaderIncludes.inc: an unknown or
 missing include fails here as it fails on the phone), then compiles for an
 OpenGL target. The Silk simulation bodies (silk_step, silk_show) are not whole
 shaders; they are compiled inside the preamble core/viz/compute/SimGlsl.cpp
-wraps them in. Before compiling it lints every shader and lib for the time
+wraps them in. Before compiling it lints every shader and lib for the speed
 rule (see speed_twice). glslc will not take `#version 300 es`
 for SPIR-V, so the check bumps it to 310 es: it catches syntax, type and
 undeclared-name errors, not ES 3.00-only restrictions.
@@ -71,46 +71,70 @@ SIM_BODIES = {
 
 COMMENTS = re.compile(r"//[^\n]*|/\*.*?\*/", re.S)
 PREPROCESSOR = re.compile(r"^[ \t]*#[^\n]*", re.M)
-U_TIME = re.compile(r"\buTime\b")
 U_SPEED = re.compile(r"\buSpeed\b")
+# A local that only renames the slider (`float spd = uSpeed;`) is the slider too.
+SPEED_ALIAS = re.compile(r"\b(?:float\s+)?(\w+)\s*=\s*uSpeed\s*;")
+# The integrators, and what a shader reads instead when it wants Speed on one. Each already
+# advances by a rate every frame; times the live uSpeed, a Speed change jumps it by phase x delta.
+INTEGRATORS = [
+    (re.compile(r"\buTime\b"), "uTime", "uTime is already speed-integrated; do not multiply it by uSpeed"),
+    (re.compile(r"\buFlowPhase\b"), "uFlowPhase",
+     "an integrator times the live uSpeed jumps on every Speed change; read uFlowTravel"),
+    (re.compile(r"\bSND_\w+_TIME\b|\buSound\s*\[\s*[56]\s*\]"), "a sound clock",
+     "an integrator times the live uSpeed jumps on every Speed change; read uSoundTravel"),
+]
 
 
 def speed_twice(text):
-    """Line numbers of statements that put uTime and uSpeed in one expression.
+    """(line, integrator, message) for each statement that puts an integrator and uSpeed in one expression.
 
-    The time rule: uTime is ShaderScene's speed-INTEGRATED clock
-    (shaderTime_ += speed * dt, core/viz/scenes/ShaderScene.cpp), so a shader
-    never multiplies it by uSpeed again. `uTime * uSpeed` squares Speed and,
-    because it is elapsed time times the live slider, any Speed change (the
-    slider, an LFO, a macro, a reaction route) jumps the picture by
-    elapsed * delta-speed. Read per statement, comments stripped, so
-    `uTime * 0.2 * uSpeed` is caught too and prose about the rule is not.
+    The speed rule: uTime is ShaderScene's speed-INTEGRATED clock (shaderTime_ += speed * dt,
+    core/viz/scenes/ShaderScene.cpp), so a shader never multiplies it by uSpeed again. `uTime * uSpeed`
+    squares Speed and, because it is elapsed time times the live slider, any Speed change (the slider, an
+    LFO, a macro, a reaction route, MotionField's own energy scaling) jumps the picture by
+    elapsed * delta-speed. The same holds for every other integrator: uFlowPhase (MotionField's
+    loudness-rated flow) and the sound clocks SND_*_TIME. ShaderScene integrates Speed into those too, as
+    uFlowTravel and uSoundTravel, and a shader reads them instead. Read per statement, comments stripped,
+    so `uTime * 0.2 * uSpeed` and `SND_MID_TIME * spd` (spd = uSpeed) are caught and prose about the rule
+    is not.
     """
     code = COMMENTS.sub(lambda m: "\n" * m.group(0).count("\n"), text)
     # A preprocessor line ends at its newline, not at a `;`: close each one as its
     # own statement, so a #define never merges into the code after it (and one
-    # that itself multiplies uTime by uSpeed is still caught).
+    # that itself multiplies an integrator by uSpeed is still caught).
     code = PREPROCESSOR.sub(lambda m: m.group(0) + ";", code)
+    aliases = {m.group(1) for m in SPEED_ALIAS.finditer(code)} - {"uSpeed"}
+    speed = re.compile(r"\b(?:" + "|".join(["uSpeed", *sorted(aliases)]) + r")\b")
     hits = []
     pos = 0
     for stmt in re.split(r"([;{}])", code):
-        if U_TIME.search(stmt) and U_SPEED.search(stmt):
-            hits.append(code.count("\n", 0, pos + U_SPEED.search(stmt).start()) + 1)
+        s = speed.search(stmt)
+        if s and not SPEED_ALIAS.fullmatch(stmt.strip() + ";"):
+            for clock, name, why in INTEGRATORS:
+                if clock.search(stmt):
+                    hits.append((code.count("\n", 0, pos + s.start()) + 1, name, why))
         pos += len(stmt)
     return hits
 
 
+def lines(src):
+    return [hit[0] for hit in speed_twice(src)]
+
+
 def check_speed_rule():
     # The guard guards itself first, so a regex slip cannot pass everything.
-    assert speed_twice("float t = uTime * uSpeed;") == [1]
-    assert speed_twice("// uTime * uSpeed\nx = 1.0 +\n  uTime * 0.3 * uSpeed;") == [3]
-    assert speed_twice("#define T (uTime * 0.1)\nfloat w = uSpeed * 2.0;") == []
-    assert speed_twice("#define T (uTime * uSpeed)\nfloat w = 2.0;") == [1]
-    assert speed_twice("float t = uTime;\nfloat f = uFlowPhase * uSpeed; // not uTime * uSpeed") == []
-    bad = [f"{p.name}:{line}" for p in sorted(SHADERS.glob("*.glsl"))
-           for line in speed_twice(p.read_text(encoding="utf-8"))]
-    for b in bad:
-        print(f"FAIL {b}: uTime is already speed-integrated; do not multiply it by uSpeed")
+    assert lines("float t = uTime * uSpeed;") == [1]
+    assert lines("// uTime * uSpeed\nx = 1.0 +\n  uTime * 0.3 * uSpeed;") == [3]
+    assert lines("#define T (uTime * 0.1)\nfloat w = uSpeed * 2.0;") == []
+    assert lines("#define T (uTime * uSpeed)\nfloat w = 2.0;") == [1]
+    assert lines("float f = uFlowPhase * uSpeed;") == [1]
+    assert lines("float spd = uSpeed;\nfloat m = SND_MID_TIME * spd;") == [2]
+    assert lines("float b = uSound[5].x * uSpeed;") == [1]
+    assert lines("float t = uTime;\nfloat f = uFlowTravel; // not uFlowPhase * uSpeed\nfloat s = uSpeed;") == []
+    bad = [(p.name, *hit) for p in sorted(SHADERS.glob("*.glsl"))
+           for hit in speed_twice(p.read_text(encoding="utf-8"))]
+    for name, line, clock, why in bad:
+        print(f"FAIL {name}:{line}: {clock} with uSpeed: {why}")
     return bad
 
 
@@ -174,7 +198,7 @@ def main():
                     print(f"FAIL {label}\n{r.stderr.strip()}\n")
     print(f"{total - len(failed)}/{total} shaders compiled")
     if speed_failed:
-        print(f"{len(speed_failed)} statement(s) multiply uTime by uSpeed")
+        print(f"{len(speed_failed)} statement(s) multiply an integrator (uTime, uFlowPhase, SND_*_TIME) by uSpeed")
     sys.exit(1 if failed or speed_failed else 0)
 
 

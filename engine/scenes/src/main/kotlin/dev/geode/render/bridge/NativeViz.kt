@@ -157,6 +157,11 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetSoundTuning(handle, floats)
     }
 
+    /** Speaker sync (#488): the player's playout clock when this surface hears the player's ring, else 0. */
+    fun setPlayout(clock: Long) {
+        if (handle != 0L) GeodeNative.vizSetPlayout(handle, clock)
+    }
+
     fun setCustomShader(
         sceneId: String,
         fragmentSource: String,

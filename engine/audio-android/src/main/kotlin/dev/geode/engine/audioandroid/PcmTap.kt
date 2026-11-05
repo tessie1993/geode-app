@@ -26,10 +26,6 @@ class PcmTap(
     var format: PcmTapFormat? = null
         private set
 
-    @Volatile
-    var framesWritten: Long = 0L
-        private set
-
     /** Only for a heap buffer, which JNI cannot address; Media3's sink buffers are direct. One bulk copy. */
     private var bounce: ByteBuffer? = null
 
@@ -43,9 +39,7 @@ class PcmTap(
                 sampleRateHz = sampleRateHz,
                 channelCount = channelCount,
                 encoding = encoding,
-                generation = (format?.generation ?: 0) + 1,
             )
-        framesWritten = 0L
         format = next
         // Mask 0: the default layout for the count (the tap is told no mask).
         GeodeNative.ingestBeginEpoch(ingest, sampleRateHz, channelCount, 0)
@@ -57,7 +51,7 @@ class PcmTap(
         val length = buffer.remaining()
         if (length <= 0) return
         val bytes = if (buffer.isDirect) buffer else bounced(buffer)
-        framesWritten += GeodeNative.ingestWrite(ingest, bytes, bytes.position(), length, active.encoding)
+        GeodeNative.ingestWrite(ingest, bytes, bytes.position(), length, active.encoding)
     }
 
     private fun bounced(buffer: ByteBuffer): ByteBuffer {

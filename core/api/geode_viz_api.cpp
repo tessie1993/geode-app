@@ -152,6 +152,10 @@ void geode_viz_set_sound_tuning(geode_viz* v, const GeodeSoundTuning* tuning) {
     if (v && tuning) v->renderer.setSoundTuning(*tuning);
 }
 
+void geode_viz_set_playout(geode_viz* v, geode_playout* clock) {
+    if (v) v->renderer.setPlayout(clock);
+}
+
 void geode_viz_set_custom_shader(geode_viz* v, const char* scene_id, const char* fragment_source) {
     if (v && scene_id && fragment_source) v->renderer.setCustomShader(scene_id, fragment_source);
 }

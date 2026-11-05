@@ -75,9 +75,17 @@ struct Sink {
         }
     }
 
+    // Whether a report has shown the position moving since the last start: until then the clock stands at
+    // the last report instead of running on (its timestamp warm-up guard, #488).
+    bool moving = false;
+    int64_t lastReportUs = INT64_MIN;
+
     void report() {
         const auto heard = static_cast<int64_t>(std::floor(heardFrames + 1e-6));
-        geode_playout_position(clock, startUs + heard * 1'000'000 / rate, nowNs);
+        const int64_t us = startUs + heard * 1'000'000 / rate;
+        if (lastReportUs != INT64_MIN && us > lastReportUs) moving = true;
+        lastReportUs = us;
+        geode_playout_position(clock, us, nowNs);
     }
 
     void step(int64_t ns) {
@@ -114,6 +122,8 @@ struct Sink {
         headFrames = 0;
         heardFrames = 0;
         playedNs = 0;
+        moving = false;
+        lastReportUs = INT64_MIN;
         fill();
         report();
         playing = true;
@@ -127,13 +137,14 @@ struct Sink {
     }
 
     void resume() {
+        moving = false;
         playing = true;
         geode_playout_playing(clock, 1, nowNs);
     }
 
     void setSpeed(double s) {
         speed = s;
-        geode_playout_speed(clock, static_cast<float>(s));
+        geode_playout_speed(clock, static_cast<float>(s), nowNs);
     }
 
     void offset(int ms) const { geode_playout_set_offset_ms(clock, ms); }
@@ -154,7 +165,11 @@ void tracks(Sink& s, int64_t ms, const char* what) {
     const int64_t end = s.nowNs + ms * kMs;
     while (s.nowNs + 7 * kMs <= end) {
         s.advance(7);
-        checkNear(s.frame(), s.ideal(), 1, what);
+        if (s.moving) {
+            checkNear(s.frame(), s.ideal(), 1, what);
+        } else {
+            check(s.frame() <= s.ideal() + 1, "warming up: the clock stands, never ahead of the speaker");
+        }
         check(s.frame() <= s.newest(), "never a sample the ring does not hold yet");
     }
     s.advanceTo(end);
@@ -347,6 +362,61 @@ void longPlayOutlivesTheAnchorWindow() {
     checkNear(s.frame(), s.ideal() - 48'000, 1, "20 s in: a full second of offset is still inside the window");
 }
 
+// A speed change under a positive offset (#488): the stretch behind the change is read at the speed it
+// played at, so the picture keeps moving instead of holding for the offset's length.
+void speedChangeUnderAnOffsetKeepsMoving() {
+    Sink s;
+    s.setSpeed(1.5);
+    s.start(0);
+    s.advance(2'000);
+    s.offset(100);
+    const int64_t f0 = s.frame();
+    s.setSpeed(1.0);  // on a report tick
+    check(s.frame() == f0, "speed change: the picture does not jump");
+    s.advance(50);
+    checkNear(s.frame() - f0, 50 * 72, 2, "speed change: 100 ms behind it is still 1.5x audio");
+    s.advance(100);
+    checkNear(s.frame() - f0, 100 * 72 + 50 * 48, 2, "speed change: then the old 100 ms, then 1x");
+}
+
+// AudioTrack.getTimestamp warms up after a start, a seek or a resume: the position stands still for a
+// report or two before it moves. Running on from a standing report would put the picture up to a report
+// interval ahead and then snap it back (#488); the clock stands until it sees the position move.
+void warmUpStandsUntilThePositionMoves() {
+    geode_playout* c = geode_playout_create();
+    for (int i = 0; i < 60; ++i) geode_playout_buffer_handled(c, i * 10'000, i * 480, 480);
+    const int64_t t0 = 1'000 * kMs;
+    geode_playout_position(c, 0, t0);
+    geode_playout_playing(c, 1, t0);
+    int64_t last = 0;
+    auto at = [&](int64_t ms) {
+        const int64_t f = geode_playout_speaker_frame(c, t0 + ms * kMs);
+        check(f >= last, "warm-up: the speaker never snaps back");
+        last = std::max(last, f);
+        return f;
+    };
+    check(at(9) == 0, "warm-up: the first report is not run on");
+    geode_playout_position(c, 0, t0 + 10 * kMs);  // still standing
+    check(at(19) == 0, "warm-up: a standing report is not run on either");
+    geode_playout_position(c, 0, t0 + 20 * kMs);
+    check(at(29) == 0, "warm-up: nor a third");
+    geode_playout_position(c, 5'000, t0 + 30 * kMs);  // moving: 5 ms heard
+    check(at(30) == 240, "warm-up over: the report itself");
+    checkNear(at(37), 240 + 7 * 48, 1, "moving: runs on between reports");
+    geode_playout_position(c, 15'000, t0 + 40 * kMs);
+    checkNear(at(47), 720 + 7 * 48, 1, "moving: still runs on");
+
+    // A resume warms up again: the AudioTrack restarts behind the held position.
+    geode_playout_playing(c, 0, t0 + 50 * kMs);
+    const int64_t paused = at(50);
+    geode_playout_playing(c, 1, t0 + 1'000 * kMs);
+    geode_playout_position(c, 25'000, t0 + 1'010 * kMs);  // the paused position (25 ms), standing
+    check(at(1'019) == paused, "resume: a standing report is not run on");
+    geode_playout_position(c, 30'000, t0 + 1'020 * kMs);
+    checkNear(at(1'027), paused + 240 + 7 * 48, 1, "resume: moving again, runs on");
+    geode_playout_destroy(c);
+}
+
 void retriesDiscontinuitiesAndNull() {
     geode_playout* c = geode_playout_create();
     check(geode_playout_speaker_frame(c, 0) == -1, "new clock: no map");
@@ -364,7 +434,7 @@ void retriesDiscontinuitiesAndNull() {
     geode_playout_position(nullptr, 0, 0);
     geode_playout_playing(nullptr, 1, 0);
     geode_playout_flush(nullptr);
-    geode_playout_speed(nullptr, 2.0f);
+    geode_playout_speed(nullptr, 2.0f, 0);
     geode_playout_set_offset_ms(nullptr, 10);
     check(geode_playout_speaker_frame(nullptr, 0) == -1, "a NULL clock has no map");
     geode_playout_destroy(nullptr);
@@ -382,6 +452,8 @@ int main() {
     offsetShiftsThePicture();
     sameTimeSameSampleAt30_60_120fps();
     longPlayOutlivesTheAnchorWindow();
+    speedChangeUnderAnOffsetKeepsMoving();
+    warmUpStandsUntilThePositionMoves();
     retriesDiscontinuitiesAndNull();
     if (failures) {
         std::printf("%d playout check(s) failed\n", failures);

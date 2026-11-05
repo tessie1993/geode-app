@@ -13,7 +13,6 @@ data class PcmTapFormat(
     val sampleRateHz: Int,
     val channelCount: Int,
     val encoding: Int,
-    val generation: Int,
 ) {
     val sampleWidth: PcmSampleWidth? =
         when (encoding) {

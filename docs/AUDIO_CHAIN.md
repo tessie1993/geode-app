@@ -50,9 +50,24 @@ native playout clock (`core/sound/interp/PlayoutClock`, `geode_playout_*`,
 #349) maps the sink's media-time position, which already counts the output
 latency, speed and skipped silence, back onto the ring, so a renderer can stop
 at the sample the speaker plays. Because the tap is first, the ring holds source
-samples: one media second is one source-rate second of ring, at any speed. The
-`AudioSink` glue that feeds the clock and the renderer side that reads it are
-#488.
+samples: one media second is one source-rate second of ring, at any speed.
+
+The sink the player builds (`TapRenderersFactory.buildAudioSink`) is
+`DefaultAudioSink` wrapped in `app/.../audio/PlayoutSink` (#488), a
+`ForwardingAudioSink` that only forwards facts to the clock: each new buffer's
+presentation time with the ring position the tap is about to write it at and
+its frame count (once per buffer, not per retry), every
+`getCurrentPositionUs`, play, pause, flush, reset, and the speed the sink
+applied, each stamped with `System.nanoTime`. It sits outside the processor
+chain, so the chain's order and the tap's place in it are untouched. The
+clock is process-wide (`PlaybackEngine.playout`, never freed), so the app's
+stage, the wallpaper and the dream all read the same one; each live
+renderer's cursor reads up to the clock's answer and no further
+(`core/sound/interp/SpeakerSync`, `core/viz/SoundFeed::pumpUntil`). The mic, another
+app's audio and Cast read the newest sample: nothing stands between their
+ring and what is heard (Cast's TV plays picture and sound from one stream).
+Settings › Audio's A/V offset is applied by the clock, so it reaches every
+surface that hears the player.
 
 ## Why the chain is owned rather than configured
 

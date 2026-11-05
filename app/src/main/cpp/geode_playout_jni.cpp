@@ -39,8 +39,8 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_playoutFlush(JNI
 }
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_playoutSpeed(JNIEnv*, jobject, jlong handle,
-                                                                             jfloat speed) {
-    geode_playout_speed(playoutOf(handle), speed);
+                                                                             jfloat speed, jlong nowNs) {
+    geode_playout_speed(playoutOf(handle), speed, nowNs);
 }
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_playoutSetOffsetMs(JNIEnv*, jobject, jlong handle,

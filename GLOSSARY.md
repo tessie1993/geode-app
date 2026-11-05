@@ -271,6 +271,10 @@ _Avoid_: Core logic, backend
 The engine's answer to "which ring sample is the speaker playing now": the sink's position (output and Bluetooth latency included) mapped onto the ring, plus the user's A/V offset. Live surfaces read up to it, never past it (`core/sound/interp/PlayoutClock`).
 _Avoid_: Presentation clock, sink clock (the deleted Kotlin ones)
 
+**A/V offset**:
+Settings › Audio's correction, −300..+300 ms, on top of the playout clock's measured delay: positive shows the picture later. For headphones that misreport their latency. One setting for every surface that hears the player.
+_Avoid_: Audio delay, lip-sync (it moves the picture, not the sound)
+
 **Shell**:
 The Kotlin around the engine: JNI declarations, Android lifecycle, Media3 and MediaCodec wiring, UI, stores, permissions, file IO, product rules (Pro) and display labels.
 _Avoid_: Wrapper, glue layer

@@ -208,6 +208,11 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetSoundTuning(JNIEnv* env, jobject,
     geode_viz_set_sound_tuning(vizOf(handle), &t);
 }
 
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetPlayout(JNIEnv*, jobject, jlong handle, jlong clock) {
+    geode_viz_set_playout(vizOf(handle), reinterpret_cast<geode_playout*>(clock));
+}
+
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_reactSourceCatalog(JNIEnv* env, jobject) {
     const int need = geode_react_source_catalog(nullptr, 0);

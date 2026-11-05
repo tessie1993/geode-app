@@ -93,6 +93,8 @@ void Renderer::setSoundSource(const audio::ingest::Ring* ring) {
     requestedSoundSource_ = ring;
 }
 
+void Renderer::setPlayout(geode_playout* clock) { playout_.store(clock, std::memory_order_release); }
+
 void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
     std::lock_guard<std::mutex> lock(soundLock_);
     soundTuning_ = tuning;

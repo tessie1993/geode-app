@@ -102,6 +102,9 @@ class VisualizerRenderer(
     @Volatile
     var soundSource: () -> Long = { 0L }
 
+    /** The player's playout clock (`geode_playout*`) the native cursor on [soundSource] waits for; 0: newest (#488). */
+    @Volatile var playout: Long = 0L
+
     /** The source last handed to this native handle; -1 forces a hand-over to a new one. GL thread. */
     private var nativeSoundSource = -1L
 
@@ -394,6 +397,7 @@ class VisualizerRenderer(
             nativeViz.setSoundSource(source)
             nativeSoundSource = source
         }
+        nativeViz.setPlayout(playout)
         val input = soundInput() ?: return
         val cursor = soundCursor?.takeIf { it.ring === input.ring } ?: SoundCursor(input.ring).also { soundCursor = it }
         val take = cursor.take()

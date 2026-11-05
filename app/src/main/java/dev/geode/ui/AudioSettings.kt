@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.audio.MicCapture
+import dev.geode.data.GuiPrefs
 import dev.geode.data.ThemeStore
 import dev.geode.engine.audio.SoundTuning
 import kotlin.math.roundToInt
@@ -27,6 +28,7 @@ internal fun AudioSettingsTab(viewModel: PlayerViewModel) {
         item { SettingsGroup(stringResource(R.string.audio_group_playback)) { PlaybackSettingsSection(settingsViewModel) } }
         item { EqualizerSettings(settingsViewModel) }
         item { SettingsGroup(stringResource(R.string.audio_group_analysis)) { AnalysisGroup(settingsViewModel) } }
+        item { SettingsGroup(stringResource(R.string.audio_group_av_sync)) { AvOffsetGroup(settingsViewModel) } }
         item { SettingsGroup(stringResource(R.string.source_live_input)) { LiveInputGroup(viewModel) } }
         item { SettingsGroup(stringResource(R.string.source_other_apps)) { ExternalAudioSettings(viewModel) } }
     }
@@ -47,6 +49,36 @@ private fun AnalysisGroup(viewModel: SettingsViewModel) {
         )
     }
 }
+
+/**
+ * The A/V offset (#488): the visuals already wait for the speaker by what the sink reports, Bluetooth
+ * included (the native playout clock); this lines them up by eye where a headset misreports its latency.
+ * One setting for every surface that hears the player, in 10 ms steps.
+ */
+@Composable
+private fun AvOffsetGroup(viewModel: SettingsViewModel) {
+    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
+    val range = GuiPrefs.AV_OFFSET_RANGE_MS
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(stringResource(R.string.audio_av_offset, gui.avOffsetMs))
+        CrystalSlider(
+            value = gui.avOffsetMs.toFloat(),
+            onValueChange = { viewModel.setGuiPrefs(gui.copy(avOffsetMs = it.roundToInt().coerceIn(range))) },
+            valueRange = range.first.toFloat()..range.last.toFloat(),
+            steps = (range.last - range.first) / AV_OFFSET_STEP_MS - 1,
+        )
+        Text(
+            stringResource(R.string.audio_av_offset_explainer),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        TextButton(onClick = { viewModel.setGuiPrefs(gui.copy(avOffsetMs = 0)) }, enabled = gui.avOffsetMs != 0) {
+            Text(stringResource(R.string.audio_default))
+        }
+    }
+}
+
+private const val AV_OFFSET_STEP_MS = 10
 
 @Composable
 private fun LiveInputGroup(viewModel: PlayerViewModel) {

@@ -98,6 +98,13 @@ public:
     void setSoundSource(const audio::ingest::Ring* ring);
     // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
     void setSoundTuning(const GeodeSoundTuning& tuning);
+    // Speaker sync (#488, sound/interp/SpeakerSync): the playout clock soundFeed_ waits for, so the engine hears
+    // the sound source up to the sample the speaker plays now (the A/V offset is the clock's), never past it
+    // and never skipping one; null reads the newest written sample (Cast: its stream carries the ring as
+    // written). The clock is the player's, shared by every surface on the player ring and never freed, so the
+    // pointer stays good. An offscreen (export) renderer ignores it: it reads frameIndex / fps exactly. Any
+    // thread; the GL thread reads it once per frame.
+    void setPlayout(geode_playout* clock);
     void setCustomShader(const std::string& sceneId, const std::string& fragmentSource);
     // The user source a scene last compiled successfully; "" when it draws its built-in style.
     std::string customShaderFor(const std::string& sceneId) const;
@@ -271,6 +278,8 @@ private:
     // only because writeAudio and soundFrame are public; in practice one thread does everything.
     mutable std::mutex soundLock_;
     std::unique_ptr<sound::SoundEngine> sound_;
+    // setPlayout's latch; feedSoundSource reads it once per frame.
+    std::atomic<geode_playout*> playout_{nullptr};
     GeodeSoundTuning soundTuning_ = sound::SoundEngine::defaultTuning();
     GeodeSoundFrame soundFrame_{};
     // setSoundSource's ring, guarded by soundLock_ until beginFrame hands it to soundFeed_.

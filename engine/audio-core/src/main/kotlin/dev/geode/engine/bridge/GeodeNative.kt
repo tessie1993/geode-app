@@ -214,6 +214,12 @@ object GeodeNative {
         tuning: FloatArray,
     )
 
+    /** Speaker sync (#488): the playout clock this renderer's cursor waits for; 0 reads the newest written. */
+    external fun vizSetPlayout(
+        handle: Long,
+        clock: Long,
+    )
+
     /** The reaction source catalogue (core/viz/Reactions.cpp), see `dev.geode.render.ReactSourceCatalog`. */
     external fun reactSourceCatalog(): String
 
@@ -656,9 +662,11 @@ object GeodeNative {
 
     external fun playoutFlush(handle: Long)
 
+    /** The speed the sink applied at [nowNs]; the clock reads the stretch before it at the old one. */
     external fun playoutSpeed(
         handle: Long,
         speed: Float,
+        nowNs: Long,
     )
 
     /** The user's A/V offset, clamped to ±1000 ms; positive shows the picture later. */

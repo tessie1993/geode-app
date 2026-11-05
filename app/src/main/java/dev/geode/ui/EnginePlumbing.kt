@@ -7,6 +7,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.geodeContainer
+import dev.geode.playback.PlaybackEngine
 import dev.geode.render.BlendMode
 import dev.geode.render.VisualizerView
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,6 +52,8 @@ fun VisualizerEngineBindings(
     LaunchedEffect(Unit) {
         visualizerView.visualizerRenderer.onShaderError = viewModel::reportShaderError
         visualizerView.visualizerRenderer.soundSource = { dev.geode.audio.AudioBus.playerIngest }
+        // Hear the player when the speaker plays it, not when the sink takes it (#488).
+        visualizerView.visualizerRenderer.playout = PlaybackEngine.playout
         visualizerView.visualizerRenderer.soundInput = { dev.geode.audio.AudioBus.soundInput }
         // W02: the background image is decoded to the surface's current pixel size, so a rotation
         // or a fold needs a re-decode just as much as a fresh pick does. onSurfaceSizeChanged fires
@@ -112,6 +115,10 @@ fun VisualizerEngineBindings(
     }
     LaunchedEffect(gui.soundTuning) {
         visualizerView.visualizerRenderer.soundTuning = gui.soundTuning
+    }
+    LaunchedEffect(gui.avOffsetMs) {
+        // The player's playout clock is process-wide: the wallpaper and the dream follow it too (#488).
+        PlaybackEngine.setAvOffsetMs(gui.avOffsetMs)
     }
     LaunchedEffect(performance) {
         visualizerView.applyPerformance(performance)

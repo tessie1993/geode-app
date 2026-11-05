@@ -198,10 +198,17 @@ jobs:
             core/viz/FlashLimiter.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp -o luminance_drive_test
           ./luminance_drive_test
           # The playout clock (#349, #482): the ring sample the speaker plays at 1x and 1.5x, behind a 250 ms
-          # Bluetooth link, over pause, resume, skipped silence, a seek and the A/V offset, the same at 30/60/120 fps.
+          # Bluetooth link, over pause, resume, skipped silence, a seek and the A/V offset, the same at 30/60/120 fps;
+          # a speed change under an offset and the timestamp warm-up guard (#488).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/playout_test.cpp core/sound/interp/PlayoutClock.cpp \
             core/api/geode_playout_api.cpp -o playout_test
           ./playout_test
+          # Speaker sync (#488): a renderer's SoundFeed bounded by the playout clock never reads past the
+          # speaker's sample and never skips one: at 1x, at 1.5x, through skipped silence, under the A/V offset.
+          g++ -std=c++20 -O1 -Wall -Wextra -pthread -Icore -Icore/tests/stub core/tests/speaker_sync_test.cpp \
+            core/viz/SoundFeed.cpp core/audio/ingest/Ring.cpp core/audio/ingest/Cursor.cpp core/sound/interp/PlayoutClock.cpp \
+            core/api/geode_playout_api.cpp -o speaker_sync_test
+          ./speaker_sync_test
 
       # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes, ranges, and
       # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.

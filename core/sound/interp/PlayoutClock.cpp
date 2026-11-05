@@ -40,6 +40,10 @@ void PlayoutClock::position(int64_t positionUs, int64_t nowNs) {
         positioned_ = true;
         playStartNs_ = nowNs;
         playEndNs_ = nowNs;
+    } else if (positionUs > positionUs_) {
+        // Compared with the last report (or the position the clock stood at when it resumed), so a
+        // sink whose timestamp is still warming up and reports a standing position is not run on.
+        moving_ = true;
     }
     positionUs_ = positionUs;
     positionNs_ = nowNs;
@@ -49,9 +53,11 @@ void PlayoutClock::playing(bool on, int64_t nowNs) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (on == playing_) return;
     if (on) {
-        // The held position is where the speaker resumes; the time spent paused is not play.
+        // The held position is where the speaker resumes; the time spent paused is not play. The
+        // AudioTrack restarts behind it, so the position is held until the sink reports it moving.
         playStartNs_ = nowNs;
         if (positioned_) positionNs_ = nowNs;
+        moving_ = false;
     } else {
         // Rebase the last report to the pause: count what played since it (up to the stall cap).
         if (positioned_) positionUs_ = std::llround(positionAt(nowNs, nowNs));
@@ -68,16 +74,34 @@ void PlayoutClock::flush() {
     count_ = 0;
     newestWritten_ = 0;
     positioned_ = false;
+    moving_ = false;
+    // What played before the flush is gone, and its speeds with it.
+    prevSpeed_ = speed_;
+    speedChangeNs_ = INT64_MIN;
 }
 
-void PlayoutClock::speed(float speed) {
+void PlayoutClock::speed(float speed, int64_t nowNs) {
     if (!(speed > 0.0f) || !std::isfinite(speed)) return;
     std::lock_guard<std::mutex> lock(mutex_);
     if (speed_ == static_cast<double>(speed)) return;
-    // Behind the last report the position ran at the old speed; rather than keep a history of speeds,
-    // a positive offset holds at the change for its length and then follows the new speed.
-    if (positioned_) playStartNs_ = playing_ ? std::max(playStartNs_, positionNs_) : playEndNs_;
+    // Rebase the last report to the change while playing, so it is the old speed's last point; then
+    // remember that speed for the stretch behind the change, which a positive offset still reads.
+    if (positioned_ && playing_) {
+        positionUs_ = std::llround(positionAt(nowNs, nowNs));
+        positionNs_ = nowNs;
+    }
+    prevSpeed_ = speed_;
+    speedChangeNs_ = nowNs;
     speed_ = speed;
+}
+
+double PlayoutClock::mediaUsBetween(int64_t fromNs, int64_t toNs) const {
+    const int64_t a = std::min(fromNs, toNs);
+    const int64_t b = std::max(fromNs, toNs);
+    const int64_t change = std::clamp(speedChangeNs_, a, b);
+    const double us = static_cast<double>(change - a) / 1000.0 * prevSpeed_ +
+                      static_cast<double>(b - change) / 1000.0 * speed_;
+    return fromNs <= toNs ? us : -us;
 }
 
 void PlayoutClock::setOffsetMs(int ms) {
@@ -90,13 +114,15 @@ double PlayoutClock::positionAt(int64_t tNs, int64_t nowNs) const {
     if (!playing_) {
         // Paused: the speaker played along the last span and has stood at positionUs_ since its end.
         const int64_t t = std::clamp(tNs, std::min(playStartNs_, playEndNs_), playEndNs_);
-        return static_cast<double>(positionUs_) + static_cast<double>(t - playEndNs_) / 1000.0 * speed_;
+        return static_cast<double>(positionUs_) + mediaUsBetween(playEndNs_, t);
     }
     // A report this stale means the sink stopped reporting (a stall, a starved decoder): stop moving
     // at the cap instead of running on past what it actually played.
     const int64_t staleNs = std::max<int64_t>(0, nowNs - (positionNs_ + kMaxExtrapolateNs));
-    const int64_t t = std::max(tNs - staleNs, playStartNs_);
-    return static_cast<double>(positionUs_) + static_cast<double>(t - positionNs_) / 1000.0 * speed_;
+    int64_t t = std::max(tNs - staleNs, playStartNs_);
+    // Warming up (no movement reported yet): stand at the last report rather than run ahead of it.
+    if (!moving_) t = std::min(t, positionNs_);
+    return static_cast<double>(positionUs_) + mediaUsBetween(positionNs_, t);
 }
 
 int64_t PlayoutClock::ringAt(double us) const {

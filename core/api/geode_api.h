@@ -341,12 +341,19 @@ GEODE_API void           geode_playout_buffer_handled(geode_playout*, int64_t pr
 GEODE_API void           geode_playout_position(geode_playout*, int64_t sink_us, int64_t now_ns);
 GEODE_API void           geode_playout_playing(geode_playout*, int playing, int64_t now_ns);   /* 1 play, 0 pause */
 GEODE_API void           geode_playout_flush(geode_playout*);           /* a seek: every anchor and position goes */
-GEODE_API void           geode_playout_speed(geode_playout*, float speed);   /* media per wall time; > 0 */
+/* The speed the sink applied at now_ns (media per wall time; > 0); the clock keeps the one before it too. */
+GEODE_API void           geode_playout_speed(geode_playout*, float speed, int64_t now_ns);
 /* The user's A/V offset, clamped to +-1000 ms; positive shows the picture later. */
 GEODE_API void           geode_playout_set_offset_ms(geode_playout*, int ms);
 /* The newest ring sample heard at now_ns, offset applied: never past the newest sample written. -1 when
  * nothing was handled since create or flush (and for NULL); the first handled sample until a position. */
 GEODE_API int64_t        geode_playout_speaker_frame(const geode_playout*, int64_t now_ns);
+/* Speaker sync (#488, sound/interp/SpeakerSync): the renderer's native cursor on its sound source
+ * (geode_viz_set_sound_source) reads up to the clock's speaker frame (offset applied), never past it and never
+ * skipping. NULL reads the newest written sample: Cast (its stream carries the ring as written) and any ring
+ * no speaker stands behind. Exports ignore it. Any thread; the clock must outlive the renderer (the player's
+ * is never freed). */
+GEODE_API void           geode_viz_set_playout(geode_viz*, geode_playout* clock);
 
 #ifdef __cplusplus
 }

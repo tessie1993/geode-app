@@ -15,6 +15,12 @@ class TapRenderersFactory(
     context: Context,
     private val sink: TeeAudioProcessor.AudioBufferSink,
     private val dsp: List<AudioProcessor> = emptyList(),
+    /**
+     * The native playout clock the sink reports its timing to ([PlayoutSink], #488), with the position the
+     * tap's ring will write next; 0 builds the bare sink (tests, a player no surface hears).
+     */
+    private val playout: Long = 0L,
+    private val ringWritten: () -> Long = { 0L },
 ) : DefaultRenderersFactory(context) {
     internal fun audioProcessorChain(): MvzAudioProcessorChain =
         MvzAudioProcessorChain(TeeAudioProcessor(sink), dsp = dsp)
@@ -23,11 +29,14 @@ class TapRenderersFactory(
         context: Context,
         enableFloatOutput: Boolean,
         enableAudioTrackPlaybackParams: Boolean,
-    ): AudioSink =
-        DefaultAudioSink
-            .Builder(context)
-            .setEnableFloatOutput(enableFloatOutput)
-            .setEnableAudioOutputPlaybackParameters(enableAudioTrackPlaybackParams)
-            .setAudioProcessorChain(audioProcessorChain())
-            .build()
+    ): AudioSink {
+        val built =
+            DefaultAudioSink
+                .Builder(context)
+                .setEnableFloatOutput(enableFloatOutput)
+                .setEnableAudioOutputPlaybackParameters(enableAudioTrackPlaybackParams)
+                .setAudioProcessorChain(audioProcessorChain())
+                .build()
+        return if (playout != 0L) PlayoutSink(built, playout, ringWritten) else built
+    }
 }

@@ -90,8 +90,13 @@ public:
     /** The sink was flushed (a seek, a new item after a stop): every anchor and position is stale. */
     void flush();
 
-    /** Playback speed, media time per wall time. Ignored unless finite and positive. */
-    void speed(float speed);
+    /**
+     * Playback speed, media time per wall time, applied at monotonic [nowNs]. Ignored unless finite and
+     * positive. The clock keeps the speed before the change too, so a positive offset reads the stretch
+     * behind it at the speed it played at instead of holding the picture (#488); one change is remembered,
+     * which covers any offset unless the speed changes twice within it.
+     */
+    void speed(float speed, int64_t nowNs);
 
     /** The user's A/V offset in ms, clamped to +-kMaxOffsetMs; positive shows the picture later. */
     void setOffsetMs(int ms);
@@ -113,6 +118,8 @@ private:
 
     // Media time the speaker plays at monotonic tNs, from the last report and the play span around it.
     double positionAt(int64_t tNs, int64_t nowNs) const;
+    // Signed media microseconds played between two monotonic times, at the speed in force over each part.
+    double mediaUsBetween(int64_t fromNs, int64_t toNs) const;
     // Ring sample for media time us through the anchors (count_ > 0).
     int64_t ringAt(double us) const;
     const Anchor& anchor(int i) const { return anchors_[static_cast<std::size_t>((first_ + i) % kAnchors)]; }
@@ -125,6 +132,11 @@ private:
     int64_t newestWritten_ = 0;  // one past the newest ring sample any anchor put in the ring
 
     bool positioned_ = false;  // a position was read since create or the last flush
+    // The sink's position has been seen to move since the last flush or resume. Until then the clock does
+    // not run the position on between reports (#488): while AudioTrack.getTimestamp warms up after a start,
+    // a seek or a resume, the reported position stands still for a while, and running on from it would put
+    // the picture up to a report interval ahead, then snap it back. Holding costs at most one interval.
+    bool moving_ = false;
     int64_t positionUs_ = 0;
     int64_t positionNs_ = 0;
     bool playing_ = false;
@@ -134,6 +146,9 @@ private:
     int64_t playStartNs_ = 0;
     int64_t playEndNs_ = 0;  // when paused: the pause time
     double speed_ = 1.0;
+    // The speed before the last change, in force before speedChangeNs_ (none yet: the minimum time).
+    double prevSpeed_ = 1.0;
+    int64_t speedChangeNs_ = INT64_MIN;
     int64_t offsetNs_ = 0;
 };
 

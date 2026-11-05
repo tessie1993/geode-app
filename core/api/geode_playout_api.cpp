@@ -33,8 +33,8 @@ void geode_playout_flush(geode_playout* p) {
     if (p) p->clock.flush();
 }
 
-void geode_playout_speed(geode_playout* p, float speed) {
-    if (p) p->clock.speed(speed);
+void geode_playout_speed(geode_playout* p, float speed, int64_t now_ns) {
+    if (p) p->clock.speed(speed, now_ns);
 }
 
 void geode_playout_set_offset_ms(geode_playout* p, int ms) {

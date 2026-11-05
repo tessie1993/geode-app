@@ -1,6 +1,7 @@
 #include "viz/Renderer.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <random>
 
@@ -98,7 +99,19 @@ void Renderer::feedSoundSource() {
         void restart() override { r.resetAudio(); }
         void write(const float* stereo, int frames, int sampleRateHz) override { r.writeAudio(stereo, frames, 2, sampleRateHz); }
     } sink(*this);
-    soundFeed_.pump(sink);
+    // Speaker sync (#488): live, on the player's ring, the engine hears up to the sample the speaker plays now.
+    // An export reads all its TrackAudio wrote for this frame; no clock (Cast) reads the newest.
+    geode_playout* clock =
+        offscreen_.load(std::memory_order_relaxed) ? nullptr : playout_.load(std::memory_order_acquire);
+    if (!clock) {
+        soundFeed_.pump(sink);
+        return;
+    }
+    // steady_clock is CLOCK_MONOTONIC on Android, the clock System.nanoTime reads and the sink glue stamps with.
+    const int64_t nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                              std::chrono::steady_clock::now().time_since_epoch())
+                              .count();
+    soundFeed_.pumpUntil(sink, geode_playout_speaker_frame(clock, nowNs));
 }
 
 Scene* Renderer::resolveActiveScene() {

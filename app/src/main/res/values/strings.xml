@@ -496,6 +496,9 @@
     <!-- Settings › Audio: sound tuning, live input. -->
     <string name="audio_group_playback">Playback</string>
     <string name="audio_group_analysis">Analysis</string>
+    <string name="audio_group_av_sync">Picture and sound</string>
+    <string name="audio_av_offset">A/V offset: %1$+d ms</string>
+    <string name="audio_av_offset_explainer">The visuals already wait for your speaker or headphones. If a kick still flashes before or after you hear it, move this until they meet: right shows the picture later, left earlier. Applies to the app, the wallpaper and the screensaver.</string>
     <!-- Shown once per audio-DSP screen (playback/EQ), so nobody files "the visuals didn't
          change" as a bug per feature. See docs/AUDIO_CHAIN.md, "DSP does not move the visuals". -->
     <string name="audio_dsp_visuals_notice">Nothing on this screen touches the visuals. The picture is drawn from the raw audio before the equalizer, ReplayGain or any other effect here runs, so turning a knob changes what you hear and never what you see.</string>

@@ -16,8 +16,7 @@ class TapRenderersFactory(
     private val sink: TeeAudioProcessor.AudioBufferSink,
     private val dsp: List<AudioProcessor> = emptyList(),
 ) : DefaultRenderersFactory(context) {
-    internal fun audioProcessorChain(): MvzAudioProcessorChain =
-        MvzAudioProcessorChain(TeeAudioProcessor(sink), dsp = dsp)
+    internal fun audioProcessorChain(): MvzAudioProcessorChain = MvzAudioProcessorChain(TeeAudioProcessor(sink), dsp = dsp)
 
     override fun buildAudioSink(
         context: Context,

@@ -2,7 +2,7 @@
 
 `morph_world` (`lib_world`, `core/viz/world/`) draws two baked files beside its own SDF primitives:
 
-- `app/src/main/assets/shaders/world_shapes.bin`: six models as 32³ signed-distance volumes (192 KB). They are the genome's seventh primitive (`PMesh`, picked and blended by `MeshPick`).
+- `app/src/main/assets/shaders/world_shapes.bin`: twelve models as 32³ signed-distance volumes (384 KB). They are the genome's seventh primitive (`PMesh`, picked and blended by `MeshPick`).
 - `app/src/main/assets/shaders/world_textures.bin`: eight material maps as 128² grey detail layers (128 KB). They vary surface albedo (`TexAmount`) and pattern the light (`TexEmit`). They are grey on purpose: colour still comes only from `pal()`.
 
 Every source asset is **CC0** (public domain dedication) from [BlenderKit](https://www.blenderkit.com), pinned by asset id in `tools/morph_world_assets/assets.json`. `fetch.py` refuses any asset the API does not report as `cc_zero`. CC0 needs no attribution; the authors are credited here anyway.
@@ -17,6 +17,12 @@ Every source asset is **CC0** (public domain dedication) from [BlenderKit](https
 | 3 | Cow Skull | Alexander Handjiev | `a37f703c-8986-4488-8053-b47422a87175` | CC0 |
 | 4 | Horse Statue 01 | Poly Haven | `953a5b75-6bef-4c80-9371-9d99a4aa9122` | CC0 |
 | 5 | Chandelier 03 | Poly Haven | `9bcdea77-1798-4d4a-a69e-bab56a4ea261` | CC0 |
+| 6 | Mushroom | PBRPX | `a8f1a241-ebba-4a0e-b081-20cf8a720282` | CC0 |
+| 7 | Fern 02 | Poly Haven | `b6155e0a-79eb-44da-acc2-6587f7f533da` | CC0 |
+| 8 | Quiver Tree 01 | Poly Haven | `cf657993-cb54-461b-874f-9eda90e166b4` | CC0 |
+| 9 | Crystalline Iceplant | Poly Haven | `6880c55f-95e5-4477-b4fe-f9276252c603` | CC0 |
+| 10 | Dead Tree Trunk 02 | Poly Haven | `059bb822-bb9d-41b3-9923-6b84f9a518e4` | CC0 |
+| 11 | Cheiridopsis Succulent | Poly Haven | `ff359c53-c43e-4e36-a5a8-347607e4ea77` | CC0 |
 
 ## Materials (`world_textures.bin`, layer order)
 
@@ -42,5 +48,7 @@ blender -b --factory-startup --disable-autoexec -noaudio \
 ```
 
 Autoexec stays off: the downloaded `.blend` files are data, never code. `bake.py` describes both file formats; `core/viz/world/WorldAssets.hpp` reads them, and `world_genome_test` checks their sizes and that every model has an inside and an outside.
+
+Only LOD0 of a file that stacks levels of detail is baked, a file's default scene cube is skipped, and every model wears a thin skin so parts thinner than a voxel (leaves, stems) still draw. A pinned asset that needs a login to download (some CC0 assets do) cannot be used: fetch.py stops on its 401.
 
 Swapping an asset means changing its pin and re-running both steps. The slab and layer counts are fixed (`kShapeCount`, `kTexCount`).

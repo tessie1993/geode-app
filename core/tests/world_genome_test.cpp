@@ -73,7 +73,7 @@ void lerpEndpointsAreExact() {
 }
 
 void seedsAreValid() {
-    check(seedCount() >= 8 && seedCount() <= 12, "8 to 12 seed worlds");
+    check(seedCount() >= 8 && seedCount() <= 32, "8 to 32 seed worlds");
     std::map<std::string, int> names;
     for (int i = 0; i < seedCount(); ++i) {
         const Seed& s = seed(i);
@@ -310,7 +310,9 @@ void glslNamesMatch(const char* path) {
         {"WG_MIRROR_OFF", MirrorOff}, {"WG_IFS", Ifs},          {"WG_IFS_ITER", IfsIter},   {"WG_IFS_SCALE", IfsScale},
         {"WG_IFS_ANG_A", IfsAngA},  {"WG_IFS_ANG_B", IfsAngB},  {"WG_IFS_OFF_X", IfsOffX},  {"WG_IFS_OFF_Y", IfsOffY},
         {"WG_IFS_OFF_Z", IfsOffZ},  {"WG_INVERT", Invert},      {"WG_INV_RADIUS", InvRadius}, {"WG_ABS_INV", AbsInv},
-        {"WG_ABS_INV_C", AbsInvC},  {"WG_TWIST", Twist},        {"WG_SCALE", Scale},        {"WG_P_BOX", PBox},
+        {"WG_ABS_INV_C", AbsInvC},  {"WG_TWIST", Twist},        {"WG_SCALE", Scale},
+        {"WG_POLAR", Polar},        {"WG_POLAR_N", PolarN},     {"WG_POLAR_TWIST", PolarTwist}, {"WG_P_GYROID", PGyroid},
+        {"WG_P_MENGER", PMenger},   {"WG_P_BULB", PBulb},       {"WG_BULB_POWER", BulbPower}, {"WG_GYRO_SCALE", GyroScale},        {"WG_P_BOX", PBox},
         {"WG_P_BAR", PBar},         {"WG_P_TUBE", PTube},       {"WG_P_TORUS", PTorus},     {"WG_P_SHELL", PShell},
         {"WG_P_SLAB", PSlab},       {"WG_P_MESH", PMesh},       {"WG_PRIM_SIZE", PrimSize},
         {"WG_MESH_PICK", MeshPick}, {"WG_MESH_SIZE", MeshSize}, {"WG_TEX_AMOUNT", TexAmount}, {"WG_TEX_PICK", TexPick},
@@ -327,7 +329,7 @@ void glslNamesMatch(const char* path) {
         std::snprintf(want, sizeof want, "#define %s uWorld[%d].%c", name.c_str(), index / 4, comps[index % 4]);
         check(src.find(want) != std::string::npos, std::string("lib_world has ") + want);
     }
-    check(src.find("uniform vec4 uWorld[" + std::to_string(kVec4) + "];") != std::string::npos, "lib_world declares uWorld[14]");
+    check(src.find("uniform vec4 uWorld[" + std::to_string(kVec4) + "];") != std::string::npos, "lib_world declares uWorld[16]");
 }
 
 std::vector<uint8_t> readAll(const char* path) {

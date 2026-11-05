@@ -57,7 +57,11 @@ def main():
             target = cache / f"{pin['id']}.blend"
             if not target.exists():
                 link = get(f"{chosen['downloadUrl']}?scene_uuid={uuid.uuid4()}")
-                target.write_bytes(get(link["filePath"], as_json=False))
+                data = get(link["filePath"], as_json=False)
+                # Written whole or not at all, so a failed download never leaves a broken .blend behind.
+                partial = target.with_suffix(".part")
+                partial.write_bytes(data)
+                partial.replace(target)
             provenance.append({
                 "kind": kind[:-1],
                 "id": pin["id"],

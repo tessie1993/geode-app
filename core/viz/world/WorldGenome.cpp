@@ -35,6 +35,9 @@ constexpr Bounds kBounds[kFieldCount] = {
     {0.0f, 1.0f},     // AbsInv
     {0.2f, 1.0f},     // AbsInvC
     {-1.2f, 1.2f},    // Twist
+    {0.0f, 1.0f},     // Polar
+    {3.0f, 12.0f},    // PolarN
+    {-0.6f, 0.6f},    // PolarTwist
     {0.6f, 3.0f},     // Scale
     {0.0f, 1.0f},     // PBox
     {0.0f, 1.0f},     // PBar
@@ -43,10 +46,15 @@ constexpr Bounds kBounds[kFieldCount] = {
     {0.0f, 1.0f},     // PShell
     {0.0f, 1.0f},     // PSlab
     {0.0f, 1.0f},     // PMesh
+    {0.0f, 1.0f},     // PGyroid
+    {0.0f, 1.0f},     // PMenger
+    {0.0f, 1.0f},     // PBulb
     {0.2f, 2.4f},     // PrimSize
     {0.03f, 0.45f},   // PrimThick
-    {0.0f, 5.0f},     // MeshPick (kShapeCount - 1)
+    {0.0f, 11.0f},    // MeshPick (kShapeCount - 1)
     {0.6f, 2.6f},     // MeshSize
+    {2.0f, 9.0f},     // BulbPower
+    {0.8f, 4.0f},     // GyroScale
     {0.0f, 1.0f},     // MSurface
     {0.0f, 1.0f},     // MGlow
     {0.0f, 1.0f},     // MDensity
@@ -128,7 +136,68 @@ float boxSd(const V3& q, float b) {
     return outside + std::min(std::max(dx, std::max(dy, dz)), 0.0f);
 }
 
-// lib_world's wPrims: the six primitives, blended by weight.
+// lib_world's wGyroid: an endless gyroid sheet of thickness t, at frequency k.
+float gyroid(const V3& q, float k, float t) {
+    const float g = (std::sin(q[0] * k) * std::cos(q[1] * k) + std::sin(q[1] * k) * std::cos(q[2] * k) +
+                     std::sin(q[2] * k) * std::cos(q[0] * k)) / k;
+    return std::fabs(g) * 0.55f - t * 0.5f;
+}
+
+// GLSL's mod: x - y * floor(x / y).
+float glslMod(float x, float y) { return x - y * std::floor(x / y); }
+
+// lib_world's wMenger: a Menger sponge of half-size s, three levels.
+float menger(const V3& q, float s) {
+    const V3 p{q[0] / s, q[1] / s, q[2] / s};
+    float d = boxSd(p, 1.0f);
+    float scale = 1.0f;
+    for (int m = 0; m < 3; ++m) {
+        V3 a;
+        for (int i = 0; i < 3; ++i) a[i] = glslMod(p[i] * scale, 2.0f) - 1.0f;
+        scale *= 3.0f;
+        V3 rr;
+        for (int i = 0; i < 3; ++i) rr[i] = std::fabs(1.0f - 3.0f * std::fabs(a[i]));
+        const float da = std::max(rr[0], rr[1]);
+        const float db = std::max(rr[1], rr[2]);
+        const float dc = std::max(rr[2], rr[0]);
+        d = std::max(d, (std::min(da, std::min(db, dc)) - 1.0f) / scale);
+    }
+    return d * s;
+}
+
+// lib_world's wBulb: a Mandelbulb of power n, scaled so it fills about s, five iterations.
+float bulb(const V3& q, float s, float n) {
+    const float k = 0.8f * s;
+    const V3 p{q[0] / k, q[1] / k, q[2] / k};
+    V3 z = p;
+    float dr = 1.0f;
+    float r = len3(z);
+    for (int i = 0; i < 5; ++i) {
+        r = len3(z);
+        if (r > 2.0f) break;
+        const float rs = std::max(r, 1e-6f);
+        const float theta = std::acos(clampf(z[2] / rs, -1.0f, 1.0f)) * n;
+        const float phi = std::atan2(z[1], z[0]) * n;
+        dr = std::pow(rs, n - 1.0f) * n * dr + 1.0f;
+        const float zr = std::pow(rs, n);
+        z = {zr * std::sin(theta) * std::cos(phi) + p[0], zr * std::sin(phi) * std::sin(theta) + p[1],
+             zr * std::cos(theta) + p[2]};
+    }
+    r = std::max(r, 1e-6f);
+    return 0.5f * std::log(r) * r / dr * k;
+}
+
+// lib_world's wPolar: the plane about the travel axis folded into one mirrored wedge of n.
+void polarFold(float& x, float& y, float n) {
+    const float r = len2(x, y);
+    const float seg = kTau / n;
+    float a = std::atan2(y, x);
+    a = std::fabs(glslMod(a + seg * 0.5f, seg) - seg * 0.5f);
+    x = r * std::cos(a);
+    y = r * std::sin(a);
+}
+
+// lib_world's wPrims: the ten primitives, blended by weight.
 float prims(const Genome& g, const V3& q) {
     const float s = g[PrimSize];
     const float t = g[PrimThick];
@@ -153,6 +222,9 @@ float prims(const Genome& g, const V3& q) {
         const float db = f > 0.0f ? shapeDistance(b, q[0] / size, q[1] / size, q[2] / size) : da;
         d += g[PMesh] * (da + (db - da) * f) * size;
     }
+    if (g[PGyroid] > 0.0f) d += g[PGyroid] * gyroid(q, g[GyroScale], t);
+    if (g[PMenger] > 0.0f) d += g[PMenger] * menger(q, s);
+    if (g[PBulb] > 0.0f) d += g[PBulb] * bulb(q, s, g[BulbPower]);
     return d;
 }
 
@@ -160,10 +232,30 @@ float bareWorld(const Genome& g, const Way& way, const V3& p) {
     V3 w = p;
     const float pz = g[CellZ];
     w[2] = cell(p[2] - way.eye[2] + way.zPhase, pz);
+    if (g[Polar] > 0.0f) {
+        // The kaleidoscope: both neighbouring segment counts, blended by the fraction, then faded in.
+        float ax = w[0];
+        float ay = w[1];
+        rot(ax, ay, g[PolarTwist] * w[2]);
+        float bx = ax;
+        float by = ay;
+        const float n0 = std::floor(g[PolarN]);
+        const float fn = g[PolarN] - n0;
+        polarFold(ax, ay, n0);
+        if (fn > 0.0f) polarFold(bx, by, n0 + 1.0f);
+        else {
+            bx = ax;
+            by = ay;
+        }
+        w[0] = mixf(w[0], mixf(ax, bx, fn), g[Polar]);
+        w[1] = mixf(w[1], mixf(ay, by, fn), g[Polar]);
+    }
     const float sxy = g[CellXY] / std::max(g[RepXY], 0.08f);
     const float shift = 0.5f * g[CellXY] * g[CellShift];
-    w[0] = cell(w[0] + shift, sxy);
-    w[1] = cell(w[1] + shift, sxy);
+    // The shift moves the cells' content out along +x, the side the kaleidoscope folds onto, so a
+    // polar world rings its content round the axis at that radius; y moves only without the fold.
+    w[0] = cell(w[0] - shift, sxy);
+    w[1] = cell(w[1] + shift * (1.0f - g[Polar]), sxy);
     rot(w[0], w[1], g[Twist] * std::sin(kTau * w[2] / pz));
     const float scale = g[Scale];
     V3 q{w[0] / scale, w[1] / scale, w[2] / scale};
@@ -239,6 +331,9 @@ Genome base() {
     g[Fog] = 0.05f;
     g[Corridor] = 1.6f;
     g[MeshSize] = 1.4f;
+    g[PolarN] = 6.0f;
+    g[BulbPower] = 8.0f;
+    g[GyroScale] = 1.6f;
     g[TexScale] = 1.0f;
     return g;
 }
@@ -251,12 +346,12 @@ template <size_t N>
 Genome make(const Set (&sets)[N]) {
     Genome g = base();
     for (const Set& s : sets) g[s.field] = s.value;
-    normalize(g, PBox, 7, nullptr);
+    normalize(g, PBox, 10, nullptr);
     normalize(g, MSurface, 3, nullptr);
     return g;
 }
 
-std::array<Seed, 12> buildSeeds() {
+std::array<Seed, 25> buildSeeds() {
     return {{
         // A nave of soap-thin spheres, inverted into one another: bubbles inside bubbles, lit from within.
         {"Bubble Nave", 0.35f, 0.7f, 0.5f,
@@ -328,11 +423,83 @@ std::array<Seed, 12> buildSeeds() {
                {PrimSize, 1.2f}, {PrimThick, 0.04f}, {MeshPick, 5.0f}, {MeshSize, 2.3f}, {Invert, 0.2f}, {InvRadius, 1.6f},
                {MSurface, 0.55f}, {MGlow, 0.45f}, {TrapR, 0.6f}, {TrapY, 0.3f}, {PalOffset, 0.3f}, {PalSpan, 0.45f},
                {Emission, 1.05f}, {Fog, 0.025f}, {TexEmit, 0.5f}, {TexPick, 3.0f}, {TexScale, 1.4f}})},
+        // Mandelbulbs grown in mirrored cells, lichen on their folds: a garden of fractal fruit.
+        {"Bulb Garden", 0.45f, 0.6f, 0.65f,
+         make({{RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 5.0f}, {CellShift, 1.0f}, {PBulb, 1.0f}, {BulbPower, 8.0f},
+               {PrimSize, 1.3f}, {MSurface, 0.8f}, {MGlow, 0.2f}, {TrapR, 0.6f}, {TrapX, 0.3f}, {PalOffset, 0.55f},
+               {PalSpan, 0.6f}, {Emission, 1.1f}, {Fog, 0.03f}, {TexAmount, 0.5f}, {TexPick, 3.0f}})},
+        // Menger sponges set in a hexagonal hall: the kaleidoscope turns the square sponge round.
+        {"Sponge Hall", 0.55f, 0.45f, 0.75f,
+         make({{RepXY, 0.6f}, {CellXY, 6.0f}, {CellZ, 4.0f}, {CellShift, 0.6f}, {PMenger, 1.0f}, {PrimSize, 1.4f},
+               {Polar, 1.0f}, {PolarN, 6.0f}, {MSurface, 0.85f}, {MGlow, 0.15f}, {TrapX, 0.4f}, {TrapZ, 0.4f},
+               {PalOffset, 0.08f}, {PalSpan, 0.45f}, {Emission, 1.0f}, {Fog, 0.03f}, {TexAmount, 0.5f}, {TexPick, 6.0f}})},
+        // One endless gyroid sheet, breathing light through its holes: a lung of glass.
+        {"Gyroid Lung", 0.35f, 0.7f, 0.4f,
+         make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 6.0f}, {PGyroid, 1.0f}, {GyroScale, 1.5f}, {PrimThick, 0.1f},
+               {MSurface, 0.35f}, {MGlow, 0.65f}, {TrapR, 0.5f}, {TrapY, 0.4f}, {PalOffset, 0.9f}, {PalSpan, 0.55f},
+               {Emission, 1.05f}, {Fog, 0.03f}, {Corridor, 1.8f}, {TexEmit, 0.4f}, {TexPick, 4.0f}})},
+        // Rings and bubbles folded seven ways and turned into a spiral: a rose you fly down.
+        {"Rose Tunnel", 0.6f, 0.75f, 0.5f,
+         make({{RepXY, 1.0f}, {CellXY, 4.0f}, {CellZ, 3.5f}, {CellShift, 1.0f}, {Polar, 1.0f}, {PolarN, 7.0f},
+               {PolarTwist, 0.25f}, {PTorus, 0.6f}, {PShell, 0.4f}, {PrimSize, 1.0f}, {PrimThick, 0.1f}, {Mirror, 0.4f},
+               {MirrorOff, 0.3f}, {MSurface, 0.6f}, {MGlow, 0.4f}, {TrapR, 0.6f}, {PalOffset, 0.95f}, {PalSpan, 0.5f},
+               {Emission, 1.1f}, {Fog, 0.03f}})},
+        // Horses ridden round the travel axis, eight of them: a carousel without end.
+        {"Carousel", 0.65f, 0.7f, 0.55f,
+         make({{RepXY, 0.3f}, {CellXY, 7.0f}, {CellZ, 4.5f}, {CellShift, 0.9f}, {Polar, 1.0f}, {PolarN, 8.0f},
+               {PMesh, 1.0f}, {MeshPick, 4.0f}, {MeshSize, 1.4f}, {MSurface, 0.75f}, {MGlow, 0.25f}, {TrapR, 0.5f},
+               {PalOffset, 0.4f}, {PalSpan, 0.35f}, {Emission, 1.2f}, {Fog, 0.03f}, {TexAmount, 0.6f}, {TexPick, 0.0f}})},
+        // Bull and cow skulls melted into one another, five round the way, in a lichen haze.
+        {"Bone Orchard", 0.3f, 0.3f, 0.5f,
+         make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 5.0f},
+               {PMesh, 1.0f}, {MeshPick, 2.5f}, {MeshSize, 1.6f}, {MSurface, 0.7f}, {MDensity, 0.3f}, {DensBand, 0.12f},
+               {TrapR, 0.5f}, {PalOffset, 0.45f}, {PalSpan, 0.4f}, {Emission, 1.2f}, {Fog, 0.03f}, {TexAmount, 0.5f},
+               {TexPick, 3.0f}})},
+        // Shells spiralling nine ways down the way, glowing like a lantern of nacre.
+        {"Shell Spiral", 0.5f, 0.8f, 0.45f,
+         make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 4.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 9.0f},
+               {PolarTwist, 0.35f}, {PMesh, 1.0f}, {MeshPick, 0.0f}, {MeshSize, 1.5f}, {MSurface, 0.5f}, {MGlow, 0.5f},
+               {TrapR, 0.6f}, {PalOffset, 0.75f}, {PalSpan, 0.5f}, {Emission, 1.1f}, {Fog, 0.03f}, {TexEmit, 0.4f},
+               {TexPick, 4.0f}})},
+        // Mushrooms ringed eight ways in a grove, a gyroid moss between them, cedar-bark skin.
+        {"Mushroom Grove", 0.3f, 0.55f, 0.6f,
+         make({{RepXY, 1.0f}, {CellXY, 5.5f}, {CellZ, 5.0f}, {CellShift, 1.0f}, {PMesh, 0.8f}, {PGyroid, 0.2f},
+               {MeshPick, 6.0f}, {MeshSize, 1.8f}, {GyroScale, 2.5f}, {PrimThick, 0.06f}, {Polar, 1.0f}, {PolarN, 8.0f},
+               {MSurface, 0.8f}, {MGlow, 0.2f}, {TrapR, 0.5f}, {PalOffset, 0.45f}, {PalSpan, 0.45f}, {Emission, 1.1f}, {Fog, 0.03f}, {TexAmount, 0.6f},
+               {TexPick, 5.0f}})},
+        // Ferns hung six ways round the way and lit from within: a green cathedral.
+        {"Fern Cathedral", 0.4f, 0.65f, 0.45f,
+         make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 6.0f},
+               {PMesh, 1.0f}, {MeshPick, 7.0f}, {MeshSize, 2.2f}, {MSurface, 0.5f}, {MGlow, 0.5f}, {TrapR, 0.5f},
+               {PalOffset, 0.35f}, {PalSpan, 0.4f}, {Emission, 1.15f}, {Fog, 0.03f}})},
+        // Dead trunks twisted along the way in bark, six round it: driftwood in a slow current.
+        {"Driftwood", 0.25f, 0.4f, 0.55f,
+         make({{RepXY, 0.8f}, {CellXY, 5.5f}, {CellZ, 5.0f}, {CellShift, 1.0f}, {PMesh, 1.0f}, {MeshPick, 10.0f},
+               {MeshSize, 2.2f}, {Twist, 0.6f}, {Polar, 1.0f}, {PolarN, 6.0f}, {MSurface, 0.7f}, {MGlow, 0.3f}, {TrapX, 0.4f},
+               {PalOffset, 0.4f},
+               {PalSpan, 0.35f}, {Emission, 1.1f}, {Fog, 0.03f}, {TexAmount, 0.8f}, {TexPick, 5.0f}})},
+        // Succulents opened ten ways, half stone, half glowing mist: a bloom you pass through.
+        {"Succulent Bloom", 0.45f, 0.75f, 0.5f,
+         make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 4.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 10.0f},
+               {PMesh, 1.0f}, {MeshPick, 11.0f}, {MeshSize, 1.6f}, {MSurface, 0.6f}, {MDensity, 0.4f}, {DensBand, 0.1f},
+               {TrapR, 0.5f}, {PalOffset, 0.6f}, {PalSpan, 0.45f}, {Emission, 1.15f}, {Fog, 0.03f}})},
+        // Quiver trees ringed seven ways under a glow: a desert forest at dusk.
+        {"Quiver Forest", 0.35f, 0.5f, 0.5f,
+         make({{RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 5.0f}, {CellShift, 1.0f}, {PMesh, 1.0f}, {MeshPick, 8.0f},
+               {MeshSize, 2.4f}, {Polar, 1.0f}, {PolarN, 7.0f}, {MSurface, 0.6f}, {MGlow, 0.4f}, {TrapR, 0.5f},
+               {PalOffset, 0.3f}, {PalSpan, 0.4f},
+               {Emission, 1.15f}, {Fog, 0.03f}, {TexAmount, 0.5f}, {TexPick, 5.0f}})},
+        // Low-power bulbs fused with sponges, folded five ways, in circuit light: a crystal machine.
+        {"Crystal Bulb", 0.75f, 0.6f, 0.6f,
+         make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.7f}, {Polar, 1.0f}, {PolarN, 5.0f},
+               {PBulb, 0.7f}, {PMenger, 0.3f}, {BulbPower, 5.0f}, {PrimSize, 1.4f}, {MSurface, 0.4f}, {MGlow, 0.6f},
+               {TrapR, 0.6f}, {TrapY, 0.3f}, {PalOffset, 0.65f}, {PalSpan, 0.55f}, {Emission, 1.1f}, {Fog, 0.03f},
+               {TexEmit, 0.5f}, {TexPick, 7.0f}})},
     }};
 }
 
-const std::array<Seed, 12>& seeds() {
-    static const std::array<Seed, 12> kSeeds = buildSeeds();
+const std::array<Seed, 25>& seeds() {
+    static const std::array<Seed, 25> kSeeds = buildSeeds();
     return kSeeds;
 }
 
@@ -380,7 +547,7 @@ Genome clampFields(Genome g) {
         if (!std::isfinite(g[f])) g[f] = kBounds[f].lo;
         g[f] = wraps(f) ? wrap01(g[f]) : std::clamp(g[f], kBounds[f].lo, kBounds[f].hi);
     }
-    normalize(g, PBox, 7, nullptr);
+    normalize(g, PBox, 10, nullptr);
     normalize(g, MSurface, 3, nullptr);
     return g;
 }
@@ -392,7 +559,7 @@ bool inBounds(const Genome& g) {
         if (wraps(f) ? (g[f] < 0.0f || g[f] >= 1.0f) : (g[f] < b.lo - 1e-5f || g[f] > b.hi + 1e-5f)) return false;
     }
     for (int first : {static_cast<int>(PBox), static_cast<int>(MSurface)}) {
-        const int n = first == PBox ? 7 : 3;
+        const int n = first == PBox ? 10 : 3;
         float sum = 0.0f;
         for (int i = 0; i < n; ++i) sum += g[first + i];
         if (std::fabs(sum - 1.0f) > 1e-3f) return false;
@@ -441,7 +608,7 @@ const Seed& seed(int index) { return seeds()[static_cast<size_t>(std::clamp(inde
 Genome random(uint64_t seedValue, const Constraints& c, int* picked) {
     uint64_t s = mix64(seedValue ^ 0x4D6F727068576F72ull);
     // Pick the seed world: closeness to the music's wants, the current world far less likely.
-    float weights[16];
+    float weights[32];
     float total = 0.0f;
     for (int i = 0; i < seedCount(); ++i) {
         const Seed& sd = seed(i);
@@ -475,7 +642,8 @@ Genome random(uint64_t seedValue, const Constraints& c, int* picked) {
     }
     // Far mutations also wake operators the seed leaves off: a new kind of fold, not only new numbers.
     for (int f : {static_cast<int>(Mirror), static_cast<int>(Ifs), static_cast<int>(Invert), static_cast<int>(AbsInv),
-                  static_cast<int>(PMesh), static_cast<int>(TexAmount), static_cast<int>(TexEmit)}) {
+                  static_cast<int>(PMesh), static_cast<int>(TexAmount), static_cast<int>(TexEmit),
+                  static_cast<int>(Polar), static_cast<int>(PGyroid), static_cast<int>(PMenger), static_cast<int>(PBulb)}) {
         if (origin[f] < 0.05f && unit(s) < amount * 0.5f) m[f] = unit(s) * amount;
     }
     m = clampFields(m);

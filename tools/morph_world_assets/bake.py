@@ -20,6 +20,8 @@ Writes into <out-dir> (the app's is app/src/main/assets/shaders):
                       [-0.25, 0.75] -> [0, 255]. A distance beyond 0.75 is stored as 0.75, so every
                       stored value is at most the true distance and a sphere tracer never overshoots.
                       Sign: ray parity along x, y and z, by majority (robust to open seams).
+                      Every model wears a SKIN of 0.04, so parts thinner than a voxel still draw.
+                      Only LOD0 of a file that stacks levels of detail is baked.
 
 The counts and sizes match core/viz/world/WorldAssets.hpp; world_genome_test checks the file sizes.
 """
@@ -36,6 +38,9 @@ TEX = 128
 VOX = 32
 D_LO = -0.25
 D_HI = 0.75
+# A skin on every model, in cube units (about 0.6 of a voxel): leaves, stems and trunks thinner
+# than a voxel still have an inside the grid can see, so they draw instead of vanishing.
+SKIN = 0.04
 
 HERE = pathlib.Path(__file__).resolve().parent
 
@@ -123,6 +128,12 @@ def bake_material(path, name):
 def model_bvh(path):
     reset()
     objs = [o for o in append_all(path, "objects") if o is not None]
+    # Keep the model itself: when the file stacks levels of detail in one place (Poly Haven's
+    # _LOD0.._LOD3), only LOD0, since four coincident surfaces would cancel the ray parity; and
+    # never Blender's default scene cube a file was saved with.
+    if any("_LOD" in o.name for o in objs):
+        objs = [o for o in objs if "_LOD" not in o.name or "_LOD0" in o.name]
+    objs = [o for o in objs if not (o.type == "MESH" and o.name.startswith("Cube") and len(o.data.polygons) == 6)]
     scene = bpy.context.scene
     for o in objs:
         scene.collection.objects.link(o)
@@ -192,6 +203,7 @@ def bake_volume(path):
                 p = Vector((centres[x], centres[y], centres[z]))
                 loc, _, _, dist = bvh.find_nearest(p)
                 d = D_HI if loc is None else (-dist if votes[z, y, x] >= 2 else dist)
+                d -= SKIN
                 v = (min(max(d, D_LO), D_HI) - D_LO) / (D_HI - D_LO)
                 out[z, y, x] = int(v * 255.0 + 0.5)
     return out

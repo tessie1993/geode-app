@@ -15,10 +15,11 @@
 //
 // THE CHAIN, in lib_world's order (world() there; sdf() below is the same function on the CPU):
 //   z repeat (always on: the travel axis is endless), x/y repeat (RepXY fades it, CellShift moves
-//   the cells off the axis, so the way runs between structures rather than through them), twist along
+//   the cells off the axis, so the way runs between structures rather than through them), a polar
+//   kaleidoscope fold about the travel axis (N-fold, round tunnels, a spiral), twist along
 //   travel, global scale, mirror fold, up to five IFS steps (rotate-fold, fractional count),
-//   sphere inversion, abs-inversion, then seven primitives blended by weight (the seventh a baked
-//   CC0 model, WorldAssets), then the corridor
+//   sphere inversion, abs-inversion, then ten primitives blended by weight (six simple ones, a baked
+//   CC0 model from WorldAssets, a gyroid, a Menger sponge and a Mandelbulb), then the corridor
 //   carved out around the camera's way. Three render modes read that one world: a hard surface,
 //   a glow-through volume (translucent glowing plates) and an emissive density (thin glowing
 //   sheets); their weights are in the genome too, so a world can melt from stone into light.
@@ -54,6 +55,9 @@ enum Field : int {
     AbsInv,      // 0..1: abs-inversion strength (abs(p) / |p|^2 - c)
     AbsInvC,     // its constant
     Twist,       // radians: the xy turn along travel, a sine over one z period
+    Polar,       // 0..1: kaleidoscope fold around the travel axis (round, N-fold tunnels, not the 4-way cross)
+    PolarN,      // 3..12 segments, fractional = a blend of the two neighbouring counts
+    PolarTwist,  // radians per world unit: the fold turns along travel, a spiral
     Scale,       // the whole world's scale
     // Primitives: weights (normalized to sum 1), then their size and wall thickness.
     PBox,
@@ -63,10 +67,15 @@ enum Field : int {
     PShell,
     PSlab,
     PMesh,       // a baked model (WorldAssets), sized by MeshSize
+    PGyroid,     // a gyroid sheet: one endless, smooth, organic surface (GyroScale, PrimThick)
+    PMenger,     // a Menger sponge, three levels (PrimSize)
+    PBulb,       // a Mandelbulb (BulbPower, PrimSize)
     PrimSize,
     PrimThick,
     MeshPick,    // 0..kShapeCount-1: which baked model, fractional = a blend of two neighbours
     MeshSize,    // the model's half-size, world units before Scale
+    BulbPower,   // the Mandelbulb's power, 2..9
+    GyroScale,   // the gyroid's frequency
     // Render modes: weights (normalized to sum 1), then the density mode's band half-width.
     MSurface,
     MGlow,
@@ -106,7 +115,7 @@ enum Runtime : int {
 
 constexpr int kVec4 = kUniformCount / 4;
 static_assert(kUniformCount % 4 == 0, "uWorld is whole vec4s");
-static_assert(kVec4 == 14, "lib_world declares uWorld[14]");
+static_assert(kVec4 == 16, "lib_world declares uWorld[16]");
 
 constexpr int kMaxIfsSteps = 5;
 // The corridor's eye bubble (lib_world's WG_EYE_RADIUS): what is always open around the eye.

@@ -564,4 +564,52 @@ object GeodeNative {
         nowMs: Long,
         heardAtMs: Long,
     ): Boolean
+
+    // Native ingest ring (core/audio/ingest): one per audio source. The ring, the conversion, the downmix,
+    // the cursors and the silence rule are all native; these only hand over a handle and a buffer.
+
+    /** A ring of at least [capacityFrames] frames keeping up to [maxChannels] channels; 0 on bad arguments. */
+    external fun ingestCreate(
+        capacityFrames: Int,
+        maxChannels: Int,
+    ): Long
+
+    external fun ingestDestroy(handle: Long)
+
+    /** Writer thread only: a discontinuity (seek, track or source change); readers restart. */
+    external fun ingestBeginEpoch(
+        handle: Long,
+        sampleRate: Int,
+        channels: Int,
+        channelMask: Int,
+    )
+
+    /** Writer thread only: the same stream in a new format (speed, pitch, skip-silence); no restart. */
+    external fun ingestSetFormat(
+        handle: Long,
+        sampleRate: Int,
+        channels: Int,
+        channelMask: Int,
+    )
+
+    /**
+     * Writer thread only. [buffer] must be direct; [length] bytes from byte [offset] of interleaved PCM in
+     * [encoding] (AudioFormat ENCODING_*). Returns the frames taken.
+     */
+    external fun ingestWrite(
+        handle: Long,
+        buffer: java.nio.ByteBuffer,
+        offset: Int,
+        length: Int,
+        encoding: Int,
+    ): Int
+
+    /** Frames written over every epoch. */
+    external fun ingestWritten(handle: Long): Long
+
+    /** Whether a surface reading this ring may rest: nothing audible written for 6 s. */
+    external fun ingestResting(
+        handle: Long,
+        nowMs: Long,
+    ): Boolean
 }

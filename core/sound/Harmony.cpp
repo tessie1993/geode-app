@@ -138,17 +138,18 @@ void Harmony::detectScale() {
         scale_ = best / 12;
         scaleRoot_ = best % 12;
     } else if (best != scale_ * 12 + scaleRoot_ && bestScore - current > 0.03f) {
-        scaleHold_ = best == scaleRival_ ? scaleHold_ + dt : dt;
-        scaleRival_ = best;
-        if (scaleHold_ >= 2.0f) {  // two seconds of a better fit before the mood changes
+        // Two seconds of the current scale fitting worse than another before the mood changes; then it
+        // moves to the best of that moment. The time counts against the current scale, not one rival: a
+        // melody walking its scale swaps the leader between relatives (A Aeolian, C Ionian) every few
+        // notes, and a hold that restarted on each swap kept a wrong first reading for the whole song.
+        scaleHold_ += dt;
+        if (scaleHold_ >= 2.0f) {
             scale_ = best / 12;
             scaleRoot_ = best % 12;
             scaleHold_ = 0.0f;
-            scaleRival_ = -1;
         }
     } else {
         scaleHold_ = 0.0f;
-        scaleRival_ = -1;
     }
     scaleFit_ = follow(scaleFit_, std::clamp((bestFit - 0.3f) / 0.5f, 0.0f, 1.0f), 1.0f, dt);
 }
@@ -254,16 +255,15 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
         if (key_ < 0) {
             key_ = best;
         } else if (best != key_ && r[best] - r[key_] > 0.03f) {
-            keyHold_ = best == keyRival_ ? keyHold_ + dt : dt;
-            keyRival_ = best;
+            // Like the scale: the time counts against the current key, whichever key leads (a progression
+            // swaps the leader between relatives chord by chord, and a per-rival hold never switched).
+            keyHold_ += dt;
             if (keyHold_ >= 2.0f) {
                 key_ = best;
                 keyHold_ = 0.0f;
-                keyRival_ = -1;
             }
         } else {
             keyHold_ = 0.0f;
-            keyRival_ = -1;
         }
         clarity_ = follow(clarity_, std::clamp(r[key_], 0.0f, 1.0f), 1.0f, dt);
         major_ = follow(major_, std::clamp(0.5f + 2.0f * (bestMajor - bestMinor), 0.0f, 1.0f), 2.0f, dt);

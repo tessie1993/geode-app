@@ -49,8 +49,7 @@ private:
     std::array<float, 12> slow_{};
     bool heard_ = false;
     int key_ = -1;          // 0..11 major on that tonic, 12..23 minor; -1 before any
-    float keyHold_ = 0.0f;  // how long another key has fitted better
-    int keyRival_ = -1;
+    float keyHold_ = 0.0f;  // how long the current key has fitted worse than another
     float clarity_ = 0.0f;
     float major_ = 0.5f;
     float chordHue_ = 0.0f;
@@ -65,8 +64,7 @@ private:
     float sinceScale_ = 0.0f;
     int scale_ = -1;
     int scaleRoot_ = 0;
-    int scaleRival_ = -1;   // scale × 12 + root of a better fit, and how long it has held
-    float scaleHold_ = 0.0f;
+    float scaleHold_ = 0.0f;  // how long the current scale has fitted worse than another
     float scaleFit_ = 0.0f;
     float scaleBright_ = 0.5f;
     float scaleTension_ = 0.0f;

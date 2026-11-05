@@ -125,6 +125,17 @@ A named set of the six knob positions: the built-in starters (Calm, Groove, Rave
 A named bundle of reaction routes offered in the Events tab ("Kick punch", "Drop burst"), turned on and off as one.
 _Avoid_: Trigger preset
 
+**Event**:
+A moment the engine reacts to: a kick, a downbeat, a drop, a build starting, a key change, a style switch. It has a strength (0..1) and sometimes a value (a section id, a key). Raised once a frame from the sound frame or by the engine; the kinds are one table (`core/signal/events/EventKinds.inc`).
+_Avoid_: Trigger (that is the sound frame's field an event comes from), moment (the Music page's groups of sources)
+
+**Event route**:
+A reaction route whose source is an event: on every Nth matching event, it does one thing to one param (set it, nudge it, glide it, step it, toggle it or pulse it). Event recipes are bundles of these. A pulse on a brightness-like param is slowed and limited to three a second.
+
+**Param phase**:
+What one param's value is doing: at rest, gliding to a new value, held under a finger, on trial (a locked value the user is trying, which springs back), or driven by a timeline. A finger outranks the engine, and a timeline outranks both while it drives (`core/signal/params/ParamState.hpp`).
+_Avoid_: Param mode, lock state
+
 **Modulation**:
 LFOs and ADSR envelopes that move scene params over time or on hits.
 

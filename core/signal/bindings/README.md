@@ -1,6 +1,14 @@
-# core/signal/bindings (skeleton, empty)
+# core/signal/bindings
 
-Part of [`core/signal`](../README.md). Nothing here yet.
+Part of [`core/signal`](../README.md).
+
+**Built: `EventRoutes`** (`EventRoutes.hpp/.cpp`). An event route is a reaction route whose source is an event (GLOSSARY): *when* (an `EventFilter`), *every Nth*, a target param, and one action. It is the native home for Customize › Music's moments → actions and for the event recipes, which are bundles of event routes.
+- **Actions that change the base** go through the param state machine with origin `Engine`, so a finger or a timeline still wins and a preset's glide is not torn: Set, Nudge (round the circle for a hue), GlideTo, Toggle, Step (wrapping, for a palette or a fold count).
+- **Pulse** adds a decaying modulation, scaled by the event's strength.
+- **The flash limit:** a pulse on a `luminance` param decays no faster than 0.35 s and starts at most three times a second per param (WCAG 2.3.1), whatever the event rate. `safety::apply` still clamps the level after.
+- It hears events from an [`events/EventBus`](../events/README.md). That bus hands out moments; the route bus below evaluates continuous routes each frame. They are two different things.
+
+**Still to build:** the continuous routes below.
 
 **Owns:** `Route` and `Bus`.
 - `Route { owner, source id, transforms[], target param id, weight, combine }`. Owner is one of: user, style DNA, director, macro, note response. Combine is add, multiply or lerp-to.

@@ -1098,5 +1098,31 @@ object GeodeNative {
     external fun thermalPush(
         platformStatus: Int,
         headroom: Float,
+
+    // Cast's audio pump (core/viz/frame/CastAudio): counts only; the caller keeps the PCM and the encoder.
+
+    /** Size of the audio pump's state (GEODE_CAST_AUDIO_STATE): frames queued, frames held, rate. */
+    const val CAST_AUDIO_STATE = 3
+
+    /** Size of one step's result (GEODE_CAST_AUDIO_STEP): evict, skip, keep, take, pad, PTS in µs. */
+    const val CAST_AUDIO_STEP = 6
+
+    /** Starts [state] at [rateHz]; returns the hold's capacity in frames (half a second). */
+    external fun castAudioStart(
+        state: LongArray,
+        rateHz: Int,
+    ): Int
+
+    /**
+     * One frame of the pump: [gainedFrames] just resampled from the ring and the frame clock's cut
+     * [untilUs]. Fills [out] (CAST_AUDIO_STEP longs), applied in order: evict the oldest held, skip at
+     * the head of the gained, append the next keep, then queue take frames from the hold and pad
+     * silence after them, stamped with the PTS.
+     */
+    external fun castAudioStep(
+        state: LongArray,
+        gainedFrames: Int,
+        untilUs: Long,
+        out: LongArray,
     )
 }

@@ -759,4 +759,27 @@ Java_dev_geode_engine_bridge_GeodeNative_thermalPush(JNIEnv*, jobject, jint stat
     geode_thermal_push(status, headroom);
 }
 
+// Cast's audio pump: the state is a caller-owned long[GEODE_CAST_AUDIO_STATE], a step's result a long[GEODE_CAST_AUDIO_STEP].
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_castAudioStart(JNIEnv* env, jobject, jlongArray state, jint rateHz) {
+    if (!state || env->GetArrayLength(state) < GEODE_CAST_AUDIO_STATE) return 0;
+    int64_t s[GEODE_CAST_AUDIO_STATE] = {};
+    const int capacity = geode_cast_audio_start(s, rateHz);
+    env->SetLongArrayRegion(state, 0, GEODE_CAST_AUDIO_STATE, reinterpret_cast<const jlong*>(s));
+    return capacity;
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_castAudioStep(JNIEnv* env, jobject, jlongArray state, jint gainedFrames,
+                                                       jlong untilUs, jlongArray out) {
+    if (!state || !out || env->GetArrayLength(state) < GEODE_CAST_AUDIO_STATE ||
+        env->GetArrayLength(out) < GEODE_CAST_AUDIO_STEP) return;
+    int64_t s[GEODE_CAST_AUDIO_STATE];
+    int64_t o[GEODE_CAST_AUDIO_STEP] = {};
+    env->GetLongArrayRegion(state, 0, GEODE_CAST_AUDIO_STATE, reinterpret_cast<jlong*>(s));
+    geode_cast_audio_step(s, gainedFrames, untilUs, o);
+    env->SetLongArrayRegion(state, 0, GEODE_CAST_AUDIO_STATE, reinterpret_cast<const jlong*>(s));
+    env->SetLongArrayRegion(out, 0, GEODE_CAST_AUDIO_STEP, reinterpret_cast<const jlong*>(o));
+}
+
 }

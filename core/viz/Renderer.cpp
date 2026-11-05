@@ -249,10 +249,10 @@ void Renderer::setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& 
     adsrConfigsDirty_ = true;
 }
 
-void Renderer::setReactionRoutes(const std::array<ReactRoute, ReactionEngine::kRoutes>& routes) {
+void Renderer::setUserReactions(const HandRoutes& user) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    reactionRoutes_ = routes;
-    reactionRoutesDirty_ = true;
+    userReactions_ = user;
+    userReactionsDirty_ = true;
 }
 
 void Renderer::fail(const std::string& message) {

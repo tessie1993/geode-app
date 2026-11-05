@@ -23,6 +23,7 @@ add_library(geode_core STATIC
     api/geode_export_dsp_api.cpp
     signal/EngineSettings.cpp
     signal/Resolver.cpp
+    signal/bindings/PlayingRoutes.cpp
     viz/ShaderSource.cpp
     viz/GlCaps.cpp
     viz/GlProber.cpp

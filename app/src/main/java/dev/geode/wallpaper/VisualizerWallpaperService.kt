@@ -20,6 +20,7 @@ import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PerformanceStore
 import dev.geode.data.PresetStore
 import dev.geode.data.ThemeStore
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.pro.ProFeature
 import dev.geode.render.FramePacer
 import dev.geode.render.FrameRatePolicy
@@ -99,9 +100,9 @@ class VisualizerWallpaperService : WallpaperService() {
         private var surfaceWidth = 1f
         private var surfaceHeight = 1f
 
-        /** Where the screen sits on a panning surface, in surface pixels; see [onOffsetsChanged]. */
-        private var panX = 0f
-        private var panY = 0f
+        /** The launcher's last [onOffsetsChanged], raw (`GEODE_WALLPAPER_OFFSETS`), and the window native makes of it. */
+        private val offsets = FloatArray(6)
+        private val window = FloatArray(4)
 
         private inner class WallpaperGlSurfaceView(
             context: Context,
@@ -168,7 +169,7 @@ class VisualizerWallpaperService : WallpaperService() {
             // Settings › Performance; the wallpaper keeps its own pacer, so the cap goes there.
             val performance = PerformanceStore(prefsFiles.general, this@VisualizerWallpaperService).settings.value
             engine.performance = performance
-            pacer.policy = FrameRatePolicy.Capped(minOf(WALLPAPER_FPS, performance.fpsCap.toFloat()))
+            pacer.policy = FrameRatePolicy.Capped(GeodeNative.wallpaperFps(WALLPAPER_FPS, performance.fpsCap.toFloat()))
             // The user's modulation too: without it the wallpaper and the dream drew the look
             // with every LFO, envelope and custom reaction switched off.
             val modulation = dev.geode.data.LfoStore(prefsFiles.general)
@@ -320,7 +321,7 @@ class VisualizerWallpaperService : WallpaperService() {
 
         /**
          * The launcher's pan, so the edge look draws on the screen's edge rather than the
-         * surface's. [xPixels] and [yPixels] are the surface's offset from the screen (≤ 0).
+         * surface's. Passed on raw; `core/viz/frame/WallpaperWindow.hpp` makes the window of it.
          */
         override fun onOffsetsChanged(
             xOffset: Float,
@@ -331,22 +332,21 @@ class VisualizerWallpaperService : WallpaperService() {
             yPixels: Int,
         ) {
             super.onOffsetsChanged(xOffset, yOffset, xOffsetStep, yOffsetStep, xPixels, yPixels)
-            panX = -xPixels.toFloat()
-            panY = -yPixels.toFloat()
+            offsets[0] = xOffset
+            offsets[1] = yOffset
+            offsets[2] = xOffsetStep
+            offsets[3] = yOffsetStep
+            offsets[4] = xPixels.toFloat()
+            offsets[5] = yPixels.toFloat()
             updateVisibleWindow()
         }
 
         private fun updateVisibleWindow() {
             val metrics = resources.displayMetrics
-            // Within a nav bar's worth of the display, the surface is the screen.
-            val wide = surfaceWidth > metrics.widthPixels * PAN_SLACK
-            val tall = surfaceHeight > metrics.heightPixels * PAN_SLACK
-            wallpaperRenderer?.setVisibleWindow(
-                if (wide) panX else 0f,
-                if (tall) panY else 0f,
-                if (wide) metrics.widthPixels.toFloat() else surfaceWidth,
-                if (tall) metrics.heightPixels.toFloat() else surfaceHeight,
-            )
+            val displayWidth = metrics.widthPixels.toFloat()
+            val displayHeight = metrics.heightPixels.toFloat()
+            GeodeNative.wallpaperWindow(surfaceWidth, surfaceHeight, displayWidth, displayHeight, offsets, window)
+            wallpaperRenderer?.setVisibleWindow(window[0], window[1], window[2], window[3])
         }
 
         /**
@@ -431,9 +431,6 @@ class VisualizerWallpaperService : WallpaperService() {
 
         /** Wallpaper zoom (0 none, 1 fully zoomed out) past which the shade or recents covers it. */
         const val COVER_ZOOM = 0.9f
-
-        /** A surface this much bigger than the display is a panning one. */
-        const val PAN_SLACK = 1.1f
 
         /** How long a still frame keeps drawing first, so a scene being built finishes on screen. */
         const val STILL_SETTLE_MS = 2_000L

@@ -158,6 +158,9 @@ jobs:
           # The wallpaper's edge glow, the first frame::Pass (#439): options, the VU envelope, the band and its mask.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/edge_glow_test.cpp -o edge_glow_test
           ./edge_glow_test
+          # The live wallpaper's on-screen window from the launcher's raw offsets, and its fps pick (#605).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/wallpaper_window_test.cpp -o wallpaper_window_test
+          ./wallpaper_window_test
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_test.cpp core/sound/*.cpp -o sound_test
           ./sound_test
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/musical_test.cpp core/sound/*.cpp -o musical_test

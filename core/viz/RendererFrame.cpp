@@ -387,21 +387,26 @@ void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
     if (rippleOverlayOn_) overlays_.stepRippleOverlay(gainAdjusted(soundFrame_, p), p, dt);
 }
 
-// After stepOverlays, so the look follows this frame's touch anchor.
+// After stepOverlays, so the look follows this frame's touch anchor. One path for every surface: live,
+// export (OffscreenSceneRenderer), wallpaper, dream and Cast all step this camera.
 void Renderer::stepCamera(const SceneParams& p, float dt) {
     CameraRig::LookInput look;
+    bool lookActive = false;
     if (p.camGyro) {
         look.yaw = lookYaw_.load(std::memory_order_relaxed);
         look.pitch = lookPitch_.load(std::memory_order_relaxed);
+        lookActive = true;
     }
     if (p.camTouch) {
         const float s = touchField_.anchorStrength();
         look.yaw += touchField_.anchorX() * s;
         look.pitch += touchField_.anchorY() * s;
+        lookActive = lookActive || s > 0.05f;
     }
     look.yaw = std::clamp(look.yaw, -1.0f, 1.0f);
     look.pitch = std::clamp(look.pitch, -1.0f, 1.0f);
     camera_.setMoves(director_.moves(macros::camera(directedKnobs_)));
+    camera_.setComfort(static_cast<scene::camera::Comfort>(cameraComfort_.load(std::memory_order_relaxed)));
     // Endless zoom flies the rig only for a style that marches it (EndlessZoom.hpp); the
     // families still on the old law keep their old camera too.
     SceneParams rigParams = p;
@@ -409,8 +414,17 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
                             !endless::keepsTriangle(activeScene_->id());
     // Liquid mode owns the dive: a 3D style dives by flying the rig through it, at Dive speed.
     if (liquidOn() && activeScene_ != nullptr && activeScene_->drawsCamera()) rigParams.endlessZoom = true;
-    camera_.step(rigParams, look, dt, reducedMotion_.load(std::memory_order_relaxed),
-                 sceneSpin_.load(std::memory_order_relaxed) != 0.0f, &soundFrame_);
+    // Every style is on rails until its port flips the catalogue's rails row (#473), so the camera's
+    // Mode stays at its default, Rails, here.
+    scene::camera::FrameInput in;
+    in.params = &rigParams;
+    in.look = look;
+    in.lookActive = lookActive;
+    in.dt = dt;
+    in.reducedMotion = reducedMotion_.load(std::memory_order_relaxed);
+    in.bankFlat = sceneSpin_.load(std::memory_order_relaxed) != 0.0f;
+    in.sound = &soundFrame_;
+    camera_.step(in);
 }
 
 void Renderer::wireFlow(Scene& target, const SceneParams& p) {

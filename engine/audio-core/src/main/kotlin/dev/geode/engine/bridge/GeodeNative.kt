@@ -124,6 +124,12 @@ object GeodeNative {
         on: Boolean,
     )
 
+    /** The scene camera's comfort: 0 Calm, 1 Normal, 2 Wild (`geode_viz_set_camera_comfort`). */
+    external fun vizSetCameraComfort(
+        handle: Long,
+        level: Int,
+    )
+
     external fun vizSetLayer(
         handle: Long,
         sceneId: String,

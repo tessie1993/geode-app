@@ -13,6 +13,7 @@
 #include "api/geode_api.h"
 #include "sound/SoundEngine.hpp"
 #include "viz/Adsr.hpp"
+#include "scene/camera/SceneCamera.hpp"
 #include "viz/CameraRig.hpp"
 #include "viz/CompositePass.hpp"
 #include "viz/Director.hpp"
@@ -59,6 +60,9 @@ public:
     // Any thread.
     void setParams(const SceneParams& params);
     void setReducedMotion(bool on) { reducedMotion_.store(on, std::memory_order_relaxed); }
+    // The scene camera's comfort level (scene::camera::Comfort: 0 Calm, 1 Normal, 2 Wild); any thread,
+    // taken on the next frame. Reduced motion forces Calm whatever this says.
+    void setCameraComfort(int level) { cameraComfort_.store(level, std::memory_order_relaxed); }
     // Settings › Performance, live surfaces only: an offscreen (export) renderer never calls this,
     // so it keeps full quality. renderScale and marchScale are 0..1 multipliers stacked under the
     // thermal tier; postFx = false drops the same optional passes a hot tier does, plus fluid bloom.
@@ -260,7 +264,9 @@ private:
     uint64_t notePlaySeed_ = 0;
     uint64_t noteEntropy_ = 0;
     bool noteSeeded_ = false;
-    CameraRig camera_;
+    // The one camera every surface steps (core/scene/camera): today's CameraRig is its base driver.
+    scene::camera::SceneCamera camera_;
+    std::atomic<int> cameraComfort_{static_cast<int>(scene::camera::Comfort::Normal)};
     // One engine per renderer (one per surface), so each is frame-locked to its own dt. Guarded by soundLock_
     // only because writeAudio and soundFrame are public; in practice one thread does everything.
     mutable std::mutex soundLock_;

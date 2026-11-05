@@ -76,6 +76,11 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetReducedMotion(JNIEnv*, jobject, j
 }
 
 JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetCameraComfort(JNIEnv*, jobject, jlong handle, jint level) {
+    geode_viz_set_camera_comfort(vizOf(handle), level);
+}
+
+JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetLayer(JNIEnv* env, jobject, jlong handle, jstring sceneId, jfloat mix,
                                                      jint blendMode) {
     Utf8Chars id(env, sceneId);

@@ -2,6 +2,8 @@ package dev.geode.render.bridge
 
 import android.content.Context
 import android.content.res.AssetManager
+import android.service.dreams.DreamService
+import android.service.wallpaper.WallpaperService
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
@@ -26,6 +28,12 @@ class NativeViz(
     private val cacheDir: String = context.cacheDir.absolutePath
     private val milkTextureDir: String = File(context.filesDir, "milk/textures").absolutePath
 
+    // The scene camera's comfort a new handle starts on (core/scene/camera): Calm on the ambient
+    // surfaces, the wallpaper and the dream, which are watched for hours from the corner of an eye;
+    // Normal everywhere else. The surface is known only by the Context it was built with.
+    private val cameraComfort: Int =
+        if (context is WallpaperService || context is DreamService) COMFORT_CALM else COMFORT_NORMAL
+
     // Written on the GL thread (surfaceCreated) and read/written from composition-time call
     // sites on the main thread (e.g. milkdropAvailable, loadMilkPreset); @Volatile keeps every
     // thread's read of a just-published handle current, and create()/destroy() are synchronised
@@ -49,6 +57,7 @@ class NativeViz(
             handle = GeodeNative.vizCreate(assets, cacheDir)
             if (handle != 0L) {
                 GeodeNative.vizSetMilkTextureDir(handle, milkTextureDir)
+                GeodeNative.vizSetCameraComfort(handle, cameraComfort)
                 onCreated()
             }
         }
@@ -312,6 +321,10 @@ class NativeViz(
     }
 
     private companion object {
+        // scene::camera::Comfort ordinals.
+        const val COMFORT_CALM = 0
+        const val COMFORT_NORMAL = 1
+
         @Volatile
         private var verified = false
 

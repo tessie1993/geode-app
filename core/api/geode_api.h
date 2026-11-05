@@ -30,6 +30,9 @@ GEODE_API const char* geode_viz_param_name(int index);   /* NULL past the end */
 /* Every scene parameter in geode_viz_param_name order; ints and flags travel as floats. */
 GEODE_API void        geode_viz_set_params(geode_viz*, const float* values, int count);
 GEODE_API void        geode_viz_set_reduced_motion(geode_viz*, int on);
+/* The scene camera's comfort (core/scene/camera): 0 Calm, 1 Normal (the default), 2 Wild; anything else is
+   Normal. Reduced motion forces Calm whatever this says. The wallpaper and the dream set Calm. */
+GEODE_API void        geode_viz_set_camera_comfort(geode_viz*, int level);
 GEODE_API void        geode_viz_set_layer(geode_viz*, const char* scene_id, float mix, int blend_mode); /* "" = none */
 GEODE_API void        geode_viz_set_transition(geode_viz*, const char* id, int64_t duration_ms);
 GEODE_API void        geode_viz_begin_param_morph(geode_viz*, float seconds);

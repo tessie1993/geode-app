@@ -47,6 +47,13 @@ add_library(geode_core STATIC
     viz/ReactionDna.cpp
     viz/Reactions.cpp
     viz/CameraRig.cpp
+    scene/camera/CameraParams.cpp
+    scene/camera/Comfort.cpp
+    scene/camera/Drivers.cpp
+    scene/camera/SceneCamera.cpp
+    signal/params/ParamSchema.cpp
+    signal/params/ParamState.cpp
+    signal/params/ParamStore.cpp
     viz/VisualSafety.cpp
     viz/FlashLimiter.cpp
     viz/OutputProbe.cpp

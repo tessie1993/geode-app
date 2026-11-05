@@ -97,7 +97,9 @@ class TakeSaveTargetTest {
 
         override fun onRecordLocked() = Unit
 
-        override fun beginCapture(): Boolean = true
+        override val soundFromInput: Boolean = false
+
+        override fun beginCapture(fromInput: Boolean): Boolean = true
 
         override fun captureReachedCap(): Boolean = false
 

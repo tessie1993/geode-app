@@ -70,6 +70,9 @@ internal class TakeController(
 
         val trackPositionMs: Long
 
+        /** The mic or another app's audio owns the sound now (#458): a take keeps that, on wall time. */
+        val soundFromInput: Boolean
+
         fun selectScene(sceneId: String)
 
         fun setSceneParams(params: SceneParams)
@@ -85,8 +88,11 @@ internal class TakeController(
         /** A refused recording: opens the paywall. */
         fun onRecordLocked()
 
-        /** Starts capturing the stage; false when it cannot. Blocking: called on the store dispatcher. */
-        fun beginCapture(): Boolean
+        /**
+         * Starts capturing the stage, its sound from the player or, with [fromInput], from the mic or
+         * another app's audio; false when it cannot. Blocking: called on the store dispatcher.
+         */
+        fun beginCapture(fromInput: Boolean): Boolean
 
         /** The running capture reached the entitlement's cap (a trial take's minute); native decides. */
         fun captureReachedCap(): Boolean
@@ -136,11 +142,14 @@ internal class TakeController(
         stopReplay()
         // The capture starts on the store dispatcher, in order before any stop that follows it; a stage
         // that cannot be captured ends the recording again with a note.
+        val fromInput = host.soundFromInput
         storeScope.launch {
-            if (!host.beginCapture()) scope.launch { abandonRecording() }
+            if (!host.beginCapture(fromInput)) scope.launch { abandonRecording() }
         }
         val s = host.vizState.value
-        recordTrackUri = host.trackUri
+        // A take over the mic or another app's audio has no song under it, even with one paused in the
+        // queue: its choices sit on wall time, and its project has no song lane (nothing to render again).
+        recordTrackUri = if (fromInput) null else host.trackUri
         wallStartMs = android.os.SystemClock.elapsedRealtime()
         recorder = PerformanceTake.Recorder(s.sceneId, s.params, host.activeMilkPath, startTrackMs = takeClockMs())
         _state.update { it.copy(recording = true, recordedEvents = 1, recordedMs = 0L, note = null) }
@@ -168,7 +177,7 @@ internal class TakeController(
      */
     private fun sample(live: VizUiState) {
         val rec = recorder ?: return
-        if (host.trackUri != recordTrackUri) {
+        if (recordTrackUri != null && host.trackUri != recordTrackUri) {
             stopRecording()
             return
         }

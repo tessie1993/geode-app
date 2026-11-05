@@ -11,7 +11,13 @@ int geode_take_begin(int fd, float display_fps) { return TakeSession::shared().b
 
 int geode_take_begin_limited(int fd, float display_fps, int64_t cap_ms, const uint32_t* tile_argb, int tile_w, int tile_h,
                              int tile_short_side) {
+    return geode_take_begin_from(fd, display_fps, cap_ms, tile_argb, tile_w, tile_h, tile_short_side, 0);
+}
+
+int geode_take_begin_from(int fd, float display_fps, int64_t cap_ms, const uint32_t* tile_argb, int tile_w, int tile_h,
+                          int tile_short_side, int source) {
     geode::output::TakeLimits limits;
+    limits.source = source == 1 ? geode::output::TakeSource::Input : geode::output::TakeSource::Player;
     limits.capMs = cap_ms > 0 ? cap_ms : 0;
     if (tile_argb && tile_w > 0 && tile_h > 0 && tile_short_side > 0) {
         limits.tileArgb.assign(tile_argb, tile_argb + static_cast<size_t>(tile_w) * static_cast<size_t>(tile_h));
@@ -23,6 +29,10 @@ int geode_take_begin_limited(int fd, float display_fps, int64_t cap_ms, const ui
 }
 
 int geode_take_reached_cap(void) { return TakeSession::shared().reachedCap() ? 1 : 0; }
+
+void geode_take_write_input(const float* interleaved, int frames, int channels, int sample_rate) {
+    TakeSession::shared().writeInput(interleaved, frames, channels, sample_rate);
+}
 
 int64_t geode_take_end(void) { return TakeSession::shared().end(); }
 

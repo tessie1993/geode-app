@@ -20,6 +20,17 @@
 // is written when the analysis tap hears it: the MP4 pairs each frame with the sound that frame reacted to.
 namespace geode::output {
 
+// Where a take's sound comes from, fixed when it begins: the player's record tap (a track take), or the
+// mic or another app's audio, whichever owns the sound ring then (#458). Only that source is heard; the other
+// writing at the same time (the player starting under a mic take) is not mixed in.
+enum class TakeSource : int {
+    Player = 0,
+    Input = 1,
+};
+
+// The mic's and the capture's float PCM (-1..1) as 16-bit: clamped, then rounded to nearest.
+void toPcm16(const float* in, int samples, int16_t* out);
+
 struct TakeSize {
     int width = 0;
     int height = 0;
@@ -93,9 +104,11 @@ public:
     static constexpr int kChannels = 2;
     static constexpr int64_t kGapNs = 200'000'000;
 
-    explicit TakeAudio(int64_t startNs, int64_t capUs = 0);
+    explicit TakeAudio(int64_t startNs, int64_t capUs = 0, TakeSource source = TakeSource::Player);
 
-    void write(const int16_t* pcm, int frames, int channels, int rateHz, int64_t wallNs);
+    // A write from a source other than the take's is dropped.
+    void write(const int16_t* pcm, int frames, int channels, int rateHz, int64_t wallNs, TakeSource from = TakeSource::Player);
+    TakeSource source() const { return source_; }
 
     // Up to maxFrames stereo frames into out, padding silence first when nothing has been written for longer
     // than kGapNs before nowNs. Returns the frames written; 0 when nothing is due yet.
@@ -117,6 +130,7 @@ private:
     mutable std::mutex lock_;
     int64_t startNs_;
     int64_t capFrames_;  // 0: no cap
+    TakeSource source_;
     std::vector<int16_t> buffer_;  // interleaved stereo, frames from readAt_ / 2 onward unread
     size_t readAt_ = 0;            // sample index into buffer_
     int64_t framesIn_ = 0;         // every frame placed in the stream, silence included

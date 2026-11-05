@@ -230,6 +230,27 @@ void anyFormatBecomesStereo48k() {
     check(m == 480 && out[0] == 11 && out[1] == 22, "more than two channels keep the front pair");
 }
 
+void anInputTakeHearsOnlyItsInput() {
+    TakeAudio input(0, 0, geode::output::TakeSource::Input);
+    const auto player = block(480, 111);
+    input.write(player.data(), 480, 2, kRate, 0, geode::output::TakeSource::Player);
+    check(input.pending() == 0, "a mic take does not mix in the player starting under it");
+    const auto mic = block(480, 222);
+    input.write(mic.data(), 480, 2, kRate, 0, geode::output::TakeSource::Input);
+    const auto left = drain(input, 0);
+    check(left.size() == 480 && left[0] == 222, "a mic take keeps the mic");
+
+    TakeAudio track(0);
+    track.write(mic.data(), 480, 2, kRate, 0, geode::output::TakeSource::Input);
+    check(track.pending() == 0, "a track take does not hear the mic");
+
+    const float floats[] = {0.0f, 1.0f, -1.0f, 0.5f, 2.0f, -3.0f, NAN};
+    int16_t out[7] = {};
+    geode::output::toPcm16(floats, 7, out);
+    check(out[0] == 0 && out[1] == 32767 && out[2] == -32767 && out[3] == 16384, "float input becomes 16-bit, rounded");
+    check(out[4] == 32767 && out[5] == -32767 && out[6] == 0, "out-of-range input clamps and a NaN is silence");
+}
+
 }  // namespace
 
 int main() {
@@ -243,6 +264,7 @@ int main() {
     aLongHoleWithoutReadsIsFilled();
     noSourceIsASilentTrack();
     anyFormatBecomesStereo48k();
+    anInputTakeHearsOnlyItsInput();
     if (failures == 0) std::printf("take_clock_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

@@ -26,7 +26,7 @@ A take encodes the live stage itself.
 
 - The take is the performance: director, reactions, camera, touch and seed are in it because they were on screen.
 - Dismissing the save sheet no longer leaves an unrendered take: the video already exists, so it goes to the Videos library this once and the next stop asks again.
-- Mic and other-app takes record a silent track for now: the record tap hears the player only. Muxing the input's own audio is #458.
+- Mic and other-app takes (#458) keep that input's audio: the capture pump hands it to the take (`geode_take_write_input`), and a take begun while the mic or another app's audio owns the sound hears only that source (`TakeSource`, fixed at begin, so the player starting under it is not mixed in). Their choices sit on wall time and their project has no song lane, which is what hides "Render again" for them.
 - Pause, seek and track change keep today's behaviour (a new song ends and saves the take; a pause records the visual over silence) until the Settings preference of #459 lands.
 - The look automation the project still records is not what the video shows any more. It stays as the project's timeline until the take timeline in `core/signal/timeline` replaces it and "Render again" re-renders a take's choices offline (#457).
 - The capture costs one blit and one encode per frame while recording. A device frame-time check of a take at screen size on a mid-range phone belongs in `docs/DEVICE_CHECKS.md`.

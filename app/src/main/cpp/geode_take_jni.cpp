@@ -11,7 +11,8 @@ extern "C" {
 
 JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_takeBeginLimited(JNIEnv* env, jobject, jint fd, jfloat displayFps, jlong capMs,
-                                                           jintArray tile, jint tileW, jint tileH, jint tileShortSide) {
+                                                           jintArray tile, jint tileW, jint tileH, jint tileShortSide,
+                                                           jboolean fromInput) {
     std::vector<uint32_t> pixels;
     const jsize n = tile ? env->GetArrayLength(tile) : 0;
     if (n > 0 && n >= tileW * tileH) {
@@ -19,7 +20,21 @@ Java_dev_geode_engine_bridge_GeodeNative_takeBeginLimited(JNIEnv* env, jobject, 
         env->GetIntArrayRegion(tile, 0, n, reinterpret_cast<jint*>(pixels.data()));
     }
     const uint32_t* argb = pixels.empty() ? nullptr : pixels.data();
-    return geode_take_begin_limited(fd, displayFps, capMs, argb, tileW, tileH, tileShortSide) != 0 ? JNI_TRUE : JNI_FALSE;
+    return geode_take_begin_from(fd, displayFps, capMs, argb, tileW, tileH, tileShortSide, fromInput == JNI_TRUE ? 1 : 0) != 0
+               ? JNI_TRUE
+               : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_takeWriteInput(JNIEnv* env, jobject, jfloatArray pcm, jint frames, jint channels,
+                                                         jint sampleRate) {
+    if (!pcm || frames <= 0 || channels <= 0 || geode_take_active() == 0) return;
+    const jsize n = env->GetArrayLength(pcm);
+    if (n < frames * channels) return;
+    jfloat* samples = static_cast<jfloat*>(env->GetPrimitiveArrayCritical(pcm, nullptr));
+    if (!samples) return;
+    geode_take_write_input(samples, frames, channels, sampleRate);
+    env->ReleasePrimitiveArrayCritical(pcm, samples, JNI_ABORT);
 }
 
 JNIEXPORT jboolean JNICALL

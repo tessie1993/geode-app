@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -363,12 +364,29 @@ internal fun FloatingTabBar(
  * scaling is non-linear (accessibility/scalable-content) but small text such as `labelSmall`
  * grows almost in step with the scale, and from 1.5 the longest of the five labels no longer
  * fits its fifth of a 360 dp pill.
+ *
+ * WHY `derivedStateOf`: `LocalWindowInfo.containerSize` is snapshot state that changes on every
+ * pixel of a window resize (a freeform window dragged, a foldable mid-unfold), and reading it
+ * straight in composition recomposed the tab bar each time. The bar only cares which side of
+ * the line the width is on, so the read sits in a `derivedStateOf` and composition hears only
+ * the boolean flip. This is the adaptive skill's guidance for window size: `derivedMediaQuery`
+ * wraps the query in a `derivedStateOf` "because `windowWidth` and `windowHeight` can update
+ * frequently" (adaptive skill, references/.../layouts/adaptive/mediaquery/index.md). We write
+ * the `derivedStateOf` by hand because `mediaQuery` is experimental and needs
+ * `ComposeUiFlags.isMediaQueryIntegrationEnabled`, which the app does not set. The density is a
+ * key, not a read inside, because a font-scale change hands down a new `Density` object.
  */
 @Composable
 private fun compactTabLabels(): Boolean {
+    val windowInfo = LocalWindowInfo.current
     val density = LocalDensity.current
-    val windowWidth = with(density) { LocalWindowInfo.current.containerSize.width.toDp() }
-    return windowWidth < COMPACT_TAB_WIDTH || density.fontScale >= COMPACT_TAB_FONT_SCALE
+    val compact by remember(windowInfo, density) {
+        derivedStateOf {
+            with(density) { windowInfo.containerSize.width.toDp() } < COMPACT_TAB_WIDTH ||
+                density.fontScale >= COMPACT_TAB_FONT_SCALE
+        }
+    }
+    return compact
 }
 
 private const val SWIPE_DP = 24

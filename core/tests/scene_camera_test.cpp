@@ -9,6 +9,7 @@
 
 #include "scene/camera/SceneCamera.hpp"
 #include "viz/CameraRig.hpp"
+#include "viz/SceneCameraMode.hpp"
 
 using namespace geode::scene::camera;
 using geode::signal::ParamInput;
@@ -141,6 +142,77 @@ void railsClampsWhatIsLaidOver() {
     check(upness(cam.framePose()) > 0.0f, "rails: never upside down");
     const std::array<float, 3> d = sub(cam.framePose().pos, cam.rig().pose().pos);
     check(length(d) < 1e-5f, "rails: the position is the rig's forward flight");
+}
+
+// #473: the catalogue's rails flag on a marched style clamps the free camera, whatever it is asked.
+// Both cameras get the same extreme inputs (a flip request, yaw 3 rad, a rolling and looping rate,
+// a full takeover, Wild comfort) while the default glide path flies forward. Rails stays within
+// today's look limits of its flight (yaw 0.6, pitch 0.45, roll 0.8), on the flight's own position, and
+// never turns over; SixDof, the mode a port flips to, goes past every one of those limits.
+struct FreeRun {
+    float maxYaw = 0.0f, maxPitch = 0.0f, maxRoll = 0.0f;
+    float minUp = 1.0f;
+    float maxOffPath = 0.0f;
+    float travelStart = 0.0f, travelEnd = 0.0f;
+};
+
+FreeRun runExtreme(Mode mode) {
+    PoseKey key;
+    key.pose.orient = fromLook({3.0f, 1.2f, kPi});  // turned round, looking up, upside down
+    key.pose.pos = {40.0f, 3.0f, -7.0f};
+    SceneParams p;  // the defaults: glide path, flying forward
+    p.camTouch = true;
+    SceneCamera cam;
+    cam.setMode(mode);
+    cam.setComfort(Comfort::Wild);
+    set(cam, kLookYaw, 3.0f);
+    set(cam, kPitchRate, kPi);
+    set(cam, kRollRate, 2.0f);
+    set(cam, kTakeoverReach, kPi);
+    cam.setKeyframes(&key, 1);
+    FreeRun r;
+    const float dt = 1.0f / 60.0f;
+    for (int i = 0; i < 360; ++i) {
+        FrameInput in = frame(p, dt);
+        in.look = {1.0f, 1.0f};
+        in.lookActive = true;
+        cam.step(in);
+        if (i == 0) r.travelStart = cam.rig().pose().travel;
+        if (i < 60) continue;  // a second to reach what it is asked for
+        const CameraPose& rp = cam.rig().pose();
+        const Quat rigQ = fromBasis(rp.right, rp.up, rp.fwd);
+        const Look rel = toLook(qnormalize(mul(conj(rigQ), cam.framePose().orient)));
+        r.maxYaw = std::max(r.maxYaw, std::fabs(rel.yaw));
+        r.maxPitch = std::max(r.maxPitch, std::fabs(rel.pitch));
+        r.maxRoll = std::max(r.maxRoll, std::fabs(rel.roll));
+        r.minUp = std::min(r.minUp, upness(cam.framePose()));
+        r.maxOffPath = std::max(r.maxOffPath, length(sub(cam.framePose().pos, rp.pos)));
+    }
+    r.travelEnd = cam.rig().pose().travel;
+    return r;
+}
+
+void railsClampsTheFreeCamera() {
+    // Every marched style starts on rails; a style that does not march keeps Rails, today's rig.
+    check(geode::viz::sceneCameraMode("dive_lattice") == Mode::Rails, "a marched family style is on rails");
+    check(geode::viz::sceneCameraMode("neon_chrome_sea") == Mode::Rails, "a marched loose style is on rails");
+    check(geode::viz::sceneCameraMode("plasma") == Mode::Rails && geode::viz::sceneCameraMode("milkdrop") == Mode::Rails,
+          "a style that does not march keeps today's rig");
+
+    const float eps = 0.02f;  // the safety clamp's lag behind a flight that turns as it goes
+    const FreeRun rails = runExtreme(geode::viz::sceneCameraMode("dive_lattice"));
+    check(rails.maxYaw <= CameraRig::kMaxYaw + eps, "rails clamps the free camera: yaw at most 0.6");
+    check(rails.maxPitch <= CameraRig::kMaxPitch + eps, "rails clamps the free camera: pitch at most 0.45");
+    check(rails.maxRoll <= CameraRig::kMaxRoll + eps, "rails clamps the free camera: roll at most 0.8");
+    check(rails.minUp > 0.0f, "rails clamps the free camera: never flips");
+    check(rails.maxOffPath < 1e-4f, "rails clamps the free camera: on the flight's own position");
+    check(rails.travelEnd > rails.travelStart, "rails clamps the free camera: it flies forward");
+
+    const FreeRun free = runExtreme(Mode::SixDof);
+    check(free.maxYaw > CameraRig::kMaxYaw || free.maxPitch > CameraRig::kMaxPitch || free.maxRoll > CameraRig::kMaxRoll,
+          "6-DoF goes past today's look limits");
+    check(free.minUp < 0.0f, "6-DoF can turn over");
+    check(free.maxOffPath > 1.0f, "6-DoF can leave the flight");
 }
 
 // ---- Comfort ----------------------------------------------------------------------------------------
@@ -458,6 +530,7 @@ int main() {
     surfaceKindPicksTheDefault();
     railsIsTodaysRig();
     railsClampsWhatIsLaidOver();
+    railsClampsTheFreeCamera();
     comfortCapsTurnSpeed();
     flipBudget();
     horizonRecovery();

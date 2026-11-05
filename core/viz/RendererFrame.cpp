@@ -10,6 +10,7 @@
 #include "viz/EndlessZoom.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Quad.hpp"
+#include "viz/SceneCameraMode.hpp"
 
 namespace geode::viz {
 
@@ -415,8 +416,10 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
                             !endless::keepsTriangle(activeScene_->id());
     // Liquid mode owns the dive: a 3D style dives by flying the rig through it, at Dive speed.
     if (liquidOn() && activeScene_ != nullptr && activeScene_->drawsCamera()) rigParams.endlessZoom = true;
-    // Every style is on rails until its port flips the catalogue's rails row (#473), so the camera's
-    // Mode stays at its default, Rails, here.
+    // The catalogue's rails flag (#473): a marched style stays on rails until its port lists it as 6-DoF.
+    // A style that does not march keeps Rails, today's rig. setMode is a no-op while the style holds, so
+    // only a switch (or a new scene) changes anything.
+    if (activeScene_ != nullptr) camera_.setMode(sceneCameraMode(activeScene_->id()));
     scene::camera::FrameInput in;
     in.params = &rigParams;
     in.look = look;

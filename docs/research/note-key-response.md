@@ -1,13 +1,20 @@
 # Note & key reactions
 
+> **The note blooms are removed (2026-11).** The owner dropped the flower each note grew over every style:
+> `NoteBloomPass`, `note_bloom_frag.glsl`, `lib_bloom.glsl`,
+> its looks (`Catalogue::bloomLook`), the params `bloomLook` and `noteBloom`, Customize › Look ›
+> Note blooms and the personality's bloom traits are gone. A preset or link that still carries
+> `bloomLook` or `noteBloom` loads and ignores them. Everything else here stands: the note colours and
+> tint, interval motion, tension, chord shifts, the six style knobs, the drum weight and the personality's
+> tint. The sections marked *(removed)* are kept as the record of what was there.
+
 Settings › Behaviour › **Note & key reactions** (free, on by default; Customize › Advanced › Note & key,
-which tunes it per style, is Pro; Customize › Look › Note blooms, which picks the bloom's look, is free). The styles
+which tunes it per style, is Pro). The styles
 answer more than the beat: the notes, the chords, the key, the mood, how the music is played and how
 hard. Everything is real time: it reads the sound frame just heard and never anticipates.
 
-Code: `core/viz/NoteResponse` (the decisions, pure C++), `core/viz/NoteBloomPass` with
-`note_bloom_frag.glsl` and `lib_bloom.glsl` (the flowers), 
-`data/NoteResponseStore` (free, on by default), `ui/NoteResponseSettings`, Customize › Advanced › Note & key and Look's note blooms. Tests:
+Code: `core/viz/NoteResponse` (the decisions, pure C++), the tint in `composite_frag.glsl`,
+`data/NoteResponseStore` (free, on by default), `ui/NoteResponseSettings`, Customize › Advanced › Note & key. Tests:
 `core/tests/note_response_test.cpp` (CI, "Native host tests"),
 `NoteResponseStoreTest`.
 
@@ -17,15 +24,15 @@ Gathered by interview; each line is a requirement this layer meets, not a fixed 
 
 - Notes: pitch → colour, varied and multicolour across the picture (a melody paints a spread of
   colours, not one hue); pitch height → shape (forms open and stretch up for high notes, pull in for low
-  ones); each new note blooms its own element; intervals → motion (leaps swing and twist, steps glide).
-- The bloom: a detailed, layered, paradoxical fractal flower (petals that contain the flower again,
+  ones); each new note blooms its own element *(removed)*; intervals → motion (leaps swing and twist, steps glide).
+- *(Removed, 2026-11.)* The bloom: a detailed, layered, paradoxical fractal flower (petals that contain the flower again,
   Escher-like nested rotation, translucent iridescent neon petals, dense filigree), growing and fading
   with its note. Original code.
 - Key and mood: the key sets the palette family; major warm and bright, minor cool and deep; harmonic
   tension distorts, resolution smooths it back; a chord change shifts the scene.
 - Drums: their weight depends on the input, measured continuously.
 - A switch, persisted, free and on for new installs; off is exactly today's picture.
-- Variation (second round): tint strength and bloom density are not fixed amounts but change, truly
+- Variation (second round): tint strength and bloom density *(removed)* are not fixed amounts but change, truly
   at random per play, and again at every section; the result is judged on variation, harmony, the
   qualities of good trippy visuals, whether the perspective changes and whether the viewer feels motion.
 - It lives inside the auto-director: the director keeps the section-level palette and camera, this
@@ -37,7 +44,7 @@ Gathered by interview; each line is a requirement this layer meets, not a fixed 
 sound frame ─► Director.step (feeling, look) ─► NoteResponse.step (reads the frame, the feeling, the look's hue)
 displayed params ─► Director.apply ─► NoteResponse.apply ─► macros ─► LFOs ─► ADSR ─► reactions
                 ─► macro routes ─► director routes ─► MotionField ─► safety::apply
-composite ─► NoteBloomPass (screen) ─► the user's overlay
+composite (the notes' tint) ─► the user's overlay
 ```
 
 The user's own settings, LFOs, the motion field and the safety clamp all act after this layer, so they
@@ -61,15 +68,13 @@ around the director's palette instead of starting a palette of their own.
 
 **Shape.** `k3 TONE` follows the melody's height (pitch height trusted as far as the pitch confidence,
 plus the strongest partial). On shared params it opens `morph` for high notes and closes it for low ones
-(±0.15). On the blooms: a high note's flower stretches up (×1.3) and sits higher in the frame; a low
-note's squats (×0.8) and sits lower.
+(±0.15).
 
 **Intervals.** A leap (a fourth or more) kicks a damped spring (0.45 Hz, damping 0.35) in the leap's
-direction, harder the wider it is: `twist` and `rotation` swing and settle in about two seconds, and
-every bloom turns with it. A step adds to a leaky glide (1.5 s) that sways the picture. `k5 SPACE`
+direction, harder the wider it is: `twist` and `rotation` swing and settle in about two seconds. A step adds to a leaky glide (1.5 s) that sways the picture. `k5 SPACE`
 hears both.
 
-## Blooms
+## Blooms *(removed)*
 
 One flower per note onset (`noteChange` or `reattack` with a pitch), never on a drum alone. Up to eight
 live; when full, the faintest gives its place. The previous note's flower lets go when a new one starts
@@ -108,10 +113,10 @@ three-a-second budget, by the square root of the excess), so a fast run shimmers
   up to 6 %. Only where the director is not deciding the palette (scaled by 1 − its weight).
 - **Tension → distortion**: 60 % the chord's dissonance, 40 % the feeling's tension, eased up in a
   quarter second and back down over 0.9 s (resolution). It adds `warp` (up to +0.35) and chromatic split
-  (+0.22), and frays the blooms' edges. Never `glitch`: a composite glitch on a chord reads as a flash,
+  (+0.22). Never `glitch`: a composite glitch on a chord reads as a flash,
   not a bend (and #216 retires the field).
 - **Chord change → scene shift**: on `harmonicChange`, at most once per 1.5 s: the fold count
-  (`symmetry`) steps by one or two (seeded, held, within ±3 of the user's), the bloom layout turns, and
+  (`symmetry`) steps by one or two (seeded, held, within ±3 of the user's), and
   the swing spring gets a turn. The fold shift lands once the switch is past half (it is an integer).
 
 ## Drums depend on the input
@@ -148,9 +153,10 @@ eases over about 0.7 s; once fully off the layer forgets everything, so switchin
 
 ## Cost
 
-CPU: a few hundred flops a frame (one pass over eight blooms, a dozen one-pole filters).
+CPU: a few hundred flops a frame (a dozen one-pole filters).
 
-GPU: nothing while no bloom lives. With blooms, one fullscreen-triangle draw scissored to the blooms'
+GPU: nothing of its own; the tint is a few instructions in the composite. *(Removed with the blooms:)*
+nothing while no bloom lived. With blooms, one fullscreen-triangle draw scissored to the blooms'
 bounding box; each pixel tests eight discs (eight dot products) and only pixels inside a disc run the
 flower: a back whorl, the heart and 2–4 levels, each an atan, a sincos and a few exp/pow, about 250 ALU
 instructions at depth 4. On a 1080 × 2400 phone a bloom of radius 0.15 covers about 82 k pixels; six
@@ -163,19 +169,17 @@ millisecond. The scissor keeps the empty frame cost to the box around them.
 The owner asked for the tint and the density not to be fixed, and chose true randomness per play over a
 seeded, replayable one. So `Renderer::noteSeed` mixes fresh `std::random_device` entropy into the
 director's play seed each time that seed changes (a new track, a new play), and an export is a play of
-its own: it will not match the live view bloom for bloom, by choice.
+its own: it will not match the live view note for note, by choice.
 
 From that seed `NoteResponse` rolls a **personality** (`NoteResponse::Personality`), and rolls it again on
 every `sectionChange` and every `drop`, easing to the new one over ~2.5 s:
 
 | Trait | Range | What it changes |
 |---|---|---|
-| `maxAlive` | 3..8 | blooms on screen at once (past it the faintest gives its place) |
-| `budget` | 1.5..3 / s | new blooms a second before each is dimmed (never past WCAG's three) |
-| `size` | 0.75..1.35 | bloom radius |
 | `tint` | 0.04..0.3 (squared draw: mostly light) | the whole picture's pull toward the notes' colour |
-| `travel` | 0.15..1 | how fast near blooms drift out past the viewer |
-| `tilt` | 0..0.9 rad | how far each flower's disc turns in 3D |
+
+*(Removed with the blooms: `maxAlive`, `budget`, `size`, `travel` and `tilt`. `tint` keeps its draw from
+the stream, so a seed tints as it did.)*
 
 Given a seed the layer is still a pure function of (seed, frames, dt), which is what the host test pins.
 
@@ -185,28 +189,20 @@ Given a seed the layer is still a pure function of (seed, frames, dt), which is 
   `composite_frag` as `uNoteTint`. Every family's finished frame leans toward it by the personality's
   amount × Note colours × (1 − ½ the director's weight), capped at 0.45, keeping each pixel's luma and
   leaving blacks and near-whites alone.
-- **Looks** (`SceneParams::bloomLook`, 0 = the style's own from `Catalogue::bloomLook`): **flower** (the
-  paradoxical fractal, unfurls in 0.7 s) for the fractal, kaleidoscopic and neon styles and Acid;
-  **glow** (an orb, halo and star rays; 0.25 s, 0.8× size) for gas, glass, branches, silk and life;
-  **ripple** (three interfering rings spreading like a drop on water; 1.4 s, 1.6×) for liquids,
-  landscapes, scopes and tilings; **burst** (sparks thrown out, a heart that flashes and gives way;
-  0.4 s, 1.3×) for dives, fly-throughs, particles and MilkDrop, whose presets already flower.
-- **Perspective**: each bloom's disc is turned in 3D (`uBloomD.xy`, foreshortened with a touch of
-  perspective) and rocks with the swing and glide; a leap rolls and turns the camera (`camRoll`,
+- **Perspective**: a leap rolls and turns the camera (`camRoll`,
   `camYaw`), a run of steps leans it, and a build pushes it in (`camPush`), all through SceneParams so
   `CameraRig` springs toward them and reduced motion and the safety clamp act on top.
-- **Motion (vection)**: each bloom sits at a depth. Near ones drift outward from the centre and grow
+- **Motion (vection)** *(removed)*: each bloom sits at a depth. Near ones drift outward from the centre and grow
   as they age, as if the viewer were travelling through a field of flowers, and slide against the
   camera's pan, roll and zoom more than far ones (parallax); far ones are dimmer and hazier.
 
 ## Exports
 
 The offscreen export runs the same `Renderer::render`, steps the same sound engine at 1/fps and reads
-the same process-wide switch, so the exported film has the same kind of knobs, distortion and blooms;
-it rolls its own personality and bloom positions (see Variation).
+the same process-wide switch, so the exported film has the same kind of knobs, distortion and tint;
+it rolls its own personality (see Variation).
 
-## Previews
+## Previews *(removed)*
 
-`core/tests/note_response_test --dump <melody|minor|held|run> <seconds>` prints the bloom uniforms the
-engine produces after that much of a scripted scenario; `tools/glslcheck/check.mjs --bloom <json>
-[--over <style>]` renders them over black or over a style, through the same screen blend.
+The bloom previews (`note_response_test --dump` and `tools/glslcheck/check.mjs --bloom`) went with the
+blooms.

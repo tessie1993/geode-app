@@ -21,6 +21,7 @@ add_library(geode_core STATIC
     audio/dsp/PcmResampler.cpp
     audio/dsp/Loudness.cpp
     api/geode_export_dsp_api.cpp
+    api/geode_export_pass_api.cpp
     viz/ShaderSource.cpp
     viz/GlCaps.cpp
     viz/GlProber.cpp
@@ -41,6 +42,7 @@ add_library(geode_core STATIC
     viz/Director.cpp
     viz/NoteResponse.cpp
     viz/UiBlurPass.cpp
+    viz/frame/ExportPasses.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
     viz/ReactionDna.cpp

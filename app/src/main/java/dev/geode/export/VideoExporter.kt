@@ -461,7 +461,7 @@ class VideoExporter(
             renderer.prepare()
             val mark =
                 if (watermark) {
-                    WatermarkOverlay(context.getString(R.string.pro_watermark_text))
+                    WatermarkOverlay(context.getString(R.string.pro_watermark_text), context.assets)
                         .also { watermarkRef = it }
                         .apply { prepare(aspect.width, aspect.height) }
                 } else {

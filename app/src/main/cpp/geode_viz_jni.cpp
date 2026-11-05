@@ -265,8 +265,8 @@ Java_dev_geode_engine_bridge_GeodeNative_styleReactions(JNIEnv* env, jobject, js
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_handSet(JNIEnv*, jobject, jint mask) {
-    geode_hand_set(static_cast<unsigned>(mask));
+Java_dev_geode_engine_bridge_GeodeNative_handSet(JNIEnv*, jobject, jint mask, jboolean hasUser) {
+    geode_hand_set(static_cast<unsigned>(mask), hasUser ? 1 : 0);
 }
 
 JNIEXPORT jfloatArray JNICALL

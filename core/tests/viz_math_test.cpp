@@ -1065,6 +1065,23 @@ void stagedBuildFinishesInBoundedFrames() {
     check(mostCompilesInAFrame == 1, "no frame compiles more than one program without the parallel extension");
 }
 
+// #355: a hand mask only counts while the user has a list of their own. A stale or unreadable saved list
+// used to push HAND_ALL with the DNA playing, so the director claimed no source and played no route.
+void handMaskCountsOnlyWithAUserList() {
+    check(hand::global() == 0u, "the process starts with nothing the hand's");
+    hand::setGlobal(hand::kAll, false);
+    check(hand::global() == 0u, "HAND_ALL with no user list is no mask");
+    check(hand::sources(hand::global()).none(), "so the director keeps every source");
+    hand::setGlobal(hand::kAll, true);
+    check(hand::global() == hand::kAll, "with a user list the mask stands");
+    check(hand::sources(hand::global()).all(), "and HAND_ALL claims every source");
+    hand::setGlobal(hand::bit(Moment::Kick) | (1u << 20), true);
+    check(hand::global() == hand::bit(Moment::Kick), "one moment stands, and bits past the moments are dropped");
+    check(hand::sources(hand::global()).any() && !hand::sources(hand::global()).all(), "it claims only its own sources");
+    hand::setGlobal(hand::kAll, false);
+    check(hand::global() == 0u, "and dropping the list clears it again");
+}
+
 }  // namespace
 
 int main() {
@@ -1119,6 +1136,7 @@ int main() {
     buildBudgetBoundsAFrame();
     scenePrepRetargetsAndCaps();
     stagedBuildFinishesInBoundedFrames();
+    handMaskCountsOnlyWithAUserList();
     if (failures == 0) std::printf("viz_math_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

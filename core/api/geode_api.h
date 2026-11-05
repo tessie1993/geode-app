@@ -86,13 +86,14 @@ GEODE_API int         geode_style_reactions(const char* style_id, int seed, floa
    is bit i for moment i (GEODE_MUSIC_MOMENTS, in the page's order) plus GEODE_HAND_UNCLAIMED for every source
    no moment claims; GEODE_HAND_ALL is a whole list of the user's (the route editor, a list saved before the
    mask). `user` is the user's routes in the geode_viz_set_reactions layout, NULL (or has_user 0) for none.
-   geode_hand_set is process-wide like geode_director_set: every renderer's director keeps off those moments. */
+   geode_hand_set is process-wide like geode_director_set: every renderer's director keeps off those moments.
+   has_user 0 (no list of the user's: the DNA plays) makes the mask count as 0, whatever its bits. */
 #define GEODE_MUSIC_MOMENTS 10
 #define GEODE_MUSIC_ACTIONS 7
 #define GEODE_HAND_UNCLAIMED 0x40000000u
 #define GEODE_HAND_ALL 0x400003FFu
 #define GEODE_MUSIC_STATE_FLOATS 5  /* per moment: mine, route count, strength, on-action bits, fits-action bits */
-GEODE_API void        geode_hand_set(unsigned mask);
+GEODE_API void        geode_hand_set(unsigned mask, int has_user);
 /* What plays: the user's routes on the hand's sources, the DNA's (dealt from id and seed) on the rest. */
 GEODE_API int         geode_style_reactions_hand(const char* style_id, int seed, const float* user, int user_floats, int has_user,
                                                  unsigned mask, float* out, int capacity);

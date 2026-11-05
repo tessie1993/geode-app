@@ -274,9 +274,13 @@ object GeodeNative {
     /**
      * Customize › Music's hand mask (core/viz Reactions.hpp `hand::`): bit i is moment i set by hand,
      * [HAND_UNCLAIMED] every source no moment claims, [HAND_ALL] a whole list of the user's. Process-wide like
-     * [directorSet]: every renderer's director keeps its hands off those moments.
+     * [directorSet]: every renderer's director keeps its hands off those moments. Without a list of the user's
+     * ([hasUser] false) native counts the mask as 0, so a stale mask cannot switch off the director's routes.
      */
-    external fun handSet(mask: Int)
+    external fun handSet(
+        mask: Int,
+        hasUser: Boolean,
+    )
 
     /**
      * What plays (geode_style_reactions_hand): the [user]'s routes on the [mask]'s sources, the style's DNA on

@@ -236,6 +236,13 @@ GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, f
 /* Every rolled control as "TAB|ParamKeys string" lines, in roll order: what the panel offers to lock and what
  * each tab's Randomize and Reset cover. Static: the pointer stays valid for the process. */
 GEODE_API const char* geode_params_roll_keys(void);
+/* The scene params schema (core/viz/ParamTable.inc): one row per geode_viz_param_name slot, giving the field's
+ * name, kind, default, control range and whether a fade glides it, as a versioned '|'-separated line table:
+ *   params|<version>|<count>
+ *   param|<slot>|<name>|<FLOAT|INT|BOOL|CIRCULAR>|<default>|<min>|<max>|<FADE|HOLD>
+ * slots 0..count-1 in order; ints and bools as numbers, like the wire. Static: the pointer stays valid for the
+ * process; the shell parses it once. Labels and page placement stay in Kotlin. */
+GEODE_API const char* geode_params_schema_text(void);
 
 /* Export resampler (audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC encoder's rate; box filter
  * down, linear up. Streaming: state carries across calls. Any one thread at a time. There is no flush: a

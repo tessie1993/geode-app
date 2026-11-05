@@ -73,10 +73,7 @@ const char* geode_viz_param_name(int index) {
 
 void geode_viz_set_params(geode_viz* v, const float* values, int count) {
     if (!v || !values || count != SceneParams::kFieldCount) return;
-    const auto& names = SceneParams::fieldNames();
-    SceneParams p;
-    for (int i = 0; i < count; ++i) p.set(names[static_cast<size_t>(i)], values[i]);
-    v->renderer.setParams(p);
+    v->renderer.setParams(SceneParams::fromWire(values));
 }
 
 void geode_viz_set_reduced_motion(geode_viz* v, int on) {

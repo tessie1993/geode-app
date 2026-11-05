@@ -37,6 +37,7 @@ import dev.geode.data.FontColorChoice
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GuiPrefs
 import dev.geode.data.PlayerPosition
+import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.isReadableOnCanvas
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -187,7 +188,8 @@ private fun LayoutGroup(
         CrystalSlider(
             value = gui.barOpacity,
             onValueChange = { viewModel.setGuiPrefs(gui.copy(barOpacity = it)) },
-            valueRange = 0.2f..1f,
+            // The range the glass takes (floatingGlass clamps to it), so the slider never moves past what shows.
+            valueRange = GeodeGlass.MATTE_FILL_MIN..GeodeGlass.MATTE_FILL_MAX,
         )
     }
     Column {

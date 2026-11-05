@@ -41,26 +41,26 @@ class TourGesture(
 fun UiTour.visualGestures(): List<TourGesture> {
     val r = min(window.width, window.height) * SWIRL_RADIUS
     val centre = at(0.5f, 0.42f)
-    val pinchA = TourTouch.line(at(0.45f, 0.42f), at(0.22f, 0.42f), PAIR_STEPS)
-    val pinchB = TourTouch.line(at(0.55f, 0.42f), at(0.78f, 0.42f), PAIR_STEPS)
-    val dragA = TourTouch.line(at(0.38f, 0.32f), at(0.38f, 0.56f), PAIR_STEPS)
-    val dragB = TourTouch.line(at(0.62f, 0.32f), at(0.62f, 0.56f), PAIR_STEPS)
+    val pinchA = UiTourTouch.line(at(0.45f, 0.42f), at(0.22f, 0.42f), PAIR_STEPS)
+    val pinchB = UiTourTouch.line(at(0.55f, 0.42f), at(0.78f, 0.42f), PAIR_STEPS)
+    val dragA = UiTourTouch.line(at(0.38f, 0.32f), at(0.38f, 0.56f), PAIR_STEPS)
+    val dragB = UiTourTouch.line(at(0.62f, 0.32f), at(0.62f, 0.56f), PAIR_STEPS)
     return listOf(
-        TourGesture("tap-top", CanvasGesture.TAP_TOP, at(0.5f, 0.2f), at(0.5f, 0.2f)) { TourTouch.tap(at(0.5f, 0.2f)) },
-        TourGesture("tap-bottom", CanvasGesture.TAP_BOTTOM, at(0.5f, 0.6f), at(0.5f, 0.6f)) { TourTouch.tap(at(0.5f, 0.6f)) },
-        TourGesture("double-tap", CanvasGesture.DOUBLE_TAP, centre, centre) { TourTouch.doubleTap(centre) },
+        TourGesture("tap-top", CanvasGesture.TAP_TOP, at(0.5f, 0.2f), at(0.5f, 0.2f)) { UiTourTouch.tap(at(0.5f, 0.2f)) },
+        TourGesture("tap-bottom", CanvasGesture.TAP_BOTTOM, at(0.5f, 0.6f), at(0.5f, 0.6f)) { UiTourTouch.tap(at(0.5f, 0.6f)) },
+        TourGesture("double-tap", CanvasGesture.DOUBLE_TAP, centre, centre) { UiTourTouch.doubleTap(centre) },
         swipe("swipe-left", CanvasGesture.SWIPE_SIDEWAYS, at(0.8f, 0.4f), at(0.2f, 0.4f)),
         swipe("swipe-right", CanvasGesture.SWIPE_SIDEWAYS, at(0.2f, 0.4f), at(0.8f, 0.4f)),
         swipe("swipe-up", CanvasGesture.SWIPE_UP, at(0.5f, 0.62f), at(0.5f, 0.28f)),
         swipe("swipe-down", CanvasGesture.SWIPE_DOWN, at(0.5f, 0.24f), at(0.5f, 0.6f)),
-        TourGesture("hold", CanvasGesture.LONG_PRESS, centre, centre) { TourTouch.hold(centre, HOLD_MS) },
+        TourGesture("hold", CanvasGesture.LONG_PRESS, centre, centre) { UiTourTouch.hold(centre, HOLD_MS) },
         TourGesture("swirl", CanvasGesture.SWIRL, PointF(centre.x + r, centre.y), PointF(centre.x + r, centre.y)) {
-            TourTouch.circles(centre, r, SWIRL_TURNS)
+            UiTourTouch.circles(centre, r, SWIRL_TURNS)
         },
         TourGesture("two-finger-drag", CanvasGesture.TWO_FINGER_DRAG, dragA.first(), dragA.last()) {
-            TourTouch.twoFingers(dragA, dragB)
+            UiTourTouch.twoFingers(dragA, dragB)
         },
-        TourGesture("pinch", CanvasGesture.PINCH_TWIST, pinchA.first(), pinchA.last()) { TourTouch.twoFingers(pinchA, pinchB) },
+        TourGesture("pinch", CanvasGesture.PINCH_TWIST, pinchA.first(), pinchA.last()) { UiTourTouch.twoFingers(pinchA, pinchB) },
     )
 }
 
@@ -84,7 +84,7 @@ fun UiTour.edgeGestures(): List<TourGesture> {
         swipe("edge-swipe-down-from-top", CanvasGesture.SWIPE_DOWN, PointF(w * 0.5f, top), at(0.5f, 0.5f), edge = true),
         swipe("edge-swipe-up-from-bottom", CanvasGesture.SWIPE_UP, PointF(w * 0.5f, bottom), at(0.5f, 0.5f), edge = true),
         TourGesture("edge-tap-top", CanvasGesture.TAP_TOP, PointF(w * 0.5f, top), PointF(w * 0.5f, top), edge = true) {
-            TourTouch.tap(PointF(w * 0.5f, top))
+            UiTourTouch.tap(PointF(w * 0.5f, top))
         },
     )
 }
@@ -95,7 +95,7 @@ private fun swipe(
     from: PointF,
     to: PointF,
     edge: Boolean = false,
-) = TourGesture(name, gesture, from, to, edge) { TourTouch.swipe(from, to) }
+) = TourGesture(name, gesture, from, to, edge) { UiTourTouch.swipe(from, to) }
 
 private fun edgeStart(insetPx: Int): Float = max(insetPx / 2f, EDGE_FALLBACK_PX)
 

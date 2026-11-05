@@ -21,7 +21,7 @@ import org.json.JSONObject
  * Only the active window is read (a dialog or popup while one is up, else the activity): the
  * window list needs an accessibility flag the default UiAutomation does not set.
  */
-object TourLayout {
+object UiTourLayout {
     class Dump(
         val nodes: JSONArray,
         val unlabeled: List<String>,

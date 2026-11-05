@@ -155,7 +155,7 @@ class UiTour(
 
     /**
      * The next numbered screenshot, or null when the device would not give one, with the
-     * accessibility tree of the same moment beside it as `<name>.layout.json` ([TourLayout]).
+     * accessibility tree of the same moment beside it as `<name>.layout.json` ([UiTourLayout]).
      *
      * Compose is idled first, then a fixed beat follows. That beat is not waiting on Compose (the
      * compose-ui-testing guidance is right that a sleep is the wrong way to wait for it): it is
@@ -170,7 +170,7 @@ class UiTour(
         SystemClock.sleep(SHOT_SETTLE_MS)
         val n = case.index * CASE_STRIDE + shots++
         val base = "%03d_%s_%s_%s_%s".format(n, slug(area), slug(name), config.orientationTag, config.fontTag)
-        val layout = attempt { TourLayout.dump() }.getOrNull()
+        val layout = attempt { UiTourLayout.dump() }.getOrNull()
         lastUnlabeled = layout?.unlabeled.orEmpty()
         layout?.let { dump ->
             runCatching {
@@ -248,7 +248,9 @@ class UiTour(
     }
 
     /** Taps [label] if it is there; true when it was. For the optional bits of a screen. */
-    fun tapIfPresent(label: String): Boolean = runCatching { tap(label) }.isSuccess
+    fun tapIfPresent(label: String): Boolean = tapIfPresent(hasText(label) or hasContentDescription(label))
+
+    fun tapIfPresent(what: SemanticsMatcher): Boolean = runCatching { tap(what) }.isSuccess
 
     /**
      * Runs the TalkBack custom action [label] on the first node offering it: how the tour reaches
@@ -272,7 +274,7 @@ class UiTour(
     ) = PointF(window.width * fx, window.height * fy)
 
     /** A swipe up the middle of the screen: scrolls the list under it down by about half a page. */
-    fun scrollDown() = TourTouch.swipe(at(0.5f, SCROLL_FROM), at(0.5f, SCROLL_TO))
+    fun scrollDown() = UiTourTouch.swipe(at(0.5f, SCROLL_FROM), at(0.5f, SCROLL_TO))
 
     /**
      * Screenshots a scrolling screen a page at a time: [step] for its top, then up to [pages]
@@ -299,7 +301,7 @@ class UiTour(
 
     /** Back, then a moment for the screen it lands on. */
     fun back() {
-        TourTouch.back()
+        UiTourTouch.back()
         runCatching { compose.waitForIdle() }
         SystemClock.sleep(SHORT_SETTLE_MS)
     }
@@ -423,7 +425,11 @@ class UiTour(
         nodes(SemanticsMatcher("any node") { true })
             .take(FINGERPRINT_NODES)
             .joinToString("|") { node ->
-                val text = node.config.getOrNull(SemanticsProperties.Text)?.joinToString { it.text }.orEmpty()
+                val text =
+                    node.config
+                        .getOrNull(SemanticsProperties.Text)
+                        ?.joinToString { it.text }
+                        .orEmpty()
                 "$text@${node.boundsInWindow.top.toInt()}"
             }
 
@@ -463,7 +469,11 @@ class UiTour(
                         r.getString("expected"),
                         r.getString("observed"),
                         r.optString("insetCollision", ""),
-                        r.optJSONArray("unlabeledInteractive")?.join("; ")?.replace("\"", "").orEmpty(),
+                        r
+                            .optJSONArray("unlabeledInteractive")
+                            ?.join("; ")
+                            ?.replace("\"", "")
+                            .orEmpty(),
                         if (r.isNull("error")) "" else r.getString("error"),
                     )
                 appendLine(cells.joinToString(" | ", "| ", " |") { cell(it) })
@@ -521,12 +531,21 @@ fun <T> attempt(block: () -> T): Result<T> =
 
 /** A failure as one report cell: its type and the first line of its message. */
 fun describe(error: Throwable): String {
-    val message = error.message?.lineSequence()?.firstOrNull().orEmpty()
+    val message =
+        error.message
+            ?.lineSequence()
+            ?.firstOrNull()
+            .orEmpty()
     return "${error.javaClass.simpleName}: $message".trimEnd(' ', ':')
 }
 
 /** A file-name-safe form of a step's name. */
-fun slug(text: String): String = text.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-').ifEmpty { "step" }
+fun slug(text: String): String =
+    text
+        .lowercase()
+        .replace(Regex("[^a-z0-9]+"), "-")
+        .trim('-')
+        .ifEmpty { "step" }
 
 /** Matches a node offering the TalkBack custom action [label]. */
 fun hasCustomAction(label: String): SemanticsMatcher =

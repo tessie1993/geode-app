@@ -318,7 +318,7 @@ class UiTourTest {
             tour.state().summary()
         }
         tour.step("sheet", "double-tap-back", "a double tap on the visual brings it back") {
-            TourTouch.doubleTap(tour.at(0.5f, 0.4f))
+            UiTourTouch.doubleTap(tour.at(0.5f, 0.4f))
             SystemClock.sleep(UiTour.SHORT_SETTLE_MS)
             tour.state().summary()
         }
@@ -336,7 +336,7 @@ class UiTourTest {
         tour.step("panel", "drag-edge", "dragging the edge toward the panel narrows it") {
             val edge = checkNotNull(tour.bounds(hasContentDescription(UiTour.PANEL_HANDLE))) { "no panel edge" }
             val from = PointF(edge.center.x, edge.center.y)
-            TourTouch.swipe(from, PointF(from.x + tour.window.width * 0.15f, from.y))
+            UiTourTouch.swipe(from, PointF(from.x + tour.window.width * 0.15f, from.y))
             tour.state().summary()
         }
         tour.step("panel", "close", "the × hides the panel") {
@@ -442,7 +442,11 @@ class UiTourTest {
                 tour.step("back", "press-$i", "one level up the route; Styles last, then Visuals is left") {
                     val before = tour.state()
                     tour.back()
-                    tour.state().changesFrom(before).ifEmpty { listOf("nothing changed") }.joinToString("; ")
+                    tour
+                        .state()
+                        .changesFrom(before)
+                        .ifEmpty { listOf("nothing changed") }
+                        .joinToString("; ")
                 }
             if (!pressed || !tour.has(hasContentDescription(LIVE_VISUAL))) break
         }
@@ -454,14 +458,14 @@ class UiTourTest {
     private fun overlays() {
         tour.step("quick-settings", "open", "Visual settings over the visual") {
             tour.stageBaseline()
-            TourTouch.tap(tour.at(0.5f, 0.2f))
+            UiTourTouch.tap(tour.at(0.5f, 0.2f))
             "open=${tour.waitFor(hasText(UiTour.QUICK_SETTINGS_TITLE))}"
         }
         tour.pages("quick-settings", "body", pages = 3)
         tour.back()
         tour.step("macros", "open", "the Macros drawer") {
             tour.stageBaseline()
-            TourTouch.swipe(tour.at(0.5f, 0.24f), tour.at(0.5f, 0.6f))
+            UiTourTouch.swipe(tour.at(0.5f, 0.24f), tour.at(0.5f, 0.6f))
             "open=${tour.waitFor(hasContentDescription(UiTour.MACROS_EDIT))}"
         }
         tour.step("macros", "edit", "its edit icon opens Customize's macros") { tour.tap(UiTour.MACROS_EDIT) }
@@ -486,20 +490,24 @@ class UiTourTest {
         val mini = hasCustomAction(UiTour.MINI_PLAYER_OPEN)
         val cases =
             listOf(
-                Triple("tap", "the player stays shown (pinned)") { c: PointF -> TourTouch.tap(c) },
-                Triple("swipe-down", "the player hides") { c: PointF -> TourTouch.swipe(c, PointF(c.x, c.y + SWIPE_PX * dp())) },
-                Triple("swipe-up", "Player opens") { c: PointF -> TourTouch.swipe(c, PointF(c.x, c.y - SWIPE_PX * dp())) },
+                Triple("tap", "the player stays shown (pinned)") { c: PointF -> UiTourTouch.tap(c) },
+                Triple("swipe-down", "the player hides") { c: PointF -> UiTourTouch.swipe(c, PointF(c.x, c.y + SWIPE_PX * dp())) },
+                Triple("swipe-up", "Player opens") { c: PointF -> UiTourTouch.swipe(c, PointF(c.x, c.y - SWIPE_PX * dp())) },
             )
         for ((name, expected, drive) in cases) {
             tour.step("mini-player", name, expected) {
                 tour.stageBaseline()
-                TourTouch.tap(tour.at(0.5f, 0.6f))
+                UiTourTouch.tap(tour.at(0.5f, 0.6f))
                 check(tour.waitFor(mini)) { "the mini player did not wake" }
                 val box = checkNotNull(tour.bounds(mini))
                 val before = tour.state()
                 drive(PointF(box.center.x, box.center.y))
                 SystemClock.sleep(UiTour.SHORT_SETTLE_MS * 2)
-                tour.state().changesFrom(before).ifEmpty { listOf("nothing changed") }.joinToString("; ")
+                tour
+                    .state()
+                    .changesFrom(before)
+                    .ifEmpty { listOf("nothing changed") }
+                    .joinToString("; ")
             }
         }
         tour.step("mini-player", "back-to-visuals", "Visuals again") { tour.tap(VISUALS) }
@@ -524,7 +532,7 @@ class UiTourTest {
         }
         tour.step("pip", "home-key", "home while Visuals plays enters PiP by itself") {
             val activity = compose.activity
-            TourTouch.key(KeyEvent.KEYCODE_HOME)
+            UiTourTouch.key(KeyEvent.KEYCODE_HOME)
             SystemClock.sleep(PIP_SETTLE_MS)
             "inPip=${onMain { activity.isInPictureInPictureMode }} focus=${tour.focus()}"
         }
@@ -593,7 +601,7 @@ class UiTourTest {
     private fun dragSheetTo(fy: Float): String {
         val handle = checkNotNull(tour.bounds(hasContentDescription(UiTour.SHEET_HANDLE))) { "no sheet handle (hidden?)" }
         val from = PointF(handle.center.x, handle.top + HANDLE_GRAB_DP * dp())
-        TourTouch.swipe(from, PointF(from.x, tour.window.height * fy), steps = DRAG_STEPS, stepMs = DRAG_STEP_MS)
+        UiTourTouch.swipe(from, PointF(from.x, tour.window.height * fy), steps = DRAG_STEPS, stepMs = DRAG_STEP_MS)
         SystemClock.sleep(UiTour.SHORT_SETTLE_MS)
         return tour.state().summary()
     }

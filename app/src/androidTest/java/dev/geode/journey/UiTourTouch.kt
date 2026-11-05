@@ -24,7 +24,7 @@ import kotlin.math.sin
  * coroutine timer and a double tap on the double-tap timeout, so the waits between events are
  * actual sleeps, and every event carries the uptime at which it was sent.
  */
-object TourTouch {
+object UiTourTouch {
     /** One tap: down and up [TAP_MS] apart, short of anything that reads as a hold. */
     fun tap(at: PointF) = path(listOf(at), holdMs = TAP_MS)
 

@@ -57,7 +57,7 @@ void MotionField::setVariant(std::uint32_t seed) {
     retargetOnKick16_ = ((seed >> 8) & 1u) != 0u;
 }
 
-void MotionField::step(const GeodeSoundFrame& f, float dt) {
+void MotionField::step(const GeodeSoundFrame& f, float dt, float speed) {
     dt = std::clamp(dt, 0.0f, 0.1f);
 
     // ---- relative levels: the engine's own (a band over its ~4 s mean, ~1 typical), smoothed --
@@ -150,7 +150,10 @@ void MotionField::step(const GeodeSoundFrame& f, float dt) {
     state_.breath = std::clamp(oneOle(state_.breath, breathTarget, dt, kBreathSeconds), kBreathLo, kBreathHi);
 
     // ---- flow phase: monotonic, rate set by loudness, never the sign --------
-    state_.flowPhase = std::fmod(state_.flowPhase + dt * (kFlowBaseHz + kFlowEnergyHz * state_.energyRel), kTimeWrapSeconds);
+    const float flowRate = kFlowBaseHz + kFlowEnergyHz * state_.energyRel;
+    state_.flowPhase = std::fmod(state_.flowPhase + dt * flowRate, kTimeWrapSeconds);
+    // The same rate times Speed: bit-for-bit flowPhase at Speed 1 (SpeedClock::advance).
+    state_.flowTime = speedclock::advance(state_.flowTime, speed, flowRate, dt, kTimeWrapSeconds);
 }
 
 // Reshapes every family's parameters from the continuous state step() just

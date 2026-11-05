@@ -61,7 +61,7 @@ vec3 dayglo(vec3 c) {
 void main() {
     vec2 uv = lucidView(true);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
-    float flow = uFlowPhase * uSpeed;
+    float flow = uFlowTime;
     float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5) * uIntensity;
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);

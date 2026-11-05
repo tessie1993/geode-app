@@ -82,6 +82,10 @@ private:
     float zoomPhase_ = 0.0f;
     float cyclePhase_ = 0.0f;
     float shaderTime_ = 0.0f;
+    // The sound engine's bass, mid and treble clocks at Speed's rate (uSoundTimeSped,
+    // viz/SpeedClock.hpp), beside uTime and the motion field's uFlowTime: integrated,
+    // never clock * uSpeed, so moving Speed changes how fast they run, not where they are.
+    std::array<speedclock::Follower, 3> soundTimeSped_{};
 
     GLuint flowTex_ = 0;
     float flowStrength_ = 0.0f;

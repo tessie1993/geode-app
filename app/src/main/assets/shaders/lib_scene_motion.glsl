@@ -79,6 +79,22 @@ uniform float uMotion;
  */
 uniform float uFlowPhase;
 
+/**
+ * uFlowPhase at Speed's rate: ShaderScene integrates the same flow rate times
+ * Speed (core/viz/SpeedClock.hpp), so it equals uFlowPhase at Speed 1. Read
+ * this, never uFlowPhase * uSpeed: an accumulated phase times the live dial
+ * jumps by phase * delta-speed whenever Speed moves (tools/check_shaders.py
+ * fails the build on it, as it does on uTime * uSpeed).
+ */
+uniform float uFlowTime;
+
+/**
+ * The sound engine's bass, mid and treble clocks (SND_BASS_TIME, SND_MID_TIME,
+ * SND_TREBLE_TIME) at Speed's rate, the same way: their per-frame advance
+ * times Speed, integrated. Read this, never SND_*_TIME * uSpeed.
+ */
+uniform vec3 uSoundTimeSped;
+
 // ---- legacy: constant since wave three; removed in R08 --------------------
 //
 // The spike-triggered reaction this uniform group used to carry. Nothing

@@ -4,6 +4,7 @@
 
 #include "api/geode_api.h"
 #include "viz/Params.hpp"
+#include "viz/SpeedClock.hpp"
 
 namespace geode::viz {
 
@@ -53,6 +54,7 @@ public:
         float drift = 0.0f;       // uDrift: accumulated angle, radians
         float breath = 1.0f;      // uBreath, 0.9..1.1
         float flowPhase = 0.0f;   // uFlowPhase: monotonic integrator
+        float flowTime = 0.0f;    // uFlowTime: flowPhase at Speed's rate, integrated (equal at Speed 1)
     };
 
     MotionField();
@@ -63,8 +65,13 @@ public:
     // for no fixed default). The renderer's and the scene's instances get the
     // same seed for the same style, so they agree.
     void setVariant(std::uint32_t seed);
-    // Advances every average, oscillator and integrator by one frame.
-    void step(const GeodeSoundFrame& f, float dt);
+    // Advances every average, oscillator and integrator by one frame. speed is
+    // SceneParams.speed, read only by flowTime: the flow phase's rate times
+    // Speed, integrated (viz/SpeedClock.hpp), so a style gets a Speed-scaled
+    // flow without uFlowPhase * uSpeed, which jumps whenever Speed moves.
+    // Renderer's instance shapes SceneParams and never uploads flowTime, so it
+    // keeps the default.
+    void step(const GeodeSoundFrame& f, float dt, float speed = 1.0f);
     // Reshapes p with the state step() just computed; never touches
     // brightness/intensity/contrast/flash/strobe/pulse/shake. Reduced motion
     // scales the geometric terms the same way safety::apply scales rates.

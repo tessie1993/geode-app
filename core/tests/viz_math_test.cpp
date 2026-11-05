@@ -17,6 +17,7 @@
 #include "viz/ReactionDna.hpp"
 #include "viz/Reactions.hpp"
 #include "viz/ScenePrep.hpp"
+#include "viz/SpeedClock.hpp"
 
 using namespace geode::viz;
 
@@ -589,6 +590,72 @@ void motionFieldVariantsDiffer() {
     }
     check(hues.size() >= 3, "styles follow different hue drivers");
 }
+// ---- Speed-integrated clocks (viz/SpeedClock, MotionField::State::flowTime) ----
+
+// A frame whose loudness wanders, so the flow rate is not a constant.
+GeodeSoundFrame wandering(int k) {
+    GeodeSoundFrame f = playing();
+    f.volAtt = 1.0f + 0.8f * std::sin(0.013f * static_cast<float>(k));
+    return f;
+}
+
+void flowTimeIsFlowPhaseAtSpeedOne() {
+    MotionField m;
+    bool same = true;
+    for (int k = 0; k < 30 * 600; ++k) {
+        // Hitches past MotionField's 0.1 s dt clamp too: both clocks see the clamped dt.
+        m.step(wandering(k), k % 997 == 0 ? 0.4f : 1.0f / 30.0f);
+        same = same && m.state().flowTime == m.state().flowPhase;
+    }
+    check(same, "uFlowTime equals uFlowPhase at Speed 1, bit for bit, so no Speed-1 look changes");
+}
+
+void flowTimeRunsAtSpeedAndNeverJumps() {
+    // Ten minutes at Speed 1, then nudge Speed to 1.05 and step once.
+    MotionField m;
+    const float dt = 1.0f / 30.0f;
+    for (int k = 0; k < 30 * 600; ++k) m.step(wandering(k), dt, 1.0f);
+    const float phase = m.state().flowPhase;
+    const float before = m.state().flowTime;
+    m.step(wandering(30 * 600), dt, 1.05f);
+    const float step = m.state().flowTime - before;
+    // The old uFlowPhase * uSpeed moved by phase * 0.05 in that one frame: many seconds of flow.
+    check(phase * 0.05f > 1.0f, "the old flowPhase * speed would have jumped by over a second of flow");
+    check(step > 0.0f && step < 0.05f, "uFlowTime moves by one frame of flow when Speed changes, never a jump");
+    // Rate follows Speed: at 2, two seconds of clock take one second.
+    MotionField a;
+    MotionField b;
+    for (int k = 0; k < 300; ++k) {
+        a.step(playing(), dt, 1.0f);
+        b.step(playing(), dt, 2.0f);
+    }
+    check(std::fabs(b.state().flowTime - 2.0f * a.state().flowTime) < 1e-3f, "uFlowTime runs at Speed's rate");
+}
+
+void followerScalesASoundClockWithoutJumps() {
+    using speedclock::Follower;
+    Follower one;
+    Follower two;
+    float source = 12.5f;  // the engine's clock is already running when a style loads
+    check(one.step(source, 1.0f, 7100.0f) == source, "a follower starts on the source's own value");
+    two.step(source, 2.0f, 7100.0f);
+    for (int k = 0; k < 100; ++k) {
+        source += 0.02f;
+        one.step(source, 1.0f, 7100.0f);
+        two.step(source, 2.0f, 7100.0f);
+    }
+    check(std::fabs(one.value - source) < 1e-3f, "at Speed 1 the follower reads the source");
+    check(std::fabs((two.value - 12.5f) - 2.0f * (source - 12.5f)) < 1e-3f, "at Speed 2 it advances twice as far");
+    // The source wraps or restarts (a new track): the follower takes one small step, not a jump.
+    const float held = two.value;
+    two.step(0.01f, 2.0f, 7100.0f);
+    check(two.value > held && two.value - held < 0.05f, "a source that steps back never jumps the follower");
+    // Changing Speed moves nothing by itself.
+    const float at = one.value;
+    one.step(source, 1.5f, 7100.0f);
+    check(one.value == at, "a Speed change with no source advance leaves the clock where it is");
+}
+
 void sourceCatalogueIsCompleteAndUnique() {
     std::set<std::string> names;
     const std::set<std::string> groups = {"LEVELS", "DRUMS", "EVENTS", "MELODY", "CLOCKS", "TEXTURE", "EQ", "RHYTHM", "HARMONY", "FORM"};
@@ -950,6 +1017,9 @@ int main() {
     silenceAndTheMotionDialStillTheMusicMoves();
     traumaShakeIsBoundedAndFinite();
     motionFieldVariantsDiffer();
+    flowTimeIsFlowPhaseAtSpeedOne();
+    flowTimeRunsAtSpeedAndNeverJumps();
+    followerScalesASoundClockWithoutJumps();
     sourceCatalogueIsCompleteAndUnique();
     macrosAtRestChangeNothing();
     macrosTurnTowardTheEndsAndStayInRange();

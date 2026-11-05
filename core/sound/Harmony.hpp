@@ -17,14 +17,14 @@ int scaleCount();
 const ScaleInfo& scaleInfo(int index);
 
 // The harmony half of the musical layer: chroma, key, the chord's colour, tension and harmonic change,
-// read once per frame from the sound engine's long (pitch) spectrum.
+// read every analysis hop (10 ms) from the sound engine's long (pitch) spectrum.
 //
 //   |X| 250 Hz–2 kHz ─► spectral peaks ─► log over the frame's peak ─► nearest pitch class ─┬► fast (0.1 s), medium (0.5 s), slow (4 s)
 //     slow ─► Krumhansl–Kessler key profiles (24 keys, Pearson) ─► key, major/minor, clarity
 //     medium ─► circle-of-fifths centre (chordHue), interval-class dissonance (tension)
 //     fast, every 0.1 s ─► last 0.5 s against the 2 s before ─► harmonic change
 //
-// The long spectrum (twice the frame FFT, ~11 Hz bins at 44.1 kHz) is the melody tracker's; a semitone at
+// The long spectrum (twice the window FFT, ~11 Hz bins at 44.1 kHz) is the melody tracker's; a semitone at
 // 250 Hz is 15 Hz wide, so the range starts there. Every smoothing scales with dt, as the rest of the engine.
 class Harmony {
 public:

@@ -60,7 +60,11 @@ float Renderer::beginFrame(double timeSeconds) {
             tunedKnobs_ = frameKnobs_;
             sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
         }
-        if (sound_) sound_->step(dt, soundFrame_);
+        if (sound_) {
+            sound_->step(dt, soundFrame_);
+            soundEmotion_ = sound_->emotion();
+        }
+        soundHeard_ = sound_ != nullptr;
     }
     applyStyleSchedule();
     std::vector<std::pair<std::string, std::string>> pending;
@@ -140,7 +144,22 @@ SceneParams Renderer::resolveParams(float dt) {
                                                                pinnedDirectorSeed_.load(std::memory_order_relaxed)}
                                               : director::global();
     director_.configure(directorConfig);
-    director_.step(soundFrame_, dt);
+    if (soundHeard_) {
+        // The feeling comes from the engine, stepped on the sample clock, so it is the same at every frame
+        // rate and in an export. A new seed is a new play: the director forgets the song, the feeling too.
+        if (emotionSeeded_ && directorConfig.seed != emotionSeed_) {
+            std::lock_guard<std::mutex> lock(soundLock_);
+            if (sound_) {
+                sound_->resetEmotion();
+                soundEmotion_ = sound_->emotion();
+            }
+        }
+        emotionSeed_ = directorConfig.seed;
+        emotionSeeded_ = true;
+        director_.step(soundFrame_, soundEmotion_, dt);
+    } else {
+        director_.step(soundFrame_, dt);
+    }
     if (director_.commits() != directorCommitsSeen_) {
         directorCommitsSeen_ = director_.commits();
         const Director::Reason why = director_.lastReason();

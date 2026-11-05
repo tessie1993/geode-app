@@ -302,9 +302,7 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
 
         // Harmonic change: every 0.1 s a snapshot of the fast chroma; the last five against the twenty
         // before them. Half a second of evidence keeps it near the change instead of two seconds after.
-        sinceSnapshot_ += dt;
-        if (sinceSnapshot_ >= kSnapshotEvery) {
-            sinceSnapshot_ -= kSnapshotEvery * std::floor(sinceSnapshot_ / kSnapshotEvery);
+        if (due(sinceSnapshot_, kSnapshotEvery, dt)) {
             snapshots_[snapshotHead_] = fast_;
             snapshotHead_ = (snapshotHead_ + 1) % kSnapshots;
             snapshotCount_ = std::min(snapshotCount_ + 1, kSnapshots);
@@ -321,11 +319,7 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
         }
         out.harmonicChange = trigger_.step(change_, 0.15f, 0.5f, dt);
 
-        sinceScale_ += dt;
-        if (sinceScale_ >= 0.25f) {
-            sinceScale_ -= 0.25f * std::floor(sinceScale_ / 0.25f);
-            detectScale();
-        }
+        if (due(sinceScale_, 0.25f, dt)) detectScale();
         if (scale_ >= 0) {
             // The mood glides (about a second), so a change of mode is a turn of the light, not a cut.
             scaleBright_ = follow(scaleBright_, 0.5f + 0.5f * kScales[scale_].brightness, 1.0f, dt);

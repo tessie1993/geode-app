@@ -81,7 +81,11 @@ public:
     enum class Reason { First, Section, Drop, Modulation, Long };
 
     void configure(const DirectorConfig& config);
+    // Hears the frame and steps its own feeling with it (tests, and a renderer with no sound engine).
     void step(const GeodeSoundFrame& f, float dt);
+    // Hears the frame with the feeling the sound engine stepped on its own sample clock: the renderer's
+    // way, so the feeling is the same at every frame rate and in an export.
+    void step(const GeodeSoundFrame& f, const sound::Emotion::State& heard, float dt);
 
     // Before the macros: the palette and the motion character, lerped by the amount. `palWheel` says how
     // the scene reads paletteBase: true for the shader styles (lib_palette's pal() runs the colour wheel
@@ -96,7 +100,7 @@ public:
 
     // How much it is driving now: the switch, eased, times whether a look has been chosen yet.
     float weight() const { return amount_ * presence_; }
-    const sound::Emotion::State& emotion() const { return emotion_.state(); }
+    const sound::Emotion::State& emotion() const { return feeling_; }
     const Look& look() const { return now_; }
     const Look& target() const { return to_; }
     int commits() const { return commits_; }
@@ -111,6 +115,7 @@ private:
     bool farFromRecent(const Look& candidate) const;
 
     sound::Emotion emotion_;
+    sound::Emotion::State feeling_{};  // what this step heard: its own emotion_'s, or the engine's
     DirectorConfig config_;
     bool configured_ = false;
     float amount_ = 0.0f;

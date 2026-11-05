@@ -388,14 +388,21 @@ std::array<float, 3> Rhythm::takeBandFlux() {
 }
 
 void Rhythm::read(int sinceHop, float hitTime, GeodeSoundFrame& out) {
-    const float p = periodOrDefault();
-    // The instant of the frame, not of the last hop; never past the next beat, which ticks on a hop.
-    const double now = std::min(theta_ + static_cast<double>(sinceHop) / hop_ / p, static_cast<double>(lastBeat_) + 0.999);
     out.bpm = period_ > 0.0f ? 60.0f * hopHz_ / period_ : 0.0f;
     out.beatConf = std::clamp(conf_, 0.0f, 1.0f);
     out.beatCount = std::fmod(static_cast<float>(lastBeat_ % 4096), kCountWrap);
     out.barCount = static_cast<float>(bars_ % 4096);
     out.phraseIndex = static_cast<float>(phrases_ % 4096);
+    phases(sinceHop, hitTime, out);
+    out.beat = beatHit_;
+    out.downbeat = downbeatHit_;
+    out.phrase = phraseHit_;
+}
+
+void Rhythm::phases(int sinceHop, float hitTime, GeodeSoundFrame& out) const {
+    const float p = periodOrDefault();
+    // The instant `sinceHop` samples after the last hop; never past the next beat, which ticks on a hop.
+    const double now = std::min(theta_ + static_cast<double>(sinceHop) / hop_ / p, static_cast<double>(lastBeat_) + 0.999);
     if (locked_) {
         out.beatPhase = frac(now);
         const int inBar = slotOf(static_cast<int64_t>(std::floor(now)) - downSlot_);
@@ -408,9 +415,6 @@ void Rhythm::read(int sinceHop, float hitTime, GeodeSoundFrame& out) {
         out.barPhase = frac(t / 4.0);
         out.phrasePhase = frac(t / 32.0);
     }
-    out.beat = beatHit_;
-    out.downbeat = downbeatHit_;
-    out.phrase = phraseHit_;
 }
 
 void Rhythm::clearFrame() {

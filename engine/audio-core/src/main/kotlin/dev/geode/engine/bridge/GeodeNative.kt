@@ -82,6 +82,18 @@ object GeodeNative {
         track: Int,
     ): Boolean
 
+    /**
+     * Voice "play X" over the library (core/library/Search). [rows] holds three UTF-8 strings per track
+     * (title, artist, album) in library order; [request] the query, then MediaStore's focus, artist, album
+     * and title extras (null = absent). Writes matching track indices into [out] and returns how many
+     * match in all; nothing asked matches every track, 0 means no match.
+     */
+    external fun librarySearch(
+        rows: Array<ByteArray?>,
+        request: Array<ByteArray?>,
+        out: IntArray,
+    ): Int
+
     /** [assets] is the app's `android.content.res.AssetManager`; typed as Any because this module has no Android SDK. */
     external fun vizCreate(
         assets: Any,

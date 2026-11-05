@@ -180,6 +180,9 @@ jobs:
           # The photosensitive flash limiter: a 10 Hz strobe shows at most 3 flashes/s, a slow fade passes untouched.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/flash_limiter_test.cpp core/viz/FlashLimiter.cpp -o flash_limiter_test
           ./flash_limiter_test
+          # Voice "play X" over the library (#382): query, focus extras, blank = everything, no match = nothing.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/library_search_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o library_search_test
+          ./library_search_test
 
       # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes, ranges, and
       # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.

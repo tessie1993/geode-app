@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.core.content.ContextCompat
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -228,11 +229,20 @@ class PlaybackService : MediaLibraryService() {
             mediaItems: List<MediaItem>,
         ): ListenableFuture<List<MediaItem>> =
             Futures.submit(
-                java.util.concurrent.Callable { fromCaller(controller, mediaItems).map { resolve(it) } },
+                java.util.concurrent.Callable {
+                    val items =
+                        fromCaller(controller, mediaItems).flatMap { item ->
+                            VoiceSearch.of(item)?.let { searched(it) } ?: listOf(resolve(item))
+                        }
+                    playableOrRefuse(items)
+                },
                 resumptionExecutor,
             )
 
-        /** A row tapped in a browsed folder plays that whole folder from the row, like the library screen does. */
+        /**
+         * A row tapped in a browsed folder plays that whole folder from the row, like the library screen does;
+         * a voice "play X" plays the library tracks it names, from the first.
+         */
         override fun onSetMediaItems(
             mediaSession: MediaSession,
             controller: MediaSession.ControllerInfo,
@@ -244,11 +254,18 @@ class PlaybackService : MediaLibraryService() {
                 java.util.concurrent.Callable {
                     val items = fromCaller(controller, mediaItems)
                     val single = items.singleOrNull()?.takeIf { it.localConfiguration == null }
-                    val queued = single?.let { tree.queueFor(it.mediaId) }
-                    if (queued != null) {
-                        MediaSession.MediaItemsWithStartPosition(queued.first, queued.second, startPositionMs)
-                    } else {
-                        MediaSession.MediaItemsWithStartPosition(items.map { resolve(it) }, startIndex, startPositionMs)
+                    val search = single?.let(VoiceSearch::of)
+                    val queued = single?.takeIf { search == null }?.let { tree.queueFor(it.mediaId) }
+                    when {
+                        search != null -> MediaSession.MediaItemsWithStartPosition(searched(search), 0, C.TIME_UNSET)
+                        queued != null ->
+                            MediaSession.MediaItemsWithStartPosition(queued.first, queued.second, startPositionMs)
+                        else ->
+                            MediaSession.MediaItemsWithStartPosition(
+                                playableOrRefuse(items.map { resolve(it) }),
+                                startIndex,
+                                startPositionMs,
+                            )
                     }
                 },
                 resumptionExecutor,
@@ -267,6 +284,24 @@ class PlaybackService : MediaLibraryService() {
             items: List<MediaItem>,
         ): List<MediaItem> {
             if (!mayBrowse(controller)) throw SecurityException("${controller.packageName} may not queue media")
+            return items
+        }
+
+        /**
+         * Voice "play X" (Android Auto, Assistant): the library tracks it names, or the whole library for a
+         * blank request. A request that matches nothing fails the future, which Media3 answers the caller
+         * with as an error, rather than queueing nothing or an item ExoPlayer cannot open.
+         */
+        private fun searched(search: VoiceSearch): List<MediaItem> =
+            tree.search(search).also { require(it.isNotEmpty()) { "no library track matches the voice search" } }
+
+        /**
+         * ExoPlayer's `DefaultMediaSourceFactory` throws on an item without a URI, on the session's thread.
+         * An id the tree no longer knows (a deleted track, a stale id) is refused here instead: the request
+         * fails as a whole, so a start index never points at the wrong row.
+         */
+        private fun playableOrRefuse(items: List<MediaItem>): List<MediaItem> {
+            require(items.all { it.localConfiguration != null }) { "a requested item has no playable URI" }
             return items
         }
 

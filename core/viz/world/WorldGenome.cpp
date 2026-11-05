@@ -594,7 +594,7 @@ std::array<Seed, 41> buildSeeds() {
                {Emission, 1.1f}, {Fog, 0.03f}, {TexEmit, 0.5f}, {TexPick, 7.0f}})},
         // An Apollonian packing, spheres inverted into spheres without end: a foam of pearls.
         {"Apollonian Foam", 0.4f, 0.65f, 0.6f,
-         make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 6.0f}, {PApollo, 1.0f}, {PrimSize, 1.6f}, {MSurface, 0.7f},
+         make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 6.0f}, {PApollo, 1.0f}, {PrimSize, 1.7f}, {MSurface, 0.7f},
                {MGlow, 0.3f}, {TrapR, 0.6f}, {TrapX, 0.2f}, {PalOffset, 0.3f}, {PalSpan, 0.6f}, {Emission, 1.1f},
                {Fog, 0.035f}})},
         // The packing laced through bubbles and folded six ways: a lattice of pearls in light.

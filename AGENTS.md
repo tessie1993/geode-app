@@ -35,7 +35,7 @@ Read before you change structure:
   - There is one source of truth instead of a Kotlin copy and a C++ copy.
   - See [ADR 0003](docs/adr/0003-engine-internals-in-cpp.md) and [ADR 0006](docs/adr/0006-fosfora-aligned-engine.md).
 - **When a change touches logic that is still in Kotlin,** put the new logic in C++ and leave Kotlin as a thin caller. Never add logic to Kotlin. The leftovers are listed under "Where the code breaks the architecture guide".
-- **Never build, compile, lint or test in an agent container.** Push to `claude/**` and let GitHub CI do it.
+- **Never build, compile or lint in an agent container,** and never run Gradle, the APK build or the emulator. Push to `claude/**` and let GitHub CI do it. The one exception: before every push, run `python3 tools/precheck.py` (about 20 s). It checks for conflict markers and brace balance, runs the three gates, and runs the native host tests the branch touches, taken from `android.yml`.
 
 ## Modules
 

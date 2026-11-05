@@ -10,6 +10,7 @@
 #include <functional>
 #include <numbers>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "sound/Harmony.hpp"
@@ -323,6 +324,185 @@ void testDeterministic() {
     CHECK(std::memcmp(&fa, &fb, sizeof fa) == 0, "two runs diverged");
 }
 
+
+// ---- Beat tracking on synthesized grooves ------------------------------------------------------------
+//
+// Drum-machine voices on a bar of four beats, so a groove states where its beats are and the tracker's
+// tempo and beat phase can be scored against them. Each voice is shaped like the real thing in the bands
+// the tracker hears: a kick sweeps 150 → 50 Hz with a short click, a bass note is a sustained 55 Hz sine
+// with its octave, hats are high-passed noise (closed: 12 ms, open: 100 ms), a snare is noise over a body.
+enum class Voice { kKick, kSnare, kClosedHat, kOpenHat, kBass };
+
+struct Part {
+    Voice voice;
+    double gain;
+    std::vector<double> beats;  // positions in the bar, in beats, 0 ≤ b < 4
+    double from = 0.0;          // seconds: the part plays only from here
+};
+
+struct Groove {
+    const char* name;
+    double bpm;
+    std::vector<Part> parts;
+    double seconds = 30.0;
+    double settle = 12.0;  // beats before this are not scored, and the tracker must have locked by then
+    double otherLevel = 0.0;  // another metrical level that also counts as right (half-time), BPM
+};
+
+double voiceAt(Voice v, double u, double white, double hp) {
+    switch (v) {
+        case Voice::kKick: {
+            const double phase = kTau * (50.0 * u + (100.0 / 30.0) * (1.0 - std::exp(-30.0 * u)));
+            return std::exp(-u * 18.0) * std::sin(phase) + 0.3 * std::exp(-u * 200.0) * std::sin(kTau * 3000.0 * u);
+        }
+        case Voice::kSnare:
+            return std::exp(-u * 20.0) * (0.7 * white + 0.3 * std::sin(kTau * 185.0 * u));
+        case Voice::kClosedHat:
+            return std::exp(-u * 80.0) * hp;
+        case Voice::kOpenHat:
+            return std::exp(-u * 10.0) * hp;
+        case Voice::kBass: {
+            const double env = std::min(1.0, u / 0.006) * (u < 0.2 ? 1.0 : std::exp(-(u - 0.2) * 60.0));
+            return env * (std::sin(kTau * 55.0 * u) + 0.4 * std::sin(kTau * 110.0 * u));
+        }
+    }
+    return 0.0;
+}
+
+struct GrooveSynth {
+    const Groove& g;
+    Noise noise;
+    double prevWhite = 0.0;
+
+    explicit GrooveSynth(const Groove& groove) : g(groove) {}
+    float at(double t) {
+        const double white = noise.next();
+        const double hp = 0.5 * (white - prevWhite);
+        prevWhite = white;
+        const double period = 60.0 / g.bpm;
+        const double bar = std::floor(t / (4.0 * period));
+        double v = 0.0;
+        for (const Part& p : g.parts) {
+            // The part's latest hit at or before t, in this bar or the last.
+            double last = -1.0;
+            for (double k : {bar - 1.0, bar}) {
+                for (double b : p.beats) {
+                    const double te = (4.0 * k + b) * period;
+                    if (te <= t && te >= p.from && te > last) last = te;
+                }
+            }
+            if (last >= 0.0 && t - last < 1.0) v += p.gain * voiceAt(p.voice, t - last, white, hp);
+        }
+        return static_cast<float>(v);
+    }
+};
+
+struct BeatScore {
+    float bpm = 0.0f;
+    double level = 0.0;     // the groove's level the reading is scored at, BPM
+    double lockAt = -1.0;   // the first beat trigger, s
+    int beats = 0;          // beat triggers after settle
+    int onBeat = 0;         // ... within 50 ms of a beat
+    int offBeat = 0;        // ... within 50 ms of the "and"
+    double phaseErr = 1.0;  // mean |beatPhase − true phase| after settle, in beats
+};
+
+BeatScore listen(const Groove& g) {
+    SoundEngine e(44100);
+    GrooveSynth synth(g);
+    const int rate = e.sampleRateHz();
+    std::vector<float> buf;
+    std::vector<double> beatTimes;
+    std::vector<std::pair<double, float>> phases;
+    GeodeSoundFrame f{};
+    BeatScore s;
+    int64_t done = 0;
+    for (int i = 1; i <= static_cast<int>(g.seconds * 60.0); i++) {
+        const int64_t end = std::llround(i * rate / 60.0);
+        buf.resize(static_cast<size_t>(2 * (end - done)));
+        for (int64_t k = done; k < end; k++) buf[2 * (k - done)] = buf[2 * (k - done) + 1] = synth.at(static_cast<double>(k) / rate);
+        e.write(buf.data(), static_cast<int>(end - done), 2);
+        done = end;
+        e.step(1.0f / 60.0f, f);
+        const double t = i / 60.0;
+        if (f.beat > 0.0f && s.lockAt < 0.0) s.lockAt = t;
+        if (t <= g.settle) continue;
+        if (f.beat > 0.0f) beatTimes.push_back(t);
+        phases.emplace_back(t, f.beatPhase);
+    }
+    s.bpm = f.bpm;
+    s.level = g.bpm;
+    if (g.otherLevel > 0.0 && std::fabs(std::log(s.bpm / g.otherLevel)) < std::fabs(std::log(s.bpm / g.bpm))) s.level = g.otherLevel;
+    const double period = 60.0 / s.level;
+    s.beats = static_cast<int>(beatTimes.size());
+    for (double t : beatTimes) {
+        if (std::fabs(std::remainder(t, period)) < 0.05) s.onBeat++;
+        if (std::fabs(std::remainder(t - 0.5 * period, period)) < 0.05) s.offBeat++;
+    }
+    double err = 0.0;
+    for (const auto& [t, phase] : phases) err += std::fabs(std::remainder(phase - t / period, 1.0));
+    s.phaseErr = phases.empty() ? 1.0 : err / static_cast<double>(phases.size());
+    std::printf("  %-26s %6.1f BPM read %7.2f  lock %5.2f s  %3d beats, %3d on, %3d on the and  phase err %.3f\n",
+                g.name, g.bpm, s.bpm, s.lockAt, s.beats, s.onBeat, s.offBeat, s.phaseErr);
+    return s;
+}
+
+// The groove is heard right: the tempo of one of its levels within 2 %, locked before scoring starts, a
+// beat trigger on nearly every beat and 90 % of them within 50 ms of the beat, and the beat phase a
+// fifth of a beat or less off on average.
+void checkGroove(const Groove& g) {
+    const BeatScore s = listen(g);
+    const double expected = (g.seconds - g.settle) * s.level / 60.0;
+    CHECK(std::fabs(s.bpm / s.level - 1.0) < 0.02, "%s: %.1f BPM read %.2f", g.name, g.bpm, s.bpm);
+    CHECK(s.lockAt > 0.0 && s.lockAt <= g.settle, "%s: locked at %.2f s (by %.0f s)", g.name, s.lockAt, g.settle);
+    CHECK(s.beats >= expected - 2.0, "%s: %d beats, %.0f expected", g.name, s.beats, expected);
+    CHECK(s.onBeat >= 0.9 * s.beats && s.offBeat == 0, "%s: %d beats, %d on the beat, %d on the and", g.name, s.beats, s.onBeat, s.offBeat);
+    CHECK(s.phaseErr < 0.1, "%s: beat phase off by %.3f of a beat on average", g.name, s.phaseErr);
+}
+
+// The fosfora study's two failures (PR #300, docs/research/fosfora/02-rhythm-structure.md §4), at 120 BPM:
+// a kick on every beat under an open hat on every "and" (the hat 20 dB down and level with the kick), and
+// a kick on 1 and 3 under a bass note on every "and", the bass quiet and loud.
+void testOffbeatGrooves() {
+    const std::vector<double> fours = {0, 1, 2, 3};
+    const std::vector<double> ands = {0.5, 1.5, 2.5, 3.5};
+    std::printf("off-beat grooves:\n");
+    for (double hat : {0.1, 0.5}) {
+        char name[48];
+        std::snprintf(name, sizeof name, "kick 1-4, open hat %.1f", hat);
+        checkGroove({name, 120.0, {{Voice::kKick, 0.8, fours}, {Voice::kOpenHat, hat, ands}}});
+    }
+    for (double bass : {0.15, 0.4}) {
+        char name[48];
+        std::snprintf(name, sizeof name, "kick 1+3, bass %.2f on and", bass);
+        checkGroove({name, 120.0, {{Voice::kKick, 0.8, {0, 2}}, {Voice::kBass, bass, ands}}});
+    }
+}
+
+// The regression set every tracker change must keep: the common shapes of a beat, one each.
+void testGrooveRegressions() {
+    const std::vector<double> fours = {0, 1, 2, 3};
+    const std::vector<double> eighths = {0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5};
+    const std::vector<double> ands = {0.5, 1.5, 2.5, 3.5};
+    std::printf("groove regressions:\n");
+    checkGroove({"four on the floor", 124.0, {{Voice::kKick, 0.8, fours}, {Voice::kSnare, 0.3, {1, 3}}, {Voice::kClosedHat, 0.15, eighths}}});
+    // Kick on 1 and the "and" of 3, snare on 2 and 4: the snare holds the grid.
+    checkGroove({"breakbeat", 96.0, {{Voice::kKick, 0.8, {0, 2.5}}, {Voice::kSnare, 0.4, {1, 3}}, {Voice::kClosedHat, 0.15, eighths}}});
+    // Hats on the 140 grid, the kick on 1 and the snare on 3: 140 or the felt 70 are both right.
+    Groove half{"half-time", 140.0, {{Voice::kKick, 0.8, {0}}, {Voice::kSnare, 0.4, {2}}, {Voice::kClosedHat, 0.15, eighths}}};
+    half.otherLevel = 70.0;
+    checkGroove(half);
+    const std::vector<double> swung = {0, 2.0 / 3.0, 1, 5.0 / 3.0, 2, 8.0 / 3.0, 3, 11.0 / 3.0};
+    checkGroove({"swung 8ths", 110.0, {{Voice::kKick, 0.8, {0, 2}}, {Voice::kSnare, 0.4, {1, 3}}, {Voice::kClosedHat, 0.2, swung}}});
+    // House: a kick on every beat and the bass on every "and".
+    checkGroove({"off-beat bass", 124.0, {{Voice::kKick, 0.8, fours}, {Voice::kBass, 0.3, ands}, {Voice::kClosedHat, 0.1, ands}}});
+    // Eight seconds of hats alone, then the kick: the grid lands on the kick once it comes.
+    Groove intro{"hat intro, then kick", 128.0, {{Voice::kClosedHat, 0.2, eighths}, {Voice::kKick, 0.8, fours, 8.0}}};
+    intro.seconds = 34.0;
+    intro.settle = 18.0;
+    checkGroove(intro);
+}
+
 }  // namespace
 
 int main() {
@@ -333,6 +513,8 @@ int main() {
     testBuildAndDrop();
     testSectionsReturn();
     testDeterministic();
+    testOffbeatGrooves();
+    testGrooveRegressions();
     if (failures == 0) std::printf("musical_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

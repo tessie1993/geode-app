@@ -441,6 +441,35 @@ void substepsKeepTheFluidAtTrueSpeed() {
     }
 }
 
+// #415 review: mutants of frameSimDt / substeps the checks above let through.
+void frameTimeSplitsAtTheEdges() {
+    using math::frameSimDt;
+    using math::kMaxSimStep;
+    using math::substeps;
+    // Kills: frameSimDt clamping to one step again (the pre-#383 rule) and the cap's factor off by one.
+    check(frameSimDt(1.0f / 24.0f) == 1.0f / 24.0f, "a 24 fps frame keeps all its time");
+    check(near(frameSimDt(INFINITY), 4.0f / 30.0f, 1e-6f) && near(frameSimDt(0.14f), 4.0f / 30.0f, 1e-6f),
+          "past four steps the frame is capped, an infinite one included");
+    // Kills: the "hair under 1" in substeps dropped: a 30 fps frame that the live clock measures a touch long
+    // (here 0.005 %) must stay one step, not split into two half steps.
+    const auto longThirty = substeps(kMaxSimStep * 1.00005f);
+    check(longThirty.count == 1, "a 30 fps frame a hair long stays one step");
+    // Kills: ceil turned into floor or round: 20 and 10 fps need 2 and 3 steps.
+    const auto at20 = substeps(1.0f / 20.0f);
+    check(at20.count == 2 && near(at20.step, 0.025f, 1e-6f), "20 fps is two steps of 25 ms");
+    const auto at10 = substeps(0.1f);
+    check(at10.count == 3 && near(at10.step, kMaxSimStep, 1e-6f), "10 fps is three full steps");
+    // Exactly four steps' worth is four steps; high refresh rates are one short step each.
+    check(substeps(4.0f * kMaxSimStep).count == math::kMaxSubsteps, "the cap itself is four steps");
+    for (int fps : {90, 120, 144}) {
+        const auto s = substeps(1.0f / static_cast<float>(fps));
+        check(s.count == 1 && near(s.step, 1.0f / static_cast<float>(fps), 1e-7f), "a high refresh frame is one step of its own length");
+    }
+    // Kills: the lower bound of the step count (1) lowered to 0: a tiny frame is one tiny step, never 0/0.
+    const auto tiny = substeps(1e-6f);
+    check(tiny.count == 1 && near(tiny.step, 1e-6f, 1e-9f), "a tiny frame is one tiny step");
+}
+
 }  // namespace
 
 int main() {
@@ -456,6 +485,7 @@ int main() {
     rk2HoldsAVortexOrbit();
     tiersDescendAndKeepTheLowEndCheap();
     substepsKeepTheFluidAtTrueSpeed();
+    frameTimeSplitsAtTheEdges();
     if (failures == 0) std::printf("fluid_math_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

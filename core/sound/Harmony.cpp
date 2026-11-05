@@ -88,18 +88,12 @@ void Harmony::detectScale() {
     // Every scale on every root against the slow chroma: how well it correlates with the scale, plus a pull toward a strong root and fifth, which is what tells the seven modes of
     // one note set apart (C Ionian and A Aeolian share every note; the music's home note does not).
     // Chromatic has no outside: its in-out term is zero, so it wins only when no scale fits at all.
-    // The fit reads the chroma capped at twice its mean, so a held drone or one loud bass note cannot decide
-    // the note set on its own: what matters is which classes sound at all, not how loud the loudest is.
-    // The pull toward a root reads it uncapped: among the modes of one note set, the loudest is home.
+    // Capped at twice the mean first, so a held drone or one loud bass note cannot decide the scale on its
+    // own: what matters is which classes sound at all, not how loud the loudest is.
     std::array<float, 12> c{};
     normalise(slow_, c.data());
-    // The home note is the one heard most, so its pull reads the chroma before the cap: capped, every
-    // sounding class of a pentatonic reads 1 and A minor pentatonic ties D suspended pentatonic (the same
-    // five notes) whatever the drone says.
-    const std::array<float, 12> heard = c;
-    float heardMean = 0.0f;
-    for (float v : heard) heardMean += v / 12.0f;
-    float mean = heardMean;
+    float mean = 0.0f;
+    for (float v : c) mean += v / 12.0f;
     for (float& v : c) v = std::min(1.0f, v / std::max(2.0f * mean, 1e-6f));
     mean = 0.0f;
     for (float v : c) mean += v / 12.0f;
@@ -129,8 +123,7 @@ void Harmony::detectScale() {
                 }
                 fit = dc > 1e-9f ? num / std::sqrt(dc * mm * (1.0f - mm) * 12.0f) : 0.0f;
             }
-            const float home = 0.5f * (heard[root] - heardMean) +
-                               ((mask & (1u << 7)) ? 0.25f * (heard[(root + 7) % 12] - heardMean) : 0.0f);
+            const float home = 0.5f * (c[root] - mean) + ((mask & (1u << 7)) ? 0.25f * (c[(root + 7) % 12] - mean) : 0.0f);
             const float score = fit + home;
             if (score > bestScore) {
                 bestScore = score;

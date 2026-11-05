@@ -4,6 +4,8 @@
 #include <chrono>
 #include <cmath>
 
+#include "scene/generator/GeneratorParams.hpp"
+#include "scene/generator/Pool.hpp"
 #include "util/Log.hpp"
 #include "viz/GlProber.hpp"
 
@@ -29,7 +31,9 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           [this] { return &notes_.uniforms(); }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity),
-      pcmDeliverScratch_(kPcmCapacity, 0.0f) {
+      pcmDeliverScratch_(kPcmCapacity, 0.0f),
+      generatorPool_(scene::generator::generatorPool()),
+      generatorParams_(scene::generator::generatorSchema()) {
     programCache_.install(cacheDir_);
 }
 
@@ -310,6 +314,7 @@ void Renderer::onSurfaceCreated() {
     fboA_.release();
     fboB_.release();
     bornFbo_.release();
+    for (Framebuffer& fbo : generatorFbos_) fbo.release();
     // The probe's names died with the old context; the limiter starts over on the new surface.
     outputProbe_.forget();
     flashLimiter_.reset();
@@ -455,6 +460,34 @@ bool Renderer::setScene(const std::string& sceneId) {
     return true;
 }
 
+void Renderer::setGenerator(int slot, const std::string& styleId) {
+    if (!generator_targets::validSlot(slot)) return;
+    if (!styleId.empty() &&
+        (std::find(generatorPool_.begin(), generatorPool_.end(), styleId) == generatorPool_.end() || !registry_.knows(styleId))) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(stateLock_);
+    generatorRequest_.slots[static_cast<size_t>(slot)].id = styleId;
+}
+
+void Renderer::setGeneratorPin(int slot, bool pinned) {
+    if (!generator_targets::validSlot(slot)) return;
+    std::lock_guard<std::mutex> lock(stateLock_);
+    generatorRequest_.slots[static_cast<size_t>(slot)].pinned = pinned;
+}
+
+void Renderer::setGeneratorPolicy(int policy) {
+    using scene::generator::Policy;
+    if (policy != static_cast<int>(Policy::OnlyMe) && policy != static_cast<int>(Policy::DirectorSwaps)) return;
+    std::lock_guard<std::mutex> lock(stateLock_);
+    generatorRequest_.policy = static_cast<Policy>(policy);
+}
+
+scene::generator::Assignment Renderer::generatorAssignment() const {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    return generatorRequest_;
+}
+
 void Renderer::setStyleSchedule(std::vector<StyleCue> cues, std::vector<std::string> beatCutIds, int everyBeats,
                                 const std::vector<std::string>& lockedIds) {
     StyleSchedule schedule;
@@ -522,6 +555,8 @@ void Renderer::trimScenes(const std::string& keepId) {
     }
     const auto pinned = [&](const std::string& id) {
         if (id == keepId || id == requestedId || id == layerId || id == bornSceneId_) return true;
+        // An assigned generator's instance is drawn every frame, into its own target.
+        if (generator_targets::pins(generatorKeys_, id)) return true;
         const Scene* s = builtScene(id);
         return s != nullptr && (s == activeScene_ || s == outgoingScene_ || s == layerScene_);
     };
@@ -624,7 +659,10 @@ Scene* Renderer::sceneFor(const std::string& id) {
 }
 
 std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
-    auto scene = registry_.create(id, quadVert_);
+    // A generator instance ("gen:<slot>:<style>") is its style built again, sized to its slot's target.
+    generator_targets::TargetSize size{renderWidth_, renderHeight_};
+    const bool generator = generatorTargetFor(id, size);
+    auto scene = registry_.create(generator_targets::styleOf(id), quadVert_);
     if (!scene) return nullptr;
     // Snapshot every cross-thread field this function needs in one lock, then
     // do all the (non-locked) scene setup below so no scene call happens
@@ -649,11 +687,16 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     scene->setCamera(&camera_.pose());
     scene->init();
     scene->setParams(initialParams);
-    scene->resize(renderWidth_, renderHeight_);
-    const std::string custom = customShaderFor(id);
+    scene->resize(size.width, size.height);
+    const std::string custom = customShaderFor(generator_targets::styleOf(id));
     if (!custom.empty()) scene->setFragmentSource(custom);
     if (!force.empty() || !dye.empty()) scene->setInjectionShaders(force, dye);
-    scene->setWindowSize(width_, height_);
+    // A generator's window is its own target: nothing of it is ever shown at the surface's size.
+    if (generator) {
+        scene->setWindowSize(size.width, size.height);
+    } else {
+        scene->setWindowSize(width_, height_);
+    }
     if (!textureDir.empty()) scene->setMilkTextureDir(textureDir);
     if (!goodPreset.empty()) scene->setMilkFallbackPreset(goodPreset);
     if (!preset.empty()) scene->queueMilkPreset(preset);
@@ -666,6 +709,9 @@ void Renderer::releaseScenes() {
     for (auto& entry : scenes_) entry.second->release();
     scenes_.clear();
     residency_.clear();
+    // The generator instances went with them; each is rebuilt (and sized) on its next frame.
+    generatorSizedScene_.fill(nullptr);
+    generatorSized_.fill({});
     activeScene_ = nullptr;
     outgoingScene_ = nullptr;
     layerScene_ = nullptr;

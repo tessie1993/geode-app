@@ -52,6 +52,7 @@ add_library(geode_core STATIC
     scene/camera/Drivers.cpp
     scene/camera/SceneCamera.cpp
     scene/generator/Assignment.cpp
+    scene/generator/AssignmentText.cpp
     scene/generator/GeneratorParams.cpp
     scene/generator/Pool.cpp
     signal/params/ParamSchema.cpp

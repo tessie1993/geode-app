@@ -1,17 +1,20 @@
 // Host tests for core/scene/generator (#471, #472): which styles can be generators (the pool), the
 // four slots, the assignment rule the director follows at sections and drops, and the generators'
-// param rows. Built and run by CI ("Native host tests" in .github/workflows/android.yml) with the
-// system compiler; no GL, no device.
+// param rows; then the renderer's pure rules (viz/GeneratorTargets: target sizes, instance keys, pins)
+// and the shell's text (AssignmentText). Built and run by CI ("Native host tests" in
+// .github/workflows/android.yml) with the system compiler; no GL, no device.
 #include <cstdio>
 #include <set>
 #include <string>
 #include <vector>
 
 #include "scene/generator/Assignment.hpp"
+#include "scene/generator/AssignmentText.hpp"
 #include "scene/generator/GeneratorParams.hpp"
 #include "scene/generator/Pool.hpp"
 #include "scene/generator/Slot.hpp"
 #include "viz/Catalogue.hpp"
+#include "viz/GeneratorTargets.hpp"
 
 using namespace geode::scene::generator;
 namespace catalogue = geode::viz::catalogue;
@@ -281,6 +284,94 @@ void testSchema() {
     check(schema.clamp(mixParam(Slot::Sky), -1.0f) == 0.0f, "mix clamps to 0");
 }
 
+void testText() {
+    Assignment a;
+    check(assignmentText(a) == "0\t\t0\n1\t\t0\n2\t\t0\n3\t\t0\npolicy\t0\n", "empty assignment's text");
+    a.slots[0] = {"plasma", true};
+    a.slots[3] = {"silk_web", false};
+    a.policy = Policy::DirectorSwaps;
+    const std::string t = assignmentText(a);
+    check(t == "0\tplasma\t1\n1\t\t0\n2\t\t0\n3\tsilk_web\t0\npolicy\t1\n", "slot lines in Slot order, then the policy");
+    Assignment back;
+    check(parseAssignmentText(t, back) && sameAssignment(a, back), "text round trip");
+    const Assignment empty;
+    check(parseAssignmentText(assignmentText(empty), back) && sameAssignment(empty, back), "empty round trip");
+    // Line order and CRLF do not matter; each slot and the policy exactly once does.
+    check(parseAssignmentText("policy\t1\r\n3\tsilk_web\t0\r\n2\t\t0\n1\t\t0\n0\tplasma\t1\n", back) && sameAssignment(a, back),
+          "any line order, CRLF");
+    const Assignment kept = back;
+    const char* bad[] = {
+        "",
+        "0\t\t0\n1\t\t0\n2\t\t0\npolicy\t0\n",                  // slot 3 missing
+        "0\t\t0\n1\t\t0\n2\t\t0\n3\t\t0\n",                     // policy missing
+        "0\t\t0\n0\t\t0\n1\t\t0\n2\t\t0\n3\t\t0\npolicy\t0\n",  // a slot twice
+        "0\t\t0\n1\t\t0\n2\t\t0\n3\t\t0\npolicy\t2\n",          // unknown policy
+        "0\t\t2\n1\t\t0\n2\t\t0\n3\t\t0\npolicy\t0\n",          // pin not a bit
+        "4\t\t0\n0\t\t0\n1\t\t0\n2\t\t0\n3\t\t0\npolicy\t0\n",  // no slot 4
+        "0\tx\n1\t\t0\n2\t\t0\n3\t\t0\npolicy\t0\n",            // pin field missing
+        "0\tx\t0\textra\n1\t\t0\n2\t\t0\n3\t\t0\npolicy\t0\n",  // a field too many
+        "sky\tx\t0\n1\t\t0\n2\t\t0\n3\t\t0\npolicy\t0\n",       // names are not slot numbers
+    };
+    for (const char* b : bad) {
+        Assignment out = kept;
+        check(!parseAssignmentText(b, out), "malformed text rejected");
+        check(sameAssignment(out, kept), "a rejected parse leaves the output alone");
+    }
+}
+
+void testTargets() {
+    namespace gt = geode::viz::generator_targets;
+    using geode::viz::ThermalTier;
+    const ThermalTier tiers[] = {ThermalTier::Full, ThermalTier::Eased, ThermalTier::Reduced, ThermalTier::Minimal};
+    // The camera plane fills the view at the render size, whatever the tier (that size is already scaled).
+    for (ThermalTier t : tiers) {
+        const auto s = gt::targetSize(Slot::CameraPlane, t, 1512, 3360);
+        check(s.width == 1512 && s.height == 3360, "plane = render size");
+    }
+    // Surfaces: square powers of two, 512 at most, never growing as the phone heats.
+    int last = 1 << 30;
+    for (ThermalTier t : tiers) {
+        for (Slot s : {Slot::Sky, Slot::Wall, Slot::Material}) {
+            const auto z = gt::targetSize(s, t, 1512, 3360);
+            check(z.width == z.height, "surface target is square");
+            check(z.width > 0 && (z.width & (z.width - 1)) == 0, "surface target is a power of two");
+            check(z.width <= 512, "surface target capped at 512");
+            check(z.width <= last, "a hotter tier never grows a surface target");
+        }
+        last = gt::targetSize(Slot::Sky, t, 1512, 3360).width;
+    }
+    check(gt::targetSize(Slot::Sky, ThermalTier::Full, 1512, 3360).width == 512, "a cool phone's sky is 512");
+    check(gt::targetSize(Slot::Sky, ThermalTier::Minimal, 1512, 3360).width < 512, "a hot phone's sky is smaller");
+    check(gt::targetSize(Slot::Wall, ThermalTier::Full, 300, 200).width == 256, "a small render's surface fits under it");
+    check(gt::targetSize(Slot::Material, ThermalTier::Full, 0, -5).width == 1, "a degenerate render size gives 1x1");
+    check(gt::targetSize(Slot::CameraPlane, ThermalTier::Full, 0, 0).width == 1, "a degenerate plane is 1x1");
+
+    check(gt::validSlot(0) && gt::validSlot(3) && !gt::validSlot(-1) && !gt::validSlot(4), "slot range");
+    // Instance keys: "gen:<slot name>:<id>", none for an empty slot, the style read back from the tail.
+    check(gt::instanceKey(Slot::Sky, "plasma") == "gen:sky:plasma", "sky key");
+    check(gt::instanceKey(Slot::CameraPlane, "silk_web") == "gen:plane:silk_web", "plane key");
+    check(gt::instanceKey(Slot::Wall, "").empty(), "no id, no key");
+    check(gt::instanceKey(Slot::Wall, "plasma") != gt::instanceKey(Slot::Material, "plasma"), "one instance per slot");
+    check(gt::isInstanceKey("gen:wall:plasma") && !gt::isInstanceKey("plasma") && !gt::isInstanceKey("ge"), "key test");
+    check(gt::styleOf("gen:material:acid_tv") == "acid_tv", "style of an instance key");
+    check(gt::styleOf("neon_chrome_sea") == "neon_chrome_sea", "style of a plain id is the id");
+    check(gt::styleOf("gen:broken").empty(), "a malformed key builds nothing");
+    for (const auto& id : generatorPool()) {
+        check(gt::styleOf(gt::instanceKey(Slot::Sky, id)) == id, "every pool id survives its key");
+    }
+
+    // Pins: exactly the assigned slots' instances.
+    Assignment a;
+    a.slots[0].id = "plasma";
+    a.slots[3].id = "silk_web";
+    const gt::Keys keys = gt::wantedKeys(a);
+    check(keys[0] == "gen:sky:plasma" && keys[1].empty() && keys[2].empty() && keys[3] == "gen:plane:silk_web", "wanted keys");
+    check(gt::pins(keys, "gen:sky:plasma") && gt::pins(keys, "gen:plane:silk_web"), "assigned instances pinned");
+    check(!gt::pins(keys, "plasma"), "the style's own scene is not pinned by its generator");
+    check(!gt::pins(keys, "gen:wall:plasma"), "another slot's instance is not pinned");
+    check(!gt::pins(keys, ""), "nothing pins the empty id");
+}
+
 }  // namespace
 
 int main() {
@@ -294,6 +385,8 @@ int main() {
     testDeterminism();
     testNeverPicksItsOwnId();
     testSchema();
+    testText();
+    testTargets();
     if (failures == 0) std::printf("generator_test: OK\n");
     return failures == 0 ? 0 : 1;
 }

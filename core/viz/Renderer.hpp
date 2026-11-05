@@ -14,11 +14,13 @@
 #include "sound/SoundEngine.hpp"
 #include "viz/Adsr.hpp"
 #include "scene/camera/SceneCamera.hpp"
+#include "scene/generator/Assignment.hpp"
 #include "viz/CameraRig.hpp"
 #include "viz/CompositePass.hpp"
 #include "viz/Director.hpp"
 #include "viz/FlashLimiter.hpp"
 #include "viz/Framebuffer.hpp"
+#include "viz/GeneratorTargets.hpp"
 #include "viz/GlProfile.hpp"
 #include "viz/Lfo.hpp"
 #include "viz/Macros.hpp"
@@ -125,6 +127,15 @@ public:
     // start of the next frame; see CompositePass.hpp for the pass itself. `pixels` is Android's
     // Bitmap.getPixels ARGB layout; null (or a non-positive size) clears the layer.
     void setUnderlayRgba(const uint32_t* pixels, int width, int height, int blend, float amount);
+    // Generators (#471, #472): which pool style each slot (scene::generator::Slot) shows, its pin and
+    // the policy. Any thread; the GL thread takes the assignment at the start of its next generator
+    // step, the way setLayer hands over the layer. An id outside the pool (Pool.hpp) or unknown to this
+    // build is ignored; "" empties the slot and releases its instance. A bad slot or policy is ignored.
+    void setGenerator(int slot, const std::string& styleId);
+    void setGeneratorPin(int slot, bool pinned);
+    void setGeneratorPolicy(int policy);
+    // The assignment as it stands (the user's choices plus any director swaps). Any thread.
+    scene::generator::Assignment generatorAssignment() const;
     ThermalGovernor& thermal() { return thermal_; }
     // Any thread: returns a copy (see Renderer.cpp) since fail() mutates lastError_ concurrently.
     std::string lastError() const;
@@ -189,6 +200,12 @@ private:
     void stepLiquid(Scene& scene, const SceneParams& p, float dt);
     // What forms at the vanishing point this frame; the scene target itself for Born = Live.
     GLuint drawBorn(Scene& scene, const SceneParams& p, float dt);
+    // Generators: steps each assigned slot's own instance once into its own target, then hands the
+    // textures and mixes to the active scene (Scene::setGenerators). Before any scene target is drawn.
+    void drawGenerators(Scene& active, const SceneParams& p, float dt);
+    // The target size of generator instance `id` when a slot wants it this frame (buildScene sizes a
+    // new instance with it instead of the render size); false for every other scene.
+    bool generatorTargetFor(const std::string& id, generator_targets::TargetSize& out) const;
     // Runs the liquid over the scene target; 0 when Liquid is off (the composite then reads the target).
     GLuint drawLiquid(Scene& scene, const SceneParams& p, float dt);
     bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off && liveLiquid_ != liquid::Mode::Paused; }
@@ -356,6 +373,26 @@ private:
     bool rippleOverlayOn_ = false;
     bool smearing_ = false;
 
+    // Generators (#471). The assignment the setters (and, from #472, the director) change, under
+    // stateLock_; the GL thread reads it once a frame in drawGenerators.
+    scene::generator::Assignment generatorRequest_;
+    // The pool setGenerator accepts (Pool.hpp), fixed for the process.
+    const std::vector<std::string> generatorPool_;
+    // GL thread only. Each slot's wanted instance key ("gen:<slot>:<id>", "" for none), pinned in
+    // trimScenes; its own target at its own size (GeneratorTargets.hpp); and the scene and size that
+    // target's instance was last sized for, so a tier change resizes it once and a rebuild is sized anew.
+    generator_targets::Keys generatorKeys_;
+    std::array<Framebuffer, scene::generator::kSlotCount> generatorFbos_{
+        Framebuffer{"genSky"}, Framebuffer{"genWall"}, Framebuffer{"genMaterial"}, Framebuffer{"genPlane"}};
+    std::array<const Scene*, scene::generator::kSlotCount> generatorSizedScene_{};
+    std::array<generator_targets::TargetSize, scene::generator::kSlotCount> generatorSized_{};
+    // The pins and policy last mirrored into generatorParams_.
+    scene::generator::Assignment generatorMirrored_;
+    // scene.generators.* (GeneratorParams.hpp): a slot shows at its mix's effective value, so a route can
+    // fade a generator; the pins and the policy are mirrored from the assignment.
+    signal::ParamStore generatorParams_;
+    // What the active scene samples: a stable address for the renderer's lifetime.
+    GeneratorTextures generatorTextures_;
     SceneParams displayedParams_;
     SceneParams lastFinalParams_;
     std::array<float, LfoEngine::kSlots> envRate_{};

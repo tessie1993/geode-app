@@ -595,4 +595,24 @@ object GeodeNative {
 
     /** The Cast stream's format into [out]: width, height, fps. */
     external fun castFormat(out: IntArray)
+
+    // Cast's live HLS timing (core/viz/frame/HlsSegments): media-time segment durations and the playlist.
+
+    /** Segments kept and listed (GEODE_HLS_WINDOW). */
+    const val HLS_WINDOW = 6
+
+    /** Seconds of media time the fragment (moof, with or without its mdat) plays, read with [init]'s timescales; 0 = unknown. */
+    external fun hlsFragmentSeconds(
+        init: ByteArray,
+        fragment: ByteArray,
+    ): Double
+
+    /** The live playlist for [durations] numbered from [firstSequence], or null until enough segments are listed. */
+    external fun hlsPlaylist(
+        firstSequence: Long,
+        durations: DoubleArray,
+        initUri: String,
+        segmentPrefix: String,
+        segmentSuffix: String,
+    ): String?
 }

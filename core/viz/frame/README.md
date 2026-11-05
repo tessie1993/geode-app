@@ -1,6 +1,6 @@
 # core/viz/frame (skeleton)
 
-Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md). Only the Cast frame clock is here so far.
+Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md). Only Cast's frame clock and HLS timing are here so far.
 
 **Owns:** the one frame function every surface runs (screen, PiP, second screen, wallpaper, dream, Studio preview, export, thumbnails), and the pieces it is built from.
 - `FrameCtx`: this frame's effective params (from `core/signal`), the sound frame and source snapshot, camera pose, touch, flow, palette LUT, knobs. Replaces the ~20 `Scene` setters (`setFlow`, `setPaletteLut`, `setTouchField`, `setCamera`, …; `core/viz/Scene.hpp:22-62`) and the `SceneHost` callbacks (`:65-76`).
@@ -16,6 +16,6 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 
 **fosfora:** `gpu/frame_prep.rs`, `gpu/frame_graph.rs` (`execute_and_composite`, "extracted … the headless scene renderer would have been a third copy"), `gpu/layer.rs` (`Layer`, `LayerStack`), `gpu/uniforms.rs` (append-only, layout-guarded).
 
-**Here now:** `FixedRateClock.hpp`, the fixed-rate frame clock Cast paces by (#572; `core/tests/cast_clock_test.cpp`).
+**Here now:** `FixedRateClock.hpp`, the fixed-rate frame clock Cast paces by (#572; `core/tests/cast_clock_test.cpp`), and `HlsSegments.hpp`, Cast's HLS segment durations from the fragments' media time and the playlist text (#656; `core/tests/hls_segments_test.cpp`).
 
 **Test that proves it:** the thumbnail render test (`StyleThumbnailRenderTest`) and an export of a fixed project produce the same frames before and after each move (pixel diff within tolerance).

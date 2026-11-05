@@ -1,10 +1,9 @@
 package dev.geode.cast
 
+import dev.geode.engine.bridge.GeodeNative
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.channels.WritableByteChannel
-import java.util.Locale
-import kotlin.math.ceil
 
 /**
  * The live HLS stream the TV plays, built from the fragmented MP4 that `FragmentedMp4Muxer` writes.
@@ -16,9 +15,11 @@ import kotlin.math.ceil
  * beyond each top-level box's size and type.
  *
  * Only the newest [WINDOW] segments are kept, in memory: a live playlist only ever names the last
- * few, and the receiver starts near the live edge. Wall-clock time between two finished segments is
- * their `#EXTINF`; the muxer cuts at the encoder's keyframes, one a second ([CastEncoder]), so that
- * is close to the media time and the receiver tolerates the difference on a live stream.
+ * few, and the receiver starts near the live edge. The timing is native (core/viz/frame/HlsSegments,
+ * #656): each segment's `#EXTINF` is the media time its fragment holds, read from its sample
+ * durations, never the wall time between two cuts (which follows how fast the encoder drained), and
+ * the playlist text, its `#EXT-X-TARGETDURATION` and when it is first served come from there too.
+ * This class only cuts, keeps and hands out bytes.
  *
  * Written from the encoder's drain thread, read from the server's threads: every access to the
  * segments goes through the monitor.
@@ -37,6 +38,8 @@ internal class LiveSegments(
     private var fragment: ByteArrayOutputStream? = null
     private val segments = ArrayDeque<Segment>()
     private var nextSequence = 0L
+
+    /** Wall time of the last cut, for [msSinceLastSegment] (the freeze watchdog) only, never for timing. */
     private var lastCutMs = 0L
     private var open = true
 
@@ -100,9 +103,8 @@ internal class LiveSegments(
     }
 
     private fun publish(bytes: ByteArray) {
-        val now = nowMs()
-        val duration = ((now - lastCutMs).coerceAtLeast(1L)) / MS_PER_SEC
-        lastCutMs = now
+        lastCutMs = nowMs()
+        val duration = init?.let { GeodeNative.hlsFragmentSeconds(it, bytes) } ?: 0.0
         segments.addLast(Segment(nextSequence++, bytes, duration))
         while (segments.size > WINDOW) segments.removeFirst()
     }
@@ -117,27 +119,12 @@ internal class LiveSegments(
     @Synchronized
     fun segment(sequence: Long): ByteArray? = segments.firstOrNull { it.sequence == sequence }?.bytes
 
-    /**
-     * The live media playlist, or null until there is enough to start on: the receiver's player
-     * starts [START_SEGMENTS] from the live edge, and a playlist shorter than that stalls it.
-     */
+    /** The live media playlist, or null until there is enough for the receiver to start on (native). */
     @Synchronized
     fun playlist(): String? {
-        if (init == null || segments.size < START_SEGMENTS) return null
-        val target =
-            ceil(segments.maxOf { it.durationSec })
-                .toInt()
-                .coerceAtLeast(1)
-        return buildString {
-            append("#EXTM3U\n#EXT-X-VERSION:7\n")
-            append("#EXT-X-TARGETDURATION:").append(target).append('\n')
-            append("#EXT-X-MEDIA-SEQUENCE:").append(segments.first().sequence).append('\n')
-            append("#EXT-X-MAP:URI=\"").append(INIT_NAME).append("\"\n")
-            segments.forEach {
-                append("#EXTINF:").append(String.format(Locale.ROOT, "%.3f", it.durationSec)).append(",\n")
-                append(SEGMENT_PREFIX).append(it.sequence).append(SEGMENT_SUFFIX).append('\n')
-            }
-        }
+        if (init == null || segments.isEmpty()) return null
+        val durations = DoubleArray(segments.size) { segments[it].durationSec }
+        return GeodeNative.hlsPlaylist(segments.first().sequence, durations, INIT_NAME, SEGMENT_PREFIX, SEGMENT_SUFFIX)
     }
 
     companion object {
@@ -146,14 +133,10 @@ internal class LiveSegments(
         const val SEGMENT_PREFIX = "seg"
         const val SEGMENT_SUFFIX = ".m4s"
 
-        /** Segments kept and listed: about six seconds at one-second fragments. */
-        const val WINDOW = 6
-
-        /** HLS players start three segments back from the live edge. */
-        const val START_SEGMENTS = 3
+        /** Segments kept and listed: about six seconds at one-second fragments (native, GEODE_HLS_WINDOW). */
+        const val WINDOW = GeodeNative.HLS_WINDOW
 
         private const val BOX_HEADER = 8
-        private const val MS_PER_SEC = 1000.0
 
         /** A box's size, reading the 64-bit `largesize` when the 32-bit field is 1; -1 if not all here. */
         private fun boxSize(

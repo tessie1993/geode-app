@@ -171,8 +171,8 @@ internal fun AppSettingsTab(
     onOpenStudioRender: () -> Unit,
     onPlayTutorial: (List<TutorialChapter>) -> Unit,
     onResetTutorials: () -> Unit,
-    requestedTab: Int? = null,
-    onRequestedTabShown: () -> Unit = {},
+    requestedGroup: SettingsGroupKey? = null,
+    onRequestedGroupShown: () -> Unit = {},
 ) {
     var groupName by rememberSaveable { mutableStateOf<String?>(null) }
     // The open sections, as "GROUP/SECTION" names joined by ",", across every group: a group
@@ -275,8 +275,6 @@ private fun SettingsGroupPage(
     onOpenStudioRender: () -> Unit,
     onPlayTutorial: (List<TutorialChapter>) -> Unit,
     onResetTutorials: () -> Unit,
-    requestedGroup: SettingsGroupKey? = null,
-    onRequestedGroupShown: () -> Unit = {},
 ) {
     val settings: SettingsViewModel = geodeViewModel()
     // Behaviour and Visuals write the same prefs file; one copy for the page, read once on IO.

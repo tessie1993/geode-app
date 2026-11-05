@@ -128,9 +128,11 @@ float map(vec3 p) {
         vec4 A = gRingA[i];
         vec4 B = gRingB[i];
         // A true lower bound on the distance to this ring: its radial band
-        // (chaos can stretch a petal by 28 %) and its height band.
-        float top = B.x + A.y * B.y + 0.03;
-        float lb = max(max(A.x - r, r - A.x - A.y * 1.3), max(B.x - BL_THICK - q.y, q.y - top - BL_THICK));
+        // and its height band, both at the longest petal chaos can make
+        // (gChaos reaches 3 with Texture up, a 42 % stretch).
+        float stretch = 1.0 + 0.14 * gChaos;
+        float top = B.x + A.y * stretch * B.y + 0.03;
+        float lb = max(max(A.x - r, r - A.x - A.y * stretch), max(B.x - BL_THICK - q.y, q.y - top - BL_THICK));
         if (lb > best) continue;
 
         float ak = a - A.w - gCurl * (r - A.x);

@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <limits>
 #include <random>
 #include <string>
 #include <vector>
@@ -727,10 +728,11 @@ void testSchemaEdges() {
 }
 
 void testStateEdges() {
-    // Kills: `!(seconds > 0)` → `seconds <= 0` (a NaN duration would glide forever toward NaN).
+    // Answered in #413 (47c446e): a NaN duration is rejected, not landed at once as before; the param stays put.
+    // Kills: validGlide's isfinite dropped (glide() would land the NaN glide at once on 2.0).
     ParamCell c = restingCell(kDef);
-    apply(c, ParamInput::glideTo(2.0f, NAN), kDef);
-    check(c.phase == ParamPhase::Rest && near(c.base, 2.0f), "a glide with a NaN duration lands at once");
+    check(apply(c, ParamInput::glideTo(2.0f, NAN), kDef) == Outcome::Rejected && c.phase == ParamPhase::Rest && near(c.base, 1.0f),
+          "a glide with a NaN duration is rejected and leaves the param where it was");
 
     // Kills: the Smooth ease ignored (linear would be at 1.5): smoothstep(0.25) = 3/16 - 2/64 = 0.15625.
     c = restingCell(kDef);
@@ -1375,6 +1377,123 @@ void testRouteEdges() {
     }
 }
 
+// ---- #413's answers (47c446e): the boundaries next to its own testBadGlides, testOriginChecks, testTimeGoingBack ----
+
+// A GlideTo or Reset of negative or non-finite seconds is rejected; 0 is valid and lands at once.
+void testGlideLengthEdges() {
+    // Kills: negativity tested by the sign bit (std::signbit) instead of by value: -0.0 equals 0, so it lands at once.
+    for (float zero : {0.0f, -0.0f}) {
+        const std::string name = std::signbit(zero) ? "-0" : "0";
+        ParamCell g = restingCell(kDef);
+        check(apply(g, ParamInput::glideTo(2.0f, zero), kDef) == Outcome::Applied && g.phase == ParamPhase::Rest && near(g.base, 2.0f),
+              "a glide of " + name + " s from rest lands at once");
+        ParamCell r = inPhase(ParamPhase::Glide);
+        check(apply(r, ParamInput::reset(zero, Origin::Preset), kDef) == Outcome::Applied && r.phase == ParamPhase::Rest &&
+                  near(r.base, 1.0f),
+              "a reset of " + name + " s lands on the default at once");
+    }
+    // Kills: a tolerance on the sign (`seconds > -eps` or `>= -eps`): the smallest negative float is still negative.
+    const float tinyNegative = -std::numeric_limits<float>::denorm_min();
+    ParamCell c = restingCell(kDef);
+    check(apply(c, ParamInput::glideTo(2.0f, tinyNegative), kDef) == Outcome::Rejected && c.phase == ParamPhase::Rest && near(c.base, 1.0f),
+          "a glide of the smallest negative float is rejected");
+    c = inPhase(ParamPhase::Glide);
+    check(apply(c, ParamInput::reset(tinyNegative, Origin::Preset), kDef) == Outcome::Rejected && c.phase == ParamPhase::Glide &&
+              near(c.committed, 2.0f),
+          "a reset of the smallest negative float is rejected and the running glide goes on");
+    // Kills: the finiteness check written as an upper bound (`seconds < FLT_MAX`): the longest finite glide is real seconds.
+    c = restingCell(kDef);
+    check(apply(c, ParamInput::glideTo(2.0f, std::numeric_limits<float>::max()), kDef) == Outcome::Applied &&
+              c.phase == ParamPhase::Glide && near(c.committed, 2.0f),
+          "the longest finite glide is accepted and glides");
+    // Kills: the length check applied to every kind (validGlide without its GlideTo/Reset filter): a Set's or a
+    // Drive's seconds mean nothing, so a hand-built one with a NaN or negative seconds still applies.
+    for (float bad : {NAN, -1.0f}) {
+        ParamCell s = restingCell(kDef);
+        check(apply(s, ParamInput{ParamInput::Kind::Set, Origin::Preset, 2.0f, bad, Ease::Smooth}, kDef) == Outcome::Applied &&
+                  near(s.base, 2.0f),
+              "a set ignores its seconds (" + std::to_string(bad) + ")");
+        ParamCell d = restingCell(kDef);
+        check(apply(d, ParamInput{ParamInput::Kind::Drive, Origin::Timeline, 0.0f, bad, Ease::Smooth}, kDef) == Outcome::Applied &&
+                  d.phase == ParamPhase::Driven,
+              "a drive ignores its seconds (" + std::to_string(bad) + ")");
+    }
+}
+
+// Hold checks its origin, but where the table says "-" (a second hold under a finger) the input means nothing,
+// so it is ignored whoever sends it, never rejected.
+void testOriginEdges() {
+    for (Origin o : {Origin::Preset, Origin::Timeline, Origin::Engine}) {
+        // Kills: Hold's origin check hoisted above the phase table (a non-user hold on a held param would be Rejected).
+        ParamCell h = inPhase(ParamPhase::Held);
+        check(apply(h, ParamInput{ParamInput::Kind::Hold, o, 0.0f, 0.0f, Ease::Smooth}, kDef) == Outcome::Ignored &&
+                  h.phase == ParamPhase::Held,
+              "a second hold under a finger is ignored whoever sends it");
+    }
+}
+
+// Time before a param's last pulse is a new clock for that param alone; the same instant is not.
+void testNewClockEdges() {
+    // Kills: `timeS < last` → `<=` on a plain param: two snares at one instant are one clock, so both play.
+    {
+        ParamStore store(schema());
+        EventRoutes routes(store);
+        routes.add({EventFilter::of({EventKind::Snare}), 1, kZoom, {ActionKind::Pulse, 0.5f, 0.5f}});
+        routes.onEvent(Event{EventKind::Snare, 1.0f, 0, 1.0});
+        routes.onEvent(Event{EventKind::Snare, 1.0f, 0, 1.0});
+        check(routes.livePulses() == 2, "two pulses at the same instant both play");
+    }
+    {
+        ParamStore store(schema());
+        EventRoutes routes(store);
+        routes.add({EventFilter::of({EventKind::Kick}), 1, kBrightness, {ActionKind::Pulse, 0.4f, 0.5f}});
+        routes.onEvent(Event{EventKind::Kick, 1.0f, 0, 1.0});
+        routes.onEvent(Event{EventKind::Kick, 1.0f, 0, 1.0});
+        // Kills: `<` → `<=` on a luminance param (the same instant would re-arm the flash limit).
+        check(routes.pulsesLimited() == 1 && routes.livePulses() == 1, "a second kick at the same instant is a flash too many");
+        // Kills: the reset dropped, or a tolerance on it (`timeS < last - eps`): the smallest step back is a new clock,
+        // and its first pulse replaces the old clock's (dropping only `last = kNever` or only the erase fails too).
+        routes.onEvent(Event{EventKind::Kick, 1.0f, 0, std::nextafter(1.0, 0.0)});
+        check(routes.pulsesLimited() == 1 && routes.livePulses() == 1, "time back by the smallest step starts a new clock");
+    }
+    // Kills: a new clock on one param clearing every param's pulses or flash history.
+    {
+        ParamStore store(schema());
+        EventRoutes routes(store);
+        routes.add({EventFilter::of({EventKind::Kick}), 1, kBrightness, {ActionKind::Pulse, 0.4f, 0.5f}});
+        routes.add({EventFilter::of({EventKind::Snare}), 1, kZoom, {ActionKind::Pulse, 0.5f, 0.5f}});
+        routes.onEvent(Event{EventKind::Kick, 1.0f, 0, 1.0});
+        routes.onEvent(Event{EventKind::Snare, 1.0f, 0, 2.0});
+        routes.onEvent(Event{EventKind::Snare, 1.0f, 0, 0.5});  // zoom's clock goes back; brightness's does not
+        routes.onEvent(Event{EventKind::Kick, 1.0f, 0, 1.1});
+        check(routes.pulsesLimited() == 1, "brightness keeps its flash clock while zoom starts a new one");
+        check(routes.livePulses() == 2, "and keeps its pulse: brightness at 1.0 and zoom at 0.5 play");
+    }
+    // Kills: `!std::isfinite(timeS)` → `std::isnan(timeS)`: an infinite time would start a flash, and +inf would leave
+    // every later kick "before" it, a new clock each time, so the limit would never hold again.
+    for (double t : {std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity()}) {
+        ParamStore store(schema());
+        EventRoutes routes(store);
+        routes.add({EventFilter::of({EventKind::Kick}), 1, kBrightness, {ActionKind::Pulse, 0.4f, 0.5f}});
+        routes.onEvent(Event{EventKind::Kick, 1.0f, 0, t});
+        const bool dropped = routes.pulsesLimited() == 1 && routes.livePulses() == 0;
+        routes.onEvent(Event{EventKind::Kick, 1.0f, 0, 1.0});
+        routes.onEvent(Event{EventKind::Kick, 1.0f, 0, 1.1});
+        check(dropped && routes.pulsesLimited() == 2 && routes.livePulses() == 1,
+              "a luminance pulse at an infinite time is dropped and the limit still holds after (" + std::to_string(t) + ")");
+    }
+    // Kills: a non-finite time dropped on every param: a plain param still pulses, and its clock is left alone.
+    {
+        ParamStore store(schema());
+        EventRoutes routes(store);
+        routes.add({EventFilter::of({EventKind::Snare}), 1, kZoom, {ActionKind::Pulse, 0.5f, 0.5f}});
+        routes.onEvent(Event{EventKind::Snare, 1.0f, 0, 2.0});
+        routes.onEvent(Event{EventKind::Snare, 1.0f, 0, NAN});
+        routes.onEvent(Event{EventKind::Snare, 1.0f, 0, 2.0});
+        check(routes.livePulses() == 3 && routes.pulsesLimited() == 0, "a plain param pulses at a NaN time and keeps its clock");
+    }
+}
+
 // Seeded random sound frames through the whole chain: the same seed gives bit-identical params, every value
 // stays in its range, and the flash limit holds over the whole run.
 std::vector<float> runSeeded(std::uint32_t seed, std::uint32_t& limitedOut, bool& inRange) {
@@ -1463,6 +1582,9 @@ int main() {
     testSoundEventEdges();
     testBusEdges();
     testRouteEdges();
+    testGlideLengthEdges();
+    testOriginEdges();
+    testNewClockEdges();
     testSeededDeterminism();
     if (failures == 0) std::printf("signal_test: all passed\n");
     return failures == 0 ? 0 : 1;

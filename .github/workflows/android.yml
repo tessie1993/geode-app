@@ -188,6 +188,12 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/scene_movement_test.cpp core/scene/movement/*.cpp \
             core/signal/params/*.cpp -o scene_movement_test
           ./scene_movement_test
+          # Scene objects (#515): the pool cap and its eviction rule, the lifecycle (birth, age, fades, death
+          # triggers, Fade/Collapse/Burst exits), spawners per trigger and per seed, every property a route
+          # target, camera targets, and the same objects at 30/60/120 fps.
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/scene_object_test.cpp core/scene/object/*.cpp \
+            core/signal/params/*.cpp -o scene_object_test
+          ./scene_object_test
           # The fluid engine: multigrid pressure plan, MacCormack, splat batching, heat, tracers, tiers.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/fluid_math_test.cpp core/viz/fluid/FluidMath.cpp -o fluid_math_test
           ./fluid_math_test

@@ -58,6 +58,11 @@ add_library(geode_core STATIC
     scene/movement/MovementParams.cpp
     scene/movement/Shape.cpp
     scene/movement/Split.cpp
+    scene/object/Object.cpp
+    scene/object/ObjectParams.cpp
+    scene/object/ObjectPool.cpp
+    scene/object/ObjectSystem.cpp
+    scene/object/Spawner.cpp
     signal/params/ParamSchema.cpp
     signal/params/ParamState.cpp
     signal/params/ParamStore.cpp

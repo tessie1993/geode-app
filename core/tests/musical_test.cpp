@@ -118,7 +118,7 @@ void testClickTracks() {
         int aligned = 0;
         int downs = 0;
         int downAligned = 0;
-        std::string trail;  // every downbeat and musical event after 6 s, printed only on a failure
+        std::string trail;  // every downbeat and musical event, printed only on a failure
         GeodeSoundFrame last{};
         const int rate = e.sampleRateHz();
         std::vector<float> buf;
@@ -139,6 +139,14 @@ void testClickTracks() {
             done = end;
             e.step(1.0f / 60.0f, last);
             const double t = i / 60.0;
+            // The trail covers the whole run (beat count in brackets), so a failure shows where the bar
+            // stood before the checked stretch and what moved it.
+            if (last.downbeat > 0.0f || last.harmonicChange > 0.0f || last.drop > 0.0f || last.sectionChange > 0.0f) {
+                const char* what = last.downbeat > 0.0f ? "down" : last.drop > 0.0f ? "drop" : last.sectionChange > 0.0f ? "section" : "harm";
+                char at[64];
+                std::snprintf(at, sizeof at, " %s %.3f[%.0f] (%+.3f)", what, t, last.beatCount, std::remainder(t, 4.0 * period));
+                trail += at;
+            }
             if (t <= 10.0) continue;
             if (last.beat > 0.0f) {
                 beats++;
@@ -146,16 +154,7 @@ void testClickTracks() {
             }
             if (last.downbeat > 0.0f) {
                 downs++;
-                const double off = std::remainder(t, 4.0 * period);
-                if (std::fabs(off) < 0.05) downAligned++;
-                char at[48];
-                std::snprintf(at, sizeof at, " down %.3f (%+.3f)", t, off);
-                trail += at;
-            }
-            if (t > 6.0 && (last.harmonicChange > 0.0f || last.drop > 0.0f || last.sectionChange > 0.0f)) {
-                char at[64];
-                std::snprintf(at, sizeof at, " %s %.3f", last.drop > 0.0f ? "drop" : last.sectionChange > 0.0f ? "section" : "harm", t);
-                trail += at;
+                if (std::fabs(std::remainder(t, 4.0 * period)) < 0.05) downAligned++;
             }
         }
         const int expected = static_cast<int>(10.0 / period);

@@ -11,8 +11,8 @@ namespace geode::sound {
 //
 // It runs at a fixed hop of 10 ms of audio (441 samples at 44.1 kHz), driven from SoundEngine::write(),
 // not from the frame: everything it knows is a function of the samples alone, so the screen at 60 fps,
-// a phone dropping to 40 and an export stepping at 1/30 s hear the same beats in the same places. step()
-// only reads where the oscillator is now.
+// a phone dropping to 40 and an export stepping at 1/30 s hear the same beats in the same places. Its hop
+// is the whole sound engine's analysis hop; SoundEngine::step() only reads where the oscillator is now.
 //
 //   band powers ─► dB against one shared reference ─► positive change (20 ms) ─► mean ─► onset envelope
 //      (librosa's onset_strength; each band's log over its own mean still feeds the drum accents)
@@ -48,6 +48,9 @@ public:
     // Fills the rhythm fields. `sinceHop` is how many samples were written after the last hop, so the
     // phases land on the frame's own instant; `hitTime` is the fallback clock while unlocked.
     void read(int sinceHop, float hitTime, GeodeSoundFrame& out);
+    // Only the beat, bar and phrase phases, `sinceHop` samples after the last hop: the sound engine reads
+    // the rest at the hop and moves these on to each frame's own sample.
+    void phases(int sinceHop, float hitTime, GeodeSoundFrame& out) const;
     // The beats passed since the last read, oldest first (read() empties it).
     int ticks(const Tick*& out) const {
         out = ticks_.data();

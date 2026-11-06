@@ -3,7 +3,7 @@
 
 namespace geode::viz {
 
-// Port of GlUtil.FullscreenTriangle: one VAO/VBO holding the (-1,-1) (3,-1) (-1,3) triangle on attribute 0.
+// Port of the old Kotlin GlUtil.FullscreenTriangle (deleted, #603): one VAO/VBO holding the (-1,-1) (3,-1) (-1,3) triangle on attribute 0.
 class FullscreenTriangle {
 public:
     ~FullscreenTriangle() { release(); }

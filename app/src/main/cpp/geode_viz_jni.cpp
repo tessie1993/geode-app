@@ -376,9 +376,11 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetAdsr(JNIEnv* env, jobject, jlong 
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizFrameBegin(JNIEnv*, jobject, jlong handle, jfloat pacedFps,
                                                        jfloat renderScale, jfloat marchScale, jboolean postFx,
-                                                       jboolean adaptive, jint liquidHotPolicy) {
+                                                       jboolean adaptive, jint liquidHotPolicy, jlong paramsVersion,
+                                                       jlong lfoVersion, jlong adsrVersion, jlong tuningVersion) {
     return geode_viz_frame_begin(vizOf(handle), pacedFps, renderScale, marchScale, postFx == JNI_TRUE ? 1 : 0,
-                                 adaptive == JNI_TRUE ? 1 : 0, liquidHotPolicy);
+                                 adaptive == JNI_TRUE ? 1 : 0, liquidHotPolicy, paramsVersion, lfoVersion,
+                                 adsrVersion, tuningVersion);
 }
 
 JNIEXPORT void JNICALL
@@ -485,6 +487,11 @@ Java_dev_geode_engine_bridge_GeodeNative_vizCut(JNIEnv*, jobject, jlong handle) 
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizRender(JNIEnv*, jobject, jlong handle, jdouble timeSeconds, jint targetFbo) {
     geode_viz_render(vizOf(handle), timeSeconds, static_cast<uint32_t>(targetFbo));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizPrepareOffscreen(JNIEnv*, jobject, jlong handle) {
+    geode_viz_prepare_offscreen(vizOf(handle));
 }
 
 JNIEXPORT void JNICALL
@@ -692,6 +699,17 @@ Java_dev_geode_engine_bridge_GeodeNative_exportSeamBudgetedCrossfadeMs(JNIEnv*, 
                                                                       jint crossfadeFrames, jint fps, jint width,
                                                                       jint height) {
     return geode_export_seam_budgeted_crossfade_ms(crossfadeMs, crossfadeFrames, fps, width, height);
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportLoopProgress(JNIEnv*, jobject, jint stop, jint stops, jint frame,
+                                                           jint loopFrames, jint seamFrames) {
+    return geode_export_loop_progress(stop, stops, frame, loopFrames, seamFrames);
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportLoopReportedCrossfadeMs(JNIEnv*, jobject, jint seamFrames, jint fps) {
+    return geode_export_loop_reported_crossfade_ms(seamFrames, fps);
 }
 
 JNIEXPORT jlong JNICALL

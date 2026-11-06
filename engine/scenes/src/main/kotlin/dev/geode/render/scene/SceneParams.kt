@@ -211,6 +211,8 @@ data class SceneParams(
     val liquidAge: Int = 0,
     /** Liquid mode: the liquid's surface. 0 ink, 1 wet gloss, 2 glass. */
     val liquidSurface: Int = 0,
+    /** Camera travel on the flat styles: how far Fly speed (its sign too) dives the picture in or out. 0 off .. 1. */
+    val camFlat: Float = 0f,
 ) {
     companion object {
         const val UNSET_OVERRIDE: Float = -1f
@@ -267,7 +269,7 @@ data class SceneParams(
         val CYMATICS_GEOMETRIES: List<String> = listOf("Water dish", "Chladni plate")
 
         /** camPath values, in order; mirrors CameraRig::pathPoint. */
-        val CAMERA_PATHS: List<String> = listOf("Glide", "Spiral", "Orbit", "Hover")
+        val CAMERA_PATHS: List<String> = listOf("Glide", "Spiral", "Orbit", "Hover", "Drive", "Fall", "Rise")
     }
 
     val usesCustomPalette: Boolean

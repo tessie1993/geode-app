@@ -5,6 +5,7 @@
 #include <cmath>
 #include <utility>
 
+#include "sound/Tuning.hpp"
 #include "util/Log.hpp"
 #include "viz/GlProber.hpp"
 #include "viz/ShaderOverrides.hpp"
@@ -28,7 +29,7 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           [this](const std::string& path) { notePresetLoaded(path); },
                           // The user's march scale under the thermal ladder's (ADR 0008: march is its third rung).
                           [this] { return marchScale_.load(std::memory_order_relaxed) * thermal_.tierInfo().marchScale; },
-                          [this] { return &notes_.uniforms(); },
+                          [this] { return &resolver_.noteUniforms(); },
                           [this] {
                               return directorPinned_.load(std::memory_order_acquire)
                                          ? pinnedDirectorSeed_.load(std::memory_order_relaxed)
@@ -81,8 +82,8 @@ void Renderer::setTransition(const std::string& id, int64_t durationMs) {
 void Renderer::beginParamMorph(float seconds) {
     if (seconds <= 0.0f) return;
     std::lock_guard<std::mutex> lock(stateLock_);
-    morphFadeSec_ = seconds;
-    morphRemainSec_ = seconds * 3.0f;
+    morphRequested_ = true;
+    morphRequestSec_ = seconds;
 }
 
 void Renderer::pushPcm(const float* samples, int count) {
@@ -108,8 +109,9 @@ void Renderer::resetAudio() {
 
 void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
     std::lock_guard<std::mutex> lock(soundLock_);
-    soundTuning_ = tuning;
-    if (sound_) sound_->setTuning(macros::tuning(tuning, tunedKnobs_));
+    // Clamped before the macros scale it, so a NaN Reactivity is the default one turned, not a NaN.
+    soundTuning_ = sound::tuning::clamp(tuning);
+    if (sound_) sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
 }
 
 double Renderer::monotonicSeconds() {
@@ -258,17 +260,20 @@ void Renderer::applyUnderlayUpload() {
 
 void Renderer::setLfoConfigs(const std::array<LfoConfig, LfoEngine::kSlots>& configs) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    lfo_.configs = configs;
+    lfoConfigs_ = configs;
+    lfoConfigsDirty_ = true;
 }
 
 void Renderer::setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& configs) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    adsr_.configs = configs;
+    adsrConfigs_ = configs;
+    adsrConfigsDirty_ = true;
 }
 
 void Renderer::setReactionRoutes(const std::array<ReactRoute, ReactionEngine::kRoutes>& routes) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    reactions_.routes = routes;
+    reactionRoutes_ = routes;
+    reactionRoutesDirty_ = true;
 }
 
 void Renderer::fail(const std::string& message) {
@@ -394,11 +399,7 @@ void Renderer::onSurfaceCreated() {
     glGenVertexArrays(1, &quadVao_);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     lastTimeS_ = -1.0;
-    motionField_.reset();
-    reactions_.reset();
-    macroReactions_.reset();
-    director_.reset();
-    notes_.reset();
+    resolver_.reset();
     camera_.reset();
 }
 

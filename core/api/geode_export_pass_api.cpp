@@ -100,7 +100,6 @@ void geode_export_watermark_draw(geode_export_pass* h, int frame_w, int frame_h)
     if (auto* p = as<WatermarkPass>(h)) run(*p, {}, {0u, frame_w, frame_h});
 }
 
-float geode_export_seam_weight(int tail, int seam_frames) { return exportmath::seam::weight(tail, seam_frames); }
 
 geode_export_pass* geode_export_seam_create(AAssetManager* assets, int width, int height) {
     auto* h = make<SeamPass>(assets);
@@ -147,6 +146,14 @@ int64_t geode_export_seam_frame(geode_export_pass* h, int frame, int loop_frames
 
 int64_t geode_export_seam_budgeted_crossfade_ms(int64_t crossfade_ms, int crossfade_frames, int fps, int width, int height) {
     return loopseam::budgetedCrossfadeMs(crossfade_ms, crossfade_frames, fps, width, height);
+}
+
+float geode_export_loop_progress(int stop, int stops, int frame, int loop_frames, int seam_frames) {
+    return loopseam::progress(stop, stops, frame, loop_frames, seam_frames);
+}
+
+int64_t geode_export_loop_reported_crossfade_ms(int seam_frames, int fps) {
+    return loopseam::reportedCrossfadeMs(seam_frames, fps);
 }
 
 geode_export_pass* geode_export_transition_create(AAssetManager* assets, const char* id, int64_t duration_us) {

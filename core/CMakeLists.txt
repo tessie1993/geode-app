@@ -16,6 +16,7 @@ add_library(geode_core STATIC
     sound/Harmony.cpp
     sound/Rhythm.cpp
     sound/SoundEngine.cpp
+    sound/Tuning.cpp
     library/Tags.cpp
     library/Search.cpp
     audio/dsp/DspProcessor.cpp
@@ -25,6 +26,7 @@ add_library(geode_core STATIC
     audio/dsp/PcmResampler.cpp
     audio/dsp/Loudness.cpp
     api/geode_export_dsp_api.cpp
+    signal/Resolver.cpp
     api/geode_export_pass_api.cpp
     api/geode_export_api.cpp
     audio/dsp/PcmConvert.cpp

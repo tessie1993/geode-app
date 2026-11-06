@@ -54,10 +54,11 @@ float Renderer::beginFrame(double timeSeconds) {
     {
         // Before anything reads it this frame. No engine yet (nothing written) leaves the frame silent.
         std::lock_guard<std::mutex> lock(soundLock_);
-        // Customize › Macros, latched once per frame; Energy and Speed reach the engine as tuning.
-        frameKnobs_ = macros::global();
-        if (sound_ && frameKnobs_ != tunedKnobs_) {
-            tunedKnobs_ = frameKnobs_;
+        // The engine settings, latched once per frame: the same copy re-tunes the sound engine (the macros'
+        // Energy and Speed) and drives the resolver.
+        frameSettings_ = latchEngineSettings();
+        if (sound_ && frameSettings_.knobs != tunedKnobs_) {
+            tunedKnobs_ = frameSettings_.knobs;
             sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
         }
         if (sound_) {
@@ -108,108 +109,86 @@ Scene* Renderer::resolveActiveScene() {
         }
         activeScene_ = requested;
         sceneJustSwitched_ = true;
-        motionField_.setVariant(styleVariantSeed(requestedId));
+        // The resolver's motion field takes the new style's variant at its next step.
+        styleSwitchPending_ = true;
     }
     return activeScene_;
 }
 
-uint64_t Renderer::noteSeed(uint64_t playSeed) {
+uint64_t Renderer::noteEntropyFor(uint64_t playSeed) {
     if (!noteSeeded_ || playSeed != notePlaySeed_) {
         std::random_device device;
         noteEntropy_ = (static_cast<uint64_t>(device()) << 32) ^ device();
         notePlaySeed_ = playSeed;
         noteSeeded_ = true;
     }
-    return playSeed ^ noteEntropy_;
+    return noteEntropy_;
+}
+
+signal::EngineSettings Renderer::latchEngineSettings() {
+    signal::EngineSettings s;
+    s.knobs = macros::global();
+    // An export's pinned director (pinDirector) never reads the process-wide switch.
+    s.director = directorPinned_.load(std::memory_order_acquire)
+                     ? DirectorConfig{pinnedDirectorAmount_.load(std::memory_order_relaxed),
+                                      pinnedDirectorSeed_.load(std::memory_order_relaxed)}
+                     : director::global();
+    s.notesOn = note_response::globalEnabled();
+    s.handMask = hand::global();
+    s.reducedMotion = reducedMotion_.load(std::memory_order_relaxed);
+    s.noteEntropy = noteEntropyFor(s.director.seed);
+    return s;
 }
 
 SceneParams Renderer::resolveParams(float dt) {
     SceneParams requested;
-    float morph;
     {
+        // The frame latch: the shell's latest params, morph and configs reach the resolver as copies.
         std::lock_guard<std::mutex> lock(stateLock_);
         requested = requestedParams_;
-        if (morphRemainSec_ > 0.0f) {
-            morphRemainSec_ -= dt;
-            morph = morphFadeSec_;
-        } else {
-            morph = 0.0f;
+        if (morphRequested_) {
+            resolver_.beginMorph(morphRequestSec_);
+            morphRequested_ = false;
+        }
+        if (lfoConfigsDirty_) {
+            resolver_.setLfoConfigs(lfoConfigs_);
+            lfoConfigsDirty_ = false;
+        }
+        if (adsrConfigsDirty_) {
+            resolver_.setAdsrConfigs(adsrConfigs_);
+            adsrConfigsDirty_ = false;
+        }
+        if (reactionRoutesDirty_) {
+            resolver_.setReactionRoutes(reactionRoutes_);
+            reactionRoutesDirty_ = false;
         }
     }
-    const float fade = std::max(requested.paramFadeSec, morph);
-    displayedParams_ = fade <= 0.01f ? requested : lerpParams(displayedParams_, requested, std::clamp(dt / fade, 0.0f, 1.0f));
-    // The auto-director hears the frame first: its look lies under the macros, so the user's own knobs,
-    // the LFOs, the reactions, the motion field and the safety clamp all still act on top of it.
-    const DirectorConfig directorConfig = directorPinned_.load(std::memory_order_acquire)
-                                              ? DirectorConfig{pinnedDirectorAmount_.load(std::memory_order_relaxed),
-                                                               pinnedDirectorSeed_.load(std::memory_order_relaxed)}
-                                              : director::global();
-    director_.configure(directorConfig);
+    signal::StyleContext style;
+    style.id = activeScene_ ? &activeScene_->id() : nullptr;
+    style.shaderFamily = !activeScene_ || activeScene_->family() == SceneFamily::Shader;
+    style.spin = sceneSpin_.load(std::memory_order_relaxed);
+    style.switched = styleSwitchPending_;
+    styleSwitchPending_ = false;
+    // The feeling comes from the engine, stepped on the sample clock, so it is the same at every frame rate
+    // and in an export. A new seed is a new play: the director forgets the song, the feeling too.
+    const sound::Emotion::State* heard = nullptr;
     if (soundHeard_) {
-        // The feeling comes from the engine, stepped on the sample clock, so it is the same at every frame
-        // rate and in an export. A new seed is a new play: the director forgets the song, the feeling too.
-        if (emotionSeeded_ && directorConfig.seed != emotionSeed_) {
+        if (emotionSeeded_ && frameSettings_.director.seed != emotionSeed_) {
             std::lock_guard<std::mutex> lock(soundLock_);
             if (sound_) {
                 sound_->resetEmotion();
                 soundEmotion_ = sound_->emotion();
             }
         }
-        emotionSeed_ = directorConfig.seed;
+        emotionSeed_ = frameSettings_.director.seed;
         emotionSeeded_ = true;
-        director_.step(soundFrame_, soundEmotion_, dt);
-    } else {
-        director_.step(soundFrame_, dt);
+        heard = &soundEmotion_;
     }
-    if (director_.commits() != directorCommitsSeen_) {
-        directorCommitsSeen_ = director_.commits();
-        if (director_.styleMoment()) directorStyleMoments_.fetch_add(1, std::memory_order_acq_rel);
-    }
-    directedKnobs_ = director_.knobs(frameKnobs_);
-    // Note & key reactions hear the frame next, inside the director's look: its hue anchors the notes'
-    // colours, and its feeling (the director's emotion, stepped whether or not it drives) is the mood. Its
-    // tuning is the style's own (Customize), read before the director and macros touch it.
-    notes_.configure({note_response::globalEnabled(), noteSeed(directorConfig.seed)});
-    {
-        const SceneParams& own = displayedParams_;
-        NoteResponse::Inputs in;
-        in.anchorHue = director_.look().hue;
-        in.anchorWeight = director_.weight();
-        in.color = own.noteColor;
-        in.pitch = own.notePitch;
-        in.intervals = own.noteIntervals;
-        in.tension = own.noteTension;
-        in.chords = own.noteChords;
-        in.drums = own.noteDrums;
-        notes_.step(soundFrame_, director_.emotion(), in, dt);
-    }
-    const auto& envValues = adsr_.tick(dt, soundFrame_);
-    AdsrEngine::lfoOffsets(adsr_.configs, envValues, envRate_, envDepth_);
-    const auto& lfoValues = lfo_.tick(dt, soundFrame_, envRate_.data(), envDepth_.data());
-    // The macros lay over the user's params first, so every stage after them (and the safety clamp)
-    // sees the knobbed look.
-    const bool palWheel = !activeScene_ || activeScene_->family() == SceneFamily::Shader;
-    // Order: the director's look, the note layer inside it, then the user's macros and LFOs over both.
-    SceneParams p = lfo_.apply(macros::apply(notes_.apply(director_.apply(displayedParams_, palWheel)), directedKnobs_), lfoValues);
-    p = AdsrEngine::apply(p, adsr_.configs, envValues);
-    // The reaction matrix: per-style routes from the sound frame to many
-    // targets. Ahead of the motion field and the safety clamp, like the LFOs.
-    reactions_.tick(soundFrame_, dt);
-    p = reactions_.apply(p);
-    // The macros' own routes, in an engine of their own so they never take a user slot.
-    macroReactions_.routes = macros::routes(directedKnobs_);
-    macroReactions_.tick(soundFrame_, dt);
-    p = macroReactions_.apply(p);
-    // The director's routes, crossfading at each decision, in engines of their own.
-    p = director_.applyRoutes(p);
-    // The continuous motion system: the one stage every family's parameters
-    // pass through, fed the sound frame (never a single drum hit or PCM
-    // impulse), ahead of the safety clamp so nothing it adds can exceed the
-    // flash and motion limits.
-    motionField_.step(soundFrame_, dt);
-    const bool reducedMotion = reducedMotion_.load(std::memory_order_relaxed);
-    p = motionField_.apply(p, reducedMotion, sceneSpin_.load(std::memory_order_relaxed));
-    p = safety::apply(p, reducedMotion);
+    // The chain itself, param fade to safety clamp (signal/Resolver).
+    const signal::Resolver::Frame& out = resolver_.step(requested, soundFrame_, dt, frameSettings_, style, heard);
+    if (out.styleMoments > 0) directorStyleMoments_.fetch_add(out.styleMoments, std::memory_order_acq_rel);
+    SceneParams p = out.params;
+    // The device's masks, after the clamp: the thermal tier and Settings › Performance.
     const bool userPostFx = userPostFx_.load(std::memory_order_relaxed);
     if (!thermalTierInfo(thermal_.tier()).optionalPasses || !userPostFx) p.rippleOverlayEnabled = false;
     // Liquid mode is a mode the user switched on, not an optional pass: a hot phone simplifies or pauses
@@ -366,7 +345,7 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.underlayTex = compositePass_.underlayTexOrZero();
     in.underlayBlend = compositePass_.underlayBlendMode();
     in.underlayAmount = compositePass_.underlayAmount();
-    in.noteTint = notes_.uniforms().tint;
+    in.noteTint = resolver_.noteUniforms().tint;
     compositePass_.draw(in);
 }
 
@@ -395,13 +374,13 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
     }
     look.yaw = std::clamp(look.yaw, -1.0f, 1.0f);
     look.pitch = std::clamp(look.pitch, -1.0f, 1.0f);
-    camera_.setMoves(director_.moves(macros::camera(directedKnobs_)));
+    camera_.setMoves(resolver_.frame().cameraMoves);
     // Endless zoom flies the rig only for a style that marches it (EndlessZoom.hpp).
     SceneParams rigParams = p;
     rigParams.endlessZoom = p.endlessZoom && activeScene_ != nullptr && activeScene_->drawsCamera();
     // Liquid mode owns the dive: a 3D style dives by flying the rig through it, at Dive speed.
     if (liquidOn() && activeScene_ != nullptr && activeScene_->drawsCamera()) rigParams.endlessZoom = true;
-    camera_.step(rigParams, look, dt, reducedMotion_.load(std::memory_order_relaxed),
+    camera_.step(rigParams, look, dt, frameSettings_.reducedMotion,
                  sceneSpin_.load(std::memory_order_relaxed) != 0.0f, &soundFrame_);
 }
 
@@ -436,6 +415,15 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     // Liquid mode owns the dive, so a 2D style's own endless-zoom layers step aside (nothing dives twice).
     SceneParams sceneParams = p;
     if (liquidOn() && !scene->drawsCamera()) sceneParams.endlessZoom = false;
+    // Camera travel on a flat style: Fly speed (forward zooms in, backward out) dives the picture
+    // through the same looping endless zoom, in Dive speed's place when that is off or beside it.
+    else if (!scene->drawsCamera()) {
+        const float dive = CameraRig::flatDive(p);
+        if (dive != 0.0f) {
+            sceneParams.endlessZoomSpeed = (p.endlessZoom ? p.endlessZoomSpeed : 0.0f) + dive;
+            sceneParams.endlessZoom = true;
+        }
+    }
     drawSceneTarget(*scene, sceneParams, dt);
     const GLuint liquidTex = drawLiquid(*scene, p, dt);
     composite(p, progress, targetFbo, liquidTex);
@@ -508,7 +496,7 @@ void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
     const liquid::GestureOut g = liquidGestures_.step(std::min(fingers, 2), xy, dt);
     const float aspect = static_cast<float>(renderWidth_) / static_cast<float>(std::max(renderHeight_, 1));
     const bool threeD = scene.drawsCamera();
-    const bool reducedMotion = reducedMotion_.load(std::memory_order_relaxed);
+    const bool reducedMotion = frameSettings_.reducedMotion;
     const float rate = threeD ? 0.0f : std::clamp(p.endlessZoomSpeed, 0.0f, 1.2f) * endless::musicRate(soundFrame_, p.audioDrive);
     liquidFrame_ = liquidDive_.step(dt, rate, g.steerX * aspect, g.steerY, g.steerWeight, reducedMotion);
     if (threeD) {

@@ -13,14 +13,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.SegmentedButton
@@ -39,19 +35,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import dev.geode.ui.theme.GeodeColors
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalUiSounds
-import dev.geode.ui.theme.StoneIcon
-import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.UiSound
 import dev.geode.ui.theme.rememberStoneInteraction
 import dev.geode.ui.theme.stonePress
@@ -119,48 +110,6 @@ fun CrystalButton(
     }
 }
 
-/** The one solid control in the app: the round accent play/pause button. */
-@Composable
-fun CrystalPlayButton(
-    icon: StoneIcon,
-    contentDescription: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-) {
-    val cs = MaterialTheme.colorScheme
-    val interaction = rememberStoneInteraction()
-    val sounds = LocalUiSounds.current
-    Box(
-        modifier
-            .size(64.dp)
-            .stonePress(interaction)
-            .clip(CircleShape)
-            .background(if (enabled) cs.primary else cs.onSurface.copy(alpha = 0.12f))
-            // The label goes on the clickable node itself, not only on the icon inside it, so
-            // accessibility clicks and UI tests that find "Play" land on something that acts.
-            .semantics { this.contentDescription = contentDescription }
-            .clickable(
-                interactionSource = interaction,
-                indication = ripple(color = cs.onPrimary),
-                enabled = enabled,
-                role = Role.Button,
-                onClick = {
-                    sounds.play(UiSound.TAP)
-                    onClick()
-                },
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        StoneIconArt(
-            icon,
-            null,
-            Modifier.size(30.dp),
-            tint = if (enabled) cs.onPrimary else cs.onSurface.copy(alpha = GeodeGlass.DISABLED_CONTENT),
-        )
-    }
-}
-
 @Composable
 fun CrystalSlider(
     value: Float,
@@ -206,47 +155,6 @@ fun LabeledSwitch(
     ) {
         Text(label, Modifier.weight(1f), style = style)
         Switch(checked = checked, onCheckedChange = null, enabled = enabled)
-    }
-}
-
-data class CrystalNavItem(
-    val label: String,
-    val icon: StoneIcon,
-)
-
-/** Bottom navigation: Material's NavigationBar on a glass bar whose opacity the Look setting picks. */
-@Composable
-fun CrystalNavBar(
-    items: List<CrystalNavItem>,
-    selected: Int,
-    onSelect: (Int) -> Unit,
-    opacity: Float,
-) {
-    val cs = MaterialTheme.colorScheme
-    val sounds = LocalUiSounds.current
-    NavigationBar(
-        containerColor = GeodeColors.Surface.copy(alpha = (0.55f + 0.45f * opacity).coerceIn(0f, 1f)),
-        tonalElevation = 0.dp,
-    ) {
-        items.forEachIndexed { i, item ->
-            NavigationBarItem(
-                selected = i == selected,
-                onClick = {
-                    if (i != selected) sounds.play(UiSound.SWOOP)
-                    onSelect(i)
-                },
-                icon = { StoneIconArt(item.icon, null) },
-                label = { Text(item.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                colors =
-                    NavigationBarItemDefaults.colors(
-                        selectedIconColor = cs.onPrimaryContainer,
-                        selectedTextColor = accentTextColor(),
-                        indicatorColor = cs.primaryContainer,
-                        unselectedIconColor = cs.onSurfaceVariant,
-                        unselectedTextColor = cs.onSurfaceVariant,
-                    ),
-            )
-        }
     }
 }
 

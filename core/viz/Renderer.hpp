@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "signal/Resolver.hpp"
 #include "sound/SoundEngine.hpp"
 #include "viz/Adsr.hpp"
 #include "viz/CameraRig.hpp"
@@ -177,6 +178,9 @@ private:
     void applyRenderScale();
     static float supersampleFactor(int width, int height);
     Scene* resolveActiveScene();
+    // This frame's engine settings (signal/Resolver): the process globals, or the pinned director.
+    signal::EngineSettings latchEngineSettings();
+    // Latches the requested params and configs, steps the resolver, then the device masks.
     SceneParams resolveParams(float dt);
     void resolveLayerScene();
     // beginFrame, under stateLock_: takes the layer layerFollower_ hands over when it changed.
@@ -240,23 +244,19 @@ private:
     CompositePass compositePass_;
     CompositePass::Inputs compositeInputs_;
     ThermalGovernor thermal_;
-    LfoEngine lfo_;
-    AdsrEngine adsr_;
-    // Wave three's continuous replacement for FormDrive: the one stage every
-    // family's SceneParams pass through so nothing can key off a drum hit.
-    MotionField motionField_;
-    ReactionEngine reactions_;
-    ReactionEngine macroReactions_;
-    // The auto-director (viz/Director): the music's feeling deciding palette, behaviour and routing.
-    Director director_;
+    // The scene params resolver (signal/Resolver): the per-frame chain from the requested params to the
+    // drawn ones, director to safety clamp, and the stages' state. GL thread only; it is handed copies.
+    signal::Resolver resolver_;
+    // This frame's engine settings, latched once in beginFrame; the sound engine's tuning, the resolver,
+    // the camera and the liquid all read this one copy.
+    signal::EngineSettings frameSettings_{};
+    // A new style came on screen and the resolver has not stepped since (its motion field's variant).
+    bool styleSwitchPending_ = false;
     // Set by pinDirector; read once a frame on the GL thread.
     std::atomic<bool> directorPinned_{false};
     std::atomic<int> directorStyleMoments_{0};
-    int directorCommitsSeen_ = 0;  // GL thread only
     std::atomic<float> pinnedDirectorAmount_{0.0f};
     std::atomic<uint64_t> pinnedDirectorSeed_{0};
-    // Note & key reactions (viz/NoteResponse), after the director's look: knobs, note colours, tint.
-    NoteResponse notes_;
     // Frosted glass under the app's sheet. The region is guarded by stateLock_; uiBlurOn_ lets a frame
     // with no sheet skip the lock.
     UiBlurPass uiBlurPass_;
@@ -271,9 +271,10 @@ private:
     std::atomic<bool> edgeGlowOn_{false};
     std::atomic<bool> offscreen_{false};
     std::atomic<int> fixedFps_{0};
-    // The note layer's seed: the director's play seed mixed with fresh entropy whenever that seed changes,
-    // so every play (and every export) varies on its own, as the user chose (NoteResponse's class comment).
-    uint64_t noteSeed(uint64_t playSeed);
+    // The note layer's entropy (EngineSettings::noteEntropy, mixed with the director's play seed): fresh
+    // whenever that seed changes, so every play (and every export) varies on its own, as the user chose
+    // (NoteResponse's class comment).
+    uint64_t noteEntropyFor(uint64_t playSeed);
     uint64_t notePlaySeed_ = 0;
     uint64_t noteEntropy_ = 0;
     bool noteSeeded_ = false;
@@ -290,10 +291,7 @@ private:
     bool soundHeard_ = false;
     uint64_t emotionSeed_ = 0;
     bool emotionSeeded_ = false;
-    // Customize › Macros: this frame's knobs, and the ones the sound engine's tuning was last built from.
-    MacroKnobs frameKnobs_{};
-    // The user's knobs with the director's laid over them, this frame; what the params and the camera read.
-    MacroKnobs directedKnobs_{};
+    // Customize › Macros: the knobs the sound engine's tuning was last built from.
     MacroKnobs tunedKnobs_{};
     std::atomic<float> lookYaw_{0.0f};
     std::atomic<float> lookPitch_{0.0f};
@@ -320,8 +318,16 @@ private:
     // SceneRegistry::spinRate of the requested scene, set by setScene so the
     // frame never compares ids.
     std::atomic<float> sceneSpin_{0.0f};
-    float morphFadeSec_ = 0.0f;
-    float morphRemainSec_ = 0.0f;
+    // beginParamMorph's latest request, handed to the resolver at the next frame latch (stateLock_).
+    bool morphRequested_ = false;
+    float morphRequestSec_ = 0.0f;
+    // The configs the shell last set, handed to the resolver at the next frame latch (stateLock_).
+    std::array<LfoConfig, LfoEngine::kSlots> lfoConfigs_{};
+    std::array<AdsrConfig, AdsrEngine::kCount> adsrConfigs_{};
+    std::array<ReactRoute, ReactionEngine::kRoutes> reactionRoutes_{};
+    bool lfoConfigsDirty_ = false;
+    bool adsrConfigsDirty_ = false;
+    bool reactionRoutesDirty_ = false;
     PcmHandoff pcm_;
     int framePcmCount_ = 0;  // GL thread: samples of pcmDeliverScratch_ this frame's scenes get.
     std::vector<float> pcmDeliverScratch_;
@@ -381,10 +387,7 @@ private:
     bool rippleOverlayOn_ = false;
     bool smearing_ = false;
 
-    SceneParams displayedParams_;
     SceneParams lastFinalParams_;
-    std::array<float, LfoEngine::kSlots> envRate_{};
-    std::array<float, LfoEngine::kSlots> envDepth_{};
     float postRotationAngle_ = 0.0f;
     float postCyclePhase_ = 0.0f;
     float postBeatPulse_ = 0.0f;

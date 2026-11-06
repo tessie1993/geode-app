@@ -30,7 +30,7 @@ void check(bool ok, const std::string& what) {
 
 // The geode_viz_set_params frame size. Kotlin's SceneParamsCodec.FIELDS says the same number; a row
 // added to the table changes both, never one.
-constexpr int kWireFloats = 163;
+constexpr int kWireFloats = 164;
 
 bool integral(float v) { return std::floor(v) == v; }
 
@@ -52,7 +52,7 @@ void theTableIsTheWire() {
     check(SceneParams::spec(ParamSlot::speed).name == std::string("speed"), "ParamSlot::speed is slot 0");
     check(static_cast<int>(ParamSlot::speed) == 0, "speed is the wire's first float");
     check(SceneParams::spec(ParamSlot::flowCurl).name == std::string("flowCurl"), "ParamSlot::flowCurl names flowCurl");
-    check(static_cast<int>(ParamSlot::liquidSurface) == kWireFloats - 1, "liquidSurface is the wire's last float");
+    check(static_cast<int>(ParamSlot::camFlat) == kWireFloats - 1, "camFlat is the wire's last float");
 }
 
 void everyRowIsWellFormed() {
@@ -174,7 +174,7 @@ constexpr OldClamp kOldClamps[] = {
     {LfoTarget::FluidFade, "fluidDensityDissipation", 0.0f, 4.0f}, {LfoTarget::FluidCatchPull, "fluidCatchPull", 0.0f, 3.0f},
     {LfoTarget::FluidCatchRadius, "fluidCatchRadius", 0.03f, 0.3f}, {LfoTarget::FlowStrength, "flowStrength", 0.0f, 1.0f},
     {LfoTarget::WaterRipple, "waterRippleStrength", 0.0f, 2.0f}, {LfoTarget::RippleOverlay, "rippleOverlayStrength", 0.0f, 1.0f},
-    {LfoTarget::CamFly, "camFly", 0.0f, 2.5f},          {LfoTarget::CamOrbit, "camOrbit", 0.0f, 1.0f},
+    {LfoTarget::CamFly, "camFly", -2.5f, 2.5f},          {LfoTarget::CamOrbit, "camOrbit", 0.0f, 1.0f},
     {LfoTarget::CamPush, "camPush", -1.0f, 1.0f},       {LfoTarget::CamYaw, "camYaw", -1.0f, 1.0f},
     {LfoTarget::CamPitch, "camPitch", -1.0f, 1.0f},     {LfoTarget::CamRoll, "camRoll", -1.0f, 1.0f},
     {LfoTarget::CamFov, "camFov", 0.5f, 2.0f},          {LfoTarget::CamShake, "camShake", 0.0f, 1.0f},

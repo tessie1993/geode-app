@@ -73,6 +73,7 @@ class LookApplier {
     ) {
         if (look.sceneId != appliedScene && target.setScene(look.sceneId)) appliedScene = look.sceneId
         val was = applied
+
         fun pushes(
             bit: Int,
             changed: Boolean,

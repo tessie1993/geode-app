@@ -30,26 +30,20 @@ private enum class HelpTopic(
 
 /** Settings › Help: answers to the questions people actually arrive with. The tour is in Tutorials. */
 @Composable
-internal fun HelpSettingsTab() {
-    SettingsTabColumn {
-        item {
-            SettingsGroup(stringResource(R.string.help_topics_group)) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    HelpTopic.entries.forEach { topic ->
-                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text(
-                                stringResource(topic.titleRes),
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Text(
-                                stringResource(topic.bodyRes),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
+internal fun HelpTopicsSection() {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        HelpTopic.entries.forEach { topic ->
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    stringResource(topic.titleRes),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    stringResource(topic.bodyRes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

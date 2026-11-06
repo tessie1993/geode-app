@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.SharedPreferences
 import android.net.Uri
 import dev.geode.data.DeviceTrackQuery
+import dev.geode.data.LibraryPrefsStore
 import dev.geode.data.MusicPlaylist
 import dev.geode.data.MusicPlaylistStore
 import dev.geode.data.NativeTags
@@ -104,13 +105,36 @@ internal class MusicLibraryController(
 
     val deviceTracks: StateFlow<List<DeviceTrack>> = _deviceTracks
 
+    private val _deviceTracksLoaded = MutableStateFlow(false)
+
+    /**
+     * False until the first MediaStore query has answered. [deviceTracks] starts empty, and an
+     * empty list before the query is "not read yet", not "no music": the library's empty state
+     * (Rescan, choose a folder, listen to another app) waits for this.
+     */
+    val deviceTracksLoaded: StateFlow<Boolean> = _deviceTracksLoaded
+
+    private val libraryPrefsStore = LibraryPrefsStore(libraryPrefs)
+
+    private val _minTrackSeconds = MutableStateFlow(libraryPrefsStore.minTrackSeconds())
+
+    /** Settings › Library folders' "Hide tracks shorter than"; see [dev.geode.data.MinTrackLength]. */
+    val minTrackSeconds: StateFlow<Int> = _minTrackSeconds
+
+    fun setMinTrackSeconds(seconds: Int) {
+        libraryPrefsStore.setMinTrackSeconds(seconds)
+        _minTrackSeconds.value = libraryPrefsStore.minTrackSeconds()
+        refreshDeviceTracks()
+    }
+
     fun refreshDeviceTracks() {
         scope.launch(Dispatchers.IO) {
             _deviceTracks.value = queryDeviceTracksBlocking()
+            _deviceTracksLoaded.value = true
         }
     }
 
-    private fun queryDeviceTracksBlocking(): List<DeviceTrack> = DeviceTrackQuery.query(application)
+    private fun queryDeviceTracksBlocking(): List<DeviceTrack> = DeviceTrackQuery.query(application, _minTrackSeconds.value)
 
     private fun metadataFor(uri: Uri): FileMeta {
         var title: String? = null

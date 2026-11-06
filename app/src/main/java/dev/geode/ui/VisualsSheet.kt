@@ -311,6 +311,10 @@ private fun OptionsHeader(
  * The side panel's leading edge: a grip that resizes the panel between [panelRange] (px) and hides
  * it past its narrow end. Kept short and in the middle of the edge, so the rows beside it stay
  * tappable. [onSettle] gets the width it came to rest at, or null for hidden.
+ *
+ * The touch area is [GeodeSpacing.TouchTarget] wide (48 dp, Material's minimum target) while the
+ * grip stays where it was drawn, centred in the edge's first [GeodeSpacing.XL]: a 24 dp strip was
+ * easy to miss with a thumb, and moving the grip would only shift the miss.
  */
 @Composable
 private fun PanelEdge(
@@ -332,7 +336,7 @@ private fun PanelEdge(
     val step = (panelRange.endInclusive - panelRange.start) / 2f
     Box(
         modifier
-            .size(width = GeodeSpacing.XL, height = EDGE_TOUCH_HEIGHT)
+            .size(width = GeodeSpacing.TouchTarget, height = EDGE_TOUCH_HEIGHT)
             .draggable(
                 drag,
                 Orientation.Horizontal,
@@ -358,10 +362,11 @@ private fun PanelEdge(
                         },
                     )
             },
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.CenterStart,
     ) {
         Box(
             Modifier
+                .padding(start = (GeodeSpacing.XL - GRIP_THICKNESS) / 2)
                 .size(width = GRIP_THICKNESS, height = GRIP_LENGTH)
                 .background(MaterialTheme.colorScheme.onSurfaceVariant, RoundedCornerShape(50)),
         )

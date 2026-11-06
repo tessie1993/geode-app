@@ -3,11 +3,13 @@
 //
 // What is pinned: whole-number divides of the panel rate (60/90/120 Hz panels capped at 30 and 60),
 // noise tolerance (a 119.6 Hz panel still halves), no divide until the estimate settles, hitches
-// left out of the estimate, a resume that forgets the gap but keeps the period, and the one dt clamp
-// the renderer shares.
+// left out of the estimate, a resume that forgets the gap but keeps the period, a panel that drops
+// below 45 Hz (#452), a NaN or tiny cap (#452), and the one dt clamp the renderer shares.
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <limits>
 
 #include "viz/frame/Pacer.hpp"
 
@@ -105,7 +107,7 @@ void resumeKeepsPeriod() {
     runPanel(s, 120, 60.0f, 200);
     const int64_t period = s.periodNs;
     Pacer::resume(s);
-    check(s.periodNs == period && s.samples == Pacer::kSettleFrames, "a resume keeps the panel's period");
+    check(s.periodNs == period && s.samples == 2 * Pacer::kSettleFrames, "a resume keeps the panel's period");
     check(s.lastDrawnNs == 0 && s.lastVsyncNs == 0 && s.sinceDrawn == 0, "and forgets the gap");
     // Ten minutes later: the first drawn frame is nominal, not a 600 s step or a clamp-sized jump. The
     // divide of 2 still holds, so the first vsync after the resume may be skipped.
@@ -121,6 +123,51 @@ void followsAModeChange() {
     // setFrameRate lands and the panel drops to 60 Hz: the estimate follows, the divide becomes 1.
     runPanel(s, 60, 60.0f, 300, s.lastVsyncNs + 16'666'667);
     check(s.divisor == 1, "after the panel drops to 60 Hz every vsync draws");
+}
+
+// #452: the band used to stop at 45 Hz, so a panel that dropped to 30 or 24 Hz froze a 120 Hz estimate
+// and the old divide drew a quarter or a fifth of what was asked.
+void followsADropBelow45Hz() {
+    struct Case {
+        double hz;
+        float cap;
+        int64_t divisor;
+    };
+    const Case cases[] = {{30, 30, 1}, {24, 24, 1}, {30, 60, 1}, {10, 30, 1}, {30, 15, 2}};
+    for (const auto& c : cases) {
+        PacerState s;
+        runPanel(s, 120, c.cap, 300);
+        const int64_t t0 = s.lastVsyncNs + std::llround(1e9 / c.hz);
+        const Run r = runPanel(s, c.hz, c.cap, 120, t0);
+        char what[96];
+        std::snprintf(what, sizeof what, "120 Hz dropping to %.0f Hz, capped at %.0f, divides by %lld", c.hz, c.cap, static_cast<long long>(c.divisor));
+        check(s.divisor == c.divisor, what);
+        std::snprintf(what, sizeof what, "and the estimate follows to %.0f Hz", c.hz);
+        check(near(Pacer::panelHz(s), c.hz, 0.5), what);
+        std::snprintf(what, sizeof what, "and draws dt = divisor periods at %.0f Hz", c.hz);
+        check(near(r.lastDt, std::min(static_cast<double>(c.divisor) / c.hz, kMaxDtSeconds), 2e-4), what);
+    }
+}
+
+void loneSlowIntervalKeepsTheDivide() {
+    PacerState s;
+    runPanel(s, 120, 60.0f, 300);
+    const int64_t settled = s.periodNs;
+    // One 33 ms interval (a pacer-thread hitch, now inside the band) moves nothing.
+    Pacer::onVsync(s, s.lastVsyncNs + 33'333'333, 60.0f);
+    check(s.periodNs == settled, "a lone 33 ms interval is not a 30 Hz panel");
+    check(s.divisor == 2, "and the 120 Hz divide holds");
+}
+
+void nanAndTinyCaps() {
+    PacerState s;
+    runPanel(s, 120, 60.0f, 300);
+    Pacer::onVsync(s, s.lastVsyncNs + 8'333'333, std::numeric_limits<float>::quiet_NaN());
+    check(s.divisor == 1, "a NaN cap means no cap, never a float-to-int cast of NaN");
+    Pacer::onVsync(s, s.lastVsyncNs + 8'333'333, 1e-30f);
+    check(s.divisor == Pacer::kMaxDivisor, "a tiny cap clamps before the cast instead of overflowing");
+    Pacer::onVsync(s, s.lastVsyncNs + 8'333'333, std::numeric_limits<float>::infinity());
+    check(s.divisor == 1, "an infinite cap draws every vsync");
 }
 
 void wireRoundTrip() {
@@ -180,6 +227,9 @@ int main() {
     hitchesLeftOut();
     resumeKeepsPeriod();
     followsAModeChange();
+    followsADropBelow45Hz();
+    loneSlowIntervalKeepsTheDivide();
+    nanAndTinyCaps();
     wireRoundTrip();
     recordsTheCap();
     recordsAnyCapTheShellCanAskFor();

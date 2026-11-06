@@ -56,6 +56,7 @@ private:
     std::string sentinel_;
     std::vector<GLint> formats_;
     bool sentinelSpent_ = false;
+    bool firstInProcess_ = false;
     int writesSinceSweep_ = 0;
 
     std::mutex mutex_;

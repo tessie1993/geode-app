@@ -227,6 +227,13 @@ void FluidSim::queueSplat(const Splat& s) {
 }
 
 void FluidSim::step(float dtRaw) {
+    // The whole frame is simulated, in equal steps the solver is stable under (#383): the splats queued
+    // this frame go into the first step, which clears them.
+    const math::Substeps plan = math::substeps(dtRaw);
+    for (int i = 0; i < plan.count; ++i) stepOnce(plan.step);
+}
+
+void FluidSim::stepOnce(float dtStep) {
     if (!available_) return;
     if (!velocity_ || !pressure_ || !divergence_ || !curl_) {
         pending_.clear();
@@ -236,7 +243,7 @@ void FluidSim::step(float dtRaw) {
     DoubleFbo& press = *pressure_;
     const Fbo& div = *divergence_;
     const Fbo& crl = *curl_;
-    const float dt = std::clamp(dtRaw, 0.0f, 1.0f / 30.0f);
+    const float dt = dtStep;
     compileInjectionIfNeeded();
     glDisable(GL_BLEND);
     quad_.bind();

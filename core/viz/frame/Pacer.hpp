@@ -2,6 +2,9 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <type_traits>
 
 // The frame clock every surface shares (ADR 0006, ADR 0008): which vsyncs a surface draws on, and
 // the dt each drawn frame steps the engine by. Pure, with no GL and no Android, so the host can test
@@ -39,7 +42,7 @@ struct PacerState {
     int64_t lastDrawnNs = 0;
     int64_t lastVsyncNs = 0;
     int64_t periodNs = 0;  // smoothed vsync period, 0 until measured
-    int64_t samples = 0;   // period samples taken, capped at kSettleFrames
+    int64_t samples = 0;   // confidence in periodNs: +1 per matching interval, -1 per stranger, 0..2*kSettleFrames
     int64_t sinceDrawn = 0;
     int64_t divisor = 1;
     // The cap the last vsync paced to, in millihertz (0 = none). The shell compares it each vsync and
@@ -53,8 +56,11 @@ inline constexpr int kPacerCapSlot = 6;
 
 class Pacer {
 public:
-    static constexpr int64_t kMinVsyncNs = 4'000'000;   // 250 Hz
-    static constexpr int64_t kMaxVsyncNs = 22'000'000;  // 45 Hz
+    static constexpr int64_t kMinVsyncNs = 4'000'000;    // 250 Hz
+    // 10 Hz, the slowest an LTPO panel paces an app at, and where the dt clamp stops anyway. It used
+    // to be 45 Hz, which froze the estimate when the panel dropped to 30 or 24 Hz: a 120 Hz period
+    // with a cap of 30 kept dividing by 4 and drew 7.5 fps on a 30 Hz panel (#452).
+    static constexpr int64_t kMaxVsyncNs = 100'000'000;
     static constexpr int64_t kSmoothing = 8;
     static constexpr int64_t kSettleFrames = 8;
     static constexpr double kDivisorEpsilon = 0.05;
@@ -89,11 +95,13 @@ public:
     // cap that doesn't divide stays at the panel rate and leaves the rest to Surface.setFrameRate.
     static int64_t divisorFor(const PacerState& s, float capFps) {
         // Until the estimate settles, draw every vsync: guessing 2 on a 60 Hz panel would open on judder.
-        if (capFps <= 0.0f || s.periodNs <= 0 || s.samples < kSettleFrames) return 1;
+        // Written as !(cap > 0) so a NaN cap means no cap as well.
+        if (!(capFps > 0.0f) || s.periodNs <= 0 || s.samples < kSettleFrames) return 1;
         const double panelHz = 1e9 / static_cast<double>(s.periodNs);
-        // The epsilon absorbs noise: a 120 Hz panel measuring 119.6 Hz still divides by 2.
-        const auto d = static_cast<int64_t>(panelHz / capFps + kDivisorEpsilon);
-        return std::clamp<int64_t>(d, 1, kMaxDivisor);
+        // The epsilon absorbs noise: a 120 Hz panel measuring 119.6 Hz still divides by 2. Clamped
+        // as a double before the cast, since a tiny cap's ratio would overflow int64_t (UB).
+        const double d = std::clamp(panelHz / static_cast<double>(capFps) + kDivisorEpsilon, 1.0, static_cast<double>(kMaxDivisor));
+        return static_cast<int64_t>(d);
     }
 
     static double panelHz(const PacerState& s) { return s.periodNs > 0 ? 1e9 / static_cast<double>(s.periodNs) : 0.0; }
@@ -108,21 +116,47 @@ private:
         const int64_t delta = frameTimeNs - previous;
         // Outside any real panel's range this is a pacer-thread hitch, not a period.
         if (delta < kMinVsyncNs || delta > kMaxVsyncNs) return;
-        s.periodNs = s.samples == 0 ? delta : s.periodNs + (delta - s.periodNs) / kSmoothing;
-        if (s.samples < kSettleFrames) s.samples++;
+        if (s.samples == 0) {
+            s.periodNs = delta;
+            s.samples = 1;
+            return;
+        }
+        // Within a quarter of the estimate: noise, or a nearby mode (165 to 144 Hz) the average follows.
+        if (std::abs(delta - s.periodNs) * 4 <= s.periodNs) {
+            s.periodNs += (delta - s.periodNs) / kSmoothing;
+            if (s.samples < 2 * kSettleFrames) s.samples++;
+            return;
+        }
+        // A stranger: a dropped vsync, or the panel changed mode (120 to 60, 30 or 24 Hz). Each one
+        // costs a sample, so a lone hitch leaves a settled divide alone, while a run of them unsettles
+        // it (every vsync draws meanwhile) and at zero the next interval re-seeds the estimate.
+        s.samples--;
     }
 };
 
-// Wire helpers for the ABI.
-inline PacerState unpack(const int64_t* w) { return PacerState{w[0], w[1], w[2], w[3], w[4], w[5], w[6]}; }
+// Wire helpers for the ABI. Copied as bytes: the shell's array is jlong / long long, which is not the
+// same type as int64_t (long on LP64), so reading it through int64_t would break strict aliasing.
+static_assert(std::is_trivially_copyable_v<PacerState> && sizeof(PacerState) == kPacerStateLongs * sizeof(int64_t));
+static_assert(kPacerCapSlot == kPacerStateLongs - 1, "the cap is the last wire slot");
+// One slot at a time, each a memcpy of one int64_t, in the wire order.
+inline int64_t loadSlot(const int64_t* w, int i) {
+    int64_t v;
+    std::memcpy(&v, w + i, sizeof v);
+    return v;
+}
+inline void storeSlot(int64_t* w, int i, int64_t v) { std::memcpy(w + i, &v, sizeof v); }
+inline PacerState unpack(const int64_t* w) {
+    return PacerState{loadSlot(w, 0), loadSlot(w, 1), loadSlot(w, 2), loadSlot(w, 3),
+                      loadSlot(w, 4), loadSlot(w, 5), loadSlot(w, kPacerCapSlot)};
+}
 inline void pack(const PacerState& s, int64_t* w) {
-    w[0] = s.lastDrawnNs;
-    w[1] = s.lastVsyncNs;
-    w[2] = s.periodNs;
-    w[3] = s.samples;
-    w[4] = s.sinceDrawn;
-    w[5] = s.divisor;
-    w[6] = s.capMilliHz;
+    storeSlot(w, 0, s.lastDrawnNs);
+    storeSlot(w, 1, s.lastVsyncNs);
+    storeSlot(w, 2, s.periodNs);
+    storeSlot(w, 3, s.samples);
+    storeSlot(w, 4, s.sinceDrawn);
+    storeSlot(w, 5, s.divisor);
+    storeSlot(w, kPacerCapSlot, s.capMilliHz);
 }
 
 }  // namespace geode::viz::frame

@@ -3,13 +3,13 @@ package dev.geode.playback
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
-import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioMixerAttributes
 import android.os.Build
 import androidx.annotation.ChecksSdkIntAtLeast
 import androidx.annotation.OptIn
 import androidx.annotation.RequiresApi
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import dev.geode.util.bestEffort
@@ -23,16 +23,19 @@ import dev.geode.util.bestEffort
  *
  * - The platform only treats a track as bit-perfect when its rate, encoding and channel mask equal
  *   the mixer attributes exactly, and it decides that when the AudioTrack is created. So the choice
- *   follows the stream: [onFormat] is called from the tap's format callback, which Media3 runs while
- *   it configures the sink, before the new AudioTrack exists, and it picks the DAC's bit-perfect entry
- *   for that rate, 16-bit (the chain never gets float output, see `docs/AUDIO_CHAIN.md`) and that
- *   channel layout. A DAC that offers no such entry gets the preference cleared, and plays mixed.
+ *   follows the stream: [onOutput] is called by `audio/TapRenderersFactory`'s output provider on the
+ *   playback thread just before each AudioTrack is built, with that track's own rate, mask and
+ *   encoding, and picks the DAC's bit-perfect entry that equals it. A DAC that offers no such entry
+ *   gets the preference cleared, and plays mixed. (It used to hear the format from the tap's format
+ *   callback, which Media3 runs only after it has opened the first track, so a cold start and every
+ *   gapless item after it played mixed: issue #353.)
  * - ExoPlayer is pointed at the DAC with `setPreferredAudioDevice`, so the AudioTrack is routed to
  *   the port that was just configured.
- *
- * Sonic only resamples when the pitch is changed, and ReplayGain and the equalizer change the
- * samples, not the format, so the format still matches; whether the result is "bit-perfect" with the
- * equalizer on is the user's call, as the explainer says.
+ * - [onActive] tells the native DSP whether the platform took the track bit-perfect. Native then
+ *   passes every sample through untouched (`core/audio/dsp/DspProcessor`): no ReplayGain, fades,
+ *   crossfade, equalizer, crossfeed or limiter, since any of them would change the samples the DAC
+ *   is meant to get as they are in the file. Native latches it at the pipeline flush that follows
+ *   each new AudioTrack, so the chain and the platform switch together.
  *
  * While the DAC's port is bit-perfect the platform mutes system sounds on it, and another app's
  * media mutes this one; that is how Android defines the mode, not something to work around.
@@ -40,6 +43,7 @@ import dev.geode.util.bestEffort
 @OptIn(UnstableApi::class)
 class BitPerfectOutput(
     context: Context,
+    private val onActive: (Boolean) -> Unit,
 ) {
     private val manager: AudioManager? = context.applicationContext.getSystemService(AudioManager::class.java)
 
@@ -50,9 +54,16 @@ class BitPerfectOutput(
     private var lastRateHz = 0
 
     @Volatile
-    private var lastChannels = 0
+    private var lastChannelMask = 0
 
-    /** Turns the mode on or off. Applies from the next AudioTrack, so from the next track or seek. */
+    @Volatile
+    private var lastEncoding = 0
+
+    /**
+     * Turns the mode on or off. The AudioTrack already open was built under the old choice, so a
+     * playing item is seeked to where it stands: Media3 rebuilds the track there, and the new choice
+     * applies from now rather than from the next track (#353's fix direction).
+     */
     fun setEnabled(
         on: Boolean,
         player: ExoPlayer,
@@ -64,43 +75,55 @@ class BitPerfectOutput(
             player.setPreferredAudioDevice(if (on) usbDevice() else null)
         }
         if (on) {
-            if (lastRateHz > 0) onFormat(lastRateHz, lastChannels)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            bestEffort(TAG, "clear mixer attributes") { clearAll() }
+            if (lastRateHz > 0) onOutput(lastRateHz, lastChannelMask, lastEncoding)
+        } else {
+            onActive(false)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                bestEffort(TAG, "clear mixer attributes") { clearAll() }
+            }
+        }
+        if (player.playbackState != Player.STATE_IDLE && player.currentMediaItem != null) {
+            bestEffort(TAG, "reopen the AudioTrack") { player.seekTo(player.currentPosition) }
         }
     }
 
-    /** The stream the sink is about to open; called on the playback thread before its AudioTrack exists. */
-    fun onFormat(
+    /** The AudioTrack about to be built; called on the playback thread before it exists. */
+    fun onOutput(
         sampleRateHz: Int,
-        channelCount: Int,
+        channelMask: Int,
+        encoding: Int,
     ) {
         lastRateHz = sampleRateHz
-        lastChannels = channelCount
-        if (!enabled || Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
-        bestEffort(TAG, "set mixer attributes") { applyOn34(sampleRateHz, channelCount) }
+        lastChannelMask = channelMask
+        lastEncoding = encoding
+        var granted = false
+        if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            bestEffort(TAG, "set mixer attributes") { granted = applyOn34(sampleRateHz, channelMask, encoding) }
+        }
+        onActive(granted)
     }
 
+    /** True when the platform took the DAC's bit-perfect entry for exactly this track's format. */
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     private fun applyOn34(
         sampleRateHz: Int,
-        channelCount: Int,
-    ) {
-        val audio = manager ?: return
-        val device = usbDevice() ?: return
-        val mask = channelMaskFor(channelCount)
+        channelMask: Int,
+        encoding: Int,
+    ): Boolean {
+        val audio = manager ?: return false
+        val device = usbDevice() ?: return false
         val match =
             audio.getSupportedMixerAttributes(device).firstOrNull {
                 it.mixerBehavior == AudioMixerAttributes.MIXER_BEHAVIOR_BIT_PERFECT &&
                     it.format.sampleRate == sampleRateHz &&
-                    it.format.encoding == AudioFormat.ENCODING_PCM_16BIT &&
-                    it.format.channelMask == mask
+                    it.format.encoding == encoding &&
+                    it.format.channelMask == channelMask
             }
         if (match == null) {
             audio.clearPreferredMixerAttributes(MEDIA, device)
-        } else {
-            audio.setPreferredMixerAttributes(MEDIA, device, match)
+            return false
         }
+        return audio.setPreferredMixerAttributes(MEDIA, device, match)
     }
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
@@ -129,13 +152,5 @@ class BitPerfectOutput(
                 .setUsage(AudioAttributes.USAGE_MEDIA)
                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                 .build()
-
-        /** The output mask the sink builds for a 16-bit stream of [channelCount] channels. */
-        fun channelMaskFor(channelCount: Int): Int =
-            when (channelCount) {
-                1 -> AudioFormat.CHANNEL_OUT_MONO
-                2 -> AudioFormat.CHANNEL_OUT_STEREO
-                else -> AudioFormat.CHANNEL_INVALID
-            }
     }
 }

@@ -1,6 +1,5 @@
 package dev.geode.ui.pro
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -111,6 +110,12 @@ import kotlin.math.sin
  * Also refreshes billing on every foreground, which is how a purchase completed elsewhere arrives.
  * A locked style's paywall is the one exception: a half sheet ([StylePaywallSheet]) under the
  * style it previews.
+ *
+ * Back is the [Dialog]'s own: `dismissOnBackPress` (on by default) routes it to
+ * `onDismissRequest`, which is [PaywallViewModel.dismiss], the same call Close makes (it clears
+ * the purchase status, resets the restore state and drops the request). A `BackHandler` inside
+ * the dialog used to call it a second way; it was removed (#557) so there is one dismiss path,
+ * and the window's own back handling stays free to give the system's predictive back animation.
  */
 @Composable
 fun PaywallHost(reducedMotion: Boolean) {
@@ -134,7 +139,6 @@ fun PaywallHost(reducedMotion: Boolean) {
             onDismissRequest = viewModel::dismiss,
             properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
         ) {
-            BackHandler(onBack = viewModel::dismiss)
             PaywallScreen(
                 state = state,
                 reducedMotion = reducedMotion,

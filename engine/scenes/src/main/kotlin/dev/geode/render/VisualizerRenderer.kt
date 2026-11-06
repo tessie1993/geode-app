@@ -144,15 +144,13 @@ class VisualizerRenderer(
     private var nativeAdsr: List<AdsrConfig>? = null
     private var nativeReactions: List<ReactionRoute>? = null
     private var nativePerformance: PerformanceSettings? = null
-    private var nativeThermalSampleMs = 0L
-    private var liquidModeSampleMs = 0L
     private val liquidModeState = MutableStateFlow(0)
 
     /**
      * What Liquid mode ran last frame (`liquid::Mode`: 0 off, 1 full, 2 lite, 3 warp, 4 paused), so
      * Customize can say when a hot phone simplified or paused it. The native renderer owns the
-     * answer on the GL thread; it is copied here at most twice a second, because the UI only needs
-     * the label to settle and a collector woken every frame would cost more than the answer is worth.
+     * answer on the GL thread and hands it over only when it changes, so a collector is never woken
+     * for a label that stayed the same.
      */
     val liquidMode: StateFlow<Int> = liquidModeState.asStateFlow()
 
@@ -249,13 +247,11 @@ class VisualizerRenderer(
     ) {
         ThermalGovernor.attach(appContext)
         nativeViz.surfaceCreated()
-        applyUiBlur()
         nativeParams = null
         nativeLfo = null
         nativeAdsr = null
         nativeReactions = null
         nativePerformance = null
-        liquidModeSampleMs = 0L
         nativeSoundTuning = null
         // A new native renderer starts a new engine: hand it a full window, not the tail of the last.
         soundCursor = null
@@ -284,14 +280,7 @@ class VisualizerRenderer(
         amount: Float,
     ) = nativeViz.setUnderlay(pixels, width, height, blend.ordinal, amount)
 
-    /**
-     * The glass sheet's blur region (left, top, right, bottom, strength, corner px), kept so a new
-     * native handle (one per attach) and a new surface start with the sheet the UI last set. GL thread
-     * only: [VisualizerView.setUiBlurRegion] posts here.
-     */
-    private val uiBlur = FloatArray(UI_BLUR_FLOATS)
-
-    /** GL thread; see [VisualizerView.setUiBlurRegion] for the contract. */
+    /** See [VisualizerView.setUiBlurRegion] for the contract; [NativeViz] keeps it for a new handle. */
     fun setUiBlurRegion(
         left: Float,
         top: Float,
@@ -299,17 +288,10 @@ class VisualizerRenderer(
         bottom: Float,
         strength: Float,
         cornerPx: Float,
-    ) {
-        uiBlur[0] = left
-        uiBlur[1] = top
-        uiBlur[2] = right
-        uiBlur[3] = bottom
-        uiBlur[4] = strength
-        uiBlur[5] = cornerPx
-        applyUiBlur()
-    }
+    ) = nativeViz.setUiBlurRegion(left, top, right, bottom, strength, cornerPx)
 
-    private fun applyUiBlur() = nativeViz.setUiBlurRegion(uiBlur[0], uiBlur[1], uiBlur[2], uiBlur[3], uiBlur[4], uiBlur[5])
+    /** The wallpaper's edge glow options (`core/viz/frame/EdgeGlowPass`); any thread, kept for a new handle. */
+    fun setEdgeGlow(options: FloatArray) = nativeViz.setEdgeGlow(options)
 
     override fun onDrawFrame(gl: GL10?) {
         if (firstFrameOnSurface) {
@@ -360,15 +342,9 @@ class VisualizerRenderer(
         nativeViz.setReducedMotion(reducedMotion)
         nativeViz.setTransition(transitionId, transitionDurationMs)
         nativeViz.setPacedFps(ThermalGovernor.pacedFps)
-        val now = SystemClock.elapsedRealtime()
-        if (now - nativeThermalSampleMs >= THERMAL_SAMPLE_MS) {
-            nativeThermalSampleMs = now
-            nativeViz.setThermal(ThermalGovernor.platformStatus, ThermalGovernor.thermalHeadroom())
-        }
-        if (now - liquidModeSampleMs >= LIQUID_MODE_SAMPLE_MS) {
-            liquidModeSampleMs = now
-            liquidModeState.value = nativeViz.liquidMode()
-        }
+        // Both cadences are native: the thermal reading once a second for the process, the liquid label on a change.
+        ThermalGovernor.sample()
+        nativeViz.takeLiquidMode().let { if (it >= 0) liquidModeState.value = it }
         pcmProvider()?.let { chunk -> nativeViz.pushPcm(chunk.data, chunk.count) }
         val tuning = soundTuning
         if (tuning !== nativeSoundTuning) {
@@ -397,7 +373,4 @@ class VisualizerRenderer(
     }
 }
 
-private const val THERMAL_SAMPLE_MS = 1000L
-private const val LIQUID_MODE_SAMPLE_MS = 500L
-private const val UI_BLUR_FLOATS = 6
 private const val NANOS_PER_SECOND = 1_000_000_000.0

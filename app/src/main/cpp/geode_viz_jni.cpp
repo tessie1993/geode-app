@@ -333,11 +333,6 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetAdsr(JNIEnv* env, jobject, jlong 
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetThermal(JNIEnv*, jobject, jlong handle, jint status, jfloat headroom) {
-    geode_viz_set_thermal(vizOf(handle), status, headroom);
-}
-
-JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetPacedFps(JNIEnv*, jobject, jlong handle, jfloat fps) {
     geode_viz_set_paced_fps(vizOf(handle), fps);
 }
@@ -354,8 +349,8 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetLiquidHotPolicy(JNIEnv*, jobject,
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizLiquidMode(JNIEnv*, jobject, jlong handle) {
-    return geode_viz_liquid_mode(vizOf(handle));
+Java_dev_geode_engine_bridge_GeodeNative_vizTakeLiquidMode(JNIEnv*, jobject, jlong handle) {
+    return geode_viz_take_liquid_mode(vizOf(handle));
 }
 
 JNIEXPORT void JNICALL
@@ -377,6 +372,18 @@ JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetUiBlurRegion(JNIEnv*, jobject, jlong handle, jfloat left, jfloat top,
                                                             jfloat right, jfloat bottom, jfloat strength, jfloat cornerPx) {
     geode_viz_set_ui_blur_region(vizOf(handle), left, top, right, bottom, strength, cornerPx);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetEdgeGlow(JNIEnv* env, jobject, jlong handle, jfloatArray opts) {
+    if (!opts) {
+        geode_viz_set_edge_glow(vizOf(handle), nullptr, 0);
+        return;
+    }
+    const jsize count = std::min<jsize>(env->GetArrayLength(opts), GEODE_EDGE_GLOW_FLOATS);
+    float values[GEODE_EDGE_GLOW_FLOATS] = {};
+    env->GetFloatArrayRegion(opts, 0, count, reinterpret_cast<jfloat*>(values));
+    geode_viz_set_edge_glow(vizOf(handle), values, static_cast<int>(count));
 }
 
 JNIEXPORT jboolean JNICALL
@@ -625,6 +632,21 @@ Java_dev_geode_engine_bridge_GeodeNative_pacerResume(JNIEnv* env, jobject, jlong
     env->GetLongArrayRegion(state, 0, GEODE_PACER_STATE_LONGS, reinterpret_cast<jlong*>(wire));
     geode_pacer_resume(wire);
     env->SetLongArrayRegion(state, 0, GEODE_PACER_STATE_LONGS, reinterpret_cast<const jlong*>(wire));
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_pacerEffectiveCap(JNIEnv*, jobject, jfloat capFps) {
+    return geode_pacer_effective_cap(capFps);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_thermalSampleDue(JNIEnv*, jobject) {
+    return geode_thermal_sample_due() != 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_thermalPush(JNIEnv*, jobject, jint status, jfloat headroom) {
+    geode_thermal_push(status, headroom);
 }
 
 }

@@ -119,9 +119,20 @@ jobs:
           # The environment interface and the Scene (#513): Morph World's CPU SDF open around the eye
           # along 26 rays at several seeds, through a glide between genomes, for a free camera anywhere;
           # the tube only in forward flight; rails = MorphDriver's block bit for bit; the play seed.
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/scene_env_test.cpp core/scene/Scene.cpp \
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/scene_env_test.cpp core/scene/Scene.cpp core/scene/object/*.cpp \
             core/scene/env/*.cpp core/viz/world/WorldGenome.cpp core/viz/world/MorphDriver.cpp core/viz/world/WorldAssets.cpp \
             core/viz/CameraRig.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp core/viz/Lfo.cpp \
-            core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/signal/params/*.cpp -o scene_env_test
+            core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/signal/params/*.cpp core/signal/events/Event.cpp \
+            core/signal/events/SoundEvents.cpp -o scene_env_test
           ./scene_env_test
-
+          # Scene movement (#516): orbit, drift, flock, follow, bounce, react to the camera, morph,
+          # collapse and split against closed forms and invariants, 30/60/120 fps, no allocation per frame.
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/scene_movement_test.cpp core/scene/movement/*.cpp \
+            core/signal/params/*.cpp -o scene_movement_test
+          ./scene_movement_test
+          # Scene objects (#515): the pool cap and its eviction rule, the lifecycle (birth, age, fades, death
+          # triggers, Fade/Collapse/Burst exits), spawners per trigger and per seed, every property a route
+          # target, camera targets, and the same objects at 30/60/120 fps.
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/scene_object_test.cpp core/scene/object/*.cpp \
+            core/signal/params/*.cpp -o scene_object_test
+          ./scene_object_test

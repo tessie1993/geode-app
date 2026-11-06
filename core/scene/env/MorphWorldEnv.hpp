@@ -34,6 +34,10 @@
 // Params (core/signal): the five shape controls, which the Scene sets as base each frame from
 // SceneParams (so Customize, presets and macros reach them as before) and routes may modulate, plus
 // this world's own two: env.corridor (the tube option) and env.repeatFloor.
+//
+// Objects (#515): one spawner, fired by the music's drop: three to five of the six SDF shapes thrown
+// out from a point ahead of the camera at the drop, in the world's material, growing in from nothing
+// and leaving by Burst after about two seconds. The camera flies on past them.
 
 namespace geode::scene::env {
 
@@ -72,6 +76,10 @@ public:
     float eyeRadius() const override { return viz::world::kEyeRadius; }
     bool sixDof() const override { return true; }
     void setAssetsBound(bool bound) override;
+    // The tracer bullet of #515: a drop throws a few shapes into view, which burst on their way out.
+    object::Declaration objects() const override;
+    // The palette position, emission, gain, fog, roll and lens the world drew with this frame.
+    object::OverlayLook objectLook() const override;
 
     // For tests and tools: the driver underneath, and what the shader's world() sees this frame.
     const viz::world::MorphDriver& driver() const { return driver_; }

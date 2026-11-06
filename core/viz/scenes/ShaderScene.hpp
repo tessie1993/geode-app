@@ -38,6 +38,7 @@ public:
     void setTouchField(const TouchField* field) override { touchField_ = field; }
     void setCamera(const CameraPose* pose) override { camera_ = pose; }
     bool drawsCamera() const override { return drawsCamera_; }
+    const ::geode::scene::Scene* sceneGraph() const override { return scene_.get(); }
     void setFragmentSource(const std::string& source) override;
     // Morph World's baked assets (WorldAssets: world_shapes.bin, world_textures.bin), uploaded on the
     // GL thread at the first draw. The shapes also go to the CPU port, process-wide.

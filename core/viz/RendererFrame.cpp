@@ -300,6 +300,19 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     deliverPcm(scene);
     scene.update(gainAdjusted(soundFrame_, p), dt);
     scene.draw(timeSeconds_);
+    drawSceneObjects(scene, dt);
+}
+
+void Renderer::drawSceneObjects(const Scene& scene, float dt) {
+    // The Scene was stepped in update() just above, after the camera: its objects are this frame's.
+    objectOverlayPass_.setFrame(scene.sceneGraph(), &camera_.pose(), paletteLutTex_);
+    const frame::Surface surface = offscreen_.load(std::memory_order_relaxed)
+                                       ? frame::Surface::Export
+                                       : static_cast<frame::Surface>(surfaceKind_.load(std::memory_order_relaxed));
+    const frame::FrameCtx ctx{renderWidth_, renderHeight_, timeSeconds_, dt, surface, &soundFrame_};
+    if (!objectOverlayPass_.wants(ctx)) return;
+    objectOverlayPass_.prepare(ctx);
+    objectOverlayPass_.draw(frame::PassInputs{fboA_.tex(), 0}, frame::PassTarget{fboA_.fbo(), renderWidth_, renderHeight_});
 }
 
 void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo, GLuint liquidTex) {

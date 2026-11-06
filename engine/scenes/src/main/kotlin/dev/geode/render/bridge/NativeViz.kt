@@ -187,26 +187,18 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizGyroReset(handle)
     }
 
-    fun setPacedFps(fps: Float) {
-        if (handle != 0L && sent.pacedFps(fps)) GeodeNative.vizSetPacedFps(handle, fps)
-    }
-
-    fun setQuality(
+    /** One live frame's start; see [GeodeNative.vizFrameBegin]. 0 before the handle exists. */
+    fun frameBegin(
+        pacedFps: Float,
         renderScale: Float,
         marchScale: Float,
         postFx: Boolean,
         adaptive: Boolean,
-    ) {
-        if (handle != 0L) GeodeNative.vizSetQuality(handle, renderScale, marchScale, postFx, adaptive)
+        liquidHotPolicy: Int,
+    ): Int {
+        if (handle == 0L) return 0
+        return GeodeNative.vizFrameBegin(handle, pacedFps, renderScale, marchScale, postFx, adaptive, liquidHotPolicy)
     }
-
-    /** Liquid on a hot phone; see [GeodeNative.vizSetLiquidHotPolicy]. */
-    fun setLiquidHotPolicy(policy: Int) {
-        if (handle != 0L) GeodeNative.vizSetLiquidHotPolicy(handle, policy)
-    }
-
-    /** Liquid mode when it changed since the last take (0 off … 4 paused), else -1; see [GeodeNative.vizTakeLiquidMode]. */
-    fun takeLiquidMode(): Int = if (handle != 0L) GeodeNative.vizTakeLiquidMode(handle) else -1
 
     /** Pins this renderer's auto-director; see [GeodeNative.vizSetDirector]. */
     fun setDirector(

@@ -27,4 +27,7 @@
     <string name="styles_empty_favourites">No favourites yet. Tap the heart on a style to keep it here.</string>
     <string name="styles_empty_recent">Styles you use show up here.</string>
     <string name="styles_empty">Nothing here yet.</string>
+    <string name="styles_random">Random style</string>
+    <string name="styles_yours">Your styles</string>
+    <string name="styles_yours_empty">Tap the heart on a style to keep it here. Styles you use show up here too.</string>
 </resources>

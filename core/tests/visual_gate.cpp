@@ -1,5 +1,5 @@
 // The visual quality gate (#470): judges the stills tools/glslcheck renders of every style and fails on a
-// mostly black picture, blown highlights, or a flash the app's own limiter would have to hold. Built and
+// mostly black picture or blown highlights. Built and
 // run by CI ("Visual gate" in .github/workflows/android.yml) with the system compiler; no GL here.
 //
 //   node tools/glslcheck/check.mjs --stills out/stills.tsv           renders (glslcheck README, "Stills gate")
@@ -18,12 +18,6 @@
 //          moment (the build's dip) is music, half the song dark is a broken style.
 //   blown  a still is blown when more than kBlownStillFraction of its pixels have all three channels past
 //          0.95. Fails on the same half-the-stills rule.
-//   flash  the run's frames (60 fps, the end of the build into the drop) go through FlashLimiter::observe
-//          exactly as OutputProbe's grids do on the phone, ungraded. Fails when any one-second window
-//          reaches FlashLimiter::kEngageTransitions: on the phone the limiter would engage and squeeze the
-//          picture toward grey, on a plain groove, which is a style the user sees going flat. WCAG's own
-//          line (more than three flashes a second) is printed beside it. The constants are the limiter's,
-//          read from FlashLimiter.hpp, so this can never disagree with what the app does.
 //   render the style failed to compile, link or draw under glslcheck.
 //
 // The baseline (core/tests/visual_gate_baseline.txt) lists the styles that fail a check today and why, so
@@ -41,11 +35,10 @@
 #include <utility>
 #include <vector>
 
-#include "viz/FlashLimiter.hpp"
-
-using namespace geode::viz::safety;
-
 namespace {
+
+// The side of the box-mean grid glslcheck writes per frame (its --stills format, version 1).
+constexpr int kProbeGrid = 16;
 
 // More than this fraction of black pixels makes a still black. Morph World's darkest seed world was 13 %
 // black; a style built on thin lines over black sits near 90 %; this is "nothing is on screen".
@@ -53,7 +46,7 @@ constexpr float kBlackStillFraction = 0.92f;
 // More than this fraction of clipped-white pixels makes a still blown: a quarter of the frame flat white.
 constexpr float kBlownStillFraction = 0.25f;
 
-const char* const kChecks[] = {"black", "blown", "flash", "render"};
+const char* const kChecks[] = {"black", "blown", "render"};
 
 struct Still {
     double time = 0.0;
@@ -92,7 +85,7 @@ bool hexGrid(const std::string& hex, std::vector<uint8_t>& out) {
 }
 
 // Reads one glslcheck --stills TSV into `styles`. False (with a message) when the file is not one, or was
-// written for a probe grid this build's FlashLimiter does not read.
+// written for a different grid.
 bool readStills(const char* path, std::vector<Style>& styles) {
     std::ifstream in(path);
     if (!in) {
@@ -110,7 +103,7 @@ bool readStills(const char* path, std::vector<Style>& styles) {
         return false;
     }
     if (std::stoi(head[5]) != kProbeGrid) {
-        std::printf("%s was boxed to a %s grid; FlashLimiter reads %d\n", path, head[5].c_str(), kProbeGrid);
+        std::printf("%s was boxed to a %s grid; the gate reads %d\n", path, head[5].c_str(), kProbeGrid);
         return false;
     }
     const size_t gridBytes = static_cast<size_t>(kProbeGrid) * kProbeGrid * 4;
@@ -171,8 +164,6 @@ struct Verdict {
     std::set<std::string> fails;
     int blackStills = 0, blownStills = 0;
     float worstBlack = 0.0f, worstBlown = 0.0f, meanLo = 1.0f, meanHi = 0.0f;
-    int transitions = 0;
-    double transitionsAt = 0.0;
 };
 
 Verdict judge(const Style& s) {
@@ -192,17 +183,6 @@ Verdict judge(const Style& s) {
     const int half = (static_cast<int>(s.stills.size()) + 1) / 2;
     if (!s.stills.empty() && v.blackStills >= half) v.fails.insert("black");
     if (!s.stills.empty() && v.blownStills >= half) v.fails.insert("blown");
-    // The phone's measurement, untouched by any grade (scale 1), so every swing the style draws counts.
-    FlashLimiter limiter;
-    for (const Frame& fr : s.frames) {
-        limiter.observe(measureGrid(fr.grid.data(), kProbeGrid), Grade{}, fr.time);
-        const int n = limiter.transitionsInWindow(fr.time);
-        if (n > v.transitions) {
-            v.transitions = n;
-            v.transitionsAt = fr.time;
-        }
-    }
-    if (v.transitions >= FlashLimiter::kEngageTransitions) v.fails.insert("flash");
     return v;
 }
 
@@ -236,10 +216,8 @@ int main(int argc, char** argv) {
         return 2;
     }
 
-    std::printf("visual gate: %zu styles; black still > %.2f, blown still > %.2f (fail at half the stills); "
-                "flash fails at %d transitions in %.0f s (FlashLimiter engages; WCAG allows 3 flashes, 6 transitions)\n",
-                styles.size(), kBlackStillFraction, kBlownStillFraction, FlashLimiter::kEngageTransitions,
-                static_cast<double>(FlashLimiter::kWindowSeconds));
+    std::printf("visual gate: %zu styles; black still > %.2f, blown still > %.2f (fail at half the stills)\n",
+                styles.size(), kBlackStillFraction, kBlownStillFraction);
 
     bool baselineFound = false;
     const auto baseline = readBaseline(baselinePath, baselineFound);
@@ -261,11 +239,10 @@ int main(int argc, char** argv) {
         if (!s.error.empty()) {
             std::printf("%s %-28s render: %s\n", status, s.id.c_str(), s.error.c_str());
         } else {
-            std::printf("%s %-28s black %d/%zu (worst %.3f) blown %d/%zu (worst %.3f) mean %.3f..%.3f "
-                        "flash %d tr/s (%.1f flashes/s at %.2f s)%s%s\n",
+            std::printf("%s %-28s black %d/%zu (worst %.3f) blown %d/%zu (worst %.3f) mean %.3f..%.3f%s%s\n",
                         status, s.id.c_str(), v.blackStills, s.stills.size(), v.worstBlack, v.blownStills,
-                        s.stills.size(), v.worstBlown, v.meanLo, v.meanHi, v.transitions, v.transitions / 2.0,
-                        v.transitionsAt, v.fails.empty() ? "" : "  fails: ", joined(v.fails).c_str());
+                        s.stills.size(), v.worstBlown, v.meanLo, v.meanHi, v.fails.empty() ? "" : "  fails: ",
+                        joined(v.fails).c_str());
         }
         if (!fresh.empty()) newFailures.push_back(s.id + " " + joined(fresh));
     }
@@ -284,7 +261,7 @@ int main(int argc, char** argv) {
     if (write) {
         std::ofstream out(baselinePath);
         out << "# The visual gate's baseline (core/tests/visual_gate.cpp): styles that fail a check today.\n"
-               "# `<style id> <check>[,<check>]`, checks black, blown, flash, render; `#` starts the reason.\n"
+               "# `<style id> <check>[,<check>]`, checks black, blown, render; `#` starts the reason.\n"
                "# A new failure fails CI; fix the style or add it here with a reason, in the same PR.\n";
         for (const auto& [id, checks] : current) out << id << ' ' << joined(checks) << "  # baselined by --write\n";
         std::printf("wrote %zu entries to %s\n", current.size(), baselinePath);

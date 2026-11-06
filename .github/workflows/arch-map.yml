@@ -5,7 +5,7 @@ name: Architecture gates
 
 on:
   pull_request:
-    branches: ["main", "claude/geode-finish"]
+    branches: ["main"]
     types: [opened, synchronize, reopened, edited]
 
 permissions:

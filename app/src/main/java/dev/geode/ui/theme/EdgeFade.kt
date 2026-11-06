@@ -29,6 +29,7 @@ fun Modifier.edgeFade(
             drawContent()
             val extent = if (horizontal) size.width else size.height
             val fade = length.toPx().coerceAtMost(extent / 2)
+
             fun at(v: Float) = if (horizontal) Offset(v, 0f) else Offset(0f, v)
             if (state.canScrollBackward) {
                 drawRect(

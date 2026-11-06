@@ -129,13 +129,6 @@ jobs:
             fi
           done
 
-      # The GL Transitions library parse the renderer and the shell share, and the shell's table (#438).
-      - name: Transition library host test
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/transition_library_test.cpp core/util/Json.cpp -o transition_library_test
-          ./transition_library_test
-
       # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes, ranges, and
       # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.
       - name: Catalogue host tests

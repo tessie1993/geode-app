@@ -60,7 +60,6 @@ class ReactivityTabTest {
                     Column(Modifier.verticalScroll(rememberScrollState())) {
                         EventsTab(
                             p = params,
-                            onChange = { params = it },
                             hand = HandReactions(reactions, GeodeNative.HAND_ALL),
                             onReactionsChange = { reactions = it },
                             onHandChange = { reactions = it.routes },

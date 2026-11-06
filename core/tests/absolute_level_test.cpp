@@ -129,7 +129,7 @@ void testOddSampleRate() {
 using Signal = std::function<void(int64_t sample, float& left, float& right)>;
 
 struct Heard {
-    double drive = 0, level = 0, loudnessS = 0, busy = 0, intensity = 0;
+    double drive = 0, level = 0, loudnessS = 0, busy = 0, intensity = 0, beatConf = 0;
     int kicks = 0, snares = 0, onsets = 0;
     int n = 0;
 };
@@ -157,6 +157,7 @@ Heard hear(const Signal& signal, double seconds, double settle, const GeodeSound
         h.loudnessS += f.loudnessS;
         h.busy += f.busy;
         h.intensity += f.intensity;
+        h.beatConf += f.beatConf;
         h.kicks += f.kick > 0 ? 1 : 0;
         h.snares += f.snare > 0 ? 1 : 0;
         h.onsets += f.onset > 0 ? 1 : 0;
@@ -168,6 +169,7 @@ Heard hear(const Signal& signal, double seconds, double settle, const GeodeSound
     h.loudnessS /= n;
     h.busy /= n;
     h.intensity /= n;
+    h.beatConf /= n;
     return h;
 }
 
@@ -227,10 +229,10 @@ Signal scaled(const Signal& s, double gain) {
 void testPadIsQuietAndFatIsNot() {
     const Heard p = hear(pad(-30.0), 12.0, 6.0);
     const Heard k = hear(fat(0.5, 1.0), 12.0, 6.0);
-    std::printf("pad: drive %.3f level %.3f loudnessS %.3f busy %.3f intensity %.3f, kicks %d\n", p.drive, p.level, p.loudnessS,
-                p.busy, p.intensity, p.kicks);
-    std::printf("fat: drive %.3f level %.3f loudnessS %.3f busy %.3f intensity %.3f, kicks %d\n", k.drive, k.level, k.loudnessS,
-                k.busy, k.intensity, k.kicks);
+    std::printf("pad: drive %.3f level %.3f loudnessS %.3f busy %.3f intensity %.3f, kicks %d onsets %d beatConf %.3f\n", p.drive, p.level,
+                p.loudnessS, p.busy, p.intensity, p.kicks, p.onsets, p.beatConf);
+    std::printf("fat: drive %.3f level %.3f loudnessS %.3f busy %.3f intensity %.3f, kicks %d onsets %d beatConf %.3f\n", k.drive, k.level,
+                k.loudnessS, k.busy, k.intensity, k.kicks, k.onsets, k.beatConf);
     CHECK(p.drive < 0.3, "pad drive %f", p.drive);
     CHECK(std::fabs(p.level - 0.5) < 0.05, "a -30 dBFS pad reads level %f, not stretched to its own peak", p.level);
     CHECK(p.kicks <= 1, "a pad fired %d kicks", p.kicks);

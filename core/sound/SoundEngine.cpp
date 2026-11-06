@@ -892,10 +892,13 @@ void SoundEngine::absolute(float dt, GeodeSoundFrame& out) {
     out.loudnessS = meter_.shortTerm();
     const float decay = std::exp(-dt / kRateTau);
     const float hits = (out.kick > 0.0f ? 1.0f : 0.0f) + (out.snare > 0.0f ? 1.0f : 0.0f);
-    s.onsetRate = s.onsetRate * decay + (open && out.onset > 0.0f ? 1.0f / kRateTau : 0.0f);
+    // An onset counts by how clear it is (its strength is flux over twice the threshold: half is a bare pass, 1 a clear hit),
+    // so the flutter of beating partials in a pad does not read as a busy passage.
+    const float clear = clamp01((out.onset - 0.5f) * 2.0f);
+    s.onsetRate = s.onsetRate * decay + (open ? clear / kRateTau : 0.0f);
     s.hitRate = s.hitRate * decay + (open ? hits / kRateTau : 0.0f);
     out.busy = clamp01(0.5f * clamp01(s.onsetRate / kBusyOnsetsPerSecond) + 0.25f * clamp01(s.hitRate / kBusyHitsPerSecond) +
-                       0.25f * clamp01(out.beatConf));
+                       0.25f * clamp01((out.beatConf - 0.35f) / 0.5f));  // the tracker counts as locked above ~0.35
     const float raw = open ? out.loudnessS * (kDriveBase + kDriveBusy * out.busy) : 0.0f;
     s.drive = lag(s.drive, raw, kDriveRise, kDriveFall, dt);
     out.drive = clamp01(s.drive);

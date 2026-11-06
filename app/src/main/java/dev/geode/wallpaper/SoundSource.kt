@@ -1,9 +1,12 @@
 package dev.geode.wallpaper
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import androidx.core.content.ContextCompat
 import dev.geode.audio.AudioBus
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.audio.SoundInput
@@ -16,6 +19,12 @@ import dev.geode.engine.bridge.GeodeNative
  * 1. The app's own ring ([AudioBus.soundInput]) while something feeds it: MuzViz playing, or the
  *    app's mic or capture mode. It is the full-quality signal, so it always wins.
  * 2. Otherwise, with the user's say-so, [OutputMixCapture]: whatever any other app is playing.
+ *
+ * Which of the two, and when to start or stop the capture, is native (`core/sound/SoundSource`,
+ * ADR 0003): each poll hands [GeodeNative.soundSourceStep] the ring's written-frame counter, whether
+ * capture is permitted and whether it runs, and gets back the source and what to do with the
+ * capture, with hysteresis so a ring fed in bursts never flaps it. This class only starts and stops
+ * the [OutputMixCapture] it is told to.
  *
  * It also keeps the silence clock behind "rest when silent": one timestamp, the last time sound
  * was heard. The rule itself is native (`core/sound/Silence`, ADR 0003): each poll hands the newest
@@ -46,11 +55,8 @@ class SoundSource(
     private var running = false
     private var hearOtherApps = false
 
-    private var captureRetryAtMs = 0L
-
-    private var appRing: SampleRing? = null
-    private var appWritten = -1L
-    private var appFedAtMs = 0L
+    /** The source rule's state, kept here and handed to native each poll (ADR 0003). */
+    private val sourceState = LongArray(GeodeNative.SOUND_SOURCE_STATE_LONGS)
 
     private var heardRing: SampleRing? = null
     private var heardWritten = -1L
@@ -71,8 +77,6 @@ class SoundSource(
     fun start(hearOtherApps: Boolean) {
         this.hearOtherApps = hearOtherApps
         if (!hearOtherApps) capture.stop()
-        // The user may have just granted the permission in the wallpaper's options: try at once.
-        captureRetryAtMs = 0L
         soundAtMs = SystemClock.uptimeMillis()
         silent = false
         if (running) return
@@ -84,20 +88,29 @@ class SoundSource(
         running = false
         handler.removeCallbacks(poll)
         capture.stop()
+        // A fresh rule on the next start: the ring gets its grace again before the capture opens.
+        sourceState.fill(0L)
     }
 
     private fun tick() {
         val now = SystemClock.uptimeMillis()
         val app = AudioBus.soundInput
-        val appFed = app != null && appIsFed(app.ring, now)
-        when {
-            appFed || !hearOtherApps -> capture.stop()
-            capture.running || now < captureRetryAtMs -> Unit
-            // A refusal (no permission yet, a device that keeps the output mix to itself) is not
-            // retried every poll: that would create and release an audio effect four times a second.
-            !capture.start(context) -> captureRetryAtMs = now + CAPTURE_RETRY_MS
+        val answer =
+            GeodeNative.soundSourceStep(
+                sourceState,
+                now,
+                ringPresent = app != null,
+                ringId = app?.let { System.identityHashCode(it.ring).toLong() } ?: 0L,
+                ringWritten = app?.ring?.writtenFrames ?: 0L,
+                capturePermitted = hearOtherApps && (capture.running || hasRecordPermission()),
+                captureRunning = capture.running,
+            )
+        if ((answer and GeodeNative.SOUND_SOURCE_STOP_CAPTURE) != 0) capture.stop()
+        if ((answer and GeodeNative.SOUND_SOURCE_START_CAPTURE) != 0 && !capture.start(context)) {
+            GeodeNative.soundSourceStartFailed(sourceState, now)
         }
-        val chosen = if (!appFed && capture.running) capture.soundInput else app
+        val useCapture = (answer and GeodeNative.SOUND_SOURCE_USE_CAPTURE) != 0
+        val chosen = if (useCapture && capture.running) capture.soundInput else app
         input = chosen
         if (chosen != null) soundAtMs = heardAt(chosen.ring, now)
         val nowSilent = GeodeNative.silenceResting(now, soundAtMs)
@@ -107,22 +120,8 @@ class SoundSource(
         }
     }
 
-    private fun appIsFed(
-        ring: SampleRing,
-        now: Long,
-    ): Boolean {
-        if (ring !== appRing) {
-            appRing = ring
-            appWritten = ring.writtenFrames
-            appFedAtMs = 0L
-        }
-        val written = ring.writtenFrames
-        if (written != appWritten) {
-            appWritten = written
-            appFedAtMs = now
-        }
-        return appFedAtMs > 0L && now - appFedAtMs < FED_WINDOW_MS
-    }
+    private fun hasRecordPermission(): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
     /**
      * The newest [LEVEL_FRAMES] of [ring], only when it has new samples since the last poll, handed
@@ -143,9 +142,6 @@ class SoundSource(
     private companion object {
         const val POLL_MS = 250L
 
-        /** The app's ring counts as fed for this long after its last write (a tap writes every few ms). */
-        const val FED_WINDOW_MS = 1_000L
-        const val CAPTURE_RETRY_MS = 10_000L
         const val LEVEL_FRAMES = 1024
     }
 }

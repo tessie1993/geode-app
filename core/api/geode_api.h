@@ -447,6 +447,20 @@ GEODE_API long long       geode_silence_heard_at(const float* const* channels, i
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
 
+/* Which sound the wallpaper and the dream hear (sound/SoundSource): the app's ring while it is fed, else the
+ * output-mix capture when permitted. The caller keeps the state (GEODE_SOUND_SOURCE_STATE_LONGS int64s, zeroed
+ * = fresh) and polls with now, whether the app has a ring, which ring and its written-frame counter, whether
+ * capture is permitted (option on and permission granted, or already running) and whether it runs. The answer
+ * is GEODE_SOUND_SOURCE_* bits; the ring falls back after 1 s without a write and takes over again after 0.5 s
+ * fed, so it never flaps. A start the shell could not make is reported back and retried after 10 s. Pure. */
+#define GEODE_SOUND_SOURCE_STATE_LONGS 8
+#define GEODE_SOUND_SOURCE_USE_CAPTURE 1     /* read the capture's input (while it runs), not the ring */
+#define GEODE_SOUND_SOURCE_START_CAPTURE 2   /* try to start the capture now */
+#define GEODE_SOUND_SOURCE_STOP_CAPTURE 4    /* stop the capture now */
+GEODE_API int             geode_sound_source_step(long long* state, long long now_ms, int ring_present,
+                                                  long long ring_id, long long ring_written,
+                                                  int capture_permitted, int capture_running);
+GEODE_API void            geode_sound_source_start_failed(long long* state, long long now_ms);
 /* Settings › Audio's listening tuning (sound/Tuning): the one schema of GeodeSoundTuning. A slot is one
  * float of the struct in field order, GEODE_SOUND_TUNING_FLOATS of them; each call touches the first
  * min(count, slots) and ignores the rest. Clamping puts each slot in its range and turns a NaN or an

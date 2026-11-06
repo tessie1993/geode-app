@@ -1242,6 +1242,7 @@ object GeodeNative {
         handle: Long,
         nowNs: Long,
     ): Long
+
     /** The cap a surface asking for [capFps] runs at now, under the thermal cap; 0 = none. For `Surface.setFrameRate`. */
     external fun pacerEffectiveCap(capFps: Float): Float
 

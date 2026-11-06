@@ -43,7 +43,7 @@ enum Flag : uint32_t {
     kPauseInBatterySaver = 1u << 5,
     kSilent = 1u << 6,
     kRestWhenSilent = 1u << 7,
-    // Either reduced-motion source; the shell ORs them, the rule does not need to know which.
+    // The system's Remove animations, as the shell reads it.
     kReducedMotion = 1u << 8,
 };
 

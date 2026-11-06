@@ -13,8 +13,8 @@ import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.billing.ProSnapshot
 import dev.geode.data.AutoDirectorStore
-import dev.geode.engine.bridge.GeodeNative
 import dev.geode.engine.audio.SoundTuning
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
 import dev.geode.render.SceneFactory
@@ -49,19 +49,25 @@ data class LoopSpec(
         require(fps in MIN_FPS..MAX_FPS) { "fps must be within $MIN_FPS..$MAX_FPS, was $fps" }
     }
 
+    // Frame counts and duration are native (`core/output/LoopPlan`, tested by `core/tests/output_test.cpp`),
+    // derived once per spec.
+    private val derived: LongArray by lazy {
+        LongArray(GeodeNative.LOOP_SPEC_LONGS).also { GeodeNative.loopSpecDerive(loopMs, crossfadeMs, fps, it) }
+    }
+
     /** Frames the finished loop contains — what the viewer sees once per repeat. */
-    val loopFrames: Int get() = (loopMs * fps / 1000L).toInt().coerceAtLeast(2)
+    val loopFrames: Int get() = derived[GeodeNative.LOOP_SPEC_LOOP_FRAMES].toInt()
 
     /** Frames the dissolve spans. Always at least one, never more than half the loop. */
-    val crossfadeFrames: Int get() = (crossfadeMs * fps / 1000L).toInt().coerceIn(1, loopFrames / 2)
+    val crossfadeFrames: Int get() = derived[GeodeNative.LOOP_SPEC_CROSSFADE_FRAMES].toInt()
 
     /**
      * Frames the renderer actually draws. The extra tail past [loopFrames] is the natural
      * continuation of the loop, which is what the opening frames dissolve out of.
      */
-    val sourceFrames: Int get() = loopFrames + crossfadeFrames
+    val sourceFrames: Int get() = derived[GeodeNative.LOOP_SPEC_SOURCE_FRAMES].toInt()
 
-    val loopDurationUs: Long get() = loopFrames * 1_000_000L / fps
+    val loopDurationUs: Long get() = derived[GeodeNative.LOOP_SPEC_LOOP_DURATION_US]
 
     /**
      * Where a preview should start playing to land on the seam.
@@ -81,15 +87,19 @@ data class LoopSpec(
         const val MAX_FPS: Int = 60
         const val SEAM_PREVIEW_LEAD_MS: Long = 2_000
 
-        /** Parses loose UI numbers into a spec, clamping instead of failing. */
+        /** Parses loose UI numbers into a spec, clamping instead of failing (natively, `core/output/LoopPlan`). */
         fun of(
             loopMs: Long,
             crossfadeMs: Long = DEFAULT_CROSSFADE_MS,
             fps: Int = MAX_FPS,
         ): LoopSpec {
-            val length = loopMs.coerceIn(MIN_LOOP_MS, MAX_LOOP_MS)
-            val fade = crossfadeMs.coerceIn(MIN_CROSSFADE_MS, minOf(MAX_CROSSFADE_MS, length / 2))
-            return LoopSpec(length, fade, fps.coerceIn(MIN_FPS, MAX_FPS))
+            val out = LongArray(GeodeNative.LOOP_SPEC_LONGS)
+            GeodeNative.loopSpecOf(loopMs, crossfadeMs, fps, out)
+            return LoopSpec(
+                out[GeodeNative.LOOP_SPEC_LOOP_MS],
+                out[GeodeNative.LOOP_SPEC_CROSSFADE_MS],
+                out[GeodeNative.LOOP_SPEC_FPS].toInt(),
+            )
         }
     }
 }
@@ -611,8 +621,10 @@ class LoopRender(
         spec: LoopSpec,
         aspect: ExportAspect,
     ): LoopSpec {
-        val ms = GeodeNative.exportSeamBudgetedCrossfadeMs(spec.crossfadeMs, spec.crossfadeFrames, spec.fps, aspect.width, aspect.height)
-        return spec.copy(crossfadeMs = ms)
+        val out = LongArray(GeodeNative.LOOP_SPEC_LONGS)
+        GeodeNative.loopSpecBudgeted(spec.loopMs, spec.crossfadeMs, spec.fps, aspect.width, aspect.height, out)
+        val crossfadeMs = out[GeodeNative.LOOP_SPEC_CROSSFADE_MS]
+        return if (crossfadeMs == spec.crossfadeMs) spec else spec.copy(crossfadeMs = crossfadeMs)
     }
 
     private fun videoFormat(

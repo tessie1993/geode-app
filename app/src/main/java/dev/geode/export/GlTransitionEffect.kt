@@ -121,6 +121,7 @@ private class GlTransitionProgram(
 }
 
 /** The handle when its pass built; otherwise it is freed and the render fails as a failed program link did. */
+@UnstableApi
 private fun openPass(handle: Long): Long {
     val error = if (handle == 0L) "out of memory" else GeodeNative.exportPassError(handle)
     if (error.isEmpty()) return handle

@@ -15,9 +15,9 @@ import androidx.annotation.StringRes
 import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.billing.ProSnapshot
-import dev.geode.data.AutoDirectorStore
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.pro.ProFeature
 import dev.geode.render.SceneFactory
 import dev.geode.render.bridge.StyleSchedule
 import dev.geode.render.offscreen.OffscreenRenderSpec
@@ -440,9 +440,6 @@ class VideoExporter(
             // its index alone, so nothing drifts over a long render.
             val totalFrames = GeodeNative.exportTotalFrames(exportDurationUs, fps).toInt()
 
-            // Pinned now: the live player moving on must not change this render's director.
-            val directorStore = AutoDirectorStore.get(context)
-            val director = directorStore.exportPin(ProSnapshot.gate(context), exportDurationUs / 1000L)
             val renderer =
                 OffscreenSceneRenderer(
                     context = context,
@@ -463,7 +460,9 @@ class VideoExporter(
                             underlay = underlay,
                             audioUri = audioUri,
                             soundTuning = soundTuning,
-                            director = director,
+                            // Pinned at prepare: live edits and the player moving on never reach the render.
+                            pinDurationMs = exportDurationUs / 1000L,
+                            entitled = ProSnapshot.gate(context).allows(ProFeature.AUTO_DIRECTOR),
                             styleSchedule = styleSchedule,
                         ),
                 ).also { rendererRef = it }

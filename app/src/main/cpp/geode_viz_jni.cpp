@@ -189,8 +189,8 @@ Java_dev_geode_engine_bridge_GeodeNative_macrosSet(JNIEnv* env, jobject, jfloatA
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_directorSet(JNIEnv*, jobject, jfloat amount, jlong seed) {
-    geode_director_set(amount, static_cast<long long>(seed));
+Java_dev_geode_engine_bridge_GeodeNative_directorSet(JNIEnv*, jobject, jboolean on, jfloat amount, jlong seed) {
+    geode_director_set(on == JNI_TRUE ? 1 : 0, amount, static_cast<long long>(seed));
 }
 
 JNIEXPORT void JNICALL
@@ -378,9 +378,11 @@ Java_dev_geode_engine_bridge_GeodeNative_vizFrameBegin(JNIEnv*, jobject, jlong h
                                  adsrVersion, tuningVersion);
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetDirector(JNIEnv*, jobject, jlong handle, jfloat amount, jlong seed) {
-    geode_viz_set_director(vizOf(handle), amount, static_cast<long long>(seed));
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizPinEngineSettings(JNIEnv*, jobject, jlong handle, jboolean entitled,
+                                                              jlong durationMs) {
+    return static_cast<jint>(
+        geode_viz_pin_engine_settings(vizOf(handle), entitled == JNI_TRUE ? 1 : 0, static_cast<long long>(durationMs)));
 }
 
 JNIEXPORT void JNICALL

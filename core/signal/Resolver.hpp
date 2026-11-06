@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 
+#include "signal/EngineSettings.hpp"
 #include "sound/SoundFrame.h"
 #include "viz/Adsr.hpp"
 #include "viz/CameraRig.hpp"
@@ -42,16 +43,8 @@ namespace geode::signal {
 // NoteResponse, Lfo, Adsr, Reactions, Macros, MotionField, VisualSafety, Catalogue); never on a GL header.
 // ADR 0006's later steps (route producers, base plus modulation, one clamp) rebuild behind this interface.
 
-// The process-wide values the chain reads (GLOSSARY "Engine settings"). The renderer latches one copy per
-// frame, from the globals live (and the same copy re-tunes its sound engine), so nothing changes mid-frame.
-struct EngineSettings {
-    viz::MacroKnobs knobs{};          // Customize › Macros, each -1..1
-    viz::DirectorConfig director{};   // the auto-director's amount and play seed
-    bool notesOn = false;             // Settings › Behaviour › Note & key reactions
-    std::uint32_t handMask = 0;       // Customize › Music: the moments set by hand (viz::hand), the director keeps off
-    bool reducedMotion = false;       // the system's reduced motion, applied once by the motion field and the clamp
-    std::uint64_t noteEntropy = 0;    // mixed into the note layer's seed (the play seed ^ this)
-};
+// The chain reads one EngineSettings value a frame (signal/EngineSettings.hpp): the renderer's SettingsLatch
+// hands it the process globals live, or an export's copy pinned at prepare (#350).
 
 // The style on screen this frame.
 struct StyleContext {

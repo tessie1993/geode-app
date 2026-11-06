@@ -1,14 +1,16 @@
 // Host test of the scene params resolver (signal/Resolver), the chain as a whole rather than each stage
 // alone: that the director's look lies under the macros and an LFO moves on top of both, that reduced
 // motion is applied exactly once, that a resolver given explicit engine settings never hears the process
-// globals, that two resolvers given the same inputs give the same bits over 600 frames, and that no stage
-// can push the luminance past safety::apply, which runs last. Behaviour, not golden numbers: the stages'
-// own maths is pinned by viz_math_test, director_test and note_response_test.
+// globals, that an export's settings latch (signal/EngineSettings, #350) holds its pin while the globals flip
+// and decides the export's director as the free-taste rule says, that two resolvers given the same inputs
+// give the same bits over 600 frames, and that no stage can push the luminance past safety::apply, which
+// runs last. Behaviour, not golden numbers: the stages' own maths is pinned by viz_math_test, director_test
+// and note_response_test.
 // Then, for #528's mutants: parity with the old chain (main's Renderer::resolveParams before #344) bit for
 // bit over seeded random setups, the preset morph and param fade by hand-worked frames, the motion field
 // before the clamp, the style moments, disabled stages as exact identity, and live beside export.
 // Built by CI (.github/workflows/android.yml, "Native host tests") with core/signal/Resolver.cpp,
-// core/sound/*.cpp and the GL-free stage sources it links (no GL header anywhere).
+// core/signal/EngineSettings.cpp, core/sound/*.cpp and the GL-free stage sources it links (no GL header anywhere).
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -259,14 +261,84 @@ void testPinnedAgainstGlobals() {
         geode::viz::macros::setGlobal(MacroKnobs{x, -x, x, -x, x, -x});
         geode::viz::note_response::setGlobal(i % 2 == 0);
         hand::setGlobal(i % 2 == 0 ? hand::kAll : 0u, true);
-        geode::viz::director::setGlobal(i % 2 == 0 ? 0.0f : 1.0f, static_cast<uint64_t>(i));
+        geode::viz::director::setGlobal(i % 2 != 0, i % 2 == 0 ? 0.0f : 1.0f, static_cast<uint64_t>(i));
         same = same && sameBits(calm[static_cast<size_t>(i)], wire(r->step(requested, frame(t), kDt, s, style(kStyle, i == 0)).params));
     }
     geode::viz::macros::setGlobal(MacroKnobs{});
     geode::viz::note_response::setGlobal(false);
     hand::setGlobal(0u, false);
-    geode::viz::director::setGlobal(0.0f, 0);
+    geode::viz::director::setGlobal(false, 0.0f, 0);
     check(same, "changing the process globals mid-run never reaches a resolver's frames");
+}
+
+// An export's director (#350), the rule the shell's AutoDirectorPolicy.exportAmount had: off with the switch
+// off; Pro and the trial throughout; free throughout only when the whole export fits the free taste (60 s),
+// else not at all. Never the live amount, and always the play's seed.
+void testDirectorForExport() {
+    namespace director = geode::viz::director;
+    check(director::kFreeTasteMs == 60'000, "the free taste is the shell's FREE_AUTO_DIRECTOR_TASTE_MS");
+    bool off = true;
+    for (bool entitled : {false, true})
+        for (long long ms : {0LL, 30'000LL, 60'000LL, 300'000LL}) off = off && director::forExport(false, 9, entitled, ms).amount == 0.0f;
+    check(off, "the switch off directs no export, Pro or free, short or long");
+    check(director::forExport(true, 9, true, 300'000).amount == 1.0f, "Pro and the trial direct a long export throughout");
+    check(director::forExport(true, 9, false, 0).amount == 1.0f, "free directs an empty export");
+    check(director::forExport(true, 9, false, 60'000).amount == 1.0f, "free directs an export of exactly the taste");
+    check(director::forExport(true, 9, false, 60'001).amount == 0.0f, "free does not direct an export a millisecond past the taste");
+    check(director::forExport(true, 9, false, 300'000).amount == 0.0f, "free does not direct a long export");
+    check(director::forExport(true, 0xDEADBEEFull, true, 1).seed == 0xDEADBEEFull, "an export keeps the play's seed");
+}
+
+// A pinned latch (an export, #350) keeps the knobs, the Note & key switch, the hand mask and the director it
+// was pinned with, with no note entropy, while every process global flips each frame; a live latch follows
+// the globals. Reduced motion is the renderer's own and passes through either way.
+void testLatchPinnedAgainstGlobals() {
+    using geode::signal::SettingsLatch;
+    namespace director = geode::viz::director;
+    const MacroKnobs knobs{0.5f, -0.5f, 0.25f, 0.0f, -0.25f, 1.0f};
+    const std::uint32_t snare = hand::bit(geode::viz::Moment::Snare);
+    geode::viz::macros::setGlobal(knobs);
+    geode::viz::note_response::setGlobal(true);
+    hand::setGlobal(snare, true);
+    // The live free taste has run out (amount 0), but a 30 s free export is still directed throughout.
+    director::setGlobal(true, 0.0f, 42);
+    SettingsLatch pinned;
+    check(!pinned.pinned(), "a latch starts live");
+    const std::uint32_t mask = pinned.pinForExport(false, 30'000);
+    check(pinned.pinned(), "pinForExport pins the latch");
+    check(mask == snare, "the pin hands back the hand mask it pinned");
+    SettingsLatch live;
+    bool held = true;
+    bool followed = true;
+    for (int i = 0; i < 120; ++i) {
+        const float x = (i % 3 == 0) ? 1.0f : -1.0f;
+        const MacroKnobs now{x, -x, x, -x, x, -x};
+        geode::viz::macros::setGlobal(now);
+        geode::viz::note_response::setGlobal(i % 2 == 0);
+        hand::setGlobal(i % 2 == 0 ? hand::kAll : 0u, true);
+        director::setGlobal(i % 2 != 0, i % 2 == 0 ? 0.0f : 1.0f, static_cast<uint64_t>(i + 100));
+        const bool reduced = i % 2 == 0;
+        const EngineSettings p = pinned.latch(reduced);
+        held = held && p.knobs == knobs && p.notesOn && p.handMask == snare && p.director.amount == 1.0f &&
+               p.director.seed == 42 && p.noteEntropy == 0 && p.reducedMotion == reduced;
+        const EngineSettings l = live.latch(reduced);
+        followed = followed && l.knobs == now && l.notesOn == (i % 2 == 0) && l.handMask == (i % 2 == 0 ? hand::kAll : 0u) &&
+                   l.director.amount == (i % 2 == 0 ? 0.0f : 1.0f) && l.director.seed == static_cast<uint64_t>(i + 100) &&
+                   l.reducedMotion == reduced;
+    }
+    geode::viz::macros::setGlobal(MacroKnobs{});
+    geode::viz::note_response::setGlobal(false);
+    hand::setGlobal(0u, false);
+    director::setGlobal(false, 0.0f, 0);
+    check(held, "a pinned latch never hears the process globals again");
+    check(followed, "a live latch follows the process globals every frame");
+
+    // A pinned free export longer than the taste is not directed, whatever the live amount says.
+    director::setGlobal(true, 1.0f, 7);
+    SettingsLatch longFree;
+    longFree.pinForExport(false, 120'000);
+    check(longFree.latch(false).director.amount == 0.0f, "a free export past the taste is not directed, even mid-taste live");
+    director::setGlobal(false, 0.0f, 0);
 }
 
 // Same inputs, same bits: params, camera moves and the note uniforms, over 600 frames
@@ -999,6 +1071,8 @@ int main() {
     testOrder();
     testReducedMotionOnce();
     testPinnedAgainstGlobals();
+    testDirectorForExport();
+    testLatchPinnedAgainstGlobals();
     testDeterministic();
     testSafetyLast();
     testParityWithTheOldChain();

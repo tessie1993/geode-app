@@ -7,7 +7,8 @@ package dev.geode.pro
  * Pro (and the trial) get the whole song. Free gets a taste: the first
  * [FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS] of every song, so the feature can be felt before it is bought.
  * Past the taste the amount goes to 0 and the renderer eases the look back out over about a second
- * (core/viz/Director), so the end of the taste is a fade, not a cut.
+ * (core/viz/Director), so the end of the taste is a fade, not a cut. An export's rule (directed throughout
+ * or not at all, by the switch, the entitlement and its length) is native: director::forExport.
  */
 object AutoDirectorPolicy {
     /**
@@ -25,22 +26,6 @@ object AutoDirectorPolicy {
             !enabled -> 0f
             gate.allows(ProFeature.AUTO_DIRECTOR) -> 1f
             playerPlaying && positionMs in 0 until FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS -> 1f
-            else -> 0f
-        }
-
-    /**
-     * An export of [durationMs]: directed throughout, or not at all. A free export is at most
-     * [FreeTier.FREE_MAX_EXPORT_MS], which the taste covers; anything longer needs Pro.
-     */
-    fun exportAmount(
-        enabled: Boolean,
-        gate: FeatureGate,
-        durationMs: Long,
-    ): Float =
-        when {
-            !enabled -> 0f
-            gate.allows(ProFeature.AUTO_DIRECTOR) -> 1f
-            durationMs <= FreeTier.FREE_AUTO_DIRECTOR_TASTE_MS -> 1f
             else -> 0f
         }
 

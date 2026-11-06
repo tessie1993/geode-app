@@ -835,6 +835,12 @@ object GeodeNative {
         heardAtMs: Long,
     ): Boolean
 
+    /**
+     * The GL Transitions library as UTF-8 bytes, in the control-separated table of
+     * `core/viz/TransitionLibrary.hpp`; read from the APK once per process, empty when missing.
+     * [assets] is the app's `AssetManager`, typed as Any like [vizCreate]'s.
+     */
+    external fun transitionsTable(assets: Any): ByteArray
     // Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High.
 
     /** Floats [perfTier] writes: render scale, fps cap, march scale, post FX (0/1), adaptive (0/1). */

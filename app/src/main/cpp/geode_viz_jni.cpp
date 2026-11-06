@@ -571,6 +571,7 @@ Java_dev_geode_engine_bridge_GeodeNative_customizeReset(JNIEnv* env, jobject, js
     env->SetFloatArrayRegion(out, 0, static_cast<jsize>(output.size()), output.data());
 }
 
+JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_configSchemaText(JNIEnv* env, jobject) {
     return env->NewStringUTF(geode_config_schema_text());
 }

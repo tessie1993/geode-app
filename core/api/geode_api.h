@@ -322,6 +322,10 @@ GEODE_API int64_t         geode_frame_clock_take(int64_t* state, int64_t now_ns)
 GEODE_API int64_t         geode_frame_clock_audio_until_us(const int64_t* state);   /* end of the last frame taken */
 /* The Cast stream's format: out[0] width, out[1] height, out[2] fps. */
 GEODE_API void            geode_cast_format(int* out);
+/* The GL Transitions library (gl_transitions.json, core/viz/TransitionLibrary): the shell's one read of it,
+   as the table encodeTransitionTable describes (UTF-8, control-separated). Read from the APK once per
+   process; "" when the asset is missing. The pointer stays valid for the process. */
+GEODE_API const char*     geode_transitions_table(AAssetManager* assets);
 /* Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High. */
 #define GEODE_PERF_TIER_FLOATS 5
 /* Writes render scale, fps cap, march scale, post FX (0/1), adaptive (0/1); returns the count, 0 for a bad mode. */

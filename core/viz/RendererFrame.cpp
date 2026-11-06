@@ -436,6 +436,15 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     // Liquid mode owns the dive, so a 2D style's own endless-zoom layers step aside (nothing dives twice).
     SceneParams sceneParams = p;
     if (liquidOn() && !scene->drawsCamera()) sceneParams.endlessZoom = false;
+    // Camera travel on a flat style: Fly speed (forward zooms in, backward out) dives the picture
+    // through the same looping endless zoom, in Dive speed's place when that is off or beside it.
+    else if (!scene->drawsCamera()) {
+        const float dive = CameraRig::flatDive(p);
+        if (dive != 0.0f) {
+            sceneParams.endlessZoomSpeed = (p.endlessZoom ? p.endlessZoomSpeed : 0.0f) + dive;
+            sceneParams.endlessZoom = true;
+        }
+    }
     drawSceneTarget(*scene, sceneParams, dt);
     const GLuint liquidTex = drawLiquid(*scene, p, dt);
     composite(p, progress, targetFbo, liquidTex);

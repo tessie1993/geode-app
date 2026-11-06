@@ -3,7 +3,7 @@ category|QUICK_KNOBS|ALWAYS
 category|LOOK|ALWAYS
 category|SHAPE|ALWAYS
 category|MOTION|ALWAYS
-category|CAMERA|THREE_D
+category|CAMERA|ALWAYS
 category|MUSIC|ALWAYS
 category|EFFECTS|ALWAYS
 category|LIQUID|ALWAYS
@@ -25,9 +25,9 @@ section|SHAPE|journey|PRO|ALWAYS|Path,Spawn points,Progression,Catch points,Catc
 section|SHAPE|emitters|PRO|ALWAYS|Hit pattern,Hit splats,Stirrers,Stirrer speed,Fluid splat radius,Radius on hit,Fluid splat force,Bass pump,Treble sparkle,Fluid quality,Lower the quality when the phone struggles
 section|MOTION|basics|BASICS|ALWAYS|Speed,Zoom,Rotation
 section|MOTION|drift|PRO|ALWAYS|Sway,Drift X,Drift Y
-section|MOTION|endless_dive|PRO|ALWAYS|Endless zoom,Dive speed
+section|MOTION|endless_dive|PRO|ALWAYS|Endless zoom,Dive speed,Travel zoom
 section|MOTION|inner_motion|PRO|ALWAYS|Motion amount,Breath,Spin drift
-section|CAMERA|basics|BASICS|THREE_D|Camera path,Fly speed
+section|CAMERA|basics|BASICS|ALWAYS|Camera path,Fly speed
 section|CAMERA|framing|PRO|THREE_D|Field of view,Swing,Push in,Look turn,Look tilt,Roll
 section|CAMERA|feel|PRO|THREE_D|Handheld shake,Tilt phone to look,Drag to look,Camera smoothing
 section|MUSIC|basics|BASICS|ALWAYS|Audio drive,Reaction strength,@auto_moments

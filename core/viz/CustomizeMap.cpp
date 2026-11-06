@@ -55,10 +55,10 @@ const std::vector<Section>& table() {
 
         {C::Motion, "basics", true, S::Always, {"Speed", "Zoom", "Rotation"}},
         {C::Motion, "drift", false, S::Always, {"Sway", "Drift X", "Drift Y"}},
-        {C::Motion, "endless_dive", false, S::Always, {"Endless zoom", "Dive speed"}},
+        {C::Motion, "endless_dive", false, S::Always, {"Endless zoom", "Dive speed", "Travel zoom"}},
         {C::Motion, "inner_motion", false, S::Always, {"Motion amount", "Breath", "Spin drift"}},
 
-        {C::Camera, "basics", true, S::ThreeD, {"Camera path", "Fly speed"}},
+        {C::Camera, "basics", true, S::Always, {"Camera path", "Fly speed"}},
         {C::Camera, "framing", false, S::ThreeD, {"Field of view", "Swing", "Push in", "Look turn", "Look tilt", "Roll"}},
         {C::Camera, "feel", false, S::ThreeD, {"Handheld shake", "Tilt phone to look", "Drag to look", "Camera smoothing"}},
 
@@ -116,6 +116,7 @@ const std::vector<Section>& table() {
 const std::vector<HeldControl>& held() {
     static const std::vector<HeldControl> kHeld = {
         {"Detail", {"marchDetail"}, std::nullopt},
+        {"Travel zoom", {"camFlat"}, std::nullopt},
         {"Push in", {"camPush"}, std::nullopt},
         {"Look turn", {"camYaw"}, std::nullopt},
         {"Look tilt", {"camPitch"}, std::nullopt},
@@ -188,7 +189,9 @@ bool rule(Show show, const std::string& styleId) {
     return true;
 }
 
-Show categoryRule(Category category) { return category == Category::Camera ? Show::ThreeD : Show::Always; }
+// Camera shows on every style now: Fly speed and the path pan and tilt a flat picture too. Only its
+// framing and feel sections stay with the raymarched styles.
+Show categoryRule(Category) { return Show::Always; }
 
 }  // namespace
 

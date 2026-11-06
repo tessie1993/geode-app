@@ -218,15 +218,31 @@ GEODE_API int         geode_library_search(const char* const* rows, int track_co
                                            const char* focus, const char* artist, const char* album,
                                            const char* title, int* out, int max_out);
 
-/* The search sheet's text filter (core/library/Search, filterRows; #341). `cells` holds 1 + `fields_per_row`
- * UTF-8 strings per row, `row_count` rows: the row's key (a track's uri; NULL = never merged with another
- * row), then its fields. `preferred` (NULL = none) holds one byte per row, nonzero for the row a key keeps
- * over its other matches. `query` is split on whitespace and every term must be in some field, ignoring
- * case. Writes the kept rows' indices, at most `max_out` (the cap), to `out` and returns how many it wrote;
- * a blank query writes none. */
+/* Studio's folders (core/library/StudioFiles): moves takes saved inside project folders
+ * (projects_dir/<id>/takes/) to takes_dir/<id>/, once; a take already there wins. Returns how many could not
+ * be moved (they stay where they were). Paths are UTF-8. */
+GEODE_API int         geode_studio_move_takes_out(const char* projects_dir, const char* takes_dir);
+
+/* The library's text search (core/library/Search, filterRows; #341, #395): the search sheet, and the Library
+ * screen and Android Auto once they call it. `cells` holds 1 + `fields_per_row` UTF-8 strings per row,
+ * `row_count` rows: the row's key (a track's uri; NULL = never merged with another row), then its fields in
+ * rank order (title, artist, album, then the rest). `preferred` (NULL = none) holds one byte per row, nonzero
+ * for the row a key keeps over its other matches. `query` is split on whitespace and every term must be in
+ * some field, case and accents folded (geode_library_fold). Hits rank by the furthest field their terms
+ * needed (title, then artist, then album, then the rest; typo hits after all of them), stably, so the order
+ * the rows came in holds inside a rank. Writes the ranked rows' indices, at most `max_out` (the cap, applied
+ * after ranking), to `out` and returns how many it wrote; a blank query writes none unless BLANK_ALL. */
+#define GEODE_LIBRARY_FILTER_TYPOS 1     /* also match a term one or two edits off a word, ranked last */
+#define GEODE_LIBRARY_FILTER_BLANK_ALL 2 /* a blank query keeps every row (deduped), in order */
 GEODE_API int         geode_library_filter(const char* const* cells, int row_count, int fields_per_row,
-                                           const unsigned char* preferred, const char* query, int* out,
-                                           int max_out);
+                                           const unsigned char* preferred, const char* query, int flags,
+                                           int* out, int max_out);
+
+/* Search text folded the way geode_library_filter compares it (lower case without the locale, accents
+ * stripped, ß æ œ ø ł đ ð þ spelled out): for a caller that sorts by the same key. Writes the UTF-8 to
+ * `out` (`cap` bytes, NUL-terminated when it fits) and returns its length without the NUL, like snprintf:
+ * a return >= `cap` means `out` was short. */
+GEODE_API int         geode_library_fold(const char* text, char* out, int cap);
 
 /* Scene and style catalogue (core/viz/Catalogue): every style id, its renderer kind, the style families,
  * which Customize controls reach which styles, and the ranges the shell's controls quote, as one versioned
@@ -285,6 +301,51 @@ GEODE_API void            geode_loudness_finish(geode_loudness*, geode_loudness_
 GEODE_API long long       geode_silence_heard_at(const float* const* channels, int channel_count, int frames,
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
+
+/* Surface run rule (viz/SurfaceRun): when the live wallpaper and the dream draw. flags are the GEODE_SURFACE_*
+ * bits the caller observed; animate_until_ms is the wall-clock time the entitlement lets the visual move until
+ * (GEODE_SURFACE_FOREVER for Pro, a trial's end, 0 for free). Pure: the caller restates on every change, and
+ * after geode_surface_recheck_in_ms (-1 = never), since nothing announces a trial's end. */
+#define GEODE_SURFACE_HAS_SURFACE            (1u << 0)
+#define GEODE_SURFACE_VISIBLE                (1u << 1)
+#define GEODE_SURFACE_PREVIEW                (1u << 2)
+#define GEODE_SURFACE_COVERED                (1u << 3)
+#define GEODE_SURFACE_BATTERY_SAVER          (1u << 4)
+#define GEODE_SURFACE_PAUSE_IN_BATTERY_SAVER (1u << 5)
+#define GEODE_SURFACE_SILENT                 (1u << 6)
+#define GEODE_SURFACE_REST_WHEN_SILENT       (1u << 7)
+#define GEODE_SURFACE_FOREVER                9223372036854775807LL
+GEODE_API int             geode_surface_run_mode(unsigned flags, long long animate_until_ms, long long now_ms);   /* 0 stopped, 1 still, 2 animated */
+GEODE_API int             geode_surface_listening(unsigned flags, long long animate_until_ms, long long now_ms);  /* 1 = hear sound */
+GEODE_API int             geode_surface_entitled(long long animate_until_ms, long long now_ms);                   /* 1 = may move */
+GEODE_API long long       geode_surface_recheck_in_ms(long long animate_until_ms, long long now_ms);              /* -1 = never */
+
+/* Live input (audio/LiveInput): the microphone's on/off state machine. The shell keeps the state and reports
+ * events; the step returns the next state and fills *actions_out with the GEODE_LIVE_INPUT_ACT_* bits to carry
+ * out, in bit order. Pure. States: 0 off, 1 on, 2 paused in the background, 3 lost. Events: 0 turn on,
+ * 1 turn off, 2 start failed, 3 music starts, 4 app background, 5 app foreground, 6 capture stopped. */
+#define GEODE_LIVE_INPUT_ACT_STOP_OTHER_APP_AUDIO (1u << 0)
+#define GEODE_LIVE_INPUT_ACT_PAUSE_MUSIC          (1u << 1)
+#define GEODE_LIVE_INPUT_ACT_START_CAPTURE        (1u << 2)
+#define GEODE_LIVE_INPUT_ACT_STOP_CAPTURE         (1u << 3)
+#define GEODE_LIVE_INPUT_ACT_RESET_SOUND          (1u << 4)
+#define GEODE_LIVE_INPUT_ACT_PLAYER_RATE          (1u << 5)
+GEODE_API int             geode_live_input_step(int state, int event, int has_permission, unsigned* actions_out);
+GEODE_API int             geode_live_input_is_on(int state);   /* 1 = on or paused in the background */
+
+/* Playback maths (audio/PlaybackMath): the pitch shift, the sleep timer's fade and the slider steps,
+ * so the shell keeps no audio maths. Pure, any thread. */
+GEODE_API float           geode_playback_semitones_to_ratio(float semitones);   /* 2^(st/12), Media3's pitch */
+GEODE_API long long       geode_playback_sleep_fade_ms(void);   /* the sleep timer's fade length */
+/* Volume with remaining_ms left: 1 down to 0 over the last fade_ms, clamped; fade_ms <= 0 = no fade. */
+GEODE_API float           geode_playback_sleep_fade_volume(long long remaining_ms, long long fade_ms);
+GEODE_API float           geode_playback_snap(float value, float step);   /* nearest step; step <= 0 = as is */
+
+/* Cover-art palette (viz/ArtPalette): the hue the artwork leans to, for Settings' artwork palette and the
+ * widget's glow. argb is count packed 0xAARRGGBB pixels as Bitmap.getPixels gives them (alpha ignored).
+ * Returns 1 and fills out[3] = { base hue 0..1, hue span 0.06..1, confidence 0..1 (the share of pixels with a
+ * colour) }, or 0 with out untouched when no pixel has one (greys, blacks, blown highlights). Pure. */
+GEODE_API int             geode_art_palette(const uint32_t* argb, int count, float* out);
 
 #ifdef __cplusplus
 }

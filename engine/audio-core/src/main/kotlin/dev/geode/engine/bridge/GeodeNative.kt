@@ -105,19 +105,36 @@ object GeodeNative {
     ): Int
 
     /**
+     * Moves takes saved inside project folders ([projectsDir]`/<id>/takes/`) to [takesDir]`/<id>/`,
+     * once (core/library/StudioFiles, #384). Returns how many could not be moved.
+     */
+    external fun studioMoveTakesOut(
+        projectsDir: String,
+        takesDir: String,
+    ): Int
+
+    /**
      * The search sheet's text filter (core/library/Search, `filterRows`). [cells] holds, per row, its key
      * (a track's uri; null = never merged) then [fieldsPerRow] UTF-8 fields; [preferred] one flag per row
      * (null = none), the row a key keeps. Every whitespace-split term of the UTF-8 [query] must be in some
-     * field, ignoring case. Writes the kept row indices into [out], whose size is the cap, and returns how
-     * many it wrote.
+     * field, case and accents folded; hits rank title, artist, album, then the rest, by field order. [options]
+     * are `GEODE_LIBRARY_FILTER_*` bits ([FILTER_TYPOS], [FILTER_BLANK_ALL]). Writes the ranked row indices
+     * into [out], whose size is the cap, and returns how many it wrote.
      */
     external fun libraryFilter(
         cells: Array<ByteArray?>,
         fieldsPerRow: Int,
         preferred: BooleanArray?,
         query: ByteArray,
+        options: Int,
         out: IntArray,
     ): Int
+
+    /** [libraryFilter] option: typo hits too, ranked after every exact hit (`GEODE_LIBRARY_FILTER_TYPOS`). */
+    const val FILTER_TYPOS = 1
+
+    /** [libraryFilter] option: a blank query keeps every row (`GEODE_LIBRARY_FILTER_BLANK_ALL`). */
+    const val FILTER_BLANK_ALL = 2
 
     /** [assets] is the app's `android.content.res.AssetManager`; typed as Any because this module has no Android SDK. */
     external fun vizCreate(
@@ -578,5 +595,122 @@ object GeodeNative {
     external fun silenceResting(
         nowMs: Long,
         heardAtMs: Long,
+    ): Boolean
+
+    // The live wallpaper's and the dream's run rule (core/viz/SurfaceRun). [flags] are the
+    // SURFACE_* bits the shell observed; [animateUntilMs] is the wall-clock time the entitlement
+    // lets the visual move until ([SURFACE_FOREVER] for Pro, a trial's end, 0 for free).
+
+    /** 0 stopped, 1 a still frame, 2 moving. */
+    external fun surfaceRunMode(
+        flags: Int,
+        animateUntilMs: Long,
+        nowMs: Long,
+    ): Int
+
+    /** Whether the surface should be hearing sound (what wakes it from a silent rest). */
+    external fun surfaceListening(
+        flags: Int,
+        animateUntilMs: Long,
+        nowMs: Long,
+    ): Boolean
+
+    /** Whether the entitlement lets the visual move at [nowMs]; the dream ends when it stops. */
+    external fun surfaceEntitled(
+        animateUntilMs: Long,
+        nowMs: Long,
+    ): Boolean
+
+    /** How long until the rule must be restated because a trial ends, or -1 for never. */
+    external fun surfaceRecheckInMs(
+        animateUntilMs: Long,
+        nowMs: Long,
+    ): Long
+
+    const val SURFACE_HAS_SURFACE = 1 shl 0
+    const val SURFACE_VISIBLE = 1 shl 1
+    const val SURFACE_PREVIEW = 1 shl 2
+    const val SURFACE_COVERED = 1 shl 3
+    const val SURFACE_BATTERY_SAVER = 1 shl 4
+    const val SURFACE_PAUSE_IN_BATTERY_SAVER = 1 shl 5
+    const val SURFACE_SILENT = 1 shl 6
+    const val SURFACE_REST_WHEN_SILENT = 1 shl 7
+    const val SURFACE_FOREVER = Long.MAX_VALUE
+
+    // Live input's state machine (core/audio/LiveInput). States: LIVE_INPUT_OFF..LOST; events:
+    // LIVE_INPUT_TURN_ON..CAPTURE_STOPPED.
+
+    /** One step: the next state in the low 8 bits, the LIVE_INPUT_ACT_* bits to carry out above them. */
+    external fun liveInputStep(
+        state: Int,
+        event: Int,
+        hasPermission: Boolean,
+    ): Long
+
+    /** On, or paused while the app is away. */
+    external fun liveInputIsOn(state: Int): Boolean
+
+    const val LIVE_INPUT_OFF = 0
+    const val LIVE_INPUT_ON = 1
+    const val LIVE_INPUT_PAUSED = 2
+    const val LIVE_INPUT_LOST = 3
+
+    const val LIVE_INPUT_TURN_ON = 0
+    const val LIVE_INPUT_TURN_OFF = 1
+    const val LIVE_INPUT_START_FAILED = 2
+    const val LIVE_INPUT_MUSIC_STARTS = 3
+    const val LIVE_INPUT_APP_BACKGROUND = 4
+    const val LIVE_INPUT_APP_FOREGROUND = 5
+    const val LIVE_INPUT_CAPTURE_STOPPED = 6
+
+    const val LIVE_INPUT_ACT_STOP_OTHER_APP_AUDIO = 1 shl 0
+    const val LIVE_INPUT_ACT_PAUSE_MUSIC = 1 shl 1
+    const val LIVE_INPUT_ACT_START_CAPTURE = 1 shl 2
+    const val LIVE_INPUT_ACT_STOP_CAPTURE = 1 shl 3
+    const val LIVE_INPUT_ACT_RESET_SOUND = 1 shl 4
+    const val LIVE_INPUT_ACT_PLAYER_RATE = 1 shl 5
+
+    // Playback maths (core/audio/PlaybackMath): the pitch shift, the sleep fade, slider steps.
+
+    /** Media3's pitch factor for a shift of [semitones]: 2^(semitones / 12). */
+    external fun playbackSemitonesToRatio(semitones: Float): Float
+
+    /** How long the sleep timer fades to silence before it pauses. */
+    external fun playbackSleepFadeMs(): Long
+
+    /** The sleep timer's volume with [remainingMs] left: 1 down to 0 over the last [fadeMs]. */
+    external fun playbackSleepFadeVolume(
+        remainingMs: Long,
+        fadeMs: Long,
+    ): Float
+
+    /** [value] on the nearest multiple of [step]; a step <= 0 leaves it as it is. */
+    external fun playbackSnap(
+        value: Float,
+        step: Float,
+    ): Float
+
+    // Cover-art palette (core/viz/ArtPalette): Settings' artwork palette and the widget's glow.
+
+    /** Index of the base hue (0..1) in [artPalette]'s out. */
+    const val ART_HUE = 0
+
+    /** Index of the hue span (0.06..1, a fraction of the wheel) in [artPalette]'s out. */
+    const val ART_SPAN = 1
+
+    /** Index of the confidence (0..1, the share of pixels with a colour) in [artPalette]'s out. */
+    const val ART_CONFIDENCE = 2
+
+    /** The size of [artPalette]'s out. */
+    const val ART_PALETTE_SIZE = 3
+
+    /**
+     * The palette of [pixels], packed ARGB as `Bitmap.getPixels` gives them: fills [out] (3 floats, at
+     * [ART_HUE], [ART_SPAN] and [ART_CONFIDENCE]) and returns true, or false with [out] untouched when no
+     * pixel has a colour (greys, blacks, blown highlights).
+     */
+    external fun artPalette(
+        pixels: IntArray,
+        out: FloatArray,
     ): Boolean
 }

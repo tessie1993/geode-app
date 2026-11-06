@@ -4,7 +4,8 @@ import dev.geode.engine.bridge.GeodeNative
 
 /**
  * The search sheet's rows as the native text filter reads them (`core/library/Search`, `filterRows`,
- * through `GeodeNative.libraryFilter`). Only marshalling: the matching, the dedupe and the cap are native.
+ * through `GeodeNative.libraryFilter`). Only marshalling: the folding, the matching, the ranking, the dedupe and
+ * the cap are native. Fields go in rank order: a track's title, artist, album, then the rest.
  *
  * The rows are encoded to UTF-8 once, here, so a 15k-track library is not re-encoded on every keystroke:
  * build one table per list (remembered on the list) and call [filter] with each query.
@@ -31,16 +32,21 @@ class SearchFilter<T>(
         }
     }
 
-    /** The rows every word of [query] is in, in list order, at most [max]; none for a blank query. */
+    /**
+     * The rows every word of [query] is in, title hits first, then artist, album and the rest (the fields'
+     * order), list order inside each, at most [max]; none for a blank query. [options] are
+     * [GeodeNative.FILTER_TYPOS] and [GeodeNative.FILTER_BLANK_ALL] bits.
+     */
     fun filter(
         query: String,
         max: Int = items.size,
+        options: Int = 0,
     ): List<T> {
         if (items.isEmpty() || max <= 0) return emptyList()
         val out = IntArray(minOf(max, items.size))
         val count =
             GeodeNative
-                .libraryFilter(cells, width - 1, preferred, query.encodeToByteArray(), out)
+                .libraryFilter(cells, width - 1, preferred, query.encodeToByteArray(), options, out)
                 .coerceIn(0, out.size)
         return List(count) { items[out[it]] }
     }

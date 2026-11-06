@@ -30,7 +30,7 @@ Answers from the grilling:
 | `render/VisualizerView`, `VisualizerRenderer`, `FramePacer`, `ThermalGovernor` (readings only; the governor is native), `MilkPresetMemory`, `offscreen/*`, `bridge/NativeViz`, `scene/GlUtil`, `fluid/FluidShaderTemplate` | ~1300 | Shell: GL thread, Choreographer, sensors | none | none |
 | audio-android `PcmTap*`, `SinkClock*`; app `playback/*`, `audio/*` (DSP is native already), `AiffPcm`/`AiffExtractor` | ~3700 | Shell: Media3, services, capture, container IO | none | none |
 | `export/*` other (`VideoExporter`, `LoopRender`, `LoopExtend`, `StudioExporter`, `AudioTranscoder`, `LoudnessTarget` (advice text, one gain subtraction), clip effects, `CubeLut` (file parser)) | ~5400 | Shell: MediaCodec, Muxer, Media3, text | none | none |
-| `analysis/ArtPalette` (per-pixel hue histogram of the artwork that tints the visuals) | 78 | Engine | `core/viz` | none: after the catalogue |
+| `analysis/ArtPalette` (per-pixel hue histogram of the artwork that tints the visuals) | 78 | Engine | `core/viz` | done: `core/viz/ArtPalette.hpp`, `geode_art_palette` |
 | `analysis/PlaybackMath`, `BarTrim`, `SearchMatcher`, `viz/BackgroundImage`, `render/GyroLook` (sensor to look, one clamp) | ~430 | Shell: sleep fade, search, sensors | none | `BarTrim` goes with the BPM labels |
 
 ## Status as of 2026-11
@@ -40,9 +40,9 @@ The decision stands; this records what has landed against the table above.
 - **Done:** PR 1 (`TouchField`, `CymaticsMath` and most of `VisualSafety` deleted; `TouchField` and `VisualSafety` are now one constant each), PR 2 (`core/audio/dsp/Loudness`), PR 3 (`core/audio/dsp/PcmResampler`), and the `VisualSafety` leftovers (the cut-to-fade rule runs in `Renderer::setTransition`; the beat floor went with the old tuning UI, in Kotlin and native).
 - **Done:** `ParamRandomizer` is `core/viz/ParamRandomizer`; the Kotlin `scene/ParamRandomizer` is a thin call into it. `ParamBlend` was removed with the A/B compare, not ported.
 - **Done, under another name:** the metadata landed as `core/viz/Catalogue` (Kotlin reads it once, as text, through `render/scene/Catalogue`), not in `SceneRegistry`. `core/viz/SceneRegistry` still exists, but only builds a native scene for a known id.
-- **Gone:** the `analysis/*` row. The sound engine work (`core/sound`) removed it; only `ArtPalette` and `PlaybackMath` are left in `dev.geode.analysis` (`SearchMatcher` moved to `core/library/Search`, #341). `BarTrim` is gone.
+- **Gone:** the `analysis/*` row. The sound engine work (`core/sound`) removed it; the last helpers left `dev.geode.analysis` after it (`PlaybackMath` is `core/audio/PlaybackMath.hpp`, `ArtPalette` moved to `core/viz`, `SearchMatcher` to `core/library/Search`, #341). `BarTrim` is gone.
 - **Renamed:** `FeatureFrameLayout` is now audio-core's `SoundFrameLayout`.
-- **Open:** the ring and clock row (`SampleRing`, `AudioPresentationClock`, `ClockSegment`, `audio/PcmRingBuffer`) and `ArtPalette` are still Kotlin. `PresentationMapping` was deleted: nothing read presentation time.
+- **Open:** the ring and clock row (`SampleRing`, `AudioPresentationClock`, `ClockSegment`, `audio/PcmRingBuffer`) is still Kotlin. `PresentationMapping` was deleted: nothing read presentation time.
 
 ## Consequences
 

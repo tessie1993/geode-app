@@ -1,12 +1,17 @@
 // Host-side checks for the search sheet's text filter (core/library/Search, filterRows, geode_library_filter).
 // Built and run by CI ("Native host tests" in .github/workflows/android.yml) with the system compiler; no device.
 //
-// What is pinned (#341, the port of the Kotlin SearchMatcher): the query is trimmed and split on whitespace,
-// every term must be inside some field, case-insensitive like Kotlin's contains(ignoreCase = true); rows that
-// share a key (a track's uri) collapse to one at the first match's place, keeping a preferred row (the device
-// copy) when one matches; the list is cut to the cap after that; a blank query lists nothing.
+// What is pinned (#341, the port of the Kotlin SearchMatcher, and #395's rewrite of it): the query is trimmed
+// and split on whitespace, every term must be inside some field, both sides folded (lower case without the
+// locale, accents stripped, ß æ œ ø ł đ ð þ spelled out); hits rank title, artist, album, then the rest, typo
+// hits (an option) last, stably inside a tier; rows that share a key (a track's uri) collapse to one at the
+// first match's place, keeping a preferred row (the device copy) when one matches, with the better tier; the
+// list is cut to the cap after ranking; a blank query lists nothing unless asked to list everything.
+// Every case of #395's SearchMatcherTest and the search cases of its LibraryBrowseTest are below.
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <initializer_list>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -15,9 +20,12 @@
 #include "api/geode_api.h"
 #include "library/Search.hpp"
 
+using geode::library::FilterOptions;
 using geode::library::FilterRow;
 using geode::library::filterRows;
 using geode::library::filterTerms;
+using geode::library::filterTier;
+using geode::library::foldText;
 
 namespace {
 
@@ -76,7 +84,7 @@ void everyTermInSomeField() {
 void caseIsIgnoredLikeKotlin() {
     check(run(kTracks, "HALO") == std::vector<int>({2}), "ASCII upper case");
     check(run(kTracks, "BEYONCÉ") == std::vector<int>({2}), "Latin-1 upper case");
-    check(run(kTracks, "beyonce").empty(), "no accent folding: Kotlin's ignoreCase keeps accents");
+    check(run(kTracks, "beyonce") == std::vector<int>({2}), "accents are folded: \"beyonce\" finds \"Beyoncé\"");
     const std::vector<Row> world = {
         {"1", false, {"Ąžuolas"}},           // Latin Extended-A
         {"2", false, {"Đường Phố"}},         // Vietnamese, Latin Extended Additional
@@ -114,11 +122,156 @@ void dedupeKeepsThePreferredRow() {
 }
 
 void capComesAfterDedupe() {
-    check(run(kTracks, "radio", 2) == std::vector<int>({4, 3}), "cut to the cap, preferred copies still swap in");
+    // "Radio Gaga" (title) outranks Radiohead (artist) although it comes last; the cap cuts after ranking.
+    check(run(kTracks, "radio", 2) == std::vector<int>({5, 4}), "ranked, then cut to the cap, preferred copies in");
     check(run(kTracks, "radio", 0).empty(), "a zero cap lists nothing");
     std::vector<Row> many;
     for (int i = 0; i < 50; ++i) many.push_back({nullptr, false, {"Track"}});
     check(run(many, "track", 30).size() == 30, "the sheet's 30-track cap");
+}
+
+// --- #395's SearchMatcherTest and LibraryBrowseTest, against the native rule ---------------------------------
+
+int tierOf(std::initializer_list<std::string_view> fields, std::string_view query, bool typos = false) {
+    const std::vector<std::string_view> f(fields);
+    FilterOptions options;
+    options.typos = typos;
+    return filterTier(f, query, options);
+}
+
+void foldStripsAccentsAndCase() {
+    check(foldText("Beyoncé") == "beyonce", "fold: Beyoncé");
+    check(foldText("Sigur Rós") == "sigur ros", "fold: Sigur Rós");
+    check(foldText("MOTÖRHEAD") == "motorhead", "fold: MOTÖRHEAD");
+    check(foldText("Café") == "cafe", "fold: Café");
+    check(foldText("Beyonce\xCC\x81") == "beyonce", "fold: an already decomposed accent (U+0301) is dropped");
+    check(foldText("Đường Phố") == "duong pho", "fold: Vietnamese");
+    check(foldText("Dvořák Ångström Øresund") == "dvorak angstrom oresund", "fold: caron, ring, stroke");
+    check(foldText("Şarkı Ţară") == "sarki tara", "fold: Turkish and Romanian cedilla, dotless i");
+    check(foldText("Ǹǚ Ș Ț") == "nu s t", "fold: Latin Extended-B");
+    check(foldText("Ά ά Ϋ ΐ") == "α α υ ι", "fold: Greek tonos and dialytika");
+    check(foldText("Ёлка Йошкар") == "елка иошкар", "fold: Cyrillic breve and diaeresis, as NFD splits them");
+    check(foldText("ガギグ パ ヴ が") == "カキク ハ ウ か", "fold: kana voicing marks");
+}
+
+void foldSpellsOutLettersThatDoNotDecompose() {
+    check(foldText("Straße") == "strasse", "fold: ß");
+    check(foldText("STRAẞE") == "strasse", "fold: capital sharp s");
+    check(foldText("Røisin") == "roisin", "fold: ø");
+    check(foldText("Łódź") == "lodz", "fold: ł");
+    check(foldText("Æther") == "aether", "fold: æ");
+    check(foldText("Œuvre") == "oeuvre", "fold: œ");
+    check(foldText("Þór Đorđe Ðað") == "thor dorde dad", "fold: þ, đ, ð");
+    check(foldText("Ǽ ǿ") == "ae o", "fold: æ and ø under an accent");
+    check(foldText("ħ ŧ") == "ħ ŧ", "fold: letters NFD leaves whole stay, as in Kotlin");
+}
+
+void foldIgnoresThePhoneLocale() {
+    // "I" folds to a dotted i whatever the phone's language, or "INXS" stops matching "inxs" in Turkish.
+    check(foldText("INXS") == "inxs", "fold: INXS");
+    check(foldText("İstanbul") == "istanbul", "fold: İstanbul");
+    check(foldText("ıI") == "ii", "fold: dotless i");
+    check(foldText("Plain ASCII 123") == "plain ascii 123", "fold: ASCII fast path");
+}
+
+void plainQueryFindsAccentedTitle() {
+    const std::vector<Row> accented = {{nullptr, false, {"Beyoncé"}}};
+    const std::vector<Row> plain = {{nullptr, false, {"beyonce"}}};
+    check(run(accented, "beyonce") == std::vector<int>({0}), "\"beyonce\" finds \"Beyoncé\"");
+    check(run(plain, "BEYONCÉ") == std::vector<int>({0}), "\"BEYONCÉ\" finds \"beyonce\"");
+    check(run(accented, "adele").empty(), "\"adele\" does not");
+    const std::vector<Row> cafe = {{"1", false, {"Café del Mar"}}, {"2", false, {"Tea"}}};
+    check(run(cafe, "cafe") == std::vector<int>({0}), "voice search folds too (#395 voiceSearchFoldsToo)");
+}
+
+void everyTermMustMatch() {
+    const std::vector<Row> halo = {{nullptr, false, {"Halo", "Beyoncé", "I Am... Sasha Fierce"}}};
+    check(run(halo, "halo beyonce") == std::vector<int>({0}), "both terms land");
+    check(run(halo, "halo adele").empty(), "one term in no field");
+    check(run(halo, "   ").empty(), "a blank query is no search");
+}
+
+void tierIsTheFieldTheMatchNeeded() {
+    const auto fields = {std::string_view("Halo"), std::string_view("Beyoncé"), std::string_view("Sasha Fierce"),
+                         std::string_view("/music/pop")};
+    check(tierOf(fields, "halo") == 0, "title");
+    check(tierOf(fields, "beyonce") == 1, "artist");
+    check(tierOf(fields, "fierce") == 2, "album");
+    check(tierOf(fields, "pop") == 3, "the rest");
+    check(tierOf(fields, "halo beyonce") == 1, "split across title and artist ranks as the artist");
+    check(tierOf(fields, "adele") == -1, "no match");
+    check(tierOf(fields, "") == 0, "blank is tier 0");
+    check(tierOf({"Yesterday"}, "yesterdya", true) == 1 && tierOf({"Yesterday"}, "yesterdya") == -1,
+          "a typo hit ranks at fields + field, and only with typos on");
+    check(tierOf({"Cep"}, "cpe", true) == -1, "a three-letter word has no spare edits");
+}
+
+void rankTitleAboveArtistAboveAlbum() {
+    // Input order is the caller's sort; title order alone would put "album" first.
+    const std::vector<Row> rows = {
+        {"album", false, {"Intro", "Someone", "Love Songs"}},
+        {"artist", false, {"Intro", "Love Inc.", "Hits"}},
+        {"title", false, {"Love Story", "Someone", "Hits"}},
+    };
+    check(run(rows, "love") == std::vector<int>({2, 1, 0}), "title, then artist, then album");
+    const std::vector<Row> fourFields = {
+        {"folder", false, {"Aaa", "Someone", "Something", "/music/love"}},
+        {"album", false, {"Bbb", "Someone", "Love Songs", "/music"}},
+        {"title", false, {"Zzz Love", "Someone", "Something", "/music"}},
+    };
+    check(run(fourFields, "love") == std::vector<int>({2, 1, 0}), "the folder after the album");
+}
+
+void sortHoldsWithinATier() {
+    const std::vector<Row> rows = {
+        {"a", false, {"Love A"}}, {"b", false, {"Love B"}}, {"x", false, {"Other", "Love Inc."}},
+        {"c", false, {"Love C"}},
+    };
+    check(run(rows, "love") == std::vector<int>({0, 1, 3, 2}), "the caller's order inside each tier");
+}
+
+void typoStillFindsButBelowExactHits() {
+    const std::vector<Row> rows = {
+        {"typo", false, {"Yesterday", "Someone", "Something", "/music"}},
+        {"exact", false, {"Other", "Someone", "Yesterdya Live", "/music"}},
+    };
+    FilterOptions typos;
+    typos.typos = true;
+    std::vector<FilterRow> table;
+    for (const Row& r : rows) table.push_back(FilterRow{std::optional<std::string_view>(r.key), false, r.fields});
+    check(filterRows(table, "yesterdya", 10, typos) == std::vector<int>({1, 0}),
+          "the album spelled as typed beats the title one typo off");
+    check(filterRows(table, "yesterdya", 10) == std::vector<int>({1}), "without typos only the exact hit");
+}
+
+void blankKeepsAllWhenAsked() {
+    FilterOptions all;
+    all.blankKeepsAll = true;
+    std::vector<FilterRow> table;
+    for (const Row& r : kTracks) {
+        table.push_back(FilterRow{r.key ? std::optional<std::string_view>(r.key) : std::nullopt, r.preferred,
+                                  r.fields});
+    }
+    check(filterRows(table, "  ", 100, all) == std::vector<int>({2, 4, 3, 5}),
+          "the whole list, deduped to the preferred copies, in order");
+    check(filterRows(table, "  ", 100).empty(), "and nothing without the option");
+}
+
+void preferredCopyKeepsTheBetterTier() {
+    // The library row matches on its title; the device copy has a different title tag but the same artist.
+    const std::vector<Row> rows = {
+        {"u", false, {"Love Me Do", "The Beatles"}},
+        {"v", false, {"Help", "Love Inc."}},
+        {"u", true, {"Love Me Do (Remastered)", "The Beatles"}},
+    };
+    check(run(rows, "love") == std::vector<int>({2, 1}), "the device copy at title rank");
+    const std::vector<Row> worse = {
+        {"v", false, {"Help", "Love Inc."}},
+        {"u", false, {"Love Me Do", "The Beatles"}},
+        {"u", true, {"Track 01", "Love"}},
+    };
+    check(run(worse, "love") == std::vector<int>({2, 0}),
+          "a preferred copy that needs the artist keeps the title rank");
 }
 
 void cAbiMarshalsRows() {
@@ -127,21 +280,38 @@ void cAbiMarshalsRows() {
                            nullptr, "Teardrop", "Cover Band"};
     const unsigned char preferred[] = {0, 0, 1, 0};
     int out[4] = {-1, -1, -1, -1};
-    check(geode_library_filter(cells, 4, 2, preferred, "creep", out, 4) == 1 && out[0] == 2,
+    check(geode_library_filter(cells, 4, 2, preferred, "creep", 0, out, 4) == 1 && out[0] == 2,
           "a key's preferred row is the one written");
-    check(geode_library_filter(cells, 4, 2, nullptr, "teardrop", out, 4) == 2 && out[0] == 1 && out[1] == 3,
+    check(geode_library_filter(cells, 4, 2, nullptr, "teardrop", 0, out, 4) == 2 && out[0] == 1 && out[1] == 3,
           "a null key stands alone");
-    check(geode_library_filter(cells, 4, 2, nullptr, "teardrop", out, 1) == 1 && out[0] == 1,
+    check(geode_library_filter(cells, 4, 2, nullptr, "teardrop", 0, out, 1) == 1 && out[0] == 1,
           "max_out is the cap, and the count is what was written");
-    check(geode_library_filter(cells, 4, 2, nullptr, nullptr, out, 4) == 0, "a null query lists nothing");
-    check(geode_library_filter(nullptr, 0, 2, nullptr, "x", nullptr, 0) == 0, "no rows, no crash");
+    check(geode_library_filter(cells, 4, 2, nullptr, nullptr, 0, out, 4) == 0, "a null query lists nothing");
+    check(geode_library_filter(nullptr, 0, 2, nullptr, "x", 0, nullptr, 0) == 0, "no rows, no crash");
+    check(geode_library_filter(cells, 4, 2, nullptr, "radiohead teardrop", 0, out, 4) == 0, "every term, one row");
+    check(geode_library_filter(cells, 4, 2, preferred, "", GEODE_LIBRARY_FILTER_BLANK_ALL, out, 4) == 3 &&
+              out[0] == 2 && out[1] == 1 && out[2] == 3,
+          "BLANK_ALL: a blank query keeps every row, deduped, in order");
+    check(geode_library_filter(cells, 4, 2, nullptr, "teardorp", 0, out, 4) == 0, "no typos without the flag");
+    check(geode_library_filter(cells, 4, 2, nullptr, "teardorp", GEODE_LIBRARY_FILTER_TYPOS, out, 4) == 2,
+          "TYPOS: a swapped pair is two edits, inside an eight-letter word's budget");
+
+    char folded[16];
+    check(geode_library_fold("Beyoncé", folded, sizeof folded) == 7 && std::string(folded) == "beyonce",
+          "geode_library_fold writes the folded UTF-8");
+    char tiny[4];
+    check(geode_library_fold("Straße", tiny, sizeof tiny) == 7 && std::string(tiny) == "str",
+          "a short buffer is cut and NUL-terminated; the return is the full length");
+    check(geode_library_fold(nullptr, folded, sizeof folded) == 0 && folded[0] == '\0', "null text folds to empty");
 }
+
 
 // --- Mutant-driven checks ----------------------------------------------------------------------------------
 // Seams: filterRows / filterTerms (library/Search.hpp) and geode_library_filter (api/geode_api.h). Expected
 // values are hand-worked literals, Unicode's own case pairs as Kotlin's contains(ignoreCase = true) answers
 // them, or the deleted Kotlin SearchMatcher.filterTracks (kotlinFilterTracks below). Each check names the
-// mutant of #507's code it fails against.
+// mutant of #507's code it fails against. #395's search folds accents and ranks by field, so the checks that
+// pinned Kotlin's accent-sensitive, unranked answers are gone: the Kotlin oracle is compared as a set.
 
 // Test-side UTF-8 writer, so the cases below can be spelled as code points.
 std::string utf8(std::u32string_view s) {
@@ -271,15 +441,11 @@ void distinctLettersStayDistinct() {
     // Kills: the 0xD7 exclusion removed (the multiplication sign would fold onto the division sign).
     check(!finds(U"÷", U"×"), "multiplication sign is not division sign");
     // Kills: the Extended Additional run extended into 0x1E96..0x1E9D (h with line below onto t with diaeresis).
-    check(!finds(U"ẗ", U"ẖ") && !finds(U"ẖ", U"ẗ"), "lower-only letters past 0x1E95 stay");
+    check(!finds(U"ẗ", U"ẖ") && !finds(U"ẖ", U"ẗ"), "lower-only letters past 0x1E95 stay distinct (t, h)");
     // Kills: a 3-byte UTF-8 sequence decoded as 2 bytes (U+4E6C would land on 0x139 and fold onto U+4EAC's 0x13A).
     check(!finds(U"京", U"乬"), "two CJK ideographs that share bytes do not match");
     check(finds(U"東京事変", U"京事"), "a CJK substring matches");
-    // Kills: a one-to-many fold (sharp s to "ss"): Kotlin compares one char against one char.
-    check(!finds(U"Straße", U"STRASSE") && !finds(U"Strasse", U"straße"), "sharp s is not ss");
     check(finds(U"STRAẞE", U"straße"), "capital sharp s is sharp s");
-    // Kills: an accent-stripping fold; Kotlin's ignoreCase keeps accents.
-    check(!finds(U"Café", U"cafe"), "e is not e-acute");
 }
 
 // A row with fewer fields than the row before it is matched on its own fields only.
@@ -349,6 +515,11 @@ std::vector<std::string> kotlinTerms(std::string_view query) {
     return out;
 }
 
+std::vector<int> sorted(std::vector<int> v) {
+    std::sort(v.begin(), v.end());
+    return v;
+}
+
 std::vector<int> kotlinFilterTracks(const std::vector<Row>& rows, std::string_view query, std::size_t max) {
     const std::vector<std::string> terms = kotlinTerms(query);
     if (terms.empty()) return {};
@@ -405,20 +576,18 @@ std::string randomQuery(Lcg& rng) {
     return q;
 }
 
-// Kills every dedupe and cap mutant at once (the cap's `<` to `<=` or `>=` to `>`, a non-preferred or
-// non-matching row taking a slot, a preferred row displacing a preferred one, the holder read by slot index
-// instead of row index, the AND of terms turned into an OR, the substring test negated) and pins the order:
-// each kept row at its key's first match.
+// Kills the dedupe mutants (a non-preferred or non-matching row taking a slot, a preferred row displacing a
+// preferred one, the holder read by slot index instead of row index, the AND of terms turned into an OR, the
+// substring test negated). The cap is out of this comparison (it applies after ranking); dedupeAndCapHandWorked pins it.
 void filterRowsListsWhatKotlinFilterTracksListed() {
     Lcg rng{20260507u};
     int mismatches = 0;
     for (int iter = 0; iter < 4000; ++iter) {
         const std::vector<Row> rows = randomRows(rng, 0);
         const std::string query = randomQuery(rng);
-        const std::size_t max = rng.below(9);
-        if (run(rows, query, max) != kotlinFilterTracks(rows, query, max)) ++mismatches;
+                if (sorted(run(rows, query, 100)) != sorted(kotlinFilterTracks(rows, query, 100))) ++mismatches;
     }
-    check(mismatches == 0, "filterRows lists what Kotlin's filterTracks listed, in the same order");
+    check(mismatches == 0, "filterRows lists the rows Kotlin's filterTracks listed (as a set; the order is ranked now)");
 }
 
 // The same oracle through the C ABI, so a cell-layout mutant (the fields' span starting at the key, the row
@@ -429,7 +598,7 @@ void cAbiListsWhatKotlinFilterTracksListed() {
     for (int iter = 0; iter < 2000; ++iter) {
         const std::vector<Row> rows = randomRows(rng, 2);
         const std::string query = randomQuery(rng);
-        const std::size_t max = 1 + rng.below(8);
+        const std::size_t max = 16;
         std::vector<std::string> owned;  // NUL-terminated copies of the fields, never reallocated
         owned.reserve(rows.size() * 2);
         std::vector<const char*> cells;
@@ -444,17 +613,17 @@ void cAbiListsWhatKotlinFilterTracksListed() {
         }
         std::vector<int> out(max, -1);
         const int n = geode_library_filter(cells.data(), static_cast<int>(rows.size()), 2, preferred.data(),
-                                           query.c_str(), out.data(), static_cast<int>(max));
+                                           query.c_str(), 0, out.data(), static_cast<int>(max));
         out.resize(n < 0 ? 0 : static_cast<std::size_t>(n));
-        if (out != kotlinFilterTracks(rows, query, max)) ++mismatches;
+        if (sorted(out) != sorted(kotlinFilterTracks(rows, query, max))) ++mismatches;
     }
-    check(mismatches == 0, "geode_library_filter lists what Kotlin's filterTracks listed");
+    check(mismatches == 0, "geode_library_filter lists the rows Kotlin's filterTracks listed (as a set)");
     const char* cells[] = {"zzkey", "Song", "Artist"};
     int out[1] = {-1};
     // Kills: the fields' span starting at the key cell.
-    check(geode_library_filter(cells, 1, 2, nullptr, "zzkey", out, 1) == 0, "the key is not a searched field");
+    check(geode_library_filter(cells, 1, 2, nullptr, "zzkey", 0, out, 1) == 0, "the key is not a searched field");
     // Kills: the span one field short.
-    check(geode_library_filter(cells, 1, 2, nullptr, "artist", out, 1) == 1 && out[0] == 0,
+    check(geode_library_filter(cells, 1, 2, nullptr, "artist", 0, out, 1) == 1 && out[0] == 0,
           "the last field is searched");
 }
 
@@ -478,6 +647,17 @@ int main() {
     caseIsIgnoredLikeKotlin();
     dedupeKeepsThePreferredRow();
     capComesAfterDedupe();
+    foldStripsAccentsAndCase();
+    foldSpellsOutLettersThatDoNotDecompose();
+    foldIgnoresThePhoneLocale();
+    plainQueryFindsAccentedTitle();
+    everyTermMustMatch();
+    tierIsTheFieldTheMatchNeeded();
+    rankTitleAboveArtistAboveAlbum();
+    sortHoldsWithinATier();
+    typoStillFindsButBelowExactHits();
+    blankKeepsAllWhenAsked();
+    preferredCopyKeepsTheBetterTier();
     cAbiMarshalsRows();
     queryEdgesTrimLikeKotlinAndSplitLikeJavaRegex();
     caseFoldingMatchesKotlinAtEveryBoundary();

@@ -42,7 +42,7 @@ android {
 
     defaultConfig {
         applicationId = "com.muzviz.studiopro"
-        minSdk = 26
+        minSdk = 33
         targetSdk = 36
         // Set once in gradle.properties and the root build.gradle.kts (release versioning).
         versionCode = rootProject.extra["geodeVersionCode"] as Int

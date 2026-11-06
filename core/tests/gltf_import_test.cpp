@@ -781,7 +781,8 @@ void ktx2BasisuIsMade() {
 
 void textureMemoryIsFitted() {
     ImportLimits limits;
-    limits.textures.flagship = {256, 256, 30000};
+    // 128 and 64 with their chains are 21872 + 5488 = 27360 bytes: over 20000 until the 128 drops a level.
+    limits.textures.flagship = {256, 256, 20000};
     limits.textures.simplified = {256, 256, 8000};
     Glb glb;
     const int big = glb.addTexture(glb.addImage(solidPng(128, 128, {200, 0, 0, 255}), "image/png"));
@@ -791,7 +792,7 @@ void textureMemoryIsFitted() {
     const ImportResult r = run(glb, limits);
     check(r.ok && r.warned(Warning::TexturesFitToBudget), "over the texture memory, the model is fitted, not refused");
     check(r.counts.textureBytesSource == chainBytes(128, 128) + chainBytes(64, 64), "the before count is at the role caps");
-    check(r.counts.textureBytesFlagship <= 30000 && r.counts.textureBytesLowDetail <= 8000, "both tiers end under budget");
+    check(r.counts.textureBytesFlagship <= 20000 && r.counts.textureBytesLowDetail <= 8000, "both tiers end under budget");
     if (r.textures.size() != 2) return;
     const ModelTexture& a = r.textures[r.materials[0].baseColourTexture.texture];
     const ModelTexture& b = r.textures[r.materials[1].baseColourTexture.texture];

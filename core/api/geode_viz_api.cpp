@@ -17,6 +17,8 @@
 #include "viz/SceneRegistry.hpp"
 #include "viz/ShaderSource.hpp"
 #include "viz/TransitionLibrary.hpp"
+#include "viz/frame/Quality.hpp"
+#include "viz/frame/Pacer.hpp"
 #include "viz/ShaderOverrides.hpp"
 
 struct geode_viz {
@@ -214,6 +216,41 @@ const char* geode_transitions_table(AAssetManager* assets) {
         if (text) table = geode::viz::encodeTransitionTable(geode::viz::parseTransitionLibrary(*text));
     }
     return table.c_str();
+}
+
+int geode_perf_tier(int mode, float* out, int capacity) {
+    namespace frame = geode::viz::frame;
+    if (!out || capacity < GEODE_PERF_TIER_FLOATS || mode < 0 || mode >= frame::kQualityModes) return 0;
+    const frame::QualityTier& t = frame::qualityTier(static_cast<frame::QualityMode>(mode));
+    out[0] = t.renderScale;
+    out[1] = t.fpsCap;
+    out[2] = t.marchScale;
+    out[3] = t.postFx ? 1.0f : 0.0f;
+    out[4] = t.adaptive ? 1.0f : 0.0f;
+    return GEODE_PERF_TIER_FLOATS;
+}
+
+int geode_perf_mode_for_device(long long total_ram_bytes, int low_ram, int media_performance_class) {
+    return static_cast<int>(geode::viz::frame::modeForDevice(total_ram_bytes, low_ram != 0, media_performance_class));
+}
+
+double geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap_fps) {
+    namespace frame = geode::viz::frame;
+    static_assert(frame::kPacerStateLongs == GEODE_PACER_STATE_LONGS);
+    static_assert(sizeof(long long) == sizeof(int64_t));
+    auto* wire = reinterpret_cast<int64_t*>(state);
+    frame::PacerState s = frame::unpack(wire);
+    const double dt = frame::Pacer::onVsync(s, frame_time_ns, cap_fps);
+    frame::pack(s, wire);
+    return dt;
+}
+
+void geode_pacer_resume(long long* state) {
+    namespace frame = geode::viz::frame;
+    auto* wire = reinterpret_cast<int64_t*>(state);
+    frame::PacerState s = frame::unpack(wire);
+    frame::Pacer::resume(s);
+    frame::pack(s, wire);
 }
 
 }  // extern "C"

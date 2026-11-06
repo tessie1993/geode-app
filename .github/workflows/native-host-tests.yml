@@ -77,6 +77,12 @@ jobs:
           # Takes move out of project folders, beside their project and out of cloud backup (#384).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/studio_files_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o studio_files_test
           ./studio_files_test
+          # The GL Transitions library parse the renderer and the shell share, and the shell's table (#438).
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/transition_library_test.cpp core/util/Json.cpp -o transition_library_test
+          ./transition_library_test
+          # Settings › Performance's tiers and the first-run pick for this phone (#437).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/quality_test.cpp -o quality_test
+          ./quality_test
           # The live wallpaper's and the dream's run rule: priority order, preview, listening, the trial's end (#376).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/surface_run_test.cpp core/api/geode_surface_api.cpp -o surface_run_test
           ./surface_run_test

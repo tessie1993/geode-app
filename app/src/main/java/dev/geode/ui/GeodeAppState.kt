@@ -95,7 +95,9 @@ class GeodeAppState(
         searching = false
     }
 
+    /** Every change of destination goes through here, and closes the search overlay over it. */
     fun navigateTo(destination: GeodeDestination) {
+        searching = false
         dest = destination
     }
 
@@ -108,18 +110,16 @@ class GeodeAppState(
     /** Opens Settings › Library: where music folders and the short-track filter live. */
     fun openSettingsFolders() {
         settingsGroupRequest = SettingsGroupKey.LIBRARY
-        dest = GeodeDestination.SETTINGS
+        navigateTo(GeodeDestination.SETTINGS)
     }
 
     /** Opens Studio › Render: the one place export, loop render and their defaults live. */
     fun openStudioRender() {
         studioSection = StudioSection.RENDER
-        dest = GeodeDestination.STUDIO
+        navigateTo(GeodeDestination.STUDIO)
     }
 
-    fun resetToPlayer() {
-        dest = GeodeDestination.PLAYER
-    }
+    fun resetToPlayer() = navigateTo(GeodeDestination.PLAYER)
 
     companion object {
         val Saver: Saver<GeodeAppState, List<Any>> =

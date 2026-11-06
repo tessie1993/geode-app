@@ -765,8 +765,6 @@ val LocalDockReserve = compositionLocalOf { 0.dp }
  */
 val LocalDockedMiniPlayer = compositionLocalOf<(@Composable (Modifier) -> Unit)?> { null }
 
-
-
 /** How wide the floating mini player grows on a tablet before it stops. */
 private val MINI_PLAYER_MAX_WIDTH = 640.dp
 

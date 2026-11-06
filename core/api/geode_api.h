@@ -113,15 +113,19 @@ GEODE_API int         geode_music_edit(const char* style_id, int seed, const flo
 GEODE_API int         geode_music_action_target(int action);
 /* Gyro look, -1..1 per axis; the camera reads it only while camGyro is on. */
 GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
-/* This surface's own fps cap (0 = free-running); the thermal cap is applied under it natively. */
-GEODE_API void        geode_viz_set_paced_fps(geode_viz*, float fps);
-/* Settings › Performance (live surfaces): scales 0..1, post_fx / adaptive 0 or 1. Export never calls it. */
-GEODE_API void        geode_viz_set_quality(geode_viz*, float render_scale, float march_scale, int post_fx, int adaptive);
-/* Settings › Performance › Liquid on a hot phone: 0 simplify, 1 full, 2 pause (liquid::HotPolicy). */
-GEODE_API void        geode_viz_set_liquid_hot_policy(geode_viz*, int policy);
-/* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode), or -1 when it has
-   not changed since the last take (and for a null handle). Taken every frame by the live shell. */
-GEODE_API int         geode_viz_take_liquid_mode(geode_viz*);
+/* One live frame's start (core/viz/frame/Cadence, #604), on the GL thread before geode_viz_set_scene and
+   geode_viz_render. The shell passes what it holds every frame and native applies only what changed:
+   paced_fps is this surface's own fps cap (0 = free-running; the thermal cap is applied under it natively);
+   the rest is Settings › Performance (scales 0..1, post_fx / adaptive 0 or 1, liquid_hot_policy 0 simplify,
+   1 full, 2 pause: liquid::HotPolicy). Export never calls it. Answers a bitmask of GEODE_FRAME_*; 0 for a
+   null handle. */
+#define GEODE_FRAME_CLEAR_ONLY     0x1 /* the first frame on a new surface, cleared to black: present it, do nothing else */
+#define GEODE_FRAME_THERMAL_DUE    0x2 /* read PowerManager and call geode_thermal_push */
+#define GEODE_FRAME_LIQUID_CHANGED 0x4 /* Liquid mode changed: GEODE_FRAME_LIQUID_MODE(due) */
+/* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode). */
+#define GEODE_FRAME_LIQUID_MODE(due) ((int)(((unsigned)(due) >> 8) & 0xFu))
+GEODE_API int         geode_viz_frame_begin(geode_viz*, float paced_fps, float render_scale, float march_scale,
+                                            int post_fx, int adaptive, int liquid_hot_policy);
 GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
 /* Export: step every frame by exactly 1/fps instead of measuring the time between frames (#377); 0 = live. */
 GEODE_API void        geode_viz_set_frame_rate(geode_viz*, int fps);
@@ -245,6 +249,11 @@ GEODE_API int         geode_library_search(const char* const* rows, int track_co
                                            const char* focus, const char* artist, const char* album,
                                            const char* title, int* out, int max_out);
 
+/* Studio's folders (core/library/StudioFiles): moves takes saved inside project folders
+ * (projects_dir/<id>/takes/) to takes_dir/<id>/, once; a take already there wins. Returns how many could not
+ * be moved (they stay where they were). Paths are UTF-8. */
+GEODE_API int         geode_studio_move_takes_out(const char* projects_dir, const char* takes_dir);
+
 /* Scene and style catalogue (core/viz/Catalogue): every style id, its renderer kind, the style families,
  * which Customize controls reach which styles, and the ranges the shell's controls quote, as one versioned
  * '|'-separated line table (see Catalogue.hpp for the rows). Static: the pointer stays valid for the
@@ -358,6 +367,16 @@ GEODE_API long long       geode_silence_heard_at(const float* const* channels, i
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
 
+/* Fixed-rate frame clock (viz/frame/FixedRateClock): Cast's pacing, PTS and audio cut. Pure: the caller
+ * owns GEODE_FRAME_CLOCK_STATE int64s (start ns, next slot, fps) and hands in now on one monotonic clock.
+ * At most one frame per slot: a late take drops the missed slots instead of bursting. */
+#define GEODE_FRAME_CLOCK_STATE 3
+GEODE_API void            geode_frame_clock_start(int64_t* state, int fps, int64_t now_ns);
+GEODE_API int64_t         geode_frame_clock_wait_ns(const int64_t* state, int64_t now_ns);   /* 0 = due now */
+GEODE_API int64_t         geode_frame_clock_take(int64_t* state, int64_t now_ns);   /* the frame's PTS, ns */
+GEODE_API int64_t         geode_frame_clock_audio_until_us(const int64_t* state);   /* end of the last frame taken */
+/* The Cast stream's format: out[0] width, out[1] height, out[2] fps, out[3] keyframe interval (s). */
+GEODE_API void            geode_cast_format(int* out);
 /* The GL Transitions library (gl_transitions.json, core/viz/TransitionLibrary): the shell's one read of it,
    as the table encodeTransitionTable describes (UTF-8, control-separated). Read from the APK once per
    process; "" when the asset is missing. The pointer stays valid for the process. */
@@ -411,10 +430,9 @@ GEODE_API void            geode_pacer_resume(long long* state);
    Surface.setFrameRate. */
 GEODE_API float           geode_pacer_effective_cap(float cap_fps);
 
-/* The process's one thermal state (core/viz/frame/Thermal): every renderer reads the same tier.
-   Polled each frame by every live renderer; 1 for at most one caller a second in the whole process,
-   which then reads PowerManager and pushes. */
-GEODE_API int             geode_thermal_sample_due(void);
+/* The process's one thermal state (core/viz/frame/Thermal): every renderer reads the same tier. The
+   once-a-second cadence across the process is native; a live renderer learns its turn from
+   GEODE_FRAME_THERMAL_DUE (geode_viz_frame_begin), then reads PowerManager and pushes. */
 /* One reading: PowerManager's thermal status (< 0 = no thermal API) and its headroom forecast (NaN = none
    this time; the last real one holds a while). Settles the shared tier. */
 GEODE_API void            geode_thermal_push(int platform_status, float headroom);
@@ -528,6 +546,20 @@ GEODE_API int64_t geode_pcm_samples_before_us(int64_t us, int rate, int channels
  * out_pts_us when not NULL. A buffer that straddles the start keeps the frames from the start on. */
 GEODE_API int64_t geode_pcm_trim_s16(int64_t start_us, int64_t buf_pts_us, int64_t bytes, int rate, int channels,
                                      int64_t* out_pts_us);
+/* Cast's live HLS timing (viz/frame/HlsSegments): a segment lasts the media time its fragment holds (the
+ * video track's trun sample durations over its mdhd timescale), never the wall time between cuts. */
+#define GEODE_HLS_WINDOW 6           /* segments kept and listed */
+#define GEODE_HLS_START_SEGMENTS 3   /* listed before the playlist is served */
+GEODE_API int             geode_hls_window(void);   /* GEODE_HLS_WINDOW, for Kotlin */
+GEODE_API double          geode_hls_fragment_seconds(const uint8_t* init, size_t init_size,
+                                                     const uint8_t* fragment, size_t fragment_size);   /* 0 = unknown */
+/* The playlist for count segments numbered from first_sequence (the newest GEODE_HLS_WINDOW listed; a
+ * duration of 0 = the nominal segment) into out, NUL-terminated. Returns its length; 0 while fewer than
+ * GEODE_HLS_START_SEGMENTS are given. When length + 1 > cap nothing is written (out[0] = 0 if cap > 0):
+ * call again with a buffer of length + 1. out may be null with cap 0, to ask the size. */
+GEODE_API int             geode_hls_playlist(int64_t first_sequence, const double* durations, int count,
+                                             const char* init_uri, const char* segment_prefix,
+                                             const char* segment_suffix, char* out, int cap);
 
 #ifdef __cplusplus
 }

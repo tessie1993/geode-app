@@ -6,6 +6,7 @@ add_library(geode_core STATIC
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
     api/geode_sound_api.cpp
+    api/geode_frame_api.cpp
     api/geode_surface_api.cpp
     sound/Fft.cpp
     sound/Emotion.cpp
@@ -63,8 +64,6 @@ add_library(geode_core STATIC
     viz/Reactions.cpp
     viz/CameraRig.cpp
     viz/VisualSafety.cpp
-    viz/FlashLimiter.cpp
-    viz/OutputProbe.cpp
     viz/ThermalGovernor.cpp
     viz/TouchField.cpp
     viz/Transition.cpp

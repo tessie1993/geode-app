@@ -343,11 +343,6 @@ void Renderer::onSurfaceCreated() {
     fboA_.release();
     fboB_.release();
     bornFbo_.release();
-    // The probe's names died with the old context; the limiter starts over on the new surface.
-    outputProbe_.forget();
-    flashLimiter_.reset();
-    flashGrade_ = {};
-    safetyClock_ = 0.0;
     liquidWasOn_ = false;
     lastBornSceneId_.clear();
     activeScene_ = nullptr;
@@ -416,6 +411,13 @@ void Renderer::surfaceChanged(int width, int height) {
     height_ = std::max(height, 1);
     glViewport(0, 0, width_, height_);
     applyRenderScale();
+}
+
+void Renderer::clearToBlack(GLuint targetFbo) {
+    glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
+    glViewport(0, 0, width_, height_);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
 }
 
 void Renderer::setUserQuality(float renderScale, float marchScale, bool postFx, bool adaptive) {

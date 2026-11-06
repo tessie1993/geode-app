@@ -1,6 +1,6 @@
 # Play release readiness (2026-10-30, wave 1 added 2026-11-02)
 
-A pass over what stands between `claude/geode-finish` and a production release. It
+A pass over what stands between `main` and a production release. It
 builds on a play-policy-insights audit (compliant) and adds
 the `android-permissions-security` and `android-intent-security` checks on the manifest.
 R8 keep rules are covered by a separate analysis and are not repeated here.
@@ -12,7 +12,7 @@ rejected but is a real defect; **nice-to-have** is polish.
 
 | # | Finding | Where | Who |
 |---|---|---|---|
-| B1 | **Privacy policy is not hosted.** *(Decided 2026-10-30: the policy now also ships in the app and the store description points to it. Play's App content form still needs a public URL.)* *(2026-11-01: `.github/workflows/pages.yml` now publishes `docs/privacy-policy.html`, an index from `docs/site/` and, later, `docs/help/` as `/help/`, on every push to `claude/geode-finish` or `main`.)* What remains is yours: Settings › Pages › Source = **GitHub Actions** (it still builds from the stale branch `claude/repo-audit-fix-plan-rfw176-u12`), then check that `https://tessie1993.github.io/geode-app/privacy-policy.html` loads. To deploy from `main` too, add it under Settings › Environments › github-pages › Deployment branches. | Repo Pages settings | You (Pages source) |
+| B1 | **Privacy policy is not hosted.** *(Decided 2026-10-30: the policy now also ships in the app and the store description points to it. Play's App content form still needs a public URL.)* *(2026-11-01: `.github/workflows/pages.yml` now publishes `docs/privacy-policy.html`, an index from `docs/site/` and, later, `docs/help/` as `/help/`, on every push to `main`.)* What remains is yours: Settings › Pages › Source = **GitHub Actions**, then check that `https://tessie1993.github.io/geode-app/privacy-policy.html` loads. To deploy from `main` too, add it under Settings › Environments › github-pages › Deployment branches. | Repo Pages settings | You (Pages source) |
 | B2 | **No release secrets or variables in the repo.** `gh secret list` and `gh variable list` are empty. Without `MUZVIZ_UPLOAD_*` a requested release build is unsigned; with the key but without the `PLAY_LICENSE_KEY` variable `release.yml` refuses to sign, by design. | Repo settings, [CONSOLE_CHECKLIST.md](CONSOLE_CHECKLIST.md) | You |
 | B3 | **Console declarations.** Foreground service declaration for all four types, each with a short video (mediaPlayback, mediaProjection, mediaProcessing, dataSync). Data safety, content rating, target audience and ads declaration ("no ads") are all prepared in this folder but must be entered. | Play Console > App content | You |
 | B4 | **Personal developer accounts** need a closed test with 12 opted-in testers for 14 consecutive days before production access. | Play Console > Testing | You |
@@ -55,7 +55,7 @@ updates it; the release-candidate check (5B) re-runs the policy audit over all o
 | 2D Record to project | Renders in the background through the existing export service (`mediaProcessing`/`dataSync`), already declared. | Re-check at 5B |
 | UI and Studio redesign (3x, 2x) | Screenshots, feature graphic and the full description describe the old UI. | 5B: new graphics per [GRAPHICS.md](GRAPHICS.md), new listing text |
 
-## Fixed on this branch (`claude/play-readiness-50643f`)
+## Fixed in the readiness pass
 
 - **B1, partly:** the About screen's privacy button opened a dead URL
   (`tessie1993.github.io/music-visualizer-2/…`). The policy now ships as an asset and opens

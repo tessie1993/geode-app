@@ -13,6 +13,7 @@ import dev.geode.data.SystemMotion
 import dev.geode.data.ThemeStore
 import dev.geode.engine.audio.SoundCursor
 import dev.geode.engine.audio.SoundInput
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.EncoderSurface
 import dev.geode.export.PcmResampler
 import dev.geode.render.VisualizerRenderer
@@ -20,6 +21,7 @@ import dev.geode.render.scene.PcmChunk
 import dev.geode.util.bestEffort
 import java.net.Inet4Address
 import java.net.InetAddress
+import java.util.concurrent.locks.LockSupport
 import kotlin.math.roundToInt
 
 /**
@@ -37,9 +39,9 @@ import kotlin.math.roundToInt
  * frozen picture on the TV with a muted phone is worse than ending the cast.
  *
  * The sound goes to the TV inside the stream (the phone is a silent remote, see [CastController]).
- * Audio is clocked by the wall clock like the picture: each frame queues exactly a frame's worth of
- * 48 kHz audio, from what the ring gained, padded with silence while the music is paused, so the
- * TV's player never waits for audio and picture and sound stay together.
+ * Pacing is native (core/viz/frame/FixedRateClock, #572): when a frame is due, its PTS and the audio cut; a stall
+ * drops frames, never bursts them. Each frame queues 48 kHz audio up to that cut, from what the ring gained, padded
+ * with silence while the music is paused, so the TV's player never waits for audio and picture and sound stay together.
  */
 internal class CastStream(
     context: Context,
@@ -127,18 +129,16 @@ internal class CastStream(
             renderer.soundInput = { AudioBus.soundInput }
             renderer.onSurfaceCreated(null, null)
             renderer.onSurfaceChanged(null, encoder.width, encoder.height)
-            val startNs = System.nanoTime()
-            var frame = 0L
+            val clock = LongArray(GeodeNative.FRAME_CLOCK_STATE)
+            GeodeNative.frameClockStart(clock, CastEncoder.FPS, System.nanoTime())
             while (running) {
+                LockSupport.parkNanos(GeodeNative.frameClockWaitNs(clock, System.nanoTime()))
+                val ptsNs = GeodeNative.frameClockTake(clock, System.nanoTime())
                 syncLook(renderer)
                 renderer.onDrawFrame(null)
-                val ptsNs = frame * NANOS_PER_SEC / CastEncoder.FPS
                 egl.setPresentationTimeNs(ptsNs)
                 egl.swapBuffers()
-                audio.pump(untilUs = (frame + 1) * MICROS_PER_SEC / CastEncoder.FPS)
-                frame++
-                val aheadNs = startNs + frame * NANOS_PER_SEC / CastEncoder.FPS - System.nanoTime()
-                if (aheadNs > 0) Thread.sleep(aheadNs / NANOS_PER_MS)
+                audio.pump(untilUs = GeodeNative.frameClockAudioUntilUs(clock))
             }
         } finally {
             bestEffort(TAG, "renderer.releaseScenes()") { renderer.releaseScenes() }
@@ -286,8 +286,6 @@ internal class CastStream(
         /** Segments arrive every second; five without one is a frozen picture on the TV. */
         const val FROZEN_MS = 5_000L
         const val JOIN_MS = 2_000L
-        const val NANOS_PER_SEC = 1_000_000_000L
-        const val NANOS_PER_MS = 1_000_000L
         const val MICROS_PER_SEC = 1_000_000L
 
         /** This phone's IPv4 address on the active network (the Wi-Fi the TV is on), or null. */

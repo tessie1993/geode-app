@@ -1097,6 +1097,7 @@ object GeodeNative {
     const val LIVE_INPUT_ACT_STOP_CAPTURE = 1 shl 3
     const val LIVE_INPUT_ACT_RESET_SOUND = 1 shl 4
     const val LIVE_INPUT_ACT_PLAYER_RATE = 1 shl 5
+
     /** The wallpaper's and the dream's fps before the user picks one (GEODE_SURFACE_DEFAULT_FPS). */
     const val SURFACE_DEFAULT_FPS = 30
 

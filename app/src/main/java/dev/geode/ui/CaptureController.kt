@@ -98,7 +98,6 @@ internal class CaptureController(
         val actions = (packed ushr 8).toInt()
         // Nothing to do (the poll while off, say): leave the shown state, and any start failure on it, alone.
         if (actions == 0 && liveInput == previous) return null
-
         fun has(bit: Int) = (actions and bit) != 0
         val otherAppAudio = playbackCapture.active || _externalAudio.value.active
         if (has(GeodeNative.LIVE_INPUT_ACT_STOP_OTHER_APP_AUDIO) && otherAppAudio) stopExternalAudio()

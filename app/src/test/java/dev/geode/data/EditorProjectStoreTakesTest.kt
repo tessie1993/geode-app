@@ -59,4 +59,31 @@ class EditorProjectStoreTakesTest {
 
         assertEquals(15L, store.sizeOf(id))
     }
+
+    /**
+     * A project's id comes from its project.json (a restored backup zip, an older app), so it can be any
+     * string. Whatever it is, its takes folder must be one folder directly under project-takes, never
+     * project-takes itself or anything above it. Kills an id used raw as the folder name ("..", "a/b") and
+     * an empty id resolving to the root, where delete would remove every project's takes.
+     */
+    @Test
+    fun everyIdGetsItsOwnTakesFolderInsideTheRoot() {
+        val store = store()
+        val root = takes.canonicalFile
+        listOf("", ".", "..", "../x", "a/b", "a.b", "проект", " ").forEach { raw ->
+            val folder = store.takesFolderOf(ProjectId(raw)).canonicalFile
+            assertEquals("id \"$raw\" must name a folder directly under project-takes", root, folder.parentFile)
+        }
+    }
+
+    /** Deleting a project with an odd id (empty, dots, a slash) never reaches another project's takes. */
+    @Test
+    fun deletingAnOddIdLeavesOtherProjectsTakes() {
+        val store = store()
+        store.saveTake(id, "t1", "{\"take\":1}")
+
+        listOf("", ".", "..", "../p1", "a/b").forEach { raw -> store.delete(ProjectId(raw)) }
+
+        assertEquals("{\"take\":1}", store.loadTake(id, "t1"))
+    }
 }

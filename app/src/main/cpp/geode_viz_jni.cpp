@@ -548,4 +548,24 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsRandomize(JNIEnv* env, jobject, j
     return changed ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT jdouble JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_pacerOnVsync(JNIEnv* env, jobject, jlongArray state, jlong frameTimeNanos,
+                                                     jfloat capFps) {
+    if (!state || env->GetArrayLength(state) < GEODE_PACER_STATE_LONGS) return 0.0;
+    long long wire[GEODE_PACER_STATE_LONGS];
+    env->GetLongArrayRegion(state, 0, GEODE_PACER_STATE_LONGS, reinterpret_cast<jlong*>(wire));
+    const double dt = geode_pacer_on_vsync(wire, frameTimeNanos, capFps);
+    env->SetLongArrayRegion(state, 0, GEODE_PACER_STATE_LONGS, reinterpret_cast<const jlong*>(wire));
+    return dt;
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_pacerResume(JNIEnv* env, jobject, jlongArray state) {
+    if (!state || env->GetArrayLength(state) < GEODE_PACER_STATE_LONGS) return;
+    long long wire[GEODE_PACER_STATE_LONGS];
+    env->GetLongArrayRegion(state, 0, GEODE_PACER_STATE_LONGS, reinterpret_cast<jlong*>(wire));
+    geode_pacer_resume(wire);
+    env->SetLongArrayRegion(state, 0, GEODE_PACER_STATE_LONGS, reinterpret_cast<const jlong*>(wire));
+}
+
 }

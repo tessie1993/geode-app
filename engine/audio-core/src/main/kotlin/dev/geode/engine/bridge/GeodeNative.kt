@@ -1,5 +1,7 @@
 package dev.geode.engine.bridge
 
+// The one JNI surface (AGENTS.md): every native call is declared here, so its size is the native API's.
+@Suppress("TooManyFunctions")
 object GeodeNative {
     init {
         System.loadLibrary("geode")

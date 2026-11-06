@@ -37,6 +37,27 @@ function link(vertSrc, fragSrc) {
 // Stand-in textures. Each is named for what the app binds there so a report
 // line can say which one it was.
 const textures = {};
+// The binding target of each texture by name; TEXTURE_2D unless defineAsset() said otherwise.
+const targets = {};
+// A texture handed over by the job (check.mjs worldAssets()): R8 bytes, base64, as the app uploads them.
+function defineAsset(name, a) {
+  if (textures[name]) return;
+  const bytes = Uint8Array.from(atob(a.b64), (c) => c.charCodeAt(0));
+  const target = a.target === '3d' ? gl.TEXTURE_3D : gl.TEXTURE_2D_ARRAY;
+  const t = gl.createTexture();
+  gl.bindTexture(target, t);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage3D(target, 0, gl.R8, a.w, a.h, a.d, 0, gl.RED, gl.UNSIGNED_BYTE, bytes);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+  gl.texParameteri(target, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(target, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  const wrap = a.target === '3d' ? gl.CLAMP_TO_EDGE : gl.MIRRORED_REPEAT;
+  gl.texParameteri(target, gl.TEXTURE_WRAP_S, wrap);
+  gl.texParameteri(target, gl.TEXTURE_WRAP_T, wrap);
+  gl.texParameteri(target, gl.TEXTURE_WRAP_R, wrap);
+  textures[name] = t;
+  targets[name] = target;
+}
 function makeTexture(name, w, h, fill) {
   const data = new Uint8Array(w * h * 4);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) fill(x, y, data.subarray((y * w + x) * 4, (y * w + x) * 4 + 4));
@@ -94,12 +115,12 @@ function upload(program, u) {
   if (loc === null) return false;
   if (u.texture) {
     gl.activeTexture(gl.TEXTURE0 + u.unit);
-    gl.bindTexture(gl.TEXTURE_2D, textures[u.texture]);
+    gl.bindTexture(targets[u.texture] || gl.TEXTURE_2D, textures[u.texture]);
     gl.uniform1i(loc, u.unit);
     return true;
   }
   const v = Array.isArray(u.value) ? u.value : [u.value];
-  // An array uniform takes a full list when given one (the bloom pass's per-bloom values), else one
+  // An array uniform takes a full list when given one, else one
   // value repeated.
   switch (u.type) {
     case 'float': gl.uniform1fv(loc, u.count > 1 && v.length !== u.count ? new Float32Array(u.count).fill(v[0]) : v); break;
@@ -120,6 +141,22 @@ function upload(program, u) {
   return true;
 }
 
+// The frame numbers every report line and the stills gate read. A pixel is black under a display-encoded
+// luma of 0.02 (nothing a viewer sees on a phone in a lit room) and blown when all three channels are past
+// 0.95 (clipped to flat white, the detail gone). The fractions are judged by core/tests/visual_gate.cpp.
+function frameStats(px, n) {
+  let sum = 0, max = 0, black = 0, blown = 0;
+  for (let i = 0; i < n; i++) {
+    const r = px[i * 4] / 255, g = px[i * 4 + 1] / 255, b = px[i * 4 + 2] / 255;
+    const l = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    sum += l;
+    if (l > max) max = l;
+    if (l < 0.02) black++;
+    if (r > 0.95 && g > 0.95 && b > 0.95) blown++;
+  }
+  return { meanLuma: sum / n, maxLuma: max, fracBlack: black / n, fracBlown: blown / n };
+}
+
 window.__render = async function (job) {
   const out = { dropped: [] };
   let program = null;
@@ -127,6 +164,7 @@ window.__render = async function (job) {
     canvas.width = job.width;
     canvas.height = job.height;
     drawGenerators(job.gens || [], out);
+    if (job.assets) for (const [name, a] of Object.entries(job.assets)) defineAsset(name, a);
     program = link(job.vert, job.frag);
     gl.useProgram(program);
     let unit = 0;
@@ -146,39 +184,12 @@ window.__render = async function (job) {
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    if (job.overlay) {
-      // A second pass over the first, blended the way the app blends it (the note blooms: screen,
-      // ONE / ONE_MINUS_SRC_COLOR, as NoteBloomPass does).
-      gl.deleteProgram(program);
-      program = link(job.overlay.vert, job.overlay.frag);
-      gl.useProgram(program);
-      for (const u of job.overlay.uniforms) {
-        if (!upload(program, u)) out.dropped.push(u.name);
-      }
-      gl.enable(gl.BLEND);
-      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_COLOR);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-      gl.disable(gl.BLEND);
-    }
     gl.finish();
     const err = gl.getError();
     out.glError = err === gl.NO_ERROR ? 0 : err;
     const px = new Uint8Array(job.width * job.height * 4);
     gl.readPixels(0, 0, job.width, job.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
-    let sum = 0, max = 0, black = 0, blown = 0;
-    const n = job.width * job.height;
-    for (let i = 0; i < n; i++) {
-      const r = px[i * 4] / 255, g = px[i * 4 + 1] / 255, b = px[i * 4 + 2] / 255;
-      const l = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      sum += l;
-      if (l > max) max = l;
-      if (l < 0.02) black++;
-      if (r > 0.95 && g > 0.95 && b > 0.95) blown++;
-    }
-    out.meanLuma = sum / n;
-    out.maxLuma = max;
-    out.fracBlack = black / n;
-    out.fracBlown = blown / n;
+    Object.assign(out, frameStats(px, job.width * job.height));
     out.png = canvas.toDataURL('image/png').split(',')[1];
   } catch (e) {
     out.error = String(e.message || e).replace(/\n/g, ' | ');
@@ -347,6 +358,108 @@ window.__liquid = async function (job) {
     for (const p of progs) gl.deleteProgram(p);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
+  return out;
+};
+// ---- The stills gate: one style through the sound engine's golden song (check.mjs --stills) ----------
+//
+// One program, many frames: a few stills at the report size (black and blown are judged on those), then a
+// run of consecutive 60 fps frames at a small size, each boxed down to the side x side RGBA8 grid
+// OutputProbe reads back on the phone (kProbeGrid, a box mean of encoded values, as its linear blit and
+// mip chain make it). The grids go back as hex; core/tests/visual_gate.cpp feeds them to the real
+// FlashLimiter's counters, so the flash rule is the app's own code, not a copy here.
+//
+// uSoundTex is re-uploaded per frame as 'soundLive' (spectrum, waveform, EQ, chroma rows): the stand-in
+// spectrum and EQ scale with the frame's volume and the waveform rolls, so a style that reads the texture
+// moves with the song too. Still RGBA8, so the ranges are the stand-in's, not the app's float ones.
+textures.soundLive = gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D, textures.soundLive);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+const soundLiveData = new Uint8Array(128 * 4 * 4);
+function uploadSoundLive(gain, roll) {
+  for (let y = 0; y < 4; y++) for (let x = 0; x < 128; x++) {
+    let v;
+    if (y === 0) v = Math.max(0, 0.9 - x / 128) * gain;
+    else if (y === 1) v = 0.5 + 0.35 * Math.sin(x * 0.44 + roll);
+    else if (y === 2) v = 0.8 * gain;
+    else v = 0.5 + 0.4 * Math.sin(x * 0.52 + roll * 0.25);
+    const b = Math.max(0, Math.min(255, Math.round(v * 255)));
+    const i = (y * 128 + x) * 4;
+    soundLiveData[i] = soundLiveData[i + 1] = soundLiveData[i + 2] = b;
+    soundLiveData[i + 3] = 255;
+  }
+  gl.bindTexture(gl.TEXTURE_2D, textures.soundLive);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 128, 4, 0, gl.RGBA, gl.UNSIGNED_BYTE, soundLiveData);
+}
+
+function probeGridHex(px, w, h, side) {
+  const sums = new Float64Array(side * side * 4);
+  const counts = new Uint32Array(side * side);
+  for (let y = 0; y < h; y++) {
+    const cy = Math.min(side - 1, Math.floor((y * side) / h));
+    for (let x = 0; x < w; x++) {
+      const c = cy * side + Math.min(side - 1, Math.floor((x * side) / w));
+      const i = (y * w + x) * 4;
+      sums[c * 4] += px[i]; sums[c * 4 + 1] += px[i + 1]; sums[c * 4 + 2] += px[i + 2]; sums[c * 4 + 3] += px[i + 3];
+      counts[c]++;
+    }
+  }
+  const parts = new Array(side * side * 4);
+  for (let c = 0; c < side * side; c++) {
+    for (let k = 0; k < 4; k++) {
+      const v = counts[c] ? Math.round(sums[c * 4 + k] / counts[c]) : 0;
+      parts[c * 4 + k] = v.toString(16).padStart(2, '0');
+    }
+  }
+  return parts.join('');
+}
+
+window.__stills = async function (job) {
+  const out = { dropped: [], stills: [], frames: [] };
+  const dropped = new Set();
+  let program = null;
+  try {
+    program = link(job.vert, job.frag);
+    gl.disableVertexAttribArray(0);
+    gl.disable(gl.BLEND);
+    const draw = (f, w, h) => {
+      if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+      gl.useProgram(program);
+      uploadSoundLive(f.soundGain, f.roll);
+      let unit = 0;
+      for (const u of f.uniforms) {
+        if (u.texture) u.unit = unit++;
+        if (!upload(program, u)) dropped.add(u.name);
+      }
+      gl.viewport(0, 0, w, h);
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.finish();
+      const px = new Uint8Array(w * h * 4);
+      gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      return px;
+    };
+    for (const f of job.stills) {
+      const px = draw(f, job.stillSize, job.stillSize);
+      const s = { time: f.time, ...frameStats(px, job.stillSize * job.stillSize) };
+      if (job.png) s.png = canvas.toDataURL('image/png').split(',')[1];
+      out.stills.push(s);
+    }
+    for (const f of job.frames) {
+      const px = draw(f, job.runSize, job.runSize);
+      out.frames.push({ time: f.time, grid: probeGridHex(px, job.runSize, job.runSize, job.side) });
+    }
+    const err = gl.getError();
+    out.glError = err === gl.NO_ERROR ? 0 : err;
+  } catch (e) {
+    out.error = String(e.message || e).replace(/\n/g, ' | ');
+  } finally {
+    if (program) gl.deleteProgram(program);
+  }
+  out.dropped = [...dropped];
   return out;
 };
 window.__harnessReady = true;

@@ -1,8 +1,8 @@
 // Host test of the note & key reactions (viz/NoteResponse): that the six style knobs each answer to at
 // least two fields of the sound frame, that a percussive track raises the drum weight and a tonal one
-// lowers it, that blooms spawn on note onsets only, stay bounded and are deterministic, that a melody
-// paints more than one hue, that off is exactly today's picture, that silence is stable, and that each
-// play varies, the user's amounts scale each source, the camera hears leaps and builds and blooms travel.
+// lowers it, that note colours come from note onsets only and are deterministic, that a melody paints
+// more than one hue, that off is exactly today's picture, that silence is stable, and that each play
+// varies, the user's amounts scale each source and the camera hears leaps and builds.
 // Built by CI (.github/workflows/android.yml, "Note response test") with core/viz/NoteResponse.cpp alone:
 // the emotion state is an input, so the test sets it directly.
 #include <cmath>
@@ -224,34 +224,21 @@ GeodeSoundFrame melody(float t) {
     return f;
 }
 
-void bloomsFollowNotes() {
-    // No note onsets: no blooms, however loud the drums.
+void notesPaintTheWheel() {
+    // No note onsets: no note colours, however loud the drums.
     NoteResponse drums = on();
     run(drums, 6.0f, percussive);
-    check(drums.spawned() == 0, "drums alone spawn no blooms");
-    check(drums.uniforms().bloomCount == 0, "drums alone draw no blooms");
+    check(drums.notesHeard() == 0, "drums alone hear no notes");
 
     NoteResponse n = on();
-    int maxLive = 0;
     const int frames = static_cast<int>(8.0f / kDt);
     int onsets = 0;
     for (int i = 0; i < frames; ++i) {
         const GeodeSoundFrame f = melody(i * kDt);
         if (f.noteChange > 0.0f) ++onsets;
         n.step(f, calm(), {}, kDt);
-        maxLive = std::max(maxLive, n.uniforms().bloomCount);
-        check(n.uniforms().bloomCount <= NoteUniforms::kBlooms, "blooms stay bounded");
-        for (int k = 0; k < n.uniforms().bloomCount; ++k) {
-            const auto& a = n.uniforms().bloomA[k];
-            const auto& b = n.uniforms().bloomB[k];
-            if (!(a[0] >= 0.0f && a[0] <= 1.0f && a[1] >= 0.0f && a[1] <= 1.0f && b[1] >= 0.0f && b[1] <= 1.0f)) {
-                check(false, "a bloom stays on screen with an envelope in 0..1");
-                break;
-            }
-        }
     }
-    check(n.spawned() == onsets, "one bloom per note onset (" + std::to_string(n.spawned()) + " for " + std::to_string(onsets) + ")");
-    check(maxLive >= 2, "blooms overlap: the last note fades while the new one grows");
+    check(n.notesHeard() == onsets, "one colour per note onset (" + std::to_string(n.notesHeard()) + " for " + std::to_string(onsets) + ")");
 
     // Hues: a melody paints more than one colour.
     std::set<int> hueBins;
@@ -264,24 +251,17 @@ void bloomsFollowNotes() {
     }
     check(maxHue - minHue > 0.2f, "the melody's hues spread across the wheel");
 
-    // Higher notes sit higher and stretch up.
-    const auto& blooms = n.blooms();
-    for (const auto& b : blooms) {
-        if (!b.alive) continue;
-        check(b.stretch >= 0.8f && b.stretch <= 1.3f, "stretch in range");
-    }
-
-    // Deterministic: same seed, same frames, same blooms; another seed, other places.
+    // Deterministic: same seed, same frames, same uniforms; another seed, other colours.
     NoteResponse again = on();
     NoteResponse other = on(99);
     for (int i = 0; i < frames; ++i) {
         again.step(melody(i * kDt), calm(), {}, kDt);
         other.step(melody(i * kDt), calm(), {}, kDt);
     }
-    check(std::memcmp(&again.uniforms(), &n.uniforms(), sizeof(NoteUniforms)) == 0, "same seed and frames: same blooms");
+    check(std::memcmp(&again.uniforms(), &n.uniforms(), sizeof(NoteUniforms)) == 0, "same seed and frames: same uniforms");
     bool differs = false;
-    for (int k = 0; k < NoteUniforms::kBlooms; ++k) differs = differs || other.uniforms().bloomC[k][2] != n.uniforms().bloomC[k][2];
-    check(differs, "another seed draws other blooms");
+    for (int k = 0; k < NoteUniforms::kHues; ++k) differs = differs || other.uniforms().hues[k] != n.uniforms().hues[k];
+    check(differs, "another seed paints other hues");
 }
 
 void chordChangesShiftTheScene() {
@@ -373,7 +353,7 @@ void offIsToday() {
     run(n, 6.0f, melody);
     const NoteUniforms& u = n.uniforms();
     for (float k : u.knobs) check(k == 0.5f, "off: every knob at exactly 0.5");
-    check(u.bloomCount == 0 && n.spawned() == 0, "off: no blooms");
+    check(n.notesHeard() == 0 && u.tint[3] == 0.0f, "off: no notes, no tint");
     SceneParams p;
     p.warp = 0.3f;
     p.symmetry = 5;
@@ -390,7 +370,7 @@ void offIsToday() {
     run(fading, 8.0f, melody);
     check(fading.amount() == 0.0f, "then it is off");
     for (float k : fading.uniforms().knobs) check(k == 0.5f, "and every knob is back at 0.5");
-    check(fading.uniforms().bloomCount == 0, "and no bloom is left");
+    check(fading.uniforms().tint[3] == 0.0f, "and no tint is left");
 }
 
 void silenceIsStable() {
@@ -399,7 +379,7 @@ void silenceIsStable() {
     const NoteUniforms& u = n.uniforms();
     for (float k : u.knobs) check(std::isfinite(k) && k >= 0.0f && k <= 1.0f, "silence: knobs finite and in range");
     for (float h : u.hues) check(std::isfinite(h) && h >= 0.0f && h < 1.0f, "silence: hues finite");
-    check(u.bloomCount == 0, "silence: no blooms");
+    check(n.notesHeard() == 0 && u.tint[3] == 0.0f, "silence: no notes, no tint");
     check(std::isfinite(n.percussiveness()) && std::fabs(n.percussiveness() - 0.5f) < 0.2f, "silence: drum weight undecided");
     check(std::fabs(n.swing()) < 1e-3f && n.distortion() < 1e-3f, "silence: still");
     // A garbage frame does not poison it.
@@ -426,9 +406,9 @@ void silenceIsStable() {
 void newPlayForgets() {
     NoteResponse n = on(1);
     run(n, 3.0f, melody);
-    check(n.spawned() > 0, "blooms before the new play");
+    check(n.notesHeard() > 0, "notes before the new play");
     n.configure({true, 2});
-    check(n.spawned() == 0 && n.liveBlooms() == 0, "a new seed is a new play");
+    check(n.notesHeard() == 0, "a new seed is a new play");
 }
 
 // A minor-key line with leaps and a tritone, rising tension and a chord change every two seconds.
@@ -454,43 +434,8 @@ GeodeSoundFrame minorLeaps(float t) {
     return f;
 }
 
-// One long note: a single flower opening fully.
-GeodeSoundFrame held(float t) {
-    GeodeSoundFrame f = base();
-    f.pitch = 72.0f;
-    f.pitchClass = 0.0f;
-    f.pitchHeight = 0.75f;
-    f.pitchConfidence = 0.9f;
-    f.tension = 0.55f;
-    if (t < kDt) {
-        f.noteChange = 1.0f;
-        f.interval = 0.5f;
-        f.onsetEnv = 1.0f;
-    }
-    return f;
-}
-
-// A fast run, eight notes a second, up two octaves of a pentatonic scale and back.
-GeodeSoundFrame fastRun(float t) {
-    static const int kRun[] = {0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 21, 19, 16, 14, 12, 9, 7, 4, 2};
-    GeodeSoundFrame f = base();
-    const int i = static_cast<int>(t / 0.125f);
-    const int note = kRun[i % 20];
-    const int prev = kRun[(i + 19) % 20];
-    f.pitch = 55.0f + note;
-    f.pitchClass = static_cast<float>((55 + note) % 12) / 12.0f;
-    f.pitchHeight = (f.pitch - 36.0f) / 48.0f;
-    f.runDensity = 0.7f;
-    if (std::fmod(t, 0.125f) < kDt && i > 0) {
-        f.noteChange = 0.7f;
-        f.interval = static_cast<float>(note - prev) / 12.0f;
-        f.onsetEnv = 0.6f;
-    }
-    return f;
-}
-
 // Each play has its own character and every section rolls it again; the user's Note & key amounts scale
-// each source; the camera hears leaps and builds; the blooms travel; the look sets their size.
+// each source; the camera hears leaps and builds.
 void variationTuningAndMotion() {
     // Two plays differ; a section change rolls a new character.
     NoteResponse a = on(1);
@@ -499,12 +444,8 @@ void variationTuningAndMotion() {
     run(b, 0.5f, [](float) { return base(); });
     const auto& pa = a.personality();
     const auto& pb = b.personality();
-    check(pa.maxAlive != pb.maxAlive || pa.size != pb.size || pa.tint != pb.tint || pa.travel != pb.travel,
-          "two plays have different characters");
-    for (const auto* m : {&pa, &pb}) {
-        check(m->maxAlive >= 3.0f && m->maxAlive <= 8.99f && m->budget >= 1.5f && m->budget <= 3.0f, "bloom count and budget in range");
-        check(m->tint >= 0.04f && m->tint <= 0.3f && m->size >= 0.75f && m->size <= 1.35f, "tint and size in range");
-    }
+    check(pa.tint != pb.tint, "two plays have different characters");
+    for (const auto* m : {&pa, &pb}) check(m->tint >= 0.04f && m->tint <= 0.3f, "tint in range");
     const int before = a.rolls();
     GeodeSoundFrame section = base();
     section.sectionChange = 1.0f;
@@ -522,16 +463,12 @@ void variationTuningAndMotion() {
     run(plain, 4.0f, melody, calm(), grey);
     check(plain.uniforms().tint[3] == 0.0f, "Note colours at 0: no tint");
 
-    // Bloom brightness 0 draws nothing; Chord changes 0 never shifts; Leaps and steps 0 never swings.
+    // Chord changes 0 never shifts; Leaps and steps 0 never swings.
     NoteResponse::Inputs quiet;
-    quiet.bloom = 0.0f;
     quiet.chords = 0.0f;
     quiet.intervals = 0.0f;
     NoteResponse muted = on();
     run(muted, 6.0f, minorLeaps, calm(), quiet);
-    bool dark = true;
-    for (int k = 0; k < NoteUniforms::kBlooms; ++k) dark = dark && muted.uniforms().bloomB[k][1] == 0.0f;
-    check(dark, "Bloom brightness 0 draws no bloom");
     check(muted.sceneShifts() == 0, "Chord changes 0 never shifts the scene");
     check(std::fabs(muted.swing()) < 1e-3f, "Leaps and steps 0 never swings");
 
@@ -551,71 +488,14 @@ void variationTuningAndMotion() {
         return g;
     });
     check(build.apply(p).camPush > p.camPush + 0.15f, "a build pushes the camera in");
-
-    // Travel: a held note's bloom grows as the viewer moves through it.
-    NoteResponse travel = on();
-    run(travel, 0.5f, held);
-    const float early = travel.uniforms().bloomA[0][2];
-    run(travel, 1.5f, [](float t) { return held(t + 1.0f); });
-    check(travel.uniforms().bloomCount == 1 && travel.uniforms().bloomA[0][2] > early, "a bloom grows as it travels");
-
-    // The look: a ripple spreads wider than a glow, and the pass is told which to draw.
-    NoteResponse::Inputs ripple;
-    ripple.look = 3;
-    NoteResponse::Inputs glow;
-    glow.look = 2;
-    NoteResponse r = on();
-    NoteResponse g = on();
-    run(r, 0.3f, held, calm(), ripple);
-    run(g, 0.3f, held, calm(), glow);
-    check(r.uniforms().look == 3 && g.uniforms().look == 2, "the pass draws the resolved look");
-    check(r.uniforms().bloomA[0][2] > g.uniforms().bloomA[0][2] * 1.5f, "a ripple spreads wider than a glow");
-}
-
-std::string jsonList(const float* v, int n) {
-    std::string s = "[";
-    for (int i = 0; i < n; ++i) s += (i ? ", " : "") + std::to_string(v[i]);
-    return s + "]";
-}
-
-// tools/glslcheck --bloom reads this: the uniforms NoteBloomPass would upload after `seconds` of a
-// scenario, so the preview stills are what the engine decided rather than hand-made stand-ins.
-int dump(const std::string& scenario, float seconds) {
-    std::function<GeodeSoundFrame(float)> make = melody;
-    Emotion::State e = calm();
-    if (scenario == "minor") {
-        make = minorLeaps;
-        e.valence = -0.4f;
-        e.tension = 0.7f;
-    } else if (scenario == "held") {
-        make = held;
-    } else if (scenario == "run") {
-        make = fastRun;
-        e.energy = 0.8f;
-    } else if (scenario != "melody") {
-        std::printf("unknown scenario %s (melody, minor, held, run)\n", scenario.c_str());
-        return 2;
-    }
-    NoteResponse n = on(20261101);
-    run(n, seconds, make, e);
-    const NoteUniforms& u = n.uniforms();
-    constexpr int kRows = NoteUniforms::kBlooms * 4;
-    std::printf("{\"uBloomCount\": %d, \"uBloomGain\": %.3f,\n", u.bloomCount, 0.9);
-    std::printf(" \"uBloomA\": %s,\n", jsonList(u.bloomA[0].data(), kRows).c_str());
-    std::printf(" \"uBloomB\": %s,\n", jsonList(u.bloomB[0].data(), kRows).c_str());
-    std::printf(" \"uBloomC\": %s,\n", jsonList(u.bloomC[0].data(), kRows).c_str());
-    std::printf(" \"uBloomD\": %s, \"uBloomLook\": %d,\n", jsonList(u.bloomD[0].data(), kRows).c_str(), u.look);
-    std::printf(" \"uNoteHues\": %s}\n", jsonList(u.hues.data(), NoteUniforms::kHues).c_str());
-    return 0;
 }
 
 }  // namespace
 
-int main(int argc, char** argv) {
-    if (argc == 4 && std::strcmp(argv[1], "--dump") == 0) return dump(argv[2], static_cast<float>(std::atof(argv[3])));
+int main() {
     knobsAnswerSeveralFields();
     drumWeightFollowsTheInput();
-    bloomsFollowNotes();
+    notesPaintTheWheel();
     chordChangesShiftTheScene();
     tensionDistortsAndResolves();
     intervalsMove();

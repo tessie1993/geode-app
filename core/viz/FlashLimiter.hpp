@@ -5,7 +5,7 @@
 namespace geode::viz::safety {
 
 // The photosensitive flash limiter: measures what was actually on screen and holds the picture still
-// when it starts to flash. Pure (no GL); OutputProbe measures, CompositePass and NoteBloomPass apply.
+// when it starts to flash. Pure (no GL); OutputProbe measures, CompositePass applies.
 //
 // Why measure the output: every earlier guard (VisualSafety's clamps, the LFO rate cap, the old
 // FlashBudget) limited the *parameters* that could make a flash. The pictures themselves come from

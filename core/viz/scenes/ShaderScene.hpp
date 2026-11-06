@@ -2,6 +2,7 @@
 #include <GLES3/gl3.h>
 
 #include <array>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -11,6 +12,7 @@
 #include "viz/Scene.hpp"
 #include "viz/SoundUniforms.hpp"
 #include "viz/Texture.hpp"
+#include "viz/world/MorphDriver.hpp"
 
 namespace geode::viz {
 
@@ -41,6 +43,9 @@ public:
     void setCamera(const CameraPose* pose) override { camera_ = pose; }
     bool drawsCamera() const override { return drawsCamera_; }
     void setFragmentSource(const std::string& source) override;
+    // Morph World's baked assets (WorldAssets: world_shapes.bin, world_textures.bin), uploaded on the
+    // GL thread at the first draw. The shapes also go to the CPU port, process-wide.
+    void setWorldAssets(const std::string& shapes, const std::string& maps);
 
 private:
     static constexpr float kTimeWrapSeconds = 7100.0f;
@@ -61,12 +66,15 @@ private:
     void uploadCamera();
     void bindGenerators();
     void unbindGenerators();
+    void uploadWorld();
     void set1f(const char* name, float value);
     float marchSteps(float detail);
 
     std::string id_;
     std::string vertexSrc_;
     std::string currentFragment_;
+    // The built-in source, so clearing a user's shader override (setFragmentSource("")) draws it again.
+    std::string stockFragment_;
     ProgramBinaryCache* cache_;
     SceneHost host_;
 
@@ -78,7 +86,6 @@ private:
 
     std::mutex pendingLock_;
     std::optional<std::string> pendingFragment_;
-    bool pendingIsUserSource_ = false;
 
     // Wave three: the continuous replacement for the old spike-latched state
     // (uSpike/uMoveDir/uSpawnSeed/uSpawnAge/uFormPhase). See MotionField.hpp.
@@ -114,6 +121,16 @@ private:
     bool drawsCamera_ = false;
     std::array<float, TouchField::kPointStride> touchAnchor_{};
     std::array<float, TouchField::kMaxPoints * TouchField::kPointStride> touchPoints_{};
+
+    // Morph World (shaders/morph_world_frag, lib_world): the World Genome's driver, built only for that
+    // style. Stepped in update() from the sound and the controls, moved along by the camera in draw().
+    std::unique_ptr<world::MorphDriver> world_;
+    float worldDt_ = 0.0f;
+    std::string worldShapes_;
+    std::string worldMaps_;
+    GLuint worldShapesTex_ = 0;
+    GLuint worldMapsTex_ = 0;
+    bool worldSeeded_ = false;
 
     float stepsDetail_ = -1.0f;
     float stepsBudget_ = 0.0f;

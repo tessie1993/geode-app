@@ -1,6 +1,5 @@
 package dev.geode.pro
 
-import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.StyleFamilies
@@ -58,48 +57,17 @@ object FreeTier {
     const val FALLBACK_STYLE_ID: String = FIRST_STYLE_ID
 
     /**
-     * Customize › Look's one free control: the palette. Colour is the first thing a listener
-     * reaches for and the change they see at once, so it is the taste of Look that sells the rest.
-     * Customize › Macros is free in full and needs no entry; Advanced has no free control at all.
+     * Customize's free tier, the owner's rule (issue #333): every category's Basics are free, and
+     * everything below them is Pro. Basics are the two to four controls each category opens on
+     * (core/viz/CustomizeMap marks them; the panel hands them in as [basics]), so a free user can
+     * pick a palette, set the speed, turn the knobs and choose how strongly the music drives the
+     * picture, and meets Pro only where the controls go deeper. A Pro control can still be tried:
+     * it moves while held and springs back, then the paywall offers to keep it (ui/ProLock).
      */
-    const val FREE_LOOK_CONTROL: String = ParamKeys.PALETTE
+    fun freeCustomizeControls(basics: Set<String>): Set<String> = basics
 
-    /**
-     * Customize › Look's second free control: which bloom a note grows (the style's own, flower, glow,
-     * ripple, burst). Note & key reactions are free, and the bloom is the part a listener sees first, so
-     * choosing its look belongs with them; how strongly each part answers stays in Advanced (Pro). Its
-     * own key, not a [ParamKeys] name: the control is a chip row of Look's, not a style parameter.
-     */
-    const val NOTE_BLOOMS_CONTROL: String = "Note blooms"
-
-    /**
-     * Customize › Events' one free control: the one-tap reaction recipes ("Kick punch"). They are
-     * the simple way into reactions; the strength slider and the route editor behind them are Pro.
-     */
-    const val FREE_EVENTS_CONTROL: String = "Event recipes"
-
-    /**
-     * Customize › (style name)'s one free control: the first of these the style on screen shows.
-     * A style's page holds different controls per style, so a single key could leave a cymatics
-     * plate or a fluid with nothing free; the list runs from the most style-specific to
-     * Kaleidoscope, which every style has, so exactly one control is always free.
-     */
-    val FREE_STYLE_CONTROL_ORDER: List<String> =
-        listOf(
-            ParamKeys.GEOMETRY,
-            ParamKeys.FLUID_CURL,
-            ParamKeys.RIPPLE_STRENGTH,
-            ParamKeys.PARTICLE_SHAPE,
-            ParamKeys.BLEND_PRESET_CHANGES,
-            ParamKeys.KALEIDOSCOPE,
-        )
-
-    /** The style page's free control, given which controls are live on the style ([isShown]). */
-    fun freeStyleControl(isShown: (String) -> Boolean): String? = FREE_STYLE_CONTROL_ORDER.firstOrNull(isShown)
-
-    /** Every Customize control a free user may change on this style, Macros aside. */
-    fun freeCustomizeControls(isShown: (String) -> Boolean): Set<String> =
-        setOfNotNull(FREE_LOOK_CONTROL, NOTE_BLOOMS_CONTROL, FREE_EVENTS_CONTROL, freeStyleControl(isShown))
+    /** Whether a Customize section is free: its Basics are, every other section is Pro. */
+    fun customizeSectionFree(isBasics: Boolean): Boolean = isBasics
 
     /** Pro features given away in full. Empty: the free tier is the styles above plus basics. */
     val freeFeatures: Set<ProFeature> = emptySet()

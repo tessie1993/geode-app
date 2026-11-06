@@ -12,6 +12,7 @@
 #include "output/Chapters.hpp"
 #include "output/EncodePlan.hpp"
 #include "output/FrameClock.hpp"
+#include "output/LoopDrift.hpp"
 #include "output/LoopPlan.hpp"
 #include "signal/timeline/Keyframes.hpp"
 #include "signal/timeline/SpeedRamp.hpp"
@@ -118,6 +119,31 @@ int64_t geode_loop_estimated_bytes(int64_t loop_us, int64_t total_us, int64_t lo
 
 int geode_loop_fitting_bit_rate(int64_t total_us, int64_t limit_bytes, int64_t soundtrack_bytes) {
     return out::LoopExtendPlan::of(total_us, total_us, 1).fittingBitRate(limit_bytes, soundtrack_bytes);
+}
+
+int geode_loop_drift_stops(float hue_turns, float warmth, int stops, float* out_hue_offset, float* out_warmth_offset,
+                           int capacity) {
+    const out::TimeOfDayDrift drift{hue_turns, warmth, stops};
+    const auto phases = drift.stopPhases();
+    const int count = static_cast<int>(phases.size());
+    const int writable = std::min(count, std::max(capacity, 0));
+    for (int i = 0; i < writable; ++i) {
+        if (out_hue_offset) out_hue_offset[i] = phases[static_cast<size_t>(i)].hueOffset;
+        if (out_warmth_offset) out_warmth_offset[i] = phases[static_cast<size_t>(i)].warmthOffset;
+    }
+    return count;
+}
+
+int geode_loop_drift_stop_count(int64_t total_ms, float hue_turns, float warmth) {
+    return out::TimeOfDayDrift::stopsOver(total_ms, hue_turns, warmth);
+}
+
+float geode_loop_drift_color_shift(float color_shift, float hue_offset) {
+    return out::driftColorShift(color_shift, hue_offset);
+}
+
+float geode_loop_drift_temperature(float temperature, float warmth_offset) {
+    return out::driftTemperature(temperature, warmth_offset);
 }
 
 int geode_export_capped_video_bps(int requested_bps, int64_t duration_us, int64_t audio_bytes, int64_t limit_bytes) {

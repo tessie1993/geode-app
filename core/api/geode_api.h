@@ -317,6 +317,18 @@ GEODE_API int64_t geode_loop_estimated_bytes(int64_t loop_us, int64_t total_us, 
                                              int64_t soundtrack_bytes);
 GEODE_API int     geode_loop_fitting_bit_rate(int64_t total_us, int64_t limit_bytes, int64_t soundtrack_bytes);
 
+/* Time-of-day drift (output/LoopDrift): one palette offset per rendered loop. The stops' offsets, from none
+ * at the first to the full hue_turns and warmth at the last; one zero stop when stops <= 1 or nothing moves
+ * (stops taken as 1..8). Writes min(count, capacity) offsets (either array may be NULL for a count) and
+ * returns the count; stop i is index i. */
+GEODE_API int     geode_loop_drift_stops(float hue_turns, float warmth, int stops, float* out_hue_offset,
+                                         float* out_warmth_offset, int capacity);
+/* How many stops a drift over total_ms gets: one per 20 min, 1..8, and 1 when neither hue nor warmth moves. */
+GEODE_API int     geode_loop_drift_stop_count(int64_t total_ms, float hue_turns, float warmth);
+/* A stop's offset on one frame's params: colorShift wrapped into 0..1, temperature clamped to -1..1. */
+GEODE_API float   geode_loop_drift_color_shift(float color_shift, float hue_offset);
+GEODE_API float   geode_loop_drift_temperature(float temperature, float warmth_offset);
+
 /* Encoder requests (output/EncodePlan). limit_bytes <= 0 means the render target, 3.8 GB. */
 GEODE_API int     geode_export_capped_video_bps(int requested_bps, int64_t duration_us, int64_t audio_bytes,
                                                 int64_t limit_bytes);

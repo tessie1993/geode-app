@@ -288,6 +288,12 @@ private:
     // The player's last track boundary this renderer passed to its engine (core/sound/PlayerSignals). Starts
     // at the current one: an engine built after a boundary is already fresh. Live renderers only.
     uint64_t boundarySeen_ = sound::player::boundary().epoch;
+    // The engine's feeling, copied with the frame (the director and Note & key read it), and the play it
+    // belongs to: a new director seed is a new play, and the feeling starts over with it.
+    sound::Emotion::State soundEmotion_{};
+    bool soundHeard_ = false;
+    uint64_t emotionSeed_ = 0;
+    bool emotionSeeded_ = false;
     // Customize › Macros: this frame's knobs, and the ones the sound engine's tuning was last built from.
     MacroKnobs frameKnobs_{};
     // The user's knobs with the director's laid over them, this frame; what the params and the camera read.

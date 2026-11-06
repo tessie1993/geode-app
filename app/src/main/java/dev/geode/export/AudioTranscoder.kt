@@ -375,7 +375,7 @@ class AudioTranscoder(
                             extractorDone = true
                         } else {
                             decoder.queueInputBuffer(inIndex, 0, size, extractor.sampleTime, 0)
-                            if (estimatedUs > 0) onProgress((extractor.sampleTime / estimatedUs.toFloat()).coerceIn(0f, 1f))
+                            if (estimatedUs > 0) onProgress(((extractor.sampleTime - startUs) / estimatedUs.toFloat()).coerceIn(0f, 1f))
                             extractor.advance()
                         }
                         progressed = true

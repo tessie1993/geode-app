@@ -83,14 +83,26 @@ void testScales() {
     float phrygianBright = 1.0f;
     for (const Case& c : cases) {
         SoundEngine e(44100);
-        const GeodeSoundFrame f = run(e, [&](double t) {
-            const int step = c.steps[static_cast<size_t>(t / 0.25) % c.steps.size()];
-            const double hz = hzOf(c.root + step);
-            const double drone = hzOf(c.root);
-            return static_cast<float>(0.2 * std::sin(kTau * hz * t) + 0.1 * std::sin(2 * kTau * hz * t) + 0.12 * std::sin(kTau * drone * t));
-        }, 20.0);
+        // The reading every two seconds, printed only when the last one is wrong: where it went astray.
+        std::string trail;
+        GeodeSoundFrame f{};
+        for (int part = 0; part < 10; part++) {
+            f = run(e, [&, part](double t) {
+                t += 2.0 * part;
+                const int step = c.steps[static_cast<size_t>(t / 0.25) % c.steps.size()];
+                const double hz = hzOf(c.root + step);
+                // The drone marks the root, so it sits where the chroma listens (Harmony hears 250–2000 Hz):
+                // A3 is 220 Hz, and the A cases drone an octave up instead of going unheard.
+                const double drone = hzOf(hzOf(c.root) < 250.0 ? c.root + 12 : c.root);
+                return static_cast<float>(0.2 * std::sin(kTau * hz * t) + 0.1 * std::sin(2 * kTau * hz * t) + 0.12 * std::sin(kTau * drone * t));
+            }, 2.0);
+            char at[64];
+            std::snprintf(at, sizeof at, " %ds:%s/%ld", 2 * part + 2, f.scale >= 0.0f ? scaleInfo(static_cast<int>(f.scale)).id : "-",
+                          std::lround(f.scaleRoot * 12.0f));
+            trail += at;
+        }
         const char* got = f.scale >= 0.0f ? scaleInfo(static_cast<int>(f.scale)).id : "-";
-        CHECK(std::string(got) == c.id, "%s on %d read as %s", c.id, c.root, got);
+        CHECK(std::string(got) == c.id, "%s on %d read as %s;%s", c.id, c.root, got, trail.c_str());
         CHECK(std::lround(f.scaleRoot * 12.0f) == c.root % 12, "%s root %f", c.id, f.scaleRoot * 12.0f);
         CHECK(f.scaleFit > 0.5f, "%s fit %f", c.id, f.scaleFit);
         if (std::string(c.id) == "lydian") lydianBright = f.scaleBrightness;
@@ -111,6 +123,7 @@ void testClickTracks() {
         int aligned = 0;
         int downs = 0;
         int downAligned = 0;
+        std::string trail;  // every downbeat and musical event, printed only on a failure
         double offset = 0.0;  // the beat phase's signed lead over the clicks, s, summed over locked frames
         int phased = 0;
         GeodeSoundFrame last{};
@@ -133,6 +146,14 @@ void testClickTracks() {
             done = end;
             e.step(1.0f / 60.0f, last);
             const double t = i / 60.0;
+            // The trail covers the whole run (beat count in brackets), so a failure shows where the bar
+            // stood before the checked stretch and what moved it.
+            if (last.downbeat > 0.0f || last.harmonicChange > 0.0f || last.drop > 0.0f || last.sectionChange > 0.0f) {
+                const char* what = last.downbeat > 0.0f ? "down" : last.drop > 0.0f ? "drop" : last.sectionChange > 0.0f ? "section" : "harm";
+                char at[64];
+                std::snprintf(at, sizeof at, " %s %.3f[%.0f] (%+.3f)", what, t, last.beatCount, std::remainder(t, 4.0 * period));
+                trail += at;
+            }
             if (t <= 10.0) continue;
             if (last.beatConf > 0.35f) {
                 offset += std::remainder(static_cast<double>(last.beatPhase) - t / period, 1.0) * period;
@@ -154,7 +175,8 @@ void testClickTracks() {
         CHECK(std::fabs(last.bpm / bpm - 1.0) < 0.02, "%.0f BPM read %.2f", bpm, last.bpm);
         CHECK(last.beatConf > 0.35f, "%.0f BPM confidence %f", bpm, last.beatConf);
         CHECK(beats >= expected - 1 && aligned == beats, "%.0f BPM: %d beats (%d expected), %d on a click", bpm, beats, expected, aligned);
-        CHECK(downs >= expected / 4 - 1 && downAligned == downs, "%.0f BPM: %d downbeats, %d on beat one", bpm, downs, downAligned);
+        CHECK(downs >= expected / 4 - 1 && downAligned == downs, "%.0f BPM: %d downbeats, %d on beat one;%s", bpm, downs, downAligned,
+              trail.c_str());
     }
 }
 
@@ -768,10 +790,31 @@ void testBeatless() {
 
 }  // namespace
 
+// A pause is not a new track (#368): five seconds with nothing written (the player paused) must not
+// re-warm the engine, so on resume the tempo it locked is still there. Only written silence re-warms.
+void testPauseKeepsTempo() {
+    const double bpm = 128.0;
+    const double period = 60.0 / bpm;
+    SoundEngine e(44100);
+    double offset = 0.0;
+    const auto click = [&](double t) {
+        t += offset;
+        const double u = t - std::floor(t / period) * period;
+        return static_cast<float>(0.8 * std::exp(-u * 25.0) * std::sin(kTau * 60.0 * u) + 0.3 * std::exp(-u * 200.0) * std::sin(kTau * 3000.0 * u));
+    };
+    GeodeSoundFrame f = run(e, click, 15.0);
+    offset = 15.0;
+    CHECK(std::fabs(f.bpm / bpm - 1.0) < 0.02, "before the pause read %.2f", f.bpm);
+    for (int i = 0; i < 5 * 60; i++) e.step(1.0f / 60.0f, f);  // paused: frames go on, no audio
+    f = run(e, click, 0.5);
+    CHECK(std::fabs(f.bpm / bpm - 1.0) < 0.02, "half a second after a 5 s pause read %.2f BPM (re-warmed?)", f.bpm);
+}
+
 int main() {
     testCatalogue();
     testScales();
     testClickTracks();
+    testPauseKeepsTempo();
     testChordProgression();
     testBuildAndDrop();
     testSectionsReturn();

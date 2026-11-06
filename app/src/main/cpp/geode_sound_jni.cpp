@@ -58,6 +58,7 @@ Java_dev_geode_engine_bridge_GeodeNative_soundSourceStartFailed(JNIEnv* env, job
     env->SetLongArrayRegion(state, 0, GEODE_SOUND_SOURCE_STATE_LONGS, reinterpret_cast<const jlong*>(s));
 }
 
+JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_soundTuningClamp(JNIEnv* env, jobject, jfloatArray values) {
     if (!values) return;
     const int n = std::min(static_cast<int>(env->GetArrayLength(values)), geode_sound_tuning_slots());

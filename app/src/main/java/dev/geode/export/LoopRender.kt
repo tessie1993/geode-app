@@ -6,7 +6,6 @@ import android.media.MediaCodecInfo
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.net.Uri
-import android.opengl.GLES30
 import android.util.Log
 import android.view.Surface
 import androidx.annotation.StringRes
@@ -21,7 +20,6 @@ import dev.geode.render.LfoConfig
 import dev.geode.render.SceneFactory
 import dev.geode.render.offscreen.OffscreenRenderSpec
 import dev.geode.render.offscreen.OffscreenSceneRenderer
-import dev.geode.render.scene.GlUtil
 import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.Dispatchers
@@ -402,7 +400,7 @@ class LoopRender(
         } catch (e: IOException) {
             RingLog.note(TAG, "loop render failed to write to cache", e)
             return discard(rendered, pending, failed(R.string.export_error_loop_cache_write, e.message.orEmpty()))
-        } catch (e: GlUtil.ShaderCompileException) {
+        } catch (e: SeamBuildException) {
             RingLog.note(TAG, "loop render's seam shader failed to compile", e)
             return discard(rendered, pending, failed(R.string.export_error_loop_shader_compile, e.message.orEmpty()))
         }
@@ -439,7 +437,7 @@ class LoopRender(
             val surface = EncoderSurface(encoded.surface).also { egl = it }
             surface.makeCurrent()
 
-            val seam = SeamStash(job.aspect.width, job.aspect.height).also { stash = it }
+            val seam = SeamStash(context, job.aspect.width, job.aspect.height).also { stash = it }
             val seamFrames = seam.allocate(crossfadeFrames)
             check(seamFrames > 0) {
                 context.getString(R.string.export_error_loop_low_gpu_memory, job.aspect.width, job.aspect.height)
@@ -449,7 +447,7 @@ class LoopRender(
             val scene = prepareRenderer(job, stop, sourceFrames).also { renderer = it }
             scene.prepare()
             job.watermarkText?.let { text ->
-                mark = WatermarkOverlay(text).apply { prepare(job.aspect.width, job.aspect.height) }
+                mark = WatermarkOverlay(text, context.assets).apply { prepare(job.aspect.width, job.aspect.height) }
             }
 
             val outcome =
@@ -479,12 +477,8 @@ class LoopRender(
     }
 
     /**
-     * Draws one loop plus its tail.
-     *
-     * The opening [seamFrames] frames are rendered but not presented: they are copied into the
-     * stash and blended back over the closing frames, so the loop's last frame dissolves into
-     * what the viewer is about to see again. Output frame `j` is source frame `j + seamFrames`,
-     * which keeps the presented timestamps monotonic and the encoder in a single pass.
+     * Draws one loop plus its tail. Which frames are stashed, blended and presented, and at what
+     * time, is the native seam driver's (`core/viz/frame/LoopSeam`): this only presents.
      */
     private fun drawFrames(
         scene: OffscreenSceneRenderer,
@@ -509,13 +503,10 @@ class LoopRender(
                 break
             }
             scene.renderFrame(frame)
-            if (frame < seamFrames) {
-                seam.capture(frame)
-            } else {
-                val tail = frame - loopFrames
-                if (tail >= 0) seam.blendOver(tail, seamWeight(tail, seamFrames))
+            val ptsNs = seam.frame(frame, loopFrames, seamFrames, fps)
+            if (ptsNs >= 0) {
                 mark?.draw()
-                egl.setPresentationTimeNs(GeodeNative.exportFramePtsNs((frame - seamFrames).toLong(), fps))
+                egl.setPresentationTimeNs(ptsNs)
                 egl.swapBuffers()
                 writer.drain(untilEndOfStream = false)
             }
@@ -524,18 +515,6 @@ class LoopRender(
         }
         return if (cancelled) StopOutcome.Cancelled else StopOutcome.Done(seamFrames)
     }
-
-    /**
-     * The dissolve's weight on the stashed opening frame.
-     *
-     * It reaches the ends exactly — no weight on the first closing frame, all of it on the last —
-     * so the frames either side of the wrap are untouched renders rather than mixtures, and the
-     * seam has nothing left to give itself away with.
-     */
-    private fun seamWeight(
-        tail: Int,
-        seamFrames: Int,
-    ): Float = GeodeNative.loopSeamWeight(tail, seamFrames)
 
     private fun prepareRenderer(
         job: RenderJob,
@@ -634,11 +613,8 @@ class LoopRender(
     }
 
     /**
-     * Shortens the seam to what the GPU can be expected to hold.
-     *
-     * The stash keeps one full-resolution frame per crossfade frame, so the affordable seam
-     * length falls as the render size rises: a second of 4K costs four times what a second of
-     * 1080p does.
+     * Shortens the seam to what the GPU can be expected to hold: the stash's 192 MB budget, one
+     * full-resolution frame per crossfade frame (`core/viz/frame/LoopSeam`).
      */
     private fun budgetedSpec(
         spec: LoopSpec,
@@ -793,125 +769,46 @@ class LoopRender(
     /**
      * Holds the loop's opening frames so the closing frames can dissolve into them.
      *
-     * The frames are copied straight off the encoder surface into textures and blended back with
-     * a constant alpha, which keeps the whole crossfade on the GPU: no pixel ever crosses to the
-     * CPU, and nothing is decoded or re-encoded. The cost is one full-resolution texture per
-     * crossfade frame, so the stash takes what it can get and reports how much that was.
+     * A handle over the native seam pass (`core/viz/frame/ExportPasses`, `SeamPass`, #442): the
+     * frames are copied straight off the encoder surface into textures and blended back at the
+     * dissolve's weight (`exportmath::seam::weight`: none on the first closing frame, all on the
+     * last, so the frames either side of the wrap are untouched renders). Nothing crosses to the
+     * CPU. One full-resolution texture per crossfade frame, so the stash takes what it can get and
+     * reports how much that was.
      */
     private class SeamStash(
-        private val width: Int,
-        private val height: Int,
+        context: Context,
+        width: Int,
+        height: Int,
     ) : Closeable {
-        private val triangle = GlUtil.FullscreenTriangle()
-        private var program = 0
-        private var textureLocation = -1
-        private var alphaLocation = -1
-        private var textures = IntArray(0)
+        private var handle = GeodeNative.exportSeamCreate(context.assets, width, height)
 
+        /** Throws [SeamBuildException] when the pass did not build, as the Kotlin shader's compile did. */
         fun allocate(requested: Int): Int {
-            program = GlUtil.buildProgram(VERTEX_SHADER, FRAGMENT_SHADER)
-            triangle.create()
-            textureLocation = GLES30.glGetUniformLocation(program, "uTex")
-            alphaLocation = GLES30.glGetUniformLocation(program, "uAlpha")
-            drainErrors()
-            val ids = IntArray(requested)
-            GLES30.glGenTextures(requested, ids, 0)
-            var allocated = 0
-            while (allocated < requested && allocateOne(ids[allocated])) {
-                allocated++
-            }
-            if (allocated < requested) GLES30.glDeleteTextures(requested - allocated, ids, allocated)
-            textures = ids.copyOf(allocated)
-            return allocated
+            val error = if (handle == 0L) "out of memory" else GeodeNative.exportPassError(handle)
+            if (error.isNotEmpty()) throw SeamBuildException(error)
+            return GeodeNative.exportSeamAllocate(handle, requested)
         }
 
-        fun capture(index: Int) {
-            GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, 0)
-            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textures[index])
-            GLES30.glCopyTexSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height)
-            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
-        }
-
-        /**
-         * Mixes stashed frame [index] over what the scene just drew, at weight [alpha].
-         *
-         * Source-alpha blending of a constant alpha is exactly a cross-dissolve, so the closing
-         * frames walk from the natural continuation of the loop to its opening frames.
-         */
-        fun blendOver(
-            index: Int,
-            alpha: Float,
-        ) {
-            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
-            GLES30.glViewport(0, 0, width, height)
-            GLES30.glUseProgram(program)
-            GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
-            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, textures[index])
-            GLES30.glUniform1i(textureLocation, 0)
-            GLES30.glUniform1f(alphaLocation, alpha.coerceIn(0f, 1f))
-            GLES30.glEnable(GLES30.GL_BLEND)
-            GLES30.glBlendFunc(GLES30.GL_SRC_ALPHA, GLES30.GL_ONE_MINUS_SRC_ALPHA)
-            triangle.draw()
-            GLES30.glDisable(GLES30.GL_BLEND)
-            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
-        }
+        /** Stashes or blends source [frame]; its presentation time in ns, or -1 when it is not presented. */
+        fun frame(
+            frame: Int,
+            loopFrames: Int,
+            seamFrames: Int,
+            fps: Int,
+        ): Long = GeodeNative.exportSeamFrame(handle, frame, loopFrames, seamFrames, fps)
 
         override fun close() {
-            if (textures.isNotEmpty()) GLES30.glDeleteTextures(textures.size, textures, 0)
-            if (program != 0) GLES30.glDeleteProgram(program)
-            triangle.release()
-            textures = IntArray(0)
-            program = 0
-        }
-
-        private fun allocateOne(id: Int): Boolean {
-            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, id)
-            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, GLES30.GL_NEAREST)
-            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, GLES30.GL_NEAREST)
-            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
-            GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_T, GLES30.GL_CLAMP_TO_EDGE)
-            GLES30.glTexStorage2D(GLES30.GL_TEXTURE_2D, 1, GLES30.GL_RGBA8, width, height)
-            GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
-            // A driver that cannot find room says so here rather than by crashing later, so the
-            // seam is shortened to whatever did fit.
-            return GLES30.glGetError() == GLES30.GL_NO_ERROR
-        }
-
-        private fun drainErrors() {
-            var guard = 0
-            while (GLES30.glGetError() != GLES30.GL_NO_ERROR && guard < ERROR_DRAIN_LIMIT) {
-                guard++
-            }
-        }
-
-        private companion object {
-            const val ERROR_DRAIN_LIMIT = 32
-
-            val VERTEX_SHADER =
-                """
-                #version 300 es
-                layout(location = 0) in vec2 aPos;
-                out vec2 vUv;
-                void main() {
-                    vUv = aPos * 0.5 + 0.5;
-                    gl_Position = vec4(aPos, 0.0, 1.0);
-                }
-                """.trimIndent()
-
-            val FRAGMENT_SHADER =
-                """
-                #version 300 es
-                precision mediump float;
-                uniform sampler2D uTex;
-                uniform float uAlpha;
-                in vec2 vUv;
-                out vec4 fragColor;
-                void main() {
-                    fragColor = vec4(texture(uTex, vUv).rgb, uAlpha);
-                }
-                """.trimIndent()
+            val owned = handle
+            handle = 0L
+            if (owned != 0L) GeodeNative.exportPassDestroy(owned)
         }
     }
+
+    /** The seam pass did not build; reported as the shader-compile failure it replaced. */
+    private class SeamBuildException(
+        message: String,
+    ) : RuntimeException(message)
 
     private companion object {
         const val TIMEOUT_US = 10_000L

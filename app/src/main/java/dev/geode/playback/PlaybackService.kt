@@ -104,7 +104,7 @@ class PlaybackService : MediaLibraryService() {
             } else {
                 MediaSession.ConnectionResult
                     .AcceptedResultBuilder()
-                    .setAvailableSessionCommands(buttons.commands(MediaSession.ConnectionResult.DEFAULT_UNTRUSTED_SESSION_COMMANDS))
+                    .setAvailableSessionCommands(MediaSession.ConnectionResult.DEFAULT_UNTRUSTED_SESSION_COMMANDS)
                     .setAvailablePlayerCommands(TRANSPORT_ONLY)
                     .build()
             }

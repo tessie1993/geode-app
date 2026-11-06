@@ -25,6 +25,7 @@ object ModConfigCodec {
             c.depth,
             c.polarity.ordinal.toFloat(),
             c.curve.ordinal.toFloat(),
+            c.beats.toFloat(),
         )
 
     fun packAdsr(c: AdsrConfig): FloatArray {

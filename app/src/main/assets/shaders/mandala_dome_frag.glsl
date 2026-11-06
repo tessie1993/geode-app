@@ -7,17 +7,82 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
+//#include lib_camera
 //#include lib_palette
 //#include lib_scene_grade
+//#include lib_sdf3
 //#include lib_touch
 
-// Mandala Dome: a tapestry of eight-point stars, rings and diamonds, filled in
-// purples, blues and magentas and outlined in green, cyan and red, wrapped
-// over two domes bulging in from the sides and a patterned sphere in the
-// middle. Mirrored left/right. The flat field behind them recedes upward.
-// uv -> mirror -> (dome? sphere map : perspective plane) -> ornament -> colour.
+// Mandala Dome: the tapestry hall, now a real room. A great hemispherical
+// dome stands over a round floor, and every surface is the same tapestry of
+// eight-point stars, rings and diamonds: filled in purples, blues and
+// magentas, outlined in green, cyan and red with the red/green fringe split
+// apart. A patterned sphere floats in the middle and lights the hall from
+// within; six smaller domes bulge up from the floor around it (the 2D look's
+// two side domes, carried all the way round). The floor is a mandala: the
+// tapestry laid out in polar rings and mirrored across its axis, as the 2D
+// hall was mirrored left/right.
+//
+// The camera is the shared rig in object-centred mode (camAround): the eye
+// circles the centre sphere at two turns per 1024 world units of travel, so
+// the rig's 8192 wrap lands on a whole number of turns and never shows. The
+// room itself has no z term at all, so there is nothing else to wrap. The
+// rig's look, banking and shake ride on top; the eye is held inside the hall
+// and above the side domes.
+//
+// ---- audio ------------------------------------------------------------------
+//
+// High (sndShaped(SND_HIGH))   the outlines glow, as the 2D style's did;
+//                              slew-limited, so a cymbal never whites the hall.
+// Kick (SND_KICK_ENV)          the centre sphere swells and the side domes
+//                              breathe: geometry, not brightness.
+// Drop (SND_HELD_SURGE)        the sphere's inner light floods the hall, as a
+//                              hump, so it rises and settles.
+// Bass (SND_BASS_ATT)          the halo around the sphere widens.
+// Treble (SND_TREBLE_PRESENCE) the dust shells around the sphere sparkle.
+// Spin                         integrated (uFlowPhase): energy sets the rate,
+//                              never the angle; the sphere and the side domes
+//                              counter-turn, the floor creeps.
+// Touch                        the finger lights the centre sphere, as before.
+// SND_ENERGY_TREND             overall level.
+// Knobs: k0 PULSE the kick swell, k1 TEXTURE the fringe split, k3 TONE the
+// hue, k4 BUILD the inner light, k5 SPACE the orbit radius.
+//
+// ---- why the estimate is safe ----------------------------------------------
+//
+// Every piece is an exact Euclidean distance: the sphere, the hall shell
+// (inside a sphere, H - |p - c|), the floor plane and the side domes. The
+// domes are one sphere repeated six times by a polar fold; each sits inside
+// its 60-degree wedge (radius 3.4 + kick < 9 * sin(30 deg)), and a point is
+// always nearer its own wedge's copy than its mirror neighbour's, so the fold
+// never overestimates. The min of exact distances is exact. A sphere around
+// the eye is carved out of everything, so the eye is never inside a surface.
 
-#define DOME_TAU 6.2831853
+#define MD_MAX_STEPS 96
+#define MD_FAR 40.0
+#define MD_TAU 6.2831853
+#define MD_PI 3.14159265
+#define MD_FLOOR -3.4
+/** The hall's radius, about the floor's centre. */
+#define MD_HALL 15.0
+/** The centre sphere's resting radius. */
+#define MD_SPHERE 1.55
+/** Side domes: count, distance from the centre and radius. */
+#define MD_DOMES 6.0
+#define MD_DOME_D 9.0
+#define MD_DOME_R 3.4
+/** Longitude cells on each sphere: whole numbers, so the seam is a cell wall. */
+#define MD_CELLS_SPHERE 12.0
+#define MD_CELLS_HALL 28.0
+#define MD_CELLS_DOME 10.0
+#define MD_BUBBLE 0.7
+
+float gMat;
+float gR;
+float gDomeR;
+vec3 gEye;
+/** Set by map(): the hit's position relative to its own side dome's centre. */
+vec3 gDomeP;
 
 float hash21(vec2 p) {
     p = fract(p * vec2(123.34, 456.21));
@@ -26,11 +91,6 @@ float hash21(vec2 p) {
 }
 
 vec2 rot(vec2 p, float a) { return mat2(cos(a), -sin(a), sin(a), cos(a)) * p; }
-
-vec2 sphereUv(vec2 p) {
-    vec3 n = vec3(p, sqrt(max(0.0, 1.0 - dot(p, p))));
-    return vec2(atan(n.x, n.z), asin(n.y));
-}
 
 // Signed distance to an n-point star drawn as a modulated circle.
 float star(vec2 l, float n, float r0, float amp) {
@@ -45,12 +105,14 @@ struct Ornament {
 // One tile of the tapestry: a square frame around one of three motifs - an
 // eight-point star in a ring, nested squares around a four-point star, or
 // concentric rings - each with a wreath of dots, and a four-point star on
-// every corner. The motif and the fills come from the cell's own hash so no
-// two neighbours match; lines keep fixed colours so the outline hierarchy
-// stays readable. Nothing is left as bare background: the reference has no
-// rest.
-Ornament ornament(vec2 p, float glow) {
+// every corner. The motif and the fills come from the cell's own hash, with
+// cell.x taken modulo `period` so a tapestry wrapped round a sphere has no
+// seam. Lines keep fixed colours so the outline hierarchy stays readable.
+// `aa` is the pixel's footprint in cell units: lines never go thinner than
+// it, and fade as they would have, so the far wall shimmers less.
+Ornament ornament(vec2 p, float glow, float period, float aa) {
     vec2 cell = floor(p);
+    cell.x = mod(cell.x, period);
     vec2 l = fract(p) - 0.5;
     vec2 corner = fract(p + 0.5) - 0.5;
     float seed = hash21(cell);
@@ -70,10 +132,8 @@ Ornament ornament(vec2 p, float glow) {
         dStar = min(abs(length(l) - 0.26) - 0.01, abs(length(l) - 0.17) - 0.01);
         dInner = length(l) - 0.07;
     }
-    float wreathA = atan(l.y, l.x);
-    vec2 wreathP = l - 0.31 * vec2(cos(floor(wreathA / DOME_TAU * 16.0 + 0.5) * DOME_TAU / 16.0),
-                                   sin(floor(wreathA / DOME_TAU * 16.0 + 0.5) * DOME_TAU / 16.0));
-    float dWreath = length(wreathP) - 0.03;
+    float wreathA = floor(atan(l.y, l.x) / MD_TAU * 16.0 + 0.5) * MD_TAU / 16.0;
+    float dWreath = length(l - 0.31 * vec2(cos(wreathA), sin(wreathA))) - 0.03;
     float dCorner = star(corner, 4.0, 0.12, 0.07);
     float dCornerDot = length(corner) - 0.035;
 
@@ -83,14 +143,16 @@ Ornament ornament(vec2 p, float glow) {
     vec3 magenta = pal(0.12);
     vec3 base = mix(pal(0.25), pal(0.19), seed) * 0.22;
     vec3 outer = mix(mix(violet, blue, step(0.33, seed)), magenta, step(0.66, seed)) * 0.7;
+    float e = max(0.01, aa);
     vec3 fill = base;
-    fill = mix(fill, outer, smoothstep(0.01, -0.01, dRing + 0.012));   // inside the ring
-    fill = mix(fill, magenta * 0.9, smoothstep(0.01, -0.01, dStar));    // the star
-    fill = mix(fill, blue, smoothstep(0.01, -0.01, dInner));            // its heart
-    fill = mix(fill, violet * 0.75, smoothstep(0.01, -0.01, dCorner));  // corner stars
+    fill = mix(fill, outer, smoothstep(e, -e, dRing + 0.012));    // inside the ring
+    fill = mix(fill, magenta * 0.9, smoothstep(e, -e, dStar));     // the star
+    fill = mix(fill, blue, smoothstep(e, -e, dInner));             // its heart
+    fill = mix(fill, violet * 0.75, smoothstep(e, -e, dCorner));   // corner stars
 
     // Lines: cyan frames and rings, green stars, red corner stars, white hearts and dots.
-    float w = 0.02;
+    float w = max(0.02, aa * 1.2);
+    float fade = 0.02 / w;
     float lFrame = smoothstep(w, 0.0, abs(dFrame));
     float lRing = smoothstep(w, 0.0, abs(dRing));
     float lStar = smoothstep(w, 0.0, abs(dStar));
@@ -99,65 +161,204 @@ Ornament ornament(vec2 p, float glow) {
     float lCorner = smoothstep(w, 0.0, abs(dCorner));
     float lDot = smoothstep(w, 0.0, dCornerDot);
     vec3 line = pal(0.42) * 0.45 * lFrame + mix(pal(0.5), pal(0.6), 0.5) * 0.9 * lRing + pal(0.64) * lStar +
-                pal(0.02) * 0.8 * lCorner + vec3(0.9, 0.8, 1.0) * lInner + pal(0.62) * 1.1 * lWreath + vec3(0.9, 0.95, 1.0) * lDot;
-    return Ornament(fill, line * (1.0 + glow));
+                pal(0.02) * 0.8 * lCorner + vec3(0.9, 0.8, 1.0) * lInner + pal(0.62) * 1.1 * lWreath +
+                vec3(0.9, 0.95, 1.0) * lDot;
+    return Ornament(fill, line * fade * (1.0 + glow));
 }
 
 // The tapestry sampled three times with the outline colour split apart, so
-// every edge carries the red/green fringe of the reference.
-vec3 tapestry(vec2 p, float glow, float split) {
-    Ornament o = ornament(p, glow);
-    Ornament r = ornament(p * (1.0 + split), glow);
-    Ornament b = ornament(p * (1.0 - split), glow);
-    vec3 line = vec3(r.line.r, o.line.g, b.line.b);
-    return o.fill + line;
+// every edge carries the red/green fringe of the reference. Only the hit
+// pixel pays for it, once.
+vec3 tapestry(vec2 p, float glow, float split, float period, float aa) {
+    Ornament o = ornament(p, glow, period, aa);
+    Ornament r = ornament(p * (1.0 + split), glow, period, aa);
+    Ornament b = ornament(p * (1.0 - split), glow, period, aa);
+    return o.fill + vec3(r.line.r, o.line.g, b.line.b);
 }
 
-// A dome: the tapestry seen through a hemisphere at [centre] of radius [r].
-vec3 dome(vec2 uv, vec2 centre, float r, float freq, float spin, float glow, float split, out float mask) {
-    vec2 p = (uv - centre) / r;
-    float rr = length(p);
-    mask = smoothstep(1.0, 0.985, rr);
-    if (mask <= 0.0) return vec3(0.0);
-    vec2 s = rot(sphereUv(p), spin) * freq;
-    vec3 col = tapestry(s, glow, split * 0.6);
-    vec3 n = vec3(p, sqrt(max(0.0, 1.0 - rr * rr)));
-    float limb = 0.45 + 0.55 * n.z;
-    float rim = smoothstep(0.8, 1.0, rr);
-    float highlight = pow(max(dot(n, normalize(vec3(-0.4, 0.7, 0.6))), 0.0), 24.0);
-    col = col * limb + pal(0.5) * rim * 0.5 + vec3(0.8, 0.85, 1.0) * highlight * 0.35;
-    return col;
+/** A unit direction as tapestry coordinates: `cells` across a turn of longitude, square cells in latitude. */
+vec2 sphereCells(vec3 n, float spin, float cells) {
+    float x = abs(n.x) < 1e-5 ? 1e-5 : n.x;
+    float lon = atan(n.z, x) + spin;
+    float lat = asin(clamp(n.y, -1.0, 1.0));
+    return vec2(lon, lat) * (cells / MD_TAU);
+}
+
+float map(vec3 p) {
+    // The centre sphere, floating at the origin.
+    float dS = length(p) - gR;
+    // The hall: the inside of a sphere about the floor's centre.
+    float dH = MD_HALL - length(p - vec3(0.0, MD_FLOOR, 0.0));
+    float dF = p.y - MD_FLOOR;
+    // Side domes: fold the angle about y into one wedge, centred on +x.
+    float sector = MD_TAU / MD_DOMES;
+    float a = atan(p.z, p.x);
+    float k = floor(a / sector + 0.5);
+    vec2 q = rot(p.xz, -k * sector);
+    vec3 dp = vec3(q.x - MD_DOME_D, p.y - MD_FLOOR, q.y);
+    float dD = length(dp) - gDomeR;
+
+    float d = dS;
+    gMat = 0.0;
+    if (dH < d) { d = dH; gMat = 1.0; }
+    if (dF < d) { d = dF; gMat = 2.0; }
+    if (dD < d) { d = dD; gMat = 3.0; }
+    gDomeP = dp;
+    return max(d, MD_BUBBLE - length(p - gEye));
+}
+
+vec3 normalAt(vec3 p, float eps) {
+    vec2 k = vec2(1.0, -1.0);
+    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
+                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
 }
 
 void main() {
     vec2 uv = view();
-    // sndShaped(SND_HIGH) straight into a glow term was the flash: a cymbal took the whole hall
-    // to white on one frame. Both halves are slew-limited now.
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
+    float dropBump = 4.0 * drop * (1.0 - drop);
+    float bass = clamp(sndShaped(SND_BASS_ATT), 0.0, 1.0);
+    float treble = clamp(SND_TREBLE_PRESENCE, 0.0, 1.0);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    // sndShaped(SND_HIGH) straight into a glow term was the flash in the 2D style: keep it gentle.
     float glow = 0.4 * sndShaped(SND_HIGH);
-    float split = 0.012;
+    float kPulse = clamp(uKnob[0], 0.0, 1.0);
+    float kTex = clamp(uKnob[1], 0.0, 1.0);
+    float kTone = uKnob[3] - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0);
+    float kSpace = clamp(uKnob[5], 0.0, 1.0);
+    float split = 0.012 * (0.4 + 1.2 * kTex);
     // Integrated spin: energy sets the rate, never the angle.
     float spin = uFlowPhase * 0.5 + uTime * 0.025;
     float finger = touchFalloff(uv, 0.5);
 
-    // Mirror left/right: the reference is a symmetric hall, not a plane.
-    vec2 m = vec2(abs(uv.x), uv.y);
+    gR = MD_SPHERE * (1.0 + 0.16 * kick * (0.4 + 1.2 * kPulse));
+    gDomeR = MD_DOME_R * (1.0 + 0.04 * kick);
 
-    // The flat field: a plane receding toward the top, drifting slowly.
-    float persp = 1.0 / (1.15 - 0.35 * m.y);
-    vec2 field = m * persp * 3.1 + flowOffset(0.5);
-    vec3 col = tapestry(fluidWarp(field, 0.9, 0.07), glow, split);
-    col *= 0.7 + 0.3 * persp;
+    vec3 ro;
+    vec3 rd;
+    camAround(uv, mix(4.6, 5.8, kSpace), 2.0 * CAM_SPIN_UNIT, ro, rd);
+    // Lift the eye a little so the floor's mandala shows, and hold it above
+    // the side domes' tops (so it is never inside one) and well inside the
+    // hall (orbit at most 5.8 * 1.35 out, 4.5 up) whatever the rig's pitch does.
+    ro.y = clamp(ro.y + 0.7, MD_FLOOR + MD_DOME_R + 0.9, 4.5);
+    gEye = ro;
 
-    // Side domes, then the centre sphere on top.
-    float mask;
-    vec3 side = dome(m, vec2(1.62, 0.3), 1.0, 2.6, spin, glow, split, mask);
-    col = mix(col, side, mask);
-    vec3 centre = dome(m, vec2(0.0, -0.02), 0.44, 3.4, -spin * 1.5, glow + finger, split, mask);
-    col = mix(col, centre, mask);
+    float t = 0.05;
+    float hitT = -1.0;
+    for (int i = 0; i < MD_MAX_STEPS; i++) {
+        // uSteps is the user's Detail; this loop's own bound is the constant.
+        if (float(i) >= uSteps) break;
+        float d = map(ro + rd * t);
+        if (d < 0.001 + 0.0007 * t) {
+            hitT = t;
+            break;
+        }
+        t += d;
+        if (t > MD_FAR) break;
+    }
 
-    // A halo under the sphere so it reads as lit from within.
-    col += pal(0.5) * 0.12 * exp(-max(length(uv) - 0.44, 0.0) * 6.0) * 0.6;
-    // Motes drifting through the hall, each new spawn fading in over a second.
-    col += pal(0.72) * fluidMotes(uv, 5.0, 0.16) * 0.2;
+    float hue = 0.2 * kTone;
+    // The inner light: the drop floods the hall, BUILD raises its floor.
+    float inner = (0.75 + 0.5 * kBuild) * (1.0 + 1.6 * dropBump) * (0.85 + 0.25 * swell);
+    vec3 lightCol = mix(pal(0.5 + hue), vec3(1.0, 0.9, 1.0), 0.35);
+    vec3 fogCol = pal(0.22 + hue) * 0.05 + vec3(0.006, 0.003, 0.012);
+    vec3 col = fogCol;
+    float sceneT = hitT > 0.0 ? hitT : MD_FAR;
+    // Cell units per world unit times world units per pixel, for the line AA.
+    float pxWorld = 2.0 / (max(uCamFocal, 0.1) * uResolution.y);
+
+    if (hitT > 0.0) {
+        vec3 p = ro + rd * hitT;
+        vec3 n = normalAt(p, max(0.0015, 0.001 * hitT));
+        float ao = clamp(1.0 - 2.0 * (0.25 - map(p + n * 0.25)), 0.3, 1.0);
+        // Restore the hit's material after the normal and AO taps.
+        map(p);
+        float ndv = clamp(dot(n, -rd), 0.05, 1.0);
+        float px = hitT * pxWorld / ndv;
+
+        vec3 base;
+        if (gMat < 0.5) {
+            // The centre sphere: its own tapestry, turning, lit from inside.
+            vec3 sn = p / max(gR, 1e-3);
+            float dens = MD_CELLS_SPHERE / (MD_TAU * gR);
+            base = tapestry(sphereCells(sn, -spin * 1.5, MD_CELLS_SPHERE), glow + finger, split * 0.6,
+                            MD_CELLS_SPHERE, px * dens);
+            float limb = 0.45 + 0.55 * ndv;
+            float rim = pow(1.0 - ndv, 3.0);
+            float highlight = pow(max(dot(reflect(rd, n), normalize(vec3(-0.4, 0.7, 0.6))), 0.0), 24.0);
+            col = base * limb * (0.9 + 0.3 * inner) + pal(0.5 + hue) * rim * 0.6
+                + vec3(0.8, 0.85, 1.0) * highlight * 0.35;
+        } else {
+            float glowW = glow;
+            if (gMat < 1.5) {
+                // The dome overhead: the tapestry wrapped round the inside of the hall.
+                vec3 hn = normalize(p - vec3(0.0, MD_FLOOR, 0.0));
+                float dens = MD_CELLS_HALL / (MD_TAU * MD_HALL);
+                base = tapestry(sphereCells(hn, spin * 0.2, MD_CELLS_HALL), glowW, split, MD_CELLS_HALL, px * dens);
+            } else if (gMat < 2.5) {
+                // The floor mandala: polar rings, mirrored across a slowly turning axis,
+                // drifting outward with the flow.
+                vec2 f = rot(p.xz, spin * 0.15);
+                float r = length(f);
+                float ang = abs(atan(f.y, abs(f.x) < 1e-5 ? 1e-5 : f.x));
+                vec2 fp = vec2(ang / MD_PI * 8.0, r * 0.62 - uFlowPhase * 0.08);
+                float dens = max(0.62, 16.0 / (MD_TAU * max(r, 0.5)));
+                base = tapestry(fluidWarp(fp, 0.9, 0.04), glowW, split, 1024.0, px * dens);
+            } else {
+                // A side dome: its own sphere of tapestry, counter-turning.
+                vec3 dn = gDomeP / max(gDomeR, 1e-3);
+                float dens = MD_CELLS_DOME / (MD_TAU * gDomeR);
+                base = tapestry(sphereCells(dn, spin, MD_CELLS_DOME), glowW, split * 0.6, MD_CELLS_DOME, px * dens);
+                // The limb rim of the 2D domes, kept as a cyan edge.
+                base += pal(0.5 + hue) * pow(1.0 - ndv, 4.0) * 0.4;
+            }
+            // Lit by the centre sphere (inverse square, softened) and a dim key from above.
+            vec3 toL = -p;
+            float dl = length(toL);
+            float dif = max(dot(n, toL / max(dl, 1e-3)), 0.0) * inner * 6.0 / (4.0 + dl * dl);
+            float key = 0.18 * max(dot(n, normalize(vec3(-0.3, 0.9, 0.3))), 0.0);
+            col = base * (0.25 + dif + key) * ao + lightCol * dif * 0.08;
+        }
+        col = mix(col, fogCol, 1.0 - exp(-hitT * 0.045));
+    }
+
+    // The halo around the sphere: the ray's closest approach to the centre,
+    // taken only up to what the ray hit, so it never shines through a wall.
+    float tc = clamp(dot(-ro, rd), 0.0, sceneT);
+    float dmin = length(ro + rd * tc);
+    float haloW = 1.5 - 0.7 * bass;
+    col += lightCol * 0.22 * inner * exp(-max(dmin - gR, 0.0) * haloW);
+
+    // Dust: points on four slow shells about the sphere, one hashed candidate
+    // per cell of each shell's own tapestry grid. The treble makes them sparkle.
+    for (int k = 0; k < 4; k++) {
+        float rk = 2.6 + 1.5 * float(k);
+        float b = dot(ro, rd);
+        float c = dot(ro, ro) - rk * rk;
+        float disc = b * b - c;
+        if (disc < 0.0) continue;
+        float sq = sqrt(disc);
+        for (int j = 0; j < 2; j++) {
+            float ti = j == 0 ? -b - sq : -b + sq;
+            if (ti < 0.4 || ti > sceneT) continue;
+            vec3 hp = (ro + rd * ti) / rk;
+            float cells = 18.0 + 8.0 * float(k);
+            vec2 g = sphereCells(hp, uTime * 0.03 * (float(k) + 1.0) * (k == 1 || k == 3 ? -1.0 : 1.0), cells);
+            vec2 cell = vec2(mod(floor(g.x), cells), floor(g.y));
+            float h = hash21(cell + float(k) * 31.7);
+            if (h < 0.7) continue;
+            float h2 = hash21(cell + 7.1 + float(k) * 13.3);
+            vec2 l = fract(g) - 0.5 - (vec2(h, h2) - 0.5) * 0.5;
+            float size = 0.06 + ti * pxWorld * cells / (MD_TAU * rk);
+            float m = (1.0 - smoothstep(0.0, size, length(l))) * min(1.0, 0.06 / size);
+            float tw = 0.5 + 0.5 * sin(uTime * (5.0 + 9.0 * h2) + h * 40.0);
+            col += pal(0.72 + hue) * m * (0.15 + 1.1 * treble * tw) * exp(-ti * 0.045);
+        }
+    }
+
+    col *= 0.82 + 0.25 * swell;
+    col *= 0.72 + 0.28 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

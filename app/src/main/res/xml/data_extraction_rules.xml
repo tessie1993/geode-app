@@ -22,10 +22,12 @@
             domain="file"
             path="milk/textures" />
         <!-- Takes are megabytes of JSON per long performance: same quota
-             arithmetic as the textures above. -->
+             arithmetic as the textures above. Every project's takes live under
+             project-takes/<id>/ because a rule cannot name projects/<any id>/takes
+             (#384); project.json stays in, so My videos keeps its list. -->
         <exclude
             domain="file"
-            path="takes" />
+            path="project-takes" />
     </cloud-backup>
     <!-- A direct phone-to-phone copy has no cloud quota, so the excludes above
          are not repeated here: the imported textures and takes come across

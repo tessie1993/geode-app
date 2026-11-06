@@ -18,16 +18,19 @@
 //   the cells off the axis, so the way runs between structures rather than through them), a polar
 //   kaleidoscope fold about the travel axis (N-fold, round tunnels, a spiral), twist along
 //   travel, global scale, mirror fold, up to five IFS steps (rotate-fold, fractional count),
-//   sphere inversion, abs-inversion, then thirteen primitives blended by weight (six simple ones, a
-//   baked CC0 model from WorldAssets, and six fractals: gyroid, Menger sponge, Mandelbulb, Mandelbox,
-//   Sierpinski tetrahedron, Apollonian packing), then the corridor
+//   sphere inversion, abs-inversion, then sixteen primitives blended by weight (six simple ones, a
+//   baked CC0 model from WorldAssets, and nine fractals: gyroid, Menger sponge, Mandelbulb, Mandelbox,
+//   Sierpinski tetrahedron, Apollonian packing, quaternion Julia set, pseudo-Kleinian limit set,
+//   octahedral kaleidoscopic IFS), a ground plane joined under them, the landscape joined by
+//   min (Terrain: a ridged fBm height field in world space on FloorY, valley walls to the sides), then the corridor
 //   carved out around the camera's way. Three render modes read that one world: a hard surface,
 //   a glow-through volume (translucent glowing plates) and an emissive density (thin glowing
 //   sheets); their weights are in the genome too, so a world can melt from stone into light.
 //
 // WHAT MUST HOLD (valid()): every field inside its bounds, the primitive weights and the mode
 // weights each summing to one, and a world that is neither solid nor empty: a probe of the space
-// near the camera's way finds both open air and matter (openSpace()). random() only returns
+// near the camera's way finds both open air and matter (openSpace(); a ground and the rock under
+// it are not the camera's space, so the probe skips them). random() only returns
 // genomes that pass, so nothing the morph driver picks can trap the camera in rock or show an
 // empty black screen.
 //
@@ -74,6 +77,9 @@ enum Field : int {
     PMandelbox,  // a Mandelbox: box fold, sphere fold, scale (BoxScale, PrimSize)
     PSierp,      // a Sierpinski tetrahedron, folded seven times (PrimSize)
     PApollo,     // an Apollonian packing: spheres inverted into spheres, endless (PrimSize)
+    PJulia,      // a quaternion Julia set, z -> z^2 + c (JuliaCX..JuliaCW, PrimSize)
+    PKlein,      // a pseudo-Kleinian limit set: box fold, sphere inversion, a slab (KleinBox, PrimThick, PrimSize)
+    PKifs,       // an octahedral kaleidoscopic IFS: the octahedron's folds, a scale about a vertex (KifsScale, PrimSize)
     PrimSize,
     PrimThick,
     MeshPick,    // 0..kShapeCount-1: which baked model, fractional = a blend of two neighbours
@@ -105,13 +111,14 @@ enum Field : int {
     // The camera's feel in this world: the view only (the eye and its corridor never move).
     Roll,        // radians per second the view banks round the way (signed): a slow barrel roll
     Lens,        // the focal length's factor: under 1 a wide lens (vast halls), over 1 a long one (close detail)
-    // Seams for the next worlds (identity until their ticket lands): ground, sky, landscape, lattice, gaze.
-    Floor,        // 0..1: a ground plane under the world (0 = none)
-    FloorY,       // the ground's height, world units (always below the corridor)
-    FloorGloss,   // 0..1: how mirror-like the ground is
-    Sky,          // 0..1: a sky backdrop where rays escape (0 = black space)
+    // The ground and the sky (#494): a plane joined to the world, and the air an escaped ray shows.
+    Floor,        // 0..1: a ground plane under the world, joined smoothly and faded in (0 = none)
+    FloorY,       // the ground's height, world units (under the deepest eye of every rig path, bubble included)
+    FloorGloss,   // 0..1: how mirror-like the ground is (a fresnel-weighted reflected march)
+    Sky,          // 0..1: a sky gradient where rays escape and fog fades (0 = black space)
     SkyHue,       // the sky's palette coordinate
-    Horizon,      // 0..1: the glow band where sky meets ground, and fog toward its colour
+    Horizon,      // 0..1: the glow band where sky meets ground, and so the colour far fog fades toward
+    // Seams for the next worlds (identity until their ticket lands): landscape, lattice, gaze.
     Terrain,      // 0..1: a fractal landscape layer on the ground (ridged height field)
     TerrainHeight, // the landscape's relief, world units
     TerrainScale, // the landscape's base frequency, per world unit
@@ -119,6 +126,13 @@ enum Field : int {
     LatticeYaw,   // radians: the lattice turned about y
     GazePitch,    // radians: how far the view may look up and down (view only)
     GazeYaw,      // radians: how far the view may look to the sides (view only)
+    // The newer fractals' own numbers.
+    JuliaCX,      // the Julia set's constant c, a quaternion: its real part
+    JuliaCY,      // c's i part
+    JuliaCZ,      // c's j part
+    JuliaCW,      // c's k part
+    KleinBox,     // the pseudo-Kleinian's fold box half-size against its unit inversion sphere
+    KifsScale,    // the octahedral IFS's scale per step (2 = the copies touch, more = sparser)
     kFieldCount,
 };
 
@@ -136,13 +150,16 @@ enum Runtime : int {
     LensNow,               // Lens with the kick's punch on top: the factor lib_world's ray takes on uCamFocal
     GazeX,                  // the view's look to the side now, radians (the driver's, within GazeYaw)
     GazeY,                  // the view's look up or down now, radians (within GazePitch)
-    Spare,                  // unused: pads uWorld to whole vec4s
     kUniformCount,
 };
 
 constexpr int kVec4 = kUniformCount / 4;
 static_assert(kUniformCount % 4 == 0, "uWorld is whole vec4s");
-static_assert(kVec4 == 22, "lib_world declares uWorld[22]");
+static_assert(kVec4 == 24, "lib_world declares uWorld[24]");
+
+// The primitive weights, PBox .. PKifs: one contiguous group, normalized to sum one.
+constexpr int kPrimCount = PKifs - PBox + 1;
+static_assert(kPrimCount == 16, "the primitive group is PBox .. PKifs");
 
 constexpr int kMaxIfsSteps = 5;
 // The corridor's eye bubble (lib_world's WG_EYE_RADIUS): what is always open around the eye.
@@ -187,9 +204,14 @@ float sdf(const Genome& g, const Way& way, const std::array<float, 3>& p);
 // The same without the corridor: the bare world, for the open-space probe.
 float sdfUncarved(const Genome& g, const Way& way, const std::array<float, 3>& p);
 
+// lib_world's wTerrain alone: the landscape layer's distance at world point p (FAR while Terrain is
+// 0). It is a bound: it never changes faster than p moves, so the tracer never overshoots it.
+float terrainSdf(const Genome& g, const std::array<float, 3>& p);
+
 // The share of probe points around the camera's way (a 12-unit box about the travel axis, eye at
 // the origin) that are open air (> 0.25 from matter) and that are near matter (< 0.6). A good
-// world has both: open in every direction, but with something to see.
+// world has both: open in every direction, but with something to see. With a floor, points under
+// it and in the band its surface reaches are left out of both shares.
 struct Space {
     float open = 0.0f;
     float near = 0.0f;

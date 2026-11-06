@@ -37,6 +37,7 @@
 #include "viz/ScenePrep.hpp"
 #include "viz/SceneRegistry.hpp"
 #include "viz/SceneResidency.hpp"
+#include "viz/SoundFeed.hpp"
 #include "viz/StyleSchedule.hpp"
 #include "viz/ShaderSource.hpp"
 #include "viz/ThermalGovernor.hpp"
@@ -44,6 +45,7 @@
 #include "viz/TrailPass.hpp"
 #include "viz/UiBlurPass.hpp"
 #include "viz/VisualSafety.hpp"
+#include "viz/frame/EdgeGlowPass.hpp"
 #include "viz/liquid/LiquidMath.hpp"
 #include "viz/liquid/LiquidPass.hpp"
 #include "viz/scenes/ProgramLoader.hpp"
@@ -75,6 +77,8 @@ public:
     void setFixedFrameRate(int fps) { fixedFps_.store(fps > 0 ? fps : 0, std::memory_order_relaxed); }
     // The app's glass sheet over the live visual (UiBlurPass): latched for the next frame. Any thread.
     void setUiBlurRegion(const UiBlurRegion& region);
+    // The wallpaper's edge look (frame::EdgeGlowPass): latched for the next frame. Any thread.
+    void setEdgeGlow(const frame::edge_glow::Options& options);
     // Settings › Performance › Liquid on a hot phone (liquid::HotPolicy). Any thread.
     void setLiquidHotPolicy(int policy) { liquidHotPolicy_.store(policy, std::memory_order_relaxed); }
     // What Liquid mode ran last frame (liquid::Mode), so Customize can say when a hot phone simplified
@@ -91,13 +95,18 @@ public:
     void setTransition(const std::string& id, int64_t durationMs);
     void beginParamMorph(float seconds);
     void submitTouchPoints(const float* xy, int n) { touchField_.submit(xy, n); }
-    void pushPcm(const float* samples, int count);
     // The sound engine's write side: interleaved PCM in play order, every sample once. A new rate builds a
     // new engine. Call from the render thread before render(), live and in export alike, so the frame the
-    // engine is stepped into covers exactly the audio written up to that frame.
+    // engine is stepped into covers exactly the audio written up to that frame. The same samples, mixed to
+    // mono, are this frame's raw PCM for MilkDrop and the PCM scenes (PcmHandoff): no separate push.
     void writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz);
     // A seek, track change or source switch: drop the engine's history.
     void resetAudio();
+    // The ingest ring this renderer hears natively (#481), or nullptr. Any thread; the GL thread takes it up
+    // at the next beginFrame, where soundFeed_ reads its own cursor into writeAudio / resetAudio before the
+    // engine is stepped. writeAudio stays for callers that still push PCM (export, and the capture rings
+    // until #485); only one source plays at a time, so each just writes what it has.
+    void setSoundSource(const audio::ingest::Ring* ring);
     // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
     void setSoundTuning(const GeodeSoundTuning& tuning);
     void queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength);
@@ -163,6 +172,8 @@ private:
     void trimScenes(const std::string& keepId);
     std::unique_ptr<Scene> buildScene(const std::string& id);
     float beginFrame(double timeSeconds);
+    // Takes up setSoundSource's ring and writes what it gained into the engine; beginFrame, before the step.
+    void feedSoundSource();
     // Steps styleSchedule_ once per frame (after the sound engine) and requests its change, if any.
     void applyStyleSchedule();
     void applyRenderScale();
@@ -181,6 +192,8 @@ private:
     void stepFlashLimiter(float dt);
     // After the composite: the UI blur region, live surfaces only; nothing at strength 0.
     void drawUiBlur(GLuint targetFbo);
+    // After the composite, before the output probe: the wallpaper's edge glow, while the shell has it on.
+    void drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt);
     void deliverPcm(Scene& scene);
     void stepOverlays(Scene& scene, const SceneParams& p, float dt);
     void stepCamera(const SceneParams& p, float dt);
@@ -260,6 +273,13 @@ private:
     UiBlurPass uiBlurPass_;
     UiBlurRegion uiBlurRegion_;
     std::atomic<bool> uiBlurOn_{false};
+    // The wallpaper's edge look, the first frame::Pass (#439). Its options are guarded by stateLock_ and
+    // handed to the pass on the GL thread; edgeGlowOn_ lets a frame without it (every surface but the
+    // wallpaper) skip the lock. The renderer has no surface kind of its own: the pass runs only when the
+    // shell turned it on (the wallpaper is its only caller), and never offscreen.
+    frame::EdgeGlowPass edgeGlowPass_;
+    frame::edge_glow::Options edgeGlowOptions_;
+    std::atomic<bool> edgeGlowOn_{false};
     std::atomic<bool> offscreen_{false};
     std::atomic<int> fixedFps_{0};
     // The note layer's seed: the director's play seed mixed with fresh entropy whenever that seed changes,
@@ -275,6 +295,10 @@ private:
     std::unique_ptr<sound::SoundEngine> sound_;
     GeodeSoundTuning soundTuning_ = sound::SoundEngine::defaultTuning();
     GeodeSoundFrame soundFrame_{};
+    // setSoundSource's ring, guarded by soundLock_ until beginFrame hands it to soundFeed_.
+    const audio::ingest::Ring* requestedSoundSource_ = nullptr;
+    // GL thread only: this renderer's cursor on that ring.
+    SoundFeed soundFeed_;
     // Customize › Macros: this frame's knobs, and the ones the sound engine's tuning was last built from.
     MacroKnobs frameKnobs_{};
     // The user's knobs with the director's laid over them, this frame; what the params and the camera read.

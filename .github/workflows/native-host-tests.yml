@@ -75,9 +75,16 @@ jobs:
           # int16/u8/float conversion; the BS.775 5.1/7.1 downmix; mono centred; the ring's silence answer.
           g++ -std=c++20 -O1 -Wall -Wextra -pthread -Icore -Icore/tests/stub core/tests/ingest_test.cpp core/audio/ingest/Ring.cpp             core/audio/ingest/Cursor.cpp core/api/geode_ingest_api.cpp -o ingest_test
           ./ingest_test
+          # A renderer's own cursor on the native ingest ring (#481): fed through the ring it steps to the same sound
+          # frames as a direct write; epochs reset, formats don't; a stall keeps the newest; 5.1 centre; cast's int16 reader.
+          g++ -std=c++20 -O1 -Wall -Wextra -pthread -Icore -Icore/tests/stub core/tests/sound_feed_test.cpp core/viz/SoundFeed.cpp             core/api/geode_ingest_reader_api.cpp core/audio/ingest/Ring.cpp core/audio/ingest/Cursor.cpp core/sound/*.cpp -o sound_feed_test
+          ./sound_feed_test
           # An export segment's style schedule: every later style is gated by the entitlement (#357).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/style_schedule_test.cpp core/viz/StyleSchedule.cpp -o style_schedule_test
           ./style_schedule_test
+          # The wallpaper's edge glow, the first frame::Pass (#439): options, the VU envelope, the band and its mask.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/edge_glow_test.cpp -o edge_glow_test
+          ./edge_glow_test
           # The GL Transitions library parse the renderer and the shell share, and the shell's table (#438).
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/transition_library_test.cpp core/util/Json.cpp -o transition_library_test
           ./transition_library_test

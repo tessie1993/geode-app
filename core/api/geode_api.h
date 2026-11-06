@@ -12,6 +12,7 @@ extern "C" {
 typedef struct geode_viz      geode_viz;
 typedef struct geode_dsp      geode_dsp;
 typedef struct geode_tags     geode_tags;
+typedef struct geode_ingest   geode_ingest;   /* the native ingest ring, declared in full with its calls below */
 
 /* Native visualizer: one renderer per GL surface. Setters may be called from any thread and are latched
  * for the next frame; the calls under "GL thread" need the surface's context current. */
@@ -45,7 +46,6 @@ GEODE_API void        geode_viz_set_milk_texture_dir(geode_viz*, const char* dir
 GEODE_API size_t      geode_viz_take_milk_preset_loaded(geode_viz*, char* out, size_t capacity);
 /* Section changes and drops the auto-director committed a look at since the last call; handed out once. */
 GEODE_API int         geode_viz_take_director_style_moments(geode_viz*);
-GEODE_API void        geode_viz_push_pcm(geode_viz*, const float* mono, int count);
 /* The reaction source catalogue, one line per source in wire order: "NAME|Label|GROUP|event(0/1)\n".
  * Writes at most capacity bytes (NUL-terminated when it fits) and returns the length it needs. */
 GEODE_API int         geode_react_source_catalog(char* out, int capacity);
@@ -70,6 +70,20 @@ GEODE_API void        geode_layer_set(const char* scene_id, float mix, int blend
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);
 GEODE_API void        geode_viz_reset_audio(geode_viz*);
+/* The ingest ring this renderer hears (#481), NULL for none. The renderer reads it natively with its own
+ * cursor at the start of each geode_viz_render: every sample once, as the stereo downmix, with the rate it
+ * was written at, the engine reset when a new epoch starts. Any thread; taken up at the next render. The
+ * ring must outlive the renderer, or be unset first. geode_viz_write_audio stays an adapter for callers
+ * that push PCM themselves (export, capture until #485). */
+GEODE_API void        geode_viz_set_sound_source(geode_viz*, geode_ingest*);
+/* A reader of an ingest ring for a shell that must hand samples to an Android API (cast's AAC encoder):
+ * its own cursor, from the newest sample, behind core/viz/SoundFeed's catch-up cap. One thread. */
+typedef struct geode_ingest_reader geode_ingest_reader;
+GEODE_API geode_ingest_reader* geode_ingest_reader_create(geode_ingest*);   /* NULL for a NULL ring */
+GEODE_API void        geode_ingest_reader_destroy(geode_ingest_reader*);
+/* Up to max_frames stereo frames of the downmix as interleaved int16 (clamped, rounded), all of one rate,
+ * which goes to *sample_rate. Returns the frames written; 0 when nothing new. */
+GEODE_API int         geode_ingest_reader_read_s16(geode_ingest_reader*, int16_t* out, int max_frames, int* sample_rate);
 GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const GeodeSoundTuning*);
 /* Customize › Advanced › Shader code (core/viz/ShaderOverrides): the user's fragment source for a style, process-wide
  * like geode_director_set, so live, export, the wallpaper and the dream all draw it. A null or empty source clears it
@@ -131,6 +145,14 @@ GEODE_API void        geode_viz_set_frame_rate(geode_viz*, int fps);
  * An offscreen (export) renderer never draws it. */
 GEODE_API void        geode_viz_set_ui_blur_region(geode_viz*, float left, float top, float right, float bottom,
                                                    float strength, float corner_px);
+/* The wallpaper's edge look (core/viz/frame/EdgeGlowPass): after the composite, black over the frame except
+ * along the screen's rounded rim, the band breathing with the music's level. opts, in this order
+ * (core/viz/frame/EdgeGlowMath.hpp): enabled (> 0.5 = on), then the part of the surface on screen in
+ * surface pixels, y down: left, top, width, height (width or height <= 0 = the whole surface). Fewer than
+ * GEODE_EDGE_GLOW_FLOATS floats, or any non-finite one, turns it off. Any thread, latched for the next
+ * frame. Off by default; an offscreen (export) renderer never draws it. */
+#define GEODE_EDGE_GLOW_FLOATS 5
+GEODE_API void        geode_viz_set_edge_glow(geode_viz*, const float* opts, int count);
 /* An export's own auto-director (amount 0..1, the play's seed): from now on this renderer ignores
  * geode_director_set, so the live player's switch, track and free taste never reach the render. */
 GEODE_API void        geode_viz_set_director(geode_viz*, float amount, long long seed);

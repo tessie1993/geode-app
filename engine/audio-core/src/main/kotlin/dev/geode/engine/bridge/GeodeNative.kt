@@ -201,6 +201,25 @@ object GeodeNative {
 
     external fun vizResetAudio(handle: Long)
 
+    /** The ingest ring ([ingestCreate]) the renderer reads natively each frame; 0 for none. */
+    external fun vizSetSoundSource(
+        handle: Long,
+        ingest: Long,
+    )
+
+    /** A reader of an ingest ring from its newest sample, for cast's encoder; 0 for a 0 ring. */
+    external fun ingestReaderCreate(ingest: Long): Long
+
+    external fun ingestReaderDestroy(reader: Long)
+
+    /** Up to [maxFrames] stereo int16 frames of one rate into [out]; the rate goes to `rateOut[0]`. */
+    external fun ingestReaderReadS16(
+        reader: Long,
+        out: ShortArray,
+        maxFrames: Int,
+        rateOut: IntArray,
+    ): Int
+
     external fun vizSetSoundTuning(
         handle: Long,
         tuning: FloatArray,
@@ -239,12 +258,6 @@ object GeodeNative {
 
     /** The built-in macro presets, "Name|e,s,c,m,sp,ch" lines. */
     external fun macroStarters(): String
-
-    external fun vizPushPcm(
-        handle: Long,
-        mono: FloatArray,
-        count: Int,
-    )
 
     /** Process-wide (core/viz/ShaderOverrides): every renderer draws it; "" clears it. */
     external fun shaderOverrideSet(
@@ -410,6 +423,16 @@ object GeodeNative {
         bottom: Float,
         strength: Float,
         cornerPx: Float,
+    )
+
+    /**
+     * The wallpaper's edge look (`core/viz/frame/EdgeGlowPass`), `GEODE_EDGE_GLOW_FLOATS` floats: enabled
+     * (> 0.5), then the on-screen window in surface pixels, y down (left, top, width, height; a size <= 0
+     * is the whole surface). Any thread, latched for the next frame; ignored offscreen.
+     */
+    external fun vizSetEdgeGlow(
+        handle: Long,
+        opts: FloatArray?,
     )
 
     external fun vizKnows(

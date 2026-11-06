@@ -145,13 +145,6 @@ Java_dev_geode_engine_bridge_GeodeNative_vizTakeDirectorStyleMoments(JNIEnv*, jo
     return geode_viz_take_director_style_moments(vizOf(handle));
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizPushPcm(JNIEnv* env, jobject, jlong handle, jfloatArray mono, jint count) {
-    FloatElements data(env, mono);
-    if (!data.get()) return;
-    geode_viz_push_pcm(vizOf(handle), data.get(), count < data.length() ? count : data.length());
-}
-
 // Region copy: every rendered frame, a few hundred frames of audio; never pins the whole scratch array.
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizWriteAudio(JNIEnv* env, jobject, jlong handle, jfloatArray interleaved,
@@ -167,6 +160,44 @@ Java_dev_geode_engine_bridge_GeodeNative_vizWriteAudio(JNIEnv* env, jobject, jlo
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizResetAudio(JNIEnv*, jobject, jlong handle) {
     geode_viz_reset_audio(vizOf(handle));
+}
+
+// The ingest ring a renderer hears natively (#481); 0 = none. Marshals the handle only.
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetSoundSource(JNIEnv*, jobject, jlong handle, jlong ingest) {
+    geode_viz_set_sound_source(vizOf(handle), reinterpret_cast<geode_ingest*>(static_cast<intptr_t>(ingest)));
+}
+
+// A reader of an ingest ring for cast's encoder (geode_ingest_reader_*). Marshals only: the frames come back
+// through a region copy into the caller's ShortArray, the rate through a one-element IntArray.
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_ingestReaderCreate(JNIEnv*, jobject, jlong ingest) {
+    return static_cast<jlong>(reinterpret_cast<intptr_t>(
+        geode_ingest_reader_create(reinterpret_cast<geode_ingest*>(static_cast<intptr_t>(ingest)))));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_ingestReaderDestroy(JNIEnv*, jobject, jlong reader) {
+    geode_ingest_reader_destroy(reinterpret_cast<geode_ingest_reader*>(static_cast<intptr_t>(reader)));
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_ingestReaderReadS16(JNIEnv* env, jobject, jlong reader, jshortArray out,
+                                                             jint maxFrames, jintArray rateOut) {
+    if (!out || maxFrames <= 0) return 0;
+    const jint fit = env->GetArrayLength(out) / 2;
+    const jint frames = maxFrames < fit ? maxFrames : fit;
+    if (frames <= 0) return 0;
+    std::vector<int16_t> data(static_cast<size_t>(frames) * 2);
+    int rate = 0;
+    const int got = geode_ingest_reader_read_s16(reinterpret_cast<geode_ingest_reader*>(static_cast<intptr_t>(reader)),
+                                                 data.data(), frames, &rate);
+    if (got > 0) env->SetShortArrayRegion(out, 0, static_cast<jsize>(got) * 2, reinterpret_cast<const jshort*>(data.data()));
+    if (rateOut && env->GetArrayLength(rateOut) > 0) {
+        const jint r = rate;
+        env->SetIntArrayRegion(rateOut, 0, 1, &r);
+    }
+    return got;
 }
 
 JNIEXPORT void JNICALL
@@ -379,6 +410,18 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetUiBlurRegion(JNIEnv*, jobject, jl
     geode_viz_set_ui_blur_region(vizOf(handle), left, top, right, bottom, strength, cornerPx);
 }
 
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetEdgeGlow(JNIEnv* env, jobject, jlong handle, jfloatArray opts) {
+    if (!opts) {
+        geode_viz_set_edge_glow(vizOf(handle), nullptr, 0);
+        return;
+    }
+    const jsize count = std::min<jsize>(env->GetArrayLength(opts), GEODE_EDGE_GLOW_FLOATS);
+    float values[GEODE_EDGE_GLOW_FLOATS] = {};
+    env->GetFloatArrayRegion(opts, 0, count, reinterpret_cast<jfloat*>(values));
+    geode_viz_set_edge_glow(vizOf(handle), values, static_cast<int>(count));
+}
+
 JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizKnows(JNIEnv* env, jobject, jlong handle, jstring sceneId) {
     Utf8Chars id(env, sceneId);
@@ -459,7 +502,7 @@ Java_dev_geode_engine_bridge_GeodeNative_vizReleaseScenes(JNIEnv*, jobject, jlon
 
 // pixels is a Java IntArray? (ARGB per Android's Bitmap.getPixels), so a null array is a valid "clear"
 // call rather than a JNI error - handled before touching the (possibly null) array. width*height is
-// checked against the array's actual length (mirroring vizPushPcm's count clamp above) and treated as a
+// checked against the array's actual length and treated as a
 // clear when it doesn't fit, so a stale/mismatched width or height can never make
 // geode_viz_set_underlay_rgba read past the JVM-owned buffer.
 JNIEXPORT void JNICALL

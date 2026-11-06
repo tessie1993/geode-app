@@ -5,22 +5,18 @@ import android.content.SharedPreferences
 import android.net.ConnectivityManager
 import dev.geode.RingLog
 import dev.geode.audio.AudioBus
-import dev.geode.audio.PcmRingBuffer
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.LfoStore
 import dev.geode.data.PresetStore
 import dev.geode.data.SystemMotion
 import dev.geode.data.ThemeStore
-import dev.geode.engine.audio.SoundCursor
-import dev.geode.engine.audio.SoundInput
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.EncoderSurface
 import dev.geode.export.PcmResampler
 import dev.geode.render.VisualizerRenderer
-import dev.geode.render.scene.PcmChunk
 import dev.geode.util.bestEffort
 import java.net.Inet4Address
 import java.net.InetAddress
-import kotlin.math.roundToInt
 
 /**
  * One cast: the phone draws the live look into [CastEncoder] and serves it to the TV.
@@ -30,8 +26,9 @@ import kotlin.math.roundToInt
  * 2026-11-02), when the screen's view is paused. It shows what the screen would: the saved live
  * look: the stage's style and params as they change ([CastMirror], previews included), else the
  * saved live state; modulation and the MilkDrop preset (which the renderer restores itself), re-read
- * whenever the app saves them; the same sound ([AudioBus.soundInput]) and the same raw PCM
- * ([pcmRing], the mono ring the screen's PCM scenes read).
+ * whenever the app saves them; the same sound (the player's native ring, [AudioBus.playerIngest], read
+ * by the native renderer itself, and the capture ring [AudioBus.soundInput] until #485), from which the
+ * native renderer also takes MilkDrop's raw PCM itself (core/viz/PcmHandoff), as the screen's does.
  *
  * If the render loop dies after the stream started, [onFailed] runs (on the render thread): a
  * frozen picture on the TV with a muted phone is worse than ending the cast.
@@ -43,9 +40,8 @@ import kotlin.math.roundToInt
  */
 internal class CastStream(
     context: Context,
-    private val pcmRing: PcmRingBuffer?,
-    /** The player's own feed: only its sound goes to the TV (see [AudioPump]). */
-    private val musicInput: SoundInput?,
+    /** The player's ingest ring (`geode_ingest*`, 0 for none): only its sound goes to the TV (see [AudioPump]). */
+    private val music: Long,
     private val onFailed: () -> Unit,
 ) {
     private val appContext = context.applicationContext
@@ -105,25 +101,14 @@ internal class CastStream(
     /** True once segments stopped arriving for [FROZEN_MS]: the encoder or the renderer stalled. */
     val isFrozen: Boolean get() = segments.msSinceLastSegment() > FROZEN_MS
 
-    private val pcmScratch = FloatArray(PCM_SCRATCH)
-    private var pcmCursor = 0L
-
-    /** What the mono ring gained since the last frame, as the screen's renderer gets it (PlayerSession.latestPcm). */
-    private fun latestPcm(): PcmChunk? {
-        val ring = pcmRing ?: return null
-        val n = ring.copyNewSince(pcmCursor, pcmScratch)
-        pcmCursor = ring.lastCopyEndIndex
-        return if (n > 0) PcmChunk(pcmScratch, n) else null
-    }
-
     private fun renderLoop() {
         val encoder = CastEncoder(segments)
         val egl = EncoderSurface(encoder.surface)
         val renderer = VisualizerRenderer(appContext)
-        val audio = AudioPump(encoder, musicInput)
+        val audio = AudioPump(encoder, music)
         try {
             egl.makeCurrent()
-            renderer.pcmProvider = { latestPcm() }
+            renderer.soundSource = { AudioBus.playerIngest }
             renderer.soundInput = { AudioBus.soundInput }
             renderer.onSurfaceCreated(null, null)
             renderer.onSurfaceChanged(null, encoder.width, encoder.height)
@@ -184,16 +169,18 @@ internal class CastStream(
      * from the source rate, held in a short FIFO, padded with silence when there is too little
      * (paused, between tracks) and trimmed when too much piles up (the ring ran ahead).
      *
-     * Only the player's music is sent ([musicInput]). While the microphone or another app's audio
-     * owns the ring, the visuals still hear it but the TV gets silence: the room's sound must not
-     * leave the phone, and the mic would hear the TV and feed back.
+     * Only the player's music is sent: it reads the player's own ring ([music]) through a native reader
+     * (`geode_ingest_reader`: its own cursor, the downmix and the int16 conversion are native). The mic
+     * and other apps' audio write a different ring, so while they play the visuals hear them but the TV
+     * gets silence: the room's sound must not leave the phone, and the mic would hear the TV and feed back.
      */
     private class AudioPump(
         private val encoder: CastEncoder,
-        private val musicInput: SoundInput?,
+        music: Long,
     ) : AutoCloseable {
-        private var input: SoundInput? = null
-        private var cursor: SoundCursor? = null
+        private var reader = if (music != 0L) GeodeNative.ingestReaderCreate(music) else 0L
+        private val pcm = ShortArray(READ_FRAMES * CastEncoder.CHANNELS)
+        private val rate = IntArray(1)
         private var resampler: PcmResampler? = null
         private var resamplerInRate = 0
         private val fifo = ShortArray(FIFO_FRAMES * CastEncoder.CHANNELS)
@@ -217,24 +204,15 @@ internal class CastStream(
             producedFrames += need
         }
 
+        /** Everything new, one native block (one rate) at a time; native bounds the catch-up after a stall. */
         private fun takeFromRing() {
-            val current = AudioBus.soundInput ?: return
-            if (current !== musicInput) return
-            if (current !== input) {
-                input = current
-                cursor = SoundCursor(current.ring)
+            if (reader == 0L) return
+            repeat(MAX_READS) {
+                val frames = GeodeNative.ingestReaderReadS16(reader, pcm, READ_FRAMES, rate)
+                if (frames <= 0 || rate[0] <= 0) return
+                val out = resamplerFor(rate[0]).process(pcm, frames)
+                append(out, out.size / CastEncoder.CHANNELS)
             }
-            val c = cursor ?: return
-            val take = c.take()
-            if (take.frames <= 0 || c.channels != CastEncoder.CHANNELS) return
-            val rate = current.sampleRateHz
-            if (rate <= 0) return
-            val pcm = ShortArray(take.frames * CastEncoder.CHANNELS)
-            for (i in pcm.indices) {
-                pcm[i] = (c.interleaved[i].coerceIn(-1f, 1f) * Short.MAX_VALUE).roundToInt().toShort()
-            }
-            val out = resamplerFor(rate).process(pcm, take.frames)
-            append(out, out.size / CastEncoder.CHANNELS)
         }
 
         private fun resamplerFor(rate: Int): PcmResampler {
@@ -269,19 +247,26 @@ internal class CastStream(
         override fun close() {
             resampler?.close()
             resampler = null
+            if (reader != 0L) GeodeNative.ingestReaderDestroy(reader)
+            reader = 0L
         }
 
         private companion object {
             /** Half a second at 48 kHz: more than that and the TV's sound would drift behind its picture. */
             const val FIFO_FRAMES = 24_000
             const val SILENCE: Short = 0
+
+            /** Frames per native read; a block also ends at a rate or epoch change. */
+            const val READ_FRAMES = 4096
+
+            /** Native caps the backlog at 2^14 frames; a few more reads cover blocks cut at format changes. */
+            const val MAX_READS = 8
         }
     }
 
     companion object {
         const val TAG = "CastStream"
         const val KEY_LIVE_STATE = "live_state"
-        const val PCM_SCRATCH = 4096
 
         /** Segments arrive every second; five without one is a frozen picture on the TV. */
         const val FROZEN_MS = 5_000L

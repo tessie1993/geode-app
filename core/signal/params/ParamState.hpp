@@ -28,11 +28,11 @@
 // Transitions (rows: phase now; columns: input; cell: next phase, or R = rejected, - = ignored):
 //
 //            Set        GlideTo     Hold     Release    Try       Drive     Undrive   Reset
-//   Rest     Rest       Glide       Held     -          Trial     Driven    -         Glide
-//   Glide    Rest       Glide       Held     -          Trial     Driven    -         Glide
-//   Held     Held(1)    R           -        Rest       Trial     R         -         R
-//   Trial    Trial(2)   Trial(2)    Trial    Glide(3)   Trial     Driven    -         Trial(2)
-//   Driven   Driven(4)  Driven(4)   R        -          R         -         Glide(3)  R
+//   Rest     Rest       Glide       Held(5)  -          Trial(5)  Driven(6) -         Glide
+//   Glide    Rest       Glide       Held(5)  -          Trial(5)  Driven(6) -         Glide
+//   Held     Held(1)    R           -        Rest       Trial(5)  R         -         R
+//   Trial    Trial(2)   Trial(2)    Trial(5) Glide(3)   Trial(5)  Driven(6) -         Trial(2)
+//   Driven   Driven(4)  Driven(4)   R        -          R         -         Glide(6)  R
 //
 //   (1) only the User's Set; any other origin is rejected: the finger wins.
 //   (2) the User's Set or Try moves the tried value; a Preset's Set, GlideTo or Reset, or the User's
@@ -40,6 +40,15 @@
 //   (3) back to the committed value, over kSpringBackSeconds.
 //   (4) only the Timeline's; any other origin is rejected. A timeline's GlideTo lands at once: it
 //       samples its own curve every frame.
+//   (5) only the User's: a finger is the only thing that holds or tries. Any other origin is rejected.
+//   (6) only the Timeline's: only a timeline takes a param or lets it go (Undrive glides back as in (3)).
+//       Any other origin is rejected.
+//   The factories set these origins; the checks guard an input built by hand (a replay, a wire format).
+//   Where a cell is "-" (the input means nothing in that phase) it is ignored whatever its origin.
+//
+// A GlideTo or a Reset whose seconds is negative or not finite is rejected in every phase, before the
+// table is read: a glide that never lands, or lands before it starts, is a caller's bug, not a value.
+// Seconds 0 is valid and lands at once (Rest), exactly like a Set.
 //
 // Int and Bool params never interpolate: a GlideTo or a spring back on one lands at once (Rest).
 
@@ -61,8 +70,8 @@ struct ParamInput {
     Kind kind = Kind::Set;
     Origin origin = Origin::User;
     float value = 0.0f;
-    // GlideTo and Reset: how long the glide takes (0 lands at once). Try: how long an untouched trial
-    // shows before it springs back (0 means kTrialSeconds).
+    // GlideTo and Reset: how long the glide takes (0 lands at once; negative or non-finite is rejected).
+    // Try: how long an untouched trial shows before it springs back (0 means kTrialSeconds).
     float seconds = 0.0f;
     Ease ease = Ease::Smooth;
 
@@ -81,7 +90,8 @@ struct ParamInput {
 enum class Outcome : std::uint8_t {
     Applied,   // the cell changed (or was set to the value it already had)
     Ignored,   // the input means nothing in this phase (a Release with no finger down)
-    Rejected,  // someone with a stronger claim owns the param (a finger, a timeline)
+    Rejected,  // someone with a stronger claim owns the param (a finger, a timeline), the origin may not
+               // send this input, or the input is malformed (a glide of negative or non-finite seconds)
 };
 
 struct ParamCell {

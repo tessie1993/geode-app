@@ -26,6 +26,14 @@
 // small punch-in of the lens on the kick. Only the ray turns (lib_world's worldCamera), never the
 // eye, so the corridor still holds.
 //
+// THE GAZE. The view also looks around: up at towers, down into canyons, to the sides. GazeX (yaw)
+// and GazeY (pitch) stay within the live world's GazeYaw and GazePitch, so tunnels barely look away
+// and halls look about freely. Each section draws a new look from the gaze's own rng stream (so the
+// world sequence is the same with or without it), a build-up tilts the view up as it rises, and a
+// drop brings it back toward centre in about a second, holding there while the drop lands. On top,
+// a gentle drift: the chord turns the look sideways, the bass weighs it down a touch. Every look is
+// eased and then rate-limited (kGazeRatePerSecond), so the gaze never snaps.
+//
 // ON TOP. Small live wobble from the sound and the controls: the bass breathes the inversion and
 // the IFS scale, the chord turns the palette, the kick lifts the emission, Warp adds twist,
 // Turbulence the IFS strength, the knobs their shares. All summed once and clamped once into the
@@ -69,6 +77,10 @@ public:
     static constexpr float kDropGlide = 1.6f;
     // The most the Gain envelope moves per second: well under any flash rule.
     static constexpr float kGainRatePerSecond = 0.35f;
+    // The most the gaze turns per second, radians: a full GazeYaw swing (0.6) back in about a second.
+    static constexpr float kGazeRatePerSecond = 0.65f;
+    // After a drop the gaze holds centre this long before it looks away again.
+    static constexpr float kDropGazeHold = 1.2f;
 
     // A new play (or a new scene): the rng restarts from the seed, the world from one of the seeds.
     void reset(uint64_t seed);
@@ -93,10 +105,15 @@ public:
     float progress() const { return progress_; }
     float glideSeconds() const { return glide_; }
     float gain() const { return gain_; }
+    // The look now, radians (what uniforms()[GazeX] and [GazeY] carry).
+    float gazeX() const { return gazeX_; }
+    float gazeY() const { return gazeY_; }
 
 private:
     void retarget(const DriverInput& in, bool drop);
     float draw();
+    float drawGaze();
+    void lookAround(float dt);
     void publish();
 
     uint64_t seed_ = 0;
@@ -132,6 +149,15 @@ private:
     // The camera's feel: the roll integrated from the genome's Roll, the sway's phase.
     float roll_ = 0.0f;
     float swayPhase_ = 0.0f;
+    // The gaze: its own rng stream, the section's drawn look (-1..1 of the world's range), the drop's
+    // hold, the slow bass for the drift, and the look now in radians.
+    uint64_t gazeRng_ = 0;
+    float lookX_ = 0.0f;
+    float lookY_ = 0.0f;
+    float dropHold_ = 0.0f;
+    float bassSlow_ = 0.0f;
+    float gazeX_ = 0.0f;
+    float gazeY_ = 0.0f;
 
     // Travel.
     float zCells_ = 0.0f;  // the phase along travel, in periods (two mirrored cells), kept in 0..1

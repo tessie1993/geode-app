@@ -59,6 +59,7 @@ Outcome fromRestOrGlide(ParamCell& cell, const ParamInput& in, const ParamDef& d
             glide(cell, ParamSchema::clampTo(def, def.defaultValue), in.seconds, in.ease, def);
             return Outcome::Applied;
         case Kind::Hold:
+            if (in.origin != Origin::User) return Outcome::Rejected;
             // The finger holds what is on screen: a glide stops where it is.
             cell.phase = ParamPhase::Held;
             cell.committed = cell.base;
@@ -134,6 +135,7 @@ Outcome fromTrial(ParamCell& cell, const ParamInput& in, const ParamDef& def, fl
             cell.trialLeft = trialSeconds(in.seconds);
             return Outcome::Applied;
         case Kind::Hold:
+            if (in.origin != Origin::User) return Outcome::Rejected;
             cell.trialHeld = true;
             return Outcome::Applied;
         case Kind::Release:
@@ -160,6 +162,7 @@ Outcome fromDriven(ParamCell& cell, const ParamInput& in, const ParamDef& def, f
             cell.base = value;
             return Outcome::Applied;
         case Kind::Undrive:
+            if (in.origin != Origin::Timeline) return Outcome::Rejected;
             springBack(cell, def);
             return Outcome::Applied;
         case Kind::Release:
@@ -173,6 +176,12 @@ Outcome fromDriven(ParamCell& cell, const ParamInput& in, const ParamDef& def, f
     return Outcome::Ignored;
 }
 
+// A glide's length must be a real, non-negative number of seconds; 0 lands at once.
+bool validGlide(const ParamInput& in) {
+    if (in.kind != Kind::GlideTo && in.kind != Kind::Reset) return true;
+    return std::isfinite(in.seconds) && in.seconds >= 0.0f;
+}
+
 }  // namespace
 
 ParamCell restingCell(const ParamDef& def) {
@@ -182,6 +191,7 @@ ParamCell restingCell(const ParamDef& def) {
 }
 
 Outcome apply(ParamCell& cell, const ParamInput& in, const ParamDef& def) {
+    if (!validGlide(in)) return Outcome::Rejected;
     const float value = ParamSchema::clampTo(def, in.value);
     switch (cell.phase) {
         case ParamPhase::Rest:

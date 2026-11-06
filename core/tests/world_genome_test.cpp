@@ -4,7 +4,7 @@
 //                                 run the checks; with lib_world, also check that its WG_* names
 //                                 index the same fields; with the baked assets, check their sizes
 //                                 and probe every world with the real shapes (else spheres)
-//   world_genome_test --dump <seed>          print seed <seed>'s uWorld (72 floats, comma separated)
+//   world_genome_test --dump <seed>          print seed <seed>'s uWorld (88 floats, comma separated)
 //                                            for tools/glslcheck --set uWorld=...
 //   world_genome_test --names [shapes.bin]   print the seeds' names and open-space probes
 #include <array>
@@ -85,6 +85,43 @@ void seedsAreValid() {
         check(brightness(s.genome) > 0.2f, std::string(s.name) + " is not dark");
     }
     check(static_cast<int>(names.size()) == seedCount(), "seed names are unique");
+}
+
+// The 4-way cross (#496): a full x/y lattice with no polar fold and no turn shows the camera the
+// same split every time. No seed may be one, and a random genome that grows into one is turned.
+bool isFourWayCross(const Genome& g) {
+    return g[RepXY] > 0.5f && g[Polar] < 0.5f && g[LatticeTilt] == 0.0f && g[LatticeYaw] == 0.0f;
+}
+
+void noWorldIsTheFourWayCross() {
+    for (int i = 0; i < seedCount(); ++i) {
+        check(!isFourWayCross(seed(i).genome), std::string(seed(i).name) + " is not the 4-way cross");
+    }
+    int crosses = 0;
+    for (int i = 0; i < 400; ++i) {
+        Constraints c;
+        c.mutation = static_cast<float>(i % 11) / 10.0f;
+        c.energy = static_cast<float>((i * 7) % 10) / 9.0f;
+        c.mood = static_cast<float>((i * 3) % 10) / 9.0f;
+        c.density = static_cast<float>((i * 13) % 10) / 9.0f;
+        if (isFourWayCross(random(static_cast<uint64_t>(i) * 104729u + 5u, c))) ++crosses;
+    }
+    check(crosses == 0, "random never grows the 4-way cross (" + std::to_string(crosses) + "/400)");
+    // The turned lattice keeps the travel axis periodic: one mirrored z period (2 CellZ) on, the
+    // bare world is the same.
+    const Way way;
+    float worst = 0.0f;
+    for (int i = 0; i < seedCount(); ++i) {
+        const Genome& g = seed(i).genome;
+        if (g[LatticeTilt] == 0.0f && g[LatticeYaw] == 0.0f) continue;
+        for (int k = 0; k < 24; ++k) {
+            const float a = static_cast<float>(k) * 0.71f;
+            const std::array<float, 3> p{3.1f * std::sin(a), 2.7f * std::cos(1.3f * a), -4.0f + 0.37f * static_cast<float>(k)};
+            const std::array<float, 3> q{p[0], p[1], p[2] + 2.0f * g[CellZ]};
+            worst = std::fmax(worst, std::fabs(sdfUncarved(g, way, p) - sdfUncarved(g, way, q)));
+        }
+    }
+    check(worst < 2e-3f, "a turned lattice keeps the travel repeat periodic (" + std::to_string(worst) + ")");
 }
 
 void randomGenomesAreValid() {
@@ -183,6 +220,11 @@ struct Run {
     std::vector<float> fields;
     float maxGainStep = 0.0f;
     float maxFieldStep = 0.0f;
+    // The gaze: every frame's look, how far it ever strayed past its range or its rate, its widest.
+    std::vector<float> gaze;
+    float gazeOutside = 0.0f;
+    float gazeOverRate = 0.0f;
+    float gazeWidest = 0.0f;
 };
 
 Run play(uint64_t seedValue, int frames, float energyScale = 1.0f) {
@@ -194,6 +236,8 @@ Run play(uint64_t seedValue, int frames, float energyScale = 1.0f) {
     float lastGain = -1.0f;
     Genome prev{};
     bool havePrev = false;
+    float lastGX = 0.0f;
+    float lastGY = 0.0f;
     for (int i = 0; i < frames; ++i) {
         GeodeSoundFrame f = songFrame(i, fps);
         f.loudness *= energyScale;
@@ -218,6 +262,24 @@ Run play(uint64_t seedValue, int frames, float energyScale = 1.0f) {
                 run.maxFieldStep = std::fmax(run.maxFieldStep, std::fabs(d.live()[fi] - prev[fi]) / (b.hi - b.lo));
             }
         }
+        // The gaze: within the live world's range, and turning at most its rate per frame (plus what
+        // the range itself narrowed by, which may pull the look in with it).
+        const float gx = d.uniforms()[GazeX];
+        const float gy = d.uniforms()[GazeY];
+        run.gaze.push_back(gx);
+        run.gaze.push_back(gy);
+        run.gazeOutside = std::fmax(run.gazeOutside, std::fabs(gx) - d.live()[GazeYaw]);
+        run.gazeOutside = std::fmax(run.gazeOutside, std::fabs(gy) - d.live()[GazePitch]);
+        run.gazeWidest = std::fmax(run.gazeWidest, std::fmax(std::fabs(gx), std::fabs(gy)));
+        if (havePrev) {
+            const float rate = MorphDriver::kGazeRatePerSecond / fps;
+            const float shrinkX = std::fmax(0.0f, prev[GazeYaw] - d.live()[GazeYaw]);
+            const float shrinkY = std::fmax(0.0f, prev[GazePitch] - d.live()[GazePitch]);
+            run.gazeOverRate = std::fmax(run.gazeOverRate, std::fabs(gx - lastGX) - rate - shrinkX);
+            run.gazeOverRate = std::fmax(run.gazeOverRate, std::fabs(gy - lastGY) - rate - shrinkY);
+        }
+        lastGX = gx;
+        lastGY = gy;
         prev = d.live();
         havePrev = true;
         check(inBounds(d.live()), "the live genome stays in bounds");
@@ -239,6 +301,90 @@ void driverIsReplayableAndSeeded() {
     // No flash: the gain moves at most its rate per frame, and the genome glides.
     check(a.maxGainStep <= MorphDriver::kGainRatePerSecond / 60.0f + 1e-5f, "the gain envelope is rate-limited");
     check(a.maxFieldStep < 0.05f, "no field jumps more than 5% of its range in a frame (" + std::to_string(a.maxFieldStep) + ")");
+}
+
+void gazeIsBoundedReplayableAndRateLimited() {
+    const int frames = 60 * 60 * 4;
+    const Run a = play(0xC0FFEEu, frames);
+    const Run b = play(0xC0FFEEu, frames);
+    check(a.gaze == b.gaze, "same seed and music: the same gaze, frame for frame");
+    float widest = 0.0f;
+    bool differs = false;
+    for (uint64_t s = 1; s <= 8; ++s) {
+        const Run r = play(s * 104729u + 3u, frames);
+        check(r.gazeOutside <= 1e-6f, "the gaze stays within the world's GazeYaw and GazePitch (" + std::to_string(r.gazeOutside) + ")");
+        check(r.gazeOverRate <= 1e-5f, "the gaze turns at most kGazeRatePerSecond (" + std::to_string(r.gazeOverRate) + " over)");
+        widest = std::fmax(widest, r.gazeWidest);
+        if (r.gaze != a.gaze) differs = true;
+    }
+    check(a.gazeOutside <= 1e-6f && a.gazeOverRate <= 1e-5f, "the reference play's gaze is bounded and rate-limited");
+    check(differs, "another seed: another gaze");
+    check(widest > 0.02f, "a song with sections looks around (" + std::to_string(widest) + " rad)");
+}
+
+void aCalmSongKeepsItsGaze() {
+    // No sections, no drops, a whisper with a little bass and a slowly turning chord: the view only
+    // drifts, staying near where it started (centre) for the whole song.
+    MorphDriver d;
+    for (uint64_t s = 1; s <= 20; ++s) {
+        d.reset(s);
+        float worst = 0.0f;
+        for (int i = 0; i < 60 * 180; ++i) {
+            const float t = static_cast<float>(i) / 60.0f;
+            GeodeSoundFrame f{};
+            f.presence = 1.0f;
+            f.loudness = 0.05f;
+            f.intensity = 0.05f;
+            f.bassAtt = 0.3f + 0.2f * std::sin(t * 2.0f);
+            f.chordHue = std::fmod(t * 0.02f, 1.0f);
+            d.step(DriverInput::fromSound(f), 1.0f / 60.0f);
+            const float rx = d.live()[GazeYaw];
+            const float ry = d.live()[GazePitch];
+            worst = std::fmax(worst, std::fabs(d.gazeX()) - 0.2f * rx);
+            worst = std::fmax(worst, std::fabs(d.gazeY()) - 0.2f * ry);
+        }
+        check(worst <= 1e-5f, "a calm song's gaze stays within a fifth of its range (seed " + std::to_string(s) + ")");
+    }
+}
+
+void aDropBringsTheGazeHome() {
+    // Look away on loud sections until the view is well off centre, then drop: about a second later
+    // the gaze is back near centre, eased there, never snapped.
+    bool tried = false;
+    for (uint64_t s = 1; s <= 200 && !tried; ++s) {
+        MorphDriver d;
+        d.reset(s);
+        GeodeSoundFrame f{};
+        f.presence = 1.0f;
+        f.loudness = 0.8f;
+        f.intensity = 0.8f;
+        bool away = false;
+        for (int i = 0; i < 60 * 40 && !away; ++i) {
+            f.sectionChange = (i % (60 * 6) == 0 && i > 0) ? 1.0f : 0.0f;
+            d.step(DriverInput::fromSound(f), 1.0f / 60.0f);
+            away = std::fmax(std::fabs(d.gazeX()), std::fabs(d.gazeY())) > 0.12f;
+        }
+        if (!away) continue;
+        tried = true;
+        f.sectionChange = 0.0f;
+        f.drop = 1.0f;
+        float lastX = d.gazeX();
+        float lastY = d.gazeY();
+        float worstStep = 0.0f;
+        for (int i = 0; i < 66; ++i) {  // 1.1 s
+            d.step(DriverInput::fromSound(f), 1.0f / 60.0f);
+            f.drop = 0.0f;
+            worstStep = std::fmax(worstStep, std::fmax(std::fabs(d.gazeX() - lastX), std::fabs(d.gazeY() - lastY)));
+            lastX = d.gazeX();
+            lastY = d.gazeY();
+        }
+        check(std::fmax(std::fabs(d.gazeX()), std::fabs(d.gazeY())) < 0.05f,
+              "a drop brings the gaze back to centre in about a second (" + std::to_string(d.gazeX()) + ", " +
+                  std::to_string(d.gazeY()) + ")");
+        // The rate, plus room for the drop's new world narrowing the range under the look.
+        check(worstStep <= MorphDriver::kGazeRatePerSecond / 60.0f + 0.02f, "the drop's return is eased, not snapped");
+    }
+    check(tried, "some world looks well away on loud sections");
 }
 
 void aCalmSongCanKeepItsWorld() {
@@ -324,6 +470,7 @@ void glslNamesMatch(const char* path) {
         {"WG_Z_PHASE", ZPhase},     {"WG_GAIN", Gain},          {"WG_ITER_CAP", IterCap},   {"WG_HUE_TURN", HueTurn},
         {"WG_WAKE_X", WakeX},       {"WG_WAKE_Y", WakeY},       {"WG_WAKE_Z", WakeZ},
         {"WG_ROLL", Roll},          {"WG_LENS", Lens},          {"WG_ROLL_ANGLE", RollAngle}, {"WG_LENS_NOW", LensNow},
+        {"WG_FLOOR", Floor}, {"WG_FLOOR_Y", FloorY}, {"WG_FLOOR_GLOSS", FloorGloss}, {"WG_SKY", Sky}, {"WG_SKY_HUE", SkyHue}, {"WG_HORIZON", Horizon}, {"WG_TERRAIN", Terrain}, {"WG_TERRAIN_HEIGHT", TerrainHeight}, {"WG_TERRAIN_SCALE", TerrainScale}, {"WG_LATTICE_TILT", LatticeTilt}, {"WG_LATTICE_YAW", LatticeYaw}, {"WG_GAZE_PITCH", GazePitch}, {"WG_GAZE_YAW", GazeYaw}, {"WG_GAZE_X", GazeX}, {"WG_GAZE_Y", GazeY}, {"WG_SPARE", Spare},
     };
     const char comps[4] = {'x', 'y', 'z', 'w'};
     for (const auto& [name, index] : expect) {
@@ -331,7 +478,7 @@ void glslNamesMatch(const char* path) {
         std::snprintf(want, sizeof want, "#define %s uWorld[%d].%c", name.c_str(), index / 4, comps[index % 4]);
         check(src.find(want) != std::string::npos, std::string("lib_world has ") + want);
     }
-    check(src.find("uniform vec4 uWorld[" + std::to_string(kVec4) + "];") != std::string::npos, "lib_world declares uWorld[18]");
+    check(src.find("uniform vec4 uWorld[" + std::to_string(kVec4) + "];") != std::string::npos, "lib_world declares uWorld[22]");
 }
 
 std::vector<uint8_t> readAll(const char* path) {
@@ -389,9 +536,13 @@ int main(int argc, char** argv) {
     if (argc == 4) loadAssets(argv[2], argv[3]);
     lerpEndpointsAreExact();
     seedsAreValid();
+    noWorldIsTheFourWayCross();
     randomGenomesAreValid();
     corridorIsOpenAtTheCamera();
     driverIsReplayableAndSeeded();
+    gazeIsBoundedReplayableAndRateLimited();
+    aCalmSongKeepsItsGaze();
+    aDropBringsTheGazeHome();
     aCalmSongCanKeepItsWorld();
     dropRushesAndVerseGlides();
     travelIsSeamless();

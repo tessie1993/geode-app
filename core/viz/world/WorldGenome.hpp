@@ -105,6 +105,20 @@ enum Field : int {
     // The camera's feel in this world: the view only (the eye and its corridor never move).
     Roll,        // radians per second the view banks round the way (signed): a slow barrel roll
     Lens,        // the focal length's factor: under 1 a wide lens (vast halls), over 1 a long one (close detail)
+    // Seams for the next worlds (identity until their ticket lands): ground, sky, landscape, lattice, gaze.
+    Floor,        // 0..1: a ground plane under the world (0 = none)
+    FloorY,       // the ground's height, world units (always below the corridor)
+    FloorGloss,   // 0..1: how mirror-like the ground is
+    Sky,          // 0..1: a sky backdrop where rays escape (0 = black space)
+    SkyHue,       // the sky's palette coordinate
+    Horizon,      // 0..1: the glow band where sky meets ground, and fog toward its colour
+    Terrain,      // 0..1: a fractal landscape layer on the ground (ridged height field)
+    TerrainHeight, // the landscape's relief, world units
+    TerrainScale, // the landscape's base frequency, per world unit
+    LatticeTilt,  // radians: the x/y repeat lattice tipped about x (breaks the 4-way cross)
+    LatticeYaw,   // radians: the lattice turned about y
+    GazePitch,    // radians: how far the view may look up and down (view only)
+    GazeYaw,      // radians: how far the view may look to the sides (view only)
     kFieldCount,
 };
 
@@ -120,12 +134,15 @@ enum Runtime : int {
     Assets,                // 1 when the baked shapes and maps are bound, else 0 (mesh = sphere, no detail)
     RollAngle,             // the view's bank, radians: Roll integrated, a slow sway, a lean into sideways motion
     LensNow,               // Lens with the kick's punch on top: the factor lib_world's ray takes on uCamFocal
+    GazeX,                  // the view's look to the side now, radians (the driver's, within GazeYaw)
+    GazeY,                  // the view's look up or down now, radians (within GazePitch)
+    Spare,                  // unused: pads uWorld to whole vec4s
     kUniformCount,
 };
 
 constexpr int kVec4 = kUniformCount / 4;
 static_assert(kUniformCount % 4 == 0, "uWorld is whole vec4s");
-static_assert(kVec4 == 18, "lib_world declares uWorld[18]");
+static_assert(kVec4 == 22, "lib_world declares uWorld[22]");
 
 constexpr int kMaxIfsSteps = 5;
 // The corridor's eye bubble (lib_world's WG_EYE_RADIUS): what is always open around the eye.

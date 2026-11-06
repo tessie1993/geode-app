@@ -346,6 +346,15 @@ GEODE_API geode_export_pass*  geode_export_seam_create(AAssetManager*, int width
 GEODE_API int                 geode_export_seam_allocate(geode_export_pass*, int requested);
 GEODE_API void                geode_export_seam_capture(geode_export_pass*, int index);
 GEODE_API void                geode_export_seam_blend(geode_export_pass*, int index, int tail, int seam_frames);
+/* The seam driver (viz/frame/LoopSeam, #603) over those two. The scene has just drawn source frame `frame` of
+ * a stop of loop_frames + seam_frames into the default framebuffer; seam_frame captures it (an opening frame:
+ * returns -1, not presented) or, on a closing frame, blends the stash over it, and returns the frame's
+ * presentation time in ns at fps. The caller then draws the watermark, sets that time and swaps. Needs the GL
+ * context. budgeted_crossfade_ms (pure): the crossfade a loop keeps under the stash's 192 MB GPU budget at
+ * width x height (crossfade_frames: its frames at fps); crossfade_ms unchanged when it fits. */
+GEODE_API int64_t             geode_export_seam_frame(geode_export_pass*, int frame, int loop_frames, int seam_frames, int fps);
+GEODE_API int64_t             geode_export_seam_budgeted_crossfade_ms(int64_t crossfade_ms, int crossfade_frames, int fps,
+                                                                      int width, int height);
 /* Studio transitions, on Media3's GL thread inside the framebuffer and viewport it bound. id is a GL
  * Transitions name (gl_transitions.json); an unknown one only copies. from_rgba: bottom row first, taken once. */
 GEODE_API geode_export_pass*  geode_export_transition_create(AAssetManager*, const char* id, int64_t duration_us);
@@ -560,6 +569,19 @@ GEODE_API double          geode_hls_fragment_seconds(const uint8_t* init, size_t
 GEODE_API int             geode_hls_playlist(int64_t first_sequence, const double* durations, int count,
                                              const char* init_uri, const char* segment_prefix,
                                              const char* segment_suffix, char* out, int cap);
+
+/* Cast's audio pump (viz/frame/CastAudio): how much of what the ring gained to keep, and how many frames to
+ * queue and pad up to the frame clock's audio cut. Pure counts: the caller owns GEODE_CAST_AUDIO_STATE int64s
+ * (frames queued so far, frames held, rate) and the PCM. Start returns the hold's capacity in frames (half a
+ * second). A step takes the frames just gained (already resampled to the rate) and the cut in µs, and fills
+ * GEODE_CAST_AUDIO_STEP int64s, applied in order: out[0] evict that many of the oldest held, out[1] skip that
+ * many at the head of the gained, out[2] append the next that many to the hold, out[3] queue that many from the
+ * hold's head, out[4] then that many of silence, out[5] the block's PTS in µs. out[3] + out[4] = 0: nothing to
+ * queue this frame (the cut has not moved past what was queued; what was gained waits in the hold). */
+#define GEODE_CAST_AUDIO_STATE 3
+#define GEODE_CAST_AUDIO_STEP 6
+GEODE_API int             geode_cast_audio_start(int64_t* state, int rate_hz);   /* the hold's capacity, frames */
+GEODE_API void            geode_cast_audio_step(int64_t* state, int64_t gained_frames, int64_t until_us, int64_t* out);
 
 #ifdef __cplusplus
 }

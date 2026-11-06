@@ -881,7 +881,7 @@ object GeodeNative {
     external fun castFormat(out: IntArray)
     // Export post-passes (core/viz/frame/ExportPasses): the watermark, a loop's seam, a Studio transition and
     // its capture. [assets] is the app's AssetManager (typed as Any, as for [vizCreate]); every call but the
-    // three watermark sizes and the seam weight needs the export's GL context current, destroy included.
+    // three watermark sizes and the seam budget needs the export's GL context current, destroy included.
 
     /** "" when the pass built; otherwise why not (the handle must still be destroyed). */
     external fun exportPassError(handle: Long): String
@@ -923,18 +923,27 @@ object GeodeNative {
         requested: Int,
     ): Int
 
-    external fun exportSeamCapture(
+    /**
+     * After the scene drew source [frame] of a stop of [loopFrames] + [seamFrames]: stashes an opening frame
+     * (returns -1, not presented) or blends the stash over a closing one, and returns the presentation time
+     * in ns at [fps] (core/viz/frame/LoopSeam).
+     */
+    external fun exportSeamFrame(
         handle: Long,
-        index: Int,
-    )
-
-    /** Lays stash frame [index] over the default framebuffer at closing frame [tail] of [seamFrames]. */
-    external fun exportSeamBlend(
-        handle: Long,
-        index: Int,
-        tail: Int,
+        frame: Int,
+        loopFrames: Int,
         seamFrames: Int,
-    )
+        fps: Int,
+    ): Long
+
+    /** The crossfade a loop keeps under the seam stash's GPU budget; [crossfadeMs] when it fits. Pure. */
+    external fun exportSeamBudgetedCrossfadeMs(
+        crossfadeMs: Long,
+        crossfadeFrames: Int,
+        fps: Int,
+        width: Int,
+        height: Int,
+    ): Long
 
     /** [id]: a GL Transitions name; an unknown one only copies. */
     external fun exportTransitionCreate(
@@ -1100,6 +1109,32 @@ object GeodeNative {
         headroom: Float,
     )
 
+    // Cast's audio pump (core/viz/frame/CastAudio): counts only; the caller keeps the PCM and the encoder.
+
+    /** Size of the audio pump's state (GEODE_CAST_AUDIO_STATE): frames queued, frames held, rate. */
+    const val CAST_AUDIO_STATE = 3
+
+    /** Size of one step's result (GEODE_CAST_AUDIO_STEP): evict, skip, keep, take, pad, PTS in µs. */
+    const val CAST_AUDIO_STEP = 6
+
+    /** Starts [state] at [rateHz]; returns the hold's capacity in frames (half a second). */
+    external fun castAudioStart(
+        state: LongArray,
+        rateHz: Int,
+    ): Int
+
+    /**
+     * One frame of the pump: [gainedFrames] just resampled from the ring and the frame clock's cut
+     * [untilUs]. Fills [out] (CAST_AUDIO_STEP longs), applied in order: evict the oldest held, skip at
+     * the head of the gained, append the next keep, then queue take frames from the hold and pad
+     * silence after them, stamped with the PTS.
+     */
+    external fun castAudioStep(
+        state: LongArray,
+        gainedFrames: Int,
+        untilUs: Long,
+        out: LongArray,
+    )
     // Cast's live HLS timing (core/viz/frame/HlsSegments): media-time segment durations and the playlist.
 
     /** Segments kept and listed (GEODE_HLS_WINDOW). */

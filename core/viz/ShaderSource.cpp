@@ -23,7 +23,7 @@ struct AssetClose {
 bool isBlank(char c) { return c == ' ' || c == '\t'; }
 bool isWord(char c) { return std::isalnum(static_cast<unsigned char>(c)) || c == '_'; }
 
-// Matches GlUtil.INCLUDE_PATTERN: ^[ \t]*//#include[ \t]+(\w+)[ \t]*$ on one line.
+// Matches the old Kotlin GlUtil.INCLUDE_PATTERN (deleted, #603): ^[ \t]*//#include[ \t]+(\w+)[ \t]*$ on one line.
 std::optional<std::string> includeNameOf(const std::string& line) {
     size_t i = 0;
     while (i < line.size() && isBlank(line[i])) i++;

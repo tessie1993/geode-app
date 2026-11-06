@@ -646,14 +646,17 @@ Java_dev_geode_engine_bridge_GeodeNative_exportSeamAllocate(JNIEnv*, jobject, jl
     return geode_export_seam_allocate(passOf(handle), requested);
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportSeamCapture(JNIEnv*, jobject, jlong handle, jint index) {
-    geode_export_seam_capture(passOf(handle), index);
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportSeamFrame(JNIEnv*, jobject, jlong handle, jint frame, jint loopFrames,
+                                                        jint seamFrames, jint fps) {
+    return geode_export_seam_frame(passOf(handle), frame, loopFrames, seamFrames, fps);
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportSeamBlend(JNIEnv*, jobject, jlong handle, jint index, jint tail, jint seamFrames) {
-    geode_export_seam_blend(passOf(handle), index, tail, seamFrames);
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportSeamBudgetedCrossfadeMs(JNIEnv*, jobject, jlong crossfadeMs,
+                                                                      jint crossfadeFrames, jint fps, jint width,
+                                                                      jint height) {
+    return geode_export_seam_budgeted_crossfade_ms(crossfadeMs, crossfadeFrames, fps, width, height);
 }
 
 JNIEXPORT jlong JNICALL
@@ -757,6 +760,29 @@ Java_dev_geode_engine_bridge_GeodeNative_pacerEffectiveCap(JNIEnv*, jobject, jfl
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_thermalPush(JNIEnv*, jobject, jint status, jfloat headroom) {
     geode_thermal_push(status, headroom);
+}
+
+// Cast's audio pump: the state is a caller-owned long[GEODE_CAST_AUDIO_STATE], a step's result a long[GEODE_CAST_AUDIO_STEP].
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_castAudioStart(JNIEnv* env, jobject, jlongArray state, jint rateHz) {
+    if (!state || env->GetArrayLength(state) < GEODE_CAST_AUDIO_STATE) return 0;
+    int64_t s[GEODE_CAST_AUDIO_STATE] = {};
+    const int capacity = geode_cast_audio_start(s, rateHz);
+    env->SetLongArrayRegion(state, 0, GEODE_CAST_AUDIO_STATE, reinterpret_cast<const jlong*>(s));
+    return capacity;
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_castAudioStep(JNIEnv* env, jobject, jlongArray state, jint gainedFrames,
+                                                       jlong untilUs, jlongArray out) {
+    if (!state || !out || env->GetArrayLength(state) < GEODE_CAST_AUDIO_STATE ||
+        env->GetArrayLength(out) < GEODE_CAST_AUDIO_STEP) return;
+    int64_t s[GEODE_CAST_AUDIO_STATE];
+    int64_t o[GEODE_CAST_AUDIO_STEP] = {};
+    env->GetLongArrayRegion(state, 0, GEODE_CAST_AUDIO_STATE, reinterpret_cast<jlong*>(s));
+    geode_cast_audio_step(s, gainedFrames, untilUs, o);
+    env->SetLongArrayRegion(state, 0, GEODE_CAST_AUDIO_STATE, reinterpret_cast<const jlong*>(s));
+    env->SetLongArrayRegion(out, 0, GEODE_CAST_AUDIO_STEP, reinterpret_cast<const jlong*>(o));
 }
 
 // Cast's HLS timing (core/viz/frame/HlsSegments): the init segment's and a fragment's bytes in, its media seconds out.

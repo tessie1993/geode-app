@@ -43,6 +43,10 @@ public:
     };
 
     // The weight of unpinned scenes a tier keeps resident: shed spares as the phone heats.
+    // Rechecked for the fps-first ladder (#440): a spare is memory, not per-frame work, so what it
+    // costs follows the render scale. Eased now keeps Full's scale (it only halves the frame rate), so
+    // its two spares are full size; still under Full's three. Reduced and Minimal shrink the targets
+    // and keep one and none, as before.
     static int spareBudget(ThermalTier tier) {
         switch (tier) {
             case ThermalTier::Full: return 3;

@@ -898,10 +898,10 @@ std::vector<Seed> buildSeeds() {
                {PolarTwist, 0.15f}, {PMesh, 1.0f}, {MeshPick, 16.0f}, {MeshSize, 1.9f}, {MSurface, 0.75f}, {MGlow, 0.25f},
                {TrapR, 0.5f}, {TrapY, 0.3f}, {PalOffset, 0.4f}, {PalSpan, 0.3f}, {Emission, 1.25f}, {Fog, 0.03f},
                {TexAmount, 0.7f}, {TexPick, 0.0f}, {TexScale, 1.2f}, {Roll, 0.08f}, {Lens, 0.9f}})},
-        // Cat statues on a lattice tipped and turned off the axes, half stone, half glow: a crooked temple.
+        // Cat statues folded seven ways round the way in a slow turn, half stone, half glow: a temple ring.
         {"Cat Temple", 0.45f, 0.55f, 0.6f,
-         make({{RepXY, 0.5f}, {CellXY, 5.0f}, {CellZ, 4.5f}, {CellShift, 1.0f}, {LatticeTilt, 0.35f}, {LatticeYaw, -0.25f},
-               {PMesh, 1.0f}, {MeshPick, 17.0f}, {MeshSize, 2.1f}, {MSurface, 0.6f}, {MGlow, 0.4f}, {TrapR, 0.6f},
+         make({{RepXY, 0.5f}, {CellXY, 5.5f}, {CellZ, 4.5f}, {CellShift, 1.0f}, {Polar, 1.0f}, {PolarN, 7.0f},
+               {PolarTwist, -0.1f}, {PMesh, 1.0f}, {MeshPick, 17.0f}, {MeshSize, 1.8f}, {MSurface, 0.6f}, {MGlow, 0.4f}, {TrapR, 0.6f},
                {TrapX, 0.3f}, {PalOffset, 0.12f}, {PalSpan, 0.4f}, {Emission, 1.2f}, {Fog, 0.035f}, {TexAmount, 0.5f},
                {TexPick, 2.0f}, {Roll, -0.1f}, {Lens, 1.1f}})},
         // Stone pillars folded seven ways and turning: a colonnade that spirals round the way.

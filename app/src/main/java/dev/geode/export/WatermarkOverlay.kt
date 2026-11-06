@@ -1,125 +1,66 @@
 package dev.geode.export
 
+import android.content.res.AssetManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
-import android.opengl.GLES20
-import android.opengl.GLES30
-import android.opengl.GLUtils
+import dev.geode.engine.bridge.GeodeNative
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.nio.FloatBuffer
 
 /**
  * The non-Pro watermark: the wordmark tiled diagonally across the whole frame, composited over
  * each exported frame. The video stays watchable as a preview, and unusable as a finished one.
  *
- * Drawn on the export's own EGL context straight after the scene, into the default framebuffer
- * the encoder reads, so it needs nothing from the native renderer and cannot disturb a scene: it
- * restores what it changes (blend, program, texture, buffer binding). One tile, the wordmark
- * rotated by [ANGLE_DEGREES], is rasterised once at [prepare] into a power-of-two texture (so
- * GL_REPEAT is legal on any GLES version); per frame it is one full-screen quad whose texture
- * coordinates repeat that tile.
- *
- * The tile is sized from the frame's short side ([TEXT_FRACTION]), so the pattern has the same
- * density on a 9:16 short and a 21:9 master.
+ * The compositing is native (`core/viz/frame/ExportPasses`, `WatermarkPass`, #442): drawn on the
+ * export's own EGL context straight after the scene, into the default framebuffer the encoder
+ * reads, restoring what it changes. What stays here is what needs Android: the text. One tile, the
+ * wordmark rotated by [ANGLE_DEGREES], is rasterised once at [prepare] at the size native gives
+ * (a share of the frame's short side, rounded to a power of two so the tile can repeat) and
+ * handed over as pixels; per frame native draws one full-frame quad repeating it.
  */
 class WatermarkOverlay(
     private val text: String,
+    private val assets: AssetManager,
 ) {
-    private var program = 0
-    private var texture = 0
-    private var quad: FloatBuffer? = null
-    private var aPosition = 0
-    private var aTexCoord = 0
-    private var uTexture = 0
+    private var handle = 0L
     private var width = 0
     private var height = 0
 
+    /** Needs the export's GL context current; throws when the pass cannot build, so a free render never ships unmarked. */
     fun prepare(
         frameWidth: Int,
         frameHeight: Int,
     ) {
         width = frameWidth
         height = frameHeight
-        val shortSide = minOf(frameWidth, frameHeight)
-        val bitmap = rasteriseTile(shortSide)
-        texture = IntArray(1).also { GLES20.glGenTextures(1, it, 0) }[0]
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texture)
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_REPEAT)
-        GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_REPEAT)
-        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0)
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
-
-        // The whole frame, with texture coordinates counting tiles: frame pixels / tile pixels.
-        val u = frameWidth / bitmap.width.toFloat()
-        val v = frameHeight / bitmap.height.toFloat()
+        val bitmap = rasteriseTile(minOf(frameWidth, frameHeight))
+        val pixels = ByteBuffer.allocateDirect(bitmap.byteCount).order(ByteOrder.nativeOrder())
+        bitmap.copyPixelsToBuffer(pixels)
+        handle = GeodeNative.exportWatermarkCreate(assets, pixels, bitmap.width, bitmap.height)
         bitmap.recycle()
-        // x, y, u, v per corner. Bitmaps are top-down, GL textures bottom-up, hence v flipped.
-        val vertices = floatArrayOf(-1f, -1f, 0f, v, 1f, -1f, u, v, -1f, 1f, 0f, 0f, 1f, 1f, u, 0f)
-        quad =
-            ByteBuffer
-                .allocateDirect(vertices.size * Float.SIZE_BYTES)
-                .order(ByteOrder.nativeOrder())
-                .asFloatBuffer()
-                .apply {
-                    put(vertices)
-                    position(0)
-                }
-        program = link(VERTEX_SHADER, FRAGMENT_SHADER)
-        aPosition = GLES20.glGetAttribLocation(program, "aPosition")
-        aTexCoord = GLES20.glGetAttribLocation(program, "aTexCoord")
-        uTexture = GLES20.glGetUniformLocation(program, "uTexture")
+        val problem = if (handle == 0L) "out of memory" else GeodeNative.exportPassError(handle)
+        if (problem.isNotEmpty()) {
+            release()
+            error("watermark pass failed: $problem")
+        }
     }
 
-    /** Composites the mark over whatever is in the current framebuffer. */
+    /** Composites the mark over whatever is in the default framebuffer. */
     fun draw() {
-        val vertices = quad ?: return
-        val blendWasOn = GLES20.glIsEnabled(GLES20.GL_BLEND)
-        val previousProgram = IntArray(1).also { GLES20.glGetIntegerv(GLES20.GL_CURRENT_PROGRAM, it, 0) }[0]
-        // Client-side arrays are only legal with the default vertex array object bound, and the
-        // native scene may have left its own VAO bound.
-        GLES30.glBindVertexArray(0)
-        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, 0)
-        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
-        GLES20.glViewport(0, 0, width, height)
-        GLES20.glDisable(GLES20.GL_DEPTH_TEST)
-        GLES20.glDisable(GLES20.GL_SCISSOR_TEST)
-        GLES20.glEnable(GLES20.GL_BLEND)
-        // The bitmap is premultiplied, so ONE rather than SRC_ALPHA for the source.
-        GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA)
-        GLES20.glUseProgram(program)
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texture)
-        GLES20.glUniform1i(uTexture, 0)
-        vertices.position(0)
-        GLES20.glVertexAttribPointer(aPosition, 2, GLES20.GL_FLOAT, false, STRIDE, vertices)
-        GLES20.glEnableVertexAttribArray(aPosition)
-        vertices.position(2)
-        GLES20.glVertexAttribPointer(aTexCoord, 2, GLES20.GL_FLOAT, false, STRIDE, vertices)
-        GLES20.glEnableVertexAttribArray(aTexCoord)
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
-        GLES20.glDisableVertexAttribArray(aPosition)
-        GLES20.glDisableVertexAttribArray(aTexCoord)
-        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
-        GLES20.glUseProgram(previousProgram)
-        if (!blendWasOn) GLES20.glDisable(GLES20.GL_BLEND)
+        if (handle != 0L) GeodeNative.exportWatermarkDraw(handle, width, height)
     }
 
     fun release() {
-        if (texture != 0) GLES20.glDeleteTextures(1, intArrayOf(texture), 0)
-        if (program != 0) GLES20.glDeleteProgram(program)
-        texture = 0
-        program = 0
-        quad = null
+        val owned = handle
+        handle = 0L
+        if (owned != 0L) GeodeNative.exportPassDestroy(owned)
     }
 
     private fun rasteriseTile(shortSide: Int): Bitmap {
-        val textPx = (shortSide * TEXT_FRACTION).coerceAtLeast(MIN_TEXT_PX)
+        val textPx = GeodeNative.exportWatermarkTextPx(shortSide)
         val paint =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.WHITE
@@ -129,10 +70,9 @@ class WatermarkOverlay(
                 letterSpacing = LETTER_SPACING
                 setShadowLayer(textPx * SHADOW_FRACTION, 0f, 0f, Color.argb(SHADOW_ALPHA, 0, 0, 0))
             }
-        // Room for the rotated text plus a gap, rounded up to a power of two for GL_REPEAT.
         val textWidth = paint.measureText(text)
-        val size = nextPowerOfTwo((textWidth * TILE_SPACING).toInt().coerceAtLeast(MIN_TILE_PX))
-        return Bitmap.createBitmap(size, nextPowerOfTwo(size / 2), Bitmap.Config.ARGB_8888).also { tile ->
+        val size = GeodeNative.exportWatermarkTileWidth(textWidth)
+        return Bitmap.createBitmap(size, GeodeNative.exportWatermarkTileHeight(size), Bitmap.Config.ARGB_8888).also { tile ->
             Canvas(tile).apply {
                 rotate(ANGLE_DEGREES, tile.width / 2f, tile.height / 2f)
                 val metrics = paint.fontMetrics
@@ -141,54 +81,11 @@ class WatermarkOverlay(
         }
     }
 
-    private fun nextPowerOfTwo(value: Int): Int = Integer.highestOneBit((value - 1).coerceAtLeast(1)) shl 1
-
-    private fun link(
-        vertexSource: String,
-        fragmentSource: String,
-    ): Int {
-        val vs = compile(GLES20.GL_VERTEX_SHADER, vertexSource)
-        val fs = compile(GLES20.GL_FRAGMENT_SHADER, fragmentSource)
-        return GLES20.glCreateProgram().also {
-            GLES20.glAttachShader(it, vs)
-            GLES20.glAttachShader(it, fs)
-            GLES20.glLinkProgram(it)
-            GLES20.glDeleteShader(vs)
-            GLES20.glDeleteShader(fs)
-        }
-    }
-
-    private fun compile(
-        type: Int,
-        source: String,
-    ): Int =
-        GLES20.glCreateShader(type).also {
-            GLES20.glShaderSource(it, source)
-            GLES20.glCompileShader(it)
-        }
-
     private companion object {
-        const val TEXT_FRACTION = 0.045f
-        const val MIN_TEXT_PX = 14f
-        const val MIN_TILE_PX = 64
-        const val TILE_SPACING = 1.35f
         const val ANGLE_DEGREES = -24f
         const val TEXT_ALPHA = 92
         const val SHADOW_ALPHA = 70
         const val SHADOW_FRACTION = 0.12f
         const val LETTER_SPACING = 0.04f
-        const val STRIDE = 4 * Float.SIZE_BYTES
-
-        const val VERTEX_SHADER =
-            "attribute vec2 aPosition;\n" +
-                "attribute vec2 aTexCoord;\n" +
-                "varying vec2 vTexCoord;\n" +
-                "void main() { vTexCoord = aTexCoord; gl_Position = vec4(aPosition, 0.0, 1.0); }\n"
-
-        const val FRAGMENT_SHADER =
-            "precision mediump float;\n" +
-                "varying vec2 vTexCoord;\n" +
-                "uniform sampler2D uTexture;\n" +
-                "void main() { gl_FragColor = texture2D(uTexture, vTexCoord); }\n"
     }
 }

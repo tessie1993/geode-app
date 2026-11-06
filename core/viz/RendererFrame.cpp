@@ -176,11 +176,6 @@ SceneParams Renderer::resolveParams(float dt) {
     // Order: the director's look, the note layer inside it, then the user's macros and LFOs over both.
     SceneParams p = lfo_.apply(macros::apply(notes_.apply(director_.apply(displayedParams_, palWheel)), directedKnobs_), lfoValues);
     p = AdsrEngine::apply(p, adsr_.configs, envValues);
-    // What the envelopes and LFOs add to the luminance targets this frame: the flash limiter counts it
-    // with the measured output (stepFlashLimiter), so an envelope strobe engages the hold at once (#363).
-    luminanceDrive_.fill(0.0f);
-    lfo_.addLuminanceDrive(lfoValues, luminanceDrive_);
-    AdsrEngine::addLuminanceDrive(adsr_.configs, envValues, luminanceDrive_);
     // The reaction matrix: per-style routes from the sound frame to many
     // targets. Ahead of the motion field and the safety clamp, like the LFOs.
     reactions_.tick(soundFrame_, dt);
@@ -334,11 +329,8 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     // shake themselves are already inert (see Params.hpp).
     in.hitImpulse = 0.0f;
     const SceneParams& fx = lastFinalParams_;
-    // uPostFlash rides uBeat, which is hitImpulse: 0 since wave three, so this term draws nothing. The
-    // flash limit is the measured one below (safetyHold), not a guess from the params.
+    // uPostFlash rides uBeat, which is hitImpulse: 0 since wave three, so this term draws nothing.
     in.flash = fx.flash;
-    in.safetyHold = 1.0f - flashGrade_.scale;
-    in.safetyAnchor = flashGrade_.anchor;
     in.strobeHz = safety::strobeHz();
     in.postRotationAngle = postRotationAngle_;
     in.postCyclePhase = postCyclePhase_;
@@ -360,20 +352,6 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.underlayAmount = compositePass_.underlayAmount();
     in.noteTint = notes_.uniforms().tint;
     compositePass_.draw(in);
-}
-
-static_assert(safety::FlashLimiter::kDrives == kLuminanceTargets, "one limiter drive per luminance target");
-static_assert(safety::FlashLimiter::kDriveThreshold == safety::kMaxFlashDepth, "a drive counts past the flash depth");
-
-void Renderer::stepFlashLimiter(float dt) {
-    safetyClock_ += dt;
-    safety::FrameLight light;
-    safety::Grade drawnWith;
-    double drawnAt = 0.0;
-    while (outputProbe_.poll(light, drawnWith, drawnAt)) flashLimiter_.observe(light, drawnWith, drawnAt);
-    // This frame's drive (resolveParams ran first), stamped with the time this frame is drawn at.
-    flashLimiter_.drive(luminanceDrive_, safetyClock_);
-    flashGrade_ = flashLimiter_.next(safetyClock_);
 }
 
 void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
@@ -444,13 +422,8 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     if (liquidOn() && !scene->drawsCamera()) sceneParams.endlessZoom = false;
     drawSceneTarget(*scene, sceneParams, dt);
     const GLuint liquidTex = drawLiquid(*scene, p, dt);
-    stepFlashLimiter(dt);
     composite(p, progress, targetFbo, liquidTex);
-    // The edge glow is part of what the wallpaper shows, so the probe below measures the frame with it.
     drawEdgeGlow(targetFbo, timeSeconds, dt);
-    // Measured after the composite and the edge glow, before the UI blur: the glass sheet is not the visual
-    // (and an export never draws it). Live and export both run this, so a render is limited exactly like the screen.
-    outputProbe_.capture(targetFbo, width_, height_, flashGrade_, safetyClock_);
     drawUiBlur(targetFbo);
 }
 

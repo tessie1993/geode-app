@@ -35,12 +35,6 @@ struct ModChain {
 bool chainOf(LfoTarget target, ModChain& out);
 bool isLuminanceTarget(LfoTarget target);
 
-// The luminance targets in a fixed order, so the flash limiter can count each one's modulation apart
-// (FlashLimiter::drive). -1 for every other target.
-constexpr int kLuminanceTargets = 8;
-using LuminanceDrive = std::array<float, kLuminanceTargets>;
-int luminanceIndex(LfoTarget target);
-
 struct LfoConfig {
     static constexpr float kDefaultRateSeconds = 2.0f;
     static constexpr float kMinRateSeconds = 0.05f;
@@ -70,10 +64,6 @@ public:
     const std::array<float, kSlots>& tick(float dt, const GeodeSoundFrame& sound, const float* extRateAdd = nullptr,
                                           const float* extDepthAdd = nullptr);
     SceneParams apply(const SceneParams& p, const std::array<float, kSlots>& values) const;
-    // Adds what apply() adds to each luminance target this frame. Every source counts: the followers
-    // (Transient, Bass, ...) were never rate-limited (#363), and an oscillator capped at 3 Hz by
-    // limitLfoRate can still be pushed past it by an envelope on its depth.
-    void addLuminanceDrive(const std::array<float, kSlots>& values, LuminanceDrive& out) const;
 
 private:
     static constexpr float kTau = 6.2831853f;

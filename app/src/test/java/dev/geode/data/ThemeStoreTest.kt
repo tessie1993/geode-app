@@ -29,6 +29,26 @@ class ThemeStoreTest {
         assertFalse(prefs.contains(ThemeStore.KEY_REDUCED_MOTION))
     }
 
+    @Test
+    fun savingClearsTheOldMicWasOnFlag() {
+        // #367: live input is never restored after the app is killed, so the flag older versions
+        // saved must not linger for anything to read back.
+        val prefs = MapPrefs().apply { values[ThemeStore.LEGACY_KEY_MIC_REACTIVE] = true }
+        val store = ThemeStore(prefs)
+        store.saveGui(store.loadGui())
+        assertFalse(prefs.values.containsKey(ThemeStore.LEGACY_KEY_MIC_REACTIVE))
+    }
+
+    @Test
+    fun savingClearsTheOldMicWasOnFlag() {
+        // #367: live input is never restored after the app is killed, so the flag older versions
+        // saved must not linger for anything to read back.
+        val prefs = MapPrefs().apply { values[ThemeStore.LEGACY_KEY_MIC_REACTIVE] = true }
+        val store = ThemeStore(prefs)
+        store.saveGui(store.loadGui())
+        assertFalse(prefs.values.containsKey(ThemeStore.LEGACY_KEY_MIC_REACTIVE))
+    }
+
     /** In-memory [SharedPreferences]: the platform one is a stub in local unit tests. */
     private class MapPrefs : SharedPreferences {
         val values = mutableMapOf<String, Any?>()

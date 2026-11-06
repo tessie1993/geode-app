@@ -7,6 +7,7 @@ import dev.geode.audio.NowPlayingBridge
 import dev.geode.audio.PlaybackCapture
 import dev.geode.audio.PlaybackCaptureService
 import dev.geode.audio.playbackCaptureSupported
+import dev.geode.engine.bridge.GeodeNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,11 +46,6 @@ internal class CaptureController(
         fun resetSound()
 
         fun setSoundRate(rateHz: Int)
-
-        fun setMicReactivePref(on: Boolean)
-
-        /** The persisted "mic was on" preference, read once on [start] to restore capture. */
-        val micReactivePref: Boolean
     }
 
     private val micCapture = MicCapture(application, capture)
@@ -66,34 +62,63 @@ internal class CaptureController(
 
     val externalAudio: StateFlow<ExternalAudioState> = _externalAudio
 
-    /** The mic was stopped because the app left the screen, and comes back with it ([onForeground]). */
-    private var micPausedInBackground = false
-
     /**
-     * Live input is on, whether or not it is reading right now. Counting the background pause
-     * as on matters: pressing play on the notification while the app is away goes through the
-     * same "playback started, so drop the mic" path as pressing it on screen, and the mic must
-     * not come back over the music when the app does.
+     * Live input's state, kept here and stepped by the native machine (`core/audio/LiveInput`),
+     * which owns every decision about it: when it turns on or off, the background pause, music
+     * winning, a lost capture (#367). This class only carries out the actions it returns.
      */
-    val micActive: Boolean get() = micCapture.active || micPausedInBackground
+    private var liveInput = GeodeNative.LIVE_INPUT_OFF
 
-    /**
-     * The app left the screen. Live input exists to drive visuals someone is looking at, and
-     * without a microphone foreground service Android gives a background app silence anyway,
-     * so the AudioRecord and its reader thread are released instead of reading zeros. The
-     * preference and the on-screen state stay as they are for [onForeground] to resume.
-     */
+    /** On, or paused while the app is away (the native rule says why that counts as on). */
+    val micActive: Boolean get() = GeodeNative.liveInputIsOn(liveInput)
+
+    /** The app left the screen. */
     fun onBackground() {
-        if (!micCapture.active) return
-        micCapture.stop()
-        micPausedInBackground = true
+        send(GeodeNative.LIVE_INPUT_APP_BACKGROUND)
     }
 
-    /** The app is back on screen: resume the mic [onBackground] stopped, unless access went meanwhile. */
+    /** The app is back on screen. */
     fun onForeground() {
-        if (!micPausedInBackground) return
-        micPausedInBackground = false
-        if (hasMicPermission()) setMicEnabled(true) else refreshMicState()
+        send(GeodeNative.LIVE_INPUT_APP_FOREGROUND)
+    }
+
+    /** Music (or another app's audio) is starting as the source. */
+    fun onMusicStarts() {
+        send(GeodeNative.LIVE_INPUT_MUSIC_STARTS)
+    }
+
+    /**
+     * Steps the native machine with [event] and carries out its actions in their bit order. A
+     * capture that fails to start is reported back as its own event. Returns that failure, if any.
+     */
+    private fun send(event: Int): MicCapture.Failure? {
+        val packed = GeodeNative.liveInputStep(liveInput, event, micCapture.hasPermission())
+        val previous = liveInput
+        liveInput = (packed and 0xff).toInt()
+        val actions = (packed ushr 8).toInt()
+        // Nothing to do (the poll while off, say): leave the shown state, and any start failure on it, alone.
+        if (actions == 0 && liveInput == previous) return null
+        fun has(bit: Int) = (actions and bit) != 0
+        val otherAppAudio = playbackCapture.active || _externalAudio.value.active
+        if (has(GeodeNative.LIVE_INPUT_ACT_STOP_OTHER_APP_AUDIO) && otherAppAudio) stopExternalAudio()
+        if (has(GeodeNative.LIVE_INPUT_ACT_PAUSE_MUSIC)) host.pausePlayback()
+        if (has(GeodeNative.LIVE_INPUT_ACT_START_CAPTURE)) {
+            val failure = micCapture.start { rate -> host.setSoundRate(rate) }
+            if (failure != null) {
+                send(GeodeNative.LIVE_INPUT_START_FAILED)
+                _micState.value = MicState(active = false, failure = failure)
+                return failure
+            }
+        }
+        if (has(GeodeNative.LIVE_INPUT_ACT_STOP_CAPTURE)) micCapture.stop()
+        if (has(GeodeNative.LIVE_INPUT_ACT_RESET_SOUND)) host.resetSound()
+        if (has(GeodeNative.LIVE_INPUT_ACT_PLAYER_RATE)) host.setSoundRate(playbackRateFallback())
+        _micState.value =
+            MicState(
+                active = micActive,
+                failure = if (liveInput == GeodeNative.LIVE_INPUT_LOST) MicCapture.Failure.UNAVAILABLE else null,
+            )
+        return null
     }
 
     @Volatile
@@ -116,13 +141,10 @@ internal class CaptureController(
      * constructed instead.
      */
     fun start() {
-        // Restore a mic-reactive session across process death. The pref was written on every
-        // mic toggle but never read back, so a restart silently dropped it. Never request the
-        // permission here: if it has since been revoked, leave the pref as-is and stay silent —
-        // the person can re-enable it from the mic control, which will prompt as usual.
-        if (host.micReactivePref && !micCapture.active && hasMicPermission()) {
-            setMicEnabled(true)
-        }
+        // Live input always starts off. It is never restored after Android kills the app (owner,
+        // #367): restoring it paused whatever the person had started meanwhile from the
+        // notification, a headset or the car, and a mic that switches itself on is a surprise.
+        // Within one process the background pause still resumes ([onForeground]).
         scope.launch {
             dev.geode.audio.MediaProjectionHolder.projection
                 .collect { projection ->
@@ -151,29 +173,8 @@ internal class CaptureController(
 
     private fun externalAudioOwnsRing(): Boolean = micCapture.active || playbackCapture.active
 
-    fun setMicEnabled(enabled: Boolean): MicCapture.Failure? {
-        if (!enabled) {
-            micPausedInBackground = false
-            micCapture.stop()
-            host.resetSound()
-            host.setSoundRate(playbackRateFallback())
-            _micState.value = MicState(active = false)
-            host.setMicReactivePref(false)
-            return null
-        }
-        if (micCapture.active) return null
-        if (playbackCapture.active || _externalAudio.value.active) stopExternalAudio()
-        host.pausePlayback()
-        val failure = micCapture.start { rate -> host.setSoundRate(rate) }
-        if (failure != null) {
-            _micState.value = MicState(active = false, failure = failure)
-            return failure
-        }
-        host.resetSound()
-        _micState.value = MicState(active = true)
-        host.setMicReactivePref(true)
-        return null
-    }
+    fun setMicEnabled(enabled: Boolean): MicCapture.Failure? =
+        send(if (enabled) GeodeNative.LIVE_INPUT_TURN_ON else GeodeNative.LIVE_INPUT_TURN_OFF)
 
     fun hasMicPermission(): Boolean = micCapture.hasPermission()
 
@@ -201,7 +202,7 @@ internal class CaptureController(
             return
         }
         host.pausePlayback()
-        if (micCapture.active) setMicEnabled(false)
+        onMusicStarts()
         val failure = playbackCapture.start(projection) { rate -> host.setSoundRate(rate) }
         host.resetSound()
         if (failure != null) {
@@ -267,12 +268,13 @@ internal class CaptureController(
         }
     }
 
+    /**
+     * The session's poll (every 500 ms, background included) reports a capture that is not
+     * reading; the native machine decides whether that means the mic was lost (only while on,
+     * never during the background pause, #367).
+     */
     fun refreshMicState() {
-        if (!_micState.value.active || micCapture.active) return
-        host.resetSound()
-        host.setSoundRate(playbackRateFallback())
-        _micState.value = MicState(active = false, failure = MicCapture.Failure.UNAVAILABLE)
-        host.setMicReactivePref(false)
+        if (!micCapture.active) send(GeodeNative.LIVE_INPUT_CAPTURE_STOPPED)
     }
 
     fun shutdown() {

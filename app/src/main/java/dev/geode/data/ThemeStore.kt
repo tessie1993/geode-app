@@ -79,7 +79,7 @@ data class GuiPrefs(
      * tour has ended (finished or Skip all) and so is not offered again.
      */
     val tutorialProgress: TutorialProgress = TutorialProgress(),
-    val micReactive: Boolean = false,
+    val reducedMotion: Boolean = false,
     val touchSmear: Boolean = false,
     val touchSmearStrength: Float = 1f,
     val secondScreen: Boolean = true,
@@ -167,7 +167,6 @@ class ThemeStore(
             touchSmearStrength = prefs.getFloat(KEY_TOUCH_SMEAR_STRENGTH, 1f).coerceIn(0.2f, 2f),
             touchTransform = prefs.getBoolean(KEY_TOUCH_TRANSFORM, true),
             secondScreen = prefs.getBoolean(KEY_SECOND_SCREEN, true),
-            micReactive = prefs.getBoolean(KEY_MIC_REACTIVE, false),
             autoEnterPip = prefs.getBoolean(KEY_AUTO_ENTER_PIP, false),
             uiSounds = prefs.getBoolean(KEY_UI_SOUNDS, false),
         )
@@ -234,7 +233,9 @@ class ThemeStore(
             putFloat(KEY_TOUCH_SMEAR_STRENGTH, gui.touchSmearStrength)
             putBoolean(KEY_TOUCH_TRANSFORM, gui.touchTransform)
             putBoolean(KEY_SECOND_SCREEN, gui.secondScreen)
-            putBoolean(KEY_MIC_REACTIVE, gui.micReactive)
+            // Live input is never restored after the app is killed (owner, #367), so the old
+            // "mic was on" flag has no reader; clear what older versions saved.
+            remove(LEGACY_KEY_MIC_REACTIVE)
             putBoolean(KEY_AUTO_ENTER_PIP, gui.autoEnterPip)
             putBoolean(KEY_UI_SOUNDS, gui.uiSounds)
         }
@@ -296,7 +297,7 @@ class ThemeStore(
         const val KEY_TOUCH_SMEAR_STRENGTH = "gui_touch_smear_strength"
         const val KEY_TOUCH_TRANSFORM = "gui_touch_transform"
         const val KEY_SECOND_SCREEN = "gui_second_screen"
-        const val KEY_MIC_REACTIVE = "gui_mic_reactive"
+        const val LEGACY_KEY_MIC_REACTIVE = "gui_mic_reactive"
         const val KEY_AUTO_ENTER_PIP = "gui_auto_enter_pip"
         const val KEY_UI_SOUNDS = "gui_ui_sounds"
     }

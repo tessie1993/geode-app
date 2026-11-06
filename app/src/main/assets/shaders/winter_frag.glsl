@@ -8,243 +8,431 @@ precision highp sampler2D;
 in vec2 vUv;
 out vec4 fragColor;
 
-uniform float uTime;
-uniform vec2 uResolution;
-//#include lib_sound
-uniform float uSpeed;
-uniform float uZoom;
-uniform float uRotation;
-//#include lib_zoom
-uniform float uColorShift;
-uniform float uHueRange;
-uniform float uSat;
-uniform float uBright;
-uniform float uInvert;
-uniform float uIntensity;
-uniform float uMirrorX;
-uniform float uTurbulence;
-uniform float uPalBase;
-uniform float uPalRange;
-uniform float uContrast;
-uniform float uGamma;
-uniform float uPal2Base;
-uniform float uPal2Range;
-uniform float uPaletteMix;
-uniform float uDuotone;
-uniform float uBloom;
-uniform float uWarp;
-uniform float uRipple;
-uniform float uSymmetry;
-uniform float uKaleido;
-uniform float uMorph;
-uniform float uPixelate;
-uniform float uPosterize;
-uniform float uSway;
-uniform float uPulse;
-uniform float uDriftX;
-uniform float uDriftY;
-uniform float uShake;
-uniform float uTile;
-uniform float uTwist;
-uniform float uTemperature;
-uniform float uSolarize;
-uniform float uFlash;
-
-
-vec2 view() {
-    vec2 uv = vUv * 2.0 - 1.0;
-    uv.x *= uResolution.x / uResolution.y;
-    if (uPixelate > 0.001) {
-        float px = mix(1.0, 12.0, uPixelate) * 24.0;
-        uv = floor(uv * px) / px;
-    }
-    if (uMirrorX > 0.5) uv.x = abs(uv.x);
-    // Kaleidoscope: fold the plane into uSymmetry angular wedges.
-    if (uKaleido > 0.5 && uSymmetry >= 2.0) {
-        float ang = atan(uv.y, uv.x);
-        float rad = length(uv);
-        float seg = 6.2831853 / uSymmetry;
-        ang = abs(mod(ang, seg) - seg * 0.5);
-        uv = vec2(cos(ang), sin(ang)) * rad;
-    }
-    // Morph: blend the plane toward a polar remap (angle,radius swap), a
-    // smooth geometric metamorphosis that works on any scene.
-    if (uMorph > 0.001) {
-        float mr = length(uv);
-        float ma = mr > 1e-5 ? atan(uv.y, uv.x) : 0.0; // atan(0, 0) is undefined in GLSL ES
-        vec2 polar = vec2(abs(ma) / 1.5707963 - 1.0, (mr - 0.7) * 1.6);
-        // Faded to nothing at the centre: atan has no angle at r = 0, so every
-        // angle met at one point and the centre of the frame drew as a pinched
-        // vortex whenever morph was up (MotionField holds it near 0.7).
-        uv = mix(uv, polar, uMorph * (0.6 + 0.15 * sin(uTime * 0.31)) * smoothstep(0.0, 0.6, mr));
-    }
-    float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
-    uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
-    // Drift and shake move the picture after the spin and the morph. Added
-    // before them, the rotation pivoted on -drift and the morph's pinch rode
-    // the drift, so the whole frame spun around a wandering off-centre point.
-    // Drift ping-pongs rather than running away. The composite pass wraps its
-    // own drift with fract() because it samples a BOUNDED image ("Wrap so the
-    // image scrolls instead of smearing at the clamped edge"), but uv here
-    // indexes an unbounded procedural domain, where a hard wrap would teleport
-    // the whole field by a screen width once per cycle. A triangle wave is the
-    // bounded form that stays continuous: its slope is exactly the old one for
-    // the first cycle, so nothing pops on the styles that read as scrolling
-    // (plasma, aurora, voronoi, grid, waves), while a centred subject - the
-    // sun, the ring, the spiral - always comes back instead of leaving frame
-    // for good and stranding the user on a black screen.
-    vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
-    uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    // Endless zoom: this layer\'s magnification (lib_zoom draws two, an octave apart).
-    gZoomRead = true;
-    float z = uZoom * gZoomMag;
-    uv /= max(z, 0.05);
-    uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
-    // Radial twist: rotate by an angle growing with radius.
-    if (abs(uTwist) > 0.001) {
-        float tr = length(uv) * uTwist * 2.0;
-        uv = mat2(cos(tr), -sin(tr), sin(tr), cos(tr)) * uv;
-    }
-    // Tiling: repeat the plane into a uTile x uTile grid, every other tile
-    // mirrored so neighbours meet edge to edge. A hard mod() wrap cracked the
-    // picture along every tile boundary, and the macros drive uTile live.
-    if (uTile > 1.01) {
-        uv = 1.0 - abs(mod(uv * uTile * 0.5 + 1.0, 4.0) - 2.0);
-    }
-    // Domain warp: swirl coordinates by a sin/cos field.
-    if (uWarp > 0.001) {
-        float w = uWarp * 0.5;
-        uv += w * vec2(sin(uv.y * 3.0 + uTime * 1.1), cos(uv.x * 3.0 + uTime * 0.9));
-    }
-    // Concentric ripple distortion driven by radius.
-    if (uRipple > 0.001) {
-        float r = length(uv);
-        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + sndLevel(SND_BASS) * 4.0);
-    }
-    return uv;
-}
-
+//#include lib_scene_uniforms
+//#include lib_scene_motion
+//#include lib_camera
 //#include lib_palette
+//#include lib_scene_grade
+//#include lib_sdf3
 
-vec3 grade(vec3 col) {
-    if (uBloom > 0.001) col += uBloom * col * col;
-    if (uPosterize > 0.001) {
-        float levels = mix(24.0, 3.0, uPosterize);
-        col = floor(col * levels + 0.5) / levels;
+// WINTER: a night flight low over a frozen pond. Down the middle runs a lead
+// of open black water, ringed by interference ripples from drifting sources;
+// either side of it the pond is frozen into ice crazed with voronoi frost
+// cracks; past the shoreline snow banks rise, set with snow-capped pines; and
+// snow falls through the whole scene in true depth, flakes riding the wind.
+// A low moon ahead lights the snow and lays its streak on the water.
+//
+// The 2D style was the same pond seen from above, with three parallax layers
+// of snow. Its idea survives whole: the ripples, the frost glints, the snow on
+// the wind, the spectrum along the shoreline. Only now the pond has a far
+// shore, the snow has real depth and the camera flies.
+//
+// ---- the camera --------------------------------------------------------------
+//
+// The shared rig (camFly). The pond runs straight down +z. Every z term has a
+// period dividing 64 (shore wobble 64, lead width 32, bank bumps 16, ripple
+// source cells 16, tree cells 2, frost cells 0.5, snow planes 1.6, shore
+// spectrum 32), so rebasing the eye by 64 is exact and the rig's 8192 travel
+// wrap never shows. The pond is ~11 units wide, wider than any rig path
+// wanders (glide |x| <= 3, orbit radius <= 5.4), so no path flies into a bank.
+//
+// ---- audio ------------------------------------------------------------------
+//
+// Bass (SND_BASS_ATT)          tightens the rings of the bass ripple sources.
+// Mids (SND_MIDDLE)            strengthen the second set of rings and push the wind.
+// Treble (SND_TREBLE)          frost cracks and their feature points glint; snow
+//                              twinkles per flake (never a full-frame flicker).
+// Kick (SND_KICK_ENV)          a gust: the rings swell and the snow thickens.
+// Spectrum (sndSpectrum)       shimmers along the shoreline, read along its length.
+// Level, SND_ENERGY_TREND      overall brightness, as everywhere.
+//
+// Morph thaws the pond (a wider lead), Warp lets the ripple sources wander,
+// Sway and Turbulence steer the wind. Knobs, each read as an offset from 0.5
+// so the style looks as tuned while Note & key reactions are off: k0 PULSE
+// ripple height, k1 TEXTURE frost crack density, k2 FLOW wind, k3 TONE hue,
+// k4 BUILD snowfall, k5 SPACE fog distance.
+//
+// ---- why the estimate is safe ----------------------------------------------
+//
+// The pond surface is the plane y = WI_ICE, found analytically, never marched:
+// every surface lies on or above it, so a ray that reaches that height
+// unhit is on the pond. The march sees only the banks and the trees.
+//  - Over the pond (|x| < WI_WMIN, where the bank cannot start) the bank is
+//    bounded by its slab: max(WI_WMIN - |x|, y - its highest point).
+//  - On the bank the height field's gradient is at most ~1.45 (the slope
+//    1.5 / WI_BANK * WI_RISE, plus the bumps), so the vertical gap times
+//    WI_GLIP (1 / sqrt(1 + 1.45^2)) is a lower bound.
+//  - Each tree cell measures only its own pine (two cones, each a half-plane
+//    in the (r, y) plane of revolution, so a lower bound), and is clamped to
+//    the cell boundary unless the point is above every pine's possible tip.
+//    No pine reaches |x| < WI_TREE_X0, so nearer than that the slab bounds it.
+//  - A sphere around the eye is carved out of everything.
+
+#define WI_MAX_STEPS 96
+#define WI_FAR 48.0
+#define WI_TAU 6.2831853
+/** The eye's z is rebased into 0..64; every z period divides it. */
+#define WI_ZWRAP 64.0
+/** The pond's surface. */
+#define WI_ICE -2.0
+/** Half-width of the pond before the banks start, and the shore's wobble. */
+#define WI_SHORE 5.6
+#define WI_WOBBLE 0.6
+#define WI_WMIN (WI_SHORE - WI_WOBBLE)
+#define WI_BANK 4.0
+#define WI_RISE 2.6
+#define WI_BUMP 0.35
+#define WI_GLIP 0.55
+/** Pine cells along xz (32 per 64 along z). */
+#define WI_TC 2.0
+#define WI_TREE_X0 (WI_SHORE + 0.6)
+#define WI_TREE_HMAX 3.0
+#define WI_BUBBLE 0.6
+/** Snow planes along z: 40 per 64. */
+#define WI_SNOW_S 1.6
+#define WI_SNOW_N 6
+/** Flake cell, world units; the fall wraps at 256 cells. */
+#define WI_SNOW_C 0.45
+
+/** 0 bank snow, 1 pine. */
+float gMat;
+vec3 gEye;
+
+float wiShoreW(float z) {
+    return WI_SHORE + WI_WOBBLE * sin(z * (WI_TAU / 64.0) + 0.7);
+}
+
+float wiBankAt(float ax, float z) {
+    float w = wiShoreW(z);
+    return smoothstep(w, w + WI_BANK, ax);
+}
+
+float wiGround(vec2 xz) {
+    float bank = wiBankAt(abs(xz.x), xz.y);
+    float bumps = WI_BUMP * sin(xz.x * 0.9 + 1.3) * sin(xz.y * (WI_TAU / 16.0));
+    return WI_ICE + WI_RISE * bank + bank * bumps;
+}
+
+/** A lower bound on the distance to a cone of apex height `apex` and slope `tanA` (radius per unit down). */
+float wiCone(vec2 f, float y, float apex, float tanA) {
+    float cosA = inversesqrt(1.0 + tanA * tanA);
+    return (length(f) - (apex - y) * tanA) * cosA;
+}
+
+float map(vec3 p) {
+    float ax = abs(p.x);
+    float gMax = WI_ICE + WI_RISE + WI_BUMP;
+    float dg = ax < WI_WMIN ? max(WI_WMIN - ax, p.y - gMax) : (p.y - wiGround(p.xz)) * WI_GLIP;
+
+    float hiN = gMax + WI_TREE_HMAX;
+    float dt;
+    if (ax < WI_TREE_X0) {
+        dt = max(WI_TREE_X0 - ax, p.y - hiN);
+    } else {
+        vec2 cell = floor(p.xz / WI_TC);
+        vec2 cc = (cell + 0.5) * WI_TC;
+        uint u = uhash3(uvec3(ivec3(int(cell.x), 7, int(mod(cell.y, WI_ZWRAP / WI_TC)))));
+        float h = uhashUnit(u);
+        float h2 = uhashUnit(uhash(u));
+        float h3 = uhashUnit(uhash(u ^ 0x5bd1u));
+        float dTree = 1e3;
+        if (h < 0.6 && wiBankAt(abs(cc.x), cc.y) > 0.6) {
+            // Jitter 0.15 plus the widest base 0.8 stays inside the half-cell 1.0.
+            vec2 f = p.xz - cc - (vec2(h, h3) - 0.5) * 0.3;
+            float base = wiGround(cc) - 0.6;
+            float H = 1.4 + 1.6 * h2;
+            float R = 0.55 + 0.25 * h3;
+            float lower = max(wiCone(f, p.y, base + 0.7 * H, R / (0.7 * H)), base - p.y);
+            float upper = max(wiCone(f, p.y, base + H, (0.7 * R) / (0.55 * H)), base + 0.4 * H - p.y);
+            dTree = min(lower, upper);
+        }
+        vec2 af = abs(p.xz - cc);
+        float toEdge = 0.5 * WI_TC - max(af.x, af.y);
+        dt = min(dTree, max(toEdge + 0.02, p.y - hiN));
     }
-    float g = dot(col, vec3(0.299, 0.587, 0.114));
-    if (uDuotone > 0.5) col = pal(g);
-    col = mix(vec3(g), col, uSat);
-    col = (col - 0.5) * uContrast + 0.5;
-    col = pow(max(col, 0.0), vec3(1.0 / max(uGamma, 0.05)));
-    col.r += uTemperature * 0.12;
-    col.b -= uTemperature * 0.12;
-    if (uSolarize > 0.5) col = abs(1.0 - 2.0 * col);
-    col = col * uBright * uIntensity;
-    return mix(col, max(vec3(1.0) - col, 0.0), uInvert);
+
+    gMat = dt < dg ? 1.0 : 0.0;
+    float d = min(dg, dt);
+    return max(d, WI_BUBBLE - length(p - gEye));
 }
 
-// WINTER: a frozen pond seen from above - interference ripples travelling
-// across the ice, voronoi frost crystals glinting on it, and three parallax
-// layers of snow falling over the whole thing.
-//
-// Recovered from an abandoned branch and rebuilt for the current engine. Two
-// things the original did are deliberately gone:
-//
-//  - It carried its own byte-copy of `pal()`. That is the drift the include
-//    system exists to end, so the shared library is included instead and the
-//    style gets the cyclic colour maps for free.
-//  - It sampled `uFlow` itself to smear every layer by the FlowField. The
-//    composite pass already warps EVERY style through that same field
-//    (`composite_frag`'s `uFlowStrength` block), so a second read here would
-//    apply one velocity field twice - the double-rotation bug seen in
-//    another costume. The layered "blown around" motion is re-expressed with
-//    what the scene is actually given: per-layer wind from Sway/Turbulence
-//    and the mid band, which parallaxes exactly like the smear did and still
-//    responds to a finger, because the finger reaches the composite warp.
-float wHash12(vec2 p) {
-    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.x + p3.y) * p3.z);
+vec3 normalAt(vec3 p, float eps) {
+    vec2 k = vec2(1.0, -1.0);
+    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
+                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
 }
 
-vec2 wHash22(vec2 p) {
-    vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.xx + p3.yz) * p3.zy);
+/** Half-width of the open lead; Morph thaws it wider. */
+float wiLeadW(float z) {
+    return min(2.2 + 0.9 * sin(z * (WI_TAU / 32.0) + 1.0) + 1.6 * clamp(uMorph, 0.0, 1.0), WI_WMIN - 0.8);
 }
 
-void main() {
-    vec2 p = view();
-    float t = uTime;
-    // Wind: the layer displacement the smear field used to provide. Sway and
-    // Turbulence steer it, the mids push it, and every layer takes a
-    // different share of it - which is what makes the snow read as depth.
-    vec2 wind = vec2(
-        sin(t * 0.23) * (0.35 + uSway) + uTurbulence * 0.5 * sin(t * 0.61),
-        cos(t * 0.17) * 0.18 * (0.3 + sndShaped(SND_MIDDLE))
-    );
+/**
+ * The lead's rings: one source per 16 units of z, the nearest three summed,
+ * each tuned to a band as the 2D style's three were (bass, mids, treble).
+ */
+float wiRipple(vec2 xz, float bassAtt, float mid, float treble) {
+    float ci = floor(xz.y / 16.0);
+    float sum = 0.0;
+    for (int k = -1; k <= 1; k++) {
+        float idx = ci + float(k);
+        float wi = mod(idx, 4.0);
+        uint u = uhash(uint(wi) + 0x9e37u);
+        float h1 = uhashUnit(u);
+        float h2 = uhashUnit(uhash(u));
+        float wander = 0.6 + 1.4 * clamp(uWarp, 0.0, 1.0);
+        vec2 src = vec2((h1 - 0.5) * 2.4 + wander * sin(uTime * (0.17 + 0.1 * h2) + h1 * 6.0),
+                        (idx + 0.5) * 16.0 + (h2 - 0.5) * 8.0 + 0.8 * cos(uTime * 0.13 + h2 * 5.0));
+        float r = length(xz - src);
+        float freq;
+        float amp;
+        float speed;
+        if (wi < 1.5) {
+            freq = (wi < 0.5 ? 3.2 : 4.1) * (wi < 0.5 ? 1.0 + 0.35 * bassAtt : 1.0);
+            amp = wi < 0.5 ? 1.0 : 0.5 + mid * 1.6;
+            speed = wi < 0.5 ? 3.2 : 4.1;
+        } else {
+            freq = wi < 2.5 ? 5.2 : 3.6 * (1.0 + 0.35 * bassAtt);
+            amp = wi < 2.5 ? 0.3 + treble * 1.4 : 1.0;
+            speed = wi < 2.5 ? 5.0 : 3.5;
+        }
+        sum += sin(r * freq - uTime * speed) * exp(-r * 0.22) * amp;
+    }
+    return sum;
+}
 
-    // ---- icy water: interference ripples from three drifting sources ----
-    vec2 c1 = vec2(sin(t * 0.30), cos(t * 0.23)) * 0.55;
-    vec2 c2 = vec2(cos(t * 0.19 + 2.1), sin(t * 0.27 + 1.3)) * 0.65;
-    float r0 = length(p);
-    float r1 = length(p - c1);
-    float r2 = length(p - c2);
-    float wave = sin(r0 * (18.0 + sndLevel(SND_BASS) * 10.0) - t * 3.2) * exp(-r0 * 1.2);
-    wave += sin(r1 * 24.0 - t * 4.1) * exp(-r1 * 1.8) * (0.5 + sndShaped(SND_MIDDLE) * 1.6);
-    wave += sin(r2 * 30.0 - t * 5.0) * exp(-r2 * 2.2) * (0.3 + sndLevel(SND_TREBLE) * 1.4);
-    // Cool water body, brightened along wave crests (specular shimmer).
-    float crest = pow(clamp(wave * 0.5 + 0.5, 0.0, 1.0), 3.0);
-    vec3 col = pal(0.15 + wave * 0.25) * (0.16 + 0.30 * crest + sndShaped(SND_LEVEL) * 0.35);
+vec3 wiSky(vec3 rd, vec3 moon, float hue) {
+    float up = clamp(rd.y, -1.0, 1.0);
+    vec3 col = mix(pal(hue + 0.62) * 0.07, pal(hue + 0.72) * 0.015, smoothstep(-0.05, 0.6, up));
+    float m = max(dot(rd, moon), 0.0);
+    col += vec3(0.85, 0.9, 1.0) * smoothstep(0.9994, 0.9997, m);
+    col += pal(hue + 0.55) * (0.10 * pow(m, 24.0) + 0.05 * m * m);
+    vec3 sp = rd * 150.0;
+    float s = hashCell(ivec3(floor(sp)));
+    float star = (1.0 - smoothstep(0.0, 0.3, length(fract(sp) - 0.5))) * step(0.997, s);
+    col += vec3(0.75) * star * smoothstep(0.05, 0.35, up) * (0.6 + 0.4 * sin(uTime * 2.0 + s * 500.0));
+    return col;
+}
 
-    // ---- frost crystals: voronoi cracks glinting with treble ----
-    vec2 fq = p * 5.0 - wind * 0.35;
+/** Voronoi on the ice: x = nearest feature, y = border (f2 - f1). Cells wrap at 128 along z. */
+vec2 wiFrost(vec2 xz, float scale) {
+    vec2 fq = xz * scale;
     vec2 fcell = floor(fq);
     float f1 = 8.0;
+    float f2 = 8.0;
+    float wrap = WI_ZWRAP * scale;
     for (int y = -1; y <= 1; y++) {
         for (int x = -1; x <= 1; x++) {
             vec2 g = vec2(float(x), float(y));
-            vec2 o = wHash22(fcell + g);
-            o = 0.5 + 0.4 * sin(t * 0.4 + 6.2831 * o);
+            vec2 c = fcell + g;
+            uint u = uhash3(uvec3(ivec3(int(c.x), int(mod(c.y, wrap)), 3)));
+            vec2 o = vec2(uhashUnit(u), uhashUnit(uhash(u)));
+            o = 0.5 + 0.4 * sin(uTime * 0.25 + WI_TAU * o);
             float d = length(g + o - fract(fq));
-            f1 = min(f1, d);
+            if (d < f1) {
+                f2 = f1;
+                f1 = d;
+            } else if (d < f2) {
+                f2 = d;
+            }
         }
     }
-    float crack = pow(1.0 - clamp(f1, 0.0, 1.0), 6.0);
-    col += pal(0.55) * crack * (0.12 + sndLevel(SND_TREBLE) * 0.9);
+    return vec2(f1, f2 - f1);
+}
 
-    // ---- snowfall: three parallax particle layers riding the wind ----
+/**
+ * The snowfall: flakes on planes of constant z, 1.6 apart, the next six ahead
+ * of the eye along the ray. The planes are fixed in the world, so a flake
+ * stays put as the eye flies through it, and nearer flakes slide past faster:
+ * real parallax rather than the 2D layers' faked one.
+ */
+float wiSnow(vec3 ro, vec3 rd, float sceneT, vec2 wind, float density, float treble, float px1) {
+    if (abs(rd.z) < 0.02) return 0.0;
+    float sgn = rd.z >= 0.0 ? 1.0 : -1.0;
+    float base = sgn > 0.0 ? floor(ro.z / WI_SNOW_S) + 1.0 : ceil(ro.z / WI_SNOW_S) - 1.0;
+    float planes = WI_ZWRAP / WI_SNOW_S;
     float snow = 0.0;
-    for (int i = 0; i < 3; i++) {
-        float fi = float(i);
-        float depth = 1.0 - fi * 0.28;
-        float scale = 7.0 + fi * 6.0;
-        // Fall + drift; nearer layers take more wind than far ones, which is
-        // the parallax the old smear read produced.
-        vec2 q = p * scale;
-        q.y += t * (0.9 + fi * 0.5) * scale * 0.16;
-        q.x += sin(t * (0.5 + fi * 0.2) + fi * 1.7) * (0.5 + uSway) * 1.2;
-        q -= wind * scale * (0.55 + 0.35 * depth);
-        vec2 cell = floor(q);
-        vec2 jitter = wHash22(cell);
-        vec2 fpos = fract(q) - (0.25 + 0.5 * jitter);
-        float seed = wHash12(cell * 1.63 + fi * 9.7);
-        float size = (0.045 + 0.06 * seed) * 1.0;
-        float flake = smoothstep(size, size * 0.25, length(fpos));
-        // Treble makes flakes twinkle; each flake blinks on its own phase, so
-        // the twinkle is per-flake texture and never a full-frame flicker.
-        float twinkle = 0.65 + 0.35 * sin(t * (2.0 + seed * 5.0) + seed * 40.0 + sndLevel(SND_TREBLE) * 6.0);
-        snow += flake * twinkle * depth * (0.55 + 0.45 * step(0.25, seed));
+    for (int k = 0; k < WI_SNOW_N; k++) {
+        float idx = base + sgn * float(k);
+        float t = (idx * WI_SNOW_S - ro.z) / rd.z;
+        if (t > sceneT) break;
+        vec3 p = ro + rd * t;
+        float pi = mod(idx, planes);
+        float ps = uhashUnit(uhash(uint(pi) + 0x51edu));
+        vec2 q = p.xy;
+        q.x += wind.x * (1.0 + 0.15 * ps) + 0.4 * sin(uTime * (0.5 + 0.3 * ps) + pi * 1.7) * (0.5 + uSway);
+        // The fall wraps at 256 cells, the same period the cell hash wraps at
+        // below, so the wrap lands on an identical picture.
+        q.y += mod(uTime * (0.45 + 0.35 * ps), WI_SNOW_C * 256.0) + wind.y;
+        vec2 cq = q / WI_SNOW_C;
+        vec2 cell = floor(cq);
+        uint u = uhash3(uvec3(ivec3(int(cell.x), int(mod(cell.y, 256.0)), int(pi))));
+        float seed = uhashUnit(u);
+        if (seed > density) continue;
+        vec2 jitter = vec2(uhashUnit(uhash(u)), uhashUnit(uhash(u ^ 0x2c1bu)));
+        vec2 fpos = (fract(cq) - (0.2 + 0.6 * jitter)) * WI_SNOW_C;
+        float r = WI_SNOW_C * (0.07 + 0.09 * jitter.x);
+        // Never thinner than a pixel; the light a sub-pixel flake would spread
+        // over its pixel is kept by the area ratio, so far snow dims, not shimmers.
+        float re = max(r, px1 * t * 0.8);
+        float flake = smoothstep(re, re * 0.3, length(fpos)) * (r * r) / (re * re);
+        float twinkle = 0.65 + 0.35 * sin(uTime * (2.0 + seed * 5.0) + seed * 40.0 + treble * 6.0);
+        float fade = smoothstep(0.2, 1.0, t) * exp(-t * 0.12);
+        snow += flake * twinkle * fade * (0.55 + 0.45 * step(0.25, jitter.y));
     }
-    // Snow stays near-white with a hint of the palette so it reads as snow
-    // on any colour scheme.
-    col += snow * mix(vec3(0.95), pal(0.6), 0.25) * (0.8 + sndShaped(SND_LEVEL) * 0.5);
+    return snow;
+}
 
-    // Spectrum shimmer along the bottom "shoreline" - a quiet nod to the
-    // audio without a literal bar display.
-    float shore = smoothstep(0.15, -0.6, p.y);
-    col += pal(0.35) * shore * sndSpectrum(vUv.x) * 0.35;
+void main() {
+    vec2 uv = view();
+    vec3 ro;
+    vec3 rd;
+    camFly(uv, ro, rd);
+    // Every z term tiles with a period dividing 64, so this rebase is exact
+    // (power of two) and keeps z precise for the hashes and the normals.
+    ro.z = mod(ro.z, WI_ZWRAP);
+    gEye = ro;
 
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5);
+    float bassAtt = sndLevel(SND_BASS_ATT);
+    float mid = sndShaped(SND_MIDDLE);
+    float treble = sndLevel(SND_TREBLE);
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float hue = 0.15 * (uKnob[3] - 0.5);
+    float t0 = uTime;
+
+    // Wind: Sway and Turbulence steer it, the mids push it, the FLOW knob leans it.
+    vec2 wind = vec2(
+        sin(t0 * 0.23) * (0.35 + uSway) + uTurbulence * 0.5 * sin(t0 * 0.61) + 1.2 * (uKnob[2] - 0.5),
+        cos(t0 * 0.17) * 0.18 * (0.3 + mid)
+    );
+    vec3 moon = normalize(vec3(-0.3, 0.32, 1.0));
+
+    // The pond, analytically: the lowest surface there is.
+    float tPlane = rd.y < -1e-4 ? (WI_ICE - ro.y) / rd.y : 1e5;
+
+    float t = 0.03;
+    float hitT = -1.0;
+    float limit = min(WI_FAR, tPlane);
+    for (int i = 0; i < WI_MAX_STEPS; i++) {
+        // uSteps is the user's Detail; this loop's own bound is the constant.
+        if (float(i) >= uSteps) break;
+        if (t > limit) break;
+        float d = map(ro + rd * t);
+        if (d < 0.0015 + 0.0008 * t) {
+            hitT = t;
+            break;
+        }
+        t += d * 0.9;
+    }
+    bool pond = false;
+    if (hitT < 0.0 && tPlane < WI_FAR) {
+        hitT = tPlane;
+        pond = true;
+    }
+
+    vec3 sky = wiSky(rd, moon, hue);
+    vec3 col = sky;
+    float sceneT = hitT > 0.0 ? hitT : WI_FAR;
+    float fogK = 0.045 * (1.0 - 0.8 * (uKnob[5] - 0.5));
+    vec3 fogCol = pal(hue + 0.62) * 0.05 + vec3(0.01, 0.012, 0.018);
+
+    if (hitT > 0.0) {
+        vec3 p = ro + rd * hitT;
+        float ax = abs(p.x);
+        float shoreW = wiShoreW(p.z);
+        // The shoreline's spectrum, read along its length (a triangle, so the
+        // 32-unit period meets itself without a seam).
+        float along = abs(fract(p.z / 32.0) * 2.0 - 1.0);
+        float shore = 1.0 - smoothstep(0.0, 0.7, abs(ax - shoreW));
+        vec3 shimmer = pal(hue + 0.35) * shore * sndSpectrum(along) * 0.35;
+
+        if (pond) {
+            float lead = wiLeadW(p.z);
+            float water = 1.0 - smoothstep(lead - 0.3, lead + 0.3, ax);
+            // Rings: height from the lead's sources, faded with distance so
+            // they never alias into sparkle near the horizon.
+            float amp = 0.05 * (1.0 + 0.8 * kick + 2.0 * (uKnob[0] - 0.5)) * exp(-hitT * 0.05) * water;
+            float e = 0.03;
+            float w0 = wiRipple(p.xz, bassAtt, mid, treble);
+            float wx = wiRipple(p.xz + vec2(e, 0.0), bassAtt, mid, treble);
+            float wz = wiRipple(p.xz + vec2(0.0, e), bassAtt, mid, treble);
+            vec3 n = normalize(vec3(-(wx - w0) / e * amp, 1.0, -(wz - w0) / e * amp));
+            float ndv = clamp(dot(n, -rd), 0.0, 1.0);
+            vec3 rf = reflect(rd, n);
+
+            // Open water: dark, the rings' crests shimmering, the sky and the
+            // moon's streak in it.
+            float crest = pow(clamp(w0 * 0.5 + 0.5, 0.0, 1.0), 3.0);
+            float fres = 0.03 + 0.97 * pow(1.0 - ndv, 5.0);
+            vec3 waterCol = pal(hue + 0.15 + w0 * 0.25) * (0.03 + 0.12 * crest + energy * 0.08)
+                          + wiSky(rf, moon, hue) * fres * 0.9
+                          + vec3(0.9, 0.95, 1.0) * pow(max(dot(rf, moon), 0.0), 180.0) * 1.2;
+
+            // Ice: frosted (a blurred, dimmer reflection), crazed with cracks
+            // that glint on treble, brightest at the crystals' feature points.
+            float density = clamp(1.8 + 1.6 * (uKnob[1] - 0.5), 1.0, 3.0);
+            vec2 fr = wiFrost(p.xz, density);
+            float pxw = 2.0 * hitT / (uResolution.y * uCamFocal * max(abs(rd.y), 0.08)) * density;
+            float crack = 1.0 - smoothstep(0.0, 0.05 + pxw, fr.y);
+            float glint = pow(1.0 - clamp(fr.x, 0.0, 1.0), 8.0);
+            vec3 nI = normalize(vec3(0.0, 1.0, 0.0) + vec3(0.06 * (fr.x - 0.5), 0.0, 0.06 * (fr.y - 0.2)));
+            vec3 rI = normalize(mix(reflect(rd, nI), vec3(0.0, 1.0, 0.0), 0.35));
+            float dif = max(dot(nI, moon), 0.0);
+            vec3 iceCol = pal(hue + 0.58) * (0.04 + 0.12 * dif)
+                        + wiSky(rI, moon, hue) * (0.25 + 0.5 * pow(1.0 - ndv, 3.0))
+                        + pal(hue + 0.55) * crack * (0.10 + treble * 0.9) * exp(-hitT * 0.03)
+                        + vec3(0.9, 0.95, 1.0) * glint * treble * 0.5;
+            // The thin rim where the ice gives onto the lead.
+            float rim = (1.0 - smoothstep(0.0, 0.12, abs(ax - lead))) * 0.25;
+
+            col = mix(iceCol, waterCol, water) + pal(hue + 0.5) * rim + shimmer;
+        } else {
+            vec3 n = normalAt(p, max(0.0015, 0.001 * hitT));
+            float occ = 0.0;
+            float sc = 1.0;
+            for (int k = 0; k < 3; k++) {
+                float hk = 0.1 + 0.16 * float(k);
+                occ += (hk - map(p + n * hk)) * sc;
+                sc *= 0.65;
+            }
+            float ao = clamp(1.0 - 1.6 * occ, 0.25, 1.0);
+            // Restore the hit's material after the normal and AO taps.
+            map(p);
+
+            float dif = max(dot(n, moon), 0.0);
+            float amb = 0.06 + 0.10 * clamp(n.y, 0.0, 1.0);
+            vec3 snowAlb = mix(vec3(0.85, 0.9, 1.0), pal(hue + 0.6), 0.2);
+            vec3 lit = snowAlb * (amb + 0.55 * dif) * ao;
+            if (gMat > 0.5) {
+                // Pine: dark needles, snow lying on what faces up.
+                float cap = smoothstep(0.25, 0.65, n.y + 0.15 * sin(p.y * 9.0 + p.x * 5.0));
+                vec3 needles = pal(hue + 0.3) * 0.03 * (0.5 + dif) * ao;
+                col = mix(needles, lit, cap);
+            } else {
+                col = lit + shimmer;
+            }
+            // Sparkle on the snow: sparse points that glint with treble. z
+            // wrapped like everything else (64 * 6 is whole, so the seam is a
+            // cell wall), or the sparkle would re-hash at every rebase.
+            vec3 gp = vec3(p.xy, mod(p.z, WI_ZWRAP)) * 6.0;
+            float g = hashCell(ivec3(floor(gp)));
+            float tw = 0.5 + 0.5 * sin(uTime * (7.0 + 11.0 * g) + g * 60.0);
+            float pt = 1.0 - smoothstep(0.0, 0.3, length(fract(gp) - 0.5));
+            col += vec3(0.9, 0.95, 1.0) * step(0.95 - 0.05 * treble, g) * pt * tw * (0.1 + 0.9 * treble) * (0.3 + dif);
+        }
+        col = mix(col, fogCol, 1.0 - exp(-hitT * fogK));
+    }
+
+    // Snow in front of whatever the ray met; near-white with a hint of the
+    // palette so it reads as snow on any colour scheme.
+    float density = clamp(0.4 + 0.6 * (uKnob[4] - 0.5) + 0.3 * kick + 0.15 * uTurbulence, 0.1, 0.9);
+    float px1 = 2.0 / (uResolution.y * uCamFocal);
+    float snow = wiSnow(ro, rd, sceneT, wind, density, treble, px1);
+    col += snow * mix(vec3(0.95), pal(hue + 0.6), 0.25) * (0.8 + energy * 0.5);
+
+    col *= 0.8 + 0.25 * swell + 0.12 * energy;
+    col *= 0.7 + 0.3 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

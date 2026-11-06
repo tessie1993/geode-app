@@ -11,7 +11,6 @@ import androidx.media3.exoplayer.ExoPlayer
 import dev.geode.analysis.PlaybackMath
 import dev.geode.audio.AudioFxController
 import dev.geode.audio.AudioFxPresets
-import dev.geode.audio.PcmRingBuffer
 import dev.geode.audio.TapRenderersFactory
 import dev.geode.audio.dsp.NativeDspProcessor
 import dev.geode.data.BehaviourStore
@@ -33,18 +32,13 @@ import kotlinx.coroutines.cancel
 class PlaybackSession internal constructor(
     context: Context,
 ) {
-    val ring = PcmRingBuffer()
-
     internal val sampleRing = SampleRing(capacityFrames = 1 shl 16, channelCount = 2)
 
     @Volatile
     var onAudioFormat: ((sampleRateHz: Int, channelCount: Int, encoding: Int) -> Unit)? = null
 
-    internal val captureSink =
-        PcmSink { samples, frames, channels ->
-            ring.writeInterleaved(samples, frames, channels)
-            sampleRing.write(samples, frames, channels)
-        }
+    /** Where the tap, mic and capture write: the one ring every renderer hears, MilkDrop's raw PCM included. */
+    internal val captureSink: PcmSink = sampleRing
 
     private val prefsFiles = GeodePrefsFiles(context)
 

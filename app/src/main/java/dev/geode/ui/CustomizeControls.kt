@@ -222,7 +222,9 @@ private fun MotionControl(
             ParamChips(key, SceneParams.CAMERA_PATHS, p.camPath.coerceIn(0, SceneParams.CAMERA_PATHS.lastIndex), ParamScope.UNIVERSAL) {
                 onChange(p.copy(camPath = it))
             }
-        ParamKeys.CAM_FLY -> LabeledSlider(key, p.camFly, 0f..2f, default = d.camFly) { onChange(p.copy(camFly = it)) }
+        // Below zero the camera travels backward, and a flat style zooms out instead of in.
+        ParamKeys.CAM_FLY -> LabeledSlider(key, p.camFly, -2f..2f, default = d.camFly) { onChange(p.copy(camFly = it)) }
+        ParamKeys.CAM_FLAT -> LabeledSlider(key, p.camFlat, 0f..1f, default = d.camFlat) { onChange(p.copy(camFlat = it)) }
         ParamKeys.CAM_FOV -> LabeledSlider(key, p.camFov, 0.5f..2f, default = d.camFov) { onChange(p.copy(camFov = it)) }
         ParamKeys.CAM_ORBIT -> LabeledSlider(key, p.camOrbit, 0f..1f, default = d.camOrbit) { onChange(p.copy(camOrbit = it)) }
         ParamKeys.CAM_PUSH -> LabeledSlider(key, p.camPush, -1f..1f, default = d.camPush) { onChange(p.copy(camPush = it)) }

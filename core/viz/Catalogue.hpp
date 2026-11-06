@@ -14,7 +14,8 @@
 namespace geode::viz::catalogue {
 
 // Bumped whenever a row type or field changes meaning; Kotlin refuses a table it cannot read.
-constexpr int kTextVersion = 1;
+// 2: the style row carries its look group.
+constexpr int kTextVersion = 2;
 
 // Which scene class an id builds. One per renderer, not per style. Names match Kotlin's SceneKind.
 enum class Kind { Shader, Silk, Life, Mycelium, Acid, Milkdrop, Fluid, CurlFlow, Water, Cymatics };
@@ -50,6 +51,13 @@ enum class Scope {
 };
 constexpr int kScopeCount = 24;
 
+// The Styles page's group a style is shown in: what it looks like, not which renderer draws it
+// (the owner's groups, 2026-11-02). Names and order match Kotlin's model/StyleLook, which keeps the
+// labels people read. Per-style metadata is engine data (ADR 0003), so the tags live here beside the
+// kind and family they mostly follow, and a style the engine moves between families moves group too.
+enum class Look { Flowing, Living, Psychedelic, Fractals, Space, FlyThrough, Glass, Patterns, Classic };
+constexpr int kLookCount = 9;
+
 struct Range {
     float min;
     float max;
@@ -61,6 +69,7 @@ struct Family {
     const char* name;
     const char* prefix;
     const char* library;  // on core/viz/ShaderSource.cpp's include allow-list
+    Look look;            // every style of the family is shown in this group
     std::array<const char*, 12> ids;
     const char* opener() const { return ids[0]; }
 };
@@ -89,6 +98,9 @@ bool isMarched(const std::string& id);
 // style that holds still (bars, grids, landscapes and trees read as broken when they roll).
 float spinRate(const std::string& id);
 const std::array<Family, 10>& families();
+// The group a style is shown in: a family style by its family, a dedicated renderer's style by its
+// kind, a loose shader style by its own tag. Unknown ids are Silk's, so Flowing.
+Look lookOf(const std::string& id);
 
 // The scope of a Customize control, named by its ParamKeys string. Anything unlisted is Universal.
 Scope scopeOf(const std::string& paramKey);
@@ -96,12 +108,13 @@ bool reaches(Scope scope, const std::string& styleId);
 
 const char* name(Kind kind);
 const char* name(Scope scope);
+const char* name(Look look);
 
 // The whole catalogue as the shell reads it. Built once; the reference lives for the process.
 // Rows, '|'-separated, one per line, in this order:
 //   catalogue|<kTextVersion>
 //   kind|<KIND>|<SCOPE>,<SCOPE>,...       every scope that reaches the kind (MarchDetail never: it is per style)
-//   style|<id>|<KIND>[|MARCH_DETAIL]       allIds() order; the extra field lists per-style scopes
+//   style|<id>|<KIND>|<LOOK>[|MARCH_DETAIL]   allIds() order; the extra field lists per-style scopes
 //   family|<name>|<prefix>|<library>|<id>,<id>,...   opener first
 //   override|<id>|<ParamKeys string>|<value>   the style holds that control at that value
 //   key|<ParamKeys string>|<SCOPE>         every non-Universal control

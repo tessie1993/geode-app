@@ -33,9 +33,10 @@ A frame index means something only with its epoch.
 `oldestAvailable` is the oldest frame a reader may still copy while the writer runs. It keeps one
 write's worth of runway (`maxWriteFrames`) clear of the writer.
 
-The same sink also writes `audio/PcmRingBuffer`, a mono mix. `PlayerSession.latestPcm` hands its
-newest samples to the in-app renderer's `pushPcm`, for the scenes that take raw PCM. It is not the
-sound engine's input.
+There is no second ring. The raw PCM that MilkDrop (projectM) and the PCM scenes take is the mono mix
+of exactly the samples a renderer's sound engine heard since its last frame: `Renderer::writeAudio`
+hands them to `core/viz/PcmHandoff` as well, so every surface (live, cast, wallpaper, dream) feeds
+projectM natively, and a frame with no new samples gives it nothing (#360).
 
 ## 2. One cursor per surface
 

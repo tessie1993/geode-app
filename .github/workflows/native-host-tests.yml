@@ -98,8 +98,8 @@ jobs:
           # Settings › Performance's tiers and the first-run pick for this phone (#437).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/quality_test.cpp -o quality_test
           ./quality_test
-          # The live wallpaper's and the dream's run rule: priority order, preview, listening, the trial's end (#376).
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/surface_run_test.cpp core/api/geode_surface_api.cpp -o surface_run_test
+          # The live wallpaper's and the dream's run rule: priority order, preview, listening, the trial's exact end and its restate, the 6 s silence clock (#376).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/surface_run_test.cpp core/api/geode_surface_api.cpp core/api/geode_sound_api.cpp -o surface_run_test
           ./surface_run_test
           # Reduced motion on the wallpaper and the dream over every flag, the still frame's settle table, each surface's fps choice as the pacer draws it (#441).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/surface_motion_test.cpp core/api/geode_surface_api.cpp -o surface_motion_test

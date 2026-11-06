@@ -47,6 +47,9 @@ jobs:
           # What a live frame owes the shell (#604): the first-frame clear, the quality dedupe, the thermal and Liquid bits.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/renderer_cadence_test.cpp -o renderer_cadence_test
           ./renderer_cadence_test
+          # Which pushed inputs a live frame still owes native (#751): once per version, again on a new surface, stale ignored.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/push_versions_test.cpp -o push_versions_test
+          ./push_versions_test
           # The program-binary cache's crash sentinel, shared by every renderer in the process (#381).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/cache_sentinels_test.cpp -o cache_sentinels_test
           ./cache_sentinels_test

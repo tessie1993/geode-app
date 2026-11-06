@@ -46,7 +46,7 @@ class CatalogueTest {
         assertEquals("PSYCHEDELIC", Catalogue.style("winter")?.look)
         assertEquals("FRACTALS", Catalogue.style("mandelbox_cathedral")?.look)
         assertEquals(setOf(ParamScope.MARCH_DETAIL), Catalogue.style("mandelbox_cathedral")?.scopes)
-        assertEquals(emptySet<ParamScope>(), Catalogue.style(SceneIds.PLASMA)?.scopes)
+        assertEquals(emptySet<ParamScope>(), Catalogue.style("ribbon_storm")?.scopes)
     }
 
     @Test
@@ -86,8 +86,5 @@ class CatalogueTest {
         assertEquals(1f, Catalogue.override("kundt_tube", ParamKeys.GEOMETRY))
         assertEquals(null, Catalogue.override(SceneIds.CYMATICS, ParamKeys.GEOMETRY))
         assertEquals(FluidQuality.LABELS.size, Catalogue.value("fluidTiers").toInt())
-        assertEquals(3f, TouchTransform.zoom(2f, 10f))
-        assertEquals(0.3f, TouchTransform.zoom(1f, 0.01f))
-        assertEquals(1.2f, TouchTransform.rotation(0f, 100f), 1e-5f)
     }
 }

@@ -4,9 +4,9 @@ import androidx.annotation.StringRes
 import dev.geode.R
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.HandReactions
-import dev.geode.render.LfoTarget
 import dev.geode.render.bridge.ModConfigCodec
 import dev.geode.render.scene.BuildStyleReactionsUseCase
+import dev.geode.util.bestEffort
 
 /**
  * A musical moment on Customize › Music: one row ("Kick", "Drop") that the user gives actions to.
@@ -46,10 +46,6 @@ internal enum class MusicAction(
     COLOUR(R.string.music_action_colour),
     CAMERA(R.string.music_action_camera),
     WARP(R.string.music_action_warp),
-    ;
-
-    /** The target native gives a new route of this action, so the page can hide a chip the style ignores. */
-    val target: LfoTarget by lazy { LfoTarget.entries.getOrElse(GeodeNative.musicActionTarget(ordinal)) { LfoTarget.NONE } }
 }
 
 /** One row as native reads it from what plays now (geode_music_state). */
@@ -75,6 +71,15 @@ internal object MusicMoments {
     private const val OP_TOGGLE = 0
     private const val OP_STRENGTH = 1
     private const val OP_RESET = 2
+    private const val TAG = "MusicMoments"
+
+    /** The actions whose target reaches [sceneId] (native decides; geode_music_actions_for): the page hides the rest. */
+    fun actionsFor(sceneId: String): List<MusicAction> {
+        // Native unreachable: show every chip rather than none, and log it.
+        var bits = -1
+        bestEffort(TAG, "musicActionsFor($sceneId)") { bits = GeodeNative.musicActionsFor(sceneId) }
+        return MusicAction.entries.filter { bits and (1 shl it.ordinal) != 0 }
+    }
 
     /** Every row, in [MusicMoment] order. */
     fun rows(

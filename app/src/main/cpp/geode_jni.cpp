@@ -56,8 +56,59 @@ Java_dev_geode_engine_bridge_GeodeNative_dspSetLoudnessMb(JNIEnv*, jobject, jlon
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspSetGainDb(JNIEnv*, jobject, jlong handle, jfloat db) {
-    geode_dsp_set_gain_db(dspOf(handle), db);
+Java_dev_geode_engine_bridge_GeodeNative_dspRampTo(JNIEnv*, jobject, jlong handle, jfloat db, jint ms) {
+    geode_dsp_ramp_to(dspOf(handle), db, ms);
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspSleepFade(JNIEnv*, jobject, jlong handle, jlong remainingMs) {
+    return static_cast<jlong>(geode_dsp_sleep_fade(dspOf(handle), static_cast<int64_t>(remainingMs)));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspSetCrossfade(JNIEnv*, jobject, jlong handle, jint ms) {
+    geode_dsp_set_crossfade(dspOf(handle), ms);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspSetFollowsOn(JNIEnv*, jobject, jlong handle, jboolean followsOn) {
+    geode_dsp_set_follows_on(dspOf(handle), followsOn == JNI_TRUE);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspSetSpeed(JNIEnv*, jobject, jlong handle, jfloat speed) {
+    geode_dsp_set_speed(dspOf(handle), speed);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspSetReplayGain(JNIEnv*, jobject, jlong handle, jint mode, jfloat preampDb,
+                                                          jboolean clipGuard) {
+    geode_dsp_set_replaygain(dspOf(handle), mode, preampDb, clipGuard == JNI_TRUE);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspSetStreamTags(JNIEnv* env, jobject, jlong handle, jstring stream, jint mask,
+                                                          jfloat trackGainDb, jfloat trackPeak, jfloat albumGainDb,
+                                                          jfloat albumPeak) {
+    if (!stream) return;
+    const char* name = env->GetStringUTFChars(stream, nullptr);
+    if (!name) return;
+    geode_dsp_set_stream_tags(dspOf(handle), name, mask, trackGainDb, trackPeak, albumGainDb, albumPeak);
+    env->ReleaseStringUTFChars(stream, name);
+}
+
+// Playback thread, at the processor's flush (not per block), so the string copy here is not on the hot path.
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspBeginStream(JNIEnv* env, jobject, jlong handle, jstring stream, jlong positionUs,
+                                                        jlong durationUs) {
+    const char* name = stream ? env->GetStringUTFChars(stream, nullptr) : nullptr;
+    geode_dsp_begin_stream(dspOf(handle), name, positionUs, durationUs);
+    if (name) env->ReleaseStringUTFChars(stream, name);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_dspEndStream(JNIEnv*, jobject, jlong handle) {
+    geode_dsp_end_stream(dspOf(handle));
 }
 
 JNIEXPORT void JNICALL

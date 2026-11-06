@@ -13,12 +13,12 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "signal/Resolver.hpp"
 #include "sound/SoundEngine.hpp"
 #include "viz/Adsr.hpp"
 #include "viz/CameraRig.hpp"
 #include "viz/CompositePass.hpp"
 #include "viz/Director.hpp"
-#include "viz/FlashLimiter.hpp"
 #include "viz/Framebuffer.hpp"
 #include "viz/GlProfile.hpp"
 #include "viz/LayerState.hpp"
@@ -26,7 +26,6 @@
 #include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/NoteResponse.hpp"
-#include "viz/OutputProbe.hpp"
 #include "viz/Overlays.hpp"
 #include "viz/Params.hpp"
 #include "viz/PcmHandoff.hpp"
@@ -85,8 +84,13 @@ public:
     // Settings › Performance › Liquid on a hot phone (liquid::HotPolicy). Any thread.
     void setLiquidHotPolicy(int policy) { liquidHotPolicy_.store(policy, std::memory_order_relaxed); }
     // What Liquid mode ran last frame (liquid::Mode), so Customize can say when a hot phone simplified
-    // or paused it. Any thread.
-    int liquidMode() const { return liquidMode_.load(std::memory_order_relaxed); }
+    // or paused it, or -1 when it has not changed since the last take. Taken every live frame by
+    // geode_viz_frame_begin (frame::FrameCadence), so the shell wakes its collectors only on a change. A new
+    // surface reports again (onSurfaceCreated). One taker: the live shell's GL thread.
+    int takeLiquidMode() {
+        const int mode = liquidMode_.load(std::memory_order_relaxed);
+        return liquidModeTaken_.exchange(mode, std::memory_order_relaxed) == mode ? -1 : mode;
+    }
     // An export's own auto-director: once pinned, this renderer stops reading the process-wide switch
     // (director::global), so the live player moving on to another track, or past the free taste, never
     // reaches a render in progress. The export hands over the play's seed, so it makes the same film.
@@ -98,10 +102,10 @@ public:
     void setTransition(const std::string& id, int64_t durationMs);
     void beginParamMorph(float seconds);
     void submitTouchPoints(const float* xy, int n) { touchField_.submit(xy, n); }
-    void pushPcm(const float* samples, int count);
     // The sound engine's write side: interleaved PCM in play order, every sample once. A new rate builds a
     // new engine. Call from the render thread before render(), live and in export alike, so the frame the
-    // engine is stepped into covers exactly the audio written up to that frame.
+    // engine is stepped into covers exactly the audio written up to that frame. The same samples, mixed to
+    // mono, are this frame's raw PCM for MilkDrop and the PCM scenes (PcmHandoff): no separate push.
     void writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz);
     // A seek, track change or source switch: drop the engine's history.
     void resetAudio();
@@ -147,6 +151,9 @@ public:
     void warmTransition(const std::string& id);
     void cut();
     void render(double timeSeconds, GLuint targetFbo);
+    // The first frame on a new surface (geode_viz_frame_begin, frame::kFrameClearOnly): black, and nothing
+    // built, so the main thread GLSurfaceView parks in surfaceChanged is released at once.
+    void clearToBlack(GLuint targetFbo);
     void releaseScenes();
     const GlProfile& profile() const { return profile_; }
 
@@ -175,6 +182,9 @@ private:
     void applyRenderScale();
     static float supersampleFactor(int width, int height);
     Scene* resolveActiveScene();
+    // This frame's engine settings (signal/Resolver): the process globals, or the pinned director.
+    signal::EngineSettings latchEngineSettings();
+    // Latches the requested params and configs, steps the resolver, then the device masks.
     SceneParams resolveParams(float dt);
     void resolveLayerScene();
     // beginFrame, under stateLock_: takes the layer layerFollower_ hands over when it changed.
@@ -184,8 +194,6 @@ private:
     void bindSecondaryTarget();
     void drawSceneTarget(Scene& scene, const SceneParams& p, float dt);
     void composite(const SceneParams& p, float progress, GLuint targetFbo, GLuint liquidTex);
-    // Feeds the landed output measurements to the flash limiter and takes this frame's grade.
-    void stepFlashLimiter(float dt);
     // After the composite: the UI blur region, live surfaces only; nothing at strength 0.
     void drawUiBlur(GLuint targetFbo);
     // After the composite, before the output probe: the wallpaper's edge glow, while the shell has it on.
@@ -239,31 +247,20 @@ private:
     TrailPass trailPass_;
     CompositePass compositePass_;
     CompositePass::Inputs compositeInputs_;
-    // The photosensitive flash limit (FlashLimiter.hpp): the probe measures each finished frame, the
-    // limiter reads those one or two frames late and grades the next frame. Its own clock (the sum of
-    // frame dts) never wraps or steps back, unlike timeSeconds_.
-    OutputProbe outputProbe_;
-    safety::FlashLimiter flashLimiter_;
-    safety::Grade flashGrade_;
-    double safetyClock_ = 0.0;
     ThermalGovernor thermal_;
-    LfoEngine lfo_;
-    AdsrEngine adsr_;
-    // Wave three's continuous replacement for FormDrive: the one stage every
-    // family's SceneParams pass through so nothing can key off a drum hit.
-    MotionField motionField_;
-    ReactionEngine reactions_;
-    ReactionEngine macroReactions_;
-    // The auto-director (viz/Director): the music's feeling deciding palette, behaviour and routing.
-    Director director_;
+    // The scene params resolver (signal/Resolver): the per-frame chain from the requested params to the
+    // drawn ones, director to safety clamp, and the stages' state. GL thread only; it is handed copies.
+    signal::Resolver resolver_;
+    // This frame's engine settings, latched once in beginFrame; the sound engine's tuning, the resolver,
+    // the camera and the liquid all read this one copy.
+    signal::EngineSettings frameSettings_{};
+    // A new style came on screen and the resolver has not stepped since (its motion field's variant).
+    bool styleSwitchPending_ = false;
     // Set by pinDirector; read once a frame on the GL thread.
     std::atomic<bool> directorPinned_{false};
     std::atomic<int> directorStyleMoments_{0};
-    int directorCommitsSeen_ = 0;  // GL thread only
     std::atomic<float> pinnedDirectorAmount_{0.0f};
     std::atomic<uint64_t> pinnedDirectorSeed_{0};
-    // Note & key reactions (viz/NoteResponse), after the director's look: knobs, note colours, tint.
-    NoteResponse notes_;
     // Frosted glass under the app's sheet. The region is guarded by stateLock_; uiBlurOn_ lets a frame
     // with no sheet skip the lock.
     UiBlurPass uiBlurPass_;
@@ -281,9 +278,10 @@ private:
     std::atomic<bool> edgeGlowOn_{false};
     std::atomic<bool> offscreen_{false};
     std::atomic<int> fixedFps_{0};
-    // The note layer's seed: the director's play seed mixed with fresh entropy whenever that seed changes,
-    // so every play (and every export) varies on its own, as the user chose (NoteResponse's class comment).
-    uint64_t noteSeed(uint64_t playSeed);
+    // The note layer's entropy (EngineSettings::noteEntropy, mixed with the director's play seed): fresh
+    // whenever that seed changes, so every play (and every export) varies on its own, as the user chose
+    // (NoteResponse's class comment).
+    uint64_t noteEntropyFor(uint64_t playSeed);
     uint64_t notePlaySeed_ = 0;
     uint64_t noteEntropy_ = 0;
     bool noteSeeded_ = false;
@@ -294,10 +292,13 @@ private:
     std::unique_ptr<sound::SoundEngine> sound_;
     GeodeSoundTuning soundTuning_ = sound::SoundEngine::defaultTuning();
     GeodeSoundFrame soundFrame_{};
-    // Customize › Macros: this frame's knobs, and the ones the sound engine's tuning was last built from.
-    MacroKnobs frameKnobs_{};
-    // The user's knobs with the director's laid over them, this frame; what the params and the camera read.
-    MacroKnobs directedKnobs_{};
+    // The engine's feeling, copied with the frame (the director and Note & key read it), and the play it
+    // belongs to: a new director seed is a new play, and the feeling starts over with it.
+    sound::Emotion::State soundEmotion_{};
+    bool soundHeard_ = false;
+    uint64_t emotionSeed_ = 0;
+    bool emotionSeeded_ = false;
+    // Customize › Macros: the knobs the sound engine's tuning was last built from.
     MacroKnobs tunedKnobs_{};
     std::atomic<float> lookYaw_{0.0f};
     std::atomic<float> lookPitch_{0.0f};
@@ -324,8 +325,16 @@ private:
     // SceneRegistry::spinRate of the requested scene, set by setScene so the
     // frame never compares ids.
     std::atomic<float> sceneSpin_{0.0f};
-    float morphFadeSec_ = 0.0f;
-    float morphRemainSec_ = 0.0f;
+    // beginParamMorph's latest request, handed to the resolver at the next frame latch (stateLock_).
+    bool morphRequested_ = false;
+    float morphRequestSec_ = 0.0f;
+    // The configs the shell last set, handed to the resolver at the next frame latch (stateLock_).
+    std::array<LfoConfig, LfoEngine::kSlots> lfoConfigs_{};
+    std::array<AdsrConfig, AdsrEngine::kCount> adsrConfigs_{};
+    std::array<ReactRoute, ReactionEngine::kRoutes> reactionRoutes_{};
+    bool lfoConfigsDirty_ = false;
+    bool adsrConfigsDirty_ = false;
+    bool reactionRoutesDirty_ = false;
     PcmHandoff pcm_;
     int framePcmCount_ = 0;  // GL thread: samples of pcmDeliverScratch_ this frame's scenes get.
     std::vector<float> pcmDeliverScratch_;
@@ -381,15 +390,11 @@ private:
     bool liquidWasOn_ = false;
     std::atomic<int> liquidHotPolicy_{0};
     std::atomic<int> liquidMode_{0};
+    std::atomic<int> liquidModeTaken_{-1};
     bool rippleOverlayOn_ = false;
     bool smearing_ = false;
 
-    SceneParams displayedParams_;
     SceneParams lastFinalParams_;
-    std::array<float, LfoEngine::kSlots> envRate_{};
-    // The envelopes' and LFOs' luminance modulation this frame, for the flash limiter (resolveParams).
-    LuminanceDrive luminanceDrive_{};
-    std::array<float, LfoEngine::kSlots> envDepth_{};
     float postRotationAngle_ = 0.0f;
     float postCyclePhase_ = 0.0f;
     float postBeatPulse_ = 0.0f;

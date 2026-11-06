@@ -14,135 +14,292 @@ out vec4 fragColor;
 //#include lib_chrys
 
 // Chrysanthemum Tunnel: flying down the inside of a flower turned inside
-// out. The tunnel wall is shingled with petals like an artichoke heart or a
-// pine cone: rows of petal scales, each row offset half a column from the
+// out. The tunnel wall is shingled with petal scales like an artichoke heart
+// or a pine cone: rows of scales, each row offset half a column from the
 // last, rooted at their far end with their tips pointing back toward the
-// viewer, the nearer row lying over the tips of the row beyond. At the far
+// viewer, the nearer row lying over the roots of the row beyond. At the far
 // end of the tunnel a small flower glows at the vanishing point.
 //
-// Not a march: the wall is a cylinder, so each ray finds it with one
-// quadratic, and the scales are a 2D pattern on the unrolled wall (two petal
-// evaluations, the row and the row beyond it). Flown with camFly; the scale
-// rows repeat every 32 world units, which divides the rig's 8192 travel wrap,
-// so the wrap never shows.
+// The old style drew the scales as a 2D pattern on one closed-form cylinder.
+// Now every scale is a real thin plate, marched: it lies flat on the wall at
+// its root and rises toward its tip, so the tips stand off the wall, catch
+// the headlamp, and leave a dark crevice (the ambient-occlusion taps) under
+// themselves where the next row tucks in. The wall is a shell (between the
+// bore radius and one unit beyond), so from a wide glide where the eye leaves
+// the bore it still reads as a lit pipe.
 //
-// ---- audio ------------------------------------------------------------------
+// ---- camera -------------------------------------------------------------------
 //
-// A section change is hidden inside a BLOOM. On SND_HELD_HARD_CUT the flower at the
-// vanishing point opens out until its petals fill the whole view, then
+// camFly: travel down the bore is the rig's. The eye's z is rebased by
+// TU_ZWRAP (64). Every z term has a period that divides it: the rows repeat
+// every 32 (64 rows of 0.5, hashed by mod(row, 64)), the twist winding and the
+// bend have periods 32 and 64, and 64 divides the rig's 8192 travel wrap, so
+// neither the rebase nor the wrap ever shows. Catalogue's spin rolls the view
+// (uRotation), which down a round tube reads as the tunnel turning.
+//
+// ---- audio --------------------------------------------------------------------
+//
+// A section change is hidden inside a BLOOM. On SND_HELD_HARD_CUT the flower at
+// the vanishing point opens out until its petals fill the whole view, then
 // closes again (chrysBump over the 1.5 s envelope, so it starts from rest).
 // The tunnel's palette steps to a new hash of SND_CUT_COUNT exactly when the
 // envelope crosses its midpoint - the moment the bloom covers the screen - so
 // the old tunnel goes in behind the petals and a new one comes out. The bloom
 // is drawn at the scene's own light level; it is a change of shape and hue,
-// not a flash. The sub band (sndSpectrum(0.10)) lifts the scale tips off the wall,
-// deepening the shadow each casts on the row below. Brightness follows SND_LEVEL
-// only.
+// not a flash. The sub band (sndSpectrum(0.10)) lifts the scale tips off the
+// wall - geometry now, each scale by its own share - deepening the crevice
+// under each one. Brightness follows SND_LEVEL only.
 //
-// ---- macros -----------------------------------------------------------------
+// ---- macros and knobs -----------------------------------------------------------
 //
-// Speed: uSpeed scales the far flower's turn and the hue drift (travel is the
-// rig's). Complexity: uMorph adds columns of scales round the tunnel (14 up
-// to 22). Chaos: uTurbulence + uWarp give the scales uneven lengths and torn
-// edges; uTwist winds the rows into a helix. Energy: uIntensity scales the
-// section bloom and the sub lift. Colour: pal() for the scales, the far
-// flower and the fog. Camera: the rig, via camFly.
+// Complexity: uMorph adds columns of scales round the tunnel (14 up to 22).
+// Chaos: uTurbulence + uWarp give the scales uneven lengths and torn edges,
+// and uWarp also bends the bore; uTwist winds the rows into a wavy helix.
+// Energy: uIntensity scales the section bloom and the sub lift. Colour: pal()
+// for the scales, the far flower and the fog. Knobs (offsets from 0.5, so off
+// is the tuned look): k0 PULSE the sub lift, k1 TEXTURE the torn edges, k2
+// FLOW the headlamp, k3 TONE the hue, k4 BUILD the bloom's reach, k5 SPACE the
+// bore radius.
+//
+// ---- why the distance estimate is safe -------------------------------------------
+//
+// Outside the band of radii the scales can occupy (gHmax deep inside the
+// wall), the field is the plain radial gap, exact. Inside it, each sample
+// measures the scale of its own column in three rows (the row it is in, the
+// row beyond whose tips reach over it, the row before whose root edge borders
+// it). A scale is at most 0.42 of its column wide and at most 1.76 rows long,
+// so every scale not measured is at least as far as the column edge (taken
+// per row) or the row cap (0.12 world units at the least): both are mixed in
+// with min(), which keeps the result a lower bound. The plates rise at most
+// 1.5 per unit along the row, the twist and bend shear by ~0.35, and the torn
+// edge adds up to ~0.5 per unit of Chaos, so the band's field is divided by
+// gLip = 1.9 + 0.5 * chaos, above sqrt(1 + 1.5^2 + 0.35^2). Arcs are measured
+// at the sample's own radius, so the across distance is true to within the
+// chord (cos 0.22, about 1%). A sphere around the eye is carved out of
+// everything, so the eye is never inside a scale. The march starts where the
+// ray leaves the inner cylinder no part of the band can reach.
 
-#define TU_RADIUS 3.4
+#define TU_MAX_STEPS 110
+#define TU_RADIUS 4.0
+/** World units per row of scales. */
 #define TU_ROW 0.5
+/** A scale's length at rest, world units (1.6 rows). */
+#define TU_LEN 0.8
+/** Half-thickness of a scale plate. */
+#define TU_THICK 0.025
+/** Thickness of the wall shell behind the scales. */
+#define TU_SHELL 1.0
+/** Rebase period of the eye's z; divides 8192. */
+#define TU_ZWRAP 64.0
+#define TU_FAR 44.0
+#define TU_BUBBLE 0.7
 
 float gT;
 float gChaos;
+float gR;
+float gCols;
+float gWidth;
+float gLiftW;
+float gHmax;
+float gTwistAmp;
+float gBend;
+float gLip;
+vec3 gEye;
+/** Set by map(): 1 on a scale, 0 on the bare wall; the scale's u, v and hash. */
+float gMat;
+float gU;
+float gV;
+float gHash;
 
-// The scale pattern at wall point (column coord, row coord). Returns colour.
-vec3 tunnelScales(vec2 w, float cols, float hue, float lift, float aa, out float shade) {
-    vec3 col = pal(hue + 0.5) * 0.03;
-    shade = 0.0;
-    float row = floor(w.y);
-    // The row beyond first (its tips reach into this row), then this row on top.
-    for (int s = 0; s < 2; s++) {
-        float rr = row + (s == 0 ? 1.0 : 0.0);
-        float off = 0.5 * mod(rr, 2.0);
-        float cx = floor(w.x - off) + 0.5 + off;
-        float id = mod(rr, 64.0) * 37.0 + mod(floor(w.x - off), cols);
-        float h = chrysHash1(id);
-        // Petal frame: base at the top of row rr, pointing toward lower rows.
-        vec2 lq = vec2(w.x - cx, (rr + 1.0) - w.y);
-        float len = 1.6 * (1.0 + 0.2 * gChaos * chrysWobble(id, gT));
-        vec4 pet = chrysLeaf(lq, len, 0.33, 0.35, 0.6);
-        pet.x += chrysFray(lq * 0.25, gChaos) * 3.0;
-        // Shadow cast down the wall, longer when the tips lift.
-        col *= 1.0 - 0.6 * smoothstep(0.1 + 0.4 * lift, -0.02, pet.x + 0.15 * lift * clamp(pet.y, 0.0, 1.0));
-        float m = smoothstep(aa, -aa, pet.x);
-        float u = clamp(pet.y, 0.0, 1.0);
-        vec3 pc = mix(pal(hue + 0.06 * h) * 0.3, mix(pal(hue + 0.08 + 0.06 * h), vec3(1.0), 0.2), u);
-        pc *= chrysPetalShade(pet, 0.35);
-        col = mix(col, pc, m);
-        shade = mix(shade, u * lift, m);
+/** The bore's centre at depth z: the Warp bend, periods 32 and 64. */
+vec2 boreCentre(float z) {
+    return gBend * vec2(sin(z * (CHRYS_TAU / 32.0)), cos(z * (CHRYS_TAU / 64.0)));
+}
+
+float map(vec3 p) {
+    vec2 q = p.xy - boreCentre(p.z);
+    float r = length(q);
+    float dWall = max(gR - r, r - gR - TU_SHELL);
+    gMat = 0.0;
+    float d = dWall;
+    if (r > gR - gHmax) {
+        float h = gR - r;
+        float s = atan(q.y, q.x) / CHRYS_TAU * gCols + gTwistAmp * sin(p.z * (CHRYS_TAU / 32.0));
+        float wy = p.z / TU_ROW;
+        float row = floor(wy);
+        float colArc = CHRYS_TAU * r / gCols;
+        // Rows not measured: the ones beyond start 1.24 rows up at the nearest.
+        float capped = (row + 1.24 - wy) * TU_ROW;
+        float best = 1e9;
+        for (int k = -1; k < 2; k++) {
+            float rr = row + float(k);
+            float off = 0.5 * mod(rr, 2.0);
+            float ci = floor(s - off);
+            float cx = ci + 0.5 + off;
+            float id = mod(rr, 64.0) * 37.0 + mod(ci, gCols);
+            float hh = chrysHash1(id);
+            float len = TU_LEN * (1.0 + 0.05 * gChaos * chrysWobble(id, gT));
+            // Scale frame: root at the far edge of row rr, pointing back at the eye.
+            vec2 lq = vec2((s - cx) * colArc, (rr + 1.0 - wy) * TU_ROW);
+            vec4 pet = chrysLeaf(lq, len, gWidth, 0.35, 0.6);
+            pet.x += chrysFray(lq * 0.5, gChaos) * 0.75;
+            float u = clamp(pet.y, 0.0, 1.0);
+            // Flat on the wall at the root, rising toward the tip.
+            float hy = 0.06 * u + gLiftW * (0.75 + 0.5 * hh) * u * u;
+            float dc = max(pet.x, abs(h - hy) - TU_THICK);
+            if (dc < best) {
+                best = dc;
+                gU = u;
+                gV = pet.z;
+                gHash = hh;
+            }
+            // The rest of this row lies past the column edge.
+            capped = min(capped, (0.5 - abs(s - cx)) * colArc * 0.98 + 0.01);
+        }
+        float dp = min(best, capped) / gLip;
+        if (best < dWall) gMat = 1.0;
+        d = min(dWall, dp);
+    } else {
+        // Clear of every scale: the gap to the band.
+        d = min(dWall, gR - gHmax - r + 0.01);
     }
-    return col;
+    return max(d, TU_BUBBLE - length(p - gEye));
+}
+
+vec3 normalAt(vec3 p, float eps) {
+    vec2 k = vec2(1.0, -1.0);
+    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
+                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
 }
 
 void main() {
     vec2 uv = view();
+
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+
     gT = uTime;  // uTime already integrates Speed (ShaderScene::update)
-    gChaos = clamp(uTurbulence + uWarp, 0.0, 2.0);
+    gChaos = clamp((uTurbulence + uWarp) * (1.0 + kTexture), 0.0, 2.0);
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float sect = clamp(SND_HELD_HARD_CUT, 0.0, 1.0);
-    float lift = clamp(sndSpectrum(0.10) * uIntensity, 0.0, 1.5);
-    float cols = 14.0 + 2.0 * floor(4.0 * clamp(uMorph, 0.0, 1.0) + 0.5);
+    float lift = clamp(sndSpectrum(0.10) * uIntensity, 0.0, 1.5) * clamp(1.0 + kPulse, 0.5, 1.5);
+    gCols = 14.0 + 2.0 * floor(4.0 * clamp(uMorph, 0.0, 1.0) + 0.5);
+    gR = TU_RADIUS + 1.2 * kSpace;
+    gLiftW = 0.18 * lift;
+    gHmax = 0.06 + 1.25 * gLiftW + TU_THICK + 0.03;
+    gWidth = 0.30 * (CHRYS_TAU * gR / gCols) / TU_ROW;
+    gTwistAmp = clamp(uTwist, -1.0, 1.0);
+    gBend = 0.5 * clamp(uWarp, 0.0, 1.0);
+    gLip = 1.9 + 0.5 * gChaos;
 
     // The palette steps at the bloom's peak, hidden behind its petals.
     float sectionIdx = SND_CUT_COUNT - (sect > 0.5 ? 1.0 : 0.0);
-    float hue = chrysHash(vec2(sectionIdx * 0.73, 4.0)) + gT * 0.002;
-    float nextHue = chrysHash(vec2(SND_CUT_COUNT * 0.73, 4.0)) + gT * 0.002;
+    float hue = chrysHash(vec2(sectionIdx * 0.73, 4.0)) + gT * 0.002 + 0.12 * kTone;
+    float nextHue = chrysHash(vec2(SND_CUT_COUNT * 0.73, 4.0)) + gT * 0.002 + 0.12 * kTone;
 
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
+    // Every z term tiles with a period dividing 64, so this shift is exact
+    // and invisible, and z keeps its precision far down the travel.
+    ro.z = mod(ro.z, TU_ZWRAP);
+    gEye = ro;
 
-    // The wall: the far root of |ro.xy + t rd.xy| = R (the eye is inside).
-    float qa = max(dot(rd.xy, rd.xy), 1e-5);
-    float qb = dot(ro.xy, rd.xy);
-    float qc = dot(ro.xy, ro.xy) - TU_RADIUS * TU_RADIUS;
-    float t = (-qb + sqrt(max(qb * qb - qa * qc, 0.0))) / qa;
-    vec3 p = ro + rd * t;
-    float ang = atan(p.y, p.x);
-    vec2 w = vec2(ang / CHRYS_TAU * cols + uTwist * p.z * 0.3, p.z / TU_ROW);
-    // Pixel footprint on the wall in cell units, so far scales blur, not shimmer.
-    float aa = clamp(t * 2.5 / uResolution.y * cols / (CHRYS_TAU * TU_RADIUS) / max(abs(dot(rd, -normalize(vec3(p.xy, 0.0)))), 0.08), 0.004, 0.5);
-    float lifted;
-    vec3 col = tunnelScales(w, cols, hue, lift, aa, lifted);
-    // Headlamp from the eye, the scale tips tilting toward it as they lift.
-    vec3 n = normalize(vec3(-p.xy / TU_RADIUS, -0.6 * lifted));
-    float diff = max(dot(n, -rd), 0.0);
-    col *= 0.35 + 0.85 * diff;
+    // Skip the empty middle: nothing comes nearer the axis than the band's
+    // inner radius less the bend.
+    float rin = gR - gHmax - 1.42 * gBend - 0.05;
+    float t = 0.03;
+    float qa = dot(rd.xy, rd.xy);
+    float qc = dot(ro.xy, ro.xy) - rin * rin;
+    if (rin > 0.5 && qc < 0.0) {
+        if (qa < 1e-6) {
+            t = TU_FAR;
+        } else {
+            float qb = dot(ro.xy, rd.xy);
+            t = max(t, (-qb + sqrt(max(qb * qb - qa * qc, 0.0))) / qa);
+        }
+    }
 
-    // Fog toward the far end, which glows.
+    float hitT = -1.0;
+    for (int i = 0; i < TU_MAX_STEPS; i++) {
+        // uSteps is the user's Detail; this loop's own bound is the constant.
+        if (float(i) >= uSteps) break;
+        if (t > TU_FAR) break;
+        float d = map(ro + rd * t);
+        float eps = 0.0012 + 0.0007 * t;
+        if (d < eps) {
+            hitT = t;
+            break;
+        }
+        t += max(d * 0.9, eps);
+    }
+
     vec3 fogCol = pal(hue + 0.12) * 0.12;
-    col = mix(col, fogCol, 1.0 - exp(-t * 0.05));
     float ahead = pow(max(rd.z, 0.0), 24.0);
-    col += pal(hue + 0.1) * 0.25 * ahead;
+    vec3 col = fogCol;
+    float fogAmt = 1.0;
+
+    if (hitT > 0.0) {
+        vec3 p = ro + rd * hitT;
+        vec3 n = normalAt(p, max(0.0015, 0.0008 * hitT));
+        // The crevice under each lifted tip, from two taps along the normal.
+        float occ = 0.0;
+        for (int k = 0; k < 2; k++) {
+            float hk = 0.05 + 0.1 * float(k);
+            occ += (hk - map(p + n * hk)) * (1.0 - 0.4 * float(k));
+        }
+        float ao = clamp(1.0 - 2.2 * occ, 0.3, 1.0);
+        // Restore the hit point's globals after the normal and AO taps.
+        map(p);
+
+        vec3 base;
+        if (gMat > 0.5) {
+            vec3 pc = mix(pal(hue + 0.06 * gHash) * 0.3, mix(pal(hue + 0.08 + 0.06 * gHash), vec3(1.0), 0.2), gU);
+            base = pc * chrysPetalShade(vec4(0.0, gU, gV, 0.0), 0.35);
+        } else {
+            base = pal(hue + 0.5) * 0.04;
+        }
+        // Headlamp from the eye: the tips tilt toward it as they lift.
+        float ndv = clamp(dot(n, -rd), 0.0, 1.0);
+        float lamp = 0.35 + 0.85 * ndv * clamp(1.0 + kFlow, 0.4, 1.6);
+        col = base * lamp * ao;
+        // The far flower's light rims the scale edges facing it.
+        float fres = pow(1.0 - ndv, 3.0);
+        col += pal(hue + 0.1) * 0.10 * fres * max(n.z + 0.3, 0.0) * gMat;
+        col += vec3(0.25) * pow(ndv, 40.0) * gMat * gU * ao;
+
+        fogAmt = 1.0 - exp(-hitT * 0.055);
+        col = mix(col, fogCol, fogAmt);
+    }
+    col += pal(hue + 0.1) * 0.25 * ahead * fogAmt;
 
     // The flower at the vanishing point, and the bloom that hides the change.
     if (rd.z > 0.05) {
         vec2 vq = rd.xy / rd.z;
-        float size = 0.07 + 3.6 * uIntensity * chrysBump(sect);
+        float bump = chrysBump(sect);
+        float size = 0.07 + 3.6 * uIntensity * clamp(1.0 + kBuild, 0.5, 1.5) * bump;
         float bh = mix(hue, nextHue, smoothstep(0.55, 0.45, sect));
         vec2 fq = chrysTurn(gT * 0.1) * vq;
+        // At rest the flower sits far down the bore, behind the fog; while it
+        // blooms it opens in front of everything.
+        float cover = smoothstep(0.15, 0.45, bump);
+        float front = max(fogAmt, cover);
         // Behind the petals, a disc that only exists during the bloom, so the
         // gaps between petals never show the palette stepping.
-        float cover = smoothstep(0.15, 0.45, chrysBump(sect));
         col = mix(col, pal(bh + 0.04) * 0.14, cover * smoothstep(size * 0.8, size * 0.55, length(vq)));
         for (int i = 0; i < 2; i++) {
             float k = float(i);
             float count = 9.0 + 4.0 * k;
             vec4 pet = chrysPetal(chrysTurn(chrysRingOffset(k, count)) * fq, count, size * 0.12, size * (1.0 - 0.3 * k), 0.5, 0.4 / max(size, 0.2), 0.4, 0.5);
-            float m = smoothstep(0.006 * (1.0 + size), -0.006 * (1.0 + size), pet.x);
+            float m = smoothstep(0.006 * (1.0 + size), -0.006 * (1.0 + size), pet.x) * front;
             vec3 pc = mix(pal(bh) * 0.18, pal(bh + 0.08) * 0.42, clamp(pet.y, 0.0, 1.0)) * chrysPetalShade(pet, 0.4);
             col = mix(col, pc, m);
         }
-        col = mix(col, pal(bh + 0.55) * 0.45, chrysCore(length(vq), size * 0.1));
+        col = mix(col, pal(bh + 0.55) * 0.45, chrysCore(length(vq), size * 0.1) * front);
     }
 
     col *= 0.85 + 0.15 * swell;

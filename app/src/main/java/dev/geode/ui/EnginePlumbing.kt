@@ -51,7 +51,6 @@ fun VisualizerEngineBindings(
 
     LaunchedEffect(Unit) {
         visualizerView.visualizerRenderer.onShaderError = viewModel::reportShaderError
-        visualizerView.visualizerRenderer.pcmProvider = { viewModel.latestPcm() }
         visualizerView.visualizerRenderer.soundInput = { dev.geode.audio.AudioBus.soundInput }
         // This view is the stage Record captures (ADR 0008); no other VisualizerView ever is.
         visualizerView.visualizerRenderer.takeStage = true

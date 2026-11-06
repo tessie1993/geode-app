@@ -20,8 +20,8 @@ namespace geode::viz {
 //              the director's own) laid over the user's, the camera rig's music moves, its spring
 //              softness, the motion field's breath, orbit and drift
 //   what reacts to what ─► a reaction engine of its own, re-dealt from the feeling's archetypes, with its
-//              hands off every moment the user set by hand (Customize › Music, hand::global in
-//              viz/Reactions.hpp): the hand wins per moment
+//              hands off every moment the user set by hand (Customize › Music, the hand mask of
+//              viz/Reactions.hpp, handed to step()): the hand wins per moment
 //
 // It decides at musical moments only: the first confident key,
 // a new section, a drop, a modulation that holds, and after 32 bars without one. Each decision is a
@@ -81,11 +81,14 @@ public:
     enum class Reason { First, Section, Drop, Modulation, Long };
 
     void configure(const DirectorConfig& config);
+    // `handMask` is Customize › Music's hand mask (viz::hand): the routes keep off every moment it sets.
+    // An input, not hand::global, so a resolver's engine settings decide it (signal/Resolver, #344); 0 is
+    // nothing the hand's, the global's own default.
     // Hears the frame and steps its own feeling with it (tests, and a renderer with no sound engine).
-    void step(const GeodeSoundFrame& f, float dt);
+    void step(const GeodeSoundFrame& f, float dt, std::uint32_t handMask = 0);
     // Hears the frame with the feeling the sound engine stepped on its own sample clock: the renderer's
     // way, so the feeling is the same at every frame rate and in an export.
-    void step(const GeodeSoundFrame& f, const sound::Emotion::State& heard, float dt);
+    void step(const GeodeSoundFrame& f, const sound::Emotion::State& heard, float dt, std::uint32_t handMask = 0);
 
     // Before the macros: the palette and the motion character, lerped by the amount. `palWheel` says how
     // the scene reads paletteBase: true for the shader styles (lib_palette's pal() runs the colour wheel

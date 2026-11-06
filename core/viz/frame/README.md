@@ -7,10 +7,14 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 **Here now:** `Thermal.hpp`, the process's one thermal state (`ThermalState::process()`, #440). It holds PowerManager's readings, the once-a-second cadence (`claimSample`), the NaN rule (a missed window keeps the last real headroom for 10 s), the dwell and the settled tier; every `Renderer`'s `ThermalGovernor` (`core/viz/ThermalGovernor`) reads it and adds only what that renderer alone sees (its frame times, an export's pin to Full). The tier ladder `thermalTierInfo` is the owner's fps-first order: fps to 30, then render scale, then march scale, then post FX. Android keeps only the reads (`render/ThermalGovernor.kt`). It is reached through `geode_thermal_*` and tested by `core/tests/thermal_test.cpp`.
 
 **Beside it, still in `core/viz`:** `SurfaceRun.hpp`, the wallpaper's and the dream's run rule (stopped, still, moving; reduced motion holds a still frame), the still frame's settle and each surface's fps choice, which caps its pacer. Reached through `geode_surface_*`, tested by `core/tests/surface_run_test.cpp`.
+**Here now:** `Cadence.hpp`, what a live surface's frame owes the shell (#604). `VisualizerRenderer.kt` makes one call per frame, `geode_viz_frame_begin`, with the pacer's cap and Settings › Performance; native applies the quality only when it changed (`offerQuality`, equal by bits so a NaN pref is applied once), clears a new surface's first frame and builds nothing on it (`Renderer::clearToBlack`, so the main thread `GLSurfaceView` parks in `surfaceChanged` is released at once), and answers a bitmask: `GEODE_FRAME_THERMAL_DUE` when this surface won the process's thermal slot, `GEODE_FRAME_LIQUID_CHANGED` with the new Liquid mode. Android keeps only the PowerManager read the bit asks for. Tested by `core/tests/renderer_cadence_test.cpp`.
 
 Export post-passes: `ExportPasses` (watermark, loop seam, Studio GL transition and its capture; #442) with their pure maths in `ExportPassMath.hpp` (`core/tests/export_passes_test.cpp`), driven through `geode_export_*` until `FrameGraph::run` owns the export frame.
 
+**Here now:** `HlsSegments.hpp`, Cast's HLS segment durations from the fragments' media time and the playlist text (#656; `core/tests/hls_segments_test.cpp`).
+
 **Owns:** the one frame function every surface runs (screen, PiP, second screen, wallpaper, dream, Studio preview, export, thumbnails), and the pieces it is built from.
+- Cast's frame timing, as the one surface that streams its frames: the fixed-rate frame clock that stamps each frame's PTS, and the HLS timing of the stream those frames become (each segment's media duration read from its fragment, the stream's fixed `EXT-X-TARGETDURATION`, the playlist text). Sockets and byte cutting stay in Kotlin's `cast/`.
 - `FrameCtx`: this frame's effective params (from `core/signal`), the sound frame and source snapshot, camera pose, touch, flow, palette LUT, knobs. Replaces the ~20 `Scene` setters (`setFlow`, `setPaletteLut`, `setTouchField`, `setCamera`, …; `core/viz/Scene.hpp:22-62`) and the `SceneHost` callbacks (`:65-76`).
 - `Pass`: `prepare(FrameCtx)`, `draw(inputs, target)`. Trail, Liquid, Composite, UiBlur, and the post-passes (watermark and loop seam, still Kotlin GL; edge glow, native since #439) all implement it.
 - `LayerStack`: entries of scene + params + blend + mix. Replaces the three ad-hoc slots (layer, outgoing, born; `Renderer.hpp:333-336`, `:314-318`).
@@ -24,6 +28,6 @@ Export post-passes: `ExportPasses` (watermark, loop seam, Studio GL transition a
 
 **fosfora:** `gpu/frame_prep.rs`, `gpu/frame_graph.rs` (`execute_and_composite`, "extracted … the headless scene renderer would have been a third copy"), `gpu/layer.rs` (`Layer`, `LayerStack`), `gpu/uniforms.rs` (append-only, layout-guarded).
 
-**Here now:** `FixedRateClock.hpp`, the fixed-rate frame clock Cast paces by (#572; `core/tests/cast_clock_test.cpp`).
+**Here now:** `FixedRateClock.hpp`, the fixed-rate frame clock Cast paces by (#572; `core/tests/cast_clock_test.cpp`), and `HlsSegments.hpp`, Cast's HLS segment durations from the fragments' media time and the playlist text (#656; `core/tests/hls_segments_test.cpp`).
 
 **Test that proves it:** the thumbnail render test (`StyleThumbnailRenderTest`) and an export of a fixed project produce the same frames before and after each move (pixel diff within tolerance).

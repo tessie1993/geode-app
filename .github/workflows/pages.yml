@@ -13,13 +13,12 @@ name: Publish docs site (GitHub Pages)
 #   /help/                docs/help/  (when it exists)
 #
 # One-time setup by the repo owner: Settings > Pages > Build and deployment >
-# Source = "GitHub Actions". The github-pages environment only lets the default
-# branch (claude/geode-finish) deploy until main is added under Settings >
-# Environments > github-pages > Deployment branches.
+# Source = "GitHub Actions". The github-pages environment deploys from the default
+# branch (main).
 
 on:
   push:
-    branches: ["main", "claude/geode-finish"]
+    branches: ["main"]
     paths:
       - "docs/privacy-policy.html"
       - "docs/site/**"

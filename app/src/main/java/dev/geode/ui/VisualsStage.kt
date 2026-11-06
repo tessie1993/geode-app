@@ -96,7 +96,7 @@ internal fun BoxScope.VisualsStage(
 }
 
 /**
- * The icons over the visual, the visible twins of its gestures: Cast, Studio and Full screen (the
+ * The icons over the visual, the visible twins of its gestures: Cast, Settings, Studio and Full screen (the
  * options hidden or back) at the top right, ‹ › at the sides of the part of the visual in view,
  * Record at the bottom right just above the sheet. [endPx] moves the right-hand ones clear of the
  * landscape side panel, and [sheetTopPx] lifts Record over the portrait sheet; both are read in the
@@ -115,6 +115,7 @@ internal fun BoxScope.StageIcons(
     endPx: () -> Float,
     onFullScreen: () -> Unit,
     onOpenStudioRender: () -> Unit,
+    onSettings: () -> Unit,
     onStep: (Int) -> Unit,
 ) {
     val studioViewModel: StudioViewModel = geodeViewModel()
@@ -147,6 +148,8 @@ internal fun BoxScope.StageIcons(
                 )
             }
         }
+        // Visuals › Settings, a page of the options (owner: an icon, no drop-down, no gesture).
+        StageIconButton(StoneIcon.SETTINGS, stringResource(R.string.visuals_qs_title), awake, onSettings)
         // Export, loop render and the takes list live in Studio; this only takes you there.
         StageIconButton(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render), awake, onOpenStudioRender)
         StageIconButton(

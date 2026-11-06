@@ -11,6 +11,7 @@
 #include "viz/FrameStep.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Quad.hpp"
+#include "viz/SceneCameraMode.hpp"
 
 namespace geode::viz {
 
@@ -415,8 +416,10 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
                             !endless::keepsTriangle(activeScene_->id());
     // Liquid mode owns the dive: a 3D style dives by flying the rig through it, at Dive speed.
     if (liquidOn() && activeScene_ != nullptr && activeScene_->drawsCamera()) rigParams.endlessZoom = true;
-    // Every style is on rails until its port flips the catalogue's rails row (#473), so the camera's
-    // Mode stays at its default, Rails, here.
+    // The catalogue's rails flag (#473): a marched style stays on rails until its port lists it as 6-DoF.
+    // A style that does not march keeps Rails, today's rig. setMode is a no-op while the style holds, so
+    // only a switch (or a new scene) changes anything.
+    if (activeScene_ != nullptr) camera_.setMode(sceneCameraMode(activeScene_->id()));
     scene::camera::FrameInput in;
     in.params = &rigParams;
     in.look = look;
@@ -463,8 +466,10 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     const GLuint liquidTex = drawLiquid(*scene, p, dt);
     stepFlashLimiter(dt);
     composite(p, progress, targetFbo, liquidTex);
-    // Measured after the composite, before the UI blur: the glass sheet is not the visual (and an export
-    // never draws it). Live and export both run this, so a render is limited exactly like the screen.
+    // The edge glow is part of what the wallpaper shows, so the probe below measures the frame with it.
+    drawEdgeGlow(targetFbo, timeSeconds, dt);
+    // Measured after the composite and the edge glow, before the UI blur: the glass sheet is not the visual
+    // (and an export never draws it). Live and export both run this, so a render is limited exactly like the screen.
     outputProbe_.capture(targetFbo, width_, height_, flashGrade_, safetyClock_);
     drawUiBlur(targetFbo);
 }
@@ -477,6 +482,26 @@ void Renderer::drawUiBlur(GLuint targetFbo) {
         region = uiBlurRegion_;
     }
     uiBlurPass_.draw(region, targetFbo, width_, height_, quadVao_);
+}
+
+void Renderer::drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt) {
+    // Off, the pass still hears the switch, so turning it on again starts its envelope from rest.
+    if (!edgeGlowOn_.load(std::memory_order_relaxed)) {
+        edgeGlowPass_.setOptions(frame::edge_glow::Options{});
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        edgeGlowPass_.setOptions(edgeGlowOptions_);
+    }
+    // The renderer has no surface kind of its own yet: the wallpaper is the only caller that turns the
+    // glow on, so an on glow means a wallpaper frame, unless this renderer is an export's.
+    const frame::Surface surface =
+        offscreen_.load(std::memory_order_relaxed) ? frame::Surface::Export : frame::Surface::Wallpaper;
+    const frame::FrameCtx ctx{width_, height_, timeSeconds, dt, surface, &soundFrame_};
+    if (!edgeGlowPass_.wants(ctx)) return;
+    edgeGlowPass_.prepare(ctx);
+    edgeGlowPass_.draw(frame::PassInputs{}, frame::PassTarget{targetFbo, width_, height_});
 }
 
 void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {

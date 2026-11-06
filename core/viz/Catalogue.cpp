@@ -111,6 +111,14 @@ constexpr std::array<const char*, 63> kFamilyMarched = {
     "foam_orb", "foam_kaleido", "foam_ink", "foam_coral", "foam_ghost", "foam_show",
 };
 
+// The marched styles already ported to a full 6-DoF environment (#511): the free camera flies them
+// unclamped. Every other marched style is on rails (cameraMode). A port flips its style by adding
+// its id here, one line per style.
+constexpr std::array<const char*, 0> kSixDof = {
+    // Morph World ("morph_world", kMorphWorld on PR #314) goes here first when it lands: the first
+    // full environment, the lib_world pattern every port follows.
+};
+
 // The styles whose look is a turning one (kaleidoscopes, mandalas, spirals, vortices, tunnels),
 // each with its own rate and direction so no two turn alike: a vortex winds fast, a dome barely
 // creeps, tunnels counter. Every other style holds still unless the user turns it.
@@ -340,6 +348,17 @@ std::string build() {
     // The Fluid tab's quality chips are labelled in Kotlin; this says how many tiers they index.
     out += "value|fluidTiers|" + std::to_string(fluid::quality::kTierCount) + "\n";
     out += "value|touchRotationPerDegree|" + number(kTouchRotationPerDegree) + "\n";
+    // The styles whose free camera is clamped to today's rig. Last, as its own row type, so a shell
+    // that predates it reads the rest of the table unchanged.
+    out += "rails|";
+    bool firstRail = true;
+    for (const auto& id : allIds()) {
+        if (cameraMode(id) != CameraMode::Rails) continue;
+        if (!firstRail) out += ',';
+        out += id;
+        firstRail = false;
+    }
+    out += '\n';
     return out;
 }
 
@@ -385,6 +404,11 @@ Kind kindOf(const std::string& id) {
 }
 
 bool isMarched(const std::string& id) { return listed(kLooseMarched, id) || listed(kFamilyMarched, id); }
+
+CameraMode cameraMode(const std::string& id) {
+    if (!isMarched(id)) return CameraMode::None;
+    return listed(kSixDof, id) ? CameraMode::SixDof : CameraMode::Rails;
+}
 
 float spinRate(const std::string& id) {
     for (const Spin& known : kSpinning) {

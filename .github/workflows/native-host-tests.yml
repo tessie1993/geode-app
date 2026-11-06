@@ -33,10 +33,11 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub             core/tests/viz_math_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Lfo.cpp core/viz/Macros.cpp             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o viz_math_test
           ./viz_math_test
           # The scene camera (#512): rails = today's rig bit for bit, comfort caps, flip budget, horizon
-          # recovery, cut spacing, takeover glide-back, keyframes, reduced motion -> Calm, 30/60/120 fps.
+          # recovery, cut spacing, takeover glide-back, keyframes, reduced motion -> Calm, 30/60/120 fps,
+          # and the catalogue's rails flag (#473) clamping the free camera.
           g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/scene_camera_test.cpp core/scene/camera/*.cpp \
             core/viz/CameraRig.cpp core/viz/VisualSafety.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
-            core/signal/params/*.cpp -o scene_camera_test
+            core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/signal/params/*.cpp -o scene_camera_test
           ./scene_camera_test
           # The fluid engine: multigrid pressure plan, MacCormack, splat batching, heat, tracers, tiers.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/fluid_math_test.cpp core/viz/fluid/FluidMath.cpp -o fluid_math_test
@@ -47,6 +48,9 @@ jobs:
           # Which built scenes stay on the GPU (#378): a bounded LRU with pins, spares by thermal tier, lazy resize.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/scene_residency_test.cpp -o scene_residency_test
           ./scene_residency_test
+          # The wallpaper's edge glow, the first frame::Pass (#439): options, the VU envelope, the band and its mask.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/edge_glow_test.cpp -o edge_glow_test
+          ./edge_glow_test
           # The program-binary cache's crash sentinel, shared by every renderer in the process (#381).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/cache_sentinels_test.cpp -o cache_sentinels_test
           ./cache_sentinels_test

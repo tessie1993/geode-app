@@ -62,6 +62,8 @@ class NativeViz(
             if (handle != 0L) {
                 GeodeNative.vizSetMilkTextureDir(handle, milkTextureDir)
                 GeodeNative.vizSetSurfaceKind(handle, surfaceKind)
+                applyUiBlur()
+                edgeGlow?.let { GeodeNative.vizSetEdgeGlow(handle, it) }
                 onCreated()
             }
         }
@@ -233,7 +235,16 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetFrameRate(handle, fps)
     }
 
-    /** The glass sheet's blur region; see [GeodeNative.vizSetUiBlurRegion]. A no-op before the handle exists. */
+    /**
+     * The glass sheet's blur region (left, top, right, bottom, strength, corner px) and the wallpaper's
+     * edge glow options, kept here so a new handle (one per attach, see [create]) starts with what its
+     * owner last set; the native renderer keeps both across a new surface itself.
+     */
+    private val uiBlur = FloatArray(UI_BLUR_FLOATS)
+    private var edgeGlow: FloatArray? = null
+
+    /** The glass sheet's blur region; see [GeodeNative.vizSetUiBlurRegion]. Latched before the handle exists. */
+    @Synchronized
     fun setUiBlurRegion(
         left: Float,
         top: Float,
@@ -242,7 +253,24 @@ class NativeViz(
         strength: Float,
         cornerPx: Float,
     ) {
-        if (handle != 0L) GeodeNative.vizSetUiBlurRegion(handle, left, top, right, bottom, strength, cornerPx)
+        uiBlur[0] = left
+        uiBlur[1] = top
+        uiBlur[2] = right
+        uiBlur[3] = bottom
+        uiBlur[4] = strength
+        uiBlur[5] = cornerPx
+        applyUiBlur()
+    }
+
+    /** The wallpaper's edge glow; see [GeodeNative.vizSetEdgeGlow]. Any thread; latched before the handle exists. */
+    @Synchronized
+    fun setEdgeGlow(options: FloatArray) {
+        edgeGlow = options.copyOf()
+        if (handle != 0L) GeodeNative.vizSetEdgeGlow(handle, edgeGlow)
+    }
+
+    private fun applyUiBlur() {
+        if (handle != 0L) GeodeNative.vizSetUiBlurRegion(handle, uiBlur[0], uiBlur[1], uiBlur[2], uiBlur[3], uiBlur[4], uiBlur[5])
     }
 
     fun surfaceCreated() {
@@ -322,6 +350,7 @@ class NativeViz(
         const val SURFACE_WALLPAPER = 1
         const val SURFACE_DREAM = 2
         const val SURFACE_EXPORT = 3
+        const val UI_BLUR_FLOATS = 6
 
         @Volatile
         private var verified = false

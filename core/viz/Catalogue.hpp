@@ -50,6 +50,13 @@ enum class Scope {
 };
 constexpr int kScopeCount = 24;
 
+// How the Scene camera (core/scene/camera, #512) may move in a style (#473). A marched style flies
+// the free camera: Rails clamps it to today's rig limits (forward flight, yaw ±0.6, pitch ±0.45,
+// roll ±0.8 rad, no flips) until its family is ported to a full environment, SixDof leaves it free.
+// None is every style that does not march (2D shaders, the simulations, MilkDrop): it has no Scene
+// camera, so the renderer leaves it as it is today.
+enum class CameraMode { None, Rails, SixDof };
+
 struct Range {
     float min;
     float max;
@@ -90,6 +97,9 @@ bool isMarched(const std::string& id);
 float spinRate(const std::string& id);
 const std::array<Family, 10>& families();
 
+// The camera mode of a style: None unless it marches, then Rails until its port lists it as 6-DoF.
+CameraMode cameraMode(const std::string& id);
+
 // The scope of a Customize control, named by its ParamKeys string. Anything unlisted is Universal.
 Scope scopeOf(const std::string& paramKey);
 bool reaches(Scope scope, const std::string& styleId);
@@ -107,6 +117,8 @@ const char* name(Scope scope);
 //   key|<ParamKeys string>|<SCOPE>         every non-Universal control
 //   range|<ParamKeys string>|<min>|<max>
 //   value|<name>|<number>
+//   rails|<id>,<id>,...                    every style on CameraMode::Rails, allIds() order. A row type of
+//                                          its own (not a style| field) so an older shell skips it
 const std::string& text();
 
 }  // namespace geode::viz::catalogue

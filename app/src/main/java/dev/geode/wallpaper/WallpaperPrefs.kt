@@ -2,6 +2,7 @@ package dev.geode.wallpaper
 
 import android.content.Context
 import android.content.SharedPreferences
+import dev.geode.engine.bridge.GeodeNative
 
 /** How the wallpaper draws on one screen. */
 enum class WallpaperLook {
@@ -41,6 +42,13 @@ data class WallpaperSettings(
     val hearOtherApps: Boolean = false,
     val homeLook: WallpaperLook = WallpaperLook.FULL,
     val lockLook: WallpaperLook = WallpaperLook.FULL,
+    /**
+     * The wallpaper's own frame rate (ADR 0008), apart from Settings › Performance's cap for the live
+     * visual: 30 unless the user picks another. Stored as the user's int; the allowed rates and the
+     * snap are native (`GeodeNative.surfaceFpsChoice`), so the pacer only ever
+     * sees a listed rate, whatever an older or newer build wrote here.
+     */
+    val fps: Int = GeodeNative.SURFACE_DEFAULT_FPS,
 )
 
 /**
@@ -65,6 +73,7 @@ class WallpaperPrefsStore(
             hearOtherApps = prefs.getBoolean(KEY_OTHER_APPS, d.hearOtherApps),
             homeLook = look(KEY_HOME_LOOK, d.homeLook),
             lockLook = look(KEY_LOCK_LOOK, d.lockLook),
+            fps = prefs.getInt(KEY_FPS, d.fps),
         )
     }
 
@@ -76,6 +85,7 @@ class WallpaperPrefsStore(
             .putBoolean(KEY_OTHER_APPS, settings.hearOtherApps)
             .putString(KEY_HOME_LOOK, settings.homeLook.name)
             .putString(KEY_LOCK_LOOK, settings.lockLook.name)
+            .putInt(KEY_FPS, settings.fps)
             .apply()
     }
 
@@ -91,5 +101,6 @@ class WallpaperPrefsStore(
         const val KEY_OTHER_APPS = "hear_other_apps"
         const val KEY_HOME_LOOK = "home_look"
         const val KEY_LOCK_LOOK = "lock_look"
+        const val KEY_FPS = "fps"
     }
 }

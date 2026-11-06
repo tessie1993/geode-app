@@ -4,6 +4,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
+#include <vector>
 
 namespace geode::viz::world {
 
@@ -12,6 +14,8 @@ namespace {
 using V3 = std::array<float, 3>;
 
 constexpr float kTau = 6.2831853f;
+// How softly the ground joins the world's matter (lib_world's WG_FLOOR_BLEND).
+constexpr float kFloorBlend = 0.4f;
 
 // Field bounds, in Field order. Wide enough that the worlds differ, narrow enough that every corner
 // still renders: no scale that blows the IFS up, no inversion sphere smaller than a cell's detail.
@@ -52,9 +56,12 @@ constexpr Bounds kBounds[kFieldCount] = {
     {0.0f, 1.0f},     // PMandelbox
     {0.0f, 1.0f},     // PSierp
     {0.0f, 1.0f},     // PApollo
+    {0.0f, 1.0f},     // PJulia
+    {0.0f, 1.0f},     // PKlein
+    {0.0f, 1.0f},     // PKifs
     {0.2f, 2.4f},     // PrimSize
     {0.03f, 0.45f},   // PrimThick
-    {0.0f, 15.0f},    // MeshPick (kShapeCount - 1)
+    {0.0f, 23.0f},    // MeshPick (kShapeCount - 1)
     {0.6f, 2.6f},     // MeshSize
     {2.0f, 9.0f},     // BulbPower
     {0.8f, 4.0f},     // GyroScale
@@ -79,7 +86,7 @@ constexpr Bounds kBounds[kFieldCount] = {
     {-0.5f, 0.5f},    // Roll
     {0.75f, 1.35f},   // Lens
     {0.0f, 1.0f},     // Floor
-    {-6.0f, -1.8f},   // FloorY
+    {-6.0f, -3.0f},   // FloorY (under the deepest eye: the spiral path's -2.0, less the 0.9 bubble)
     {0.0f, 1.0f},     // FloorGloss
     {0.0f, 1.0f},     // Sky
     {0.0f, 1.0f},     // SkyHue
@@ -91,6 +98,12 @@ constexpr Bounds kBounds[kFieldCount] = {
     {-0.8f, 0.8f},    // LatticeYaw
     {0.0f, 0.5f},     // GazePitch
     {0.0f, 0.6f},     // GazeYaw
+    {-0.8f, 0.4f},    // JuliaCX: mostly inside the Mandelbrot set's main body, so the set holds together
+    {-0.8f, 0.8f},    // JuliaCY
+    {-0.8f, 0.8f},    // JuliaCZ
+    {-0.8f, 0.8f},    // JuliaCW
+    {0.8f, 1.25f},    // KleinBox
+    {1.8f, 2.8f},     // KifsScale
 };
 static_assert(sizeof(kBounds) / sizeof(kBounds[0]) == kFieldCount, "a bound per field");
 
@@ -271,6 +284,61 @@ float apollonian(const V3& q, float s) {
     return 0.25f * std::fabs(p[1]) / scale * s;
 }
 
+// lib_world's wJulia: a quaternion Julia set z -> z^2 + c on the slice w = 0, real part x, filling
+// about s, eight iterations; the Hubbard-Douady bound 0.5 |z| log |z| / |dz|, held at one unit
+// deep inside the set.
+float julia(const V3& q, float s, const std::array<float, 4>& c) {
+    const float k = 0.7f * s;
+    std::array<float, 4> z{q[0] / k, q[1] / k, q[2] / k, 0.0f};
+    float dr = 1.0f;
+    for (int i = 0; i < 8; ++i) {
+        const float r2 = z[0] * z[0] + z[1] * z[1] + z[2] * z[2] + z[3] * z[3];
+        if (r2 > 16.0f) break;
+        dr = 2.0f * std::sqrt(r2) * dr;
+        const float v2 = z[1] * z[1] + z[2] * z[2] + z[3] * z[3];
+        const float a = z[0];
+        z = {a * a - v2 + c[0], 2.0f * a * z[1] + c[1], 2.0f * a * z[2] + c[2], 2.0f * a * z[3] + c[3]};
+    }
+    const float r = std::max(std::sqrt(z[0] * z[0] + z[1] * z[1] + z[2] * z[2] + z[3] * z[3]), 1e-6f);
+    return std::max(0.5f * std::log(r) * r / std::max(dr, 1e-6f), -1.0f) * k;
+}
+
+// lib_world's wKlein: a pseudo-Kleinian limit set. Fold into the box of half-size b by its face
+// reflections (the mirrored cell), invert in the unit sphere (stretch capped at 16), seven times;
+// one last fold, then a slab of half-thickness t; held in a ball of 1.3 s.
+float klein(const V3& q, float s, float b, float t) {
+    const float k = 0.5f * s;
+    V3 z{q[0] / k, q[1] / k, q[2] / k};
+    float dr = 1.0f;
+    for (int i = 0; i < 7; ++i) {
+        for (float& c : z) c = cell(c, 2.0f * b);
+        const float m = clampf(1.0f / std::max(dot3(z), 1e-4f), 1.0f, 16.0f);
+        for (float& c : z) c *= m;
+        dr *= m;
+    }
+    for (float& c : z) c = cell(c, 2.0f * b);
+    const float d = (std::fabs(z[1]) - t) / dr * k;
+    return std::max(d, len3(q) - 1.3f * s);
+}
+
+// lib_world's wKifs: an octahedral kaleidoscopic IFS. Fold across the octahedron's mirror planes
+// (abs, then sort x >= y >= z), scale by sc about the vertex (1, 0, 0), seven times; the distance
+// to the unit octahedron at the last level. Its hull is the octahedron of radius 1.2 s.
+float kifs(const V3& q, float s, float sc) {
+    const float k = 1.2f * s;
+    V3 z{q[0] / k, q[1] / k, q[2] / k};
+    float scale = 1.0f;
+    for (int i = 0; i < 7; ++i) {
+        for (float& c : z) c = std::fabs(c);
+        if (z[0] < z[1]) std::swap(z[0], z[1]);
+        if (z[0] < z[2]) std::swap(z[0], z[2]);
+        if (z[1] < z[2]) std::swap(z[1], z[2]);
+        z = {z[0] * sc - (sc - 1.0f), z[1] * sc, z[2] * sc};
+        scale *= sc;
+    }
+    return (std::fabs(z[0]) + std::fabs(z[1]) + std::fabs(z[2]) - 1.0f) * 0.57735f / scale * k;
+}
+
 // lib_world's wPolar: the plane about the travel axis folded into one mirrored wedge of n.
 void polarFold(float& x, float& y, float n) {
     const float r = len2(x, y);
@@ -281,7 +349,7 @@ void polarFold(float& x, float& y, float n) {
     y = r * std::sin(a);
 }
 
-// lib_world's wPrims: the thirteen primitives, blended by weight.
+// lib_world's wPrims: the sixteen primitives, blended by weight.
 float prims(const Genome& g, const V3& q) {
     const float s = g[PrimSize];
     const float t = g[PrimThick];
@@ -312,7 +380,112 @@ float prims(const Genome& g, const V3& q) {
     if (g[PMandelbox] > 0.0f) d += g[PMandelbox] * mandelbox(q, s, g[BoxScale]);
     if (g[PSierp] > 0.0f) d += g[PSierp] * sierpinski(q, s);
     if (g[PApollo] > 0.0f) d += g[PApollo] * apollonian(q, s);
+    if (g[PJulia] > 0.0f) d += g[PJulia] * julia(q, s, {g[JuliaCX], g[JuliaCY], g[JuliaCZ], g[JuliaCW]});
+    if (g[PKlein] > 0.0f) d += g[PKlein] * klein(q, s, g[KleinBox], t);
+    if (g[PKifs] > 0.0f) d += g[PKifs] * kifs(q, s, g[KifsScale]);
     return d;
+}
+
+// ---- the landscape (lib_world's wTerrain, the same numbers) -----------------------------------
+//
+// A ridged fBm height field in world space with valley walls to the sides, its distance the
+// vertical gap times the height field's Lipschitz bound 1 / sqrt(1 + s^2). The noise hashes
+// integer lattice points (no sin, no float hash), so this port builds the GPU's ground.
+
+constexpr int kTerrainOctaves = 5;
+constexpr float kTerrainGain = 0.45f;
+// The ridged sum's steepest slope per unit of base frequency and relief: value noise rises at most
+// 3 per lattice unit (the cubic fade's 1.5 times a corner difference of 2), ridging keeps that, and
+// the octaves add sum(gain^i 2^i) / sum(gain^i) = 2.295 of it. 3 x 2.295, rounded up.
+constexpr float kTerrainSlope = 6.9f;
+constexpr float kTerrainWall = 2.0f;
+constexpr float kTerrainWidth = 8.0f;
+// WALL x max(d/dx x^2 / (x^2 + W^2)) = WALL x 0.6495 / W.
+constexpr float kTerrainWallSlope = 0.1625f;
+constexpr float kTerrainSink = 8.0f;
+constexpr float kTerrainFar = 80.0f;
+// CameraRig::kTravelWrap, and the stretch before it that blends into the ground behind the wrap.
+constexpr float kTravelWrap = 8192.0f;
+constexpr float kWrapLo = 7692.0f;
+constexpr float kWrapHi = 8092.0f;
+constexpr float kWrapSlope = 0.004f;
+
+// lib_world's wHash: Knuth's multiplicative hash per axis, then xor-shift-multiply rounds.
+uint32_t latticeHash(int32_t x, int32_t y) {
+    uint32_t h = (static_cast<uint32_t>(x) * 0x9E3779B1u) ^ (static_cast<uint32_t>(y) * 0x85EBCA77u);
+    h ^= h >> 15;
+    h *= 0x2C1B3C6Du;
+    h ^= h >> 12;
+    h *= 0x297A2D39u;
+    h ^= h >> 15;
+    return h;
+}
+
+// lib_world's wLattice: the hash's top 24 bits as -1..1, exact in any float.
+float lattice(int32_t x, int32_t y) { return static_cast<float>(latticeHash(x, y) >> 8) * (1.0f / 8388608.0f) - 1.0f; }
+
+// lib_world's wValue: smooth value noise, -1..1, lattice unit 1, cubic fade.
+float valueNoise(float sx, float sy) {
+    const float ix = std::floor(sx);
+    const float iy = std::floor(sy);
+    const float fx = sx - ix;
+    const float fy = sy - iy;
+    const float ux = fx * fx * (3.0f - 2.0f * fx);
+    const float uy = fy * fy * (3.0f - 2.0f * fy);
+    const auto x = static_cast<int32_t>(ix);
+    const auto y = static_cast<int32_t>(iy);
+    const float a = lattice(x, y);
+    const float b = lattice(x + 1, y);
+    const float c = lattice(x, y + 1);
+    const float d = lattice(x + 1, y + 1);
+    return mixf(mixf(a, b, ux), mixf(c, d, ux), uy);
+}
+
+// lib_world's wRidged: ridged fBm, 0..1, each octave turned (a 3-4-5 rotation) and twice as fine.
+float ridged(float sx, float sy) {
+    float sum = 0.0f;
+    float norm = 0.0f;
+    float amp = 1.0f;
+    for (int i = 0; i < kTerrainOctaves; ++i) {
+        const float n = valueNoise(sx, sy);
+        sum += amp * (1.0f - std::fabs(n));
+        norm += amp;
+        amp *= kTerrainGain;
+        const float nx = (0.8f * sx - 0.6f * sy) * 2.0f + 5.3f;
+        const float ny = (0.6f * sx + 0.8f * sy) * 2.0f - 2.9f;
+        sx = nx;
+        sy = ny;
+    }
+    return sum / norm;
+}
+
+// GLSL's smoothstep.
+float smoothstepf(float e0, float e1, float x) {
+    const float t = clampf((x - e0) / (e1 - e0), 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);
+}
+
+// lib_world's wLandscape: the ridged ground at world (x, z), the wrap's last stretch blended into
+// the ground 8192 behind it, so the eye crosses the rig's travel wrap onto the same ground.
+float landscape(float x, float z, float scale) {
+    float h = ridged(x * scale, z * scale);
+    const float w = smoothstepf(kWrapLo, kWrapHi, z);
+    if (w > 0.0f) h = mixf(h, ridged(x * scale, (z - kTravelWrap) * scale), w);
+    return h;
+}
+
+// lib_world's wTerrain: the landscape's distance, rising from under FloorY as Terrain fades in.
+float terrain(const Genome& g, const V3& p) {
+    const float on = g[Terrain];
+    const float relief = on * g[TerrainHeight];
+    const float base = g[FloorY] - (1.0f - on) * kTerrainSink;
+    const float h = landscape(p[0], p[2], g[TerrainScale]);
+    const float v = p[0] * p[0] / (p[0] * p[0] + kTerrainWidth * kTerrainWidth);
+    const float y = base + relief * (h + kTerrainWall * v);
+    const float slope = relief * (kTerrainSlope * g[TerrainScale] + kTerrainWallSlope + kWrapSlope);
+    float d = (p[1] - y) / std::sqrt(1.0f + slope * slope);
+    d = std::max(d, p[1] - (base + relief * (1.0f + kTerrainWall)));
+    return mixf(kTerrainFar, d, std::min(on * 8.0f, 1.0f));
 }
 
 float bareWorld(const Genome& g, const Way& way, const V3& p) {
@@ -381,7 +554,14 @@ float bareWorld(const Genome& g, const Way& way, const V3& p) {
         for (float& c : q) c = mixf(c, std::fabs(c) / r2 - g[AbsInvC], a);
         k *= mixf(1.0f, 1.0f / r2, a);
     }
-    return prims(g, q) / k;
+    float d = prims(g, q) / k;
+    if (g[Floor] > 0.0f) {
+        // The ground, joined smoothly, then faded in: continuous in Floor, the identity at 0.
+        const float fd = p[1] - g[FloorY];
+        d = mixf(d, smin(d, fd, kFloorBlend), g[Floor]);
+    }
+    // The landscape, joined by min (lib_world's wWithTerrain).
+    return g[Terrain] > 0.0f ? std::min(d, terrain(g, p)) : d;
 }
 
 float corridor(const Genome& g, const Way& way, const V3& p) {
@@ -446,6 +626,12 @@ Genome base() {
     g[LatticeYaw] = 0.0f;
     g[GazePitch] = 0.0f;
     g[GazeYaw] = 0.0f;
+    g[JuliaCX] = -0.2f;
+    g[JuliaCY] = 0.6f;
+    g[JuliaCZ] = 0.0f;
+    g[JuliaCW] = 0.0f;
+    g[KleinBox] = 1.0f;
+    g[KifsScale] = 2.0f;
     return g;
 }
 
@@ -457,24 +643,26 @@ template <size_t N>
 Genome make(const Set (&sets)[N]) {
     Genome g = base();
     for (const Set& s : sets) g[s.field] = s.value;
-    normalize(g, PBox, 13, nullptr);
+    normalize(g, PBox, kPrimCount, nullptr);
     normalize(g, MSurface, 3, nullptr);
     return g;
 }
 
-std::array<Seed, 41> buildSeeds() {
-    return {{
+// A list, not a fixed count: a new world is one more entry here and nothing else.
+std::vector<Seed> buildSeeds() {
+    return {
         // A nave of soap-thin spheres, inverted into one another: bubbles inside bubbles, lit from within.
         {"Bubble Nave", 0.35f, 0.7f, 0.5f,
          make({{LatticeTilt, 0.35f}, {LatticeYaw, 0.25f}, {RepXY, 1.0f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {CellShift, 1.0f}, {PShell, 1.0f}, {PrimSize, 1.6f}, {PrimThick, 0.05f},
                {Invert, 0.6f}, {InvRadius, 1.1f}, {Mirror, 0.5f}, {MirrorOff, 0.6f}, {MSurface, 0.8f}, {MGlow, 0.2f},
                {TrapR, 0.8f}, {TrapX, 0.2f}, {PalOffset, 0.55f}, {PalSpan, 0.4f}, {Emission, 0.9f}, {Fog, 0.04f}, {GazePitch, 0.3f}, {GazeYaw, 0.3f}})},
-        // Girders crossing girders, folded: the inside of a crane built by a crystal.
+        // Girders crossing girders, folded: the inside of a crane built by a crystal, over a wet yard at dusk.
         {"Girder Yard", 0.7f, 0.45f, 0.75f,
          make({{LatticeTilt, 0.45f}, {LatticeYaw, -0.3f}, {RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.0f}, {CellShift, 0.5f}, {PBar, 1.0f}, {PrimThick, 0.07f}, {Mirror, 1.0f},
                {MirrorOff, 0.9f}, {Ifs, 0.8f}, {IfsIter, 2.0f}, {IfsScale, 1.5f}, {IfsAngA, 0.35f}, {IfsAngB, 0.2f},
                {IfsOffX, 0.8f}, {IfsOffY, 0.6f}, {IfsOffZ, 0.7f}, {MSurface, 1.0f}, {TrapX, 0.6f}, {TrapY, 0.3f},
-               {PalOffset, 0.08f}, {PalSpan, 0.6f}, {Emission, 1.0f}, {Fog, 0.05f}, {TexAmount, 0.6f}, {TexPick, 1.0f}, {TexScale, 1.5f}, {GazePitch, 0.4f}, {GazeYaw, 0.3f}})},
+               {PalOffset, 0.08f}, {PalSpan, 0.6f}, {Emission, 1.0f}, {Fog, 0.05f}, {TexAmount, 0.6f}, {TexPick, 1.0f}, {TexScale, 1.5f}, {GazePitch, 0.4f}, {GazeYaw, 0.3f},
+               {Floor, 1.0f}, {FloorY, -3.5f}, {FloorGloss, 0.6f}, {Sky, 0.7f}, {SkyHue, 0.12f}, {Horizon, 0.6f}})},
         // Plates of light, cracked and turned: march through them and every edge glows.
         {"Shard Plates", 0.8f, 0.6f, 0.45f,
          make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {PSlab, 1.0f}, {PrimThick, 0.05f}, {Ifs, 1.0f},
@@ -504,17 +692,20 @@ std::array<Seed, 41> buildSeeds() {
          make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 6.0f}, {PSlab, 0.6f}, {PTube, 0.4f}, {PrimSize, 3.2f / 1.6f},
                {PrimThick, 0.06f}, {Twist, 1.1f}, {Mirror, 0.3f}, {MirrorOff, 0.8f}, {MDensity, 1.0f}, {DensBand, 0.1f},
                {TrapY, 0.5f}, {TrapR, 0.4f}, {PalOffset, 0.45f}, {PalSpan, 0.3f}, {Emission, 0.85f}, {Fog, 0.025f}})},
-        // Arches on arches, a mirrored aqueduct with no end.
+        // Arches on arches, a mirrored aqueduct with no end, standing in still water under a pale sky.
         {"Endless Arches", 0.45f, 0.4f, 0.6f,
          make({{LatticeTilt, 0.15f}, {LatticeYaw, 0.3f}, {RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.0f}, {PTube, 0.7f}, {PBar, 0.3f}, {PrimSize, 1.4f},
                {PrimThick, 0.16f}, {Mirror, 1.0f}, {MirrorOff, 0.5f}, {Invert, 0.2f}, {InvRadius, 1.2f}, {MSurface, 1.0f},
-               {TrapX, 0.5f}, {TrapZ, 0.3f}, {PalOffset, 0.15f}, {PalSpan, 0.3f}, {Emission, 0.9f}, {Fog, 0.055f}, {TexAmount, 0.7f}, {TexPick, 0.0f}, {TexScale, 0.8f}, {GazePitch, 0.35f}, {GazeYaw, 0.35f}})},
-        // A lattice of small boxes thrown through an abs-inversion: blossoms of light along every edge.
+               {TrapX, 0.5f}, {TrapZ, 0.3f}, {PalOffset, 0.15f}, {PalSpan, 0.3f}, {Emission, 0.9f}, {Fog, 0.055f}, {TexAmount, 0.7f}, {TexPick, 0.0f}, {TexScale, 0.8f}, {GazePitch, 0.35f}, {GazeYaw, 0.35f},
+               {Floor, 1.0f}, {FloorY, -3.2f}, {FloorGloss, 0.8f}, {Sky, 0.8f}, {SkyHue, 0.6f}, {Horizon, 0.7f}})},
+        // A lattice of small boxes thrown through an abs-inversion: blossoms of light along every edge,
+        // mirrored in a dark glass floor.
         {"Lattice Bloom", 0.65f, 0.8f, 0.5f,
          make({{LatticeTilt, 0.5f}, {LatticeYaw, 0.5f}, {RepXY, 1.0f}, {CellXY, 4.0f}, {CellZ, 4.0f}, {PBox, 0.6f}, {PShell, 0.4f}, {PrimSize, 0.5f},
                {PrimThick, 0.06f}, {AbsInv, 0.6f}, {AbsInvC, 0.4f}, {Mirror, 0.7f}, {MirrorOff, 0.4f}, {MGlow, 0.7f},
                {MSurface, 0.3f}, {TrapX, 0.4f}, {TrapR, 0.6f}, {PalOffset, 0.85f}, {PalSpan, 0.55f}, {Emission, 1.1f},
-               {Fog, 0.04f}, {TexEmit, 0.7f}, {TexPick, 7.0f}, {TexScale, 1.2f}, {GazePitch, 0.25f}, {GazeYaw, 0.25f}})},
+               {Fog, 0.04f}, {TexEmit, 0.7f}, {TexPick, 7.0f}, {TexScale, 1.2f}, {GazePitch, 0.25f}, {GazeYaw, 0.25f},
+               {Floor, 0.7f}, {FloorY, -4.0f}, {FloorGloss, 0.9f}, {Sky, 0.5f}, {SkyHue, 0.85f}, {Horizon, 0.8f}})},
         // Folded spheres under a tide of light: a reef half stone, half glowing mist.
         {"Coral Drift", 0.4f, 0.6f, 0.65f,
          make({{LatticeTilt, -0.25f}, {LatticeYaw, 0.3f}, {RepXY, 0.8f}, {CellXY, 5.5f}, {CellZ, 5.5f}, {PShell, 0.7f}, {PTorus, 0.3f}, {PrimSize, 0.9f},
@@ -572,12 +763,13 @@ std::array<Seed, 41> buildSeeds() {
                {PolarTwist, 0.35f}, {PMesh, 1.0f}, {MeshPick, 0.0f}, {MeshSize, 1.5f}, {MSurface, 0.5f}, {MGlow, 0.5f},
                {TrapR, 0.6f}, {PalOffset, 0.75f}, {PalSpan, 0.5f}, {Emission, 1.1f}, {Fog, 0.03f}, {TexEmit, 0.4f},
                {TexPick, 4.0f}, {Roll, 0.15f}})},
-        // Mushrooms ringed eight ways in a grove, a gyroid moss between them, cedar-bark skin.
+        // Mushrooms ringed eight ways in a grove, a gyroid moss between them, cedar-bark skin, on a forest floor.
         {"Mushroom Grove", 0.3f, 0.55f, 0.6f,
          make({{RepXY, 1.0f}, {CellXY, 5.5f}, {CellZ, 5.0f}, {CellShift, 1.0f}, {PMesh, 0.8f}, {PGyroid, 0.2f},
                {MeshPick, 6.0f}, {MeshSize, 1.8f}, {GyroScale, 2.5f}, {PrimThick, 0.06f}, {Polar, 1.0f}, {PolarN, 8.0f},
                {MSurface, 0.8f}, {MGlow, 0.2f}, {TrapR, 0.5f}, {PalOffset, 0.45f}, {PalSpan, 0.45f}, {Emission, 1.1f}, {Fog, 0.03f}, {TexAmount, 0.6f},
-               {TexPick, 5.0f}, {GazePitch, 0.2f}, {GazeYaw, 0.3f}})},
+               {TexPick, 5.0f}, {GazePitch, 0.2f}, {GazeYaw, 0.3f},
+               {Floor, 1.0f}, {FloorY, -3.4f}, {FloorGloss, 0.15f}, {Sky, 0.6f}, {SkyHue, 0.4f}, {Horizon, 0.5f}})},
         // Ferns hung six ways round the way and lit from within: a green cathedral.
         {"Fern Cathedral", 0.4f, 0.65f, 0.45f,
          make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 6.0f},
@@ -594,12 +786,13 @@ std::array<Seed, 41> buildSeeds() {
          make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 4.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 10.0f},
                {PMesh, 1.0f}, {MeshPick, 11.0f}, {MeshSize, 1.6f}, {MSurface, 0.6f}, {MDensity, 0.4f}, {DensBand, 0.1f},
                {TrapR, 0.5f}, {PalOffset, 0.6f}, {PalSpan, 0.45f}, {Emission, 1.15f}, {Fog, 0.03f}})},
-        // Quiver trees ringed seven ways under a glow: a desert forest at dusk.
+        // Quiver trees ringed seven ways under a glow: a desert forest at dusk, its sand meeting a burning horizon.
         {"Quiver Forest", 0.35f, 0.5f, 0.5f,
          make({{RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 5.0f}, {CellShift, 1.0f}, {PMesh, 1.0f}, {MeshPick, 8.0f},
                {MeshSize, 2.4f}, {Polar, 1.0f}, {PolarN, 7.0f}, {MSurface, 0.6f}, {MGlow, 0.4f}, {TrapR, 0.5f},
                {PalOffset, 0.3f}, {PalSpan, 0.4f},
-               {Emission, 1.15f}, {Fog, 0.03f}, {TexAmount, 0.5f}, {TexPick, 5.0f}, {GazePitch, 0.3f}, {GazeYaw, 0.25f}})},
+               {Emission, 1.15f}, {Fog, 0.03f}, {TexAmount, 0.5f}, {TexPick, 5.0f}, {GazePitch, 0.3f}, {GazeYaw, 0.25f},
+               {Floor, 1.0f}, {FloorY, -3.6f}, {FloorGloss, 0.1f}, {Sky, 0.9f}, {SkyHue, 0.05f}, {Horizon, 0.9f}})},
         // Low-power bulbs fused with sponges, folded five ways, in circuit light: a crystal machine.
         {"Crystal Bulb", 0.75f, 0.6f, 0.6f,
          make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.7f}, {Polar, 1.0f}, {PolarN, 5.0f},
@@ -628,7 +821,7 @@ std::array<Seed, 41> buildSeeds() {
                {Emission, 1.1f}, {Fog, 0.03f}, {TexEmit, 0.5f}, {TexPick, 7.0f}})},
         // An Apollonian packing, spheres inverted into spheres without end: a foam of pearls.
         {"Apollonian Foam", 0.4f, 0.65f, 0.6f,
-         make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 6.0f}, {PApollo, 1.0f}, {PrimSize, 1.6f}, {MSurface, 0.7f},
+         make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 6.0f}, {PApollo, 1.0f}, {PrimSize, 1.8f}, {MSurface, 0.7f},
                {MGlow, 0.3f}, {TrapR, 0.6f}, {TrapX, 0.2f}, {PalOffset, 0.3f}, {PalSpan, 0.6f}, {Emission, 1.1f},
                {Fog, 0.035f}})},
         // The packing laced through bubbles and folded six ways: a lattice of pearls in light.
@@ -675,11 +868,12 @@ std::array<Seed, 41> buildSeeds() {
                {PolarTwist, 0.25f}, {PMesh, 0.8f}, {PShell, 0.2f}, {MeshPick, 9.0f}, {MeshSize, 2.4f}, {PrimSize, 1.2f},
                {PrimThick, 0.05f}, {MSurface, 0.35f}, {MGlow, 0.65f}, {TrapR, 0.6f}, {PalOffset, 0.85f}, {PalSpan, 0.55f},
                {Emission, 1.15f}, {Fog, 0.03f}, {TexEmit, 0.5f}, {TexPick, 4.0f}, {Roll, -0.2f}, {Lens, 0.85f}, {GazePitch, 0.06f}, {GazeYaw, 0.06f}})},
-        // Stone lanterns in rows along the way, warm light, a long lens: a night path to a shrine.
+        // Stone lanterns in rows along the way, warm light, a long lens: a night path to a shrine, its stones wet.
         {"Lantern Path", 0.35f, 0.55f, 0.45f,
          make({{LatticeYaw, 0.45f}, {RepXY, 1.0f}, {CellXY, 5.0f}, {CellZ, 4.0f}, {CellShift, 1.0f}, {PMesh, 1.0f}, {MeshPick, 12.0f},
                {MeshSize, 1.8f}, {MSurface, 0.8f}, {MGlow, 0.2f}, {TrapR, 0.5f}, {TrapY, 0.4f}, {PalOffset, 0.05f},
-               {PalSpan, 0.3f}, {Emission, 1.25f}, {Fog, 0.04f}, {TexAmount, 0.6f}, {TexPick, 3.0f}, {Lens, 1.15f}, {GazePitch, 0.25f}, {GazeYaw, 0.45f}})},
+               {PalSpan, 0.3f}, {Emission, 1.25f}, {Fog, 0.04f}, {TexAmount, 0.6f}, {TexPick, 3.0f}, {Lens, 1.15f}, {GazePitch, 0.25f}, {GazeYaw, 0.45f},
+               {Floor, 1.0f}, {FloorY, -3.3f}, {FloorGloss, 0.5f}, {Sky, 0.4f}, {SkyHue, 0.7f}, {Horizon, 0.4f}})},
         // Seated figures folded six ways round the way under a slow roll: a round hall of calm.
         {"Buddha Hall", 0.25f, 0.6f, 0.5f,
          make({{RepXY, 0.5f}, {CellXY, 6.5f}, {CellZ, 5.0f}, {CellShift, 0.9f}, {Polar, 1.0f}, {PolarN, 6.0f},
@@ -698,11 +892,173 @@ std::array<Seed, 41> buildSeeds() {
                {MeshSize, 1.6f}, {MSurface, 0.65f}, {MDensity, 0.35f}, {DensBand, 0.1f}, {TrapR, 0.6f}, {TrapZ, 0.3f},
                {PalOffset, 0.72f}, {PalSpan, 0.45f}, {Emission, 1.2f}, {Fog, 0.035f}, {TexAmount, 0.6f}, {TexPick, 5.0f},
                {Lens, 1.1f}, {GazePitch, 0.3f}, {GazeYaw, 0.35f}})},
-    }};
+        // Marble busts folded five ways round the way, a slow spiral and roll: a round gallery of faces.
+        {"Bust Rotunda", 0.3f, 0.5f, 0.55f,
+         make({{RepXY, 0.5f}, {CellXY, 6.5f}, {CellZ, 5.0f}, {CellShift, 0.9f}, {Polar, 1.0f}, {PolarN, 5.0f},
+               {PolarTwist, 0.15f}, {PMesh, 1.0f}, {MeshPick, 16.0f}, {MeshSize, 1.9f}, {MSurface, 0.75f}, {MGlow, 0.25f},
+               {TrapR, 0.5f}, {TrapY, 0.3f}, {PalOffset, 0.4f}, {PalSpan, 0.3f}, {Emission, 1.25f}, {Fog, 0.03f},
+               {TexAmount, 0.7f}, {TexPick, 0.0f}, {TexScale, 1.2f}, {Roll, 0.08f}, {Lens, 0.9f}})},
+        // Cat statues folded seven ways round the way in a slow turn, half stone, half glow: a temple ring.
+        {"Cat Temple", 0.45f, 0.55f, 0.6f,
+         make({{RepXY, 0.5f}, {CellXY, 5.5f}, {CellZ, 4.5f}, {CellShift, 1.0f}, {Polar, 1.0f}, {PolarN, 7.0f},
+               {PolarTwist, -0.1f}, {PMesh, 1.0f}, {MeshPick, 17.0f}, {MeshSize, 1.8f}, {MSurface, 0.6f}, {MGlow, 0.4f}, {TrapR, 0.6f},
+               {TrapX, 0.3f}, {PalOffset, 0.12f}, {PalSpan, 0.4f}, {Emission, 1.2f}, {Fog, 0.035f}, {TexAmount, 0.5f},
+               {TexPick, 2.0f}, {Roll, -0.1f}, {Lens, 1.1f}})},
+        // Stone pillars folded seven ways and turning: a colonnade that spirals round the way.
+        {"Spiral Colonnade", 0.5f, 0.6f, 0.5f,
+         make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 4.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 7.0f},
+               {PolarTwist, 0.3f}, {PMesh, 1.0f}, {MeshPick, 18.0f}, {MeshSize, 2.2f}, {MSurface, 0.8f}, {MGlow, 0.2f},
+               {TrapR, 0.5f}, {TrapZ, 0.4f}, {PalOffset, 0.08f}, {PalSpan, 0.35f}, {Emission, 1.2f}, {Fog, 0.035f},
+               {TexAmount, 0.7f}, {TexPick, 2.0f}, {TexScale, 1.1f}, {Roll, 0.15f}, {Lens, 0.85f}})},
+        // Stumps and pumpkins blended, folded three ways, under a glowing mist: an autumn hollow.
+        {"Harvest Hollow", 0.35f, 0.45f, 0.65f,
+         make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {CellShift, 0.9f}, {Polar, 1.0f}, {PolarN, 3.0f},
+               {PolarTwist, -0.2f}, {PMesh, 1.0f}, {MeshPick, 19.5f}, {MeshSize, 1.8f}, {MSurface, 0.6f}, {MDensity, 0.4f},
+               {DensBand, 0.12f}, {TrapR, 0.6f}, {TrapY, 0.3f}, {PalOffset, 0.06f}, {PalSpan, 0.35f}, {Emission, 1.2f},
+               {Fog, 0.035f}, {TexAmount, 0.6f}, {TexPick, 5.0f}, {Roll, -0.08f}, {Lens, 1.15f}})},
+        // Teapots on a lattice tipped and yawed, through a spiral nine-way fold: a tea party in a kaleidoscope.
+        {"Teapot Kaleido", 0.6f, 0.7f, 0.55f,
+         make({{RepXY, 0.5f}, {CellXY, 5.5f}, {CellZ, 4.5f}, {CellShift, 1.0f}, {LatticeTilt, -0.3f}, {LatticeYaw, 0.4f},
+               {Polar, 1.0f}, {PolarN, 9.0f}, {PolarTwist, 0.2f}, {PMesh, 1.0f}, {MeshPick, 21.0f}, {MeshSize, 1.8f},
+               {MSurface, 0.5f}, {MGlow, 0.5f}, {TrapR, 0.6f}, {TrapX, 0.3f}, {PalOffset, 0.62f}, {PalSpan, 0.5f},
+               {Emission, 1.15f}, {Fog, 0.03f}, {TexEmit, 0.5f}, {TexPick, 6.0f}, {Roll, 0.2f}, {Lens, 0.9f}})},
+        // Bronze whales and hanging lanterns blended, folded eleven ways round a slow roll: a deep-sea vigil.
+        {"Whale Lanterns", 0.3f, 0.6f, 0.6f,
+         make({{RepXY, 0.4f}, {CellXY, 6.5f}, {CellZ, 5.0f}, {CellShift, 0.9f}, {Polar, 1.0f}, {PolarN, 11.0f},
+               {PolarTwist, -0.25f}, {PMesh, 1.0f}, {MeshPick, 22.4f}, {MeshSize, 2.1f}, {MSurface, 0.45f}, {MGlow, 0.55f},
+               {TrapR, 0.5f}, {TrapZ, 0.4f}, {PalOffset, 0.58f}, {PalSpan, 0.4f}, {Emission, 1.25f}, {Fog, 0.03f},
+               {TexAmount, 0.5f}, {TexPick, 4.0f}, {Roll, -0.18f}, {Lens, 1.2f}})},
+        // A ridged canyon under a low warm light, thin glowing spheres hung above it: the way runs
+        // down the valley floor between rising walls, cut through every ridge that crosses it.
+        {"Ember Canyon", 0.45f, 0.55f, 0.45f,
+         make({{RepXY, 0.5f}, {CellXY, 10.0f}, {CellZ, 8.0f}, {CellShift, 1.0f}, {PShell, 1.0f}, {PrimSize, 0.9f},
+               {PrimThick, 0.05f}, {Terrain, 1.0f}, {TerrainHeight, 2.6f}, {TerrainScale, 0.12f}, {FloorY, -5.0f},
+               {MSurface, 0.85f}, {MGlow, 0.15f}, {TrapX, 0.7f}, {TrapY, 0.4f}, {TrapR, 0.2f}, {PalOffset, 0.04f},
+               {PalSpan, 0.45f}, {Emission, 1.15f}, {Fog, 0.03f}, {TexAmount, 0.5f}, {TexPick, 3.0f}, {Lens, 0.85f}})},
+        // Fine ridged dunes with great rings half sunk in them: a desert of arches, a little haze.
+        {"Dune Arches", 0.3f, 0.7f, 0.35f,
+         make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 5.0f}, {PTorus, 1.0f}, {PrimSize, 2.4f}, {PrimThick, 0.2f},
+               {Scale, 1.6f}, {Terrain, 1.0f}, {TerrainHeight, 1.4f}, {TerrainScale, 0.22f}, {FloorY, -3.6f},
+               {MSurface, 0.8f}, {MDensity, 0.2f}, {DensBand, 0.1f}, {TrapX, 0.8f}, {TrapZ, 0.3f}, {TrapR, 0.2f},
+               {PalOffset, 0.12f}, {PalSpan, 0.35f}, {Emission, 1.1f}, {Fog, 0.035f}, {TexAmount, 0.4f}, {TexPick, 6.0f},
+               {Roll, 0.04f}})},
+        // Broad fractal highlands with Mandelbulbs floating over them and boulders of bulbs half buried.
+        {"Bulb Highlands", 0.55f, 0.5f, 0.55f,
+         make({{RepXY, 0.5f}, {CellXY, 8.0f}, {CellZ, 7.0f}, {CellShift, 1.0f}, {PBulb, 1.0f}, {BulbPower, 8.0f},
+               {PrimSize, 1.2f}, {Terrain, 1.0f}, {TerrainHeight, 3.0f}, {TerrainScale, 0.08f}, {FloorY, -5.5f},
+               {MSurface, 0.85f}, {MGlow, 0.15f}, {TrapX, 0.4f}, {TrapY, 0.3f}, {TrapR, 0.5f}, {PalOffset, 0.36f},
+               {PalSpan, 0.5f}, {Emission, 1.15f}, {Fog, 0.03f}, {TexAmount, 0.5f}, {TexPick, 2.0f}, {Lens, 0.9f}})},
+        // A seated figure held in a ring of Menger sponges, five round the way: a relic in a stone frame.
+        {"Sponge Reliquary", 0.3f, 0.4f, 0.75f,
+         make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 5.0f},
+               {PMenger, 0.55f}, {PMesh, 0.45f}, {PrimSize, 1.5f}, {MeshPick, 13.0f}, {MeshSize, 1.4f}, {MSurface, 0.75f},
+               {MGlow, 0.25f}, {TrapX, 0.4f}, {TrapR, 0.5f}, {PalOffset, 0.1f}, {PalSpan, 0.35f}, {Emission, 1.2f},
+               {Fog, 0.03f}, {TexAmount, 0.6f}, {TexPick, 0.0f}, {TexScale, 1.2f}, {Lens, 1.05f}})},
+        // One low, wide gyroid drawn only in light, the view rolling slowly through it: veils of glowing silk.
+        {"Gyroid Veils", 0.2f, 0.8f, 0.3f,
+         make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 6.0f}, {PGyroid, 1.0f}, {GyroScale, 1.1f}, {PrimThick, 0.06f},
+               {MSurface, 0.15f}, {MGlow, 0.85f}, {TrapR, 0.5f}, {TrapY, 0.5f}, {PalOffset, 0.52f}, {PalSpan, 0.45f},
+               {Emission, 1.05f}, {Fog, 0.025f}, {Corridor, 1.8f}, {TexEmit, 0.3f}, {TexPick, 4.0f}, {Roll, 0.08f},
+               {Lens, 0.9f}})},
+        // The Apollonian packing as thin glowing sheets in a dark haze: a mist of pearls at night.
+        {"Apollonian Mist", 0.1f, 0.25f, 0.2f,
+         make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 6.0f}, {PApollo, 1.0f}, {PrimSize, 1.8f}, {MDensity, 0.85f},
+               {MGlow, 0.15f}, {DensBand, 0.18f}, {TrapR, 0.7f}, {TrapZ, 0.3f}, {PalOffset, 0.68f}, {PalSpan, 0.35f},
+               {Emission, 1.0f}, {Fog, 0.025f}, {Roll, -0.04f}})},
+        // Sierpinski tetrahedra turned inside out by a sphere, three ways round: a hollow nave of triangles.
+        {"Tetra Cathedral", 0.55f, 0.3f, 0.65f,
+         make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 3.0f},
+               {PSierp, 1.0f}, {PrimSize, 1.4f}, {Invert, 0.35f}, {InvRadius, 2.0f}, {MSurface, 0.7f}, {MGlow, 0.3f},
+               {TrapR, 0.6f}, {TrapX, 0.3f}, {PalOffset, 0.02f}, {PalSpan, 0.4f}, {Emission, 1.2f}, {Fog, 0.03f},
+               {TexAmount, 0.5f}, {TexPick, 2.0f}, {Lens, 0.85f}})},
+        // Cow skulls spiralling three ways down the way, seen through a long lens: a slow, dark procession.
+        {"Skull Spiral", 0.6f, 0.15f, 0.45f,
+         make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 4.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 3.0f},
+               {PolarTwist, 0.35f}, {PMesh, 1.0f}, {MeshPick, 3.0f}, {MeshSize, 2.0f}, {MSurface, 0.75f}, {MGlow, 0.25f},
+               {TrapR, 0.5f}, {TrapY, 0.3f}, {PalOffset, 0.92f}, {PalSpan, 0.3f}, {Emission, 1.25f}, {Fog, 0.035f},
+               {TexAmount, 0.6f}, {TexPick, 3.0f}, {Roll, 0.06f}, {Lens, 1.3f}})},
+        // Chandeliers hung five ways in a reverse spiral, mostly glow, in iron: a ballroom at the bottom of the sea.
+        {"Chandelier Abyss", 0.85f, 0.25f, 0.5f,
+         make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 5.0f},
+               {PolarTwist, -0.25f}, {PMesh, 1.0f}, {MeshPick, 5.0f}, {MeshSize, 2.0f}, {MSurface, 0.3f}, {MGlow, 0.7f},
+               {TrapR, 0.6f}, {TrapZ, 0.3f}, {PalOffset, 0.7f}, {PalSpan, 0.35f}, {Emission, 1.1f}, {Fog, 0.04f},
+               {TexEmit, 0.5f}, {TexPick, 1.0f}, {Roll, -0.1f}})},
+        // Folded girders wound seven ways into a fast spiral, corrugated iron: the inside of a turbine.
+        {"Iron Helix", 0.9f, 0.3f, 0.85f,
+         make({{RepXY, 0.8f}, {CellXY, 5.0f}, {CellZ, 4.0f}, {CellShift, 0.5f}, {Polar, 1.0f}, {PolarN, 7.0f},
+               {PolarTwist, 0.4f}, {PBar, 1.0f}, {PrimThick, 0.07f}, {Mirror, 1.0f}, {MirrorOff, 0.9f}, {Ifs, 0.8f},
+               {IfsIter, 2.0f}, {IfsScale, 1.5f}, {IfsAngA, 0.35f}, {IfsAngB, 0.2f}, {IfsOffX, 0.8f}, {IfsOffY, 0.6f},
+               {IfsOffZ, 0.7f}, {MSurface, 0.85f}, {MGlow, 0.15f}, {TrapX, 0.6f}, {TrapY, 0.3f}, {PalOffset, 0.05f},
+               {PalSpan, 0.45f}, {Emission, 1.1f}, {Fog, 0.045f}, {TexAmount, 0.7f}, {TexPick, 1.0f}, {TexScale, 1.5f},
+               {Roll, 0.2f}})},
+        // Low-power Mandelbulbs ringed nine ways and spun hard, all glow: a wheel of comets.
+        {"Comet Wheel", 0.9f, 0.85f, 0.3f,
+         make({{RepXY, 0.3f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.9f}, {Polar, 1.0f}, {PolarN, 9.0f},
+               {PolarTwist, 0.5f}, {PBulb, 1.0f}, {BulbPower, 3.0f}, {PrimSize, 1.1f}, {MSurface, 0.3f}, {MGlow, 0.7f},
+               {TrapR, 0.7f}, {TrapY, 0.3f}, {PalOffset, 0.18f}, {PalSpan, 0.7f}, {Emission, 1.15f}, {Fog, 0.025f},
+               {TexEmit, 0.4f}, {TexPick, 7.0f}, {Roll, -0.25f}, {Lens, 0.85f}})},
+        // Ferns in ice, seven ways round a slow spiral, stone half lost in frost mist: a still winter glade.
+        {"Frozen Ferns", 0.15f, 0.8f, 0.8f,
+         make({{RepXY, 0.8f}, {CellXY, 5.0f}, {CellZ, 4.0f}, {CellShift, 0.9f}, {Polar, 1.0f}, {PolarN, 7.0f},
+               {PolarTwist, 0.15f}, {PMesh, 1.0f}, {MeshPick, 7.0f}, {MeshSize, 2.0f}, {MSurface, 0.6f}, {MDensity, 0.4f},
+               {DensBand, 0.12f}, {TrapR, 0.5f}, {TrapX, 0.3f}, {PalOffset, 0.56f}, {PalSpan, 0.3f}, {Emission, 1.2f},
+               {Fog, 0.035f}, {TexAmount, 0.6f}, {TexPick, 4.0f}, {TexScale, 1.3f}, {Lens, 0.85f}})},
+        // Lambis shells hollowed by a sphere inversion, five ways in a spiral, glowing: a bloom of nacre.
+        {"Nacre Bloom", 0.7f, 0.9f, 0.6f,
+         make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 4.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 5.0f},
+               {PolarTwist, 0.2f}, {PMesh, 1.0f}, {MeshPick, 0.0f}, {MeshSize, 1.6f}, {Invert, 0.3f}, {InvRadius, 1.6f},
+               {MSurface, 0.4f}, {MGlow, 0.6f}, {TrapR, 0.7f}, {TrapX, 0.2f}, {PalOffset, 0.8f}, {PalSpan, 0.5f},
+               {Emission, 1.1f}, {Fog, 0.03f}, {TexEmit, 0.4f}, {TexPick, 4.0f}, {Roll, 0.12f}})},
+        // The newer fractals, each round the way by an odd fold (never the 4-way cross). The Julia
+        // constants all sit inside the Mandelbrot set's main cardioid, so each set is one body.
+        // Quaternion Julia sets, five round the way: soft fruit grown from z^2 + c.
+        {"Julia Bloom", 0.45f, 0.7f, 0.55f,
+         make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 5.0f},
+               {PJulia, 1.0f}, {JuliaCX, -0.2f}, {JuliaCY, 0.6f}, {JuliaCZ, 0.0f}, {JuliaCW, 0.0f}, {PrimSize, 1.4f},
+               {MSurface, 0.75f}, {MGlow, 0.25f}, {TrapR, 0.6f}, {TrapX, 0.3f}, {PalOffset, 0.58f}, {PalSpan, 0.5f},
+               {Emission, 1.15f}, {Fog, 0.03f}, {TexAmount, 0.4f}, {TexPick, 4.0f}})},
+        // A Julia set leaning off its axis, seven ways in a slow spiral, half stone, half mist: a reef.
+        {"Quaternion Reef", 0.4f, 0.55f, 0.6f,
+         make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 7.0f},
+               {PolarTwist, 0.2f}, {PJulia, 1.0f}, {JuliaCX, -0.4f}, {JuliaCY, 0.55f}, {JuliaCZ, 0.0f}, {JuliaCW, 0.15f},
+               {PrimSize, 1.3f}, {MSurface, 0.55f}, {MDensity, 0.45f}, {DensBand, 0.14f}, {TrapR, 0.6f}, {TrapZ, 0.4f},
+               {PalOffset, 0.3f}, {PalSpan, 0.45f}, {Emission, 1.15f}, {Fog, 0.03f}, {Roll, 0.08f}})},
+        // Three round Julia bodies lit through: lanterns of a set that never escapes.
+        {"Julia Lanterns", 0.3f, 0.65f, 0.45f,
+         make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 3.0f},
+               {PJulia, 1.0f}, {JuliaCX, -0.3f}, {JuliaCY, 0.45f}, {JuliaCZ, 0.1f}, {JuliaCW, 0.1f}, {PrimSize, 1.5f},
+               {MSurface, 0.4f}, {MGlow, 0.6f}, {TrapR, 0.7f}, {TrapY, 0.3f}, {PalOffset, 0.08f}, {PalSpan, 0.4f},
+               {Emission, 1.1f}, {Fog, 0.03f}, {TexEmit, 0.4f}, {TexPick, 7.0f}, {Lens, 1.1f}})},
+        // Balls of Kleinian foam, five round the way: discs nested in discs, without end.
+        {"Klein Foam", 0.5f, 0.6f, 0.6f,
+         make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 5.0f},
+               {PKlein, 1.0f}, {KleinBox, 1.0f}, {PrimSize, 1.2f}, {PrimThick, 0.08f}, {MSurface, 0.7f}, {MGlow, 0.3f},
+               {TrapR, 0.6f}, {TrapX, 0.3f}, {PalOffset, 0.66f}, {PalSpan, 0.5f}, {Emission, 1.15f}, {Fog, 0.03f},
+               {TexAmount, 0.4f}, {TexPick, 0.0f}})},
+        // The limit set nine ways round in a slow counter-spiral, glowing sheets: a nave of caps and rings.
+        {"Limit Set Nave", 0.6f, 0.5f, 0.55f,
+         make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 9.0f},
+               {PolarTwist, -0.15f}, {PKlein, 1.0f}, {KleinBox, 0.9f}, {PrimSize, 1.1f}, {PrimThick, 0.06f},
+               {MSurface, 0.35f}, {MGlow, 0.4f}, {MDensity, 0.25f}, {DensBand, 0.12f}, {TrapR, 0.7f}, {TrapY, 0.3f},
+               {PalOffset, 0.9f}, {PalSpan, 0.55f}, {Emission, 1.1f}, {Fog, 0.03f}, {TexEmit, 0.3f}, {TexPick, 4.0f},
+               {Roll, -0.1f}, {Lens, 0.9f}})},
+        // Octahedral fractals, three round the way: spires of octahedra on octahedra.
+        {"Octa Spires", 0.6f, 0.55f, 0.6f,
+         make({{RepXY, 0.5f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 3.0f},
+               {PKifs, 1.0f}, {KifsScale, 2.0f}, {PrimSize, 1.2f}, {MSurface, 0.8f}, {MGlow, 0.2f}, {TrapR, 0.5f},
+               {TrapX, 0.4f}, {PalOffset, 0.2f}, {PalSpan, 0.45f}, {Emission, 1.15f}, {Fog, 0.03f}, {TexAmount, 0.5f},
+               {TexPick, 6.0f}})},
+        // A sparser octahedral dust eleven ways round, spiralling and glowing: a choir of crystals.
+        {"Octahedral Choir", 0.7f, 0.7f, 0.5f,
+         make({{RepXY, 0.4f}, {CellXY, 6.0f}, {CellZ, 4.5f}, {CellShift, 0.8f}, {Polar, 1.0f}, {PolarN, 11.0f},
+               {PolarTwist, 0.2f}, {PKifs, 1.0f}, {KifsScale, 2.4f}, {PrimSize, 1.1f}, {MSurface, 0.45f}, {MGlow, 0.55f},
+               {TrapR, 0.6f}, {TrapZ, 0.3f}, {PalOffset, 0.76f}, {PalSpan, 0.55f}, {Emission, 1.1f}, {Fog, 0.03f},
+               {TexEmit, 0.5f}, {TexPick, 7.0f}, {Roll, 0.12f}})},
+    };
 }
 
-const std::array<Seed, 41>& seeds() {
-    static const std::array<Seed, 41> kSeeds = buildSeeds();
+const std::vector<Seed>& seeds() {
+    static const std::vector<Seed> kSeeds = buildSeeds();
     return kSeeds;
 }
 
@@ -750,7 +1106,7 @@ Genome clampFields(Genome g) {
         if (!std::isfinite(g[f])) g[f] = kBounds[f].lo;
         g[f] = wraps(f) ? wrap01(g[f]) : std::clamp(g[f], kBounds[f].lo, kBounds[f].hi);
     }
-    normalize(g, PBox, 13, nullptr);
+    normalize(g, PBox, kPrimCount, nullptr);
     normalize(g, MSurface, 3, nullptr);
     return g;
 }
@@ -762,7 +1118,7 @@ bool inBounds(const Genome& g) {
         if (wraps(f) ? (g[f] < 0.0f || g[f] >= 1.0f) : (g[f] < b.lo - 1e-5f || g[f] > b.hi + 1e-5f)) return false;
     }
     for (int first : {static_cast<int>(PBox), static_cast<int>(MSurface)}) {
-        const int n = first == PBox ? 13 : 3;
+        const int n = first == PBox ? kPrimCount : 3;
         float sum = 0.0f;
         for (int i = 0; i < n; ++i) sum += g[first + i];
         if (std::fabs(sum - 1.0f) > 1e-3f) return false;
@@ -772,6 +1128,8 @@ bool inBounds(const Genome& g) {
 
 float sdfUncarved(const Genome& g, const Way& way, const std::array<float, 3>& p) { return bareWorld(g, way, p); }
 
+float terrainSdf(const Genome& g, const std::array<float, 3>& p) { return terrain(g, p); }
+
 float sdf(const Genome& g, const Way& way, const std::array<float, 3>& p) {
     return smax(bareWorld(g, way, p), -corridor(g, way, p), 0.5f);
 }
@@ -779,6 +1137,8 @@ float sdf(const Genome& g, const Way& way, const std::array<float, 3>& p) {
 Space openSpace(const Genome& g) {
     // A jittered 6 x 6 x 6 lattice in a 12-unit box about the eye, which sits on the travel axis.
     const Way way;
+    // The open threshold plus the blend: above this, the ground alone never makes a point "not open".
+    constexpr float kFloorReach = 0.25f + kFloorBlend;
     int open = 0;
     int near = 0;
     int total = 0;
@@ -788,6 +1148,10 @@ Space openSpace(const Genome& g) {
             for (int k = 0; k < 6; ++k) {
                 const V3 p{-6.0f + 2.0f * (static_cast<float>(i) + unit(s)), -6.0f + 2.0f * (static_cast<float>(j) + unit(s)),
                            -6.0f + 2.0f * (static_cast<float>(k) + unit(s))};
+                // The ground and what lies under it are not the camera's space: a point there, or in
+                // the band the ground's own surface and blend reach, is not judged at all, so a floor
+                // never fails a world for the rock beneath it (every point above the band still is).
+                if (g[Floor] > 0.0f && p[1] < g[FloorY] + kFloorReach) continue;
                 const float d = bareWorld(g, way, p);
                 if (d > 0.25f) ++open;
                 if (d < 0.6f) ++near;
@@ -795,6 +1159,7 @@ Space openSpace(const Genome& g) {
             }
         }
     }
+    if (total == 0) return {};
     return {static_cast<float>(open) / static_cast<float>(total), static_cast<float>(near) / static_cast<float>(total)};
 }
 
@@ -811,7 +1176,7 @@ const Seed& seed(int index) { return seeds()[static_cast<size_t>(std::clamp(inde
 Genome random(uint64_t seedValue, const Constraints& c, int* picked) {
     uint64_t s = mix64(seedValue ^ 0x4D6F727068576F72ull);
     // Pick the seed world: closeness to the music's wants, the current world far less likely.
-    float weights[64];
+    std::vector<float> weights(seeds().size());
     float total = 0.0f;
     for (int i = 0; i < seedCount(); ++i) {
         const Seed& sd = seed(i);
@@ -849,7 +1214,9 @@ Genome random(uint64_t seedValue, const Constraints& c, int* picked) {
     for (int f : {static_cast<int>(Mirror), static_cast<int>(Ifs), static_cast<int>(Invert), static_cast<int>(AbsInv),
                   static_cast<int>(PMesh), static_cast<int>(TexAmount), static_cast<int>(TexEmit),
                   static_cast<int>(Polar), static_cast<int>(PGyroid), static_cast<int>(PMenger), static_cast<int>(PBulb),
-                  static_cast<int>(PMandelbox), static_cast<int>(PSierp), static_cast<int>(PApollo)}) {
+                  static_cast<int>(PMandelbox), static_cast<int>(PSierp), static_cast<int>(PApollo),
+                  static_cast<int>(PJulia), static_cast<int>(PKlein), static_cast<int>(PKifs),
+                  static_cast<int>(Terrain), static_cast<int>(Floor), static_cast<int>(Sky)}) {
         if (origin[f] < 0.05f && unit(s) < amount * 0.5f) m[f] = unit(s) * amount;
     }
     m = clampFields(m);

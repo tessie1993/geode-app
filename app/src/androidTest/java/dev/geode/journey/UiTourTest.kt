@@ -361,8 +361,7 @@ class UiTourTest {
             null
         }
         tour.pages("styles", "list", pages = 3)
-        tour.step("styles", "group-dropdown", "the group dropdown open") { tour.tap(STYLES_ALL) }
-        tour.step("styles", "group-flowing", "the Flowing & liquid group") { tour.tap(FLOWING) }
+        tour.step("styles", "family-silk", "the Silk family open") { tour.tap(SILK) }
         tour.step("styles", "locked-style", "a Pro style plays while the paywall offers it") {
             tour.tap(LOCKED_STYLE)
             "paywall=${tour.waitFor(hasText(UiTour.PAYWALL_RESTORE))}"
@@ -372,19 +371,13 @@ class UiTourTest {
             tour.tap(UiTour.PAYWALL_CLOSE)
             tour.state().summary()
         }
-        tour.step("styles", "group-all-again", "back to All styles") {
-            tour.tap(FLOWING)
-            tour.tap(STYLES_ALL)
-            null
+        tour.step("styles", "family-silk-closed", "the Silk family closed again") { tour.tap(SILK) }
+        tour.step("styles", "shader-family", "a shader family's variations") {
+            tour.tap(SHADERS)
+            tour.tap(ARBOR)
         }
         tour.step("styles", "row-menu", "a style's long-press menu") {
             compose.onAllNodes(LONG_PRESSABLE).onFirst().performSemanticsAction(SemanticsActions.OnLongClick)
-            null
-        }
-        tour.back()
-        tour.step("styles", "search", "style search with a query") {
-            tour.tap(SEARCH_STYLES)
-            compose.onAllNodes(hasSetTextAction()).onFirst().performTextInput("neon")
             null
         }
         tour.back()
@@ -458,11 +451,11 @@ class UiTourTest {
         tour.tapIfPresent(VISUALS)
     }
 
-    /** Quick settings (a tap on the top of the visual) and the Macros drawer (a swipe down). */
+    /** Visual settings (the ⚙ at the top, a page of the options) and the Macros drawer (a swipe down). */
     private fun overlays() {
-        tour.step("quick-settings", "open", "Visual settings over the visual") {
+        tour.step("quick-settings", "open", "Visual settings, from the gear at the top") {
             tour.stageBaseline()
-            UiTourTouch.tap(tour.at(0.5f, 0.2f))
+            tour.tap(hasContentDescription(UiTour.QUICK_SETTINGS_TITLE))
             "open=${tour.waitFor(hasText(UiTour.QUICK_SETTINGS_TITLE))}"
         }
         tour.pages("quick-settings", "body", pages = 3)
@@ -673,10 +666,10 @@ class UiTourTest {
         const val PRESETS = "Presets"
         const val MILKDROP = "MilkDrop"
         const val TEXTURES = "Textures"
-        const val STYLES_ALL = "All styles"
-        const val FLOWING = "Flowing & liquid"
+        const val SILK = "Silk"
+        const val SHADERS = "Shaders"
+        const val ARBOR = "Arbor"
         const val LOCKED_STYLE = "Halvorsen Web"
-        const val SEARCH_STYLES = "Search styles"
         const val SAVE_LOOK = "Save current look"
         const val MACROS = "Macros"
         const val MOTION = "Motion"

@@ -63,7 +63,6 @@ import dev.geode.render.MilkPresetMemory
 import dev.geode.render.SceneFactory
 import dev.geode.render.TransitionStyle
 import dev.geode.render.UnderlayBlend
-import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneParams
 import dev.geode.widget.WidgetStyles
 import kotlinx.coroutines.CoroutineScope
@@ -94,8 +93,6 @@ class PlayerSession internal constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val playback = PlaybackEngine.acquireForUi(application)
-
-    private val ring = playback.ring
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val storeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
@@ -346,15 +343,6 @@ class PlayerSession internal constructor(
         name: String,
         onReady: (String) -> Unit,
     ) = textureController.useTexture(name, onReady)
-
-    private val pcmScratch = FloatArray(4096)
-    private var pcmCursor = 0L
-
-    fun latestPcm(): PcmChunk? {
-        val n = ring.copyNewSince(pcmCursor, pcmScratch)
-        pcmCursor = ring.lastCopyEndIndex
-        return if (n > 0) PcmChunk(pcmScratch, n) else null
-    }
 
     private val milkImport = MilkImportController(application, scope)
 
@@ -1091,12 +1079,6 @@ class PlayerSession internal constructor(
         width: Int,
         height: Int,
     ) = backgroundController.setRenderSize(width, height)
-
-    fun currentSceneId(): String = _vizState.value.sceneId
-
-    fun currentSceneParams(): SceneParams = _vizState.value.params
-
-    fun playbackPositionMs(): Long? = if (player.isPlaying) player.currentPosition else null
 
     fun trackDurationMs(): Long = player.duration.coerceAtLeast(0L)
 

@@ -123,8 +123,6 @@ GEODE_API unsigned    geode_event_recipe_state(int recipe, const char* style_id,
    target), into out; returns the route count. An unknown recipe or a NULL style leaves current as it was. */
 GEODE_API int         geode_event_recipe_toggle(int recipe, const char* style_id, const float* current, int current_floats,
                                                 float* out, int capacity);
-/* Gyro look, -1..1 per axis; the camera reads it only while camGyro is on. */
-GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
 /* One gyro reading from SensorManager.getOrientation (radians: azimuth -pi..pi, pitch -pi/2..pi/2). The first after a
    reset is the baseline; viz/GyroLook turns the tilt from it into the -1..1 look per axis the camera reads only while
    camGyro is on. GL thread. */

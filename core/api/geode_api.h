@@ -102,8 +102,13 @@ GEODE_API int         geode_music_state(const char* style_id, int seed, const fl
 GEODE_API int         geode_music_edit(const char* style_id, int seed, const float* user, int user_floats, int has_user,
                                        unsigned mask, int op, int moment, int action, float value, float* out, int capacity,
                                        unsigned* out_mask, int* out_has_user);
-/* The LfoTarget ordinal a new route of `action` moves, so the shell can hide a chip the style ignores. */
-GEODE_API int         geode_music_action_target(int action);
+/* Modulation targets (core/viz/ModTargets, #642): bit per Music action whose target reaches `style_id`, so the
+   shell hides a chip the style ignores; and the whole target, source and curve table (scopes, chained slots,
+   slot defaults and rate range, each source's natural polarity, and per style what a reaction, an envelope and
+   each wave may move) as the line table ModTargets.hpp documents.
+   Static: the pointer stays valid for the process; the shell parses it once. Labels stay in Kotlin. */
+GEODE_API unsigned    geode_music_actions_for(const char* style_id);
+GEODE_API const char* geode_mod_targets_text(void);
 /* Gyro look, -1..1 per axis; the camera reads it only while camGyro is on. */
 GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
 GEODE_API void        geode_viz_set_thermal(geode_viz*, int platform_status, float headroom); /* status < 0 = unknown */
@@ -224,6 +229,11 @@ GEODE_API int         geode_library_search(const char* const* rows, int track_co
  * process; the shell parses it once. Display labels and the Pro rule are not in it. */
 GEODE_API const char* geode_catalogue_text(void);
 
+/* The catalogue's presets section (core/viz/CataloguePresets, #648): the bundled looks, each a named set of
+ * param values by #346's param name, and every bundled preset (name, style id, look), as one versioned
+ * '|'-separated line table (see CataloguePresets.hpp for the rows). Static, like geode_catalogue_text. */
+GEODE_API const char* geode_catalogue_presets_text(void);
+
 /* Customize randomizer and Reset tab (core/viz/ParamRandomizer) over SceneParams
  * in the geode_viz_param_name wire order: geode_viz_param_count floats, ints and flags as floats. Pure: no viz
  * handle; the same arguments always give the same result. Controls are named by their ParamKeys strings, tabs
@@ -251,6 +261,10 @@ GEODE_API const char* geode_params_schema_text(void);
  * index = the row's place in its group (for lfo and adsr the float index of geode_viz_set_lfo / _adsr, for macro
  * the knob). A sibling of geode_params_schema_text, whose format it leaves alone. Static; parse once. */
 GEODE_API const char* geode_config_schema_text(void);
+/* The two-finger transform on the visual (core/viz/TouchTransform): a pinch's scale factor times Zoom, a twist in
+ * degrees added to Rotation, each clamped to its schema range; a broken gesture value returns current unchanged. */
+GEODE_API float       geode_touch_zoom(float current, float scale_factor);
+GEODE_API float       geode_touch_rotation(float current, float degrees);
 
 /* Export resampler (audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC encoder's rate; box filter
  * down, linear up. Streaming: state carries across calls. Any one thread at a time. There is no flush: a

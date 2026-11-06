@@ -314,8 +314,11 @@ object GeodeNative {
         outHand: IntArray,
     ): FloatArray
 
-    /** The LfoTarget ordinal a new route of Music [action] moves (geode_music_action_target). */
-    external fun musicActionTarget(action: Int): Int
+    /** Bit per Music action whose target reaches [styleId] (geode_music_actions_for). */
+    external fun musicActionsFor(styleId: String): Int
+
+    /** The modulation-target table (geode_mod_targets_text), parsed once by `render/ModTable`. */
+    external fun modTargetsText(): String
 
     /** Mirrors GEODE_HAND_UNCLAIMED. */
     const val HAND_UNCLAIMED: Int = 0x40000000
@@ -468,6 +471,12 @@ object GeodeNative {
     external fun catalogueText(): String
 
     /**
+     * The catalogue's presets section (core/viz/CataloguePresets): the bundled looks and every bundled
+     * preset, as its versioned line table (`geode_catalogue_presets_text`). Static; parse once (ui/BuiltInPresets does).
+     */
+    external fun cataloguePresetsText(): String
+
+    /**
      * The scene params schema (core/viz/ParamTable.inc) as its versioned line table: per wire slot the
      * field's name, kind, default, control range and FADE/HOLD (`geode_params_schema_text`). Static; parse once.
      */
@@ -479,6 +488,17 @@ object GeodeNative {
      * range and unit (`geode_config_schema_text`). The stores' clamps and defaults are to read it. Static; parse once.
      */
     external fun configSchemaText(): String
+    /** A pinch's scale factor applied to Zoom, clamped to its schema range (core/viz/TouchTransform). */
+    external fun touchZoom(
+        current: Float,
+        scaleFactor: Float,
+    ): Float
+
+    /** A twist in degrees added to Rotation, clamped to its schema range (core/viz/TouchTransform). */
+    external fun touchRotation(
+        current: Float,
+        degrees: Float,
+    ): Float
 
     /** Every rolled control as `TAB|ParamKeys string` lines, in roll order (core/viz/ParamRandomizer). Static. */
     external fun paramsRollKeys(): String

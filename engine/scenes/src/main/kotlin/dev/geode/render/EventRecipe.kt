@@ -233,7 +233,7 @@ enum class EventRecipe(
     ;
 
     /** This recipe's routes that the style [sceneId] can actually show. */
-    fun routesFor(sceneId: String): List<ReactionRoute> = routes.filter { it.target.scope.appliesTo(sceneId) }
+    fun routesFor(sceneId: String): List<ReactionRoute> = routes.filter { ModTable.offeredTo(it.target, sceneId, ModTable.REACTION) }
 
     /** True when every route this recipe would add to [sceneId] is in [current]. */
     fun isOn(

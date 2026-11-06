@@ -9,10 +9,17 @@ the AGP defaults. Each **Action** below still needs a check on a release build o
 **Applied 2026-11-02** (re-checked by a second r8-analyzer pass; line numbers below are the
 old file's): the `GeodeNative { *; }` keep and the `class * { native <methods>; }` repeat are
 gone (no native code calls back into Kotlin), the coroutines `volatile` rule is gone (the
-library ships it), and the SceneParams rule is `{ !static <fields>; }`. **Not yet:** the
-Media3 audio keep (`:31`) and `-dontwarn androidx.media3.**` stay until a device check of
-playback; the dontwarn now also covers media3-cast and media3-muxer (Cast to TV), so narrow it
-to the classes R8 actually warns about. Cast itself needs no app rule: media3-cast's consumer
+library ships it), and the SceneParams rule is `{ !static <fields>; }`. **Applied 2026-11-06 (release
+build pass):** the Media3 audio keep (`:31`) is gone too; the audit found no reflection on that
+package, so it gets the same device check as the others (play a track from a release build:
+the PCM tap, ReplayGain/crossfade DSP and a Cast hand-off). **Not yet:** `-dontwarn
+androidx.media3.**` stays; it also covers media3-cast and media3-muxer (Cast to TV), so narrow
+it to the classes R8 actually warns about once a release build's `configuration.txt`/warnings
+are read. What remains in `app/proguard-rules.pro` is the `dontwarn`s, the stack-trace
+attributes and the `SceneParams` field names; no module ships consumer rules of its own. The
+`GeodeNative` JNI class is kept by AGP's default `native <methods>` rule (no native code calls
+back into Kotlin, so nothing else needs keeping). `release.yml` uploads `mapping.txt`,
+`configuration.txt` and `usage.txt` so the next audit needs no local build. Cast itself needs no app rule: media3-cast's consumer
 rules keep `DefaultCastOptionsProvider`; confirm in the release build's `configuration.txt`.
 
 **Dated snapshot.** This is the audit as it ran at `8588501`. Names it cites have changed since:
@@ -34,7 +41,7 @@ No `-dontoptimize`, `-dontobfuscate` or `-dontshrink` is in effect. Full mode is
 
 ## Keep rules evaluation
 
-### `-keep class androidx.media3.exoplayer.audio.** { *; }` (`proguard-rules.pro:31`)
+### `-keep class androidx.media3.exoplayer.audio.** { *; }` (`proguard-rules.pro:31`) (removed 2026-11-06)
 
 - **Keeps**: 1,868 items (1.17%). Classes: 103, Fields: 671, Methods: 1,094. The rule is package-wide and blocks shrinking, optimization and obfuscation.
 - **Kept items**: `AudioCapabilities$Api29`, `AudioCapabilities$AudioProfile`, `BaseAudioProcessor.configure`, `BaseAudioProcessor.flush`

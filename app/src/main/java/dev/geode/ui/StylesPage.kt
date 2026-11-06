@@ -212,7 +212,7 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
         }
         val shown = remember(entries, filter, shelf, query) { StyleFiltering.apply(entries, filter, shelf, query) }
         val view = LocalView.current
-        val shuffle = {
+        val shuffle: () -> Unit = {
             val others = shown.filter { it.id != viz.sceneId }
             // A free user lands on a style they can keep while there is one.
             others.filter { gate.allowsStyle(it.id) }.ifEmpty { others }.randomOrNull()?.let {

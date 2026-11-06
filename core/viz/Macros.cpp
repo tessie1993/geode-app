@@ -77,7 +77,8 @@ float doubling(float x) { return std::exp2(x); }
 
 float knob(const MacroKnobs& k, Macro m) { return k[static_cast<size_t>(m)]; }
 
-float clampKnob(float v) { return std::isfinite(v) ? std::clamp(v, -1.0f, 1.0f) : 0.0f; }
+// The knob row's range; a NaN or an infinity reads as the row's centre (0, as styled).
+float clampKnob(int i, float v) { return config::sanitized(knobSlot(i), v); }
 
 std::array<std::atomic<float>, kMacroCount> gKnobs{};
 
@@ -96,12 +97,12 @@ const std::array<Starter, kStarterCount> kStarters = {{
 
 MacroKnobs clamped(const float* values, int count) {
     MacroKnobs k{};
-    for (int i = 0; i < kMacroCount && values && i < count; ++i) k[static_cast<size_t>(i)] = clampKnob(values[i]);
+    for (int i = 0; i < kMacroCount && values && i < count; ++i) k[static_cast<size_t>(i)] = clampKnob(i, values[i]);
     return k;
 }
 
 void setGlobal(const MacroKnobs& knobs) {
-    for (int i = 0; i < kMacroCount; ++i) gKnobs[static_cast<size_t>(i)].store(clampKnob(knobs[static_cast<size_t>(i)]), std::memory_order_relaxed);
+    for (int i = 0; i < kMacroCount; ++i) gKnobs[static_cast<size_t>(i)].store(clampKnob(i, knobs[static_cast<size_t>(i)]), std::memory_order_relaxed);
 }
 
 MacroKnobs global() {

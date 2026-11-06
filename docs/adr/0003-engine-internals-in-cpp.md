@@ -31,7 +31,7 @@ Answers from the grilling:
 | audio-android `PcmTap*`, `SinkClock*`; app `playback/*`, `audio/*` (DSP is native already), `AiffPcm`/`AiffExtractor` | ~3700 | Shell: Media3, services, capture, container IO | none | none |
 | `export/*` other (`VideoExporter`, `LoopRender`, `LoopExtend`, `StudioExporter`, `AudioTranscoder`, `LoudnessTarget` (advice text, one gain subtraction), clip effects, `CubeLut` (file parser)) | ~5400 | Shell: MediaCodec, Muxer, Media3, text | none | none |
 | `analysis/ArtPalette` (per-pixel hue histogram of the artwork that tints the visuals) | 78 | Engine | `core/viz` | none: after the catalogue |
-| `analysis/PlaybackMath`, `BarTrim`, `SearchMatcher`, `viz/BackgroundImage`, `render/GyroLook` (sensor to look, one clamp) | ~430 | Shell: sleep fade, search, sensors | none | `BarTrim` goes with the BPM labels |
+| `analysis/PlaybackMath`, `BarTrim`, `SearchMatcher`, `viz/BackgroundImage`, `render/GyroLook` (sensor registration only; the look maths is `core/viz/GyroLook`, #755) | ~430 | Shell: sleep fade, search, sensors | none | `BarTrim` goes with the BPM labels |
 
 ## Status as of 2026-11
 

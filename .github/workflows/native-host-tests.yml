@@ -82,6 +82,9 @@ jobs:
           # The process-wide Customize layer every renderer draws (#364): set, clamp, generation, follow, export pin.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/layer_state_test.cpp core/viz/LayerState.cpp -o layer_state_test
           ./layer_state_test
+          # Phone tilt to camera look (#755): baseline capture and recapture, the yaw wrap at +-pi, the clamp, the recentre.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/gyro_look_test.cpp -o gyro_look_test
+          ./gyro_look_test
           # An export segment's style schedule: every later style is gated by the entitlement (#357).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/style_schedule_test.cpp core/viz/StyleSchedule.cpp -o style_schedule_test
           ./style_schedule_test
@@ -150,3 +153,8 @@ jobs:
           # Cast's HLS timing (#656): segment durations from the fragment's media time, TARGETDURATION, the playlist text.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/hls_segments_test.cpp core/api/geode_frame_api.cpp -o hls_segments_test
           ./hls_segments_test
+          # The config params schema (#423): LFO, envelope, macro, palette, look, clip and morph rows; Lfo, Adsr and Macros clamp as before; the store conversions equal Kotlin's; the text.
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/config_schema_test.cpp core/viz/ConfigFields.cpp core/viz/Adsr.cpp core/viz/Lfo.cpp core/viz/Macros.cpp \
+            core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp \
+            core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o config_schema_test
+          ./config_schema_test

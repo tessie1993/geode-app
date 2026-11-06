@@ -43,7 +43,8 @@ internal class CaptureController(
     interface Host {
         fun pausePlayback()
 
-        fun resetSound()
+        /** The ring changed hands: a new epoch, and whether the player (not the mic or a capture) now writes it. */
+        fun resetSound(playerOwnsRing: Boolean)
 
         fun setSoundRate(rateHz: Int)
     }
@@ -112,7 +113,7 @@ internal class CaptureController(
             }
         }
         if (has(GeodeNative.LIVE_INPUT_ACT_STOP_CAPTURE)) micCapture.stop()
-        if (has(GeodeNative.LIVE_INPUT_ACT_RESET_SOUND)) host.resetSound()
+        if (has(GeodeNative.LIVE_INPUT_ACT_RESET_SOUND)) host.resetSound(!externalAudioOwnsRing())
         if (has(GeodeNative.LIVE_INPUT_ACT_PLAYER_RATE)) host.setSoundRate(playbackRateFallback())
         _micState.value =
             MicState(
@@ -153,7 +154,7 @@ internal class CaptureController(
                         startPlaybackCapture(projection)
                     } else if (_externalAudio.value.active) {
                         playbackCapture.stop()
-                        host.resetSound()
+                        host.resetSound(!externalAudioOwnsRing())
                         host.setSoundRate(playbackRateFallback())
                         _externalAudio.update { it.copy(active = false, refusedByApp = false) }
                     }
@@ -205,7 +206,7 @@ internal class CaptureController(
         host.pausePlayback()
         onMusicStarts()
         val failure = playbackCapture.start(projection) { rate -> host.setSoundRate(rate) }
-        host.resetSound()
+        host.resetSound(!externalAudioOwnsRing())
         if (failure != null) {
             host.setSoundRate(playbackRateFallback())
             PlaybackCaptureService.stop(application)
@@ -222,7 +223,7 @@ internal class CaptureController(
 
     fun stopExternalAudio() {
         playbackCapture.stop()
-        host.resetSound()
+        host.resetSound(!externalAudioOwnsRing())
         host.setSoundRate(playbackRateFallback())
         PlaybackCaptureService.stop(application)
         _externalAudio.update {

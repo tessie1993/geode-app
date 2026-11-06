@@ -322,6 +322,10 @@ GEODE_API void            geode_sound_tuning_defaults(float* out, int count);
 GEODE_API void            geode_sound_tuning_ranges(float* min_out, float* max_out, int count);
 GEODE_API void            geode_sound_tuning_clamp(float* values, int count);   /* in place */
 
+/* The GL Transitions library (gl_transitions.json, core/viz/TransitionLibrary): the shell's one read of it,
+   as the table encodeTransitionTable describes (UTF-8, control-separated). Read from the APK once per
+   process; "" when the asset is missing. The pointer stays valid for the process. */
+GEODE_API const char*     geode_transitions_table(AAssetManager* assets);
 /* Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High. */
 #define GEODE_PERF_TIER_FLOATS 5
 /* Writes render scale, fps cap, march scale, post FX (0/1), adaptive (0/1); returns the count, 0 for a bad mode. */

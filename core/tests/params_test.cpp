@@ -178,6 +178,17 @@ void theWireRoundTrips() {
     check(wire(SceneParams::fromWire(w.data())) == w, "fromWire(toWire(p)) == p");
 }
 
+// Every gliding float names a real field: a null member would be read and written on every fade.
+void everyLerpedFloatHasAMember() {
+    const auto& fields = SceneParams::lerpedFloats();
+    check(fields.size() == static_cast<size_t>(SceneParams::kLerpedFloatCount), "lerpedFloats() size");
+    std::set<std::string> names;
+    for (const auto& f : fields) {
+        check(f.member != nullptr, std::string("lerpedFloats() member is null: ") + (f.name ? f.name : "(no name)"));
+        check(f.name != nullptr && names.insert(f.name).second, std::string("lerpedFloats() name missing or repeated: ") + (f.name ? f.name : "(no name)"));
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -191,6 +202,7 @@ int main() {
     rollsStayUnderTheFlashClamp();
     aPaletteRollDropsACustomPalette();
     theWireRoundTrips();
+    everyLerpedFloatHasAMember();
     if (failures == 0) std::printf("params_test: all checks passed\n");
     return failures;
 }

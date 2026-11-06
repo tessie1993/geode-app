@@ -838,6 +838,23 @@ object GeodeNative {
         heardAtMs: Long,
     ): Boolean
 
+    // Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High.
+
+    /** Floats [perfTier] writes: render scale, fps cap, march scale, post FX (0/1), adaptive (0/1). */
+    const val PERF_TIER_FLOATS = 5
+
+    /** Fills [out] with [mode]'s tier; false for an unknown mode. */
+    external fun perfTier(
+        mode: Int,
+        out: FloatArray,
+    ): Boolean
+
+    /** The first-run mode for this phone; [totalRamBytes] 0 = unknown. */
+    external fun perfModeForDevice(
+        totalRamBytes: Long,
+        lowRam: Boolean,
+        mediaPerformanceClass: Int,
+    ): Int
     // The live wallpaper's and the dream's run rule (core/viz/SurfaceRun). [flags] are the
     // SURFACE_* bits the shell observed; [animateUntilMs] is the wall-clock time the entitlement
     // lets the visual move until ([SURFACE_FOREVER] for Pro, a trial's end, 0 for free).

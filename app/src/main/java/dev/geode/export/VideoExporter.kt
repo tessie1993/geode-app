@@ -57,9 +57,12 @@ enum class ExportCodec(
         fun hasEncoder(mimeType: String): Boolean = videoCaps(mimeType) != null
 
         private fun videoCaps(mimeType: String): MediaCodecInfo.VideoCapabilities? =
-            MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.firstOrNull { info ->
-                info.isEncoder && info.supportedTypes.any { it.equals(mimeType, ignoreCase = true) }
-            }?.getCapabilitiesForType(mimeType)?.videoCapabilities
+            MediaCodecList(MediaCodecList.REGULAR_CODECS)
+                .codecInfos
+                .firstOrNull { info ->
+                    info.isEncoder && info.supportedTypes.any { it.equals(mimeType, ignoreCase = true) }
+                }?.getCapabilitiesForType(mimeType)
+                ?.videoCapabilities
     }
 }
 

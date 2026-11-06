@@ -16,6 +16,7 @@
 #include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/ReactionDna.hpp"
+#include "viz/Lfo.hpp"
 #include "viz/Reactions.hpp"
 #include "viz/ScenePrep.hpp"
 #include "viz/SpeedClock.hpp"
@@ -1111,6 +1112,112 @@ void handMaskCountsOnlyWithAUserList() {
 
 }  // namespace
 
+// A steady 4/4 clock at `bpm`: beatCount and beatPhase advance with time, locked (beatConf 1).
+GeodeSoundFrame clockAt(double beats, float bpm, float conf = 1.0f) {
+    GeodeSoundFrame f = silence();
+    f.bpm = bpm;
+    f.beatConf = conf;
+    f.beatCount = static_cast<float>(std::fmod(std::floor(beats), 4096.0));
+    f.beatPhase = static_cast<float>(beats - std::floor(beats));
+    return f;
+}
+
+void beatTimedLfoLocksToTheMusicClock() {
+    for (const float n : {4.0f, 8.0f, 16.0f, 32.0f}) {
+        LfoEngine e;
+        e.configs[0] = {true, ModSource::Lfo, LfoTarget::Sway, LfoWave::Saw, 2.0f, 1.0f, ModPolarity::Bipolar, ModCurve::Linear, n};
+        const double dt = 1.0 / 60.0;
+        double beats = 100.0;  // an arbitrary start, still on an n-beat multiple or not
+        float prev = 0.0f;
+        int wraps = 0;
+        for (int i = 0; i < 60 * 120; ++i) {  // 120 s at 120 BPM = 240 beats
+            beats += dt * 120.0 / 60.0;
+            const float v = e.tick(static_cast<float>(dt), clockAt(beats, 120.0f))[0];
+            if (i > 0 && v < prev - 1.0f) ++wraps;
+            prev = v;
+            const double pos = std::fmod(beats, static_cast<double>(n)) / n;  // saw = 2 pos - 1
+            if (i > 600) check(std::fabs(v - (2.0 * pos - 1.0)) < 0.02 || pos < 0.02 || pos > 0.98, "synced saw sits at the music clock's phase");
+        }
+        check(wraps == static_cast<int>(240.0 / n) || wraps == static_cast<int>(240.0 / n) + 1 || wraps == static_cast<int>(240.0 / n) - 1,
+              "a synced wave completes one cycle per n beats");
+    }
+}
+
+void beatTimedLfoIsAtZeroOnMultiples() {
+    LfoEngine e;
+    e.configs[0] = {true, ModSource::Lfo, LfoTarget::Sway, LfoWave::Sine, 2.0f, 1.0f, ModPolarity::Bipolar, ModCurve::Linear, 4.0f};
+    for (const double b : {0.0, 4.0, 8.0, 40.0}) {
+        e = LfoEngine{};
+        e.configs[0] = {true, ModSource::Lfo, LfoTarget::Sway, LfoWave::Sine, 2.0f, 1.0f, ModPolarity::Bipolar, ModCurve::Linear, 4.0f};
+        const float v = e.tick(1.0f / 60.0f, clockAt(b, 120.0f))[0];
+        check(std::fabs(v) < 1e-3f, "a 4-beat sine is at phase 0 on beat multiples of 4");
+        const float q = e.tick(1.0f / 60.0f, clockAt(b + 1.0, 120.0f))[0];
+        check(std::fabs(q - 1.0f) < 1e-2f, "a 4-beat sine peaks one beat in");
+    }
+}
+
+void beatTimedLfoSurvivesTempoChangeAndSilence() {
+    LfoEngine e;
+    e.configs[0] = {true, ModSource::Lfo, LfoTarget::Sway, LfoWave::Triangle, 2.0f, 1.0f, ModPolarity::Bipolar, ModCurve::Linear, 8.0f};
+    const double dt = 1.0 / 60.0;
+    double beats = 16.0;
+    float bpm = 100.0f;
+    float prev = e.tick(static_cast<float>(dt), clockAt(beats, bpm))[0];
+    float worst = 0.0f;
+    for (int i = 0; i < 60 * 40; ++i) {
+        if (i == 600) bpm = 150.0f;  // tempo change keeps lock: the clock itself speeds up
+        const bool silent = i >= 1200 && i < 1500;
+        if (!silent) beats += dt * bpm / 60.0;
+        GeodeSoundFrame f = silent ? silence() : clockAt(beats, bpm);
+        if (silent) f.bpm = 0.0f;
+        const float v = e.tick(static_cast<float>(dt), f)[0];
+        worst = std::max(worst, std::fabs(v - prev));
+        prev = v;
+        if (i == 1499) beats += 1.7;  // the beat returns somewhere else: eased, not a jump
+    }
+    // Triangle at 8 beats, 150 BPM: slope is at most 2 * 4 / (8 / 2.5 s) / 60 per frame; allow headroom.
+    check(worst < 0.15f, "no discontinuity across tempo change, silence and the beat returning");
+}
+
+void randomLfoStepsOnTheBeatAndGlideIsContinuous() {
+    LfoEngine a, g;
+    a.configs[0] = {true, ModSource::Lfo, LfoTarget::Sway, LfoWave::Random, 2.0f, 1.0f, ModPolarity::Bipolar, ModCurve::Linear, 4.0f};
+    g.configs[0] = {true, ModSource::Lfo, LfoTarget::Sway, LfoWave::RandomGlide, 2.0f, 1.0f, ModPolarity::Bipolar, ModCurve::Linear, 4.0f};
+    GeodeSoundFrame f0 = clockAt(0.0, 120.0f);
+    a.tick(1.0f / 60.0f, f0);
+    g.tick(1.0f / 60.0f, f0);
+    const double dt = 1.0 / 60.0;
+    double beats = 0.0;
+    float la = a.tick(0.0f, f0)[0], lg = g.tick(0.0f, f0)[0];
+    int steps = 0;
+    std::set<int> targets;
+    float worstGlide = 0.0f;
+    for (int i = 0; i < 60 * 32; ++i) {  // 64 beats = 16 cycles
+        beats += dt * 2.0;
+        const GeodeSoundFrame f = clockAt(beats, 120.0f);
+        const float va = a.tick(static_cast<float>(dt), f)[0];
+        const float vg = g.tick(static_cast<float>(dt), f)[0];
+        if (std::fabs(va - la) > 1e-6f) {
+            ++steps;
+            const double nearest = std::round(beats / 4.0) * 4.0;
+            check(std::fabs(beats - nearest) < 0.2, "sample & hold steps on the cycle's beat");
+        }
+        worstGlide = std::max(worstGlide, std::fabs(vg - lg));
+        la = va;
+        lg = vg;
+        if (std::fmod(beats, 4.0) > 3.9) targets.insert(static_cast<int>(vg * 1000.0f));
+    }
+    check(steps >= 15 && steps <= 17, "sample & hold steps once per cycle");
+    check(worstGlide < 0.1f, "random glide never jumps");
+    check(targets.size() >= 12, "random glide picks a new target each cycle");
+    LfoEngine g2;
+    g2.configs[0] = g.configs[0];
+    g2.tick(1.0f / 60.0f, f0);
+    float again = 0.0f;
+    for (int i = 0; i < 100; ++i) again = g2.tick(static_cast<float>(dt), clockAt(2.0 + i * dt * 2.0, 120.0f))[0];
+    check(std::isfinite(again), "random glide is deterministic and finite");
+}
+
 int main() {
     foldIsBoundedAndContinuous();
     followRouteTracksSource();
@@ -1164,6 +1271,10 @@ int main() {
     scenePrepSecondariesTakeTurns();
     stagedBuildFinishesInBoundedFrames();
     handMaskCountsOnlyWithAUserList();
+    beatTimedLfoLocksToTheMusicClock();
+    beatTimedLfoIsAtZeroOnMultiples();
+    beatTimedLfoSurvivesTempoChangeAndSilence();
+    randomLfoStepsOnTheBeatAndGlideIsContinuous();
     if (failures == 0) std::printf("viz_math_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

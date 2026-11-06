@@ -16,7 +16,7 @@ typedef struct geode_tags     geode_tags;
 /* Native visualizer: one renderer per GL surface. Setters may be called from any thread and are latched
  * for the next frame; the calls under "GL thread" need the surface's context current. */
 #define GEODE_LFO_SLOTS 3
-#define GEODE_LFO_CONFIG_FLOATS 8   /* enabled, source, target, wave, rate_seconds, depth, polarity, curve */
+#define GEODE_LFO_CONFIG_FLOATS 9   /* enabled, source, target, wave, rate_seconds, depth, polarity, curve, beats (0 = free; a shorter array of 8 stays free) */
 #define GEODE_ADSR_SLOTS 2
 #define GEODE_REACT_ROUTES 12
 #define GEODE_REACT_ROUTE_FLOATS 8  /* enabled, source, target, mode, amount, curve, attack_seconds, release_seconds */

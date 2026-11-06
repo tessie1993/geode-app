@@ -1,171 +1,304 @@
 #version 300 es
 precision highp float;
-// GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
-// fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
-// (Mali) every read is clamped and quantized.
 precision highp sampler2D;
 
 in vec2 vUv;
 out vec4 fragColor;
 
-uniform float uTime;
-uniform vec2 uResolution;
-//#include lib_sound
-uniform float uSpeed;
-uniform float uZoom;
-uniform float uRotation;
-//#include lib_zoom
-uniform float uColorShift;
-uniform float uHueRange;
-uniform float uSat;
-uniform float uBright;
-uniform float uInvert;
-uniform float uIntensity;
-uniform float uMirrorX;
-uniform float uTurbulence;
-uniform float uPalBase;
-uniform float uPalRange;
-uniform float uContrast;
-uniform float uGamma;
-uniform float uPal2Base;
-uniform float uPal2Range;
-uniform float uPaletteMix;
-uniform float uDuotone;
-uniform float uBloom;
-uniform float uWarp;
-uniform float uRipple;
-uniform float uSymmetry;
-uniform float uKaleido;
-uniform float uMorph;
-uniform float uPixelate;
-uniform float uPosterize;
-uniform float uSway;
-uniform float uPulse;
-uniform float uDriftX;
-uniform float uDriftY;
-uniform float uShake;
-uniform float uTile;
-uniform float uTwist;
-uniform float uTemperature;
-uniform float uSolarize;
-uniform float uFlash;
-
-
-vec2 view() {
-    vec2 uv = vUv * 2.0 - 1.0;
-    uv.x *= uResolution.x / uResolution.y;
-    if (uPixelate > 0.001) {
-        float px = mix(1.0, 12.0, uPixelate) * 24.0;
-        uv = floor(uv * px) / px;
-    }
-    if (uMirrorX > 0.5) uv.x = abs(uv.x);
-    // Kaleidoscope: fold the plane into uSymmetry angular wedges.
-    if (uKaleido > 0.5 && uSymmetry >= 2.0) {
-        float ang = atan(uv.y, uv.x);
-        float rad = length(uv);
-        float seg = 6.2831853 / uSymmetry;
-        ang = abs(mod(ang, seg) - seg * 0.5);
-        uv = vec2(cos(ang), sin(ang)) * rad;
-    }
-    // Morph: blend the plane toward a polar remap (angle,radius swap), a
-    // smooth geometric metamorphosis that works on any scene.
-    if (uMorph > 0.001) {
-        float mr = length(uv);
-        float ma = mr > 1e-5 ? atan(uv.y, uv.x) : 0.0; // atan(0, 0) is undefined in GLSL ES
-        vec2 polar = vec2(abs(ma) / 1.5707963 - 1.0, (mr - 0.7) * 1.6);
-        // Faded to nothing at the centre: atan has no angle at r = 0, so every
-        // angle met at one point and the centre of the frame drew as a pinched
-        // vortex whenever morph was up (MotionField holds it near 0.7).
-        uv = mix(uv, polar, uMorph * (0.6 + 0.15 * sin(uTime * 0.31)) * smoothstep(0.0, 0.6, mr));
-    }
-    float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
-    uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
-    // Drift and shake move the picture after the spin and the morph. Added
-    // before them, the rotation pivoted on -drift and the morph's pinch rode
-    // the drift, so the whole frame spun around a wandering off-centre point.
-    // Drift ping-pongs rather than running away. The composite pass wraps its
-    // own drift with fract() because it samples a BOUNDED image ("Wrap so the
-    // image scrolls instead of smearing at the clamped edge"), but uv here
-    // indexes an unbounded procedural domain, where a hard wrap would teleport
-    // the whole field by a screen width once per cycle. A triangle wave is the
-    // bounded form that stays continuous: its slope is exactly the old one for
-    // the first cycle, so nothing pops on the styles that read as scrolling
-    // (plasma, aurora, voronoi, grid, waves), while a centred subject - the
-    // sun, the ring, the spiral - always comes back instead of leaving frame
-    // for good and stranding the user on a black screen.
-    vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
-    uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    // Endless zoom: this layer\'s magnification (lib_zoom draws two, an octave apart).
-    gZoomRead = true;
-    float z = uZoom * gZoomMag;
-    uv /= max(z, 0.05);
-    uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
-    // Radial twist: rotate by an angle growing with radius.
-    if (abs(uTwist) > 0.001) {
-        float tr = length(uv) * uTwist * 2.0;
-        uv = mat2(cos(tr), -sin(tr), sin(tr), cos(tr)) * uv;
-    }
-    // Tiling: repeat the plane into a uTile x uTile grid, every other tile
-    // mirrored so neighbours meet edge to edge. A hard mod() wrap cracked the
-    // picture along every tile boundary, and the macros drive uTile live.
-    if (uTile > 1.01) {
-        uv = 1.0 - abs(mod(uv * uTile * 0.5 + 1.0, 4.0) - 2.0);
-    }
-    // Domain warp: swirl coordinates by a sin/cos field.
-    if (uWarp > 0.001) {
-        float w = uWarp * 0.5;
-        uv += w * vec2(sin(uv.y * 3.0 + uTime * 1.1), cos(uv.x * 3.0 + uTime * 0.9));
-    }
-    // Concentric ripple distortion driven by radius.
-    if (uRipple > 0.001) {
-        float r = length(uv);
-        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + sndShaped(SND_LOW) * 4.0);
-    }
-    return uv;
-}
-
+// Morph, Turbulence and Warp are spent on the columns (see "controls"), not on the rays.
+#define VIEW_OWNS_SHAPE
+//#include lib_scene_uniforms
+//#include lib_camera
 //#include lib_palette
+//#include lib_scene_grade
+//#include lib_sdf3
 
-vec3 grade(vec3 col) {
-    if (uBloom > 0.001) col += uBloom * col * col;
-    if (uPosterize > 0.001) {
-        float levels = mix(24.0, 3.0, uPosterize);
-        col = floor(col * levels + 0.5) / levels;
-    }
-    float g = dot(col, vec3(0.299, 0.587, 0.114));
-    if (uDuotone > 0.5) col = pal(g);
-    col = mix(vec3(g), col, uSat);
-    col = (col - 0.5) * uContrast + 0.5;
-    col = pow(max(col, 0.0), vec3(1.0 / max(uGamma, 0.05)));
-    col.r += uTemperature * 0.12;
-    col.b -= uTemperature * 0.12;
-    if (uSolarize > 0.5) col = abs(1.0 - 2.0 * col);
-    col = col * uBright * uIntensity;
-    return mix(col, max(vec3(1.0) - col, 0.0), uInvert);
+// Voronoi: the flat cell field, built as a causeway. The plane's Voronoi
+// cells are extruded into basalt columns: a floor of them below, a ceiling of
+// them hanging above, and both rising into walls on either side of the
+// flight. Each column is one cell and still lights up with its own frequency
+// band, exactly as the flat style did: its end face glows pal(cellId) by
+// sndEq(cellId), dark at the seed's ring and bright at the seed itself. Thin
+// cracks run between the columns down to a base slab that glows from below.
+//
+// The camera is the shared rig (camFly). The cells are 2 world units wide and
+// hash with a period of 512 cells along z, 1024 world units, which divides the
+// rig's 8192 wrap, so the eye is rebased by 1024 and the wrap is invisible.
+// The hue drift along z has period 64, which divides 1024 too.
+//
+// ---- audio ------------------------------------------------------------------
+//
+// sndEq(cellId)            per column: its height (floor columns rise, ceiling
+//                          columns drop) and the glow of its end face, the flat
+//                          style's mapping with depth added.
+// Kick (SND_KICK_ENV)      the cracks between the columns flare from the slab.
+// Hat (SND_HAT_ENV)        the seed cores on the end faces sparkle.
+// Pitch (SND_HELD_NOTE_CHANGE) slides the palette.
+// SND_ENERGY_TREND         overall level.
+//
+// ---- controls ---------------------------------------------------------------
+//
+// Morph domes the end faces (flat prisms to glowing pebbles). Turbulence
+// roughens the column heights. Warp lets the seeds wander further, so the
+// cells breathe and reshape as the flat ones did. Intensity and the rest of
+// the grade are lib_scene_grade's. Knobs (each neutral at 0.5): PULSE how far
+// a band lifts its column, TEXTURE the crack width, FLOW the seeds' wander,
+// TONE the hue, BUILD the walls' rise, SPACE the width of the open valley.
+//
+// ---- why the estimate is safe ----------------------------------------------
+//
+// The cell boundary distance b is the exact distance to the nearest bisector
+// of the nearest seed (the seeds stay inside 0.12..0.88 of their cell, so a
+// 3 x 3 search finds both the seed and its neighbours), and it is 1-Lipschitz.
+// A column is max(gap - b, cap), the cap divided by its dome's slope bound.
+// Only the point's own column is measured; every other column is at least
+// b + gap away sideways, so that bound applies unless the point is below the
+// tallest neighbour floor top or above the lowest neighbour ceiling bottom
+// (hiN, loN, taken one wall-step further out). A sphere around the eye is
+// carved out of everything, so the eye is never inside a column.
+
+#define VC_MAX_STEPS 96
+#define VC_FAR 44.0
+#define VC_TAU 6.2831853
+/** World units per cell. */
+#define VC_CELL 2.0
+/** Cells along z before the hash repeats: 512 * 2 = 1024 world units, which divides 8192. */
+#define VC_ZCELLS 512.0
+#define VC_ZWRAP 1024.0
+#define VC_FLOOR -4.0
+#define VC_CEIL 4.0
+/** Horizontal run from the open valley up to the full wall height. */
+#define VC_BANK 3.4
+/** The largest band value a column answers, so the neighbour bound holds. */
+#define VC_EQ_MAX 1.2
+#define VC_BUBBLE 0.9
+/** The dome reads b only up to here, so its height is bounded. */
+#define VC_DOME_B 0.8
+
+// Per frame (main).
+float gAmp;
+float gLift;
+float gGap;
+float gRise;
+float gWidth;
+float gDome;
+float gRough;
+vec3 gEye;
+
+// Per map() call: the nearest cell.
+float gB;
+float gMd;
+float gH;
+float gE;
+float gMat;
+float gTop;
+
+/** The flat style's band read, at an explicit LOD: map() runs inside the march loop. */
+float vcEq(float x) {
+    return textureLod(uSoundTex, vec2(clamp(x, 0.0, 1.0), 2.5 / 4.0), 0.0).r * uSoundDrive;
 }
 
-// Voronoi cells lighting up per frequency band.
-vec2 hash2(vec2 p) {
-    return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453);
+uint vcHash(vec2 cell) {
+    return uhash3(uvec3(ivec3(int(cell.x), 0x5a, int(mod(cell.y, VC_ZCELLS)))));
 }
-void main() {
-    vec2 uv = view() * 3.0;
-    vec2 g = floor(uv);
-    vec2 f = fract(uv);
+
+/** The seed's place inside its cell, 0.12..0.88 on each axis, wandering slowly. */
+vec2 vcSeed(vec2 cell) {
+    uint u = vcHash(cell);
+    float h = uhashUnit(u);
+    float h2 = uhashUnit(uhash(u));
+    float h3 = uhashUnit(uhash(u ^ 0x27d4u));
+    return 0.5 + gAmp * sin(uTime * (0.3 + 0.25 * h2) + VC_TAU * vec2(h, h3));
+}
+
+/**
+ * x in cell units. Returns (b, md, cell.x, cell.y): the distance to the cell
+ * boundary, the distance to the seed, and the nearest cell. `seedX` is the
+ * nearest seed's x, in cell units.
+ */
+vec4 voronoi(vec2 x, out float seedX) {
+    vec2 g = floor(x);
+    vec2 f = x - g;
     float md = 8.0;
-    vec2 mc = vec2(0.0);
-    for (int y = -1; y <= 1; y++) {
-        for (int x = -1; x <= 1; x++) {
-            vec2 n = vec2(float(x), float(y));
-            vec2 o = hash2(g + n);
-            o = 0.5 + 0.5 * sin(uTime + 6.2831 * o);
-            float d = length(n + o - f);
-            if (d < md) { md = d; mc = g + n; }
+    vec2 mr = vec2(0.0);
+    vec2 mg = vec2(0.0);
+    for (int j = -1; j <= 1; j++) {
+        for (int i = -1; i <= 1; i++) {
+            vec2 n = vec2(float(i), float(j));
+            vec2 r = n + vcSeed(g + n) - f;
+            float d = dot(r, r);
+            if (d < md) {
+                md = d;
+                mr = r;
+                mg = n;
+            }
         }
     }
-    float cellId = fract(dot(mc, vec2(0.13, 0.37)));
-    float e = (0.5 * sndEq(cellId));
-    vec3 col = pal(cellId) * (0.1 + e * 1.6) * smoothstep(0.0, 0.35, md);
-    col += pal(cellId) * exp(-md * 10.0) * e;
+    float b = 8.0;
+    for (int j = -1; j <= 1; j++) {
+        for (int i = -1; i <= 1; i++) {
+            vec2 n = mg + vec2(float(i), float(j));
+            vec2 r = n + vcSeed(g + n) - f;
+            vec2 dr = r - mr;
+            if (dot(dr, dr) > 1e-5) b = min(b, dot(0.5 * (mr + r), normalize(dr)));
+        }
+    }
+    seedX = x.x + mr.x;
+    return vec4(b, sqrt(md), g + mg);
+}
+
+float wallAt(float ax) {
+    return smoothstep(gWidth, gWidth + VC_BANK, ax);
+}
+
+/** A column's length above the slab before the band and the dome: rough base plus the wall. */
+float columnLen(float h, float h2, float wall) {
+    return 0.35 + 0.6 * h * gRough + gRise * wall * (0.55 + 0.45 * h2);
+}
+
+float map(vec3 p) {
+    float seedX;
+    vec4 v = voronoi(p.xz / VC_CELL, seedX);
+    float b = v.x * VC_CELL;
+    uint u = vcHash(v.zw);
+    float h = uhashUnit(u);
+    float h2 = uhashUnit(uhash(u));
+    float h3 = uhashUnit(uhash(u ^ 0x27d4u));
+    float h4 = uhashUnit(uhash(u ^ 0x9e37u));
+
+    float ax = abs(seedX * VC_CELL);
+    float wall = wallAt(ax);
+    float e = clamp(0.5 * vcEq(h), 0.0, VC_EQ_MAX);
+
+    float dome = gDome * min(b, VC_DOME_B);
+    float slope = sqrt(1.0 + gDome * gDome);
+    float top = VC_FLOOR + columnLen(h3, h2, wall) + gLift * e;
+    float bot = VC_CEIL - columnLen(h4, h3, wall) - 0.6 * gLift * e;
+    float side = gGap - b;
+    float colF = max(side, (p.y - top - dome) / slope);
+    float colC = max(side, (bot - dome - p.y) / slope);
+
+    // The tallest (lowest) a neighbour could reach: a full rough base, a full
+    // band, a full dome, one wall-step further out.
+    float reach = 0.35 + 0.6 * gRough + gRise * wallAt(ax + 2.0 * VC_CELL) + gLift * VC_EQ_MAX + gDome * VC_DOME_B;
+    float hiN = VC_FLOOR + reach;
+    float loN = VC_CEIL - reach;
+    float dN = max(b + gGap, min(p.y - hiN, loN - p.y));
+
+    float dSlab = min(p.y - VC_FLOOR, VC_CEIL - p.y);
+    float dCol = min(colF, colC);
+    float d = min(min(dCol, dN), dSlab);
+    d = max(d, VC_BUBBLE - length(p - gEye));
+
+    gB = b;
+    gMd = v.y;
+    gH = h;
+    gE = e;
+    gMat = dSlab < dCol ? 2.0 : (colF < colC ? 0.0 : 1.0);
+    gTop = gMat < 0.5 ? top : bot;
+    return d;
+}
+
+vec3 normalAt(vec3 p, float eps) {
+    vec2 k = vec2(1.0, -1.0);
+    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
+                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+}
+
+void main() {
+    vec2 uv = view();
+
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+
+    gAmp = min((0.26 + 0.1 * clamp(uWarp, 0.0, 1.0)) * (1.0 + 0.4 * kFlow), 0.38);
+    gLift = 1.4 * (1.0 + 0.8 * kPulse);
+    gGap = 0.07 * (1.0 + 0.8 * kTexture);
+    gRise = 3.0 * (1.0 + 0.6 * kBuild);
+    gWidth = 4.4 * (1.0 + 0.4 * kSpace);
+    gDome = 0.6 * clamp(uMorph, 0.0, 1.0);
+    gRough = 1.0 + clamp(uTurbulence, 0.0, 2.0);
+
+    vec3 ro;
+    vec3 rd;
+    camFly(uv, ro, rd);
+    // The cells repeat every 1024 along z (512 cells of 2), so this rebase is
+    // exact and invisible, and keeps z precise for the cells and the normals.
+    ro.z = mod(ro.z, VC_ZWRAP);
+    gEye = ro;
+
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float hat = clamp(SND_HAT_ENV, 0.0, 1.0);
+    float hueBase = 0.22 * clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0) + 0.15 * kTone;
+
+    float t = 0.05;
+    float hitT = -1.0;
+    for (int i = 0; i < VC_MAX_STEPS; i++) {
+        // uSteps is the user's Detail; this loop's own bound is the constant.
+        if (float(i) >= uSteps) break;
+        float d = map(ro + rd * t);
+        if (d < 0.0015 + 0.0008 * t) {
+            hitT = t;
+            break;
+        }
+        t += d * 0.9;
+        if (t > VC_FAR) break;
+    }
+
+    // The valley's far end glows faintly down the travel axis.
+    float ahead = pow(max(rd.z, 0.0), 8.0);
+    vec3 fogCol = pal(hueBase + 0.55) * (0.03 + 0.12 * ahead) + vec3(0.004, 0.003, 0.006);
+    vec3 col = fogCol;
+    if (hitT > 0.0) {
+        vec3 p = ro + rd * hitT;
+        vec3 n = normalAt(p, max(0.0015, 0.001 * hitT));
+        float occ = 0.0;
+        float sc = 1.0;
+        for (int k = 0; k < 3; k++) {
+            float hk = 0.1 + 0.16 * float(k);
+            occ += (hk - map(p + n * hk)) * sc;
+            sc *= 0.65;
+        }
+        float ao = clamp(1.0 - 1.6 * occ, 0.25, 1.0);
+        // Restore the hit cell's globals after the normal and AO taps.
+        map(p);
+
+        vec3 L = normalize(vec3(-0.35, 0.85, 0.4));
+        float dif = 0.5 + 0.5 * dot(n, L);
+        float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
+        float spec = pow(max(dot(reflect(rd, n), L), 0.0), 32.0);
+        float hue = hueBase + gH + 0.06 * sin(p.z * (VC_TAU / 64.0));
+        vec3 cell = pal(hue);
+
+        if (gMat > 1.5) {
+            // The slab at the bottom of the cracks: light from below, kicked.
+            col = pal(hueBase + 0.6) * (0.05 + 0.9 * kick) * ao;
+        } else {
+            // The flat style's cell, drawn on the column's end face: dim at the
+            // seed's ring, a bright core at the seed, both by the cell's band.
+            float face = smoothstep(0.6, 0.95, abs(n.y));
+            float core = exp(-gMd * 10.0) * gE * (1.0 + 1.5 * hat);
+            vec3 lit = cell * (0.1 + gE * 1.6) * smoothstep(0.0, 0.35, gMd) + cell * core;
+            // The rim where the face meets the crack.
+            float rim = exp(-max(gB - gGap, 0.0) * 18.0) * 0.35 * gE;
+            // The shaft: dark basalt glass, lit softly, glowing up toward its end.
+            float endGlow = exp(-abs(p.y - gTop) * 1.4);
+            vec3 shaft = cell * (0.04 + 0.12 * dif) * ao + cell * endGlow * gE * 0.25;
+            col = mix(shaft, lit * (0.55 + 0.45 * ao), face) + cell * rim * face
+                + pal(hue + 0.1) * fres * 0.12 + vec3(0.6) * spec * 0.25 * ao;
+            // Kick light leaking up the shafts out of the cracks.
+            float fromSlab = gMat < 0.5 ? p.y - VC_FLOOR : VC_CEIL - p.y;
+            col += pal(hueBase + 0.6) * kick * 0.35 * exp(-fromSlab * 1.2) * (1.0 - face);
+        }
+        col = mix(col, fogCol, 1.0 - exp(-hitT * 0.06));
+    }
+
+    col *= 0.78 + 0.30 * swell;
+    col *= 0.7 + 0.3 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

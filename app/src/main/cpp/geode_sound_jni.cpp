@@ -1,6 +1,7 @@
 #include <jni.h>
 
 #include <algorithm>
+#include <vector>
 
 #include "api/geode_api.h"
 #include "jni_util.hpp"
@@ -66,6 +67,27 @@ Java_dev_geode_engine_bridge_GeodeNative_surfaceEntitled(JNIEnv*, jobject, jlong
 JNIEXPORT jlong JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_surfaceRecheckInMs(JNIEnv*, jobject, jlong animateUntilMs, jlong nowMs) {
     return geode_surface_recheck_in_ms(animateUntilMs, nowMs);
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_surfaceSettleMs(JNIEnv*, jobject, jint previousMode, jint mode) {
+    return geode_surface_settle_ms(previousMode, mode);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_surfaceFpsChoice(JNIEnv*, jobject, jint requestedFps) {
+    return geode_surface_fps_choice(requestedFps);
+}
+
+JNIEXPORT jintArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_surfaceFpsChoices(JNIEnv* env, jobject) {
+    const int n = geode_surface_fps_choices(nullptr, 0);
+    jintArray out = env->NewIntArray(n);
+    if (out == nullptr || n <= 0) return out;
+    std::vector<jint> values(static_cast<size_t>(n));
+    geode_surface_fps_choices(values.data(), n);
+    env->SetIntArrayRegion(out, 0, n, values.data());
+    return out;
 }
 
 }  // extern "C"

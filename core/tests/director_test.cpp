@@ -297,6 +297,23 @@ void testDeterministicAndOff() {
     check(off.knobs(user) == user, "and the knobs");
 }
 
+// With Auto off the director still steps (Note & key reactions read its feeling) and still commits, but
+// none of those commits may step the user's style: that is what claimed the style with Note & key on.
+void testNoStyleMomentWhenOff() {
+    for (const float amount : {0.0f, 1.0f}) {
+        Director d;
+        d.configure({amount, 42});
+        float t = 0.0f;
+        run(d, kHappy, 12.0f, t);
+        run(d, kHappy, 30.0f, t);
+        GeodeSoundFrame f = frame(kHappy, t, kDt);
+        f.sectionChange = 1.0f;
+        const int before = d.commits();
+        d.step(f, kDt);
+        check(d.commits() == before + 1 && d.lastReason() == Director::Reason::Section, "a section commits either way");
+        check(d.styleMoment() == (amount > 0.0f), amount > 0.0f ? "Auto on: a section steps the style" : "Auto off: a section leaves the style alone");
+    }
+}
 }  // namespace
 
 int main() {
@@ -307,6 +324,7 @@ int main() {
     testNeverTheSame();
     testFeelingSurvivesTheSeed();
     testDeterministicAndOff();
+    testNoStyleMomentWhenOff();
     if (failures) {
         std::printf("director_test: %d failed\n", failures);
         return 1;

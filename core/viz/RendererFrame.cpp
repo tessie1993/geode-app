@@ -77,7 +77,7 @@ float Renderer::beginFrame(double timeSeconds) {
         frameLayerBlend_ = layerBlend_;
         frameTransitionId_ = transitionId_;
         frameTransitionDurationMs_ = transitionDurationMs_;
-        // Each pushed block reaches this frame's scenes once; no new push, no PCM (PcmHandoff).
+        // The samples heard since the last frame reach this frame's scenes once; none heard, no PCM (PcmHandoff).
         framePcmCount_ = pcm_.take(pcmDeliverScratch_.data());
     }
     for (const auto& [id, src] : pending) {

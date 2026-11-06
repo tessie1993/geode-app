@@ -29,7 +29,6 @@
     <ID>ReturnCount:MusicPlaylistStore.kt$MusicPlaylistStore$fun move( name: String, from: Int, to: Int, ): MusicPlaylist</ID>
     <ID>ReturnCount:MusicPlaylistStore.kt$MusicPlaylistStore$fun rename( oldName: String, newName: String, ): Boolean</ID>
     <ID>ReturnCount:NowPlayingBridge.kt$NowPlayingBridge$fun current(): External?</ID>
-    <ID>ReturnCount:PcmRingBuffer.kt$PcmRingBuffer$private fun snapshotFrom( src: FloatArray, out: FloatArray, ): Boolean</ID>
     <ID>ReturnCount:PerformanceTake.kt$PerformanceTake.Recorder$fun append( atMs: Long, sceneId: String, params: SceneParams, milkPath: String?, ): Boolean</ID>
     <ID>ReturnCount:PerformanceTake.kt$PerformanceTake.Timeline$fun stateAt(ms: Long): State?</ID>
     <ID>ReturnCount:PlaybackCapture.kt$PlaybackCapture$@RequiresApi(Build.VERSION_CODES.Q) @Synchronized fun start( projection: MediaProjection, onSampleRate: (Int) -&gt; Unit = {}, ): CaptureFailure?</ID>

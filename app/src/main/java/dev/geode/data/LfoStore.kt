@@ -59,9 +59,21 @@ class LfoStore(
     /**
      * Customize › Music's hand mask, saved beside the routes ([GeodeNative.handSet] says what the bits are):
      * 0 with no routes, and [GeodeNative.HAND_ALL] for routes saved before the mask existed, which were a
-     * whole list of the user's.
+     * whole list of the user's. Routes that no longer decode (a `reactions/1` list from before the sound
+     * engine's sources moved, or damaged text) are no list at all: the DNA plays, so they are dropped here
+     * and the mask is 0, or a leftover HAND_ALL would have switched off every director route (#355).
      */
-    fun loadHandMask(): Int = if (prefs.contains(KEY_REACTIONS)) prefs.getInt(KEY_REACTIONS_HAND, GeodeNative.HAND_ALL) else 0
+    fun loadHandMask(): Int {
+        if (loadReactions() != null) return prefs.getInt(KEY_REACTIONS_HAND, GeodeNative.HAND_ALL)
+        if (prefs.contains(KEY_REACTIONS)) {
+            prefs
+                .edit()
+                .remove(KEY_REACTIONS)
+                .remove(KEY_REACTIONS_HAND)
+                .apply()
+        }
+        return 0
+    }
 
     fun saveReactions(
         routes: List<ReactionRoute>?,

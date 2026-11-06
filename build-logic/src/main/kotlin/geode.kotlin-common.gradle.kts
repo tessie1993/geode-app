@@ -34,7 +34,7 @@ extensions.configure<JavaPluginExtension> {
 
 // What the compiler emits, which is a separate decision from the toolchain above and the only
 // one of the two that reaches a device. Moving this is gated on what D8/R8 will dex at
-// minSdk 26, so it stays at 17 until that is measured on its own.
+// minSdk 33, so it stays at 17 until that is measured on its own.
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
@@ -63,4 +63,6 @@ tasks.withType<Test>().configureEach {
     systemProperty("geode.paramsSchema", rootProject.file("core/tests/params_schema.txt").absolutePath)
     // dev.geode.render.ModTable's copy, proven by core/tests/mod_targets_test (#642).
     systemProperty("geode.modTargets", rootProject.file("core/tests/mod_targets.txt").absolutePath)
+    // The same for Customize's map (core/viz/CustomizeMap), which core/tests/customize_test proves equal.
+    systemProperty("geode.customize", rootProject.file("core/tests/customize.txt").absolutePath)
 }

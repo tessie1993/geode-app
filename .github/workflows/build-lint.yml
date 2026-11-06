@@ -1,0 +1,105 @@
+name: Build and lint
+
+# The pull-request gate: compile and build the debug APK (Kotlin and the native core through
+# CMake), then the linters (detekt, Android lint, ktlint). No tests: the host tests, unit tests
+# and emulator tests are in native-host-tests.yml and android.yml, run by hand from the Actions tab.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["claude/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-lint-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  build-lint:
+    name: Build and lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          # third_party/* are submodules; the root CMakeLists.txt builds them.
+          submodules: recursive
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle and cache
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Install Android SDK 36, NDK and CMake
+        shell: bash
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:?Android SDK location not set on runner}}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;28.0.13004108" \
+            "cmake;3.22.1"
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: Assemble debug APK
+        run: ./gradlew :app:assembleDebug --stacktrace --no-daemon
+
+      # The APK this gate just built, downloadable from the run's Summary page, so every
+      # pull request has an installable debug build without waiting for the tests in
+      # android.yml (now manual). Uploaded before the linters, so a lint finding still
+      # leaves the APK to try. Debug-signed with app/debug.keystore, so it installs over
+      # the other CI builds.
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: geode-debug-pr${{ github.event.pull_request.number || 'branch' }}-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: detekt
+        if: success() || failure()
+        run: ./gradlew :app:detekt :engine:audio-core:detekt :engine:scenes:detekt :engine:audio-android:detekt --continue --stacktrace --no-daemon
+
+      - name: Show detekt findings
+        if: failure()
+        run: |
+          for module in app engine/audio-core engine/scenes engine/audio-android; do
+            f=$module/build/reports/detekt/detekt.txt
+            [ -f "$f" ] && { echo "::group::detekt findings ($module)"; cat "$f"; echo "::endgroup::"; }
+          done
+          true
+
+      - name: Android lint
+        if: success() || failure()
+        run: ./gradlew :app:lintDebug --stacktrace --no-daemon
+
+      - name: Kotlin formatting (ktlint)
+        if: success() || failure()
+        run: ./gradlew ktlintCheck --continue --stacktrace --no-daemon
+
+      - name: Upload reports when a check fails
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-lint-reports-${{ github.run_number }}
+          path: |
+            app/build/reports/
+            engine/*/build/reports/
+          if-no-files-found: ignore
+          retention-days: 14

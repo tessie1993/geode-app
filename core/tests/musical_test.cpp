@@ -463,7 +463,9 @@ void testPauseHoldsTempo() {
     GeodeSoundFrame b{};
     const int pauseFrom = 20 * 60 + 1;
     const int pauseTo = 25 * 60;  // the last silent frame
-    for (int i = 1; i <= pauseTo + 1; i++) {
+    // Half a second back: the gate opens on a momentary loudness (400 ms), so one click in a 16 ms frame is not yet music.
+    const int kBack = 30;
+    for (int i = 1; i <= pauseTo + kBack; i++) {
         if (i >= pauseFrom && i <= pauseTo) {
             player.step(1.0f / 60.0f, a);  // a paused player writes nothing
             frameOf(capture, silence, i, false, b, buf);  // a quiet capture still delivers zeros

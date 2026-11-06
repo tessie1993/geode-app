@@ -40,6 +40,8 @@ public:
     // pinned hand mask, so the shell's route merge (geode_style_reactions_hand) plays the same moments.
     std::uint32_t pinForExport(bool entitled, long long durationMs);
     bool pinned() const;
+    // The director's play seed now: the pinned copy's, or the live one's.
+    std::uint64_t directorSeed() const;
     // This frame's settings. Live: the globals now, with a note entropy drawn fresh whenever the director's
     // play seed changes (so every live play varies on its own; NoteResponse's class comment). Pinned: the
     // pinned copy. `reducedMotion` is the renderer's own and is applied either way. The stepping thread only.

@@ -35,6 +35,14 @@ bool SettingsLatch::pinned() const {
     return pin_.has_value();
 }
 
+std::uint64_t SettingsLatch::directorSeed() const {
+    {
+        std::lock_guard<std::mutex> guard(lock_);
+        if (pin_) return pin_->director.seed;
+    }
+    return viz::director::global().seed;
+}
+
 EngineSettings SettingsLatch::latch(bool reducedMotion) {
     std::optional<EngineSettings> pinned;
     {

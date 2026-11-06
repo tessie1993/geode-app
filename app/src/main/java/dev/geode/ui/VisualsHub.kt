@@ -2,10 +2,12 @@ package dev.geode.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.WindowInsets
@@ -44,6 +46,7 @@ import dev.geode.data.CanvasGesture
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GestureAction
 import dev.geode.render.VisualizerView
+import dev.geode.ui.theme.GeodeMotionScheme
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.LocalGlassBackdrop
@@ -116,6 +119,8 @@ internal fun VisualsHub(
     val behaviour by produceState(BehaviourPrefs()) {
         value = withContext(Dispatchers.IO) { BehaviourStore(GeodePrefsFiles(context).general).load() }
     }
+    // Settings › Behaviour › Keep the screen on in Visuals: held while this screen is composed (#337).
+    KeepScreenOnWhileShown(behaviour.keepScreenOnVisuals)
     val studioViewModel: StudioViewModel = geodeViewModel()
     val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
     var quickSettings by rememberSaveable { mutableStateOf(false) }
@@ -234,10 +239,15 @@ internal fun VisualsHub(
                             .hiddenUnderDropIn(dropInOpen) { optionsFade.value }
                     },
             ) {
+                val pageMotion = LocalGeodeMotion.current
                 NavDisplay(
                     backStack = nav.backStack,
                     onBack = { nav.pop() },
                     modifier = Modifier.fillMaxSize(),
+                    // All three on the theme's motion (#557), never Nav3's own 700 ms tweens and 0.7 scale.
+                    transitionSpec = { pageCrossFade(pageMotion) },
+                    popTransitionSpec = { pageCrossFade(pageMotion) },
+                    predictivePopTransitionSpec = { _ -> pageCrossFade(pageMotion) },
                     entryProvider = { page ->
                         NavEntry(page) {
                             when (page) {
@@ -267,7 +277,34 @@ internal fun VisualsHub(
         )
         val drop = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
         AnimatedVisibility(quickSettings, Modifier.fillMaxSize(), enter = fadeIn(drop), exit = fadeOut(drop)) {
-            VisualsQuickSettings(viewModel, onDismiss = { quickSettings = false }, modifier = Modifier.fillMaxSize())
+            // `visible` is the target, not the fade: Back stops being the panel's once it starts leaving.
+            VisualsQuickSettings(
+                viewModel,
+                visible = quickSettings,
+                onDismiss = { quickSettings = false },
+                modifier = Modifier.fillMaxSize(),
+            )
         }
     }
 }
+
+/**
+ * How the sheet's pages replace one another, forward, back and through a predictive back gesture:
+ * a cross-fade on the theme's effects spring ([GeodeMotionScheme.defaultEffectsSpec]).
+ *
+ * Why not Nav3's defaults: they are fixed `tween(700)` fades and, on a predictive pop, a scale down
+ * to 0.7 on its own spring, so neither the app's reduced-motion choice nor Android's "Remove
+ * animations" reached them (#557). Why a fade and no slide or zoom: the pages are tabs of one
+ * sheet, not a drill-down, and a fade is the one transition the reduced scheme keeps (WCAG 2.3.3
+ * allows fades; spatial specs become `snap`, which a seeked predictive transition would show as a
+ * jump at the gesture's start). The predictive spec ignores the swipe edge for the same reason: a
+ * fade has no side. NavDisplay seeks this same transform with the gesture's progress, so the page
+ * underneath fades in as the finger travels and settles back on cancel.
+ *
+ * Followed: the navigation-3 skill's Animations recipe (`transitionSpec`, `popTransitionSpec`,
+ * `predictivePopTransitionSpec` on `NavDisplay`), checked against the navigation3-ui 1.2.0 sources
+ * (the predictive spec takes the `@NavigationEvent.SwipeEdge Int`; `NavDisplay`'s own
+ * `sizeTransform`, null, replaces the transform's).
+ */
+private fun pageCrossFade(motion: GeodeMotionScheme): ContentTransform =
+    fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.defaultEffectsSpec())

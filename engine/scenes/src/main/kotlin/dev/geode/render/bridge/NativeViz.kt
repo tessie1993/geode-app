@@ -5,7 +5,6 @@ import android.content.res.AssetManager
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
-import dev.geode.render.BlendMode
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
 import dev.geode.render.ReactionRoute
@@ -74,14 +73,6 @@ class NativeViz(
 
     fun setReducedMotion(on: Boolean) {
         if (handle != 0L) GeodeNative.vizSetReducedMotion(handle, on)
-    }
-
-    fun setLayer(
-        sceneId: String?,
-        mix: Float,
-        blend: BlendMode,
-    ) {
-        if (handle != 0L) GeodeNative.vizSetLayer(handle, sceneId ?: "", mix, blend.ordinal)
     }
 
     fun setTransition(
@@ -160,15 +151,6 @@ class NativeViz(
         if (handle != 0L && count > 0) GeodeNative.vizPushPcm(handle, mono, count)
     }
 
-    fun setCustomShader(
-        sceneId: String,
-        fragmentSource: String,
-    ) {
-        if (handle != 0L) GeodeNative.vizSetCustomShader(handle, sceneId, fragmentSource)
-    }
-
-    fun customShaderFor(sceneId: String): String? = if (handle == 0L) null else GeodeNative.vizCustomShader(handle, sceneId)
-
     fun setLfoConfigs(configs: List<LfoConfig>) {
         if (handle == 0L) return
         configs.take(LfoEngine.SLOTS).forEachIndexed { slot, c -> GeodeNative.vizSetLfo(handle, slot, ModConfigCodec.packLfo(c)) }
@@ -221,6 +203,11 @@ class NativeViz(
 
     fun setOffscreen(on: Boolean) {
         if (handle != 0L) GeodeNative.vizSetOffscreen(handle, on)
+    }
+
+    /** See [GeodeNative.vizSetFrameRate]. A no-op before the handle exists. */
+    fun setFrameRate(fps: Int) {
+        if (handle != 0L) GeodeNative.vizSetFrameRate(handle, fps)
     }
 
     /** The glass sheet's blur region; see [GeodeNative.vizSetUiBlurRegion]. A no-op before the handle exists. */

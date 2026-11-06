@@ -35,7 +35,7 @@ import kotlin.system.exitProcess
 private val zipMimeTypes = arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream")
 
 @Composable
-internal fun BackupSettingsTab() {
+internal fun BackupSection() {
     val viewModel: BackupViewModel = geodeViewModel()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val exportPicker =
@@ -47,23 +47,17 @@ internal fun BackupSettingsTab() {
             if (uri != null) viewModel.inspect(uri)
         }
     val idle = state != BackupUiState.Working && state != BackupUiState.Restored
-    SettingsTabColumn {
-        item {
-            SettingsGroup(stringResource(R.string.backup_group)) {
-                Text(
-                    stringResource(R.string.backup_body),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                BackupActions(
-                    enabled = idle,
-                    onExport = { exportPicker.launch(BackupFormat.defaultFileName(LocalDate.now())) },
-                    onImport = { importPicker.launch(zipMimeTypes) },
-                )
-                BackupStatus(state, onDismiss = viewModel::dismiss)
-            }
-        }
-    }
+    Text(
+        stringResource(R.string.backup_body),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    BackupActions(
+        enabled = idle,
+        onExport = { exportPicker.launch(BackupFormat.defaultFileName(LocalDate.now())) },
+        onImport = { importPicker.launch(zipMimeTypes) },
+    )
+    BackupStatus(state, onDismiss = viewModel::dismiss)
     BackupDialogs(state, viewModel)
 }
 

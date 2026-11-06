@@ -3,6 +3,7 @@ package dev.geode.data
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
+/** The encoder's fps retry is native now (core/output/EncodePlan); core/tests/output_test.cpp pins it. */
 class ExportFpsTest {
     @Test
     fun templateFpsSnapsToTheNearestOfferedRate() {
@@ -10,15 +11,5 @@ class ExportFpsTest {
         for ((authored, expected) in cases) {
             assertEquals("authored $authored", expected, TemplateExport(fps = authored).resolvedFps())
         }
-    }
-
-    @Test
-    fun encoderFallbackStaysInTheRequestsCadenceFamily() {
-        assertEquals(24, fallbackExportFps(24))
-        assertEquals(25, fallbackExportFps(25))
-        assertEquals(30, fallbackExportFps(30))
-        assertEquals(25, fallbackExportFps(50))
-        assertEquals(30, fallbackExportFps(60))
-        for (fps in EXPORT_FPS_OPTIONS) assertEquals(true, fallbackExportFps(fps) <= fps)
     }
 }

@@ -8,9 +8,9 @@
 #include "viz/Catalogue.hpp"
 #include "viz/CompositeGrade.hpp"
 #include "viz/EndlessZoom.hpp"
+#include "viz/FrameStep.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Quad.hpp"
-#include "viz/frame/Pacer.hpp"
 
 namespace geode::viz {
 
@@ -47,9 +47,7 @@ GeodeSoundFrame gainAdjusted(const GeodeSoundFrame& f, const SceneParams& p) {
 float Renderer::beginFrame(double timeSeconds) {
     resetFrameState();
     frameNowS_ = timeSeconds;
-    // The one dt rule every clock shares (core/viz/frame/Pacer).
-    const double elapsed = lastTimeS_ < 0.0 ? frame::kFirstDtSeconds : timeSeconds - lastTimeS_;
-    const float dt = static_cast<float>(frame::clampDt(elapsed));
+    const float dt = frameStepSeconds(fixedFps_.load(std::memory_order_relaxed), lastTimeS_, timeSeconds);
     lastTimeS_ = timeSeconds;
     thermal_.onFrame(dt);
     timeSeconds_ = std::fmod(timeSeconds_ + dt, kTimeWrapSeconds);
@@ -69,6 +67,7 @@ float Renderer::beginFrame(double timeSeconds) {
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         pending.swap(pendingShaders_);
+        syncLayerLocked();
         frameLayerMix_ = layerMix_;
         frameLayerBlend_ = layerBlend_;
         frameTransitionId_ = transitionId_;
@@ -218,6 +217,11 @@ SceneParams Renderer::resolveParams(float dt) {
 }
 
 void Renderer::resolveLayerScene() {
+    // Who asked the stager for what: the layer resolves first in a frame, the next style later (in
+    // drawLiquid), so the layer reads the next style's ask from the frame before.
+    bornAskedBefore_ = std::move(bornAsked_);
+    bornAsked_.clear();
+    layerAsked_.clear();
     std::string layerId;
     std::string requestedId;
     {
@@ -228,7 +232,8 @@ void Renderer::resolveLayerScene() {
     layerScene_ = nullptr;
     // The layer is staged too, but only once the requested scene is built: one target at a time.
     if (outgoingScene_ || layerId.empty() || layerId == requestedId || requestedPending_) return;
-    Scene* layer = readyScene(layerId);
+    layerAsked_ = layerId;
+    Scene* layer = readySecondary(layerId, bornAskedBefore_);
     if (layer && layer != activeScene_) layerScene_ = layer;
 }
 
@@ -553,7 +558,8 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
         if (!lastBornSceneId_.empty() && lastBornSceneId_ != bornSceneId_) dropScene(lastBornSceneId_);
         lastBornSceneId_ = bornSceneId_;
     }
-    Scene* next = readyScene(bornSceneId_);
+    bornAsked_ = bornSceneId_;
+    Scene* next = readySecondary(bornSceneId_, layerAsked_);
     if (next == nullptr || next == &scene || next == layerScene_) return fboA_.tex();
     glBindFramebuffer(GL_FRAMEBUFFER, bornFbo_.fbo());
     glViewport(0, 0, renderWidth_, renderHeight_);

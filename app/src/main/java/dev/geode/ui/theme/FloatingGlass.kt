@@ -19,7 +19,9 @@ import androidx.compose.ui.unit.Dp
  * ([GeodeSpacing.EdgeInset]) and from the system bars.
  *
  * [fillAlpha] is the user's sheet opacity where there is one, clamped to the range the glass
- * stays readable in.
+ * stays readable in: [GeodeGlass.MATTE_FILL_MIN] is the lowest alpha at which the theme's text
+ * still clears 4.5:1 over a pure white frame ([GeodeGlass.WorstBackdrop]), so no setting can draw
+ * glass the text fails on.
  */
 fun Modifier.floatingGlass(
     shape: Shape = RoundedCornerShape(GeodeRadius.Floating),

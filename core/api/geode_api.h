@@ -320,6 +320,40 @@ GEODE_API long long       geode_silence_heard_at(const float* const* channels, i
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
 
+/* The GL Transitions library (gl_transitions.json, core/viz/TransitionLibrary): the shell's one read of it,
+   as the table encodeTransitionTable describes (UTF-8, control-separated). Read from the APK once per
+   process; "" when the asset is missing. The pointer stays valid for the process. */
+GEODE_API const char*     geode_transitions_table(AAssetManager* assets);
+/* Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High. */
+#define GEODE_PERF_TIER_FLOATS 5
+/* Writes render scale, fps cap, march scale, post FX (0/1), adaptive (0/1); returns the count, 0 for a bad mode. */
+GEODE_API int             geode_perf_tier(int mode, float* out, int capacity);
+/* The first-run mode for this phone. total_ram_bytes 0 = unknown. */
+GEODE_API int             geode_perf_mode_for_device(long long total_ram_bytes, int low_ram, int media_performance_class);
+/* Surface run rule (viz/SurfaceRun): when the live wallpaper and the dream draw. flags are the GEODE_SURFACE_*
+ * bits the caller observed; animate_until_ms is the wall-clock time the entitlement lets the visual move until
+ * (GEODE_SURFACE_FOREVER for Pro, a trial's end, 0 for free). Pure: the caller restates on every change, and
+ * after geode_surface_recheck_in_ms (-1 = never), since nothing announces a trial's end. */
+#define GEODE_SURFACE_HAS_SURFACE            (1u << 0)
+#define GEODE_SURFACE_VISIBLE                (1u << 1)
+#define GEODE_SURFACE_PREVIEW                (1u << 2)
+#define GEODE_SURFACE_COVERED                (1u << 3)
+#define GEODE_SURFACE_BATTERY_SAVER          (1u << 4)
+#define GEODE_SURFACE_PAUSE_IN_BATTERY_SAVER (1u << 5)
+#define GEODE_SURFACE_SILENT                 (1u << 6)
+#define GEODE_SURFACE_REST_WHEN_SILENT       (1u << 7)
+#define GEODE_SURFACE_FOREVER                9223372036854775807LL
+GEODE_API int             geode_surface_run_mode(unsigned flags, long long animate_until_ms, long long now_ms);   /* 0 stopped, 1 still, 2 animated */
+GEODE_API int             geode_surface_listening(unsigned flags, long long animate_until_ms, long long now_ms);  /* 1 = hear sound */
+GEODE_API int             geode_surface_entitled(long long animate_until_ms, long long now_ms);                   /* 1 = may move */
+GEODE_API long long       geode_surface_recheck_in_ms(long long animate_until_ms, long long now_ms);              /* -1 = never */
+/* The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt it draws with.
+   `state` is six int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS). */
+#define GEODE_PACER_STATE_LONGS 6
+/* One vsync: the dt in seconds to draw with, or 0 to skip it. cap_fps <= 0 draws every vsync. */
+GEODE_API double          geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap_fps);
+/* A start after a stop: forget the gap, keep the panel's period. */
+GEODE_API void            geode_pacer_resume(long long* state);
 /* ── Export planning and clip maths (ADR 0006: core/output, core/signal/timeline; ADR 0003 ports) ──────────
  * Pure functions and plain handles, any thread, no GL. The Kotlin exporters (VideoExporter, LoopRender,
  * LoopExtend, StudioExporter, the Media3 clip effects, AudioTranscoder) call these instead of carrying the

@@ -3,6 +3,7 @@ package dev.geode.billing
 import android.content.Context
 import dev.geode.pro.Entitlement
 import dev.geode.pro.FeatureGate
+import dev.geode.pro.ProFeature
 import dev.geode.pro.TrialState
 
 /**
@@ -27,5 +28,19 @@ object ProSnapshot {
         val trialStore = PrefsTrialStore(prefs)
         val trial = TrialState.at(trialStore.startedAtMs(), trialStore.endNoticeShown(), now)
         return if (trial is TrialState.Active) FeatureGate(Entitlement.Trial(trial.endsAtMs)) else FeatureGate.FREE
+    }
+
+    /**
+     * The entitlement as the native surface run rule reads it: the wall-clock time [feature] may run
+     * until. Pro is forever, a running trial its end, free 0. The rule itself, and when a trial's end
+     * must be re-read, is native (`core/viz/SurfaceRun`).
+     */
+    fun animateUntilMs(
+        context: Context,
+        feature: ProFeature,
+    ): Long {
+        val gate = gate(context)
+        if (!gate.allows(feature)) return 0L
+        return (gate.entitlement as? Entitlement.Trial)?.endsAtMs ?: Long.MAX_VALUE
     }
 }

@@ -29,8 +29,8 @@ class StartDestinationTest {
     }
 
     @Test
-    fun aFreshInstallOpensOnThePlayer() {
-        assertEquals(GeodeDestination.PLAYER, BehaviourPrefs().startDestination())
+    fun aFreshInstallOpensOnTheLibrary() {
+        assertEquals(GeodeDestination.LIBRARY, BehaviourPrefs().startDestination())
     }
 
     @Test
@@ -39,7 +39,8 @@ class StartDestinationTest {
         GeodeDestination.entries.filter { it != GeodeDestination.SETTINGS }.forEach { destination ->
             val screen = checkNotNull(destination.startScreen)
             // Recorded, then read back as "where you left off", it is the same screen.
-            assertEquals(destination, BehaviourPrefs(lastScreen = screen).startDestination())
+            val prefs = BehaviourPrefs(startScreen = StartScreen.LAST_USED, lastScreen = screen)
+            assertEquals(destination, prefs.startDestination())
         }
     }
 }

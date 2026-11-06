@@ -237,6 +237,43 @@ void exportRange() {
     check(geode_export_range_min_ms() == 1'000, "ABI minimum");
 }
 
+// The Kotlin PlayerViewModel.capRange (it had no JVM test): with no cap the range passes as it was (the
+// whole track stays the whole track); with one, the whole track is its first capMs, a longer range keeps
+// its start and is cut, and a range no longer than the cap is untouched. Whether and how long is FreeTier's.
+void exportRangeCap() {
+    constexpr int64_t cap = 60'000;
+    ExportRange r{7, 7};
+    check(!capExportRange(nullptr, 0, &r) && r.startMs == 7 && r.durationMs == 7, "no cap, whole track, out untouched");
+    check(!capExportRange(nullptr, -1, &r), "a negative cap is no cap");
+    const ExportRange part{10'000, 30'000};
+    check(capExportRange(&part, 0, &r) && r.startMs == 10'000 && r.durationMs == 30'000, "no cap keeps the range");
+    const ExportRange longPart{90'000, 200'000};
+    check(capExportRange(&longPart, 0, &r) && r.startMs == 90'000 && r.durationMs == 200'000,
+          "no cap keeps a long range");
+    check(capExportRange(nullptr, cap, &r) && r.startMs == 0 && r.durationMs == cap, "capped whole track: first cap");
+    check(capExportRange(&longPart, cap, &r) && r.startMs == 90'000 && r.durationMs == cap,
+          "a longer range keeps its start, cut to the cap");
+    check(capExportRange(&part, cap, &r) && r.startMs == 10'000 && r.durationMs == 30'000, "a shorter range untouched");
+    const ExportRange exact{5'000, cap};
+    check(capExportRange(&exact, cap, &r) && r.startMs == 5'000 && r.durationMs == cap, "a range of exactly the cap");
+    const ExportRange overByOne{5'000, cap + 1};
+    check(capExportRange(&overByOne, cap, &r) && r.durationMs == cap, "one ms over the cap is cut");
+    check(capExportRange(nullptr, cap, nullptr), "out may be null");
+
+    int64_t start = -1;
+    int64_t duration = -1;
+    check(geode_export_range_cap(0, 123, 456, 0, &start, &duration) == 0 && start == -1 && duration == -1,
+          "ABI whole track uncapped, outputs untouched");
+    check(geode_export_range_cap(0, 123, 456, cap, &start, &duration) == 1 && start == 0 && duration == cap,
+          "ABI capped whole track ignores start and duration");
+    check(geode_export_range_cap(1, 90'000, 200'000, cap, &start, &duration) == 1 && start == 90'000 &&
+              duration == cap,
+          "ABI capped range");
+    check(geode_export_range_cap(1, 10'000, 30'000, 0, &start, &duration) == 1 && start == 10'000 &&
+              duration == 30'000,
+          "ABI uncapped range");
+}
+
 // QA #24, moved from the JVM RenderEtaTest: a fast lead-in (analysis, audio transcode) made the old estimate
 // start low, climb, then count down. The lead-in is flagged not steady and must not bend the estimate.
 void renderEta() {
@@ -714,6 +751,7 @@ int main() {
     encodePlan();
     chapters();
     exportRange();
+    exportRangeCap();
     renderEta();
     frameClockBoundaries();
     soundEveryFrameHears();

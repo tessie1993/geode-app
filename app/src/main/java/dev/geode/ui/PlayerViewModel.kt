@@ -12,6 +12,7 @@ import dev.geode.audio.MicCapture
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.Preset
 import dev.geode.di.PlayerSessionProvider
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
@@ -324,19 +325,18 @@ class PlayerViewModel
         }
 
         /**
-         * Without Pro an export stops at [capMs]: the requested range, shortened, or the track's first
-         * minute. The audio transcode stops at the range's end, so a shorter track is unaffected.
+         * Without Pro an export stops at [capMs] (`pro/FreeTier` through the gate; null is uncapped): the
+         * requested range, shortened, or the track's first minute. Only marshals: the cut is native
+         * (`core/output/ExportRange`, `capExportRange`), and null in either slot travels as 0.
          */
         private fun capRange(
             range: ExportRange?,
             capMs: Long?,
-        ): ExportRange? =
-            when {
-                capMs == null -> range
-                range == null -> ExportRange(0L, capMs)
-                range.durationMs > capMs -> ExportRange(range.startMs, capMs)
-                else -> range
-            }
+        ): ExportRange? {
+            val out = LongArray(2)
+            val ok = GeodeNative.exportRangeCap(range != null, range?.startMs ?: 0L, range?.durationMs ?: 0L, capMs ?: 0L, out)
+            return if (ok) ExportRange(out[0], out[1]) else null
+        }
 
         /** 4K and 60 fps are Pro: a locked size or rate opens the paywall instead of rendering. */
         private fun openPaywallIfLocked(

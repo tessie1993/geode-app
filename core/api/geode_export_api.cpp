@@ -264,6 +264,16 @@ int geode_export_range_clamp(int64_t start_ms, int64_t end_ms, int64_t track_ms,
 
 int64_t geode_export_range_min_ms(void) { return out::kMinExportRangeMs; }
 
+int geode_export_range_cap(int has_range, int64_t start_ms, int64_t duration_ms, int64_t cap_ms,
+                           int64_t* out_start_ms, int64_t* out_duration_ms) {
+    const out::ExportRange in{start_ms, duration_ms};
+    out::ExportRange r;
+    if (!out::capExportRange(has_range ? &in : nullptr, cap_ms, &r)) return 0;
+    if (out_start_ms) *out_start_ms = r.startMs;
+    if (out_duration_ms) *out_duration_ms = r.durationMs;
+    return 1;
+}
+
 int64_t geode_render_eta_sample(geode_render_eta* state, float progress, int64_t at_ms, int steady) {
     if (!state) return -1;
     out::RenderEtaState s;

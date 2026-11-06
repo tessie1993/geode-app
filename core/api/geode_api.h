@@ -370,6 +370,11 @@ GEODE_API int     geode_chapters_from_markers(const int64_t* markers_ms, int cou
 GEODE_API int     geode_export_range_clamp(int64_t start_ms, int64_t end_ms, int64_t track_ms,
                                            int64_t* out_start_ms, int64_t* out_duration_ms);
 GEODE_API int64_t geode_export_range_min_ms(void);
+/* The free tier's cap on a render range (output/ExportRange capExportRange). Kotlin's pro/FreeTier decides
+ * whether and how long; cap_ms <= 0 is no cap. has_range 0 is the whole track (start and duration ignored).
+ * 1 with the range to render; 0 (outputs untouched) only for the whole track with no cap. */
+GEODE_API int     geode_export_range_cap(int has_range, int64_t start_ms, int64_t duration_ms, int64_t cap_ms,
+                                         int64_t* out_start_ms, int64_t* out_duration_ms);
 
 /* Time left for a render (output/RenderEta). The caller keeps the state; a zeroed one is a fresh estimate,
  * so starting over is a memset. -1 while there is not yet enough steady progress to say. */

@@ -128,8 +128,6 @@ GEODE_API int         geode_event_recipe_toggle(int recipe, const char* style_id
    Static: the pointer stays valid for the process; the shell parses it once. Labels stay in Kotlin. */
 GEODE_API unsigned    geode_music_actions_for(const char* style_id);
 GEODE_API const char* geode_mod_targets_text(void);
-/* Gyro look, -1..1 per axis; the camera reads it only while camGyro is on. */
-GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
 /* One gyro reading from SensorManager.getOrientation (radians: azimuth -pi..pi, pitch -pi/2..pi/2). The first after a
    reset is the baseline; viz/GyroLook turns the tilt from it into the -1..1 look per axis the camera reads only while
    camGyro is on. GL thread. */

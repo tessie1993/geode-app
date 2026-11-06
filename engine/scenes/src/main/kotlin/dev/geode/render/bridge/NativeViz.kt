@@ -201,13 +201,11 @@ class NativeViz(
         )
     }
 
-    /** Pins this renderer's auto-director; see [GeodeNative.vizSetDirector]. */
-    fun setDirector(
-        amount: Float,
-        seed: Long,
-    ) {
-        if (handle != 0L) GeodeNative.vizSetDirector(handle, amount, seed)
-    }
+    /** Pins an export's engine settings and returns the pinned hand mask; see [GeodeNative.vizPinEngineSettings]. */
+    fun pinEngineSettings(
+        entitled: Boolean,
+        durationMs: Long,
+    ): Int = if (handle != 0L) GeodeNative.vizPinEngineSettings(handle, entitled, durationMs) else 0
 
     fun setOffscreen(on: Boolean) {
         if (handle != 0L) GeodeNative.vizSetOffscreen(handle, on)

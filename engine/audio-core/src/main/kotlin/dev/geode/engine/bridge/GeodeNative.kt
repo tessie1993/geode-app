@@ -280,10 +280,12 @@ object GeodeNative {
 
     /**
      * The auto-director (core/viz/Director): the music's feeling decides palette, behaviour and routing over
-     * every style. [amount] 0 off .. 1 full; [seed] is the play's, so a new seed starts the song afresh and an
-     * export given the play's seed makes the same film.
+     * every style. [on] is the user's switch as set, which an export directs by ([vizPinEngineSettings]);
+     * [amount] 0 off .. 1 full is what live surfaces drive with now; [seed] is the play's, so a new seed
+     * starts the song afresh and an export pinned with it makes the same film.
      */
     external fun directorSet(
+        on: Boolean,
         amount: Float,
         seed: Long,
     )
@@ -292,7 +294,10 @@ object GeodeNative {
      * Note & key reactions (core/viz/NoteResponse): the notes, chords, key and mood drive the style knobs,
      * the note colours, the tint toward them and a gentle shape and distortion. Process-wide like
      * the director, so the screen, an export, the wallpaper and the dream agree; off is exactly the picture
-     * without it. The play's seed is the director's ([directorSet]), so an export answers the notes the same way.
+     * without it. The play's seed is the director's ([directorSet]). A live renderer mixes fresh entropy into it per play,
+     * so the live note response differs every time; an export pins its settings with none
+     * ([vizPinEngineSettings]), so exporting the same play twice draws the same picture, though not the one
+     * the screen drew.
      */
     external fun noteResponseSet(enabled: Boolean)
 
@@ -491,14 +496,16 @@ object GeodeNative {
     const val FRAME_PUSH_TUNING: Int = 0x80
 
     /**
-     * Pins this renderer's auto-director (an export's): from then on it ignores [directorSet], so the live
-     * player moving to another track or past the free taste never reaches a render in progress.
+     * Pins an export renderer's engine settings once (geode_viz_pin_engine_settings, #350): from then on it
+     * ignores [macrosSet], [noteResponseSet], [handSet] and [directorSet], so live edits never reach a render
+     * in progress. The director is decided natively from the user's switch, [entitled] and [durationMs].
+     * Returns the pinned hand mask, for the export's route merge.
      */
-    external fun vizSetDirector(
+    external fun vizPinEngineSettings(
         handle: Long,
-        amount: Float,
-        seed: Long,
-    )
+        entitled: Boolean,
+        durationMs: Long,
+    ): Int
 
     external fun vizSetOffscreen(
         handle: Long,

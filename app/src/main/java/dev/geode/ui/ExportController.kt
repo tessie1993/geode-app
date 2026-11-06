@@ -71,16 +71,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-data class StudioUiState(
-    val phase: ExportPhase = ExportPhase.Idle,
-    /**
-     * What the last project render left out and why (the render plan's skipped-clip report), or
-     * null when it drew everything. It is also shown as a toast when the render ends; this copy is
-     * for a Render page that wants to keep it on screen.
-     */
-    val notice: String? = null,
-)
-
 data class ExportUiState(
     val customDestination: Boolean = false,
     val phase: ExportPhase = ExportPhase.Idle,
@@ -155,10 +145,6 @@ internal class ExportController(
 
     private val _exportState = MutableStateFlow(ExportUiState())
     val exportState: StateFlow<ExportUiState> = _exportState
-
-    private val _studio = MutableStateFlow(StudioUiState())
-
-    val studio: StateFlow<StudioUiState> = _studio
 
     @Volatile
     private var exportCancelled = false
@@ -502,10 +488,17 @@ internal class ExportController(
         destination: Uri? = null,
         onRendered: (ProjectRender) -> Unit = {},
     ) {
-        if (_studio.value.phase.isBusy || ExportRun.running) return
+        if (_exportState.value.phase.isBusy || ExportRun.running) return
         val limits = host.renderLimits()
         val edit = project.cappedAt(limits.capMs).edit
-        _studio.update { it.copy(phase = ExportPhase.Running(0f), notice = null) }
+        // One state for every render (#372): a take rendering in the background shows its progress
+        // and result on Studio › Render's bar like the one-tap Render, so Render is never a button
+        // that silently does nothing while the encoder is taken. A picked folder's name is the
+        // picker's, so no file name is claimed. A render into a picked file or folder is not in
+        // the app's Movies folder, so the bar must not offer "Show in folder" for it; every later
+        // write below copies this state, so the flag holds through the result.
+        val custom = destination != null || project.export.saveTo is SaveTarget.Folder
+        _exportState.value = ExportUiState(customDestination = custom, phase = ExportPhase.Running(0f))
         ExportRun.begin(project.name.ifBlank { application.getString(dev.geode.R.string.render_video_label) })
         ExportService.start(application)
         studioJob =
@@ -554,7 +547,7 @@ internal class ExportController(
                                 RenderResult.NothingToRender ->
                                     ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_nothing))
                             }
-                        _studio.update { it.copy(phase = phase, notice = notice) }
+                        _exportState.update { it.copy(phase = phase) }
                         // The report reaches the user whatever page they are on: the render may finish
                         // long after they left Studio.
                         if (notice != null && result != RenderResult.Cancelled) {
@@ -587,7 +580,7 @@ internal class ExportController(
         try {
             block()
         } catch (c: kotlinx.coroutines.CancellationException) {
-            _studio.update { it.copy(phase = ExportPhase.Idle) }
+            _exportState.update { it.copy(phase = ExportPhase.Idle) }
             throw c
         } catch (t: Throwable) {
             val phase =
@@ -597,7 +590,7 @@ internal class ExportController(
                     val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
                     ExportPhase.Failed("${t.javaClass.simpleName}: $reason")
                 }
-            _studio.update { it.copy(phase = phase) }
+            _exportState.update { it.copy(phase = phase) }
         } finally {
             studioJob = null
             ExportRun.finish()
@@ -608,7 +601,7 @@ internal class ExportController(
 
     private fun publishStudioProgress(p: Float) {
         val clamped = p.coerceIn(0f, 1f)
-        _studio.update { it.copy(phase = ExportPhase.Running(clamped)) }
+        _exportState.update { it.copy(phase = ExportPhase.Running(clamped)) }
         ExportRun.publish(clamped)
     }
 

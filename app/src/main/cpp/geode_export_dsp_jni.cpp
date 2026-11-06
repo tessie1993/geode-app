@@ -11,6 +11,7 @@ namespace {
 geode_resampler* resamplerOf(jlong handle) { return reinterpret_cast<geode_resampler*>(handle); }
 geode_loudness* loudnessOf(jlong handle) { return reinterpret_cast<geode_loudness*>(handle); }
 geode_file_feed* feedOf(jlong handle) { return reinterpret_cast<geode_file_feed*>(handle); }
+geode_aiff* aiffOf(jlong handle) { return reinterpret_cast<geode_aiff*>(handle); }
 
 // The bytes [offset, offset + byteCount) of a direct ByteBuffer (a MediaCodec output buffer), or null when
 // the buffer is not direct or the range does not fit inside it.
@@ -170,6 +171,56 @@ Java_dev_geode_engine_bridge_GeodeNative_fileFeedWriteShorts(JNIEnv* env, jobjec
 JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_fileFeedNeeds(JNIEnv*, jobject, jlong handle, jlong frameIndex, jint fps) {
     return geode_file_feed_needs(feedOf(handle), frameIndex, fps) ? JNI_TRUE : JNI_FALSE;
+}
+
+// AIFF (#653): AiffPcm hands the file's bytes in; the header walk and the s16 conversion are native.
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_aiffCreate(JNIEnv*, jobject) {
+    return reinterpret_cast<jlong>(geode_aiff_create());
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_aiffDestroy(JNIEnv*, jobject, jlong handle) {
+    geode_aiff_destroy(aiffOf(handle));
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_aiffWrite(JNIEnv* env, jobject, jlong handle, jbyteArray bytes, jint count) {
+    if (!bytes || count <= 0) return geode_aiff_write(aiffOf(handle), nullptr, 0);
+    const jint n = count < env->GetArrayLength(bytes) ? count : env->GetArrayLength(bytes);
+    void* data = env->GetPrimitiveArrayCritical(bytes, nullptr);
+    if (!data) return -1;
+    const int state = geode_aiff_write(aiffOf(handle), data, static_cast<size_t>(n));
+    env->ReleasePrimitiveArrayCritical(bytes, data, JNI_ABORT);
+    return state;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_aiffRead(JNIEnv* env, jobject, jlong handle, jshortArray out, jint count) {
+    if (!out || count <= 0) return 0;
+    const jint n = count < env->GetArrayLength(out) ? count : env->GetArrayLength(out);
+    void* data = env->GetPrimitiveArrayCritical(out, nullptr);
+    if (!data) return -1;
+    const int samples = geode_aiff_read_s16(aiffOf(handle), static_cast<int16_t*>(data), n);
+    env->ReleasePrimitiveArrayCritical(out, data, 0);
+    return samples;
+}
+
+// Layout of the int[] aiffFormat fills; GeodeNative.aiffFormat documents the same order.
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_aiffFormat(JNIEnv* env, jobject, jlong handle, jintArray out) {
+    geode_aiff_format fmt{};
+    const int ready = geode_aiff_get_format(aiffOf(handle), &fmt);
+    if (out && env->GetArrayLength(out) >= 2) {
+        const jint values[2] = {fmt.channels, fmt.sample_rate};
+        env->SetIntArrayRegion(out, 0, 2, values);
+    }
+    return ready ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_aiffProgress(JNIEnv*, jobject, jlong handle) {
+    return geode_aiff_progress(aiffOf(handle));
 }
 
 }

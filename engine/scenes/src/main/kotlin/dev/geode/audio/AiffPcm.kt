@@ -2,62 +2,41 @@ package dev.geode.audio
 
 import android.content.Context
 import android.net.Uri
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
-import java.io.DataInputStream
-import java.io.EOFException
 import java.io.InputStream
 
+/**
+ * An AIFF file as interleaved 16-bit samples, for the export (MediaExtractor cannot open AIFF). Only the
+ * Android half is here: the content resolver's bytes, handed to the native reader
+ * (`core/audio/ingest/Aiff`, #653), which walks the header, reads COMM's 80-bit rate and converts every
+ * depth and byte order to s16 (`core/tests/aiff_test.cpp`). One thread, the export's; [close] frees both.
+ */
 class AiffPcm private constructor(
-    private val input: DataInputStream,
+    private val input: InputStream,
+    private var handle: Long,
     val channels: Int,
     val sampleRate: Int,
-    private val bitsPerSample: Int,
-    val totalFrames: Long,
-    private val littleEndian: Boolean,
 ) {
-    private var framesRead = 0L
+    private val raw = ByteArray(CHUNK_BYTES)
 
-    val durationUs: Long get() = if (sampleRate > 0) totalFrames * 1_000_000L / sampleRate else 0L
+    val progress: Float get() = GeodeNative.aiffProgress(handle)
 
-    val progress: Float get() = if (totalFrames > 0) (framesRead / totalFrames.toFloat()).coerceIn(0f, 1f) else 0f
-
+    /** Up to [out]`.size` samples, whole frames; -1 at the end. */
     fun read(out: ShortArray): Int {
-        val bytesPer = bitsPerSample / 8
-        var maxSamples = out.size - (out.size % channels)
-        if (totalFrames > 0) {
-            val remaining = (totalFrames - framesRead) * channels
-            if (remaining <= 0) return -1
-            if (remaining < maxSamples) maxSamples = remaining.toInt()
+        while (true) {
+            val n = GeodeNative.aiffRead(handle, out, out.size)
+            if (n != 0) return n
+            val got = input.read(raw)
+            if (got <= 0 || GeodeNative.aiffWrite(handle, raw, got) == AIFF_REFUSED) return -1
         }
-        val raw = ByteArray(maxSamples * bytesPer)
-        var got = 0
-        try {
-            while (got < raw.size) {
-                val n = input.read(raw, got, raw.size - got)
-                if (n < 0) break
-                got += n
-            }
-        } catch (_: EOFException) {
-        }
-        val samples = got / bytesPer
-        if (samples == 0) return -1
-        for (i in 0 until samples) {
-            val o = i * bytesPer
-            val hi = if (littleEndian) o + bytesPer - 1 else o
-            val lo = if (littleEndian) o + bytesPer - 2 else o + 1
-            out[i] =
-                when (bitsPerSample) {
-                    8 -> ((raw[o].toInt()) shl 8).toShort()
-                    16, 24, 32 -> (((raw[hi].toInt() and 0xFF) shl 8) or (raw[lo].toInt() and 0xFF)).toShort()
-                    else -> 0
-                }
-        }
-        framesRead += samples / channels
-        return samples
     }
 
     fun close() {
         bestEffort(TAG, "input.close()") { input.close() }
+        val h = handle
+        handle = 0L
+        if (h != 0L) GeodeNative.aiffDestroy(h)
     }
 
     companion object {
@@ -69,70 +48,34 @@ class AiffPcm private constructor(
             return runCatching { parse(stream) }.getOrNull().also { if (it == null) runCatching { stream.close() } }
         }
 
-        internal fun parse(rawStream: InputStream): AiffPcm? {
-            val din = DataInputStream(rawStream.buffered(1 shl 16))
-            val form = ByteArray(4).also { din.readFully(it) }
-            if (String(form) != "FORM") return null
-            din.readInt()
-            val kind = ByteArray(4).also { din.readFully(it) }
-            val isAiff = String(kind) == "AIFF" || String(kind) == "AIFC"
-            if (!isAiff) return null
-
-            var channels = 0
-            var bits = 0
-            var rate = 0
-            var frames = 0L
-            var littleEndian = false
-            while (true) {
-                val id = ByteArray(4)
-                try {
-                    din.readFully(id)
-                } catch (_: EOFException) {
-                    return null
+        private fun parse(input: InputStream): AiffPcm? {
+            val handle = GeodeNative.aiffCreate()
+            val raw = ByteArray(CHUNK_BYTES)
+            var state = AIFF_HEADER
+            try {
+                while (state == AIFF_HEADER) {
+                    val got = input.read(raw)
+                    if (got <= 0) break
+                    state = GeodeNative.aiffWrite(handle, raw, got)
                 }
-                val size = din.readInt()
-                when (String(id)) {
-                    "COMM" -> {
-                        channels = din.readShort().toInt()
-                        frames = din.readInt().toLong() and 0xFFFFFFFFL
-                        bits = din.readShort().toInt()
-                        rate = readExtended80(din)
-                        var consumed = 18
-                        if (size > consumed) {
-                            val comp = ByteArray(4).also { din.readFully(it) }
-                            consumed += 4
-                            when (String(comp)) {
-                                "NONE" -> Unit
-                                "sowt" -> littleEndian = true
-                                else -> return null
-                            }
-                            din.skipBytes(size - consumed + (size and 1))
-                        } else if (size and 1 == 1) {
-                            din.skipBytes(1)
-                        }
-                    }
-                    "SSND" -> {
-                        val offset = din.readInt()
-                        din.readInt()
-                        if (offset > 0) din.skipBytes(offset)
-                        if (channels <= 0 || rate <= 0 || bits !in intArrayOf(8, 16, 24, 32)) return null
-                        return AiffPcm(din, channels, rate, bits, frames, littleEndian)
-                    }
-                    else -> din.skipBytes(size + (size and 1))
+                val format = IntArray(2)
+                if (state == AIFF_READY && GeodeNative.aiffFormat(handle, format)) {
+                    return AiffPcm(input, handle, format[0], format[1])
                 }
+            } catch (t: Throwable) {
+                GeodeNative.aiffDestroy(handle)
+                throw t
             }
-        }
-
-        private fun readExtended80(din: DataInputStream): Int {
-            val exponent = din.readShort().toInt() and 0x7FFF
-            val mantissaHigh = din.readInt().toLong() and 0xFFFFFFFFL
-            din.readInt()
-            if (exponent == 0 && mantissaHigh == 0L) return 0
-            val shift = 63 - (exponent - 16383)
-            if (shift < 0 || shift > 63) return 0
-            return ((mantissaHigh shl 32) ushr shift).toInt()
+            GeodeNative.aiffDestroy(handle)
+            return null
         }
     }
 }
 
 private const val TAG = "AiffPcm"
+private const val CHUNK_BYTES = 1 shl 16
+
+// aiffWrite's results, the native AiffReader::State.
+private const val AIFF_HEADER = 0
+private const val AIFF_READY = 1
+private const val AIFF_REFUSED = -1

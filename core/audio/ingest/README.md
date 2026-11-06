@@ -8,6 +8,7 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 - `Ring.hpp/.cpp`: the ring (`Ring`, the `geode_ingest` handle). Single writer, lock-free; format records published before the samples they cover; overrun detection by the write position (`oldestSafe`); the `core/sound/Silence` rule fed by the writes (`resting`).
 - `Cursor.hpp/.cpp`: one reader's place. `read` gives every sample once, in order, as stereo, one format per block, with `restarted` and `dropped`; `rawMonoTail` is projectM's raw PCM; `skipToNewest` for a stalled live surface.
 - `FileFeed.hpp/.cpp`: the export's file ring (#490, below): a decoded track handed to the export renderer frame-exact; C ABI `geode_file_feed_*`, `geode_viz_feed_file`.
+- `Aiff.hpp/.cpp`: the AIFF reader (#653), for the export (MediaExtractor cannot open AIFF): the header walk, COMM's 80-bit float rate, every depth and byte order (AIFC `sowt`) to s16, 24/32-bit truncated with no dither; C ABI `geode_aiff_*`, Kotlin `AiffPcm` only reads the file's bytes. Proved by `core/tests/aiff_test.cpp`.
 - `Downmix.hpp`: ITU-R BS.775 weights over AudioFormat channel masks (C and surrounds -3 dB, LFE -10 dB, mono duplicated, stereo bit-exact).
 - C ABI: `geode_ingest_*` in `core/api/geode_api.h`; JNI in `app/src/main/cpp/geode_sound_jni.cpp`; `GeodeNative.ingest*`.
 
@@ -20,6 +21,7 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 **Still to move in**
 - `engine/audio-core/.../audio/SampleRing.kt`, `SoundCursor.kt`, `SoundInput.kt`, `PcmSink.kt` are deleted when their callers switch (#481, #485); `app/.../audio/PcmRingBuffer.kt` is gone (#486: MilkDrop's raw PCM is the mono mix of what each renderer heard, `core/viz/PcmHandoff`).
 - The per-sample int16 -> float loops in `engine/audio-android/.../PcmTap.kt`, `app/.../audio/AudioCapturePump.kt`, `app/.../audio/dsp/NativeDspProcessor.kt`.
+- The playback side's duplicate AIFF parser: `app/.../audio/AiffExtractor.kt`'s COMM/SSND walk (`parseComm`) and `parseExtendedFloat80`, which decodes COMM's rate apart from `Aiff`'s `aiffExtendedRate`; it should call `Aiff` so playback and export read a file one way.
 - The capture level and silence guesses in `app/.../audio/MicCapture.kt` and `PlaybackCapture.kt` (#491).
 
 **fosfora:** `audio/capture.rs` (SPSC ring, no DSP in the callback), `audio/decimate.rs` (rates above 88.2 kHz halved first).

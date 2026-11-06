@@ -432,13 +432,6 @@ object GeodeNative {
     /** Mirrors GEODE_RECIPE_FITS: turning the recipe on stays within GEODE_REACT_ROUTES. */
     const val RECIPE_FITS: Int = 2
 
-    /** Gyro look, -1..1 per axis; read only while camGyro is on. */
-    external fun vizSetLook(
-        handle: Long,
-        yaw: Float,
-        pitch: Float,
-    )
-
     /** One gyro reading (azimuth, pitch in radians from SensorManager.getOrientation); core/viz/GyroLook makes the look. */
     external fun vizGyroSample(
         handle: Long,
@@ -541,6 +534,26 @@ object GeodeNative {
         handle: Long,
         opts: FloatArray?,
     )
+
+    /**
+     * The live wallpaper's on-screen window (`core/viz/frame/WallpaperWindow.hpp`): from the surface and
+     * display sizes and the raw `onOffsetsChanged` values (xOffset, yOffset, xOffsetStep, yOffsetStep,
+     * xPixels, yPixels), writes left, top, width, height into [out] (4 floats), as [vizSetEdgeGlow] takes them.
+     */
+    external fun wallpaperWindow(
+        surfaceW: Float,
+        surfaceH: Float,
+        displayW: Float,
+        displayH: Float,
+        offsets: FloatArray?,
+        out: FloatArray,
+    )
+
+    /** The wallpaper's frame rate: [targetFps] lowered to the Performance cap ([capFps] <= 0 = none); never 0. */
+    external fun wallpaperFps(
+        targetFps: Float,
+        capFps: Float,
+    ): Float
 
     external fun vizKnows(
         handle: Long,
@@ -1016,6 +1029,63 @@ object GeodeNative {
         nowMs: Long,
         heardAtMs: Long,
     ): Boolean
+
+    // What the player tells the sound engines that the tap cannot hear (core/sound/PlayerSignals).
+
+    /**
+     * A new track (or the same one again) begins a new play with [seed]: every live renderer's sound engine
+     * forgets the tempo, key and sections at its next frame and fires a full-strength section change, so a
+     * crossfaded or gapless next track starts fresh. Returns the boundary's epoch. Any thread.
+     */
+    external fun soundTrackBoundary(seed: Long): Long
+
+    /**
+     * The player's fade gain, 0..1 (the UI fades times the crossfade), which the tap before the volume never
+     * hears; the sound frame carries it as `fadeGain`, a reaction source. Live renderers only. Any thread.
+     */
+    external fun soundSetFadeGain(gain: Float)
+
+    /**
+     * Whether the player writes the app's ring (true) or the mic or another app's audio has taken it. While
+     * the player is the source a pause holds the tempo, key and sections; the others keep the 2 s silence
+     * re-warm, and read a fade gain of 1. Any thread.
+     */
+    external fun soundSetPlayerSource(on: Boolean)
+    // Which sound the wallpaper and the dream hear (core/sound/SoundSource): the app's ring while fed,
+    // else the output-mix capture when permitted, with hysteresis so it never flaps.
+
+    /** Longs in the caller-held state of [soundSourceStep]; a zeroed array is a fresh one. */
+    const val SOUND_SOURCE_STATE_LONGS: Int = 8
+
+    /** Answer bit of [soundSourceStep]: read the capture (while it runs), not the ring. */
+    const val SOUND_SOURCE_USE_CAPTURE: Int = 1
+
+    /** Answer bit of [soundSourceStep]: try to start the capture now. */
+    const val SOUND_SOURCE_START_CAPTURE: Int = 2
+
+    /** Answer bit of [soundSourceStep]: stop the capture now. */
+    const val SOUND_SOURCE_STOP_CAPTURE: Int = 4
+
+    /**
+     * One poll of the source rule: updates [state] in place and answers in `SOUND_SOURCE_*` bits.
+     * [ringId] tells rings apart, [ringWritten] is its written-frame counter; [capturePermitted] is
+     * the user's option plus the permission (or a capture already running).
+     */
+    external fun soundSourceStep(
+        state: LongArray,
+        nowMs: Long,
+        ringPresent: Boolean,
+        ringId: Long,
+        ringWritten: Long,
+        capturePermitted: Boolean,
+        captureRunning: Boolean,
+    ): Int
+
+    /** Reports that a start [soundSourceStep] asked for failed, so the next try waits 10 s. */
+    external fun soundSourceStartFailed(
+        state: LongArray,
+        nowMs: Long,
+    )
 
     // Settings › Audio's listening tuning (core/sound/Tuning): the schema behind SoundTuning.
 

@@ -123,10 +123,9 @@ GEODE_API unsigned    geode_event_recipe_state(int recipe, const char* style_id,
    target), into out; returns the route count. An unknown recipe or a NULL style leaves current as it was. */
 GEODE_API int         geode_event_recipe_toggle(int recipe, const char* style_id, const float* current, int current_floats,
                                                 float* out, int capacity);
-/* Gyro look, -1..1 per axis; the camera reads it only while camGyro is on. */
-GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
 /* One gyro reading from SensorManager.getOrientation (radians: azimuth -pi..pi, pitch -pi/2..pi/2). The first after a
-   reset is the baseline; viz/GyroLook turns the tilt from it into the look above. GL thread. */
+   reset is the baseline; viz/GyroLook turns the tilt from it into the -1..1 look per axis the camera reads only while
+   camGyro is on. GL thread. */
 GEODE_API void        geode_viz_gyro_sample(geode_viz*, float azimuth, float pitch);
 /* The gyro is off (or switched on again): recentre the look to (0,0) and recapture on the next sample. GL thread. */
 GEODE_API void        geode_viz_gyro_reset(geode_viz*);
@@ -171,6 +170,16 @@ GEODE_API void        geode_viz_set_ui_blur_region(geode_viz*, float left, float
  * frame. Off by default; an offscreen (export) renderer never draws it. */
 #define GEODE_EDGE_GLOW_FLOATS 5
 GEODE_API void        geode_viz_set_edge_glow(geode_viz*, const float* opts, int count);
+/* The live wallpaper's window and frame rate (core/viz/frame/WallpaperWindow.hpp), pure and stateless.
+ * geode_wallpaper_window: the part of a surface_w x surface_h surface on a display_w x display_h screen,
+ * from the raw WallpaperService.Engine.onOffsetsChanged values in its order (xOffset, yOffset, xOffsetStep,
+ * yOffsetStep, xPixels, yPixels; fewer = unknown). Writes left, top, width, height (surface pixels, y down,
+ * as geode_viz_set_edge_glow takes them) to out[4]. geode_wallpaper_fps: the wallpaper's target fps lowered
+ * to the Performance cap (<= 0 or NaN = no cap); never 0 or NaN. Any thread. */
+#define GEODE_WALLPAPER_OFFSETS 6
+GEODE_API void        geode_wallpaper_window(float surface_w, float surface_h, float display_w, float display_h,
+                                             const float* offsets, int count, float* out);
+GEODE_API float       geode_wallpaper_fps(float target_fps, float cap_fps);
 /* An export's own auto-director (amount 0..1, the play's seed): from now on this renderer ignores
  * geode_director_set, so the live player's switch, track and free taste never reach the render. */
 GEODE_API void        geode_viz_set_director(geode_viz*, float amount, long long seed);
@@ -475,6 +484,31 @@ GEODE_API long long       geode_silence_heard_at(const float* const* channels, i
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
 
+/* What the player tells every live renderer's sound engine that the tap cannot hear (sound/PlayerSignals).
+ * A track boundary: a new track (or the same one again) is a new play with `seed`; each live engine forgets
+ * the tempo, key and sections at its next frame and fires sectionChange at full strength, crossfaded and
+ * gapless tracks included. Returns the boundary's epoch (1, 2, …). The fade gain, 0..1: the player's pause
+ * and skip fades times the crossfade, which the tap (before the volume) never hears; the frame carries it as
+ * fadeGain, a reaction source. Player is source: 1 while the player writes the app's ring, 0 once the mic or
+ * another app's audio takes it; a pause then holds the tempo, key and sections (no 2 s silence re-warm),
+ * and fadeGain reads 1 under the others. All process-wide and latched, any thread; an export reads none. */
+GEODE_API long long       geode_sound_track_boundary(long long seed);
+GEODE_API void            geode_sound_set_fade_gain(float gain);
+GEODE_API void            geode_sound_set_player_source(int on);
+/* Which sound the wallpaper and the dream hear (sound/SoundSource): the app's ring while it is fed, else the
+ * output-mix capture when permitted. The caller keeps the state (GEODE_SOUND_SOURCE_STATE_LONGS int64s, zeroed
+ * = fresh) and polls with now, whether the app has a ring, which ring and its written-frame counter, whether
+ * capture is permitted (option on and permission granted, or already running) and whether it runs. The answer
+ * is GEODE_SOUND_SOURCE_* bits; the ring falls back after 1 s without a write and takes over again after 0.5 s
+ * fed, so it never flaps. A start the shell could not make is reported back and retried after 10 s. Pure. */
+#define GEODE_SOUND_SOURCE_STATE_LONGS 8
+#define GEODE_SOUND_SOURCE_USE_CAPTURE 1     /* read the capture's input (while it runs), not the ring */
+#define GEODE_SOUND_SOURCE_START_CAPTURE 2   /* try to start the capture now */
+#define GEODE_SOUND_SOURCE_STOP_CAPTURE 4    /* stop the capture now */
+GEODE_API int             geode_sound_source_step(long long* state, long long now_ms, int ring_present,
+                                                  long long ring_id, long long ring_written,
+                                                  int capture_permitted, int capture_running);
+GEODE_API void            geode_sound_source_start_failed(long long* state, long long now_ms);
 /* Settings › Audio's listening tuning (sound/Tuning): the one schema of GeodeSoundTuning. A slot is one
  * float of the struct in field order, GEODE_SOUND_TUNING_FLOATS of them; each call touches the first
  * min(count, slots) and ignores the rest. Clamping puts each slot in its range and turns a NaN or an

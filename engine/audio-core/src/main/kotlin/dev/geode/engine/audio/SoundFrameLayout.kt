@@ -2,8 +2,9 @@ package dev.geode.engine.audio
 
 /**
  * Float offsets into a `GeodeSoundFrame` (`core/sound/SoundFrame.h`) as it crosses JNI: every field in
- * declaration order, then the EQ, spectrum, waveform and three chroma arrays. `SoundFrameLayoutTest` parses the header,
- * so a field the engine adds, drops or moves fails CI here instead of shifting every reader by one.
+ * declaration order, then the EQ, spectrum, waveform and three chroma arrays. `SoundFrameLayoutTest` parses the header
+ * against its own list of the names, so a field the engine adds, drops or moves fails CI there instead of shifting
+ * every reader by one.
  *
  * What each value means (relative, shaped, clock, trigger) is documented on the struct, not repeated here.
  */
@@ -117,8 +118,9 @@ object SoundFrameLayout {
     const val SECTION_BARS = 105
     const val BUILD_UP = 106
     const val DROP = 107
+    const val FADE_GAIN = 108
 
-    const val SCALARS = 108
+    const val SCALARS = 109
     const val EQ_BANDS = 16
     const val SPECTRUM_POINTS = 64
     const val WAVEFORM_POINTS = 128
@@ -133,117 +135,4 @@ object SoundFrameLayout {
 
     /** `GeodeSoundTuning` as floats: gain, threshold, offset, attack, release, drum, drumDecay (3 each), then 8 scalars. */
     const val TUNING_FLOATS = 29
-
-    /** Field names in order, for the header test and for debug overlays. */
-    val SCALAR_NAMES: List<String> =
-        listOf(
-            "bass",
-            "mid",
-            "treble",
-            "vol",
-            "bassAtt",
-            "midAtt",
-            "trebleAtt",
-            "volAtt",
-            "sub",
-            "subAtt",
-            "midHigh",
-            "midHighAtt",
-            "low",
-            "middle",
-            "high",
-            "level",
-            "bassPresence",
-            "midPresence",
-            "treblePresence",
-            "intensity",
-            "bassTime",
-            "midTime",
-            "trebleTime",
-            "curvedTime",
-            "hitTime",
-            "noteTime",
-            "presence",
-            "rms",
-            "loudness",
-            "centroid",
-            "rolloff",
-            "flatness",
-            "densitySlow",
-            "densityFast",
-            "flux",
-            "energyTrend",
-            "peakFreq",
-            "peakMag",
-            "stereoWidth",
-            "stereoPan",
-            "kickEnv",
-            "snareEnv",
-            "hatEnv",
-            "onsetEnv",
-            "kickToggle",
-            "snareToggle",
-            "kickRandom",
-            "noteRandom",
-            "kick",
-            "snare",
-            "hat",
-            "kick2",
-            "kick4",
-            "kick8",
-            "kick16",
-            "snare2",
-            "snare4",
-            "hardCut",
-            "onset",
-            "silence",
-            "returned",
-            "surge",
-            "noteChange",
-            "legato",
-            "reattack",
-            "pitch",
-            "pitchClass",
-            "pitchHeight",
-            "pitchConfidence",
-            "interval",
-            "glide",
-            "vibrato",
-            "evenness",
-            "runDensity",
-            "bpm",
-            "beatPhase",
-            "beatConf",
-            "beat",
-            "beatCount",
-            "downbeat",
-            "barPhase",
-            "barCount",
-            "phrase",
-            "phraseIndex",
-            "phrasePhase",
-            "fluxLow",
-            "fluxMid",
-            "fluxHigh",
-            "hfc",
-            "keyHue",
-            "keyRoot",
-            "keyMajor",
-            "keyClarity",
-            "chordHue",
-            "tension",
-            "harmonicChange",
-            "scale",
-            "scaleRoot",
-            "scaleBrightness",
-            "scaleTension",
-            "scaleFit",
-            "novelty",
-            "sectionChange",
-            "sectionId",
-            "sectionState",
-            "sectionBars",
-            "buildUp",
-            "drop",
-        )
 }

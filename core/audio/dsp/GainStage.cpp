@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "sound/PlayerSignals.hpp"
+
 namespace geode::audio {
 
 void GainStage::Mailbox::post(float db, int ms) {
@@ -153,6 +155,7 @@ void GainStage::process(float* interleaved, size_t frames, int channels, int sam
     const double crossStep =
         halfUs > 0.0 ? range * usPerFrame / halfUs : range / static_cast<double>(std::max<int64_t>(1, msToFrames(kRecoverMs, sampleRate)));
     const size_t ch = static_cast<size_t>(channels);
+    double fadesDb = 0.0;
 
     for (size_t i = 0; i < frames; ++i) {
         const CrossTarget cross = crossfadeTarget(halfUs, followsOn, usPerFrame);
@@ -177,7 +180,9 @@ void GainStage::process(float* interleaved, size_t frames, int channels, int sam
         // Any lane at the floor silences the frame whatever the others add: a faded-out pause stays silent
         // under a +6 dB ReplayGain.
         const double silence = static_cast<double>(kSilenceDb);
-        const double total = (fade <= silence || sleep <= silence || crossDb_ <= silence) ? silence : rg + fade + sleep + crossDb_;
+        const bool silent = fade <= silence || sleep <= silence || crossDb_ <= silence;
+        const double total = silent ? silence : rg + fade + sleep + crossDb_;
+        fadesDb = silent ? silence : fade + sleep + crossDb_;
         if (total != lastDb_) {
             lastDb_ = total;
             lastGain_ = dbToGain(total);
@@ -188,6 +193,9 @@ void GainStage::process(float* interleaved, size_t frames, int channels, int sam
         float* frame = interleaved + i * ch;
         for (size_t c = 0; c < ch; ++c) frame[c] *= lastGain_;
     }
+    // The engines hear the tap, before these lanes, so they are told the fades instead: the UI, sleep and
+    // crossfade lanes as the frame's fadeGain (#460), not ReplayGain, which is a level, not a fade.
+    if (frames > 0) sound::player::setFadeGain(dbToGain(fadesDb));
 }
 
 }  // namespace geode::audio

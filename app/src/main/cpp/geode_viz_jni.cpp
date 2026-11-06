@@ -356,11 +356,6 @@ Java_dev_geode_engine_bridge_GeodeNative_eventRecipeToggle(JNIEnv* env, jobject,
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetLook(JNIEnv*, jobject, jlong handle, jfloat yaw, jfloat pitch) {
-    geode_viz_set_look(vizOf(handle), yaw, pitch);
-}
-
-JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizGyroSample(JNIEnv*, jobject, jlong handle, jfloat azimuth, jfloat pitch) {
     geode_viz_gyro_sample(vizOf(handle), azimuth, pitch);
 }
@@ -417,6 +412,27 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetEdgeGlow(JNIEnv* env, jobject, jl
     float values[GEODE_EDGE_GLOW_FLOATS] = {};
     env->GetFloatArrayRegion(opts, 0, count, reinterpret_cast<jfloat*>(values));
     geode_viz_set_edge_glow(vizOf(handle), values, static_cast<int>(count));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_wallpaperWindow(JNIEnv* env, jobject, jfloat surfaceW, jfloat surfaceH,
+                                                         jfloat displayW, jfloat displayH, jfloatArray offsets,
+                                                         jfloatArray out) {
+    if (!out || env->GetArrayLength(out) < 4) return;
+    float raw[GEODE_WALLPAPER_OFFSETS] = {};
+    jsize count = 0;
+    if (offsets) {
+        count = std::min<jsize>(env->GetArrayLength(offsets), GEODE_WALLPAPER_OFFSETS);
+        env->GetFloatArrayRegion(offsets, 0, count, reinterpret_cast<jfloat*>(raw));
+    }
+    float window[4] = {};
+    geode_wallpaper_window(surfaceW, surfaceH, displayW, displayH, raw, static_cast<int>(count), window);
+    env->SetFloatArrayRegion(out, 0, 4, reinterpret_cast<const jfloat*>(window));
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_wallpaperFps(JNIEnv*, jobject, jfloat targetFps, jfloat capFps) {
+    return geode_wallpaper_fps(targetFps, capFps);
 }
 
 JNIEXPORT jboolean JNICALL

@@ -584,6 +584,7 @@ private fun PanelPiece(
                 }
             }
         }
+        "@environment" -> ProGated(id, "Environment") { EnvironmentPage(host.visualizerView) }
         "@layers" -> ProGated(id, "Layers") { LayersPage() }
         "@shader_code" -> if (sectionVisible()) ProGated(id, "Shader code") { ShaderCodePage(host) }
         else -> Unit

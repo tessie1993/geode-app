@@ -89,6 +89,32 @@ class NativeViz(
         if (handle != 0L && sent.reducedMotion(on)) GeodeNative.vizSetReducedMotion(handle, on)
     }
 
+    /**
+     * Generators (#471): [slot] 0 sky, 1 wall, 2 material, 3 camera plane; null or "" empties it.
+     * Customize › Environment calls these and [generatorText] through `VisualizerRenderer.nativeViz`
+     * inside `VisualizerView.queueEvent`, so a call never meets a handle the GL thread is destroying.
+     */
+    fun setGenerator(
+        slot: Int,
+        styleId: String?,
+    ) {
+        if (handle != 0L) GeodeNative.vizSetGenerator(handle, slot, styleId ?: "")
+    }
+
+    fun setGeneratorPin(
+        slot: Int,
+        pinned: Boolean,
+    ) {
+        if (handle != 0L) GeodeNative.vizSetGeneratorPin(handle, slot, pinned)
+    }
+
+    fun setGeneratorPolicy(policy: Int) {
+        if (handle != 0L) GeodeNative.vizSetGeneratorPolicy(handle, policy)
+    }
+
+    /** The native assignment text (`geode_viz_generator_text`); "" before [create]. */
+    fun generatorText(): String = if (handle == 0L) "" else GeodeNative.vizGeneratorText(handle)
+
     fun setTransition(
         id: String,
         durationMs: Long,

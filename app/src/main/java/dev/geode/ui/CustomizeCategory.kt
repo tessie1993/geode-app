@@ -93,6 +93,7 @@ private val SECTION_TITLES =
         "envelopes" to "Envelopes",
         "waves" to "Waves",
         "engine" to "This style's engine",
+        "environment" to "Environment",
         "layers" to "Layers",
         "shader_code" to "Shader code",
     )

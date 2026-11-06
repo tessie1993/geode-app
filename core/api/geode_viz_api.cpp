@@ -8,6 +8,8 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "scene/generator/AssignmentText.hpp"
+#include "scene/generator/Pool.hpp"
 #include "viz/Director.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/Macros.hpp"
@@ -28,6 +30,8 @@ struct geode_viz {
     std::mutex configLock;
     std::array<geode::viz::LfoConfig, geode::viz::LfoEngine::kSlots> lfo{};
     std::array<geode::viz::AdsrConfig, geode::viz::AdsrEngine::kCount> adsr{};
+    // geode_viz_generator_text's last answer, kept so its pointer outlives the call (configLock).
+    std::string generatorText;
 };
 
 namespace {
@@ -95,6 +99,38 @@ void geode_viz_set_camera_comfort(geode_viz* v, int level) {
 
 void geode_viz_set_surface_kind(geode_viz* v, int kind) {
     if (v) v->renderer.setSurfaceKind(kind >= 0 && kind <= 3 ? kind : 0);
+}
+
+void geode_viz_set_generator(geode_viz* v, int slot, const char* style_id) {
+    if (v) v->renderer.setGenerator(slot, text(style_id));
+}
+
+void geode_viz_set_generator_pin(geode_viz* v, int slot, int pinned) {
+    if (v) v->renderer.setGeneratorPin(slot, pinned != 0);
+}
+
+void geode_viz_set_generator_policy(geode_viz* v, int policy) {
+    if (v) v->renderer.setGeneratorPolicy(policy);
+}
+
+const char* geode_viz_generator_text(geode_viz* v) {
+    if (!v) return nullptr;
+    std::string next = geode::scene::generator::assignmentText(v->renderer.generatorAssignment());
+    std::lock_guard<std::mutex> lock(v->configLock);
+    v->generatorText = std::move(next);
+    return v->generatorText.c_str();
+}
+
+const char* geode_generator_pool_text(void) {
+    static const std::string joined = [] {
+        std::string out;
+        for (const auto& id : geode::scene::generator::generatorPool()) {
+            out += id;
+            out += '\n';
+        }
+        return out;
+    }();
+    return joined.c_str();
 }
 
 void geode_viz_set_transition(geode_viz* v, const char* id, int64_t duration_ms) {

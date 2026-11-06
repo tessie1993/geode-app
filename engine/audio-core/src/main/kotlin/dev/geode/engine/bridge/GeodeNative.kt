@@ -154,6 +154,31 @@ object GeodeNative {
         blendMode: Int,
     )
 
+    /** A generator slot's style (`geode_viz_set_generator`): slot 0 sky, 1 wall, 2 material, 3 plane; "" = none. */
+    external fun vizSetGenerator(
+        handle: Long,
+        slot: Int,
+        styleId: String,
+    )
+
+    external fun vizSetGeneratorPin(
+        handle: Long,
+        slot: Int,
+        pinned: Boolean,
+    )
+
+    /** 0 only the user changes generators, 1 the auto-director may swap unpinned ones. */
+    external fun vizSetGeneratorPolicy(
+        handle: Long,
+        policy: Int,
+    )
+
+    /** The assignment as `slot\tid\tpinned` lines, then `policy\tn` (`geode_viz_generator_text`). */
+    external fun vizGeneratorText(handle: Long): String
+
+    /** Every style that can be a generator, one id per line (`geode_generator_pool_text`). Static. */
+    external fun generatorPoolText(): String
+
     external fun vizSetTransition(
         handle: Long,
         id: String,

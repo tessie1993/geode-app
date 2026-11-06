@@ -36,6 +36,20 @@ GEODE_API void        geode_viz_set_camera_comfort(geode_viz*, int level);
 /* Which surface this renderer draws: 0 Live, 1 Wallpaper, 2 Dream, 3 Export (Group E's frame::Surface order);
    anything else is Live. Native picks what follows from it (the wallpaper and the dream start on Calm). */
 GEODE_API void        geode_viz_set_surface_kind(geode_viz*, int kind);
+/* Generators (#471, #472; core/scene/generator): another style drawn offscreen into a texture a Scene samples.
+ * slot = 0 sky, 1 wall, 2 material, 3 camera plane (generator::Slot); style_id a geode_generator_pool_text id,
+ * "" = none (its instance is released). An unknown slot, id or policy is ignored. Any thread; next frame.
+ * policy: 0 only the user changes them, 1 the auto-director may swap unpinned assigned slots. */
+GEODE_API void        geode_viz_set_generator(geode_viz*, int slot, const char* style_id);
+GEODE_API void        geode_viz_set_generator_pin(geode_viz*, int slot, int pinned);
+GEODE_API void        geode_viz_set_generator_policy(geode_viz*, int policy);
+/* The assignment as it stands (director swaps included): one line per slot "slot\tid\tpinned" (slot 0..3,
+ * id "" when empty, pinned 0/1), then "policy\t<n>", each ending in '\n' (generator::assignmentText).
+ * The pointer stays valid until the next call on this handle; NULL for a null handle. */
+GEODE_API const char* geode_viz_generator_text(geode_viz*);
+/* Every style that can be a generator, one id per line in catalogue order (generator::generatorPool).
+ * Static: the pointer stays valid for the process. */
+GEODE_API const char* geode_generator_pool_text(void);
 GEODE_API void        geode_viz_set_transition(geode_viz*, const char* id, int64_t duration_ms);
 GEODE_API void        geode_viz_begin_param_morph(geode_viz*, float seconds);
 GEODE_API void        geode_viz_set_touch(geode_viz*, const float* xy_ndc, int points);   /* 0 points = all lifted */

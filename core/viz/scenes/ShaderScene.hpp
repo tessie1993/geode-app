@@ -35,6 +35,10 @@ public:
 
     void setFlow(GLuint texture, float strength) override;
     void setPaletteLut(GLuint texture) override { paletteLutTex_ = texture; }
+    void setGenerators(const GeneratorTextures* generators) override { generators_ = generators; }
+    bool samplesGenerator(int slot) const override {
+        return readsGenerators_ && slot >= 0 && static_cast<size_t>(slot) < genSamplerLoc_.size() && genSamplerLoc_[static_cast<size_t>(slot)] >= 0;
+    }
     void setTouchField(const TouchField* field) override { touchField_ = field; }
     void setCamera(const CameraPose* pose) override { camera_ = pose; }
     bool drawsCamera() const override { return drawsCamera_; }
@@ -60,6 +64,8 @@ private:
     void uploadMotion();
     void uploadTouch();
     void uploadCamera();
+    void bindGenerators();
+    void unbindGenerators();
     void uploadWorld();
     void set1f(const char* name, float value);
     float marchSteps(float detail);
@@ -99,6 +105,14 @@ private:
     GLuint paletteLutTex_ = 0;
     const TouchField* touchField_ = nullptr;
     const CameraPose* camera_ = nullptr;
+    const GeneratorTextures* generators_ = nullptr;
+    // Looked up once per compiled program: the lib_generator samplers (-1 when the style does not
+    // read that slot) and uGenMix. readsGenerators_ is false for every style without lib_generator,
+    // which then binds nothing and draws exactly as before.
+    std::array<GLint, 4> genSamplerLoc_{-1, -1, -1, -1};
+    GLint genMixLoc_ = -1;
+    bool readsGenerators_ = false;
+    bool generatorsBound_ = false;
     // The frame update() was given (the renderer's, with this scene's band trims) and this scene's own
     // held events from it, a pure function of those frames like motionField_; uploaded in draw().
     SoundUniforms sound_;

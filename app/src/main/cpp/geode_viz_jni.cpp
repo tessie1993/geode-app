@@ -93,6 +93,33 @@ Java_dev_geode_engine_bridge_GeodeNative_layerSet(JNIEnv* env, jobject, jstring 
 }
 
 JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetGenerator(JNIEnv* env, jobject, jlong handle, jint slot, jstring styleId) {
+    Utf8Chars id(env, styleId);
+    geode_viz_set_generator(vizOf(handle), slot, id.get() ? id.get() : "");
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetGeneratorPin(JNIEnv*, jobject, jlong handle, jint slot, jboolean pinned) {
+    geode_viz_set_generator_pin(vizOf(handle), slot, pinned == JNI_TRUE);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetGeneratorPolicy(JNIEnv*, jobject, jlong handle, jint policy) {
+    geode_viz_set_generator_policy(vizOf(handle), policy);
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizGeneratorText(JNIEnv* env, jobject, jlong handle) {
+    const char* text = geode_viz_generator_text(vizOf(handle));
+    return env->NewStringUTF(text ? text : "");
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_generatorPoolText(JNIEnv* env, jobject) {
+    return env->NewStringUTF(geode_generator_pool_text());
+}
+
+JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetTransition(JNIEnv* env, jobject, jlong handle, jstring id, jlong durationMs) {
     Utf8Chars name(env, id);
     geode_viz_set_transition(vizOf(handle), name.get(), durationMs);

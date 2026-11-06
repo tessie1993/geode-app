@@ -107,6 +107,7 @@ const std::vector<Section>& table() {
           "Fill", "Nodal lines", "Nodal glow", "Iridescence", "Caustic sheen",
           // MilkDrop
           "Blend preset changes", "MilkDrop palette tint"}},
+        {C::Expert, "environment", false, S::Always, {"@environment"}},
         {C::Expert, "layers", false, S::Always, {"@layers"}},
         {C::Expert, "shader_code", false, S::ShaderCode, {"@shader_code"}},
     };
@@ -150,6 +151,7 @@ const std::vector<HeldControl>& held() {
         {"@reactions", {}, std::nullopt},
         {"@envelopes", {}, std::nullopt},
         {"@waves", {}, std::nullopt},
+        {"@environment", {}, std::nullopt},
         {"@layers", {}, std::nullopt},
         {"@shader_code", {}, std::nullopt},
     };

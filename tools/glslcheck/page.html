@@ -86,6 +86,9 @@ makeTexture('palette', 256, 1, (x, y, px) => {
   px[3] = 255;
 });
 makeTexture('white', 2, 2, (x, y, px) => { px[0] = px[1] = px[2] = px[3] = 255; });
+// lib_generator's four slots (gen0 sky .. gen3 plane): black until a --gen job draws style B there.
+for (let i = 0; i < 4; i++) makeTexture(`gen${i}`, 2, 2, (x, y, px) => { px[0] = px[1] = px[2] = 0; px[3] = 255; });
+const genStandIns = [0, 1, 2, 3].map((i) => textures[`gen${i}`]);
 makeTexture('noise', 64, 64, (x, y, px) => { const v = Math.floor(Math.random() * 256); px[0] = px[1] = px[2] = v; px[3] = 255; });
 // A dye field with structure: two soft coloured blobs and a filament, so a
 // look that reads gradients, luminance or hue has something to chew on.
@@ -160,6 +163,7 @@ window.__render = async function (job) {
   try {
     canvas.width = job.width;
     canvas.height = job.height;
+    drawGenerators(job.gens || [], out);
     if (job.assets) for (const [name, a] of Object.entries(job.assets)) defineAsset(name, a);
     program = link(job.vert, job.frag);
     gl.useProgram(program);
@@ -191,9 +195,44 @@ window.__render = async function (job) {
     out.error = String(e.message || e).replace(/\n/g, ' | ');
   } finally {
     if (program) gl.deleteProgram(program);
+    releaseGenerators();
   }
   return out;
 };
+
+// Generators (#471, check.mjs --gen): each style B drawn once into its own RGBA8 target at its own
+// size (target()/fbo() below, as the Liquid born path does), then put in place of its slot's stand-in
+// so the job's lib_generator sampler reads it. Back to the default framebuffer afterwards.
+const genTargets = [];
+function drawGenerators(gens, out) {
+  for (const g of gens) {
+    const tex = target(g.width, g.height, false);
+    const f = fbo([tex]);
+    const p = link(g.vert, g.frag);
+    gl.useProgram(p);
+    let unit = 0;
+    for (const u of g.uniforms) {
+      if (u.texture) u.unit = unit++;
+      if (!upload(p, u)) out.dropped.push(`${g.name}.${u.name}`);
+    }
+    gl.disableVertexAttribArray(0);
+    gl.viewport(0, 0, g.width, g.height);
+    gl.disable(gl.BLEND);
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.deleteProgram(p);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.deleteFramebuffer(f);
+    textures[`gen${g.slot}`] = tex;
+    genTargets.push(tex);
+  }
+}
+function releaseGenerators() {
+  for (const t of genTargets) gl.deleteTexture(t);
+  genTargets.length = 0;
+  genStandIns.forEach((t, i) => { textures[`gen${i}`] = t; });
+}
 
 // ---- Liquid mode: many frames of feedback (check.mjs --liquid) -------------
 //

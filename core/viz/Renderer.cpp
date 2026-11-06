@@ -5,6 +5,8 @@
 #include <cmath>
 #include <utility>
 
+#include "scene/generator/GeneratorParams.hpp"
+#include "scene/generator/Pool.hpp"
 #include "util/Log.hpp"
 #include "viz/GlProber.hpp"
 #include "viz/ShaderOverrides.hpp"
@@ -35,7 +37,10 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity),
-      pcmDeliverScratch_(kPcmCapacity, 0.0f) {
+      pcmDeliverScratch_(kPcmCapacity, 0.0f),
+      generatorRequest_(scene::generator::published()),
+      generatorPool_(scene::generator::generatorPool()),
+      generatorParams_(scene::generator::generatorSchema()) {
     programCache_.install(cacheDir_);
 }
 
@@ -299,7 +304,7 @@ void Renderer::syncShaderOverrides() {
     const auto overrides = shader_overrides::snapshot();
     const std::string stock;
     for (auto& [id, scene] : scenes_) {
-        const auto found = overrides.find(id);
+        const auto found = overrides.find(generator_targets::styleOf(id));
         const std::string& want = found == overrides.end() ? stock : found->second;
         std::string& have = appliedShaders_[id];
         if (have == want) continue;
@@ -338,6 +343,7 @@ void Renderer::onSurfaceCreated() {
     fboA_.release();
     fboB_.release();
     bornFbo_.release();
+    for (Framebuffer& fbo : generatorFbos_) fbo.release();
     // The probe's names died with the old context; the limiter starts over on the new surface.
     outputProbe_.forget();
     flashLimiter_.reset();
@@ -480,6 +486,62 @@ bool Renderer::setScene(const std::string& sceneId) {
     return true;
 }
 
+void Renderer::setGenerator(int slot, const std::string& styleId) {
+    if (!generator_targets::validSlot(slot)) return;
+    if (!styleId.empty() &&
+        (std::find(generatorPool_.begin(), generatorPool_.end(), styleId) == generatorPool_.end() || !registry_.knows(styleId))) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(stateLock_);
+    generatorRequest_.slots[static_cast<size_t>(slot)].id = styleId;
+    generatorsSetHere_ = true;
+    publishGeneratorsLocked();
+}
+
+void Renderer::setGeneratorPin(int slot, bool pinned) {
+    if (!generator_targets::validSlot(slot)) return;
+    std::lock_guard<std::mutex> lock(stateLock_);
+    generatorRequest_.slots[static_cast<size_t>(slot)].pinned = pinned;
+    generatorsSetHere_ = true;
+    publishGeneratorsLocked();
+}
+
+void Renderer::setGeneratorPolicy(int policy) {
+    using scene::generator::Policy;
+    if (policy != static_cast<int>(Policy::OnlyMe) && policy != static_cast<int>(Policy::DirectorSwaps)) return;
+    std::lock_guard<std::mutex> lock(stateLock_);
+    generatorRequest_.policy = static_cast<Policy>(policy);
+    generatorsSetHere_ = true;
+    publishGeneratorsLocked();
+}
+
+// The assignment as it stands (the user's choices and the director's swaps), published process-wide so
+// the next renderer starts from it: a live renderer built again after Visuals detached its view, and an
+// export's renderer at the start of its render. Only the renderer the shell sets generators on
+// publishes (generator_targets::publishesAssignment), so the wallpaper's or the dream's own director,
+// adopting the same assignment, never writes its swaps over the app's.
+void Renderer::publishGeneratorsLocked() {
+    if (!generator_targets::publishesAssignment(offscreen_.load(std::memory_order_relaxed), generatorsSetHere_)) return;
+    scene::generator::publish(generatorRequest_);
+}
+
+void Renderer::setOffscreen(bool on) {
+    const bool was = offscreen_.exchange(on, std::memory_order_relaxed);
+    if (!on || was) return;
+    // An export adopts the live assignment once, at the start of its render (geode_viz_set_offscreen):
+    // the shell's OffscreenSceneRenderer calls no generator setter, and the screen changing them while
+    // the render runs never reaches it.
+    const scene::generator::Assignment live = scene::generator::published();
+    std::lock_guard<std::mutex> lock(stateLock_);
+    generatorRequest_ = live;
+    generatorsSetHere_ = false;
+}
+
+scene::generator::Assignment Renderer::generatorAssignment() const {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    return generatorRequest_;
+}
+
 void Renderer::setStyleSchedule(std::vector<StyleCue> cues, std::vector<std::string> beatCutIds, int everyBeats,
                                 const std::vector<std::string>& lockedIds) {
     StyleSchedule schedule;
@@ -547,6 +609,8 @@ void Renderer::trimScenes(const std::string& keepId) {
     }
     const auto pinned = [&](const std::string& id) {
         if (id == keepId || id == requestedId || id == layerId || id == bornSceneId_) return true;
+        // An assigned generator's instance is drawn every frame, into its own target.
+        if (generator_targets::pins(generatorKeys_, id)) return true;
         const Scene* s = builtScene(id);
         return s != nullptr && (s == activeScene_ || s == outgoingScene_ || s == layerScene_);
     };
@@ -657,7 +721,10 @@ Scene* Renderer::sceneFor(const std::string& id) {
 }
 
 std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
-    auto scene = registry_.create(id, quadVert_);
+    // A generator instance ("gen:<slot>:<style>") is its style built again, sized to its slot's target.
+    generator_targets::TargetSize size{renderWidth_, renderHeight_};
+    const bool generator = generatorTargetFor(id, size);
+    auto scene = registry_.create(generator_targets::styleOf(id), quadVert_);
     if (!scene) return nullptr;
     // Snapshot every cross-thread field this function needs in one lock, then
     // do all the (non-locked) scene setup below so no scene call happens
@@ -682,15 +749,20 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     scene->setCamera(&camera_.pose());
     scene->init();
     scene->setParams(initialParams);
-    scene->resize(renderWidth_, renderHeight_);
+    scene->resize(size.width, size.height);
     // The user's edited source for this style, whichever renderer this is (live, export, wallpaper,
     // dream): one process-wide table (viz/ShaderOverrides, #364). Recorded so syncShaderOverrides
-    // only re-applies what changed after this build.
-    const std::string custom = shader_overrides::get(id);
+    // only re-applies what changed after this build. A generator instance wears its style's source.
+    const std::string custom = shader_overrides::get(generator_targets::styleOf(id));
     appliedShaders_[id] = custom;
     if (!custom.empty()) scene->setFragmentSource(custom);
     if (!force.empty() || !dye.empty()) scene->setInjectionShaders(force, dye);
-    scene->setWindowSize(width_, height_);
+    // A generator's window is its own target: nothing of it is ever shown at the surface's size.
+    if (generator) {
+        scene->setWindowSize(size.width, size.height);
+    } else {
+        scene->setWindowSize(width_, height_);
+    }
     if (!textureDir.empty()) scene->setMilkTextureDir(textureDir);
     if (!goodPreset.empty()) scene->setMilkFallbackPreset(goodPreset);
     if (!preset.empty()) scene->queueMilkPreset(preset);
@@ -703,6 +775,9 @@ void Renderer::releaseScenes() {
     for (auto& entry : scenes_) entry.second->release();
     scenes_.clear();
     residency_.clear();
+    // The generator instances went with them; each is rebuilt (and sized) on its next frame.
+    generatorSizedScene_.fill(nullptr);
+    generatorSized_.fill({});
     activeScene_ = nullptr;
     outgoingScene_ = nullptr;
     layerScene_ = nullptr;

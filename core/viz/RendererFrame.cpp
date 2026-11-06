@@ -4,6 +4,7 @@
 #include <cmath>
 #include <random>
 
+#include "scene/generator/GeneratorParams.hpp"
 #include "sound/Form.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/CompositeGrade.hpp"
@@ -147,6 +148,14 @@ SceneParams Renderer::resolveParams(float dt) {
         const Director::Reason why = director_.lastReason();
         if (why == Director::Reason::Section || why == Director::Reason::Drop) {
             directorStyleMoments_.fetch_add(1, std::memory_order_acq_rel);
+        }
+        // The same moment may swap the generators the user left unpinned (#472; a no-op under OnlyMe).
+        // A swapped slot's instance is rebuilt by drawGenerators below, this frame's key diff.
+        if (const auto moment = generator_targets::directorMoment(why, directorCommitsSeen_)) {
+            std::lock_guard<std::mutex> lock(stateLock_);
+            if (scene::generator::onMoment(generatorRequest_, moment->moment, directorConfig.seed, moment->index, generatorPool_)) {
+                publishGeneratorsLocked();
+            }
         }
     }
     directedKnobs_ = director_.knobs(frameKnobs_);
@@ -455,6 +464,8 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     resolveLayerScene();
     stepOverlays(*scene, p, dt);
     stepCamera(p, dt);
+    // The generators first: the layer, the outgoing scene and the scene target may all sample them.
+    drawGenerators(*scene, p, dt);
     const float progress = drawSecondaryTargets(p, dt);
     // Liquid mode owns the dive, so a 2D style's own endless-zoom layers step aside (nothing dives twice).
     SceneParams sceneParams = p;
@@ -584,6 +595,113 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
     next->update(gainAdjusted(soundFrame_, p), dt);
     next->draw(timeSeconds_);
     return bornFbo_.tex();
+}
+
+bool Renderer::generatorTargetFor(const std::string& id, generator_targets::TargetSize& out) const {
+    if (!generator_targets::isInstanceKey(id)) return false;
+    for (int i = 0; i < scene::generator::kSlotCount; ++i) {
+        if (generatorKeys_[static_cast<size_t>(i)] != id) continue;
+        out = generator_targets::targetSize(static_cast<scene::generator::Slot>(i), appliedTier_, renderWidth_, renderHeight_);
+        return true;
+    }
+    return false;
+}
+
+// Generators (#471): every assigned slot draws its own instance of its style ("gen:<slot>:<id>", so a
+// simulation never steps twice in a frame and a sky is never the size of the screen) into its own
+// target, once, before any scene target is drawn; the active scene then samples those targets through
+// lib_generator. Like the born style (drawBorn), a missing instance is staged one target at a time and
+// only once the requested scene is whole; an export builds it whole on the frame that first asks.
+void Renderer::drawGenerators(Scene& active, const SceneParams& p, float dt) {
+    namespace gen = scene::generator;
+    namespace gt = generator_targets;
+    gen::Assignment assigned;
+    {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        assigned = generatorRequest_;
+    }
+    const gt::Keys wanted = gt::wantedKeys(assigned);
+    for (size_t i = 0; i < wanted.size(); ++i) {
+        if (generatorKeys_[i] == wanted[i]) continue;
+        const std::string old = generatorKeys_[i];
+        generatorKeys_[i] = wanted[i];
+        generatorSizedScene_[i] = nullptr;
+        generatorSized_[i] = {};
+        if (wanted[i].empty()) generatorFbos_[i].release();
+        if (old.empty() || gt::pins(generatorKeys_, old)) continue;
+        // Unassigned: its staging stops and its instance goes now, not when the trim gets to it.
+        if (prep_.target() == old) {
+            prep_.done();
+            stager_.clear();
+        }
+        dropScene(old);
+    }
+    // Pins and the policy are rows of the generators' schema too, so a saved look reads one table.
+    for (int i = 0; i < gen::kSlotCount; ++i) {
+        const bool pin = assigned.slots[static_cast<size_t>(i)].pinned;
+        if (pin != generatorMirrored_.slots[static_cast<size_t>(i)].pinned) {
+            generatorParams_.input(gen::pinParam(static_cast<gen::Slot>(i)), signal::ParamInput::set(pin ? 1.0f : 0.0f));
+        }
+    }
+    if (assigned.policy != generatorMirrored_.policy) {
+        generatorParams_.input(gen::kPolicy, signal::ParamInput::set(static_cast<float>(assigned.policy)));
+    }
+    generatorMirrored_ = assigned;
+    // ParamStore's frame: advance, clear, then whatever routes onto scene.generators.mix.* (none yet)
+    // modulate before the mixes are read below.
+    generatorParams_.advance(dt);
+    generatorParams_.clearModulation();
+
+    const bool blocking = blockingBuilds_.load(std::memory_order_relaxed);
+    for (int i = 0; i < gen::kSlotCount; ++i) {
+        const size_t s = static_cast<size_t>(i);
+        generatorTextures_.tex[i] = 0;
+        generatorTextures_.mix[i] = 0.0f;
+        const std::string& key = generatorKeys_[s];
+        if (key.empty()) continue;
+        // Only a slot some scene on screen samples is stepped, and at the Minimal tier only the plane;
+        // a skipped slot's instance stays resident (pinned) and resumes without a rebuild.
+        const bool sampled = active.samplesGenerator(i) || (layerScene_ && layerScene_->samplesGenerator(i)) ||
+                             (outgoingScene_ && outgoingScene_->samplesGenerator(i));
+        if (!gt::drawsSlot(static_cast<gen::Slot>(i), appliedTier_, sampled)) continue;
+        const gt::TargetSize size = gt::targetSize(static_cast<gen::Slot>(i), appliedTier_, renderWidth_, renderHeight_);
+        Scene* g = builtScene(key);
+        if (g != nullptr) {
+            residency_.touch(key);
+        } else {
+            // Behind the requested scene, and behind whatever else (the layer, the born style) holds
+            // the one staging target; built whole for an export.
+            if (!blocking && (requestedPending_ || (prep_.active() && prep_.target() != key))) continue;
+            g = readyScene(key);
+            if (g == nullptr) continue;
+            // buildScene sized it for its target already.
+            generatorSizedScene_[s] = g;
+            generatorSized_[s] = size;
+            residency_.markSized(key, sizeStamp_);
+        }
+        if (!generatorFbos_[s].ensure(size.width, size.height)) continue;
+        // Its own size, whatever a tier or scale change did to the render size: resized here, once.
+        if (generatorSizedScene_[s] != g || generatorSized_[s].width != size.width || generatorSized_[s].height != size.height) {
+            g->resize(size.width, size.height);
+            g->setWindowSize(size.width, size.height);
+            generatorSizedScene_[s] = g;
+            generatorSized_[s] = size;
+            residency_.markSized(key, sizeStamp_);
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, generatorFbos_[s].fbo());
+        glViewport(0, 0, size.width, size.height);
+        glClear(GL_COLOR_BUFFER_BIT);
+        // A generator samples no generators (never itself) and no Liquid flow.
+        g->setGenerators(nullptr);
+        g->setFlow(compositePass_.zeroTex(), 0.0f);
+        g->setParams(p);
+        deliverPcm(*g);
+        g->update(gainAdjusted(soundFrame_, p), dt);
+        g->draw(timeSeconds_);
+        generatorTextures_.tex[i] = generatorFbos_[s].tex();
+        generatorTextures_.mix[i] = generatorParams_.effective(gen::mixParam(static_cast<gen::Slot>(i)));
+    }
+    active.setGenerators(&generatorTextures_);
 }
 
 GLuint Renderer::drawLiquid(Scene& scene, const SceneParams& p, float dt) {

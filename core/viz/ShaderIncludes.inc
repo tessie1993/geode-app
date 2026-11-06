@@ -37,5 +37,7 @@
 "lib_foam",
 // The neon set (five loose styles): normalized shape controls, the palette pull, shared sound drives.
 "lib_neon",
+// Generators (#471): other styles' frames as sky, wall, material and camera plane; uGenMix 0 = today's look.
+"lib_generator",
 // Morph World's space: the World Genome's operator chain and its three render modes (core/viz/world).
 "lib_world",

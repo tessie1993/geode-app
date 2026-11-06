@@ -49,5 +49,6 @@ section|BEHAVIOUR|reactions|PRO|ALWAYS|@reactions
 section|BEHAVIOUR|envelopes|PRO|ALWAYS|@envelopes
 section|BEHAVIOUR|waves|PRO|ALWAYS|@waves
 section|EXPERT|engine|PRO|ENGINE|Solver iterations,Fluid curl,Motion fade,Fluid fade,Chromatic aging,Pressure,Shading (embossed ink),Glow (fluid),Fluid glow,Glow threshold,Sunrays,Sunrays weight,Curl from mids,Glow from loudness,Fade when quiet,Palette cycle,Particle brightness,Particle layer,Ink layer,Geometry,Fundamental (Hz),Standing waves,Tonal focus,Plate ring,Field scale,Wave flow,Field swirl,Fill,Nodal lines,Nodal glow,Iridescence,Caustic sheen,Blend preset changes,MilkDrop palette tint
+section|EXPERT|environment|PRO|ALWAYS|@environment
 section|EXPERT|layers|PRO|ALWAYS|@layers
 section|EXPERT|shader_code|PRO|SHADER_CODE|@shader_code

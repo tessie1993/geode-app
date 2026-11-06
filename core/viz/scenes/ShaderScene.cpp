@@ -6,6 +6,7 @@
 
 #include "viz/Catalogue.hpp"
 #include "viz/EndlessZoom.hpp"
+#include "viz/GeneratorBinding.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 #include "viz/world/WorldAssets.hpp"
@@ -144,12 +145,49 @@ void ShaderScene::draw(float timeSeconds) {
     uploadMotion();
     uploadTouch();
     uploadCamera();
+    bindGenerators();
     uploadWorld();
     // The whole GeodeSoundFrame for lib_sound; its texture takes unit 3 (1 and 2 are the flow and the palette LUT).
     sound_.upload(uniforms_, p.audioDrive);
     glBindVertexArray(vao_);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glBindVertexArray(0);
+    unbindGenerators();
+}
+
+// lib_generator's samplers on units 4..7 and uGenMix (viz/GeneratorBinding). uGenMix is always
+// written when the style reads it, 0 per slot with no texture, so lib_generator returns the style's
+// own colour there. A style without lib_generator has readsGenerators_ false and pays nothing.
+void ShaderScene::bindGenerators() {
+    if (!readsGenerators_) return;
+    namespace gb = generator_binding;
+    static const GeneratorTextures kNone{};
+    const GeneratorTextures& g = generators_ ? *generators_ : kNone;
+    const std::array<float, gb::kSlots> mix = gb::uploadMix(g.tex, g.mix);
+    glUniform4fv(genMixLoc_, 1, mix.data());
+    generatorsBound_ = false;
+    for (int i = 0; i < gb::kSlots; ++i) {
+        if (genSamplerLoc_[i] < 0) continue;
+        glActiveTexture(GL_TEXTURE0 + gb::unit(i));
+        glBindTexture(GL_TEXTURE_2D, g.tex[i]);
+        glUniform1i(genSamplerLoc_[i], gb::unit(i));
+        generatorsBound_ = generatorsBound_ || g.tex[i] != 0;
+    }
+    glActiveTexture(GL_TEXTURE0);
+}
+
+// Leaves units 4..7 empty after the draw, so a generator's texture is never still bound while the
+// renderer draws into that generator's own target next frame.
+void ShaderScene::unbindGenerators() {
+    if (!generatorsBound_) return;
+    namespace gb = generator_binding;
+    for (int i = 0; i < gb::kSlots; ++i) {
+        if (genSamplerLoc_[i] < 0) continue;
+        glActiveTexture(GL_TEXTURE0 + gb::unit(i));
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+    glActiveTexture(GL_TEXTURE0);
+    generatorsBound_ = false;
 }
 
 void ShaderScene::uploadParams() {
@@ -352,6 +390,9 @@ void ShaderScene::compilePendingIfAny() {
     program_ = built;
     uniforms_ = UniformCache(built);
     drawsCamera_ = uniforms_.loc("uCamBasis") >= 0;
+    for (int i = 0; i < generator_binding::kSlots; ++i) genSamplerLoc_[i] = uniforms_.loc(generator_binding::samplerName(i));
+    genMixLoc_ = uniforms_.loc("uGenMix");
+    readsGenerators_ = genMixLoc_ >= 0;
     currentFragment_ = *pending;
     host_.onShaderError("");
 }
@@ -368,6 +409,10 @@ void ShaderScene::release() {
     program_ = 0;
     vao_ = 0;
     uniforms_ = UniformCache(0);
+    genSamplerLoc_.fill(-1);
+    genMixLoc_ = -1;
+    readsGenerators_ = false;
+    generatorsBound_ = false;
 }
 
 }  // namespace geode::viz

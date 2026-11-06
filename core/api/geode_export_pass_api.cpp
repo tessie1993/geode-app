@@ -9,6 +9,7 @@
 #include <string>
 
 #include "api/geode_api.h"
+#include "output/FrameClock.hpp"
 #include "viz/ShaderSource.hpp"
 #include "viz/frame/ExportPassMath.hpp"
 #include "viz/frame/ExportPasses.hpp"
@@ -142,11 +143,7 @@ int64_t geode_export_seam_frame(geode_export_pass* h, int frame, int loop_frames
         case loopseam::Op::Present:
             break;
     }
-    return loopseam::ptsNs(frame, seam_frames, fps);
-}
-
-int64_t geode_export_seam_budgeted_crossfade_ms(int64_t crossfade_ms, int crossfade_frames, int fps, int width, int height) {
-    return loopseam::budgetedCrossfadeMs(crossfade_ms, crossfade_frames, fps, width, height);
+    return geode::output::FrameClock(fps, 0).ptsNs(frame - seam_frames);
 }
 
 geode_export_pass* geode_export_transition_create(AAssetManager* assets, const char* id, int64_t duration_us) {

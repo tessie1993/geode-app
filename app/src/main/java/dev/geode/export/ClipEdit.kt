@@ -16,6 +16,7 @@ import androidx.media3.effect.SingleColorLut
 import androidx.media3.effect.StaticOverlaySettings
 import androidx.media3.effect.TextOverlay
 import dev.geode.R
+import dev.geode.engine.bridge.GeodeNative
 
 enum class ClipLook(
     @param:StringRes val labelRes: Int,
@@ -173,15 +174,24 @@ data class ClipEdit(
             )
         }
 
+    /**
+     * The clip's fixed speed for Media3, made safe natively first: a saved project can carry 0, a
+     * negative or NaN speed (the JSON reader takes it as written), which Media3 cannot play.
+     */
     @UnstableApi
-    fun speedProvider(): SpeedProvider? =
-        if (speed == 1f) {
+    fun speedProvider(): SpeedProvider? {
+        val safe = safeSpeed()
+        return if (safe == 1f) {
             null
         } else {
             object : SpeedProvider {
-                override fun getSpeed(timeUs: Long): Float = speed
+                override fun getSpeed(timeUs: Long): Float = safe
 
                 override fun getNextSpeedChangeTimeUs(timeUs: Long): Long = androidx.media3.common.C.TIME_UNSET
             }
         }
+    }
+
+    /** [speed] as Media3 may play it: NaN, infinite, 0 or negative is 1x, else 0.25..4 (`core/signal/timeline/SpeedRamp`). */
+    fun safeSpeed(): Float = GeodeNative.clipSpeedSanitize(speed)
 }

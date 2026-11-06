@@ -1,6 +1,6 @@
 # core/output
 
-Part of the target in [ADR 0006](../../docs/adr/0006-fosfora-aligned-engine.md). The offline driver below is not built yet.
+Part of the target in [ADR 0006](../../docs/adr/0006-fosfora-aligned-engine.md). **Landed:** `FrameClock` (frame n's pts, programme time and samples heard, each from n alone), `LoopPlan` (`LoopSpec`, the seam weight and stash budget, `LoopExtendPlan`), `EncodePlan` (frame size, the fps retry, the muxer byte budget and hard stop) and `Chapters` (spans from mix clips and markers), behind `geode_api.h`'s export section and tested by `core/tests/output_test.cpp`. `VideoExporter`, `LoopRender`, `LoopExtend`, `MuxerBudget`, `ExportAspect.of`, `fallbackExportFps`, `ChapterMarkers` and `OffscreenSceneRenderer` call them (`app/src/main/cpp/geode_export_jni.cpp`). The driver itself (pre-roll, the frozen `RenderJob`) is still to come.
 
 **Built:** capture takes ([ADR 0008](../../docs/adr/0008-takes-are-screen-captures.md)). `TakeClock` holds every rule a take's timing and size follow (host-tested in `core/tests/take_clock_test.cpp`); `TakeSession` runs the encoders, muxer and encoder thread behind `geode_take_*`.
 

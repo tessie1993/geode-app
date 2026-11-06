@@ -307,8 +307,11 @@ class MainActivity : ComponentActivity() {
         installSplashScreen().setKeepOnScreenCondition { !settingsViewModel.userDataLoaded.value }
         super.onCreate(savedInstanceState)
         // Cast to TV starts with the app (owner Q38), so a TV picked in the system's output
-        // switcher is gated and streamed even before Visuals has shown the Cast button.
-        CastController.get(this)
+        // switcher is gated and streamed even before Visuals has shown the Cast button. Posted to
+        // the decor view: the first frame's traversal runs ahead of it, so Cast's start-up (Play
+        // services, MediaRouter) no longer holds the first frame on a cold start. A session the
+        // switcher hands over before then still builds the controller (CastOptionsProvider).
+        window.decorView.post { CastController.get(this) }
         // The UI is dark in every system mode, so the bar icons are always light: SystemBarStyle.auto
         // would turn them dark under a light system theme and leave them invisible on black.
         enableEdgeToEdge(

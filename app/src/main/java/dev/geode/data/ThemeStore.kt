@@ -80,7 +80,6 @@ data class GuiPrefs(
      */
     val tutorialProgress: TutorialProgress = TutorialProgress(),
     val reducedMotion: Boolean = false,
-    val micReactive: Boolean = false,
     val touchSmear: Boolean = false,
     val touchSmearStrength: Float = 1f,
     val secondScreen: Boolean = true,

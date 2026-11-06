@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "sound/DriveGain.hpp"
 #include "sound/SoundFrame.h"
 
 namespace geode::viz::endless {
@@ -70,8 +71,8 @@ inline constexpr float kMinRate = 0.25f;
  * this is that idiom on the sound engine's own bassAtt (core/sound/SoundFrame.h),
  * the relative level: the band over its own running mean, 1.0 typical for this
  * song right now. So the dive surges on the hits and eases between them, and over
- * a song it averages back to the slider. It reads no loudness: a loud song dives
- * no faster than a quiet one.
+ * a song it averages back to the slider. The push scales with the absolute drive
+ * (core/sound/DriveGain): a loud dense song dives harder than a quiet sparse one.
  *
  * presence (0..1, ~2 s fades) blends between the music's rate and the silent
  * drift, so a pause eases the dive down to kSilenceRate instead of freezing it.
@@ -84,7 +85,9 @@ inline float musicRate(const GeodeSoundFrame& s, float audioDrive) {
     const float bass = std::clamp(val(s.bassAtt, 1.0f), 0.0f, 4.0f);
     const float drive = std::clamp(val(audioDrive, 1.0f), 0.0f, 2.0f);
     const float silenceDrop = std::min(drive, 1.0f) * (1.0f - presence) * (1.0f - kSilenceRate);
-    const float push = kBassPush * drive * presence * (bass - 1.0f);
+    // The push is the music's magnitude, so it follows the absolute drive: an ambient pad with the same
+    // relative swell as a kick moves the dive far less.
+    const float push = kBassPush * drive * presence * (bass - 1.0f) * sound::driveGain(s);
     return std::max(1.0f - silenceDrop + push, kMinRate);
 }
 

@@ -5,6 +5,8 @@
 #include <cmath>
 #include <cstddef>
 
+#include "sound/DriveGain.hpp"
+
 namespace geode::viz {
 
 namespace {
@@ -319,6 +321,7 @@ float ReactionEngine::fold(float accumulator) {
 
 void ReactionEngine::tick(const GeodeSoundFrame& f, float dt) {
     dt = sanitizeDt(dt);
+    gain_ = sound::driveGain(f);
     signals_.step(f, dt);
     for (int i = 0; i < kRoutes; ++i) {
         const ReactRoute& r = routes[static_cast<size_t>(i)];
@@ -395,7 +398,7 @@ void ReactionEngine::tick(const GeodeSoundFrame& f, float dt) {
 }
 
 SceneParams ReactionEngine::apply(const SceneParams& p) const {
-    const float scale = std::clamp(p.reactAmount, 0.0f, 2.0f);
+    const float scale = std::clamp(p.reactAmount, 0.0f, 2.0f) * gain_;
     SceneParams o = p;
     if (scale <= 0.0f) return o;
     for (int i = 0; i < kRoutes; ++i) {

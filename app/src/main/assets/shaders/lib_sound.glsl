@@ -14,7 +14,7 @@
 
 precision highp sampler2D;
 
-uniform vec4 uSound[27];
+uniform vec4 uSound[28];
 uniform sampler2D uSoundTex;
 /** The style's Audio drive slider (SceneParams.audioDrive): sndLevel and the band reads scale by it. */
 uniform float uSoundDrive;
@@ -135,6 +135,12 @@ uniform vec2 uSoundCounts;
 #define SND_SECTION_BARS           uSound[26].y
 #define SND_BUILD_UP               uSound[26].z
 #define SND_DROP                   uSound[26].w
+#define SND_LOUDNESS_M             uSound[27].x
+#define SND_LOUDNESS_S             uSound[27].y
+#define SND_BUSY                   uSound[27].z
+#define SND_DRIVE                  uSound[27].w
+// The last four are absolute (core/sound/LufsMeter): loudness in LUFS -60..0 as 0..1, busy the texture, drive
+// the magnitude of the music. Scale how much a style moves by SND_DRIVE; the relative bands shape the pulse.
 // SND_SECTION_CHANGE and SND_DROP are triggers: 0, or a strength at 0.4..1 (core/sound Form::kEventFloor). Test > 0.0.
 
 #define SND_HELD_HARD_CUT      uSoundEvents.x

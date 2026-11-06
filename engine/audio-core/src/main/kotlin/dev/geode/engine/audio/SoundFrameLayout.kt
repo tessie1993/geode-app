@@ -1,12 +1,6 @@
 package dev.geode.engine.audio
 
-/**
- * Float offsets into a `GeodeSoundFrame` (`core/sound/SoundFrame.h`) as it crosses JNI: every field in
- * declaration order, then the EQ, spectrum, waveform and three chroma arrays. `SoundFrameLayoutTest` parses the header,
- * so a field the engine adds, drops or moves fails CI here instead of shifting every reader by one.
- *
- * What each value means (relative, shaped, clock, trigger) is documented on the struct, not repeated here.
- */
+/** Float offsets into a `GeodeSoundFrame` (`core/sound/SoundFrame.h`) as it crosses JNI; `SoundFrameLayoutTest` parses the header. */
 @Suppress("unused")
 object SoundFrameLayout {
     const val BASS = 0
@@ -118,7 +112,7 @@ object SoundFrameLayout {
     const val BUILD_UP = 106
     const val DROP = 107
 
-    const val SCALARS = 108
+    const val SCALARS = 112
     const val EQ_BANDS = 16
     const val SPECTRUM_POINTS = 64
     const val WAVEFORM_POINTS = 128
@@ -132,7 +126,7 @@ object SoundFrameLayout {
     const val FLOATS = CHROMA_SLOW + CHROMA_POINTS
 
     /** `GeodeSoundTuning` as floats: gain, threshold, offset, attack, release, drum, drumDecay (3 each), then 8 scalars. */
-    const val TUNING_FLOATS = 29
+    const val TUNING_FLOATS = 30
 
     /** Field names in order, for the header test and for debug overlays. */
     val SCALAR_NAMES: List<String> =
@@ -245,5 +239,9 @@ object SoundFrameLayout {
             "sectionBars",
             "buildUp",
             "drop",
+            "loudnessM",
+            "loudnessS",
+            "busy",
+            "drive",
         )
 }

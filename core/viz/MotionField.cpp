@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "sound/DriveGain.hpp"
 #include "viz/Circular.hpp"
 #include "viz/VisualSafety.hpp"
 
@@ -67,10 +68,15 @@ void MotionField::step(const GeodeSoundFrame& f, float dt, float speed) {
     const float bassRatio = std::clamp(std::isfinite(f.bassAtt) ? f.bassAtt : 1.0f, 0.0f, 2.0f);
     const float midRatio = std::clamp(std::isfinite(f.midAtt) ? f.midAtt : 1.0f, 0.0f, 2.0f);
     const float trebRatio = std::clamp(std::isfinite(f.trebleAtt) ? f.trebleAtt : 1.0f, 0.0f, 2.0f);
-    state_.energyRel = slew(state_.energyRel, energyRatio, dt, kEnergyAttackSeconds, kEnergyReleaseSeconds);
-    state_.bassRel = slew(state_.bassRel, bassRatio, dt, kBandAttackSeconds, kBandReleaseSeconds);
-    state_.midRel = slew(state_.midRel, midRatio, dt, kBandAttackSeconds, kBandReleaseSeconds);
-    state_.trebRel = slew(state_.trebRel, trebRatio, dt, kBandAttackSeconds, kBandReleaseSeconds);
+    // How much of its reach the music gets (absolute, core/sound/DriveGain): the ratios above are relative to
+    // the song itself, so they shape the pulse and every song averages 1.0. The drive says whether this song
+    // is a pad or a kick, and scales the magnitude: energy (speed, orbit, flow, size, density, trails) and
+    // the mid clock (drift) scale outright, the bass and treble ratios as their swing around 1.
+    const float gain = sound::driveGain(f);
+    state_.energyRel = slew(state_.energyRel, energyRatio * gain, dt, kEnergyAttackSeconds, kEnergyReleaseSeconds);
+    state_.bassRel = slew(state_.bassRel, 1.0f + gain * (bassRatio - 1.0f), dt, kBandAttackSeconds, kBandReleaseSeconds);
+    state_.midRel = slew(state_.midRel, midRatio * gain, dt, kBandAttackSeconds, kBandReleaseSeconds);
+    state_.trebRel = slew(state_.trebRel, 1.0f + gain * (trebRatio - 1.0f), dt, kBandAttackSeconds, kBandReleaseSeconds);
 
     // ---- timbre: brightness and tonality (the engine's flatness, inverted) ----
     state_.bright = oneOle(state_.bright, std::clamp(f.centroid, 0.0f, 1.0f), dt, kBrightSeconds);

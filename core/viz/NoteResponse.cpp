@@ -5,6 +5,7 @@
 #include <cmath>
 #include <initializer_list>
 
+#include "sound/DriveGain.hpp"
 #include "sound/Form.hpp"
 #include "viz/Circular.hpp"
 
@@ -199,7 +200,8 @@ void NoteResponse::stepKnobs(const GeodeSoundFrame& f, const sound::Emotion::Sta
     // k0 PULSE: the drums, weighted by how percussive the track is. A drum-led track pumps the knob on
     // every hit; on a ballad the same soft onsets barely move it.
     const float drumEnv = std::max({f.kickEnv, 0.8f * f.snareEnv, 0.5f * f.hatEnv});
-    drum_ = std::min(perc_ * in_.drums, 1.0f) * clamp01(0.75f * drumEnv + 0.25f * f.onsetEnv);
+    gain_ = sound::driveGain(f);
+    drum_ = std::min(perc_ * in_.drums, 1.0f) * clamp01(0.75f * drumEnv + 0.25f * f.onsetEnv) * gain_;
     const float pulse = clamp01(0.15f + 0.85f * drum_ + 0.2f * perc_ * clamp01(f.bassAtt - 1.0f));
     // k1 TEXTURE: timbre: brightness (centroid, treble), how many partials sound, how noisy they are.
     const float texture = clamp01(0.35f * clamp01((f.centroid - 0.25f) / 0.5f) + 0.25f * clamp01(f.densityFast) +
@@ -289,7 +291,12 @@ void NoteResponse::publish() {
         const float pull = std::clamp(mood_.tint * std::min(in_.color, 1.5f) * (1.0f - 0.5f * anchorWeight_) * amount_, 0.0f, 0.45f);
         out_.tint = {channel(5.0f), channel(3.0f), channel(1.0f), tintPrimed_ ? pull : 0.0f};
     }
-    for (int i = 0; i < NoteUniforms::kKnobs; ++i) out_.knobs[i] = 0.5f + (knobs_[i] - 0.5f) * amount_;
+    // The knobs that say how much (pulse, flow, build, space) spend the music's absolute reach; texture and tone
+    // are what the sound is, not how loud, and stay as they are.
+    for (int i = 0; i < NoteUniforms::kKnobs; ++i) {
+        const float reach = (i == 1 || i == 3) ? 1.0f : gain_;
+        out_.knobs[i] = 0.5f + (knobs_[i] - 0.5f) * amount_ * reach;
+    }
     // Before the first notes the ring is a spread around the anchor already, never one colour.
     for (int i = 0; i < NoteUniforms::kHues; ++i) {
         const float spread = wrap01(anchor_ + kHueSpread * (static_cast<float>(i) / NoteUniforms::kHues - 0.25f));

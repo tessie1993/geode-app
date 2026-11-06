@@ -5,9 +5,21 @@ import android.content.Context
 import android.provider.MediaStore
 import dev.geode.model.DeviceTrack
 
-/** The music MediaStore already indexes, read the same way for the library screen and the Android Auto tree. */
+/**
+ * The music MediaStore already indexes, read the same way for the library screen, voice search and
+ * the Android Auto tree.
+ *
+ * Tracks shorter than the user's minimum ([LibraryPrefsStore.minTrackSeconds], 30 s unless
+ * changed in Settings › Library folders) are left out here, once, so every caller agrees on what
+ * the library holds. The rule itself is [MinTrackLength.keeps].
+ */
 object DeviceTrackQuery {
-    fun query(context: Context): List<DeviceTrack> {
+    fun query(context: Context): List<DeviceTrack> = query(context, LibraryPrefsStore(GeodePrefsFiles(context).library).minTrackSeconds())
+
+    fun query(
+        context: Context,
+        minTrackSeconds: Int,
+    ): List<DeviceTrack> {
         val permission =
             if (android.os.Build.VERSION.SDK_INT >= 33) {
                 android.Manifest.permission.READ_MEDIA_AUDIO
@@ -47,16 +59,18 @@ object DeviceTrackQuery {
                     val da = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
                     val ad = c.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
                     while (c.moveToNext()) {
+                        val durationMs = c.getLong(du)
+                        if (!MinTrackLength.keeps(durationMs, minTrackSeconds)) continue
                         val uri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, c.getLong(id))
                         val path = c.getString(da).orEmpty()
                         out +=
                             DeviceTrack(
                                 uri = uri.toString(),
-                                title = c.getString(ti) ?: context.getString(dev.geode.R.string.library_unknown_title),
-                                artist = c.getString(ar) ?: context.getString(dev.geode.R.string.subtitle_unknown_artist),
-                                album = c.getString(al) ?: context.getString(dev.geode.R.string.library_unknown_album),
+                                title = tagOr(c.getString(ti), context.getString(dev.geode.R.string.library_unknown_title)),
+                                artist = tagOr(c.getString(ar), context.getString(dev.geode.R.string.subtitle_unknown_artist)),
+                                album = tagOr(c.getString(al), context.getString(dev.geode.R.string.library_unknown_album)),
                                 folder = path.substringBeforeLast('/', ""),
-                                durationMs = c.getLong(du),
+                                durationMs = durationMs,
                                 addedSec = c.getLong(ad),
                             )
                     }
@@ -64,4 +78,14 @@ object DeviceTrackQuery {
         }
         return out
     }
+
+    /**
+     * A tag as the library shows it: MediaStore writes [MediaStore.UNKNOWN_STRING] ("<unknown>")
+     * for an untagged file's artist and album, which the list and the mini player showed raw, so
+     * that, a missing and a blank tag all read as the localized [fallback].
+     */
+    fun tagOr(
+        value: String?,
+        fallback: String,
+    ): String = if (value.isNullOrBlank() || value == MediaStore.UNKNOWN_STRING) fallback else value
 }

@@ -58,6 +58,7 @@ import dev.geode.render.LfoWave
 import dev.geode.render.ModCurve
 import dev.geode.render.ModPolarity
 import dev.geode.render.ModSource
+import dev.geode.render.ModTable
 import dev.geode.render.ReactMode
 import dev.geode.render.ReactSource
 import dev.geode.render.ReactSourceGroup
@@ -182,7 +183,7 @@ private fun ReactionCard(
             )
             Switch(checked = route.enabled, onCheckedChange = { onChange(route.copy(enabled = it)) })
         }
-        if (route.target != LfoTarget.NONE && !route.target.scope.appliesTo(sceneId)) {
+        if (route.target != LfoTarget.NONE && !ModTable.offeredTo(route.target, sceneId, ModTable.REACTION)) {
             ControlHint("${route.target.label} does nothing on this style.")
         }
         if (expanded) {
@@ -234,8 +235,7 @@ private fun ReactionCard(
                         }
                     } else {
                         LfoTarget.entries
-                            .filter { it != LfoTarget.RETIRED_25 }
-                            .filter { it != LfoTarget.NONE && it.chain == null && it.scope.appliesTo(sceneId) }
+                            .filter { it != LfoTarget.NONE && ModTable.offeredTo(it, sceneId, ModTable.REACTION) }
                             .forEach { t ->
                                 TextButton(onClick = {
                                     onChange(route.copy(target = t))
@@ -265,12 +265,12 @@ internal fun ModulatorCard(
         }
         if (config.enabled) {
             TextButton(onClick = { showTargetPicker = true }) { Text("Moves: ${config.target.label}") }
-            if (config.target != LfoTarget.NONE && !config.target.scope.appliesTo(sceneId)) {
+            if (config.target != LfoTarget.NONE && !ModTable.offeredTo(config.target, sceneId, index)) {
                 ControlHint("${config.target.label} does nothing on this style - pick another.")
             }
             DropdownRow("Follows", ModSource.entries.map { it.label }, ModSource.entries.indexOf(config.source)) {
                 val source = ModSource.entries[it]
-                onChange(config.copy(source = source, polarity = LfoConfig.naturalPolarity(source)))
+                onChange(config.copy(source = source, polarity = ModTable.naturalPolarity(source)))
             }
             if (config.source == ModSource.LFO) {
                 DropdownRow("Wave shape", LfoWave.entries.map { it.label }, LfoWave.entries.indexOf(config.wave)) {
@@ -298,11 +298,8 @@ internal fun ModulatorCard(
             text = {
                 Column(modifier = Modifier.height(360.dp).verticalScroll(rememberScrollState())) {
                     LfoTarget.entries.forEach { t ->
-                        // A chain target may only point at a LATER wave, and a scene-parameter
-                        // target is only offered where it can actually move the picture.
-                        val chain = t.chain
-                        val offered = t != LfoTarget.RETIRED_25 && if (chain != null) index < chain.slot else t.scope.appliesTo(sceneId)
-                        if (offered) {
+                        // Native decides what this wave may move (a later wave, or what reaches the style).
+                        if (ModTable.offeredTo(t, sceneId, index)) {
                             TextButton(onClick = {
                                 onChange(config.copy(target = t))
                                 showTargetPicker = false
@@ -327,8 +324,8 @@ private fun RateSecondsSlider(
     seconds: Float,
     onChange: (Float) -> Unit,
 ) {
-    val lo = LfoConfig.MIN_RATE_SECONDS
-    val hi = LfoConfig.MAX_RATE_SECONDS
+    val lo = ModTable.minRateSeconds
+    val hi = ModTable.maxRateSeconds
     val t = (ln(seconds.coerceIn(lo, hi) / lo) / ln(hi / lo)).coerceIn(0f, 1f)
     val shown = ParamFormat.format(seconds, ParamUnit.SECONDS)
     val cycleLabel = stringResource(R.string.customize_a11y_one_cycle)
@@ -362,9 +359,7 @@ internal fun AdsrCard(
         // The ones already chosen stay listed even where this style ignores them, so they can be unticked.
         val offered =
             LfoTarget.entries.filter {
-                it != LfoTarget.RETIRED_25 &&
-                    it != LfoTarget.NONE &&
-                    (it in config.targets || it.chain != null || it.scope.appliesTo(sceneId))
+                it != LfoTarget.NONE && ModTable.offered(it) && (it in config.targets || ModTable.reaches(it, sceneId))
             }
         Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.envelope_moves), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))

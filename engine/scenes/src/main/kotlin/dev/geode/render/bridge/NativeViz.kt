@@ -46,7 +46,6 @@ class NativeViz(
     @Synchronized
     fun create(): Boolean {
         if (handle == 0L) {
-            verifyLayouts()
             handle = GeodeNative.vizCreate(assets, cacheDir)
             sent.clear()
             if (handle != 0L) {
@@ -342,15 +341,6 @@ class NativeViz(
 
     private companion object {
         const val UI_BLUR_FLOATS = 6
-
-        @Volatile
-        private var verified = false
-
-        fun verifyLayouts() {
-            if (verified) return
-            SceneParamsCodec.verify(GeodeNative.vizParamNames())
-            verified = true
-        }
     }
 }
 

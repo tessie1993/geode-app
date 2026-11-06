@@ -59,6 +59,7 @@ add_library(geode_core STATIC
     viz/ParamsFields.cpp
     viz/ConfigFields.cpp
     viz/Lfo.cpp
+    viz/ModTargets.cpp
     viz/Macros.cpp
     viz/Director.cpp
     viz/LayerState.cpp
@@ -81,6 +82,7 @@ add_library(geode_core STATIC
     viz/CompositePass.cpp
     viz/TrailPass.cpp
     viz/Catalogue.cpp
+    viz/CataloguePresets.cpp
     viz/ParamRandomizer.cpp
     viz/CustomizeMap.cpp
     viz/SceneRegistry.cpp

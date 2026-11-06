@@ -12,7 +12,7 @@ constexpr double kNever = -std::numeric_limits<double>::infinity();
 constexpr float kPulseLifetimes = 5.0f;
 }  // namespace
 
-EventRoutes::EventRoutes(ParamStore& store) : store_(store), lastLuminancePulse_(store.size(), kNever) {}
+EventRoutes::EventRoutes(ParamStore& store) : store_(store), lastPulse_(store.size(), kNever) {}
 
 EventRoutes::~EventRoutes() { detach(); }
 
@@ -89,12 +89,31 @@ void EventRoutes::act(const EventRoute& r, const Event& e) {
 void EventRoutes::pulse(ParamId target, float amount, float seconds, double timeS) {
     if (!std::isfinite(amount) || amount == 0.0f) return;
     float decay = std::isfinite(seconds) && seconds > 0.0f ? seconds : 0.1f;
-    if (store_.schema().def(target).luminance) {
-        decay = std::max(decay, kLuminanceMinDecay);
-        double& last = lastLuminancePulse_[target];
-        if (timeS - last < 1.0 / static_cast<double>(kLuminanceMaxPerSecond)) {
+    const bool luminance = store_.schema().def(target).luminance;
+    // An event with no real time cannot be placed against the flash clock: on a luminance param it is
+    // dropped (the safe side), elsewhere it pulses and leaves the clock alone.
+    if (!std::isfinite(timeS)) {
+        if (luminance) {
             ++limited_;
             return;
+        }
+    } else {
+        double& last = lastPulse_[target];
+        // Engine time is not monotonic: a new render, a seek on the programme clock or an export
+        // restart starts it again. Time before this param's last pulse is a new clock, so the param's
+        // pulses and flash history from the old one are dropped; the limit then holds within the new
+        // clock from its first pulse.
+        if (timeS < last) {
+            pulses_.erase(std::remove_if(pulses_.begin(), pulses_.end(), [target](const Pulse& p) { return p.target == target; }),
+                          pulses_.end());
+            last = kNever;
+        }
+        if (luminance) {
+            decay = std::max(decay, kLuminanceMinDecay);
+            if (timeS - last < 1.0 / static_cast<double>(kLuminanceMaxPerSecond)) {
+                ++limited_;
+                return;
+            }
         }
         last = timeS;
     }

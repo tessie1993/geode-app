@@ -134,7 +134,8 @@ enum class GestureAction {
 }
 
 data class BehaviourPrefs(
-    val startScreen: StartScreen = StartScreen.LAST_USED,
+    /** The app opens on the Library unless the user picks another screen (owner). */
+    val startScreen: StartScreen = StartScreen.LIBRARY,
     /** Where [StartScreen.LAST_USED] reopens: the last screen shown, never [StartScreen.LAST_USED] itself. */
     val lastScreen: StartScreen = StartScreen.PLAYER,
     val visualsOrientation: VisualsOrientation = VisualsOrientation.AUTO_ROTATE,

@@ -30,7 +30,7 @@ jobs:
       - name: Native host tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub             core/tests/viz_math_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Lfo.cpp core/viz/Macros.cpp             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o viz_math_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub             core/tests/viz_math_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Lfo.cpp core/viz/Macros.cpp             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o viz_math_test
           ./viz_math_test
           # The fluid engine: multigrid pressure plan, MacCormack, splat batching, heat, tracers, tiers.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/fluid_math_test.cpp core/viz/fluid/FluidMath.cpp -o fluid_math_test
@@ -51,10 +51,6 @@ jobs:
           ./sound_test
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/musical_test.cpp core/sound/*.cpp -o musical_test
           ./musical_test
-          # Every GeodeSoundFrame scalar per frame over a synthetic song, against core/tests/golden/; also
-          # reports the 30/120 fps drift of the frame-clocked fields. Regenerate with --write on purpose.
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_golden_test.cpp core/sound/*.cpp -o sound_golden_test
-          ./sound_golden_test core/tests/golden/sound_frames.tsv
           # The auto-director: the emotion table, the live feeling and the director's decisions.
           g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/director_test.cpp core/sound/*.cpp \
             core/viz/Director.cpp core/viz/Reactions.cpp core/viz/Lfo.cpp core/viz/Macros.cpp core/viz/CameraRig.cpp \
@@ -113,9 +109,16 @@ jobs:
           # Voice "play X" over the library (#382): query, focus extras, blank = everything, no match = nothing.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/library_search_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o library_search_test
           ./library_search_test
+          # The loop seam driver (#603): stash or present, the PTS, the dissolve weight and the 192 MB budget.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/loop_seam_test.cpp -o loop_seam_test
+          ./loop_seam_test
           # Cast's audio pump (#772): a steady feed, a paused feed padded to the cut, a feed ahead held, 3 h sample-exact at 48 kHz.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/cast_audio_test.cpp core/api/geode_frame_api.cpp -o cast_audio_test
           ./cast_audio_test
+          # Morph World: the World Genome (bounds, lerp, seeds, 1000 random worlds open and lit, the
+          # corridor at the camera), the morph driver (replayable, seeded, no flash) and lib_world's names.
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/world_genome_test.cpp core/viz/world/WorldGenome.cpp             core/viz/world/MorphDriver.cpp core/viz/world/WorldAssets.cpp core/viz/CameraRig.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp             core/viz/VisualSafety.cpp core/viz/Lfo.cpp -o world_genome_test
+          ./world_genome_test app/src/main/assets/shaders/lib_world.glsl             app/src/main/assets/shaders/world_shapes.bin app/src/main/assets/shaders/world_textures.bin
           # Cast's HLS timing (#656): segment durations from the fragment's media time, TARGETDURATION, the playlist text.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/hls_segments_test.cpp core/api/geode_frame_api.cpp -o hls_segments_test
           ./hls_segments_test

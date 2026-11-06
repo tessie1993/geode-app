@@ -348,12 +348,7 @@ object GeodeNative {
         pitch: Float,
     )
 
-    external fun vizSetThermal(
-        handle: Long,
-        platformStatus: Int,
-        headroom: Float,
-    )
-
+    /** This surface's own fps cap, 0 when free-running; the thermal cap is applied under it natively. */
     external fun vizSetPacedFps(
         handle: Long,
         fps: Float,
@@ -373,8 +368,11 @@ object GeodeNative {
         policy: Int,
     )
 
-    /** What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (`liquid::Mode`). */
-    external fun vizLiquidMode(handle: Long): Int
+    /**
+     * What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (`liquid::Mode`), or -1
+     * when it has not changed since the last take. Take it every frame; a new surface reports again.
+     */
+    external fun vizTakeLiquidMode(handle: Long): Int
 
     /**
      * Pins this renderer's auto-director (an export's): from then on it ignores [directorSet], so the live
@@ -892,6 +890,21 @@ object GeodeNative {
         nowMs: Long,
     ): Long
 
+    /**
+     * How long to keep pacing after a restate from [previousMode] to [mode] (the run modes' ordinals)
+     * before stopping: the still frame's settle, or 0 when one frame, or plain on and off, is enough.
+     */
+    external fun surfaceSettleMs(
+        previousMode: Int,
+        mode: Int,
+    ): Long
+
+    /** A surface's stored fps choice as its pacer caps to: snapped to a listed rate, <= 0 the default. */
+    external fun surfaceFpsChoice(requestedFps: Int): Int
+
+    /** The rates a surface's fps setting offers, ascending (for the settings rows). */
+    external fun surfaceFpsChoices(): IntArray
+
     const val SURFACE_HAS_SURFACE = 1 shl 0
     const val SURFACE_VISIBLE = 1 shl 1
     const val SURFACE_PREVIEW = 1 shl 2
@@ -900,13 +913,26 @@ object GeodeNative {
     const val SURFACE_PAUSE_IN_BATTERY_SAVER = 1 shl 5
     const val SURFACE_SILENT = 1 shl 6
     const val SURFACE_REST_WHEN_SILENT = 1 shl 7
+
+    /** The system's Remove animations: a still frame (ADR 0008). */
+    const val SURFACE_REDUCED_MOTION = 1 shl 8
     const val SURFACE_FOREVER = Long.MAX_VALUE
+
+    /** The wallpaper's and the dream's fps before the user picks one (GEODE_SURFACE_DEFAULT_FPS). */
+    const val SURFACE_DEFAULT_FPS = 30
+
     // The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt.
 
-    /** Six longs the caller owns, zeroed at first, stepped in place: the pacer's whole state. */
-    const val PACER_STATE_LONGS = 6
+    /** Seven longs the caller owns, zeroed at first, stepped in place: the pacer's whole state. */
+    const val PACER_STATE_LONGS = 7
 
-    /** One vsync: the dt in seconds to draw with, or 0 to skip it. [capFps] <= 0 draws every vsync. */
+    /** The state slot holding the cap the last vsync paced to, in millihertz (0 = none). */
+    const val PACER_CAP_SLOT = 6
+
+    /**
+     * One vsync: the dt in seconds to draw with, or 0 to skip it. [capFps] is the surface's own cap
+     * (<= 0 draws every vsync); native paces to min([capFps], the thermal cap).
+     */
     external fun pacerOnVsync(
         state: LongArray,
         frameTimeNanos: Long,
@@ -915,4 +941,18 @@ object GeodeNative {
 
     /** A start after a stop: forget the gap, keep the panel's period. */
     external fun pacerResume(state: LongArray)
+
+    /** The cap a surface asking for [capFps] runs at now, under the thermal cap; 0 = none. For `Surface.setFrameRate`. */
+    external fun pacerEffectiveCap(capFps: Float): Float
+
+    // The process's one thermal state (core/viz/frame/Thermal).
+
+    /** Polled each frame by every live renderer: true for at most one caller a second in the process. */
+    external fun thermalSampleDue(): Boolean
+
+    /** One PowerManager reading: status (< 0 = no thermal API) and headroom (NaN = none this time). */
+    external fun thermalPush(
+        platformStatus: Int,
+        headroom: Float,
+    )
 }

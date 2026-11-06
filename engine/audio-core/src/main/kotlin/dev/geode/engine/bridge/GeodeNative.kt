@@ -753,6 +753,9 @@ object GeodeNative {
 
     external fun exportFallbackFps(requestedFps: Int): Int
 
+    /** The requested frame rate clamped to what the export offers, 24..60. */
+    external fun exportClampFps(requestedFps: Int): Int
+
     /** Chapter spans as (start ms, duration ms, source) triples; empty under two clips. */
     external fun chaptersFromClips(
         startsMs: LongArray,

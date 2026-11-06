@@ -307,6 +307,17 @@ GEODE_API const char* geode_customize_shown(const char* style_id);
 GEODE_API int         geode_customize_randomize(const char* style_id, const char* category, const char* locked, uint64_t seed,
                                                 const float* in, float* out);
 GEODE_API void        geode_customize_reset(const char* category, const float* in, float* out);
+/* Background image bake (core/viz/Underlay), before geode_viz_set_underlay_rgba: pure, no viz handle, any
+ * thread. The shell decodes the picture, cuts it to geode_underlay_crop_rect (out = x, y, width, height of the
+ * centred crop of src to the target's aspect) and scales it to the render size, then geode_underlay_finish
+ * blurs and dims those ARGB_8888 pixels (0xAARRGGBB, row-major, width*height) in place. The clamps are the
+ * controls' ranges: amount and dim 0..1 (NaN = 0), blur 0..geode_underlay_blur_max(). */
+GEODE_API void        geode_underlay_crop_rect(int src_w, int src_h, int target_w, int target_h, int* out_xywh);
+GEODE_API void        geode_underlay_finish(uint32_t* pixels, int width, int height, int blur_radius, float dim);
+GEODE_API float       geode_underlay_clamp_amount(float amount);
+GEODE_API float       geode_underlay_clamp_dim(float dim);
+GEODE_API int         geode_underlay_clamp_blur(int radius);
+GEODE_API int         geode_underlay_blur_max(void);
 
 /* Export resampler (audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC encoder's rate; band-limited
  * (Kaiser-windowed sinc, polyphase) both ways, cutoff below the lower Nyquist rate (#375). Streaming: state

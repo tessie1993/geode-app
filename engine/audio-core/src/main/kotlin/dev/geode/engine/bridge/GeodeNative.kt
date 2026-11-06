@@ -592,6 +592,34 @@ object GeodeNative {
         output: FloatArray,
     )
 
+    // Background image bake (core/viz/Underlay): pure, any thread, before vizSetUnderlay.
+
+    /** The centred crop of a [srcW]x[srcH] picture to [targetW]:[targetH]'s aspect, as `[x, y, width, height]`. */
+    external fun underlayCropRect(
+        srcW: Int,
+        srcH: Int,
+        targetW: Int,
+        targetH: Int,
+    ): IntArray
+
+    /** Blurs, then dims, [pixels] (ARGB, [width]x[height]) in place; 0 skips either step. */
+    external fun underlayFinish(
+        pixels: IntArray,
+        width: Int,
+        height: Int,
+        blurRadius: Int,
+        dim: Float,
+    )
+
+    /** The background controls' ranges: amount and dim 0..1 (NaN = 0), blur 0..[underlayBlurMax]. */
+    external fun underlayClampAmount(amount: Float): Float
+
+    external fun underlayClampDim(dim: Float): Float
+
+    external fun underlayClampBlur(radius: Int): Int
+
+    external fun underlayBlurMax(): Int
+
     // Export resampler (core/audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC rate.
 
     /** 0 for a bad rate or channel count. */

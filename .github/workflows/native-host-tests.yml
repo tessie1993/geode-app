@@ -80,6 +80,9 @@ jobs:
           # The encoder fallback ladder (#607): the rungs, the 30 fps floor, the 2/3 bit rate, an unknown ceiling.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/encoder_ladder_test.cpp core/api/geode_output_api.cpp -o encoder_ladder_test
           ./encoder_ladder_test
+          # The GL Transitions library parse the renderer and the shell share, and the shell's table (#438).
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/transition_library_test.cpp core/util/Json.cpp -o transition_library_test
+          ./transition_library_test
           # Settings › Performance's tiers and the first-run pick for this phone (#437).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/quality_test.cpp -o quality_test
           ./quality_test

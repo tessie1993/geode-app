@@ -37,6 +37,8 @@ public:
     // `channels` must pass supports() and `sampleRate` be positive.
     LoudnessAnalyser(int sampleRate, int channels);
 
+    int channels() const { return channels_; }
+
     // Consumes `count` interleaved samples (not frames); a trailing partial frame is ignored.
     void feed(const float* interleaved, size_t count);
 

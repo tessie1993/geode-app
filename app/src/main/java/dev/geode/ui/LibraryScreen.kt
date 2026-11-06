@@ -142,8 +142,16 @@ private fun Modifier.libraryListWidth(columns: Int): Modifier =
         .widthIn(max = LIBRARY_COLUMN_MAX * columns)
         .fillMaxWidth()
 
+/**
+ * [onOpenFolders] opens Settings › Folders and [onOpenVisuals] opens Visuals: the empty library's
+ * ways out ([LibraryEmptyHost]).
+ */
 @Composable
-fun LibraryScreen(onOpenSearch: () -> Unit) {
+fun LibraryScreen(
+    onOpenSearch: () -> Unit,
+    onOpenFolders: () -> Unit = {},
+    onOpenVisuals: () -> Unit = {},
+) {
     val libraryViewModel: LibraryViewModel = geodeViewModel()
     val playerViewModel: PlayerViewModel = geodeViewModel()
     val permission =
@@ -156,6 +164,9 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
     val granted = access.granted
     var reloadKey by remember { mutableStateOf(0) }
     val state by libraryViewModel.uiState.collectAsStateWithLifecycle()
+    // The field shows every keystroke; the list follows the debounced query in [state].
+    val query by libraryViewModel.query.collectAsStateWithLifecycle()
+    val duplicates by libraryViewModel.duplicates.collectAsStateWithLifecycle()
     LaunchedEffect(granted, reloadKey) { if (granted) libraryViewModel.refreshDeviceTracks() }
     var tab by rememberSaveable { mutableStateOf(0) }
     val tabs =
@@ -167,7 +178,8 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
             stringResource(R.string.library_tab_playlists),
             stringResource(R.string.library_tab_duplicates),
         )
-    // Already searched and sorted by the ViewModel — the screen draws what it is handed.
+    // Already searched, sorted and grouped by the ViewModel, off the main thread — the screen
+    // draws what it is handed.
     val shown = state.tracks
     val landscapeOrExpanded = libraryLandscapeOrExpanded()
 
@@ -210,6 +222,25 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
             }
             return
         }
+        if (state.showEmptyLibrary && tab != PLAYLISTS_TAB) {
+            // Granted, asked, and nothing: the ways out instead of an empty list (#340). Playlists
+            // stay reachable, since a playlist can hold imported files MediaStore does not list.
+            LibraryEmptyHost(
+                libraryViewModel = libraryViewModel,
+                playerViewModel = playerViewModel,
+                onRescan = {
+                    libraryViewModel.rescanMediaRoots()
+                    reloadKey++
+                },
+                onChooseFolder = onOpenFolders,
+                onOpenVisuals = onOpenVisuals,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = { tab = PLAYLISTS_TAB }, modifier = Modifier.padding(horizontal = 16.dp)) {
+                Text(stringResource(R.string.library_tab_playlists))
+            }
+            return
+        }
         PrimaryScrollableTabRow(selectedTabIndex = tab, containerColor = Color.Transparent, divider = {}) {
             tabs.forEachIndexed { i, t -> Tab(selected = i == tab, onClick = { tab = i }, text = { Text(t) }) }
         }
@@ -229,7 +260,7 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         OutlinedTextField(
-                            value = state.query,
+                            value = query,
                             onValueChange = libraryViewModel::setQuery,
                             singleLine = true,
                             label = { Text(stringResource(R.string.library_search_hint)) },
@@ -239,15 +270,15 @@ fun LibraryScreen(onOpenSearch: () -> Unit) {
                     }
                     if (!wide) SortPicker(state.sort, libraryViewModel::setSort, Modifier.padding(horizontal = 8.dp))
                 }
-                // Grouping walks the whole library, so it runs when the shown tracks change, not on
-                // every recomposition of the screen.
+                // Grouping walks the whole library, so the ViewModel does it off the main thread with
+                // the search (LibraryBrowse.browse); the tabs only draw the groups.
                 when (tab) {
                     0 -> TrackList(shown, playerViewModel, libraryViewModel, state.isSearching, columns)
-                    1 -> GroupList(remember(shown) { shown.groupBy { it.album } }, playerViewModel, libraryViewModel, columns)
-                    2 -> GroupList(remember(shown) { shown.groupBy { it.artist } }, playerViewModel, libraryViewModel, columns)
-                    3 -> FoldersTab(remember(shown) { shown.groupBy { it.folder } }, playerViewModel, wide)
+                    1 -> GroupList(state.browse.albums, playerViewModel, libraryViewModel, columns)
+                    2 -> GroupList(state.browse.artists, playerViewModel, libraryViewModel, columns)
+                    3 -> FoldersTab(state.browse.folders, playerViewModel, wide)
                     PLAYLISTS_TAB -> PlaylistsTab(libraryViewModel, wide)
-                    DUPLICATES_TAB -> DuplicatesTab(state.tracks, playerViewModel, onDeleted = { reloadKey++ })
+                    DUPLICATES_TAB -> DuplicatesTab(duplicates, playerViewModel, onDeleted = { reloadKey++ })
                 }
             }
         }
@@ -798,11 +829,15 @@ private fun PlaylistTracks(
     // One pass over the library instead of a linear search per row.
     val byUri = remember(tracks) { tracks.associateBy { it.uri } }
     val liftTint = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+    // The neighbours slide aside on the motion scheme's fast spatial spring, so with the
+    // system's "Remove animations" on they snap into place instead of springing.
+    val motion = LocalGeodeMotion.current
     playlist.trackUris.forEachIndexed { i, uri ->
         val title = byUri[uri]?.title ?: stringResource(R.string.playlist_untitled_track, i + 1)
         val dragging = i == dragFrom
         val shift by animateFloatAsState(
             if (dragFrom < 0) 0f else (playlistRowShift(i, dragFrom, dropIndex) * rowHeight).toFloat(),
+            motion.fastSpatialSpec(),
             label = "playlistRowShift",
         )
         Row(
@@ -959,6 +994,7 @@ private fun LibraryFoldersCard(libraryViewModel: LibraryViewModel) {
                 stringResource(R.string.folders_library),
                 style = MaterialTheme.typography.titleSmall,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 summary,

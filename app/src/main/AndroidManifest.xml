@@ -6,9 +6,6 @@
         android:required="true" />
 
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
     <!-- "Live input": the visuals react to the room instead of to a track.
          Requested at the moment the user turns that setting on, never at
          launch; samples go straight into the analysis ring buffer and are
@@ -69,6 +66,11 @@
          AudioManager.setPreferredMixerAttributes, which needs this normal
          permission; it is granted at install and changes nothing else. -->
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- The player keeps the CPU awake while music plays with the screen off:
+         PlaybackEngine's ExoPlayer.setWakeMode(C.WAKE_MODE_LOCAL) takes a partial
+         wake lock, which needs this normal (install-time) permission. Declared here
+         rather than left to a library's manifest, so the player never depends on it. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- The live wallpaper is optional; the app is fully usable without a
          launcher that supports one. -->
     <uses-feature
@@ -114,9 +116,15 @@
         <meta-data
             android:name="com.google.android.gms.car.application"
             android:resource="@xml/automotive_app_desc" />
+        <!--
+          singleTask: one MainActivity, so a geode:// link or a voice search from another app's
+          task reaches the running one through onNewIntent instead of stacking a second activity
+          with its own GL context and player session.
+        -->
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.Geode.Splash"
             android:supportsPictureInPicture="true"
             android:windowSoftInputMode="adjustResize"

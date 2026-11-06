@@ -1,7 +1,7 @@
 package dev.geode.ui
 
 import android.os.Build
-import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,17 +27,22 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -48,6 +53,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.NavigationEventTransitionState
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.NavigationEventState
+import androidx.navigationevent.compose.rememberNavigationEventState
 import dev.geode.R
 import dev.geode.data.EXPORT_FPS_OPTIONS
 import dev.geode.data.ExportDefaults
@@ -73,7 +83,9 @@ import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
 import dev.geode.ui.pro.PaywallViewModel
+import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.floatingGlass
+import kotlinx.coroutines.launch
 
 /**
  * The Studio destination: two tabs, in the order a first visit meets them.
@@ -111,10 +123,69 @@ fun StudioHub(
     val history = remember(route) { NavHistory(route) }
     LaunchedEffect(section) { history.open(section) }
 
-    BackHandler(enabled = history.canPop) {
-        history.pop()
-        select(history.top)
+    // The back gesture's own state: while the user swipes it is InProgress, carrying the latest
+    // event's progress (0 → 1 with the swipe); at rest, after a commit or a cancel, it is Idle.
+    val backState = rememberNavigationEventState(NavigationEventInfo.None)
+    // The fade after the finger lifts (the commit to 1, the settle back to 0), started from where
+    // the gesture let go; 0 at rest. The gesture state is already Idle when the handler's
+    // callbacks run, so this follows the swipe and keeps its last value as the starting point.
+    val settle = remember { Animatable(0f) }
+    val settleSpec = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
+    val settleScope = rememberCoroutineScope()
+    // True while a commit or settle runs, so a second gesture cannot start on a half-faded tab.
+    var settling by remember { mutableStateOf(false) }
+    LaunchedEffect(backState) {
+        snapshotFlow { backState.gestureProgress() }.collect { progress ->
+            if (progress != null) settle.snapTo(progress)
+        }
     }
+    // How far the tab under this one shows: the live swipe while it lasts, then the settle. Read
+    // only inside the layers' graphicsLayer, so the swipe redraws without recomposing.
+    val backProgress = { backState.gestureProgress() ?: settle.value }
+    // The tab back would land on, composed under this one only while a gesture previews it.
+    val previous = history.keys.getOrNull(history.keys.lastIndex - 1)
+    // The composition hears just "previewing or not".
+    val previewing by remember { derivedStateOf { backProgress() > 0f } }
+
+    /*
+     * Predictive back over the tab history: the gesture cross-fades from this tab to the one before
+     * it, so the user sees where back lands before letting go (#557). This is the NavigationEvent
+     * shape the navigation-event skill asks for on SDK 36+ (`.claude/skills/navigation-event`,
+     * "Are legacy BackHandler usages migrated to NavigationBackHandler with predictive progress
+     * support?") and its guide, developer.android.com/guide/navigation/navigation-event/handle-back:
+     * a `NavigationEventState` from `rememberNavigationEventState` whose `transitionState` is
+     * `InProgress` with the latest event's `progress` during the swipe, and one
+     * `NavigationBackHandler` that hears the commit (`onBackCompleted`) or the cancel
+     * (`onBackCancelled`). The library ships with activity-compose and Navigation 3.
+     *
+     * On commit the fade is finished with the theme's effects spec before the route pops, so the
+     * swap lands on a frame that already shows the old tab fully; on cancel it settles back to the
+     * current tab. Only a fade is used, never a slide or a zoom: fades are what [LocalGeodeMotion]'s
+     * reduced scheme keeps (WCAG 2.3.3), so the preview reads the same with "Remove animations" on
+     * and nothing travels. A plain back press (three-button nav, no gesture) commits at once, so it
+     * gets the same short commit fade from 0 and lands where the old `BackHandler` did.
+     */
+    NavigationBackHandler(
+        state = backState,
+        isBackEnabled = history.canPop && !settling,
+        onBackCancelled = {
+            settling = true
+            settleScope.launch {
+                settle.animateTo(0f, settleSpec)
+                settling = false
+            }
+        },
+        onBackCompleted = {
+            settling = true
+            settleScope.launch {
+                settle.animateTo(1f, settleSpec)
+                history.pop()
+                select(history.top)
+                settle.snapTo(0f)
+                settling = false
+            }
+        },
+    )
     Column(Modifier.fillMaxSize()) {
         GlowTitle(
             stringResource(R.string.nav_studio),
@@ -130,19 +201,41 @@ fun StudioHub(
             selected = section.ordinal,
             onSelect = { select(StudioSection.entries[it]) },
         )
-        when (section) {
-            StudioSection.RENDER -> StudioRenderTab(viewModel, visualizerView, gate)
-            StudioSection.MY_VIDEOS ->
-                MyVideosTab(
-                    viewModel = studioViewModel,
-                    onRenderTake = { name ->
-                        studioViewModel.setExportTake(name)
-                        select(StudioSection.RENDER)
-                    },
-                )
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            // The previous tab (only mid-gesture) under the current one. Each tab is keyed by
+            // itself, so on commit the previewed tab keeps the composition, scroll and state it
+            // was drawn with instead of being rebuilt in the current tab's slot.
+            val shown = if (previewing && previous != null) listOf(previous, section) else listOf(section)
+            shown.forEach { tab ->
+                key(tab) {
+                    val isPreview = tab != section
+                    Box(
+                        Modifier.fillMaxSize().graphicsLayer {
+                            val progress = backProgress()
+                            alpha = if (isPreview) progress else 1f - progress
+                        },
+                    ) {
+                        when (tab) {
+                            StudioSection.RENDER -> StudioRenderTab(viewModel, visualizerView, gate)
+                            StudioSection.MY_VIDEOS ->
+                                MyVideosTab(
+                                    viewModel = studioViewModel,
+                                    onRenderTake = { name ->
+                                        studioViewModel.setExportTake(name)
+                                        select(StudioSection.RENDER)
+                                    },
+                                )
+                        }
+                    }
+                }
+            }
         }
     }
 }
+
+/** The live back swipe's progress while one is in progress, else null. */
+private fun NavigationEventState<*>.gestureProgress(): Float? =
+    (transitionState as? NavigationEventTransitionState.InProgress)?.latestEvent?.progress
 
 /** Studio's route saved by tab name, so a rotation or process death keeps back's history. */
 private val studioRouteSaver =

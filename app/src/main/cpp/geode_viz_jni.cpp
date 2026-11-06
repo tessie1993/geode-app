@@ -548,6 +548,21 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsRandomize(JNIEnv* env, jobject, j
     return changed ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_perfTier(JNIEnv* env, jobject, jint mode, jfloatArray out) {
+    if (!out || env->GetArrayLength(out) < GEODE_PERF_TIER_FLOATS) return JNI_FALSE;
+    float values[GEODE_PERF_TIER_FLOATS];
+    if (geode_perf_tier(mode, values, GEODE_PERF_TIER_FLOATS) != GEODE_PERF_TIER_FLOATS) return JNI_FALSE;
+    env->SetFloatArrayRegion(out, 0, GEODE_PERF_TIER_FLOATS, values);
+    return JNI_TRUE;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_perfModeForDevice(JNIEnv*, jobject, jlong totalRamBytes, jboolean lowRam,
+                                                          jint mediaPerformanceClass) {
+    return geode_perf_mode_for_device(totalRamBytes, lowRam ? 1 : 0, mediaPerformanceClass);
+}
+
 JNIEXPORT jdouble JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_pacerOnVsync(JNIEnv* env, jobject, jlongArray state, jlong frameTimeNanos,
                                                      jfloat capFps) {

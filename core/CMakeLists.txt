@@ -63,6 +63,7 @@ add_library(geode_core STATIC
     scene/camera/Comfort.cpp
     scene/camera/Drivers.cpp
     scene/camera/SceneCamera.cpp
+    scene/SceneDirector.cpp
     signal/params/ParamSchema.cpp
     signal/params/ParamState.cpp
     signal/params/ParamStore.cpp

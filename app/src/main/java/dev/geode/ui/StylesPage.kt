@@ -3,39 +3,30 @@ package dev.geode.ui
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.util.LruCache
-import androidx.activity.compose.BackHandler
-import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -43,28 +34,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -75,17 +59,14 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.StyleShelfStore
 import dev.geode.model.StyleEntry
-import dev.geode.model.StyleFilter
-import dev.geode.model.StyleFiltering
-import dev.geode.model.StyleLook
 import dev.geode.model.StyleShelf
 import dev.geode.render.scene.Catalogue
-import dev.geode.render.scene.CatalogueStyle
 import dev.geode.render.scene.SceneKind
 import dev.geode.render.scene.StyleFamilies
 import dev.geode.render.scene.VisualStyleCatalog
@@ -105,31 +86,27 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 
 /**
- * Visuals › Styles: every style as a row with a still of it, in groups by what it looks like.
+ * Visuals › Styles: every style in one vertical menu that opens level by level, family › style ›
+ * variation (owner, 2026-11-06: no stills, no group dropdown, no search).
  *
- * A dropdown at the top picks the group ([StyleLook]: Flowing & liquid, Fractals, Space…), or the
- * user's own Favourites and Recent, or everything; the list under it is one row per style: its
- * still, its name, a ♛ when it is Pro, and a heart. Search looks through every style (not just the
- * group) by name, group, kind or family, and Back closes it before it leaves the page. The owner
- * chose list rows over the old card grid, which showed three styles a screen.
+ * - **Family**, the engine that draws it: Silk, Life, Mycelium, Acid, Shaders, MilkDrop, Fluid,
+ *   Cymatics, in catalogue order ([Catalogue]); a family of one style is a plain row.
+ * - **Style**: a shader family (Arbor, Nebula, Truchet…) is one style whose twelve looks are its
+ *   variations; every other style is its own row and loads on a tap.
+ * - **Variation**: the shader family's styles, the opener first.
+ *
+ * On top, always open: the user's own styles (on screen, favourites, recent), with Random as an
+ * icon on that heading (owner: an icon, not a whole row), which loads a style the user can keep
+ * while there is one, never the one on screen. Headers drop open on a tap, several at once, kept
+ * by key for the process; a fresh start opens the path to the style on screen.
  *
  * A tap loads the style: the visual changes at once, and that is the choice (no "Use style" step).
  * A Pro style a free user taps still plays on the visual while the paywall offers it, as a half
  * sheet under the visual (`StylePaywallSheet`) so the preview stays in view. Closing the paywall
- * without buying, or leaving the page, puts the chosen style back ([PlayerViewModel.leaveScenePreview]);
- * before, only leaving the page did, so a closed paywall left the locked style on stage. The heart
- * is the one-tap favourite; a long press opens the row's menu (favourite, add to the visuals
- * playlist, remove from Recent), the Android rule for a list row, and TalkBack gets the same items
- * as custom actions. The swipe on the visual still steps through styles in this order.
- *
- * All styles opens like Settings and Customize: the user's own styles (on screen, favourites,
- * recent) always open on top, then one section per look group that drops open on a tap, several at
- * once, kept by name for the process. A group picked in the menu, or a search, is one flat list.
- * Random style, the first row of every list, loads a style from what the page shows (the group or
- * the search), never the one on screen, and an unlocked one while there is one.
- *
- * Plain M3 parts on purpose (a list, a menu, a text field): the page is a tool over a live visual,
- * so it stays cheap to draw and quiet to look at, and the stills are the colour.
+ * without buying, or leaving the page, puts the chosen style back ([PlayerViewModel.leaveScenePreview]).
+ * The heart is the one-tap favourite; a long press opens the row's menu (favourite, add to the
+ * visuals playlist, remove from Recent), and TalkBack gets the same items as custom actions. The
+ * swipe on the visual still steps through styles in catalogue order.
  */
 @Composable
 internal fun StylesTab(viewModel: PlayerViewModel) {
@@ -141,13 +118,13 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
     val paywall: PaywallViewModel = geodeViewModel()
     val paywallState by paywall.uiState.collectAsStateWithLifecycle()
     val paywallOpen = paywallState.visible
-    var filterKey by rememberSaveable { mutableStateOf(StylesGroupMemory.key) }
-    var query by rememberSaveable { mutableStateOf("") }
-    var searching by rememberSaveable { mutableStateOf(false) }
-    var openLooks by remember { mutableStateOf(StylesGroupMemory.open) }
-    val entries = remember { styleEntries(context) }
-    val filters = remember { styleFilters() }
-    val filter = filters.firstOrNull { filterKeyOf(it) == filterKey } ?: StyleFilter.All
+    val entries = remember { styleEntries() }
+    val tree = remember(entries) { styleTree(entries) }
+    var open by remember { mutableStateOf(StylesGroupMemory.open ?: tree.pathTo(viz.sceneId)) }
+    val toggle: (String) -> Unit = { key ->
+        open = if (key in open) open - key else open + key
+        StylesGroupMemory.open = open
+    }
     // Leaving the page keeps the style the user may keep; only a locked one gives way.
     DisposableEffect(Unit) { onDispose { viewModel.leaveScenePreview() } }
     // The style whose tap opened the paywall. The session chooses it once a purchase lets it
@@ -182,99 +159,115 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
             viewModel.leaveScenePreview()
         }
     }
-    val closeSearch = {
-        searching = false
-        query = ""
+    val view = LocalView.current
+    val shuffle: () -> Unit = {
+        val others = entries.filter { it.id != viz.sceneId }
+        // A free user lands on a style they can keep while there is one.
+        others.filter { gate.allowsStyle(it.id) }.ifEmpty { others }.randomOrNull()?.let {
+            view.performStoneHaptic(StoneHapticCue.CONFIRM)
+            load(it.id)
+        }
     }
-    // Standard Android: Back closes an open search first, then leaves the page.
-    BackHandler(enabled = searching, onBack = closeSearch)
-    Column(Modifier.fillMaxSize()) {
-        if (searching) {
-            StyleSearchField(query, onQuery = { query = it }, onClose = closeSearch)
-        } else {
-            Row(
-                Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget).padding(horizontal = GeodeSpacing.S),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                StyleGroupMenu(
-                    filters,
-                    filter,
-                    onPick = {
-                        filterKey = filterKeyOf(it)
-                        StylesGroupMemory.key = filterKey
-                    },
-                    modifier = Modifier.weight(1f),
-                )
-                IconButton(onClick = { searching = true }) {
-                    StoneIconArt(StoneIcon.SEARCH, contentDescription = stringResource(R.string.styles_search))
-                }
-            }
+    val row: @Composable (StyleEntry, Int) -> Unit = { entry, depth ->
+        StyleRow(
+            entry = entry,
+            depth = depth,
+            chosen = entry.id == viz.sceneId,
+            locked = !gate.allowsStyle(entry.id),
+            favourite = shelf.isFavourite(entry.id),
+            recent = entry.id in shelf.recents,
+            onTap = { load(entry.id) },
+            onToggleFavourite = { shelfStore.toggleFavourite(entry.id) },
+            onAddToPlaylist = {
+                viewModel.addToVizPlaylist(VizPlaylistEntry(sceneId = entry.id, label = entry.label))
+            },
+            onRemoveRecent = { shelfStore.removeRecent(entry.id) },
+        )
+    }
+    LazyColumn(
+        contentPadding = PaddingValues(bottom = GeodeSpacing.L),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        // Your styles: what the user already chose, always open. Keys are prefixed so a style
+        // shown here and in the menu below never clashes.
+        val mine = yourStyles(entries, shelf, viz.sceneId)
+        item(key = "yours", contentType = "overline") { YourStylesHeading(onShuffle = shuffle) }
+        if (mine.isEmpty()) {
+            item(key = "yours-empty", contentType = "hint") { StylesHint(stringResource(R.string.styles_yours_empty)) }
         }
-        val shown = remember(entries, filter, shelf, query) { StyleFiltering.apply(entries, filter, shelf, query) }
-        val view = LocalView.current
-        val shuffle: () -> Unit = {
-            val others = shown.filter { it.id != viz.sceneId }
-            // A free user lands on a style they can keep while there is one.
-            others.filter { gate.allowsStyle(it.id) }.ifEmpty { others }.randomOrNull()?.let {
-                view.performStoneHaptic(StoneHapticCue.CONFIRM)
-                load(it.id)
-            }
+        items(mine, key = { "mine:${it.id}" }, contentType = { "style" }) { row(it, 0) }
+        styleMenu(tree, open, toggle, row)
+    }
+}
+
+/** The family › style › variation rows, each header followed by its children while open. */
+private fun LazyListScope.styleMenu(
+    tree: List<StyleNode>,
+    open: Set<String>,
+    toggle: (String) -> Unit,
+    row: @Composable (StyleEntry, Int) -> Unit,
+) {
+    fun node(
+        n: StyleNode,
+        depth: Int,
+    ) {
+        val leaf = n.leaf
+        if (leaf != null) {
+            item(key = leaf.id, contentType = "style") { row(leaf, depth) }
+            return
         }
-        val row: @Composable (StyleEntry) -> Unit = { entry ->
-            StyleRow(
-                entry = entry,
-                chosen = entry.id == viz.sceneId,
-                locked = !gate.allowsStyle(entry.id),
-                favourite = shelf.isFavourite(entry.id),
-                recent = entry.id in shelf.recents,
-                onTap = { load(entry.id) },
-                onToggleFavourite = { shelfStore.toggleFavourite(entry.id) },
-                onAddToPlaylist = {
-                    viewModel.addToVizPlaylist(VizPlaylistEntry(sceneId = entry.id, label = entry.label))
-                },
-                onRemoveRecent = { shelfStore.removeRecent(entry.id) },
-            )
+        val expanded = n.key in open
+        item(key = n.key, contentType = "section") {
+            StyleSectionHeader(n.label, n.count, depth, expanded) { toggle(n.key) }
         }
-        if (shown.isEmpty()) {
-            EmptyStyles(filter, query)
-        } else {
-            LazyColumn(
-                contentPadding = PaddingValues(bottom = GeodeSpacing.L),
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                item(key = "shuffle", contentType = "shuffle") { ShuffleRow(onShuffle = shuffle) }
-                if (filter == StyleFilter.All && query.isBlank()) {
-                    // Basics: what the user already chose, always open. Keys are prefixed so a
-                    // style shown here and in its group below never clashes.
-                    val mine = yourStyles(entries, shelf, viz.sceneId)
-                    item(key = "basics", contentType = "overline") {
-                        CrystalOverline(
-                            stringResource(R.string.styles_yours),
-                            Modifier.padding(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.S).semantics { heading() },
-                        )
-                    }
-                    if (mine.isEmpty()) {
-                        item(key = "basics-empty", contentType = "hint") { StylesHint(stringResource(R.string.styles_yours_empty)) }
-                    }
-                    items(mine, key = { "mine:${it.id}" }, contentType = { "style" }) { row(it) }
-                    StyleLook.entries.forEach { look ->
-                        val group = shown.filter { it.look == look }
-                        if (group.isEmpty()) return@forEach
-                        val open = look.name in openLooks
-                        item(key = "look:${look.name}", contentType = "section") {
-                            StyleSectionHeader(stringResource(lookLabelRes(look)), group.size, open) {
-                                openLooks = if (open) openLooks - look.name else openLooks + look.name
-                                StylesGroupMemory.open = openLooks
-                            }
+        if (expanded) n.children.forEach { node(it, depth + 1) }
+    }
+    tree.forEach { node(it, 0) }
+}
+
+/**
+ * A row of the Styles menu: a header with [children], or a [leaf] style that loads on a tap. A
+ * header of one child is that child, so a family or style with one look is never a dead level.
+ */
+private class StyleNode(
+    val key: String,
+    val label: String,
+    val children: List<StyleNode> = emptyList(),
+    val leaf: StyleEntry? = null,
+) {
+    val count: Int get() = leaf?.let { 1 } ?: children.sumOf { it.count }
+}
+
+/**
+ * Family › style › variation from catalogue order. The family is the engine ([StyleEntry.kindLabel];
+ * every shader style, loose or in a shader family, is "Shaders"); inside Shaders the shader
+ * families come first, as styles whose variations are their twelve looks, then the loose styles.
+ */
+private fun styleTree(entries: List<StyleEntry>): List<StyleNode> =
+    entries
+        .groupBy { if (it.familyLabel != null) SHADERS else it.kindLabel }
+        .map { (family, members) ->
+            val styles =
+                members
+                    .groupBy { it.familyLabel ?: it.id }
+                    .map { (key, looks) ->
+                        if (looks.size == 1) {
+                            StyleNode(looks[0].id, looks[0].label, leaf = looks[0])
+                        } else {
+                            StyleNode("style:$key", looks[0].familyLabel ?: key, looks.map { StyleNode(it.id, it.label, leaf = it) })
                         }
-                        if (open) items(group, key = { it.id }, contentType = { "style" }) { row(it) }
-                    }
-                } else {
-                    items(shown, key = { it.id }, contentType = { "style" }) { row(it) }
-                }
-            }
+                    }.sortedBy { it.leaf != null }
+            styles.singleOrNull() ?: StyleNode("family:$family", family, styles)
         }
-    }
+
+/** The headers to open so [id] shows: its family, then its style. */
+private fun List<StyleNode>.pathTo(id: String?): Set<String> {
+    fun walk(n: StyleNode): List<String>? =
+        when {
+            n.leaf != null -> if (n.leaf.id == id) emptyList() else null
+            else -> n.children.firstNotNullOfOrNull(::walk)?.let { listOf(n.key) + it }
+        }
+    return firstNotNullOfOrNull(::walk)?.toSet() ?: emptySet()
 }
 
 /** The style on screen, then favourites (catalogue order), then recent, each style once. */
@@ -288,38 +281,30 @@ private fun yourStyles(
     return ids.distinct().mapNotNull { byId[it] }
 }
 
-/** Random style: the first row of every list, one 56 dp target like a style row. */
+/** "Your styles", with Random as the icon at its end (owner: an icon, not a whole row). */
 @Composable
-private fun ShuffleRow(onShuffle: () -> Unit) {
+private fun YourStylesHeading(onShuffle: () -> Unit) {
     Row(
-        Modifier
-            .fillMaxWidth()
-            .heightIn(min = ROW_HEIGHT)
-            .clickable(role = Role.Button, onClick = onShuffle)
-            .padding(horizontal = GeodeSpacing.L),
+        Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget).padding(start = GeodeSpacing.L, end = GeodeSpacing.XS),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(THUMB_SIZE), contentAlignment = Alignment.Center) {
-            StoneIconArt(StoneIcon.SHUFFLE, contentDescription = null, tint = accentTextColor())
+        CrystalOverline(stringResource(R.string.styles_yours), Modifier.weight(1f).semantics { heading() })
+        IconButton(onClick = onShuffle) {
+            StoneIconArt(StoneIcon.SHUFFLE, contentDescription = stringResource(R.string.styles_random), tint = accentTextColor())
         }
-        Text(
-            stringResource(R.string.styles_random),
-            Modifier.weight(1f).padding(horizontal = GeodeSpacing.M),
-            style = MaterialTheme.typography.bodyMedium,
-            color = accentTextColor(),
-        )
     }
 }
 
 /**
- * A look group's header in All: its name, how many styles, and a chevron that turns over, as
- * Settings' section cards do ([SettingsSectionCard]). A lazy row, not a card around its styles, so
- * an open group of forty stills is still drawn only as it scrolls in.
+ * A menu header: its name, how many styles under it, and a chevron that turns over, as Settings'
+ * section cards do ([SettingsSectionCard]). Indented by [depth]; a lazy row, not a card around its
+ * children, so an open family is still drawn only as it scrolls in.
  */
 @Composable
 private fun StyleSectionHeader(
     title: String,
     count: Int,
+    depth: Int,
     expanded: Boolean,
     onToggle: () -> Unit,
 ) {
@@ -335,10 +320,14 @@ private fun StyleSectionHeader(
             .semantics(mergeDescendants = true) {
                 heading()
                 stateDescription = stateText
-            }.padding(start = GeodeSpacing.L, end = GeodeSpacing.M),
+            }.padding(start = indent(depth), end = GeodeSpacing.M),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+        Text(
+            title,
+            style = if (depth == 0) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f),
+        )
         Text(
             count.toString(),
             style = MaterialTheme.typography.labelMedium,
@@ -354,6 +343,8 @@ private fun StyleSectionHeader(
     }
 }
 
+private fun indent(depth: Int): Dp = GeodeSpacing.L + INDENT * depth
+
 @Composable
 private fun StylesHint(text: String) {
     Text(
@@ -364,80 +355,9 @@ private fun StylesHint(text: String) {
     )
 }
 
-/** The group picker: the current group's name with ▾, a standard menu of every group under it. */
-@Composable
-private fun StyleGroupMenu(
-    filters: List<StyleFilter>,
-    filter: StyleFilter,
-    onPick: (StyleFilter) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var open by remember { mutableStateOf(false) }
-    Box(modifier) {
-        TextButton(onClick = { open = true }, modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget)) {
-            Text(stringResource(filterLabel(filter)), style = MaterialTheme.typography.titleSmall)
-            // No Symbols glyph for ▾ in StoneIcon yet; the M3 menu's own arrow until one is generated.
-            Icon(Icons.Filled.ArrowDropDown, contentDescription = stringResource(R.string.styles_choose_group))
-        }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            filters.forEach { f ->
-                DropdownMenuItem(
-                    text = { Text(stringResource(filterLabel(f))) },
-                    trailingIcon =
-                        if (f == filter) {
-                            { StoneIconArt(StoneIcon.CHECK, contentDescription = stringResource(R.string.styles_group_shown)) }
-                        } else {
-                            null
-                        },
-                    onClick = {
-                        open = false
-                        onPick(f)
-                    },
-                )
-                // The user's own shelf above, the look groups below.
-                if (f == StyleFilter.Recent) HorizontalDivider()
-            }
-        }
-    }
-}
-
-@Composable
-private fun StyleSearchField(
-    query: String,
-    onQuery: (String) -> Unit,
-    onClose: () -> Unit,
-) {
-    // The 🔍 tap means "I want to type": focus the field and raise the keyboard, so the first
-    // keystroke lands without a second tap on the field.
-    val focus = remember { FocusRequester() }
-    val keyboard = LocalSoftwareKeyboardController.current
-    LaunchedEffect(Unit) {
-        focus.requestFocus()
-        keyboard?.show()
-    }
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQuery,
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.XS)
-                .focusRequester(focus),
-        singleLine = true,
-        placeholder = { Text(stringResource(R.string.styles_search)) },
-        leadingIcon = { StoneIconArt(StoneIcon.SEARCH, contentDescription = null) },
-        trailingIcon = {
-            IconButton(onClick = onClose) {
-                StoneIconArt(StoneIcon.CLOSE, contentDescription = stringResource(R.string.styles_search_close))
-            }
-        },
-        shape = RoundedCornerShape(GeodeRadius.ExtraLarge),
-    )
-}
-
 /**
- * One style: its still, its name (lit when it is on screen), a ♛ when it is Pro, and a heart. The
- * row is one 56 dp target; the heart is its own 48 dp button, the one-tap favourite.
+ * One style: its name (lit when it is on screen), a ♛ when it is Pro, and a heart, indented by
+ * [depth]. The row is one 48 dp target; the heart is its own 48 dp button, the one-tap favourite.
  *
  * A long press opens the row's menu, as on any Android list row: favourite, add to the visuals
  * playlist (not for a locked style, which the playlist would only skip), and remove from Recent
@@ -447,6 +367,7 @@ private fun StyleSearchField(
 @Composable
 private fun StyleRow(
     entry: StyleEntry,
+    depth: Int,
     chosen: Boolean,
     locked: Boolean,
     favourite: Boolean,
@@ -470,12 +391,11 @@ private fun StyleRow(
             if (!locked) add(playlistAction to onAddToPlaylist)
             if (recent) add(recentAction to onRemoveRecent)
         }
-    val accent = cs.primary
     Box {
         Row(
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = ROW_HEIGHT)
+                .heightIn(min = GeodeSpacing.TouchTarget)
                 .then(if (chosen) Modifier.drawBehind { drawChosenGlass() } else Modifier)
                 .combinedClickable(
                     role = Role.Button,
@@ -496,21 +416,12 @@ private fun StyleRow(
                                 true
                             }
                         }
-                }.padding(horizontal = GeodeSpacing.L),
+                }.padding(start = indent(depth), end = GeodeSpacing.XS),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val shape = RoundedCornerShape(GeodeRadius.Small)
-            StyleThumbnail(
-                entry,
-                Modifier
-                    .size(THUMB_SIZE)
-                    .then(if (chosen) Modifier.accentGlow(accent, shape) else Modifier)
-                    .clip(shape)
-                    .then(if (chosen) Modifier.border(1.dp, accent.copy(alpha = CHOSEN_EDGE_ALPHA), shape) else Modifier),
-            )
             Text(
                 entry.label,
-                Modifier.weight(1f).padding(horizontal = GeodeSpacing.M),
+                Modifier.weight(1f).padding(end = GeodeSpacing.M),
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (chosen) accentTextColor() else cs.onSurface,
                 maxLines = 1,
@@ -556,41 +467,6 @@ private fun DrawScope.drawChosenGlass() {
         size = Size(size.width - 2 * inset, size.height),
         cornerRadius = CornerRadius(radius, radius),
     )
-}
-
-/**
- * A soft glow in the visual's accent under the chosen style's still (the owner's 2026-11-02 look
- * revision allows glow, matte glass and blur). It is the platform shadow tinted with the accent,
- * drawn by the render thread like the floating glass's own shadow, so it is cheap; below API 28
- * the platform draws shadows black, and the border alone marks the choice there.
- */
-private fun Modifier.accentGlow(
-    accent: Color,
-    shape: Shape,
-): Modifier =
-    shadow(
-        elevation = GLOW_ELEVATION,
-        shape = shape,
-        clip = false,
-        ambientColor = accent.copy(alpha = GLOW_AMBIENT_ALPHA),
-        spotColor = accent.copy(alpha = GLOW_SPOT_ALPHA),
-    )
-
-@Composable
-private fun EmptyStyles(
-    filter: StyleFilter,
-    query: String,
-) {
-    val text =
-        when {
-            query.isNotBlank() -> stringResource(R.string.styles_empty_search, query.trim())
-            filter == StyleFilter.Favourites -> stringResource(R.string.styles_empty_favourites)
-            filter == StyleFilter.Recent -> stringResource(R.string.styles_empty_recent)
-            else -> stringResource(R.string.styles_empty)
-        }
-    Box(Modifier.fillMaxSize().padding(GeodeSpacing.XL), contentAlignment = Alignment.Center) {
-        Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
 }
 
 /**
@@ -665,59 +541,29 @@ private object StyleThumbs {
 }
 
 /**
- * The group the list last showed, kept for the process as well as in the page's saved state.
+ * The menu's open headers, kept for the process; null until the user opens or closes one, so a
+ * fresh start opens the path to the style on screen instead.
  *
- * WHY rememberSaveable is not enough: on a phone, rotating swaps the shell's bar layout
+ * WHY not rememberSaveable alone: on a phone, rotating swaps the shell's bar layout
  * (`AppShellCompact`) for its rail layout (`AppShellExpanded`), so the whole Visuals subtree leaves
  * the composition and comes back under a different parent. `MainActivity` handles the rotation
- * itself, so nothing is restored from a bundle, and the group came back as All (device QA on #252).
- * The page reads this as its saved state's first value, so the group survives that swap; keying
- * the shell's destination content so it never moves is the root fix, in the shell's scope.
+ * itself, so nothing is restored from a bundle (device QA on #252).
  */
 private object StylesGroupMemory {
-    var key: String = FILTER_ALL
-
-    /** All's open look groups, by [StyleLook.name]; closed on a fresh start. */
-    var open: Set<String> = emptySet()
+    var open: Set<String>? = null
 }
 
-/** Every catalogue style as the list shows it, in catalogue order, each with its look group. */
-private fun styleEntries(context: Context): List<StyleEntry> =
+/** Every catalogue style as the menu shows it, in catalogue order. */
+private fun styleEntries(): List<StyleEntry> =
     Catalogue.styles.map { style ->
         val family = StyleFamilies.of(style.id)
-        val look = lookOf(style)
         StyleEntry(
             id = style.id,
             label = sceneDisplayLabel(style.id),
-            kindLabel = if (family != null) KIND_FAMILY else kindLabel(style.kind),
+            kindLabel = kindLabel(style.kind),
             familyLabel = family?.label,
-            look = look,
-            lookLabel = context.getString(lookLabelRes(look)),
         )
     }
-
-/** The name a look group is read by; the enum stays pure (`model/StyleLook`). */
-@StringRes
-private fun lookLabelRes(look: StyleLook): Int =
-    when (look) {
-        StyleLook.FLOWING -> R.string.styles_look_flowing
-        StyleLook.LIVING -> R.string.styles_look_living
-        StyleLook.PSYCHEDELIC -> R.string.styles_look_psychedelic
-        StyleLook.FRACTALS -> R.string.styles_look_fractals
-        StyleLook.SPACE -> R.string.styles_look_space
-        StyleLook.FLY_THROUGH -> R.string.styles_look_fly_through
-        StyleLook.GLASS -> R.string.styles_look_glass
-        StyleLook.PATTERNS -> R.string.styles_look_patterns
-        StyleLook.CLASSIC -> R.string.styles_look_classic
-    }
-
-/**
- * The [StyleLook] group a style is shown in, as the native catalogue tags it (core/viz/Catalogue's
- * look column, ADR 0003): a family style by its family, a dedicated renderer's by its kind, a loose
- * shader one by one. Only the name is matched here; the tags themselves are engine data. A name this
- * shell does not know (a newer table) lands in [StyleLook.PSYCHEDELIC], so the style still shows.
- */
-private fun lookOf(style: CatalogueStyle): StyleLook = StyleLook.entries.firstOrNull { it.name == style.look } ?: StyleLook.PSYCHEDELIC
 
 private fun kindLabel(kind: SceneKind): String =
     when (kind) {
@@ -731,48 +577,15 @@ private fun kindLabel(kind: SceneKind): String =
         SceneKind.CYMATICS -> "Cymatics"
     }
 
-/** Everything, the user's own shelf, then each look group in [StyleLook]'s order. */
-private fun styleFilters(): List<StyleFilter> =
-    listOf(StyleFilter.All, StyleFilter.Favourites, StyleFilter.Recent) + StyleLook.entries.map { StyleFilter.Look(it) }
-
-private fun filterKeyOf(filter: StyleFilter): String =
-    when (filter) {
-        StyleFilter.All -> FILTER_ALL
-        StyleFilter.Favourites -> "fav"
-        StyleFilter.Recent -> "recent"
-        is StyleFilter.Kind -> "kind:${filter.label}"
-        is StyleFilter.Family -> "family:${filter.label}"
-        is StyleFilter.Look -> "look:${filter.look.name}"
-    }
-
-/**
- * The menu's name for [filter]. Kind and Family are never offered here ([styleFilters]); they fall
- * back to All so the menu never shows an id.
- */
-@StringRes
-private fun filterLabel(filter: StyleFilter): Int =
-    when (filter) {
-        StyleFilter.All, is StyleFilter.Kind, is StyleFilter.Family -> R.string.styles_all
-        StyleFilter.Favourites -> R.string.styles_favourites
-        StyleFilter.Recent -> R.string.styles_recent
-        is StyleFilter.Look -> lookLabelRes(filter.look)
-    }
-
 internal fun sceneDisplayLabel(id: String): String {
     val catalogued = VisualStyleCatalog.label(id)
     if (catalogued != id) return catalogued
     return id.split('_').joinToString(" ") { word -> word.replaceFirstChar { it.uppercase() } }
 }
 
-private const val FILTER_ALL = "all"
 private const val HALF_TURN = 180f
-private const val KIND_FAMILY = "Family"
-private val ROW_HEIGHT = 56.dp
-private val THUMB_SIZE = 40.dp
-private val GLOW_ELEVATION = 10.dp
-private const val GLOW_AMBIENT_ALPHA = 0.55f
-private const val GLOW_SPOT_ALPHA = 0.85f
-private const val CHOSEN_EDGE_ALPHA = 0.7f
+private const val SHADERS = "Shaders"
+private val INDENT = 16.dp
 private const val HUE_TURN = 360
 private const val HUE_NUDGE = 40
 private const val HUE_SPREAD = 50

@@ -530,10 +530,6 @@ int geode_style_reactions(const char* style_id, int seed, float* out, int capaci
     return writeRoutes(dna.routes, dna.count, out, capacity);
 }
 
-void geode_viz_set_look(geode_viz* v, float yaw, float pitch) {
-    if (v) v->renderer.setLook(std::clamp(yaw, -1.0f, 1.0f), std::clamp(pitch, -1.0f, 1.0f));
-}
-
 void geode_viz_gyro_sample(geode_viz* v, float azimuth, float pitch) {
     if (!v) return;
     const GyroLook::Look look = v->gyro.sample(azimuth, pitch);

@@ -24,8 +24,8 @@ constexpr uint32_t kGlbMagic = 0x46546C67u;  // "glTF", little-endian
 // attack on memory, not a model, whatever its size on disk.
 constexpr std::size_t kMaxDecodedBytes = 256u * 1024u * 1024u;
 
-// #455's accept list: extensions the engine reads (meshopt, quantization) or will read once
-// textures are imported (basisu, texture transform), plus two material ones that only simplify the
+// #455's accept list: extensions the engine reads (meshopt, quantization, basisu textures, texture
+// transform, handed on in each TextureSlot), plus two material ones that only simplify the
 // shading the Scene's overlay pass already does.
 constexpr std::string_view kAccepted[] = {
     "KHR_texture_basisu",    "EXT_meshopt_compression",         "KHR_mesh_quantization",
@@ -323,6 +323,95 @@ void checkExtensions(const cgltf_data* data, ImportResult& r) {
 
 std::string countOf(uint64_t n, const char* what) { return std::to_string(n) + " " + what; }
 
+// The image a texture reads: its KHR_texture_basisu KTX2 when it has one (the core source is then a
+// fallback for viewers without Basis, or absent), else the core PNG or JPEG.
+const cgltf_image* imageOf(const cgltf_texture* t) {
+    if (t == nullptr) return nullptr;
+    if (t->has_basisu && t->basisu_image != nullptr) return t->basisu_image;
+    return t->image;
+}
+
+// The images the kept materials read, each once however many slots share it.
+struct TextureGather {
+    std::vector<TextureSource> sources;
+    std::vector<std::size_t> imageIndex;                   // per source, its glTF image index
+    std::unordered_map<const cgltf_image*, int> sourceOf;  // -1: the image is not in the file
+};
+
+// One texture info into a slot whose `texture` is a source index for now. An image used in several
+// roles is made for the most demanding (TextureRole's order: base colour's cap and colour space win).
+TextureSlot slotFrom(const cgltf_data* data, const cgltf_texture_view& view, TextureRole role, TextureGather& tg,
+                     ImportResult& r, bool& otherUv) {
+    TextureSlot slot;
+    slot.texCoord = view.texcoord;
+    slot.scale = view.scale;
+    if (view.has_transform) {
+        const cgltf_texture_transform& t = view.transform;
+        slot.hasTransform = true;
+        slot.offset[0] = t.offset[0];
+        slot.offset[1] = t.offset[1];
+        slot.rotation = t.rotation;
+        slot.transformScale[0] = t.scale[0];
+        slot.transformScale[1] = t.scale[1];
+        if (t.has_texcoord) slot.texCoord = t.texcoord;
+    }
+    const cgltf_texture* tex = view.texture;
+    if (tex == nullptr) return slot;
+    if (slot.texCoord != 0) otherUv = true;
+    if (tex->sampler != nullptr) {
+        slot.wrapS = static_cast<int>(tex->sampler->wrap_s);
+        slot.wrapT = static_cast<int>(tex->sampler->wrap_t);
+        slot.minFilter = static_cast<int>(tex->sampler->min_filter);
+        slot.magFilter = static_cast<int>(tex->sampler->mag_filter);
+    }
+    const cgltf_image* image = imageOf(tex);
+    if (image == nullptr) return slot;
+    auto [it, added] = tg.sourceOf.try_emplace(image, -1);
+    if (added) {
+        // A .glb's images live in buffer views; a uri is a file beside it (which the import never
+        // has) or a data: URI, which no exporter writes into a .glb.
+        const cgltf_buffer_view* bufferView = image->buffer_view;
+        const uint8_t* bytes = bufferView != nullptr ? cgltf_buffer_view_data(bufferView) : nullptr;
+        const std::size_t index = cgltf_image_index(data, image);
+        if (bytes == nullptr) {
+            warn(r, Warning::TextureDropped, "image " + std::to_string(index) + ": not embedded in the file");
+        } else {
+            it->second = static_cast<int>(tg.sources.size());
+            tg.sources.push_back({bytes, bufferView->size, role});
+            tg.imageIndex.push_back(index);
+        }
+    }
+    if (it->second >= 0) {
+        TextureSource& source = tg.sources[static_cast<std::size_t>(it->second)];
+        source.role = std::min(source.role, role);
+        slot.texture = it->second;
+    }
+    return slot;
+}
+
+ModelMaterial materialFrom(const cgltf_data* data, const cgltf_material& m, TextureGather& tg, ImportResult& r, bool& otherUv) {
+    ModelMaterial out;
+    // cgltf fills the metal-rough defaults even when the material has no pbrMetallicRoughness.
+    const cgltf_pbr_metallic_roughness& pbr = m.pbr_metallic_roughness;
+    std::copy(std::begin(pbr.base_color_factor), std::end(pbr.base_color_factor), out.baseColour);
+    out.metallic = pbr.metallic_factor;
+    out.roughness = pbr.roughness_factor;
+    std::copy(std::begin(m.emissive_factor), std::end(m.emissive_factor), out.emissive);
+    if (m.has_emissive_strength) out.emissiveStrength = m.emissive_strength.emissive_strength;
+    out.alphaMode = m.alpha_mode == cgltf_alpha_mode_mask    ? AlphaMode::Mask
+                    : m.alpha_mode == cgltf_alpha_mode_blend ? AlphaMode::Blend
+                                                             : AlphaMode::Opaque;
+    out.alphaCutoff = m.alpha_cutoff;
+    out.doubleSided = m.double_sided != 0;
+    out.unlit = m.unlit != 0;
+    out.baseColourTexture = slotFrom(data, pbr.base_color_texture, TextureRole::BaseColour, tg, r, otherUv);
+    out.metallicRoughnessTexture = slotFrom(data, pbr.metallic_roughness_texture, TextureRole::MetallicRoughness, tg, r, otherUv);
+    out.normalTexture = slotFrom(data, m.normal_texture, TextureRole::Normal, tg, r, otherUv);
+    out.occlusionTexture = slotFrom(data, m.occlusion_texture, TextureRole::Occlusion, tg, r, otherUv);
+    out.emissiveTexture = slotFrom(data, m.emissive_texture, TextureRole::Emissive, tg, r, otherUv);
+    return out;
+}
+
 }  // namespace
 
 bool ImportResult::refusedFor(Refusal code) const {
@@ -424,7 +513,6 @@ ImportResult importGlb(const uint8_t* bytes, std::size_t size, const ImportLimit
     c.meshes = static_cast<uint32_t>(g.prims.size());
     c.instances = static_cast<uint32_t>(g.instances.size());
     c.materials = static_cast<uint32_t>(materials.size());
-    c.textures = static_cast<uint32_t>(data->textures_count);
     c.maxJoints = maxJoints;
     c.maxMorphTargets = maxTargets;
     c.animations = static_cast<uint32_t>(data->animations_count);
@@ -475,6 +563,54 @@ ImportResult importGlb(const uint8_t* bytes, std::size_t size, const ImportLimit
     r.fitted = flagshipTris < triangles;
     c.trianglesFlagship = static_cast<uint32_t>(flagshipTris);
     c.trianglesLowDetail = static_cast<uint32_t>(lowTris);
+
+    // Materials and their textures, only those the kept meshes use, so a file's unused materials
+    // and images cost nothing. Last, because making textures is the slow part of an import and
+    // every cheaper refusal has had its say.
+    TextureGather tg;
+    std::unordered_map<const cgltf_material*, int> materialOf;
+    bool otherUv = false;
+    for (std::size_t i = 0; i < meshes.size(); ++i) {
+        const cgltf_material* m = g.prims[i]->material;
+        if (m == nullptr) {
+            meshes[i].material = -1;
+            continue;
+        }
+        auto [it, added] = materialOf.try_emplace(m, static_cast<int>(r.materials.size()));
+        if (added) r.materials.push_back(materialFrom(data.get(), *m, tg, r, otherUv));
+        meshes[i].material = it->second;
+    }
+    if (otherUv) warn(r, Warning::TexCoordUnsupported);
+    TextureBuild built = buildTextures(tg.sources, limits.textures);
+    for (const TextureDrop& d : built.drops) {
+        warn(r, Warning::TextureDropped, "image " + std::to_string(tg.imageIndex[d.source]) + ": " + d.why);
+    }
+    c.textureBytesSource = built.bytesBeforeFit;
+    if (built.overBudget) {
+        refuse(r, Refusal::TextureMemoryOverBudget, countOf(built.bytesBeforeFit, "bytes"));
+        r.materials.clear();
+        return r;
+    }
+    if (built.fittedToBudget) {
+        warn(r, Warning::TexturesFitToBudget,
+             countOf(built.bytesBeforeFit, "bytes") + " to " + countOf(built.bytesFlagship, "bytes"));
+    }
+    // Slots were filled with source indices; point them at the made textures (or none, if dropped).
+    for (ModelMaterial& m : r.materials) {
+        for (TextureSlot* slot : {&m.baseColourTexture, &m.metallicRoughnessTexture, &m.normalTexture,
+                                  &m.occlusionTexture, &m.emissiveTexture}) {
+            if (slot->texture >= 0) slot->texture = built.textureOfSource[static_cast<std::size_t>(slot->texture)];
+        }
+    }
+    c.textures = static_cast<uint32_t>(built.textures.size());
+    c.texturesDropped = static_cast<uint32_t>(
+        std::count_if(r.warnings.begin(), r.warnings.end(), [](const WarningNote& w) { return w.code == Warning::TextureDropped; }));
+    c.texturesDownscaled = static_cast<uint32_t>(
+        std::count_if(built.textures.begin(), built.textures.end(), [](const ModelTexture& t) { return t.downscaled(); }));
+    c.textureBytesFlagship = built.bytesFlagship;
+    c.textureBytesLowDetail = built.bytesLowDetail;
+    r.textures = std::move(built.textures);
+
     r.meshes = std::move(meshes);
     r.instances = std::move(g.instances);
     r.ok = true;

@@ -9,6 +9,7 @@
 
 #include "audio/dsp/DspChain.hpp"
 #include "audio/dsp/Equalizer.hpp"
+#include "audio/dsp/GainStage.hpp"
 
 namespace geode::audio {
 
@@ -32,8 +33,12 @@ namespace geode::audio {
 // reset at that flush either way, so leaving bit-perfect starts from clean filter state and the current
 // targets, not from a half-finished ramp.
 //
-// Threads: configure, flush and process run on the playback thread; the setters may run on any thread.
-// Every chain ever built stays owned here until destruction, so a setter racing a flush never reaches a
+// The playback gain (GainStage: ReplayGain, fades, crossfade, sleep) belongs to the processor, not to a chain,
+// and runs on every block a live chain processes, before it. While bit-perfect is live it stands still too.
+//
+// Threads: configure, flush and process (and the gain's beginStream and endStream) run on the playback
+// thread; the setters may run on any thread. Every chain ever built stays owned here until destruction,
+// so a setter racing a flush never reaches a
 // freed chain, and there is at most one chain per format (a format seen again reuses its chain).
 class DspProcessor {
 public:
@@ -48,7 +53,6 @@ public:
     // Playback thread, RT-safe: no allocation, no locks. `capacityFloats` is how many floats `interleaved`
     // holds; `channels` is the channel count the block was queued in.
     void process(float* interleaved, size_t capacityFloats, size_t frames, int channels);
-
     // Playback thread, RT-safe: the same on 16-bit PCM in place, converted to float and back in fixed chunks
     // on the stack (full scale 32768, clipped, truncated toward zero, as the Kotlin shell did). A block the
     // chain does not run, including every block while bit-perfect is live, is never touched: not a byte.
@@ -61,9 +65,11 @@ public:
     void setBand(int band, int millibels);
     void setBassBoost(int permille);
     void setLoudnessMb(int millibels);
-    void setGainDb(float db);
     void setCrossfeed(bool enabled);
     void setLimiter(bool enabled);
+
+    // ReplayGain, fades, crossfade and sleep (GainStage.hpp); its setters are thread-safe themselves.
+    GainStage& gain() { return gain_; }
 
     // For tests: the live chain's format, 0 when none.
     int liveChannels() const;
@@ -76,7 +82,6 @@ private:
         std::array<int, Equalizer::kBands> bandsMb{};
         int bassBoost = 0;
         int loudnessMb = 0;
-        float gainDb = 0.0f;
         bool crossfeed = false;
         bool limiter = true;
     };
@@ -85,6 +90,7 @@ private:
     template <typename F>
     void forEachChain(F&& f);
 
+    GainStage gain_;
     std::mutex mutex_;  // settings_ and chains_; never taken by process() or flush()
     Settings settings_;
     std::vector<std::unique_ptr<DspChain>> chains_;

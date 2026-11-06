@@ -169,13 +169,6 @@ class NativeViz(
         }
     }
 
-    fun setLook(
-        yaw: Float,
-        pitch: Float,
-    ) {
-        if (handle != 0L && sent.look(yaw, pitch)) GeodeNative.vizSetLook(handle, yaw, pitch)
-    }
-
     fun gyroSample(
         azimuth: Float,
         pitch: Float,

@@ -1193,6 +1193,37 @@
         "readAtCommit": "9e1f07b159d3cb777f1c67ed31fc11fd117986f4",
         "readOn": "2026-11-05"
       }
+    },
+    {
+      "id": "basis_universal",
+      "planLedger": "basis_universal",
+      "name": "BinomialLLC/basis_universal",
+      "url": "https://github.com/BinomialLLC/basis_universal",
+      "tier": "ADAPT",
+      "planTier": "ADAPT: vendored unmodified as a git submodule (#474)",
+      "license": "Apache-2.0",
+      "role": "Makes an imported model's textures: reads PNG (pvpngreader), JPEG (jpgd) and KTX2 (KHR_texture_basisu), encodes UASTC 4x4 and transcodes it to ASTC 4x4 and ETC2 (#455, #474).",
+      "incorporated": "Its encoder library as upstream lists it (ENCODER_LIB_SRC_LIST, without astcenc), the transcoder, and zstd/zstd.c, built as geode_basisu by core/CMakeLists.txt; called only from core/scene/object/ModelTextures.cpp",
+      "notIncorporated": "The basisu tool, the examples, the WebGL/WASM/Python bindings, OpenCL, SSE kernels, astcenc",
+      "importedFiles": [
+        "third_party/basis_universal/"
+      ],
+      "modifications": [],
+      "attribution": "Apache-2.0 with its NOTICE (Binomial LLC, trademark line); the bundled zstd and TinyEXR (BSD-3-Clause), QOI (MIT), miniz and the Android ASTC decompressor (Apache-2.0), jpgd and pvpngreader (public domain): all in THIRD_PARTY_NOTICES and the in-app notices.",
+      "notes": "Pinned to tag v2_50. The job pool it compiles is never started; the import encodes on its caller's thread.",
+      "pin": {
+        "commit": "9bebe16726b3a61c8c213eeee3b7cffb462ef34e",
+        "source": "resolved tag v2_50 on 2026-11-05"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "065fcf48d6af21c0b75e23be5ed5753aee75c892e1c2cf178fa6736305614a5c",
+        "bytes": 11347,
+        "firstLine": "Apache License",
+        "readAtCommit": "9bebe16726b3a61c8c213eeee3b7cffb462ef34e",
+        "readOn": "2026-11-05"
+      }
     }
   ]
 }

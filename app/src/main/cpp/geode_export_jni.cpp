@@ -106,11 +106,6 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopSpecDerive(J
     writeLoopSpec(env, s, out);
 }
 
-JNIEXPORT jfloat JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopSeamWeight(JNIEnv*, jobject, jint tail,
-                                                                                  jint seamFrames) {
-    return geode_loop_seam_weight(tail, seamFrames);
-}
-
 JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopExtendPlan(JNIEnv* env, jobject, jlong loopUs,
                                                                                       jlong totalUs, jint loops) {
     const int repeats = geode_loop_extend_plan(loopUs, totalUs, loops, nullptr, nullptr, 0);

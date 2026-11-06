@@ -6,6 +6,8 @@
 #include <limits>
 #include <numbers>
 
+#include "sound/Tuning.hpp"
+
 namespace geode::sound {
 
 namespace {
@@ -68,29 +70,9 @@ int SoundEngine::fftSizeFor(int sampleRateHz) {
     return n;
 }
 
-GeodeSoundTuning SoundEngine::defaultTuning() {
-    GeodeSoundTuning t{};
-    for (int i = 0; i < 3; i++) {
-        t.gain[i] = 1.0f;
-        t.attack[i] = 0.03f;
-        t.release[i] = 0.15f;
-    }
-    t.drum[0] = 0.6f;
-    t.drum[1] = 0.5f;
-    t.drum[2] = 0.5f;
-    t.drumDecay[0] = 0.18f;
-    t.drumDecay[1] = 0.15f;
-    t.drumDecay[2] = 0.08f;
-    t.reactivity = 1.0f;
-    t.speed = 1.0f;
-    t.onsetThreshold = 2.0f;
-    t.hardCutLevel = 2.5f;
-    t.hardCutHalfLife = 60.0f;
-    t.pitchThreshold = 0.35f;
-    t.noteHold = 0.08f;
-    t.silenceDb = -60.0f;
-    return t;
-}
+GeodeSoundTuning SoundEngine::defaultTuning() { return tuning::defaults(); }
+
+void SoundEngine::setTuning(const GeodeSoundTuning& t) { tuning_ = tuning::clamp(t); }
 
 SoundEngine::SoundEngine(int sampleRateHz)
     : sampleRateHz_(std::max(8000, sampleRateHz)),

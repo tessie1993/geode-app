@@ -39,6 +39,29 @@ Java_dev_geode_engine_bridge_GeodeNative_soundSetPlayerSource(JNIEnv*, jobject, 
     geode_sound_set_player_source(on == JNI_TRUE ? 1 : 0);
 }
 
+// The tuning schema in one array: every slot's default, then every minimum, then every maximum.
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_soundTuningSchema(JNIEnv* env, jobject) {
+    const int n = geode_sound_tuning_slots();
+    std::vector<float> schema(static_cast<size_t>(3 * n));
+    geode_sound_tuning_defaults(schema.data(), n);
+    geode_sound_tuning_ranges(schema.data() + n, schema.data() + 2 * n, n);
+    jfloatArray out = env->NewFloatArray(3 * n);
+    if (!out) return nullptr;
+    env->SetFloatArrayRegion(out, 0, 3 * n, schema.data());
+    return out;
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_soundTuningClamp(JNIEnv* env, jobject, jfloatArray values) {
+    if (!values) return;
+    const int n = std::min(static_cast<int>(env->GetArrayLength(values)), geode_sound_tuning_slots());
+    std::vector<float> v(static_cast<size_t>(n));
+    env->GetFloatArrayRegion(values, 0, n, v.data());
+    geode_sound_tuning_clamp(v.data(), n);
+    env->SetFloatArrayRegion(values, 0, n, v.data());
+}
+
 // The live wallpaper's and the dream's run rule (viz/SurfaceRun), beside their silence rule.
 
 JNIEXPORT jint JNICALL
@@ -70,17 +93,6 @@ Java_dev_geode_engine_bridge_GeodeNative_surfaceSettleMs(JNIEnv*, jobject, jint 
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_surfaceFpsChoice(JNIEnv*, jobject, jint requestedFps) {
     return geode_surface_fps_choice(requestedFps);
-}
-
-JNIEXPORT jintArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_surfaceFpsChoices(JNIEnv* env, jobject) {
-    const int n = geode_surface_fps_choices(nullptr, 0);
-    jintArray out = env->NewIntArray(n);
-    if (out == nullptr || n <= 0) return out;
-    std::vector<jint> values(static_cast<size_t>(n));
-    geode_surface_fps_choices(values.data(), n);
-    env->SetIntArrayRegion(out, 0, n, values.data());
-    return out;
 }
 
 }  // extern "C"

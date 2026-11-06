@@ -8,11 +8,14 @@
 #include <cstdio>
 #include <cstring>
 #include <functional>
+#include <iterator>
+#include <limits>
 #include <numbers>
 #include <vector>
 
 #include "sound/PlayerSignals.hpp"
 #include "sound/SoundEngine.hpp"
+#include "sound/Tuning.hpp"
 
 using geode::sound::SoundEngine;
 
@@ -477,6 +480,96 @@ void testBoundaryEvent() {
     CHECK(f.sectionChange == 0.0f, "once, read %f on the next frame", f.sectionChange);
 }
 
+// Settings › Audio's tuning schema (sound/Tuning), pinned to the Kotlin SoundTuning it replaced: its
+// defaults, its ranges, and its wire order (the slots are GeodeSoundTuning's fields).
+float slotOf(const GeodeSoundTuning& t, int i) {
+    float v[geode::sound::tuning::kSlots];
+    std::memcpy(v, &t, sizeof v);
+    return v[i];
+}
+
+void testTuningSchema() {
+    namespace tuning = geode::sound::tuning;
+    CHECK(tuning::kSlots == 29 && GEODE_SOUND_TUNING_FLOATS == 29, "29 slots, %d", tuning::kSlots);
+    struct Old {
+        int slot;
+        float def, lo, hi;
+    };
+    // The old Kotlin defaults and ranges, slot by slot in its toFloats order.
+    const Old old[] = {
+        {0, 1.0f, 0.0f, 4.0f},     {1, 1.0f, 0.0f, 4.0f},     {2, 1.0f, 0.0f, 4.0f},       // gain
+        {3, 0.0f, 0.0f, 1.0f},     {4, 0.0f, 0.0f, 1.0f},     {5, 0.0f, 0.0f, 1.0f},       // threshold
+        {6, 0.0f, -1.0f, 1.0f},    {7, 0.0f, -1.0f, 1.0f},    {8, 0.0f, -1.0f, 1.0f},      // offset
+        {9, 0.03f, 0.0f, 1.0f},    {10, 0.03f, 0.0f, 1.0f},   {11, 0.03f, 0.0f, 1.0f},     // attack
+        {12, 0.15f, 0.0f, 2.0f},   {13, 0.15f, 0.0f, 2.0f},   {14, 0.15f, 0.0f, 2.0f},     // release
+        {15, 0.6f, 0.1f, 3.0f},    {16, 0.5f, 0.1f, 3.0f},    {17, 0.5f, 0.1f, 3.0f},      // drum
+        {18, 0.18f, 0.02f, 1.0f},  {19, 0.15f, 0.02f, 1.0f},  {20, 0.08f, 0.02f, 1.0f},    // drumDecay
+        {21, 1.0f, 0.0f, 3.0f},    {22, 1.0f, 0.0f, 4.0f},                                // reactivity, speed
+        {23, 2.0f, 1.0f, 4.0f},    {24, 2.5f, 1.5f, 4.0f},    {25, 60.0f, 5.0f, 180.0f},   // onset, cut, half-life
+        {26, 0.35f, 0.1f, 0.9f},   {27, 0.08f, 0.02f, 0.5f},  {28, -60.0f, -90.0f, -30.0f},  // pitch, hold, silence
+    };
+    CHECK(std::size(old) == static_cast<size_t>(tuning::kSlots), "every slot pinned");
+    const GeodeSoundTuning d = tuning::defaults();
+    for (const Old& o : old) {
+        const tuning::Slot& s = tuning::slots()[static_cast<size_t>(o.slot)];
+        CHECK(s.def == o.def && s.lo == o.lo && s.hi == o.hi, "slot %d schema", o.slot);
+        CHECK(slotOf(d, o.slot) == o.def, "slot %d default %f", o.slot, static_cast<double>(slotOf(d, o.slot)));
+    }
+    CHECK(SoundEngine::defaultTuning().drum[0] == 0.6f && d.reactivity == 1.0f && d.silenceDb == -60.0f,
+          "the struct's fields are the slots");
+
+    // Every range clamps at both ends and leaves the inside alone; NaN and both infinities are the default.
+    const float bad[] = {std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::infinity(),
+                         -std::numeric_limits<float>::infinity()};
+    for (const Old& o : old) {
+        float all[tuning::kSlots];
+        std::memcpy(all, &d, sizeof all);
+        all[o.slot] = o.hi + 1.0f;
+        tuning::clamp(all, tuning::kSlots);
+        CHECK(all[o.slot] == o.hi, "slot %d clamps high", o.slot);
+        all[o.slot] = o.lo - 1.0f;
+        tuning::clamp(all, tuning::kSlots);
+        CHECK(all[o.slot] == o.lo, "slot %d clamps low", o.slot);
+        const float mid = 0.5f * (o.lo + o.hi);
+        all[o.slot] = mid;
+        tuning::clamp(all, tuning::kSlots);
+        CHECK(all[o.slot] == mid, "slot %d keeps a value inside", o.slot);
+        for (float b : bad) {
+            all[o.slot] = b;
+            tuning::clamp(all, tuning::kSlots);
+            CHECK(all[o.slot] == o.def, "slot %d: a non-finite value is the default", o.slot);
+        }
+    }
+
+    // A short array clamps only what it has; the struct form clamps the same way.
+    float two[2] = {9.0f, std::numeric_limits<float>::quiet_NaN()};
+    tuning::clamp(two, 2);
+    CHECK(two[0] == 4.0f && two[1] == 1.0f, "two slots: gain clamped to its top, NaN gain is 1");
+    tuning::clamp(nullptr, 5);
+    GeodeSoundTuning wild = d;
+    wild.reactivity = 9.0f;
+    wild.speed = std::numeric_limits<float>::quiet_NaN();
+    wild.attack[0] = -1.0f;
+    wild.attack[2] = 5.0f;
+    const GeodeSoundTuning c = tuning::clamp(wild);
+    CHECK(c.reactivity == 3.0f && c.speed == 1.0f && c.attack[0] == 0.0f && c.attack[1] == 0.03f && c.attack[2] == 1.0f,
+          "the struct clamps as the old Kotlin clamped() did");
+}
+
+// The engine clamps whatever it is handed, so no surface can feed it a NaN or an out-of-range knob.
+void testEngineClampsTuning() {
+    SoundEngine e(48000);
+    GeodeSoundTuning t = SoundEngine::defaultTuning();
+    t.reactivity = std::numeric_limits<float>::quiet_NaN();
+    t.speed = 100.0f;
+    t.silenceDb = 0.0f;
+    t.gain[1] = -3.0f;
+    e.setTuning(t);
+    CHECK(e.tuning().reactivity == 1.0f, "NaN reactivity is the default, %f", static_cast<double>(e.tuning().reactivity));
+    CHECK(e.tuning().speed == 4.0f && e.tuning().silenceDb == -30.0f && e.tuning().gain[1] == 0.0f,
+          "out-of-range slots clamp in the engine");
+}
+
 }  // namespace
 
 int main() {
@@ -496,6 +589,8 @@ int main() {
     testFadeGain();
     testPlayerSignals();
     testBoundaryEvent();
+    testTuningSchema();
+    testEngineClampsTuning();
     if (failures == 0) std::printf("sound_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

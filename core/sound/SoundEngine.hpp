@@ -77,7 +77,8 @@ public:
     int hopSamples() const { return rhythm_.hopSamples(); }
     // The one-hop triggers held from hop to step (kick … drop): > 0 on the frame that follows their hop.
     static constexpr int kTriggers = 23;
-    void setTuning(const GeodeSoundTuning& tuning) { tuning_ = tuning; }
+    // Clamped to sound/Tuning's ranges, whatever the caller hands in (a NaN slot is its default).
+    void setTuning(const GeodeSoundTuning& tuning);
     const GeodeSoundTuning& tuning() const { return tuning_; }
     void reset();
     // A track boundary the player named (core/sound/PlayerSignals): the ring's audio runs on unbroken, but

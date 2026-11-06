@@ -1,4 +1,7 @@
 #version 300 es
+// The shape controls are spent on the landscape (slope, terraces, the c-plane
+// wave), not on the rays, so view() must not bend the picture a second time.
+#define VIEW_OWNS_SHAPE
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
 // fraction bits). uSoundTex is R32F; on GPUs honoring sampler precision
@@ -8,124 +11,95 @@ precision highp sampler2D;
 in vec2 vUv;
 out vec4 fragColor;
 
-uniform float uTime;
-uniform vec2 uResolution;
-uniform float uSpeed;
-uniform float uZoom;
-uniform float uRotation;
-//#include lib_zoom
-uniform float uColorShift;
-uniform float uHueRange;
-uniform float uSat;
-uniform float uBright;
-uniform float uInvert;
-uniform float uIntensity;
-uniform float uMirrorX;
-uniform float uTurbulence;
-uniform float uPalBase;
-uniform float uPalRange;
-uniform float uContrast;
-uniform float uGamma;
-uniform float uPal2Base;
-uniform float uPal2Range;
-uniform float uPaletteMix;
-uniform float uDuotone;
-uniform float uBloom;
-uniform float uWarp;
-uniform float uRipple;
-uniform float uSymmetry;
-uniform float uKaleido;
-uniform float uMorph;
-uniform float uPixelate;
-uniform float uPosterize;
-uniform float uSway;
-uniform float uPulse;
-uniform float uDriftX;
-uniform float uDriftY;
-uniform float uShake;
-uniform float uTile;
-uniform float uTwist;
-uniform float uTemperature;
-uniform float uSolarize;
-uniform float uFlash;
-
-//#include lib_sound
-
-
-vec2 view() {
-    vec2 uv = vUv * 2.0 - 1.0;
-    uv.x *= uResolution.x / uResolution.y;
-    if (uPixelate > 0.001) {
-        float px = mix(1.0, 12.0, uPixelate) * 24.0;
-        uv = floor(uv * px) / px;
-    }
-    if (uMirrorX > 0.5) uv.x = abs(uv.x);
-    // Kaleidoscope: fold the plane into uSymmetry angular wedges.
-    if (uKaleido > 0.5 && uSymmetry >= 2.0) {
-        float ang = atan(uv.y, uv.x);
-        float rad = length(uv);
-        float seg = 6.2831853 / uSymmetry;
-        ang = abs(mod(ang, seg) - seg * 0.5);
-        uv = vec2(cos(ang), sin(ang)) * rad;
-    }
-    // Morph: blend the plane toward a polar remap (angle,radius swap), a
-    // smooth geometric metamorphosis that works on any scene.
-    if (uMorph > 0.001) {
-        float mr = length(uv);
-        float ma = mr > 1e-5 ? atan(uv.y, uv.x) : 0.0; // atan(0, 0) is undefined in GLSL ES
-        vec2 polar = vec2(abs(ma) / 1.5707963 - 1.0, (mr - 0.7) * 1.6);
-        // Faded to nothing at the centre: atan has no angle at r = 0, so every
-        // angle met at one point and the centre of the frame drew as a pinched
-        // vortex whenever morph was up (MotionField holds it near 0.7).
-        uv = mix(uv, polar, uMorph * (0.6 + 0.15 * sin(uTime * 0.31)) * smoothstep(0.0, 0.6, mr));
-    }
-    float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
-    uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
-    // Drift and shake move the picture after the spin and the morph. Added
-    // before them, the rotation pivoted on -drift and the morph's pinch rode
-    // the drift, so the whole frame spun around a wandering off-centre point.
-    // Drift ping-pongs rather than running away. The composite pass wraps its
-    // own drift with fract() because it samples a BOUNDED image ("Wrap so the
-    // image scrolls instead of smearing at the clamped edge"), but uv here
-    // indexes an unbounded procedural domain, where a hard wrap would teleport
-    // the whole field by a screen width once per cycle. A triangle wave is the
-    // bounded form that stays continuous: its slope is exactly the old one for
-    // the first cycle, so nothing pops on the styles that read as scrolling
-    // (plasma, aurora, voronoi, grid, waves), while a centred subject - the
-    // sun, the ring, the spiral - always comes back instead of leaving frame
-    // for good and stranding the user on a black screen.
-    vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
-    uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    // Endless zoom: this layer\'s magnification (lib_zoom draws two, an octave apart).
-    gZoomRead = true;
-    float z = uZoom * gZoomMag;
-    uv /= max(z, 0.05);
-    uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
-    // Radial twist: rotate by an angle growing with radius.
-    if (abs(uTwist) > 0.001) {
-        float tr = length(uv) * uTwist * 2.0;
-        uv = mat2(cos(tr), -sin(tr), sin(tr), cos(tr)) * uv;
-    }
-    // Tiling: repeat the plane into a uTile x uTile grid, every other tile
-    // mirrored so neighbours meet edge to edge. A hard mod() wrap cracked the
-    // picture along every tile boundary, and the macros drive uTile live.
-    if (uTile > 1.01) {
-        uv = 1.0 - abs(mod(uv * uTile * 0.5 + 1.0, 4.0) - 2.0);
-    }
-    // Domain warp: swirl coordinates by a sin/cos field.
-    if (uWarp > 0.001) {
-        float w = uWarp * 0.5;
-        uv += w * vec2(sin(uv.y * 3.0 + uTime * 1.1), cos(uv.x * 3.0 + uTime * 0.9));
-    }
-    // Concentric ripple distortion driven by radius.
-    if (uRipple > 0.001) {
-        float r = length(uv);
-        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + sndLevel(SND_SUB_ATT) * 4.0);
-    }
-    return uv;
-}
-
+//#include lib_scene_uniforms
+//#include lib_camera
 //#include lib_palette
+//#include lib_scene_grade
+
+// Mandel: the Mandelbrot set as a landscape, flown over.
+//
+// The c-plane is laid flat: world x is Im(c), world z is Re(c), one world unit
+// is MB_CS of c. The set itself is a black obsidian mesa (its interior never
+// escapes, so it is a flat plateau at MB_TOP), and everything outside falls
+// away from it in cliffs whose height is the Mandelbrot distance estimate:
+// the further a point is from the set, the deeper it sits, down to the floor
+// of the abyss MB_DEPTH below. The filaments and minibrots become ridges, the
+// escape bands of the old flat picture are painted on the cliffs (and, with
+// Turbulence, cut into them as terraces). Islands repeat head to tail every
+// MB_TILE = 32 world units along z, so the flight goes antenna, the
+// period-2 bulb, Seahorse Valley, the cardioid, out over the abyss, and the
+// next island's antenna, the cliffs between them sloping into the abyss. 32 divides 8192, so the rig's travel wrap is
+// invisible. The island is centred on the origin, so the orbit and hover
+// paths circle Seahorse Valley.
+//
+// ---- camera -------------------------------------------------------------------
+//
+// The shared rig, camFly. Every path keeps the eye within |y| <= 2 (glide and
+// spiral wander, orbit bobs, hover drifts), and the whole landscape lies
+// below MB_TOP = -2.8, so the eye can never be inside it and nothing has to
+// be carved around it. The dive is the rig's own travel; there is no UV zoom.
+//
+// ---- audio ------------------------------------------------------------------
+//
+// The same moves the flat style made, in depth:
+//   - a pitch change (SND_HELD_NOTE_CHANGE) glides the islands out to a
+//     hashed spot in c and back, re-picked per onset (pitchGlide).
+//   - an onset (SND_ONSET_ENV) steps the palette's hue phase.
+//   - the kick (SND_KICK_ENV) steepens the cliffs (geometry, not light): the
+//     whole landscape breathes in toward the mesa and out. k0 PULSE scales it.
+//   - sub bass (SND_SUB_ATT) shifts the escape bands, and each band is lit by
+//     its own analyser band (sndSpectrum of the band's iteration fraction).
+//   - overall level rides SND_ENERGY_TREND.
+// Controls: Morph eases the cliffs from steep to gentle, Turbulence (+ k1
+// TEXTURE) cuts the escape-band terraces, Warp waves the c-plane. Knobs:
+// k2 FLOW band scroll, k3 TONE hue, k4 BUILD glow, k5 SPACE fog.
+//
+// ---- why the estimate is safe ----------------------------------------------
+//
+// G = 0.5 |z| log|z| / |z'| is a lower bound of the distance to the set in
+// the c-plane (Koebe 1/4). The solid is y < h(x, z) with
+// h = MB_TOP - K dw + A sin(MB_TERR dw), dw = G / MB_CS; its slope is at most
+// L = K + A MB_TERR, so (y - h) / sqrt(1 + L^2) is 1-Lipschitz and a lower
+// bound, and the march still steps at 0.8 of it for the warp's stretch and the
+// estimate's own wobble. A <= K / MB_TERR keeps h <= MB_TOP, so y - MB_TOP is
+// a second lower bound; above the mesa map() returns it without iterating.
+// The floor is a plane. A tile only measures its own island, so each tile
+// also ramps its cliffs down below the floor within MB_SEAM of its seams
+// (a second 1-Lipschitz bound, joined by max: the solid is the
+// intersection). By symmetry the neighbour holds nothing above the floor
+// within MB_SEAM of the seam either, so a point at seam distance s is at
+// least s + MB_SEAM from it (and never closer than y - MB_TOP): that is dNbr.
+
+#define MB_MAX_STEPS 96
+#define MB_ITERS 64
+/** c per world unit. */
+#define MB_CS 0.1
+/** Re(c) at the island's centre (world z = 0): between the period-2 bulb and the cardioid. */
+#define MB_CX -0.85
+/** One island per this many world units along z. A power of two: it divides the 8192 wrap. */
+#define MB_TILE 32.0
+#define MB_TOP -2.8
+#define MB_DEPTH 6.0
+#define MB_FLOOR (MB_TOP - MB_DEPTH)
+/** Terrace frequency in world units of distance from the set. */
+#define MB_TERR 8.0
+#define MB_FAR 64.0
+/** Nothing stands above the floor this close to a tile seam. */
+#define MB_SEAM 1.0
+/** Slope of the ramp that takes the cliffs down into the floor before a seam. */
+#define MB_RAMP 2.0
+
+/** The escape picture of the last map() call: smooth iteration fraction, interior flag, which surface. */
+float gIter;
+float gInside;
+float gMat;
+/** Per frame. */
+float gK;
+float gTerr;
+float gWarp;
+vec2 gGlide;
+
+float mbKnob(int i) { return clamp(uKnob[i], 0.0, 1.0) - 0.5; }
 
 /**
  * A hashed point in the unit disc for event number `n` (PCG integer hash, so
@@ -144,15 +118,12 @@ vec2 hashSpot(float n) {
  * The pitch-change glide, without frame-to-frame state.
  *
  * The SPOT is chosen by the onset count and eased from the previous count's
- * spot to the new one by the onset envelope: when an onset lands, floor(SND_HIT_TIME)
- * steps and SND_ONSET_ENV jumps to at least 0.4 on the same frame (viz/Reactions
- * triggers it at 0.4..1, not 1), so the mix, measured from 0.4, starts exactly
- * at the old spot and glides to the new one as the envelope falls - it moves
- * without ever stepping. The previous count is wrapped like floor(SND_HIT_TIME) itself
- * (4096), so the count's own wrap is not a jump either. HOW FAR the point travels toward the spot is the
- * pitch-change envelope shaped into a hump (4e(1-e)), which is 0 both before
- * the event (e = 0) and at its instant rise (e = 1), so the point eases out
- * to the spot and back over the envelope's fall rather than snapping there.
+ * spot to the new one by the onset envelope: when an onset lands,
+ * floor(SND_HIT_TIME) steps and SND_ONSET_ENV jumps to at least 0.4 on the
+ * same frame, so the mix, measured from 0.4, starts exactly at the old spot
+ * and glides to the new one as the envelope falls. HOW FAR toward the spot is
+ * the pitch-change envelope shaped into a hump (4e(1-e)), 0 before the event
+ * and at its instant rise, so the islands ease out and back, never snap.
  */
 vec2 pitchGlide() {
     float g = (1.0 - smoothstep(0.05, 0.4, clamp(SND_ONSET_ENV, 0.0, 1.0)));
@@ -161,53 +132,175 @@ vec2 pitchGlide() {
     return spot * (4.0 * e * (1.0 - e));
 }
 
-vec3 grade(vec3 col) {
-    if (uBloom > 0.001) col += uBloom * col * col;
-    if (uPosterize > 0.001) {
-        float levels = mix(24.0, 3.0, uPosterize);
-        col = floor(col * levels + 0.5) / levels;
+/** Distance to the set in world units (0 inside), and the smooth escape fraction in gIter. */
+float setDistance(vec2 c) {
+    gIter = 1.0;
+    gInside = 1.0;
+    // Exact interior tests for the main cardioid and the period-2 bulb: the
+    // whole mesa top skips its 64 iterations.
+    vec2 q = c - vec2(0.25, 0.0);
+    float qq = dot(q, q);
+    if (qq * (qq + q.x) < 0.25 * c.y * c.y) return 0.0;
+    vec2 b = c + vec2(1.0, 0.0);
+    if (dot(b, b) < 0.0625) return 0.0;
+
+    vec2 z = vec2(0.0);
+    vec2 dz = vec2(0.0);
+    float n = 0.0;
+    float r2 = 0.0;
+    for (int i = 0; i < MB_ITERS; i++) {
+        // z' = 2 z z' + 1, then z = z^2 + c.
+        dz = 2.0 * vec2(z.x * dz.x - z.y * dz.y, z.x * dz.y + z.y * dz.x) + vec2(1.0, 0.0);
+        z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
+        r2 = dot(z, z);
+        if (r2 > 256.0) break;
+        n += 1.0;
     }
-    float g = dot(col, vec3(0.299, 0.587, 0.114));
-    if (uDuotone > 0.5) col = pal(g);
-    col = mix(vec3(g), col, uSat);
-    col = (col - 0.5) * uContrast + 0.5;
-    col = pow(max(col, 0.0), vec3(1.0 / max(uGamma, 0.05)));
-    col.r += uTemperature * 0.12;
-    col.b -= uTemperature * 0.12;
-    if (uSolarize > 0.5) col = abs(1.0 - 2.0 * col);
-    col = col * uBright * uIntensity;
-    return mix(col, max(vec3(1.0) - col, 0.0), uInvert);
+    if (r2 <= 256.0) return 0.0;
+    gInside = 0.0;
+    float r = sqrt(r2);
+    // Smooth count: log2(log r) is continuous across the bailout.
+    float sm = n + 1.0 - log2(max(log(r), 1e-3));
+    gIter = clamp(sm / float(MB_ITERS), 0.0, 1.0);
+    return 0.5 * r * log(r) / max(length(dz), 1e-6) / MB_CS;
 }
 
-// Mandelbrot dive: pair with Endless zoom for an infinite descent.
-//
-// What reacts to what (sound events via lib_sound; camera motion is the
-// composite's, applied to this picture automatically):
-//   - a pitch change (SND_HELD_NOTE_CHANGE) glides the focus point out to a hashed spot
-//     and back, the spot re-picked per onset (see pitchGlide). The reach is in
-//     screen units, so the glide is the same size on screen at any zoom.
-//   - an onset (SND_ONSET_ENV) gives the palette a brief hue phase step.
-//   - the kick (SND_KICK_ENV) grows the zoom slightly.
-//   - bass shifts the escape bands, each lit by its own analyser band.
-void main() {
-    // The kick grows the zoom by up to 6%: scale, not brightness.
-    vec2 uv = view() * 1.3 / (1.0 + 0.06 * clamp(SND_KICK_ENV, 0.0, 1.0));
-    // view() divides by this same zoom, so dividing the glide by it too keeps
-    // its reach a fixed fraction of the screen.
-    float zoom = max(uZoom * gZoomMag, 0.05);
-    vec2 c = uv + vec2(-0.743643, 0.131825) + pitchGlide() * (0.35 / zoom);
-    vec2 z = vec2(0.0);
-    float iter = 0.0;
-    const float maxIter = 80.0;
-    for (float i = 0.0; i < maxIter; i++) {
-        z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
-        if (dot(z, z) > 4.0) break;
-        iter++;
+float map(vec3 p) {
+    gMat = 0.0;
+    float above = p.y - MB_TOP;
+    // Nothing reaches above the mesa: a valid bound, and no iteration at all.
+    if (above > 1.0) {
+        gInside = 1.0;
+        return above;
     }
-    float f = iter / maxIter;
-    float smoothF = f + sndLevel(SND_SUB_ATT) * 0.1;
+
+    // Seam-centred tile coordinate: the island's centre is at u = 0.
+    float u = p.z - MB_TILE * floor(p.z / MB_TILE + 0.5);
+    vec2 c = vec2(MB_CX + u * MB_CS, p.x * MB_CS) + gGlide;
+    if (gWarp > 0.001) c += gWarp * 0.03 * vec2(sin(c.y * 5.0 + uTime * 0.4), cos(c.x * 5.0 + uTime * 0.33));
+
+    float dw = setDistance(c);
+    float h = MB_TOP - gK * dw + gTerr * sin(MB_TERR * dw);
+    float L = gK + gTerr * MB_TERR;
+    float dCliff = max((p.y - h) / sqrt(1.0 + L * L), above);
+    float seam = 0.5 * MB_TILE - abs(u);
+    // The flanks off the cusp reach the seam (the estimate there is still
+    // under 2 world units), so they slope into the floor before it.
+    float dRamp = (p.y - MB_FLOOR - MB_RAMP * (seam - MB_SEAM)) / sqrt(1.0 + MB_RAMP * MB_RAMP);
+    dCliff = max(dCliff, dRamp);
+    float dFloor = p.y - MB_FLOOR;
+    float dNbr = max(seam + MB_SEAM, above);
+    if (dFloor < dCliff) gMat = 1.0;
+    return min(min(dCliff, dFloor), dNbr);
+}
+
+vec3 normalAt(vec3 p, float eps) {
+    vec2 k = vec2(1.0, -1.0);
+    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
+                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+}
+
+vec3 skyColour(vec3 rd, float hue) {
+    float up = clamp(rd.y, -1.0, 1.0);
+    vec3 col = mix(pal(hue + 0.6) * 0.08, pal(hue + 0.75) * 0.015, smoothstep(-0.1, 0.6, up));
+    // The glow down the chain of islands, where the flight is going.
+    float ahead = max(dot(rd, normalize(vec3(0.0, -0.08, 1.0))), 0.0);
+    col += pal(hue + 0.1) * (0.22 * pow(ahead, 12.0) + 0.05 * ahead * ahead);
+    return col;
+}
+
+void main() {
+    vec2 uv = view();
+
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float sub = sndLevel(SND_SUB_ATT);
     float hueStep = 0.12 * clamp(SND_ONSET_ENV, 0.0, 1.0);
-    vec3 col = pal(smoothF * 2.0 + uTime * 0.02 + hueStep) * (0.2 + f * 1.4 + sndSpectrum(f) * 0.7);
-    if (iter >= maxIter - 1.0) col *= 0.1;
+
+    // Morph eases the cliffs from steep to gentle; K stays >= 2, which the
+    // terrace limit relies on. The kick only steepens.
+    float morph = clamp(uMorph, 0.0, 1.0);
+    gK = (3.4 - 1.4 * morph) * (1.0 + 0.16 * kick * (1.0 + 2.0 * mbKnob(0)));
+    // A <= 2 / MB_TERR <= K / MB_TERR: the terraces never rise above the mesa.
+    gTerr = 0.25 * clamp(0.4 * uTurbulence + 0.5 * (mbKnob(1) + 0.5), 0.0, 1.0);
+    gWarp = clamp(uWarp, 0.0, 1.0);
+    // 0.03 of c is 0.3 world units: a nudge on screen, as the flat glide was.
+    gGlide = pitchGlide() * 0.03;
+
+    vec3 ro;
+    vec3 rd;
+    camFly(uv, ro, rd);
+    // The landscape tiles every 32 along z, so this shift is invisible and
+    // exact (power of two). Without it, far down the 8192 travel a highp z
+    // has ~0.001 of fraction left and every sample quantises.
+    ro.z = mod(ro.z, MB_TILE);
+
+    // Start the march where the ray meets the slab the landscape can occupy.
+    float t = 0.02;
+    if (ro.y > MB_TOP + 1.0) {
+        if (rd.y >= -1e-4) t = MB_FAR + 1.0;
+        else t = max(t, (ro.y - MB_TOP - 1.0) / -rd.y);
+    }
+    float hitT = -1.0;
+    float glow = 0.0;
+    float used = 0.0;
+    for (int i = 0; i < MB_MAX_STEPS; i++) {
+        // uSteps is the user's Detail; this loop's own bound is the constant.
+        if (float(i) >= uSteps) break;
+        if (t > MB_FAR) break;
+        used = float(i);
+        float d = map(ro + rd * t);
+        float eps = 0.0012 * t + 0.0006;
+        if (d < eps) {
+            hitT = t;
+            break;
+        }
+        // The filaments' rims shine through the gaps between the cliffs.
+        if (gInside < 0.5 && gMat < 0.5) glow += exp(-d * 10.0) * gIter * 0.02;
+        t += max(d * 0.8, eps);
+    }
+    // Out of budget on a grazing ray over the mesa or the cliffs: the ray was
+    // still closing in, so it lands where it stopped instead of showing sky
+    // through the ground.
+    if (hitT < 0.0 && t < MB_FAR && rd.y < 0.0) hitT = t;
+
+    float hue = 0.03 * sin(uTime * 0.05) + 0.25 * mbKnob(3) + hueStep;
+    vec3 sky = skyColour(rd, hue);
+    vec3 col = sky;
+    float fogK = 0.035 * (1.0 - 0.8 * mbKnob(5));
+    if (hitT > 0.0) {
+        vec3 p = ro + rd * hitT;
+        vec3 n = normalAt(p, 0.0015 * hitT + 0.0008);
+        // Restore the hit's escape picture after the normal taps.
+        map(p);
+        vec3 L = normalize(vec3(0.35, 0.8, 0.45));
+        float dif = max(dot(n, L), 0.0);
+        float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 4.0);
+        float spec = pow(max(dot(reflect(rd, n), L), 0.0), 40.0);
+        float ao = clamp(1.0 - used / max(uSteps, 1.0) * 0.9, 0.3, 1.0);
+
+        if (gMat > 0.5) {
+            // The abyss floor: dark, faintly tinted by the bands above it.
+            col = pal(hue + 0.55) * (0.03 + 0.05 * dif) * ao;
+        } else if (gInside > 0.5) {
+            // The set: black obsidian, as the flat style drew it, with the sky
+            // and the glow ahead mirrored in its polish.
+            vec3 refl = skyColour(reflect(rd, n), hue);
+            col = pal(hue + 0.5) * 0.02 + refl * (0.15 + 0.85 * fres) + vec3(spec) * 0.25;
+        } else {
+            // The escape bands, coloured as before: band phase by the smooth
+            // count, sub bass shifting it, each band lit by its own spectrum bin.
+            float f = gIter;
+            float smoothF = f + sub * 0.1;
+            float flow = uTime * 0.02 * (1.0 + 1.5 * mbKnob(2));
+            vec3 base = pal(smoothF * 2.0 + flow + hue) * (0.2 + f * 1.4 + sndSpectrum(f) * 0.7);
+            col = base * (0.25 + 0.75 * dif) * ao + pal(hue + 0.3) * fres * 0.12 + vec3(spec) * 0.2 * ao;
+        }
+        col = mix(col, sky, 1.0 - exp(-hitT * fogK));
+    }
+    col += pal(hue + 0.15) * glow * (0.5 + 0.6 * (mbKnob(4) + 0.5)) * (0.7 + 0.3 * swell);
+
+    col *= 0.8 + 0.25 * swell;
+    col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

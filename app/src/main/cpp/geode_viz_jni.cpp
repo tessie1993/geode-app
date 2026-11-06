@@ -15,6 +15,17 @@ using geode::jni::FloatElements;
 using geode::jni::Utf8Chars;
 
 geode_viz* vizOf(jlong handle) { return reinterpret_cast<geode_viz*>(handle); }
+geode_export_pass* passOf(jlong handle) { return reinterpret_cast<geode_export_pass*>(handle); }
+AAssetManager* assetsOf(JNIEnv* env, jobject assetManager) { return assetManager ? AAssetManager_fromJava(env, assetManager) : nullptr; }
+
+// A direct ByteBuffer's bytes when it holds at least `needed` of them, else null (a heap buffer has no address).
+uint8_t* directBytes(JNIEnv* env, jobject buffer, int64_t needed) {
+    if (!buffer || needed <= 0) return nullptr;
+    auto* bytes = static_cast<uint8_t*>(env->GetDirectBufferAddress(buffer));
+    return bytes && env->GetDirectBufferCapacity(buffer) >= needed ? bytes : nullptr;
+}
+
+int64_t rgbaBytes(jint width, jint height) { return static_cast<int64_t>(width) * static_cast<int64_t>(height) * 4; }
 
 // A Java String[] as owned UTF-8 strings (a null element becomes "").
 std::vector<std::string> utf8Strings(JNIEnv* env, jobjectArray array) {
@@ -362,30 +373,12 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetAdsr(JNIEnv* env, jobject, jlong 
     if (data.get()) geode_viz_set_adsr(vizOf(handle), slot, data.get(), data.length());
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetThermal(JNIEnv*, jobject, jlong handle, jint status, jfloat headroom) {
-    geode_viz_set_thermal(vizOf(handle), status, headroom);
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetPacedFps(JNIEnv*, jobject, jlong handle, jfloat fps) {
-    geode_viz_set_paced_fps(vizOf(handle), fps);
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetQuality(JNIEnv*, jobject, jlong handle, jfloat renderScale,
-                                                       jfloat marchScale, jboolean postFx, jboolean adaptive) {
-    geode_viz_set_quality(vizOf(handle), renderScale, marchScale, postFx == JNI_TRUE, adaptive == JNI_TRUE);
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetLiquidHotPolicy(JNIEnv*, jobject, jlong handle, jint policy) {
-    geode_viz_set_liquid_hot_policy(vizOf(handle), policy);
-}
-
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizLiquidMode(JNIEnv*, jobject, jlong handle) {
-    return geode_viz_liquid_mode(vizOf(handle));
+Java_dev_geode_engine_bridge_GeodeNative_vizFrameBegin(JNIEnv*, jobject, jlong handle, jfloat pacedFps,
+                                                       jfloat renderScale, jfloat marchScale, jboolean postFx,
+                                                       jboolean adaptive, jint liquidHotPolicy) {
+    return geode_viz_frame_begin(vizOf(handle), pacedFps, renderScale, marchScale, postFx == JNI_TRUE ? 1 : 0,
+                                 adaptive == JNI_TRUE ? 1 : 0, liquidHotPolicy);
 }
 
 JNIEXPORT void JNICALL
@@ -407,6 +400,18 @@ JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetUiBlurRegion(JNIEnv*, jobject, jlong handle, jfloat left, jfloat top,
                                                             jfloat right, jfloat bottom, jfloat strength, jfloat cornerPx) {
     geode_viz_set_ui_blur_region(vizOf(handle), left, top, right, bottom, strength, cornerPx);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetEdgeGlow(JNIEnv* env, jobject, jlong handle, jfloatArray opts) {
+    if (!opts) {
+        geode_viz_set_edge_glow(vizOf(handle), nullptr, 0);
+        return;
+    }
+    const jsize count = std::min<jsize>(env->GetArrayLength(opts), GEODE_EDGE_GLOW_FLOATS);
+    float values[GEODE_EDGE_GLOW_FLOATS] = {};
+    env->GetFloatArrayRegion(opts, 0, count, reinterpret_cast<jfloat*>(values));
+    geode_viz_set_edge_glow(vizOf(handle), values, static_cast<int>(count));
 }
 
 JNIEXPORT jboolean JNICALL
@@ -579,6 +584,155 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsRandomize(JNIEnv* env, jobject, j
     return changed ? JNI_TRUE : JNI_FALSE;
 }
 
+// Fixed-rate frame clock (Cast): the state is a caller-owned long[GEODE_FRAME_CLOCK_STATE], copied in and out.
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_frameClockStart(JNIEnv* env, jobject, jlongArray state, jint fps, jlong nowNs) {
+    if (!state || env->GetArrayLength(state) < GEODE_FRAME_CLOCK_STATE) return;
+    int64_t s[GEODE_FRAME_CLOCK_STATE] = {};
+    geode_frame_clock_start(s, fps, nowNs);
+    env->SetLongArrayRegion(state, 0, GEODE_FRAME_CLOCK_STATE, reinterpret_cast<const jlong*>(s));
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_frameClockWaitNs(JNIEnv* env, jobject, jlongArray state, jlong nowNs) {
+    if (!state || env->GetArrayLength(state) < GEODE_FRAME_CLOCK_STATE) return 0;
+    int64_t s[GEODE_FRAME_CLOCK_STATE];
+    env->GetLongArrayRegion(state, 0, GEODE_FRAME_CLOCK_STATE, reinterpret_cast<jlong*>(s));
+    return geode_frame_clock_wait_ns(s, nowNs);
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_frameClockTake(JNIEnv* env, jobject, jlongArray state, jlong nowNs) {
+    if (!state || env->GetArrayLength(state) < GEODE_FRAME_CLOCK_STATE) return 0;
+    int64_t s[GEODE_FRAME_CLOCK_STATE];
+    env->GetLongArrayRegion(state, 0, GEODE_FRAME_CLOCK_STATE, reinterpret_cast<jlong*>(s));
+    const int64_t pts = geode_frame_clock_take(s, nowNs);
+    env->SetLongArrayRegion(state, 0, GEODE_FRAME_CLOCK_STATE, reinterpret_cast<const jlong*>(s));
+    return pts;
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_frameClockAudioUntilUs(JNIEnv* env, jobject, jlongArray state) {
+    if (!state || env->GetArrayLength(state) < GEODE_FRAME_CLOCK_STATE) return 0;
+    int64_t s[GEODE_FRAME_CLOCK_STATE];
+    env->GetLongArrayRegion(state, 0, GEODE_FRAME_CLOCK_STATE, reinterpret_cast<jlong*>(s));
+    return geode_frame_clock_audio_until_us(s);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_castFormat(JNIEnv* env, jobject, jintArray out) {
+    if (!out || env->GetArrayLength(out) < 4) return;
+    int f[4];
+    geode_cast_format(f);
+    env->SetIntArrayRegion(out, 0, 4, reinterpret_cast<const jint*>(f));
+}
+
+// Export post-passes (core/viz/frame/ExportPasses): marshalling only.
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportPassError(JNIEnv* env, jobject, jlong handle) {
+    return env->NewStringUTF(geode_export_pass_error(passOf(handle)));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportPassDestroy(JNIEnv*, jobject, jlong handle) {
+    geode_export_pass_destroy(passOf(handle));
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkTextPx(JNIEnv*, jobject, jint shortSide) {
+    return geode_export_watermark_text_px(shortSide);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkTileWidth(JNIEnv*, jobject, jfloat textWidth) {
+    return geode_export_watermark_tile_width(textWidth);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkTileHeight(JNIEnv*, jobject, jint tileWidth) {
+    return geode_export_watermark_tile_height(tileWidth);
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkCreate(JNIEnv* env, jobject, jobject assetManager, jobject rgba,
+                                                              jint tileWidth, jint tileHeight) {
+    const uint8_t* pixels = directBytes(env, rgba, rgbaBytes(tileWidth, tileHeight));
+    return reinterpret_cast<jlong>(geode_export_watermark_create(assetsOf(env, assetManager), pixels, tileWidth, tileHeight));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkDraw(JNIEnv*, jobject, jlong handle, jint frameWidth, jint frameHeight) {
+    geode_export_watermark_draw(passOf(handle), frameWidth, frameHeight);
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportSeamCreate(JNIEnv* env, jobject, jobject assetManager, jint width, jint height) {
+    return reinterpret_cast<jlong>(geode_export_seam_create(assetsOf(env, assetManager), width, height));
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportSeamAllocate(JNIEnv*, jobject, jlong handle, jint requested) {
+    return geode_export_seam_allocate(passOf(handle), requested);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportSeamCapture(JNIEnv*, jobject, jlong handle, jint index) {
+    geode_export_seam_capture(passOf(handle), index);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportSeamBlend(JNIEnv*, jobject, jlong handle, jint index, jint tail, jint seamFrames) {
+    geode_export_seam_blend(passOf(handle), index, tail, seamFrames);
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportTransitionCreate(JNIEnv* env, jobject, jobject assetManager, jstring id,
+                                                               jlong durationUs) {
+    Utf8Chars name(env, id);
+    return reinterpret_cast<jlong>(geode_export_transition_create(assetsOf(env, assetManager), name.get(), durationUs));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportTransitionConfigure(JNIEnv*, jobject, jlong handle, jint width, jint height) {
+    geode_export_transition_configure(passOf(handle), width, height);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportTransitionSetFrom(JNIEnv* env, jobject, jlong handle, jobject rgba, jint width,
+                                                                jint height) {
+    const uint8_t* pixels = directBytes(env, rgba, rgbaBytes(width, height));
+    if (pixels) geode_export_transition_set_from(passOf(handle), pixels, width, height);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportTransitionDraw(JNIEnv*, jobject, jlong handle, jint inputTex, jlong ptsUs) {
+    geode_export_transition_draw(passOf(handle), static_cast<unsigned>(inputTex), ptsUs);
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportCaptureCreate(JNIEnv* env, jobject, jobject assetManager) {
+    return reinterpret_cast<jlong>(geode_export_capture_create(assetsOf(env, assetManager)));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportCaptureConfigure(JNIEnv*, jobject, jlong handle, jint width, jint height) {
+    geode_export_capture_configure(passOf(handle), width, height);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportCaptureDraw(JNIEnv*, jobject, jlong handle, jint inputTex) {
+    geode_export_capture_draw(passOf(handle), static_cast<unsigned>(inputTex));
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportCaptureRead(JNIEnv* env, jobject, jlong handle, jobject out) {
+    auto* bytes = out ? static_cast<uint8_t*>(env->GetDirectBufferAddress(out)) : nullptr;
+    const jlong capacity = bytes ? env->GetDirectBufferCapacity(out) : 0;
+    return bytes && capacity > 0 && geode_export_capture_read(passOf(handle), bytes, static_cast<size_t>(capacity)) ? JNI_TRUE
+                                                                                                                  : JNI_FALSE;
+}
+
 JNIEXPORT jbyteArray JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_transitionsTable(JNIEnv* env, jobject, jobject assetManager) {
     // Bytes, not a jstring: NewStringUTF takes modified UTF-8, and the library's text is plain UTF-8.
@@ -623,6 +777,73 @@ Java_dev_geode_engine_bridge_GeodeNative_pacerResume(JNIEnv* env, jobject, jlong
     env->GetLongArrayRegion(state, 0, GEODE_PACER_STATE_LONGS, reinterpret_cast<jlong*>(wire));
     geode_pacer_resume(wire);
     env->SetLongArrayRegion(state, 0, GEODE_PACER_STATE_LONGS, reinterpret_cast<const jlong*>(wire));
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_pacerEffectiveCap(JNIEnv*, jobject, jfloat capFps) {
+    return geode_pacer_effective_cap(capFps);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_thermalPush(JNIEnv*, jobject, jint status, jfloat headroom) {
+    geode_thermal_push(status, headroom);
+}
+
+// Cast's audio pump: the state is a caller-owned long[GEODE_CAST_AUDIO_STATE], a step's result a long[GEODE_CAST_AUDIO_STEP].
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_castAudioStart(JNIEnv* env, jobject, jlongArray state, jint rateHz) {
+    if (!state || env->GetArrayLength(state) < GEODE_CAST_AUDIO_STATE) return 0;
+    int64_t s[GEODE_CAST_AUDIO_STATE] = {};
+    const int capacity = geode_cast_audio_start(s, rateHz);
+    env->SetLongArrayRegion(state, 0, GEODE_CAST_AUDIO_STATE, reinterpret_cast<const jlong*>(s));
+    return capacity;
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_castAudioStep(JNIEnv* env, jobject, jlongArray state, jint gainedFrames,
+                                                       jlong untilUs, jlongArray out) {
+    if (!state || !out || env->GetArrayLength(state) < GEODE_CAST_AUDIO_STATE ||
+        env->GetArrayLength(out) < GEODE_CAST_AUDIO_STEP) return;
+    int64_t s[GEODE_CAST_AUDIO_STATE];
+    int64_t o[GEODE_CAST_AUDIO_STEP] = {};
+    env->GetLongArrayRegion(state, 0, GEODE_CAST_AUDIO_STATE, reinterpret_cast<jlong*>(s));
+    geode_cast_audio_step(s, gainedFrames, untilUs, o);
+    env->SetLongArrayRegion(state, 0, GEODE_CAST_AUDIO_STATE, reinterpret_cast<const jlong*>(s));
+    env->SetLongArrayRegion(out, 0, GEODE_CAST_AUDIO_STEP, reinterpret_cast<const jlong*>(o));
+}
+
+// Cast's HLS timing (core/viz/frame/HlsSegments): the init segment's and a fragment's bytes in, its media seconds out.
+JNIEXPORT jdouble JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_hlsFragmentSeconds(JNIEnv* env, jobject, jbyteArray init, jbyteArray fragment) {
+    if (!init || !fragment) return 0.0;
+    const jsize initSize = env->GetArrayLength(init);
+    const jsize fragmentSize = env->GetArrayLength(fragment);
+    auto* i = static_cast<const uint8_t*>(env->GetPrimitiveArrayCritical(init, nullptr));
+    auto* f = static_cast<const uint8_t*>(env->GetPrimitiveArrayCritical(fragment, nullptr));
+    const double seconds = (i && f) ? geode_hls_fragment_seconds(i, static_cast<size_t>(initSize), f, static_cast<size_t>(fragmentSize)) : 0.0;
+    if (f) env->ReleasePrimitiveArrayCritical(fragment, const_cast<uint8_t*>(f), JNI_ABORT);
+    if (i) env->ReleasePrimitiveArrayCritical(init, const_cast<uint8_t*>(i), JNI_ABORT);
+    return seconds;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_hlsWindow(JNIEnv*, jobject) {
+    return geode_hls_window();
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_hlsPlaylist(JNIEnv* env, jobject, jlong firstSequence, jdoubleArray durations,
+                                                     jstring initUri, jstring segmentPrefix, jstring segmentSuffix) {
+    if (!durations) return nullptr;
+    std::vector<double> d(static_cast<size_t>(env->GetArrayLength(durations)));
+    env->GetDoubleArrayRegion(durations, 0, static_cast<jsize>(d.size()), d.data());
+    geode::jni::Utf8Chars uri(env, initUri), prefix(env, segmentPrefix), suffix(env, segmentSuffix);
+    const auto write = [&](char* out, int cap) {
+        return geode_hls_playlist(firstSequence, d.data(), static_cast<int>(d.size()), uri.get(), prefix.get(),
+                                  suffix.get(), out, cap);
+    };
+    std::vector<char> text(static_cast<size_t>(write(nullptr, 0)) + 1);
+    return write(text.data(), static_cast<int>(text.size())) > 0 ? env->NewStringUTF(text.data()) : nullptr;
 }
 
 }

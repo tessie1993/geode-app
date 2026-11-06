@@ -39,7 +39,23 @@ vec3 palProcedural(float t) {
     return mix(a, b, uPaletteMix);
 }
 
+// A THIRD KIND: the user's own gradient (Customize › Look › Palette, core/viz/Palette). Up to eight colours
+// the user picked, interpolated in OKLab on the CPU and handed over as 32 even samples in row order. The
+// ramp is mirrored (a triangle wave) rather than wrapped, so a gradient whose ends differ has no seam where
+// a style's t runs past 1; Hue range and the colour cycle move along it like they do along a colour map.
+uniform vec3 uPalGrad[32];
+/** 0 = a hue or colour-map palette, 1 = the gradient in uPalGrad. */
+uniform float uPalGradMix;
+
+vec3 palGradient(float t) {
+    float u = 1.0 - abs(2.0 * fract((t * uHueRange + uColorShift) * 0.5) - 1.0);
+    float p = u * 31.0;
+    int i = min(int(p), 30);
+    return mix(uPalGrad[i], uPalGrad[i + 1], p - float(i));
+}
+
 vec3 pal(float t) {
+    if (uPalGradMix > 0.5) return palGradient(t);
     vec3 procedural = palProcedural(t);
     if (uPalLutMix <= 0.001) return procedural;
     // Hue shift and the colour cycle stay meaningful on a colour map: they

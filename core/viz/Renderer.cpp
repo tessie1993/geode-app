@@ -33,7 +33,8 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                               return directorPinned_.load(std::memory_order_acquire)
                                          ? pinnedDirectorSeed_.load(std::memory_order_relaxed)
                                          : director::global().seed;
-                          }}),
+                          },
+                          [this] { return frameGradientOn_ ? frameGradient_.data() : nullptr; }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity),
       pcmDeliverScratch_(kPcmCapacity, 0.0f) {
@@ -45,6 +46,20 @@ Renderer::~Renderer() = default;
 void Renderer::setParams(const SceneParams& params) {
     std::lock_guard<std::mutex> lock(stateLock_);
     requestedParams_ = params;
+}
+
+void Renderer::setPalette(const palette::Wire& wire) {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    if (wire.gradient == paletteWire_.gradient && wire.sequence == paletteWire_.sequence) return;
+    paletteWire_ = wire;
+    paletteDirty_ = true;
+}
+
+void Renderer::requestColorProbe(float nx, float ny) {
+    probeX_.store(std::clamp(nx, 0.0f, 1.0f), std::memory_order_relaxed);
+    probeY_.store(std::clamp(ny, 0.0f, 1.0f), std::memory_order_relaxed);
+    probeResult_.store(-1, std::memory_order_relaxed);
+    probePending_.store(true, std::memory_order_release);
 }
 
 void Renderer::pinLayer(bool on) {

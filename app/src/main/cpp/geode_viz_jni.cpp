@@ -485,6 +485,51 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetUnderlay(JNIEnv* env, jobject, jl
     env->ReleaseIntArrayElements(pixels, data, JNI_ABORT);
 }
 
+// The gradient palette's wire (see geode_viz_set_palette); a null array clears both the gradient and the sequence.
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetPalette(JNIEnv* env, jobject, jlong handle, jintArray wire) {
+    if (!wire) {
+        geode_viz_set_palette(vizOf(handle), nullptr, 0);
+        return;
+    }
+    jint* data = env->GetIntArrayElements(wire, nullptr);
+    if (!data) return;
+    geode_viz_set_palette(vizOf(handle), reinterpret_cast<const int32_t*>(data), env->GetArrayLength(wire));
+    env->ReleaseIntArrayElements(wire, data, JNI_ABORT);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizRequestColorProbe(JNIEnv*, jobject, jlong handle, jfloat nx, jfloat ny) {
+    geode_viz_request_color_probe(vizOf(handle), nx, ny);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizTakeColorProbe(JNIEnv*, jobject, jlong handle) {
+    return geode_viz_take_color_probe(vizOf(handle));
+}
+
+// The colours to add beside `rgb` for a harmony kind (0 complementary, 1 triad, 2 analogous, 3 split).
+JNIEXPORT jintArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paletteHarmony(JNIEnv* env, jobject, jint rgb, jint kind) {
+    int32_t found[3];
+    const int n = geode_palette_harmony(rgb, kind, found, 3);
+    jintArray out = env->NewIntArray(n);
+    if (out && n > 0) env->SetIntArrayRegion(out, 0, n, reinterpret_cast<const jint*>(found));
+    return out;
+}
+
+// A gradient's hue base and span (SceneParams units) for the families that colour by hue alone.
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paletteHues(JNIEnv* env, jobject, jintArray rgb) {
+    float hues[2] = {0.0f, 1.0f};
+    jint* data = rgb ? env->GetIntArrayElements(rgb, nullptr) : nullptr;
+    geode_palette_hues(reinterpret_cast<const int32_t*>(data), data ? env->GetArrayLength(rgb) : 0, hues);
+    if (data) env->ReleaseIntArrayElements(rgb, data, JNI_ABORT);
+    jfloatArray out = env->NewFloatArray(2);
+    if (out) env->SetFloatArrayRegion(out, 0, 2, hues);
+    return out;
+}
+
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_catalogueText(JNIEnv* env, jobject) {
     return env->NewStringUTF(geode_catalogue_text());

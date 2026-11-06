@@ -26,6 +26,7 @@
 #include "viz/MotionField.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/Overlays.hpp"
+#include "viz/Palette.hpp"
 #include "viz/Params.hpp"
 #include "viz/PcmHandoff.hpp"
 #include "viz/ProgramBinaryCache.hpp"
@@ -128,6 +129,13 @@ public:
     // start of the next frame; see CompositePass.hpp for the pass itself. `pixels` is Android's
     // Bitmap.getPixels ARGB layout; null (or a non-positive size) clears the layer.
     void setUnderlayRgba(const uint32_t* pixels, int width, int height, int blend, float amount);
+    // The gradient palette and the palette sequence (viz/Palette), latched for the next frame. An empty
+    // gradient and no sequence leave the style on its hue palette.
+    void setPalette(const palette::Wire& wire);
+    // The eyedropper: the colour of the finished frame at (nx, ny) in 0..1 (y down), read on the GL thread
+    // after the composite and handed out once as 0xRRGGBB; -1 until it has been read.
+    void requestColorProbe(float nx, float ny);
+    int takeColorProbe() { return probeResult_.exchange(-1, std::memory_order_acq_rel); }
     ThermalGovernor& thermal() { return thermal_; }
     // Any thread: returns a copy (see Renderer.cpp) since fail() mutates lastError_ concurrently.
     std::string lastError() const;
@@ -191,6 +199,10 @@ private:
     // After the composite, before the output probe: the wallpaper's edge glow, while the shell has it on.
     void drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt);
     void deliverPcm(Scene& scene);
+    // Once a frame after the sound engine steps: bakes the gradient (or the sequence's blend) for the scenes.
+    void stepPalette(float dt);
+    // After the composite, before the UI blur: answers a pending eyedropper request from targetFbo.
+    void answerColorProbe(GLuint targetFbo);
     void stepOverlays(Scene& scene, const SceneParams& p, float dt);
     void stepCamera(const SceneParams& p, float dt);
     void wireFlow(Scene& target, const SceneParams& p);
@@ -295,6 +307,18 @@ private:
     Framebuffer fboB_{"sceneB"};
     GLuint quadVao_ = 0;
     GLuint paletteLutTex_ = 0;
+    // The gradient palette: the shell's latest (stateLock_), and the GL thread's baked copy for this frame.
+    palette::Wire paletteWire_;
+    bool paletteDirty_ = false;
+    palette::Gradient gradient_;
+    palette::Baked gradientBaked_{};
+    palette::SequenceRunner sequence_;
+    palette::Baked frameGradient_{};
+    bool frameGradientOn_ = false;
+    std::atomic<bool> probePending_{false};
+    std::atomic<float> probeX_{0.0f};
+    std::atomic<float> probeY_{0.0f};
+    std::atomic<int> probeResult_{-1};
 
     mutable std::mutex stateLock_;
     SceneParams requestedParams_;

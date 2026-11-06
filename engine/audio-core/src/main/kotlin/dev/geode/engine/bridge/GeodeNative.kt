@@ -487,6 +487,35 @@ object GeodeNative {
     external fun vizReleaseScenes(handle: Long)
 
     /**
+     * The gradient palette and the palette sequence (core/viz/Palette) as ints, colours packed 0xRRGGBB:
+     * `[stopCount, rgb x stopCount, beats, paletteCount, (stopCount, rgb x stopCount) x paletteCount]`.
+     * null clears both. Any thread; latched for the next frame.
+     */
+    external fun vizSetPalette(
+        handle: Long,
+        wire: IntArray?,
+    )
+
+    /** The eyedropper: asks the GL thread for the finished frame's colour at ([nx], [ny]), 0..1, y down. */
+    external fun vizRequestColorProbe(
+        handle: Long,
+        nx: Float,
+        ny: Float,
+    )
+
+    /** The eyedropper's answer, once: 0xRRGGBB, or -1 while it is not read yet. */
+    external fun vizTakeColorProbe(handle: Long): Int
+
+    /** The colours to add beside [rgb] (0xRRGGBB): [kind] 0 complementary, 1 triad, 2 analogous, 3 split-complementary. */
+    external fun paletteHarmony(
+        rgb: Int,
+        kind: Int,
+    ): IntArray
+
+    /** A gradient's hue base and span in SceneParams units (`[base, span]`), for the hue-only families. */
+    external fun paletteHues(rgb: IntArray): FloatArray
+
+    /**
      * Full-frame RGBA8 underlay blended UNDER/INTO the scene: [blend] 0 = screen (replaces the scene
      * where it is black), 1 = multiply, 2 = add; [amount] 0..1. `pixels` is Android's `Bitmap.getPixels`
      * ARGB layout, width*height entries; null (or a non-positive size) clears it. Any thread; latched

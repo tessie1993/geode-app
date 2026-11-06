@@ -528,7 +528,7 @@ private fun PanelPiece(
                 }) { Text("Reset the knobs") }
             }
         }
-        "@palette_maker" -> ProGated(id, "Make a palette") { if (sectionVisible()) PaletteMakerCard(p, onChange, rememberSavedPalettes()) }
+        "@palette_maker" -> ProGated(id, "Make a palette") { if (sectionVisible()) PaletteBuilderCard(p, onChange, rememberSavedPalettes()) }
         "@auto_moments" -> DirectorSwitch()
         "@moments" -> {
             val reactions by vm.reactions.collectAsStateWithLifecycle()

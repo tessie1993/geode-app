@@ -119,3 +119,7 @@ jobs:
           # Cast's HLS timing (#656): segment durations from the fragment's media time, TARGETDURATION, the playlist text.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/hls_segments_test.cpp core/api/geode_frame_api.cpp -o hls_segments_test
           ./hls_segments_test
+          # The gradient palette: OKLab gradient order and endpoints, harmony hue offsets, the shell wire, and the
+          # palette sequence (steps exactly every N beats, continuous crossfade, free 120 BPM clock without a beat).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/palette_test.cpp core/viz/Palette.cpp -o palette_test
+          ./palette_test

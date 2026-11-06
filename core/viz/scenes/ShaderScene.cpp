@@ -7,6 +7,7 @@
 #include "viz/Catalogue.hpp"
 #include "viz/EndlessZoom.hpp"
 #include "viz/NoteResponse.hpp"
+#include "viz/Palette.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 #include "viz/world/WorldAssets.hpp"
 
@@ -139,6 +140,11 @@ void ShaderScene::draw(float timeSeconds) {
     }
     set1f("uPalLutMix", flag(lutSelected));
     set1f("uPalLutRow", paletteRowCoordinate(std::max(p.paletteLut, 0)));
+    // The gradient palette (viz/Palette, lib_palette's uPalGrad): the user's colours in row order, or the
+    // sequence's blend, in place of the hue palette while one is set.
+    const float* gradient = host_.paletteGradient ? host_.paletteGradient() : nullptr;
+    set1f("uPalGradMix", gradient != nullptr ? 1.0f : 0.0f);
+    if (gradient != nullptr) glUniform3fv(uniforms_.loc("uPalGrad"), palette::kBakedSamples, gradient);
     const float marchScale = host_.marchScale ? host_.marchScale() : 1.0f;
     set1f("uSteps", std::max(std::round(marchSteps(p.marchDetail) * marchScale), kMarchMinScaledSteps));
     uploadMotion();

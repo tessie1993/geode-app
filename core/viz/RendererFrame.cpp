@@ -63,6 +63,7 @@ float Renderer::beginFrame(double timeSeconds) {
         if (sound_) sound_->step(dt, soundFrame_);
     }
     applyStyleSchedule();
+    stepPalette(dt);
     std::vector<std::pair<std::string, std::string>> pending;
     {
         std::lock_guard<std::mutex> lock(stateLock_);
@@ -408,7 +409,11 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
         glClear(GL_COLOR_BUFFER_BIT);
         return;
     }
-    const SceneParams p = resolveParams(dt);
+    SceneParams p = resolveParams(dt);
+    // The families that colour by hue alone (the simulations, MilkDrop) follow the gradient's hue range.
+    if (frameGradientOn_ && scene->family() != SceneFamily::Shader) {
+        palette::approximateHues(frameGradient_, p.paletteBaseOverride, p.paletteRangeOverride);
+    }
     applyPendingFluidInjection();
     resolveLayerScene();
     stepOverlays(*scene, p, dt);
@@ -421,7 +426,51 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     const GLuint liquidTex = drawLiquid(*scene, p, dt);
     composite(p, progress, targetFbo, liquidTex);
     drawEdgeGlow(targetFbo, timeSeconds, dt);
+    answerColorProbe(targetFbo);
     drawUiBlur(targetFbo);
+}
+
+void Renderer::stepPalette(float dt) {
+    palette::Wire wire;
+    bool changed = false;
+    {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        if (paletteDirty_) {
+            wire = paletteWire_;
+            paletteDirty_ = false;
+            changed = true;
+        }
+    }
+    if (changed) {
+        gradient_ = wire.gradient;
+        palette::bake(gradient_, gradientBaked_);
+        sequence_.set(wire.sequence);
+    }
+    if (sequence_.active()) {
+        sequence_.step(soundFrame_.beatCount, soundFrame_.beatPhase, soundFrame_.beatConf, dt);
+        frameGradient_ = sequence_.current();
+        frameGradientOn_ = true;
+    } else if (gradient_.count > 0) {
+        frameGradient_ = gradientBaked_;
+        frameGradientOn_ = true;
+    } else {
+        frameGradientOn_ = false;
+    }
+}
+
+void Renderer::answerColorProbe(GLuint targetFbo) {
+    if (!probePending_.exchange(false, std::memory_order_acq_rel)) return;
+    const int x = std::clamp(static_cast<int>(probeX_.load(std::memory_order_relaxed) * static_cast<float>(width_)), 0, std::max(width_ - 1, 0));
+    // The window's y runs down, GL's up.
+    const int y = std::clamp(static_cast<int>((1.0f - probeY_.load(std::memory_order_relaxed)) * static_cast<float>(height_)), 0,
+                             std::max(height_ - 1, 0));
+    GLint previous = 0;
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &previous);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, targetFbo);
+    uint8_t px[4] = {0, 0, 0, 255};
+    glReadPixels(x, y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, px);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(previous));
+    probeResult_.store((px[0] << 16) | (px[1] << 8) | px[2], std::memory_order_release);
 }
 
 void Renderer::drawUiBlur(GLuint targetFbo) {

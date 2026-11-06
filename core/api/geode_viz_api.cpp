@@ -11,6 +11,7 @@
 #include "api/geode_api.h"
 #include "viz/Director.hpp"
 #include "viz/NoteResponse.hpp"
+#include "viz/Palette.hpp"
 #include "viz/Macros.hpp"
 #include "viz/LayerState.hpp"
 #include "viz/ReactionDna.hpp"
@@ -518,6 +519,37 @@ void geode_viz_set_ui_blur_region(geode_viz* v, float left, float top, float rig
 void geode_viz_set_edge_glow(geode_viz* v, const float* opts, int count) {
     if (!v) return;
     v->renderer.setEdgeGlow(geode::viz::frame::edge_glow::parse(opts, count));
+}
+
+void geode_viz_set_palette(geode_viz* v, const int32_t* wire, int count) {
+    if (v) v->renderer.setPalette(geode::viz::palette::decodeWire(wire, count));
+}
+
+void geode_viz_request_color_probe(geode_viz* v, float nx, float ny) {
+    if (v) v->renderer.requestColorProbe(nx, ny);
+}
+
+int geode_viz_take_color_probe(geode_viz* v) {
+    return v ? v->renderer.takeColorProbe() : -1;
+}
+
+int geode_palette_harmony(int32_t rgb, int kind, int32_t* out, int capacity) {
+    if (!out || capacity <= 0) return 0;
+    namespace pal = geode::viz::palette;
+    pal::Rgb found[3];
+    const int n = std::min(pal::harmony(pal::fromPacked(rgb), static_cast<pal::Harmony>(std::clamp(kind, 0, 3)), found), capacity);
+    for (int i = 0; i < n; ++i) out[i] = pal::toPacked(found[i]);
+    return n;
+}
+
+void geode_palette_hues(const int32_t* rgb, int count, float* out) {
+    if (!out) return;
+    namespace pal = geode::viz::palette;
+    pal::Gradient g;
+    for (int i = 0; rgb && i < std::min(count, pal::kMaxStops); ++i) g.stops[static_cast<size_t>(g.count++)] = pal::fromPacked(rgb[i]);
+    pal::Baked baked;
+    pal::bake(g, baked);
+    pal::approximateHues(baked, out[0], out[1]);
 }
 
 int geode_viz_knows(geode_viz* v, const char* scene_id) {

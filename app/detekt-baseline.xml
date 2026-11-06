@@ -13,7 +13,6 @@
     <ID>LoopWithTooManyJumpStatements:AutoVisualsPrefsStore.kt$AutoVisualsPrefsStore.Companion$for</ID>
     <ID>LoopWithTooManyJumpStatements:Lyrics.kt$LyricsLoader$for</ID>
     <ID>LoopWithTooManyJumpStatements:PerformanceTake.kt$PerformanceTake.Timeline$while</ID>
-    <ID>MatchingDeclarationName:PaletteMaker.kt$SavedPalettes</ID>
     <ID>NestedBlockDepth:AudioTranscoder.kt$AudioTranscoder$fun transcode( uri: Uri, maxDurationMs: Long, startMs: Long = 0L, outputRateHz: Int? = null, isCancelled: () -&gt; Boolean = { false }, onProgress: (Float) -&gt; Unit = {}, ): Result</ID>
     <ID>NestedBlockDepth:AudioTranscoder.kt$AudioTranscoder$private fun transcodeAiff( aiff: dev.geode.audio.AiffPcm, maxDurationMs: Long, startMs: Long, outputRateHz: Int?, isCancelled: () -&gt; Boolean, onProgress: (Float) -&gt; Unit, ): Result</ID>
     <ID>NestedBlockDepth:PlaybackCapture.kt$PlaybackCapture$@RequiresApi(Build.VERSION_CODES.Q) private fun openRecord(projection: MediaProjection): AudioRecord?</ID>

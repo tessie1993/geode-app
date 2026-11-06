@@ -37,6 +37,7 @@ class WidgetPublisher(
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var artJob: Job? = null
     private var tickJob: Job? = null
+
     @Volatile private var artUri: String? = null
 
     override fun onEvents(

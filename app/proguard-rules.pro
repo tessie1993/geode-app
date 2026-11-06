@@ -22,14 +22,13 @@
 # ---------------------------------------------------------------------------
 # Media3 / ExoPlayer
 # ---------------------------------------------------------------------------
-# Media3 resolves extractors, decoders and audio-processor implementations by
-# name at runtime; it ships consumer rules for its own classes, but the
-# reflective renderer lookup also touches platform audiofx wrappers.
-# Both rules are wider than they need to be (the dontwarn now also hides
-# media3-cast and media3-muxer warnings); narrow them only with a device check
-# of playback, since they sit on the audio path (docs/play/R8_KEEP_RULES.md).
+# Media3 ships consumer rules for the renderers and extractors it loads by name, and this
+# app's audio code (TapRenderersFactory, MvzAudioProcessorChain, PcmTap) calls the audio
+# classes directly, so the old package-wide `-keep class androidx.media3.exoplayer.audio.**`
+# is gone (1,868 items R8 could not shrink; docs/play/R8_KEEP_RULES.md).
+# The dontwarn also hides media3-cast and media3-muxer warnings; narrow it to the classes
+# R8 actually reports once a release build's warnings are read.
 -dontwarn androidx.media3.**
--keep class androidx.media3.exoplayer.audio.** { *; }
 
 # ---------------------------------------------------------------------------
 # Kotlin / coroutines

@@ -57,6 +57,10 @@ jobs:
       - name: Assemble debug APK
         run: ./gradlew :app:assembleDebug --stacktrace --no-daemon
 
+      # Play's 16 KB page-size rule (tools/check-16kb.sh): zipalign -P 16, every .so LOAD >= 2**14.
+      - name: Check 16 KB page alignment
+        run: bash tools/check-16kb.sh app/build/outputs/apk/debug/app-debug.apk
+
       # The APK this gate just built, downloadable from the run's Summary page, so every
       # pull request has an installable debug build without waiting for the tests in
       # android.yml (now manual). Uploaded before the linters, so a lint finding still

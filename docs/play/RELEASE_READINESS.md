@@ -3,7 +3,8 @@
 A pass over what stands between `main` and a production release. It
 builds on a play-policy-insights audit (compliant) and adds
 the `android-permissions-security` and `android-intent-security` checks on the manifest.
-R8 keep rules are covered by a separate analysis and are not repeated here.
+R8 keep rules are in [R8_KEEP_RULES.md](R8_KEEP_RULES.md); the release-build checks are
+under "Release build (AAB)" below.
 
 Ranked: **blockers** stop a production release; **should fix** won't get the app
 rejected but is a real defect; **nice-to-have** is polish.
@@ -21,9 +22,23 @@ rejected but is a real defect; **nice-to-have** is polish.
 | B7 | **Japan (if it is a sales country).** Under Japan's Mobile Software Competition Act, Play asks developers selling in Japan to accept the updated terms and authorise Google as seller of record in Japan by **2026-12-01**; without it, Japan is dropped from the app's countries. Skip if Japan is excluded. | Play Console › Settings › Payments profile / Policy and programs | You |
 
 Code-side, nothing found would get the build rejected: targetSdk 36 meets the current
-requirement, every `.so` is 16 KB aligned and CI checks it, a CI check keeps INTERNET to
+requirement, every `.so` is 16 KB aligned and CI checks it (`tools/check-16kb.sh`), a CI check keeps INTERNET to
 Cast only and AD_ID out of the merged manifest, every foreground service has a type, every
 `PendingIntent` is `FLAG_IMMUTABLE`, and PBL 9.1.0 is current (no upgrade needed).
+
+## Release build (AAB)
+
+Checked 2026-11-06; `release.yml` (manual run) enforces most of it.
+
+| Area | State |
+|---|---|
+| Target API | `targetSdk` 36 meets Play's requirement (API 36 for new apps and updates since 31 Aug 2026; `release.yml` fails below 36). `compileSdk` 37 is at or above it, with AGP 9.3.1. Plan the move to 37 before Play asks for it. |
+| 16 KB pages | NDK r28 (`ndkVersion` 28.0.13004108, which also ships a 16 KB `libc++_shared.so`) and `-Wl,-z,max-page-size=16384` for `libgeode.so` and, through `CMAKE_SHARED_LINKER_FLAGS`, `libprojectM-4.so`. `useLegacyPackaging = false` keeps `.so` files uncompressed. No prebuilt `.so` is checked in (TagLib and meshoptimizer are static; `third_party/oboe` and `kissfft` are not part of the build). Checks: the Gradle task `checkNativePageAlignment` after `assembleRelease`/`bundleRelease`, and `tools/check-16kb.sh` (`zipalign -c -P 16 -v 4` on APKs, `llvm-readelf` LOAD alignment >= 2**14 on APKs and the AAB) in `android.yml` (debug APK, every PR) and `release.yml` (release APK built beside the AAB, and the AAB). |
+| Signing | `release.yml` signs with the upload key when the four `MUZVIZ_UPLOAD_*` secrets and the `PLAY_LICENSE_KEY` variable exist, else builds unsigned with a warning (B2). |
+| versionCode | `geode.versionCodeBase` + release number N (`tools/release-number.sh`, the number of the pre-release the commit shipped as). N only grows, so versionCode increases. Raise `geode.versionCodeBase` only upward. |
+| Native symbols | `ndk.debugSymbolLevel = SYMBOL_TABLE` in the release build type; `release.yml` fails if the AAB has no `BUNDLE-METADATA/com.android.tools.build.debugsymbols/`. |
+| R8 mapping | `release.yml` uploads `mapping.txt`, `configuration.txt` and `usage.txt` in the `muzviz-release-<run>` artifact (30 days); Play reads the mapping from the AAB, upload the file too if the console asks. |
+| Baseline profile | `app/src/main/baseline-prof.txt` is packaged by AGP; `release.yml` warns when the bundle has none. |
 
 ## Should fix
 

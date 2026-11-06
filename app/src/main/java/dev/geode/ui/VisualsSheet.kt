@@ -2,7 +2,6 @@ package dev.geode.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -34,14 +33,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -65,6 +59,7 @@ import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneHapticCue
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
+import dev.geode.ui.theme.edgeFade
 import dev.geode.ui.theme.floatingGlass
 import dev.geode.ui.theme.glassBlur
 import dev.geode.ui.theme.performStoneHaptic
@@ -284,7 +279,7 @@ private fun OptionsHeader(
             val tabScroll = rememberScrollState()
             PrimaryScrollableTabRow(
                 selectedTabIndex = nav.selectedTab,
-                modifier = Modifier.weight(1f).scrollFade(tabScroll),
+                modifier = Modifier.weight(1f).edgeFade(tabScroll, horizontal = true),
                 scrollState = tabScroll,
                 // Tabs as wide as their labels with no edge padding, so all four fit beside × on a
                 // phone instead of reading "tyles" or "MilkDr" at the scroll window's ends. Where
@@ -514,26 +509,3 @@ private val TAB_HEIGHT = 48.dp
 
 /** Each side of a tab's label. */
 private val TAB_TEXT_PADDING = 8.dp
-
-/** How far in a scrolled-off end of the tab row fades. */
-private val TAB_FADE = 24.dp
-
-/**
- * Fades the ends of a horizontally scrolling row that has more to show that way, so a label cut
- * at the edge reads as "scroll for more" rather than a truncated word. Nothing when it all fits.
- */
-private fun Modifier.scrollFade(scroll: ScrollState): Modifier =
-    graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-        .drawWithContent {
-            drawContent()
-            val fade = TAB_FADE.toPx().coerceAtMost(size.width / 2)
-            if (scroll.canScrollBackward) {
-                drawRect(Brush.horizontalGradient(0f to Color.Transparent, 1f to Color.Black, endX = fade), blendMode = BlendMode.DstIn)
-            }
-            if (scroll.canScrollForward) {
-                drawRect(
-                    Brush.horizontalGradient(0f to Color.Black, 1f to Color.Transparent, startX = size.width - fade, endX = size.width),
-                    blendMode = BlendMode.DstIn,
-                )
-            }
-        }

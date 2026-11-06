@@ -114,16 +114,5 @@ SceneParams AdsrEngine::apply(const SceneParams& p, const std::array<AdsrConfig,
     return r;
 }
 
-void AdsrEngine::addLuminanceDrive(const std::array<AdsrConfig, kCount>& configs, const std::array<float, kCount>& envs,
-                                   LuminanceDrive& out) {
-    for (int i = 0; i < kCount; i++) {
-        const AdsrConfig& c = configs[i];
-        if (!c.enabled || envs[i] <= 0.0f) continue;
-        for (const LfoTarget t : c.targets) {
-            const int lum = luminanceIndex(t);
-            if (lum >= 0) out[static_cast<size_t>(lum)] += envs[i] * c.amount;
-        }
-    }
-}
 
 }  // namespace geode::viz

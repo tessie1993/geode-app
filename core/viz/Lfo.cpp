@@ -30,19 +30,6 @@ bool isLuminanceTarget(LfoTarget target) {
     }
 }
 
-int luminanceIndex(LfoTarget target) {
-    switch (target) {
-        case LfoTarget::Brightness: return 0;
-        case LfoTarget::Intensity: return 1;
-        case LfoTarget::Saturation: return 2;
-        case LfoTarget::Bloom: return 3;
-        case LfoTarget::Vignette: return 4;
-        case LfoTarget::ColorShift: return 5;
-        case LfoTarget::PaletteMix: return 6;
-        case LfoTarget::Temperature: return 7;
-        default: return -1;
-    }
-}
 
 float polarized(float raw, ModPolarity polarity) {
     switch (polarity) {
@@ -65,61 +52,85 @@ float shape(float value, ModCurve curve) {
     return value < 0.0f ? -shaped : shaped;
 }
 
+namespace {
+
+// What a target writes: one float field, and how far one unit of modulation moves it. The clamp is
+// the field's own range in viz/ParamTable.inc, so an LFO, an envelope or a route can never push a
+// field past what its control offers, and a Circular field (the hue) adds unclamped.
+struct Drive {
+    float SceneParams::*member;
+    ParamSlot slot;
+    float scale;
+};
+
+bool driveOf(LfoTarget target, Drive& out) {
+#define GEODE_DRIVE(field, scale)                              \
+    out = Drive{&SceneParams::field, ParamSlot::field, scale}; \
+    return true
+    switch (target) {
+        case LfoTarget::Speed: GEODE_DRIVE(speed, 1.0f);
+        case LfoTarget::Zoom: GEODE_DRIVE(zoom, 1.0f);
+        case LfoTarget::Rotation: GEODE_DRIVE(rotation, 1.5f);
+        case LfoTarget::Sway: GEODE_DRIVE(sway, 1.0f);
+        case LfoTarget::Pulse: GEODE_DRIVE(pulse, 1.0f);
+        case LfoTarget::DriftX: GEODE_DRIVE(driftX, 1.0f);
+        case LfoTarget::DriftY: GEODE_DRIVE(driftY, 1.0f);
+        case LfoTarget::Warp: GEODE_DRIVE(warp, 1.0f);
+        case LfoTarget::Ripple: GEODE_DRIVE(ripple, 1.0f);
+        case LfoTarget::Morph: GEODE_DRIVE(morph, 1.0f);
+        case LfoTarget::Twist: GEODE_DRIVE(twist, 1.0f);
+        case LfoTarget::Tile: GEODE_DRIVE(tile, 2.0f);
+        case LfoTarget::Pixelate: GEODE_DRIVE(pixelate, 1.0f);
+        case LfoTarget::Posterize: GEODE_DRIVE(posterize, 1.0f);
+        case LfoTarget::ColorShift: GEODE_DRIVE(colorShift, 0.5f);
+        case LfoTarget::PaletteMix: GEODE_DRIVE(paletteMix, 1.0f);
+        case LfoTarget::Saturation: GEODE_DRIVE(saturation, 1.0f);
+        case LfoTarget::Brightness: GEODE_DRIVE(brightness, 1.0f);
+        case LfoTarget::Intensity: GEODE_DRIVE(intensity, 1.0f);
+        case LfoTarget::Bloom: GEODE_DRIVE(bloom, 1.0f);
+        case LfoTarget::Temperature: GEODE_DRIVE(temperature, 1.0f);
+        case LfoTarget::Turbulence: GEODE_DRIVE(turbulence, 1.0f);
+        case LfoTarget::ChromaAb: GEODE_DRIVE(chromaAb, 1.0f);
+        case LfoTarget::Vignette: GEODE_DRIVE(vignette, 1.0f);
+        case LfoTarget::Fisheye: GEODE_DRIVE(fisheye, 1.0f);
+        case LfoTarget::ParticleSize: GEODE_DRIVE(particleSize, 1.0f);
+        case LfoTarget::TrailLength: GEODE_DRIVE(trailLength, 1.0f);
+        case LfoTarget::FluidCurl: GEODE_DRIVE(fluidCurl, 25.0f);
+        case LfoTarget::FluidRadius: GEODE_DRIVE(fluidSplatRadius, 0.15f);
+        case LfoTarget::FluidForce: GEODE_DRIVE(fluidSplatForce, 1.5f);
+        case LfoTarget::FluidGlow: GEODE_DRIVE(fluidBloomIntensity, 1.0f);
+        case LfoTarget::FluidFade: GEODE_DRIVE(fluidDensityDissipation, 1.5f);
+        case LfoTarget::FluidCatchPull: GEODE_DRIVE(fluidCatchPull, 1.5f);
+        case LfoTarget::FluidCatchRadius: GEODE_DRIVE(fluidCatchRadius, 0.12f);
+        case LfoTarget::FlowStrength: GEODE_DRIVE(flowStrength, 1.0f);
+        case LfoTarget::WaterRipple: GEODE_DRIVE(waterRippleStrength, 1.0f);
+        case LfoTarget::RippleOverlay: GEODE_DRIVE(rippleOverlayStrength, 1.0f);
+        case LfoTarget::CamFly: GEODE_DRIVE(camFly, 1.0f);
+        case LfoTarget::CamOrbit: GEODE_DRIVE(camOrbit, 1.0f);
+        case LfoTarget::CamPush: GEODE_DRIVE(camPush, 1.0f);
+        case LfoTarget::CamYaw: GEODE_DRIVE(camYaw, 1.0f);
+        case LfoTarget::CamPitch: GEODE_DRIVE(camPitch, 1.0f);
+        case LfoTarget::CamRoll: GEODE_DRIVE(camRoll, 1.0f);
+        case LfoTarget::CamFov: GEODE_DRIVE(camFov, 1.0f);
+        case LfoTarget::CamShake: GEODE_DRIVE(camShake, 1.0f);
+        case LfoTarget::FlowCurl: GEODE_DRIVE(flowCurl, 25.0f);
+        case LfoTarget::FlowForce: GEODE_DRIVE(flowForce, 1.5f);
+        case LfoTarget::EndlessZoomSpeed: GEODE_DRIVE(endlessZoomSpeed, 0.5f);
+        // None, the retired Glitch slot and the chained targets write no scene parameter.
+        default: return false;
+    }
+#undef GEODE_DRIVE
+}
+
+}  // namespace
+
 SceneParams applyLfoTarget(const SceneParams& r, LfoTarget target, float v) {
     SceneParams o = r;
-    switch (target) {
-        case LfoTarget::Speed: o.speed = std::clamp(r.speed + v, 0.05f, 4.0f); break;
-        case LfoTarget::Zoom: o.zoom = std::clamp(r.zoom + v, 0.3f, 3.0f); break;
-        case LfoTarget::Rotation: o.rotation = std::clamp(r.rotation + v * 1.5f, -3.0f, 3.0f); break;
-        case LfoTarget::Sway: o.sway = std::clamp(r.sway + v, 0.0f, 1.0f); break;
-        case LfoTarget::Pulse: o.pulse = std::clamp(r.pulse + v, 0.0f, 1.0f); break;
-        case LfoTarget::DriftX: o.driftX = std::clamp(r.driftX + v, -1.0f, 1.0f); break;
-        case LfoTarget::DriftY: o.driftY = std::clamp(r.driftY + v, -1.0f, 1.0f); break;
-        case LfoTarget::Warp: o.warp = std::clamp(r.warp + v, 0.0f, 1.0f); break;
-        case LfoTarget::Ripple: o.ripple = std::clamp(r.ripple + v, 0.0f, 1.0f); break;
-        case LfoTarget::Morph: o.morph = std::clamp(r.morph + v, 0.0f, 1.0f); break;
-        case LfoTarget::Twist: o.twist = std::clamp(r.twist + v, -1.0f, 1.0f); break;
-        case LfoTarget::Tile: o.tile = std::clamp(r.tile + v * 2.0f, 1.0f, 6.0f); break;
-        case LfoTarget::Pixelate: o.pixelate = std::clamp(r.pixelate + v, 0.0f, 1.0f); break;
-        case LfoTarget::Posterize: o.posterize = std::clamp(r.posterize + v, 0.0f, 1.0f); break;
-        case LfoTarget::ColorShift: o.colorShift = r.colorShift + v * 0.5f; break;
-        case LfoTarget::PaletteMix: o.paletteMix = std::clamp(r.paletteMix + v, 0.0f, 1.0f); break;
-        case LfoTarget::Saturation: o.saturation = std::clamp(r.saturation + v, 0.0f, 1.5f); break;
-        case LfoTarget::Brightness: o.brightness = std::clamp(r.brightness + v, 0.2f, 2.0f); break;
-        case LfoTarget::Intensity: o.intensity = std::clamp(r.intensity + v, 0.2f, 2.0f); break;
-        case LfoTarget::Bloom: o.bloom = std::clamp(r.bloom + v, 0.0f, 1.0f); break;
-        case LfoTarget::Temperature: o.temperature = std::clamp(r.temperature + v, -1.0f, 1.0f); break;
-        case LfoTarget::Turbulence: o.turbulence = std::clamp(r.turbulence + v, 0.0f, 1.5f); break;
-        case LfoTarget::ChromaAb: o.chromaAb = std::clamp(r.chromaAb + v, 0.0f, 1.0f); break;
-        case LfoTarget::Vignette: o.vignette = std::clamp(r.vignette + v, 0.0f, 1.0f); break;
-        case LfoTarget::Fisheye: o.fisheye = std::clamp(r.fisheye + v, -1.0f, 1.0f); break;
-        case LfoTarget::ParticleSize: o.particleSize = std::clamp(r.particleSize + v, 0.3f, 2.5f); break;
-        case LfoTarget::TrailLength: o.trailLength = std::clamp(r.trailLength + v, 0.05f, 0.98f); break;
-        case LfoTarget::FluidCurl: o.fluidCurl = std::clamp(r.fluidCurl + v * 25.0f, 0.0f, 50.0f); break;
-        case LfoTarget::FluidRadius: o.fluidSplatRadius = std::clamp(r.fluidSplatRadius + v * 0.15f, 0.02f, 0.4f); break;
-        case LfoTarget::FluidForce: o.fluidSplatForce = std::clamp(r.fluidSplatForce + v * 1.5f, 0.0f, 3.0f); break;
-        case LfoTarget::FluidGlow: o.fluidBloomIntensity = std::clamp(r.fluidBloomIntensity + v, 0.1f, 2.0f); break;
-        case LfoTarget::FluidFade: o.fluidDensityDissipation = std::clamp(r.fluidDensityDissipation + v * 1.5f, 0.0f, 4.0f); break;
-        case LfoTarget::FluidCatchPull: o.fluidCatchPull = std::clamp(r.fluidCatchPull + v * 1.5f, 0.0f, 3.0f); break;
-        case LfoTarget::FluidCatchRadius: o.fluidCatchRadius = std::clamp(r.fluidCatchRadius + v * 0.12f, 0.03f, 0.3f); break;
-        case LfoTarget::FlowStrength: o.flowStrength = std::clamp(r.flowStrength + v, 0.0f, 1.0f); break;
-        case LfoTarget::WaterRipple: o.waterRippleStrength = std::clamp(r.waterRippleStrength + v, 0.0f, 2.0f); break;
-        case LfoTarget::RippleOverlay: o.rippleOverlayStrength = std::clamp(r.rippleOverlayStrength + v, 0.0f, 1.0f); break;
-        case LfoTarget::CamFly: o.camFly = std::clamp(r.camFly + v, 0.0f, 2.5f); break;
-        case LfoTarget::CamOrbit: o.camOrbit = std::clamp(r.camOrbit + v, 0.0f, 1.0f); break;
-        case LfoTarget::CamPush: o.camPush = std::clamp(r.camPush + v, -1.0f, 1.0f); break;
-        case LfoTarget::CamYaw: o.camYaw = std::clamp(r.camYaw + v, -1.0f, 1.0f); break;
-        case LfoTarget::CamPitch: o.camPitch = std::clamp(r.camPitch + v, -1.0f, 1.0f); break;
-        case LfoTarget::CamRoll: o.camRoll = std::clamp(r.camRoll + v, -1.0f, 1.0f); break;
-        case LfoTarget::CamFov: o.camFov = std::clamp(r.camFov + v, 0.5f, 2.0f); break;
-        case LfoTarget::CamShake: o.camShake = std::clamp(r.camShake + v, 0.0f, 1.0f); break;
-        case LfoTarget::FlowCurl: o.flowCurl = std::clamp(r.flowCurl + v * 25.0f, 0.0f, 50.0f); break;
-        case LfoTarget::FlowForce: o.flowForce = std::clamp(r.flowForce + v * 1.5f, 0.0f, 3.0f); break;
-        case LfoTarget::EndlessZoomSpeed: o.endlessZoomSpeed = std::clamp(r.endlessZoomSpeed + v * 0.5f, 0.0f, 1.2f); break;
-        case LfoTarget::None: case LfoTarget::Lfo1Rate: case LfoTarget::Lfo1Depth: case LfoTarget::Lfo2Rate:
-        case LfoTarget::Lfo2Depth: case LfoTarget::Lfo3Rate: case LfoTarget::Lfo3Depth:
-            break;
-    }
+    Drive drive{};
+    if (!driveOf(target, drive)) return o;
+    const ParamSpec& spec = SceneParams::spec(drive.slot);
+    const float moved = r.*drive.member + v * drive.scale;
+    o.*drive.member = spec.kind == ParamKind::Circular ? moved : std::clamp(moved, spec.min, spec.max);
     return o;
 }
 
@@ -168,13 +179,6 @@ SceneParams LfoEngine::apply(const SceneParams& p, const std::array<float, kSlot
     return r;
 }
 
-void LfoEngine::addLuminanceDrive(const std::array<float, kSlots>& values, LuminanceDrive& out) const {
-    for (int i = 0; i < kSlots; i++) {
-        if (!configs[i].enabled) continue;
-        const int lum = luminanceIndex(configs[i].target);
-        if (lum >= 0) out[static_cast<size_t>(lum)] += values[i];
-    }
-}
 
 float LfoEngine::oscillator(int i, const LfoConfig& c, float dt) {
     const float period = std::clamp(c.rateSeconds, LfoConfig::kMinRateSeconds, LfoConfig::kMaxRateSeconds);

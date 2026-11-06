@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs the host tools a Claude cloud session uses on this repo, and the plugins
+# Installs the host tools a cloud agent session uses on this repo, and the plugins
 # .claude/settings.json enables. Idempotent: safe to run at the start of every session.
 #
 # Cloud environment setup script (it starts one directory above the repo):

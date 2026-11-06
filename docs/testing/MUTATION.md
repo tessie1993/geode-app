@@ -1,6 +1,6 @@
 # Mutation testing of the C++ core
 
-`.github/workflows/mutation.yml` runs `tools/mutation/run_mutation.py` on every pull request that touches `core/**`, whatever its base (stacked PRs on a `claude/*` branch diff against that branch). It asks one question: if the C++ this PR changed were subtly wrong, would a host test notice?
+`.github/workflows/mutation.yml` runs `tools/mutation/run_mutation.py` on every pull request that touches `core/**`, whatever its base (stacked PRs diff against their base branch). It asks one question: if the C++ this PR changed were subtly wrong, would a host test notice?
 
 ## What it does
 

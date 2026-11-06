@@ -18,7 +18,6 @@
 #include "viz/CameraRig.hpp"
 #include "viz/CompositePass.hpp"
 #include "viz/Director.hpp"
-#include "viz/FlashLimiter.hpp"
 #include "viz/Framebuffer.hpp"
 #include "viz/GlProfile.hpp"
 #include "viz/LayerState.hpp"
@@ -26,7 +25,6 @@
 #include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/NoteResponse.hpp"
-#include "viz/OutputProbe.hpp"
 #include "viz/Overlays.hpp"
 #include "viz/Params.hpp"
 #include "viz/PcmHandoff.hpp"
@@ -44,6 +42,7 @@
 #include "viz/TrailPass.hpp"
 #include "viz/UiBlurPass.hpp"
 #include "viz/VisualSafety.hpp"
+#include "viz/frame/EdgeGlowPass.hpp"
 #include "viz/liquid/LiquidMath.hpp"
 #include "viz/liquid/LiquidPass.hpp"
 #include "viz/scenes/ProgramLoader.hpp"
@@ -75,11 +74,18 @@ public:
     void setFixedFrameRate(int fps) { fixedFps_.store(fps > 0 ? fps : 0, std::memory_order_relaxed); }
     // The app's glass sheet over the live visual (UiBlurPass): latched for the next frame. Any thread.
     void setUiBlurRegion(const UiBlurRegion& region);
+    // The wallpaper's edge look (frame::EdgeGlowPass): latched for the next frame. Any thread.
+    void setEdgeGlow(const frame::edge_glow::Options& options);
     // Settings › Performance › Liquid on a hot phone (liquid::HotPolicy). Any thread.
     void setLiquidHotPolicy(int policy) { liquidHotPolicy_.store(policy, std::memory_order_relaxed); }
     // What Liquid mode ran last frame (liquid::Mode), so Customize can say when a hot phone simplified
-    // or paused it. Any thread.
-    int liquidMode() const { return liquidMode_.load(std::memory_order_relaxed); }
+    // or paused it, or -1 when it has not changed since the last take. Taken every live frame by
+    // geode_viz_frame_begin (frame::FrameCadence), so the shell wakes its collectors only on a change. A new
+    // surface reports again (onSurfaceCreated). One taker: the live shell's GL thread.
+    int takeLiquidMode() {
+        const int mode = liquidMode_.load(std::memory_order_relaxed);
+        return liquidModeTaken_.exchange(mode, std::memory_order_relaxed) == mode ? -1 : mode;
+    }
     // An export's own auto-director: once pinned, this renderer stops reading the process-wide switch
     // (director::global), so the live player moving on to another track, or past the free taste, never
     // reaches a render in progress. The export hands over the play's seed, so it makes the same film.
@@ -140,6 +146,9 @@ public:
     void warmTransition(const std::string& id);
     void cut();
     void render(double timeSeconds, GLuint targetFbo);
+    // The first frame on a new surface (geode_viz_frame_begin, frame::kFrameClearOnly): black, and nothing
+    // built, so the main thread GLSurfaceView parks in surfaceChanged is released at once.
+    void clearToBlack(GLuint targetFbo);
     void releaseScenes();
     const GlProfile& profile() const { return profile_; }
 
@@ -177,10 +186,10 @@ private:
     void bindSecondaryTarget();
     void drawSceneTarget(Scene& scene, const SceneParams& p, float dt);
     void composite(const SceneParams& p, float progress, GLuint targetFbo, GLuint liquidTex);
-    // Feeds the landed output measurements to the flash limiter and takes this frame's grade.
-    void stepFlashLimiter(float dt);
     // After the composite: the UI blur region, live surfaces only; nothing at strength 0.
     void drawUiBlur(GLuint targetFbo);
+    // After the composite, before the output probe: the wallpaper's edge glow, while the shell has it on.
+    void drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt);
     void deliverPcm(Scene& scene);
     void stepOverlays(Scene& scene, const SceneParams& p, float dt);
     void stepCamera(const SceneParams& p, float dt);
@@ -230,13 +239,6 @@ private:
     TrailPass trailPass_;
     CompositePass compositePass_;
     CompositePass::Inputs compositeInputs_;
-    // The photosensitive flash limit (FlashLimiter.hpp): the probe measures each finished frame, the
-    // limiter reads those one or two frames late and grades the next frame. Its own clock (the sum of
-    // frame dts) never wraps or steps back, unlike timeSeconds_.
-    OutputProbe outputProbe_;
-    safety::FlashLimiter flashLimiter_;
-    safety::Grade flashGrade_;
-    double safetyClock_ = 0.0;
     ThermalGovernor thermal_;
     LfoEngine lfo_;
     AdsrEngine adsr_;
@@ -260,6 +262,13 @@ private:
     UiBlurPass uiBlurPass_;
     UiBlurRegion uiBlurRegion_;
     std::atomic<bool> uiBlurOn_{false};
+    // The wallpaper's edge look, the first frame::Pass (#439). Its options are guarded by stateLock_ and
+    // handed to the pass on the GL thread; edgeGlowOn_ lets a frame without it (every surface but the
+    // wallpaper) skip the lock. The renderer has no surface kind of its own: the pass runs only when the
+    // shell turned it on (the wallpaper is its only caller), and never offscreen.
+    frame::EdgeGlowPass edgeGlowPass_;
+    frame::edge_glow::Options edgeGlowOptions_;
+    std::atomic<bool> edgeGlowOn_{false};
     std::atomic<bool> offscreen_{false};
     std::atomic<int> fixedFps_{0};
     // The note layer's seed: the director's play seed mixed with fresh entropy whenever that seed changes,
@@ -275,6 +284,12 @@ private:
     std::unique_ptr<sound::SoundEngine> sound_;
     GeodeSoundTuning soundTuning_ = sound::SoundEngine::defaultTuning();
     GeodeSoundFrame soundFrame_{};
+    // The engine's feeling, copied with the frame (the director and Note & key read it), and the play it
+    // belongs to: a new director seed is a new play, and the feeling starts over with it.
+    sound::Emotion::State soundEmotion_{};
+    bool soundHeard_ = false;
+    uint64_t emotionSeed_ = 0;
+    bool emotionSeeded_ = false;
     // Customize › Macros: this frame's knobs, and the ones the sound engine's tuning was last built from.
     MacroKnobs frameKnobs_{};
     // The user's knobs with the director's laid over them, this frame; what the params and the camera read.
@@ -362,14 +377,13 @@ private:
     bool liquidWasOn_ = false;
     std::atomic<int> liquidHotPolicy_{0};
     std::atomic<int> liquidMode_{0};
+    std::atomic<int> liquidModeTaken_{-1};
     bool rippleOverlayOn_ = false;
     bool smearing_ = false;
 
     SceneParams displayedParams_;
     SceneParams lastFinalParams_;
     std::array<float, LfoEngine::kSlots> envRate_{};
-    // The envelopes' and LFOs' luminance modulation this frame, for the flash limiter (resolveParams).
-    LuminanceDrive luminanceDrive_{};
     std::array<float, LfoEngine::kSlots> envDepth_{};
     float postRotationAngle_ = 0.0f;
     float postCyclePhase_ = 0.0f;

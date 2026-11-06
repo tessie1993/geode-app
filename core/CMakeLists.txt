@@ -9,6 +9,7 @@ add_library(geode_core STATIC
     api/geode_underlay_api.cpp
     api/geode_frame_api.cpp
     api/geode_surface_api.cpp
+    api/geode_live_input_api.cpp
     sound/Fft.cpp
     sound/Emotion.cpp
     sound/Form.cpp

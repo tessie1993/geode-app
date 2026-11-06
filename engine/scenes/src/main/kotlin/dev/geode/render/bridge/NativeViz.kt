@@ -183,6 +183,17 @@ class NativeViz(
         if (handle != 0L && sent.look(yaw, pitch)) GeodeNative.vizSetLook(handle, yaw, pitch)
     }
 
+    fun gyroSample(
+        azimuth: Float,
+        pitch: Float,
+    ) {
+        if (handle != 0L) GeodeNative.vizGyroSample(handle, azimuth, pitch)
+    }
+
+    fun gyroReset() {
+        if (handle != 0L) GeodeNative.vizGyroReset(handle)
+    }
+
     /** One live frame's start; see [GeodeNative.vizFrameBegin]. 0 before the handle exists. */
     fun frameBegin(
         pacedFps: Float,

@@ -140,6 +140,11 @@ GEODE_API int         geode_event_recipe_toggle(int recipe, const char* style_id
                                                 float* out, int capacity);
 /* Gyro look, -1..1 per axis; the camera reads it only while camGyro is on. */
 GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
+/* One gyro reading from SensorManager.getOrientation (radians: azimuth -pi..pi, pitch -pi/2..pi/2). The first after a
+   reset is the baseline; viz/GyroLook turns the tilt from it into the look above. GL thread. */
+GEODE_API void        geode_viz_gyro_sample(geode_viz*, float azimuth, float pitch);
+/* The gyro is off (or switched on again): recentre the look to (0,0) and recapture on the next sample. GL thread. */
+GEODE_API void        geode_viz_gyro_reset(geode_viz*);
 /* One live frame's start (core/viz/frame/Cadence, #604), on the GL thread before geode_viz_set_scene and
    geode_viz_render. The shell passes what it holds every frame and native applies only what changed:
    paced_fps is this surface's own fps cap (0 = free-running; the thermal cap is applied under it natively);
@@ -319,6 +324,14 @@ GEODE_API const char* geode_params_roll_keys(void);
  * slots 0..count-1 in order; ints and bools as numbers, like the wire. Static: the pointer stays valid for the
  * process; the shell parses it once. Labels and page placement stay in Kotlin. */
 GEODE_API const char* geode_params_schema_text(void);
+/* The config params schema (core/viz/ConfigTable.inc): the values the data stores hold beside the scene params
+ * (LFO and envelope slots, macro knobs, the palette maker's gradient, the look's envelope, the Studio clip edit,
+ * the preset morph), one row each, as a versioned '|'-separated line table:
+ *   configs|<version>|<count>
+ *   config|<group>|<index>|<name>|<FLOAT|INT|BOOL>|<default>|<min>|<max>|<NONE|SECONDS|FRACTION|TURNS|DEGREES|POINTS|TIMES>
+ * index = the row's place in its group (for lfo and adsr the float index of geode_viz_set_lfo / _adsr, for macro
+ * the knob). A sibling of geode_params_schema_text, whose format it leaves alone. Static; parse once. */
+GEODE_API const char* geode_config_schema_text(void);
 
 /* Customize panel map (core/viz/CustomizeMap): ten categories, each a free Basics section and Pro sections, and
  * which control lives in which. geode_customize_text is its versioned '|'-separated line table (rows in

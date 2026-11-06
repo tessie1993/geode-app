@@ -31,7 +31,7 @@ class ExportService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        bestEffort(TAG, "startForeground") { startForegroundNotification(ExportRun.state.value) }
+        if (!dev.geode.startedInForeground(TAG, { startForegroundNotification(ExportRun.state.value) }, ::stopSelf)) return
         // ExportRun publishes every rendered frame. The notification is re-posted only when what it
         // shows changes (progress in tenths of a percent, the ETA, the label), and at most once a
         // second: conflate keeps the newest state through the pause (#379).

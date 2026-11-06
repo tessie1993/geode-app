@@ -16,6 +16,7 @@ import java.util.UUID
  * files/projects/<id>/
  *   project.json        the StudioProject: edit, kind, export settings, renders (EditorProjectJson)
  *   takes/<takeId>.json every take recorded into it (PerformanceTake's format)
+ *   takes/<takeId>.choices  a track take's choices on song time (TakeChoices, #457)
  * files/project-templates/<id>/
  *   template.json       a ProjectTemplate: a project minus its audio
  * ```
@@ -84,6 +85,27 @@ class EditorProjectStore(
         return AtomicWrite.text(File(dir, PresetStore.safeFileName(takeId) + ".json"), json)
     }
 
+    /** The take's choices on song time (`TakeChoices`' file, #457) beside its JSON. */
+    @WorkerThread
+    fun saveChoices(
+        id: ProjectId,
+        takeId: String,
+        text: String,
+    ): Boolean {
+        val dir = File(folderOf(id), TAKES_DIR).apply { mkdirs() }
+        return AtomicWrite.text(File(dir, PresetStore.safeFileName(takeId) + CHOICES_EXT), text)
+    }
+
+    /** The take's choices file, or null for a take recorded before #457 (or none). */
+    @WorkerThread
+    fun loadChoices(
+        id: ProjectId,
+        takeId: String,
+    ): String? =
+        File(File(folderOf(id), TAKES_DIR), PresetStore.safeFileName(takeId) + CHOICES_EXT)
+            .takeIf { it.isFile }
+            ?.let { runCatching { it.readText() }.getOrNull() }
+
     /** The take's JSON (PerformanceTake's format), or null when the project has no such take. */
     @WorkerThread
     fun loadTake(
@@ -145,6 +167,7 @@ class EditorProjectStore(
         const val PROJECT_FILE = "project.json"
         const val TEMPLATE_FILE = "template.json"
         const val TAKES_DIR = "takes"
+        const val CHOICES_EXT = ".choices"
 
         /**
          * Wave 1 starts fresh (pre-launch, testers only): the one global "Untitled" project in

@@ -1,6 +1,5 @@
 package dev.geode.ui
 
-import dev.geode.data.PerformanceTake
 import dev.geode.data.SaveTarget
 import dev.geode.data.TakeInfo
 import dev.geode.data.TakeRepository
@@ -40,11 +39,12 @@ class TakeSaveTargetTest {
 
         override suspend fun projectOf(name: String): ProjectId = ProjectId(name)
 
-        override suspend fun load(name: String): PerformanceTake.Timeline? = null
+        override suspend fun load(name: String): dev.geode.data.TakeReplay? = null
 
         override suspend fun save(
             name: String,
             json: String,
+            choices: String?,
         ): String = name
 
         override suspend fun delete(name: String) = Unit
@@ -116,6 +116,8 @@ class TakeSaveTargetTest {
         }
 
         override fun discardCapture(video: TakeVideo) = Unit
+
+        override fun newChoices(songTime: Boolean): dev.geode.data.TakeChoices.Recorder = error("not recorded in this test")
 
         override fun recordRender(
             id: ProjectId,

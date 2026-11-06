@@ -11,11 +11,14 @@ interface TakeRepository {
 
     suspend fun projectOf(name: String): ProjectId?
 
-    suspend fun load(name: String): PerformanceTake.Timeline?
+    /** The take read back for replay or a render; the caller closes it. */
+    suspend fun load(name: String): TakeReplay?
 
+    /** Saves the take [json] and, for a take with them, its native [choices] file (#457). */
     suspend fun save(
         name: String,
         json: String,
+        choices: String? = null,
     ): String
 
     suspend fun delete(name: String)
@@ -51,12 +54,13 @@ class FileTakeRepository(
 
     override suspend fun projectOf(name: String): ProjectId? = withContext(Dispatchers.IO) { store.projectOf(name) }
 
-    override suspend fun load(name: String): PerformanceTake.Timeline? = withContext(Dispatchers.IO) { store.load(name) }
+    override suspend fun load(name: String): TakeReplay? = withContext(Dispatchers.IO) { store.load(name) }
 
     override suspend fun save(
         name: String,
         json: String,
-    ): String = withContext(Dispatchers.IO) { store.save(name, json) }
+        choices: String?,
+    ): String = withContext(Dispatchers.IO) { store.save(name, json, choices) }
 
     override suspend fun delete(name: String) {
         withContext(Dispatchers.IO) { store.delete(name) }

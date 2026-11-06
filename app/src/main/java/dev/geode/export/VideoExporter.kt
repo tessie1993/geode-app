@@ -175,119 +175,8 @@ class VideoExporter(
             // Decoded once, at the export's own pixel size, and reused for whichever destination
             // path below runs - see BackgroundImage for why this never touches Main.
             val underlay = background?.let { BackgroundImage.decodeForExport(context, it, aspect.width, aspect.height) }
-            if (destination != null) {
-                return@withContext exportToDestination(
-                    destination,
-                    audioUri,
-                    sceneFactory,
-                    aspect,
-                    sceneParams,
-                    lfoConfigs,
-                    adsrConfigs,
-                    reactions,
-                    reducedMotion,
-                    requestedFps,
-                    paramsAt,
-                    range,
-                    codec,
-                    loudnessTarget,
-                    underlay,
-                    soundTuning,
-                    onProgress,
-                    isCancelled,
-                    watermark = watermark,
-                    styleSchedule = styleSchedule,
-                )
-            }
-            val resolver = context.contentResolver
-            val values =
-                ContentValues().apply {
-                    put(MediaStore.Video.Media.DISPLAY_NAME, fileName)
-                    put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                    if (android.os.Build.VERSION.SDK_INT >= 29) {
-                        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/MuzViz")
-                        put(MediaStore.Video.Media.IS_PENDING, 1)
-                    }
-                }
-            val outUri =
-                resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-                    ?: return@withContext failed(R.string.export_error_library_insert)
-            val pfd = resolver.openFileDescriptor(outUri, "w")
-            if (pfd == null) {
-                bestEffort(TAG, "resolver.delete(outUri, null, null)") { resolver.delete(outUri, null, null) }
-                return@withContext failed(R.string.export_error_library_open)
-            }
-            try {
-                pfd.use {
-                    encodeInto(
-                        it,
-                        audioUri,
-                        sceneFactory,
-                        aspect,
-                        sceneParams,
-                        lfoConfigs,
-                        adsrConfigs,
-                        reactions,
-                        reducedMotion,
-                        requestedFps,
-                        paramsAt,
-                        range,
-                        codec,
-                        underlay,
-                        soundTuning,
-                        onProgress,
-                        isCancelled,
-                        watermark = watermark,
-                        styleSchedule = styleSchedule,
-                    )
-                }
-                if (isCancelled()) {
-                    bestEffort(TAG, "resolver.delete(outUri, null, null)") { resolver.delete(outUri, null, null) }
-                    Result.Cancelled
-                } else {
-                    if (android.os.Build.VERSION.SDK_INT >= 29) {
-                        val done = ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }
-                        resolver.update(outUri, done, null, null)
-                    }
-                    Result.Saved(outUri, measureLoudness(outUri, loudnessTarget))
-                }
-            } catch (e: Exception) {
-                bestEffort(TAG, "resolver.delete(outUri, null, null)") { resolver.delete(outUri, null, null) }
-                throw e
-            }
-        }
-
-    // ponytail: 21 params since reactions (#94) and watermark (#91) both landed; fold them into
-    // an export-request object when this signature next grows.
-    @Suppress("LongParameterList")
-    private suspend fun exportToDestination(
-        destination: Uri,
-        audioUri: Uri,
-        sceneFactory: SceneFactory,
-        aspect: ExportAspect,
-        sceneParams: SceneParams,
-        lfoConfigs: List<dev.geode.render.LfoConfig>,
-        adsrConfigs: List<dev.geode.render.AdsrConfig>,
-        reactions: List<dev.geode.render.ReactionRoute>?,
-        reducedMotion: Boolean,
-        requestedFps: Int,
-        paramsAt: ((Long) -> SceneParams)?,
-        range: ExportRange?,
-        codec: ExportCodec,
-        loudnessTarget: LoudnessTarget,
-        underlay: OffscreenUnderlay?,
-        soundTuning: SoundTuning,
-        onProgress: (Float) -> Unit,
-        isCancelled: () -> Boolean,
-        watermark: Boolean,
-        styleSchedule: StyleSchedule = StyleSchedule.NONE,
-    ): Result {
-        val resolver = context.contentResolver
-        val pfd =
-            resolver.openFileDescriptor(destination, "w")
-                ?: return failed(R.string.export_error_destination_write)
-        return try {
-            pfd.use {
+            // One encode, whichever destination below the file lands in.
+            val encode: (ParcelFileDescriptor) -> Unit = {
                 encodeInto(
                     it,
                     audioUri,
@@ -310,6 +199,55 @@ class VideoExporter(
                     styleSchedule = styleSchedule,
                 )
             }
+            if (destination != null) return@withContext exportToDestination(destination, loudnessTarget, isCancelled, encode)
+            val resolver = context.contentResolver
+            val values =
+                ContentValues().apply {
+                    put(MediaStore.Video.Media.DISPLAY_NAME, fileName)
+                    put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+                    if (android.os.Build.VERSION.SDK_INT >= 29) {
+                        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/MuzViz")
+                        put(MediaStore.Video.Media.IS_PENDING, 1)
+                    }
+                }
+            val outUri =
+                resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+                    ?: return@withContext failed(R.string.export_error_library_insert)
+            val pfd = resolver.openFileDescriptor(outUri, "w")
+            if (pfd == null) {
+                bestEffort(TAG, "resolver.delete(outUri, null, null)") { resolver.delete(outUri, null, null) }
+                return@withContext failed(R.string.export_error_library_open)
+            }
+            try {
+                pfd.use(encode)
+                if (isCancelled()) {
+                    bestEffort(TAG, "resolver.delete(outUri, null, null)") { resolver.delete(outUri, null, null) }
+                    Result.Cancelled
+                } else {
+                    if (android.os.Build.VERSION.SDK_INT >= 29) {
+                        val done = ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }
+                        resolver.update(outUri, done, null, null)
+                    }
+                    Result.Saved(outUri, measureLoudness(outUri, loudnessTarget))
+                }
+            } catch (e: Exception) {
+                bestEffort(TAG, "resolver.delete(outUri, null, null)") { resolver.delete(outUri, null, null) }
+                throw e
+            }
+        }
+
+    private suspend fun exportToDestination(
+        destination: Uri,
+        loudnessTarget: LoudnessTarget,
+        isCancelled: () -> Boolean,
+        encode: (ParcelFileDescriptor) -> Unit,
+    ): Result {
+        val resolver = context.contentResolver
+        val pfd =
+            resolver.openFileDescriptor(destination, "w")
+                ?: return failed(R.string.export_error_destination_write)
+        return try {
+            pfd.use(encode)
             if (isCancelled()) {
                 bestEffort(
                     TAG,

@@ -464,6 +464,9 @@ class PlayerSession internal constructor(
 
                 override fun discardCapture(video: TakeVideo) = takeCapture.discard(video)
 
+                override fun newChoices(songTime: Boolean): dev.geode.data.TakeChoices.Recorder =
+                    dev.geode.data.TakeChoices.Recorder(dev.geode.data.AutoDirectorStore.get(application).playSeed, songTime)
+
                 override fun recordRender(
                     id: dev.geode.editor.ProjectId,
                     render: dev.geode.editor.ProjectRender,

@@ -4,10 +4,12 @@
 #include <cstring>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "api/geode_api.h"
+#include "api/take_timeline_handle.hpp"
 #include "viz/Director.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/Macros.hpp"
@@ -22,6 +24,14 @@ struct geode_viz {
     std::mutex configLock;
     std::array<geode::viz::LfoConfig, geode::viz::LfoEngine::kSlots> lfo{};
     std::array<geode::viz::AdsrConfig, geode::viz::AdsrEngine::kCount> adsr{};
+    // An export (geode_viz_set_offscreen): every params frame it is handed draws at full fluid quality.
+    bool offscreen = false;
+    // Render again (#457): the take this export segment replays, its params applied by geode_viz_take_frame.
+    // Render thread only, like the frame calls that read it.
+    std::optional<geode::signal::TakeReplay> take;
+    int takeReactSeed = 0;
+    // The pinned director's amount, so a take set after geode_viz_set_director still re-pins it on its seed.
+    std::optional<float> directorAmount;
 };
 
 namespace {
@@ -49,6 +59,17 @@ bool flag(float value) { return value > 0.5f; }
 
 std::string text(const char* s) { return s ? std::string(s) : std::string(); }
 
+// The params wire (geode_viz_set_params order) into SceneParams; a short frame (a take recorded by a build with fewer
+// fields) leaves the rest at their defaults. An export never lets fluid quality adapt downward: its frame time says
+// nothing about the phone, and the thermal half is the offscreen pin (geode_viz_set_offscreen).
+SceneParams paramsFromWire(const geode_viz& v, const float* values, int count) {
+    const auto& names = SceneParams::fieldNames();
+    SceneParams p;
+    for (int i = 0; i < std::min(count, SceneParams::kFieldCount); ++i) p.set(names[static_cast<size_t>(i)], values[i]);
+    if (v.offscreen) p.fluidAutoQuality = false;
+    return p;
+}
+
 }  // namespace
 
 extern "C" {
@@ -73,10 +94,31 @@ const char* geode_viz_param_name(int index) {
 
 void geode_viz_set_params(geode_viz* v, const float* values, int count) {
     if (!v || !values || count != SceneParams::kFieldCount) return;
-    const auto& names = SceneParams::fieldNames();
-    SceneParams p;
-    for (int i = 0; i < count; ++i) p.set(names[static_cast<size_t>(i)], values[i]);
-    v->renderer.setParams(p);
+    v->renderer.setParams(paramsFromWire(*v, values, count));
+}
+
+void geode_viz_set_take(geode_viz* v, const geode_take_timeline* t, int64_t song_start_ms) {
+    if (!v) return;
+    if (!t) {
+        v->take.reset();
+        return;
+    }
+    v->take.emplace(t->timeline, song_start_ms);
+    // The take renders with the seed it was performed with, so its director makes the same kinds of choices.
+    if (v->directorAmount) v->renderer.pinDirector(*v->directorAmount, v->take->seed());
+}
+
+int geode_viz_take_frame(geode_viz* v, int64_t render_ms) {
+    if (!v || !v->take) return -1;
+    const auto frame = v->take->at(render_ms);
+    if (!frame.choice) return -1;
+    if (frame.changed) {
+        const auto& values = frame.choice->params;
+        const SceneParams p = paramsFromWire(*v, values.data(), static_cast<int>(values.size()));
+        v->takeReactSeed = p.reactSeed;
+        v->renderer.setParams(p);
+    }
+    return v->takeReactSeed;
 }
 
 void geode_viz_set_reduced_motion(geode_viz* v, int on) {
@@ -405,11 +447,15 @@ int geode_viz_liquid_mode(const geode_viz* v) {
 }
 
 void geode_viz_set_director(geode_viz* v, float amount, long long seed) {
-    if (v) v->renderer.pinDirector(amount, static_cast<uint64_t>(seed));
+    if (!v) return;
+    v->directorAmount = amount;
+    // A take being rendered again keeps its own seed (geode_viz_set_take).
+    v->renderer.pinDirector(amount, v->take ? v->take->seed() : static_cast<uint64_t>(seed));
 }
 
 void geode_viz_set_offscreen(geode_viz* v, int on) {
     if (!v) return;
+    v->offscreen = on != 0;
     // An export never shows a half-built scene: each one is built whole on the frame that asks for it.
     v->renderer.setBlockingBuilds(on != 0);
     // Nor does it ever carry the app's sheet blur into the video.

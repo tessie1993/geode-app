@@ -35,7 +35,7 @@
     <string name="my_videos_kind_render">Video</string>
     <string name="my_videos_play">Play</string>
     <string name="my_videos_share">Share</string>
-    <string name="my_videos_render">Render</string>
+    <string name="my_videos_render">Render again</string>
     <string name="my_videos_delete">Delete</string>
 
     <!-- My videos: a card's ⋮ menu. -->

@@ -615,6 +615,73 @@ object GeodeNative {
      */
     external fun takeEvent(event: Int): Int
 
+    // A take's choices on song time (core/signal/timeline/TakeTimeline, #457): handle calls, values only.
+
+    external fun takeTimelineCreate(
+        seed: Long,
+        songTime: Boolean,
+    ): Long
+
+    /** 0 for a damaged file. */
+    external fun takeTimelineDecode(text: String): Long
+
+    external fun takeTimelineDestroy(handle: Long)
+
+    external fun takeTimelineNote(
+        handle: Long,
+        atMs: Long,
+        sceneId: String,
+        milkPath: String,
+        params: FloatArray,
+    )
+
+    external fun takeTimelineFull(handle: Long): Boolean
+
+    external fun takeTimelineEncode(handle: Long): String
+
+    external fun takeTimelineSeed(handle: Long): Long
+
+    external fun takeTimelineRendersAgain(handle: Long): Boolean
+
+    external fun takeTimelineEndMs(handle: Long): Long
+
+    /** Fills [params] with the choice in force at [ms]; its index, or -1 for an empty timeline. */
+    external fun takeTimelineStateAt(
+        handle: Long,
+        ms: Long,
+        params: FloatArray,
+    ): Int
+
+    external fun takeTimelineChoiceAtMs(
+        handle: Long,
+        index: Int,
+    ): Long
+
+    /** "sceneId\tmilkPath" of choice [index]. */
+    external fun takeTimelineChoiceStyle(
+        handle: Long,
+        index: Int,
+    ): String
+
+    /** The indices of every style switch, the first choice included. */
+    external fun takeTimelineStyleChanges(handle: Long): IntArray
+
+    /**
+     * Render again (#457), on export renderer [handle]: replays take choices [take] (copied natively, so it may be
+     * destroyed after; 0 clears) from song position [songStartMs] at render time 0, and pins the director on its seed.
+     */
+    external fun vizSetTake(
+        handle: Long,
+        take: Long,
+        songStartMs: Long,
+    )
+
+    /** Applies the take's params at [renderMs] natively; their reactSeed, or -1 with no take (set params yourself). */
+    external fun vizTakeFrame(
+        handle: Long,
+        renderMs: Long,
+    ): Int
+
     /** Ends the take and finishes its MP4: its length in ms, or -1 with no picture. Blocks; never on Main. */
     external fun takeEnd(): Long
 

@@ -90,6 +90,12 @@ void seedsAreValid() {
 
 // The 4-way cross (#496): a full x/y lattice with no polar fold and no turn shows the camera the
 // same split every time. No seed may be one, and a random genome that grows into one is turned.
+// A world's open-space probe, for a failure message: which of the two rules it missed.
+std::string probeText(const Genome& g) {
+    const Space sp = openSpace(g);
+    return " (open " + std::to_string(sp.open) + ", near " + std::to_string(sp.near) + ")";
+}
+
 bool isFourWayCross(const Genome& g) {
     return g[RepXY] > 0.5f && g[Polar] < 0.5f && g[LatticeTilt] == 0.0f && g[LatticeYaw] == 0.0f;
 }
@@ -138,7 +144,11 @@ void randomGenomesAreValid() {
         const Genome g = random(static_cast<uint64_t>(i) * 7919u + 17u, c, &picked);
         check(picked >= 0 && picked < seedCount(), "random names its seed");
         check(inBounds(g), "random genome " + std::to_string(i) + " is in bounds");
-        if (valid(g)) ++valids;
+        if (valid(g)) {
+            ++valids;
+        } else {
+            std::printf("  random genome %d (from %s) is not valid%s\n", i, seed(picked).name, probeText(g).c_str());
+        }
         // Replayable.
         check(same(g, random(static_cast<uint64_t>(i) * 7919u + 17u, c)), "random is a function of its inputs");
     }
@@ -322,10 +332,10 @@ void groundKeepsEveryWorldOpen() {
         full[FloorY] = highest;
         check(sdfUncarved(full, still, {0.5f, highest - 1.0f, 0.3f}) < 0.0f, std::string("under the ground is solid in ") + seed(i).name);
         // Every seed, given a full floor at its highest, is still open and has something to see.
-        check(valid(full), std::string(seed(i).name) + " stays valid on a floor");
+        check(valid(full), std::string(seed(i).name) + " stays valid on a floor" + probeText(full));
         Genome half = full;
         half[Floor] = 0.5f;
-        check(valid(half), std::string(seed(i).name) + " stays valid on a half-grown floor");
+        check(valid(half), std::string(seed(i).name) + " stays valid on a half-grown floor" + probeText(half));
     }
 
     // The corridor holds on the four paths with a full floor at its highest, in random worlds.

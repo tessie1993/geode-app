@@ -821,7 +821,7 @@ std::vector<Seed> buildSeeds() {
                {Emission, 1.1f}, {Fog, 0.03f}, {TexEmit, 0.5f}, {TexPick, 7.0f}})},
         // An Apollonian packing, spheres inverted into spheres without end: a foam of pearls.
         {"Apollonian Foam", 0.4f, 0.65f, 0.6f,
-         make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 6.0f}, {PApollo, 1.0f}, {PrimSize, 1.4f}, {MSurface, 0.7f},
+         make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 6.0f}, {PApollo, 1.0f}, {PrimSize, 1.8f}, {MSurface, 0.7f},
                {MGlow, 0.3f}, {TrapR, 0.6f}, {TrapX, 0.2f}, {PalOffset, 0.3f}, {PalSpan, 0.6f}, {Emission, 1.1f},
                {Fog, 0.035f}})},
         // The packing laced through bubbles and folded six ways: a lattice of pearls in light.
@@ -931,7 +931,7 @@ std::vector<Seed> buildSeeds() {
         // A ridged canyon under a low warm light, thin glowing spheres hung above it: the way runs
         // down the valley floor between rising walls, cut through every ridge that crosses it.
         {"Ember Canyon", 0.45f, 0.55f, 0.45f,
-         make({{LatticeTilt, 0.15f}, {LatticeYaw, -0.3f}, {RepXY, 1.0f}, {CellXY, 10.0f}, {CellZ, 8.0f}, {CellShift, 1.0f}, {PShell, 1.0f}, {PrimSize, 0.9f},
+         make({{RepXY, 0.5f}, {CellXY, 10.0f}, {CellZ, 8.0f}, {CellShift, 1.0f}, {PShell, 1.0f}, {PrimSize, 0.9f},
                {PrimThick, 0.05f}, {Terrain, 1.0f}, {TerrainHeight, 2.6f}, {TerrainScale, 0.12f}, {FloorY, -5.0f},
                {MSurface, 0.85f}, {MGlow, 0.15f}, {TrapX, 0.7f}, {TrapY, 0.4f}, {TrapR, 0.2f}, {PalOffset, 0.04f},
                {PalSpan, 0.45f}, {Emission, 1.15f}, {Fog, 0.03f}, {TexAmount, 0.5f}, {TexPick, 3.0f}, {Lens, 0.85f}})},
@@ -944,7 +944,7 @@ std::vector<Seed> buildSeeds() {
                {Roll, 0.04f}})},
         // Broad fractal highlands with Mandelbulbs floating over them and boulders of bulbs half buried.
         {"Bulb Highlands", 0.55f, 0.5f, 0.55f,
-         make({{LatticeTilt, 0.15f}, {LatticeYaw, 0.3f}, {RepXY, 1.0f}, {CellXY, 8.0f}, {CellZ, 7.0f}, {CellShift, 1.0f}, {PBulb, 1.0f}, {BulbPower, 8.0f},
+         make({{RepXY, 0.5f}, {CellXY, 8.0f}, {CellZ, 7.0f}, {CellShift, 1.0f}, {PBulb, 1.0f}, {BulbPower, 8.0f},
                {PrimSize, 1.2f}, {Terrain, 1.0f}, {TerrainHeight, 3.0f}, {TerrainScale, 0.08f}, {FloorY, -5.5f},
                {MSurface, 0.85f}, {MGlow, 0.15f}, {TrapX, 0.4f}, {TrapY, 0.3f}, {TrapR, 0.5f}, {PalOffset, 0.36f},
                {PalSpan, 0.5f}, {Emission, 1.15f}, {Fog, 0.03f}, {TexAmount, 0.5f}, {TexPick, 2.0f}, {Lens, 0.9f}})},
@@ -962,7 +962,7 @@ std::vector<Seed> buildSeeds() {
                {Lens, 0.9f}})},
         // The Apollonian packing as thin glowing sheets in a dark haze: a mist of pearls at night.
         {"Apollonian Mist", 0.1f, 0.25f, 0.2f,
-         make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 6.0f}, {PApollo, 1.0f}, {PrimSize, 1.4f}, {MDensity, 0.85f},
+         make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 6.0f}, {PApollo, 1.0f}, {PrimSize, 1.8f}, {MDensity, 0.85f},
                {MGlow, 0.15f}, {DensBand, 0.18f}, {TrapR, 0.7f}, {TrapZ, 0.3f}, {PalOffset, 0.68f}, {PalSpan, 0.35f},
                {Emission, 1.0f}, {Fog, 0.025f}, {Roll, -0.04f}})},
         // Sierpinski tetrahedra turned inside out by a sphere, three ways round: a hollow nave of triangles.

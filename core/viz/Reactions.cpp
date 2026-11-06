@@ -463,7 +463,8 @@ ReactSourceMask sources(std::uint32_t mask) {
     return out;
 }
 
-void setGlobal(std::uint32_t mask) { gMask.store(mask & kAll, std::memory_order_relaxed); }
+// One store of the effective mask, so a reader never sees a mask from one push and has-user from another.
+void setGlobal(std::uint32_t mask, bool hasUser) { gMask.store(hasUser ? mask & kAll : 0u, std::memory_order_relaxed); }
 std::uint32_t global() { return gMask.load(std::memory_order_relaxed); }
 
 }  // namespace hand

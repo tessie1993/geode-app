@@ -14,8 +14,12 @@ class VoiceSearchTest {
     private fun fromSearch(query: String?): MediaItem =
         MediaItem
             .Builder()
-            .setRequestMetadata(MediaItem.RequestMetadata.Builder().setSearchQuery(query).build())
-            .build()
+            .setRequestMetadata(
+                MediaItem.RequestMetadata
+                    .Builder()
+                    .setSearchQuery(query)
+                    .build(),
+            ).build()
 
     @Test
     fun aPlayFromSearchItemIsASearch() {

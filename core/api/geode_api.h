@@ -346,6 +346,15 @@ GEODE_API geode_export_pass*  geode_export_seam_create(AAssetManager*, int width
 GEODE_API int                 geode_export_seam_allocate(geode_export_pass*, int requested);
 GEODE_API void                geode_export_seam_capture(geode_export_pass*, int index);
 GEODE_API void                geode_export_seam_blend(geode_export_pass*, int index, int tail, int seam_frames);
+/* The seam driver (viz/frame/LoopSeam, #603) over those two. The scene has just drawn source frame `frame` of
+ * a stop of loop_frames + seam_frames into the default framebuffer; seam_frame captures it (an opening frame:
+ * returns -1, not presented) or, on a closing frame, blends the stash over it, and returns the frame's
+ * presentation time in ns at fps. The caller then draws the watermark, sets that time and swaps. Needs the GL
+ * context. budgeted_crossfade_ms (pure): the crossfade a loop keeps under the stash's 192 MB GPU budget at
+ * width x height (crossfade_frames: its frames at fps); crossfade_ms unchanged when it fits. */
+GEODE_API int64_t             geode_export_seam_frame(geode_export_pass*, int frame, int loop_frames, int seam_frames, int fps);
+GEODE_API int64_t             geode_export_seam_budgeted_crossfade_ms(int64_t crossfade_ms, int crossfade_frames, int fps,
+                                                                      int width, int height);
 /* Studio transitions, on Media3's GL thread inside the framebuffer and viewport it bound. id is a GL
  * Transitions name (gl_transitions.json); an unknown one only copies. from_rgba: bottom row first, taken once. */
 GEODE_API geode_export_pass*  geode_export_transition_create(AAssetManager*, const char* id, int64_t duration_us);

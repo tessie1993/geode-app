@@ -9,7 +9,7 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 **Beside it, still in `core/viz`:** `SurfaceRun.hpp`, the wallpaper's and the dream's run rule (stopped, still, moving; reduced motion holds a still frame), the still frame's settle and each surface's fps choice, which caps its pacer. Reached through `geode_surface_*`, tested by `core/tests/surface_run_test.cpp`.
 **Here now:** `Cadence.hpp`, what a live surface's frame owes the shell (#604). `VisualizerRenderer.kt` makes one call per frame, `geode_viz_frame_begin`, with the pacer's cap and Settings › Performance; native applies the quality only when it changed (`offerQuality`, equal by bits so a NaN pref is applied once), clears a new surface's first frame and builds nothing on it (`Renderer::clearToBlack`, so the main thread `GLSurfaceView` parks in `surfaceChanged` is released at once), and answers a bitmask: `GEODE_FRAME_THERMAL_DUE` when this surface won the process's thermal slot, `GEODE_FRAME_LIQUID_CHANGED` with the new Liquid mode. Android keeps only the PowerManager read the bit asks for. Tested by `core/tests/renderer_cadence_test.cpp`.
 
-Export post-passes: `ExportPasses` (watermark, loop seam, Studio GL transition and its capture; #442) with their pure maths in `ExportPassMath.hpp` (`core/tests/export_passes_test.cpp`), driven through `geode_export_*` until `FrameGraph::run` owns the export frame.
+Export post-passes: `ExportPasses` (watermark, loop seam, Studio GL transition and its capture; #442) with their pure maths in `ExportPassMath.hpp` (`core/tests/export_passes_test.cpp`) and the loop seam's driver and GPU budget in `LoopSeam.hpp` (`core/tests/loop_seam_test.cpp`, #603), driven through `geode_export_*` until `FrameGraph::run` owns the export frame.
 
 **Here now:** `HlsSegments.hpp`, Cast's HLS segment durations from the fragments' media time and the playlist text (#656; `core/tests/hls_segments_test.cpp`).
 
@@ -24,7 +24,7 @@ Export post-passes: `ExportPasses` (watermark, loop seam, Studio GL transition a
 
 **Keep as they are:** `ScenePrep`, `ProgramStager`, `ProgramBinaryCache`, `GlCaps`/`GlProber`, `VisualSafety` (as the last step before drawing), the catalogue text table.
 
-**Shader contract** (shaders stay in `app/src/main/assets/shaders`): a generated params uniform block from `core/signal/params` and a generated sound block from `core/sound/schema`, pasted by the prelude every style includes; include-once in `core/viz/ShaderSource.cpp`, exposed through the C ABI so `GlUtil` (Kotlin) and `tools/check_shaders.py` stop re-implementing the resolver. Family libraries (`lib_<family>`, `lib_neon`, `lib_relief`, `lib_zoom`, `lib_camera`) stay, on top of the prelude.
+**Shader contract** (shaders stay in `app/src/main/assets/shaders`): a generated params uniform block from `core/signal/params` and a generated sound block from `core/sound/schema`, pasted by the prelude every style includes; include-once in `core/viz/ShaderSource.cpp`, exposed through the C ABI so `tools/check_shaders.py` stops re-implementing the resolver (the Kotlin `GlUtil` copy is gone, #603). Family libraries (`lib_<family>`, `lib_neon`, `lib_relief`, `lib_zoom`, `lib_camera`) stay, on top of the prelude.
 
 **fosfora:** `gpu/frame_prep.rs`, `gpu/frame_graph.rs` (`execute_and_composite`, "extracted … the headless scene renderer would have been a third copy"), `gpu/layer.rs` (`Layer`, `LayerStack`), `gpu/uniforms.rs` (append-only, layout-guarded).
 

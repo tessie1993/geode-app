@@ -1,0 +1,91 @@
+name: Mutation testing (changed C++)
+
+# Diff-scoped mutation testing of core/: only the lines a PR changed (never core/tests/) are
+# mutated, and only the host tests whose build reaches them are rebuilt and run. The host tests
+# are read from android.yml's own g++ lines, so there is one definition of how they build.
+# Report-only: the job summary lists survivors as file:line original → mutant. Set the
+# repository variable MUTATION_MIN_SCORE (0-100) to make it a gate. See docs/testing/MUTATION.md.
+#
+# Any base branch: stacked PRs whose base is a claude/* branch diff against that branch.
+
+# Manual only: pull requests are gated by build-lint.yml (build and lint, no tests).
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Branch to diff against"
+        default: main
+      engine:
+        description: "source (primary) or mull (opt-in, installs Mull from its Cloudsmith repo)"
+        type: choice
+        options: [source, mull]
+        default: source
+      llvm:
+        description: "LLVM major for the mull engine (mull-<N>, clang-<N>)"
+        default: "18"
+
+
+permissions:
+  contents: read
+
+# Keyed on the branch name, as android.yml is since #504: a newer push to the same PR branch
+# cancels the run in flight. The workflow-name prefix keeps it from cancelling other workflows.
+concurrency:
+  group: mutation-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  mutation:
+    # Pinned, not ubuntu-latest: the opt-in Mull path needs an LLVM that matches its packages.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      MUTATION_BASE: ${{ github.base_ref || inputs.base || 'main' }}
+      MUTATION_ENGINE: ${{ inputs.engine || 'source' }}
+      MULL_LLVM: ${{ inputs.llvm || '18' }}
+      # The harness stops starting mutants after this many seconds (baselines included),
+      # leaving the job's 25 minutes room for checkout and the report.
+      MUTATION_TIME_BUDGET: "1200"
+      MUTATION_MAX_MUTANTS: "300"
+      # Empty = report only. A repository variable, so the gate can be turned on without a PR.
+      MUTATION_MIN_SCORE: ${{ vars.MUTATION_MIN_SCORE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # Full history: `git diff origin/<base>...HEAD` needs the merge base, which on a long
+          # stacked PR can be far back.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Fetch the base branch
+        run: git fetch --no-tags origin "+refs/heads/${MUTATION_BASE}:refs/remotes/origin/${MUTATION_BASE}"
+
+      - name: Harness unit tests
+        run: python3 -m unittest discover -s tools/mutation -p 'test_*.py' -v
+
+      - name: Install Mull (opt-in engine only)
+        if: env.MUTATION_ENGINE == 'mull'
+        run: |
+          # Mull's documented install: its Cloudsmith apt repo, then mull-<LLVM major>.
+          curl -1sLf 'https://dl.cloudsmith.io/public/mull-project/mull-stable/setup.deb.sh' | sudo -E bash
+          sudo apt-get update
+          sudo apt-get install -y "clang-${MULL_LLVM}" "mull-${MULL_LLVM}"
+          mull-runner --version
+
+      - name: Mutation testing
+        run: >
+          python3 tools/mutation/run_mutation.py
+          --base "origin/${MUTATION_BASE}"
+          --engine "${MUTATION_ENGINE}"
+          --llvm "${MULL_LLVM}"
+          --report mutation-report.json
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mutation-report
+          path: mutation-report.json
+          if-no-files-found: ignore
+          retention-days: 14

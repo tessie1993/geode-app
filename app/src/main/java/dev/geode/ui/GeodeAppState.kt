@@ -3,18 +3,25 @@ package dev.geode.ui
 import android.view.Display
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import dev.geode.R
+import dev.geode.data.BehaviourPrefs
+import dev.geode.data.BehaviourStore
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.StartScreen
 import dev.geode.data.StudioPrefsStore
 import dev.geode.data.UserIntent
 import dev.geode.ui.theme.StoneIcon
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * The app's top-level screens, in the order the navigation bar shows them.
@@ -88,19 +95,31 @@ class GeodeAppState(
         searching = false
     }
 
+    /** Every change of destination goes through here, and closes the search overlay over it. */
     fun navigateTo(destination: GeodeDestination) {
+        searching = false
         dest = destination
+    }
+
+    /**
+     * A Settings group another screen asked for, opened once by `AppSettingsTab` and then cleared.
+     * Not saved: a process-death restore lands on Settings' own remembered group.
+     */
+    var settingsGroupRequest by mutableStateOf<SettingsGroupKey?>(null)
+
+    /** Opens Settings › Library: where music folders and the short-track filter live. */
+    fun openSettingsFolders() {
+        settingsGroupRequest = SettingsGroupKey.LIBRARY
+        navigateTo(GeodeDestination.SETTINGS)
     }
 
     /** Opens Studio › Render: the one place export, loop render and their defaults live. */
     fun openStudioRender() {
         studioSection = StudioSection.RENDER
-        dest = GeodeDestination.STUDIO
+        navigateTo(GeodeDestination.STUDIO)
     }
 
-    fun resetToPlayer() {
-        dest = GeodeDestination.PLAYER
-    }
+    fun resetToPlayer() = navigateTo(GeodeDestination.PLAYER)
 
     companion object {
         val Saver: Saver<GeodeAppState, List<Any>> =
@@ -125,16 +144,51 @@ class GeodeAppState(
 @Composable
 fun rememberGeodeAppState(externalDisplay: Display?): GeodeAppState {
     val context = LocalContext.current
+    val general = remember(context) { GeodePrefsFiles(context).general }
     val state =
         rememberSaveable(saver = GeodeAppState.Saver) {
-            // A cold start opens Studio on the tab the user last left it on; a process-death
-            // restore keeps whatever the saver brought back instead.
-            val lastTab = StudioPrefsStore(GeodePrefsFiles(context).general).lastTab()
-            GeodeAppState(studioSection = StudioSection.fromName(lastTab) ?: StudioSection.RENDER)
+            // A cold start opens on Settings › Behaviour's start screen, and Studio on the tab the
+            // user last left it on; a process-death restore keeps whatever the saver brought back
+            // instead. Both read the general prefs file, already parsed by the Activity's ViewModels.
+            val lastTab = StudioPrefsStore(general).lastTab()
+            GeodeAppState(
+                dest = BehaviourStore(general).load().startDestination(),
+                studioSection = StudioSection.fromName(lastTab) ?: StudioSection.RENDER,
+            )
         }
     state.externalDisplay = externalDisplay
+    // "Where you left off" reopens the last screen shown. Recorded on IO each time it changes;
+    // Settings is never a start screen, so leaving the app there reopens the screen before it.
+    LaunchedEffect(state.dest) {
+        val screen = state.dest.startScreen ?: return@LaunchedEffect
+        withContext(Dispatchers.IO) { BehaviourStore(general).saveLastScreen(screen) }
+    }
     return state
 }
+
+/**
+ * The screen a cold start opens on: Settings › Behaviour's "Open on" (#337), with "Where you left
+ * off" resolved to the last screen recorded. Pure, so the rule is tested without a device.
+ */
+internal fun BehaviourPrefs.startDestination(): GeodeDestination =
+    when (opensOn) {
+        // opensOn never returns LAST_USED (it resolves to lastScreen); Player is the safe floor.
+        StartScreen.LAST_USED, StartScreen.PLAYER -> GeodeDestination.PLAYER
+        StartScreen.LIBRARY -> GeodeDestination.LIBRARY
+        StartScreen.VISUALS -> GeodeDestination.VISUALS
+        StartScreen.STUDIO -> GeodeDestination.STUDIO
+    }
+
+/** This destination as a start screen; null for Settings, which the app never opens on. */
+internal val GeodeDestination.startScreen: StartScreen?
+    get() =
+        when (this) {
+            GeodeDestination.PLAYER -> StartScreen.PLAYER
+            GeodeDestination.LIBRARY -> StartScreen.LIBRARY
+            GeodeDestination.VISUALS -> StartScreen.VISUALS
+            GeodeDestination.STUDIO -> StartScreen.STUDIO
+            GeodeDestination.SETTINGS -> null
+        }
 
 /** Where the app opens. Video-first users land in Studio, everyone else on the Stage. */
 val UserIntent.landingDestination: GeodeDestination

@@ -7,6 +7,7 @@ import android.os.SystemClock
 import dev.geode.engine.audio.SoundCursor
 import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audio.SoundTuning
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneIds
@@ -63,15 +64,6 @@ class VisualizerRenderer(
     /** The in-app stage, the one surface a capture take copies (ADR 0008); wallpaper, dream and cast leave it off. */
     @Volatile
     var takeStage: Boolean = false
-
-    @Volatile
-    var layerSceneId: String? = null
-
-    @Volatile
-    var layerMix: Float = 0.5f
-
-    @Volatile
-    var layerBlend: BlendMode = BlendMode.SCREEN
 
     @Volatile
     var transitionDurationMs: Long = 1200
@@ -196,15 +188,20 @@ class VisualizerRenderer(
     /** Frees the native renderer; only when this renderer is being discarded, on the GL thread. */
     fun releaseScenes() = nativeViz.destroy()
 
+    /** Process-wide: export, the wallpaper and the dream draw it too (core/viz/ShaderOverrides). */
     fun submitShader(
         sceneId: String,
         fragmentSrc: String,
-    ) {
-        nativeViz.create()
-        nativeViz.setCustomShader(sceneId, fragmentSrc)
-    }
+    ) = GeodeNative.shaderOverrideSet(sceneId, fragmentSrc)
 
-    fun customShaderFor(sceneId: String): String? = nativeViz.customShaderFor(sceneId)
+    fun customShaderFor(sceneId: String): String? = GeodeNative.shaderOverride(sceneId)
+
+    /** Customize › Layers, process-wide: exports, the wallpaper and the dream draw it too (core/viz/LayerState). */
+    fun submitLayer(
+        sceneId: String?,
+        mix: Float,
+        blend: BlendMode,
+    ) = GeodeNative.layerSet(sceneId.orEmpty(), mix, blend.ordinal)
 
     fun submitFluidInjectionShaders(
         force: String?,
@@ -366,7 +363,6 @@ class VisualizerRenderer(
         nativeViz.setLook(lookYaw, lookPitch)
         nativeViz.setReducedMotion(reducedMotion)
         nativeViz.setTakeStage(takeStage)
-        nativeViz.setLayer(layerSceneId, layerMix, layerBlend)
         nativeViz.setTransition(transitionId, transitionDurationMs)
         nativeViz.setPacedFps(ThermalGovernor.pacedFps)
         val now = SystemClock.elapsedRealtime()

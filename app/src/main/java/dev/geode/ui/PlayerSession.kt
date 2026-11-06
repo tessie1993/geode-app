@@ -65,7 +65,6 @@ import dev.geode.render.MilkPresetMemory
 import dev.geode.render.SceneFactory
 import dev.geode.render.TransitionStyle
 import dev.geode.render.UnderlayBlend
-import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneParams
 import dev.geode.widget.WidgetStyles
@@ -316,7 +315,7 @@ class PlayerSession internal constructor(
 
     fun toggleParamLock(label: String) = modulation.toggleParamLock(label)
 
-    fun randomizeParams(tab: CustomizeTab? = null) = modulation.randomizeParams(tab)
+    fun randomizeParams(category: CustomizeCategory? = null) = modulation.randomizeParams(category)
 
     fun editSceneParams(params: SceneParams) = modulation.editSceneParams(params)
 
@@ -324,7 +323,7 @@ class PlayerSession internal constructor(
 
     fun redoParams() = modulation.redo()
 
-    fun resetCustomizeTab(tab: CustomizeTab) = modulation.resetTab(tab)
+    fun resetCustomizeCategory(category: CustomizeCategory) = modulation.resetCategory(category)
 
     fun resetAllCustomize() = modulation.resetAll()
 
@@ -635,6 +634,13 @@ class PlayerSession internal constructor(
     val mediaRoots: StateFlow<Set<String>> get() = musicLibrary.mediaRoots
 
     val libraryScanning: StateFlow<Boolean> get() = musicLibrary.libraryScanning
+
+    /** False until the first device-track query has answered; see [MusicLibraryController.deviceTracksLoaded]. */
+    val deviceTracksLoaded: StateFlow<Boolean> get() = musicLibrary.deviceTracksLoaded
+
+    val minTrackSeconds: StateFlow<Int> get() = musicLibrary.minTrackSeconds
+
+    fun setMinTrackSeconds(seconds: Int) = musicLibrary.setMinTrackSeconds(seconds)
 
     fun refreshDeviceTracks() = musicLibrary.refreshDeviceTracks()
 

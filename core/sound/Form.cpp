@@ -80,9 +80,7 @@ void Form::step(const Input& in, const Rhythm::Tick* ticks, int tickCount, float
     }
     onsetRate_ = onsetRate_ * std::exp(-dt) + in.events;  // events in the last ~second
     sinceDrop_ += dt;
-    sinceArc_ += dt;
-    if (sinceArc_ >= kArcEvery) {
-        sinceArc_ -= kArcEvery * std::floor(sinceArc_ / kArcEvery);
+    if (due(sinceArc_, kArcEvery, dt)) {
         if (heardSeconds_ >= kArcWarm) {
             arcSample(dt);
         } else {

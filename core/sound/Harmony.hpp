@@ -17,14 +17,14 @@ int scaleCount();
 const ScaleInfo& scaleInfo(int index);
 
 // The harmony half of the musical layer: chroma, key, the chord's colour, tension and harmonic change,
-// read once per frame from the sound engine's long (pitch) spectrum.
+// read every analysis hop (10 ms) from the sound engine's long (pitch) spectrum.
 //
 //   |X| 250 Hz–2 kHz ─► spectral peaks ─► log over the frame's peak ─► nearest pitch class ─┬► fast (0.1 s), medium (0.5 s), slow (4 s)
 //     slow ─► Krumhansl–Kessler key profiles (24 keys, Pearson) ─► key, major/minor, clarity
 //     medium ─► circle-of-fifths centre (chordHue), interval-class dissonance (tension)
 //     fast, every 0.1 s ─► last 0.5 s against the 2 s before ─► harmonic change
 //
-// The long spectrum (twice the frame FFT, ~11 Hz bins at 44.1 kHz) is the melody tracker's; a semitone at
+// The long spectrum (twice the window FFT, ~11 Hz bins at 44.1 kHz) is the melody tracker's; a semitone at
 // 250 Hz is 15 Hz wide, so the range starts there. Every smoothing scales with dt, as the rest of the engine.
 class Harmony {
 public:
@@ -33,6 +33,9 @@ public:
     // Fills keyHue … harmonicChange and the three chroma arrays. Silence holds everything.
     void step(const float* mag, float dt, bool silent, GeodeSoundFrame& out);
     void reset();
+    // 0..1: how much of the chroma band's power sits on spectral peaks (notes) rather than a smooth
+    // spread (a drum's spill). A harmonic change counts toward the bar only as far as it is tonal.
+    float tonality() const { return tonality_; }
 
 private:
     void detectScale();
@@ -48,9 +51,10 @@ private:
     std::array<float, 12> medium_{};
     std::array<float, 12> slow_{};
     bool heard_ = false;
+    float tonality_ = 0.0f;
+    float heardSeconds_ = 0.0f;  // audio the chromas have averaged, up to their mean-to-average handover
     int key_ = -1;          // 0..11 major on that tonic, 12..23 minor; -1 before any
-    float keyHold_ = 0.0f;  // how long another key has fitted better
-    int keyRival_ = -1;
+    float keyHold_ = 0.0f;  // how long the current key has fitted worse than another
     float clarity_ = 0.0f;
     float major_ = 0.5f;
     float chordHue_ = 0.0f;
@@ -65,8 +69,7 @@ private:
     float sinceScale_ = 0.0f;
     int scale_ = -1;
     int scaleRoot_ = 0;
-    int scaleRival_ = -1;   // scale × 12 + root of a better fit, and how long it has held
-    float scaleHold_ = 0.0f;
+    float scaleHold_ = 0.0f;  // how long the current scale has fitted worse than another
     float scaleFit_ = 0.0f;
     float scaleBright_ = 0.5f;
     float scaleTension_ = 0.0f;

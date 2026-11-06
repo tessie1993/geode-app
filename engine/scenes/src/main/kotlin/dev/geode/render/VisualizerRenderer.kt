@@ -231,7 +231,6 @@ class VisualizerRenderer(
     ) {
         ThermalGovernor.attach(appContext)
         nativeViz.surfaceCreated()
-        applyUiBlur()
         nativeParams = null
         nativeLfo = null
         nativeAdsr = null
@@ -263,14 +262,7 @@ class VisualizerRenderer(
         amount: Float,
     ) = nativeViz.setUnderlay(pixels, width, height, blend.ordinal, amount)
 
-    /**
-     * The glass sheet's blur region (left, top, right, bottom, strength, corner px), kept so a new
-     * native handle (one per attach) and a new surface start with the sheet the UI last set. GL thread
-     * only: [VisualizerView.setUiBlurRegion] posts here.
-     */
-    private val uiBlur = FloatArray(UI_BLUR_FLOATS)
-
-    /** GL thread; see [VisualizerView.setUiBlurRegion] for the contract. */
+    /** See [VisualizerView.setUiBlurRegion] for the contract; [NativeViz] keeps it for a new handle. */
     fun setUiBlurRegion(
         left: Float,
         top: Float,
@@ -278,17 +270,10 @@ class VisualizerRenderer(
         bottom: Float,
         strength: Float,
         cornerPx: Float,
-    ) {
-        uiBlur[0] = left
-        uiBlur[1] = top
-        uiBlur[2] = right
-        uiBlur[3] = bottom
-        uiBlur[4] = strength
-        uiBlur[5] = cornerPx
-        applyUiBlur()
-    }
+    ) = nativeViz.setUiBlurRegion(left, top, right, bottom, strength, cornerPx)
 
-    private fun applyUiBlur() = nativeViz.setUiBlurRegion(uiBlur[0], uiBlur[1], uiBlur[2], uiBlur[3], uiBlur[4], uiBlur[5])
+    /** The wallpaper's edge glow options (`core/viz/frame/EdgeGlowPass`); any thread, kept for a new handle. */
+    fun setEdgeGlow(options: FloatArray) = nativeViz.setEdgeGlow(options)
 
     /**
      * Each frame starts with one native call that takes the pacer's cap and Settings › Performance and
@@ -374,5 +359,4 @@ class VisualizerRenderer(
     }
 }
 
-private const val UI_BLUR_FLOATS = 6
 private const val NANOS_PER_SECOND = 1_000_000_000.0

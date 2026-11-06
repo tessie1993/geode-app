@@ -44,6 +44,7 @@
 #include "viz/TrailPass.hpp"
 #include "viz/UiBlurPass.hpp"
 #include "viz/VisualSafety.hpp"
+#include "viz/frame/EdgeGlowPass.hpp"
 #include "viz/liquid/LiquidMath.hpp"
 #include "viz/liquid/LiquidPass.hpp"
 #include "viz/scenes/ProgramLoader.hpp"
@@ -75,6 +76,8 @@ public:
     void setFixedFrameRate(int fps) { fixedFps_.store(fps > 0 ? fps : 0, std::memory_order_relaxed); }
     // The app's glass sheet over the live visual (UiBlurPass): latched for the next frame. Any thread.
     void setUiBlurRegion(const UiBlurRegion& region);
+    // The wallpaper's edge look (frame::EdgeGlowPass): latched for the next frame. Any thread.
+    void setEdgeGlow(const frame::edge_glow::Options& options);
     // Settings › Performance › Liquid on a hot phone (liquid::HotPolicy). Any thread.
     void setLiquidHotPolicy(int policy) { liquidHotPolicy_.store(policy, std::memory_order_relaxed); }
     // What Liquid mode ran last frame (liquid::Mode), so Customize can say when a hot phone simplified
@@ -189,6 +192,8 @@ private:
     void stepFlashLimiter(float dt);
     // After the composite: the UI blur region, live surfaces only; nothing at strength 0.
     void drawUiBlur(GLuint targetFbo);
+    // After the composite, before the output probe: the wallpaper's edge glow, while the shell has it on.
+    void drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt);
     void deliverPcm(Scene& scene);
     void stepOverlays(Scene& scene, const SceneParams& p, float dt);
     void stepCamera(const SceneParams& p, float dt);
@@ -268,6 +273,13 @@ private:
     UiBlurPass uiBlurPass_;
     UiBlurRegion uiBlurRegion_;
     std::atomic<bool> uiBlurOn_{false};
+    // The wallpaper's edge look, the first frame::Pass (#439). Its options are guarded by stateLock_ and
+    // handed to the pass on the GL thread; edgeGlowOn_ lets a frame without it (every surface but the
+    // wallpaper) skip the lock. The renderer has no surface kind of its own: the pass runs only when the
+    // shell turned it on (the wallpaper is its only caller), and never offscreen.
+    frame::EdgeGlowPass edgeGlowPass_;
+    frame::edge_glow::Options edgeGlowOptions_;
+    std::atomic<bool> edgeGlowOn_{false};
     std::atomic<bool> offscreen_{false};
     std::atomic<int> fixedFps_{0};
     // The note layer's seed: the director's play seed mixed with fresh entropy whenever that seed changes,

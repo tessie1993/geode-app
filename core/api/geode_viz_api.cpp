@@ -47,6 +47,7 @@ static_assert(frame::kFrameClearOnly == GEODE_FRAME_CLEAR_ONLY);
 static_assert(frame::kFrameThermalDue == GEODE_FRAME_THERMAL_DUE);
 static_assert(frame::kFrameLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
 static_assert(GEODE_FRAME_LIQUID_MODE(frame::kFrameLiquidMask << frame::kFrameLiquidShift) == static_cast<int>(frame::kFrameLiquidMask));
+static_assert(frame::edge_glow::kFloats == GEODE_EDGE_GLOW_FLOATS);
 
 constexpr int kModSourceCount = static_cast<int>(ModSource::StereoPan) + 1;
 constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::EndlessZoomSpeed) + 1;
@@ -512,6 +513,11 @@ void geode_viz_set_ui_blur_region(geode_viz* v, float left, float top, float rig
     region.strength = strength;
     region.cornerPx = corner_px;
     v->renderer.setUiBlurRegion(region);
+}
+
+void geode_viz_set_edge_glow(geode_viz* v, const float* opts, int count) {
+    if (!v) return;
+    v->renderer.setEdgeGlow(geode::viz::frame::edge_glow::parse(opts, count));
 }
 
 int geode_viz_knows(geode_viz* v, const char* scene_id) {

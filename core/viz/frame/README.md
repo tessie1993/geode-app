@@ -1,6 +1,8 @@
-# core/viz/frame (skeleton)
+# core/viz/frame
 
-Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md). Only Cast's frame clock and HLS timing are here so far.
+Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md). [ADR 0008](../../../docs/adr/0008-frame-pacing-heat-and-rest.md) sets the pacing, heat and rest rules.
+
+**Here now:** `HlsSegments.hpp` (Cast's HLS timing: segment durations from the fragments' media time, the playlist text; reached through `geode_hls_*`, tested by `core/tests/hls_segments_test.cpp`), `FixedRateClock` (Cast's frame clock: steady slots, a stall drops frames instead of bursting, monotonic PTS, the audio cut; reached through `geode_frame_clock_*`, tested by `core/tests/cast_clock_test.cpp`) and `Pacer.hpp`, the frame clock every surface shares. It decides which vsyncs a surface draws on (a whole-number divide of the measured panel rate) and owns the one dt clamp, `clampDt`, which `Renderer::beginFrame` uses too. Android keeps the Choreographer callback (`render/FramePacer.kt`). It is reached through `geode_pacer_*` and tested by `core/tests/pacer_test.cpp`.
 
 **Owns:** the one frame function every surface runs (screen, PiP, second screen, wallpaper, dream, Studio preview, export, thumbnails), and the pieces it is built from.
 - Cast's frame timing, as the one surface that streams its frames: the fixed-rate frame clock that stamps each frame's PTS, and the HLS timing of the stream those frames become (each segment's media duration read from its fragment, the stream's fixed `EXT-X-TARGETDURATION`, the playlist text). Sockets and byte cutting stay in Kotlin's `cast/`.

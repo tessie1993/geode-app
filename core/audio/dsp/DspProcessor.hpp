@@ -2,6 +2,7 @@
 #include <array>
 #include <atomic>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -23,6 +24,14 @@ namespace geode::audio {
 // process() also refuses what it cannot fit: a block whose channel count is not the live chain's passes
 // through untouched, and frames are clamped to the buffer's capacity, so no caller mistake can walk past it.
 //
+// Bit-perfect USB (issue #353): while the DAC takes the stream bit-perfect, the chain is pure pass-through, so
+// the DAC gets the file's exact samples whatever gain, ramp, equalizer, crossfeed or limiter is set. The shell
+// only says whether the platform granted the bit-perfect path for the stream it is about to open
+// (setBitPerfect, any thread); this latches it at flush(), the moment a new AudioTrack follows (Media3 flushes
+// the pipeline whenever it builds one), so the chain and the platform switch together. The live chain is
+// reset at that flush either way, so leaving bit-perfect starts from clean filter state and the current
+// targets, not from a half-finished ramp.
+//
 // Threads: configure, flush and process run on the playback thread; the setters may run on any thread.
 // Every chain ever built stays owned here until destruction, so a setter racing a flush never reaches a
 // freed chain, and there is at most one chain per format (a format seen again reuses its chain).
@@ -40,6 +49,14 @@ public:
     // holds; `channels` is the channel count the block was queued in.
     void process(float* interleaved, size_t capacityFloats, size_t frames, int channels);
 
+    // Playback thread, RT-safe: the same on 16-bit PCM in place, converted to float and back in fixed chunks
+    // on the stack (full scale 32768, clipped, truncated toward zero, as the Kotlin shell did). A block the
+    // chain does not run, including every block while bit-perfect is live, is never touched: not a byte.
+    void processPcm16(int16_t* interleaved, size_t capacitySamples, size_t frames, int channels);
+
+    // Any thread. Whether the platform takes the next AudioTrack bit-perfect; applies from the next flush().
+    void setBitPerfect(bool on);
+
     void setEnabled(bool enabled);
     void setBand(int band, int millibels);
     void setBassBoost(int permille);
@@ -51,6 +68,7 @@ public:
     // For tests: the live chain's format, 0 when none.
     int liveChannels() const;
     int liveSampleRate() const;
+    bool bitPerfectLive() const;
 
 private:
     struct Settings {
@@ -73,6 +91,11 @@ private:
     std::atomic<DspChain*> live_{nullptr};
     DspChain* pending_ = nullptr;  // playback thread only
     bool staged_ = false;          // playback thread only: a configure() waits for its flush()
+    std::atomic<bool> bitPerfectWanted_{false};
+    std::atomic<bool> bitPerfectLive_{false};  // written at flush(), read by process()
+
+    // The chain process() may run on a block of `channels`, or null for pass-through.
+    DspChain* runnable(int channels) const;
 };
 
 }  // namespace geode::audio

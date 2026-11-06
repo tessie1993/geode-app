@@ -77,12 +77,17 @@ class ExportAspect(
     val bitRate: Int,
 ) {
     companion object {
-        /** The size rule (ratio, 4096 cap, even sides) is native: core/output/ExportGeometry. */
+        /**
+         * The encoded frame for a quality and a ratio: the long side follows the ratio, both shrink
+         * together past 4096 (the longest side H.264 level 5.1 takes), each rounded up to even.
+         * Native (`core/output/EncodePlan`, tested by `core/tests/output_test.cpp`).
+         */
         fun of(
             quality: ExportQuality,
             ratio: ExportRatio,
         ): ExportAspect {
-            val size = GeodeNative.exportSize(quality.shortSide, ratio.wRatio, ratio.hRatio)
+            val size = IntArray(2)
+            GeodeNative.exportFrameSize(quality.shortSide, ratio.wRatio, ratio.hRatio, size)
             return ExportAspect(size[0], size[1], quality.bitRate)
         }
     }
@@ -396,11 +401,11 @@ class VideoExporter(
                     .also { aacRef = it }
             // The encoder opens after the audio, which is what tells it how long the file will be:
             // a long 4K or 1080p track at the preset's rate would pass MediaMuxer's 4 GB ceiling.
-            val bitRate = GeodeNative.muxerCappedVideoBps(aspect.bitRate, aac.durationUs, aac.file.length())
+            val bitRate = MuxerBudget.cappedVideoBps(aspect.bitRate, aac.durationUs, aac.file.length())
             if (bitRate < aspect.bitRate) {
                 RingLog.note(TAG, "video bit rate capped to $bitRate for a ${aac.durationUs / 1000} ms render")
             }
-            val requestedFpsBounded = GeodeNative.exportFps(requestedFps)
+            val requestedFpsBounded = GeodeNative.exportClampFps(requestedFps)
             // The requested codec at the requested rate first, then its reduced form, then the same pair on H.264.
             val attempts =
                 listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->
@@ -417,8 +422,9 @@ class VideoExporter(
             egl.makeCurrent()
 
             val exportDurationUs = aac.durationUs
-            val totalFrames = GeodeNative.exportTotalFrames(exportDurationUs, fps)
-            val frameDurationNs = GeodeNative.exportFrameDurationNs(fps)
+            // The frame clock is native (core/output/FrameClock): each frame's time and timestamp come from
+            // its index alone, so nothing drifts over a long render.
+            val totalFrames = GeodeNative.exportTotalFrames(exportDurationUs, fps).toInt()
 
             // Pinned now: the live player moving on must not change this render's director.
             val directorStore = AutoDirectorStore.get(context)
@@ -465,8 +471,8 @@ class VideoExporter(
                 if (isCancelled()) break
                 renderer.renderFrame(frame)
                 mark?.draw()
-                val timeMs = frame * 1000L / fps
-                egl.setPresentationTimeNs(frame * frameDurationNs)
+                val timeMs = GeodeNative.exportFrameTimeMs(frame.toLong(), fps)
+                egl.setPresentationTimeNs(GeodeNative.exportFramePtsNs(frame.toLong(), fps))
                 egl.swapBuffers()
 
                 while (true) {

@@ -1,8 +1,6 @@
-# core/output (skeleton)
+# core/output
 
-Part of the target in [ADR 0006](../../docs/adr/0006-fosfora-aligned-engine.md).
-
-**Here now:** `ExportGeometry.hpp` (#606): an export's picture size (short side times the ratio, the long side capped at 4096, even sides), the fps clamp to 24..60, the total frame count and the frame duration, all integer-exact. ABI `geode_export_*` (`api/geode_output_api.cpp`); Kotlin's `ExportAspect.of` and `VideoExporter` only call it. Tested by `core/tests/export_geometry_test.cpp`. The frame clock from samples below will build on its frame count. `MuxerBudget.hpp` (#774): the video bit-rate cap that keeps a render under MediaMuxer's 4 GB MP4 limit (3.8e9 bytes of video plus audio, floor 2 Mbit/s); ABI `geode_muxer_*`, called by `VideoExporter` and `LoopRender`; tested by `core/tests/muxer_budget_test.cpp`.
+Part of the target in [ADR 0006](../../docs/adr/0006-fosfora-aligned-engine.md). **Landed:** `FrameClock` (frame n's pts, programme time and samples heard, each from n alone), `LoopPlan` (`LoopSpec`, the seam weight and stash budget, `LoopExtendPlan`), `EncodePlan` (frame size, the fps retry, the muxer byte budget and hard stop) and `Chapters` (spans from mix clips and markers), behind `geode_api.h`'s export section and tested by `core/tests/output_test.cpp`. `VideoExporter`, `LoopRender`, `LoopExtend`, `MuxerBudget`, `ExportAspect.of`, `fallbackExportFps`, `ChapterMarkers` and `OffscreenSceneRenderer` call them (`app/src/main/cpp/geode_export_jni.cpp`). The driver itself (pre-roll, the frozen `RenderJob`) is still to come.
 
 **Owns:** the offline driver: how a render steps the same engine the screen runs, faster than real time.
 - A frame clock from samples: for frame `n` at `fps`, deliver samples up to `llround((n + 1) · rate / fps)` and render at that sample position, with dt passed in rather than worked out from wall time (`RendererFrame.cpp:50-51` clamps and guesses it today; the first frame is always 1/60 s).

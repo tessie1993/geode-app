@@ -66,6 +66,9 @@ public:
     void dropHere();
     // A harmonic change near a beat makes that beat slot more likely the downbeat (chords change on bars).
     void harmonyAccent(float strength);
+    // A kick drum event (KickModel), heard `intoHop` of a hop after the last hop (0..1). The phase arbiter
+    // folds these onto the beat grid: kicks that sit on the "and" bar after bar move the grid half a beat.
+    void kick(double intoHop);
 
     bool locked() const { return locked_; }
     void reset();
@@ -76,6 +79,7 @@ private:
     void advance();
     void finishBeatAccent(int64_t beat);
     void snapPhase();
+    void arbitrate();
     float periodOrDefault() const;
     int slotOf(int64_t beat) const { return static_cast<int>(((beat % 4) + 4) % 4); }
 
@@ -117,6 +121,14 @@ private:
     float measured_ = 0.0f;    // the PLP phase at the last measurement, 0..1
     float missSeconds_ = 0.0f; // how long the measurement has disagreed by more than a quarter beat
     int64_t lastBeat_ = 0;
+    // The phase arbiter (fosfora #4160): the kick events of the last 32 beats, in hops, and the half beat
+    // it has moved the grid by, which the pulse measurement keeps adding so it does not pull the grid back.
+    static constexpr int kKickEvents = 512;  // 32 beats at 60 BPM, one kick per 100 ms at most: 320
+    std::array<double, kKickEvents> kicks_{};
+    int kickHead_ = 0;
+    int kickCount_ = 0;
+    float phaseOffset_ = 0.0f;
+    int arbStreak_ = 0;
 
     // Downbeat: the kick and snare accents heard around each beat slot of the bar, leaky over ~6 bars.
     int64_t accentBeat_ = 0;  // the beat the accumulators below are collecting for

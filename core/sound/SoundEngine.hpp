@@ -7,6 +7,7 @@
 #include "sound/Fft.hpp"
 #include "sound/Form.hpp"
 #include "sound/Harmony.hpp"
+#include "sound/KickModel.hpp"
 #include "sound/Rhythm.hpp"
 #include "sound/SoundFrame.h"
 #include "sound/Stages.hpp"
@@ -34,6 +35,7 @@ namespace geode::sound {
 // the frame like everything else:
 //
 //   write() ─► filter bank ─► every 10 ms of audio: band powers ─► Rhythm (tempo, beat, bar, phrase)
+//          ─► KickModel ─► kick events ─► Rhythm's phase arbiter
 //   step(dt) ─► long spectrum ─► Harmony (chroma, key, tension) ─┐
 //            ─► EQ, timbre, loudness, bass share, hits ───────────┴► Form (novelty, sections, build, drop)
 //
@@ -202,6 +204,7 @@ private:
 
     // The musical layer.
     Rhythm rhythm_;
+    KickModel kick_;  // kick drum events for the rhythm's phase arbiter
     Harmony harmony_;
     Form form_;
     int hopFill_ = 0;  // samples written since the rhythm's last hop

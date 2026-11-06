@@ -380,11 +380,9 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
     look.yaw = std::clamp(look.yaw, -1.0f, 1.0f);
     look.pitch = std::clamp(look.pitch, -1.0f, 1.0f);
     camera_.setMoves(director_.moves(macros::camera(directedKnobs_)));
-    // Endless zoom flies the rig only for a style that marches it (EndlessZoom.hpp); the
-    // families still on the old law keep their old camera too.
+    // Endless zoom flies the rig only for a style that marches it (EndlessZoom.hpp).
     SceneParams rigParams = p;
-    rigParams.endlessZoom = p.endlessZoom && activeScene_ != nullptr && activeScene_->drawsCamera() &&
-                            !endless::keepsTriangle(activeScene_->id());
+    rigParams.endlessZoom = p.endlessZoom && activeScene_ != nullptr && activeScene_->drawsCamera();
     // Liquid mode owns the dive: a 3D style dives by flying the rig through it, at Dive speed.
     if (liquidOn() && activeScene_ != nullptr && activeScene_->drawsCamera()) rigParams.endlessZoom = true;
     camera_.step(rigParams, look, dt, reducedMotion_.load(std::memory_order_relaxed),

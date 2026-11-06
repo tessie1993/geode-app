@@ -115,6 +115,15 @@ object GeodeNative {
         out: IntArray,
     ): Int
 
+    /**
+     * Moves takes saved inside project folders ([projectsDir]`/<id>/takes/`) to [takesDir]`/<id>/`,
+     * once (core/library/StudioFiles, #384). Returns how many could not be moved.
+     */
+    external fun studioMoveTakesOut(
+        projectsDir: String,
+        takesDir: String,
+    ): Int
+
     /** [assets] is the app's `android.content.res.AssetManager`; typed as Any because this module has no Android SDK. */
     external fun vizCreate(
         assets: Any,
@@ -348,31 +357,34 @@ object GeodeNative {
         pitch: Float,
     )
 
-    /** This surface's own fps cap, 0 when free-running; the thermal cap is applied under it natively. */
-    external fun vizSetPacedFps(
+    /**
+     * One live frame's start (`core/viz/frame/Cadence`), on the GL thread before [vizSetScene] and
+     * [vizRender]: hand over what the shell holds every frame; native applies only what changed. [pacedFps]
+     * is this surface's own cap (0 free-running; the thermal cap is applied under it natively); the rest is
+     * Settings › Performance, with [liquidHotPolicy] 0 simplify, 1 full, 2 pause (`liquid::HotPolicy`).
+     * Answers a bitmask of the `FRAME_*` bits.
+     */
+    external fun vizFrameBegin(
         handle: Long,
-        fps: Float,
-    )
-
-    external fun vizSetQuality(
-        handle: Long,
+        pacedFps: Float,
         renderScale: Float,
         marchScale: Float,
         postFx: Boolean,
         adaptive: Boolean,
-    )
+        liquidHotPolicy: Int,
+    ): Int
 
-    /** Settings › Performance › Liquid on a hot phone: 0 simplify, 1 full, 2 pause (`liquid::HotPolicy`). */
-    external fun vizSetLiquidHotPolicy(
-        handle: Long,
-        policy: Int,
-    )
+    /** Mirrors GEODE_FRAME_CLEAR_ONLY: native cleared a new surface's first frame; present it, do nothing else. */
+    const val FRAME_CLEAR_ONLY: Int = 0x1
 
-    /**
-     * What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (`liquid::Mode`), or -1
-     * when it has not changed since the last take. Take it every frame; a new surface reports again.
-     */
-    external fun vizTakeLiquidMode(handle: Long): Int
+    /** Mirrors GEODE_FRAME_THERMAL_DUE: read PowerManager and call [thermalPush]. */
+    const val FRAME_THERMAL_DUE: Int = 0x2
+
+    /** Mirrors GEODE_FRAME_LIQUID_CHANGED: Liquid mode changed; read it with [frameLiquidMode]. */
+    const val FRAME_LIQUID_CHANGED: Int = 0x4
+
+    /** Mirrors GEODE_FRAME_LIQUID_MODE: 0 off, 1 full, 2 lite, 3 warp, 4 paused (`liquid::Mode`). */
+    fun frameLiquidMode(due: Int): Int = (due ushr 8) and 0xF
 
     /**
      * Pins this renderer's auto-director (an export's): from then on it ignores [directorSet], so the live
@@ -1080,10 +1092,7 @@ object GeodeNative {
     /** The cap a surface asking for [capFps] runs at now, under the thermal cap; 0 = none. For `Surface.setFrameRate`. */
     external fun pacerEffectiveCap(capFps: Float): Float
 
-    // The process's one thermal state (core/viz/frame/Thermal).
-
-    /** Polled each frame by every live renderer: true for at most one caller a second in the process. */
-    external fun thermalSampleDue(): Boolean
+    // The process's one thermal state (core/viz/frame/Thermal); a reading is due on FRAME_THERMAL_DUE.
 
     /** One PowerManager reading: status (< 0 = no thermal API) and headroom (NaN = none this time). */
     external fun thermalPush(

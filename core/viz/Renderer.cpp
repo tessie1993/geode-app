@@ -413,6 +413,13 @@ void Renderer::surfaceChanged(int width, int height) {
     applyRenderScale();
 }
 
+void Renderer::clearToBlack(GLuint targetFbo) {
+    glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
+    glViewport(0, 0, width_, height_);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+}
+
 void Renderer::setUserQuality(float renderScale, float marchScale, bool postFx, bool adaptive) {
     // std::clamp passes NaN through, and a NaN scale would never equal appliedUserScale_ again,
     // resizing every frame; a corrupt pref means full quality instead.

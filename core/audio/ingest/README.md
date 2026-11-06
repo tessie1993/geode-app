@@ -11,7 +11,7 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 
 **Moves in (today, `cf7e88f`)**
 - `engine/audio-core/.../audio/SampleRing.kt`, `SoundCursor.kt`, `SoundInput.kt` (the ring, the each-sample-once cursor, rate as a separate volatile)
-- `app/.../audio/PcmRingBuffer.kt` (the second, mono ring that only feeds `pushPcm`)
+- ~~`app/.../audio/PcmRingBuffer.kt`~~ gone (#486): MilkDrop's raw PCM is the mono mix of what each renderer's engine heard, `core/viz/PcmHandoff`
 - the per-sample int16 → float loops in `engine/audio-android/.../PcmTap.kt`, `app/.../audio/AudioCapturePump.kt:77`, `app/.../audio/dsp/NativeDspProcessor.kt:96,107`
 - the capture level and silence guesses in `app/.../audio/MicCapture.kt:47-64` and `PlaybackCapture.kt:49` (one silence flag comes from `core/sound/hop` instead)
 

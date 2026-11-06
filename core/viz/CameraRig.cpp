@@ -35,6 +35,13 @@ Vec3 rotate(const Vec3& v, const Vec3& k, float angle) {
 }
 
 // Two incommensurate sines: a cheap, smooth handheld wobble, deterministic in time.
+// 1 facing forward, 0 turned round: a smoothstep of the speed across kTurnAroundSpeed below zero, so 1 while
+// stopped or moving forward.
+float facingOf(float speed) {
+    const float k = std::clamp((speed + CameraRig::kTurnAroundSpeed) / CameraRig::kTurnAroundSpeed, 0.0f, 1.0f);
+    return k * k * (3.0f - 2.0f * k);
+}
+
 float wobble(float t, float a, float b) { return 0.6f * std::sin(t * a) + 0.4f * std::sin(t * b + 1.7f); }
 
 }  // namespace
@@ -50,7 +57,7 @@ void CameraRig::Spring::step(float target, float dt, float seconds) {
 }
 
 void CameraRig::reset() {
-    yaw_ = pitch_ = roll_ = dolly_ = fov_ = speed_ = orbit_ = Spring{};
+    yaw_ = pitch_ = roll_ = dolly_ = fov_ = speed_ = orbit_ = facing_ = Spring{};
     travel_ = 0.0f;
     time_ = 0.0f;
     primed_ = false;
@@ -227,7 +234,10 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
         roll_.reset(rollTarget);
         dolly_.reset(dollyTarget);
         fov_.reset(fovTarget);
-        if (!primed_) speed_.reset(speedTarget);
+        if (!primed_) {
+            speed_.reset(speedTarget);
+            facing_.reset(facingOf(speedTarget));
+        }
         orbit_.reset(p.camOrbit * g);
         primed_ = true;
     }
@@ -239,6 +249,7 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     // Speed eases slower than the look: a surge should feel like thrust.
     speed_.step(speedTarget, dt, soft * 2.0f);
     orbit_.step(std::clamp(p.camOrbit, 0.0f, 1.0f) * g, dt, soft * 3.0f);
+    facing_.step(facingOf(speed_.x), dt, kTurnAroundSeconds);
 
     time_ = std::fmod(time_ + dt, kPathPeriod);
     travel_ = std::fmod(travel_ + speed_.x * dt, kTravelWrap);
@@ -257,12 +268,10 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     if (travels) {
         const Vec3 further = pathPoint(path, orbit_.x, travel_ + 2.0f * kLookAhead);
         turn = sub(normalize(sub(further, ahead)), fwd);
-        // Backward: swing round to face the way the camera goes, a smoothstep of the speed spring
-        // (itself continuous through zero), so a reversal turns the view rather than flipping it.
-        // 1 while stopped or moving forward, so forward looks are exactly as they were.
-        const float k = std::clamp((speed_.x + kTurnAroundSpeed) / kTurnAroundSpeed, 0.0f, 1.0f);
-        const float facing = k * k * (3.0f - 2.0f * k);
-        const float swing = kTwoPi * 0.5f * (1.0f - facing);
+        // Backward: swing round to face the way the camera goes, eased by the facing spring (facingOf the
+        // speed spring), so a reversal turns the view at a bounded rate rather than flipping it. It rests
+        // at exactly 1 while stopped or moving forward, so forward looks are exactly as they were.
+        const float swing = kTwoPi * 0.5f * (1.0f - std::clamp(facing_.x, 0.0f, 1.0f));
         fwd = rotate(fwd, up, swing);
         right = rotate(right, up, swing);
     }

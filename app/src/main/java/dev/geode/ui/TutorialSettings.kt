@@ -63,53 +63,48 @@ internal fun TutorialSettingsTab(
     val done = gui.tutorialProgress.done.intersect(TourChapters.toSet())
     val context = LocalContext.current
     var resetNote by rememberSaveable { mutableStateOf(false) }
-    SettingsTabColumn {
-        item {
-            Column(
-                Modifier.padding(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.S),
-                verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
-            ) {
-                Text(
-                    stringResource(R.string.tutorials_group),
-                    Modifier.semantics { heading() },
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    stringResource(R.string.tutorials_progress, done.size, TourChapters.size),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                LinearProgressIndicator(
-                    progress = { done.size / TourChapters.size.toFloat() },
-                    modifier = Modifier.fillMaxWidth().height(4.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                )
-                Button(onClick = { onPlay(TourChapters) }, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.tutorials_play_all))
-                }
-                Column {
-                    TourChapters.forEach { chapter ->
-                        ChapterRow(chapter, chapter in done, onClick = { onPlay(listOf(chapter)) })
-                    }
-                }
-                TextButton(
-                    onClick = {
-                        onReset()
-                        GestureTips.reset(context)
-                        resetNote = true
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                ) { Text(stringResource(R.string.tutorials_reset)) }
-                if (resetNote) {
-                    Text(
-                        stringResource(R.string.tutorials_reset_done),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
+    Column(
+        verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
+    ) {
+        Text(
+            stringResource(R.string.tutorials_group),
+            Modifier.semantics { heading() },
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            stringResource(R.string.tutorials_progress, done.size, TourChapters.size),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        LinearProgressIndicator(
+            progress = { done.size / TourChapters.size.toFloat() },
+            modifier = Modifier.fillMaxWidth().height(4.dp),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+        )
+        Button(onClick = { onPlay(TourChapters) }, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.tutorials_play_all))
+        }
+        Column {
+            TourChapters.forEach { chapter ->
+                ChapterRow(chapter, chapter in done, onClick = { onPlay(listOf(chapter)) })
             }
+        }
+        TextButton(
+            onClick = {
+                onReset()
+                GestureTips.reset(context)
+                resetNote = true
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text(stringResource(R.string.tutorials_reset)) }
+        if (resetNote) {
+            Text(
+                stringResource(R.string.tutorials_reset_done),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
         }
     }
 }

@@ -13,11 +13,13 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
 import dev.geode.billing.ProSnapshot
+import dev.geode.billing.WallClock
 import dev.geode.data.BehaviourStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PerformanceStore
 import dev.geode.data.PresetStore
 import dev.geode.data.ThemeStore
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.pro.ProFeature
 import dev.geode.render.HandMask
 import dev.geode.render.VisualizerRenderer
@@ -34,8 +36,8 @@ import dev.geode.util.bestEffort
  * real view hierarchy, so [VisualizerView]'s own attach/detach and window-visibility pacing, and
  * its own scene teardown on `onDetachedFromWindow`, all apply completely unmodified.
  *
- * It runs by the wallpaper's rule ([wallpaperRunMode]), because it is the same thing on the same
- * kind of screen — one that sits there for hours while nobody may be looking:
+ * It runs by the wallpaper's rule (native: [WallpaperConditions.runMode]), because it is the same
+ * thing on the same kind of screen — one that sits there for hours while nobody may be looking:
  * - covered ([DreamCover]: the proximity sensor reads near, face down or in a pocket): no frames;
  * - battery saver: a still frame;
  * - silence ([SoundSource]'s grace): a still frame, until sound comes back.
@@ -85,7 +87,7 @@ class VisualizerDreamService : DreamService() {
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         // Pro feature: without it the dream ends at once and the system falls back to its own.
-        if (!ProSnapshot.gate(this).allows(ProFeature.SCREENSAVER)) {
+        if (!entitled()) {
             finish()
             return
         }
@@ -141,8 +143,17 @@ class VisualizerDreamService : DreamService() {
         super.onDreamingStopped()
     }
 
+    /** Restates when a running trial ends; the native rule says when (#376). */
+    private val trialEnded = Runnable { syncRunState() }
+
+    /** The entitlement as the native rule reads it: Pro forever, a trial its end, free 0. */
+    private fun animateUntilMs(): Long = ProSnapshot.animateUntilMs(this, ProFeature.SCREENSAVER)
+
+    private fun entitled(): Boolean = GeodeNative.surfaceEntitled(animateUntilMs(), WallClock.SYSTEM.nowMs())
+
     override fun onDetachedFromWindow() {
         handler.removeCallbacks(endStillSettle)
+        handler.removeCallbacks(trialEnded)
         sound.stop()
         cover.stop()
         overlay?.stop()
@@ -167,24 +178,31 @@ class VisualizerDreamService : DreamService() {
      */
     private fun syncRunState() {
         val view = visualizerView ?: return
+        val now = WallClock.SYSTEM.nowMs()
         val conditions =
             WallpaperConditions(
                 surfaceAvailable = true,
                 visible = dreaming,
-                // Checked once in onAttachedToWindow: without Pro there is no dream to run.
-                animationAllowed = true,
                 preview = false,
                 covered = cover.covered,
                 batterySaver = powerManager?.isPowerSaveMode == true,
-                silent = false,
+                silent = sound.silent,
                 settings = settings,
+                animateUntilMs = animateUntilMs(),
             )
-        // Listen whenever the dream would animate if there were sound, cover aside: that is what
-        // wakes a resting dream, and lifting the phone for a second should not restart the
-        // silence clock.
-        syncListening(wallpaperRunMode(conditions.copy(covered = false)) == WallpaperRunMode.ANIMATED)
+        // A trial that ends mid-dream ends the dream, the same as a free user starting one
+        // (owner, #376), and Android falls back to its own.
+        if (!conditions.entitled(now)) {
+            finish()
+            return
+        }
+        handler.removeCallbacks(trialEnded)
+        conditions.recheckInMs(now)?.let { handler.postDelayed(trialEnded, it) }
+        // The native rule says when to listen: whenever the dream would move with sound, cover
+        // aside, so lifting the phone for a second does not restart the silence clock.
+        syncListening(conditions.listening(now))
         val previous = runMode
-        runMode = wallpaperRunMode(conditions.copy(silent = sound.silent))
+        runMode = conditions.runMode(now)
         if (runMode != WallpaperRunMode.STILL) {
             handler.removeCallbacks(endStillSettle)
             settling = false
@@ -268,7 +286,7 @@ class VisualizerDreamService : DreamService() {
         engine.lfoEngine.configs = modulation.load()
         engine.adsrEngine.configs = modulation.loadAdsrs()
         engine.reactions = modulation.loadReactions()
-        HandMask.set(modulation.loadHandMask())
+        HandMask.set(modulation.loadHandMask(), engine.reactions != null)
     }
 
     private companion object {

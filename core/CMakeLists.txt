@@ -10,6 +10,7 @@ add_library(geode_core STATIC
     audio/ingest/Ring.cpp
     audio/ingest/Cursor.cpp
     api/geode_ingest_reader_api.cpp
+    api/geode_surface_api.cpp
     sound/Fft.cpp
     sound/Emotion.cpp
     sound/Form.cpp
@@ -25,6 +26,16 @@ add_library(geode_core STATIC
     audio/dsp/PcmResampler.cpp
     audio/dsp/Loudness.cpp
     api/geode_export_dsp_api.cpp
+    api/geode_export_api.cpp
+    audio/dsp/PcmConvert.cpp
+    audio/dsp/PcmTiming.cpp
+    output/FrameClock.cpp
+    output/LoopPlan.cpp
+    output/EncodePlan.cpp
+    output/Chapters.cpp
+    signal/timeline/Keyframes.cpp
+    signal/timeline/SpeedRamp.cpp
+    util/CubeLut.cpp
     viz/ShaderSource.cpp
     viz/GlCaps.cpp
     viz/GlProber.cpp
@@ -35,6 +46,7 @@ add_library(geode_core STATIC
     viz/Program.cpp
     viz/ProgramStager.cpp
     viz/StyleSchedule.cpp
+    viz/ShaderOverrides.cpp
     viz/Texture.cpp
     viz/Framebuffer.cpp
     viz/Quad.cpp
@@ -43,6 +55,7 @@ add_library(geode_core STATIC
     viz/Lfo.cpp
     viz/Macros.cpp
     viz/Director.cpp
+    viz/LayerState.cpp
     viz/NoteResponse.cpp
     viz/UiBlurPass.cpp
     viz/Adsr.cpp
@@ -57,10 +70,12 @@ add_library(geode_core STATIC
     viz/TouchField.cpp
     viz/Transition.cpp
     viz/CompositeGrade.cpp
+    viz/ClipGrade.cpp
     viz/CompositePass.cpp
     viz/TrailPass.cpp
     viz/Catalogue.cpp
     viz/ParamRandomizer.cpp
+    viz/CustomizeMap.cpp
     viz/SceneRegistry.cpp
     viz/Renderer.cpp
     viz/RendererFrame.cpp
@@ -84,6 +99,9 @@ add_library(geode_core STATIC
     viz/fluid/FlowField.cpp
     viz/liquid/LiquidMath.cpp
     viz/liquid/LiquidPass.cpp
+    viz/world/WorldGenome.cpp
+    viz/world/MorphDriver.cpp
+    viz/world/WorldAssets.cpp
     viz/scenes/StyleCatalog.cpp
     viz/scenes/CymaticsMath.cpp
     viz/scenes/CymaticsScene.cpp

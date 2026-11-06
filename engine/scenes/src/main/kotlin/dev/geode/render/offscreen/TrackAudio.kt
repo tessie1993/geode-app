@@ -94,12 +94,17 @@ class TrackAudio(
         return true
     }
 
-    /** The rate the track decodes to, decoding until it is known (it is only once the decoder has produced something); 0 if none. */
-    fun sampleRate(): Int {
+    /** [deliverUntil] for everything up to [endMs] into the range, at whatever rate the track decodes to. */
+    fun deliverUntilMs(
+        endMs: Long,
+        sink: (FloatArray, Int, Int, Int) -> Unit,
+    ): Boolean {
+        // The rate is only known once the decoder has produced something.
         while (pendingRate == 0 && !ended) {
             if (aiff != null) readAiff() else decodeStep()
         }
-        return pendingRate
+        if (pendingRate == 0) return false
+        return deliverUntil(endMs * pendingRate / 1000L, sink)
     }
 
     private fun readAiff() {

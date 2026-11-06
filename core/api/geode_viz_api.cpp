@@ -13,11 +13,14 @@
 #include "viz/Director.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/Macros.hpp"
+#include "viz/LayerState.hpp"
 #include "viz/ReactionDna.hpp"
 #include "viz/ReactionResolve.hpp"
 #include "viz/Renderer.hpp"
 #include "viz/SceneRegistry.hpp"
-#include "viz/frame/OfflineStep.hpp"
+#include "viz/frame/Quality.hpp"
+#include "viz/frame/Pacer.hpp"
+#include "viz/ShaderOverrides.hpp"
 
 struct geode_viz {
     geode_viz(AAssetManager* assets, std::string cacheDir) : renderer(assets, std::move(cacheDir)) {}
@@ -91,7 +94,8 @@ void geode_viz_set_params(geode_viz* v, const float* values, int count) {
     const auto& names = SceneParams::fieldNames();
     SceneParams p;
     for (int i = 0; i < count; ++i) p.set(names[static_cast<size_t>(i)], values[i]);
-    if (v->offline.load(std::memory_order_relaxed)) geode::viz::frame::pinOfflineParams(p);
+    // Quality never adapts downward in an export: its wall-clock frame time is the encoder's pace.
+    if (v->offline.load(std::memory_order_relaxed)) p.fluidAutoQuality = false;
     {
         std::lock_guard<std::mutex> lock(v->reactLock);
         v->reactions.setSeed(p.reactSeed);
@@ -101,10 +105,6 @@ void geode_viz_set_params(geode_viz* v, const float* values, int count) {
 
 void geode_viz_set_reduced_motion(geode_viz* v, int on) {
     if (v) v->renderer.setReducedMotion(on != 0);
-}
-
-void geode_viz_set_layer(geode_viz* v, const char* scene_id, float mix, int blend_mode) {
-    if (v) v->renderer.setLayer(text(scene_id), mix, blend_mode);
 }
 
 void geode_viz_set_transition(geode_viz* v, const char* id, int64_t duration_ms) {
@@ -171,13 +171,13 @@ void geode_viz_push_pcm(geode_viz* v, const float* mono, int count) {
     if (v && mono && count > 0) v->renderer.pushPcm(mono, count);
 }
 
-void geode_viz_set_custom_shader(geode_viz* v, const char* scene_id, const char* fragment_source) {
-    if (v && scene_id && fragment_source) v->renderer.setCustomShader(scene_id, fragment_source);
+void geode_shader_override_set(const char* style_id, const char* fragment_source) {
+    if (style_id) geode::viz::shader_overrides::set(style_id, fragment_source ? fragment_source : "");
 }
 
-size_t geode_viz_custom_shader(geode_viz* v, const char* scene_id, char* out, size_t capacity) {
-    if (!v || !scene_id) return 0;
-    const std::string source = v->renderer.customShaderFor(scene_id);
+size_t geode_shader_override(const char* style_id, char* out, size_t capacity) {
+    if (!style_id) return 0;
+    const std::string source = geode::viz::shader_overrides::get(style_id);
     if (out && capacity > 0) {
         const size_t n = std::min(capacity - 1, source.size());
         std::memcpy(out, source.data(), n);
@@ -221,6 +221,41 @@ void geode_viz_set_adsr(geode_viz* v, int slot, const float* c, int count) {
     std::lock_guard<std::mutex> lock(v->configLock);
     v->adsr[static_cast<size_t>(slot)] = std::move(cfg);
     v->renderer.setAdsrConfigs(v->adsr);
+}
+
+int geode_perf_tier(int mode, float* out, int capacity) {
+    namespace frame = geode::viz::frame;
+    if (!out || capacity < GEODE_PERF_TIER_FLOATS || mode < 0 || mode >= frame::kQualityModes) return 0;
+    const frame::QualityTier& t = frame::qualityTier(static_cast<frame::QualityMode>(mode));
+    out[0] = t.renderScale;
+    out[1] = t.fpsCap;
+    out[2] = t.marchScale;
+    out[3] = t.postFx ? 1.0f : 0.0f;
+    out[4] = t.adaptive ? 1.0f : 0.0f;
+    return GEODE_PERF_TIER_FLOATS;
+}
+
+int geode_perf_mode_for_device(long long total_ram_bytes, int low_ram, int media_performance_class) {
+    return static_cast<int>(geode::viz::frame::modeForDevice(total_ram_bytes, low_ram != 0, media_performance_class));
+}
+
+double geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap_fps) {
+    namespace frame = geode::viz::frame;
+    static_assert(frame::kPacerStateLongs == GEODE_PACER_STATE_LONGS);
+    static_assert(sizeof(long long) == sizeof(int64_t));
+    auto* wire = reinterpret_cast<int64_t*>(state);
+    frame::PacerState s = frame::unpack(wire);
+    const double dt = frame::Pacer::onVsync(s, frame_time_ns, cap_fps);
+    frame::pack(s, wire);
+    return dt;
+}
+
+void geode_pacer_resume(long long* state) {
+    namespace frame = geode::viz::frame;
+    auto* wire = reinterpret_cast<int64_t*>(state);
+    frame::PacerState s = frame::unpack(wire);
+    frame::Pacer::resume(s);
+    frame::pack(s, wire);
 }
 
 }  // extern "C"
@@ -298,7 +333,7 @@ void geode_viz_set_user_reactions(geode_viz* v, const float* routes, int count, 
     v->reactions.setHand(h);
 }
 
-void geode_hand_set(unsigned mask) { hand::setGlobal(static_cast<std::uint32_t>(mask)); }
+void geode_hand_set(unsigned mask, int has_user) { hand::setGlobal(static_cast<std::uint32_t>(mask), has_user != 0); }
 
 int geode_style_reactions_hand(const char* style_id, int seed, const float* user, int user_floats, int has_user, unsigned mask,
                                float* out, int capacity) {
@@ -372,6 +407,10 @@ void geode_director_set(float amount, long long seed) { director::setGlobal(amou
 
 void geode_note_response_set(int enabled) { note_response::setGlobal(enabled != 0); }
 
+void geode_layer_set(const char* scene_id, float mix, int blend_mode) {
+    layer_state::set(layer_state::Layer{text(scene_id), mix, blend_mode});
+}
+
 void geode_macros_surprise(const float* knobs, int count, unsigned lock_mask, long long seed, float* out) {
     if (!out) return;
     const MacroKnobs k = macros::surprise(macros::clamped(knobs, count), lock_mask, static_cast<uint64_t>(seed));
@@ -433,12 +472,18 @@ void geode_viz_set_director(geode_viz* v, float amount, long long seed) {
     if (v) v->renderer.pinDirector(amount, static_cast<uint64_t>(seed));
 }
 
+void geode_viz_set_frame_rate(geode_viz* v, int fps) {
+    if (v) v->renderer.setFixedFrameRate(fps);
+}
+
 void geode_viz_set_offscreen(geode_viz* v, int on) {
     if (!v) return;
     // An export never shows a half-built scene: each one is built whole on the frame that asks for it.
     v->renderer.setBlockingBuilds(on != 0);
     // Nor does it ever carry the app's sheet blur into the video.
     v->renderer.setOffscreen(on != 0);
+    // And it keeps the Customize layer it started with: a live edit during a background render stays live.
+    v->renderer.pinLayer(on != 0);
     if (on) {
         v->renderer.thermal().beginOffscreenRender();
     } else {
@@ -561,21 +606,6 @@ void geode_viz_prepare_offscreen(geode_viz* v) {
     // into a fade, at 0 ms (held to 1 ms by setTransition), exactly what the Kotlin shell used to ask for.
     v->renderer.setTransition(transitionStyleId(TransitionStyle::Cut), 0);
     v->offline.store(true, std::memory_order_relaxed);
-}
-
-void geode_viz_render_offscreen_frame(geode_viz* v, int64_t index, int32_t fps_num, int32_t fps_den,
-                                      uint32_t target_fbo) {
-    if (!v) return;
-    syncReactions(v);
-    v->renderer.render(geode::viz::frame::frameSeconds(index, {fps_num, fps_den}), target_fbo);
-}
-
-int64_t geode_offline_frame_ms(int64_t index, int32_t fps_num, int32_t fps_den) {
-    return geode::viz::frame::frameMs(index, {fps_num, fps_den});
-}
-
-int64_t geode_offline_audio_until(int64_t index, int32_t fps_num, int32_t fps_den, int32_t sample_rate) {
-    return geode::viz::frame::audioUntil(index, {fps_num, fps_den}, sample_rate);
 }
 
 void geode_viz_release_scenes(geode_viz* v) {

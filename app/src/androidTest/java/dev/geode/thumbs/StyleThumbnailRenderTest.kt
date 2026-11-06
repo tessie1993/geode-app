@@ -17,6 +17,7 @@ import dev.geode.engine.audio.SoundTuning
 import dev.geode.render.TransitionStyle
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.scene.Catalogue
+import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.SceneKind
 import dev.geode.render.scene.SceneParams
 import org.junit.After
@@ -55,8 +56,17 @@ import kotlin.math.abs
  * only when more than [MAX_FAILED_FRACTION] of them did, which means the renderer, not a style,
  * is broken. A frame that is one flat colour is still saved but listed as suspect.
  *
- * Arguments: `thumbsOnly=<id,id>` renders a subset; `thumbsFps=<n>` sets the warm-up frame
- * rate (default [DEFAULT_WARMUP_FPS]; the emulator renders in software, so frames are the cost).
+ * Arguments: `thumbsOnly=<id,id>` renders a subset; `thumbsSkip=<id,id>` leaves styles out;
+ * `thumbsFps=<n>` sets the warm-up frame rate (default [DEFAULT_WARMUP_FPS]; the emulator renders
+ * in software, so frames are the cost) and `thumbsMarchFps=<n>` the rate for the raymarched styles
+ * ([ParamScope.MARCH_DETAIL], default [DEFAULT_MARCH_WARMUP_FPS]). A marched frame costs seconds
+ * on the emulator (vanishing took 228-311 s at 15 fps in #331's runs) and there are 88 of them,
+ * which at 15 fps alone outlasts the workflow's timeout; they are stateless raymarches, so fewer
+ * warm-up frames still land mid-groove.
+ *
+ * Each style logs `<id> start` before it renders, so when a style takes the emulator down (#331:
+ * both runs died on the style after vanishing) logcat names it; the workflow pulls the device
+ * folder while the test runs, so the thumbnails already written survive such a crash.
  *
  * MilkDrop is skipped: its picture is whichever preset is loaded, so the picker uses its own art.
  * API 30 and up only, for `Bitmap.CompressFormat.WEBP_LOSSY`; the CI emulator is API 30.
@@ -131,11 +141,26 @@ class StyleThumbnailRenderTest {
                 ?.toIntOrNull()
                 ?.coerceIn(MIN_WARMUP_FPS, MAX_WARMUP_FPS)
                 ?: DEFAULT_WARMUP_FPS
+        val marchFps =
+            args
+                .getString("thumbsMarchFps")
+                ?.toIntOrNull()
+                ?.coerceIn(MIN_WARMUP_FPS, MAX_WARMUP_FPS)
+                ?: minOf(fps, DEFAULT_MARCH_WARMUP_FPS)
+        val skip =
+            args
+                .getString("thumbsSkip")
+                ?.split(',')
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() }
+                ?.toSet()
+                .orEmpty()
         val ids =
             Catalogue.styles
                 .filter { it.kind != SceneKind.MILKDROP }
                 .map { it.id }
                 .filter { only == null || it in only }
+                .filter { it !in skip }
         assertTrue("no styles to render (thumbsOnly=$only)", ids.isNotEmpty())
 
         val storage = TestStorage()
@@ -143,7 +168,9 @@ class StyleThumbnailRenderTest {
         val suspects = mutableListOf<String>()
         for (id in ids) {
             val started = SystemClock.elapsedRealtime()
-            val result = runCatching { renderStyle(id, fps) }
+            Log.i(TAG, "$id start")
+            val styleFps = if (ParamScope.MARCH_DETAIL.appliesTo(id)) marchFps else fps
+            val result = runCatching { renderStyle(id, styleFps) }
             result
                 .onSuccess { pixels ->
                     if (isFlat(pixels)) suspects += "$id: one flat colour"
@@ -154,7 +181,8 @@ class StyleThumbnailRenderTest {
 
         val report =
             buildString {
-                appendLine("rendered ${ids.size - failures.size} of ${ids.size} styles at $fps fps warm-up")
+                appendLine("rendered ${ids.size - failures.size} of ${ids.size} styles at $fps fps warm-up ($marchFps fps marched)")
+                if (skip.isNotEmpty()) appendLine("skipped on request: ${skip.sorted().joinToString()}")
                 appendLine("failed (${failures.size}):")
                 failures.forEach { appendLine("  $it") }
                 appendLine("suspect, still saved (${suspects.size}):")
@@ -253,6 +281,7 @@ class StyleThumbnailRenderTest {
         const val WEBP_QUALITY = 75
         const val WARMUP_SECONDS = 4
         const val DEFAULT_WARMUP_FPS = 15
+        const val DEFAULT_MARCH_WARMUP_FPS = 5
         const val MIN_WARMUP_FPS = 5
         const val MAX_WARMUP_FPS = 60
         const val MAX_FAILED_FRACTION = 0.1

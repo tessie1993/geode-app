@@ -178,4 +178,4 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 
 - **Gates.** `.github/workflows/arch-map.yml` runs `tools/layer-gate.sh` (the layer rule above) and `tools/engine-kotlin-gate.sh` on every PR. There is no AGENTS.md check; keep this map current by hand.
 - **When you refactor,** update the tables above in the same PR: module, package, entry point, thread, large-file line counts. Then update the "breaks the guide" list. When a split step from ADR 0001 lands, rewrite the Modules section to match, and record any change of plan as a new ADR.
-- Verify every path you name. Keep this file under 200 lines; push detail into `docs/`. 
+- Verify every path you name. Keep this file under 200 lines; push detail into `docs/`.

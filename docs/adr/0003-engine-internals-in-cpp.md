@@ -25,7 +25,7 @@ Answers from the grilling:
 | `scene/ParamRandomizer`, `render/ParamBlend` | 388 | Engine | `core/viz/Params` | #108, #118, #129 |
 | `scene/VisualStyleCatalog`, `StyleFamilies`, `SceneCapabilities`, `ParamScope`, `ParamKeys` (ids only), `SceneParams` ranges, `MarchBudget`, `SceneIds`, `MilkStarterPack`, `TouchTransform`, `render/TransitionCatalog`, `fluid/FluidQuality` tiers | 2578 | Engine (metadata) | `core/viz/SceneRegistry` | #108, #118, #129 |
 | `analysis/*` (`AnalysisEngine`, `OfflineAnalyzer`, `FeatureTimeline`, `FrameAccumulator`, `AnalysisCache`, `BeatTuning`, `LiveInputProfile`, `SceneSuggester`, `KeyPalette`, `AudioFeatures`), audio-core `ReactiveAnalyzer`, `DrumChannels`, `PulseReplay`, `MidSideWindow`, `AnalysisFft`, `render/LiveSignal`, `wallpaper/IdleFeatures` | ~2100 | Engine | `core/sound` | sound-wiring removes them |
-| audio-core `SampleRing`, `AudioPresentationClock`, `PresentationMapping` (deleted since), `ClockSegment`; app `audio/PcmRingBuffer` | 358 | Engine (per-buffer ring and clock maths) | `core/audio` | how `core/sound` takes PCM (sound-wiring) |
+| audio-core `SampleRing`, `AudioPresentationClock`, `PresentationMapping` (deleted since), `ClockSegment`; app `audio/PcmRingBuffer` (deleted since, #486) | 358 | Engine (per-buffer ring and clock maths) | `core/audio` | how `core/sound` takes PCM (sound-wiring) |
 | `render/Lfo`, `Adsr`, `Reactions`, `ReactionRouteCodec`, `EventRecipe`, `bridge/*Codec`, `FeatureFrameLayout`, `GeodeNative` | ~1500 | Shell: config types, ordinals, wire layouts | none | `EventRecipe` re-pointed by sound-wiring |
 | `render/VisualizerView`, `VisualizerRenderer`, `FramePacer`, `ThermalGovernor` (readings only; the governor is native), `MilkPresetMemory`, `offscreen/*`, `bridge/NativeViz`, `fluid/FluidShaderTemplate` | ~1300 | Shell: GL thread, Choreographer, sensors | none | none |
 | audio-android `PcmTap*`, `SinkClock*`; app `playback/*`, `audio/*` (DSP is native already), `AiffPcm`/`AiffExtractor` | ~3700 | Shell: Media3, services, capture, container IO | none | none |
@@ -43,7 +43,7 @@ The decision stands; this records what has landed against the table above.
 - **Gone:** the `analysis/*` row. The sound engine work (`core/sound`) removed it; only `ArtPalette`, `PlaybackMath` and `SearchMatcher` are left in `dev.geode.analysis`. `BarTrim` is gone.
 - **Done (#483):** the playback gain is `core/audio/dsp/GainStage`: ReplayGain's rule (was `playback/ReplayGain.gainDb`), the UI fades (`ui/PlaybackFades`' stepping), the crossfade curve (`playback/TrackCrossfade`) and `PlaybackMath`'s sleep fade are native gain ramps, and `NativeDspProcessor`'s 16-bit conversion loops went with them. The Kotlin left says targets, lengths and which item a stream is.
 - **Renamed:** `FeatureFrameLayout` is now audio-core's `SoundFrameLayout`.
-- **Open:** the ring and clock row (`SampleRing`, `AudioPresentationClock`, `ClockSegment`, `audio/PcmRingBuffer`) and `ArtPalette` are still Kotlin. `PresentationMapping` was deleted: nothing read presentation time.
+- **Open:** the ring and clock row (`SampleRing`, `AudioPresentationClock`, `ClockSegment`) and `ArtPalette` are still Kotlin. `PresentationMapping` was deleted: nothing read presentation time.
 
 ## Consequences
 

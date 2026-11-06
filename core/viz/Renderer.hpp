@@ -5,6 +5,7 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -147,6 +148,9 @@ public:
     // Styles in `lockedIds` (the entitlement) are dropped from it.
     void setStyleSchedule(std::vector<StyleCue> cues, std::vector<std::string> beatCutIds, int everyBeats,
                           const std::vector<std::string>& lockedIds);
+    // Told, on the GL thread inside beginFrame, each scene the style schedule switches to, before this frame's
+    // params resolve. geode_viz uses it to re-deal the reaction DNA to the style now playing (#352).
+    void setScheduledSceneHook(std::function<void(const std::string&)> hook) { scheduledSceneHook_ = std::move(hook); }
     void warmTransition(const std::string& id);
     void cut();
     void render(double timeSeconds, GLuint targetFbo);
@@ -355,6 +359,7 @@ private:
     // setStyleSchedule's latest schedule, moved into styleSchedule_ by the GL thread (stateLock_).
     std::optional<StyleSchedule> styleScheduleRequest_;
     StyleSchedule styleSchedule_;
+    std::function<void(const std::string&)> scheduledSceneHook_;
     bool milkReloadRequested_ = false;
     std::string milkTextureDir_;
     bool milkTextureDirDirty_ = false;

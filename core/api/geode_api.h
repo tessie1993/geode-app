@@ -81,7 +81,7 @@ GEODE_API size_t      geode_shader_override(const char* style_id, char* out, siz
 GEODE_API void        geode_viz_set_lfo(geode_viz*, int slot, const float* config, int count);
 GEODE_API void        geode_viz_set_adsr(geode_viz*, int slot, const float* config, int count);
 /* The routes layout: GEODE_REACT_ROUTE_FLOATS per route. What the reaction matrix plays is resolved natively
-   (core/viz/ReactionResolve, #750) from the scene asked for (geode_viz_set_scene), the params' reactSeed, and
+   (core/viz/ReactionResolve, #750) from the scene playing (geode_viz_set_scene, and each switch of an export's style schedule, #352), the params' reactSeed, and
    the user's routes under the hand mask set here: the style's DNA with no user list (has_user 0, routes and
    mask ignored), else geode_style_reactions_hand's merge. It is worked out again before a render only when one
    of those changed, so the shell pushes the user's side only when it changes. */

@@ -179,11 +179,25 @@ void testResolvesExactlyOnChange() {
     check(!r.resolve(out) && r.resolves() == before + 1, "inputs changed and changed back between two renders do not resolve");
 }
 
+// An export's style schedule feeds setScene mid-render (#352): each switch deals that style's own DNA.
+void testScheduleSwitchesFollowTheirStyle() {
+    ReactionResolve r(&traitsOf);
+    r.setSeed(2);
+    r.setScene("neon_chrome_sea");
+    RouteArray first{};
+    check(r.resolve(first), "the starting style resolves");
+    for (const char* scene : {"glow_vortex", "arbor_1", "neon_chrome_sea"}) {
+        r.setScene(scene);  // a scheduled cue, same seed and hand
+        check(step(r, scene, 2, nullptr, "a scheduled switch plays the new style's DNA"), "the switch resolves");
+    }
+}
+
 }  // namespace
 
 int main() {
     testMatchesOldPath();
     testResolvesExactlyOnChange();
+    testScheduleSwitchesFollowTheirStyle();
     if (failures) {
         std::printf("reaction_resolve_test: %d failure(s)\n", failures);
         return 1;

@@ -32,7 +32,16 @@
 #include "viz/frame/WallpaperWindow.hpp"
 
 struct geode_viz {
-    geode_viz(AAssetManager* assets, std::string cacheDir) : renderer(assets, std::move(cacheDir)) {}
+    geode_viz(AAssetManager* assets, std::string cacheDir) : renderer(assets, std::move(cacheDir)) {
+        // An export's style schedule switches the scene without the shell: the routes follow it in the same
+        // frame, on the render thread, before the frame's params resolve (#352).
+        renderer.setScheduledSceneHook([this](const std::string& id) {
+            geode::viz::RouteArray routes{};
+            std::lock_guard<std::mutex> lock(reactLock);
+            reactions.setScene(id);
+            if (reactions.resolve(routes)) renderer.setReactionRoutes(routes);
+        });
+    }
 
     geode::viz::Renderer renderer;
     geode::viz::GyroLook gyro;  // GL thread only (geode_viz_gyro_*)

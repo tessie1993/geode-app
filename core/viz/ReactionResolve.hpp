@@ -8,8 +8,8 @@ namespace geode::viz {
 
 // What one renderer's reaction matrix plays, and when to work it out again (#750).
 //
-// The routes are a pure function of four inputs: the scene the shell asked for (geode_viz_set_scene; an
-// export's scheduled switches do not change it, as before), the params' reactSeed, the user's routes and
+// The routes are a pure function of four inputs: the scene playing (geode_viz_set_scene, and each switch of
+// an export's style schedule, so a take's later styles play their own DNA, #352), the params' reactSeed, the user's routes and
 // Customize › Music's hand mask. With no list of the user's that is the style's DNA (buildStyleDna); with one
 // it is mergeHand, the hand winning per moment. Building the DNA every frame would be wasted work, so this
 // keeps the inputs and resolves only when they differ from the ones it last resolved. The mask means

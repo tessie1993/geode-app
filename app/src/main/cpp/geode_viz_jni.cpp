@@ -332,6 +332,36 @@ Java_dev_geode_engine_bridge_GeodeNative_musicActionTarget(JNIEnv*, jobject, jin
     return geode_music_action_target(action);
 }
 
+// A null styleId gives every route of the recipe (geode_event_recipe_routes' own rule).
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_eventRecipeRoutes(JNIEnv* env, jobject, jint recipe, jstring styleId) {
+    Utf8Chars id(env, styleId);
+    float out[GEODE_REACT_ROUTES * GEODE_REACT_ROUTE_FLOATS] = {};
+    const int n = geode_event_recipe_routes(recipe, id.get(), out, GEODE_REACT_ROUTES * GEODE_REACT_ROUTE_FLOATS);
+    jfloatArray result = env->NewFloatArray(n * GEODE_REACT_ROUTE_FLOATS);
+    if (result && n > 0) env->SetFloatArrayRegion(result, 0, n * GEODE_REACT_ROUTE_FLOATS, out);
+    return result;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_eventRecipeState(JNIEnv* env, jobject, jint recipe, jstring styleId, jfloatArray current) {
+    Utf8Chars id(env, styleId);
+    FloatElements routes(env, current);
+    return static_cast<jint>(geode_event_recipe_state(recipe, id.get(), routes.get(), routes.length()));
+}
+
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_eventRecipeToggle(JNIEnv* env, jobject, jint recipe, jstring styleId, jfloatArray current) {
+    Utf8Chars id(env, styleId);
+    FloatElements routes(env, current);
+    float out[GEODE_REACT_ROUTES * GEODE_REACT_ROUTE_FLOATS] = {};
+    const int n = geode_event_recipe_toggle(recipe, id.get(), routes.get(), routes.length(), out,
+                                            GEODE_REACT_ROUTES * GEODE_REACT_ROUTE_FLOATS);
+    jfloatArray result = env->NewFloatArray(n * GEODE_REACT_ROUTE_FLOATS);
+    if (result && n > 0) env->SetFloatArrayRegion(result, 0, n * GEODE_REACT_ROUTE_FLOATS, out);
+    return result;
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetLook(JNIEnv*, jobject, jlong handle, jfloat yaw, jfloat pitch) {
     geode_viz_set_look(vizOf(handle), yaw, pitch);
@@ -646,14 +676,17 @@ Java_dev_geode_engine_bridge_GeodeNative_exportSeamAllocate(JNIEnv*, jobject, jl
     return geode_export_seam_allocate(passOf(handle), requested);
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportSeamCapture(JNIEnv*, jobject, jlong handle, jint index) {
-    geode_export_seam_capture(passOf(handle), index);
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportSeamFrame(JNIEnv*, jobject, jlong handle, jint frame, jint loopFrames,
+                                                        jint seamFrames, jint fps) {
+    return geode_export_seam_frame(passOf(handle), frame, loopFrames, seamFrames, fps);
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportSeamBlend(JNIEnv*, jobject, jlong handle, jint index, jint tail, jint seamFrames) {
-    geode_export_seam_blend(passOf(handle), index, tail, seamFrames);
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportSeamBudgetedCrossfadeMs(JNIEnv*, jobject, jlong crossfadeMs,
+                                                                      jint crossfadeFrames, jint fps, jint width,
+                                                                      jint height) {
+    return geode_export_seam_budgeted_crossfade_ms(crossfadeMs, crossfadeFrames, fps, width, height);
 }
 
 JNIEXPORT jlong JNICALL

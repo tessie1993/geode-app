@@ -104,11 +104,15 @@ internal class CastEncoder(
 
     private fun drainLoop() {
         val info = MediaCodec.BufferInfo()
-        while (running) {
-            val wroteVideo = drain(video, isVideo = true, info)
-            val wroteAudio = drain(audio, isVideo = false, info)
-            if (!wroteVideo && !wroteAudio) Thread.sleep(IDLE_MS)
-        }
+        // A codec error (or release() racing a slow join) throws here; uncaught on this thread it
+        // would kill the process. The render loop's next feed fails too and ends the cast cleanly.
+        runCatching {
+            while (running) {
+                val wroteVideo = drain(video, isVideo = true, info)
+                val wroteAudio = drain(audio, isVideo = false, info)
+                if (!wroteVideo && !wroteAudio) Thread.sleep(IDLE_MS)
+            }
+        }.onFailure { RingLog.note(TAG, "drain: ${it.javaClass.simpleName}") }
     }
 
     /** Takes one output buffer from [codec] if there is one; true if it did. */

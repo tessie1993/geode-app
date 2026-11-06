@@ -1,8 +1,8 @@
 # core/output
 
-Part of the target in [ADR 0006](../../docs/adr/0006-fosfora-aligned-engine.md).
+Part of the target in [ADR 0006](../../docs/adr/0006-fosfora-aligned-engine.md). **Landed:** `FrameClock` (frame n's pts, programme time and samples heard, each from n alone), `LoopPlan` (`LoopSpec`, the seam weight and stash budget, `LoopExtendPlan`), `EncodePlan` (frame size, the fps retry, the muxer byte budget and hard stop) and `Chapters` (spans from mix clips and markers), behind `geode_api.h`'s export section and tested by `core/tests/output_test.cpp`. `VideoExporter`, `LoopRender`, `LoopExtend`, `MuxerBudget`, `ExportAspect.of`, `fallbackExportFps`, `ChapterMarkers` and `OffscreenSceneRenderer` call them (`app/src/main/cpp/geode_export_jni.cpp`). The driver itself (pre-roll, the frozen `RenderJob`) is still to come.
 
-**Here now:** `EncoderLadder.hpp` (#607), the frame rate and bit rate an export asks the video encoder for, rung by rung, over each candidate codec (`geode_encoder_attempts`; Kotlin passes in only each codec's `MediaCodecInfo.VideoCapabilities` ceiling and iterates the list). Test: `core/tests/encoder_ladder_test.cpp`.
+**Also here:** `EncoderLadder.hpp` (#607), the frame rate and bit rate an export asks the video encoder for, rung by rung, over each candidate codec (`geode_encoder_attempts`; Kotlin passes in only each codec's `MediaCodecInfo.VideoCapabilities` ceiling and iterates the list). Test: `core/tests/encoder_ladder_test.cpp`.
 
 **Still to come:**
 

@@ -1,0 +1,103 @@
+{
+  "_comment": "Morph World's baked assets: CC0 (license cc_zero) BlenderKit assets, pinned by assetBaseId. fetch.py refuses any that the API does not report as cc_zero. Order is the bake order: material i is layer i of world_textures.bin, model i is slab i of world_shapes.bin.",
+  "materials": [
+    {
+      "id": "cb2ba137-0fcb-4c4c-913c-4e22b1735605",
+      "name": "Marble Tiles"
+    },
+    {
+      "id": "0faa32f0-80ce-4b4f-94a4-51047252020d",
+      "name": "Corrugated Iron"
+    },
+    {
+      "id": "b73e2a0e-7967-4d27-8eca-b5208c4a4916",
+      "name": "Volcanic Rock Tiles"
+    },
+    {
+      "id": "7372ddd4-5513-469e-a942-970d5fa50fd5",
+      "name": "Lichen Rock"
+    },
+    {
+      "id": "7805955b-1f11-40e5-bbed-fa2ad44601d8",
+      "name": "Ice 02"
+    },
+    {
+      "id": "785ae9c1-5c95-4345-89ef-728b4b12738a",
+      "name": "Chinese Cedar Bark"
+    },
+    {
+      "id": "e8feb6dc-2e14-4b9c-8aa1-b43bb881bb33",
+      "name": "Clay Roof Tiles"
+    },
+    {
+      "id": "d2985100-fe7a-481d-902b-02d5965a446d",
+      "name": "Computer Texture"
+    }
+  ],
+  "models": [
+    {
+      "id": "19b1ef54-c54a-4c0c-b309-28f1b266686f",
+      "name": "Lambis Shell"
+    },
+    {
+      "id": "46610f9c-5817-439e-be91-dd0e2c4ad1a9",
+      "name": "Gothic Statue"
+    },
+    {
+      "id": "b5292b3a-ce6d-4721-8cd7-f214f62e7889",
+      "name": "Bull Head"
+    },
+    {
+      "id": "a37f703c-8986-4488-8053-b47422a87175",
+      "name": "Cow Skull"
+    },
+    {
+      "id": "953a5b75-6bef-4c80-9371-9d99a4aa9122",
+      "name": "Horse Statue 01"
+    },
+    {
+      "id": "9bcdea77-1798-4d4a-a69e-bab56a4ea261",
+      "name": "Chandelier 03"
+    },
+    {
+      "id": "a8f1a241-ebba-4a0e-b081-20cf8a720282",
+      "name": "Mushroom"
+    },
+    {
+      "id": "b6155e0a-79eb-44da-acc2-6587f7f533da",
+      "name": "Fern 02"
+    },
+    {
+      "id": "cf657993-cb54-461b-874f-9eda90e166b4",
+      "name": "Quiver Tree 01"
+    },
+    {
+      "id": "6880c55f-95e5-4477-b4fe-f9276252c603",
+      "name": "Crystalline Iceplant"
+    },
+    {
+      "id": "059bb822-bb9d-41b3-9923-6b84f9a518e4",
+      "name": "Dead Tree Trunk 02"
+    },
+    {
+      "id": "ff359c53-c43e-4e36-a5a8-347607e4ea77",
+      "name": "Cheiridopsis Succulent"
+    },
+    {
+      "id": "4b71dbf8-4f14-4e34-8ebf-f889f478acb4",
+      "name": "Japanese Stone Lantern"
+    },
+    {
+      "id": "8ac726bb-9e5b-487c-b86c-34fa1bbab12b",
+      "name": "Buddha"
+    },
+    {
+      "id": "dec67dba-388e-4e8d-ac23-4c87c63e6249",
+      "name": "Antique Ceramic Vase 01"
+    },
+    {
+      "id": "cf2072c1-f974-44b0-a512-2b1ca634274a",
+      "name": "Owl decor"
+    }
+  ]
+}

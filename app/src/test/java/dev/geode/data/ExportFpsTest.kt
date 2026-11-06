@@ -3,6 +3,7 @@ package dev.geode.data
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
+/** The encoder's fps retry is native now (core/output/EncodePlan); core/tests/output_test.cpp pins it. */
 class ExportFpsTest {
     @Test
     fun templateFpsSnapsToTheNearestOfferedRate() {

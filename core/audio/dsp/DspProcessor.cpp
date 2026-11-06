@@ -49,7 +49,9 @@ void DspProcessor::process(float* interleaved, size_t capacityFloats, size_t fra
     DspChain* chain = runnable(channels);
     if (!chain || !interleaved) return;
     frames = std::min(frames, capacityFloats / static_cast<size_t>(channels));
-    if (frames > 0) chain->process(interleaved, frames);
+    if (frames == 0) return;
+    gain_.process(interleaved, frames, channels, chain->sampleRate());
+    chain->process(interleaved, frames);
 }
 
 void DspProcessor::processPcm16(int16_t* interleaved, size_t capacitySamples, size_t frames, int channels) {
@@ -67,6 +69,7 @@ void DspProcessor::processPcm16(int16_t* interleaved, size_t capacitySamples, si
         const size_t n = std::min(chunkFrames, frames - done);
         int16_t* pcm = interleaved + done * ch;
         for (size_t i = 0; i < n * ch; ++i) chunk[i] = static_cast<float>(pcm[i]) / kFullScale;
+        gain_.process(chunk, n, channels, chain->sampleRate());
         chain->process(chunk, n);
         for (size_t i = 0; i < n * ch; ++i) {
             // Clamped to [-1, 1] first (a NaN to silence), so the scaled value always fits an int32; +1.0 is
@@ -103,7 +106,6 @@ void DspProcessor::applyTo(DspChain& chain, const Settings& s) {
     for (int band = 0; band < Equalizer::kBands; ++band) chain.equalizer().setBand(band, s.bandsMb[static_cast<size_t>(band)]);
     chain.equalizer().setBassBoost(s.bassBoost);
     chain.loudness().setTargetDb(static_cast<float>(s.loudnessMb) / 100.0f);
-    chain.gain().setTargetDb(s.gainDb);
     chain.crossfeed().setEnabled(s.crossfeed);
     chain.limiter().setEnabled(s.limiter);
 }
@@ -139,12 +141,6 @@ void DspProcessor::setLoudnessMb(int millibels) {
     std::lock_guard<std::mutex> lock(mutex_);
     settings_.loudnessMb = clamped;
     forEachChain([&](DspChain& c) { c.loudness().setTargetDb(static_cast<float>(clamped) / 100.0f); });
-}
-
-void DspProcessor::setGainDb(float db) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    settings_.gainDb = db;
-    forEachChain([&](DspChain& c) { c.gain().setTargetDb(db); });
 }
 
 void DspProcessor::setCrossfeed(bool enabled) {

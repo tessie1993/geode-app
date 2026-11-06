@@ -1,5 +1,7 @@
 package dev.geode.engine.bridge
 
+// The one JNI surface (AGENTS.md): every native call is declared here, so its size is the native API's.
+@Suppress("TooManyFunctions")
 object GeodeNative {
     init {
         System.loadLibrary("geode")
@@ -43,10 +45,67 @@ object GeodeNative {
         millibels: Int,
     )
 
-    external fun dspSetGainDb(
+    // Playback gain (core/audio/dsp/GainStage): the shell says targets and lengths; the ramps, the dB maths
+    // and when each applies are native.
+
+    /** The UI fade (pause, resume, skip) to [db] over [ms]; -inf or <= -80 dB is silence. */
+    external fun dspRampTo(
         handle: Long,
         db: Float,
+        ms: Int,
     )
+
+    /** The sleep timer's time left (< 0 when cancelled or done); returns the ms until native next needs it. */
+    external fun dspSleepFade(
+        handle: Long,
+        remainingMs: Long,
+    ): Long
+
+    external fun dspSetCrossfade(
+        handle: Long,
+        ms: Int,
+    )
+
+    /** Whether something plays after the current item on its own: a next item, or repeat one. */
+    external fun dspSetFollowsOn(
+        handle: Long,
+        followsOn: Boolean,
+    )
+
+    external fun dspSetSpeed(
+        handle: Long,
+        speed: Float,
+    )
+
+    /** ReplayGain mode (0 off, 1 track, 2 album), preamp and clip guard. */
+    external fun dspSetReplayGain(
+        handle: Long,
+        mode: Int,
+        preampDb: Float,
+        clipGuard: Boolean,
+    )
+
+    /** One track's ReplayGain tags by stream name (its URI); [mask] holds the 1, 2, 4, 8 bits of those present. */
+    external fun dspSetStreamTags(
+        handle: Long,
+        stream: String,
+        mask: Int,
+        trackGainDb: Float,
+        trackPeak: Float,
+        albumGainDb: Float,
+        albumPeak: Float,
+    )
+
+    /** Playback thread, right after [dspFlush]: the stream whose first sample comes next. */
+    external fun dspBeginStream(
+        handle: Long,
+        stream: String?,
+        positionUs: Long,
+        durationUs: Long,
+    )
+
+    /** Playback thread: the stream's last sample has been queued. */
+    external fun dspEndStream(handle: Long)
 
     external fun dspSetCrossfeed(
         handle: Long,
@@ -374,13 +433,6 @@ object GeodeNative {
     /** Mirrors GEODE_RECIPE_FITS: turning the recipe on stays within GEODE_REACT_ROUTES. */
     const val RECIPE_FITS: Int = 2
 
-    /** Gyro look, -1..1 per axis; read only while camGyro is on. */
-    external fun vizSetLook(
-        handle: Long,
-        yaw: Float,
-        pitch: Float,
-    )
-
     /** One gyro reading (azimuth, pitch in radians from SensorManager.getOrientation); core/viz/GyroLook makes the look. */
     external fun vizGyroSample(
         handle: Long,
@@ -483,6 +535,26 @@ object GeodeNative {
         handle: Long,
         opts: FloatArray?,
     )
+
+    /**
+     * The live wallpaper's on-screen window (`core/viz/frame/WallpaperWindow.hpp`): from the surface and
+     * display sizes and the raw `onOffsetsChanged` values (xOffset, yOffset, xOffsetStep, yOffsetStep,
+     * xPixels, yPixels), writes left, top, width, height into [out] (4 floats), as [vizSetEdgeGlow] takes them.
+     */
+    external fun wallpaperWindow(
+        surfaceW: Float,
+        surfaceH: Float,
+        displayW: Float,
+        displayH: Float,
+        offsets: FloatArray?,
+        out: FloatArray,
+    )
+
+    /** The wallpaper's frame rate: [targetFps] lowered to the Performance cap ([capFps] <= 0 = none); never 0. */
+    external fun wallpaperFps(
+        targetFps: Float,
+        capFps: Float,
+    ): Float
 
     external fun vizKnows(
         handle: Long,
@@ -694,6 +766,19 @@ object GeodeNative {
         input: ShortArray,
         frames: Int,
     ): ShortArray
+
+    // Encoder fallback ladder (core/output/EncoderLadder): what an export asks the video encoder for.
+
+    /**
+     * Every encoder attempt for [requestedFps] at [bitRate], in order, as `[codecIndex, fps, bitRate]`
+     * triples: the ladder of each candidate codec in turn. [ceilings] has one entry per codec (at most
+     * two), its listed upper rate for the size, 0 when unknown.
+     */
+    external fun encoderAttempts(
+        requestedFps: Int,
+        bitRate: Int,
+        ceilings: IntArray,
+    ): IntArray
 
     // Export loudness meter (core/audio/dsp/Loudness): BS.1770-4 integrated loudness and true peak.
 
@@ -963,6 +1048,63 @@ object GeodeNative {
         nowMs: Long,
         heardAtMs: Long,
     ): Boolean
+
+    // What the player tells the sound engines that the tap cannot hear (core/sound/PlayerSignals).
+
+    /**
+     * A new track (or the same one again) begins a new play with [seed]: every live renderer's sound engine
+     * forgets the tempo, key and sections at its next frame and fires a full-strength section change, so a
+     * crossfaded or gapless next track starts fresh. Returns the boundary's epoch. Any thread.
+     */
+    external fun soundTrackBoundary(seed: Long): Long
+
+    /**
+     * The player's fade gain, 0..1 (the UI fades times the crossfade), which the tap before the volume never
+     * hears; the sound frame carries it as `fadeGain`, a reaction source. Live renderers only. Any thread.
+     */
+    external fun soundSetFadeGain(gain: Float)
+
+    /**
+     * Whether the player writes the app's ring (true) or the mic or another app's audio has taken it. While
+     * the player is the source a pause holds the tempo, key and sections; the others keep the 2 s silence
+     * re-warm, and read a fade gain of 1. Any thread.
+     */
+    external fun soundSetPlayerSource(on: Boolean)
+    // Which sound the wallpaper and the dream hear (core/sound/SoundSource): the app's ring while fed,
+    // else the output-mix capture when permitted, with hysteresis so it never flaps.
+
+    /** Longs in the caller-held state of [soundSourceStep]; a zeroed array is a fresh one. */
+    const val SOUND_SOURCE_STATE_LONGS: Int = 8
+
+    /** Answer bit of [soundSourceStep]: read the capture (while it runs), not the ring. */
+    const val SOUND_SOURCE_USE_CAPTURE: Int = 1
+
+    /** Answer bit of [soundSourceStep]: try to start the capture now. */
+    const val SOUND_SOURCE_START_CAPTURE: Int = 2
+
+    /** Answer bit of [soundSourceStep]: stop the capture now. */
+    const val SOUND_SOURCE_STOP_CAPTURE: Int = 4
+
+    /**
+     * One poll of the source rule: updates [state] in place and answers in `SOUND_SOURCE_*` bits.
+     * [ringId] tells rings apart, [ringWritten] is its written-frame counter; [capturePermitted] is
+     * the user's option plus the permission (or a capture already running).
+     */
+    external fun soundSourceStep(
+        state: LongArray,
+        nowMs: Long,
+        ringPresent: Boolean,
+        ringId: Long,
+        ringWritten: Long,
+        capturePermitted: Boolean,
+        captureRunning: Boolean,
+    ): Int
+
+    /** Reports that a start [soundSourceStep] asked for failed, so the next try waits 10 s. */
+    external fun soundSourceStartFailed(
+        state: LongArray,
+        nowMs: Long,
+    )
 
     // Settings › Audio's listening tuning (core/sound/Tuning): the schema behind SoundTuning.
 
@@ -1234,6 +1376,53 @@ object GeodeNative {
 
     /** A start after a stop: forget the gap, keep the panel's period. */
     external fun pacerResume(state: LongArray)
+
+    // Playout clock (core/sound/interp/PlayoutClock, #349): the ring sample the speaker plays now.
+
+    /** One clock per player, freed with [playoutDestroy]. */
+    external fun playoutCreate(): Long
+
+    external fun playoutDestroy(handle: Long)
+
+    /** The sink handled a buffer at [presentationUs] that put [frames] ring samples from [ringFrame]. */
+    external fun playoutBufferHandled(
+        handle: Long,
+        presentationUs: Long,
+        ringFrame: Long,
+        frames: Long,
+    )
+
+    /** The sink's position in media time (AudioTrack.getTimestamp, latency included), read at [nowNs]. */
+    external fun playoutPosition(
+        handle: Long,
+        sinkUs: Long,
+        nowNs: Long,
+    )
+
+    external fun playoutPlaying(
+        handle: Long,
+        playing: Boolean,
+        nowNs: Long,
+    )
+
+    external fun playoutFlush(handle: Long)
+
+    external fun playoutSpeed(
+        handle: Long,
+        speed: Float,
+    )
+
+    /** The user's A/V offset, clamped to ±1000 ms; positive shows the picture later. */
+    external fun playoutSetOffsetMs(
+        handle: Long,
+        ms: Int,
+    )
+
+    /** The newest ring sample heard at [nowNs], never past the newest written; -1 with no map since a flush. */
+    external fun playoutSpeakerFrame(
+        handle: Long,
+        nowNs: Long,
+    ): Long
 
     /** The cap a surface asking for [capFps] runs at now, under the thermal cap; 0 = none. For `Surface.setFrameRate`. */
     external fun pacerEffectiveCap(capFps: Float): Float

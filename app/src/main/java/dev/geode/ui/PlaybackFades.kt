@@ -4,11 +4,19 @@ import androidx.annotation.OptIn
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
+import dev.geode.playback.PlaybackSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/**
+ * Settings › Playback › Fade: pause, resume and skip fade out and back in. When to fade, and what to do
+ * once a fade-out is heard, is decided here; the ramp itself is native (`geode_dsp_ramp_to`), linear in
+ * dB on the samples, so it has no steps (#483). The samples run up to a sink buffer ahead of the speaker,
+ * so an action after a fade-out waits the fade plus [PlaybackSession.SINK_LAG_MS], and a resume after
+ * one of these pauses fades back in from the silence it left in that buffer.
+ */
 internal class PlaybackFades(
     private val scope: CoroutineScope,
     private val host: Host,
@@ -17,75 +25,57 @@ internal class PlaybackFades(
         val player: Player
         val fadeMs: Int
 
-        /** The playback session's volume mix, which the crossfade multiplies into. */
-        fun setVolume(volume: Float)
+        /** The native UI fade, to full level ([audible]) or to silence, over [ms]. */
+        fun rampTo(
+            audible: Boolean,
+            ms: Int,
+        )
 
         fun stopLiveInput()
     }
 
-    @Volatile
-    private var sleepVolume = 1f
-
-    @Volatile
-    private var fadeVolume = 1f
+    /** The UI fade was last sent to silence and not yet brought back. */
+    private var silenced = false
 
     private var fadeJob: Job? = null
 
-    val sleepFadeHook: (Float) -> Unit = { v ->
-        sleepVolume = v
-        applyVolume()
-    }
-
-    private fun applyVolume() {
-        host.setVolume((sleepVolume * fadeVolume).coerceIn(0f, 1f))
-    }
-
-    private fun fadeThen(
-        from: Float,
-        to: Float,
-        then: () -> Unit,
-    ) {
+    /** Fades to silence, then runs [then] once the faded audio has reached the speaker. */
+    private fun fadeOutThen(then: () -> Unit) {
         val durationMs = host.fadeMs
         fadeJob?.cancel()
-        if (durationMs <= 0) {
-            fadeVolume = to
-            applyVolume()
-            then()
-            return
-        }
+        silenced = true
+        host.rampTo(false, durationMs)
         lateinit var self: Job
         self =
             scope.launch {
-                val steps = (durationMs / FADE_STEP_MS).coerceAtLeast(1)
-                // Set the start volume once, then step from 1..steps so the fade takes
-                // exactly `steps` intervals (durationMs) instead of steps + 1.
-                fadeVolume = from
-                applyVolume()
-                for (i in 1..steps) {
-                    delay(FADE_STEP_MS)
-                    fadeVolume = from + (to - from) * (i.toFloat() / steps)
-                    applyVolume()
-                }
-                fadeVolume = to
-                applyVolume()
+                delay(durationMs + PlaybackSession.SINK_LAG_MS)
                 then()
-                // `then()` (e.g. skipFaded's nested fade-in) may have started a new fadeJob;
-                // only clear the field if it still points at this coroutine.
+                // `then()` (skipFaded's fade-in) may have started a new fadeJob; only clear our own.
                 if (fadeJob === self) fadeJob = null
             }
         fadeJob = self
+    }
+
+    private fun fadeIn() {
+        fadeJob?.cancel()
+        fadeJob = null
+        silenced = false
+        host.rampTo(true, host.fadeMs)
     }
 
     @OptIn(UnstableApi::class)
     fun togglePlayPauseFaded() {
         host.stopLiveInput()
         val player = host.player
-        if (player.isPlaying) {
-            fadeThen(fadeVolume, 0f) { player.pause() }
+        if (player.isPlaying && host.fadeMs > 0) {
+            fadeOutThen { player.pause() }
+        } else if (player.isPlaying) {
+            player.pause()
         } else {
-            fadeVolume = 0f
-            applyVolume()
-            fadeThen(0f, 1f) {}
+            // Only a pause of ours left silence to fade in from. One from elsewhere (the notification, a
+            // headset) left full-level audio in the sink buffer, which plays first on resume, so dipping
+            // to silence after it would be a dropout, not a fade.
+            if (silenced) fadeIn()
             // play() alone is a no-op once the track has ENDED (repeat off); this rewinds first.
             Util.handlePlayButtonAction(player)
         }
@@ -96,17 +86,13 @@ internal class PlaybackFades(
             action()
             return
         }
-        fadeThen(fadeVolume, 0f) {
+        fadeOutThen {
             action()
-            fadeThen(0f, 1f) {}
+            fadeIn()
         }
     }
 
     fun ensureAudibleAfterExternalPlay() {
-        if (fadeVolume < 1f && fadeJob?.isActive != true) fadeThen(fadeVolume, 1f) {}
-    }
-
-    private companion object {
-        const val FADE_STEP_MS = 25L
+        if (silenced && fadeJob?.isActive != true) fadeIn()
     }
 }

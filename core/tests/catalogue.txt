@@ -109,6 +109,7 @@ style|neon_chrome_sea|SHADER|MARCH_DETAIL
 style|black_hole|SHADER|MARCH_DETAIL
 style|hex_hive|SHADER|MARCH_DETAIL
 style|mandelbox_cathedral|SHADER|MARCH_DETAIL
+style|morph_world|SHADER|MARCH_DETAIL
 style|arbor_grove|SHADER
 style|arbor_willow|SHADER|MARCH_DETAIL
 style|arbor_coral|SHADER|MARCH_DETAIL

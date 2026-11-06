@@ -7,7 +7,6 @@ import android.service.wallpaper.WallpaperService
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
-import dev.geode.render.BlendMode
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
 import dev.geode.render.ReactionRoute
@@ -44,6 +43,7 @@ class NativeViz(
     @Volatile
     private var handle = 0L
     private val paramFrame = FloatArray(SceneParamsCodec.FIELDS)
+    private val sent = LastSent()
     private var reportedError = ""
 
     /**
@@ -58,6 +58,7 @@ class NativeViz(
         if (handle == 0L) {
             verifyLayouts()
             handle = GeodeNative.vizCreate(assets, cacheDir)
+            sent.clear()
             if (handle != 0L) {
                 GeodeNative.vizSetMilkTextureDir(handle, milkTextureDir)
                 GeodeNative.vizSetSurfaceKind(handle, surfaceKind)
@@ -87,22 +88,14 @@ class NativeViz(
     }
 
     fun setReducedMotion(on: Boolean) {
-        if (handle != 0L) GeodeNative.vizSetReducedMotion(handle, on)
-    }
-
-    fun setLayer(
-        sceneId: String?,
-        mix: Float,
-        blend: BlendMode,
-    ) {
-        if (handle != 0L) GeodeNative.vizSetLayer(handle, sceneId ?: "", mix, blend.ordinal)
+        if (handle != 0L && sent.reducedMotion(on)) GeodeNative.vizSetReducedMotion(handle, on)
     }
 
     fun setTransition(
         id: String,
         durationMs: Long,
     ) {
-        if (handle != 0L) GeodeNative.vizSetTransition(handle, id, durationMs)
+        if (handle != 0L && sent.transition(id, durationMs)) GeodeNative.vizSetTransition(handle, id, durationMs)
     }
 
     fun beginParamMorph(seconds: Float) {
@@ -174,15 +167,6 @@ class NativeViz(
         if (handle != 0L && count > 0) GeodeNative.vizPushPcm(handle, mono, count)
     }
 
-    fun setCustomShader(
-        sceneId: String,
-        fragmentSource: String,
-    ) {
-        if (handle != 0L) GeodeNative.vizSetCustomShader(handle, sceneId, fragmentSource)
-    }
-
-    fun customShaderFor(sceneId: String): String? = if (handle == 0L) null else GeodeNative.vizCustomShader(handle, sceneId)
-
     fun setLfoConfigs(configs: List<LfoConfig>) {
         if (handle == 0L) return
         configs.take(LfoEngine.SLOTS).forEachIndexed { slot, c -> GeodeNative.vizSetLfo(handle, slot, ModConfigCodec.packLfo(c)) }
@@ -201,7 +185,7 @@ class NativeViz(
         yaw: Float,
         pitch: Float,
     ) {
-        if (handle != 0L) GeodeNative.vizSetLook(handle, yaw, pitch)
+        if (handle != 0L && sent.look(yaw, pitch)) GeodeNative.vizSetLook(handle, yaw, pitch)
     }
 
     fun setThermal(
@@ -212,7 +196,7 @@ class NativeViz(
     }
 
     fun setPacedFps(fps: Float) {
-        if (handle != 0L) GeodeNative.vizSetPacedFps(handle, fps)
+        if (handle != 0L && sent.pacedFps(fps)) GeodeNative.vizSetPacedFps(handle, fps)
     }
 
     fun setQuality(
@@ -244,6 +228,11 @@ class NativeViz(
         if (handle == 0L) return
         GeodeNative.vizSetOffscreen(handle, on)
         GeodeNative.vizSetSurfaceKind(handle, if (on) SURFACE_EXPORT else surfaceKind)
+    }
+
+    /** See [GeodeNative.vizSetFrameRate]. A no-op before the handle exists. */
+    fun setFrameRate(fps: Int) {
+        if (handle != 0L) GeodeNative.vizSetFrameRate(handle, fps)
     }
 
     /**
@@ -285,6 +274,8 @@ class NativeViz(
     }
 
     fun surfaceCreated() {
+        // A new surface may be a new GL context: send every value once more, as the renderer does.
+        sent.clear()
         if (create()) GeodeNative.vizSurfaceCreated(handle)
     }
 
@@ -369,5 +360,53 @@ class NativeViz(
             SceneParamsCodec.verify(GeodeNative.vizParamNames())
             verified = true
         }
+    }
+}
+
+/**
+ * What a handle was last sent of the values the live renderer hands over every frame (the look,
+ * reduced motion, the transition, the paced rate), so each crosses JNI only when it changes, as
+ * the renderer's params, LFOs and quality already do. Each check records the value it lets
+ * through; [clear] makes the next of each go through again (a new handle or surface). GL thread.
+ */
+internal class LastSent {
+    private var yaw = Float.NaN
+    private var pitch = Float.NaN
+    private var reduced: Boolean? = null
+    private var transitionId: String? = null
+    private var transitionMs = -1L
+    private var fps = Float.NaN
+
+    fun look(
+        y: Float,
+        p: Float,
+    ): Boolean {
+        if (y == yaw && p == pitch) return false
+        yaw = y
+        pitch = p
+        return true
+    }
+
+    fun reducedMotion(on: Boolean): Boolean = (on != reduced).also { if (it) reduced = on }
+
+    fun transition(
+        id: String,
+        ms: Long,
+    ): Boolean {
+        if (id == transitionId && ms == transitionMs) return false
+        transitionId = id
+        transitionMs = ms
+        return true
+    }
+
+    fun pacedFps(f: Float): Boolean = (f != fps).also { if (it) fps = f }
+
+    fun clear() {
+        yaw = Float.NaN
+        pitch = Float.NaN
+        reduced = null
+        transitionId = null
+        transitionMs = -1L
+        fps = Float.NaN
     }
 }

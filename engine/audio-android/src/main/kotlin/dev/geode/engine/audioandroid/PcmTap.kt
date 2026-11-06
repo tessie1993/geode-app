@@ -3,13 +3,23 @@ package dev.geode.engine.audioandroid
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.audio.TeeAudioProcessor
-import dev.geode.engine.audio.PcmSink
+import dev.geode.engine.bridge.GeodeNative
 import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
+/**
+ * The player's PCM tap, first in `MvzAudioProcessorChain`: every buffer the player decodes, before any DSP.
+ *
+ * It touches no sample (#481, ADR 0003). [handleBuffer] hands the tap's buffer straight to the native
+ * ingest ring ([ingest], `core/audio/ingest`), which converts int16, u8 or float, keeps every channel with
+ * its layout and gives each renderer the stereo downmix through its own cursor. [flush] begins the ring's
+ * new epoch here, on the playback thread, before the first sample of the new stream is written, so a
+ * reader can never pair those samples with the old rate (#361). Every flush is an epoch for now, as it was:
+ * telling a speed or pitch flush (`geode_ingest_set_format`, no restart) from a seek is #487.
+ */
 @OptIn(UnstableApi::class)
 class PcmTap(
-    private val sink: PcmSink,
+    /** The native ingest ring (`geode_ingest*`); it outlives the player (see `PlaybackEngine.playerIngest`). */
+    private val ingest: Long,
     private val onFormat: (PcmTapFormat) -> Unit = {},
 ) : TeeAudioProcessor.AudioBufferSink {
     @Volatile
@@ -27,7 +37,8 @@ class PcmTap(
     var framesWritten: Long = 0L
         private set
 
-    private var staging: FloatArray = FloatArray(0)
+    /** Only for a heap buffer, which JNI cannot address; Media3's sink buffers are direct. One bulk copy. */
+    private var bounce: ByteBuffer? = null
 
     override fun flush(
         sampleRateHz: Int,
@@ -43,12 +54,10 @@ class PcmTap(
                 encoding = encoding,
                 generation = (ended?.generation ?: 0) + 1,
             )
-        if (channelCount > 0) {
-            val floats = STAGING_FRAMES * channelCount
-            if (staging.size != floats) staging = FloatArray(floats)
-        }
         framesWritten = 0L
         format = next
+        // Mask 0: the default layout for the count (the tap is told no mask).
+        GeodeNative.ingestBeginEpoch(ingest, sampleRateHz, channelCount, 0)
         try {
             boundaryListener?.onTapBoundary(ended, endedFrames, next)
         } catch (survivable: RuntimeException) {
@@ -59,50 +68,18 @@ class PcmTap(
 
     override fun handleBuffer(buffer: ByteBuffer) {
         val active = format ?: return
-        val width = active.sampleWidth ?: return
-        val channels = active.channelCount
-        val perChunk = if (channels > 0) staging.size / channels else 0
-        if (perChunk == 0) return
-
-        buffer.order(ByteOrder.LITTLE_ENDIAN)
-
-        val frameBytes = width.bytes * channels
-        var at = buffer.position()
-        val end = buffer.limit()
-        var written = framesWritten
-        while (end - at >= frameBytes) {
-            val frames = minOf(perChunk, (end - at) / frameBytes)
-            val samples = frames * channels
-            when (width) {
-                PcmSampleWidth.SIGNED_16 -> fill16(buffer, at, samples)
-                PcmSampleWidth.FLOAT_32 -> fillFloat(buffer, at, samples)
-            }
-            sink.write(staging, frames, channels)
-            at += samples * width.bytes
-            written += frames
-        }
-        framesWritten = written
+        val length = buffer.remaining()
+        if (length <= 0) return
+        val bytes = if (buffer.isDirect) buffer else bounced(buffer)
+        framesWritten += GeodeNative.ingestWrite(ingest, bytes, bytes.position(), length, active.encoding)
     }
 
-    private fun fill16(
-        buffer: ByteBuffer,
-        from: Int,
-        samples: Int,
-    ) {
-        for (i in 0 until samples) staging[i] = buffer.getShort(from + (i shl 1)) / SHORT_FULL_SCALE
-    }
-
-    private fun fillFloat(
-        buffer: ByteBuffer,
-        from: Int,
-        samples: Int,
-    ) {
-        for (i in 0 until samples) staging[i] = buffer.getFloat(from + (i shl 2))
-    }
-
-    private companion object {
-        const val STAGING_FRAMES = 4096
-
-        const val SHORT_FULL_SCALE = 32768f
+    private fun bounced(buffer: ByteBuffer): ByteBuffer {
+        val length = buffer.remaining()
+        val direct = bounce?.takeIf { it.capacity() >= length } ?: ByteBuffer.allocateDirect(length).also { bounce = it }
+        direct.clear()
+        direct.put(buffer.duplicate())
+        direct.flip()
+        return direct
     }
 }

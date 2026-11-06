@@ -101,7 +101,7 @@ class VisualizerDreamService : DreamService() {
         visualizerView = view
         restoreLiveState(view.visualizerRenderer, prefsFiles)
         view.applyPerformance(PerformanceStore(prefsFiles.general, this).settings.value)
-        view.visualizerRenderer.pcmProvider = { null }
+        view.visualizerRenderer.soundSource = { sound.ingest }
         view.visualizerRenderer.soundInput = { sound.input }
         val stage = DreamStage(this)
         stage.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))

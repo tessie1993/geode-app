@@ -65,8 +65,7 @@ data class DirectorPin(
  * [OffscreenRenderSpec.underlay].
  *
  * A plain class, not a data class: [pixels] is a large array, and the compiler-generated
- * equals()/hashCode() a data class would get compare it by reference anyway, which is misleading
- * (see [dev.geode.render.scene.PcmChunk] for the same reasoning).
+ * equals()/hashCode() a data class would get compare it by reference anyway, which is misleading.
  */
 class OffscreenUnderlay(
     val pixels: IntArray,

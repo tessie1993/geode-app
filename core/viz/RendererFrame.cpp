@@ -51,6 +51,7 @@ float Renderer::beginFrame(double timeSeconds) {
     lastTimeS_ = timeSeconds;
     thermal_.onFrame(dt);
     timeSeconds_ = std::fmod(timeSeconds_ + dt, kTimeWrapSeconds);
+    feedSoundSource();
     {
         // Before anything reads it this frame. No engine yet (nothing written) leaves the frame silent.
         std::lock_guard<std::mutex> lock(soundLock_);
@@ -72,7 +73,7 @@ float Renderer::beginFrame(double timeSeconds) {
         frameLayerBlend_ = layerBlend_;
         frameTransitionId_ = transitionId_;
         frameTransitionDurationMs_ = transitionDurationMs_;
-        // Each pushed block reaches this frame's scenes once; no new push, no PCM (PcmHandoff).
+        // The samples heard since the last frame reach this frame's scenes once; none heard, no PCM (PcmHandoff).
         framePcmCount_ = pcm_.take(pcmDeliverScratch_.data());
     }
     for (const auto& [id, src] : pending) {
@@ -81,6 +82,24 @@ float Renderer::beginFrame(double timeSeconds) {
     applyMilkRequests();
     applyUnderlayUpload();
     return dt;
+}
+
+void Renderer::feedSoundSource() {
+    const audio::ingest::Ring* requested = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(soundLock_);
+        requested = requestedSoundSource_;
+    }
+    soundFeed_.setSource(requested);
+    // Through writeAudio and resetAudio (each takes its own locks, none held here): the path export and
+    // the Kotlin rings use too, so the engine and MilkDrop's raw PCM (PcmHandoff) hear the ring alike.
+    struct EngineSink final : SoundFeed::Sink {
+        Renderer& r;
+        explicit EngineSink(Renderer& renderer) : r(renderer) {}
+        void restart() override { r.resetAudio(); }
+        void write(const float* stereo, int frames, int sampleRateHz) override { r.writeAudio(stereo, frames, 2, sampleRateHz); }
+    } sink(*this);
+    soundFeed_.pump(sink);
 }
 
 Scene* Renderer::resolveActiveScene() {

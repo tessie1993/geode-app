@@ -9,6 +9,7 @@ add_library(geode_core STATIC
     api/geode_ingest_api.cpp
     audio/ingest/Ring.cpp
     audio/ingest/Cursor.cpp
+    api/geode_ingest_reader_api.cpp
     api/geode_surface_api.cpp
     sound/Fft.cpp
     sound/Emotion.cpp
@@ -79,6 +80,7 @@ add_library(geode_core STATIC
     viz/SceneRegistry.cpp
     viz/Renderer.cpp
     viz/RendererFrame.cpp
+    viz/SoundFeed.cpp
     viz/scenes/ShaderScene.cpp
     viz/SoundUniforms.cpp
     viz/BlueNoise.cpp

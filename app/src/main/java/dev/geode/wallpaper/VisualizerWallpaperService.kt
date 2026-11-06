@@ -16,9 +16,11 @@ import android.view.MotionEvent
 import android.view.SurfaceHolder
 import androidx.core.content.ContextCompat
 import dev.geode.billing.ProSnapshot
+import dev.geode.billing.WallClock
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PerformanceStore
 import dev.geode.data.PresetStore
+import dev.geode.data.SystemMotion
 import dev.geode.data.ThemeStore
 import dev.geode.pro.ProFeature
 import dev.geode.render.FramePacer
@@ -66,6 +68,9 @@ class VisualizerWallpaperService : WallpaperService() {
 
         /** Ends the settle burst of [WallpaperRunMode.STILL]. */
         private val endStillSettle = Runnable { if (runMode == WallpaperRunMode.STILL) pacer.stop() }
+
+        /** Re-reads the gate when a running trial ends, so the wallpaper stills on time (#376). */
+        private val trialEnded = Runnable { syncRunState() }
 
         private val powerManager = getSystemService(PowerManager::class.java)
         private val keyguardManager = getSystemService(KeyguardManager::class.java)
@@ -123,7 +128,7 @@ class VisualizerWallpaperService : WallpaperService() {
             restoreLiveState(engine)
             settings = prefsStore.load()
             engine.soundSource = { sound.source }
-            val wrapped = WallpaperRenderer(engine) { sound.source }
+            val wrapped = WallpaperRenderer(engine)
             wallpaperRenderer = wrapped
             glView =
                 WallpaperGlSurfaceView(this@VisualizerWallpaperService).apply {
@@ -162,7 +167,7 @@ class VisualizerWallpaperService : WallpaperService() {
             }
             // The MilkDrop preset needs nothing here: the renderer restores the app's (MilkPresetMemory).
             val gui = ThemeStore(prefsFiles.general).loadGui()
-            engine.reducedMotion = gui.reducedMotion
+            engine.reducedMotion = SystemMotion.isReduced(contentResolver)
             engine.soundTuning = gui.soundTuning
             // Settings › Performance; the wallpaper keeps its own pacer, so the cap goes there.
             val performance = PerformanceStore(prefsFiles.general, this@VisualizerWallpaperService).settings.value
@@ -174,37 +179,39 @@ class VisualizerWallpaperService : WallpaperService() {
             engine.lfoEngine.configs = modulation.load()
             engine.adsrEngine.configs = modulation.loadAdsrs()
             engine.reactions = modulation.loadReactions()
-            HandMask.set(modulation.loadHandMask())
+            HandMask.set(modulation.loadHandMask(), engine.reactions != null)
         }
 
         /**
-         * Restates the run mode from scratch ([wallpaperRunMode] has the rule). Called on every
-         * change that can move it: visibility, surface, cover, battery saver, unlock, silence.
+         * Restates the run mode from scratch (the native rule, [WallpaperConditions.runMode]). Called
+         * on every change that can move it: visibility, surface, cover, battery saver, unlock,
+         * silence, and a trial's end.
          */
         private fun syncRunState() {
             if (renderer == null) return
-            // Pro feature. Re-read on every change, so a purchase or a trial made in the app
-            // animates the wallpaper the next time the home screen shows.
-            val animated = ProSnapshot.gate(this@VisualizerWallpaperService).allows(ProFeature.LIVE_WALLPAPER)
+            // The rule is native (core/viz/SurfaceRun); this only gathers what the engine sees. The
+            // entitlement is re-read on every change, so a purchase or a trial made in the app
+            // animates the wallpaper the next time the home screen shows, and the native rule says
+            // when a running trial's end needs a restate, since nothing announces it (#376).
+            val now = WallClock.SYSTEM.nowMs()
+            val until = ProSnapshot.animateUntilMs(this@VisualizerWallpaperService, ProFeature.LIVE_WALLPAPER)
             val conditions =
                 WallpaperConditions(
                     surfaceAvailable = surfaceAvailable,
                     visible = visible,
-                    animationAllowed = animated,
                     preview = isPreview,
                     covered = covered,
                     batterySaver = powerManager?.isPowerSaveMode == true,
-                    silent = false,
+                    silent = sound.silent,
                     settings = settings,
+                    animateUntilMs = until,
                 )
-            // Listen whenever the wallpaper would animate if there were sound: that is what wakes
-            // a resting wallpaper. Hidden, battery saver and free hear nothing. A cover (the shade,
-            // recents) keeps listening: pulling the shade is a second's glance, and stopping would
-            // release the capture and restart the silence clock each time.
-            syncListening(wallpaperRunMode(conditions.copy(covered = false)) == WallpaperRunMode.ANIMATED)
+            handler.removeCallbacks(trialEnded)
+            conditions.recheckInMs(now)?.let { handler.postDelayed(trialEnded, it) }
+            syncListening(conditions.listening(now))
             wallpaperRenderer?.edge = currentLook() == WallpaperLook.EDGE
             val previous = runMode
-            runMode = wallpaperRunMode(conditions.copy(silent = sound.silent))
+            runMode = conditions.runMode(now)
             if (runMode != WallpaperRunMode.STILL) handler.removeCallbacks(endStillSettle)
             when (runMode) {
                 WallpaperRunMode.ANIMATED -> {
@@ -388,6 +395,7 @@ class VisualizerWallpaperService : WallpaperService() {
 
         override fun onDestroy() {
             handler.removeCallbacks(endStillSettle)
+            handler.removeCallbacks(trialEnded)
             pacer.stop()
             sound.stop()
             bestEffort(TAG, "unregister system receiver") { unregisterReceiver(systemReceiver) }

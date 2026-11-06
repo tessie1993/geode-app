@@ -46,20 +46,21 @@ class PlaybackSession internal constructor(
 
     private val prefsFiles = GeodePrefsFiles(context)
 
-    /** Settings › Playback › Bit-perfect USB output; told every stream format before its AudioTrack opens. */
-    private val bitPerfect = BitPerfectOutput(context)
+    internal val dsp = NativeDspProcessor()
+
+    /**
+     * Settings › Playback › Bit-perfect USB output; told every AudioTrack's format before it opens (the
+     * player's output provider), and tells the native DSP whether to step aside for it.
+     */
+    private val bitPerfect = BitPerfectOutput(context) { dsp.bitPerfect = it }
 
     internal val tap =
-        PcmTap(ingest) { format ->
-            bitPerfect.onFormat(format.sampleRateHz, format.channelCount)
-        }.apply {
+        PcmTap(ingest).apply {
             boundaryListener =
                 TapBoundaryListener { ended, endedFrames, begun ->
                     clockDriver.onTapBoundary(ended, endedFrames, begun)
                 }
         }
-
-    internal val dsp = NativeDspProcessor()
 
     /**
      * The one player: ExoPlayer, with the tap first in its processor chain ([TapRenderersFactory]).
@@ -68,8 +69,12 @@ class PlaybackSession internal constructor(
      */
     val player: ExoPlayer =
         ExoPlayer
-            .Builder(context, TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp)))
-            .setMediaSourceFactory(
+            .Builder(
+                context,
+                TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp)) { out ->
+                    bitPerfect.onOutput(out.sampleRate, out.channelMask, out.encoding)
+                },
+            ).setMediaSourceFactory(
                 androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
                     context,
                     androidx.media3.extractor.ExtractorsFactory {

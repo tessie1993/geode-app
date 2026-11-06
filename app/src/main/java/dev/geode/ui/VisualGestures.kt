@@ -5,7 +5,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.systemGestures
+import androidx.compose.foundation.layout.safeGestures
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -28,15 +29,21 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerId
+import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onLayoutRectChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toOffset
+import androidx.compose.ui.unit.toSize
 import dev.geode.R
 import dev.geode.data.CanvasGesture
 import dev.geode.data.GestureAction
@@ -49,10 +56,11 @@ import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
+import android.view.ViewConfiguration as PlatformViewConfiguration
 
 /**
  * Where the long-press guard ring is drawn, if anywhere. The detector sets it once the finger has
- * held still for [HOLD_SHOW_MS] and clears it when the finger moves, lifts or the hold fires; the
+ * held still for the system's long-press timeout and clears it when the finger moves, lifts or the hold fires; the
  * ring ([HoldRing]) fills itself from that moment, so neither side recomposes per frame.
  */
 @Stable
@@ -116,13 +124,36 @@ internal class VisualActions(
  * is, so with the defaults a pinch does nothing at all. One finger never touches the visual
  * (ui-flow decisions).
  *
- * A swipe or a swirl only counts when it starts outside `WindowInsets.systemGestures`: those strips
- * stay Android's (back at the sides, home at the bottom, the shade at the top). A tap there is still
- * ours, since Android does nothing with a tap.
+ * A swipe, a swirl, a two-finger drag or a pinch only counts when it starts outside
+ * `WindowInsets.safeGestures`, and for two fingers only when both downs do: those strips stay
+ * Android's (back at the sides, home at the bottom, the shade at the top). Compose's insets guide
+ * names `safeGestures` for exactly this ("avoids system gestures clashing with app gestures"); it
+ * is the union of the system, mandatory and tappable gesture insets, so it also covers the
+ * three-button bar's and the tappable shade's edge, which `systemGestures` alone misses. Insets are
+ * distances from the window's edges, so a down is compared in window coordinates
+ * (the stage's window position, kept by [WindowPlacement]; the window itself is
+ * `LocalWindowInfo.containerSize` from (0, 0)): in the expanded shell the stage sits beside the rail
+ * inside `safeDrawingPadding()`, and its own (0, 0) is not the window's. Until the stage's first
+ * placement is reported no down is in a strip ([WindowPlacement.isOurs]): an unplaced origin would
+ * put every down in the top-left strips and drop the first gesture after the screen opens. A tap in
+ * a strip is still ours, since Android does nothing with a tap.
+ *
+ * The ring shows at `ViewConfiguration.longPressTimeoutMillis`, which on Android is the platform's
+ * long-press timeout, so it follows Accessibility › Touch & hold delay; a lift before that is a tap,
+ * a lift once the ring shows does nothing, as decided: the ring is the guard, and a press that long
+ * was not a tap. The ring then fills over [HOLD_FILL_MS].
  *
  * The double tap waits out the double-tap timeout before a single tap fires, so it is only waited
- * for while the map gives the double tap an action. Lifting once the ring shows does nothing, as
- * decided: the ring is the guard, and a press that long was not a tap.
+ * for while the map gives the double tap an action. The second down counts only between
+ * `doubleTapMinTimeMillis` and `doubleTapTimeoutMillis` after the first lift (the window Compose's
+ * own `detectTapGestures` uses) and within the platform's double-tap slop of the first
+ * (`android.view.ViewConfiguration.getScaledDoubleTapSlop`; Compose's `ViewConfiguration` has no
+ * such slop). Anything else, or a second touch that wanders past the touch slop, fires the single
+ * tap and is read again from its own down as a new gesture, so a quick tap then a swipe keeps the
+ * swipe.
+ *
+ * A swirl attempt (the heading has turned past [SWIRL_ATTEMPT_RAD]) never falls through to a
+ * swipe when it lifts short of two circles: a half-drawn circle was not meant to step the style.
  *
  * TalkBack users get each mapped action as a custom action ([a11yActions]): with TalkBack on, a
  * two-finger drag is its scroll, so the gestures themselves are out of reach.
@@ -146,74 +177,100 @@ internal fun Modifier.visualGestures(
     val fire by rememberUpdatedState(onGesture)
     val touch by rememberUpdatedState(onTouchPoints)
     val haptics = LocalHapticFeedback.current
-    val edges = WindowInsets.systemGestures
+    val edges = WindowInsets.safeGestures
     val direction = LocalLayoutDirection.current
     val surface = stringResource(R.string.visuals_gesture_surface)
+    val context = LocalContext.current
+    val doubleSlop = remember(context) { PlatformViewConfiguration.get(context).scaledDoubleTapSlop.toFloat() }
+    val placement = remember { WindowPlacement() }
+    val windowInfo = LocalWindowInfo.current
     return this
-        .pointerInput(edges, direction) {
+        .windowPlacement(placement)
+        .pointerInput(edges, direction, doubleSlop) {
             val points = FloatArray(TouchField.MAX_POINTS * 2)
+            // Read per down, not once: the strips change with rotation and the navigation mode.
+            val ours = { local: Offset ->
+                val safe =
+                    gestureSafeArea(
+                        window = Rect(Offset.Zero, windowInfo.containerSize.toSize()),
+                        left = edges.getLeft(this, direction).toFloat(),
+                        top = edges.getTop(this).toFloat(),
+                        right = edges.getRight(this, direction).toFloat(),
+                        bottom = edges.getBottom(this).toFloat(),
+                    )
+                placement.isOurs(local, safe)
+            }
             awaitEachGesture {
-                val down = awaitFirstDown(requireUnconsumed = false)
-                val start = down.position
-                val ours =
-                    start.x > edges.getLeft(this, direction) &&
-                        start.x < size.width - edges.getRight(this, direction) &&
-                        start.y > edges.getTop(this) &&
-                        start.y < size.height - edges.getBottom(this)
-                val read =
-                    GestureRead(
-                        start = start,
-                        startMs = down.uptimeMillis,
-                        holds = armed && action(CanvasGesture.LONG_PRESS) != GestureAction.OFF,
-                        swirls = ours && action(CanvasGesture.SWIRL) != GestureAction.OFF,
-                        slop = viewConfiguration.touchSlop,
-                        stepPx = SWIRL_STEP_DP.dp.toPx(),
-                    )
-                // Two fingers touch the visual only while what they are doing so far (a drag, or a
-                // pinch / twist once the spread or angle has changed) is mapped to touch play; the
-                // moment it reads as something else they let go of it.
-                val publishTo: (PointerEvent) -> Unit = { event ->
-                    val kind = read.pairKind
-                    if (kind != null && action(kind) == GestureAction.TOUCH_PLAY) {
-                        publish(event, points, size.width.toFloat(), size.height.toFloat(), touch)
-                        read.published = true
-                    } else if (read.published) {
-                        touch(points, 0)
-                        read.published = false
+                var next: PointerInputChange? = awaitFirstDown(requireUnconsumed = false)
+                // A touch the double-tap wait saw but could not use comes back round as `next`.
+                while (next != null) {
+                    val down: PointerInputChange = next
+                    next = null
+                    val start = down.position
+                    val startOurs = ours(start)
+                    val read =
+                        GestureRead(
+                            start = start,
+                            startMs = down.uptimeMillis,
+                            holds = armed && action(CanvasGesture.LONG_PRESS) != GestureAction.OFF,
+                            swirls = startOurs && action(CanvasGesture.SWIRL) != GestureAction.OFF,
+                            slop = viewConfiguration.touchSlop,
+                            stepPx = SWIRL_STEP_DP.dp.toPx(),
+                            showMs = viewConfiguration.longPressTimeoutMillis,
+                            pairOurs = { a, b -> startOurs && ours(a) && ours(b) },
+                        )
+                    // Two fingers touch the visual only while what they are doing so far (a drag, or a
+                    // pinch / twist once the spread or angle has changed) is mapped to touch play; the
+                    // moment it reads as something else they let go of it.
+                    val publishTo: (PointerEvent) -> Unit = { event ->
+                        val kind = read.pairKind
+                        if (kind != null && action(kind) == GestureAction.TOUCH_PLAY) {
+                            publish(event, points, size.width.toFloat(), size.height.toFloat(), touch)
+                            read.published = true
+                        } else if (read.published) {
+                            touch(points, 0)
+                            read.published = false
+                        }
                     }
-                }
-                try {
-                    follow(
-                        read = read,
-                        downId = down.id,
-                        ring = ring,
-                        onHold = {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            fire(CanvasGesture.LONG_PRESS, 0)
-                        },
-                        onSwirl = {
-                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                            fire(CanvasGesture.SWIRL, 0)
-                        },
-                        publishTo = publishTo,
-                    )
-                } finally {
-                    // Also on cancellation (the visual leaves mid-gesture): a ring or a published
-                    // finger left behind would stay on screen, or keep steering, forever.
-                    ring.at = null
-                    if (read.published) touch(points, 0)
-                }
-                val far = SWIPE_DP.dp.toPx()
-                when {
-                    read.multi -> read.pairGesture(far)?.takeIf { action(it) != GestureAction.TOUCH_PLAY }?.let { fire(it, 0) }
-                    read.done -> Unit
-                    read.moved && ours -> read.swipe(far)?.let { (g, step) -> fire(g, step) }
-                    read.moved -> Unit
-                    read.ringShown || read.now - read.startMs > viewConfiguration.longPressTimeoutMillis -> Unit
-                    else -> {
-                        val tap = if (start.y < split()) CanvasGesture.TAP_TOP else CanvasGesture.TAP_BOTTOM
-                        val double = action(CanvasGesture.DOUBLE_TAP) != GestureAction.OFF && awaitSecondTap(read.slop)
-                        fire(if (double) CanvasGesture.DOUBLE_TAP else tap, 0)
+                    try {
+                        follow(
+                            read = read,
+                            downId = down.id,
+                            ring = ring,
+                            onHold = {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                fire(CanvasGesture.LONG_PRESS, 0)
+                            },
+                            onSwirl = {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                fire(CanvasGesture.SWIRL, 0)
+                            },
+                            publishTo = publishTo,
+                        )
+                    } finally {
+                        // Also on cancellation (the visual leaves mid-gesture): a ring or a published
+                        // finger left behind would stay on screen, or keep steering, forever.
+                        ring.at = null
+                        if (read.published) touch(points, 0)
+                    }
+                    val far = SWIPE_DP.dp.toPx()
+                    when {
+                        read.multi -> read.pairGesture(far)?.takeIf { action(it) != GestureAction.TOUCH_PLAY }?.let { fire(it, 0) }
+                        read.done -> Unit
+                        read.moved && startOurs && !read.swirling -> read.swipe(far)?.let { (g, step) -> fire(g, step) }
+                        read.moved -> Unit
+                        read.ringShown || read.now - read.startMs > read.showMs -> Unit
+                        else -> {
+                            val tap = if (start.y < split()) CanvasGesture.TAP_TOP else CanvasGesture.TAP_BOTTOM
+                            val second =
+                                if (action(CanvasGesture.DOUBLE_TAP) != GestureAction.OFF) {
+                                    awaitSecondTap(start, read.now, doubleSlop, read.slop)
+                                } else {
+                                    SecondTap.NONE
+                                }
+                            fire(if (second.double) CanvasGesture.DOUBLE_TAP else tap, 0)
+                            next = second.next
+                        }
                     }
                 }
             }
@@ -260,18 +317,121 @@ private suspend fun AwaitPointerEventScope.follow(
 }
 
 /**
- * Waits up to the double-tap timeout for a second finger, then for it to lift. True when it came
- * and stayed put; a second touch that wanders off is the start of something else, not a double tap.
+ * What the wait for a second tap found: a [double] tap, or not, and then maybe the [next] down,
+ * a touch that was not a second tap and is read again from its own start as a gesture of its own.
  */
-private suspend fun AwaitPointerEventScope.awaitSecondTap(slop: Float): Boolean {
-    val second = withTimeoutOrNull(viewConfiguration.doubleTapTimeoutMillis) { awaitFirstDown(requireUnconsumed = false) } ?: return false
-    var wandered = false
+private class SecondTap(
+    val double: Boolean,
+    val next: PointerInputChange?,
+) {
+    companion object {
+        val NONE = SecondTap(double = false, next = null)
+        val DOUBLE = SecondTap(double = true, next = null)
+    }
+}
+
+/**
+ * Waits up to the double-tap timeout after the first lift (at [firstUpMs]) for a second finger,
+ * then for it to lift. A down sooner than `doubleTapMinTimeMillis` is skipped as a bounce, as
+ * Compose's `detectTapGestures` does. The second down must land within [doubleSlop] of [first]
+ * (the platform's double-tap slop, [isSecondTap]) and stay within [slop] (the touch slop) until it
+ * lifts; otherwise it is handed back as [SecondTap.next] the moment that is known, so the gesture
+ * it starts (a swipe after a quick tap, say) is read whole instead of swallowed here. Handing it
+ * back rather than returning matters: `awaitEachGesture` waits for every finger to lift before its
+ * next round, so a finger still down when this returns would never be read.
+ */
+private suspend fun AwaitPointerEventScope.awaitSecondTap(
+    first: Offset,
+    firstUpMs: Long,
+    doubleSlop: Float,
+    slop: Float,
+): SecondTap {
+    val earliest = firstUpMs + viewConfiguration.doubleTapMinTimeMillis
+    val second =
+        withTimeoutOrNull(viewConfiguration.doubleTapTimeoutMillis) {
+            var down: PointerInputChange
+            do {
+                down = awaitFirstDown(requireUnconsumed = false)
+            } while (down.uptimeMillis < earliest)
+            down
+        } ?: return SecondTap.NONE
+    if (!isSecondTap(second.position - first, doubleSlop)) return SecondTap(double = false, next = second)
     do {
         val change = awaitPointerEvent().changes.firstOrNull { it.id == second.id }
-        if (change != null && (change.position - second.position).getDistance() > slop) wandered = true
+        if (change != null && (change.position - second.position).getDistance() > slop) {
+            return SecondTap(double = false, next = second)
+        }
     } while (change != null && change.pressed)
-    return !wandered
+    return SecondTap.DOUBLE
 }
+
+/**
+ * Whether a second down [fromFirst] (its offset from the first tap's down) is close enough to be
+ * the second tap of a double tap: within [doubleTapSlopPx], the platform's `scaledDoubleTapSlop`.
+ * Further away it is a new touch, not a double tap.
+ */
+internal fun isSecondTap(
+    fromFirst: Offset,
+    doubleTapSlopPx: Float,
+): Boolean = fromFirst.getDistance() <= doubleTapSlopPx
+
+/**
+ * Whether a finger's heading has turned far enough ([turnRad], either way) that the gesture is a
+ * swirl attempt: past half a circle ([SWIRL_ATTEMPT_RAD]). A swipe's heading wobbles but never
+ * turns back on itself, so an arc this far round was a circle being drawn, and a swirl given up
+ * short of two circles must not step the style as a swipe would.
+ */
+internal fun swirlAttempted(turnRad: Float): Boolean = abs(turnRad) > SWIRL_ATTEMPT_RAD
+
+/**
+ * Where a layout sits in the window, kept from its last reported placement so a pointer handler,
+ * which only gets local positions, can compare a down with the window insets (measured from the
+ * window's edges). A plain object, not state: nothing draws from it, so a move must not recompose.
+ *
+ * [placed] stays false until the first report. Before it [origin] is (0, 0) whatever the stage's
+ * real place, so [isOurs] gives every down to the app rather than guess: the strips are back from
+ * the first report on, which `onLayoutRectChanged` sends one debounce after the first layout.
+ */
+internal class WindowPlacement {
+    var origin = Offset.Zero
+    var placed = false
+
+    fun toWindow(local: Offset): Offset = origin + local
+
+    /** Whether a down at [local] is the app's: anywhere until placed, then only inside [safe] (window px). */
+    fun isOurs(
+        local: Offset,
+        safe: Rect,
+    ): Boolean = !placed || safe.contains(toWindow(local))
+}
+
+/**
+ * Keeps [placement] current through `Modifier.onLayoutRectChanged`, not `onGloballyPositioned`: the
+ * jetpack-compose-performance skill (references/layouts.md, "Throttled Bounds Tracking") names it
+ * for window-relative bounds, since it is throttled and debounced where `onGloballyPositioned` runs
+ * after every layout pass that may move the node. The stage only moves when the shell relayouts
+ * (rotation, the rail, a resized window), so the default 64 ms debounce costs nothing: the report
+ * lands once the move settles, and a down before it is read by [WindowPlacement.isOurs].
+ * `RelativeLayoutBounds.positionInWindow` is the node's top-left in window coordinates, the frame
+ * the insets are in.
+ */
+internal fun Modifier.windowPlacement(placement: WindowPlacement): Modifier =
+    onLayoutRectChanged { bounds ->
+        placement.origin = bounds.positionInWindow.toOffset()
+        placement.placed = true
+    }
+
+/**
+ * The part of [window] (window px) outside the gesture strips, given each inset in px: a down
+ * inside it is the app's, a down outside it is left to the system.
+ */
+internal fun gestureSafeArea(
+    window: Rect,
+    left: Float,
+    top: Float,
+    right: Float,
+    bottom: Float,
+): Rect = Rect(window.left + left, window.top + top, window.right - right, window.bottom - bottom)
 
 /** The fingers that are down in [event], in y-up NDC (the scenes' frame), handed to [send]. */
 private fun publish(
@@ -301,9 +461,20 @@ private class GestureRead(
     private val swirls: Boolean,
     val slop: Float,
     private val stepPx: Float,
+    /** When the ring shows: the system's long-press timeout. */
+    val showMs: Long,
+    /** Whether a pair that came down at these two local points is ours (both outside the strips). */
+    private val pairOurs: (Offset, Offset) -> Boolean,
 ) {
     var moved = false
     var multi = false
+
+    /** The heading has turned past half a circle: a swirl attempt, never a swipe ([swirlAttempted]). */
+    var swirling = false
+        private set
+
+    /** Both downs of the pair were outside the strips; a pair that was not stays unread. */
+    private var pairInside = false
 
     /** A hold or a swirl already fired: the lift that follows means nothing. */
     var done = false
@@ -335,7 +506,7 @@ private class GestureRead(
     val waitingOnHold: Boolean get() = holds && !moved && !multi && !done
 
     /** When the ring shows, then when it closes. */
-    val holdDeadline: Long get() = startMs + if (ringShown) HOLD_SHOW_MS + HOLD_FILL_MS else HOLD_SHOW_MS
+    val holdDeadline: Long get() = startMs + if (ringShown) showMs + HOLD_FILL_MS else showMs
 
     /** The hold timer ran out: the ring shows, or, once shown, closes. True when the hold fires. */
     fun holdTick(ring: HoldRingState): Boolean {
@@ -360,6 +531,7 @@ private class GestureRead(
             multi = true
             ring.at = null
             val (a, b) = pair(event) ?: return true
+            pairInside = pairOurs(a, b)
             pairStart = (a + b) / 2f
             spanStart = (b - a).getDistance().coerceAtLeast(1f)
             angleStart = atan2(b.y - a.y, b.x - a.x)
@@ -370,6 +542,8 @@ private class GestureRead(
     /** Two fingers' pan, zoom and twist so far. True when every finger has lifted. */
     fun trackPair(event: PointerEvent): Boolean {
         val (a, b) = pair(event) ?: return event.changes.none { it.pressed }
+        // A pair with a finger in a system strip is Android's: it never drags, pinches or plays.
+        if (!pairInside) return false
         pan = (a + b) / 2f - pairStart
         zoom = (b - a).getDistance() / spanStart
         twist = wrap(atan2(b.y - a.y, b.x - a.x) - angleStart)
@@ -394,7 +568,9 @@ private class GestureRead(
         }
         last = pos
         if (!moved || !swirls || done) return false
-        if (turnBy(pos) < SWIRL_TURN_RAD) return false
+        val turned = turnBy(pos)
+        if (swirlAttempted(turned)) swirling = true
+        if (turned < SWIRL_TURN_RAD) return false
         done = true
         return true
     }
@@ -595,14 +771,14 @@ internal fun stepPreset(
 /** How far a one-finger swipe, or a two-finger drag, must travel to count. */
 private const val SWIPE_DP = 72f
 
-/** A still finger shows the ring after this, so a tap never flashes it. */
-private const val HOLD_SHOW_MS = 250L
-
 /** The ring's fill; the hold fires when it closes (~0.8 s, ui-flow decisions). */
 private const val HOLD_FILL_MS = 800L
 
 /** Two circles; a little short of 4π, since a drawn circle rarely closes exactly. */
 private const val SWIRL_TURN_RAD = 3.6f * PI.toFloat()
+
+/** Half a circle: past this the finger is drawing a circle, not swiping. */
+private const val SWIRL_ATTEMPT_RAD = PI.toFloat()
 private const val SWIRL_STEP_DP = 6f
 private const val PINCH_ZOOM = 0.2f
 private const val PINCH_TWIST_RAD = 0.5f

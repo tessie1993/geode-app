@@ -107,6 +107,26 @@ struct Drives {
 
 Drives drives(const GeodeSoundFrame& f);
 
+// ---- Time step -----------------------------------------------------------------------------------
+
+/** The longest single step the fluid was tuned for: emitters, buoyancy and vorticity stay stable under it. */
+constexpr float kMaxSimStep = 1.0f / 30.0f;
+/** At most this many steps a frame, so a stall cannot start a catch-up spiral. */
+constexpr int kMaxSubsteps = 4;
+
+/**
+ * The simulated time a frame of `dt` gets: all of it, up to kMaxSubsteps * kMaxSimStep (NaN and negative
+ * are 0). Before #383 the fluid clamped every frame to kMaxSimStep, so a 24 fps export ran it at 80 %.
+ */
+float frameSimDt(float dt);
+
+/** A frame's simulated time split into `count` equal steps of `step` seconds, each at most kMaxSimStep. */
+struct Substeps {
+    int count = 1;
+    float step = 0.0f;
+};
+Substeps substeps(float dt);
+
 // ---- Temperature ---------------------------------------------------------------------------------
 
 /** Heat a texel can hold: injection fades into what is left, like the dye's headroom. */

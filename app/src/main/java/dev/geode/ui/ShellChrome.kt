@@ -144,7 +144,13 @@ internal fun rememberShellChrome(
     val state = remember { ShellChromeState() }
     SideEffect { state.held = held }
     val a11y = LocalAccessibilityManager.current
-    LaunchedEffect(*wakeKeys) { state.wake() }
+    // In the same frame as the new screen or track, not an effect a frame later: leaving Visuals
+    // asleep would otherwise lay the dock out with the handle first, then grow it into the card.
+    // A remember must hold a value; true, not the stamp, whose read would recompose on every touch.
+    remember(*wakeKeys) {
+        state.wake()
+        true
+    }
     LaunchedEffect(state.awake, state.stamp, fadeSeconds) {
         if (!state.awake || fadeSeconds <= 0f) return@LaunchedEffect
         val base = if (state.pinned) ShellChromeState.PIN_MS else (fadeSeconds * MILLIS_PER_SECOND).toLong()

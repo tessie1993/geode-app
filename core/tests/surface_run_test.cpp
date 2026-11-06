@@ -3,7 +3,9 @@
 //
 // What is pinned: the rule's priority order (stopped beats still beats moving), the preview's exemptions,
 // listening ignoring the cover and the silence, and the trial's end (#376): a trial that runs out turns a
-// moving surface still, and the caller is told to restate just after that moment, never before.
+// moving surface still, and the caller is told to restate just after that moment, never before. Then
+// reduced motion (#441, ADR 0008): either switch holds a still frame on the wallpaper and on the dream, the
+// preview too, and never wakes a stopped surface; the still frame's settle; and the per-surface fps clamp.
 #include <cstdio>
 
 #include "api/geode_api.h"
@@ -79,6 +81,76 @@ void trialEnd() {
     check(geode_surface_recheck_in_ms(ends, ends + 5) == -1, "a trial already over never rechecks");
 }
 
+// The dream restates with the surface fixed and never as a preview (it has a window, not a picker); the
+// wallpaper with whatever its engine sees. Both must come out still under reduced motion.
+constexpr unsigned kDream = kOnScreen | kDefaults;
+constexpr unsigned kWallpaper = kOnScreen | kDefaults;
+constexpr unsigned kReduced = GEODE_SURFACE_REDUCED_MOTION;
+
+void reducedMotion() {
+    check(mode(kWallpaper | kReduced) == kStill, "wallpaper, reduced motion: still");
+    check(mode(kDream | kReduced) == kStill, "dream, reduced motion: still");
+    check(mode(kOnScreen | kReduced) == kStill, "reduced motion with every rest option off: still");
+    check(mode(kWallpaper | kReduced | GEODE_SURFACE_PREVIEW) == kStill, "preview under reduced motion: still");
+    check(mode(kWallpaper | kReduced | GEODE_SURFACE_PREVIEW | GEODE_SURFACE_COVERED) == kStill,
+          "a covered preview stays the picker's: still, not stopped");
+
+    // Stopped beats still: reduced motion never draws on a surface nobody can see.
+    check(mode(GEODE_SURFACE_HAS_SURFACE | kDefaults | kReduced) == kStopped, "reduced motion, not visible: stopped");
+    check(mode(GEODE_SURFACE_VISIBLE | kDefaults | kReduced) == kStopped, "reduced motion, no surface: stopped");
+    check(mode(kWallpaper | kReduced | GEODE_SURFACE_COVERED) == kStopped, "reduced motion, covered: stopped");
+    check(mode(kDream | kReduced | GEODE_SURFACE_COVERED, kFree) == kStopped, "covered beats free and reduced motion");
+
+    // Still with or without the other reasons; none of them turns it back to moving.
+    check(mode(kWallpaper | kReduced, kFree) == kStill, "reduced motion and free: still");
+    check(mode(kWallpaper | kReduced | GEODE_SURFACE_SILENT | GEODE_SURFACE_BATTERY_SAVER) == kStill,
+          "reduced motion, silent, battery saver: still");
+
+    // A surface that cannot move hears nothing, so the capture is released: the still frame no longer
+    // reacts to the music (the owner's call for vestibular safety).
+    check(geode_surface_listening(kWallpaper | kReduced, kPro, kNow) == 0, "reduced motion hears nothing");
+    check(geode_surface_listening(kDream | kReduced | GEODE_SURFACE_SILENT, kPro, kNow) == 0,
+          "reduced motion in silence hears nothing");
+
+    // The trial's restate is about the entitlement alone, reduced motion or not.
+    const long long ends = kNow + 60'000;
+    check(geode_surface_run_mode(kDream | kReduced, ends, kNow) == kStill, "running trial, reduced motion: still");
+    check(geode_surface_entitled(ends, kNow) == 1, "reduced motion does not end the dream");
+}
+
+void settle() {
+    check(geode_surface_settle_ms(kAnimated, kStill) == 2'000, "moving to still: settle 2 s");
+    check(geode_surface_settle_ms(kStopped, kStill) == 2'000, "stopped to still: settle 2 s (a fresh scene builds)");
+    check(geode_surface_settle_ms(kStill, kStill) == 0, "already still: one frame");
+    check(geode_surface_settle_ms(kStill, kAnimated) == 0, "to moving: no settle");
+    check(geode_surface_settle_ms(kStill, kStopped) == 0, "to stopped: no settle");
+    check(geode_surface_settle_ms(kAnimated, kAnimated) == 0, "moving stays moving: no settle");
+}
+
+void fps() {
+    check(GEODE_SURFACE_DEFAULT_FPS == 30, "default 30 (owner, ADR 0008)");
+    check(geode_surface_fps_choice(0) == 30, "unset: the default");
+    check(geode_surface_fps_choice(-5) == 30, "negative: the default");
+    check(geode_surface_fps_choice(15) == 15, "15 is listed");
+    check(geode_surface_fps_choice(30) == 30, "30 is listed");
+    check(geode_surface_fps_choice(60) == 60, "60 is listed");
+    check(geode_surface_fps_choice(1) == 15, "below the list: the lowest");
+    check(geode_surface_fps_choice(240) == 60, "above the list: the highest");
+    check(geode_surface_fps_choice(24) == 30, "24 snaps to the nearest, 30");
+    check(geode_surface_fps_choice(45) == 30, "a tie takes the lower rate");
+    check(geode_surface_fps_choice(50) == 60, "50 snaps to 60");
+
+    int out[8] = {};
+    const int n = geode_surface_fps_choices(out, 8);
+    check(n == 3 && out[0] == 15 && out[1] == 30 && out[2] == 60, "the list: 15, 30, 60");
+    bool listed = true;
+    for (int i = 0; i < n; ++i) listed = listed && geode_surface_fps_choice(out[i]) == out[i];
+    check(listed, "every listed rate is its own choice");
+    int one[1] = {};
+    check(geode_surface_fps_choices(one, 1) == 3 && one[0] == 15, "a short buffer gets the head, the count is whole");
+    check(geode_surface_fps_choices(nullptr, 0) == 3, "a null buffer only counts");
+}
+
 }  // namespace
 
 int main() {
@@ -86,6 +158,9 @@ int main() {
     preview();
     listening();
     trialEnd();
+    reducedMotion();
+    settle();
+    fps();
     if (failures == 0) std::printf("surface_run_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

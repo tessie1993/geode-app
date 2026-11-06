@@ -5,6 +5,7 @@
 #include <cmath>
 #include <utility>
 
+#include "sound/Tuning.hpp"
 #include "util/Log.hpp"
 #include "viz/GlProber.hpp"
 #include "viz/ShaderOverrides.hpp"
@@ -93,7 +94,8 @@ void Renderer::pushPcm(const float* samples, int count) {
 void Renderer::writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz) {
     if (!interleaved || frames <= 0 || channels <= 0 || sampleRateHz <= 0) return;
     std::lock_guard<std::mutex> lock(soundLock_);
-    if (!sound_ || sound_->sampleRateHz() != sampleRateHz) {
+    // SoundEngine clamps its rate to 8 kHz; compare the clamped rate or a lower one rebuilds every call.
+    if (!sound_ || sound_->sampleRateHz() != std::max(8000, sampleRateHz)) {
         sound_ = std::make_unique<sound::SoundEngine>(sampleRateHz);
         sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
     }
@@ -107,8 +109,9 @@ void Renderer::resetAudio() {
 
 void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
     std::lock_guard<std::mutex> lock(soundLock_);
-    soundTuning_ = tuning;
-    if (sound_) sound_->setTuning(macros::tuning(tuning, tunedKnobs_));
+    // Clamped before the macros scale it, so a NaN Reactivity is the default one turned, not a NaN.
+    soundTuning_ = sound::tuning::clamp(tuning);
+    if (sound_) sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
 }
 
 double Renderer::monotonicSeconds() {
@@ -197,8 +200,9 @@ void Renderer::applyPendingFluidInjection() {
     }
     if (!applied) return;
     {
+        // A newer edit may have landed while the scenes were rebuilt; keep it dirty for next frame.
         std::lock_guard<std::mutex> lock(stateLock_);
-        fluidInjectionDirty_ = false;
+        if (fluidForceSrc_ == force && fluidDyeSrc_ == dye) fluidInjectionDirty_ = false;
     }
 }
 

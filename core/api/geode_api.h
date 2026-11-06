@@ -16,7 +16,7 @@ typedef struct geode_tags     geode_tags;
 /* Native visualizer: one renderer per GL surface. Setters may be called from any thread and are latched
  * for the next frame; the calls under "GL thread" need the surface's context current. */
 #define GEODE_LFO_SLOTS 3
-#define GEODE_LFO_CONFIG_FLOATS 8   /* enabled, source, target, wave, rate_seconds, depth, polarity, curve */
+#define GEODE_LFO_CONFIG_FLOATS 9   /* enabled, source, target, wave, rate_seconds, depth, polarity, curve, beats (0 = free; a shorter array of 8 stays free) */
 #define GEODE_ADSR_SLOTS 2
 #define GEODE_REACT_ROUTES 12
 #define GEODE_REACT_ROUTE_FLOATS 8  /* enabled, source, target, mode, amount, curve, attack_seconds, release_seconds */
@@ -135,15 +135,25 @@ GEODE_API void        geode_viz_gyro_reset(geode_viz*);
    geode_viz_render. The shell passes what it holds every frame and native applies only what changed:
    paced_fps is this surface's own fps cap (0 = free-running; the thermal cap is applied under it natively);
    the rest is Settings › Performance (scales 0..1, post_fx / adaptive 0 or 1, liquid_hot_policy 0 simplify,
-   1 full, 2 pause: liquid::HotPolicy). Export never calls it. Answers a bitmask of GEODE_FRAME_*; 0 for a
-   null handle. */
+   1 full, 2 pause: liquid::HotPolicy). The four *_version arguments are the shell's version counters (each
+   grows on every write) of its scene params, LFO configs, ADSR configs and sound tuning (core/viz/frame/
+   PushVersions, #751): native sets GEODE_FRAME_PUSH_* for each one it has not applied yet (an equal or older
+   version is skipped; a new surface wants all four again), and the shell pushes exactly those, through
+   geode_viz_set_params / _set_lfo / _set_adsr / _set_sound_tuning, before geode_viz_render. A clear-only
+   frame wants none. Export never calls it. Answers a bitmask of GEODE_FRAME_*; 0 for a null handle. */
 #define GEODE_FRAME_CLEAR_ONLY     0x1 /* the first frame on a new surface, cleared to black: present it, do nothing else */
 #define GEODE_FRAME_THERMAL_DUE    0x2 /* read PowerManager and call geode_thermal_push */
 #define GEODE_FRAME_LIQUID_CHANGED 0x4 /* Liquid mode changed: GEODE_FRAME_LIQUID_MODE(due) */
 /* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode). */
 #define GEODE_FRAME_LIQUID_MODE(due) ((int)(((unsigned)(due) >> 8) & 0xFu))
+#define GEODE_FRAME_PUSH_PARAMS    0x10 /* push the scene params (geode_viz_set_params) */
+#define GEODE_FRAME_PUSH_LFO       0x20 /* push every LFO slot (geode_viz_set_lfo) */
+#define GEODE_FRAME_PUSH_ADSR      0x40 /* push every ADSR slot (geode_viz_set_adsr) */
+#define GEODE_FRAME_PUSH_TUNING    0x80 /* push the sound tuning (geode_viz_set_sound_tuning) */
 GEODE_API int         geode_viz_frame_begin(geode_viz*, float paced_fps, float render_scale, float march_scale,
-                                            int post_fx, int adaptive, int liquid_hot_policy);
+                                            int post_fx, int adaptive, int liquid_hot_policy,
+                                            long long params_version, long long lfo_version,
+                                            long long adsr_version, long long tuning_version);
 GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
 /* Export: step every frame by exactly 1/fps instead of measuring the time between frames (#377); 0 = live. */
 GEODE_API void        geode_viz_set_frame_rate(geode_viz*, int fps);
@@ -190,6 +200,9 @@ GEODE_API void        geode_viz_set_style_schedule(geode_viz*, const double* at_
                                                    const char* const* cut_ids, int cut_count, int every_beats,
                                                    const char* const* locked_ids, int locked_count);
 GEODE_API void        geode_viz_render(geode_viz*, double time_seconds, uint32_t target_fbo);
+/* Offline (export) render: prepare pins the renderer for it, any thread: the offscreen tier
+ * (geode_viz_set_offscreen(1)), cut transitions, and fixed fluid quality on every later set_params. */
+GEODE_API void        geode_viz_prepare_offscreen(geode_viz*);
 GEODE_API void        geode_viz_release_scenes(geode_viz*);
 
 /* Playback DSP: gain -> 10-band equalizer -> crossfeed -> lookahead limiter on float interleaved PCM, one
@@ -272,7 +285,7 @@ GEODE_API int         geode_library_search(const char* const* rows, int track_co
  * be moved (they stay where they were). Paths are UTF-8. */
 GEODE_API int         geode_studio_move_takes_out(const char* projects_dir, const char* takes_dir);
 
-/* Scene and style catalogue (core/viz/Catalogue): every style id, its renderer kind, the style families,
+/* Scene and style catalogue (core/viz/Catalogue): every style id, its renderer kind and Styles look group, the style families,
  * which Customize controls reach which styles, and the ranges the shell's controls quote, as one versioned
  * '|'-separated line table (see Catalogue.hpp for the rows). Static: the pointer stays valid for the
  * process; the shell parses it once. Display labels and the Pro rule are not in it. */
@@ -290,6 +303,13 @@ GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, f
 /* Every rolled control as "TAB|ParamKeys string" lines, in roll order: what the panel offers to lock and what
  * each tab's Randomize and Reset cover. Static: the pointer stays valid for the process. */
 GEODE_API const char* geode_params_roll_keys(void);
+/* The scene params schema (core/viz/ParamTable.inc): one row per geode_viz_param_name slot, giving the field's
+ * name, kind, default, control range and whether a fade glides it, as a versioned '|'-separated line table:
+ *   params|<version>|<count>
+ *   param|<slot>|<name>|<FLOAT|INT|BOOL|CIRCULAR>|<default>|<min>|<max>|<FADE|HOLD>
+ * slots 0..count-1 in order; ints and bools as numbers, like the wire. Static: the pointer stays valid for the
+ * process; the shell parses it once. Labels and page placement stay in Kotlin. */
+GEODE_API const char* geode_params_schema_text(void);
 
 /* Customize panel map (core/viz/CustomizeMap): ten categories, each a free Basics section and Pro sections, and
  * which control lives in which. geode_customize_text is its versioned '|'-separated line table (rows in
@@ -305,6 +325,17 @@ GEODE_API const char* geode_customize_shown(const char* style_id);
 GEODE_API int         geode_customize_randomize(const char* style_id, const char* category, const char* locked, uint64_t seed,
                                                 const float* in, float* out);
 GEODE_API void        geode_customize_reset(const char* category, const float* in, float* out);
+/* Background image bake (core/viz/Underlay), before geode_viz_set_underlay_rgba: pure, no viz handle, any
+ * thread. The shell decodes the picture, cuts it to geode_underlay_crop_rect (out = x, y, width, height of the
+ * centred crop of src to the target's aspect) and scales it to the render size, then geode_underlay_finish
+ * blurs and dims those ARGB_8888 pixels (0xAARRGGBB, row-major, width*height) in place. The clamps are the
+ * controls' ranges: amount and dim 0..1 (NaN = 0), blur 0..geode_underlay_blur_max(). */
+GEODE_API void        geode_underlay_crop_rect(int src_w, int src_h, int target_w, int target_h, int* out_xywh);
+GEODE_API void        geode_underlay_finish(uint32_t* pixels, int width, int height, int blur_radius, float dim);
+GEODE_API float       geode_underlay_clamp_amount(float amount);
+GEODE_API float       geode_underlay_clamp_dim(float dim);
+GEODE_API int         geode_underlay_clamp_blur(int radius);
+GEODE_API int         geode_underlay_blur_max(void);
 
 /* Export resampler (audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC encoder's rate; band-limited
  * (Kaiser-windowed sinc, polyphase) both ways, cutoff below the lower Nyquist rate (#375). Streaming: state
@@ -361,7 +392,6 @@ GEODE_API geode_export_pass*  geode_export_watermark_create(AAssetManager*, cons
 GEODE_API void                geode_export_watermark_draw(geode_export_pass*, int frame_w, int frame_h);
 /* Loop seam: up to `requested` full-frame textures of stash (returns how many fitted), filled by capture from
  * the default framebuffer and laid back over it by blend at closing frame `tail` of `seam_frames`. */
-GEODE_API float               geode_export_seam_weight(int tail, int seam_frames);
 GEODE_API geode_export_pass*  geode_export_seam_create(AAssetManager*, int width, int height);
 GEODE_API int                 geode_export_seam_allocate(geode_export_pass*, int requested);
 GEODE_API void                geode_export_seam_capture(geode_export_pass*, int index);
@@ -395,6 +425,16 @@ GEODE_API int                 geode_export_capture_read(geode_export_pass*, uint
 GEODE_API long long       geode_silence_heard_at(const float* const* channels, int channel_count, int frames,
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
+
+/* Settings › Audio's listening tuning (sound/Tuning): the one schema of GeodeSoundTuning. A slot is one
+ * float of the struct in field order, GEODE_SOUND_TUNING_FLOATS of them; each call touches the first
+ * min(count, slots) and ignores the rest. Clamping puts each slot in its range and turns a NaN or an
+ * infinity into the slot's default. The engine clamps whatever it is given; the shell clamps too, so a
+ * slider never shows a value the engine would not use. */
+GEODE_API int             geode_sound_tuning_slots(void);
+GEODE_API void            geode_sound_tuning_defaults(float* out, int count);
+GEODE_API void            geode_sound_tuning_ranges(float* min_out, float* max_out, int count);
+GEODE_API void            geode_sound_tuning_clamp(float* values, int count);   /* in place */
 
 /* Fixed-rate frame clock (viz/frame/FixedRateClock): Cast's pacing, PTS and audio cut. Pure: the caller
  * owns GEODE_FRAME_CLOCK_STATE int64s (start ns, next slot, fps) and hands in now on one monotonic clock.
@@ -475,7 +515,6 @@ GEODE_API void            geode_thermal_push(int platform_status, float headroom
 GEODE_API int64_t geode_export_total_frames(int64_t duration_us, int fps);            /* >= 1 */
 GEODE_API int64_t geode_export_frame_pts_ns(int64_t frame, int fps);                  /* floor(n*1e9/fps) */
 GEODE_API int64_t geode_export_frame_time_ms(int64_t frame, int fps);                 /* floor(n*1000/fps) */
-GEODE_API int64_t geode_export_samples_through(int64_t frame, int fps, int sample_rate); /* llround((n+1)*rate/fps) */
 
 /* Long-form loops (output/LoopPlan). */
 typedef struct geode_loop_spec {
@@ -511,6 +550,7 @@ GEODE_API int64_t geode_export_audio_bytes(int64_t duration_us, int bps);
 GEODE_API int64_t geode_export_muxer_hard_limit_bytes(void);
 GEODE_API void    geode_export_frame_size(int short_side, int w_ratio, int h_ratio, int* out_w, int* out_h);
 GEODE_API int     geode_export_fallback_fps(int requested_fps);
+GEODE_API int     geode_export_clamp_fps(int requested_fps);     /* 24..60 */
 
 /* Chapter spans (output/Chapters); titles stay Kotlin, keyed by out_source (-1 = the lead-in chapter that
  * makes a marker list start at 0:00). Each writes min(count, capacity) spans and returns the count. */
@@ -563,7 +603,6 @@ GEODE_API const uint32_t* geode_cube_lut_argb(const geode_cube_lut*);           
 GEODE_API size_t  geode_pcm_downmix_s16(const int16_t* in, size_t frames, int src_channels, int dst_channels,
                                         int16_t* out);
 GEODE_API void    geode_pcm_float_to_s16(const float* in, size_t samples, int16_t* out);
-GEODE_API void    geode_pcm_s16_to_float(const int16_t* in, size_t samples, float* out);
 
 /* PCM timing (audio/dsp/PcmTiming): the AAC encoder's rate, s16 durations, the start skip and trim. */
 GEODE_API int     geode_aac_rate_for(int source_rate);          /* own rate to 48k; above: 44.1k family -> 44.1k, else 48k */

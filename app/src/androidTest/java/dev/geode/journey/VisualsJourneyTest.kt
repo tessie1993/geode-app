@@ -37,14 +37,14 @@ class VisualsJourneyTest {
     }
 
     /**
-     * Kaleidoscope sits on the Style page; its name in Customize's jump header scrolls the list
-     * there. Not through Customize's search: with a query, the results page never let Compose go
-     * idle on the CI emulator, and every later step waited for it until the job timed out.
+     * Kaleidoscope is one of Shape's Basics, open at the top of the category (issue #333). Not
+     * through Customize's search: with a query, the results page never let Compose go idle on the
+     * CI emulator, and every later step waited for it until the job timed out.
      */
     private fun openCustomizeShape() {
         openVisuals()
         compose.tap("Customize")
-        compose.tap("Style")
+        compose.tap("Shape")
     }
 
     /** The whole CheckRow is the toggleable node (role Checkbox), its label merged into it. */

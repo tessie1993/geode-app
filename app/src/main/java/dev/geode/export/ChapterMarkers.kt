@@ -1,7 +1,9 @@
 package dev.geode.export
 
 import android.net.Uri
+import dev.geode.editor.Marker
 import dev.geode.editor.MarkerSet
+import dev.geode.engine.bridge.GeodeNative
 import java.io.IOException
 import java.io.OutputStream
 import java.util.Locale
@@ -134,51 +136,70 @@ data class ChapterMarkers(
          *
          * A single clip yields no markers: one track is not a mix, and a lone "0:00" chapter is
          * noise. Blank titles fall back to the clip's position rather than to the file name,
-         * which is often a hash.
+         * which is often a hash. The spans are native (`core/output/Chapters`, tested by
+         * `core/tests/output_test.cpp`); only the titles are picked here.
          */
         fun of(spans: List<MixClipSpan>): ChapterMarkers {
             if (spans.size < 2) return None
-            val chapters =
-                spans.mapIndexed { index, span ->
-                    Chapter(
-                        startMs = span.startMs,
-                        durationMs = span.durationMs,
-                        title =
-                            span.clip.title
-                                .trim()
-                                .ifEmpty { "Track ${index + 1}" },
-                    )
-                }
-            return ChapterMarkers(chapters)
+            val triples =
+                GeodeNative.chaptersFromClips(
+                    LongArray(spans.size) { spans[it].startMs },
+                    LongArray(spans.size) { spans[it].durationMs },
+                )
+            return fromTriples(triples) { source ->
+                spans[source]
+                    .clip.title
+                    .trim()
+                    .ifEmpty { "Track ${source + 1}" }
+            }
         }
 
         /**
          * Turns the editor's marker lane into chapters: each marker opens a chapter that runs
-         * until the next marker, or until [totalDurationMs] for the last one. A blank marker name
-         * falls back to [untitled] of its 1-based position rather than being written out empty.
-         *
-         * A single marker yields no chapters, for the same reason a single clip does: one point in
-         * time is not a boundary between anything.
+         * until the next marker, or until [totalDurationMs] for the last one. When the first marker
+         * is after 0:00 a lead-in chapter named [leadInTitle] covers the opening, because players and
+         * video sites ignore a chapter list that does not start at 0:00. The spans are native
+         * (`core/output/Chapters`); the titles are [markerTitle].
          */
         fun of(
             markers: MarkerSet,
             totalDurationMs: Long,
+            leadInTitle: String,
             untitled: (Int) -> String,
         ): ChapterMarkers {
             val ordered = markers.markers
             if (ordered.size < 2) return None
-            val chapters =
-                ordered.mapIndexed { index, marker ->
-                    val start = marker.atMs.coerceAtLeast(0L)
-                    val end = (ordered.getOrNull(index + 1)?.atMs ?: totalDurationMs).coerceAtLeast(start)
-                    Chapter(
-                        startMs = start,
-                        durationMs = end - start,
-                        title = marker.name.trim().ifEmpty { untitled(index + 1) },
-                    )
-                }
-            return ChapterMarkers(chapters)
+            val triples = GeodeNative.chaptersFromMarkers(LongArray(ordered.size) { ordered[it].atMs }, totalDurationMs)
+            return fromTriples(triples) { source -> markerTitle(ordered, source, leadInTitle, untitled) }
         }
+
+        /**
+         * The title of the chapter that opens at marker [source] (0-based; [LEAD_IN] for the lead-in):
+         * the marker's name, or [untitled] of its 1-based position when the name is blank, never an
+         * empty title.
+         */
+        internal fun markerTitle(
+            ordered: List<Marker>,
+            source: Int,
+            leadInTitle: String,
+            untitled: (Int) -> String,
+        ): String =
+            if (source == LEAD_IN) {
+                leadInTitle
+            } else {
+                ordered[source].name.trim().ifEmpty { untitled(source + 1) }
+            }
+
+        /** Native chapter spans, (start ms, duration ms, source) triples, with a title per source. */
+        private fun fromTriples(
+            triples: LongArray,
+            title: (Int) -> String,
+        ): ChapterMarkers =
+            ChapterMarkers(
+                List(triples.size / 3) { i ->
+                    Chapter(startMs = triples[i * 3], durationMs = triples[i * 3 + 1], title = title(triples[i * 3 + 2].toInt()))
+                },
+            )
 
         /** `m:ss` under an hour, `h:mm:ss` over — the form description fields parse. */
         fun timestamp(ms: Long): String {
@@ -205,5 +226,8 @@ data class ChapterMarkers(
                 clamped % 1000,
             )
         }
+
+        /** The source native gives the lead-in chapter it adds in front of a marker list. */
+        internal const val LEAD_IN = -1
     }
 }

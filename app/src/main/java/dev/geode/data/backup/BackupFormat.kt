@@ -128,7 +128,7 @@ object BackupFormat {
      *
      * - "Seen it" flags (safety notice, first-run setup, tutorial and its progress): a new phone
      *   should show the photosensitivity notice and the tour again; the user's answers themselves
-     *   (reduced motion, intent) are restored.
+     *   (intent) are restored.
      * - Folder and image URIs picked through the system picker: their read grant belongs to
      *   this install and does not survive a reinstall, so a restored URI points at nothing.
      * - Settings › Performance ([PerformanceStore.KEYS]): picked for this phone's RAM and

@@ -15,6 +15,7 @@ import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GuiPrefs
 import dev.geode.data.PerformanceTake
 import dev.geode.data.SaveTarget
+import dev.geode.data.SystemMotion
 import dev.geode.editor.AnimatableParams
 import dev.geode.editor.BeatCut
 import dev.geode.editor.Clip
@@ -56,10 +57,12 @@ import dev.geode.render.SceneFactory
 import dev.geode.render.bridge.StyleSchedule
 import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.SceneParams
+import dev.geode.util.bestEffort
 import dev.geode.viz.BackgroundExportSpec
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.takeWhile
@@ -407,7 +410,7 @@ internal class ExportController(
                 lfoConfigs = host.lfoConfigs(),
                 adsrConfigs = host.adsrConfigs(),
                 reactions = host.reactions(),
-                reducedMotion = gui.reducedMotion,
+                reducedMotion = SystemMotion.isReduced(application.contentResolver),
                 requestedFps = fps,
                 soundTuning = gui.soundTuning,
                 codec = codec,
@@ -505,44 +508,71 @@ internal class ExportController(
                     val plan = ProjectComposition.plan(edit)
                     val notice = plan.report.message(application)
                     val name = "muzviz_cut_${System.currentTimeMillis()}.mp4"
-                    val target = destination ?: withContext(Dispatchers.IO) { folderDocument(export.saveTo, name) }
-                    val result =
-                        render(
-                            project = edit,
-                            plan = plan,
-                            spec = RenderSpec(ExportAspect.of(export.quality, export.ratio), export, limits.watermark),
-                            takes = { takeId -> loadTake(project.id, takeId) },
-                            factoryFor = ::plainSceneFactory,
-                            fileName = name,
-                            destination = target,
-                            onProgress = { p, _ -> publishStudioProgress(p) },
-                            isCancelled = ::studioCancelRequested,
-                        )
-                    val phase =
-                        when (result) {
-                            is RenderResult.Saved -> {
-                                val label = project.name.ifBlank { name }
-                                val render = ProjectRender(result.uri.toString(), label, System.currentTimeMillis(), result.durationMs)
-                                withContext(Dispatchers.Main) { onRendered(render) }
-                                ExportPhase.Done(result.uri)
+                    // A document this call makes in the user's folder exists the moment it is created,
+                    // so every outcome but Saved deletes it again (#366): a locked style, nothing to
+                    // render, a failed segment, Cancel, an exception or the job's own cancellation. A
+                    // destination the caller passed in is theirs and is left alone.
+                    val created =
+                        if (destination == null) withContext(Dispatchers.IO) { folderDocument(export.saveTo, name) } else null
+                    val target = destination ?: created
+                    var saved = false
+                    try {
+                        val result =
+                            render(
+                                project = edit,
+                                plan = plan,
+                                spec = RenderSpec(ExportAspect.of(export.quality, export.ratio), export, limits.watermark),
+                                takes = { takeId -> loadTake(project.id, takeId) },
+                                factoryFor = ::plainSceneFactory,
+                                fileName = name,
+                                destination = target,
+                                onProgress = { p, _ -> publishStudioProgress(p) },
+                                isCancelled = ::studioCancelRequested,
+                            )
+                        saved = result is RenderResult.Saved
+                        val phase =
+                            when (result) {
+                                is RenderResult.Saved -> {
+                                    val label = project.name.ifBlank { name }
+                                    val render = ProjectRender(result.uri.toString(), label, System.currentTimeMillis(), result.durationMs)
+                                    withContext(Dispatchers.Main) { onRendered(render) }
+                                    ExportPhase.Done(result.uri)
+                                }
+                                is RenderResult.Failed -> ExportPhase.Failed(result.message)
+                                RenderResult.Cancelled -> ExportPhase.Idle
+                                RenderResult.Locked -> {
+                                    host.onStyleLocked()
+                                    ExportPhase.Idle
+                                }
+                                RenderResult.NothingToRender ->
+                                    ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_nothing))
                             }
-                            is RenderResult.Failed -> ExportPhase.Failed(result.message)
-                            RenderResult.Cancelled -> ExportPhase.Idle
-                            RenderResult.Locked -> {
-                                host.onStyleLocked()
-                                ExportPhase.Idle
-                            }
-                            RenderResult.NothingToRender ->
-                                ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_nothing))
+                        _exportState.update { it.copy(phase = phase) }
+                        // The report reaches the user whatever page they are on: the render may finish
+                        // long after they left Studio.
+                        if (notice != null && result != RenderResult.Cancelled) {
+                            withContext(Dispatchers.Main) { Toast.makeText(application, notice, Toast.LENGTH_LONG).show() }
                         }
-                    _exportState.update { it.copy(phase = phase) }
-                    // The report reaches the user whatever page they are on: the render may finish
-                    // long after they left Studio.
-                    if (notice != null && result != RenderResult.Cancelled) {
-                        withContext(Dispatchers.Main) { Toast.makeText(application, notice, Toast.LENGTH_LONG).show() }
+                    } finally {
+                        if (!saved && created != null) discardUnusedTarget(created)
                     }
                 }
             }
+    }
+
+    /**
+     * Deletes a render target this controller created that never received a video. NonCancellable is
+     * the only element of the outer context, with IO inside it, so the delete still runs when the
+     * render was cancelled and leaving it cannot throw a fresh CancellationException over the original
+     * outcome (kotlinx.coroutines, NonCancellable pitfalls). The direct and Studio exporters may already
+     * have deleted it on their own failure paths, so a second delete failing is expected and quiet.
+     */
+    private suspend fun discardUnusedTarget(target: Uri) {
+        withContext(NonCancellable) {
+            withContext(Dispatchers.IO) {
+                bestEffort(TAG, "delete unused render target") { DocumentsContract.deleteDocument(application.contentResolver, target) }
+            }
+        }
     }
 
     /** The shared ending of a Studio render: failures to [ExportPhase.Failed], the run released. */
@@ -714,7 +744,7 @@ internal class ExportController(
             lfoConfigs = host.lfoConfigs(),
             adsrConfigs = host.adsrConfigs(),
             reactions = host.reactions(),
-            reducedMotion = gui.reducedMotion,
+            reducedMotion = SystemMotion.isReduced(application.contentResolver),
             requestedFps = spec.defaults.fps,
             soundTuning = gui.soundTuning,
             paramsAt = look.paramsAt,
@@ -926,7 +956,7 @@ internal class ExportController(
                             lfoConfigs = host.lfoConfigs(),
                             adsrConfigs = host.adsrConfigs(),
                             reactions = host.reactions(),
-                            reducedMotion = gui.reducedMotion,
+                            reducedMotion = SystemMotion.isReduced(application.contentResolver),
                             codec = codec,
                             audioUri = uri,
                             soundTuning = gui.soundTuning,

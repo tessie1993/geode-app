@@ -66,9 +66,8 @@ internal fun CrystalMaterialTheme(
             fontColorOverride = fontColor,
             accentSource = accentSource,
         )
-    // Read unconditionally, so the observer stays registered whatever the app setting says.
-    val systemReducedMotion = rememberSystemReducedMotion()
-    val reducedMotion = gui.reducedMotion || systemReducedMotion
+    // Android's "Remove animations" alone (data/SystemMotion, #336), watched live.
+    val reducedMotion = rememberSystemReducedMotion()
     CompositionLocalProvider(
         LocalFontColor provides fontColor,
         LocalContentColor provides scheme.onBackground,

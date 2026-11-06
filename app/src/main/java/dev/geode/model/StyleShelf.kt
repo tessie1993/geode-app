@@ -31,7 +31,8 @@ data class StyleShelf(
  * and the group it is shown in ([StyleLook]) with that group's name as the user reads it
  * ([lookLabel], a string resource the UI fills in, so a search finds a group in the user's language).
  *
- * A built-in variant (a tuned look of one style, such as Fluid's Inkdrop) is a row of its own:
+ * A built-in variant (a look of one style: a tuned one such as Fluid's Inkdrop, or a generic
+ * one such as Plasma · Chill) is a row of its own:
  * [id] is its preset name, so favourites and Recent keep it apart from its style, [sceneId] is
  * the style it runs on, and [presetName] is the look a tap applies. Styles live in one place, so
  * these rows sit under their style here instead of in the Presets grid.

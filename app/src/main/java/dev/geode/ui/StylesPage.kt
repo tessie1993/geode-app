@@ -220,7 +220,8 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
         val shown = remember(entries, filter, shelf, query) { StyleFiltering.apply(entries, filter, shelf, query) }
         val view = LocalView.current
         val shuffle: () -> Unit = {
-            val others = shown.filter { it.sceneId != viz.sceneId }
+            // Styles only, not their variants: twelve looks a shader style would tilt the draw.
+            val others = shown.filter { it.presetName == null && it.sceneId != viz.sceneId }
             // A free user lands on a style they can keep while there is one.
             others.filter { gate.allowsStyle(it.sceneId) }.ifEmpty { others }.randomOrNull()?.let {
                 view.performStoneHaptic(StoneHapticCue.CONFIRM)
@@ -705,11 +706,12 @@ private object StylesGroupMemory {
 
 /**
  * Every catalogue style as the list shows it, in catalogue order, each with its look group, and
- * right after it the style's built-in variants ([BuiltInPresets.NAMED]): one place for every
- * style and every tuned look of one, so none hides in the Presets grid.
+ * right after it the style's built-in variants: its tuned ones ([BuiltInPresets.NAMED]) first,
+ * then the generic looks (Chill, Punchy, …). One place for every style and every look of one,
+ * so none hides in the Presets grid.
  */
 private fun styleEntries(context: Context): List<StyleEntry> {
-    val variants = BuiltInPresets.NAMED.groupBy { it.sceneId }
+    val variants = (BuiltInPresets.NAMED + BuiltInPresets.ALL).distinctBy { it.name }.groupBy { it.sceneId }
     return Catalogue.styles.flatMap { style ->
         val family = StyleFamilies.of(style.id)
         val look = StyleLookTags.of(style.id, style.kind, family)

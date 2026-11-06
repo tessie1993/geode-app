@@ -898,7 +898,7 @@ object BuiltInPresets {
 
     /**
      * The tuned variants of single styles (Fluid's Inkdrop, Cymatics' Chladni plate). The Styles
-     * list shows them under their style; the generic [LOOKS] stay presets only.
+     * list shows them under their style first, then the generic [LOOKS] from [ALL].
      */
     val NAMED: List<Preset> get() = SHADER_VARIANTS + FLUID_VARIANTS + CYMATICS_VARIANTS
 

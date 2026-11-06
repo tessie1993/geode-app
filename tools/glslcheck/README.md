@@ -16,6 +16,7 @@ node check.mjs --all --size 96                 # every fragment style, compile +
 node check.mjs --fluid-display --out out/fluid # every SHADING/BLOOM/SUNRAYS x LOOK variant
 node check.mjs --shader curl_bloom --time 61   # a different point on the clocks
 node check.mjs --shader bulb_prism --size 270 --height 480 --out out/p.png  # phone-shaped frame
+node check.mjs --shader morph_world --face up --set uWorld=$(scene_env_test --dump 0)  # a 6-DoF camera turned up
 ```
 
 Exit status: 0 when every job compiled and rendered, 1 when any failed, 2

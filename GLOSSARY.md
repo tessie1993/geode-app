@@ -38,8 +38,12 @@ The audio features of a whole track, computed ahead of time, so an export is fra
 _Avoid_: Analysis cache (that is where it is stored)
 
 **Scene**:
-One kind of visual the engine can draw (a fluid, cymatics, MilkDrop…), named by a scene id.
+One kind of visual the engine can draw (a fluid, cymatics, MilkDrop…), named by a scene id (`viz::Scene`). In 3.0 (#302) a Scene (`geode::scene::Scene`, `core/scene`) is also what a 3D style plays: Environment + Objects + Movement + Camera, stepped each frame on every surface, seeded by the play seed.
 _Avoid_: Visualizer, effect, mode
+
+**Environment**:
+A style family's raymarched world (`geode::scene::env`): one shader algorithm whose numbers a C++ driver eases from the sound, the controls and the play seed; each style of the family is a variant of it. A 6-DoF environment is valid whichever way the camera looks and keeps air around the eye. Morph World is the first.
+_Avoid_: Background, level, map
 
 **Style**:
 A named look within a scene family, picked from the style catalogue.

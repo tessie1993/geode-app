@@ -61,6 +61,36 @@ jobs:
           export MUSICVIZ_CHROMIUM="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
           node check.mjs --shader neon_chrome_sea --size 128 --out out/neon_chrome_sea.png
 
+      # Morph World on a free camera (#513): stills facing forward, back, up and down, from the uWorld a
+      # 6-DoF camera uploads after six seconds of forward flight (scene_env_test --dump), and one hover.
+      - name: glslcheck Morph World facing every way
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          export MUSICVIZ_CHROMIUM="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          g++ -std=c++20 -O1 -Icore -Icore/tests/stub core/tests/scene_env_test.cpp core/scene/Scene.cpp \
+            core/scene/env/*.cpp core/viz/world/WorldGenome.cpp core/viz/world/MorphDriver.cpp core/viz/world/WorldAssets.cpp \
+            core/viz/CameraRig.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp core/viz/Lfo.cpp \
+            core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/signal/params/*.cpp -o /tmp/scene_env_test
+          cd tools/glslcheck
+          for seed in 0 7; do
+            fly="$(/tmp/scene_env_test --dump $seed)"
+            for face in forward back up down; do
+              node check.mjs --shader morph_world --size 160 --face $face --set "uWorld=$fly" \
+                --out out/morph_world/seed${seed}_${face}.png
+            done
+            node check.mjs --shader morph_world --size 160 --face up --set "uWorld=$(/tmp/scene_env_test --dump $seed hover)" \
+              --out out/morph_world/seed${seed}_hover_up.png
+          done
+
+      - name: Upload Morph World stills
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: morph-world-6dof-${{ github.run_number }}
+          path: ${{ env.PROJECT_DIR }}/tools/glslcheck/out/morph_world/
+          retention-days: 7
+          if-no-files-found: warn
+
       - name: Set up Java 21
         uses: actions/setup-java@v5
         with:

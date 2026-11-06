@@ -60,6 +60,9 @@ add_library(geode_core STATIC
     viz/ReactionDna.cpp
     viz/Reactions.cpp
     viz/CameraRig.cpp
+    scene/Scene.cpp
+    scene/env/Environment.cpp
+    scene/env/MorphWorldEnv.cpp
     scene/camera/CameraParams.cpp
     scene/camera/Comfort.cpp
     scene/camera/Drivers.cpp

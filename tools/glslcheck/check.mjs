@@ -34,6 +34,7 @@
 //   node check.mjs --all --size 200
 //   node check.mjs --fluid-display               # every SHADING/BLOOM/SUNRAYS x LOOK variant
 //   node check.mjs --shader black_hole --sound SND_KICK_ENV=1,SND_DROP=1 --set uMorph=0.8
+//   node check.mjs --shader morph_world --face up  # a 3D style seen by a camera turned up (6-DoF)
 //   node check.mjs --stills out/stills.tsv [--shard 1/4] [--out out/stills]
 //                                                 # the visual quality gate's input: every style through
 //                                                 # the sound engine's golden song, judged by
@@ -42,7 +43,10 @@
 // --sound sets single slots of the sound frame by their lib_sound name (the
 // rest keep the table's mid-loudness groove below), so a
 // style can be looked at on a kick, in a drop or in silence. --set overrides
-// any other uniform by name (a comma list for a vector).
+// any other uniform by name (a comma list for a vector). --face turns the
+// camera (uCamBasis) to look forward (+z, the default), back, up, down, left
+// or right from the same eye, for a 6-DoF style's stills; --set uCamBasis
+// still wins.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -357,7 +361,22 @@ function soundSlots() {
   return out;
 }
 
+// uCamBasis per --face: the columns right, up, fwd (ShaderScene::uploadCamera), right x up = fwd.
+const FACES = {
+  forward: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+  back: [-1, 0, 0, 0, 1, 0, 0, 0, -1],
+  up: [1, 0, 0, 0, 0, -1, 0, 1, 0],
+  down: [1, 0, 0, 0, 0, 1, 0, -1, 0],
+  left: [0, 0, 1, 0, 1, 0, -1, 0, 0],
+  right: [0, 0, -1, 0, 1, 0, 1, 0, 0],
+};
+
 function applyOverrides(values, args) {
+  if (args.face) {
+    const basis = FACES[args.face];
+    if (!basis) throw new Error(`no such face: ${args.face} (${Object.keys(FACES).join(', ')})`);
+    values.uCamBasis = basis;
+  }
   if (args.sound.length) {
     const slots = soundSlots();
     const arrays = { uSound: [...values.uSound], uSoundEvents: [...values.uSoundEvents], uSoundCounts: [...values.uSoundCounts] };
@@ -527,7 +546,7 @@ function parseArgs(argv) {
   const a = {
     size: 240, height: null, shaders: [], all: false, list: false, fluidDisplay: false, out: null, time: null,
     liquid: null, frames: 240, born: 1, bornStyle: null, age: 0, surface: 0, liquidity: 0.35, seed: 1, threeD: false,
-    sound: [], set: [], stills: null, shard: null, stillSize: 96, runSize: 32,
+    sound: [], set: [], face: null, stills: null, shard: null, stillSize: 96, runSize: 32,
   };
   for (let i = 0; i < argv.length; i++) {
     const v = argv[i];
@@ -550,6 +569,7 @@ function parseArgs(argv) {
     else if (v === '--3d') a.threeD = true;
     else if (v === '--sound') a.sound.push(...argv[++i].split(','));
     else if (v === '--set') a.set.push(argv[++i]);
+    else if (v === '--face') a.face = argv[++i];
     else if (v === '--stills') a.stills = argv[++i];
     else if (v === '--shard') a.shard = argv[++i];
     else if (v === '--still-size') a.stillSize = Number(argv[++i]);

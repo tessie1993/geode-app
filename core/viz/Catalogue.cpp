@@ -114,9 +114,10 @@ constexpr std::array<const char*, 63> kFamilyMarched = {
 // The marched styles already ported to a full 6-DoF environment (#511): the free camera flies them
 // unclamped. Every other marched style is on rails (cameraMode). A port flips its style by adding
 // its id here, one line per style.
-constexpr std::array<const char*, 0> kSixDof = {
-    // Morph World ("morph_world", kMorphWorld on PR #314) goes here first when it lands: the first
-    // full environment, the lib_world pattern every port follows.
+constexpr std::array<const char*, 1> kSixDof = {
+    // Morph World, the first full environment (core/scene/env/MorphWorldEnv, #513): the lib_world
+    // pattern every port follows.
+    "morph_world",
 };
 
 // The styles whose look is a turning one (kaleidoscopes, mandalas, spirals, vortices, tunnels),

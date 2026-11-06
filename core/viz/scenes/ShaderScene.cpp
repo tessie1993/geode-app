@@ -7,6 +7,7 @@
 #include "viz/Catalogue.hpp"
 #include "viz/EndlessZoom.hpp"
 #include "viz/NoteResponse.hpp"
+#include "viz/SceneCameraMode.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 #include "viz/world/WorldAssets.hpp"
 
@@ -41,7 +42,10 @@ ShaderScene::ShaderScene(std::string id, std::string vertexSrc, std::string frag
       cache_(cache),
       host_(std::move(host)) {
     pendingFragment_ = currentFragment_;
-    if (id_ == catalogue::kMorphWorld) world_ = std::make_unique<world::MorphDriver>();
+    if (::geode::scene::env::has(id_)) {
+        scene_ = std::make_unique<::geode::scene::Scene>(id_);
+        freeCamera_ = sceneCameraMode(id_) == ::geode::scene::camera::Mode::SixDof;
+    }
 }
 
 ShaderScene::~ShaderScene() { release(); }
@@ -93,24 +97,18 @@ void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
     motionField_.step(sound, dt, p.speed);
     const float soundTimes[3] = {sound.bassTime, sound.midTime, sound.trebleTime};
     for (int b = 0; b < 3; ++b) soundTimeSped_[b].step(soundTimes[b], p.speed, kTimeWrapSeconds);
-    if (world_) {
-        // A new seed is a new play: the world starts over from one of its seeds.
-        const uint64_t seed = host_.playSeed ? host_.playSeed() : 0;
-        if (!worldSeeded_ || seed != world_->seedValue()) {
-            world_->reset(seed);
-            worldSeeded_ = true;
-        }
-        world::DriverInput in = world::DriverInput::fromSound(sound);
-        in.morph = p.morph;
-        in.warp = p.warp;
-        in.turbulence = p.turbulence;
-        in.detail = p.marchDetail;
-        in.intensity = p.intensity;
+    if (scene_) {
+        ::geode::scene::FrameInput in;
+        in.sound = &sound;
+        in.dt = dt;
+        in.playSeed = host_.playSeed ? host_.playSeed() : 0;
+        in.camera = camera_;
+        in.freeCamera = freeCamera_;
+        in.controls = {p.morph, p.warp, p.turbulence, p.marchDetail, p.intensity};
         if (const NoteUniforms* notes = host_.notes ? host_.notes() : nullptr) {
             std::copy(notes->knobs.begin(), notes->knobs.end(), in.knobs.begin());
         }
-        world_->step(in, dt);
-        worldDt_ = dt;
+        scene_->step(in);
     }
 }
 
@@ -144,7 +142,7 @@ void ShaderScene::draw(float timeSeconds) {
     uploadMotion();
     uploadTouch();
     uploadCamera();
-    uploadWorld();
+    uploadEnvironment();
     // The whole GeodeSoundFrame for lib_sound; its texture takes unit 3 (1 and 2 are the flow and the palette LUT).
     sound_.upload(uniforms_, p.audioDrive);
     glBindVertexArray(vao_);
@@ -280,8 +278,9 @@ void ShaderScene::uploadCamera() {
     }
 }
 
-void ShaderScene::uploadWorld() {
-    if (!world_) return;
+void ShaderScene::uploadEnvironment() {
+    ::geode::scene::env::Environment* env = scene_ ? scene_->environment() : nullptr;
+    if (env == nullptr) return;
     if (worldShapesTex_ == 0 && !worldShapes_.empty()) {
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         glGenTextures(1, &worldShapesTex_);
@@ -303,7 +302,7 @@ void ShaderScene::uploadWorld() {
         glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
         glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-        world_->setAssetsBound(worldShapesTex_ != 0 && worldMapsTex_ != 0);
+        env->setAssetsBound(worldShapesTex_ != 0 && worldMapsTex_ != 0);
     }
     if (worldShapesTex_ != 0) {
         // Units 4 and 5: 1 is the flow, 2 the palette LUT, 3 the sound texture.
@@ -315,11 +314,9 @@ void ShaderScene::uploadWorld() {
         glUniform1i(uniforms_.loc("uWorldTex"), 5);
         glActiveTexture(GL_TEXTURE0);
     }
-    // The rig was stepped before this draw: the world's z phase and wake follow the eye.
-    if (camera_) world_->travel(camera_->pos, worldDt_);
-    worldDt_ = 0.0f;
-    const auto& u = world_->uniforms();
-    glUniform4fv(uniforms_.loc("uWorld"), uniforms_.arrayCount("uWorld", world::kVec4), u.data());
+    // The environment was stepped in update(), after the camera: its block already follows the eye.
+    const ::geode::scene::env::UniformBlock u = env->uniforms();
+    glUniform4fv(uniforms_.loc(u.name), uniforms_.arrayCount(u.name, u.vec4Count), u.data);
 }
 
 void ShaderScene::set1f(const char* name, float value) {
@@ -364,7 +361,7 @@ void ShaderScene::release() {
     if (worldMapsTex_ != 0) glDeleteTextures(1, &worldMapsTex_);
     worldShapesTex_ = 0;
     worldMapsTex_ = 0;
-    if (world_) world_->setAssetsBound(false);
+    if (scene_ != nullptr && scene_->environment() != nullptr) scene_->environment()->setAssetsBound(false);
     program_ = 0;
     vao_ = 0;
     uniforms_ = UniformCache(0);

@@ -5,7 +5,7 @@ scaffolding work the owner asked for; it ends in a new ADR, not in code.
 
 Read: [kevinraymond/fosfora](https://github.com/kevinraymond/fosfora) @ `2e85d3b` (MIT/Apache-2.0; we
 take ideas and shapes, not code). It is a desktop VJ engine in Rust (wgpu, egui) with Python for the
-accuracy bench, diagrams and model training. Geode is read on `claude/main-branch-cleanup-w143kp`.
+accuracy bench, diagrams and model training.
 
 ## 1. Fosfora in one page
 

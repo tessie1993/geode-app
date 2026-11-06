@@ -4,8 +4,6 @@ name: Build MuzViz Debug APK
 # Pushes to main are handled by ship-apk.yml, which runs the same build and
 # checks and then publishes the APK as a GitHub Release — running both on main
 # would build the app twice per push for the same result.
-# Pushes to claude/** work branches run it too, so agent sessions offload
-# build, lint and tests here instead of building locally.
 # A green run on a push (or a manual run) ends by shipping the next
 # pre-release through ship-apk.yml; see the "pre-release" job at the end.
 
@@ -16,7 +14,7 @@ on:
 permissions:
   contents: read
 
-# One build per commit. A push to a claude/** branch with an open PR fires both
+# One build per commit. A push to a branch with an open PR fires both
 # a push run and a pull_request run for the same commit; keying the group on the
 # branch name (head_ref on a PR, ref_name on a push) puts them in one group, so the
 # later one cancels the earlier and the commit builds once instead of twice. The

@@ -56,6 +56,7 @@ data class PlayerPrefs(
                 // Clamped in seconds first, so a huge value cannot overflow the multiply.
                 seconds.coerceIn(0f, (MAX_CROSSFADE_MS / CROSSFADE_STEP_MS).toFloat()).roundToInt() * CROSSFADE_STEP_MS
             }
+
         const val MAX_REPEAT_MODE = 2
         const val MIN_SPEED = 0.5f
         const val MAX_SPEED = 2f

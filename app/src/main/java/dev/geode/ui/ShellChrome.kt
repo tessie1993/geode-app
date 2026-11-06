@@ -348,18 +348,19 @@ internal fun FloatingTabBar(
                     // A drawn label names the item for TalkBack (the item merges its children);
                     // an icon-only item names itself, so the name is read once either way.
                     icon = { StoneIconArt(item.icon, if (showLabel) null else item.label, selected = isSelected) },
-                    label = if (showLabel) {
-                        {
-                            Text(
-                                item.label,
-                                style = MaterialTheme.typography.labelSmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    } else {
-                        null
-                    },
+                    label =
+                        if (showLabel) {
+                            {
+                                Text(
+                                    item.label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        } else {
+                            null
+                        },
                 )
             }
         }

@@ -14,8 +14,7 @@ import dev.geode.model.DeviceTrack
  * the library holds. The rule itself is [MinTrackLength.keeps].
  */
 object DeviceTrackQuery {
-    fun query(context: Context): List<DeviceTrack> =
-        query(context, LibraryPrefsStore(GeodePrefsFiles(context).library).minTrackSeconds())
+    fun query(context: Context): List<DeviceTrack> = query(context, LibraryPrefsStore(GeodePrefsFiles(context).library).minTrackSeconds())
 
     fun query(
         context: Context,

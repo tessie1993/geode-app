@@ -271,6 +271,7 @@ class LibraryTree(
 
         /** The id search results hang under; the separator is taken out so the id still splits. */
         private fun searchParent(query: String): String = "$SEARCH/" + query.replace(SEPARATOR, " ").trim()
+
         private const val RECENT_LIMIT = 50
         private const val SIMILAR_LIMIT = 50
         private val TOP_LEVEL = setOf(TRACKS, ALBUMS, ARTISTS, PLAYLISTS, FAVOURITES, RECENT)

@@ -113,14 +113,15 @@ GEODE_API int         geode_music_edit(const char* style_id, int seed, const flo
 GEODE_API int         geode_music_action_target(int action);
 /* Gyro look, -1..1 per axis; the camera reads it only while camGyro is on. */
 GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
-GEODE_API void        geode_viz_set_thermal(geode_viz*, int platform_status, float headroom); /* status < 0 = unknown */
+/* This surface's own fps cap (0 = free-running); the thermal cap is applied under it natively. */
 GEODE_API void        geode_viz_set_paced_fps(geode_viz*, float fps);
 /* Settings › Performance (live surfaces): scales 0..1, post_fx / adaptive 0 or 1. Export never calls it. */
 GEODE_API void        geode_viz_set_quality(geode_viz*, float render_scale, float march_scale, int post_fx, int adaptive);
 /* Settings › Performance › Liquid on a hot phone: 0 simplify, 1 full, 2 pause (liquid::HotPolicy). */
 GEODE_API void        geode_viz_set_liquid_hot_policy(geode_viz*, int policy);
-/* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode). 0 for a null handle. */
-GEODE_API int         geode_viz_liquid_mode(const geode_viz*);
+/* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode), or -1 when it has
+   not changed since the last take (and for a null handle). Taken every frame by the live shell. */
+GEODE_API int         geode_viz_take_liquid_mode(geode_viz*);
 GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
 /* Export: step every frame by exactly 1/fps instead of measuring the time between frames (#377); 0 = live. */
 GEODE_API void        geode_viz_set_frame_rate(geode_viz*, int fps);
@@ -349,18 +350,44 @@ GEODE_API int             geode_perf_mode_for_device(long long total_ram_bytes, 
 #define GEODE_SURFACE_PAUSE_IN_BATTERY_SAVER (1u << 5)
 #define GEODE_SURFACE_SILENT                 (1u << 6)
 #define GEODE_SURFACE_REST_WHEN_SILENT       (1u << 7)
+#define GEODE_SURFACE_REDUCED_MOTION         (1u << 8)   /* the system's Remove animations */
 #define GEODE_SURFACE_FOREVER                9223372036854775807LL
 GEODE_API int             geode_surface_run_mode(unsigned flags, long long animate_until_ms, long long now_ms);   /* 0 stopped, 1 still, 2 animated */
 GEODE_API int             geode_surface_listening(unsigned flags, long long animate_until_ms, long long now_ms);  /* 1 = hear sound */
 GEODE_API int             geode_surface_entitled(long long animate_until_ms, long long now_ms);                   /* 1 = may move */
 GEODE_API long long       geode_surface_recheck_in_ms(long long animate_until_ms, long long now_ms);              /* -1 = never */
+/* Milliseconds to keep pacing after a restate from previous_mode to mode before stopping: the still frame's
+ * settle (a scene is built across frames), 0 when one frame or the plain on/off is enough. */
+GEODE_API long long       geode_surface_settle_ms(int previous_mode, int mode);
+/* A surface's own frame rate (wallpaper options, Behaviour › Dream): the stored choice as the pacer caps to,
+ * snapped to a listed rate; <= 0 gives the default. */
+#define GEODE_SURFACE_DEFAULT_FPS            30
+GEODE_API int             geode_surface_fps_choice(int requested_fps);
+/* The listed rates, ascending, for a settings row: writes up to capacity, returns how many there are. */
+GEODE_API int             geode_surface_fps_choices(int* out, int capacity);
+
 /* The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt it draws with.
-   `state` is six int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS). */
-#define GEODE_PACER_STATE_LONGS 6
-/* One vsync: the dt in seconds to draw with, or 0 to skip it. cap_fps <= 0 draws every vsync. */
+   `state` is seven int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS). */
+#define GEODE_PACER_STATE_LONGS 7
+/* The slot holding the cap the last vsync paced to, in millihertz (0 = none): the shell re-asks
+   Surface.setFrameRate when it moves. */
+#define GEODE_PACER_CAP_SLOT 6
+/* One vsync: the dt in seconds to draw with, or 0 to skip it. cap_fps is the surface's own cap (<= 0 draws
+   every vsync); the pacer applies min(cap_fps, the thermal cap). */
 GEODE_API double          geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap_fps);
 /* A start after a stop: forget the gap, keep the panel's period. */
 GEODE_API void            geode_pacer_resume(long long* state);
+/* The cap a surface asking for cap_fps runs at now, min(cap_fps, the thermal cap); 0 = none. For
+   Surface.setFrameRate. */
+GEODE_API float           geode_pacer_effective_cap(float cap_fps);
+
+/* The process's one thermal state (core/viz/frame/Thermal): every renderer reads the same tier.
+   Polled each frame by every live renderer; 1 for at most one caller a second in the whole process,
+   which then reads PowerManager and pushes. */
+GEODE_API int             geode_thermal_sample_due(void);
+/* One reading: PowerManager's thermal status (< 0 = no thermal API) and its headroom forecast (NaN = none
+   this time; the last real one holds a while). Settles the shared tier. */
+GEODE_API void            geode_thermal_push(int platform_status, float headroom);
 /* ── Export planning and clip maths (ADR 0006: core/output, core/signal/timeline; ADR 0003 ports) ──────────
  * Pure functions and plain handles, any thread, no GL. The Kotlin exporters (VideoExporter, LoopRender,
  * LoopExtend, StudioExporter, the Media3 clip effects, AudioTranscoder) call these instead of carrying the

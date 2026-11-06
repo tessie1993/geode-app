@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "jni_util.hpp"
 
 namespace {
 
@@ -109,6 +110,14 @@ Java_dev_geode_engine_bridge_GeodeNative_librarySearch(JNIEnv* env, jobject, job
     const jsize written = std::min<jsize>(capacity, static_cast<jsize>(total));
     if (written > 0) env->SetIntArrayRegion(out, 0, written, hits.data());
     return total;
+}
+
+// Studio's folders (core/library/StudioFiles): only the two paths cross; the move is native.
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_studioMoveTakesOut(JNIEnv* env, jobject, jstring projectsDir, jstring takesDir) {
+    geode::jni::Utf8Chars projects(env, projectsDir);
+    geode::jni::Utf8Chars takes(env, takesDir);
+    return geode_studio_move_takes_out(projects.get(), takes.get());
 }
 
 }  // extern "C"

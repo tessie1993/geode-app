@@ -247,6 +247,7 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"flowEnabled", "the FlowField's master switch"},
         {"rippleOverlayEnabled", "the water-ripple overlay's master switch"},
         {"marchDetail", "a performance budget, not a look"},
+        {"camFlat", "how much the user wants flat styles to travel with the camera"},
         {"camPush", "a modulation offset the reaction routes drive"},
         {"camYaw", "a modulation offset the reaction routes drive"},
         {"camPitch", "a modulation offset the reaction routes drive"},

@@ -1,5 +1,6 @@
 // Host-side checks for core/viz/frame/LoopSeam (#603): the loop render's seam driver, which moved out of
-// export/LoopRender.kt (drawFrames, budgetedSpec, SEAM_STASH_BUDGET_BYTES), plus the dissolve weight it
+// export/LoopRender.kt (drawFrames, budgetedSpec, SEAM_STASH_BUDGET_BYTES; its progress and reported crossfade,
+// #752), plus the dissolve weight it
 // blends at (ExportPassMath.hpp, exportmath::seam::weight). Built and run by CI ("Native host tests" in
 // .github/workflows/android.yml) with the system compiler; no GL.
 //
@@ -122,6 +123,93 @@ void budget() {
     check(kotlinCrossfadeFrames(ms, 30, loopFrames) <= ls::affordableFrames(1920, 1080), "budget: the shortened seam fits");
 }
 
+void progress() {
+    // A three-stop reel whose later stops kept fewer seam frames, as renderStops' shrinking seam allows.
+    const int stops = 3;
+    const int loopFrames = 240;
+    const int seams[stops] = {24, 18, 18};
+    float last = 0.0f;
+    bool rising = true;
+    bool inRange = true;
+    for (int stop = 0; stop < stops; ++stop) {
+        for (int f = 0; f < loopFrames + seams[stop]; ++f) {
+            const float p = ls::progress(stop, stops, f, loopFrames, seams[stop]);
+            rising = rising && p > last;
+            inRange = inRange && p > 0.0f && p <= 1.0f;
+            last = p;
+        }
+        // Each stop ends on its share exactly.
+        const float end = ls::progress(stop, stops, loopFrames + seams[stop] - 1, loopFrames, seams[stop]);
+        check(end == static_cast<float>(static_cast<double>(stop + 1) / stops), "progress: a stop ends on its share");
+    }
+    check(rising, "progress: strictly rising across every stop");
+    check(inRange, "progress: stays in 0..1");
+    check(last == 1.0f, "progress: the last frame of the last stop is exactly 1");
+
+    // Any stop count and odd frame counts still land on exactly 1.
+    for (int n = 1; n <= 12; ++n) {
+        check(ls::progress(n - 1, n, 37 + 5 - 1, 37, 5) == 1.0f, "progress: exactly 1 at the end for any stop count");
+    }
+    // A single stop matches the Kotlin it replaced: base 0 + span 1 * (frame + 1) / sourceFrames.
+    check(ls::progress(0, 1, 0, 10, 3) == 1.0f / 13.0f, "progress: one stop's first frame is 1 / sourceFrames");
+    // Stray input stays in range.
+    check(ls::progress(5, 3, 99, 10, 3) == 1.0f, "progress: past the end clamps to 1");
+    check(ls::progress(-2, 3, 0, 10, 3) == 0.0f, "progress: before the start clamps to 0");
+    check(ls::progress(0, 0, 0, 10, 3) == 1.0f, "progress: no stops reads as done");
+    check(ls::progress(0, 1, 0, 0, 0) == 1.0f, "progress: an empty stop reads as done");
+}
+
+void reportedCrossfade() {
+    // The Kotlin it replaced: seamFrames * 1000L / fps.
+    check(ls::reportedCrossfadeMs(30, 30) == 1000, "report: 30 frames at 30 fps is one second");
+    check(ls::reportedCrossfadeMs(7, 30) == 233, "report: truncated to whole ms");
+    check(ls::reportedCrossfadeMs(3, 0) == 3000, "report: no frame rate reads as one frame a second");
+
+    // The pipeline end to end: the spec's crossfade is budgeted, the stop asks the stash for the budgeted
+    // spec's frames (LoopSpec.crossfadeFrames) and gets at most the affordable count, and the reel reports
+    // that seam. Whenever the budget cut the seam to a whole number of milliseconds (1000 * affordable frames
+    // a multiple of fps), the report is the budgeted crossfade to the millisecond. Otherwise the budgeted ms
+    // was truncated, the spec's frames round down one, and the report is that seam: within a frame of the
+    // budget, never over it. Either way the report is a crossfade the budget keeps as it is.
+    const int fpss[] = {24, 25, 30, 50, 60};
+    const int sizes[][2] = {{1280, 720}, {1920, 1080}, {1080, 1920}, {2560, 1440}, {3840, 2160}};
+    const int64_t fades[] = {200, 500, 800, 1000, 1500, 2500, 5000};
+    bool matches = true;
+    bool cut = false;
+    bool fits = true;
+    bool nearBudget = true;
+    bool fixedPoint = true;
+    for (int fps : fpss) {
+        for (const auto& wh : sizes) {
+            for (int64_t fade : fades) {
+                const int loopFrames = fps * 12;
+                const int asked = kotlinCrossfadeFrames(fade, fps, loopFrames);
+                const int affordable = ls::affordableFrames(wh[0], wh[1]);
+                const int64_t budgeted = ls::budgetedCrossfadeMs(fade, asked, fps, wh[0], wh[1]);
+                const int requested = kotlinCrossfadeFrames(budgeted, fps, loopFrames);
+                const int seamFrames = requested < affordable ? requested : affordable;
+                const int64_t reported = ls::reportedCrossfadeMs(seamFrames, fps);
+                if (budgeted != fade) {
+                    cut = true;
+                    if ((1000LL * affordable) % fps == 0) {
+                        matches = matches && reported == budgeted && seamFrames == affordable;
+                    }
+                    nearBudget = nearBudget && budgeted - reported <= 1000 / fps + 1;
+                }
+                fits = fits && reported <= budgeted && reported >= 1 && seamFrames <= affordable;
+                const int reportedFrames = kotlinCrossfadeFrames(reported, fps, loopFrames);
+                fixedPoint = fixedPoint &&
+                             ls::budgetedCrossfadeMs(reported, reportedFrames, fps, wh[0], wh[1]) == reported;
+            }
+        }
+    }
+    check(cut, "report: the grid reaches the budget");
+    check(matches, "report: a budget-cut seam reports the budgeted crossfade");
+    check(nearBudget, "report: a truncated budget reports within a frame of it");
+    check(fits, "report: the report never exceeds the budgeted crossfade or the stash");
+    check(fixedPoint, "report: the reported crossfade fits the budget as it is");
+}
+
 }  // namespace
 
 int main() {
@@ -129,6 +217,8 @@ int main() {
     schedule();
     pts();
     budget();
+    progress();
+    reportedCrossfade();
     if (failures == 0) std::printf("loop_seam_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

@@ -17,13 +17,6 @@ class PcmTap(
         private set
 
     @Volatile
-    var boundaryListener: TapBoundaryListener? = null
-
-    @Volatile
-    var boundaryFailures: Long = 0L
-        private set
-
-    @Volatile
     var framesWritten: Long = 0L
         private set
 
@@ -34,14 +27,12 @@ class PcmTap(
         channelCount: Int,
         encoding: Int,
     ) {
-        val ended = format
-        val endedFrames = framesWritten
         val next =
             PcmTapFormat(
                 sampleRateHz = sampleRateHz,
                 channelCount = channelCount,
                 encoding = encoding,
-                generation = (ended?.generation ?: 0) + 1,
+                generation = (format?.generation ?: 0) + 1,
             )
         if (channelCount > 0) {
             val floats = STAGING_FRAMES * channelCount
@@ -49,11 +40,6 @@ class PcmTap(
         }
         framesWritten = 0L
         format = next
-        try {
-            boundaryListener?.onTapBoundary(ended, endedFrames, next)
-        } catch (survivable: RuntimeException) {
-            boundaryFailures++
-        }
         onFormat(next)
     }
 

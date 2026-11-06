@@ -14,8 +14,9 @@
 //   fade     Fade: lerpParams glides it (only a Float or a Circular can). Hold: it snaps to the new
 //            value, as every Int and Bool does, the custom palette sentinels and the fade time itself.
 //
-// The row order IS the geode_viz_set_params wire: row i is wire slot i, and SceneParamsCodec writes
-// the same order (WireLayoutTest and the codec's native-order check hold it). Never insert or reorder:
+// The row order IS the geode_viz_set_params wire: row i is wire slot i, and SceneParamsCodec packs by
+// these rows (it reads them through ParamSchema; WireLayoutTest holds the Kotlin fields to them, and
+// params_schema_test holds core/tests/params_schema.txt, the JVM tests' copy, to the text). Never insert or reorder:
 // append, and retire a field by leaving its row where it is. core/tests/params_schema_test.cpp checks
 // the table; geode_params_schema_text publishes it to the shell.
 //

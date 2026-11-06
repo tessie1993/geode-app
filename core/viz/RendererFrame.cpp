@@ -61,6 +61,22 @@ float Renderer::beginFrame(double timeSeconds) {
             tunedKnobs_ = frameSettings_.knobs;
             sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
         }
+        // What the player told the engines (core/sound/PlayerSignals), live renderers only: an export hears
+        // its own track, with no boundaries but its own and no player fades, so it keeps fadeGain at 1, and
+        // counts as the player, so a silent stretch in the track holds the song like a pause does live.
+        if (!offscreen_.load(std::memory_order_relaxed)) {
+            const sound::player::Boundary boundary = sound::player::boundary();
+            if (boundary.epoch != boundarySeen_) {
+                boundarySeen_ = boundary.epoch;
+                if (sound_) sound_->trackBoundary();
+            }
+            if (sound_) {
+                sound_->setPlayerSource(sound::player::playerIsSource());
+                sound_->setFadeGain(sound::player::fadeGain());
+            }
+        } else if (sound_) {
+            sound_->setPlayerSource(true);
+        }
         if (sound_) {
             sound_->step(dt, soundFrame_);
             soundEmotion_ = sound_->emotion();
@@ -113,31 +129,6 @@ Scene* Renderer::resolveActiveScene() {
         styleSwitchPending_ = true;
     }
     return activeScene_;
-}
-
-uint64_t Renderer::noteEntropyFor(uint64_t playSeed) {
-    if (!noteSeeded_ || playSeed != notePlaySeed_) {
-        std::random_device device;
-        noteEntropy_ = (static_cast<uint64_t>(device()) << 32) ^ device();
-        notePlaySeed_ = playSeed;
-        noteSeeded_ = true;
-    }
-    return noteEntropy_;
-}
-
-signal::EngineSettings Renderer::latchEngineSettings() {
-    signal::EngineSettings s;
-    s.knobs = macros::global();
-    // An export's pinned director (pinDirector) never reads the process-wide switch.
-    s.director = directorPinned_.load(std::memory_order_acquire)
-                     ? DirectorConfig{pinnedDirectorAmount_.load(std::memory_order_relaxed),
-                                      pinnedDirectorSeed_.load(std::memory_order_relaxed)}
-                     : director::global();
-    s.notesOn = note_response::globalEnabled();
-    s.handMask = hand::global();
-    s.reducedMotion = reducedMotion_.load(std::memory_order_relaxed);
-    s.noteEntropy = noteEntropyFor(s.director.seed);
-    return s;
 }
 
 SceneParams Renderer::resolveParams(float dt) {

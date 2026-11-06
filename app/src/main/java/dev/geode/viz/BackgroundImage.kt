@@ -6,7 +6,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.UnderlayBlend
-import dev.geode.render.offscreen.OffscreenUnderlay
+import dev.geode.render.look.LookUnderlay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -40,15 +40,15 @@ class BackgroundPixels(
  * native (core/viz/Underlay), so one bake serves the live underlay and every export.
  */
 object BackgroundImage {
-    /** [decode]s [spec] at [renderWidth]x[renderHeight], wrapped for [dev.geode.render.offscreen.OffscreenRenderSpec.underlay]. */
+    /** [decode]s [spec] at [renderWidth]x[renderHeight], wrapped for [dev.geode.render.look.LookSnapshot.underlay]. */
     suspend fun decodeForExport(
         context: Context,
         spec: BackgroundExportSpec,
         renderWidth: Int,
         renderHeight: Int,
-    ): OffscreenUnderlay? =
+    ): LookUnderlay? =
         decode(context, spec.uri, renderWidth, renderHeight, spec.blurRadius, spec.dim)?.let {
-            OffscreenUnderlay(it.pixels, it.width, it.height, spec.blend.ordinal, spec.amount)
+            LookUnderlay(it.pixels, it.width, it.height, spec.blend.ordinal, spec.amount)
         }
 
     suspend fun decode(

@@ -38,6 +38,7 @@ import dev.geode.data.SharedPrefsFavouritesRepository
 import dev.geode.data.SharedPrefsPlayerPrefsRepository
 import dev.geode.data.SmartPlaylist
 import dev.geode.data.SmartPlaylistMatcher
+import dev.geode.data.SystemMotion
 import dev.geode.data.TagWriteOutcome
 import dev.geode.data.TakeStore
 import dev.geode.data.TemplateId
@@ -47,6 +48,7 @@ import dev.geode.data.TemplateRepository
 import dev.geode.data.TemplateWrite
 import dev.geode.data.UserDataRepository
 import dev.geode.data.VideoTemplate
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
@@ -63,7 +65,9 @@ import dev.geode.render.MilkPresetMemory
 import dev.geode.render.SceneFactory
 import dev.geode.render.TransitionStyle
 import dev.geode.render.UnderlayBlend
+import dev.geode.render.look.LookSource
 import dev.geode.render.scene.SceneParams
+import dev.geode.util.bestEffort
 import dev.geode.widget.WidgetStyles
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -119,8 +123,9 @@ class PlayerSession internal constructor(
             object : CaptureController.Host {
                 override fun pausePlayback() = player.pause()
 
-                override fun resetSound() {
+                override fun resetSound(playerOwnsRing: Boolean) {
                     playback.sampleRing.beginEpoch()
+                    bestEffort("PlayerSession", "player source") { GeodeNative.soundSetPlayerSource(playerOwnsRing) }
                 }
 
                 override fun setSoundRate(rateHz: Int) {
@@ -517,7 +522,10 @@ class PlayerSession internal constructor(
                 override val player: Player get() = this@PlayerSession.player
                 override val fadeMs: Int get() = settings.playerPrefs.value.fadeMs
 
-                override fun setVolume(volume: Float) = playback.setUiVolume(volume)
+                override fun rampTo(
+                    audible: Boolean,
+                    ms: Int,
+                ) = playback.rampUiFade(audible, ms)
 
                 override fun stopLiveInput() {
                     if (captureController.micActive) setMicEnabled(false)
@@ -1044,15 +1052,19 @@ class PlayerSession internal constructor(
             scope,
             object : ExportController.Host {
                 override val exportUri: Uri? get() = currentUri
-                override val guiPrefs: GuiPrefs get() = settings.guiPrefs.value
                 override val sceneId: String get() = _vizState.value.sceneId
-                override val sceneParams get() = _vizState.value.params
-
-                override fun lfoConfigs() = modulation.lfos.value
-
-                override fun adsrConfigs() = modulation.adsrs.value
-
-                override fun reactions() = modulation.reactions.value
+                override val look =
+                    LookSource {
+                        val m = modulation
+                        liveLook(
+                            _vizState.value,
+                            m.lfos.value,
+                            m.adsrs.value,
+                            m.reactions.value,
+                            settings.guiPrefs.value,
+                            SystemMotion.isReduced(application.contentResolver),
+                        )
+                    }
 
                 override suspend fun loadExportTake() = takeController.loadExportTake()
 
@@ -1165,7 +1177,6 @@ class PlayerSession internal constructor(
         queueController.release()
         playerListener = null
         if (playback.onAudioFormat === captureController.audioFormatHook) playback.onAudioFormat = null
-        if (sleepTimer.onFadeVolume === fades.sleepFadeHook) sleepTimer.onFadeVolume = null
         if (!playback.playbackWanted) PlaybackService.stop(application)
         PlaybackEngine.releaseUi()
         scope.cancel()
@@ -1289,7 +1300,6 @@ class PlayerSession internal constructor(
             }
         playerListener = listener
         player.addListener(listener)
-        sleepTimer.onFadeVolume = fades.sleepFadeHook
         audioFxController.attach(playback.player.audioSessionId)
         settings.refreshAudioFx()
         if (alreadyLoaded) onTrackChanged()

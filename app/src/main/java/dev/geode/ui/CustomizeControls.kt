@@ -18,6 +18,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.AutoDirectorStore
 import dev.geode.data.MacroStore
+import dev.geode.model.ControlRange
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
 import dev.geode.render.HandReactions
@@ -73,19 +74,18 @@ private fun LookControl(
     p: SceneParams,
     onChange: (SceneParams) -> Unit,
 ) {
-    val d = SceneParams.DEFAULT
     when (key) {
         ParamKeys.PALETTE -> PaletteControl(host, p, onChange)
         ParamKeys.BRIGHTNESS ->
             // Upper ends are the engine's flash clamp (1 + `kMaxFlashDepth` in core/viz/VisualSafety.hpp).
-            LabeledSlider(key, p.brightness, 0.2f..1.25f, default = d.brightness) { onChange(p.copy(brightness = it)) }
-        ParamKeys.SATURATION -> LabeledSlider(key, p.saturation, 0f..1.5f, default = d.saturation) { onChange(p.copy(saturation = it)) }
-        ParamKeys.BLOOM -> LabeledSlider(key, p.bloom, 0f..0.25f, display = "Glow", default = d.bloom) { onChange(p.copy(bloom = it)) }
+            LabeledSlider(key, p, SceneParams::brightness) { onChange(p.copy(brightness = it)) }
+        ParamKeys.SATURATION -> LabeledSlider(key, p, SceneParams::saturation) { onChange(p.copy(saturation = it)) }
+        ParamKeys.BLOOM -> LabeledSlider(key, p, SceneParams::bloom, display = "Glow") { onChange(p.copy(bloom = it)) }
         ParamKeys.PALETTE_2 ->
             if (p.paletteMix > PALETTE_MIX_SHOWN && visible(key, ParamScope.SHADER_LOOK)) {
                 ProGated(key) { PaletteDropdown(key, "Second palette", p, onChange, rememberSavedPalettes(), second = true) }
             }
-        ParamKeys.PALETTE_BLEND -> LabeledSlider(key, p.paletteMix, 0f..1f, default = d.paletteMix) { onChange(p.copy(paletteMix = it)) }
+        ParamKeys.PALETTE_BLEND -> LabeledSlider(key, p, SceneParams::paletteMix) { onChange(p.copy(paletteMix = it)) }
         ParamKeys.COLOUR_MAP ->
             if (visible(key, ParamScope.SHADER_LOOK)) {
                 val selected = SceneParams.CYCLIC_PALETTES.getOrNull(p.paletteLut) ?: "Off"
@@ -99,18 +99,18 @@ private fun LookControl(
                     ) { i -> onChange(p.copy(paletteLut = if (i == 0) SceneParams.NO_PALETTE_LUT else i - 1)) }
                 }
             }
-        ParamKeys.HUE_SHIFT -> LabeledSlider(key, p.colorShift, 0f..1f, default = d.colorShift) { onChange(p.copy(colorShift = it)) }
-        ParamKeys.HUE_RANGE -> LabeledSlider(key, p.hueRange, 0f..1.5f, default = d.hueRange) { onChange(p.copy(hueRange = it)) }
+        ParamKeys.HUE_SHIFT -> LabeledSlider(key, p, SceneParams::colorShift) { onChange(p.copy(colorShift = it)) }
+        ParamKeys.HUE_RANGE -> LabeledSlider(key, p, SceneParams::hueRange) { onChange(p.copy(hueRange = it)) }
         ParamKeys.TEMPERATURE ->
-            LabeledSlider(key, p.temperature, -1f..1f, display = "Warmth", default = d.temperature) { onChange(p.copy(temperature = it)) }
+            LabeledSlider(key, p, SceneParams::temperature, display = "Warmth") { onChange(p.copy(temperature = it)) }
         ParamKeys.COLOR_CYCLE -> CheckRow(key, p.colorCycle, display = "Cycle the colours") { onChange(p.copy(colorCycle = it)) }
         ParamKeys.CYCLE_SPEED ->
             if (p.colorCycle) {
-                LabeledSlider(key, p.cycleSpeed, 0.02f..0.6f, default = d.cycleSpeed) { onChange(p.copy(cycleSpeed = it)) }
+                LabeledSlider(key, p, SceneParams::cycleSpeed) { onChange(p.copy(cycleSpeed = it)) }
             }
-        ParamKeys.CONTRAST -> LabeledSlider(key, p.contrast, 0.3f..1.25f, default = d.contrast) { onChange(p.copy(contrast = it)) }
-        ParamKeys.GAMMA -> LabeledSlider(key, p.gamma, 0.3f..2.5f, display = "Midtones", default = d.gamma) { onChange(p.copy(gamma = it)) }
-        ParamKeys.INTENSITY -> LabeledSlider(key, p.intensity, 0.2f..1.25f, default = d.intensity) { onChange(p.copy(intensity = it)) }
+        ParamKeys.CONTRAST -> LabeledSlider(key, p, SceneParams::contrast) { onChange(p.copy(contrast = it)) }
+        ParamKeys.GAMMA -> LabeledSlider(key, p, SceneParams::gamma, display = "Midtones") { onChange(p.copy(gamma = it)) }
+        ParamKeys.INTENSITY -> LabeledSlider(key, p, SceneParams::intensity) { onChange(p.copy(intensity = it)) }
         else -> Unit
     }
 }
@@ -121,59 +121,58 @@ private fun ShapeControl(
     p: SceneParams,
     onChange: (SceneParams) -> Unit,
 ) {
-    val d = SceneParams.DEFAULT
     when (key) {
-        ParamKeys.MORPH -> LabeledSlider(key, p.morph, 0f..1f, default = d.morph) { onChange(p.copy(morph = it)) }
+        ParamKeys.MORPH -> LabeledSlider(key, p, SceneParams::morph) { onChange(p.copy(morph = it)) }
         ParamKeys.KALEIDOSCOPE -> KaleidoscopeControl(p, onChange)
         ParamKeys.MARCH_DETAIL ->
-            LabeledSlider(key, p.marchDetail, Catalogue.range(key), default = d.marchDetail) { onChange(p.copy(marchDetail = it)) }
-        ParamKeys.DOMAIN_WARP -> LabeledSlider(key, p.warp, 0f..1f, display = "Warp", default = d.warp) { onChange(p.copy(warp = it)) }
-        ParamKeys.TWIST -> LabeledSlider(key, p.twist, -1f..1f, default = d.twist) { onChange(p.copy(twist = it)) }
-        ParamKeys.RIPPLE -> LabeledSlider(key, p.ripple, 0f..1f, default = d.ripple) { onChange(p.copy(ripple = it)) }
-        ParamKeys.TURBULENCE -> LabeledSlider(key, p.turbulence, 0f..1.5f, default = d.turbulence) { onChange(p.copy(turbulence = it)) }
+            LabeledSlider(key, p, SceneParams::marchDetail) { onChange(p.copy(marchDetail = it)) }
+        ParamKeys.DOMAIN_WARP -> LabeledSlider(key, p, SceneParams::warp, display = "Warp") { onChange(p.copy(warp = it)) }
+        ParamKeys.TWIST -> LabeledSlider(key, p, SceneParams::twist) { onChange(p.copy(twist = it)) }
+        ParamKeys.RIPPLE -> LabeledSlider(key, p, SceneParams::ripple) { onChange(p.copy(ripple = it)) }
+        ParamKeys.TURBULENCE -> LabeledSlider(key, p, SceneParams::turbulence) { onChange(p.copy(turbulence = it)) }
         ParamKeys.MIRROR -> CheckRow(key, p.mirror) { onChange(p.copy(mirror = it)) }
-        ParamKeys.TILE -> LabeledSlider(key, p.tile, 1f..6f, default = d.tile) { onChange(p.copy(tile = it)) }
-        ParamKeys.PIXELATE -> LabeledSlider(key, p.pixelate, 0f..1f, default = d.pixelate) { onChange(p.copy(pixelate = it)) }
+        ParamKeys.TILE -> LabeledSlider(key, p, SceneParams::tile) { onChange(p.copy(tile = it)) }
+        ParamKeys.PIXELATE -> LabeledSlider(key, p, SceneParams::pixelate) { onChange(p.copy(pixelate = it)) }
         ParamKeys.PARTICLE_SHAPE -> ParamChips(key, SceneParams.PARTICLE_SHAPES, p.particleShape) { onChange(p.copy(particleShape = it)) }
         ParamKeys.PARTICLE_SIZE ->
-            LabeledSlider(key, p.particleSize, 0.3f..2.5f, default = d.particleSize) { onChange(p.copy(particleSize = it)) }
-        ParamKeys.DENSITY -> LabeledSlider(key, p.density, 0.1f..1f, default = d.density) { onChange(p.copy(density = it)) }
+            LabeledSlider(key, p, SceneParams::particleSize) { onChange(p.copy(particleSize = it)) }
+        ParamKeys.DENSITY -> LabeledSlider(key, p, SceneParams::density) { onChange(p.copy(density = it)) }
         ParamKeys.PARTICLE_LIFE_S ->
-            LabeledSlider(key, p.fluidParticleLife, 1f..20f, default = d.fluidParticleLife) { onChange(p.copy(fluidParticleLife = it)) }
+            LabeledSlider(key, p, SceneParams::fluidParticleLife) { onChange(p.copy(fluidParticleLife = it)) }
         ParamKeys.PARTICLE_DRAG ->
-            LabeledSlider(key, p.fluidParticleDrag, 0.02f..1f, default = d.fluidParticleDrag) { onChange(p.copy(fluidParticleDrag = it)) }
+            LabeledSlider(key, p, SceneParams::fluidParticleDrag) { onChange(p.copy(fluidParticleDrag = it)) }
         ParamKeys.PATH ->
             ParamChips(key, SceneParams.FLUID_PATHS, p.fluidSpawnPath.coerceIn(0, SceneParams.FLUID_PATHS.size - 1)) {
                 onChange(p.copy(fluidSpawnPath = it))
             }
-        ParamKeys.SPAWN_POINTS -> LabeledIntSlider(key, p.fluidSpawnPoints, 1..8) { onChange(p.copy(fluidSpawnPoints = it)) }
+        ParamKeys.SPAWN_POINTS -> LabeledIntSlider(key, p, SceneParams::fluidSpawnPoints) { onChange(p.copy(fluidSpawnPoints = it)) }
         PROGRESSION ->
-            LabeledSlider(key, p.fluidSpawnProgress, 0f..1f, scope = ParamScope.JOURNEY, default = d.fluidSpawnProgress) {
+            LabeledSlider(key, p, SceneParams::fluidSpawnProgress, scope = ParamScope.JOURNEY) {
                 onChange(p.copy(fluidSpawnProgress = it))
             }
-        ParamKeys.CATCH_POINTS -> LabeledIntSlider(key, p.fluidCatchPoints, 0..4) { onChange(p.copy(fluidCatchPoints = it)) }
+        ParamKeys.CATCH_POINTS -> LabeledIntSlider(key, p, SceneParams::fluidCatchPoints) { onChange(p.copy(fluidCatchPoints = it)) }
         ParamKeys.CATCH_PULL ->
             if (p.fluidCatchPoints > 0) {
-                LabeledSlider(key, p.fluidCatchPull, 0f..3f, default = d.fluidCatchPull) { onChange(p.copy(fluidCatchPull = it)) }
+                LabeledSlider(key, p, SceneParams::fluidCatchPull) { onChange(p.copy(fluidCatchPull = it)) }
             }
         ParamKeys.CATCH_RADIUS ->
             if (p.fluidCatchPoints > 0) {
-                LabeledSlider(key, p.fluidCatchRadius, 0.03f..0.3f, default = d.fluidCatchRadius) {
+                LabeledSlider(key, p, SceneParams::fluidCatchRadius) {
                     onChange(p.copy(fluidCatchRadius = it))
                 }
             }
         ParamKeys.BEAT_PATTERN ->
             ParamChips(key, SceneParams.FLUID_PATTERNS, p.fluidBeatPattern.coerceIn(0, 3)) { onChange(p.copy(fluidBeatPattern = it)) }
-        ParamKeys.BEAT_SPLATS -> LabeledIntSlider(key, p.fluidBeatSplats, 0..8) { onChange(p.copy(fluidBeatSplats = it)) }
-        ParamKeys.STIRRERS -> LabeledIntSlider(key, p.fluidStirrers, 0..4) { onChange(p.copy(fluidStirrers = it)) }
+        ParamKeys.BEAT_SPLATS -> LabeledIntSlider(key, p, SceneParams::fluidBeatSplats) { onChange(p.copy(fluidBeatSplats = it)) }
+        ParamKeys.STIRRERS -> LabeledIntSlider(key, p, SceneParams::fluidStirrers) { onChange(p.copy(fluidStirrers = it)) }
         ParamKeys.STIRRER_SPEED ->
-            LabeledSlider(key, p.fluidStirrerSpeed, 0f..2f, default = d.fluidStirrerSpeed) { onChange(p.copy(fluidStirrerSpeed = it)) }
+            LabeledSlider(key, p, SceneParams::fluidStirrerSpeed) { onChange(p.copy(fluidStirrerSpeed = it)) }
         ParamKeys.FLUID_SPLAT_RADIUS ->
-            LabeledSlider(key, p.fluidSplatRadius, 0.02f..0.4f, default = d.fluidSplatRadius) { onChange(p.copy(fluidSplatRadius = it)) }
+            LabeledSlider(key, p, SceneParams::fluidSplatRadius) { onChange(p.copy(fluidSplatRadius = it)) }
         ParamKeys.RADIUS_ON_BEAT ->
-            LabeledSlider(key, p.fluidRadiusPulse, 0f..1f, default = d.fluidRadiusPulse) { onChange(p.copy(fluidRadiusPulse = it)) }
+            LabeledSlider(key, p, SceneParams::fluidRadiusPulse) { onChange(p.copy(fluidRadiusPulse = it)) }
         ParamKeys.FLUID_SPLAT_FORCE ->
-            LabeledSlider(key, p.fluidSplatForce, 0f..3f, default = d.fluidSplatForce) { onChange(p.copy(fluidSplatForce = it)) }
+            LabeledSlider(key, p, SceneParams::fluidSplatForce) { onChange(p.copy(fluidSplatForce = it)) }
         ParamKeys.BASS_PUMP -> CheckRow(key, p.fluidBassPump) { onChange(p.copy(fluidBassPump = it)) }
         ParamKeys.TREBLE_SPARKLE -> CheckRow(key, p.fluidSparkle) { onChange(p.copy(fluidSparkle = it)) }
         FLUID_QUALITY ->
@@ -193,48 +192,47 @@ private fun MotionControl(
     p: SceneParams,
     onChange: (SceneParams) -> Unit,
 ) {
-    val d = SceneParams.DEFAULT
     when (key) {
-        ParamKeys.SPEED -> LabeledSlider(key, p.speed, 0.05f..4f, default = d.speed) { onChange(p.copy(speed = it)) }
-        ParamKeys.ZOOM -> LabeledSlider(key, p.zoom, 0.3f..3f, default = d.zoom) { onChange(p.copy(zoom = it)) }
+        ParamKeys.SPEED -> LabeledSlider(key, p, SceneParams::speed) { onChange(p.copy(speed = it)) }
+        ParamKeys.ZOOM -> LabeledSlider(key, p, SceneParams::zoom) { onChange(p.copy(zoom = it)) }
         ParamKeys.ROTATION ->
-            LabeledSlider(key, p.rotation, -3f..3f, display = "Spin", default = d.rotation) { onChange(p.copy(rotation = it)) }
-        ParamKeys.SWAY -> LabeledSlider(key, p.sway, 0f..1f, default = d.sway) { onChange(p.copy(sway = it)) }
+            LabeledSlider(key, p, SceneParams::rotation, display = "Spin") { onChange(p.copy(rotation = it)) }
+        ParamKeys.SWAY -> LabeledSlider(key, p, SceneParams::sway) { onChange(p.copy(sway = it)) }
         ParamKeys.DRIFT_X ->
-            LabeledSlider(key, p.driftX, -1f..1f, display = "Drift sideways", default = d.driftX) { onChange(p.copy(driftX = it)) }
+            LabeledSlider(key, p, SceneParams::driftX, display = "Drift sideways") { onChange(p.copy(driftX = it)) }
         ParamKeys.DRIFT_Y ->
-            LabeledSlider(key, p.driftY, -1f..1f, display = "Drift up and down", default = d.driftY) { onChange(p.copy(driftY = it)) }
+            LabeledSlider(key, p, SceneParams::driftY, display = "Drift up and down") { onChange(p.copy(driftY = it)) }
         ParamKeys.ENDLESS_ZOOM -> CheckRow(key, p.endlessZoom) { onChange(p.copy(endlessZoom = it)) }
         ParamKeys.DIVE_SPEED ->
             // Liquid mode dives on any style, so Dive speed shows with it as well as with the endless zoom.
             if (p.endlessZoom || p.flowEnabled) {
                 val scope = if (p.flowEnabled) ParamScope.UNIVERSAL else ParamScope.ENDLESS_ZOOM
-                LabeledSlider(key, p.endlessZoomSpeed, 0.05f..1.2f, scope = scope, default = d.endlessZoomSpeed) {
+                LabeledSlider(key, p, SceneParams::endlessZoomSpeed, scope = scope) {
                     onChange(p.copy(endlessZoomSpeed = it))
                 }
             }
         ParamKeys.MOTION_AMOUNT ->
-            LabeledSlider(key, p.motionAmount, 0f..1f, default = d.motionAmount) { onChange(p.copy(motionAmount = it)) }
+            LabeledSlider(key, p, SceneParams::motionAmount) { onChange(p.copy(motionAmount = it)) }
         ParamKeys.MOTION_BREATH ->
-            LabeledSlider(key, p.motionBreath, 0f..1f, default = d.motionBreath) { onChange(p.copy(motionBreath = it)) }
-        ParamKeys.MOTION_DRIFT -> LabeledSlider(key, p.motionDrift, 0f..1f, default = d.motionDrift) { onChange(p.copy(motionDrift = it)) }
+            LabeledSlider(key, p, SceneParams::motionBreath) { onChange(p.copy(motionBreath = it)) }
+        ParamKeys.MOTION_DRIFT -> LabeledSlider(key, p, SceneParams::motionDrift) { onChange(p.copy(motionDrift = it)) }
         ParamKeys.CAM_PATH ->
             ParamChips(key, SceneParams.CAMERA_PATHS, p.camPath.coerceIn(0, SceneParams.CAMERA_PATHS.lastIndex), ParamScope.UNIVERSAL) {
                 onChange(p.copy(camPath = it))
             }
         // Below zero the camera travels backward, and a flat style zooms out instead of in.
-        ParamKeys.CAM_FLY -> LabeledSlider(key, p.camFly, -2f..2f, default = d.camFly) { onChange(p.copy(camFly = it)) }
-        ParamKeys.CAM_FLAT -> LabeledSlider(key, p.camFlat, 0f..1f, default = d.camFlat) { onChange(p.copy(camFlat = it)) }
-        ParamKeys.CAM_FOV -> LabeledSlider(key, p.camFov, 0.5f..2f, default = d.camFov) { onChange(p.copy(camFov = it)) }
-        ParamKeys.CAM_ORBIT -> LabeledSlider(key, p.camOrbit, 0f..1f, default = d.camOrbit) { onChange(p.copy(camOrbit = it)) }
-        ParamKeys.CAM_PUSH -> LabeledSlider(key, p.camPush, -1f..1f, default = d.camPush) { onChange(p.copy(camPush = it)) }
-        ParamKeys.CAM_YAW -> LabeledSlider(key, p.camYaw, -1f..1f, default = d.camYaw) { onChange(p.copy(camYaw = it)) }
-        ParamKeys.CAM_PITCH -> LabeledSlider(key, p.camPitch, -1f..1f, default = d.camPitch) { onChange(p.copy(camPitch = it)) }
-        ParamKeys.CAM_ROLL -> LabeledSlider(key, p.camRoll, -1f..1f, default = d.camRoll) { onChange(p.copy(camRoll = it)) }
-        ParamKeys.CAM_SHAKE -> LabeledSlider(key, p.camShake, 0f..1f, default = d.camShake) { onChange(p.copy(camShake = it)) }
+        ParamKeys.CAM_FLY -> LabeledSlider(key, p, SceneParams::camFly) { onChange(p.copy(camFly = it)) }
+        ParamKeys.CAM_FLAT -> LabeledSlider(key, p, SceneParams::camFlat) { onChange(p.copy(camFlat = it)) }
+        ParamKeys.CAM_FOV -> LabeledSlider(key, p, SceneParams::camFov) { onChange(p.copy(camFov = it)) }
+        ParamKeys.CAM_ORBIT -> LabeledSlider(key, p, SceneParams::camOrbit) { onChange(p.copy(camOrbit = it)) }
+        ParamKeys.CAM_PUSH -> LabeledSlider(key, p, SceneParams::camPush) { onChange(p.copy(camPush = it)) }
+        ParamKeys.CAM_YAW -> LabeledSlider(key, p, SceneParams::camYaw) { onChange(p.copy(camYaw = it)) }
+        ParamKeys.CAM_PITCH -> LabeledSlider(key, p, SceneParams::camPitch) { onChange(p.copy(camPitch = it)) }
+        ParamKeys.CAM_ROLL -> LabeledSlider(key, p, SceneParams::camRoll) { onChange(p.copy(camRoll = it)) }
+        ParamKeys.CAM_SHAKE -> LabeledSlider(key, p, SceneParams::camShake) { onChange(p.copy(camShake = it)) }
         ParamKeys.CAM_GYRO -> CheckRow(key, p.camGyro) { onChange(p.copy(camGyro = it)) }
         ParamKeys.CAM_TOUCH -> CheckRow(key, p.camTouch) { onChange(p.copy(camTouch = it)) }
-        ParamKeys.CAM_SMOOTH -> LabeledSlider(key, p.camSmooth, 0f..1f, default = d.camSmooth) { onChange(p.copy(camSmooth = it)) }
+        ParamKeys.CAM_SMOOTH -> LabeledSlider(key, p, SceneParams::camSmooth) { onChange(p.copy(camSmooth = it)) }
         else -> Unit
     }
 }
@@ -245,37 +243,36 @@ private fun MusicControl(
     p: SceneParams,
     onChange: (SceneParams) -> Unit,
 ) {
-    val d = SceneParams.DEFAULT
     when (key) {
         ParamKeys.AUDIO_DRIVE ->
-            LabeledSlider(key, p.audioDrive, 0.2f..2.5f, display = "Sound strength", default = d.audioDrive) {
+            LabeledSlider(key, p, SceneParams::audioDrive, display = "Sound strength") {
                 onChange(p.copy(audioDrive = it))
             }
-        ParamKeys.REACT_AMOUNT -> LabeledSlider(key, p.reactAmount, 0f..2f, default = d.reactAmount) { onChange(p.copy(reactAmount = it)) }
+        ParamKeys.REACT_AMOUNT -> LabeledSlider(key, p, SceneParams::reactAmount) { onChange(p.copy(reactAmount = it)) }
         ParamKeys.BASS_GAIN ->
-            LabeledSlider(key, p.bassGain, 0f..2f, display = "Bass", default = d.bassGain) { onChange(p.copy(bassGain = it)) }
+            LabeledSlider(key, p, SceneParams::bassGain, display = "Bass") { onChange(p.copy(bassGain = it)) }
         ParamKeys.MID_GAIN ->
-            LabeledSlider(key, p.midGain, 0f..2f, display = "Mids", default = d.midGain) { onChange(p.copy(midGain = it)) }
+            LabeledSlider(key, p, SceneParams::midGain, display = "Mids") { onChange(p.copy(midGain = it)) }
         ParamKeys.TREBLE_GAIN ->
-            LabeledSlider(key, p.trebGain, 0f..2f, display = "Highs", default = d.trebGain) { onChange(p.copy(trebGain = it)) }
-        ParamKeys.MOTION_HUE -> LabeledSlider(key, p.motionHue, 0f..1f, default = d.motionHue) { onChange(p.copy(motionHue = it)) }
+            LabeledSlider(key, p, SceneParams::trebGain, display = "Highs") { onChange(p.copy(trebGain = it)) }
+        ParamKeys.MOTION_HUE -> LabeledSlider(key, p, SceneParams::motionHue) { onChange(p.copy(motionHue = it)) }
         ParamKeys.TRAILS -> CheckRow(key, p.trails) { onChange(p.copy(trails = it)) }
         ParamKeys.VIGNETTE ->
-            LabeledSlider(key, p.vignette, 0f..1f, display = "Dark edges", default = d.vignette) { onChange(p.copy(vignette = it)) }
+            LabeledSlider(key, p, SceneParams::vignette, display = "Dark edges") { onChange(p.copy(vignette = it)) }
         ParamKeys.TRAIL_LENGTH ->
-            LabeledSlider(key, p.trailLength, 0.05f..0.98f, default = d.trailLength) { onChange(p.copy(trailLength = it)) }
+            LabeledSlider(key, p, SceneParams::trailLength) { onChange(p.copy(trailLength = it)) }
         ParamKeys.TRAIL_ZOOM_ECHO_IN_OUT ->
-            LabeledSlider(key, p.trailZoom, -0.5f..0.5f, display = "Trail zoom", default = d.trailZoom) { onChange(p.copy(trailZoom = it)) }
+            LabeledSlider(key, p, SceneParams::trailZoom, display = "Trail zoom") { onChange(p.copy(trailZoom = it)) }
         ParamKeys.TRAIL_WARP_LIQUID_ECHO ->
-            LabeledSlider(key, p.trailWarp, 0f..1f, display = "Trail ripple", default = d.trailWarp) { onChange(p.copy(trailWarp = it)) }
+            LabeledSlider(key, p, SceneParams::trailWarp, display = "Trail ripple") { onChange(p.copy(trailWarp = it)) }
         ParamKeys.CHROMATIC_ABERRATION ->
-            LabeledSlider(key, p.chromaAb, 0f..1f, display = "Colour fringe", default = d.chromaAb) { onChange(p.copy(chromaAb = it)) }
+            LabeledSlider(key, p, SceneParams::chromaAb, display = "Colour fringe") { onChange(p.copy(chromaAb = it)) }
         ParamKeys.FISHEYE ->
-            LabeledSlider(key, p.fisheye, -1f..1f, display = "Bulge", default = d.fisheye) { onChange(p.copy(fisheye = it)) }
-        ParamKeys.FILM_GRAIN -> LabeledSlider(key, p.grain, 0f..1f, default = d.grain) { onChange(p.copy(grain = it)) }
-        ParamKeys.SCANLINES -> LabeledSlider(key, p.scanlines, 0f..1f, default = d.scanlines) { onChange(p.copy(scanlines = it)) }
+            LabeledSlider(key, p, SceneParams::fisheye, display = "Bulge") { onChange(p.copy(fisheye = it)) }
+        ParamKeys.FILM_GRAIN -> LabeledSlider(key, p, SceneParams::grain) { onChange(p.copy(grain = it)) }
+        ParamKeys.SCANLINES -> LabeledSlider(key, p, SceneParams::scanlines) { onChange(p.copy(scanlines = it)) }
         ParamKeys.POSTERIZE ->
-            LabeledSlider(key, p.posterize, 0f..1f, display = "Fewer colours", default = d.posterize) { onChange(p.copy(posterize = it)) }
+            LabeledSlider(key, p, SceneParams::posterize, display = "Fewer colours") { onChange(p.copy(posterize = it)) }
         ParamKeys.DUOTONE -> CheckRow(key, p.duotone, display = "Two-colour") { onChange(p.copy(duotone = it)) }
         ParamKeys.SOLARIZE -> CheckRow(key, p.solarize) { onChange(p.copy(solarize = it)) }
         ParamKeys.INVERT -> CheckRow(key, p.invert, display = "Invert colours") { onChange(p.copy(invert = it)) }
@@ -290,24 +287,23 @@ private fun LiquidControl(
     p: SceneParams,
     onChange: (SceneParams) -> Unit,
 ) {
-    val d = SceneParams.DEFAULT
     when (key) {
         LIQUID_ON -> LiquidSwitch(host, p, onChange)
         ParamKeys.FLOW_STRENGTH ->
             if (p.flowEnabled) {
-                LabeledSlider(key, p.flowStrength, 0f..1f, display = "Liquidity", scope = ParamScope.UNIVERSAL, default = d.flowStrength) {
+                LabeledSlider(key, p, SceneParams::flowStrength, display = "Liquidity", scope = ParamScope.UNIVERSAL) {
                     onChange(p.copy(flowStrength = it))
                 }
             }
         ParamKeys.FLOW_FORCE ->
             if (p.flowEnabled) {
-                LabeledSlider(key, p.flowForce, 0f..3f, display = "Push", scope = ParamScope.UNIVERSAL, default = d.flowForce) {
+                LabeledSlider(key, p, SceneParams::flowForce, display = "Push", scope = ParamScope.UNIVERSAL) {
                     onChange(p.copy(flowForce = it))
                 }
             }
         ParamKeys.FLOW_CURL ->
             if (p.flowEnabled) {
-                LabeledSlider(key, p.flowCurl, 0f..50f, display = "Swirl", scope = ParamScope.UNIVERSAL, default = d.flowCurl) {
+                LabeledSlider(key, p, SceneParams::flowCurl, display = "Swirl", scope = ParamScope.UNIVERSAL) {
                     onChange(p.copy(flowCurl = it))
                 }
             }
@@ -327,48 +323,48 @@ private fun LiquidControl(
             CheckRow(key, p.rippleOverlayEnabled, scope = ParamScope.RIPPLE_OVERLAY) { onChange(p.copy(rippleOverlayEnabled = it)) }
         ParamKeys.RIPPLE_OVERLAY_STRENGTH ->
             if (p.rippleOverlayEnabled) {
-                LabeledSlider(key, p.rippleOverlayStrength, 0f..1f, display = "Ripple strength", default = d.rippleOverlayStrength) {
+                LabeledSlider(key, p, SceneParams::rippleOverlayStrength, display = "Ripple strength") {
                     onChange(p.copy(rippleOverlayStrength = it))
                 }
             }
         ParamKeys.RIPPLE_GLINT ->
             if (p.rippleOverlayEnabled) {
-                LabeledSlider(key, p.rippleOverlaySpecular, 0f..1f, default = d.rippleOverlaySpecular) {
+                LabeledSlider(key, p, SceneParams::rippleOverlaySpecular) {
                     onChange(p.copy(rippleOverlaySpecular = it))
                 }
             }
         ParamKeys.WAVE_SPEED ->
             if (p.rippleOverlayEnabled || ParamScope.WATER.appliesTo(LocalSceneId.current)) {
-                LabeledSlider(key, p.waterWaveSpeed, 0.2f..2f, default = d.waterWaveSpeed) { onChange(p.copy(waterWaveSpeed = it)) }
+                LabeledSlider(key, p, SceneParams::waterWaveSpeed) { onChange(p.copy(waterWaveSpeed = it)) }
             }
         ParamKeys.DAMPING ->
             if (p.rippleOverlayEnabled || ParamScope.WATER.appliesTo(LocalSceneId.current)) {
-                LabeledSlider(key, p.waterDamping, 0.9f..0.999f, display = "Calming", default = d.waterDamping) {
+                LabeledSlider(key, p, SceneParams::waterDamping, display = "Calming") {
                     onChange(p.copy(waterDamping = it))
                 }
             }
         ParamKeys.RIPPLE_STRENGTH ->
-            LabeledSlider(key, p.waterRippleStrength, 0f..2f, default = d.waterRippleStrength) {
+            LabeledSlider(key, p, SceneParams::waterRippleStrength) {
                 onChange(p.copy(waterRippleStrength = it))
             }
-        ParamKeys.DEPTH -> LabeledSlider(key, p.waterDepth, 0f..1f, default = d.waterDepth) { onChange(p.copy(waterDepth = it)) }
+        ParamKeys.DEPTH -> LabeledSlider(key, p, SceneParams::waterDepth) { onChange(p.copy(waterDepth = it)) }
         ParamKeys.SPECULAR ->
-            LabeledSlider(key, p.waterSpecular, 0f..1f, display = "Shine", default = d.waterSpecular) {
+            LabeledSlider(key, p, SceneParams::waterSpecular, display = "Shine") {
                 onChange(p.copy(waterSpecular = it))
             }
-        ParamKeys.FLOW_DRIFT -> LabeledSlider(key, p.waterFlow, 0f..1f, default = d.waterFlow) { onChange(p.copy(waterFlow = it)) }
-        ParamKeys.LIQUID -> LabeledSlider(key, p.waterLiquid, 0f..1f, default = d.waterLiquid) { onChange(p.copy(waterLiquid = it)) }
+        ParamKeys.FLOW_DRIFT -> LabeledSlider(key, p, SceneParams::waterFlow) { onChange(p.copy(waterFlow = it)) }
+        ParamKeys.LIQUID -> LabeledSlider(key, p, SceneParams::waterLiquid) { onChange(p.copy(waterLiquid = it)) }
         ParamKeys.LIQUID_FLOW ->
             if (p.waterLiquid > PALETTE_MIX_SHOWN) {
-                LabeledSlider(key, p.waterLiquidFlow, 0f..4f, default = d.waterLiquidFlow) { onChange(p.copy(waterLiquidFlow = it)) }
+                LabeledSlider(key, p, SceneParams::waterLiquidFlow) { onChange(p.copy(waterLiquidFlow = it)) }
             }
         ParamKeys.LIQUID_FADE ->
             if (p.waterLiquid > PALETTE_MIX_SHOWN) {
-                LabeledSlider(key, p.waterLiquidFade, 0f..2f, default = d.waterLiquidFade) { onChange(p.copy(waterLiquidFade = it)) }
+                LabeledSlider(key, p, SceneParams::waterLiquidFade) { onChange(p.copy(waterLiquidFade = it)) }
             }
         REACTION_DNA -> PersonalityControl(host)
         GLIDE_TIME ->
-            LabeledSlider(key, p.paramFadeSec, 0f..5f, scope = ParamScope.UNIVERSAL, default = d.paramFadeSec, unit = ParamUnit.SECONDS) {
+            LabeledSlider(key, p, SceneParams::paramFadeSec, scope = ParamScope.UNIVERSAL, unit = ParamUnit.SECONDS) {
                 onChange(p.copy(paramFadeSec = it))
             }
         else -> Unit
@@ -382,66 +378,65 @@ private fun EngineControl(
     p: SceneParams,
     onChange: (SceneParams) -> Unit,
 ) {
-    val d = SceneParams.DEFAULT
     val sceneId = LocalSceneId.current
     when (key) {
         ParamKeys.SOLVER_ITERATIONS ->
-            LabeledIntSlider(key, p.fluidIterations, 8..40, display = "Accuracy") { onChange(p.copy(fluidIterations = it)) }
+            LabeledIntSlider(key, p, SceneParams::fluidIterations, display = "Accuracy") { onChange(p.copy(fluidIterations = it)) }
         ParamKeys.FLUID_CURL ->
             if (SceneCapabilities.isFluid(sceneId)) {
-                LabeledSlider(key, p.fluidCurl, 0f..50f, display = "Swirl", default = d.fluidCurl) { onChange(p.copy(fluidCurl = it)) }
+                LabeledSlider(key, p, SceneParams::fluidCurl, display = "Swirl") { onChange(p.copy(fluidCurl = it)) }
             }
         ParamKeys.MOTION_FADE ->
-            LabeledSlider(key, p.fluidVelocityDissipation, 0f..4f, default = d.fluidVelocityDissipation) {
+            LabeledSlider(key, p, SceneParams::fluidVelocityDissipation) {
                 onChange(p.copy(fluidVelocityDissipation = it))
             }
         ParamKeys.FLUID_FADE ->
-            LabeledSlider(key, p.fluidDensityDissipation, 0f..4f, default = d.fluidDensityDissipation) {
+            LabeledSlider(key, p, SceneParams::fluidDensityDissipation) {
                 onChange(p.copy(fluidDensityDissipation = it))
             }
         ParamKeys.CHROMATIC_AGING ->
-            LabeledSlider(key, p.fluidChromaticAging, 0f..1f, display = "Colour ageing", default = d.fluidChromaticAging) {
+            LabeledSlider(key, p, SceneParams::fluidChromaticAging, display = "Colour ageing") {
                 onChange(p.copy(fluidChromaticAging = it))
             }
         ParamKeys.PRESSURE ->
-            LabeledSlider(key, p.fluidPressure, 0f..1f, default = d.fluidPressure) { onChange(p.copy(fluidPressure = it)) }
+            LabeledSlider(key, p, SceneParams::fluidPressure) { onChange(p.copy(fluidPressure = it)) }
         ParamKeys.SHADING_EMBOSSED_INK -> CheckRow(key, p.fluidShading, display = "Embossed ink") { onChange(p.copy(fluidShading = it)) }
         ParamKeys.GLOW_FLUID -> CheckRow(key, p.fluidBloom, display = "Glow") { onChange(p.copy(fluidBloom = it)) }
         ParamKeys.FLUID_GLOW ->
             if (p.fluidBloom) {
-                LabeledSlider(key, p.fluidBloomIntensity, 0.1f..2f, display = "Glow amount", default = d.fluidBloomIntensity) {
+                LabeledSlider(key, p, SceneParams::fluidBloomIntensity, display = "Glow amount") {
                     onChange(p.copy(fluidBloomIntensity = it))
                 }
             }
         ParamKeys.GLOW_THRESHOLD ->
             if (p.fluidBloom) {
-                LabeledSlider(key, p.fluidBloomThreshold, 0f..1f, default = d.fluidBloomThreshold) {
+                LabeledSlider(key, p, SceneParams::fluidBloomThreshold) {
                     onChange(p.copy(fluidBloomThreshold = it))
                 }
             }
         ParamKeys.SUNRAYS -> CheckRow(key, p.fluidSunrays) { onChange(p.copy(fluidSunrays = it)) }
         ParamKeys.SUNRAYS_WEIGHT ->
             if (p.fluidSunrays) {
-                LabeledSlider(key, p.fluidSunraysWeight, 0.3f..1f, display = "Sunray strength", default = d.fluidSunraysWeight) {
+                LabeledSlider(key, p, SceneParams::fluidSunraysWeight, display = "Sunray strength") {
                     onChange(p.copy(fluidSunraysWeight = it))
                 }
             }
         ParamKeys.CURL_FROM_MIDS ->
-            LabeledSlider(key, p.fluidCurlAudio, 0f..1f, display = "Swirl from the mids", default = d.fluidCurlAudio) {
+            LabeledSlider(key, p, SceneParams::fluidCurlAudio, display = "Swirl from the mids") {
                 onChange(p.copy(fluidCurlAudio = it))
             }
         ParamKeys.GLOW_FROM_LOUDNESS ->
-            LabeledSlider(key, p.fluidBloomAudio, 0f..1f, display = "Glow from volume", default = d.fluidBloomAudio) {
+            LabeledSlider(key, p, SceneParams::fluidBloomAudio, display = "Glow from volume") {
                 onChange(p.copy(fluidBloomAudio = it))
             }
         ParamKeys.FADE_WHEN_QUIET ->
-            LabeledSlider(key, p.fluidFadeAudio, 0f..1f, default = d.fluidFadeAudio) { onChange(p.copy(fluidFadeAudio = it)) }
+            LabeledSlider(key, p, SceneParams::fluidFadeAudio) { onChange(p.copy(fluidFadeAudio = it)) }
         ParamKeys.PALETTE_CYCLE ->
-            LabeledSlider(key, p.fluidPaletteCycleSpeed, 0f..2f, default = d.fluidPaletteCycleSpeed) {
+            LabeledSlider(key, p, SceneParams::fluidPaletteCycleSpeed) {
                 onChange(p.copy(fluidPaletteCycleSpeed = it))
             }
         ParamKeys.PARTICLE_BRIGHTNESS ->
-            LabeledSlider(key, p.fluidParticleBrightness, 0f..2f, default = d.fluidParticleBrightness) {
+            LabeledSlider(key, p, SceneParams::fluidParticleBrightness) {
                 onChange(p.copy(fluidParticleBrightness = it))
             }
         PARTICLE_LAYER ->
@@ -449,39 +444,39 @@ private fun EngineControl(
         INK_LAYER -> CheckRow(key, p.fluidDyeEnabled, scope = ParamScope.FLUID_SIM) { onChange(p.copy(fluidDyeEnabled = it)) }
         ParamKeys.GEOMETRY -> CymaticsGeometry(p, onChange)
         ParamKeys.FUNDAMENTAL_HZ ->
-            LabeledSlider(key, p.cymaticsFundamental, Catalogue.range(key), display = "Base note (Hz)") {
+            LabeledSlider(key, p.cymaticsFundamental, ControlRange.of(SceneParams::cymaticsFundamental), display = "Base note (Hz)") {
                 onChange(p.copy(cymaticsFundamental = it))
             }
         ParamKeys.STANDING_WAVES ->
-            LabeledIntSlider(key, p.cymaticsModes, 1..Catalogue.range(key).endInclusive.toInt()) { onChange(p.copy(cymaticsModes = it)) }
+            LabeledIntSlider(key, p, SceneParams::cymaticsModes) { onChange(p.copy(cymaticsModes = it)) }
         ParamKeys.TONAL_FOCUS ->
-            LabeledSlider(key, p.cymaticsFocus, 0f..1f, default = d.cymaticsFocus) { onChange(p.copy(cymaticsFocus = it)) }
-        ParamKeys.PLATE_RING -> LabeledSlider(key, p.cymaticsRing, 0f..1f, default = d.cymaticsRing) { onChange(p.copy(cymaticsRing = it)) }
+            LabeledSlider(key, p, SceneParams::cymaticsFocus) { onChange(p.copy(cymaticsFocus = it)) }
+        ParamKeys.PLATE_RING -> LabeledSlider(key, p, SceneParams::cymaticsRing) { onChange(p.copy(cymaticsRing = it)) }
         ParamKeys.FIELD_SCALE ->
-            LabeledSlider(key, p.cymaticsScale, 0.5f..8f, default = d.cymaticsScale) { onChange(p.copy(cymaticsScale = it)) }
-        ParamKeys.WAVE_FLOW -> LabeledSlider(key, p.cymaticsFlow, 0f..1f, default = d.cymaticsFlow) { onChange(p.copy(cymaticsFlow = it)) }
+            LabeledSlider(key, p, SceneParams::cymaticsScale) { onChange(p.copy(cymaticsScale = it)) }
+        ParamKeys.WAVE_FLOW -> LabeledSlider(key, p, SceneParams::cymaticsFlow) { onChange(p.copy(cymaticsFlow = it)) }
         ParamKeys.FIELD_SWIRL ->
-            LabeledSlider(key, p.cymaticsSwirl, -1f..1f, default = d.cymaticsSwirl) { onChange(p.copy(cymaticsSwirl = it)) }
-        ParamKeys.FILL -> LabeledSlider(key, p.cymaticsFill, 0f..1f, default = d.cymaticsFill) { onChange(p.copy(cymaticsFill = it)) }
+            LabeledSlider(key, p, SceneParams::cymaticsSwirl) { onChange(p.copy(cymaticsSwirl = it)) }
+        ParamKeys.FILL -> LabeledSlider(key, p, SceneParams::cymaticsFill) { onChange(p.copy(cymaticsFill = it)) }
         ParamKeys.NODAL_LINES ->
-            LabeledSlider(key, p.cymaticsLine, 0f..2f, display = "Still lines", default = d.cymaticsLine) {
+            LabeledSlider(key, p, SceneParams::cymaticsLine, display = "Still lines") {
                 onChange(p.copy(cymaticsLine = it))
             }
         ParamKeys.NODAL_GLOW ->
-            LabeledSlider(key, p.cymaticsGlow, 0f..2f, display = "Line glow", default = d.cymaticsGlow) {
+            LabeledSlider(key, p, SceneParams::cymaticsGlow, display = "Line glow") {
                 onChange(p.copy(cymaticsGlow = it))
             }
         ParamKeys.IRIDESCENCE ->
-            LabeledSlider(key, p.cymaticsIridescence, 0f..1f, display = "Rainbow sheen", default = d.cymaticsIridescence) {
+            LabeledSlider(key, p, SceneParams::cymaticsIridescence, display = "Rainbow sheen") {
                 onChange(p.copy(cymaticsIridescence = it))
             }
         ParamKeys.CAUSTIC_SHEEN ->
-            LabeledSlider(key, p.cymaticsCaustic, 0f..1.5f, display = "Light ripples", default = d.cymaticsCaustic) {
+            LabeledSlider(key, p, SceneParams::cymaticsCaustic, display = "Light ripples") {
                 onChange(p.copy(cymaticsCaustic = it))
             }
         ParamKeys.BLEND_PRESET_CHANGES -> CheckRow(key, p.milkdropBlendPresets) { onChange(p.copy(milkdropBlendPresets = it)) }
         ParamKeys.MILKDROP_PALETTE_TINT ->
-            LabeledSlider(key, p.milkdropPaletteTint, 0f..1f, display = "Tint toward the palette", default = d.milkdropPaletteTint) {
+            LabeledSlider(key, p, SceneParams::milkdropPaletteTint, display = "Tint toward the palette") {
                 onChange(p.copy(milkdropPaletteTint = it))
             }
         // A name the map has and this panel does not draw yet: nothing, rather than a wrong widget.

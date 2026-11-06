@@ -24,7 +24,7 @@ void check(bool ok, const char* what) {
 
 // Every setting that changes samples, turned well away from neutral, so a chain that runs at all shows it.
 void tuneHard(geode_dsp* d) {
-    geode_dsp_set_gain_db(d, -9.0f);
+    geode_dsp_ramp_to(d, -9.0f, 0);
     geode_dsp_set_enabled(d, 1);
     for (int band = 0; band < GEODE_DSP_BANDS; ++band) geode_dsp_set_band(d, band, (band % 2 ? 1 : -1) * 900);
     geode_dsp_set_bass_boost(d, 800);
@@ -35,7 +35,7 @@ void tuneHard(geode_dsp* d) {
 
 // Neutral: nothing that changes a sample (the limiter is off too: its lookahead delays the signal).
 void tuneNeutral(geode_dsp* d) {
-    geode_dsp_set_gain_db(d, 0.0f);
+    geode_dsp_ramp_to(d, 0.0f, 0);
     geode_dsp_set_enabled(d, 0);
     geode_dsp_set_bass_boost(d, 0);
     geode_dsp_set_loudness_mb(d, 0);
@@ -109,7 +109,7 @@ void bitIdenticalWhateverIsSet() {
                 check(bytesEqual(s, sIn), "16-bit block is bit-identical with bit-perfect on");
 
                 // Settings moved mid-play (a ReplayGain change, an EQ drag) change nothing either.
-                geode_dsp_set_gain_db(d, static_cast<float>(block) - 4.0f);
+                geode_dsp_ramp_to(d, static_cast<float>(block) - 4.0f, 0);
                 geode_dsp_set_band(d, block % GEODE_DSP_BANDS, GEODE_DSP_MAX_MILLIBELS);
             }
             geode_dsp_destroy(d);
@@ -197,7 +197,7 @@ void neutralPcm16RoundTripIsExact() {
 void pcm16Clips() {
     geode_dsp* d = geode_dsp_create();
     tuneNeutral(d);
-    geode_dsp_set_gain_db(d, 12.0f);
+    geode_dsp_ramp_to(d, 12.0f, 0);
     geode_dsp_configure(d, 48000, 1);
     geode_dsp_flush(d);  // reset() snaps the gain to its target, so the first sample is at +12 dB
     std::vector<int16_t> v = {INT16_MAX, INT16_MIN, 16384, -16384, 1000};

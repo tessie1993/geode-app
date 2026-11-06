@@ -15,14 +15,13 @@ import androidx.annotation.StringRes
 import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.billing.ProSnapshot
-import dev.geode.data.AutoDirectorStore
-import dev.geode.engine.audio.SoundTuning
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.pro.ProFeature
 import dev.geode.render.SceneFactory
 import dev.geode.render.bridge.StyleSchedule
+import dev.geode.render.look.LookSnapshot
 import dev.geode.render.offscreen.OffscreenRenderSpec
 import dev.geode.render.offscreen.OffscreenSceneRenderer
-import dev.geode.render.offscreen.OffscreenUnderlay
 import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
 import dev.geode.viz.BackgroundExportSpec
@@ -41,13 +40,36 @@ enum class ExportCodec(
     /** This codec when the device has an encoder for it, otherwise H.264, which every device has. */
     fun available(): ExportCodec = if (this == H264 || hasEncoder(mimeType)) this else H264
 
+    /** Encoder attempts in order: core/output's ladder on this codec if the device has it, then H.264, under each listed top rate. */
+    fun attempts(
+        aspect: ExportAspect,
+        requestedFps: Int,
+        bitRate: Int,
+    ): List<EncoderAttempt> {
+        val codecs = listOf(available(), H264).distinct()
+        val tops = codecs.map { c -> runCatching { videoCaps(c.mimeType)?.getSupportedFrameRatesFor(aspect.width, aspect.height)?.upper } }
+        val rungs = GeodeNative.encoderAttempts(requestedFps, bitRate, IntArray(codecs.size) { tops[it].getOrNull()?.toInt() ?: 0 })
+        return (rungs.indices step 3).map { EncoderAttempt(codecs[rungs[it]], rungs[it + 1], rungs[it + 2]) }
+    }
+
     companion object {
-        fun hasEncoder(mimeType: String): Boolean =
-            MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.any { info ->
-                info.isEncoder && info.supportedTypes.any { it.equals(mimeType, ignoreCase = true) }
-            }
+        fun hasEncoder(mimeType: String): Boolean = videoCaps(mimeType) != null
+
+        private fun videoCaps(mimeType: String): MediaCodecInfo.VideoCapabilities? =
+            MediaCodecList(MediaCodecList.REGULAR_CODECS)
+                .codecInfos
+                .firstOrNull { info ->
+                    info.isEncoder && info.supportedTypes.any { it.equals(mimeType, ignoreCase = true) }
+                }?.getCapabilitiesForType(mimeType)
+                ?.videoCapabilities
     }
 }
+
+class EncoderAttempt(
+    val codec: ExportCodec,
+    val fps: Int,
+    val bitRate: Int,
+)
 
 enum class ExportQuality(
     val shortSide: Int,
@@ -144,11 +166,8 @@ class VideoExporter(
         sceneFactory: SceneFactory,
         aspect: ExportAspect,
         fileName: String,
-        sceneParams: SceneParams,
-        lfoConfigs: List<dev.geode.render.LfoConfig> = emptyList(),
-        adsrConfigs: List<dev.geode.render.AdsrConfig> = emptyList(),
-        reactions: List<dev.geode.render.ReactionRoute>? = null,
-        reducedMotion: Boolean = false,
+        // The look the caller pinned when the render started; its underlay comes from [background].
+        look: LookSnapshot,
         requestedFps: Int = FPS,
         range: ExportRange? = null,
         paramsAt: ((Long) -> SceneParams)? = null,
@@ -158,8 +177,6 @@ class VideoExporter(
         codec: ExportCodec = ExportCodec.H264,
         loudnessTarget: LoudnessTarget = LoudnessTarget.LeaveAsIs,
         background: BackgroundExportSpec? = null,
-        // Settings › Audio, so the export's sound engine hears the music as the screen did.
-        soundTuning: SoundTuning = SoundTuning(),
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
         // The free tier's corner wordmark; see WatermarkOverlay.
@@ -168,25 +185,20 @@ class VideoExporter(
         withContext(Dispatchers.Default) {
             // Decoded once, at the export's own pixel size, and reused for whichever destination
             // path below runs - see BackgroundImage for why this never touches Main.
-            val underlay = background?.let { BackgroundImage.decodeForExport(context, it, aspect.width, aspect.height) }
+            val decoded = background?.let { BackgroundImage.decodeForExport(context, it, aspect.width, aspect.height) }
+            val withUnderlay = look.copy(underlay = decoded)
             if (destination != null) {
                 return@withContext exportToDestination(
                     destination,
                     audioUri,
                     sceneFactory,
                     aspect,
-                    sceneParams,
-                    lfoConfigs,
-                    adsrConfigs,
-                    reactions,
-                    reducedMotion,
+                    withUnderlay,
                     requestedFps,
                     paramsAt,
                     range,
                     codec,
                     loudnessTarget,
-                    underlay,
-                    soundTuning,
                     onProgress,
                     isCancelled,
                     watermark = watermark,
@@ -218,17 +230,11 @@ class VideoExporter(
                         audioUri,
                         sceneFactory,
                         aspect,
-                        sceneParams,
-                        lfoConfigs,
-                        adsrConfigs,
-                        reactions,
-                        reducedMotion,
+                        withUnderlay,
                         requestedFps,
                         paramsAt,
                         range,
                         codec,
-                        underlay,
-                        soundTuning,
                         onProgress,
                         isCancelled,
                         watermark = watermark,
@@ -251,26 +257,19 @@ class VideoExporter(
             }
         }
 
-    // ponytail: 21 params since reactions (#94) and watermark (#91) both landed; fold them into
-    // an export-request object when this signature next grows.
+    // The look folds six of the old params into one pinned value (#345); the rest is the render's own request.
     @Suppress("LongParameterList")
     private suspend fun exportToDestination(
         destination: Uri,
         audioUri: Uri,
         sceneFactory: SceneFactory,
         aspect: ExportAspect,
-        sceneParams: SceneParams,
-        lfoConfigs: List<dev.geode.render.LfoConfig>,
-        adsrConfigs: List<dev.geode.render.AdsrConfig>,
-        reactions: List<dev.geode.render.ReactionRoute>?,
-        reducedMotion: Boolean,
+        look: LookSnapshot,
         requestedFps: Int,
         paramsAt: ((Long) -> SceneParams)?,
         range: ExportRange?,
         codec: ExportCodec,
         loudnessTarget: LoudnessTarget,
-        underlay: OffscreenUnderlay?,
-        soundTuning: SoundTuning,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
         watermark: Boolean,
@@ -287,17 +286,11 @@ class VideoExporter(
                     audioUri,
                     sceneFactory,
                     aspect,
-                    sceneParams,
-                    lfoConfigs,
-                    adsrConfigs,
-                    reactions,
-                    reducedMotion,
+                    look,
                     requestedFps,
                     paramsAt,
                     range,
                     codec,
-                    underlay,
-                    soundTuning,
                     onProgress,
                     isCancelled,
                     watermark = watermark,
@@ -360,17 +353,11 @@ class VideoExporter(
         audioUri: Uri,
         sceneFactory: SceneFactory,
         aspect: ExportAspect,
-        sceneParams: SceneParams,
-        lfoConfigs: List<dev.geode.render.LfoConfig>,
-        adsrConfigs: List<dev.geode.render.AdsrConfig>,
-        reactions: List<dev.geode.render.ReactionRoute>?,
-        reducedMotion: Boolean,
+        look: LookSnapshot,
         requestedFps: Int,
         paramsAt: ((Long) -> SceneParams)?,
         range: ExportRange?,
         codec: ExportCodec,
-        underlay: OffscreenUnderlay?,
-        soundTuning: SoundTuning,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
         watermark: Boolean,
@@ -405,16 +392,7 @@ class VideoExporter(
             if (bitRate < aspect.bitRate) {
                 RingLog.note(TAG, "video bit rate capped to $bitRate for a ${aac.durationUs / 1000} ms render")
             }
-            val requestedFpsBounded = GeodeNative.exportClampFps(requestedFps)
-            // The requested codec at the requested rate first, then its reduced form, then the same pair on H.264.
-            val attempts =
-                listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->
-                    listOf(
-                        EncoderAttempt(c, requestedFpsBounded, bitRate),
-                        EncoderAttempt(c, dev.geode.data.fallbackExportFps(requestedFpsBounded), bitRate * 2 / 3),
-                    )
-                }
-            val (encoder, fps) = openEncoder(aspect, attempts)
+            val (encoder, fps) = openEncoder(aspect, codec.attempts(aspect, GeodeNative.exportClampFps(requestedFps), bitRate))
             encoderRef = encoder
             val inputSurface = encoder.createInputSurface().also { inputSurfaceRef = it }
             encoder.start()
@@ -426,9 +404,6 @@ class VideoExporter(
             // its index alone, so nothing drifts over a long render.
             val totalFrames = GeodeNative.exportTotalFrames(exportDurationUs, fps).toInt()
 
-            // Pinned now: the live player moving on must not change this render's director.
-            val directorStore = AutoDirectorStore.get(context)
-            val director = directorStore.exportPin(ProSnapshot.gate(context), exportDurationUs / 1000L)
             val renderer =
                 OffscreenSceneRenderer(
                     context = context,
@@ -440,16 +415,12 @@ class VideoExporter(
                             fps = fps,
                             totalFrames = totalFrames,
                             rangeStartMs = rangeStartMs,
-                            baseParams = sceneParams,
-                            lfoConfigs = lfoConfigs,
-                            adsrConfigs = adsrConfigs,
-                            reactions = reactions,
-                            reducedMotion = reducedMotion,
+                            look = look,
                             paramsAt = paramsAt,
-                            underlay = underlay,
                             audioUri = audioUri,
-                            soundTuning = soundTuning,
-                            director = director,
+                            // Pinned at prepare: live edits and the player moving on never reach the render.
+                            pinDurationMs = exportDurationUs / 1000L,
+                            entitled = ProSnapshot.gate(context).allows(ProFeature.AUTO_DIRECTOR),
                             styleSchedule = styleSchedule,
                         ),
                 ).also { rendererRef = it }
@@ -571,12 +542,6 @@ class VideoExporter(
             aacRef?.release()
         }
     }
-
-    private class EncoderAttempt(
-        val codec: ExportCodec,
-        val fps: Int,
-        val bitRate: Int,
-    )
 
     private fun videoFormat(
         aspect: ExportAspect,

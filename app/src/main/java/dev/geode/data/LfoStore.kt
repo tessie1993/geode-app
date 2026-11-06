@@ -64,7 +64,13 @@ class LfoStore(
      */
     fun loadHandMask(): Int {
         if (loadReactions() != null) return prefs.getInt(KEY_REACTIONS_HAND, GeodeNative.HAND_ALL)
-        if (prefs.contains(KEY_REACTIONS)) prefs.edit().remove(KEY_REACTIONS).remove(KEY_REACTIONS_HAND).apply()
+        if (prefs.contains(KEY_REACTIONS)) {
+            prefs
+                .edit()
+                .remove(KEY_REACTIONS)
+                .remove(KEY_REACTIONS_HAND)
+                .apply()
+        }
         return 0
     }
 

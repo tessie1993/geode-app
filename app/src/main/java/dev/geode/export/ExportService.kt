@@ -43,7 +43,9 @@ class ExportService : Service() {
                     .conflate()
                     .collect { state ->
                         if (!state.running) return@collect stopSelf()
-                        bestEffort(TAG, "notify") { getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, build(state)) }
+                        bestEffort(TAG, "notify") {
+                            getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, build(state))
+                        }
                         delay(UPDATE_MS)
                     }
             }

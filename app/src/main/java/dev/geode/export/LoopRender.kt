@@ -581,15 +581,7 @@ class LoopRender(
         val longFormUs = longFormMs * 1000L
         val bitRate = MuxerBudget.cappedVideoBps(aspect.bitRate, longFormUs, MuxerBudget.audioBytes(longFormUs))
         if (bitRate < aspect.bitRate) RingLog.note(TAG, "loop bit rate capped to $bitRate for a $longFormMs ms long form")
-        val candidates =
-            listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->
-                val requested = fps.coerceIn(LoopSpec.MIN_FPS, LoopSpec.MAX_FPS)
-                listOf(
-                    EncoderChoice(requested, bitRate, c),
-                    EncoderChoice(dev.geode.data.fallbackExportFps(requested), bitRate * 2 / 3, c),
-                )
-            }
-        return candidates.firstOrNull { accepts(aspect, it) }
+        return codec.attempts(aspect, fps, bitRate).map { EncoderChoice(it.fps, it.bitRate, it.codec) }.firstOrNull { accepts(aspect, it) }
     }
 
     private fun accepts(

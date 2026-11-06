@@ -733,6 +733,19 @@ object GeodeNative {
         frames: Int,
     ): ShortArray
 
+    // Encoder fallback ladder (core/output/EncoderLadder): what an export asks the video encoder for.
+
+    /**
+     * Every encoder attempt for [requestedFps] at [bitRate], in order, as `[codecIndex, fps, bitRate]`
+     * triples: the ladder of each candidate codec in turn. [ceilings] has one entry per codec (at most
+     * two), its listed upper rate for the size, 0 when unknown.
+     */
+    external fun encoderAttempts(
+        requestedFps: Int,
+        bitRate: Int,
+        ceilings: IntArray,
+    ): IntArray
+
     // Export loudness meter (core/audio/dsp/Loudness): BS.1770-4 integrated loudness and true peak.
 
     external fun loudnessSupports(channels: Int): Boolean
@@ -1272,6 +1285,53 @@ object GeodeNative {
 
     /** A start after a stop: forget the gap, keep the panel's period. */
     external fun pacerResume(state: LongArray)
+
+    // Playout clock (core/sound/interp/PlayoutClock, #349): the ring sample the speaker plays now.
+
+    /** One clock per player, freed with [playoutDestroy]. */
+    external fun playoutCreate(): Long
+
+    external fun playoutDestroy(handle: Long)
+
+    /** The sink handled a buffer at [presentationUs] that put [frames] ring samples from [ringFrame]. */
+    external fun playoutBufferHandled(
+        handle: Long,
+        presentationUs: Long,
+        ringFrame: Long,
+        frames: Long,
+    )
+
+    /** The sink's position in media time (AudioTrack.getTimestamp, latency included), read at [nowNs]. */
+    external fun playoutPosition(
+        handle: Long,
+        sinkUs: Long,
+        nowNs: Long,
+    )
+
+    external fun playoutPlaying(
+        handle: Long,
+        playing: Boolean,
+        nowNs: Long,
+    )
+
+    external fun playoutFlush(handle: Long)
+
+    external fun playoutSpeed(
+        handle: Long,
+        speed: Float,
+    )
+
+    /** The user's A/V offset, clamped to ±1000 ms; positive shows the picture later. */
+    external fun playoutSetOffsetMs(
+        handle: Long,
+        ms: Int,
+    )
+
+    /** The newest ring sample heard at [nowNs], never past the newest written; -1 with no map since a flush. */
+    external fun playoutSpeakerFrame(
+        handle: Long,
+        nowNs: Long,
+    ): Long
 
     /** The cap a surface asking for [capFps] runs at now, under the thermal cap; 0 = none. For `Surface.setFrameRate`. */
     external fun pacerEffectiveCap(capFps: Float): Float

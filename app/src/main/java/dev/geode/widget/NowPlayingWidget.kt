@@ -557,12 +557,14 @@ private val LARGE_ART = 40.dp
 // The biggest artwork any layout draws; the decoded bitmap is capped to it.
 private val LARGEST_ART = 48.dp
 
-// Black-glass tokens, copied from ui/theme/GeodeTokens (this package may not name ui): OnCanvas,
-// OnSurfaceVariant, the #9CC7FF accent and its OnPrimary, and GeodeGlass.FILL_RAISED. The glass,
-// scrim, chip and accent container live in the widget_* drawables.
+// Black-glass tokens, copied by hand from the app theme's tokens (ui/theme/GeodeTokens) because
+// widget/ may not name the UI layer (tools/layer-gate.sh): OnCanvas, OnSurfaceVariant (#C4C6D0),
+// the #9CC7FF accent and its OnPrimary, and GeodeGlass.FILL_RAISED (white at 0.05). They are
+// copies, so a token change there must be repeated here. The glass, scrim, chip and accent
+// container live in the widget_* drawables.
 private val TEXT = ColorProvider(Color(0xFFECECF0))
-private val TEXT_SECONDARY = ColorProvider(Color(0xFFA6A8B2))
+private val TEXT_SECONDARY = ColorProvider(Color(0xFFC4C6D0))
 private val ACCENT = ColorProvider(Color(0xFF9CC7FF))
 private val ON_ACCENT = ColorProvider(Color(0xFF00213F))
 private val TRACK = ColorProvider(Color(0x33FFFFFF))
-private val RAISED = ColorProvider(Color(0x1AFFFFFF))
+private val RAISED = ColorProvider(Color(0x0DFFFFFF))

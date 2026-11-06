@@ -86,6 +86,9 @@ public:
     void release();
 
 private:
+    // One solver step of at most math::kMaxSimStep; step() runs as many as the frame needs.
+    void stepOnce(float dtStep);
+
     enum Prog {
         kSplat,
         kSplatBatch,

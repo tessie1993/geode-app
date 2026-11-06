@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import dev.geode.R
+import dev.geode.analysis.SearchMatcher
 import dev.geode.data.DeviceTrackQuery
 import dev.geode.data.FavouritesStore
 import dev.geode.data.GeodePrefsFiles
@@ -140,11 +141,33 @@ class LibraryTree(
             folder(RECENT, context.getString(R.string.auto_recently_played), MediaMetadata.MEDIA_TYPE_FOLDER_MIXED),
         )
 
+    /**
+     * Android Auto's and Assistant's search (`MediaLibrarySession.Callback.onSearch` /
+     * `onGetSearchResult`): the library screen's own match, so case and accents never matter
+     * ("beyonce" finds "Beyoncé") and title hits come before artist, then album hits. Each result's
+     * parent is `search/<query>`, so a tapped result plays the whole result list from that row,
+     * the way a tapped row in a browsed folder does.
+     */
+    fun search(query: String): List<MediaItem> {
+        val parent = searchParent(query)
+        return searchRows(parent.substringAfter('/', "")).map { playable(parent, it) }
+    }
+
+    private fun searchRows(query: String): List<Row> =
+        SearchMatcher.filterTracks(
+            terms = SearchMatcher.terms(query),
+            items = tracks(),
+            max = SEARCH_LIMIT,
+            uriOf = { it.uri },
+            fieldsOf = { listOf(it.title, it.artist, it.album) },
+        )
+
     private fun groupChildren(parentId: String): List<MediaItem> {
         val kind = parentId.substringBefore('/')
         val name = parentId.substringAfter('/', "")
         val rows =
             when (kind) {
+                SEARCH -> searchRows(name)
                 ALBUMS -> tracks().filter { it.album == name }
                 ARTISTS -> tracks().filter { it.artist == name }
                 PLAYLISTS ->
@@ -242,7 +265,13 @@ class LibraryTree(
         const val PLAYLISTS = "playlists"
         const val FAVOURITES = "favourites"
         const val RECENT = "recent"
+        const val SEARCH = "search"
         private const val SEPARATOR = "|"
+        private const val SEARCH_LIMIT = 50
+
+        /** The id search results hang under; the separator is taken out so the id still splits. */
+        private fun searchParent(query: String): String = "$SEARCH/" + query.replace(SEPARATOR, " ").trim()
+
         private const val RECENT_LIMIT = 50
         private const val SIMILAR_LIMIT = 50
         private val TOP_LEVEL = setOf(TRACKS, ALBUMS, ARTISTS, PLAYLISTS, FAVOURITES, RECENT)

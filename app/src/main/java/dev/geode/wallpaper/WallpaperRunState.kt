@@ -1,6 +1,8 @@
 package dev.geode.wallpaper
 
-/** What the wallpaper's GL view does right now. */
+import dev.geode.engine.bridge.GeodeNative
+
+/** What the wallpaper's (or the dream's) GL view does right now. The order is the native code. */
 enum class WallpaperRunMode {
     /** Paused: nothing on screen to draw to, or nobody can see it. */
     STOPPED,
@@ -13,41 +15,44 @@ enum class WallpaperRunMode {
 }
 
 /**
- * Everything that decides [WallpaperRunMode], gathered so the rule is one pure function rather
- * than branches spread over the engine's callbacks.
+ * What the shell observed, handed whole to the native run rule (`core/viz/SurfaceRun`), which owns
+ * every decision: the priority order, the preview's exemptions, when to listen, and when a trial's
+ * end must restate it (#376). Nothing here decides; it only packs the observations into the bits
+ * `geode_api.h` names.
  */
 data class WallpaperConditions(
     val surfaceAvailable: Boolean,
     val visible: Boolean,
-    /** Pro or the trial: free users get a still frame of the style. */
-    val animationAllowed: Boolean,
-    /** The system wallpaper picker's preview, which should always look alive. */
+    /** The system wallpaper picker's preview. */
     val preview: Boolean,
     /** The shade or recents is over the wallpaper (`Engine.onZoomChanged` near 1). */
     val covered: Boolean,
     val batterySaver: Boolean,
     val silent: Boolean,
     val settings: WallpaperSettings,
-)
+    /** Wall-clock ms the entitlement lets the visual move until ([dev.geode.billing.ProSnapshot.animateUntilMs]). */
+    val animateUntilMs: Long,
+) {
+    private val flags: Int
+        get() {
+            var f = 0
+            if (surfaceAvailable) f = f or GeodeNative.SURFACE_HAS_SURFACE
+            if (visible) f = f or GeodeNative.SURFACE_VISIBLE
+            if (preview) f = f or GeodeNative.SURFACE_PREVIEW
+            if (covered) f = f or GeodeNative.SURFACE_COVERED
+            if (batterySaver) f = f or GeodeNative.SURFACE_BATTERY_SAVER
+            if (settings.pauseInBatterySaver) f = f or GeodeNative.SURFACE_PAUSE_IN_BATTERY_SAVER
+            if (silent) f = f or GeodeNative.SURFACE_SILENT
+            if (settings.restWhenSilent) f = f or GeodeNative.SURFACE_REST_WHEN_SILENT
+            return f
+        }
 
-/**
- * The run rule, in priority order.
- *
- * - Not visible (another app in front, screen off) or no surface: stopped, as before.
- * - Covered by the shade or recents: stopped too. Visibility stays true there, so without this
- *   the wallpaper rendered at full rate behind a blur nobody reads.
- * - No Pro: a still frame.
- * - Battery saver (when the user keeps that option on) and silence (after the grace in
- *   [SoundSource]): a still frame. The preview is exempt from both, so picking the wallpaper
- *   in a quiet room never shows what looks like a frozen picture.
- */
-fun wallpaperRunMode(c: WallpaperConditions): WallpaperRunMode =
-    when {
-        !c.surfaceAvailable || !c.visible -> WallpaperRunMode.STOPPED
-        c.covered && !c.preview -> WallpaperRunMode.STOPPED
-        !c.animationAllowed -> WallpaperRunMode.STILL
-        c.preview -> WallpaperRunMode.ANIMATED
-        c.batterySaver && c.settings.pauseInBatterySaver -> WallpaperRunMode.STILL
-        c.silent && c.settings.restWhenSilent -> WallpaperRunMode.STILL
-        else -> WallpaperRunMode.ANIMATED
-    }
+    fun runMode(nowMs: Long): WallpaperRunMode = WallpaperRunMode.entries[GeodeNative.surfaceRunMode(flags, animateUntilMs, nowMs)]
+
+    fun listening(nowMs: Long): Boolean = GeodeNative.surfaceListening(flags, animateUntilMs, nowMs)
+
+    fun entitled(nowMs: Long): Boolean = GeodeNative.surfaceEntitled(animateUntilMs, nowMs)
+
+    /** When to restate because a trial ends, or null when nothing will change on its own. */
+    fun recheckInMs(nowMs: Long): Long? = GeodeNative.surfaceRecheckInMs(animateUntilMs, nowMs).takeIf { it >= 0 }
+}

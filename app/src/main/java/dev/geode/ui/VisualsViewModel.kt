@@ -19,7 +19,6 @@ import dev.geode.model.PresetLink
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
 import dev.geode.render.UnderlayBlend
-import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.StateFlow
 import java.io.File
@@ -127,7 +126,7 @@ class VisualsViewModel
 
         fun toggleParamLock(label: String) = session.toggleParamLock(label)
 
-        fun randomizeParams(tab: CustomizeTab? = null) = session.randomizeParams(tab)
+        fun randomizeParams(category: CustomizeCategory? = null) = session.randomizeParams(category)
 
         val paramHistory: StateFlow<ParamHistoryState> get() = session.paramHistory
 
@@ -138,7 +137,7 @@ class VisualsViewModel
 
         fun redoParams() = session.redoParams()
 
-        fun resetCustomizeTab(tab: CustomizeTab) = session.resetCustomizeTab(tab)
+        fun resetCustomizeCategory(category: CustomizeCategory) = session.resetCustomizeCategory(category)
 
         fun resetAllCustomize() = session.resetAllCustomize()
 

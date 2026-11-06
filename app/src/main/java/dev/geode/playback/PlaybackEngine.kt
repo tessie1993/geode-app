@@ -48,14 +48,18 @@ class PlaybackSession internal constructor(
 
     private val prefsFiles = GeodePrefsFiles(context)
 
-    /** Settings › Playback › Bit-perfect USB output; told every stream format before its AudioTrack opens. */
-    private val bitPerfect = BitPerfectOutput(context)
+    internal val dsp = NativeDspProcessor()
+
+    /**
+     * Settings › Playback › Bit-perfect USB output; told every AudioTrack's format before it opens (the
+     * player's output provider), and tells the native DSP whether to step aside for it.
+     */
+    private val bitPerfect = BitPerfectOutput(context) { dsp.bitPerfect = it }
 
     internal val tap =
         PcmTap(captureSink) { format ->
             // Every tap flush starts a ring epoch, before the new format's rate is published.
             sampleRing.beginEpoch()
-            bitPerfect.onFormat(format.sampleRateHz, format.channelCount)
             val hook = onAudioFormat
             if (hook != null) {
                 hook(format.sampleRateHz, format.channelCount, format.encoding)
@@ -64,8 +68,6 @@ class PlaybackSession internal constructor(
             }
         }
 
-    internal val dsp = NativeDspProcessor()
-
     /**
      * The one player: ExoPlayer, with the tap first in its processor chain ([TapRenderersFactory]).
      * WAKE_MODE_LOCAL takes a partial wake lock while playback is active, so the CPU cannot doze
@@ -73,8 +75,12 @@ class PlaybackSession internal constructor(
      */
     val player: ExoPlayer =
         ExoPlayer
-            .Builder(context, TapRenderersFactory(context, tap, dsp = listOf(dsp)))
-            .setMediaSourceFactory(
+            .Builder(
+                context,
+                TapRenderersFactory(context, tap, dsp = listOf(dsp)) { out ->
+                    bitPerfect.onOutput(out.sampleRate, out.channelMask, out.encoding)
+                },
+            ).setMediaSourceFactory(
                 androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
                     context,
                     androidx.media3.extractor.ExtractorsFactory {

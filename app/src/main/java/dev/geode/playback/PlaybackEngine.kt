@@ -91,8 +91,7 @@ class PlaybackSession internal constructor(
                 TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp)) { out ->
                     bitPerfect.onOutput(out.sampleRate, out.channelMask, out.encoding)
                 },
-            )
-            .setMediaSourceFactory(
+            ).setMediaSourceFactory(
                 androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
                     context,
                     androidx.media3.extractor.ExtractorsFactory {

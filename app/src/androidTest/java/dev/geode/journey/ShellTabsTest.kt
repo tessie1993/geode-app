@@ -53,15 +53,17 @@ class ShellTabsTest {
         compose.waitForIdle()
 
         // Settings is a list of groups; a group opens as its page, ‹ › step to the next one and ←
-        // returns to the list.
+        // returns to the list. The list is lazy, so the wait names a group near its top: Export,
+        // eighth of ten, sits below the fold on a phone-sized emulator and is never composed.
         compose.tap("Settings")
-        compose.awaitNode(hasText("Export"))
+        compose.awaitNode(hasText("Behaviour & gestures"))
         compose.tap("Behaviour & gestures")
         compose.awaitNode(hasText("Open on"))
         compose.tap("Next group")
-        compose.awaitNode(hasText("Flashing and motion"))
+        // Visuals' Basics: the heading is a CrystalOverline, which draws its text in capitals.
+        compose.awaitNode(hasText("Flashing and motion", ignoreCase = true))
         compose.tap("Back to Settings")
-        compose.awaitNode(hasText("Export"))
+        compose.awaitNode(hasText("Behaviour & gestures"))
 
         compose.tap("Player")
         compose.awaitEmptyPlayer()

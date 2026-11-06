@@ -27,6 +27,7 @@ class DreamCover(
     private val onChanged: () -> Unit,
 ) : SensorEventListener {
     private val sensors = context.getSystemService(SensorManager::class.java)
+
     // Asked for by wake-up flag: the one-argument getDefaultSensor returns the wake-up proximity
     // sensor, which wakes the CPU on every near/far change (#388). The non-wakeup one is optional,
     // so fall back to the wake-up one rather than never covering.

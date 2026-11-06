@@ -108,8 +108,7 @@ internal fun rememberLocalCustomizeNav(): CustomizeNav {
 
 /** The sections open in each category, as `CATEGORY/id` paths; several at once, saved by name. */
 @Composable
-internal fun rememberOpenSections(): MutableState<Set<String>> =
-    rememberSaveable(saver = OpenSectionsSaver) { mutableStateOf(emptySet()) }
+internal fun rememberOpenSections(): MutableState<Set<String>> = rememberSaveable(saver = OpenSectionsSaver) { mutableStateOf(emptySet()) }
 
 private val OpenSectionsSaver =
     listSaver<MutableState<Set<String>>, String>(

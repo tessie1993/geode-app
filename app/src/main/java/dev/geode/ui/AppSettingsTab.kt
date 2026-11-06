@@ -62,7 +62,7 @@ import dev.geode.ui.theme.floatingGlass
  * There is no Auto group: Auto (the auto-director, the style timer and its sources) is Visuals'
  * quick settings alone, where its effect is on screen.
  */
-internal enum class SettingsGroupKey(
+enum class SettingsGroupKey(
     @param:StringRes val titleRes: Int,
     @param:StringRes val summaryRes: Int,
     val sections: List<SettingsSectionKey> = emptyList(),
@@ -131,7 +131,7 @@ internal enum class SettingsGroupKey(
 }
 
 /** The sections below a group's Basics, each named for its card. */
-internal enum class SettingsSectionKey(
+enum class SettingsSectionKey(
     @param:StringRes val titleRes: Int,
 ) {
     SPEED_PITCH(R.string.settings_section_speed_pitch),

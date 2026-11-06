@@ -27,7 +27,12 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           [this] { return thermal_.pacedFps(); },
                           [this](const std::string& path) { notePresetLoaded(path); },
                           [this] { return marchScale_.load(std::memory_order_relaxed); },
-                          [this] { return &notes_.uniforms(); }}),
+                          [this] { return &notes_.uniforms(); },
+                          [this] {
+                              return directorPinned_.load(std::memory_order_acquire)
+                                         ? pinnedDirectorSeed_.load(std::memory_order_relaxed)
+                                         : director::global().seed;
+                          }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity),
       pcmDeliverScratch_(kPcmCapacity, 0.0f) {

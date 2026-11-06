@@ -16,14 +16,9 @@ name: UI tour
 # Gesture navigation is switched on before the tour, so WindowInsets.systemGestures are the
 # ones a gesture-nav phone has and the report's edge collisions mean something.
 
+# Manual only: pull requests are gated by build-lint.yml (build and lint, no tests).
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - "app/src/main/java/dev/geode/ui/**"
-      - "app/src/main/res/**"
-      - "app/src/androidTest/java/dev/geode/journey/UiTour*"
-      - ".github/workflows/ui-tour.yml"
 
 permissions:
   contents: read
@@ -134,7 +129,7 @@ jobs:
       - name: Run the tour on the emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
+          api-level: 36
           target: google_apis
           arch: x86_64
           ram-size: 4096M

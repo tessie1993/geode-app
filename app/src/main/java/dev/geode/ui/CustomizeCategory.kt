@@ -21,7 +21,7 @@ import java.io.File
  * sections and controls it has, which are free (Basics), which styles it shows on, what its
  * Randomize rolls and what its Reset puts back. Kotlin draws it.
  */
-internal enum class CustomizeCategory(
+enum class CustomizeCategory(
     val title: String,
     val summary: String,
     val icon: ImageVector,

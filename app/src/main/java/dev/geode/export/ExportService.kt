@@ -41,9 +41,9 @@ class ExportService : Service() {
                     .map { it.copy(progress = it.progress?.let { p -> (p * PROGRESS_MAX).toInt() / PROGRESS_MAX.toFloat() }) }
                     .distinctUntilChanged()
                     .conflate()
-                    .collect { state ->
-                        if (!state.running) return@collect stopSelf()
-                        bestEffort(TAG, "notify") { getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, build(state)) }
+                    .collect {
+                        if (!it.running) return@collect stopSelf()
+                        bestEffort(TAG, "notify") { getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, build(it)) }
                         delay(UPDATE_MS)
                     }
             }

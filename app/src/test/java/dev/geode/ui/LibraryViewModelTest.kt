@@ -156,7 +156,8 @@ class LibraryViewModelTest {
             advanceUntilIdle()
             // Song 7 is not in the search, and its copy is still found.
             assertEquals(1, vm.duplicates.value.size)
-            assertEquals(2, vm.duplicates.value.single().tracks.size)
+            val group = vm.duplicates.value.single()
+            assertEquals(2, group.tracks.size)
         }
 
     @Test

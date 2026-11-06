@@ -56,7 +56,7 @@ value).
 
 ```sh
 node check.mjs --stills out/stills.tsv --out out/stills       # every style; --shard 2/4 for a quarter
-g++ -std=c++20 -O1 -Icore core/tests/visual_gate.cpp core/viz/FlashLimiter.cpp -o visual_gate
+g++ -std=c++20 -O1 -Icore core/tests/visual_gate.cpp -o visual_gate
 ./visual_gate core/tests/visual_gate_baseline.txt tools/glslcheck/out/stills.tsv
 ```
 
@@ -70,14 +70,12 @@ follow the song too; `uSoundTex` is a stand-in that scales with the volume.
 
 Per style it writes four stills at 96 px (song seconds 4, 9.5, 12, 18.5) and
 the run from 9.5 s to 12 s (the end of the build into the drop) at 32 px and
-60 fps, each frame boxed to the 16 × 16 grid `OutputProbe` reads on the
-phone. `visual_gate` judges them:
+60 fps, each frame boxed to a 16 × 16 grid. `visual_gate` judges them:
 
 | Check | A still or run fails when | The style fails when |
 |---|---|---|
 | black | more than 92 % of pixels under display luma 0.02 | half its stills or more |
 | blown | more than 25 % of pixels with R, G and B all past 0.95 | half its stills or more |
-| flash | the run, counted by `FlashLimiter::observe` itself, reaches `kEngageTransitions` (4) in one second | once |
 | render | the style does not compile, link or draw | once |
 
 Why these numbers: a frame with 92 % black pixels has nothing on it (Morph

@@ -20,6 +20,7 @@ import dev.geode.billing.WallClock
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PerformanceStore
 import dev.geode.data.PresetStore
+import dev.geode.data.SystemMotion
 import dev.geode.data.ThemeStore
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.pro.ProFeature
@@ -54,9 +55,6 @@ class VisualizerWallpaperService : WallpaperService() {
 
         private val prefsStore = WallpaperPrefsStore(this@VisualizerWallpaperService)
         private var settings = WallpaperSettings()
-
-        /** The in-app Reduce motion switch, re-read with [settings] each time the wallpaper shows. */
-        private var appReducedMotion = false
 
         /** The system's Remove animations; a flip restates the run mode at once. */
         private val systemAnimations = SystemAnimations(this@VisualizerWallpaperService) { syncRunState() }
@@ -187,8 +185,7 @@ class VisualizerWallpaperService : WallpaperService() {
             }
             // The MilkDrop preset needs nothing here: the renderer restores the app's (MilkPresetMemory).
             val gui = ThemeStore(prefsFiles.general).loadGui()
-            engine.reducedMotion = gui.reducedMotion
-            appReducedMotion = gui.reducedMotion
+            engine.reducedMotion = SystemMotion.isReduced(contentResolver)
             engine.soundTuning = gui.soundTuning
             // Settings › Performance's quality; its fps cap is the live visual's, and the wallpaper
             // paces to its own choice instead (applyFps, ADR 0008).
@@ -199,7 +196,7 @@ class VisualizerWallpaperService : WallpaperService() {
             engine.lfoEngine.configs = modulation.load()
             engine.adsrEngine.configs = modulation.loadAdsrs()
             engine.reactions = modulation.loadReactions()
-            HandMask.set(modulation.loadHandMask())
+            HandMask.set(modulation.loadHandMask(), engine.reactions != null)
         }
 
         /**
@@ -223,7 +220,7 @@ class VisualizerWallpaperService : WallpaperService() {
                     covered = covered,
                     batterySaver = powerManager?.isPowerSaveMode == true,
                     silent = sound.silent,
-                    reducedMotion = appReducedMotion || systemAnimations.removed,
+                    reducedMotion = systemAnimations.removed,
                     settings = settings,
                     animateUntilMs = until,
                 )
@@ -301,12 +298,9 @@ class VisualizerWallpaperService : WallpaperService() {
             // Going away with a finger still down is not guaranteed to come with a cancel,
             // and a pointer that is never retired stays pinned across the whole sleep.
             if (!visible) renderer?.submitTouchPoints(touchPoints, 0)
-            // Re-read each time it shows: the options page, opened from the picker, covers it, and
-            // the in-app Reduce motion switch may have changed while the app was in front.
+            // Re-read each time it shows: the options page, opened from the picker, covers it.
             if (visible) {
                 settings = prefsStore.load()
-                val general = GeodePrefsFiles(this@VisualizerWallpaperService).general
-                appReducedMotion = ThemeStore(general).loadGui().reducedMotion
                 applyFps()
             }
             syncRunState()

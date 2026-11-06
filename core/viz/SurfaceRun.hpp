@@ -11,7 +11,7 @@
 // - no surface, or nobody can see it (another app in front, screen off, not dreaming): stopped;
 // - covered by the shade or recents (visibility stays true there): stopped, except the preview;
 // - the entitlement does not allow the moving visual (free, or the trial has run out): a still frame;
-// - reduced motion (the in-app Reduce motion switch, or the system's Remove animations): a still frame,
+// - reduced motion (the system's Remove animations): a still frame,
 //   the preview included, since a preview that moves is still motion to someone it makes ill (ADR 0008);
 // - the system wallpaper picker's preview: always moving, so picking it in a quiet room never
 //   looks frozen;

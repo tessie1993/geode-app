@@ -42,7 +42,7 @@ import dev.geode.util.bestEffort
  * - covered ([DreamCover]: the proximity sensor reads near, face down or in a pocket): no frames;
  * - battery saver: a still frame;
  * - silence ([SoundSource]'s grace): a still frame, until sound comes back;
- * - reduced motion (the in-app switch, or the system's Remove animations, [SystemAnimations]): a
+ * - reduced motion (the system's Remove animations, [SystemAnimations]): a
  *   still frame for the whole dream (owner, ADR 0008; #389). Off, the dream keeps its gentle flight.
  * It paces to its own fps choice, Behaviour › Dream ([dev.geode.data.BehaviourPrefs.dreamFps]),
  * not to Settings › Performance's cap, which is the live visual's.
@@ -68,9 +68,6 @@ class VisualizerDreamService : DreamService() {
 
     /** Lazy for the same reason: it reads the application context. A flip restates at once. */
     private val systemAnimations by lazy { SystemAnimations(this) { syncRunState() } }
-
-    /** The in-app Reduce motion switch, read when the dream attaches: a dream is not long-lived. */
-    private var appReducedMotion = false
 
     /** Between onDreamingStarted and onDreamingStopped: the only time anyone can see it. */
     private var dreaming = false
@@ -203,7 +200,7 @@ class VisualizerDreamService : DreamService() {
                 covered = cover.covered,
                 batterySaver = powerManager?.isPowerSaveMode == true,
                 silent = sound.silent,
-                reducedMotion = appReducedMotion || systemAnimations.removed,
+                reducedMotion = systemAnimations.removed,
                 settings = settings,
                 animateUntilMs = animateUntilMs(),
             )
@@ -295,8 +292,6 @@ class VisualizerDreamService : DreamService() {
         }
         // The MilkDrop preset needs nothing here: the renderer restores the app's (MilkPresetMemory).
         val gui = ThemeStore(prefsFiles.general).loadGui()
-        // The run rule's input, not the camera's: on, the whole dream is a still frame (ADR 0008).
-        appReducedMotion = gui.reducedMotion
         // The gentle flight (owner, wave 1): the camera keeps flying but without big moves, the
         // same calm the reduce-motion setting gives, because a dream is watched from across a room.
         engine.reducedMotion = true
@@ -307,7 +302,7 @@ class VisualizerDreamService : DreamService() {
         engine.lfoEngine.configs = modulation.load()
         engine.adsrEngine.configs = modulation.loadAdsrs()
         engine.reactions = modulation.loadReactions()
-        HandMask.set(modulation.loadHandMask())
+        HandMask.set(modulation.loadHandMask(), engine.reactions != null)
     }
 
     private companion object {

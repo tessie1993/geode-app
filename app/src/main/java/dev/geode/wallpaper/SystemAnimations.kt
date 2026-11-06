@@ -9,7 +9,7 @@ import android.provider.Settings
 /**
  * The system's Remove animations (Settings › Accessibility, or the animator duration scale in
  * Developer options), followed live: one of the two reduced-motion sources the wallpaper and the
- * dream hand the native run rule (ADR 0008; the other is the in-app Reduce motion switch).
+ * dream hand the native run rule (ADR 0008).
  *
  * The setting itself, `ANIMATOR_DURATION_SCALE == 0`, is read rather than
  * `ValueAnimator.areAnimatorsEnabled()`, because that one is also false in battery saver, which has

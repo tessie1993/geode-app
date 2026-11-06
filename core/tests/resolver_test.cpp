@@ -426,8 +426,8 @@ struct OldChain {
         styleMoments = 0;
         if (director.commits() != directorCommitsSeen) {
             directorCommitsSeen = director.commits();
-            const viz::Director::Reason why = director.lastReason();
-            if (why == viz::Director::Reason::Section || why == viz::Director::Reason::Drop) styleMoments += 1;
+            // A section or drop the director commits at, only while it drives (Director::styleMoment).
+            if (director.styleMoment()) styleMoments += 1;
         }
         directedKnobs = director.knobs(s.knobs);
         notes.configure({s.notesOn, directorConfig.seed ^ s.noteEntropy});

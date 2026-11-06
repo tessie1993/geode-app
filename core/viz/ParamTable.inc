@@ -200,10 +200,10 @@ GEODE_PARAM(Float, motionHue, 0.4f, 0.0f, 1.0f, Fade)
 // The shared camera rig (viz/CameraRig) and the reaction matrix (viz/Reactions). Appended after wave
 // three so every wire index survives. The cam* offsets (push, yaw, pitch, roll) are what reaction
 // routes and LFOs write; the rig springs toward them, so a route never snaps the view.
-// Forward travel speed along the path: the slider stops at 2, the LFO and the routes reach 2.5.
-GEODE_PARAM(Float, camFly, 0.5f, 0.0f, 2.5f, Fade)
-// 0 glide, 1 spiral, 2 orbit, 3 hover (CameraRig clamps to the same).
-GEODE_PARAM(Int, camPath, 0, 0, 3, Hold)
+// Travel speed along the path, negative backward: the slider stops at -2..2, the LFO and the routes reach 2.5.
+GEODE_PARAM(Float, camFly, 0.5f, -2.5f, 2.5f, Fade)
+// 0 glide, 1 spiral, 2 orbit, 3 hover, 4 drive, 5 fall, 6 rise (CameraRig clamps to the same).
+GEODE_PARAM(Int, camPath, 0, 0, 6, Hold)
 // Sideways swing, or the orbit's radius.
 GEODE_PARAM(Float, camOrbit, 0.35f, 0.0f, 1.0f, Fade)
 // The dolly offset.
@@ -252,3 +252,7 @@ GEODE_PARAM(Int, liquidBorn, 1, 0, 3, Hold)
 GEODE_PARAM(Int, liquidAge, 0, 0, 2, Hold)
 // liquid::Surface: 0 ink, 1 wet gloss, 2 glass.
 GEODE_PARAM(Int, liquidSurface, 0, 0, 2, Hold)
+
+// Camera travel for the flat (2D) styles: how much Fly speed (its sign too) zooms the picture in or
+// out without end, 0 off .. 1 (CameraRig::flatDive). Appended so every wire index survives.
+GEODE_PARAM(Float, camFlat, 0.0f, 0.0f, 1.0f, Fade)

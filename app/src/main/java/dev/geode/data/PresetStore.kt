@@ -281,6 +281,7 @@ class PresetStore(
                 .put("motionDrift", p.params.motionDrift.toDouble())
                 .put("motionHue", p.params.motionHue.toDouble())
                 .put("camFly", p.params.camFly.toDouble())
+                .put("camFlat", p.params.camFlat.toDouble())
                 .put("camOrbit", p.params.camOrbit.toDouble())
                 .put("camPush", p.params.camPush.toDouble())
                 .put("camYaw", p.params.camYaw.toDouble())
@@ -539,6 +540,7 @@ class PresetStore(
                         motionDrift = o.optFinite("motionDrift", 0.5),
                         motionHue = o.optFinite("motionHue", 0.4),
                         camFly = o.optFinite("camFly", SceneParams.DEFAULT.camFly.toDouble()),
+                        camFlat = o.optFinite("camFlat", SceneParams.DEFAULT.camFlat.toDouble()),
                         camOrbit = o.optFinite("camOrbit", SceneParams.DEFAULT.camOrbit.toDouble()),
                         camPush = o.optFinite("camPush", SceneParams.DEFAULT.camPush.toDouble()),
                         camYaw = o.optFinite("camYaw", SceneParams.DEFAULT.camYaw.toDouble()),

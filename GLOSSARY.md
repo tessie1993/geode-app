@@ -125,6 +125,17 @@ A named set of the six knob positions: the built-in starters (Calm, Groove, Rave
 A named bundle of reaction routes offered in the Events tab ("Kick punch", "Snare crack"), turned on and off as one.
 _Avoid_: Trigger preset
 
+**Event**:
+A moment the engine reacts to: a kick, a downbeat, a drop, a build starting, a key change, a style switch. It has a strength (0..1) and sometimes a value (a section id, a key). Raised once a frame from the sound frame or by the engine; the kinds are one table (`core/signal/events/EventKinds.inc`).
+_Avoid_: Trigger (that is the sound frame's field an event comes from), moment (the Music page's groups of sources)
+
+**Event route**:
+A reaction route whose source is an event: on every Nth matching event, it does one thing to one param (set it, nudge it, glide it, step it, toggle it or pulse it). Event recipes are bundles of these. A pulse on a brightness-like param is slowed and limited to three a second.
+
+**Param phase**:
+What one param's value is doing: at rest, gliding to a new value, held under a finger, on trial (a locked value the user is trying, which springs back), or driven by a timeline. A finger outranks the engine, and a timeline outranks both while it drives (`core/signal/params/ParamState.hpp`).
+_Avoid_: Param mode, lock state
+
 **Modulation**:
 LFOs and ADSR envelopes that move scene params over time or on hits.
 
@@ -232,14 +243,19 @@ What the music feels like now: valence (sad … happy), energy and tension, and 
 _Avoid_: Mood label, emotion name
 
 **Auto-director**:
-Settings › Behaviour's switch that lets the feeling choose a look at each section, drop or key change: palette, macro knobs, camera moves and what reacts to what, on every style. Pro; free gets the first minute of each song.
+Settings › Behaviour's switch that lets the feeling choose a director look at each section, drop or key change: palette, macro knobs, camera moves and what reacts to what, on every style. Pro; free gets the first minute of each song.
 _Avoid_: Auto visuals (that switches styles on a timer)
 
 **Look**:
-One auto-director decision: a palette, a behaviour and a set of routes, glided in over a bar. Never the same look twice in a row of six.
+Everything the user set for the visual: the style, the base values of its scene params, the reaction routes, the macros, the layer, the transition, custom shader code and the MilkDrop preset. Saved, undone and gated as one, and a preset is a named look. What moves it this frame (sound, LFOs, the auto-director, touch, a take's replay) is modulation, never the look itself. ADR 0006 and `docs/architecture/kotlin-target.md`.
+_Avoid_: State, settings, the look for one auto-director decision (that is a director look)
+
+**Director look**:
+One auto-director decision: a palette, a behaviour and a set of routes, glided in over a bar. Never the same director look twice in a row of six. It modulates the user's look; it never changes it.
+_Avoid_: Look (alone)
 
 **Note & key reactions**:
-Settings › Behaviour's switch that lets notes, chords, key and mood move every style inside the auto-director's look: a colour per note and a tint toward it, leaps swing and steps glide, tension bends and resolution smooths, a chord change shifts the fold count, drums weighted by how percussive the track is. Free and on by default; Customize › Advanced › Note & key (Pro) tunes it per style. See `docs/research/note-key-response.md`.
+Settings › Behaviour's switch that lets notes, chords, key and mood move every style inside the director look: a colour per note and a tint toward it, leaps swing and steps glide, tension bends and resolution smooths, a chord change shifts the fold count, drums weighted by how percussive the track is. Free and on by default; Customize › Advanced › Note & key (Pro) tunes it per style. See `docs/research/note-key-response.md`.
 _Avoid_: Note mode, melody mode
 
 **Bloom (note bloom)**:
@@ -276,9 +292,9 @@ The Kotlin around the engine: JNI declarations, Android lifecycle, Media3 and Me
 _Avoid_: Wrapper, glue layer
 
 **Scene params resolver**:
-The engine's per-frame chain that turns the requested scene params into the ones a scene is drawn with: the param fade, then the auto-director, Note & key reactions, macros, LFOs, envelopes, reaction routes, motion field, and the safety clamp last. It knows nothing of GL. It reads the sound frame, dt, the style on screen and the engine settings, and also returns the director's style moments and camera moves. Device policy (thermal tier, post-FX, Liquid's hot policy) and the camera rig stay in the renderer. Proposed in #344.
-_Avoid_: Look resolver (a look is one auto-director decision), param pipeline
+The engine's per-frame chain that turns the requested scene params into the ones a scene is drawn with: the param fade, then the auto-director, Note & key reactions, macros, LFOs, envelopes, reaction routes, motion field, and the safety clamp last. It knows nothing of GL. It reads the sound frame, dt, the style on screen and the engine settings, and also returns the director's style moments and camera moves. Device policy (thermal tier, post-FX, Liquid's hot policy) and the camera rig stay in the renderer. It lives at `core/signal/Resolver`, the seam ADR 0006's later steps rebuild behind (#344).
+_Avoid_: Look resolver (the look is what the user set; the resolver turns it and this frame's modulation into the scene params drawn), param pipeline
 
 **Engine settings**:
-The process-wide values the scene params resolver reads: macro knobs, the auto-director's amount and seed, the Note & key switch, the hand mask, reduced motion and the note entropy. The renderer latches one copy per frame and uses the same copy for the sound engine's tuning. An export pins its own copy, so a live edit never reaches a render.
+The process-wide values the scene params resolver reads: macro knobs, the auto-director's amount and seed, the Note & key switch, the hand mask, reduced motion and the note entropy. The renderer latches one copy per frame and uses the same copy for the sound engine's tuning. An export pins its own copy at prepare, built natively from what Kotlin last forwarded plus the entitlement (Pro, trial or free; native applies what it means for the auto-director), with the note entropy at 0 so a re-render is the same film. A live edit never reaches a render.
 _Avoid_: Globals, settings (alone), scene params

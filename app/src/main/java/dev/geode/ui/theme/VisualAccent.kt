@@ -20,6 +20,13 @@ import kotlin.math.min
  * light leaves room for a dark text colour that still clears 4.5:1 on it. Material's own dark
  * schemes sit higher still (tone 80, about 12:1), so a pastel accent is the M3 norm here.
  *
+ * Black is the best case, though, not the worst: the accent is mostly drawn on the floating glass
+ * (a selected label, a text button, an active value on the sheet), and the glass over a white
+ * frame is a mid grey ([GeodeGlass.WorstBackdrop]). An accent at exactly 7:1 on black reads only
+ * about 2.7:1 there. So the accent also clears [MIN_GLASS_CONTRAST], Material 3 › Typography ›
+ * Color & contrast's "Small text should achieve a contrast ratio of 4.5:1", on that grey; in
+ * practice that is the tighter bound, and it lands the accent near M3's tone 80.
+ *
  * No colour (nothing playing, a visual that has not reported one) or a grey one means
  * [Fallback], the theme's own cool blue. Pure Kotlin on Compose's `Color`, no `android.*`, so a
  * JVM test can drive it.
@@ -30,6 +37,9 @@ object VisualAccent {
 
     /** Contrast every accent clears against the black canvas. */
     const val MIN_CONTRAST = 7f
+
+    /** Contrast every accent clears against the glass's worst case ([GeodeGlass.WorstBackdrop]). */
+    const val MIN_GLASS_CONTRAST = GeodeContrast.BODY_MIN
 
     /** A source this transparent says nothing about the visual's colour. */
     private const val MIN_SOURCE_ALPHA = 0.5f
@@ -50,24 +60,32 @@ object VisualAccent {
     private const val ON_CONTAINER_LIGHTNESS = 0.86f
     private const val TONE_STEP = 0.02f
 
-    /** The accent for a visual whose main colour is [source]: readable on black, or [Fallback]. */
+    /**
+     * The accent for a visual whose main colour is [source]: readable on black and on the glass's
+     * worst case, or [Fallback].
+     */
     fun from(source: Color?): Color {
         if (source == null || source.alpha < MIN_SOURCE_ALPHA) return Fallback
         val opaque = source.copy(alpha = 1f)
         val hsl = Hsl.of(opaque)
         if (hsl.saturation < MIN_SATURATION) return Fallback
-        if (onCanvas(opaque) >= MIN_CONTRAST) return opaque
-        // Lightness only ever rises here, and contrast on black rises with it, so the lowest
-        // lightness that passes is found by bisection between the source's own and the ceiling.
+        if (readable(opaque)) return opaque
+        // Lightness only ever rises here, and contrast on black rises with it. Contrast on the
+        // glass's grey rises with it too once the accent is lighter than that grey, and below it
+        // the accent cannot pass, so the lowest lightness that passes both is still found by
+        // bisection between the source's own and the ceiling.
         var low = hsl.lightness
         var high = MAX_LIGHTNESS
-        if (onCanvas(hsl.withLightness(high)) < MIN_CONTRAST) return Fallback
+        if (!readable(hsl.withLightness(high))) return Fallback
         repeat(SEARCH_STEPS) {
             val mid = (low + high) / 2f
-            if (onCanvas(hsl.withLightness(mid)) >= MIN_CONTRAST) high = mid else low = mid
+            if (readable(hsl.withLightness(mid))) high = mid else low = mid
         }
         return hsl.withLightness(high)
     }
+
+    /** Whether [color] clears both floors: [MIN_CONTRAST] on black, [MIN_GLASS_CONTRAST] on glass. */
+    internal fun readable(color: Color): Boolean = onCanvas(color) >= MIN_CONTRAST && contrastOnGlass(color) >= MIN_GLASS_CONTRAST
 
     /**
      * Text and icons drawn on the [accent] (a filled button's label): the accent's hue, dark,

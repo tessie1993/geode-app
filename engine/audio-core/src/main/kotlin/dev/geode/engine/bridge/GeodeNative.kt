@@ -837,6 +837,36 @@ object GeodeNative {
         heardAtMs: Long,
     ): Boolean
 
+    // Fixed-rate frame clock (core/viz/frame/FixedRateClock): Cast's pacing, PTS and audio cut.
+    // The caller owns the state, a LongArray(FRAME_CLOCK_STATE), and reads now from System.nanoTime.
+
+    /** Size of the frame clock's state (GEODE_FRAME_CLOCK_STATE). */
+    const val FRAME_CLOCK_STATE = 3
+
+    /** Starts [state] at [nowNs], [fps] frames a second; the first frame is due at once. */
+    external fun frameClockStart(
+        state: LongArray,
+        fps: Int,
+        nowNs: Long,
+    )
+
+    /** Nanoseconds until the next frame is due; 0 when it is due now. */
+    external fun frameClockWaitNs(
+        state: LongArray,
+        nowNs: Long,
+    ): Long
+
+    /** Takes the frame to draw now and returns its PTS in ns; missed slots are dropped, never burst. */
+    external fun frameClockTake(
+        state: LongArray,
+        nowNs: Long,
+    ): Long
+
+    /** The audio cut: the end of the last frame taken, in µs of stream time. */
+    external fun frameClockAudioUntilUs(state: LongArray): Long
+
+    /** The Cast stream's format into [out]: width, height, fps. */
+    external fun castFormat(out: IntArray)
     // Export post-passes (core/viz/frame/ExportPasses): the watermark, a loop's seam, a Studio transition and
     // its capture. [assets] is the app's AssetManager (typed as Any, as for [vizCreate]); every call but the
     // three watermark sizes and the seam weight needs the export's GL context current, destroy included.

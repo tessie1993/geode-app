@@ -288,9 +288,11 @@ GEODE_API int         geode_customize_randomize(const char* style_id, const char
                                                 const float* in, float* out);
 GEODE_API void        geode_customize_reset(const char* category, const float* in, float* out);
 
-/* Export resampler (audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC encoder's rate; box filter
- * down, linear up. Streaming: state carries across calls. Any one thread at a time. There is no flush: a
- * partial output frame at the end is dropped, as the export always did. */
+/* Export resampler (audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC encoder's rate; band-limited
+ * (Kaiser-windowed sinc, polyphase) both ways, cutoff below the lower Nyquist rate (#375). Streaming: state
+ * carries across calls, and n frames in give ceil(n * out / in) out however they are chunked, behind a delay
+ * of PcmResampler::halfTaps() input frames (about 0.5 to 1.1 ms). Any one thread at a time. There is no flush: the filter's tail at the end is
+ * dropped, as the export always dropped a partial output frame. */
 typedef struct geode_resampler geode_resampler;
 GEODE_API geode_resampler* geode_resampler_create(int in_rate, int out_rate, int channels);  /* NULL on bad args */
 GEODE_API void             geode_resampler_destroy(geode_resampler*);

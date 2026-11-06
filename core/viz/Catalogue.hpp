@@ -74,6 +74,9 @@ struct Family {
     const char* opener() const { return ids[0]; }
 };
 
+// Morph World: the one style whose ShaderScene runs a World Genome driver (core/viz/world).
+constexpr const char* kMorphWorld = "morph_world";
+
 // The user's Detail control; ShaderScene turns it into the march step budget.
 constexpr Range kMarchDetail{0.25f, 1.5f};
 // A pinch scales Zoom and a twist turns Rotation, held to these.

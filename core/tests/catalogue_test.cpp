@@ -210,12 +210,12 @@ void spinRateAndShaderStyleAgree() {
     }
     check(spinning == oldSpinning, "the spinning styles are the old SPINNING_SCENES");
     for (const auto& id : spinning) check(catalogue::isShaderStyle(id), id + " spins and is a shader style");
-    check(shaders == 180, "180 shader styles (60 loose + 120 family), got " + std::to_string(shaders));
+    check(shaders == 181, "181 shader styles (61 loose + 120 family), got " + std::to_string(shaders));
     check(catalogue::spinRate("bead_vortex") == 1.4f && catalogue::spinRate("tunnel") == -0.5f, "spin rates kept");
     for (const char* id : {"silk_web", "milkdrop", "fluid", "water", "curlflow", "cymatics", "no_such_style"}) {
         check(!catalogue::isShaderStyle(id), std::string(id) + " is not a shader style");
     }
-    check(catalogue::allIds().size() == 243, "243 ids");
+    check(catalogue::allIds().size() == 244, "244 ids");
     check(catalogue::allIds().front() == "silk_web", "the default comes first");
 }
 
@@ -233,7 +233,7 @@ void marchedStylesMatchTheOldSet() {
         "terra_volcano", "terra_wire", "truchet_relief", "vanishing",
         "foam_fall", "foam_neon", "foam_soap", "foam_chrome", "foam_ember", "foam_ice",
         "foam_orb", "foam_kaleido", "foam_ink", "foam_coral", "foam_ghost", "foam_show",
-        "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral"};
+        "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral", "morph_world"};
     std::set<std::string> marched;
     for (const auto& id : catalogue::allIds()) {
         if (catalogue::isMarched(id)) marched.insert(id);
@@ -293,7 +293,7 @@ const std::map<std::string, std::string> kOldLooseLooks = [] {
     };
     put({"julia", "mandel", "kifs", "fractal_temple", "menger_core", "mandelbox_cathedral", "supershape"}, "FRACTALS");
     put({"tunnel", "rod_tunnel", "particle_tunnel", "fractal_dive", "fractal_tunnel", "outrun_drive", "vanishing",
-         "crystal_canyon", "spectrum_terrain", "gyroid_cavern", "noneuclid"},
+         "crystal_canyon", "spectrum_terrain", "gyroid_cavern", "noneuclid", "morph_world"},
         "FLY_THROUGH");
     put({"starfield", "nebula", "solar", "chrome_nebula", "ringed_planet", "black_hole", "aurora", "aurora_ocean"}, "SPACE");
     put({"orb_lattice", "neon_tiles", "chroma_orb", "blacklight_bloom", "prism_rain", "glow_vortex", "neon_chrome_sea",
@@ -335,7 +335,7 @@ void everyStyleKeepsItsOldLookGroup() {
         check(names.count(got) == 1, id + " has a look group");
         check(got == want, "look of " + id + ": got " + got + ", the Kotlin tags gave " + want);
     }
-    check(loose == 60 && kOldLooseLooks.size() == 60, "every loose style is tagged once");
+    check(loose == 61 && kOldLooseLooks.size() == 61, "every loose style is tagged once");
     check(catalogue::lookOf("no_such_style") == catalogue::Look::Flowing, "an unknown id is silk, so flowing");
 }
 

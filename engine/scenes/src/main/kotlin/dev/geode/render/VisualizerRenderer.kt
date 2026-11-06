@@ -102,10 +102,6 @@ class VisualizerRenderer(
 
     private var soundCursor: SoundCursor? = null
 
-    val lfoEngine = LfoEngine()
-
-    val adsrEngine = AdsrEngine()
-
     /**
      * Gyro reading in radians from [GyroLook] (NaN azimuth while off); core/viz/GyroLook makes the
      * look. [gyroSession] bumps on each switch on, so native recaptures even if no frame saw it off.

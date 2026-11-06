@@ -5,6 +5,10 @@
 
 namespace geode::viz {
 
+static_assert(config::spec(config::Slot::adsr_band).max == static_cast<float>(EnvBand::Width), "adsr band row");
+static_assert(config::indexInGroup(config::Slot::adsr_retrigger) == GEODE_ADSR_CONFIG_FLOATS - 1,
+              "one adsr row per wire float before the targets");
+
 namespace {
 bool hasLiveTarget(const AdsrConfig& c) {
     for (const LfoTarget t : c.targets) {
@@ -47,17 +51,17 @@ const std::array<float, AdsrEngine::kCount>& AdsrEngine::tick(float dt, const Ge
         }
         const float ceiling = std::clamp(peak_[i], 0.0f, 1.0f);
         const float sustainTarget =
-            (c.sustainTrack ? c.sustain * std::clamp(energy / std::max(c.gateThreshold, 0.05f), 0.0f, 1.0f) : c.sustain) * ceiling;
+            (c.sustainTrack ? c.sustain * std::clamp(energy / std::max(c.gateThreshold, kMinGateThreshold), 0.0f, 1.0f) : c.sustain) * ceiling;
         switch (stage_[i]) {
             case 1:
-                level_[i] += dt / std::max(c.attack, 0.005f) * ceiling;
+                level_[i] += dt / std::max(c.attack, kMinStageSeconds) * ceiling;
                 if (level_[i] >= ceiling) {
                     level_[i] = ceiling;
                     stage_[i] = 2;
                 }
                 break;
             case 2:
-                level_[i] -= dt / std::max(c.decay, 0.005f) * std::max(1.0f - sustainTarget, 0.05f);
+                level_[i] -= dt / std::max(c.decay, kMinStageSeconds) * std::max(1.0f - sustainTarget, 0.05f);
                 if (level_[i] <= sustainTarget) {
                     level_[i] = sustainTarget;
                     stage_[i] = gateHolds ? 3 : 4;
@@ -68,7 +72,7 @@ const std::array<float, AdsrEngine::kCount>& AdsrEngine::tick(float dt, const Ge
                 if (!gateHolds) stage_[i] = 4;
                 break;
             case 4:
-                level_[i] -= dt / std::max(c.release, 0.005f);
+                level_[i] -= dt / std::max(c.release, kMinStageSeconds);
                 if (gateOpen && level_[i] > 0.01f) {
                     stage_[i] = 3;
                 } else if (level_[i] <= 0.0f) {

@@ -6,6 +6,7 @@
 
 #include "api/geode_api.h"
 #include "viz/CustomizeMap.hpp"
+#include "viz/Config.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Params.hpp"
 
@@ -71,6 +72,8 @@ void geode_params_reset_tab(const char* tab, const float* in, float* out) {
 }
 
 const char* geode_params_schema_text(void) { return SceneParams::schemaText().c_str(); }
+
+const char* geode_config_schema_text(void) { return geode::viz::config::schemaText().c_str(); }
 
 const char* geode_params_roll_keys(void) {
     static const std::string kText = [] {

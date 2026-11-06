@@ -23,6 +23,7 @@ add_library(geode_core STATIC
     audio/dsp/PcmResampler.cpp
     audio/dsp/Loudness.cpp
     api/geode_export_dsp_api.cpp
+    api/geode_export_pass_api.cpp
     api/geode_export_api.cpp
     audio/dsp/PcmConvert.cpp
     audio/dsp/PcmTiming.cpp
@@ -55,6 +56,7 @@ add_library(geode_core STATIC
     viz/LayerState.cpp
     viz/NoteResponse.cpp
     viz/UiBlurPass.cpp
+    viz/frame/ExportPasses.cpp
     viz/frame/EdgeGlowPass.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
@@ -62,8 +64,6 @@ add_library(geode_core STATIC
     viz/Reactions.cpp
     viz/CameraRig.cpp
     viz/VisualSafety.cpp
-    viz/FlashLimiter.cpp
-    viz/OutputProbe.cpp
     viz/ThermalGovernor.cpp
     viz/TouchField.cpp
     viz/Transition.cpp

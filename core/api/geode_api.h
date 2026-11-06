@@ -313,6 +313,43 @@ GEODE_API void            geode_loudness_feed_s16(geode_loudness*, const int16_t
 GEODE_API int             geode_loudness_has_block(geode_loudness*);   /* 1 once a 400 ms block exists */
 GEODE_API void            geode_loudness_finish(geode_loudness*, geode_loudness_report* out);   /* non-destructive */
 
+/* Export post-passes (viz/frame/ExportPasses, #442): the non-Pro watermark, a loop render's seam, and a Studio
+ * render's GL Transition with the capture that feeds it, each a frame::Pass on the export surface. The pure
+ * calls (text_px, tile_*, seam_weight) run anywhere; every other call needs the export's GL context current
+ * on the calling thread, destroy included (it deletes GL names). A create always returns a handle (NULL only
+ * when out of memory); geode_export_pass_error says whether it built ("" when it did). None of them times a
+ * frame: they draw the frame the caller hands them, when it does. */
+typedef struct geode_export_pass geode_export_pass;
+GEODE_API const char*         geode_export_pass_error(const geode_export_pass*);   /* "" when clean or NULL */
+GEODE_API void                geode_export_pass_destroy(geode_export_pass*);
+/* The wordmark's text size for a frame's short side, and the power-of-two tile for the measured text width. */
+GEODE_API float               geode_export_watermark_text_px(int short_side);
+GEODE_API int                 geode_export_watermark_tile_width(float text_width);
+GEODE_API int                 geode_export_watermark_tile_height(int tile_width);
+/* rgba: the tile, tile_w x tile_h premultiplied RGBA8, top row first (an ARGB_8888 Bitmap's pixels). */
+GEODE_API geode_export_pass*  geode_export_watermark_create(AAssetManager*, const uint8_t* rgba, int tile_w, int tile_h);
+/* Over the default framebuffer (the encoder surface), frame_w x frame_h pixels, after the scene. */
+GEODE_API void                geode_export_watermark_draw(geode_export_pass*, int frame_w, int frame_h);
+/* Loop seam: up to `requested` full-frame textures of stash (returns how many fitted), filled by capture from
+ * the default framebuffer and laid back over it by blend at closing frame `tail` of `seam_frames`. */
+GEODE_API float               geode_export_seam_weight(int tail, int seam_frames);
+GEODE_API geode_export_pass*  geode_export_seam_create(AAssetManager*, int width, int height);
+GEODE_API int                 geode_export_seam_allocate(geode_export_pass*, int requested);
+GEODE_API void                geode_export_seam_capture(geode_export_pass*, int index);
+GEODE_API void                geode_export_seam_blend(geode_export_pass*, int index, int tail, int seam_frames);
+/* Studio transitions, on Media3's GL thread inside the framebuffer and viewport it bound. id is a GL
+ * Transitions name (gl_transitions.json); an unknown one only copies. from_rgba: bottom row first, taken once. */
+GEODE_API geode_export_pass*  geode_export_transition_create(AAssetManager*, const char* id, int64_t duration_us);
+GEODE_API void                geode_export_transition_configure(geode_export_pass*, int width, int height);
+GEODE_API void                geode_export_transition_set_from(geode_export_pass*, const uint8_t* rgba, int width, int height);
+GEODE_API void                geode_export_transition_draw(geode_export_pass*, unsigned input_tex, int64_t pts_us);
+/* A clip's last frame for the next clip's transition: draws input_tex through unchanged and keeps a copy;
+ * read writes it (width x height RGBA8, bottom row first) and returns 1, or 0 when none or capacity is short. */
+GEODE_API geode_export_pass*  geode_export_capture_create(AAssetManager*);
+GEODE_API void                geode_export_capture_configure(geode_export_pass*, int width, int height);
+GEODE_API void                geode_export_capture_draw(geode_export_pass*, unsigned input_tex);
+GEODE_API int                 geode_export_capture_read(geode_export_pass*, uint8_t* out, size_t capacity);
+
 /* Rest when silent (sound/Silence): the live wallpaper's and the dream's silence rule. A poll hands in the
  * newest planar samples written since the last one (frames 0 when nothing was written) and the time sound
  * was last heard, and gets that time back, moved to now when any sample is above about -42 dBFS. Resting is

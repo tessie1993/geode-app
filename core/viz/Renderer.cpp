@@ -343,11 +343,6 @@ void Renderer::onSurfaceCreated() {
     fboA_.release();
     fboB_.release();
     bornFbo_.release();
-    // The probe's names died with the old context; the limiter starts over on the new surface.
-    outputProbe_.forget();
-    flashLimiter_.reset();
-    flashGrade_ = {};
-    safetyClock_ = 0.0;
     liquidWasOn_ = false;
     lastBornSceneId_.clear();
     activeScene_ = nullptr;

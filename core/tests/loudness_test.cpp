@@ -2,13 +2,16 @@
 // .github/workflows/android.yml, "Native export DSP tests") with the system compiler; no device.
 // References: EBU Tech 3341 (a 997 Hz stereo sine at -23 dBFS reads -23.0 LUFS) and BS.1770 itself
 // (a full-scale mono sine near 1 kHz reads -3.01 LUFS).
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <vector>
 
 #include "api/geode_api.h"
 #include "audio/dsp/Loudness.hpp"
+#include "audio/dsp/PcmConvert.hpp"
 
 using geode::audio::LoudnessAnalyser;
 using geode::audio::LoudnessReport;
@@ -127,6 +130,93 @@ void surroundSkipsTheLfe() {
           "channel layouts: mono, stereo, 5.1");
 }
 
+// geode_loudness_feed_s16 equals converting by 1/32768 first and feeding floats: the Kotlin path it replaced
+// (LoudnessMeter.readSigned16 then loudnessFeed). Odd lengths cross the feed's internal block, 5.1 included,
+// whose 6 does not divide the block.
+void s16FeedMatchesTheFloatFeed() {
+    for (int channels : {1, 2, 6}) {
+        const auto f = sine(48000, channels, 997.0, -12.0, 2.0);
+        std::vector<int16_t> s(f.size());
+        for (size_t i = 0; i < f.size(); ++i) s[i] = static_cast<int16_t>(std::lround(f[i] * 32767.0f));
+        std::vector<float> back(s.size());
+        geode::audio::s16ToFloat(s.data(), s.size(), back.data());
+        geode_loudness* viaFloat = geode_loudness_create(48000, channels);
+        geode_loudness* viaS16 = geode_loudness_create(48000, channels);
+        geode_loudness_feed(viaFloat, back.data(), back.size());
+        size_t at = 0;
+        for (size_t chunk : {size_t{1}, size_t{4095}, size_t{4097}, size_t{9000}}) {
+            const size_t n = std::min(chunk * static_cast<size_t>(channels), s.size() - at);
+            geode_loudness_feed_s16(viaS16, s.data() + at, n);
+            at += n;
+        }
+        geode_loudness_feed_s16(viaS16, s.data() + at, s.size() - at);
+        geode_loudness_report a{};
+        geode_loudness_report b{};
+        geode_loudness_finish(viaFloat, &a);
+        geode_loudness_finish(viaS16, &b);
+        check(a.has_integrated == b.has_integrated && a.integrated_lufs == b.integrated_lufs &&
+                  a.true_peak_dbtp == b.true_peak_dbtp && a.sample_peak_dbfs == b.sample_peak_dbfs &&
+                  a.measured_ms == b.measured_ms && a.gated_block_count == b.gated_block_count,
+              "s16 feed equals the float feed, bit for bit");
+        geode_loudness_destroy(viaFloat);
+        geode_loudness_destroy(viaS16);
+    }
+    geode_loudness_feed_s16(nullptr, nullptr, 4);
+    geode_loudness* l = geode_loudness_create(48000, 2);
+    geode_loudness_feed_s16(l, nullptr, 4);
+    check(geode_loudness_has_block(l) == 0, "abi: null s16 feed is a no-op");
+    geode_loudness_destroy(l);
+}
+
+// ── #506 follow-up: the s16 feed against the standard's own levels, not against the float feed.
+// `seconds` of a 997 Hz sine at its own dBFS peak per channel (kSilent = digital silence), quantized to s16 at
+// 32768 per full scale (clamped to 32767), interleaved in the decoder's order.
+constexpr double kSilent = -200.0;
+
+std::vector<int16_t> sineS16(int rate, const std::vector<double>& channelDbfs, double seconds) {
+    const size_t channels = channelDbfs.size();
+    const auto frames = static_cast<size_t>(rate * seconds);
+    std::vector<int16_t> out(frames * channels);
+    for (size_t c = 0; c < channels; ++c) {
+        if (channelDbfs[c] <= kSilent) continue;
+        const double amplitude = std::pow(10.0, channelDbfs[c] / 20.0);
+        for (size_t f = 0; f < frames; ++f) {
+            const double v = amplitude * std::sin(2.0 * kPi * 997.0 * static_cast<double>(f) / rate);
+            out[f * channels + c] = static_cast<int16_t>(std::min(32767L, std::lround(v * 32768.0)));
+        }
+    }
+    return out;
+}
+
+double integratedViaS16(int rate, const std::vector<int16_t>& pcm, int channels) {
+    geode_loudness* l = geode_loudness_create(rate, channels);
+    geode_loudness_feed_s16(l, pcm.data(), pcm.size());   // one call: crosses the feed's internal block many times
+    geode_loudness_report r{};
+    geode_loudness_finish(l, &r);
+    geode_loudness_destroy(l);
+    return r.has_integrated ? r.integrated_lufs : 999.0;
+}
+
+// EBU Tech 3341 (minimum requirements, +-0.1 LU): test 1, a stereo 1 kHz sine at -23 dBFS, reads -23.0 LUFS;
+// test 2, at -33 dBFS, -33.0; test 6, five channels (L, R -28 dBFS, C -24, Ls, Rs -30), -23.0, here as 5.1
+// with a silent LFE in Android's order (L R C LFE Ls Rs). Hand check of test 6: 2 * 10^-2.8 / 2 + 10^-2.4 / 2
+// + 2 * 1.41 * 10^-3 / 2 = 0.004985, 10 log10 = -23.02. BS.1770: a full-scale mono sine reads -3.01.
+// Kills: a block step that is not a whole number of 5.1 frames (4096 instead of 4092: the channels rotate
+// each block, so the centre and surrounds trade weights); a feed that skips or repeats blocks; any s16 scale
+// but 1/32768 that moves the level by more than 0.1 LU.
+void s16FeedReadsTheEbuLevels() {
+    for (const int rate : {48000, 44100}) {
+        check(near(integratedViaS16(rate, sineS16(rate, {-23.0, -23.0}, 20.0), 2), -23.0, 0.1),
+              "EBU 3341 test 1 through s16: -23 dBFS stereo reads -23.0 LUFS");
+        check(near(integratedViaS16(rate, sineS16(rate, {-33.0, -33.0}, 20.0), 2), -33.0, 0.1),
+              "EBU 3341 test 2 through s16: -33 dBFS stereo reads -33.0 LUFS");
+        check(near(integratedViaS16(rate, sineS16(rate, {-28.0, -28.0, -24.0, kSilent, -30.0, -30.0}, 20.0), 6), -23.0, 0.1),
+              "EBU 3341 test 6 through s16: the 5-channel sine reads -23.0 LUFS");
+        check(near(integratedViaS16(rate, sineS16(rate, {0.0}, 10.0), 1), -3.01, 0.1),
+              "BS.1770 through s16: a full-scale mono sine reads -3.01 LUFS");
+    }
+}
+
 void cAbiGuards() {
     check(geode_loudness_create(48000, 4) == nullptr, "abi: quad refused");
     check(geode_loudness_create(0, 2) == nullptr, "abi: zero rate refused");
@@ -155,6 +245,8 @@ int main() {
     relativeGateDropsTheQuietTail();
     oddChunksMatchOneChunk();
     surroundSkipsTheLfe();
+    s16FeedMatchesTheFloatFeed();
+    s16FeedReadsTheEbuLevels();
     cAbiGuards();
     if (failures == 0) std::printf("loudness_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;

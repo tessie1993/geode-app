@@ -9,10 +9,10 @@ namespace geode::sound {
 // The form half of the musical layer: where in the song we are. Sections, their return, the build and
 // the drop, and a coarse section state (intro, verse, build, drop, breakdown, outro).
 //
-//   frame features ─► mean per beat (the rhythm's ticks) ─► 32-beat ring ─► pairwise distances
+//   hop features ─► mean per beat (the rhythm's ticks) ─► 32-beat ring ─► pairwise distances
 //      ─► Foote's checkerboard at the last downbeat but one (16 beats before, 4 after) ─► novelty
 //      ─► on a downbeat, 8+ bars after the last: sectionChange ─► nearest stored section ─► sectionId
-//   frame features ─► 4 a second, 8 s ring ─► slopes of loudness, brightness, onset rate, bass share
+//   hop features ─► 4 a second, 8 s ring ─► slopes of loudness, brightness, onset rate, bass share
 //      ─► buildUp ─► bass back after a build ─► drop
 //
 // Live means no future: the checkerboard's "after" half is the bar just played, so a section change fires
@@ -35,7 +35,7 @@ public:
         const float* chroma;  // the medium chroma, 12, loudest = 1
         float loudnessDb;     // the window's RMS, dBFS
         float bassShare;      // the low band's share of the mix's energy, 0..1
-        float events;         // onsets, snares and hats this frame, for the onset rate
+        float events;         // onsets, snares and hats this hop, for the onset rate
         bool silent;
     };
 

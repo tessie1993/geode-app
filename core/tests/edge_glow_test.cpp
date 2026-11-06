@@ -155,6 +155,181 @@ void blackWeightAcrossTheFrame() {
     check(inRange, "the black's weight is a finite 0..1 alpha across the frame");
 }
 
+// ---- #503 follow-up: behaviour the checks above leave open. Each case fails against the named mutant of
+// the PR's EdgeGlowMath.hpp and passes on it as written. Expected values come from the ABI comment in
+// geode_api.h, the spec comments in EdgeGlowMath.hpp, or a hand-worked literal, never from the code's maths.
+
+// Kills `opts[0] > 0.5f` -> `>= 0.5f`: the ABI says "> 0.5 = on", so exactly 0.5 is off.
+void enabledThresholdIsStrictlyAboveHalf() {
+    const float half[eg::kFloats] = {0.5f, 0.0f, 0.0f, 0.0f, 0.0f};
+    const float clearlyOn[eg::kFloats] = {0.75f, 0.0f, 0.0f, 0.0f, 0.0f};
+    check(!eg::parse(half, eg::kFloats).enabled, "an enabled flag of exactly 0.5 leaves the edge glow off");
+    check(eg::parse(clearlyOn, eg::kFloats).enabled, "an enabled flag of 0.75 turns the edge glow on");
+}
+
+// Kills a finiteness check that stops short (`i < kFloats - 1`, or only the flag checked): a garbled
+// option in any slot, the window's height included, turns the glow off.
+void aGarbledOptionInAnySlotTurnsTheGlowOff() {
+    bool allOff = true;
+    for (int slot = 0; slot < eg::kFloats; ++slot) {
+        float opts[eg::kFloats] = {1.0f, 0.0f, 0.0f, 1080.0f, 2400.0f};
+        opts[slot] = std::numeric_limits<float>::infinity();
+        allOff = allOff && !eg::parse(opts, eg::kFloats).enabled;
+    }
+    check(allOff, "an infinite option in any slot turns the edge glow off");
+}
+
+// Kills `count < kFloats` -> `count != kFloats`: the ABI only rejects fewer floats, so a longer array (a
+// newer shell) still turns the glow on with the window as sent.
+void extraTrailingOptionsAreIgnored() {
+    const float longer[eg::kFloats + 1] = {1.0f, 0.0f, 0.0f, 1080.0f, 2400.0f, 42.0f};
+    const eg::Options o = eg::parse(longer, eg::kFloats + 1);
+    check(o.enabled && o.width == 1080.0f && o.height == 2400.0f, "an extra trailing float leaves the options as sent");
+}
+
+// Kills dropping the lower clamp or the isfinite guard on dt in rateOver(): a negative or NaN frame time
+// (a clock that stepped back, a garbled dt) leaves the band where it was instead of throwing it.
+void aBackwardOrGarbledFrameTimeLeavesTheBandStill() {
+    GeodeSoundFrame loud = frameWithRms(0.5f);
+    eg::Envelope back;
+    back.level = 0.25f;
+    back.step(&loud, -0.1f);
+    check(back.level == 0.25f, "a negative dt leaves the band where it was");
+    eg::Envelope garbled;
+    garbled.level = 0.25f;
+    garbled.step(&loud, std::numeric_limits<float>::quiet_NaN());
+    check(garbled.level == 0.25f, "a NaN dt leaves the band where it was");
+}
+
+// Kills removing the kMaxDt cap: the spec says a longer frame "steps the envelope as if it were this long",
+// so a 10 s stall releases exactly as far as one kMaxDt frame, and leaves the band open (a quarter second
+// of release from full is 0.92^15, about 0.29, by hand) rather than shut as 10 s of release would.
+void aStallReleasesNoFurtherThanTheCap() {
+    GeodeSoundFrame silent = frameWithRms(0.0f);
+    eg::Envelope stalled;
+    stalled.level = 1.0f;
+    stalled.step(&silent, 10.0f);
+    eg::Envelope capped;
+    capped.level = 1.0f;
+    capped.step(&silent, eg::kMaxDt);
+    check(near(stalled.level, capped.level, 1e-6f), "a 10 s stall releases exactly as far as one kMaxDt frame");
+    check(stalled.level > 0.2f, "a stall leaves the band open instead of snapping it shut");
+}
+
+// Kills a pause that drops the target to 0 (0.92 of the level after one frame), to level * rate (0.928),
+// or holds it (1.0): the spec eases a paused band off by a tenth of its level per reference frame, followed
+// at the release rate, so one paused frame narrows it by 1 - 0.1 * 0.08 = 0.992 (by hand). The check
+// allows anything between a 0 % and a 1.5 % drop.
+void aPausedSongEasesTheBandOffGently() {
+    eg::Envelope env;
+    env.level = 0.8f;
+    GeodeSoundFrame f = frameWithRms(0.2f);
+    env.lastRms = f.rms;  // the engine already delivered this RMS: nothing new is heard
+    env.step(&f, 1.0f / eg::kRefFps);
+    check(env.level < 0.8f, "a paused frame narrows the band");
+    check(env.level > 0.8f * 0.985f, "a paused frame narrows the band by under 1.5 %, not by a release step");
+}
+
+// Kills removing the isfinite guard in targetLevel(): a NaN RMS (a garbled sound frame) is silence.
+void aGarbledRmsIsSilence() {
+    GeodeSoundFrame garbled = frameWithRms(std::numeric_limits<float>::quiet_NaN());
+    check(eg::targetLevel(&garbled) == 0.0f, "a NaN RMS reaches for a level of 0");
+    eg::Envelope env;
+    env.level = 0.5f;
+    for (int i = 0; i < 10; ++i) env.step(&garbled, 1.0f / eg::kRefFps);
+    check(std::isfinite(env.level) && env.level < 0.5f, "a NaN RMS lets the band settle and stay finite");
+}
+
+// Kills `o.width <= 0 || o.height <= 0` -> `&&`, and `<= 0` -> `< 0`: either side zero or negative means
+// the whole surface (geode_api.h), not a zero-sized window.
+void aWindowWithOneEmptySideIsTheWholeSurface() {
+    const float sides[][2] = {{1080.0f, 0.0f}, {0.0f, 2400.0f}, {-1.0f, 2400.0f}, {1080.0f, -5.0f}};
+    bool allWhole = true;
+    for (const auto& side : sides) {
+        eg::Options o;
+        o.enabled = true;
+        o.left = 30.0f;
+        o.top = 40.0f;
+        o.width = side[0];
+        o.height = side[1];
+        const eg::Rect r = eg::glWindow(o, 1080, 2400);
+        allWhole = allWhole && r.x == 0.0f && r.y == 0.0f && r.w == 1080.0f && r.h == 2400.0f;
+    }
+    check(allWhole, "a window with an empty or negative side is the whole surface");
+}
+
+// Kills removing the max(surface, 1) guard: a surface not sized yet (0 x 0) is one pixel, and its mask is
+// finite.
+void anUnsizedSurfaceGivesAFiniteMask() {
+    eg::Options whole;
+    whole.enabled = true;
+    const eg::Rect r = eg::glWindow(whole, 0, 0);
+    check(r.w == 1.0f && r.h == 1.0f, "an unsized surface is treated as one pixel");
+    check(std::isfinite(eg::blackAt(eg::shape(r, 0.5f), 0.5f, 0.5f)), "the mask over an unsized surface is finite");
+}
+
+// Kills `shortSide = window.w` (or `window.h`): the band and corners are fractions of the SHORT side, so a
+// landscape window breathes exactly like a portrait one of the same short side.
+void theBandFollowsTheShortSideInLandscape() {
+    const eg::Rect portrait{0.0f, 0.0f, 1080.0f, 2400.0f};
+    const eg::Rect landscape{0.0f, 0.0f, 2400.0f, 1080.0f};
+    bool same = true;
+    for (float level : {0.0f, 0.5f, 1.0f}) {
+        const eg::Shape p = eg::shape(portrait, level);
+        const eg::Shape l = eg::shape(landscape, level);
+        same = same && p.bandPx == l.bandPx && p.radiusPx == l.radiusPx;
+    }
+    check(same, "landscape and portrait of one short side share the band and the corners");
+}
+
+// Kills removing the level clamp in shape(): a level past full does not widen the band past full, and one
+// below rest does not narrow it below rest.
+void theBandStaysBetweenRestAndFull() {
+    const eg::Rect w{0.0f, 0.0f, 1080.0f, 2400.0f};
+    check(eg::shape(w, 3.0f).bandPx == eg::shape(w, 1.0f).bandPx, "a level past full draws the full band");
+    check(eg::shape(w, -2.0f).bandPx == eg::shape(w, 0.0f).bandPx, "a level below rest draws the resting band");
+}
+
+// Kills dropping or flipping the window's offset in blackAt() (`s.window.x + hx` -> `hx` or `- hx`): on a
+// panned wallpaper the clear rim sits on the screen's edges, and the surface off screen is black.
+void theRimFollowsAPannedWindow() {
+    const eg::Rect panned{540.0f, 0.0f, 1080.0f, 2400.0f};  // the middle page of a 2160 px wide surface
+    const eg::Shape s = eg::shape(panned, 0.5f);
+    check(near(eg::blackAt(s, 541.0f, 1200.0f), 0.0f), "the screen's left edge on a panned surface is clear");
+    check(near(eg::blackAt(s, 1619.0f, 1200.0f), 0.0f), "the screen's right edge on a panned surface is clear");
+    check(near(eg::blackAt(s, 1080.0f, 1200.0f), 1.0f), "the screen's middle on a panned surface is black");
+    check(near(eg::blackAt(s, 10.0f, 1200.0f), 1.0f), "the surface off screen to the left is black");
+    check(near(eg::blackAt(s, 2150.0f, 1200.0f), 1.0f), "the surface off screen to the right is black");
+}
+
+// Kills using the half width for y (or the half height for x), and dropping abs() on either axis: the rim
+// is clear on all four sides of a tall window, and the mask is mirror symmetric both ways.
+void theRimIsClearOnAllFourSides() {
+    const eg::Shape s = eg::shape(eg::Rect{0.0f, 0.0f, 1080.0f, 2400.0f}, 0.5f);
+    check(near(eg::blackAt(s, 540.0f, 2399.0f), 0.0f), "the top rim is clear");
+    check(near(eg::blackAt(s, 1079.0f, 1200.0f), 0.0f), "the right rim is clear");
+    bool mirrored = true;
+    for (float y = 3.0f; y < 2400.0f; y += 97.0f) {
+        for (float x = 3.0f; x < 540.0f; x += 29.0f) {
+            const float a = eg::blackAt(s, x, y);
+            mirrored = mirrored && near(a, eg::blackAt(s, 1080.0f - x, y), 1e-3f) &&
+                       near(a, eg::blackAt(s, x, 2400.0f - y), 1e-3f);
+        }
+    }
+    check(mirrored, "the mask is the same mirrored left to right and top to bottom");
+}
+
+// Kills replacing the corner's Euclidean distance (hypot) by a Manhattan sum or a max: one pixel inside the
+// rounded corner's arc, on its 45 degree diagonal, is on the rim and so clear; one pixel outside is black.
+void theCornerIsRoundNotSquareOrBevelled() {
+    const eg::Shape s = eg::shape(eg::Rect{0.0f, 0.0f, 1080.0f, 2400.0f}, 0.5f);
+    const float r = s.radiusPx;  // the corner circle's centre is at (r, r)
+    const float in = (r - 1.0f) / std::sqrt(2.0f);
+    check(eg::blackAt(s, r - in, r - in) < 0.01f, "one pixel inside the rounded corner is clear");
+    const float out = (r + 1.0f) / std::sqrt(2.0f);
+    check(near(eg::blackAt(s, r - out, r - out), 1.0f), "one pixel outside the rounded corner is black");
+}
+
 }  // namespace
 
 int main() {
@@ -164,6 +339,20 @@ int main() {
     envelopeIsFrameRateIndependent();
     windowFlipsToGlAndShapes();
     blackWeightAcrossTheFrame();
+    enabledThresholdIsStrictlyAboveHalf();
+    aGarbledOptionInAnySlotTurnsTheGlowOff();
+    extraTrailingOptionsAreIgnored();
+    aBackwardOrGarbledFrameTimeLeavesTheBandStill();
+    aStallReleasesNoFurtherThanTheCap();
+    aPausedSongEasesTheBandOffGently();
+    aGarbledRmsIsSilence();
+    aWindowWithOneEmptySideIsTheWholeSurface();
+    anUnsizedSurfaceGivesAFiniteMask();
+    theBandFollowsTheShortSideInLandscape();
+    theBandStaysBetweenRestAndFull();
+    theRimFollowsAPannedWindow();
+    theRimIsClearOnAllFourSides();
+    theCornerIsRoundNotSquareOrBevelled();
     if (failures != 0) {
         std::printf("%d edge glow check(s) failed\n", failures);
         return 1;

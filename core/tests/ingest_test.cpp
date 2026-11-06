@@ -12,6 +12,8 @@
 // - the BS.775 downmix weights for 5.1 and 7.1, stereo bit-exact, mono centred;
 // - the raw mono tail projectM takes ends at the cursor and stays inside the epoch;
 // - the ring's silence answer rests after the hold, and a ring nobody writes rests too.
+// - switching sources player → mic → player (#485): each switch restarts the reader, and no frame is read
+//   at the other source's rate.
 #include <atomic>
 #include <cmath>
 #include <cstdint>
@@ -518,6 +520,104 @@ void recordRingOverrun() {
     geode_ingest_destroy(ing);
 }
 
+// Switching the visuals between sources (#485): player → mic → player. Each source writes its own ring
+// (AudioBus.micRing beside the player's), the capture pump begins an epoch on its worker before its first
+// write, and a renderer handed another ring (geode_viz_set_sound_source) starts a fresh cursor on it. So:
+// each switch is a restart, every frame carries the rate of the ring it came from (no mic samples at the
+// player's rate or the other way round: no wrong-rate burst), and a cursor never hands out another
+// source's samples.
+constexpr int kSwitchPlayerRate = 48000;
+constexpr int kSwitchMicRate = 44100;
+constexpr int kSwitchChunk = 480;
+constexpr int16_t kPlayerValue = 8192;   // 0.25
+constexpr int16_t kMicValue = -16384;    // -0.5
+
+void writeConstant(geode_ingest* ing, int channels, int16_t value, int chunks) {
+    std::vector<int16_t> pcm(static_cast<size_t>(kSwitchChunk) * static_cast<size_t>(channels), value);
+    for (int i = 0; i < chunks; ++i) geode_ingest_write(ing, pcm.data(), kSwitchChunk, GEODE_PCM_S16);
+}
+
+struct Heard {
+    int64_t frames = 0;
+    bool restarted = false;
+    bool rateRight = true;
+    bool valueRight = true;
+};
+
+// Reads the cursor dry, as a renderer does over a few frames, checking each block's rate and samples.
+Heard drain(Cursor& cursor, int rate, float value) {
+    Heard h;
+    std::vector<float> stereo(4096 * 2);
+    for (int guard = 0; guard < 1000; ++guard) {
+        const Cursor::Block b = cursor.read(stereo.data(), 4096);
+        if (b.restarted) h.restarted = true;
+        if (b.frames == 0) break;
+        if (b.sampleRate != rate) h.rateRight = false;
+        for (int i = 0; i < b.frames * 2; ++i) {
+            if (!near(stereo[static_cast<size_t>(i)], value)) h.valueRight = false;
+        }
+        h.frames += b.frames;
+    }
+    return h;
+}
+
+void sourceSwitchRestartsWithoutAWrongRateBurst() {
+    geode_ingest* player = geode_ingest_create(1 << 15, 8);
+    geode_ingest* mic = geode_ingest_create(1 << 15, 2);
+    const float playerValue = kPlayerValue / 32768.0f;
+    const float micValue = kMicValue / 32768.0f;
+
+    // Playing: the renderer hears the player's ring from now on.
+    geode_ingest_begin_epoch(player, kSwitchPlayerRate, 2, 0x0C);
+    writeConstant(player, 2, kPlayerValue, 4);
+    Cursor onPlayer(ringOf(player));
+    writeConstant(player, 2, kPlayerValue, 6);
+    const Heard playing = drain(onPlayer, kSwitchPlayerRate, playerValue);
+    check(playing.restarted && playing.frames == 6 * kSwitchChunk, "player: a fresh cursor restarts and hears each new frame once");
+    check(playing.rateRight && playing.valueRight, "player: its own samples at its own rate");
+
+    // Mic on: playback pauses (no more player writes); the renderer gets the mic's ring while the pump's
+    // worker begins its epoch at the rate the AudioRecord opened, then writes mono.
+    Cursor onMic(ringOf(mic));
+    geode_ingest_begin_epoch(mic, kSwitchMicRate, 1, 0x04);
+    writeConstant(mic, 1, kMicValue, 10);
+    const Heard micHeard = drain(onMic, kSwitchMicRate, micValue);
+    check(micHeard.restarted && micHeard.frames == 10 * kSwitchChunk, "player → mic restarts the renderer, every mic frame once");
+    check(micHeard.rateRight, "player → mic: every mic frame at the mic's rate, none at the player's");
+    check(micHeard.valueRight, "player → mic: only mic samples, mono on both sides");
+
+    // Mic off: back to the player's ring, then play resumes on a new epoch.
+    Cursor backOnPlayer(ringOf(player));
+    const Heard idle = drain(backOnPlayer, kSwitchPlayerRate, playerValue);
+    check(idle.frames == 0, "mic → player: nothing old replayed while the player is paused");
+    geode_ingest_begin_epoch(player, kSwitchPlayerRate, 2, 0x0C);
+    writeConstant(player, 2, kPlayerValue, 4);
+    const Heard back = drain(backOnPlayer, kSwitchPlayerRate, playerValue);
+    check(back.restarted && back.frames == 4 * kSwitchChunk, "mic → player restarts the renderer, every player frame once");
+    check(back.rateRight && back.valueRight, "mic → player: player samples at the player's rate, no mic burst");
+
+    // The mic again, now opened at another rate: a cursor still on its ring restarts at the new rate.
+    geode_ingest_begin_epoch(mic, 16000, 1, 0x04);
+    writeConstant(mic, 1, kMicValue, 2);
+    const Heard again = drain(onMic, 16000, micValue);
+    check(again.restarted && again.frames == 2 * kSwitchChunk, "a new capture run restarts its reader");
+    check(again.rateRight, "a new capture run: every frame at the run's own rate, none at the last run's");
+
+    geode_ingest_destroy(mic);
+    geode_ingest_destroy(player);
+}
+
+void sourceKind() {
+    geode_ingest* ring = geode_ingest_create(1024, 2);
+    check(geode_ingest_source_kind(ring) == GEODE_SOURCE_PLAYER, "source kind: a new ring is the player's");
+    geode_ingest_set_source_kind(ring, GEODE_SOURCE_MIC);
+    check(geode_ingest_source_kind(ring) == GEODE_SOURCE_MIC, "source kind: set, then read back");
+    check(ringOf(ring).sourceKind() == geode::audio::ingest::kSourceMic, "source kind: the ring holds it");
+    check(geode_ingest_source_kind(nullptr) == GEODE_SOURCE_PLAYER, "source kind: NULL reads as the player");
+    geode_ingest_set_source_kind(nullptr, GEODE_SOURCE_MIC);   // no crash
+    geode_ingest_destroy(ring);
+}
+
 }  // namespace
 
 int main() {
@@ -533,6 +633,8 @@ int main() {
     rawMonoTail();
     restingAfterTheHold();
     recordRingOverrun();
+    sourceSwitchRestartsWithoutAWrongRateBurst();
+    sourceKind();
     if (failures) {
         std::printf("%d ingest check(s) failed\n", failures);
         return 1;

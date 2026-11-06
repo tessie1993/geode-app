@@ -36,15 +36,18 @@ data class ExternalAudioState(
 internal class CaptureController(
     private val application: Application,
     private val scope: CoroutineScope,
-    capture: dev.geode.engine.audio.PcmSink,
     private val host: Host,
 ) {
     interface Host {
         fun pausePlayback()
 
-        fun resetSound()
-
-        fun setSoundRate(rateHz: Int)
+        /**
+         * Points the visuals at [ring], a capture source's native ring, or back at the player's for 0.
+         * The rate and the restart travel with the ring (`core/audio/ingest`): each capture run begins
+         * its own epoch at its own rate, and a renderer that changes ring starts a new cursor on it, so
+         * player → mic → player is two restarts and never a burst read at the other source's rate.
+         */
+        fun hearSource(ring: Long)
 
         fun setMicReactivePref(on: Boolean)
 
@@ -52,13 +55,13 @@ internal class CaptureController(
         val micReactivePref: Boolean
     }
 
-    private val micCapture = MicCapture(application, capture)
+    private val micCapture = MicCapture(application)
 
     private val _micState = MutableStateFlow(MicState())
 
     val micState: StateFlow<MicState> = _micState
 
-    private val playbackCapture = PlaybackCapture(capture)
+    private val playbackCapture = PlaybackCapture()
 
     private val nowPlayingBridge = NowPlayingBridge(application)
 
@@ -96,15 +99,6 @@ internal class CaptureController(
         if (hasMicPermission()) setMicEnabled(true) else refreshMicState()
     }
 
-    @Volatile
-    private var tapSampleRateHz: Int = 0
-
-    val audioFormatHook: (sampleRateHz: Int, channelCount: Int, encoding: Int) -> Unit =
-        { rate, _, _ ->
-            tapSampleRateHz = rate
-            if (!externalAudioOwnsRing()) host.setSoundRate(rate)
-        }
-
     /**
      * Begins watching for a media projection.
      *
@@ -130,8 +124,7 @@ internal class CaptureController(
                         startPlaybackCapture(projection)
                     } else if (_externalAudio.value.active) {
                         playbackCapture.stop()
-                        host.resetSound()
-                        host.setSoundRate(playbackRateFallback())
+                        host.hearSource(0L)
                         _externalAudio.update { it.copy(active = false, refusedByApp = false) }
                     }
                 }
@@ -147,16 +140,11 @@ internal class CaptureController(
         }
     }
 
-    private fun playbackRateFallback(): Int = tapSampleRateHz.takeIf { it > 0 } ?: 44100
-
-    private fun externalAudioOwnsRing(): Boolean = micCapture.active || playbackCapture.active
-
     fun setMicEnabled(enabled: Boolean): MicCapture.Failure? {
         if (!enabled) {
             micPausedInBackground = false
             micCapture.stop()
-            host.resetSound()
-            host.setSoundRate(playbackRateFallback())
+            host.hearSource(0L)
             _micState.value = MicState(active = false)
             host.setMicReactivePref(false)
             return null
@@ -164,12 +152,12 @@ internal class CaptureController(
         if (micCapture.active) return null
         if (playbackCapture.active || _externalAudio.value.active) stopExternalAudio()
         host.pausePlayback()
-        val failure = micCapture.start { rate -> host.setSoundRate(rate) }
+        val failure = micCapture.start()
         if (failure != null) {
             _micState.value = MicState(active = false, failure = failure)
             return failure
         }
-        host.resetSound()
+        host.hearSource(micCapture.ring)
         _micState.value = MicState(active = true)
         host.setMicReactivePref(true)
         return null
@@ -202,12 +190,9 @@ internal class CaptureController(
         }
         host.pausePlayback()
         if (micCapture.active) setMicEnabled(false)
-        val failure = playbackCapture.start(projection) { rate -> host.setSoundRate(rate) }
-        host.resetSound()
-        if (failure != null) {
-            host.setSoundRate(playbackRateFallback())
-            PlaybackCaptureService.stop(application)
-        }
+        val failure = playbackCapture.start(projection)
+        host.hearSource(if (failure == null) playbackCapture.ring else 0L)
+        if (failure != null) PlaybackCaptureService.stop(application)
         _externalAudio.update {
             it.copy(
                 active = failure == null,
@@ -220,8 +205,7 @@ internal class CaptureController(
 
     fun stopExternalAudio() {
         playbackCapture.stop()
-        host.resetSound()
-        host.setSoundRate(playbackRateFallback())
+        host.hearSource(0L)
         PlaybackCaptureService.stop(application)
         _externalAudio.update {
             it.copy(active = false, awaitingConsent = false, refusedByApp = false)
@@ -269,8 +253,7 @@ internal class CaptureController(
 
     fun refreshMicState() {
         if (!_micState.value.active || micCapture.active) return
-        host.resetSound()
-        host.setSoundRate(playbackRateFallback())
+        host.hearSource(0L)
         _micState.value = MicState(active = false, failure = MicCapture.Failure.UNAVAILABLE)
         host.setMicReactivePref(false)
     }

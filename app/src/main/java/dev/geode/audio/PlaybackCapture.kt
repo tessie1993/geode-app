@@ -8,7 +8,6 @@ import android.media.projection.MediaProjection
 import android.os.Build
 import androidx.annotation.RequiresApi
 import dev.geode.util.bestEffort
-import kotlin.math.abs
 
 enum class CaptureFailure {
     UNSUPPORTED,
@@ -22,12 +21,12 @@ enum class CaptureFailure {
 
 val playbackCaptureSupported: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
 
-class PlaybackCapture(
-    sink: dev.geode.engine.audio.PcmSink,
-) : AudioCapturePump(sink, DEFAULT_RATE) {
-    @Volatile
-    var blockedLikely: Boolean = false
-        private set
+class PlaybackCapture : AudioCapturePump(AudioBus.captureRing, DEFAULT_RATE) {
+    /**
+     * Capture has heard nothing for the native silence hold: with something playing, the playing app
+     * most likely refuses capture (see [ringResting]).
+     */
+    val blockedLikely: Boolean get() = active && ringResting()
 
     @Volatile
     private var channelCount: Int = 1
@@ -36,38 +35,11 @@ class PlaybackCapture(
 
     @RequiresApi(Build.VERSION_CODES.Q)
     @Synchronized
-    fun start(
-        projection: MediaProjection,
-        onSampleRate: (Int) -> Unit = {},
-    ): CaptureFailure? {
+    fun start(projection: MediaProjection): CaptureFailure? {
         if (active) return null
         val rec = openRecord(projection) ?: return CaptureFailure.UNAVAILABLE
-        if (!startPump(rec, channelCount, onSampleRate)) return CaptureFailure.UNAVAILABLE
+        if (!startPump(rec, channelCount)) return CaptureFailure.UNAVAILABLE
         return null
-    }
-
-    override fun noteLevel(
-        buffer: FloatArray,
-        count: Int,
-        startedAtMs: Long,
-    ) {
-        var peak = 0f
-        for (i in 0 until count) {
-            val v = abs(buffer[i])
-            if (v > peak) peak = v
-        }
-        val now = nowMs()
-        if (peak > SILENCE_EPSILON) {
-            lastAudibleAtMs = now
-            blockedLikely = false
-        } else {
-            val quietSince = if (lastAudibleAtMs == 0L) startedAtMs else lastAudibleAtMs
-            if (now - quietSince > SILENCE_GRACE_MS) blockedLikely = true
-        }
-    }
-
-    override fun resetLevel() {
-        blockedLikely = false
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)

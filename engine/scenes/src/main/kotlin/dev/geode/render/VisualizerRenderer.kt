@@ -4,8 +4,6 @@ import android.content.Context
 import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import android.os.SystemClock
-import dev.geode.engine.audio.SoundCursor
-import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.bridge.NativeViz
@@ -86,25 +84,17 @@ class VisualizerRenderer(
     var onSurfaceSizeChanged: (width: Int, height: Int) -> Unit = { _, _ -> }
 
     /**
-     * The native ingest ring (`geode_ingest*`, the player's: `AudioBus.playerIngest`) this surface's sound
-     * engine hears, or 0. The native renderer reads it itself with its own cursor each frame (core/viz/
-     * SoundFeed, #481): every sample once, downmixed, with its own rate and epoch. Asked every frame, so a
-     * playback session that comes and goes under a running wallpaper is picked up.
+     * The native ingest ring (`geode_ingest*`) this surface's sound engine hears, or 0: the player's, the
+     * mic's, other apps' audio or the wallpaper's output mix (`AudioBus.soundSource`, `SoundSource`). The
+     * native renderer reads it itself with its own cursor each frame (core/viz/SoundFeed, #481): every
+     * sample once, downmixed, with its own rate and epoch. Asked every frame, so a source that changes
+     * under a running surface is picked up as a restart at the new ring's rate.
      */
     @Volatile
     var soundSource: () -> Long = { 0L }
 
     /** The source last handed to this native handle; -1 forces a hand-over to a new one. GL thread. */
     private var nativeSoundSource = -1L
-
-    /**
-     * The Kotlin capture ring (mic, other apps' audio, the wallpaper's output mix) until #485 moves capture
-     * onto native rings too. Fed through [soundCursor]; only one of the two sources plays at a time.
-     */
-    @Volatile
-    var soundInput: () -> SoundInput? = { null }
-
-    private var soundCursor: SoundCursor? = null
 
     /** Settings › Audio. Compared by identity on the GL thread, so assign a new instance to change it. */
     @Volatile
@@ -375,11 +365,6 @@ class VisualizerRenderer(
             nativeViz.setSoundSource(source)
             nativeSoundSource = source
         }
-        val input = soundInput() ?: return
-        val cursor = soundCursor?.takeIf { it.ring === input.ring } ?: SoundCursor(input.ring).also { soundCursor = it }
-        val take = cursor.take()
-        if (take.restarted) nativeViz.resetAudio()
-        nativeViz.writeAudio(cursor.interleaved, take.frames, cursor.channels, input.sampleRateHz)
     }
 
     fun exportSceneFactory(sceneId: String): SceneFactory {

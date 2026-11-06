@@ -20,9 +20,6 @@ import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsStore
 import dev.geode.data.SessionStore
 import dev.geode.engine.audio.AudioPresentationClock
-import dev.geode.engine.audio.PcmSink
-import dev.geode.engine.audio.SampleRing
-import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audioandroid.PcmTap
 import dev.geode.engine.audioandroid.SinkClockDriver
 import dev.geode.engine.audioandroid.TapBoundaryListener
@@ -43,18 +40,9 @@ class PlaybackSession internal constructor(
      */
     val ingest: Long = PlaybackEngine.playerIngest
 
-    /** The mic's and other apps' capture ring, still Kotlin until #485; the player no longer writes it. */
-    internal val sampleRing = SampleRing(capacityFrames = 1 shl 16, channelCount = 2)
-
-    @Volatile
-    var onAudioFormat: ((sampleRateHz: Int, channelCount: Int, encoding: Int) -> Unit)? = null
-
     internal val presentationClock = AudioPresentationClock()
 
     internal val clockDriver = SinkClockDriver(presentationClock)
-
-    /** Where the mic and capture write (CaptureController) until #485. */
-    internal val captureSink: PcmSink = sampleRing
 
     private val prefsFiles = GeodePrefsFiles(context)
 
@@ -67,14 +55,7 @@ class PlaybackSession internal constructor(
     private val bitPerfect = BitPerfectOutput(context) { dsp.bitPerfect = it }
 
     internal val tap =
-        PcmTap(ingest) { format ->
-            val hook = onAudioFormat
-            if (hook != null) {
-                hook(format.sampleRateHz, format.channelCount, format.encoding)
-            } else {
-                sampleRateHz = format.sampleRateHz
-            }
-        }.apply {
+        PcmTap(ingest).apply {
             boundaryListener =
                 TapBoundaryListener { ended, endedFrames, begun ->
                     clockDriver.onTapBoundary(ended, endedFrames, begun)
@@ -154,24 +135,13 @@ class PlaybackSession internal constructor(
     /** Bumps once per recorded play; the UI's history tick follows it. */
     val playsRecorded = recorder.plays
 
-    /**
-     * The rate of whichever source writes [sampleRing] right now: the tap's format when nothing else
-     * claims it, otherwise what the UI session's capture controller sets (mic, other apps' audio, or
-     * back to the player). Written from the playback and capture threads, read on every GL thread.
-     */
-    @Volatile
-    var sampleRateHz: Int = DEFAULT_SAMPLE_RATE_HZ
-
-    /** The capture ring as the surfaces read it until #485; the rate follows whichever capture owns it. */
-    val soundInput = SoundInput(sampleRing) { sampleRateHz }
-
     init {
         player.addListener(replayGain)
         player.addListener(autoDirector)
         player.addListener(crossfade)
         player.addListener(recorder)
-        dev.geode.audio.AudioBus.soundInput = soundInput
-        dev.geode.audio.AudioBus.playerIngest = ingest
+        // The player's ring is what the visuals hear until a capture source claims them (CaptureController).
+        dev.geode.audio.AudioBus.soundSource = ingest
         // The saved options go on here, not only when the UI attaches: a session the service starts
         // alone (a headset button, Android Auto or System UI resuming playback) has no PlayerSession,
         // and without this it would ignore pause-on-unplug, ReplayGain, shuffle and repeat until the
@@ -222,12 +192,9 @@ class PlaybackSession internal constructor(
                 player.playbackState != Player.STATE_ENDED
 
     internal fun release() {
-        if (dev.geode.audio.AudioBus.soundInput === soundInput) dev.geode.audio.AudioBus.soundInput = null
-        // The ring itself stays (process-wide); with no session nothing writes it, and the surfaces stop asking.
-        dev.geode.audio.AudioBus.playerIngest = 0L
+        if (dev.geode.audio.AudioBus.soundSource == ingest) dev.geode.audio.AudioBus.soundSource = 0L
         recorder.release()
         scope.cancel()
-        onAudioFormat = null
         audioFx.release()
         player.removeListener(replayGain)
         player.removeListener(autoDirector)
@@ -241,8 +208,6 @@ class PlaybackSession internal constructor(
     }
 
     private companion object {
-        const val DEFAULT_SAMPLE_RATE_HZ = 48_000
-
         /** One file, written in order off the main thread; a daemon, like the history writer. */
         val sessionWriter: java.util.concurrent.ExecutorService =
             java.util.concurrent.Executors.newSingleThreadExecutor { r ->

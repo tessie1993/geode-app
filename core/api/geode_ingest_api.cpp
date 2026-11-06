@@ -10,6 +10,11 @@ static_assert(static_cast<int>(GEODE_PCM_U8) == static_cast<int>(geode::audio::i
 static_assert(static_cast<int>(GEODE_PCM_F32) == static_cast<int>(geode::audio::ingest::kPcmFloat));
 static_assert(static_cast<int>(GEODE_PCM_S24_PACKED) == static_cast<int>(geode::audio::ingest::kPcm24Packed));
 static_assert(static_cast<int>(GEODE_PCM_S32) == static_cast<int>(geode::audio::ingest::kPcm32));
+static_assert(static_cast<int>(GEODE_SOURCE_PLAYER) == static_cast<int>(geode::audio::ingest::kSourcePlayer));
+static_assert(static_cast<int>(GEODE_SOURCE_MIC) == static_cast<int>(geode::audio::ingest::kSourceMic));
+static_assert(static_cast<int>(GEODE_SOURCE_CAPTURE) == static_cast<int>(geode::audio::ingest::kSourceCapture));
+static_assert(static_cast<int>(GEODE_SOURCE_OUTPUT_MIX) == static_cast<int>(geode::audio::ingest::kSourceOutputMix));
+static_assert(static_cast<int>(GEODE_SOURCE_FILE) == static_cast<int>(geode::audio::ingest::kSourceFile));
 }  // namespace
 
 extern "C" {
@@ -45,6 +50,14 @@ long long geode_ingest_written(const geode_ingest* ingest) {
 
 int geode_ingest_resting(geode_ingest* ingest, long long now_ms) {
     return ingest && ingest->ring.resting(now_ms) ? 1 : 0;
+}
+
+void geode_ingest_set_source_kind(geode_ingest* ingest, int kind) {
+    if (ingest) ingest->ring.setSourceKind(kind);
+}
+
+int geode_ingest_source_kind(const geode_ingest* ingest) {
+    return ingest ? ingest->ring.sourceKind() : GEODE_SOURCE_PLAYER;
 }
 
 }  // extern "C"

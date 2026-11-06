@@ -76,6 +76,9 @@ GEODE_API void        geode_viz_reset_audio(geode_viz*);
  * ring must outlive the renderer, or be unset first. geode_viz_write_audio stays an adapter for callers
  * that push PCM themselves (export, capture until #485). */
 GEODE_API void        geode_viz_set_sound_source(geode_viz*, geode_ingest*);
+/* 1 while the ring this renderer hears is the player's (or a decoded file: an export counts as the player),
+ * 0 for the mic, other apps' audio, the output mix, or no ring. As of the last beginFrame; GL thread. */
+GEODE_API int         geode_viz_player_is_source(geode_viz*);
 /* A reader of an ingest ring for a shell that must hand samples to an Android API (cast's AAC encoder):
  * its own cursor, from the newest sample, behind core/viz/SoundFeed's catch-up cap. One thread. */
 typedef struct geode_ingest_reader geode_ingest_reader;
@@ -367,6 +370,12 @@ GEODE_API long long     geode_ingest_written(const geode_ingest*);
 /* 1 = may rest (core/sound/Silence rule, fed by the ring; no writes for the hold also = silent). The first
  * poll counts as sound, so a surface rests 6 s after it starts at the earliest. */
 GEODE_API int           geode_ingest_resting(geode_ingest*, long long now_ms);
+/* What feeds a ring: set once after create (the player's ring keeps the default, GEODE_SOURCE_PLAYER). A
+ * renderer hearing the ring reads it, so the sound engine knows whether the player is the source (#460). */
+enum { GEODE_SOURCE_PLAYER = 0, GEODE_SOURCE_MIC = 1, GEODE_SOURCE_CAPTURE = 2, GEODE_SOURCE_OUTPUT_MIX = 3,
+       GEODE_SOURCE_FILE = 4 };
+GEODE_API void          geode_ingest_set_source_kind(geode_ingest*, int kind);
+GEODE_API int           geode_ingest_source_kind(const geode_ingest*);   /* GEODE_SOURCE_PLAYER for NULL */
 
 /* The GL Transitions library (gl_transitions.json, core/viz/TransitionLibrary): the shell's one read of it,
    as the table encodeTransitionTable describes (UTF-8, control-separated). Read from the APK once per

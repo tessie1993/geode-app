@@ -47,6 +47,13 @@ public:
     // and its first block restarts the sink (the cursor's first Block is always `restarted`).
     void setSource(const audio::ingest::Ring* ring);
     const audio::ingest::Ring* source() const { return ring_; }
+    // Whether the ring heard is the player's (or a decoded file's: an export counts as the player); false
+    // for a capture ring or none. Read off the ring (Ring::sourceKind), so it can't disagree with the source.
+    bool playerIsSource() const {
+        if (!ring_) return false;
+        const int kind = ring_->sourceKind();
+        return kind == audio::ingest::kSourcePlayer || kind == audio::ingest::kSourceFile;
+    }
 
     // Hands the sink everything new; returns the frames handed over (0 with no source or nothing new).
     int pump(Sink& sink);

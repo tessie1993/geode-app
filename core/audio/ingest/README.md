@@ -1,11 +1,11 @@
 # core/audio/ingest
 
-Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md). The ring and its reader exist (#480). The player tap writes it and every live renderer reads its own cursor natively (`core/viz/SoundFeed`, `geode_viz_set_sound_source`, #481); cast's TV audio reads it through `geode_ingest_reader_*`. The capture pumps move in #485, export in #490.
+Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md). The ring and its reader exist (#480). Every source has its own ring: the player tap writes the player's (#481), the mic, other-app capture and wallpaper output mix write theirs from Kotlin's byte buffers (#485, `app/.../audio/AudioBus.kt`). Every live renderer reads its own cursor natively (`core/viz/SoundFeed`, `geode_viz_set_sound_source`); cast's TV audio reads the player's through `geode_ingest_reader_*`. Export moves in #490.
 
 **Owns:** one native PCM ring per audio source (the player tap, the mic, another app's audio, the wallpaper's output mix, a decoded file for export). Each write carries the sample rate, layout and epoch together, so a format change can never pair new samples with an old rate. Converts int16, u8, float, 24- and 32-bit PCM to float here, not in Kotlin. Keeps every channel; readers hear one stereo downmix.
 
 **Files**
-- `Ring.hpp/.cpp`: the ring (`Ring`, the `geode_ingest` handle). Single writer, lock-free; format records published before the samples they cover; overrun detection by the write position (`oldestSafe`); the `core/sound/Silence` rule fed by the writes (`resting`).
+- `Ring.hpp/.cpp`: the ring (`Ring`, the `geode_ingest` handle). Single writer, lock-free; format records published before the samples they cover; overrun detection by the write position (`oldestSafe`); the `core/sound/Silence` rule fed by the writes (`resting`); what feeds it (`sourceKind`, `GEODE_SOURCE_*`), which `SoundFeed::playerIsSource` reads.
 - `Cursor.hpp/.cpp`: one reader's place. `read` gives every sample once, in order, as stereo, one format per block, with `restarted` and `dropped`; `rawMonoTail` is projectM's raw PCM; `skipToNewest` for a stalled live surface.
 - `Downmix.hpp`: ITU-R BS.775 weights over AudioFormat channel masks (C and surrounds -3 dB, LFE -10 dB, mono duplicated, stereo bit-exact).
 - C ABI: `geode_ingest_*` in `core/api/geode_api.h`; JNI in `app/src/main/cpp/geode_sound_jni.cpp`; `GeodeNative.ingest*`.
@@ -17,10 +17,10 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 - Rates above 88.2 kHz may be decimated on read; that is the reader's choice.
 
 **Still to move in**
-- `engine/audio-core/.../audio/SampleRing.kt`, `SoundCursor.kt`, `SoundInput.kt`, `PcmSink.kt` are deleted when their callers switch (#481, #485); `app/.../audio/PcmRingBuffer.kt` is gone (#486: MilkDrop's raw PCM is the mono mix of what each renderer heard, `core/viz/PcmHandoff`).
-- The per-sample int16 -> float loops in `engine/audio-android/.../PcmTap.kt`, `app/.../audio/AudioCapturePump.kt`, `app/.../audio/dsp/NativeDspProcessor.kt`.
+- `engine/audio-core/.../audio/SampleRing.kt`, `SoundCursor.kt`, `SoundInput.kt`, `PcmSink.kt` are deleted (#481, #485); `app/.../audio/PcmRingBuffer.kt` is gone (#486: MilkDrop's raw PCM is the mono mix of what each renderer heard, `core/viz/PcmHandoff`).
+- The per-sample int16 -> float loops in `engine/audio-android/.../PcmTap.kt`, `app/.../audio/dsp/NativeDspProcessor.kt` (`AudioCapturePump` and `OutputMixCapture` write bytes since #485).
 - The capture level and silence guesses in `app/.../audio/MicCapture.kt` and `PlaybackCapture.kt` (#491).
 
 **fosfora:** `audio/capture.rs` (SPSC ring, no DSP in the callback), `audio/decimate.rs` (rates above 88.2 kHz halved first).
 
-**Test that proves it:** `core/tests/ingest_test.cpp`: random chunk sizes and a mid-stream rate change, every sample once in order with its rate, two readers, a writer thread racing a reader, overrun, epoch vs format, conversion, the 5.1 and 7.1 downmix, mono centred, the raw tail, resting after the hold.
+**Test that proves it:** `core/tests/ingest_test.cpp`: random chunk sizes and a mid-stream rate change, every sample once in order with its rate, two readers, a writer thread racing a reader, overrun, epoch vs format, conversion, the 5.1 and 7.1 downmix, mono centred, the raw tail, resting after the hold, the source kind.

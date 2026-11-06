@@ -125,6 +125,11 @@ GEODE_API int         geode_event_recipe_toggle(int recipe, const char* style_id
                                                 float* out, int capacity);
 /* Gyro look, -1..1 per axis; the camera reads it only while camGyro is on. */
 GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
+/* One gyro reading from SensorManager.getOrientation (radians: azimuth -pi..pi, pitch -pi/2..pi/2). The first after a
+   reset is the baseline; viz/GyroLook turns the tilt from it into the look above. GL thread. */
+GEODE_API void        geode_viz_gyro_sample(geode_viz*, float azimuth, float pitch);
+/* The gyro is off (or switched on again): recentre the look to (0,0) and recapture on the next sample. GL thread. */
+GEODE_API void        geode_viz_gyro_reset(geode_viz*);
 /* One live frame's start (core/viz/frame/Cadence, #604), on the GL thread before geode_viz_set_scene and
    geode_viz_render. The shell passes what it holds every frame and native applies only what changed:
    paced_fps is this surface's own fps cap (0 = free-running; the thermal cap is applied under it natively);

@@ -88,6 +88,15 @@ public:
         attempts_ = 0;
     }
 
+    // True when `id`, a secondary target (the layer, Liquid's next style), must wait because the
+    // stager is working for `other`, the other secondary target, which is still wanted. Without this
+    // the two retarget each other every frame, so the stager is cleared and neither build ever
+    // finishes (#369). A target nobody asks for any more (`other` empty, or not the one being
+    // prepared) is taken over instead, so a stale target never blocks.
+    bool yieldsTo(const std::string& id, const std::string& other) const {
+        return active_ && !other.empty() && other != id && target_ == other;
+    }
+
     bool active() const { return active_; }
     const std::string& target() const { return target_; }
     int attempts() const { return attempts_; }

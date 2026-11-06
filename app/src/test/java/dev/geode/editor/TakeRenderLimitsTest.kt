@@ -41,14 +41,16 @@ class TakeRenderLimitsTest {
 
         assertTrue(limits.watermark)
         assertEquals(FreeTier.FREE_MAX_EXPORT_MS, drawn.lengthMs)
-        val lanes = drawn.edit.timeline.lanes
-        for (clip in lanes.flatMap { it.clips }) {
+        val clips =
+            drawn.edit.timeline.lanes
+                .flatMap { it.clips }
+        for (clip in clips) {
             assertEquals(0L, clip.startMs)
             assertEquals(FreeTier.FREE_MAX_EXPORT_MS, clip.durationMs)
         }
         // The song still starts where the take heard it, and the take clip keeps its take id.
         val song =
-            lanes
+            drawn.edit.timeline.lanes
                 .single { it.kind == LaneKind.Audio }
                 .clips
                 .single()

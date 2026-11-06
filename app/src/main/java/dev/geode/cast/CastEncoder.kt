@@ -12,6 +12,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.muxer.BufferInfo
 import androidx.media3.muxer.FragmentedMp4Muxer
 import dev.geode.RingLog
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -32,8 +33,8 @@ import java.nio.ByteOrder
 @OptIn(UnstableApi::class)
 internal class CastEncoder(
     segments: LiveSegments,
-    val width: Int = WIDTH,
-    val height: Int = HEIGHT,
+    val width: Int = castFormat[0],
+    val height: Int = castFormat[1],
 ) {
     private val video: MediaCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
     private val audio: MediaCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC)
@@ -183,15 +184,15 @@ internal class CastEncoder(
     }
 
     companion object {
-        const val WIDTH = 1280
-        const val HEIGHT = 720
-        const val FPS = 30
+        // width, height, fps, keyframe interval: core/viz/frame (CastFormat)
+        private val castFormat = IntArray(4).also { GeodeNative.castFormat(it) }
+        val FPS = castFormat[2]
         const val AUDIO_RATE_HZ = 48_000
         const val CHANNELS = 2
         private const val VIDEO_BITRATE = 4_000_000
         private const val AUDIO_BITRATE = 160_000
-        private const val KEYFRAME_INTERVAL_SEC = 1
-        private const val FRAGMENT_MS = 1_000L
+        private val KEYFRAME_INTERVAL_SEC = castFormat[3]
+        private val FRAGMENT_MS = KEYFRAME_INTERVAL_SEC * 1_000L
         private const val BYTES_PER_SAMPLE = 2
         private const val IDLE_MS = 5L
         private const val JOIN_MS = 1_000L

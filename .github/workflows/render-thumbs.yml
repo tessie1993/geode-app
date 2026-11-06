@@ -23,7 +23,7 @@ on:
     inputs:
       base:
         description: "Branch to render from and open the PR into"
-        default: claude/geode-finish
+        default: main
         required: true
       ids:
         description: "Optional comma-separated style ids to render (empty = every style)"

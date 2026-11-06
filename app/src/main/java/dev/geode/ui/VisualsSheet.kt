@@ -11,8 +11,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -57,6 +59,7 @@ import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneHapticCue
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
+import dev.geode.ui.theme.edgeFade
 import dev.geode.ui.theme.floatingGlass
 import dev.geode.ui.theme.glassBlur
 import dev.geode.ui.theme.performStoneHaptic
@@ -103,6 +106,7 @@ internal fun VisualsOptions(
     onSettle: (SheetHeight) -> Unit,
     onPanelSettle: (widthPx: Float?) -> Unit,
     modifier: Modifier = Modifier,
+    bottomBar: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -125,54 +129,62 @@ internal fun VisualsOptions(
     val shape = RoundedCornerShape(GeodeRadius.Floating)
     var bounds by remember { mutableStateOf<Rect?>(null) }
     UiBlurRegion(visualizerView, bounds, blurActive)
-    Box(
+    // One glass slab: the sheet, and under it the docked mini player ([bottomBar]) when there is
+    // one. A hidden sheet lays out at zero height, which leaves the player alone as a pill.
+    Column(
         modifier
-            .layout { measurable, constraints ->
-                if (side) {
-                    val w = panelPx.value.roundToInt().coerceIn(0, constraints.maxWidth)
-                    if (w == 0) {
-                        layout(0, 0) {}
-                    } else {
-                        val placeable = measurable.measure(Constraints.fixed(w, constraints.maxHeight))
-                        layout(w, placeable.height) { placeable.place(0, 0) }
-                    }
-                } else {
-                    val h = heightPx.value.roundToInt().coerceIn(0, constraints.maxHeight)
-                    if (h == 0) {
-                        layout(constraints.maxWidth, 0) {}
-                    } else {
-                        val placeable = measurable.measure(constraints.copy(minHeight = h, maxHeight = h))
-                        layout(placeable.width, h) { placeable.place(0, 0) }
-                    }
-                }
-            }.onGloballyPositioned { bounds = it.boundsInWindow() }
+            .onGloballyPositioned { bounds = it.boundsInWindow() }
             .glassBlur(shape)
             .floatingGlass(shape, fillAlpha = opacity),
     ) {
-        Column(Modifier.fillMaxSize()) {
-            OptionsHeader(
-                nav = nav,
-                side = side,
-                onDrag = { delta -> scope.launch { heightPx.snapTo((heightPx.value - delta).coerceIn(minPx, maxPx)) } },
-                onDragStopped = { velocity -> onSettle(settleHeight(heightPx.value, -velocity, anchors)) },
-                onSettle = onSettle,
-            )
-            Box(
-                Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .then(if (side) Modifier else Modifier.nestedScroll(listDrag)),
-            ) { content() }
+        Box(
+            Modifier
+                .layout { measurable, constraints ->
+                    if (side) {
+                        val w = panelPx.value.roundToInt().coerceIn(0, constraints.maxWidth)
+                        if (w == 0) {
+                            layout(0, 0) {}
+                        } else {
+                            val placeable = measurable.measure(Constraints.fixed(w, constraints.maxHeight))
+                            layout(w, placeable.height) { placeable.place(0, 0) }
+                        }
+                    } else {
+                        val h = heightPx.value.roundToInt().coerceIn(0, constraints.maxHeight)
+                        if (h == 0) {
+                            layout(constraints.maxWidth, 0) {}
+                        } else {
+                            val placeable = measurable.measure(constraints.copy(minHeight = h, maxHeight = h))
+                            layout(placeable.width, h) { placeable.place(0, 0) }
+                        }
+                    }
+                },
+        ) {
+            Column(Modifier.fillMaxSize()) {
+                OptionsHeader(
+                    nav = nav,
+                    side = side,
+                    onDrag = { delta -> scope.launch { heightPx.snapTo((heightPx.value - delta).coerceIn(minPx, maxPx)) } },
+                    onDragStopped = { velocity -> onSettle(settleHeight(heightPx.value, -velocity, anchors)) },
+                    onSettle = onSettle,
+                )
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .then(if (side) Modifier else Modifier.nestedScroll(listDrag)),
+                ) { content() }
+            }
+            // After the pages, so they keep their place in the tree in both layouts.
+            if (side) {
+                PanelEdge(
+                    panelPx = panelPx,
+                    panelRange = panelRange,
+                    onSettle = onPanelSettle,
+                    modifier = Modifier.align(Alignment.CenterStart),
+                )
+            }
         }
-        // After the pages, so they keep their place in the tree in both layouts.
-        if (side) {
-            PanelEdge(
-                panelPx = panelPx,
-                panelRange = panelRange,
-                onSettle = onPanelSettle,
-                modifier = Modifier.align(Alignment.CenterStart),
-            )
-        }
+        bottomBar?.invoke()
     }
 }
 
@@ -273,10 +285,16 @@ private fun OptionsHeader(
             )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
+            val tabScroll = rememberScrollState()
             PrimaryScrollableTabRow(
                 selectedTabIndex = nav.selectedTab,
-                modifier = Modifier.weight(1f),
-                edgePadding = GeodeSpacing.S,
+                modifier = Modifier.weight(1f).edgeFade(tabScroll, horizontal = true),
+                scrollState = tabScroll,
+                // Tabs as wide as their labels with no edge padding, so all four fit beside × on a
+                // phone instead of reading "tyles" or "MilkDr" at the scroll window's ends. Where
+                // they still overflow (a large font, the narrow side panel), the cut ends fade.
+                edgePadding = 0.dp,
+                minTabWidth = 0.dp,
                 containerColor = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.primary,
                 // Plain glass: no hairline under the tabs, the indicator alone marks the page.
@@ -292,8 +310,13 @@ private fun OptionsHeader(
                         },
                         selectedContentColor = MaterialTheme.colorScheme.primary,
                         unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        text = { Text(stringResource(page.titleRes), style = MaterialTheme.typography.titleSmall) },
-                    )
+                    ) {
+                        // The content overload: Material's text one pads 16 dp a side, more than four
+                        // labels and × have room for on a 400 dp phone.
+                        Box(Modifier.height(TAB_HEIGHT).padding(horizontal = TAB_TEXT_PADDING), contentAlignment = Alignment.Center) {
+                            Text(stringResource(page.titleRes), style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                        }
+                    }
                 }
             }
             IconButton(onClick = {
@@ -489,3 +512,9 @@ private val GRIP_LENGTH = 36.dp
 private val GRIP_THICKNESS = 4.dp
 
 private val EDGE_TOUCH_HEIGHT = 96.dp
+
+/** A tab's height: Material's text-only tab, and the 48 dp touch target. */
+private val TAB_HEIGHT = 48.dp
+
+/** Each side of a tab's label. */
+private val TAB_TEXT_PADDING = 8.dp

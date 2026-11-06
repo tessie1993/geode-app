@@ -140,6 +140,11 @@ android {
         jniLibs {
             useLegacyPackaging = false
         }
+        // minSdk 28+ makes AGP store dex uncompressed, which took the debug APK from
+        // ~40 MB (1.8.1.137, minSdk 26) to ~98 MB. Compress it again, as before.
+        dex {
+            useLegacyPackaging = true
+        }
     }
 
     bundle {

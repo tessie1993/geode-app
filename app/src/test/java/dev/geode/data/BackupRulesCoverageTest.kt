@@ -21,7 +21,11 @@ class BackupRulesCoverageTest {
     private fun xml(name: String): Element {
         // Unit tests run with the module directory as the working directory.
         val file = listOf(File("src/main/res/xml/$name"), File("app/src/main/res/xml/$name")).first { it.isFile }
-        return DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(file).documentElement
+        return DocumentBuilderFactory
+            .newInstance()
+            .newDocumentBuilder()
+            .parse(file)
+            .documentElement
     }
 
     private fun Element.excludedPaths(): Set<String> {

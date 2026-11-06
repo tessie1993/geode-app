@@ -51,33 +51,11 @@ internal class PcmResampler(
     }
 
     companion object {
-        /** The highest rate every Android AAC-LC encoder accepts. */
-        const val AAC_MAX_RATE_HZ = 48_000
-
-        /** A mix's clips are all brought to this, so they can share one AAC track. */
-        const val MIX_RATE_HZ = 48_000
-
         /**
-         * The AAC rate for a source: its own rate up to [AAC_MAX_RATE_HZ]; above it, 44.1 kHz for
-         * the 44.1k family (88.2, 176.4 kHz) and 48 kHz for the rest, so the step down is a whole
-         * number and the box filter is exact.
+         * A mix's clips are all brought to this, so they can share one AAC track. Which rate a lone
+         * source gets, and how long its bytes last, is native (`GeodeNative.aacRateFor`,
+         * `pcmS16BytesToUs`; core/audio/dsp/PcmTiming, tested by core/tests/clip_media_test.cpp).
          */
-        fun aacRateFor(sourceRateHz: Int): Int =
-            when {
-                sourceRateHz <= AAC_MAX_RATE_HZ -> sourceRateHz
-                sourceRateHz % CD_RATE_HZ == 0 -> CD_RATE_HZ
-                else -> AAC_MAX_RATE_HZ
-            }
-
-        /** Duration of [bytes] of interleaved 16-bit PCM at [rateHz]; pass the rate the bytes are at. */
-        fun pcmBytesToUs(
-            bytes: Long,
-            rateHz: Int,
-            channels: Int,
-        ): Long = bytes * MICROS_PER_SECOND / (rateHz.toLong() * channels * BYTES_PER_SAMPLE)
-
-        private const val CD_RATE_HZ = 44_100
-        private const val MICROS_PER_SECOND = 1_000_000L
-        private const val BYTES_PER_SAMPLE = 2
+        const val MIX_RATE_HZ = 48_000
     }
 }

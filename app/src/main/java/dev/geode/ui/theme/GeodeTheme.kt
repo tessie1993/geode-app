@@ -149,6 +149,15 @@ val Typography.rowSupporting: TextStyle get() = bodySmall
 
 private fun TextUnit.scaledBy(factor: Float): TextUnit = if (isSpecified) this * factor else this
 
+/**
+ * [color]'s contrast against the worst the glass can put behind it ([GeodeGlass.WorstBackdrop]:
+ * the floor alpha over a white frame, raised fill on top). Text drawn on floating glass needs
+ * [GeodeContrast.BODY_MIN] here, icons and control edges [GeodeContrast.LARGE_MIN]; black alone is
+ * the best case, not the one that fails.
+ */
+internal fun contrastOnGlass(color: Color): Float = contrastRatio(color, GeodeGlass.WorstBackdrop)
+
+/** WCAG 2.1's contrast ratio of two opaque colours ([GeodeContrast] has the formula). */
 internal fun contrastRatio(
     a: Color,
     b: Color,

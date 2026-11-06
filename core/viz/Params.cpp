@@ -32,7 +32,7 @@ float SceneParams::palette2Range() const { return palette2RangeOverride >= 0.0f 
 
 // The wire's float count. Kotlin's SceneParamsCodec.FIELDS and its NAMES list must change with it: a
 // row added to viz/ParamTable.inc without them fails here first, on purpose.
-static_assert(SceneParams::kFieldCount == 163, "a ParamTable.inc row was added or removed: update SceneParamsCodec too");
+static_assert(SceneParams::kFieldCount == 164, "a ParamTable.inc row was added or removed: update SceneParamsCodec too");
 
 namespace {
 

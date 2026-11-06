@@ -45,7 +45,6 @@ GEODE_API void        geode_viz_set_milk_texture_dir(geode_viz*, const char* dir
 GEODE_API size_t      geode_viz_take_milk_preset_loaded(geode_viz*, char* out, size_t capacity);
 /* Section changes and drops the auto-director committed a look at since the last call; handed out once. */
 GEODE_API int         geode_viz_take_director_style_moments(geode_viz*);
-GEODE_API void        geode_viz_push_pcm(geode_viz*, const float* mono, int count);
 /* The reaction source catalogue, one line per source in wire order: "NAME|Label|GROUP|event(0/1)\n".
  * Writes at most capacity bytes (NUL-terminated when it fits) and returns the length it needs. */
 GEODE_API int         geode_react_source_catalog(char* out, int capacity);
@@ -280,7 +279,7 @@ GEODE_API int         geode_library_search(const char* const* rows, int track_co
  * be moved (they stay where they were). Paths are UTF-8. */
 GEODE_API int         geode_studio_move_takes_out(const char* projects_dir, const char* takes_dir);
 
-/* Scene and style catalogue (core/viz/Catalogue): every style id, its renderer kind, the style families,
+/* Scene and style catalogue (core/viz/Catalogue): every style id, its renderer kind and Styles look group, the style families,
  * which Customize controls reach which styles, and the ranges the shell's controls quote, as one versioned
  * '|'-separated line table (see Catalogue.hpp for the rows). Static: the pointer stays valid for the
  * process; the shell parses it once. Display labels and the Pro rule are not in it. */
@@ -400,6 +399,11 @@ GEODE_API void                geode_export_seam_blend(geode_export_pass*, int in
 GEODE_API int64_t             geode_export_seam_frame(geode_export_pass*, int frame, int loop_frames, int seam_frames, int fps);
 GEODE_API int64_t             geode_export_seam_budgeted_crossfade_ms(int64_t crossfade_ms, int crossfade_frames, int fps,
                                                                       int width, int height);
+/* Pure, the loop render's report (viz/frame/LoopSeam, #752). loop_progress: the fraction of the whole render done
+ * once source frame `frame` of stop `stop` of `stops` is drawn (each stop loop_frames + seam_frames frames),
+ * rising in 0..1 and exactly 1 on the last frame. reported_crossfade_ms: seam_frames at fps in whole ms. */
+GEODE_API float               geode_export_loop_progress(int stop, int stops, int frame, int loop_frames, int seam_frames);
+GEODE_API int64_t             geode_export_loop_reported_crossfade_ms(int seam_frames, int fps);
 /* Studio transitions, on Media3's GL thread inside the framebuffer and viewport it bound. id is a GL
  * Transitions name (gl_transitions.json); an unknown one only copies. from_rgba: bottom row first, taken once. */
 GEODE_API geode_export_pass*  geode_export_transition_create(AAssetManager*, const char* id, int64_t duration_us);

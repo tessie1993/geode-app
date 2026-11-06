@@ -41,7 +41,7 @@ asked again, and a stored `REDUCED_MOTION` answer carries over to the reduced-mo
 
 ## 3. Where the limits are applied
 
-`safety::apply` runs **last** in `Renderer::resolveParams` (`core/viz/RendererFrame.cpp`), on the
+`safety::apply` runs **last** in `signal::Resolver::step` (`core/signal/Resolver.cpp`), on the
 params a scene is about to receive. The order is the macros, the LFOs (`Lfo`), the envelopes
 (`Adsr`), the reaction matrix (`Reactions`, then the macros' own routes), `MotionField`, then
 `safety::apply`. Order is the whole design: a safe stored value is worth nothing if a

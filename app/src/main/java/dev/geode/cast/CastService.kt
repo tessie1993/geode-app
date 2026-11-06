@@ -94,7 +94,7 @@ class CastService : Service() {
 
     private fun startStream() {
         mutePhone()
-        val started = runCatching { CastStream(this, playback?.ring, playback?.soundInput) { handler.post { fail() } }.also { it.start() } }
+        val started = runCatching { CastStream(this, playback?.soundInput) { handler.post { fail() } }.also { it.start() } }
         started.onFailure { RingLog.note(TAG, "stream did not start: $it") }
         val s = started.getOrNull() ?: return fail()
         stream = s

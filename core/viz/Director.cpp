@@ -358,13 +358,13 @@ void Director::commit(Reason reason, float glideSeconds) {
     if (drop) dropBoost_ = 1.0f;
 }
 
-void Director::step(const GeodeSoundFrame& f, float dt) {
+void Director::step(const GeodeSoundFrame& f, float dt, std::uint32_t handMask) {
     if (!(dt > 0.0f)) return;
     emotion_.step(f, dt);
-    step(f, emotion_.state(), dt);
+    step(f, emotion_.state(), dt, handMask);
 }
 
-void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float dt) {
+void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float dt, std::uint32_t handMask) {
     if (!(dt > 0.0f)) return;
     feeling_ = heard;
     amount_ += (config_.amount - amount_) * (1.0f - std::exp(-dt / 0.7f));
@@ -410,7 +410,7 @@ void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float
 
     const float k = smooth(glide_);
     const float w = weight();
-    const ReactSourceMask userOwned = hand::sources(hand::global());
+    const ReactSourceMask userOwned = hand::sources(handMask);
     outgoing_.routes = scaled(outgoingBase_, (1.0f - k) * w, userOwned);
     incoming_.routes = scaled(incomingBase_, k * w, userOwned);
     outgoing_.tick(f, dt);

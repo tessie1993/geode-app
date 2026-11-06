@@ -521,6 +521,11 @@ Java_dev_geode_engine_bridge_GeodeNative_catalogueText(JNIEnv* env, jobject) {
 }
 
 JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsSchemaText(JNIEnv* env, jobject) {
+    return env->NewStringUTF(geode_params_schema_text());
+}
+
+JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_customizeText(JNIEnv* env, jobject) {
     return env->NewStringUTF(geode_customize_text());
 }

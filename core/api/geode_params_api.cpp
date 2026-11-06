@@ -3,6 +3,7 @@
 #include <string>
 
 #include "api/geode_api.h"
+#include "viz/Config.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Params.hpp"
 #include "viz/TouchTransform.hpp"
@@ -46,6 +47,7 @@ void geode_params_reset_tab(const char* tab, const float* in, float* out) {
 
 const char* geode_params_schema_text(void) { return SceneParams::schemaText().c_str(); }
 
+const char* geode_config_schema_text(void) { return geode::viz::config::schemaText().c_str(); }
 float geode_touch_zoom(float current, float scale_factor) { return geode::viz::touch::zoom(current, scale_factor); }
 
 float geode_touch_rotation(float current, float degrees) { return geode::viz::touch::rotation(current, degrees); }

@@ -482,6 +482,12 @@ object GeodeNative {
      */
     external fun paramsSchemaText(): String
 
+    /**
+     * The config params schema (core/viz/ConfigTable.inc) as its versioned line table: per row the group
+     * (lfo, adsr, macro, palette, look, clip, theme), its index in the group, name, kind, default, control
+     * range and unit (`geode_config_schema_text`). The stores' clamps and defaults are to read it. Static; parse once.
+     */
+    external fun configSchemaText(): String
     /** A pinch's scale factor applied to Zoom, clamped to its schema range (core/viz/TouchTransform). */
     external fun touchZoom(
         current: Float,

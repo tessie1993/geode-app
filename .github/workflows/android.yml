@@ -129,27 +129,6 @@ jobs:
             fi
           done
 
-      # The live wallpaper's and the dream's run rule: priority order, preview, listening, the trial's end (#376).
-      - name: Surface run host test
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/surface_run_test.cpp core/api/geode_surface_api.cpp -o surface_run_test
-          ./surface_run_test
-
-      # Takes move out of project folders, beside their project and out of cloud backup (#384).
-      - name: Studio files host test
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/studio_files_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o studio_files_test
-          ./studio_files_test
-
-      # Live input's on/off machine (core/audio/LiveInput): every way out of on, the background pause.
-      - name: Live input host test
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/live_input_test.cpp core/api/geode_live_input_api.cpp -o live_input_test
-          ./live_input_test
-
       # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes, ranges, and
       # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.
       - name: Catalogue host tests

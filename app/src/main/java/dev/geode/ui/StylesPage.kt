@@ -577,7 +577,6 @@ private fun kindLabel(kind: SceneKind): String =
         SceneKind.CYMATICS -> "Cymatics"
     }
 
-
 internal fun sceneDisplayLabel(id: String): String {
     val catalogued = VisualStyleCatalog.label(id)
     if (catalogued != id) return catalogued

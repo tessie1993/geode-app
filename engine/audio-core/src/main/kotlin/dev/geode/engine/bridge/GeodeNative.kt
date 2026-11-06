@@ -124,6 +124,29 @@ object GeodeNative {
         takesDir: String,
     ): Int
 
+    /**
+     * The search sheet's text filter (core/library/Search, `filterRows`). [cells] holds, per row, its key
+     * (a track's uri; null = never merged) then [fieldsPerRow] UTF-8 fields; [preferred] one flag per row
+     * (null = none), the row a key keeps. Every whitespace-split term of the UTF-8 [query] must be in some
+     * field, case and accents folded; hits rank title, artist, album, then the rest, by field order. [options]
+     * are `GEODE_LIBRARY_FILTER_*` bits ([FILTER_TYPOS], [FILTER_BLANK_ALL]). Writes the ranked row indices
+     * into [out], whose size is the cap, and returns how many it wrote.
+     */
+    external fun libraryFilter(
+        cells: Array<ByteArray?>,
+        fieldsPerRow: Int,
+        preferred: BooleanArray?,
+        query: ByteArray,
+        options: Int,
+        out: IntArray,
+    ): Int
+
+    /** [libraryFilter] option: typo hits too, ranked after every exact hit (`GEODE_LIBRARY_FILTER_TYPOS`). */
+    const val FILTER_TYPOS = 1
+
+    /** [libraryFilter] option: a blank query keeps every row (`GEODE_LIBRARY_FILTER_BLANK_ALL`). */
+    const val FILTER_BLANK_ALL = 2
+
     /** [assets] is the app's `android.content.res.AssetManager`; typed as Any because this module has no Android SDK. */
     external fun vizCreate(
         assets: Any,

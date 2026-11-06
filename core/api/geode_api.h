@@ -241,6 +241,27 @@ GEODE_API int         geode_library_search(const char* const* rows, int track_co
  * be moved (they stay where they were). Paths are UTF-8. */
 GEODE_API int         geode_studio_move_takes_out(const char* projects_dir, const char* takes_dir);
 
+/* The library's text search (core/library/Search, filterRows; #341, #395): the search sheet, and the Library
+ * screen and Android Auto once they call it. `cells` holds 1 + `fields_per_row` UTF-8 strings per row,
+ * `row_count` rows: the row's key (a track's uri; NULL = never merged with another row), then its fields in
+ * rank order (title, artist, album, then the rest). `preferred` (NULL = none) holds one byte per row, nonzero
+ * for the row a key keeps over its other matches. `query` is split on whitespace and every term must be in
+ * some field, case and accents folded (geode_library_fold). Hits rank by the furthest field their terms
+ * needed (title, then artist, then album, then the rest; typo hits after all of them), stably, so the order
+ * the rows came in holds inside a rank. Writes the ranked rows' indices, at most `max_out` (the cap, applied
+ * after ranking), to `out` and returns how many it wrote; a blank query writes none unless BLANK_ALL. */
+#define GEODE_LIBRARY_FILTER_TYPOS 1     /* also match a term one or two edits off a word, ranked last */
+#define GEODE_LIBRARY_FILTER_BLANK_ALL 2 /* a blank query keeps every row (deduped), in order */
+GEODE_API int         geode_library_filter(const char* const* cells, int row_count, int fields_per_row,
+                                           const unsigned char* preferred, const char* query, int flags,
+                                           int* out, int max_out);
+
+/* Search text folded the way geode_library_filter compares it (lower case without the locale, accents
+ * stripped, ß æ œ ø ł đ ð þ spelled out): for a caller that sorts by the same key. Writes the UTF-8 to
+ * `out` (`cap` bytes, NUL-terminated when it fits) and returns its length without the NUL, like snprintf:
+ * a return >= `cap` means `out` was short. */
+GEODE_API int         geode_library_fold(const char* text, char* out, int cap);
+
 /* Scene and style catalogue (core/viz/Catalogue): every style id, its renderer kind, the style families,
  * which Customize controls reach which styles, and the ranges the shell's controls quote, as one versioned
  * '|'-separated line table (see Catalogue.hpp for the rows). Static: the pointer stays valid for the

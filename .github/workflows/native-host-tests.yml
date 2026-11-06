@@ -83,6 +83,9 @@ jobs:
           # Takes move out of project folders, beside their project and out of cloud backup (#384).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/studio_files_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o studio_files_test
           ./studio_files_test
+          # The library text search (#341, #395): accents and case folded, every term in some field, title > artist > album > rest (typos last), dedupe by uri keeping the preferred row, then the cap.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/library_filter_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o library_filter_test
+          ./library_filter_test
           # The GL Transitions library parse the renderer and the shell share, and the shell's table (#438).
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/transition_library_test.cpp core/util/Json.cpp -o transition_library_test
           ./transition_library_test

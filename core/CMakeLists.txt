@@ -8,6 +8,7 @@ add_library(geode_core STATIC
     api/geode_sound_api.cpp
     api/geode_surface_api.cpp
     api/geode_live_input_api.cpp
+    api/geode_playback_api.cpp
     sound/Fft.cpp
     sound/Emotion.cpp
     sound/Form.cpp

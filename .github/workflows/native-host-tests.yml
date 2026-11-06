@@ -74,6 +74,9 @@ jobs:
           # An export segment's style schedule: every later style is gated by the entitlement (#357).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/style_schedule_test.cpp core/viz/StyleSchedule.cpp -o style_schedule_test
           ./style_schedule_test
+          # Playback maths (core/audio/PlaybackMath): pitch factor, sleep fade, slider snap.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/playback_math_test.cpp core/api/geode_playback_api.cpp -o playback_math_test
+          ./playback_math_test
           # Live input's on/off machine (core/audio/LiveInput): every way out of on, the background pause.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/live_input_test.cpp core/api/geode_live_input_api.cpp -o live_input_test
           ./live_input_test

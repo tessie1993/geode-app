@@ -933,6 +933,26 @@ object GeodeNative {
     const val LIVE_INPUT_ACT_STOP_CAPTURE = 1 shl 3
     const val LIVE_INPUT_ACT_RESET_SOUND = 1 shl 4
     const val LIVE_INPUT_ACT_PLAYER_RATE = 1 shl 5
+
+    // Playback maths (core/audio/PlaybackMath): the pitch shift, the sleep fade, slider steps.
+
+    /** Media3's pitch factor for a shift of [semitones]: 2^(semitones / 12). */
+    external fun playbackSemitonesToRatio(semitones: Float): Float
+
+    /** How long the sleep timer fades to silence before it pauses. */
+    external fun playbackSleepFadeMs(): Long
+
+    /** The sleep timer's volume with [remainingMs] left: 1 down to 0 over the last [fadeMs]. */
+    external fun playbackSleepFadeVolume(
+        remainingMs: Long,
+        fadeMs: Long,
+    ): Float
+
+    /** [value] on the nearest multiple of [step]; a step <= 0 leaves it as it is. */
+    external fun playbackSnap(
+        value: Float,
+        step: Float,
+    ): Float
     // The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt.
 
     /** Six longs the caller owns, zeroed at first, stepped in place: the pacer's whole state. */

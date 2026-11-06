@@ -17,8 +17,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.analysis.PlaybackMath
 import dev.geode.data.PlayerPrefs
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.playback.BitPerfectOutput
 import dev.geode.playback.ReplayGain
 
@@ -55,7 +55,7 @@ internal fun PlaybackBasics(viewModel: SettingsViewModel) {
             CrystalSlider(
                 value = prefs.fadeMs.toFloat(),
                 onValueChange = {
-                    viewModel.setPlayerPrefs(prefs.copy(fadeMs = (PlaybackMath.snap(it, 250f)).toInt()))
+                    viewModel.setPlayerPrefs(prefs.copy(fadeMs = (GeodeNative.playbackSnap(it, 250f)).toInt()))
                 },
                 valueRange = 0f..PlayerPrefs.MAX_FADE_MS.toFloat(),
             )
@@ -113,7 +113,7 @@ internal fun PlaybackBasics(viewModel: SettingsViewModel) {
                         } else {
                             R.string.playback_sleep_pausing_in
                         },
-                        PlaybackMath.formatCountdown(remaining),
+                        formatCountdown(remaining),
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = accentTextColor(),
@@ -170,7 +170,7 @@ internal fun SpeedPitchSection(viewModel: SettingsViewModel) {
         )
         CrystalSlider(
             value = prefs.speed,
-            onValueChange = { viewModel.setPlayerPrefs(prefs.copy(speed = PlaybackMath.snap(it, 0.05f))) },
+            onValueChange = { viewModel.setPlayerPrefs(prefs.copy(speed = GeodeNative.playbackSnap(it, 0.05f))) },
             valueRange = 0.5f..2f,
         )
     }
@@ -181,7 +181,7 @@ internal fun SpeedPitchSection(viewModel: SettingsViewModel) {
         )
         CrystalSlider(
             value = prefs.pitchSemitones,
-            onValueChange = { viewModel.setPlayerPrefs(prefs.copy(pitchSemitones = PlaybackMath.snap(it, 0.5f))) },
+            onValueChange = { viewModel.setPlayerPrefs(prefs.copy(pitchSemitones = GeodeNative.playbackSnap(it, 0.5f))) },
             valueRange = -6f..6f,
         )
     }
@@ -246,7 +246,7 @@ private fun ReplayGainSettings(
             )
             CrystalSlider(
                 value = prefs.replayGainPreampDb,
-                onValueChange = { onChange(prefs.copy(replayGainPreampDb = PlaybackMath.snap(it, 0.5f))) },
+                onValueChange = { onChange(prefs.copy(replayGainPreampDb = GeodeNative.playbackSnap(it, 0.5f))) },
                 valueRange = -PlayerPrefs.MAX_REPLAYGAIN_PREAMP_DB..PlayerPrefs.MAX_REPLAYGAIN_PREAMP_DB,
             )
             PlaybackSwitchRow(stringResource(R.string.playback_replaygain_clip_guard), prefs.replayGainClipGuard) {
@@ -297,4 +297,13 @@ private fun PlaybackSwitchRow(
         checked = checked,
         onCheckedChange = onChange,
     )
+}
+
+/**
+ * The sleep timer's time left as "m:ss" for the Settings line: display formatting only, so it stays
+ * in the UI. Seconds round up, so the line never reads 0:00 while the timer is still running.
+ */
+private fun formatCountdown(remainingMs: Long): String {
+    val totalSec = (remainingMs.coerceAtLeast(0L) + 999L) / 1000L
+    return "%d:%02d".format(totalSec / 60, totalSec % 60)
 }

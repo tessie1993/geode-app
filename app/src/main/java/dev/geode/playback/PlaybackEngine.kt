@@ -8,7 +8,6 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
-import dev.geode.analysis.PlaybackMath
 import dev.geode.audio.AudioFxController
 import dev.geode.audio.AudioFxPresets
 import dev.geode.audio.PcmRingBuffer
@@ -27,6 +26,7 @@ import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audioandroid.PcmTap
 import dev.geode.engine.audioandroid.SinkClockDriver
 import dev.geode.engine.audioandroid.TapBoundaryListener
+import dev.geode.engine.bridge.GeodeNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -55,12 +55,16 @@ class PlaybackSession internal constructor(
 
     private val prefsFiles = GeodePrefsFiles(context)
 
-    /** Settings › Playback › Bit-perfect USB output; told every stream format before its AudioTrack opens. */
-    private val bitPerfect = BitPerfectOutput(context)
+    internal val dsp = NativeDspProcessor()
+
+    /**
+     * Settings › Playback › Bit-perfect USB output; told every AudioTrack's format before it opens (the
+     * player's output provider), and tells the native DSP whether to step aside for it.
+     */
+    private val bitPerfect = BitPerfectOutput(context) { dsp.bitPerfect = it }
 
     internal val tap =
         PcmTap(captureSink) { format ->
-            bitPerfect.onFormat(format.sampleRateHz, format.channelCount)
             val hook = onAudioFormat
             if (hook != null) {
                 hook(format.sampleRateHz, format.channelCount, format.encoding)
@@ -75,8 +79,6 @@ class PlaybackSession internal constructor(
                 }
         }
 
-    internal val dsp = NativeDspProcessor()
-
     /**
      * The one player: ExoPlayer, with the tap first in its processor chain ([TapRenderersFactory]).
      * WAKE_MODE_LOCAL takes a partial wake lock while playback is active, so the CPU cannot doze
@@ -84,8 +86,12 @@ class PlaybackSession internal constructor(
      */
     val player: ExoPlayer =
         ExoPlayer
-            .Builder(context, TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp)))
-            .setMediaSourceFactory(
+            .Builder(
+                context,
+                TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp)) { out ->
+                    bitPerfect.onOutput(out.sampleRate, out.channelMask, out.encoding)
+                },
+            ).setMediaSourceFactory(
                 androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
                     context,
                     androidx.media3.extractor.ExtractorsFactory {
@@ -198,7 +204,7 @@ class PlaybackSession internal constructor(
 
     /** Everything in [PlayerPrefs] that the player, ReplayGain or the USB route carry out. */
     fun applyPrefs(p: PlayerPrefs) {
-        player.playbackParameters = PlaybackParameters(p.speed, PlaybackMath.semitonesToRatio(p.pitchSemitones))
+        player.playbackParameters = PlaybackParameters(p.speed, GeodeNative.playbackSemitonesToRatio(p.pitchSemitones))
         player.skipSilenceEnabled = p.skipSilence
         player.setHandleAudioBecomingNoisy(p.pauseOnNoisy)
         replayGain.configure(p.replayGainMode, p.replayGainPreampDb, p.replayGainClipGuard)

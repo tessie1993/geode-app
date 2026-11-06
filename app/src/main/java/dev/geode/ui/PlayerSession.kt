@@ -63,7 +63,6 @@ import dev.geode.render.MilkPresetMemory
 import dev.geode.render.SceneFactory
 import dev.geode.render.TransitionStyle
 import dev.geode.render.UnderlayBlend
-import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneParams
 import dev.geode.widget.WidgetStyles
@@ -130,12 +129,6 @@ class PlayerSession internal constructor(
                 override fun setSoundRate(rateHz: Int) {
                     playback.sampleRateHz = rateHz
                 }
-
-                override fun setMicReactivePref(on: Boolean) {
-                    setGuiPrefs(guiPrefs.value.copy(micReactive = on))
-                }
-
-                override val micReactivePref: Boolean get() = guiPrefs.value.micReactive
             },
         )
 
@@ -314,7 +307,7 @@ class PlayerSession internal constructor(
 
     fun toggleParamLock(label: String) = modulation.toggleParamLock(label)
 
-    fun randomizeParams(tab: CustomizeTab? = null) = modulation.randomizeParams(tab)
+    fun randomizeParams(category: CustomizeCategory? = null) = modulation.randomizeParams(category)
 
     fun editSceneParams(params: SceneParams) = modulation.editSceneParams(params)
 
@@ -322,7 +315,7 @@ class PlayerSession internal constructor(
 
     fun redoParams() = modulation.redo()
 
-    fun resetCustomizeTab(tab: CustomizeTab) = modulation.resetTab(tab)
+    fun resetCustomizeCategory(category: CustomizeCategory) = modulation.resetCategory(category)
 
     fun resetAllCustomize() = modulation.resetAll()
 
@@ -532,9 +525,7 @@ class PlayerSession internal constructor(
 
                 override fun setVolume(volume: Float) = playback.setUiVolume(volume)
 
-                override fun stopLiveInput() {
-                    if (captureController.micActive) setMicEnabled(false)
-                }
+                override fun stopLiveInput() = captureController.onMusicStarts()
             },
         )
 
@@ -621,6 +612,13 @@ class PlayerSession internal constructor(
     val mediaRoots: StateFlow<Set<String>> get() = musicLibrary.mediaRoots
 
     val libraryScanning: StateFlow<Boolean> get() = musicLibrary.libraryScanning
+
+    /** False until the first device-track query has answered; see [MusicLibraryController.deviceTracksLoaded]. */
+    val deviceTracksLoaded: StateFlow<Boolean> get() = musicLibrary.deviceTracksLoaded
+
+    val minTrackSeconds: StateFlow<Int> get() = musicLibrary.minTrackSeconds
+
+    fun setMinTrackSeconds(seconds: Int) = musicLibrary.setMinTrackSeconds(seconds)
 
     fun refreshDeviceTracks() = musicLibrary.refreshDeviceTracks()
 
@@ -782,9 +780,7 @@ class PlayerSession internal constructor(
                 override val libraryTracks: List<LibraryTrack> get() = library.value.tracks
                 override val deviceTracks: List<DeviceTrack> get() = musicLibrary.deviceTracks.value
 
-                override fun stopLiveInput() {
-                    if (captureController.micActive) setMicEnabled(false)
-                }
+                override fun stopLiveInput() = captureController.onMusicStarts()
 
                 override fun onQueueStarted(startUri: Uri) {
                     currentUri = startUri
@@ -830,7 +826,7 @@ class PlayerSession internal constructor(
     fun previous() = queueController.previous()
 
     fun togglePlayPause() {
-        if (!player.isPlaying && captureController.micActive) setMicEnabled(false)
+        if (!player.isPlaying) captureController.onMusicStarts()
         if (settings.playerPrefs.value.fadeMs > 0) {
             togglePlayPauseFaded()
         } else if (player.isPlaying) {
@@ -1293,7 +1289,7 @@ class PlayerSession internal constructor(
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     if (!isPlaying) return
                     consecutivePlaybackFailures = 0
-                    if (captureController.micActive) setMicEnabled(false)
+                    captureController.onMusicStarts()
                     if (externalAudio.value.active) stopExternalAudio()
                     fades.ensureAudibleAfterExternalPlay()
                     PlaybackService.ensureRunning(application)

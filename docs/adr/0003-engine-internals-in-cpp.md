@@ -40,7 +40,7 @@ The decision stands; this records what has landed against the table above.
 - **Done:** PR 1 (`TouchField`, `CymaticsMath` and most of `VisualSafety` deleted; `TouchField` and `VisualSafety` are now one constant each), PR 2 (`core/audio/dsp/Loudness`), PR 3 (`core/audio/dsp/PcmResampler`), and the `VisualSafety` leftovers (the cut-to-fade rule runs in `Renderer::setTransition`; the beat floor went with the old tuning UI, in Kotlin and native).
 - **Done:** `ParamRandomizer` is `core/viz/ParamRandomizer`; the Kotlin `scene/ParamRandomizer` is a thin call into it. `ParamBlend` was removed with the A/B compare, not ported.
 - **Done, under another name:** the metadata landed as `core/viz/Catalogue` (Kotlin reads it once, as text, through `render/scene/Catalogue`), not in `SceneRegistry`. `core/viz/SceneRegistry` still exists, but only builds a native scene for a known id.
-- **Gone:** the `analysis/*` row. The sound engine work (`core/sound`) removed it; only `PlaybackMath` and `SearchMatcher` are left in `dev.geode.analysis` (`ArtPalette` moved to `core/viz`). `BarTrim` is gone.
+- **Gone:** the `analysis/*` row. The sound engine work (`core/sound`) removed it; only `SearchMatcher` is left in `dev.geode.analysis` (`PlaybackMath` is `core/audio/PlaybackMath.hpp`, `ArtPalette` moved to `core/viz`). `BarTrim` is gone.
 - **Renamed:** `FeatureFrameLayout` is now audio-core's `SoundFrameLayout`.
 - **Open:** the ring and clock row (`SampleRing`, `AudioPresentationClock`, `ClockSegment`, `audio/PcmRingBuffer`) is still Kotlin. `PresentationMapping` was deleted: nothing read presentation time.
 

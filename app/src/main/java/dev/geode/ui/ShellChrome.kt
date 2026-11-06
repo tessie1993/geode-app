@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -38,7 +39,9 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalAccessibilityManager
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -143,6 +146,16 @@ private const val MILLIS_PER_SECOND = 1000f
  * The floating mini player: art, title · artist, play/pause and next over a thin progress line,
  * on matte glass. A tap pins it, a swipe up opens Player, a swipe down hides it (the music plays
  * on). The buttons are the only way to skip, so a sideways brush never changes the song.
+ *
+ * A swipe must travel [SWIPE_DP] (48 dp, a full touch target): at 24 dp the brush of a tap aimed
+ * at play or next was enough to open Player or hide the bar.
+ *
+ * Unlike the visual ([visualGestures]), it needs no system-strip check. The pill floats above the
+ * bottom insets, so no part of it lies in the bottom gesture strip, and a drag that does start in
+ * that strip never reaches it: the strip is `WindowInsets.mandatorySystemGestures`, "a subset of
+ * the system gestures that will always be handled by the system" (Compose's "About window insets",
+ * the inset types table; the edge-to-edge skill keeps touch targets out of the system insets the
+ * same way), so Android takes home and recents there before the app sees the touch.
  */
 @Composable
 internal fun FloatingMiniPlayer(
@@ -192,8 +205,7 @@ internal fun FloatingMiniPlayer(
                 // A tap is the long way to Player: the tip says a swipe up opens it.
                 GestureTips.nudge(GestureTip.SWIPE_UP_PLAYER)
                 tap(onPin)
-            }
-            .semantics {
+            }.semantics {
                 customActions =
                     listOf(
                         CustomAccessibilityAction(openLabel) {
@@ -292,6 +304,25 @@ internal data class DockItem(
 /**
  * The tab bar as a floating pill of matte glass: the standard M3 NavigationBar (Android's own
  * bottom navigation), with no window insets of its own because the pill sits above them.
+ *
+ * WHY the labels can step aside (#558): five `labelSmall` labels in a pill share less than a
+ * fifth of the window each, so at a large font or on a narrow phone they overran and clipped.
+ * Compose's "Support user-scalable content" guide asks that content reflow to fit its container
+ * rather than be cut off (Context7 `/websites/developer_android_develop_ui_compose`,
+ * accessibility/scalable-content), so when [compactTabLabels] says the room is short only the
+ * selected tab keeps its label, the M3 pattern `NavigationBarItem`'s `alwaysShowLabel = false`
+ * stands for (components/navigation-bar: the label is optional, the icon carries the item). We
+ * drop the unselected labels outright (`label = null`) rather than set `alwaysShowLabel = false`,
+ * because that flag only fades the label to alpha 0 and still lays it out, which is the
+ * overflow we are removing; the name moves to the icon's content description instead, so
+ * TalkBack reads every tab exactly once whichever way it is drawn. Every label that is drawn
+ * still ends in an ellipsis (`TextOverflow.Ellipsis`, text/configure-layout: "indicate a
+ * TextOverflow, which is only shown if the displayed text is truncated"), the last guard for a
+ * translation longer than its slot.
+ *
+ * The height stays safe at large fonts: in the compact look at most one label is drawn, one
+ * line high, and the shell measures the pill (`onSizeChanged` in `AppShell`) rather than
+ * assuming its height, so whatever height the bar takes the screen above it makes room.
  */
 @Composable
 internal fun FloatingTabBar(
@@ -302,24 +333,76 @@ internal fun FloatingTabBar(
     modifier: Modifier = Modifier,
 ) {
     val view = LocalView.current
+    val compact = compactTabLabels()
     Box(modifier.fillMaxWidth().floatingGlass(RoundedCornerShape(50), fillAlpha = opacity)) {
         NavigationBar(containerColor = Color.Transparent, tonalElevation = 0.dp, windowInsets = WindowInsets(0, 0, 0, 0)) {
             items.forEachIndexed { i, item ->
+                val isSelected = i == selected
+                val showLabel = !compact || isSelected
                 NavigationBarItem(
-                    selected = i == selected,
+                    selected = isSelected,
                     onClick = {
                         view.performStoneHaptic(StoneHapticCue.TAP)
                         onSelect(i)
                     },
-                    icon = { StoneIconArt(item.icon, null, selected = i == selected) },
-                    label = { Text(item.label, style = MaterialTheme.typography.labelSmall, maxLines = 1) },
+                    // A drawn label names the item for TalkBack (the item merges its children);
+                    // an icon-only item names itself, so the name is read once either way.
+                    icon = { StoneIconArt(item.icon, if (showLabel) null else item.label, selected = isSelected) },
+                    label =
+                        if (showLabel) {
+                            {
+                                Text(
+                                    item.label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        } else {
+                            null
+                        },
                 )
             }
         }
     }
 }
 
-private const val SWIPE_DP = 24
+/**
+ * Whether the tab bar is short of room for five labels: a window under [COMPACT_TAB_WIDTH] wide,
+ * or a font scale of [COMPACT_TAB_FONT_SCALE] or more. WHY the window and not the pill: the pill
+ * is inset from the window's edges, so measuring it would put every common 360 dp phone into the
+ * compact look at font scale 1.0, which keeps today's look there. WHY 1.5: Android's font
+ * scaling is non-linear (accessibility/scalable-content) but small text such as `labelSmall`
+ * grows almost in step with the scale, and from 1.5 the longest of the five labels no longer
+ * fits its fifth of a 360 dp pill.
+ *
+ * WHY `derivedStateOf`: `LocalWindowInfo.containerSize` is snapshot state that changes on every
+ * pixel of a window resize (a freeform window dragged, a foldable mid-unfold), and reading it
+ * straight in composition recomposed the tab bar each time. The bar only cares which side of
+ * the line the width is on, so the read sits in a `derivedStateOf` and composition hears only
+ * the boolean flip. This is the adaptive skill's guidance for window size: `derivedMediaQuery`
+ * wraps the query in a `derivedStateOf` "because `windowWidth` and `windowHeight` can update
+ * frequently" (adaptive skill, references/.../layouts/adaptive/mediaquery/index.md). We write
+ * the `derivedStateOf` by hand because `mediaQuery` is experimental and needs
+ * `ComposeUiFlags.isMediaQueryIntegrationEnabled`, which the app does not set. The density is a
+ * key, not a read inside, because a font-scale change hands down a new `Density` object.
+ */
+@Composable
+private fun compactTabLabels(): Boolean {
+    val windowInfo = LocalWindowInfo.current
+    val density = LocalDensity.current
+    val compact by remember(windowInfo, density) {
+        derivedStateOf {
+            with(density) { windowInfo.containerSize.width.toDp() } < COMPACT_TAB_WIDTH ||
+                density.fontScale >= COMPACT_TAB_FONT_SCALE
+        }
+    }
+    return compact
+}
+
+private const val SWIPE_DP = 48
+private const val COMPACT_TAB_FONT_SCALE = 1.5f
+private val COMPACT_TAB_WIDTH = 360.dp
 private const val PROGRESS_DP = 2
 private const val TRACK_ALPHA = 0.2f
 private const val HANDLE_ALPHA = 0.7f

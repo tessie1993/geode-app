@@ -48,6 +48,7 @@ class NativeViz(
             verifyLayouts()
             handle = GeodeNative.vizCreate(assets, cacheDir)
             sent.clear()
+            sentPaletteId = null
             if (handle != 0L) {
                 GeodeNative.vizSetMilkTextureDir(handle, milkTextureDir)
                 applyUiBlur()
@@ -73,7 +74,28 @@ class NativeViz(
         if (handle == 0L) return
         SceneParamsCodec.pack(p, paramFrame)
         GeodeNative.vizSetParams(handle, paramFrame)
+        // The saved gradient palette the params name rides along (the renderer owns what it does with it).
+        val key = p.customPaletteId
+        if (key != sentPaletteId || PaletteFeed.generation != sentPaletteGeneration) {
+            sentPaletteId = key
+            sentPaletteGeneration = PaletteFeed.generation
+            GeodeNative.vizSetPalette(handle, PaletteFeed.wire(key))
+        }
     }
+
+    private var sentPaletteId: String? = null
+    private var sentPaletteGeneration = -1
+
+    /** The eyedropper on this renderer; see [GeodeNative.vizRequestColorProbe]. */
+    fun requestColorProbe(
+        nx: Float,
+        ny: Float,
+    ) {
+        if (handle != 0L) GeodeNative.vizRequestColorProbe(handle, nx, ny)
+    }
+
+    /** The eyedropper's colour (0xRRGGBB), once; -1 until the GL thread has read it. */
+    fun takeColorProbe(): Int = if (handle == 0L) -1 else GeodeNative.vizTakeColorProbe(handle)
 
     fun setReducedMotion(on: Boolean) {
         if (handle != 0L && sent.reducedMotion(on)) GeodeNative.vizSetReducedMotion(handle, on)
@@ -336,8 +358,24 @@ class NativeViz(
         onChange(error.ifEmpty { null })
     }
 
-    private companion object {
-        const val UI_BLUR_FLOATS = 6
+    init {
+        synchronized(instances) { instances.add(this) }
+    }
+
+    companion object {
+        private const val UI_BLUR_FLOATS = 6
+
+        private val instances: MutableSet<NativeViz> = java.util.Collections.newSetFromMap(java.util.WeakHashMap())
+
+        /** Asks every renderer for the colour at ([nx], [ny]) of its finished frame (the eyedropper). */
+        fun probeColorAt(
+            nx: Float,
+            ny: Float,
+        ) = synchronized(instances) { instances.toList() }.forEach { it.requestColorProbe(nx, ny) }
+
+        /** The eyedropper's answer from whichever renderer read it (0xRRGGBB), once; -1 while none has. */
+        fun takeProbedColor(): Int =
+            synchronized(instances) { instances.toList() }.map { it.takeColorProbe() }.firstOrNull { it >= 0 } ?: -1
 
         @Volatile
         private var verified = false
@@ -395,5 +433,40 @@ internal class LastSent {
         transitionId = null
         transitionMs = -1L
         fps = Float.NaN
+    }
+}
+
+/**
+ * The process's saved gradient palettes and the palette sequence, as the native wire takes them
+ * ([GeodeNative.vizSetPalette]): the shell's stores publish here, and every [NativeViz] (live, wallpaper,
+ * dream, export) sends the one its params name, so a gradient palette paints them all alike. Colours are
+ * packed 0xRRGGBB. Pure data; every decision about it is native (core/viz/Palette).
+ */
+object PaletteFeed {
+    @Volatile
+    var generation = 0
+        private set
+
+    @Volatile
+    private var gradients: Map<String, IntArray> = emptyMap()
+
+    @Volatile
+    private var sequence: IntArray = intArrayOf(0, 0)
+
+    /** The saved gradient palettes by id (stops in row order). */
+    fun setGradients(byId: Map<String, IntArray>) {
+        gradients = byId
+        generation++
+    }
+
+    /** `[beats, paletteCount, (stopCount, rgb x stopCount) x paletteCount]`; beats 0 = off. */
+    fun setSequence(wire: IntArray) {
+        sequence = wire
+        generation++
+    }
+
+    internal fun wire(id: String): IntArray {
+        val stops = gradients[id] ?: IntArray(0)
+        return intArrayOf(stops.size) + stops + sequence
     }
 }

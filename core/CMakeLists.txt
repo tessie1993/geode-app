@@ -51,6 +51,7 @@ add_library(geode_core STATIC
     viz/Framebuffer.cpp
     viz/Quad.cpp
     viz/Params.cpp
+    viz/Palette.cpp
     viz/ParamsFields.cpp
     viz/Lfo.cpp
     viz/Macros.cpp

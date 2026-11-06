@@ -167,6 +167,21 @@ GEODE_API void        geode_viz_set_ui_blur_region(geode_viz*, float left, float
  * frame. Off by default; an offscreen (export) renderer never draws it. */
 #define GEODE_EDGE_GLOW_FLOATS 5
 GEODE_API void        geode_viz_set_edge_glow(geode_viz*, const float* opts, int count);
+/* The gradient palette and the palette sequence (core/viz/Palette). wire, as ints with colours packed 0xRRGGBB:
+ * [stopCount, rgb x stopCount, beats, paletteCount, (stopCount, rgb x stopCount) x paletteCount]. A gradient of up
+ * to 8 stops paints every shader style as one smooth OKLab gradient in row order; the sequence (beats 4, 8, 16 or
+ * 32; 0 = off; up to 8 palettes) steps to the next palette every `beats` beats of the renderer's sound engine,
+ * crossfading, on a free 120 BPM clock while there is no beat. Any thread, latched for the next frame. */
+GEODE_API void        geode_viz_set_palette(geode_viz*, const int32_t* wire, int count);
+/* The eyedropper: asks the GL thread for the colour of the finished frame at (nx, ny), 0..1, y down. The answer
+ * (0xRRGGBB, or -1 while it is not read yet) is handed out once by geode_viz_take_color_probe. */
+GEODE_API void        geode_viz_request_color_probe(geode_viz*, float nx, float ny);
+GEODE_API int         geode_viz_take_color_probe(geode_viz*);
+/* Colours to add beside `rgb` (0xRRGGBB): kind 0 complementary, 1 triad, 2 analogous, 3 split-complementary.
+ * Writes at most `capacity` colours and returns how many were found. */
+GEODE_API int         geode_palette_harmony(int32_t rgb, int kind, int32_t* out, int capacity);
+/* A gradient's hue base and span in SceneParams units (out[0], out[1]), for the hue-only families. */
+GEODE_API void        geode_palette_hues(const int32_t* rgb, int count, float* out);
 /* An export's own auto-director (amount 0..1, the play's seed): from now on this renderer ignores
  * geode_director_set, so the live player's switch, track and free taste never reach the render. */
 GEODE_API void        geode_viz_set_director(geode_viz*, float amount, long long seed);

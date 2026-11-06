@@ -6,6 +6,7 @@ import dev.geode.billing.ForegroundActivityTracker
 import dev.geode.data.AutoDirectorStore
 import dev.geode.data.MacroStore
 import dev.geode.data.NoteResponseStore
+import dev.geode.data.PaletteStore
 import java.io.File
 import javax.inject.Inject
 
@@ -45,5 +46,7 @@ class GeodeApp : Application() {
         // The auto-director's switch is process-wide too, and so is Note & key reactions'.
         AutoDirectorStore.get(this)
         NoteResponseStore.get(this)
+        // The saved gradient palettes and the sequence, for every renderer a preset or an export builds.
+        runCatching { PaletteStore.publishSaved(this) }
     }
 }

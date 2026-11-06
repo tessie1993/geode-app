@@ -350,6 +350,35 @@ object GeodeNative {
     /** Mirrors GEODE_MUSIC_STATE_FLOATS: mine, route count, strength, on-action bits, fits-action bits. */
     const val MUSIC_STATE_FLOATS: Int = 5
 
+    /**
+     * Customize › Music's ready-made [recipe]'s routes the style [styleId] can show, in the [vizSetReactions]
+     * layout; every route it holds for a null [styleId] (geode_event_recipe_routes).
+     */
+    external fun eventRecipeRoutes(
+        recipe: Int,
+        styleId: String?,
+    ): FloatArray
+
+    /** [RECIPE_ON] and [RECIPE_FITS] for [recipe] on [styleId] over what plays, [current] (geode_event_recipe_state). */
+    external fun eventRecipeState(
+        recipe: Int,
+        styleId: String,
+        current: FloatArray,
+    ): Int
+
+    /** [current] with [recipe] turned off if on, else on if it fits (geode_event_recipe_toggle). */
+    external fun eventRecipeToggle(
+        recipe: Int,
+        styleId: String,
+        current: FloatArray,
+    ): FloatArray
+
+    /** Mirrors GEODE_RECIPE_ON: every route the recipe would add to the style already plays. */
+    const val RECIPE_ON: Int = 1
+
+    /** Mirrors GEODE_RECIPE_FITS: turning the recipe on stays within GEODE_REACT_ROUTES. */
+    const val RECIPE_FITS: Int = 2
+
     /** Gyro look, -1..1 per axis; read only while camGyro is on. */
     external fun vizSetLook(
         handle: Long,
@@ -507,6 +536,12 @@ object GeodeNative {
      * once (dev.geode.render.scene.Catalogue does).
      */
     external fun catalogueText(): String
+
+    /**
+     * The scene params schema (core/viz/ParamTable.inc) as its versioned line table: per wire slot the
+     * field's name, kind, default, control range and FADE/HOLD (`geode_params_schema_text`). Static; parse once.
+     */
+    external fun paramsSchemaText(): String
 
     /**
      * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
@@ -724,6 +759,9 @@ object GeodeNative {
 
     external fun exportFallbackFps(requestedFps: Int): Int
 
+    /** The requested frame rate clamped to what the export offers, 24..60. */
+    external fun exportClampFps(requestedFps: Int): Int
+
     /** Chapter spans as (start ms, duration ms, source) triples; empty under two clips. */
     external fun chaptersFromClips(
         startsMs: LongArray,
@@ -888,7 +926,7 @@ object GeodeNative {
     external fun castFormat(out: IntArray)
     // Export post-passes (core/viz/frame/ExportPasses): the watermark, a loop's seam, a Studio transition and
     // its capture. [assets] is the app's AssetManager (typed as Any, as for [vizCreate]); every call but the
-    // three watermark sizes and the seam weight needs the export's GL context current, destroy included.
+    // three watermark sizes and the seam budget needs the export's GL context current, destroy included.
 
     /** "" when the pass built; otherwise why not (the handle must still be destroyed). */
     external fun exportPassError(handle: Long): String
@@ -930,18 +968,27 @@ object GeodeNative {
         requested: Int,
     ): Int
 
-    external fun exportSeamCapture(
+    /**
+     * After the scene drew source [frame] of a stop of [loopFrames] + [seamFrames]: stashes an opening frame
+     * (returns -1, not presented) or blends the stash over a closing one, and returns the presentation time
+     * in ns at [fps] (core/viz/frame/LoopSeam).
+     */
+    external fun exportSeamFrame(
         handle: Long,
-        index: Int,
-    )
-
-    /** Lays stash frame [index] over the default framebuffer at closing frame [tail] of [seamFrames]. */
-    external fun exportSeamBlend(
-        handle: Long,
-        index: Int,
-        tail: Int,
+        frame: Int,
+        loopFrames: Int,
         seamFrames: Int,
-    )
+        fps: Int,
+    ): Long
+
+    /** The crossfade a loop keeps under the seam stash's GPU budget; [crossfadeMs] when it fits. Pure. */
+    external fun exportSeamBudgetedCrossfadeMs(
+        crossfadeMs: Long,
+        crossfadeFrames: Int,
+        fps: Int,
+        width: Int,
+        height: Int,
+    ): Long
 
     /** [id]: a GL Transitions name; an unknown one only copies. */
     external fun exportTransitionCreate(

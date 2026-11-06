@@ -30,11 +30,7 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           // The user's march scale under the thermal ladder's (ADR 0008: march is its third rung).
                           [this] { return marchScale_.load(std::memory_order_relaxed) * thermal_.tierInfo().marchScale; },
                           [this] { return &resolver_.noteUniforms(); },
-                          [this] {
-                              return directorPinned_.load(std::memory_order_acquire)
-                                         ? pinnedDirectorSeed_.load(std::memory_order_relaxed)
-                                         : director::global().seed;
-                          }}),
+                          [this] { return settingsLatch_.directorSeed(); }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity),
       pcmDeliverScratch_(kPcmCapacity, 0.0f) {
@@ -408,12 +404,6 @@ void Renderer::onSurfaceCreated() {
     camera_.reset();
 }
 
-void Renderer::pinDirector(float amount, uint64_t seed) {
-    pinnedDirectorAmount_.store(std::isfinite(amount) ? std::clamp(amount, 0.0f, 1.0f) : 0.0f, std::memory_order_relaxed);
-    pinnedDirectorSeed_.store(seed, std::memory_order_relaxed);
-    directorPinned_.store(true, std::memory_order_release);
-}
-
 void Renderer::surfaceChanged(int width, int height) {
     width_ = std::max(width, 1);
     height_ = std::max(height, 1);
@@ -530,7 +520,10 @@ void Renderer::applyStyleSchedule() {
         requestedMilk = lastMilkPreset_;
     }
     // The segment's first look is already requested (prepare()); asking again would only reload it.
-    if (cue->sceneId != requestedScene) setScene(cue->sceneId);
+    if (cue->sceneId != requestedScene) {
+        setScene(cue->sceneId);
+        if (scheduledSceneHook_) scheduledSceneHook_(cue->sceneId);
+    }
     if (!cue->milkPath.empty() && cue->milkPath != requestedMilk) loadMilkPreset(cue->milkPath);
 }
 

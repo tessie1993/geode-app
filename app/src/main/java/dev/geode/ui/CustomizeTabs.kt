@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.model.ControlRange
 import dev.geode.render.scene.ParamFormat
 import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.ParamScope
@@ -64,6 +65,7 @@ import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import dev.geode.ui.theme.GeodeSpacing
 import kotlin.math.abs
+import kotlin.reflect.KProperty1
 
 val LocalParamLocks =
     compositionLocalOf<Pair<Set<String>, (String) -> Unit>> { emptySet<String>() to {} }
@@ -603,6 +605,47 @@ internal fun LabeledSlider(
 }
 
 private const val RESET_EPSILON = 1e-4f
+
+/**
+ * A [LabeledSlider] for one scene param: the value is [params]'s, the range the schema's
+ * ([ControlRange.of], with its few UI caps), and Reset goes to [SceneParams.DEFAULT]'s. The
+ * row keeps only what is UI, its label and where it sits; no slider writes a range of its own (#346).
+ */
+@Composable
+internal fun LabeledSlider(
+    label: String,
+    params: SceneParams,
+    param: KProperty1<SceneParams, Float>,
+    display: String = label,
+    scope: ParamScope = ParamScope.of(label),
+    unit: ParamUnit? = null,
+    onChange: (Float) -> Unit,
+) {
+    LabeledSlider(
+        label = label,
+        value = param.get(params),
+        range = ControlRange.of(param),
+        display = display,
+        scope = scope,
+        default = param.get(SceneParams.DEFAULT),
+        unit = unit,
+        onChange = onChange,
+    )
+}
+
+/** A [LabeledIntSlider] for one whole-number scene param: its value from [params], its range the schema's. */
+@Composable
+internal fun LabeledIntSlider(
+    label: String,
+    params: SceneParams,
+    param: KProperty1<SceneParams, Int>,
+    display: String = label,
+    scope: ParamScope = ParamScope.of(label),
+    onChange: (Int) -> Unit,
+) {
+    val range = ControlRange.of(param)
+    LabeledIntSlider(label, param.get(params), range.start.toInt()..range.endInclusive.toInt(), display, scope, onChange)
+}
 
 @Composable
 internal fun CheckRow(

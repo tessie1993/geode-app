@@ -5,6 +5,7 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -14,6 +15,7 @@
 
 #include "api/geode_api.h"
 #include "signal/Resolver.hpp"
+#include "sound/PlayerSignals.hpp"
 #include "sound/SoundEngine.hpp"
 #include "viz/Adsr.hpp"
 #include "viz/CameraRig.hpp"
@@ -87,10 +89,12 @@ public:
         const int mode = liquidMode_.load(std::memory_order_relaxed);
         return liquidModeTaken_.exchange(mode, std::memory_order_relaxed) == mode ? -1 : mode;
     }
-    // An export's own auto-director: once pinned, this renderer stops reading the process-wide switch
-    // (director::global), so the live player moving on to another track, or past the free taste, never
-    // reaches a render in progress. The export hands over the play's seed, so it makes the same film.
-    void pinDirector(float amount, uint64_t seed);
+    // An export's engine settings (signal::SettingsLatch, #350): pinned once at prepare, after which this
+    // renderer never reads the process-wide macros, Note & key switch, hand mask or director again, so live
+    // edits and the player moving on never reach a render in progress. The director comes from the user's
+    // switch, `entitled` and `durationMs` (director::forExport); the note entropy is 0. Any thread.
+    // Returns the pinned hand mask.
+    uint32_t pinEngineSettings(bool entitled, long long durationMs) { return settingsLatch_.pinForExport(entitled, durationMs); }
     // Customize › Layers is process-wide (viz/LayerState, geode_layer_set): every renderer follows it.
     // An export pins the layer it started with (geode_viz_set_offscreen), so a live edit during a
     // background render never reaches the video; off follows the store again. Any thread.
@@ -144,6 +148,9 @@ public:
     // Styles in `lockedIds` (the entitlement) are dropped from it.
     void setStyleSchedule(std::vector<StyleCue> cues, std::vector<std::string> beatCutIds, int everyBeats,
                           const std::vector<std::string>& lockedIds);
+    // Told, on the GL thread inside beginFrame, each scene the style schedule switches to, before this frame's
+    // params resolve. geode_viz uses it to re-deal the reaction DNA to the style now playing (#352).
+    void setScheduledSceneHook(std::function<void(const std::string&)> hook) { scheduledSceneHook_ = std::move(hook); }
     void warmTransition(const std::string& id);
     void cut();
     void render(double timeSeconds, GLuint targetFbo);
@@ -178,8 +185,8 @@ private:
     void applyRenderScale();
     static float supersampleFactor(int width, int height);
     Scene* resolveActiveScene();
-    // This frame's engine settings (signal/Resolver): the process globals, or the pinned director.
-    signal::EngineSettings latchEngineSettings();
+    // This frame's engine settings (signal/EngineSettings): the process globals, or an export's pinned copy.
+    signal::EngineSettings latchEngineSettings() { return settingsLatch_.latch(reducedMotion_.load(std::memory_order_relaxed)); }
     // Latches the requested params and configs, steps the resolver, then the device masks.
     SceneParams resolveParams(float dt);
     void resolveLayerScene();
@@ -252,11 +259,9 @@ private:
     signal::EngineSettings frameSettings_{};
     // A new style came on screen and the resolver has not stepped since (its motion field's variant).
     bool styleSwitchPending_ = false;
-    // Set by pinDirector; read once a frame on the GL thread.
-    std::atomic<bool> directorPinned_{false};
+    // The globals live, or an export's settings pinned at prepare (pinEngineSettings); latched once a frame.
+    signal::SettingsLatch settingsLatch_;
     std::atomic<int> directorStyleMoments_{0};
-    std::atomic<float> pinnedDirectorAmount_{0.0f};
-    std::atomic<uint64_t> pinnedDirectorSeed_{0};
     // Frosted glass under the app's sheet. The region is guarded by stateLock_; uiBlurOn_ lets a frame
     // with no sheet skip the lock.
     UiBlurPass uiBlurPass_;
@@ -271,13 +276,6 @@ private:
     std::atomic<bool> edgeGlowOn_{false};
     std::atomic<bool> offscreen_{false};
     std::atomic<int> fixedFps_{0};
-    // The note layer's entropy (EngineSettings::noteEntropy, mixed with the director's play seed): fresh
-    // whenever that seed changes, so every play (and every export) varies on its own, as the user chose
-    // (NoteResponse's class comment).
-    uint64_t noteEntropyFor(uint64_t playSeed);
-    uint64_t notePlaySeed_ = 0;
-    uint64_t noteEntropy_ = 0;
-    bool noteSeeded_ = false;
     CameraRig camera_;
     // One engine per renderer (one per surface), so each is frame-locked to its own dt. Guarded by soundLock_
     // only because writeAudio and soundFrame are public; in practice one thread does everything.
@@ -285,6 +283,9 @@ private:
     std::unique_ptr<sound::SoundEngine> sound_;
     GeodeSoundTuning soundTuning_ = sound::SoundEngine::defaultTuning();
     GeodeSoundFrame soundFrame_{};
+    // The player's last track boundary this renderer passed to its engine (core/sound/PlayerSignals). Starts
+    // at the current one: an engine built after a boundary is already fresh. Live renderers only.
+    uint64_t boundarySeen_ = sound::player::boundary().epoch;
     // The engine's feeling, copied with the frame (the director and Note & key read it), and the play it
     // belongs to: a new director seed is a new play, and the feeling starts over with it.
     sound::Emotion::State soundEmotion_{};
@@ -358,6 +359,7 @@ private:
     // setStyleSchedule's latest schedule, moved into styleSchedule_ by the GL thread (stateLock_).
     std::optional<StyleSchedule> styleScheduleRequest_;
     StyleSchedule styleSchedule_;
+    std::function<void(const std::string&)> scheduledSceneHook_;
     bool milkReloadRequested_ = false;
     std::string milkTextureDir_;
     bool milkTextureDirDirty_ = false;

@@ -8,6 +8,8 @@ import dev.geode.render.AdsrEngine
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
 import dev.geode.render.ReactionRoute
+import dev.geode.render.look.LookTarget
+import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.render.scene.SceneParams
 import java.io.File
 
@@ -19,7 +21,7 @@ import java.io.File
  */
 class NativeViz(
     context: Context,
-) {
+) : LookTarget {
     // Kept referenced for as long as the native AAssetManager resolved from it may be used.
     private val assets: AssetManager = context.assets
     private val cacheDir: String = context.cacheDir.absolutePath
@@ -45,7 +47,6 @@ class NativeViz(
     @Synchronized
     fun create(): Boolean {
         if (handle == 0L) {
-            verifyLayouts()
             handle = GeodeNative.vizCreate(assets, cacheDir)
             sent.clear()
             if (handle != 0L) {
@@ -69,17 +70,17 @@ class NativeViz(
 
     fun sceneIds(): List<String> = if (handle == 0L) emptyList() else GeodeNative.vizSceneIds(handle).split('\n').filter { it.isNotEmpty() }
 
-    fun setParams(p: SceneParams) {
+    override fun setParams(p: SceneParams) {
         if (handle == 0L) return
         SceneParamsCodec.pack(p, paramFrame)
         GeodeNative.vizSetParams(handle, paramFrame)
     }
 
-    fun setReducedMotion(on: Boolean) {
+    override fun setReducedMotion(on: Boolean) {
         if (handle != 0L && sent.reducedMotion(on)) GeodeNative.vizSetReducedMotion(handle, on)
     }
 
-    fun setTransition(
+    override fun setTransition(
         id: String,
         durationMs: Long,
     ) {
@@ -144,29 +145,28 @@ class NativeViz(
     }
 
     /** Settings › Audio, as [dev.geode.engine.audio.SoundTuning.toFloats]. */
-    fun setSoundTuning(floats: FloatArray) {
+    override fun setSoundTuning(floats: FloatArray) {
         if (handle != 0L) GeodeNative.vizSetSoundTuning(handle, floats)
     }
 
-    fun setLfoConfigs(configs: List<LfoConfig>) {
+    override fun setLfoConfigs(configs: List<LfoConfig>) {
         if (handle == 0L) return
         configs.take(LfoEngine.SLOTS).forEachIndexed { slot, c -> GeodeNative.vizSetLfo(handle, slot, ModConfigCodec.packLfo(c)) }
     }
 
-    fun setAdsrConfigs(configs: List<AdsrConfig>) {
+    override fun setAdsrConfigs(configs: List<AdsrConfig>) {
         if (handle == 0L) return
         configs.take(AdsrEngine.COUNT).forEachIndexed { slot, c -> GeodeNative.vizSetAdsr(handle, slot, ModConfigCodec.packAdsr(c)) }
     }
 
-    fun setReactions(routes: List<ReactionRoute>) {
-        if (handle != 0L) GeodeNative.vizSetReactions(handle, ModConfigCodec.packReactions(routes))
-    }
-
-    fun setLook(
-        yaw: Float,
-        pitch: Float,
+    /** The user's routes and hand mask, sent only when [routes] (by identity) or [mask] changes; native resolves what plays. */
+    override fun setUserReactions(
+        routes: List<ReactionRoute>?,
+        mask: Int,
     ) {
-        if (handle != 0L && sent.look(yaw, pitch)) GeodeNative.vizSetLook(handle, yaw, pitch)
+        if (handle != 0L && sent.userReactions(routes, mask)) {
+            GeodeNative.vizSetUserReactions(handle, routes?.let { BuildStyleReactionsUseCase.packExact(it) }, mask)
+        }
     }
 
     fun gyroSample(
@@ -209,13 +209,11 @@ class NativeViz(
         )
     }
 
-    /** Pins this renderer's auto-director; see [GeodeNative.vizSetDirector]. */
-    fun setDirector(
-        amount: Float,
-        seed: Long,
-    ) {
-        if (handle != 0L) GeodeNative.vizSetDirector(handle, amount, seed)
-    }
+    /** Pins an export's engine settings and returns the pinned hand mask; see [GeodeNative.vizPinEngineSettings]. */
+    fun pinEngineSettings(
+        entitled: Boolean,
+        durationMs: Long,
+    ): Int = if (handle != 0L) GeodeNative.vizPinEngineSettings(handle, entitled, durationMs) else 0
 
     fun setOffscreen(on: Boolean) {
         if (handle != 0L) GeodeNative.vizSetOffscreen(handle, on)
@@ -282,7 +280,7 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSurfaceChanged(handle, width, height)
     }
 
-    fun setScene(sceneId: String): Boolean = handle != 0L && GeodeNative.vizSetScene(handle, sceneId)
+    override fun setScene(sceneId: String): Boolean = handle != 0L && GeodeNative.vizSetScene(handle, sceneId)
 
     /** An export segment's style switches; see [GeodeNative.vizSetStyleSchedule]. */
     fun setStyleSchedule(schedule: StyleSchedule) {
@@ -321,7 +319,7 @@ class NativeViz(
      * Full-frame RGBA8 underlay blended UNDER/INTO the scene: blend 0 = replace scene where scene is
      * black (screen), 1 = multiply, 2 = add; amount 0..1. null clears. Any thread; latched.
      */
-    fun setUnderlay(
+    override fun setUnderlay(
         pixels: IntArray?,
         width: Int,
         height: Int,
@@ -342,15 +340,6 @@ class NativeViz(
 
     private companion object {
         const val UI_BLUR_FLOATS = 6
-
-        @Volatile
-        private var verified = false
-
-        fun verifyLayouts() {
-            if (verified) return
-            SceneParamsCodec.verify(GeodeNative.vizParamNames())
-            verified = true
-        }
     }
 }
 
@@ -367,6 +356,9 @@ internal class LastSent {
     private var transitionId: String? = null
     private var transitionMs = -1L
     private var fps = Float.NaN
+    private var routes: List<ReactionRoute>? = null
+    private var routesMask = 0
+    private var routesSent = false
 
     fun look(
         y: Float,
@@ -392,6 +384,17 @@ internal class LastSent {
 
     fun pacedFps(f: Float): Boolean = (f != fps).also { if (it) fps = f }
 
+    fun userReactions(
+        r: List<ReactionRoute>?,
+        mask: Int,
+    ): Boolean {
+        if (routesSent && r === routes && mask == routesMask) return false
+        routes = r
+        routesMask = mask
+        routesSent = true
+        return true
+    }
+
     fun clear() {
         yaw = Float.NaN
         pitch = Float.NaN
@@ -399,5 +402,8 @@ internal class LastSent {
         transitionId = null
         transitionMs = -1L
         fps = Float.NaN
+        routes = null
+        routesMask = 0
+        routesSent = false
     }
 }

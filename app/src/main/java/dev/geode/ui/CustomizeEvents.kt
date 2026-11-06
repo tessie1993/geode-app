@@ -89,7 +89,7 @@ internal fun EventsTab(
             // What plays now (the native merge of the user's routes and the live DNA) and each row's state.
             val routes = remember(sceneId, seed, hand) { BuildStyleReactionsUseCase().playing(sceneId, seed, hand.routes, hand.mask) }
             val rows = remember(sceneId, seed, hand) { MusicMoments.rows(sceneId, seed, hand) }
-            val actions = remember(sceneId) { MusicAction.entries.filter { it.target.scope.appliesTo(sceneId) } }
+            val actions = remember(sceneId) { MusicMoments.actionsFor(sceneId) }
             var open by rememberSaveable { mutableIntStateOf(-1) }
             val reactTo = LocalReactTo.current
             SectionHeader(stringResource(R.string.music_moment_header))

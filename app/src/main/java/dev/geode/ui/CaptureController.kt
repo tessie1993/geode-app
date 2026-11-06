@@ -42,7 +42,8 @@ internal class CaptureController(
     interface Host {
         fun pausePlayback()
 
-        fun resetSound()
+        /** The ring changed hands: a new epoch, and whether the player (not the mic or a capture) now writes it. */
+        fun resetSound(playerOwnsRing: Boolean)
 
         fun setSoundRate(rateHz: Int)
 
@@ -130,7 +131,7 @@ internal class CaptureController(
                         startPlaybackCapture(projection)
                     } else if (_externalAudio.value.active) {
                         playbackCapture.stop()
-                        host.resetSound()
+                        host.resetSound(!externalAudioOwnsRing())
                         host.setSoundRate(playbackRateFallback())
                         _externalAudio.update { it.copy(active = false, refusedByApp = false) }
                     }
@@ -155,7 +156,7 @@ internal class CaptureController(
         if (!enabled) {
             micPausedInBackground = false
             micCapture.stop()
-            host.resetSound()
+            host.resetSound(!externalAudioOwnsRing())
             host.setSoundRate(playbackRateFallback())
             _micState.value = MicState(active = false)
             host.setMicReactivePref(false)
@@ -169,7 +170,7 @@ internal class CaptureController(
             _micState.value = MicState(active = false, failure = failure)
             return failure
         }
-        host.resetSound()
+        host.resetSound(!externalAudioOwnsRing())
         _micState.value = MicState(active = true)
         host.setMicReactivePref(true)
         return null
@@ -203,7 +204,7 @@ internal class CaptureController(
         host.pausePlayback()
         if (micCapture.active) setMicEnabled(false)
         val failure = playbackCapture.start(projection) { rate -> host.setSoundRate(rate) }
-        host.resetSound()
+        host.resetSound(!externalAudioOwnsRing())
         if (failure != null) {
             host.setSoundRate(playbackRateFallback())
             PlaybackCaptureService.stop(application)
@@ -220,7 +221,7 @@ internal class CaptureController(
 
     fun stopExternalAudio() {
         playbackCapture.stop()
-        host.resetSound()
+        host.resetSound(!externalAudioOwnsRing())
         host.setSoundRate(playbackRateFallback())
         PlaybackCaptureService.stop(application)
         _externalAudio.update {
@@ -269,7 +270,7 @@ internal class CaptureController(
 
     fun refreshMicState() {
         if (!_micState.value.active || micCapture.active) return
-        host.resetSound()
+        host.resetSound(!externalAudioOwnsRing())
         host.setSoundRate(playbackRateFallback())
         _micState.value = MicState(active = false, failure = MicCapture.Failure.UNAVAILABLE)
         host.setMicReactivePref(false)

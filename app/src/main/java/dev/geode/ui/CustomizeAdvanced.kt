@@ -58,6 +58,7 @@ import dev.geode.render.LfoWave
 import dev.geode.render.ModCurve
 import dev.geode.render.ModPolarity
 import dev.geode.render.ModSource
+import dev.geode.render.ModTable
 import dev.geode.render.ReactMode
 import dev.geode.render.ReactSource
 import dev.geode.render.ReactSourceGroup
@@ -78,6 +79,7 @@ import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.UiSound
 import kotlin.math.ln
 import kotlin.math.pow
+import kotlin.reflect.KProperty1
 
 /** What a deeper page edits, gathered once so each page reads plain values. */
 internal class AdvancedHost(
@@ -182,7 +184,7 @@ private fun ReactionCard(
             )
             Switch(checked = route.enabled, onCheckedChange = { onChange(route.copy(enabled = it)) })
         }
-        if (route.target != LfoTarget.NONE && !route.target.scope.appliesTo(sceneId)) {
+        if (route.target != LfoTarget.NONE && !ModTable.offeredTo(route.target, sceneId, ModTable.REACTION)) {
             ControlHint("${route.target.label} does nothing on this style.")
         }
         if (expanded) {
@@ -234,8 +236,7 @@ private fun ReactionCard(
                         }
                     } else {
                         LfoTarget.entries
-                            .filter { it != LfoTarget.RETIRED_25 }
-                            .filter { it != LfoTarget.NONE && it.chain == null && it.scope.appliesTo(sceneId) }
+                            .filter { it != LfoTarget.NONE && ModTable.offeredTo(it, sceneId, ModTable.REACTION) }
                             .forEach { t ->
                                 TextButton(onClick = {
                                     onChange(route.copy(target = t))
@@ -265,12 +266,12 @@ internal fun ModulatorCard(
         }
         if (config.enabled) {
             TextButton(onClick = { showTargetPicker = true }) { Text("Moves: ${config.target.label}") }
-            if (config.target != LfoTarget.NONE && !config.target.scope.appliesTo(sceneId)) {
+            if (config.target != LfoTarget.NONE && !ModTable.offeredTo(config.target, sceneId, index)) {
                 ControlHint("${config.target.label} does nothing on this style - pick another.")
             }
             DropdownRow("Follows", ModSource.entries.map { it.label }, ModSource.entries.indexOf(config.source)) {
                 val source = ModSource.entries[it]
-                onChange(config.copy(source = source, polarity = LfoConfig.naturalPolarity(source)))
+                onChange(config.copy(source = source, polarity = ModTable.naturalPolarity(source)))
             }
             if (config.source == ModSource.LFO) {
                 DropdownRow("Wave shape", LfoWave.entries.map { it.label }, LfoWave.entries.indexOf(config.wave)) {
@@ -298,11 +299,8 @@ internal fun ModulatorCard(
             text = {
                 Column(modifier = Modifier.height(360.dp).verticalScroll(rememberScrollState())) {
                     LfoTarget.entries.forEach { t ->
-                        // A chain target may only point at a LATER wave, and a scene-parameter
-                        // target is only offered where it can actually move the picture.
-                        val chain = t.chain
-                        val offered = t != LfoTarget.RETIRED_25 && if (chain != null) index < chain.slot else t.scope.appliesTo(sceneId)
-                        if (offered) {
+                        // Native decides what this wave may move (a later wave, or what reaches the style).
+                        if (ModTable.offeredTo(t, sceneId, index)) {
                             TextButton(onClick = {
                                 onChange(config.copy(target = t))
                                 showTargetPicker = false
@@ -327,8 +325,8 @@ private fun RateSecondsSlider(
     seconds: Float,
     onChange: (Float) -> Unit,
 ) {
-    val lo = LfoConfig.MIN_RATE_SECONDS
-    val hi = LfoConfig.MAX_RATE_SECONDS
+    val lo = ModTable.minRateSeconds
+    val hi = ModTable.maxRateSeconds
     val t = (ln(seconds.coerceIn(lo, hi) / lo) / ln(hi / lo)).coerceIn(0f, 1f)
     val shown = ParamFormat.format(seconds, ParamUnit.SECONDS)
     val cycleLabel = stringResource(R.string.customize_a11y_one_cycle)
@@ -362,9 +360,7 @@ internal fun AdsrCard(
         // The ones already chosen stay listed even where this style ignores them, so they can be unticked.
         val offered =
             LfoTarget.entries.filter {
-                it != LfoTarget.RETIRED_25 &&
-                    it != LfoTarget.NONE &&
-                    (it in config.targets || it.chain != null || it.scope.appliesTo(sceneId))
+                it != LfoTarget.NONE && ModTable.offered(it) && (it in config.targets || ModTable.reaches(it, sceneId))
             }
         Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.envelope_moves), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
@@ -441,7 +437,7 @@ internal fun LayersPage() {
 }
 
 /**
- * One Note & key strength: a 0..2 slider (1 = as designed) with its one-line hint under it. The key is
+ * One Note & key strength: a 0..2 slider (1 = as designed; the range is the schema's) with its one-line hint under it. The key is
  * the shown name, since these are not catalogue parameters: they have no style scope (every style hears
  * notes) and the randomizer never rolls them, so the scope and unit are given rather than looked up.
  */
@@ -449,12 +445,12 @@ internal fun LayersPage() {
 private fun NoteKeySlider(
     @StringRes name: Int,
     @StringRes hint: Int,
-    value: Float,
-    default: Float,
+    p: SceneParams,
+    param: KProperty1<SceneParams, Float>,
     onChange: (Float) -> Unit,
 ) {
     val label = stringResource(name)
-    LabeledSlider(label, value, 0f..2f, scope = ParamScope.UNIVERSAL, default = default, unit = ParamUnit.TIMES, onChange = onChange)
+    LabeledSlider(label, p, param, scope = ParamScope.UNIVERSAL, unit = ParamUnit.TIMES, onChange = onChange)
     if (visible(label, ParamScope.UNIVERSAL)) ControlHint(stringResource(hint))
 }
 
@@ -473,23 +469,22 @@ internal fun NoteKeyPage(
     val running by remember { NoteResponseStore.get(context) }.enabled.collectAsStateWithLifecycle()
     if (!running && sectionVisible()) ControlHint(stringResource(R.string.note_key_off))
     ControlHint(stringResource(R.string.note_key_intro))
-    val d = SceneParams.DEFAULT
-    NoteKeySlider(R.string.note_key_color, R.string.note_key_color_hint, p.noteColor, d.noteColor) {
+    NoteKeySlider(R.string.note_key_color, R.string.note_key_color_hint, p, SceneParams::noteColor) {
         onChange(p.copy(noteColor = it))
     }
-    NoteKeySlider(R.string.note_key_pitch, R.string.note_key_pitch_hint, p.notePitch, d.notePitch) {
+    NoteKeySlider(R.string.note_key_pitch, R.string.note_key_pitch_hint, p, SceneParams::notePitch) {
         onChange(p.copy(notePitch = it))
     }
-    NoteKeySlider(R.string.note_key_intervals, R.string.note_key_intervals_hint, p.noteIntervals, d.noteIntervals) {
+    NoteKeySlider(R.string.note_key_intervals, R.string.note_key_intervals_hint, p, SceneParams::noteIntervals) {
         onChange(p.copy(noteIntervals = it))
     }
-    NoteKeySlider(R.string.note_key_tension, R.string.note_key_tension_hint, p.noteTension, d.noteTension) {
+    NoteKeySlider(R.string.note_key_tension, R.string.note_key_tension_hint, p, SceneParams::noteTension) {
         onChange(p.copy(noteTension = it))
     }
-    NoteKeySlider(R.string.note_key_chords, R.string.note_key_chords_hint, p.noteChords, d.noteChords) {
+    NoteKeySlider(R.string.note_key_chords, R.string.note_key_chords_hint, p, SceneParams::noteChords) {
         onChange(p.copy(noteChords = it))
     }
-    NoteKeySlider(R.string.note_key_drums, R.string.note_key_drums_hint, p.noteDrums, d.noteDrums) {
+    NoteKeySlider(R.string.note_key_drums, R.string.note_key_drums_hint, p, SceneParams::noteDrums) {
         onChange(p.copy(noteDrums = it))
     }
 }

@@ -82,6 +82,9 @@ jobs:
           # The process-wide Customize layer every renderer draws (#364): set, clamp, generation, follow, export pin.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/layer_state_test.cpp core/viz/LayerState.cpp -o layer_state_test
           ./layer_state_test
+          # Which sound the wallpaper and dream hear (#773): a fed ring wins, a stall falls back, no flapping, no permission = ring.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/sound_source_test.cpp core/api/geode_sound_api.cpp core/sound/Tuning.cpp -o sound_source_test
+          ./sound_source_test
           # Phone tilt to camera look (#755): baseline capture and recapture, the yaw wrap at +-pi, the clamp, the recentre.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/gyro_look_test.cpp -o gyro_look_test
           ./gyro_look_test

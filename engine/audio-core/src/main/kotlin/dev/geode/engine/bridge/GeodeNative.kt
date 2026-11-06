@@ -978,6 +978,42 @@ object GeodeNative {
         heardAtMs: Long,
     ): Boolean
 
+    // Which sound the wallpaper and the dream hear (core/sound/SoundSource): the app's ring while fed,
+    // else the output-mix capture when permitted, with hysteresis so it never flaps.
+
+    /** Longs in the caller-held state of [soundSourceStep]; a zeroed array is a fresh one. */
+    const val SOUND_SOURCE_STATE_LONGS: Int = 8
+
+    /** Answer bit of [soundSourceStep]: read the capture (while it runs), not the ring. */
+    const val SOUND_SOURCE_USE_CAPTURE: Int = 1
+
+    /** Answer bit of [soundSourceStep]: try to start the capture now. */
+    const val SOUND_SOURCE_START_CAPTURE: Int = 2
+
+    /** Answer bit of [soundSourceStep]: stop the capture now. */
+    const val SOUND_SOURCE_STOP_CAPTURE: Int = 4
+
+    /**
+     * One poll of the source rule: updates [state] in place and answers in `SOUND_SOURCE_*` bits.
+     * [ringId] tells rings apart, [ringWritten] is its written-frame counter; [capturePermitted] is
+     * the user's option plus the permission (or a capture already running).
+     */
+    external fun soundSourceStep(
+        state: LongArray,
+        nowMs: Long,
+        ringPresent: Boolean,
+        ringId: Long,
+        ringWritten: Long,
+        capturePermitted: Boolean,
+        captureRunning: Boolean,
+    ): Int
+
+    /** Reports that a start [soundSourceStep] asked for failed, so the next try waits 10 s. */
+    external fun soundSourceStartFailed(
+        state: LongArray,
+        nowMs: Long,
+    )
+
     // Settings › Audio's listening tuning (core/sound/Tuning): the schema behind SoundTuning.
 
     /** Every `GeodeSoundTuning` slot's default, then every minimum, then every maximum; null when out of memory. */

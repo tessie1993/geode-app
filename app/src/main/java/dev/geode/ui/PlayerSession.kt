@@ -1105,12 +1105,6 @@ class PlayerSession internal constructor(
         height: Int,
     ) = backgroundController.setRenderSize(width, height)
 
-    fun currentSceneId(): String = _vizState.value.sceneId
-
-    fun currentSceneParams(): SceneParams = _vizState.value.params
-
-    fun playbackPositionMs(): Long? = if (player.isPlaying) player.currentPosition else null
-
     fun trackDurationMs(): Long = player.duration.coerceAtLeast(0L)
 
     val playbackRepository: PlaybackRepository = SessionPlaybackRepository(this)

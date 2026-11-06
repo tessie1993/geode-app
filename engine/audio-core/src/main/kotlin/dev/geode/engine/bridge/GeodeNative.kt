@@ -448,7 +448,9 @@ object GeodeNative {
      * [vizRender]: hand over what the shell holds every frame; native applies only what changed. [pacedFps]
      * is this surface's own cap (0 free-running; the thermal cap is applied under it natively); the rest is
      * Settings › Performance, with [liquidHotPolicy] 0 simplify, 1 full, 2 pause (`liquid::HotPolicy`).
-     * Answers a bitmask of the `FRAME_*` bits.
+     * The four versions are the shell's counters for its params, LFO, ADSR and tuning (`core/viz/frame/
+     * PushVersions`): native sets a `FRAME_PUSH_*` bit for each it has not applied, and the shell pushes
+     * exactly those before [vizRender]. Answers a bitmask of the `FRAME_*` bits.
      */
     external fun vizFrameBegin(
         handle: Long,
@@ -458,6 +460,10 @@ object GeodeNative {
         postFx: Boolean,
         adaptive: Boolean,
         liquidHotPolicy: Int,
+        paramsVersion: Long,
+        lfoVersion: Long,
+        adsrVersion: Long,
+        tuningVersion: Long,
     ): Int
 
     /** Mirrors GEODE_FRAME_CLEAR_ONLY: native cleared a new surface's first frame; present it, do nothing else. */
@@ -471,6 +477,18 @@ object GeodeNative {
 
     /** Mirrors GEODE_FRAME_LIQUID_MODE: 0 off, 1 full, 2 lite, 3 warp, 4 paused (`liquid::Mode`). */
     fun frameLiquidMode(due: Int): Int = (due ushr 8) and 0xF
+
+    /** Mirrors GEODE_FRAME_PUSH_PARAMS: push the scene params ([vizSetParams]). */
+    const val FRAME_PUSH_PARAMS: Int = 0x10
+
+    /** Mirrors GEODE_FRAME_PUSH_LFO: push every LFO slot ([vizSetLfo]). */
+    const val FRAME_PUSH_LFO: Int = 0x20
+
+    /** Mirrors GEODE_FRAME_PUSH_ADSR: push every ADSR slot ([vizSetAdsr]). */
+    const val FRAME_PUSH_ADSR: Int = 0x40
+
+    /** Mirrors GEODE_FRAME_PUSH_TUNING: push the sound tuning ([vizSetSoundTuning]). */
+    const val FRAME_PUSH_TUNING: Int = 0x80
 
     /**
      * Pins this renderer's auto-director (an export's): from then on it ignores [directorSet], so the live
@@ -570,6 +588,9 @@ object GeodeNative {
         targetFbo: Int,
     )
 
+    /** Pins this renderer for an export (`geode_viz_prepare_offscreen`): offscreen tier, cut, fixed quality. */
+    external fun vizPrepareOffscreen(handle: Long)
+
     external fun vizReleaseScenes(handle: Long)
 
     /**
@@ -648,6 +669,34 @@ object GeodeNative {
         input: FloatArray,
         output: FloatArray,
     )
+
+    // Background image bake (core/viz/Underlay): pure, any thread, before vizSetUnderlay.
+
+    /** The centred crop of a [srcW]x[srcH] picture to [targetW]:[targetH]'s aspect, as `[x, y, width, height]`. */
+    external fun underlayCropRect(
+        srcW: Int,
+        srcH: Int,
+        targetW: Int,
+        targetH: Int,
+    ): IntArray
+
+    /** Blurs, then dims, [pixels] (ARGB, [width]x[height]) in place; 0 skips either step. */
+    external fun underlayFinish(
+        pixels: IntArray,
+        width: Int,
+        height: Int,
+        blurRadius: Int,
+        dim: Float,
+    )
+
+    /** The background controls' ranges: amount and dim 0..1 (NaN = 0), blur 0..[underlayBlurMax]. */
+    external fun underlayClampAmount(amount: Float): Float
+
+    external fun underlayClampDim(dim: Float): Float
+
+    external fun underlayClampBlur(radius: Int): Int
+
+    external fun underlayBlurMax(): Int
 
     // Export resampler (core/audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC rate.
 
@@ -762,11 +811,6 @@ object GeodeNative {
         height: Int,
         out: LongArray,
     )
-
-    external fun loopSeamWeight(
-        tail: Int,
-        seamFrames: Int,
-    ): Float
 
     /** Every repeat of a long-form loop as (offset µs, loop index) pairs. */
     external fun loopExtendPlan(
@@ -944,6 +988,13 @@ object GeodeNative {
         heardAtMs: Long,
     ): Boolean
 
+    // Settings › Audio's listening tuning (core/sound/Tuning): the schema behind SoundTuning.
+
+    /** Every `GeodeSoundTuning` slot's default, then every minimum, then every maximum; null when out of memory. */
+    external fun soundTuningSchema(): FloatArray?
+
+    /** Clamps [values] (the tuning's wire form) in place; a NaN or an infinity becomes the slot's default. */
+    external fun soundTuningClamp(values: FloatArray)
     // Fixed-rate frame clock (core/viz/frame/FixedRateClock): Cast's pacing, PTS and audio cut.
     // The caller owns the state, a LongArray(FRAME_CLOCK_STATE), and reads now from System.nanoTime.
 
@@ -1152,9 +1203,6 @@ object GeodeNative {
 
     /** A surface's stored fps choice as its pacer caps to: snapped to a listed rate, <= 0 the default. */
     external fun surfaceFpsChoice(requestedFps: Int): Int
-
-    /** The rates a surface's fps setting offers, ascending (for the settings rows). */
-    external fun surfaceFpsChoices(): IntArray
 
     const val SURFACE_HAS_SURFACE = 1 shl 0
     const val SURFACE_VISIBLE = 1 shl 1

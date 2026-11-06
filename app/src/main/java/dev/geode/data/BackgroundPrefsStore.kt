@@ -1,6 +1,7 @@
 package dev.geode.data
 
 import android.content.SharedPreferences
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.UnderlayBlend
 
 /**
@@ -29,9 +30,9 @@ class BackgroundPrefsStore(
             blend =
                 runCatching { UnderlayBlend.valueOf(prefs.getString(KEY_BLEND, null) ?: d.blend.name) }
                     .getOrDefault(d.blend),
-            amount = prefs.getFloat(KEY_AMOUNT, d.amount).coerceIn(0f, 1f),
-            blurRadius = prefs.getInt(KEY_BLUR, d.blurRadius).coerceIn(BLUR_RANGE),
-            dim = prefs.getFloat(KEY_DIM, d.dim).coerceIn(0f, 1f),
+            amount = GeodeNative.underlayClampAmount(prefs.getFloat(KEY_AMOUNT, d.amount)),
+            blurRadius = GeodeNative.underlayClampBlur(prefs.getInt(KEY_BLUR, d.blurRadius)),
+            dim = GeodeNative.underlayClampDim(prefs.getFloat(KEY_DIM, d.dim)),
         )
     }
 
@@ -47,7 +48,8 @@ class BackgroundPrefsStore(
     }
 
     companion object {
-        val BLUR_RANGE: IntRange = 0..25
+        /** The blur slider's range; the clamps and the bake are native (core/viz/Underlay), and this reads its bound. */
+        val BLUR_RANGE: IntRange by lazy { 0..GeodeNative.underlayBlurMax() }
 
         private const val KEY_URI = "background_uri"
         private const val KEY_BLEND = "background_blend"

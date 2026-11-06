@@ -133,16 +133,6 @@ class EditorProjectStore(
             .sortedBy { it.name.lowercase() }
 
     @WorkerThread
-    fun loadTemplate(id: ProjectId): ProjectTemplate? =
-        read(File(File(templatesDir, safeId(id)), TEMPLATE_FILE), EditorProjectJson::templateFromJson)
-
-    @WorkerThread
-    fun saveTemplate(template: ProjectTemplate): Boolean {
-        val folder = File(templatesDir, safeId(template.id)).apply { mkdirs() }
-        return AtomicWrite.text(File(folder, TEMPLATE_FILE), EditorProjectJson.templateToJson(template))
-    }
-
-    @WorkerThread
     fun deleteTemplate(id: ProjectId): Boolean = File(templatesDir, safeId(id)).deleteRecursively()
 
     private fun <T> read(

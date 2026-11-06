@@ -380,6 +380,16 @@ object GeodeNative {
         pitch: Float,
     )
 
+    /** One gyro reading (azimuth, pitch in radians from SensorManager.getOrientation); core/viz/GyroLook makes the look. */
+    external fun vizGyroSample(
+        handle: Long,
+        azimuth: Float,
+        pitch: Float,
+    )
+
+    /** Gyro off or switched on again: recentre the look and recapture the baseline on the next sample. */
+    external fun vizGyroReset(handle: Long)
+
     /**
      * One live frame's start (`core/viz/frame/Cadence`), on the GL thread before [vizSetScene] and
      * [vizRender]: hand over what the shell holds every frame; native applies only what changed. [pacedFps]
@@ -559,6 +569,16 @@ object GeodeNative {
     external fun paramsSchemaText(): String
 
     /**
+     * The config params schema (core/viz/ConfigTable.inc) as its versioned line table: per row the group
+     * (lfo, adsr, macro, palette, look, clip, theme), its index in the group, name, kind, default, control
+     * range and unit (`geode_config_schema_text`). The stores' clamps and defaults are to read it. Static; parse once.
+     */
+    external fun configSchemaText(): String
+
+    /** Every rolled control as `TAB|ParamKeys string` lines, in roll order (core/viz/ParamRandomizer). Static. */
+    external fun paramsRollKeys(): String
+
+    /**
      * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
      * the controls of [tab] (a ParamRandomizer roll group name; null = every group) that reach [styleId] (null = any),
      * except the newline-joined ParamKeys in [locked]. Same arguments, same look. True when it changed
@@ -655,6 +675,19 @@ object GeodeNative {
         input: ShortArray,
         frames: Int,
     ): ShortArray
+
+    // Encoder fallback ladder (core/output/EncoderLadder): what an export asks the video encoder for.
+
+    /**
+     * Every encoder attempt for [requestedFps] at [bitRate], in order, as `[codecIndex, fps, bitRate]`
+     * triples: the ladder of each candidate codec in turn. [ceilings] has one entry per codec (at most
+     * two), its listed upper rate for the size, 0 when unknown.
+     */
+    external fun encoderAttempts(
+        requestedFps: Int,
+        bitRate: Int,
+        ceilings: IntArray,
+    ): IntArray
 
     // Export loudness meter (core/audio/dsp/Loudness): BS.1770-4 integrated loudness and true peak.
 
@@ -1216,6 +1249,53 @@ object GeodeNative {
 
     /** A start after a stop: forget the gap, keep the panel's period. */
     external fun pacerResume(state: LongArray)
+
+    // Playout clock (core/sound/interp/PlayoutClock, #349): the ring sample the speaker plays now.
+
+    /** One clock per player, freed with [playoutDestroy]. */
+    external fun playoutCreate(): Long
+
+    external fun playoutDestroy(handle: Long)
+
+    /** The sink handled a buffer at [presentationUs] that put [frames] ring samples from [ringFrame]. */
+    external fun playoutBufferHandled(
+        handle: Long,
+        presentationUs: Long,
+        ringFrame: Long,
+        frames: Long,
+    )
+
+    /** The sink's position in media time (AudioTrack.getTimestamp, latency included), read at [nowNs]. */
+    external fun playoutPosition(
+        handle: Long,
+        sinkUs: Long,
+        nowNs: Long,
+    )
+
+    external fun playoutPlaying(
+        handle: Long,
+        playing: Boolean,
+        nowNs: Long,
+    )
+
+    external fun playoutFlush(handle: Long)
+
+    external fun playoutSpeed(
+        handle: Long,
+        speed: Float,
+    )
+
+    /** The user's A/V offset, clamped to ±1000 ms; positive shows the picture later. */
+    external fun playoutSetOffsetMs(
+        handle: Long,
+        ms: Int,
+    )
+
+    /** The newest ring sample heard at [nowNs], never past the newest written; -1 with no map since a flush. */
+    external fun playoutSpeakerFrame(
+        handle: Long,
+        nowNs: Long,
+    ): Long
 
     /** The cap a surface asking for [capFps] runs at now, under the thermal cap; 0 = none. For `Surface.setFrameRate`. */
     external fun pacerEffectiveCap(capFps: Float): Float

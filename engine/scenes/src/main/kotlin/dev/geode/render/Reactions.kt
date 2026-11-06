@@ -216,7 +216,10 @@ data class HandReactions(
 object HandMask {
     private const val TAG = "HandMask"
 
-    fun set(mask: Int) {
-        bestEffort(TAG, "push hand mask") { GeodeNative.handSet(mask) }
+    fun set(
+        mask: Int,
+        hasUser: Boolean,
+    ) {
+        bestEffort(TAG, "push hand mask") { GeodeNative.handSet(mask, hasUser) }
     }
 }

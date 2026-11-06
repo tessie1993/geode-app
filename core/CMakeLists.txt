@@ -6,12 +6,16 @@ add_library(geode_core STATIC
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
     api/geode_sound_api.cpp
+    api/geode_underlay_api.cpp
+    api/geode_frame_api.cpp
+    api/geode_surface_api.cpp
     sound/Fft.cpp
     sound/Emotion.cpp
     sound/Form.cpp
     sound/Harmony.cpp
     sound/Rhythm.cpp
     sound/SoundEngine.cpp
+    sound/Tuning.cpp
     library/Tags.cpp
     library/Search.cpp
     audio/dsp/DspProcessor.cpp
@@ -24,6 +28,17 @@ add_library(geode_core STATIC
     signal/EngineSettings.cpp
     signal/Resolver.cpp
     signal/bindings/PlayingRoutes.cpp
+    api/geode_export_pass_api.cpp
+    api/geode_export_api.cpp
+    audio/dsp/PcmConvert.cpp
+    audio/dsp/PcmTiming.cpp
+    output/FrameClock.cpp
+    output/LoopPlan.cpp
+    output/EncodePlan.cpp
+    output/Chapters.cpp
+    signal/timeline/Keyframes.cpp
+    signal/timeline/SpeedRamp.cpp
+    util/CubeLut.cpp
     viz/ShaderSource.cpp
     viz/GlCaps.cpp
     viz/GlProber.cpp
@@ -34,6 +49,7 @@ add_library(geode_core STATIC
     viz/Program.cpp
     viz/ProgramStager.cpp
     viz/StyleSchedule.cpp
+    viz/ShaderOverrides.cpp
     viz/Texture.cpp
     viz/Framebuffer.cpp
     viz/Quad.cpp
@@ -42,24 +58,28 @@ add_library(geode_core STATIC
     viz/Lfo.cpp
     viz/Macros.cpp
     viz/Director.cpp
+    viz/LayerState.cpp
     viz/NoteResponse.cpp
     viz/UiBlurPass.cpp
+    viz/Underlay.cpp
+    viz/frame/ExportPasses.cpp
+    viz/frame/EdgeGlowPass.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
     viz/ReactionDna.cpp
     viz/Reactions.cpp
     viz/CameraRig.cpp
     viz/VisualSafety.cpp
-    viz/FlashLimiter.cpp
-    viz/OutputProbe.cpp
     viz/ThermalGovernor.cpp
     viz/TouchField.cpp
     viz/Transition.cpp
     viz/CompositeGrade.cpp
+    viz/ClipGrade.cpp
     viz/CompositePass.cpp
     viz/TrailPass.cpp
     viz/Catalogue.cpp
     viz/ParamRandomizer.cpp
+    viz/CustomizeMap.cpp
     viz/SceneRegistry.cpp
     viz/Renderer.cpp
     viz/RendererFrame.cpp
@@ -82,6 +102,9 @@ add_library(geode_core STATIC
     viz/fluid/FlowField.cpp
     viz/liquid/LiquidMath.cpp
     viz/liquid/LiquidPass.cpp
+    viz/world/WorldGenome.cpp
+    viz/world/MorphDriver.cpp
+    viz/world/WorldAssets.cpp
     viz/scenes/StyleCatalog.cpp
     viz/scenes/CymaticsMath.cpp
     viz/scenes/CymaticsScene.cpp

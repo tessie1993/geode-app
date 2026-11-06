@@ -30,7 +30,7 @@ class CatalogueTest {
         assertEquals("silk_web", Catalogue.styles.first().id)
         assertEquals(SceneKind.SILK, Catalogue.kindOf(SceneIds.DEFAULT))
         assertEquals(SceneKind.SILK, Catalogue.kindOf("no_such_style"))
-        assertEquals(243, Catalogue.styles.size)
+        assertEquals(244, Catalogue.styles.size)
     }
 
     @Test
@@ -55,7 +55,7 @@ class CatalogueTest {
     @Test
     fun scopesReachTheStylesTheyShould() {
         assertTrue(ParamScope.MARCH_DETAIL.appliesTo(SceneIds.VANISHING))
-        assertFalse(ParamScope.MARCH_DETAIL.appliesTo(SceneIds.PLASMA))
+        assertFalse(ParamScope.MARCH_DETAIL.appliesTo(SceneIds.OUTRUN_DRIVE))
         assertTrue(ParamScope.FLUID_SIM.appliesTo("fluid_ink"))
         assertFalse(ParamScope.FLOW_FIELD_SIM.appliesTo(SceneIds.FLUID))
         assertFalse(ParamScope.SCENE_CLOCK.appliesTo(SceneIds.MILKDROP))

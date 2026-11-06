@@ -6,6 +6,7 @@ import android.os.HandlerThread
 import android.os.Process
 import android.view.Choreographer
 import android.view.Surface
+import dev.geode.engine.bridge.GeodeNative
 
 /**
  * Receives one call per paced frame, on the pacer's own thread (see [FramePacer]), never the main
@@ -93,13 +94,9 @@ class FramePacer(
         }
 
     /**
-     * Seconds between the last two drawn frames, clamped to [MIN_DT_SECONDS]..[MAX_DT_SECONDS].
-     *
-     * The upper bound matches the clamp the field-simulation scenes already apply to their own
-     * step (`AcidScene`, `CymaticsScene`, `LifeScene`, `MycoScene`, `SilkScene`
-     * all use 1/15 s): past that, an integrator that was tuned at 60 Hz stops being merely slow
-     * and starts diverging. A single stalled frame must not be allowed to blow up a simulation
-     * that has been running all evening.
+     * Seconds between the last two drawn frames, under the one dt rule every clock shares
+     * (`frame::clampDt` in `core/viz/frame/Pacer.hpp`, the same clamp `Renderer::beginFrame` uses).
+     * The field sims still clamp their own integrator step to 1/15 s.
      */
     @Volatile
     var dtSeconds: Float = DEFAULT_DT_SECONDS
@@ -111,13 +108,19 @@ class FramePacer(
     @Volatile
     private var running = false
 
-    // Pacer thread only, from here down to [divisor].
-    private var lastDrawnNanos = 0L
-    private var lastVsyncNanos = 0L
-    private var vsyncPeriodNanos = 0L
-    private var vsyncSamples = 0
-    private var vsyncsSinceDrawn = 0
-    private var divisor = 1
+    /**
+     * Pacer thread only. The whole frame clock (the vsync period estimate, the divide-down and the
+     * dt clamp) is native, `core/viz/frame/Pacer`; this is its state, stepped in place each vsync,
+     * so a tick allocates nothing and there is no native handle to free.
+     */
+    private val clock = LongArray(GeodeNative.PACER_STATE_LONGS)
+
+    /** The last surface [applyTo] reached, re-asked from the pacer thread when the thermal cap moves. */
+    @Volatile
+    private var surface: Surface? = null
+
+    /** Pacer thread only: the paced cap (millihertz) the display was last asked for after a vsync. */
+    private var askedCapMilliHz = -1L
 
     /**
      * Posted, not run inline: the frame-timing fields and the Choreographer belong to the pacer
@@ -128,9 +131,7 @@ class FramePacer(
         Runnable {
             if (!running) return@Runnable
             // A resume must not inherit the gap it was paused across.
-            lastDrawnNanos = 0L
-            lastVsyncNanos = 0L
-            vsyncsSinceDrawn = 0
+            GeodeNative.pacerResume(clock)
             // Removed first: two starts can both find the pacer running by the time they run, and
             // a callback posted twice would fire twice per vsync and halve every dt.
             PacerThread.choreographer.removeFrameCallback(callback)
@@ -200,18 +201,15 @@ class FramePacer(
      * blanks for a moment mid-track is a worse artefact than the frame rate we were trying to fix.
      */
     fun applyTo(surface: Surface) {
+        this.surface = surface
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && surface.isValid) {
             // Zero is the platform's "no preference": it clears any standing request instead of
-            // leaving the last cap latched on a surface that has since changed its mind.
-            val requested =
-                when (val current = policy) {
-                    FrameRatePolicy.Native -> 0f
-                    is FrameRatePolicy.Capped -> current.fps
-                }
+            // leaving the last cap latched on a surface that has since changed its mind. The rate is
+            // the effective cap (this surface's under the thermal one), so a hot phone's 30 fps can
+            // drop the panel to a 30/60 Hz mode rather than skipping vsyncs on a 120 Hz one.
             // The surface can be torn down between the lifecycle callback and this line.
-            runCatching {
-                surface.setFrameRate(requested, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT)
-            }
+            val fps = GeodeNative.pacerEffectiveCap(requestedFps())
+            runCatching { surface.setFrameRate(fps, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT) }
         }
     }
 
@@ -220,71 +218,17 @@ class FramePacer(
         // Re-post first: the cadence has to survive a slow sink, and a frame we skip still has to
         // wake us for the next one.
         PacerThread.choreographer.postFrameCallback(callback)
-        trackVsyncPeriod(frameTimeNanos)
-        // Recomputed here, on the Choreographer thread, rather than in the [policy] setter: it
-        // reads the vsync estimate, and a setter racing this thread over a 64-bit field is a bug
-        // waiting for the one 32-bit device that tears it.
-        recomputeDivisor()
-        vsyncsSinceDrawn++
-        if (vsyncsSinceDrawn < divisor) return
-        vsyncsSinceDrawn = 0
-        draw(frameTimeNanos)
-    }
-
-    private fun draw(frameTimeNanos: Long) {
-        val previous = lastDrawnNanos
-        lastDrawnNanos = frameTimeNanos
-        if (previous == 0L) {
-            // First frame of a run has no measurable interval. A nominal dt beats a zero (which
-            // freezes every envelope) or a clamp-sized one (which jumps the scene on resume).
-            dtSeconds = DEFAULT_DT_SECONDS
-            sink.onFrame(DEFAULT_DT_SECONDS)
-            return
+        // The policy is read here, on the pacer thread, each vsync, so a cap change lands next tick.
+        val dt = GeodeNative.pacerOnVsync(clock, frameTimeNanos, requestedFps()).toFloat()
+        // The thermal cap moves without a lifecycle callback; native records the cap it paced to.
+        val cap = clock[GeodeNative.PACER_CAP_SLOT]
+        if (cap != askedCapMilliHz) {
+            askedCapMilliHz = cap
+            surface?.let { applyTo(it) }
         }
-        val elapsedNanos = frameTimeNanos - previous
-        val dt = (elapsedNanos / NANOS_PER_SECOND).coerceIn(MIN_DT_SECONDS, MAX_DT_SECONDS)
+        if (dt <= 0f) return
         dtSeconds = dt
         sink.onFrame(dt)
-    }
-
-    /**
-     * Tracks the panel's refresh period from consecutive callbacks — they arrive every vsync
-     * whether or not we drew — so the divide-down works without a Display handle, and follows the
-     * panel when [applyTo]'s hint actually lands and the mode changes underneath us.
-     */
-    private fun trackVsyncPeriod(frameTimeNanos: Long) {
-        val previous = lastVsyncNanos
-        lastVsyncNanos = frameTimeNanos
-        if (previous == 0L) return
-        val delta = frameTimeNanos - previous
-        // Outside the range of any real panel this is a pacer-thread hitch, not a refresh period;
-        // folding it in would briefly halve the estimate and stutter the divide.
-        if (delta < MIN_VSYNC_NANOS || delta > MAX_VSYNC_NANOS) return
-        vsyncPeriodNanos =
-            if (vsyncSamples == 0) {
-                delta
-            } else {
-                vsyncPeriodNanos + (delta - vsyncPeriodNanos) / VSYNC_SMOOTHING
-            }
-        if (vsyncSamples < VSYNC_SETTLE_FRAMES) vsyncSamples++
-    }
-
-    private fun recomputeDivisor() {
-        divisor =
-            when (val current = policy) {
-                FrameRatePolicy.Native -> 1
-                is FrameRatePolicy.Capped -> cappedDivisor(current.fps)
-            }
-    }
-
-    private fun cappedDivisor(fps: Float): Int {
-        // Until the period estimate settles, draw every vsync: a few frames of extra work costs
-        // nothing, while guessing a divisor of 2 on a 60 Hz panel would open on visible judder.
-        if (fps <= 0f || vsyncPeriodNanos <= 0L || vsyncSamples < VSYNC_SETTLE_FRAMES) return 1
-        val panelHz = NANOS_PER_SECOND / vsyncPeriodNanos
-        // The epsilon absorbs measurement noise: a 120 Hz panel that measures 119.6 Hz must still
-        // divide by 2, not fall off the truncation edge to 1 and render at full rate.
-        return ((panelHz / fps) + DIVISOR_EPSILON).toInt().coerceIn(1, MAX_DIVISOR)
     }
 
     companion object {
@@ -303,33 +247,7 @@ class FramePacer(
          */
         const val DEFAULT_TARGET_FPS = 60f
 
-        /** See [dtSeconds]; matches the per-scene clamp already used across the field sims. */
-        const val MAX_DT_SECONDS = 1f / 15f
-
-        /** Mirrors the renderer's existing 1 ms floor, which keeps 1/dt out of the weeds. */
-        const val MIN_DT_SECONDS = 0.001f
-
         private const val DEFAULT_DT_SECONDS = 1f / 60f
-
-        private const val NANOS_PER_SECOND = 1_000_000_000f
-
-        /** 250 Hz and 45 Hz: outside the range of any panel this app will meet. */
-        private const val MIN_VSYNC_NANOS = 4_000_000L
-
-        private const val MAX_VSYNC_NANOS = 22_000_000L
-
-        private const val VSYNC_SMOOTHING = 8L
-
-        private const val VSYNC_SETTLE_FRAMES = 8
-
-        private const val DIVISOR_EPSILON = 0.05f
-
-        /**
-         * The harshest sane case, a 24 fps cap on a 165 Hz panel, divides by 6. A divisor past
-         * this is a broken period estimate rather than a policy, and clamping keeps that bug
-         * looking like a fast visualizer instead of a frozen one.
-         */
-        private const val MAX_DIVISOR = 8
     }
 }
 

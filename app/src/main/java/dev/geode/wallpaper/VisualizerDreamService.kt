@@ -13,12 +13,15 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
 import dev.geode.billing.ProSnapshot
+import dev.geode.billing.WallClock
 import dev.geode.data.BehaviourStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PerformanceStore
 import dev.geode.data.PresetStore
 import dev.geode.data.ThemeStore
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.pro.ProFeature
+import dev.geode.render.FrameRatePolicy
 import dev.geode.render.HandMask
 import dev.geode.render.VisualizerRenderer
 import dev.geode.render.VisualizerView
@@ -34,11 +37,15 @@ import dev.geode.util.bestEffort
  * real view hierarchy, so [VisualizerView]'s own attach/detach and window-visibility pacing, and
  * its own scene teardown on `onDetachedFromWindow`, all apply completely unmodified.
  *
- * It runs by the wallpaper's rule ([wallpaperRunMode]), because it is the same thing on the same
- * kind of screen — one that sits there for hours while nobody may be looking:
+ * It runs by the wallpaper's rule (native: [WallpaperConditions.runMode]), because it is the same
+ * thing on the same kind of screen — one that sits there for hours while nobody may be looking:
  * - covered ([DreamCover]: the proximity sensor reads near, face down or in a pocket): no frames;
  * - battery saver: a still frame;
- * - silence ([SoundSource]'s grace): a still frame, until sound comes back.
+ * - silence ([SoundSource]'s grace): a still frame, until sound comes back;
+ * - reduced motion (the system's Remove animations, [SystemAnimations]): a
+ *   still frame for the whole dream (owner, ADR 0008; #389). Off, the dream keeps its gentle flight.
+ * It paces to its own fps choice, Behaviour › Dream ([dev.geode.data.BehaviourPrefs.dreamFps]),
+ * not to Settings › Performance's cap, which is the live visual's.
  * A dream has no Settings page of its own (`res/xml/dream_info.xml`), so those two options are
  * on, the battery-friendly defaults of [WallpaperSettings]. It hears what the wallpaper hears:
  * the app's ring while MuzViz feeds it, else any app's audio once the user has granted the
@@ -59,13 +66,16 @@ class VisualizerDreamService : DreamService() {
     /** Lazy: it asks for the sensor service, which a service has no context for until onCreate. */
     private val cover by lazy { DreamCover(this) { syncRunState() } }
 
+    /** Lazy for the same reason: it reads the application context. A flip restates at once. */
+    private val systemAnimations by lazy { SystemAnimations(this) { syncRunState() } }
+
     /** Between onDreamingStarted and onDreamingStopped: the only time anyone can see it. */
     private var dreaming = false
     private var listening = false
     private var glPaused = false
     private var runMode = WallpaperRunMode.STOPPED
 
-    /** A still frame's settle burst is running; see [syncRunState]. */
+    /** A still frame's settle burst is running; how long is native ([settleMsFrom]). */
     private var settling = false
     private val endStillSettle =
         Runnable {
@@ -85,7 +95,7 @@ class VisualizerDreamService : DreamService() {
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         // Pro feature: without it the dream ends at once and the system falls back to its own.
-        if (!ProSnapshot.gate(this).allows(ProFeature.SCREENSAVER)) {
+        if (!entitled()) {
             finish()
             return
         }
@@ -99,6 +109,9 @@ class VisualizerDreamService : DreamService() {
         visualizerView = view
         restoreLiveState(view.visualizerRenderer, prefsFiles)
         view.applyPerformance(PerformanceStore(prefsFiles.general, this).settings.value)
+        // After applyPerformance, which caps to the live visual's fps: the dream has its own choice,
+        // snapped natively. The view hands the rate to its surface when that is created.
+        view.framePacer.policy = FrameRatePolicy.Capped(GeodeNative.surfaceFpsChoice(behaviour.dreamFps).toFloat())
         view.visualizerRenderer.pcmProvider = { null }
         view.visualizerRenderer.soundInput = { sound.input }
         val stage = DreamStage(this)
@@ -123,6 +136,7 @@ class VisualizerDreamService : DreamService() {
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
         receiverRegistered = true
+        systemAnimations.start()
     }
 
     override fun onDreamingStarted() {
@@ -141,10 +155,20 @@ class VisualizerDreamService : DreamService() {
         super.onDreamingStopped()
     }
 
+    /** Restates when a running trial ends; the native rule says when (#376). */
+    private val trialEnded = Runnable { syncRunState() }
+
+    /** The entitlement as the native rule reads it: Pro forever, a trial its end, free 0. */
+    private fun animateUntilMs(): Long = ProSnapshot.animateUntilMs(this, ProFeature.SCREENSAVER)
+
+    private fun entitled(): Boolean = GeodeNative.surfaceEntitled(animateUntilMs(), WallClock.SYSTEM.nowMs())
+
     override fun onDetachedFromWindow() {
         handler.removeCallbacks(endStillSettle)
+        handler.removeCallbacks(trialEnded)
         sound.stop()
         cover.stop()
+        systemAnimations.stop()
         overlay?.stop()
         if (receiverRegistered) {
             bestEffort(TAG, "unregister power receiver") { unregisterReceiver(powerReceiver) }
@@ -159,7 +183,7 @@ class VisualizerDreamService : DreamService() {
 
     /**
      * Restates the run mode from scratch, as the wallpaper's engine does: on dreaming, cover,
-     * battery saver, silence and window visibility.
+     * battery saver, silence, Remove animations and window visibility.
      *
      * [VisualizerView] starts its own pacer whenever its window shows or it resumes, which is right
      * for the app and wrong for a still frame, so a still frame that is not settling stops the
@@ -167,24 +191,32 @@ class VisualizerDreamService : DreamService() {
      */
     private fun syncRunState() {
         val view = visualizerView ?: return
+        val now = WallClock.SYSTEM.nowMs()
         val conditions =
             WallpaperConditions(
                 surfaceAvailable = true,
                 visible = dreaming,
-                // Checked once in onAttachedToWindow: without Pro there is no dream to run.
-                animationAllowed = true,
                 preview = false,
                 covered = cover.covered,
                 batterySaver = powerManager?.isPowerSaveMode == true,
-                silent = false,
+                silent = sound.silent,
+                reducedMotion = systemAnimations.removed,
                 settings = settings,
+                animateUntilMs = animateUntilMs(),
             )
-        // Listen whenever the dream would animate if there were sound, cover aside: that is what
-        // wakes a resting dream, and lifting the phone for a second should not restart the
-        // silence clock.
-        syncListening(wallpaperRunMode(conditions.copy(covered = false)) == WallpaperRunMode.ANIMATED)
+        // A trial that ends mid-dream ends the dream, the same as a free user starting one
+        // (owner, #376), and Android falls back to its own.
+        if (!conditions.entitled(now)) {
+            finish()
+            return
+        }
+        handler.removeCallbacks(trialEnded)
+        conditions.recheckInMs(now)?.let { handler.postDelayed(trialEnded, it) }
+        // The native rule says when to listen: whenever the dream would move with sound, cover
+        // aside, so lifting the phone for a second does not restart the silence clock.
+        syncListening(conditions.listening(now))
         val previous = runMode
-        runMode = wallpaperRunMode(conditions.copy(silent = sound.silent))
+        runMode = conditions.runMode(now)
         if (runMode != WallpaperRunMode.STILL) {
             handler.removeCallbacks(endStillSettle)
             settling = false
@@ -196,12 +228,14 @@ class VisualizerDreamService : DreamService() {
             }
             WallpaperRunMode.STILL -> {
                 resumeGl(view)
-                if (previous != WallpaperRunMode.STILL) {
-                    // Paced for a moment first: a scene is built across frames (ScenePrep), so one
-                    // frame on a fresh renderer would hold a black or half-built picture.
+                val settle = runMode.settleMsFrom(previous)
+                if (settle > 0) {
+                    // Paced for a moment first, as long as the native rule says: a scene is built
+                    // across frames (ScenePrep), so one frame on a fresh renderer would hold a black
+                    // or half-built picture.
                     settling = true
                     view.framePacer.start()
-                    handler.postDelayed(endStillSettle, STILL_SETTLE_MS)
+                    handler.postDelayed(endStillSettle, settle)
                 } else if (!settling) {
                     view.framePacer.stop()
                     view.requestRender()
@@ -268,13 +302,10 @@ class VisualizerDreamService : DreamService() {
         engine.lfoEngine.configs = modulation.load()
         engine.adsrEngine.configs = modulation.loadAdsrs()
         engine.reactions = modulation.loadReactions()
-        HandMask.set(modulation.loadHandMask())
+        HandMask.set(modulation.loadHandMask(), engine.reactions != null)
     }
 
     private companion object {
         const val TAG = "VisualizerDream"
-
-        /** How long a still frame keeps drawing first, so a scene being built finishes on screen. */
-        const val STILL_SETTLE_MS = 2_000L
     }
 }

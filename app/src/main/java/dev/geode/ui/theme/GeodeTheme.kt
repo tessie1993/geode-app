@@ -128,27 +128,17 @@ fun geodeTypography(textScale: Float = 1f): Typography {
     )
 }
 
-/**
- * The screen's one title (the heading TalkBack users jump between).
- *
- * This and the three roles below are the compact type scale: the redesign uses these sizes of
- * the M3 scale and no more, so screens read alike (one Title Large per screen, Title Small over
- * each group, Body Medium in rows, Body Small for a row's second line). Screens name the role,
- * not the size, so the scale can be retuned here.
- */
-val Typography.screenTitle: TextStyle get() = titleLarge
-
-/** A group's header inside a screen or sheet. */
-val Typography.sectionHeader: TextStyle get() = titleSmall
-
-/** A row's main line. */
-val Typography.rowText: TextStyle get() = bodyMedium
-
-/** A row's second line: its value or a short description. */
-val Typography.rowSupporting: TextStyle get() = bodySmall
-
 private fun TextUnit.scaledBy(factor: Float): TextUnit = if (isSpecified) this * factor else this
 
+/**
+ * [color]'s contrast against the worst the glass can put behind it ([GeodeGlass.WorstBackdrop]:
+ * the floor alpha over a white frame, raised fill on top). Text drawn on floating glass needs
+ * [GeodeContrast.BODY_MIN] here, icons and control edges [GeodeContrast.LARGE_MIN]; black alone is
+ * the best case, not the one that fails.
+ */
+internal fun contrastOnGlass(color: Color): Float = contrastRatio(color, GeodeGlass.WorstBackdrop)
+
+/** WCAG 2.1's contrast ratio of two opaque colours ([GeodeContrast] has the formula). */
 internal fun contrastRatio(
     a: Color,
     b: Color,

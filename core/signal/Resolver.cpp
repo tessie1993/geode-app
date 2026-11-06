@@ -28,7 +28,8 @@ void Resolver::reset() {
 }
 
 const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const GeodeSoundFrame& sound, float dt,
-                                      const EngineSettings& settings, const StyleContext& style) {
+                                      const EngineSettings& settings, const StyleContext& style,
+                                      const sound::Emotion::State* heard) {
     using viz::SceneParams;
     const std::string& styleId = style.id != nullptr ? *style.id : kNoStyle;
     if (style.switched) motionField_.setVariant(viz::styleVariantSeed(styleId));
@@ -46,12 +47,16 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     // The auto-director hears the frame first: its look lies under the macros, so the user's own knobs,
     // the LFOs, the reactions, the motion field and the safety clamp all still act on top of it.
     director_.configure(settings.director);
-    director_.step(sound, dt, settings.handMask);
+    // The engine's own feeling when the caller has one (the renderer), else the director steps its own.
+    if (heard != nullptr) {
+        director_.step(sound, *heard, dt, settings.handMask);
+    } else {
+        director_.step(sound, dt, settings.handMask);
+    }
     frame_.styleMoments = 0;
     if (director_.commits() != directorCommitsSeen_) {
         directorCommitsSeen_ = director_.commits();
-        const viz::Director::Reason why = director_.lastReason();
-        if (why == viz::Director::Reason::Section || why == viz::Director::Reason::Drop) frame_.styleMoments = 1;
+        if (director_.styleMoment()) frame_.styleMoments = 1;
     }
     directedKnobs_ = director_.knobs(settings.knobs);
     // Note & key reactions hear the frame next, inside the director's look: its hue anchors the notes'
@@ -79,11 +84,6 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     // knobbed look.
     SceneParams p = lfo_.apply(viz::macros::apply(notes_.apply(director_.apply(displayed_, style.shaderFamily)), directedKnobs_), lfoValues);
     p = viz::AdsrEngine::apply(p, adsr_.configs, envValues);
-    // What the envelopes and LFOs add to the luminance targets this frame: the flash limiter counts it
-    // with the measured output, so an envelope strobe engages the hold at once (#363).
-    frame_.luminanceDrive.fill(0.0f);
-    lfo_.addLuminanceDrive(lfoValues, frame_.luminanceDrive);
-    viz::AdsrEngine::addLuminanceDrive(adsr_.configs, envValues, frame_.luminanceDrive);
     // The reaction matrix: per-style routes from the sound frame to many targets. Ahead of the motion
     // field and the safety clamp, like the LFOs.
     reactions_.tick(sound, dt);

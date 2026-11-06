@@ -11,12 +11,13 @@ namespace geode::sound {
 //
 // It runs at a fixed hop of 10 ms of audio (441 samples at 44.1 kHz), driven from SoundEngine::write(),
 // not from the frame: everything it knows is a function of the samples alone, so the screen at 60 fps,
-// a phone dropping to 40 and an export stepping at 1/30 s hear the same beats in the same places. step()
-// only reads where the oscillator is now.
+// a phone dropping to 40 and an export stepping at 1/30 s hear the same beats in the same places. Its hop
+// is the whole sound engine's analysis hop; SoundEngine::step() only reads where the oscillator is now.
 //
-//   band powers ─► log, over each band's own mean ─► positive change (20 ms) ─► onset envelope (100 Hz)
+//   band powers ─► dB against one shared reference ─► positive change (20 ms) ─► mean ─► onset envelope
+//      (librosa's onset_strength; each band's log over its own mean still feeds the drum accents)
 //      onset envelope ─► minus its local mean ─► 6 s ring ─┬► autocorrelation × tempo prior ─► period
-//                                                          └► 4 s windowed Fourier at that period ─► phase
+//                                                          └► Fourier at that period, whole bars ─► phase
 //      period + phase ─► phase-locked oscillator ─► beats ─► kick/snare accent per beat slot ─► downbeat
 //
 // The tempogram is Grosche & Müller's autocorrelation tempogram restricted to its best lag, and the
@@ -47,6 +48,9 @@ public:
     // Fills the rhythm fields. `sinceHop` is how many samples were written after the last hop, so the
     // phases land on the frame's own instant; `hitTime` is the fallback clock while unlocked.
     void read(int sinceHop, float hitTime, GeodeSoundFrame& out);
+    // Only the beat, bar and phrase phases, `sinceHop` samples after the last hop: the sound engine reads
+    // the rest at the hop and moves these on to each frame's own sample.
+    void phases(int sinceHop, float hitTime, GeodeSoundFrame& out) const;
     // The beats passed since the last read, oldest first (read() empties it).
     int ticks(const Tick*& out) const {
         out = ticks_.data();
@@ -90,6 +94,8 @@ private:
     // Onset envelope.
     std::array<float, kBands> bandMean_{};
     std::array<std::array<float, 2>, kBands> bandLog_{};  // the last two hops' log level, for a 20 ms change
+    std::array<std::array<float, 2>, kBands> bandDb_{};   // ... and their dB against the shared reference
+    float dbRef_ = 0.0f;  // the shared reference: the loudest band's power, released over ~4 s
     float localMean_ = 0.0f;
     int64_t hops_ = 0;
     static constexpr int kRing = 600;  // 6 s

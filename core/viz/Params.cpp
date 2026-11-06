@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <type_traits>
 
 namespace geode::viz {
 
@@ -29,348 +30,102 @@ float SceneParams::paletteRange() const { return paletteRangeOverride >= 0.0f ? 
 float SceneParams::palette2Base() const { return palette2BaseOverride >= 0.0f ? palette2BaseOverride : paletteAt(palette2).base; }
 float SceneParams::palette2Range() const { return palette2RangeOverride >= 0.0f ? palette2RangeOverride : paletteAt(palette2).range; }
 
-const std::array<SceneParams::FloatField, SceneParams::kLerpedFloatCount>& SceneParams::lerpedFloats() {
-    static const std::array<FloatField, kLerpedFloatCount> kFields = {{
-        {"speed", &SceneParams::speed},
-        {"zoom", &SceneParams::zoom},
-        {"rotation", &SceneParams::rotation},
-        {"endlessZoomSpeed", &SceneParams::endlessZoomSpeed},
-        {"sway", &SceneParams::sway},
-        {"pulse", &SceneParams::pulse},
-        {"driftX", &SceneParams::driftX},
-        {"driftY", &SceneParams::driftY},
-        {"shake", &SceneParams::shake},
-        {"audioDrive", &SceneParams::audioDrive},
-        {"beatResponse", &SceneParams::beatResponse},
-        {"turbulence", &SceneParams::turbulence},
-        {"density", &SceneParams::density},
-        {"marchDetail", &SceneParams::marchDetail},
-        {"trailLength", &SceneParams::trailLength},
-        {"trailZoom", &SceneParams::trailZoom},
-        {"trailWarp", &SceneParams::trailWarp},
-        {"warp", &SceneParams::warp},
-        {"ripple", &SceneParams::ripple},
-        {"morph", &SceneParams::morph},
-        {"pixelate", &SceneParams::pixelate},
-        {"posterize", &SceneParams::posterize},
-        {"particleSize", &SceneParams::particleSize},
-        {"tile", &SceneParams::tile},
-        {"twist", &SceneParams::twist},
-        {"paletteMix", &SceneParams::paletteMix},
-        {"milkdropPaletteTint", &SceneParams::milkdropPaletteTint},
-        {"colorShift", &SceneParams::colorShift},
-        {"hueRange", &SceneParams::hueRange},
-        {"saturation", &SceneParams::saturation},
-        {"brightness", &SceneParams::brightness},
-        {"contrast", &SceneParams::contrast},
-        {"gamma", &SceneParams::gamma},
-        {"cycleSpeed", &SceneParams::cycleSpeed},
-        {"intensity", &SceneParams::intensity},
-        {"bloom", &SceneParams::bloom},
-        {"temperature", &SceneParams::temperature},
-        {"bassGain", &SceneParams::bassGain},
-        {"midGain", &SceneParams::midGain},
-        {"trebGain", &SceneParams::trebGain},
-        {"flash", &SceneParams::flash},
-        {"chromaAb", &SceneParams::chromaAb},
-        {"vignette", &SceneParams::vignette},
-        {"scanlines", &SceneParams::scanlines},
-        {"grain", &SceneParams::grain},
-        {"glitch", &SceneParams::glitch},
-        {"fisheye", &SceneParams::fisheye},
-        {"strobe", &SceneParams::strobe},
-        {"fluidPressure", &SceneParams::fluidPressure},
-        {"fluidCurl", &SceneParams::fluidCurl},
-        {"fluidVelocityDissipation", &SceneParams::fluidVelocityDissipation},
-        {"fluidDensityDissipation", &SceneParams::fluidDensityDissipation},
-        {"fluidChromaticAging", &SceneParams::fluidChromaticAging},
-        {"fluidSplatRadius", &SceneParams::fluidSplatRadius},
-        {"fluidSplatForce", &SceneParams::fluidSplatForce},
-        {"fluidStirrerSpeed", &SceneParams::fluidStirrerSpeed},
-        {"fluidPaletteCycleSpeed", &SceneParams::fluidPaletteCycleSpeed},
-        {"fluidSpawnProgress", &SceneParams::fluidSpawnProgress},
-        {"fluidCatchPull", &SceneParams::fluidCatchPull},
-        {"fluidCatchRadius", &SceneParams::fluidCatchRadius},
-        {"fluidParticleLife", &SceneParams::fluidParticleLife},
-        {"fluidParticleDrag", &SceneParams::fluidParticleDrag},
-        {"fluidParticleBrightness", &SceneParams::fluidParticleBrightness},
-        {"fluidBloomIntensity", &SceneParams::fluidBloomIntensity},
-        {"fluidBloomThreshold", &SceneParams::fluidBloomThreshold},
-        {"fluidSunraysWeight", &SceneParams::fluidSunraysWeight},
-        {"fluidCurlAudio", &SceneParams::fluidCurlAudio},
-        {"fluidBloomAudio", &SceneParams::fluidBloomAudio},
-        {"fluidFadeAudio", &SceneParams::fluidFadeAudio},
-        {"fluidRadiusPulse", &SceneParams::fluidRadiusPulse},
-        {"flowStrength", &SceneParams::flowStrength},
-        {"flowForce", &SceneParams::flowForce},
-        {"flowCurl", &SceneParams::flowCurl},
-        {"waterWaveSpeed", &SceneParams::waterWaveSpeed},
-        {"waterDamping", &SceneParams::waterDamping},
-        {"waterRippleStrength", &SceneParams::waterRippleStrength},
-        {"waterDepth", &SceneParams::waterDepth},
-        {"waterSpecular", &SceneParams::waterSpecular},
-        {"waterFlow", &SceneParams::waterFlow},
-        {"waterLiquid", &SceneParams::waterLiquid},
-        {"waterLiquidFlow", &SceneParams::waterLiquidFlow},
-        {"waterLiquidFade", &SceneParams::waterLiquidFade},
-        {"cymaticsFundamental", &SceneParams::cymaticsFundamental},
-        {"cymaticsRing", &SceneParams::cymaticsRing},
-        {"cymaticsFocus", &SceneParams::cymaticsFocus},
-        {"cymaticsScale", &SceneParams::cymaticsScale},
-        {"cymaticsFill", &SceneParams::cymaticsFill},
-        {"cymaticsLine", &SceneParams::cymaticsLine},
-        {"cymaticsGlow", &SceneParams::cymaticsGlow},
-        {"cymaticsIridescence", &SceneParams::cymaticsIridescence},
-        {"cymaticsCaustic", &SceneParams::cymaticsCaustic},
-        {"cymaticsFlow", &SceneParams::cymaticsFlow},
-        {"cymaticsSwirl", &SceneParams::cymaticsSwirl},
-        {"rippleOverlayStrength", &SceneParams::rippleOverlayStrength},
-        {"rippleOverlaySpecular", &SceneParams::rippleOverlaySpecular},
-        {"formDrive", &SceneParams::formDrive},
-        {"motionAmount", &SceneParams::motionAmount},
-        {"motionBreath", &SceneParams::motionBreath},
-        {"motionOrbit", &SceneParams::motionOrbit},
-        {"motionDrift", &SceneParams::motionDrift},
-        {"motionHue", &SceneParams::motionHue},
-        {"camFly", &SceneParams::camFly},
-        {"camOrbit", &SceneParams::camOrbit},
-        {"camPush", &SceneParams::camPush},
-        {"camYaw", &SceneParams::camYaw},
-        {"camPitch", &SceneParams::camPitch},
-        {"camRoll", &SceneParams::camRoll},
-        {"camFov", &SceneParams::camFov},
-        {"camShake", &SceneParams::camShake},
-        {"camSmooth", &SceneParams::camSmooth},
-        {"reactAmount", &SceneParams::reactAmount},
-        {"noteColor", &SceneParams::noteColor},
-        {"notePitch", &SceneParams::notePitch},
-        {"noteIntervals", &SceneParams::noteIntervals},
-        {"noteTension", &SceneParams::noteTension},
-        {"noteChords", &SceneParams::noteChords},
-        {"noteDrums", &SceneParams::noteDrums},
-    }};
-    return kFields;
-}
+// The wire's float count. Kotlin's SceneParamsCodec.FIELDS and its NAMES list must change with it: a
+// row added to viz/ParamTable.inc without them fails here first, on purpose.
+static_assert(SceneParams::kFieldCount == 163, "a ParamTable.inc row was added or removed: update SceneParamsCodec too");
 
 namespace {
-// Every field by name, grouped by type: what set(), get() and the wire go through.
-struct IntField { const char* name; int SceneParams::*member; };
-struct BoolField { const char* name; bool SceneParams::*member; };
-const IntField kInts[] = {
-        {"symmetry", &SceneParams::symmetry},
-        {"particleShape", &SceneParams::particleShape},
-        {"palette", &SceneParams::palette},
-        {"palette2", &SceneParams::palette2},
-        {"paletteLut", &SceneParams::paletteLut},
-        {"fluidQuality", &SceneParams::fluidQuality},
-        {"fluidIterations", &SceneParams::fluidIterations},
-        {"fluidBeatPattern", &SceneParams::fluidBeatPattern},
-        {"fluidBeatSplats", &SceneParams::fluidBeatSplats},
-        {"fluidStirrers", &SceneParams::fluidStirrers},
-        {"fluidSpawnPath", &SceneParams::fluidSpawnPath},
-        {"fluidSpawnPoints", &SceneParams::fluidSpawnPoints},
-        {"fluidCatchPoints", &SceneParams::fluidCatchPoints},
-        {"cymaticsGeometry", &SceneParams::cymaticsGeometry},
-        {"cymaticsModes", &SceneParams::cymaticsModes},
-        {"camPath", &SceneParams::camPath},
-        {"reactSeed", &SceneParams::reactSeed},
-        {"liquidBorn", &SceneParams::liquidBorn},
-        {"liquidAge", &SceneParams::liquidAge},
-        {"liquidSurface", &SceneParams::liquidSurface},
-    };
-const BoolField kBools[] = {
-        {"endlessZoom", &SceneParams::endlessZoom},
-        {"trails", &SceneParams::trails},
-        {"mirror", &SceneParams::mirror},
-        {"kaleidoscope", &SceneParams::kaleidoscope},
-        {"milkdropBlendPresets", &SceneParams::milkdropBlendPresets},
-        {"colorCycle", &SceneParams::colorCycle},
-        {"invert", &SceneParams::invert},
-        {"duotone", &SceneParams::duotone},
-        {"solarize", &SceneParams::solarize},
-        {"fluidAutoQuality", &SceneParams::fluidAutoQuality},
-        {"fluidBassPump", &SceneParams::fluidBassPump},
-        {"fluidSparkle", &SceneParams::fluidSparkle},
-        {"fluidParticlesEnabled", &SceneParams::fluidParticlesEnabled},
-        {"fluidDyeEnabled", &SceneParams::fluidDyeEnabled},
-        {"fluidShading", &SceneParams::fluidShading},
-        {"fluidBloom", &SceneParams::fluidBloom},
-        {"fluidSunrays", &SceneParams::fluidSunrays},
-        {"flowEnabled", &SceneParams::flowEnabled},
-        {"rippleOverlayEnabled", &SceneParams::rippleOverlayEnabled},
-        {"camTouch", &SceneParams::camTouch},
-        {"camGyro", &SceneParams::camGyro},
-    };
-const SceneParams::FloatField kAllFloats[] = {
-        {"speed", &SceneParams::speed},
-        {"zoom", &SceneParams::zoom},
-        {"rotation", &SceneParams::rotation},
-        {"endlessZoomSpeed", &SceneParams::endlessZoomSpeed},
-        {"sway", &SceneParams::sway},
-        {"pulse", &SceneParams::pulse},
-        {"driftX", &SceneParams::driftX},
-        {"driftY", &SceneParams::driftY},
-        {"shake", &SceneParams::shake},
-        {"audioDrive", &SceneParams::audioDrive},
-        {"beatResponse", &SceneParams::beatResponse},
-        {"turbulence", &SceneParams::turbulence},
-        {"density", &SceneParams::density},
-        {"marchDetail", &SceneParams::marchDetail},
-        {"trailLength", &SceneParams::trailLength},
-        {"trailZoom", &SceneParams::trailZoom},
-        {"trailWarp", &SceneParams::trailWarp},
-        {"warp", &SceneParams::warp},
-        {"ripple", &SceneParams::ripple},
-        {"morph", &SceneParams::morph},
-        {"pixelate", &SceneParams::pixelate},
-        {"posterize", &SceneParams::posterize},
-        {"particleSize", &SceneParams::particleSize},
-        {"tile", &SceneParams::tile},
-        {"twist", &SceneParams::twist},
-        {"paletteMix", &SceneParams::paletteMix},
-        {"paletteBaseOverride", &SceneParams::paletteBaseOverride},
-        {"paletteRangeOverride", &SceneParams::paletteRangeOverride},
-        {"palette2BaseOverride", &SceneParams::palette2BaseOverride},
-        {"palette2RangeOverride", &SceneParams::palette2RangeOverride},
-        {"milkdropPaletteTint", &SceneParams::milkdropPaletteTint},
-        {"colorShift", &SceneParams::colorShift},
-        {"hueRange", &SceneParams::hueRange},
-        {"saturation", &SceneParams::saturation},
-        {"brightness", &SceneParams::brightness},
-        {"contrast", &SceneParams::contrast},
-        {"gamma", &SceneParams::gamma},
-        {"cycleSpeed", &SceneParams::cycleSpeed},
-        {"intensity", &SceneParams::intensity},
-        {"bloom", &SceneParams::bloom},
-        {"temperature", &SceneParams::temperature},
-        {"bassGain", &SceneParams::bassGain},
-        {"midGain", &SceneParams::midGain},
-        {"trebGain", &SceneParams::trebGain},
-        {"flash", &SceneParams::flash},
-        {"chromaAb", &SceneParams::chromaAb},
-        {"vignette", &SceneParams::vignette},
-        {"scanlines", &SceneParams::scanlines},
-        {"grain", &SceneParams::grain},
-        {"glitch", &SceneParams::glitch},
-        {"fisheye", &SceneParams::fisheye},
-        {"strobe", &SceneParams::strobe},
-        {"paramFadeSec", &SceneParams::paramFadeSec},
-        {"fluidPressure", &SceneParams::fluidPressure},
-        {"fluidCurl", &SceneParams::fluidCurl},
-        {"fluidVelocityDissipation", &SceneParams::fluidVelocityDissipation},
-        {"fluidDensityDissipation", &SceneParams::fluidDensityDissipation},
-        {"fluidChromaticAging", &SceneParams::fluidChromaticAging},
-        {"fluidSplatRadius", &SceneParams::fluidSplatRadius},
-        {"fluidSplatForce", &SceneParams::fluidSplatForce},
-        {"fluidStirrerSpeed", &SceneParams::fluidStirrerSpeed},
-        {"fluidPaletteCycleSpeed", &SceneParams::fluidPaletteCycleSpeed},
-        {"fluidSpawnProgress", &SceneParams::fluidSpawnProgress},
-        {"fluidCatchPull", &SceneParams::fluidCatchPull},
-        {"fluidCatchRadius", &SceneParams::fluidCatchRadius},
-        {"fluidParticleLife", &SceneParams::fluidParticleLife},
-        {"fluidParticleDrag", &SceneParams::fluidParticleDrag},
-        {"fluidParticleBrightness", &SceneParams::fluidParticleBrightness},
-        {"fluidBloomIntensity", &SceneParams::fluidBloomIntensity},
-        {"fluidBloomThreshold", &SceneParams::fluidBloomThreshold},
-        {"fluidSunraysWeight", &SceneParams::fluidSunraysWeight},
-        {"fluidCurlAudio", &SceneParams::fluidCurlAudio},
-        {"fluidBloomAudio", &SceneParams::fluidBloomAudio},
-        {"fluidFadeAudio", &SceneParams::fluidFadeAudio},
-        {"fluidRadiusPulse", &SceneParams::fluidRadiusPulse},
-        {"flowStrength", &SceneParams::flowStrength},
-        {"flowForce", &SceneParams::flowForce},
-        {"flowCurl", &SceneParams::flowCurl},
-        {"waterWaveSpeed", &SceneParams::waterWaveSpeed},
-        {"waterDamping", &SceneParams::waterDamping},
-        {"waterRippleStrength", &SceneParams::waterRippleStrength},
-        {"waterDepth", &SceneParams::waterDepth},
-        {"waterSpecular", &SceneParams::waterSpecular},
-        {"waterFlow", &SceneParams::waterFlow},
-        {"waterLiquid", &SceneParams::waterLiquid},
-        {"waterLiquidFlow", &SceneParams::waterLiquidFlow},
-        {"waterLiquidFade", &SceneParams::waterLiquidFade},
-        {"cymaticsFundamental", &SceneParams::cymaticsFundamental},
-        {"cymaticsRing", &SceneParams::cymaticsRing},
-        {"cymaticsFocus", &SceneParams::cymaticsFocus},
-        {"cymaticsScale", &SceneParams::cymaticsScale},
-        {"cymaticsFill", &SceneParams::cymaticsFill},
-        {"cymaticsLine", &SceneParams::cymaticsLine},
-        {"cymaticsGlow", &SceneParams::cymaticsGlow},
-        {"cymaticsIridescence", &SceneParams::cymaticsIridescence},
-        {"cymaticsCaustic", &SceneParams::cymaticsCaustic},
-        {"cymaticsFlow", &SceneParams::cymaticsFlow},
-        {"cymaticsSwirl", &SceneParams::cymaticsSwirl},
-        {"rippleOverlayStrength", &SceneParams::rippleOverlayStrength},
-        {"rippleOverlaySpecular", &SceneParams::rippleOverlaySpecular},
-        {"formDrive", &SceneParams::formDrive},
-        {"motionAmount", &SceneParams::motionAmount},
-        {"motionBreath", &SceneParams::motionBreath},
-        {"motionOrbit", &SceneParams::motionOrbit},
-        {"motionDrift", &SceneParams::motionDrift},
-        {"motionHue", &SceneParams::motionHue},
-        {"camFly", &SceneParams::camFly},
-        {"camOrbit", &SceneParams::camOrbit},
-        {"camPush", &SceneParams::camPush},
-        {"camYaw", &SceneParams::camYaw},
-        {"camPitch", &SceneParams::camPitch},
-        {"camRoll", &SceneParams::camRoll},
-        {"camFov", &SceneParams::camFov},
-        {"camShake", &SceneParams::camShake},
-        {"camSmooth", &SceneParams::camSmooth},
-        {"reactAmount", &SceneParams::reactAmount},
-        {"noteColor", &SceneParams::noteColor},
-        {"notePitch", &SceneParams::notePitch},
-        {"noteIntervals", &SceneParams::noteIntervals},
-        {"noteTension", &SceneParams::noteTension},
-        {"noteChords", &SceneParams::noteChords},
-        {"noteDrums", &SceneParams::noteDrums},
+
+// Ints and bools travel as floats: an int rounds, a bool is value > 0.5, as the wire always read them.
+template <typename T>
+float toFloat(T v) {
+    if constexpr (std::is_same_v<T, bool>) {
+        return v ? 1.0f : 0.0f;
+    } else {
+        return static_cast<float>(v);
+    }
+}
+
+template <typename T>
+T fromFloat(float v) {
+    if constexpr (std::is_same_v<T, bool>) {
+        return v > 0.5f;
+    } else if constexpr (std::is_same_v<T, int>) {
+        return static_cast<int>(std::lround(v));
+    } else {
+        return v;
+    }
+}
+
+// One reader and one writer per wire slot, expanded from the table, so get, set and the wire never
+// keep their own list of fields.
+struct Access {
+    float (*get)(const SceneParams&);
+    void (*set)(SceneParams&, float);
 };
+
+const std::array<Access, SceneParams::kFieldCount> kAccess = {{
+#define GEODE_PARAM(kind, name, def, lo, hi, fade)                                      \
+    {[](const SceneParams& p) { return toFloat(p.name); },                               \
+     [](SceneParams& p, float v) { p.name = fromFloat<GEODE_PARAM_TYPE_##kind>(v); }},
+#include "viz/ParamTable.inc"
+#undef GEODE_PARAM
+}};
+
+// lerpParams' step for one field: a Fade field glides, a Hold field keeps `to`'s value (out starts as `to`).
+template <ParamFade F, typename T>
+void glide(T& out, const T& a, const T& b, float k) {
+    if constexpr (F == ParamFade::Fade) {
+        static_assert(std::is_same_v<T, float>, "only a Float or Circular row can Fade");
+        out = a + (b - a) * k;
+    } else {
+        (void)out;
+        (void)a;
+        (void)b;
+        (void)k;
+    }
+}
+
 }  // namespace
 
-bool SceneParams::set(std::string_view name, float value) {
-    for (const auto& f : kAllFloats) {
-        if (name == f.name) { this->*f.member = value; return true; }
+int SceneParams::slotOf(std::string_view name) {
+    const auto& names = fieldNames();
+    for (int i = 0; i < kFieldCount; ++i) {
+        if (name == names[static_cast<size_t>(i)]) return i;
     }
-    for (const auto& f : kInts) {
-        if (name == f.name) { this->*f.member = static_cast<int>(std::lround(value)); return true; }
-    }
-    for (const auto& f : kBools) {
-        if (name == f.name) { this->*f.member = value > 0.5f; return true; }
-    }
-    return false;
+    return -1;
 }
 
-float SceneParams::get(std::string_view name) const {
-    for (const auto& f : kAllFloats) {
-        if (name == f.name) return this->*f.member;
-    }
-    for (const auto& f : kInts) {
-        if (name == f.name) return static_cast<float>(this->*f.member);
-    }
-    for (const auto& f : kBools) {
-        if (name == f.name) return this->*f.member ? 1.0f : 0.0f;
-    }
-    return 0.0f;
+bool SceneParams::setSlot(int slot, float value) {
+    if (slot < 0 || slot >= kFieldCount) return false;
+    kAccess[static_cast<size_t>(slot)].set(*this, value);
+    return true;
 }
+
+float SceneParams::getSlot(int slot) const {
+    if (slot < 0 || slot >= kFieldCount) return 0.0f;
+    return kAccess[static_cast<size_t>(slot)].get(*this);
+}
+
+bool SceneParams::set(std::string_view name, float value) { return setSlot(slotOf(name), value); }
+
+float SceneParams::get(std::string_view name) const { return getSlot(slotOf(name)); }
 
 SceneParams SceneParams::fromWire(const float* values) {
     SceneParams p;
-    const auto& names = fieldNames();
-    for (size_t i = 0; i < names.size(); ++i) p.set(names[i], values[i]);
+    for (int i = 0; i < kFieldCount; ++i) p.setSlot(i, values[i]);
     return p;
 }
 
 void SceneParams::toWire(float* out) const {
-    const auto& names = fieldNames();
-    for (size_t i = 0; i < names.size(); ++i) out[i] = get(names[i]);
+    for (int i = 0; i < kFieldCount; ++i) out[i] = getSlot(i);
 }
 
 SceneParams lerpParams(const SceneParams& from, const SceneParams& to, float k) {
     SceneParams out = to;
-    for (const auto& f : SceneParams::lerpedFloats()) {
-        const float a = from.*f.member;
-        out.*f.member = a + (to.*f.member - a) * k;
-    }
+#define GEODE_PARAM(kind, name, def, lo, hi, fade) glide<ParamFade::fade>(out.name, from.name, to.name, k);
+#include "viz/ParamTable.inc"
+#undef GEODE_PARAM
     return out;
 }
 

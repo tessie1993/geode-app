@@ -104,7 +104,7 @@ class PlaybackService : MediaLibraryService() {
             } else {
                 MediaSession.ConnectionResult
                     .AcceptedResultBuilder()
-                    .setAvailableSessionCommands(buttons.commands(MediaSession.ConnectionResult.DEFAULT_UNTRUSTED_SESSION_COMMANDS))
+                    .setAvailableSessionCommands(MediaSession.ConnectionResult.DEFAULT_UNTRUSTED_SESSION_COMMANDS)
                     .setAvailablePlayerCommands(TRANSPORT_ONLY)
                     .build()
             }
@@ -182,8 +182,44 @@ class PlaybackService : MediaLibraryService() {
             // connection, or a manual refresh) is the signal to drop the memoised track list so
             // library edits made elsewhere in the app are picked up.
             tree.invalidate()
-            return Futures.immediateFuture(LibraryResult.ofItem(tree.root(), params))
+            return Futures.immediateFuture(LibraryResult.ofItem(tree.root(), searchSupported(params)))
         }
+
+        /**
+         * Search, as Media3 documents it for a library service: [onSearch] answers at once and
+         * reports the result count through `notifySearchResultChanged`, then the browser pages
+         * the results in through [onGetSearchResult]. Both read [LibraryTree.search], the library
+         * screen's folded, ranked match.
+         */
+        override fun onSearch(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            query: String,
+            params: LibraryParams?,
+        ): ListenableFuture<LibraryResult<Void>> {
+            if (!mayBrowse(browser)) return Futures.immediateFuture(LibraryResult.ofError(SessionError.ERROR_PERMISSION_DENIED))
+            resumptionExecutor.execute {
+                val count = tree.search(query).size
+                session.notifySearchResultChanged(browser, query, count, params)
+            }
+            return Futures.immediateFuture(LibraryResult.ofVoid())
+        }
+
+        override fun onGetSearchResult(
+            session: MediaLibrarySession,
+            browser: MediaSession.ControllerInfo,
+            query: String,
+            page: Int,
+            pageSize: Int,
+            params: LibraryParams?,
+        ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> =
+            Futures.submit(
+                java.util.concurrent.Callable {
+                    val all = if (mayBrowse(browser)) tree.search(query) else emptyList()
+                    LibraryResult.ofItemList(pageOf(all, page, pageSize), params)
+                },
+                resumptionExecutor,
+            )
 
         override fun onGetChildren(
             session: MediaLibrarySession,
@@ -196,15 +232,41 @@ class PlaybackService : MediaLibraryService() {
             Futures.submit(
                 java.util.concurrent.Callable {
                     val all = if (mayBrowse(browser)) tree.children(parentId) else emptyList()
-                    // page * pageSize overflows Int when Media3 passes pageSize = Integer.MAX_VALUE
-                    // (its "everything" request), which drove `from` negative and crashed subList.
-                    // Do the multiply in Long, then clamp both ends into 0..all.size.
-                    val from = (page.toLong() * pageSize.toLong()).coerceIn(0L, all.size.toLong()).toInt()
-                    val until = (from.toLong() + pageSize.toLong()).coerceIn(from.toLong(), all.size.toLong()).toInt()
-                    LibraryResult.ofItemList(ImmutableList.copyOf(all.subList(from, until)), params)
+                    LibraryResult.ofItemList(pageOf(all, page, pageSize), params)
                 },
                 resumptionExecutor,
             )
+
+        /**
+         * One page of [all]. page * pageSize overflows Int when Media3 passes pageSize =
+         * Integer.MAX_VALUE (its "everything" request), which drove `from` negative and crashed
+         * subList. Do the multiply in Long, then clamp both ends into 0..all.size.
+         */
+        private fun pageOf(
+            all: List<MediaItem>,
+            page: Int,
+            pageSize: Int,
+        ): ImmutableList<MediaItem> {
+            val from = (page.toLong() * pageSize.toLong()).coerceIn(0L, all.size.toLong()).toInt()
+            val until = (from.toLong() + pageSize.toLong()).coerceIn(from.toLong(), all.size.toLong()).toInt()
+            return ImmutableList.copyOf(all.subList(from, until))
+        }
+
+        /**
+         * The root's params with search switched on: the legacy browser extra Android Auto reads
+         * to show its search box. Media3 hands the root result's extras to legacy browsers as the
+         * root hints.
+         */
+        private fun searchSupported(params: LibraryParams?): LibraryParams {
+            val extras = Bundle(params?.extras ?: Bundle.EMPTY).apply { putBoolean(EXTRA_SEARCH_SUPPORTED, true) }
+            return LibraryParams
+                .Builder()
+                .setExtras(extras)
+                .setOffline(params?.isOffline ?: false)
+                .setRecent(params?.isRecent ?: false)
+                .setSuggested(params?.isSuggested ?: false)
+                .build()
+        }
 
         override fun onGetItem(
             session: MediaLibrarySession,
@@ -346,6 +408,12 @@ class PlaybackService : MediaLibraryService() {
     }
 
     companion object {
+        /**
+         * `MediaBrowserServiceCompat.BROWSER_SERVICE_EXTRAS_KEY_SEARCH_SUPPORTED`, spelled out:
+         * the compat class is not a dependency, and Android Auto reads the key by this string.
+         */
+        private const val EXTRA_SEARCH_SUPPORTED = "android.media.browse.SEARCH_SUPPORTED"
+
         /** What a caller that may not browse connects to: a folder with nothing in it. */
         private val EMPTY_ROOT: MediaItem =
             MediaItem

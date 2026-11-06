@@ -255,13 +255,13 @@ void testPinnedAgainstGlobals() {
         const float x = (i % 3 == 0) ? 1.0f : -1.0f;
         geode::viz::macros::setGlobal(MacroKnobs{x, -x, x, -x, x, -x});
         geode::viz::note_response::setGlobal(i % 2 == 0);
-        hand::setGlobal(i % 2 == 0 ? hand::kAll : 0u);
+        hand::setGlobal(i % 2 == 0 ? hand::kAll : 0u, true);
         geode::viz::director::setGlobal(i % 2 != 0, i % 2 == 0 ? 0.0f : 1.0f, static_cast<uint64_t>(i));
         same = same && sameBits(calm[static_cast<size_t>(i)], wire(r->step(requested, frame(t), kDt, s, style(kStyle, i == 0)).params));
     }
     geode::viz::macros::setGlobal(MacroKnobs{});
     geode::viz::note_response::setGlobal(false);
-    hand::setGlobal(0u);
+    hand::setGlobal(0u, false);
     geode::viz::director::setGlobal(false, 0.0f, 0);
     check(same, "changing the process globals mid-run never reaches a resolver's frames");
 }
@@ -294,7 +294,7 @@ void testLatchPinnedAgainstGlobals() {
     const std::uint32_t snare = hand::bit(geode::viz::Moment::Snare);
     geode::viz::macros::setGlobal(knobs);
     geode::viz::note_response::setGlobal(true);
-    hand::setGlobal(snare);
+    hand::setGlobal(snare, true);
     // The live free taste has run out (amount 0), but a 30 s free export is still directed throughout.
     director::setGlobal(true, 0.0f, 42);
     SettingsLatch pinned;
@@ -310,7 +310,7 @@ void testLatchPinnedAgainstGlobals() {
         const MacroKnobs now{x, -x, x, -x, x, -x};
         geode::viz::macros::setGlobal(now);
         geode::viz::note_response::setGlobal(i % 2 == 0);
-        hand::setGlobal(i % 2 == 0 ? hand::kAll : 0u);
+        hand::setGlobal(i % 2 == 0 ? hand::kAll : 0u, true);
         director::setGlobal(i % 2 != 0, i % 2 == 0 ? 0.0f : 1.0f, static_cast<uint64_t>(i + 100));
         const bool reduced = i % 2 == 0;
         const EngineSettings p = pinned.latch(reduced);
@@ -323,7 +323,7 @@ void testLatchPinnedAgainstGlobals() {
     }
     geode::viz::macros::setGlobal(MacroKnobs{});
     geode::viz::note_response::setGlobal(false);
-    hand::setGlobal(0u);
+    hand::setGlobal(0u, false);
     director::setGlobal(false, 0.0f, 0);
     check(held, "a pinned latch never hears the process globals again");
     check(followed, "a live latch follows the process globals every frame");
@@ -336,7 +336,7 @@ void testLatchPinnedAgainstGlobals() {
     director::setGlobal(false, 0.0f, 0);
 }
 
-// Same inputs, same bits: params, camera moves, luminance drive and the note uniforms, over 600 frames
+// Same inputs, same bits: params, camera moves and the note uniforms, over 600 frames
 // with a style switch halfway.
 void testDeterministic() {
     const EngineSettings s = richSettings();
@@ -360,7 +360,6 @@ void testDeterministic() {
         moments += fa.styleMoments;
         same = same && sameBits(wire(fa.params), wire(fb.params)) && fa.styleMoments == fb.styleMoments &&
                std::memcmp(&fa.cameraMoves, &fb.cameraMoves, sizeof(fa.cameraMoves)) == 0 &&
-               std::memcmp(fa.luminanceDrive.data(), fb.luminanceDrive.data(), sizeof(float) * fa.luminanceDrive.size()) == 0 &&
                std::memcmp(&a->noteUniforms(), &b->noteUniforms(), sizeof(geode::viz::NoteUniforms)) == 0;
     }
     check(same, "two resolvers given the same inputs give bit-identical frames over 600 frames");

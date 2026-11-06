@@ -3,7 +3,6 @@ package dev.geode.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,7 +14,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -41,7 +39,6 @@ import dev.geode.ui.theme.geodeTypography
 import dev.geode.ui.theme.isReadableOnCanvas
 import dev.geode.ui.theme.rememberSystemReducedMotion
 import dev.geode.ui.theme.rememberUiSounds
-import kotlin.math.max
 
 /**
  * The app's one theme: black glass on the Material 3 type scale, with M3 Expressive motion.
@@ -66,9 +63,8 @@ internal fun CrystalMaterialTheme(
             fontColorOverride = fontColor,
             accentSource = accentSource,
         )
-    // Read unconditionally, so the observer stays registered whatever the app setting says.
-    val systemReducedMotion = rememberSystemReducedMotion()
-    val reducedMotion = gui.reducedMotion || systemReducedMotion
+    // Android's "Remove animations" alone (data/SystemMotion, #336), watched live.
+    val reducedMotion = rememberSystemReducedMotion()
     CompositionLocalProvider(
         LocalFontColor provides fontColor,
         LocalContentColor provides scheme.onBackground,
@@ -138,27 +134,6 @@ fun GlowTitle(
     Text(text, modifier.semantics { heading() }, style = style, color = MaterialTheme.colorScheme.onBackground)
 }
 
-/** A faint halo behind an active control. Kept subtle: black glass lights things, it doesn't glow. */
-fun Modifier.softGlow(
-    color: Color,
-    radius: Dp = 16.dp,
-    strength: Float = 1f,
-): Modifier =
-    drawBehind {
-        val r = max(size.width, size.height) / 2f + radius.toPx()
-        drawCircle(
-            brush =
-                Brush.radialGradient(
-                    0f to color.copy(alpha = 0.16f * strength),
-                    1f to Color.Transparent,
-                    center = center,
-                    radius = r,
-                ),
-            radius = r,
-            center = center,
-        )
-    }
-
 /**
  * A glass panel: [tint] at [opacity] over whatever is behind it, a faint top sheen and a hairline
  * edge. [glow] tints the edge, [glowStrength] how visible it is; [prismatic] marks a selected
@@ -189,21 +164,6 @@ fun Modifier.crystalPanel(
                 0.5f to Color.Transparent,
             ),
         ).border(1.dp, edge, shape)
-}
-
-fun Modifier.luminousHairline(glow: Color): Modifier = background(glow.copy(alpha = glow.alpha * 0.5f))
-
-/** The app canvas behind every screen: black, with a barely-there lift towards the top. Fills its parent. */
-@Composable
-fun CrystalBackground(modifier: Modifier = Modifier) {
-    Box(
-        modifier.fillMaxSize().background(
-            Brush.verticalGradient(
-                0f to GeodeColors.CanvasRaised,
-                0.6f to GeodeColors.Canvas,
-            ),
-        ),
-    )
 }
 
 /**

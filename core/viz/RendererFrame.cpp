@@ -8,6 +8,7 @@
 #include "viz/Catalogue.hpp"
 #include "viz/CompositeGrade.hpp"
 #include "viz/EndlessZoom.hpp"
+#include "viz/FrameStep.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Quad.hpp"
 
@@ -49,8 +50,7 @@ StyleTraits styleTraitsOf(const std::string& id) { return {SceneRegistry::spinRa
 float Renderer::beginFrame(double timeSeconds) {
     resetFrameState();
     frameNowS_ = timeSeconds;
-    const double elapsed = lastTimeS_ < 0.0 ? 1.0 / 60.0 : timeSeconds - lastTimeS_;
-    const float dt = static_cast<float>(std::clamp(elapsed, 0.001, 0.1));
+    const float dt = frameStepSeconds(fixedFps_.load(std::memory_order_relaxed), lastTimeS_, timeSeconds);
     lastTimeS_ = timeSeconds;
     thermal_.onFrame(dt);
     timeSeconds_ = std::fmod(timeSeconds_ + dt, kTimeWrapSeconds);
@@ -64,13 +64,18 @@ float Renderer::beginFrame(double timeSeconds) {
             tunedKnobs_ = frameSettings_.knobs;
             sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
         }
-        if (sound_) sound_->step(dt, soundFrame_);
+        if (sound_) {
+            sound_->step(dt, soundFrame_);
+            soundEmotion_ = sound_->emotion();
+        }
+        soundHeard_ = sound_ != nullptr;
     }
     applyStyleSchedule();
     std::vector<std::pair<std::string, std::string>> pending;
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         pending.swap(pendingShaders_);
+        syncLayerLocked();
         frameLayerMix_ = layerMix_;
         frameLayerBlend_ = layerBlend_;
         frameTransitionId_ = transitionId_;
@@ -147,8 +152,23 @@ SceneParams Renderer::resolveParams(float dt) {
     style.spin = sceneSpin_.load(std::memory_order_relaxed);
     style.switched = styleSwitchPending_;
     styleSwitchPending_ = false;
+    // The feeling comes from the engine, stepped on the sample clock, so it is the same at every frame rate
+    // and in an export. A new seed is a new play: the director forgets the song, the feeling too.
+    const sound::Emotion::State* heard = nullptr;
+    if (soundHeard_) {
+        if (emotionSeeded_ && frameSettings_.director.seed != emotionSeed_) {
+            std::lock_guard<std::mutex> lock(soundLock_);
+            if (sound_) {
+                sound_->resetEmotion();
+                soundEmotion_ = sound_->emotion();
+            }
+        }
+        emotionSeed_ = frameSettings_.director.seed;
+        emotionSeeded_ = true;
+        heard = &soundEmotion_;
+    }
     // The chain itself, param fade to safety clamp (signal/Resolver).
-    const signal::Resolver::Frame& out = resolver_.step(requested, soundFrame_, dt, frameSettings_, style);
+    const signal::Resolver::Frame& out = resolver_.step(requested, soundFrame_, dt, frameSettings_, style, heard);
     if (out.styleMoments > 0) directorStyleMoments_.fetch_add(out.styleMoments, std::memory_order_acq_rel);
     SceneParams p = out.params;
     // The device's masks, after the clamp: the thermal tier and Settings › Performance.
@@ -170,6 +190,11 @@ SceneParams Renderer::resolveParams(float dt) {
 }
 
 void Renderer::resolveLayerScene() {
+    // Who asked the stager for what: the layer resolves first in a frame, the next style later (in
+    // drawLiquid), so the layer reads the next style's ask from the frame before.
+    bornAskedBefore_ = std::move(bornAsked_);
+    bornAsked_.clear();
+    layerAsked_.clear();
     std::string layerId;
     std::string requestedId;
     {
@@ -180,7 +205,8 @@ void Renderer::resolveLayerScene() {
     layerScene_ = nullptr;
     // The layer is staged too, but only once the requested scene is built: one target at a time.
     if (outgoingScene_ || layerId.empty() || layerId == requestedId || requestedPending_) return;
-    Scene* layer = readyScene(layerId);
+    layerAsked_ = layerId;
+    Scene* layer = readySecondary(layerId, bornAskedBefore_);
     if (layer && layer != activeScene_) layerScene_ = layer;
 }
 
@@ -281,11 +307,8 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     // shake themselves are already inert (see Params.hpp).
     in.hitImpulse = 0.0f;
     const SceneParams& fx = lastFinalParams_;
-    // uPostFlash rides uBeat, which is hitImpulse: 0 since wave three, so this term draws nothing. The
-    // flash limit is the measured one below (safetyHold), not a guess from the params.
+    // uPostFlash rides uBeat, which is hitImpulse: 0 since wave three, so this term draws nothing.
     in.flash = fx.flash;
-    in.safetyHold = 1.0f - flashGrade_.scale;
-    in.safetyAnchor = flashGrade_.anchor;
     in.strobeHz = safety::strobeHz();
     in.postRotationAngle = postRotationAngle_;
     in.postCyclePhase = postCyclePhase_;
@@ -307,20 +330,6 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.underlayAmount = compositePass_.underlayAmount();
     in.noteTint = resolver_.noteUniforms().tint;
     compositePass_.draw(in);
-}
-
-static_assert(safety::FlashLimiter::kDrives == kLuminanceTargets, "one limiter drive per luminance target");
-static_assert(safety::FlashLimiter::kDriveThreshold == safety::kMaxFlashDepth, "a drive counts past the flash depth");
-
-void Renderer::stepFlashLimiter(float dt) {
-    safetyClock_ += dt;
-    safety::FrameLight light;
-    safety::Grade drawnWith;
-    double drawnAt = 0.0;
-    while (outputProbe_.poll(light, drawnWith, drawnAt)) flashLimiter_.observe(light, drawnWith, drawnAt);
-    // This frame's drive (resolveParams ran first), stamped with the time this frame is drawn at.
-    flashLimiter_.drive(resolver_.frame().luminanceDrive, safetyClock_);
-    flashGrade_ = flashLimiter_.next(safetyClock_);
 }
 
 void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
@@ -349,11 +358,9 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
     look.yaw = std::clamp(look.yaw, -1.0f, 1.0f);
     look.pitch = std::clamp(look.pitch, -1.0f, 1.0f);
     camera_.setMoves(resolver_.frame().cameraMoves);
-    // Endless zoom flies the rig only for a style that marches it (EndlessZoom.hpp); the
-    // families still on the old law keep their old camera too.
+    // Endless zoom flies the rig only for a style that marches it (EndlessZoom.hpp).
     SceneParams rigParams = p;
-    rigParams.endlessZoom = p.endlessZoom && activeScene_ != nullptr && activeScene_->drawsCamera() &&
-                            !endless::keepsTriangle(activeScene_->id());
+    rigParams.endlessZoom = p.endlessZoom && activeScene_ != nullptr && activeScene_->drawsCamera();
     // Liquid mode owns the dive: a 3D style dives by flying the rig through it, at Dive speed.
     if (liquidOn() && activeScene_ != nullptr && activeScene_->drawsCamera()) rigParams.endlessZoom = true;
     camera_.step(rigParams, look, dt, frameSettings_.reducedMotion,
@@ -393,11 +400,8 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     if (liquidOn() && !scene->drawsCamera()) sceneParams.endlessZoom = false;
     drawSceneTarget(*scene, sceneParams, dt);
     const GLuint liquidTex = drawLiquid(*scene, p, dt);
-    stepFlashLimiter(dt);
     composite(p, progress, targetFbo, liquidTex);
-    // Measured after the composite, before the UI blur: the glass sheet is not the visual (and an export
-    // never draws it). Live and export both run this, so a render is limited exactly like the screen.
-    outputProbe_.capture(targetFbo, width_, height_, flashGrade_, safetyClock_);
+    drawEdgeGlow(targetFbo, timeSeconds, dt);
     drawUiBlur(targetFbo);
 }
 
@@ -409,6 +413,26 @@ void Renderer::drawUiBlur(GLuint targetFbo) {
         region = uiBlurRegion_;
     }
     uiBlurPass_.draw(region, targetFbo, width_, height_, quadVao_);
+}
+
+void Renderer::drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt) {
+    // Off, the pass still hears the switch, so turning it on again starts its envelope from rest.
+    if (!edgeGlowOn_.load(std::memory_order_relaxed)) {
+        edgeGlowPass_.setOptions(frame::edge_glow::Options{});
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        edgeGlowPass_.setOptions(edgeGlowOptions_);
+    }
+    // The renderer has no surface kind of its own yet: the wallpaper is the only caller that turns the
+    // glow on, so an on glow means a wallpaper frame, unless this renderer is an export's.
+    const frame::Surface surface =
+        offscreen_.load(std::memory_order_relaxed) ? frame::Surface::Export : frame::Surface::Wallpaper;
+    const frame::FrameCtx ctx{width_, height_, timeSeconds, dt, surface, &soundFrame_};
+    if (!edgeGlowPass_.wants(ctx)) return;
+    edgeGlowPass_.prepare(ctx);
+    edgeGlowPass_.draw(frame::PassInputs{}, frame::PassTarget{targetFbo, width_, height_});
 }
 
 void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
@@ -505,7 +529,8 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
         if (!lastBornSceneId_.empty() && lastBornSceneId_ != bornSceneId_) dropScene(lastBornSceneId_);
         lastBornSceneId_ = bornSceneId_;
     }
-    Scene* next = readyScene(bornSceneId_);
+    bornAsked_ = bornSceneId_;
+    Scene* next = readySecondary(bornSceneId_, layerAsked_);
     if (next == nullptr || next == &scene || next == layerScene_) return fboA_.tex();
     glBindFramebuffer(GL_FRAMEBUFFER, bornFbo_.fbo());
     glViewport(0, 0, renderWidth_, renderHeight_);

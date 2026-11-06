@@ -2,6 +2,7 @@ package dev.geode.data
 
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import dev.geode.engine.bridge.GeodeNative
 
 // Settings › Behaviour: what the app does by itself, what each screen does, and what each gesture on
 // the visual means. The owner decided every default here (wave 1, 1C); the screens that read them
@@ -134,7 +135,8 @@ enum class GestureAction {
 }
 
 data class BehaviourPrefs(
-    val startScreen: StartScreen = StartScreen.LAST_USED,
+    /** The app opens on the Library unless the user picks another screen (owner). */
+    val startScreen: StartScreen = StartScreen.LIBRARY,
     /** Where [StartScreen.LAST_USED] reopens: the last screen shown, never [StartScreen.LAST_USED] itself. */
     val lastScreen: StartScreen = StartScreen.PLAYER,
     val visualsOrientation: VisualsOrientation = VisualsOrientation.AUTO_ROTATE,
@@ -168,6 +170,11 @@ data class BehaviourPrefs(
     val dreamShowClock: Boolean = true,
     /** The dream's "title · artist" line under the clock, while something plays. */
     val dreamShowNowPlaying: Boolean = true,
+    /**
+     * Behaviour › Dream's frame rate (ADR 0008), its own and not Settings › Performance's: 30 unless
+     * the user picks another. The allowed rates and the snap are native (`GeodeNative.surfaceFpsChoice`).
+     */
+    val dreamFps: Int = GeodeNative.SURFACE_DEFAULT_FPS,
     /** Every canvas gesture's action. A gesture missing from the map is [GestureAction.OFF]. */
     val gestures: Map<CanvasGesture, GestureAction> = DEFAULT_GESTURES,
 ) {
@@ -182,7 +189,7 @@ data class BehaviourPrefs(
         val DEFAULT_GESTURES: Map<CanvasGesture, GestureAction> =
             mapOf(
                 CanvasGesture.TAP_BOTTOM to GestureAction.SHOW_MINI_PLAYER,
-                CanvasGesture.TAP_TOP to GestureAction.QUICK_SETTINGS,
+                CanvasGesture.TAP_TOP to GestureAction.SHOW_MINI_PLAYER,
                 CanvasGesture.DOUBLE_TAP to GestureAction.TOGGLE_SHEET,
                 CanvasGesture.SWIPE_SIDEWAYS to GestureAction.STEP_STYLE,
                 CanvasGesture.SWIPE_UP to GestureAction.SHOW_MINI_PLAYER,
@@ -226,6 +233,7 @@ class BehaviourStore(
             dreamScreenBright = prefs.getBoolean(KEY_DREAM_BRIGHT, d.dreamScreenBright),
             dreamShowClock = prefs.getBoolean(KEY_DREAM_CLOCK, d.dreamShowClock),
             dreamShowNowPlaying = prefs.getBoolean(KEY_DREAM_NOW_PLAYING, d.dreamShowNowPlaying),
+            dreamFps = prefs.getInt(KEY_DREAM_FPS, d.dreamFps),
             gestures =
                 CanvasGesture.entries.associateWith { gesture ->
                     enumOf(KEY_GESTURE_PREFIX + gesture.name, d.actionFor(gesture))
@@ -256,6 +264,7 @@ class BehaviourStore(
             putBoolean(KEY_DREAM_BRIGHT, b.dreamScreenBright)
             putBoolean(KEY_DREAM_CLOCK, b.dreamShowClock)
             putBoolean(KEY_DREAM_NOW_PLAYING, b.dreamShowNowPlaying)
+            putInt(KEY_DREAM_FPS, b.dreamFps)
             for (gesture in CanvasGesture.entries) putString(KEY_GESTURE_PREFIX + gesture.name, b.actionFor(gesture).name)
         }
     }
@@ -294,6 +303,7 @@ class BehaviourStore(
         const val KEY_DREAM_BRIGHT = "behaviour_dream_screen_bright"
         const val KEY_DREAM_CLOCK = "behaviour_dream_show_clock"
         const val KEY_DREAM_NOW_PLAYING = "behaviour_dream_show_now_playing"
+        const val KEY_DREAM_FPS = "behaviour_dream_fps"
         const val KEY_GESTURE_PREFIX = "behaviour_gesture_"
     }
 }

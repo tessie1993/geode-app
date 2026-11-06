@@ -4,11 +4,11 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import dev.geode.engine.audio.SoundTuning
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
 import dev.geode.render.ReactionRoute
 import dev.geode.render.SceneFactory
-import dev.geode.render.TransitionStyle
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.bridge.StyleSchedule
 import dev.geode.render.scene.SceneParams
@@ -89,15 +89,16 @@ class OffscreenSceneRenderer(
     fun prepare() {
         val viz = NativeViz(context)
         check(viz.create()) { "native renderer could not be created" }
-        // Pinned to the full tier: an export renders as fast as the encoder takes frames, so its
-        // wall-clock frame time says nothing about the device.
-        viz.setOffscreen(true)
+        // Pinned natively (geode_viz_prepare_offscreen): the full tier, since an export renders as fast as
+        // the encoder takes frames; cut transitions; and fluid quality that never adapts downward.
+        viz.prepareOffscreen()
+        // Every frame steps the engine by exactly 1/fps, the first one included (#377).
+        viz.setFrameRate(spec.fps)
         viz.surfaceCreated()
         viz.surfaceChanged(spec.width, spec.height)
         check(viz.setScene(sceneFactory.sceneId)) { "native renderer cannot draw \"${sceneFactory.sceneId}\"" }
         sceneFactory.milkPresetPath?.let { viz.loadMilkPreset(it) }
         viz.setStyleSchedule(spec.styleSchedule)
-        viz.setTransition(TransitionStyle.CUT.name.lowercase(), 0L)
         viz.setReducedMotion(spec.reducedMotion)
         viz.setUserReactions(spec.reactions)
         if (spec.lfoConfigs.isNotEmpty()) viz.setLfoConfigs(spec.lfoConfigs)
@@ -127,15 +128,16 @@ class OffscreenSceneRenderer(
     ) {
         val viz = checkNotNull(native) { "renderFrame() before prepare()" }
         val fps = spec.fps
-        val timeMs = frame * 1000L / fps
-        val nextTimeMs = (frame + 1) * 1000L / fps
-        // Quality never adapts downward in an export; the thermal half is the offscreen pin above.
-        val p = (spec.paramsAt?.invoke(timeMs) ?: spec.baseParams).copy(fluidAutoQuality = false)
+        // The export frame clock is native (core/output/FrameClock): frame n shows floor(n * 1000 / fps) ms.
+        val timeMs = GeodeNative.exportFrameTimeMs(frame.toLong(), fps)
+        val nextTimeMs = GeodeNative.exportFrameTimeMs(frame + 1L, fps)
+        val p = spec.paramsAt?.invoke(timeMs) ?: spec.baseParams
         // reactSeed rides in the params: native re-deals the DNA when keyframes change it.
         viz.setParams(p)
         // Exactly the audio up to the end of this frame, then a render steps the engine by 1/fps.
         audio?.deliverUntilMs(nextTimeMs) { pcm, frames, channels, rate -> viz.writeAudio(pcm, frames, channels, rate) }
-        viz.render(timeMs / 1000.0, targetFbo)
+        // The frame's exact time, not the whole-ms one above (#377): floor(n * 1e9 / fps) ns.
+        viz.render(GeodeNative.exportFramePtsNs(frame.toLong(), fps) / NANOS_PER_SECOND, targetFbo)
     }
 
     /** Frees the native renderer. Safe to call more than once. */
@@ -148,5 +150,6 @@ class OffscreenSceneRenderer(
 
     private companion object {
         const val TAG = "OffscreenSceneRenderer"
+        const val NANOS_PER_SECOND = 1_000_000_000.0
     }
 }

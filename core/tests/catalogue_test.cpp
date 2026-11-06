@@ -210,12 +210,12 @@ void spinRateAndShaderStyleAgree() {
     }
     check(spinning == oldSpinning, "the spinning styles are the old SPINNING_SCENES");
     for (const auto& id : spinning) check(catalogue::isShaderStyle(id), id + " spins and is a shader style");
-    check(shaders == 180, "180 shader styles (60 loose + 120 family), got " + std::to_string(shaders));
+    check(shaders == 181, "181 shader styles (61 loose + 120 family), got " + std::to_string(shaders));
     check(catalogue::spinRate("bead_vortex") == 1.4f && catalogue::spinRate("tunnel") == -0.5f, "spin rates kept");
     for (const char* id : {"silk_web", "milkdrop", "fluid", "water", "curlflow", "cymatics", "no_such_style"}) {
         check(!catalogue::isShaderStyle(id), std::string(id) + " is not a shader style");
     }
-    check(catalogue::allIds().size() == 243, "243 ids");
+    check(catalogue::allIds().size() == 244, "244 ids");
     check(catalogue::allIds().front() == "silk_web", "the default comes first");
 }
 
@@ -233,7 +233,20 @@ void marchedStylesMatchTheOldSet() {
         "terra_volcano", "terra_wire", "truchet_relief", "vanishing",
         "foam_fall", "foam_neon", "foam_soap", "foam_chrome", "foam_ember", "foam_ice",
         "foam_orb", "foam_kaleido", "foam_ink", "foam_coral", "foam_ghost", "foam_show",
-        "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral"};
+        "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral", "morph_world",
+        "julia", "tunnel", "mandel", "kaleido", "plasma", "bars", "ring", "scope", "liss", "warp", "grid", "voronoi",
+        "metaballs", "ripples", "starfield", "waves", "hexgrid", "spiral", "aurora", "solar", "winter", "lava",
+        "orb_lattice", "neon_tiles", "chroma_orb", "mandala_dome", "bead_vortex", "merkaba_grid", "spiral_eye",
+        "blacklight_bloom", "fractal_temple", "glow_vortex",
+        "arbor_grove", "arbor_frost", "arbor_bolt", "arbor_roots", "arbor_rosette", "arbor_sakura", "chrys_bloom",
+        "chrys_phyllo", "chrys_dahlia", "chrys_lotus", "chrys_meadow", "chrys_glass", "chrys_ink", "chrys_neon",
+        "chrys_fall", "chrys_kaleido", "chrys_tunnel", "lucid_weave", "lucid_mandala", "lucid_spiral",
+        "lucid_tunnel", "lucid_disc", "lucid_hive", "lucid_ink", "lucid_mirror", "lucid_bulge", "lucid_petal",
+        "lucid_lattice", "lucid_vortex", "glass_orb", "glass_pool", "glass_prism", "glass_lens", "glass_drops",
+        "glass_bubbles", "glass_marble", "glass_caustic", "nebula_dust", "nebula_spiral", "nebula_ring",
+        "nebula_veil", "nebula_pulsar", "nebula_cluster", "nebula_nova", "nebula_horizon", "terra_topo",
+        "truchet_arcs", "truchet_hex", "truchet_weave", "truchet_maze", "truchet_tri", "truchet_quad",
+        "truchet_tubes", "truchet_neon", "truchet_flow", "truchet_knot", "truchet_tunnel"};
     std::set<std::string> marched;
     for (const auto& id : catalogue::allIds()) {
         if (catalogue::isMarched(id)) marched.insert(id);
@@ -257,7 +270,7 @@ void paramScopesMatchTheOldParamScope() {
     check(catalogue::reaches(Scope::Turbulence, "plasma"), "turbulence reaches a shader");
     check(!catalogue::reaches(Scope::Turbulence, "silk_web"), "turbulence misses silk");
     check(catalogue::reaches(Scope::MarchDetail, "vanishing"), "detail reaches a marched style");
-    check(!catalogue::reaches(Scope::MarchDetail, "plasma"), "detail misses an unmarched shader");
+    check(!catalogue::reaches(Scope::MarchDetail, "outrun_drive"), "detail misses an unmarched shader");
     check(!catalogue::reaches(Scope::FlowFieldSim, "fluid_ink"), "fluid drives its own field");
     check(catalogue::reaches(Scope::FlowFieldSim, "silk_web"), "flow field reaches silk");
     check(!catalogue::reaches(Scope::RippleOverlay, "water"), "water has no ripple overlay");

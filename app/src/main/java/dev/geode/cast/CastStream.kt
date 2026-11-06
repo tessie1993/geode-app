@@ -9,9 +9,11 @@ import dev.geode.audio.PcmRingBuffer
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.LfoStore
 import dev.geode.data.PresetStore
+import dev.geode.data.SystemMotion
 import dev.geode.data.ThemeStore
 import dev.geode.engine.audio.SoundCursor
 import dev.geode.engine.audio.SoundInput
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.EncoderSurface
 import dev.geode.export.PcmResampler
 import dev.geode.render.VisualizerRenderer
@@ -19,6 +21,7 @@ import dev.geode.render.scene.PcmChunk
 import dev.geode.util.bestEffort
 import java.net.Inet4Address
 import java.net.InetAddress
+import java.util.concurrent.locks.LockSupport
 import kotlin.math.roundToInt
 
 /**
@@ -36,9 +39,10 @@ import kotlin.math.roundToInt
  * frozen picture on the TV with a muted phone is worse than ending the cast.
  *
  * The sound goes to the TV inside the stream (the phone is a silent remote, see [CastController]).
- * Audio is clocked by the wall clock like the picture: each frame queues exactly a frame's worth of
- * 48 kHz audio, from what the ring gained, padded with silence while the music is paused, so the
- * TV's player never waits for audio and picture and sound stay together.
+ * Pacing is native (core/viz/frame/FixedRateClock, #572): when a frame is due, its PTS and the audio cut; a stall
+ * drops frames, never bursts them. Each frame queues 48 kHz audio up to that cut, from what the ring gained, padded
+ * with silence while the music is paused, so the TV's player never waits for audio and picture and sound stay together.
+ * Those counts are native too (core/viz/frame/CastAudio, #772).
  */
 internal class CastStream(
     context: Context,
@@ -126,18 +130,16 @@ internal class CastStream(
             renderer.soundInput = { AudioBus.soundInput }
             renderer.onSurfaceCreated(null, null)
             renderer.onSurfaceChanged(null, encoder.width, encoder.height)
-            val startNs = System.nanoTime()
-            var frame = 0L
+            val clock = LongArray(GeodeNative.FRAME_CLOCK_STATE)
+            GeodeNative.frameClockStart(clock, CastEncoder.FPS, System.nanoTime())
             while (running) {
+                LockSupport.parkNanos(GeodeNative.frameClockWaitNs(clock, System.nanoTime()))
+                val ptsNs = GeodeNative.frameClockTake(clock, System.nanoTime())
                 syncLook(renderer)
                 renderer.onDrawFrame(null)
-                val ptsNs = frame * NANOS_PER_SEC / CastEncoder.FPS
                 egl.setPresentationTimeNs(ptsNs)
                 egl.swapBuffers()
-                audio.pump(untilUs = (frame + 1) * MICROS_PER_SEC / CastEncoder.FPS)
-                frame++
-                val aheadNs = startNs + frame * NANOS_PER_SEC / CastEncoder.FPS - System.nanoTime()
-                if (aheadNs > 0) Thread.sleep(aheadNs / NANOS_PER_MS)
+                audio.pump(untilUs = GeodeNative.frameClockAudioUntilUs(clock))
             }
         } finally {
             bestEffort(TAG, "renderer.releaseScenes()") { renderer.releaseScenes() }
@@ -170,7 +172,7 @@ internal class CastStream(
             }
         }
         val gui = ThemeStore(prefsFiles.general).loadGui()
-        renderer.reducedMotion = gui.reducedMotion
+        renderer.reducedMotion = SystemMotion.isReduced(appContext.contentResolver)
         renderer.soundTuning = gui.soundTuning
         val modulation = LfoStore(prefsFiles.general)
         renderer.lfoEngine.configs = modulation.load()
@@ -179,9 +181,10 @@ internal class CastStream(
     }
 
     /**
-     * Turns what the ring gained into exactly a frame's worth of 48 kHz stereo per call: resampled
-     * from the source rate, held in a short FIFO, padded with silence when there is too little
-     * (paused, between tracks) and trimmed when too much piles up (the ring ran ahead).
+     * Queues 48 kHz stereo up to each frame's audio cut. The counts are native
+     * (core/viz/frame/CastAudio, #772): how much of what the ring gained (resampled here) to hold,
+     * how much to queue from the hold, how much silence to pad while the music is paused, and the
+     * running sample position. This keeps the PCM and calls the resampler and the encoder.
      *
      * Only the player's music is sent ([musicInput]). While the microphone or another app's audio
      * owns the ring, the visuals still hear it but the TV gets silence: the room's sound must not
@@ -195,74 +198,56 @@ internal class CastStream(
         private var cursor: SoundCursor? = null
         private var resampler: PcmResampler? = null
         private var resamplerInRate = 0
-        private val fifo = ShortArray(FIFO_FRAMES * CastEncoder.CHANNELS)
-        private var fifoFrames = 0
-        private var producedFrames = 0L
+        private val state = LongArray(GeodeNative.CAST_AUDIO_STATE)
+        private val step = LongArray(GeodeNative.CAST_AUDIO_STEP)
+        private val hold = ShortArray(GeodeNative.castAudioStart(state, CastEncoder.AUDIO_RATE_HZ) * CH)
         private var block = ShortArray(0)
 
         fun pump(untilUs: Long) {
-            takeFromRing()
-            val target = (untilUs * CastEncoder.AUDIO_RATE_HZ / MICROS_PER_SEC)
-            val need = (target - producedFrames).toInt()
+            val gained = takeFromRing()
+            val held = state[HELD].toInt()
+            GeodeNative.castAudioStep(state, (gained?.size ?: 0) / CH, untilUs, step)
+            val evict = step[EVICT].toInt()
+            if (evict > 0) System.arraycopy(hold, evict * CH, hold, 0, (held - evict) * CH)
+            if (gained != null) System.arraycopy(gained, step[SKIP].toInt() * CH, hold, (held - evict) * CH, step[KEEP].toInt() * CH)
+            val take = step[TAKE].toInt()
+            val need = take + step[PAD].toInt()
             if (need <= 0) return
-            val samples = need * CastEncoder.CHANNELS
-            if (block.size < samples) block = ShortArray(samples)
-            val fromFifo = minOf(need, fifoFrames)
-            System.arraycopy(fifo, 0, block, 0, fromFifo * CastEncoder.CHANNELS)
-            block.fill(SILENCE, fromFifo * CastEncoder.CHANNELS, samples)
-            System.arraycopy(fifo, fromFifo * CastEncoder.CHANNELS, fifo, 0, (fifoFrames - fromFifo) * CastEncoder.CHANNELS)
-            fifoFrames -= fromFifo
-            encoder.queueAudio(block, need, producedFrames * MICROS_PER_SEC / CastEncoder.AUDIO_RATE_HZ)
-            producedFrames += need
+            if (block.size < need * CH) block = ShortArray(need * CH)
+            System.arraycopy(hold, 0, block, 0, take * CH)
+            block.fill(SILENCE, take * CH, need * CH)
+            System.arraycopy(hold, take * CH, hold, 0, state[HELD].toInt() * CH)
+            encoder.queueAudio(block, need, step[PTS_US])
         }
 
-        private fun takeFromRing() {
-            val current = AudioBus.soundInput ?: return
-            if (current !== musicInput) return
+        /** What the ring gained since the last call, resampled to the stream's rate; null for none. */
+        private fun takeFromRing(): ShortArray? {
+            val current = AudioBus.soundInput ?: return null
+            if (current !== musicInput) return null
             if (current !== input) {
                 input = current
                 cursor = SoundCursor(current.ring)
             }
-            val c = cursor ?: return
+            val c = cursor ?: return null
             val take = c.take()
-            if (take.frames <= 0 || c.channels != CastEncoder.CHANNELS) return
+            if (take.frames <= 0 || c.channels != CH) return null
             val rate = current.sampleRateHz
-            if (rate <= 0) return
-            val pcm = ShortArray(take.frames * CastEncoder.CHANNELS)
+            if (rate <= 0) return null
+            val pcm = ShortArray(take.frames * CH)
             for (i in pcm.indices) {
                 pcm[i] = (c.interleaved[i].coerceIn(-1f, 1f) * Short.MAX_VALUE).roundToInt().toShort()
             }
-            val out = resamplerFor(rate).process(pcm, take.frames)
-            append(out, out.size / CastEncoder.CHANNELS)
+            return resamplerFor(rate).process(pcm, take.frames)
         }
 
         private fun resamplerFor(rate: Int): PcmResampler {
             val existing = resampler
             if (existing != null && resamplerInRate == rate) return existing
             existing?.close()
-            return PcmResampler(rate, CastEncoder.AUDIO_RATE_HZ, CastEncoder.CHANNELS).also {
+            return PcmResampler(rate, CastEncoder.AUDIO_RATE_HZ, CH).also {
                 resampler = it
                 resamplerInRate = rate
             }
-        }
-
-        private fun append(
-            pcm: ShortArray,
-            frames: Int,
-        ) {
-            var count = frames
-            var from = 0
-            if (count > FIFO_FRAMES) {
-                from = (count - FIFO_FRAMES) * CastEncoder.CHANNELS
-                count = FIFO_FRAMES
-            }
-            val overflow = fifoFrames + count - FIFO_FRAMES
-            if (overflow > 0) {
-                System.arraycopy(fifo, overflow * CastEncoder.CHANNELS, fifo, 0, (fifoFrames - overflow) * CastEncoder.CHANNELS)
-                fifoFrames -= overflow
-            }
-            System.arraycopy(pcm, from, fifo, fifoFrames * CastEncoder.CHANNELS, count * CastEncoder.CHANNELS)
-            fifoFrames += count
         }
 
         override fun close() {
@@ -271,8 +256,16 @@ internal class CastStream(
         }
 
         private companion object {
-            /** Half a second at 48 kHz: more than that and the TV's sound would drift behind its picture. */
-            const val FIFO_FRAMES = 24_000
+            const val CH = CastEncoder.CHANNELS
+            const val HELD = 1
+
+            // A step's result, as GEODE_CAST_AUDIO_STEP lays it out.
+            const val EVICT = 0
+            const val SKIP = 1
+            const val KEEP = 2
+            const val TAKE = 3
+            const val PAD = 4
+            const val PTS_US = 5
             const val SILENCE: Short = 0
         }
     }
@@ -285,9 +278,6 @@ internal class CastStream(
         /** Segments arrive every second; five without one is a frozen picture on the TV. */
         const val FROZEN_MS = 5_000L
         const val JOIN_MS = 2_000L
-        const val NANOS_PER_SEC = 1_000_000_000L
-        const val NANOS_PER_MS = 1_000_000L
-        const val MICROS_PER_SEC = 1_000_000L
 
         /** This phone's IPv4 address on the active network (the Wi-Fi the TV is on), or null. */
         fun lanAddress(context: Context): InetAddress? {

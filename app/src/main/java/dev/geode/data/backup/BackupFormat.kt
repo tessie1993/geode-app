@@ -74,10 +74,12 @@ enum class BackupSection(
     CREATIVE(
         "creative",
         listOf(GeodePrefsFiles.MODULATION),
-        // "projects" and "project-templates" are Studio's project folders (each with its takes) and
-        // its templates; "editor" and "templates" are where they lived before, kept so an older
-        // backup still restores instead of failing the allowlist.
-        listOf("presets", "palettes", "templates", "editor", "projects", "project-templates"),
+        // "projects", "project-takes" and "project-templates" are Studio's project folders, their
+        // takes (beside them since #384, so cloud backup can leave the takes out while this zip
+        // keeps them) and its templates; "editor" and "templates" are where they lived before,
+        // kept so an older backup still restores instead of failing the allowlist. An older zip's
+        // takes inside "projects" are moved out by EditorProjectStore on the next start.
+        listOf("presets", "palettes", "templates", "editor", "projects", "project-takes", "project-templates"),
         emptyList(),
         mapOf(GeodePrefsFiles.GENERAL to MacroStore.KEYS + LfoStore.KEYS),
     ),
@@ -126,7 +128,7 @@ object BackupFormat {
      *
      * - "Seen it" flags (safety notice, first-run setup, tutorial and its progress): a new phone
      *   should show the photosensitivity notice and the tour again; the user's answers themselves
-     *   (reduced motion, intent) are restored.
+     *   (intent) are restored.
      * - Folder and image URIs picked through the system picker: their read grant belongs to
      *   this install and does not survive a reinstall, so a restored URI points at nothing.
      * - Settings › Performance ([PerformanceStore.KEYS]): picked for this phone's RAM and

@@ -16,6 +16,7 @@ import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.billing.ProSnapshot
 import dev.geode.engine.audio.SoundTuning
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.pro.ProFeature
 import dev.geode.render.SceneFactory
 import dev.geode.render.bridge.StyleSchedule
@@ -76,26 +77,19 @@ class ExportAspect(
     val bitRate: Int,
 ) {
     companion object {
+        /**
+         * The encoded frame for a quality and a ratio: the long side follows the ratio, both shrink
+         * together past 4096 (the longest side H.264 level 5.1 takes), each rounded up to even.
+         * Native (`core/output/EncodePlan`, tested by `core/tests/output_test.cpp`).
+         */
         fun of(
             quality: ExportQuality,
             ratio: ExportRatio,
         ): ExportAspect {
-            val short = quality.shortSide
-            val landscape = ratio.wRatio >= ratio.hRatio
-            var longSide = (short.toLong() * maxOf(ratio.wRatio, ratio.hRatio) / minOf(ratio.wRatio, ratio.hRatio)).toInt()
-            var shortSide = short
-            if (longSide > MAX_AVC_DIM) {
-                shortSide = (short.toLong() * MAX_AVC_DIM / longSide).toInt()
-                longSide = MAX_AVC_DIM
-            }
-            val w = if (landscape) longSide else shortSide
-            val h = if (landscape) shortSide else longSide
-            return ExportAspect(even(w), even(h), quality.bitRate)
+            val size = IntArray(2)
+            GeodeNative.exportFrameSize(quality.shortSide, ratio.wRatio, ratio.hRatio, size)
+            return ExportAspect(size[0], size[1], quality.bitRate)
         }
-
-        private const val MAX_AVC_DIM = 4096
-
-        private fun even(v: Int): Int = if (v % 2 == 0) v else v + 1
     }
 }
 
@@ -411,7 +405,7 @@ class VideoExporter(
             if (bitRate < aspect.bitRate) {
                 RingLog.note(TAG, "video bit rate capped to $bitRate for a ${aac.durationUs / 1000} ms render")
             }
-            val requestedFpsBounded = requestedFps.coerceIn(24, 60)
+            val requestedFpsBounded = GeodeNative.exportClampFps(requestedFps)
             // The requested codec at the requested rate first, then its reduced form, then the same pair on H.264.
             val attempts =
                 listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->
@@ -428,8 +422,9 @@ class VideoExporter(
             egl.makeCurrent()
 
             val exportDurationUs = aac.durationUs
-            val totalFrames = (exportDurationUs * fps / 1_000_000L).toInt().coerceAtLeast(1)
-            val frameDurationNs = 1_000_000_000L / fps
+            // The frame clock is native (core/output/FrameClock): each frame's time and timestamp come from
+            // its index alone, so nothing drifts over a long render.
+            val totalFrames = GeodeNative.exportTotalFrames(exportDurationUs, fps).toInt()
 
             val renderer =
                 OffscreenSceneRenderer(
@@ -460,7 +455,7 @@ class VideoExporter(
             renderer.prepare()
             val mark =
                 if (watermark) {
-                    WatermarkOverlay(context.getString(R.string.pro_watermark_text))
+                    WatermarkOverlay(context.getString(R.string.pro_watermark_text), context.assets)
                         .also { watermarkRef = it }
                         .apply { prepare(aspect.width, aspect.height) }
                 } else {
@@ -475,8 +470,8 @@ class VideoExporter(
                 if (isCancelled()) break
                 renderer.renderFrame(frame)
                 mark?.draw()
-                val timeMs = frame * 1000L / fps
-                egl.setPresentationTimeNs(frame * frameDurationNs)
+                val timeMs = GeodeNative.exportFrameTimeMs(frame.toLong(), fps)
+                egl.setPresentationTimeNs(GeodeNative.exportFramePtsNs(frame.toLong(), fps))
                 egl.swapBuffers()
 
                 while (true) {

@@ -2,7 +2,11 @@ package dev.geode.ui
 
 import android.app.Application
 import android.content.SharedPreferences
+import android.database.ContentObserver
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.provider.MediaStore
 import dev.geode.data.DeviceTrackQuery
 import dev.geode.data.LibraryPrefsStore
 import dev.geode.data.MusicPlaylist
@@ -20,9 +24,14 @@ import dev.geode.model.LibraryTrack
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -49,6 +58,15 @@ data class LibraryState(
     val playlists: List<MusicPlaylist> = emptyList(),
     val smartPlaylists: List<SmartPlaylist> = emptyList(),
 )
+
+/**
+ * One rescan per burst of MediaStore changes: a scan of a folder notifies once per file, and each
+ * rescan is a whole query, so the library waits until the collection has been quiet for [quietMs].
+ */
+@OptIn(FlowPreview::class)
+internal fun Flow<Unit>.libraryRescans(quietMs: Long = RESCAN_QUIET_MS): Flow<Unit> = debounce(quietMs)
+
+private const val RESCAN_QUIET_MS = 1_000L
 
 private val AUDIO_EXTS = setOf("mp3", "wav", "flac", "ogg", "m4a", "aac", "opus", "wma", "aiff")
 
@@ -135,6 +153,28 @@ internal class MusicLibraryController(
     }
 
     private fun queryDeviceTracksBlocking(): List<DeviceTrack> = DeviceTrackQuery.query(application, _minTrackSeconds.value)
+
+    /**
+     * A file MediaStore indexes while the app runs (a download, a copy over USB, a scan finishing)
+     * reaches the library without a restart: every change to the audio collection queues a rescan,
+     * one per burst ([libraryRescans]). Ends with [scope], which unregisters the observer.
+     */
+    init {
+        scope.launch { mediaStoreChanges().libraryRescans().collect { refreshDeviceTracks() } }
+    }
+
+    private fun mediaStoreChanges(): Flow<Unit> =
+        callbackFlow {
+            val observer =
+                object : ContentObserver(Handler(Looper.getMainLooper())) {
+                    override fun onChange(selfChange: Boolean) {
+                        trySend(Unit)
+                    }
+                }
+            val resolver = application.contentResolver
+            resolver.registerContentObserver(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, true, observer)
+            awaitClose { resolver.unregisterContentObserver(observer) }
+        }
 
     private fun metadataFor(uri: Uri): FileMeta {
         var title: String? = null

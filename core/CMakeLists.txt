@@ -9,6 +9,9 @@ add_library(geode_core STATIC
     api/geode_ingest_api.cpp
     audio/ingest/Ring.cpp
     audio/ingest/Cursor.cpp
+    api/geode_ingest_reader_api.cpp
+    api/geode_underlay_api.cpp
+    api/geode_frame_api.cpp
     api/geode_surface_api.cpp
     sound/Fft.cpp
     sound/Emotion.cpp
@@ -16,6 +19,7 @@ add_library(geode_core STATIC
     sound/Harmony.cpp
     sound/Rhythm.cpp
     sound/SoundEngine.cpp
+    sound/Tuning.cpp
     library/Tags.cpp
     library/Search.cpp
     audio/dsp/DspProcessor.cpp
@@ -27,6 +31,8 @@ add_library(geode_core STATIC
     api/geode_export_dsp_api.cpp
     api/geode_file_feed_api.cpp
     audio/ingest/FileFeed.cpp
+    signal/Resolver.cpp
+    api/geode_export_pass_api.cpp
     api/geode_export_api.cpp
     audio/dsp/PcmConvert.cpp
     audio/dsp/PcmTiming.cpp
@@ -59,6 +65,8 @@ add_library(geode_core STATIC
     viz/LayerState.cpp
     viz/NoteResponse.cpp
     viz/UiBlurPass.cpp
+    viz/Underlay.cpp
+    viz/frame/ExportPasses.cpp
     viz/frame/EdgeGlowPass.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
@@ -66,8 +74,6 @@ add_library(geode_core STATIC
     viz/Reactions.cpp
     viz/CameraRig.cpp
     viz/VisualSafety.cpp
-    viz/FlashLimiter.cpp
-    viz/OutputProbe.cpp
     viz/ThermalGovernor.cpp
     viz/TouchField.cpp
     viz/Transition.cpp
@@ -81,6 +87,7 @@ add_library(geode_core STATIC
     viz/SceneRegistry.cpp
     viz/Renderer.cpp
     viz/RendererFrame.cpp
+    viz/SoundFeed.cpp
     viz/scenes/ShaderScene.cpp
     viz/SoundUniforms.cpp
     viz/BlueNoise.cpp
@@ -125,3 +132,18 @@ target_include_directories(geode_core PRIVATE
     ${CMAKE_BINARY_DIR}/third_party/taglib)
 target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})
 target_link_libraries(geode_core PUBLIC projectM tag GLESv3 EGL log android)
+
+# glTF import (core/scene/object, #474): cgltf is header-only (its one implementation is compiled in
+# GltfImport.cpp); meshoptimizer builds only what the import uses, the simplifier and the
+# EXT_meshopt_compression decoders. Both are MIT submodules under third_party/, unmodified.
+set(GEODE_MESHOPT_DIR ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src)
+add_library(geode_meshopt STATIC
+    ${GEODE_MESHOPT_DIR}/simplifier.cpp
+    ${GEODE_MESHOPT_DIR}/vertexcodec.cpp
+    ${GEODE_MESHOPT_DIR}/indexcodec.cpp
+    ${GEODE_MESHOPT_DIR}/vertexfilter.cpp)
+target_include_directories(geode_meshopt PUBLIC ${GEODE_MESHOPT_DIR})
+target_compile_options(geode_meshopt PRIVATE -fvisibility=hidden $<$<CONFIG:Release>:-O2>)
+target_sources(geode_core PRIVATE scene/object/GltfImport.cpp)
+target_include_directories(geode_core PRIVATE ${CMAKE_SOURCE_DIR}/third_party/cgltf)
+target_link_libraries(geode_core PUBLIC geode_meshopt)

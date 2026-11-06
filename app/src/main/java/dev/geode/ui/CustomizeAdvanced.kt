@@ -276,7 +276,11 @@ internal fun ModulatorCard(
                 DropdownRow("Wave shape", LfoWave.entries.map { it.label }, LfoWave.entries.indexOf(config.wave)) {
                     onChange(config.copy(wave = LfoWave.entries[it]))
                 }
-                RateSecondsSlider(config.rateSeconds) { onChange(config.copy(rateSeconds = it)) }
+                val timing = listOf("Free") + LfoConfig.BEAT_CHOICES.map { if (it == 1) "1 beat" else "$it beats" }
+                DropdownRow("Timing", timing, LfoConfig.BEAT_CHOICES.indexOf(config.beats) + 1) {
+                    onChange(config.copy(beats = LfoConfig.BEAT_CHOICES.getOrElse(it - 1) { 0 }))
+                }
+                if (config.beats == 0) RateSecondsSlider(config.rateSeconds) { onChange(config.copy(rateSeconds = it)) }
             }
             LabeledSlider(MOD_DEPTH, config.depth, 0f..1f) { onChange(config.copy(depth = it)) }
             DropdownRow("Direction", ModPolarity.entries.map { it.label }, ModPolarity.entries.indexOf(config.polarity)) {

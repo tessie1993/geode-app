@@ -4,16 +4,6 @@
 
 namespace geode::viz {
 
-const ThermalTierInfo& thermalTierInfo(ThermalTier tier) {
-    static const std::array<ThermalTierInfo, 4> kInfos = {{
-        {1.0f, true, 0.0f},
-        {0.85f, true, 0.0f},
-        {0.7f, false, 0.0f},
-        {0.6f, false, 30.0f},
-    }};
-    return kInfos[static_cast<int>(tier)];
-}
-
 PerformanceMonitor::PerformanceMonitor(float targetFps, float sustainSeconds, int windowSize)
     : targetFps_(targetFps), sustainSeconds_(sustainSeconds), windowSize_(std::min(windowSize, static_cast<int>(samples_.size()))) {}
 
@@ -63,20 +53,21 @@ float PerformanceMonitor::effectiveTargetFps() const {
     return std::min(targetFps_, paced * kKeepingUpFraction);
 }
 
+void ThermalGovernor::setAdaptive(bool on) {
+    // Switching the mode off where the platform answers hands the tier back to the platform alone, as
+    // it was before the mode existed. The setting is app-wide, so every governor would do the same.
+    if (adaptive_.exchange(on) && !on && shared_.platformKnows()) shared_.clearMeasuredFloor();
+}
+
 void ThermalGovernor::onFrame(float dtSeconds) {
     if (offscreenDepth_.load() > 0) return;
-    if (!platformKnows_.load() || adaptive_.load()) trackMeasuredTrend(dtSeconds);
-    sampleClock_ += dtSeconds;
-    if (sampleClock_ < kSamplePeriodSeconds) return;
-    sampleClock_ = 0.0f;
-    settle(observe());
+    // The platform's readings arrive through ThermalState::push, once a second for the whole process;
+    // per frame there is only this surface's own frame time to watch.
+    if (!shared_.platformKnows() || adaptive_.load()) trackMeasuredTrend(dtSeconds);
 }
 
 void ThermalGovernor::onSurfaceRecreated() {
     monitor_.reset();
-    sampleClock_ = 0.0f;
-    hotDwellSeconds_ = 0.0f;
-    coolDwellSeconds_ = 0.0f;
     keptUpSeconds_ = 0.0f;
 }
 
@@ -86,70 +77,34 @@ void ThermalGovernor::endOffscreenRender() {
 }
 
 void ThermalGovernor::trackMeasuredTrend(float dtSeconds) {
-    monitor_.setPacedFps(pacedFps_.load());
+    // The effective cap, not the surface's own: under a 30 fps thermal cap, 30 fps is keeping up.
+    monitor_.setPacedFps(pacedFps());
     const int relief = monitor_.onFrame(dtSeconds);
+    // Any surface's raise restarts every surface's wait to step back down, so a cheap surface keeping
+    // up (a wallpaper preview) cannot undo the raise a busy one just made.
+    const uint64_t raises = shared_.raises();
+    if (raises != seenRaises_) {
+        seenRaises_ = raises;
+        keptUpSeconds_ = 0.0f;
+    }
     if (relief <= 0) {
         // Only the adaptive mode ever steps back up; without it the measured floor keeps its
         // old promise of never upgrading.
-        if (!adaptive_.load() || measuredFloor_ == ThermalTier::Full || !monitor_.keepingUp()) {
+        if (!adaptive_.load() || shared_.measuredFloor() == ThermalTier::Full || !monitor_.keepingUp()) {
             keptUpSeconds_ = 0.0f;
             return;
         }
         keptUpSeconds_ += dtSeconds;
         if (keptUpSeconds_ < kMeasuredRelaxSeconds) return;
         keptUpSeconds_ = 0.0f;
-        measuredFloor_ = static_cast<ThermalTier>(static_cast<int>(measuredFloor_) - 1);
+        shared_.lowerMeasuredFloor();
         monitor_.reset();
         return;
     }
     keptUpSeconds_ = 0.0f;
-    const int ceiling = static_cast<int>(kMeasuredCeiling);
-    measuredFloor_ = static_cast<ThermalTier>(std::min(static_cast<int>(measuredFloor_) + relief, ceiling));
+    shared_.raiseMeasuredFloor(relief);
+    seenRaises_ = shared_.raises();
     monitor_.reset();
-}
-
-ThermalTier ThermalGovernor::observe() const {
-    const ThermalTier platform = std::max(statusTier(osStatus_.load()), headroomTier());
-    const bool measured = !platformKnows_.load() || adaptive_.load();
-    return measured ? std::max(platform, measuredFloor_) : platform;
-}
-
-void ThermalGovernor::settle(ThermalTier observed) {
-    const ThermalTier current = settled_.load();
-    if (observed > current) {
-        coolDwellSeconds_ = 0.0f;
-        hotDwellSeconds_ += kSamplePeriodSeconds;
-        if (hotDwellSeconds_ >= kEscalateDwellSeconds) {
-            settled_.store(observed);
-            hotDwellSeconds_ = 0.0f;
-        }
-    } else if (observed < current) {
-        hotDwellSeconds_ = 0.0f;
-        coolDwellSeconds_ += kSamplePeriodSeconds;
-        if (coolDwellSeconds_ >= kRelaxDwellSeconds) {
-            settled_.store(static_cast<ThermalTier>(static_cast<int>(current) - 1));
-            coolDwellSeconds_ = 0.0f;
-        }
-    } else {
-        hotDwellSeconds_ = 0.0f;
-        coolDwellSeconds_ = 0.0f;
-    }
-}
-
-ThermalTier ThermalGovernor::statusTier(int status) {
-    if (status <= kStatusNone) return ThermalTier::Full;
-    if (status == kStatusLight) return ThermalTier::Eased;
-    if (status == kStatusModerate) return ThermalTier::Reduced;
-    return ThermalTier::Minimal;
-}
-
-ThermalTier ThermalGovernor::headroomTier() const {
-    const float headroom = headroom_.load();
-    if (std::isnan(headroom)) return ThermalTier::Full;
-    if (headroom >= kHeadroomMinimal) return ThermalTier::Minimal;
-    if (headroom >= kHeadroomReduced) return ThermalTier::Reduced;
-    if (headroom >= kHeadroomEased) return ThermalTier::Eased;
-    return ThermalTier::Full;
 }
 
 }  // namespace geode::viz

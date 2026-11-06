@@ -5,6 +5,7 @@
 #include <cmath>
 #include <utility>
 
+#include "sound/Tuning.hpp"
 #include "util/Log.hpp"
 #include "viz/GlProber.hpp"
 #include "viz/ShaderOverrides.hpp"
@@ -26,8 +27,9 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                 SceneHost{[this](const std::string& m) { fail(m); },
                           [this] { return thermal_.pacedFps(); },
                           [this](const std::string& path) { notePresetLoaded(path); },
-                          [this] { return marchScale_.load(std::memory_order_relaxed); },
-                          [this] { return &notes_.uniforms(); },
+                          // The user's march scale under the thermal ladder's (ADR 0008: march is its third rung).
+                          [this] { return marchScale_.load(std::memory_order_relaxed) * thermal_.tierInfo().marchScale; },
+                          [this] { return &resolver_.noteUniforms(); },
                           [this] {
                               return directorPinned_.load(std::memory_order_acquire)
                                          ? pinnedDirectorSeed_.load(std::memory_order_relaxed)
@@ -80,34 +82,46 @@ void Renderer::setTransition(const std::string& id, int64_t durationMs) {
 void Renderer::beginParamMorph(float seconds) {
     if (seconds <= 0.0f) return;
     std::lock_guard<std::mutex> lock(stateLock_);
-    morphFadeSec_ = seconds;
-    morphRemainSec_ = seconds * 3.0f;
-}
-
-void Renderer::pushPcm(const float* samples, int count) {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    pcm_.push(samples, count);
+    morphRequested_ = true;
+    morphRequestSec_ = seconds;
 }
 
 void Renderer::writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz) {
     if (!interleaved || frames <= 0 || channels <= 0 || sampleRateHz <= 0) return;
-    std::lock_guard<std::mutex> lock(soundLock_);
-    if (!sound_ || sound_->sampleRateHz() != sampleRateHz) {
-        sound_ = std::make_unique<sound::SoundEngine>(sampleRateHz);
-        sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
+    {
+        std::lock_guard<std::mutex> lock(soundLock_);
+        // SoundEngine clamps its rate to 8 kHz; compare the clamped rate or a lower one rebuilds every call.
+        if (!sound_ || sound_->sampleRateHz() != std::max(8000, sampleRateHz)) {
+            sound_ = std::make_unique<sound::SoundEngine>(sampleRateHz);
+            sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
+        }
+        sound_->write(interleaved, frames, channels);
     }
-    sound_->write(interleaved, frames, channels);
+    // MilkDrop's raw PCM is what the engine just heard (#360): one ring, one cursor, every surface.
+    // Taken under its own lock, never nested in soundLock_, so the two locks have no order to keep.
+    std::lock_guard<std::mutex> lock(stateLock_);
+    pcm_.write(interleaved, frames, channels);
 }
 
 void Renderer::resetAudio() {
+    {
+        std::lock_guard<std::mutex> lock(soundLock_);
+        if (sound_) sound_->reset();
+    }
+    std::lock_guard<std::mutex> lock(stateLock_);
+    pcm_.clear();
+}
+
+void Renderer::setSoundSource(const audio::ingest::Ring* ring) {
     std::lock_guard<std::mutex> lock(soundLock_);
-    if (sound_) sound_->reset();
+    requestedSoundSource_ = ring;
 }
 
 void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
     std::lock_guard<std::mutex> lock(soundLock_);
-    soundTuning_ = tuning;
-    if (sound_) sound_->setTuning(macros::tuning(tuning, tunedKnobs_));
+    // Clamped before the macros scale it, so a NaN Reactivity is the default one turned, not a NaN.
+    soundTuning_ = sound::tuning::clamp(tuning);
+    if (sound_) sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
 }
 
 double Renderer::monotonicSeconds() {
@@ -196,14 +210,15 @@ void Renderer::applyPendingFluidInjection() {
     }
     if (!applied) return;
     {
+        // A newer edit may have landed while the scenes were rebuilt; keep it dirty for next frame.
         std::lock_guard<std::mutex> lock(stateLock_);
-        fluidInjectionDirty_ = false;
+        if (fluidForceSrc_ == force && fluidDyeSrc_ == dye) fluidInjectionDirty_ = false;
     }
 }
 
 // Any thread. Copies the pixel buffer under stateLock_ into the retained underlay buffer; the
 // actual GL upload (and the ARGB->RGBA conversion) happens on the GL thread in
-// applyUnderlayUpload(), matching pushPcm()'s copy-now/convert-later split. blend/amount are only
+// applyUnderlayUpload(), a copy-now/convert-later split. blend/amount are only
 // meaningful (and only stored) alongside a non-empty pixel buffer; a null/zero-size buffer clears.
 void Renderer::setUnderlayRgba(const uint32_t* pixels, int width, int height, int blend, float amount) {
     std::lock_guard<std::mutex> lock(stateLock_);
@@ -255,17 +270,20 @@ void Renderer::applyUnderlayUpload() {
 
 void Renderer::setLfoConfigs(const std::array<LfoConfig, LfoEngine::kSlots>& configs) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    lfo_.configs = configs;
+    lfoConfigs_ = configs;
+    lfoConfigsDirty_ = true;
 }
 
 void Renderer::setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& configs) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    adsr_.configs = configs;
+    adsrConfigs_ = configs;
+    adsrConfigsDirty_ = true;
 }
 
 void Renderer::setReactionRoutes(const std::array<ReactRoute, ReactionEngine::kRoutes>& routes) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    reactions_.routes = routes;
+    reactionRoutes_ = routes;
+    reactionRoutesDirty_ = true;
 }
 
 void Renderer::fail(const std::string& message) {
@@ -312,6 +330,8 @@ void Renderer::onSurfaceCreated() {
     profile_ = deviceGl_.profileWithCurrentContext();
     GEODE_LOGI(kTag, "surface created: %s", profile_.summary().c_str());
     thermal_.onSurfaceRecreated();
+    // The shell's label belongs to the old surface's collectors: say the mode again on the new one.
+    liquidModeTaken_.store(-1, std::memory_order_relaxed);
     programCache_.prime();
     // The old context's staged programs died with it: drop their ids before releaseScenes clears.
     stager_.onContext(profile_.report.extensions.count("GL_KHR_parallel_shader_compile") > 0);
@@ -340,11 +360,6 @@ void Renderer::onSurfaceCreated() {
     fboA_.release();
     fboB_.release();
     bornFbo_.release();
-    // The probe's names died with the old context; the limiter starts over on the new surface.
-    outputProbe_.forget();
-    flashLimiter_.reset();
-    flashGrade_ = {};
-    safetyClock_ = 0.0;
     liquidWasOn_ = false;
     lastBornSceneId_.clear();
     activeScene_ = nullptr;
@@ -394,11 +409,7 @@ void Renderer::onSurfaceCreated() {
     glGenVertexArrays(1, &quadVao_);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     lastTimeS_ = -1.0;
-    motionField_.reset();
-    reactions_.reset();
-    macroReactions_.reset();
-    director_.reset();
-    notes_.reset();
+    resolver_.reset();
     camera_.reset();
 }
 
@@ -413,6 +424,13 @@ void Renderer::surfaceChanged(int width, int height) {
     height_ = std::max(height, 1);
     glViewport(0, 0, width_, height_);
     applyRenderScale();
+}
+
+void Renderer::clearToBlack(GLuint targetFbo) {
+    glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
+    glViewport(0, 0, width_, height_);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
 }
 
 void Renderer::setUserQuality(float renderScale, float marchScale, bool postFx, bool adaptive) {

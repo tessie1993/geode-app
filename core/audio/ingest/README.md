@@ -1,6 +1,6 @@
 # core/audio/ingest
 
-Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md). The ring and its reader exist (#480); export writes to it through `FileFeed` (#490); the player tap moves in #481 and the capture pumps in #485.
+Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md). The ring and its reader exist (#480); export writes to it through `FileFeed` (#490); the player tap writes it and every live renderer reads its own cursor natively (`core/viz/SoundFeed`, `geode_viz_set_sound_source`, #481); cast's TV audio reads it through `geode_ingest_reader_*`; the capture pumps move in #485.
 
 **Owns:** one native PCM ring per audio source (the player tap, the mic, another app's audio, the wallpaper's output mix, a decoded file for export). Each write carries the sample rate, layout and epoch together, so a format change can never pair new samples with an old rate. Converts int16, u8, float, 24- and 32-bit PCM to float here, not in Kotlin. Keeps every channel; readers hear one stereo downmix.
 
@@ -18,7 +18,7 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 - Rates above 88.2 kHz may be decimated on read; that is the reader's choice.
 
 **Still to move in**
-- `engine/audio-core/.../audio/SampleRing.kt`, `SoundCursor.kt`, `SoundInput.kt`, `PcmSink.kt` and `app/.../audio/PcmRingBuffer.kt` are deleted when their callers switch (#481, #485, #486).
+- `engine/audio-core/.../audio/SampleRing.kt`, `SoundCursor.kt`, `SoundInput.kt`, `PcmSink.kt` are deleted when their callers switch (#481, #485); `app/.../audio/PcmRingBuffer.kt` is gone (#486: MilkDrop's raw PCM is the mono mix of what each renderer heard, `core/viz/PcmHandoff`).
 - The per-sample int16 -> float loops in `engine/audio-android/.../PcmTap.kt`, `app/.../audio/AudioCapturePump.kt`, `app/.../audio/dsp/NativeDspProcessor.kt`.
 - The capture level and silence guesses in `app/.../audio/MicCapture.kt` and `PlaybackCapture.kt` (#491).
 

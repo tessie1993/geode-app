@@ -5,3 +5,5 @@
 -Icore
 -Icore/tests/stub
 -Itools/clangd-stubs
+-Ithird_party/cgltf
+-Ithird_party/meshoptimizer/src

@@ -128,25 +128,6 @@ fun geodeTypography(textScale: Float = 1f): Typography {
     )
 }
 
-/**
- * The screen's one title (the heading TalkBack users jump between).
- *
- * This and the three roles below are the compact type scale: the redesign uses these sizes of
- * the M3 scale and no more, so screens read alike (one Title Large per screen, Title Small over
- * each group, Body Medium in rows, Body Small for a row's second line). Screens name the role,
- * not the size, so the scale can be retuned here.
- */
-val Typography.screenTitle: TextStyle get() = titleLarge
-
-/** A group's header inside a screen or sheet. */
-val Typography.sectionHeader: TextStyle get() = titleSmall
-
-/** A row's main line. */
-val Typography.rowText: TextStyle get() = bodyMedium
-
-/** A row's second line: its value or a short description. */
-val Typography.rowSupporting: TextStyle get() = bodySmall
-
 private fun TextUnit.scaledBy(factor: Float): TextUnit = if (isSpecified) this * factor else this
 
 /**

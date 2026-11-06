@@ -12,12 +12,29 @@
 // mirrored x/y repeat (WG_LATTICE_TILT and WG_LATTICE_YAW first turn its lattice off the view,
 // WG_REP_XY fades it, WG_CELL_SHIFT moves the cells off the axis) -> a twist along travel (a sine over one z period,
 // so it stays periodic) -> scale -> mirror fold -> up to five rotate-fold IFS steps (fractional:
-// the last one fades in) -> sphere inversion -> abs-inversion -> ten primitives blended by weight:
-// six simple ones, a baked CC0 model (uWorldShapes), and six fractals (gyroid, Menger sponge,
-// Mandelbulb, Mandelbox, Sierpinski tetrahedron, Apollonian packing). Grey CC0 material maps (uWorldTex) add surface
+// the last one fades in) -> sphere inversion -> abs-inversion -> sixteen primitives blended by weight:
+// six simple ones, a baked CC0 model (uWorldShapes), and nine fractals (gyroid, Menger sponge,
+// Mandelbulb, Mandelbox, Sierpinski tetrahedron, Apollonian packing, quaternion Julia set,
+// pseudo-Kleinian limit set, octahedral kaleidoscopic IFS). Grey CC0 material maps (uWorldTex) add surface
 // detail and pattern the light; their colour never reaches the screen, pal() still owns it.
+// Then the landscape (WG_TERRAIN, wTerrain()): a ridged fBm height field in world space, not
+// through the chain, rising out of the ground at FLOOR_Y and joined to the chain's matter by min.
+// Its walls rise to the sides, so the travel line runs down a valley, and the corridor carves
+// a canyon through any ridge that crosses the way.
 // The orbit trap is gathered on the way (gWTrap) and colours the world for free: its channels,
 // weighted by the genome, are the palette coordinate, and its radius is the cheap occlusion.
+//
+// THE GROUND (end of world()): a plane at WG_FLOOR_Y joined to the world by a smooth min, then
+// faded in by WG_FLOOR (a mix between the world alone and the world on its ground), so a morph can
+// raise a floor or sink it away with no pop: at a small weight the joined surface lies far under
+// the plane and rises to it as the weight grows. The ground is in world(), so the corridor carves
+// it like any matter; FloorY's bounds keep it under the deepest eye every rig path flies, bubble
+// included, so in practice it never needs to. gWFloor says how much of the last point was ground.
+//
+// THE SKY (worldFogColour()): where a ray escapes, and what the fog fades toward, is one colour by
+// direction: the dark air of the world's own palette, crossfaded by WG_SKY into a gradient from
+// pal(WG_SKY_HUE) (brightest at the horizon, darker up high and below), plus a glow band at the
+// horizon (WG_HORIZON). Far ground fogs into that band, so the floor meets the sky without a seam.
 //
 // THE CORRIDOR (worldCarved()): the world minus a tube along the travel axis, a bubble around
 // the eye and a capsule along where the eye is heading (the wake), joined smoothly. The smooth
@@ -45,11 +62,12 @@
 //
 // Provenance: written from scratch for Geode from textbook maths (signed distance functions,
 // domain repetition, reflection folds, iterated function systems, sphere inversion, orbit traps,
-// sphere tracing, emission-absorption volume rendering). No code was taken from any shader. The
+// sphere tracing, emission-absorption volume rendering, value noise, fractional Brownian motion,
+// ridged noise, the Lipschitz bound of a height field). No code was taken from any shader. The
 // baked models and material maps are CC0 assets from BlenderKit (docs/morph-world-assets.md).
 
 /** The genome and the driver's runtime values; WorldGenome.hpp's Field and Runtime order. */
-uniform vec4 uWorld[22];
+uniform vec4 uWorld[24];
 
 #define WG_REP_XY uWorld[0].x
 #define WG_CELL_XY uWorld[0].y
@@ -87,63 +105,73 @@ uniform vec4 uWorld[22];
 #define WG_P_MANDELBOX uWorld[8].y
 #define WG_P_SIERP uWorld[8].z
 #define WG_P_APOLLO uWorld[8].w
-#define WG_PRIM_SIZE uWorld[9].x
-#define WG_PRIM_THICK uWorld[9].y
-#define WG_MESH_PICK uWorld[9].z
-#define WG_MESH_SIZE uWorld[9].w
-#define WG_BULB_POWER uWorld[10].x
-#define WG_GYRO_SCALE uWorld[10].y
-#define WG_BOX_SCALE uWorld[10].z
-#define WG_M_SURFACE uWorld[10].w
-#define WG_M_GLOW uWorld[11].x
-#define WG_M_DENSITY uWorld[11].y
-#define WG_DENS_BAND uWorld[11].z
-#define WG_TRAP_X uWorld[11].w
-#define WG_TRAP_Y uWorld[12].x
-#define WG_TRAP_Z uWorld[12].y
-#define WG_TRAP_R uWorld[12].z
-#define WG_PAL_OFFSET uWorld[12].w
-#define WG_PAL_SPAN uWorld[13].x
-#define WG_EMISSION uWorld[13].y
-#define WG_FOG uWorld[13].z
-#define WG_CORRIDOR uWorld[13].w
-#define WG_TEX_AMOUNT uWorld[14].x
-#define WG_TEX_PICK uWorld[14].y
-#define WG_TEX_SCALE uWorld[14].z
-#define WG_TEX_EMIT uWorld[14].w
-#define WG_ROLL uWorld[15].x
-#define WG_LENS uWorld[15].y
-#define WG_FLOOR uWorld[15].z
-#define WG_FLOOR_Y uWorld[15].w
-#define WG_FLOOR_GLOSS uWorld[16].x
-#define WG_SKY uWorld[16].y
-#define WG_SKY_HUE uWorld[16].z
-#define WG_HORIZON uWorld[16].w
-#define WG_TERRAIN uWorld[17].x
-#define WG_TERRAIN_HEIGHT uWorld[17].y
-#define WG_TERRAIN_SCALE uWorld[17].z
-#define WG_LATTICE_TILT uWorld[17].w
-#define WG_LATTICE_YAW uWorld[18].x
-#define WG_GAZE_PITCH uWorld[18].y
-#define WG_GAZE_YAW uWorld[18].z
-#define WG_Z_PHASE uWorld[18].w
-#define WG_GAIN uWorld[19].x
-#define WG_ITER_CAP uWorld[19].y
-#define WG_HUE_TURN uWorld[19].z
-#define WG_WAKE_X uWorld[19].w
-#define WG_WAKE_Y uWorld[20].x
-#define WG_WAKE_Z uWorld[20].y
-#define WG_ASSETS uWorld[20].z
-#define WG_ROLL_ANGLE uWorld[20].w
-#define WG_LENS_NOW uWorld[21].x
-#define WG_GAZE_X uWorld[21].y
-#define WG_GAZE_Y uWorld[21].z
-#define WG_SPARE uWorld[21].w
+#define WG_P_JULIA uWorld[9].x
+#define WG_P_KLEIN uWorld[9].y
+#define WG_P_KIFS uWorld[9].z
+#define WG_PRIM_SIZE uWorld[9].w
+#define WG_PRIM_THICK uWorld[10].x
+#define WG_MESH_PICK uWorld[10].y
+#define WG_MESH_SIZE uWorld[10].z
+#define WG_BULB_POWER uWorld[10].w
+#define WG_GYRO_SCALE uWorld[11].x
+#define WG_BOX_SCALE uWorld[11].y
+#define WG_M_SURFACE uWorld[11].z
+#define WG_M_GLOW uWorld[11].w
+#define WG_M_DENSITY uWorld[12].x
+#define WG_DENS_BAND uWorld[12].y
+#define WG_TRAP_X uWorld[12].z
+#define WG_TRAP_Y uWorld[12].w
+#define WG_TRAP_Z uWorld[13].x
+#define WG_TRAP_R uWorld[13].y
+#define WG_PAL_OFFSET uWorld[13].z
+#define WG_PAL_SPAN uWorld[13].w
+#define WG_EMISSION uWorld[14].x
+#define WG_FOG uWorld[14].y
+#define WG_CORRIDOR uWorld[14].z
+#define WG_TEX_AMOUNT uWorld[14].w
+#define WG_TEX_PICK uWorld[15].x
+#define WG_TEX_SCALE uWorld[15].y
+#define WG_TEX_EMIT uWorld[15].z
+#define WG_ROLL uWorld[15].w
+#define WG_LENS uWorld[16].x
+#define WG_FLOOR uWorld[16].y
+#define WG_FLOOR_Y uWorld[16].z
+#define WG_FLOOR_GLOSS uWorld[16].w
+#define WG_SKY uWorld[17].x
+#define WG_SKY_HUE uWorld[17].y
+#define WG_HORIZON uWorld[17].z
+#define WG_TERRAIN uWorld[17].w
+#define WG_TERRAIN_HEIGHT uWorld[18].x
+#define WG_TERRAIN_SCALE uWorld[18].y
+#define WG_LATTICE_TILT uWorld[18].z
+#define WG_LATTICE_YAW uWorld[18].w
+#define WG_GAZE_PITCH uWorld[19].x
+#define WG_GAZE_YAW uWorld[19].y
+#define WG_JULIA_CX uWorld[19].z
+#define WG_JULIA_CY uWorld[19].w
+#define WG_JULIA_CZ uWorld[20].x
+#define WG_JULIA_CW uWorld[20].y
+#define WG_KLEIN_BOX uWorld[20].z
+#define WG_KIFS_SCALE uWorld[20].w
+#define WG_Z_PHASE uWorld[21].x
+#define WG_GAIN uWorld[21].y
+#define WG_ITER_CAP uWorld[21].z
+#define WG_HUE_TURN uWorld[21].w
+#define WG_WAKE_X uWorld[22].x
+#define WG_WAKE_Y uWorld[22].y
+#define WG_WAKE_Z uWorld[22].z
+#define WG_ASSETS uWorld[22].w
+#define WG_ROLL_ANGLE uWorld[23].x
+#define WG_LENS_NOW uWorld[23].y
+#define WG_GAZE_X uWorld[23].z
+#define WG_GAZE_Y uWorld[23].w
 
 /**
- * The baked CC0 assets (core/viz/world/WorldAssets, tools/morph_world_assets): sixteen models as signed
- * distance volumes, one 32^3 slab each stacked along z (32 x 32 x 512, R8, linear, clamped), and
- * eight grey material detail maps (128^2 layers, mirrored repeat). Read only while WG_ASSETS is 1.
+ * The baked CC0 assets (core/viz/world/WorldAssets, tools/morph_world_assets): twenty-four models as signed
+ * distance volumes, one 32^3 tile each in a 6 x 4 atlas side by side in x and y (192 x 128 x 32, R8,
+ * linear, clamped; ShaderScene repacks the file's z-stacked slabs at upload so no side passes the
+ * 256 GLES 3.0 promises), and eight grey material detail maps (128^2 layers, mirrored repeat).
+ * Read only while WG_ASSETS is 1.
  */
 uniform highp sampler3D uWorldShapes;
 uniform highp sampler2DArray uWorldTex;
@@ -165,18 +193,25 @@ void worldCamera(vec2 uv, out vec3 ro, out vec3 rd) {
     ro = uCamPos;
     rd = normalize(uCamBasis * v);
 }
-#define WG_SHAPES 16.0
+#define WG_SHAPES 24.0
 #define WG_SHAPE_RES 32.0
+/** The atlas grid (WorldAssets kAtlasCols, kAtlasRows): shape i at tile (i mod cols, i / cols). */
+#define WG_ATLAS_COLS 6.0
+#define WG_ATLAS_ROWS 4.0
 #define WG_SHAPE_LO -0.25
 #define WG_SHAPE_HI 0.75
 
 /** The air always kept around the eye (WorldGenome.hpp kEyeRadius). */
 #define WG_EYE_RADIUS 0.9
+/** How softly the ground joins the world's matter (WorldGenome.cpp kFloorBlend). */
+#define WG_FLOOR_BLEND 0.4
 #define WG_TAU 6.2831853
 #define WG_MAX_IFS 5
 
 /** The orbit trap of the last world() call: |x|, |y|, |z| and |p|^2 at their smallest. */
 vec4 gWTrap;
+/** How much of the last world() point was the ground, 0..1 (WG_FLOOR times the smooth min's share). */
+float gWFloor;
 
 float wSmin(float a, float b, float k) {
     float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
@@ -301,6 +336,70 @@ float wApollo(vec3 q, float s) {
     return 0.25 * abs(p.y) / scale * s;
 }
 
+/**
+ * A quaternion Julia set, z -> z^2 + c with c the genome's (WG_JULIA_C*), on the slice w = 0 and
+ * filling about s (WorldGenome.cpp julia()). The real part is x. The square of (a, v) is
+ * (a^2 - |v|^2, 2 a v); the running derivative is 2 |z| dr; the distance is the Hubbard-Douady
+ * bound 0.5 |z| log |z| / |dz|. Inside the set the bound is held at one unit deep: matter, not a
+ * number that drowns the other primitives' weights.
+ */
+float wJulia(vec3 q, float s, vec4 c) {
+    float k = 0.7 * s;
+    vec4 z = vec4(q / k, 0.0);
+    float dr = 1.0;
+    for (int i = 0; i < 8; i++) {
+        float r2 = dot(z, z);
+        if (r2 > 16.0) break;
+        dr = 2.0 * sqrt(r2) * dr;
+        z = vec4(z.x * z.x - dot(z.yzw, z.yzw), 2.0 * z.x * z.yzw) + c;
+    }
+    float r = max(length(z), 1e-6);
+    return max(0.5 * log(r) * r / max(dr, 1e-6), -1.0) * k;
+}
+
+/**
+ * A pseudo-Kleinian limit set (WorldGenome.cpp klein()): the space folded into the box of half-size
+ * b by its face reflections (the mirrored cell), then inverted in the unit sphere (the inversion's
+ * stretch capped at 16, so the middle scales instead of flying off), seven times; the last fold
+ * then meets a slab of half-thickness t, whose images under the group are the nested discs and
+ * caps. Held in a ball of 1.3 s, so the foam is a thing in its cell, not a wall.
+ */
+float wKlein(vec3 q, float s, float b, float t) {
+    float k = 0.5 * s;
+    vec3 z = q / k;
+    float dr = 1.0;
+    for (int i = 0; i < 7; i++) {
+        z = vec3(wCell(z.x, 2.0 * b), wCell(z.y, 2.0 * b), wCell(z.z, 2.0 * b));
+        float m = clamp(1.0 / max(dot(z, z), 1e-4), 1.0, 16.0);
+        z *= m;
+        dr *= m;
+    }
+    z = vec3(wCell(z.x, 2.0 * b), wCell(z.y, 2.0 * b), wCell(z.z, 2.0 * b));
+    float d = (abs(z.y) - t) / dr * k;
+    return max(d, length(q) - 1.3 * s);
+}
+
+/**
+ * An octahedral kaleidoscopic IFS (WorldGenome.cpp kifs()): fold across the octahedron's nine
+ * mirror planes (the three coordinate planes, then x = y, x = z, y = z), scale by sc about the
+ * vertex (1, 0, 0), seven times; the distance is to the unit octahedron at the last level.
+ * Its hull is the octahedron of radius 1.2 s.
+ */
+float wKifs(vec3 q, float s, float sc) {
+    float k = 1.2 * s;
+    vec3 z = q / k;
+    float scale = 1.0;
+    for (int i = 0; i < 7; i++) {
+        z = abs(z);
+        if (z.x < z.y) z.xy = z.yx;
+        if (z.x < z.z) z.xz = z.zx;
+        if (z.y < z.z) z.yz = z.zy;
+        z = z * sc - vec3(sc - 1.0, 0.0, 0.0);
+        scale *= sc;
+    }
+    return (abs(z.x) + abs(z.y) + abs(z.z) - 1.0) * 0.57735 / scale * k;
+}
+
 /** The plane about the travel axis folded into one mirrored wedge of n (WorldGenome.cpp polarFold()). */
 vec2 wPolar(vec2 v, float n) {
     float r = length(v);
@@ -318,9 +417,14 @@ float wShape(float index, vec3 m) {
     vec3 c = clamp(m, -1.0, 1.0);
     float out_ = length(m - c);
     vec3 uvw = c * 0.5 + 0.5;
-    // The slab's own texel rows only, so linear filtering never reads the next model.
-    float z = (index * WG_SHAPE_RES + clamp(uvw.z * WG_SHAPE_RES, 0.5, WG_SHAPE_RES - 0.5)) / (WG_SHAPES * WG_SHAPE_RES);
-    float d = mix(WG_SHAPE_LO, WG_SHAPE_HI, texture(uWorldShapes, vec3(uvw.xy, z)).r);
+    // The tile's own texel centres only, so linear filtering never reads a neighbouring model
+    // (WorldAssets::atlasDistance is this addressing on the CPU).
+    float i = clamp(floor(index + 0.5), 0.0, WG_SHAPES - 1.0);
+    float row = floor((i + 0.5) / WG_ATLAS_COLS);
+    vec3 origin = vec3(i - row * WG_ATLAS_COLS, row, 0.0) * WG_SHAPE_RES;
+    vec3 inTile = clamp(uvw * WG_SHAPE_RES, 0.5, WG_SHAPE_RES - 0.5);
+    vec3 size = vec3(WG_ATLAS_COLS, WG_ATLAS_ROWS, 1.0) * WG_SHAPE_RES;
+    float d = mix(WG_SHAPE_LO, WG_SHAPE_HI, texture(uWorldShapes, (origin + inTile) / size).r);
     return out_ > 0.0 ? max(out_, d - out_) : d;
 }
 
@@ -336,9 +440,10 @@ float wMesh(vec3 q) {
 }
 
 /**
- * The thirteen primitives, blended by weight (the weights sum to one): six simple ones (tube and
- * torus ring the travel axis), a baked model, and six fractals: a gyroid, a Menger sponge, a
- * Mandelbulb, a Mandelbox, a Sierpinski tetrahedron and an Apollonian packing.
+ * The sixteen primitives, blended by weight (the weights sum to one): six simple ones (tube and
+ * torus ring the travel axis), a baked model, and nine fractals: a gyroid, a Menger sponge, a
+ * Mandelbulb, a Mandelbox, a Sierpinski tetrahedron, an Apollonian packing, a quaternion Julia
+ * set, a pseudo-Kleinian limit set and an octahedral kaleidoscopic IFS.
  */
 float wPrims(vec3 q) {
     float s = WG_PRIM_SIZE;
@@ -358,10 +463,139 @@ float wPrims(vec3 q) {
     if (WG_P_MANDELBOX > 0.0) d += WG_P_MANDELBOX * wMandelbox(q, s, WG_BOX_SCALE);
     if (WG_P_SIERP > 0.0) d += WG_P_SIERP * wSierp(q, s);
     if (WG_P_APOLLO > 0.0) d += WG_P_APOLLO * wApollo(q, s);
+    if (WG_P_JULIA > 0.0) d += WG_P_JULIA * wJulia(q, s, vec4(WG_JULIA_CX, WG_JULIA_CY, WG_JULIA_CZ, WG_JULIA_CW));
+    if (WG_P_KLEIN > 0.0) d += WG_P_KLEIN * wKlein(q, s, WG_KLEIN_BOX, t);
+    if (WG_P_KIFS > 0.0) d += WG_P_KIFS * wKifs(q, s, WG_KIFS_SCALE);
     return d;
 }
 
-/** The bare world at p: the operator chain, then the primitives. Writes gWTrap. */
+// ---- the landscape (WG_TERRAIN; WorldGenome.cpp terrain(), the same numbers) --------------------
+//
+// A height field y = base + relief * (ridged(x, z) + WALL * valley(x)), in world space. Its
+// distance is the vertical gap times the textbook bound for a height field, 1 / sqrt(1 + s^2),
+// where s is the steepest slope the field can have, so the sphere tracer never overshoots it; above
+// the field's highest possible point the gap to that plane is a bound too, and the larger wins.
+// The noise is integer-hashed value noise (no sin, no float hash), so the GPU and the CPU port
+// build the same ground. The rig's travel wraps at 8192: the last stretch before the wrap blends
+// into the ground found 8192 behind, so the eye crosses the wrap onto the same ground.
+
+#define WG_TERRAIN_OCTAVES 5
+#define WG_TERRAIN_GAIN 0.45
+/**
+ * The ridged sum's steepest slope per unit of base frequency and relief: value noise rises at most
+ * 3 per lattice unit (the cubic fade's slope, 1.5, times a corner difference of at most 2), ridging
+ * keeps that, and the octaves add sum(gain^i 2^i) / sum(gain^i) = 2.295 of it. 3 x 2.295, rounded up.
+ */
+#define WG_TERRAIN_SLOPE 6.9
+/** The valley walls: up to twice the relief, half-way up at WIDTH from the travel line. */
+#define WG_TERRAIN_WALL 2.0
+#define WG_TERRAIN_WIDTH 8.0
+/** The steepest the walls get per unit of relief: WALL x max(d/dx x^2 / (x^2 + W^2)) = WALL x 0.6495 / W. */
+#define WG_TERRAIN_WALL_SLOPE 0.1625
+/** How far under FLOOR_Y the ground waits while Terrain is off, and the distance it reads as then. */
+#define WG_TERRAIN_SINK 8.0
+#define WG_TERRAIN_FAR 80.0
+/** CameraRig::kTravelWrap, and the stretch before it that blends into the ground behind the wrap. */
+#define WG_TRAVEL_WRAP 8192.0
+#define WG_WRAP_LO 7692.0
+#define WG_WRAP_HI 8092.0
+/** The blend's slope per unit of relief: smoothstep's 1.5 over the 400-unit stretch, rounded up. */
+#define WG_WRAP_SLOPE 0.004
+
+/** A lattice point's hash: Knuth's multiplicative hash per axis, then xor-shift-multiply rounds. */
+uint wHash(int x, int y) {
+    uint h = (uint(x) * 0x9E3779B1u) ^ (uint(y) * 0x85EBCA77u);
+    h ^= h >> 15u;
+    h *= 0x2C1B3C6Du;
+    h ^= h >> 12u;
+    h *= 0x297A2D39u;
+    h ^= h >> 15u;
+    return h;
+}
+
+/** The lattice value at (x, y): the hash's top 24 bits as -1..1, exact in any float. */
+float wLattice(int x, int y) { return float(wHash(x, y) >> 8u) * (1.0 / 8388608.0) - 1.0; }
+
+/** Smooth value noise, -1..1, lattice unit 1, cubic fade: continuous, at most 3 per unit steep. */
+float wValue(vec2 s) {
+    vec2 i = floor(s);
+    vec2 f = s - i;
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    int x = int(i.x);
+    int y = int(i.y);
+    float a = wLattice(x, y);
+    float b = wLattice(x + 1, y);
+    float c = wLattice(x, y + 1);
+    float d = wLattice(x + 1, y + 1);
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+/**
+ * Ridged fBm at s, 0..1: each octave's 1 - |n| is a crest where the noise crosses zero; the next
+ * octave is turned (a 3-4-5 rotation) and twice as fine, so no lattice axis shows. `crest` gets
+ * the smallest |n|: how near the point is to a ridge line, for the colour.
+ */
+float wRidged(vec2 s, out float crest) {
+    float sum = 0.0;
+    float norm = 0.0;
+    float amp = 1.0;
+    crest = 1.0;
+    for (int i = 0; i < WG_TERRAIN_OCTAVES; i++) {
+        float n = wValue(s);
+        sum += amp * (1.0 - abs(n));
+        norm += amp;
+        crest = min(crest, abs(n));
+        amp *= WG_TERRAIN_GAIN;
+        s = vec2(0.8 * s.x - 0.6 * s.y, 0.6 * s.x + 0.8 * s.y) * 2.0 + vec2(5.3, -2.9);
+    }
+    return sum / norm;
+}
+
+/** The ridged ground at world (x, z), the wrap's last stretch blended into the ground behind it. */
+float wLandscape(vec2 xz, out float crest) {
+    float h = wRidged(xz * WG_TERRAIN_SCALE, crest);
+    float w = smoothstep(WG_WRAP_LO, WG_WRAP_HI, xz.y);
+    if (w > 0.0) {
+        float c2;
+        float h2 = wRidged(vec2(xz.x, xz.y - WG_TRAVEL_WRAP) * WG_TERRAIN_SCALE, c2);
+        h = mix(h, h2, w);
+        crest = mix(crest, c2, w);
+    }
+    return h;
+}
+
+/** The valley across the way: 0 on the travel line, toward 1 far out to the sides. */
+float wValley(float x) { return x * x / (x * x + WG_TERRAIN_WIDTH * WG_TERRAIN_WIDTH); }
+
+/**
+ * The landscape's distance at p and its orbit trap (height, wall, crest, and a radius that darkens
+ * the valley floors). As Terrain fades in, the ground rises from SINK under FLOOR_Y and its relief
+ * grows; near 0 the distance itself fades to FAR, so the layer leaves and arrives without a pop.
+ */
+float wTerrain(vec3 p, out vec4 trap) {
+    float on = WG_TERRAIN;
+    float relief = on * WG_TERRAIN_HEIGHT;
+    float base = WG_FLOOR_Y - (1.0 - on) * WG_TERRAIN_SINK;
+    float crest;
+    float h = wLandscape(p.xz, crest);
+    float v = wValley(p.x);
+    float y = base + relief * (h + WG_TERRAIN_WALL * v);
+    float slope = relief * (WG_TERRAIN_SLOPE * WG_TERRAIN_SCALE + WG_TERRAIN_WALL_SLOPE + WG_WRAP_SLOPE);
+    float d = (p.y - y) / sqrt(1.0 + slope * slope);
+    d = max(d, p.y - (base + relief * (1.0 + WG_TERRAIN_WALL)));
+    trap = vec4(h, v, crest, (0.4 + 1.2 * h) * (0.4 + 1.2 * h));
+    return mix(WG_TERRAIN_FAR, d, min(on * 8.0, 1.0));
+}
+
+/** The chain's matter at distance d joined with the landscape; the nearer one owns the trap. */
+float wWithTerrain(vec3 p, float d) {
+    vec4 trap;
+    float t = wTerrain(p, trap);
+    if (t < d) gWTrap = trap;
+    return min(d, t);
+}
+
+/** The bare world at p: the operator chain, then the primitives, then the landscape. Writes gWTrap. */
 float world(vec3 p) {
     vec3 w = p;
     float pz = WG_CELL_Z;
@@ -421,7 +655,17 @@ float world(vec3 p) {
     q = mix(q, abs(q) / r2 - WG_ABS_INV_C, WG_ABS_INV);
     k *= mix(1.0, 1.0 / r2, WG_ABS_INV);
     gWTrap = min(gWTrap, vec4(abs(q), dot(q, q)));
-    return wPrims(q) / k;
+    float d = wPrims(q) / k;
+    gWFloor = 0.0;
+    if (WG_FLOOR > 0.0) {
+        // The ground, joined smoothly, then faded in: continuous in WG_FLOOR, the identity at 0.
+        float fd = p.y - WG_FLOOR_Y;
+        float h = clamp(0.5 + 0.5 * (fd - d) / WG_FLOOR_BLEND, 0.0, 1.0);
+        gWFloor = WG_FLOOR * (1.0 - h);
+        d = mix(d, wSmin(d, fd, WG_FLOOR_BLEND), WG_FLOOR);
+    }
+    if (WG_TERRAIN > 0.0) d = wWithTerrain(p, d);
+    return d;
 }
 
 /** The open way: the travel tube, the eye's bubble, the wake ahead. Negative inside the air. */
@@ -478,9 +722,43 @@ vec3 worldNormal(vec3 p, float t) {
                      + h.yxy * worldCarved(p + h.yxy * e) + h.xxx * worldCarved(p + h.xxx * e));
 }
 
-/** The air's colour: a dark tint of the world's own palette. */
+/**
+ * The air's colour along rd: what an escaped ray shows and what the fog fades toward. A dark tint
+ * of the world's own palette, crossfaded by WG_SKY into the sky's gradient (brightest at the
+ * horizon, dimmer toward the zenith, dimmer still below, continuous at rd.y = 0), plus the
+ * horizon's glow band (WG_HORIZON), narrow and symmetric about the horizon.
+ */
 vec3 worldFogColour(vec3 rd) {
-    return pal(WG_PAL_OFFSET + WG_HUE_TURN + 0.5 + 0.1 * rd.y) * 0.035;
+    vec3 air = pal(WG_PAL_OFFSET + WG_HUE_TURN + 0.5 + 0.1 * rd.y) * 0.035;
+    float up = clamp(rd.y, -1.0, 1.0);
+    vec3 col = air;
+    if (WG_SKY > 0.0) {
+        float level = up >= 0.0 ? 0.06 + 0.22 * exp(-3.5 * up) : 0.04 + 0.24 * exp(5.0 * up);
+        vec3 sky = pal(WG_SKY_HUE + WG_HUE_TURN + 0.15 * up) * level;
+        col = mix(air, sky, WG_SKY);
+    }
+    if (WG_HORIZON > 0.0) col += pal(WG_SKY_HUE + WG_HUE_TURN + 0.08) * exp(-abs(up) * 18.0) * 0.45 * WG_HORIZON;
+    return col;
+}
+
+/**
+ * What the glossy ground mirrors: a short sphere trace along the reflected ray r from p, the
+ * world's colour where it lands (lit flat, fogged), else the air. `budget` steps, at most 24.
+ */
+vec3 worldMirror(vec3 p, vec3 r, float budget) {
+    float far = worldFar();
+    float t = 0.08;
+    for (int i = 0; i < 24; i++) {
+        if (float(i) >= budget) break;
+        float d = worldCarved(p + r * t);
+        if (d < 0.004 * (1.0 + t)) {
+            vec3 c = pal(worldHue(gWTrap)) * (0.2 + 0.4 * WG_EMISSION);
+            return mix(c, worldFogColour(r), 1.0 - exp(-t * WG_FOG));
+        }
+        t += d * 0.85;
+        if (t > far) break;
+    }
+    return worldFogColour(r);
 }
 
 /**
@@ -509,16 +787,27 @@ vec3 worldSurface(vec3 ro, vec3 rd, float budget) {
     vec3 n = worldNormal(p, t);
     world(p);
     vec4 trap = gWTrap;
+    float ground = gWFloor;
     float detail = worldDetail(p, n);
     vec3 base = pal(worldHue(trap)) * mix(1.0, 0.3 + 1.4 * detail, WG_TEX_AMOUNT);
+    // The ground takes the world's palette, darker, so the structures stand on it, not in it.
+    base *= 1.0 - 0.45 * ground;
     float pattern = mix(1.0, 2.0 * detail, WG_TEX_EMIT);
     vec3 l = normalize(uCamBasis[1] * 0.8 - rd * 0.6 + vec3(0.0, 0.3, 0.0));
     float diff = max(dot(n, l), 0.0);
     float rim = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
     float occ = clamp(1.0 - used / max(budget, 1.0), 0.15, 1.0) * clamp(0.35 + sqrt(trap.w) * 0.5, 0.25, 1.0);
-    vec3 col = base * (0.12 + 1.0 * diff) * occ + base * rim * 0.45 * WG_EMISSION * pattern;
+    // The far ground is seen at a grazing angle, where the rim would light all of it: damp it there.
+    vec3 col = base * (0.12 + 1.0 * diff) * occ + base * rim * 0.45 * WG_EMISSION * pattern * (1.0 - 0.7 * ground);
     float spec = pow(max(dot(reflect(rd, n), l), 0.0), 24.0);
     col += vec3(spec) * 0.25 * occ;
+    float gloss = ground * WG_FLOOR_GLOSS;
+    if (gloss > 0.02) {
+        // A glossy ground: Schlick's fresnel weighs what it mirrors, more at grazing angles.
+        vec3 r = reflect(rd, n);
+        float fres = 0.04 + 0.96 * pow(1.0 - max(dot(n, -rd), 0.0), 5.0);
+        col = mix(col, worldMirror(p + n * 0.01, r, budget * 0.25), gloss * (0.25 + 0.75 * fres));
+    }
     return mix(col, fogCol, 1.0 - exp(-t * WG_FOG));
 }
 

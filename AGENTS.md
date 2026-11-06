@@ -170,4 +170,4 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 
 - **Gate.** `.github/workflows/arch-map.yml` runs `tools/arch-map-gate.sh` on every PR into `claude/geode-finish` or `main`. The check fails when the PR changes structure without touching `AGENTS.md`. The same workflow runs `tools/layer-gate.sh` (the layer rule above). Structure means `settings.gradle.kts`, any `build.gradle.kts`, any `CMakeLists.txt`, or a file added, deleted or renamed under `app/src/main/java/` or `engine/`. There is no override.
 - **When you refactor,** update the tables above in the same PR: module, package, entry point, thread, large-file line counts. Then update the "breaks the guide" list. When a split step from ADR 0001 lands, rewrite the Modules section to match, and record any change of plan as a new ADR.
-- Verify every path you name. Keep this file under 200 lines; push detail into `docs/`. 
+- Verify every path you name. Keep this file under 200 lines; push detail into `docs/`.

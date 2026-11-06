@@ -144,3 +144,52 @@ target_compile_options(geode_meshopt PRIVATE -fvisibility=hidden $<$<CONFIG:Rele
 target_sources(geode_core PRIVATE scene/object/GltfImport.cpp)
 target_include_directories(geode_core PRIVATE ${CMAKE_SOURCE_DIR}/third_party/cgltf)
 target_link_libraries(geode_core PUBLIC geode_meshopt)
+
+# The imported model's textures (core/scene/object/ModelTextures, #474): Basis Universal's encoder
+# library as upstream lists it (ENCODER_LIB_SRC_LIST in its CMakeLists.txt, minus the optional
+# astcenc), for its PNG and JPEG readers, the UASTC encoder and the transcoder (KTX2, UASTC -> ASTC
+# and ETC2), plus zstd for UASTC KTX2 files that are zstd-supercompressed. Apache-2.0 (zstd BSD),
+# an unmodified submodule. Built as C++17, upstream's standard; no SSE, no OpenCL, and the job pool
+# it compiles is never started (the import is single-threaded on its caller's worker).
+set(GEODE_BASISU_DIR ${CMAKE_SOURCE_DIR}/third_party/basis_universal)
+add_library(geode_basisu STATIC
+    ${GEODE_BASISU_DIR}/encoder/basisu_backend.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_basis_file.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_comp.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_enc.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_etc.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_frontend.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_gpu_texture.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_pvrtc1_4.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_resampler.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_resample_filters.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_ssim.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_uastc_enc.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_bc7e_scalar.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_dds_export.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_bc7enc.cpp
+    ${GEODE_BASISU_DIR}/encoder/jpgd.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_kernels_sse.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_bc15_spmd.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_bc15_spmd_sse.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_opencl.cpp
+    ${GEODE_BASISU_DIR}/encoder/pvpngreader.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_uastc_hdr_4x4_enc.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_astc_hdr_6x6_enc.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_astc_hdr_common.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_astc_ldr_common.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_astc_ldr_encode.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_astc_ldr_fencode.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_xbc7_encode.cpp
+    ${GEODE_BASISU_DIR}/encoder/basisu_tinyexr.cpp
+    ${GEODE_BASISU_DIR}/encoder/3rdparty/android_astc_decomp.cpp
+    ${GEODE_BASISU_DIR}/transcoder/basisu_transcoder.cpp
+    ${GEODE_BASISU_DIR}/zstd/zstd.c)
+set_target_properties(geode_basisu PROPERTIES CXX_STANDARD 17 CXX_EXTENSIONS OFF)
+target_include_directories(geode_basisu PUBLIC ${GEODE_BASISU_DIR})
+target_compile_definitions(geode_basisu PUBLIC
+    BASISU_SUPPORT_SSE=0 BASISU_SUPPORT_OPENCL=0 BASISD_SUPPORT_KTX2=1 BASISD_SUPPORT_KTX2_ZSTD=1)
+target_compile_definitions(geode_basisu PRIVATE BASISU_SUPPORT_ASTCENC=0)
+target_compile_options(geode_basisu PRIVATE -fvisibility=hidden -fno-strict-aliasing -w $<$<CONFIG:Release>:-O2>)
+target_sources(geode_core PRIVATE scene/object/ModelTextures.cpp)
+target_link_libraries(geode_core PUBLIC geode_basisu)

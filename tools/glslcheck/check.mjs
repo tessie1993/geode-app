@@ -167,6 +167,7 @@ const SOUND_SCALARS = [
   1, 4, 0.6, 0.3, //            SCALE SCALE_ROOT SCALE_BRIGHTNESS SCALE_TENSION
   0.7, 0.2, 0, 1, //            SCALE_FIT NOVELTY SECTION_CHANGE SECTION_ID
   1, 8, 0.2, 0, //              SECTION_STATE SECTION_BARS BUILD_UP DROP
+  1, 0, 0, 0, //                FADE_GAIN (and the vec4's padding)
 ];
 
 const SHADER_VALUES = {

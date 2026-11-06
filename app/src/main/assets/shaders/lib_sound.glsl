@@ -14,7 +14,7 @@
 
 precision highp sampler2D;
 
-uniform vec4 uSound[27];
+uniform vec4 uSound[28];
 uniform sampler2D uSoundTex;
 /** The style's Audio drive slider (SceneParams.audioDrive): sndLevel and the band reads scale by it. */
 uniform float uSoundDrive;
@@ -136,6 +136,9 @@ uniform vec2 uSoundCounts;
 #define SND_BUILD_UP               uSound[26].z
 #define SND_DROP                   uSound[26].w
 // SND_SECTION_CHANGE and SND_DROP are triggers: 0, or a strength at 0.4..1 (core/sound Form::kEventFloor). Test > 0.0.
+// A track boundary the player names fires SND_SECTION_CHANGE at 1.
+#define SND_FADE_GAIN              uSound[27].x
+// SND_FADE_GAIN is the player's fades (pause, skip, crossfade), 0..1; 1 under the mic or capture and in an export.
 
 #define SND_HELD_HARD_CUT      uSoundEvents.x
 #define SND_HELD_SURGE         uSoundEvents.y

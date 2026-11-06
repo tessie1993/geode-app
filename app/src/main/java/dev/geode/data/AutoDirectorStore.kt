@@ -52,11 +52,17 @@ class AutoDirectorStore private constructor(
         push()
     }
 
-    /** A new track (or the same one again): a new seed, so the director starts the song afresh. */
+    /**
+     * A new track (or the same one again): a new seed, so the director starts the song afresh, and a track
+     * boundary with that seed for every live sound engine (core/sound/PlayerSignals), so the new song's
+     * tempo, key and sections are its own even when it follows gapless or crossfaded, which the tap cannot
+     * hear.
+     */
     fun newPlay(gate: FeatureGate) {
         seed = Random.nextLong()
         this.gate = gate
         positionMs = 0L
+        bestEffort(TAG, "track boundary") { GeodeNative.soundTrackBoundary(seed) }
         push()
     }
 

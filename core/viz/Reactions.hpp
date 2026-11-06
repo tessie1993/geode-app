@@ -54,8 +54,10 @@ enum class ReactSource {
     KeyHue, KeyRoot, KeyMajor, KeyClarity, ChordHue, Tension, HarmonicChange, ScaleRoot, ScaleBrightness, ScaleTension, ScaleFit,
     // Form: the song part reads state / 5 (GEODE_SECTION_*), the section number id / 7.
     Novelty, SectionChange, SectionState, SectionId, BuildUp, Drop,
+    // The player (core/sound/PlayerSignals): its fades, which the tap before the volume never hears.
+    FadeGain,
 };
-constexpr int kReactSourceCount = static_cast<int>(ReactSource::Drop) + 1;
+constexpr int kReactSourceCount = static_cast<int>(ReactSource::FadeGain) + 1;
 
 // The source catalogue: what the Customize picker, the Events recipes and the saved formats call each
 // source. C++ owns it (the user's rule: the reaction feature lives in C++); Kotlin reads it over JNI

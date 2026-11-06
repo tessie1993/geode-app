@@ -194,6 +194,54 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+Basis Universal
+---------------
+The texture pipeline behind importing your own .glb models
+(core/scene/object/ModelTextures.cpp: reading PNG, JPEG and KTX2 images,
+encoding them to UASTC and transcoding to ASTC and ETC2) is Basis Universal
+(https://github.com/BinomialLLC/basis_universal), v2.50, built from the
+third_party/basis_universal submodule, unmodified, into the native core.
+
+Basis Universal(TM) Supercompressed GPU Texture Compression Library
+Copyright (c) 2016-2026 Binomial LLC. All rights reserved except as granted
+under the Apache 2.0 license. "Basis Universal" is a trademark of Binomial
+LLC. Licensed under the Apache License, Version 2.0:
+https://www.apache.org/licenses/LICENSE-2.0
+
+Basis Universal compiles in, from the same submodule:
+- jpgd and pvpngreader (the JPEG and PNG readers): public domain, or
+  Apache-2.0 at Binomial LLC's option.
+- miniz (zlib for the PNG reader): forked from the public domain miniz,
+  Copyright (C) 2019-2024 Binomial LLC, Apache-2.0.
+- The Android ASTC decompressor: Copyright 2016 The Android Open Source
+  Project, Apache-2.0.
+- QOI: Copyright (c) 2021 Dominic Szablewski, MIT License.
+- TinyEXR: Copyright (c) 2014-2021 Syoyo Fujita and many contributors,
+  BSD 3-Clause License.
+- Zstandard (for zstd-supercompressed KTX2): Copyright (c) 2016-present,
+  Facebook, Inc. All rights reserved. BSD License:
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer. Redistributions in binary
+form must reproduce the above copyright notice, this list of conditions and
+the following disclaimer in the documentation and/or other materials
+provided with the distribution. Neither the name Facebook (for Zstandard),
+the name of Syoyo Fujita (for TinyEXR), nor the names of their contributors
+may be used to endorse or promote products derived from this software
+without specific prior written permission. THIS SOFTWARE IS PROVIDED BY THE
+COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 AndroidX / Jetpack (Compose, Media3, DocumentFile, Activity, Lifecycle)
 -----------------------------------------------------------------------
 Copyright The Android Open Source Project. Licensed under the Apache

@@ -61,6 +61,22 @@ float Renderer::beginFrame(double timeSeconds) {
             tunedKnobs_ = frameSettings_.knobs;
             sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
         }
+        // What the player told the engines (core/sound/PlayerSignals), live renderers only: an export hears
+        // its own track, with no boundaries but its own and no player fades, so it keeps fadeGain at 1, and
+        // counts as the player, so a silent stretch in the track holds the song like a pause does live.
+        if (!offscreen_.load(std::memory_order_relaxed)) {
+            const sound::player::Boundary boundary = sound::player::boundary();
+            if (boundary.epoch != boundarySeen_) {
+                boundarySeen_ = boundary.epoch;
+                if (sound_) sound_->trackBoundary();
+            }
+            if (sound_) {
+                sound_->setPlayerSource(sound::player::playerIsSource());
+                sound_->setFadeGain(sound::player::fadeGain());
+            }
+        } else if (sound_) {
+            sound_->setPlayerSource(true);
+        }
         if (sound_) {
             sound_->step(dt, soundFrame_);
             soundEmotion_ = sound_->emotion();

@@ -1,4 +1,5 @@
 #include "viz/fluid/FlowField.hpp"
+#include "viz/fluid/FluidMath.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -39,7 +40,8 @@ void FlowField::step(const GeodeSoundFrame& features, float dt, const SceneParam
     sim_.curlStrength = std::clamp(p.flowCurl, 0.0f, 50.0f);
     emitters_.forceScale = std::clamp(p.flowForce, 0.0f, 3.0f);
     emitters_.stirrerSpeed = std::clamp(p.speed, 0.1f, 2.0f);
-    const float simDt = std::clamp(dt, 0.0f, 1.0f / 30.0f);
+    // The whole frame; FluidSim::step splits it into stable steps (#383).
+    const float simDt = math::frameSimDt(dt);
     emitters_.tick(features, simDt, sim_.aspect(), 0.0f, 1.0f, splats_);
     for (const Splat& s : splats_) sim_.queueSplat(s);
     sim_.step(simDt);

@@ -1,7 +1,9 @@
 #include "viz/Params.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <iterator>
 
 namespace geode::viz {
 
@@ -30,7 +32,10 @@ float SceneParams::palette2Base() const { return palette2BaseOverride >= 0.0f ? 
 float SceneParams::palette2Range() const { return palette2RangeOverride >= 0.0f ? palette2RangeOverride : paletteAt(palette2).range; }
 
 const std::array<SceneParams::FloatField, SceneParams::kLerpedFloatCount>& SceneParams::lerpedFloats() {
-    static const std::array<FloatField, kLerpedFloatCount> kFields = {{
+    // A plain array sized by its own entries, so the count is checked at compile time below:
+    // a std::array declared longer than its list value-initialises the rest to a null
+    // pointer-to-member, which lerpParams then reads and writes through on every fade.
+    static constexpr FloatField kList[] = {
         {"speed", &SceneParams::speed},
         {"zoom", &SceneParams::zoom},
         {"rotation", &SceneParams::rotation},
@@ -148,7 +153,9 @@ const std::array<SceneParams::FloatField, SceneParams::kLerpedFloatCount>& Scene
         {"noteTension", &SceneParams::noteTension},
         {"noteChords", &SceneParams::noteChords},
         {"noteDrums", &SceneParams::noteDrums},
-    }};
+    };
+    static_assert(std::size(kList) == static_cast<size_t>(kLerpedFloatCount), "kLerpedFloatCount must equal the entries in lerpedFloats()");
+    static const std::array<FloatField, kLerpedFloatCount> kFields = std::to_array(kList);
     return kFields;
 }
 

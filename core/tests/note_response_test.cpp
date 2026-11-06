@@ -42,6 +42,7 @@ GeodeSoundFrame base() {
     f.bassAtt = f.midAtt = f.trebleAtt = f.volAtt = 1.0f;
     f.level = 0.5f;
     f.intensity = 0.5f;
+    f.drive = 1.0f;  // full reach: the knobs read at the depth these tests say
     f.loudness = 0.7f;
     f.centroid = 0.5f;
     f.densityFast = 0.5f;

@@ -3,15 +3,11 @@ package dev.geode.engine.audio
 import dev.geode.engine.bridge.GeodeNative
 
 /**
- * The user's tuning of the sound engine (Settings › Audio), global: `GeodeSoundTuning` in
- * `core/sound/SoundFrame.h` as its [SoundFrameLayout.TUNING_FLOATS] floats, one per slot in field order
- * (the slot constants below). Three-slot groups are low, middle, high (or kick, snare, hat for the drums).
- *
- * Only a holder. Every default, range and the clamp (NaN and infinity become the default) are native,
- * `core/sound/Tuning`, so the engine, these sliders and the saved settings share one schema. [SoundTuning]
- * with no saved floats means "the engine's defaults" and stays unresolved until a value is read: storage
- * ([savedFloats], [fromFloats]) and equality never load the native library, so JVM tests of the prefs
- * can still build one.
+ * The user's tuning of the sound engine (Settings › Audio): `GeodeSoundTuning` (`core/sound/SoundFrame.h`) as
+ * [SoundFrameLayout.TUNING_FLOATS] floats, one per slot constant below; three-slot groups are low, middle,
+ * high (or kick, snare, hat). Only a holder: defaults, ranges and the clamp are native (`core/sound/Tuning`).
+ * With no saved floats it is "the engine's defaults" and stays unresolved until read, so storage and
+ * equality never load the native library and JVM tests of the prefs can build one.
  */
 class SoundTuning private constructor(
     private val saved: FloatArray?,
@@ -63,6 +59,7 @@ class SoundTuning private constructor(
         const val PITCH_THRESHOLD = 26
         const val NOTE_HOLD = 27
         const val SILENCE_DB = 28
+        const val INPUT_TRIM_DB = 29
 
         /** The slider range of [slot], native's. */
         fun range(slot: Int): ClosedFloatingPointRange<Float> {
@@ -70,7 +67,10 @@ class SoundTuning private constructor(
             return Schema.floats[n + slot]..Schema.floats[2 * n + slot]
         }
 
-        /** Saved floats, clamped when first read; anything the wrong length is the defaults. */
-        fun fromFloats(f: FloatArray) = if (f.size == SoundFrameLayout.TUNING_FLOATS) SoundTuning(f.copyOf()) else SoundTuning()
+        /** Saved floats, clamped on first read; one slot short (before the input trim) gets 0 dB, any other length the defaults. */
+        fun fromFloats(f: FloatArray): SoundTuning {
+            val n = SoundFrameLayout.TUNING_FLOATS
+            return if (f.size == n || f.size == n - 1) SoundTuning(f.copyOf(n)) else SoundTuning()
+        }
     }
 }

@@ -6,21 +6,37 @@
 #include <limits>
 #include <numbers>
 
+#include "sound/DriveGain.hpp"
 #include "sound/Tuning.hpp"
 
 namespace geode::sound {
 
 namespace {
 
-constexpr float kDigitalSilence = 1e-4f;  // -80 dBFS RMS: below it a frame is silence and the means freeze
 constexpr float kSilenceHold = 0.5f;
 constexpr float kReturnAfter = 1.0f;
 constexpr float kWarmSeconds = 50.0f / 30.0f;
 constexpr float kRewarmAfter = 2.0f;  // silence this long re-arms the warm-up (a new track)
 constexpr float kStarved = 0.1f;
-// A band quieter than this, relative to the track's own peak level (-60 dB), holds nothing worth measuring:
-// relative to the track rather than to full scale, so a quiet master keeps its top bands.
-constexpr float kBandFloorRel = 1e-3f;
+// A band quieter than this holds nothing worth measuring. Absolute (about -74 dBFS), like everything that
+// says how loud the music is: a floor that followed the track's own peak made a quiet ambient master as
+// "loud" as a mastered one to every detector below it.
+constexpr float kBandFloorAbs = 2e-4f;
+// The log of the flux knee sits at a fixed level too (what 1/1500 of a -14 dBFS master reads).
+constexpr float kFluxKnee = 1500.0f;
+// The level the Form's EQ features are read against: a typical master's RMS.
+constexpr float kEqReference = 0.2f;
+// Hits scale with the drive between these (a hit at no drive still reads, at 40 %).
+constexpr float kHitDriveFloor = 0.4f;
+// Onset density: 8 note starts a second is "busy" (1.0). Kicks and snares: 4 a second.
+constexpr float kBusyOnsetsPerSecond = 8.0f;
+constexpr float kBusyHitsPerSecond = 4.0f;
+constexpr float kRateTau = 2.0f;
+// drive = loudnessS * (kDriveBase + kDriveBusy * busy), eased: 0.5 s up, 1.5 s down.
+constexpr float kDriveBase = 0.35f;
+constexpr float kDriveBusy = 0.65f;
+constexpr float kDriveRise = 0.5f;
+constexpr float kDriveFall = 1.5f;
 constexpr float kTiltTop = 22050.0f;
 constexpr float kTimeWrap = 3600.0f;
 constexpr float kCountWrap = 4096.0f;
@@ -72,7 +88,10 @@ int SoundEngine::fftSizeFor(int sampleRateHz) {
 
 GeodeSoundTuning SoundEngine::defaultTuning() { return tuning::defaults(); }
 
-void SoundEngine::setTuning(const GeodeSoundTuning& t) { tuning_ = tuning::clamp(t); }
+void SoundEngine::setTuning(const GeodeSoundTuning& t) {
+    tuning_ = tuning::clamp(t);
+    trimGain_ = std::pow(10.0f, tuning_.inputTrimDb / 20.0f);
+}
 
 SoundEngine::SoundEngine(int sampleRateHz)
     : sampleRateHz_(std::max(8000, sampleRateHz)),
@@ -128,6 +147,7 @@ SoundEngine::SoundEngine(int sampleRateHz)
     waveBlock_ = std::max(1, n_ / 512);  // 160 × block always fits the window: ~13 ms at every rate
     // Only the middle of the drawn wave counts when aligning, so the centre is what holds still.
     rhythm_.configure(sampleRateHz_);
+    meter_.configure(sampleRateHz_, rhythm_.hopSamples());
     hopDt_ = static_cast<float>(rhythm_.hopSamples()) / static_cast<float>(sampleRateHz_);
     fluxLag_ = std::max(1, static_cast<int>(std::lround(kFluxLag / hopDt_)));
     prevLogMag_.assign(static_cast<size_t>(fluxLag_) * logMag_.size(), 0.0f);
@@ -169,11 +189,13 @@ void SoundEngine::write(const float* interleaved, int frames, int channels) {
     fresh_ = true;
     // A non-finite or absurd sample reads as silence or full scale: one poisoned buffer would latch NaN
     // into the filter bank and the running means for the rest of the session.
+    // The input trim comes after it: it is the analysis's gain (a mic or another app's audio of unknown level),
+    // never the recording's, and feeds the loudness and every detector alike.
     const auto clean = [](float x) { return std::isfinite(x) ? std::clamp(x, -4.0f, 4.0f) : 0.0f; };
     for (int i = 0; i < frames; i++) {
         const float l = clean(interleaved[static_cast<size_t>(i) * channels]);
         const float r = channels > 1 ? clean(interleaved[static_cast<size_t>(i) * channels + 1]) : l;
-        feed(l, r);
+        feed(l * trimGain_, r * trimGain_);
     }
 }
 
@@ -185,10 +207,15 @@ void SoundEngine::feed(float l, float r) {
     written_++;
     const float m = 0.5f * (l + r);
     for (auto& band : bank_) band.process(m);
+    meter_.process(l, r);
     if (++hopFill_ >= rhythm_.hopSamples()) {
         hopFill_ = 0;
+        meter_.hop();
         std::array<float, Rhythm::kBands> power{};
-        for (int b = 0; b < Rhythm::kBands; b++) power[b] = bank_[b].power();
+        // Behind the closed gate the tracker hears nothing, so the beat does not hunt in the noise floor.
+        if (meter_.open()) {
+            for (int b = 0; b < Rhythm::kBands; b++) power[b] = bank_[b].power();
+        }
         rhythm_.hop(power);
         analyse();
     }
@@ -265,7 +292,9 @@ void SoundEngine::analyse() {
     double squares = 0.0;
     for (float v : mono_) squares += static_cast<double>(v) * v;
     out.rms = static_cast<float>(std::sqrt(squares / n_));
-    const bool silent = out.rms < kDigitalSilence;
+    // The one gate: closed until the momentary loudness reaches -55 LUFS, open until 250 ms under -60. Every
+    // detector and stage below reads this flag (fosfora's R8), so they all agree on what silence is.
+    const bool silent = !meter_.open();
     if (starved_) {
         // Nothing arrived (a pause, a stall): a transport event, not the music going quiet, so it never
         // counts toward a new track (#368). The player restarts the engine itself on a track change.
@@ -301,6 +330,7 @@ void SoundEngine::analyse() {
     melody(dt, out);
     clocks(dt, out);
     musical(dt, warm, silent, out);
+    absolute(dt, out);
 
     // The feeling hears the hop's frame like everything else, so it too is the same at every frame rate.
     emotion_.step(out, dt);
@@ -357,7 +387,7 @@ void SoundEngine::levels(float dt, bool warm, bool silent, GeodeSoundFrame& out)
     float* shaped[3] = {&out.low, &out.middle, &out.high};
     float* presence[3] = {&out.bassPresence, &out.midPresence, &out.treblePresence};
     float* time[3] = {&out.bassTime, &out.midTime, &out.trebleTime};
-    const float bandFloor = kBandFloorRel * s.levelPeak;
+    const float bandFloor = kBandFloorAbs;
     for (int b = 0; b < 3; b++) {
         s.slice[b].step(sliceNow_[b], dt, warm, silent, bandFloor);
         s.shaped[b] = lag(s.shaped[b], s.slice[b].ratio(), t.attack[b], t.release[b], dt);
@@ -372,10 +402,10 @@ void SoundEngine::levels(float dt, bool warm, bool silent, GeodeSoundFrame& out)
     s.curvedTime = std::fmod(s.curvedTime + t.speed * dt * std::pow(out.volAtt, 2.5f), kTimeWrap);
     out.curvedTime = s.curvedTime;
 
-    // level: the whole mix over its own slow peak (3 s half-life), so a quiet track still spans 0..1.
-    s.levelPeak = std::max({out.rms, s.levelPeak * std::exp(-dt * kLn2 / 3.0f), 1e-4f});
-    out.level = clamp01(out.rms / s.levelPeak);
+    // level: the whole mix's RMS in dBFS, -60 dB = 0 ... 0 dB = 1. Absolute: a pad at -30 dBFS reads 0.5
+    // however long it plays, it is never stretched to fill 0..1 against its own peak.
     out.loudness = clamp01(1.0f + 20.0f * std::log10(std::max(out.rms, 1e-6f)) / 60.0f);
+    out.level = out.loudness;
 
     for (int i = 0; i < GEODE_SOUND_EQ_BANDS; i++) {
         s.eq[i].step(sum(mag_, eqBins_[i]), dt, warm, silent, bandFloor);
@@ -493,14 +523,14 @@ void SoundEngine::descriptors(float dt, bool warm, bool silent, GeodeSoundFrame&
     const size_t stride = logMag_.size();
     float* now = logMag_.data();
     const float* then = fluxCount_ >= fluxLag_ ? prevLogMag_.data() + static_cast<size_t>(fluxHead_) * stride : nullptr;
-    // The log's knee sits at a fixed fraction of the track's own level (its 3 s peak), not at a fixed
-    // dBFS: with an absolute knee a quiet master (classical, at -30 dB) is read nearly linear and a loud
-    // one fully logarithmic, and their onsets would differ for loudness alone.
+    // The log's knee is fixed (kFluxKnee). Flux is a relative level (a rise over its own mean), so what a
+    // quiet master loses in log compression it loses in the mean too; a hit's worth is judged absolutely
+    // afterwards (hitsAllowed, the drive), not here.
     //
     // The rise is averaged within each of the 64 log-spaced spectrum bands, then summed over the bands in
     // 30 Hz–16 kHz: summed over raw bins, three quarters of the weight sat above 4 kHz and the onset
     // detector was mostly a hi-hat detector.
-    const float knee = 300.0f / s.levelPeak;
+    const float knee = kFluxKnee;
     for (int k = fluxBins_.from; k < fluxBins_.to; k++) now[k] = std::log1p(knee * mag_[k]);
     float rise = 0.0f;
     if (then) {
@@ -528,9 +558,6 @@ void SoundEngine::descriptors(float dt, bool warm, bool silent, GeodeSoundFrame&
     s.energyLong = follow(s.energyLong, energy, 8.0f, dt);
     const float trend = s.energyLong > 1e-12f ? s.energyShort / s.energyLong : 1.0f;
     out.energyTrend = clamp01(0.5f * trend);
-    // Intensity creeps up while the song is louder than its own average and drains slowly otherwise.
-    s.intensity = clamp01(s.intensity + dt * (0.15f * std::max(0.0f, trend - 1.0f) - 0.03f * s.intensity));
-    out.intensity = s.intensity;
 
     double eL = 0.0;
     double eR = 0.0;
@@ -570,7 +597,7 @@ void SoundEngine::drums(float dt, bool silent, GeodeSoundFrame& out) {
     std::array<float, 4> punch{};
     for (int i = 0; i < 4; i++) {
         const int band = kKick + i;
-        const float floor = std::max(kBandFloorRel * state_.levelPeak, kLeakage[i] * total);
+        const float floor = std::max(kBandFloorAbs, kLeakage[i] * total);
         punch[i] = sliceNow_[band] > floor ? punchNow_[band] : 0.0f;
     }
     // A snare is body and noise at once: it needs both to jump, which a kick's harmonics or a sung
@@ -588,9 +615,14 @@ void SoundEngine::drums(float dt, bool silent, GeodeSoundFrame& out) {
     }
     std::array<float, 3> hit{};
     float* env[3] = {&out.kickEnv, &out.snareEnv, &out.hatEnv};
+    // Detection stays relative (a punch over its own recent past); what a hit is worth is absolute: none in
+    // the near-silence below kHitFloorLufs, and its strength scales with the drive of the music playing.
+    const bool allowed = hitsAllowed();
+    const float strength = kHitDriveFloor + (1.0f - kHitDriveFloor) * clamp01(s.drive / kDriveFull);
     for (int d = 0; d < 3; d++) {
         hit[d] = silent ? 0.0f
                         : s.drumTrigger[d].step(drumPunch[d], std::max(0.1f, tuning_.drum[d]), kRefractory[d], dt);
+        hit[d] = allowed ? hit[d] * strength : 0.0f;
         *env[d] = s.envelope[d].step(hit[d], kAttack, std::max(0.01f, tuning_.drumDecay[d]), dt);
     }
     out.kick = hit[0];
@@ -621,8 +653,10 @@ void SoundEngine::events(float dt, bool warm, GeodeSoundFrame& out) {
     // the threshold starts at 5 and doubles on each cut, so on `vol` no cut could fire until it had relaxed
     // for 40–65 s: a slow timer instead of "an even bigger moment".
     const float rawVol = (s.band[kBass].rawRatio() + s.band[kMid].rawRatio() + s.band[kTreble].rawRatio()) / 3.0f;
-    out.hardCut = warm || s.silent ? 0.0f : s.hardCut.step(rawVol, t.hardCutLevel, t.hardCutHalfLife, dt);
-    out.onset = s.onset.step(out.flux, std::max(1.1f, t.onsetThreshold), 0.06f, dt);
+    const bool allowed = hitsAllowed();
+    out.hardCut = warm || s.silent || !allowed ? 0.0f : s.hardCut.step(rawVol, t.hardCutLevel, t.hardCutHalfLife, dt);
+    const float onset = s.onset.step(out.flux, std::max(1.1f, t.onsetThreshold), 0.06f, dt);
+    out.onset = allowed ? onset : 0.0f;
     out.onsetEnv = s.envelope[3].step(out.onset, 0.005f, 0.2f, dt);
 
     if (!s.silent) {
@@ -861,9 +895,8 @@ void SoundEngine::musical(float dt, bool warm, bool silent, GeodeSoundFrame& out
     if (out.harmonicChange > 0.0f) rhythm_.harmonyAccent(out.harmonicChange * harmony_.tonality());
 
     Form::Input in{};
-    const float peak = std::max(s.levelPeak, 1e-6f);
     for (int i = 0; i < GEODE_SOUND_EQ_BANDS; i++) {
-        const float db = 20.0f * std::log10(std::max(sum(mag_, eqBins_[i]), 1e-9f) / peak);
+        const float db = 20.0f * std::log10(std::max(sum(mag_, eqBins_[i]), 1e-9f) / kEqReference);
         in.eq[i] = clamp01((db + 60.0f) / 60.0f);
     }
     in.centroid = out.centroid;
@@ -881,7 +914,34 @@ void SoundEngine::musical(float dt, bool warm, bool silent, GeodeSoundFrame& out
     rhythm_.clearFrame();
 }
 
+// Absolute loudness and the drive. The meter has already stepped this hop (feed); here its readings join the
+// frame, and the texture (onset and hit density, the beat) makes the drive: how MUCH the music is, from
+// fixed scales only. A closed gate is no drive and no density.
+void SoundEngine::absolute(float dt, GeodeSoundFrame& out) {
+    State& s = state_;
+    const bool open = meter_.open();
+    out.loudnessM = meter_.momentary();
+    out.loudnessS = meter_.shortTerm();
+    const float decay = std::exp(-dt / kRateTau);
+    const float hits = (out.kick > 0.0f ? 1.0f : 0.0f) + (out.snare > 0.0f ? 1.0f : 0.0f);
+    // An onset counts by how clear it is (its strength is flux over twice the threshold: half is a bare pass, 1 a clear hit),
+    // so the flutter of beating partials in a pad does not read as a busy passage.
+    const float clear = clamp01((out.onset - 0.5f) * 2.0f);
+    s.onsetRate = s.onsetRate * decay + (open ? clear / kRateTau : 0.0f);
+    s.hitRate = s.hitRate * decay + (open ? hits / kRateTau : 0.0f);
+    out.busy = clamp01(0.5f * clamp01(s.onsetRate / kBusyOnsetsPerSecond) + 0.25f * clamp01(s.hitRate / kBusyHitsPerSecond) +
+                       0.25f * clamp01((out.beatConf - 0.35f) / 0.5f));  // the tracker counts as locked above ~0.35
+    const float raw = open ? out.loudnessS * (kDriveBase + kDriveBusy * out.busy) : 0.0f;
+    s.drive = lag(s.drive, raw, kDriveRise, kDriveFall, dt);
+    out.drive = clamp01(s.drive);
+    // How far the loudness has just risen (fosfora's trend), eased: a build or a drop reads as more than the
+    // steady level, a fade as less. Intensity is the drive with that rise on top.
+    s.rise = follow(s.rise, open ? meter_.trend() : 0.0f, 1.0f, dt);
+    out.intensity = clamp01(0.75f * out.drive + 0.25f * s.rise);
+}
+
 void SoundEngine::reset() {
+    meter_.reset();
     rhythm_.reset();
     harmony_.reset();
     form_.reset();

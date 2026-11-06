@@ -185,6 +185,8 @@ private fun AdvancedTuning(
     TuningSlot(stringResource(R.string.audio_note_hold, ms(tuning[hold])), tuning, hold, onChange)
     val silence = SoundTuning.SILENCE_DB
     TuningSlot(stringResource(R.string.audio_silence, tuning[silence].roundToInt()), tuning, silence, onChange)
+    val trim = SoundTuning.INPUT_TRIM_DB
+    TuningSlot(stringResource(R.string.audio_input_trim, "%+.0f".format(tuning[trim])), tuning, trim, onChange)
 }
 
 /** One tuning slot's slider, over the range native gives that slot. */

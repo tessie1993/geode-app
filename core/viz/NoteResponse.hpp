@@ -146,6 +146,7 @@ private:
     std::array<float, NoteUniforms::kKnobs> knobs_{0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
     float tone_ = 0.5f;        // the held melodic height (k3 before smoothing)
     float drum_ = 0.0f;        // percussive drive this frame, already weighted
+    float gain_ = 1.0f;        // core/sound/DriveGain: the music's absolute reach, scales the pulse, flow, build and space knobs
     float distortion_ = 0.0f;  // tension bend, 0..1, eased back on resolution
     float build_ = 0.0f;       // a build under way, eased: the camera's push-in
     float keyWarmth_ = 0.0f;   // -1 minor/cool .. 1 major/warm, times key clarity

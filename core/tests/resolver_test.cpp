@@ -77,6 +77,7 @@ GeodeSoundFrame frame(float t) {
     GeodeSoundFrame f{};
     f.loudness = 0.85f;
     f.level = 0.6f;
+    f.drive = 0.8f;  // a loud, dense song: full reach
     f.scale = static_cast<float>(scaleIndex("ionian"));
     f.scaleRoot = 0.0f;
     f.scaleFit = 0.8f;

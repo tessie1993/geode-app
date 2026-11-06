@@ -23,7 +23,7 @@
 #define GEODE_SOUND_SPECTRUM_POINTS 64
 #define GEODE_SOUND_WAVEFORM_POINTS 128
 #define GEODE_SOUND_CHROMA 12
-#define GEODE_SOUND_SCALARS 109
+#define GEODE_SOUND_SCALARS 113
 #define GEODE_SOUND_FRAME_FLOATS                                                                       \
     (GEODE_SOUND_SCALARS + GEODE_SOUND_EQ_BANDS + GEODE_SOUND_SPECTRUM_POINTS + GEODE_SOUND_WAVEFORM_POINTS + \
      3 * GEODE_SOUND_CHROMA)
@@ -53,13 +53,13 @@ typedef struct GeodeSoundFrame {
     float midHigh;
     float midHighAtt;
     /* The TouchDesigner layer, 0..1: bass/mid/treble att through the user's attack, release, threshold,
-     * gain and offset (typical sits at 0.5). level is the whole mix over its own slow peak. */
+     * gain and offset (typical sits at 0.5). level is the whole mix's absolute loudness. */
     float low;
     float middle;
     float high;
-    float level;
+    float level;        /* absolute: the mix's RMS in dBFS, -60 dB = 0 … 0 dB = 1 (no peak it is measured against) */
     /* Slow trends, 0..1, that ignore single hits: each band's activity over ~3 s (Synesthesia's presence),
-     * and intensity, which creeps toward 1 the longer the song stays louder than its own average. */
+     * and intensity: drive (below) plus how far the momentary loudness has risen over the short-term one. */
     float bassPresence;
     float midPresence;
     float treblePresence;
@@ -180,6 +180,18 @@ typedef struct GeodeSoundFrame {
      * (1) on the frame it lands, at once rather than on a downbeat: the next song is the biggest section. */
     float fadeGain;     /* the player's fades, 0..1: pause and skip fades times the crossfade; 1 while none runs,
                          * under the mic or another app's audio, and always in an export. The tap is before the volume, so nothing else hears it */
+    /* Absolute loudness and drive (core/sound/LufsMeter, fosfora's LoudnessMeter): none of these is relative to
+     * the song. loudnessM / loudnessS are BS.1770 K-weighted momentary (400 ms) and short-term (3 s) loudness,
+     * -60 LUFS = 0 … 0 LUFS = 1. busy is the texture, 0..1 on fixed scales: onsets per second (8 a second = 1),
+     * the drums' share and the tracker's beat confidence. drive is THE magnitude of the music, 0..1: short-term
+     * loudness × (0.35 + 0.65 · busy), eased (0.5 s up, 1.5 s down). An ambient pad at -25 LUFS reads ~0.2,
+     * a loud dense kick and bass at -9 LUFS ~0.75; at equal loudness a sparse passage reads under a dense one.
+     * Everything that scales how MUCH the picture moves reads drive; the relative fields above only shape
+     * the pulse inside it. */
+    float loudnessM;
+    float loudnessS;
+    float busy;
+    float drive;
     /* TouchDesigner Band EQ centres (25 Hz … 22 kHz), each relative. */
     float eq[GEODE_SOUND_EQ_BANDS];
     /* Log-spaced spectrum 20 Hz–20 kHz, tilted like the bands, over a slow peak: 0..1 for textures. */
@@ -210,6 +222,7 @@ typedef struct GeodeSoundTuning {
     float pitchThreshold;   /* confidence that counts as a pitch, 0..1, default 0.35 */
     float noteHold;         /* seconds a new note must hold before it counts, default 0.08 */
     float silenceDb;        /* below this (dBFS) for half a second is silence, default -60 */
+    float inputTrimDb;      /* analysis-only input gain, -24..24 dB, default 0: for a mic or another app's audio of unknown gain */
 } GeodeSoundTuning;
 
-#define GEODE_SOUND_TUNING_FLOATS 29
+#define GEODE_SOUND_TUNING_FLOATS 30

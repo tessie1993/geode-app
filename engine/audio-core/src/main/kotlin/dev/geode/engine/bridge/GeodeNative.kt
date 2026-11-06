@@ -1098,6 +1098,7 @@ object GeodeNative {
     external fun thermalPush(
         platformStatus: Int,
         headroom: Float,
+    )
 
     // Cast's audio pump (core/viz/frame/CastAudio): counts only; the caller keeps the PCM and the encoder.
 

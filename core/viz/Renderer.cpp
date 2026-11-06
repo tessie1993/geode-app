@@ -298,6 +298,8 @@ void Renderer::onSurfaceCreated() {
     // The old context's staged programs died with it: drop their ids before releaseScenes clears.
     stager_.onContext(profile_.report.extensions.count("GL_KHR_parallel_shader_compile") > 0);
     releaseScenes();
+    // The frame passes (frame::Pass) drop their names before anything below generates new ones.
+    edgeGlowPass_.release();
     if (paletteLutTex_ != 0) {
         glDeleteTextures(1, &paletteLutTex_);
         paletteLutTex_ = 0;
@@ -343,6 +345,8 @@ void Renderer::onSurfaceCreated() {
     if (!compositePass_.create(*fadeVert, &error)) fail(error);
     // The glass sheet's blur is an extra: without it the sheet shows the visual unblurred through its tint.
     if (!uiBlurPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "ui blur off: %s", error.c_str());
+    // And the wallpaper's edge glow: without it the wallpaper shows the full visual instead of the rim.
+    if (!edgeGlowPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "edge glow off: %s", error.c_str());
     // Liquid mode: half float where this GPU renders it, so a deep pour-back does not band.
     if (!liquidPass_.create(assets_, &programCache_, *fadeVert, fluid::probeFormats().ok, &error)) fail(error);
 
@@ -410,6 +414,12 @@ void Renderer::setUiBlurRegion(const UiBlurRegion& region) {
     std::lock_guard<std::mutex> lock(stateLock_);
     uiBlurRegion_ = r;
     uiBlurOn_.store(r.active(), std::memory_order_relaxed);
+}
+
+void Renderer::setEdgeGlow(const frame::edge_glow::Options& options) {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    edgeGlowOptions_ = options;
+    edgeGlowOn_.store(options.enabled, std::memory_order_relaxed);
 }
 
 void Renderer::applyRenderScale() {

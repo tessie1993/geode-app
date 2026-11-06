@@ -2,6 +2,7 @@
 #include <android/asset_manager_jni.h>
 
 #include <algorithm>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -557,6 +558,17 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsRandomize(JNIEnv* env, jobject, j
                                                input.data(), output.data());
     env->SetFloatArrayRegion(out, 0, static_cast<jsize>(output.size()), output.data());
     return changed ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jbyteArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_transitionsTable(JNIEnv* env, jobject, jobject assetManager) {
+    // Bytes, not a jstring: NewStringUTF takes modified UTF-8, and the library's text is plain UTF-8.
+    AAssetManager* assets = assetManager ? AAssetManager_fromJava(env, assetManager) : nullptr;
+    const char* table = geode_transitions_table(assets);
+    const auto n = static_cast<jsize>(std::strlen(table));
+    jbyteArray out = env->NewByteArray(n);
+    if (out) env->SetByteArrayRegion(out, 0, n, reinterpret_cast<const jbyte*>(table));
+    return out;
 }
 
 JNIEXPORT jboolean JNICALL

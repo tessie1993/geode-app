@@ -98,8 +98,8 @@ private fun WallpaperOptionsScreen(
             Modifier.fillMaxSize(),
             contentPadding =
                 PaddingValues(
-                    start = padding.calculateStartPadding(LocalLayoutDirection.current) + 16.dp,
-                    end = padding.calculateEndPadding(LocalLayoutDirection.current) + 16.dp,
+                    start = padding.calculateLeftPadding(LocalLayoutDirection.current) + 16.dp,
+                    end = padding.calculateRightPadding(LocalLayoutDirection.current) + 16.dp,
                     top = padding.calculateTopPadding() + 8.dp,
                     bottom = padding.calculateBottomPadding() + 16.dp,
                 ),

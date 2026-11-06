@@ -1,0 +1,126 @@
+name: Native host tests
+
+# The pure C++ core (core/) built with the runner's own g++ and run on the host: the render-thread
+# maths, the fluid engine, the sound engine and the other host tests in core/tests. Seconds, no
+# Android SDK. Split out of android.yml so a red host test does not hold back the APK build;
+# run it by hand on any branch from the Actions tab.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-host-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  PROJECT_DIR: .
+
+jobs:
+  host-tests:
+    name: Native host tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Native host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub             core/tests/viz_math_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Lfo.cpp core/viz/Macros.cpp             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o viz_math_test
+          ./viz_math_test
+          # The fluid engine: multigrid pressure plan, MacCormack, splat batching, heat, tracers, tiers.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/fluid_math_test.cpp core/viz/fluid/FluidMath.cpp -o fluid_math_test
+          ./fluid_math_test
+          # Liquid mode's pure maths: thermal modes, inject weight, the random dive, gestures, born clock, drop flare.
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/liquid_test.cpp core/viz/liquid/LiquidMath.cpp -o liquid_test
+          ./liquid_test
+          # Which built scenes stay on the GPU (#378): a bounded LRU with pins, spares by thermal tier, lazy resize.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/scene_residency_test.cpp -o scene_residency_test
+          ./scene_residency_test
+          # The program-binary cache's crash sentinel, shared by every renderer in the process (#381).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/cache_sentinels_test.cpp -o cache_sentinels_test
+          ./cache_sentinels_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_test.cpp core/sound/*.cpp -o sound_test
+          ./sound_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/musical_test.cpp core/sound/*.cpp -o musical_test
+          ./musical_test
+          # Every GeodeSoundFrame scalar per frame over a synthetic song, against core/tests/golden/; also
+          # reports the 30/120 fps drift of the frame-clocked fields. Regenerate with --write on purpose.
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_golden_test.cpp core/sound/*.cpp -o sound_golden_test
+          ./sound_golden_test core/tests/golden/sound_frames.tsv
+          # The auto-director: the emotion table, the live feeling and the director's decisions.
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/director_test.cpp core/sound/*.cpp \
+            core/viz/Director.cpp core/viz/Reactions.cpp core/viz/Lfo.cpp core/viz/Macros.cpp core/viz/CameraRig.cpp \
+            core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o director_test
+          ./director_test
+          # Note & key reactions: knobs by meaning, the drum weight, hues per note, the tint, off = today.
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/note_response_test.cpp core/viz/NoteResponse.cpp -o note_response_test
+          ./note_response_test
+          # core/signal: the param state machine and store, the events, the bus and event routes (flash limit).
+          # Built from core/signal alone: no GL, no core/viz.
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/signal_test.cpp core/signal/params/*.cpp \
+            core/signal/events/*.cpp core/signal/bindings/*.cpp -o signal_test
+          ./signal_test
+          # The raw-PCM hand-off: each pushed block reaches the scenes once, so a paused pulse decays.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/pcm_handoff_test.cpp -o pcm_handoff_test
+          ./pcm_handoff_test
+          # The process-wide Customize layer every renderer draws (#364): set, clamp, generation, follow, export pin.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/layer_state_test.cpp core/viz/LayerState.cpp -o layer_state_test
+          ./layer_state_test
+          # The native ingest ring (#480): every sample once, in order, with its rate; overrun; epoch vs format;
+          # int16/u8/float conversion; the BS.775 5.1/7.1 downmix; mono centred; the ring's silence answer.
+          g++ -std=c++20 -O1 -Wall -Wextra -pthread -Icore -Icore/tests/stub core/tests/ingest_test.cpp core/audio/ingest/Ring.cpp             core/audio/ingest/Cursor.cpp core/api/geode_ingest_api.cpp -o ingest_test
+          ./ingest_test
+          # A renderer's own cursor on the native ingest ring (#481): fed through the ring it steps to the same sound
+          # frames as a direct write; epochs reset, formats don't; a stall keeps the newest; 5.1 centre; cast's int16 reader.
+          g++ -std=c++20 -O1 -Wall -Wextra -pthread -Icore -Icore/tests/stub core/tests/sound_feed_test.cpp core/viz/SoundFeed.cpp             core/api/geode_ingest_reader_api.cpp core/audio/ingest/Ring.cpp core/audio/ingest/Cursor.cpp core/sound/*.cpp -o sound_feed_test
+          ./sound_feed_test
+          # The player tap's flushes (#358): speed, pitch, skip-silence and format changes keep the epoch and the
+          # readers' cursors; a seek, another item or a position jump restarts them.
+          g++ -std=c++20 -O1 -Wall -Wextra -pthread -Icore -Icore/tests/stub core/tests/ingest_flush_test.cpp core/audio/ingest/Ring.cpp \
+            core/audio/ingest/Cursor.cpp core/api/geode_ingest_api.cpp -o ingest_flush_test
+          ./ingest_flush_test
+          # An export segment's style schedule: every later style is gated by the entitlement (#357).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/style_schedule_test.cpp core/viz/StyleSchedule.cpp -o style_schedule_test
+          ./style_schedule_test
+          # The wallpaper's edge glow, the first frame::Pass (#439): options, the VU envelope, the band and its mask.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/edge_glow_test.cpp -o edge_glow_test
+          ./edge_glow_test
+          # The GL Transitions library parse the renderer and the shell share, and the shell's table (#438).
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/transition_library_test.cpp core/util/Json.cpp -o transition_library_test
+          ./transition_library_test
+          # Settings › Performance's tiers and the first-run pick for this phone (#437).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/quality_test.cpp -o quality_test
+          ./quality_test
+          # The live wallpaper's and the dream's run rule: priority order, preview, listening, the trial's end (#376).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/surface_run_test.cpp core/api/geode_surface_api.cpp -o surface_run_test
+          ./surface_run_test
+          # The frame clock every surface shares (#436): vsync divides, the settle window, hitches, resume, one dt clamp.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/pacer_test.cpp -o pacer_test
+          ./pacer_test
+          # The process-wide shader overrides every renderer draws (#364): set, replace, clear, generation, copies.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/shader_overrides_test.cpp core/viz/ShaderOverrides.cpp -o shader_overrides_test
+          ./shader_overrides_test
+          # The photosensitive flash limiter: a 10 Hz strobe shows at most 3 flashes/s, a slow fade passes untouched.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/flash_limiter_test.cpp core/viz/FlashLimiter.cpp -o flash_limiter_test
+          ./flash_limiter_test
+          # Voice "play X" over the library (#382): query, focus extras, blank = everything, no match = nothing.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/library_search_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o library_search_test
+          ./library_search_test
+          # Envelopes and LFOs on luminance targets reach the flash limiter (#363): an 8 Hz envelope strobe holds within 0.25 s.
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/luminance_drive_test.cpp core/viz/Adsr.cpp core/viz/Lfo.cpp \
+            core/viz/FlashLimiter.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp -o luminance_drive_test
+          ./luminance_drive_test
+          # The playout clock (#349, #482): the ring sample the speaker plays at 1x and 1.5x, behind a 250 ms
+          # Bluetooth link, over pause, resume, skipped silence, a seek and the A/V offset, the same at 30/60/120 fps;
+          # a speed change under an offset and the timestamp warm-up guard (#488).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/playout_test.cpp core/sound/interp/PlayoutClock.cpp             core/api/geode_playout_api.cpp -o playout_test
+          ./playout_test
+          # Speaker sync (#488): a renderer's SoundFeed bounded by the playout clock never reads past the
+          # speaker's sample and never skips one: at 1x, at 1.5x, through skipped silence, under the A/V offset.
+          g++ -std=c++20 -O1 -Wall -Wextra -pthread -Icore -Icore/tests/stub core/tests/speaker_sync_test.cpp             core/viz/SoundFeed.cpp core/audio/ingest/Ring.cpp core/audio/ingest/Cursor.cpp core/sound/interp/PlayoutClock.cpp             core/api/geode_playout_api.cpp -o speaker_sync_test
+          ./speaker_sync_test

@@ -470,7 +470,7 @@ object ProjectComposition {
         val tracks = sheet.tracksFor(clip.id).filter { it.enabled && !it.isEmpty }
         val ramp = tracks.firstOrNull { it.paramId == SPEED }?.let { SpeedRamp.fromTrack(it, clip) }
         val graded = tracks.any { it.paramId != SPEED }
-        val sourceSpanMs = ramp?.let { it.sourceSpanUs / 1000L } ?: (clip.durationMs * edit.speed).toLong()
+        val sourceSpanMs = ramp?.let { it.sourceSpanUs / 1000L } ?: (clip.durationMs * edit.safeSpeed()).toLong()
         val sourceOutMs =
             (clip.sourceInMs + sourceSpanMs).let { if (clip.hasBoundedSource) it.coerceAtMost(clip.sourceDurationMs) else it }
         val item =

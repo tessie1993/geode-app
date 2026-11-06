@@ -22,6 +22,7 @@ import dev.geode.billing.ProSnapshot
 import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackSession
 import dev.geode.pro.ProFeature
+import dev.geode.startedInForeground
 
 /**
  * Keeps a cast running with the app in the background or the screen off (owner, 2026-11-02):
@@ -85,7 +86,8 @@ class CastService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        startInForeground()
+        // fail() ends the cast session too, so the TV is not left waiting on a stream.
+        if (!startedInForeground(TAG, ::startInForeground, ::fail)) return START_NOT_STICKY
         if (stream == null) startStream()
         return START_NOT_STICKY
     }

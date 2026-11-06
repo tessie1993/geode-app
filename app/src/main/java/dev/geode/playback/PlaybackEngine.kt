@@ -52,13 +52,17 @@ class PlaybackSession internal constructor(
 
     private val prefsFiles = GeodePrefsFiles(context)
 
-    /** Settings › Playback › Bit-perfect USB output; told every stream format before its AudioTrack opens. */
-    private val bitPerfect = BitPerfectOutput(context)
+    internal val dsp = NativeDspProcessor()
+
+    /**
+     * Settings › Playback › Bit-perfect USB output; told every AudioTrack's format before it opens (the
+     * player's output provider), and tells the native DSP whether to step aside for it.
+     */
+    private val bitPerfect = BitPerfectOutput(context) { dsp.bitPerfect = it }
 
     // The ring's epoch is native's call: PcmTap reports each flush to FlushJudge (#358).
     internal val tap =
         PcmTap(ingest) { format ->
-            bitPerfect.onFormat(format.sampleRateHz, format.channelCount)
             val hook = onAudioFormat
             if (hook != null) {
                 hook(format.sampleRateHz, format.channelCount, format.encoding)
@@ -66,8 +70,6 @@ class PlaybackSession internal constructor(
                 sampleRateHz = format.sampleRateHz
             }
         }
-
-    internal val dsp = NativeDspProcessor()
 
     /**
      * The one player: ExoPlayer, with the tap first in its processor chain ([TapRenderersFactory]).
@@ -84,9 +86,10 @@ class PlaybackSession internal constructor(
                     dsp = listOf(dsp),
                     playout = PlaybackEngine.playout,
                     ringWritten = { GeodeNative.ingestWritten(ingest) },
-                ),
-            )
-            .setMediaSourceFactory(
+                ) { out ->
+                    bitPerfect.onOutput(out.sampleRate, out.channelMask, out.encoding)
+                },
+            ).setMediaSourceFactory(
                 androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
                     context,
                     androidx.media3.extractor.ExtractorsFactory {

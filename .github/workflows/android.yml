@@ -9,30 +9,22 @@ name: Build MuzViz Debug APK
 # A green run on a push (or a manual run) ends by shipping the next
 # pre-release through ship-apk.yml; see the "pre-release" job at the end.
 
+# Manual only: the pull-request gate is build-lint.yml (build and lint, no tests).
 on:
   workflow_dispatch:
-  push:
-    branches: ["claude/**"]
-  pull_request:
-    paths:
-      - "app/**"
-      - "engine/**"
-      - "core/**"
-      - "CMakeLists.txt"
-      - "tools/**"
-      - "third_party/**"
-      - ".gitmodules"
-      - "build-logic/**"
-      - "gradle/**"
-      - "*.gradle.kts"
-      - "gradle.properties"
-      - ".github/workflows/android.yml"
 
 permissions:
   contents: read
 
+# One build per commit. A push to a claude/** branch with an open PR fires both
+# a push run and a pull_request run for the same commit; keying the group on the
+# branch name (head_ref on a PR, ref_name on a push) puts them in one group, so the
+# later one cancels the earlier and the commit builds once instead of twice. The
+# check results attach to the commit either way, so the PR still shows them.
+# The head repository is part of the key, so a fork's PR from a same-named
+# branch never shares (and cancels) this repository's runs.
 concurrency:
-  group: geode-debug-${{ github.workflow }}-${{ github.ref }}
+  group: geode-debug-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 env:
@@ -137,84 +129,6 @@ jobs:
             fi
           done
 
-      # Seconds, not minutes: the pure render-thread math (reaction matrix,
-      # camera rig) built with the runner's own compiler, and every fragment
-      # style compiled by the NDK's glslc with its //#include lines resolved.
-      # Both fail fast, before the 20-minute native build.
-      - name: Native host tests
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub             core/tests/viz_math_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Lfo.cpp core/viz/Macros.cpp             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o viz_math_test
-          ./viz_math_test
-          # The fluid engine: multigrid pressure plan, MacCormack, splat batching, heat, tracers, tiers.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/fluid_math_test.cpp core/viz/fluid/FluidMath.cpp -o fluid_math_test
-          ./fluid_math_test
-          # Liquid mode's pure maths: thermal modes, inject weight, the random dive, gestures, born clock, drop flare.
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/liquid_test.cpp core/viz/liquid/LiquidMath.cpp -o liquid_test
-          ./liquid_test
-          # Which built scenes stay on the GPU (#378): a bounded LRU with pins, spares by thermal tier, lazy resize.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/scene_residency_test.cpp -o scene_residency_test
-          ./scene_residency_test
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_test.cpp core/sound/*.cpp -o sound_test
-          ./sound_test
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/musical_test.cpp core/sound/*.cpp -o musical_test
-          ./musical_test
-          # Every GeodeSoundFrame scalar per frame over a synthetic song, against core/tests/golden/; also
-          # reports the 30/120 fps drift of the frame-clocked fields. Regenerate with --write on purpose.
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_golden_test.cpp core/sound/*.cpp -o sound_golden_test
-          ./sound_golden_test core/tests/golden/sound_frames.tsv
-          # The auto-director: the emotion table, the live feeling and the director's decisions.
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/director_test.cpp core/sound/*.cpp \
-            core/viz/Director.cpp core/viz/Reactions.cpp core/viz/Lfo.cpp core/viz/Macros.cpp core/viz/CameraRig.cpp \
-            core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o director_test
-          ./director_test
-          # Note & key reactions: knobs by meaning, the drum weight, hues per note, the tint, off = today.
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/note_response_test.cpp core/viz/NoteResponse.cpp -o note_response_test
-          ./note_response_test
-          # The raw-PCM hand-off: each pushed block reaches the scenes once, so a paused pulse decays.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/pcm_handoff_test.cpp -o pcm_handoff_test
-          ./pcm_handoff_test
-          # The native ingest ring (#480): every sample once, in order, with its rate; overrun; epoch vs format;
-          # int16/u8/float conversion; the BS.775 5.1/7.1 downmix; mono centred; the ring's silence answer.
-          g++ -std=c++20 -O1 -Wall -Wextra -pthread -Icore -Icore/tests/stub core/tests/ingest_test.cpp core/audio/ingest/Ring.cpp \
-            core/audio/ingest/Cursor.cpp core/api/geode_ingest_api.cpp -o ingest_test
-          ./ingest_test
-          # A renderer's own cursor on the native ingest ring (#481): fed through the ring it steps to the same sound
-          # frames as a direct write; epochs reset, formats don't; a stall keeps the newest; 5.1 centre; cast's int16 reader.
-          g++ -std=c++20 -O1 -Wall -Wextra -pthread -Icore -Icore/tests/stub core/tests/sound_feed_test.cpp core/viz/SoundFeed.cpp \
-            core/api/geode_ingest_reader_api.cpp core/audio/ingest/Ring.cpp core/audio/ingest/Cursor.cpp core/sound/*.cpp -o sound_feed_test
-          ./sound_feed_test
-          # The player tap's flushes (#358): speed, pitch, skip-silence and format changes keep the epoch and the
-          # readers' cursors; a seek, another item or a position jump restarts them.
-          g++ -std=c++20 -O1 -Wall -Wextra -pthread -Icore -Icore/tests/stub core/tests/ingest_flush_test.cpp core/audio/ingest/Ring.cpp \
-            core/audio/ingest/Cursor.cpp core/api/geode_ingest_api.cpp -o ingest_flush_test
-          ./ingest_flush_test
-          # An export segment's style schedule: every later style is gated by the entitlement (#357).
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/style_schedule_test.cpp core/viz/StyleSchedule.cpp -o style_schedule_test
-          ./style_schedule_test
-          # The photosensitive flash limiter: a 10 Hz strobe shows at most 3 flashes/s, a slow fade passes untouched.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/flash_limiter_test.cpp core/viz/FlashLimiter.cpp -o flash_limiter_test
-          ./flash_limiter_test
-          # Voice "play X" over the library (#382): query, focus extras, blank = everything, no match = nothing.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/library_search_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o library_search_test
-          ./library_search_test
-          # Envelopes and LFOs on luminance targets reach the flash limiter (#363): an 8 Hz envelope strobe holds within 0.25 s.
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/luminance_drive_test.cpp core/viz/Adsr.cpp core/viz/Lfo.cpp \
-            core/viz/FlashLimiter.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp -o luminance_drive_test
-          ./luminance_drive_test
-          # The playout clock (#349, #482): the ring sample the speaker plays at 1x and 1.5x, behind a 250 ms
-          # Bluetooth link, over pause, resume, skipped silence, a seek and the A/V offset, the same at 30/60/120 fps;
-          # a speed change under an offset and the timestamp warm-up guard (#488).
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/playout_test.cpp core/sound/interp/PlayoutClock.cpp \
-            core/api/geode_playout_api.cpp -o playout_test
-          ./playout_test
-          # Speaker sync (#488): a renderer's SoundFeed bounded by the playout clock never reads past the
-          # speaker's sample and never skips one: at 1x, at 1.5x, through skipped silence, under the A/V offset.
-          g++ -std=c++20 -O1 -Wall -Wextra -pthread -Icore -Icore/tests/stub core/tests/speaker_sync_test.cpp \
-            core/viz/SoundFeed.cpp core/audio/ingest/Ring.cpp core/audio/ingest/Cursor.cpp core/sound/interp/PlayoutClock.cpp \
-            core/api/geode_playout_api.cpp -o speaker_sync_test
-          ./speaker_sync_test
-
       # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes, ranges, and
       # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.
       - name: Catalogue host tests
@@ -226,15 +140,32 @@ jobs:
       - name: Native export DSP tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/resampler_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/api/geode_export_dsp_api.cpp -o resampler_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/resampler_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/audio/dsp/PcmConvert.cpp core/api/geode_export_dsp_api.cpp -o resampler_test
           ./resampler_test
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/loudness_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/api/geode_export_dsp_api.cpp -o loudness_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/loudness_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/audio/dsp/PcmConvert.cpp core/api/geode_export_dsp_api.cpp -o loudness_test
           ./loudness_test
           # The playback DSP's format hand-off (#356): the old format's tail drains through its own chain
           # until flush, and no block is ever processed past its buffer.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/dsp_handoff_test.cpp core/api/geode_dsp_api.cpp \
             core/audio/dsp/DspProcessor.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o dsp_handoff_test
           ./dsp_handoff_test
+          # Bit-perfect USB (#353, #489): with bit-perfect live the playback DSP passes every byte through,
+          # whatever gain, EQ, crossfeed or limiter is set; plus the native 16-bit conversion.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/bit_perfect_test.cpp core/api/geode_dsp_api.cpp \
+            core/audio/dsp/DspProcessor.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o bit_perfect_test
+          ./bit_perfect_test
+
+      # Export planning and clip maths ported from Kotlin (ADR 0003, ADR 0006 core/output and
+      # core/signal/timeline): frame clock, loops, encoder budget, chapters, keyframes, speed ramps,
+      # clip grade, .cube LUTs, PCM conversion and timing, each through its C ABI too.
+      - name: Native export planning tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          EXPORT_SRCS="core/api/geode_export_api.cpp core/output/FrameClock.cpp core/output/LoopPlan.cpp core/output/EncodePlan.cpp core/output/Chapters.cpp core/signal/timeline/Keyframes.cpp core/signal/timeline/SpeedRamp.cpp core/viz/ClipGrade.cpp core/util/CubeLut.cpp core/audio/dsp/PcmConvert.cpp core/audio/dsp/PcmTiming.cpp"
+          for t in output_test timeline_test clip_media_test; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/$t.cpp $EXPORT_SRCS -o $t
+            ./$t
+          done
 
       # The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/Params).
       - name: Params host tests
@@ -242,6 +173,13 @@ jobs:
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/params_test.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o params_test
           ./params_test
+
+      # The Customize panel's ten categories, their sections and per-category roll and reset (core/viz/CustomizeMap).
+      - name: Customize map host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/customize_test.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o customize_test
+          ./customize_test core/tests/customize.txt
 
       - name: Shader compile check
         working-directory: ${{ env.PROJECT_DIR }}
@@ -421,9 +359,9 @@ jobs:
       - name: Run instrumented tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          # 29 is the floor for the scoped-storage paths these tests cover;
-          # anything below skips them via assumeTrue rather than failing.
-          api-level: 30
+          # API 36 (Android 16), the app's targetSdk: what new phones run. minSdk is 33,
+          # so READ_MEDIA_AUDIO and POST_NOTIFICATIONS behave as on a real phone.
+          api-level: 36
           target: google_apis
           arch: x86_64
           # The default 2 GB left the guest at ~75 MB free mid-suite. The journeys

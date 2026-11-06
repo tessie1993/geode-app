@@ -10,6 +10,7 @@ import dev.geode.geodeContainer
 import dev.geode.playback.PlaybackEngine
 import dev.geode.render.BlendMode
 import dev.geode.render.VisualizerView
+import dev.geode.ui.theme.rememberSystemReducedMotion
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -90,10 +91,9 @@ fun VisualizerEngineBindings(
         LayersBus.activeSceneId.value = viz.sceneId
     }
     LaunchedEffect(layers) {
-        val renderer = visualizerView.visualizerRenderer
-        renderer.layerSceneId = if (layers.enabled) layers.sceneId else null
-        renderer.layerMix = layers.mix
-        renderer.layerBlend = layers.blend
+        // Process-wide (core/viz/LayerState): exports, the wallpaper and the dream draw it too (#364).
+        val sceneId = if (layers.enabled) layers.sceneId else null
+        visualizerView.visualizerRenderer.submitLayer(sceneId, layers.mix, layers.blend)
     }
     LaunchedEffect(playerPrefs.keepScreenOn) {
         visualizerView.keepScreenOn = playerPrefs.keepScreenOn
@@ -126,8 +126,11 @@ fun VisualizerEngineBindings(
     LaunchedEffect(Unit) {
         visualizerView.visualizerRenderer.liquidMode.collect { viewModel.reportLiquidMode(it) }
     }
-    LaunchedEffect(gui.reducedMotion) {
-        visualizerView.visualizerRenderer.reducedMotion = gui.reducedMotion
+    // Android's "Remove animations" (data/SystemMotion, #336), watched live: turning it on while
+    // the visual plays calms the visual at once.
+    val reducedMotion = rememberSystemReducedMotion()
+    LaunchedEffect(reducedMotion) {
+        visualizerView.visualizerRenderer.reducedMotion = reducedMotion
     }
     LaunchedEffect(Unit) {
         viewModel.morphFade.collect { visualizerView.visualizerRenderer.beginParamMorph(it) }

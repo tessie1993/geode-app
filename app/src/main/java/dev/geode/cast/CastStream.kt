@@ -8,6 +8,7 @@ import dev.geode.audio.AudioBus
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.LfoStore
 import dev.geode.data.PresetStore
+import dev.geode.data.SystemMotion
 import dev.geode.data.ThemeStore
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.EncoderSurface
@@ -155,7 +156,7 @@ internal class CastStream(
             }
         }
         val gui = ThemeStore(prefsFiles.general).loadGui()
-        renderer.reducedMotion = gui.reducedMotion
+        renderer.reducedMotion = SystemMotion.isReduced(appContext.contentResolver)
         renderer.soundTuning = gui.soundTuning
         val modulation = LfoStore(prefsFiles.general)
         renderer.lfoEngine.configs = modulation.load()

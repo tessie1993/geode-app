@@ -249,6 +249,14 @@ void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
     out = hopFrame_;
     for (int k = 0; k < kTriggers; k++) out.*kTriggerFields[k] = held_[k];
     held_ = {};
+    // The player's own signals are the frame's, not a hop's: a boundary or a fade lands on the next step.
+    if (boundaryPending_) {
+        // Form was just reset, so it cannot fire on its own for eight bars: the boundary is the event.
+        out.sectionChange = 1.0f;
+        boundaryPending_ = false;
+    }
+    // The fade is the player's; under the mic or another app's audio nothing fades what the engine hears.
+    out.fadeGain = playerSource_ ? fadeGain_ : 1.0f;
     // The phases are the one thing moved on to the frame's own sample: the oscillator is linear between
     // hops, so this is exact, and a 30 fps frame and a 60 fps one at the same sample still agree.
     rhythm_.phases(hopFill_, out.hitTime, out);
@@ -311,13 +319,6 @@ void SoundEngine::analyse() {
     melody(dt, out);
     clocks(dt, out);
     musical(dt, warm, silent, out);
-    if (boundaryPending_) {
-        // Form was just reset, so it cannot fire on its own for eight bars: the boundary is the event.
-        out.sectionChange = 1.0f;
-        boundaryPending_ = false;
-    }
-    // The fade is the player's; under the mic or another app's audio nothing fades what the engine hears.
-    out.fadeGain = playerSource_ ? fadeGain_ : 1.0f;
 
     // The feeling hears the hop's frame like everything else, so it too is the same at every frame rate.
     emotion_.step(out, dt);

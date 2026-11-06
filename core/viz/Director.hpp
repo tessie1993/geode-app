@@ -84,7 +84,11 @@ public:
     // `handMask` is Customize › Music's hand mask (viz::hand): the routes keep off every moment it sets.
     // An input, not hand::global, so a resolver's engine settings decide it (signal/Resolver, #344); 0 is
     // nothing the hand's, the global's own default.
+    // Hears the frame and steps its own feeling with it (tests, and a renderer with no sound engine).
     void step(const GeodeSoundFrame& f, float dt, std::uint32_t handMask = 0);
+    // Hears the frame with the feeling the sound engine stepped on its own sample clock: the renderer's
+    // way, so the feeling is the same at every frame rate and in an export.
+    void step(const GeodeSoundFrame& f, const sound::Emotion::State& heard, float dt, std::uint32_t handMask = 0);
 
     // Before the macros: the palette and the motion character, lerped by the amount. `palWheel` says how
     // the scene reads paletteBase: true for the shader styles (lib_palette's pal() runs the colour wheel
@@ -99,11 +103,17 @@ public:
 
     // How much it is driving now: the switch, eased, times whether a look has been chosen yet.
     float weight() const { return amount_ * presence_; }
-    const sound::Emotion::State& emotion() const { return emotion_.state(); }
+    const sound::Emotion::State& emotion() const { return feeling_; }
     const Look& look() const { return now_; }
     const Look& target() const { return to_; }
     int commits() const { return commits_; }
     Reason lastReason() const { return reason_; }
+    // Whether the last commit should change the style: a new section or a drop, and only while the
+    // director drives (Auto on). It steps with Auto off too, for its feeling (Note & key reactions read
+    // it), and those commits must not step the user's chosen style.
+    bool styleMoment() const {
+        return config_.amount > 0.0f && (reason_ == Reason::Section || reason_ == Reason::Drop);
+    }
     void reset();
 
     // Exposed for tests: the look this feeling would get on commit number `index`.
@@ -114,6 +124,7 @@ private:
     bool farFromRecent(const Look& candidate) const;
 
     sound::Emotion emotion_;
+    sound::Emotion::State feeling_{};  // what this step heard: its own emotion_'s, or the engine's
     DirectorConfig config_;
     bool configured_ = false;
     float amount_ = 0.0f;

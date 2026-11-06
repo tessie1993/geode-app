@@ -1,7 +1,6 @@
 package dev.geode.ui
 
 import android.net.Uri
-import dev.geode.export.VideoExporter
 
 sealed interface ExportPhase {
     data object Idle : ExportPhase
@@ -42,17 +41,3 @@ val ExportPhase.progress: Float
             is ExportPhase.Done -> 1f
             ExportPhase.Idle, ExportPhase.Loading, is ExportPhase.Failed -> 0f
         }
-
-val ExportPhase.errorOrNull: String?
-    get() =
-        when (this) {
-            is ExportPhase.Failed -> message
-            ExportPhase.Idle, ExportPhase.Loading, is ExportPhase.Running, is ExportPhase.Done -> null
-        }
-
-fun VideoExporter.Result.toPhase(): ExportPhase =
-    when (this) {
-        is VideoExporter.Result.Saved -> ExportPhase.Done(uri)
-        is VideoExporter.Result.Failed -> ExportPhase.Failed(message)
-        VideoExporter.Result.Cancelled -> ExportPhase.Idle
-    }

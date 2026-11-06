@@ -31,6 +31,7 @@ internal enum class VisualsPage(
     PRESETS(R.string.visuals_tab_presets),
     MILKDROP(R.string.visuals_tab_milkdrop),
     TEXTURES(R.string.visuals_tab_textures),
+    SETTINGS(R.string.visuals_qs_title),
 }
 
 internal val VisualsTabs = listOf(VisualsPage.STYLES, VisualsPage.CUSTOMIZE, VisualsPage.PRESETS, VisualsPage.MILKDROP)
@@ -170,8 +171,16 @@ internal class VisualsNavState(
     /** The Customize category open on the route, if one is. */
     val openCard: String? get() = route.filterIsInstance<VisualsKey.CustomizeCard>().lastOrNull()?.name
 
-    /** The lit tab: Textures belongs to MilkDrop (it opens it), so MilkDrop stays lit there. */
-    val selectedTab: Int get() = VisualsTabs.indexOf(if (top == VisualsPage.TEXTURES) VisualsPage.MILKDROP else top).coerceAtLeast(0)
+    /**
+     * The lit tab: Textures belongs to MilkDrop (it opens it), so MilkDrop stays lit there; Settings
+     * has no tab, so the tab it was opened over stays lit.
+     */
+    val selectedTab: Int
+        get() =
+            route
+                .map { if (it.page == VisualsPage.TEXTURES) VisualsPage.MILKDROP else it.page }
+                .lastOrNull { it in VisualsTabs }
+                .let { VisualsTabs.indexOf(it ?: VisualsPage.STYLES) }
 
     val sheetShown: Boolean get() = sheet != SheetHeight.HIDDEN
 

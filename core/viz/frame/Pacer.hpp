@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -27,6 +28,16 @@ inline constexpr double kFirstDtSeconds = 1.0 / 60.0;
 
 inline double clampDt(double elapsedSeconds) { return std::clamp(elapsedSeconds, kMinDtSeconds, kMaxDtSeconds); }
 
+// The cap a surface actually runs at (ADR 0008): its own (Settings › Performance, the wallpaper's or the
+// dream's choice) under the thermal one (ThermalState::capFor). Either <= 0, or not a number, means none.
+inline float effectiveCapFps(float surfaceCapFps, float thermalCapFps) {
+    const bool surface = std::isfinite(surfaceCapFps) && surfaceCapFps > 0.0f;
+    const bool thermal = std::isfinite(thermalCapFps) && thermalCapFps > 0.0f;
+    if (surface && thermal) return std::min(surfaceCapFps, thermalCapFps);
+    if (surface) return surfaceCapFps;
+    return thermal ? thermalCapFps : 0.0f;
+}
+
 struct PacerState {
     int64_t lastDrawnNs = 0;
     int64_t lastVsyncNs = 0;
@@ -34,10 +45,14 @@ struct PacerState {
     int64_t samples = 0;   // confidence in periodNs: +1 per matching interval, -1 per stranger, 0..2*kSettleFrames
     int64_t sinceDrawn = 0;
     int64_t divisor = 1;
+    // The cap the last vsync paced to, in millihertz (0 = none). The shell compares it each vsync and
+    // re-asks Surface.setFrameRate when the thermal cap moves it, without a second call across JNI.
+    int64_t capMilliHz = 0;
 };
 
-// The wire layout for the ABI: six int64s in this order.
-inline constexpr int kPacerStateLongs = 6;
+// The wire layout for the ABI: seven int64s in this order.
+inline constexpr int kPacerStateLongs = 7;
+inline constexpr int kPacerCapSlot = 6;
 
 class Pacer {
 public:
@@ -65,6 +80,7 @@ public:
     // with, or 0 to skip this vsync.
     static double onVsync(PacerState& s, int64_t frameTimeNs, float capFps) {
         trackPeriod(s, frameTimeNs);
+        s.capMilliHz = capFps > 0.0f && std::isfinite(capFps) ? std::llround(static_cast<double>(capFps) * 1000.0) : 0;
         s.divisor = divisorFor(s, capFps);
         if (++s.sinceDrawn < s.divisor) return 0.0;
         s.sinceDrawn = 0;
@@ -121,6 +137,7 @@ private:
 // Wire helpers for the ABI. Copied as bytes: the shell's array is jlong / long long, which is not the
 // same type as int64_t (long on LP64), so reading it through int64_t would break strict aliasing.
 static_assert(std::is_trivially_copyable_v<PacerState> && sizeof(PacerState) == kPacerStateLongs * sizeof(int64_t));
+static_assert(kPacerCapSlot == kPacerStateLongs - 1, "the cap is the last wire slot");
 // One slot at a time, each a memcpy of one int64_t, in the wire order.
 inline int64_t loadSlot(const int64_t* w, int i) {
     int64_t v;
@@ -129,7 +146,8 @@ inline int64_t loadSlot(const int64_t* w, int i) {
 }
 inline void storeSlot(int64_t* w, int i, int64_t v) { std::memcpy(w + i, &v, sizeof v); }
 inline PacerState unpack(const int64_t* w) {
-    return PacerState{loadSlot(w, 0), loadSlot(w, 1), loadSlot(w, 2), loadSlot(w, 3), loadSlot(w, 4), loadSlot(w, 5)};
+    return PacerState{loadSlot(w, 0), loadSlot(w, 1), loadSlot(w, 2), loadSlot(w, 3),
+                      loadSlot(w, 4), loadSlot(w, 5), loadSlot(w, kPacerCapSlot)};
 }
 inline void pack(const PacerState& s, int64_t* w) {
     storeSlot(w, 0, s.lastDrawnNs);
@@ -138,6 +156,7 @@ inline void pack(const PacerState& s, int64_t* w) {
     storeSlot(w, 3, s.samples);
     storeSlot(w, 4, s.sinceDrawn);
     storeSlot(w, 5, s.divisor);
+    storeSlot(w, kPacerCapSlot, s.capMilliHz);
 }
 
 }  // namespace geode::viz::frame

@@ -6,6 +6,8 @@ add_library(geode_core STATIC
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
     api/geode_sound_api.cpp
+    api/geode_underlay_api.cpp
+    api/geode_frame_api.cpp
     api/geode_surface_api.cpp
     sound/Fft.cpp
     sound/Emotion.cpp
@@ -13,6 +15,7 @@ add_library(geode_core STATIC
     sound/Harmony.cpp
     sound/Rhythm.cpp
     sound/SoundEngine.cpp
+    sound/Tuning.cpp
     library/Tags.cpp
     library/Search.cpp
     audio/dsp/DspProcessor.cpp
@@ -23,6 +26,7 @@ add_library(geode_core STATIC
     audio/dsp/Loudness.cpp
     api/geode_export_dsp_api.cpp
     signal/Resolver.cpp
+    api/geode_export_pass_api.cpp
     api/geode_export_api.cpp
     audio/dsp/PcmConvert.cpp
     audio/dsp/PcmTiming.cpp
@@ -55,14 +59,15 @@ add_library(geode_core STATIC
     viz/LayerState.cpp
     viz/NoteResponse.cpp
     viz/UiBlurPass.cpp
+    viz/Underlay.cpp
+    viz/frame/ExportPasses.cpp
+    viz/frame/EdgeGlowPass.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
     viz/ReactionDna.cpp
     viz/Reactions.cpp
     viz/CameraRig.cpp
     viz/VisualSafety.cpp
-    viz/FlashLimiter.cpp
-    viz/OutputProbe.cpp
     viz/ThermalGovernor.cpp
     viz/TouchField.cpp
     viz/Transition.cpp

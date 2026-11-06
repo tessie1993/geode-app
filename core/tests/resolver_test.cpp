@@ -388,7 +388,6 @@ struct OldChain {
     MacroKnobs directedKnobs{};
     std::array<float, LfoEngine::kSlots> envRate{};
     std::array<float, LfoEngine::kSlots> envDepth{};
-    viz::LuminanceDrive luminanceDrive{};
     SceneParams params;
     int styleMoments = 0;
     viz::CameraRig::Moves cameraMoves{};
@@ -450,9 +449,6 @@ struct OldChain {
         const auto& lfoValues = lfo.tick(dt, soundFrame, envRate.data(), envDepth.data());
         SceneParams p = lfo.apply(viz::macros::apply(notes.apply(director.apply(displayedParams, palWheel)), directedKnobs), lfoValues);
         p = AdsrEngine::apply(p, adsr.configs, envValues);
-        luminanceDrive.fill(0.0f);
-        lfo.addLuminanceDrive(lfoValues, luminanceDrive);
-        AdsrEngine::addLuminanceDrive(adsr.configs, envValues, luminanceDrive);
         reactions.tick(soundFrame, dt);
         p = reactions.apply(p);
         macroReactions.routes = viz::macros::routes(directedKnobs);
@@ -606,12 +602,12 @@ float randomDt(Rng& g) {
 }
 
 // Parity: the resolver gives the old chain's frames bit for bit (params, style moments, camera moves,
-// luminance drive, note uniforms) over 16 seeded runs of 900 frames, with configs, settings, requests,
+// note uniforms) over 16 seeded runs of 900 frames, with configs, settings, requests,
 // style switches, preset morphs and new surfaces changing at random. Kills any two stages swapped (director/
 // notes/macros/LFO nesting, LFO/envelope, envelope/reactions, reactions/macro routes/director routes, motion
 // field/safety), any stage dropped, the morph's x3 and <= 0, the fade's 0.01 cut, max, clamp and dt/fade,
 // the hand mask, the note seed's ^ entropy, the anchor hue and weight, the note inputs read from the faded
-// params, the style moments' Section || Drop and their reset each frame, the luminance drive's reset, the
+// params, the style moments' Section || Drop and their reset each frame, the
 // camera moves read from the directed knobs, reducedMotion and spin passed to the motion field, the style
 // switch's variant, and every reset() of a stage.
 // The same frames also hold the flash caps (safety last) and, under reduced motion, the speed under
@@ -685,7 +681,6 @@ void testParityWithTheOldChain() {
             moments += a.styleMoments;
             same = same && sameBits(wire(a.params), wire(old->params)) && a.styleMoments == old->styleMoments &&
                    std::memcmp(&a.cameraMoves, &old->cameraMoves, sizeof(a.cameraMoves)) == 0 &&
-                   std::memcmp(a.luminanceDrive.data(), old->luminanceDrive.data(), sizeof(float) * a.luminanceDrive.size()) == 0 &&
                    std::memcmp(&now->noteUniforms(), &old->notes.uniforms(), sizeof(viz::NoteUniforms)) == 0;
             const SceneParams& p = a.params;
             const bool capped = p.brightness <= top && p.intensity <= top && p.contrast <= top &&
@@ -847,8 +842,8 @@ void testStyleMomentsOnlyAtDropsAndSections() {
 }
 
 // A disabled stage is an exact identity: LFOs, envelopes and routes set to full strength on brightness
-// but switched off give the same bits as none set, and add nothing to the luminance drive.
-// Kills: a disabled LFO, envelope or route still applied or driving the flash limiter.
+// but switched off give the same bits as none set.
+// Kills: a disabled LFO, envelope or route still applied.
 void testDisabledStagesAreExactIdentity() {
     const EngineSettings s = richSettings();
     auto bare = std::make_unique<Resolver>();
@@ -876,17 +871,14 @@ void testDisabledStagesAreExactIdentity() {
     const SceneParams requested;
     float t = 0.0f;
     bool same = true;
-    bool noDrive = true;
     for (int i = 0; i < 600; ++i, t += kDt) {
         const GeodeSoundFrame f = frame(t);
         const StyleContext st = style(kStyle, i == 0);
         const Resolver::Frame& a = bare->step(requested, f, kDt, s, st);
         const Resolver::Frame& b = off->step(requested, f, kDt, s, st);
         same = same && sameBits(wire(a.params), wire(b.params));
-        for (float d : b.luminanceDrive) noDrive = noDrive && d == 0.0f;
     }
     check(same, "LFOs, envelopes and routes switched off change no bit of the params");
-    check(noDrive, "switched-off LFOs and envelopes add nothing to the luminance drive");
 }
 
 // The note layer switched off is exact identity whatever the play's entropy: the knobs sit at exactly 0.5,

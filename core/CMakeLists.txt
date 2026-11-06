@@ -57,6 +57,7 @@ add_library(geode_core STATIC
     viz/NoteResponse.cpp
     viz/UiBlurPass.cpp
     viz/frame/ExportPasses.cpp
+    viz/frame/EdgeGlowPass.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
     viz/ReactionDna.cpp

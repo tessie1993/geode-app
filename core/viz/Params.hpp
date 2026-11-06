@@ -171,8 +171,8 @@ struct SceneParams {
     // (viz/Reactions). Appended after wave three so every wire index survives.
     // The cam* offsets (push/yaw/pitch/roll) are what reaction routes and LFOs
     // write; the rig springs toward them, so a route never snaps the view.
-    float camFly = 0.5f;      // forward travel speed along the path, 0..2
-    int camPath = 0;          // 0 glide, 1 spiral, 2 orbit, 3 hover
+    float camFly = 0.5f;      // travel speed along the path, -2.5..2.5 (negative travels backward)
+    int camPath = 0;          // 0 glide, 1 spiral, 2 orbit, 3 hover, 4 drive, 5 fall, 6 rise
     float camOrbit = 0.35f;   // sideways swing / orbit radius, 0..1
     float camPush = 0.0f;     // dolly offset, -1..1
     float camYaw = 0.0f;      // look offsets, -1..1
@@ -204,6 +204,10 @@ struct SceneParams {
     int liquidAge = 0;      // liquid::Age: 0 pure palette, 1 fade deep, 2 ink bleed
     int liquidSurface = 0;  // liquid::Surface: 0 ink, 1 wet gloss, 2 glass
 
+    // Camera travel for the flat (2D) styles, appended so every wire index survives: how much Fly speed
+    // (its sign too) zooms the picture in or out without end, 0 off .. 1. See CameraRig::flatDive.
+    float camFlat = 0.0f;
+
     struct Palette {
         const char* name;
         float base;
@@ -225,11 +229,11 @@ struct SceneParams {
     // a std::array with fewer initialisers than its size value-initialises the rest to a null
     // pointer-to-member, which lerpParams reads and writes through on every fade. It was 98 over
     // 95 entries once, and 118 over 117 after noteBloom left (#445).
-    static constexpr int kLerpedFloatCount = 117;
+    static constexpr int kLerpedFloatCount = 118;
     static const std::array<FloatField, kLerpedFloatCount>& lerpedFloats();
 
     // Every field in declaration order; the wire order of geode_viz_set_params.
-    static constexpr int kFieldCount = 163;
+    static constexpr int kFieldCount = 164;
     static const std::array<const char*, kFieldCount>& fieldNames();
 
     // Sets a field by its Kotlin property name; ints and bools are taken from the float's value.

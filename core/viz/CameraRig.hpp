@@ -53,6 +53,12 @@ public:
     static constexpr float kBaseFocal = 1.6f;
     static constexpr float kShakeRadians = 0.025f;
     static constexpr float kFlatTilt = 0.35f;      // 2D plane tilt is gentler than the 3D look
+    static constexpr float kFlatOctaves = 0.35f;   // octaves / s a flat style dives at camFly 1, camFlat 1
+    static constexpr int kPathCount = 7;           // glide, spiral, orbit, hover, drive, fall, rise
+    // Reversing turns the view around over this much speed (world units / s), so the swing is
+    // continuous through a stop instead of a snap.
+    static constexpr float kTurnAroundSpeed = 0.25f * kBaseSpeed;
+    static constexpr float kFallPitch = 0.3f;      // radians the nose tips down (fall) or up (rise)
 
     struct LookInput {
         float yaw = 0.0f;    // -1..1, touch anchor or gyro
@@ -76,6 +82,7 @@ public:
     // vestibular terms the rig makes itself; the look still follows a finger.
     // Forward travel (camFly, endlessZoomSpeed) comes in already scaled by
     // safety::apply, which owns that scale for every render path.
+    // Fly speed below zero travels backward; the view swings around to face the way it goes.
     // bankFlat false keeps the path's banking out of the flat picture's roll
     // (a style that does not turn); the 3D basis still banks.
     // sound: this frame's GeodeSoundFrame, or null for no music moves (tests, a renderer with no audio).
@@ -91,6 +98,12 @@ public:
     // Cuts so far: a test hook, and how a scene could tell the view jumped.
     int cuts() const { return cuts_; }
     const CameraPose& pose() const { return pose_; }
+
+    // Octaves per second a flat (2D) style dives for these params: camFlat x camFly, so the sign of
+    // Fly speed zooms in (forward) or out (backward), and 0 on the paths that do not travel (orbit,
+    // hover). The renderer feeds it to the endless zoom (EndlessZoom.hpp), which loops without a pop
+    // either way. Forward travel arrives already scaled for reduced motion by safety::apply.
+    static float flatDive(const SceneParams& p);
 
     // The path centre line at travel s, before look/dolly; public for tests.
     static std::array<float, 3> pathPoint(int path, float orbit, float s);

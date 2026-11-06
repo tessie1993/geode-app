@@ -92,7 +92,7 @@ SceneParams applyLfoTarget(const SceneParams& r, LfoTarget target, float v) {
         case LfoTarget::FlowStrength: o.flowStrength = std::clamp(r.flowStrength + v, 0.0f, 1.0f); break;
         case LfoTarget::WaterRipple: o.waterRippleStrength = std::clamp(r.waterRippleStrength + v, 0.0f, 2.0f); break;
         case LfoTarget::RippleOverlay: o.rippleOverlayStrength = std::clamp(r.rippleOverlayStrength + v, 0.0f, 1.0f); break;
-        case LfoTarget::CamFly: o.camFly = std::clamp(r.camFly + v, 0.0f, 2.5f); break;
+        case LfoTarget::CamFly: o.camFly = std::clamp(r.camFly + v, -2.5f, 2.5f); break;
         case LfoTarget::CamOrbit: o.camOrbit = std::clamp(r.camOrbit + v, 0.0f, 1.0f); break;
         case LfoTarget::CamPush: o.camPush = std::clamp(r.camPush + v, -1.0f, 1.0f); break;
         case LfoTarget::CamYaw: o.camYaw = std::clamp(r.camYaw + v, -1.0f, 1.0f); break;

@@ -21,6 +21,7 @@
 #include "viz/TransitionLibrary.hpp"
 #include "viz/frame/Cadence.hpp"
 #include "viz/frame/Pacer.hpp"
+#include "viz/frame/PushVersions.hpp"
 #include "viz/frame/Thermal.hpp"
 #include "viz/frame/Quality.hpp"
 #include "viz/ShaderOverrides.hpp"
@@ -36,6 +37,8 @@ struct geode_viz {
     std::atomic<bool> offline{false};
     // The live shell's per-frame cadence (geode_viz_frame_begin); GL thread only.
     geode::viz::frame::FrameCadence cadence;
+    // Which of the shell's pushed inputs this surface has applied (geode_viz_frame_begin); GL thread only.
+    geode::viz::frame::PushVersions pushes;
 };
 
 namespace {
@@ -50,6 +53,11 @@ static_assert(frame::edge_glow::kFloats == GEODE_EDGE_GLOW_FLOATS);
 static_assert(frame::kFrameClearOnly == GEODE_FRAME_CLEAR_ONLY);
 static_assert(frame::kFrameThermalDue == GEODE_FRAME_THERMAL_DUE);
 static_assert(frame::kFrameLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
+static_assert(frame::kFramePushParams == GEODE_FRAME_PUSH_PARAMS);
+static_assert(frame::kFramePushLfo == GEODE_FRAME_PUSH_LFO);
+static_assert(frame::kFramePushAdsr == GEODE_FRAME_PUSH_ADSR);
+static_assert(frame::kFramePushTuning == GEODE_FRAME_PUSH_TUNING);
+static_assert(frame::kFramePushTuning < (1u << frame::kFrameLiquidShift), "the push bits sit below the Liquid field");
 static_assert(GEODE_FRAME_LIQUID_MODE(frame::kFrameLiquidMask << frame::kFrameLiquidShift) == static_cast<int>(frame::kFrameLiquidMask));
 
 constexpr int kModSourceCount = static_cast<int>(ModSource::StereoPan) + 1;
@@ -507,7 +515,8 @@ void geode_viz_set_look(geode_viz* v, float yaw, float pitch) {
 }
 
 int geode_viz_frame_begin(geode_viz* v, float paced_fps, float render_scale, float march_scale, int post_fx,
-                          int adaptive, int liquid_hot_policy) {
+                          int adaptive, int liquid_hot_policy, long long params_version, long long lfo_version,
+                          long long adsr_version, long long tuning_version) {
     if (!v) return 0;
     Renderer& r = v->renderer;
     r.thermal().setPacedFps(paced_fps);
@@ -518,8 +527,13 @@ int geode_viz_frame_begin(geode_viz* v, float paced_fps, float render_scale, flo
     }
     const uint32_t due = v->cadence.step([] { return ThermalState::process().claimSample(monotonicSeconds()); },
                                          [&r] { return r.takeLiquidMode(); });
-    if (due & frame::kFrameClearOnly) r.clearToBlack(0);
-    return static_cast<int>(due);
+    if (due & frame::kFrameClearOnly) {
+        // The shell returns at once on this frame, so nothing it would push may count as applied yet.
+        r.clearToBlack(0);
+        return static_cast<int>(due);
+    }
+    const uint32_t want = v->pushes.offer({params_version, lfo_version, adsr_version, tuning_version});
+    return static_cast<int>(due | want);
 }
 
 void geode_viz_set_director(geode_viz* v, float amount, long long seed) {
@@ -604,6 +618,7 @@ void geode_viz_surface_created(geode_viz* v) {
     if (!v) return;
     v->renderer.onSurfaceCreated();
     v->cadence.surfaceCreated();
+    v->pushes.surfaceCreated();
 }
 
 void geode_viz_surface_changed(geode_viz* v, int width, int height) {

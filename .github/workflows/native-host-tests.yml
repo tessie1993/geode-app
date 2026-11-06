@@ -119,6 +119,9 @@ jobs:
           # Voice "play X" over the library (#382): query, focus extras, blank = everything, no match = nothing.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/library_search_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o library_search_test
           ./library_search_test
+          # Which pushed inputs a live frame still owes native (#751): once per version, again on a new surface, stale ignored.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/push_versions_test.cpp -o push_versions_test
+          ./push_versions_test
           # The loop seam driver (#603): stash or present, the PTS, the dissolve weight and the 192 MB budget.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/loop_seam_test.cpp -o loop_seam_test
           ./loop_seam_test

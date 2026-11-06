@@ -130,15 +130,25 @@ GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
    geode_viz_render. The shell passes what it holds every frame and native applies only what changed:
    paced_fps is this surface's own fps cap (0 = free-running; the thermal cap is applied under it natively);
    the rest is Settings › Performance (scales 0..1, post_fx / adaptive 0 or 1, liquid_hot_policy 0 simplify,
-   1 full, 2 pause: liquid::HotPolicy). Export never calls it. Answers a bitmask of GEODE_FRAME_*; 0 for a
-   null handle. */
+   1 full, 2 pause: liquid::HotPolicy). The four *_version arguments are the shell's version counters (each
+   grows on every write) of its scene params, LFO configs, ADSR configs and sound tuning (core/viz/frame/
+   PushVersions, #751): native sets GEODE_FRAME_PUSH_* for each one it has not applied yet (an equal or older
+   version is skipped; a new surface wants all four again), and the shell pushes exactly those, through
+   geode_viz_set_params / _set_lfo / _set_adsr / _set_sound_tuning, before geode_viz_render. A clear-only
+   frame wants none. Export never calls it. Answers a bitmask of GEODE_FRAME_*; 0 for a null handle. */
 #define GEODE_FRAME_CLEAR_ONLY     0x1 /* the first frame on a new surface, cleared to black: present it, do nothing else */
 #define GEODE_FRAME_THERMAL_DUE    0x2 /* read PowerManager and call geode_thermal_push */
 #define GEODE_FRAME_LIQUID_CHANGED 0x4 /* Liquid mode changed: GEODE_FRAME_LIQUID_MODE(due) */
 /* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode). */
 #define GEODE_FRAME_LIQUID_MODE(due) ((int)(((unsigned)(due) >> 8) & 0xFu))
+#define GEODE_FRAME_PUSH_PARAMS    0x10 /* push the scene params (geode_viz_set_params) */
+#define GEODE_FRAME_PUSH_LFO       0x20 /* push every LFO slot (geode_viz_set_lfo) */
+#define GEODE_FRAME_PUSH_ADSR      0x40 /* push every ADSR slot (geode_viz_set_adsr) */
+#define GEODE_FRAME_PUSH_TUNING    0x80 /* push the sound tuning (geode_viz_set_sound_tuning) */
 GEODE_API int         geode_viz_frame_begin(geode_viz*, float paced_fps, float render_scale, float march_scale,
-                                            int post_fx, int adaptive, int liquid_hot_policy);
+                                            int post_fx, int adaptive, int liquid_hot_policy,
+                                            long long params_version, long long lfo_version,
+                                            long long adsr_version, long long tuning_version);
 GEODE_API void        geode_viz_set_offscreen(geode_viz*, int on);
 /* Export: step every frame by exactly 1/fps instead of measuring the time between frames (#377); 0 = live. */
 GEODE_API void        geode_viz_set_frame_rate(geode_viz*, int fps);

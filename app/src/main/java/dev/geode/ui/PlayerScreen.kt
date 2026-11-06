@@ -199,6 +199,8 @@ fun PlayerScreen(
         // Under the art when the pane is tall enough for both; on a phone on its side it heads the
         // other column instead, where it is never below the fold.
         val transportWithArt = paneHeight >= SHORT_HEIGHT
+        // The dock's height over this pane's bottom (AppShell), padded inside the scroll.
+        val dockReserve = LocalDockReserve.current
         if (sideBySide) {
             Row(Modifier.fillMaxSize()) {
                 Column(
@@ -206,20 +208,20 @@ fun PlayerScreen(
                         .weight(1f)
                         .fillMaxHeight()
                         .verticalScroll(rememberScrollState())
-                        .padding(bottom = 24.dp),
+                        .padding(bottom = 24.dp + dockReserve),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     header()
                     if (transportWithArt) {
-                        HeroOverTransport(paneHeight = paneHeight, hero = hero, transport = transport)
+                        HeroOverTransport(paneHeight = paneHeight - dockReserve, hero = hero, transport = transport)
                     } else {
-                        hero((paneHeight - HERO_CHROME).coerceIn(MIN_ART, MAX_ART))
+                        hero((paneHeight - dockReserve - HERO_CHROME).coerceIn(MIN_ART, MAX_ART))
                     }
                 }
                 LazyColumn(
                     Modifier.weight(1f).fillMaxHeight(),
-                    contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp),
+                    contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp + dockReserve),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -228,15 +230,17 @@ fun PlayerScreen(
                 }
             }
         } else {
+            // The art takes what the pane leaves above the dock once the transport is measured, as
+            // in the side-by-side branch, so the transport opens above the fold instead of half
+            // under the tab bar; the list itself scrolls under the glass.
             LazyColumn(
                 Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 24.dp),
+                contentPadding = PaddingValues(bottom = 24.dp + dockReserve),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 item { header() }
-                item { hero(MAX_ART) }
-                item { transport() }
+                item { HeroOverTransport(paneHeight = paneHeight - dockReserve, hero = hero, transport = transport) }
                 cards()
             }
         }
@@ -267,9 +271,9 @@ fun PlayerScreen(
  * could only hand that cap down through state written mid-measure, which is the same backwards
  * flow one phase later, or by changing the card's width, which changes the look. Subcomposing
  * the hero once the transport is measured is what `SubcomposeLayout` is for. Its cost is the
- * one the layouts reference warns of in lazy items and hot paths; this sits once in a scrolling
- * `Column`, not in a lazy item, and it recomposes only when the pane or the transport's height
- * changes the art's size.
+ * one the layouts reference warns of in lazy items and hot paths; this sits once per pane (a
+ * scrolling `Column`, or the single top item of the portrait list, never a repeated row), and it
+ * recomposes only when the pane or the transport's height changes the art's size.
  *
  * The look at font scale 1.0 is unchanged: the same [MIN_ART]..[MAX_ART] clamp, the same
  * [TRANSPORT_GAP] the column's `spacedBy` used to put between them, and [TRANSPORT_HEIGHT] as

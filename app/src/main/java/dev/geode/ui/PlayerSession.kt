@@ -444,7 +444,11 @@ class PlayerSession internal constructor(
 
                 override fun onRecordLocked() = onRecordingLocked()
 
-                override fun beginCapture(): Boolean = takeCapture.begin(renderLimits())
+                // The mic or another app's audio owns the sound ring while either runs; a take then keeps that.
+                override val soundFromInput: Boolean
+                    get() = captureController.micActive || externalAudio.value.active
+
+                override fun beginCapture(fromInput: Boolean): Boolean = takeCapture.begin(renderLimits(), fromInput)
 
                 override fun captureReachedCap(): Boolean = takeCapture.reachedCap()
 

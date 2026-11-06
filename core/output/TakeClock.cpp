@@ -70,8 +70,15 @@ void TakeFramePicker::release(int64_t nowNs) {
     holdSinceNs_.store(0, std::memory_order_release);
 }
 
-TakeAudio::TakeAudio(int64_t startNs, int64_t capUs)
-    : startNs_(startNs), capFrames_(capUs > 0 ? capUs * kRate / kUsPerSecond : 0) {}
+void toPcm16(const float* in, int samples, int16_t* out) {
+    for (int i = 0; i < samples; ++i) {
+        const float v = std::isfinite(in[i]) ? std::clamp(in[i], -1.0f, 1.0f) : 0.0f;
+        out[i] = static_cast<int16_t>(std::lround(v * 32767.0f));
+    }
+}
+
+TakeAudio::TakeAudio(int64_t startNs, int64_t capUs, TakeSource source)
+    : startNs_(startNs), capFrames_(capUs > 0 ? capUs * kRate / kUsPerSecond : 0), source_(source) {}
 
 int64_t TakeAudio::endNsLocked() const { return startNs_ + framesIn_ * kNsPerSecond / kRate; }
 
@@ -81,8 +88,8 @@ void TakeAudio::padFramesLocked(int64_t frames) {
     framesIn_ += frames;
 }
 
-void TakeAudio::write(const int16_t* pcm, int frames, int channels, int rateHz, int64_t wallNs) {
-    if (!pcm || frames <= 0 || channels <= 0 || rateHz <= 0) return;
+void TakeAudio::write(const int16_t* pcm, int frames, int channels, int rateHz, int64_t wallNs, TakeSource from) {
+    if (!pcm || frames <= 0 || channels <= 0 || rateHz <= 0 || from != source_) return;
     // To stereo first: mono is doubled, more than two channels keep the front pair.
     stereo_.resize(static_cast<size_t>(frames) * kChannels);
     for (int f = 0; f < frames; ++f) {

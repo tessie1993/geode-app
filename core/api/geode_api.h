@@ -483,6 +483,12 @@ GEODE_API int         geode_take_begin(int fd, float display_fps);
  * tile_short_side), tiled over every frame of the take only, never the screen; NULL for none. */
 GEODE_API int         geode_take_begin_limited(int fd, float display_fps, int64_t cap_ms, const uint32_t* tile_argb,
                                                int tile_w, int tile_h, int tile_short_side);
+/* geode_take_begin_limited for a take whose sound is the mic's or another app's (source 1, #458) rather than the
+ * player's record tap (source 0): only that source is muxed, fed through geode_take_write_input. */
+GEODE_API int         geode_take_begin_from(int fd, float display_fps, int64_t cap_ms, const uint32_t* tile_argb,
+                                            int tile_w, int tile_h, int tile_short_side, int source);
+/* The mic's or capture's interleaved float PCM (-1..1) as it arrives; heard only by a take begun with source 1. */
+GEODE_API void        geode_take_write_input(const float* interleaved, int frames, int channels, int sample_rate);
 GEODE_API int         geode_take_reached_cap(void);
 /* Settings › Behaviour › Record (core/output/TakeRules), for the next take: 0 pause holds, seek cuts, a new track
  * ends and saves (the default); 1 continuous; 2 pause holds and any seek ends. Unknown values are the default.

@@ -927,7 +927,8 @@ object GeodeNative {
      * Starts a take into [fd] (read-write; keep it open until [takeEnd] returns) at the stage's size and
      * [displayFps] up to 60, under the entitlement's limits, the same as a render's: [capMs] > 0 is the
      * longest the take may run; [tile] (ARGB, [tileW] x [tileH], rasterised for a frame whose short side is [tileShortSide]) is
-     * the wordmark tiled over the take's frames only, null for none. False when no stage has drawn, a take
+     * the wordmark tiled over the take's frames only, null for none. [fromInput]: the take's sound is the mic's
+     * or another app's ([takeWriteInput]), not the player's record tap. False when no stage has drawn, a take
      * is running, or no encoder would start.
      */
     external fun takeBeginLimited(
@@ -938,7 +939,19 @@ object GeodeNative {
         tileW: Int,
         tileH: Int,
         tileShortSide: Int,
+        fromInput: Boolean,
     ): Boolean
+
+    /**
+     * The mic's or another app's audio for a take begun with `fromInput` (#458): [frames] interleaved float
+     * frames of [pcm], as the capture thread reads them. A no-op for any other take, or none.
+     */
+    external fun takeWriteInput(
+        pcm: FloatArray,
+        frames: Int,
+        channels: Int,
+        sampleRate: Int,
+    )
 
     /** The running take has reached its cap: stop it. */
     external fun takeReachedCap(): Boolean

@@ -3,6 +3,7 @@ package dev.geode.audio
 import android.media.AudioFormat
 import android.media.AudioRecord
 import androidx.annotation.AnyThread
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
 import kotlin.concurrent.thread
 
@@ -87,6 +88,8 @@ abstract class AudioCapturePump(
                         val frames = n / channels
                         if (frames > 0) {
                             sink.write(floats, frames, channels)
+                            // A take over the mic or another app's audio keeps this input (#458).
+                            GeodeNative.takeWriteInput(floats, frames, channels, sampleRateHz)
                             noteLevel(floats, n, startedAt)
                         }
                     } else if (n < 0) {

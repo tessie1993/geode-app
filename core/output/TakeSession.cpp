@@ -212,7 +212,7 @@ bool Take::open(int fd, int screenW, int screenH, float displayFps, uint64_t gen
     const int64_t startNs = bootNs();
     const int64_t capUs = limits_.capMs > 0 ? limits_.capMs * 1000 : 0;
     impl_->frames = std::make_unique<TakeFramePicker>(startNs, fps, capUs);
-    impl_->sound = std::make_unique<TakeAudio>(startNs, capUs);
+    impl_->sound = std::make_unique<TakeAudio>(startNs, capUs, limits_.source);
     impl_->worker = std::thread([this] { run(); });
     return true;
 }
@@ -317,7 +317,9 @@ bool TakeSession::reachedCap() const {
 
 TakeAction TakeSession::event(TakeEvent event) {
     std::shared_ptr<Take> take = current();
-    if (!take) return TakeAction::Roll;
+    // A mic or capture take (#458) does not record the player, so the player's pause, seek and track change are not
+    // its business: it rolls through them whatever the rule (#459).
+    if (!take || take->impl_->sound->source() == TakeSource::Input) return TakeAction::Roll;
     std::lock_guard<std::mutex> guard(take->rulesLock_);
     const TakeAction action = take->rules_.on(event);
     const int64_t now = bootNs();
@@ -333,7 +335,17 @@ TakeAction TakeSession::event(TakeEvent event) {
 
 void TakeSession::writeAudio(const int16_t* pcm, int frames, int channels, int rateHz) {
     std::shared_ptr<Take> take = current();
-    if (take) take->impl_->sound->write(pcm, frames, channels, rateHz, bootNs());
+    if (take) take->impl_->sound->write(pcm, frames, channels, rateHz, bootNs(), TakeSource::Player);
+}
+
+void TakeSession::writeInput(const float* pcm, int frames, int channels, int rateHz) {
+    std::shared_ptr<Take> take = current();
+    if (!take || !pcm || frames <= 0 || channels <= 0 || take->impl_->sound->source() != TakeSource::Input) return;
+    // One capture thread writes, so a buffer kept per thread is enough.
+    thread_local std::vector<int16_t> pcm16;
+    pcm16.resize(static_cast<size_t>(frames) * static_cast<size_t>(channels));
+    toPcm16(pcm, frames * channels, pcm16.data());
+    take->impl_->sound->write(pcm16.data(), frames, channels, rateHz, bootNs(), TakeSource::Input);
 }
 
 void TakeSession::noteStageSize(int width, int height) {

@@ -74,6 +74,12 @@ jobs:
           # An export segment's style schedule: every later style is gated by the entitlement (#357).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/style_schedule_test.cpp core/viz/StyleSchedule.cpp -o style_schedule_test
           ./style_schedule_test
+          # Takes move out of project folders, beside their project and out of cloud backup (#384).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/studio_files_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o studio_files_test
+          ./studio_files_test
+          # The live wallpaper's and the dream's run rule: priority order, preview, listening, the trial's end (#376).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/surface_run_test.cpp core/api/geode_surface_api.cpp -o surface_run_test
+          ./surface_run_test
           # The process-wide shader overrides every renderer draws (#364): set, replace, clear, generation, copies.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/shader_overrides_test.cpp core/viz/ShaderOverrides.cpp -o shader_overrides_test
           ./shader_overrides_test

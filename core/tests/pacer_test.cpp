@@ -467,11 +467,11 @@ void theDivideNeverOpensOnAnUnevenGap() {
     check(clean && dividing, "120 Hz capped at 30 goes from every vsync straight to every 4th, 33.3 ms each");
 }
 
-// Red against: `<` -> `<=` on the 4 ms end or `>` -> `>=` on the 22 ms end of the hitch window (the
-// deleted Kotlin's MIN_VSYNC_NANOS = 4_000_000 and MAX_VSYNC_NANOS = 22_000_000, both inclusive),
-// and a window narrowed so 240 Hz or 48 Hz panels go unmeasured. A measured panel divides by 2 at
-// these caps (by hand: 250/125, 240/120, 48/24, 45.45/20); an unmeasured one draws every vsync.
-void panelsFrom4To22MsAreMeasured() {
+// Red against: `<` -> `<=` on the 4 ms end or `>` -> `>=` on the 100 ms end of the hitch window
+// (Pacer::kMinVsyncNs and kMaxVsyncNs, both inclusive; 100 ms is the 10 Hz an LTPO panel can pace at,
+// #452), and a window narrowed so 240 Hz or 10 Hz panels go unmeasured. A measured panel divides by 2
+// at these caps (by hand: 250/125, 240/120, 48/24, 10/5); an unmeasured one draws every vsync.
+void panelsFrom4To100MsAreMeasured() {
     struct Case {
         int64_t periodNs;
         float cap;
@@ -483,8 +483,8 @@ void panelsFrom4To22MsAreMeasured() {
         {3'999'999, 125.0f, false, "a 3.999999 ms interval is a hitch: no divide"},
         {4'166'667, 120.0f, true, "a 240 Hz panel is measured and divides"},
         {20'833'333, 24.0f, true, "a 48 Hz panel is measured and divides"},
-        {22'000'000, 20.0f, true, "a 22.000 ms panel is measured and divides"},
-        {22'000'001, 20.0f, false, "a 22.000001 ms interval is a hitch: no divide"},
+        {100'000'000, 5.0f, true, "a 100.000 ms (10 Hz) panel is measured and divides"},
+        {100'000'001, 5.0f, false, "a 100.000001 ms interval is a hitch: no divide"},
     };
     for (const auto& c : cases) {
         PacerState s;
@@ -555,7 +555,7 @@ int main() {
     aStallMidRunStepsOneClampedFrameThenResumesTheCadence();
     aResumeDrawsANominalFrameThenTheCapCadence();
     theDivideNeverOpensOnAnUnevenGap();
-    panelsFrom4To22MsAreMeasured();
+    panelsFrom4To100MsAreMeasured();
     exportAndLiveStepTheSameDtAtTheSameRate();
     aCapThatDropsThePanelTo30HzStillDraws30Fps();
     recordsTheCap();

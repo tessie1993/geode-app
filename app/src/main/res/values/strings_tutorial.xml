@@ -25,12 +25,12 @@
     <string name="tutorial_welcome_1_title">Hi, I\'m Wave!</string>
     <string name="tutorial_welcome_1_body">I\'m made of sound, so I wiggle when things get loud. I\'ll show you around MuzViz: a player, a visualizer that dances to your music, and a studio that turns it into video.</string>
     <string name="tutorial_welcome_2_title">Your tour, your pace</string>
-    <string name="tutorial_welcome_2_body">Swipe or tap Next. Skip a chapter you know, or skip the lot. Tap Show me to jump to the real thing; I\'ll wait with a Resume button. Every chapter lives on in Settings › Tutorials.</string>
+    <string name="tutorial_welcome_2_body">Swipe or tap Next. Skip a chapter you know, or skip the lot. Tap Show me to jump to the real thing; I\'ll wait with a Resume button. Every chapter lives on in Settings › Tutorials &amp; help.</string>
 
     <string name="tutorial_player_1_title">Press play</string>
     <string name="tutorial_player_1_body">The Player has your track, the transport and a live spectrum. Tap the artwork to go full screen, which is where the visuals live.</string>
     <string name="tutorial_player_2_title">Queue and lyrics</string>
-    <string name="tutorial_player_2_body">Open the queue to reorder what\'s next or save it as a playlist. Drop an .lrc file beside a track, or load one in Settings › Lyrics, and its lyrics follow along, line by line.</string>
+    <string name="tutorial_player_2_body">Open the queue to reorder what\'s next or save it as a playlist. Drop an .lrc file beside a track, or load one in Settings › Library &amp; lyrics, and its lyrics follow along, line by line.</string>
     <string name="tutorial_player_3_title">Little helpers</string>
     <string name="tutorial_player_3_body">The quick row holds a sleep timer, shuffle all and an A–B loop. Switch the source to the mic or to another app\'s audio and the visuals react to that instead.</string>
 
@@ -39,7 +39,7 @@
     <string name="tutorial_library_2_title">Tap a track, get the list</string>
     <string name="tutorial_library_2_body">Tapping any track queues everything you\'re looking at, so Next and Previous do what you expect.</string>
     <string name="tutorial_library_3_title">Find it fast</string>
-    <string name="tutorial_library_3_body">Search covers titles, artists, albums and folders. Music on an SD card or in Downloads? Add the folder in Settings › Folders.</string>
+    <string name="tutorial_library_3_body">Search covers titles, artists, albums and folders. Music on an SD card or in Downloads? Add the folder in Settings › Library &amp; lyrics.</string>
 
     <string name="tutorial_visuals_1_title">Sixty-odd styles</string>
     <string name="tutorial_visuals_1_body">Tunnels, fluids, fractals, cymatics, MilkDrop and more. Plenty are free, and every style family lets you try its first one. Pro opens the rest.</string>
@@ -51,7 +51,7 @@
     <string name="tutorial_customize_1_title">Six big knobs</string>
     <string name="tutorial_customize_1_body">Customize opens on Macros: six knobs for Energy, Speed, Complexity, Mood, Space and Chaos. Twist one and several controls follow it at once. With Pro, Edit macros lets you choose what each knob turns.</string>
     <string name="tutorial_customize_2_title">Make it hit on the beat</string>
-    <string name="tutorial_customize_2_body">Events, the next tab, has one-tap reactions such as Kick punch, Snare crack and Drop burst, plus the reaction routes and the Manual, Suggest and Auto style switching. They work in exported videos too.</string>
+    <string name="tutorial_customize_2_body">Events, the next tab, has one-tap reactions such as Kick punch, Snare crack and Hi-hat shimmer, plus the reaction routes and the Manual, Suggest and Auto style switching. They work in exported videos too.</string>
     <string name="tutorial_customize_3_title">Every detail, if you want it</string>
     <string name="tutorial_customize_3_body">Shape, Colour, Motion, FX, Reactivity and Scene hold every control the style can use, and Scene\'s Layers put a second style on top. Anything off its default shows a Reset.</string>
     <string name="tutorial_customize_4_title">Feeling lucky?</string>
@@ -72,7 +72,7 @@
     <string name="tutorial_studio_3_body">Hold the visual on Visuals to record a take: every style and knob change you make, on the beat of the song. Stopping renders it to a video in the background.</string>
 
     <string name="tutorial_anywhere_1_title">Live wallpaper</string>
-    <string name="tutorial_anywhere_1_body">Your last style can live on your home screen, reacting to whatever MuzViz is playing. Set it up in Settings › Behavior.</string>
+    <string name="tutorial_anywhere_1_body">Your last style can live on your home screen, reacting to whatever MuzViz is playing. Set it up in Settings › Visuals.</string>
     <string name="tutorial_anywhere_2_title">Screen saver</string>
     <string name="tutorial_anywhere_2_body">On the charger, Android\'s screen saver can show MuzViz too. Pick it in your phone\'s display settings.</string>
     <string name="tutorial_anywhere_3_title">Now playing widget</string>
@@ -86,7 +86,7 @@
     <string name="tutorial_settings_1_title">Make it yours</string>
     <string name="tutorial_settings_1_body">Look, Audio, Folders and Behavior hold the rest, including reduced motion and visual safety. Backup saves your presets and settings to a file.</string>
     <string name="tutorial_settings_2_title">See you around!</string>
-    <string name="tutorial_settings_2_body">That\'s the tour. Replay any chapter in Settings › Tutorials. Now play something loud and watch me go.</string>
+    <string name="tutorial_settings_2_body">That\'s the tour. Replay any chapter in Settings › Tutorials &amp; help. Now play something loud and watch me go.</string>
 
     <string name="settings_tab_tutorials">Tutorials</string>
     <string name="tutorials_group">Tour chapters</string>

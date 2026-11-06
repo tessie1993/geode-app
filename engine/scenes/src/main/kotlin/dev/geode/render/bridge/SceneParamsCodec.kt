@@ -4,7 +4,7 @@ import dev.geode.render.scene.SceneParams
 
 /** Packs [SceneParams] in `geode_viz_param_name` order; [verify] proves that order against the library once. */
 object SceneParamsCodec {
-    const val FIELDS = 165
+    const val FIELDS = 163
 
     val NAMES: List<String> =
         listOf(
@@ -162,14 +162,12 @@ object SceneParamsCodec {
             "camGyro",
             "reactAmount",
             "reactSeed",
-            "bloomLook",
             "noteColor",
             "notePitch",
             "noteIntervals",
             "noteTension",
             "noteChords",
             "noteDrums",
-            "noteBloom",
             "liquidBorn",
             "liquidAge",
             "liquidSurface",
@@ -339,17 +337,15 @@ object SceneParamsCodec {
         out[151] = flag(p.camGyro)
         out[152] = p.reactAmount
         out[153] = p.reactSeed.toFloat()
-        out[154] = p.bloomLook.toFloat()
-        out[155] = p.noteColor
-        out[156] = p.notePitch
-        out[157] = p.noteIntervals
-        out[158] = p.noteTension
-        out[159] = p.noteChords
-        out[160] = p.noteDrums
-        out[161] = p.noteBloom
-        out[162] = p.liquidBorn.toFloat()
-        out[163] = p.liquidAge.toFloat()
-        out[164] = p.liquidSurface.toFloat()
+        out[154] = p.noteColor
+        out[155] = p.notePitch
+        out[156] = p.noteIntervals
+        out[157] = p.noteTension
+        out[158] = p.noteChords
+        out[159] = p.noteDrums
+        out[160] = p.liquidBorn.toFloat()
+        out[161] = p.liquidAge.toFloat()
+        out[162] = p.liquidSurface.toFloat()
     }
 
     private fun flag(on: Boolean): Float = if (on) 1f else 0f

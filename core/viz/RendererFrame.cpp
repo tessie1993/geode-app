@@ -8,6 +8,7 @@
 #include "viz/Catalogue.hpp"
 #include "viz/CompositeGrade.hpp"
 #include "viz/EndlessZoom.hpp"
+#include "viz/FrameStep.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Quad.hpp"
 
@@ -19,10 +20,8 @@ constexpr float kTouchMinOverlayStrength = 0.35f;
 // radius of each kind of kick: a drag moves the liquid about as fast as the finger.
 constexpr float kLiquidPush = 1.0f;
 constexpr float kLiquidSwirl = 2.4f;
-constexpr float kLiquidBurst = 3.0f;
 constexpr float kPushRadius = 0.08f;
 constexpr float kSwirlRadius = 0.07f;
-constexpr float kBurstRadius = 0.12f;
 // How hard the liquid sharpens its own back-trace, and how much extra the style's edges are re-poured.
 constexpr float kLiquidSharpen = 0.35f;
 constexpr float kLiquidEdge = 0.6f;
@@ -48,8 +47,7 @@ GeodeSoundFrame gainAdjusted(const GeodeSoundFrame& f, const SceneParams& p) {
 float Renderer::beginFrame(double timeSeconds) {
     resetFrameState();
     frameNowS_ = timeSeconds;
-    const double elapsed = lastTimeS_ < 0.0 ? 1.0 / 60.0 : timeSeconds - lastTimeS_;
-    const float dt = static_cast<float>(std::clamp(elapsed, 0.001, 0.1));
+    const float dt = frameStepSeconds(fixedFps_.load(std::memory_order_relaxed), lastTimeS_, timeSeconds);
     lastTimeS_ = timeSeconds;
     thermal_.onFrame(dt);
     timeSeconds_ = std::fmod(timeSeconds_ + dt, kTimeWrapSeconds);
@@ -69,6 +67,7 @@ float Renderer::beginFrame(double timeSeconds) {
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         pending.swap(pendingShaders_);
+        syncLayerLocked();
         frameLayerMix_ = layerMix_;
         frameLayerBlend_ = layerBlend_;
         frameTransitionId_ = transitionId_;
@@ -153,7 +152,7 @@ SceneParams Renderer::resolveParams(float dt) {
     directedKnobs_ = director_.knobs(frameKnobs_);
     // Note & key reactions hear the frame next, inside the director's look: its hue anchors the notes'
     // colours, and its feeling (the director's emotion, stepped whether or not it drives) is the mood. Its
-    // tuning and bloom look are the style's own (Customize), read before the director and macros touch them.
+    // tuning is the style's own (Customize), read before the director and macros touch it.
     notes_.configure({note_response::globalEnabled(), noteSeed(directorConfig.seed)});
     {
         const SceneParams& own = displayedParams_;
@@ -166,9 +165,6 @@ SceneParams Renderer::resolveParams(float dt) {
         in.tension = own.noteTension;
         in.chords = own.noteChords;
         in.drums = own.noteDrums;
-        in.bloom = own.noteBloom;
-        in.look = static_cast<int>(catalogue::resolveBloomLook(own.bloomLook, activeScene_ ? activeScene_->id() : std::string()));
-        in.camFlat = camera_.pose().flat;
         notes_.step(soundFrame_, director_.emotion(), in, dt);
     }
     const auto& envValues = adsr_.tick(dt, soundFrame_);
@@ -221,6 +217,11 @@ SceneParams Renderer::resolveParams(float dt) {
 }
 
 void Renderer::resolveLayerScene() {
+    // Who asked the stager for what: the layer resolves first in a frame, the next style later (in
+    // drawLiquid), so the layer reads the next style's ask from the frame before.
+    bornAskedBefore_ = std::move(bornAsked_);
+    bornAsked_.clear();
+    layerAsked_.clear();
     std::string layerId;
     std::string requestedId;
     {
@@ -231,7 +232,8 @@ void Renderer::resolveLayerScene() {
     layerScene_ = nullptr;
     // The layer is staged too, but only once the requested scene is built: one target at a time.
     if (outgoingScene_ || layerId.empty() || layerId == requestedId || requestedPending_) return;
-    Scene* layer = readyScene(layerId);
+    layerAsked_ = layerId;
+    Scene* layer = readySecondary(layerId, bornAskedBefore_);
     if (layer && layer != activeScene_) layerScene_ = layer;
 }
 
@@ -358,8 +360,6 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.underlayAmount = compositePass_.underlayAmount();
     in.noteTint = notes_.uniforms().tint;
     compositePass_.draw(in);
-    // The note blooms over every family, last; nothing while there are none.
-    bloomPass_.draw(notes_.uniforms(), width_, height_, quadVao_, NoteBloomPass::kGain * flashGrade_.scale);
 }
 
 static_assert(safety::FlashLimiter::kDrives == kLuminanceTargets, "one limiter drive per luminance target");
@@ -466,7 +466,7 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     const GLuint liquidTex = drawLiquid(*scene, p, dt);
     stepFlashLimiter(dt);
     composite(p, progress, targetFbo, liquidTex);
-    // Measured after the blooms, before the UI blur: the glass sheet is not the visual (and an export
+    // Measured after the composite, before the UI blur: the glass sheet is not the visual (and an export
     // never draws it). Live and export both run this, so a render is limited exactly like the screen.
     outputProbe_.capture(targetFbo, width_, height_, flashGrade_, safetyClock_);
     drawUiBlur(targetFbo);
@@ -498,7 +498,6 @@ void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
         liquidPass_.reset();
         bornRolled_ = false;
         bornSceneId_.clear();
-        liquidFlare_ = 0.0f;
         liquidWasOn_ = true;
     }
     const liquid::Plan plan = liquid::planFor(liveLiquid_);
@@ -525,8 +524,6 @@ void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
         liquidFrame_.scale = 1.0f;
         liquidFrame_.twist = 0.0f;
     }
-    const bool drop = sound::dropped(soundFrame_);
-    liquidFlare_ = liquid::dropFlare(liquidFlare_, drop, dt);
     const bool trigger = soundFrame_.phrase > 0.5f || sound::sectionChanged(soundFrame_);
     if (bornClock_.step(dt, trigger, soundFrame_.beatConf > 0.35f)) {
         bornRolled_ = false;
@@ -538,7 +535,6 @@ void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
     const float force = std::clamp(p.flowForce, 0.0f, 3.0f);
     if (g.push) ff->queueKick(g.x, g.y, g.vx * kLiquidPush * force, g.vy * kLiquidPush * force, kPushRadius);
     if (std::fabs(g.swirl) > 0.02f) ff->queueVortex(g.x, g.y, g.swirl * kLiquidSwirl * force, kSwirlRadius);
-    if (drop && !reducedMotion) ff->queueBurst(liquidFrame_.vpX / aspect, liquidFrame_.vpY, kLiquidBurst * force, kBurstRadius);
     // The mids drive the swirl: Swirl is what a full mid band reaches.
     SceneParams fp = p;
     fp.flowCurl = std::clamp(p.flowCurl, 0.0f, 50.0f) * (0.4f + 0.6f * std::clamp(soundFrame_.middle, 0.0f, 1.0f));
@@ -580,7 +576,8 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
         if (!lastBornSceneId_.empty() && lastBornSceneId_ != bornSceneId_) dropScene(lastBornSceneId_);
         lastBornSceneId_ = bornSceneId_;
     }
-    Scene* next = readyScene(bornSceneId_);
+    bornAsked_ = bornSceneId_;
+    Scene* next = readySecondary(bornSceneId_, layerAsked_);
     if (next == nullptr || next == &scene || next == layerScene_) return fboA_.tex();
     glBindFramebuffer(GL_FRAMEBUFFER, bornFbo_.fbo());
     glViewport(0, 0, renderWidth_, renderHeight_);
@@ -620,7 +617,6 @@ GLuint Renderer::drawLiquid(Scene& scene, const SceneParams& p, float dt) {
     // A 3D style dives by flying its camera; nothing is born at a vanishing point it does not have.
     f.bornGain = threeD ? 0.0f : bornClock_.gain();
     f.bornMode = born == liquid::Born::Forms ? 3 : 0;
-    f.flare = liquidFlare_;
     f.age = static_cast<int>(liquid::ageFrom(p.liquidAge));
     f.surface = static_cast<int>(liquid::surfaceFrom(p.liquidSurface));
     f.feedback = plan.feedback;

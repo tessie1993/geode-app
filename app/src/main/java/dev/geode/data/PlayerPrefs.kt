@@ -1,6 +1,7 @@
 package dev.geode.data
 
 import android.content.SharedPreferences
+import kotlin.math.roundToInt
 
 data class PlayerPrefs(
     val shuffle: Boolean = false,
@@ -40,6 +41,22 @@ data class PlayerPrefs(
     companion object {
         const val MAX_FADE_MS = 6_000
         const val MAX_CROSSFADE_MS = 12_000
+
+        /** Settings › Playback's crossfade moves in whole seconds (#338). */
+        const val CROSSFADE_STEP_MS = 1_000
+
+        /**
+         * A crossfade slider position, in seconds, as [crossfadeMs]: rounded to whole seconds, Off
+         * (0) below half a second, never past [MAX_CROSSFADE_MS] nor below 0.
+         */
+        fun crossfadeMsFromSeconds(seconds: Float): Int =
+            if (seconds.isNaN()) {
+                0
+            } else {
+                // Clamped in seconds first, so a huge value cannot overflow the multiply.
+                seconds.coerceIn(0f, (MAX_CROSSFADE_MS / CROSSFADE_STEP_MS).toFloat()).roundToInt() * CROSSFADE_STEP_MS
+            }
+
         const val MAX_REPEAT_MODE = 2
         const val MIN_SPEED = 0.5f
         const val MAX_SPEED = 2f

@@ -30,7 +30,7 @@ class CatalogueTest {
         assertEquals("silk_web", Catalogue.styles.first().id)
         assertEquals(SceneKind.SILK, Catalogue.kindOf(SceneIds.DEFAULT))
         assertEquals(SceneKind.SILK, Catalogue.kindOf("no_such_style"))
-        assertEquals(243, Catalogue.styles.size)
+        assertEquals(244, Catalogue.styles.size)
     }
 
     @Test
@@ -73,18 +73,5 @@ class CatalogueTest {
         assertEquals(3f, TouchTransform.zoom(2f, 10f))
         assertEquals(0.3f, TouchTransform.zoom(1f, 0.01f))
         assertEquals(1.2f, TouchTransform.rotation(0f, 100f), 1e-5f)
-    }
-
-    @Test
-    fun everyStyleHasABloomLook() {
-        Catalogue.styles.forEach { style -> assertTrue(style.id, Catalogue.bloomLook(style.id) in BloomLook.entries) }
-        assertEquals(BloomLook.GLOW, Catalogue.bloomLook("no_such_style"))
-        assertEquals(BloomLook.FLOWER, BloomLook.fromWire(BloomLook.FLOWER.wire))
-        assertEquals(null, BloomLook.fromWire(0))
-        // Only once the checked-in table carries the bloom rows (catalogue_test --write).
-        val text = System.getProperty(Catalogue.TEXT_FILE_PROPERTY)?.let { java.io.File(it).readText() }.orEmpty()
-        if (text.lines().any { it.startsWith("bloom|") }) {
-            assertEquals(BloomLook.FLOWER, Catalogue.bloomLook("hex_hive"))
-        }
     }
 }

@@ -1,4 +1,5 @@
 #include "viz/fluid/FlowField.hpp"
+#include "viz/fluid/FluidMath.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -29,15 +30,6 @@ void FlowField::queueVortex(float clipX, float clipY, float spin, float radius) 
     }
 }
 
-void FlowField::queueBurst(float clipX, float clipY, float speed, float radius) {
-    constexpr int kArms = 8;
-    const float a = std::max(sim_.aspect(), 1e-3f);
-    for (int i = 0; i < kArms; i++) {
-        const float t = 6.2831853f * (static_cast<float>(i) + 0.5f) / kArms;
-        queueKick(clipX + std::cos(t) * radius / a, clipY + std::sin(t) * radius, std::cos(t) * speed, std::sin(t) * speed, radius * 0.7f);
-    }
-}
-
 void FlowField::setGrid(int cells, bool macCormack) {
     sim_.macCormack = macCormack;
     if (cells > 0 && sim_.available()) sim_.applyResolution(cells, sim_.dyeRes);
@@ -48,7 +40,8 @@ void FlowField::step(const GeodeSoundFrame& features, float dt, const SceneParam
     sim_.curlStrength = std::clamp(p.flowCurl, 0.0f, 50.0f);
     emitters_.forceScale = std::clamp(p.flowForce, 0.0f, 3.0f);
     emitters_.stirrerSpeed = std::clamp(p.speed, 0.1f, 2.0f);
-    const float simDt = std::clamp(dt, 0.0f, 1.0f / 30.0f);
+    // The whole frame; FluidSim::step splits it into stable steps (#383).
+    const float simDt = math::frameSimDt(dt);
     emitters_.tick(features, simDt, sim_.aspect(), 0.0f, 1.0f, splats_);
     for (const Splat& s : splats_) sim_.queueSplat(s);
     sim_.step(simDt);

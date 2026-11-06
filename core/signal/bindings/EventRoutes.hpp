@@ -16,6 +16,12 @@
 // Flash safety lives here, at the one place events reach params: a pulse on a luminance param is slowed
 // to at least kLuminanceMinDecay and limited to kLuminanceMaxPerSecond per param, whatever the event
 // rate (WCAG 2.3.1's three flashes a second). safety::apply still clamps the level afterwards.
+//
+// Event time is not monotonic: a new render, a seek on the programme clock or an export restart starts
+// it again. A pulse whose time is before its param's last pulse starts a new clock for that param: the
+// param's live pulses and flash history are dropped, then the pulse is taken as the new clock's first,
+// so the flash limit still holds within the new clock. A luminance pulse with a non-finite time is
+// dropped and counted as limited.
 
 namespace geode::signal {
 
@@ -87,7 +93,9 @@ private:
     std::vector<EventRoute> routes_;
     std::vector<std::uint32_t> counts_;
     std::vector<Pulse> pulses_;
-    std::vector<double> lastLuminancePulse_;  // per param: event time of its last pulse
+    // Per param: the event time of its last pulse that started. Time before it is a new clock (see pulse);
+    // on a luminance param it is also the flash limit's clock.
+    std::vector<double> lastPulse_;
     std::uint32_t limited_ = 0;
     EventBus* bus_ = nullptr;
     SubscriptionId subscription_ = kNoSubscription;

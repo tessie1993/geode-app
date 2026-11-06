@@ -38,12 +38,11 @@ class PaywallJourneyTest {
 
     /**
      * Silk styles are Pro: only the shader styles are in FreeTier. A tap loads a style; a Pro one
-     * plays on the visual while the paywall offers it. Silk is in the Flowing & liquid group.
+     * plays on the visual while the paywall offers it. Silk is a family of the Styles menu.
      */
     private fun tapLockedStyle() {
         compose.tap("Styles")
-        compose.tap("All styles")
-        compose.tap("Flowing & liquid")
+        compose.tap("Silk")
         compose.tap("Halvorsen Web")
     }
 

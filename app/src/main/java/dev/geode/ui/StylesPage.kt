@@ -640,6 +640,7 @@ private object StyleLookTags {
                 "spectrum_terrain",
                 "gyroid_cavern",
                 "noneuclid",
+                "morph_world",
             ).forEach { put(it, StyleLook.FLY_THROUGH) }
             listOf("starfield", "nebula", "solar", "chrome_nebula", "ringed_planet", "black_hole", "aurora", "aurora_ocean")
                 .forEach { put(it, StyleLook.SPACE) }

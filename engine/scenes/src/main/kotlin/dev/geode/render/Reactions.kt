@@ -210,20 +210,20 @@ data class HandReactions(
 
 /**
  * Customize › Music's hand mask for this process, the value every renderer merges with (through
- * [StyleReactionsCache]) and every native director keeps off (`hand::global`). The shell sets it where it
- * loads the user's routes from LfoStore. Until then it is [GeodeNative.HAND_ALL]: a list of the user's plays
- * whole, as before the mask existed.
+ * [StyleReactionsCache]) and every native director keeps off (`hand::global`), set where the shell loads the
+ * user's routes. 0 until then, as native starts; native counts it only while [set] says a list exists (#355).
  */
 object HandMask {
-    private const val TAG = "HandMask"
-
     @Volatile
-    var current: Int = GeodeNative.HAND_ALL
+    var current: Int = 0
         private set
 
-    fun set(mask: Int) {
+    fun set(
+        mask: Int,
+        hasUser: Boolean,
+    ) {
         current = mask
-        bestEffort(TAG, "push hand mask") { GeodeNative.handSet(mask) }
+        bestEffort("HandMask", "push hand mask") { GeodeNative.handSet(mask, hasUser) }
     }
 }
 

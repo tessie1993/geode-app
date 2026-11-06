@@ -59,14 +59,25 @@ object GeodeNative {
     )
 
     /**
-     * [buffer] must be a direct float buffer holding [frames] interleaved frames of [channels] channels, the
-     * format they were queued in; processed in place, never past the buffer's capacity.
+     * Whether the platform takes the next AudioTrack bit-perfect (#353); from the next [dspFlush] the chain
+     * passes every block through untouched until a flush with it off.
+     */
+    external fun dspSetBitPerfect(
+        handle: Long,
+        on: Boolean,
+    )
+
+    /**
+     * [buffer] must be a direct buffer holding [frames] interleaved frames of [channels] channels, the format
+     * they were queued in, as 16-bit PCM or as float when [pcmFloat]; processed in place (the int16 conversion
+     * is native), never past the buffer's capacity.
      */
     external fun dspProcess(
         handle: Long,
         buffer: java.nio.ByteBuffer,
         frames: Int,
         channels: Int,
+        pcmFloat: Boolean,
     )
 
     /**
@@ -124,8 +135,8 @@ object GeodeNative {
         on: Boolean,
     )
 
-    external fun vizSetLayer(
-        handle: Long,
+    /** Process-wide (core/viz/LayerState): every renderer draws it; "" = no layer. */
+    external fun layerSet(
         sceneId: String,
         mix: Float,
         blendMode: Int,
@@ -235,16 +246,14 @@ object GeodeNative {
         count: Int,
     )
 
-    external fun vizSetCustomShader(
-        handle: Long,
-        sceneId: String,
+    /** Process-wide (core/viz/ShaderOverrides): every renderer draws it; "" clears it. */
+    external fun shaderOverrideSet(
+        styleId: String,
         fragmentSource: String,
     )
 
-    external fun vizCustomShader(
-        handle: Long,
-        sceneId: String,
-    ): String?
+    /** The style's shader override; null when it draws its built-in shader. */
+    external fun shaderOverride(styleId: String): String?
 
     external fun vizSetLfo(
         handle: Long,
@@ -276,9 +285,13 @@ object GeodeNative {
     /**
      * Customize › Music's hand mask (core/viz Reactions.hpp `hand::`): bit i is moment i set by hand,
      * [HAND_UNCLAIMED] every source no moment claims, [HAND_ALL] a whole list of the user's. Process-wide like
-     * [directorSet]: every renderer's director keeps its hands off those moments.
+     * [directorSet]: every renderer's director keeps its hands off those moments. Without a list of the user's
+     * ([hasUser] false) native counts the mask as 0, so a stale mask cannot switch off the director's routes.
      */
-    external fun handSet(mask: Int)
+    external fun handSet(
+        mask: Int,
+        hasUser: Boolean,
+    )
 
     /**
      * What plays (geode_style_reactions_hand): the [user]'s routes on the [mask]'s sources, the style's DNA on
@@ -378,6 +391,12 @@ object GeodeNative {
         on: Boolean,
     )
 
+    /** Export: step every frame by exactly 1/[fps] instead of measuring frame times; 0 = live. */
+    external fun vizSetFrameRate(
+        handle: Long,
+        fps: Int,
+    )
+
     /**
      * Frosted glass under the app's sheet (`core/viz/UiBlurPass`): the renderer blurs its finished frame
      * inside one rounded rect. The rect is normalised to the viewport, y down (view pixels over the
@@ -469,12 +488,9 @@ object GeodeNative {
      */
     external fun catalogueText(): String
 
-    /** Every rolled control as `TAB|ParamKeys string` lines, in roll order (core/viz/ParamRandomizer). Static. */
-    external fun paramsRollKeys(): String
-
     /**
      * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
-     * the controls of [tab] (a CustomizeTab name; null = every tab) that reach [styleId] (null = any),
+     * the controls of [tab] (a ParamRandomizer roll group name; null = every group) that reach [styleId] (null = any),
      * except the newline-joined ParamKeys in [locked]. Same arguments, same look. True when it changed
      * something.
      */
@@ -487,9 +503,36 @@ object GeodeNative {
         output: FloatArray,
     ): Boolean
 
-    /** [input] with exactly the fields [tab] (a CustomizeTab name) rolls put back to their defaults, into [output]. */
-    external fun paramsResetTab(
-        tab: String,
+    /**
+     * The Customize panel's map (core/viz/CustomizeMap) as its versioned line table: the ten
+     * categories, their Basics and Pro sections, and the controls in each. Static; parse once
+     * (the app's CustomizeMapTable does).
+     */
+    external fun customizeText(): String
+
+    /** True when a roll can move the control named [key] (a ParamKeys string), so the panel offers to keep it. */
+    external fun customizeLockable(key: String): Boolean
+
+    /** What the panel offers on [styleId]: `CATEGORY` and `CATEGORY/section` lines, in panel order. */
+    external fun customizeShown(styleId: String): String
+
+    /**
+     * Rolls one Customize category (core/viz/CustomizeMap; [category] by its CustomizeMap name) from
+     * [input] into [output]: its controls that reach [styleId] (null = any), except the newline-joined
+     * ParamKeys in [locked]. Every other control holds. True when it changed something.
+     */
+    external fun customizeRandomize(
+        styleId: String?,
+        category: String,
+        locked: String?,
+        seed: Long,
+        input: FloatArray,
+        output: FloatArray,
+    ): Boolean
+
+    /** [input] with every field [category]'s controls write put back to its default, into [output]. */
+    external fun customizeReset(
+        category: String,
         input: FloatArray,
         output: FloatArray,
     )
@@ -527,12 +570,18 @@ object GeodeNative {
 
     external fun loudnessDestroy(handle: Long)
 
-    /** Consumes [count] interleaved samples (not frames) of [samples], each in -1..1. */
-    external fun loudnessFeed(
+    /**
+     * Feeds the decoder output [buffer]'s bytes [offset] until [offset] + [size] (BufferInfo's span) to the
+     * meter where they lie: native-order s16, or float in -1..1 when [isFloat]. [buffer] must be direct, as
+     * MediaCodec's are; false, feeding nothing, when it is not or the span does not fit.
+     */
+    external fun loudnessFeedDirect(
         handle: Long,
-        samples: FloatArray,
-        count: Int,
-    )
+        buffer: java.nio.ByteBuffer,
+        offset: Int,
+        size: Int,
+        isFloat: Boolean,
+    ): Boolean
 
     external fun loudnessHasBlock(handle: Long): Boolean
 
@@ -544,6 +593,221 @@ object GeodeNative {
         handle: Long,
         out: DoubleArray,
     ): Boolean
+
+    // Export planning and clip maths (core/output, core/signal/timeline, viz/ClipGrade, util/CubeLut,
+    // audio/dsp/PcmConvert). Pure functions, any thread; the Kotlin exporters only marshal through these.
+
+    /** Frames a render of [durationUs] draws at [fps], at least 1. */
+    external fun exportTotalFrames(
+        durationUs: Long,
+        fps: Int,
+    ): Long
+
+    /** Encoder timestamp of [frame]: floor(frame * 1e9 / fps), exact over any length. */
+    external fun exportFramePtsNs(
+        frame: Long,
+        fps: Int,
+    ): Long
+
+    /** Programme time [frame] shows, floor(frame * 1000 / fps) ms. */
+    external fun exportFrameTimeMs(
+        frame: Long,
+        fps: Int,
+    ): Long
+
+    /** Fields of the long[7] [loopSpecOf] and [loopSpecBudgeted] fill. */
+    const val LOOP_SPEC_LOOP_MS = 0
+    const val LOOP_SPEC_CROSSFADE_MS = 1
+    const val LOOP_SPEC_FPS = 2
+    const val LOOP_SPEC_LOOP_FRAMES = 3
+    const val LOOP_SPEC_CROSSFADE_FRAMES = 4
+    const val LOOP_SPEC_SOURCE_FRAMES = 5
+    const val LOOP_SPEC_LOOP_DURATION_US = 6
+    const val LOOP_SPEC_LONGS = 7
+
+    /** Loose UI numbers clamped into a valid loop spec, written to [out] (LOOP_SPEC_* order). */
+    external fun loopSpecOf(
+        loopMs: Long,
+        crossfadeMs: Long,
+        fps: Int,
+        out: LongArray,
+    )
+
+    /** The derived fields of the spec as given, no clamping, into [out] (LOOP_SPEC_* order). */
+    external fun loopSpecDerive(
+        loopMs: Long,
+        crossfadeMs: Long,
+        fps: Int,
+        out: LongArray,
+    )
+
+    /** The spec with its dissolve shortened to what the seam stash holds at [width] x [height]. */
+    external fun loopSpecBudgeted(
+        loopMs: Long,
+        crossfadeMs: Long,
+        fps: Int,
+        width: Int,
+        height: Int,
+        out: LongArray,
+    )
+
+    external fun loopSeamWeight(
+        tail: Int,
+        seamFrames: Int,
+    ): Float
+
+    /** Every repeat of a long-form loop as (offset µs, loop index) pairs. */
+    external fun loopExtendPlan(
+        loopUs: Long,
+        totalUs: Long,
+        loops: Int,
+    ): LongArray
+
+    /** What the long file weighs: every repeat copies [loopBytes] again, plus 2 % for the sample tables. */
+    external fun loopEstimatedBytes(
+        loopUs: Long,
+        totalUs: Long,
+        loopBytes: Long,
+        soundtrackBytes: Long,
+    ): Long
+
+    /** The video bit rate that keeps a file [totalUs] long under [limitBytes]. */
+    external fun loopFittingBitRate(
+        totalUs: Long,
+        limitBytes: Long,
+        soundtrackBytes: Long,
+    ): Int
+
+    /** [requestedBps], lowered so the file fits [limitBytes] (<= 0: the 3.8 GB render target). */
+    external fun exportCappedVideoBps(
+        requestedBps: Int,
+        durationUs: Long,
+        audioBytes: Long,
+        limitBytes: Long,
+    ): Int
+
+    external fun exportAudioBytes(
+        durationUs: Long,
+        bps: Int,
+    ): Long
+
+    /** Where a long-form copy stops writing: 4 GiB less 64 MiB for the index. */
+    external fun exportMuxerHardLimitBytes(): Long
+
+    /** The encoded frame for a short side and a ratio, into out[0] (width) and out[1] (height). */
+    external fun exportFrameSize(
+        shortSide: Int,
+        wRatio: Int,
+        hRatio: Int,
+        out: IntArray,
+    )
+
+    external fun exportFallbackFps(requestedFps: Int): Int
+
+    /** Chapter spans as (start ms, duration ms, source) triples; empty under two clips. */
+    external fun chaptersFromClips(
+        startsMs: LongArray,
+        durationsMs: LongArray,
+    ): LongArray
+
+    /** Chapter spans from markers as triples; source -1 is the lead-in that makes the list start at 0:00. */
+    external fun chaptersFromMarkers(
+        markersMs: LongArray,
+        totalMs: Long,
+    ): LongArray
+
+    /**
+     * A keyframed clip speed as Media3 segments. Keys are parallel arrays: [keyTimesMs], [keyKinds]
+     * (0 scalar, 1 vector2, 2 colour, 3 toggle, 4 choice), [keyInterps] (0 hold, 1 linear, 2 bezier),
+     * four [keyValues] and four [keyCurves] floats per key. Returns [source span µs, segment starts µs…]
+     * with the speeds written to [speedsOut]; null when there are no keys.
+     */
+    external fun speedRampBuild(
+        keyTimesMs: LongArray,
+        keyKinds: IntArray,
+        keyValues: FloatArray,
+        keyInterps: IntArray,
+        keyCurves: FloatArray,
+        clipStartMs: Long,
+        clipDurationMs: Long,
+        stepMs: Long,
+        speedsOut: FloatArray,
+    ): LongArray?
+
+    /** A saved clip speed made safe: NaN, infinite, 0 or negative is 1x, else 0.25..4. */
+    external fun clipSpeedSanitize(speed: Float): Float
+
+    /** The clip grade as a column-major 4x4 into [out] (16 floats). */
+    external fun clipGradeMatrix(
+        brightness: Float,
+        contrast: Float,
+        saturationPercent: Float,
+        hueDegrees: Float,
+        out: FloatArray,
+    )
+
+    /** A .cube file's ARGB entries, size^3 in [r][g][b] order; null when it is not a usable cube. */
+    external fun cubeLutParse(text: ByteArray): IntArray?
+
+    external fun cubeLutGamma(
+        red: Float,
+        green: Float,
+        blue: Float,
+        size: Int,
+    ): IntArray
+
+    /** Interleaved s16 [frames] from [srcChannels] down to [dstChannels] (1 or 2); empty when not a downmix. */
+    external fun pcmDownmixS16(
+        input: ShortArray,
+        frames: Int,
+        srcChannels: Int,
+        dstChannels: Int,
+    ): ShortArray
+
+    /** Float PCM to s16: clamp, x32767, truncate; NaN is 0. */
+    external fun pcmFloatToS16(
+        input: FloatArray,
+        count: Int,
+    ): ShortArray
+
+    // PCM timing (core/audio/dsp/PcmTiming): the AAC encoder's rate, s16 durations, the start skip and trim.
+
+    /** The AAC rate for [sourceRateHz]: its own up to 48 kHz; above, 44.1 kHz for the 44.1k family, else 48 kHz. */
+    external fun aacRateFor(sourceRateHz: Int): Int
+
+    /** End of an AAC track: [lastPtsUs] plus one 1024-sample frame at [sampleRateHz]. */
+    external fun aacEndUs(
+        lastPtsUs: Long,
+        sampleRateHz: Int,
+    ): Long
+
+    /** Duration of [bytes] of interleaved s16 at [rateHz], the rate the bytes are at. */
+    external fun pcmS16BytesToUs(
+        bytes: Long,
+        rateHz: Int,
+        channels: Int,
+    ): Long
+
+    /** Interleaved samples before [us] at [rateHz]: what a start skip reads and discards. */
+    external fun pcmSamplesBeforeUs(
+        us: Long,
+        rateHz: Int,
+        channels: Int,
+    ): Long
+
+    /**
+     * A decoded s16 buffer of [bytes] at [bufferPtsUs] trimmed to [startUs]: the bytes to drop from its
+     * front (whole frames; == [bytes] when none is kept), with the kept part's pts (0 = the start) in
+     * outPtsUs[0]. A buffer that straddles the start keeps the frames from the start on.
+     */
+    external fun pcmTrimS16(
+        startUs: Long,
+        bufferPtsUs: Long,
+        bytes: Long,
+        rateHz: Int,
+        channels: Int,
+        outPtsUs: LongArray,
+    ): Long
 
     // Rest when silent (core/sound/Silence): the wallpaper's and the dream's silence rule.
 
@@ -572,4 +836,75 @@ object GeodeNative {
 
     /** Clamps [values] (the tuning's wire form) in place; a NaN or an infinity becomes the slot's default. */
     external fun soundTuningClamp(values: FloatArray)
+
+    // Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High.
+
+    /** Floats [perfTier] writes: render scale, fps cap, march scale, post FX (0/1), adaptive (0/1). */
+    const val PERF_TIER_FLOATS = 5
+
+    /** Fills [out] with [mode]'s tier; false for an unknown mode. */
+    external fun perfTier(
+        mode: Int,
+        out: FloatArray,
+    ): Boolean
+
+    /** The first-run mode for this phone; [totalRamBytes] 0 = unknown. */
+    external fun perfModeForDevice(
+        totalRamBytes: Long,
+        lowRam: Boolean,
+        mediaPerformanceClass: Int,
+    ): Int
+    // The live wallpaper's and the dream's run rule (core/viz/SurfaceRun). [flags] are the
+    // SURFACE_* bits the shell observed; [animateUntilMs] is the wall-clock time the entitlement
+    // lets the visual move until ([SURFACE_FOREVER] for Pro, a trial's end, 0 for free).
+
+    /** 0 stopped, 1 a still frame, 2 moving. */
+    external fun surfaceRunMode(
+        flags: Int,
+        animateUntilMs: Long,
+        nowMs: Long,
+    ): Int
+
+    /** Whether the surface should be hearing sound (what wakes it from a silent rest). */
+    external fun surfaceListening(
+        flags: Int,
+        animateUntilMs: Long,
+        nowMs: Long,
+    ): Boolean
+
+    /** Whether the entitlement lets the visual move at [nowMs]; the dream ends when it stops. */
+    external fun surfaceEntitled(
+        animateUntilMs: Long,
+        nowMs: Long,
+    ): Boolean
+
+    /** How long until the rule must be restated because a trial ends, or -1 for never. */
+    external fun surfaceRecheckInMs(
+        animateUntilMs: Long,
+        nowMs: Long,
+    ): Long
+
+    const val SURFACE_HAS_SURFACE = 1 shl 0
+    const val SURFACE_VISIBLE = 1 shl 1
+    const val SURFACE_PREVIEW = 1 shl 2
+    const val SURFACE_COVERED = 1 shl 3
+    const val SURFACE_BATTERY_SAVER = 1 shl 4
+    const val SURFACE_PAUSE_IN_BATTERY_SAVER = 1 shl 5
+    const val SURFACE_SILENT = 1 shl 6
+    const val SURFACE_REST_WHEN_SILENT = 1 shl 7
+    const val SURFACE_FOREVER = Long.MAX_VALUE
+    // The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt.
+
+    /** Six longs the caller owns, zeroed at first, stepped in place: the pacer's whole state. */
+    const val PACER_STATE_LONGS = 6
+
+    /** One vsync: the dt in seconds to draw with, or 0 to skip it. [capFps] <= 0 draws every vsync. */
+    external fun pacerOnVsync(
+        state: LongArray,
+        frameTimeNanos: Long,
+        capFps: Float,
+    ): Double
+
+    /** A start after a stop: forget the gap, keep the panel's period. */
+    external fun pacerResume(state: LongArray)
 }

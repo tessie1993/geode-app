@@ -42,12 +42,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import dev.geode.R
-import dev.geode.pro.FreeTier
 import dev.geode.render.EventRecipe
 import dev.geode.render.HandReactions
 import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.BuildStyleReactionsUseCase
-import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
 import dev.geode.render.scene.SceneParams
@@ -69,16 +67,16 @@ import dev.geode.ui.theme.LocalGeodeMotion
  * changes, and the director keeps off the moments marked Mine. ⋮ › Reset to Auto hands it back.
  * Native decides all of it ([MusicMoments] only calls it); this page draws the rows and sends taps.
  *
- * The ready-made [EventRecipe]s stay below as one menu of one-tap bundles across moments, then how
- * strongly the music moves things overall. Each route on its own is in Modulate › Reactions.
+ * The ready-made [EventRecipe]s stay below as one menu of one-tap bundles across moments. How
+ * strongly the music moves things overall is Music's Basics; each route on its own is Behaviour ›
+ * Reactions.
  *
- * Free and Pro: the action menus are the page's free control ([FreeTier.FREE_EVENTS_CONTROL]); each
- * moment's Strength and the overall one are try-then-pay, like every other Pro slider.
+ * Pro, like every section below a category's Basics: a free user can open it and see the moments,
+ * and a tap on a menu or a Strength opens the paywall ([MOMENTS_PIECE] is the piece's lock key).
  */
 @Composable
 internal fun EventsTab(
     p: SceneParams,
-    onChange: (SceneParams) -> Unit,
     hand: HandReactions,
     onReactionsChange: (List<ReactionRoute>?) -> Unit,
     onHandChange: (HandReactions) -> Unit,
@@ -117,7 +115,7 @@ internal fun EventsTab(
             val recipesSummary = stringResource(R.string.music_recipes_summary, onCount)
             Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
                 Text(recipesName, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                ProGated(FreeTier.FREE_EVENTS_CONTROL, "Reactions", recipesSummary) {
+                ProGated(MOMENTS_PIECE, "Reactions", recipesSummary) {
                     MultiPickButton(
                         name = stringResource(R.string.music_recipes_button),
                         summary = recipesSummary,
@@ -135,11 +133,6 @@ internal fun EventsTab(
                 ControlHint(stringResource(R.string.music_moment_full, routes.size, ReactionRoute.MAX_ROUTES))
             }
         }
-        SectionHeader(stringResource(R.string.music_moment_overall))
-        LabeledSlider(ParamKeys.REACT_AMOUNT, p.reactAmount, 0f..2f, default = SceneParams.DEFAULT.reactAmount) {
-            onChange(p.copy(reactAmount = it))
-        }
-        ControlHint("Each reaction, one by one, is in Modulate › Reactions.")
     }
 }
 
@@ -176,6 +169,7 @@ private fun MomentRow(
     val hasStrength = row.routes > 0
     val motion = LocalGeodeMotion.current
     val toggleLabel = stringResource(if (expanded) R.string.music_moment_hide_strength else R.string.music_moment_show_strength)
+    val expandedState = stringResource(if (expanded) R.string.customize_card_expanded else R.string.customize_card_collapsed)
     val turn by animateFloatAsState(if (expanded && hasStrength) HALF_TURN else 0f, motion.fastSpatialSpec(), label = "moment chevron")
     Column {
         Row(Modifier.fillMaxWidth().heightIn(min = MOMENT_ROW_HEIGHT), verticalAlignment = Alignment.CenterVertically) {
@@ -192,7 +186,7 @@ private fun MomentRow(
                     // A heading, so TalkBack's headings control steps from moment to moment.
                     .semantics(mergeDescendants = true) {
                         heading()
-                        if (hasStrength) stateDescription = if (expanded) "Expanded" else "Collapsed"
+                        if (hasStrength) stateDescription = expandedState
                     },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -207,7 +201,7 @@ private fun MomentRow(
                     )
                 }
             }
-            ProGated(FreeTier.FREE_EVENTS_CONTROL, name, summary) {
+            ProGated(MOMENTS_PIECE, name, summary) {
                 val none = stringResource(R.string.music_moment_none)
                 val picks =
                     ordered.map { a -> MenuPick(stringResource(a.label), a in row.on, a in row.on || a in row.fits) } +
@@ -282,7 +276,7 @@ private fun MomentMenu(
     var open by remember { mutableStateOf(false) }
     var explaining by remember { mutableStateOf(false) }
     val lock = LocalProLock.current
-    val canEdit = lock.allows(FreeTier.FREE_EVENTS_CONTROL)
+    val canEdit = lock.allows(MOMENTS_PIECE)
     val edit: (MomentEdit) -> Unit = { e -> if (canEdit) onEdit(e) else lock.onLocked() }
     Box {
         IconButton(onClick = { open = true }) {
@@ -335,3 +329,6 @@ private fun MomentMenu(
     }
     if (explaining) AboutDialog(name, stringResource(R.string.music_moment_about, name)) { explaining = false }
 }
+
+/** Music › Moments as core/viz/CustomizeMap names it: the lock key of every Pro control on it. */
+internal const val MOMENTS_PIECE = "@moments"

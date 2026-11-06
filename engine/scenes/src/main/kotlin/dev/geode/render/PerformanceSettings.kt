@@ -1,5 +1,7 @@
 package dev.geode.render
 
+import dev.geode.engine.bridge.GeodeNative
+
 /**
  * Settings › Performance: how much GPU a live surface (screen, wallpaper, dream) may spend.
  *
@@ -33,35 +35,31 @@ data class PerformanceSettings(
         get() = PerformanceMode.entries.firstOrNull { it.settings == copy(liquidHot = it.settings.liquidHot) }
 
     companion object {
-        val SAVER = PerformanceSettings(renderScale = 0.5f, fpsCap = 30, marchScale = 0.5f, postFx = false, adaptive = true)
-        val BALANCED = PerformanceSettings(renderScale = 0.75f, fpsCap = 60, marchScale = 0.75f, postFx = true, adaptive = true)
-        val HIGH = PerformanceSettings(renderScale = 1f, fpsCap = 60, marchScale = 1f, postFx = true, adaptive = false)
+        // Tiers and first-run pick are native (core/viz/frame/Quality.hpp, ADR 0008); Kotlin keeps the tab's choices.
+        val SAVER get() = PerformanceMode.SAVER.settings
+        val BALANCED get() = PerformanceMode.BALANCED.settings
+        val HIGH get() = PerformanceMode.HIGH.settings
 
         val RENDER_SCALES = listOf(0.5f, 0.75f, 1f)
         val FPS_CAPS = listOf(30, 60)
         val MARCH_SCALES = listOf(0.5f, 0.75f, 1f)
 
-        private const val MB = 1024L * 1024L
-        private const val SAVER_BELOW_RAM = 3_000L * MB
-        private const val HIGH_FROM_RAM = 6_000L * MB
+        internal val tiers by lazy {
+            PerformanceMode.entries.map { mode ->
+                val v = FloatArray(GeodeNative.PERF_TIER_FLOATS)
+                check(GeodeNative.perfTier(mode.ordinal, v)) { "no native tier for $mode" }
+                PerformanceSettings(v[0], v[1].toInt(), v[2], postFx = v[3] != 0f, adaptive = v[4] != 0f)
+            }
+        }
 
-        /** Android 12's media performance class: the first one that promises a capable GPU. */
-        private const val HIGH_PERFORMANCE_CLASS = 31
-
-        /**
-         * The first-run pick. RAM is the one signal every API level reports, and it tracks GPU
-         * class well enough on Android; the media performance class (0 when undeclared) can only
-         * promote. A wrong guess costs little: adaptive mode corrects it within seconds.
-         */
+        /** The first-run pick (RAM, low-RAM flag, media performance class); adaptive mode fixes a bad guess. */
         fun modeForDevice(
             totalRamBytes: Long,
             lowRamDevice: Boolean,
             mediaPerformanceClass: Int,
         ): PerformanceMode =
-            when {
-                lowRamDevice || totalRamBytes in 1 until SAVER_BELOW_RAM -> PerformanceMode.SAVER
-                mediaPerformanceClass >= HIGH_PERFORMANCE_CLASS || totalRamBytes >= HIGH_FROM_RAM -> PerformanceMode.HIGH
-                else -> PerformanceMode.BALANCED
+            PerformanceMode.entries.getOrElse(GeodeNative.perfModeForDevice(totalRamBytes, lowRamDevice, mediaPerformanceClass)) {
+                PerformanceMode.BALANCED
             }
     }
 }
@@ -86,10 +84,12 @@ enum class LiquidHotPolicy(
     }
 }
 
-enum class PerformanceMode(
-    val settings: PerformanceSettings,
-) {
-    SAVER(PerformanceSettings.SAVER),
-    BALANCED(PerformanceSettings.BALANCED),
-    HIGH(PerformanceSettings.HIGH),
+enum class PerformanceMode {
+    SAVER,
+    BALANCED,
+    HIGH,
+    ;
+
+    /** This preset's values, from the native tier table (ordinal = the native mode). */
+    val settings: PerformanceSettings get() = PerformanceSettings.tiers[ordinal]
 }

@@ -21,7 +21,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -30,17 +29,19 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.geode.R
-import dev.geode.model.DeviceTrack
 
-/** Same title, artist and length, listed side by side so the spare copy can be played to check and then deleted. */
+/**
+ * Same title, artist and length, listed side by side so the spare copy can be played to check and
+ * then deleted. [groups] come ready from [LibraryViewModel.duplicates], found off the main thread
+ * once per library change over the whole library, not the search.
+ */
 @Composable
 internal fun DuplicatesTab(
-    tracks: List<DeviceTrack>,
+    groups: List<DuplicateGroup>,
     playerViewModel: PlayerViewModel,
     onDeleted: () -> Unit,
 ) {
     val context = LocalContext.current
-    val groups = remember(tracks) { LibraryDuplicates.find(tracks) }
     val deleter =
         rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) onDeleted()

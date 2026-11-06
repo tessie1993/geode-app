@@ -20,16 +20,19 @@ import dev.geode.data.ThemeStore
 import dev.geode.engine.audio.SoundTuning
 import kotlin.math.roundToInt
 
+/** Settings › Sound input › Basics: the microphone, then other apps' audio. */
 @Composable
-internal fun AudioSettingsTab(viewModel: PlayerViewModel) {
-    val settingsViewModel: SettingsViewModel = geodeViewModel()
-    SettingsTabColumn {
-        item { SettingsGroup(stringResource(R.string.audio_group_playback)) { PlaybackSettingsSection(settingsViewModel) } }
-        item { EqualizerSettings(settingsViewModel) }
-        item { SettingsGroup(stringResource(R.string.audio_group_analysis)) { AnalysisGroup(settingsViewModel) } }
-        item { SettingsGroup(stringResource(R.string.source_live_input)) { LiveInputGroup(viewModel) } }
-        item { SettingsGroup(stringResource(R.string.source_other_apps)) { ExternalAudioSettings(viewModel) } }
-    }
+internal fun SoundInputBasics(viewModel: PlayerViewModel) {
+    CrystalOverline(stringResource(R.string.source_live_input), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    LiveInputGroup(viewModel)
+    CrystalOverline(stringResource(R.string.source_other_apps), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    ExternalAudioSettings(viewModel)
+}
+
+/** Settings › Sound input › How the visual listens: the sound engine's tuning and the preset morph. */
+@Composable
+internal fun SoundAnalysisSection(viewModel: SettingsViewModel) {
+    AnalysisGroup(viewModel)
 }
 
 @Composable

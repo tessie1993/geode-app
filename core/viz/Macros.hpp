@@ -5,6 +5,7 @@
 
 #include "sound/SoundFrame.h"
 #include "viz/CameraRig.hpp"
+#include "viz/Config.hpp"
 #include "viz/Params.hpp"
 #include "viz/Reactions.hpp"
 
@@ -20,8 +21,15 @@ namespace geode::viz {
 // Every knob runs -1..1. 0 is "as styled": nothing changes. Up pushes each driven field toward the top
 // of its range (or the bottom, for an inverted one) by that fraction of the distance left, down toward
 // the other end, so the result stays in range on any style and the centre is exact.
+//
+// The knobs' count, range and centre are the macro rows of viz/ConfigTable.inc (#423), one row per knob
+// in this enum's order, the same rows the store reads.
 enum class Macro { Energy, Speed, Complexity, Mood, Space, Chaos };
-constexpr int kMacroCount = 6;
+constexpr int kMacroCount =
+    static_cast<int>(config::Slot::macro_chaos) - static_cast<int>(config::Slot::macro_energy) + 1;
+static_assert(kMacroCount == static_cast<int>(Macro::Chaos) + 1, "one macro row per knob");
+// The row of knob i (0..kMacroCount-1).
+constexpr config::Slot knobSlot(int i) { return static_cast<config::Slot>(static_cast<int>(config::Slot::macro_energy) + i); }
 using MacroKnobs = std::array<float, kMacroCount>;
 
 namespace macros {

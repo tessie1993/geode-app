@@ -6,7 +6,7 @@ name: Mutation testing (changed C++)
 # Report-only: the job summary lists survivors as file:line original → mutant. Set the
 # repository variable MUTATION_MIN_SCORE (0-100) to make it a gate. See docs/testing/MUTATION.md.
 #
-# Any base branch: stacked PRs whose base is a claude/* branch diff against that branch.
+# Any base branch: stacked PRs diff against their base branch.
 
 # Manual only: pull requests are gated by build-lint.yml (build and lint, no tests).
 on:

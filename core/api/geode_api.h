@@ -318,6 +318,10 @@ GEODE_API long long       geode_silence_heard_at(const float* const* channels, i
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
 
+/* The GL Transitions library (gl_transitions.json, core/viz/TransitionLibrary): the shell's one read of it,
+   as the table encodeTransitionTable describes (UTF-8, control-separated). Read from the APK once per
+   process; "" when the asset is missing. The pointer stays valid for the process. */
+GEODE_API const char*     geode_transitions_table(AAssetManager* assets);
 /* Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High. */
 #define GEODE_PERF_TIER_FLOATS 5
 /* Writes render scale, fps cap, march scale, post FX (0/1), adaptive (0/1); returns the count, 0 for a bad mode. */

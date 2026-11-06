@@ -367,13 +367,6 @@ object GeodeNative {
     /** Gyro off or switched on again: recentre the look and recapture the baseline on the next sample. */
     external fun vizGyroReset(handle: Long)
 
-    /** This surface's own fps cap, 0 when free-running; the thermal cap is applied under it natively. */
-    external fun vizSetPacedFps(
-        handle: Long,
-        fps: Float,
-    )
-
-    external fun vizSetQuality(
     /**
      * One live frame's start (`core/viz/frame/Cadence`), on the GL thread before [vizSetScene] and
      * [vizRender]: hand over what the shell holds every frame; native applies only what changed. [pacedFps]

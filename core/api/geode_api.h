@@ -118,15 +118,6 @@ GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
 GEODE_API void        geode_viz_gyro_sample(geode_viz*, float azimuth, float pitch);
 /* The gyro is off (or switched on again): recentre the look to (0,0) and recapture on the next sample. GL thread. */
 GEODE_API void        geode_viz_gyro_reset(geode_viz*);
-/* This surface's own fps cap (0 = free-running); the thermal cap is applied under it natively. */
-GEODE_API void        geode_viz_set_paced_fps(geode_viz*, float fps);
-/* Settings › Performance (live surfaces): scales 0..1, post_fx / adaptive 0 or 1. Export never calls it. */
-GEODE_API void        geode_viz_set_quality(geode_viz*, float render_scale, float march_scale, int post_fx, int adaptive);
-/* Settings › Performance › Liquid on a hot phone: 0 simplify, 1 full, 2 pause (liquid::HotPolicy). */
-GEODE_API void        geode_viz_set_liquid_hot_policy(geode_viz*, int policy);
-/* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode), or -1 when it has
-   not changed since the last take (and for a null handle). Taken every frame by the live shell. */
-GEODE_API int         geode_viz_take_liquid_mode(geode_viz*);
 /* One live frame's start (core/viz/frame/Cadence, #604), on the GL thread before geode_viz_set_scene and
    geode_viz_render. The shell passes what it holds every frame and native applies only what changed:
    paced_fps is this surface's own fps cap (0 = free-running; the thermal cap is applied under it natively);

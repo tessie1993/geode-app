@@ -29,10 +29,10 @@ struct geode_viz {
     geode_viz(AAssetManager* assets, std::string cacheDir) : renderer(assets, std::move(cacheDir)) {}
 
     geode::viz::Renderer renderer;
+    geode::viz::GyroLook gyro;  // GL thread only (geode_viz_gyro_*)
     std::mutex configLock;
     std::array<geode::viz::LfoConfig, geode::viz::LfoEngine::kSlots> lfo{};
     std::array<geode::viz::AdsrConfig, geode::viz::AdsrEngine::kCount> adsr{};
-    geode::viz::GyroLook gyro;  // GL thread only (geode_viz_gyro_*)
     // The live shell's per-frame cadence (geode_viz_frame_begin); GL thread only.
     geode::viz::frame::FrameCadence cadence;
 };
@@ -477,20 +477,6 @@ void geode_viz_gyro_reset(geode_viz* v) {
     v->renderer.setLook(look.yaw, look.pitch);
 }
 
-void geode_viz_set_paced_fps(geode_viz* v, float fps) {
-    if (v) v->renderer.thermal().setPacedFps(fps);
-}
-
-void geode_viz_set_quality(geode_viz* v, float render_scale, float march_scale, int post_fx, int adaptive) {
-    if (v) v->renderer.setUserQuality(render_scale, march_scale, post_fx != 0, adaptive != 0);
-}
-
-void geode_viz_set_liquid_hot_policy(geode_viz* v, int policy) {
-    if (v) v->renderer.setLiquidHotPolicy(policy);
-}
-
-int geode_viz_take_liquid_mode(geode_viz* v) {
-    return v ? v->renderer.takeLiquidMode() : -1;
 int geode_viz_frame_begin(geode_viz* v, float paced_fps, float render_scale, float march_scale, int post_fx,
                           int adaptive, int liquid_hot_policy) {
     if (!v) return 0;

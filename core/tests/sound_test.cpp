@@ -156,6 +156,38 @@ void testKicks() {
     CHECK(std::fabs(lastToggle - static_cast<float>(kicks % 2)) < 0.05f, "toggle %f after %d kicks", lastToggle, kicks);
 }
 
+// One poisoned buffer (NaN, Inf, a sample whose square overflows) must not kill the engine for the
+// session (#365): after it the kicks fire again and every level reads a finite number.
+void testNonFiniteInput() {
+    const int rate = 48000;
+    SoundEngine e(rate);
+    auto bed = std::make_shared<Noise>();
+    int kicksAfter = 0;
+    bool finite = true;
+    run(
+        e,
+        [&](int64_t s, float& l, float& r) {
+            const double t = static_cast<double>(s) / rate;
+            const double phase = std::fmod(t, 0.5);
+            const double k = phase < 0.15 ? std::sin(kTau * 55.0 * phase) * std::exp(-phase / 0.05) : 0.0;
+            l = r = static_cast<float>(0.8 * k) + 0.01f * bed->next();
+            if (s >= 2 * rate && s < 2 * rate + 480) l = r = std::nanf("");
+            if (s == 2 * rate + 480) l = r = INFINITY;
+            if (s == 2 * rate + 481) l = -INFINITY;
+            if (s == 2 * rate + 482) l = r = 1e20f;
+        },
+        8.0, 60.0,
+        [&](double t, const GeodeSoundFrame& f) {
+            if (t < 4.0) return;
+            if (f.kick > 0) kicksAfter++;
+            for (const float v : {f.bass, f.mid, f.treble, f.low, f.middle, f.high, f.kickEnv}) {
+                if (!std::isfinite(v)) finite = false;
+            }
+        });
+    CHECK(kicksAfter >= 6, "kicks after the poisoned buffer %d of 8", kicksAfter);
+    CHECK(finite, "a level stayed non-finite after the poisoned buffer");
+}
+
 // Live writes arrive in uneven chunks; export writes once per frame. Same audio, same frame boundaries:
 // bit-identical frames. This is the parity the export depends on.
 void testChunkingIsBitExact() {
@@ -366,6 +398,7 @@ int main() {
     testSteadyReadsOne();
     testFrameRateIndependent();
     testKicks();
+    testNonFiniteInput();
     testChunkingIsBitExact();
     testMelody();
     testReattack();

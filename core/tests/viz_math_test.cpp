@@ -1053,6 +1053,7 @@ void driveScalesTheMagnitudeOfMotion() {
     check(geode::sound::driveGain(fat) > 0.999f, "a loud dense track spends everything");
     check(geode::sound::driveGain(pad) > geode::sound::kDriveGainFloor && geode::sound::driveGain(pad) < 0.4f, "a pad keeps a floor but moves little");
     fat.bassAtt = pad.bassAtt = 2.0f;
+    fat.volAtt = pad.volAtt = fat.midAtt = pad.midAtt = fat.trebleAtt = pad.trebleAtt = 1.0f;  // a typical level for the song
     const float fatPush = endless::musicRate(fat, 1.0f) - 1.0f;
     const float padPush = endless::musicRate(pad, 1.0f) - 1.0f;
     check(fatPush > 0.3f && padPush > 0.0f && padPush < 0.4f * fatPush, "the dive's bass push follows the drive");

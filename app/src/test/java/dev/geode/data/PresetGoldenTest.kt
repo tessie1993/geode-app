@@ -28,14 +28,14 @@ class PresetGoldenTest {
     ): Boolean = if (a is Number && b is Number) a.toDouble() == b.toDouble() else a == b
 
     // The key set via keys(): the test compile classpath sees android.jar's org.json stub first, which has nothing newer.
-    private fun JSONObject.names(): Set<String> = keys().asSequence().toSet()
+    private fun JSONObject.keyNames(): Set<String> = keys().asSequence().toSet()
 
     @Test
     fun currentPresetRoundTripsToTheSameKeysAndValues() {
         val golden = JSONObject(fixture("current.json"))
         val written = JSONObject(PresetStore.toJson(PresetStore.fromJson(golden.toString())))
-        assertEquals(golden.names(), written.names())
-        for (key in golden.names()) {
+        assertEquals(golden.keyNames(), written.keyNames())
+        for (key in golden.keyNames()) {
             assertTrue("$key: ${golden.get(key)} became ${written.get(key)}", same(golden.get(key), written.get(key)))
             // Booleans stay booleans, ints stay ints: the kind decides the JSON type, as before.
             assertEquals(key, golden.get(key) is Boolean, written.get(key) is Boolean)
@@ -48,7 +48,7 @@ class PresetGoldenTest {
         // Every value in the fixture is off its default, so a key the reader missed would show here.
         val defaults = PresetStore.paramsToJson(SceneParams.DEFAULT)
         val read = PresetStore.paramsToJson(p)
-        for (key in read.names()) {
+        for (key in read.keyNames()) {
             assertFalse("$key read as its default", same(read.get(key), defaults.get(key)))
         }
         assertEquals("palette-a", p.customPaletteId)
@@ -58,7 +58,7 @@ class PresetGoldenTest {
 
     @Test
     fun theWrittenKeysAreTheSchemaNamesLessGlitchPlusThePaletteIds() {
-        val keys = PresetStore.paramsToJson(SceneParams.DEFAULT).names()
+        val keys = PresetStore.paramsToJson(SceneParams.DEFAULT).keyNames()
         val expected = ParamSchema.params.map { it.name }.toSet() - "glitch" + setOf("customPaletteId", "customPalette2Id")
         assertEquals(expected, keys)
     }

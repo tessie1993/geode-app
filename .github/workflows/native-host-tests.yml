@@ -80,6 +80,9 @@ jobs:
           # Takes move out of project folders, beside their project and out of cloud backup (#384).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/studio_files_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o studio_files_test
           ./studio_files_test
+          # Cast's frame clock (#572): steady slots, a stall drops frames instead of bursting, monotonic PTS, the audio cut.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/cast_clock_test.cpp core/api/geode_frame_api.cpp -o cast_clock_test
+          ./cast_clock_test
           # The export post-passes' maths: watermark tiling, seam weights, transition progress (#442).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/export_passes_test.cpp -o export_passes_test
           ./export_passes_test

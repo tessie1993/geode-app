@@ -363,6 +363,16 @@ GEODE_API long long       geode_silence_heard_at(const float* const* channels, i
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
 
+/* Fixed-rate frame clock (viz/frame/FixedRateClock): Cast's pacing, PTS and audio cut. Pure: the caller
+ * owns GEODE_FRAME_CLOCK_STATE int64s (start ns, next slot, fps) and hands in now on one monotonic clock.
+ * At most one frame per slot: a late take drops the missed slots instead of bursting. */
+#define GEODE_FRAME_CLOCK_STATE 3
+GEODE_API void            geode_frame_clock_start(int64_t* state, int fps, int64_t now_ns);
+GEODE_API int64_t         geode_frame_clock_wait_ns(const int64_t* state, int64_t now_ns);   /* 0 = due now */
+GEODE_API int64_t         geode_frame_clock_take(int64_t* state, int64_t now_ns);   /* the frame's PTS, ns */
+GEODE_API int64_t         geode_frame_clock_audio_until_us(const int64_t* state);   /* end of the last frame taken */
+/* The Cast stream's format: out[0] width, out[1] height, out[2] fps. */
+GEODE_API void            geode_cast_format(int* out);
 /* The GL Transitions library (gl_transitions.json, core/viz/TransitionLibrary): the shell's one read of it,
    as the table encodeTransitionTable describes (UTF-8, control-separated). Read from the APK once per
    process; "" when the asset is missing. The pointer stays valid for the process. */

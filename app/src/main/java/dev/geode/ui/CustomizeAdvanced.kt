@@ -1,3 +1,5 @@
+@file:Suppress("MatchingDeclarationName")
+
 package dev.geode.ui
 
 import androidx.annotation.StringRes
@@ -15,30 +17,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Animation
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.Gradient
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Insights
-import androidx.compose.material.icons.filled.Layers
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Timeline
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material.icons.filled.WaterDrop
-import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
@@ -54,28 +37,22 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.data.MacroStore
 import dev.geode.data.NoteResponseStore
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
-import dev.geode.render.AdsrEngine
 import dev.geode.render.BlendMode
 import dev.geode.render.EnvBand
 import dev.geode.render.EventRecipe
 import dev.geode.render.LfoConfig
-import dev.geode.render.LfoEngine
 import dev.geode.render.LfoTarget
 import dev.geode.render.LfoWave
 import dev.geode.render.ModCurve
@@ -89,9 +66,7 @@ import dev.geode.render.TransitionCatalog
 import dev.geode.render.VisualizerView
 import dev.geode.render.fluid.FluidShaderTemplate
 import dev.geode.render.scene.BuildStyleReactionsUseCase
-import dev.geode.render.scene.CustomizeTab
 import dev.geode.render.scene.ParamFormat
-import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
 import dev.geode.render.scene.SceneCapabilities
@@ -104,96 +79,12 @@ import dev.geode.ui.theme.UiSound
 import kotlin.math.ln
 import kotlin.math.pow
 
-/**
- * Customize's deeper pages: each one opens from a row on its page and drills in, replacing the
- * list inside the same sheet, with ← and its title, the way Android Settings and the photo editors
- * do it (docs/ui-redesign). Back returns to the row it opened from.
- *
- * WHY a data-driven list: the next wave of the reactive work (a reaction grid, Moods, Phone motion,
- * Colour follow and the modulation matrix) each arrives as one more entry here plus one branch in
- * [SubPageBody]; the rows, the paywall, back, search and the ‹ › arrows need no change.
- * [MODULATION_MATRIX] is that slot, reserved and not offered yet.
- *
- * [page] is the Customize page whose row opens it. Advanced's three ([stepped]) step sideways with
- * ‹ › in their header, "2 of 3", because a user going through Advanced reads them as one set.
- * Every one but the macro sets is Pro, as the Advanced cards they came from were: a free user sees
- * the row with a ♛, and a tap opens the paywall instead of the page.
- */
-internal enum class CustomizeSubPage(
-    val title: String,
-    val icon: ImageVector,
-    val page: CustomizeTab,
-    val pro: Boolean = true,
-    /** False for a slot reserved in code that the panel does not offer yet. */
-    val available: Boolean = true,
-) {
-    SETS("Sets & macros", Icons.Filled.Tune, CustomizeTab.MACROS, pro = false),
-    PALETTE("Make a palette", Icons.Filled.Gradient, CustomizeTab.LOOK),
-    CAMERA("Camera", Icons.Filled.Videocam, CustomizeTab.MOTION),
-    LIQUID("Liquid", Icons.Filled.Waves, CustomizeTab.MOTION),
-    RIPPLES("Water ripples", Icons.Filled.WaterDrop, CustomizeTab.MOTION),
-    LISTEN("How it listens", Icons.Filled.GraphicEq, CustomizeTab.MUSIC),
-    NOTE_KEY("Notes & key", Icons.Filled.MusicNote, CustomizeTab.MUSIC),
-    REACTIONS("Reactions", Icons.Filled.Bolt, CustomizeTab.MODULATE),
-    ENVELOPES("Envelopes", Icons.Filled.Insights, CustomizeTab.MODULATE),
-    WAVES("Waves", Icons.Filled.Timeline, CustomizeTab.MODULATE),
-    LAYERS("Layers", Icons.Filled.Layers, CustomizeTab.ADVANCED),
-    TRANSITIONS("Transitions", Icons.Filled.Animation, CustomizeTab.ADVANCED),
-    SHADER_CODE("Shader code", Icons.Filled.Code, CustomizeTab.ADVANCED),
-
-    /** Reserved for the modulation matrix (any sound or wave to any control). Not built yet. */
-    MODULATION_MATRIX("Modulation matrix", Icons.Filled.Bolt, CustomizeTab.MODULATE, available = false),
-    ;
-
-    /** Advanced's groups, stepped with ‹ › rather than one back and forth through the list. */
-    val stepped: Boolean get() = page == CustomizeTab.ADVANCED
-
-    /** Whether the style on screen has anything for this page. */
-    fun appliesTo(sceneId: String): Boolean =
-        available &&
-            when (this) {
-                SHADER_CODE -> SceneCapabilities.hasShaderLook(sceneId) || SceneCapabilities.isFluid(sceneId)
-                else -> true
-            }
-
-    companion object {
-        /** The deeper pages [page] opens on [sceneId], in order. */
-        fun of(
-            page: CustomizeTab,
-            sceneId: String,
-        ): List<CustomizeSubPage> = entries.filter { it.page == page && it.appliesTo(sceneId) }
-    }
-}
-
 /** What a deeper page edits, gathered once so each page reads plain values. */
 internal class AdvancedHost(
     val viewModel: PlayerViewModel,
     val visualsViewModel: VisualsViewModel,
     val visualizerView: VisualizerView,
 )
-
-/** A page's row that drills into one of its deeper pages: icon, name, ♛ when it is Pro, chevron. */
-@Composable
-internal fun SubPageRow(
-    sub: CustomizeSubPage,
-    locked: Boolean,
-    onClick: () -> Unit,
-) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .clickable(role = Role.Button, onClickLabel = if (locked) "Unlock with Pro" else "Open", onClick = onClick)
-            .semantics(mergeDescendants = true) {}
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(sub.icon, contentDescription = null, tint = accentTextColor())
-        Text(sub.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 16.dp).weight(1f))
-        if (locked) ProCrown()
-        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
 
 /**
  * The ♛ that marks Pro on a page or a row: Customize's pages and cards and the Styles list draw this
@@ -204,188 +95,18 @@ internal fun SubPageRow(
 internal fun ProCrown(modifier: Modifier = Modifier) {
     StoneIconArt(
         StoneIcon.CROWN,
-        contentDescription = "Pro",
+        contentDescription = stringResource(R.string.customize_a11y_pro),
         modifier = modifier.padding(horizontal = 4.dp).size(18.dp),
         tint = accentTextColor(),
     )
 }
 
 /**
- * A deeper page drilled into: ← and its title, ‹ › "2 of 3" for Advanced's groups, then the page.
- * [siblings] are the groups the arrows step through; empty for a page that is not stepped.
- */
-@Composable
-internal fun SubPageScreen(
-    sub: CustomizeSubPage,
-    host: AdvancedHost,
-    siblings: List<CustomizeSubPage>,
-    onBack: () -> Unit,
-    onStep: (CustomizeSubPage) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to ${sub.page.title}")
-            }
-            val at = siblings.indexOf(sub)
-            if (sub.stepped && at >= 0) {
-                IconButton(onClick = { onStep(siblings[at - 1]) }, enabled = at > 0) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous group")
-                }
-                Text(
-                    sub.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f).semantics { heading() },
-                )
-                Text(
-                    "${at + 1} of ${siblings.size}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                IconButton(onClick = { onStep(siblings[at + 1]) }, enabled = at < siblings.lastIndex) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next group")
-                }
-            } else {
-                Text(sub.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).semantics { heading() })
-            }
-        }
-        Column(
-            Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
-        ) { SubPageBody(sub, host) }
-    }
-}
-
-@Composable
-internal fun SubPageBody(
-    sub: CustomizeSubPage,
-    host: AdvancedHost,
-) {
-    val viz by host.viewModel.vizState.collectAsStateWithLifecycle()
-    val p = viz.params
-    val onChange: (SceneParams) -> Unit = host.visualsViewModel::editSceneParams
-    when (sub) {
-        CustomizeSubPage.SETS -> {
-            val context = LocalContext.current
-            val store = remember { MacroStore.get(context) }
-            val macros by store.state.collectAsStateWithLifecycle()
-            val proLock = LocalProLock.current
-            MacroSetsPage(macros, store, canSavePresets = proLock.unlocked, onLockedSave = proLock.onLocked)
-        }
-        CustomizeSubPage.LISTEN ->
-            ListenPage(p, onChange, attack = viz.attack, decay = viz.decay, onReactivityChange = host.viewModel::setReactivity)
-        CustomizeSubPage.ENVELOPES -> {
-            val adsrs by host.visualsViewModel.adsrs.collectAsStateWithLifecycle()
-            if (sectionVisible()) {
-                for (i in 0 until AdsrEngine.COUNT) {
-                    AdsrCard(index = i, config = adsrs.getOrElse(i) { AdsrConfig() }, onChange = { host.visualsViewModel.setAdsr(i, it) })
-                }
-            }
-        }
-        CustomizeSubPage.WAVES -> {
-            val lfos by host.visualsViewModel.lfos.collectAsStateWithLifecycle()
-            if (sectionVisible()) {
-                for (i in 0 until LfoEngine.SLOTS) {
-                    ModulatorCard(index = i, config = lfos.getOrElse(i) { LfoConfig() }, onChange = { host.visualsViewModel.setLfo(i, it) })
-                }
-            }
-        }
-        CustomizeSubPage.REACTIONS -> {
-            val reactions by host.visualsViewModel.reactions.collectAsStateWithLifecycle()
-            val handMask by host.visualsViewModel.handMask.collectAsStateWithLifecycle()
-            ReactionsSection(p, reactions, host.visualsViewModel::setReactions, host.visualsViewModel::rerollReactions, handMask)
-        }
-        CustomizeSubPage.NOTE_KEY -> NoteKeyPage(p, onChange)
-        CustomizeSubPage.LAYERS -> LayersPage()
-        CustomizeSubPage.CAMERA -> CameraPage(p, onChange)
-        CustomizeSubPage.TRANSITIONS ->
-            TransitionsPage(
-                p,
-                onChange,
-                transitionId = viz.transitionId,
-                transitionDurationSec = viz.transitionDurationSec,
-                onTransitionId = host.viewModel::setTransitionId,
-                onTransitionDuration = host.viewModel::setTransitionDuration,
-            )
-        CustomizeSubPage.PALETTE -> if (sectionVisible()) PaletteMakerCard(p, onChange, rememberSavedPalettes())
-        CustomizeSubPage.LIQUID -> {
-            val liquidMode by host.visualsViewModel.liquidMode.collectAsStateWithLifecycle()
-            LiquidPage(p, onChange, liquidMode = liquidMode)
-        }
-        CustomizeSubPage.RIPPLES -> RipplesPage(p, onChange)
-        CustomizeSubPage.SHADER_CODE -> if (sectionVisible()) ShaderCodePage(host)
-        CustomizeSubPage.MODULATION_MATRIX -> Unit
-    }
-}
-
-/**
- * Music › How it listens: how strongly and how fast the picture follows the sound. Its envelopes
- * and waves are Modulate's ([CustomizeSubPage.ENVELOPES], [CustomizeSubPage.WAVES]).
- */
-@Composable
-internal fun ListenPage(
-    p: SceneParams,
-    onChange: (SceneParams) -> Unit,
-    attack: Float,
-    decay: Float,
-    onReactivityChange: (Float, Float) -> Unit,
-) {
-    Column {
-        SectionHeader("How strongly it listens")
-        ControlHint("Everything here reads the sound as it arrives, so the mic behaves exactly like a song.")
-        LabeledSlider(
-            ParamKeys.AUDIO_DRIVE,
-            p.audioDrive,
-            0.2f..2.5f,
-            display = "Sound strength",
-            default = SceneParams.DEFAULT.audioDrive,
-        ) {
-            onChange(p.copy(audioDrive = it))
-        }
-        SectionHeader("Slow motion under the music")
-        ControlHint("The picture breathes with the bass, drifts with the mids and leans its colour toward the song's key. Zero settles it.")
-        LabeledSlider(ParamKeys.MOTION_AMOUNT, p.motionAmount, 0f..1f, default = SceneParams.DEFAULT.motionAmount) {
-            onChange(p.copy(motionAmount = it))
-        }
-        LabeledSlider(ParamKeys.MOTION_BREATH, p.motionBreath, 0f..1f, default = SceneParams.DEFAULT.motionBreath) {
-            onChange(p.copy(motionBreath = it))
-        }
-        LabeledSlider(ParamKeys.MOTION_DRIFT, p.motionDrift, 0f..1f, default = SceneParams.DEFAULT.motionDrift) {
-            onChange(p.copy(motionDrift = it))
-        }
-        LabeledSlider(ParamKeys.MOTION_HUE, p.motionHue, 0f..1f, default = SceneParams.DEFAULT.motionHue) {
-            onChange(p.copy(motionHue = it))
-        }
-        SectionHeader("Bass, mids and highs", ParamScope.BAND_GAINS)
-        LabeledSlider(ParamKeys.BASS_GAIN, p.bassGain, 0f..2f, display = "Bass", default = SceneParams.DEFAULT.bassGain) {
-            onChange(p.copy(bassGain = it))
-        }
-        LabeledSlider(ParamKeys.MID_GAIN, p.midGain, 0f..2f, display = "Mids", default = SceneParams.DEFAULT.midGain) {
-            onChange(p.copy(midGain = it))
-        }
-        LabeledSlider(ParamKeys.TREBLE_GAIN, p.trebGain, 0f..2f, display = "Highs", default = SceneParams.DEFAULT.trebGain) {
-            onChange(p.copy(trebGain = it))
-        }
-        SectionHeader("Rise and fall", ParamScope.BAND_GAINS)
-        ControlHint(
-            "How fast the picture rises with a sound and falls after it. A short rise snaps, a long fall smears.",
-            ParamScope.BAND_GAINS,
-        )
-        LabeledSlider(REACTIVITY_ATTACK, attack, 0.05f..1f, scope = ParamScope.BAND_GAINS) { onReactivityChange(it, decay) }
-        LabeledSlider(REACTIVITY_DECAY, decay, 0.02f..0.6f, scope = ParamScope.BAND_GAINS) { onReactivityChange(attack, it) }
-    }
-}
-
-/**
- * Advanced › Reactions: the route list.
+ * Behaviour › Reactions: the route list.
  *
  * Shows the style's own reactions until the user edits one; the first edit copies them into the
- * user's own list, and "Use the style's own reactions" drops it again. Event recipes (Events) and
- * the reaction strength live on the simple Events page.
+ * user's own list, and "Use the style's own reactions" drops it again. The moments and their recipes
+ * are Music › Moments, and the reaction strength is Music's Basics.
  */
 @Composable
 internal fun ReactionsSection(
@@ -530,7 +251,7 @@ private fun ReactionCard(
 }
 
 @Composable
-private fun ModulatorCard(
+internal fun ModulatorCard(
     index: Int,
     config: LfoConfig,
     onChange: (LfoConfig) -> Unit,
@@ -606,6 +327,7 @@ private fun RateSecondsSlider(
     val hi = LfoConfig.MAX_RATE_SECONDS
     val t = (ln(seconds.coerceIn(lo, hi) / lo) / ln(hi / lo)).coerceIn(0f, 1f)
     val shown = ParamFormat.format(seconds, ParamUnit.SECONDS)
+    val cycleLabel = stringResource(R.string.customize_a11y_one_cycle)
     Column(Modifier.padding(vertical = 2.dp)) {
         Text("One cycle · $shown", style = MaterialTheme.typography.bodyMedium)
         Slider(
@@ -615,7 +337,7 @@ private fun RateSecondsSlider(
             // A thumb at 0 sits in the back-gesture strip; without the exclusion a drag from it leaves the screen.
             modifier =
                 Modifier.fillMaxWidth().systemGestureExclusion().semantics {
-                    contentDescription = "One cycle"
+                    contentDescription = cycleLabel
                     stateDescription = shown
                 },
         )
@@ -623,7 +345,7 @@ private fun RateSecondsSlider(
 }
 
 @Composable
-private fun AdsrCard(
+internal fun AdsrCard(
     index: Int,
     config: AdsrConfig,
     onChange: (AdsrConfig) -> Unit,
@@ -672,7 +394,7 @@ private fun AdsrCard(
     }
 }
 
-/** Advanced › Layers: a second style drawn under the active one. */
+/** Expert › Layers: a second style drawn under the active one. */
 @Composable
 internal fun LayersPage() {
     val layers by LayersBus.state.collectAsStateWithLifecycle()
@@ -733,13 +455,13 @@ private fun NoteKeySlider(
 }
 
 /**
- * Advanced › Note & key: how strongly each part of the musical layer (core/viz/NoteResponse) moves this
+ * Music › Notes & key: how strongly each part of the musical layer (core/viz/NoteResponse) moves this
  * style, saved with the style like every Customize value. The switch that runs the layer at all is
  * Settings › Behaviour (free, on by default); with it off these sliders do nothing, so the page says so
  * rather than letting a user drag a dead control.
  */
 @Composable
-private fun NoteKeyPage(
+internal fun NoteKeyPage(
     p: SceneParams,
     onChange: (SceneParams) -> Unit,
 ) {
@@ -768,163 +490,51 @@ private fun NoteKeyPage(
     }
 }
 
-/** Advanced › Camera: the one rig every style, the wallpaper and exports share. */
-@Composable
-private fun CameraPage(
-    p: SceneParams,
-    onChange: (SceneParams) -> Unit,
-) {
-    ControlHint(
-        "One camera for every style, the wallpaper and exports. 3D styles fly through their world; flat styles are " +
-            "seen on a plane the camera pans, tilts and pushes toward. Push, turn, tilt and roll are where the " +
-            "reactions start from.",
-    )
-    ParamChips(
-        ParamKeys.CAM_PATH,
-        SceneParams.CAMERA_PATHS,
-        p.camPath.coerceIn(0, SceneParams.CAMERA_PATHS.lastIndex),
-        ParamScope.UNIVERSAL,
-    ) {
-        onChange(p.copy(camPath = it))
-    }
-    LabeledSlider(ParamKeys.CAM_FLY, p.camFly, 0f..2f, default = SceneParams.DEFAULT.camFly) { onChange(p.copy(camFly = it)) }
-    LabeledSlider(ParamKeys.CAM_ORBIT, p.camOrbit, 0f..1f, default = SceneParams.DEFAULT.camOrbit) { onChange(p.copy(camOrbit = it)) }
-    LabeledSlider(ParamKeys.CAM_FOV, p.camFov, 0.5f..2f, default = SceneParams.DEFAULT.camFov) { onChange(p.copy(camFov = it)) }
-    LabeledSlider(ParamKeys.CAM_PUSH, p.camPush, -1f..1f, default = SceneParams.DEFAULT.camPush) { onChange(p.copy(camPush = it)) }
-    LabeledSlider(ParamKeys.CAM_YAW, p.camYaw, -1f..1f, default = SceneParams.DEFAULT.camYaw) { onChange(p.copy(camYaw = it)) }
-    LabeledSlider(ParamKeys.CAM_PITCH, p.camPitch, -1f..1f, default = SceneParams.DEFAULT.camPitch) { onChange(p.copy(camPitch = it)) }
-    LabeledSlider(ParamKeys.CAM_ROLL, p.camRoll, -1f..1f, default = SceneParams.DEFAULT.camRoll) { onChange(p.copy(camRoll = it)) }
-    LabeledSlider(ParamKeys.CAM_SHAKE, p.camShake, 0f..1f, default = SceneParams.DEFAULT.camShake) { onChange(p.copy(camShake = it)) }
-    LabeledSlider(ParamKeys.CAM_SMOOTH, p.camSmooth, 0f..1f, default = SceneParams.DEFAULT.camSmooth) { onChange(p.copy(camSmooth = it)) }
-    CheckRow(ParamKeys.CAM_TOUCH, p.camTouch) { onChange(p.copy(camTouch = it)) }
-    CheckRow(ParamKeys.CAM_GYRO, p.camGyro) { onChange(p.copy(camGyro = it)) }
-    ControlHint("Exports always fly the recorded path; the phone's tilt is never baked in.")
-}
-
 private const val TRANSITION_CHIP_LIMIT = 40
 
-/** Advanced › Transitions: how one style hands over to the next, and how changes glide in. */
-@Composable
-private fun TransitionsPage(
-    p: SceneParams,
-    onChange: (SceneParams) -> Unit,
-    transitionId: String?,
-    transitionDurationSec: Float,
-    onTransitionId: (String) -> Unit,
-    onTransitionDuration: (Float) -> Unit,
-) {
-    if (transitionId != null && sectionVisible()) {
-        SectionHeader("Style transition")
-        val ctx = LocalContext.current
-        val library = remember { TransitionCatalog.library(ctx) }
-        // "cut" is left out: VisualSafety always plays it as a fade, so its entry lied.
-        val builtIn = remember { TransitionCatalog.BUILT_IN_IDS.filter { it != "cut" } }
-        DropdownRow(
-            stringResource(R.string.transition_built_in),
-            builtIn,
-            builtIn.indexOf(transitionId),
-            placeholder = stringResource(R.string.transition_from_library),
-        ) { onTransitionId(builtIn[it]) }
-        if (library.isNotEmpty()) {
-            ControlHint(
-                "${library.size} more from the gl-transitions library. Each blends the outgoing and incoming styles " +
-                    "with every effect already applied, so nothing pops off during a switch.",
-            )
-            var query by remember { mutableStateOf("") }
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                label = { Text("Search transitions") },
-            )
-            val shown =
-                remember(query, library) {
-                    if (query.isBlank()) library else library.filter { it.name.contains(query, ignoreCase = true) }
-                }
-            val names = shown.take(TRANSITION_CHIP_LIMIT).map { it.name }
-            DropdownRow(
-                stringResource(R.string.transition_library),
-                names,
-                names.indexOf(transitionId),
-                placeholder = stringResource(R.string.transition_library_pick, shown.size),
-            ) { onTransitionId(names[it]) }
-            if (shown.size > TRANSITION_CHIP_LIMIT) {
-                ControlHint("${shown.size - TRANSITION_CHIP_LIMIT} more - narrow the search to reach them.")
-            }
-        }
-        LabeledSlider(TRANSITION_LENGTH, transitionDurationSec, 0.3f..5f, scope = ParamScope.UNIVERSAL, unit = ParamUnit.SECONDS) {
-            onTransitionDuration(it)
-        }
-    }
-    SectionHeader("Glide between settings")
-    ControlHint("Slider changes and preset loads glide to their new values over this time.")
-    LabeledSlider(PARAM_FADE, p.paramFadeSec, 0f..5f, default = SceneParams.DEFAULT.paramFadeSec, unit = ParamUnit.SECONDS) {
-        onChange(p.copy(paramFadeSec = it))
-    }
-}
-
 /**
- * Advanced › Liquid: the switch that turns every style into a flowing liquid, and how it looks.
- *
- * [liquidMode] is the renderer's live state (0 off, 1 full, 2 lite, 3 warp, 4 paused); 2 to 4 only
- * happen when the phone runs hot, and the note says so rather than leaving the picture to look broken.
+ * Behaviour's transition style: how one style hands over to the next. The built-in transitions,
+ * then the gl-transitions library behind a search. Nothing while the renderer has no transition yet.
  */
 @Composable
-internal fun LiquidPage(
-    p: SceneParams,
-    onChange: (SceneParams) -> Unit,
-    liquidMode: Int,
+internal fun TransitionPicker(
+    transitionId: String?,
+    onTransitionId: (String) -> Unit,
 ) {
-    SectionHeader("Liquid")
-    ControlHint("Every style turns liquid: touch and sound mold it, and the camera dives forever.")
-    CheckRow(FLOWFIELD_ENABLED, p.flowEnabled, display = "Liquid mode", scope = ParamScope.UNIVERSAL) {
-        onChange(p.copy(flowEnabled = it))
-    }
-    liquidHotNote(liquidMode)?.let { note ->
-        Text(
-            note,
-            modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
-        )
-    }
-    if (p.flowEnabled) {
-        val d = SceneParams.DEFAULT
-        LabeledSlider(
-            ParamKeys.FLOW_STRENGTH,
-            p.flowStrength,
-            0f..1f,
-            display = "Liquidity",
-            scope = ParamScope.UNIVERSAL,
-            default = d.flowStrength,
-        ) {
-            onChange(p.copy(flowStrength = it))
-        }
-        LabeledSlider(ParamKeys.FLOW_FORCE, p.flowForce, 0f..3f, display = "Push", scope = ParamScope.UNIVERSAL, default = d.flowForce) {
-            onChange(p.copy(flowForce = it))
-        }
-        LabeledSlider(ParamKeys.FLOW_CURL, p.flowCurl, 0f..50f, display = "Swirl", scope = ParamScope.UNIVERSAL, default = d.flowCurl) {
-            onChange(p.copy(flowCurl = it))
-        }
-        LabeledSlider(ParamKeys.DIVE_SPEED, p.endlessZoomSpeed, 0f..1.2f, scope = ParamScope.UNIVERSAL, default = d.endlessZoomSpeed) {
-            onChange(p.copy(endlessZoomSpeed = it))
-        }
-        ParamChips(ParamKeys.LIQUID_BORN, LIQUID_BORN_OPTIONS, p.liquidBorn.coerceIn(0, 3), scope = ParamScope.UNIVERSAL) {
-            onChange(p.copy(liquidBorn = it))
-        }
-        ParamChips(ParamKeys.LIQUID_AGE, LIQUID_AGE_OPTIONS, p.liquidAge.coerceIn(0, 2), scope = ParamScope.UNIVERSAL) {
-            onChange(p.copy(liquidAge = it))
-        }
-        ParamChips(ParamKeys.LIQUID_SURFACE, LIQUID_SURFACE_OPTIONS, p.liquidSurface.coerceIn(0, 2), scope = ParamScope.UNIVERSAL) {
-            onChange(p.copy(liquidSurface = it))
-        }
-    }
+    if (transitionId == null || !sectionVisible()) return
+    val ctx = LocalContext.current
+    val library = remember { TransitionCatalog.library(ctx) }
+    // "cut" is left out: VisualSafety always plays it as a fade, so its entry lied.
+    val builtIn = remember { TransitionCatalog.BUILT_IN_IDS.filter { it != "cut" } }
+    DropdownRow(
+        stringResource(R.string.transition_built_in),
+        builtIn,
+        builtIn.indexOf(transitionId),
+        placeholder = stringResource(R.string.transition_from_library),
+    ) { onTransitionId(builtIn[it]) }
+    if (library.isEmpty()) return
+    ControlHint(
+        "${library.size} more from the gl-transitions library. Each blends the outgoing and incoming styles " +
+            "with every effect already applied, so nothing pops off during a switch.",
+    )
+    var query by remember { mutableStateOf("") }
+    OutlinedTextField(
+        value = query,
+        onValueChange = { query = it },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+        label = { Text("Search transitions") },
+    )
+    val shown = remember(query, library) { if (query.isBlank()) library else library.filter { it.name.contains(query, ignoreCase = true) } }
+    val names = shown.take(TRANSITION_CHIP_LIMIT).map { it.name }
+    DropdownRow(
+        stringResource(R.string.transition_library),
+        names,
+        names.indexOf(transitionId),
+        placeholder = stringResource(R.string.transition_library_pick, shown.size),
+    ) { onTransitionId(names[it]) }
+    if (shown.size > TRANSITION_CHIP_LIMIT) ControlHint("${shown.size - TRANSITION_CHIP_LIMIT} more - narrow the search to reach them.")
 }
-
-private val LIQUID_BORN_OPTIONS = listOf("Live style", "Style re-rolled", "Next style", "Forms")
-private val LIQUID_AGE_OPTIONS = listOf("Pure palette", "Fade deep", "Ink bleed")
-private val LIQUID_SURFACE_OPTIONS = listOf("Ink", "Gloss", "Glass")
 
 /** The hot-phone line for the renderer's liquid mode (0 off, 1 full, 2 lite, 3 warp, 4 paused), or null. */
 internal fun liquidHotNote(liquidMode: Int): String? =
@@ -934,40 +544,6 @@ internal fun liquidHotNote(liquidMode: Int): String? =
         else -> null
     }
 
-/** Advanced › Water ripples: water on top of any style. */
-@Composable
-private fun RipplesPage(
-    p: SceneParams,
-    onChange: (SceneParams) -> Unit,
-) {
-    val isWaterScene = ParamScope.WATER.appliesTo(LocalSceneId.current)
-    SectionHeader("Water ripples", ParamScope.RIPPLE_OVERLAY)
-    ControlHint(
-        "Water on top of any style: hits drop rings that bend the picture, the highs sprinkle small drops, and glint " +
-            "adds a sparkle on the crests.",
-        ParamScope.RIPPLE_OVERLAY,
-    )
-    CheckRow(RIPPLES_ENABLED, p.rippleOverlayEnabled, scope = ParamScope.RIPPLE_OVERLAY) { onChange(p.copy(rippleOverlayEnabled = it)) }
-    if (p.rippleOverlayEnabled && !isWaterScene) {
-        LabeledSlider(ParamKeys.WAVE_SPEED, p.waterWaveSpeed, 0.2f..2f, default = SceneParams.DEFAULT.waterWaveSpeed) {
-            onChange(p.copy(waterWaveSpeed = it))
-        }
-        LabeledSlider(ParamKeys.DAMPING, p.waterDamping, 0.9f..0.999f, display = "Calming", default = SceneParams.DEFAULT.waterDamping) {
-            onChange(p.copy(waterDamping = it))
-        }
-        LabeledSlider(
-            ParamKeys.RIPPLE_OVERLAY_STRENGTH,
-            p.rippleOverlayStrength,
-            0f..1f,
-            display = "Ripple strength",
-            default = SceneParams.DEFAULT.rippleOverlayStrength,
-        ) { onChange(p.copy(rippleOverlayStrength = it)) }
-        LabeledSlider(ParamKeys.RIPPLE_GLINT, p.rippleOverlaySpecular, 0f..1f, default = SceneParams.DEFAULT.rippleOverlaySpecular) {
-            onChange(p.copy(rippleOverlaySpecular = it))
-        }
-    }
-}
-
 private const val MAX_SAVED_SHADER_DRAFT_CHARS = 8 * 1024
 
 private val ShaderDraftSaver =
@@ -976,9 +552,9 @@ private val ShaderDraftSaver =
         restore = { it },
     )
 
-/** Advanced › Shader code: the style's own fragment shader, and the custom fluid shaders on Fluid. */
+/** Expert › Shader code: the style's own fragment shader, and the custom fluid shaders on Fluid. */
 @Composable
-private fun ShaderCodePage(host: AdvancedHost) {
+internal fun ShaderCodePage(host: AdvancedHost) {
     val viz by host.viewModel.vizState.collectAsStateWithLifecycle()
     if (SceneCapabilities.hasShaderLook(viz.sceneId)) {
         var source by rememberSaveable(viz.sceneId, stateSaver = ShaderDraftSaver) {
@@ -1067,10 +643,6 @@ private fun InjectionShaderEditors(
 
 // Names for the controls that are panel machinery rather than scene parameters. They live in one
 // place so the search matches them and nothing has to spell a string twice.
-private const val REACTIVITY_ATTACK = "Rise"
-private const val REACTIVITY_DECAY = "Fall"
-private const val PARAM_FADE = "Glide time"
-private const val TRANSITION_LENGTH = "Transition length"
 private const val MOD_DEPTH = "Wave depth"
 private const val REACT_DEPTH = "Amount"
 private const val REACT_ATTACK = "Rise time"
@@ -1084,7 +656,5 @@ private const val ENV_GATE_SOURCE = "Hold on"
 private const val ENV_GATE_LEVEL = "Hold level"
 private const val ENV_SUSTAIN_TRACK = "Sustain follows the sound"
 private const val ENV_RETRIGGER = "Restart on every hit"
-private const val FLOWFIELD_ENABLED = "Flow field on"
-private const val RIPPLES_ENABLED = "Water ripples on"
 private const val LAYERS_ENABLED = "Layers enabled"
 private const val LAYER_MIX = "Layer mix"

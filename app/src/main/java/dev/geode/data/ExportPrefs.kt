@@ -137,12 +137,6 @@ class ExportPrefsStore(
         d: ExportDefaults,
     ) = write(prefixOf(destination), d)
 
-    /** Back to the platform's values for [destination]. */
-    fun resetFor(destination: ExportDestination) {
-        val prefix = prefixOf(destination)
-        prefs.edit().apply { FIELDS.forEach { remove(prefix + it) } }.apply()
-    }
-
     private fun read(
         prefix: String,
         fallback: ExportDefaults,

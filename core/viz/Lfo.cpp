@@ -52,61 +52,85 @@ float shape(float value, ModCurve curve) {
     return value < 0.0f ? -shaped : shaped;
 }
 
+namespace {
+
+// What a target writes: one float field, and how far one unit of modulation moves it. The clamp is
+// the field's own range in viz/ParamTable.inc, so an LFO, an envelope or a route can never push a
+// field past what its control offers, and a Circular field (the hue) adds unclamped.
+struct Drive {
+    float SceneParams::*member;
+    ParamSlot slot;
+    float scale;
+};
+
+bool driveOf(LfoTarget target, Drive& out) {
+#define GEODE_DRIVE(field, scale)                              \
+    out = Drive{&SceneParams::field, ParamSlot::field, scale}; \
+    return true
+    switch (target) {
+        case LfoTarget::Speed: GEODE_DRIVE(speed, 1.0f);
+        case LfoTarget::Zoom: GEODE_DRIVE(zoom, 1.0f);
+        case LfoTarget::Rotation: GEODE_DRIVE(rotation, 1.5f);
+        case LfoTarget::Sway: GEODE_DRIVE(sway, 1.0f);
+        case LfoTarget::Pulse: GEODE_DRIVE(pulse, 1.0f);
+        case LfoTarget::DriftX: GEODE_DRIVE(driftX, 1.0f);
+        case LfoTarget::DriftY: GEODE_DRIVE(driftY, 1.0f);
+        case LfoTarget::Warp: GEODE_DRIVE(warp, 1.0f);
+        case LfoTarget::Ripple: GEODE_DRIVE(ripple, 1.0f);
+        case LfoTarget::Morph: GEODE_DRIVE(morph, 1.0f);
+        case LfoTarget::Twist: GEODE_DRIVE(twist, 1.0f);
+        case LfoTarget::Tile: GEODE_DRIVE(tile, 2.0f);
+        case LfoTarget::Pixelate: GEODE_DRIVE(pixelate, 1.0f);
+        case LfoTarget::Posterize: GEODE_DRIVE(posterize, 1.0f);
+        case LfoTarget::ColorShift: GEODE_DRIVE(colorShift, 0.5f);
+        case LfoTarget::PaletteMix: GEODE_DRIVE(paletteMix, 1.0f);
+        case LfoTarget::Saturation: GEODE_DRIVE(saturation, 1.0f);
+        case LfoTarget::Brightness: GEODE_DRIVE(brightness, 1.0f);
+        case LfoTarget::Intensity: GEODE_DRIVE(intensity, 1.0f);
+        case LfoTarget::Bloom: GEODE_DRIVE(bloom, 1.0f);
+        case LfoTarget::Temperature: GEODE_DRIVE(temperature, 1.0f);
+        case LfoTarget::Turbulence: GEODE_DRIVE(turbulence, 1.0f);
+        case LfoTarget::ChromaAb: GEODE_DRIVE(chromaAb, 1.0f);
+        case LfoTarget::Vignette: GEODE_DRIVE(vignette, 1.0f);
+        case LfoTarget::Fisheye: GEODE_DRIVE(fisheye, 1.0f);
+        case LfoTarget::ParticleSize: GEODE_DRIVE(particleSize, 1.0f);
+        case LfoTarget::TrailLength: GEODE_DRIVE(trailLength, 1.0f);
+        case LfoTarget::FluidCurl: GEODE_DRIVE(fluidCurl, 25.0f);
+        case LfoTarget::FluidRadius: GEODE_DRIVE(fluidSplatRadius, 0.15f);
+        case LfoTarget::FluidForce: GEODE_DRIVE(fluidSplatForce, 1.5f);
+        case LfoTarget::FluidGlow: GEODE_DRIVE(fluidBloomIntensity, 1.0f);
+        case LfoTarget::FluidFade: GEODE_DRIVE(fluidDensityDissipation, 1.5f);
+        case LfoTarget::FluidCatchPull: GEODE_DRIVE(fluidCatchPull, 1.5f);
+        case LfoTarget::FluidCatchRadius: GEODE_DRIVE(fluidCatchRadius, 0.12f);
+        case LfoTarget::FlowStrength: GEODE_DRIVE(flowStrength, 1.0f);
+        case LfoTarget::WaterRipple: GEODE_DRIVE(waterRippleStrength, 1.0f);
+        case LfoTarget::RippleOverlay: GEODE_DRIVE(rippleOverlayStrength, 1.0f);
+        case LfoTarget::CamFly: GEODE_DRIVE(camFly, 1.0f);
+        case LfoTarget::CamOrbit: GEODE_DRIVE(camOrbit, 1.0f);
+        case LfoTarget::CamPush: GEODE_DRIVE(camPush, 1.0f);
+        case LfoTarget::CamYaw: GEODE_DRIVE(camYaw, 1.0f);
+        case LfoTarget::CamPitch: GEODE_DRIVE(camPitch, 1.0f);
+        case LfoTarget::CamRoll: GEODE_DRIVE(camRoll, 1.0f);
+        case LfoTarget::CamFov: GEODE_DRIVE(camFov, 1.0f);
+        case LfoTarget::CamShake: GEODE_DRIVE(camShake, 1.0f);
+        case LfoTarget::FlowCurl: GEODE_DRIVE(flowCurl, 25.0f);
+        case LfoTarget::FlowForce: GEODE_DRIVE(flowForce, 1.5f);
+        case LfoTarget::EndlessZoomSpeed: GEODE_DRIVE(endlessZoomSpeed, 0.5f);
+        // None, the retired Glitch slot and the chained targets write no scene parameter.
+        default: return false;
+    }
+#undef GEODE_DRIVE
+}
+
+}  // namespace
+
 SceneParams applyLfoTarget(const SceneParams& r, LfoTarget target, float v) {
     SceneParams o = r;
-    switch (target) {
-        case LfoTarget::Speed: o.speed = std::clamp(r.speed + v, 0.05f, 4.0f); break;
-        case LfoTarget::Zoom: o.zoom = std::clamp(r.zoom + v, 0.3f, 3.0f); break;
-        case LfoTarget::Rotation: o.rotation = std::clamp(r.rotation + v * 1.5f, -3.0f, 3.0f); break;
-        case LfoTarget::Sway: o.sway = std::clamp(r.sway + v, 0.0f, 1.0f); break;
-        case LfoTarget::Pulse: o.pulse = std::clamp(r.pulse + v, 0.0f, 1.0f); break;
-        case LfoTarget::DriftX: o.driftX = std::clamp(r.driftX + v, -1.0f, 1.0f); break;
-        case LfoTarget::DriftY: o.driftY = std::clamp(r.driftY + v, -1.0f, 1.0f); break;
-        case LfoTarget::Warp: o.warp = std::clamp(r.warp + v, 0.0f, 1.0f); break;
-        case LfoTarget::Ripple: o.ripple = std::clamp(r.ripple + v, 0.0f, 1.0f); break;
-        case LfoTarget::Morph: o.morph = std::clamp(r.morph + v, 0.0f, 1.0f); break;
-        case LfoTarget::Twist: o.twist = std::clamp(r.twist + v, -1.0f, 1.0f); break;
-        case LfoTarget::Tile: o.tile = std::clamp(r.tile + v * 2.0f, 1.0f, 6.0f); break;
-        case LfoTarget::Pixelate: o.pixelate = std::clamp(r.pixelate + v, 0.0f, 1.0f); break;
-        case LfoTarget::Posterize: o.posterize = std::clamp(r.posterize + v, 0.0f, 1.0f); break;
-        case LfoTarget::ColorShift: o.colorShift = r.colorShift + v * 0.5f; break;
-        case LfoTarget::PaletteMix: o.paletteMix = std::clamp(r.paletteMix + v, 0.0f, 1.0f); break;
-        case LfoTarget::Saturation: o.saturation = std::clamp(r.saturation + v, 0.0f, 1.5f); break;
-        case LfoTarget::Brightness: o.brightness = std::clamp(r.brightness + v, 0.2f, 2.0f); break;
-        case LfoTarget::Intensity: o.intensity = std::clamp(r.intensity + v, 0.2f, 2.0f); break;
-        case LfoTarget::Bloom: o.bloom = std::clamp(r.bloom + v, 0.0f, 1.0f); break;
-        case LfoTarget::Temperature: o.temperature = std::clamp(r.temperature + v, -1.0f, 1.0f); break;
-        case LfoTarget::Turbulence: o.turbulence = std::clamp(r.turbulence + v, 0.0f, 1.5f); break;
-        case LfoTarget::ChromaAb: o.chromaAb = std::clamp(r.chromaAb + v, 0.0f, 1.0f); break;
-        case LfoTarget::Vignette: o.vignette = std::clamp(r.vignette + v, 0.0f, 1.0f); break;
-        case LfoTarget::Fisheye: o.fisheye = std::clamp(r.fisheye + v, -1.0f, 1.0f); break;
-        case LfoTarget::ParticleSize: o.particleSize = std::clamp(r.particleSize + v, 0.3f, 2.5f); break;
-        case LfoTarget::TrailLength: o.trailLength = std::clamp(r.trailLength + v, 0.05f, 0.98f); break;
-        case LfoTarget::FluidCurl: o.fluidCurl = std::clamp(r.fluidCurl + v * 25.0f, 0.0f, 50.0f); break;
-        case LfoTarget::FluidRadius: o.fluidSplatRadius = std::clamp(r.fluidSplatRadius + v * 0.15f, 0.02f, 0.4f); break;
-        case LfoTarget::FluidForce: o.fluidSplatForce = std::clamp(r.fluidSplatForce + v * 1.5f, 0.0f, 3.0f); break;
-        case LfoTarget::FluidGlow: o.fluidBloomIntensity = std::clamp(r.fluidBloomIntensity + v, 0.1f, 2.0f); break;
-        case LfoTarget::FluidFade: o.fluidDensityDissipation = std::clamp(r.fluidDensityDissipation + v * 1.5f, 0.0f, 4.0f); break;
-        case LfoTarget::FluidCatchPull: o.fluidCatchPull = std::clamp(r.fluidCatchPull + v * 1.5f, 0.0f, 3.0f); break;
-        case LfoTarget::FluidCatchRadius: o.fluidCatchRadius = std::clamp(r.fluidCatchRadius + v * 0.12f, 0.03f, 0.3f); break;
-        case LfoTarget::FlowStrength: o.flowStrength = std::clamp(r.flowStrength + v, 0.0f, 1.0f); break;
-        case LfoTarget::WaterRipple: o.waterRippleStrength = std::clamp(r.waterRippleStrength + v, 0.0f, 2.0f); break;
-        case LfoTarget::RippleOverlay: o.rippleOverlayStrength = std::clamp(r.rippleOverlayStrength + v, 0.0f, 1.0f); break;
-        case LfoTarget::CamFly: o.camFly = std::clamp(r.camFly + v, 0.0f, 2.5f); break;
-        case LfoTarget::CamOrbit: o.camOrbit = std::clamp(r.camOrbit + v, 0.0f, 1.0f); break;
-        case LfoTarget::CamPush: o.camPush = std::clamp(r.camPush + v, -1.0f, 1.0f); break;
-        case LfoTarget::CamYaw: o.camYaw = std::clamp(r.camYaw + v, -1.0f, 1.0f); break;
-        case LfoTarget::CamPitch: o.camPitch = std::clamp(r.camPitch + v, -1.0f, 1.0f); break;
-        case LfoTarget::CamRoll: o.camRoll = std::clamp(r.camRoll + v, -1.0f, 1.0f); break;
-        case LfoTarget::CamFov: o.camFov = std::clamp(r.camFov + v, 0.5f, 2.0f); break;
-        case LfoTarget::CamShake: o.camShake = std::clamp(r.camShake + v, 0.0f, 1.0f); break;
-        case LfoTarget::FlowCurl: o.flowCurl = std::clamp(r.flowCurl + v * 25.0f, 0.0f, 50.0f); break;
-        case LfoTarget::FlowForce: o.flowForce = std::clamp(r.flowForce + v * 1.5f, 0.0f, 3.0f); break;
-        case LfoTarget::EndlessZoomSpeed: o.endlessZoomSpeed = std::clamp(r.endlessZoomSpeed + v * 0.5f, 0.0f, 1.2f); break;
-        case LfoTarget::None: case LfoTarget::Lfo1Rate: case LfoTarget::Lfo1Depth: case LfoTarget::Lfo2Rate:
-        case LfoTarget::Lfo2Depth: case LfoTarget::Lfo3Rate: case LfoTarget::Lfo3Depth:
-            break;
-    }
+    Drive drive{};
+    if (!driveOf(target, drive)) return o;
+    const ParamSpec& spec = SceneParams::spec(drive.slot);
+    const float moved = r.*drive.member + v * drive.scale;
+    o.*drive.member = spec.kind == ParamKind::Circular ? moved : std::clamp(moved, spec.min, spec.max);
     return o;
 }
 
@@ -123,7 +147,7 @@ const std::array<float, LfoEngine::kSlots>& LfoEngine::tick(float dt, const Geod
         const float depth = std::clamp(c.depth + depthAdd_[i], 0.0f, 2.0f);
         float raw = 0.0f;
         switch (c.source) {
-            case ModSource::Lfo: raw = oscillator(i, c, dt); break;
+            case ModSource::Lfo: raw = oscillator(i, c, dt, sound); break;
             // The sound engine's frame: the bands' fast att envelopes halved (typical 0.5, a hit 1),
             // the shaped level, the centroid, the note-start envelope and the stereo field.
             case ModSource::Bass: raw = follow(i, 0.5f * sound.bassAtt, dt); break;
@@ -156,25 +180,81 @@ SceneParams LfoEngine::apply(const SceneParams& p, const std::array<float, kSlot
 }
 
 
-float LfoEngine::oscillator(int i, const LfoConfig& c, float dt) {
-    const float period = std::clamp(c.rateSeconds, LfoConfig::kMinRateSeconds, LfoConfig::kMaxRateSeconds);
-    const float rate = safety::limitLfoRate(std::clamp(1.0f / period + rateAdd_[i], kMinRateHz, kMaxRateHz), c.target);
-    phases_[i] = std::fmod(phases_[i] + rate * dt, 1.0f);
-    totalPhase_[i] = std::fmod(totalPhase_[i] + rate * dt, kShPhaseWrap);
-    const float ph = phases_[i];
+float LfoEngine::syncedPhase(int i, const LfoConfig& c, float dt, const GeodeSoundFrame& sound, bool& wrapped) {
+    constexpr float kLockConf = 0.35f;
+    constexpr float kEaseSeconds = 0.5f;
+    const float n = std::clamp(c.beats, 1.0f, 32.0f);
+    const bool locked = sound.bpm > 0.0f && sound.beatConf >= kLockConf;
+    if (sound.bpm > 0.0f) lastBpm_ = sound.bpm;
+    // The free clock keeps the last good tempo (120 before any), so silence runs on, never stops.
+    const float hz = safety::limitLfoRate(lastBpm_ / 60.0f / n, c.target);
+    const bool limited = hz < lastBpm_ / 60.0f / n;
+    float ph;
+    if (locked && !limited) {
+        // beatCount wraps at 4096, a multiple of 32, so the position stays continuous across the wrap.
+        const float pos = std::fmod(sound.beatCount + sound.beatPhase, n) / n;
+        if (!syncLocked_[i]) {
+            const float d = syncFree_[i] - pos;
+            syncJump_[i] = d - std::round(d);
+        }
+        syncJump_[i] -= syncJump_[i] * std::clamp(dt / kEaseSeconds, 0.0f, 1.0f);
+        syncFree_[i] = pos;
+        ph = pos + syncJump_[i];
+    } else {
+        syncFree_[i] = std::fmod(syncFree_[i] + hz * dt, 1.0f);
+        syncJump_[i] = 0.0f;
+        ph = syncFree_[i];
+    }
+    syncLocked_[i] = locked && !limited;
+    ph -= std::floor(ph);
+    wrapped = ph < prevPhase_[i] - 0.5f;
+    prevPhase_[i] = ph;
+    return ph;
+}
+
+float LfoEngine::oscillator(int i, const LfoConfig& c, float dt, const GeodeSoundFrame& sound) {
+    const bool synced = c.beats >= 1.0f;
+    bool wrapped = false;
+    float ph;
+    if (synced) {
+        ph = syncedPhase(i, c, dt, sound, wrapped);
+    } else {
+        const float period = std::clamp(c.rateSeconds, LfoConfig::kMinRateSeconds, LfoConfig::kMaxRateSeconds);
+        const float rate = safety::limitLfoRate(std::clamp(1.0f / period + rateAdd_[i], kMinRateHz, kMaxRateHz), c.target);
+        phases_[i] = std::fmod(phases_[i] + rate * dt, 1.0f);
+        totalPhase_[i] = std::fmod(totalPhase_[i] + rate * dt, kShPhaseWrap);
+        ph = phases_[i];
+        wrapped = ph < prevPhase_[i];
+        prevPhase_[i] = ph;
+    }
+    std::uniform_real_distribution<float> unit(0.0f, 1.0f);
     switch (c.wave) {
         case LfoWave::Sine: return std::sin(ph * kTau);
         case LfoWave::Triangle: return 4.0f * std::fabs(ph - 0.5f) - 1.0f;
         case LfoWave::Saw: return ph * 2.0f - 1.0f;
         case LfoWave::Square: return ph < 0.5f ? 1.0f : -1.0f;
         case LfoWave::Random: {
+            // Free slots step on each whole turn of the long phase; beat-timed ones on the cycle's wrap.
             const int cycle = static_cast<int>(std::floor(totalPhase_[i]));
-            if (cycle != lastCycle_[i]) {
-                lastCycle_[i] = cycle;
-                std::uniform_real_distribution<float> unit(0.0f, 1.0f);
+            const bool step = synced ? (wrapped || lastCycle_[i] < 0) : cycle != lastCycle_[i];
+            if (step) {
+                lastCycle_[i] = synced ? 0 : cycle;
                 sampleHold_[i] = unit(rng_) * 2.0f - 1.0f;
             }
             return sampleHold_[i];
+        }
+        case LfoWave::RandomGlide: {
+            // Each cycle ends on the value it was gliding to, which becomes the start of the next, so
+            // the output is continuous across the wrap; the first cycle leaves from rest (0).
+            if (lastCycle_[i] < 0) {
+                lastCycle_[i] = 0;
+                glideTo_[i] = unit(rng_) * 2.0f - 1.0f;
+            } else if (wrapped) {
+                glideFrom_[i] = glideTo_[i];
+                glideTo_[i] = unit(rng_) * 2.0f - 1.0f;
+            }
+            const float t = ph * ph * (3.0f - 2.0f * ph);
+            return glideFrom_[i] + (glideTo_[i] - glideFrom_[i]) * t;
         }
     }
     return 0.0f;

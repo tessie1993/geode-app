@@ -324,38 +324,6 @@ data class ProjectTemplate(
     ): List<StudioProject> = tracks.map { track -> newProject(ProjectId(ids.next()), nameFor(track), track, nowMs, ids) }
 }
 
-/** This project as a template: everything but the song. See [ProjectTemplate]. */
-fun StudioProject.toTemplate(
-    id: ProjectId,
-    name: String,
-    nowMs: Long,
-): ProjectTemplate {
-    val kept = edit.timeline.lanes.filter { it.kind != LaneKind.Audio }
-    val keptClips = kept.flatMap { lane -> lane.clips.map { it.id } }.toSet()
-    val lanes = kept.map { lane -> lane.withClips(lane.clips.map(::withoutTake)) }
-    return ProjectTemplate(
-        id = id,
-        name = name,
-        kind = kind,
-        destination = destination,
-        export = export,
-        edit =
-            EditorProject(
-                timeline = Timeline(lanes = lanes, durationMs = edit.timeline.durationMs),
-                markers = MarkerSet(),
-                keyframes = KeyframeSheet().withTracks(edit.keyframes.tracks.filter { it.clipId == null || it.clipId in keptClips }),
-            ),
-        lengthMs = lengthMs,
-        createdAtMs = nowMs,
-    )
-}
-
-private fun withoutTake(clip: Clip): Clip {
-    val scene = clip.content as? ClipContent.Scene ?: return clip
-    // As a plain look the clip has no source of its own any more, so it may stretch to a longer song.
-    return if (scene.takeId == null) clip else clip.copy(content = scene.copy(takeId = null), sourceInMs = 0L, sourceDurationMs = 0L)
-}
-
 /**
  * Fit a template's edit, made over a song of [fromMs], to a song of [toMs].
  *

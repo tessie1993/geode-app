@@ -350,6 +350,35 @@ object GeodeNative {
     /** Mirrors GEODE_MUSIC_STATE_FLOATS: mine, route count, strength, on-action bits, fits-action bits. */
     const val MUSIC_STATE_FLOATS: Int = 5
 
+    /**
+     * Customize › Music's ready-made [recipe]'s routes the style [styleId] can show, in the [vizSetReactions]
+     * layout; every route it holds for a null [styleId] (geode_event_recipe_routes).
+     */
+    external fun eventRecipeRoutes(
+        recipe: Int,
+        styleId: String?,
+    ): FloatArray
+
+    /** [RECIPE_ON] and [RECIPE_FITS] for [recipe] on [styleId] over what plays, [current] (geode_event_recipe_state). */
+    external fun eventRecipeState(
+        recipe: Int,
+        styleId: String,
+        current: FloatArray,
+    ): Int
+
+    /** [current] with [recipe] turned off if on, else on if it fits (geode_event_recipe_toggle). */
+    external fun eventRecipeToggle(
+        recipe: Int,
+        styleId: String,
+        current: FloatArray,
+    ): FloatArray
+
+    /** Mirrors GEODE_RECIPE_ON: every route the recipe would add to the style already plays. */
+    const val RECIPE_ON: Int = 1
+
+    /** Mirrors GEODE_RECIPE_FITS: turning the recipe on stays within GEODE_REACT_ROUTES. */
+    const val RECIPE_FITS: Int = 2
+
     /** Gyro look, -1..1 per axis; read only while camGyro is on. */
     external fun vizSetLook(
         handle: Long,
@@ -362,7 +391,9 @@ object GeodeNative {
      * [vizRender]: hand over what the shell holds every frame; native applies only what changed. [pacedFps]
      * is this surface's own cap (0 free-running; the thermal cap is applied under it natively); the rest is
      * Settings › Performance, with [liquidHotPolicy] 0 simplify, 1 full, 2 pause (`liquid::HotPolicy`).
-     * Answers a bitmask of the `FRAME_*` bits.
+     * The four versions are the shell's counters for its params, LFO, ADSR and tuning (`core/viz/frame/
+     * PushVersions`): native sets a `FRAME_PUSH_*` bit for each it has not applied, and the shell pushes
+     * exactly those before [vizRender]. Answers a bitmask of the `FRAME_*` bits.
      */
     external fun vizFrameBegin(
         handle: Long,
@@ -372,6 +403,10 @@ object GeodeNative {
         postFx: Boolean,
         adaptive: Boolean,
         liquidHotPolicy: Int,
+        paramsVersion: Long,
+        lfoVersion: Long,
+        adsrVersion: Long,
+        tuningVersion: Long,
     ): Int
 
     /** Mirrors GEODE_FRAME_CLEAR_ONLY: native cleared a new surface's first frame; present it, do nothing else. */
@@ -385,6 +420,18 @@ object GeodeNative {
 
     /** Mirrors GEODE_FRAME_LIQUID_MODE: 0 off, 1 full, 2 lite, 3 warp, 4 paused (`liquid::Mode`). */
     fun frameLiquidMode(due: Int): Int = (due ushr 8) and 0xF
+
+    /** Mirrors GEODE_FRAME_PUSH_PARAMS: push the scene params ([vizSetParams]). */
+    const val FRAME_PUSH_PARAMS: Int = 0x10
+
+    /** Mirrors GEODE_FRAME_PUSH_LFO: push every LFO slot ([vizSetLfo]). */
+    const val FRAME_PUSH_LFO: Int = 0x20
+
+    /** Mirrors GEODE_FRAME_PUSH_ADSR: push every ADSR slot ([vizSetAdsr]). */
+    const val FRAME_PUSH_ADSR: Int = 0x40
+
+    /** Mirrors GEODE_FRAME_PUSH_TUNING: push the sound tuning ([vizSetSoundTuning]). */
+    const val FRAME_PUSH_TUNING: Int = 0x80
 
     /**
      * Pins this renderer's auto-director (an export's): from then on it ignores [directorSet], so the live
@@ -484,6 +531,9 @@ object GeodeNative {
         targetFbo: Int,
     )
 
+    /** Pins this renderer for an export (`geode_viz_prepare_offscreen`): offscreen tier, cut, fixed quality. */
+    external fun vizPrepareOffscreen(handle: Long)
+
     external fun vizReleaseScenes(handle: Long)
 
     /**
@@ -507,6 +557,12 @@ object GeodeNative {
      * once (dev.geode.render.scene.Catalogue does).
      */
     external fun catalogueText(): String
+
+    /**
+     * The scene params schema (core/viz/ParamTable.inc) as its versioned line table: per wire slot the
+     * field's name, kind, default, control range and FADE/HOLD (`geode_params_schema_text`). Static; parse once.
+     */
+    external fun paramsSchemaText(): String
 
     /**
      * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
@@ -556,6 +612,34 @@ object GeodeNative {
         input: FloatArray,
         output: FloatArray,
     )
+
+    // Background image bake (core/viz/Underlay): pure, any thread, before vizSetUnderlay.
+
+    /** The centred crop of a [srcW]x[srcH] picture to [targetW]:[targetH]'s aspect, as `[x, y, width, height]`. */
+    external fun underlayCropRect(
+        srcW: Int,
+        srcH: Int,
+        targetW: Int,
+        targetH: Int,
+    ): IntArray
+
+    /** Blurs, then dims, [pixels] (ARGB, [width]x[height]) in place; 0 skips either step. */
+    external fun underlayFinish(
+        pixels: IntArray,
+        width: Int,
+        height: Int,
+        blurRadius: Int,
+        dim: Float,
+    )
+
+    /** The background controls' ranges: amount and dim 0..1 (NaN = 0), blur 0..[underlayBlurMax]. */
+    external fun underlayClampAmount(amount: Float): Float
+
+    external fun underlayClampDim(dim: Float): Float
+
+    external fun underlayClampBlur(radius: Int): Int
+
+    external fun underlayBlurMax(): Int
 
     // Export resampler (core/audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC rate.
 
@@ -684,11 +768,6 @@ object GeodeNative {
         out: LongArray,
     )
 
-    external fun loopSeamWeight(
-        tail: Int,
-        seamFrames: Int,
-    ): Float
-
     /** Every repeat of a long-form loop as (offset µs, loop index) pairs. */
     external fun loopExtendPlan(
         loopUs: Long,
@@ -736,6 +815,9 @@ object GeodeNative {
     )
 
     external fun exportFallbackFps(requestedFps: Int): Int
+
+    /** The requested frame rate clamped to what the export offers, 24..60. */
+    external fun exportClampFps(requestedFps: Int): Int
 
     /** Chapter spans as (start ms, duration ms, source) triples; empty under two clips. */
     external fun chaptersFromClips(
@@ -862,6 +944,13 @@ object GeodeNative {
         heardAtMs: Long,
     ): Boolean
 
+    // Settings › Audio's listening tuning (core/sound/Tuning): the schema behind SoundTuning.
+
+    /** Every `GeodeSoundTuning` slot's default, then every minimum, then every maximum; null when out of memory. */
+    external fun soundTuningSchema(): FloatArray?
+
+    /** Clamps [values] (the tuning's wire form) in place; a NaN or an infinity becomes the slot's default. */
+    external fun soundTuningClamp(values: FloatArray)
     // Fixed-rate frame clock (core/viz/frame/FixedRateClock): Cast's pacing, PTS and audio cut.
     // The caller owns the state, a LongArray(FRAME_CLOCK_STATE), and reads now from System.nanoTime.
 
@@ -894,7 +983,7 @@ object GeodeNative {
     external fun castFormat(out: IntArray)
     // Export post-passes (core/viz/frame/ExportPasses): the watermark, a loop's seam, a Studio transition and
     // its capture. [assets] is the app's AssetManager (typed as Any, as for [vizCreate]); every call but the
-    // three watermark sizes and the seam weight needs the export's GL context current, destroy included.
+    // three watermark sizes and the seam budget needs the export's GL context current, destroy included.
 
     /** "" when the pass built; otherwise why not (the handle must still be destroyed). */
     external fun exportPassError(handle: Long): String
@@ -936,18 +1025,45 @@ object GeodeNative {
         requested: Int,
     ): Int
 
-    external fun exportSeamCapture(
+    /**
+     * After the scene drew source [frame] of a stop of [loopFrames] + [seamFrames]: stashes an opening frame
+     * (returns -1, not presented) or blends the stash over a closing one, and returns the presentation time
+     * in ns at [fps] (core/viz/frame/LoopSeam).
+     */
+    external fun exportSeamFrame(
         handle: Long,
-        index: Int,
-    )
-
-    /** Lays stash frame [index] over the default framebuffer at closing frame [tail] of [seamFrames]. */
-    external fun exportSeamBlend(
-        handle: Long,
-        index: Int,
-        tail: Int,
+        frame: Int,
+        loopFrames: Int,
         seamFrames: Int,
-    )
+        fps: Int,
+    ): Long
+
+    /** The crossfade a loop keeps under the seam stash's GPU budget; [crossfadeMs] when it fits. Pure. */
+    external fun exportSeamBudgetedCrossfadeMs(
+        crossfadeMs: Long,
+        crossfadeFrames: Int,
+        fps: Int,
+        width: Int,
+        height: Int,
+    ): Long
+
+    /**
+     * The fraction of a whole loop render done once source [frame] of stop [stop] of [stops] is drawn,
+     * rising in 0..1 and exactly 1 on the last frame (core/viz/frame/LoopSeam). Pure.
+     */
+    external fun exportLoopProgress(
+        stop: Int,
+        stops: Int,
+        frame: Int,
+        loopFrames: Int,
+        seamFrames: Int,
+    ): Float
+
+    /** The crossfade a finished reel reports: [seamFrames] at [fps] in whole milliseconds. Pure. */
+    external fun exportLoopReportedCrossfadeMs(
+        seamFrames: Int,
+        fps: Int,
+    ): Long
 
     /** [id]: a GL Transitions name; an unknown one only copies. */
     external fun exportTransitionCreate(
@@ -1061,9 +1177,6 @@ object GeodeNative {
 
     /** A surface's stored fps choice as its pacer caps to: snapped to a listed rate, <= 0 the default. */
     external fun surfaceFpsChoice(requestedFps: Int): Int
-
-    /** The rates a surface's fps setting offers, ascending (for the settings rows). */
-    external fun surfaceFpsChoices(): IntArray
 
     const val SURFACE_HAS_SURFACE = 1 shl 0
     const val SURFACE_VISIBLE = 1 shl 1

@@ -93,7 +93,7 @@ function resolveIncludes(source, registry, chain = []) {
   return out.join('\n');
 }
 
-// `style|<id>|<KIND>[|MARCH_DETAIL]`, in catalogue order; SHADER is the kind
+// `style|<id>|<KIND>|<LOOK>[|MARCH_DETAIL]`, in catalogue order; SHADER is the kind
 // ShaderScene draws from shaders/<id>_frag.glsl (the loose styles and every
 // style family).
 function shaderIds() {
@@ -198,17 +198,37 @@ const SHADER_VALUES = {
   uCamDolly: 0, uCamLook: [0, 0, 0],
   // Morph World's genome (lib_world): seed 0, Bubble Nave, as `world_genome_test --dump 0` prints it.
   // Every seed: `--set uWorld=$(world_genome_test --dump <i>)`.
-  uWorld: [1, 6, 5, 1, 0.5, 0.6, 0, 3, 1.6, 0.3, 0.3, 0.8, 0.8, 0.8, 0.6, 1.1, 0, 0.6, 0, 0, 6, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1.6, 0.05, 0, 1.4, 8, 1.6, 2, 0.8, 0.2, 0, 0.12, 0.2, 0, 0, 0.8, 0.55, 0.4, 0.9, 0.04, 1.6, 0, 0, 1, 0, 0, 1, 0.0, -3.0, 0.5, 0.0, 0.5, 0.0, 0.0, 1.5, 0.15, 0.0, 0.0, 0.0, 0.0, 0, 1.47569, 5, 0, 0, 0, 1.9, 1, 0, 1, 0, 0, 0],
+  uWorld: [1, 6, 5, 1, 0.5, 0.6, 0, 3, 1.6, 0.3, 0.3, 0.8, 0.8, 0.8, 0.6, 1.1, 0, 0.6, 0, 0, 6, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.6, 0.05, 0, 1.4, 8, 1.6, 2, 0.8, 0.2, 0, 0.12, 0.2, 0, 0, 0.8, 0.55, 0.4, 0.9, 0.04, 1.6, 0, 0, 1, 0, 0, 1, 0.0, -3.0, 0.5, 0.0, 0.5, 0.0, 0.0, 1.5, 0.15, 0.0, 0.0, 0.0, 0.0, -0.2, 0.6, 0, 0, 1, 2, 0, 1.47569, 5, 0, 0, 0, 1.9, 1, 0, 1, 0, 0],
 };
 
 const SHADER_TEXTURES = { uSoundTex: 'sound', uPalLut: 'palette', uWorldShapes: 'world_shapes', uWorldTex: 'world_tex' };
 
 // Morph World's baked assets (core/viz/world/WorldAssets), handed to the page as the app uploads them:
-// the shape volumes as one 32 x 32 x 512 R8 TEXTURE_3D, the detail maps as an 8-layer R8 TEXTURE_2D_ARRAY.
+// the shape volumes repacked as ShaderScene does (WorldAssets::packAtlas: the file's 32^3 slabs, stacked
+// in z, laid out as a 6 x 4 tile atlas, one 192 x 128 x 32 R8 TEXTURE_3D), the detail maps as an
+// 8-layer R8 TEXTURE_2D_ARRAY.
+const SHAPE_COUNT = 24, SHAPE_RES = 32, ATLAS_COLS = 6, ATLAS_ROWS = 4;
+function packAtlas(slabs) {
+  const W = ATLAS_COLS * SHAPE_RES, H = ATLAS_ROWS * SHAPE_RES, D = SHAPE_RES;
+  if (slabs.length !== SHAPE_COUNT * SHAPE_RES ** 3) throw new Error(`world_shapes.bin is ${slabs.length} bytes`);
+  const atlas = Buffer.alloc(W * H * D);
+  for (let s = 0; s < SHAPE_COUNT; s++) {
+    const ox = (s % ATLAS_COLS) * SHAPE_RES, oy = Math.floor(s / ATLAS_COLS) * SHAPE_RES;
+    for (let z = 0; z < SHAPE_RES; z++) {
+      for (let y = 0; y < SHAPE_RES; y++) {
+        const from = ((s * SHAPE_RES + z) * SHAPE_RES + y) * SHAPE_RES;
+        slabs.copy(atlas, (z * H + oy + y) * W + ox, from, from + SHAPE_RES);
+      }
+    }
+  }
+  return { w: W, h: H, d: D, bytes: atlas };
+}
 function worldAssets() {
-  const read = (f) => fs.readFileSync(path.join(SHADERS, f)).toString('base64');
+  const raw = (f) => fs.readFileSync(path.join(SHADERS, f));
+  const read = (f) => raw(f).toString('base64');
+  const atlas = packAtlas(raw('world_shapes.bin'));
   return {
-    world_shapes: { target: '3d', w: 32, h: 32, d: 512, b64: read('world_shapes.bin') },
+    world_shapes: { target: '3d', w: atlas.w, h: atlas.h, d: atlas.d, b64: atlas.bytes.toString('base64') },
     world_tex: { target: 'array', w: 128, h: 128, d: 8, b64: read('world_textures.bin') },
   };
 }

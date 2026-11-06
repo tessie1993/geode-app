@@ -428,7 +428,7 @@ class VideoExporter(
             if (bitRate < aspect.bitRate) {
                 RingLog.note(TAG, "video bit rate capped to $bitRate for a ${aac.durationUs / 1000} ms render")
             }
-            val (encoder, fps) = openEncoder(aspect, codec.attempts(aspect, requestedFps, bitRate))
+            val (encoder, fps) = openEncoder(aspect, codec.attempts(aspect, GeodeNative.exportClampFps(requestedFps), bitRate))
             encoderRef = encoder
             val inputSurface = encoder.createInputSurface().also { inputSurfaceRef = it }
             encoder.start()

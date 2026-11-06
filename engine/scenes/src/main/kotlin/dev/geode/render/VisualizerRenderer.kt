@@ -14,6 +14,7 @@ import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.atomic.AtomicLong
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
@@ -47,6 +48,12 @@ class VisualizerRenderer(
 
     @Volatile
     var sceneParams: SceneParams = SceneParams.DEFAULT
+        set(value) {
+            field = value
+            paramsVersion = pushVersions.incrementAndGet()
+        }
+
+    @Volatile private var paramsVersion = 0L
 
     /** Vestibular accessibility only; the flash clamp is unconditional inside the native safety pass. */
     @Volatile
@@ -99,14 +106,16 @@ class VisualizerRenderer(
 
     private var soundCursor: SoundCursor? = null
 
-    /** Settings › Audio. Compared by identity on the GL thread, so assign a new instance to change it. */
+    /** Settings › Audio. Every assignment is a new version, pushed on the frame native asks for it. */
     @Volatile
     var soundTuning: SoundTuning = SoundTuning()
+        set(value) {
+            field = value
+            tuningVersion = pushVersions.incrementAndGet()
+        }
 
-    private var nativeSoundTuning: SoundTuning? = null
+    @Volatile private var tuningVersion = 0L
 
-    // Config holders only: native ticks its own LfoEngine/AdsrEngine against the configs
-    // syncNativeState forwards below (core/viz/RendererFrame.cpp).
     val lfoEngine = LfoEngine()
 
     val adsrEngine = AdsrEngine()
@@ -138,9 +147,6 @@ class VisualizerRenderer(
         NativeViz(context).also { viz ->
             viz.onCreated = { milkPreset.restorePath?.let(viz::loadMilkPreset) }
         }
-    private var nativeParams: SceneParams? = null
-    private var nativeLfo: List<LfoConfig>? = null
-    private var nativeAdsr: List<AdsrConfig>? = null
     private var nativeReactions: List<ReactionRoute>? = null
     private val liquidModeState = MutableStateFlow(0)
 
@@ -231,11 +237,7 @@ class VisualizerRenderer(
     ) {
         ThermalGovernor.attach(appContext)
         nativeViz.surfaceCreated()
-        nativeParams = null
-        nativeLfo = null
-        nativeAdsr = null
         nativeReactions = null
-        nativeSoundTuning = null
         // A new native renderer starts a new engine: hand it a full window, not the tail of the last.
         soundCursor = null
     }
@@ -280,7 +282,8 @@ class VisualizerRenderer(
      * says what is due (`core/viz/frame/Cadence`): native skips a repeated quality push, clears a new
      * surface's first frame and builds nothing on it (so `GLSurfaceView.surfaceChanged`, parked on the
      * main thread until this frame ends, is released at once), and picks the frame that reads the
-     * thermal state and the one that hands over a new Liquid label.
+     * thermal state and the one that hands over a new Liquid label. It also takes the version of each
+     * pushed input and says which ones this surface still lacks (`core/viz/frame/PushVersions`).
      */
     override fun onDrawFrame(gl: GL10?) {
         val perf = performance
@@ -292,12 +295,16 @@ class VisualizerRenderer(
                 perf.postFx,
                 perf.adaptive,
                 perf.liquidHot.native,
+                paramsVersion,
+                lfoEngine.version,
+                adsrEngine.version,
+                tuningVersion,
             )
         if (due and GeodeNative.FRAME_CLEAR_ONLY != 0) return
         if (due and GeodeNative.FRAME_THERMAL_DUE != 0) ThermalGovernor.sample()
         if (due and GeodeNative.FRAME_LIQUID_CHANGED != 0) liquidModeState.value = GeodeNative.frameLiquidMode(due)
         nativeViz.setScene(requestedSceneId)
-        syncNativeState()
+        syncNativeState(due)
         nativeViz.render(SystemClock.elapsedRealtimeNanos() / NANOS_PER_SECOND, targetFbo = 0)
         nativeViz.pollError(onShaderError)
         nativeViz.takeMilkPresetLoaded()?.let { path ->
@@ -307,22 +314,12 @@ class VisualizerRenderer(
         if (nativeViz.takeDirectorStyleMoments() > 0) onDirectorStyleMoment()
     }
 
-    private fun syncNativeState() {
+    private fun syncNativeState(due: Int) {
         val p = sceneParams
-        if (p !== nativeParams) {
-            nativeViz.setParams(p)
-            nativeParams = p
-        }
-        val lfo = lfoEngine.configs
-        if (lfo !== nativeLfo) {
-            nativeViz.setLfoConfigs(lfo)
-            nativeLfo = lfo
-        }
-        val adsr = adsrEngine.configs
-        if (adsr !== nativeAdsr) {
-            nativeViz.setAdsrConfigs(adsr)
-            nativeAdsr = adsr
-        }
+        if (due and GeodeNative.FRAME_PUSH_PARAMS != 0) nativeViz.setParams(p)
+        if (due and GeodeNative.FRAME_PUSH_LFO != 0) nativeViz.setLfoConfigs(lfoEngine.configs)
+        if (due and GeodeNative.FRAME_PUSH_ADSR != 0) nativeViz.setAdsrConfigs(adsrEngine.configs)
+        if (due and GeodeNative.FRAME_PUSH_TUNING != 0) nativeViz.setSoundTuning(soundTuning.toFloats())
         val routes = styleReactions.routesFor(requestedSceneId, p.reactSeed, reactions, HandMask.current)
         if (routes !== nativeReactions) {
             nativeViz.setReactions(routes)
@@ -332,11 +329,6 @@ class VisualizerRenderer(
         nativeViz.setReducedMotion(reducedMotion)
         nativeViz.setTransition(transitionId, transitionDurationMs)
         pcmProvider()?.let { chunk -> nativeViz.pushPcm(chunk.data, chunk.count) }
-        val tuning = soundTuning
-        if (tuning !== nativeSoundTuning) {
-            nativeViz.setSoundTuning(tuning.toFloats())
-            nativeSoundTuning = tuning
-        }
         feedSound()
     }
 
@@ -360,3 +352,21 @@ class VisualizerRenderer(
 }
 
 private const val NANOS_PER_SECOND = 1_000_000_000.0
+
+/** One counter for every pushed input's version (`core/viz/frame/PushVersions`), so each write gets a larger one. */
+private val pushVersions = AtomicLong()
+
+/** Modulation configs the UI edits; native ticks them (core/viz/RendererFrame.cpp) and asks for a push by [version]. */
+open class PushedConfigs<T>(
+    initial: List<T>,
+) {
+    @Volatile
+    var configs: List<T> = initial
+        set(value) {
+            field = value
+            version = pushVersions.incrementAndGet()
+        }
+
+    @Volatile var version = 0L
+        private set
+}

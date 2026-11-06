@@ -12,6 +12,7 @@ import dev.geode.render.LfoWave
 import dev.geode.render.ModCurve
 import dev.geode.render.ModPolarity
 import dev.geode.render.ModSource
+import dev.geode.render.ModTable
 import dev.geode.render.ReactionRoute
 import dev.geode.render.ReactionRouteCodec
 import org.json.JSONArray
@@ -157,15 +158,15 @@ class LfoStore(
     private fun readRateSeconds(o: JSONObject): Float =
         if (o.has("rateSeconds")) {
             o
-                .optDouble("rateSeconds", LfoConfig.DEFAULT_RATE_SECONDS.toDouble())
+                .optDouble("rateSeconds", ModTable.defaultRateSeconds.toDouble())
                 .toFloat()
-                .coerceIn(LfoConfig.MIN_RATE_SECONDS, LfoConfig.MAX_RATE_SECONDS)
+                .coerceIn(ModTable.minRateSeconds, ModTable.maxRateSeconds)
         } else {
             val hz = o.optDouble("rateHz", 0.0).toFloat()
             if (hz <= 0f) {
-                LfoConfig.DEFAULT_RATE_SECONDS
+                ModTable.defaultRateSeconds
             } else {
-                (1f / hz).coerceIn(LfoConfig.MIN_RATE_SECONDS, LfoConfig.MAX_RATE_SECONDS)
+                (1f / hz).coerceIn(ModTable.minRateSeconds, ModTable.maxRateSeconds)
             }
         }
 

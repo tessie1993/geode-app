@@ -2,12 +2,11 @@
 // and the text table the shell reads through geode_params_schema_text. The ranges some rows quote
 // from their owners (the catalogue's touch and Detail ranges, the cymatics plate, the fluid tiers) are
 // why this file includes those headers; the struct itself (Params.hpp) needs none of them.
-#include <cstdio>
-#include <cstdlib>
 #include <string>
 
 #include "viz/Catalogue.hpp"
 #include "viz/Params.hpp"
+#include "viz/TableNumber.hpp"
 #include "viz/fluid/FluidQuality.hpp"
 #include "viz/scenes/CymaticsMath.hpp"
 
@@ -45,17 +44,6 @@ const char* kindName(ParamKind kind) {
     return "FLOAT";
 }
 
-// The shortest %g form that reads back to exactly v: "0.985", not "0.985000014", and "16777215",
-// not "1.67772e+07", which would read back as another seed.
-std::string number(float v) {
-    char buf[32];
-    for (int digits = 6; digits <= 9; ++digits) {
-        std::snprintf(buf, sizeof buf, "%.*g", digits, static_cast<double>(v));
-        if (std::strtof(buf, nullptr) == v) break;
-    }
-    return buf;
-}
-
 }  // namespace
 
 const std::string& SceneParams::schemaText() {
@@ -64,8 +52,8 @@ const std::string& SceneParams::schemaText() {
         const auto& rows = schema();
         for (int slot = 0; slot < kFieldCount; ++slot) {
             const ParamSpec& s = rows[static_cast<size_t>(slot)];
-            out += "param|" + std::to_string(slot) + "|" + s.name + "|" + kindName(s.kind) + "|" + number(s.defaultValue) +
-                   "|" + number(s.min) + "|" + number(s.max) + "|" + (s.fade == ParamFade::Fade ? "FADE" : "HOLD") + "\n";
+            out += "param|" + std::to_string(slot) + "|" + s.name + "|" + kindName(s.kind) + "|" + tableNumber(s.defaultValue) +
+                   "|" + tableNumber(s.min) + "|" + tableNumber(s.max) + "|" + (s.fade == ParamFade::Fade ? "FADE" : "HOLD") + "\n";
         }
         return out;
     }();

@@ -2,7 +2,7 @@ package dev.geode.editor
 
 import dev.geode.R
 import dev.geode.export.ClipEdit
-import dev.geode.render.scene.Catalogue
+import dev.geode.model.ControlRange
 import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.SceneParams
 import kotlin.math.roundToInt
@@ -29,11 +29,6 @@ object AnimatableParams {
     private const val SCENE = "scene."
     private const val CLIP = "clip."
 
-    // The native catalogue's ranges; declared before the tables that read them.
-    private val DETAIL = Catalogue.range(ParamKeys.MARCH_DETAIL)
-    private val FUNDAMENTAL = Catalogue.range(ParamKeys.FUNDAMENTAL_HZ)
-    private val MAX_MODES = Catalogue.range(ParamKeys.STANDING_WAVES).endInclusive.toInt()
-
     val scene: List<AnimatableParam> = sceneTable()
     val clip: List<AnimatableParam> = clipTable()
 
@@ -58,31 +53,36 @@ object AnimatableParams {
             byId[id]?.writeClip?.invoke(edit, value) ?: edit
         }
 
+    /**
+     * A scene scalar track. Its range is the param's Customize range, [ControlRange.of] by
+     * [field], so a keyframe never leaves what the slider offers (#346); a field the schema lacks
+     * throws when this table is built.
+     */
     private fun scalar(
         field: String,
         label: String,
-        min: Float,
-        max: Float,
         read: (SceneParams) -> Float,
         write: (SceneParams, Float) -> SceneParams,
-    ) = AnimatableParam(
-        id = ParamId(SCENE + field),
-        kind = ParamKind.SCALAR,
-        label = label,
-        min = min,
-        max = max,
-        readScene = { ParamValue.Scalar(read(it)) },
-        writeScene = { p, v -> if (v is ParamValue.Scalar) write(p, v.value.coerceIn(min, max)) else p },
-    )
+    ): AnimatableParam {
+        val range = ControlRange.of(field)
+        return AnimatableParam(
+            id = ParamId(SCENE + field),
+            kind = ParamKind.SCALAR,
+            label = label,
+            min = range.start,
+            max = range.endInclusive,
+            readScene = { ParamValue.Scalar(read(it)) },
+            writeScene = { p, v -> if (v is ParamValue.Scalar) write(p, v.value.coerceIn(range)) else p },
+        )
+    }
 
+    /** A whole-number scene track: a [scalar] whose value rounds, over the schema's whole-number range. */
     private fun count(
         field: String,
         label: String,
-        min: Int,
-        max: Int,
         read: (SceneParams) -> Int,
         write: (SceneParams, Int) -> SceneParams,
-    ) = scalar(field, label, min.toFloat(), max.toFloat(), { read(it).toFloat() }) { p, v -> write(p, v.roundToInt()) }
+    ) = scalar(field, label, { read(it).toFloat() }) { p, v -> write(p, v.roundToInt()) }
 
     private fun toggle(
         field: String,
@@ -145,165 +145,151 @@ object AnimatableParams {
             ) { e, v -> e.copy(rotationDegrees = v) },
         )
 
-    // Ranges follow the sliders in CustomizeTabs so an animated value never leaves what the panel offers.
+    // Ranges are the schema's control ranges, the sliders' own, so an animated value never leaves what the panel offers.
     private fun sceneTable(): List<AnimatableParam> =
         listOf(
-            scalar("speed", ParamKeys.SPEED, 0.05f, 4f, { it.speed }) { p, v -> p.copy(speed = v) },
-            scalar("zoom", ParamKeys.ZOOM, 0.3f, 3f, { it.zoom }) { p, v -> p.copy(zoom = v) },
-            scalar("rotation", ParamKeys.ROTATION, -3f, 3f, { it.rotation }) { p, v -> p.copy(rotation = v) },
-            scalar("sway", ParamKeys.SWAY, 0f, 1f, { it.sway }) { p, v -> p.copy(sway = v) },
-            scalar("turbulence", ParamKeys.TURBULENCE, 0f, 1.5f, { it.turbulence }) { p, v -> p.copy(turbulence = v) },
-            scalar("driftX", ParamKeys.DRIFT_X, -1f, 1f, { it.driftX }) { p, v -> p.copy(driftX = v) },
-            scalar("driftY", ParamKeys.DRIFT_Y, -1f, 1f, { it.driftY }) { p, v -> p.copy(driftY = v) },
-            scalar("camFly", ParamKeys.CAM_FLY, 0f, 2f, { it.camFly }) { p, v -> p.copy(camFly = v) },
-            scalar("camOrbit", ParamKeys.CAM_ORBIT, 0f, 1f, { it.camOrbit }) { p, v -> p.copy(camOrbit = v) },
-            scalar("camPush", ParamKeys.CAM_PUSH, -1f, 1f, { it.camPush }) { p, v -> p.copy(camPush = v) },
-            scalar("camYaw", ParamKeys.CAM_YAW, -1f, 1f, { it.camYaw }) { p, v -> p.copy(camYaw = v) },
-            scalar("camPitch", ParamKeys.CAM_PITCH, -1f, 1f, { it.camPitch }) { p, v -> p.copy(camPitch = v) },
-            scalar("camRoll", ParamKeys.CAM_ROLL, -1f, 1f, { it.camRoll }) { p, v -> p.copy(camRoll = v) },
-            scalar("camFov", ParamKeys.CAM_FOV, 0.5f, 2f, { it.camFov }) { p, v -> p.copy(camFov = v) },
-            scalar("camShake", ParamKeys.CAM_SHAKE, 0f, 1f, { it.camShake }) { p, v -> p.copy(camShake = v) },
+            scalar("speed", ParamKeys.SPEED, { it.speed }) { p, v -> p.copy(speed = v) },
+            scalar("zoom", ParamKeys.ZOOM, { it.zoom }) { p, v -> p.copy(zoom = v) },
+            scalar("rotation", ParamKeys.ROTATION, { it.rotation }) { p, v -> p.copy(rotation = v) },
+            scalar("sway", ParamKeys.SWAY, { it.sway }) { p, v -> p.copy(sway = v) },
+            scalar("turbulence", ParamKeys.TURBULENCE, { it.turbulence }) { p, v -> p.copy(turbulence = v) },
+            scalar("driftX", ParamKeys.DRIFT_X, { it.driftX }) { p, v -> p.copy(driftX = v) },
+            scalar("driftY", ParamKeys.DRIFT_Y, { it.driftY }) { p, v -> p.copy(driftY = v) },
+            scalar("camFly", ParamKeys.CAM_FLY, { it.camFly }) { p, v -> p.copy(camFly = v) },
+            scalar("camOrbit", ParamKeys.CAM_ORBIT, { it.camOrbit }) { p, v -> p.copy(camOrbit = v) },
+            scalar("camPush", ParamKeys.CAM_PUSH, { it.camPush }) { p, v -> p.copy(camPush = v) },
+            scalar("camYaw", ParamKeys.CAM_YAW, { it.camYaw }) { p, v -> p.copy(camYaw = v) },
+            scalar("camPitch", ParamKeys.CAM_PITCH, { it.camPitch }) { p, v -> p.copy(camPitch = v) },
+            scalar("camRoll", ParamKeys.CAM_ROLL, { it.camRoll }) { p, v -> p.copy(camRoll = v) },
+            scalar("camFov", ParamKeys.CAM_FOV, { it.camFov }) { p, v -> p.copy(camFov = v) },
+            scalar("camShake", ParamKeys.CAM_SHAKE, { it.camShake }) { p, v -> p.copy(camShake = v) },
             toggle("endlessZoom", ParamKeys.ENDLESS_ZOOM, { it.endlessZoom }) { p, v -> p.copy(endlessZoom = v) },
-            scalar("endlessZoomSpeed", ParamKeys.DIVE_SPEED, 0.05f, 1.2f, { it.endlessZoomSpeed }) { p, v -> p.copy(endlessZoomSpeed = v) },
-            scalar("warp", ParamKeys.DOMAIN_WARP, 0f, 1f, { it.warp }) { p, v -> p.copy(warp = v) },
-            scalar("ripple", ParamKeys.RIPPLE, 0f, 1f, { it.ripple }) { p, v -> p.copy(ripple = v) },
-            scalar("morph", ParamKeys.MORPH, 0f, 1f, { it.morph }) { p, v -> p.copy(morph = v) },
-            scalar("marchDetail", ParamKeys.MARCH_DETAIL, DETAIL.start, DETAIL.endInclusive, {
+            scalar("endlessZoomSpeed", ParamKeys.DIVE_SPEED, { it.endlessZoomSpeed }) { p, v -> p.copy(endlessZoomSpeed = v) },
+            scalar("warp", ParamKeys.DOMAIN_WARP, { it.warp }) { p, v -> p.copy(warp = v) },
+            scalar("ripple", ParamKeys.RIPPLE, { it.ripple }) { p, v -> p.copy(ripple = v) },
+            scalar("morph", ParamKeys.MORPH, { it.morph }) { p, v -> p.copy(morph = v) },
+            scalar("marchDetail", ParamKeys.MARCH_DETAIL, {
                 it.marchDetail
             }) { p, v -> p.copy(marchDetail = v) },
-            scalar("twist", ParamKeys.TWIST, -1f, 1f, { it.twist }) { p, v -> p.copy(twist = v) },
+            scalar("twist", ParamKeys.TWIST, { it.twist }) { p, v -> p.copy(twist = v) },
             toggle("kaleidoscope", ParamKeys.KALEIDOSCOPE, { it.kaleidoscope }) { p, v -> p.copy(kaleidoscope = v) },
             toggle("mirror", ParamKeys.MIRROR, { it.mirror }) { p, v -> p.copy(mirror = v) },
-            scalar("tile", ParamKeys.TILE, 1f, 6f, { it.tile }) { p, v -> p.copy(tile = v) },
-            scalar("pixelate", ParamKeys.PIXELATE, 0f, 1f, { it.pixelate }) { p, v -> p.copy(pixelate = v) },
+            scalar("tile", ParamKeys.TILE, { it.tile }) { p, v -> p.copy(tile = v) },
+            scalar("pixelate", ParamKeys.PIXELATE, { it.pixelate }) { p, v -> p.copy(pixelate = v) },
             choice(
                 "particleShape",
                 ParamKeys.PARTICLE_SHAPE,
                 SceneParams.PARTICLE_SHAPES,
                 { it.particleShape },
             ) { p, v -> p.copy(particleShape = v) },
-            scalar("particleSize", ParamKeys.PARTICLE_SIZE, 0.3f, 2.5f, { it.particleSize }) { p, v -> p.copy(particleSize = v) },
-            scalar("density", ParamKeys.DENSITY, 0.1f, 1f, { it.density }) { p, v -> p.copy(density = v) },
+            scalar("particleSize", ParamKeys.PARTICLE_SIZE, { it.particleSize }) { p, v -> p.copy(particleSize = v) },
+            scalar("density", ParamKeys.DENSITY, { it.density }) { p, v -> p.copy(density = v) },
             toggle(
                 "milkdropBlendPresets",
                 ParamKeys.BLEND_PRESET_CHANGES,
                 { it.milkdropBlendPresets },
             ) { p, v -> p.copy(milkdropBlendPresets = v) },
-            scalar("audioDrive", ParamKeys.AUDIO_DRIVE, 0.2f, 2.5f, { it.audioDrive }) { p, v -> p.copy(audioDrive = v) },
-            scalar("bassGain", ParamKeys.BASS_GAIN, 0f, 2f, { it.bassGain }) { p, v -> p.copy(bassGain = v) },
-            scalar("midGain", ParamKeys.MID_GAIN, 0f, 2f, { it.midGain }) { p, v -> p.copy(midGain = v) },
-            scalar("trebGain", ParamKeys.TREBLE_GAIN, 0f, 2f, { it.trebGain }) { p, v -> p.copy(trebGain = v) },
-            scalar("paletteMix", ParamKeys.PALETTE_BLEND, 0f, 1f, { it.paletteMix }) { p, v -> p.copy(paletteMix = v) },
-            scalar("milkdropPaletteTint", ParamKeys.MILKDROP_PALETTE_TINT, 0f, 1f, {
+            scalar("audioDrive", ParamKeys.AUDIO_DRIVE, { it.audioDrive }) { p, v -> p.copy(audioDrive = v) },
+            scalar("bassGain", ParamKeys.BASS_GAIN, { it.bassGain }) { p, v -> p.copy(bassGain = v) },
+            scalar("midGain", ParamKeys.MID_GAIN, { it.midGain }) { p, v -> p.copy(midGain = v) },
+            scalar("trebGain", ParamKeys.TREBLE_GAIN, { it.trebGain }) { p, v -> p.copy(trebGain = v) },
+            scalar("paletteMix", ParamKeys.PALETTE_BLEND, { it.paletteMix }) { p, v -> p.copy(paletteMix = v) },
+            scalar("milkdropPaletteTint", ParamKeys.MILKDROP_PALETTE_TINT, {
                 it.milkdropPaletteTint
             }) { p, v -> p.copy(milkdropPaletteTint = v) },
-            scalar("colorShift", ParamKeys.HUE_SHIFT, 0f, 1f, { it.colorShift }) { p, v -> p.copy(colorShift = v) },
-            scalar("hueRange", ParamKeys.HUE_RANGE, 0f, 1.5f, { it.hueRange }) { p, v -> p.copy(hueRange = v) },
+            scalar("colorShift", ParamKeys.HUE_SHIFT, { it.colorShift }) { p, v -> p.copy(colorShift = v) },
+            scalar("hueRange", ParamKeys.HUE_RANGE, { it.hueRange }) { p, v -> p.copy(hueRange = v) },
             toggle("colorCycle", ParamKeys.COLOR_CYCLE, { it.colorCycle }) { p, v -> p.copy(colorCycle = v) },
-            scalar("cycleSpeed", ParamKeys.CYCLE_SPEED, 0.02f, 0.6f, { it.cycleSpeed }) { p, v -> p.copy(cycleSpeed = v) },
-            scalar("saturation", ParamKeys.SATURATION, 0f, 1.5f, { it.saturation }) { p, v -> p.copy(saturation = v) },
-            scalar("brightness", ParamKeys.BRIGHTNESS, 0.2f, 1.25f, { it.brightness }) { p, v -> p.copy(brightness = v) },
-            scalar("contrast", ParamKeys.CONTRAST, 0.3f, 1.25f, { it.contrast }) { p, v -> p.copy(contrast = v) },
-            scalar("gamma", ParamKeys.GAMMA, 0.3f, 2.5f, { it.gamma }) { p, v -> p.copy(gamma = v) },
-            scalar("intensity", ParamKeys.INTENSITY, 0.2f, 1.25f, { it.intensity }) { p, v -> p.copy(intensity = v) },
-            scalar("temperature", ParamKeys.TEMPERATURE, -1f, 1f, { it.temperature }) { p, v -> p.copy(temperature = v) },
-            scalar("bloom", ParamKeys.BLOOM, 0f, 0.25f, { it.bloom }) { p, v -> p.copy(bloom = v) },
-            scalar("posterize", ParamKeys.POSTERIZE, 0f, 1f, { it.posterize }) { p, v -> p.copy(posterize = v) },
+            scalar("cycleSpeed", ParamKeys.CYCLE_SPEED, { it.cycleSpeed }) { p, v -> p.copy(cycleSpeed = v) },
+            scalar("saturation", ParamKeys.SATURATION, { it.saturation }) { p, v -> p.copy(saturation = v) },
+            scalar("brightness", ParamKeys.BRIGHTNESS, { it.brightness }) { p, v -> p.copy(brightness = v) },
+            scalar("contrast", ParamKeys.CONTRAST, { it.contrast }) { p, v -> p.copy(contrast = v) },
+            scalar("gamma", ParamKeys.GAMMA, { it.gamma }) { p, v -> p.copy(gamma = v) },
+            scalar("intensity", ParamKeys.INTENSITY, { it.intensity }) { p, v -> p.copy(intensity = v) },
+            scalar("temperature", ParamKeys.TEMPERATURE, { it.temperature }) { p, v -> p.copy(temperature = v) },
+            scalar("bloom", ParamKeys.BLOOM, { it.bloom }) { p, v -> p.copy(bloom = v) },
+            scalar("posterize", ParamKeys.POSTERIZE, { it.posterize }) { p, v -> p.copy(posterize = v) },
             toggle("duotone", ParamKeys.DUOTONE, { it.duotone }) { p, v -> p.copy(duotone = v) },
             toggle("solarize", ParamKeys.SOLARIZE, { it.solarize }) { p, v -> p.copy(solarize = v) },
             toggle("invert", ParamKeys.INVERT, { it.invert }) { p, v -> p.copy(invert = v) },
             toggle("trails", ParamKeys.TRAILS, { it.trails }) { p, v -> p.copy(trails = v) },
-            scalar("trailLength", ParamKeys.TRAIL_LENGTH, 0.05f, 0.98f, { it.trailLength }) { p, v -> p.copy(trailLength = v) },
-            scalar("trailZoom", ParamKeys.TRAIL_ZOOM_ECHO_IN_OUT, -0.5f, 0.5f, { it.trailZoom }) { p, v -> p.copy(trailZoom = v) },
-            scalar("trailWarp", ParamKeys.TRAIL_WARP_LIQUID_ECHO, 0f, 1f, { it.trailWarp }) { p, v -> p.copy(trailWarp = v) },
-            scalar("chromaAb", ParamKeys.CHROMATIC_ABERRATION, 0f, 1f, { it.chromaAb }) { p, v -> p.copy(chromaAb = v) },
-            scalar("vignette", ParamKeys.VIGNETTE, 0f, 1f, { it.vignette }) { p, v -> p.copy(vignette = v) },
-            scalar("scanlines", ParamKeys.SCANLINES, 0f, 1f, { it.scanlines }) { p, v -> p.copy(scanlines = v) },
-            scalar("grain", ParamKeys.FILM_GRAIN, 0f, 1f, { it.grain }) { p, v -> p.copy(grain = v) },
-            scalar("fisheye", ParamKeys.FISHEYE, -1f, 1f, { it.fisheye }) { p, v -> p.copy(fisheye = v) },
+            scalar("trailLength", ParamKeys.TRAIL_LENGTH, { it.trailLength }) { p, v -> p.copy(trailLength = v) },
+            scalar("trailZoom", ParamKeys.TRAIL_ZOOM_ECHO_IN_OUT, { it.trailZoom }) { p, v -> p.copy(trailZoom = v) },
+            scalar("trailWarp", ParamKeys.TRAIL_WARP_LIQUID_ECHO, { it.trailWarp }) { p, v -> p.copy(trailWarp = v) },
+            scalar("chromaAb", ParamKeys.CHROMATIC_ABERRATION, { it.chromaAb }) { p, v -> p.copy(chromaAb = v) },
+            scalar("vignette", ParamKeys.VIGNETTE, { it.vignette }) { p, v -> p.copy(vignette = v) },
+            scalar("scanlines", ParamKeys.SCANLINES, { it.scanlines }) { p, v -> p.copy(scanlines = v) },
+            scalar("grain", ParamKeys.FILM_GRAIN, { it.grain }) { p, v -> p.copy(grain = v) },
+            scalar("fisheye", ParamKeys.FISHEYE, { it.fisheye }) { p, v -> p.copy(fisheye = v) },
             scalar(
                 "waterRippleStrength",
                 ParamKeys.RIPPLE_STRENGTH,
-                0f,
-                2f,
                 { it.waterRippleStrength },
             ) { p, v -> p.copy(waterRippleStrength = v) },
-            scalar("waterDepth", ParamKeys.DEPTH, 0f, 1f, { it.waterDepth }) { p, v -> p.copy(waterDepth = v) },
-            scalar("waterSpecular", ParamKeys.SPECULAR, 0f, 1f, { it.waterSpecular }) { p, v -> p.copy(waterSpecular = v) },
-            scalar("waterFlow", ParamKeys.FLOW_DRIFT, 0f, 1f, { it.waterFlow }) { p, v -> p.copy(waterFlow = v) },
-            scalar("waterWaveSpeed", ParamKeys.WAVE_SPEED, 0.2f, 2f, { it.waterWaveSpeed }) { p, v -> p.copy(waterWaveSpeed = v) },
-            scalar("waterDamping", ParamKeys.DAMPING, 0.9f, 0.999f, { it.waterDamping }) { p, v -> p.copy(waterDamping = v) },
-            scalar("waterLiquid", ParamKeys.LIQUID, 0f, 1f, { it.waterLiquid }) { p, v -> p.copy(waterLiquid = v) },
-            scalar("waterLiquidFlow", ParamKeys.LIQUID_FLOW, 0f, 4f, { it.waterLiquidFlow }) { p, v -> p.copy(waterLiquidFlow = v) },
-            scalar("waterLiquidFade", ParamKeys.LIQUID_FADE, 0f, 2f, { it.waterLiquidFade }) { p, v -> p.copy(waterLiquidFade = v) },
+            scalar("waterDepth", ParamKeys.DEPTH, { it.waterDepth }) { p, v -> p.copy(waterDepth = v) },
+            scalar("waterSpecular", ParamKeys.SPECULAR, { it.waterSpecular }) { p, v -> p.copy(waterSpecular = v) },
+            scalar("waterFlow", ParamKeys.FLOW_DRIFT, { it.waterFlow }) { p, v -> p.copy(waterFlow = v) },
+            scalar("waterWaveSpeed", ParamKeys.WAVE_SPEED, { it.waterWaveSpeed }) { p, v -> p.copy(waterWaveSpeed = v) },
+            scalar("waterDamping", ParamKeys.DAMPING, { it.waterDamping }) { p, v -> p.copy(waterDamping = v) },
+            scalar("waterLiquid", ParamKeys.LIQUID, { it.waterLiquid }) { p, v -> p.copy(waterLiquid = v) },
+            scalar("waterLiquidFlow", ParamKeys.LIQUID_FLOW, { it.waterLiquidFlow }) { p, v -> p.copy(waterLiquidFlow = v) },
+            scalar("waterLiquidFade", ParamKeys.LIQUID_FADE, { it.waterLiquidFade }) { p, v -> p.copy(waterLiquidFade = v) },
             choice("fluidSpawnPath", ParamKeys.PATH, SceneParams.FLUID_PATHS, { it.fluidSpawnPath }) { p, v -> p.copy(fluidSpawnPath = v) },
-            count("fluidSpawnPoints", ParamKeys.SPAWN_POINTS, 1, 8, { it.fluidSpawnPoints }) { p, v -> p.copy(fluidSpawnPoints = v) },
-            count("fluidCatchPoints", ParamKeys.CATCH_POINTS, 0, 4, { it.fluidCatchPoints }) { p, v -> p.copy(fluidCatchPoints = v) },
-            scalar("fluidCatchPull", ParamKeys.CATCH_PULL, 0f, 3f, { it.fluidCatchPull }) { p, v -> p.copy(fluidCatchPull = v) },
+            count("fluidSpawnPoints", ParamKeys.SPAWN_POINTS, { it.fluidSpawnPoints }) { p, v -> p.copy(fluidSpawnPoints = v) },
+            count("fluidCatchPoints", ParamKeys.CATCH_POINTS, { it.fluidCatchPoints }) { p, v -> p.copy(fluidCatchPoints = v) },
+            scalar("fluidCatchPull", ParamKeys.CATCH_PULL, { it.fluidCatchPull }) { p, v -> p.copy(fluidCatchPull = v) },
             scalar(
                 "fluidCatchRadius",
                 ParamKeys.CATCH_RADIUS,
-                0.03f,
-                0.3f,
                 { it.fluidCatchRadius },
             ) { p, v -> p.copy(fluidCatchRadius = v) },
-            count("fluidIterations", ParamKeys.SOLVER_ITERATIONS, 8, 40, { it.fluidIterations }) { p, v -> p.copy(fluidIterations = v) },
-            scalar("fluidCurl", ParamKeys.FLUID_CURL, 0f, 50f, { it.fluidCurl }) { p, v -> p.copy(fluidCurl = v) },
-            scalar("fluidVelocityDissipation", ParamKeys.MOTION_FADE, 0f, 4f, {
+            count("fluidIterations", ParamKeys.SOLVER_ITERATIONS, { it.fluidIterations }) { p, v -> p.copy(fluidIterations = v) },
+            scalar("fluidCurl", ParamKeys.FLUID_CURL, { it.fluidCurl }) { p, v -> p.copy(fluidCurl = v) },
+            scalar("fluidVelocityDissipation", ParamKeys.MOTION_FADE, {
                 it.fluidVelocityDissipation
             }) { p, v -> p.copy(fluidVelocityDissipation = v) },
-            scalar("fluidDensityDissipation", ParamKeys.FLUID_FADE, 0f, 4f, {
+            scalar("fluidDensityDissipation", ParamKeys.FLUID_FADE, {
                 it.fluidDensityDissipation
             }) { p, v -> p.copy(fluidDensityDissipation = v) },
             scalar(
                 "fluidChromaticAging",
                 ParamKeys.CHROMATIC_AGING,
-                0f,
-                1f,
                 { it.fluidChromaticAging },
             ) { p, v -> p.copy(fluidChromaticAging = v) },
-            scalar("fluidPressure", ParamKeys.PRESSURE, 0f, 1f, { it.fluidPressure }) { p, v -> p.copy(fluidPressure = v) },
+            scalar("fluidPressure", ParamKeys.PRESSURE, { it.fluidPressure }) { p, v -> p.copy(fluidPressure = v) },
             choice("fluidBeatPattern", ParamKeys.BEAT_PATTERN, SceneParams.FLUID_PATTERNS, {
                 it.fluidBeatPattern
             }) { p, v -> p.copy(fluidBeatPattern = v) },
-            count("fluidBeatSplats", ParamKeys.BEAT_SPLATS, 0, 8, { it.fluidBeatSplats }) { p, v -> p.copy(fluidBeatSplats = v) },
-            count("fluidStirrers", ParamKeys.STIRRERS, 0, 4, { it.fluidStirrers }) { p, v -> p.copy(fluidStirrers = v) },
+            count("fluidBeatSplats", ParamKeys.BEAT_SPLATS, { it.fluidBeatSplats }) { p, v -> p.copy(fluidBeatSplats = v) },
+            count("fluidStirrers", ParamKeys.STIRRERS, { it.fluidStirrers }) { p, v -> p.copy(fluidStirrers = v) },
             scalar(
                 "fluidStirrerSpeed",
                 ParamKeys.STIRRER_SPEED,
-                0f,
-                2f,
                 { it.fluidStirrerSpeed },
             ) { p, v -> p.copy(fluidStirrerSpeed = v) },
             scalar(
                 "fluidSplatRadius",
                 ParamKeys.FLUID_SPLAT_RADIUS,
-                0.02f,
-                0.4f,
                 { it.fluidSplatRadius },
             ) { p, v -> p.copy(fluidSplatRadius = v) },
-            scalar("fluidRadiusPulse", ParamKeys.RADIUS_ON_BEAT, 0f, 1f, { it.fluidRadiusPulse }) { p, v -> p.copy(fluidRadiusPulse = v) },
-            scalar("fluidSplatForce", ParamKeys.FLUID_SPLAT_FORCE, 0f, 3f, { it.fluidSplatForce }) { p, v -> p.copy(fluidSplatForce = v) },
+            scalar("fluidRadiusPulse", ParamKeys.RADIUS_ON_BEAT, { it.fluidRadiusPulse }) { p, v -> p.copy(fluidRadiusPulse = v) },
+            scalar("fluidSplatForce", ParamKeys.FLUID_SPLAT_FORCE, { it.fluidSplatForce }) { p, v -> p.copy(fluidSplatForce = v) },
             toggle("fluidBassPump", ParamKeys.BASS_PUMP, { it.fluidBassPump }) { p, v -> p.copy(fluidBassPump = v) },
             toggle("fluidSparkle", ParamKeys.TREBLE_SPARKLE, { it.fluidSparkle }) { p, v -> p.copy(fluidSparkle = v) },
-            scalar("fluidPaletteCycleSpeed", ParamKeys.PALETTE_CYCLE, 0f, 2f, {
+            scalar("fluidPaletteCycleSpeed", ParamKeys.PALETTE_CYCLE, {
                 it.fluidPaletteCycleSpeed
             }) { p, v -> p.copy(fluidPaletteCycleSpeed = v) },
             scalar(
                 "fluidParticleDrag",
                 ParamKeys.PARTICLE_DRAG,
-                0.02f,
-                1f,
                 { it.fluidParticleDrag },
             ) { p, v -> p.copy(fluidParticleDrag = v) },
             scalar(
                 "fluidParticleLife",
                 ParamKeys.PARTICLE_LIFE_S,
-                1f,
-                20f,
                 { it.fluidParticleLife },
             ) { p, v -> p.copy(fluidParticleLife = v) },
-            scalar("fluidParticleBrightness", ParamKeys.PARTICLE_BRIGHTNESS, 0f, 2f, {
+            scalar("fluidParticleBrightness", ParamKeys.PARTICLE_BRIGHTNESS, {
                 it.fluidParticleBrightness
             }) { p, v -> p.copy(fluidParticleBrightness = v) },
             toggle("fluidShading", ParamKeys.SHADING_EMBOSSED_INK, { it.fluidShading }) { p, v -> p.copy(fluidShading = v) },
@@ -311,65 +297,55 @@ object AnimatableParams {
             scalar(
                 "fluidBloomIntensity",
                 ParamKeys.FLUID_GLOW,
-                0.1f,
-                2f,
                 { it.fluidBloomIntensity },
             ) { p, v -> p.copy(fluidBloomIntensity = v) },
             scalar(
                 "fluidBloomThreshold",
                 ParamKeys.GLOW_THRESHOLD,
-                0f,
-                1f,
                 { it.fluidBloomThreshold },
             ) { p, v -> p.copy(fluidBloomThreshold = v) },
             toggle("fluidSunrays", ParamKeys.SUNRAYS, { it.fluidSunrays }) { p, v -> p.copy(fluidSunrays = v) },
             scalar(
                 "fluidSunraysWeight",
                 ParamKeys.SUNRAYS_WEIGHT,
-                0.3f,
-                1f,
                 { it.fluidSunraysWeight },
             ) { p, v -> p.copy(fluidSunraysWeight = v) },
-            scalar("fluidCurlAudio", ParamKeys.CURL_FROM_MIDS, 0f, 1f, { it.fluidCurlAudio }) { p, v -> p.copy(fluidCurlAudio = v) },
-            scalar("fluidBloomAudio", ParamKeys.GLOW_FROM_LOUDNESS, 0f, 1f, { it.fluidBloomAudio }) { p, v -> p.copy(fluidBloomAudio = v) },
-            scalar("fluidFadeAudio", ParamKeys.FADE_WHEN_QUIET, 0f, 1f, { it.fluidFadeAudio }) { p, v -> p.copy(fluidFadeAudio = v) },
-            scalar("flowStrength", ParamKeys.FLOW_STRENGTH, 0f, 1f, { it.flowStrength }) { p, v -> p.copy(flowStrength = v) },
-            scalar("flowForce", ParamKeys.FLOW_FORCE, 0f, 3f, { it.flowForce }) { p, v -> p.copy(flowForce = v) },
-            scalar("flowCurl", ParamKeys.FLOW_CURL, 0f, 50f, { it.flowCurl }) { p, v -> p.copy(flowCurl = v) },
-            scalar("rippleOverlayStrength", ParamKeys.RIPPLE_OVERLAY_STRENGTH, 0f, 1f, {
+            scalar("fluidCurlAudio", ParamKeys.CURL_FROM_MIDS, { it.fluidCurlAudio }) { p, v -> p.copy(fluidCurlAudio = v) },
+            scalar("fluidBloomAudio", ParamKeys.GLOW_FROM_LOUDNESS, { it.fluidBloomAudio }) { p, v -> p.copy(fluidBloomAudio = v) },
+            scalar("fluidFadeAudio", ParamKeys.FADE_WHEN_QUIET, { it.fluidFadeAudio }) { p, v -> p.copy(fluidFadeAudio = v) },
+            scalar("flowStrength", ParamKeys.FLOW_STRENGTH, { it.flowStrength }) { p, v -> p.copy(flowStrength = v) },
+            scalar("flowForce", ParamKeys.FLOW_FORCE, { it.flowForce }) { p, v -> p.copy(flowForce = v) },
+            scalar("flowCurl", ParamKeys.FLOW_CURL, { it.flowCurl }) { p, v -> p.copy(flowCurl = v) },
+            scalar("rippleOverlayStrength", ParamKeys.RIPPLE_OVERLAY_STRENGTH, {
                 it.rippleOverlayStrength
             }) { p, v -> p.copy(rippleOverlayStrength = v) },
             scalar(
                 "rippleOverlaySpecular",
                 ParamKeys.RIPPLE_GLINT,
-                0f,
-                1f,
                 { it.rippleOverlaySpecular },
             ) { p, v -> p.copy(rippleOverlaySpecular = v) },
             choice("cymaticsGeometry", ParamKeys.GEOMETRY, SceneParams.CYMATICS_GEOMETRIES, {
                 it.cymaticsGeometry
             }) { p, v -> p.copy(cymaticsGeometry = v) },
-            scalar("cymaticsFundamental", ParamKeys.FUNDAMENTAL_HZ, FUNDAMENTAL.start, FUNDAMENTAL.endInclusive, {
+            scalar("cymaticsFundamental", ParamKeys.FUNDAMENTAL_HZ, {
                 it.cymaticsFundamental
             }) { p, v -> p.copy(cymaticsFundamental = v) },
-            count("cymaticsModes", ParamKeys.STANDING_WAVES, 1, MAX_MODES, {
+            count("cymaticsModes", ParamKeys.STANDING_WAVES, {
                 it.cymaticsModes
             }) { p, v -> p.copy(cymaticsModes = v) },
-            scalar("cymaticsFocus", ParamKeys.TONAL_FOCUS, 0f, 1f, { it.cymaticsFocus }) { p, v -> p.copy(cymaticsFocus = v) },
-            scalar("cymaticsRing", ParamKeys.PLATE_RING, 0f, 1f, { it.cymaticsRing }) { p, v -> p.copy(cymaticsRing = v) },
-            scalar("cymaticsScale", ParamKeys.FIELD_SCALE, 0.5f, 8f, { it.cymaticsScale }) { p, v -> p.copy(cymaticsScale = v) },
-            scalar("cymaticsFlow", ParamKeys.WAVE_FLOW, 0f, 1f, { it.cymaticsFlow }) { p, v -> p.copy(cymaticsFlow = v) },
-            scalar("cymaticsSwirl", ParamKeys.FIELD_SWIRL, -1f, 1f, { it.cymaticsSwirl }) { p, v -> p.copy(cymaticsSwirl = v) },
-            scalar("cymaticsFill", ParamKeys.FILL, 0f, 1f, { it.cymaticsFill }) { p, v -> p.copy(cymaticsFill = v) },
-            scalar("cymaticsLine", ParamKeys.NODAL_LINES, 0f, 2f, { it.cymaticsLine }) { p, v -> p.copy(cymaticsLine = v) },
-            scalar("cymaticsGlow", ParamKeys.NODAL_GLOW, 0f, 2f, { it.cymaticsGlow }) { p, v -> p.copy(cymaticsGlow = v) },
+            scalar("cymaticsFocus", ParamKeys.TONAL_FOCUS, { it.cymaticsFocus }) { p, v -> p.copy(cymaticsFocus = v) },
+            scalar("cymaticsRing", ParamKeys.PLATE_RING, { it.cymaticsRing }) { p, v -> p.copy(cymaticsRing = v) },
+            scalar("cymaticsScale", ParamKeys.FIELD_SCALE, { it.cymaticsScale }) { p, v -> p.copy(cymaticsScale = v) },
+            scalar("cymaticsFlow", ParamKeys.WAVE_FLOW, { it.cymaticsFlow }) { p, v -> p.copy(cymaticsFlow = v) },
+            scalar("cymaticsSwirl", ParamKeys.FIELD_SWIRL, { it.cymaticsSwirl }) { p, v -> p.copy(cymaticsSwirl = v) },
+            scalar("cymaticsFill", ParamKeys.FILL, { it.cymaticsFill }) { p, v -> p.copy(cymaticsFill = v) },
+            scalar("cymaticsLine", ParamKeys.NODAL_LINES, { it.cymaticsLine }) { p, v -> p.copy(cymaticsLine = v) },
+            scalar("cymaticsGlow", ParamKeys.NODAL_GLOW, { it.cymaticsGlow }) { p, v -> p.copy(cymaticsGlow = v) },
             scalar(
                 "cymaticsIridescence",
                 ParamKeys.IRIDESCENCE,
-                0f,
-                1f,
                 { it.cymaticsIridescence },
             ) { p, v -> p.copy(cymaticsIridescence = v) },
-            scalar("cymaticsCaustic", ParamKeys.CAUSTIC_SHEEN, 0f, 1.5f, { it.cymaticsCaustic }) { p, v -> p.copy(cymaticsCaustic = v) },
+            scalar("cymaticsCaustic", ParamKeys.CAUSTIC_SHEEN, { it.cymaticsCaustic }) { p, v -> p.copy(cymaticsCaustic = v) },
         )
 }

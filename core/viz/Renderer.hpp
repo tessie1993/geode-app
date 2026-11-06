@@ -18,7 +18,6 @@
 #include "viz/CameraRig.hpp"
 #include "viz/CompositePass.hpp"
 #include "viz/Director.hpp"
-#include "viz/FlashLimiter.hpp"
 #include "viz/Framebuffer.hpp"
 #include "viz/GlProfile.hpp"
 #include "viz/LayerState.hpp"
@@ -26,7 +25,6 @@
 #include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/NoteResponse.hpp"
-#include "viz/OutputProbe.hpp"
 #include "viz/Overlays.hpp"
 #include "viz/Params.hpp"
 #include "viz/PcmHandoff.hpp"
@@ -185,8 +183,6 @@ private:
     void bindSecondaryTarget();
     void drawSceneTarget(Scene& scene, const SceneParams& p, float dt);
     void composite(const SceneParams& p, float progress, GLuint targetFbo, GLuint liquidTex);
-    // Feeds the landed output measurements to the flash limiter and takes this frame's grade.
-    void stepFlashLimiter(float dt);
     // After the composite: the UI blur region, live surfaces only; nothing at strength 0.
     void drawUiBlur(GLuint targetFbo);
     // After the composite, before the output probe: the wallpaper's edge glow, while the shell has it on.
@@ -240,13 +236,6 @@ private:
     TrailPass trailPass_;
     CompositePass compositePass_;
     CompositePass::Inputs compositeInputs_;
-    // The photosensitive flash limit (FlashLimiter.hpp): the probe measures each finished frame, the
-    // limiter reads those one or two frames late and grades the next frame. Its own clock (the sum of
-    // frame dts) never wraps or steps back, unlike timeSeconds_.
-    OutputProbe outputProbe_;
-    safety::FlashLimiter flashLimiter_;
-    safety::Grade flashGrade_;
-    double safetyClock_ = 0.0;
     ThermalGovernor thermal_;
     LfoEngine lfo_;
     AdsrEngine adsr_;
@@ -386,8 +375,6 @@ private:
     SceneParams displayedParams_;
     SceneParams lastFinalParams_;
     std::array<float, LfoEngine::kSlots> envRate_{};
-    // The envelopes' and LFOs' luminance modulation this frame, for the flash limiter (resolveParams).
-    LuminanceDrive luminanceDrive_{};
     std::array<float, LfoEngine::kSlots> envDepth_{};
     float postRotationAngle_ = 0.0f;
     float postCyclePhase_ = 0.0f;

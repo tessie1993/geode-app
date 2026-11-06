@@ -846,12 +846,117 @@ object GeodeNative {
         heardAtMs: Long,
     ): Boolean
 
+    // Export post-passes (core/viz/frame/ExportPasses): the watermark, a loop's seam, a Studio transition and
+    // its capture. [assets] is the app's AssetManager (typed as Any, as for [vizCreate]); every call but the
+    // three watermark sizes and the seam weight needs the export's GL context current, destroy included.
+
+    /** "" when the pass built; otherwise why not (the handle must still be destroyed). */
+    external fun exportPassError(handle: Long): String
+
+    external fun exportPassDestroy(handle: Long)
+
+    /** The wordmark's text size in pixels for a frame whose short side is [shortSide]. */
+    external fun exportWatermarkTextPx(shortSide: Int): Float
+
+    /** The power-of-two tile width for the wordmark measured at [textWidth] pixels. */
+    external fun exportWatermarkTileWidth(textWidth: Float): Int
+
+    external fun exportWatermarkTileHeight(tileWidth: Int): Int
+
+    /** [rgba]: a direct buffer of the tile's premultiplied RGBA8 pixels, top row first (Bitmap.copyPixelsToBuffer). */
+    external fun exportWatermarkCreate(
+        assets: Any,
+        rgba: java.nio.ByteBuffer,
+        tileWidth: Int,
+        tileHeight: Int,
+    ): Long
+
+    /** Over the default framebuffer, after the scene. */
+    external fun exportWatermarkDraw(
+        handle: Long,
+        frameWidth: Int,
+        frameHeight: Int,
+    )
+
+    external fun exportSeamCreate(
+        assets: Any,
+        width: Int,
+        height: Int,
+    ): Long
+
+    /** Returns how many of [requested] stash frames fitted on the GPU. */
+    external fun exportSeamAllocate(
+        handle: Long,
+        requested: Int,
+    ): Int
+
+    external fun exportSeamCapture(
+        handle: Long,
+        index: Int,
+    )
+
+    /** Lays stash frame [index] over the default framebuffer at closing frame [tail] of [seamFrames]. */
+    external fun exportSeamBlend(
+        handle: Long,
+        index: Int,
+        tail: Int,
+        seamFrames: Int,
+    )
+
+    /** [id]: a GL Transitions name; an unknown one only copies. */
+    external fun exportTransitionCreate(
+        assets: Any,
+        id: String,
+        durationUs: Long,
+    ): Long
+
+    external fun exportTransitionConfigure(
+        handle: Long,
+        width: Int,
+        height: Int,
+    )
+
+    /** [rgba]: a direct buffer, RGBA8 bottom row first; the first one is kept. */
+    external fun exportTransitionSetFrom(
+        handle: Long,
+        rgba: java.nio.ByteBuffer,
+        width: Int,
+        height: Int,
+    )
+
+    /** Into the framebuffer and viewport Media3 bound for this program's output. */
+    external fun exportTransitionDraw(
+        handle: Long,
+        inputTex: Int,
+        ptsUs: Long,
+    )
+
+    external fun exportCaptureCreate(assets: Any): Long
+
+    external fun exportCaptureConfigure(
+        handle: Long,
+        width: Int,
+        height: Int,
+    )
+
+    external fun exportCaptureDraw(
+        handle: Long,
+        inputTex: Int,
+    )
+
+    /** Writes the last frame drawn (RGBA8, bottom row first) into the direct buffer [out]; false when none or it is too small. */
+    external fun exportCaptureRead(
+        handle: Long,
+        out: java.nio.ByteBuffer,
+    ): Boolean
+
     /**
      * The GL Transitions library as UTF-8 bytes, in the control-separated table of
      * `core/viz/TransitionLibrary.hpp`; read from the APK once per process, empty when missing.
      * [assets] is the app's `AssetManager`, typed as Any like [vizCreate]'s.
      */
     external fun transitionsTable(assets: Any): ByteArray
+
     // Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High.
 
     /** Floats [perfTier] writes: render scale, fps cap, march scale, post FX (0/1), adaptive (0/1). */

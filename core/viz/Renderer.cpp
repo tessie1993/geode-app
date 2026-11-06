@@ -271,10 +271,10 @@ void Renderer::setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& 
     adsrConfigsDirty_ = true;
 }
 
-void Renderer::setUserReactions(const HandRoutes& user) {
+void Renderer::setReactionRoutes(const std::array<ReactRoute, ReactionEngine::kRoutes>& routes) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    userReactions_ = user;
-    userReactionsDirty_ = true;
+    reactionRoutes_ = routes;
+    reactionRoutesDirty_ = true;
 }
 
 void Renderer::fail(const std::string& message) {
@@ -520,7 +520,10 @@ void Renderer::applyStyleSchedule() {
         requestedMilk = lastMilkPreset_;
     }
     // The segment's first look is already requested (prepare()); asking again would only reload it.
-    if (cue->sceneId != requestedScene) setScene(cue->sceneId);
+    if (cue->sceneId != requestedScene) {
+        setScene(cue->sceneId);
+        if (scheduledSceneHook_) scheduledSceneHook_(cue->sceneId);
+    }
     if (!cue->milkPath.empty() && cue->milkPath != requestedMilk) loadMilkPreset(cue->milkPath);
 }
 

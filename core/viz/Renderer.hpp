@@ -5,6 +5,7 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -14,7 +15,6 @@
 
 #include "api/geode_api.h"
 #include "signal/Resolver.hpp"
-#include "signal/bindings/PlayingRoutes.hpp"
 #include "sound/PlayerSignals.hpp"
 #include "sound/SoundEngine.hpp"
 #include "viz/Adsr.hpp"
@@ -33,7 +33,6 @@
 #include "viz/PcmHandoff.hpp"
 #include "viz/ProgramBinaryCache.hpp"
 #include "viz/ProgramStager.hpp"
-#include "viz/ReactionDna.hpp"
 #include "viz/Reactions.hpp"
 #include "viz/Scene.hpp"
 #include "viz/ScenePrep.hpp"
@@ -124,11 +123,7 @@ public:
     int takeDirectorStyleMoments() { return directorStyleMoments_.exchange(0, std::memory_order_acq_rel); }
     void setLfoConfigs(const std::array<LfoConfig, LfoEngine::kSlots>& configs);
     void setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& configs);
-    // The user's own reaction routes (`user.user` false: none, the style's DNA plays). The renderer resolves
-    // what plays itself at each frame latch (signal::PlayingRoutes): the requested style's DNA at the
-    // params' reactSeed, merged with this list under the frame's hand mask, so a StyleSchedule switch
-    // re-deals the DNA in the frame it lands (#352).
-    void setUserReactions(const HandRoutes& user);
+    void setReactionRoutes(const std::array<ReactRoute, ReactionEngine::kRoutes>& routes);
     // Gyro look, -1..1 per axis; read by the camera only while camGyro is on.
     void setLook(float yaw, float pitch) {
         lookYaw_.store(yaw, std::memory_order_relaxed);
@@ -153,6 +148,9 @@ public:
     // Styles in `lockedIds` (the entitlement) are dropped from it.
     void setStyleSchedule(std::vector<StyleCue> cues, std::vector<std::string> beatCutIds, int everyBeats,
                           const std::vector<std::string>& lockedIds);
+    // Told, on the GL thread inside beginFrame, each scene the style schedule switches to, before this frame's
+    // params resolve. geode_viz uses it to re-deal the reaction DNA to the style now playing (#352).
+    void setScheduledSceneHook(std::function<void(const std::string&)> hook) { scheduledSceneHook_ = std::move(hook); }
     void warmTransition(const std::string& id);
     void cut();
     void render(double timeSeconds, GLuint targetFbo);
@@ -327,12 +325,10 @@ private:
     // The configs the shell last set, handed to the resolver at the next frame latch (stateLock_).
     std::array<LfoConfig, LfoEngine::kSlots> lfoConfigs_{};
     std::array<AdsrConfig, AdsrEngine::kCount> adsrConfigs_{};
-    HandRoutes userReactions_{};
+    std::array<ReactRoute, ReactionEngine::kRoutes> reactionRoutes_{};
     bool lfoConfigsDirty_ = false;
     bool adsrConfigsDirty_ = false;
-    bool userReactionsDirty_ = false;
-    // GL thread, at the frame latch: the routes the requested style plays (#352).
-    signal::PlayingRoutes playingRoutes_;
+    bool reactionRoutesDirty_ = false;
     PcmHandoff pcm_;
     int framePcmCount_ = 0;  // GL thread: samples of pcmDeliverScratch_ this frame's scenes get.
     std::vector<float> pcmDeliverScratch_;
@@ -363,6 +359,7 @@ private:
     // setStyleSchedule's latest schedule, moved into styleSchedule_ by the GL thread (stateLock_).
     std::optional<StyleSchedule> styleScheduleRequest_;
     StyleSchedule styleSchedule_;
+    std::function<void(const std::string&)> scheduledSceneHook_;
     bool milkReloadRequested_ = false;
     std::string milkTextureDir_;
     bool milkTextureDirDirty_ = false;

@@ -46,7 +46,6 @@ class NativeViz(
     @Synchronized
     fun create(): Boolean {
         if (handle == 0L) {
-            verifyLayouts()
             handle = GeodeNative.vizCreate(assets, cacheDir)
             sent.clear()
             if (handle != 0L) {
@@ -159,16 +158,14 @@ class NativeViz(
         configs.take(AdsrEngine.COUNT).forEachIndexed { slot, c -> GeodeNative.vizSetAdsr(handle, slot, ModConfigCodec.packAdsr(c)) }
     }
 
-    /** The user's own routes, null for none; native resolves what plays (the requested style's DNA, merged under the hand mask). */
-    fun setUserReactions(routes: List<ReactionRoute>?) {
-        if (handle != 0L) GeodeNative.vizSetUserReactions(handle, routes?.let { BuildStyleReactionsUseCase.packExact(it) })
-    }
-
-    fun setLook(
-        yaw: Float,
-        pitch: Float,
+    /** The user's routes and hand mask, sent only when [routes] (by identity) or [mask] changes; native resolves what plays. */
+    fun setUserReactions(
+        routes: List<ReactionRoute>?,
+        mask: Int,
     ) {
-        if (handle != 0L && sent.look(yaw, pitch)) GeodeNative.vizSetLook(handle, yaw, pitch)
+        if (handle != 0L && sent.userReactions(routes, mask)) {
+            GeodeNative.vizSetUserReactions(handle, routes?.let { BuildStyleReactionsUseCase.packExact(it) }, mask)
+        }
     }
 
     fun gyroSample(
@@ -342,15 +339,6 @@ class NativeViz(
 
     private companion object {
         const val UI_BLUR_FLOATS = 6
-
-        @Volatile
-        private var verified = false
-
-        fun verifyLayouts() {
-            if (verified) return
-            SceneParamsCodec.verify(GeodeNative.vizParamNames())
-            verified = true
-        }
     }
 }
 
@@ -367,6 +355,9 @@ internal class LastSent {
     private var transitionId: String? = null
     private var transitionMs = -1L
     private var fps = Float.NaN
+    private var routes: List<ReactionRoute>? = null
+    private var routesMask = 0
+    private var routesSent = false
 
     fun look(
         y: Float,
@@ -392,6 +383,17 @@ internal class LastSent {
 
     fun pacedFps(f: Float): Boolean = (f != fps).also { if (it) fps = f }
 
+    fun userReactions(
+        r: List<ReactionRoute>?,
+        mask: Int,
+    ): Boolean {
+        if (routesSent && r === routes && mask == routesMask) return false
+        routes = r
+        routesMask = mask
+        routesSent = true
+        return true
+    }
+
     fun clear() {
         yaw = Float.NaN
         pitch = Float.NaN
@@ -399,5 +401,8 @@ internal class LastSent {
         transitionId = null
         transitionMs = -1L
         fps = Float.NaN
+        routes = null
+        routesMask = 0
+        routesSent = false
     }
 }

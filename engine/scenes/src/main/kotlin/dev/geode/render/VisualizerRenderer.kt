@@ -117,9 +117,9 @@ class VisualizerRenderer(
     val adsrEngine = AdsrEngine()
 
     /**
-     * The user's own reaction routes, or null to play the style's DNA. Native resolves what plays at each
-     * frame (core/signal/bindings/PlayingRoutes): the requested style's DNA at `reactSeed`, the list only on
-     * the moments [HandMask] gives the user. Compared by identity, so assign a new list to change it.
+     * The user's own reaction routes, or null to play the style's DNA
+     * ([BuildStyleReactionsUseCase] for the current scene and `reactSeed`). A list plays only on the
+     * moments [HandMask] gives the user; every other moment plays the live DNA (resolved natively).
      */
     @Volatile
     var reactions: List<ReactionRoute>? = null
@@ -149,7 +149,6 @@ class VisualizerRenderer(
         NativeViz(context).also { viz ->
             viz.onCreated = { milkPreset.restorePath?.let(viz::loadMilkPreset) }
         }
-    private var nativeReactions: List<ReactionRoute>? = null
     private val liquidModeState = MutableStateFlow(0)
 
     /**
@@ -239,8 +238,6 @@ class VisualizerRenderer(
     ) {
         ThermalGovernor.attach(appContext)
         nativeViz.surfaceCreated()
-        // The handle may outlive the surface; resend so it never keeps a list the shell has since dropped.
-        nativeReactions = reactions.also(nativeViz::setUserReactions)
         // A new native renderer starts a new engine: hand it a full window, not the tail of the last.
         soundCursor = null
     }
@@ -323,11 +320,8 @@ class VisualizerRenderer(
         if (due and GeodeNative.FRAME_PUSH_LFO != 0) nativeViz.setLfoConfigs(lfoEngine.configs)
         if (due and GeodeNative.FRAME_PUSH_ADSR != 0) nativeViz.setAdsrConfigs(adsrEngine.configs)
         if (due and GeodeNative.FRAME_PUSH_TUNING != 0) nativeViz.setSoundTuning(soundTuning.toFloats())
-        val routes = reactions
-        if (routes !== nativeReactions) {
-            nativeViz.setUserReactions(routes)
-            nativeReactions = routes
-        }
+        // Native resolves what plays from these, the scene and reactSeed, only when one changes.
+        nativeViz.setUserReactions(reactions, HandMask.current)
         val azimuth = gyroAzimuth
         if (azimuth.isNaN() || gyroSession != nativeGyroSession) nativeViz.gyroReset()
         nativeGyroSession = gyroSession

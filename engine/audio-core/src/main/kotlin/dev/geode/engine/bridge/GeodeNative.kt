@@ -1,5 +1,7 @@
 package dev.geode.engine.bridge
 
+// The one JNI surface (AGENTS.md): every native call is declared here, so its size is the native API's.
+@Suppress("TooManyFunctions")
 object GeodeNative {
     init {
         System.loadLibrary("geode")
@@ -43,10 +45,67 @@ object GeodeNative {
         millibels: Int,
     )
 
-    external fun dspSetGainDb(
+    // Playback gain (core/audio/dsp/GainStage): the shell says targets and lengths; the ramps, the dB maths
+    // and when each applies are native.
+
+    /** The UI fade (pause, resume, skip) to [db] over [ms]; -inf or <= -80 dB is silence. */
+    external fun dspRampTo(
         handle: Long,
         db: Float,
+        ms: Int,
     )
+
+    /** The sleep timer's time left (< 0 when cancelled or done); returns the ms until native next needs it. */
+    external fun dspSleepFade(
+        handle: Long,
+        remainingMs: Long,
+    ): Long
+
+    external fun dspSetCrossfade(
+        handle: Long,
+        ms: Int,
+    )
+
+    /** Whether something plays after the current item on its own: a next item, or repeat one. */
+    external fun dspSetFollowsOn(
+        handle: Long,
+        followsOn: Boolean,
+    )
+
+    external fun dspSetSpeed(
+        handle: Long,
+        speed: Float,
+    )
+
+    /** ReplayGain mode (0 off, 1 track, 2 album), preamp and clip guard. */
+    external fun dspSetReplayGain(
+        handle: Long,
+        mode: Int,
+        preampDb: Float,
+        clipGuard: Boolean,
+    )
+
+    /** One track's ReplayGain tags by stream name (its URI); [mask] holds the 1, 2, 4, 8 bits of those present. */
+    external fun dspSetStreamTags(
+        handle: Long,
+        stream: String,
+        mask: Int,
+        trackGainDb: Float,
+        trackPeak: Float,
+        albumGainDb: Float,
+        albumPeak: Float,
+    )
+
+    /** Playback thread, right after [dspFlush]: the stream whose first sample comes next. */
+    external fun dspBeginStream(
+        handle: Long,
+        stream: String?,
+        positionUs: Long,
+        durationUs: Long,
+    )
+
+    /** Playback thread: the stream's last sample has been queued. */
+    external fun dspEndStream(handle: Long)
 
     external fun dspSetCrossfeed(
         handle: Long,
@@ -131,8 +190,6 @@ object GeodeNative {
     ): Long
 
     external fun vizDestroy(handle: Long)
-
-    external fun vizParamNames(): String
 
     external fun vizSetParams(
         handle: Long,
@@ -276,12 +333,13 @@ object GeodeNative {
     )
 
     /**
-     * The user's own reaction routes, `REACT_ROUTE_FLOATS` per route, or null for none (geode_viz_set_user_reactions).
-     * The renderer resolves what plays itself each frame: the requested style's DNA, merged with [user] under the hand mask.
+     * The user's reaction [routes] (`REACT_ROUTE_FLOATS` per route; null: none, the DNA plays) under the hand
+     * [mask] (geode_viz_set_user_reactions). Native resolves what plays from these, the scene and `reactSeed`.
      */
     external fun vizSetUserReactions(
         handle: Long,
-        user: FloatArray?,
+        routes: FloatArray?,
+        mask: Int,
     )
 
     /**
@@ -340,8 +398,11 @@ object GeodeNative {
         outHand: IntArray,
     ): FloatArray
 
-    /** The LfoTarget ordinal a new route of Music [action] moves (geode_music_action_target). */
-    external fun musicActionTarget(action: Int): Int
+    /** Bit per Music action whose target reaches [styleId] (geode_music_actions_for). */
+    external fun musicActionsFor(styleId: String): Int
+
+    /** The modulation-target table (geode_mod_targets_text), parsed once by `render/ModTable`. */
+    external fun modTargetsText(): String
 
     /** Mirrors GEODE_HAND_UNCLAIMED. */
     const val HAND_UNCLAIMED: Int = 0x40000000
@@ -353,7 +414,7 @@ object GeodeNative {
     const val MUSIC_STATE_FLOATS: Int = 5
 
     /**
-     * Customize › Music's ready-made [recipe]'s routes the style [styleId] can show, in the [vizSetReactions]
+     * Customize › Music's ready-made [recipe]'s routes the style [styleId] can show, in the [vizSetUserReactions]
      * layout; every route it holds for a null [styleId] (geode_event_recipe_routes).
      */
     external fun eventRecipeRoutes(
@@ -380,13 +441,6 @@ object GeodeNative {
 
     /** Mirrors GEODE_RECIPE_FITS: turning the recipe on stays within GEODE_REACT_ROUTES. */
     const val RECIPE_FITS: Int = 2
-
-    /** Gyro look, -1..1 per axis; read only while camGyro is on. */
-    external fun vizSetLook(
-        handle: Long,
-        yaw: Float,
-        pitch: Float,
-    )
 
     /** One gyro reading (azimuth, pitch in radians from SensorManager.getOrientation); core/viz/GyroLook makes the look. */
     external fun vizGyroSample(
@@ -593,6 +647,12 @@ object GeodeNative {
     external fun catalogueText(): String
 
     /**
+     * The catalogue's presets section (core/viz/CataloguePresets): the bundled looks and every bundled
+     * preset, as its versioned line table (`geode_catalogue_presets_text`). Static; parse once (ui/BuiltInPresets does).
+     */
+    external fun cataloguePresetsText(): String
+
+    /**
      * The scene params schema (core/viz/ParamTable.inc) as its versioned line table: per wire slot the
      * field's name, kind, default, control range and FADE/HOLD (`geode_params_schema_text`). Static; parse once.
      */
@@ -604,6 +664,18 @@ object GeodeNative {
      * range and unit (`geode_config_schema_text`). The stores' clamps and defaults are to read it. Static; parse once.
      */
     external fun configSchemaText(): String
+
+    /** A pinch's scale factor applied to Zoom, clamped to its schema range (core/viz/TouchTransform). */
+    external fun touchZoom(
+        current: Float,
+        scaleFactor: Float,
+    ): Float
+
+    /** A twist in degrees added to Rotation, clamped to its schema range (core/viz/TouchTransform). */
+    external fun touchRotation(
+        current: Float,
+        degrees: Float,
+    ): Float
 
     /** Every rolled control as `TAB|ParamKeys string` lines, in roll order (core/viz/ParamRandomizer). Static. */
     external fun paramsRollKeys(): String

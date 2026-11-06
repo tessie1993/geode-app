@@ -38,6 +38,9 @@ jobs:
           # The scene params schema (#346): unique names, slots in wire order, defaults in range, get/set and the wire, fades, the LFO clamps, the text.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/params_schema_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o params_schema_test
           ./params_schema_test
+          # The pinch and twist on the visual (#654): Zoom and Rotation clamped to their schema ranges.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_transform_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o touch_transform_test
+          ./touch_transform_test
           # The fluid engine: multigrid pressure plan, MacCormack, splat batching, heat, tracers, tiers.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/fluid_math_test.cpp core/viz/fluid/FluidMath.cpp -o fluid_math_test
           ./fluid_math_test
@@ -50,9 +53,6 @@ jobs:
             core/viz/MotionField.cpp core/viz/CameraRig.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
             core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o resolver_test
           ./resolver_test
-          # The routes a renderer plays (#352): the requested style's DNA after every switch, a user list under the hand mask.
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/playing_routes_test.cpp core/signal/bindings/PlayingRoutes.cpp             core/viz/ReactionDna.cpp core/viz/Reactions.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Lfo.cpp core/viz/Macros.cpp             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o playing_routes_test
-          ./playing_routes_test
           # Which built scenes stay on the GPU (#378): a bounded LRU with pins, spares by thermal tier, lazy resize.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/scene_residency_test.cpp -o scene_residency_test
           ./scene_residency_test
@@ -77,7 +77,7 @@ jobs:
           # core/signal: the param state machine and store, the events, the bus and event routes (flash limit).
           # Built from core/signal alone: no GL, no core/viz.
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/signal_test.cpp core/signal/params/*.cpp \
-            core/signal/events/*.cpp core/signal/bindings/EventRoutes.cpp -o signal_test
+            core/signal/events/*.cpp core/signal/bindings/*.cpp -o signal_test
           ./signal_test
           # The raw-PCM hand-off: each pushed block reaches the scenes once, so a paused pulse decays.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/pcm_handoff_test.cpp -o pcm_handoff_test
@@ -149,10 +149,23 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/encoder_ladder_test.cpp core/api/geode_output_api.cpp -o encoder_ladder_test
           ./encoder_ladder_test
           # glTF import (#474): #455's limits on fixture .glb files built by the test, the 4x decimation
-          # with before/after counts, refusals, and the low-detail copy. Uses the cgltf and meshoptimizer submodules.
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Ithird_party/cgltf -Ithird_party/meshoptimizer/src core/tests/gltf_import_test.cpp \
-            core/scene/object/GltfImport.cpp third_party/meshoptimizer/src/simplifier.cpp third_party/meshoptimizer/src/vertexcodec.cpp \
-            third_party/meshoptimizer/src/indexcodec.cpp third_party/meshoptimizer/src/vertexfilter.cpp -o gltf_import_test
+          # with before/after counts, refusals, and the low-detail copy; and the textures (PNG, JPEG,
+          # KTX2 built in the test): role caps, mips, ASTC/ETC2 blocks decoded back, the memory budget
+          # fit and drops. Uses the cgltf, meshoptimizer and basis_universal submodules. Basis builds
+          # as upstream does (C++17, NDEBUG, its warnings off), in parallel, the same file list as
+          # geode_basisu in core/CMakeLists.txt.
+          BASISU=third_party/basis_universal
+          BASISU_DEFS="-DBASISU_SUPPORT_SSE=0 -DBASISU_SUPPORT_OPENCL=0 -DBASISD_SUPPORT_KTX2=1 -DBASISD_SUPPORT_KTX2_ZSTD=1"
+          mkdir -p basisu_obj
+          sed -n '/add_library(geode_basisu STATIC/,/zstd.c)/p' core/CMakeLists.txt | grep -oE 'encoder/[A-Za-z0-9_/]+\.cpp|transcoder/[A-Za-z0-9_]+\.cpp' \
+            | xargs -P "$(nproc)" -I{} sh -c 'g++ -std=c++17 -O2 -DNDEBUG -w -fno-strict-aliasing '"$BASISU_DEFS"' -DBASISU_SUPPORT_ASTCENC=0 \
+                -c "'"$BASISU"'/$0" -o "basisu_obj/$(echo "$0" | tr / _).o"' {}
+          gcc -O2 -DNDEBUG -w -c "$BASISU/zstd/zstd.c" -o basisu_obj/zstd.o
+          test "$(ls basisu_obj/*.o | wc -l)" -eq 32
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Ithird_party/cgltf -Ithird_party/meshoptimizer/src -I"$BASISU" $BASISU_DEFS \
+            core/tests/gltf_import_test.cpp core/scene/object/GltfImport.cpp core/scene/object/ModelTextures.cpp \
+            third_party/meshoptimizer/src/simplifier.cpp third_party/meshoptimizer/src/vertexcodec.cpp \
+            third_party/meshoptimizer/src/indexcodec.cpp third_party/meshoptimizer/src/vertexfilter.cpp basisu_obj/*.o -pthread -o gltf_import_test
           ./gltf_import_test
           # Which pushed inputs a live frame still owes native (#751): once per version, again on a new surface, stale ignored.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/push_versions_test.cpp -o push_versions_test
@@ -175,3 +188,6 @@ jobs:
             core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp \
             core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o config_schema_test
           ./config_schema_test
+          # The renderer's reaction resolve (#750): DNA, or the user's routes under the hand mask, as the old Kotlin path; resolved exactly on a change of scene, seed, routes or mask.
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/reaction_resolve_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Lfo.cpp core/viz/Macros.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o reaction_resolve_test
+          ./reaction_resolve_test

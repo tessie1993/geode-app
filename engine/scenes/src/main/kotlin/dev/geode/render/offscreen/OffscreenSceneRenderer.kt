@@ -6,6 +6,7 @@ import android.util.Log
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
+import dev.geode.render.HandMask
 import dev.geode.render.LfoConfig
 import dev.geode.render.ReactionRoute
 import dev.geode.render.SceneFactory
@@ -30,8 +31,8 @@ data class OffscreenRenderSpec(
     val baseParams: SceneParams,
     val lfoConfigs: List<LfoConfig> = emptyList(),
     val adsrConfigs: List<AdsrConfig> = emptyList(),
-    // The user's reaction routes; null plays the style's DNA. Native merges them with the DNA of whichever style
-    // is on (the schedule's switches too) under the frame's hand mask, as the live renderer does.
+    // The user's reaction routes; null plays the style's DNA. Merged with the live DNA under the hand mask
+    // (the hand wins per moment) exactly as the live renderer does, so the export matches the screen.
     val reactions: List<ReactionRoute>? = null,
     val reducedMotion: Boolean = false,
     val paramsAt: ((Long) -> SceneParams)? = null,
@@ -84,6 +85,9 @@ class OffscreenSceneRenderer(
     private var native: NativeViz? = null
     private var audio: TrackAudio? = null
 
+    // The hand mask the route merge uses: the native pin's for an export, else the process's live one.
+    private var pinnedHandMask: Int? = null
+
     /** Builds the native renderer and its scene; must run with the target GL context current. */
     fun prepare() {
         val viz = NativeViz(context)
@@ -99,12 +103,11 @@ class OffscreenSceneRenderer(
         sceneFactory.milkPresetPath?.let { viz.loadMilkPreset(it) }
         viz.setStyleSchedule(spec.styleSchedule)
         viz.setReducedMotion(spec.reducedMotion)
-        viz.setUserReactions(spec.reactions)
         if (spec.lfoConfigs.isNotEmpty()) viz.setLfoConfigs(spec.lfoConfigs)
         if (spec.adsrConfigs.isNotEmpty()) viz.setAdsrConfigs(spec.adsrConfigs)
         spec.underlay?.let { viz.setUnderlay(it.pixels, it.width, it.height, it.blend, it.amount) }
         viz.setSoundTuning(spec.soundTuning.toFloats())
-        spec.pinDurationMs?.let { viz.pinEngineSettings(spec.entitled, it) }
+        pinnedHandMask = spec.pinDurationMs?.let { viz.pinEngineSettings(spec.entitled, it) }
         native = viz
         // A track that will not decode still exports, silent to the engine, rather than failing the render.
         audio =
@@ -131,8 +134,9 @@ class OffscreenSceneRenderer(
         val timeMs = GeodeNative.exportFrameTimeMs(frame.toLong(), fps)
         val nextTimeMs = GeodeNative.exportFrameTimeMs(frame + 1L, fps)
         val p = spec.paramsAt?.invoke(timeMs) ?: spec.baseParams
-        // reactSeed rides in the params: native re-deals the DNA when keyframes change it.
         viz.setParams(p)
+        // Native re-resolves the routes when keyframes change reactSeed, as live does; this sends only changes.
+        viz.setUserReactions(spec.reactions, pinnedHandMask ?: HandMask.current)
         // Exactly the audio up to the end of this frame, then a render steps the engine by 1/fps.
         audio?.deliverUntilMs(nextTimeMs) { pcm, frames, channels, rate -> viz.writeAudio(pcm, frames, channels, rate) }
         // The frame's exact time, not the whole-ms one above (#377): floor(n * 1e9 / fps) ns.

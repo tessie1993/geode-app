@@ -209,16 +209,21 @@ data class HandReactions(
 )
 
 /**
- * Customize › Music's hand mask for this process, pushed to native (`hand::global`): every native renderer
- * merges the user's routes with it at its frame latch (core/signal/bindings/PlayingRoutes) and every
- * director keeps off its moments. The shell sets it where it loads the user's routes, before any list of
- * theirs reaches a renderer; native counts it only while [set] says a list exists (#355).
+ * Customize › Music's hand mask for this process, the value every renderer merges with (pushed with the
+ * user's routes; core/viz/ReactionResolve) and every native director keeps off (`hand::global`), set where the
+ * shell loads the user's routes. 0 until then, as native starts; native counts it only while [set] says a list
+ * exists (#355).
  */
 object HandMask {
+    @Volatile
+    var current: Int = 0
+        private set
+
     fun set(
         mask: Int,
         hasUser: Boolean,
     ) {
+        current = mask
         bestEffort("HandMask", "push hand mask") { GeodeNative.handSet(mask, hasUser) }
     }
 }

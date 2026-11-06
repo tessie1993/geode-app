@@ -26,7 +26,8 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                 SceneHost{[this](const std::string& m) { fail(m); },
                           [this] { return thermal_.pacedFps(); },
                           [this](const std::string& path) { notePresetLoaded(path); },
-                          [this] { return marchScale_.load(std::memory_order_relaxed); },
+                          // The user's march scale under the thermal ladder's (ADR 0008: march is its third rung).
+                          [this] { return marchScale_.load(std::memory_order_relaxed) * thermal_.tierInfo().marchScale; },
                           [this] { return &notes_.uniforms(); },
                           [this] {
                               return directorPinned_.load(std::memory_order_acquire)
@@ -312,6 +313,8 @@ void Renderer::onSurfaceCreated() {
     profile_ = deviceGl_.profileWithCurrentContext();
     GEODE_LOGI(kTag, "surface created: %s", profile_.summary().c_str());
     thermal_.onSurfaceRecreated();
+    // The shell's label belongs to the old surface's collectors: say the mode again on the new one.
+    liquidModeTaken_.store(-1, std::memory_order_relaxed);
     programCache_.prime();
     // The old context's staged programs died with it: drop their ids before releaseScenes clears.
     stager_.onContext(profile_.report.extensions.count("GL_KHR_parallel_shader_compile") > 0);
@@ -340,11 +343,6 @@ void Renderer::onSurfaceCreated() {
     fboA_.release();
     fboB_.release();
     bornFbo_.release();
-    // The probe's names died with the old context; the limiter starts over on the new surface.
-    outputProbe_.forget();
-    flashLimiter_.reset();
-    flashGrade_ = {};
-    safetyClock_ = 0.0;
     liquidWasOn_ = false;
     lastBornSceneId_.clear();
     activeScene_ = nullptr;
@@ -413,6 +411,13 @@ void Renderer::surfaceChanged(int width, int height) {
     height_ = std::max(height, 1);
     glViewport(0, 0, width_, height_);
     applyRenderScale();
+}
+
+void Renderer::clearToBlack(GLuint targetFbo) {
+    glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
+    glViewport(0, 0, width_, height_);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
 }
 
 void Renderer::setUserQuality(float renderScale, float marchScale, bool postFx, bool adaptive) {

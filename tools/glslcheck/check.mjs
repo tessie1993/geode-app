@@ -56,7 +56,7 @@ const SHADER_INCLUDES_INC = path.join(ROOT, 'core', 'viz', 'ShaderIncludes.inc')
 const CATALOGUE_TXT = path.join(ROOT, 'core', 'tests', 'catalogue.txt');
 const FLUID_LOOK_HPP = path.join(ROOT, 'core', 'viz', 'fluid', 'FluidLook.hpp');
 const GOLDEN_SONG = path.join(ROOT, 'core', 'tests', 'golden', 'sound_frames.tsv');
-const FLASH_LIMITER_HPP = path.join(ROOT, 'core', 'viz', 'FlashLimiter.hpp');
+const VISUAL_GATE_CPP = path.join(ROOT, 'core', 'tests', 'visual_gate.cpp');
 
 // ---- includes, as ShaderSource.cpp does them ------------------------------
 
@@ -389,8 +389,7 @@ function applyOverrides(values, args) {
 // Two reads per style, written to one TSV for core/tests/visual_gate.cpp to judge:
 //   stills  STILL_TIMES at --still-size: black and blown fractions (frameStats in page.html).
 //   run     every golden frame from RUN_START to RUN_END (the end of the build into the drop, the most
-//           strobe-prone stretch of the song), at --run-size, each boxed to the kProbeGrid grid
-//           OutputProbe reads on the phone; the gate counts them with FlashLimiter's own counters.
+//           strobe-prone stretch of the song), at --run-size, each boxed to visual_gate's kProbeGrid grid.
 // Song seconds, not uTime: uTime runs at TIME_OFFSET + song time, so the clocks are past their start the
 // way the default table's 37 is.
 const STILL_TIMES = [4.0, 9.5, 12.0, 18.5]; // verse, build, drop, verse again after the silence
@@ -401,8 +400,8 @@ const TIME_OFFSET = 30.0;
 const HELD = [['hardCut', 2.5], ['surge', 2.0], ['returned', 2.5], ['noteChange', 0.5]];
 
 function probeGridSide() {
-  const m = fs.readFileSync(FLASH_LIMITER_HPP, 'utf8').match(/kProbeGrid\s*=\s*(\d+)/);
-  if (!m) throw new Error(`no kProbeGrid in ${FLASH_LIMITER_HPP}`);
+  const m = fs.readFileSync(VISUAL_GATE_CPP, 'utf8').match(/kProbeGrid\s*=\s*(\d+)/);
+  if (!m) throw new Error(`no kProbeGrid in ${VISUAL_GATE_CPP}`);
   return Number(m[1]);
 }
 

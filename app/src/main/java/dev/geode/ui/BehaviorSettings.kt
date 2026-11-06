@@ -378,7 +378,6 @@ private fun gestureChoices(
 private val ONE_SHOT_ACTIONS =
     listOf(
         GestureAction.SHOW_MINI_PLAYER,
-        GestureAction.QUICK_SETTINGS,
         GestureAction.TOGGLE_SHEET,
         GestureAction.MACROS,
         GestureAction.RECORD,

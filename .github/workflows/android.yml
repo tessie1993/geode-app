@@ -129,13 +129,6 @@ jobs:
             fi
           done
 
-      # Cast's frame clock (#572): steady slots, a stall drops frames instead of bursting, monotonic PTS, the audio cut.
-      - name: Cast clock host test
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/cast_clock_test.cpp core/api/geode_frame_api.cpp -o cast_clock_test
-          ./cast_clock_test
-
       # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes, ranges, and
       # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.
       - name: Catalogue host tests

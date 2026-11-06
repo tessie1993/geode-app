@@ -144,15 +144,13 @@ class VisualizerRenderer(
     private var nativeAdsr: List<AdsrConfig>? = null
     private var nativeReactions: List<ReactionRoute>? = null
     private var nativePerformance: PerformanceSettings? = null
-    private var nativeThermalSampleMs = 0L
-    private var liquidModeSampleMs = 0L
     private val liquidModeState = MutableStateFlow(0)
 
     /**
      * What Liquid mode ran last frame (`liquid::Mode`: 0 off, 1 full, 2 lite, 3 warp, 4 paused), so
      * Customize can say when a hot phone simplified or paused it. The native renderer owns the
-     * answer on the GL thread; it is copied here at most twice a second, because the UI only needs
-     * the label to settle and a collector woken every frame would cost more than the answer is worth.
+     * answer on the GL thread and hands it over only when it changes, so a collector is never woken
+     * for a label that stayed the same.
      */
     val liquidMode: StateFlow<Int> = liquidModeState.asStateFlow()
 
@@ -254,7 +252,6 @@ class VisualizerRenderer(
         nativeAdsr = null
         nativeReactions = null
         nativePerformance = null
-        liquidModeSampleMs = 0L
         nativeSoundTuning = null
         // A new native renderer starts a new engine: hand it a full window, not the tail of the last.
         soundCursor = null
@@ -345,15 +342,9 @@ class VisualizerRenderer(
         nativeViz.setReducedMotion(reducedMotion)
         nativeViz.setTransition(transitionId, transitionDurationMs)
         nativeViz.setPacedFps(ThermalGovernor.pacedFps)
-        val now = SystemClock.elapsedRealtime()
-        if (now - nativeThermalSampleMs >= THERMAL_SAMPLE_MS) {
-            nativeThermalSampleMs = now
-            nativeViz.setThermal(ThermalGovernor.platformStatus, ThermalGovernor.thermalHeadroom())
-        }
-        if (now - liquidModeSampleMs >= LIQUID_MODE_SAMPLE_MS) {
-            liquidModeSampleMs = now
-            liquidModeState.value = nativeViz.liquidMode()
-        }
+        // Both cadences are native: the thermal reading once a second for the process, the liquid label on a change.
+        ThermalGovernor.sample()
+        nativeViz.takeLiquidMode().let { if (it >= 0) liquidModeState.value = it }
         pcmProvider()?.let { chunk -> nativeViz.pushPcm(chunk.data, chunk.count) }
         val tuning = soundTuning
         if (tuning !== nativeSoundTuning) {
@@ -382,6 +373,4 @@ class VisualizerRenderer(
     }
 }
 
-private const val THERMAL_SAMPLE_MS = 1000L
-private const val LIQUID_MODE_SAMPLE_MS = 500L
 private const val NANOS_PER_SECOND = 1_000_000_000.0

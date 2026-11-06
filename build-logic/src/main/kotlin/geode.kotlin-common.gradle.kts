@@ -34,7 +34,7 @@ extensions.configure<JavaPluginExtension> {
 
 // What the compiler emits, which is a separate decision from the toolchain above and the only
 // one of the two that reaches a device. Moving this is gated on what D8/R8 will dex at
-// minSdk 26, so it stays at 17 until that is measured on its own.
+// minSdk 33, so it stays at 17 until that is measured on its own.
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
@@ -59,4 +59,6 @@ tasks.withType<io.gitlab.arturbosch.detekt.DetektCreateBaselineTask>().configure
 // the native catalogue table instead. core/tests/catalogue_test proves that copy equal to what C++ emits.
 tasks.withType<Test>().configureEach {
     systemProperty("geode.catalogue", rootProject.file("core/tests/catalogue.txt").absolutePath)
+    // The same for Customize's map (core/viz/CustomizeMap), which core/tests/customize_test proves equal.
+    systemProperty("geode.customize", rootProject.file("core/tests/customize.txt").absolutePath)
 }

@@ -20,99 +20,119 @@ import dev.geode.render.LiquidHotPolicy
 import dev.geode.render.PerformanceMode
 import dev.geode.render.PerformanceSettings
 
-/** Settings › Performance: what the live visualizer, wallpaper and dream may spend. Export ignores it. */
+/**
+ * Settings › Performance › Basics: the quality preset (Saver, Balanced, High), what the live
+ * visualizer, wallpaper and dream may spend. Export ignores it.
+ */
 @Composable
-internal fun PerformanceSettingsTab() {
+internal fun PerformanceBasics() {
     val store = LocalContext.current.geodeContainer.performance
     val settings by store.settings.collectAsStateWithLifecycle()
-    PerformanceSettingsContent(settings, store::set)
+    PerformanceModeControls(settings, store::set)
 }
 
+/** Settings › Performance › Details: each setting the preset sets, one by one. */
+@Composable
+internal fun PerformanceDetailsSection() {
+    val store = LocalContext.current.geodeContainer.performance
+    val settings by store.settings.collectAsStateWithLifecycle()
+    PerformanceDetailControls(settings, store::set)
+}
+
+/** Both halves together, for the previews. */
 @Composable
 internal fun PerformanceSettingsContent(
     settings: PerformanceSettings,
     onChange: (PerformanceSettings) -> Unit,
 ) {
-    val mode = settings.mode
-    SettingsTabColumn {
-        item {
-            SettingsGroup(stringResource(R.string.perf_mode_title)) {
-                CrystalSegmented(
-                    options =
-                        listOf(
-                            stringResource(R.string.perf_mode_saver),
-                            stringResource(R.string.perf_mode_balanced),
-                            stringResource(R.string.perf_mode_high),
-                        ),
-                    selected = mode?.ordinal ?: -1,
-                    onSelect = { onChange(PerformanceMode.entries[it].settings.copy(liquidHot = settings.liquidHot)) },
-                )
-                Hint(
-                    stringResource(
-                        when (mode) {
-                            PerformanceMode.SAVER -> R.string.perf_mode_saver_hint
-                            PerformanceMode.BALANCED -> R.string.perf_mode_balanced_hint
-                            PerformanceMode.HIGH -> R.string.perf_mode_high_hint
-                            null -> R.string.perf_mode_custom_hint
-                        },
-                    ),
-                )
-            }
-        }
-        item {
-            SettingsGroup(stringResource(R.string.perf_details_title)) {
-                Choice(
-                    stringResource(R.string.perf_render_scale),
-                    PerformanceSettings.RENDER_SCALES.map { "${(it * 100).toInt()}%" },
-                    PerformanceSettings.RENDER_SCALES.indexOf(settings.renderScale),
-                ) { onChange(settings.copy(renderScale = PerformanceSettings.RENDER_SCALES[it])) }
-                Choice(
-                    stringResource(R.string.perf_fps_cap),
-                    PerformanceSettings.FPS_CAPS.map { stringResource(R.string.perf_fps_value, it) },
-                    PerformanceSettings.FPS_CAPS.indexOf(settings.fpsCap),
-                ) { onChange(settings.copy(fpsCap = PerformanceSettings.FPS_CAPS[it])) }
-                Choice(
-                    stringResource(R.string.perf_march),
-                    listOf(
-                        stringResource(R.string.perf_level_low),
-                        stringResource(R.string.perf_level_medium),
-                        stringResource(R.string.perf_level_high),
-                    ),
-                    PerformanceSettings.MARCH_SCALES.indexOf(settings.marchScale),
-                ) { onChange(settings.copy(marchScale = PerformanceSettings.MARCH_SCALES[it])) }
-                Column {
-                    LabeledSwitch(
-                        stringResource(R.string.perf_post_fx),
-                        checked = settings.postFx,
-                        onCheckedChange = { onChange(settings.copy(postFx = it)) },
-                    )
-                    Hint(stringResource(R.string.perf_post_fx_hint))
-                }
-                Column {
-                    LabeledSwitch(
-                        stringResource(R.string.perf_adaptive),
-                        checked = settings.adaptive,
-                        onCheckedChange = { onChange(settings.copy(adaptive = it)) },
-                    )
-                    Hint(stringResource(R.string.perf_adaptive_hint))
-                }
-                Column {
-                    Choice(
-                        stringResource(R.string.perf_liquid_hot),
-                        listOf(
-                            stringResource(R.string.perf_liquid_hot_simplify),
-                            stringResource(R.string.perf_liquid_hot_full),
-                            stringResource(R.string.perf_liquid_hot_pause),
-                        ),
-                        settings.liquidHot.ordinal,
-                    ) { onChange(settings.copy(liquidHot = LiquidHotPolicy.entries[it])) }
-                    Spacer(Modifier.height(6.dp))
-                    Hint(stringResource(R.string.perf_liquid_hot_hint))
-                }
-                Hint(stringResource(R.string.perf_export_note))
-            }
-        }
+    Column {
+        PerformanceModeControls(settings, onChange)
+        PerformanceDetailControls(settings, onChange)
     }
+}
+
+@Composable
+private fun PerformanceModeControls(
+    settings: PerformanceSettings,
+    onChange: (PerformanceSettings) -> Unit,
+) {
+    val mode = settings.mode
+    CrystalSegmented(
+        options =
+            listOf(
+                stringResource(R.string.perf_mode_saver),
+                stringResource(R.string.perf_mode_balanced),
+                stringResource(R.string.perf_mode_high),
+            ),
+        selected = mode?.ordinal ?: -1,
+        onSelect = { onChange(PerformanceMode.entries[it].settings.copy(liquidHot = settings.liquidHot)) },
+    )
+    Hint(
+        stringResource(
+            when (mode) {
+                PerformanceMode.SAVER -> R.string.perf_mode_saver_hint
+                PerformanceMode.BALANCED -> R.string.perf_mode_balanced_hint
+                PerformanceMode.HIGH -> R.string.perf_mode_high_hint
+                null -> R.string.perf_mode_custom_hint
+            },
+        ),
+    )
+}
+
+@Composable
+private fun PerformanceDetailControls(
+    settings: PerformanceSettings,
+    onChange: (PerformanceSettings) -> Unit,
+) {
+    Choice(
+        stringResource(R.string.perf_render_scale),
+        PerformanceSettings.RENDER_SCALES.map { "${(it * 100).toInt()}%" },
+        PerformanceSettings.RENDER_SCALES.indexOf(settings.renderScale),
+    ) { onChange(settings.copy(renderScale = PerformanceSettings.RENDER_SCALES[it])) }
+    Choice(
+        stringResource(R.string.perf_fps_cap),
+        PerformanceSettings.FPS_CAPS.map { stringResource(R.string.perf_fps_value, it) },
+        PerformanceSettings.FPS_CAPS.indexOf(settings.fpsCap),
+    ) { onChange(settings.copy(fpsCap = PerformanceSettings.FPS_CAPS[it])) }
+    Choice(
+        stringResource(R.string.perf_march),
+        listOf(
+            stringResource(R.string.perf_level_low),
+            stringResource(R.string.perf_level_medium),
+            stringResource(R.string.perf_level_high),
+        ),
+        PerformanceSettings.MARCH_SCALES.indexOf(settings.marchScale),
+    ) { onChange(settings.copy(marchScale = PerformanceSettings.MARCH_SCALES[it])) }
+    Column {
+        LabeledSwitch(
+            stringResource(R.string.perf_post_fx),
+            checked = settings.postFx,
+            onCheckedChange = { onChange(settings.copy(postFx = it)) },
+        )
+        Hint(stringResource(R.string.perf_post_fx_hint))
+    }
+    Column {
+        LabeledSwitch(
+            stringResource(R.string.perf_adaptive),
+            checked = settings.adaptive,
+            onCheckedChange = { onChange(settings.copy(adaptive = it)) },
+        )
+        Hint(stringResource(R.string.perf_adaptive_hint))
+    }
+    Column {
+        Choice(
+            stringResource(R.string.perf_liquid_hot),
+            listOf(
+                stringResource(R.string.perf_liquid_hot_simplify),
+                stringResource(R.string.perf_liquid_hot_full),
+                stringResource(R.string.perf_liquid_hot_pause),
+            ),
+            settings.liquidHot.ordinal,
+        ) { onChange(settings.copy(liquidHot = LiquidHotPolicy.entries[it])) }
+        Spacer(Modifier.height(6.dp))
+        Hint(stringResource(R.string.perf_liquid_hot_hint))
+    }
+    Hint(stringResource(R.string.perf_export_note))
 }
 
 @Composable

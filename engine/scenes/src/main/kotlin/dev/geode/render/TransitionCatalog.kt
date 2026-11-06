@@ -40,9 +40,6 @@ object TransitionCatalog {
     @Volatile
     private var library: List<Def>? = null
 
-    @Volatile
-    private var libraryByName: Map<String, Def>? = null
-
     fun library(context: Context): List<Def> {
         library?.let { return it }
         val parsed =
@@ -55,18 +52,8 @@ object TransitionCatalog {
                 val arr = JSONArray(text)
                 (0 until arr.length()).map { i -> parseDef(arr.getJSONObject(i)) }
             }.getOrDefault(emptyList())
-        libraryByName = parsed.associateBy { it.name }
         library = parsed
         return parsed
-    }
-
-    fun definition(
-        context: Context,
-        id: String,
-    ): Def? {
-        if (id in BUILT_IN_BY_ID) return null
-        library(context)
-        return libraryByName?.get(id)
     }
 
     fun builtIn(id: String): TransitionStyle? = BUILT_IN_BY_ID[id]

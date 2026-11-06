@@ -50,14 +50,6 @@ object AnimatableParams {
             byId[id]?.writeScene?.invoke(params, value) ?: params
         }
 
-    fun applyToClip(
-        base: ClipEdit,
-        values: Map<ParamId, ParamValue>,
-    ): ClipEdit =
-        values.entries.fold(base) { edit, (id, value) ->
-            byId[id]?.writeClip?.invoke(edit, value) ?: edit
-        }
-
     private fun scalar(
         field: String,
         label: String,

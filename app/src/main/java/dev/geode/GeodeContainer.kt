@@ -98,9 +98,8 @@ class GeodeContainer(
     /**
      * Deletes MediaStore rows a render left `IS_PENDING` when its process died mid-write — a
      * crash, a force-stop, a low-memory kill of [dev.geode.export.ExportService] before it could
-     * finish. [dev.geode.export.VideoExporter], [dev.geode.export.StudioExporter] and
-     * [dev.geode.export.LoopExtend] all insert with `IS_PENDING` set and clear it on success or
-     * delete the row on a clean failure; nothing runs `START_STICKY` or persists the run for a
+     * finish. [dev.geode.export.VideoExporter] and [dev.geode.export.LoopExtend] both insert with
+     * `IS_PENDING` set and clear it on success or delete the row on a clean failure; nothing runs `START_STICKY` or persists the run for a
      * retry, so a row that is still pending once the app restarts belongs to nobody and never
      * finishes on its own. It would otherwise sit in Movies/MuzViz or Pictures/MuzViz forever, a
      * broken, unplayable, ever-growing invisible file.
@@ -193,7 +192,10 @@ class GeodeContainer(
         /** A render still `IS_PENDING` this long after it was inserted is treated as orphaned. */
         const val PENDING_EXPORT_GRACE_MS = 5 * 60 * 1000L
 
-        /** Kept in step with AudioTranscoder, LoopRender and StudioExporter. */
+        /**
+         * Kept in step with AudioTranscoder and LoopRender. `studio-` is what the layered Studio
+         * render wrote before it went; still swept so an older version's leftovers go too.
+         */
         val RENDER_SCRATCH_PREFIXES = listOf("geode_aac_", "geode_loop_", "studio-")
 
         fun isRenderScratch(name: String): Boolean = RENDER_SCRATCH_PREFIXES.any { name.startsWith(it) }

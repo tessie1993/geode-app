@@ -701,13 +701,6 @@
     <string name="export_error_encoder_buffer_null">The video encoder returned an empty buffer (codec error state).</string>
     <string name="export_error_encoder_no_output">The video encoder produced no output — this device\'s encoder or the chosen format may not be supported.</string>
     <string name="export_error_encoder_stalled">The video encoder stalled while flushing — the export is incomplete.</string>
-    <string name="export_error_studio_save">The finished file could not be saved to Movies/MuzViz.</string>
-    <string name="export_error_studio_start">The export could not be started.</string>
-    <string name="export_error_destination_save">The export could not be saved to that folder.</string>
-    <string name="export_error_encoder_unsupported">This device\'s video encoder would not accept that output — try a smaller size or a different aspect ratio.</string>
-    <string name="export_error_decode_unsupported">That clip could not be read — the file may have moved, or be in a format this device cannot decode.</string>
-    <string name="export_error_no_permission">MuzViz does not have permission to read that file.</string>
-    <string name="export_error_generic">The export failed.</string>
     <string name="export_error_loop_encoder_rejected">This device\'s video encoder would not accept %1$d×%2$d. Try a smaller size or a different aspect ratio.</string>
     <string name="export_error_loop_low_gpu_memory">There is not enough graphics memory to hold even one crossfade frame at %1$d×%2$d — render the loop at a smaller size.</string>
     <string name="export_error_loop_stopped">The loop render stopped unexpectedly.</string>
@@ -836,28 +829,10 @@
     <string name="autoviz_playlist_add_hint">Add looks with the heart button in Visuals › Presets. The playlist needs at least two before it has anywhere to go.</string>
 
     <!-- Studio clip preview. -->
-    <!-- Studio renders: the render plan's notices (export/ProjectComposition). -->
     <string name="editor_export_no_video">Put a video or still on a Media lane first — the cut renders that lane.</string>
-    <string name="editor_export_skipped_kinds">Skipped clips this export can\'t carry: %1$s</string>
-    <!-- One render path (#232): the render plan's skipped-clip report and the Studio render labels. -->
-    <string name="editor_export_nothing">Nothing to render yet. Put a video or still on the timeline, or a visual over a song.</string>
+    <!-- One render path (#232): the render plan's refusal and the Studio render labels. -->
+    <string name="editor_export_nothing">Nothing to render yet. A visual needs a song under it.</string>
     <string name="render_video_label">Rendering your video</string>
-    <plurals name="render_skip_overlay">
-        <item quantity="one">%1$d overlay clip (overlays don\'t render yet)</item>
-        <item quantity="other">%1$d overlay clips (overlays don\'t render yet)</item>
-    </plurals>
-    <plurals name="render_skip_no_song">
-        <item quantity="one">%1$d visual clip with no song under it</item>
-        <item quantity="other">%1$d visual clips with no song under them</item>
-    </plurals>
-    <plurals name="render_skip_past_song">
-        <item quantity="one">the end of %1$d visual clip, past its song</item>
-        <item quantity="other">the ends of %1$d visual clips, past their song</item>
-    </plurals>
-    <plurals name="render_skip_wrong_lane">
-        <item quantity="one">%1$d clip on a lane that can\'t carry it</item>
-        <item quantity="other">%1$d clips on lanes that can\'t carry them</item>
-    </plurals>
 
     <!-- Shared verbs. One definition each, so a translator sees them once. -->
     <string name="action_save">Save</string>

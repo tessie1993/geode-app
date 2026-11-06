@@ -253,13 +253,13 @@ void testPinnedAgainstGlobals() {
         const float x = (i % 3 == 0) ? 1.0f : -1.0f;
         geode::viz::macros::setGlobal(MacroKnobs{x, -x, x, -x, x, -x});
         geode::viz::note_response::setGlobal(i % 2 == 0);
-        hand::setGlobal(i % 2 == 0 ? hand::kAll : 0u);
+        hand::setGlobal(i % 2 == 0 ? hand::kAll : 0u, true);
         geode::viz::director::setGlobal(i % 2 == 0 ? 0.0f : 1.0f, static_cast<uint64_t>(i));
         same = same && sameBits(calm[static_cast<size_t>(i)], wire(r->step(requested, frame(t), kDt, s, style(kStyle, i == 0)).params));
     }
     geode::viz::macros::setGlobal(MacroKnobs{});
     geode::viz::note_response::setGlobal(false);
-    hand::setGlobal(0u);
+    hand::setGlobal(0u, false);
     geode::viz::director::setGlobal(0.0f, 0);
     check(same, "changing the process globals mid-run never reaches a resolver's frames");
 }

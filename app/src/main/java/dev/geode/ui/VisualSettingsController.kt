@@ -2,10 +2,10 @@ package dev.geode.ui
 
 import dev.geode.data.GuiPrefs
 import dev.geode.data.Preset
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.TransitionCatalog
 import dev.geode.render.TransitionStyle
 import dev.geode.render.scene.SceneParams
-import dev.geode.render.scene.TouchTransform
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.update
@@ -105,8 +105,8 @@ internal class VisualSettingsController(
         val p = state.value.params
         val next =
             p.copy(
-                zoom = TouchTransform.zoom(p.zoom, zoomFactor),
-                rotation = TouchTransform.rotation(p.rotation, rotationDegrees),
+                zoom = GeodeNative.touchZoom(p.zoom, zoomFactor),
+                rotation = GeodeNative.touchRotation(p.rotation, rotationDegrees),
             )
         if (next != p) setSceneParams(next)
     }

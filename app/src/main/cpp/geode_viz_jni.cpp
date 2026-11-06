@@ -307,8 +307,14 @@ Java_dev_geode_engine_bridge_GeodeNative_musicEdit(JNIEnv* env, jobject, jstring
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_musicActionTarget(JNIEnv*, jobject, jint action) {
-    return geode_music_action_target(action);
+Java_dev_geode_engine_bridge_GeodeNative_musicActionsFor(JNIEnv* env, jobject, jstring styleId) {
+    Utf8Chars id(env, styleId);
+    return static_cast<jint>(geode_music_actions_for(id.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_modTargetsText(JNIEnv* env, jobject) {
+    return env->NewStringUTF(geode_mod_targets_text());
 }
 
 JNIEXPORT void JNICALL
@@ -471,8 +477,23 @@ Java_dev_geode_engine_bridge_GeodeNative_catalogueText(JNIEnv* env, jobject) {
 }
 
 JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_cataloguePresetsText(JNIEnv* env, jobject) {
+    return env->NewStringUTF(geode_catalogue_presets_text());
+}
+
+JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_paramsSchemaText(JNIEnv* env, jobject) {
     return env->NewStringUTF(geode_params_schema_text());
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_touchZoom(JNIEnv*, jobject, jfloat current, jfloat scaleFactor) {
+    return geode_touch_zoom(current, scaleFactor);
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_touchRotation(JNIEnv*, jobject, jfloat current, jfloat degrees) {
+    return geode_touch_rotation(current, degrees);
 }
 
 JNIEXPORT jstring JNICALL

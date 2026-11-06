@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <utility>
+#include <vector>
 
 namespace geode::viz::world {
 
@@ -647,8 +648,9 @@ Genome make(const Set (&sets)[N]) {
     return g;
 }
 
-std::array<Seed, 67> buildSeeds() {
-    return {{
+// A list, not a fixed count: a new world is one more entry here and nothing else.
+std::vector<Seed> buildSeeds() {
+    return {
         // A nave of soap-thin spheres, inverted into one another: bubbles inside bubbles, lit from within.
         {"Bubble Nave", 0.35f, 0.7f, 0.5f,
          make({{LatticeTilt, 0.35f}, {LatticeYaw, 0.25f}, {RepXY, 1.0f}, {CellXY, 6.0f}, {CellZ, 5.0f}, {CellShift, 1.0f}, {PShell, 1.0f}, {PrimSize, 1.6f}, {PrimThick, 0.05f},
@@ -819,7 +821,7 @@ std::array<Seed, 67> buildSeeds() {
                {Emission, 1.1f}, {Fog, 0.03f}, {TexEmit, 0.5f}, {TexPick, 7.0f}})},
         // An Apollonian packing, spheres inverted into spheres without end: a foam of pearls.
         {"Apollonian Foam", 0.4f, 0.65f, 0.6f,
-         make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 6.0f}, {PApollo, 1.0f}, {PrimSize, 1.6f}, {MSurface, 0.7f},
+         make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 6.0f}, {PApollo, 1.0f}, {PrimSize, 1.4f}, {MSurface, 0.7f},
                {MGlow, 0.3f}, {TrapR, 0.6f}, {TrapX, 0.2f}, {PalOffset, 0.3f}, {PalSpan, 0.6f}, {Emission, 1.1f},
                {Fog, 0.035f}})},
         // The packing laced through bubbles and folded six ways: a lattice of pearls in light.
@@ -899,7 +901,7 @@ std::array<Seed, 67> buildSeeds() {
         // Cat statues on a lattice tipped and turned off the axes, half stone, half glow: a crooked temple.
         {"Cat Temple", 0.45f, 0.55f, 0.6f,
          make({{RepXY, 0.5f}, {CellXY, 5.5f}, {CellZ, 4.5f}, {CellShift, 1.0f}, {LatticeTilt, 0.35f}, {LatticeYaw, -0.25f},
-               {PMesh, 1.0f}, {MeshPick, 17.0f}, {MeshSize, 1.8f}, {MSurface, 0.6f}, {MGlow, 0.4f}, {TrapR, 0.6f},
+               {PMesh, 1.0f}, {MeshPick, 17.0f}, {MeshSize, 1.5f}, {MSurface, 0.6f}, {MGlow, 0.4f}, {TrapR, 0.6f},
                {TrapX, 0.3f}, {PalOffset, 0.12f}, {PalSpan, 0.4f}, {Emission, 1.2f}, {Fog, 0.035f}, {TexAmount, 0.5f},
                {TexPick, 2.0f}, {Roll, -0.1f}, {Lens, 1.1f}})},
         // Stone pillars folded seven ways and turning: a colonnade that spirals round the way.
@@ -929,7 +931,7 @@ std::array<Seed, 67> buildSeeds() {
         // A ridged canyon under a low warm light, thin glowing spheres hung above it: the way runs
         // down the valley floor between rising walls, cut through every ridge that crosses it.
         {"Ember Canyon", 0.45f, 0.55f, 0.45f,
-         make({{RepXY, 1.0f}, {CellXY, 10.0f}, {CellZ, 8.0f}, {CellShift, 1.0f}, {PShell, 1.0f}, {PrimSize, 0.9f},
+         make({{LatticeTilt, 0.15f}, {LatticeYaw, -0.3f}, {RepXY, 1.0f}, {CellXY, 10.0f}, {CellZ, 8.0f}, {CellShift, 1.0f}, {PShell, 1.0f}, {PrimSize, 0.9f},
                {PrimThick, 0.05f}, {Terrain, 1.0f}, {TerrainHeight, 2.6f}, {TerrainScale, 0.12f}, {FloorY, -5.0f},
                {MSurface, 0.85f}, {MGlow, 0.15f}, {TrapX, 0.7f}, {TrapY, 0.4f}, {TrapR, 0.2f}, {PalOffset, 0.04f},
                {PalSpan, 0.45f}, {Emission, 1.15f}, {Fog, 0.03f}, {TexAmount, 0.5f}, {TexPick, 3.0f}, {Lens, 0.85f}})},
@@ -942,7 +944,7 @@ std::array<Seed, 67> buildSeeds() {
                {Roll, 0.04f}})},
         // Broad fractal highlands with Mandelbulbs floating over them and boulders of bulbs half buried.
         {"Bulb Highlands", 0.55f, 0.5f, 0.55f,
-         make({{RepXY, 1.0f}, {CellXY, 8.0f}, {CellZ, 7.0f}, {CellShift, 1.0f}, {PBulb, 1.0f}, {BulbPower, 8.0f},
+         make({{LatticeTilt, 0.15f}, {LatticeYaw, 0.3f}, {RepXY, 1.0f}, {CellXY, 8.0f}, {CellZ, 7.0f}, {CellShift, 1.0f}, {PBulb, 1.0f}, {BulbPower, 8.0f},
                {PrimSize, 1.2f}, {Terrain, 1.0f}, {TerrainHeight, 3.0f}, {TerrainScale, 0.08f}, {FloorY, -5.5f},
                {MSurface, 0.85f}, {MGlow, 0.15f}, {TrapX, 0.4f}, {TrapY, 0.3f}, {TrapR, 0.5f}, {PalOffset, 0.36f},
                {PalSpan, 0.5f}, {Emission, 1.15f}, {Fog, 0.03f}, {TexAmount, 0.5f}, {TexPick, 2.0f}, {Lens, 0.9f}})},
@@ -960,7 +962,7 @@ std::array<Seed, 67> buildSeeds() {
                {Lens, 0.9f}})},
         // The Apollonian packing as thin glowing sheets in a dark haze: a mist of pearls at night.
         {"Apollonian Mist", 0.1f, 0.25f, 0.2f,
-         make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 6.0f}, {PApollo, 1.0f}, {PrimSize, 1.6f}, {MDensity, 0.85f},
+         make({{RepXY, 0.0f}, {CellXY, 8.0f}, {CellZ, 6.0f}, {PApollo, 1.0f}, {PrimSize, 1.4f}, {MDensity, 0.85f},
                {MGlow, 0.15f}, {DensBand, 0.18f}, {TrapR, 0.7f}, {TrapZ, 0.3f}, {PalOffset, 0.68f}, {PalSpan, 0.35f},
                {Emission, 1.0f}, {Fog, 0.025f}, {Roll, -0.04f}})},
         // Sierpinski tetrahedra turned inside out by a sphere, three ways round: a hollow nave of triangles.
@@ -1052,11 +1054,11 @@ std::array<Seed, 67> buildSeeds() {
                {PolarTwist, 0.2f}, {PKifs, 1.0f}, {KifsScale, 2.4f}, {PrimSize, 1.1f}, {MSurface, 0.45f}, {MGlow, 0.55f},
                {TrapR, 0.6f}, {TrapZ, 0.3f}, {PalOffset, 0.76f}, {PalSpan, 0.55f}, {Emission, 1.1f}, {Fog, 0.03f},
                {TexEmit, 0.5f}, {TexPick, 7.0f}, {Roll, 0.12f}})},
-    }};
+    };
 }
 
-const std::array<Seed, 67>& seeds() {
-    static const std::array<Seed, 67> kSeeds = buildSeeds();
+const std::vector<Seed>& seeds() {
+    static const std::vector<Seed> kSeeds = buildSeeds();
     return kSeeds;
 }
 
@@ -1174,7 +1176,7 @@ const Seed& seed(int index) { return seeds()[static_cast<size_t>(std::clamp(inde
 Genome random(uint64_t seedValue, const Constraints& c, int* picked) {
     uint64_t s = mix64(seedValue ^ 0x4D6F727068576F72ull);
     // Pick the seed world: closeness to the music's wants, the current world far less likely.
-    float weights[64];
+    std::vector<float> weights(seeds().size());
     float total = 0.0f;
     for (int i = 0; i < seedCount(); ++i) {
         const Seed& sd = seed(i);

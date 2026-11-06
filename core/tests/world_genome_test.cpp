@@ -74,7 +74,7 @@ void lerpEndpointsAreExact() {
 }
 
 void seedsAreValid() {
-    check(seedCount() >= 8 && seedCount() <= 64, "8 to 64 seed worlds");
+    check(seedCount() >= 8, "at least 8 seed worlds");
     std::map<std::string, int> names;
     for (int i = 0; i < seedCount(); ++i) {
         const Seed& s = seed(i);

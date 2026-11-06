@@ -195,7 +195,7 @@ class StudioExporter(
             val uri =
                 resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
                     ?: return null
-            resolver.openOutputStream(uri)?.use { out -> file.inputStream().use { it.copyTo(out) } }
+            runCatching { resolver.openOutputStream(uri)?.use { out -> file.inputStream().use { it.copyTo(out) } } }.getOrNull()
                 ?: run {
                     resolver.delete(uri, null, null)
                     return null

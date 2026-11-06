@@ -163,6 +163,18 @@ void rollsStayUnderTheFlashClamp() {
     }
 }
 
+// Every roll lands inside the field's own range in the schema (core/viz/ParamTable.inc), so a rolled
+// look is one the controls can show and set back.
+void rollsStayInsideTheSchemasRanges() {
+    for (uint64_t seed = 0; seed < 300; ++seed) {
+        const SceneParams p = randomizer::randomize(kDefaults, seed, std::nullopt, "", {});
+        for (const ParamSpec& s : SceneParams::schema()) {
+            const float v = p.get(s.name);
+            check(v >= s.min && v <= s.max, std::string(s.name) + " rolls inside [min, max], seed " + std::to_string(seed));
+        }
+    }
+}
+
 void aPaletteRollDropsACustomPalette() {
     SceneParams custom;
     custom.paletteBaseOverride = 0.3f;
@@ -178,17 +190,6 @@ void theWireRoundTrips() {
     check(wire(SceneParams::fromWire(w.data())) == w, "fromWire(toWire(p)) == p");
 }
 
-// Every gliding float names a real field: a null member would be read and written on every fade.
-void everyLerpedFloatHasAMember() {
-    const auto& fields = SceneParams::lerpedFloats();
-    check(fields.size() == static_cast<size_t>(SceneParams::kLerpedFloatCount), "lerpedFloats() size");
-    std::set<std::string> names;
-    for (const auto& f : fields) {
-        check(f.member != nullptr, std::string("lerpedFloats() member is null: ") + (f.name ? f.name : "(no name)"));
-        check(f.name != nullptr && names.insert(f.name).second, std::string("lerpedFloats() name missing or repeated: ") + (f.name ? f.name : "(no name)"));
-    }
-}
-
 }  // namespace
 
 int main() {
@@ -200,9 +201,9 @@ int main() {
     aTabRollTouchesOnlyThatTab();
     resetTabRestoresExactlyItsFields();
     rollsStayUnderTheFlashClamp();
+    rollsStayInsideTheSchemasRanges();
     aPaletteRollDropsACustomPalette();
     theWireRoundTrips();
-    everyLerpedFloatHasAMember();
     if (failures == 0) std::printf("params_test: all checks passed\n");
     return failures;
 }

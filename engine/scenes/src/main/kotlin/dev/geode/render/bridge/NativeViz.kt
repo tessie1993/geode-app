@@ -148,13 +148,6 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetSoundTuning(handle, floats)
     }
 
-    fun pushPcm(
-        mono: FloatArray,
-        count: Int,
-    ) {
-        if (handle != 0L && count > 0) GeodeNative.vizPushPcm(handle, mono, count)
-    }
-
     fun setLfoConfigs(configs: List<LfoConfig>) {
         if (handle == 0L) return
         configs.take(LfoEngine.SLOTS).forEachIndexed { slot, c -> GeodeNative.vizSetLfo(handle, slot, ModConfigCodec.packLfo(c)) }
@@ -174,6 +167,17 @@ class NativeViz(
         pitch: Float,
     ) {
         if (handle != 0L && sent.look(yaw, pitch)) GeodeNative.vizSetLook(handle, yaw, pitch)
+    }
+
+    fun gyroSample(
+        azimuth: Float,
+        pitch: Float,
+    ) {
+        if (handle != 0L) GeodeNative.vizGyroSample(handle, azimuth, pitch)
+    }
+
+    fun gyroReset() {
+        if (handle != 0L) GeodeNative.vizGyroReset(handle)
     }
 
     /** One live frame's start; see [GeodeNative.vizFrameBegin]. 0 before the handle exists. */

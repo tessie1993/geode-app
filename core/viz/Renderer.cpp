@@ -86,25 +86,30 @@ void Renderer::beginParamMorph(float seconds) {
     morphRequestSec_ = seconds;
 }
 
-void Renderer::pushPcm(const float* samples, int count) {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    pcm_.push(samples, count);
-}
-
 void Renderer::writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz) {
     if (!interleaved || frames <= 0 || channels <= 0 || sampleRateHz <= 0) return;
-    std::lock_guard<std::mutex> lock(soundLock_);
-    // SoundEngine clamps its rate to 8 kHz; compare the clamped rate or a lower one rebuilds every call.
-    if (!sound_ || sound_->sampleRateHz() != std::max(8000, sampleRateHz)) {
-        sound_ = std::make_unique<sound::SoundEngine>(sampleRateHz);
-        sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
+    {
+        std::lock_guard<std::mutex> lock(soundLock_);
+        // SoundEngine clamps its rate to 8 kHz; compare the clamped rate or a lower one rebuilds every call.
+        if (!sound_ || sound_->sampleRateHz() != std::max(8000, sampleRateHz)) {
+            sound_ = std::make_unique<sound::SoundEngine>(sampleRateHz);
+            sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
+        }
+        sound_->write(interleaved, frames, channels);
     }
-    sound_->write(interleaved, frames, channels);
+    // MilkDrop's raw PCM is what the engine just heard (#360): one ring, one cursor, every surface.
+    // Taken under its own lock, never nested in soundLock_, so the two locks have no order to keep.
+    std::lock_guard<std::mutex> lock(stateLock_);
+    pcm_.write(interleaved, frames, channels);
 }
 
 void Renderer::resetAudio() {
-    std::lock_guard<std::mutex> lock(soundLock_);
-    if (sound_) sound_->reset();
+    {
+        std::lock_guard<std::mutex> lock(soundLock_);
+        if (sound_) sound_->reset();
+    }
+    std::lock_guard<std::mutex> lock(stateLock_);
+    pcm_.clear();
 }
 
 void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
@@ -208,7 +213,7 @@ void Renderer::applyPendingFluidInjection() {
 
 // Any thread. Copies the pixel buffer under stateLock_ into the retained underlay buffer; the
 // actual GL upload (and the ARGB->RGBA conversion) happens on the GL thread in
-// applyUnderlayUpload(), matching pushPcm()'s copy-now/convert-later split. blend/amount are only
+// applyUnderlayUpload(), a copy-now/convert-later split. blend/amount are only
 // meaningful (and only stored) alongside a non-empty pixel buffer; a null/zero-size buffer clears.
 void Renderer::setUnderlayRgba(const uint32_t* pixels, int width, int height, int blend, float amount) {
     std::lock_guard<std::mutex> lock(stateLock_);

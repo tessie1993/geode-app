@@ -54,6 +54,7 @@ add_library(geode_core STATIC
     viz/Quad.cpp
     viz/Params.cpp
     viz/ParamsFields.cpp
+    viz/ConfigFields.cpp
     viz/Lfo.cpp
     viz/Macros.cpp
     viz/Director.cpp
@@ -126,3 +127,18 @@ target_include_directories(geode_core PRIVATE
     ${CMAKE_BINARY_DIR}/third_party/taglib)
 target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})
 target_link_libraries(geode_core PUBLIC projectM tag GLESv3 EGL log android)
+
+# glTF import (core/scene/object, #474): cgltf is header-only (its one implementation is compiled in
+# GltfImport.cpp); meshoptimizer builds only what the import uses, the simplifier and the
+# EXT_meshopt_compression decoders. Both are MIT submodules under third_party/, unmodified.
+set(GEODE_MESHOPT_DIR ${CMAKE_SOURCE_DIR}/third_party/meshoptimizer/src)
+add_library(geode_meshopt STATIC
+    ${GEODE_MESHOPT_DIR}/simplifier.cpp
+    ${GEODE_MESHOPT_DIR}/vertexcodec.cpp
+    ${GEODE_MESHOPT_DIR}/indexcodec.cpp
+    ${GEODE_MESHOPT_DIR}/vertexfilter.cpp)
+target_include_directories(geode_meshopt PUBLIC ${GEODE_MESHOPT_DIR})
+target_compile_options(geode_meshopt PRIVATE -fvisibility=hidden $<$<CONFIG:Release>:-O2>)
+target_sources(geode_core PRIVATE scene/object/GltfImport.cpp)
+target_include_directories(geode_core PRIVATE ${CMAKE_SOURCE_DIR}/third_party/cgltf)
+target_link_libraries(geode_core PUBLIC geode_meshopt)

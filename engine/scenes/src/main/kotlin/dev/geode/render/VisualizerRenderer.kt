@@ -8,7 +8,6 @@ import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.bridge.NativeViz
-import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -92,9 +91,6 @@ class VisualizerRenderer(
     @Volatile
     var onSurfaceSizeChanged: (width: Int, height: Int) -> Unit = { _, _ -> }
 
-    @Volatile
-    var pcmProvider: () -> PcmChunk? = { null }
-
     /**
      * The audio this surface's sound engine hears (core/sound, owned by the native renderer). Read on the
      * GL thread each frame through [soundCursor], so the engine gets every sample once, in order, and is
@@ -128,12 +124,20 @@ class VisualizerRenderer(
     @Volatile
     var reactions: List<ReactionRoute>? = null
 
-    /** Gyro look, -1..1 per axis, written by the sensor listener; native reads it only while camGyro is on. */
+    /**
+     * Gyro reading in radians from [GyroLook] (NaN azimuth while off); core/viz/GyroLook makes the
+     * look. [gyroSession] bumps on each switch on, so native recaptures even if no frame saw it off.
+     */
     @Volatile
-    var lookYaw: Float = 0f
+    var gyroAzimuth: Float = Float.NaN
 
     @Volatile
-    var lookPitch: Float = 0f
+    var gyroPitch: Float = 0f
+
+    @Volatile
+    var gyroSession: Int = 0
+
+    private var nativeGyroSession = 0
 
     private val styleReactions = StyleReactionsCache()
 
@@ -325,10 +329,12 @@ class VisualizerRenderer(
             nativeViz.setReactions(routes)
             nativeReactions = routes
         }
-        nativeViz.setLook(lookYaw, lookPitch)
+        val azimuth = gyroAzimuth
+        if (azimuth.isNaN() || gyroSession != nativeGyroSession) nativeViz.gyroReset()
+        nativeGyroSession = gyroSession
+        if (!azimuth.isNaN()) nativeViz.gyroSample(azimuth, gyroPitch)
         nativeViz.setReducedMotion(reducedMotion)
         nativeViz.setTransition(transitionId, transitionDurationMs)
-        pcmProvider()?.let { chunk -> nativeViz.pushPcm(chunk.data, chunk.count) }
         feedSound()
     }
 

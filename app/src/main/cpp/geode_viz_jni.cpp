@@ -156,13 +156,6 @@ Java_dev_geode_engine_bridge_GeodeNative_vizTakeDirectorStyleMoments(JNIEnv*, jo
     return geode_viz_take_director_style_moments(vizOf(handle));
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizPushPcm(JNIEnv* env, jobject, jlong handle, jfloatArray mono, jint count) {
-    FloatElements data(env, mono);
-    if (!data.get()) return;
-    geode_viz_push_pcm(vizOf(handle), data.get(), count < data.length() ? count : data.length());
-}
-
 // Region copy: every rendered frame, a few hundred frames of audio; never pins the whole scratch array.
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizWriteAudio(JNIEnv* env, jobject, jlong handle, jfloatArray interleaved,
@@ -368,6 +361,16 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetLook(JNIEnv*, jobject, jlong hand
 }
 
 JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizGyroSample(JNIEnv*, jobject, jlong handle, jfloat azimuth, jfloat pitch) {
+    geode_viz_gyro_sample(vizOf(handle), azimuth, pitch);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizGyroReset(JNIEnv*, jobject, jlong handle) {
+    geode_viz_gyro_reset(vizOf(handle));
+}
+
+JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetAdsr(JNIEnv* env, jobject, jlong handle, jint slot, jfloatArray config) {
     FloatElements data(env, config);
     if (data.get()) geode_viz_set_adsr(vizOf(handle), slot, data.get(), data.length());
@@ -501,7 +504,7 @@ Java_dev_geode_engine_bridge_GeodeNative_vizReleaseScenes(JNIEnv*, jobject, jlon
 
 // pixels is a Java IntArray? (ARGB per Android's Bitmap.getPixels), so a null array is a valid "clear"
 // call rather than a JNI error - handled before touching the (possibly null) array. width*height is
-// checked against the array's actual length (mirroring vizPushPcm's count clamp above) and treated as a
+// checked against the array's actual length and treated as a
 // clear when it doesn't fit, so a stale/mismatched width or height can never make
 // geode_viz_set_underlay_rgba read past the JVM-owned buffer.
 JNIEXPORT void JNICALL
@@ -576,6 +579,16 @@ Java_dev_geode_engine_bridge_GeodeNative_customizeReset(JNIEnv* env, jobject, js
     env->GetFloatArrayRegion(in, 0, static_cast<jsize>(input.size()), input.data());
     geode_customize_reset(categoryName.get(), input.data(), output.data());
     env->SetFloatArrayRegion(out, 0, static_cast<jsize>(output.size()), output.data());
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_configSchemaText(JNIEnv* env, jobject) {
+    return env->NewStringUTF(geode_config_schema_text());
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsRollKeys(JNIEnv* env, jobject) {
+    return env->NewStringUTF(geode_params_roll_keys());
 }
 
 JNIEXPORT jboolean JNICALL

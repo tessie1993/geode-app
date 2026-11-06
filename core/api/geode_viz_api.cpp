@@ -11,6 +11,7 @@
 
 #include "api/geode_api.h"
 #include "viz/Director.hpp"
+#include "viz/GyroLook.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/Macros.hpp"
 #include "viz/LayerState.hpp"
@@ -30,6 +31,7 @@ struct geode_viz {
     geode_viz(AAssetManager* assets, std::string cacheDir) : renderer(assets, std::move(cacheDir)) {}
 
     geode::viz::Renderer renderer;
+    geode::viz::GyroLook gyro;  // GL thread only (geode_viz_gyro_*)
     std::mutex configLock;
     std::array<geode::viz::LfoConfig, geode::viz::LfoEngine::kSlots> lfo{};
     std::array<geode::viz::AdsrConfig, geode::viz::AdsrEngine::kCount> adsr{};
@@ -177,10 +179,6 @@ void geode_viz_reset_audio(geode_viz* v) {
 
 void geode_viz_set_sound_tuning(geode_viz* v, const GeodeSoundTuning* tuning) {
     if (v && tuning) v->renderer.setSoundTuning(*tuning);
-}
-
-void geode_viz_push_pcm(geode_viz* v, const float* mono, int count) {
-    if (v && mono && count > 0) v->renderer.pushPcm(mono, count);
 }
 
 void geode_shader_override_set(const char* style_id, const char* fragment_source) {
@@ -512,6 +510,18 @@ int geode_style_reactions(const char* style_id, int seed, float* out, int capaci
 
 void geode_viz_set_look(geode_viz* v, float yaw, float pitch) {
     if (v) v->renderer.setLook(std::clamp(yaw, -1.0f, 1.0f), std::clamp(pitch, -1.0f, 1.0f));
+}
+
+void geode_viz_gyro_sample(geode_viz* v, float azimuth, float pitch) {
+    if (!v) return;
+    const GyroLook::Look look = v->gyro.sample(azimuth, pitch);
+    v->renderer.setLook(look.yaw, look.pitch);
+}
+
+void geode_viz_gyro_reset(geode_viz* v) {
+    if (!v) return;
+    const GyroLook::Look look = v->gyro.reset();
+    v->renderer.setLook(look.yaw, look.pitch);
 }
 
 int geode_viz_frame_begin(geode_viz* v, float paced_fps, float render_scale, float march_scale, int post_fx,

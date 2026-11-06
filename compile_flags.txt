@@ -7,3 +7,6 @@
 -Itools/clangd-stubs
 -Ithird_party/cgltf
 -Ithird_party/meshoptimizer/src
+-Ithird_party/basis_universal
+-DBASISU_SUPPORT_SSE=0
+-DBASISU_SUPPORT_OPENCL=0

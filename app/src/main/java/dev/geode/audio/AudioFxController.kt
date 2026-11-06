@@ -145,9 +145,6 @@ class AudioFxController(
         return true
     }
 
-    /** The ReplayGain / preamp stage, in decibels; owned by playback, not by the equalizer settings. */
-    fun setGainDb(db: Float) = dsp.update(dsp.settings.copy(gainDb = db))
-
     fun snapshot(): AudioFxState {
         val s = dsp.settings
         val (lo, hi) = NativeDspProcessor.MIN_MB to NativeDspProcessor.MAX_MB

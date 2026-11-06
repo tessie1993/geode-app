@@ -43,7 +43,7 @@ bool same(const std::vector<float>& a, const std::vector<float>& b) {
 
 // Settings that change every sample, so processed and pass-through output differ.
 void tune(geode_dsp* d) {
-    geode_dsp_set_gain_db(d, -6.0f);
+    geode_dsp_ramp_to(d, -6.0f, 0);
     geode_dsp_set_enabled(d, 1);
     geode_dsp_set_band(d, 2, 600);
     geode_dsp_set_limiter(d, 1);
@@ -129,13 +129,13 @@ void settingsReachTheStagedChain() {
     geode_dsp* dsp = fresh(48000, 1);
     geode_dsp_configure(dsp, 48000, 2);
     geode_dsp_set_crossfeed(dsp, 1);
-    geode_dsp_set_gain_db(dsp, -3.0f);
+    geode_dsp_ramp_to(dsp, -3.0f, 0);
     geode_dsp_flush(dsp);
 
     geode_dsp* reference = geode_dsp_create();
     tune(reference);
     geode_dsp_set_crossfeed(reference, 1);
-    geode_dsp_set_gain_db(reference, -3.0f);
+    geode_dsp_ramp_to(reference, -3.0f, 0);
     geode_dsp_configure(reference, 48000, 2);
     geode_dsp_flush(reference);
 

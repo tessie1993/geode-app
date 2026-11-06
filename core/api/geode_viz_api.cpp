@@ -104,6 +104,7 @@ void geode_viz_set_params(geode_viz* v, const float* values, int count) {
     // Quality never adapts downward in an export: its wall-clock frame time is the encoder's pace.
     if (v->offline.load(std::memory_order_relaxed)) p.fluidAutoQuality = false;
     v->renderer.setParams(p);
+    v->renderer.setParams(SceneParams::fromWire(values));
 }
 
 void geode_viz_set_reduced_motion(geode_viz* v, int on) {
@@ -401,6 +402,35 @@ int geode_music_edit(const char* style_id, int seed, const float* user, int user
 int geode_music_action_target(int action) {
     if (action < 0 || action >= kMusicActionCount) return static_cast<int>(LfoTarget::None);
     return static_cast<int>(musicActionTarget(static_cast<MusicAction>(action)));
+}
+
+static_assert(kEventRecipeCount == GEODE_EVENT_RECIPES);
+
+int geode_event_recipe_routes(int recipe, const char* style_id, float* out, int capacity) {
+    if (recipe < 0 || recipe >= kEventRecipeCount) return 0;
+    const auto r = static_cast<EventRecipe>(recipe);
+    const RecipeRoutes routes = style_id ? recipeRoutesFor(r, style_id) : recipeRoutes(r);
+    RouteArray all{};
+    for (int i = 0; i < routes.count; ++i) all[static_cast<size_t>(i)] = routes.routes[static_cast<size_t>(i)];
+    return writeRoutes(all, routes.count, out, capacity);
+}
+
+unsigned geode_event_recipe_state(int recipe, const char* style_id, const float* current, int current_floats) {
+    if (!style_id || recipe < 0 || recipe >= kEventRecipeCount) return 0u;
+    const auto r = static_cast<EventRecipe>(recipe);
+    const std::string id(style_id);
+    RouteArray routes;
+    const int n = readRoutes(current, current_floats, routes);
+    return (recipeIsOn(r, routes, n, id) ? GEODE_RECIPE_ON : 0u) | (recipeFits(r, routes, n, id) ? GEODE_RECIPE_FITS : 0u);
+}
+
+int geode_event_recipe_toggle(int recipe, const char* style_id, const float* current, int current_floats, float* out, int capacity) {
+    RouteArray routes;
+    const int n = readRoutes(current, current_floats, routes);
+    if (!style_id || recipe < 0 || recipe >= kEventRecipeCount) return writeRoutes(routes, n, out, capacity);
+    RouteArray next;
+    const int k = toggleRecipe(static_cast<EventRecipe>(recipe), routes, n, style_id, next);
+    return writeRoutes(next, k, out, capacity);
 }
 
 int geode_react_source_catalog(char* out, int capacity) {

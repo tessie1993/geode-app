@@ -23,8 +23,9 @@ data class DspSettings(
 /**
  * The Media3 processor that runs `geode_dsp_process` over the sink's PCM, in place.
  *
- * The block is copied once into the output buffer and processed there in place, 16-bit or float as
- * it came; native converts 16-bit itself, so no per-sample loop runs here. This class is only the
+ * Each block is copied once into the output buffer and processed there in place, 16-bit or float as
+ * it came; native converts 16-bit itself, so no per-sample loop runs here. While the DAC takes the stream
+ * bit-perfect ([bitPerfect], issue #353) native leaves every byte as it came. This class is only the
  * Media3 shell: it forwards configure, flush and each block to one native `geode_dsp`
  * (`core/audio/dsp/DspProcessor`), which owns a chain per format and the switch between them. That
  * switch follows the [AudioProcessor] contract: [onConfigure] describes the format queued after the
@@ -69,6 +70,15 @@ class NativeDspProcessor : BaseAudioProcessor() {
         return handle
     }
 
+    /** Set by `playback/BitPerfectOutput` as each AudioTrack is built; native latches it at the next flush. */
+    @Volatile
+    var bitPerfect = false
+        set(on) {
+            field = on
+            val h = handle
+            if (h != 0L) GeodeNative.dspSetBitPerfect(h, on)
+        }
+
     fun update(next: DspSettings) {
         settings = next
         val h = handle
@@ -90,6 +100,8 @@ class NativeDspProcessor : BaseAudioProcessor() {
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
+        // Media3 queues its shared EMPTY_BUFFER, which is also our first output: put() into itself throws.
+        if (!inputBuffer.hasRemaining()) return
         val format = inputAudioFormat
         val floatSamples = format.encoding == C.ENCODING_PCM_FLOAT
         val frameBytes = format.channelCount * (if (floatSamples) 4 else 2)
@@ -142,6 +154,7 @@ class NativeDspProcessor : BaseAudioProcessor() {
         GeodeNative.dspSetLoudnessMb(h, s.loudnessMb)
         GeodeNative.dspSetCrossfeed(h, s.crossfeed)
         GeodeNative.dspSetLimiter(h, s.limiter)
+        GeodeNative.dspSetBitPerfect(h, bitPerfect)
     }
 
     companion object {

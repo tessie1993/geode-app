@@ -71,7 +71,51 @@ the original numbering as cited by the changelog.
   cubes' snare flip wave, the knot's snare bulge, the lens's snare flip, the
   pool's kick ripple and the drops sliding on onsets, none of them stepping
   the whole frame's brightness.
-- **43** — Native gain ramps (#483, #351; `core/audio/dsp/GainStage`). On
+- **43** — Bit-perfect USB (#353, #489). Needs Android 14+ and a USB DAC
+  that lists a `MIXER_BEHAVIOR_BIT_PERFECT` entry (`adb shell dumpsys
+  audio` shows the mixer attributes per device). With Settings › Playback ›
+  Bit-perfect on and ReplayGain, crossfade, the equalizer, bass boost,
+  loudness, crossfeed and the limiter all on: (a) cold start the app and play
+  a gapless album of 44.1 kHz FLACs; from the very first track,
+  `adb shell dumpsys media.audio_flinger` must show the output thread as
+  bit-perfect at 44100 Hz, and it must stay so through every gapless item
+  without a seek (the bug was a mixed first track reused for the album);
+  (b) a DAC that shows the stream's rate (most do) shows the file's rate,
+  not 48 kHz; (c) the EQ and ReplayGain make no audible difference and no
+  pause, skip or sleep fade is heard; (d) the visuals still react; (e) play
+  a 96 kHz file next: the output reopens at 96 kHz, still bit-perfect if the
+  DAC lists that rate, otherwise mixed with the EQ back; (f) switch the
+  setting off mid-track: playback jumps once (the seek that reopens the
+  track) and the EQ and ReplayGain are heard again at once; on again, the
+  same jump and they pause. If the DAC can capture its input (or a loopback
+  recorder is at hand), a null test against the file is the definitive
+  check: the difference must be exactly zero.
+
+- **43** — Per-Scene frame time (#470). CI's visual gate (glslcheck stills,
+  `core/tests/visual_gate.cpp`) judges how each style *looks* on SwiftShader;
+  it cannot say what a frame costs on a phone GPU. On one Adreno 6xx and one
+  Mali-G57-class device, at Performance Balanced, 1080p, default Detail, with
+  a beat-heavy track playing and Auto off, for each Scene touched by the
+  change (every style for a release; for a PR, the styles it edits and every
+  style that shares the `lib_*` it edits):
+  - Load the style, wait 10 s for the build (`ScenePrep`) and the thermals to
+    settle, then record 30 s of Perfetto (`gfx` and `view` categories, or
+    Android Studio's System Trace). Read the `GLThread`'s frame slices
+    (`VisualizerRenderer.onDrawFrame`) and the SurfaceView layer's actual
+    frame timeline; `dumpsys gfxinfo` does not see a `GLSurfaceView`'s
+    thread. Record the median and the 95th percentile per style in the PR.
+  - Pass: median under 16.6 ms and p95 under 20 ms (60 fps with headroom),
+    and Settings › Performance's adaptive step-down does not kick in during
+    the 30 s. A style over budget is lowered (`uSteps`, Detail's cap, fewer
+    taps) before it ships, never left to the step-down.
+  - Watch the drop and the build too: a style whose cost rises with the
+    sound (more march steps, more blooms on a loud bar) is measured during
+    the loudest stretch, not in a verse.
+  - Then switch to the next style without pausing: the switch must not
+    hitch (a scene builds across frames, `ProgramStager`), and the old one
+    keeps drawing until the new one is ready.
+
+- **44** — Native gain ramps (#483, #351; `core/audio/dsp/GainStage`). On
   headphones, phone speaker and one Bluetooth headset: (a) ReplayGain Track,
   a gapless album with a loud track after a quiet one (and the reverse): the
   new track's level is right from its first note, with no burst or dip at

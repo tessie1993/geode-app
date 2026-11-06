@@ -1,6 +1,7 @@
 #include "audio/dsp/DspProcessor.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 namespace geode::audio {
 
@@ -26,6 +27,7 @@ bool DspProcessor::configure(int sampleRate, int channels) {
 }
 
 void DspProcessor::flush() {
+    bitPerfectLive_.store(bitPerfectWanted_.load(std::memory_order_acquire), std::memory_order_release);
     if (staged_) {
         live_.store(pending_, std::memory_order_release);
         pending_ = nullptr;
@@ -34,9 +36,18 @@ void DspProcessor::flush() {
     if (DspChain* chain = live_.load(std::memory_order_acquire)) chain->reset();
 }
 
-void DspProcessor::process(float* interleaved, size_t capacityFloats, size_t frames, int channels) {
+DspChain* DspProcessor::runnable(int channels) const {
+    // Bit-perfect skips the chain whole: gain, ramps, equalizer, crossfeed and limiter alike. The chain's own
+    // state stands still meanwhile and is reset at the flush that ends bit-perfect.
+    if (bitPerfectLive_.load(std::memory_order_acquire)) return nullptr;
     DspChain* chain = live_.load(std::memory_order_acquire);
-    if (!chain || !interleaved || channels <= 0 || chain->channels() != channels) return;
+    if (!chain || channels <= 0 || chain->channels() != channels) return nullptr;
+    return chain;
+}
+
+void DspProcessor::process(float* interleaved, size_t capacityFloats, size_t frames, int channels) {
+    DspChain* chain = runnable(channels);
+    if (!chain || !interleaved) return;
     frames = std::min(frames, capacityFloats / static_cast<size_t>(channels));
     if (frames == 0) return;
     gain_.process(interleaved, frames, channels, chain->sampleRate());
@@ -44,27 +55,40 @@ void DspProcessor::process(float* interleaved, size_t capacityFloats, size_t fra
 }
 
 void DspProcessor::processPcm16(int16_t* interleaved, size_t capacitySamples, size_t frames, int channels) {
-    DspChain* chain = live_.load(std::memory_order_acquire);
-    if (!chain || !interleaved || channels <= 0 || chain->channels() != channels) return;
-    const size_t ch = static_cast<size_t>(channels);
+    DspChain* chain = runnable(channels);
+    if (!chain || !interleaved) return;
+    const auto ch = static_cast<size_t>(channels);
     frames = std::min(frames, capacitySamples / ch);
-    // In chunks through a float buffer this processor owns, so the audio thread never allocates. Each chunk
-    // goes through the same gain and chain as a float block; every stage is a running state, so chunking
-    // changes nothing in the result.
-    const size_t chunkFrames = scratch_.size() / ch;
-    for (size_t done = 0; done < frames; done += chunkFrames) {
+    // A stack chunk instead of a heap scratch: the playback thread never allocates. The chain keeps its state
+    // across chunks, so chunking does not change the output.
+    constexpr size_t kChunkFloats = 1024;
+    constexpr float kFullScale = 32768.0f;
+    float chunk[kChunkFloats];
+    const size_t chunkFrames = kChunkFloats / ch;
+    for (size_t done = 0; done < frames;) {
         const size_t n = std::min(chunkFrames, frames - done);
-        int16_t* block = interleaved + done * ch;
-        for (size_t i = 0; i < n * ch; ++i) scratch_[i] = static_cast<float>(block[i]) / kShortFullScale;
-        gain_.process(scratch_.data(), n, channels, chain->sampleRate());
-        chain->process(scratch_.data(), n);
-        // Truncated toward zero, as the Kotlin conversion this replaced did, so a block nothing changed comes
-        // back bit-identical (s / 32768 * 32768 == s for every 16-bit s).
+        int16_t* pcm = interleaved + done * ch;
+        for (size_t i = 0; i < n * ch; ++i) chunk[i] = static_cast<float>(pcm[i]) / kFullScale;
+        gain_.process(chunk, n, channels, chain->sampleRate());
+        chain->process(chunk, n);
         for (size_t i = 0; i < n * ch; ++i) {
-            const float v = std::clamp(scratch_[i], -1.0f, 1.0f) * kShortFullScale;
-            block[i] = static_cast<int16_t>(std::clamp(static_cast<int>(v), -32768, 32767));
+            // Clamped to [-1, 1] first (a NaN to silence), so the scaled value always fits an int32; +1.0 is
+            // the one value past int16 and clips to 32767.
+            const float v = chunk[i];
+            const float c = std::isnan(v) ? 0.0f : std::clamp(v, -1.0f, 1.0f);
+            const auto s = static_cast<int32_t>(c * kFullScale);
+            pcm[i] = static_cast<int16_t>(std::clamp<int32_t>(s, INT16_MIN, INT16_MAX));
         }
+        done += n;
     }
+}
+
+void DspProcessor::setBitPerfect(bool on) {
+    bitPerfectWanted_.store(on, std::memory_order_release);
+}
+
+bool DspProcessor::bitPerfectLive() const {
+    return bitPerfectLive_.load(std::memory_order_acquire);
 }
 
 int DspProcessor::liveChannels() const {

@@ -42,7 +42,7 @@ android {
 
     defaultConfig {
         applicationId = "com.muzviz.studiopro"
-        minSdk = 26
+        minSdk = 33
         targetSdk = 36
         // Set once in gradle.properties and the root build.gradle.kts (release versioning).
         versionCode = rootProject.extra["geodeVersionCode"] as Int
@@ -139,6 +139,11 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = false
+        }
+        // minSdk 28+ makes AGP store dex uncompressed, which took the debug APK from
+        // ~40 MB (1.8.1.137, minSdk 26) to ~98 MB. Compress it again, as before.
+        dex {
+            useLegacyPackaging = true
         }
     }
 

@@ -83,13 +83,31 @@ it deletes the visualizer.
 
 **Bit-perfect USB (API 34+).** ExoPlayer is the only player (the native
 AMediaCodec/Oboe player is gone), so bit-perfect is done around its sink, not
-inside it: `playback/BitPerfectOutput` hears each stream's format from the
-tap's format callback, which Media3 runs before it creates the AudioTrack, and
-asks `AudioManager.setPreferredMixerAttributes` for the DAC's
-`MIXER_BEHAVIOR_BIT_PERFECT` entry at that rate, 16-bit, same channel mask;
-`ExoPlayer.setPreferredAudioDevice` routes the track there. The platform only
-treats a track as bit-perfect when its format equals the mixer's exactly, which
-is one more reason the chain must stay 16-bit and must not resample.
+inside it: `audio/TapRenderersFactory` gives the sink an `AudioOutputProvider`
+(Media3's default `AudioTrackAudioOutputProvider` in a
+`ForwardingAudioOutputProvider`) whose `getAudioOutput` hands each AudioTrack's
+config to `playback/BitPerfectOutput` on the playback thread just before the
+track is built. That asks `AudioManager.setPreferredMixerAttributes` for the
+DAC's `MIXER_BEHAVIOR_BIT_PERFECT` entry with exactly that rate, encoding and
+channel mask; `ExoPlayer.setPreferredAudioDevice` routes the track there. (It
+used to hear the format from the tap's format callback, which Media3 runs only
+after `DefaultAudioSink.handleBuffer` has opened the first track, so a cold
+start and every gapless item after it played mixed: #353.) Turning the setting
+on or off while an item plays seeks to the current position, which makes
+Media3 rebuild the track under the new choice. The platform only treats a track
+as bit-perfect when its format equals the mixer's exactly, which is one more
+reason the chain must stay 16-bit and must not resample.
+
+While the platform has granted the bit-perfect entry, the playback DSP is pure
+pass-through, decided natively: `BitPerfectOutput` only reports the grant
+(`geode_dsp_set_bit_perfect`), and `core/audio/dsp/DspProcessor` latches it at
+the pipeline flush Media3 runs after every new AudioTrack, then leaves every
+block byte for byte as it came. ReplayGain, the fades and crossfade (native gain
+ramps, #483), the equalizer and bass boost, loudness, crossfeed and the limiter
+all pause; Settings › Playback lists them. The tap is upstream, so the visuals
+keep reacting. The int16 ↔ float conversion around the chain is native too
+(`geode_dsp_process_pcm16`). `core/tests/bit_perfect_test.cpp` pins the
+pass-through; `docs/DEVICE_CHECKS.md` item 43 is the check with a real DAC.
 
 **Channel counts.** `NativeDspProcessor` runs mono and stereo. For anything
 else (5.1, 7.1) its `onConfigure` returns `AudioFormat.NOT_SET`, which makes it

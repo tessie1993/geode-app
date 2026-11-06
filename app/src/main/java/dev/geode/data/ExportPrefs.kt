@@ -1,6 +1,7 @@
 package dev.geode.data
 
 import android.content.SharedPreferences
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportPreset
 import dev.geode.export.ExportPresets
@@ -96,11 +97,10 @@ internal val EXPORT_FPS_OPTIONS: List<Int> = listOf(24, 25, 30, 50, 60)
 /**
  * The rate an export retries at when the encoder refuses the requested one: half of a 50 or 60
  * request, so the retry stays in the request's cadence family (50 -> 25, not 30), and the request
- * itself at 30 and below. A fixed 30, as before, retried a 24 or 25 fps request at a higher rate.
+ * itself at 30 and below. A fixed 30, as before, retried a 24 or 25 fps request at a higher rate. Native
+ * (`core/output/EncodePlan`, tested by `core/tests/output_test.cpp`).
  */
-internal fun fallbackExportFps(requested: Int): Int = if (requested > FALLBACK_CEILING_FPS) requested / 2 else requested
-
-private const val FALLBACK_CEILING_FPS = 30
+internal fun fallbackExportFps(requested: Int): Int = GeodeNative.exportFallbackFps(requested)
 
 internal fun exportCodecLabel(codec: ExportCodec): String =
     when (codec) {

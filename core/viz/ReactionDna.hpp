@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 #include "viz/Reactions.hpp"
@@ -107,5 +108,47 @@ HandRoutes editMusic(const HandRoutes& user, const StyleDna& dna, MusicEdit op, 
 
 // The target a new route of `action` moves: the shell hides chips whose target the style ignores.
 LfoTarget musicActionTarget(MusicAction action);
+
+// ── Customize › Music: the ready-made recipes ───────────────────────────────────────────────────────
+//
+// "When this happens in the music, do that": each recipe is only a bundle of routes, so it runs in the
+// same matrix as the DNA and the user's routes, and turning it off takes its routes back out. The amounts
+// and attack/release times come from docs/CUSTOMIZE_MACROS_RESEARCH.md § Event reactions; the flash-prone
+// ones (bloom, brightness, colour steps) still pass through safety::apply. Kotlin keeps only each one's
+// title and sentence (dev.geode.render.EventRecipe) and calls these through geode_event_recipe_*.
+
+// Wire ordinals, in the menu's order; append only.
+enum class EventRecipe {
+    KickPunch, SnareCrack, HatShimmer, SubWeight, LoudnessGlow, SwellBreathe, BuildupRush, SectionColours,
+    BeatTurn, TimbreTurn, PitchTint, FluxTexture, StereoSway, BarHue, HitChaos,
+    // The sound engine's signals the recipes above leave alone: toggles and randoms per hit, melody,
+    // silence and return, slow activity and the music-driven clocks.
+    KickSwap, KickAngle, SnareRoll, MelodyLift, NoteHue, GlideTwist, VibratoShimmer, SlideSmear, SilenceFade,
+    ReturnFlash, BassPull, ClockOrbit, BarTurn, ScaleMood, BuildAndDrop,
+};
+constexpr int kEventRecipeCount = static_cast<int>(EventRecipe::BuildAndDrop) + 1;
+constexpr int kMaxRecipeRoutes = 3;
+
+struct RecipeRoutes {
+    std::array<ReactRoute, kMaxRecipeRoutes> routes{};
+    int count = 0;
+};
+
+// Whether a route on `target` can move the style `styleId` (the target's catalogue::Scope reaches it), so a
+// recipe never adds a route the picture ignores (fluid splat force on a shader style).
+bool targetReaches(LfoTarget target, const std::string& styleId);
+
+// Every route the recipe holds, whatever the style.
+RecipeRoutes recipeRoutes(EventRecipe r);
+// The recipe's routes the style can actually show; none means the menu leaves the recipe out.
+RecipeRoutes recipeRoutesFor(EventRecipe r, const std::string& styleId);
+// Every route the recipe would add to the style is in `current` (on the same source and target).
+bool recipeIsOn(EventRecipe r, const RouteArray& current, int count, const std::string& styleId);
+// Turning it on leaves `current` within ReactionEngine::kRoutes.
+bool recipeFits(EventRecipe r, const RouteArray& current, int count, const std::string& styleId);
+// `current` with the recipe turned off if it is on, or on if it is off and fits; returns the count. Turning
+// on replaces a route already on the same source and target rather than stacking a second one, so a recipe
+// tapped over the DNA's own kick push does not double it; a full matrix refuses it and keeps `current`.
+int toggleRecipe(EventRecipe r, const RouteArray& current, int count, const std::string& styleId, RouteArray& out);
 
 }  // namespace geode::viz

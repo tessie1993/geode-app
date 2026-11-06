@@ -6,12 +6,11 @@ import java.io.File
 /**
  * The engine's scene and style catalogue, as the shell sees it.
  *
- * Every fact here is native (core/viz/Catalogue, ADR 0003): which style ids exist and in what
- * order the picker lists them, which renderer ([SceneKind]) builds each one, the style families,
- * which Customize controls reach which styles ([ParamScope]), and the ranges a few controls quote.
- * The shell asks once, through [GeodeNative.catalogueText], and parses the line table it gets back;
- * nothing in Kotlin keeps a second copy that could drift. What stays Kotlin is what is not engine:
- * display labels ([VisualStyleCatalog.label]) and the Pro rule (`pro/FreeTier`).
+ * Every fact here is native (core/viz/Catalogue, ADR 0003): which style ids exist and in what order the picker lists them,
+ * which renderer ([SceneKind]) builds each one, the Styles group each is shown in, the style families, which Customize
+ * controls reach which styles ([ParamScope]), and the ranges a few controls quote. The shell asks once, through
+ * [GeodeNative.catalogueText], and parses the line table it gets back; nothing in Kotlin keeps a second copy that could
+ * drift. What stays Kotlin is not engine: display labels ([VisualStyleCatalog.label], `model/StyleLook`) and `pro/FreeTier`.
  *
  * JVM unit tests cannot load libgeode. The build sets the [TEXT_FILE_PROPERTY] system property on
  * every unit-test task to `core/tests/catalogue.txt`, a checked-in copy of the table that the native
@@ -20,7 +19,7 @@ import java.io.File
  */
 object Catalogue {
     /** The table version this shell reads; core/viz/Catalogue.hpp's `kTextVersion`. */
-    const val VERSION: Int = 1
+    const val VERSION: Int = 2
 
     const val TEXT_FILE_PROPERTY: String = "geode.catalogue"
 
@@ -93,7 +92,7 @@ object Catalogue {
                 for (f in rows.drop(1)) {
                     when (f[0]) {
                         "kind" -> kindScopes[SceneKind.valueOf(f[1])] = scopes(f.getOrNull(2))
-                        "style" -> styles += CatalogueStyle(f[1], SceneKind.valueOf(f[2]), scopes(f.getOrNull(3)))
+                        "style" -> styles += CatalogueStyle(f[1], SceneKind.valueOf(f[2]), f[3], scopes(f.getOrNull(4)))
                         "family" -> families += StyleFamily(name = f[1], prefix = f[2], library = f[3], ids = f[4].split(','))
                         "override" -> overrides[f[1] to f[2]] = f[3].toFloat()
                         "key" -> keyScopes[f[1]] = ParamScope.valueOf(f[2])
@@ -114,9 +113,10 @@ object Catalogue {
     }
 }
 
-/** One style id, the renderer that builds it, and the scopes it has beyond its kind's (Detail, for a marched style). */
+/** One style id, its renderer, its Styles group by `model/StyleLook` name (that enum is `:app`'s), and its per-style scopes. */
 data class CatalogueStyle(
     val id: String,
     val kind: SceneKind,
+    val look: String,
     val scopes: Set<ParamScope>,
 )

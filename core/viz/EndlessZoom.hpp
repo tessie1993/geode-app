@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <string_view>
 
 #include "sound/SoundFrame.h"
 
@@ -112,22 +111,6 @@ inline Layers layers(float phase) {
     }
     if (l.weight1 < kSkipWeight) l.weight1 = 0.0f;
     return l;
-}
-
-/**
- * The style families still on the old in-and-out law: Glass and Truchet are being
- * redone in their own branch, which adopts lib_zoom itself. Until then they read
- * one layer at the old triangle magnification and their camera does not dive, so
- * this change leaves them exactly as they were. Delete a prefix to move it over.
- */
-inline bool keepsTriangle(std::string_view styleId) {
-    return styleId.rfind("glass_", 0) == 0 || styleId.rfind("truchet_", 0) == 0;
-}
-
-/** The old law, 1x -> 2x -> 1x, kept only for keepsTriangle styles. */
-inline Layers triangle(float phase) {
-    phase = std::isfinite(phase) ? std::clamp(phase, 0.0f, 1.0f) : 0.0f;
-    return {std::exp2(1.0f - std::fabs(2.0f * phase - 1.0f)), 1.0f, 0.0f};
 }
 
 }  // namespace geode::viz::endless

@@ -1,30 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Visuals › Styles (ui/StylesPage.kt): the group menu, search, the rows and their menu. -->
+<!-- Visuals › Styles (ui/StylesPage.kt): the menu, its rows and their long-press menu. -->
 <resources>
-    <string name="styles_search">Search styles</string>
-    <string name="styles_search_close">Close search</string>
-    <string name="styles_choose_group">Choose a group</string>
-    <string name="styles_group_shown">Shown</string>
-    <string name="styles_all">All styles</string>
-    <string name="styles_favourites">Favourites</string>
-    <string name="styles_recent">Recent</string>
-    <string name="styles_look_flowing">Flowing &amp; liquid</string>
-    <string name="styles_look_living">Living</string>
-    <string name="styles_look_psychedelic">Psychedelic</string>
-    <string name="styles_look_fractals">Fractals</string>
-    <string name="styles_look_space">Space</string>
-    <string name="styles_look_fly_through">Fly-through</string>
-    <string name="styles_look_glass">Glass &amp; light</string>
-    <string name="styles_look_patterns">Patterns</string>
-    <string name="styles_look_classic">Classic</string>
     <string name="styles_on_screen">On screen</string>
     <string name="styles_more_options">More options</string>
     <string name="styles_favourite_add">Add to favourites</string>
     <string name="styles_favourite_remove">Remove from favourites</string>
     <string name="styles_playlist_add">Add to visuals playlist</string>
     <string name="styles_recent_remove">Remove from Recent</string>
-    <string name="styles_empty_search">No style matches “%1$s”.</string>
-    <string name="styles_empty_favourites">No favourites yet. Tap the heart on a style to keep it here.</string>
-    <string name="styles_empty_recent">Styles you use show up here.</string>
-    <string name="styles_empty">Nothing here yet.</string>
+    <string name="styles_random">Random style</string>
+    <string name="styles_yours">Your styles</string>
+    <string name="styles_yours_empty">Tap the heart on a style to keep it here. Styles you use show up here too.</string>
 </resources>

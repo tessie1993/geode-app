@@ -204,7 +204,9 @@ class ThemeStore(
             putString(KEY_POS, gui.playerPosition.name)
             putString(KEY_CORNER, gui.cornerStyle.name)
             putFloat(KEY_OPACITY, gui.barOpacity)
-            putString(KEY_SOUND_TUNING, gui.soundTuning.toFloats().joinToString(","))
+            // The engine's defaults save as no key, so they follow native's schema when it changes.
+            val tuning = gui.soundTuning.savedFloats()
+            if (tuning == null) remove(KEY_SOUND_TUNING) else putString(KEY_SOUND_TUNING, tuning.joinToString(","))
             putString("preset_mirror_uri", gui.presetMirrorUri)
             putFloat(KEY_PRESET_MORPH_SEC, gui.presetMorphSeconds)
             putFloat(KEY_ACCENT, gui.accentIntensity)

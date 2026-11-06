@@ -1,9 +1,14 @@
 package dev.geode.engine.audio
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.io.File
 
+/**
+ * The slot layout only: defaults, ranges and the clamp are native (`core/sound/Tuning`) and tested in
+ * `core/tests/sound_test.cpp`, since this module's tests have no native library. Nothing here reads a value.
+ */
 class SoundTuningTest {
     private fun header(): String {
         var dir: File? = File("").absoluteFile
@@ -12,58 +17,50 @@ class SoundTuningTest {
     }
 
     @Test
-    fun floatsFollowTheHeadersFieldOrder() {
+    fun slotsFollowTheHeadersFieldOrder() {
         val body =
             header()
                 .substringAfter("typedef struct GeodeSoundTuning {")
                 .substringBefore("} GeodeSoundTuning;")
                 .replace(Regex("/\\*.*?\\*/", RegexOption.DOT_MATCHES_ALL), "")
-        val fields = Regex("float\\s+(\\w+)(\\[3])?;").findAll(body).map { it.groupValues[1] to it.groupValues[2].isNotEmpty() }.toList()
+        var at = 0
+        val slots =
+            Regex("float\\s+(\\w+)(\\[3])?;").findAll(body).associate { m ->
+                (m.groupValues[1] to at).also { at += if (m.groupValues[2].isEmpty()) 1 else 3 }
+            }
         assertEquals(
-            listOf(
-                "gain" to true,
-                "threshold" to true,
-                "offset" to true,
-                "attack" to true,
-                "release" to true,
-                "drum" to true,
-                "drumDecay" to true,
-                "reactivity" to false,
-                "speed" to false,
-                "onsetThreshold" to false,
-                "hardCutLevel" to false,
-                "hardCutHalfLife" to false,
-                "pitchThreshold" to false,
-                "noteHold" to false,
-                "silenceDb" to false,
+            mapOf(
+                "gain" to SoundTuning.GAIN,
+                "threshold" to SoundTuning.THRESHOLD,
+                "offset" to SoundTuning.OFFSET,
+                "attack" to SoundTuning.ATTACK,
+                "release" to SoundTuning.RELEASE,
+                "drum" to SoundTuning.DRUM,
+                "drumDecay" to SoundTuning.DRUM_DECAY,
+                "reactivity" to SoundTuning.REACTIVITY,
+                "speed" to SoundTuning.SPEED,
+                "onsetThreshold" to SoundTuning.ONSET_THRESHOLD,
+                "hardCutLevel" to SoundTuning.HARD_CUT_LEVEL,
+                "hardCutHalfLife" to SoundTuning.HARD_CUT_HALF_LIFE,
+                "pitchThreshold" to SoundTuning.PITCH_THRESHOLD,
+                "noteHold" to SoundTuning.NOTE_HOLD,
+                "silenceDb" to SoundTuning.SILENCE_DB,
             ),
-            fields,
+            slots,
         )
-        assertEquals(SoundFrameLayout.TUNING_FLOATS, SoundTuning().toFloats().size)
+        assertEquals(SoundFrameLayout.TUNING_FLOATS, at)
     }
 
     @Test
-    fun theWireFormPlacesEachField() {
-        val f = SoundTuning(reactivity = 2f, drum = listOf(0.7f, 0.8f, 0.9f), silenceDb = -50f).toFloats()
-        assertEquals(0.7f, f[15])
-        assertEquals(0.9f, f[17])
-        assertEquals(2f, f[21])
-        assertEquals(-50f, f[28])
+    fun savedFloatsRoundTripWithoutNative() {
+        val f = FloatArray(SoundFrameLayout.TUNING_FLOATS) { it.toFloat() }
+        assertEquals(f.toList(), SoundTuning.fromFloats(f).savedFloats()?.toList())
+        assertEquals(SoundTuning.fromFloats(f), SoundTuning.fromFloats(f.copyOf()))
     }
 
     @Test
-    fun roundTripsThroughFloats() {
-        val t = SoundTuning(reactivity = 1.5f, speed = 0.5f, gain = listOf(2f, 1f, 0.5f), silenceDb = -45f)
-        assertEquals(t, SoundTuning.fromFloats(t.toFloats()))
+    fun theWrongLengthIsTheDefaultsAndDefaultsSaveAsNothing() {
         assertEquals(SoundTuning(), SoundTuning.fromFloats(FloatArray(3)))
-    }
-
-    @Test
-    fun outOfRangeAndBrokenValuesAreClamped() {
-        val t = SoundTuning(reactivity = 9f, speed = Float.NaN, gain = listOf(1f), attack = listOf(-1f, 0.5f, 5f)).clamped()
-        assertEquals(3f, t.reactivity)
-        assertEquals(1f, t.speed)
-        assertEquals(SoundTuning().gain, t.gain)
-        assertEquals(listOf(0f, 0.5f, 1f), t.attack)
+        assertNull(SoundTuning().savedFloats())
     }
 }

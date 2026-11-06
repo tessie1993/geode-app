@@ -52,12 +52,13 @@ class HistoryStore(
 
     private fun readEntries(arr: JSONArray) {
         for (i in 0 until arr.length()) {
-            val o = arr.getJSONObject(i)
+            val o = arr.optJSONObject(i)
+            if (o == null || o.optString("uri").isBlank()) continue
             val e =
                 Entry(
-                    uri = o.getString("uri"),
-                    lastPlayedMs = o.getLong("last"),
-                    playCount = o.getInt("count"),
+                    uri = o.optString("uri"),
+                    lastPlayedMs = o.optLong("last"),
+                    playCount = o.optInt("count"),
                     title = o.optString("title"),
                     artist = o.optString("artist"),
                     listenedMs = o.optLong("ms", 0L),

@@ -1131,6 +1131,68 @@
         "state": "unresolved",
         "checked": "repository not located from this container"
       }
+    },
+    {
+      "id": "cgltf",
+      "planLedger": "cgltf",
+      "name": "jkuhlmann/cgltf",
+      "url": "https://github.com/jkuhlmann/cgltf",
+      "tier": "ADAPT",
+      "planTier": "ADAPT: vendored unmodified as a git submodule (#474)",
+      "license": "MIT",
+      "role": "glTF 2.0 / .glb parser for importing the user's own models (#455, #474).",
+      "incorporated": "The single-header library, compiled once in core/scene/object/GltfImport.cpp",
+      "notIncorporated": "Its writer (cgltf_write.h); file loading (the import reads bytes only, external buffers are refused)",
+      "importedFiles": [
+        "third_party/cgltf/"
+      ],
+      "modifications": [],
+      "attribution": "MIT: copyright line and licence text in THIRD_PARTY_NOTICES and the in-app notices.",
+      "notes": "Pinned to tag v1.15. Draco (KHR_draco_mesh_compression) is parsed but not decoded; a file that requires it is refused until re-encoding lands.",
+      "pin": {
+        "commit": "360db1a95480fe102ae9c69b27c5d101167ff5ba",
+        "source": "resolved tag v1.15 on 2026-11-05"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE",
+        "sha256": "f619925f80ef862497aaf8e8155ef218fa6a2190055129523ca3df9119a9ba95",
+        "bytes": 1066,
+        "firstLine": "Copyright (c) 2018-2021 Johannes Kuhlmann",
+        "readAtCommit": "360db1a95480fe102ae9c69b27c5d101167ff5ba",
+        "readOn": "2026-11-05"
+      }
+    },
+    {
+      "id": "meshoptimizer",
+      "planLedger": "meshoptimizer",
+      "name": "zeux/meshoptimizer",
+      "url": "https://github.com/zeux/meshoptimizer",
+      "tier": "ADAPT",
+      "planTier": "ADAPT: vendored unmodified as a git submodule (#474)",
+      "license": "MIT",
+      "role": "Fits an imported model to the triangle limit (meshopt_simplify) and builds its low-detail copy; decodes EXT_meshopt_compression (#455, #474).",
+      "incorporated": "src/simplifier.cpp, src/vertexcodec.cpp, src/indexcodec.cpp, src/vertexfilter.cpp, built as geode_meshopt by core/CMakeLists.txt",
+      "notIncorporated": "gltfpack, the JS decoders, and every other src/ file",
+      "importedFiles": [
+        "third_party/meshoptimizer/"
+      ],
+      "modifications": [],
+      "attribution": "MIT: copyright line and licence text in THIRD_PARTY_NOTICES and the in-app notices.",
+      "notes": "Pinned to tag v1.3.",
+      "pin": {
+        "commit": "9e1f07b159d3cb777f1c67ed31fc11fd117986f4",
+        "source": "resolved tag v1.3 on 2026-11-05"
+      },
+      "licenceEvidence": {
+        "state": "verified",
+        "file": "LICENSE.md",
+        "sha256": "f03037ca7bad1e3eb7f4a63fa6084a8baabd5ba30d3c239a9a7f35705d873e26",
+        "bytes": 1079,
+        "firstLine": "MIT License",
+        "readAtCommit": "9e1f07b159d3cb777f1c67ed31fc11fd117986f4",
+        "readOn": "2026-11-05"
+      }
     }
   ]
 }

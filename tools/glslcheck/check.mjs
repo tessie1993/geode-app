@@ -56,7 +56,7 @@ const SHADER_INCLUDES_INC = path.join(ROOT, 'core', 'viz', 'ShaderIncludes.inc')
 const CATALOGUE_TXT = path.join(ROOT, 'core', 'tests', 'catalogue.txt');
 const FLUID_LOOK_HPP = path.join(ROOT, 'core', 'viz', 'fluid', 'FluidLook.hpp');
 const GOLDEN_SONG = path.join(ROOT, 'core', 'tests', 'golden', 'sound_frames.tsv');
-const FLASH_LIMITER_HPP = path.join(ROOT, 'core', 'viz', 'FlashLimiter.hpp');
+const VISUAL_GATE_CPP = path.join(ROOT, 'core', 'tests', 'visual_gate.cpp');
 
 // ---- includes, as ShaderSource.cpp does them ------------------------------
 
@@ -93,7 +93,7 @@ function resolveIncludes(source, registry, chain = []) {
   return out.join('\n');
 }
 
-// `style|<id>|<KIND>[|MARCH_DETAIL]`, in catalogue order; SHADER is the kind
+// `style|<id>|<KIND>|<LOOK>[|MARCH_DETAIL]`, in catalogue order; SHADER is the kind
 // ShaderScene draws from shaders/<id>_frag.glsl (the loose styles and every
 // style family).
 function shaderIds() {
@@ -198,17 +198,37 @@ const SHADER_VALUES = {
   uCamDolly: 0, uCamLook: [0, 0, 0],
   // Morph World's genome (lib_world): seed 0, Bubble Nave, as `world_genome_test --dump 0` prints it.
   // Every seed: `--set uWorld=$(world_genome_test --dump <i>)`.
-  uWorld: [1, 6, 5, 1, 0.5, 0.6, 0, 3, 1.6, 0.3, 0.3, 0.8, 0.8, 0.8, 0.6, 1.1, 0, 0.6, 0, 0, 6, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1.6, 0.05, 0, 1.4, 8, 1.6, 2, 0.8, 0.2, 0, 0.12, 0.2, 0, 0, 0.8, 0.55, 0.4, 0.9, 0.04, 1.6, 0, 0, 1, 0, 0, 1, 0.0, -3.0, 0.5, 0.0, 0.5, 0.0, 0.0, 1.5, 0.15, 0.0, 0.0, 0.0, 0.0, 0, 1.47569, 5, 0, 0, 0, 1.9, 1, 0, 1, 0, 0, 0],
+  uWorld: [1, 6, 5, 1, 0.5, 0.6, 0, 3, 1.6, 0.3, 0.3, 0.8, 0.8, 0.8, 0.6, 1.1, 0, 0.6, 0, 0, 6, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.6, 0.05, 0, 1.4, 8, 1.6, 2, 0.8, 0.2, 0, 0.12, 0.2, 0, 0, 0.8, 0.55, 0.4, 0.9, 0.04, 1.6, 0, 0, 1, 0, 0, 1, 0.0, -3.0, 0.5, 0.0, 0.5, 0.0, 0.0, 1.5, 0.15, 0.0, 0.0, 0.0, 0.0, -0.2, 0.6, 0, 0, 1, 2, 0, 1.47569, 5, 0, 0, 0, 1.9, 1, 0, 1, 0, 0],
 };
 
 const SHADER_TEXTURES = { uSoundTex: 'sound', uPalLut: 'palette', uWorldShapes: 'world_shapes', uWorldTex: 'world_tex' };
 
 // Morph World's baked assets (core/viz/world/WorldAssets), handed to the page as the app uploads them:
-// the shape volumes as one 32 x 32 x 512 R8 TEXTURE_3D, the detail maps as an 8-layer R8 TEXTURE_2D_ARRAY.
+// the shape volumes repacked as ShaderScene does (WorldAssets::packAtlas: the file's 32^3 slabs, stacked
+// in z, laid out as a 6 x 4 tile atlas, one 192 x 128 x 32 R8 TEXTURE_3D), the detail maps as an
+// 8-layer R8 TEXTURE_2D_ARRAY.
+const SHAPE_COUNT = 24, SHAPE_RES = 32, ATLAS_COLS = 6, ATLAS_ROWS = 4;
+function packAtlas(slabs) {
+  const W = ATLAS_COLS * SHAPE_RES, H = ATLAS_ROWS * SHAPE_RES, D = SHAPE_RES;
+  if (slabs.length !== SHAPE_COUNT * SHAPE_RES ** 3) throw new Error(`world_shapes.bin is ${slabs.length} bytes`);
+  const atlas = Buffer.alloc(W * H * D);
+  for (let s = 0; s < SHAPE_COUNT; s++) {
+    const ox = (s % ATLAS_COLS) * SHAPE_RES, oy = Math.floor(s / ATLAS_COLS) * SHAPE_RES;
+    for (let z = 0; z < SHAPE_RES; z++) {
+      for (let y = 0; y < SHAPE_RES; y++) {
+        const from = ((s * SHAPE_RES + z) * SHAPE_RES + y) * SHAPE_RES;
+        slabs.copy(atlas, (z * H + oy + y) * W + ox, from, from + SHAPE_RES);
+      }
+    }
+  }
+  return { w: W, h: H, d: D, bytes: atlas };
+}
 function worldAssets() {
-  const read = (f) => fs.readFileSync(path.join(SHADERS, f)).toString('base64');
+  const raw = (f) => fs.readFileSync(path.join(SHADERS, f));
+  const read = (f) => raw(f).toString('base64');
+  const atlas = packAtlas(raw('world_shapes.bin'));
   return {
-    world_shapes: { target: '3d', w: 32, h: 32, d: 512, b64: read('world_shapes.bin') },
+    world_shapes: { target: '3d', w: atlas.w, h: atlas.h, d: atlas.d, b64: atlas.bytes.toString('base64') },
     world_tex: { target: 'array', w: 128, h: 128, d: 8, b64: read('world_textures.bin') },
   };
 }
@@ -388,8 +408,7 @@ function applyOverrides(values, args) {
 // Two reads per style, written to one TSV for core/tests/visual_gate.cpp to judge:
 //   stills  STILL_TIMES at --still-size: black and blown fractions (frameStats in page.html).
 //   run     every golden frame from RUN_START to RUN_END (the end of the build into the drop, the most
-//           strobe-prone stretch of the song), at --run-size, each boxed to the kProbeGrid grid
-//           OutputProbe reads on the phone; the gate counts them with FlashLimiter's own counters.
+//           strobe-prone stretch of the song), at --run-size, each boxed to visual_gate's kProbeGrid grid.
 // Song seconds, not uTime: uTime runs at TIME_OFFSET + song time, so the clocks are past their start the
 // way the default table's 37 is.
 const STILL_TIMES = [4.0, 9.5, 12.0, 18.5]; // verse, build, drop, verse again after the silence
@@ -400,8 +419,8 @@ const TIME_OFFSET = 30.0;
 const HELD = [['hardCut', 2.5], ['surge', 2.0], ['returned', 2.5], ['noteChange', 0.5]];
 
 function probeGridSide() {
-  const m = fs.readFileSync(FLASH_LIMITER_HPP, 'utf8').match(/kProbeGrid\s*=\s*(\d+)/);
-  if (!m) throw new Error(`no kProbeGrid in ${FLASH_LIMITER_HPP}`);
+  const m = fs.readFileSync(VISUAL_GATE_CPP, 'utf8').match(/kProbeGrid\s*=\s*(\d+)/);
+  if (!m) throw new Error(`no kProbeGrid in ${VISUAL_GATE_CPP}`);
   return Number(m[1]);
 }
 

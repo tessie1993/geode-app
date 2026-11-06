@@ -23,7 +23,6 @@ import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.render.SceneFactory
 import dev.geode.render.TransitionStyle
-import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -102,8 +101,6 @@ class PlayerViewModel
         fun toggleShuffle() = session.toggleShuffle()
 
         fun cycleRepeatMode() = session.cycleRepeatMode()
-
-        fun latestPcm(): PcmChunk? = session.latestPcm()
 
         fun milkPresetFilesAsync(onDone: (List<MilkFile>) -> Unit) = session.milkPresetFilesAsync(onDone)
 

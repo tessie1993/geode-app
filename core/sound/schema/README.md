@@ -9,7 +9,7 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 - `engine/audio-core/.../audio/SoundFrameLayout.kt` (offsets)
 - the `SND_*` defines in `app/src/main/assets/shaders/lib_sound.glsl`
 - `ReactSource` and its labels in `core/viz/Reactions.hpp` / `Reactions.cpp` (117 sources)
-- `GeodeSoundTuning` and its Kotlin mirror `SoundTuning.kt`
+- `GeodeSoundTuning` (its defaults and ranges are already one table, `core/sound/Tuning.cpp`; Kotlin's `SoundTuning.kt` keeps only the slot offsets)
 
 Today `SoundFrameLayoutTest` parses the header and the shader to catch drift. After this step the test compares generated files with the schema instead.
 

@@ -5,23 +5,19 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.systemGestureExclusion
@@ -29,7 +25,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -60,6 +55,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -72,9 +68,6 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigationevent.NavigationEventInfo
-import androidx.navigationevent.compose.NavigationBackHandler
-import androidx.navigationevent.compose.rememberNavigationEventState
 import dev.geode.R
 import dev.geode.data.AutoDirectorStore
 import dev.geode.data.GuiPrefs
@@ -87,105 +80,48 @@ import dev.geode.ui.theme.floatingGlass
 import kotlin.math.roundToInt
 
 /**
- * Visuals quick settings: the panel a tap on the top of the full-screen visual opens (ui-flow
- * decisions, Round 2). It holds the settings a listener reaches for while watching, split from
- * Customize by kind: what changes the look by itself (Auto, the style timer and what it steps
- * through, the visual playlist) and how the glass over the visual behaves (the sheet's opacity, how
- * long the mini player stays).
+ * Visuals › Settings: a page of the options sheet, opened by the ⚙ at the top of the visual (owner:
+ * a page, not a drop-down over the visual, and no gesture for it). It holds the settings a listener
+ * reaches for while watching, split from Customize by kind: what changes the look by itself (Auto,
+ * the style timer and what it steps through, the visual playlist) and how the glass over the visual
+ * behaves (the sheet's opacity, how long the mini player stays).
  *
  * It owns no state of its own. Every row reads and writes the store the matching Settings row uses,
  * so the two can never disagree: Auto is [AutoDirectorStore], the timer, its sources and the
- * playlist are [PlayerViewModel]'s Auto visuals (`AutoVisualsPrefsStore`), Auto's only home now
- * (Settings has no Auto group), and the glass rows are [GuiPrefs] through [SettingsViewModel] (as
- * Settings › Look). Gating stays where it is: a free user may switch Auto on
- * and gets the first minute of each song ([dev.geode.pro.AutoDirectorPolicy]); the timer's picks skip
- * locked styles by themselves.
+ * playlist are [PlayerViewModel]'s Auto visuals (`AutoVisualsPrefsStore`), and the glass rows are
+ * [GuiPrefs] through [SettingsViewModel] (as Settings › Look). Gating stays where it is: a free user
+ * may switch Auto on and gets the first minute of each song ([dev.geode.pro.AutoDirectorPolicy]).
  *
- * It behaves like an anchored dropdown from the top, the standard Android shape for a panel that
- * belongs to a spot on screen: a floating card under the status bar, Back or a tap anywhere outside
- * it dismisses it ([onDismiss]), and there is no scrim, so the visual stays fully lit around it. The
- * caller places this over the whole visual (it fills [modifier]'s bounds to catch the outside tap),
- * animates it in and out, and hides the options sheet while it is up ([hiddenUnderDropIn]), so only
- * the visual shows through the glass (UI V2 rule 6).
- *
- * It is dense on purpose (QA on #284: seven controls took a whole portrait screen and four rows of a
- * landscape one). Every control is one row, at least [GeodeSpacing.TouchTarget] (48 dp) tall and
- * growing with the font scale: a switch row toggles as a whole, a slider row has its label and value
- * on one line beside a slim M3 slider, and a pick is one row whose value opens a menu (UI V2 rule 2,
- * no segmented walls). Not the 44 dp rows QA once asked for (#554): the rows are stacked, so each
- * neighbour claims the touch Compose would otherwise widen to 48 dp, and the targets fell short.
- * From [TWO_COLUMN_WIDTH] the rows split into two columns, the look's timer on the left and the rest
- * on the right, so a landscape phone shows them all without scrolling. The card stops
- * [DOCK_CLEARANCE] above the bottom so it never runs under the floating mini player, which is drawn
- * over Visuals and takes a swipe up as "open Player".
- *
- * The card keeps its own drags ([keepDragsInside]): a fling that runs off the end of its scroll, or a
- * drag across its empty glass, never reaches anything behind or around it.
- *
- * The timer runs one of two modes that the controller keeps apart (starting one stops the other):
- * Random, which picks from styles, presets and MilkDrop presets, or the visual playlist in order. The
- * panel shows them as one switch and a "steps through" choice, which is how a listener thinks of it;
- * while neither runs, the choice is remembered locally so the switch starts the mode last picked.
+ * Every control is one row, at least [GeodeSpacing.TouchTarget] tall. From [TWO_COLUMN_WIDTH] the
+ * rows split into two columns (the landscape panel, a tablet). Back is the sheet's: the page is on
+ * the route like Textures, so Back returns to the tab under it.
  *
  * [onOpenPlaylist], when the shell has a place to edit the playlist, turns the playlist row into its
  * entry point; without it the row only shows how many looks the playlist holds.
- *
- * [visible] is whether the caller still means the panel to be up: false from the moment its exit
- * fade starts. Back is the panel's only while it is true (#557): the caller keeps this composed
- * through the fade, and a handler left on would swallow the next Back, which belongs to whatever is
- * under the panel by then. The handler is NavigationEvent's [NavigationBackHandler], not activity's
- * `BackHandler`: the navigation-event skill moves Compose back handling to it on SDK 36+ (this app
- * compiles against 37 and targets 36), where it shares one dispatcher with Nav3's `NavDisplay` and
- * the activity's own handlers, so the order by composition still holds. It comes with
- * activity-compose 1.13 (an `api` dependency), so no dependency is added.
  */
 @Composable
-internal fun VisualsQuickSettings(
+internal fun VisualsSettingsPage(
     viewModel: PlayerViewModel,
-    visible: Boolean,
-    onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenPlaylist: (() -> Unit)? = null,
 ) {
     val settings: SettingsViewModel = geodeViewModel()
     val gui by settings.guiPrefs.collectAsStateWithLifecycle()
-    NavigationBackHandler(
-        state = rememberNavigationEventState(currentInfo = NavigationEventInfo.None),
-        isBackEnabled = visible,
-        onBackCompleted = onDismiss,
-    )
-    Box(modifier.fillMaxSize()) {
-        // The outside tap: a bare hit target under the card, with no semantics of its own; TalkBack
-        // users close the panel with its close button or Back.
-        Box(
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        val twoColumns = maxWidth >= TWO_COLUMN_WIDTH
+        Column(
             Modifier
                 .fillMaxSize()
-                .pointerInput(onDismiss) { detectTapGestures { onDismiss() } },
-        )
-        BoxWithConstraints(
-            Modifier
-                .align(Alignment.TopCenter)
-                .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(GeodeSpacing.EdgeInset)
-                .padding(bottom = DOCK_CLEARANCE)
-                .widthIn(max = PANEL_MAX_WIDTH)
-                .fillMaxWidth(),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.XS),
         ) {
-            val twoColumns = maxWidth >= TWO_COLUMN_WIDTH
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    // Dense glass of its own: the options slider tunes the sheet, and the sheet must not read through here.
-                    .floatingGlass(fillAlpha = DROP_IN_FILL)
-                    // Taps on the card's empty parts stay on the card instead of reaching the dismiss target.
-                    .pointerInput(Unit) { detectTapGestures { } }
-                    .keepDragsInside()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.XS),
-            ) {
-                QuickSettingsHeader(onDismiss)
-                QuickSettingsRows(viewModel, gui, settings::setGuiPrefs, onOpenPlaylist, twoColumns)
-            }
+            // Settings has no tab of its own, so the page names itself under the tabs.
+            Text(
+                stringResource(R.string.visuals_qs_title),
+                Modifier.padding(vertical = GeodeSpacing.S).semantics { heading() },
+                style = MaterialTheme.typography.titleMedium,
+            )
+            QuickSettingsRows(viewModel, gui, settings::setGuiPrefs, onOpenPlaylist, twoColumns)
         }
     }
 }
@@ -285,20 +221,6 @@ private class RandomPick(
     val checked: Boolean,
     val onChange: (Boolean) -> Unit,
 )
-
-@Composable
-private fun QuickSettingsHeader(onDismiss: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(
-            stringResource(R.string.visuals_qs_title),
-            Modifier.weight(1f),
-            style = MaterialTheme.typography.titleMedium,
-        )
-        IconButton(onClick = onDismiss) {
-            StoneIconArt(StoneIcon.CLOSE, stringResource(R.string.action_close))
-        }
-    }
-}
 
 /**
  * The seven controls. In one column they run top to bottom; in two, the timer (Auto, the timer
@@ -660,17 +582,8 @@ private fun CheckSlot(checked: Boolean) {
     }
 }
 
-/**
- * The card's widest: a phone's width in portrait, and wide enough on a landscape phone or a tablet
- * for the two columns, while it stays a dropdown rather than a banner.
- */
-private val PANEL_MAX_WIDTH = 720.dp
-
-/** From this card width the rows go into two columns. */
+/** From this page width the rows go into two columns. */
 private val TWO_COLUMN_WIDTH = 600.dp
-
-/** The floating mini player's 64 dp and its margin: the card ends above it. */
-private val DOCK_CLEARANCE = 76.dp
 
 private val SLIM_TRACK = 6.dp
 private val SLIM_THUMB = DpSize(4.dp, 24.dp)

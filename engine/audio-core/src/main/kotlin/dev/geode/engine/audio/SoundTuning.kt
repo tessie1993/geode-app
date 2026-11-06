@@ -1,108 +1,76 @@
 package dev.geode.engine.audio
 
+import dev.geode.engine.bridge.GeodeNative
+
 /**
  * The user's tuning of the sound engine (Settings › Audio), global: `GeodeSoundTuning` in
- * `core/sound/SoundFrame.h`. Three-element lists are low, middle, high (or kick, snare, hat for the
- * drum ones). The defaults are the engine's own (`SoundEngine::defaultTuning`).
+ * `core/sound/SoundFrame.h` as its [SoundFrameLayout.TUNING_FLOATS] floats, one per slot in field order
+ * (the slot constants below). Three-slot groups are low, middle, high (or kick, snare, hat for the drums).
  *
- * Pure Kotlin so the layout is testable off-device; [toFloats] is the wire form native copies
- * field for field, and `SoundTuningTest` checks it against the header.
+ * Only a holder. Every default, range and the clamp (NaN and infinity become the default) are native,
+ * `core/sound/Tuning`, so the engine, these sliders and the saved settings share one schema. [SoundTuning]
+ * with no saved floats means "the engine's defaults" and stays unresolved until a value is read: storage
+ * ([savedFloats], [fromFloats]) and equality never load the native library, so JVM tests of the prefs
+ * can still build one.
  */
-data class SoundTuning(
-    /** One multiplier on every shaped band, 0..3. */
-    val reactivity: Float = 1f,
-    /** One multiplier on every clock, 0..4. */
-    val speed: Float = 1f,
-    val gain: List<Float> = listOf(1f, 1f, 1f),
-    val threshold: List<Float> = listOf(0f, 0f, 0f),
-    val offset: List<Float> = listOf(0f, 0f, 0f),
-    val attack: List<Float> = listOf(0.03f, 0.03f, 0.03f),
-    val release: List<Float> = listOf(0.15f, 0.15f, 0.15f),
-    /** How hard a kick, snare or hat must hit to count, 0.1..3. */
-    val drum: List<Float> = listOf(0.6f, 0.5f, 0.5f),
-    val drumDecay: List<Float> = listOf(0.18f, 0.15f, 0.08f),
-    val onsetThreshold: Float = 2f,
-    val hardCutLevel: Float = 2.5f,
-    val hardCutHalfLife: Float = 60f,
-    val pitchThreshold: Float = 0.35f,
-    val noteHold: Float = 0.08f,
-    val silenceDb: Float = -60f,
+class SoundTuning private constructor(
+    private val saved: FloatArray?,
 ) {
-    /** Values outside what the engine accepts, clamped to it; lists that are not three long reset. */
-    fun clamped(): SoundTuning {
-        val d = SoundTuning()
+    constructor() : this(null)
 
-        fun List<Float>.fit(
-            def: List<Float>,
-            range: ClosedFloatingPointRange<Float>,
-        ) = if (size == 3) map { if (it.isFinite()) it.coerceIn(range) else range.start } else def
-        return SoundTuning(
-            reactivity = reactivity.fin(d.reactivity).coerceIn(REACTIVITY),
-            speed = speed.fin(d.speed).coerceIn(SPEED),
-            gain = gain.fit(d.gain, GAIN),
-            threshold = threshold.fit(d.threshold, 0f..1f),
-            offset = offset.fit(d.offset, -1f..1f),
-            attack = attack.fit(d.attack, 0f..1f),
-            release = release.fit(d.release, 0f..2f),
-            drum = drum.fit(d.drum, DRUM),
-            drumDecay = drumDecay.fit(d.drumDecay, 0.02f..1f),
-            onsetThreshold = onsetThreshold.fin(d.onsetThreshold).coerceIn(1f..4f),
-            hardCutLevel = hardCutLevel.fin(d.hardCutLevel).coerceIn(1.5f..4f),
-            hardCutHalfLife = hardCutHalfLife.fin(d.hardCutHalfLife).coerceIn(5f..180f),
-            pitchThreshold = pitchThreshold.fin(d.pitchThreshold).coerceIn(0.1f..0.9f),
-            noteHold = noteHold.fin(d.noteHold).coerceIn(0.02f..0.5f),
-            silenceDb = silenceDb.fin(d.silenceDb).coerceIn(-90f..-30f),
-        )
+    /** The saved floats clamped by native, or its defaults; resolved on first read, on a thread that has the library. */
+    private val values: FloatArray by lazy {
+        saved?.copyOf()?.also(GeodeNative::soundTuningClamp) ?: Schema.floats.copyOf(SoundFrameLayout.TUNING_FLOATS)
     }
 
-    /** `GeodeSoundTuning` field order, [SoundFrameLayout.TUNING_FLOATS] long. */
-    fun toFloats(): FloatArray {
-        val c = clamped()
-        return (
-            c.gain + c.threshold + c.offset + c.attack + c.release + c.drum + c.drumDecay +
-                listOf(
-                    c.reactivity,
-                    c.speed,
-                    c.onsetThreshold,
-                    c.hardCutLevel,
-                    c.hardCutHalfLife,
-                    c.pitchThreshold,
-                    c.noteHold,
-                    c.silenceDb,
-                )
-        ).toFloatArray()
+    operator fun get(slot: Int): Float = values[slot]
+
+    /** This tuning with one slot changed; [clamped] puts it back in range. */
+    fun withSlot(
+        slot: Int,
+        value: Float,
+    ) = SoundTuning(values.copyOf().also { it[slot] = value })
+
+    fun clamped() = SoundTuning(values.copyOf())
+
+    /** The wire form native copies field for field, clamped. */
+    fun toFloats(): FloatArray = values.copyOf()
+
+    /** What to save: null for the engine's defaults, so a reset follows the engine when they change. */
+    fun savedFloats(): FloatArray? = saved?.copyOf()
+
+    override fun equals(other: Any?) = other is SoundTuning && saved.contentEquals(other.saved)
+
+    override fun hashCode() = saved.contentHashCode()
+
+    private object Schema {
+        val floats = checkNotNull(GeodeNative.soundTuningSchema())
     }
 
     companion object {
-        val REACTIVITY = 0f..3f
-        val SPEED = 0f..4f
-        val GAIN = 0f..4f
-        val DRUM = 0.1f..3f
+        const val GAIN = 0
+        const val THRESHOLD = 3
+        const val OFFSET = 6
+        const val ATTACK = 9
+        const val RELEASE = 12
+        const val DRUM = 15
+        const val DRUM_DECAY = 18
+        const val REACTIVITY = 21
+        const val SPEED = 22
+        const val ONSET_THRESHOLD = 23
+        const val HARD_CUT_LEVEL = 24
+        const val HARD_CUT_HALF_LIFE = 25
+        const val PITCH_THRESHOLD = 26
+        const val NOTE_HOLD = 27
+        const val SILENCE_DB = 28
 
-        private fun Float.fin(default: Float) = if (isFinite()) this else default
-
-        /** The inverse of [toFloats]; anything the wrong length is the defaults. */
-        fun fromFloats(f: FloatArray): SoundTuning {
-            if (f.size != SoundFrameLayout.TUNING_FLOATS) return SoundTuning()
-
-            fun three(at: Int) = listOf(f[at], f[at + 1], f[at + 2])
-            return SoundTuning(
-                gain = three(0),
-                threshold = three(3),
-                offset = three(6),
-                attack = three(9),
-                release = three(12),
-                drum = three(15),
-                drumDecay = three(18),
-                reactivity = f[21],
-                speed = f[22],
-                onsetThreshold = f[23],
-                hardCutLevel = f[24],
-                hardCutHalfLife = f[25],
-                pitchThreshold = f[26],
-                noteHold = f[27],
-                silenceDb = f[28],
-            ).clamped()
+        /** The slider range of [slot], native's. */
+        fun range(slot: Int): ClosedFloatingPointRange<Float> {
+            val n = SoundFrameLayout.TUNING_FLOATS
+            return Schema.floats[n + slot]..Schema.floats[2 * n + slot]
         }
+
+        /** Saved floats, clamped when first read; anything the wrong length is the defaults. */
+        fun fromFloats(f: FloatArray) = if (f.size == SoundFrameLayout.TUNING_FLOATS) SoundTuning(f.copyOf()) else SoundTuning()
     }
 }

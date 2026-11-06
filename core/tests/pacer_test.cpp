@@ -171,12 +171,51 @@ void nanAndTinyCaps() {
 }
 
 void wireRoundTrip() {
-    PacerState s{1, 2, 3, 4, 5, 6};
+    PacerState s{1, 2, 3, 4, 5, 6, 7};
     int64_t wire[kPacerStateLongs] = {};
     pack(s, wire);
     const PacerState back = unpack(wire);
-    check(back.lastDrawnNs == 1 && back.lastVsyncNs == 2 && back.periodNs == 3 && back.samples == 4 && back.sinceDrawn == 5 && back.divisor == 6,
-          "the six-long wire layout round-trips");
+    check(back.lastDrawnNs == 1 && back.lastVsyncNs == 2 && back.periodNs == 3 && back.samples == 4 && back.sinceDrawn == 5 && back.divisor == 6 &&
+              back.capMilliHz == 7,
+          "the seven-long wire layout round-trips");
+    check(wire[kPacerCapSlot] == 7, "the cap sits in the slot the shell reads");
+}
+
+// The cap a vsync paced to is recorded for the shell's setFrameRate (#440).
+void recordsTheCap() {
+    PacerState s;
+    Pacer::onVsync(s, 1'000'000'000, 30.0f);
+    check(s.capMilliHz == 30'000, "a 30 fps cap is recorded in millihertz");
+    Pacer::onVsync(s, 1'016'666'667, 0.0f);
+    check(s.capMilliHz == 0, "no cap records 0");
+    check(effectiveCapFps(60.0f, 30.0f) == 30.0f, "the thermal cap wins when lower");
+    check(effectiveCapFps(24.0f, 30.0f) == 24.0f, "the surface cap wins when lower");
+    check(effectiveCapFps(0.0f, 30.0f) == 30.0f, "a free-running surface still takes the thermal cap");
+    check(effectiveCapFps(60.0f, 0.0f) == 60.0f, "no thermal cap leaves the surface's");
+    check(effectiveCapFps(NAN, 0.0f) == 0.0f, "a NaN cap is no cap");
+}
+
+// Kills: truncating instead of rounding the recorded cap (59.94f is 59.9399986 as a float, which truncates
+// to 59939 mHz), and dropping the isfinite guard (llround of NaN or infinity is implementation-defined).
+void recordsAnyCapTheShellCanAskFor() {
+    PacerState s;
+    Pacer::onVsync(s, 1'000'000'000, 59.94f);
+    check(s.capMilliHz == 59'940, "an NTSC 59.94 fps cap is recorded as 59940 mHz");
+    Pacer::onVsync(s, 1'016'683'350, NAN);
+    check(s.capMilliHz == 0, "a NaN cap records none");
+    Pacer::onVsync(s, 1'033'366'700, INFINITY);
+    check(s.capMilliHz == 0, "an infinite cap records none");
+    Pacer::onVsync(s, 1'050'050'050, -30.0f);
+    check(s.capMilliHz == 0, "a negative cap records none");
+}
+
+// Kills: `std::isfinite` -> `!std::isnan` on either cap, and a negative surface cap taken as a cap.
+void aCapThatIsNotANumberIsNoCap() {
+    check(effectiveCapFps(60.0f, NAN) == 60.0f, "a NaN thermal cap leaves the surface's");
+    check(effectiveCapFps(INFINITY, 0.0f) == 0.0f, "an infinite surface cap is free-running");
+    check(effectiveCapFps(60.0f, INFINITY) == 60.0f, "an infinite thermal cap is none");
+    check(effectiveCapFps(-30.0f, 0.0f) == 0.0f, "a negative surface cap is none");
+    check(effectiveCapFps(-30.0f, 30.0f) == 30.0f, "and the thermal cap still applies");
 }
 
 }  // namespace
@@ -192,6 +231,9 @@ int main() {
     loneSlowIntervalKeepsTheDivide();
     nanAndTinyCaps();
     wireRoundTrip();
+    recordsTheCap();
+    recordsAnyCapTheShellCanAskFor();
+    aCapThatIsNotANumberIsNoCap();
     if (failures == 0) std::printf("pacer_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

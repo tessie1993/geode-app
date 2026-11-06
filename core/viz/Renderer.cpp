@@ -26,7 +26,8 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                 SceneHost{[this](const std::string& m) { fail(m); },
                           [this] { return thermal_.pacedFps(); },
                           [this](const std::string& path) { notePresetLoaded(path); },
-                          [this] { return marchScale_.load(std::memory_order_relaxed); },
+                          // The user's march scale under the thermal ladder's (ADR 0008: march is its third rung).
+                          [this] { return marchScale_.load(std::memory_order_relaxed) * thermal_.tierInfo().marchScale; },
                           [this] { return &notes_.uniforms(); },
                           [this] {
                               return directorPinned_.load(std::memory_order_acquire)
@@ -312,6 +313,8 @@ void Renderer::onSurfaceCreated() {
     profile_ = deviceGl_.profileWithCurrentContext();
     GEODE_LOGI(kTag, "surface created: %s", profile_.summary().c_str());
     thermal_.onSurfaceRecreated();
+    // The shell's label belongs to the old surface's collectors: say the mode again on the new one.
+    liquidModeTaken_.store(-1, std::memory_order_relaxed);
     programCache_.prime();
     // The old context's staged programs died with it: drop their ids before releaseScenes clears.
     stager_.onContext(profile_.report.extensions.count("GL_KHR_parallel_shader_compile") > 0);
@@ -321,6 +324,8 @@ void Renderer::onSurfaceCreated() {
     // pass had already made names on the new context, and deleted them. Deleting a name a fresh
     // context never made is a no-op, so releasing first is safe whether or not the context is new.
     releaseScenes();
+    // The frame passes (frame::Pass) drop their names before anything below generates new ones.
+    edgeGlowPass_.release();
     trailPass_.release();
     compositePass_.release();
     uiBlurPass_.release();
@@ -338,11 +343,6 @@ void Renderer::onSurfaceCreated() {
     fboA_.release();
     fboB_.release();
     bornFbo_.release();
-    // The probe's names died with the old context; the limiter starts over on the new surface.
-    outputProbe_.forget();
-    flashLimiter_.reset();
-    flashGrade_ = {};
-    safetyClock_ = 0.0;
     liquidWasOn_ = false;
     lastBornSceneId_.clear();
     activeScene_ = nullptr;
@@ -370,6 +370,8 @@ void Renderer::onSurfaceCreated() {
     if (!compositePass_.create(*fadeVert, &error)) fail(error);
     // The glass sheet's blur is an extra: without it the sheet shows the visual unblurred through its tint.
     if (!uiBlurPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "ui blur off: %s", error.c_str());
+    // And the wallpaper's edge glow: without it the wallpaper shows the full visual instead of the rim.
+    if (!edgeGlowPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "edge glow off: %s", error.c_str());
     // Liquid mode: half float where this GPU renders it, so a deep pour-back does not band.
     if (!liquidPass_.create(assets_, &programCache_, *fadeVert, fluid::probeFormats().ok, &error)) fail(error);
 
@@ -411,6 +413,13 @@ void Renderer::surfaceChanged(int width, int height) {
     applyRenderScale();
 }
 
+void Renderer::clearToBlack(GLuint targetFbo) {
+    glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
+    glViewport(0, 0, width_, height_);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+}
+
 void Renderer::setUserQuality(float renderScale, float marchScale, bool postFx, bool adaptive) {
     // std::clamp passes NaN through, and a NaN scale would never equal appliedUserScale_ again,
     // resizing every frame; a corrupt pref means full quality instead.
@@ -437,6 +446,12 @@ void Renderer::setUiBlurRegion(const UiBlurRegion& region) {
     std::lock_guard<std::mutex> lock(stateLock_);
     uiBlurRegion_ = r;
     uiBlurOn_.store(r.active(), std::memory_order_relaxed);
+}
+
+void Renderer::setEdgeGlow(const frame::edge_glow::Options& options) {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    edgeGlowOptions_ = options;
+    edgeGlowOn_.store(options.enabled, std::memory_order_relaxed);
 }
 
 void Renderer::applyRenderScale() {

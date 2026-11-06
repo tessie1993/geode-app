@@ -144,10 +144,7 @@ SceneParams Renderer::resolveParams(float dt) {
     director_.step(soundFrame_, dt);
     if (director_.commits() != directorCommitsSeen_) {
         directorCommitsSeen_ = director_.commits();
-        const Director::Reason why = director_.lastReason();
-        if (why == Director::Reason::Section || why == Director::Reason::Drop) {
-            directorStyleMoments_.fetch_add(1, std::memory_order_acq_rel);
-        }
+        if (director_.styleMoment()) directorStyleMoments_.fetch_add(1, std::memory_order_acq_rel);
     }
     directedKnobs_ = director_.knobs(frameKnobs_);
     // Note & key reactions hear the frame next, inside the director's look: its hue anchors the notes'
@@ -176,11 +173,6 @@ SceneParams Renderer::resolveParams(float dt) {
     // Order: the director's look, the note layer inside it, then the user's macros and LFOs over both.
     SceneParams p = lfo_.apply(macros::apply(notes_.apply(director_.apply(displayedParams_, palWheel)), directedKnobs_), lfoValues);
     p = AdsrEngine::apply(p, adsr_.configs, envValues);
-    // What the envelopes and LFOs add to the luminance targets this frame: the flash limiter counts it
-    // with the measured output (stepFlashLimiter), so an envelope strobe engages the hold at once (#363).
-    luminanceDrive_.fill(0.0f);
-    lfo_.addLuminanceDrive(lfoValues, luminanceDrive_);
-    AdsrEngine::addLuminanceDrive(adsr_.configs, envValues, luminanceDrive_);
     // The reaction matrix: per-style routes from the sound frame to many
     // targets. Ahead of the motion field and the safety clamp, like the LFOs.
     reactions_.tick(soundFrame_, dt);
@@ -334,11 +326,8 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     // shake themselves are already inert (see Params.hpp).
     in.hitImpulse = 0.0f;
     const SceneParams& fx = lastFinalParams_;
-    // uPostFlash rides uBeat, which is hitImpulse: 0 since wave three, so this term draws nothing. The
-    // flash limit is the measured one below (safetyHold), not a guess from the params.
+    // uPostFlash rides uBeat, which is hitImpulse: 0 since wave three, so this term draws nothing.
     in.flash = fx.flash;
-    in.safetyHold = 1.0f - flashGrade_.scale;
-    in.safetyAnchor = flashGrade_.anchor;
     in.strobeHz = safety::strobeHz();
     in.postRotationAngle = postRotationAngle_;
     in.postCyclePhase = postCyclePhase_;
@@ -360,20 +349,6 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.underlayAmount = compositePass_.underlayAmount();
     in.noteTint = notes_.uniforms().tint;
     compositePass_.draw(in);
-}
-
-static_assert(safety::FlashLimiter::kDrives == kLuminanceTargets, "one limiter drive per luminance target");
-static_assert(safety::FlashLimiter::kDriveThreshold == safety::kMaxFlashDepth, "a drive counts past the flash depth");
-
-void Renderer::stepFlashLimiter(float dt) {
-    safetyClock_ += dt;
-    safety::FrameLight light;
-    safety::Grade drawnWith;
-    double drawnAt = 0.0;
-    while (outputProbe_.poll(light, drawnWith, drawnAt)) flashLimiter_.observe(light, drawnWith, drawnAt);
-    // This frame's drive (resolveParams ran first), stamped with the time this frame is drawn at.
-    flashLimiter_.drive(luminanceDrive_, safetyClock_);
-    flashGrade_ = flashLimiter_.next(safetyClock_);
 }
 
 void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
@@ -402,11 +377,9 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
     look.yaw = std::clamp(look.yaw, -1.0f, 1.0f);
     look.pitch = std::clamp(look.pitch, -1.0f, 1.0f);
     camera_.setMoves(director_.moves(macros::camera(directedKnobs_)));
-    // Endless zoom flies the rig only for a style that marches it (EndlessZoom.hpp); the
-    // families still on the old law keep their old camera too.
+    // Endless zoom flies the rig only for a style that marches it (EndlessZoom.hpp).
     SceneParams rigParams = p;
-    rigParams.endlessZoom = p.endlessZoom && activeScene_ != nullptr && activeScene_->drawsCamera() &&
-                            !endless::keepsTriangle(activeScene_->id());
+    rigParams.endlessZoom = p.endlessZoom && activeScene_ != nullptr && activeScene_->drawsCamera();
     // Liquid mode owns the dive: a 3D style dives by flying the rig through it, at Dive speed.
     if (liquidOn() && activeScene_ != nullptr && activeScene_->drawsCamera()) rigParams.endlessZoom = true;
     camera_.step(rigParams, look, dt, reducedMotion_.load(std::memory_order_relaxed),
@@ -446,11 +419,8 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     if (liquidOn() && !scene->drawsCamera()) sceneParams.endlessZoom = false;
     drawSceneTarget(*scene, sceneParams, dt);
     const GLuint liquidTex = drawLiquid(*scene, p, dt);
-    stepFlashLimiter(dt);
     composite(p, progress, targetFbo, liquidTex);
-    // Measured after the composite, before the UI blur: the glass sheet is not the visual (and an export
-    // never draws it). Live and export both run this, so a render is limited exactly like the screen.
-    outputProbe_.capture(targetFbo, width_, height_, flashGrade_, safetyClock_);
+    drawEdgeGlow(targetFbo, timeSeconds, dt);
     drawUiBlur(targetFbo);
 }
 
@@ -462,6 +432,26 @@ void Renderer::drawUiBlur(GLuint targetFbo) {
         region = uiBlurRegion_;
     }
     uiBlurPass_.draw(region, targetFbo, width_, height_, quadVao_);
+}
+
+void Renderer::drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt) {
+    // Off, the pass still hears the switch, so turning it on again starts its envelope from rest.
+    if (!edgeGlowOn_.load(std::memory_order_relaxed)) {
+        edgeGlowPass_.setOptions(frame::edge_glow::Options{});
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lock(stateLock_);
+        edgeGlowPass_.setOptions(edgeGlowOptions_);
+    }
+    // The renderer has no surface kind of its own yet: the wallpaper is the only caller that turns the
+    // glow on, so an on glow means a wallpaper frame, unless this renderer is an export's.
+    const frame::Surface surface =
+        offscreen_.load(std::memory_order_relaxed) ? frame::Surface::Export : frame::Surface::Wallpaper;
+    const frame::FrameCtx ctx{width_, height_, timeSeconds, dt, surface, &soundFrame_};
+    if (!edgeGlowPass_.wants(ctx)) return;
+    edgeGlowPass_.prepare(ctx);
+    edgeGlowPass_.draw(frame::PassInputs{}, frame::PassTarget{targetFbo, width_, height_});
 }
 
 void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {

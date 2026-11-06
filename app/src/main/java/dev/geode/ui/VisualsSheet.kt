@@ -106,6 +106,7 @@ internal fun VisualsOptions(
     onSettle: (SheetHeight) -> Unit,
     onPanelSettle: (widthPx: Float?) -> Unit,
     modifier: Modifier = Modifier,
+    bottomBar: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -128,54 +129,62 @@ internal fun VisualsOptions(
     val shape = RoundedCornerShape(GeodeRadius.Floating)
     var bounds by remember { mutableStateOf<Rect?>(null) }
     UiBlurRegion(visualizerView, bounds, blurActive)
-    Box(
+    // One glass slab: the sheet, and under it the docked mini player ([bottomBar]) when there is
+    // one. A hidden sheet lays out at zero height, which leaves the player alone as a pill.
+    Column(
         modifier
-            .layout { measurable, constraints ->
-                if (side) {
-                    val w = panelPx.value.roundToInt().coerceIn(0, constraints.maxWidth)
-                    if (w == 0) {
-                        layout(0, 0) {}
-                    } else {
-                        val placeable = measurable.measure(Constraints.fixed(w, constraints.maxHeight))
-                        layout(w, placeable.height) { placeable.place(0, 0) }
-                    }
-                } else {
-                    val h = heightPx.value.roundToInt().coerceIn(0, constraints.maxHeight)
-                    if (h == 0) {
-                        layout(constraints.maxWidth, 0) {}
-                    } else {
-                        val placeable = measurable.measure(constraints.copy(minHeight = h, maxHeight = h))
-                        layout(placeable.width, h) { placeable.place(0, 0) }
-                    }
-                }
-            }.onGloballyPositioned { bounds = it.boundsInWindow() }
+            .onGloballyPositioned { bounds = it.boundsInWindow() }
             .glassBlur(shape)
             .floatingGlass(shape, fillAlpha = opacity),
     ) {
-        Column(Modifier.fillMaxSize()) {
-            OptionsHeader(
-                nav = nav,
-                side = side,
-                onDrag = { delta -> scope.launch { heightPx.snapTo((heightPx.value - delta).coerceIn(minPx, maxPx)) } },
-                onDragStopped = { velocity -> onSettle(settleHeight(heightPx.value, -velocity, anchors)) },
-                onSettle = onSettle,
-            )
-            Box(
-                Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .then(if (side) Modifier else Modifier.nestedScroll(listDrag)),
-            ) { content() }
+        Box(
+            Modifier
+                .layout { measurable, constraints ->
+                    if (side) {
+                        val w = panelPx.value.roundToInt().coerceIn(0, constraints.maxWidth)
+                        if (w == 0) {
+                            layout(0, 0) {}
+                        } else {
+                            val placeable = measurable.measure(Constraints.fixed(w, constraints.maxHeight))
+                            layout(w, placeable.height) { placeable.place(0, 0) }
+                        }
+                    } else {
+                        val h = heightPx.value.roundToInt().coerceIn(0, constraints.maxHeight)
+                        if (h == 0) {
+                            layout(constraints.maxWidth, 0) {}
+                        } else {
+                            val placeable = measurable.measure(constraints.copy(minHeight = h, maxHeight = h))
+                            layout(placeable.width, h) { placeable.place(0, 0) }
+                        }
+                    }
+                },
+        ) {
+            Column(Modifier.fillMaxSize()) {
+                OptionsHeader(
+                    nav = nav,
+                    side = side,
+                    onDrag = { delta -> scope.launch { heightPx.snapTo((heightPx.value - delta).coerceIn(minPx, maxPx)) } },
+                    onDragStopped = { velocity -> onSettle(settleHeight(heightPx.value, -velocity, anchors)) },
+                    onSettle = onSettle,
+                )
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .then(if (side) Modifier else Modifier.nestedScroll(listDrag)),
+                ) { content() }
+            }
+            // After the pages, so they keep their place in the tree in both layouts.
+            if (side) {
+                PanelEdge(
+                    panelPx = panelPx,
+                    panelRange = panelRange,
+                    onSettle = onPanelSettle,
+                    modifier = Modifier.align(Alignment.CenterStart),
+                )
+            }
         }
-        // After the pages, so they keep their place in the tree in both layouts.
-        if (side) {
-            PanelEdge(
-                panelPx = panelPx,
-                panelRange = panelRange,
-                onSettle = onPanelSettle,
-                modifier = Modifier.align(Alignment.CenterStart),
-            )
-        }
+        bottomBar?.invoke()
     }
 }
 

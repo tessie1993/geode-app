@@ -20,15 +20,13 @@ class ThemeStoreTest {
     }
 
     @Test
-    fun theLegacyReducedMotionAnswerSeedsTheSettingUntilItIsSaved() {
-        val prefs =
-            MapPrefs().apply {
-                values[ThemeStore.KEY_SAFETY_CHOICE] = ThemeStore.LEGACY_CHOICE_REDUCED_MOTION
-            }
+    fun theRetiredReducedMotionSwitchIsDroppedOnTheNextSave() {
+        // The app's own switch is gone (#336): reduced motion follows Android's "Remove animations"
+        // alone, so an old answer must not linger in the prefs file (or a backup made from it).
+        val prefs = MapPrefs().apply { values[ThemeStore.KEY_REDUCED_MOTION] = true }
         val store = ThemeStore(prefs)
-        assertTrue(store.loadGui().reducedMotion)
-        store.saveGui(store.loadGui().copy(reducedMotion = false))
-        assertFalse(store.loadGui().reducedMotion)
+        store.saveGui(store.loadGui())
+        assertFalse(prefs.contains(ThemeStore.KEY_REDUCED_MOTION))
     }
 
     /** In-memory [SharedPreferences]: the platform one is a stub in local unit tests. */

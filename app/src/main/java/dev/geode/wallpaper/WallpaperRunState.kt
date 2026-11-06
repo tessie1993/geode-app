@@ -30,8 +30,8 @@ data class WallpaperConditions(
     val batterySaver: Boolean,
     val silent: Boolean,
     /**
-     * Reduce motion is on: the in-app switch or the system's Remove animations ([SystemAnimations]).
-     * Either holds a still frame on the wallpaper and the dream (owner, ADR 0008; #389).
+     * Reduce motion is on: the system's Remove animations ([SystemAnimations]).
+     * It holds a still frame on the wallpaper and the dream (owner, ADR 0008; #389).
      */
     val reducedMotion: Boolean,
     val settings: WallpaperSettings,
@@ -53,8 +53,7 @@ data class WallpaperConditions(
             return f
         }
 
-    fun runMode(nowMs: Long): WallpaperRunMode =
-        WallpaperRunMode.entries[GeodeNative.surfaceRunMode(flags, animateUntilMs, nowMs)]
+    fun runMode(nowMs: Long): WallpaperRunMode = WallpaperRunMode.entries[GeodeNative.surfaceRunMode(flags, animateUntilMs, nowMs)]
 
     fun listening(nowMs: Long): Boolean = GeodeNative.surfaceListening(flags, animateUntilMs, nowMs)
 

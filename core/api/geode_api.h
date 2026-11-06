@@ -280,7 +280,7 @@ GEODE_API int         geode_library_search(const char* const* rows, int track_co
  * be moved (they stay where they were). Paths are UTF-8. */
 GEODE_API int         geode_studio_move_takes_out(const char* projects_dir, const char* takes_dir);
 
-/* Scene and style catalogue (core/viz/Catalogue): every style id, its renderer kind, the style families,
+/* Scene and style catalogue (core/viz/Catalogue): every style id, its renderer kind and Styles look group, the style families,
  * which Customize controls reach which styles, and the ranges the shell's controls quote, as one versioned
  * '|'-separated line table (see Catalogue.hpp for the rows). Static: the pointer stays valid for the
  * process; the shell parses it once. Display labels and the Pro rule are not in it. */

@@ -116,9 +116,15 @@
         <meta-data
             android:name="com.google.android.gms.car.application"
             android:resource="@xml/automotive_app_desc" />
+        <!--
+          singleTask: one MainActivity, so a geode:// link or a voice search from another app's
+          task reaches the running one through onNewIntent instead of stacking a second activity
+          with its own GL context and player session.
+        -->
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.Geode.Splash"
             android:supportsPictureInPicture="true"
             android:windowSoftInputMode="adjustResize"

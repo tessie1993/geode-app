@@ -16,14 +16,16 @@ today's build instead of waiting for the release candidate. Shortest path, in or
 3. Step 5: create and activate `muzviz_pro`, and add the testers as licence testers.
 4. Steps 7 and 8: Play won't roll out to a closed track until the dashboard's setup tasks
    (privacy policy, app access, ads, content rating, target audience, Data safety, store
-   listing) are done. Today's build is offline, so [DATA_SAFETY.md](DATA_SAFETY.md) applies
+   listing) are done. The build has Cast to TV, so it uses the internet and the Data safety
+   answers in [DATA_SAFETY.md](DATA_SAFETY.md) (purchase history and the Cast SDK rows) apply
    as written. Screenshots of today's UI are fine; replace them at the release candidate.
 5. Step 6, then step 9's first item: run **Play release bundle**, upload the AAB to a
    **Closed testing** track, add at least 12 testers and keep them opted in for 14 days.
    Ask them to open the app on several days: production access asks how the test went.
-6. Ship wave 1 merges to the same track (a higher versionCode each time). **Before the first
-   build with Cast reaches the track, update Data safety and the privacy policy**: Cast adds
-   internet ([RELEASE_READINESS.md § Wave 1](RELEASE_READINESS.md#wave-1-changes-to-re-check)).
+6. Ship wave 1 merges to the same track (a higher versionCode each time). Data safety and
+   the privacy policy already describe Cast; re-check them against
+   [RELEASE_READINESS.md](RELEASE_READINESS.md) whenever a build adds a permission, an SDK or
+   a foreground service type.
 
 ## 1. Developer account (one-time)
 
@@ -146,6 +148,13 @@ sign uploads with an **upload key** you create and keep.
       foreground service and `mediaProcessing` only exists from Android 15, so dropping it
       would let Android 14 kill a background render. The service picks `mediaProcessing`
       on 15+.
+- [ ] **Sensitive access without a console form** (nothing to declare, but the reviewer
+      sees it in the manifest, so keep the in-app explanation): `RECORD_AUDIO` (Live input,
+      Visualize other apps, the wallpaper's Hear other apps; on-device only, asked in context),
+      and the notification listener (`GeodeNotificationListener`, optional: reads only other
+      apps' media-session title and artist to label what is playing; the user enables it in
+      system settings). If the review form asks about either: audio and labels are analysed
+      in memory and never stored or sent.
 - [ ] **Photosensitivity**: no console form, but keep the warning text from
       [CONTENT_RATING.md](CONTENT_RATING.md) in the listing.
 

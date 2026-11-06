@@ -42,11 +42,18 @@ Declare **only**:
 | **App activity › App interactions** | Yes | No | No | **Required** (the SDK starts with the app for every user, owner Q38, and looks for TVs while the Cast button shows) | **Analytics** (the Cast SDK's discovery and session events, which Google uses to improve Cast) |
 | **App info and performance › Diagnostics** | Yes | No | No | **Required** (as above) | **Analytics** (the Cast SDK's device, app and performance information) |
 
+Google's [Cast SDK disclosure](https://developers.google.com/cast/docs/android_sender/data_disclosure)
+names one data type, **App activity** (discovery, session, device and client-app events, sent to
+Google, not shared, encrypted in transit, no opt-out or deletion). **Diagnostics** is declared
+as well on purpose: the same logs cover SDK performance and defect detection, and
+over-declaring costs nothing. Drop that row only if Google's disclosure stops saying so.
+
 Everything else: **not collected, not shared.** In particular:
 
 | Type | Why it's not declared |
 |---|---|
 | Audio › Voice or sound recordings, Music files, Other audio | Mic and playback capture go into an in-memory ring buffer for the visuals; never written or sent |
+| Notification listener, wallpaper *Hear other apps* | The listener reads other apps' now-playing title and artist only to label the capture; the wallpaper reads the output mix through `Visualizer`. Both stay in memory on the device, never written or sent |
 | Photos and videos | Background images and textures are picked with the system picker and used locally. Exported videos are shared only when the user picks a target app in the share sheet: user-initiated transfer, exempt |
 | Files and docs | Presets, templates and playlists stay in app storage or a folder the user picks |
 | App activity, App info and performance, *apart from the Cast SDK rows above* | The crash file stays in app storage; the user can only copy it out manually |

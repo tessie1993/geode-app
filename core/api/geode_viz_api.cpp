@@ -39,6 +39,7 @@ static_assert(LfoEngine::kSlots == GEODE_LFO_SLOTS);
 static_assert(AdsrEngine::kCount == GEODE_ADSR_SLOTS);
 static_assert(ReactionEngine::kRoutes == GEODE_REACT_ROUTES);
 static_assert(ReactionEngine::kConfigFloats == GEODE_REACT_ROUTE_FLOATS);
+static_assert(frame::edge_glow::kFloats == GEODE_EDGE_GLOW_FLOATS);
 
 constexpr int kModSourceCount = static_cast<int>(ModSource::StereoPan) + 1;
 constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::EndlessZoomSpeed) + 1;
@@ -507,6 +508,11 @@ void geode_viz_set_ui_blur_region(geode_viz* v, float left, float top, float rig
     region.strength = strength;
     region.cornerPx = corner_px;
     v->renderer.setUiBlurRegion(region);
+}
+
+void geode_viz_set_edge_glow(geode_viz* v, const float* opts, int count) {
+    if (!v) return;
+    v->renderer.setEdgeGlow(geode::viz::frame::edge_glow::parse(opts, count));
 }
 
 int geode_viz_knows(geode_viz* v, const char* scene_id) {

@@ -63,7 +63,16 @@ class WireLayoutTest {
 
     @Test
     fun fieldsLandInTheirSchemaSlots() {
-        val p = SceneParams(camFly = 1.25f, camPath = 2, camGyro = true, reactSeed = 9, noteDrums = 1.75f, liquidSurface = 1, camFlat = 0.5f)
+        val p =
+            SceneParams(
+                camFly = 1.25f,
+                camPath = 2,
+                camGyro = true,
+                reactSeed = 9,
+                noteDrums = 1.75f,
+                liquidSurface = 1,
+                camFlat = 0.5f,
+            )
         val out = SceneParamsCodec.pack(p)
         assertEquals(1.25f, out[slot("camFly")])
         assertEquals(2f, out[slot("camPath")])
@@ -82,7 +91,8 @@ class WireLayoutTest {
         assertEquals(0, slot("speed"))
         assertEquals(108, slot("flowCurl"))
         assertEquals(153, slot("reactSeed"))
-        assertEquals(listOf("noteDrums", "liquidBorn", "liquidAge", "liquidSurface", "camFlat"), ParamSchema.params.takeLast(5).map { it.name })
+        val tail = ParamSchema.params.takeLast(5).map { it.name }
+        assertEquals(listOf("noteDrums", "liquidBorn", "liquidAge", "liquidSurface", "camFlat"), tail)
     }
 
     @Test

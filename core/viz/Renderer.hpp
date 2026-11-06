@@ -82,8 +82,13 @@ public:
     // Settings › Performance › Liquid on a hot phone (liquid::HotPolicy). Any thread.
     void setLiquidHotPolicy(int policy) { liquidHotPolicy_.store(policy, std::memory_order_relaxed); }
     // What Liquid mode ran last frame (liquid::Mode), so Customize can say when a hot phone simplified
-    // or paused it. Any thread.
-    int liquidMode() const { return liquidMode_.load(std::memory_order_relaxed); }
+    // or paused it, or -1 when it has not changed since the last take. The shell takes it every frame
+    // and wakes its collectors only on a change, so the cadence is ours, not a Kotlin timer's. A new
+    // surface reports again (onSurfaceCreated). One taker: the live shell's GL thread.
+    int takeLiquidMode() {
+        const int mode = liquidMode_.load(std::memory_order_relaxed);
+        return liquidModeTaken_.exchange(mode, std::memory_order_relaxed) == mode ? -1 : mode;
+    }
     // An export's own auto-director: once pinned, this renderer stops reading the process-wide switch
     // (director::global), so the live player moving on to another track, or past the free taste, never
     // reaches a render in progress. The export hands over the play's seed, so it makes the same film.
@@ -380,6 +385,7 @@ private:
     bool liquidWasOn_ = false;
     std::atomic<int> liquidHotPolicy_{0};
     std::atomic<int> liquidMode_{0};
+    std::atomic<int> liquidModeTaken_{-1};
     bool rippleOverlayOn_ = false;
     bool smearing_ = false;
 

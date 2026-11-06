@@ -26,7 +26,8 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                 SceneHost{[this](const std::string& m) { fail(m); },
                           [this] { return thermal_.pacedFps(); },
                           [this](const std::string& path) { notePresetLoaded(path); },
-                          [this] { return marchScale_.load(std::memory_order_relaxed); },
+                          // The user's march scale under the thermal ladder's (ADR 0008: march is its third rung).
+                          [this] { return marchScale_.load(std::memory_order_relaxed) * thermal_.tierInfo().marchScale; },
                           [this] { return &resolver_.noteUniforms(); },
                           [this] {
                               return directorPinned_.load(std::memory_order_acquire)
@@ -315,6 +316,8 @@ void Renderer::onSurfaceCreated() {
     profile_ = deviceGl_.profileWithCurrentContext();
     GEODE_LOGI(kTag, "surface created: %s", profile_.summary().c_str());
     thermal_.onSurfaceRecreated();
+    // The shell's label belongs to the old surface's collectors: say the mode again on the new one.
+    liquidModeTaken_.store(-1, std::memory_order_relaxed);
     programCache_.prime();
     // The old context's staged programs died with it: drop their ids before releaseScenes clears.
     stager_.onContext(profile_.report.extensions.count("GL_KHR_parallel_shader_compile") > 0);

@@ -15,6 +15,8 @@
 #include "viz/ReactionDna.hpp"
 #include "viz/Renderer.hpp"
 #include "viz/SceneRegistry.hpp"
+#include "viz/ShaderSource.hpp"
+#include "viz/TransitionLibrary.hpp"
 #include "viz/frame/Quality.hpp"
 #include "viz/frame/Pacer.hpp"
 #include "viz/ShaderOverrides.hpp"
@@ -36,6 +38,7 @@ static_assert(LfoEngine::kSlots == GEODE_LFO_SLOTS);
 static_assert(AdsrEngine::kCount == GEODE_ADSR_SLOTS);
 static_assert(ReactionEngine::kRoutes == GEODE_REACT_ROUTES);
 static_assert(ReactionEngine::kConfigFloats == GEODE_REACT_ROUTE_FLOATS);
+static_assert(frame::edge_glow::kFloats == GEODE_EDGE_GLOW_FLOATS);
 
 constexpr int kModSourceCount = static_cast<int>(ModSource::StereoPan) + 1;
 constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::EndlessZoomSpeed) + 1;
@@ -201,6 +204,19 @@ void geode_viz_set_adsr(geode_viz* v, int slot, const float* c, int count) {
     std::lock_guard<std::mutex> lock(v->configLock);
     v->adsr[static_cast<size_t>(slot)] = std::move(cfg);
     v->renderer.setAdsrConfigs(v->adsr);
+}
+
+const char* geode_transitions_table(AAssetManager* assets) {
+    static std::mutex lock;
+    static std::string table;
+    static bool loaded = false;
+    std::lock_guard<std::mutex> guard(lock);
+    if (!loaded && assets) {
+        loaded = true;
+        const auto text = geode::viz::ShaderSource(assets).readAsset("gl_transitions.json");
+        if (text) table = geode::viz::encodeTransitionTable(geode::viz::parseTransitionLibrary(*text));
+    }
+    return table.c_str();
 }
 
 int geode_perf_tier(int mode, float* out, int capacity) {
@@ -477,6 +493,11 @@ void geode_viz_set_ui_blur_region(geode_viz* v, float left, float top, float rig
     region.strength = strength;
     region.cornerPx = corner_px;
     v->renderer.setUiBlurRegion(region);
+}
+
+void geode_viz_set_edge_glow(geode_viz* v, const float* opts, int count) {
+    if (!v) return;
+    v->renderer.setEdgeGlow(geode::viz::frame::edge_glow::parse(opts, count));
 }
 
 int geode_viz_knows(geode_viz* v, const char* scene_id) {

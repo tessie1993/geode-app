@@ -131,6 +131,14 @@ GEODE_API void        geode_viz_set_frame_rate(geode_viz*, int fps);
  * An offscreen (export) renderer never draws it. */
 GEODE_API void        geode_viz_set_ui_blur_region(geode_viz*, float left, float top, float right, float bottom,
                                                    float strength, float corner_px);
+/* The wallpaper's edge look (core/viz/frame/EdgeGlowPass): after the composite, black over the frame except
+ * along the screen's rounded rim, the band breathing with the music's level. opts, in this order
+ * (core/viz/frame/EdgeGlowMath.hpp): enabled (> 0.5 = on), then the part of the surface on screen in
+ * surface pixels, y down: left, top, width, height (width or height <= 0 = the whole surface). Fewer than
+ * GEODE_EDGE_GLOW_FLOATS floats, or any non-finite one, turns it off. Any thread, latched for the next
+ * frame. Off by default; an offscreen (export) renderer never draws it. */
+#define GEODE_EDGE_GLOW_FLOATS 5
+GEODE_API void        geode_viz_set_edge_glow(geode_viz*, const float* opts, int count);
 /* An export's own auto-director (amount 0..1, the play's seed): from now on this renderer ignores
  * geode_director_set, so the live player's switch, track and free taste never reach the render. */
 GEODE_API void        geode_viz_set_director(geode_viz*, float amount, long long seed);
@@ -322,6 +330,10 @@ GEODE_API int64_t         geode_frame_clock_take(int64_t* state, int64_t now_ns)
 GEODE_API int64_t         geode_frame_clock_audio_until_us(const int64_t* state);   /* end of the last frame taken */
 /* The Cast stream's format: out[0] width, out[1] height, out[2] fps. */
 GEODE_API void            geode_cast_format(int* out);
+/* The GL Transitions library (gl_transitions.json, core/viz/TransitionLibrary): the shell's one read of it,
+   as the table encodeTransitionTable describes (UTF-8, control-separated). Read from the APK once per
+   process; "" when the asset is missing. The pointer stays valid for the process. */
+GEODE_API const char*     geode_transitions_table(AAssetManager* assets);
 /* Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High. */
 #define GEODE_PERF_TIER_FLOATS 5
 /* Writes render scale, fps cap, march scale, post FX (0/1), adaptive (0/1); returns the count, 0 for a bad mode. */

@@ -412,6 +412,16 @@ object GeodeNative {
         cornerPx: Float,
     )
 
+    /**
+     * The wallpaper's edge look (`core/viz/frame/EdgeGlowPass`), `GEODE_EDGE_GLOW_FLOATS` floats: enabled
+     * (> 0.5), then the on-screen window in surface pixels, y down (left, top, width, height; a size <= 0
+     * is the whole surface). Any thread, latched for the next frame; ignored offscreen.
+     */
+    external fun vizSetEdgeGlow(
+        handle: Long,
+        opts: FloatArray?,
+    )
+
     external fun vizKnows(
         handle: Long,
         sceneId: String,
@@ -886,6 +896,13 @@ object GeodeNative {
         untilUs: Long,
         out: LongArray,
     )
+
+    /**
+     * The GL Transitions library as UTF-8 bytes, in the control-separated table of
+     * `core/viz/TransitionLibrary.hpp`; read from the APK once per process, empty when missing.
+     * [assets] is the app's `AssetManager`, typed as Any like [vizCreate]'s.
+     */
+    external fun transitionsTable(assets: Any): ByteArray
 
     // Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High.
 

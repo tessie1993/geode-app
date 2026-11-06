@@ -14,18 +14,16 @@ import dev.geode.render.scene.SceneParams
  * The look snapshot: everything the user set that decides what a renderer draws, as one immutable value
  * (#345). Not the auto-director's Look (GLOSSARY), which is one decision made inside the engine.
  *
- * Every renderer host (live Visuals, the wallpaper, the dream, Cast, an export, a loop render) only says
- * where its look comes from ([LookSource]) and what it overrides ([gentleFlight]); one
- * [LookApplier] pushes it into the native renderer. Before this, each host rebuilt it field by field and
- * they drifted: the wallpaper and dream once drew with every LFO, envelope and custom reaction off.
+ * Every renderer host (live Visuals, the wallpaper, the dream, Cast, an export) only says where its look
+ * comes from ([LookSource]) and what it overrides ([gentleFlight]); one [LookApplier] pushes it into the
+ * native renderer. Before this, each host rebuilt it field by field and they drifted: the wallpaper and
+ * dream once drew with every LFO, envelope and custom reaction off.
  *
- * Being a value is what pins an export: a render takes one look when it starts, and nothing the user
- * edits afterwards reaches it. Lists, params, tuning and underlay are compared by identity when
- * applied, so a change is a new instance, as the stores and the session already make them.
+ * Being a value is what pins an export: a render takes one look when it starts, and later edits never reach
+ * it. Parts are compared by identity when applied, so a change is a new instance, as the stores make them.
  *
- * Not here, because they are process-wide native state rather than a renderer's: the macros, Note & key,
- * the director and the hand mask (`EngineSettings`, pinned natively by an export), the layer (#602) and
- * custom shader code (#498). [LookSource] implementations that run without the app push those from the stores.
+ * Not here, being process-wide native state: the macros, Note & key, the director and the hand mask
+ * (`EngineSettings`, pinned natively by an export), the layer (#602) and custom shader code (#498).
  */
 data class LookSnapshot(
     /** Until a look is pushed, the app's first style (FreeTier.FIRST_STYLE_ID), not a Pro one. */
@@ -35,14 +33,12 @@ data class LookSnapshot(
     val adsrs: List<AdsrConfig> = List(AdsrEngine.COUNT) { AdsrConfig() },
     /** The user's own reaction routes, or null to play the style's DNA (native merges under the hand mask). */
     val reactions: List<ReactionRoute>? = null,
-    /** Settings › Audio, so every surface's sound engine hears the music the same way. */
     val soundTuning: SoundTuning = SoundTuning(),
     /** Vestibular accessibility, and the dream's gentle flight; the flash clamp is native and unconditional. */
     val reducedMotion: Boolean = false,
     /** A requested cut becomes a fade natively (core/viz/VisualSafety); an offscreen renderer cuts for real, natively. */
     val transitionId: String = TransitionStyle.FADE.name.lowercase(),
     val transitionMs: Long = DEFAULT_TRANSITION_MS,
-    /** The background image under the scene, decoded at the host's pixel size; null draws none. */
     val underlay: LookUnderlay? = null,
 ) {
     /** The dream's override: the camera keeps flying without big moves, because it is watched from across a room. */

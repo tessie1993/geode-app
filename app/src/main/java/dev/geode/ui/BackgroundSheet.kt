@@ -304,11 +304,15 @@ private fun OptionHeader(
             overflow = TextOverflow.Ellipsis,
         )
         if (value.isNotEmpty()) {
+            // Shrinkable and ellipsized (#558): at a large font a long value gives way instead of
+            // pushing the name and the chevron out of the row.
             Text(
                 value,
+                Modifier.weight(1f, fill = false),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         chevron()

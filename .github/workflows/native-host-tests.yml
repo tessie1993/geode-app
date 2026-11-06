@@ -116,3 +116,6 @@ jobs:
           # Which pushed inputs a live frame still owes native (#751): once per version, again on a new surface, stale ignored.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/push_versions_test.cpp -o push_versions_test
           ./push_versions_test
+          # Cast's HLS timing (#656): segment durations from the fragment's media time, TARGETDURATION, the playlist text.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/hls_segments_test.cpp core/api/geode_frame_api.cpp -o hls_segments_test
+          ./hls_segments_test

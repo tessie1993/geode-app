@@ -895,7 +895,7 @@ object GeodeNative {
     /** The audio cut: the end of the last frame taken, in µs of stream time. */
     external fun frameClockAudioUntilUs(state: LongArray): Long
 
-    /** The Cast stream's format into [out]: width, height, fps. */
+    /** The Cast stream's format into [out] (4 ints): width, height, fps, keyframe interval in seconds. */
     external fun castFormat(out: IntArray)
     // Export post-passes (core/viz/frame/ExportPasses): the watermark, a loop's seam, a Studio transition and
     // its capture. [assets] is the app's AssetManager (typed as Any, as for [vizCreate]); every call but the
@@ -1117,4 +1117,24 @@ object GeodeNative {
         platformStatus: Int,
         headroom: Float,
     )
+
+    // Cast's live HLS timing (core/viz/frame/HlsSegments): media-time segment durations and the playlist.
+
+    /** Segments kept and listed (GEODE_HLS_WINDOW). */
+    external fun hlsWindow(): Int
+
+    /** Seconds of media time the fragment (moof, with or without its mdat) plays, read with [init]'s timescales; 0 = unknown. */
+    external fun hlsFragmentSeconds(
+        init: ByteArray,
+        fragment: ByteArray,
+    ): Double
+
+    /** The live playlist for [durations] (0 = unknown) numbered from [firstSequence], or null until enough are listed. */
+    external fun hlsPlaylist(
+        firstSequence: Long,
+        durations: DoubleArray,
+        initUri: String,
+        segmentPrefix: String,
+        segmentSuffix: String,
+    ): String?
 }

@@ -119,9 +119,8 @@ internal class QueueController(
                     quick.item
                 }
             }
-        player.setMediaItems(items)
+        player.setMediaItems(items, window.startIndex, 0L)
         player.prepare()
-        player.seekTo(window.startIndex, 0L)
         player.play()
         host.onQueueStarted(window.tracks[window.startIndex].uri.toUri())
         if (unresolved.isNotEmpty()) resolveTitlesAsync(unresolved, generation)

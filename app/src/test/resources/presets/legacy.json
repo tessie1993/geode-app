@@ -1,0 +1,23 @@
+{
+  "name": "Old Kyanite",
+  "sceneId": "raymarch",
+  "attack": 0.05,
+  "decay": 0.3,
+  "speed": 1.5,
+  "zoom": 1.25,
+  "rotation": 0.5,
+  "audioDrive": 1.5,
+  "turbulence": 0.25,
+  "trails": true,
+  "trailLength": 0.75,
+  "mirror": false,
+  "palette": 3,
+  "colorShift": 0.125,
+  "saturation": 1.25,
+  "brightness": 1.125,
+  "symmetry": 8,
+  "kaleidoscope": true,
+  "glitch": 0.75,
+  "beatFlash": 0.5,
+  "customPaletteId": "old-palette"
+}

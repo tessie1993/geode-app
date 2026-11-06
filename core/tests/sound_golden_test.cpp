@@ -51,8 +51,8 @@ namespace {
     X(beatCount) X(downbeat) X(barPhase) X(barCount) X(phrase) X(phraseIndex) X(phrasePhase) X(fluxLow)     \
     X(fluxMid) X(fluxHigh) X(hfc) X(keyHue) X(keyRoot) X(keyMajor) X(keyClarity) X(chordHue) X(tension)     \
     X(harmonicChange) X(scale) X(scaleRoot) X(scaleBrightness) X(scaleTension) X(scaleFit) X(novelty)       \
-    X(sectionChange) X(sectionId) X(sectionState) X(sectionBars) X(buildUp) X(drop) X(loudnessM)         \
-    X(loudnessS) X(busy) X(drive)
+    X(sectionChange) X(sectionId) X(sectionState) X(sectionBars) X(buildUp) X(drop) X(fadeGain)            \
+    X(loudnessM) X(loudnessS) X(busy) X(drive)
 
 struct Field {
     const char* name;

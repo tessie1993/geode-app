@@ -10,7 +10,7 @@ namespace geode::viz {
 // magnetometer, so a speaker or a metal table cannot swing the view) through
 // SensorManager.getOrientation and hands over azimuth (-pi..pi) and pitch
 // (-pi/2..pi/2) in radians; this turns them into the -1..1 look that
-// CameraRig reads while camGyro is on (geode_viz_set_look's input).
+// CameraRig reads while camGyro is on (through Renderer::setLook).
 //
 // The first sample after a reset is the baseline: the way the phone was held
 // is "straight ahead". Tilting kFullLookRadians from it is a full look to one

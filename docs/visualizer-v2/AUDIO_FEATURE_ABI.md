@@ -98,11 +98,17 @@ it through `lib_sound` (`uSound`, `uSoundTex`), uploaded by `core/viz/SoundUnifo
 
 ## 5. Presentation time
 
+Superseded (#482): `AudioPresentationClock`, `ClockSegment` and `SinkClockDriver` are deleted.
+The native playout clock, `core/sound/interp/PlayoutClock` (`geode_playout_*`), maps the sink's
+media-time position (from `AudioTrack.getTimestamp`, so output and Bluetooth latency included,
+speed and skipped silence already counted) through anchors taken from the buffers the sink
+handles to the ring sample the speaker plays now. The history below is kept for the record.
+
 The tap sits before silence skipping and Sonic, so a ring frame index is not the time the
 listener hears it: speed scales the mapping and skipped silence removes spans from it.
-`AudioPresentationClock` keeps that mapping as a list of `ClockSegment`s (epoch, discontinuity
+`AudioPresentationClock` kept that mapping as a list of `ClockSegment`s (epoch, discontinuity
 generation, first input frame, presentation start, slope, speed, skipped frames).
-`SinkClockDriver` appends a segment at each tap boundary, from the chain's speed and
+`SinkClockDriver` appended a segment at each tap boundary, from the chain's speed and
 skip-silence hooks, all on the playback thread.
 
 Two limits, recorded when the driver was written:

@@ -91,6 +91,7 @@ constexpr std::array<SourceSpec, kReactSourceCount> kSourceTable = {{
     GEODE_SRC(SectionId, sectionId, Scaled, 1.0f / 7.0f),
     GEODE_SRC(BuildUp, buildUp, Unit, 0),
     GEODE_SRC(Drop, drop, Trigger, 2.5f),
+    GEODE_SRC(FadeGain, fadeGain, Unit, 0),
 }};
 
 #undef GEODE_SRC
@@ -222,6 +223,7 @@ constexpr std::array<ReactSourceInfo, kReactSourceCount> kSourceInfo = {{
     {"SECTION_ID", "Which section", "FORM", false},
     {"BUILD_UP", "Build-up", "FORM", false},
     {"DROP", "Drop", "FORM", true},
+    {"FADE_GAIN", "Player fade", "LEVELS", false},
 }};
 
 // A fired trigger always crosses Step/Jump/Toggle's 0.5 edge, however soft the hit; its strength

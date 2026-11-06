@@ -16,13 +16,14 @@
  *  - Shaped (everything marked 0..1): ready to drive a parameter as it is.
  *  - Clocks (…Time): seconds or counts that only move forward, at a speed the music sets. Wrap at an hour
  *    (band clocks) or at 4096 (event clocks).
- *  - Triggers (kick … reattack): > 0 on the one frame they fire (the value is the strength, 0..1), else 0. */
+ *  - Triggers (kick … reattack): > 0 on the one frame they fire (the value is the strength, 0..1), else 0.
+ *  - Told (fadeGain): what the player says, not what the engine hears. */
 
 #define GEODE_SOUND_EQ_BANDS 16
 #define GEODE_SOUND_SPECTRUM_POINTS 64
 #define GEODE_SOUND_WAVEFORM_POINTS 128
 #define GEODE_SOUND_CHROMA 12
-#define GEODE_SOUND_SCALARS 112
+#define GEODE_SOUND_SCALARS 113
 #define GEODE_SOUND_FRAME_FLOATS                                                                       \
     (GEODE_SOUND_SCALARS + GEODE_SOUND_EQ_BANDS + GEODE_SOUND_SPECTRUM_POINTS + GEODE_SOUND_WAVEFORM_POINTS + \
      3 * GEODE_SOUND_CHROMA)
@@ -174,6 +175,11 @@ typedef struct GeodeSoundFrame {
     float buildUp;      /* 0..1: a build is under way (louder, brighter, busier, bass pulled out) */
     float drop;         /* trigger: the bass came back after a build. 0, or the build's peak at 0.4..1
                          * (Form::kEventFloor): act on > 0 */
+    /* The player (core/sound/PlayerSignals), told rather than heard. A track boundary the player names (a
+     * gapless or crossfaded next track, which the tap cannot hear) also fires sectionChange at full strength
+     * (1) on the frame it lands, at once rather than on a downbeat: the next song is the biggest section. */
+    float fadeGain;     /* the player's fades, 0..1: pause and skip fades times the crossfade; 1 while none runs,
+                         * under the mic or another app's audio, and always in an export. The tap is before the volume, so nothing else hears it */
     /* Absolute loudness and drive (core/sound/LufsMeter, fosfora's LoudnessMeter): none of these is relative to
      * the song. loudnessM / loudnessS are BS.1770 K-weighted momentary (400 ms) and short-term (3 s) loudness,
      * -60 LUFS = 0 … 0 LUFS = 1. busy is the texture, 0..1 on fixed scales: onsets per second (8 a second = 1),

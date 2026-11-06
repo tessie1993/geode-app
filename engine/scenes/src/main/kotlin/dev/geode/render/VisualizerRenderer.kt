@@ -5,11 +5,11 @@ import android.opengl.GLSurfaceView
 import android.os.SystemClock
 import dev.geode.engine.audio.SoundCursor
 import dev.geode.engine.audio.SoundInput
-import dev.geode.engine.audio.SoundTuning
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.bridge.NativeViz
+import dev.geode.render.look.LookApplier
+import dev.geode.render.look.LookSnapshot
 import dev.geode.render.scene.SceneIds
-import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,24 +39,30 @@ class VisualizerRenderer(
     }
 
     /**
-     * Until a look is pushed, the app's first style (FreeTier.FIRST_STYLE_ID in :app): the wallpaper
-     * and dream with no saved look then show the free showpiece rather than silk, a Pro renderer.
+     * What this surface draws (#345): the host publishes a new [LookSnapshot] from any thread, and each
+     * frame [LookApplier] pushes the parts native asks for. A field that changed (by identity) is a new
+     * version for native's `PushVersions`; until one is published, [LookSnapshot]'s defaults (the free first style).
      */
     @Volatile
-    var requestedSceneId: String = SceneIds.NEON_CHROME_SEA
-
-    @Volatile
-    var sceneParams: SceneParams = SceneParams.DEFAULT
+    var look: LookSnapshot = LookSnapshot()
         set(value) {
+            val was = field
             field = value
-            paramsVersion = pushVersions.incrementAndGet()
+            if (value.params !== was.params) paramsVersion = pushVersions.incrementAndGet()
+            if (value.lfos !== was.lfos) lfoVersion = pushVersions.incrementAndGet()
+            if (value.adsrs !== was.adsrs) adsrVersion = pushVersions.incrementAndGet()
+            if (value.soundTuning !== was.soundTuning) tuningVersion = pushVersions.incrementAndGet()
         }
 
     @Volatile private var paramsVersion = 0L
 
-    /** Vestibular accessibility only; the flash clamp is unconditional inside the native safety pass. */
-    @Volatile
-    var reducedMotion: Boolean = false
+    @Volatile private var lfoVersion = 0L
+
+    @Volatile private var adsrVersion = 0L
+
+    @Volatile private var tuningVersion = 0L
+
+    private val lookApplier = LookApplier()
 
     /**
      * Settings › Performance. Live surfaces only: the offscreen export renderer never reads it,
@@ -65,12 +71,6 @@ class VisualizerRenderer(
      */
     @Volatile
     var performance: PerformanceSettings = PerformanceSettings.HIGH
-
-    @Volatile
-    var transitionDurationMs: Long = 1200
-
-    @Volatile
-    var transitionId: String = TransitionStyle.FADE.name.lowercase()
 
     @Volatile
     var onShaderError: (String?) -> Unit = {}
@@ -102,28 +102,6 @@ class VisualizerRenderer(
 
     private var soundCursor: SoundCursor? = null
 
-    /** Settings › Audio. Every assignment is a new version, pushed on the frame native asks for it. */
-    @Volatile
-    var soundTuning: SoundTuning = SoundTuning()
-        set(value) {
-            field = value
-            tuningVersion = pushVersions.incrementAndGet()
-        }
-
-    @Volatile private var tuningVersion = 0L
-
-    val lfoEngine = LfoEngine()
-
-    val adsrEngine = AdsrEngine()
-
-    /**
-     * The user's own reaction routes, or null to play the style's DNA
-     * ([BuildStyleReactionsUseCase] for the current scene and `reactSeed`). A list plays only on the
-     * moments [HandMask] gives the user; every other moment plays the live DNA ([StyleReactionsCache]).
-     */
-    @Volatile
-    var reactions: List<ReactionRoute>? = null
-
     /**
      * Gyro reading in radians from [GyroLook] (NaN azimuth while off); core/viz/GyroLook makes the
      * look. [gyroSession] bumps on each switch on, so native recaptures even if no frame saw it off.
@@ -139,8 +117,6 @@ class VisualizerRenderer(
 
     private var nativeGyroSession = 0
 
-    private val styleReactions = StyleReactionsCache()
-
     private val appContext = context.applicationContext
 
     // Outlives nativeViz's handle, which VisualizerView destroys on every detach, and this renderer
@@ -151,7 +127,6 @@ class VisualizerRenderer(
         NativeViz(context).also { viz ->
             viz.onCreated = { milkPreset.restorePath?.let(viz::loadMilkPreset) }
         }
-    private var nativeReactions: List<ReactionRoute>? = null
     private val liquidModeState = MutableStateFlow(0)
 
     /**
@@ -241,7 +216,8 @@ class VisualizerRenderer(
     ) {
         ThermalGovernor.attach(appContext)
         nativeViz.surfaceCreated()
-        nativeReactions = null
+        // The handle may outlive the surface, or be new: either way the next frame resends the whole look.
+        lookApplier.reset()
         // A new native renderer starts a new engine: hand it a full window, not the tail of the last.
         soundCursor = null
     }
@@ -254,19 +230,6 @@ class VisualizerRenderer(
         nativeViz.surfaceChanged(width, height)
         onSurfaceSizeChanged(width, height)
     }
-
-    /**
-     * Full-frame RGBA8 background image blended under the scene; see [dev.geode.render.bridge.NativeViz.setUnderlay].
-     * Any thread; latched for the next frame, so the UI calls this directly (or via
-     * `VisualizerView.queueEvent {}`) rather than waiting for [onDrawFrame].
-     */
-    fun setUnderlay(
-        pixels: IntArray?,
-        width: Int,
-        height: Int,
-        blend: UnderlayBlend,
-        amount: Float,
-    ) = nativeViz.setUnderlay(pixels, width, height, blend.ordinal, amount)
 
     /** See [VisualizerView.setUiBlurRegion] for the contract; [NativeViz] keeps it for a new handle. */
     fun setUiBlurRegion(
@@ -300,14 +263,13 @@ class VisualizerRenderer(
                 perf.adaptive,
                 perf.liquidHot.native,
                 paramsVersion,
-                lfoEngine.version,
-                adsrEngine.version,
+                lfoVersion,
+                adsrVersion,
                 tuningVersion,
             )
         if (due and GeodeNative.FRAME_CLEAR_ONLY != 0) return
         if (due and GeodeNative.FRAME_THERMAL_DUE != 0) ThermalGovernor.sample()
         if (due and GeodeNative.FRAME_LIQUID_CHANGED != 0) liquidModeState.value = GeodeNative.frameLiquidMode(due)
-        nativeViz.setScene(requestedSceneId)
         syncNativeState(due)
         nativeViz.render(SystemClock.elapsedRealtimeNanos() / NANOS_PER_SECOND, targetFbo = 0)
         nativeViz.pollError(onShaderError)
@@ -319,22 +281,11 @@ class VisualizerRenderer(
     }
 
     private fun syncNativeState(due: Int) {
-        val p = sceneParams
-        if (due and GeodeNative.FRAME_PUSH_PARAMS != 0) nativeViz.setParams(p)
-        if (due and GeodeNative.FRAME_PUSH_LFO != 0) nativeViz.setLfoConfigs(lfoEngine.configs)
-        if (due and GeodeNative.FRAME_PUSH_ADSR != 0) nativeViz.setAdsrConfigs(adsrEngine.configs)
-        if (due and GeodeNative.FRAME_PUSH_TUNING != 0) nativeViz.setSoundTuning(soundTuning.toFloats())
-        val routes = styleReactions.routesFor(requestedSceneId, p.reactSeed, reactions, HandMask.current)
-        if (routes !== nativeReactions) {
-            nativeViz.setReactions(routes)
-            nativeReactions = routes
-        }
+        lookApplier.apply(look, nativeViz, due)
         val azimuth = gyroAzimuth
         if (azimuth.isNaN() || gyroSession != nativeGyroSession) nativeViz.gyroReset()
         nativeGyroSession = gyroSession
         if (!azimuth.isNaN()) nativeViz.gyroSample(azimuth, gyroPitch)
-        nativeViz.setReducedMotion(reducedMotion)
-        nativeViz.setTransition(transitionId, transitionDurationMs)
         feedSound()
     }
 
@@ -361,18 +312,3 @@ private const val NANOS_PER_SECOND = 1_000_000_000.0
 
 /** One counter for every pushed input's version (`core/viz/frame/PushVersions`), so each write gets a larger one. */
 private val pushVersions = AtomicLong()
-
-/** Modulation configs the UI edits; native ticks them (core/viz/RendererFrame.cpp) and asks for a push by [version]. */
-open class PushedConfigs<T>(
-    initial: List<T>,
-) {
-    @Volatile
-    var configs: List<T> = initial
-        set(value) {
-            field = value
-            version = pushVersions.incrementAndGet()
-        }
-
-    @Volatile var version = 0L
-        private set
-}

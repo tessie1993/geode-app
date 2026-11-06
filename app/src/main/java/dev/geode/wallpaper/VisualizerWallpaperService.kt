@@ -18,15 +18,12 @@ import androidx.core.content.ContextCompat
 import dev.geode.billing.ProSnapshot
 import dev.geode.billing.WallClock
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.LookStore
 import dev.geode.data.PerformanceStore
-import dev.geode.data.PresetStore
-import dev.geode.data.SystemMotion
-import dev.geode.data.ThemeStore
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.pro.ProFeature
 import dev.geode.render.FramePacer
 import dev.geode.render.FrameRatePolicy
-import dev.geode.render.HandMask
 import dev.geode.render.TouchField
 import dev.geode.render.VisualizerRenderer
 import dev.geode.util.bestEffort
@@ -109,9 +106,9 @@ class VisualizerWallpaperService : WallpaperService() {
         private var surfaceWidth = 1f
         private var surfaceHeight = 1f
 
-        /** Where the screen sits on a panning surface, in surface pixels; see [onOffsetsChanged]. */
-        private var panX = 0f
-        private var panY = 0f
+        /** The launcher's last [onOffsetsChanged], raw (`GEODE_WALLPAPER_OFFSETS`), and the window native makes of it. */
+        private val offsets = FloatArray(6)
+        private val window = FloatArray(4)
 
         private inner class WallpaperGlSurfaceView(
             context: Context,
@@ -130,7 +127,7 @@ class VisualizerWallpaperService : WallpaperService() {
             setTouchEventsEnabled(true)
             val engine = VisualizerRenderer(this@VisualizerWallpaperService)
             renderer = engine
-            restoreLiveState(engine)
+            restoreLook(engine)
             settings = prefsStore.load()
             applyFps()
             engine.soundInput = { sound.input }
@@ -173,29 +170,15 @@ class VisualizerWallpaperService : WallpaperService() {
             surfaceHolder.surface?.takeIf { it.isValid }?.let(pacer::applyTo)
         }
 
-        private fun restoreLiveState(engine: VisualizerRenderer) {
+        /** The app's saved look (LookStore), as it is; the MilkDrop preset is the renderer's own (MilkPresetMemory). */
+        private fun restoreLook(engine: VisualizerRenderer) {
             val prefsFiles = GeodePrefsFiles(this@VisualizerWallpaperService)
-            val prefs = prefsFiles.viz
-            prefs.getString("live_state", null)?.let { json ->
-                runCatching { PresetStore.fromJson(json) }.getOrNull()?.let { preset ->
-                    engine.requestedSceneId = preset.sceneId
-                    engine.sceneParams = preset.params
-                }
-            }
-            // The MilkDrop preset needs nothing here: the renderer restores the app's (MilkPresetMemory).
-            val gui = ThemeStore(prefsFiles.general).loadGui()
-            engine.reducedMotion = SystemMotion.isReduced(contentResolver)
-            engine.soundTuning = gui.soundTuning
+            val looks = LookStore(prefsFiles, contentResolver)
+            looks.pushProcessWide()
+            engine.look = looks.current()
             // Settings › Performance's quality; its fps cap is the live visual's, and the wallpaper
             // paces to its own choice instead (applyFps, ADR 0008).
             engine.performance = PerformanceStore(prefsFiles.general, this@VisualizerWallpaperService).settings.value
-            // The user's modulation too: without it the wallpaper and the dream drew the look
-            // with every LFO, envelope and custom reaction switched off.
-            val modulation = dev.geode.data.LfoStore(prefsFiles.general)
-            engine.lfoEngine.configs = modulation.load()
-            engine.adsrEngine.configs = modulation.loadAdsrs()
-            engine.reactions = modulation.loadReactions()
-            HandMask.set(modulation.loadHandMask(), engine.reactions != null)
         }
 
         /**
@@ -347,7 +330,7 @@ class VisualizerWallpaperService : WallpaperService() {
 
         /**
          * The launcher's pan, so the edge look draws on the screen's edge rather than the
-         * surface's. [xPixels] and [yPixels] are the surface's offset from the screen (≤ 0).
+         * surface's. Passed on raw; `core/viz/frame/WallpaperWindow.hpp` makes the window of it.
          */
         override fun onOffsetsChanged(
             xOffset: Float,
@@ -358,22 +341,21 @@ class VisualizerWallpaperService : WallpaperService() {
             yPixels: Int,
         ) {
             super.onOffsetsChanged(xOffset, yOffset, xOffsetStep, yOffsetStep, xPixels, yPixels)
-            panX = -xPixels.toFloat()
-            panY = -yPixels.toFloat()
+            offsets[0] = xOffset
+            offsets[1] = yOffset
+            offsets[2] = xOffsetStep
+            offsets[3] = yOffsetStep
+            offsets[4] = xPixels.toFloat()
+            offsets[5] = yPixels.toFloat()
             updateVisibleWindow()
         }
 
         private fun updateVisibleWindow() {
             val metrics = resources.displayMetrics
-            // Within a nav bar's worth of the display, the surface is the screen.
-            val wide = surfaceWidth > metrics.widthPixels * PAN_SLACK
-            val tall = surfaceHeight > metrics.heightPixels * PAN_SLACK
-            wallpaperRenderer?.setVisibleWindow(
-                if (wide) panX else 0f,
-                if (tall) panY else 0f,
-                if (wide) metrics.widthPixels.toFloat() else surfaceWidth,
-                if (tall) metrics.heightPixels.toFloat() else surfaceHeight,
-            )
+            val displayWidth = metrics.widthPixels.toFloat()
+            val displayHeight = metrics.heightPixels.toFloat()
+            GeodeNative.wallpaperWindow(surfaceWidth, surfaceHeight, displayWidth, displayHeight, offsets, window)
+            wallpaperRenderer?.setVisibleWindow(window[0], window[1], window[2], window[3])
         }
 
         /**

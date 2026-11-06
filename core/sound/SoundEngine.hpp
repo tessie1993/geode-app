@@ -83,6 +83,19 @@ public:
     void setTuning(const GeodeSoundTuning& tuning);
     const GeodeSoundTuning& tuning() const { return tuning_; }
     void reset();
+    // A track boundary the player named (core/sound/PlayerSignals): the ring's audio runs on unbroken, but
+    // the song is new, so the musical memory (Rhythm, Harmony, Form) starts over, the relative levels warm
+    // up again, and the next step fires sectionChange at full strength. The silence rule does the same on
+    // its own after 2 s of silence, for sources with no player to name their boundaries.
+    void trackBoundary();
+    // The player's fade gain, carried as the frame's fadeGain from the next step on: clamped to 0..1, and 1
+    // when it is not a number. Not the engine's state: reset() keeps it.
+    void setFadeGain(float gain);
+    // Whether the player writes what this engine hears (core/sound/PlayerSignals; an export's decoded track
+    // counts as the player). The player's pauses hold the musical memory, so the 2 s silence re-warm runs
+    // only for other sources, and fadeGain reads 1 for them. Off by default: a bare engine guesses at
+    // boundaries the way it always has.
+    void setPlayerSource(bool on) { playerSource_ = on; }
 
 private:
     struct BinRange {
@@ -186,6 +199,7 @@ private:
     // floor a hit needs, so a soft swell in a quiet ambient passage cannot fire a full-strength hit.
     bool hitsAllowed() const { return meter_.open() && meter_.momentaryLufs() >= kHitFloorLufs; }
     void estimatePitch(float held, float& midi, float& confidence, float& evenness);
+    void rewarm();
 
     // Configuration, fixed after construction.
     int sampleRateHz_;
@@ -254,6 +268,11 @@ private:
     Harmony harmony_;
     Form form_;
     int hopFill_ = 0;  // samples written since the last hop
+    // trackBoundary() since the last step: that step fires sectionChange. reset() (a seek, a new source)
+    // keeps it, since the boundary still began a new song.
+    bool boundaryPending_ = false;
+    float fadeGain_ = 1.0f;
+    bool playerSource_ = false;
 
     State state_;
 };

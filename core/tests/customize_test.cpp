@@ -174,8 +174,8 @@ bool shownSection(const std::string& styleId, const char* where) {
 
 void categoriesAndSectionsFollowTheStyle() {
     check(customize::shows(Category::Camera, "vanishing"), "Camera on a raymarched style");
-    check(customize::shows(Category::Camera, "julia"), "Camera on a flat style: path and Fly speed pan it");
-    check(!shownSection("julia", "CAMERA/framing"), "no 3D framing on a flat style");
+    check(customize::shows(Category::Camera, "ribbon_storm"), "Camera on a flat style: path and Fly speed pan it");
+    check(!shownSection("ribbon_storm", "CAMERA/framing"), "no 3D framing on a flat style");
     check(shownSection("vanishing", "CAMERA/framing"), "3D framing on a raymarched style");
     check(shownSection("water", "LIQUID/water"), "Water section on the Water style");
     check(!shownSection("julia", "LIQUID/water"), "no Water section elsewhere");

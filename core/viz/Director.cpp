@@ -320,10 +320,10 @@ void Director::commit(Reason reason, float glideSeconds) {
     const bool drop = reason == Reason::Drop;
     // Same feeling, never the same picture: draw until the look is far from the last six, else keep the
     // farthest of the draws.
-    Look best = make(emotion_.state(), config_.seed, commits_ * kTries, drop);
+    Look best = make(feeling_, config_.seed, commits_ * kTries, drop);
     float bestDistance = -1.0f;
     for (int i = 0; i < kTries; ++i) {
-        const Look candidate = i == 0 ? best : make(emotion_.state(), config_.seed, commits_ * kTries + i, drop);
+        const Look candidate = i == 0 ? best : make(feeling_, config_.seed, commits_ * kTries + i, drop);
         if (farFromRecent(candidate)) {
             best = candidate;
             break;
@@ -360,10 +360,16 @@ void Director::commit(Reason reason, float glideSeconds) {
 
 void Director::step(const GeodeSoundFrame& f, float dt) {
     if (!(dt > 0.0f)) return;
+    emotion_.step(f, dt);
+    step(f, emotion_.state(), dt);
+}
+
+void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float dt) {
+    if (!(dt > 0.0f)) return;
+    feeling_ = heard;
     amount_ += (config_.amount - amount_) * (1.0f - std::exp(-dt / 0.7f));
     if (config_.amount <= 0.0f && amount_ < 1e-3f) amount_ = 0.0f;
-    emotion_.step(f, dt);
-    const Emotion::State& s = emotion_.state();
+    const Emotion::State& s = feeling_;
 
     if (f.keyClarity >= 0.3f) {
         key_ = static_cast<int>(std::lround(f.keyRoot * 12.0f)) % 12 + (f.keyMajor >= 0.5f ? 0 : 12);
@@ -424,7 +430,7 @@ void Director::step(const GeodeSoundFrame& f, float dt) {
 SceneParams Director::apply(const SceneParams& p, bool palWheel) const {
     const float a = weight();
     if (a <= 0.0f) return p;
-    const Emotion::State& s = emotion_.state();
+    const Emotion::State& s = feeling_;
     const Look& L = now_;
     SceneParams o = p;
 
@@ -467,7 +473,7 @@ SceneParams Director::apply(const SceneParams& p, bool palWheel) const {
 MacroKnobs Director::knobs(const MacroKnobs& user) const {
     const float a = weight();
     if (a <= 0.0f) return user;
-    const Emotion::State& s = emotion_.state();
+    const Emotion::State& s = feeling_;
     MacroKnobs d = now_.knobs;
     d[static_cast<int>(Macro::Energy)] += 0.4f * (s.energy - now_.energy) + 0.4f * dropBoost_;
     d[static_cast<int>(Macro::Chaos)] += 0.4f * (s.tension - now_.tension) + 0.3f * dropBoost_;

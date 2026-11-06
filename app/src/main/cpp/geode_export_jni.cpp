@@ -167,6 +167,10 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportFallbackFp
     return geode_export_fallback_fps(requestedFps);
 }
 
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportClampFps(JNIEnv*, jobject, jint requestedFps) {
+    return geode_export_clamp_fps(requestedFps);
+}
+
 // Chapters (output/Chapters).
 
 JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_chaptersFromClips(JNIEnv* env, jobject,

@@ -12,6 +12,7 @@
 #include "viz/ShaderSource.hpp"
 #include "viz/frame/ExportPassMath.hpp"
 #include "viz/frame/ExportPasses.hpp"
+#include "viz/frame/LoopSeam.hpp"
 
 using namespace geode::viz;
 using namespace geode::viz::frame;
@@ -126,6 +127,25 @@ void geode_export_seam_blend(geode_export_pass* h, int index, int tail, int seam
         p->stageBlend(index, tail, seam_frames);
         run(*p, {}, {0u, h->width, h->height});
     }
+}
+
+int64_t geode_export_seam_frame(geode_export_pass* h, int frame, int loop_frames, int seam_frames, int fps) {
+    const loopseam::Step s = loopseam::step(frame, loop_frames, seam_frames);
+    switch (s.op) {
+        case loopseam::Op::Capture:
+            geode_export_seam_capture(h, s.index);
+            return -1;
+        case loopseam::Op::BlendPresent:
+            geode_export_seam_blend(h, s.index, s.tail, seam_frames);
+            break;
+        case loopseam::Op::Present:
+            break;
+    }
+    return loopseam::ptsNs(frame, seam_frames, fps);
+}
+
+int64_t geode_export_seam_budgeted_crossfade_ms(int64_t crossfade_ms, int crossfade_frames, int fps, int width, int height) {
+    return loopseam::budgetedCrossfadeMs(crossfade_ms, crossfade_frames, fps, width, height);
 }
 
 geode_export_pass* geode_export_transition_create(AAssetManager* assets, const char* id, int64_t duration_us) {

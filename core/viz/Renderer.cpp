@@ -93,7 +93,8 @@ void Renderer::pushPcm(const float* samples, int count) {
 void Renderer::writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz) {
     if (!interleaved || frames <= 0 || channels <= 0 || sampleRateHz <= 0) return;
     std::lock_guard<std::mutex> lock(soundLock_);
-    if (!sound_ || sound_->sampleRateHz() != sampleRateHz) {
+    // SoundEngine clamps its rate to 8 kHz; compare the clamped rate or a lower one rebuilds every call.
+    if (!sound_ || sound_->sampleRateHz() != std::max(8000, sampleRateHz)) {
         sound_ = std::make_unique<sound::SoundEngine>(sampleRateHz);
         sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
     }
@@ -197,8 +198,9 @@ void Renderer::applyPendingFluidInjection() {
     }
     if (!applied) return;
     {
+        // A newer edit may have landed while the scenes were rebuilt; keep it dirty for next frame.
         std::lock_guard<std::mutex> lock(stateLock_);
-        fluidInjectionDirty_ = false;
+        if (fluidForceSrc_ == force && fluidDyeSrc_ == dye) fluidInjectionDirty_ = false;
     }
 }
 
@@ -411,6 +413,13 @@ void Renderer::surfaceChanged(int width, int height) {
     height_ = std::max(height, 1);
     glViewport(0, 0, width_, height_);
     applyRenderScale();
+}
+
+void Renderer::clearToBlack(GLuint targetFbo) {
+    glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
+    glViewport(0, 0, width_, height_);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
 }
 
 void Renderer::setUserQuality(float renderScale, float marchScale, bool postFx, bool adaptive) {

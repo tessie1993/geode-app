@@ -79,8 +79,8 @@ public:
     // Settings › Performance › Liquid on a hot phone (liquid::HotPolicy). Any thread.
     void setLiquidHotPolicy(int policy) { liquidHotPolicy_.store(policy, std::memory_order_relaxed); }
     // What Liquid mode ran last frame (liquid::Mode), so Customize can say when a hot phone simplified
-    // or paused it, or -1 when it has not changed since the last take. The shell takes it every frame
-    // and wakes its collectors only on a change, so the cadence is ours, not a Kotlin timer's. A new
+    // or paused it, or -1 when it has not changed since the last take. Taken every live frame by
+    // geode_viz_frame_begin (frame::FrameCadence), so the shell wakes its collectors only on a change. A new
     // surface reports again (onSurfaceCreated). One taker: the live shell's GL thread.
     int takeLiquidMode() {
         const int mode = liquidMode_.load(std::memory_order_relaxed);
@@ -146,6 +146,9 @@ public:
     void warmTransition(const std::string& id);
     void cut();
     void render(double timeSeconds, GLuint targetFbo);
+    // The first frame on a new surface (geode_viz_frame_begin, frame::kFrameClearOnly): black, and nothing
+    // built, so the main thread GLSurfaceView parks in surfaceChanged is released at once.
+    void clearToBlack(GLuint targetFbo);
     void releaseScenes();
     const GlProfile& profile() const { return profile_; }
 
@@ -281,6 +284,12 @@ private:
     std::unique_ptr<sound::SoundEngine> sound_;
     GeodeSoundTuning soundTuning_ = sound::SoundEngine::defaultTuning();
     GeodeSoundFrame soundFrame_{};
+    // The engine's feeling, copied with the frame (the director and Note & key read it), and the play it
+    // belongs to: a new director seed is a new play, and the feeling starts over with it.
+    sound::Emotion::State soundEmotion_{};
+    bool soundHeard_ = false;
+    uint64_t emotionSeed_ = 0;
+    bool emotionSeeded_ = false;
     // Customize › Macros: this frame's knobs, and the ones the sound engine's tuning was last built from.
     MacroKnobs frameKnobs_{};
     // The user's knobs with the director's laid over them, this frame; what the params and the camera read.

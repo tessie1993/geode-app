@@ -8,6 +8,8 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 
 **Beside it, still in `core/viz`:** `SurfaceRun.hpp`, the wallpaper's and the dream's run rule (stopped, still, moving; reduced motion holds a still frame), the still frame's settle and each surface's fps choice, which caps its pacer. Reached through `geode_surface_*`, tested by `core/tests/surface_run_test.cpp`.
 
+Export post-passes: `ExportPasses` (watermark, loop seam, Studio GL transition and its capture; #442) with their pure maths in `ExportPassMath.hpp` (`core/tests/export_passes_test.cpp`), driven through `geode_export_*` until `FrameGraph::run` owns the export frame.
+
 **Owns:** the one frame function every surface runs (screen, PiP, second screen, wallpaper, dream, Studio preview, export, thumbnails), and the pieces it is built from.
 - `FrameCtx`: this frame's effective params (from `core/signal`), the sound frame and source snapshot, camera pose, touch, flow, palette LUT, knobs. Replaces the ~20 `Scene` setters (`setFlow`, `setPaletteLut`, `setTouchField`, `setCamera`, …; `core/viz/Scene.hpp:22-62`) and the `SceneHost` callbacks (`:65-76`).
 - `Pass`: `prepare(FrameCtx)`, `draw(inputs, target)`. Trail, Liquid, Composite, UiBlur, and the post-passes (watermark and loop seam, still Kotlin GL; edge glow, native since #439) all implement it.

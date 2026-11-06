@@ -12,8 +12,7 @@ enum class BlendMode { Normal, Screen, Add, Multiply, Difference, Overlay, Light
 const char* transitionStyleId(TransitionStyle style);
 BlendMode blendModeFromOrdinal(int i);
 
-// The unconditional flash and luminance clamp on the params. The measured limit on what is actually
-// drawn is FlashLimiter.hpp.
+// The unconditional flash and luminance clamp on the params.
 namespace safety {
 
 constexpr float kWcagFlashesPerSecond = 3.0f;

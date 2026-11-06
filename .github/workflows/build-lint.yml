@@ -6,8 +6,6 @@ name: Build and lint
 
 on:
   workflow_dispatch:
-  push:
-    branches: ["claude/**"]
   pull_request:
 
 permissions:

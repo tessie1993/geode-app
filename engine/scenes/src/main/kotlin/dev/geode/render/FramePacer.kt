@@ -115,6 +115,13 @@ class FramePacer(
      */
     private val clock = LongArray(GeodeNative.PACER_STATE_LONGS)
 
+    /** The last surface [applyTo] reached, re-asked from the pacer thread when the thermal cap moves. */
+    @Volatile
+    private var surface: Surface? = null
+
+    /** Pacer thread only: the paced cap (millihertz) the display was last asked for after a vsync. */
+    private var askedCapMilliHz = -1L
+
     /**
      * Posted, not run inline: the frame-timing fields and the Choreographer belong to the pacer
      * thread. Tasks run in the order they were posted, so a quick stop/start pair still ends in
@@ -194,11 +201,15 @@ class FramePacer(
      * blanks for a moment mid-track is a worse artefact than the frame rate we were trying to fix.
      */
     fun applyTo(surface: Surface) {
+        this.surface = surface
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && surface.isValid) {
             // Zero is the platform's "no preference": it clears any standing request instead of
-            // leaving the last cap latched on a surface that has since changed its mind.
+            // leaving the last cap latched on a surface that has since changed its mind. The rate is
+            // the effective cap (this surface's under the thermal one), so a hot phone's 30 fps can
+            // drop the panel to a 30/60 Hz mode rather than skipping vsyncs on a 120 Hz one.
             // The surface can be torn down between the lifecycle callback and this line.
-            runCatching { surface.setFrameRate(requestedFps(), Surface.FRAME_RATE_COMPATIBILITY_DEFAULT) }
+            val fps = GeodeNative.pacerEffectiveCap(requestedFps())
+            runCatching { surface.setFrameRate(fps, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT) }
         }
     }
 
@@ -209,6 +220,12 @@ class FramePacer(
         PacerThread.choreographer.postFrameCallback(callback)
         // The policy is read here, on the pacer thread, each vsync, so a cap change lands next tick.
         val dt = GeodeNative.pacerOnVsync(clock, frameTimeNanos, requestedFps()).toFloat()
+        // The thermal cap moves without a lifecycle callback; native records the cap it paced to.
+        val cap = clock[GeodeNative.PACER_CAP_SLOT]
+        if (cap != askedCapMilliHz) {
+            askedCapMilliHz = cap
+            surface?.let { applyTo(it) }
+        }
         if (dt <= 0f) return
         dtSeconds = dt
         sink.onFrame(dt)

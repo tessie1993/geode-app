@@ -13,59 +13,241 @@ out vec4 fragColor;
 //#include lib_camera
 //#include lib_palette
 //#include lib_scene_grade
+//#include lib_sdf3
 
-// Spectrum tunnel: ring brightness from bands, flown on the shared camera rig.
+// Spectrum Tunnel: a real tube, flown through. The old style drew glowing
+// rings on a closed-form cylinder; now the rings are ribs, a solid ribbed
+// shell around the world's z axis, lit by a headlight on the eye, with fog
+// down the bore and the far end glowing where the rays never land.
 //
-// The tube is a cylinder down the world's z axis through the eye, intersected
-// in closed form - no march, the same cost as the 2D version. The rig's ray
-// (camFly) does the rest: its travel (uCamTravel) is the distance down the
-// tube, and its look, banking, shake and FOV bend where the vanishing point
-// sits on screen, so the composite leaves this picture alone.
+// The tube is a shell (|wall - r| < thickness), not a solid outside a hole,
+// so from the rig's orbit and wide glide paths, where the eye leaves the bore,
+// it still reads as a lit pipe from the outside rather than a wall of black.
 //
-// What reacts to what:
-//   - travel speed is the Camera tab's fly speed; a kick punch on the rig's
-//     dolly lurches the eye down the tube with it.
-//   - ring brightness rides the analyser band under each ring, the wave
-//     overlay the treble, as before.
-//   - kick (SND_KICK_ENV) launches a ripple down the tube: a front that leaves the
-//     eye on the hit and travels away as the envelope falls, shifting ring
-//     positions as it passes. It moves rings, never their brightness.
+// ---- camera ------------------------------------------------------------------
+//
+// camFly: travel down the bore is the Camera tab's fly speed, and the rig's
+// dolly (kick punches, drop pushes) is already in uCamPos, so the lurch down
+// the tube comes with it. The eye's z is rebased by TN_ZWRAP; every z term in
+// the field and the shading has a period that divides it (ribs 2, spectrum
+// spiral 8, wobble 16, bend and hue 32, bend 64), and 64 divides the rig's
+// 8192 travel wrap, so neither the rebase nor the wrap ever shows.
+//
+// ---- audio -------------------------------------------------------------------
+//
+// Spectrum (sndEq)      each rib's brightness rides the band under it, read
+//                       on a spiral around and down the tube, as before; the
+//                       loud bands also swell their ribs a little inward.
+// Kick (SND_KICK_ENV)   launches a ripple down the tube: a front that leaves
+//                       the eye on the hit and runs away as the envelope
+//                       falls, shoving the ribs along z and squeezing the
+//                       bore as it passes. It moves the ribs, never their light.
+// High (SND_HIGH)       the waveform glows in the grooves between the ribs,
+//                       the old wave overlay laid on the wall.
+// Drop (SND_HELD_SURGE) swaps the palette to its far side, on a hump so it glides.
+// SND_ENERGY_TREND      the far end's glow and the overall level.
+//
+// Params: Morph rounds the ribs from sharp crests to broad swells, Warp twists
+// the spectrum spiral and bends the bore, Turbulence wobbles the cross-section,
+// Intensity and the palette reach through lib_scene_grade and pal().
+// Knobs (offsets from 0.5, so off is the tuned look): k0 PULSE the ripple's
+// strength, k1 TEXTURE the groove wave, k2 FLOW the rib light, k3 TONE the hue,
+// k4 BUILD the far glow, k5 SPACE the bore radius.
+//
+// ---- why the distance estimate is safe ----------------------------------------
+//
+// The field is the shell's radial gap divided by TN_LIP, a bound on its
+// gradient. The rib profile c^3 of a cosine has slope at most 0.97 per radian
+// of rib phase; the phase turns TAU / 2 per world unit, plus at most 0.38 from
+// the kick ripple at full PULSE, so the 0.3-high ribs slope at most ~1.6 along
+// z. The kick squeeze (0.36), the wobble (0.08) and the bend (0.14) add theirs,
+// ~2.2 along z in all, and the band swell and the wobble ~0.6 around the wall:
+// sqrt(1 + 2.2^2 + 0.6^2) < 2.5. The spectrum lookup is
+// mirrored, so the band height has no seam to cliff on. A sphere around the
+// eye is carved out of the shell, so the eye is never inside it. The march
+// starts where the ray leaves the inner cylinder no part of the shell can
+// reach (its radius is the bore minus every inward term at its current size),
+// so the steps go to the wall, not to the empty middle.
 
-/** Tube radius in world units. With TUN_DEPTH_SCALE it reproduces the old 0.3 / radius depth at the rig's base focal. */
-#define TUN_RADIUS 0.1
-/**
- * Tube depth units per world unit. 2 keeps the old ring rate at the rig's
- * default speed. Every depth-periodic term below uses a frequency that
- * divides (8192 * 2), the rig's travel wrap in depth units, so the wrap
- * lands on the same rings and the same band lookup.
- */
-#define TUN_DEPTH_SCALE 2.0
-/** How far down the tube (depth units) the kick ripple has travelled by the time its envelope is spent. */
-#define TUN_RIPPLE_REACH 7.0
+#define TN_MAX_STEPS 96
+#define TN_TAU 6.2831853
+/** Rebase period of the eye's z; divides 8192. */
+#define TN_ZWRAP 64.0
+/** Bore radius at rest, world units: wider than the glide path's usual wander. */
+#define TN_RADIUS 4.4
+/** Half-thickness of the shell. */
+#define TN_SHELL 0.3
+/** World units per rib. */
+#define TN_RIB 2.0
+/** How far down the tube (world units) the kick ripple has travelled once its envelope is spent. */
+#define TN_REACH 14.0
+/** Gradient bound of the radial field (see the header). */
+#define TN_LIP 2.5
+#define TN_FAR 48.0
+#define TN_BUBBLE 0.8
+
+vec3 gEye;
+float gKick;
+float gKickAmp;
+float gRibAmp;
+float gMorph;
+float gTwist;
+float gBend;
+float gWobble;
+float gRadius;
+/** Set by map(): the rib cosine (1 on a crest), the band under the point, its angle 0..1. */
+float gC;
+float gBand;
+float gAng;
+
+/** The bore's centre at depth z: the Warp bend, periods 32 and 64. */
+vec2 boreCentre(float z) {
+    return gBend * vec2(sin(z * (TN_TAU / 32.0)), cos(z * (TN_TAU / 64.0)));
+}
+
+/** The analyser band on the spiral at angle `ang` (0..1) and depth z, mirrored so it has no seam. */
+float bandAt(float ang, float z) {
+    float x = fract(ang + z * 0.125 + gTwist * sin(z * (TN_TAU / 32.0)));
+    return clamp(0.5 * sndEq(abs(2.0 * x - 1.0)), 0.0, 1.0);
+}
+
+float map(vec3 p) {
+    vec2 q = p.xy - boreCentre(p.z);
+    float r = length(q);
+    float ang = atan(q.y, q.x) / TN_TAU + 0.5;
+    gAng = ang;
+
+    // The kick ripple: 1 at the hit, so the front starts at the eye and runs
+    // away down the tube as the envelope decays. Measured from the eye, so the
+    // rebase shifts both sides alike.
+    float dF = (p.z - gEye.z) - (1.0 - gKick) * TN_REACH;
+    float env = exp(-abs(dF) * 0.6);
+    float ripple = gKickAmp * 0.12 * sin(dF * 1.5) * env;
+
+    float c = 0.5 + 0.5 * cos(TN_TAU * (p.z / TN_RIB + ripple));
+    gC = c;
+    float band = bandAt(ang, p.z);
+    gBand = band;
+    float prof = mix(c * c * c, c, gMorph);
+    float inward = prof * (gRibAmp + 0.12 * band)
+                 + gKickAmp * 0.4 * env
+                 + gWobble * (0.5 + 0.5 * sin(ang * TN_TAU * 3.0 + p.z * (TN_TAU / 16.0) + uTime * 0.3));
+    float wall = gRadius - inward;
+    float d = (abs(wall - r) - TN_SHELL) / TN_LIP;
+    return max(d, TN_BUBBLE - length(p - gEye));
+}
+
+vec3 normalAt(vec3 p, float eps) {
+    vec2 k = vec2(1.0, -1.0);
+    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
+                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+}
 
 void main() {
     vec2 uv = view();
+
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float high = sndShaped(SND_HIGH);
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
+    float dropBump = 4.0 * drop * (1.0 - drop);
+
+    gKick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    gKickAmp = gKick * clamp(1.0 + kPulse, 0.5, 1.5);
+    gMorph = clamp(uMorph, 0.0, 1.0);
+    float warp = clamp(uWarp, 0.0, 1.0);
+    gTwist = 0.25 * warp;
+    gBend = 0.7 * warp;
+    gWobble = 0.4 * clamp(uTurbulence, 0.0, 1.0);
+    gRibAmp = 0.18;
+    gRadius = TN_RADIUS + 1.2 * kSpace;
+
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
+    // Every z term tiles with a period dividing 64, so this shift is exact
+    // and invisible, and z keeps its precision far down the travel.
+    ro.z = mod(ro.z, TN_ZWRAP);
+    gEye = ro;
 
-    float angle = atan(rd.y, rd.x) / 6.2831853 + 0.5;
-    // Where this ray meets the wall, measured along the tube from the eye.
-    float wall = TUN_RADIUS * rd.z / (length(rd.xy) + 0.0001) * TUN_DEPTH_SCALE;
-    float depth = (uCamTravel + 0.9 * uCamDolly) * TUN_DEPTH_SCALE + wall;
+    // Skip the empty middle: no part of the shell comes nearer the axis than
+    // the bore minus every inward term at its current size.
+    float rin = gRadius - (gRibAmp + 0.12 + gKickAmp * 0.4 + gWobble + gBend + TN_SHELL + 0.05);
+    float t = 0.03;
+    float a = dot(rd.xy, rd.xy);
+    float cc = dot(ro.xy, ro.xy) - rin * rin;
+    if (rin > 0.5 && cc < 0.0) {
+        if (a < 1e-6) {
+            t = TN_FAR;
+        } else {
+            float b = dot(ro.xy, rd.xy);
+            t = max(t, (-b + sqrt(max(b * b - a * cc, 0.0))) / a);
+        }
+    }
 
-    // The kick ripple: 1 at the hit, so the front starts at the eye and runs
-    // away down the tube as the envelope decays.
-    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
-    float front = (1.0 - kick) * TUN_RIPPLE_REACH;
-    float dFront = wall - front;
-    float ripple = kick * 0.35 * sin(dFront * 6.0) * exp(-abs(dFront) * 1.2);
+    float hitT = -1.0;
+    float used = 0.0;
+    float haze = 0.0;
+    for (int i = 0; i < TN_MAX_STEPS; i++) {
+        // uSteps is the user's Detail; this loop's own bound is the constant.
+        if (float(i) >= uSteps) break;
+        if (t > TN_FAR) break;
+        used = float(i);
+        float d = map(ro + rd * t);
+        // The lit crests haze the air they pass close to.
+        haze += smoothstep(0.6, 1.0, gC) * gBand * exp(-max(d, 0.0) * 6.0);
+        float eps = 0.0008 * t + 0.0008;
+        if (d < eps) {
+            hitT = t;
+            break;
+        }
+        t += max(d * 0.9, eps);
+    }
 
-    float band = (0.5 * sndEq(fract(angle + depth * 0.0625)));
-    float rings = smoothstep(0.35, 0.9, fract(depth * 2.0 + ripple));
-    float wave = sndWave01(fract(angle * 2.0));
-    vec3 col = pal(depth * 0.125) * (0.15 + band * 1.6) * rings;
-    col += pal(0.6) * wave * sndShaped(SND_HIGH) * 0.6;
-    col *= 1.0 - smoothstep(0.35, 1.8, length(uv) * uZoom);
+    float hue0 = 0.12 * kTone + 0.5 * dropBump;
+    float ahead = pow(max(dot(rd, normalize(uCamBasis[2])), 0.0), 10.0);
+    vec3 fogCol = pal(hue0 + 0.3) * (0.025 + (0.22 + 0.25 * swell) * (1.0 + kBuild) * ahead) + vec3(0.003, 0.002, 0.006);
+    vec3 col = fogCol;
+    float lightK = 1.0 + 1.2 * kFlow;
+
+    if (hitT > 0.0) {
+        vec3 p = ro + rd * hitT;
+        vec3 n = normalAt(p, max(0.0015, 0.0012 * hitT));
+        // Restore the hit point's globals after the normal taps.
+        map(p);
+
+        float hue = hue0 + 0.5 + 0.5 * sin(p.z * (TN_TAU / 32.0));
+        float ndv = clamp(dot(n, -rd), 0.0, 1.0);
+        float fres = pow(1.0 - ndv, 3.0);
+        float ao = clamp(1.0 - used / max(uSteps, 1.0) * 0.8, 0.35, 1.0) * (0.55 + 0.45 * gC);
+        // Headlight on the eye: falls off down the bore.
+        float fall = 1.0 / (1.0 + 0.03 * hitT * hitT);
+        float spec = pow(ndv, 24.0);
+
+        vec3 wall = pal(hue + 0.55) * (0.05 + 0.22 * ndv * fall) * ao
+                  + pal(hue + 0.2) * fres * 0.12
+                  + vec3(spec) * 0.25 * fall;
+
+        // The rings: each crest glows with the band under it.
+        float crest = smoothstep(0.55, 0.95, gC);
+        wall += pal(hue) * (0.15 + gBand * 1.6) * crest * lightK;
+
+        // The waveform in the grooves, the old treble overlay.
+        float groove = 1.0 - smoothstep(0.0, 0.15, gC);
+        float wave = sndWave01(fract(gAng * 2.0));
+        wall += pal(0.6 + hue0) * wave * high * 0.6 * groove * clamp(1.0 + 1.2 * kTexture, 0.2, 2.0);
+
+        col = mix(wall, fogCol, 1.0 - exp(-hitT * 0.045));
+    }
+
+    col += pal(hue0 + 0.1) * haze * 0.03 * lightK;
+    col *= 0.85 + 0.2 * swell;
+    col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv) * uZoom));
     fragColor = vec4(grade(col), 1.0);
 }

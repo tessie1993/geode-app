@@ -19,8 +19,7 @@ import org.junit.Test
  * - `hostile.json` is a shared link out of range, non-finite and of the wrong type.
  */
 class PresetGoldenTest {
-    private fun fixture(name: String): String =
-        checkNotNull(javaClass.getResource("/presets/$name")) { "missing fixture $name" }.readText()
+    private fun fixture(name: String): String = checkNotNull(javaClass.getResource("/presets/$name")) { "missing fixture $name" }.readText()
 
     /** JSON equality: 240 and 240.0 are the same number, as org.json's `similar` says. */
     private fun same(

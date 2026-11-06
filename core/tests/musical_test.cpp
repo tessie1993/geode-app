@@ -442,7 +442,9 @@ void testTrackBoundaryKey() {
             CHECK(b.keyClarity > 0.25f, "unnamed, still sure of the old key: clarity %f", b.keyClarity);
         }
     }
-    CHECK(std::lround(a.keyRoot * 12.0f) % 12 == 6 && a.keyMajor > 0.5f, "the next track's key: root %f major %f",
+    // F# major, or its relative D# minor: the same notes, so either says the old key of C is gone.
+    const long root = std::lround(a.keyRoot * 12.0f) % 12;
+    CHECK((root == 6 && a.keyMajor > 0.5f) || (root == 3 && a.keyMajor <= 0.5f), "the next track's key: root %f major %f",
           a.keyRoot * 12.0f, a.keyMajor);
 }
 
@@ -451,6 +453,7 @@ void testTrackBoundaryKey() {
 // back still has the tempo; with the mic or another app's audio as the source the 2 s silence rule
 // re-warms, and the tempo starts over.
 void testPauseHoldsTempo() {
+    const std::function<float(double)> silence = [](double) { return 0.0f; };
     auto song = [](double t) { return clicks(t, 0.0, 128.0); };
     SoundEngine player(44100);
     SoundEngine capture(44100);
@@ -462,8 +465,8 @@ void testPauseHoldsTempo() {
     const int pauseTo = 25 * 60;  // the last silent frame
     for (int i = 1; i <= pauseTo + 1; i++) {
         if (i >= pauseFrom && i <= pauseTo) {
-            player.step(1.0f / 60.0f, a);
-            capture.step(1.0f / 60.0f, b);
+            player.step(1.0f / 60.0f, a);  // a paused player writes nothing
+            frameOf(capture, silence, i, false, b, buf);  // a quiet capture still delivers zeros
             continue;
         }
         frameOf(player, song, i, false, a, buf);
@@ -474,9 +477,10 @@ void testPauseHoldsTempo() {
     CHECK(b.bpm == 0.0f && b.beatCount == 0.0f, "a capture's silence re-warms: bpm %f, beat %f", b.bpm, b.beatCount);
 }
 
-// The same for the key: I–vi–IV–V in C for 24 s, 5 s with nothing written, then C again. Under the player
+// The same for the key: I–vi–IV–V in C for 24 s, 5 s paused (the capture hears zeros), then C again. Under the player
 // the key and its clarity hold; under a capture the key's clarity starts over from nothing.
 void testPauseHoldsKey() {
+    const std::function<float(double)> silence = [](double) { return 0.0f; };
     const int chords[4][3] = {{60, 64, 67}, {57, 60, 64}, {53, 57, 60}, {55, 59, 62}};
     auto song = [&chords](double t) {
         const int* c = chords[static_cast<int>(t / 2.0) % 4];
@@ -497,8 +501,8 @@ void testPauseHoldsKey() {
     const int pauseTo = 29 * 60;
     for (int i = 1; i <= pauseTo + 1; i++) {
         if (i >= pauseFrom && i <= pauseTo) {
-            player.step(1.0f / 60.0f, a);
-            capture.step(1.0f / 60.0f, b);
+            player.step(1.0f / 60.0f, a);  // a paused player writes nothing
+            frameOf(capture, silence, i, false, b, buf);  // a quiet capture still delivers zeros
             continue;
         }
         frameOf(player, song, i, false, a, buf);

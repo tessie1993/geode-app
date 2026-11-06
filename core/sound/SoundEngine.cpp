@@ -340,6 +340,13 @@ void SoundEngine::trackBoundary() {
     // A boundary during silence must not re-warm a second time when the sound comes.
     state_.quietSeconds = 0.0f;
     boundaryPending_ = true;
+    // The newest hop was read before the boundary: until the next hop, a step shows the fresh song, not
+    // the last one's tempo, key and form.
+    GeodeSoundFrame& f = hopFrame_;
+    rhythm_.read(0, f.hitTime, f);
+    f.keyRoot = f.keyHue = f.keyMajor = f.keyClarity = f.chordHue = f.tension = f.harmonicChange = 0.0f;
+    f.scale = f.scaleRoot = f.scaleBrightness = f.scaleTension = f.scaleFit = 0.0f;
+    f.novelty = f.sectionId = f.sectionState = f.sectionBars = f.buildUp = f.drop = 0.0f;
 }
 
 void SoundEngine::setFadeGain(float gain) { fadeGain_ = std::isfinite(gain) ? std::clamp(gain, 0.0f, 1.0f) : 1.0f; }

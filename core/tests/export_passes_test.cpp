@@ -137,7 +137,7 @@ void tileWidthTruncatesTextPlusGapBeforeRounding() {
 // Kills: the 1 << 14 cap's signed overflow. nextPowerOfTwo(v > 2^30) shifts 2^30 left once, which C++20
 // defines as INT_MIN (cppreference, "Bitwise shift operators", since C++20), and min(INT_MIN, cap) keeps
 // it. The header promises a power of two of at least kMinTilePx for any measured width.
-// EXPECTED TO FAIL on #552 as written for widths above about 8e8 px: a latent defect, not reachable
+// Widths above about 8e8 px used to overflow the power of two: a latent defect, not reachable
 // through Paint.measureText at a real frame's text size today.
 void tileWidthStaysAPositivePowerOfTwoForAbsurdWidths() {
     const float absurd[] = {12'000.0f, 1.0e6f, 8.0e8f, 1.0e9f, 1.0e12f, std::numeric_limits<float>::infinity()};

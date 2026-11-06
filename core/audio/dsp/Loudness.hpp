@@ -42,6 +42,8 @@ public:
     // Consumes `count` interleaved samples (not frames); a trailing partial frame is ignored.
     void feed(const float* interleaved, size_t count);
 
+    int channels() const { return channels_; }
+
     // True once at least one full 400 ms block exists, i.e. once there is anything to gate.
     bool hasCompleteBlock() const { return !blockLoudness_.empty(); }
 

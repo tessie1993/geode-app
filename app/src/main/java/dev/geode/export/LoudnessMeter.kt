@@ -194,20 +194,11 @@ class LoudnessMeter(
                             target = existing
                         }
                         val output = decoder.getOutputBuffer(outIndex) ?: return LoudnessResult.Unreadable(CODEC_STATE)
-                        val isFloat =
-                            when (val layout = pcmLayoutOf(format)) {
-                                PcmLayout.Signed16 -> false
-                                PcmLayout.Float32 -> true
-                                is PcmLayout.Unsupported -> {
-                                    decoder.releaseOutputBuffer(outIndex, false)
-                                    return LoudnessResult.Unreadable(unsupportedPcm(layout.encoding))
-                                }
-                            }
-                        // Codec buffers are direct, so native reads the samples where they lie; a refusal
-                        // means the codec broke its own contract.
-                        if (!target.feed(output, info.offset, info.size, isFloat)) {
+                        // The decoder's bytes go to native as they are: conversion and measurement are C++.
+                        val encoding = encodingOf(format)
+                        if (!target.feedPcm(output, info.offset, info.size, encoding)) {
                             decoder.releaseOutputBuffer(outIndex, false)
-                            return LoudnessResult.Unreadable(CODEC_STATE)
+                            return LoudnessResult.Unreadable(unsupportedPcm(encoding))
                         }
                     }
                     decoder.releaseOutputBuffer(outIndex, false)
@@ -230,16 +221,6 @@ class LoudnessMeter(
         }
     }
 
-    private sealed interface PcmLayout {
-        data object Signed16 : PcmLayout
-
-        data object Float32 : PcmLayout
-
-        data class Unsupported(
-            val encoding: Int,
-        ) : PcmLayout
-    }
-
     private companion object {
         const val DEQUEUE_TIMEOUT_US = 10_000L
         const val STALL_LIMIT = 1_000
@@ -248,23 +229,15 @@ class LoudnessMeter(
             "This file changes sample rate or channel count part-way through, so it cannot be measured in one pass."
 
         /**
-         * Decoders are free to hand back 16-bit or float PCM, and newer ones may offer packed 24-bit.
-         * Parse the raw constant into a closed set once, here, so the sample loop only ever sees a
-         * layout it knows how to read rather than guessing at an unfamiliar integer.
+         * Decoders hand back 16-bit or float PCM (newer ones may offer packed 24-bit); no key means
+         * 16-bit. The native feed reads 16-bit, 8-bit and float and refuses anything else.
          */
-        fun pcmLayoutOf(format: MediaFormat): PcmLayout {
-            val encoding =
-                if (format.containsKey(MediaFormat.KEY_PCM_ENCODING)) {
-                    format.getInteger(MediaFormat.KEY_PCM_ENCODING)
-                } else {
-                    AudioFormat.ENCODING_PCM_16BIT
-                }
-            return when (encoding) {
-                AudioFormat.ENCODING_PCM_16BIT -> PcmLayout.Signed16
-                AudioFormat.ENCODING_PCM_FLOAT -> PcmLayout.Float32
-                else -> PcmLayout.Unsupported(encoding)
+        fun encodingOf(format: MediaFormat): Int =
+            if (format.containsKey(MediaFormat.KEY_PCM_ENCODING)) {
+                format.getInteger(MediaFormat.KEY_PCM_ENCODING)
+            } else {
+                AudioFormat.ENCODING_PCM_16BIT
             }
-        }
 
         fun unsupportedPcm(encoding: Int): String = "This device's decoder returned PCM Geode cannot measure (encoding $encoding)."
 
@@ -276,7 +249,7 @@ class LoudnessMeter(
 }
 
 /**
- * ITU-R BS.1770-4 integrated loudness and true peak, fed a stream of decoder output buffers.
+ * ITU-R BS.1770-4 integrated loudness and true peak, fed the decoder's PCM bytes as they come.
  *
  * The measurement is native (`core/audio/dsp/Loudness`, tested by `core/tests/loudness_test.cpp`):
  * K-weighting, 400 ms blocks with 75% overlap, the -70 LUFS absolute and -10 LU relative gates, and
@@ -301,16 +274,16 @@ class LoudnessAnalyser(
         get() = GeodeNative.loudnessHasBlock(live())
 
     /**
-     * Consumes [buffer]'s bytes [offset] until [offset] + [size], interleaved native-order s16 (scaled
-     * by 1/32768 natively, `geode_loudness_feed_s16`) or float in -1..1 when [isFloat], read in place
-     * and never retained. [buffer] must be direct, as MediaCodec's are; false, feeding nothing, otherwise.
+     * Consumes the decoder's bytes [offset, offset + byteCount) of the direct [buffer], interleaved PCM
+     * in [encoding] (an `AudioFormat.ENCODING_PCM_*`), converted natively. False when the encoding is
+     * not one it reads. The buffer is read, never retained.
      */
-    fun feed(
+    fun feedPcm(
         buffer: ByteBuffer,
         offset: Int,
-        size: Int,
-        isFloat: Boolean,
-    ): Boolean = GeodeNative.loudnessFeedDirect(live(), buffer, offset, size, isFloat)
+        byteCount: Int,
+        encoding: Int,
+    ): Boolean = GeodeNative.loudnessFeedPcm(live(), buffer, offset, byteCount, encoding)
 
     fun finish(): LoudnessReport {
         val out = DoubleArray(REPORT_DOUBLES)

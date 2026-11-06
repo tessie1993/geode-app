@@ -157,6 +157,11 @@ Java_dev_geode_engine_bridge_GeodeNative_vizTakeDirectorStyleMoments(JNIEnv*, jo
 }
 
 // Region copy: every rendered frame, a few hundred frames of audio; never pins the whole scratch array.
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizFeedFile(JNIEnv*, jobject, jlong handle, jlong feed, jlong frameIndex, jint fps) {
+    return geode_viz_feed_file(vizOf(handle), reinterpret_cast<geode_file_feed*>(feed), frameIndex, fps);
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizWriteAudio(JNIEnv* env, jobject, jlong handle, jfloatArray interleaved,
                                                        jint frames, jint channels, jint sampleRate) {

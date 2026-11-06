@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "audio/ingest/FileFeed.hpp"
 #include "audio/ingest/Ring.hpp"
 #include "viz/Director.hpp"
 #include "viz/GyroLook.hpp"
@@ -172,6 +173,20 @@ int geode_viz_take_director_style_moments(geode_viz* v) {
 
 void geode_viz_write_audio(geode_viz* v, const float* interleaved, int frames, int channels, int sample_rate) {
     if (v) v->renderer.writeAudio(interleaved, frames, channels, sample_rate);
+}
+
+int geode_viz_feed_file(geode_viz* v, geode_file_feed* f, long long frame_index, int fps) {
+    if (!v || !f) return 0;
+    // Each block goes in exactly as geode_viz_write_audio would take it, so the export's engine (and
+    // projectM's raw PCM, which writeAudio derives) hears the frame's samples once, in order.
+    struct ToRenderer final : geode::audio::ingest::FileFeed::Sink {
+        explicit ToRenderer(geode::viz::Renderer& r) : renderer(r) {}
+        void audio(const float* stereo, int frames, int sampleRate) override {
+            renderer.writeAudio(stereo, frames, 2, sampleRate);
+        }
+        geode::viz::Renderer& renderer;
+    } sink(v->renderer);
+    return f->feed.deliver(frame_index, fps, sink);
 }
 
 void geode_viz_reset_audio(geode_viz* v) {

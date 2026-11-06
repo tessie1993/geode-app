@@ -394,6 +394,31 @@ GEODE_API void            geode_loudness_feed(geode_loudness*, const float* inte
 GEODE_API void            geode_loudness_feed_s16(geode_loudness*, const int16_t* interleaved, size_t samples);
 GEODE_API int             geode_loudness_has_block(geode_loudness*);   /* 1 once a 400 ms block exists */
 GEODE_API void            geode_loudness_finish(geode_loudness*, geode_loudness_report* out);   /* non-destructive */
+/* The decoder's PCM bytes as they come out of MediaCodec (#490): `byte_count` bytes of interleaved PCM in
+ * `encoding` (android.media.AudioFormat ENCODING_*: 2 = 16-bit, 3 = 8-bit, 4 = float, native order), at the
+ * channel count the meter was created with. Converted here, so no Kotlin loop touches a sample. Returns 0
+ * for an encoding it cannot read (nothing is fed), else 1. */
+GEODE_API int             geode_loudness_feed_pcm(geode_loudness*, const void* bytes, size_t byte_count, int encoding);
+
+/* The export's file ring (audio/ingest/FileFeed, #490): a decoded track, cut from `start_us`, handed to the
+ * export renderer frame-exact. Video frame n owns the samples [floor(n * rate / fps), floor((n + 1) * rate /
+ * fps)) from the range's first sample, at the first written rate, whatever chunk sizes the decoder gave.
+ * The export thread is the only writer and reader: decode while geode_file_feed_needs, then
+ * geode_viz_feed_file, then geode_viz_render. */
+typedef struct geode_file_feed geode_file_feed;
+GEODE_API geode_file_feed* geode_file_feed_create(long long start_us);
+GEODE_API void             geode_file_feed_destroy(geode_file_feed*);
+/* One decoder chunk: bytes in `encoding` (as geode_loudness_feed_pcm), presentation time `pts_us` (< 0:
+ * right after the previous chunk, for sources without timestamps). Samples before start_us are dropped.
+ * Returns the frames kept, or -1 when the format or encoding is unusable. */
+GEODE_API long long        geode_file_feed_write(geode_file_feed*, const void* bytes, size_t byte_count, int encoding,
+                                                 int sample_rate, int channels, long long pts_us);
+/* 1 while frame `frame_index` at `fps` still needs samples not written yet (decode more), else 0. */
+GEODE_API int              geode_file_feed_needs(const geode_file_feed*, long long frame_index, int fps);
+/* Writes into the renderer's sound engine (as geode_viz_write_audio, which also hands projectM its raw
+ * PCM) every sample of frames up to `frame_index` not delivered yet: the ingest's stereo downmix, so an
+ * export hears what the screen hears. Returns the frames delivered (fewer once the file has ended). */
+GEODE_API int              geode_viz_feed_file(geode_viz*, geode_file_feed*, long long frame_index, int fps);
 
 /* Export post-passes (viz/frame/ExportPasses, #442): the non-Pro watermark, a loop render's seam, and a Studio
  * render's GL Transition with the capture that feeds it, each a frame::Pass on the export surface. The pure

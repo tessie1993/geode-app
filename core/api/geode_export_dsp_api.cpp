@@ -1,3 +1,5 @@
+#include <cstdint>
+#include <cstring>
 #include <memory>
 
 #include "api/geode_api.h"
@@ -12,6 +14,42 @@ struct geode_resampler {
 struct geode_loudness {
     geode::audio::LoudnessAnalyser a;
 };
+
+namespace {
+
+// The decoder's PCM to float for the meter, a block at a time on the stack (#490: this was a per-sample
+// Kotlin loop). The scalings are the ones LoudnessMeter used: s16 / 32768, float as is; 8-bit as the
+// ingest reads it. Native byte order, as MediaCodec hands it.
+constexpr size_t kBlockSamples = 2048;
+
+int bytesOf(int encoding) {
+    switch (encoding) {
+        case 2: return 2;   // ENCODING_PCM_16BIT
+        case 3: return 1;   // ENCODING_PCM_8BIT
+        case 4: return 4;   // ENCODING_PCM_FLOAT
+        default: return 0;
+    }
+}
+
+void toFloat(const unsigned char* in, size_t samples, int encoding, float* out) {
+    switch (encoding) {
+        case 2:
+            for (size_t i = 0; i < samples; ++i) {
+                int16_t v;
+                std::memcpy(&v, in + i * 2, sizeof v);
+                out[i] = static_cast<float>(v) / 32768.0f;
+            }
+            return;
+        case 3:
+            for (size_t i = 0; i < samples; ++i) out[i] = static_cast<float>(static_cast<int>(in[i]) - 128) / 128.0f;
+            return;
+        default:
+            std::memcpy(out, in, samples * sizeof(float));
+            return;
+    }
+}
+
+}  // namespace
 
 extern "C" {
 
@@ -54,6 +92,25 @@ void geode_loudness_destroy(geode_loudness* l) {
 
 void geode_loudness_feed(geode_loudness* l, const float* interleaved, size_t samples) {
     if (l && interleaved && samples > 0) l->a.feed(interleaved, samples);
+}
+
+int geode_loudness_feed_pcm(geode_loudness* l, const void* bytes, size_t byte_count, int encoding) {
+    const int bps = bytesOf(encoding);
+    if (bps == 0) return 0;
+    if (!l || !bytes) return 1;
+    const auto* in = static_cast<const unsigned char*>(bytes);
+    size_t left = byte_count / static_cast<size_t>(bps);
+    float block[kBlockSamples];
+    // Whole frames per block: the meter ignores a trailing partial frame, so a split frame would be lost.
+    const size_t step = kBlockSamples / static_cast<size_t>(l->a.channels()) * static_cast<size_t>(l->a.channels());
+    while (left > 0) {
+        const size_t n = left < step ? left : step;
+        toFloat(in, n, encoding, block);
+        l->a.feed(block, n);
+        in += n * static_cast<size_t>(bps);
+        left -= n;
+    }
+    return 1;
 }
 
 void geode_loudness_feed_s16(geode_loudness* l, const int16_t* interleaved, size_t samples) {

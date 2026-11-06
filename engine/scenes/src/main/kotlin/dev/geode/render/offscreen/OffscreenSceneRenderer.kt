@@ -135,7 +135,6 @@ class OffscreenSceneRenderer(
         val fps = spec.fps
         // The export frame clock is native (core/output/FrameClock): frame n shows floor(n * 1000 / fps) ms.
         val timeMs = GeodeNative.exportFrameTimeMs(frame.toLong(), fps)
-        val nextTimeMs = GeodeNative.exportFrameTimeMs(frame + 1L, fps)
         val p = spec.paramsAt?.invoke(timeMs) ?: spec.baseParams
         viz.setParams(p)
         // Keyframes can change reactSeed mid-export, so this resolves per frame like live does.
@@ -144,8 +143,9 @@ class OffscreenSceneRenderer(
             viz.setReactions(routes)
             nativeReactions = routes
         }
-        // Exactly the audio up to the end of this frame, then a render steps the engine by 1/fps.
-        audio?.deliverUntilMs(nextTimeMs) { pcm, frames, channels, rate -> viz.writeAudio(pcm, frames, channels, rate) }
+        // Exactly this frame's samples (native, frame-exact: core/audio/ingest/FileFeed), then a render
+        // steps the engine by 1/fps.
+        audio?.deliverFrame(viz, frame, fps)
         // The frame's exact time, not the whole-ms one above (#377): floor(n * 1e9 / fps) ns.
         viz.render(GeodeNative.exportFramePtsNs(frame.toLong(), fps) / NANOS_PER_SECOND, targetFbo)
     }

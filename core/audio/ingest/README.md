@@ -1,12 +1,13 @@
 # core/audio/ingest
 
-Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md). The ring and its reader exist (#480). The player tap writes it and every live renderer reads its own cursor natively (`core/viz/SoundFeed`, `geode_viz_set_sound_source`, #481); cast's TV audio reads it through `geode_ingest_reader_*`. The capture pumps move in #485, export in #490.
+Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md). The ring and its reader exist (#480); export writes to it through `FileFeed` (#490); the player tap writes it and every live renderer reads its own cursor natively (`core/viz/SoundFeed`, `geode_viz_set_sound_source`, #481); cast's TV audio reads it through `geode_ingest_reader_*`; the capture pumps move in #485.
 
 **Owns:** one native PCM ring per audio source (the player tap, the mic, another app's audio, the wallpaper's output mix, a decoded file for export). Each write carries the sample rate, layout and epoch together, so a format change can never pair new samples with an old rate. Converts int16, u8, float, 24- and 32-bit PCM to float here, not in Kotlin. Keeps every channel; readers hear one stereo downmix.
 
 **Files**
 - `Ring.hpp/.cpp`: the ring (`Ring`, the `geode_ingest` handle). Single writer, lock-free; format records published before the samples they cover; overrun detection by the write position (`oldestSafe`); the `core/sound/Silence` rule fed by the writes (`resting`).
 - `Cursor.hpp/.cpp`: one reader's place. `read` gives every sample once, in order, as stereo, one format per block, with `restarted` and `dropped`; `rawMonoTail` is projectM's raw PCM; `skipToNewest` for a stalled live surface.
+- `FileFeed.hpp/.cpp`: the export's file ring (#490, below): a decoded track handed to the export renderer frame-exact; C ABI `geode_file_feed_*`, `geode_viz_feed_file`.
 - `Downmix.hpp`: ITU-R BS.775 weights over AudioFormat channel masks (C and surrounds -3 dB, LFE -10 dB, mono duplicated, stereo bit-exact).
 - C ABI: `geode_ingest_*` in `core/api/geode_api.h`; JNI in `app/src/main/cpp/geode_sound_jni.cpp`; `GeodeNative.ingest*`.
 
@@ -24,3 +25,5 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 **fosfora:** `audio/capture.rs` (SPSC ring, no DSP in the callback), `audio/decimate.rs` (rates above 88.2 kHz halved first).
 
 **Test that proves it:** `core/tests/ingest_test.cpp`: random chunk sizes and a mid-stream rate change, every sample once in order with its rate, two readers, a writer thread racing a reader, overrun, epoch vs format, conversion, the 5.1 and 7.1 downmix, mono centred, the raw tail, resting after the hold.
+
+**Export file ring (`FileFeed`, #490):** the decoded track of an export. `TrackAudio` (Kotlin) only runs MediaExtractor and MediaCodec and hands each output buffer's bytes here; `FileFeed` drops what precedes the range start, writes the rest into its own `Ring`, and reads it back through a `Cursor` so video frame n gets exactly the samples [floor(n · rate / fps), floor((n + 1) · rate / fps)). Proved by `core/tests/file_feed_test.cpp`. The export renderer gets projectM's raw PCM from the same samples through `Renderer::writeAudio` (#486).

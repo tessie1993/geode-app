@@ -9,8 +9,8 @@
 //
 // THE CHAIN (world()): mirrored z repeat (always: travel is endless) -> a polar kaleidoscope about
 // the travel axis (WG_POLAR, N-fold with a spiral: round tunnels instead of the 4-way cross) ->
-// mirrored x/y repeat (WG_REP_XY fades it,
-// WG_CELL_SHIFT moves the cells off the axis) -> a twist along travel (a sine over one z period,
+// mirrored x/y repeat (WG_LATTICE_TILT and WG_LATTICE_YAW first turn its lattice off the view,
+// WG_REP_XY fades it, WG_CELL_SHIFT moves the cells off the axis) -> a twist along travel (a sine over one z period,
 // so it stays periodic) -> scale -> mirror fold -> up to five rotate-fold IFS steps (fractional:
 // the last one fades in) -> sphere inversion -> abs-inversion -> ten primitives blended by weight:
 // six simple ones, a baked CC0 model (uWorldShapes), and six fractals (gyroid, Menger sponge,
@@ -35,7 +35,10 @@
 // focuses its own way: WG_ROLL_ANGLE turns the view about its forward axis (a slow barrel roll,
 // a sway, a lean into sideways motion) and WG_LENS_NOW scales the focal length (a wide lens for
 // vast halls, a long one for close detail, a punch on the kick). Only the ray turns: the eye and
-// its corridor stay where they are, so no roll or lens can put the camera in matter.
+// its corridor stay where they are, so no roll or lens can put the camera in matter. After the
+// roll the ray also looks around (the gaze): WG_GAZE_Y pitches it about the view's right axis and
+// WG_GAZE_X yaws it about its up axis, within the world's WG_GAZE_PITCH and WG_GAZE_YAW (the driver
+// keeps it there); still only the ray turns.
 //
 // Colour only through pal() (lib_palette) and the style's grade(). Include after lib_camera,
 // lib_palette and lib_scene_grade.
@@ -46,7 +49,7 @@
 // baked models and material maps are CC0 assets from BlenderKit (docs/morph-world-assets.md).
 
 /** The genome and the driver's runtime values; WorldGenome.hpp's Field and Runtime order. */
-uniform vec4 uWorld[18];
+uniform vec4 uWorld[22];
 
 #define WG_REP_XY uWorld[0].x
 #define WG_CELL_XY uWorld[0].y
@@ -110,16 +113,32 @@ uniform vec4 uWorld[18];
 #define WG_TEX_EMIT uWorld[14].w
 #define WG_ROLL uWorld[15].x
 #define WG_LENS uWorld[15].y
-#define WG_Z_PHASE uWorld[15].z
-#define WG_GAIN uWorld[15].w
-#define WG_ITER_CAP uWorld[16].x
-#define WG_HUE_TURN uWorld[16].y
-#define WG_WAKE_X uWorld[16].z
-#define WG_WAKE_Y uWorld[16].w
-#define WG_WAKE_Z uWorld[17].x
-#define WG_ASSETS uWorld[17].y
-#define WG_ROLL_ANGLE uWorld[17].z
-#define WG_LENS_NOW uWorld[17].w
+#define WG_FLOOR uWorld[15].z
+#define WG_FLOOR_Y uWorld[15].w
+#define WG_FLOOR_GLOSS uWorld[16].x
+#define WG_SKY uWorld[16].y
+#define WG_SKY_HUE uWorld[16].z
+#define WG_HORIZON uWorld[16].w
+#define WG_TERRAIN uWorld[17].x
+#define WG_TERRAIN_HEIGHT uWorld[17].y
+#define WG_TERRAIN_SCALE uWorld[17].z
+#define WG_LATTICE_TILT uWorld[17].w
+#define WG_LATTICE_YAW uWorld[18].x
+#define WG_GAZE_PITCH uWorld[18].y
+#define WG_GAZE_YAW uWorld[18].z
+#define WG_Z_PHASE uWorld[18].w
+#define WG_GAIN uWorld[19].x
+#define WG_ITER_CAP uWorld[19].y
+#define WG_HUE_TURN uWorld[19].z
+#define WG_WAKE_X uWorld[19].w
+#define WG_WAKE_Y uWorld[20].x
+#define WG_WAKE_Z uWorld[20].y
+#define WG_ASSETS uWorld[20].z
+#define WG_ROLL_ANGLE uWorld[20].w
+#define WG_LENS_NOW uWorld[21].x
+#define WG_GAZE_X uWorld[21].y
+#define WG_GAZE_Y uWorld[21].z
+#define WG_SPARE uWorld[21].w
 
 /**
  * The baked CC0 assets (core/viz/world/WorldAssets, tools/morph_world_assets): sixteen models as signed
@@ -129,13 +148,22 @@ uniform vec4 uWorld[18];
 uniform highp sampler3D uWorldShapes;
 uniform highp sampler2DArray uWorldTex;
 
-/** The rig's eye and this world's view ray: rolled about the view axis, through this world's lens. */
+/** The rig's eye and this world's view ray: rolled about the view axis, through this world's lens, turned by the gaze. */
 void worldCamera(vec2 uv, out vec3 ro, out vec3 rd) {
     float c = cos(WG_ROLL_ANGLE);
     float s = sin(WG_ROLL_ANGLE);
     vec2 turned = vec2(c * uv.x - s * uv.y, s * uv.x + c * uv.y);
+    vec3 v = vec3(turned, uCamFocal * WG_LENS_NOW);
+    // The gaze, in the view's own frame (uCamBasis' right, up, forward): pitch about right (+ looks
+    // up), then yaw about up (+ looks right).
+    float cp = cos(WG_GAZE_Y);
+    float sp = sin(WG_GAZE_Y);
+    v = vec3(v.x, cp * v.y + sp * v.z, cp * v.z - sp * v.y);
+    float cy = cos(WG_GAZE_X);
+    float sy = sin(WG_GAZE_X);
+    v = vec3(cy * v.x + sy * v.z, v.y, cy * v.z - sy * v.x);
     ro = uCamPos;
-    rd = normalize(uCamBasis * vec3(turned, uCamFocal * WG_LENS_NOW));
+    rd = normalize(uCamBasis * v);
 }
 #define WG_SHAPES 16.0
 #define WG_SHAPE_RES 32.0
@@ -348,6 +376,17 @@ float world(vec3 p) {
         vec2 a = wPolar(v, n0);
         vec2 b = fn > 0.0 ? wPolar(v, n0 + 1.0) : a;
         w.xy = mix(w.xy, mix(a, b, fn), WG_POLAR);
+    }
+    if (WG_LATTICE_TILT != 0.0 || WG_LATTICE_YAW != 0.0) {
+        // The lattice turned off the view: tipped about x, then turned about y, so its rows no
+        // longer meet on the travel axis as a 4-way cross. A rotation is an isometry, so distances
+        // stay exact. It turns the folded z too, and that turned z is folded again on the same
+        // period, so the tipped lattice fills the whole slab instead of a band; everything here
+        // reads only the folded z, so the travel axis' repeat above stays periodic. The corridor
+        // is carved in unrotated eye space (worldCarved()), so the way stays open.
+        w.yz = wRot(w.yz, WG_LATTICE_TILT);
+        w.zx = wRot(w.zx, WG_LATTICE_YAW);
+        w.z = wCell(w.z, pz);
     }
     float sxy = WG_CELL_XY / max(WG_REP_XY, 0.08);
     float shift = 0.5 * WG_CELL_XY * WG_CELL_SHIFT;

@@ -5,7 +5,7 @@ Part of [`core/signal`](../README.md). Each scene param's value has two parts: w
 | File | Owns |
 |---|---|
 | `ParamSchema.hpp/.cpp` | One row per param: stable ASCII id, kind (Float, Int, Bool, Circular), default, range, `luminance` flag. Holds **the one clamp**: non-finite values go to the default, Int rounds, Bool snaps, Circular wraps. |
-| `ParamState.hpp/.cpp` | **The param state machine.** Phases: **Rest**, **Glide** (easing to a new committed value), **Held** (a finger is on the control), **Trial** (a value the user may not keep, which springs back), **Driven** (a timeline owns it). Inputs are Set, GlideTo, Hold, Release, Try, Drive, Undrive and Reset, each carrying an `Origin` (User, Preset, Timeline, Engine). The full transition table is in the header. |
+| `ParamState.hpp/.cpp` | **The param state machine.** Phases: **Rest**, **Glide** (easing to a new committed value), **Held** (a finger is on the control), **Trial** (a value the user may not keep, which springs back), **Driven** (a timeline owns it). Inputs are Set, GlideTo, Hold, Release, Try, Drive, Undrive and Reset, each carrying an `Origin` (User, Preset, Timeline, Engine). Only the User holds or tries and only the Timeline drives or undrives; a GlideTo or Reset of negative or non-finite seconds is rejected (0 lands at once). The full transition table is in the header. |
 | `ParamStore.hpp/.cpp` | One cell per row, plus this frame's modulation (`Add`, `Multiply`, `Toward`, each weighted). `effective()` is the base ⊕ the modulation, clamped once. A held control shows exactly the finger's value. |
 
 **The rules the machine enforces:**

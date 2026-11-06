@@ -66,7 +66,6 @@ public:
 struct SceneHost {
     // "" clears the last error, as a successful compile does.
     std::function<void(const std::string&)> onShaderError;
-    std::function<void(const std::string& sceneId, const std::string& source)> onUserSourceCompiled;
     // The rate the display is being asked for (0 = free-running), for the fluid quality ladder.
     std::function<float()> pacedFps;
     std::function<void(const std::string& path)> onMilkPresetLoaded;

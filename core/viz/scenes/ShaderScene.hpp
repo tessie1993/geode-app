@@ -67,6 +67,8 @@ private:
     std::string id_;
     std::string vertexSrc_;
     std::string currentFragment_;
+    // The built-in source, so clearing a user's shader override (setFragmentSource("")) draws it again.
+    std::string stockFragment_;
     ProgramBinaryCache* cache_;
     SceneHost host_;
 
@@ -78,7 +80,6 @@ private:
 
     std::mutex pendingLock_;
     std::optional<std::string> pendingFragment_;
-    bool pendingIsUserSource_ = false;
 
     // Wave three: the continuous replacement for the old spike-latched state
     // (uSpike/uMoveDir/uSpawnSeed/uSpawnAge/uFormPhase). See MotionField.hpp.

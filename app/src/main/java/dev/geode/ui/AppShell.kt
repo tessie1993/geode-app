@@ -10,9 +10,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -47,8 +49,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -62,6 +66,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.boundsInWindow
@@ -284,6 +289,20 @@ fun AppRoot() {
                 modifier = modifier,
             )
         }
+        val dockedPlayer: @Composable (Modifier) -> Unit = { modifier ->
+            DockedMiniPlayer(
+                title = state.title,
+                isPlaying = state.isPlaying,
+                progress = { if (state.durationMs > 0) position.value / state.durationMs.toFloat() else 0f },
+                onPin = chrome::pin,
+                onOpenPlayer = { appState.navigateTo(GeodeDestination.PLAYER) },
+                onHide = chrome::hide,
+                onPrevious = viewModel::previous,
+                onPlayPause = viewModel::togglePlayPause,
+                onNext = viewModel::next,
+                modifier = modifier,
+            )
+        }
         val tutorial = rememberTutorialState()
         val navEntries =
             GeodeDestination.entries
@@ -407,6 +426,7 @@ fun AppRoot() {
                         hasMedia = state.hasMedia,
                         pip = inPip,
                         miniPlayer = miniPlayer,
+                        dockedPlayer = dockedPlayer,
                         onDock = { dockHeight = it },
                         content = { destinationContent(false) },
                     )
@@ -512,7 +532,8 @@ fun AppRoot() {
  * its place. On Visuals the visual takes the whole window: the tab bar fades with the mini player
  * there and no handle stays, since a tap at the bottom of the visual brings both back. The other
  * screens keep the tab bar and are padded above it, so a list never ends under the glass.
- * [onDock] reports the height the floating stack takes, which the Visuals sheet stands on.
+ * [onDock] reports the tab bar's place in the dock, which the Visuals options stand on; on Visuals
+ * the mini player is docked to those options instead ([LocalDockedMiniPlayer]).
  */
 @Composable
 private fun AppShellCompact(
@@ -522,6 +543,7 @@ private fun AppShellCompact(
     hasMedia: Boolean,
     pip: Boolean,
     miniPlayer: @Composable (Modifier) -> Unit,
+    dockedPlayer: @Composable (Modifier) -> Unit,
     onDock: (Dp) -> Unit,
     content: @Composable () -> Unit,
 ) {
@@ -533,9 +555,20 @@ private fun AppShellCompact(
     val showsPlayer = hasMedia && !appState.onPlayer
     var barHeight by remember { mutableStateOf(0.dp) }
     Box(Modifier.fillMaxSize()) {
-        // consumeWindowInsets so a screen that pads for the status bar itself doesn't pad twice,
-        // and imePadding so a focused field low on screen rises above the keyboard.
-        val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + barHeight + DOCK_GAP + HANDLE_ZONE
+        // The handle's zone only while there is a handle to keep clear (the mini player hides on
+        // Player itself), so Player does not lose a touch target's height to nothing.
+        val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+        val bottom = navInset + barHeight + DOCK_GAP + if (showsPlayer) HANDLE_ZONE else 0.dp
+        // What the Visuals options stand on: the tab bar's place, whether or not the bar is showing,
+        // so the sheet never slides as the dock fades (owner: less twitchy). The mini player is not
+        // in it there: Visuals docks it to the options (LocalDockedMiniPlayer).
+        val dock = navInset + barHeight + DOCK_GAP
+        LaunchedEffect(dock) { onDock(dock) }
+        // Player scrolls under the glass and takes the reserve as content padding
+        // (LocalDockReserve), so its transport is never cut hard above the bar; the other screens
+        // are padded above it. The reserve is consumed as an inset, so imePadding below adds only
+        // what the keyboard rises past it instead of counting the bottom twice.
+        val padsItself = appState.onPlayer
         Box(
             Modifier
                 .fillMaxSize()
@@ -545,36 +578,46 @@ private fun AppShellCompact(
                     } else {
                         Modifier
                             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-                            .padding(bottom = bottom)
-                            .consumeWindowInsets(WindowInsets.safeDrawing)
+                            .padding(bottom = if (padsItself) 0.dp else bottom)
+                            .consumeWindowInsets(PaddingValues(bottom = bottom))
                             .imePadding()
                     },
                 ),
-        ) { content() }
+        ) {
+            CompositionLocalProvider(
+                LocalDockReserve provides if (padsItself) bottom else 0.dp,
+                LocalDockedMiniPlayer provides if (onVisuals && showsPlayer && !pip) dockedPlayer else null,
+            ) { content() }
+        }
         // A PiP window is the visual alone.
         if (pip) return@Box
         Column(
             Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .onSizeChanged { onDock(with(density) { it.height.toDp() }) }
+                // Any touch in the dock restarts its sleep timer, so it never fades under a
+                // finger on its way to a tab (it used to vanish before a second tap could land).
+                .restartsSleepTimer(chrome)
                 .navigationBarsPadding()
                 .padding(horizontal = GeodeSpacing.EdgeInset)
                 .padding(bottom = DOCK_GAP),
             verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
         ) {
             AnimatedVisibility(
-                showsPlayer && chrome.awake,
+                showsPlayer && chrome.awake && !onVisuals,
                 enter = fadeIn(dockFade) + expandVertically(dockSize),
                 exit = fadeOut(dockFade) + shrinkVertically(dockSize),
             ) {
                 miniPlayer(Modifier)
             }
             if (showsPlayer && !chrome.awake && !onVisuals) MiniPlayerHandle(onWake = chrome::wake)
+            // On Visuals the bar stays while the options are up (they stand on it, the player docked
+            // to them), and otherwise fades in place on the same fade as the docked player's pill,
+            // never resizing the dock.
             AnimatedVisibility(
-                !onVisuals || chrome.awake,
-                enter = fadeIn(dockFade) + expandVertically(dockSize),
-                exit = fadeOut(dockFade) + shrinkVertically(dockSize),
+                !onVisuals || chrome.awake || chrome.docked,
+                enter = if (onVisuals) fadeIn(dockFade) else fadeIn(dockFade) + expandVertically(dockSize),
+                exit = if (onVisuals) fadeOut(dockFade) else fadeOut(dockFade) + shrinkVertically(dockSize),
             ) {
                 FloatingTabBar(
                     items = navEntries.map { it.item },
@@ -672,6 +715,19 @@ private const val ACCENT_LIGHTNESS = 0.6f
 
 /** The gap between the floating dock and the screen's bottom edge, and between the screen and the dock. */
 private val DOCK_GAP = 8.dp
+
+/**
+ * The bottom of a screen the floating dock covers, for a screen that scrolls under the glass and
+ * pads its own content (Player); 0 for a screen the shell already pads above the dock.
+ */
+val LocalDockReserve = compositionLocalOf { 0.dp }
+
+/**
+ * The mini player docked to the Visuals options, provided by the phone shell while something is
+ * playing; null elsewhere (the wide shell keeps its floating player), and Visuals then shows its
+ * options alone.
+ */
+val LocalDockedMiniPlayer = compositionLocalOf<(@Composable (Modifier) -> Unit)?> { null }
 
 /** The handle pill's full touch target, kept clear above the tab bar on every screen. */
 private val HANDLE_ZONE = 48.dp
@@ -802,7 +858,15 @@ fun SearchScreen(
     val playlistResults = remember(debounced, playlistTable) { playlistTable.filter(debounced) }
     val presetResults = remember(debounced, presetTable) { presetTable.filter(debounced) }
 
-    Box(Modifier.fillMaxSize().dismissTransform(dismiss).background(MaterialTheme.colorScheme.background)) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .dismissTransform(dismiss)
+            .background(MaterialTheme.colorScheme.background)
+            // The overlay owns the window: a tap in its margins must not reach the screen or the
+            // tab bar under it.
+            .pointerInput(Unit) { detectTapGestures { } },
+    ) {
         Column(
             Modifier
                 .fillMaxSize()

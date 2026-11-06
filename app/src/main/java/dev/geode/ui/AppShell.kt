@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -65,6 +66,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.boundsInWindow
@@ -824,7 +826,15 @@ fun SearchScreen(
             viz.presets.filter { SearchMatcher.matches(terms, listOf(it.name)) }
         }
 
-    Box(Modifier.fillMaxSize().dismissTransform(dismiss).background(MaterialTheme.colorScheme.background)) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .dismissTransform(dismiss)
+            .background(MaterialTheme.colorScheme.background)
+            // The overlay owns the window: a tap in its margins must not reach the screen or the
+            // tab bar under it.
+            .pointerInput(Unit) { detectTapGestures { } },
+    ) {
         Column(
             Modifier
                 .fillMaxSize()

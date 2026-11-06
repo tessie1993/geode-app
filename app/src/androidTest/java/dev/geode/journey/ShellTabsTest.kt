@@ -60,7 +60,8 @@ class ShellTabsTest {
         compose.tap("Behaviour & gestures")
         compose.awaitNode(hasText("Open on"))
         compose.tap("Next group")
-        compose.awaitNode(hasText("Flashing and motion"))
+        // Visuals' Basics: the heading is a CrystalOverline, which draws its text in capitals.
+        compose.awaitNode(hasText("Flashing and motion", ignoreCase = true))
         compose.tap("Back to Settings")
         compose.awaitNode(hasText("Behaviour & gestures"))
 

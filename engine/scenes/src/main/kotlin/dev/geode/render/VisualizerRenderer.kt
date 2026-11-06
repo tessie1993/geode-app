@@ -120,12 +120,15 @@ class VisualizerRenderer(
     @Volatile
     var reactions: List<ReactionRoute>? = null
 
-    /** Gyro look, -1..1 per axis, written by the sensor listener; native reads it only while camGyro is on. */
+    /** The phone's raw yaw and pitch, radians, NaN while off, and [GyroSensor]'s registration count. */
     @Volatile
-    var lookYaw: Float = 0f
+    var gyroYaw: Float = Float.NaN
 
     @Volatile
-    var lookPitch: Float = 0f
+    var gyroPitch: Float = Float.NaN
+
+    @Volatile
+    var gyroRegistration: Int = 0
 
     private val styleReactions = StyleReactionsCache()
 
@@ -356,7 +359,7 @@ class VisualizerRenderer(
             nativeViz.setLiquidHotPolicy(perf.liquidHot.native)
             nativePerformance = perf
         }
-        nativeViz.setLook(lookYaw, lookPitch)
+        nativeViz.setGyro(gyroYaw, gyroPitch, gyroRegistration)
         nativeViz.setReducedMotion(reducedMotion)
         nativeViz.setTransition(transitionId, transitionDurationMs)
         nativeViz.setPacedFps(ThermalGovernor.pacedFps)

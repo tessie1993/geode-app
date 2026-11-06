@@ -4,6 +4,7 @@
 
 #include <array>
 #include <atomic>
+#include <limits>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -120,10 +121,13 @@ public:
     void setLfoConfigs(const std::array<LfoConfig, LfoEngine::kSlots>& configs);
     void setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& configs);
     void setReactionRoutes(const std::array<ReactRoute, ReactionEngine::kRoutes>& routes);
-    // Gyro look, -1..1 per axis; read by the camera only while camGyro is on.
-    void setLook(float yaw, float pitch) {
-        lookYaw_.store(yaw, std::memory_order_relaxed);
-        lookPitch_.store(pitch, std::memory_order_relaxed);
+    // The phone's raw yaw and pitch, radians, NaN while the gyro is off, and the shell's sensor
+    // registration count; GyroLook (CameraRig.hpp) turns them into the look the camera reads while
+    // camGyro is on.
+    void setGyro(float yaw, float pitch, int registration) {
+        gyroYaw_.store(yaw, std::memory_order_relaxed);
+        gyroPitch_.store(pitch, std::memory_order_relaxed);
+        gyroRegistration_.store(registration, std::memory_order_relaxed);
     }
     // W00: the full-frame underlay layer, latched here and uploaded to a GL texture at the
     // start of the next frame; see CompositePass.hpp for the pass itself. `pixels` is Android's
@@ -290,8 +294,10 @@ private:
     // The user's knobs with the director's laid over them, this frame; what the params and the camera read.
     MacroKnobs directedKnobs_{};
     MacroKnobs tunedKnobs_{};
-    std::atomic<float> lookYaw_{0.0f};
-    std::atomic<float> lookPitch_{0.0f};
+    std::atomic<float> gyroYaw_{std::numeric_limits<float>::quiet_NaN()};
+    std::atomic<float> gyroPitch_{std::numeric_limits<float>::quiet_NaN()};
+    std::atomic<int> gyroRegistration_{0};
+    GyroLook gyroLook_;  // GL thread: the base the look is relative to
     Framebuffer fboA_{"sceneA"};
     Framebuffer fboB_{"sceneB"};
     GLuint quadVao_ = 0;

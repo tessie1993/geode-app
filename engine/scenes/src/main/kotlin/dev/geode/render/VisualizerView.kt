@@ -24,10 +24,11 @@ class VisualizerView(
      */
     val framePacer: FramePacer = FramePacer { requestRender() }
 
-    private val gyroLook =
-        GyroLook(context) { yaw, pitch ->
-            visualizerRenderer.lookYaw = yaw
-            visualizerRenderer.lookPitch = pitch
+    private val gyroSensor =
+        GyroSensor(context) { yaw, pitch, registration ->
+            visualizerRenderer.gyroRegistration = registration
+            visualizerRenderer.gyroYaw = yaw
+            visualizerRenderer.gyroPitch = pitch
         }
 
     /** The camera's "Tilt phone to look" setting; the sensor only runs while this view is also watched. */
@@ -128,7 +129,7 @@ class VisualizerView(
      */
     override fun onPause() {
         resumed = false
-        gyroLook.setActive(false)
+        gyroSensor.setActive(false)
         super.onPause()
     }
 
@@ -145,7 +146,7 @@ class VisualizerView(
         // runs only when a second screen takes it or the activity goes. isAttachedToWindow is
         // still true until super returns, so the sensor is stopped outright; re-attaching runs
         // syncPacer again.
-        gyroLook.setActive(false)
+        gyroSensor.setActive(false)
         releaseScenesOnGlThread()
         super.onDetachedFromWindow()
     }
@@ -208,7 +209,7 @@ class VisualizerView(
         // misses the in-app hide, which keeps the window showing.
         val watched = isAttachedToWindow && windowVisibility == VISIBLE && isShown
         if (watched) framePacer.start() else framePacer.stop()
-        gyroLook.setActive(gyroListens(watched, resumed, gyroWanted))
+        gyroSensor.setActive(gyroListens(watched, resumed, gyroWanted))
     }
 
     private companion object {

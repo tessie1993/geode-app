@@ -117,8 +117,10 @@ GEODE_API int         geode_music_edit(const char* style_id, int seed, const flo
                                        unsigned* out_mask, int* out_has_user);
 /* The LfoTarget ordinal a new route of `action` moves, so the shell can hide a chip the style ignores. */
 GEODE_API int         geode_music_action_target(int action);
-/* Gyro look, -1..1 per axis; the camera reads it only while camGyro is on. */
-GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
+/* The phone's raw yaw and pitch (radians, Android's getOrientation), NaN while the gyro is off, and how many
+   times the shell has registered the sensor. Native makes them a look relative to the first sample of each
+   registration (viz::GyroLook); the camera reads it only while camGyro is on. */
+GEODE_API void        geode_viz_set_gyro(geode_viz*, float yaw, float pitch, int registration);
 GEODE_API void        geode_viz_set_thermal(geode_viz*, int platform_status, float headroom); /* status < 0 = unknown */
 GEODE_API void        geode_viz_set_paced_fps(geode_viz*, float fps);
 /* Settings › Performance (live surfaces): scales 0..1, post_fx / adaptive 0 or 1. Export never calls it. */

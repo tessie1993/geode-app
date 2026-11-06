@@ -179,11 +179,12 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetReactions(handle, ModConfigCodec.packReactions(routes))
     }
 
-    fun setLook(
+    fun setGyro(
         yaw: Float,
         pitch: Float,
+        registration: Int,
     ) {
-        if (handle != 0L && sent.look(yaw, pitch)) GeodeNative.vizSetLook(handle, yaw, pitch)
+        if (handle != 0L) GeodeNative.vizSetGyro(handle, yaw, pitch, registration)
     }
 
     fun setThermal(

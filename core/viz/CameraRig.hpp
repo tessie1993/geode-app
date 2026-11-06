@@ -125,4 +125,26 @@ private:
     float nextRandom();
 };
 
+// Phone tilt as a camera look, relative to how the phone was held when the gyro came on. The shell
+// only registers the sensor (the game rotation vector, no magnetometer, so a speaker or a metal table
+// cannot swing the view) and hands over the device's raw yaw and pitch, radians as Android's
+// getOrientation gives them, or NaN while the gyro is off, plus how many times it has registered the
+// sensor. The first sample after NaN or after a new registration is the base (the GL thread may draw
+// nothing between off and on again, so it cannot rely on seeing the NaN);
+// yaw wraps the short way across +-pi; kFullLook of tilt reads as a full look to one side. Live only:
+// an export never sees a gyro and flies the recorded path.
+class GyroLook {
+public:
+    static constexpr float kFullLook = 0.6f;  // radians of tilt for a full look
+
+    // The look, -1..1 per axis; centred while off and on the sample that sets the base.
+    CameraRig::LookInput read(float rawYaw, float rawPitch, int registration);
+
+private:
+    bool hasBase_ = false;
+    int registration_ = 0;
+    float baseYaw_ = 0.0f;
+    float basePitch_ = 0.0f;
+};
+
 }  // namespace geode::viz

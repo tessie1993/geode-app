@@ -270,4 +270,22 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     pose_.tilt = {std::clamp(yaw, -1.0f, 1.0f) * kFlatTilt, std::clamp(pitch, -1.0f, 1.0f) * kFlatTilt};
 }
 
+CameraRig::LookInput GyroLook::read(float rawYaw, float rawPitch, int registration) {
+    if (registration != registration_) {
+        registration_ = registration;
+        hasBase_ = false;
+    }
+    if (std::isnan(rawYaw) || std::isnan(rawPitch)) {
+        hasBase_ = false;
+        return {};
+    }
+    if (!hasBase_) {
+        hasBase_ = true;
+        baseYaw_ = rawYaw;
+        basePitch_ = rawPitch;
+    }
+    const float yaw = std::remainder(rawYaw - baseYaw_, kTwoPi);
+    return {std::clamp(yaw / kFullLook, -1.0f, 1.0f), std::clamp((rawPitch - basePitch_) / kFullLook, -1.0f, 1.0f)};
+}
+
 }  // namespace geode::viz

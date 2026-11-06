@@ -28,6 +28,13 @@ data class GuiPrefs(
     val barOpacity: Float = 0.72f,
     /** The sound engine's tuning (Settings › Audio): every surface and the export read it. */
     val soundTuning: SoundTuning = SoundTuning(),
+    /**
+     * Settings › Audio › A/V offset, in ms ([AV_OFFSET_RANGE_MS]): positive draws the picture later. The
+     * playout clock already delays the visuals by what the sink reports (Bluetooth included, #488); this
+     * lines them up by eye on headphones that misreport. Pushed to the native clock, so every live surface
+     * that hears the player follows it.
+     */
+    val avOffsetMs: Int = 0,
     val presetMirrorUri: String? = null,
     /**
      * How long a preset load takes to glide in, in SECONDS.
@@ -106,6 +113,9 @@ data class GuiPrefs(
         const val TEXT_SCALE_MAX = 1.3f
         const val MINI_PLAYER_FADE_DEFAULT_SECONDS = 6f
         const val MINI_PLAYER_FADE_MAX_SECONDS = 10f
+
+        /** The A/V offset slider's range: a Bluetooth link misreports by tens of ms, rarely more. */
+        val AV_OFFSET_RANGE_MS = -300..300
     }
 }
 
@@ -137,6 +147,7 @@ class ThemeStore(
                     .getOrDefault(CornerStyle.ROUNDED),
             barOpacity = prefs.getFloat(KEY_OPACITY, 0.72f),
             soundTuning = readSoundTuning(prefs),
+            avOffsetMs = prefs.getInt(KEY_AV_OFFSET, 0).coerceIn(GuiPrefs.AV_OFFSET_RANGE_MS),
             presetMirrorUri = prefs.getString("preset_mirror_uri", null),
             presetMorphSeconds = readPresetMorphSeconds(prefs),
             accentIntensity = prefs.getFloat(KEY_ACCENT, 1f),
@@ -205,6 +216,7 @@ class ThemeStore(
             putString(KEY_CORNER, gui.cornerStyle.name)
             putFloat(KEY_OPACITY, gui.barOpacity)
             putString(KEY_SOUND_TUNING, gui.soundTuning.toFloats().joinToString(","))
+            putInt(KEY_AV_OFFSET, gui.avOffsetMs.coerceIn(GuiPrefs.AV_OFFSET_RANGE_MS))
             putString("preset_mirror_uri", gui.presetMirrorUri)
             putFloat(KEY_PRESET_MORPH_SEC, gui.presetMorphSeconds)
             putFloat(KEY_ACCENT, gui.accentIntensity)
@@ -270,6 +282,7 @@ class ThemeStore(
         const val KEY_FONT_COLOR = "gui_font_color"
         const val KEY_TEXT_SCALE = "gui_text_scale"
         const val KEY_SOUND_TUNING = "sound_tuning"
+        const val KEY_AV_OFFSET = "gui_av_offset_ms"
 
         /** The saved tuning, or the engine's defaults when there is none or it does not parse. */
         fun readSoundTuning(prefs: SharedPreferences): SoundTuning {

@@ -155,6 +155,10 @@ void geode_viz_set_sound_tuning(geode_viz* v, const GeodeSoundTuning* tuning) {
     if (v && tuning) v->renderer.setSoundTuning(*tuning);
 }
 
+void geode_viz_set_playout(geode_viz* v, geode_playout* clock) {
+    if (v) v->renderer.setPlayout(clock);
+}
+
 void geode_shader_override_set(const char* style_id, const char* fragment_source) {
     if (style_id) geode::viz::shader_overrides::set(style_id, fragment_source ? fragment_source : "");
 }

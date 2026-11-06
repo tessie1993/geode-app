@@ -11,9 +11,8 @@ import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.ForwardingAudioOutputProvider
-import androidx.media3.exoplayer.audio.TeeAudioProcessor
 import dev.geode.audio.dsp.MvzAudioProcessorChain
-import dev.geode.engine.audioandroid.SinkClockHooks
+import dev.geode.engine.audioandroid.PcmTap
 
 /**
  * [onAudioOutput] hears each output's config (rate, channel mask, encoding) on the playback thread just
@@ -24,31 +23,38 @@ import dev.geode.engine.audioandroid.SinkClockHooks
 @OptIn(UnstableApi::class)
 class TapRenderersFactory(
     context: Context,
-    private val sink: TeeAudioProcessor.AudioBufferSink,
-    private val hooks: SinkClockHooks = SinkClockHooks.None,
+    private val tap: PcmTap,
     private val dsp: List<AudioProcessor> = emptyList(),
+    /**
+     * The native playout clock the sink reports its timing to ([PlayoutSink], #488), with the position the
+     * tap's ring will write next; 0 builds the bare sink (tests, a player no surface hears).
+     */
+    private val playout: Long = 0L,
+    private val ringWritten: () -> Long = { 0L },
     private val onAudioOutput: (AudioOutputProvider.OutputConfig) -> Unit = {},
 ) : DefaultRenderersFactory(context) {
-    internal fun audioProcessorChain(): MvzAudioProcessorChain =
-        MvzAudioProcessorChain(TeeAudioProcessor(sink), dsp = dsp, hooks = hooks).also(hooks::attachSkippedFrames)
+    internal fun audioProcessorChain(): MvzAudioProcessorChain = MvzAudioProcessorChain(tap, dsp = dsp)
 
     override fun buildAudioSink(
         context: Context,
         enableFloatOutput: Boolean,
         enableAudioTrackPlaybackParams: Boolean,
-    ): AudioSink =
-        DefaultAudioSink
-            .Builder(context)
-            .setEnableFloatOutput(enableFloatOutput)
-            .setEnableAudioOutputPlaybackParameters(enableAudioTrackPlaybackParams)
-            .setAudioProcessorChain(audioProcessorChain())
-            .setAudioOutputProvider(
-                // The provider DefaultAudioSink builds by default, with a look at each config first.
-                object : ForwardingAudioOutputProvider(AudioTrackAudioOutputProvider.Builder(context).build()) {
-                    override fun getAudioOutput(config: AudioOutputProvider.OutputConfig): AudioOutput {
-                        onAudioOutput(config)
-                        return super.getAudioOutput(config)
-                    }
-                },
-            ).build()
+    ): AudioSink {
+        val built =
+            DefaultAudioSink
+                .Builder(context)
+                .setEnableFloatOutput(enableFloatOutput)
+                .setEnableAudioOutputPlaybackParameters(enableAudioTrackPlaybackParams)
+                .setAudioProcessorChain(audioProcessorChain())
+                .setAudioOutputProvider(
+                    // The provider DefaultAudioSink builds by default, with a look at each config first.
+                    object : ForwardingAudioOutputProvider(AudioTrackAudioOutputProvider.Builder(context).build()) {
+                        override fun getAudioOutput(config: AudioOutputProvider.OutputConfig): AudioOutput {
+                            onAudioOutput(config)
+                            return super.getAudioOutput(config)
+                        }
+                    },
+                ).build()
+        return if (playout != 0L) PlayoutSink(built, playout, ringWritten) else built
+    }
 }

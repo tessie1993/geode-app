@@ -115,6 +115,27 @@ the original numbering as cited by the changelog.
     hitch (a scene builds across frames, `ProgramStager`), and the old one
     keeps drawing until the new one is ready.
 
+- **44** — Visuals at the speaker's position, and the A/V offset (#349, #488).
+  Use a track with a sharp, isolated kick (a click track at 120 BPM is best)
+  and a style whose flash follows the kick (Neon Chrome Sea, or any MilkDrop
+  preset with a beat flash). (a) Phone speaker: the flash lands on the kick,
+  not before it (before #488 it led by about 0.3 s). (b) Bluetooth headphones
+  (A2DP; try one SBC and one AAC or aptX pair if you have them): the flash
+  still lands on the kick, although the link adds 150–250 ms (before, it led
+  by about 0.5 s). (c) Settings › Sound input › How the visual listens › Picture and sound: move the A/V
+  offset to +300 ms, then −300 ms; the flash moves visibly later, then
+  earlier, with no stutter and no burst of flashes; back to 0 it lands on the
+  kick again. The offset must reach the live wallpaper and the screensaver
+  too (set it in the app, then watch the wallpaper with the same track).
+  (d) At 1.5× (Now playing › speed) the flash still lands on the kick, and a
+  speed change mid-track neither freezes the picture nor makes it jump.
+  (e) Pause for a few seconds and resume: the picture holds while paused and
+  carries on with the sound, not ahead of it. Seek: the new place starts when
+  you hear it. (f) With skip silence on, a gap in the track is skipped by the
+  picture as by the sound, with no burst afterwards. (g) Mic and "other apps"
+  sources still react at once (they are not delayed), and Cast to TV stays in
+  sync on the TV.
+
 ## See also
 
 Several early fluid rounds carried their own inline ON-DEVICE checklists in

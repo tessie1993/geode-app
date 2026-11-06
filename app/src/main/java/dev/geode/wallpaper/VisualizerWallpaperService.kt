@@ -128,6 +128,8 @@ class VisualizerWallpaperService : WallpaperService() {
             restoreLiveState(engine)
             settings = prefsStore.load()
             engine.soundSource = { sound.ingest }
+            // The player's ring waits for the speaker like the app's stage (#488); the output mix has no clock.
+            engine.playout = dev.geode.playback.PlaybackEngine.playout
             engine.soundInput = { sound.input }
             val wrapped = WallpaperRenderer(engine)
             wallpaperRenderer = wrapped

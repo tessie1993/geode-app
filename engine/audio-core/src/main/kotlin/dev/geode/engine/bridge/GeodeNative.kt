@@ -225,6 +225,12 @@ object GeodeNative {
         tuning: FloatArray,
     )
 
+    /** Speaker sync (#488): the playout clock this renderer's cursor waits for; 0 reads the newest written. */
+    external fun vizSetPlayout(
+        handle: Long,
+        clock: Long,
+    )
+
     /** The reaction source catalogue (core/viz/Reactions.cpp), see `dev.geode.render.ReactSourceCatalog`. */
     external fun reactSourceCatalog(): String
 
@@ -898,6 +904,71 @@ object GeodeNative {
     external fun ingestResting(
         handle: Long,
         nowMs: Long,
+    ): Boolean
+
+    // Playout clock (core/sound/interp/PlayoutClock, #349): the ring sample the speaker plays now.
+
+    /** One clock per player, freed with [playoutDestroy]. */
+    external fun playoutCreate(): Long
+
+    external fun playoutDestroy(handle: Long)
+
+    /** The sink handled a buffer at [presentationUs] that put [frames] ring samples from [ringFrame]. */
+    external fun playoutBufferHandled(
+        handle: Long,
+        presentationUs: Long,
+        ringFrame: Long,
+        frames: Long,
+    )
+
+    /** The sink's position in media time (AudioTrack.getTimestamp, latency included), read at [nowNs]. */
+    external fun playoutPosition(
+        handle: Long,
+        sinkUs: Long,
+        nowNs: Long,
+    )
+
+    external fun playoutPlaying(
+        handle: Long,
+        playing: Boolean,
+        nowNs: Long,
+    )
+
+    external fun playoutFlush(handle: Long)
+
+    /** The speed the sink applied at [nowNs]; the clock reads the stretch before it at the old one. */
+    external fun playoutSpeed(
+        handle: Long,
+        speed: Float,
+        nowNs: Long,
+    )
+
+    /** The user's A/V offset, clamped to ±1000 ms; positive shows the picture later. */
+    external fun playoutSetOffsetMs(
+        handle: Long,
+        ms: Int,
+    )
+
+    /** The newest ring sample heard at [nowNs], never past the newest written; -1 with no map since a flush. */
+    external fun playoutSpeakerFrame(
+        handle: Long,
+        nowNs: Long,
+    ): Long
+
+    /**
+     * Reports one flush of the player's processor chain to the ingest ring; native decides whether it
+     * begins an epoch (true) or keeps it with the new format (`core/audio/ingest/FlushJudge`, #358).
+     * Playback thread only. [reapplied]: the sink re-applied speed, pitch or skip-silence rather than
+     * resetting; [periodId]: the playlist item's period, 0 when unknown.
+     */
+    external fun ingestFlush(
+        ring: Long,
+        sampleRate: Int,
+        channels: Int,
+        channelMask: Int,
+        reapplied: Boolean,
+        positionUs: Long,
+        periodId: Long,
     ): Boolean
 
     /**

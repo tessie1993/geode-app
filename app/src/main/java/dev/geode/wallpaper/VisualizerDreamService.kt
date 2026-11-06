@@ -102,6 +102,8 @@ class VisualizerDreamService : DreamService() {
         restoreLiveState(view.visualizerRenderer, prefsFiles)
         view.applyPerformance(PerformanceStore(prefsFiles.general, this).settings.value)
         view.visualizerRenderer.soundSource = { sound.ingest }
+        // The player's ring waits for the speaker like the app's stage (#488).
+        view.visualizerRenderer.playout = dev.geode.playback.PlaybackEngine.playout
         view.visualizerRenderer.soundInput = { sound.input }
         val stage = DreamStage(this)
         stage.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))

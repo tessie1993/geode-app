@@ -47,14 +47,32 @@ public:
     // and its first block restarts the sink (the cursor's first Block is always `restarted`).
     void setSource(const audio::ingest::Ring* ring);
     const audio::ingest::Ring* source() const { return ring_; }
+    // The next ring position the cursor reads; -1 with no source.
+    int64_t position() const { return cursor_ ? cursor_->position() : -1; }
 
     // Hands the sink everything new; returns the frames handed over (0 with no source or nothing new).
     int pump(Sink& sink);
 
+    // Speaker sync (#488, sound/interp/SpeakerSync): the same, but only up to [speakerFrame], the playout
+    // clock's answer for this frame (where the speaker is, A/V offset applied; negative while the clock knows
+    // nothing of the stream yet: hold). Never past it, and never a sample skipped or read twice to get there:
+    // at most kMaxCatchUpFrames per call, the rest (a skipped silence's jump, a short hitch) on the next frames.
+    // Two exceptions, both of audio this surface never heard: a fresh cursor starts at the speaker (not at the
+    // newest sample, which the speaker reaches a whole sink buffer later), and a surface more than
+    // kStallFrames behind (off screen, a long hitch) jumps to kMaxCatchUpFrames before the speaker, as pump()
+    // does before the newest. The ring's own overrun rule still applies.
+    int pumpUntil(Sink& sink, int64_t speakerFrame);
+    static constexpr int64_t kStallFrames = int64_t{kMaxCatchUpFrames} * 4;
+
 private:
+    // Reads [count] frames from the cursor into the sink, block by block.
+    int drain(Sink& sink, int64_t count);
+
     const audio::ingest::Ring* ring_ = nullptr;
     std::unique_ptr<audio::ingest::Cursor> cursor_;
     std::vector<float> block_;
+    // No read since setSource: pumpUntil places the cursor at the speaker first.
+    bool fresh_ = false;
 };
 
 }  // namespace geode::viz

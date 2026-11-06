@@ -367,6 +367,47 @@ GEODE_API long long     geode_ingest_written(const geode_ingest*);
 /* 1 = may rest (core/sound/Silence rule, fed by the ring; no writes for the hold also = silent). The first
  * poll counts as sound, so a surface rests 6 s after it starts at the earliest. */
 GEODE_API int           geode_ingest_resting(geode_ingest*, long long now_ms);
+/* Writer thread only. The player tap reports each flush of its processor chain as facts, and native decides
+ * (audio/ingest/FlushJudge, #358, #487) between geode_ingest_begin_epoch and geode_ingest_set_format.
+ * reapplied = 1 when the sink re-applied speed, pitch or skip-silence (Media3 drained the chain and gave the
+ * next buffer's media position and period), 0 for a sink reset (seek, stop, reconfigure). period_id names the
+ * playlist item's period, 0 when unknown. A reset, another period, or a re-apply whose position jumps begins
+ * an epoch; anything else keeps it with the new format, so readers' cursors and sound engines keep what they
+ * learned. Returns 1 when it began an epoch. The tap stays first (owner, 2026-11-05), so the ring holds
+ * source-time samples; the playout clock (#482, #488) maps the speaker back to them at a speed other than 1x. */
+GEODE_API int           geode_ingest_flush(geode_ingest*, int sample_rate, int channels, int channel_mask,
+                                           int reapplied, long long position_us, long long period_id);
+
+/* Playout clock (sound/interp/PlayoutClock, #349): which ring sample the speaker plays now, so live visuals
+ * land on what is heard (AudioTrack buffer, HAL and Bluetooth latency included) instead of on what the sink
+ * took. Times: media microseconds (the sink's timeline) and monotonic nanoseconds; ring samples are absolute
+ * per-channel frame indices (the ring's running write count). The playback thread writes, any GL thread
+ * reads; every call is safe on a NULL handle. speaker_frame is a pure read: the same facts and now_ns give
+ * the same answer at any frame rate. */
+typedef struct geode_playout geode_playout;
+GEODE_API geode_playout* geode_playout_create(void);
+GEODE_API void           geode_playout_destroy(geode_playout*);
+/* The sink handled a buffer presented at presentation_us whose first sample is ring_frame and which put
+ * `frames` samples in the ring. A repeat of the newest presentation time is the same buffer retried. */
+GEODE_API void           geode_playout_buffer_handled(geode_playout*, int64_t presentation_us, int64_t ring_frame,
+                                                      int64_t frames);
+/* The sink's playback position in media time (AudioTrack.getTimestamp, latency included), read at now_ns. */
+GEODE_API void           geode_playout_position(geode_playout*, int64_t sink_us, int64_t now_ns);
+GEODE_API void           geode_playout_playing(geode_playout*, int playing, int64_t now_ns);   /* 1 play, 0 pause */
+GEODE_API void           geode_playout_flush(geode_playout*);           /* a seek: every anchor and position goes */
+/* The speed the sink applied at now_ns (media per wall time; > 0); the clock keeps the one before it too. */
+GEODE_API void           geode_playout_speed(geode_playout*, float speed, int64_t now_ns);
+/* The user's A/V offset, clamped to +-1000 ms; positive shows the picture later. */
+GEODE_API void           geode_playout_set_offset_ms(geode_playout*, int ms);
+/* The newest ring sample heard at now_ns, offset applied: never past the newest sample written. -1 when
+ * nothing was handled since create or flush (and for NULL); the first handled sample until a position. */
+GEODE_API int64_t        geode_playout_speaker_frame(const geode_playout*, int64_t now_ns);
+/* Speaker sync (#488, sound/interp/SpeakerSync): the renderer's native cursor on its sound source
+ * (geode_viz_set_sound_source) reads up to the clock's speaker frame (offset applied), never past it and never
+ * skipping. NULL reads the newest written sample: Cast (its stream carries the ring as written) and any ring
+ * no speaker stands behind. Exports ignore it. Any thread; the clock must outlive the renderer (the player's
+ * is never freed). */
+GEODE_API void           geode_viz_set_playout(geode_viz*, geode_playout* clock);
 
 /* The GL Transitions library (gl_transitions.json, core/viz/TransitionLibrary): the shell's one read of it,
    as the table encodeTransitionTable describes (UTF-8, control-separated). Read from the APK once per

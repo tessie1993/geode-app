@@ -24,3 +24,5 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 **fosfora:** `audio/capture.rs` (SPSC ring, no DSP in the callback), `audio/decimate.rs` (rates above 88.2 kHz halved first).
 
 **Test that proves it:** `core/tests/ingest_test.cpp`: random chunk sizes and a mid-stream rate change, every sample once in order with its rate, two readers, a writer thread racing a reader, overrun, epoch vs format, conversion, the 5.1 and 7.1 downmix, mono centred, the raw tail, resting after the hold.
+
+**Flushes (#358, #487):** `FlushJudge.hpp` decides which flushes of the player's chain begin an epoch. The tap (first in the chain, owner 2026-11-05) reports each flush's facts through `geode_ingest_flush`; a seek, another playlist item or a position jump begins one, a speed, pitch, skip-silence or format change keeps it. Each ring owns one judge on its writer side (`geode_ingest::flushJudge`). Proven by `core/tests/ingest_flush_test.cpp`.

@@ -19,13 +19,11 @@ import dev.geode.data.HistoryStore
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsStore
 import dev.geode.data.SessionStore
-import dev.geode.engine.audio.AudioPresentationClock
+import dev.geode.data.ThemeStore
 import dev.geode.engine.audio.PcmSink
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audioandroid.PcmTap
-import dev.geode.engine.audioandroid.SinkClockDriver
-import dev.geode.engine.audioandroid.TapBoundaryListener
 import dev.geode.engine.bridge.GeodeNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,10 +47,6 @@ class PlaybackSession internal constructor(
     @Volatile
     var onAudioFormat: ((sampleRateHz: Int, channelCount: Int, encoding: Int) -> Unit)? = null
 
-    internal val presentationClock = AudioPresentationClock()
-
-    internal val clockDriver = SinkClockDriver(presentationClock)
-
     /** Where the mic and capture write (CaptureController) until #485. */
     internal val captureSink: PcmSink = sampleRing
 
@@ -66,6 +60,7 @@ class PlaybackSession internal constructor(
      */
     private val bitPerfect = BitPerfectOutput(context) { dsp.bitPerfect = it }
 
+    // The ring's epoch is native's call: PcmTap reports each flush to FlushJudge (#358).
     internal val tap =
         PcmTap(ingest) { format ->
             val hook = onAudioFormat
@@ -74,11 +69,6 @@ class PlaybackSession internal constructor(
             } else {
                 sampleRateHz = format.sampleRateHz
             }
-        }.apply {
-            boundaryListener =
-                TapBoundaryListener { ended, endedFrames, begun ->
-                    clockDriver.onTapBoundary(ended, endedFrames, begun)
-                }
         }
 
     /**
@@ -90,7 +80,13 @@ class PlaybackSession internal constructor(
         ExoPlayer
             .Builder(
                 context,
-                TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp)) { out ->
+                TapRenderersFactory(
+                    context,
+                    tap,
+                    dsp = listOf(dsp),
+                    playout = PlaybackEngine.playout,
+                    ringWritten = { GeodeNative.ingestWritten(ingest) },
+                ) { out ->
                     bitPerfect.onOutput(out.sampleRate, out.channelMask, out.encoding)
                 },
             ).setMediaSourceFactory(
@@ -172,6 +168,8 @@ class PlaybackSession internal constructor(
         player.addListener(recorder)
         dev.geode.audio.AudioBus.soundInput = soundInput
         dev.geode.audio.AudioBus.playerIngest = ingest
+        // Settings › Audio › A/V offset, so a session the service starts alone has it too.
+        PlaybackEngine.setAvOffsetMs(ThemeStore(prefsFiles.general).loadGui().avOffsetMs)
         // The saved options go on here, not only when the UI attaches: a session the service starts
         // alone (a headset button, Android Auto or System UI resuming playback) has no PlayerSession,
         // and without this it would ignore pause-on-unplug, ReplayGain, shuffle and repeat until the
@@ -252,6 +250,20 @@ class PlaybackSession internal constructor(
 }
 
 object PlaybackEngine {
+    /**
+     * The player's playout clock (`core/sound/interp/PlayoutClock`): which ring sample the speaker plays now.
+     * The sink glue ([dev.geode.audio.PlayoutSink]) feeds it; every live surface hearing the player reads it
+     * natively. One for the process and never freed, because a wallpaper or dream GL thread may still read it
+     * after the session that fed it is released; a new session's sink flushes it before its first buffer.
+     */
+    val playout: Long by lazy { GeodeNative.playoutCreate() }
+
+    /**
+     * Settings › Audio › A/V offset ([dev.geode.data.GuiPrefs.avOffsetMs]), applied by the clock to every
+     * surface that hears the player. Pushed at session start and whenever the setting changes.
+     */
+    fun setAvOffsetMs(ms: Int) = GeodeNative.playoutSetOffsetMs(playout, ms)
+
     private var app: Context? = null
     private var session: PlaybackSession? = null
     private var uiHolds = 0
@@ -260,12 +272,15 @@ object PlaybackEngine {
     /**
      * The player's ingest ring (`geode_ingest*`), made once and never destroyed. A wallpaper, dream or cast
      * renderer may still be reading it on its own thread when a session ends, so freeing it would race them;
-     * kept, it costs one ring (2^16 frames, up to 7.1) for the process, and the next session's first flush
+     * kept, it costs one ring (2^17 frames, up to 7.1) for the process, and the next session's first flush
      * begins a new epoch on it. 0 only if native refused the arguments.
      */
     val playerIngest: Long by lazy { GeodeNative.ingestCreate(PLAYER_RING_FRAMES, PLAYER_RING_CHANNELS) }
 
-    private const val PLAYER_RING_FRAMES = 1 shl 16
+    // 2^17: renderers read behind the tap by what the sink still holds (#488: the AudioTrack buffer, a
+    // Bluetooth link and the A/V offset: about 0.5 s of source at 1x, twice that at 2x); the ring keeps 3/4 of
+    // its frames readable, 2 s at 48 kHz and 1 s at 96 kHz, so the speaker-bound cursor is not overrun.
+    private const val PLAYER_RING_FRAMES = 1 shl 17
     private const val PLAYER_RING_CHANNELS = 8
 
     private fun rebindTo(context: Context): Context {

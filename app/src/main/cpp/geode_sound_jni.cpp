@@ -76,6 +76,16 @@ Java_dev_geode_engine_bridge_GeodeNative_ingestResting(JNIEnv*, jobject, jlong h
     return geode_ingest_resting(ingestOf(handle), nowMs) ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_ingestFlush(JNIEnv*, jobject, jlong handle, jint sampleRate, jint channels,
+                                                     jint channelMask, jboolean reapplied, jlong positionUs,
+                                                     jlong periodId) {
+    return geode_ingest_flush(ingestOf(handle), sampleRate, channels, channelMask, reapplied ? 1 : 0, positionUs,
+                              periodId)
+               ? JNI_TRUE
+               : JNI_FALSE;
+}
+
 // The live wallpaper's and the dream's run rule (viz/SurfaceRun), beside their silence rule.
 
 JNIEXPORT jint JNICALL

@@ -520,7 +520,10 @@ class PlayerSession internal constructor(
                 override val player: Player get() = this@PlayerSession.player
                 override val fadeMs: Int get() = settings.playerPrefs.value.fadeMs
 
-                override fun setVolume(volume: Float) = playback.setUiVolume(volume)
+                override fun rampTo(
+                    audible: Boolean,
+                    ms: Int,
+                ) = playback.rampUiFade(audible, ms)
 
                 override fun stopLiveInput() {
                     if (captureController.micActive) setMicEnabled(false)
@@ -1168,7 +1171,6 @@ class PlayerSession internal constructor(
         queueController.release()
         playerListener = null
         if (playback.onAudioFormat === captureController.audioFormatHook) playback.onAudioFormat = null
-        if (sleepTimer.onFadeVolume === fades.sleepFadeHook) sleepTimer.onFadeVolume = null
         if (!playback.playbackWanted) PlaybackService.stop(application)
         PlaybackEngine.releaseUi()
         scope.cancel()
@@ -1292,7 +1294,6 @@ class PlayerSession internal constructor(
             }
         playerListener = listener
         player.addListener(listener)
-        sleepTimer.onFadeVolume = fades.sleepFadeHook
         audioFxController.attach(playback.player.audioSessionId)
         settings.refreshAudioFx()
         if (alreadyLoaded) onTrackChanged()

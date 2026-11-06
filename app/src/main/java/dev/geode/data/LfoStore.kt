@@ -132,6 +132,7 @@ class LfoStore(
             .put("depth", c.depth.toDouble())
             .put("polarity", c.polarity.name)
             .put("curve", c.curve.name)
+            .put("beats", c.beats)
 
     private fun fromJson(o: JSONObject): LfoConfig =
         LfoConfig(
@@ -143,6 +144,7 @@ class LfoStore(
             depth = o.optDouble("depth", 0.3).toFloat(),
             polarity = runCatching { ModPolarity.valueOf(o.getString("polarity")) }.getOrDefault(ModPolarity.BIPOLAR),
             curve = runCatching { ModCurve.valueOf(o.getString("curve")) }.getOrDefault(ModCurve.LINEAR),
+            beats = o.optInt("beats", 0).takeIf { it in LfoConfig.BEAT_CHOICES } ?: 0,
         )
 
     /**

@@ -405,7 +405,7 @@ class VideoExporter(
             if (bitRate < aspect.bitRate) {
                 RingLog.note(TAG, "video bit rate capped to $bitRate for a ${aac.durationUs / 1000} ms render")
             }
-            val requestedFpsBounded = requestedFps.coerceIn(24, 60)
+            val requestedFpsBounded = GeodeNative.exportClampFps(requestedFps)
             // The requested codec at the requested rate first, then its reduced form, then the same pair on H.264.
             val attempts =
                 listOf(codec.available(), ExportCodec.H264).distinct().flatMap { c ->
@@ -456,7 +456,7 @@ class VideoExporter(
             renderer.prepare()
             val mark =
                 if (watermark) {
-                    WatermarkOverlay(context.getString(R.string.pro_watermark_text))
+                    WatermarkOverlay(context.getString(R.string.pro_watermark_text), context.assets)
                         .also { watermarkRef = it }
                         .apply { prepare(aspect.width, aspect.height) }
                 } else {

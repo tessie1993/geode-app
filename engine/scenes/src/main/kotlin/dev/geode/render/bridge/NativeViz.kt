@@ -173,33 +173,34 @@ class NativeViz(
         if (handle != 0L && sent.look(yaw, pitch)) GeodeNative.vizSetLook(handle, yaw, pitch)
     }
 
-    fun setThermal(
-        platformStatus: Int,
-        headroom: Float,
-    ) {
-        if (handle != 0L) GeodeNative.vizSetThermal(handle, platformStatus, headroom)
-    }
-
-    fun setPacedFps(fps: Float) {
-        if (handle != 0L && sent.pacedFps(fps)) GeodeNative.vizSetPacedFps(handle, fps)
-    }
-
-    fun setQuality(
+    /** One live frame's start; see [GeodeNative.vizFrameBegin]. 0 before the handle exists. */
+    fun frameBegin(
+        pacedFps: Float,
         renderScale: Float,
         marchScale: Float,
         postFx: Boolean,
         adaptive: Boolean,
-    ) {
-        if (handle != 0L) GeodeNative.vizSetQuality(handle, renderScale, marchScale, postFx, adaptive)
+        liquidHotPolicy: Int,
+        paramsVersion: Long,
+        lfoVersion: Long,
+        adsrVersion: Long,
+        tuningVersion: Long,
+    ): Int {
+        if (handle == 0L) return 0
+        return GeodeNative.vizFrameBegin(
+            handle,
+            pacedFps,
+            renderScale,
+            marchScale,
+            postFx,
+            adaptive,
+            liquidHotPolicy,
+            paramsVersion,
+            lfoVersion,
+            adsrVersion,
+            tuningVersion,
+        )
     }
-
-    /** Liquid on a hot phone; see [GeodeNative.vizSetLiquidHotPolicy]. */
-    fun setLiquidHotPolicy(policy: Int) {
-        if (handle != 0L) GeodeNative.vizSetLiquidHotPolicy(handle, policy)
-    }
-
-    /** What Liquid mode ran last frame (0 off, 1 full, 2 lite, 3 warp, 4 paused); 0 before the handle exists. */
-    fun liquidMode(): Int = if (handle != 0L) GeodeNative.vizLiquidMode(handle) else 0
 
     /** Pins this renderer's auto-director; see [GeodeNative.vizSetDirector]. */
     fun setDirector(
@@ -220,6 +221,11 @@ class NativeViz(
      */
     private val uiBlur = FloatArray(UI_BLUR_FLOATS)
     private var edgeGlow: FloatArray? = null
+
+    /** Pins this renderer for an export; see [GeodeNative.vizPrepareOffscreen]. */
+    fun prepareOffscreen() {
+        if (handle != 0L) GeodeNative.vizPrepareOffscreen(handle)
+    }
 
     /** See [GeodeNative.vizSetFrameRate]. A no-op before the handle exists. */
     fun setFrameRate(fps: Int) {

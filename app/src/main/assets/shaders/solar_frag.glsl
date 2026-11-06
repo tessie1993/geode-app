@@ -8,141 +8,242 @@ precision highp sampler2D;
 in vec2 vUv;
 out vec4 fragColor;
 
-uniform float uTime;
-uniform vec2 uResolution;
-//#include lib_sound
-uniform float uSpeed;
-uniform float uZoom;
-uniform float uRotation;
-//#include lib_zoom
-uniform float uColorShift;
-uniform float uHueRange;
-uniform float uSat;
-uniform float uBright;
-uniform float uInvert;
-uniform float uIntensity;
-uniform float uMirrorX;
-uniform float uTurbulence;
-uniform float uPalBase;
-uniform float uPalRange;
-uniform float uContrast;
-uniform float uGamma;
-uniform float uPal2Base;
-uniform float uPal2Range;
-uniform float uPaletteMix;
-uniform float uDuotone;
-uniform float uBloom;
-uniform float uWarp;
-uniform float uRipple;
-uniform float uSymmetry;
-uniform float uKaleido;
-uniform float uMorph;
-uniform float uPixelate;
-uniform float uPosterize;
-uniform float uSway;
-uniform float uPulse;
-uniform float uDriftX;
-uniform float uDriftY;
-uniform float uShake;
-uniform float uTile;
-uniform float uTwist;
-uniform float uTemperature;
-uniform float uSolarize;
-uniform float uFlash;
-
-
-vec2 view() {
-    vec2 uv = vUv * 2.0 - 1.0;
-    uv.x *= uResolution.x / uResolution.y;
-    if (uPixelate > 0.001) {
-        float px = mix(1.0, 12.0, uPixelate) * 24.0;
-        uv = floor(uv * px) / px;
-    }
-    if (uMirrorX > 0.5) uv.x = abs(uv.x);
-    // Kaleidoscope: fold the plane into uSymmetry angular wedges.
-    if (uKaleido > 0.5 && uSymmetry >= 2.0) {
-        float ang = atan(uv.y, uv.x);
-        float rad = length(uv);
-        float seg = 6.2831853 / uSymmetry;
-        ang = abs(mod(ang, seg) - seg * 0.5);
-        uv = vec2(cos(ang), sin(ang)) * rad;
-    }
-    float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
-    uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
-    // Drift and shake move the picture after the spin and the morph. Added
-    // before them, the rotation pivoted on -drift and the morph's pinch rode
-    // the drift, so the whole frame spun around a wandering off-centre point.
-    // Drift ping-pongs rather than running away. The composite pass wraps its
-    // own drift with fract() because it samples a BOUNDED image ("Wrap so the
-    // image scrolls instead of smearing at the clamped edge"), but uv here
-    // indexes an unbounded procedural domain, where a hard wrap would teleport
-    // the whole field by a screen width once per cycle. A triangle wave is the
-    // bounded form that stays continuous: its slope is exactly the old one for
-    // the first cycle, so nothing pops on the styles that read as scrolling
-    // (plasma, aurora, voronoi, grid, waves), while a centred subject - the
-    // sun, the ring, the spiral - always comes back instead of leaving frame
-    // for good and stranding the user on a black screen.
-    vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
-    uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    // Endless zoom: this layer\'s magnification (lib_zoom draws two, an octave apart).
-    gZoomRead = true;
-    float z = uZoom * gZoomMag;
-    uv /= max(z, 0.05);
-    uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
-    // Radial twist: rotate by an angle growing with radius.
-    if (abs(uTwist) > 0.001) {
-        float tr = length(uv) * uTwist * 2.0;
-        uv = mat2(cos(tr), -sin(tr), sin(tr), cos(tr)) * uv;
-    }
-    // Tiling: repeat the plane into a uTile x uTile grid, every other tile
-    // mirrored so neighbours meet edge to edge. A hard mod() wrap cracked the
-    // picture along every tile boundary, and the macros drive uTile live.
-    if (uTile > 1.01) {
-        uv = 1.0 - abs(mod(uv * uTile * 0.5 + 1.0, 4.0) - 2.0);
-    }
-    // Domain warp: swirl coordinates by a sin/cos field.
-    if (uWarp > 0.001) {
-        float w = uWarp * 0.5;
-        uv += w * vec2(sin(uv.y * 3.0 + uTime * 1.1), cos(uv.x * 3.0 + uTime * 0.9));
-    }
-    // Concentric ripple distortion driven by radius.
-    if (uRipple > 0.001) {
-        float r = length(uv);
-        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + sndShaped(SND_LOW) * 4.0);
-    }
-    return uv;
-}
-
+// Morph, Warp and Turbulence shape the sun itself (ray count, streamer twist,
+// granulation depth), so view() must not bend the picture with them as well.
+#define VIEW_OWNS_SHAPE
+//#include lib_scene_uniforms
+//#include lib_scene_motion
+//#include lib_camera
 //#include lib_palette
+//#include lib_scene_grade
+//#include lib_sdf3
 
-vec3 grade(vec3 col) {
-    if (uBloom > 0.001) col += uBloom * col * col;
-    if (uPosterize > 0.001) {
-        float levels = mix(24.0, 3.0, uPosterize);
-        col = floor(col * levels + 0.5) / levels;
-    }
-    float g = dot(col, vec3(0.299, 0.587, 0.114));
-    if (uDuotone > 0.5) col = pal(g);
-    col = mix(vec3(g), col, uSat);
-    col = (col - 0.5) * uContrast + 0.5;
-    col = pow(max(col, 0.0), vec3(1.0 / max(uGamma, 0.05)));
-    col.r += uTemperature * 0.12;
-    col.b -= uTemperature * 0.12;
-    if (uSolarize > 0.5) col = abs(1.0 - 2.0 * col);
-    col = col * uBright * uIntensity;
-    return mix(col, max(vec3(1.0) - col, 0.0), uInvert);
+// Solar: the pulsing sun, now a body in space. A boiling photosphere (a
+// sphere displaced by granulation noise, with dark lanes between bright
+// cells, sunspots and limb darkening) hangs in a volumetric corona whose
+// streamers are the old style's rays, carried round the sun in longitude.
+// Three prominence loops arch off the surface, and a shock shell runs out
+// through the corona on every kick. Stars sit far behind.
+//
+// The camera circles the sun on the shared rig (camAround, one turn per 1024
+// world units of travel, so the rig's 8192 wrap is a whole number of turns
+// and never shows). Nothing in the world depends on z, so there is no other
+// wrap to fit. The eye sits at SO_CAM_R and the dolly can pull it in to 0.65
+// of that, 3.25 world units; the photosphere's outermost point is
+// SO_R + pulse + displacement, under 1.25, so the eye is never inside the
+// sun. It can sit inside the corona, which is emission only and never marched
+// for a hit.
+//
+// ---- audio ------------------------------------------------------------------
+//
+// As in the flat style: the low band (SND_LOW) lifts the whole corona, the EQ
+// curve (sndEq, read along the streamer's longitude) lengthens each streamer,
+// and the high band (SND_HIGH) makes the photosphere flicker. New in 3D:
+//
+//   kick (SND_KICK_ENV)          the photosphere swells (the pulse) and a shock
+//                                shell runs outward through the corona
+//   drop (SND_HELD_SURGE)        the prominences rise high and settle, on a
+//                                0-1-0 bump so they glide instead of snapping
+//   pitch (SND_HELD_NOTE_CHANGE) nudges the hue, and the key hue tints it
+//   SND_ENERGY_TREND             overall level
+//
+// Knobs (uKnob, exactly 0.5 = the tuned look): k0 PULSE the kick swell, k1
+// TEXTURE the granule size, k2 FLOW the boil rate, k3 TONE the hue, k4 BUILD
+// the prominence height, k5 SPACE the corona's reach.
+//
+// ---- why the estimate is safe ----------------------------------------------
+//
+// The photosphere is f(p) = |p| - R - A * h(p), h = fbm3 (3 octaves) of the
+// spun point times F. vnoise3's quintic gradient is at most 1.875 per lattice
+// unit; fbm3's normalized octave sum (lacunarity 2.02) bounds |grad h| by
+// 1.74 * 1.875 * F < 3.3 F. So |grad f| <= 1 + 3.3 A F, and the march steps
+// f / (1 + 3.3 A F), a true lower bound on the distance. The march starts at
+// the analytic bounding sphere R + A and gives up once it leaves it, so the
+// loop is bounded by uSteps under a constant SO_MAX_STEPS.
+
+#define SO_MAX_STEPS 64
+#define SO_CORONA_SAMPLES 14
+#define SO_TAU 6.2831853
+#define SO_PI 3.14159265
+/** Photosphere radius at rest. */
+#define SO_R 1.0
+/** Camera orbit radius; the dolly pulls it in to 0.65 of this. */
+#define SO_CAM_R 5.0
+/** How far out the corona is sampled, beyond the surface. */
+#define SO_CORONA 2.6
+
+/** Sun's spin, applied to every surface and corona lookup. */
+mat3 gSpin;
+float gR;
+float gA;
+float gFreq;
+float gStepK;
+vec3 gBoil;
+/** fbm value at the last map() point: 0..1, granule height. */
+float gGran;
+
+float sunMap(vec3 p) {
+    vec3 q = gSpin * p;
+    float h = fbm3(q * gFreq + gBoil, 3);
+    gGran = h;
+    return (length(p) - gR - gA * h) * gStepK;
 }
 
-// Pulsing sun with bass-driven corona rays.
+vec3 sunNormal(vec3 p) {
+    const float e = 0.004;
+    vec2 k = vec2(1.0, -1.0);
+    return normalize(k.xyy * sunMap(p + k.xyy * e) + k.yyx * sunMap(p + k.yyx * e)
+                   + k.yxy * sunMap(p + k.yxy * e) + k.xxx * sunMap(p + k.xxx * e));
+}
+
+/** Ray against a sphere at the origin: (entry, exit), or (-1, -1) on a miss. */
+vec2 sphereSpan(vec3 ro, vec3 rd, float r) {
+    float b = dot(ro, rd);
+    float h = b * b - (dot(ro, ro) - r * r);
+    if (h < 0.0) return vec2(-1.0);
+    h = sqrt(h);
+    return vec2(-b - h, -b + h);
+}
+
+/** Distance from p to a prominence: a ring through the surface, its upper arc standing in the corona. */
+float loopDist(vec3 p, vec3 n, vec3 ax, float lift, float a) {
+    vec3 rel = p - n * (gR - 0.15 + lift);
+    float w = dot(rel, ax);
+    vec3 v = rel - ax * w;
+    return length(vec2(length(v) - a, w));
+}
+
+vec3 starfield(vec3 rd) {
+    vec3 col = vec3(0.004, 0.003, 0.008);
+    vec3 sc = rd * 120.0;
+    float h = hashCell(ivec3(floor(sc)));
+    float s = step(0.986, h) * (1.0 - smoothstep(0.0, 0.35, length(fract(sc) - 0.5)));
+    float tw = 0.75 + 0.25 * sin(uTime * (2.0 + 6.0 * fract(h * 31.0)) + h * 80.0);
+    col += mix(vec3(1.0), pal(fract(h * 13.0)), 0.3) * s * 0.5 * tw;
+    return col;
+}
+
 void main() {
     vec2 uv = view();
-    float r = length(uv);
-    float ang = atan(uv.y, uv.x);
-    float core = 0.26;
-    float sunEdge = smoothstep(core + 0.02, core - 0.02, r);
-    float rays = pow(max(0.0, sin(ang * (8.0 + floor(uMorph * 10.0)) + uTime)), 3.0) * (0.5 * sndEq(fract(ang / 6.2831853 + 0.5)));
-    float corona = exp(-(r - core) * 3.5) * step(core, r) * (0.35 + rays + sndShaped(SND_LOW));
-    float flicker = 0.9 + 0.1 * sin(uTime * 9.0 + r * 20.0) * sndShaped(SND_HIGH);
-    vec3 col = pal(0.06 + r * 0.3) * (sunEdge * 1.1 + corona) * flicker;
+    vec3 ro;
+    vec3 rd;
+    camAround(uv, SO_CAM_R, 1.0 * CAM_SPIN_UNIT, ro, rd);
+
+    float low = sndShaped(SND_LOW);
+    float high = sndShaped(SND_HIGH);
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
+    float dropBump = 4.0 * drop * (1.0 - drop);
+    float pitch = clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0);
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+
+    float hue = 0.06 + 0.1 * (uKnob[3] - 0.5) + 0.08 * pitch
+              + 0.05 * sin(SO_TAU * uKeyHue) * clamp(uKeyStrength, 0.0, 1.0);
+    float ext = 1.0 + 0.6 * (uKnob[5] - 0.5);
+
+    // ---- the photosphere's shape for this frame -------------------------------
+    gSpin = rotY(uTime * 0.04);
+    gR = SO_R + 0.05 * (0.4 + 1.2 * uKnob[0]) * kick;
+    gA = 0.03 + 0.04 * clamp(uTurbulence, 0.0, 1.5);
+    gFreq = 6.0 * (0.75 + 0.5 * uKnob[1]);
+    gStepK = 1.0 / (1.0 + 3.3 * gA * gFreq);
+    float boil = uTime * 0.12 * (0.5 + uKnob[2]);
+    gBoil = vec3(boil, -0.6 * boil, 0.35 * boil);
+
+    // ---- march the photosphere inside its bounding shell ----------------------
+    float hitT = -1.0;
+    vec2 shell = sphereSpan(ro, rd, gR + gA + 0.01);
+    if (shell.y > 0.0) {
+        float t = max(shell.x, 0.0);
+        for (int i = 0; i < SO_MAX_STEPS; i++) {
+            // uSteps is the user's Detail; this loop's own bound is the constant.
+            if (float(i) >= uSteps) break;
+            float d = sunMap(ro + rd * t);
+            if (d < 0.0015) {
+                hitT = t;
+                break;
+            }
+            t += d;
+            if (t > shell.y) break;
+        }
+    }
+
+    vec3 col = starfield(rd);
+    if (hitT > 0.0) {
+        vec3 p = ro + rd * hitT;
+        vec3 n = sunNormal(p);
+        sunMap(p);
+        vec3 s = gSpin * normalize(p);
+        // Bright cells, dark lanes where the granule field crosses its middle.
+        float cell = smoothstep(0.0, 0.6, abs(2.0 * gGran - 1.0));
+        float mu = clamp(dot(n, -rd), 0.0, 1.0);
+        float limb = 0.4 + 0.6 * pow(mu, 0.5);
+        float spot = smoothstep(0.64, 0.74, vnoise3(s * 2.6 + vec3(11.0, 3.0, 7.0) + boil * 0.1));
+        float flicker = 0.9 + 0.1 * sin(uTime * 9.0 + gGran * 20.0) * high;
+        vec3 surf = pal(hue + 0.03 * gGran) * (0.75 + 0.55 * cell);
+        surf = mix(surf, vec3(1.0, 0.94, 0.82), 0.22 * cell * mu);
+        col = surf * 1.1 * limb * flicker * (1.0 - 0.75 * spot);
+    }
+
+    // ---- the corona: emission sampled along the ray ---------------------------
+    float rOut = gR + SO_CORONA * ext;
+    vec2 span = sphereSpan(ro, rd, rOut);
+    if (span.y > 0.0) {
+        float t0 = max(span.x, 0.0);
+        float t1 = hitT > 0.0 ? hitT : span.y;
+        float dt = max(t1 - t0, 0.0) / float(SO_CORONA_SAMPLES);
+        float jit = hash13(vec3(gl_FragCoord.xy, 3.0));
+
+        // Ray count: Morph picks it as in the flat style, crossfaded between
+        // whole counts so the longitude never seams and the slider never pops.
+        float nRays = 8.0 + uMorph * 10.0;
+        float nLo = floor(nRays);
+        float nMix = nRays - nLo;
+
+        // Prominences: three loops riding the spin, raised by the drop and BUILD.
+        float lift = max(0.15 * dropBump + 0.3 * (uKnob[4] - 0.5) + 0.05 * low, -0.05);
+        float loopA = 0.28 + 0.3 * dropBump;
+        vec3 ln0 = normalize(vec3(0.8, 0.35, 0.3));
+        vec3 ln1 = normalize(vec3(-0.5, -0.2, 0.85));
+        vec3 ln2 = normalize(vec3(-0.3, 0.7, -0.6));
+        vec3 la0 = normalize(cross(ln0, vec3(0.0, 1.0, 0.0)));
+        vec3 la1 = normalize(cross(ln1, vec3(0.3, 1.0, 0.1)));
+        vec3 la2 = normalize(cross(ln2, vec3(1.0, 0.0, 0.2)));
+        float shockR = gR + 2.2 * ext * (1.0 - kick);
+
+        vec3 glow = vec3(0.0);
+        for (int i = 0; i < SO_CORONA_SAMPLES; i++) {
+            vec3 p = ro + rd * (t0 + (float(i) + jit) * dt);
+            float r = length(p);
+            if (r < gR) continue;
+            vec3 q = gSpin * p;
+            vec3 dir = q / r;
+            float lon = atan(dir.z, dir.x);
+            // Warp twists the streamers with latitude.
+            float ph = lon + uWarp * 1.5 * dir.y + uTime;
+            float rayLo = pow(max(0.0, sin(ph * nLo)), 3.0);
+            float rayHi = pow(max(0.0, sin(ph * (nLo + 1.0))), 3.0);
+            // abs(lon) / pi runs 0..1..0 round the sun, so the EQ read has no seam.
+            float rays = mix(rayLo, rayHi, nMix) * 0.5 * sndEq(abs(lon) / SO_PI);
+            rays *= 0.45 + 0.55 * (1.0 - dir.y * dir.y);
+            float x = (r - gR) / ext;
+            float dens = exp(-x * 3.5) * (0.35 + rays + low);
+
+            float dl = min(loopDist(q, ln0, la0, lift, loopA),
+                       min(loopDist(q, ln1, la1, lift, loopA * 0.8), loopDist(q, ln2, la2, lift, loopA * 1.15)));
+            float prom = exp(-dl * dl * 260.0) * (0.8 + 0.6 * dropBump);
+            float sd = r - shockR;
+            float shock = kick * exp(-sd * sd * 30.0) * exp(-x * 0.8);
+
+            vec3 c = pal(hue + 0.078 * r / SO_R) * dens
+                   + pal(hue - 0.02) * prom * 2.0
+                   + pal(hue + 0.12) * shock * 0.9;
+            glow += c;
+        }
+        col += glow * dt * 0.6;
+    }
+
+    col *= 0.85 + 0.2 * swell;
+    col *= 0.75 + 0.25 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

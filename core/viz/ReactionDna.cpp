@@ -4,6 +4,8 @@
 #include <cmath>
 #include <cstdint>
 
+#include "viz/Catalogue.hpp"
+
 namespace geode::viz {
 
 namespace {
@@ -516,5 +518,163 @@ HandRoutes editMusic(const HandRoutes& user, const StyleDna& dna, MusicEdit op, 
 }
 
 LfoTarget musicActionTarget(MusicAction action) { return spec(action).target; }
+
+// ── The ready-made recipes ─────────────────────────────────────────────────────────────────────────
+
+namespace {
+
+// The catalogue scope each target moves, as Kotlin's LfoTarget.scope names it: what a route on it can
+// reach. Anything not listed is applied to the finished frame or the camera rig, so every style.
+catalogue::Scope targetScope(LfoTarget t) {
+    using Sc = catalogue::Scope;
+    switch (t) {
+        case T::Speed: return Sc::SceneClock;
+        case T::Morph:
+        case T::PaletteMix: return Sc::ShaderLook;
+        case T::Turbulence: return Sc::Turbulence;
+        case T::ParticleSize: return Sc::ParticleSprite;
+        case T::TrailLength: return Sc::TrailLength;
+        case T::FluidCurl:
+        case T::FluidGlow:
+        case T::FluidFade: return Sc::FluidSim;
+        case T::FluidRadius:
+        case T::FluidForce: return Sc::Emitters;
+        case T::FluidCatchPull:
+        case T::FluidCatchRadius: return Sc::Journey;
+        case T::WaterRipple: return Sc::Water;
+        case T::RippleOverlay: return Sc::RippleOverlay;
+        default: return Sc::Universal;
+    }
+}
+
+// Smooth: the target follows the source, rising over `attack` and falling over `release` seconds.
+constexpr ReactRoute follow(S source, T target, float amount, float attack, float release) {
+    return {true, source, target, ReactMode::Follow, amount, ModCurve::Linear, attack, release};
+}
+
+// One jump of `amount` per rising edge, glided over `seconds`.
+constexpr ReactRoute step(S source, T target, float amount, float seconds) {
+    return {true, source, target, ReactMode::Step, amount, ModCurve::Linear, seconds, seconds};
+}
+
+// Keeps turning at `amount` per second while the source lasts.
+constexpr ReactRoute spin(S source, T target, float amount) {
+    return {true, source, target, ReactMode::Spin, amount, ModCurve::Linear, 0.5f, 0.5f};
+}
+
+constexpr RecipeRoutes one(const ReactRoute& a) { return {{a}, 1}; }
+constexpr RecipeRoutes two(const ReactRoute& a, const ReactRoute& b) { return {{a, b}, 2}; }
+constexpr RecipeRoutes three(const ReactRoute& a, const ReactRoute& b, const ReactRoute& c) { return {{a, b, c}, 3}; }
+
+const std::array<RecipeRoutes, kEventRecipeCount> kRecipes{{
+    two(follow(S::KickEnv, T::CamPush, 0.4f, 0.015f, 0.25f), follow(S::KickEnv, T::Zoom, 0.12f, 0.015f, 0.22f)),
+    one(follow(S::SnareEnv, T::ChromaAb, 0.5f, 0.01f, 0.18f)),
+    two(follow(S::HatEnv, T::ParticleSize, 0.3f, 0.01f, 0.12f), follow(S::HatEnv, T::Bloom, 0.2f, 0.01f, 0.15f)),
+    two(follow(S::SubAtt, T::Warp, 0.35f, 0.06f, 0.4f), follow(S::SubAtt, T::FluidForce, 0.5f, 0.05f, 0.4f)),
+    two(follow(S::Loudness, T::Brightness, 0.15f, 0.1f, 0.5f), follow(S::Loudness, T::Bloom, 0.25f, 0.1f, 0.5f)),
+    two(follow(S::Intensity, T::CamFov, 0.25f, 0.4f, 0.8f), follow(S::Intensity, T::Vignette, -0.3f, 0.4f, 0.8f)),
+    three(follow(S::EnergyTrend, T::Speed, 0.5f, 0.5f, 0.5f), follow(S::EnergyTrend, T::CamShake, 0.3f, 0.5f, 0.3f),
+          spin(S::EnergyTrend, T::Rotation, 0.3f)),
+    two(step(S::HardCut, T::ColorShift, 0.33f, 1.2f), step(S::HardCut, T::PaletteMix, 0.5f, 1.2f)),
+    one(step(S::Kick, T::CamRoll, 0.15f, 0.08f)),
+    one(step(S::Kick8, T::CamYaw, 0.4f, 0.8f)),
+    one(step(S::NoteChange, T::ColorShift, 0.08f, 0.25f)),
+    two(follow(S::Flux, T::Ripple, 0.3f, 0.03f, 0.3f), follow(S::Flux, T::Twist, 0.2f, 0.03f, 0.3f)),
+    two(follow(S::StereoPan, T::CamYaw, 0.35f, 0.3f, 0.6f), follow(S::StereoWidth, T::CamOrbit, 0.3f, 0.3f, 0.6f)),
+    one(step(S::Kick4, T::ColorShift, 0.1f, 0.2f)),
+    two(follow(S::Onset, T::Turbulence, 0.3f, 0.01f, 0.3f), follow(S::Onset, T::CamShake, 0.15f, 0.01f, 0.3f)),
+    two(follow(S::KickToggle, T::ColorShift, 0.25f, 0.06f, 0.06f), follow(S::KickToggle, T::PaletteMix, 0.6f, 0.06f, 0.06f)),
+    two(follow(S::KickRandom, T::CamYaw, 0.35f, 0.15f, 0.15f), follow(S::KickRandom, T::CamPitch, 0.15f, 0.15f, 0.15f)),
+    one(step(S::Snare2, T::CamRoll, 0.12f, 0.15f)),
+    one(follow(S::PitchHeight, T::CamPitch, 0.3f, 0.3f, 0.6f)),
+    one(follow(S::PitchClass, T::ColorShift, 0.5f, 0.15f, 0.4f)),
+    one(follow(S::Glide, T::Twist, 0.4f, 0.05f, 0.3f)),
+    two(follow(S::Vibrato, T::Ripple, 0.3f, 0.1f, 0.3f), follow(S::Vibrato, T::ChromaAb, 0.2f, 0.1f, 0.3f)),
+    two(follow(S::Legato, T::Warp, 0.25f, 0.05f, 0.5f), follow(S::Legato, T::TrailLength, 0.4f, 0.05f, 0.5f)),
+    two(follow(S::Silence, T::Brightness, -0.4f, 0.3f, 1.5f), follow(S::Silence, T::Vignette, 0.4f, 0.3f, 1.5f)),
+    two(follow(S::Returned, T::Bloom, 0.6f, 0.02f, 1.5f), follow(S::Returned, T::CamPush, 0.5f, 0.02f, 1.5f)),
+    one(follow(S::BassPresence, T::Zoom, 0.2f, 1.0f, 2.0f)),
+    two(spin(S::MidTime, T::CamOrbit, 0.15f), spin(S::MidTime, T::Rotation, 0.1f)),
+    one(step(S::Downbeat, T::CamYaw, 0.25f, 0.6f)),
+    three(follow(S::ScaleBrightness, T::Brightness, 0.15f, 1.0f, 1.0f), follow(S::ScaleTension, T::Turbulence, 0.3f, 1.0f, 1.0f),
+          follow(S::KeyHue, T::ColorShift, 0.5f, 1.5f, 1.5f)),
+    three(follow(S::BuildUp, T::Speed, 0.5f, 0.5f, 0.5f), follow(S::Drop, T::Bloom, 0.7f, 0.02f, 2.0f),
+          follow(S::Drop, T::CamPush, 0.6f, 0.02f, 1.5f)),
+}};
+
+// Whether `r` is on a slot one of the recipe's routes holds.
+bool inRecipe(const RecipeRoutes& mine, const ReactRoute& r) {
+    for (int i = 0; i < mine.count; ++i) {
+        if (sameSlot(mine.routes[static_cast<size_t>(i)], r)) return true;
+    }
+    return false;
+}
+
+bool inCurrent(const RouteArray& current, int count, const ReactRoute& r) {
+    for (int i = 0; i < count; ++i) {
+        if (sameSlot(current[static_cast<size_t>(i)], r)) return true;
+    }
+    return false;
+}
+
+int clampedCount(int count) { return std::clamp(count, 0, ReactionEngine::kRoutes); }
+
+}  // namespace
+
+bool targetReaches(LfoTarget target, const std::string& styleId) { return catalogue::reaches(targetScope(target), styleId); }
+
+RecipeRoutes recipeRoutes(EventRecipe r) {
+    const int i = static_cast<int>(r);
+    return i >= 0 && i < kEventRecipeCount ? kRecipes[static_cast<size_t>(i)] : RecipeRoutes{};
+}
+
+RecipeRoutes recipeRoutesFor(EventRecipe r, const std::string& styleId) {
+    const RecipeRoutes all = recipeRoutes(r);
+    RecipeRoutes out;
+    for (int i = 0; i < all.count; ++i) {
+        const ReactRoute& route = all.routes[static_cast<size_t>(i)];
+        if (targetReaches(route.target, styleId)) out.routes[static_cast<size_t>(out.count++)] = route;
+    }
+    return out;
+}
+
+bool recipeIsOn(EventRecipe r, const RouteArray& current, int count, const std::string& styleId) {
+    const RecipeRoutes mine = recipeRoutesFor(r, styleId);
+    const int n = clampedCount(count);
+    for (int i = 0; i < mine.count; ++i) {
+        if (!inCurrent(current, n, mine.routes[static_cast<size_t>(i)])) return false;
+    }
+    return mine.count > 0;
+}
+
+bool recipeFits(EventRecipe r, const RouteArray& current, int count, const std::string& styleId) {
+    const RecipeRoutes mine = recipeRoutesFor(r, styleId);
+    const int n = clampedCount(count);
+    int added = 0;
+    for (int i = 0; i < mine.count; ++i) {
+        if (!inCurrent(current, n, mine.routes[static_cast<size_t>(i)])) added += 1;
+    }
+    return n + added <= ReactionEngine::kRoutes;
+}
+
+int toggleRecipe(EventRecipe r, const RouteArray& current, int count, const std::string& styleId, RouteArray& out) {
+    const int n = clampedCount(count);
+    out = RouteArray{};
+    int k = 0;
+    const bool on = recipeIsOn(r, current, n, styleId);
+    if (!on && !recipeFits(r, current, n, styleId)) {
+        for (int i = 0; i < n; ++i) push(out, k, current[static_cast<size_t>(i)]);
+        return k;
+    }
+    // Off takes every route on the recipe's slots out; on does the same, then adds the recipe's own.
+    const RecipeRoutes mine = recipeRoutesFor(r, styleId);
+    for (int i = 0; i < n; ++i) {
+        if (!inRecipe(mine, current[static_cast<size_t>(i)])) push(out, k, current[static_cast<size_t>(i)]);
+    }
+    if (!on) {
+        for (int i = 0; i < mine.count; ++i) push(out, k, mine.routes[static_cast<size_t>(i)]);
+    }
+    return k;
+}
 
 }  // namespace geode::viz

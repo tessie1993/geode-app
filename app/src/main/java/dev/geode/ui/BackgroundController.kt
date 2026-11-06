@@ -6,6 +6,7 @@ import android.net.Uri
 import dev.geode.RingLog
 import dev.geode.data.BackgroundPrefs
 import dev.geode.data.BackgroundPrefsStore
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.UnderlayBlend
 import dev.geode.viz.BackgroundImage
 import dev.geode.viz.BackgroundPixels
@@ -82,14 +83,14 @@ internal class BackgroundController(
 
     fun setBlend(blend: UnderlayBlend) = setPrefs(_prefs.value.copy(blend = blend), redecode = false)
 
-    fun setAmount(amount: Float) = setPrefs(_prefs.value.copy(amount = amount.coerceIn(0f, 1f)), redecode = false)
+    fun setAmount(amount: Float) = setPrefs(_prefs.value.copy(amount = GeodeNative.underlayClampAmount(amount)), redecode = false)
 
     // Debounced: CrystalSlider reports every point of a drag, and a full decode (bitmap decode,
     // crop, scale, blur) is too heavy to redo for each of them - see redecode()'s debounceMs.
     fun setBlurRadius(radius: Int) =
-        setPrefs(_prefs.value.copy(blurRadius = radius.coerceIn(BackgroundPrefsStore.BLUR_RANGE)), debounceMs = SLIDER_DEBOUNCE_MS)
+        setPrefs(_prefs.value.copy(blurRadius = GeodeNative.underlayClampBlur(radius)), debounceMs = SLIDER_DEBOUNCE_MS)
 
-    fun setDim(dim: Float) = setPrefs(_prefs.value.copy(dim = dim.coerceIn(0f, 1f)), debounceMs = SLIDER_DEBOUNCE_MS)
+    fun setDim(dim: Float) = setPrefs(_prefs.value.copy(dim = GeodeNative.underlayClampDim(dim)), debounceMs = SLIDER_DEBOUNCE_MS)
 
     /** The GL surface's (or an offscreen target's) current pixel size; redecodes on a real change. */
     fun setRenderSize(

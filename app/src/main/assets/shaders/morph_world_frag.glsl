@@ -30,6 +30,10 @@ out vec4 fragColor;
 // glow-through volume and an emissive density. A mode with no weight is never marched; the glow
 // and the density take fewer steps than the surface, all from the Detail budget (uSteps).
 //
+// A world may stand on a ground under a sky (lib_world: the genome's Floor, its gloss, the Sky
+// and the Horizon glow): the floor is matter like the rest, so all three modes see it, and every
+// mode's air is the sky's colour along the ray, so far ground fogs into the horizon.
+//
 // Controls (all read by the driver, smoothed, summed once and clamped into the genome's bounds):
 // Morph is how far each new world mutates from its seed; Warp twists the world along travel;
 // Turbulence strengthens the folds; Detail caps the IFS steps here and the march budget; Intensity

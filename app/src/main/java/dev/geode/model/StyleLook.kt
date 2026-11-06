@@ -8,10 +8,10 @@ package dev.geode.model
  * picture and feeling (docs/ui-redesign; the owner chose these groups on 2026-11-02). The engine's
  * kinds and families stay searchable through [StyleEntry.kindLabel] and [StyleEntry.familyLabel].
  *
- * A plain enum on purpose: which group a style lands in is decided in `ui/StylesPage`
- * (`StyleLookTags`), which reads each style's family and kind from the native catalogue
- * (`render/scene/Catalogue`, ADR 0003) instead of guessing them from id prefixes here. This
- * package stays pure and engine-free for `:core:model`. The names people read are string resources
+ * A plain enum on purpose: which group a style lands in is engine data, the look column of the
+ * native catalogue (core/viz/Catalogue, ADR 0003; its `Look` names match these entries, which
+ * catalogue_test and `StyleLookTest` hold), read through `render/scene/Catalogue` by `ui/StylesPage`.
+ * This package stays pure and engine-free for `:core:model`. The names people read are string resources
  * (`styles_look_*`), mapped in the same file, so this enum carries no English.
  */
 enum class StyleLook {

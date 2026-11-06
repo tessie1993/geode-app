@@ -11,7 +11,6 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import dev.geode.appLaunchIntent
-import dev.geode.startedInForeground
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +31,7 @@ class ExportService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        if (!startedInForeground(TAG, { startForegroundNotification(ExportRun.state.value) }, ::stopSelf)) return
+        if (!dev.geode.startedInForeground(TAG, { startForegroundNotification(ExportRun.state.value) }, ::stopSelf)) return
         // ExportRun publishes every rendered frame. The notification is re-posted only when what it
         // shows changes (progress in tenths of a percent, the ETA, the label), and at most once a
         // second: conflate keeps the newest state through the pause (#379).

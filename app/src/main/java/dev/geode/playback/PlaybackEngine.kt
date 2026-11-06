@@ -19,13 +19,10 @@ import dev.geode.data.HistoryStore
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsStore
 import dev.geode.data.SessionStore
-import dev.geode.engine.audio.AudioPresentationClock
 import dev.geode.engine.audio.PcmSink
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audioandroid.PcmTap
-import dev.geode.engine.audioandroid.SinkClockDriver
-import dev.geode.engine.audioandroid.TapBoundaryListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -39,10 +36,6 @@ class PlaybackSession internal constructor(
 
     @Volatile
     var onAudioFormat: ((sampleRateHz: Int, channelCount: Int, encoding: Int) -> Unit)? = null
-
-    internal val presentationClock = AudioPresentationClock()
-
-    internal val clockDriver = SinkClockDriver(presentationClock)
 
     /** Where the tap, mic and capture write: the one ring every renderer hears, MilkDrop's raw PCM included. */
     internal val captureSink: PcmSink = sampleRing
@@ -59,18 +52,14 @@ class PlaybackSession internal constructor(
 
     internal val tap =
         PcmTap(captureSink) { format ->
+            // Every tap flush starts a ring epoch, before the new format's rate is published.
+            sampleRing.beginEpoch()
             val hook = onAudioFormat
             if (hook != null) {
                 hook(format.sampleRateHz, format.channelCount, format.encoding)
             } else {
                 sampleRateHz = format.sampleRateHz
             }
-        }.apply {
-            boundaryListener =
-                TapBoundaryListener { ended, endedFrames, begun ->
-                    sampleRing.beginEpoch()
-                    clockDriver.onTapBoundary(ended, endedFrames, begun)
-                }
         }
 
     /**
@@ -82,7 +71,7 @@ class PlaybackSession internal constructor(
         ExoPlayer
             .Builder(
                 context,
-                TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp)) { out ->
+                TapRenderersFactory(context, tap, dsp = listOf(dsp)) { out ->
                     bitPerfect.onOutput(out.sampleRate, out.channelMask, out.encoding)
                 },
             ).setMediaSourceFactory(

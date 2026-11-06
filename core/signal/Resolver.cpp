@@ -28,7 +28,8 @@ void Resolver::reset() {
 }
 
 const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const GeodeSoundFrame& sound, float dt,
-                                      const EngineSettings& settings, const StyleContext& style) {
+                                      const EngineSettings& settings, const StyleContext& style,
+                                      const sound::Emotion::State* heard) {
     using viz::SceneParams;
     const std::string& styleId = style.id != nullptr ? *style.id : kNoStyle;
     if (style.switched) motionField_.setVariant(viz::styleVariantSeed(styleId));
@@ -46,7 +47,12 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     // The auto-director hears the frame first: its look lies under the macros, so the user's own knobs,
     // the LFOs, the reactions, the motion field and the safety clamp all still act on top of it.
     director_.configure(settings.director);
-    director_.step(sound, dt, settings.handMask);
+    // The engine's own feeling when the caller has one (the renderer), else the director steps its own.
+    if (heard != nullptr) {
+        director_.step(sound, *heard, dt, settings.handMask);
+    } else {
+        director_.step(sound, dt, settings.handMask);
+    }
     frame_.styleMoments = 0;
     if (director_.commits() != directorCommitsSeen_) {
         directorCommitsSeen_ = director_.commits();

@@ -61,7 +61,11 @@ float Renderer::beginFrame(double timeSeconds) {
             tunedKnobs_ = frameSettings_.knobs;
             sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
         }
-        if (sound_) sound_->step(dt, soundFrame_);
+        if (sound_) {
+            sound_->step(dt, soundFrame_);
+            soundEmotion_ = sound_->emotion();
+        }
+        soundHeard_ = sound_ != nullptr;
     }
     applyStyleSchedule();
     std::vector<std::pair<std::string, std::string>> pending;
@@ -165,8 +169,23 @@ SceneParams Renderer::resolveParams(float dt) {
     style.spin = sceneSpin_.load(std::memory_order_relaxed);
     style.switched = styleSwitchPending_;
     styleSwitchPending_ = false;
+    // The feeling comes from the engine, stepped on the sample clock, so it is the same at every frame rate
+    // and in an export. A new seed is a new play: the director forgets the song, the feeling too.
+    const sound::Emotion::State* heard = nullptr;
+    if (soundHeard_) {
+        if (emotionSeeded_ && frameSettings_.director.seed != emotionSeed_) {
+            std::lock_guard<std::mutex> lock(soundLock_);
+            if (sound_) {
+                sound_->resetEmotion();
+                soundEmotion_ = sound_->emotion();
+            }
+        }
+        emotionSeed_ = frameSettings_.director.seed;
+        emotionSeeded_ = true;
+        heard = &soundEmotion_;
+    }
     // The chain itself, param fade to safety clamp (signal/Resolver).
-    const signal::Resolver::Frame& out = resolver_.step(requested, soundFrame_, dt, frameSettings_, style);
+    const signal::Resolver::Frame& out = resolver_.step(requested, soundFrame_, dt, frameSettings_, style, heard);
     if (out.styleMoments > 0) directorStyleMoments_.fetch_add(out.styleMoments, std::memory_order_acq_rel);
     SceneParams p = out.params;
     // The device's masks, after the clamp: the thermal tier and Settings › Performance.

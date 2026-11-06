@@ -58,6 +58,9 @@ public:
     // Reversing turns the view around over this much speed (world units / s), so the swing is
     // continuous through a stop instead of a snap.
     static constexpr float kTurnAroundSpeed = 0.25f * kBaseSpeed;
+    // ...and the view follows that swing through its own spring, so a quick reversal (a snappy camSmooth,
+    // a fast camFly) still turns at a bounded rate, never in a few frames.
+    static constexpr float kTurnAroundSeconds = 0.6f;
     static constexpr float kFallPitch = 0.3f;      // radians the nose tips down (fall) or up (rise)
 
     struct LookInput {
@@ -117,7 +120,7 @@ private:
         void step(float target, float dt, float seconds);
     };
 
-    Spring yaw_, pitch_, roll_, dolly_, fov_, speed_, orbit_;
+    Spring yaw_, pitch_, roll_, dolly_, fov_, speed_, orbit_, facing_;
     float travel_ = 0.0f;
     float time_ = 0.0f;
     bool primed_ = false;

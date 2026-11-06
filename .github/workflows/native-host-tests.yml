@@ -77,6 +77,15 @@ jobs:
           # The export post-passes' maths: watermark tiling, seam weights, transition progress (#442).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/export_passes_test.cpp -o export_passes_test
           ./export_passes_test
+          # Settings › Performance's tiers and the first-run pick for this phone (#437).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/quality_test.cpp -o quality_test
+          ./quality_test
+          # The live wallpaper's and the dream's run rule: priority order, preview, listening, the trial's end (#376).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/surface_run_test.cpp core/api/geode_surface_api.cpp -o surface_run_test
+          ./surface_run_test
+          # The frame clock every surface shares (#436): vsync divides, the settle window, hitches, resume, one dt clamp.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/pacer_test.cpp -o pacer_test
+          ./pacer_test
           # The process-wide shader overrides every renderer draws (#364): set, replace, clear, generation, copies.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/shader_overrides_test.cpp core/viz/ShaderOverrides.cpp -o shader_overrides_test
           ./shader_overrides_test

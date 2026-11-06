@@ -51,6 +51,7 @@ import dev.geode.ui.pro.GoProSettingsRow
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneIcon
+import dev.geode.ui.theme.edgeFade
 import dev.geode.ui.theme.floatingGlass
 
 /**
@@ -192,8 +193,9 @@ internal fun AppSettingsTab(
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(Modifier.widthIn(max = SettingsMaxWidth).fillMaxSize()) {
             if (group == null) {
+                // The rows dissolve under the screen's heading instead of showing a half-cut line.
                 LazyColumn(
-                    Modifier.fillMaxSize(),
+                    Modifier.fillMaxSize().edgeFade(listState, horizontal = false),
                     state = listState,
                     contentPadding = PaddingValues(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.S),
                     verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
@@ -215,10 +217,13 @@ internal fun AppSettingsTab(
                 )
                 // Keyed by group, so a step to the next group starts at its top.
                 key(group) {
+                    val pageScroll = rememberScrollState()
                     Column(
                         Modifier
                             .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
+                            // Under the group's header too, where "Open on" showed cut in half.
+                            .edgeFade(pageScroll, horizontal = false)
+                            .verticalScroll(pageScroll)
                             .padding(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.S),
                         verticalArrangement = Arrangement.spacedBy(GeodeSpacing.M),
                     ) {

@@ -12,6 +12,7 @@ namespace geode::viz {
 // render stepped 16, 17, 17 ms and its first frame always 1/60 s.
 inline float frameStepSeconds(int fixedFps, double lastTimeS, double timeS) {
     if (fixedFps > 0) return static_cast<float>(1.0 / fixedFps);
+    // The one dt rule every clock shares (core/viz/frame/Pacer, #436).
     const double elapsed = lastTimeS < 0.0 ? frame::kFirstDtSeconds : timeS - lastTimeS;
     return static_cast<float>(frame::clampDt(elapsed));
 }

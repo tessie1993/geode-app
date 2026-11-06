@@ -131,6 +131,9 @@ jobs:
           # Voice "play X" over the library (#382): query, focus extras, blank = everything, no match = nothing.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/library_search_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o library_search_test
           ./library_search_test
+          # The encoder fallback ladder (#607): the rungs, the 30 fps floor, the 2/3 bit rate, an unknown ceiling.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/encoder_ladder_test.cpp core/api/geode_output_api.cpp -o encoder_ladder_test
+          ./encoder_ladder_test
           # glTF import (#474): #455's limits on fixture .glb files built by the test, the 4x decimation
           # with before/after counts, refusals, and the low-detail copy. Uses the cgltf and meshoptimizer submodules.
           g++ -std=c++20 -O1 -Wall -Wextra -Icore -Ithird_party/cgltf -Ithird_party/meshoptimizer/src core/tests/gltf_import_test.cpp \

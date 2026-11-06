@@ -46,7 +46,12 @@ inline int truncate(float value) {
 }
 
 // The tile's width from the measured width of the text (Paint.measureText at textPx).
-inline int tileWidth(float textWidth) { return nextPowerOfTwo(std::max(truncate(textWidth * kTileSpacing), kMinTilePx)); }
+// Capped at 2^30 first: past that the next power of two overflows int (an absurd width, but never a
+// negative or zero tile).
+inline int tileWidth(float textWidth) {
+    constexpr int kMaxTilePx = 1 << 30;
+    return nextPowerOfTwo(std::clamp(truncate(textWidth * kTileSpacing), kMinTilePx, kMaxTilePx));
+}
 
 // Half the width, rounded up to a power of two: the diagonal wordmark needs less height than width.
 inline int tileHeight(int tileWidth) { return nextPowerOfTwo(tileWidth / 2); }

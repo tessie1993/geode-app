@@ -12,6 +12,8 @@ geode_loudness* loudnessOf(jlong handle) { return reinterpret_cast<geode_loudnes
 
 // Layout of the double[] loudnessFinish fills; GeodeNative.loudnessFinish documents the same order.
 constexpr jsize kReportDoubles = 5;
+// Layout of the double[] loudnessAdvise fills; GeodeNative.ADVICE_* documents the same order.
+constexpr jsize kAdviceDoubles = 9;
 
 }  // namespace
 
@@ -87,6 +89,32 @@ Java_dev_geode_engine_bridge_GeodeNative_loudnessFinish(JNIEnv* env, jobject, jl
         env->SetDoubleArrayRegion(out, 0, kReportDoubles, values);
     }
     return report.has_integrated ? JNI_TRUE : JNI_FALSE;
+}
+
+// Loudness targets (audio/dsp/LoudnessTarget). Fills kAdviceDoubles in GeodeNative.loudnessAdvise's order
+// and returns the advice kind.
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_loudnessAdvise(JNIEnv* env, jobject, jboolean hasIntegrated, jdouble lufs,
+                                                       jdouble truePeakDbtp, jint target, jdoubleArray out) {
+    geode_loudness_report report{};
+    report.has_integrated = hasIntegrated ? 1 : 0;
+    report.integrated_lufs = lufs;
+    report.true_peak_dbtp = truePeakDbtp;
+    geode_loudness_advice advice{};
+    const int kind = geode_loudness_advise(&report, target, &advice);
+    if (out && env->GetArrayLength(out) >= kAdviceDoubles) {
+        const jdouble values[kAdviceDoubles] = {advice.gain_db,
+                                                advice.gain_for_level_db,
+                                                advice.lufs,
+                                                advice.true_peak_dbtp,
+                                                advice.resulting_lufs,
+                                                advice.resulting_true_peak_dbtp,
+                                                advice.ceiling_dbtp,
+                                                advice.quiet_under_youtube_lu,
+                                                advice.peak_warning ? 1.0 : 0.0};
+        env->SetDoubleArrayRegion(out, 0, kAdviceDoubles, values);
+    }
+    return kind;
 }
 
 }

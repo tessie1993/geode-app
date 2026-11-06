@@ -2,6 +2,7 @@
 
 #include "api/geode_api.h"
 #include "audio/dsp/Loudness.hpp"
+#include "audio/dsp/LoudnessTarget.hpp"
 #include "audio/dsp/PcmResampler.hpp"
 
 struct geode_resampler {
@@ -70,6 +71,32 @@ void geode_loudness_finish(geode_loudness* l, geode_loudness_report* out) {
     out->sample_peak_dbfs = r.samplePeakDbfs;
     out->measured_ms = r.measuredMs;
     out->gated_block_count = r.gatedBlockCount;
+}
+
+int geode_loudness_advise(const geode_loudness_report* report, int target, geode_loudness_advice* out) {
+    geode::audio::LoudnessReport r;
+    if (report) {
+        r.hasIntegrated = report->has_integrated != 0;
+        r.integratedLufs = report->integrated_lufs;
+        r.truePeakDbtp = report->true_peak_dbtp;
+        r.samplePeakDbfs = report->sample_peak_dbfs;
+        r.measuredMs = report->measured_ms;
+        r.gatedBlockCount = report->gated_block_count;
+    }
+    const auto a = geode::audio::adviseLoudness(r, static_cast<geode::audio::LoudnessTargetId>(target));
+    const int kind = static_cast<int>(a.kind);
+    if (!out) return kind;
+    out->kind = kind;
+    out->gain_db = a.gainDb;
+    out->gain_for_level_db = a.gainForLevelDb;
+    out->lufs = a.lufs;
+    out->true_peak_dbtp = a.truePeakDbtp;
+    out->resulting_lufs = a.resultingLufs;
+    out->resulting_true_peak_dbtp = a.resultingTruePeakDbtp;
+    out->ceiling_dbtp = a.ceilingDbtp;
+    out->quiet_under_youtube_lu = a.quietUnderYouTubeLu;
+    out->peak_warning = a.peakWarning ? 1 : 0;
+    return kind;
 }
 
 }

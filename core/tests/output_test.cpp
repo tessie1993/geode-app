@@ -1,11 +1,13 @@
 // Host-side checks for the offline render's planning (core/output: FrameClock, LoopPlan, EncodePlan,
-// Chapters) and its C ABI. Built and run by CI (.github/workflows/android.yml, "Native export planning
-// tests") with the system compiler; no device. Where a value pins the Kotlin it replaces (VideoExporter,
-// LoopSpec, LoopExtendPlan, MuxerBudget, ExportAspect, fallbackExportFps, ChapterMarkers), the comment says
-// so; the deliberate changes (exact pts, the seam budget's lost frame, the 0:00 lead-in) say why.
+// Chapters, ExportRange, RenderEta) and its C ABI. Built and run by CI (.github/workflows/android.yml,
+// "Native export planning tests") with the system compiler; no device. Where a value pins the Kotlin it
+// replaces (VideoExporter, LoopSpec, LoopExtendPlan, MuxerBudget, ExportAspect, fallbackExportFps,
+// ChapterMarkers, ExportRange.of, RenderEta and its JVM RenderEtaTest), the comment says so; the deliberate
+// changes (exact pts, the seam budget's lost frame, the 0:00 lead-in) say why.
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <cstdio>
 #include <random>
 #include <vector>
@@ -13,8 +15,10 @@
 #include "api/geode_api.h"
 #include "output/Chapters.hpp"
 #include "output/EncodePlan.hpp"
+#include "output/ExportRange.hpp"
 #include "output/FrameClock.hpp"
 #include "output/LoopPlan.hpp"
+#include "output/RenderEta.hpp"
 #include "viz/FrameStep.hpp"
 
 using namespace geode::output;
@@ -203,6 +207,105 @@ void chapters() {
     int32_t src[4];
     check(geode_chapters_from_markers(late, 2, 120'000, s, d, src, 4) == 3 && src[0] == -1 && s[2] == 90'000,
           "ABI chapters");
+}
+
+
+// The Kotlin ExportRange.of: both ends clamped into the track; a part under a second, or the whole track,
+// renders the whole track.
+void exportRange() {
+    ExportRange r;
+    check(clampExportRange(10'000, 40'000, 180'000, &r) && r.startMs == 10'000 && r.durationMs == 30'000, "a part");
+    check(clampExportRange(-5'000, 40'000, 180'000, &r) && r.startMs == 0 && r.durationMs == 40'000,
+          "a start before 0:00 is clamped");
+    check(clampExportRange(170'000, 999'000, 180'000, &r) && r.startMs == 170'000 && r.durationMs == 10'000,
+          "an end past the track is clamped");
+    r = {7, 7};
+    check(!clampExportRange(0, 180'000, 180'000, &r) && r.startMs == 7, "the whole track is no range, out untouched");
+    check(!clampExportRange(0, 500'000, 180'000, &r), "past both ends is the whole track");
+    check(!clampExportRange(10'000, 10'999, 180'000, &r), "under a second is no range");
+    check(clampExportRange(10'000, 11'000, 180'000, &r) && r.durationMs == kMinExportRangeMs, "exactly a second is a range");
+    check(!clampExportRange(40'000, 10'000, 180'000, &r), "ends the wrong way round");
+    check(!clampExportRange(0, 1'000, 0, &r), "a track with no length");
+    check(clampExportRange(0, 1'000, 180'000, nullptr), "out may be null");
+
+    int64_t start = -1;
+    int64_t duration = -1;
+    check(geode_export_range_clamp(10'000, 40'000, 180'000, &start, &duration) == 1 && start == 10'000 &&
+              duration == 30'000,
+          "ABI range");
+    check(geode_export_range_clamp(0, 180'000, 180'000, &start, &duration) == 0 && start == 10'000, "ABI whole track");
+    check(geode_export_range_min_ms() == 1'000, "ABI minimum");
+}
+
+// QA #24, moved from the JVM RenderEtaTest: a fast lead-in (analysis, audio transcode) made the old estimate
+// start low, climb, then count down. The lead-in is flagged not steady and must not bend the estimate.
+void renderEta() {
+    RenderEtaState eta;
+    int64_t now = 0;
+    bool silent = true;
+    // Analysis takes 0..0.2 of the bar in 3 s, the AAC transcode 0.2..0.28 in 2 s.
+    for (int step = 0; step <= 30; ++step) {
+        silent = silent && renderEtaSample(eta, 0.2f * static_cast<float>(step) / 30.0f, now, false) == -1;
+        now += 100;
+    }
+    for (int step = 0; step <= 20; ++step) {
+        silent = silent && renderEtaSample(eta, 0.2f + 0.08f * static_cast<float>(step) / 20.0f, now, false) == -1;
+        now += 100;
+    }
+    check(silent, "eta: the lead-in shows nothing");
+    // The render takes the rest of the bar at an even pace over four minutes.
+    const int64_t renderMs = 240'000;
+    const int64_t renderStart = now;
+    int shown = 0;
+    int64_t previous = -1;
+    bool early = true;
+    bool close = true;
+    bool down = true;
+    while (now - renderStart <= renderMs) {
+        const float done = static_cast<float>(now - renderStart) / static_cast<float>(renderMs);
+        const int64_t estimate = renderEtaSample(eta, 0.28f + 0.72f * done, now, true);
+        if (now - renderStart < 10'000 && estimate != -1) early = false;
+        if (estimate != -1) {
+            const int64_t truth = (renderMs - (now - renderStart)) / 1000;
+            if (std::llabs(estimate - truth) > 3) close = false;
+            if (previous != -1 && estimate > previous + 1) down = false;
+            previous = estimate;
+            ++shown;
+        }
+        now += 100;
+    }
+    check(early, "eta: nothing for the warm-up and the first span");
+    check(close, "eta: within 3 s of the truth");
+    check(down, "eta: never climbs");
+    check(shown > 2'000, "eta: shown for most of the render");
+
+    RenderEtaState back;
+    renderEtaSample(back, 0.5f, 0, true);
+    check(renderEtaSample(back, 0.4f, 100, true) == -1 && back.latestProgress == 0.4f && !back.steady,
+          "eta: progress moving backwards starts over");
+    check(renderEtaSample(back, 1.0f, 200, true) == 0, "eta: done is 0 s left");
+    check(renderEtaSample(back, 1.7f, 300, true) == 0 && back.latestProgress == 1.0f, "eta: progress is clamped");
+
+    // The ABI state: zeroed is fresh, and it carries across calls exactly as the C++ one does.
+    geode_render_eta abi{};
+    RenderEtaState mirror;
+    bool same = true;
+    for (int64_t t = 0; t <= 60'000; t += 250) {
+        const float p = static_cast<float>(t) / 120'000.0f;
+        if (geode_render_eta_sample(&abi, p, t, 1) != renderEtaSample(mirror, p, t, true)) same = false;
+    }
+    check(same, "eta: ABI matches");
+    check(geode_render_eta_sample(nullptr, 0.5f, 0, 1) == -1, "eta: ABI null state");
+
+    int64_t n = -1;
+    check(renderEtaPhrase(29, &n) == EtaPhrase::AlmostDone && n == 0, "eta words: under 30 s is almost done");
+    check(renderEtaPhrase(30, &n) == EtaPhrase::AboutAMinute && renderEtaPhrase(89, &n) == EtaPhrase::AboutAMinute,
+          "eta words: about a minute");
+    check(renderEtaPhrase(90, &n) == EtaPhrase::Minutes && n == 2, "eta words: 90 s rounds to 2 minutes");
+    check(renderEtaPhrase(3'599, &n) == EtaPhrase::Minutes && n == 60, "eta words: just under an hour");
+    check(renderEtaPhrase(3'600, &n) == EtaPhrase::Hours && n == 1, "eta words: an hour");
+    check(renderEtaPhrase(5'400, &n) == EtaPhrase::Hours && n == 2, "eta words: 1.5 h rounds up");
+    check(geode_render_eta_phrase(150, &n) == 2 && n == 3 && geode_render_eta_phrase(10, nullptr) == 0, "eta words: ABI");
 }
 
 // ── #415 follow-up: boundaries, long renders and parity with the deleted Kotlin tests ──────────────────
@@ -610,6 +713,8 @@ int main() {
     loopExtend();
     encodePlan();
     chapters();
+    exportRange();
+    renderEta();
     frameClockBoundaries();
     soundEveryFrameHears();
     loopSpecBoundaries();

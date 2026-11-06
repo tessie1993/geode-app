@@ -1,5 +1,7 @@
 package dev.geode.export
 
+import dev.geode.engine.bridge.GeodeNative
+
 data class ExportRange(
     val startMs: Long,
     val durationMs: Long,
@@ -12,20 +14,17 @@ data class ExportRange(
     val endMs: Long get() = startMs + durationMs
 
     companion object {
-        const val MIN_DURATION_MS: Long = 1_000
+        /** The shortest part worth rendering; the rule is native (`core/output/ExportRange`). */
+        val minDurationMs: Long get() = GeodeNative.exportRangeMinMs()
 
-        @Suppress("ReturnCount")
+        /** A part of the track, clamped natively; null renders the whole track. */
         fun of(
             startMs: Long,
             endMs: Long,
             trackDurationMs: Long,
         ): ExportRange? {
-            if (trackDurationMs <= 0) return null
-            val start = startMs.coerceIn(0, trackDurationMs)
-            val end = endMs.coerceIn(0, trackDurationMs)
-            if (end - start < MIN_DURATION_MS) return null
-            if (start == 0L && end >= trackDurationMs) return null
-            return ExportRange(start, end - start)
+            val out = LongArray(2)
+            return if (GeodeNative.exportRangeClamp(startMs, endMs, trackDurationMs, out)) ExportRange(out[0], out[1]) else null
         }
     }
 }

@@ -427,10 +427,7 @@ object ProjectComposition {
         startMs: Long,
         endMs: Long,
         cues: List<SubtitleCue>,
-    ): Effect? {
-        val local = TimedTextOverlay.forSpan(cues, startMs, endMs)
-        return if (local.isEmpty()) null else OverlayEffect(listOf(TimedTextOverlay(local)))
-    }
+    ): Effect? = TimedTextOverlay.forSpan(cues, startMs, endMs)?.let { OverlayEffect(listOf(it)) }
 
     /** Only ever called for a [ClipRender.Footage] clip, so every other content kind is unreachable here. */
     private fun footageItem(

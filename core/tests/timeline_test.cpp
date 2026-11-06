@@ -1,5 +1,5 @@
-// Host-side checks for keyframe evaluation and clip speed ramps (core/signal/timeline: Keyframes,
-// SpeedRamp) and their C ABI. Built and run by CI (.github/workflows/android.yml, "Native export planning
+// Host-side checks for keyframe evaluation, clip speed ramps and caption cues (core/signal/timeline: Keyframes,
+// SpeedRamp, Cues) and their C ABI. Built and run by CI (.github/workflows/android.yml, "Native export planning
 // tests"). The behaviour pinned is the Kotlin editor/Keyframes.kt (BezierCurve, Interpolation,
 // KeyframeTrack.valueAt) and export/SpeedRamp.kt, which these replace on the export and preview paths.
 #include <cmath>
@@ -7,6 +7,7 @@
 #include <cstdio>
 
 #include "api/geode_api.h"
+#include "signal/timeline/Cues.hpp"
 #include "signal/timeline/Keyframes.hpp"
 #include "signal/timeline/SpeedRamp.hpp"
 
@@ -187,12 +188,62 @@ void speedRamp() {
     geode_track_destroy(abi);
 }
 
+// The Kotlin TimedTextOverlay: forSpan's filter and re-base, and getText's first-match lookup from the
+// first frame's timestamp.
+// A frame's caption the way the overlay asks: item time from the clock, then the first cue that spans it.
+int32_t live(const CueTable& table, CueClock& clock, int64_t presentationUs) {
+    return table.at(clock.itemMs(presentationUs));
+}
+
+void cues() {
+    // Project time: 0..4 s, 3..9 s (overlapping the first), 12..15 s.
+    const int64_t starts[] = {0, 3'000, 12'000};
+    const int64_t ends[] = {4'000, 9'000, 15'000};
+    const CueTable item = CueTable::forSpan(starts, ends, 3, 2'000, 10'000);
+    check(item.cues().size() == 2, "cues: only those touching the span");
+    check(item.cues()[0].startMs == 0 && item.cues()[0].endMs == 2'000 && item.cues()[0].source == 0,
+          "cues: one starting before the span is cut to its first frame");
+    check(item.cues()[1].startMs == 1'000 && item.cues()[1].endMs == 7'000 && item.cues()[1].source == 1,
+          "cues: re-based to the item");
+    check(item.at(0) == 0 && item.at(1'500) == 0, "cues: the first that spans wins where two overlap");
+    check(item.at(2'000) == 1 && item.at(6'999) == 1, "cues: the end is exclusive");
+    check(item.at(7'000) == -1 && item.at(-1) == -1, "cues: blank where none spans");
+    const CueTable tail = CueTable::forSpan(starts, ends, 3, 13'000, 14'000);
+    check(tail.cues().size() == 1 && tail.cues()[0].startMs == 0 && tail.cues()[0].endMs == 1'000 &&
+              tail.cues()[0].source == 2,
+          "cues: one running past the span is cut to its length");
+    check(CueTable::forSpan(starts, ends, 3, 9'000, 12'000).empty(), "cues: an end at the span start misses");
+    check(CueTable::forSpan(starts, ends, 3, 10'000, 12'000).empty(), "cues: a start at the span end misses");
+    check(CueTable::forSpan(nullptr, ends, 3, 0, 1'000).empty(), "cues: no starts");
+
+    CueClock clock;
+    check(live(item, clock, 5'000'000) == 0, "cues: the first frame is the origin");
+    check(live(item, clock, 5'000'000 + 2'500'000) == 1, "cues: later frames from that origin");
+    check(live(item, clock, 5'000'000 + 7'000'000) == -1, "cues: past the last cue");
+
+    // The ABI is stateless: triples out, then the lookup with the caller's origin pair.
+    int64_t triples[9] = {};
+    check(geode_cues_for_span(starts, ends, 3, 2'000, 10'000, triples, 3) == 2, "ABI cues");
+    check(triples[0] == 0 && triples[1] == 2'000 && triples[2] == 0 && triples[3] == 1'000 && triples[4] == 7'000 &&
+              triples[5] == 1,
+          "ABI cues: the triples match the table");
+    int64_t origin[2] = {0, 0};
+    check(geode_cues_at(triples, 2, origin, 1'000'000) == 0 && origin[0] == 1 && origin[1] == 1'000'000,
+          "ABI cue lookup: the first frame fixes the caller's origin");
+    check(geode_cues_at(triples, 2, origin, 1'000'000 + 3'000'000) == 1, "ABI cue lookup from that origin");
+    check(geode_cues_for_span(starts, ends, 3, 2'000, 10'000, triples, 1) == 1, "ABI: cap bounds the triples");
+    check(geode_cues_for_span(starts, ends, 3, 20'000, 30'000, triples, 3) == 0, "ABI: no cue in the span is 0");
+    check(geode_cues_at(nullptr, 0, origin, 0) == -1 && geode_cues_at(triples, 2, nullptr, 0) == -1,
+          "ABI: no cues or no clock is blank");
+}
+
 }  // namespace
 
 int main() {
     bezier();
     tracks();
     speedRamp();
+    cues();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

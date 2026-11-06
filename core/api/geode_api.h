@@ -270,6 +270,37 @@ GEODE_API void            geode_loudness_feed(geode_loudness*, const float* inte
 GEODE_API int             geode_loudness_has_block(geode_loudness*);   /* 1 once a 400 ms block exists */
 GEODE_API void            geode_loudness_finish(geode_loudness*, geode_loudness_report* out);   /* non-destructive */
 
+/* Loudness targets (audio/dsp/LoudnessTarget): what to do about a measured export. The windows, the gain and
+ * ceiling decision and which advice applies are here; the sentences stay Kotlin, keyed by the kind. */
+#define GEODE_LOUDNESS_TARGET_YOUTUBE 0
+#define GEODE_LOUDNESS_TARGET_SHORTS  1
+#define GEODE_LOUDNESS_TARGET_AS_IS   2   /* and any unknown id */
+#define GEODE_LOUDNESS_ADVICE_NOTHING_TO_MEASURE  0
+#define GEODE_LOUDNESS_ADVICE_AS_MIXED            1
+#define GEODE_LOUDNESS_ADVICE_ON_TARGET           2
+#define GEODE_LOUDNESS_ADVICE_UNCHANGED           3
+#define GEODE_LOUDNESS_ADVICE_RAISE               4
+#define GEODE_LOUDNESS_ADVICE_RAISE_LIMITED       5
+#define GEODE_LOUDNESS_ADVICE_LOWER_CLIPPING      6
+#define GEODE_LOUDNESS_ADVICE_LOWER_LOUD_LIMITED  7
+#define GEODE_LOUDNESS_ADVICE_LOWER_LOUD          8
+#define GEODE_LOUDNESS_ADVICE_LOWER_PEAK          9
+typedef struct geode_loudness_advice {
+    int    kind;                      /* GEODE_LOUDNESS_ADVICE_* */
+    double gain_db;                   /* the gain to apply on export; 0 unless a normalise kind */
+    double gain_for_level_db;         /* what the level alone needed (the ceiling may have cut it short) */
+    double lufs;
+    double true_peak_dbtp;
+    double resulting_lufs;
+    double resulting_true_peak_dbtp;
+    double ceiling_dbtp;              /* the target's; 0 for as-is */
+    double quiet_under_youtube_lu;    /* as-mixed: > 0 when worth saying */
+    int    peak_warning;              /* as-mixed: over YouTube's -1 dBTP */
+} geode_loudness_advice;
+/* Returns out->kind (out may be NULL for the kind alone); a NULL report is nothing to measure. */
+GEODE_API int             geode_loudness_advise(const geode_loudness_report* report, int target,
+                                                geode_loudness_advice* out);
+
 /* Rest when silent (sound/Silence): the live wallpaper's and the dream's silence rule. A poll hands in the
  * newest planar samples written since the last one (frames 0 when nothing was written) and the time sound
  * was last heard, and gets that time back, moved to now when any sample is above about -42 dBFS. Resting is
@@ -333,6 +364,40 @@ GEODE_API int     geode_chapters_from_clips(const int64_t* starts_ms, const int6
 GEODE_API int     geode_chapters_from_markers(const int64_t* markers_ms, int count, int64_t total_ms,
                                               int64_t* out_start_ms, int64_t* out_duration_ms, int32_t* out_source,
                                               int capacity);
+
+/* Render range (output/ExportRange): a part of the track, both ends clamped into it. 0 (outputs untouched)
+ * means render the whole track: no length, a part under geode_export_range_min_ms(), or the whole of it. */
+GEODE_API int     geode_export_range_clamp(int64_t start_ms, int64_t end_ms, int64_t track_ms,
+                                           int64_t* out_start_ms, int64_t* out_duration_ms);
+GEODE_API int64_t geode_export_range_min_ms(void);
+
+/* Time left for a render (output/RenderEta). The caller keeps the state; a zeroed one is a fresh estimate,
+ * so starting over is a memset. -1 while there is not yet enough steady progress to say. */
+typedef struct geode_render_eta {
+    int32_t steady;
+    int32_t based;
+    int32_t shown;
+    float   base_progress;
+    float   latest_progress;
+    float   shown_seconds;
+    int64_t steady_since_ms;
+    int64_t base_ms;
+    int64_t shown_at_ms;
+} geode_render_eta;
+GEODE_API int64_t geode_render_eta_sample(geode_render_eta* state, float progress, int64_t at_ms, int steady);
+/* How seconds left reads: 0 almost done, 1 about a minute, 2 minutes, 3 hours; *out_count the rounded
+ * minutes or hours (0 for the first two). */
+GEODE_API int     geode_render_eta_phrase(int64_t seconds_left, int64_t* out_count);
+
+/* Caption cues (signal/timeline/Cues): the text-lane cues touching [span_start_ms, span_end_ms), re-based to
+ * the item's first frame, written as up to `cap` (start ms, end ms, source index) triples into out_triples;
+ * returns how many (0 when none touches the span). The text stays Kotlin, keyed by source index. Stateless:
+ * the caller keeps the triples and the origin pair, so no handle has to outlive a Media3 overlay. */
+GEODE_API int geode_cues_for_span(const int64_t* starts_ms, const int64_t* ends_ms, int count, int64_t span_start_ms,
+                                  int64_t span_end_ms, int64_t* out_triples, int cap);
+/* The source index of the cue on screen at a frame's presentation time, -1 for none. origin2 is the item's clock
+ * (has origin, origin us), kept by the caller and all zeros before its first frame, which fixes it. */
+GEODE_API int geode_cues_at(const int64_t* triples, int count, int64_t* origin2, int64_t presentation_us);
 
 /* Keyframe tracks (signal/timeline/Keyframes). kind: 0 scalar, 1 vector2, 2 colour (4 floats), 3 toggle,
  * 4 choice; interp: 0 hold, 1 linear, 2 bezier (c1x, c1y, c2x, c2y; the Ease presets are beziers too).

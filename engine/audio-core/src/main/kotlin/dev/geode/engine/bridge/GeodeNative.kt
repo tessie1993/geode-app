@@ -551,6 +551,48 @@ object GeodeNative {
         out: DoubleArray,
     ): Boolean
 
+    // Loudness targets (core/audio/dsp/LoudnessTarget): the windows, the gain and ceiling decision and which
+    // advice applies. The sentences stay Kotlin (export/LoudnessTarget.kt), keyed by the kind.
+
+    const val LOUDNESS_TARGET_YOUTUBE = 0
+    const val LOUDNESS_TARGET_SHORTS = 1
+    const val LOUDNESS_TARGET_AS_IS = 2
+
+    const val ADVICE_NOTHING_TO_MEASURE = 0
+    const val ADVICE_AS_MIXED = 1
+    const val ADVICE_ON_TARGET = 2
+    const val ADVICE_UNCHANGED = 3
+    const val ADVICE_RAISE = 4
+    const val ADVICE_RAISE_LIMITED = 5
+    const val ADVICE_LOWER_CLIPPING = 6
+    const val ADVICE_LOWER_LOUD_LIMITED = 7
+    const val ADVICE_LOWER_LOUD = 8
+    const val ADVICE_LOWER_PEAK = 9
+
+    /** Indices into the double[] [loudnessAdvise] fills. */
+    const val ADVICE_GAIN_DB = 0
+    const val ADVICE_GAIN_FOR_LEVEL_DB = 1
+    const val ADVICE_LUFS = 2
+    const val ADVICE_TRUE_PEAK_DBTP = 3
+    const val ADVICE_RESULTING_LUFS = 4
+    const val ADVICE_RESULTING_TRUE_PEAK_DBTP = 5
+    const val ADVICE_CEILING_DBTP = 6
+    const val ADVICE_QUIET_UNDER_YOUTUBE_LU = 7
+    const val ADVICE_PEAK_WARNING = 8
+    const val ADVICE_DOUBLES = 9
+
+    /**
+     * What to do about a measured file for [target] (LOUDNESS_TARGET_*): returns the ADVICE_* kind and
+     * fills [out] ([ADVICE_DOUBLES], ADVICE_* indices; the peak warning is 1.0 or 0.0).
+     */
+    external fun loudnessAdvise(
+        hasIntegrated: Boolean,
+        lufs: Double,
+        truePeakDbtp: Double,
+        target: Int,
+        out: DoubleArray,
+    ): Int
+
     // Export planning and clip maths (core/output, core/signal/timeline, viz/ClipGrade, util/CubeLut,
     // audio/dsp/PcmConvert). Pure functions, any thread; the Kotlin exporters only marshal through these.
 
@@ -660,6 +702,69 @@ object GeodeNative {
     )
 
     external fun exportFallbackFps(requestedFps: Int): Int
+
+    /**
+     * A part of the track to render, both ends clamped into it: true with [out] = (start ms, duration ms);
+     * false for the whole track (no length, a part under [exportRangeMinMs], or the whole of it).
+     */
+    external fun exportRangeClamp(
+        startMs: Long,
+        endMs: Long,
+        trackMs: Long,
+        out: LongArray,
+    ): Boolean
+
+    external fun exportRangeMinMs(): Long
+
+    /**
+     * Size of the render-ETA state [renderEtaSample] carries: steady, based, shown (1.0 or 0.0), base
+     * progress, latest progress, shown seconds, steady-since ms, base ms, shown-at ms. All zeros is a fresh
+     * estimate, so starting over is `fill(0.0)`.
+     */
+    const val ETA_STATE_DOUBLES = 9
+
+    /** Seconds left for the running render, or -1 while there is not yet enough steady progress to say. */
+    external fun renderEtaSample(
+        state: DoubleArray,
+        progress: Float,
+        atMs: Long,
+        steady: Boolean,
+    ): Long
+
+    const val ETA_ALMOST_DONE = 0
+    const val ETA_ABOUT_A_MINUTE = 1
+    const val ETA_MINUTES = 2
+    const val ETA_HOURS = 3
+
+    /** Which ETA_* phrase [secondsLeft] reads as; [outCount] gets the rounded minutes or hours. */
+    external fun renderEtaPhrase(
+        secondsLeft: Long,
+        outCount: LongArray,
+    ): Int
+
+    /**
+     * The caption cues touching [spanStartMs]..[spanEndMs], re-based to the item, as (start ms, end ms, source
+     * index) triples; empty when none does. Nothing native is held: the caller keeps the array.
+     */
+    external fun cuesForSpan(
+        startsMs: LongArray,
+        endsMs: LongArray,
+        spanStartMs: Long,
+        spanEndMs: Long,
+    ): LongArray
+
+    /** The item's caption clock for [cuesAt]: (has origin, origin us); all zeros before its first frame. */
+    const val CUE_ORIGIN_LONGS = 2
+
+    /**
+     * The source index of the caption at a frame's time, -1 for none. [origin] is the item's clock
+     * ([CUE_ORIGIN_LONGS] longs, zeros at first); the first frame fixes it in place.
+     */
+    external fun cuesAt(
+        triples: LongArray,
+        origin: LongArray,
+        presentationUs: Long,
+    ): Int
 
     /** Chapter spans as (start ms, duration ms, source) triples; empty under two clips. */
     external fun chaptersFromClips(

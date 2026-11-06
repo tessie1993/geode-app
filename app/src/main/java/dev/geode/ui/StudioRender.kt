@@ -708,7 +708,7 @@ private fun RenderLengthGroup(
                 val range = length.rangeFor(trackDurationMs)
                 OptionHint(
                     if (range == null) {
-                        stringResource(R.string.export_segment_hint, (ExportRange.MIN_DURATION_MS / 1000).toInt())
+                        stringResource(R.string.export_segment_hint, (ExportRange.minDurationMs / 1000).toInt())
                     } else {
                         stringResource(
                             R.string.export_segment_summary,

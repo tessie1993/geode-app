@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 
+#include "util/Log.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/EndlessZoom.hpp"
 #include "viz/NoteResponse.hpp"
@@ -15,6 +16,7 @@ namespace geode::viz {
 
 namespace {
 
+constexpr const char* kTag = "ShaderScene";
 constexpr int kPaletteRows = 5;
 constexpr int kMarchMaxSteps = 128;
 constexpr int kMarchFloorSteps = 64;
@@ -287,27 +289,41 @@ void ShaderScene::uploadCamera() {
 void ShaderScene::uploadWorld() {
     if (!world_) return;
     if (worldShapesTex_ == 0 && !worldShapes_.empty()) {
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        glGenTextures(1, &worldShapesTex_);
-        glBindTexture(GL_TEXTURE_3D, worldShapesTex_);
-        glTexImage3D(GL_TEXTURE_3D, 0, GL_R8, world::kShapeRes, world::kShapeRes, world::kShapeRes * world::kShapeCount, 0,
-                     GL_RED, GL_UNSIGNED_BYTE, worldShapes_.data());
-        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-        glGenTextures(1, &worldMapsTex_);
-        glBindTexture(GL_TEXTURE_2D_ARRAY, worldMapsTex_);
-        glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_R8, world::kTexRes, world::kTexRes, world::kTexCount, 0, GL_RED,
-                     GL_UNSIGNED_BYTE, worldMaps_.data());
-        glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
-        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-        world_->setAssetsBound(worldShapesTex_ != 0 && worldMapsTex_ != 0);
+        // The slabs stacked in z would be 32 x 32 x 768, over the 256 GLES 3.0 promises; the atlas
+        // (WorldAssets::packAtlas, 192 x 128 x 32) fits any device. Should a driver still report
+        // less, leave the assets unbound: lib_world draws its sphere (WG_ASSETS 0), not garbage.
+        GLint max3d = 0;
+        glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &max3d);
+        const std::vector<uint8_t> atlas = world::packAtlas(std::vector<uint8_t>(worldShapes_.begin(), worldShapes_.end()));
+        if (max3d < world::atlasMaxDimension() || atlas.empty()) {
+            GEODE_LOGW(kTag, "Morph World shapes need a %d^3 texture, this device allows %d: drawing spheres",
+                       world::atlasMaxDimension(), static_cast<int>(max3d));
+            worldShapes_.clear();
+            worldMaps_.clear();
+            world_->setAssetsBound(false);
+        } else {
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            glGenTextures(1, &worldShapesTex_);
+            glBindTexture(GL_TEXTURE_3D, worldShapesTex_);
+            glTexImage3D(GL_TEXTURE_3D, 0, GL_R8, world::kAtlasWidth, world::kAtlasHeight, world::kAtlasDepth, 0, GL_RED,
+                         GL_UNSIGNED_BYTE, atlas.data());
+            glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+            glGenTextures(1, &worldMapsTex_);
+            glBindTexture(GL_TEXTURE_2D_ARRAY, worldMapsTex_);
+            glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_R8, world::kTexRes, world::kTexRes, world::kTexCount, 0, GL_RED,
+                         GL_UNSIGNED_BYTE, worldMaps_.data());
+            glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+            world_->setAssetsBound(worldShapesTex_ != 0 && worldMapsTex_ != 0);
+        }
     }
     if (worldShapesTex_ != 0) {
         // Units 4 and 5: 1 is the flow, 2 the palette LUT, 3 the sound texture.

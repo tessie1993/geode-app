@@ -20,7 +20,6 @@ import dev.geode.render.LfoConfig
 import dev.geode.render.SceneFactory
 import dev.geode.render.offscreen.OffscreenRenderSpec
 import dev.geode.render.offscreen.OffscreenSceneRenderer
-import dev.geode.render.scene.GlUtil
 import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.Dispatchers
@@ -401,7 +400,7 @@ class LoopRender(
         } catch (e: IOException) {
             RingLog.note(TAG, "loop render failed to write to cache", e)
             return discard(rendered, pending, failed(R.string.export_error_loop_cache_write, e.message.orEmpty()))
-        } catch (e: GlUtil.ShaderCompileException) {
+        } catch (e: SeamBuildException) {
             RingLog.note(TAG, "loop render's seam shader failed to compile", e)
             return discard(rendered, pending, failed(R.string.export_error_loop_shader_compile, e.message.orEmpty()))
         }
@@ -478,12 +477,8 @@ class LoopRender(
     }
 
     /**
-     * Draws one loop plus its tail.
-     *
-     * The opening [seamFrames] frames are rendered but not presented: they are copied into the
-     * stash and blended back over the closing frames, so the loop's last frame dissolves into
-     * what the viewer is about to see again. Output frame `j` is source frame `j + seamFrames`,
-     * which keeps the presented timestamps monotonic and the encoder in a single pass.
+     * Draws one loop plus its tail. Which frames are stashed, blended and presented, and at what
+     * time, is the native seam driver's (`core/viz/frame/LoopSeam`): this only presents.
      */
     private fun drawFrames(
         scene: OffscreenSceneRenderer,
@@ -508,13 +503,10 @@ class LoopRender(
                 break
             }
             scene.renderFrame(frame)
-            if (frame < seamFrames) {
-                seam.capture(frame)
-            } else {
-                val tail = frame - loopFrames
-                if (tail >= 0) seam.blendOver(tail, seamFrames)
+            val ptsNs = seam.frame(frame, loopFrames, seamFrames, fps)
+            if (ptsNs >= 0) {
                 mark?.draw()
-                egl.setPresentationTimeNs(GeodeNative.exportFramePtsNs((frame - seamFrames).toLong(), fps))
+                egl.setPresentationTimeNs(ptsNs)
                 egl.swapBuffers()
                 writer.drain(untilEndOfStream = false)
             }
@@ -622,11 +614,8 @@ class LoopRender(
     }
 
     /**
-     * Shortens the seam to what the GPU can be expected to hold.
-     *
-     * The stash keeps one full-resolution frame per crossfade frame, so the affordable seam
-     * length falls as the render size rises: a second of 4K costs four times what a second of
-     * 1080p does.
+     * Shortens the seam to what the GPU can be expected to hold: the stash's 192 MB budget, one
+     * full-resolution frame per crossfade frame (`core/viz/frame/LoopSeam`).
      */
     private fun budgetedSpec(
         spec: LoopSpec,
@@ -795,20 +784,20 @@ class LoopRender(
     ) : Closeable {
         private var handle = GeodeNative.exportSeamCreate(context.assets, width, height)
 
-        /** Throws [GlUtil.ShaderCompileException] when the pass did not build, as the Kotlin shader's compile did. */
+        /** Throws [SeamBuildException] when the pass did not build, as the Kotlin shader's compile did. */
         fun allocate(requested: Int): Int {
             val error = if (handle == 0L) "out of memory" else GeodeNative.exportPassError(handle)
-            if (error.isNotEmpty()) throw GlUtil.ShaderCompileException(error)
+            if (error.isNotEmpty()) throw SeamBuildException(error)
             return GeodeNative.exportSeamAllocate(handle, requested)
         }
 
-        fun capture(index: Int) = GeodeNative.exportSeamCapture(handle, index)
-
-        /** Mixes stashed frame [tail] over what the scene just drew, closing frame [tail] of [seamFrames]. */
-        fun blendOver(
-            tail: Int,
+        /** Stashes or blends source [frame]; its presentation time in ns, or -1 when it is not presented. */
+        fun frame(
+            frame: Int,
+            loopFrames: Int,
             seamFrames: Int,
-        ) = GeodeNative.exportSeamBlend(handle, tail, tail, seamFrames)
+            fps: Int,
+        ): Long = GeodeNative.exportSeamFrame(handle, frame, loopFrames, seamFrames, fps)
 
         override fun close() {
             val owned = handle
@@ -816,6 +805,11 @@ class LoopRender(
             if (owned != 0L) GeodeNative.exportPassDestroy(owned)
         }
     }
+
+    /** The seam pass did not build; reported as the shader-compile failure it replaced. */
+    private class SeamBuildException(
+        message: String,
+    ) : RuntimeException(message)
 
     private companion object {
         const val TIMEOUT_US = 10_000L

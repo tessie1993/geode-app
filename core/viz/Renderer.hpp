@@ -296,6 +296,12 @@ private:
     std::unique_ptr<sound::SoundEngine> sound_;
     GeodeSoundTuning soundTuning_ = sound::SoundEngine::defaultTuning();
     GeodeSoundFrame soundFrame_{};
+    // The engine's feeling, copied with the frame (the director and Note & key read it), and the play it
+    // belongs to: a new director seed is a new play, and the feeling starts over with it.
+    sound::Emotion::State soundEmotion_{};
+    bool soundHeard_ = false;
+    uint64_t emotionSeed_ = 0;
+    bool emotionSeeded_ = false;
     // Customize › Macros: this frame's knobs, and the ones the sound engine's tuning was last built from.
     MacroKnobs frameKnobs_{};
     // The user's knobs with the director's laid over them, this frame; what the params and the camera read.

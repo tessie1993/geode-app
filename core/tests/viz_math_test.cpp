@@ -2,9 +2,11 @@
 // the camera rig. Built and run by CI (see .github/workflows/android.yml,
 // "Native host tests") with the system compiler; no GL, no device.
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <initializer_list>
 
 #include <set>
 #include <string>
@@ -16,6 +18,7 @@
 #include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/ReactionDna.hpp"
+#include "viz/Lfo.hpp"
 #include "viz/Reactions.hpp"
 #include "viz/ScenePrep.hpp"
 #include "viz/SpeedClock.hpp"
@@ -1092,6 +1095,203 @@ void stagedBuildFinishesInBoundedFrames() {
     check(mostCompilesInAFrame == 1, "no frame compiles more than one program without the parallel extension");
 }
 
+// ── Customize › Music's ready-made recipes (EventRecipe in ReactionDna), pinned to the old Kotlin table ──
+
+const std::string kShaderStyle = "plasma";
+const std::string kFluidStyle = "fluid";
+
+struct RecipeRow {
+    ReactSource source;
+    LfoTarget target;
+    ReactMode mode;
+    float amount;
+    float attack;
+    float release;
+};
+
+struct RecipeExpect {
+    EventRecipe recipe;
+    int count;
+    std::array<RecipeRow, kMaxRecipeRoutes> rows;
+};
+
+constexpr ReactMode kF = ReactMode::Follow;
+constexpr ReactMode kS = ReactMode::Step;
+constexpr ReactMode kP = ReactMode::Spin;
+using RS = ReactSource;
+using LT = LfoTarget;
+using ER = EventRecipe;
+
+// Every recipe's routes exactly as dev.geode.render.EventRecipe held them before the port (follow, step
+// over `seconds` both ways, spin at 0.5 s both ways).
+const std::array<RecipeExpect, kEventRecipeCount> kRecipeExpect{{
+    {ER::KickPunch, 2, {{{RS::KickEnv, LT::CamPush, kF, 0.4f, 0.015f, 0.25f}, {RS::KickEnv, LT::Zoom, kF, 0.12f, 0.015f, 0.22f}}}},
+    {ER::SnareCrack, 1, {{{RS::SnareEnv, LT::ChromaAb, kF, 0.5f, 0.01f, 0.18f}}}},
+    {ER::HatShimmer, 2, {{{RS::HatEnv, LT::ParticleSize, kF, 0.3f, 0.01f, 0.12f}, {RS::HatEnv, LT::Bloom, kF, 0.2f, 0.01f, 0.15f}}}},
+    {ER::SubWeight, 2, {{{RS::SubAtt, LT::Warp, kF, 0.35f, 0.06f, 0.4f}, {RS::SubAtt, LT::FluidForce, kF, 0.5f, 0.05f, 0.4f}}}},
+    {ER::LoudnessGlow, 2, {{{RS::Loudness, LT::Brightness, kF, 0.15f, 0.1f, 0.5f}, {RS::Loudness, LT::Bloom, kF, 0.25f, 0.1f, 0.5f}}}},
+    {ER::SwellBreathe, 2, {{{RS::Intensity, LT::CamFov, kF, 0.25f, 0.4f, 0.8f}, {RS::Intensity, LT::Vignette, kF, -0.3f, 0.4f, 0.8f}}}},
+    {ER::BuildupRush, 3, {{{RS::EnergyTrend, LT::Speed, kF, 0.5f, 0.5f, 0.5f}, {RS::EnergyTrend, LT::CamShake, kF, 0.3f, 0.5f, 0.3f},
+                          {RS::EnergyTrend, LT::Rotation, kP, 0.3f, 0.5f, 0.5f}}}},
+    {ER::SectionColours, 2, {{{RS::HardCut, LT::ColorShift, kS, 0.33f, 1.2f, 1.2f}, {RS::HardCut, LT::PaletteMix, kS, 0.5f, 1.2f, 1.2f}}}},
+    {ER::BeatTurn, 1, {{{RS::Kick, LT::CamRoll, kS, 0.15f, 0.08f, 0.08f}}}},
+    {ER::TimbreTurn, 1, {{{RS::Kick8, LT::CamYaw, kS, 0.4f, 0.8f, 0.8f}}}},
+    {ER::PitchTint, 1, {{{RS::NoteChange, LT::ColorShift, kS, 0.08f, 0.25f, 0.25f}}}},
+    {ER::FluxTexture, 2, {{{RS::Flux, LT::Ripple, kF, 0.3f, 0.03f, 0.3f}, {RS::Flux, LT::Twist, kF, 0.2f, 0.03f, 0.3f}}}},
+    {ER::StereoSway, 2, {{{RS::StereoPan, LT::CamYaw, kF, 0.35f, 0.3f, 0.6f}, {RS::StereoWidth, LT::CamOrbit, kF, 0.3f, 0.3f, 0.6f}}}},
+    {ER::BarHue, 1, {{{RS::Kick4, LT::ColorShift, kS, 0.1f, 0.2f, 0.2f}}}},
+    {ER::HitChaos, 2, {{{RS::Onset, LT::Turbulence, kF, 0.3f, 0.01f, 0.3f}, {RS::Onset, LT::CamShake, kF, 0.15f, 0.01f, 0.3f}}}},
+    {ER::KickSwap, 2, {{{RS::KickToggle, LT::ColorShift, kF, 0.25f, 0.06f, 0.06f}, {RS::KickToggle, LT::PaletteMix, kF, 0.6f, 0.06f, 0.06f}}}},
+    {ER::KickAngle, 2, {{{RS::KickRandom, LT::CamYaw, kF, 0.35f, 0.15f, 0.15f}, {RS::KickRandom, LT::CamPitch, kF, 0.15f, 0.15f, 0.15f}}}},
+    {ER::SnareRoll, 1, {{{RS::Snare2, LT::CamRoll, kS, 0.12f, 0.15f, 0.15f}}}},
+    {ER::MelodyLift, 1, {{{RS::PitchHeight, LT::CamPitch, kF, 0.3f, 0.3f, 0.6f}}}},
+    {ER::NoteHue, 1, {{{RS::PitchClass, LT::ColorShift, kF, 0.5f, 0.15f, 0.4f}}}},
+    {ER::GlideTwist, 1, {{{RS::Glide, LT::Twist, kF, 0.4f, 0.05f, 0.3f}}}},
+    {ER::VibratoShimmer, 2, {{{RS::Vibrato, LT::Ripple, kF, 0.3f, 0.1f, 0.3f}, {RS::Vibrato, LT::ChromaAb, kF, 0.2f, 0.1f, 0.3f}}}},
+    {ER::SlideSmear, 2, {{{RS::Legato, LT::Warp, kF, 0.25f, 0.05f, 0.5f}, {RS::Legato, LT::TrailLength, kF, 0.4f, 0.05f, 0.5f}}}},
+    {ER::SilenceFade, 2, {{{RS::Silence, LT::Brightness, kF, -0.4f, 0.3f, 1.5f}, {RS::Silence, LT::Vignette, kF, 0.4f, 0.3f, 1.5f}}}},
+    {ER::ReturnFlash, 2, {{{RS::Returned, LT::Bloom, kF, 0.6f, 0.02f, 1.5f}, {RS::Returned, LT::CamPush, kF, 0.5f, 0.02f, 1.5f}}}},
+    {ER::BassPull, 1, {{{RS::BassPresence, LT::Zoom, kF, 0.2f, 1.0f, 2.0f}}}},
+    {ER::ClockOrbit, 2, {{{RS::MidTime, LT::CamOrbit, kP, 0.15f, 0.5f, 0.5f}, {RS::MidTime, LT::Rotation, kP, 0.1f, 0.5f, 0.5f}}}},
+    {ER::BarTurn, 1, {{{RS::Downbeat, LT::CamYaw, kS, 0.25f, 0.6f, 0.6f}}}},
+    {ER::ScaleMood, 3, {{{RS::ScaleBrightness, LT::Brightness, kF, 0.15f, 1.0f, 1.0f}, {RS::ScaleTension, LT::Turbulence, kF, 0.3f, 1.0f, 1.0f},
+                        {RS::KeyHue, LT::ColorShift, kF, 0.5f, 1.5f, 1.5f}}}},
+    {ER::BuildAndDrop, 3, {{{RS::BuildUp, LT::Speed, kF, 0.5f, 0.5f, 0.5f}, {RS::Drop, LT::Bloom, kF, 0.7f, 0.02f, 2.0f},
+                           {RS::Drop, LT::CamPush, kF, 0.6f, 0.02f, 1.5f}}}},
+}};
+
+ReactRoute recipeRoute(ReactSource s, LfoTarget t, float amount = 0.3f) {
+    ReactRoute r;
+    r.enabled = true;
+    r.source = s;
+    r.target = t;
+    r.amount = amount;
+    return r;
+}
+
+RouteArray routesOf(std::initializer_list<ReactRoute> list, int& count) {
+    RouteArray out{};
+    count = 0;
+    for (const ReactRoute& r : list) out[static_cast<size_t>(count++)] = r;
+    return out;
+}
+
+bool sameRoute(const ReactRoute& a, const ReactRoute& b) {
+    return a.enabled == b.enabled && a.source == b.source && a.target == b.target && a.mode == b.mode && a.amount == b.amount &&
+           a.curve == b.curve && a.attackSeconds == b.attackSeconds && a.releaseSeconds == b.releaseSeconds;
+}
+
+void everyRecipeHoldsItsOldRoutes() {
+    for (int i = 0; i < kEventRecipeCount; ++i) {
+        const RecipeExpect& e = kRecipeExpect[static_cast<size_t>(i)];
+        check(static_cast<int>(e.recipe) == i, "the expected table is in wire order");
+        const RecipeRoutes got = recipeRoutes(e.recipe);
+        check(got.count == e.count, "each recipe holds its old number of routes");
+        for (int k = 0; k < std::min(got.count, e.count); ++k) {
+            const ReactRoute& r = got.routes[static_cast<size_t>(k)];
+            const RecipeRow& x = e.rows[static_cast<size_t>(k)];
+            check(r.enabled && r.curve == ModCurve::Linear, "recipe routes are enabled and linear");
+            check(r.source == x.source && r.target == x.target && r.mode == x.mode, "recipe route source, target and mode");
+            check(r.amount == x.amount && r.attackSeconds == x.attack && r.releaseSeconds == x.release,
+                  "recipe route amount, attack and release");
+        }
+    }
+    check(recipeRoutes(static_cast<EventRecipe>(kEventRecipeCount)).count == 0, "an unknown recipe holds nothing");
+}
+
+void everyRecipeFitsTheMatrixAndListensToSomething() {
+    std::set<std::string> groups;
+    for (int i = 0; i < kEventRecipeCount; ++i) {
+        const auto recipe = static_cast<EventRecipe>(i);
+        const RecipeRoutes all = recipeRoutes(recipe);
+        check(all.count > 0 && all.count <= ReactionEngine::kRoutes, "every recipe has routes and fits the matrix");
+        for (int k = 0; k < all.count; ++k) {
+            const ReactRoute& r = all.routes[static_cast<size_t>(k)];
+            check(r.target != LfoTarget::None, "every recipe route moves something");
+            check(r.amount >= -2.0f && r.amount <= 2.0f, "recipe amounts within what native accepts");
+            groups.insert(reactSourceInfo(r.source).group);
+        }
+        check(recipeRoutesFor(recipe, kShaderStyle).count > 0, "every recipe does something on a shader style");
+    }
+    const std::set<std::string> want = {"LEVELS", "DRUMS", "EVENTS", "MELODY", "CLOCKS", "TEXTURE", "RHYTHM", "HARMONY", "FORM"};
+    check(groups == want, "the recipes together listen to every sound group but the EQ");
+}
+
+void recipeOnThenOffLeavesTheListAsItWas() {
+    int n = 0;
+    const RouteArray start = routesOf({recipeRoute(RS::Bass, LT::Zoom)}, n);
+    RouteArray on;
+    const int onCount = toggleRecipe(ER::KickPunch, start, n, kShaderStyle, on);
+    check(onCount == 3, "on appends the recipe's two routes");
+    check(sameRoute(on[0], start[0]), "on keeps what was there first");
+    check(sameRoute(on[1], recipeRoutes(ER::KickPunch).routes[0]) && sameRoute(on[2], recipeRoutes(ER::KickPunch).routes[1]),
+          "on adds the recipe's routes after, in order");
+    check(recipeIsOn(ER::KickPunch, on, onCount, kShaderStyle), "the recipe reads as on");
+    RouteArray off;
+    const int offCount = toggleRecipe(ER::KickPunch, on, onCount, kShaderStyle, off);
+    check(!recipeIsOn(ER::KickPunch, off, offCount, kShaderStyle), "the recipe reads as off");
+    check(offCount == n && sameRoute(off[0], start[0]), "off leaves the list as it was");
+    check(!off[1].enabled, "slots past the count are disabled");
+}
+
+void recipeReplacesTheSameSlotInsteadOfStacking() {
+    int n = 0;
+    const RouteArray start = routesOf({recipeRoute(RS::KickEnv, LT::CamPush, 0.9f)}, n);
+    check(!recipeIsOn(ER::KickPunch, start, n, kShaderStyle), "half a recipe is not on");
+    RouteArray on;
+    const int count = toggleRecipe(ER::KickPunch, start, n, kShaderStyle, on);
+    int kickPush = 0;
+    for (int i = 0; i < count; ++i) {
+        if (on[static_cast<size_t>(i)].source == RS::KickEnv && on[static_cast<size_t>(i)].target == LT::CamPush) {
+            kickPush += 1;
+            check(on[static_cast<size_t>(i)].amount == 0.4f, "the recipe's amount replaces the old one");
+        }
+    }
+    check(count == 2 && kickPush == 1, "one route per source and target");
+    // A recipe whose slots are all taken by other amounts is on: off then takes those routes out.
+    int m = 0;
+    const RouteArray taken = routesOf({recipeRoute(RS::SnareEnv, LT::ChromaAb, 1.5f), recipeRoute(RS::Bass, LT::Zoom)}, m);
+    check(recipeIsOn(ER::SnareCrack, taken, m, kShaderStyle), "on means every slot is held, whatever the amount");
+    RouteArray off;
+    const int offCount = toggleRecipe(ER::SnareCrack, taken, m, kShaderStyle, off);
+    check(offCount == 1 && off[0].source == RS::Bass, "off takes the slot's route out, whoever set it");
+}
+
+void recipeOnlyAddsWhatTheStyleCanShow() {
+    const RecipeRoutes shader = recipeRoutesFor(ER::SubWeight, kShaderStyle);
+    check(shader.count == 1 && shader.routes[0].target == LT::Warp, "fluid splat force has nothing to push on a shader style");
+    const RecipeRoutes fluid = recipeRoutesFor(ER::SubWeight, kFluidStyle);
+    check(fluid.count == 2 && fluid.routes[1].target == LT::FluidForce, "a fluid style takes both");
+    RouteArray on;
+    const int count = toggleRecipe(ER::SubWeight, RouteArray{}, 0, kShaderStyle, on);
+    check(count == 1 && on[0].target == LT::Warp, "toggling on adds only what the style shows");
+    check(recipeIsOn(ER::SubWeight, on, count, kShaderStyle), "and then reads as on");
+    check(!targetReaches(LT::Speed, "milkdrop") && targetReaches(LT::Speed, kShaderStyle), "MilkDrop presets pace themselves");
+    check(targetReaches(LT::PaletteMix, kShaderStyle) && !targetReaches(LT::PaletteMix, kFluidStyle), "palette blend is a shader look");
+    check(targetReaches(LT::CamYaw, kFluidStyle) && targetReaches(LT::Bloom, "milkdrop"), "camera and composite targets are universal");
+    check(!targetReaches(LT::ParticleSize, kShaderStyle) && targetReaches(LT::ParticleSize, kFluidStyle), "particle size");
+    check(!targetReaches(LT::TrailLength, kShaderStyle) && !targetReaches(LT::Turbulence, kFluidStyle), "trail and turbulence scopes");
+}
+
+void aFullMatrixRefusesARecipeRatherThanDroppingRoutes() {
+    RouteArray full{};
+    for (int i = 0; i < ReactionEngine::kRoutes; ++i) full[static_cast<size_t>(i)] = recipeRoute(RS::High, LT::Warp);
+    check(!recipeFits(ER::KickPunch, full, ReactionEngine::kRoutes, kShaderStyle), "a full matrix has no room");
+    RouteArray out;
+    const int count = toggleRecipe(ER::KickPunch, full, ReactionEngine::kRoutes, kShaderStyle, out);
+    bool same = count == ReactionEngine::kRoutes;
+    for (int i = 0; i < count; ++i) same = same && sameRoute(out[static_cast<size_t>(i)], full[static_cast<size_t>(i)]);
+    check(same, "a refused recipe leaves the list as it was");
+    // One slot short of full: a two-route recipe does not fit, one that replaces a held slot does.
+    RouteArray almost = full;
+    almost[0] = recipeRoute(RS::KickEnv, LT::CamPush);
+    const int eleven = ReactionEngine::kRoutes - 1;
+    check(!recipeFits(ER::LoudnessGlow, almost, eleven, kShaderStyle), "two new routes do not fit in one free slot");
+    check(recipeFits(ER::KickPunch, almost, eleven, kShaderStyle), "a recipe that reuses a held slot needs only one");
+    check(!recipeIsOn(ER::KickPunch, RouteArray{}, 0, kShaderStyle) && recipeFits(ER::KickPunch, RouteArray{}, 0, kShaderStyle),
+          "an empty list has room and nothing on");
+}
+
 // #355: a hand mask only counts while the user has a list of their own. A stale or unreadable saved list
 // used to push HAND_ALL with the DNA playing, so the director claimed no source and played no route.
 void handMaskCountsOnlyWithAUserList() {
@@ -1110,6 +1310,112 @@ void handMaskCountsOnlyWithAUserList() {
 }
 
 }  // namespace
+
+// A steady 4/4 clock at `bpm`: beatCount and beatPhase advance with time, locked (beatConf 1).
+GeodeSoundFrame clockAt(double beats, float bpm, float conf = 1.0f) {
+    GeodeSoundFrame f = silence();
+    f.bpm = bpm;
+    f.beatConf = conf;
+    f.beatCount = static_cast<float>(std::fmod(std::floor(beats), 4096.0));
+    f.beatPhase = static_cast<float>(beats - std::floor(beats));
+    return f;
+}
+
+void beatTimedLfoLocksToTheMusicClock() {
+    for (const float n : {4.0f, 8.0f, 16.0f, 32.0f}) {
+        LfoEngine e;
+        e.configs[0] = {true, ModSource::Lfo, LfoTarget::Sway, LfoWave::Saw, 2.0f, 1.0f, ModPolarity::Bipolar, ModCurve::Linear, n};
+        const double dt = 1.0 / 60.0;
+        double beats = 100.0;  // an arbitrary start, still on an n-beat multiple or not
+        float prev = 0.0f;
+        int wraps = 0;
+        for (int i = 0; i < 60 * 120; ++i) {  // 120 s at 120 BPM = 240 beats
+            beats += dt * 120.0 / 60.0;
+            const float v = e.tick(static_cast<float>(dt), clockAt(beats, 120.0f))[0];
+            if (i > 0 && v < prev - 1.0f) ++wraps;
+            prev = v;
+            const double pos = std::fmod(beats, static_cast<double>(n)) / n;  // saw = 2 pos - 1
+            if (i > 600) check(std::fabs(v - (2.0 * pos - 1.0)) < 0.02 || pos < 0.02 || pos > 0.98, "synced saw sits at the music clock's phase");
+        }
+        check(wraps == static_cast<int>(240.0 / n) || wraps == static_cast<int>(240.0 / n) + 1 || wraps == static_cast<int>(240.0 / n) - 1,
+              "a synced wave completes one cycle per n beats");
+    }
+}
+
+void beatTimedLfoIsAtZeroOnMultiples() {
+    LfoEngine e;
+    e.configs[0] = {true, ModSource::Lfo, LfoTarget::Sway, LfoWave::Sine, 2.0f, 1.0f, ModPolarity::Bipolar, ModCurve::Linear, 4.0f};
+    for (const double b : {0.0, 4.0, 8.0, 40.0}) {
+        e = LfoEngine{};
+        e.configs[0] = {true, ModSource::Lfo, LfoTarget::Sway, LfoWave::Sine, 2.0f, 1.0f, ModPolarity::Bipolar, ModCurve::Linear, 4.0f};
+        const float v = e.tick(1.0f / 60.0f, clockAt(b, 120.0f))[0];
+        check(std::fabs(v) < 1e-3f, "a 4-beat sine is at phase 0 on beat multiples of 4");
+        const float q = e.tick(1.0f / 60.0f, clockAt(b + 1.0, 120.0f))[0];
+        check(std::fabs(q - 1.0f) < 1e-2f, "a 4-beat sine peaks one beat in");
+    }
+}
+
+void beatTimedLfoSurvivesTempoChangeAndSilence() {
+    LfoEngine e;
+    e.configs[0] = {true, ModSource::Lfo, LfoTarget::Sway, LfoWave::Triangle, 2.0f, 1.0f, ModPolarity::Bipolar, ModCurve::Linear, 8.0f};
+    const double dt = 1.0 / 60.0;
+    double beats = 16.0;
+    float bpm = 100.0f;
+    float prev = e.tick(static_cast<float>(dt), clockAt(beats, bpm))[0];
+    float worst = 0.0f;
+    for (int i = 0; i < 60 * 40; ++i) {
+        if (i == 600) bpm = 150.0f;  // tempo change keeps lock: the clock itself speeds up
+        const bool silent = i >= 1200 && i < 1500;
+        if (!silent) beats += dt * bpm / 60.0;
+        GeodeSoundFrame f = silent ? silence() : clockAt(beats, bpm);
+        if (silent) f.bpm = 0.0f;
+        const float v = e.tick(static_cast<float>(dt), f)[0];
+        worst = std::max(worst, std::fabs(v - prev));
+        prev = v;
+        if (i == 1499) beats += 1.7;  // the beat returns somewhere else: eased, not a jump
+    }
+    // Triangle at 8 beats, 150 BPM: slope is at most 2 * 4 / (8 / 2.5 s) / 60 per frame; allow headroom.
+    check(worst < 0.15f, "no discontinuity across tempo change, silence and the beat returning");
+}
+
+void randomLfoStepsOnTheBeatAndGlideIsContinuous() {
+    LfoEngine a, g;
+    a.configs[0] = {true, ModSource::Lfo, LfoTarget::Sway, LfoWave::Random, 2.0f, 1.0f, ModPolarity::Bipolar, ModCurve::Linear, 4.0f};
+    g.configs[0] = {true, ModSource::Lfo, LfoTarget::Sway, LfoWave::RandomGlide, 2.0f, 1.0f, ModPolarity::Bipolar, ModCurve::Linear, 4.0f};
+    GeodeSoundFrame f0 = clockAt(0.0, 120.0f);
+    a.tick(1.0f / 60.0f, f0);
+    g.tick(1.0f / 60.0f, f0);
+    const double dt = 1.0 / 60.0;
+    double beats = 0.0;
+    float la = a.tick(0.0f, f0)[0], lg = g.tick(0.0f, f0)[0];
+    int steps = 0;
+    std::set<int> targets;
+    float worstGlide = 0.0f;
+    for (int i = 0; i < 60 * 32; ++i) {  // 64 beats = 16 cycles
+        beats += dt * 2.0;
+        const GeodeSoundFrame f = clockAt(beats, 120.0f);
+        const float va = a.tick(static_cast<float>(dt), f)[0];
+        const float vg = g.tick(static_cast<float>(dt), f)[0];
+        if (std::fabs(va - la) > 1e-6f) {
+            ++steps;
+            const double nearest = std::round(beats / 4.0) * 4.0;
+            check(std::fabs(beats - nearest) < 0.2, "sample & hold steps on the cycle's beat");
+        }
+        worstGlide = std::max(worstGlide, std::fabs(vg - lg));
+        la = va;
+        lg = vg;
+        if (std::fmod(beats, 4.0) > 3.9) targets.insert(static_cast<int>(vg * 1000.0f));
+    }
+    check(steps >= 15 && steps <= 17, "sample & hold steps once per cycle");
+    check(worstGlide < 0.1f, "random glide never jumps");
+    check(targets.size() >= 12, "random glide picks a new target each cycle");
+    LfoEngine g2;
+    g2.configs[0] = g.configs[0];
+    g2.tick(1.0f / 60.0f, f0);
+    float again = 0.0f;
+    for (int i = 0; i < 100; ++i) again = g2.tick(static_cast<float>(dt), clockAt(2.0 + i * dt * 2.0, 120.0f))[0];
+    check(std::isfinite(again), "random glide is deterministic and finite");
+}
 
 int main() {
     foldIsBoundedAndContinuous();
@@ -1163,7 +1469,17 @@ int main() {
     scenePrepRetargetsAndCaps();
     scenePrepSecondariesTakeTurns();
     stagedBuildFinishesInBoundedFrames();
+    everyRecipeHoldsItsOldRoutes();
+    everyRecipeFitsTheMatrixAndListensToSomething();
+    recipeOnThenOffLeavesTheListAsItWas();
+    recipeReplacesTheSameSlotInsteadOfStacking();
+    recipeOnlyAddsWhatTheStyleCanShow();
+    aFullMatrixRefusesARecipeRatherThanDroppingRoutes();
     handMaskCountsOnlyWithAUserList();
+    beatTimedLfoLocksToTheMusicClock();
+    beatTimedLfoIsAtZeroOnMultiples();
+    beatTimedLfoSurvivesTempoChangeAndSilence();
+    randomLfoStepsOnTheBeatAndGlideIsContinuous();
     if (failures == 0) std::printf("viz_math_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

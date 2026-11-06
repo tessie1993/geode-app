@@ -16,7 +16,7 @@ typedef struct geode_tags     geode_tags;
 /* Native visualizer: one renderer per GL surface. Setters may be called from any thread and are latched
  * for the next frame; the calls under "GL thread" need the surface's context current. */
 #define GEODE_LFO_SLOTS 3
-#define GEODE_LFO_CONFIG_FLOATS 8   /* enabled, source, target, wave, rate_seconds, depth, polarity, curve */
+#define GEODE_LFO_CONFIG_FLOATS 9   /* enabled, source, target, wave, rate_seconds, depth, polarity, curve, beats (0 = free; a shorter array of 8 stays free) */
 #define GEODE_ADSR_SLOTS 2
 #define GEODE_REACT_ROUTES 12
 #define GEODE_REACT_ROUTE_FLOATS 8  /* enabled, source, target, mode, amount, curve, attack_seconds, release_seconds */
@@ -111,6 +111,19 @@ GEODE_API int         geode_music_edit(const char* style_id, int seed, const flo
                                        unsigned* out_mask, int* out_has_user);
 /* The LfoTarget ordinal a new route of `action` moves, so the shell can hide a chip the style ignores. */
 GEODE_API int         geode_music_action_target(int action);
+/* Customize › Music's ready-made recipes (core/viz ReactionDna.hpp EventRecipe), GEODE_EVENT_RECIPES in the
+   menu's order. `current` is what plays, in the geode_viz_set_reactions layout. Pure: no viz handle. */
+#define GEODE_EVENT_RECIPES 30
+#define GEODE_RECIPE_ON 1u    /* every route it would add to the style is in current */
+#define GEODE_RECIPE_FITS 2u  /* turning it on stays within GEODE_REACT_ROUTES */
+/* The recipe's routes the style can show (every route for a NULL style_id) into out; returns how many. */
+GEODE_API int         geode_event_recipe_routes(int recipe, const char* style_id, float* out, int capacity);
+/* GEODE_RECIPE_* flags for the recipe on the style over current; 0 for an unknown recipe or a NULL style. */
+GEODE_API unsigned    geode_event_recipe_state(int recipe, const char* style_id, const float* current, int current_floats);
+/* current with the recipe turned off if on, else on if it fits (replacing a route on the same source and
+   target), into out; returns the route count. An unknown recipe or a NULL style leaves current as it was. */
+GEODE_API int         geode_event_recipe_toggle(int recipe, const char* style_id, const float* current, int current_floats,
+                                                float* out, int capacity);
 /* Gyro look, -1..1 per axis; the camera reads it only while camGyro is on. */
 GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
 /* One live frame's start (core/viz/frame/Cadence, #604), on the GL thread before geode_viz_set_scene and
@@ -287,6 +300,13 @@ GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, f
 /* Every rolled control as "TAB|ParamKeys string" lines, in roll order: what the panel offers to lock and what
  * each tab's Randomize and Reset cover. Static: the pointer stays valid for the process. */
 GEODE_API const char* geode_params_roll_keys(void);
+/* The scene params schema (core/viz/ParamTable.inc): one row per geode_viz_param_name slot, giving the field's
+ * name, kind, default, control range and whether a fade glides it, as a versioned '|'-separated line table:
+ *   params|<version>|<count>
+ *   param|<slot>|<name>|<FLOAT|INT|BOOL|CIRCULAR>|<default>|<min>|<max>|<FADE|HOLD>
+ * slots 0..count-1 in order; ints and bools as numbers, like the wire. Static: the pointer stays valid for the
+ * process; the shell parses it once. Labels and page placement stay in Kotlin. */
+GEODE_API const char* geode_params_schema_text(void);
 
 /* Customize panel map (core/viz/CustomizeMap): ten categories, each a free Basics section and Pro sections, and
  * which control lives in which. geode_customize_text is its versioned '|'-separated line table (rows in
@@ -302,10 +322,23 @@ GEODE_API const char* geode_customize_shown(const char* style_id);
 GEODE_API int         geode_customize_randomize(const char* style_id, const char* category, const char* locked, uint64_t seed,
                                                 const float* in, float* out);
 GEODE_API void        geode_customize_reset(const char* category, const float* in, float* out);
+/* Background image bake (core/viz/Underlay), before geode_viz_set_underlay_rgba: pure, no viz handle, any
+ * thread. The shell decodes the picture, cuts it to geode_underlay_crop_rect (out = x, y, width, height of the
+ * centred crop of src to the target's aspect) and scales it to the render size, then geode_underlay_finish
+ * blurs and dims those ARGB_8888 pixels (0xAARRGGBB, row-major, width*height) in place. The clamps are the
+ * controls' ranges: amount and dim 0..1 (NaN = 0), blur 0..geode_underlay_blur_max(). */
+GEODE_API void        geode_underlay_crop_rect(int src_w, int src_h, int target_w, int target_h, int* out_xywh);
+GEODE_API void        geode_underlay_finish(uint32_t* pixels, int width, int height, int blur_radius, float dim);
+GEODE_API float       geode_underlay_clamp_amount(float amount);
+GEODE_API float       geode_underlay_clamp_dim(float dim);
+GEODE_API int         geode_underlay_clamp_blur(int radius);
+GEODE_API int         geode_underlay_blur_max(void);
 
-/* Export resampler (audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC encoder's rate; box filter
- * down, linear up. Streaming: state carries across calls. Any one thread at a time. There is no flush: a
- * partial output frame at the end is dropped, as the export always did. */
+/* Export resampler (audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC encoder's rate; band-limited
+ * (Kaiser-windowed sinc, polyphase) both ways, cutoff below the lower Nyquist rate (#375). Streaming: state
+ * carries across calls, and n frames in give ceil(n * out / in) out however they are chunked, behind a delay
+ * of PcmResampler::halfTaps() input frames (about 0.5 to 1.1 ms). Any one thread at a time. There is no flush: the filter's tail at the end is
+ * dropped, as the export always dropped a partial output frame. */
 typedef struct geode_resampler geode_resampler;
 GEODE_API geode_resampler* geode_resampler_create(int in_rate, int out_rate, int channels);  /* NULL on bad args */
 GEODE_API void             geode_resampler_destroy(geode_resampler*);
@@ -361,6 +394,15 @@ GEODE_API geode_export_pass*  geode_export_seam_create(AAssetManager*, int width
 GEODE_API int                 geode_export_seam_allocate(geode_export_pass*, int requested);
 GEODE_API void                geode_export_seam_capture(geode_export_pass*, int index);
 GEODE_API void                geode_export_seam_blend(geode_export_pass*, int index, int tail, int seam_frames);
+/* The seam driver (viz/frame/LoopSeam, #603) over those two. The scene has just drawn source frame `frame` of
+ * a stop of loop_frames + seam_frames into the default framebuffer; seam_frame captures it (an opening frame:
+ * returns -1, not presented) or, on a closing frame, blends the stash over it, and returns the frame's
+ * presentation time in ns at fps. The caller then draws the watermark, sets that time and swaps. Needs the GL
+ * context. budgeted_crossfade_ms (pure): the crossfade a loop keeps under the stash's 192 MB GPU budget at
+ * width x height (crossfade_frames: its frames at fps); crossfade_ms unchanged when it fits. */
+GEODE_API int64_t             geode_export_seam_frame(geode_export_pass*, int frame, int loop_frames, int seam_frames, int fps);
+GEODE_API int64_t             geode_export_seam_budgeted_crossfade_ms(int64_t crossfade_ms, int crossfade_frames, int fps,
+                                                                      int width, int height);
 /* Studio transitions, on Media3's GL thread inside the framebuffer and viewport it bound. id is a GL
  * Transitions name (gl_transitions.json); an unknown one only copies. from_rgba: bottom row first, taken once. */
 GEODE_API geode_export_pass*  geode_export_transition_create(AAssetManager*, const char* id, int64_t duration_us);
@@ -497,6 +539,7 @@ GEODE_API int64_t geode_export_audio_bytes(int64_t duration_us, int bps);
 GEODE_API int64_t geode_export_muxer_hard_limit_bytes(void);
 GEODE_API void    geode_export_frame_size(int short_side, int w_ratio, int h_ratio, int* out_w, int* out_h);
 GEODE_API int     geode_export_fallback_fps(int requested_fps);
+GEODE_API int     geode_export_clamp_fps(int requested_fps);     /* 24..60 */
 
 /* Chapter spans (output/Chapters); titles stay Kotlin, keyed by out_source (-1 = the lead-in chapter that
  * makes a marker list start at 0:00). Each writes min(count, capacity) spans and returns the count. */

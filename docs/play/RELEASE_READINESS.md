@@ -42,6 +42,32 @@ Cast only and AD_ID out of the merged manifest, every foreground service has a t
 | N2 | `NowPlayingWidgetReceiver` is exported for `APPWIDGET_UPDATE`, as Glance requires. Any app can send it an explicit update; the worst case is a redraw. Leave it. | Manifest |
 | N3 | The entitlement cache is in Auto Backup. Since 2026-11-01 a verified purchase stays owned offline with no expiry (Pro is removed only when Play answers "not owned"), and the signature is re-checked on every read, so a forged cache fails. A genuine cache restored to a device on a different Google account still reads "owned" until Play first answers; the foreground refresh corrects that within seconds when online, but a device kept offline stays Pro. Excluding the file would also drop the useful case (same account, offline). Accepted for now. | `billing/EntitlementStore.kt`, `res/xml/*backup*` |
 
+## Re-audit 2026-11-06 (manifest, intents, permissions)
+
+Re-read against the code on `main`; no manifest or code change was needed.
+
+- Exported components are exactly those the platform must reach: `MainActivity`,
+  `WallpaperOptionsActivity` (the picker's Settings button, no extras read),
+  `TileLongPressActivity` (opens the app, draws nothing), `PlaybackService`,
+  `MediaButtonReceiver`, `NowPlayingWidgetReceiver`, plus the wallpaper, dream and tile services
+  behind `BIND_*` permissions. The FileProvider, capture, export, cast and listener services are
+  not exported. Every `PendingIntent` is `FLAG_IMMUTABLE` and explicit.
+- `geode://` links and `MEDIA_PLAY_FROM_SEARCH` are data, not instructions: the link goes to a
+  confirm dialog, the search string only queries the local library. No nested `Intent` is
+  launched from an incoming one; the capture service reads its projection result only from the
+  intent this app built.
+- `QUERY_ALL_PACKAGES` is not used; `<queries>` names two media intents.
+- The wallpaper's *Hear other apps* uses `Visualizer` on the output mix with `RECORD_AUDIO`,
+  asked in place by `OtherAppsSwitch` through `rememberPermissionRequest`. Data safety is
+  unchanged (on-device).
+- **Debt, not a rejection risk:** `ExternalAudioSettings` asks `RECORD_AUDIO` and
+  `POST_NOTIFICATIONS` together with a bare launcher instead of `rememberPermissionRequest`, so
+  a permanent refusal has no "open Settings" path of its own beyond `RefusedNotice`. Move it onto
+  `rememberPermissionRequest` when that screen is next touched.
+- **Upcoming:** Android 17 gates local-network access (Cast discovery and the LAN stream server)
+  behind a runtime permission for apps that target API 37. targetSdk 36 is unaffected; when the
+  target moves, add the permission and ask for it when the Cast button is first used.
+
 ## Wave 1 changes to re-check
 
 Wave 1 (#227) adds features after this pass. Each row is what it changes for Play and who
@@ -93,6 +119,6 @@ commit e9cca06:
 - **Notification listener.** Not exported, protected by `BIND_NOTIFICATION_LISTENER_SERVICE`, does nothing but enable `getActiveSessions`. The settings screen explains it before sending the user to system settings.
 - **MediaProjection.** `PlaybackCaptureService` is not exported, typed `mediaProjection`, asks for consent through `createScreenCaptureIntent` each time, and shows a notification with a Stop action. The projection result is read only from its own start intent.
 - **FileProvider.** Not exported, `grantUriPermissions` only, scoped to `files/presets/`.
-- **Intents.** No nested-intent redirection, no sticky broadcasts, no dynamic receivers. `onNewIntent` calls `setIntent` and applies the same handlers as `onCreate`.
+- **Intents.** No nested-intent redirection, no sticky broadcasts. The only dynamic receivers are the wallpaper's and the dream's, for system broadcasts (power save, user present), registered `RECEIVER_NOT_EXPORTED` (minSdk 33, so no extra permission trick is needed). `onNewIntent` calls `setIntent` and applies the same handlers as `onCreate`.
 - **Billing.** PBL 9.1.0 with pending purchases, auto reconnection, on-device signature check, acknowledgement retried on every refresh; release builds can't use the fake repository.
 - **Docs.** [DATA_SAFETY.md](DATA_SAFETY.md), [STORE_LISTING.md](STORE_LISTING.md), [CONTENT_RATING.md](CONTENT_RATING.md) and [BILLING.md](BILLING.md) match the code. The listing avoids ranking claims.

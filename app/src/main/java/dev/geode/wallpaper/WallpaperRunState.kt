@@ -47,8 +47,7 @@ data class WallpaperConditions(
             return f
         }
 
-    fun runMode(nowMs: Long): WallpaperRunMode =
-        WallpaperRunMode.entries[GeodeNative.surfaceRunMode(flags, animateUntilMs, nowMs)]
+    fun runMode(nowMs: Long): WallpaperRunMode = WallpaperRunMode.entries[GeodeNative.surfaceRunMode(flags, animateUntilMs, nowMs)]
 
     fun listening(nowMs: Long): Boolean = GeodeNative.surfaceListening(flags, animateUntilMs, nowMs)
 

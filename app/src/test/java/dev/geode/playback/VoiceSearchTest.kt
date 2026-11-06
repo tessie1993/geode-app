@@ -19,8 +19,7 @@ class VoiceSearchTest {
                     .Builder()
                     .setSearchQuery(query)
                     .build(),
-            )
-            .build()
+            ).build()
 
     @Test
     fun aPlayFromSearchItemIsASearch() {

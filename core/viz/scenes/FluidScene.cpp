@@ -82,7 +82,8 @@ void FluidScene::draw(float timeSeconds) {
     sim_.timeSeconds = time_;
     // The couplings this engine added, each a blend of the sound frame (FluidMath Drives).
     const fluid::math::Drives drive = fluid::math::drives(f);
-    const float dtDrive = std::clamp(lastDt_, 0.0f, 1.0f / 30.0f);
+    // The whole frame's time (#383): the sim splits it into stable steps itself.
+    const float dtDrive = fluid::math::frameSimDt(lastDt_);
     sim_.heat = fluid::math::heatInjection(drive.heat, style_.heat, dtDrive);
     sim_.buoyancy = style_.buoyancy * drive.buoyancy;
     sim_.cooling = style_.cooling;
@@ -96,7 +97,7 @@ void FluidScene::draw(float timeSeconds) {
     emitters_.splatRadius = std::clamp(emitters_.splatRadius * style_.splatRadius, 0.02f, 0.4f);
     emitters_.paletteCycleSpeed = hue::paletteCycleSpeed(p.fluidPaletteCycleSpeed);
     emitters_.forceScale = std::clamp(p.fluidSplatForce * style_.splatForce, 0.0f, 3.0f) * (1.0f + pcmKick * 0.5f);
-    const float simDt = std::clamp(lastDt_, 0.0f, 1.0f / 30.0f);
+    const float simDt = fluid::math::frameSimDt(lastDt_);
     const float hueBase = hue::base(p.paletteBase()) + style_.hueOffset;
     const float hueSpan = hue::span(p.hueRange, p.paletteRange());
     choreography_.tick(f, simDt, sim_.aspect());

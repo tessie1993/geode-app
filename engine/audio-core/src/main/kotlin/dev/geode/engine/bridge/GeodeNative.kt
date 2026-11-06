@@ -892,6 +892,21 @@ object GeodeNative {
         nowMs: Long,
     ): Long
 
+    /**
+     * How long to keep pacing after a restate from [previousMode] to [mode] (the run modes' ordinals)
+     * before stopping: the still frame's settle, or 0 when one frame, or plain on and off, is enough.
+     */
+    external fun surfaceSettleMs(
+        previousMode: Int,
+        mode: Int,
+    ): Long
+
+    /** A surface's stored fps choice as its pacer caps to: snapped to a listed rate, <= 0 the default. */
+    external fun surfaceFpsChoice(requestedFps: Int): Int
+
+    /** The rates a surface's fps setting offers, ascending (for the settings rows). */
+    external fun surfaceFpsChoices(): IntArray
+
     const val SURFACE_HAS_SURFACE = 1 shl 0
     const val SURFACE_VISIBLE = 1 shl 1
     const val SURFACE_PREVIEW = 1 shl 2
@@ -900,7 +915,14 @@ object GeodeNative {
     const val SURFACE_PAUSE_IN_BATTERY_SAVER = 1 shl 5
     const val SURFACE_SILENT = 1 shl 6
     const val SURFACE_REST_WHEN_SILENT = 1 shl 7
+
+    /** The system's Remove animations: a still frame (ADR 0008). */
+    const val SURFACE_REDUCED_MOTION = 1 shl 8
     const val SURFACE_FOREVER = Long.MAX_VALUE
+
+    /** The wallpaper's and the dream's fps before the user picks one (GEODE_SURFACE_DEFAULT_FPS). */
+    const val SURFACE_DEFAULT_FPS = 30
+
     // The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt.
 
     /** Six longs the caller owns, zeroed at first, stepped in place: the pacer's whole state. */

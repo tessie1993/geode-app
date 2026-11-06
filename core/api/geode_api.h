@@ -342,11 +342,22 @@ GEODE_API int             geode_perf_mode_for_device(long long total_ram_bytes, 
 #define GEODE_SURFACE_PAUSE_IN_BATTERY_SAVER (1u << 5)
 #define GEODE_SURFACE_SILENT                 (1u << 6)
 #define GEODE_SURFACE_REST_WHEN_SILENT       (1u << 7)
+#define GEODE_SURFACE_REDUCED_MOTION         (1u << 8)   /* the system's Remove animations */
 #define GEODE_SURFACE_FOREVER                9223372036854775807LL
 GEODE_API int             geode_surface_run_mode(unsigned flags, long long animate_until_ms, long long now_ms);   /* 0 stopped, 1 still, 2 animated */
 GEODE_API int             geode_surface_listening(unsigned flags, long long animate_until_ms, long long now_ms);  /* 1 = hear sound */
 GEODE_API int             geode_surface_entitled(long long animate_until_ms, long long now_ms);                   /* 1 = may move */
 GEODE_API long long       geode_surface_recheck_in_ms(long long animate_until_ms, long long now_ms);              /* -1 = never */
+/* Milliseconds to keep pacing after a restate from previous_mode to mode before stopping: the still frame's
+ * settle (a scene is built across frames), 0 when one frame or the plain on/off is enough. */
+GEODE_API long long       geode_surface_settle_ms(int previous_mode, int mode);
+/* A surface's own frame rate (wallpaper options, Behaviour › Dream): the stored choice as the pacer caps to,
+ * snapped to a listed rate; <= 0 gives the default. */
+#define GEODE_SURFACE_DEFAULT_FPS            30
+GEODE_API int             geode_surface_fps_choice(int requested_fps);
+/* The listed rates, ascending, for a settings row: writes up to capacity, returns how many there are. */
+GEODE_API int             geode_surface_fps_choices(int* out, int capacity);
+
 /* The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt it draws with.
    `state` is six int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS). */
 #define GEODE_PACER_STATE_LONGS 6

@@ -163,12 +163,13 @@ private fun YourSetsRow(
     var open by remember { mutableStateOf(false) }
     val current = state.presets.firstOrNull { sameKnobs(it.knobs, state.knobs) }
     val name = stringResource(R.string.macro_sets_yours)
+    val chooseLabel = stringResource(R.string.customize_a11y_choose, name)
     Box {
         Row(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = GeodeSpacing.TouchTarget)
-                .clickable(role = Role.DropdownList, onClickLabel = "Choose $name") { open = true }
+                .clickable(role = Role.DropdownList, onClickLabel = chooseLabel) { open = true }
                 .semantics(mergeDescendants = true) {},
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -188,7 +189,13 @@ private fun YourSetsRow(
                     text = { Text(p.name) },
                     leadingIcon =
                         if (p == current) {
-                            { Icon(Icons.Filled.Check, contentDescription = "Selected", tint = accentTextColor()) }
+                            {
+                                Icon(
+                                    Icons.Filled.Check,
+                                    contentDescription = stringResource(R.string.customize_a11y_selected),
+                                    tint = accentTextColor(),
+                                )
+                            }
                         } else {
                             null
                         },
@@ -234,6 +241,8 @@ private fun MacroKnob(
     val track = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
     val arc = MaterialTheme.colorScheme.primary
     val text = knobText(value)
+    val knobState = if (locked) stringResource(R.string.customize_a11y_locked, text) else text
+    val lockLabel = stringResource(if (locked) R.string.customize_a11y_knob_unlock else R.string.customize_a11y_knob_lock)
     Column(modifier.padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier
@@ -247,13 +256,13 @@ private fun MacroKnob(
                     detectTapGestures(onDoubleTap = { onSet(0f) }, onLongPress = { onToggleLock() })
                 }.semantics {
                     contentDescription = title
-                    stateDescription = text + if (locked) ", locked" else ""
+                    stateDescription = knobState
                     progressBarRangeInfo = ProgressBarRangeInfo(value, -1f..1f, steps = KNOB_STEPS)
                     setProgress { target ->
                         onSet(target.coerceIn(-1f, 1f))
                         true
                     }
-                    onLongClick(if (locked) "Unlock for Surprise" else "Lock against Surprise") {
+                    onLongClick(lockLabel) {
                         onToggleLock()
                         true
                     }
@@ -301,7 +310,11 @@ private fun KnobMenu(
     var explaining by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
-            Icon(Icons.Filled.MoreVert, contentDescription = "More for $title", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(
+                Icons.Filled.MoreVert,
+                contentDescription = stringResource(R.string.customize_a11y_more_for, title),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(text = { Text(stringResource(R.string.customize_what_is_this)) }, onClick = {

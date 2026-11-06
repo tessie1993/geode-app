@@ -134,12 +134,20 @@ class VisualizerRenderer(
     @Volatile
     var reactions: List<ReactionRoute>? = null
 
-    /** Gyro look, -1..1 per axis, written by the sensor listener; native reads it only while camGyro is on. */
+    /**
+     * Gyro reading in radians from [GyroLook] (NaN azimuth while off); core/viz/GyroLook makes the
+     * look. [gyroSession] bumps on each switch on, so native recaptures even if no frame saw it off.
+     */
     @Volatile
-    var lookYaw: Float = 0f
+    var gyroAzimuth: Float = Float.NaN
 
     @Volatile
-    var lookPitch: Float = 0f
+    var gyroPitch: Float = 0f
+
+    @Volatile
+    var gyroSession: Int = 0
+
+    private var nativeGyroSession = 0
 
     private val styleReactions = StyleReactionsCache()
 
@@ -332,7 +340,10 @@ class VisualizerRenderer(
             nativeViz.setReactions(routes)
             nativeReactions = routes
         }
-        nativeViz.setLook(lookYaw, lookPitch)
+        val azimuth = gyroAzimuth
+        if (azimuth.isNaN() || gyroSession != nativeGyroSession) nativeViz.gyroReset()
+        nativeGyroSession = gyroSession
+        if (!azimuth.isNaN()) nativeViz.gyroSample(azimuth, gyroPitch)
         nativeViz.setReducedMotion(reducedMotion)
         nativeViz.setTransition(transitionId, transitionDurationMs)
         feedSound()

@@ -409,6 +409,16 @@ object GeodeNative {
         pitch: Float,
     )
 
+    /** One gyro reading (azimuth, pitch in radians from SensorManager.getOrientation); core/viz/GyroLook makes the look. */
+    external fun vizGyroSample(
+        handle: Long,
+        azimuth: Float,
+        pitch: Float,
+    )
+
+    /** Gyro off or switched on again: recentre the look and recapture the baseline on the next sample. */
+    external fun vizGyroReset(handle: Long)
+
     /**
      * One live frame's start (`core/viz/frame/Cadence`), on the GL thread before [vizSetScene] and
      * [vizRender]: hand over what the shell holds every frame; native applies only what changed. [pacedFps]
@@ -586,6 +596,16 @@ object GeodeNative {
      * field's name, kind, default, control range and FADE/HOLD (`geode_params_schema_text`). Static; parse once.
      */
     external fun paramsSchemaText(): String
+
+    /**
+     * The config params schema (core/viz/ConfigTable.inc) as its versioned line table: per row the group
+     * (lfo, adsr, macro, palette, look, clip, theme), its index in the group, name, kind, default, control
+     * range and unit (`geode_config_schema_text`). The stores' clamps and defaults are to read it. Static; parse once.
+     */
+    external fun configSchemaText(): String
+
+    /** Every rolled control as `TAB|ParamKeys string` lines, in roll order (core/viz/ParamRandomizer). Static. */
+    external fun paramsRollKeys(): String
 
     /**
      * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:

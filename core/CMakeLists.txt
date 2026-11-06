@@ -39,6 +39,7 @@ add_library(geode_core STATIC
     signal/timeline/Keyframes.cpp
     signal/timeline/SpeedRamp.cpp
     util/CubeLut.cpp
+    api/geode_output_api.cpp
     viz/ShaderSource.cpp
     viz/GlCaps.cpp
     viz/GlProber.cpp

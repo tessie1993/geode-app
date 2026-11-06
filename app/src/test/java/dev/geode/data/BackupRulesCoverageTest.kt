@@ -69,4 +69,16 @@ class BackupRulesCoverageTest {
         val paths = xml("data_extraction_rules.xml").child("device-transfer").excludedPaths()
         assertEquals(setOf("crash-latest.txt"), paths)
     }
+
+    /**
+     * Android: "If you specify an `<include>` element, the system no longer includes any files by
+     * default and backs up only the files specified" (developer.android.com, Auto Backup). The rules
+     * keep presets, playlists and project.json by leaving everything in except the excludes, so an
+     * include in a cloud rule set would silently drop them all.
+     */
+    @Test
+    fun cloudRulesOnlyExcludeSoEverythingElseStillBacksUp() {
+        assertEquals(0, xml("backup_rules.xml").getElementsByTagName("include").length)
+        assertEquals(0, xml("data_extraction_rules.xml").child("cloud-backup").getElementsByTagName("include").length)
+    }
 }

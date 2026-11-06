@@ -591,10 +591,10 @@ Java_dev_geode_engine_bridge_GeodeNative_frameClockAudioUntilUs(JNIEnv* env, job
 
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_castFormat(JNIEnv* env, jobject, jintArray out) {
-    if (!out || env->GetArrayLength(out) < 3) return;
-    int f[3];
+    if (!out || env->GetArrayLength(out) < 4) return;
+    int f[4];
     geode_cast_format(f);
-    env->SetIntArrayRegion(out, 0, 3, reinterpret_cast<const jint*>(f));
+    env->SetIntArrayRegion(out, 0, 4, reinterpret_cast<const jint*>(f));
 }
 
 // Export post-passes (core/viz/frame/ExportPasses): marshalling only.
@@ -780,6 +780,40 @@ Java_dev_geode_engine_bridge_GeodeNative_castAudioStep(JNIEnv* env, jobject, jlo
     geode_cast_audio_step(s, gainedFrames, untilUs, o);
     env->SetLongArrayRegion(state, 0, GEODE_CAST_AUDIO_STATE, reinterpret_cast<const jlong*>(s));
     env->SetLongArrayRegion(out, 0, GEODE_CAST_AUDIO_STEP, reinterpret_cast<const jlong*>(o));
+}
+
+// Cast's HLS timing (core/viz/frame/HlsSegments): the init segment's and a fragment's bytes in, its media seconds out.
+JNIEXPORT jdouble JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_hlsFragmentSeconds(JNIEnv* env, jobject, jbyteArray init, jbyteArray fragment) {
+    if (!init || !fragment) return 0.0;
+    const jsize initSize = env->GetArrayLength(init);
+    const jsize fragmentSize = env->GetArrayLength(fragment);
+    auto* i = static_cast<const uint8_t*>(env->GetPrimitiveArrayCritical(init, nullptr));
+    auto* f = static_cast<const uint8_t*>(env->GetPrimitiveArrayCritical(fragment, nullptr));
+    const double seconds = (i && f) ? geode_hls_fragment_seconds(i, static_cast<size_t>(initSize), f, static_cast<size_t>(fragmentSize)) : 0.0;
+    if (f) env->ReleasePrimitiveArrayCritical(fragment, const_cast<uint8_t*>(f), JNI_ABORT);
+    if (i) env->ReleasePrimitiveArrayCritical(init, const_cast<uint8_t*>(i), JNI_ABORT);
+    return seconds;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_hlsWindow(JNIEnv*, jobject) {
+    return geode_hls_window();
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_hlsPlaylist(JNIEnv* env, jobject, jlong firstSequence, jdoubleArray durations,
+                                                     jstring initUri, jstring segmentPrefix, jstring segmentSuffix) {
+    if (!durations) return nullptr;
+    std::vector<double> d(static_cast<size_t>(env->GetArrayLength(durations)));
+    env->GetDoubleArrayRegion(durations, 0, static_cast<jsize>(d.size()), d.data());
+    geode::jni::Utf8Chars uri(env, initUri), prefix(env, segmentPrefix), suffix(env, segmentSuffix);
+    const auto write = [&](char* out, int cap) {
+        return geode_hls_playlist(firstSequence, d.data(), static_cast<int>(d.size()), uri.get(), prefix.get(),
+                                  suffix.get(), out, cap);
+    };
+    std::vector<char> text(static_cast<size_t>(write(nullptr, 0)) + 1);
+    return write(text.data(), static_cast<int>(text.size())) > 0 ? env->NewStringUTF(text.data()) : nullptr;
 }
 
 }

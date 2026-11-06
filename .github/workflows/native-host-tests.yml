@@ -116,3 +116,6 @@ jobs:
           # Cast's audio pump (#772): a steady feed, a paused feed padded to the cut, a feed ahead held, 3 h sample-exact at 48 kHz.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/cast_audio_test.cpp core/api/geode_frame_api.cpp -o cast_audio_test
           ./cast_audio_test
+          # Cast's HLS timing (#656): segment durations from the fragment's media time, TARGETDURATION, the playlist text.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/hls_segments_test.cpp core/api/geode_frame_api.cpp -o hls_segments_test
+          ./hls_segments_test

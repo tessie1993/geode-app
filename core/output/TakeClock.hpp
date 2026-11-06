@@ -58,6 +58,11 @@ public:
 
     bool reachedCap() const { return reachedCap_.load(std::memory_order_relaxed); }
 
+    // A held take (TakeRules: pause holds the capture) keeps no frame, and its clock stops: the time held is
+    // taken out of every later frame's time, so the file runs on without a gap. Any thread.
+    void hold(int64_t nowNs);
+    void release(int64_t nowNs);
+
     // The last kept frame's time, or -1 before the first. Read after the GL thread stops presenting.
     int64_t lastPtsUs() const { return lastUs_; }
     int64_t frames() const { return frames_; }
@@ -67,6 +72,8 @@ private:
     int64_t minGapUs_;
     int64_t capUs_;
     std::atomic<bool> reachedCap_{false};
+    std::atomic<int64_t> heldNs_{0};       // every hold so far, added up
+    std::atomic<int64_t> holdSinceNs_{0};  // when the current hold began; 0 while running
     int64_t lastUs_ = -1;
     int64_t frames_ = 0;
 };
@@ -104,6 +111,11 @@ public:
     // The take is ending: silence up to endUs (the last video frame), so the sound lasts as long as the picture.
     void padTo(int64_t endUs);
 
+    // Held with the picture (TakeRules): nothing is written or filled, and the time held is taken out of the
+    // take's clock, so the first block after release follows the last one before the hold.
+    void hold(int64_t nowNs);
+    void release(int64_t nowNs);
+
     // The presentation time (µs) of the next frame read() hands out.
     int64_t nextReadPtsUs() const;
     // Frames buffered and not yet read.
@@ -123,6 +135,8 @@ private:
     int64_t framesOut_ = 0;        // every frame read() handed out
     bool anchored_ = false;
     bool lastWasPad_ = false;
+    bool holding_ = false;
+    int64_t holdSinceNs_ = 0;
     std::unique_ptr<audio::PcmResampler> resampler_;
     int resamplerRate_ = 0;
     std::vector<int16_t> stereo_;

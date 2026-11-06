@@ -18,6 +18,9 @@ import dev.geode.pro.RenderLimits
 import dev.geode.util.bestEffort
 import java.io.File
 
+/** What the player did during a take, in `geode_take_event`'s wire order (`core/output/TakeRules`). */
+enum class TakeEvent { PAUSE, RESUME, SEEK, TRACK_CHANGE }
+
 /** A stopped capture take's MP4, still in app scratch until [TakeCapture.publish] puts it where takes go. */
 data class TakeVideo(
     val file: File,
@@ -50,6 +53,8 @@ class TakeCapture(
     @WorkerThread
     fun begin(limits: RenderLimits = RenderLimits.NONE): Boolean {
         if (fd != null) return false
+        // The take reads Settings › Behaviour › Record as it begins; fetching the store pushes the saved rule.
+        TakeRuleStore.get(appContext)
         val out = File(appContext.cacheDir, "studio-take-${System.currentTimeMillis()}.mp4")
         val opened =
             runCatching {
@@ -115,6 +120,12 @@ class TakeCapture(
         if (uri != null) video.file.delete() else dev.geode.RingLog.note(TAG, "take could not be saved to ${target.encode()}")
         return uri
     }
+
+    /**
+     * What the player did ([TakeEvent]); native applies the take rule and says whether the take carries on.
+     * True when it ended and must be stopped and saved.
+     */
+    fun report(event: TakeEvent): Boolean = GeodeNative.takeEvent(event.ordinal) == ACTION_END
 
     /** The running take reached the entitlement's cap; native decides, the controller stops it. */
     fun reachedCap(): Boolean = GeodeNative.takeReachedCap()
@@ -193,5 +204,8 @@ class TakeCapture(
     private companion object {
         const val TAG = "TakeCapture"
         const val DEFAULT_FPS = 60f
+
+        /** `geode_take_event`'s answer for a take its rule ended. */
+        const val ACTION_END = 4
     }
 }

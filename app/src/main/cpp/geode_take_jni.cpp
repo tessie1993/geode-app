@@ -27,6 +27,16 @@ Java_dev_geode_engine_bridge_GeodeNative_takeReachedCap(JNIEnv*, jobject) {
     return geode_take_reached_cap() != 0 ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_takeSetRule(JNIEnv*, jobject, jint rule) {
+    geode_take_set_rule(rule);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_takeEvent(JNIEnv*, jobject, jint event) {
+    return geode_take_event(event);
+}
+
 JNIEXPORT jlong JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_takeEnd(JNIEnv*, jobject) {
     return static_cast<jlong>(geode_take_end());

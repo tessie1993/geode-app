@@ -77,6 +77,9 @@ jobs:
           # A capture take's clock (#456, ADR 0008): sizes, frame pick and the heard sound on the take's time zero.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/take_clock_test.cpp core/output/TakeClock.cpp core/audio/dsp/PcmResampler.cpp -o take_clock_test
           ./take_clock_test
+          # What pause, seek and a track change do to a take under each Settings rule (#459).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/take_rules_test.cpp core/output/TakeRules.cpp core/output/TakeClock.cpp core/audio/dsp/PcmResampler.cpp -o take_rules_test
+          ./take_rules_test
           # The wallpaper's edge glow, the first frame::Pass (#439): options, the VU envelope, the band and its mask.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/edge_glow_test.cpp -o edge_glow_test
           ./edge_glow_test

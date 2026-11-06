@@ -110,7 +110,10 @@ fun VisualizerEngineBindings(
         }.collect { visualizerView.visualizerRenderer.look = it }
     }
     LaunchedEffect(Unit) {
-        viewModel.vizState.map { it.params.camGyro }.distinctUntilChanged().collect { visualizerView.gyroWanted = it }
+        viewModel.vizState
+            .map { it.params.camGyro }
+            .distinctUntilChanged()
+            .collect { visualizerView.gyroWanted = it }
     }
     LaunchedEffect(viz.sceneId) {
         LayersBus.activeSceneId.value = viz.sceneId

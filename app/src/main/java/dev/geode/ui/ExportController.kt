@@ -732,8 +732,8 @@ internal class ExportController(
         final: Boolean,
         onProgress: (Float, Boolean) -> Unit,
         isCancelled: () -> Boolean,
-    ): VideoExporter.Result {
-        return exporter.export(
+    ): VideoExporter.Result =
+        exporter.export(
             audioUri = segment.songUri.toUri(),
             sceneFactory = look.factory,
             aspect = spec.aspect,
@@ -751,7 +751,6 @@ internal class ExportController(
             isCancelled = isCancelled,
             watermark = spec.watermark,
         )
-    }
 
     /**
      * The look a segment draws. A take clip plays its recorded events at take time (the clip's

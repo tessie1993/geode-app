@@ -176,7 +176,6 @@ class VisualizerWallpaperService : WallpaperService() {
             val looks = LookStore(prefsFiles, contentResolver)
             looks.pushProcessWide()
             engine.look = looks.current()
-            engine.soundTuning = gui.soundTuning
             // Settings › Performance's quality; its fps cap is the live visual's, and the wallpaper
             // paces to its own choice instead (applyFps, ADR 0008).
             engine.performance = PerformanceStore(prefsFiles.general, this@VisualizerWallpaperService).settings.value

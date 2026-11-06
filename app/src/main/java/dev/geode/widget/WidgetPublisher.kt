@@ -6,6 +6,7 @@ import androidx.glance.appwidget.updateAll
 import androidx.media3.common.C
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.playback.MediaArtwork
 import kotlinx.coroutines.CoroutineScope
@@ -88,8 +89,8 @@ class WidgetPublisher(
                     WidgetState.update(appContext) {
                         it.copy(
                             artPath = path,
-                            artHue = palette?.baseHue ?: WidgetState.NO_HUE,
-                            artSpan = palette?.span ?: 0f,
+                            artHue = palette?.get(GeodeNative.ART_HUE) ?: WidgetState.NO_HUE,
+                            artSpan = palette?.get(GeodeNative.ART_SPAN) ?: 0f,
                         )
                     }
                     NowPlayingWidget().updateAll(appContext)

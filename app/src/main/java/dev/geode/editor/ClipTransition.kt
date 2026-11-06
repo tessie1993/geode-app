@@ -24,6 +24,3 @@ data class ClipTransition(
         const val HARD_CUT: String = "cut"
     }
 }
-
-/** The clip that ends before [clip] on its lane, if any: the one a transition would come from. */
-fun Lane.predecessorOf(clip: Clip): Clip? = clips.filter { it.id != clip.id && it.endMs <= clip.startMs }.maxByOrNull { it.endMs }

@@ -73,10 +73,6 @@ int64_t geode_export_frame_pts_ns(int64_t frame, int fps) { return out::FrameClo
 
 int64_t geode_export_frame_time_ms(int64_t frame, int fps) { return out::FrameClock(fps, 0).frameTimeMs(frame); }
 
-int64_t geode_export_samples_through(int64_t frame, int fps, int sample_rate) {
-    return out::FrameClock(fps, sample_rate).samplesThrough(frame);
-}
-
 void geode_loop_spec_of(int64_t loop_ms, int64_t crossfade_ms, int fps, geode_loop_spec* o) {
     if (o) fill(out::LoopSpec::of(loop_ms, crossfade_ms, fps), o);
 }
@@ -248,7 +244,6 @@ size_t geode_pcm_downmix_s16(const int16_t* in, size_t frames, int src_channels,
 
 void geode_pcm_float_to_s16(const float* in, size_t samples, int16_t* o) { geode::audio::floatToS16(in, samples, o); }
 
-void geode_pcm_s16_to_float(const int16_t* in, size_t samples, float* o) { geode::audio::s16ToFloat(in, samples, o); }
 
 int geode_aac_rate_for(int source_rate) { return geode::audio::aacRateFor(source_rate); }
 

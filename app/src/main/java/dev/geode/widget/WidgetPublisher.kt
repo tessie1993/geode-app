@@ -37,7 +37,8 @@ class WidgetPublisher(
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var artJob: Job? = null
     private var tickJob: Job? = null
-    private var artUri: String? = null
+
+    @Volatile private var artUri: String? = null
 
     override fun onEvents(
         player: Player,
@@ -83,6 +84,7 @@ class WidgetPublisher(
             artJob =
                 scope.launch {
                     val art = uri?.let { MediaArtwork.decodeEmbedded(appContext, it) }
+                    if (uri != artUri) return@launch
                     val path = WidgetState.writeArt(appContext, art)
                     val palette = art?.let(WidgetVisual::paletteOf)
                     WidgetState.update(appContext) {

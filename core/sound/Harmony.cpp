@@ -138,17 +138,18 @@ void Harmony::detectScale() {
         scale_ = best / 12;
         scaleRoot_ = best % 12;
     } else if (best != scale_ * 12 + scaleRoot_ && bestScore - current > 0.03f) {
-        scaleHold_ = best == scaleRival_ ? scaleHold_ + dt : dt;
-        scaleRival_ = best;
-        if (scaleHold_ >= 2.0f) {  // two seconds of a better fit before the mood changes
+        // Two seconds of the current scale fitting worse than another before the mood changes; then it
+        // moves to the best of that moment. The time counts against the current scale, not one rival: a
+        // melody walking its scale swaps the leader between relatives (A Aeolian, C Ionian) every few
+        // notes, and a hold that restarted on each swap kept a wrong first reading for the whole song.
+        scaleHold_ += dt;
+        if (scaleHold_ >= 2.0f) {
             scale_ = best / 12;
             scaleRoot_ = best % 12;
             scaleHold_ = 0.0f;
-            scaleRival_ = -1;
         }
     } else {
         scaleHold_ = 0.0f;
-        scaleRival_ = -1;
     }
     scaleFit_ = follow(scaleFit_, std::clamp((bestFit - 0.3f) / 0.5f, 0.0f, 1.0f), 1.0f, dt);
 }
@@ -180,9 +181,14 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
             // classes together and no scale stood out. Log-compressed over the frame's own peak (Müller's
             // CLP chroma), so loudness divides out and a quiet third still counts beside a loud root.
             std::array<float, 12> raw{};
+            double bandPower = 0.0;
+            double peakPower = 0.0;
+            for (int k = from_; k < to_; k++) bandPower += static_cast<double>(mag[k]) * mag[k];
             for (int k = from_; k < to_; k++) {
                 const float m = mag[k];
                 if (m < 0.03f * top || m <= mag[k - 1] || m < mag[k + 1]) continue;
+                peakPower += static_cast<double>(mag[k - 1]) * mag[k - 1] + static_cast<double>(m) * m +
+                             static_cast<double>(mag[k + 1]) * mag[k + 1];
                 const float a = mag[k - 1];
                 const float c = mag[k + 1];
                 const float curve = a - 2.0f * m + c;
@@ -214,15 +220,29 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
             for (float v : raw) rawTop = std::max(rawTop, v);
             if (rawTop <= 0.0f) rawTop = 1.0f;
             for (float& v : raw) v /= rawTop;
-            if (!heard_) {
-                fast_ = medium_ = slow_ = raw;
-                heard_ = true;
-            }
+            // Until a chroma has heard its own time constant of audio, it is the plain mean of every hop
+            // heard (Essentia's streaming Key averages all its HPCP frames the same way); after that the
+            // one-pole average takes over, where the two weights meet. Seeding with the first hop gave
+            // one mostly empty window the weight of four seconds, and the key and scale read from it.
+            constexpr float kFastTau = 0.1f;
+            constexpr float kMediumTau = 0.5f;
+            constexpr float kSlowTau = 4.0f;
+            heard_ = true;
+            heardSeconds_ = std::min(heardSeconds_ + dt, kSlowTau);
+            const auto settle = [&](float y, float x, float tau) {
+                return heardSeconds_ < tau ? y + (x - y) * (dt / heardSeconds_) : follow(y, x, tau, dt);
+            };
             for (int i = 0; i < 12; i++) {
-                fast_[i] = follow(fast_[i], raw[i], 0.1f, dt);
-                medium_[i] = follow(medium_[i], raw[i], 0.5f, dt);
-                slow_[i] = follow(slow_[i], raw[i], 4.0f, dt);
+                fast_[i] = settle(fast_[i], raw[i], kFastTau);
+                medium_[i] = settle(medium_[i], raw[i], kMediumTau);
+                slow_[i] = settle(slow_[i], raw[i], kSlowTau);
             }
+            // How tonal the band is: the share of its power on the picked peaks (each peak's bin and the
+            // two beside it, a Hann main lobe). Notes put nearly all of it there; a drum's spill is a
+            // smooth slope with few local maxima and little power on them. At the medium chroma's pace,
+            // the one a harmonic change is read from.
+            const float tonal = bandPower > 0.0 ? static_cast<float>(std::min(1.0, peakPower / bandPower)) : 0.0f;
+            tonality_ = settle(tonality_, tonal, kMediumTau);
         }
     }
     normalise(fast_, out.chromaFast);
@@ -254,16 +274,15 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
         if (key_ < 0) {
             key_ = best;
         } else if (best != key_ && r[best] - r[key_] > 0.03f) {
-            keyHold_ = best == keyRival_ ? keyHold_ + dt : dt;
-            keyRival_ = best;
+            // Like the scale: the time counts against the current key, whichever key leads (a progression
+            // swaps the leader between relatives chord by chord, and a per-rival hold never switched).
+            keyHold_ += dt;
             if (keyHold_ >= 2.0f) {
                 key_ = best;
                 keyHold_ = 0.0f;
-                keyRival_ = -1;
             }
         } else {
             keyHold_ = 0.0f;
-            keyRival_ = -1;
         }
         clarity_ = follow(clarity_, std::clamp(r[key_], 0.0f, 1.0f), 1.0f, dt);
         major_ = follow(major_, std::clamp(0.5f + 2.0f * (bestMajor - bestMinor), 0.0f, 1.0f), 2.0f, dt);
@@ -302,9 +321,7 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
 
         // Harmonic change: every 0.1 s a snapshot of the fast chroma; the last five against the twenty
         // before them. Half a second of evidence keeps it near the change instead of two seconds after.
-        sinceSnapshot_ += dt;
-        if (sinceSnapshot_ >= kSnapshotEvery) {
-            sinceSnapshot_ -= kSnapshotEvery * std::floor(sinceSnapshot_ / kSnapshotEvery);
+        if (due(sinceSnapshot_, kSnapshotEvery, dt)) {
             snapshots_[snapshotHead_] = fast_;
             snapshotHead_ = (snapshotHead_ + 1) % kSnapshots;
             snapshotCount_ = std::min(snapshotCount_ + 1, kSnapshots);
@@ -321,11 +338,7 @@ void Harmony::step(const float* mag, float dt, bool silent, GeodeSoundFrame& out
         }
         out.harmonicChange = trigger_.step(change_, 0.15f, 0.5f, dt);
 
-        sinceScale_ += dt;
-        if (sinceScale_ >= 0.25f) {
-            sinceScale_ -= 0.25f * std::floor(sinceScale_ / 0.25f);
-            detectScale();
-        }
+        if (due(sinceScale_, 0.25f, dt)) detectScale();
         if (scale_ >= 0) {
             // The mood glides (about a second), so a change of mode is a turn of the light, not a cut.
             scaleBright_ = follow(scaleBright_, 0.5f + 0.5f * kScales[scale_].brightness, 1.0f, dt);

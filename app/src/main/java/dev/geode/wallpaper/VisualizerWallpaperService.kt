@@ -124,7 +124,7 @@ class VisualizerWallpaperService : WallpaperService() {
             settings = prefsStore.load()
             engine.pcmProvider = { null }
             engine.soundInput = { sound.input }
-            val wrapped = WallpaperRenderer(engine) { sound.input }
+            val wrapped = WallpaperRenderer(engine)
             wallpaperRenderer = wrapped
             glView =
                 WallpaperGlSurfaceView(this@VisualizerWallpaperService).apply {

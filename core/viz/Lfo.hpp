@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "viz/Config.hpp"
 #include "viz/Params.hpp"
 
 namespace geode::viz {
@@ -36,17 +37,19 @@ struct ModChain {
 bool chainOf(LfoTarget target, ModChain& out);
 bool isLuminanceTarget(LfoTarget target);
 
+// One slot as geode_viz_set_lfo hands it over. Defaults and the period's range are the lfo rows of
+// viz/ConfigTable.inc (#423), the same numbers the stores and the sliders read.
 struct LfoConfig {
-    static constexpr float kDefaultRateSeconds = 2.0f;
-    static constexpr float kMinRateSeconds = 0.05f;
-    static constexpr float kMaxRateSeconds = 60.0f;
+    static constexpr float kDefaultRateSeconds = config::spec(config::Slot::lfo_rateSeconds).defaultValue;
+    static constexpr float kMinRateSeconds = config::spec(config::Slot::lfo_rateSeconds).min;
+    static constexpr float kMaxRateSeconds = config::spec(config::Slot::lfo_rateSeconds).max;
 
     bool enabled = false;
     ModSource source = ModSource::Lfo;
     LfoTarget target = LfoTarget::None;
     LfoWave wave = LfoWave::Sine;
     float rateSeconds = kDefaultRateSeconds;
-    float depth = 0.3f;
+    float depth = config::spec(config::Slot::lfo_depth).defaultValue;
     ModPolarity polarity = ModPolarity::Bipolar;
     ModCurve curve = ModCurve::Linear;
     /* 0 = free (rateSeconds). 1, 2, 4, 8, 16 or 32 = one cycle per that many beats of the music clock. */
@@ -61,6 +64,9 @@ class LfoEngine {
 public:
     static constexpr int kSlots = 3;
     static constexpr float kShPhaseWrap = 64.0f;
+    // The depth an oscillator runs at after an envelope or an earlier slot adds to it. Wider than the
+    // control's 0..1 (the lfo_depth row) on purpose: chained modulation may push a full slot past it.
+    static constexpr float kMaxModulatedDepth = 2.0f;
 
     std::array<LfoConfig, kSlots> configs{};
 

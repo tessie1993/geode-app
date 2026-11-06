@@ -13,7 +13,6 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.audio.ForwardingAudioOutputProvider
 import androidx.media3.exoplayer.audio.TeeAudioProcessor
 import dev.geode.audio.dsp.MvzAudioProcessorChain
-import dev.geode.engine.audioandroid.SinkClockHooks
 
 /**
  * [onAudioOutput] hears each output's config (rate, channel mask, encoding) on the playback thread just
@@ -25,12 +24,10 @@ import dev.geode.engine.audioandroid.SinkClockHooks
 class TapRenderersFactory(
     context: Context,
     private val sink: TeeAudioProcessor.AudioBufferSink,
-    private val hooks: SinkClockHooks = SinkClockHooks.None,
     private val dsp: List<AudioProcessor> = emptyList(),
     private val onAudioOutput: (AudioOutputProvider.OutputConfig) -> Unit = {},
 ) : DefaultRenderersFactory(context) {
-    internal fun audioProcessorChain(): MvzAudioProcessorChain =
-        MvzAudioProcessorChain(TeeAudioProcessor(sink), dsp = dsp, hooks = hooks).also(hooks::attachSkippedFrames)
+    internal fun audioProcessorChain(): MvzAudioProcessorChain = MvzAudioProcessorChain(TeeAudioProcessor(sink), dsp = dsp)
 
     override fun buildAudioSink(
         context: Context,

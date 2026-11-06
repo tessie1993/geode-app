@@ -283,6 +283,10 @@ _Avoid_: Emotion (it is a design reading, not a measurement)
 Code that turns sound into numbers or numbers into pixels: DSP, analysis, feature maths, reactions, scene parameter maths, camera, randomizers and the scene and style metadata. It lives in C++ (`core/`). See ADR 0003. Not the `:engine:*` Gradle modules, which still hold both engine and shell Kotlin.
 _Avoid_: Core logic, backend
 
+**Playout clock**:
+The engine's answer to "which ring sample is the speaker playing now": the sink's position (output and Bluetooth latency included) mapped onto the ring, plus the user's A/V offset. Live surfaces read up to it, never past it (`core/sound/interp/PlayoutClock`).
+_Avoid_: Presentation clock, sink clock (the deleted Kotlin ones)
+
 **Shell**:
 The Kotlin around the engine: JNI declarations, Android lifecycle, Media3 and MediaCodec wiring, UI, stores, permissions, file IO, product rules (Pro) and display labels.
 _Avoid_: Wrapper, glue layer

@@ -125,6 +125,11 @@ GEODE_API int         geode_event_recipe_toggle(int recipe, const char* style_id
                                                 float* out, int capacity);
 /* Gyro look, -1..1 per axis; the camera reads it only while camGyro is on. */
 GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
+/* One gyro reading from SensorManager.getOrientation (radians: azimuth -pi..pi, pitch -pi/2..pi/2). The first after a
+   reset is the baseline; viz/GyroLook turns the tilt from it into the look above. GL thread. */
+GEODE_API void        geode_viz_gyro_sample(geode_viz*, float azimuth, float pitch);
+/* The gyro is off (or switched on again): recentre the look to (0,0) and recapture on the next sample. GL thread. */
+GEODE_API void        geode_viz_gyro_reset(geode_viz*);
 /* One live frame's start (core/viz/frame/Cadence, #604), on the GL thread before geode_viz_set_scene and
    geode_viz_render. The shell passes what it holds every frame and native applies only what changed:
    paced_fps is this surface's own fps cap (0 = free-running; the thermal cap is applied under it natively);
@@ -314,6 +319,14 @@ GEODE_API const char* geode_params_roll_keys(void);
  * slots 0..count-1 in order; ints and bools as numbers, like the wire. Static: the pointer stays valid for the
  * process; the shell parses it once. Labels and page placement stay in Kotlin. */
 GEODE_API const char* geode_params_schema_text(void);
+/* The config params schema (core/viz/ConfigTable.inc): the values the data stores hold beside the scene params
+ * (LFO and envelope slots, macro knobs, the palette maker's gradient, the look's envelope, the Studio clip edit,
+ * the preset morph), one row each, as a versioned '|'-separated line table:
+ *   configs|<version>|<count>
+ *   config|<group>|<index>|<name>|<FLOAT|INT|BOOL>|<default>|<min>|<max>|<NONE|SECONDS|FRACTION|TURNS|DEGREES|POINTS|TIMES>
+ * index = the row's place in its group (for lfo and adsr the float index of geode_viz_set_lfo / _adsr, for macro
+ * the knob). A sibling of geode_params_schema_text, whose format it leaves alone. Static; parse once. */
+GEODE_API const char* geode_config_schema_text(void);
 
 /* Customize panel map (core/viz/CustomizeMap): ten categories, each a free Basics section and Pro sections, and
  * which control lives in which. geode_customize_text is its versioned '|'-separated line table (rows in
@@ -376,6 +389,15 @@ GEODE_API void            geode_loudness_feed(geode_loudness*, const float* inte
 GEODE_API void            geode_loudness_feed_s16(geode_loudness*, const int16_t* interleaved, size_t samples);
 GEODE_API int             geode_loudness_has_block(geode_loudness*);   /* 1 once a 400 ms block exists */
 GEODE_API void            geode_loudness_finish(geode_loudness*, geode_loudness_report* out);   /* non-destructive */
+
+/* Encoder fallback ladder (output/EncoderLadder, #607): every attempt an export makes at opening the video
+ * encoder, in order, until configure accepts one: each candidate codec's ladder in turn. ceilings[i] is codec
+ * i's upper rate for the size from its capability table (MediaCodecInfo.VideoCapabilities), 0 or less when
+ * unknown; at most 2 codecs are read. Writes up to capacity attempts (4 at most) as the codec's index, frame
+ * rate and bit rate, and returns how many; 0 for NULL arrays. Pure, any thread. */
+GEODE_API int             geode_encoder_attempts(int requested_fps, int bit_rate, const int* ceilings,
+                                                 int codec_count, int* out_codec, int* out_fps,
+                                                 int* out_bit_rate, int capacity);
 
 /* Export post-passes (viz/frame/ExportPasses, #442): the non-Pro watermark, a loop render's seam, and a Studio
  * render's GL Transition with the capture that feeds it, each a frame::Pass on the export surface. The pure
@@ -623,6 +645,29 @@ GEODE_API int64_t geode_pcm_samples_before_us(int64_t us, int rate, int channels
  * out_pts_us when not NULL. A buffer that straddles the start keeps the frames from the start on. */
 GEODE_API int64_t geode_pcm_trim_s16(int64_t start_us, int64_t buf_pts_us, int64_t bytes, int rate, int channels,
                                      int64_t* out_pts_us);
+/* Playout clock (sound/interp/PlayoutClock, #349): which ring sample the speaker plays now, so live visuals
+ * land on what is heard (AudioTrack buffer, HAL and Bluetooth latency included) instead of on what the sink
+ * took. Times: media microseconds (the sink's timeline) and monotonic nanoseconds; ring samples are absolute
+ * per-channel frame indices (the ring's running write count). The playback thread writes, any GL thread
+ * reads; every call is safe on a NULL handle. speaker_frame is a pure read: the same facts and now_ns give
+ * the same answer at any frame rate. */
+typedef struct geode_playout geode_playout;
+GEODE_API geode_playout* geode_playout_create(void);
+GEODE_API void           geode_playout_destroy(geode_playout*);
+/* The sink handled a buffer presented at presentation_us whose first sample is ring_frame and which put
+ * `frames` samples in the ring. A repeat of the newest presentation time is the same buffer retried. */
+GEODE_API void           geode_playout_buffer_handled(geode_playout*, int64_t presentation_us, int64_t ring_frame,
+                                                      int64_t frames);
+/* The sink's playback position in media time (AudioTrack.getTimestamp, latency included), read at now_ns. */
+GEODE_API void           geode_playout_position(geode_playout*, int64_t sink_us, int64_t now_ns);
+GEODE_API void           geode_playout_playing(geode_playout*, int playing, int64_t now_ns);   /* 1 play, 0 pause */
+GEODE_API void           geode_playout_flush(geode_playout*);           /* a seek: every anchor and position goes */
+GEODE_API void           geode_playout_speed(geode_playout*, float speed);   /* media per wall time; > 0 */
+/* The user's A/V offset, clamped to +-1000 ms; positive shows the picture later. */
+GEODE_API void           geode_playout_set_offset_ms(geode_playout*, int ms);
+/* The newest ring sample heard at now_ns, offset applied: never past the newest sample written. -1 when
+ * nothing was handled since create or flush (and for NULL); the first handled sample until a position. */
+GEODE_API int64_t        geode_playout_speaker_frame(const geode_playout*, int64_t now_ns);
 /* Cast's live HLS timing (viz/frame/HlsSegments): a segment lasts the media time its fragment holds (the
  * video track's trun sample durations over its mdhd timescale), never the wall time between cuts. */
 #define GEODE_HLS_WINDOW 6           /* segments kept and listed */

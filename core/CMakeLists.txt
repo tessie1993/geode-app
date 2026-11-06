@@ -9,12 +9,14 @@ add_library(geode_core STATIC
     api/geode_underlay_api.cpp
     api/geode_frame_api.cpp
     api/geode_surface_api.cpp
+    api/geode_playout_api.cpp
     sound/Fft.cpp
     sound/Emotion.cpp
     sound/Form.cpp
     sound/Harmony.cpp
     sound/Rhythm.cpp
     sound/SoundEngine.cpp
+    sound/interp/PlayoutClock.cpp
     sound/Tuning.cpp
     library/Tags.cpp
     library/Search.cpp
@@ -37,6 +39,7 @@ add_library(geode_core STATIC
     signal/timeline/Keyframes.cpp
     signal/timeline/SpeedRamp.cpp
     util/CubeLut.cpp
+    api/geode_output_api.cpp
     viz/ShaderSource.cpp
     viz/GlCaps.cpp
     viz/GlProber.cpp
@@ -53,6 +56,7 @@ add_library(geode_core STATIC
     viz/Quad.cpp
     viz/Params.cpp
     viz/ParamsFields.cpp
+    viz/ConfigFields.cpp
     viz/Lfo.cpp
     viz/Macros.cpp
     viz/Director.cpp

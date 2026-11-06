@@ -213,16 +213,16 @@ jobs:
           # The playback DSP's format hand-off (#356): the old format's tail drains through its own chain
           # until flush, and no block is ever processed past its buffer.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/dsp_handoff_test.cpp core/api/geode_dsp_api.cpp \
-            core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp \n            core/audio/dsp/Limiter.cpp -o dsp_handoff_test
+            core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o dsp_handoff_test
           ./dsp_handoff_test
           # Bit-perfect USB (#353, #489): with bit-perfect live the playback DSP passes every byte through,
           # whatever gain, EQ, crossfeed or limiter is set; plus the native 16-bit conversion.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/bit_perfect_test.cpp core/api/geode_dsp_api.cpp \
-            core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp \n            core/audio/dsp/Limiter.cpp -o bit_perfect_test
+            core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o bit_perfect_test
           ./bit_perfect_test
           # The playback gain as native ramps (#483): linear in dB and sample-accurate, ReplayGain on the
           # boundary sample (#351), the crossfade's halves mirrored, the sleep fade, bit-identical at 0 dB.
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/gain_ramp_test.cpp core/api/geode_dsp_api.cpp \n            core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp \n            core/audio/dsp/Limiter.cpp -o gain_ramp_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/gain_ramp_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o gain_ramp_test
           ./gain_ramp_test
 
       # Export planning and clip maths ported from Kotlin (ADR 0003, ADR 0006 core/output and

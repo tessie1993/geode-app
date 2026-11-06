@@ -46,7 +46,7 @@ class CatalogueTest {
         assertEquals("PSYCHEDELIC", Catalogue.style("winter")?.look)
         assertEquals("FRACTALS", Catalogue.style("mandelbox_cathedral")?.look)
         assertEquals(setOf(ParamScope.MARCH_DETAIL), Catalogue.style("mandelbox_cathedral")?.scopes)
-        assertEquals(emptySet<ParamScope>(), Catalogue.style(SceneIds.PLASMA)?.scopes)
+        assertEquals(emptySet<ParamScope>(), Catalogue.style("ribbon_storm")?.scopes)
     }
 
     @Test

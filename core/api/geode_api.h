@@ -12,6 +12,7 @@ extern "C" {
 typedef struct geode_viz      geode_viz;
 typedef struct geode_dsp      geode_dsp;
 typedef struct geode_tags     geode_tags;
+typedef struct geode_ingest   geode_ingest;   /* the native ingest ring, declared in full with its calls below */
 
 /* Native visualizer: one renderer per GL surface. Setters may be called from any thread and are latched
  * for the next frame; the calls under "GL thread" need the surface's context current. */
@@ -69,6 +70,20 @@ GEODE_API void        geode_layer_set(const char* scene_id, float mix, int blend
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);
 GEODE_API void        geode_viz_reset_audio(geode_viz*);
+/* The ingest ring this renderer hears (#481), NULL for none. The renderer reads it natively with its own
+ * cursor at the start of each geode_viz_render: every sample once, as the stereo downmix, with the rate it
+ * was written at, the engine reset when a new epoch starts. Any thread; taken up at the next render. The
+ * ring must outlive the renderer, or be unset first. geode_viz_write_audio stays an adapter for callers
+ * that push PCM themselves (export, capture until #485). */
+GEODE_API void        geode_viz_set_sound_source(geode_viz*, geode_ingest*);
+/* A reader of an ingest ring for a shell that must hand samples to an Android API (cast's AAC encoder):
+ * its own cursor, from the newest sample, behind core/viz/SoundFeed's catch-up cap. One thread. */
+typedef struct geode_ingest_reader geode_ingest_reader;
+GEODE_API geode_ingest_reader* geode_ingest_reader_create(geode_ingest*);   /* NULL for a NULL ring */
+GEODE_API void        geode_ingest_reader_destroy(geode_ingest_reader*);
+/* Up to max_frames stereo frames of the downmix as interleaved int16 (clamped, rounded), all of one rate,
+ * which goes to *sample_rate. Returns the frames written; 0 when nothing new. */
+GEODE_API int         geode_ingest_reader_read_s16(geode_ingest_reader*, int16_t* out, int max_frames, int* sample_rate);
 GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const GeodeSoundTuning*);
 /* Customize › Advanced › Shader code (core/viz/ShaderOverrides): the user's fragment source for a style, process-wide
  * like geode_director_set, so live, export, the wallpaper and the dream all draw it. A null or empty source clears it
@@ -437,6 +452,40 @@ GEODE_API int                 geode_export_capture_read(geode_export_pass*, uint
 GEODE_API long long       geode_silence_heard_at(const float* const* channels, int channel_count, int frames,
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
+
+/* Native ingest ring (audio/ingest/Ring, #480): one per audio source (player tap, mic, another app's audio,
+ * the wallpaper's output mix, a decoded file for export). The source writes raw interleaved PCM bytes
+ * (little-endian) straight from its buffer; every channel is kept with its layout. Single writer, any number
+ * of readers, lock-free: native readers each own an audio/ingest/Cursor, which hands out every sample once,
+ * in order, as the stereo downmix (ITU-R BS.775), each block with the rate, epoch and restart flag it was
+ * written with. A reader that falls more than the ring behind skips to the oldest safe sample. The rate,
+ * layout and epoch are published with the write position, so a sample is never paired with another
+ * format. Positions (geode_ingest_written) count frames over every epoch and never go back.
+ * The ring must outlive every reader; create and destroy with no call in flight. */
+typedef struct geode_ingest geode_ingest;
+enum { GEODE_PCM_S16 = 2, GEODE_PCM_U8 = 3, GEODE_PCM_F32 = 4 };   /* = android.media.AudioFormat ENCODING_* */
+enum { GEODE_PCM_S24_PACKED = 21, GEODE_PCM_S32 = 22 };            /* also ENCODING_*; hi-res sources */
+/* capacity_frames is rounded up to a power of two (256 .. 2^24); max_channels is clamped to 1..24, and a
+ * source with more keeps its first max_channels. NULL on a non-positive argument. */
+GEODE_API geode_ingest* geode_ingest_create(int capacity_frames, int max_channels);
+GEODE_API void          geode_ingest_destroy(geode_ingest*);
+/* Writer thread only. Starts a new epoch: a discontinuity (seek, track/source change). Readers restart on
+ * its first sample. channel_mask is AudioFormat CHANNEL_OUT_*; one that does not name `channels` speakers
+ * (0 included) means the default layout for the count. A rate or channel count of 0 drops writes until the
+ * next usable format. */
+GEODE_API void          geode_ingest_begin_epoch(geode_ingest*, int sample_rate, int channels, int channel_mask);
+/* Writer thread only. Same epoch, new format (e.g. a flush for speed/pitch): no reset for readers. */
+GEODE_API void          geode_ingest_set_format(geode_ingest*, int sample_rate, int channels, int channel_mask);
+/* Writer thread only. `frames` frames of the current format in `encoding` (GEODE_PCM_*); never blocks,
+ * never allocates. Dropped before any format, or for an unknown encoding. */
+GEODE_API void          geode_ingest_write(geode_ingest*, const void* bytes, size_t frames, int encoding);
+/* The same, sized in bytes (the whole frames that fit); returns the frames taken. What the JNI uses, so a
+ * buffer's length is all the shell has to know. */
+GEODE_API size_t        geode_ingest_write_bytes(geode_ingest*, const void* bytes, size_t byte_count, int encoding);
+GEODE_API long long     geode_ingest_written(const geode_ingest*);
+/* 1 = may rest (core/sound/Silence rule, fed by the ring; no writes for the hold also = silent). The first
+ * poll counts as sound, so a surface rests 6 s after it starts at the earliest. */
+GEODE_API int           geode_ingest_resting(geode_ingest*, long long now_ms);
 
 /* Settings › Audio's listening tuning (sound/Tuning): the one schema of GeodeSoundTuning. A slot is one
  * float of the struct in field order, GEODE_SOUND_TUNING_FLOATS of them; each call touches the first

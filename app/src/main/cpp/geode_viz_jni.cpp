@@ -173,6 +173,44 @@ Java_dev_geode_engine_bridge_GeodeNative_vizResetAudio(JNIEnv*, jobject, jlong h
     geode_viz_reset_audio(vizOf(handle));
 }
 
+// The ingest ring a renderer hears natively (#481); 0 = none. Marshals the handle only.
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetSoundSource(JNIEnv*, jobject, jlong handle, jlong ingest) {
+    geode_viz_set_sound_source(vizOf(handle), reinterpret_cast<geode_ingest*>(static_cast<intptr_t>(ingest)));
+}
+
+// A reader of an ingest ring for cast's encoder (geode_ingest_reader_*). Marshals only: the frames come back
+// through a region copy into the caller's ShortArray, the rate through a one-element IntArray.
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_ingestReaderCreate(JNIEnv*, jobject, jlong ingest) {
+    return static_cast<jlong>(reinterpret_cast<intptr_t>(
+        geode_ingest_reader_create(reinterpret_cast<geode_ingest*>(static_cast<intptr_t>(ingest)))));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_ingestReaderDestroy(JNIEnv*, jobject, jlong reader) {
+    geode_ingest_reader_destroy(reinterpret_cast<geode_ingest_reader*>(static_cast<intptr_t>(reader)));
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_ingestReaderReadS16(JNIEnv* env, jobject, jlong reader, jshortArray out,
+                                                             jint maxFrames, jintArray rateOut) {
+    if (!out || maxFrames <= 0) return 0;
+    const jint fit = env->GetArrayLength(out) / 2;
+    const jint frames = maxFrames < fit ? maxFrames : fit;
+    if (frames <= 0) return 0;
+    std::vector<int16_t> data(static_cast<size_t>(frames) * 2);
+    int rate = 0;
+    const int got = geode_ingest_reader_read_s16(reinterpret_cast<geode_ingest_reader*>(static_cast<intptr_t>(reader)),
+                                                 data.data(), frames, &rate);
+    if (got > 0) env->SetShortArrayRegion(out, 0, static_cast<jsize>(got) * 2, reinterpret_cast<const jshort*>(data.data()));
+    if (rateOut && env->GetArrayLength(rateOut) > 0) {
+        const jint r = rate;
+        env->SetIntArrayRegion(rateOut, 0, 1, &r);
+    }
+    return got;
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetSoundTuning(JNIEnv* env, jobject, jlong handle, jfloatArray tuning) {
     if (!tuning || env->GetArrayLength(tuning) < GEODE_SOUND_TUNING_FLOATS) return;

@@ -210,6 +210,25 @@ object GeodeNative {
 
     external fun vizResetAudio(handle: Long)
 
+    /** The ingest ring ([ingestCreate]) the renderer reads natively each frame; 0 for none. */
+    external fun vizSetSoundSource(
+        handle: Long,
+        ingest: Long,
+    )
+
+    /** A reader of an ingest ring from its newest sample, for cast's encoder; 0 for a 0 ring. */
+    external fun ingestReaderCreate(ingest: Long): Long
+
+    external fun ingestReaderDestroy(reader: Long)
+
+    /** Up to [maxFrames] stereo int16 frames of one rate into [out]; the rate goes to `rateOut[0]`. */
+    external fun ingestReaderReadS16(
+        reader: Long,
+        out: ShortArray,
+        maxFrames: Int,
+        rateOut: IntArray,
+    ): Int
+
     external fun vizSetSoundTuning(
         handle: Long,
         tuning: FloatArray,
@@ -943,6 +962,54 @@ object GeodeNative {
     external fun silenceResting(
         nowMs: Long,
         heardAtMs: Long,
+    ): Boolean
+
+    // Native ingest ring (core/audio/ingest): one per audio source. The ring, the conversion, the downmix,
+    // the cursors and the silence rule are all native; these only hand over a handle and a buffer.
+
+    /** A ring of at least [capacityFrames] frames keeping up to [maxChannels] channels; 0 on bad arguments. */
+    external fun ingestCreate(
+        capacityFrames: Int,
+        maxChannels: Int,
+    ): Long
+
+    external fun ingestDestroy(handle: Long)
+
+    /** Writer thread only: a discontinuity (seek, track or source change); readers restart. */
+    external fun ingestBeginEpoch(
+        handle: Long,
+        sampleRate: Int,
+        channels: Int,
+        channelMask: Int,
+    )
+
+    /** Writer thread only: the same stream in a new format (speed, pitch, skip-silence); no restart. */
+    external fun ingestSetFormat(
+        handle: Long,
+        sampleRate: Int,
+        channels: Int,
+        channelMask: Int,
+    )
+
+    /**
+     * Writer thread only. [buffer] must be direct; [length] bytes from byte [offset] of interleaved PCM in
+     * [encoding] (AudioFormat ENCODING_*). Returns the frames taken.
+     */
+    external fun ingestWrite(
+        handle: Long,
+        buffer: java.nio.ByteBuffer,
+        offset: Int,
+        length: Int,
+        encoding: Int,
+    ): Int
+
+    /** Frames written over every epoch. */
+    external fun ingestWritten(handle: Long): Long
+
+    /** Whether a surface reading this ring may rest: nothing audible written for 6 s. */
+    external fun ingestResting(
+        handle: Long,
+        nowMs: Long,
     ): Boolean
 
     // Settings › Audio's listening tuning (core/sound/Tuning): the schema behind SoundTuning.

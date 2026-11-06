@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "audio/ingest/Ring.hpp"
 #include "viz/Director.hpp"
 #include "viz/GyroLook.hpp"
 #include "viz/NoteResponse.hpp"
@@ -175,6 +176,10 @@ void geode_viz_write_audio(geode_viz* v, const float* interleaved, int frames, i
 
 void geode_viz_reset_audio(geode_viz* v) {
     if (v) v->renderer.resetAudio();
+}
+
+void geode_viz_set_sound_source(geode_viz* v, geode_ingest* ingest) {
+    if (v) v->renderer.setSoundSource(ingest ? &ingest->ring : nullptr);
 }
 
 void geode_viz_set_sound_tuning(geode_viz* v, const GeodeSoundTuning* tuning) {

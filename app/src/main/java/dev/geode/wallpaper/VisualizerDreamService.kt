@@ -109,6 +109,7 @@ class VisualizerDreamService : DreamService() {
         visualizerView = view
         restoreLiveState(view.visualizerRenderer, prefsFiles)
         view.applyPerformance(PerformanceStore(prefsFiles.general, this).settings.value)
+        view.visualizerRenderer.soundSource = { sound.ingest }
         // After applyPerformance, which caps to the live visual's fps: the dream has its own choice,
         // snapped natively. The view hands the rate to its surface when that is created.
         view.framePacer.policy = FrameRatePolicy.Capped(GeodeNative.surfaceFpsChoice(behaviour.dreamFps).toFloat())

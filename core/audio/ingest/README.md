@@ -1,20 +1,26 @@
-# core/audio/ingest (skeleton, empty)
+# core/audio/ingest
 
-Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md). Nothing here yet.
+Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md). The ring and its reader exist (#480). The player tap writes it and every live renderer reads its own cursor natively (`core/viz/SoundFeed`, `geode_viz_set_sound_source`, #481); cast's TV audio reads it through `geode_ingest_reader_*`. The capture pumps move in #485, export in #490.
 
-**Owns:** one native PCM ring per audio source (the player tap, the mic, another app's audio, a decoded file for export). Each write carries the sample rate and an epoch together, so a format change can never pair new samples with an old rate. Converts int16 to float here, not in Kotlin.
+**Owns:** one native PCM ring per audio source (the player tap, the mic, another app's audio, the wallpaper's output mix, a decoded file for export). Each write carries the sample rate, layout and epoch together, so a format change can never pair new samples with an old rate. Converts int16, u8, float, 24- and 32-bit PCM to float here, not in Kotlin. Keeps every channel; readers hear one stereo downmix.
 
-**Contract**
-- In: interleaved PCM from the tap's direct `ByteBuffer`, any thread (the player's playback thread, a capture thread).
-- Out: a lock-free single-writer ring that `core/sound/hop` reads on its own thread; also the raw tail MilkDrop (projectM) needs, so `pushPcm` goes away.
-- Clock: the sample count. No wall time.
+**Files**
+- `Ring.hpp/.cpp`: the ring (`Ring`, the `geode_ingest` handle). Single writer, lock-free; format records published before the samples they cover; overrun detection by the write position (`oldestSafe`); the `core/sound/Silence` rule fed by the writes (`resting`).
+- `Cursor.hpp/.cpp`: one reader's place. `read` gives every sample once, in order, as stereo, one format per block, with `restarted` and `dropped`; `rawMonoTail` is projectM's raw PCM; `skipToNewest` for a stalled live surface.
+- `Downmix.hpp`: ITU-R BS.775 weights over AudioFormat channel masks (C and surrounds -3 dB, LFE -10 dB, mono duplicated, stereo bit-exact).
+- C ABI: `geode_ingest_*` in `core/api/geode_api.h`; JNI in `app/src/main/cpp/geode_sound_jni.cpp`; `GeodeNative.ingest*`.
 
-**Moves in (today, `cf7e88f`)**
-- `engine/audio-core/.../audio/SampleRing.kt`, `SoundCursor.kt`, `SoundInput.kt` (the ring, the each-sample-once cursor, rate as a separate volatile)
-- ~~`app/.../audio/PcmRingBuffer.kt`~~ gone (#486): MilkDrop's raw PCM is the mono mix of what each renderer's engine heard, `core/viz/PcmHandoff`
-- the per-sample int16 → float loops in `engine/audio-android/.../PcmTap.kt`, `app/.../audio/AudioCapturePump.kt:77`, `app/.../audio/dsp/NativeDspProcessor.kt:96,107`
-- the capture level and silence guesses in `app/.../audio/MicCapture.kt:47-64` and `PlaybackCapture.kt:49` (one silence flag comes from `core/sound/hop` instead)
+**Reader contract (for `core/sound/hop`, Group D)**
+- One writer thread per ring. Any number of readers, each with its own `Cursor` on its own thread; the ring outlives them.
+- A read returns up to N interleaved stereo frames from one format record: its ring position, rate, source channels and mask, epoch, `restarted` (first block, or the first of a new epoch: reset what was learned) and `dropped` (frames skipped by an overrun or `skipToNewest`).
+- `begin_epoch` is a discontinuity (seek, track or source change); `set_format` is the same stream in a new format (speed, pitch, skip-silence) and never restarts readers.
+- Rates above 88.2 kHz may be decimated on read; that is the reader's choice.
+
+**Still to move in**
+- `engine/audio-core/.../audio/SampleRing.kt`, `SoundCursor.kt`, `SoundInput.kt`, `PcmSink.kt` are deleted when their callers switch (#481, #485); `app/.../audio/PcmRingBuffer.kt` is gone (#486: MilkDrop's raw PCM is the mono mix of what each renderer heard, `core/viz/PcmHandoff`).
+- The per-sample int16 -> float loops in `engine/audio-android/.../PcmTap.kt`, `app/.../audio/AudioCapturePump.kt`, `app/.../audio/dsp/NativeDspProcessor.kt`.
+- The capture level and silence guesses in `app/.../audio/MicCapture.kt` and `PlaybackCapture.kt` (#491).
 
 **fosfora:** `audio/capture.rs` (SPSC ring, no DSP in the callback), `audio/decimate.rs` (rates above 88.2 kHz halved first).
 
-**Test that proves it:** a host test writes PCM in random chunk sizes and at a mid-stream rate change, and checks the reader sees every sample once, in order, each with the rate it was written at.
+**Test that proves it:** `core/tests/ingest_test.cpp`: random chunk sizes and a mid-stream rate change, every sample once in order with its rate, two readers, a writer thread racing a reader, overrun, epoch vs format, conversion, the 5.1 and 7.1 downmix, mono centred, the raw tail, resting after the hold.

@@ -112,6 +112,11 @@ void Renderer::resetAudio() {
     pcm_.clear();
 }
 
+void Renderer::setSoundSource(const audio::ingest::Ring* ring) {
+    std::lock_guard<std::mutex> lock(soundLock_);
+    requestedSoundSource_ = ring;
+}
+
 void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
     std::lock_guard<std::mutex> lock(soundLock_);
     // Clamped before the macros scale it, so a NaN Reactivity is the default one turned, not a NaN.

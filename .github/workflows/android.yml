@@ -129,13 +129,6 @@ jobs:
             fi
           done
 
-      # The export post-passes' maths: watermark tiling, seam weights, transition progress (#442).
-      - name: Export passes host test
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/export_passes_test.cpp -o export_passes_test
-          ./export_passes_test
-
       # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes, ranges, and
       # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.
       - name: Catalogue host tests

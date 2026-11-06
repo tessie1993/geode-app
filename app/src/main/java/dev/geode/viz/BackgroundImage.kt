@@ -113,7 +113,7 @@ object BackgroundImage {
         targetW: Int,
         targetH: Int,
     ): Bitmap {
-        val (x, y, w, h) = GeodeNative.underlayCropRect(src.width, src.height, targetW, targetH)
-        return if (w == src.width && h == src.height) src else Bitmap.createBitmap(src, x, y, w, h)
+        val r = GeodeNative.underlayCropRect(src.width, src.height, targetW, targetH)
+        return if (r[2] == src.width && r[3] == src.height) src else Bitmap.createBitmap(src, r[0], r[1], r[2], r[3])
     }
 }

@@ -11,6 +11,7 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 
 Export post-passes: `ExportPasses` (watermark, loop seam, Studio GL transition and its capture; #442) with their pure maths in `ExportPassMath.hpp` (`core/tests/export_passes_test.cpp`) and the loop seam's driver and GPU budget in `LoopSeam.hpp` (`core/tests/loop_seam_test.cpp`, #603), driven through `geode_export_*` until `FrameGraph::run` owns the export frame.
 
+**Here now:** `PushVersions.hpp`, which of the shell's pushed inputs a live frame still owes native (#751). The shell keeps a version per input (scene params, LFO configs, ADSR configs, sound tuning; one counter that every write raises, `VisualizerRenderer.kt` and `PushedConfigs`) and hands the four to `geode_viz_frame_begin`; native answers `GEODE_FRAME_PUSH_*` for each version it has not applied (an equal or older one is skipped, so a stale write cannot undo a newer push; a new surface wants all four again), and the shell packs and pushes exactly those. Reaction routes are not here yet. Tested by `core/tests/push_versions_test.cpp`.
 **Here now:** `HlsSegments.hpp`, Cast's HLS segment durations from the fragments' media time and the playlist text (#656; `core/tests/hls_segments_test.cpp`).
 
 **Owns:** the one frame function every surface runs (screen, PiP, second screen, wallpaper, dream, Studio preview, export, thumbnails), and the pieces it is built from.

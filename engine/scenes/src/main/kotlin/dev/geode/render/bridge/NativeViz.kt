@@ -177,9 +177,25 @@ class NativeViz(
         postFx: Boolean,
         adaptive: Boolean,
         liquidHotPolicy: Int,
+        paramsVersion: Long,
+        lfoVersion: Long,
+        adsrVersion: Long,
+        tuningVersion: Long,
     ): Int {
         if (handle == 0L) return 0
-        return GeodeNative.vizFrameBegin(handle, pacedFps, renderScale, marchScale, postFx, adaptive, liquidHotPolicy)
+        return GeodeNative.vizFrameBegin(
+            handle,
+            pacedFps,
+            renderScale,
+            marchScale,
+            postFx,
+            adaptive,
+            liquidHotPolicy,
+            paramsVersion,
+            lfoVersion,
+            adsrVersion,
+            tuningVersion,
+        )
     }
 
     /** Pins this renderer's auto-director; see [GeodeNative.vizSetDirector]. */
@@ -201,6 +217,11 @@ class NativeViz(
      */
     private val uiBlur = FloatArray(UI_BLUR_FLOATS)
     private var edgeGlow: FloatArray? = null
+
+    /** Pins this renderer for an export; see [GeodeNative.vizPrepareOffscreen]. */
+    fun prepareOffscreen() {
+        if (handle != 0L) GeodeNative.vizPrepareOffscreen(handle)
+    }
 
     /** See [GeodeNative.vizSetFrameRate]. A no-op before the handle exists. */
     fun setFrameRate(fps: Int) {

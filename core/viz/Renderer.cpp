@@ -5,6 +5,7 @@
 #include <cmath>
 #include <utility>
 
+#include "sound/Tuning.hpp"
 #include "util/Log.hpp"
 #include "viz/GlProber.hpp"
 #include "viz/ShaderOverrides.hpp"
@@ -113,8 +114,9 @@ void Renderer::resetAudio() {
 
 void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
     std::lock_guard<std::mutex> lock(soundLock_);
-    soundTuning_ = tuning;
-    if (sound_) sound_->setTuning(macros::tuning(tuning, tunedKnobs_));
+    // Clamped before the macros scale it, so a NaN Reactivity is the default one turned, not a NaN.
+    soundTuning_ = sound::tuning::clamp(tuning);
+    if (sound_) sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
 }
 
 double Renderer::monotonicSeconds() {

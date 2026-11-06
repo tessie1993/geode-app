@@ -8,6 +8,7 @@ import dev.geode.render.AdsrEngine
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
 import dev.geode.render.ReactionRoute
+import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.render.scene.SceneParams
 import java.io.File
 
@@ -157,8 +158,14 @@ class NativeViz(
         configs.take(AdsrEngine.COUNT).forEachIndexed { slot, c -> GeodeNative.vizSetAdsr(handle, slot, ModConfigCodec.packAdsr(c)) }
     }
 
-    fun setReactions(routes: List<ReactionRoute>) {
-        if (handle != 0L) GeodeNative.vizSetReactions(handle, ModConfigCodec.packReactions(routes))
+    /** The user's routes and hand mask, sent only when [routes] (by identity) or [mask] changes; native resolves what plays. */
+    fun setUserReactions(
+        routes: List<ReactionRoute>?,
+        mask: Int,
+    ) {
+        if (handle != 0L && sent.userReactions(routes, mask)) {
+            GeodeNative.vizSetUserReactions(handle, routes?.let { BuildStyleReactionsUseCase.packExact(it) }, mask)
+        }
     }
 
     fun gyroSample(
@@ -348,6 +355,9 @@ internal class LastSent {
     private var transitionId: String? = null
     private var transitionMs = -1L
     private var fps = Float.NaN
+    private var routes: List<ReactionRoute>? = null
+    private var routesMask = 0
+    private var routesSent = false
 
     fun look(
         y: Float,
@@ -373,6 +383,17 @@ internal class LastSent {
 
     fun pacedFps(f: Float): Boolean = (f != fps).also { if (it) fps = f }
 
+    fun userReactions(
+        r: List<ReactionRoute>?,
+        mask: Int,
+    ): Boolean {
+        if (routesSent && r === routes && mask == routesMask) return false
+        routes = r
+        routesMask = mask
+        routesSent = true
+        return true
+    }
+
     fun clear() {
         yaw = Float.NaN
         pitch = Float.NaN
@@ -380,5 +401,8 @@ internal class LastSent {
         transitionId = null
         transitionMs = -1L
         fps = Float.NaN
+        routes = null
+        routesMask = 0
+        routesSent = false
     }
 }

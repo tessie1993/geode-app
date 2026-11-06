@@ -1,7 +1,6 @@
 package dev.geode.render
 
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.util.bestEffort
 
 /**
@@ -210,9 +209,10 @@ data class HandReactions(
 )
 
 /**
- * Customize › Music's hand mask for this process, the value every renderer merges with (through
- * [StyleReactionsCache]) and every native director keeps off (`hand::global`), set where the shell loads the
- * user's routes. 0 until then, as native starts; native counts it only while [set] says a list exists (#355).
+ * Customize › Music's hand mask for this process, the value every renderer merges with (pushed with the
+ * user's routes; core/viz/ReactionResolve) and every native director keeps off (`hand::global`), set where the
+ * shell loads the user's routes. 0 until then, as native starts; native counts it only while [set] says a list
+ * exists (#355).
  */
 object HandMask {
     @Volatile
@@ -225,42 +225,5 @@ object HandMask {
     ) {
         current = mask
         bestEffort("HandMask", "push hand mask") { GeodeNative.handSet(mask, hasUser) }
-    }
-}
-
-/**
- * Remembers the last routes resolved, so the GL thread asks native again only when the scene, the
- * seed, the user's list (by identity) or the hand mask changes, and hands back the same list instance
- * otherwise (callers diff by identity). Single-thread use.
- *
- * With no list of the user's this is the style's DNA; with one it is the native merge ("the hand wins
- * per moment"): the user's routes on the moments they set, the live DNA on every other.
- */
-class StyleReactionsCache(
-    private val build: BuildStyleReactionsUseCase = BuildStyleReactionsUseCase(),
-) {
-    private var sceneId: String? = null
-    private var seed = 0
-    private var user: List<ReactionRoute>? = null
-    private var mask = 0
-    private var routes: List<ReactionRoute> = emptyList()
-
-    fun routesFor(
-        sceneId: String,
-        seed: Int,
-        user: List<ReactionRoute>? = null,
-        mask: Int = HandMask.current,
-    ): List<ReactionRoute> {
-        // The mask means nothing without a list of the user's, so it does not invalidate the DNA alone.
-        val maskKey = if (user == null) 0 else mask
-        val sameKey = sceneId == this.sceneId && seed == this.seed
-        if (!sameKey || user !== this.user || maskKey != this.mask) {
-            this.sceneId = sceneId
-            this.seed = seed
-            this.user = user
-            this.mask = maskKey
-            routes = if (user == null) build(sceneId, seed) else build.playing(sceneId, seed, user, mask)
-        }
-        return routes
     }
 }

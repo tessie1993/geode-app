@@ -373,13 +373,6 @@ object GeodeNative {
     /** Mirrors GEODE_RECIPE_FITS: turning the recipe on stays within GEODE_REACT_ROUTES. */
     const val RECIPE_FITS: Int = 2
 
-    /** Gyro look, -1..1 per axis; read only while camGyro is on. */
-    external fun vizSetLook(
-        handle: Long,
-        yaw: Float,
-        pitch: Float,
-    )
-
     /** One gyro reading (azimuth, pitch in radians from SensorManager.getOrientation); core/viz/GyroLook makes the look. */
     external fun vizGyroSample(
         handle: Long,

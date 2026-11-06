@@ -7,6 +7,7 @@
 #include <fstream>
 
 #include "util/Log.hpp"
+#include "viz/CacheSentinels.hpp"
 #include "viz/GlProber.hpp"
 #include "viz/Sha256.hpp"
 
@@ -85,7 +86,8 @@ void ProgramBinaryCache::install(const std::string& appCacheDir) {
 void ProgramBinaryCache::prime() {
     if (state_ != State::Unprimed || root_.empty()) return;
     openStore();
-    if (state_ == State::On) submit([this] { prune(); });
+    // Once per process: a later renderer's prune would delete the first one's in-flight temp files.
+    if (state_ == State::On && firstInProcess_) submit([this] { prune(); });
 }
 
 std::optional<ProgramKey> ProgramBinaryCache::keyFor(const std::string& vertexSrc, const std::string& fragmentSrc) {
@@ -168,19 +170,27 @@ void ProgramBinaryCache::openStore() {
     digest.updateFramed(identity.versionString);
     namespace_ = root_ + "/ns-" + Sha256::hex(digest.digest(), kNamespaceBytes);
 
-    if (isFile(namespace_ + "/" + kDisabledFile)) {
-        state_ = State::Off;
-        GEODE_LOGI(kTag, "program binary cache off: a previous run did not survive glProgramBinary on this driver");
-        return;
-    }
     sentinel_ = namespace_ + "/" + kSentinelFile;
-    if (isFile(sentinel_)) {
-        GEODE_LOGW(kTag, "a previous run died inside glProgramBinary; disabling the cache for this driver");
+    // Only the first open in this process may read a sentinel as a crash: after that, a sentinel is
+    // another live renderer's load in this process (#381). The check runs under the process lock,
+    // so a renderer opening at the same moment waits for it and then sees its disabled file.
+    bool crashed = false;
+    firstInProcess_ = CacheSentinels::process().open(namespace_, [&] {
+        if (isFile(namespace_ + "/" + kDisabledFile) || !isFile(sentinel_)) return;
         std::error_code ec;
         fs::remove_all(namespace_, ec);
         ensureDir(namespace_);
         std::ofstream(namespace_ + "/" + kDisabledFile).close();
+        crashed = true;
+    });
+    if (crashed) {
+        GEODE_LOGW(kTag, "a previous run died inside glProgramBinary; disabling the cache for this driver");
         state_ = State::Off;
+        return;
+    }
+    if (isFile(namespace_ + "/" + kDisabledFile)) {
+        state_ = State::Off;
+        GEODE_LOGI(kTag, "program binary cache off: a previous run did not survive glProgramBinary on this driver");
         return;
     }
     probation_ = namespace_ + "/" + kProbationDir;
@@ -213,13 +223,15 @@ std::optional<ProgramBinaryCache::Entry> ProgramBinaryCache::readEntry(const std
 }
 
 void ProgramBinaryCache::loadGuarded(GLuint program, const Entry& entry) {
+    // Counted across the process: renderers loading at once share one sentinel file, which exists
+    // from the first one's start to the last one's end.
     const bool arming = !sentinelSpent_;
     if (arming) {
         sentinelSpent_ = true;
-        std::ofstream(sentinel_).close();
+        CacheSentinels::process().arm(sentinel_, [this] { std::ofstream(sentinel_).close(); });
     }
     glProgramBinary(program, entry.format, entry.payload.data(), static_cast<GLsizei>(entry.payload.size()));
-    if (arming) std::remove(sentinel_.c_str());
+    if (arming) CacheSentinels::process().disarm(sentinel_, [this] { std::remove(sentinel_.c_str()); });
 }
 
 void ProgramBinaryCache::submit(std::function<void()> work) {

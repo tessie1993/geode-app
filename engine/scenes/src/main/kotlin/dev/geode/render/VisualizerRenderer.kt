@@ -61,15 +61,6 @@ class VisualizerRenderer(
     var performance: PerformanceSettings = PerformanceSettings.HIGH
 
     @Volatile
-    var layerSceneId: String? = null
-
-    @Volatile
-    var layerMix: Float = 0.5f
-
-    @Volatile
-    var layerBlend: BlendMode = BlendMode.SCREEN
-
-    @Volatile
     var transitionDurationMs: Long = 1200
 
     @Volatile
@@ -175,15 +166,20 @@ class VisualizerRenderer(
     /** Frees the native renderer; only when this renderer is being discarded, on the GL thread. */
     fun releaseScenes() = nativeViz.destroy()
 
+    /** Process-wide: export, the wallpaper and the dream draw it too (core/viz/ShaderOverrides). */
     fun submitShader(
         sceneId: String,
         fragmentSrc: String,
-    ) {
-        nativeViz.create()
-        nativeViz.setCustomShader(sceneId, fragmentSrc)
-    }
+    ) = GeodeNative.shaderOverrideSet(sceneId, fragmentSrc)
 
-    fun customShaderFor(sceneId: String): String? = nativeViz.customShaderFor(sceneId)
+    fun customShaderFor(sceneId: String): String? = GeodeNative.shaderOverride(sceneId)
+
+    /** Customize › Layers, process-wide: exports, the wallpaper and the dream draw it too (core/viz/LayerState). */
+    fun submitLayer(
+        sceneId: String?,
+        mix: Float,
+        blend: BlendMode,
+    ) = GeodeNative.layerSet(sceneId.orEmpty(), mix, blend.ordinal)
 
     fun submitFluidInjectionShaders(
         force: String?,
@@ -349,7 +345,6 @@ class VisualizerRenderer(
         }
         nativeViz.setLook(lookYaw, lookPitch)
         nativeViz.setReducedMotion(reducedMotion)
-        nativeViz.setLayer(layerSceneId, layerMix, layerBlend)
         nativeViz.setTransition(transitionId, transitionDurationMs)
         pcmProvider()?.let { chunk -> nativeViz.pushPcm(chunk.data, chunk.count) }
         val tuning = soundTuning

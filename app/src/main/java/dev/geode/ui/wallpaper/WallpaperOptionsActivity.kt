@@ -25,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.geode.R
@@ -97,8 +98,8 @@ private fun WallpaperOptionsScreen(
             Modifier.fillMaxSize(),
             contentPadding =
                 PaddingValues(
-                    start = 16.dp,
-                    end = 16.dp,
+                    start = padding.calculateLeftPadding(LocalLayoutDirection.current) + 16.dp,
+                    end = padding.calculateRightPadding(LocalLayoutDirection.current) + 16.dp,
                     top = padding.calculateTopPadding() + 8.dp,
                     bottom = padding.calculateBottomPadding() + 16.dp,
                 ),

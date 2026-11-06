@@ -11,11 +11,15 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
@@ -155,6 +159,9 @@ internal fun VisualsHub(
         val side = maxWidth > maxHeight && sizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
         val density = LocalDensity.current
         val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        // The options stand on the dock, or on the keyboard when it rises past it, so a text field in
+        // them (Customize search, preset names) is never covered. Visuals consumes no insets itself.
+        val optionsFloor = maxOf(bottomReserve, WindowInsets.ime.asPaddingValues().calculateBottomPadding())
         // The mini player docked under the options (phone, portrait): it takes its own height off
         // the sheet's room, so PEEK is the tabs over the player and TALL still clears the status bar.
         val docked = LocalDockedMiniPlayer.current.takeIf { !side }
@@ -268,16 +275,17 @@ internal fun VisualsHub(
                         Modifier
                             .align(Alignment.TopEnd)
                             .fillMaxHeight()
-                            .padding(bottom = bottomReserve)
+                            .padding(bottom = optionsFloor)
                             .then(swallowTaps)
                             .windowInsetsPadding(WindowInsets.statusBars)
+                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.End))
                             .padding(GeodeSpacing.EdgeInset)
                             .hiddenUnderDropIn(dropInOpen) { optionsFade.value }
                     } else {
                         Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .padding(bottom = bottomReserve)
+                            .padding(bottom = optionsFloor)
                             .then(swallowTaps)
                             .padding(horizontal = GeodeSpacing.EdgeInset, vertical = GeodeSpacing.EdgeInset / 2)
                             .graphicsLayer { if (docked != null) alpha = playerAlpha.value }

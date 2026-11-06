@@ -624,8 +624,10 @@ internal fun CheckRow(
                     .toggleable(value = checked, enabled = !proLocked, role = Role.Checkbox, onValueChange = onChange),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // With no onCheckedChange the box drops Material's padding and sat flush against its
+            // label; the row is the 48 dp target, the gap is Material's checkbox-to-label spacing.
             Checkbox(checked = checked, onCheckedChange = null, enabled = !proLocked)
-            Text(display, style = MaterialTheme.typography.bodyMedium)
+            Text(display, Modifier.padding(start = GeodeSpacing.M), style = MaterialTheme.typography.bodyMedium)
             KeptMark(label)
             Spacer(Modifier.weight(1f))
             if (!proLocked) RowMenu(display, label, onReset = null)

@@ -26,6 +26,9 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+        with:
+          # The glTF import test builds against the cgltf and meshoptimizer submodules.
+          submodules: recursive
 
       - name: Native host tests
         working-directory: ${{ env.PROJECT_DIR }}
@@ -79,6 +82,9 @@ jobs:
           # The process-wide Customize layer every renderer draws (#364): set, clamp, generation, follow, export pin.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/layer_state_test.cpp core/viz/LayerState.cpp -o layer_state_test
           ./layer_state_test
+          # Phone tilt to camera look (#755): baseline capture and recapture, the yaw wrap at +-pi, the clamp, the recentre.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/gyro_look_test.cpp -o gyro_look_test
+          ./gyro_look_test
           # An export segment's style schedule: every later style is gated by the entitlement (#357).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/style_schedule_test.cpp core/viz/StyleSchedule.cpp -o style_schedule_test
           ./style_schedule_test
@@ -130,6 +136,12 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/playout_test.cpp core/sound/interp/PlayoutClock.cpp \
             core/api/geode_playout_api.cpp -o playout_test
           ./playout_test
+          # glTF import (#474): #455's limits on fixture .glb files built by the test, the 4x decimation
+          # with before/after counts, refusals, and the low-detail copy. Uses the cgltf and meshoptimizer submodules.
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Ithird_party/cgltf -Ithird_party/meshoptimizer/src core/tests/gltf_import_test.cpp \
+            core/scene/object/GltfImport.cpp third_party/meshoptimizer/src/simplifier.cpp third_party/meshoptimizer/src/vertexcodec.cpp \
+            third_party/meshoptimizer/src/indexcodec.cpp third_party/meshoptimizer/src/vertexfilter.cpp -o gltf_import_test
+          ./gltf_import_test
           # Which pushed inputs a live frame still owes native (#751): once per version, again on a new surface, stale ignored.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/push_versions_test.cpp -o push_versions_test
           ./push_versions_test
@@ -146,3 +158,8 @@ jobs:
           # Cast's HLS timing (#656): segment durations from the fragment's media time, TARGETDURATION, the playlist text.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/hls_segments_test.cpp core/api/geode_frame_api.cpp -o hls_segments_test
           ./hls_segments_test
+          # The config params schema (#423): LFO, envelope, macro, palette, look, clip and morph rows; Lfo, Adsr and Macros clamp as before; the store conversions equal Kotlin's; the text.
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/config_schema_test.cpp core/viz/ConfigFields.cpp core/viz/Adsr.cpp core/viz/Lfo.cpp core/viz/Macros.cpp \
+            core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp \
+            core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o config_schema_test
+          ./config_schema_test

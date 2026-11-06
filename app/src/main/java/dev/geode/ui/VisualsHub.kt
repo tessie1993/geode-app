@@ -29,6 +29,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -165,8 +166,16 @@ internal fun VisualsHub(
         var settles by remember { mutableIntStateOf(0) }
         // The motion scheme's spring, so the system's "Remove animations" snaps the options instead.
         val settleSpec = LocalGeodeMotion.current.defaultSpatialSpec<Float>()
-        LaunchedEffect(nav.sheet, settles, anchors, side) {
-            heightPx.animateTo(if (side) 0f else anchors.getValue(nav.sheet), settleSpec)
+        // Not keyed on the anchors: they move on every frame of the dock's size animation, and a
+        // settle restarted per frame chased the dock on a spring. A settle aims at the anchors of
+        // its start and lands on the latest; between settles the sheet follows the dock exactly.
+        val latestAnchors by rememberUpdatedState(anchors)
+        LaunchedEffect(nav.sheet, settles, side) {
+            heightPx.animateTo(if (side) 0f else latestAnchors.getValue(nav.sheet), settleSpec)
+            heightPx.snapTo(if (side) 0f else latestAnchors.getValue(nav.sheet))
+        }
+        LaunchedEffect(anchors) {
+            if (!side && !heightPx.isRunning) heightPx.snapTo(anchors.getValue(nav.sheet))
         }
         LaunchedEffect(nav.sheetShown, settles, panelWidth, side) {
             panelPx.animateTo(if (side && nav.sheetShown) panelWidth else 0f, settleSpec)

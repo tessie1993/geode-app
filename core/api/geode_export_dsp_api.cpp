@@ -4,6 +4,7 @@
 
 #include "api/geode_api.h"
 #include "audio/dsp/Loudness.hpp"
+#include "audio/dsp/PcmConvert.hpp"
 #include "audio/dsp/PcmResampler.hpp"
 
 struct geode_resampler {
@@ -110,6 +111,21 @@ int geode_loudness_feed_pcm(geode_loudness* l, const void* bytes, size_t byte_co
         left -= n;
     }
     return 1;
+}
+
+void geode_loudness_feed_s16(geode_loudness* l, const int16_t* interleaved, size_t samples) {
+    if (!l || !interleaved || samples == 0) return;
+    // Converted through a stack block a whole number of frames long, so the meter's "a trailing partial
+    // frame is ignored" only ever applies to the end of the whole feed, exactly as one float feed would.
+    constexpr size_t kBlock = 4096;
+    float block[kBlock];
+    const size_t channels = static_cast<size_t>(l->a.channels());
+    const size_t step = kBlock - kBlock % channels;
+    for (size_t at = 0; at < samples; at += step) {
+        const size_t n = samples - at < step ? samples - at : step;
+        geode::audio::s16ToFloat(interleaved + at, n, block);
+        l->a.feed(block, n);
+    }
 }
 
 int geode_loudness_has_block(geode_loudness* l) {

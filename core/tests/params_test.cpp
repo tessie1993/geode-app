@@ -163,6 +163,18 @@ void rollsStayUnderTheFlashClamp() {
     }
 }
 
+// Every roll lands inside the field's own range in the schema (core/viz/ParamTable.inc), so a rolled
+// look is one the controls can show and set back.
+void rollsStayInsideTheSchemasRanges() {
+    for (uint64_t seed = 0; seed < 300; ++seed) {
+        const SceneParams p = randomizer::randomize(kDefaults, seed, std::nullopt, "", {});
+        for (const ParamSpec& s : SceneParams::schema()) {
+            const float v = p.get(s.name);
+            check(v >= s.min && v <= s.max, std::string(s.name) + " rolls inside [min, max], seed " + std::to_string(seed));
+        }
+    }
+}
+
 void aPaletteRollDropsACustomPalette() {
     SceneParams custom;
     custom.paletteBaseOverride = 0.3f;
@@ -189,6 +201,7 @@ int main() {
     aTabRollTouchesOnlyThatTab();
     resetTabRestoresExactlyItsFields();
     rollsStayUnderTheFlashClamp();
+    rollsStayInsideTheSchemasRanges();
     aPaletteRollDropsACustomPalette();
     theWireRoundTrips();
     if (failures == 0) std::printf("params_test: all checks passed\n");

@@ -14,8 +14,12 @@ constexpr float kLocalMeanSeconds = 0.3f;  // the onset envelope minus this keep
 constexpr int kTempoEvery = 25;            // hops between tempo estimates (0.25 s)
 constexpr int kTempoAfter = 300;           // the first estimate waits for 3 s of envelope
 constexpr int kPhaseEvery = 5;             // hops between phase measurements (50 ms)
-constexpr int kPhaseWindow = 400;          // the phase reads the last 4 s ...
-constexpr float kPhaseDecay = 150.0f;      // ... weighted e^(-age / 1.5 s), so it follows a drifting band
+constexpr int kPhaseWindow = 400;          // the phase reads at most the last 4 s, in whole bars
+// The onset envelope is librosa's onset_strength: log power in dB against one reference shared by every
+// band (power_to_db with amin 1e-10 and top_db 80; the reference is the loudest band's recent peak, so a
+// quiet master and a loud one give the same envelope), its positive change, and the mean over the bands.
+constexpr float kDbAmin = 1e-10f;
+constexpr float kDbTop = 80.0f;
 constexpr float kPriorBpm = 120.0f;        // the tempo prior: log-normal around 120 BPM (Ellis 2007) ...
 constexpr float kPriorOctaves = 1.0f;      // ... one octave wide
 constexpr float kComb = 0.5f;              // weight of the lag's double in its score (the bar hears the beat)
@@ -75,6 +79,10 @@ float Rhythm::periodOrDefault() const { return period_ > 0.0f ? period_ : 0.5f *
 void Rhythm::hop(const std::array<float, kBands>& power) {
     hops_++;
     const float meanK = 1.0f - std::exp(-kHopSeconds / kBandMeanSeconds);
+    float loudest = 0.0f;
+    for (float p : power) loudest = std::max(loudest, p);
+    dbRef_ = std::max(loudest, dbRef_ * std::exp(-kHopSeconds / kBandMeanSeconds));
+    const float ref = std::max(dbRef_, kDbAmin);
     std::array<float, kBands> change{};
     float odf = 0.0f;
     for (int b = 0; b < kBands; b++) {
@@ -87,7 +95,13 @@ void Rhythm::hop(const std::array<float, kBands>& power) {
         change[b] = std::max(0.0f, x - bandLog_[b][1]);
         bandLog_[b][1] = bandLog_[b][0];
         bandLog_[b][0] = x;
-        odf += change[b];
+        // The beat's evidence is the same change in dB against the shared reference: each band over its
+        // own mean (above, what the drum accents and band flux read) makes a hat 20 dB down rise as far
+        // as the kick, and a kick on the beat under an open hat on the "and" then cancels in the pulse.
+        const float db = std::max(10.0f * std::log10(std::max(p, kDbAmin) / ref), -kDbTop);
+        odf += std::max(0.0f, db - bandDb_[b][1]);
+        bandDb_[b][1] = bandDb_[b][0];
+        bandDb_[b][0] = db;
     }
     odf /= static_cast<float>(kBands);
     bandFluxPeak_[0] = std::max(bandFluxPeak_[0], change[kLow]);
@@ -100,9 +114,12 @@ void Rhythm::hop(const std::array<float, kBands>& power) {
     ring_[ringHead_] = std::max(0.0f, odf - localMean_);
     ringHead_ = (ringHead_ + 1) % kRing;
 
+    // Predict, then correct: the oscillator steps to this hop first, so the pulse measured at this hop is
+    // compared with the oscillator at the same instant (#373; compared before the step, every beat ran a
+    // hop early).
+    advance();
     if (hops_ >= kTempoAfter && hops_ % kTempoEvery == 0) estimateTempo();
     if (period_ > 0.0f && hops_ % kPhaseEvery == 0) measurePhase();
-    advance();
 }
 
 void Rhythm::estimateTempo() {
@@ -197,20 +214,27 @@ void Rhythm::measurePhase() {
     // The predominant local pulse at the newest instant: the windowed Fourier coefficient of the onset
     // envelope at the beat period. A peak m hops ago adds e^(2πi m / P), so the angle is how far into the
     // beat we are, and the magnitude over the mass says how much of the envelope sits on one phase.
+    //
+    // The window is rectangular and holds whole bars (4P), or whole half bars when a bar does not fit:
+    // then every note of a pattern that repeats each bar is in it equally often, and the coefficient does
+    // not depend on which note came last. A window that fades with age weighs the newest notes most, so
+    // with a kick on the beat and another sound on the "and" the angle swung with the bar position.
     const float p = period_;
-    const int m = static_cast<int>(std::min<int64_t>(hops_, kPhaseWindow));
+    const int avail = static_cast<int>(std::min<int64_t>(hops_, kPhaseWindow));
+    const int bars = static_cast<int>(static_cast<float>(avail) / (4.0f * p));
+    const int halves = static_cast<int>(static_cast<float>(avail) / (2.0f * p));
+    const int m = bars >= 1    ? static_cast<int>(std::lround(static_cast<float>(bars) * 4.0f * p))
+                  : halves >= 1 ? static_cast<int>(std::lround(static_cast<float>(halves) * 2.0f * p))
+                                : avail;
     const std::complex<float> rot = std::polar(1.0f, 2.0f * std::numbers::pi_v<float> / p);
-    const float decay = std::exp(-1.0f / kPhaseDecay);
     std::complex<float> z(1.0f, 0.0f);
     std::complex<float> sum(0.0f, 0.0f);
     float mass = 0.0f;
-    float w = 1.0f;
     for (int i = 0; i < m; i++) {
-        const float o = ring_[(ringHead_ - 1 - i + kRing) % kRing] * w;
+        const float o = ring_[(ringHead_ - 1 - i + kRing) % kRing];
         sum += o * z;
         mass += o;
         z *= rot;
-        w *= decay;
     }
     plpConf_ = mass > 1e-9f ? std::clamp(std::abs(sum) / mass, 0.0f, 1.0f) : 0.0f;
     if (mass > 1e-9f) {
@@ -388,14 +412,21 @@ std::array<float, 3> Rhythm::takeBandFlux() {
 }
 
 void Rhythm::read(int sinceHop, float hitTime, GeodeSoundFrame& out) {
-    const float p = periodOrDefault();
-    // The instant of the frame, not of the last hop; never past the next beat, which ticks on a hop.
-    const double now = std::min(theta_ + static_cast<double>(sinceHop) / hop_ / p, static_cast<double>(lastBeat_) + 0.999);
     out.bpm = period_ > 0.0f ? 60.0f * hopHz_ / period_ : 0.0f;
     out.beatConf = std::clamp(conf_, 0.0f, 1.0f);
     out.beatCount = std::fmod(static_cast<float>(lastBeat_ % 4096), kCountWrap);
     out.barCount = static_cast<float>(bars_ % 4096);
     out.phraseIndex = static_cast<float>(phrases_ % 4096);
+    phases(sinceHop, hitTime, out);
+    out.beat = beatHit_;
+    out.downbeat = downbeatHit_;
+    out.phrase = phraseHit_;
+}
+
+void Rhythm::phases(int sinceHop, float hitTime, GeodeSoundFrame& out) const {
+    const float p = periodOrDefault();
+    // The instant `sinceHop` samples after the last hop; never past the next beat, which ticks on a hop.
+    const double now = std::min(theta_ + static_cast<double>(sinceHop) / hop_ / p, static_cast<double>(lastBeat_) + 0.999);
     if (locked_) {
         out.beatPhase = frac(now);
         const int inBar = slotOf(static_cast<int64_t>(std::floor(now)) - downSlot_);
@@ -408,9 +439,6 @@ void Rhythm::read(int sinceHop, float hitTime, GeodeSoundFrame& out) {
         out.barPhase = frac(t / 4.0);
         out.phrasePhase = frac(t / 32.0);
     }
-    out.beat = beatHit_;
-    out.downbeat = downbeatHit_;
-    out.phrase = phraseHit_;
 }
 
 void Rhythm::clearFrame() {

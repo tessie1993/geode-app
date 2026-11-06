@@ -3,9 +3,12 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <utility>
 
+#include "sound/Tuning.hpp"
 #include "util/Log.hpp"
 #include "viz/GlProber.hpp"
+#include "viz/ShaderOverrides.hpp"
 
 namespace geode::viz {
 
@@ -22,11 +25,16 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
       deviceGl_(cacheDir_),
       registry_(assets_, &programCache_, &profile_,
                 SceneHost{[this](const std::string& m) { fail(m); },
-                          [this](const std::string& id, const std::string& src) { rememberCustomShader(id, src); },
                           [this] { return thermal_.pacedFps(); },
                           [this](const std::string& path) { notePresetLoaded(path); },
-                          [this] { return marchScale_.load(std::memory_order_relaxed); },
-                          [this] { return &notes_.uniforms(); }}),
+                          // The user's march scale under the thermal ladder's (ADR 0008: march is its third rung).
+                          [this] { return marchScale_.load(std::memory_order_relaxed) * thermal_.tierInfo().marchScale; },
+                          [this] { return &resolver_.noteUniforms(); },
+                          [this] {
+                              return directorPinned_.load(std::memory_order_acquire)
+                                         ? pinnedDirectorSeed_.load(std::memory_order_relaxed)
+                                         : director::global().seed;
+                          }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity),
       pcmDeliverScratch_(kPcmCapacity, 0.0f) {
@@ -40,11 +48,26 @@ void Renderer::setParams(const SceneParams& params) {
     requestedParams_ = params;
 }
 
-void Renderer::setLayer(const std::string& sceneId, float mix, int blendOrdinal) {
+void Renderer::pinLayer(bool on) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    layerSceneId_ = sceneId;
-    layerMix_ = mix;
-    layerBlend_ = blendOrdinal;
+    if (on) {
+        layerFollower_.pin();
+    } else {
+        layerFollower_.unpin();
+    }
+}
+
+// Under stateLock_, once a frame from beginFrame. The layer is process-wide (viz/LayerState, #364), so
+// the live screen, an export, the wallpaper and the dream all draw what Customize › Layers set; the
+// follower hands it over only when it changed (or once, pinned, in an export). resolveLayerScene and
+// trimScenes read layerSceneId_ as before, and an export's blocking build makes the layer scene whole
+// on the first frame that asks for it, like the main scene.
+void Renderer::syncLayerLocked() {
+    layer_state::Layer layer;
+    if (!layerFollower_.poll(layer)) return;
+    layerSceneId_ = std::move(layer.sceneId);
+    layerMix_ = layer.mix;
+    layerBlend_ = layer.blend;
 }
 
 void Renderer::setTransition(const std::string& id, int64_t durationMs) {
@@ -59,39 +82,46 @@ void Renderer::setTransition(const std::string& id, int64_t durationMs) {
 void Renderer::beginParamMorph(float seconds) {
     if (seconds <= 0.0f) return;
     std::lock_guard<std::mutex> lock(stateLock_);
-    morphFadeSec_ = seconds;
-    morphRemainSec_ = seconds * 3.0f;
-}
-
-void Renderer::pushPcm(const float* samples, int count) {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    pcm_.push(samples, count);
+    morphRequested_ = true;
+    morphRequestSec_ = seconds;
 }
 
 void Renderer::writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz) {
     if (!interleaved || frames <= 0 || channels <= 0 || sampleRateHz <= 0) return;
-    std::lock_guard<std::mutex> lock(soundLock_);
-    if (!sound_ || sound_->sampleRateHz() != sampleRateHz) {
-        sound_ = std::make_unique<sound::SoundEngine>(sampleRateHz);
-        sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
+    {
+        std::lock_guard<std::mutex> lock(soundLock_);
+        // SoundEngine clamps its rate to 8 kHz; compare the clamped rate or a lower one rebuilds every call.
+        if (!sound_ || sound_->sampleRateHz() != std::max(8000, sampleRateHz)) {
+            sound_ = std::make_unique<sound::SoundEngine>(sampleRateHz);
+            sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
+        }
+        sound_->write(interleaved, frames, channels);
     }
-    sound_->write(interleaved, frames, channels);
+    // MilkDrop's raw PCM is what the engine just heard (#360): one ring, one cursor, every surface.
+    // Taken under its own lock, never nested in soundLock_, so the two locks have no order to keep.
+    std::lock_guard<std::mutex> lock(stateLock_);
+    pcm_.write(interleaved, frames, channels);
 }
 
 void Renderer::resetAudio() {
+    {
+        std::lock_guard<std::mutex> lock(soundLock_);
+        if (sound_) sound_->reset();
+    }
+    std::lock_guard<std::mutex> lock(stateLock_);
+    pcm_.clear();
+}
+
+void Renderer::setSoundSource(const audio::ingest::Ring* ring) {
     std::lock_guard<std::mutex> lock(soundLock_);
-    if (sound_) sound_->reset();
+    requestedSoundSource_ = ring;
 }
 
 void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
     std::lock_guard<std::mutex> lock(soundLock_);
-    soundTuning_ = tuning;
-    if (sound_) sound_->setTuning(macros::tuning(tuning, tunedKnobs_));
-}
-
-void Renderer::setCustomShader(const std::string& sceneId, const std::string& fragmentSource) {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    pendingShaders_.emplace_back(sceneId, fragmentSource);
+    // Clamped before the macros scale it, so a NaN Reactivity is the default one turned, not a NaN.
+    soundTuning_ = sound::tuning::clamp(tuning);
+    if (sound_) sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
 }
 
 double Renderer::monotonicSeconds() {
@@ -180,14 +210,15 @@ void Renderer::applyPendingFluidInjection() {
     }
     if (!applied) return;
     {
+        // A newer edit may have landed while the scenes were rebuilt; keep it dirty for next frame.
         std::lock_guard<std::mutex> lock(stateLock_);
-        fluidInjectionDirty_ = false;
+        if (fluidForceSrc_ == force && fluidDyeSrc_ == dye) fluidInjectionDirty_ = false;
     }
 }
 
 // Any thread. Copies the pixel buffer under stateLock_ into the retained underlay buffer; the
 // actual GL upload (and the ARGB->RGBA conversion) happens on the GL thread in
-// applyUnderlayUpload(), matching pushPcm()'s copy-now/convert-later split. blend/amount are only
+// applyUnderlayUpload(), a copy-now/convert-later split. blend/amount are only
 // meaningful (and only stored) alongside a non-empty pixel buffer; a null/zero-size buffer clears.
 void Renderer::setUnderlayRgba(const uint32_t* pixels, int width, int height, int blend, float amount) {
     std::lock_guard<std::mutex> lock(stateLock_);
@@ -239,17 +270,20 @@ void Renderer::applyUnderlayUpload() {
 
 void Renderer::setLfoConfigs(const std::array<LfoConfig, LfoEngine::kSlots>& configs) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    lfo_.configs = configs;
+    lfoConfigs_ = configs;
+    lfoConfigsDirty_ = true;
 }
 
 void Renderer::setAdsrConfigs(const std::array<AdsrConfig, AdsrEngine::kCount>& configs) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    adsr_.configs = configs;
+    adsrConfigs_ = configs;
+    adsrConfigsDirty_ = true;
 }
 
 void Renderer::setReactionRoutes(const std::array<ReactRoute, ReactionEngine::kRoutes>& routes) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    reactions_.routes = routes;
+    reactionRoutes_ = routes;
+    reactionRoutesDirty_ = true;
 }
 
 void Renderer::fail(const std::string& message) {
@@ -271,33 +305,49 @@ std::string Renderer::lastError() const {
     return lastError_;
 }
 
-void Renderer::rememberCustomShader(const std::string& sceneId, const std::string& source) {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    for (auto& entry : customShaders_) {
-        if (entry.first == sceneId) {
-            entry.second = source;
-            return;
-        }
+// GL thread, from readyScene (every frame's way to its scenes). The overrides are process-wide
+// (viz/ShaderOverrides, #364): when their generation moves, every resident scene whose override
+// changed gets the new source (or "" = its built-in one) and recompiles on its next draw through the
+// same path a first build takes, so a compile error still reaches lastError(). One atomic load a
+// frame otherwise.
+void Renderer::syncShaderOverrides() {
+    const uint64_t generation = shader_overrides::generation();
+    if (generation == shaderGeneration_) return;
+    shaderGeneration_ = generation;
+    const auto overrides = shader_overrides::snapshot();
+    const std::string stock;
+    for (auto& [id, scene] : scenes_) {
+        const auto found = overrides.find(id);
+        const std::string& want = found == overrides.end() ? stock : found->second;
+        std::string& have = appliedShaders_[id];
+        if (have == want) continue;
+        have = want;
+        scene->setFragmentSource(want);
     }
-    customShaders_.emplace_back(sceneId, source);
-}
-
-std::string Renderer::customShaderFor(const std::string& sceneId) const {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    for (const auto& entry : customShaders_) {
-        if (entry.first == sceneId) return entry.second;
-    }
-    return {};
 }
 
 void Renderer::onSurfaceCreated() {
     profile_ = deviceGl_.profileWithCurrentContext();
     GEODE_LOGI(kTag, "surface created: %s", profile_.summary().c_str());
     thermal_.onSurfaceRecreated();
+    // The shell's label belongs to the old surface's collectors: say the mode again on the new one.
+    liquidModeTaken_.store(-1, std::memory_order_relaxed);
     programCache_.prime();
     // The old context's staged programs died with it: drop their ids before releaseScenes clears.
     stager_.onContext(profile_.report.extensions.count("GL_KHR_parallel_shader_compile") > 0);
+    // Every name the old context made is released here, before this context's first glGen* (#374).
+    // GL numbers names per context from 1, so an old name deleted after a new object was made can be
+    // that new object: the passes' create() used to release first, after the overlays and the trail
+    // pass had already made names on the new context, and deleted them. Deleting a name a fresh
+    // context never made is a no-op, so releasing first is safe whether or not the context is new.
     releaseScenes();
+    // The frame passes (frame::Pass) drop their names before anything below generates new ones.
+    edgeGlowPass_.release();
+    trailPass_.release();
+    compositePass_.release();
+    uiBlurPass_.release();
+    liquidPass_.release();
+    overlays_.release();
     if (paletteLutTex_ != 0) {
         glDeleteTextures(1, &paletteLutTex_);
         paletteLutTex_ = 0;
@@ -310,14 +360,8 @@ void Renderer::onSurfaceCreated() {
     fboA_.release();
     fboB_.release();
     bornFbo_.release();
-    // The probe's names died with the old context; the limiter starts over on the new surface.
-    outputProbe_.forget();
-    flashLimiter_.reset();
-    flashGrade_ = {};
-    safetyClock_ = 0.0;
     liquidWasOn_ = false;
     lastBornSceneId_.clear();
-    compositePass_.releaseStaleTextures();
     activeScene_ = nullptr;
     outgoingScene_ = nullptr;
     outgoingParams_.reset();
@@ -325,7 +369,7 @@ void Renderer::onSurfaceCreated() {
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         if (!fluidForceSrc_.empty() || !fluidDyeSrc_.empty()) fluidInjectionDirty_ = true;
-        // W00: the compositePass_.releaseStaleTextures() call above already dropped the underlay
+        // W00: the compositePass_.release() call above already dropped the underlay
         // GL texture, so re-arm from the retained pixel buffer to reupload it once
         // compositePass_.create() (below) has run on the new context.
         if (!underlayPixels_.empty()) underlayDirty_ = true;
@@ -343,6 +387,8 @@ void Renderer::onSurfaceCreated() {
     if (!compositePass_.create(*fadeVert, &error)) fail(error);
     // The glass sheet's blur is an extra: without it the sheet shows the visual unblurred through its tint.
     if (!uiBlurPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "ui blur off: %s", error.c_str());
+    // And the wallpaper's edge glow: without it the wallpaper shows the full visual instead of the rim.
+    if (!edgeGlowPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "edge glow off: %s", error.c_str());
     // Liquid mode: half float where this GPU renders it, so a deep pour-back does not band.
     if (!liquidPass_.create(assets_, &programCache_, *fadeVert, fluid::probeFormats().ok, &error)) fail(error);
 
@@ -363,11 +409,7 @@ void Renderer::onSurfaceCreated() {
     glGenVertexArrays(1, &quadVao_);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     lastTimeS_ = -1.0;
-    motionField_.reset();
-    reactions_.reset();
-    macroReactions_.reset();
-    director_.reset();
-    notes_.reset();
+    resolver_.reset();
     camera_.reset();
 }
 
@@ -382,6 +424,13 @@ void Renderer::surfaceChanged(int width, int height) {
     height_ = std::max(height, 1);
     glViewport(0, 0, width_, height_);
     applyRenderScale();
+}
+
+void Renderer::clearToBlack(GLuint targetFbo) {
+    glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
+    glViewport(0, 0, width_, height_);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
 }
 
 void Renderer::setUserQuality(float renderScale, float marchScale, bool postFx, bool adaptive) {
@@ -410,6 +459,12 @@ void Renderer::setUiBlurRegion(const UiBlurRegion& region) {
     std::lock_guard<std::mutex> lock(stateLock_);
     uiBlurRegion_ = r;
     uiBlurOn_.store(r.active(), std::memory_order_relaxed);
+}
+
+void Renderer::setEdgeGlow(const frame::edge_glow::Options& options) {
+    std::lock_guard<std::mutex> lock(stateLock_);
+    edgeGlowOptions_ = options;
+    edgeGlowOn_.store(options.enabled, std::memory_order_relaxed);
 }
 
 void Renderer::applyRenderScale() {
@@ -545,6 +600,7 @@ Scene* Renderer::builtScene(const std::string& id) {
 // attempt (setup plus the programs already compiled) or one budgeted ProgramStager step. Exports
 // (blockingBuilds_) and scenes that keep deferring (ScenePrep::kMaxAttempts) build inline.
 Scene* Renderer::readyScene(const std::string& id) {
+    syncShaderOverrides();
     if (Scene* scene = builtScene(id)) {
         residency_.touch(id);
         // Skipped by a tier or scale change while it was not drawn: sized now, as it comes back.
@@ -579,6 +635,13 @@ Scene* Renderer::readyScene(const std::string& id) {
         stager_.clear();
     }
     return scene;
+}
+
+// A secondary target's way in (the layer, Liquid's next style): waits while the stager works for the
+// other secondary target, so the two take turns instead of clearing each other's staging (#369).
+Scene* Renderer::readySecondary(const std::string& id, const std::string& other) {
+    if (!builtScene(id) && prep_.yieldsTo(id, other)) return nullptr;
+    return readyScene(id);
 }
 
 // One staged build of `id`: the whole setup buildScene does, with every program build answered
@@ -648,7 +711,11 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     scene->init();
     scene->setParams(initialParams);
     scene->resize(renderWidth_, renderHeight_);
-    const std::string custom = customShaderFor(id);
+    // The user's edited source for this style, whichever renderer this is (live, export, wallpaper,
+    // dream): one process-wide table (viz/ShaderOverrides, #364). Recorded so syncShaderOverrides
+    // only re-applies what changed after this build.
+    const std::string custom = shader_overrides::get(id);
+    appliedShaders_[id] = custom;
     if (!custom.empty()) scene->setFragmentSource(custom);
     if (!force.empty() || !dye.empty()) scene->setInjectionShaders(force, dye);
     scene->setWindowSize(width_, height_);

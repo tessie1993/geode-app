@@ -11,7 +11,6 @@ import androidx.media3.exoplayer.ExoPlayer
 import dev.geode.analysis.PlaybackMath
 import dev.geode.audio.AudioFxController
 import dev.geode.audio.AudioFxPresets
-import dev.geode.audio.PcmRingBuffer
 import dev.geode.audio.TapRenderersFactory
 import dev.geode.audio.dsp.NativeDspProcessor
 import dev.geode.data.BehaviourStore
@@ -27,6 +26,7 @@ import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audioandroid.PcmTap
 import dev.geode.engine.audioandroid.SinkClockDriver
 import dev.geode.engine.audioandroid.TapBoundaryListener
+import dev.geode.engine.bridge.GeodeNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -36,8 +36,14 @@ import kotlinx.coroutines.cancel
 class PlaybackSession internal constructor(
     context: Context,
 ) {
-    val ring = PcmRingBuffer()
+    /**
+     * The player's native ingest ring (`core/audio/ingest`, #481): the tap writes it, every renderer reads it
+     * natively through its own cursor. Process-wide ([PlaybackEngine.playerIngest]), never freed, so no
+     * renderer still holding it can outlive it.
+     */
+    val ingest: Long = PlaybackEngine.playerIngest
 
+    /** The mic's and other apps' capture ring, still Kotlin until #485; the player no longer writes it. */
     internal val sampleRing = SampleRing(capacityFrames = 1 shl 16, channelCount = 2)
 
     @Volatile
@@ -47,20 +53,21 @@ class PlaybackSession internal constructor(
 
     internal val clockDriver = SinkClockDriver(presentationClock)
 
-    internal val captureSink =
-        PcmSink { samples, frames, channels ->
-            ring.writeInterleaved(samples, frames, channels)
-            sampleRing.write(samples, frames, channels)
-        }
+    /** Where the mic and capture write (CaptureController) until #485. */
+    internal val captureSink: PcmSink = sampleRing
 
     private val prefsFiles = GeodePrefsFiles(context)
 
-    /** Settings › Playback › Bit-perfect USB output; told every stream format before its AudioTrack opens. */
-    private val bitPerfect = BitPerfectOutput(context)
+    internal val dsp = NativeDspProcessor()
+
+    /**
+     * Settings › Playback › Bit-perfect USB output; told every AudioTrack's format before it opens (the
+     * player's output provider), and tells the native DSP whether to step aside for it.
+     */
+    private val bitPerfect = BitPerfectOutput(context) { dsp.bitPerfect = it }
 
     internal val tap =
-        PcmTap(captureSink) { format ->
-            bitPerfect.onFormat(format.sampleRateHz, format.channelCount)
+        PcmTap(ingest) { format ->
             val hook = onAudioFormat
             if (hook != null) {
                 hook(format.sampleRateHz, format.channelCount, format.encoding)
@@ -70,12 +77,9 @@ class PlaybackSession internal constructor(
         }.apply {
             boundaryListener =
                 TapBoundaryListener { ended, endedFrames, begun ->
-                    sampleRing.beginEpoch()
                     clockDriver.onTapBoundary(ended, endedFrames, begun)
                 }
         }
-
-    internal val dsp = NativeDspProcessor()
 
     /**
      * The one player: ExoPlayer, with the tap first in its processor chain ([TapRenderersFactory]).
@@ -84,8 +88,12 @@ class PlaybackSession internal constructor(
      */
     val player: ExoPlayer =
         ExoPlayer
-            .Builder(context, TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp)))
-            .setMediaSourceFactory(
+            .Builder(
+                context,
+                TapRenderersFactory(context, tap, clockDriver, dsp = listOf(dsp)) { out ->
+                    bitPerfect.onOutput(out.sampleRate, out.channelMask, out.encoding)
+                },
+            ).setMediaSourceFactory(
                 androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
                     context,
                     androidx.media3.extractor.ExtractorsFactory {
@@ -154,7 +162,7 @@ class PlaybackSession internal constructor(
     @Volatile
     var sampleRateHz: Int = DEFAULT_SAMPLE_RATE_HZ
 
-    /** What every surface's sound engine reads; the rate follows whichever source owns the ring. */
+    /** The capture ring as the surfaces read it until #485; the rate follows whichever capture owns it. */
     val soundInput = SoundInput(sampleRing) { sampleRateHz }
 
     init {
@@ -163,6 +171,7 @@ class PlaybackSession internal constructor(
         player.addListener(crossfade)
         player.addListener(recorder)
         dev.geode.audio.AudioBus.soundInput = soundInput
+        dev.geode.audio.AudioBus.playerIngest = ingest
         // The saved options go on here, not only when the UI attaches: a session the service starts
         // alone (a headset button, Android Auto or System UI resuming playback) has no PlayerSession,
         // and without this it would ignore pause-on-unplug, ReplayGain, shuffle and repeat until the
@@ -214,6 +223,8 @@ class PlaybackSession internal constructor(
 
     internal fun release() {
         if (dev.geode.audio.AudioBus.soundInput === soundInput) dev.geode.audio.AudioBus.soundInput = null
+        // The ring itself stays (process-wide); with no session nothing writes it, and the surfaces stop asking.
+        dev.geode.audio.AudioBus.playerIngest = 0L
         recorder.release()
         scope.cancel()
         onAudioFormat = null
@@ -245,6 +256,17 @@ object PlaybackEngine {
     private var session: PlaybackSession? = null
     private var uiHolds = 0
     private var serviceHolds = 0
+
+    /**
+     * The player's ingest ring (`geode_ingest*`), made once and never destroyed. A wallpaper, dream or cast
+     * renderer may still be reading it on its own thread when a session ends, so freeing it would race them;
+     * kept, it costs one ring (2^16 frames, up to 7.1) for the process, and the next session's first flush
+     * begins a new epoch on it. 0 only if native refused the arguments.
+     */
+    val playerIngest: Long by lazy { GeodeNative.ingestCreate(PLAYER_RING_FRAMES, PLAYER_RING_CHANNELS) }
+
+    private const val PLAYER_RING_FRAMES = 1 shl 16
+    private const val PLAYER_RING_CHANNELS = 8
 
     private fun rebindTo(context: Context): Context {
         val current = context.applicationContext

@@ -246,26 +246,6 @@ data class KeyframeTrack(
         }
     }
 
-    /** Drag a key along the timeline, snapping to markers or clip edges if the caller asked for it. */
-    fun moveKey(
-        id: KeyframeId,
-        toMs: Long,
-        snap: SnapMode = SnapMode.Free,
-        context: SnapContext = SnapContext(),
-    ): KeyframeResult {
-        val key = key(id)
-        val atMs = snap.snap(toMs, context).coerceAtLeast(0L)
-        return if (key == null) {
-            KeyframeResult.Rejected(KeyframeError.KeyNotFound(id))
-        } else {
-            val others = keys.filterNot { it.id == id || it.atMs == atMs }
-            KeyframeResult.Applied(withKeys(others + key.copy(atMs = atMs)))
-        }
-    }
-
-    /** Removing a key that is not there is a no-op, not a failure — the user got what they asked for. */
-    fun removeKey(id: KeyframeId): KeyframeTrack = withKeys(keys.filterNot { it.id == id })
-
     /** Follow a ripple edit: keys after the cut move with the picture they were written against. */
     fun rippled(shift: RippleShift): KeyframeTrack =
         withKeys(

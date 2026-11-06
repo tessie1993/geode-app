@@ -1,19 +1,19 @@
 package dev.geode.render
 
 import android.content.Context
-import android.opengl.GLES30
 import android.opengl.GLSurfaceView
 import android.os.SystemClock
 import dev.geode.engine.audio.SoundCursor
 import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audio.SoundTuning
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.bridge.NativeViz
-import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.atomic.AtomicLong
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
@@ -47,6 +47,12 @@ class VisualizerRenderer(
 
     @Volatile
     var sceneParams: SceneParams = SceneParams.DEFAULT
+        set(value) {
+            field = value
+            paramsVersion = pushVersions.incrementAndGet()
+        }
+
+    @Volatile private var paramsVersion = 0L
 
     /** Vestibular accessibility only; the flash clamp is unconditional inside the native safety pass. */
     @Volatile
@@ -59,15 +65,6 @@ class VisualizerRenderer(
      */
     @Volatile
     var performance: PerformanceSettings = PerformanceSettings.HIGH
-
-    @Volatile
-    var layerSceneId: String? = null
-
-    @Volatile
-    var layerMix: Float = 0.5f
-
-    @Volatile
-    var layerBlend: BlendMode = BlendMode.SCREEN
 
     @Volatile
     var transitionDurationMs: Long = 1200
@@ -94,28 +91,37 @@ class VisualizerRenderer(
     @Volatile
     var onSurfaceSizeChanged: (width: Int, height: Int) -> Unit = { _, _ -> }
 
+    /**
+     * The native ingest ring (`geode_ingest*`, the player's: `AudioBus.playerIngest`) this surface's sound
+     * engine hears, or 0. The native renderer reads it itself with its own cursor each frame (core/viz/
+     * SoundFeed, #481): every sample once, downmixed, with its own rate and epoch. Asked every frame, so a
+     * playback session that comes and goes under a running wallpaper is picked up.
+     */
     @Volatile
-    var pcmProvider: () -> PcmChunk? = { null }
+    var soundSource: () -> Long = { 0L }
+
+    /** The source last handed to this native handle; -1 forces a hand-over to a new one. GL thread. */
+    private var nativeSoundSource = -1L
 
     /**
-     * The audio this surface's sound engine hears (core/sound, owned by the native renderer). Read on the
-     * GL thread each frame through [soundCursor], so the engine gets every sample once, in order, and is
-     * stepped with this surface's own frame time. Asked every frame, so a playback session that comes and
-     * goes under a running wallpaper is picked up. Null: the engine hears nothing and its frame stays silent.
+     * The Kotlin capture ring (mic, other apps' audio, the wallpaper's output mix) until #485 moves capture
+     * onto native rings too. Fed through [soundCursor]; only one of the two sources plays at a time.
      */
     @Volatile
     var soundInput: () -> SoundInput? = { null }
 
     private var soundCursor: SoundCursor? = null
 
-    /** Settings › Audio. Compared by identity on the GL thread, so assign a new instance to change it. */
+    /** Settings › Audio. Every assignment is a new version, pushed on the frame native asks for it. */
     @Volatile
     var soundTuning: SoundTuning = SoundTuning()
+        set(value) {
+            field = value
+            tuningVersion = pushVersions.incrementAndGet()
+        }
 
-    private var nativeSoundTuning: SoundTuning? = null
+    @Volatile private var tuningVersion = 0L
 
-    // Config holders only: native ticks its own LfoEngine/AdsrEngine against the configs
-    // syncNativeState forwards below (core/viz/RendererFrame.cpp).
     val lfoEngine = LfoEngine()
 
     val adsrEngine = AdsrEngine()
@@ -147,36 +153,16 @@ class VisualizerRenderer(
         NativeViz(context).also { viz ->
             viz.onCreated = { milkPreset.restorePath?.let(viz::loadMilkPreset) }
         }
-    private var nativeParams: SceneParams? = null
-    private var nativeLfo: List<LfoConfig>? = null
-    private var nativeAdsr: List<AdsrConfig>? = null
     private var nativeReactions: List<ReactionRoute>? = null
-    private var nativePerformance: PerformanceSettings? = null
-    private var nativeThermalSampleMs = 0L
-    private var liquidModeSampleMs = 0L
     private val liquidModeState = MutableStateFlow(0)
 
     /**
      * What Liquid mode ran last frame (`liquid::Mode`: 0 off, 1 full, 2 lite, 3 warp, 4 paused), so
      * Customize can say when a hot phone simplified or paused it. The native renderer owns the
-     * answer on the GL thread; it is copied here at most twice a second, because the UI only needs
-     * the label to settle and a collector woken every frame would cost more than the answer is worth.
+     * answer on the GL thread and hands it over only when it changes, so a collector is never woken
+     * for a label that stayed the same.
      */
     val liquidMode: StateFlow<Int> = liquidModeState.asStateFlow()
-
-    /**
-     * True from [onSurfaceCreated] until the first frame on that surface has been presented.
-     *
-     * `GLSurfaceView.surfaceChanged` runs on the main thread and parks it in
-     * `GLThread.onWindowResize` until the GL thread has finished the next frame. A new surface's
-     * first real frame is the expensive one: it builds the scene and compiles every shader it
-     * needs, which on a software GPU (the CI emulator's swiftshader) takes ~5 s. That held the
-     * main thread long enough for input dispatch to time out, an ANR that kills the process.
-     * So the first frame is only a clear: the main thread is released at once, and the build runs
-     * on the next frame the pacer asks for, where nobody waits on it. The screen is black for that
-     * one frame, as a new surface already is.
-     */
-    private var firstFrameOnSurface = false
 
     val milkdropAvailable: Boolean
         get() {
@@ -192,15 +178,20 @@ class VisualizerRenderer(
     /** Frees the native renderer; only when this renderer is being discarded, on the GL thread. */
     fun releaseScenes() = nativeViz.destroy()
 
+    /** Process-wide: export, the wallpaper and the dream draw it too (core/viz/ShaderOverrides). */
     fun submitShader(
         sceneId: String,
         fragmentSrc: String,
-    ) {
-        nativeViz.create()
-        nativeViz.setCustomShader(sceneId, fragmentSrc)
-    }
+    ) = GeodeNative.shaderOverrideSet(sceneId, fragmentSrc)
 
-    fun customShaderFor(sceneId: String): String? = nativeViz.customShaderFor(sceneId)
+    fun customShaderFor(sceneId: String): String? = GeodeNative.shaderOverride(sceneId)
+
+    /** Customize › Layers, process-wide: exports, the wallpaper and the dream draw it too (core/viz/LayerState). */
+    fun submitLayer(
+        sceneId: String?,
+        mix: Float,
+        blend: BlendMode,
+    ) = GeodeNative.layerSet(sceneId.orEmpty(), mix, blend.ordinal)
 
     fun submitFluidInjectionShaders(
         force: String?,
@@ -252,17 +243,10 @@ class VisualizerRenderer(
     ) {
         ThermalGovernor.attach(appContext)
         nativeViz.surfaceCreated()
-        applyUiBlur()
-        nativeParams = null
-        nativeLfo = null
-        nativeAdsr = null
         nativeReactions = null
-        nativePerformance = null
-        liquidModeSampleMs = 0L
-        nativeSoundTuning = null
         // A new native renderer starts a new engine: hand it a full window, not the tail of the last.
         soundCursor = null
-        firstFrameOnSurface = true
+        nativeSoundSource = -1L
     }
 
     override fun onSurfaceChanged(
@@ -287,14 +271,7 @@ class VisualizerRenderer(
         amount: Float,
     ) = nativeViz.setUnderlay(pixels, width, height, blend.ordinal, amount)
 
-    /**
-     * The glass sheet's blur region (left, top, right, bottom, strength, corner px), kept so a new
-     * native handle (one per attach) and a new surface start with the sheet the UI last set. GL thread
-     * only: [VisualizerView.setUiBlurRegion] posts here.
-     */
-    private val uiBlur = FloatArray(UI_BLUR_FLOATS)
-
-    /** GL thread; see [VisualizerView.setUiBlurRegion] for the contract. */
+    /** See [VisualizerView.setUiBlurRegion] for the contract; [NativeViz] keeps it for a new handle. */
     fun setUiBlurRegion(
         left: Float,
         top: Float,
@@ -302,27 +279,39 @@ class VisualizerRenderer(
         bottom: Float,
         strength: Float,
         cornerPx: Float,
-    ) {
-        uiBlur[0] = left
-        uiBlur[1] = top
-        uiBlur[2] = right
-        uiBlur[3] = bottom
-        uiBlur[4] = strength
-        uiBlur[5] = cornerPx
-        applyUiBlur()
-    }
+    ) = nativeViz.setUiBlurRegion(left, top, right, bottom, strength, cornerPx)
 
-    private fun applyUiBlur() = nativeViz.setUiBlurRegion(uiBlur[0], uiBlur[1], uiBlur[2], uiBlur[3], uiBlur[4], uiBlur[5])
+    /** The wallpaper's edge glow options (`core/viz/frame/EdgeGlowPass`); any thread, kept for a new handle. */
+    fun setEdgeGlow(options: FloatArray) = nativeViz.setEdgeGlow(options)
 
+    /**
+     * Each frame starts with one native call that takes the pacer's cap and Settings › Performance and
+     * says what is due (`core/viz/frame/Cadence`): native skips a repeated quality push, clears a new
+     * surface's first frame and builds nothing on it (so `GLSurfaceView.surfaceChanged`, parked on the
+     * main thread until this frame ends, is released at once), and picks the frame that reads the
+     * thermal state and the one that hands over a new Liquid label. It also takes the version of each
+     * pushed input and says which ones this surface still lacks (`core/viz/frame/PushVersions`).
+     */
     override fun onDrawFrame(gl: GL10?) {
-        if (firstFrameOnSurface) {
-            firstFrameOnSurface = false
-            GLES30.glClearColor(0f, 0f, 0f, 1f)
-            GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
-            return
-        }
+        val perf = performance
+        val due =
+            nativeViz.frameBegin(
+                ThermalGovernor.pacedFps,
+                perf.renderScale,
+                perf.marchScale,
+                perf.postFx,
+                perf.adaptive,
+                perf.liquidHot.native,
+                paramsVersion,
+                lfoEngine.version,
+                adsrEngine.version,
+                tuningVersion,
+            )
+        if (due and GeodeNative.FRAME_CLEAR_ONLY != 0) return
+        if (due and GeodeNative.FRAME_THERMAL_DUE != 0) ThermalGovernor.sample()
+        if (due and GeodeNative.FRAME_LIQUID_CHANGED != 0) liquidModeState.value = GeodeNative.frameLiquidMode(due)
         nativeViz.setScene(requestedSceneId)
-        syncNativeState()
+        syncNativeState(due)
         nativeViz.render(SystemClock.elapsedRealtimeNanos() / NANOS_PER_SECOND, targetFbo = 0)
         nativeViz.pollError(onShaderError)
         nativeViz.takeMilkPresetLoaded()?.let { path ->
@@ -332,57 +321,29 @@ class VisualizerRenderer(
         if (nativeViz.takeDirectorStyleMoments() > 0) onDirectorStyleMoment()
     }
 
-    private fun syncNativeState() {
+    private fun syncNativeState(due: Int) {
         val p = sceneParams
-        if (p !== nativeParams) {
-            nativeViz.setParams(p)
-            nativeParams = p
-        }
-        val lfo = lfoEngine.configs
-        if (lfo !== nativeLfo) {
-            nativeViz.setLfoConfigs(lfo)
-            nativeLfo = lfo
-        }
-        val adsr = adsrEngine.configs
-        if (adsr !== nativeAdsr) {
-            nativeViz.setAdsrConfigs(adsr)
-            nativeAdsr = adsr
-        }
+        if (due and GeodeNative.FRAME_PUSH_PARAMS != 0) nativeViz.setParams(p)
+        if (due and GeodeNative.FRAME_PUSH_LFO != 0) nativeViz.setLfoConfigs(lfoEngine.configs)
+        if (due and GeodeNative.FRAME_PUSH_ADSR != 0) nativeViz.setAdsrConfigs(adsrEngine.configs)
+        if (due and GeodeNative.FRAME_PUSH_TUNING != 0) nativeViz.setSoundTuning(soundTuning.toFloats())
         val routes = styleReactions.routesFor(requestedSceneId, p.reactSeed, reactions, HandMask.current)
         if (routes !== nativeReactions) {
             nativeViz.setReactions(routes)
             nativeReactions = routes
         }
-        val perf = performance
-        if (perf != nativePerformance) {
-            nativeViz.setQuality(perf.renderScale, perf.marchScale, perf.postFx, perf.adaptive)
-            nativeViz.setLiquidHotPolicy(perf.liquidHot.native)
-            nativePerformance = perf
-        }
         nativeViz.setLook(lookYaw, lookPitch)
         nativeViz.setReducedMotion(reducedMotion)
-        nativeViz.setLayer(layerSceneId, layerMix, layerBlend)
         nativeViz.setTransition(transitionId, transitionDurationMs)
-        nativeViz.setPacedFps(ThermalGovernor.pacedFps)
-        val now = SystemClock.elapsedRealtime()
-        if (now - nativeThermalSampleMs >= THERMAL_SAMPLE_MS) {
-            nativeThermalSampleMs = now
-            nativeViz.setThermal(ThermalGovernor.platformStatus, ThermalGovernor.thermalHeadroom())
-        }
-        if (now - liquidModeSampleMs >= LIQUID_MODE_SAMPLE_MS) {
-            liquidModeSampleMs = now
-            liquidModeState.value = nativeViz.liquidMode()
-        }
-        pcmProvider()?.let { chunk -> nativeViz.pushPcm(chunk.data, chunk.count) }
-        val tuning = soundTuning
-        if (tuning !== nativeSoundTuning) {
-            nativeViz.setSoundTuning(tuning.toFloats())
-            nativeSoundTuning = tuning
-        }
         feedSound()
     }
 
     private fun feedSound() {
+        val source = soundSource()
+        if (source != nativeSoundSource) {
+            nativeViz.setSoundSource(source)
+            nativeSoundSource = source
+        }
         val input = soundInput() ?: return
         val cursor = soundCursor?.takeIf { it.ring === input.ring } ?: SoundCursor(input.ring).also { soundCursor = it }
         val take = cursor.take()
@@ -401,7 +362,22 @@ class VisualizerRenderer(
     }
 }
 
-private const val THERMAL_SAMPLE_MS = 1000L
-private const val LIQUID_MODE_SAMPLE_MS = 500L
-private const val UI_BLUR_FLOATS = 6
 private const val NANOS_PER_SECOND = 1_000_000_000.0
+
+/** One counter for every pushed input's version (`core/viz/frame/PushVersions`), so each write gets a larger one. */
+private val pushVersions = AtomicLong()
+
+/** Modulation configs the UI edits; native ticks them (core/viz/RendererFrame.cpp) and asks for a push by [version]. */
+open class PushedConfigs<T>(
+    initial: List<T>,
+) {
+    @Volatile
+    var configs: List<T> = initial
+        set(value) {
+            field = value
+            version = pushVersions.incrementAndGet()
+        }
+
+    @Volatile var version = 0L
+        private set
+}

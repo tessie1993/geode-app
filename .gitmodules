@@ -4,3 +4,9 @@
 [submodule "third_party/taglib"]
 	path = third_party/taglib
 	url = https://github.com/taglib/taglib.git
+[submodule "third_party/cgltf"]
+	path = third_party/cgltf
+	url = https://github.com/jkuhlmann/cgltf
+[submodule "third_party/meshoptimizer"]
+	path = third_party/meshoptimizer
+	url = https://github.com/zeux/meshoptimizer

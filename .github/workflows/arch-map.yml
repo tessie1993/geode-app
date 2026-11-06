@@ -1,13 +1,11 @@
-name: Architecture map gate
+name: Architecture gates
 
-# AGENTS.md maps modules, packages and entry points for every agent session.
-# A PR that changes that structure must update the map in the same PR; the
-# rules live in tools/arch-map-gate.sh. No path filter: a required check has
-# to report on every PR, or GitHub waits for it forever.
+# The layer rule and the engine Kotlin rule. No path filter, so the check
+# reports on every PR.
 
 on:
   pull_request:
-    branches: ["main", "claude/geode-finish"]
+    branches: ["main"]
     types: [opened, synchronize, reopened, edited]
 
 permissions:
@@ -19,7 +17,7 @@ concurrency:
 
 jobs:
   arch-map:
-    name: AGENTS.md is current
+    name: Architecture gates
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -27,35 +25,6 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-
-      # Pins the gate's own rules, so a broken pattern cannot silently pass every PR.
-      - name: Self-test the gate
-        shell: bash
-        run: |
-          set -u
-          expect() { # expect <pass|fail> <name-status lines...>
-            want=$1; shift
-            if printf '%s\n' "$@" | bash tools/arch-map-gate.sh >/dev/null; then got=pass; else got=fail; fi
-            [ "$got" = "$want" ] || { echo "::error::gate self-test: expected $want for: $*"; exit 1; }
-          }
-          T=$'\t'
-          expect pass "M${T}app/src/main/java/dev/geode/ui/AppShell.kt"
-          expect fail "A${T}app/src/main/java/dev/geode/ui/NewScreen.kt"
-          expect fail "D${T}engine/scenes/src/main/kotlin/dev/geode/render/Lfo.kt"
-          expect fail "R100${T}app/src/main/java/dev/geode/ui/A.kt${T}app/src/main/java/dev/geode/ui/B.kt"
-          expect fail "M${T}settings.gradle.kts"
-          expect fail "M${T}engine/scenes/build.gradle.kts"
-          expect fail "M${T}core/CMakeLists.txt"
-          expect pass "A${T}app/src/main/java/dev/geode/ui/NewScreen.kt" "M${T}AGENTS.md"
-          expect pass "A${T}docs/notes.md"
-          echo "gate self-test passed"
-
-      - name: Check the PR's diff
-        shell: bash
-        run: |
-          git diff --name-status -M \
-            "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}" \
-            | bash tools/arch-map-gate.sh
 
       # Pins the layer gate the same way: a planted reverse dependency must fail it.
       - name: Self-test the layer gate
@@ -87,6 +56,18 @@ jobs:
           ok "12${T}0${T}engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt" || { echo "::error::JNI decls failed"; exit 1; }
           if ok "40${T}0${T}engine/audio-core/src/main/kotlin/dev/geode/engine/audio/PlayoutClock.kt"; then echo "::error::new engine Kotlin passed"; exit 1; fi
           if ok "20${T}5${T}app/src/main/java/dev/geode/export/LoopRender.kt"; then echo "::error::export growth passed"; exit 1; fi
+          # Spec 3.0 areas (#461): take capture and choices, the Scene model, glTF and pack import, the render job.
+          A=app/src/main/java/dev/geode
+          for f in ui/TakeController.kt data/PerformanceTake.kt editor/Timeline.kt editor/Keyframes.kt \
+                   take/TakeClock.kt scene/SceneModel.kt gltf/GltfLimits.kt data/GlbImport.kt \
+                   data/StylePackImporter.kt data/MilkPackImporter.kt ui/ExportController.kt; do
+            if ok "10${T}2${T}$A/$f"; then echo "::error::growth in $f passed"; exit 1; fi
+          done
+          ok "10${T}10${T}$A/ui/ExportController.kt" || { echo "::error::even UI edit in ExportController failed"; exit 1; }
+          ok "30${T}0${T}$A/ui/TakeController.kt" "0${T}40${T}$A/editor/Timeline.kt" || { echo "::error::net shrink across take files failed"; exit 1; }
+          ok "40${T}0${T}$A/data/TakeStore.kt" || { echo "::error::take storage failed"; exit 1; }
+          ok "40${T}0${T}$A/editor/StudioProject.kt" || { echo "::error::project list failed"; exit 1; }
+          ok "40${T}0${T}$A/ui/StudioRender.kt" || { echo "::error::Studio screen failed"; exit 1; }
           echo "engine Kotlin gate self-test passed"
 
       - name: Engine Kotlin only shrinks

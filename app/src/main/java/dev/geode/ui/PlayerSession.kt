@@ -63,8 +63,6 @@ import dev.geode.render.MilkPresetMemory
 import dev.geode.render.SceneFactory
 import dev.geode.render.TransitionStyle
 import dev.geode.render.UnderlayBlend
-import dev.geode.render.scene.CustomizeTab
-import dev.geode.render.scene.PcmChunk
 import dev.geode.render.scene.SceneParams
 import dev.geode.widget.WidgetStyles
 import kotlinx.coroutines.CoroutineScope
@@ -95,8 +93,6 @@ class PlayerSession internal constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val playback = PlaybackEngine.acquireForUi(application)
-
-    private val ring = playback.ring
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val storeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
@@ -314,7 +310,7 @@ class PlayerSession internal constructor(
 
     fun toggleParamLock(label: String) = modulation.toggleParamLock(label)
 
-    fun randomizeParams(tab: CustomizeTab? = null) = modulation.randomizeParams(tab)
+    fun randomizeParams(category: CustomizeCategory? = null) = modulation.randomizeParams(category)
 
     fun editSceneParams(params: SceneParams) = modulation.editSceneParams(params)
 
@@ -322,7 +318,7 @@ class PlayerSession internal constructor(
 
     fun redoParams() = modulation.redo()
 
-    fun resetCustomizeTab(tab: CustomizeTab) = modulation.resetTab(tab)
+    fun resetCustomizeCategory(category: CustomizeCategory) = modulation.resetCategory(category)
 
     fun resetAllCustomize() = modulation.resetAll()
 
@@ -353,15 +349,6 @@ class PlayerSession internal constructor(
         name: String,
         onReady: (String) -> Unit,
     ) = textureController.useTexture(name, onReady)
-
-    private val pcmScratch = FloatArray(4096)
-    private var pcmCursor = 0L
-
-    fun latestPcm(): PcmChunk? {
-        val n = ring.copyNewSince(pcmCursor, pcmScratch)
-        pcmCursor = ring.lastCopyEndIndex
-        return if (n > 0) PcmChunk(pcmScratch, n) else null
-    }
 
     private val milkImport = MilkImportController(application, scope)
 
@@ -621,6 +608,13 @@ class PlayerSession internal constructor(
     val mediaRoots: StateFlow<Set<String>> get() = musicLibrary.mediaRoots
 
     val libraryScanning: StateFlow<Boolean> get() = musicLibrary.libraryScanning
+
+    /** False until the first device-track query has answered; see [MusicLibraryController.deviceTracksLoaded]. */
+    val deviceTracksLoaded: StateFlow<Boolean> get() = musicLibrary.deviceTracksLoaded
+
+    val minTrackSeconds: StateFlow<Int> get() = musicLibrary.minTrackSeconds
+
+    fun setMinTrackSeconds(seconds: Int) = musicLibrary.setMinTrackSeconds(seconds)
 
     fun refreshDeviceTracks() = musicLibrary.refreshDeviceTracks()
 
@@ -1095,12 +1089,6 @@ class PlayerSession internal constructor(
         width: Int,
         height: Int,
     ) = backgroundController.setRenderSize(width, height)
-
-    fun currentSceneId(): String = _vizState.value.sceneId
-
-    fun currentSceneParams(): SceneParams = _vizState.value.params
-
-    fun playbackPositionMs(): Long? = if (player.isPlaying) player.currentPosition else null
 
     fun trackDurationMs(): Long = player.duration.coerceAtLeast(0L)
 

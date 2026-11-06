@@ -4,6 +4,8 @@
 
 #include <array>
 #include <atomic>
+#include <cstdint>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -11,19 +13,19 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "signal/Resolver.hpp"
 #include "sound/SoundEngine.hpp"
 #include "viz/Adsr.hpp"
 #include "viz/CameraRig.hpp"
 #include "viz/CompositePass.hpp"
 #include "viz/Director.hpp"
-#include "viz/FlashLimiter.hpp"
 #include "viz/Framebuffer.hpp"
 #include "viz/GlProfile.hpp"
+#include "viz/LayerState.hpp"
 #include "viz/Lfo.hpp"
 #include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/NoteResponse.hpp"
-#include "viz/OutputProbe.hpp"
 #include "viz/Overlays.hpp"
 #include "viz/Params.hpp"
 #include "viz/PcmHandoff.hpp"
@@ -34,6 +36,7 @@
 #include "viz/ScenePrep.hpp"
 #include "viz/SceneRegistry.hpp"
 #include "viz/SceneResidency.hpp"
+#include "viz/SoundFeed.hpp"
 #include "viz/StyleSchedule.hpp"
 #include "viz/ShaderSource.hpp"
 #include "viz/ThermalGovernor.hpp"
@@ -41,6 +44,7 @@
 #include "viz/TrailPass.hpp"
 #include "viz/UiBlurPass.hpp"
 #include "viz/VisualSafety.hpp"
+#include "viz/frame/EdgeGlowPass.hpp"
 #include "viz/liquid/LiquidMath.hpp"
 #include "viz/liquid/LiquidPass.hpp"
 #include "viz/scenes/ProgramLoader.hpp"
@@ -68,33 +72,47 @@ public:
     void setBlockingBuilds(bool on) { blockingBuilds_.store(on, std::memory_order_relaxed); }
     // Export (geode_viz_set_offscreen): never draws the UI blur, whatever region it was given.
     void setOffscreen(bool on) { offscreen_.store(on, std::memory_order_relaxed); }
+    // Export: step every frame by exactly 1/fps (viz/FrameStep); 0 measures the frame time, as live does.
+    void setFixedFrameRate(int fps) { fixedFps_.store(fps > 0 ? fps : 0, std::memory_order_relaxed); }
     // The app's glass sheet over the live visual (UiBlurPass): latched for the next frame. Any thread.
     void setUiBlurRegion(const UiBlurRegion& region);
+    // The wallpaper's edge look (frame::EdgeGlowPass): latched for the next frame. Any thread.
+    void setEdgeGlow(const frame::edge_glow::Options& options);
     // Settings › Performance › Liquid on a hot phone (liquid::HotPolicy). Any thread.
     void setLiquidHotPolicy(int policy) { liquidHotPolicy_.store(policy, std::memory_order_relaxed); }
     // What Liquid mode ran last frame (liquid::Mode), so Customize can say when a hot phone simplified
-    // or paused it. Any thread.
-    int liquidMode() const { return liquidMode_.load(std::memory_order_relaxed); }
+    // or paused it, or -1 when it has not changed since the last take. Taken every live frame by
+    // geode_viz_frame_begin (frame::FrameCadence), so the shell wakes its collectors only on a change. A new
+    // surface reports again (onSurfaceCreated). One taker: the live shell's GL thread.
+    int takeLiquidMode() {
+        const int mode = liquidMode_.load(std::memory_order_relaxed);
+        return liquidModeTaken_.exchange(mode, std::memory_order_relaxed) == mode ? -1 : mode;
+    }
     // An export's own auto-director: once pinned, this renderer stops reading the process-wide switch
     // (director::global), so the live player moving on to another track, or past the free taste, never
     // reaches a render in progress. The export hands over the play's seed, so it makes the same film.
     void pinDirector(float amount, uint64_t seed);
-    void setLayer(const std::string& sceneId, float mix, int blendOrdinal);
+    // Customize › Layers is process-wide (viz/LayerState, geode_layer_set): every renderer follows it.
+    // An export pins the layer it started with (geode_viz_set_offscreen), so a live edit during a
+    // background render never reaches the video; off follows the store again. Any thread.
+    void pinLayer(bool on);
     void setTransition(const std::string& id, int64_t durationMs);
     void beginParamMorph(float seconds);
     void submitTouchPoints(const float* xy, int n) { touchField_.submit(xy, n); }
-    void pushPcm(const float* samples, int count);
     // The sound engine's write side: interleaved PCM in play order, every sample once. A new rate builds a
     // new engine. Call from the render thread before render(), live and in export alike, so the frame the
-    // engine is stepped into covers exactly the audio written up to that frame.
+    // engine is stepped into covers exactly the audio written up to that frame. The same samples, mixed to
+    // mono, are this frame's raw PCM for MilkDrop and the PCM scenes (PcmHandoff): no separate push.
     void writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz);
     // A seek, track change or source switch: drop the engine's history.
     void resetAudio();
+    // The ingest ring this renderer hears natively (#481), or nullptr. Any thread; the GL thread takes it up
+    // at the next beginFrame, where soundFeed_ reads its own cursor into writeAudio / resetAudio before the
+    // engine is stepped. writeAudio stays for callers that still push PCM (export, and the capture rings
+    // until #485); only one source plays at a time, so each just writes what it has.
+    void setSoundSource(const audio::ingest::Ring* ring);
     // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
     void setSoundTuning(const GeodeSoundTuning& tuning);
-    void setCustomShader(const std::string& sceneId, const std::string& fragmentSource);
-    // The user source a scene last compiled successfully; "" when it draws its built-in style.
-    std::string customShaderFor(const std::string& sceneId) const;
     void queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength);
     void setFluidInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc);
     void loadMilkPreset(const std::string& path);
@@ -135,6 +153,9 @@ public:
     void warmTransition(const std::string& id);
     void cut();
     void render(double timeSeconds, GLuint targetFbo);
+    // The first frame on a new surface (geode_viz_frame_begin, frame::kFrameClearOnly): black, and nothing
+    // built, so the main thread GLSurfaceView parks in surfaceChanged is released at once.
+    void clearToBlack(GLuint targetFbo);
     void releaseScenes();
     const GlProfile& profile() const { return profile_; }
 
@@ -146,6 +167,7 @@ private:
 
     Scene* sceneFor(const std::string& id);
     Scene* readyScene(const std::string& id);
+    Scene* readySecondary(const std::string& id, const std::string& other);
     Scene* attemptScene(const std::string& id);
     Scene* builtScene(const std::string& id);
     // Releases a built scene nothing is drawing (Liquid mode's last born style); a no-op otherwise.
@@ -157,22 +179,29 @@ private:
     void trimScenes(const std::string& keepId);
     std::unique_ptr<Scene> buildScene(const std::string& id);
     float beginFrame(double timeSeconds);
+    // Takes up setSoundSource's ring and writes what it gained into the engine; beginFrame, before the step.
+    void feedSoundSource();
     // Steps styleSchedule_ once per frame (after the sound engine) and requests its change, if any.
     void applyStyleSchedule();
     void applyRenderScale();
     static float supersampleFactor(int width, int height);
     Scene* resolveActiveScene();
+    // This frame's engine settings (signal/Resolver): the process globals, or the pinned director.
+    signal::EngineSettings latchEngineSettings();
+    // Latches the requested params and configs, steps the resolver, then the device masks.
     SceneParams resolveParams(float dt);
     void resolveLayerScene();
+    // beginFrame, under stateLock_: takes the layer layerFollower_ hands over when it changed.
+    void syncLayerLocked();
     bool ensureTargets();
     float drawSecondaryTargets(const SceneParams& p, float dt);
     void bindSecondaryTarget();
     void drawSceneTarget(Scene& scene, const SceneParams& p, float dt);
     void composite(const SceneParams& p, float progress, GLuint targetFbo, GLuint liquidTex);
-    // Feeds the landed output measurements to the flash limiter and takes this frame's grade.
-    void stepFlashLimiter(float dt);
     // After the composite: the UI blur region, live surfaces only; nothing at strength 0.
     void drawUiBlur(GLuint targetFbo);
+    // After the composite, before the output probe: the wallpaper's edge glow, while the shell has it on.
+    void drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt);
     void deliverPcm(Scene& scene);
     void stepOverlays(Scene& scene, const SceneParams& p, float dt);
     void stepCamera(const SceneParams& p, float dt);
@@ -190,7 +219,8 @@ private:
     void notePresetLoaded(const std::string& path);
     static double monotonicSeconds();
     void fail(const std::string& message);
-    void rememberCustomShader(const std::string& sceneId, const std::string& source);
+    // Re-applies the process-wide shader overrides (viz/ShaderOverrides) to resident scenes when they change.
+    void syncShaderOverrides();
 
     ShaderSource assets_;
     std::string cacheDir_;
@@ -221,40 +251,38 @@ private:
     TrailPass trailPass_;
     CompositePass compositePass_;
     CompositePass::Inputs compositeInputs_;
-    // The photosensitive flash limit (FlashLimiter.hpp): the probe measures each finished frame, the
-    // limiter reads those one or two frames late and grades the next frame. Its own clock (the sum of
-    // frame dts) never wraps or steps back, unlike timeSeconds_.
-    OutputProbe outputProbe_;
-    safety::FlashLimiter flashLimiter_;
-    safety::Grade flashGrade_;
-    double safetyClock_ = 0.0;
     ThermalGovernor thermal_;
-    LfoEngine lfo_;
-    AdsrEngine adsr_;
-    // Wave three's continuous replacement for FormDrive: the one stage every
-    // family's SceneParams pass through so nothing can key off a drum hit.
-    MotionField motionField_;
-    ReactionEngine reactions_;
-    ReactionEngine macroReactions_;
-    // The auto-director (viz/Director): the music's feeling deciding palette, behaviour and routing.
-    Director director_;
+    // The scene params resolver (signal/Resolver): the per-frame chain from the requested params to the
+    // drawn ones, director to safety clamp, and the stages' state. GL thread only; it is handed copies.
+    signal::Resolver resolver_;
+    // This frame's engine settings, latched once in beginFrame; the sound engine's tuning, the resolver,
+    // the camera and the liquid all read this one copy.
+    signal::EngineSettings frameSettings_{};
+    // A new style came on screen and the resolver has not stepped since (its motion field's variant).
+    bool styleSwitchPending_ = false;
     // Set by pinDirector; read once a frame on the GL thread.
     std::atomic<bool> directorPinned_{false};
     std::atomic<int> directorStyleMoments_{0};
-    int directorCommitsSeen_ = 0;  // GL thread only
     std::atomic<float> pinnedDirectorAmount_{0.0f};
     std::atomic<uint64_t> pinnedDirectorSeed_{0};
-    // Note & key reactions (viz/NoteResponse), after the director's look: knobs, note colours, tint.
-    NoteResponse notes_;
     // Frosted glass under the app's sheet. The region is guarded by stateLock_; uiBlurOn_ lets a frame
     // with no sheet skip the lock.
     UiBlurPass uiBlurPass_;
     UiBlurRegion uiBlurRegion_;
     std::atomic<bool> uiBlurOn_{false};
+    // The wallpaper's edge look, the first frame::Pass (#439). Its options are guarded by stateLock_ and
+    // handed to the pass on the GL thread; edgeGlowOn_ lets a frame without it (every surface but the
+    // wallpaper) skip the lock. The renderer has no surface kind of its own: the pass runs only when the
+    // shell turned it on (the wallpaper is its only caller), and never offscreen.
+    frame::EdgeGlowPass edgeGlowPass_;
+    frame::edge_glow::Options edgeGlowOptions_;
+    std::atomic<bool> edgeGlowOn_{false};
     std::atomic<bool> offscreen_{false};
-    // The note layer's seed: the director's play seed mixed with fresh entropy whenever that seed changes,
-    // so every play (and every export) varies on its own, as the user chose (NoteResponse's class comment).
-    uint64_t noteSeed(uint64_t playSeed);
+    std::atomic<int> fixedFps_{0};
+    // The note layer's entropy (EngineSettings::noteEntropy, mixed with the director's play seed): fresh
+    // whenever that seed changes, so every play (and every export) varies on its own, as the user chose
+    // (NoteResponse's class comment).
+    uint64_t noteEntropyFor(uint64_t playSeed);
     uint64_t notePlaySeed_ = 0;
     uint64_t noteEntropy_ = 0;
     bool noteSeeded_ = false;
@@ -265,10 +293,17 @@ private:
     std::unique_ptr<sound::SoundEngine> sound_;
     GeodeSoundTuning soundTuning_ = sound::SoundEngine::defaultTuning();
     GeodeSoundFrame soundFrame_{};
-    // Customize › Macros: this frame's knobs, and the ones the sound engine's tuning was last built from.
-    MacroKnobs frameKnobs_{};
-    // The user's knobs with the director's laid over them, this frame; what the params and the camera read.
-    MacroKnobs directedKnobs_{};
+    // setSoundSource's ring, guarded by soundLock_ until beginFrame hands it to soundFeed_.
+    const audio::ingest::Ring* requestedSoundSource_ = nullptr;
+    // GL thread only: this renderer's cursor on that ring.
+    SoundFeed soundFeed_;
+    // The engine's feeling, copied with the frame (the director and Note & key read it), and the play it
+    // belongs to: a new director seed is a new play, and the feeling starts over with it.
+    sound::Emotion::State soundEmotion_{};
+    bool soundHeard_ = false;
+    uint64_t emotionSeed_ = 0;
+    bool emotionSeeded_ = false;
+    // Customize › Macros: the knobs the sound engine's tuning was last built from.
     MacroKnobs tunedKnobs_{};
     std::atomic<float> lookYaw_{0.0f};
     std::atomic<float> lookPitch_{0.0f};
@@ -283,6 +318,8 @@ private:
     std::string layerSceneId_;
     float layerMix_ = 0.5f;
     int layerBlend_ = static_cast<int>(BlendMode::Screen);
+    // Under stateLock_: this renderer's view of viz/LayerState (followed live, pinned in an export).
+    layer_state::Follower layerFollower_;
     std::string transitionId_ = "fade";
     int64_t transitionDurationMs_ = 1200;
     std::atomic<bool> reducedMotion_{false};
@@ -293,13 +330,26 @@ private:
     // SceneRegistry::spinRate of the requested scene, set by setScene so the
     // frame never compares ids.
     std::atomic<float> sceneSpin_{0.0f};
-    float morphFadeSec_ = 0.0f;
-    float morphRemainSec_ = 0.0f;
+    // beginParamMorph's latest request, handed to the resolver at the next frame latch (stateLock_).
+    bool morphRequested_ = false;
+    float morphRequestSec_ = 0.0f;
+    // The configs the shell last set, handed to the resolver at the next frame latch (stateLock_).
+    std::array<LfoConfig, LfoEngine::kSlots> lfoConfigs_{};
+    std::array<AdsrConfig, AdsrEngine::kCount> adsrConfigs_{};
+    std::array<ReactRoute, ReactionEngine::kRoutes> reactionRoutes_{};
+    bool lfoConfigsDirty_ = false;
+    bool adsrConfigsDirty_ = false;
+    bool reactionRoutesDirty_ = false;
     PcmHandoff pcm_;
     int framePcmCount_ = 0;  // GL thread: samples of pcmDeliverScratch_ this frame's scenes get.
     std::vector<float> pcmDeliverScratch_;
+    // Drained by beginFrame; nothing queues into it since the overrides went process-wide (#364), and
+    // the frame code that drains it is being moved (#344), which drops it.
     std::vector<std::pair<std::string, std::string>> pendingShaders_;
-    std::vector<std::pair<std::string, std::string>> customShaders_;
+    // GL thread: the shader override each built scene was last given ("" = its built-in source), and
+    // the ShaderOverrides generation syncShaderOverrides last applied.
+    std::map<std::string, std::string> appliedShaders_;
+    uint64_t shaderGeneration_ = 0;
     std::string fluidForceSrc_;
     std::string fluidDyeSrc_;
     bool fluidInjectionDirty_ = false;
@@ -337,18 +387,19 @@ private:
     bool bornRolled_ = false;
     std::string bornSceneId_;
     std::string lastBornSceneId_;
+    // The secondary targets' staging asks (#369): this frame's layer, and the next style's this frame
+    // and the frame before.
+    std::string layerAsked_;
+    std::string bornAsked_;
+    std::string bornAskedBefore_;
     bool liquidWasOn_ = false;
     std::atomic<int> liquidHotPolicy_{0};
     std::atomic<int> liquidMode_{0};
+    std::atomic<int> liquidModeTaken_{-1};
     bool rippleOverlayOn_ = false;
     bool smearing_ = false;
 
-    SceneParams displayedParams_;
     SceneParams lastFinalParams_;
-    std::array<float, LfoEngine::kSlots> envRate_{};
-    // The envelopes' and LFOs' luminance modulation this frame, for the flash limiter (resolveParams).
-    LuminanceDrive luminanceDrive_{};
-    std::array<float, LfoEngine::kSlots> envDepth_{};
     float postRotationAngle_ = 0.0f;
     float postCyclePhase_ = 0.0f;
     float postBeatPulse_ = 0.0f;
@@ -368,7 +419,7 @@ private:
     float timeSeconds_ = 0.0f;
     // Latched once per frame in beginFrame, so the
     // rest of the frame (composite(), drawSecondaryTargets(), ...) reads a
-    // stable snapshot instead of racing setLayer()/setTransition() on
+    // stable snapshot instead of racing pinLayer()/setTransition() on
     // stateLock_.
     float frameLayerMix_ = 0.5f;
     int frameLayerBlend_ = static_cast<int>(BlendMode::Screen);

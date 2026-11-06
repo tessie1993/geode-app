@@ -4,14 +4,18 @@
 #include <array>
 #include <cmath>
 
+#include "util/Log.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/EndlessZoom.hpp"
+#include "viz/NoteResponse.hpp"
 #include "viz/scenes/SceneCommon.hpp"
+#include "viz/world/WorldAssets.hpp"
 
 namespace geode::viz {
 
 namespace {
 
+constexpr const char* kTag = "ShaderScene";
 constexpr int kPaletteRows = 5;
 constexpr int kMarchMaxSteps = 128;
 constexpr int kMarchFloorSteps = 64;
@@ -35,9 +39,11 @@ ShaderScene::ShaderScene(std::string id, std::string vertexSrc, std::string frag
     : id_(std::move(id)),
       vertexSrc_(std::move(vertexSrc)),
       currentFragment_(std::move(fragmentSrc)),
+      stockFragment_(currentFragment_),
       cache_(cache),
       host_(std::move(host)) {
     pendingFragment_ = currentFragment_;
+    if (id_ == catalogue::kMorphWorld) world_ = std::make_unique<world::MorphDriver>();
 }
 
 ShaderScene::~ShaderScene() { release(); }
@@ -49,8 +55,15 @@ void ShaderScene::setFlow(GLuint texture, float strength) {
 
 void ShaderScene::setFragmentSource(const std::string& source) {
     std::lock_guard<std::mutex> lock(pendingLock_);
-    pendingFragment_ = source;
-    pendingIsUserSource_ = true;
+    // "" is a cleared shader override (viz/ShaderOverrides): back to the built-in style.
+    pendingFragment_ = source.empty() ? stockFragment_ : source;
+}
+
+void ShaderScene::setWorldAssets(const std::string& shapes, const std::string& maps) {
+    if (shapes.size() != world::kShapeBytes || maps.size() != world::kTexBytes) return;
+    world::setShapeVolumes(std::vector<uint8_t>(shapes.begin(), shapes.end()));
+    worldShapes_ = shapes;
+    worldMaps_ = maps;
 }
 
 void ShaderScene::init() {
@@ -82,6 +95,25 @@ void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
     motionField_.step(sound, dt, p.speed);
     const float soundTimes[3] = {sound.bassTime, sound.midTime, sound.trebleTime};
     for (int b = 0; b < 3; ++b) soundTimeSped_[b].step(soundTimes[b], p.speed, kTimeWrapSeconds);
+    if (world_) {
+        // A new seed is a new play: the world starts over from one of its seeds.
+        const uint64_t seed = host_.playSeed ? host_.playSeed() : 0;
+        if (!worldSeeded_ || seed != world_->seedValue()) {
+            world_->reset(seed);
+            worldSeeded_ = true;
+        }
+        world::DriverInput in = world::DriverInput::fromSound(sound);
+        in.morph = p.morph;
+        in.warp = p.warp;
+        in.turbulence = p.turbulence;
+        in.detail = p.marchDetail;
+        in.intensity = p.intensity;
+        if (const NoteUniforms* notes = host_.notes ? host_.notes() : nullptr) {
+            std::copy(notes->knobs.begin(), notes->knobs.end(), in.knobs.begin());
+        }
+        world_->step(in, dt);
+        worldDt_ = dt;
+    }
 }
 
 void ShaderScene::draw(float timeSeconds) {
@@ -114,6 +146,7 @@ void ShaderScene::draw(float timeSeconds) {
     uploadMotion();
     uploadTouch();
     uploadCamera();
+    uploadWorld();
     // The whole GeodeSoundFrame for lib_sound; its texture takes unit 3 (1 and 2 are the flow and the palette LUT).
     sound_.upload(uniforms_, p.audioDrive);
     glBindVertexArray(vao_);
@@ -131,9 +164,7 @@ void ShaderScene::uploadParams() {
     set1f("uZoomPhase", zoomPhase_);
     // Endless zoom's two octave layers (lib_zoom). A style that reads the camera rig dives by
     // travel instead (CameraRig::step), so it stays one layer at 1x and never marches twice.
-    const endless::Layers zoom = endless::keepsTriangle(id_) ? endless::triangle(zoomPhase_)
-                                 : drawsCamera_              ? endless::Layers{}
-                                                             : endless::layers(zoomPhase_);
+    const endless::Layers zoom = drawsCamera_ ? endless::Layers{} : endless::layers(zoomPhase_);
     glUniform3f(uniforms_.loc("uZoomLayers"), zoom.mag0, zoom.mag1, zoom.weight1);
     set1f("uColorShift", p.colorShift + cyclePhase_);
     set1f("uHueRange", p.hueRange);
@@ -249,6 +280,62 @@ void ShaderScene::uploadCamera() {
     }
 }
 
+void ShaderScene::uploadWorld() {
+    if (!world_) return;
+    if (worldShapesTex_ == 0 && !worldShapes_.empty()) {
+        // The slabs stacked in z would be 32 x 32 x 768, over the 256 GLES 3.0 promises; the atlas
+        // (WorldAssets::packAtlas, 192 x 128 x 32) fits any device. Should a driver still report
+        // less, leave the assets unbound: lib_world draws its sphere (WG_ASSETS 0), not garbage.
+        GLint max3d = 0;
+        glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &max3d);
+        const std::vector<uint8_t> atlas = world::packAtlas(std::vector<uint8_t>(worldShapes_.begin(), worldShapes_.end()));
+        if (max3d < world::atlasMaxDimension() || atlas.empty()) {
+            GEODE_LOGW(kTag, "Morph World shapes need a %d^3 texture, this device allows %d: drawing spheres",
+                       world::atlasMaxDimension(), static_cast<int>(max3d));
+            worldShapes_.clear();
+            worldMaps_.clear();
+            world_->setAssetsBound(false);
+        } else {
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            glGenTextures(1, &worldShapesTex_);
+            glBindTexture(GL_TEXTURE_3D, worldShapesTex_);
+            glTexImage3D(GL_TEXTURE_3D, 0, GL_R8, world::kAtlasWidth, world::kAtlasHeight, world::kAtlasDepth, 0, GL_RED,
+                         GL_UNSIGNED_BYTE, atlas.data());
+            glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+            glGenTextures(1, &worldMapsTex_);
+            glBindTexture(GL_TEXTURE_2D_ARRAY, worldMapsTex_);
+            glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_R8, world::kTexRes, world::kTexRes, world::kTexCount, 0, GL_RED,
+                         GL_UNSIGNED_BYTE, worldMaps_.data());
+            glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
+            glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
+            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+            world_->setAssetsBound(worldShapesTex_ != 0 && worldMapsTex_ != 0);
+        }
+    }
+    if (worldShapesTex_ != 0) {
+        // Units 4 and 5: 1 is the flow, 2 the palette LUT, 3 the sound texture.
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_3D, worldShapesTex_);
+        glUniform1i(uniforms_.loc("uWorldShapes"), 4);
+        glActiveTexture(GL_TEXTURE5);
+        glBindTexture(GL_TEXTURE_2D_ARRAY, worldMapsTex_);
+        glUniform1i(uniforms_.loc("uWorldTex"), 5);
+        glActiveTexture(GL_TEXTURE0);
+    }
+    // The rig was stepped before this draw: the world's z phase and wake follow the eye.
+    if (camera_) world_->travel(camera_->pos, worldDt_);
+    worldDt_ = 0.0f;
+    const auto& u = world_->uniforms();
+    glUniform4fv(uniforms_.loc("uWorld"), uniforms_.arrayCount("uWorld", world::kVec4), u.data());
+}
+
 void ShaderScene::set1f(const char* name, float value) {
     glUniform1f(uniforms_.loc(name), value);
 }
@@ -264,12 +351,9 @@ float ShaderScene::marchSteps(float detail) {
 
 void ShaderScene::compilePendingIfAny() {
     std::optional<std::string> pending;
-    bool fromUser = false;
     {
         std::lock_guard<std::mutex> lock(pendingLock_);
         pending.swap(pendingFragment_);
-        fromUser = pendingIsUserSource_;
-        pendingIsUserSource_ = false;
     }
     if (!pending) return;
     std::string error;
@@ -284,13 +368,17 @@ void ShaderScene::compilePendingIfAny() {
     drawsCamera_ = uniforms_.loc("uCamBasis") >= 0;
     currentFragment_ = *pending;
     host_.onShaderError("");
-    if (fromUser) host_.onUserSourceCompiled(id_, currentFragment_);
 }
 
 void ShaderScene::release() {
     if (program_ != 0) glDeleteProgram(program_);
     if (vao_ != 0) glDeleteVertexArrays(1, &vao_);
     sound_.release();
+    if (worldShapesTex_ != 0) glDeleteTextures(1, &worldShapesTex_);
+    if (worldMapsTex_ != 0) glDeleteTextures(1, &worldMapsTex_);
+    worldShapesTex_ = 0;
+    worldMapsTex_ = 0;
+    if (world_) world_->setAssetsBound(false);
     program_ = 0;
     vao_ = 0;
     uniforms_ = UniformCache(0);

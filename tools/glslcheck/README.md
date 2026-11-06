@@ -49,6 +49,56 @@ value).
   the app uses float formats, so `uSoundTex`'s waveform row reads 0..1 rather
   than -1..1.
 
+## Stills gate
+
+`--stills <file.tsv>` is the input of CI's visual quality gate (#470, the
+`visual-stills` and `visual-gate` jobs in `.github/workflows/android.yml`):
+
+```sh
+node check.mjs --stills out/stills.tsv --out out/stills       # every style; --shard 2/4 for a quarter
+g++ -std=c++20 -O1 -Icore core/tests/visual_gate.cpp -o visual_gate
+./visual_gate core/tests/visual_gate_baseline.txt tools/glslcheck/out/stills.tsv
+```
+
+Every style plays the sound engine's own output, not a hand-made groove:
+`core/tests/golden/sound_frames.tsv`, each `GeodeSoundFrame` scalar at 60 fps
+over `sound_golden_test`'s 20 s song (verse, build, a drop with four on the
+floor and sixteenth hats, silence, verse). Its columns are matched to
+`lib_sound`'s `SND_*` names, so the two cannot drift silently. The held
+events, counts, Speed clocks, beat and bar oscillators and camera travel
+follow the song too; `uSoundTex` is a stand-in that scales with the volume.
+
+Per style it writes four stills at 96 px (song seconds 4, 9.5, 12, 18.5) and
+the run from 9.5 s to 12 s (the end of the build into the drop) at 32 px and
+60 fps, each frame boxed to a 16 × 16 grid. `visual_gate` judges them:
+
+| Check | A still or run fails when | The style fails when |
+|---|---|---|
+| black | more than 92 % of pixels under display luma 0.02 | half its stills or more |
+| blown | more than 25 % of pixels with R, G and B all past 0.95 | half its stills or more |
+| render | the style does not compile, link or draw | once |
+
+Why these numbers: a frame with 92 % black pixels has nothing on it (Morph
+World's darkest world was 13 %, thin-line styles sit near 90 %). One dark or
+bright still is a moment in the music; half the song is a broken style. The
+flash line is where the app's limiter takes hold and squeezes the picture
+toward grey, which on a plain groove is a style the user sees going flat;
+WCAG's own line (more than three flashes, six transitions, a second) is
+above it, and the report prints both. The flash rules are the limiter's code
+and constants, linked in, never copied.
+
+Styles that fail today are listed with a reason in
+`core/tests/visual_gate_baseline.txt`; only a failure not listed there fails
+CI. `./visual_gate --write <baseline> <tsv>...` rewrites the list on purpose.
+An entry that passes again is reported as stale; remove it by hand. The
+still PNGs are in the `visual-stills-*` artifacts: look at them before
+baselining a style.
+
+Not covered: scenes glslcheck cannot draw (MilkDrop presets, the simulation
+and compute scenes); the fluid looks and Liquid mode, which have their own
+modes (`--fluid-display`, `--liquid`) but not the gate yet; and frame time,
+which only a device measures (`docs/DEVICE_CHECKS.md` item 43).
+
 ## What it cannot tell you
 
 Rendering is ANGLE over SwiftShader, which ignores precision qualifiers,

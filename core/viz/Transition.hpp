@@ -10,28 +10,18 @@
 
 #include "viz/Program.hpp"
 #include "viz/ShaderSource.hpp"
+#include "viz/TransitionLibrary.hpp"
 #include "viz/VisualSafety.hpp"
 
 namespace geode::viz {
 
-// Port of TransitionCatalog.kt: the built-in styles plus the GL Transitions library asset.
+// The built-in styles plus the GL Transitions library asset (parsed by TransitionLibrary).
 class TransitionCatalog {
 public:
     static constexpr int kStyleLibrary = 5;
 
-    struct Param {
-        std::string name;
-        std::string type;
-        std::vector<float> values;
-    };
-
-    struct Def {
-        std::string name;
-        std::string author;
-        std::string license;
-        std::vector<Param> params;
-        std::string glsl;
-    };
+    using Param = TransitionParam;
+    using Def = TransitionDef;
 
     explicit TransitionCatalog(const ShaderSource& assets) : assets_(assets) {}
 

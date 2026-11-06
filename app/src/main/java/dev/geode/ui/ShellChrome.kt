@@ -37,6 +37,8 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToDown
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.platform.LocalDensity
@@ -48,6 +50,7 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.ui.theme.GeodeRadius
@@ -87,6 +90,13 @@ internal class ShellChromeState {
     internal var pinned by mutableStateOf(false)
         private set
 
+    /**
+     * Set by Visuals while its options sheet is up: the mini player is docked to the sheet and the
+     * tab bar under it stays with it, so neither fades on a stage tap. The stage icons still
+     * follow [awake].
+     */
+    var docked by mutableStateOf(false)
+
     fun wake() {
         shown = true
         pinned = false
@@ -97,6 +107,11 @@ internal class ShellChromeState {
         shown = true
         pinned = true
         stamp++
+    }
+
+    /** A touch in the dock: an awake dock starts its sleep timer over, so it never fades mid-reach. */
+    fun touched() {
+        if (awake) stamp++
     }
 
     fun hide() {
@@ -172,58 +187,16 @@ internal fun FloatingMiniPlayer(
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val accent = MaterialTheme.colorScheme.primary
-    val openLabel = stringResource(R.string.mini_player_open)
-    val hideLabel = stringResource(R.string.mini_player_hide)
     val view = LocalView.current
-    // A tap is a light tick; a swipe that changes the screen (Player opens, the player hides) confirms.
     val tap = { action: () -> Unit ->
         view.performStoneHaptic(StoneHapticCue.TAP)
-        action()
-    }
-    val confirm = { action: () -> Unit ->
-        view.performStoneHaptic(StoneHapticCue.CONFIRM)
         action()
     }
     Box(
         modifier
             .fillMaxWidth()
             .floatingGlass(fillAlpha = opacity)
-            .pointerInput(Unit) {
-                var dy = 0f
-                detectVerticalDragGestures(
-                    onDragStart = { dy = 0f },
-                    onDragEnd = {
-                        val far = SWIPE_DP.dp.toPx()
-                        when {
-                            dy < -far -> confirm(onOpenPlayer)
-                            dy > far -> confirm(onHide)
-                        }
-                    },
-                ) { _, delta -> dy += delta }
-            }.clickable(onClickLabel = stringResource(R.string.mini_player_pin)) {
-                // A tap is the long way to Player: the tip says a swipe up opens it.
-                GestureTips.nudge(GestureTip.SWIPE_UP_PLAYER)
-                tap(onPin)
-            }.semantics {
-                customActions =
-                    listOf(
-                        CustomAccessibilityAction(openLabel) {
-                            onOpenPlayer()
-                            true
-                        },
-                        CustomAccessibilityAction(hideLabel) {
-                            onHide()
-                            true
-                        },
-                    )
-            }.drawBehind {
-                // The progress line along the top edge, inside the glass's corners.
-                val inset = GeodeRadius.Floating.toPx()
-                val width = size.width - 2 * inset
-                drawRect(accent.copy(alpha = TRACK_ALPHA), Offset(inset, 0f), Size(width, PROGRESS_DP.dp.toPx()))
-                drawRect(accent, Offset(inset, 0f), Size(width * progress().coerceIn(0f, 1f), PROGRESS_DP.dp.toPx()))
-            },
+            .miniPlayerGestures(onPin, onOpenPlayer, onHide, progress, inset = GeodeRadius.Floating),
     ) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(start = GeodeSpacing.S, end = GeodeSpacing.XS),
@@ -255,6 +228,137 @@ internal fun FloatingMiniPlayer(
             }
             IconButton(onClick = { tap(onNext) }) { StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next)) }
         }
+    }
+}
+
+/**
+ * The mini player docked to the bottom of the Visuals options (owner: one glass slab, slimmer, no
+ * art): one line of title and previous, play/pause and next, each a 48 dp target, over the same
+ * progress line, touch and swipes as [FloatingMiniPlayer]. It draws no glass of its own: the
+ * options' glass is around it, and with the sheet hidden it is that glass's only content, a pill.
+ */
+@Composable
+internal fun DockedMiniPlayer(
+    title: String?,
+    isPlaying: Boolean,
+    progress: () -> Float,
+    onPin: () -> Unit,
+    onOpenPlayer: () -> Unit,
+    onHide: () -> Unit,
+    onPrevious: () -> Unit,
+    onPlayPause: () -> Unit,
+    onNext: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val view = LocalView.current
+    val tap = { action: () -> Unit ->
+        view.performStoneHaptic(StoneHapticCue.TAP)
+        action()
+    }
+    Row(
+        modifier
+            .fillMaxWidth()
+            .height(DOCKED_PLAYER_HEIGHT)
+            .miniPlayerGestures(onPin, onOpenPlayer, onHide, progress, inset = GeodeSpacing.L)
+            .padding(start = GeodeSpacing.L, end = GeodeSpacing.XS),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            title ?: stringResource(R.string.mini_player_idle),
+            Modifier.weight(1f),
+            style = MaterialTheme.typography.titleSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        IconButton(onClick = { tap(onPrevious) }) { StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous)) }
+        IconButton(onClick = { tap(onPlayPause) }) {
+            StoneIconArt(
+                if (isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
+                stringResource(if (isPlaying) R.string.action_pause else R.string.action_play),
+            )
+        }
+        IconButton(onClick = { tap(onNext) }) { StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next)) }
+    }
+}
+
+/**
+ * Restarts [chrome]'s sleep timer on any touch down inside, without taking the touch: watched on
+ * the Initial pass, so the buttons and swipes under it work as before.
+ */
+internal fun Modifier.restartsSleepTimer(chrome: ShellChromeState): Modifier =
+    pointerInput(chrome) {
+        awaitPointerEventScope {
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                if (event.changes.any { it.changedToDown() }) chrome.touched()
+            }
+        }
+    }
+
+/** The docked bar's height: a 48 dp target and the progress line, slimmer than the 64 dp card. */
+internal val DOCKED_PLAYER_HEIGHT = 52.dp
+
+/**
+ * The mini player's touch and its progress line, shared by the floating card and the docked bar:
+ * a tap pins, a swipe of [SWIPE_DP] up opens Player and down hides it, TalkBack gets both as
+ * actions, and the line runs along the top edge [inset] in from each side.
+ */
+@Composable
+private fun Modifier.miniPlayerGestures(
+    onPin: () -> Unit,
+    onOpenPlayer: () -> Unit,
+    onHide: () -> Unit,
+    progress: () -> Float,
+    inset: Dp,
+): Modifier {
+    val accent = MaterialTheme.colorScheme.primary
+    val openLabel = stringResource(R.string.mini_player_open)
+    val hideLabel = stringResource(R.string.mini_player_hide)
+    val pinLabel = stringResource(R.string.mini_player_pin)
+    val view = LocalView.current
+    // A tap is a light tick; a swipe that changes the screen (Player opens, the player hides) confirms.
+    val tap = { action: () -> Unit ->
+        view.performStoneHaptic(StoneHapticCue.TAP)
+        action()
+    }
+    val confirm = { action: () -> Unit ->
+        view.performStoneHaptic(StoneHapticCue.CONFIRM)
+        action()
+    }
+    return pointerInput(Unit) {
+        var dy = 0f
+        detectVerticalDragGestures(
+            onDragStart = { dy = 0f },
+            onDragEnd = {
+                val far = SWIPE_DP.dp.toPx()
+                when {
+                    dy < -far -> confirm(onOpenPlayer)
+                    dy > far -> confirm(onHide)
+                }
+            },
+        ) { _, delta -> dy += delta }
+    }.clickable(onClickLabel = pinLabel) {
+        // A tap is the long way to Player: the tip says a swipe up opens it.
+        GestureTips.nudge(GestureTip.SWIPE_UP_PLAYER)
+        tap(onPin)
+    }.semantics {
+        customActions =
+            listOf(
+                CustomAccessibilityAction(openLabel) {
+                    onOpenPlayer()
+                    true
+                },
+                CustomAccessibilityAction(hideLabel) {
+                    onHide()
+                    true
+                },
+            )
+    }.drawBehind {
+        // The progress line along the top edge, inside the glass's corners.
+        val edge = inset.toPx()
+        val width = size.width - 2 * edge
+        drawRect(accent.copy(alpha = TRACK_ALPHA), Offset(edge, 0f), Size(width, PROGRESS_DP.dp.toPx()))
+        drawRect(accent, Offset(edge, 0f), Size(width * progress().coerceIn(0f, 1f), PROGRESS_DP.dp.toPx()))
     }
 }
 

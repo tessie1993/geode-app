@@ -172,6 +172,15 @@ object GeodeNative {
         out: IntArray,
     ): Int
 
+    /**
+     * Moves takes saved inside project folders ([projectsDir]`/<id>/takes/`) to [takesDir]`/<id>/`,
+     * once (core/library/StudioFiles, #384). Returns how many could not be moved.
+     */
+    external fun studioMoveTakesOut(
+        projectsDir: String,
+        takesDir: String,
+    ): Int
+
     /** [assets] is the app's `android.content.res.AssetManager`; typed as Any because this module has no Android SDK. */
     external fun vizCreate(
         assets: Any,
@@ -405,31 +414,34 @@ object GeodeNative {
         pitch: Float,
     )
 
-    /** This surface's own fps cap, 0 when free-running; the thermal cap is applied under it natively. */
-    external fun vizSetPacedFps(
+    /**
+     * One live frame's start (`core/viz/frame/Cadence`), on the GL thread before [vizSetScene] and
+     * [vizRender]: hand over what the shell holds every frame; native applies only what changed. [pacedFps]
+     * is this surface's own cap (0 free-running; the thermal cap is applied under it natively); the rest is
+     * Settings › Performance, with [liquidHotPolicy] 0 simplify, 1 full, 2 pause (`liquid::HotPolicy`).
+     * Answers a bitmask of the `FRAME_*` bits.
+     */
+    external fun vizFrameBegin(
         handle: Long,
-        fps: Float,
-    )
-
-    external fun vizSetQuality(
-        handle: Long,
+        pacedFps: Float,
         renderScale: Float,
         marchScale: Float,
         postFx: Boolean,
         adaptive: Boolean,
-    )
+        liquidHotPolicy: Int,
+    ): Int
 
-    /** Settings › Performance › Liquid on a hot phone: 0 simplify, 1 full, 2 pause (`liquid::HotPolicy`). */
-    external fun vizSetLiquidHotPolicy(
-        handle: Long,
-        policy: Int,
-    )
+    /** Mirrors GEODE_FRAME_CLEAR_ONLY: native cleared a new surface's first frame; present it, do nothing else. */
+    const val FRAME_CLEAR_ONLY: Int = 0x1
 
-    /**
-     * What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (`liquid::Mode`), or -1
-     * when it has not changed since the last take. Take it every frame; a new surface reports again.
-     */
-    external fun vizTakeLiquidMode(handle: Long): Int
+    /** Mirrors GEODE_FRAME_THERMAL_DUE: read PowerManager and call [thermalPush]. */
+    const val FRAME_THERMAL_DUE: Int = 0x2
+
+    /** Mirrors GEODE_FRAME_LIQUID_CHANGED: Liquid mode changed; read it with [frameLiquidMode]. */
+    const val FRAME_LIQUID_CHANGED: Int = 0x4
+
+    /** Mirrors GEODE_FRAME_LIQUID_MODE: 0 off, 1 full, 2 lite, 3 warp, 4 paused (`liquid::Mode`). */
+    fun frameLiquidMode(due: Int): Int = (due ushr 8) and 0xF
 
     /**
      * Pins this renderer's auto-director (an export's): from then on it ignores [directorSet], so the live
@@ -894,12 +906,147 @@ object GeodeNative {
         heardAtMs: Long,
     ): Boolean
 
+    // Fixed-rate frame clock (core/viz/frame/FixedRateClock): Cast's pacing, PTS and audio cut.
+    // The caller owns the state, a LongArray(FRAME_CLOCK_STATE), and reads now from System.nanoTime.
+
+    /** Size of the frame clock's state (GEODE_FRAME_CLOCK_STATE). */
+    const val FRAME_CLOCK_STATE = 3
+
+    /** Starts [state] at [nowNs], [fps] frames a second; the first frame is due at once. */
+    external fun frameClockStart(
+        state: LongArray,
+        fps: Int,
+        nowNs: Long,
+    )
+
+    /** Nanoseconds until the next frame is due; 0 when it is due now. */
+    external fun frameClockWaitNs(
+        state: LongArray,
+        nowNs: Long,
+    ): Long
+
+    /** Takes the frame to draw now and returns its PTS in ns; missed slots are dropped, never burst. */
+    external fun frameClockTake(
+        state: LongArray,
+        nowNs: Long,
+    ): Long
+
+    /** The audio cut: the end of the last frame taken, in µs of stream time. */
+    external fun frameClockAudioUntilUs(state: LongArray): Long
+
+    /** The Cast stream's format into [out] (4 ints): width, height, fps, keyframe interval in seconds. */
+    external fun castFormat(out: IntArray)
+    // Export post-passes (core/viz/frame/ExportPasses): the watermark, a loop's seam, a Studio transition and
+    // its capture. [assets] is the app's AssetManager (typed as Any, as for [vizCreate]); every call but the
+    // three watermark sizes and the seam weight needs the export's GL context current, destroy included.
+
+    /** "" when the pass built; otherwise why not (the handle must still be destroyed). */
+    external fun exportPassError(handle: Long): String
+
+    external fun exportPassDestroy(handle: Long)
+
+    /** The wordmark's text size in pixels for a frame whose short side is [shortSide]. */
+    external fun exportWatermarkTextPx(shortSide: Int): Float
+
+    /** The power-of-two tile width for the wordmark measured at [textWidth] pixels. */
+    external fun exportWatermarkTileWidth(textWidth: Float): Int
+
+    external fun exportWatermarkTileHeight(tileWidth: Int): Int
+
+    /** [rgba]: a direct buffer of the tile's premultiplied RGBA8 pixels, top row first (Bitmap.copyPixelsToBuffer). */
+    external fun exportWatermarkCreate(
+        assets: Any,
+        rgba: java.nio.ByteBuffer,
+        tileWidth: Int,
+        tileHeight: Int,
+    ): Long
+
+    /** Over the default framebuffer, after the scene. */
+    external fun exportWatermarkDraw(
+        handle: Long,
+        frameWidth: Int,
+        frameHeight: Int,
+    )
+
+    external fun exportSeamCreate(
+        assets: Any,
+        width: Int,
+        height: Int,
+    ): Long
+
+    /** Returns how many of [requested] stash frames fitted on the GPU. */
+    external fun exportSeamAllocate(
+        handle: Long,
+        requested: Int,
+    ): Int
+
+    external fun exportSeamCapture(
+        handle: Long,
+        index: Int,
+    )
+
+    /** Lays stash frame [index] over the default framebuffer at closing frame [tail] of [seamFrames]. */
+    external fun exportSeamBlend(
+        handle: Long,
+        index: Int,
+        tail: Int,
+        seamFrames: Int,
+    )
+
+    /** [id]: a GL Transitions name; an unknown one only copies. */
+    external fun exportTransitionCreate(
+        assets: Any,
+        id: String,
+        durationUs: Long,
+    ): Long
+
+    external fun exportTransitionConfigure(
+        handle: Long,
+        width: Int,
+        height: Int,
+    )
+
+    /** [rgba]: a direct buffer, RGBA8 bottom row first; the first one is kept. */
+    external fun exportTransitionSetFrom(
+        handle: Long,
+        rgba: java.nio.ByteBuffer,
+        width: Int,
+        height: Int,
+    )
+
+    /** Into the framebuffer and viewport Media3 bound for this program's output. */
+    external fun exportTransitionDraw(
+        handle: Long,
+        inputTex: Int,
+        ptsUs: Long,
+    )
+
+    external fun exportCaptureCreate(assets: Any): Long
+
+    external fun exportCaptureConfigure(
+        handle: Long,
+        width: Int,
+        height: Int,
+    )
+
+    external fun exportCaptureDraw(
+        handle: Long,
+        inputTex: Int,
+    )
+
+    /** Writes the last frame drawn (RGBA8, bottom row first) into the direct buffer [out]; false when none or it is too small. */
+    external fun exportCaptureRead(
+        handle: Long,
+        out: java.nio.ByteBuffer,
+    ): Boolean
+
     /**
      * The GL Transitions library as UTF-8 bytes, in the control-separated table of
      * `core/viz/TransitionLibrary.hpp`; read from the APK once per process, empty when missing.
      * [assets] is the app's `AssetManager`, typed as Any like [vizCreate]'s.
      */
     external fun transitionsTable(assets: Any): ByteArray
+
     // Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High.
 
     /** Floats [perfTier] writes: render scale, fps cap, march scale, post FX (0/1), adaptive (0/1). */
@@ -1002,14 +1149,57 @@ object GeodeNative {
     /** The cap a surface asking for [capFps] runs at now, under the thermal cap; 0 = none. For `Surface.setFrameRate`. */
     external fun pacerEffectiveCap(capFps: Float): Float
 
-    // The process's one thermal state (core/viz/frame/Thermal).
-
-    /** Polled each frame by every live renderer: true for at most one caller a second in the process. */
-    external fun thermalSampleDue(): Boolean
+    // The process's one thermal state (core/viz/frame/Thermal); a reading is due on FRAME_THERMAL_DUE.
 
     /** One PowerManager reading: status (< 0 = no thermal API) and headroom (NaN = none this time). */
     external fun thermalPush(
         platformStatus: Int,
         headroom: Float,
     )
+
+    // Cast's audio pump (core/viz/frame/CastAudio): counts only; the caller keeps the PCM and the encoder.
+
+    /** Size of the audio pump's state (GEODE_CAST_AUDIO_STATE): frames queued, frames held, rate. */
+    const val CAST_AUDIO_STATE = 3
+
+    /** Size of one step's result (GEODE_CAST_AUDIO_STEP): evict, skip, keep, take, pad, PTS in µs. */
+    const val CAST_AUDIO_STEP = 6
+
+    /** Starts [state] at [rateHz]; returns the hold's capacity in frames (half a second). */
+    external fun castAudioStart(
+        state: LongArray,
+        rateHz: Int,
+    ): Int
+
+    /**
+     * One frame of the pump: [gainedFrames] just resampled from the ring and the frame clock's cut
+     * [untilUs]. Fills [out] (CAST_AUDIO_STEP longs), applied in order: evict the oldest held, skip at
+     * the head of the gained, append the next keep, then queue take frames from the hold and pad
+     * silence after them, stamped with the PTS.
+     */
+    external fun castAudioStep(
+        state: LongArray,
+        gainedFrames: Int,
+        untilUs: Long,
+        out: LongArray,
+    )
+    // Cast's live HLS timing (core/viz/frame/HlsSegments): media-time segment durations and the playlist.
+
+    /** Segments kept and listed (GEODE_HLS_WINDOW). */
+    external fun hlsWindow(): Int
+
+    /** Seconds of media time the fragment (moof, with or without its mdat) plays, read with [init]'s timescales; 0 = unknown. */
+    external fun hlsFragmentSeconds(
+        init: ByteArray,
+        fragment: ByteArray,
+    ): Double
+
+    /** The live playlist for [durations] (0 = unknown) numbered from [firstSequence], or null until enough are listed. */
+    external fun hlsPlaylist(
+        firstSequence: Long,
+        durations: DoubleArray,
+        initUri: String,
+        segmentPrefix: String,
+        segmentSuffix: String,
+    ): String?
 }

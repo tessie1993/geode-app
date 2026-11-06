@@ -51,7 +51,7 @@ static_assert(GEODE_FRAME_LIQUID_MODE(frame::kFrameLiquidMask << frame::kFrameLi
 
 constexpr int kModSourceCount = static_cast<int>(ModSource::StereoPan) + 1;
 constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::EndlessZoomSpeed) + 1;
-constexpr int kLfoWaveCount = static_cast<int>(LfoWave::Random) + 1;
+constexpr int kLfoWaveCount = static_cast<int>(LfoWave::RandomGlide) + 1;
 constexpr int kModPolarityCount = static_cast<int>(ModPolarity::Negative) + 1;
 
 // The thermal state's clock: CLOCK_MONOTONIC on Android, the same base as System.nanoTime. Only the gaps
@@ -95,10 +95,7 @@ const char* geode_viz_param_name(int index) {
 
 void geode_viz_set_params(geode_viz* v, const float* values, int count) {
     if (!v || !values || count != SceneParams::kFieldCount) return;
-    const auto& names = SceneParams::fieldNames();
-    SceneParams p;
-    for (int i = 0; i < count; ++i) p.set(names[static_cast<size_t>(i)], values[i]);
-    v->renderer.setParams(p);
+    v->renderer.setParams(SceneParams::fromWire(values));
 }
 
 void geode_viz_set_reduced_motion(geode_viz* v, int on) {
@@ -184,8 +181,14 @@ size_t geode_shader_override(const char* style_id, char* out, size_t capacity) {
     return source.size();
 }
 
+// Only the periods the editor offers; anything else is free timing.
+static float beatsOf(float v) {
+    for (float b : {1.0f, 2.0f, 4.0f, 8.0f, 16.0f, 32.0f}) if (v == b) return b;
+    return 0.0f;
+}
+
 void geode_viz_set_lfo(geode_viz* v, int slot, const float* c, int count) {
-    if (!v || !c || slot < 0 || slot >= GEODE_LFO_SLOTS || count < GEODE_LFO_CONFIG_FLOATS) return;
+    if (!v || !c || slot < 0 || slot >= GEODE_LFO_SLOTS || count < 8) return;
     LfoConfig cfg;
     cfg.enabled = flag(c[0]);
     cfg.source = enumAt<ModSource>(c[1], kModSourceCount);
@@ -195,6 +198,8 @@ void geode_viz_set_lfo(geode_viz* v, int slot, const float* c, int count) {
     cfg.depth = c[5];
     cfg.polarity = enumAt<ModPolarity>(c[6], kModPolarityCount);
     cfg.curve = enumAt<ModCurve>(c[7], kModCurveCount);
+    // Float 9 (beat timing) is absent from a shorter array: that slot stays free.
+    if (count >= GEODE_LFO_CONFIG_FLOATS) cfg.beats = beatsOf(c[8]);
     std::lock_guard<std::mutex> lock(v->configLock);
     v->lfo[static_cast<size_t>(slot)] = cfg;
     v->renderer.setLfoConfigs(v->lfo);

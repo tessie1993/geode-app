@@ -538,6 +538,12 @@ object GeodeNative {
     external fun catalogueText(): String
 
     /**
+     * The scene params schema (core/viz/ParamTable.inc) as its versioned line table: per wire slot the
+     * field's name, kind, default, control range and FADE/HOLD (`geode_params_schema_text`). Static; parse once.
+     */
+    external fun paramsSchemaText(): String
+
+    /**
      * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
      * the controls of [tab] (a ParamRandomizer roll group name; null = every group) that reach [styleId] (null = any),
      * except the newline-joined ParamKeys in [locked]. Same arguments, same look. True when it changed
@@ -585,6 +591,34 @@ object GeodeNative {
         input: FloatArray,
         output: FloatArray,
     )
+
+    // Background image bake (core/viz/Underlay): pure, any thread, before vizSetUnderlay.
+
+    /** The centred crop of a [srcW]x[srcH] picture to [targetW]:[targetH]'s aspect, as `[x, y, width, height]`. */
+    external fun underlayCropRect(
+        srcW: Int,
+        srcH: Int,
+        targetW: Int,
+        targetH: Int,
+    ): IntArray
+
+    /** Blurs, then dims, [pixels] (ARGB, [width]x[height]) in place; 0 skips either step. */
+    external fun underlayFinish(
+        pixels: IntArray,
+        width: Int,
+        height: Int,
+        blurRadius: Int,
+        dim: Float,
+    )
+
+    /** The background controls' ranges: amount and dim 0..1 (NaN = 0), blur 0..[underlayBlurMax]. */
+    external fun underlayClampAmount(amount: Float): Float
+
+    external fun underlayClampDim(dim: Float): Float
+
+    external fun underlayClampBlur(radius: Int): Int
+
+    external fun underlayBlurMax(): Int
 
     // Export resampler (core/audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC rate.
 

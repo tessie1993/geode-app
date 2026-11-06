@@ -521,6 +521,11 @@ Java_dev_geode_engine_bridge_GeodeNative_catalogueText(JNIEnv* env, jobject) {
 }
 
 JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsSchemaText(JNIEnv* env, jobject) {
+    return env->NewStringUTF(geode_params_schema_text());
+}
+
+JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_customizeText(JNIEnv* env, jobject) {
     return env->NewStringUTF(geode_customize_text());
 }
@@ -780,6 +785,49 @@ Java_dev_geode_engine_bridge_GeodeNative_pacerResume(JNIEnv* env, jobject, jlong
     env->GetLongArrayRegion(state, 0, GEODE_PACER_STATE_LONGS, reinterpret_cast<jlong*>(wire));
     geode_pacer_resume(wire);
     env->SetLongArrayRegion(state, 0, GEODE_PACER_STATE_LONGS, reinterpret_cast<const jlong*>(wire));
+}
+
+// The background image bake (core/viz/Underlay). The rect comes back as a new int[4] (x, y, width, height).
+JNIEXPORT jintArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_underlayCropRect(JNIEnv* env, jobject, jint srcW, jint srcH, jint targetW, jint targetH) {
+    jint rect[4] = {0, 0, 0, 0};
+    geode_underlay_crop_rect(srcW, srcH, targetW, targetH, rect);
+    jintArray result = env->NewIntArray(4);
+    if (result) env->SetIntArrayRegion(result, 0, 4, rect);
+    return result;
+}
+
+// In place on width*height ARGB ints; a size the array cannot hold does nothing.
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_underlayFinish(JNIEnv* env, jobject, jintArray pixels, jint width, jint height,
+                                                        jint blurRadius, jfloat dim) {
+    if (!pixels || width <= 0 || height <= 0) return;
+    const jlong count = static_cast<jlong>(width) * static_cast<jlong>(height);
+    if (count > env->GetArrayLength(pixels)) return;
+    std::vector<uint32_t> data(static_cast<size_t>(count));
+    env->GetIntArrayRegion(pixels, 0, static_cast<jsize>(count), reinterpret_cast<jint*>(data.data()));
+    geode_underlay_finish(data.data(), width, height, blurRadius, dim);
+    env->SetIntArrayRegion(pixels, 0, static_cast<jsize>(count), reinterpret_cast<const jint*>(data.data()));
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_underlayClampAmount(JNIEnv*, jobject, jfloat amount) {
+    return geode_underlay_clamp_amount(amount);
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_underlayClampDim(JNIEnv*, jobject, jfloat dim) {
+    return geode_underlay_clamp_dim(dim);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_underlayClampBlur(JNIEnv*, jobject, jint radius) {
+    return geode_underlay_clamp_blur(radius);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_underlayBlurMax(JNIEnv*, jobject) {
+    return geode_underlay_blur_max();
 }
 
 JNIEXPORT jfloat JNICALL

@@ -156,13 +156,6 @@ Java_dev_geode_engine_bridge_GeodeNative_vizTakeDirectorStyleMoments(JNIEnv*, jo
     return geode_viz_take_director_style_moments(vizOf(handle));
 }
 
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizPushPcm(JNIEnv* env, jobject, jlong handle, jfloatArray mono, jint count) {
-    FloatElements data(env, mono);
-    if (!data.get()) return;
-    geode_viz_push_pcm(vizOf(handle), data.get(), count < data.length() ? count : data.length());
-}
-
 // Region copy: every rendered frame, a few hundred frames of audio; never pins the whole scratch array.
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizWriteAudio(JNIEnv* env, jobject, jlong handle, jfloatArray interleaved,
@@ -501,7 +494,7 @@ Java_dev_geode_engine_bridge_GeodeNative_vizReleaseScenes(JNIEnv*, jobject, jlon
 
 // pixels is a Java IntArray? (ARGB per Android's Bitmap.getPixels), so a null array is a valid "clear"
 // call rather than a JNI error - handled before touching the (possibly null) array. width*height is
-// checked against the array's actual length (mirroring vizPushPcm's count clamp above) and treated as a
+// checked against the array's actual length and treated as a
 // clear when it doesn't fit, so a stale/mismatched width or height can never make
 // geode_viz_set_underlay_rgba read past the JVM-owned buffer.
 JNIEXPORT void JNICALL

@@ -30,14 +30,14 @@ namespace geode::viz {
 // from several fields of the frame, smoothed at a musical rate; a style reads them as its own offsets
 // (the neon set through lib_neon's neonKnob), and off they are exactly 0.5.
 //
-// Order in the frame (RendererFrame.cpp): the director's look, then this layer, then the macros, LFOs,
+// Order in the frame (signal/Resolver, the scene params resolver): the director's look, then this layer, then the macros, LFOs,
 // envelopes, reactions, motion field and the safety clamp. So the user's own settings and the flash and
 // motion limits always act on top, and the director keeps the scene-level palette and camera to itself.
 //
 // Variation: each play gets a personality (how strongly the notes tint the whole picture), and
 // every new section and every drop rolls it again, eased over a couple of seconds. The user chose this to
 // be truly random per play: the renderer mixes fresh entropy into the seed at each new play
-// (Renderer::noteSeed), so the same song looks different every time, and an export is its own play.
+// (Renderer::noteEntropyFor, EngineSettings::noteEntropy), so the same song looks different every time, and an export is its own play.
 //
 // Real time only: everything reads the frame just heard; nothing anticipates. Given a seed it is a pure
 // function of (seed, frames, dt): no clock, no randomness of its own (splitmix64 keyed by the seed and the

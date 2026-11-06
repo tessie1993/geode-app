@@ -18,15 +18,13 @@ class PresetShelfTest {
     private fun names(filter: PresetFilter) = PresetFiltering.apply(entries, filter).map { it.name }
 
     @Test
-    fun allPutsMineFirstThenBuiltInsForThisStyle() {
-        assertEquals(listOf("Mine A", "Party", "Glow", "Ink"), names(PresetFilter.All))
+    fun allHoldsOnlyTheUsersPresetsOnce() {
+        assertEquals(listOf("Mine A", "Party"), names(PresetFilter.All))
     }
 
     @Test
-    fun shelvesSplitMineFromBuiltIn() {
-        assertEquals(listOf("Mine A", "Party"), names(PresetFilter.Mine))
-        assertEquals(listOf("Glow", "Ink"), names(PresetFilter.BuiltIn))
-        assertEquals(listOf("Mine A", "Glow"), names(PresetFilter.ThisStyle))
+    fun builtInsNeverShowTheyAreStyles() {
+        assertEquals(listOf("Mine A"), names(PresetFilter.ThisStyle))
     }
 
     @Test
@@ -41,8 +39,6 @@ class PresetShelfTest {
             listOf(
                 PresetFilter.All,
                 PresetFilter.ThisStyle,
-                PresetFilter.Mine,
-                PresetFilter.BuiltIn,
                 PresetFilter.Folder("Live"),
                 PresetFilter.Folder("Slow"),
             ),

@@ -153,8 +153,15 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
     // The style whose tap opened the paywall. The session chooses it once a purchase lets it
     // through (PlayerSessionProvider); here it only files it in Recent.
     var unlocking by remember { mutableStateOf<String?>(null) }
-    val load: (String) -> Unit = { id ->
-        if (gate.allowsStyle(id)) {
+    val load: (StyleEntry) -> Unit = { entry ->
+        val id = entry.sceneId
+        val variant = entry.presetName?.let { name -> viz.presets.firstOrNull { it.name == name } }
+        if (variant != null) {
+            // A built-in variant applies its look through the gate, as a preset card does;
+            // a locked one opens the paywall there.
+            viewModel.applyPreset(variant)
+            if (gate.allowsStyle(id)) shelfStore.pushRecent(entry.id)
+        } else if (gate.allowsStyle(id)) {
             viewModel.selectScene(id)
             shelfStore.pushRecent(id)
             unlocking = null
@@ -213,24 +220,37 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
         val shown = remember(entries, filter, shelf, query) { StyleFiltering.apply(entries, filter, shelf, query) }
         val view = LocalView.current
         val shuffle: () -> Unit = {
-            val others = shown.filter { it.id != viz.sceneId }
+            val others = shown.filter { it.sceneId != viz.sceneId }
             // A free user lands on a style they can keep while there is one.
-            others.filter { gate.allowsStyle(it.id) }.ifEmpty { others }.randomOrNull()?.let {
+            others.filter { gate.allowsStyle(it.sceneId) }.ifEmpty { others }.randomOrNull()?.let {
                 view.performStoneHaptic(StoneHapticCue.CONFIRM)
-                load(it.id)
+                load(it)
             }
         }
+        // The row on screen: a built-in variant while the stage shows its exact look, else the style.
+        val onScreen =
+            remember(entries, viz.sceneId, viz.params, viz.presets) {
+                val variant =
+                    entries.firstOrNull { e ->
+                        e.presetName != null &&
+                            e.sceneId == viz.sceneId &&
+                            viz.presets.any { it.name == e.presetName && it.params == viz.params }
+                    }
+                variant?.id ?: viz.sceneId
+            }
         val row: @Composable (StyleEntry) -> Unit = { entry ->
             StyleRow(
                 entry = entry,
-                chosen = entry.id == viz.sceneId,
-                locked = !gate.allowsStyle(entry.id),
+                chosen = entry.id == onScreen,
+                locked = !gate.allowsStyle(entry.sceneId),
                 favourite = shelf.isFavourite(entry.id),
                 recent = entry.id in shelf.recents,
-                onTap = { load(entry.id) },
+                onTap = { load(entry) },
                 onToggleFavourite = { shelfStore.toggleFavourite(entry.id) },
                 onAddToPlaylist = {
-                    viewModel.addToVizPlaylist(VizPlaylistEntry(sceneId = entry.id, label = entry.label))
+                    viewModel.addToVizPlaylist(
+                        VizPlaylistEntry(sceneId = entry.sceneId, presetName = entry.presetName, label = entry.label),
+                    )
                 },
                 onRemoveRecent = { shelfStore.removeRecent(entry.id) },
             )
@@ -246,7 +266,7 @@ internal fun StylesTab(viewModel: PlayerViewModel) {
                 if (filter == StyleFilter.All && query.isBlank()) {
                     // Basics: what the user already chose, always open. Keys are prefixed so a
                     // style shown here and in its group below never clashes.
-                    val mine = yourStyles(entries, shelf, viz.sceneId)
+                    val mine = yourStyles(entries, shelf, onScreen)
                     item(key = "basics", contentType = "overline") {
                         CrystalOverline(
                             stringResource(R.string.styles_yours),
@@ -605,8 +625,10 @@ internal fun StyleThumbnail(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val bitmap by produceState(StyleThumbs.cached(entry.id), entry.id) {
-        if (value == null) value = withContext(Dispatchers.IO) { StyleThumbs.load(context, entry.id) }
+    // A built-in variant shows its style's still.
+    val id = entry.sceneId
+    val bitmap by produceState(StyleThumbs.cached(id), id) {
+        if (value == null) value = withContext(Dispatchers.IO) { StyleThumbs.load(context, id) }
     }
     val image = bitmap
     if (image != null) {
@@ -681,20 +703,35 @@ private object StylesGroupMemory {
     var open: Set<String> = emptySet()
 }
 
-/** Every catalogue style as the list shows it, in catalogue order, each with its look group. */
-private fun styleEntries(context: Context): List<StyleEntry> =
-    Catalogue.styles.map { style ->
+/**
+ * Every catalogue style as the list shows it, in catalogue order, each with its look group, and
+ * right after it the style's built-in variants ([BuiltInPresets.NAMED]): one place for every
+ * style and every tuned look of one, so none hides in the Presets grid.
+ */
+private fun styleEntries(context: Context): List<StyleEntry> {
+    val variants = BuiltInPresets.NAMED.groupBy { it.sceneId }
+    return Catalogue.styles.flatMap { style ->
         val family = StyleFamilies.of(style.id)
         val look = StyleLookTags.of(style.id, style.kind, family)
-        StyleEntry(
-            id = style.id,
-            label = sceneDisplayLabel(style.id),
-            kindLabel = if (family != null) KIND_FAMILY else kindLabel(style.kind),
-            familyLabel = family?.label,
-            look = look,
-            lookLabel = context.getString(lookLabelRes(look)),
-        )
+        val base =
+            StyleEntry(
+                id = style.id,
+                label = sceneDisplayLabel(style.id),
+                kindLabel = if (family != null) KIND_FAMILY else kindLabel(style.kind),
+                familyLabel = family?.label,
+                look = look,
+                lookLabel = context.getString(lookLabelRes(look)),
+            )
+        listOf(base) +
+            variants[style.id].orEmpty().map { preset ->
+                base.copy(
+                    id = preset.name,
+                    label = "${base.label} · ${preset.name.substringAfter(" · ")}",
+                    presetName = preset.name,
+                )
+            }
     }
+}
 
 /** The name a look group is read by; the enum stays pure (`model/StyleLook`). */
 @StringRes

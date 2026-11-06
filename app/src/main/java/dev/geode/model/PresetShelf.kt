@@ -19,18 +19,14 @@ data class PresetEntry(
 )
 
 /**
- * The Presets grid's filter chips. One row of chips replaced a long list with a header for each
- * folder and a second list of built-ins: the shelves the user reaches for first, then each of
- * their folders.
+ * The Presets grid's filter chips: the shelves the user reaches for first, then each of their
+ * folders. There is no Built-in shelf: the built-in looks are styles, listed on the Styles page,
+ * so the grid holds only what the user saved and every style lives in one place.
  */
 sealed interface PresetFilter {
     data object All : PresetFilter
 
     data object ThisStyle : PresetFilter
-
-    data object Mine : PresetFilter
-
-    data object BuiltIn : PresetFilter
 
     data class Folder(
         val name: String,
@@ -38,32 +34,28 @@ sealed interface PresetFilter {
 }
 
 object PresetFiltering {
-    /** The chips in order: the four shelves, then the user's folders as the store lists them. */
+    /** The chips in order: the two shelves, then the user's folders as the store lists them. */
     fun filters(folders: List<String>): List<PresetFilter> =
-        listOf(PresetFilter.All, PresetFilter.ThisStyle, PresetFilter.Mine, PresetFilter.BuiltIn) +
+        listOf(PresetFilter.All, PresetFilter.ThisStyle) +
             folders.filter { it.isNotBlank() }.distinct().map { PresetFilter.Folder(it) }
 
     /**
-     * The cards [filter] leaves, in grid order: the user's own first (what they made is what they
-     * came for), then the built-ins, those made for the style on stage ahead of the rest. A name
-     * shows once: the store can hold a user preset that shadows nothing, but a list read twice
-     * (the session merges the built-ins and the files) must not draw two cards for it.
+     * The cards [filter] leaves, in the store's order: the user's own presets only (the built-ins
+     * are styles, on the Styles page). A name shows once: a list read twice (the session merges
+     * the built-ins and the files) must not draw two cards for it.
      */
     fun apply(
         entries: List<PresetEntry>,
         filter: PresetFilter,
     ): List<PresetEntry> {
+        val mine = entries.filterNot { it.builtIn }
         val shown =
             when (filter) {
-                PresetFilter.All -> entries
-                PresetFilter.ThisStyle -> entries.filter { it.forThisStyle }
-                PresetFilter.Mine -> entries.filterNot { it.builtIn }
-                PresetFilter.BuiltIn -> entries.filter { it.builtIn }
-                is PresetFilter.Folder -> entries.filter { !it.builtIn && it.folder == filter.name }
+                PresetFilter.All -> mine
+                PresetFilter.ThisStyle -> mine.filter { it.forThisStyle }
+                is PresetFilter.Folder -> mine.filter { it.folder == filter.name }
             }
-        return shown
-            .distinctBy { it.name }
-            .sortedWith(compareBy<PresetEntry> { it.builtIn }.thenBy { it.builtIn && !it.forThisStyle })
+        return shown.distinctBy { it.name }
     }
 
     /**

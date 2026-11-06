@@ -76,7 +76,7 @@ class VisualsJourneyTest {
 
     /**
      * Presets has one save path: "Save current look" opens a dialog, and the saved look shows as
-     * a card, under Mine too.
+     * a card, under For this style too (it was saved on the style on stage).
      */
     @Test
     fun savingTheCurrentLookAddsAPresetCard() {
@@ -87,7 +87,7 @@ class VisualsJourneyTest {
         compose.onNode(hasSetTextAction()).performTextInput("Journey look")
         compose.tap("Save")
         compose.awaitNode(hasText("Journey look"))
-        compose.tap("Mine")
+        compose.tap("For this style")
         compose.awaitNode(hasText("Journey look"))
     }
 }

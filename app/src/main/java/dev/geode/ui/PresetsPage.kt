@@ -88,8 +88,8 @@ import dev.geode.ui.theme.selectedGlow
  * folder header's rename), a second list of built-ins under it and a save form at the bottom, so
  * the one thing people came for, putting a look on the stage, was one small icon among many.
  * Now a card is the preset: a tap applies it, and everything else sits behind a long press (or
- * the TalkBack action "Preset actions") in one sheet. Filtering is one scrolling row: the four
- * fixed shelves (All, For this style, Mine, Built-in) as chips, then one "Folders ▾" chip whose
+ * the TalkBack action "Preset actions") in one sheet. Filtering is one scrolling row: the two
+ * fixed shelves (All, For this style) as chips, then one "Folders ▾" chip whose
  * menu lists every folder and "New folder", so the row stays one row however many folders exist.
  *
  * One way to save, at the top: "Save current look" opens one dialog with the name and the
@@ -123,7 +123,7 @@ internal fun PresetsTab(
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
                 visualsViewModel.importPresetFile(uri) { name ->
-                    importNote = name?.let { "Added \"$it\" to Mine." } ?: "That file is not a MuzViz preset."
+                    importNote = name?.let { "Added \"$it\" to Presets." } ?: "That file is not a MuzViz preset."
                 }
             }
         }
@@ -160,7 +160,7 @@ internal fun PresetsTab(
                     when {
                         pasted.isNullOrBlank() -> "The clipboard is empty. Copy a shared preset link first."
                         else ->
-                            visualsViewModel.importPresetLink(pasted)?.let { "Added \"$it\" to Mine." }
+                            visualsViewModel.importPresetLink(pasted)?.let { "Added \"$it\" to Presets." }
                                 ?: "The clipboard does not hold a MuzViz preset link."
                     }
             },
@@ -685,10 +685,9 @@ private fun thumbnailEntry(
 private fun EmptyPresets(filter: PresetFilter) {
     val text =
         when (filter) {
-            PresetFilter.All, PresetFilter.Mine ->
+            PresetFilter.All ->
                 "You have not saved a preset yet. Set up a look you like, then tap Save current look."
             PresetFilter.ThisStyle -> "No presets for this style yet. Save current look makes the first one."
-            PresetFilter.BuiltIn -> "No built-in presets here."
             is PresetFilter.Folder -> "This folder is empty. Press and hold a preset, then choose Move to folder."
         }
     Box(Modifier.fillMaxSize().padding(GeodeSpacing.XL), contentAlignment = Alignment.Center) {
@@ -700,8 +699,6 @@ private fun filterKeyOf(filter: PresetFilter): String =
     when (filter) {
         PresetFilter.All -> FILTER_ALL
         PresetFilter.ThisStyle -> "style"
-        PresetFilter.Mine -> "mine"
-        PresetFilter.BuiltIn -> "builtin"
         is PresetFilter.Folder -> "folder:${filter.name}"
     }
 
@@ -709,8 +706,6 @@ private fun filterLabel(filter: PresetFilter): String =
     when (filter) {
         PresetFilter.All -> "All"
         PresetFilter.ThisStyle -> "For this style"
-        PresetFilter.Mine -> "Mine"
-        PresetFilter.BuiltIn -> "Built-in"
         is PresetFilter.Folder -> filter.name
     }
 

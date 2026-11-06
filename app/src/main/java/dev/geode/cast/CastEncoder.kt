@@ -184,14 +184,15 @@ internal class CastEncoder(
     }
 
     companion object {
-        private val castFormat = IntArray(3).also { GeodeNative.castFormat(it) } // width, height, fps: core/viz/frame
+        // width, height, fps, keyframe interval: core/viz/frame (CastFormat)
+        private val castFormat = IntArray(4).also { GeodeNative.castFormat(it) }
         val FPS = castFormat[2]
         const val AUDIO_RATE_HZ = 48_000
         const val CHANNELS = 2
         private const val VIDEO_BITRATE = 4_000_000
         private const val AUDIO_BITRATE = 160_000
-        private const val KEYFRAME_INTERVAL_SEC = 1
-        private const val FRAGMENT_MS = 1_000L
+        private val KEYFRAME_INTERVAL_SEC = castFormat[3]
+        private val FRAGMENT_MS = KEYFRAME_INTERVAL_SEC * 1_000L
         private const val BYTES_PER_SAMPLE = 2
         private const val IDLE_MS = 5L
         private const val JOIN_MS = 1_000L

@@ -75,6 +75,9 @@ struct CastFormat {
     static constexpr int kWidth = 1280;
     static constexpr int kHeight = 720;
     static constexpr int kFps = 30;
+    // A keyframe this often, so the muxer cuts one fragment, one HLS segment, per interval: the
+    // nominal segment length HlsSegments fixes the playlist's TARGETDURATION from.
+    static constexpr int kKeyframeIntervalSec = 1;
 };
 
 }  // namespace geode::viz::frame

@@ -95,7 +95,7 @@ jobs:
           THUMBS_ONLY: ${{ inputs.ids }}
           THUMBS_SKIP: ${{ inputs.skip }}
         with:
-          api-level: 30
+          api-level: 33
           target: google_apis
           arch: x86_64
           disable-animations: true

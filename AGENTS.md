@@ -1,7 +1,7 @@
 # AGENTS.md: MuzViz Studio Pro (internal name Geode)
 
 Android music player, reactive visualizer and video studio. Kotlin and Compose with Hilt, plus a C++20 native core (`libgeode.so`).
-applicationId `com.muzviz.studiopro`. Kotlin packages stay `dev.geode.*`. minSdk 26, targetSdk 36, compileSdk 37.
+applicationId `com.muzviz.studiopro`. Kotlin packages stay `dev.geode.*`. minSdk 33 (Android 13+), targetSdk 36, compileSdk 37.
 
 ## Owner's hard rule: Kotlin is the shell, C++ is the app (read first)
 
@@ -136,7 +136,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 
 ## Build, test, CI
 
-- **Don't build locally.** Push to `claude/**`. `.github/workflows/android.yml` runs detekt, `:app:assembleDebug`, every module's unit tests, `:app:lintDebug`, `ktlintCheck`, plus an emulator job (`connectedDebugAndroidTest`, API 30). Read the results with `gh run list --branch <b>` and `gh run view <id> --log-failed`.
+- **Don't build locally.** Push to `claude/**`. `.github/workflows/android.yml` runs detekt, `:app:assembleDebug`, every module's unit tests, `:app:lintDebug`, `ktlintCheck`, plus an emulator job (`connectedDebugAndroidTest`, API 33). Read the results with `gh run list --branch <b>` and `gh run view <id> --log-failed`.
 - `ship-apk.yml` (the last job of every green `android.yml` push run, plus pushes to `main`) publishes a debug APK as pre-release N, "Geode <base>.N" (N = releases so far + 1, reserved as tag `apk-v<base>.N` by `tools/release-number.sh`).
 - **Version.** Set only in `gradle.properties` (`geode.versionBase`, `geode.versionCodeBase`); the root `build.gradle.kts` makes versionName `<base>.N` and versionCode `codeBase + N` from `-PreleaseNumber=N`, else `<base>-dev`. `release.yml` uses the N its commit shipped as. `release.yml` builds the Play AAB only on manual runs (signed when the upload key exists, unsigned with a warning otherwise), then checks the merged manifest, R8 and the baseline profile; `android.yml` checks the debug manifest (no INTERNET or AD_ID, targetSdk) on every PR. `arch-map.yml` holds the two gates described below. `pages.yml` publishes `docs/site/`, `docs/privacy-policy.html` and `docs/help/` (as `/help/`) to GitHub Pages on pushes to `main` and `claude/geode-finish`.
 - `mutation.yml` (PRs touching `core/**`, any base) mutates only the C++ lines the PR changed (never `core/tests/`) and reruns the android.yml host tests that build them (`tools/mutation/run_mutation.py`); report-only, survivors in the job summary; a gate once `MUTATION_MIN_SCORE` is set. See `docs/testing/MUTATION.md`.

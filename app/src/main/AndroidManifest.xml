@@ -6,9 +6,6 @@
         android:required="true" />
 
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
     <!-- "Live input": the visuals react to the room instead of to a track.
          Requested at the moment the user turns that setting on, never at
          launch; samples go straight into the analysis ring buffer and are

@@ -27,15 +27,16 @@ class WireLayoutTest {
 
     @Test
     fun liquidFieldsAreAppendedLast() {
-        // core/viz/ParamsFields.cpp: kFieldCount 163, Liquid mode's pickers last.
-        assertEquals(163, SceneParamsCodec.FIELDS)
-        val tail = listOf("noteDrums", "liquidBorn", "liquidAge", "liquidSurface")
+        // core/viz/ParamsFields.cpp: kFieldCount 164, Liquid mode's pickers then camFlat last.
+        assertEquals(164, SceneParamsCodec.FIELDS)
+        val tail = listOf("noteDrums", "liquidBorn", "liquidAge", "liquidSurface", "camFlat")
         assertEquals(tail, SceneParamsCodec.NAMES.takeLast(tail.size))
-        val p = SceneParams(liquidBorn = 3, liquidAge = 2, liquidSurface = 1)
+        val p = SceneParams(liquidBorn = 3, liquidAge = 2, liquidSurface = 1, camFlat = 0.5f)
         val out = SceneParamsCodec.pack(p)
         assertEquals(3f, out[160])
         assertEquals(2f, out[161])
         assertEquals(1f, out[162])
+        assertEquals(0.5f, out[163])
         assertEquals(p, SceneParamsCodec.unpack(out, SceneParams.DEFAULT))
     }
 

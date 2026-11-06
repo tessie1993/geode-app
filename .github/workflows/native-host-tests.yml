@@ -26,6 +26,9 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+        with:
+          # The glTF import test builds against the cgltf and meshoptimizer submodules.
+          submodules: recursive
 
       - name: Native host tests
         working-directory: ${{ env.PROJECT_DIR }}
@@ -128,6 +131,12 @@ jobs:
           # The encoder fallback ladder (#607): the rungs, the 30 fps floor, the 2/3 bit rate, an unknown ceiling.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/encoder_ladder_test.cpp core/api/geode_output_api.cpp -o encoder_ladder_test
           ./encoder_ladder_test
+          # glTF import (#474): #455's limits on fixture .glb files built by the test, the 4x decimation
+          # with before/after counts, refusals, and the low-detail copy. Uses the cgltf and meshoptimizer submodules.
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Ithird_party/cgltf -Ithird_party/meshoptimizer/src core/tests/gltf_import_test.cpp \
+            core/scene/object/GltfImport.cpp third_party/meshoptimizer/src/simplifier.cpp third_party/meshoptimizer/src/vertexcodec.cpp \
+            third_party/meshoptimizer/src/indexcodec.cpp third_party/meshoptimizer/src/vertexfilter.cpp -o gltf_import_test
+          ./gltf_import_test
           # Which pushed inputs a live frame still owes native (#751): once per version, again on a new surface, stale ignored.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/push_versions_test.cpp -o push_versions_test
           ./push_versions_test

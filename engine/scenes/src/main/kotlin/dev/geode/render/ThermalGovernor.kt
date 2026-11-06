@@ -3,13 +3,14 @@ package dev.geode.render
 import android.content.Context
 import android.os.Build
 import android.os.PowerManager
-import dev.geode.util.bestEffort
+import dev.geode.engine.bridge.GeodeNative
 
 /**
- * The platform's thermal readings, handed to the native governor that settles the render tier.
+ * The platform's thermal readings, handed raw to the process's one native thermal state
+ * (`core/viz/frame/Thermal`), which settles the tier every renderer reads and the pacer's fps cap.
  *
- * [attach] registers once per process; the readings are cheap enough for the render thread to
- * sample every second.
+ * [attach] resolves PowerManager once per process; [sample] reads it when native says a reading is
+ * due (`FRAME_THERMAL_DUE` from the renderer's one per-frame call).
  */
 object ThermalGovernor {
     /**
@@ -21,46 +22,29 @@ object ThermalGovernor {
     @Volatile
     var pacedFps: Float = 0f
 
-    /** Written on the main executor by the platform listener, read on the render thread. */
-    @Volatile
-    private var osStatus: Int = STATUS_NONE
-
     @Volatile
     private var power: PowerManager? = null
 
-    @Volatile
-    private var attached = false
-
     @Synchronized
     fun attach(context: Context) {
-        if (attached) return
-        attached = true
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
         // Application context: this reference outlives every Activity and surface by design.
-        val app = context.applicationContext
-        val service = app.getSystemService(PowerManager::class.java) ?: return
-        power = service
-        osStatus = service.currentThermalStatus
-        bestEffort(TAG, "addThermalStatusListener") {
-            service.addThermalStatusListener(app.mainExecutor) { status -> osStatus = status }
-        }
+        if (power == null) power = context.applicationContext.getSystemService(PowerManager::class.java)
     }
 
-    /** The platform's last thermal status, or -1 while no PowerManager has answered. */
-    val platformStatus: Int
-        get() = if (power != null) osStatus else -1
-
-    /** The forecast headroom the platform reports; NaN when it has none. */
-    fun thermalHeadroom(): Float {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return Float.NaN
-        val service = power ?: return Float.NaN
-        return runCatching { service.getThermalHeadroom(FORECAST_SECONDS) }.getOrDefault(Float.NaN)
+    /**
+     * Called on a live renderer's GL thread only on the frame native said a reading is due, once a
+     * second for the whole process: PowerManager may answer NaN to a second ask inside its one-second
+     * window, which is how a second renderer used to read no forecast and stay at Full (#387). The
+     * status is read here too, at that cadence, rather than kept by a listener. Native keeps the last
+     * real headroom across a NaN and settles the one tier every renderer reads.
+     */
+    fun sample() {
+        val service = power
+        if (service == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return GeodeNative.thermalPush(-1, Float.NaN)
+        val status = runCatching { service.currentThermalStatus }.getOrDefault(-1)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return GeodeNative.thermalPush(status, Float.NaN)
+        GeodeNative.thermalPush(status, runCatching { service.getThermalHeadroom(FORECAST_SECONDS) }.getOrDefault(Float.NaN))
     }
 }
-
-private const val TAG = "ThermalGovernor"
-
-/** `PowerManager.THERMAL_STATUS_NONE`. */
-private const val STATUS_NONE = 0
 
 private const val FORECAST_SECONDS = 30

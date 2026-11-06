@@ -249,12 +249,6 @@ object GeodeNative {
     /** The built-in macro presets, "Name|e,s,c,m,sp,ch" lines. */
     external fun macroStarters(): String
 
-    external fun vizPushPcm(
-        handle: Long,
-        mono: FloatArray,
-        count: Int,
-    )
-
     /** Process-wide (core/viz/ShaderOverrides): every renderer draws it; "" clears it. */
     external fun shaderOverrideSet(
         styleId: String,
@@ -1042,6 +1036,24 @@ object GeodeNative {
         fps: Int,
         width: Int,
         height: Int,
+    ): Long
+
+    /**
+     * The fraction of a whole loop render done once source [frame] of stop [stop] of [stops] is drawn,
+     * rising in 0..1 and exactly 1 on the last frame (core/viz/frame/LoopSeam). Pure.
+     */
+    external fun exportLoopProgress(
+        stop: Int,
+        stops: Int,
+        frame: Int,
+        loopFrames: Int,
+        seamFrames: Int,
+    ): Float
+
+    /** The crossfade a finished reel reports: [seamFrames] at [fps] in whole milliseconds. Pure. */
+    external fun exportLoopReportedCrossfadeMs(
+        seamFrames: Int,
+        fps: Int,
     ): Long
 
     /** [id]: a GL Transitions name; an unknown one only copies. */

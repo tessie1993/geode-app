@@ -148,13 +148,6 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetSoundTuning(handle, floats)
     }
 
-    fun pushPcm(
-        mono: FloatArray,
-        count: Int,
-    ) {
-        if (handle != 0L && count > 0) GeodeNative.vizPushPcm(handle, mono, count)
-    }
-
     fun setLfoConfigs(configs: List<LfoConfig>) {
         if (handle == 0L) return
         configs.take(LfoEngine.SLOTS).forEachIndexed { slot, c -> GeodeNative.vizSetLfo(handle, slot, ModConfigCodec.packLfo(c)) }

@@ -23,6 +23,8 @@ import dev.geode.engine.audio.PcmSink
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audioandroid.PcmTap
+import dev.geode.engine.bridge.GeodeNative
+import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -183,6 +185,9 @@ class PlaybackSession internal constructor(
 
     private fun pushVolume() {
         player.volume = if (castMuted) 0f else (uiVolume * crossfadeGain).coerceIn(0f, 1f)
+        // The tap sits before the volume, so the visuals never hear a fade: the engines are told it instead
+        // (fadeGain, a reaction source). The cast mute is not a fade, so it stays out.
+        bestEffort(TAG, "push fade gain") { GeodeNative.soundSetFadeGain(uiVolume * crossfadeGain) }
     }
 
     /** Everything in [PlayerPrefs] that the player, ReplayGain or the USB route carry out. */
@@ -219,6 +224,7 @@ class PlaybackSession internal constructor(
     }
 
     private companion object {
+        const val TAG = "PlaybackSession"
         const val DEFAULT_SAMPLE_RATE_HZ = 48_000
 
         /** One file, written in order off the main thread; a daemon, like the history writer. */

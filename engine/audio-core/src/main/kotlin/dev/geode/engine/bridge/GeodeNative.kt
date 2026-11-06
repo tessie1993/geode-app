@@ -978,6 +978,27 @@ object GeodeNative {
         heardAtMs: Long,
     ): Boolean
 
+    // What the player tells the sound engines that the tap cannot hear (core/sound/PlayerSignals).
+
+    /**
+     * A new track (or the same one again) begins a new play with [seed]: every live renderer's sound engine
+     * forgets the tempo, key and sections at its next frame and fires a full-strength section change, so a
+     * crossfaded or gapless next track starts fresh. Returns the boundary's epoch. Any thread.
+     */
+    external fun soundTrackBoundary(seed: Long): Long
+
+    /**
+     * The player's fade gain, 0..1 (the UI fades times the crossfade), which the tap before the volume never
+     * hears; the sound frame carries it as `fadeGain`, a reaction source. Live renderers only. Any thread.
+     */
+    external fun soundSetFadeGain(gain: Float)
+
+    /**
+     * Whether the player writes the app's ring (true) or the mic or another app's audio has taken it. While
+     * the player is the source a pause holds the tempo, key and sections; the others keep the 2 s silence
+     * re-warm, and read a fade gain of 1. Any thread.
+     */
+    external fun soundSetPlayerSource(on: Boolean)
     // Which sound the wallpaper and the dream hear (core/sound/SoundSource): the app's ring while fed,
     // else the output-mix capture when permitted, with hysteresis so it never flaps.
 

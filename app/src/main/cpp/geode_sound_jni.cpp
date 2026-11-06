@@ -24,6 +24,21 @@ Java_dev_geode_engine_bridge_GeodeNative_silenceResting(JNIEnv*, jobject, jlong 
     return geode_silence_resting(nowMs, heardAtMs) ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_soundTrackBoundary(JNIEnv*, jobject, jlong seed) {
+    return geode_sound_track_boundary(seed);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_soundSetFadeGain(JNIEnv*, jobject, jfloat gain) {
+    geode_sound_set_fade_gain(gain);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_soundSetPlayerSource(JNIEnv*, jobject, jboolean on) {
+    geode_sound_set_player_source(on == JNI_TRUE ? 1 : 0);
+}
+
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_soundSourceStep(JNIEnv* env, jobject, jlongArray state, jlong nowMs,
                                                          jboolean ringPresent, jlong ringId, jlong ringWritten,

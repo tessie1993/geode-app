@@ -457,6 +457,17 @@ GEODE_API long long       geode_silence_heard_at(const float* const* channels, i
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
 
+/* What the player tells every live renderer's sound engine that the tap cannot hear (sound/PlayerSignals).
+ * A track boundary: a new track (or the same one again) is a new play with `seed`; each live engine forgets
+ * the tempo, key and sections at its next frame and fires sectionChange at full strength, crossfaded and
+ * gapless tracks included. Returns the boundary's epoch (1, 2, …). The fade gain, 0..1: the player's pause
+ * and skip fades times the crossfade, which the tap (before the volume) never hears; the frame carries it as
+ * fadeGain, a reaction source. Player is source: 1 while the player writes the app's ring, 0 once the mic or
+ * another app's audio takes it; a pause then holds the tempo, key and sections (no 2 s silence re-warm),
+ * and fadeGain reads 1 under the others. All process-wide and latched, any thread; an export reads none. */
+GEODE_API long long       geode_sound_track_boundary(long long seed);
+GEODE_API void            geode_sound_set_fade_gain(float gain);
+GEODE_API void            geode_sound_set_player_source(int on);
 /* Which sound the wallpaper and the dream hear (sound/SoundSource): the app's ring while it is fed, else the
  * output-mix capture when permitted. The caller keeps the state (GEODE_SOUND_SOURCE_STATE_LONGS int64s, zeroed
  * = fresh) and polls with now, whether the app has a ring, which ring and its written-frame counter, whether

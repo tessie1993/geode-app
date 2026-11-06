@@ -231,6 +231,14 @@ void SoundEngine::step(float dtSeconds, GeodeSoundFrame& out) {
     out = hopFrame_;
     for (int k = 0; k < kTriggers; k++) out.*kTriggerFields[k] = held_[k];
     held_ = {};
+    // The player's own signals are the frame's, not a hop's: a boundary or a fade lands on the next step.
+    if (boundaryPending_) {
+        // Form was just reset, so it cannot fire on its own for eight bars: the boundary is the event.
+        out.sectionChange = 1.0f;
+        boundaryPending_ = false;
+    }
+    // The fade is the player's; under the mic or another app's audio nothing fades what the engine hears.
+    out.fadeGain = playerSource_ ? fadeGain_ : 1.0f;
     // The phases are the one thing moved on to the frame's own sample: the oscillator is linear between
     // hops, so this is exact, and a 30 fps frame and a 60 fps one at the same sample still agree.
     rhythm_.phases(hopFill_, out.hitTime, out);
@@ -264,13 +272,12 @@ void SoundEngine::analyse() {
     } else if (silent) {
         s.quietSeconds += dt;
     } else {
-        if (s.quietSeconds >= kRewarmAfter) {
-            // Sound after two seconds of silence is most likely a new track: its tempo, key and
-            // sections are its own.
-            s.warmSeconds = kWarmSeconds;
-            rhythm_.reset();
-            harmony_.reset();
-            form_.reset();
+        if (s.quietSeconds >= kRewarmAfter && !playerSource_) {
+            // Sound after two seconds of silence from the mic or another app is most likely a new
+            // track: its tempo, key and sections are its own. The player is never guessed at: a pause
+            // holds the song (the owner's rule), and only a track boundary it names (trackBoundary) or a
+            // seek (the ring's new epoch, reset()) starts fresh.
+            rewarm();
         }
         s.quietSeconds = 0.0f;
     }
@@ -300,6 +307,31 @@ void SoundEngine::analyse() {
     accentHeld_ = std::max(accentHeld_, emotion_.state().degreeAccent);
     for (int k = 0; k < kTriggers; k++) held_[k] = std::max(held_[k], out.*kTriggerFields[k]);
 }
+
+void SoundEngine::rewarm() {
+    state_.warmSeconds = kWarmSeconds;
+    rhythm_.reset();
+    harmony_.reset();
+    form_.reset();
+}
+
+void SoundEngine::trackBoundary() {
+    rewarm();
+    // The hop restarts with the rhythm, so the new track's first hop is a whole one.
+    hopFill_ = 0;
+    // A boundary during silence must not re-warm a second time when the sound comes.
+    state_.quietSeconds = 0.0f;
+    boundaryPending_ = true;
+    // The newest hop was read before the boundary: until the next hop, a step shows the fresh song, not
+    // the last one's tempo, key and form.
+    GeodeSoundFrame& f = hopFrame_;
+    rhythm_.read(0, f.hitTime, f);
+    f.keyRoot = f.keyHue = f.keyMajor = f.keyClarity = f.chordHue = f.tension = f.harmonicChange = 0.0f;
+    f.scale = f.scaleRoot = f.scaleBrightness = f.scaleTension = f.scaleFit = 0.0f;
+    f.novelty = f.sectionId = f.sectionState = f.sectionBars = f.buildUp = f.drop = 0.0f;
+}
+
+void SoundEngine::setFadeGain(float gain) { fadeGain_ = std::isfinite(gain) ? std::clamp(gain, 0.0f, 1.0f) : 1.0f; }
 
 void SoundEngine::levels(float dt, bool warm, bool silent, GeodeSoundFrame& out) {
     State& s = state_;

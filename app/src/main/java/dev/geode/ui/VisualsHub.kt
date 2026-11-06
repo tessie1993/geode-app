@@ -241,8 +241,9 @@ internal fun VisualsHub(
                 panelRange = range,
                 opacity = sheetOpacity,
                 visualizerView = visualizerView,
-                // Native blur under the glass while the options or the player's pill are up; off in PiP.
-                blurActive = (nav.sheetShown || playerOn) && !pip,
+                // Native blur under the glass while the options or the player's pill are up; off in PiP
+                // and under a drop-in, which hides the options and would leave a frosted ghost of them.
+                blurActive = (nav.sheetShown || playerOn) && !pip && !dropInOpen,
                 bottomBar =
                     if (docked != null && playerComposed) {
                         { docked(Modifier.restartsSleepTimer(chrome)) }

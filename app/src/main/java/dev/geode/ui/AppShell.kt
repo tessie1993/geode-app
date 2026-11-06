@@ -281,7 +281,8 @@ fun AppRoot() {
                 artworkUri = viewModel.currentTrackUri(),
                 isPlaying = state.isPlaying,
                 progress = { if (state.durationMs > 0) position.value / state.durationMs.toFloat() else 0f },
-                opacity = GeodeGlass.MATTE_FILL,
+                // See-through only over the visual; over a page the rows under it read through.
+                opacity = if (appState.dest == GeodeDestination.VISUALS) GeodeGlass.MATTE_FILL else GeodeGlass.MATTE_FILL_MAX,
                 onPin = chrome::pin,
                 onOpenPlayer = { appState.navigateTo(GeodeDestination.PLAYER) },
                 onHide = chrome::hide,
@@ -645,7 +646,9 @@ private fun AppShellCompact(
                     // Studio from a track menu, say. Fall back to the first tab rather than -1.
                     selected = navEntries.indexOfFirst { it.destination == appState.dest }.coerceAtLeast(0),
                     onSelect = { appState.navigateTo(navEntries[it].destination) },
-                    opacity = GeodeGlass.MATTE_FILL,
+                    // Off Visuals there is no visual to see through, only Player's list scrolling
+                    // under the bar, whose text read through the tabs at the floor alpha.
+                    opacity = if (onVisuals) GeodeGlass.MATTE_FILL else GeodeGlass.MATTE_FILL_MAX,
                     modifier = Modifier.onSizeChanged { if (it.height > 0) barHeight = with(density) { it.height.toDp() } },
                 )
             }

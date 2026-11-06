@@ -344,6 +344,8 @@ void trialEndsDuringASilentRest() {
     check(geode_surface_run_mode(f, ends, ends) == kStill, "still once the trial ends");
     check(geode_surface_listening(f, ends, ends) == 0, "the trial's end stops the listening");
     check(geode_surface_run_mode(kOnScreen | kDefaults, ends, ends) == kStill, "music back after the end: still");
+}
+
 // The dream restates with the surface fixed and never as a preview (it has a window, not a picker); the
 // wallpaper with whatever its engine sees. Both must come out still under reduced motion.
 constexpr unsigned kDream = kOnScreen | kDefaults;

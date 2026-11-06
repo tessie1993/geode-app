@@ -53,6 +53,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -210,11 +211,11 @@ fun PlayerScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     header()
-                    // The art takes what height is left under the header, the title rows and,
-                    // when it is on this side, the transport.
-                    val chrome = if (transportWithArt) HERO_CHROME + TRANSPORT_HEIGHT else HERO_CHROME
-                    hero((paneHeight - chrome).coerceIn(MIN_ART, MAX_ART))
-                    if (transportWithArt) transport()
+                    if (transportWithArt) {
+                        HeroOverTransport(paneHeight = paneHeight, hero = hero, transport = transport)
+                    } else {
+                        hero((paneHeight - HERO_CHROME).coerceIn(MIN_ART, MAX_ART))
+                    }
                 }
                 LazyColumn(
                     Modifier.weight(1f).fillMaxHeight(),
@@ -244,6 +245,63 @@ fun PlayerScreen(
         QueueSheet(viewModel, queue, favourites, onDismiss = { queueSheet = false })
     }
 }
+
+/**
+ * The side-by-side hero with the transport under it, in one measure pass: the transport is
+ * measured first, then the hero is composed with the art size what is left of [paneHeight]
+ * under [HERO_CHROME] and the transport, so at a large font the art shrinks while the transport
+ * grows instead of pushing it off the pane (#558; Compose's scalable-content guide: content
+ * reflows to fit its container, Context7 `/websites/developer_android_develop_ui_compose`).
+ *
+ * WHY measure here and not `onSizeChanged`: writing the transport's height to state in the
+ * layout phase and reading it in composition is a backwards write. The first frame drew the art
+ * at the floor's size and the second popped it to the measured one (compose-performance skill,
+ * references/diagnosis.md axis 3, "`onSizeChanged` (layout phase) writing state read by a
+ * sibling in composition"; jetpack-compose-performance skill, references/layouts.md § "Prohibit
+ * layout feedback loops"; Android docs, kb://android/develop/ui/compose/performance/backwards-write).
+ * Here the height flows forward inside one layout pass, so the first frame is already right.
+ *
+ * WHY a subcomposition and not a plain `Layout` with the art at `Constraints.fixed(side, side)`:
+ * the art is not a sibling of the transport but the top of the hero card, under its padding and
+ * above its title rows, and its cap is a composition parameter of [PlayerHero]. A plain `Layout`
+ * could only hand that cap down through state written mid-measure, which is the same backwards
+ * flow one phase later, or by changing the card's width, which changes the look. Subcomposing
+ * the hero once the transport is measured is what `SubcomposeLayout` is for. Its cost is the
+ * one the layouts reference warns of in lazy items and hot paths; this sits once in a scrolling
+ * `Column`, not in a lazy item, and it recomposes only when the pane or the transport's height
+ * changes the art's size.
+ *
+ * The look at font scale 1.0 is unchanged: the same [MIN_ART]..[MAX_ART] clamp, the same
+ * [TRANSPORT_GAP] the column's `spacedBy` used to put between them, and [TRANSPORT_HEIGHT] as
+ * the floor the transport's measured height only takes over from when it needs more.
+ */
+@Composable
+private fun HeroOverTransport(
+    paneHeight: Dp,
+    hero: @Composable (Dp) -> Unit,
+    transport: @Composable () -> Unit,
+) {
+    SubcomposeLayout { constraints ->
+        // The column scrolls, so the height is unbounded; only the width is the column's.
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val transportPlaceable = subcompose(HeroSlot.TRANSPORT, transport).single().measure(loose)
+        val gap = TRANSPORT_GAP.roundToPx()
+        val transportRoom = maxOf(transportPlaceable.height + gap, TRANSPORT_HEIGHT.roundToPx())
+        val side = (paneHeight - HERO_CHROME - transportRoom.toDp()).coerceIn(MIN_ART, MAX_ART)
+        val heroPlaceable = subcompose(HeroSlot.HERO) { hero(side) }.single().measure(loose)
+        val width =
+            maxOf(heroPlaceable.width, transportPlaceable.width)
+                .coerceIn(constraints.minWidth, constraints.maxWidth)
+        val height = heroPlaceable.height + gap + transportPlaceable.height
+        layout(width, height) {
+            heroPlaceable.placeRelative((width - heroPlaceable.width) / 2, 0)
+            transportPlaceable.placeRelative((width - transportPlaceable.width) / 2, heroPlaceable.height + gap)
+        }
+    }
+}
+
+/** The two slots of [HeroOverTransport]'s subcomposition. */
+private enum class HeroSlot { TRANSPORT, HERO }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -283,8 +341,16 @@ private val SHORT_HEIGHT = 480.dp
 /** A readable column: wider than this, a block stops growing and centres. */
 private val COLUMN_MAX_WIDTH = 600.dp
 
-/** The transport card's height (seek row, buttons, A–B and Auto), when it sits under the art. */
+/**
+ * The least room the art leaves for the transport card (seek row, buttons, A–B and Auto) under
+ * it, gap included. WHY a floor and not the answer: it was the whole answer until #558, and the
+ * layout at font scale 1.0 was tuned against it, so the card's measured height only takes over
+ * when it needs more (a large font, a long translation), and today's look is kept at 1.0.
+ */
 private val TRANSPORT_HEIGHT = 180.dp
+
+/** The gap between the hero and the transport in [HeroOverTransport]: the column's `spacedBy` gap. */
+private val TRANSPORT_GAP = 16.dp
 
 /** On a phone the art fills the width; on anything wider it stops here. */
 private val MAX_ART = 420.dp

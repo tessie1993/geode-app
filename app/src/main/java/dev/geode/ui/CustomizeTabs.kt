@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -22,7 +21,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,9 +41,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -55,19 +55,14 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.geode.R
-import dev.geode.render.fluid.FluidQuality
-import dev.geode.render.scene.Catalogue
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.scene.ParamFormat
 import dev.geode.render.scene.ParamKeys
-import dev.geode.render.scene.ParamRandomizer
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
-import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import dev.geode.ui.theme.GeodeSpacing
-import dev.geode.ui.theme.LocalUiSounds
-import dev.geode.ui.theme.UiSound
 import kotlin.math.abs
 
 val LocalParamLocks =
@@ -142,6 +137,8 @@ internal fun ProGated(
         content()
         return
     }
+    val unlockLabel = stringResource(R.string.customize_a11y_unlock_pro)
+    val lockedLabel = stringResource(R.string.customize_a11y_part_of_pro, label)
     Box {
         CompositionLocalProvider(LocalLockedByPro provides true) {
             // A Column, so a block of several rows (a whole Advanced page in search) still stacks.
@@ -150,9 +147,9 @@ internal fun ProGated(
         Box(
             Modifier
                 .matchParentSize()
-                .clickable(onClickLabel = "Unlock with Pro", role = Role.Button, onClick = lock.onLocked)
+                .clickable(onClickLabel = unlockLabel, role = Role.Button, onClick = lock.onLocked)
                 .semantics {
-                    contentDescription = "$label, part of Pro"
+                    contentDescription = lockedLabel
                     if (value != null) stateDescription = value
                 },
         )
@@ -224,7 +221,8 @@ private fun RowMenu(
     about: String? = null,
 ) {
     val (kept, toggle) = LocalParamLocks.current
-    val lockable = lockKey in ParamRandomizer.LOCKABLE_LABELS
+    // The engine says which controls a roll can move (core/viz/ParamRandomizer); only those can be kept.
+    val lockable = remember(lockKey) { GeodeNative.customizeLockable(lockKey) }
     val reactTo = LocalReactTo.current
     val hasActions = lockable || onReset != null
     if (!hasActions && reactTo == null && about == null) return
@@ -233,7 +231,11 @@ private fun RowMenu(
     Box {
         // 40 dp drawn; IconButton still answers to the 48 dp target around it.
         IconButton(onClick = { open = true }, modifier = Modifier.size(40.dp)) {
-            Icon(Icons.Filled.MoreVert, contentDescription = "More for $name", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(
+                Icons.Filled.MoreVert,
+                contentDescription = stringResource(R.string.customize_a11y_more_for, name),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             if (about != null) {
@@ -293,7 +295,7 @@ private fun KeptMark(lockKey: String) {
     if (lockKey !in LocalParamLocks.current.first) return
     Icon(
         Icons.Filled.PushPin,
-        contentDescription = "Kept when randomizing",
+        contentDescription = stringResource(R.string.customize_a11y_kept),
         modifier = Modifier.padding(start = 4.dp).size(14.dp),
         tint = accentTextColor(),
     )
@@ -316,115 +318,12 @@ internal fun ControlLabelRow(
 }
 
 /**
- * Customize › Look: what every style shares. Colour first (the palette is the free control),
- * then hue, grading and glow, then speed and motion, trails and the screen effects.
- */
-@Composable
-internal fun LookTab(
-    p: SceneParams,
-    onChange: (SceneParams) -> Unit,
-    onTakeArtworkPalette: (() -> Unit)? = null,
-    artworkNote: String? = null,
-) {
-    val palettes = rememberSavedPalettes()
-    Column {
-        SectionHeader("Colour")
-        if (onTakeArtworkPalette != null && sectionVisible()) {
-            ProGated(ParamKeys.PALETTE, "Take the colours from the artwork") {
-                val sounds = LocalUiSounds.current
-                FilledTonalButton(onClick = {
-                    sounds.play(UiSound.TAP)
-                    onTakeArtworkPalette()
-                }) {
-                    Text("Take the colours from the artwork")
-                }
-            }
-            artworkNote?.let { ControlHint(it) }
-        }
-        if (visible(ParamKeys.PALETTE, ParamScope.UNIVERSAL)) {
-            ProGated(ParamKeys.PALETTE) { PaletteDropdown(ParamKeys.PALETTE, ParamKeys.PALETTE, p, onChange, palettes, second = false) }
-        }
-        if (visible(ParamKeys.COLOUR_MAP, ParamScope.SHADER_LOOK)) {
-            val selected = SceneParams.CYCLIC_PALETTES.getOrNull(p.paletteLut) ?: "Off"
-            ProGated(ParamKeys.COLOUR_MAP, value = selected) {
-                DropdownRow(
-                    name = ParamKeys.COLOUR_MAP,
-                    options = listOf("Off") + SceneParams.CYCLIC_PALETTES,
-                    selectedIndex = if (p.paletteLut < 0) 0 else p.paletteLut + 1,
-                    lockKey = ParamKeys.COLOUR_MAP,
-                    about = "Even colour steps that loop, so a wrap has no seam.",
-                ) { i -> onChange(p.copy(paletteLut = if (i == 0) SceneParams.NO_PALETTE_LUT else i - 1)) }
-            }
-        }
-        LabeledSlider(ParamKeys.PALETTE_BLEND, p.paletteMix, 0f..1f, default = SceneParams.DEFAULT.paletteMix) {
-            onChange(p.copy(paletteMix = it))
-        }
-        if (p.paletteMix > 0.001f && visible(ParamKeys.PALETTE_2, ParamScope.SHADER_LOOK)) {
-            ProGated(ParamKeys.PALETTE_2) { PaletteDropdown(ParamKeys.PALETTE_2, "Second palette", p, onChange, palettes, second = true) }
-        }
-        ControlHint(
-            "MilkDrop presets paint their own colours. This steers them toward the palette above; 0 leaves the preset untouched.",
-            ParamScope.MILKDROP,
-        )
-        LabeledSlider(
-            ParamKeys.MILKDROP_PALETTE_TINT,
-            p.milkdropPaletteTint,
-            0f..1f,
-            display = "Tint toward the palette",
-            default = SceneParams.DEFAULT.milkdropPaletteTint,
-        ) { onChange(p.copy(milkdropPaletteTint = it)) }
-        SectionHeader("Hue")
-        LabeledSlider(ParamKeys.HUE_SHIFT, p.colorShift, 0f..1f, default = SceneParams.DEFAULT.colorShift) {
-            onChange(p.copy(colorShift = it))
-        }
-        LabeledSlider(ParamKeys.HUE_RANGE, p.hueRange, 0f..1.5f, default = SceneParams.DEFAULT.hueRange) { onChange(p.copy(hueRange = it)) }
-        CheckRow(ParamKeys.COLOR_CYCLE, p.colorCycle, display = "Cycle the colours") { onChange(p.copy(colorCycle = it)) }
-        if (p.colorCycle) {
-            LabeledSlider(ParamKeys.CYCLE_SPEED, p.cycleSpeed, 0.02f..0.6f, default = SceneParams.DEFAULT.cycleSpeed) {
-                onChange(p.copy(cycleSpeed = it))
-            }
-        }
-        SectionHeader("Brightness & grading")
-        LabeledSlider(ParamKeys.SATURATION, p.saturation, 0f..1.5f, default = SceneParams.DEFAULT.saturation) {
-            onChange(p.copy(saturation = it))
-        }
-        // Upper ends are the engine's flash clamp (1 + `kMaxFlashDepth` in core/viz/VisualSafety.hpp); past it a slider did nothing.
-        LabeledSlider(ParamKeys.BRIGHTNESS, p.brightness, 0.2f..1.25f, default = SceneParams.DEFAULT.brightness) {
-            onChange(p.copy(brightness = it))
-        }
-        LabeledSlider(ParamKeys.CONTRAST, p.contrast, 0.3f..1.25f, default = SceneParams.DEFAULT.contrast) {
-            onChange(p.copy(contrast = it))
-        }
-        LabeledSlider(ParamKeys.GAMMA, p.gamma, 0.3f..2.5f, display = "Midtones", default = SceneParams.DEFAULT.gamma) {
-            onChange(p.copy(gamma = it))
-        }
-        LabeledSlider(ParamKeys.INTENSITY, p.intensity, 0.2f..1.25f, default = SceneParams.DEFAULT.intensity) {
-            onChange(p.copy(intensity = it))
-        }
-        LabeledSlider(ParamKeys.TEMPERATURE, p.temperature, -1f..1f, display = "Warmth", default = SceneParams.DEFAULT.temperature) {
-            onChange(p.copy(temperature = it))
-        }
-        SectionHeader("Glow & tone")
-        LabeledSlider(ParamKeys.BLOOM, p.bloom, 0f..0.25f, display = "Glow", default = SceneParams.DEFAULT.bloom) {
-            onChange(p.copy(bloom = it))
-        }
-        LabeledSlider(ParamKeys.POSTERIZE, p.posterize, 0f..1f, display = "Fewer colours", default = SceneParams.DEFAULT.posterize) {
-            onChange(p.copy(posterize = it))
-        }
-        CheckRow(ParamKeys.DUOTONE, p.duotone, display = "Two-colour") { onChange(p.copy(duotone = it)) }
-        CheckRow(ParamKeys.SOLARIZE, p.solarize) { onChange(p.copy(solarize = it)) }
-        CheckRow(ParamKeys.INVERT, p.invert, display = "Invert colours") { onChange(p.copy(invert = it)) }
-        LookEffectSections(p, onChange)
-    }
-}
-
-/**
  * A palette pick ([second] for the blend's second slot) as one dropdown row, the built-in palettes then
  * the user's own, with the gradient it paints under it. The chip wall it replaces is still
  * [PaletteSlotSelector] in the palette maker, which owns that page.
  */
 @Composable
-private fun PaletteDropdown(
+internal fun PaletteDropdown(
     lockKey: String,
     name: String,
     p: SceneParams,
@@ -451,183 +350,6 @@ private fun PaletteDropdown(
 }
 
 /**
- * Motion › Movement: how fast the picture runs and how it drifts. The engine's Motion roll group,
- * which [dev.geode.render.scene.CustomizeTab.MOTION] rolls and resets as a page.
- */
-@Composable
-internal fun MovementSections(
-    p: SceneParams,
-    onChange: (SceneParams) -> Unit,
-) {
-    SectionHeader("Movement")
-    LabeledSlider(ParamKeys.SPEED, p.speed, 0.05f..4f, default = SceneParams.DEFAULT.speed) { onChange(p.copy(speed = it)) }
-    LabeledSlider(ParamKeys.ZOOM, p.zoom, 0.3f..3f, default = SceneParams.DEFAULT.zoom) { onChange(p.copy(zoom = it)) }
-    LabeledSlider(ParamKeys.ROTATION, p.rotation, -3f..3f, display = "Spin", default = SceneParams.DEFAULT.rotation) {
-        onChange(p.copy(rotation = it))
-    }
-    LabeledSlider(ParamKeys.SWAY, p.sway, 0f..1f, default = SceneParams.DEFAULT.sway) { onChange(p.copy(sway = it)) }
-    LabeledSlider(ParamKeys.DRIFT_X, p.driftX, -1f..1f, display = "Drift sideways", default = SceneParams.DEFAULT.driftX) {
-        onChange(p.copy(driftX = it))
-    }
-    LabeledSlider(ParamKeys.DRIFT_Y, p.driftY, -1f..1f, display = "Drift up and down", default = SceneParams.DEFAULT.driftY) {
-        onChange(p.copy(driftY = it))
-    }
-}
-
-/** Look's second half: trails and the screen effects (the engine's Fx group). */
-@Composable
-private fun LookEffectSections(
-    p: SceneParams,
-    onChange: (SceneParams) -> Unit,
-) {
-    SectionHeader("Trails", ParamScope.TRAIL_LENGTH)
-    CheckRow(ParamKeys.TRAILS, p.trails) { onChange(p.copy(trails = it)) }
-    LabeledSlider(ParamKeys.TRAIL_LENGTH, p.trailLength, 0.05f..0.98f, default = SceneParams.DEFAULT.trailLength) {
-        onChange(p.copy(trailLength = it))
-    }
-    LabeledSlider(
-        ParamKeys.TRAIL_ZOOM_ECHO_IN_OUT,
-        p.trailZoom,
-        -0.5f..0.5f,
-        display = "Trail zoom",
-        default = SceneParams.DEFAULT.trailZoom,
-    ) { onChange(p.copy(trailZoom = it)) }
-    LabeledSlider(
-        ParamKeys.TRAIL_WARP_LIQUID_ECHO,
-        p.trailWarp,
-        0f..1f,
-        display = "Trail ripple",
-        default = SceneParams.DEFAULT.trailWarp,
-    ) { onChange(p.copy(trailWarp = it)) }
-    SectionHeader("Screen effects")
-    LabeledSlider(
-        ParamKeys.CHROMATIC_ABERRATION,
-        p.chromaAb,
-        0f..1f,
-        display = "Colour fringe",
-        default = SceneParams.DEFAULT.chromaAb,
-    ) { onChange(p.copy(chromaAb = it)) }
-    LabeledSlider(ParamKeys.VIGNETTE, p.vignette, 0f..1f, display = "Dark edges", default = SceneParams.DEFAULT.vignette) {
-        onChange(p.copy(vignette = it))
-    }
-    LabeledSlider(ParamKeys.SCANLINES, p.scanlines, 0f..1f, default = SceneParams.DEFAULT.scanlines) {
-        onChange(p.copy(scanlines = it))
-    }
-    LabeledSlider(ParamKeys.FILM_GRAIN, p.grain, 0f..1f, default = SceneParams.DEFAULT.grain) { onChange(p.copy(grain = it)) }
-    LabeledSlider(ParamKeys.FISHEYE, p.fisheye, -1f..1f, display = "Bulge", default = SceneParams.DEFAULT.fisheye) {
-        onChange(p.copy(fisheye = it))
-    }
-}
-
-/**
- * Whether the style page has anything to show for [sceneId].
- *
- * Shape and symmetry reach every style today (the composite pass applies them to the finished
- * frame), so the page is always there; the check stays so a style that ever loses them loses the
- * page with them instead of showing an empty tab.
- */
-internal fun styleTabApplies(sceneId: String): Boolean = STYLE_SCOPES.any { it.appliesTo(sceneId) }
-
-/**
- * Motion › Zoom & dive and Inner motion: the motion only some styles have. They hide themselves
- * through [ParamScope] on a style without them, like every control.
- */
-@Composable
-internal fun StyleMotionSections(
-    p: SceneParams,
-    onChange: (SceneParams) -> Unit,
-) {
-    SectionHeader("Zoom & dive", ParamScope.ENDLESS_ZOOM)
-    ControlHint("A dive that never arrives. Dive speed sets the rate.", ParamScope.ENDLESS_ZOOM)
-    CheckRow(ParamKeys.ENDLESS_ZOOM, p.endlessZoom) { onChange(p.copy(endlessZoom = it)) }
-    if (p.endlessZoom) {
-        LabeledSlider(ParamKeys.DIVE_SPEED, p.endlessZoomSpeed, 0.05f..1.2f, default = SceneParams.DEFAULT.endlessZoomSpeed) {
-            onChange(p.copy(endlessZoomSpeed = it))
-        }
-    }
-    SectionHeader("Inner motion", ParamScope.TURBULENCE)
-    ControlHint("A force inside the scene, not a screen effect.", ParamScope.TURBULENCE)
-    LabeledSlider(ParamKeys.TURBULENCE, p.turbulence, 0f..1.5f, default = SceneParams.DEFAULT.turbulence) {
-        onChange(p.copy(turbulence = it))
-    }
-}
-
-private val STYLE_SCOPES =
-    listOf(
-        ParamScope.UNIVERSAL,
-        ParamScope.SHADER_LOOK,
-        ParamScope.MARCH_DETAIL,
-        ParamScope.PARTICLE_SPRITE,
-        ParamScope.TURBULENCE,
-        ParamScope.ENDLESS_ZOOM,
-        ParamScope.MILKDROP,
-        ParamScope.FLUID_SIM,
-        ParamScope.WATER,
-        ParamScope.CYMATICS,
-    )
-
-/**
- * Customize › Style: the controls that belong to the style rather than to every style; its motion
- * (the endless dive, inner motion) is on Motion with the rest of what moves.
- * Each section hides itself through [ParamScope] when the style on screen cannot show it, and the
- * Fluid and Cymatics sections appear only on their own kind of style.
- */
-@Composable
-internal fun StyleTab(
-    p: SceneParams,
-    onChange: (SceneParams) -> Unit,
-) {
-    val sceneId = LocalSceneId.current
-    Column {
-        SectionHeader("Shape")
-        LabeledSlider(ParamKeys.DOMAIN_WARP, p.warp, 0f..1f, display = "Warp", default = SceneParams.DEFAULT.warp) {
-            onChange(p.copy(warp = it))
-        }
-        LabeledSlider(ParamKeys.RIPPLE, p.ripple, 0f..1f, default = SceneParams.DEFAULT.ripple) { onChange(p.copy(ripple = it)) }
-        LabeledSlider(ParamKeys.MORPH, p.morph, 0f..1f, default = SceneParams.DEFAULT.morph) { onChange(p.copy(morph = it)) }
-        LabeledSlider(ParamKeys.TWIST, p.twist, -1f..1f, default = SceneParams.DEFAULT.twist) { onChange(p.copy(twist = it)) }
-        SectionHeader("Symmetry & tiling")
-        CheckRow(ParamKeys.KALEIDOSCOPE, p.kaleidoscope) { on ->
-            val folds = if (on && p.symmetry < 2) SceneParams.DEFAULT_SYMMETRY_FOLDS else p.symmetry
-            onChange(p.copy(kaleidoscope = on, symmetry = folds))
-        }
-        if (p.kaleidoscope && visible(ParamKeys.KALEIDOSCOPE, ParamScope.of(ParamKeys.KALEIDOSCOPE))) {
-            val folds = SceneParams.SYMMETRY_FOLDS.filter { it >= 2 }
-            ProGated(ParamKeys.KALEIDOSCOPE, "Folds", "${p.symmetry}") {
-                DropdownRow("Folds", folds.map { "$it" }, selectedIndex = folds.indexOf(p.symmetry)) { idx ->
-                    onChange(p.copy(symmetry = folds[idx]))
-                }
-            }
-        }
-        CheckRow(ParamKeys.MIRROR, p.mirror) { onChange(p.copy(mirror = it)) }
-        LabeledSlider(ParamKeys.TILE, p.tile, 1f..6f, default = SceneParams.DEFAULT.tile) { onChange(p.copy(tile = it)) }
-        LabeledSlider(ParamKeys.PIXELATE, p.pixelate, 0f..1f, default = SceneParams.DEFAULT.pixelate) { onChange(p.copy(pixelate = it)) }
-        SectionHeader("Detail", ParamScope.MARCH_DETAIL)
-        ControlHint("Lower it on slower phones: the picture stays, the edges soften.", ParamScope.MARCH_DETAIL)
-        LabeledSlider(
-            ParamKeys.MARCH_DETAIL,
-            p.marchDetail,
-            Catalogue.range(ParamKeys.MARCH_DETAIL),
-            default = SceneParams.DEFAULT.marchDetail,
-        ) { onChange(p.copy(marchDetail = it)) }
-        SectionHeader("Particles", ParamScope.PARTICLE_SPRITE)
-        ParamChips(ParamKeys.PARTICLE_SHAPE, SceneParams.PARTICLE_SHAPES, p.particleShape) {
-            onChange(p.copy(particleShape = it))
-        }
-        LabeledSlider(ParamKeys.PARTICLE_SIZE, p.particleSize, 0.3f..2.5f, default = SceneParams.DEFAULT.particleSize) {
-            onChange(p.copy(particleSize = it))
-        }
-        LabeledSlider(ParamKeys.DENSITY, p.density, 0.1f..1f, default = SceneParams.DEFAULT.density) { onChange(p.copy(density = it)) }
-        SectionHeader("MilkDrop", ParamScope.MILKDROP)
-        CheckRow(ParamKeys.BLEND_PRESET_CHANGES, p.milkdropBlendPresets) { onChange(p.copy(milkdropBlendPresets = it)) }
-        if (SceneCapabilities.isFluid(sceneId) || ParamScope.WATER.appliesTo(sceneId) || ParamScope.JOURNEY.appliesTo(sceneId)) {
-            FluidStyleSections(p, onChange)
-        }
-        if (SceneCapabilities.isCymatics(sceneId)) CymaticsSections(p, onChange)
-    }
-}
-
-/**
  * A pick from a list as one row: "Name   value ▾  ⋮" (UI V2 rule 2: dropdowns, not chip walls).
  *
  * A tap anywhere on the name or value opens the options as a menu with the current one checked, so
@@ -649,13 +371,14 @@ internal fun DropdownRow(
     val enabled = !LocalLockedByPro.current
     val value = options.getOrNull(selectedIndex) ?: placeholder
     var open by remember { mutableStateOf(false) }
+    val chooseLabel = stringResource(R.string.customize_a11y_choose, name)
     Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.weight(1f)) {
             Row(
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = GeodeSpacing.TouchTarget)
-                    .clickable(enabled = enabled, role = Role.DropdownList, onClickLabel = "Choose $name") { open = true }
+                    .clickable(enabled = enabled, role = Role.DropdownList, onClickLabel = chooseLabel) { open = true }
                     // TalkBack: "Mode, Step, drop-down list" once, not the value twice (as text and as state).
                     .semantics(mergeDescendants = true) {
                         contentDescription = name
@@ -682,7 +405,13 @@ internal fun DropdownRow(
                         text = { Text(label) },
                         trailingIcon =
                             if (i == selectedIndex) {
-                                { Icon(Icons.Filled.Check, contentDescription = "Selected", tint = accentTextColor()) }
+                                {
+                                    Icon(
+                                        Icons.Filled.Check,
+                                        contentDescription = stringResource(R.string.customize_a11y_selected),
+                                        tint = accentTextColor(),
+                                    )
+                                }
                             } else {
                                 null
                             },
@@ -771,8 +500,19 @@ internal fun ParamChips(
 }
 
 /**
- * One slider row, two lines and about 64 dp: "Name  value ⋮" over the track. A double tap on the
+ * One slider row, two lines and about 80 dp: "Name  value ⋮" over the track. A double tap on the
  * name puts it back to [default]; the ⋮ has Reset and Keep as well.
+ *
+ * WHY a "Reset" custom action on the name row as well (issue #554's audit): a double tap is a
+ * pointer gesture TalkBack cannot make (its own double tap is "activate"), so without it the
+ * gesture has no accessible equivalent (WCAG 2.5.1). The action calls the same [reset], and is
+ * offered only while the double tap would do something: a value off its default, not Pro-locked.
+ *
+ * WHY the track's box is at least 48 dp tall (issue #554 row 3): it was forced to 32 dp, which
+ * clipped the slider's touch target and let it overlap the rows beside it. `heightIn(min =)` lets
+ * the Slider keep its own drawn track and thumb, centred in a target of [GeodeSpacing.TouchTarget]
+ * (Compose › API defaults › "Minimum touch target sizes": at least 48 dp, so touch areas cannot
+ * overlap). The row grows by 16 dp; nothing is drawn differently.
  *
  * The value goes through [ParamFormat] (a % for amounts, × for multipliers, s/ms, Hz, °) and reads
  * "Default" at the default. A unit suffix in the key ("Particle life (s)") is dropped from the
@@ -803,13 +543,29 @@ internal fun LabeledSlider(
     // The value before a locked drag began, put back on release.
     var before by remember(label) { mutableStateOf<Float?>(null) }
     val reset: (() -> Unit)? = default?.takeIf { abs(value - it) > RESET_EPSILON }?.let { d -> { onChange(d) } }
+    val resetLabel = stringResource(R.string.customize_a11y_reset)
+    val sliderLabel = if (locked) stringResource(R.string.customize_a11y_part_of_pro, name) else name
     Column(Modifier.alpha(if (locked) LOCKED_ALPHA else 1f)) {
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = 32.dp)
-                    .pointerInput(label, locked, reset) { detectTapGestures(onDoubleTap = { if (!locked) reset?.invoke() }) },
+                    .pointerInput(label, locked, reset) { detectTapGestures(onDoubleTap = { if (!locked) reset?.invoke() }) }
+                    // Merged, so the row is one TalkBack stop ("Name, value") that can carry the action;
+                    // the ⋮ inside keeps its own stop, being clickable.
+                    .semantics(mergeDescendants = true) {
+                        val action = reset?.takeIf { !locked }
+                        if (action != null) {
+                            customActions =
+                                listOf(
+                                    CustomAccessibilityAction(resetLabel) {
+                                        action()
+                                        true
+                                    },
+                                )
+                        }
+                    },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(name, style = MaterialTheme.typography.bodyMedium)
@@ -837,8 +593,8 @@ internal fun LabeledSlider(
                 },
             // A thumb at 0 sits in the back-gesture strip; without the exclusion a drag from it leaves the screen.
             modifier =
-                Modifier.fillMaxWidth().height(32.dp).systemGestureExclusion().semantics {
-                    contentDescription = if (locked) "$name, part of Pro" else name
+                Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget).systemGestureExclusion().semantics {
+                    contentDescription = sliderLabel
                     stateDescription = shown
                 },
         )
@@ -915,288 +671,6 @@ internal fun CardSubHeader(title: String) {
         color = accentTextColor(),
     )
 }
-
-/**
- * The style page's Fluid, Water and particle-journey sections. Every one hides itself through its
- * [ParamScope], and the solver's own sections also ask [SceneCapabilities.isFluid], so a water or
- * curl-flow style shows only what it actually reads.
- */
-@Composable
-private fun FluidStyleSections(
-    p: SceneParams,
-    onChange: (SceneParams) -> Unit,
-) {
-    val sceneId = LocalSceneId.current
-    val isFluidScene = SceneCapabilities.isFluid(sceneId)
-    SectionHeader("Water", ParamScope.WATER)
-    ControlHint("Hits drop expanding rings, stirrers carve wakes, the journey decides where they land.", ParamScope.WATER)
-    LabeledSlider(ParamKeys.RIPPLE_STRENGTH, p.waterRippleStrength, 0f..2f, default = SceneParams.DEFAULT.waterRippleStrength) {
-        onChange(p.copy(waterRippleStrength = it))
-    }
-    LabeledSlider(ParamKeys.DEPTH, p.waterDepth, 0f..1f, default = SceneParams.DEFAULT.waterDepth) { onChange(p.copy(waterDepth = it)) }
-    LabeledSlider(ParamKeys.SPECULAR, p.waterSpecular, 0f..1f, display = "Shine", default = SceneParams.DEFAULT.waterSpecular) {
-        onChange(p.copy(waterSpecular = it))
-    }
-    LabeledSlider(ParamKeys.FLOW_DRIFT, p.waterFlow, 0f..1f, default = SceneParams.DEFAULT.waterFlow) { onChange(p.copy(waterFlow = it)) }
-    if (ParamScope.WATER.appliesTo(sceneId)) {
-        LabeledSlider(ParamKeys.WAVE_SPEED, p.waterWaveSpeed, 0.2f..2f, default = SceneParams.DEFAULT.waterWaveSpeed) {
-            onChange(p.copy(waterWaveSpeed = it))
-        }
-        LabeledSlider(ParamKeys.DAMPING, p.waterDamping, 0.9f..0.999f, display = "Calming", default = SceneParams.DEFAULT.waterDamping) {
-            onChange(p.copy(waterDamping = it))
-        }
-    }
-    SectionHeader(ParamKeys.LIQUID, ParamScope.WATER)
-    ControlHint("Every splash stains a colour film the surface carries. Turn it down for a plain pool.", ParamScope.WATER)
-    LabeledSlider(ParamKeys.LIQUID, p.waterLiquid, 0f..1f, default = SceneParams.DEFAULT.waterLiquid) { onChange(p.copy(waterLiquid = it)) }
-    if (p.waterLiquid > 0.001f) {
-        LabeledSlider(ParamKeys.LIQUID_FLOW, p.waterLiquidFlow, 0f..4f, default = SceneParams.DEFAULT.waterLiquidFlow) {
-            onChange(p.copy(waterLiquidFlow = it))
-        }
-        LabeledSlider(ParamKeys.LIQUID_FADE, p.waterLiquidFade, 0f..2f, default = SceneParams.DEFAULT.waterLiquidFade) {
-            onChange(p.copy(waterLiquidFade = it))
-        }
-    }
-    SectionHeader("Journey", ParamScope.JOURNEY)
-    ControlHint(
-        "Spawn points give birth to particles and colour; catch points pull them in. The music walks both around the screen.",
-        ParamScope.JOURNEY,
-    )
-    ParamChips(ParamKeys.PATH, SceneParams.FLUID_PATHS, p.fluidSpawnPath.coerceIn(0, SceneParams.FLUID_PATHS.size - 1)) {
-        onChange(p.copy(fluidSpawnPath = it))
-    }
-    LabeledIntSlider(ParamKeys.SPAWN_POINTS, p.fluidSpawnPoints, 1..8) { onChange(p.copy(fluidSpawnPoints = it)) }
-    LabeledSlider(PROGRESSION, p.fluidSpawnProgress, 0f..1f, scope = ParamScope.JOURNEY, default = SceneParams.DEFAULT.fluidSpawnProgress) {
-        onChange(p.copy(fluidSpawnProgress = it))
-    }
-    LabeledIntSlider(ParamKeys.CATCH_POINTS, p.fluidCatchPoints, 0..4) { onChange(p.copy(fluidCatchPoints = it)) }
-    if (p.fluidCatchPoints > 0) {
-        LabeledSlider(ParamKeys.CATCH_PULL, p.fluidCatchPull, 0f..3f, default = SceneParams.DEFAULT.fluidCatchPull) {
-            onChange(p.copy(fluidCatchPull = it))
-        }
-        LabeledSlider(ParamKeys.CATCH_RADIUS, p.fluidCatchRadius, 0.03f..0.3f, default = SceneParams.DEFAULT.fluidCatchRadius) {
-            onChange(p.copy(fluidCatchRadius = it))
-        }
-    }
-    if (sectionVisible(ParamScope.EMITTERS)) {
-        SectionHeader("Quality", ParamScope.EMITTERS)
-        val labels = FluidQuality.LABELS
-        val quality = p.fluidQuality.coerceIn(0, labels.size - 1)
-        ProGated(FLUID_QUALITY, value = labels[quality]) {
-            DropdownRow(FLUID_QUALITY, labels, quality) { onChange(p.copy(fluidQuality = it)) }
-        }
-        CheckRow(AUTO_QUALITY, p.fluidAutoQuality, scope = ParamScope.EMITTERS) { onChange(p.copy(fluidAutoQuality = it)) }
-    }
-    LabeledIntSlider(ParamKeys.SOLVER_ITERATIONS, p.fluidIterations, 8..40, display = "Accuracy") { onChange(p.copy(fluidIterations = it)) }
-    if (isFluidScene) FluidSolverSections(p, onChange)
-    SectionHeader("Emitters", ParamScope.EMITTERS)
-    ParamChips(ParamKeys.BEAT_PATTERN, SceneParams.FLUID_PATTERNS, p.fluidBeatPattern.coerceIn(0, 3)) {
-        onChange(p.copy(fluidBeatPattern = it))
-    }
-    LabeledIntSlider(ParamKeys.BEAT_SPLATS, p.fluidBeatSplats, 0..8) { onChange(p.copy(fluidBeatSplats = it)) }
-    LabeledIntSlider(ParamKeys.STIRRERS, p.fluidStirrers, 0..4) { onChange(p.copy(fluidStirrers = it)) }
-    LabeledSlider(ParamKeys.STIRRER_SPEED, p.fluidStirrerSpeed, 0f..2f, default = SceneParams.DEFAULT.fluidStirrerSpeed) {
-        onChange(p.copy(fluidStirrerSpeed = it))
-    }
-    LabeledSlider(ParamKeys.FLUID_SPLAT_RADIUS, p.fluidSplatRadius, 0.02f..0.4f, default = SceneParams.DEFAULT.fluidSplatRadius) {
-        onChange(p.copy(fluidSplatRadius = it))
-    }
-    LabeledSlider(ParamKeys.RADIUS_ON_BEAT, p.fluidRadiusPulse, 0f..1f, default = SceneParams.DEFAULT.fluidRadiusPulse) {
-        onChange(p.copy(fluidRadiusPulse = it))
-    }
-    LabeledSlider(ParamKeys.FLUID_SPLAT_FORCE, p.fluidSplatForce, 0f..3f, default = SceneParams.DEFAULT.fluidSplatForce) {
-        onChange(p.copy(fluidSplatForce = it))
-    }
-    CheckRow(ParamKeys.BASS_PUMP, p.fluidBassPump) { onChange(p.copy(fluidBassPump = it)) }
-    CheckRow(ParamKeys.TREBLE_SPARKLE, p.fluidSparkle) { onChange(p.copy(fluidSparkle = it)) }
-    LabeledSlider(ParamKeys.PALETTE_CYCLE, p.fluidPaletteCycleSpeed, 0f..2f, default = SceneParams.DEFAULT.fluidPaletteCycleSpeed) {
-        onChange(p.copy(fluidPaletteCycleSpeed = it))
-    }
-    SectionHeader("Fluid particles", ParamScope.PARTICLE_SPRITE)
-    if (isFluidScene) {
-        CheckRow(PARTICLE_LAYER, p.fluidParticlesEnabled, scope = ParamScope.FLUID_SIM) { onChange(p.copy(fluidParticlesEnabled = it)) }
-    }
-    if (!isFluidScene || p.fluidParticlesEnabled) {
-        LabeledSlider(ParamKeys.PARTICLE_DRAG, p.fluidParticleDrag, 0.02f..1f, default = SceneParams.DEFAULT.fluidParticleDrag) {
-            onChange(p.copy(fluidParticleDrag = it))
-        }
-        LabeledSlider(ParamKeys.PARTICLE_LIFE_S, p.fluidParticleLife, 1f..20f, default = SceneParams.DEFAULT.fluidParticleLife) {
-            onChange(p.copy(fluidParticleLife = it))
-        }
-        LabeledSlider(
-            ParamKeys.PARTICLE_BRIGHTNESS,
-            p.fluidParticleBrightness,
-            0f..2f,
-            default = SceneParams.DEFAULT.fluidParticleBrightness,
-        ) { onChange(p.copy(fluidParticleBrightness = it)) }
-    }
-    if (isFluidScene) {
-        CheckRow(INK_LAYER, p.fluidDyeEnabled, scope = ParamScope.FLUID_SIM) { onChange(p.copy(fluidDyeEnabled = it)) }
-    }
-}
-
-/** The Fluid solver's own sections: only ever drawn on a Fluid style. */
-@Composable
-private fun FluidSolverSections(
-    p: SceneParams,
-    onChange: (SceneParams) -> Unit,
-) {
-    SectionHeader("Character", ParamScope.FLUID_SIM)
-    LabeledSlider(ParamKeys.FLUID_CURL, p.fluidCurl, 0f..50f, display = "Swirl", default = SceneParams.DEFAULT.fluidCurl) {
-        onChange(p.copy(fluidCurl = it))
-    }
-    LabeledSlider(ParamKeys.MOTION_FADE, p.fluidVelocityDissipation, 0f..4f, default = SceneParams.DEFAULT.fluidVelocityDissipation) {
-        onChange(p.copy(fluidVelocityDissipation = it))
-    }
-    LabeledSlider(ParamKeys.FLUID_FADE, p.fluidDensityDissipation, 0f..4f, default = SceneParams.DEFAULT.fluidDensityDissipation) {
-        onChange(p.copy(fluidDensityDissipation = it))
-    }
-    LabeledSlider(
-        ParamKeys.CHROMATIC_AGING,
-        p.fluidChromaticAging,
-        0f..1f,
-        display = "Colour ageing",
-        default = SceneParams.DEFAULT.fluidChromaticAging,
-    ) {
-        onChange(p.copy(fluidChromaticAging = it))
-    }
-    LabeledSlider(ParamKeys.PRESSURE, p.fluidPressure, 0f..1f, default = SceneParams.DEFAULT.fluidPressure) {
-        onChange(p.copy(fluidPressure = it))
-    }
-    SectionHeader("Fluid look", ParamScope.FLUID_SIM)
-    CheckRow(ParamKeys.SHADING_EMBOSSED_INK, p.fluidShading, display = "Embossed ink") { onChange(p.copy(fluidShading = it)) }
-    CheckRow(ParamKeys.GLOW_FLUID, p.fluidBloom, display = "Glow") { onChange(p.copy(fluidBloom = it)) }
-    if (p.fluidBloom) {
-        LabeledSlider(
-            ParamKeys.FLUID_GLOW,
-            p.fluidBloomIntensity,
-            0.1f..2f,
-            display = "Glow amount",
-            default = SceneParams.DEFAULT.fluidBloomIntensity,
-        ) {
-            onChange(p.copy(fluidBloomIntensity = it))
-        }
-        LabeledSlider(ParamKeys.GLOW_THRESHOLD, p.fluidBloomThreshold, 0f..1f, default = SceneParams.DEFAULT.fluidBloomThreshold) {
-            onChange(p.copy(fluidBloomThreshold = it))
-        }
-    }
-    CheckRow(ParamKeys.SUNRAYS, p.fluidSunrays) { onChange(p.copy(fluidSunrays = it)) }
-    if (p.fluidSunrays) {
-        LabeledSlider(
-            ParamKeys.SUNRAYS_WEIGHT,
-            p.fluidSunraysWeight,
-            0.3f..1f,
-            display = "Sunray strength",
-            default = SceneParams.DEFAULT.fluidSunraysWeight,
-        ) {
-            onChange(p.copy(fluidSunraysWeight = it))
-        }
-    }
-    SectionHeader("What the music moves", ParamScope.FLUID_SIM)
-    LabeledSlider(
-        ParamKeys.CURL_FROM_MIDS,
-        p.fluidCurlAudio,
-        0f..1f,
-        display = "Swirl from the mids",
-        default = SceneParams.DEFAULT.fluidCurlAudio,
-    ) {
-        onChange(p.copy(fluidCurlAudio = it))
-    }
-    LabeledSlider(
-        ParamKeys.GLOW_FROM_LOUDNESS,
-        p.fluidBloomAudio,
-        0f..1f,
-        display = "Glow from volume",
-        default = SceneParams.DEFAULT.fluidBloomAudio,
-    ) {
-        onChange(p.copy(fluidBloomAudio = it))
-    }
-    LabeledSlider(ParamKeys.FADE_WHEN_QUIET, p.fluidFadeAudio, 0f..1f, default = SceneParams.DEFAULT.fluidFadeAudio) {
-        onChange(p.copy(fluidFadeAudio = it))
-    }
-}
-
-@Composable
-private fun CymaticsSections(
-    p: SceneParams,
-    onChange: (SceneParams) -> Unit,
-) {
-    val activeSceneId = LocalSceneId.current
-    SectionHeader("Wave", ParamScope.CYMATICS)
-    ControlHint(
-        "The standing-wave pattern of whatever is playing. A pure tone draws one clean figure, a chord the sum of its notes.",
-        ParamScope.CYMATICS,
-    )
-    val forcedGeometry =
-        Catalogue
-            .override(activeSceneId, ParamKeys.GEOMETRY)
-            ?.let { SceneParams.CYMATICS_GEOMETRIES.getOrNull(it.toInt()) }
-    if (forcedGeometry != null) {
-        ControlHint("Shape set by this style: $forcedGeometry.", ParamScope.CYMATICS)
-    } else {
-        ParamChips(ParamKeys.GEOMETRY, SceneParams.CYMATICS_GEOMETRIES, p.cymaticsGeometry) { onChange(p.copy(cymaticsGeometry = it)) }
-    }
-    LabeledSlider(ParamKeys.FUNDAMENTAL_HZ, p.cymaticsFundamental, Catalogue.range(ParamKeys.FUNDAMENTAL_HZ), display = "Base note (Hz)") {
-        onChange(p.copy(cymaticsFundamental = it))
-    }
-    LabeledIntSlider(ParamKeys.STANDING_WAVES, p.cymaticsModes, 1..Catalogue.range(ParamKeys.STANDING_WAVES).endInclusive.toInt()) {
-        onChange(p.copy(cymaticsModes = it))
-    }
-    LabeledSlider(ParamKeys.TONAL_FOCUS, p.cymaticsFocus, 0f..1f, default = SceneParams.DEFAULT.cymaticsFocus) {
-        onChange(p.copy(cymaticsFocus = it))
-    }
-    LabeledSlider(ParamKeys.PLATE_RING, p.cymaticsRing, 0f..1f, default = SceneParams.DEFAULT.cymaticsRing) {
-        onChange(p.copy(cymaticsRing = it))
-    }
-    SectionHeader("Field", ParamScope.CYMATICS)
-    ControlHint("How much of the wave pattern fills the screen, and how it moves through it.", ParamScope.CYMATICS)
-    LabeledSlider(ParamKeys.FIELD_SCALE, p.cymaticsScale, 0.5f..8f, default = SceneParams.DEFAULT.cymaticsScale) {
-        onChange(p.copy(cymaticsScale = it))
-    }
-    LabeledSlider(ParamKeys.WAVE_FLOW, p.cymaticsFlow, 0f..1f, default = SceneParams.DEFAULT.cymaticsFlow) {
-        onChange(p.copy(cymaticsFlow = it))
-    }
-    LabeledSlider(ParamKeys.FIELD_SWIRL, p.cymaticsSwirl, -1f..1f, default = SceneParams.DEFAULT.cymaticsSwirl) {
-        onChange(p.copy(cymaticsSwirl = it))
-    }
-    SectionHeader("Surface", ParamScope.CYMATICS)
-    ControlHint("Fill runs from bare lines on dark cells to a fully filled, shimmering surface.", ParamScope.CYMATICS)
-    LabeledSlider(ParamKeys.FILL, p.cymaticsFill, 0f..1f, default = SceneParams.DEFAULT.cymaticsFill) {
-        onChange(p.copy(cymaticsFill = it))
-    }
-    LabeledSlider(ParamKeys.NODAL_LINES, p.cymaticsLine, 0f..2f, display = "Still lines", default = SceneParams.DEFAULT.cymaticsLine) {
-        onChange(p.copy(cymaticsLine = it))
-    }
-    LabeledSlider(ParamKeys.NODAL_GLOW, p.cymaticsGlow, 0f..2f, display = "Line glow", default = SceneParams.DEFAULT.cymaticsGlow) {
-        onChange(p.copy(cymaticsGlow = it))
-    }
-    LabeledSlider(
-        ParamKeys.IRIDESCENCE,
-        p.cymaticsIridescence,
-        0f..1f,
-        display = "Rainbow sheen",
-        default = SceneParams.DEFAULT.cymaticsIridescence,
-    ) {
-        onChange(p.copy(cymaticsIridescence = it))
-    }
-    LabeledSlider(
-        ParamKeys.CAUSTIC_SHEEN,
-        p.cymaticsCaustic,
-        0f..1.5f,
-        display = "Light ripples",
-        default = SceneParams.DEFAULT.cymaticsCaustic,
-    ) {
-        onChange(p.copy(cymaticsCaustic = it))
-    }
-}
-
-// Names for the controls that are panel machinery rather than scene parameters. They live in one
-// place so the search matches them and nothing has to spell a string twice.
-private const val PROGRESSION = "Progression"
-private const val FLUID_QUALITY = "Fluid quality"
-private const val AUTO_QUALITY = "Lower the quality when the phone struggles"
-private const val PARTICLE_LAYER = "Particle layer"
-private const val INK_LAYER = "Ink layer"
 
 /** Wraps a tab's content in the scene + search context every control reads. */
 @Composable

@@ -348,12 +348,7 @@ object GeodeNative {
         pitch: Float,
     )
 
-    external fun vizSetThermal(
-        handle: Long,
-        platformStatus: Int,
-        headroom: Float,
-    )
-
+    /** This surface's own fps cap, 0 when free-running; the thermal cap is applied under it natively. */
     external fun vizSetPacedFps(
         handle: Long,
         fps: Float,
@@ -373,8 +368,11 @@ object GeodeNative {
         policy: Int,
     )
 
-    /** What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (`liquid::Mode`). */
-    external fun vizLiquidMode(handle: Long): Int
+    /**
+     * What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (`liquid::Mode`), or -1
+     * when it has not changed since the last take. Take it every frame; a new surface reports again.
+     */
+    external fun vizTakeLiquidMode(handle: Long): Int
 
     /**
      * Pins this renderer's auto-director (an export's): from then on it ignores [directorSet], so the live
@@ -925,10 +923,16 @@ object GeodeNative {
 
     // The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt.
 
-    /** Six longs the caller owns, zeroed at first, stepped in place: the pacer's whole state. */
-    const val PACER_STATE_LONGS = 6
+    /** Seven longs the caller owns, zeroed at first, stepped in place: the pacer's whole state. */
+    const val PACER_STATE_LONGS = 7
 
-    /** One vsync: the dt in seconds to draw with, or 0 to skip it. [capFps] <= 0 draws every vsync. */
+    /** The state slot holding the cap the last vsync paced to, in millihertz (0 = none). */
+    const val PACER_CAP_SLOT = 6
+
+    /**
+     * One vsync: the dt in seconds to draw with, or 0 to skip it. [capFps] is the surface's own cap
+     * (<= 0 draws every vsync); native paces to min([capFps], the thermal cap).
+     */
     external fun pacerOnVsync(
         state: LongArray,
         frameTimeNanos: Long,
@@ -937,4 +941,18 @@ object GeodeNative {
 
     /** A start after a stop: forget the gap, keep the panel's period. */
     external fun pacerResume(state: LongArray)
+
+    /** The cap a surface asking for [capFps] runs at now, under the thermal cap; 0 = none. For `Surface.setFrameRate`. */
+    external fun pacerEffectiveCap(capFps: Float): Float
+
+    // The process's one thermal state (core/viz/frame/Thermal).
+
+    /** Polled each frame by every live renderer: true for at most one caller a second in the process. */
+    external fun thermalSampleDue(): Boolean
+
+    /** One PowerManager reading: status (< 0 = no thermal API) and headroom (NaN = none this time). */
+    external fun thermalPush(
+        platformStatus: Int,
+        headroom: Float,
+    )
 }

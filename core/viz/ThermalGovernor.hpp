@@ -2,17 +2,11 @@
 #include <array>
 #include <atomic>
 #include <cmath>
+#include <cstdint>
+
+#include "viz/frame/Thermal.hpp"
 
 namespace geode::viz {
-
-enum class ThermalTier { Full, Eased, Reduced, Minimal };
-
-struct ThermalTierInfo {
-    float renderScale;
-    bool optionalPasses;
-    float fpsCap;  // 0 = none
-};
-const ThermalTierInfo& thermalTierInfo(ThermalTier tier);
 
 // The performance monitor: downgrades on a sustained deficit, never upgrades.
 class PerformanceMonitor {
@@ -42,20 +36,26 @@ private:
     std::atomic<float> pacedFps_{kFreeRunning};
 };
 
-// Port of ThermalGovernor.kt; the platform readings (status, headroom) are pushed in by the host.
+// One renderer's view of the process's thermal state (frame/Thermal.hpp, #440). The platform readings
+// and the settled tier are shared, so every surface reads the same tier; what stays per renderer is what
+// only it can see: its own frame times (the measured fallback), whether it is an export, and its own cap.
 class ThermalGovernor {
 public:
-    ThermalTier tier() const { return offscreenDepth_.load() > 0 ? ThermalTier::Full : settled_.load(); }
+    explicit ThermalGovernor(ThermalState& shared = ThermalState::process()) : shared_(shared) {}
+
+    // An export always renders at Full: it runs as fast as the encoder takes frames, and its video must
+    // not depend on how warm the phone was.
+    ThermalTier tier() const { return offscreenDepth_.load() > 0 ? ThermalTier::Full : shared_.tier(); }
+    const ThermalTierInfo& tierInfo() const { return thermalTierInfo(tier()); }
+    // The surface's own cap (Settings › Performance, the wallpaper's, the dream's), 0 when free-running.
     void setPacedFps(float fps) { pacedFps_.store(fps); }
-    float pacedFps() const { return pacedFps_.load(); }
+    // The rate this surface really draws at: its cap under the thermal one, as the pacer applies it.
+    // The fluid scenes and the measured fallback read this, so a 30 fps thermal cap is never mistaken
+    // for a phone that cannot keep up with 60.
+    float pacedFps() const { return frame::effectiveCapFps(pacedFps_.load(), tierInfo().fpsCap); }
     // Settings › Performance "Adapt to frame time": measured frame time steers the tier even when
     // the platform reports thermals, and a sustained run of kept-up frames steps it back up.
-    void setAdaptive(bool on) { adaptive_.store(on); }
-
-    // Marks the platform as answering; called once with the first real status.
-    void setPlatformStatus(int status) { osStatus_.store(status); platformKnows_.store(true); }
-    // NaN means no forecast; sampled by the host at most once a second.
-    void setThermalHeadroom(float headroom) { headroom_.store(headroom); }
+    void setAdaptive(bool on);
 
     void onFrame(float dtSeconds);
     void onSurfaceRecreated();
@@ -63,37 +63,17 @@ public:
     void endOffscreenRender();
 
 private:
-    static constexpr int kStatusNone = 0;
-    static constexpr int kStatusLight = 1;
-    static constexpr int kStatusModerate = 2;
-    static constexpr float kSamplePeriodSeconds = 1.25f;
-    static constexpr float kEscalateDwellSeconds = 3.0f;
-    static constexpr float kRelaxDwellSeconds = 60.0f;
-    static constexpr float kHeadroomEased = 0.75f;
-    static constexpr float kHeadroomReduced = 0.85f;
-    static constexpr float kHeadroomMinimal = 0.95f;
     static constexpr float kMeasuredRelaxSeconds = 45.0f;
 
     void trackMeasuredTrend(float dtSeconds);
-    ThermalTier observe() const;
-    void settle(ThermalTier observed);
-    static ThermalTier statusTier(int status);
-    ThermalTier headroomTier() const;
 
-    std::atomic<ThermalTier> settled_{ThermalTier::Full};
-    std::atomic<int> osStatus_{kStatusNone};
-    std::atomic<bool> platformKnows_{false};
-    std::atomic<float> headroom_{NAN};
+    ThermalState& shared_;
     std::atomic<int> offscreenDepth_{0};
     std::atomic<float> pacedFps_{0.0f};
     std::atomic<bool> adaptive_{false};
     float keptUpSeconds_ = 0.0f;
+    uint64_t seenRaises_ = 0;
     PerformanceMonitor monitor_;
-    ThermalTier measuredFloor_ = ThermalTier::Full;
-    static constexpr ThermalTier kMeasuredCeiling = ThermalTier::Reduced;
-    float sampleClock_ = 0.0f;
-    float hotDwellSeconds_ = 0.0f;
-    float coolDwellSeconds_ = 0.0f;
 };
 
 }  // namespace geode::viz

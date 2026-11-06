@@ -260,6 +260,10 @@ _Avoid_: State, settings, the look for one auto-director decision (that is a dir
 One auto-director decision: a palette, a behaviour and a set of routes, glided in over a bar. Never the same director look twice in a row of six. It modulates the user's look; it never changes it.
 _Avoid_: Look (alone)
 
+**Look snapshot**:
+Everything the user set that decides what a renderer draws (style, params, LFOs, envelopes, their own reactions, sound tuning, reduced motion, transition, background), as one value every surface draws: live, wallpaper, dream, Cast, export. An export pins one when it starts. `render/look/LookSnapshot`.
+_Avoid_: Live state, look (that is the auto-director's)
+
 **Note & key reactions**:
 Settings › Behaviour's switch that lets notes, chords, key and mood move every style inside the director look: a colour per note and a tint toward it, leaps swing and steps glide, tension bends and resolution smooths, a chord change shifts the fold count, drums weighted by how percussive the track is. Free and on by default; Customize › Advanced › Note & key (Pro) tunes it per style. See `docs/research/note-key-response.md`.
 _Avoid_: Note mode, melody mode

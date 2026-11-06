@@ -3,24 +3,22 @@ package dev.geode.render.offscreen
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import dev.geode.engine.audio.SoundTuning
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.AdsrConfig
 import dev.geode.render.HandMask
-import dev.geode.render.LfoConfig
-import dev.geode.render.ReactionRoute
 import dev.geode.render.SceneFactory
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.bridge.StyleSchedule
+import dev.geode.render.look.LookApplier
+import dev.geode.render.look.LookSnapshot
 import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
 
 /**
- * Everything needed to render one offscreen sequence: the frame grid and the parameter
- * automation that drives it.
+ * Everything needed to render one offscreen sequence: the frame grid, the [look] the caller pinned
+ * (a value: live edits never reach it) and the automation that moves it.
  *
  * [paramsAt] supplies the keyframed parameters for a timeline position, measured from the start
- * of the exported range; when it is null every frame uses [baseParams].
+ * of the exported range; when it is null every frame uses the look's params.
  */
 data class OffscreenRenderSpec(
     val width: Int,
@@ -28,22 +26,13 @@ data class OffscreenRenderSpec(
     val fps: Int,
     val totalFrames: Int,
     val rangeStartMs: Long,
-    val baseParams: SceneParams,
-    val lfoConfigs: List<LfoConfig> = emptyList(),
-    val adsrConfigs: List<AdsrConfig> = emptyList(),
-    // The user's reaction routes; null plays the style's DNA. Merged with the live DNA under the hand mask
-    // (the hand wins per moment) exactly as the live renderer does, so the export matches the screen.
-    val reactions: List<ReactionRoute>? = null,
-    val reducedMotion: Boolean = false,
+    // Its underlay decoded by the caller at [width]x[height]. Cut transitions and fixed quality are native
+    // (geode_viz_prepare_offscreen), not the look's.
+    val look: LookSnapshot,
     val paramsAt: ((Long) -> SceneParams)? = null,
-    // W02: the background image behind the scene, decoded by the caller at [width]x[height] and
-    // latched once in [OffscreenSceneRenderer.prepare] - see NativeViz.setUnderlay.
-    val underlay: OffscreenUnderlay? = null,
     // The track the range is cut from: the export's own sound engine hears it frame by frame
     // (TrackAudio), the same way the screen's engine hears the ring. Null renders without sound.
     val audioUri: Uri? = null,
-    // Settings › Audio, the same tuning the screen used.
-    val soundTuning: SoundTuning = SoundTuning(),
     // An export's length: non-null pins the engine settings (macros, Note & key switch, hand mask, director)
     // natively at prepare (NativeViz.pinEngineSettings, #350), so live edits never reach the render; the
     // director's free-taste rule is native. Null follows the process globals (previews, thumbnails).
@@ -53,21 +42,6 @@ data class OffscreenRenderSpec(
     // Studio 2D: the styles this range switches to (a take's switches, a beat cut), on render time
     // since [rangeStartMs]. The native renderer times them; empty draws the factory's style throughout.
     val styleSchedule: StyleSchedule = StyleSchedule.NONE,
-)
-
-/**
- * A background image ready to latch into the export's native renderer; see
- * [OffscreenRenderSpec.underlay].
- *
- * A plain class, not a data class: [pixels] is a large array, and the compiler-generated
- * equals()/hashCode() a data class would get compare it by reference anyway, which is misleading.
- */
-class OffscreenUnderlay(
-    val pixels: IntArray,
-    val width: Int,
-    val height: Int,
-    val blend: Int,
-    val amount: Float,
 )
 
 /**
@@ -84,6 +58,10 @@ class OffscreenSceneRenderer(
 ) {
     private var native: NativeViz? = null
     private var audio: TrackAudio? = null
+
+    // The factory's style opens the range (a take's opening style); the schedule switches natively after.
+    private val look = spec.look.copy(sceneId = sceneFactory.sceneId)
+    private val looks = LookApplier()
 
     // The hand mask the route merge uses: the native pin's for an export, else the process's live one.
     private var pinnedHandMask: Int? = null
@@ -102,12 +80,9 @@ class OffscreenSceneRenderer(
         check(viz.setScene(sceneFactory.sceneId)) { "native renderer cannot draw \"${sceneFactory.sceneId}\"" }
         sceneFactory.milkPresetPath?.let { viz.loadMilkPreset(it) }
         viz.setStyleSchedule(spec.styleSchedule)
-        viz.setReducedMotion(spec.reducedMotion)
-        if (spec.lfoConfigs.isNotEmpty()) viz.setLfoConfigs(spec.lfoConfigs)
-        if (spec.adsrConfigs.isNotEmpty()) viz.setAdsrConfigs(spec.adsrConfigs)
-        spec.underlay?.let { viz.setUnderlay(it.pixels, it.width, it.height, it.blend, it.amount) }
-        viz.setSoundTuning(spec.soundTuning.toFloats())
+        // Pinned first: the hand mask the pin returns is what the routes merge under (an export's, not the live one).
         pinnedHandMask = spec.pinDurationMs?.let { viz.pinEngineSettings(spec.entitled, it) }
+        looks.apply(look, viz, handMask = pinnedHandMask ?: HandMask.current)
         native = viz
         // A track that will not decode still exports, silent to the engine, rather than failing the render.
         audio =
@@ -133,10 +108,8 @@ class OffscreenSceneRenderer(
         // The export frame clock is native (core/output/FrameClock): frame n shows floor(n * 1000 / fps) ms.
         val timeMs = GeodeNative.exportFrameTimeMs(frame.toLong(), fps)
         val nextTimeMs = GeodeNative.exportFrameTimeMs(frame + 1L, fps)
-        val p = spec.paramsAt?.invoke(timeMs) ?: spec.baseParams
-        viz.setParams(p)
-        // Native re-resolves the routes when keyframes change reactSeed, as live does; this sends only changes.
-        viz.setUserReactions(spec.reactions, pinnedHandMask ?: HandMask.current)
+        // Keyframed params ride in the look; reactSeed among them, so native re-deals the DNA when keyframes change it.
+        looks.apply(spec.paramsAt?.let { look.copy(params = it(timeMs)) } ?: look, viz, handMask = pinnedHandMask ?: HandMask.current)
         // Exactly the audio up to the end of this frame, then a render steps the engine by 1/fps.
         audio?.deliverUntilMs(nextTimeMs) { pcm, frames, channels, rate -> viz.writeAudio(pcm, frames, channels, rate) }
         // The frame's exact time, not the whole-ms one above (#377): floor(n * 1e9 / fps) ns.

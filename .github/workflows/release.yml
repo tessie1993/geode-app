@@ -153,7 +153,7 @@ jobs:
 
           # Play's 16 KB page-size requirement: zipalign -P 16 on the APK, and every .so in the
           # APK and the AAB has LOAD segments aligned to >= 2**14.
-          tools/check-16kb.sh app/build/outputs/apk/release/*.apk "$aab"
+          bash tools/check-16kb.sh app/build/outputs/apk/release/*.apk "$aab"
 
           # versionCode = geode.versionCodeBase + release number N (root build.gradle.kts), and N
           # only grows, so it increases monotonically. Print what this bundle carries.

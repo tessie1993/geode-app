@@ -245,7 +245,7 @@ jobs:
       # Play's 16 KB page-size rule: zipalign -P 16 and every .so's LOAD alignment >= 2**14.
       - name: Check 16 KB page alignment
         working-directory: ${{ env.PROJECT_DIR }}
-        run: tools/check-16kb.sh "$APK_SOURCE"
+        run: bash tools/check-16kb.sh "$APK_SOURCE"
 
       - name: Package APK and checksum
         id: package

@@ -410,6 +410,18 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetUiBlurRegion(JNIEnv*, jobject, jl
     geode_viz_set_ui_blur_region(vizOf(handle), left, top, right, bottom, strength, cornerPx);
 }
 
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizSetEdgeGlow(JNIEnv* env, jobject, jlong handle, jfloatArray opts) {
+    if (!opts) {
+        geode_viz_set_edge_glow(vizOf(handle), nullptr, 0);
+        return;
+    }
+    const jsize count = std::min<jsize>(env->GetArrayLength(opts), GEODE_EDGE_GLOW_FLOATS);
+    float values[GEODE_EDGE_GLOW_FLOATS] = {};
+    env->GetFloatArrayRegion(opts, 0, count, reinterpret_cast<jfloat*>(values));
+    geode_viz_set_edge_glow(vizOf(handle), values, static_cast<int>(count));
+}
+
 JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizKnows(JNIEnv* env, jobject, jlong handle, jstring sceneId) {
     Utf8Chars id(env, sceneId);

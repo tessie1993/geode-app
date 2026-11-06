@@ -10,6 +10,7 @@ enum class LfoWave(
     SAW("Saw"),
     SQUARE("Square"),
     RANDOM("Random steps"),
+    RANDOM_GLIDE("Random glide"),
 }
 
 /**
@@ -135,14 +136,7 @@ enum class LfoTarget(
     DIVE_SPEED("Dive", ParamScope.UNIVERSAL),
 }
 
-/**
- * One modulation slot.
- *
- * The rate is a PERIOD IN SECONDS, not a frequency: "one sweep every 8 seconds" is the thing a
- * person setting up a slow drift actually wants to say, and it is free-running — there is no
- * tempo sync, because a tempo estimate is not a live signal and a wrong one drags the whole look
- * off the music.
- */
+/** One modulation slot; the rate is a period in seconds, or in beats of the music when [beats] is set. */
 data class LfoConfig(
     val enabled: Boolean = false,
     val source: ModSource = ModSource.LFO,
@@ -152,6 +146,7 @@ data class LfoConfig(
     val depth: Float = 0.3f,
     val polarity: ModPolarity = ModPolarity.BIPOLAR,
     val curve: ModCurve = ModCurve.LINEAR,
+    val beats: Int = 0,
 ) {
     companion object {
         const val DEFAULT_RATE_SECONDS: Float = 2f
@@ -159,6 +154,9 @@ data class LfoConfig(
         const val MIN_RATE_SECONDS: Float = 0.05f
 
         const val MAX_RATE_SECONDS: Float = 60f
+
+        /** Beat periods after "Free". */
+        val BEAT_CHOICES: List<Int> = listOf(1, 2, 4, 8, 16, 32)
 
         /** The polarity that makes a source useful the moment it is picked. */
         fun naturalPolarity(source: ModSource): ModPolarity =
@@ -178,14 +176,8 @@ data class LfoConfig(
     }
 }
 
-// Modulation is applied natively every frame (see core/viz/RendererFrame.cpp, which ticks its own
-// LfoEngine/AdsrEngine against the configs pushed by geode_viz_set_lfo/geode_viz_set_adsr), so this
-// class only needs to hold the config the UI edits and NativeViz.setLfoConfigs forwards; it does not
-// run the oscillator/follower/apply logic itself.
-class LfoEngine {
-    @Volatile
-    var configs: List<LfoConfig> = List(SLOTS) { LfoConfig() }
-
+// The LFO slots' configs only; native runs the oscillator, follower and apply logic (see [PushedConfigs]).
+class LfoEngine : PushedConfigs<LfoConfig>(List(SLOTS) { LfoConfig() }) {
     companion object {
         const val SLOTS: Int = 3
     }

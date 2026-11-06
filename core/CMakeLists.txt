@@ -6,6 +6,7 @@ add_library(geode_core STATIC
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
     api/geode_sound_api.cpp
+    api/geode_underlay_api.cpp
     api/geode_frame_api.cpp
     api/geode_surface_api.cpp
     api/geode_playout_api.cpp
@@ -16,6 +17,7 @@ add_library(geode_core STATIC
     sound/Rhythm.cpp
     sound/SoundEngine.cpp
     sound/interp/PlayoutClock.cpp
+    sound/Tuning.cpp
     library/Tags.cpp
     library/Search.cpp
     audio/dsp/DspProcessor.cpp
@@ -58,6 +60,7 @@ add_library(geode_core STATIC
     viz/LayerState.cpp
     viz/NoteResponse.cpp
     viz/UiBlurPass.cpp
+    viz/Underlay.cpp
     viz/frame/ExportPasses.cpp
     viz/frame/EdgeGlowPass.cpp
     viz/Adsr.cpp

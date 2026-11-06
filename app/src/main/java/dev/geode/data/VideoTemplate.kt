@@ -228,8 +228,6 @@ data class TemplateLayout(
     val backdropArgb: Int = DEFAULT_BACKDROP_ARGB,
     val foreign: ForeignFields = ForeignFields.NONE,
 ) {
-    fun resolvedRatio(): ExportRatio = ratio.orElse(DEFAULT_RATIO)
-
     companion object {
         val DEFAULT_RATIO: ExportRatio = ExportRatio.R9_16
         val DEFAULT_ARTWORK: ArtworkStyle = ArtworkStyle.BEHIND_BLURRED
@@ -303,16 +301,6 @@ data class TextSlot(
 
         const val DEFAULT_SIZE_SP: Float = 28f
         const val DEFAULT_COLOR_ARGB: Int = -1 // opaque white
-
-        fun defaultPatternFor(role: TextRole): String =
-            when (role) {
-                TextRole.TITLE -> TemplatePlaceholder.TITLE.token
-                TextRole.ARTIST -> TemplatePlaceholder.ARTIST.token
-                TextRole.ALBUM -> TemplatePlaceholder.ALBUM.token
-                TextRole.CAPTION -> ""
-                TextRole.HANDLE -> ""
-                TextRole.CREDIT -> ""
-            }
     }
 }
 
@@ -412,10 +400,6 @@ data class TemplateExport(
     val fileNamePattern: String = DEFAULT_FILE_NAME_PATTERN,
     val foreign: ForeignFields = ForeignFields.NONE,
 ) {
-    fun resolvedQuality(): ExportQuality = quality.orElse(DEFAULT_QUALITY)
-
-    fun resolvedAudio(): AudioHandling = audio.orElse(DEFAULT_AUDIO)
-
     // Nearest offered rate; on a tie the lower one, which is the cheaper render.
     fun resolvedFps(): Int = EXPORT_FPS_OPTIONS.minBy { kotlin.math.abs(it - fps) }
 

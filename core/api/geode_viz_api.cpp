@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstring>
@@ -20,6 +21,7 @@
 #include "viz/TransitionLibrary.hpp"
 #include "viz/frame/Cadence.hpp"
 #include "viz/frame/Pacer.hpp"
+#include "viz/frame/PushVersions.hpp"
 #include "viz/frame/Thermal.hpp"
 #include "viz/frame/Quality.hpp"
 #include "viz/ShaderOverrides.hpp"
@@ -31,8 +33,12 @@ struct geode_viz {
     std::mutex configLock;
     std::array<geode::viz::LfoConfig, geode::viz::LfoEngine::kSlots> lfo{};
     std::array<geode::viz::AdsrConfig, geode::viz::AdsrEngine::kCount> adsr{};
+    // Set by geode_viz_prepare_offscreen: every set_params then carries the export's pinned params.
+    std::atomic<bool> offline{false};
     // The live shell's per-frame cadence (geode_viz_frame_begin); GL thread only.
     geode::viz::frame::FrameCadence cadence;
+    // Which of the shell's pushed inputs this surface has applied (geode_viz_frame_begin); GL thread only.
+    geode::viz::frame::PushVersions pushes;
 };
 
 namespace {
@@ -47,11 +53,16 @@ static_assert(frame::edge_glow::kFloats == GEODE_EDGE_GLOW_FLOATS);
 static_assert(frame::kFrameClearOnly == GEODE_FRAME_CLEAR_ONLY);
 static_assert(frame::kFrameThermalDue == GEODE_FRAME_THERMAL_DUE);
 static_assert(frame::kFrameLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
+static_assert(frame::kFramePushParams == GEODE_FRAME_PUSH_PARAMS);
+static_assert(frame::kFramePushLfo == GEODE_FRAME_PUSH_LFO);
+static_assert(frame::kFramePushAdsr == GEODE_FRAME_PUSH_ADSR);
+static_assert(frame::kFramePushTuning == GEODE_FRAME_PUSH_TUNING);
+static_assert(frame::kFramePushTuning < (1u << frame::kFrameLiquidShift), "the push bits sit below the Liquid field");
 static_assert(GEODE_FRAME_LIQUID_MODE(frame::kFrameLiquidMask << frame::kFrameLiquidShift) == static_cast<int>(frame::kFrameLiquidMask));
 
 constexpr int kModSourceCount = static_cast<int>(ModSource::StereoPan) + 1;
 constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::EndlessZoomSpeed) + 1;
-constexpr int kLfoWaveCount = static_cast<int>(LfoWave::Random) + 1;
+constexpr int kLfoWaveCount = static_cast<int>(LfoWave::RandomGlide) + 1;
 constexpr int kModPolarityCount = static_cast<int>(ModPolarity::Negative) + 1;
 
 // The thermal state's clock: CLOCK_MONOTONIC on Android, the same base as System.nanoTime. Only the gaps
@@ -98,7 +109,10 @@ void geode_viz_set_params(geode_viz* v, const float* values, int count) {
     const auto& names = SceneParams::fieldNames();
     SceneParams p;
     for (int i = 0; i < count; ++i) p.set(names[static_cast<size_t>(i)], values[i]);
+    // Quality never adapts downward in an export: its wall-clock frame time is the encoder's pace.
+    if (v->offline.load(std::memory_order_relaxed)) p.fluidAutoQuality = false;
     v->renderer.setParams(p);
+    v->renderer.setParams(SceneParams::fromWire(values));
 }
 
 void geode_viz_set_reduced_motion(geode_viz* v, int on) {
@@ -184,8 +198,14 @@ size_t geode_shader_override(const char* style_id, char* out, size_t capacity) {
     return source.size();
 }
 
+// Only the periods the editor offers; anything else is free timing.
+static float beatsOf(float v) {
+    for (float b : {1.0f, 2.0f, 4.0f, 8.0f, 16.0f, 32.0f}) if (v == b) return b;
+    return 0.0f;
+}
+
 void geode_viz_set_lfo(geode_viz* v, int slot, const float* c, int count) {
-    if (!v || !c || slot < 0 || slot >= GEODE_LFO_SLOTS || count < GEODE_LFO_CONFIG_FLOATS) return;
+    if (!v || !c || slot < 0 || slot >= GEODE_LFO_SLOTS || count < 8) return;
     LfoConfig cfg;
     cfg.enabled = flag(c[0]);
     cfg.source = enumAt<ModSource>(c[1], kModSourceCount);
@@ -195,6 +215,8 @@ void geode_viz_set_lfo(geode_viz* v, int slot, const float* c, int count) {
     cfg.depth = c[5];
     cfg.polarity = enumAt<ModPolarity>(c[6], kModPolarityCount);
     cfg.curve = enumAt<ModCurve>(c[7], kModCurveCount);
+    // Float 9 (beat timing) is absent from a shorter array: that slot stays free.
+    if (count >= GEODE_LFO_CONFIG_FLOATS) cfg.beats = beatsOf(c[8]);
     std::lock_guard<std::mutex> lock(v->configLock);
     v->lfo[static_cast<size_t>(slot)] = cfg;
     v->renderer.setLfoConfigs(v->lfo);
@@ -398,6 +420,35 @@ int geode_music_action_target(int action) {
     return static_cast<int>(musicActionTarget(static_cast<MusicAction>(action)));
 }
 
+static_assert(kEventRecipeCount == GEODE_EVENT_RECIPES);
+
+int geode_event_recipe_routes(int recipe, const char* style_id, float* out, int capacity) {
+    if (recipe < 0 || recipe >= kEventRecipeCount) return 0;
+    const auto r = static_cast<EventRecipe>(recipe);
+    const RecipeRoutes routes = style_id ? recipeRoutesFor(r, style_id) : recipeRoutes(r);
+    RouteArray all{};
+    for (int i = 0; i < routes.count; ++i) all[static_cast<size_t>(i)] = routes.routes[static_cast<size_t>(i)];
+    return writeRoutes(all, routes.count, out, capacity);
+}
+
+unsigned geode_event_recipe_state(int recipe, const char* style_id, const float* current, int current_floats) {
+    if (!style_id || recipe < 0 || recipe >= kEventRecipeCount) return 0u;
+    const auto r = static_cast<EventRecipe>(recipe);
+    const std::string id(style_id);
+    RouteArray routes;
+    const int n = readRoutes(current, current_floats, routes);
+    return (recipeIsOn(r, routes, n, id) ? GEODE_RECIPE_ON : 0u) | (recipeFits(r, routes, n, id) ? GEODE_RECIPE_FITS : 0u);
+}
+
+int geode_event_recipe_toggle(int recipe, const char* style_id, const float* current, int current_floats, float* out, int capacity) {
+    RouteArray routes;
+    const int n = readRoutes(current, current_floats, routes);
+    if (!style_id || recipe < 0 || recipe >= kEventRecipeCount) return writeRoutes(routes, n, out, capacity);
+    RouteArray next;
+    const int k = toggleRecipe(static_cast<EventRecipe>(recipe), routes, n, style_id, next);
+    return writeRoutes(next, k, out, capacity);
+}
+
 int geode_react_source_catalog(char* out, int capacity) {
     std::string text;
     for (int i = 0; i < kReactSourceCount; ++i) {
@@ -464,7 +515,8 @@ void geode_viz_set_look(geode_viz* v, float yaw, float pitch) {
 }
 
 int geode_viz_frame_begin(geode_viz* v, float paced_fps, float render_scale, float march_scale, int post_fx,
-                          int adaptive, int liquid_hot_policy) {
+                          int adaptive, int liquid_hot_policy, long long params_version, long long lfo_version,
+                          long long adsr_version, long long tuning_version) {
     if (!v) return 0;
     Renderer& r = v->renderer;
     r.thermal().setPacedFps(paced_fps);
@@ -475,8 +527,13 @@ int geode_viz_frame_begin(geode_viz* v, float paced_fps, float render_scale, flo
     }
     const uint32_t due = v->cadence.step([] { return ThermalState::process().claimSample(monotonicSeconds()); },
                                          [&r] { return r.takeLiquidMode(); });
-    if (due & frame::kFrameClearOnly) r.clearToBlack(0);
-    return static_cast<int>(due);
+    if (due & frame::kFrameClearOnly) {
+        // The shell returns at once on this frame, so nothing it would push may count as applied yet.
+        r.clearToBlack(0);
+        return static_cast<int>(due);
+    }
+    const uint32_t want = v->pushes.offer({params_version, lfo_version, adsr_version, tuning_version});
+    return static_cast<int>(due | want);
 }
 
 void geode_viz_set_director(geode_viz* v, float amount, long long seed) {
@@ -561,6 +618,7 @@ void geode_viz_surface_created(geode_viz* v) {
     if (!v) return;
     v->renderer.onSurfaceCreated();
     v->cadence.surfaceCreated();
+    v->pushes.surfaceCreated();
 }
 
 void geode_viz_surface_changed(geode_viz* v, int width, int height) {
@@ -605,6 +663,17 @@ void geode_viz_cut(geode_viz* v) {
 
 void geode_viz_render(geode_viz* v, double time_seconds, uint32_t target_fbo) {
     if (v) v->renderer.render(time_seconds, target_fbo);
+}
+
+void geode_viz_prepare_offscreen(geode_viz* v) {
+    if (!v) return;
+    // Pinned to the full tier: an export renders as fast as the encoder takes frames, so its wall-clock
+    // frame time says nothing about the device.
+    geode_viz_set_offscreen(v, 1);
+    // A schedule's style switch lands on its frame: the CUT transition, which safety::transitionId turns
+    // into a fade, at 0 ms (held to 1 ms by setTransition), exactly what the Kotlin shell used to ask for.
+    v->renderer.setTransition(transitionStyleId(TransitionStyle::Cut), 0);
+    v->offline.store(true, std::memory_order_relaxed);
 }
 
 void geode_viz_release_scenes(geode_viz* v) {

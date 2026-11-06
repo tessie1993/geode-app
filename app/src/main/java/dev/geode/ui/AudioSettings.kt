@@ -130,11 +130,9 @@ private fun SoundTuningControls(
 ) {
     var advanced by rememberSaveable { mutableStateOf(false) }
     Column {
-        val reactivity = stringResource(R.string.audio_reactivity, "%.2f".format(tuning.reactivity))
-        TuningSlider(reactivity, tuning.reactivity, SoundTuning.REACTIVITY) { onChange(tuning.copy(reactivity = it)) }
-        TuningSlider(stringResource(R.string.audio_speed, "%.2f".format(tuning.speed)), tuning.speed, SoundTuning.SPEED) {
-            onChange(tuning.copy(speed = it))
-        }
+        val reactivity = tuning[SoundTuning.REACTIVITY]
+        TuningSlot(stringResource(R.string.audio_reactivity, "%.2f".format(reactivity)), tuning, SoundTuning.REACTIVITY, onChange)
+        TuningSlot(stringResource(R.string.audio_speed, "%.2f".format(tuning[SoundTuning.SPEED])), tuning, SoundTuning.SPEED, onChange)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             CrystalButton(filled = false, onClick = { advanced = !advanced }) { Text(stringResource(R.string.audio_advanced)) }
             TextButton(onClick = { onChange(SoundTuning()) }) { Text(stringResource(R.string.audio_default)) }
@@ -143,64 +141,60 @@ private fun SoundTuningControls(
     }
 }
 
+/** Seconds as whole milliseconds, for the attack, release, decay and hold labels. */
+private fun ms(seconds: Float) = (seconds * 1000).roundToInt()
+
 @Composable
 private fun AdvancedTuning(
     tuning: SoundTuning,
     onChange: (SoundTuning) -> Unit,
 ) {
-    fun List<Float>.with(
-        i: Int,
-        v: Float,
-    ) = toMutableList().also { it[i] = v }
     val bands = listOf(R.string.audio_band_low, R.string.audio_band_middle, R.string.audio_band_high)
     bands.forEachIndexed { i, name ->
         Text(stringResource(name), style = MaterialTheme.typography.titleSmall)
-        TuningSlider(stringResource(R.string.audio_band_gain, "%.2f".format(tuning.gain[i])), tuning.gain[i], SoundTuning.GAIN) {
-            onChange(tuning.copy(gain = tuning.gain.with(i, it)))
-        }
-        TuningSlider(stringResource(R.string.audio_band_threshold, "%.2f".format(tuning.threshold[i])), tuning.threshold[i], 0f..1f) {
-            onChange(tuning.copy(threshold = tuning.threshold.with(i, it)))
-        }
-        TuningSlider(stringResource(R.string.audio_band_attack, (tuning.attack[i] * 1000).roundToInt()), tuning.attack[i], 0f..1f) {
-            onChange(tuning.copy(attack = tuning.attack.with(i, it)))
-        }
-        TuningSlider(stringResource(R.string.audio_band_release, (tuning.release[i] * 1000).roundToInt()), tuning.release[i], 0f..2f) {
-            onChange(tuning.copy(release = tuning.release.with(i, it)))
-        }
+        val gain = SoundTuning.GAIN + i
+        val threshold = SoundTuning.THRESHOLD + i
+        val attack = SoundTuning.ATTACK + i
+        val release = SoundTuning.RELEASE + i
+        TuningSlot(stringResource(R.string.audio_band_gain, "%.2f".format(tuning[gain])), tuning, gain, onChange)
+        TuningSlot(stringResource(R.string.audio_band_threshold, "%.2f".format(tuning[threshold])), tuning, threshold, onChange)
+        TuningSlot(stringResource(R.string.audio_band_attack, ms(tuning[attack])), tuning, attack, onChange)
+        TuningSlot(stringResource(R.string.audio_band_release, ms(tuning[release])), tuning, release, onChange)
     }
     Text(stringResource(R.string.audio_drums), style = MaterialTheme.typography.titleSmall)
     listOf(R.string.audio_drum_kick, R.string.audio_drum_snare, R.string.audio_drum_hat).forEachIndexed { i, label ->
-        TuningSlider(
-            stringResource(label, "%.2f".format(tuning.drum[i]), (tuning.drumDecay[i] * 1000).roundToInt()),
-            tuning.drum[i],
-            SoundTuning.DRUM,
-        ) { onChange(tuning.copy(drum = tuning.drum.with(i, it))) }
+        val drum = SoundTuning.DRUM + i
+        val decay = SoundTuning.DRUM_DECAY + i
+        TuningSlot(stringResource(label, "%.2f".format(tuning[drum]), ms(tuning[decay])), tuning, drum, onChange)
         CrystalSlider(
-            value = tuning.drumDecay[i],
-            onValueChange = { onChange(tuning.copy(drumDecay = tuning.drumDecay.with(i, it))) },
-            valueRange = 0.02f..1f,
+            value = tuning[decay],
+            onValueChange = { onChange(tuning.withSlot(decay, it)) },
+            valueRange = SoundTuning.range(decay),
         )
     }
     Text(stringResource(R.string.audio_events), style = MaterialTheme.typography.titleSmall)
-    TuningSlider(stringResource(R.string.audio_onset_threshold, "%.1f".format(tuning.onsetThreshold)), tuning.onsetThreshold, 1f..4f) {
-        onChange(tuning.copy(onsetThreshold = it))
-    }
-    TuningSlider(stringResource(R.string.audio_hard_cut_level, "%.1f".format(tuning.hardCutLevel)), tuning.hardCutLevel, 1.5f..4f) {
-        onChange(tuning.copy(hardCutLevel = it))
-    }
-    TuningSlider(stringResource(R.string.audio_hard_cut_half_life, tuning.hardCutHalfLife.roundToInt()), tuning.hardCutHalfLife, 5f..180f) {
-        onChange(tuning.copy(hardCutHalfLife = it))
-    }
-    TuningSlider(stringResource(R.string.audio_pitch_threshold, "%.2f".format(tuning.pitchThreshold)), tuning.pitchThreshold, 0.1f..0.9f) {
-        onChange(tuning.copy(pitchThreshold = it))
-    }
-    TuningSlider(stringResource(R.string.audio_note_hold, (tuning.noteHold * 1000).roundToInt()), tuning.noteHold, 0.02f..0.5f) {
-        onChange(tuning.copy(noteHold = it))
-    }
-    TuningSlider(stringResource(R.string.audio_silence, tuning.silenceDb.roundToInt()), tuning.silenceDb, -90f..-30f) {
-        onChange(tuning.copy(silenceDb = it))
-    }
+    val onset = SoundTuning.ONSET_THRESHOLD
+    TuningSlot(stringResource(R.string.audio_onset_threshold, "%.1f".format(tuning[onset])), tuning, onset, onChange)
+    val cut = SoundTuning.HARD_CUT_LEVEL
+    TuningSlot(stringResource(R.string.audio_hard_cut_level, "%.1f".format(tuning[cut])), tuning, cut, onChange)
+    val halfLife = SoundTuning.HARD_CUT_HALF_LIFE
+    TuningSlot(stringResource(R.string.audio_hard_cut_half_life, tuning[halfLife].roundToInt()), tuning, halfLife, onChange)
+    val pitch = SoundTuning.PITCH_THRESHOLD
+    TuningSlot(stringResource(R.string.audio_pitch_threshold, "%.2f".format(tuning[pitch])), tuning, pitch, onChange)
+    val hold = SoundTuning.NOTE_HOLD
+    TuningSlot(stringResource(R.string.audio_note_hold, ms(tuning[hold])), tuning, hold, onChange)
+    val silence = SoundTuning.SILENCE_DB
+    TuningSlot(stringResource(R.string.audio_silence, tuning[silence].roundToInt()), tuning, silence, onChange)
 }
+
+/** One tuning slot's slider, over the range native gives that slot. */
+@Composable
+private fun TuningSlot(
+    label: String,
+    tuning: SoundTuning,
+    slot: Int,
+    onChange: (SoundTuning) -> Unit,
+) = TuningSlider(label, tuning[slot], SoundTuning.range(slot)) { onChange(tuning.withSlot(slot, it)) }
 
 @Composable
 private fun TuningSlider(

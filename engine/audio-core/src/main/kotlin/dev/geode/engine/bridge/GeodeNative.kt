@@ -931,6 +931,13 @@ object GeodeNative {
         heardAtMs: Long,
     ): Boolean
 
+    // Settings › Audio's listening tuning (core/sound/Tuning): the schema behind SoundTuning.
+
+    /** Every `GeodeSoundTuning` slot's default, then every minimum, then every maximum; null when out of memory. */
+    external fun soundTuningSchema(): FloatArray?
+
+    /** Clamps [values] (the tuning's wire form) in place; a NaN or an infinity becomes the slot's default. */
+    external fun soundTuningClamp(values: FloatArray)
     // Fixed-rate frame clock (core/viz/frame/FixedRateClock): Cast's pacing, PTS and audio cut.
     // The caller owns the state, a LongArray(FRAME_CLOCK_STATE), and reads now from System.nanoTime.
 

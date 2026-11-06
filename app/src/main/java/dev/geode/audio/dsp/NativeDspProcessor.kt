@@ -85,15 +85,15 @@ class NativeDspProcessor : BaseAudioProcessor() {
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
+        // Media3 queues its shared EMPTY_BUFFER, which is also our first output: put() into itself throws.
+        if (!inputBuffer.hasRemaining()) return
         val format = inputAudioFormat
         val frames = inputBuffer.remaining() / format.bytesPerFrame
         // replaceOutputBuffer is direct and in native order, so native works on it where it lies.
         val output = replaceOutputBuffer(inputBuffer.remaining()).put(inputBuffer)
         output.flip()
         val h = handle
-        if (h != 0L && frames > 0) {
-            GeodeNative.dspProcess(h, output, frames, format.channelCount, format.encoding == C.ENCODING_PCM_FLOAT)
-        }
+        if (h != 0L && frames > 0) GeodeNative.dspProcess(h, output, frames, format.channelCount, format.encoding == C.ENCODING_PCM_FLOAT)
     }
 
     override fun onFlush() {

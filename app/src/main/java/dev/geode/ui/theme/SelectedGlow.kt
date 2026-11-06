@@ -8,9 +8,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.addOutline
 import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
@@ -45,7 +49,13 @@ fun Modifier.selectedGlow(
             paint.color = glow.copy(alpha = glow.alpha * FILL_SHARE)
             paint.asFrameworkPaint().setShadowLayer(GLOW_RADIUS.toPx(), 0f, 0f, glow.toArgb())
             val outline = shape.createOutline(size, layoutDirection, this)
-            drawIntoCanvas { it.drawOutline(outline, paint) }
+            // The shadow layer also paints the full glow under the shape. Over a large see-through
+            // card (an open MilkDrop or Settings card) that read as a solid accent slab, so the
+            // halo is kept outside the shape and the inside gets only the faint fill.
+            clipPath(Path().apply { addOutline(outline) }, ClipOp.Difference) {
+                drawIntoCanvas { it.drawOutline(outline, paint) }
+            }
+            drawOutline(outline, paint.color)
         }
     }
 

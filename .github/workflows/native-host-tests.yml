@@ -41,7 +41,6 @@ jobs:
           # Which built scenes stay on the GPU (#378): a bounded LRU with pins, spares by thermal tier, lazy resize.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/scene_residency_test.cpp -o scene_residency_test
           ./scene_residency_test
-          # The frame clock every surface shares (#436): vsync divides, the settle window, hitches, resume, one dt clamp.
           # The process's one thermal state (#440): the fps-first ladder, the cap on the pacer, two renderers sharing it.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/thermal_test.cpp core/viz/ThermalGovernor.cpp -o thermal_test
           ./thermal_test

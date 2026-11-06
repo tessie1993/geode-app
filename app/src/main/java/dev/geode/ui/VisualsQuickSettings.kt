@@ -1,6 +1,5 @@
 package dev.geode.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
@@ -73,6 +72,9 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import dev.geode.R
 import dev.geode.data.AutoDirectorStore
 import dev.geode.data.GuiPrefs
@@ -92,10 +94,10 @@ import kotlin.math.roundToInt
  * long the mini player stays).
  *
  * It owns no state of its own. Every row reads and writes the store the matching Settings row uses,
- * so the two can never disagree: Auto is [AutoDirectorStore] (as Settings › Behaviour ›
- * Auto-director), the timer, its sources and the playlist are [PlayerViewModel]'s Auto visuals
- * (`AutoVisualsPrefsStore`, as Settings › Auto visuals), and the glass rows are [GuiPrefs] through
- * [SettingsViewModel] (as Settings › Look). Gating stays where it is: a free user may switch Auto on
+ * so the two can never disagree: Auto is [AutoDirectorStore], the timer, its sources and the
+ * playlist are [PlayerViewModel]'s Auto visuals (`AutoVisualsPrefsStore`), Auto's only home now
+ * (Settings has no Auto group), and the glass rows are [GuiPrefs] through [SettingsViewModel] (as
+ * Settings › Look). Gating stays where it is: a free user may switch Auto on
  * and gets the first minute of each song ([dev.geode.pro.AutoDirectorPolicy]); the timer's picks skip
  * locked styles by themselves.
  *
@@ -107,12 +109,15 @@ import kotlin.math.roundToInt
  * the visual shows through the glass (UI V2 rule 6).
  *
  * It is dense on purpose (QA on #284: seven controls took a whole portrait screen and four rows of a
- * landscape one). Every control is one row of [ROW_HEIGHT]: a switch row toggles as a whole, a slider
- * row has its label and value on one line beside a slim M3 slider, and a pick is one row whose value
- * opens a menu (UI V2 rule 2, no segmented walls). From [TWO_COLUMN_WIDTH] the rows split into two
- * columns, the look's timer on the left and the rest on the right, so a landscape phone shows them
- * all without scrolling. The card stops [DOCK_CLEARANCE] above the bottom so it never runs under the
- * floating mini player, which is drawn over Visuals and takes a swipe up as "open Player".
+ * landscape one). Every control is one row, at least [GeodeSpacing.TouchTarget] (48 dp) tall and
+ * growing with the font scale: a switch row toggles as a whole, a slider row has its label and value
+ * on one line beside a slim M3 slider, and a pick is one row whose value opens a menu (UI V2 rule 2,
+ * no segmented walls). Not the 44 dp rows QA once asked for (#554): the rows are stacked, so each
+ * neighbour claims the touch Compose would otherwise widen to 48 dp, and the targets fell short.
+ * From [TWO_COLUMN_WIDTH] the rows split into two columns, the look's timer on the left and the rest
+ * on the right, so a landscape phone shows them all without scrolling. The card stops
+ * [DOCK_CLEARANCE] above the bottom so it never runs under the floating mini player, which is drawn
+ * over Visuals and takes a swipe up as "open Player".
  *
  * The card keeps its own drags ([keepDragsInside]): a fling that runs off the end of its scroll, or a
  * drag across its empty glass, never reaches anything behind or around it.
@@ -124,17 +129,31 @@ import kotlin.math.roundToInt
  *
  * [onOpenPlaylist], when the shell has a place to edit the playlist, turns the playlist row into its
  * entry point; without it the row only shows how many looks the playlist holds.
+ *
+ * [visible] is whether the caller still means the panel to be up: false from the moment its exit
+ * fade starts. Back is the panel's only while it is true (#557): the caller keeps this composed
+ * through the fade, and a handler left on would swallow the next Back, which belongs to whatever is
+ * under the panel by then. The handler is NavigationEvent's [NavigationBackHandler], not activity's
+ * `BackHandler`: the navigation-event skill moves Compose back handling to it on SDK 36+ (this app
+ * compiles against 37 and targets 36), where it shares one dispatcher with Nav3's `NavDisplay` and
+ * the activity's own handlers, so the order by composition still holds. It comes with
+ * activity-compose 1.13 (an `api` dependency), so no dependency is added.
  */
 @Composable
 internal fun VisualsQuickSettings(
     viewModel: PlayerViewModel,
+    visible: Boolean,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenPlaylist: (() -> Unit)? = null,
 ) {
     val settings: SettingsViewModel = geodeViewModel()
     val gui by settings.guiPrefs.collectAsStateWithLifecycle()
-    BackHandler(onBack = onDismiss)
+    NavigationBackHandler(
+        state = rememberNavigationEventState(currentInfo = NavigationEventInfo.None),
+        isBackEnabled = visible,
+        onBackCompleted = onDismiss,
+    )
     Box(modifier.fillMaxSize()) {
         // The outside tap: a bare hit target under the card, with no semantics of its own; TalkBack
         // users close the panel with its close button or Back.
@@ -439,7 +458,7 @@ private fun PlaylistRow(
     Row(
         rowModifier
             .fillMaxWidth()
-            .heightIn(min = ROW_HEIGHT),
+            .heightIn(min = GeodeSpacing.TouchTarget),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
     ) {
@@ -467,9 +486,10 @@ private fun GlassRows(
 ) {
     SliderRow(
         label = stringResource(R.string.visuals_qs_sheet_opacity),
-        valueText = stringResource(R.string.visuals_qs_percent, (gui.barOpacity * 100).roundToInt()),
+        // The value the glass draws, so the % never names a fill outside the clamp (#559).
+        valueText = stringResource(R.string.visuals_qs_percent, (gui.barOpacity.coerceIn(SHEET_OPACITY_RANGE) * 100).roundToInt()),
         value = gui.barOpacity,
-        valueRange = OPACITY_RANGE,
+        valueRange = SHEET_OPACITY_RANGE,
         onValueChange = { onGuiChange(gui.copy(barOpacity = it)) },
     )
     val fade = gui.miniPlayerFadeSeconds.roundToInt()
@@ -502,7 +522,7 @@ private fun SwitchRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .heightIn(min = ROW_HEIGHT)
+            .heightIn(min = GeodeSpacing.TouchTarget)
             .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
@@ -528,7 +548,7 @@ private fun SliderRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .heightIn(min = ROW_HEIGHT),
+            .heightIn(min = GeodeSpacing.TouchTarget),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
     ) {
@@ -546,6 +566,7 @@ private fun SliderRow(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.End,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
         SlimSlider(
             value = value,
@@ -564,7 +585,7 @@ private fun SliderRow(
 }
 
 /**
- * Material's slider with a thinner track and a shorter handle, so it sits in a [ROW_HEIGHT] row;
+ * Material's slider with a thinner track and a shorter handle, so it sits in a slim row;
  * its touch area stays the slider's full width and row height. A thumb at 0 sits in the back-gesture
  * strip, so the slider is excluded from it (as Crystal's slider was).
  */
@@ -607,7 +628,7 @@ private fun MenuRow(
         Row(
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = ROW_HEIGHT)
+                .heightIn(min = GeodeSpacing.TouchTarget)
                 .clickable(role = Role.DropdownList) { open = true },
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.XS),
@@ -648,13 +669,6 @@ private val PANEL_MAX_WIDTH = 720.dp
 /** From this card width the rows go into two columns. */
 private val TWO_COLUMN_WIDTH = 600.dp
 
-/**
- * One control per row. Below the 48 dp minimum on purpose (QA asked for 40–44 dp): the switch and
- * menu rows are full-width targets, and Compose widens a touch target under 48 dp to 48 dp where no
- * neighbour claims the touch.
- */
-private val ROW_HEIGHT = 44.dp
-
 /** The floating mini player's 64 dp and its margin: the card ends above it. */
 private val DOCK_CLEARANCE = 76.dp
 
@@ -670,8 +684,12 @@ private const val CLAIM_SLOP_FACTOR = 2f
 private val INTERVAL_RANGE =
     AutoVisualsPrefsStore.INTERVAL_SEC.first.toFloat()..AutoVisualsPrefsStore.INTERVAL_SEC.last.toFloat()
 
-/** The range the floating glass reads the opacity in ([floatingGlass] clamps to it anyway). */
-private val OPACITY_RANGE = GeodeGlass.MATTE_FILL_MIN..GeodeGlass.MATTE_FILL_MAX
+/**
+ * The range the sheet-opacity setting ([GuiPrefs.barOpacity]) moves in, here and in Settings › Look
+ * › Layout: exactly the range [floatingGlass] clamps its fill to, so every stop of either slider
+ * changes what is drawn and the % shown is the fill drawn (#559).
+ */
+internal val SHEET_OPACITY_RANGE = GeodeGlass.MATTE_FILL_MIN..GeodeGlass.MATTE_FILL_MAX
 
 /** How dense the drop-in panels are: the visual shows as colour, nothing behind reads as text. */
 internal const val DROP_IN_FILL = 0.9f

@@ -2,13 +2,13 @@
 
 Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md). [ADR 0008](../../../docs/adr/0008-frame-pacing-heat-and-rest.md) sets the pacing, heat and rest rules.
 
-**Here now:** `Pacer.hpp`, the frame clock every surface shares. It decides which vsyncs a surface draws on (a whole-number divide of the measured panel rate) and owns the one dt clamp, `clampDt`, which `Renderer::beginFrame` uses too. Android keeps the Choreographer callback (`render/FramePacer.kt`). It is reached through `geode_pacer_*` and tested by `core/tests/pacer_test.cpp`.
+**Here now:** `Pass.hpp` (the interface below, with `Surface`, `FrameCtx`, `PassInputs`, `PassTarget`) and its first pass, `EdgeGlowPass` (the wallpaper's edge look, once Kotlin GL; pure maths in `EdgeGlowMath.hpp`, pinned by `core/tests/edge_glow_test.cpp`, #439); `Renderer` still calls it directly, after the composite, and there is no `FrameGraph` yet. And `Pacer.hpp`, the frame clock every surface shares. It decides which vsyncs a surface draws on (a whole-number divide of the measured panel rate) and owns the one dt clamp, `clampDt`, which `Renderer::beginFrame` uses too. Android keeps the Choreographer callback (`render/FramePacer.kt`). It is reached through `geode_pacer_*` and tested by `core/tests/pacer_test.cpp`.
 
 Export post-passes: `ExportPasses` (watermark, loop seam, Studio GL transition and its capture; #442) with their pure maths in `ExportPassMath.hpp` (`core/tests/export_passes_test.cpp`) and the loop seam's frame schedule in `LoopSeam.hpp` (`core/tests/loop_seam_test.cpp`, #603), driven through `geode_export_*` until `FrameGraph::run` owns the export frame.
 
 **Owns:** the one frame function every surface runs (screen, PiP, second screen, wallpaper, dream, Studio preview, export, thumbnails), and the pieces it is built from.
 - `FrameCtx`: this frame's effective params (from `core/signal`), the sound frame and source snapshot, camera pose, touch, flow, palette LUT, knobs. Replaces the ~20 `Scene` setters (`setFlow`, `setPaletteLut`, `setTouchField`, `setCamera`, …; `core/viz/Scene.hpp:22-62`) and the `SceneHost` callbacks (`:65-76`).
-- `Pass`: `prepare(FrameCtx)`, `draw(inputs, target)`. Trail, Liquid, Composite, UiBlur, and the export post-passes (watermark, edge glow, loop seam, which are Kotlin GL today) all implement it.
+- `Pass`: `prepare(FrameCtx)`, `draw(inputs, target)`. Trail, Liquid, Composite, UiBlur, and the post-passes (watermark and loop seam, still Kotlin GL; edge glow, native since #439) all implement it.
 - `LayerStack`: entries of scene + params + blend + mix. Replaces the three ad-hoc slots (layer, outgoing, born; `Renderer.hpp:333-336`, `:314-318`).
 - `FrameGraph::run(FrameCtx)`: a fixed, readable pass list. `Renderer` keeps the scene cache, `ScenePrep`/`ProgramStager` and the targets, and calls it.
 

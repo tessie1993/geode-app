@@ -3,7 +3,7 @@
 #include "sound/SoundFrame.h"
 
 // The frame graph's unit of work (ADR 0006, core/viz/frame/README.md): one step of the frame every surface
-// runs, after the scene and before the swap. Trail, Liquid, Composite, NoteBloom, UiBlur and the export
+// runs, after the scene and before the swap. Trail, Liquid, Composite, UiBlur and the export
 // post-passes are to implement it; EdgeGlowPass (the wallpaper's edge look, #439) is the first.
 //
 // Why this split of calls: prepare() is CPU only, so a pass's maths (envelopes, what it reads off the sound

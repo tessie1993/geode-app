@@ -488,6 +488,11 @@ Java_dev_geode_engine_bridge_GeodeNative_vizRender(JNIEnv*, jobject, jlong handl
 }
 
 JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizPrepareOffscreen(JNIEnv*, jobject, jlong handle) {
+    geode_viz_prepare_offscreen(vizOf(handle));
+}
+
+JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizReleaseScenes(JNIEnv*, jobject, jlong handle) {
     geode_viz_release_scenes(vizOf(handle));
 }

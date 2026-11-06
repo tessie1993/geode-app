@@ -209,6 +209,11 @@ class NativeViz(
     private val uiBlur = FloatArray(UI_BLUR_FLOATS)
     private var edgeGlow: FloatArray? = null
 
+    /** Pins this renderer for an export; see [GeodeNative.vizPrepareOffscreen]. */
+    fun prepareOffscreen() {
+        if (handle != 0L) GeodeNative.vizPrepareOffscreen(handle)
+    }
+
     /** See [GeodeNative.vizSetFrameRate]. A no-op before the handle exists. */
     fun setFrameRate(fps: Int) {
         if (handle != 0L) GeodeNative.vizSetFrameRate(handle, fps)

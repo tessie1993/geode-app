@@ -513,6 +513,9 @@ object GeodeNative {
         targetFbo: Int,
     )
 
+    /** Pins this renderer for an export (`geode_viz_prepare_offscreen`): offscreen tier, cut, fixed quality. */
+    external fun vizPrepareOffscreen(handle: Long)
+
     external fun vizReleaseScenes(handle: Long)
 
     /**

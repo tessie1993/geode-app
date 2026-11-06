@@ -185,6 +185,9 @@ GEODE_API void        geode_viz_set_style_schedule(geode_viz*, const double* at_
                                                    const char* const* cut_ids, int cut_count, int every_beats,
                                                    const char* const* locked_ids, int locked_count);
 GEODE_API void        geode_viz_render(geode_viz*, double time_seconds, uint32_t target_fbo);
+/* Offline (export) render: prepare pins the renderer for it, any thread: the offscreen tier
+ * (geode_viz_set_offscreen(1)), cut transitions, and fixed fluid quality on every later set_params. */
+GEODE_API void        geode_viz_prepare_offscreen(geode_viz*);
 GEODE_API void        geode_viz_release_scenes(geode_viz*);
 
 /* Playback DSP: gain -> 10-band equalizer -> crossfeed -> lookahead limiter on float interleaved PCM, one

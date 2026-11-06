@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstring>
@@ -31,6 +32,8 @@ struct geode_viz {
     std::mutex configLock;
     std::array<geode::viz::LfoConfig, geode::viz::LfoEngine::kSlots> lfo{};
     std::array<geode::viz::AdsrConfig, geode::viz::AdsrEngine::kCount> adsr{};
+    // Set by geode_viz_prepare_offscreen: every set_params then carries the export's pinned params.
+    std::atomic<bool> offline{false};
     // The live shell's per-frame cadence (geode_viz_frame_begin); GL thread only.
     geode::viz::frame::FrameCadence cadence;
 };
@@ -95,6 +98,12 @@ const char* geode_viz_param_name(int index) {
 
 void geode_viz_set_params(geode_viz* v, const float* values, int count) {
     if (!v || !values || count != SceneParams::kFieldCount) return;
+    const auto& names = SceneParams::fieldNames();
+    SceneParams p;
+    for (int i = 0; i < count; ++i) p.set(names[static_cast<size_t>(i)], values[i]);
+    // Quality never adapts downward in an export: its wall-clock frame time is the encoder's pace.
+    if (v->offline.load(std::memory_order_relaxed)) p.fluidAutoQuality = false;
+    v->renderer.setParams(p);
     v->renderer.setParams(SceneParams::fromWire(values));
 }
 
@@ -639,6 +648,17 @@ void geode_viz_cut(geode_viz* v) {
 
 void geode_viz_render(geode_viz* v, double time_seconds, uint32_t target_fbo) {
     if (v) v->renderer.render(time_seconds, target_fbo);
+}
+
+void geode_viz_prepare_offscreen(geode_viz* v) {
+    if (!v) return;
+    // Pinned to the full tier: an export renders as fast as the encoder takes frames, so its wall-clock
+    // frame time says nothing about the device.
+    geode_viz_set_offscreen(v, 1);
+    // A schedule's style switch lands on its frame: the CUT transition, which safety::transitionId turns
+    // into a fade, at 0 ms (held to 1 ms by setTransition), exactly what the Kotlin shell used to ask for.
+    v->renderer.setTransition(transitionStyleId(TransitionStyle::Cut), 0);
+    v->offline.store(true, std::memory_order_relaxed);
 }
 
 void geode_viz_release_scenes(geode_viz* v) {

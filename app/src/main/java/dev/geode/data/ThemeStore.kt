@@ -104,7 +104,7 @@ data class GuiPrefs(
     companion object {
         const val TEXT_SCALE_MIN = 0.85f
         const val TEXT_SCALE_MAX = 1.3f
-        const val MINI_PLAYER_FADE_DEFAULT_SECONDS = 3f
+        const val MINI_PLAYER_FADE_DEFAULT_SECONDS = 6f
         const val MINI_PLAYER_FADE_MAX_SECONDS = 10f
     }
 }

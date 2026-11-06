@@ -1,8 +1,7 @@
 package dev.geode.render
 
 import android.content.Context
-import org.json.JSONArray
-import org.json.JSONObject
+import dev.geode.engine.bridge.GeodeNative
 
 /**
  * Catalog of scene-to-scene transitions, both built-in and loaded from the GL Transitions asset.
@@ -11,8 +10,6 @@ import org.json.JSONObject
  * they compile to stay internal to this module.
  */
 object TransitionCatalog {
-    private const val ASSET = "gl_transitions.json"
-
     data class Param(
         val name: String,
         val type: String,
@@ -45,16 +42,9 @@ object TransitionCatalog {
 
     fun library(context: Context): List<Def> {
         library?.let { return it }
-        val parsed =
-            runCatching {
-                val text =
-                    context.assets
-                        .open(ASSET)
-                        .bufferedReader()
-                        .use { it.readText() }
-                val arr = JSONArray(text)
-                (0 until arr.length()).map { i -> parseDef(arr.getJSONObject(i)) }
-            }.getOrDefault(emptyList())
+        // Parsed natively (core/viz/TransitionLibrary.hpp), the same parse the renderer's composite uses.
+        val table = runCatching { String(GeodeNative.transitionsTable(context.assets), Charsets.UTF_8) }.getOrDefault("")
+        val parsed = parseTable(table)
         libraryByName = parsed.associateBy { it.name }
         library = parsed
         return parsed
@@ -71,32 +61,19 @@ object TransitionCatalog {
 
     fun builtIn(id: String): TransitionStyle? = BUILT_IN_BY_ID[id]
 
-    private fun parseDef(o: JSONObject): Def {
-        val types = o.optJSONObject("paramsTypes")
-        val defaults = o.optJSONObject("defaultParams")
-        val params =
-            types
-                ?.keys()
-                ?.asSequence()
-                ?.map { key ->
-                    Param(key, types.optString(key, "float"), floatsOf(defaults?.opt(key)))
-                }?.toList()
-                .orEmpty()
-        return Def(
-            name = o.optString("name"),
-            author = o.optString("author"),
-            license = o.optString("license"),
-            params = params,
-            glsl = o.optString("glsl"),
-        )
-    }
-
-    private fun floatsOf(value: Any?): FloatArray =
-        when (value) {
-            null -> floatArrayOf(0f)
-            is Boolean -> floatArrayOf(if (value) 1f else 0f)
-            is Number -> floatArrayOf(value.toFloat())
-            is JSONArray -> FloatArray(value.length()) { i -> value.optDouble(i, 0.0).toFloat() }
-            else -> floatArrayOf(0f)
+    /** The table of `encodeTransitionTable`: defs by RS, fields by US, params by GS, param fields by FS. */
+    internal fun parseTable(table: String): List<Def> =
+        if (table.isEmpty()) {
+            emptyList()
+        } else {
+            table.split('\u001e').map { def ->
+                val f = def.split('\u001f', limit = 5)
+                val params =
+                    f[3].split('\u001d').filter { it.isNotEmpty() }.map {
+                        val p = it.split('\u001c')
+                        Param(p[0], p[1], p[2].split(',').mapNotNull(String::toFloatOrNull).toFloatArray())
+                    }
+                Def(name = f[0], author = f[1], license = f[2], params = params, glsl = f[4])
+            }
         }
 }

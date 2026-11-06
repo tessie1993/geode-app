@@ -12,6 +12,7 @@ import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import dev.geode.R
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -42,13 +43,6 @@ sealed interface LongFormAudio {
     }
 }
 
-/** One palette stop's share of the running time: which loop fills it, and for how many repeats. */
-data class LoopSegment(
-    val loopIndex: Int,
-    val startUs: Long,
-    val repeats: Int,
-)
-
 /** One repeat of one loop, and where its first frame lands in the finished file. */
 data class LoopWrite(
     val loopIndex: Int,
@@ -59,81 +53,44 @@ data class LoopWrite(
  * How the rendered loops fill the running time.
  *
  * Nothing here re-renders or re-encodes: the plan is a list of offsets, and each offset is
- * applied to the already-encoded samples as they are copied into the long file.
+ * applied to the already-encoded samples as they are copied into the long file. The plan itself is
+ * native (`core/output/LoopPlan`, tested by `core/tests/output_test.cpp`): ceil(total / loop)
+ * repeats, spread over the drift stops as evenly as whole repeats allow.
  */
-data class LoopExtendPlan(
+class LoopExtendPlan private constructor(
     val loopDurationUs: Long,
     val totalDurationUs: Long,
-    val segments: List<LoopSegment>,
+    val writes: List<LoopWrite>,
 ) {
-    init {
-        require(loopDurationUs > 0) { "loopDurationUs must be positive, was $loopDurationUs" }
-        require(totalDurationUs > 0) { "totalDurationUs must be positive, was $totalDurationUs" }
-    }
-
-    val writes: List<LoopWrite> =
-        segments.flatMap { segment ->
-            List(segment.repeats) { repeat -> LoopWrite(segment.loopIndex, segment.startUs + repeat * loopDurationUs) }
-        }
-
     val repeats: Int get() = writes.size
 
-    /** Every point where the loop wraps — what a seam preview scrubs to. */
-    val seamsMs: List<Long> get() = writes.drop(1).map { it.offsetUs / 1000 }
-
-    fun seamPreviewStartMs(
-        seamMs: Long,
-        leadMs: Long = LoopSpec.SEAM_PREVIEW_LEAD_MS,
-    ): Long = (seamMs - leadMs).coerceIn(0L, totalDurationUs / 1000)
-
     /**
-     * What the finished file will weigh.
-     *
-     * Every repeat writes the loop's samples again, so the video grows linearly with the running
-     * time even though nothing is re-encoded. The headroom covers the sample tables, which for a
-     * multi-hour file are megabytes of index in their own right.
+     * What the finished file will weigh: every repeat writes the loop's samples again, plus the
+     * sample tables, which for a multi-hour file are megabytes of index in their own right.
      */
     fun estimatedBytes(
         loopBytes: Long,
         soundtrackBytes: Long,
-    ): Long {
-        val body = repeats * loopBytes + soundtrackBytes
-        return body + body / SAMPLE_TABLE_HEADROOM_DIVISOR
-    }
+    ): Long = GeodeNative.loopEstimatedBytes(loopDurationUs, totalDurationUs, loopBytes, soundtrackBytes)
 
     /** The video bit rate a render would need to keep a file of this length under [limitBytes]. */
     fun fittingBitRate(
         limitBytes: Long,
         soundtrackBytes: Long,
-    ): Int {
-        val seconds = (totalDurationUs / 1_000_000L).coerceAtLeast(1L)
-        val room = (limitBytes - soundtrackBytes).coerceAtLeast(0L)
-        return (room * 8 / seconds).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-    }
+    ): Int = GeodeNative.loopFittingBitRate(totalDurationUs, limitBytes, soundtrackBytes)
 
     companion object {
-        const val SAMPLE_TABLE_HEADROOM_DIVISOR: Long = 50
-
         fun of(
             loopDurationUs: Long,
             totalDurationUs: Long,
             loops: Int,
         ): LoopExtendPlan {
+            require(loopDurationUs > 0) { "loopDurationUs must be positive, was $loopDurationUs" }
             require(loops >= 1) { "a plan needs at least one loop, was $loops" }
             val total = totalDurationUs.coerceAtLeast(1L)
-            val repeats = ((total + loopDurationUs - 1) / loopDurationUs).toInt().coerceAtLeast(1)
-            // A drift stop that would get no repeats is dropped rather than left empty: better a
-            // few palette steps that actually come round than a schedule the video never reaches.
-            val stops = minOf(loops, repeats)
-            val each = repeats / stops
-            val remainder = repeats % stops
-            var startUs = 0L
-            val segments =
-                List(stops) { index ->
-                    val count = each + if (index < remainder) 1 else 0
-                    LoopSegment(index, startUs, count).also { startUs += count * loopDurationUs }
-                }
-            return LoopExtendPlan(loopDurationUs, total, segments)
+            val pairs = GeodeNative.loopExtendPlan(loopDurationUs, total, loops)
+            val writes = List(pairs.size / 2) { LoopWrite(loopIndex = pairs[it * 2 + 1].toInt(), offsetUs = pairs[it * 2]) }
+            return LoopExtendPlan(loopDurationUs, total, writes)
         }
     }
 }
@@ -683,9 +640,10 @@ class LoopExtend(
          * The ceiling an MP4 written by [MediaMuxer] can address: it records 32-bit chunk
          * offsets, so past four gigabytes the index points at the wrong bytes and the file will
          * not play. A three-hour render therefore has to be rendered at a bit rate that fits,
-         * which is what the failure message says.
+         * which is what the failure message says. Native (`core/output/EncodePlan`), beside the
+         * lower target [MuxerBudget] aims renders at.
          */
-        const val MUXER_SAFE_BYTES: Long = 4L * 1024 * 1024 * 1024 - 64L * 1024 * 1024
+        val MUXER_SAFE_BYTES: Long get() = GeodeNative.exportMuxerHardLimitBytes()
 
         private const val AUDIO_PROGRESS_SPAN = 0.35f
         private const val SCRATCH_BYTES = 64 * 1024

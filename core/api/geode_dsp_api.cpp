@@ -70,4 +70,16 @@ void geode_dsp_process(geode_dsp* d, float* interleaved, size_t capacity_floats,
     if (d) d->processor.process(interleaved, capacity_floats, frames, channels);
 }
 
+void geode_dsp_process_pcm16(geode_dsp* d, int16_t* interleaved, size_t capacity_samples, size_t frames, int channels) {
+    if (d) d->processor.processPcm16(interleaved, capacity_samples, frames, channels);
+}
+
+void geode_dsp_set_bit_perfect(geode_dsp* d, int on) {
+    if (d) d->processor.setBitPerfect(on != 0);
+}
+
+int geode_dsp_bit_perfect_live(const geode_dsp* d) {
+    return d && d->processor.bitPerfectLive() ? 1 : 0;
+}
+
 }

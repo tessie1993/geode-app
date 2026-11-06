@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import dev.geode.engine.audio.SoundTuning
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.HandMask
 import dev.geode.render.LfoConfig
@@ -92,8 +93,11 @@ class OffscreenSceneRenderer(
     fun prepare() {
         val viz = NativeViz(context)
         check(viz.create()) { "native renderer could not be created" }
-        // The offscreen tier, cut transitions and fixed quality are native (core/viz/frame/OfflineStep).
+        // Pinned natively (geode_viz_prepare_offscreen): the full tier, since an export renders as fast as
+        // the encoder takes frames; cut transitions; and fluid quality that never adapts downward.
         viz.prepareOffscreen()
+        // Every frame steps the engine by exactly 1/fps, the first one included (#377).
+        viz.setFrameRate(spec.fps)
         viz.surfaceCreated()
         viz.surfaceChanged(spec.width, spec.height)
         check(viz.setScene(sceneFactory.sceneId)) { "native renderer cannot draw \"${sceneFactory.sceneId}\"" }
@@ -126,17 +130,18 @@ class OffscreenSceneRenderer(
         targetFbo: Int = 0,
     ) {
         val viz = checkNotNull(native) { "renderFrame() before prepare()" }
-        // The frame grid and the audio cut are native, on the absolute frame index (core/viz/frame/OfflineStep).
-        val p = spec.paramsAt?.invoke(NativeViz.offlineFrameMs(frame, spec.fps, 1)) ?: spec.baseParams
+        val fps = spec.fps
+        // The export frame clock is native (core/output/FrameClock): frame n shows floor(n * 1000 / fps) ms.
+        val timeMs = GeodeNative.exportFrameTimeMs(frame.toLong(), fps)
+        val nextTimeMs = GeodeNative.exportFrameTimeMs(frame + 1L, fps)
+        val p = spec.paramsAt?.invoke(timeMs) ?: spec.baseParams
         viz.setParams(p)
         // Native re-resolves the routes when keyframes change reactSeed, as live does; this sends only changes.
         viz.setUserReactions(spec.reactions, HandMask.current)
         // Exactly the audio up to the end of this frame, then a render steps the engine by 1/fps.
-        audio?.let { a ->
-            val until = NativeViz.offlineAudioUntil(frame, spec.fps, 1, a.sampleRate())
-            a.deliverUntil(until) { pcm, n, ch, rate -> viz.writeAudio(pcm, n, ch, rate) }
-        }
-        viz.renderOffscreenFrame(frame, spec.fps, 1, targetFbo)
+        audio?.deliverUntilMs(nextTimeMs) { pcm, frames, channels, rate -> viz.writeAudio(pcm, frames, channels, rate) }
+        // The frame's exact time, not the whole-ms one above (#377): floor(n * 1e9 / fps) ns.
+        viz.render(GeodeNative.exportFramePtsNs(frame.toLong(), fps) / NANOS_PER_SECOND, targetFbo)
     }
 
     /** Frees the native renderer. Safe to call more than once. */
@@ -149,5 +154,6 @@ class OffscreenSceneRenderer(
 
     private companion object {
         const val TAG = "OffscreenSceneRenderer"
+        const val NANOS_PER_SECOND = 1_000_000_000.0
     }
 }

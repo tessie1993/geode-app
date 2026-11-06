@@ -31,13 +31,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-internal fun AboutSettingsTab() {
-    SettingsTabColumn {
-        item { SettingsGroup(stringResource(R.string.about_group)) { AboutSection() } }
-    }
-}
-
-@Composable
 fun AboutSection() {
     var showLicenses by rememberSaveable { mutableStateOf(false) }
     var showPrivacy by rememberSaveable { mutableStateOf(false) }

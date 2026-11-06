@@ -2,7 +2,6 @@
 
 #include <algorithm>
 
-#include "util/Json.hpp"
 #include "util/Log.hpp"
 
 namespace geode::viz {
@@ -13,20 +12,6 @@ constexpr const char* kAsset = "gl_transitions.json";
 constexpr const char* kSourceMarker = "// __GL_TRANSITION_SOURCE__";
 constexpr const char* kTag = "Transitions";
 
-std::vector<float> floatsOf(const json::Value* value) {
-    if (!value) return {0.0f};
-    switch (value->kind()) {
-        case json::Value::Kind::Bool: return {value->boolValue() ? 1.0f : 0.0f};
-        case json::Value::Kind::Number: return {static_cast<float>(value->number())};
-        case json::Value::Kind::Array: {
-            std::vector<float> out;
-            for (const auto& v : value->array()) out.push_back(v.kind() == json::Value::Kind::Number ? static_cast<float>(v.number()) : 0.0f);
-            return out;
-        }
-        default: return {0.0f};
-    }
-}
-
 float at(const std::vector<float>& v, size_t i) { return i < v.size() ? v[i] : 0.0f; }
 
 }  // namespace
@@ -35,29 +20,9 @@ const std::vector<TransitionCatalog::Def>& TransitionCatalog::library() {
     if (loaded_) return library_;
     loaded_ = true;
     const auto text = assets_.readAsset(kAsset);
-    const auto parsed = text ? json::parse(*text) : std::nullopt;
-    if (!parsed || parsed->kind() != json::Value::Kind::Array) return library_;
-    for (const auto& o : parsed->array()) {
-        if (o.kind() != json::Value::Kind::Object) continue;
-        Def def;
-        def.name = o.optString("name");
-        def.author = o.optString("author");
-        def.license = o.optString("license");
-        def.glsl = o.optString("glsl");
-        const json::Value* types = o.get("paramsTypes");
-        const json::Value* defaults = o.get("defaultParams");
-        if (types && types->kind() == json::Value::Kind::Object) {
-            for (const auto& [key, type] : types->object()) {
-                Param p;
-                p.name = key;
-                p.type = type.kind() == json::Value::Kind::String ? type.string() : "float";
-                p.values = floatsOf(defaults ? defaults->get(key) : nullptr);
-                def.params.push_back(std::move(p));
-            }
-        }
-        byName_[def.name] = library_.size();
-        library_.push_back(std::move(def));
-    }
+    if (!text) return library_;
+    library_ = parseTransitionLibrary(*text);
+    for (size_t i = 0; i < library_.size(); ++i) byName_[library_[i].name] = i;
     return library_;
 }
 

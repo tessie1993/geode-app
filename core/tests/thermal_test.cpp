@@ -13,6 +13,7 @@
 #include <thread>
 #include <vector>
 
+#include "api/geode_api.h"
 #include "viz/ThermalGovernor.hpp"
 #include "viz/frame/Pacer.hpp"
 #include "viz/frame/Thermal.hpp"
@@ -205,6 +206,318 @@ void measuredFloorIsShared() {
     check(shared.tier() < raised, "a long kept-up run steps the floor back down");
 }
 
+// ---- Mutation tests (#548). Each names the mutant of the PR's code it kills. Times are the injected
+// clock in seconds; expected tiers and times are worked by hand from the PR's rules: hotter after 3 s of
+// readings, cooler one rung per 60 s, a real headroom trusted 10 s, a gap counted at most 2 s.
+
+// A ThermalState climbed to Reduced by three readings of headroom 0.9 at t = 100, 101, 102.
+void climbToReducedByHeadroom(ThermalState& s) { pushFor(s, 0, 0.9f, 100.0, 3); }
+
+// Kills: `>=` -> `>` at each headroom threshold (0.75, 0.85, 0.95), a forecast of 1.0 not at Minimal, and
+// a reordered status ladder.
+void headroomThresholdsAreInclusive() {
+    check(ThermalState::headroomTier(0.75f) == ThermalTier::Eased, "headroom exactly 0.75 eases");
+    check(ThermalState::headroomTier(std::nextafter(0.75f, 0.0f)) == ThermalTier::Full, "just under 0.75 is Full");
+    check(ThermalState::headroomTier(0.85f) == ThermalTier::Reduced, "headroom exactly 0.85 is Reduced");
+    check(ThermalState::headroomTier(std::nextafter(0.85f, 0.0f)) == ThermalTier::Eased, "just under 0.85 is Eased");
+    check(ThermalState::headroomTier(0.95f) == ThermalTier::Minimal, "headroom exactly 0.95 is Minimal");
+    check(ThermalState::headroomTier(std::nextafter(0.95f, 0.0f)) == ThermalTier::Reduced, "just under 0.95 is Reduced");
+    // Android throttles at a forecast of 1.0 (SEVERE); by then the ladder is on its last rung.
+    check(ThermalState::headroomTier(1.0f) == ThermalTier::Minimal, "a forecast of 1.0 is Minimal");
+    // PowerManager.THERMAL_STATUS_NONE 0, LIGHT 1, SEVERE 3.
+    check(ThermalState::statusTier(0) == ThermalTier::Full, "THERMAL_STATUS_NONE is Full");
+    check(ThermalState::statusTier(1) == ThermalTier::Eased, "THERMAL_STATUS_LIGHT eases");
+    check(ThermalState::statusTier(3) == ThermalTier::Minimal, "THERMAL_STATUS_SEVERE is Minimal");
+}
+
+// Kills: `status >= 0` -> `status > 0` in push (a cool phone with a thermal API read as one without), and
+// a dropped `!` on platformKnows() in ThermalGovernor::onFrame.
+void aCoolPhoneWithAThermalApiIgnoresSlowFrames() {
+    ThermalState shared;
+    shared.push(0, NAN, 100.0);  // THERMAL_STATUS_NONE: the platform answers, and the phone is cool
+    check(shared.platformKnows(), "THERMAL_STATUS_NONE is a real answer");
+    ThermalGovernor heavyStyle(shared);
+    heavyStyle.setPacedFps(60.0f);
+    for (int i = 0; i < 200; ++i) heavyStyle.onFrame(0.05f);  // 20 fps for 10 s: a heavy style, not heat
+    check(shared.measuredFloor() == ThermalTier::Full, "without Adapt, a slow style on a cool phone keeps Full");
+    check(heavyStyle.pacedFps() == 60.0f, "and its own 60 fps cap");
+}
+
+// Kills: `std::isfinite(headroom)` -> `!std::isnan(headroom)` (an infinite forecast read as Minimal).
+void anInfiniteForecastIsNoForecast() {
+    ThermalState s;
+    pushFor(s, 0, INFINITY, 100.0, 5);
+    check(s.tier() == ThermalTier::Full, "an infinite headroom is no forecast");
+}
+
+// Kills: dropping `headroom >= 0.0f` (a negative "no forecast" taken as a cool reading).
+void aNegativeForecastIsAMissedWindow() {
+    ThermalState s;
+    climbToReducedByHeadroom(s);
+    // Last real reading at 102, trusted to 112; cool readings count from 113, so 103..162 is only 50 s.
+    pushFor(s, 0, -1.0f, 103.0, 60);
+    check(s.tier() == ThermalTier::Reduced, "a negative headroom keeps the last real one, like NaN");
+}
+
+// Kills: `headroom >= 0.0f` -> `headroom > 0.0f` (a real 0.0, a cold phone, read as no forecast).
+void aZeroForecastIsARealCoolReading() {
+    ThermalState s;
+    climbToReducedByHeadroom(s);
+    pushFor(s, 0, 0.0f, 103.0, 59);  // 103..161: 59 s of cool
+    check(s.tier() == ThermalTier::Reduced, "59 s of headroom 0 is not yet a minute");
+    s.push(0, 0.0f, 162.0);
+    check(s.tier() == ThermalTier::Eased, "a minute of headroom 0 relaxes one rung");
+}
+
+// Kills: the stale rule's `>` -> `>=`, kHeadroomStaleSeconds 10 -> 9 or 11, and the relax dwell's
+// `>=` -> `>`. By hand: last real 102, trusted through 112, cool from 113, the 60th cool reading at 172.
+void aMissedWindowHoldsTheLastHeadroomTenSeconds() {
+    ThermalState s;
+    climbToReducedByHeadroom(s);
+    pushFor(s, 0, NAN, 103.0, 69);  // 103..171
+    check(s.tier() == ThermalTier::Reduced, "at 171 the phone has been trusted cool for only 59 s");
+    s.push(0, NAN, 172.0);
+    check(s.tier() == ThermalTier::Eased, "at 172 it has been a minute: one rung down");
+}
+
+// Kills: not resetting the hot dwell after a climb (the next hotter tier would come at once).
+void eachClimbWaitsItsOwnThreeSeconds() {
+    ThermalState s;
+    pushFor(s, 1, NAN, 100.0, 3);  // Eased at 102
+    s.push(3, NAN, 103.0);
+    check(s.tier() == ThermalTier::Eased, "one SEVERE reading right after easing does not jump to Minimal");
+    s.push(3, NAN, 104.0);
+    check(s.tier() == ThermalTier::Eased, "nor two");
+    s.push(3, NAN, 105.0);
+    check(s.tier() == ThermalTier::Minimal, "three do");
+}
+
+// Kills: the cool branch not resetting the hot dwell (a hot run broken by a cool reading would still climb).
+void aCoolReadingBreaksAHotRun() {
+    ThermalState s;
+    pushFor(s, 1, NAN, 100.0, 3);  // Eased at 102
+    s.push(3, NAN, 103.0);
+    s.push(3, NAN, 104.0);
+    s.push(0, NAN, 105.0);
+    s.push(3, NAN, 106.0);
+    check(s.tier() == ThermalTier::Eased, "hot, hot, cool, hot is not three hot readings in a row");
+    pushFor(s, 3, NAN, 107.0, 2);
+    check(s.tier() == ThermalTier::Minimal, "106, 107, 108 are");
+}
+
+// Kills: the hot branch not resetting the cool dwell, and the equal branch not resetting it (a phone that
+// warms back up mid-minute would still relax on the old count).
+void anyNonCoolReadingRestartsTheMinute() {
+    for (const int interrupt : {2, 3}) {  // as hot as the settled tier, and hotter
+        ThermalState s;
+        pushFor(s, 2, NAN, 100.0, 3);   // MODERATE: Reduced at 102
+        pushFor(s, 0, NAN, 103.0, 30);  // 30 s cool
+        s.push(interrupt, NAN, 133.0);
+        pushFor(s, 0, NAN, 134.0, 59);  // 134..192: 59 s cool
+        check(s.tier() == ThermalTier::Reduced, "a warm reading mid-minute restarts the cool wait");
+        s.push(0, NAN, 193.0);
+        check(s.tier() == ThermalTier::Eased, "a full minute after the warm reading it relaxes");
+    }
+}
+
+// Kills: dropping the step clamp, raising kMaxStepSeconds past 2 s, or lowering it under 2 s.
+void aGapBetweenReadingsCountsAtMostTwoSeconds() {
+    ThermalState late;
+    late.push(0, NAN, 100.0);
+    late.push(1, NAN, 102.9);   // a 2.9 s gap counts 2 s
+    late.push(1, NAN, 103.85);  // + 0.95 s = 2.95 s, short of 3
+    check(late.tier() == ThermalTier::Full, "a long gap is not more than 2 s of watching");
+    ThermalState sparse;
+    sparse.push(0, NAN, 200.0);
+    sparse.push(1, NAN, 202.0);  // 2 s, all of it counts
+    sparse.push(1, NAN, 203.0);  // + 1 s = 3 s
+    check(sparse.tier() == ThermalTier::Eased, "readings 2 s apart still count in full");
+}
+
+// Kills: any dwell cut to a reading or two, so a headroom hovering at the Eased line flips the frame rate
+// back and forth. Seeded: the same ten minutes every run.
+void aPhoneAtTheEdgeDoesNotFlap() {
+    ThermalState s;
+    uint32_t seed = 0x440u;
+    ThermalTier last = s.tier();
+    int changes = 0;
+    for (int i = 0; i < 600; ++i) {
+        seed = seed * 1664525u + 1013904223u;
+        const float jitter = (static_cast<float>(seed >> 8) / 16777216.0f - 0.5f) * 0.02f;  // +-0.01
+        s.push(0, 0.75f + jitter, 100.0 + i);
+        if (s.tier() != last) {
+            changes++;
+            last = s.tier();
+        }
+    }
+    check(changes <= 1, "ten minutes at the edge change the tier at most once");
+}
+
+// Feeds `vsyncs` callbacks of a 120 Hz panel to a 60 fps surface under the state's thermal cap, from
+// vsync `index` on; returns how many were drawn.
+int pace120(frame::PacerState& p, int& index, int vsyncs, const ThermalState& s) {
+    const double period = 1e9 / 120.0;
+    int drawn = 0;
+    for (int k = 0; k < vsyncs; ++k, ++index) {
+        const auto t = 1'000'000'000 + static_cast<int64_t>(std::llround(period * index));
+        if (frame::Pacer::onVsync(p, t, s.capFor(60.0f)) > 0.0) drawn++;
+    }
+    return drawn;
+}
+
+// Kills: a relax that never lifts the fps cap, and a relax past or short of Full from Eased.
+void theCapLiftsWhenThePhoneCools() {
+    ThermalState s;
+    pushFor(s, 1, NAN, 100.0, 3);  // Eased at 102
+    frame::PacerState p;
+    int index = 0;
+    pace120(p, index, 120, s);
+    check(pace120(p, index, 120, s) == 30, "warm: 30 frames a second on a 120 Hz panel");
+    pushFor(s, 0, NAN, 103.0, 60);  // a minute cool
+    check(s.tier() == ThermalTier::Full, "a minute of cool from Eased is Full");
+    pace120(p, index, 120, s);
+    check(pace120(p, index, 120, s) == 60, "cool again: the surface's own 60");
+    check(p.divisor == 2 && p.capMilliHz == 60'000, "120 Hz halves, and the shell is told 60 fps");
+}
+
+// Kills: dropping max(steps, 0) in raiseMeasuredFloor, dropping its min with the ceiling, and dropping
+// max(floor - 1, 0) in lowerMeasuredFloor.
+void theMeasuredFloorStaysOnTheLadder() {
+    ThermalState s;
+    s.raiseMeasuredFloor(1);
+    s.raiseMeasuredFloor(-3);
+    check(s.measuredFloor() == ThermalTier::Eased, "a raise never lowers the floor");
+    s.raiseMeasuredFloor(3);
+    check(s.measuredFloor() == ThermalTier::Reduced, "frame time alone stops at Reduced, keeping post FX");
+    s.lowerMeasuredFloor();
+    check(s.measuredFloor() == ThermalTier::Eased, "one step down is one rung");
+    s.lowerMeasuredFloor();
+    s.lowerMeasuredFloor();
+    check(s.measuredFloor() == ThermalTier::Full, "and the floor bottoms out at Full");
+    check(s.tier() == ThermalTier::Full && s.fpsCap() == 0.0f, "a bottomed-out floor caps nothing");
+}
+
+// Kills: `&&` -> `||` in setAdaptive (turning Adapt on again would clear the floor), a dropped clear, and a
+// dropped or negated platformKnows() check there.
+void adaptOffHandsTheTierBackToThePlatform() {
+    ThermalState known;
+    known.push(0, NAN, 100.0);
+    ThermalGovernor g(known);
+    g.setAdaptive(true);
+    known.raiseMeasuredFloor(2);
+    g.setAdaptive(true);
+    check(known.tier() == ThermalTier::Reduced, "turning Adapt on again keeps the measured floor");
+    g.setAdaptive(false);
+    check(known.tier() == ThermalTier::Full, "turning it off leaves the cool platform's Full");
+
+    ThermalState unknown;
+    unknown.push(-1, NAN, 100.0);
+    ThermalGovernor old(unknown);
+    old.setAdaptive(true);
+    unknown.raiseMeasuredFloor(2);
+    old.setAdaptive(false);
+    check(unknown.tier() == ThermalTier::Reduced, "without a thermal API frame time is the only signal: kept");
+}
+
+// Kills: dropping `!adaptive_` from the step-down guard (without Adapt the floor never comes down).
+void withoutAdaptTheFloorNeverStepsDown() {
+    ThermalState shared;
+    shared.push(-1, NAN, 100.0);
+    ThermalGovernor g(shared);
+    g.setPacedFps(60.0f);
+    for (int i = 0; i < 200; ++i) g.onFrame(0.05f);  // 20 fps for 10 s
+    const ThermalTier raised = shared.measuredFloor();
+    check(raised > ThermalTier::Full, "a sustained deficit raised the floor");
+    for (int i = 0; i < 120 * 60; ++i) g.onFrame(1.0f / 60.0f);  // two minutes keeping up
+    check(shared.measuredFloor() == raised, "without Adapt the floor never steps back down");
+}
+
+// Kills: kMeasuredRelaxSeconds well under or over 45 s, and a step down of more than one rung.
+void adaptStepsDownOneRungAfterAKeptUpRun() {
+    ThermalState shared;
+    shared.push(-1, NAN, 100.0);
+    ThermalGovernor g(shared);
+    g.setPacedFps(30.0f);
+    g.setAdaptive(true);
+    shared.raiseMeasuredFloor(2);  // another surface struggled: Reduced
+    for (int i = 0; i < 44 * 30; ++i) g.onFrame(1.0f / 30.0f);
+    check(shared.measuredFloor() == ThermalTier::Reduced, "44 s of keeping up is not yet enough");
+    for (int i = 0; i < 6 * 30; ++i) g.onFrame(1.0f / 30.0f);
+    check(shared.measuredFloor() == ThermalTier::Eased, "by 50 s it steps down, one rung only");
+}
+
+// Kills: dropping the export's early return in ThermalGovernor::onFrame (an export's slow frames, drawn as
+// fast as the encoder takes them, would cap the live surfaces).
+void anExportsFrameTimesNeverRaiseTheFloor() {
+    ThermalState shared;
+    shared.push(-1, NAN, 100.0);
+    ThermalGovernor exporter(shared);
+    exporter.beginOffscreenRender();
+    for (int i = 0; i < 200; ++i) exporter.onFrame(0.05f);
+    check(shared.measuredFloor() == ThermalTier::Full, "an export's frame times are not a deficit");
+}
+
+// Kills: endOffscreenRender going below zero (an unmatched end would cancel the next export's pin to Full).
+void anUnmatchedExportEndDoesNotUnpinTheNext() {
+    ThermalState shared;
+    pushFor(shared, 3, NAN, 100.0, 3);  // Minimal
+    ThermalGovernor g(shared);
+    g.endOffscreenRender();
+    g.beginOffscreenRender();
+    check(g.tier() == ThermalTier::Full, "an export still renders at Full");
+}
+
+// Kills: the measured fallback watching the surface's own cap instead of the effective one (a phone drawing
+// at the thermal 30 would read as failing 60 and raise the floor).
+void theThermalCapIsNotADeficit() {
+    ThermalState shared;
+    pushFor(shared, 1, NAN, 100.0, 3);  // LIGHT: Eased, 30 fps
+    ThermalGovernor g(shared);
+    g.setPacedFps(60.0f);
+    g.setAdaptive(true);
+    for (int i = 0; i < 300; ++i) g.onFrame(1.0f / 30.0f);  // 10 s at the thermal 30
+    check(shared.measuredFloor() == ThermalTier::Full, "30 fps under a 30 fps thermal cap is keeping up");
+    check(g.tier() == ThermalTier::Eased, "the tier stays the platform's");
+}
+
+// Kills: GEODE_PACER_STATE_LONGS left at 6 (the pacer writes past the shell's array) or GEODE_PACER_CAP_SLOT
+// naming another slot (the shell would re-ask setFrameRate from the wrong number).
+void theShellsPacerArrayHoldsTheCap() {
+    ThermalState s;
+    pushFor(s, 1, NAN, 100.0, 3);  // Eased
+    frame::PacerState p;
+    int index = 0;
+    pace120(p, index, 120, s);
+    constexpr int64_t kSentinel = -12345;
+    int64_t wire[GEODE_PACER_STATE_LONGS + 1];
+    for (auto& w : wire) w = kSentinel;
+    frame::pack(p, wire);
+    check(wire[GEODE_PACER_STATE_LONGS] == kSentinel, "the pacer state fits the array the shell allocates");
+    check(wire[GEODE_PACER_CAP_SLOT] == 30'000, "the shell reads 30 fps from the cap slot");
+    for (int i = 0; i < GEODE_PACER_STATE_LONGS; ++i) {
+        check(wire[i] != kSentinel, "every slot of the shell's array is the pacer's");
+    }
+}
+
+// Kills: a per-thread or per-renderer state behind ThermalState::process() (#387: the wallpaper read its
+// own copy and stayed at Full). Uses the real process state, so main runs it last.
+void everySurfaceInTheProcessReadsOneState() {
+    ThermalGovernor live;  // the process's state, the default
+    ThermalTier wallpaperTier = ThermalTier::Full;
+    float wallpaperCap = 0.0f;
+    pushFor(ThermalState::process(), 3, NAN, 1000.0, 3);  // only the live surface's thread pushes
+    std::thread wallpaperGl([&] {
+        ThermalGovernor wallpaper;  // built on its own GL thread
+        wallpaper.setPacedFps(60.0f);
+        wallpaperTier = wallpaper.tier();
+        wallpaperCap = wallpaper.pacedFps();
+    });
+    wallpaperGl.join();
+    check(live.tier() == ThermalTier::Minimal, "the pushing surface is at Minimal");
+    check(wallpaperTier == ThermalTier::Minimal, "a surface on another thread reads the same tier");
+    check(wallpaperCap == 30.0f, "and draws at the thermal 30");
+}
+
 }  // namespace
 
 int main() {
@@ -215,6 +528,27 @@ int main() {
     capReachesThePacer();
     twoRenderersShareOneState();
     measuredFloorIsShared();
+    headroomThresholdsAreInclusive();
+    aCoolPhoneWithAThermalApiIgnoresSlowFrames();
+    anInfiniteForecastIsNoForecast();
+    aNegativeForecastIsAMissedWindow();
+    aZeroForecastIsARealCoolReading();
+    aMissedWindowHoldsTheLastHeadroomTenSeconds();
+    eachClimbWaitsItsOwnThreeSeconds();
+    aCoolReadingBreaksAHotRun();
+    anyNonCoolReadingRestartsTheMinute();
+    aGapBetweenReadingsCountsAtMostTwoSeconds();
+    aPhoneAtTheEdgeDoesNotFlap();
+    theCapLiftsWhenThePhoneCools();
+    theMeasuredFloorStaysOnTheLadder();
+    adaptOffHandsTheTierBackToThePlatform();
+    withoutAdaptTheFloorNeverStepsDown();
+    adaptStepsDownOneRungAfterAKeptUpRun();
+    anExportsFrameTimesNeverRaiseTheFloor();
+    anUnmatchedExportEndDoesNotUnpinTheNext();
+    theThermalCapIsNotADeficit();
+    theShellsPacerArrayHoldsTheCap();
+    everySurfaceInTheProcessReadsOneState();  // last: it uses the real process state
     if (failures == 0) std::printf("thermal_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

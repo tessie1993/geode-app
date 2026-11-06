@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -277,6 +278,10 @@ private fun OptionsHeader(
                 selectedTabIndex = nav.selectedTab,
                 modifier = Modifier.weight(1f),
                 edgePadding = GeodeSpacing.S,
+                // Tabs as wide as their labels, so all four fit beside × on a phone instead of the
+                // last one running out of the scroll window as "MilkDr" (it still scrolls at a
+                // large font).
+                minTabWidth = 0.dp,
                 containerColor = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.primary,
                 // Plain glass: no hairline under the tabs, the indicator alone marks the page.
@@ -292,8 +297,13 @@ private fun OptionsHeader(
                         },
                         selectedContentColor = MaterialTheme.colorScheme.primary,
                         unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        text = { Text(stringResource(page.titleRes), style = MaterialTheme.typography.titleSmall) },
-                    )
+                    ) {
+                        // The content overload: Material's text one pads 16 dp a side, more than four
+                        // labels and × have room for on a 400 dp phone.
+                        Box(Modifier.height(TAB_HEIGHT).padding(horizontal = TAB_TEXT_PADDING), contentAlignment = Alignment.Center) {
+                            Text(stringResource(page.titleRes), style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                        }
+                    }
                 }
             }
             IconButton(onClick = {
@@ -489,3 +499,9 @@ private val GRIP_LENGTH = 36.dp
 private val GRIP_THICKNESS = 4.dp
 
 private val EDGE_TOUCH_HEIGHT = 96.dp
+
+/** A tab's height: Material's text-only tab, and the 48 dp touch target. */
+private val TAB_HEIGHT = 48.dp
+
+/** Each side of a tab's label. */
+private val TAB_TEXT_PADDING = 12.dp

@@ -1,356 +1,36 @@
 package dev.geode.render.bridge
 
+import dev.geode.render.scene.ParamSchema
 import dev.geode.render.scene.SceneParams
+import java.lang.reflect.Field
 
-/** Packs [SceneParams] in `geode_viz_param_name` order; [verify] proves that order against the library once. */
+/**
+ * Packs [SceneParams] into the `geode_viz_set_params` frame and back. The frame is the native params
+ * schema ([ParamSchema], core/viz/ParamTable.inc): slot i carries the field that schema row i names.
+ * Each field is found by that name (app/proguard-rules.pro keeps the names), so no Kotlin list holds
+ * the order and nothing here can fall out of step with the table: a row the data class lacks fails
+ * the codec's first use loudly instead of shifting every slot after it. Ints and flags travel as floats.
+ */
 object SceneParamsCodec {
-    const val FIELDS = 164
+    private val SLOTS: Array<Field> = slotFields()
 
-    val NAMES: List<String> =
-        listOf(
-            "speed",
-            "zoom",
-            "rotation",
-            "endlessZoom",
-            "endlessZoomSpeed",
-            "sway",
-            "pulse",
-            "driftX",
-            "driftY",
-            "shake",
-            "audioDrive",
-            "beatResponse",
-            "turbulence",
-            "density",
-            "marchDetail",
-            "trails",
-            "trailLength",
-            "trailZoom",
-            "trailWarp",
-            "mirror",
-            "warp",
-            "ripple",
-            "symmetry",
-            "kaleidoscope",
-            "morph",
-            "pixelate",
-            "posterize",
-            "particleShape",
-            "particleSize",
-            "tile",
-            "twist",
-            "palette",
-            "palette2",
-            "paletteMix",
-            "paletteBaseOverride",
-            "paletteRangeOverride",
-            "palette2BaseOverride",
-            "palette2RangeOverride",
-            "paletteLut",
-            "milkdropPaletteTint",
-            "milkdropBlendPresets",
-            "colorShift",
-            "hueRange",
-            "saturation",
-            "brightness",
-            "contrast",
-            "gamma",
-            "colorCycle",
-            "cycleSpeed",
-            "invert",
-            "intensity",
-            "duotone",
-            "bloom",
-            "temperature",
-            "solarize",
-            "bassGain",
-            "midGain",
-            "trebGain",
-            "flash",
-            "chromaAb",
-            "vignette",
-            "scanlines",
-            "grain",
-            "glitch",
-            "fisheye",
-            "strobe",
-            "paramFadeSec",
-            "fluidQuality",
-            "fluidAutoQuality",
-            "fluidIterations",
-            "fluidPressure",
-            "fluidCurl",
-            "fluidVelocityDissipation",
-            "fluidDensityDissipation",
-            "fluidChromaticAging",
-            "fluidSplatRadius",
-            "fluidSplatForce",
-            "fluidBeatPattern",
-            "fluidBeatSplats",
-            "fluidStirrers",
-            "fluidStirrerSpeed",
-            "fluidBassPump",
-            "fluidPaletteCycleSpeed",
-            "fluidSparkle",
-            "fluidSpawnPath",
-            "fluidSpawnPoints",
-            "fluidSpawnProgress",
-            "fluidCatchPoints",
-            "fluidCatchPull",
-            "fluidCatchRadius",
-            "fluidParticlesEnabled",
-            "fluidParticleLife",
-            "fluidParticleDrag",
-            "fluidParticleBrightness",
-            "fluidDyeEnabled",
-            "fluidShading",
-            "fluidBloom",
-            "fluidBloomIntensity",
-            "fluidBloomThreshold",
-            "fluidSunrays",
-            "fluidSunraysWeight",
-            "fluidCurlAudio",
-            "fluidBloomAudio",
-            "fluidFadeAudio",
-            "fluidRadiusPulse",
-            "flowEnabled",
-            "flowStrength",
-            "flowForce",
-            "flowCurl",
-            "waterWaveSpeed",
-            "waterDamping",
-            "waterRippleStrength",
-            "waterDepth",
-            "waterSpecular",
-            "waterFlow",
-            "waterLiquid",
-            "waterLiquidFlow",
-            "waterLiquidFade",
-            "cymaticsGeometry",
-            "cymaticsFundamental",
-            "cymaticsModes",
-            "cymaticsRing",
-            "cymaticsFocus",
-            "cymaticsScale",
-            "cymaticsFill",
-            "cymaticsLine",
-            "cymaticsGlow",
-            "cymaticsIridescence",
-            "cymaticsCaustic",
-            "cymaticsFlow",
-            "cymaticsSwirl",
-            "rippleOverlayEnabled",
-            "rippleOverlayStrength",
-            "rippleOverlaySpecular",
-            "formDrive",
-            "motionAmount",
-            "motionBreath",
-            "motionOrbit",
-            "motionDrift",
-            "motionHue",
-            "camFly",
-            "camPath",
-            "camOrbit",
-            "camPush",
-            "camYaw",
-            "camPitch",
-            "camRoll",
-            "camFov",
-            "camShake",
-            "camSmooth",
-            "camTouch",
-            "camGyro",
-            "reactAmount",
-            "reactSeed",
-            "noteColor",
-            "notePitch",
-            "noteIntervals",
-            "noteTension",
-            "noteChords",
-            "noteDrums",
-            "liquidBorn",
-            "liquidAge",
-            "liquidSurface",
-            "camFlat",
-        )
-
-    fun verify(nativeNames: String) {
-        val native = nativeNames.split('\n')
-        check(native == NAMES) { "native scene parameter order differs from SceneParamsCodec: $native" }
-    }
+    /** The frame's float count: one per schema row. */
+    val FIELDS: Int = SLOTS.size
 
     fun pack(
         p: SceneParams,
         out: FloatArray,
     ) {
         check(out.size >= FIELDS) { "scene parameter frame needs $FIELDS floats, got ${out.size}" }
-        out[0] = p.speed
-        out[1] = p.zoom
-        out[2] = p.rotation
-        out[3] = flag(p.endlessZoom)
-        out[4] = p.endlessZoomSpeed
-        out[5] = p.sway
-        out[6] = p.pulse
-        out[7] = p.driftX
-        out[8] = p.driftY
-        out[9] = p.shake
-        out[10] = p.audioDrive
-        out[11] = p.beatResponse
-        out[12] = p.turbulence
-        out[13] = p.density
-        out[14] = p.marchDetail
-        out[15] = flag(p.trails)
-        out[16] = p.trailLength
-        out[17] = p.trailZoom
-        out[18] = p.trailWarp
-        out[19] = flag(p.mirror)
-        out[20] = p.warp
-        out[21] = p.ripple
-        out[22] = p.symmetry.toFloat()
-        out[23] = flag(p.kaleidoscope)
-        out[24] = p.morph
-        out[25] = p.pixelate
-        out[26] = p.posterize
-        out[27] = p.particleShape.toFloat()
-        out[28] = p.particleSize
-        out[29] = p.tile
-        out[30] = p.twist
-        out[31] = p.palette.toFloat()
-        out[32] = p.palette2.toFloat()
-        out[33] = p.paletteMix
-        out[34] = p.paletteBaseOverride
-        out[35] = p.paletteRangeOverride
-        out[36] = p.palette2BaseOverride
-        out[37] = p.palette2RangeOverride
-        out[38] = p.paletteLut.toFloat()
-        out[39] = p.milkdropPaletteTint
-        out[40] = flag(p.milkdropBlendPresets)
-        out[41] = p.colorShift
-        out[42] = p.hueRange
-        out[43] = p.saturation
-        out[44] = p.brightness
-        out[45] = p.contrast
-        out[46] = p.gamma
-        out[47] = flag(p.colorCycle)
-        out[48] = p.cycleSpeed
-        out[49] = flag(p.invert)
-        out[50] = p.intensity
-        out[51] = flag(p.duotone)
-        out[52] = p.bloom
-        out[53] = p.temperature
-        out[54] = flag(p.solarize)
-        out[55] = p.bassGain
-        out[56] = p.midGain
-        out[57] = p.trebGain
-        out[58] = p.flash
-        out[59] = p.chromaAb
-        out[60] = p.vignette
-        out[61] = p.scanlines
-        out[62] = p.grain
-        out[63] = p.glitch
-        out[64] = p.fisheye
-        out[65] = p.strobe
-        out[66] = p.paramFadeSec
-        out[67] = p.fluidQuality.toFloat()
-        out[68] = flag(p.fluidAutoQuality)
-        out[69] = p.fluidIterations.toFloat()
-        out[70] = p.fluidPressure
-        out[71] = p.fluidCurl
-        out[72] = p.fluidVelocityDissipation
-        out[73] = p.fluidDensityDissipation
-        out[74] = p.fluidChromaticAging
-        out[75] = p.fluidSplatRadius
-        out[76] = p.fluidSplatForce
-        out[77] = p.fluidBeatPattern.toFloat()
-        out[78] = p.fluidBeatSplats.toFloat()
-        out[79] = p.fluidStirrers.toFloat()
-        out[80] = p.fluidStirrerSpeed
-        out[81] = flag(p.fluidBassPump)
-        out[82] = p.fluidPaletteCycleSpeed
-        out[83] = flag(p.fluidSparkle)
-        out[84] = p.fluidSpawnPath.toFloat()
-        out[85] = p.fluidSpawnPoints.toFloat()
-        out[86] = p.fluidSpawnProgress
-        out[87] = p.fluidCatchPoints.toFloat()
-        out[88] = p.fluidCatchPull
-        out[89] = p.fluidCatchRadius
-        out[90] = flag(p.fluidParticlesEnabled)
-        out[91] = p.fluidParticleLife
-        out[92] = p.fluidParticleDrag
-        out[93] = p.fluidParticleBrightness
-        out[94] = flag(p.fluidDyeEnabled)
-        out[95] = flag(p.fluidShading)
-        out[96] = flag(p.fluidBloom)
-        out[97] = p.fluidBloomIntensity
-        out[98] = p.fluidBloomThreshold
-        out[99] = flag(p.fluidSunrays)
-        out[100] = p.fluidSunraysWeight
-        out[101] = p.fluidCurlAudio
-        out[102] = p.fluidBloomAudio
-        out[103] = p.fluidFadeAudio
-        out[104] = p.fluidRadiusPulse
-        out[105] = flag(p.flowEnabled)
-        out[106] = p.flowStrength
-        out[107] = p.flowForce
-        out[108] = p.flowCurl
-        out[109] = p.waterWaveSpeed
-        out[110] = p.waterDamping
-        out[111] = p.waterRippleStrength
-        out[112] = p.waterDepth
-        out[113] = p.waterSpecular
-        out[114] = p.waterFlow
-        out[115] = p.waterLiquid
-        out[116] = p.waterLiquidFlow
-        out[117] = p.waterLiquidFade
-        out[118] = p.cymaticsGeometry.toFloat()
-        out[119] = p.cymaticsFundamental
-        out[120] = p.cymaticsModes.toFloat()
-        out[121] = p.cymaticsRing
-        out[122] = p.cymaticsFocus
-        out[123] = p.cymaticsScale
-        out[124] = p.cymaticsFill
-        out[125] = p.cymaticsLine
-        out[126] = p.cymaticsGlow
-        out[127] = p.cymaticsIridescence
-        out[128] = p.cymaticsCaustic
-        out[129] = p.cymaticsFlow
-        out[130] = p.cymaticsSwirl
-        out[131] = flag(p.rippleOverlayEnabled)
-        out[132] = p.rippleOverlayStrength
-        out[133] = p.rippleOverlaySpecular
-        out[134] = p.formDrive
-        out[135] = p.motionAmount
-        out[136] = p.motionBreath
-        out[137] = p.motionOrbit
-        out[138] = p.motionDrift
-        out[139] = p.motionHue
-        out[140] = p.camFly
-        out[141] = p.camPath.toFloat()
-        out[142] = p.camOrbit
-        out[143] = p.camPush
-        out[144] = p.camYaw
-        out[145] = p.camPitch
-        out[146] = p.camRoll
-        out[147] = p.camFov
-        out[148] = p.camShake
-        out[149] = p.camSmooth
-        out[150] = flag(p.camTouch)
-        out[151] = flag(p.camGyro)
-        out[152] = p.reactAmount
-        out[153] = p.reactSeed.toFloat()
-        out[154] = p.noteColor
-        out[155] = p.notePitch
-        out[156] = p.noteIntervals
-        out[157] = p.noteTension
-        out[158] = p.noteChords
-        out[159] = p.noteDrums
-        out[160] = p.liquidBorn.toFloat()
-        out[161] = p.liquidAge.toFloat()
-        out[162] = p.liquidSurface.toFloat()
-        out[163] = p.camFlat
+        SLOTS.forEachIndexed { slot, field ->
+            out[slot] =
+                when (field.type) {
+                    Boolean::class.javaPrimitiveType -> if (field.getBoolean(p)) 1f else 0f
+                    Int::class.javaPrimitiveType -> field.getInt(p).toFloat()
+                    else -> field.getFloat(p)
+                }
+        }
     }
-
-    private fun flag(on: Boolean): Float = if (on) 1f else 0f
 
     /** [p] as a fresh frame. */
     fun pack(p: SceneParams): FloatArray = FloatArray(FIELDS).also { pack(p, it) }
@@ -367,14 +47,13 @@ object SceneParamsCodec {
     ): SceneParams {
         check(values.size >= FIELDS) { "scene parameter frame needs $FIELDS floats, got ${values.size}" }
         val out = base.copy()
-        NAMES.forEachIndexed { index, name ->
-            val field = FIELD_BY_NAME.getValue(name)
-            val v = values[index]
+        SLOTS.forEachIndexed { slot, field ->
+            val v = values[slot]
             when (field.type) {
                 Float::class.javaPrimitiveType -> field.setFloat(out, v)
                 Int::class.javaPrimitiveType -> field.setInt(out, Math.round(v))
                 Boolean::class.javaPrimitiveType -> field.setBoolean(out, v > 0.5f)
-                else -> error("$name is not a wire type")
+                else -> error("${field.name} is not a wire type")
             }
         }
         var result = out
@@ -383,9 +62,12 @@ object SceneParamsCodec {
         return result
     }
 
-    private val FIELD_BY_NAME: Map<String, java.lang.reflect.Field> =
-        SceneParams::class.java.declaredFields
-            .filter { it.name in NAMES }
-            .onEach { it.isAccessible = true }
-            .associateBy { it.name }
+    /** The [SceneParams] field of every schema row, in slot order. */
+    private fun slotFields(): Array<Field> {
+        val byName = SceneParams::class.java.declaredFields.associateBy { it.name }
+        return Array(ParamSchema.params.size) { slot ->
+            val name = ParamSchema[slot].name
+            checkNotNull(byName[name]) { "native scene param $name has no SceneParams field" }.apply { isAccessible = true }
+        }
+    }
 }

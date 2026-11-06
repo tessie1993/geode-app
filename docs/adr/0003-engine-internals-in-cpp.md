@@ -41,6 +41,7 @@ The decision stands; this records what has landed against the table above.
 - **Done:** `ParamRandomizer` is `core/viz/ParamRandomizer`; the Kotlin `scene/ParamRandomizer` is a thin call into it. `ParamBlend` was removed with the A/B compare, not ported.
 - **Done, under another name:** the metadata landed as `core/viz/Catalogue` (Kotlin reads it once, as text, through `render/scene/Catalogue`), not in `SceneRegistry`. `core/viz/SceneRegistry` still exists, but only builds a native scene for a known id.
 - **Gone:** the `analysis/*` row. The sound engine work (`core/sound`) removed it; only `ArtPalette`, `PlaybackMath` and `SearchMatcher` are left in `dev.geode.analysis`. `BarTrim` is gone.
+- **Done (#483):** the playback gain is `core/audio/dsp/GainStage`: ReplayGain's rule (was `playback/ReplayGain.gainDb`), the UI fades (`ui/PlaybackFades`' stepping), the crossfade curve (`playback/TrackCrossfade`) and `PlaybackMath`'s sleep fade are native gain ramps, and `NativeDspProcessor`'s 16-bit conversion loops went with them. The Kotlin left says targets, lengths and which item a stream is.
 - **Renamed:** `FeatureFrameLayout` is now audio-core's `SoundFrameLayout`.
 - **Open:** the ring row (`SampleRing`; `audio/PcmRingBuffer` was deleted, #486) and `ArtPalette` are still Kotlin. The clock is native: `core/sound/interp/PlayoutClock` (`geode_playout_*`, #482) replaced `AudioPresentationClock`, `ClockSegment`, `PresentationMapping` and `SinkClockDriver`, which nothing read.
 

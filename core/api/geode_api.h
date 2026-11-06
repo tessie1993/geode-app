@@ -80,20 +80,20 @@ GEODE_API void        geode_shader_override_set(const char* style_id, const char
 GEODE_API size_t      geode_shader_override(const char* style_id, char* out, size_t capacity);
 GEODE_API void        geode_viz_set_lfo(geode_viz*, int slot, const float* config, int count);
 GEODE_API void        geode_viz_set_adsr(geode_viz*, int slot, const float* config, int count);
-/* The user's own reaction routes, GEODE_REACT_ROUTE_FLOATS per route (at most GEODE_REACT_ROUTES); has_user 0
-   (or NULL) is "all Auto". The renderer resolves what plays itself at each frame (core/signal/bindings/
-   PlayingRoutes): the requested style's DNA at the params' reactSeed, merged with this list under the frame's
-   hand mask (geode_hand_set), so a style switch from the shell or a style schedule re-deals the DNA in the same
-   frame. Kept until changed; a renderer never given a list plays the DNA. */
-GEODE_API void        geode_viz_set_user_reactions(geode_viz*, const float* user, int user_floats, int has_user);
+/* The routes layout: GEODE_REACT_ROUTE_FLOATS per route. What the reaction matrix plays is resolved natively
+   (core/viz/ReactionResolve, #750) from the scene playing (geode_viz_set_scene, and each switch of an export's style schedule, #352), the params' reactSeed, and
+   the user's routes under the hand mask set here: the style's DNA with no user list (has_user 0, routes and
+   mask ignored), else geode_style_reactions_hand's merge. It is worked out again before a render only when one
+   of those changed, so the shell pushes the user's side only when it changes. */
+GEODE_API void        geode_viz_set_user_reactions(geode_viz*, const float* routes, int count, int has_user, unsigned mask);
 /* A style's DNA (core/viz/ReactionDna): the routes it plays until the user edits them, in the
-   geode_viz_set_user_reactions layout. Writes at most capacity / GEODE_REACT_ROUTE_FLOATS routes into
+   routes layout. Writes at most capacity / GEODE_REACT_ROUTE_FLOATS routes into
    out and returns how many. Pure: no viz handle, the same id and seed always give the same routes. */
 GEODE_API int         geode_style_reactions(const char* style_id, int seed, float* out, int capacity);
 /* Customize › Music, "the hand wins per moment" (core/viz Reactions.hpp hand::, ReactionDna.hpp). The hand mask
    is bit i for moment i (GEODE_MUSIC_MOMENTS, in the page's order) plus GEODE_HAND_UNCLAIMED for every source
    no moment claims; GEODE_HAND_ALL is a whole list of the user's (the route editor, a list saved before the
-   mask). `user` is the user's routes in the geode_viz_set_user_reactions layout, NULL (or has_user 0) for none.
+   mask). `user` is the user's routes in the routes layout, NULL (or has_user 0) for none.
    geode_hand_set is process-wide like geode_director_set: every renderer's director keeps off those moments.
    has_user 0 (no list of the user's: the DNA plays) makes the mask count as 0, whatever its bits. */
 #define GEODE_MUSIC_MOMENTS 10
@@ -114,10 +114,8 @@ GEODE_API int         geode_music_state(const char* style_id, int seed, const fl
 GEODE_API int         geode_music_edit(const char* style_id, int seed, const float* user, int user_floats, int has_user,
                                        unsigned mask, int op, int moment, int action, float value, float* out, int capacity,
                                        unsigned* out_mask, int* out_has_user);
-/* The LfoTarget ordinal a new route of `action` moves, so the shell can hide a chip the style ignores. */
-GEODE_API int         geode_music_action_target(int action);
 /* Customize › Music's ready-made recipes (core/viz ReactionDna.hpp EventRecipe), GEODE_EVENT_RECIPES in the
-   menu's order. `current` is what plays, in the geode_viz_set_user_reactions layout. Pure: no viz handle. */
+   menu's order. `current` is what plays, in the routes layout. Pure: no viz handle. */
 #define GEODE_EVENT_RECIPES 30
 #define GEODE_RECIPE_ON 1u    /* every route it would add to the style is in current */
 #define GEODE_RECIPE_FITS 2u  /* turning it on stays within GEODE_REACT_ROUTES */
@@ -129,10 +127,16 @@ GEODE_API unsigned    geode_event_recipe_state(int recipe, const char* style_id,
    target), into out; returns the route count. An unknown recipe or a NULL style leaves current as it was. */
 GEODE_API int         geode_event_recipe_toggle(int recipe, const char* style_id, const float* current, int current_floats,
                                                 float* out, int capacity);
-/* Gyro look, -1..1 per axis; the camera reads it only while camGyro is on. */
-GEODE_API void        geode_viz_set_look(geode_viz*, float yaw, float pitch);
+/* Modulation targets (core/viz/ModTargets, #642): bit per Music action whose target reaches `style_id`, so the
+   shell hides a chip the style ignores; and the whole target, source and curve table (scopes, chained slots,
+   slot defaults and rate range, each source's natural polarity, and per style what a reaction, an envelope and
+   each wave may move) as the line table ModTargets.hpp documents.
+   Static: the pointer stays valid for the process; the shell parses it once. Labels stay in Kotlin. */
+GEODE_API unsigned    geode_music_actions_for(const char* style_id);
+GEODE_API const char* geode_mod_targets_text(void);
 /* One gyro reading from SensorManager.getOrientation (radians: azimuth -pi..pi, pitch -pi/2..pi/2). The first after a
-   reset is the baseline; viz/GyroLook turns the tilt from it into the look above. GL thread. */
+   reset is the baseline; viz/GyroLook turns the tilt from it into the -1..1 look per axis the camera reads only while
+   camGyro is on. GL thread. */
 GEODE_API void        geode_viz_gyro_sample(geode_viz*, float azimuth, float pitch);
 /* The gyro is off (or switched on again): recentre the look to (0,0) and recapture on the next sample. GL thread. */
 GEODE_API void        geode_viz_gyro_reset(geode_viz*);
@@ -225,11 +229,11 @@ GEODE_API void        geode_viz_render(geode_viz*, double time_seconds, uint32_t
 GEODE_API void        geode_viz_prepare_offscreen(geode_viz*);
 GEODE_API void        geode_viz_release_scenes(geode_viz*);
 
-/* Playback DSP: gain -> 10-band equalizer -> crossfeed -> lookahead limiter on float interleaved PCM, one
- * chain per input format, switched on the Media3 AudioProcessor contract (audio/dsp/DspProcessor):
+/* Playback DSP: gain -> 10-band equalizer -> loudness makeup -> crossfeed -> lookahead limiter on float
+ * interleaved PCM, one chain per input format, switched on the Media3 AudioProcessor contract (audio/dsp/DspProcessor):
  * configure stages the next format's chain, and the old one keeps processing the draining tail until flush
  * makes the staged one live. Setters may be called from any thread and reach every chain; configure, flush
- * and process run on the playback thread, and process never allocates, locks or logs. */
+ * and process run on the playback thread, and process never allocates, blocks or logs. */
 #define GEODE_DSP_BANDS 10
 #define GEODE_DSP_MIN_MILLIBELS (-1500)
 #define GEODE_DSP_MAX_MILLIBELS 1500
@@ -245,9 +249,37 @@ GEODE_API void       geode_dsp_set_enabled(geode_dsp*, int enabled);          /*
 GEODE_API void       geode_dsp_set_band(geode_dsp*, int band, int millibels);
 GEODE_API void       geode_dsp_set_bass_boost(geode_dsp*, int permille);      /* 0..1000 */
 GEODE_API void       geode_dsp_set_loudness_mb(geode_dsp*, int millibels);    /* 0..1000 makeup gain */
-GEODE_API void       geode_dsp_set_gain_db(geode_dsp*, float db);             /* ReplayGain + preamp */
 GEODE_API void       geode_dsp_set_crossfeed(geode_dsp*, int enabled);
 GEODE_API void       geode_dsp_set_limiter(geode_dsp*, int enabled);
+
+/* Playback gain (audio/dsp/GainStage): ReplayGain, the UI fades, the sleep fade and the track crossfade, as
+ * ramps linear in dB counted in samples, before the chain (#483). The shell only says targets and lengths;
+ * the curves, the dB maths and when each applies are here. "Silence" is GEODE_DSP_SILENCE_DB or below (-inf
+ * included); a frame there is multiplied by exactly 0. Setters from any thread, never blocking the audio. */
+#define GEODE_DSP_SILENCE_DB (-80.0f)
+/* The UI fade (pause, resume, skip): from wherever it is to db over ms; ms 0 jumps. */
+GEODE_API void       geode_dsp_ramp_to(geode_dsp*, float db, int ms);
+/* The sleep timer's time left in ms (< 0: cancelled or done). Its last 3 s ramp to silence, ending as the
+ * timer ends; a cancel comes back up in 50 ms. Returns the ms until it next needs to hear the time left. */
+GEODE_API int64_t    geode_dsp_sleep_fade(geode_dsp*, int64_t remaining_ms);
+/* Settings › Playback › Crossfade: half fades out the tail of a track something follows, half fades in the
+ * track that followed on. A skip, seek or pick starts at full level. */
+GEODE_API void       geode_dsp_set_crossfade(geode_dsp*, int ms);
+GEODE_API void       geode_dsp_set_follows_on(geode_dsp*, int follows_on);  /* a next item, or repeat one */
+GEODE_API void       geode_dsp_set_speed(geode_dsp*, float speed);          /* what Sonic plays at, upstream */
+/* ReplayGain. mode: 0 off, 1 track, 2 album; clip_guard keeps the tagged peak below full scale. */
+GEODE_API void       geode_dsp_set_replaygain(geode_dsp*, int mode, float preamp_db, int clip_guard);
+/* One track's tags as the file carries them, by stream name (its item's URI), read ahead of its first sample.
+ * mask: the GEODE_TAG_*_GAIN/PEAK bits of the values present (0: read, untagged), as geode_tags_replaygain
+ * returns them. The 32 newest streams are kept. */
+GEODE_API void       geode_dsp_set_stream_tags(geode_dsp*, const char* stream, int mask, float track_gain_db,
+                                               float track_peak, float album_gain_db, float album_peak);
+/* Playback thread, right after geode_dsp_flush: the stream whose first sample comes next (NULL or "" when
+ * not known), the media position of that sample and the item's duration (<= 0 unknown). Its ReplayGain gain
+ * starts on that sample; while its tags are still loading the last gain is kept, never 0 dB (#351). */
+GEODE_API void       geode_dsp_begin_stream(geode_dsp*, const char* stream, int64_t position_us, int64_t duration_us);
+/* Playback thread: the stream's last sample has been queued (Media3's end of stream). */
+GEODE_API void       geode_dsp_end_stream(geode_dsp*);
 /* In place, RT-safe. `channels` is the format the block was queued in: a block that is not the live chain's
  * passes through untouched, and frames are clamped to capacity_floats / channels. */
 GEODE_API void       geode_dsp_process(geode_dsp*, float* interleaved, size_t capacity_floats, size_t frames, int channels);
@@ -311,6 +343,11 @@ GEODE_API int         geode_studio_move_takes_out(const char* projects_dir, cons
  * process; the shell parses it once. Display labels and the Pro rule are not in it. */
 GEODE_API const char* geode_catalogue_text(void);
 
+/* The catalogue's presets section (core/viz/CataloguePresets, #648): the bundled looks, each a named set of
+ * param values by #346's param name, and every bundled preset (name, style id, look), as one versioned
+ * '|'-separated line table (see CataloguePresets.hpp for the rows). Static, like geode_catalogue_text. */
+GEODE_API const char* geode_catalogue_presets_text(void);
+
 /* Customize randomizer and Reset tab (core/viz/ParamRandomizer) over SceneParams
  * in the geode_viz_param_name wire order: geode_viz_param_count floats, ints and flags as floats. Pure: no viz
  * handle; the same arguments always give the same result. Controls are named by their ParamKeys strings, tabs
@@ -338,6 +375,10 @@ GEODE_API const char* geode_params_schema_text(void);
  * index = the row's place in its group (for lfo and adsr the float index of geode_viz_set_lfo / _adsr, for macro
  * the knob). A sibling of geode_params_schema_text, whose format it leaves alone. Static; parse once. */
 GEODE_API const char* geode_config_schema_text(void);
+/* The two-finger transform on the visual (core/viz/TouchTransform): a pinch's scale factor times Zoom, a twist in
+ * degrees added to Rotation, each clamped to its schema range; a broken gesture value returns current unchanged. */
+GEODE_API float       geode_touch_zoom(float current, float scale_factor);
+GEODE_API float       geode_touch_rotation(float current, float degrees);
 
 /* Customize panel map (core/viz/CustomizeMap): ten categories, each a free Basics section and Pro sections, and
  * which control lives in which. geode_customize_text is its versioned '|'-separated line table (rows in

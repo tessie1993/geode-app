@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.render.HandMask
 import dev.geode.render.SceneFactory
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.bridge.StyleSchedule
@@ -62,6 +63,9 @@ class OffscreenSceneRenderer(
     private val look = spec.look.copy(sceneId = sceneFactory.sceneId)
     private val looks = LookApplier()
 
+    // The hand mask the route merge uses: the native pin's for an export, else the process's live one.
+    private var pinnedHandMask: Int? = null
+
     /** Builds the native renderer and its scene; must run with the target GL context current. */
     fun prepare() {
         val viz = NativeViz(context)
@@ -76,8 +80,9 @@ class OffscreenSceneRenderer(
         check(viz.setScene(sceneFactory.sceneId)) { "native renderer cannot draw \"${sceneFactory.sceneId}\"" }
         sceneFactory.milkPresetPath?.let { viz.loadMilkPreset(it) }
         viz.setStyleSchedule(spec.styleSchedule)
-        looks.apply(look, viz)
-        spec.pinDurationMs?.let { viz.pinEngineSettings(spec.entitled, it) }
+        // Pinned first: the hand mask the pin returns is what the routes merge under (an export's, not the live one).
+        pinnedHandMask = spec.pinDurationMs?.let { viz.pinEngineSettings(spec.entitled, it) }
+        looks.apply(look, viz, handMask = pinnedHandMask ?: HandMask.current)
         native = viz
         // A track that will not decode still exports, silent to the engine, rather than failing the render.
         audio =
@@ -104,7 +109,7 @@ class OffscreenSceneRenderer(
         val timeMs = GeodeNative.exportFrameTimeMs(frame.toLong(), fps)
         val nextTimeMs = GeodeNative.exportFrameTimeMs(frame + 1L, fps)
         // Keyframed params ride in the look; reactSeed among them, so native re-deals the DNA when keyframes change it.
-        looks.apply(spec.paramsAt?.let { look.copy(params = it(timeMs)) } ?: look, viz)
+        looks.apply(spec.paramsAt?.let { look.copy(params = it(timeMs)) } ?: look, viz, handMask = pinnedHandMask ?: HandMask.current)
         // Exactly the audio up to the end of this frame, then a render steps the engine by 1/fps.
         audio?.deliverUntilMs(nextTimeMs) { pcm, frames, channels, rate -> viz.writeAudio(pcm, frames, channels, rate) }
         // The frame's exact time, not the whole-ms one above (#377): floor(n * 1e9 / fps) ns.

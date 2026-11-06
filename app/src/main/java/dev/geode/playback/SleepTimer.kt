@@ -3,7 +3,6 @@ package dev.geode.playback
 import android.os.SystemClock
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
-import dev.geode.analysis.PlaybackMath
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -13,18 +12,20 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
+/**
+ * Settings › Playback › Sleep timer. The countdown and the pause are here; the fade over its last
+ * seconds is native (`geode_dsp_sleep_fade`, `core/audio/dsp/GainStage`): [fade] is told the time left
+ * and answers how long until it next needs to hear it. A timer that finishes the track does not fade.
+ */
 class SleepTimer internal constructor(
     private val player: Player,
     private val scope: CoroutineScope,
-    /** Where the fade goes when no UI hook is set: the session's volume mix, not the raw player volume. */
-    private val setVolume: (Float) -> Unit = { player.volume = it },
+    /** The native sleep fade: the time left in ms (< 0 cancels), returning the ms until the next report. */
+    private val fade: (remainingMs: Long) -> Long,
 ) {
     private val _remainingMs = MutableStateFlow<Long?>(null)
 
     val remainingMs: StateFlow<Long?> = _remainingMs
-
-    @Volatile
-    var onFadeVolume: ((Float) -> Unit)? = null
 
     private var job: Job? = null
 
@@ -46,16 +47,19 @@ class SleepTimer internal constructor(
                         val remaining = endMs - SystemClock.elapsedRealtime()
                         if (remaining <= 0L) break
                         _remainingMs.value = remaining
-                        if (!finishTrack) applyFade(PlaybackMath.sleepFadeVolume(remaining))
-                        delay(if (remaining <= PlaybackMath.SLEEP_FADE_MS) 100 else 500)
+                        val wanted = if (finishTrack) TICK_MS else fade(remaining)
+                        delay(wanted.coerceIn(1L, TICK_MS))
                     }
+                    _remainingMs.value = 0L
                     if (finishTrack && playbackOngoing()) {
-                        _remainingMs.value = 0L
                         awaitCurrentTrackDone()
+                    } else if (!finishTrack) {
+                        // The fade ended on the samples, which run a sink buffer ahead of the speaker.
+                        delay(PlaybackSession.SINK_LAG_MS)
                     }
                     player.pause()
                 } finally {
-                    applyFade(1f)
+                    fade(-1L)
                     if (job === started) {
                         job = null
                         _remainingMs.value = null
@@ -70,12 +74,7 @@ class SleepTimer internal constructor(
         job = null
         _remainingMs.value = null
         running?.cancel()
-        applyFade(1f)
-    }
-
-    private fun applyFade(volume: Float) {
-        val hook = onFadeVolume
-        if (hook != null) hook(volume) else setVolume(volume)
+        fade(-1L)
     }
 
     private fun playbackOngoing(): Boolean =
@@ -119,4 +118,9 @@ class SleepTimer internal constructor(
             player.addListener(listener)
             cont.invokeOnCancellation { player.removeListener(listener) }
         }
+
+    private companion object {
+        /** How often the countdown the UI shows moves. */
+        const val TICK_MS = 500L
+    }
 }

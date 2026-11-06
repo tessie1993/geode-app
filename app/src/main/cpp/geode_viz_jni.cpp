@@ -66,16 +66,6 @@ Java_dev_geode_engine_bridge_GeodeNative_vizDestroy(JNIEnv*, jobject, jlong hand
     geode_viz_destroy(vizOf(handle));
 }
 
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizParamNames(JNIEnv* env, jobject) {
-    std::string joined;
-    for (int i = 0; i < geode_viz_param_count(); ++i) {
-        if (i > 0) joined += '\n';
-        joined += geode_viz_param_name(i);
-    }
-    return env->NewStringUTF(joined.c_str());
-}
-
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetParams(JNIEnv* env, jobject, jlong handle, jfloatArray values) {
     FloatElements data(env, values);
@@ -253,9 +243,10 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetLfo(JNIEnv* env, jobject, jlong h
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetUserReactions(JNIEnv* env, jobject, jlong handle, jfloatArray user) {
-    FloatElements routes(env, user);
-    geode_viz_set_user_reactions(vizOf(handle), routes.get(), routes.length(), user ? 1 : 0);
+Java_dev_geode_engine_bridge_GeodeNative_vizSetUserReactions(JNIEnv* env, jobject, jlong handle, jfloatArray routes, jint mask) {
+    FloatElements data(env, routes);
+    if (routes && !data.get()) return;  // could not read the list: keep the last one
+    geode_viz_set_user_reactions(vizOf(handle), data.get(), data.length(), routes ? 1 : 0, static_cast<unsigned>(mask));
 }
 
 JNIEXPORT jfloatArray JNICALL
@@ -321,8 +312,14 @@ Java_dev_geode_engine_bridge_GeodeNative_musicEdit(JNIEnv* env, jobject, jstring
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_musicActionTarget(JNIEnv*, jobject, jint action) {
-    return geode_music_action_target(action);
+Java_dev_geode_engine_bridge_GeodeNative_musicActionsFor(JNIEnv* env, jobject, jstring styleId) {
+    Utf8Chars id(env, styleId);
+    return static_cast<jint>(geode_music_actions_for(id.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_modTargetsText(JNIEnv* env, jobject) {
+    return env->NewStringUTF(geode_mod_targets_text());
 }
 
 // A null styleId gives every route of the recipe (geode_event_recipe_routes' own rule).
@@ -353,11 +350,6 @@ Java_dev_geode_engine_bridge_GeodeNative_eventRecipeToggle(JNIEnv* env, jobject,
     jfloatArray result = env->NewFloatArray(n * GEODE_REACT_ROUTE_FLOATS);
     if (result && n > 0) env->SetFloatArrayRegion(result, 0, n * GEODE_REACT_ROUTE_FLOATS, out);
     return result;
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetLook(JNIEnv*, jobject, jlong handle, jfloat yaw, jfloat pitch) {
-    geode_viz_set_look(vizOf(handle), yaw, pitch);
 }
 
 JNIEXPORT void JNICALL
@@ -554,8 +546,23 @@ Java_dev_geode_engine_bridge_GeodeNative_catalogueText(JNIEnv* env, jobject) {
 }
 
 JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_cataloguePresetsText(JNIEnv* env, jobject) {
+    return env->NewStringUTF(geode_catalogue_presets_text());
+}
+
+JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_paramsSchemaText(JNIEnv* env, jobject) {
     return env->NewStringUTF(geode_params_schema_text());
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_touchZoom(JNIEnv*, jobject, jfloat current, jfloat scaleFactor) {
+    return geode_touch_zoom(current, scaleFactor);
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_touchRotation(JNIEnv*, jobject, jfloat current, jfloat degrees) {
+    return geode_touch_rotation(current, degrees);
 }
 
 JNIEXPORT jstring JNICALL

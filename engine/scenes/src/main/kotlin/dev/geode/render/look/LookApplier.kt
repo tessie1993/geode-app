@@ -2,6 +2,7 @@ package dev.geode.render.look
 
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
+import dev.geode.render.HandMask
 import dev.geode.render.LfoConfig
 import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.SceneParams
@@ -21,7 +22,11 @@ interface LookTarget {
 
     fun setAdsrConfigs(configs: List<AdsrConfig>)
 
-    fun setUserReactions(routes: List<ReactionRoute>?)
+    /** The routes with the hand mask native merges them under; the adapter sends only a change of either. */
+    fun setUserReactions(
+        routes: List<ReactionRoute>?,
+        mask: Int,
+    )
 
     fun setSoundTuning(floats: FloatArray)
 
@@ -51,25 +56,32 @@ interface LookTarget {
  * The live renderer passes the frame's `due` bits from native (`GeodeNative.FRAME_PUSH_*`, core/viz/frame/
  * PushVersions): native owns when the params, LFOs, envelopes and tuning cross, so those four go exactly
  * when their bit is set. With no `due` (an export, tests) each goes when it differs from the last applied.
+ * The hand mask is not in the look (it is process-wide, or an export's pin): [apply] takes it, and the reactions
+ * go when either changed.
  */
 class LookApplier {
     private var applied: LookSnapshot? = null
     private var appliedScene: String? = null
+    private var appliedMask: Int? = null
 
     fun reset() {
         applied = null
         appliedScene = null
+        appliedMask = null
     }
 
     fun apply(
         look: LookSnapshot,
         target: LookTarget,
         due: Int? = null,
+        handMask: Int = HandMask.current,
     ) {
         if (look.sceneId != appliedScene && target.setScene(look.sceneId)) appliedScene = look.sceneId
         val was = applied
+        if (due != null || was !== look) applyPushed(look, was, target, due)
+        if (was == null || look.reactions !== was.reactions || handMask != appliedMask) target.setUserReactions(look.reactions, handMask)
+        appliedMask = handMask
         if (due == null && was === look) return
-        applyPushed(look, was, target, due)
         applyRest(look, was, target)
         applied = look
     }
@@ -96,7 +108,6 @@ class LookApplier {
         was: LookSnapshot?,
         target: LookTarget,
     ) {
-        if (was == null || look.reactions !== was.reactions) target.setUserReactions(look.reactions)
         if (was == null || look.reducedMotion != was.reducedMotion) target.setReducedMotion(look.reducedMotion)
         if (was == null || look.transitionId != was.transitionId || look.transitionMs != was.transitionMs) {
             target.setTransition(look.transitionId, look.transitionMs)

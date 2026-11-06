@@ -37,7 +37,10 @@ class LookApplierTest {
             calls += "adsrs"
         }
 
-        override fun setUserReactions(routes: List<ReactionRoute>?) {
+        override fun setUserReactions(
+            routes: List<ReactionRoute>?,
+            mask: Int,
+        ) {
             calls += "reactions"
         }
 

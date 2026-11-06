@@ -1,6 +1,7 @@
 package dev.geode.render
 
-import dev.geode.render.scene.ParamScope
+import dev.geode.engine.bridge.GeodeNative
+import java.io.File
 
 enum class LfoWave(
     val label: String,
@@ -19,7 +20,8 @@ enum class LfoWave(
  * [LFO] is the free-running oscillator; everything else is a follower on the sound engine's frame
  * (`core/sound`): the bands' fast envelopes, the shaped level, the centroid, the note-start envelope
  * ([TRANSIENT]) and the stereo field. That is what makes "this parameter listens to the treble
- * band" a thing you can set rather than something baked into a scene.
+ * band" a thing you can set rather than something baked into a scene. Which polarity each starts on
+ * is native ([ModTable.naturalPolarity]).
  */
 enum class ModSource(
     val label: String,
@@ -52,88 +54,79 @@ enum class ModCurve(
     SMOOTH("S-curve"),
 }
 
-enum class ModChainField {
-    RATE,
-
-    DEPTH,
-}
-
-/** A target that steers another modulation slot instead of a scene parameter. */
-data class ModChain(
-    val slot: Int,
-    val field: ModChainField,
-)
-
+/**
+ * Every modulation target, in wire order, with its label: the ordinal is what LfoStore saves and
+ * native reads, so a new target is appended, never inserted. Everything else about a target (which
+ * styles it reaches, the wave a chained one steers, which picker may offer it) is native
+ * (core/viz/ModTargets), read through [ModTable], so the shell cannot disagree with what the engine runs.
+ */
 enum class LfoTarget(
     val label: String,
-    val scope: ParamScope,
-    val chain: ModChain? = null,
 ) {
-    NONE("None", ParamScope.UNIVERSAL),
-    SPEED("Speed", ParamScope.SCENE_CLOCK),
-    ZOOM("Zoom", ParamScope.UNIVERSAL),
-    ROTATION("Rotation", ParamScope.UNIVERSAL),
-    SWAY("Sway", ParamScope.UNIVERSAL),
-    PULSE("Pulse", ParamScope.UNIVERSAL),
-    DRIFT_X("Drift X", ParamScope.UNIVERSAL),
-    DRIFT_Y("Drift Y", ParamScope.UNIVERSAL),
-    WARP("Warp", ParamScope.UNIVERSAL),
-    RIPPLE("Ripple", ParamScope.UNIVERSAL),
-    MORPH("Morph", ParamScope.SHADER_LOOK),
-    TWIST("Twist", ParamScope.UNIVERSAL),
-    TILE("Tile", ParamScope.UNIVERSAL),
-    PIXELATE("Pixelate", ParamScope.UNIVERSAL),
-    POSTERIZE("Posterize", ParamScope.UNIVERSAL),
-    COLOR_SHIFT("Hue shift", ParamScope.UNIVERSAL),
-    PALETTE_MIX("Palette blend", ParamScope.SHADER_LOOK),
-    SATURATION("Saturation", ParamScope.UNIVERSAL),
-    BRIGHTNESS("Brightness", ParamScope.UNIVERSAL),
-    INTENSITY("Intensity", ParamScope.UNIVERSAL),
-    BLOOM("Bloom", ParamScope.UNIVERSAL),
-    TEMPERATURE("Temperature", ParamScope.UNIVERSAL),
-    TURBULENCE("Turbulence", ParamScope.TURBULENCE),
-    CHROMA_AB("Chroma AB", ParamScope.UNIVERSAL),
-    VIGNETTE("Vignette", ParamScope.UNIVERSAL),
+    NONE("None"),
+    SPEED("Speed"),
+    ZOOM("Zoom"),
+    ROTATION("Rotation"),
+    SWAY("Sway"),
+    PULSE("Pulse"),
+    DRIFT_X("Drift X"),
+    DRIFT_Y("Drift Y"),
+    WARP("Warp"),
+    RIPPLE("Ripple"),
+    MORPH("Morph"),
+    TWIST("Twist"),
+    TILE("Tile"),
+    PIXELATE("Pixelate"),
+    POSTERIZE("Posterize"),
+    COLOR_SHIFT("Hue shift"),
+    PALETTE_MIX("Palette blend"),
+    SATURATION("Saturation"),
+    BRIGHTNESS("Brightness"),
+    INTENSITY("Intensity"),
+    BLOOM("Bloom"),
+    TEMPERATURE("Temperature"),
+    TURBULENCE("Turbulence"),
+    CHROMA_AB("Chroma AB"),
+    VIGNETTE("Vignette"),
 
-    // Was GLITCH. Holds the slot so later ordinals match native; never offered, and a saved
-    // "GLITCH" no longer resolves, so it loads as dropped.
-    RETIRED_25("", ParamScope.UNIVERSAL),
+    // Was GLITCH: holds the slot so later ordinals match native. Never offered; a saved "GLITCH" loads as dropped.
+    RETIRED_25(""),
 
-    FISHEYE("Fisheye", ParamScope.UNIVERSAL),
-    PARTICLE_SIZE("Particle size", ParamScope.PARTICLE_SPRITE),
-    TRAIL_LENGTH("Trail length", ParamScope.TRAIL_LENGTH),
-    FLUID_CURL("Fluid curl", ParamScope.FLUID_SIM),
-    FLUID_RADIUS("Fluid splat radius", ParamScope.EMITTERS),
-    FLUID_FORCE("Fluid splat force", ParamScope.EMITTERS),
-    FLUID_GLOW("Fluid glow", ParamScope.FLUID_SIM),
-    FLUID_FADE("Fluid fade", ParamScope.FLUID_SIM),
-    FLUID_CATCH_PULL("Catch pull", ParamScope.JOURNEY),
-    FLUID_CATCH_RADIUS("Catch radius", ParamScope.JOURNEY),
-    FLOW_STRENGTH("Flow strength", ParamScope.UNIVERSAL),
-    WATER_RIPPLE("Ripple amp", ParamScope.WATER),
-    RIPPLE_OVERLAY("Ripple ovl", ParamScope.RIPPLE_OVERLAY),
-    LFO1_RATE("Wave 1 speed", ParamScope.UNIVERSAL, ModChain(0, ModChainField.RATE)),
-    LFO1_DEPTH("Wave 1 depth", ParamScope.UNIVERSAL, ModChain(0, ModChainField.DEPTH)),
-    LFO2_RATE("Wave 2 speed", ParamScope.UNIVERSAL, ModChain(1, ModChainField.RATE)),
-    LFO2_DEPTH("Wave 2 depth", ParamScope.UNIVERSAL, ModChain(1, ModChainField.DEPTH)),
-    LFO3_RATE("Wave 3 speed", ParamScope.UNIVERSAL, ModChain(2, ModChainField.RATE)),
-    LFO3_DEPTH("Wave 3 depth", ParamScope.UNIVERSAL, ModChain(2, ModChainField.DEPTH)),
+    FISHEYE("Fisheye"),
+    PARTICLE_SIZE("Particle size"),
+    TRAIL_LENGTH("Trail length"),
+    FLUID_CURL("Fluid curl"),
+    FLUID_RADIUS("Fluid splat radius"),
+    FLUID_FORCE("Fluid splat force"),
+    FLUID_GLOW("Fluid glow"),
+    FLUID_FADE("Fluid fade"),
+    FLUID_CATCH_PULL("Catch pull"),
+    FLUID_CATCH_RADIUS("Catch radius"),
+    FLOW_STRENGTH("Flow strength"),
+    WATER_RIPPLE("Ripple amp"),
+    RIPPLE_OVERLAY("Ripple ovl"),
+    LFO1_RATE("Wave 1 speed"),
+    LFO1_DEPTH("Wave 1 depth"),
+    LFO2_RATE("Wave 2 speed"),
+    LFO2_DEPTH("Wave 2 depth"),
+    LFO3_RATE("Wave 3 speed"),
+    LFO3_DEPTH("Wave 3 depth"),
 
     // The camera rig's offsets (core/viz/CameraRig). Every family is viewed through the rig,
-    // directly or through the composite's flat projection, so all of these are universal.
-    CAM_FLY("Camera speed", ParamScope.UNIVERSAL),
-    CAM_ORBIT("Camera swing", ParamScope.UNIVERSAL),
-    CAM_PUSH("Camera push", ParamScope.UNIVERSAL),
-    CAM_YAW("Camera turn", ParamScope.UNIVERSAL),
-    CAM_PITCH("Camera tilt", ParamScope.UNIVERSAL),
-    CAM_ROLL("Camera roll", ParamScope.UNIVERSAL),
-    CAM_FOV("Camera FOV", ParamScope.UNIVERSAL),
-    CAM_SHAKE("Camera shake", ParamScope.UNIVERSAL),
+    // directly or through the composite's flat projection, so native gives them every style.
+    CAM_FLY("Camera speed"),
+    CAM_ORBIT("Camera swing"),
+    CAM_PUSH("Camera push"),
+    CAM_YAW("Camera turn"),
+    CAM_PITCH("Camera tilt"),
+    CAM_ROLL("Camera roll"),
+    CAM_FOV("Camera FOV"),
+    CAM_SHAKE("Camera shake"),
 
     // Liquid mode (core/viz/liquid), appended so every wire ordinal above survives.
-    FLOW_CURL("Swirl", ParamScope.UNIVERSAL),
-    FLOW_FORCE("Push", ParamScope.UNIVERSAL),
-    DIVE_SPEED("Dive", ParamScope.UNIVERSAL),
+    FLOW_CURL("Swirl"),
+    FLOW_FORCE("Push"),
+    DIVE_SPEED("Dive"),
 }
 
 /** One modulation slot; the rate is a period in seconds, or in beats of the music when [beats] is set. */
@@ -142,38 +135,74 @@ data class LfoConfig(
     val source: ModSource = ModSource.LFO,
     val target: LfoTarget = LfoTarget.NONE,
     val wave: LfoWave = LfoWave.SINE,
-    val rateSeconds: Float = DEFAULT_RATE_SECONDS,
-    val depth: Float = 0.3f,
+    val rateSeconds: Float = ModTable.defaultRateSeconds,
+    val depth: Float = ModTable.defaultDepth,
     val polarity: ModPolarity = ModPolarity.BIPOLAR,
     val curve: ModCurve = ModCurve.LINEAR,
     val beats: Int = 0,
 ) {
     companion object {
-        const val DEFAULT_RATE_SECONDS: Float = 2f
-
-        const val MIN_RATE_SECONDS: Float = 0.05f
-
-        const val MAX_RATE_SECONDS: Float = 60f
-
         /** Beat periods after "Free". */
         val BEAT_CHOICES: List<Int> = listOf(1, 2, 4, 8, 16, 32)
-
-        /** The polarity that makes a source useful the moment it is picked. */
-        fun naturalPolarity(source: ModSource): ModPolarity =
-            when (source) {
-                // An oscillator swings both ways; a follower reads 0 in silence, so a bipolar
-                // follower would shove the parameter negative every time the music stops.
-                ModSource.LFO, ModSource.STEREO_PAN -> ModPolarity.BIPOLAR
-                ModSource.BASS,
-                ModSource.MID,
-                ModSource.TREBLE,
-                ModSource.LEVEL,
-                ModSource.BRIGHTNESS,
-                ModSource.TRANSIENT,
-                ModSource.STEREO_WIDTH,
-                -> ModPolarity.POSITIVE
-            }
     }
+}
+
+/**
+ * The modulation-target table as C++ owns it (core/viz/ModTargets, #642), parsed once like render/scene/Catalogue: per style,
+ * which targets each picker may move (the answer, not a scope to work it out from, so the two cannot drift); each source's
+ * natural polarity; a slot's defaults and rate range. JVM tests read core/tests/mod_targets.txt via [TEXT_FILE_PROPERTY].
+ */
+object ModTable {
+    const val TEXT_FILE_PROPERTY: String = "geode.modTargets"
+
+    /** A picker for [offeredTo] that is not a wave slot's index: a reaction route, or an envelope. */
+    const val REACTION: Int = -2
+    const val ENVELOPE: Int = -1
+
+    private val rows: Map<String, List<List<String>>> by lazy {
+        val text = System.getProperty(TEXT_FILE_PROPERTY)?.let { File(it).readText() } ?: GeodeNative.modTargetsText()
+        val lines = text.lines().filter { it.isNotBlank() }.map { it.split('|') }
+        check(lines.firstOrNull() == listOf("modulation", "2")) { "native mod table is ${lines.firstOrNull()}; this shell reads 2" }
+        lines.drop(1).groupBy { it[0] }
+    }
+    private val offers by lazy { column("target", 5).map { it == "1" } }
+    private val offerMasks by lazy { rows["reach"].orEmpty().associate { r -> r[1] to LongArray(r.size - 2) { r[it + 2].toLong(16) } } }
+    private val natural by lazy { column("source", 3).map { ModPolarity.valueOf(it) } }
+    val defaultRateSeconds: Float get() = config(1)
+    val minRateSeconds: Float get() = config(2)
+    val maxRateSeconds: Float get() = config(3)
+    val defaultDepth: Float get() = config(4)
+
+    /** Each row type's names in ordinal order ("target", "source", "polarity", "curve", "wave"); the enums match them. */
+    fun names(tag: String): List<String> = column(tag, 2)
+
+    /** Whether moving [target] changes [sceneId] at all (native's reach; an envelope may move anything that does). */
+    fun reaches(
+        target: LfoTarget,
+        sceneId: String,
+    ): Boolean = offeredTo(target, sceneId, ENVELOPE)
+
+    /**
+     * Whether [picker] ([REACTION], [ENVELOPE] or a wave slot's index) may move [target] on [sceneId]: native's
+     * offer mask (modtargets::offerMask), with a style the catalogue lacks answered by its "*" row.
+     */
+    fun offeredTo(
+        target: LfoTarget,
+        sceneId: String,
+        picker: Int,
+    ): Boolean = (offerMasks[sceneId] ?: offerMasks.getValue("*")).getOrElse(picker - REACTION) { 0L } shr target.ordinal and 1L != 0L
+
+    fun offered(target: LfoTarget): Boolean = offers[target.ordinal]
+
+    /** The polarity that makes a source useful the moment it is picked. */
+    fun naturalPolarity(source: ModSource): ModPolarity = natural[source.ordinal]
+
+    private fun column(
+        tag: String,
+        field: Int,
+    ): List<String> = rows[tag].orEmpty().map { it[field] }
+
+    private fun config(field: Int): Float = rows.getValue("config")[0][field].toFloat()
 }
 
 // Modulation runs natively every frame (core/viz/RendererFrame.cpp ticks its own LfoEngine against the

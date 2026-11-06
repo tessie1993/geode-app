@@ -23,6 +23,29 @@ Java_dev_geode_engine_bridge_GeodeNative_silenceResting(JNIEnv*, jobject, jlong 
     return geode_silence_resting(nowMs, heardAtMs) ? JNI_TRUE : JNI_FALSE;
 }
 
+// The live wallpaper's and the dream's run rule (viz/SurfaceRun), beside their silence rule.
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_surfaceRunMode(JNIEnv*, jobject, jint flags, jlong animateUntilMs, jlong nowMs) {
+    return geode_surface_run_mode(static_cast<unsigned>(flags), animateUntilMs, nowMs);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_surfaceListening(JNIEnv*, jobject, jint flags, jlong animateUntilMs,
+                                                          jlong nowMs) {
+    return geode_surface_listening(static_cast<unsigned>(flags), animateUntilMs, nowMs) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_surfaceEntitled(JNIEnv*, jobject, jlong animateUntilMs, jlong nowMs) {
+    return geode_surface_entitled(animateUntilMs, nowMs) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_surfaceRecheckInMs(JNIEnv*, jobject, jlong animateUntilMs, jlong nowMs) {
+    return geode_surface_recheck_in_ms(animateUntilMs, nowMs);
+}
+
 // Live input's state machine (audio/LiveInput): the next state, and the actions packed above bit 8.
 
 JNIEXPORT jlong JNICALL

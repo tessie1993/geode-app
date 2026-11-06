@@ -150,9 +150,8 @@ fun StudioHub(
     /*
      * Predictive back over the tab history: the gesture cross-fades from this tab to the one before
      * it, so the user sees where back lands before letting go (#557). This is the NavigationEvent
-     * shape the navigation-event skill asks for on SDK 36+ (`.claude/skills/navigation-event`,
-     * "Are legacy BackHandler usages migrated to NavigationBackHandler with predictive progress
-     * support?") and its guide, developer.android.com/guide/navigation/navigation-event/handle-back:
+     * shape SDK 36+ asks for (legacy BackHandler migrated to NavigationBackHandler with predictive
+     * progress) in the guide, developer.android.com/guide/navigation/navigation-event/handle-back:
      * a `NavigationEventState` from `rememberNavigationEventState` whose `transitionState` is
      * `InProgress` with the latest event's `progress` during the swipe, and one
      * `NavigationBackHandler` that hears the commit (`onBackCompleted`) or the cancel

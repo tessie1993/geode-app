@@ -185,9 +185,12 @@ void SoundEngine::write(const float* interleaved, int frames, int channels) {
     starved_ = false;
     silenceCarry_ = 0.0;
     fresh_ = true;
+    // A non-finite or absurd sample reads as silence or full scale: one poisoned buffer would latch NaN
+    // into the filter bank and the running means for the rest of the session.
+    const auto clean = [](float x) { return std::isfinite(x) ? std::clamp(x, -4.0f, 4.0f) : 0.0f; };
     for (int i = 0; i < frames; i++) {
-        const float l = interleaved[static_cast<size_t>(i) * channels];
-        const float r = channels > 1 ? interleaved[static_cast<size_t>(i) * channels + 1] : l;
+        const float l = clean(interleaved[static_cast<size_t>(i) * channels]);
+        const float r = channels > 1 ? clean(interleaved[static_cast<size_t>(i) * channels + 1]) : l;
         feed(l, r);
     }
 }

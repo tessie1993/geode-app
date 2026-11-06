@@ -109,6 +109,18 @@ Drives drives(const GeodeSoundFrame& f) {
     return d;
 }
 
+float frameSimDt(float dt) {
+    if (!(dt > 0.0f)) return 0.0f;
+    return std::min(dt, kMaxSimStep * static_cast<float>(kMaxSubsteps));
+}
+
+Substeps substeps(float dt) {
+    const float total = frameSimDt(dt);
+    // A hair under 1 so a step of exactly kMaxSimStep (a 30 fps frame) stays one step after rounding.
+    const int n = std::clamp(static_cast<int>(std::ceil(total / kMaxSimStep - 1e-4f)), 1, kMaxSubsteps);
+    return {n, total / static_cast<float>(n)};
+}
+
 float heatInjection(float heatDrive, float heatGain, float dt) {
     return std::max(heatGain, 0.0f) * std::clamp(heatDrive, 0.0f, 2.0f) * 6.0f * std::clamp(dt, 0.0f, 1.0f / 15.0f);
 }

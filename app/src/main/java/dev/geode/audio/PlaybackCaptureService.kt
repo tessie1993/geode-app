@@ -14,6 +14,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import dev.geode.appLaunchIntent
+import dev.geode.startedInForeground
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -43,7 +44,12 @@ class PlaybackCaptureService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        bestEffort(TAG, "startForegroundNotification()") { startForegroundNotification() }
+        val inForeground =
+            startedInForeground(TAG, ::startForegroundNotification) {
+                MediaProjectionHolder.noteStartFailure()
+                stopSelf()
+            }
+        if (!inForeground) return START_NOT_STICKY
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0
         val data = intent?.let { IntentCompat.projectionData(it) }
         if (resultCode == 0 || data == null) {

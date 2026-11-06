@@ -4,6 +4,8 @@
 
 #include <array>
 #include <atomic>
+#include <cstdint>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -19,6 +21,7 @@
 #include "viz/FlashLimiter.hpp"
 #include "viz/Framebuffer.hpp"
 #include "viz/GlProfile.hpp"
+#include "viz/LayerState.hpp"
 #include "viz/Lfo.hpp"
 #include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
@@ -68,6 +71,8 @@ public:
     void setBlockingBuilds(bool on) { blockingBuilds_.store(on, std::memory_order_relaxed); }
     // Export (geode_viz_set_offscreen): never draws the UI blur, whatever region it was given.
     void setOffscreen(bool on) { offscreen_.store(on, std::memory_order_relaxed); }
+    // Export: step every frame by exactly 1/fps (viz/FrameStep); 0 measures the frame time, as live does.
+    void setFixedFrameRate(int fps) { fixedFps_.store(fps > 0 ? fps : 0, std::memory_order_relaxed); }
     // The app's glass sheet over the live visual (UiBlurPass): latched for the next frame. Any thread.
     void setUiBlurRegion(const UiBlurRegion& region);
     // Settings › Performance › Liquid on a hot phone (liquid::HotPolicy). Any thread.
@@ -79,7 +84,10 @@ public:
     // (director::global), so the live player moving on to another track, or past the free taste, never
     // reaches a render in progress. The export hands over the play's seed, so it makes the same film.
     void pinDirector(float amount, uint64_t seed);
-    void setLayer(const std::string& sceneId, float mix, int blendOrdinal);
+    // Customize › Layers is process-wide (viz/LayerState, geode_layer_set): every renderer follows it.
+    // An export pins the layer it started with (geode_viz_set_offscreen), so a live edit during a
+    // background render never reaches the video; off follows the store again. Any thread.
+    void pinLayer(bool on);
     void setTransition(const std::string& id, int64_t durationMs);
     void beginParamMorph(float seconds);
     void submitTouchPoints(const float* xy, int n) { touchField_.submit(xy, n); }
@@ -92,9 +100,6 @@ public:
     void resetAudio();
     // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
     void setSoundTuning(const GeodeSoundTuning& tuning);
-    void setCustomShader(const std::string& sceneId, const std::string& fragmentSource);
-    // The user source a scene last compiled successfully; "" when it draws its built-in style.
-    std::string customShaderFor(const std::string& sceneId) const;
     void queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength);
     void setFluidInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc);
     void loadMilkPreset(const std::string& path);
@@ -146,6 +151,7 @@ private:
 
     Scene* sceneFor(const std::string& id);
     Scene* readyScene(const std::string& id);
+    Scene* readySecondary(const std::string& id, const std::string& other);
     Scene* attemptScene(const std::string& id);
     Scene* builtScene(const std::string& id);
     // Releases a built scene nothing is drawing (Liquid mode's last born style); a no-op otherwise.
@@ -164,6 +170,8 @@ private:
     Scene* resolveActiveScene();
     SceneParams resolveParams(float dt);
     void resolveLayerScene();
+    // beginFrame, under stateLock_: takes the layer layerFollower_ hands over when it changed.
+    void syncLayerLocked();
     bool ensureTargets();
     float drawSecondaryTargets(const SceneParams& p, float dt);
     void bindSecondaryTarget();
@@ -190,7 +198,8 @@ private:
     void notePresetLoaded(const std::string& path);
     static double monotonicSeconds();
     void fail(const std::string& message);
-    void rememberCustomShader(const std::string& sceneId, const std::string& source);
+    // Re-applies the process-wide shader overrides (viz/ShaderOverrides) to resident scenes when they change.
+    void syncShaderOverrides();
 
     ShaderSource assets_;
     std::string cacheDir_;
@@ -252,6 +261,7 @@ private:
     UiBlurRegion uiBlurRegion_;
     std::atomic<bool> uiBlurOn_{false};
     std::atomic<bool> offscreen_{false};
+    std::atomic<int> fixedFps_{0};
     // The note layer's seed: the director's play seed mixed with fresh entropy whenever that seed changes,
     // so every play (and every export) varies on its own, as the user chose (NoteResponse's class comment).
     uint64_t noteSeed(uint64_t playSeed);
@@ -283,6 +293,8 @@ private:
     std::string layerSceneId_;
     float layerMix_ = 0.5f;
     int layerBlend_ = static_cast<int>(BlendMode::Screen);
+    // Under stateLock_: this renderer's view of viz/LayerState (followed live, pinned in an export).
+    layer_state::Follower layerFollower_;
     std::string transitionId_ = "fade";
     int64_t transitionDurationMs_ = 1200;
     std::atomic<bool> reducedMotion_{false};
@@ -298,8 +310,13 @@ private:
     PcmHandoff pcm_;
     int framePcmCount_ = 0;  // GL thread: samples of pcmDeliverScratch_ this frame's scenes get.
     std::vector<float> pcmDeliverScratch_;
+    // Drained by beginFrame; nothing queues into it since the overrides went process-wide (#364), and
+    // the frame code that drains it is being moved (#344), which drops it.
     std::vector<std::pair<std::string, std::string>> pendingShaders_;
-    std::vector<std::pair<std::string, std::string>> customShaders_;
+    // GL thread: the shader override each built scene was last given ("" = its built-in source), and
+    // the ShaderOverrides generation syncShaderOverrides last applied.
+    std::map<std::string, std::string> appliedShaders_;
+    uint64_t shaderGeneration_ = 0;
     std::string fluidForceSrc_;
     std::string fluidDyeSrc_;
     bool fluidInjectionDirty_ = false;
@@ -337,6 +354,11 @@ private:
     bool bornRolled_ = false;
     std::string bornSceneId_;
     std::string lastBornSceneId_;
+    // The secondary targets' staging asks (#369): this frame's layer, and the next style's this frame
+    // and the frame before.
+    std::string layerAsked_;
+    std::string bornAsked_;
+    std::string bornAskedBefore_;
     bool liquidWasOn_ = false;
     std::atomic<int> liquidHotPolicy_{0};
     std::atomic<int> liquidMode_{0};
@@ -368,7 +390,7 @@ private:
     float timeSeconds_ = 0.0f;
     // Latched once per frame in beginFrame, so the
     // rest of the frame (composite(), drawSecondaryTargets(), ...) reads a
-    // stable snapshot instead of racing setLayer()/setTransition() on
+    // stable snapshot instead of racing pinLayer()/setTransition() on
     // stateLock_.
     float frameLayerMix_ = 0.5f;
     int frameLayerBlend_ = static_cast<int>(BlendMode::Screen);

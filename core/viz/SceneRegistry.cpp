@@ -34,7 +34,15 @@ std::unique_ptr<Scene> SceneRegistry::create(const std::string& id, const std::s
             host_.onShaderError(error);
             return nullptr;
         }
-        return std::make_unique<ShaderScene>(id, quadVert, *fragment, loader_.cache, host_);
+        auto scene = std::make_unique<ShaderScene>(id, quadVert, *fragment, loader_.cache, host_);
+        if (id == catalogue::kMorphWorld) {
+            // Morph World's baked CC0 shapes and maps (core/viz/world/WorldAssets); without them the
+            // style still draws, the mesh primitive as a sphere and no surface detail.
+            const auto shapes = loader_.assets.readAsset("shaders/world_shapes.bin");
+            const auto maps = loader_.assets.readAsset("shaders/world_textures.bin");
+            if (shapes && maps) scene->setWorldAssets(*shapes, *maps);
+        }
+        return scene;
     }
     if (const auto* style = styles::cymatics(id)) return std::make_unique<CymaticsScene>(*style, loader_, host_);
     if (const auto* style = styles::silk(id)) return std::make_unique<SilkScene>(*style, loader_, profile_, host_);

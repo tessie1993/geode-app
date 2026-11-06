@@ -3,9 +3,11 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <utility>
 
 #include "util/Log.hpp"
 #include "viz/GlProber.hpp"
+#include "viz/ShaderOverrides.hpp"
 
 namespace geode::viz {
 
@@ -22,11 +24,15 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
       deviceGl_(cacheDir_),
       registry_(assets_, &programCache_, &profile_,
                 SceneHost{[this](const std::string& m) { fail(m); },
-                          [this](const std::string& id, const std::string& src) { rememberCustomShader(id, src); },
                           [this] { return thermal_.pacedFps(); },
                           [this](const std::string& path) { notePresetLoaded(path); },
                           [this] { return marchScale_.load(std::memory_order_relaxed); },
-                          [this] { return &notes_.uniforms(); }}),
+                          [this] { return &notes_.uniforms(); },
+                          [this] {
+                              return directorPinned_.load(std::memory_order_acquire)
+                                         ? pinnedDirectorSeed_.load(std::memory_order_relaxed)
+                                         : director::global().seed;
+                          }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity),
       pcmDeliverScratch_(kPcmCapacity, 0.0f) {
@@ -40,11 +46,26 @@ void Renderer::setParams(const SceneParams& params) {
     requestedParams_ = params;
 }
 
-void Renderer::setLayer(const std::string& sceneId, float mix, int blendOrdinal) {
+void Renderer::pinLayer(bool on) {
     std::lock_guard<std::mutex> lock(stateLock_);
-    layerSceneId_ = sceneId;
-    layerMix_ = mix;
-    layerBlend_ = blendOrdinal;
+    if (on) {
+        layerFollower_.pin();
+    } else {
+        layerFollower_.unpin();
+    }
+}
+
+// Under stateLock_, once a frame from beginFrame. The layer is process-wide (viz/LayerState, #364), so
+// the live screen, an export, the wallpaper and the dream all draw what Customize › Layers set; the
+// follower hands it over only when it changed (or once, pinned, in an export). resolveLayerScene and
+// trimScenes read layerSceneId_ as before, and an export's blocking build makes the layer scene whole
+// on the first frame that asks for it, like the main scene.
+void Renderer::syncLayerLocked() {
+    layer_state::Layer layer;
+    if (!layerFollower_.poll(layer)) return;
+    layerSceneId_ = std::move(layer.sceneId);
+    layerMix_ = layer.mix;
+    layerBlend_ = layer.blend;
 }
 
 void Renderer::setTransition(const std::string& id, int64_t durationMs) {
@@ -92,11 +113,6 @@ void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
     std::lock_guard<std::mutex> lock(soundLock_);
     soundTuning_ = tuning;
     if (sound_) sound_->setTuning(macros::tuning(tuning, tunedKnobs_));
-}
-
-void Renderer::setCustomShader(const std::string& sceneId, const std::string& fragmentSource) {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    pendingShaders_.emplace_back(sceneId, fragmentSource);
 }
 
 double Renderer::monotonicSeconds() {
@@ -276,23 +292,25 @@ std::string Renderer::lastError() const {
     return lastError_;
 }
 
-void Renderer::rememberCustomShader(const std::string& sceneId, const std::string& source) {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    for (auto& entry : customShaders_) {
-        if (entry.first == sceneId) {
-            entry.second = source;
-            return;
-        }
+// GL thread, from readyScene (every frame's way to its scenes). The overrides are process-wide
+// (viz/ShaderOverrides, #364): when their generation moves, every resident scene whose override
+// changed gets the new source (or "" = its built-in one) and recompiles on its next draw through the
+// same path a first build takes, so a compile error still reaches lastError(). One atomic load a
+// frame otherwise.
+void Renderer::syncShaderOverrides() {
+    const uint64_t generation = shader_overrides::generation();
+    if (generation == shaderGeneration_) return;
+    shaderGeneration_ = generation;
+    const auto overrides = shader_overrides::snapshot();
+    const std::string stock;
+    for (auto& [id, scene] : scenes_) {
+        const auto found = overrides.find(id);
+        const std::string& want = found == overrides.end() ? stock : found->second;
+        std::string& have = appliedShaders_[id];
+        if (have == want) continue;
+        have = want;
+        scene->setFragmentSource(want);
     }
-    customShaders_.emplace_back(sceneId, source);
-}
-
-std::string Renderer::customShaderFor(const std::string& sceneId) const {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    for (const auto& entry : customShaders_) {
-        if (entry.first == sceneId) return entry.second;
-    }
-    return {};
 }
 
 void Renderer::onSurfaceCreated() {
@@ -302,7 +320,17 @@ void Renderer::onSurfaceCreated() {
     programCache_.prime();
     // The old context's staged programs died with it: drop their ids before releaseScenes clears.
     stager_.onContext(profile_.report.extensions.count("GL_KHR_parallel_shader_compile") > 0);
+    // Every name the old context made is released here, before this context's first glGen* (#374).
+    // GL numbers names per context from 1, so an old name deleted after a new object was made can be
+    // that new object: the passes' create() used to release first, after the overlays and the trail
+    // pass had already made names on the new context, and deleted them. Deleting a name a fresh
+    // context never made is a no-op, so releasing first is safe whether or not the context is new.
     releaseScenes();
+    trailPass_.release();
+    compositePass_.release();
+    uiBlurPass_.release();
+    liquidPass_.release();
+    overlays_.release();
     if (paletteLutTex_ != 0) {
         glDeleteTextures(1, &paletteLutTex_);
         paletteLutTex_ = 0;
@@ -322,7 +350,6 @@ void Renderer::onSurfaceCreated() {
     safetyClock_ = 0.0;
     liquidWasOn_ = false;
     lastBornSceneId_.clear();
-    compositePass_.releaseStaleTextures();
     activeScene_ = nullptr;
     outgoingScene_ = nullptr;
     outgoingParams_.reset();
@@ -330,7 +357,7 @@ void Renderer::onSurfaceCreated() {
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         if (!fluidForceSrc_.empty() || !fluidDyeSrc_.empty()) fluidInjectionDirty_ = true;
-        // W00: the compositePass_.releaseStaleTextures() call above already dropped the underlay
+        // W00: the compositePass_.release() call above already dropped the underlay
         // GL texture, so re-arm from the retained pixel buffer to reupload it once
         // compositePass_.create() (below) has run on the new context.
         if (!underlayPixels_.empty()) underlayDirty_ = true;
@@ -550,6 +577,7 @@ Scene* Renderer::builtScene(const std::string& id) {
 // attempt (setup plus the programs already compiled) or one budgeted ProgramStager step. Exports
 // (blockingBuilds_) and scenes that keep deferring (ScenePrep::kMaxAttempts) build inline.
 Scene* Renderer::readyScene(const std::string& id) {
+    syncShaderOverrides();
     if (Scene* scene = builtScene(id)) {
         residency_.touch(id);
         // Skipped by a tier or scale change while it was not drawn: sized now, as it comes back.
@@ -584,6 +612,13 @@ Scene* Renderer::readyScene(const std::string& id) {
         stager_.clear();
     }
     return scene;
+}
+
+// A secondary target's way in (the layer, Liquid's next style): waits while the stager works for the
+// other secondary target, so the two take turns instead of clearing each other's staging (#369).
+Scene* Renderer::readySecondary(const std::string& id, const std::string& other) {
+    if (!builtScene(id) && prep_.yieldsTo(id, other)) return nullptr;
+    return readyScene(id);
 }
 
 // One staged build of `id`: the whole setup buildScene does, with every program build answered
@@ -653,7 +688,11 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     scene->init();
     scene->setParams(initialParams);
     scene->resize(renderWidth_, renderHeight_);
-    const std::string custom = customShaderFor(id);
+    // The user's edited source for this style, whichever renderer this is (live, export, wallpaper,
+    // dream): one process-wide table (viz/ShaderOverrides, #364). Recorded so syncShaderOverrides
+    // only re-applies what changed after this build.
+    const std::string custom = shader_overrides::get(id);
+    appliedShaders_[id] = custom;
     if (!custom.empty()) scene->setFragmentSource(custom);
     if (!force.empty() || !dye.empty()) scene->setInjectionShaders(force, dye);
     scene->setWindowSize(width_, height_);

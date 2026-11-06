@@ -11,12 +11,12 @@ import dev.geode.render.HandReactions
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
 import dev.geode.render.ReactionRoute
-import dev.geode.render.scene.CustomizeTab
-import dev.geode.render.scene.ParamRandomizer
+import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlin.random.Random
 
 /** What the panel's undo/redo buttons should look like right now. */
 data class ParamHistoryState(
@@ -57,7 +57,7 @@ internal class ModulationController(
 
     // Which moments that list owns (Customize › Music: the hand wins per moment); saved beside it and
     // pushed process-wide, where every renderer merges with the live DNA and every director keeps off.
-    private val _handMask = MutableStateFlow(lfoStore.loadHandMask().also(HandMask::set))
+    private val _handMask = MutableStateFlow(lfoStore.loadHandMask().also { HandMask.set(it, _reactions.value != null) })
     val handMask: StateFlow<Int> = _handMask
 
     private val _lockedParams =
@@ -122,33 +122,38 @@ internal class ModulationController(
     }
 
     /**
-     * Rolls [tab], or everything when null. On Music, "Randomize" means a new style DNA: a fresh
-     * set of reactions is what changes how the music moves the picture.
+     * Rolls [category], or everything when null. The roll is native (core/viz/CustomizeMap over
+     * core/viz/ParamRandomizer): the category's own controls that reach the style, minus the kept
+     * ones; this only carries the frame there and back. The knobs are not params: Quick knobs
+     * rolls them through MacroStore.
      */
-    fun randomizeParams(tab: CustomizeTab? = null) {
-        if (tab == CustomizeTab.MUSIC) return rerollReactions()
-        // The knobs are not params: the toolbar rolls them through MacroStore.
-        if (tab == CustomizeTab.MACROS) return
-        commitSceneParams(
-            ParamRandomizer.randomize(
-                current = host.params,
-                locked = _lockedParams.value,
-                tab = tab,
-                sceneId = host.sceneId,
-            ),
-        )
+    fun randomizeParams(category: CustomizeCategory? = null) {
+        if (category == CustomizeCategory.QUICK_KNOBS) return
+        val input = SceneParamsCodec.pack(host.params)
+        val out = FloatArray(SceneParamsCodec.FIELDS)
+        val locked = _lockedParams.value.joinToString("\n")
+        val seed = Random.nextLong()
+        val changed =
+            if (category == null) {
+                GeodeNative.paramsRandomize(host.sceneId, null, locked, seed, input, out)
+            } else {
+                GeodeNative.customizeRandomize(host.sceneId, category.name, locked, seed, input, out)
+            }
+        if (changed) commitSceneParams(SceneParamsCodec.unpack(out, host.params))
     }
 
-    /** Puts one tab's parameters back to their defaults and leaves every other tab alone. */
-    fun resetTab(tab: CustomizeTab) =
-        when (tab) {
-            CustomizeTab.MUSIC -> {
-                setReactions(null)
-                commitSceneParams(ParamRandomizer.resetTab(host.params, tab))
-            }
-            CustomizeTab.MACROS -> Unit
-            else -> commitSceneParams(ParamRandomizer.resetTab(host.params, tab))
-        }
+    /**
+     * Puts one category's controls back to their defaults (native: every field its controls
+     * write) and leaves every other category alone. Behaviour's Reset also drops the user's own
+     * reaction routes, which are not params.
+     */
+    fun resetCategory(category: CustomizeCategory) {
+        if (category == CustomizeCategory.QUICK_KNOBS) return
+        if (category == CustomizeCategory.BEHAVIOUR) setReactions(null)
+        val out = FloatArray(SceneParamsCodec.FIELDS)
+        GeodeNative.customizeReset(category.name, SceneParamsCodec.pack(host.params), out)
+        commitSceneParams(SceneParamsCodec.unpack(out, host.params))
+    }
 
     fun resetAll() = commitSceneParams(SceneParams.DEFAULT)
 
@@ -190,7 +195,7 @@ internal class ModulationController(
         val mask = if (list == null) 0 else edit.mask
         _reactions.value = list
         _handMask.value = mask
-        HandMask.set(mask)
+        HandMask.set(mask, list != null)
         lfoStore.saveReactions(list, mask)
     }
 

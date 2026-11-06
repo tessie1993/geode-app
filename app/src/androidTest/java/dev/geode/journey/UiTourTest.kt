@@ -458,11 +458,11 @@ class UiTourTest {
         tour.tapIfPresent(VISUALS)
     }
 
-    /** Quick settings (a tap on the top of the visual) and the Macros drawer (a swipe down). */
+    /** Visual settings (the ⚙ at the top, a page of the options) and the Macros drawer (a swipe down). */
     private fun overlays() {
-        tour.step("quick-settings", "open", "Visual settings over the visual") {
+        tour.step("quick-settings", "open", "Visual settings, from the gear at the top") {
             tour.stageBaseline()
-            UiTourTouch.tap(tour.at(0.5f, 0.2f))
+            tour.tap(hasContentDescription(UiTour.QUICK_SETTINGS_TITLE))
             "open=${tour.waitFor(hasText(UiTour.QUICK_SETTINGS_TITLE))}"
         }
         tour.pages("quick-settings", "body", pages = 3)

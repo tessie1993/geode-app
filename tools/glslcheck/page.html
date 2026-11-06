@@ -325,9 +325,7 @@ window.__liquid = async function (job) {
 //
 // One program, many frames: a few stills at the report size (black and blown are judged on those), then a
 // run of consecutive 60 fps frames at a small size, each boxed down to the side x side RGBA8 grid
-// OutputProbe reads back on the phone (kProbeGrid, a box mean of encoded values, as its linear blit and
-// mip chain make it). The grids go back as hex; core/tests/visual_gate.cpp feeds them to the real
-// FlashLimiter's counters, so the flash rule is the app's own code, not a copy here.
+// (visual_gate's kProbeGrid, a box mean of encoded values). The grids go back as hex to core/tests/visual_gate.cpp.
 //
 // uSoundTex is re-uploaded per frame as 'soundLive' (spectrum, waveform, EQ, chroma rows): the stand-in
 // spectrum and EQ scale with the frame's volume and the waveform rolls, so a style that reads the texture

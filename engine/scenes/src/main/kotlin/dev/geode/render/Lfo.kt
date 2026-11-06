@@ -177,7 +177,10 @@ object ModTable {
     fun names(tag: String): List<String> = column(tag, 2)
 
     /** Whether moving [target] changes [sceneId] at all (native's reach; an envelope may move anything that does). */
-    fun reaches(target: LfoTarget, sceneId: String): Boolean = offeredTo(target, sceneId, ENVELOPE)
+    fun reaches(
+        target: LfoTarget,
+        sceneId: String,
+    ): Boolean = offeredTo(target, sceneId, ENVELOPE)
 
     /**
      * Whether [picker] ([REACTION], [ENVELOPE] or a wave slot's index) may move [target] on [sceneId]: native's
@@ -187,15 +190,17 @@ object ModTable {
         target: LfoTarget,
         sceneId: String,
         picker: Int,
-    ): Boolean =
-        (offerMasks[sceneId] ?: offerMasks.getValue("*")).getOrElse(picker - REACTION) { 0L } shr target.ordinal and 1L != 0L
+    ): Boolean = (offerMasks[sceneId] ?: offerMasks.getValue("*")).getOrElse(picker - REACTION) { 0L } shr target.ordinal and 1L != 0L
 
     fun offered(target: LfoTarget): Boolean = offers[target.ordinal]
 
     /** The polarity that makes a source useful the moment it is picked. */
     fun naturalPolarity(source: ModSource): ModPolarity = natural[source.ordinal]
 
-    private fun column(tag: String, field: Int): List<String> = rows[tag].orEmpty().map { it[field] }
+    private fun column(
+        tag: String,
+        field: Int,
+    ): List<String> = rows[tag].orEmpty().map { it[field] }
 
     private fun config(field: Int): Float = rows.getValue("config")[0][field].toFloat()
 }

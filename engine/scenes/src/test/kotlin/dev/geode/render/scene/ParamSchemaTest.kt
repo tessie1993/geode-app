@@ -22,7 +22,8 @@ class ParamSchemaTest {
             assertSame(spec, ParamSchema[slot])
             assertSame(spec, ParamSchema[spec.name])
         }
-        assertEquals(ParamSchema.params.size, ParamSchema.params.map { it.name }.toSet().size)
+        val names = ParamSchema.params.map { it.name }
+        assertEquals(names.size, names.toSet().size)
         assertNull(ParamSchema["noSuchParam"])
         assertNull(ParamSchema["customPaletteId"])
     }

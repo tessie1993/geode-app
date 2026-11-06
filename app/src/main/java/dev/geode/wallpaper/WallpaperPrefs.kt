@@ -45,7 +45,7 @@ data class WallpaperSettings(
     /**
      * The wallpaper's own frame rate (ADR 0008), apart from Settings › Performance's cap for the live
      * visual: 30 unless the user picks another. Stored as the user's int; the allowed rates and the
-     * snap are native (`GeodeNative.surfaceFpsChoice`, `surfaceFpsChoices`), so the pacer only ever
+     * snap are native (`GeodeNative.surfaceFpsChoice`), so the pacer only ever
      * sees a listed rate, whatever an older or newer build wrote here.
      */
     val fps: Int = GeodeNative.SURFACE_DEFAULT_FPS,

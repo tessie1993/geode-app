@@ -17,9 +17,4 @@ object TouchTransform {
         if (!degrees.isFinite()) return current
         return (current + degrees * Catalogue.value("touchRotationPerDegree")).coerceIn(Catalogue.range(ParamKeys.ROTATION))
     }
-
-    fun isTransform(
-        zoomFactor: Float,
-        degrees: Float,
-    ): Boolean = (zoomFactor != 1f && zoomFactor > 0f) || degrees != 0f
 }

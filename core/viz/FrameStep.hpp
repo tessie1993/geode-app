@@ -1,5 +1,5 @@
 #pragma once
-#include <algorithm>
+#include "viz/frame/Pacer.hpp"
 
 namespace geode::viz {
 
@@ -12,8 +12,9 @@ namespace geode::viz {
 // render stepped 16, 17, 17 ms and its first frame always 1/60 s.
 inline float frameStepSeconds(int fixedFps, double lastTimeS, double timeS) {
     if (fixedFps > 0) return static_cast<float>(1.0 / fixedFps);
-    const double elapsed = lastTimeS < 0.0 ? 1.0 / 60.0 : timeS - lastTimeS;
-    return static_cast<float>(std::clamp(elapsed, 0.001, 0.1));
+    // The one dt rule every clock shares (core/viz/frame/Pacer, #436).
+    const double elapsed = lastTimeS < 0.0 ? frame::kFirstDtSeconds : timeS - lastTimeS;
+    return static_cast<float>(frame::clampDt(elapsed));
 }
 
 }  // namespace geode::viz

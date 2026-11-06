@@ -31,7 +31,11 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub             core/tests/viz_math_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Lfo.cpp core/viz/Macros.cpp             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o viz_math_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub             core/tests/viz_math_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Lfo.cpp core/viz/Macros.cpp             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o viz_math_test
           ./viz_math_test
+          # The scene params schema (#346): unique names, slots in wire order, defaults in range, get/set and the wire, fades, the LFO clamps, the text.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/params_schema_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o params_schema_test
+          ./params_schema_test
           # The fluid engine: multigrid pressure plan, MacCormack, splat batching, heat, tracers, tiers.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/fluid_math_test.cpp core/viz/fluid/FluidMath.cpp -o fluid_math_test
           ./fluid_math_test
@@ -89,15 +93,22 @@ jobs:
           # The wallpaper's edge glow, the first frame::Pass (#439): options, the VU envelope, the band and its mask.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/edge_glow_test.cpp -o edge_glow_test
           ./edge_glow_test
+          # The edge glow as a frame::Pass over a faked GL context (core/tests/fakegl, not the stub dir): its
+          # lifetime (create, release, rebuild, a new context's reused names) and what one frame leaves in the target.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl core/tests/edge_glow_pass_test.cpp core/viz/frame/EdgeGlowPass.cpp core/viz/Program.cpp core/viz/ShaderSource.cpp -o edge_glow_pass_test
+          ./edge_glow_pass_test
           # The GL Transitions library parse the renderer and the shell share, and the shell's table (#438).
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/transition_library_test.cpp core/util/Json.cpp -o transition_library_test
           ./transition_library_test
           # Settings › Performance's tiers and the first-run pick for this phone (#437).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/quality_test.cpp -o quality_test
           ./quality_test
-          # The live wallpaper's and the dream's run rule: priority order, preview, listening, the trial's end (#376).
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/surface_run_test.cpp core/api/geode_surface_api.cpp -o surface_run_test
+          # The live wallpaper's and the dream's run rule: priority order, preview, listening, the trial's exact end and its restate, the 6 s silence clock (#376).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/surface_run_test.cpp core/api/geode_surface_api.cpp core/api/geode_sound_api.cpp core/sound/Tuning.cpp -o surface_run_test
           ./surface_run_test
+          # The background image bake (#651): the crop rect and dim exact with the old Kotlin, the blur keeps a flat image, the clamps.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/underlay_test.cpp core/viz/Underlay.cpp core/api/geode_underlay_api.cpp -o underlay_test
+          ./underlay_test
           # Reduced motion on the wallpaper and the dream over every flag, the still frame's settle table, each surface's fps choice as the pacer draws it (#441).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/surface_motion_test.cpp core/api/geode_surface_api.cpp -o surface_motion_test
           ./surface_motion_test
@@ -113,9 +124,19 @@ jobs:
           # Voice "play X" over the library (#382): query, focus extras, blank = everything, no match = nothing.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/library_search_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o library_search_test
           ./library_search_test
+          # Which pushed inputs a live frame still owes native (#751): once per version, again on a new surface, stale ignored.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/push_versions_test.cpp -o push_versions_test
+          ./push_versions_test
+          # The loop seam driver (#603): stash or present, the PTS, the dissolve weight and the 192 MB budget.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/loop_seam_test.cpp -o loop_seam_test
+          ./loop_seam_test
           # Cast's audio pump (#772): a steady feed, a paused feed padded to the cut, a feed ahead held, 3 h sample-exact at 48 kHz.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/cast_audio_test.cpp core/api/geode_frame_api.cpp -o cast_audio_test
           ./cast_audio_test
+          # Morph World: the World Genome (bounds, lerp, seeds, 1000 random worlds open and lit, the
+          # corridor at the camera), the morph driver (replayable, seeded, no flash) and lib_world's names.
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/world_genome_test.cpp core/viz/world/WorldGenome.cpp             core/viz/world/MorphDriver.cpp core/viz/world/WorldAssets.cpp core/viz/CameraRig.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp             core/viz/VisualSafety.cpp core/viz/Lfo.cpp -o world_genome_test
+          ./world_genome_test app/src/main/assets/shaders/lib_world.glsl             app/src/main/assets/shaders/world_shapes.bin app/src/main/assets/shaders/world_textures.bin
           # Cast's HLS timing (#656): segment durations from the fragment's media time, TARGETDURATION, the playlist text.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/hls_segments_test.cpp core/api/geode_frame_api.cpp -o hls_segments_test
           ./hls_segments_test

@@ -30,19 +30,6 @@ bool isLuminanceTarget(LfoTarget target) {
     }
 }
 
-int luminanceIndex(LfoTarget target) {
-    switch (target) {
-        case LfoTarget::Brightness: return 0;
-        case LfoTarget::Intensity: return 1;
-        case LfoTarget::Saturation: return 2;
-        case LfoTarget::Bloom: return 3;
-        case LfoTarget::Vignette: return 4;
-        case LfoTarget::ColorShift: return 5;
-        case LfoTarget::PaletteMix: return 6;
-        case LfoTarget::Temperature: return 7;
-        default: return -1;
-    }
-}
 
 float polarized(float raw, ModPolarity polarity) {
     switch (polarity) {
@@ -192,13 +179,6 @@ SceneParams LfoEngine::apply(const SceneParams& p, const std::array<float, kSlot
     return r;
 }
 
-void LfoEngine::addLuminanceDrive(const std::array<float, kSlots>& values, LuminanceDrive& out) const {
-    for (int i = 0; i < kSlots; i++) {
-        if (!configs[i].enabled) continue;
-        const int lum = luminanceIndex(configs[i].target);
-        if (lum >= 0) out[static_cast<size_t>(lum)] += values[i];
-    }
-}
 
 float LfoEngine::oscillator(int i, const LfoConfig& c, float dt) {
     const float period = std::clamp(c.rateSeconds, LfoConfig::kMinRateSeconds, LfoConfig::kMaxRateSeconds);

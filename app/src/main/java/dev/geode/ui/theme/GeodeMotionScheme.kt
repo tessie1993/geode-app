@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
+import dev.geode.data.SystemMotion
 
 /**
  * The app's motion: Material 3 Expressive springs, or none that travel when the user asked for
@@ -118,5 +119,4 @@ fun rememberSystemReducedMotion(): Boolean {
     return reduced
 }
 
-private fun animationsRemoved(resolver: ContentResolver): Boolean =
-    Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+private fun animationsRemoved(resolver: ContentResolver): Boolean = SystemMotion.isReduced(resolver)

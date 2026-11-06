@@ -71,10 +71,6 @@ public:
         float underlayAmount = 0.0f;
         // Note & key reactions' whole-picture tint (NoteUniforms::tint): rgb and amount, 0 while off.
         std::array<float, 4> noteTint{1.0f, 1.0f, 1.0f, 0.0f};
-        // The flash limiter's grade (FlashLimiter.hpp): how far toward the anchor grey, in linear light,
-        // the frame is held (1 - Grade::scale; 0 is untouched), and that grey.
-        float safetyHold = 0.0f;
-        float safetyAnchor = 0.0f;
     };
 
     CompositePass(const ShaderSource& assets, ProgramBinaryCache* cache) : transitions_(assets, cache), assets_(assets) {}

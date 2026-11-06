@@ -189,7 +189,7 @@ data class BehaviourPrefs(
         val DEFAULT_GESTURES: Map<CanvasGesture, GestureAction> =
             mapOf(
                 CanvasGesture.TAP_BOTTOM to GestureAction.SHOW_MINI_PLAYER,
-                CanvasGesture.TAP_TOP to GestureAction.QUICK_SETTINGS,
+                CanvasGesture.TAP_TOP to GestureAction.SHOW_MINI_PLAYER,
                 CanvasGesture.DOUBLE_TAP to GestureAction.TOGGLE_SHEET,
                 CanvasGesture.SWIPE_SIDEWAYS to GestureAction.STEP_STYLE,
                 CanvasGesture.SWIPE_UP to GestureAction.SHOW_MINI_PLAYER,

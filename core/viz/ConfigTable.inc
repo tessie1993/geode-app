@@ -43,6 +43,9 @@ GEODE_CONFIG(lfo, depth, Float, 0.3f, 0.0f, 1.0f, Fraction)
 GEODE_CONFIG(lfo, polarity, Int, 0, 0, 2, None)
 // ModCurve: Linear, Exponential, Logarithmic, Smooth.
 GEODE_CONFIG(lfo, curve, Int, 0, 0, 3, None)
+// Beat timing (Lfo.hpp LfoConfig::beats): 0 is free (rateSeconds), else 1, 2, 4, 8, 16 or 32 beats a cycle;
+// geode_viz_set_lfo reads any other value as free.
+GEODE_CONFIG(lfo, beats, Float, 0.0f, 0.0f, 32.0f, None)
 
 // ---- Envelopes (viz/Adsr, LfoStore.kt adsrFromJson) -----------------------------------------------
 // Defaults are Adsr.hpp's (and Adsr.kt's, LfoStore.kt:102-108); ranges are Customize's sliders

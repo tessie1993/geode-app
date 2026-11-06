@@ -14,7 +14,7 @@ static_assert(config::spec(config::Slot::lfo_target).max == static_cast<float>(L
 static_assert(config::spec(config::Slot::lfo_wave).max == static_cast<float>(LfoWave::Random), "lfo wave row");
 static_assert(config::spec(config::Slot::lfo_polarity).max == static_cast<float>(ModPolarity::Negative), "lfo polarity row");
 static_assert(config::spec(config::Slot::lfo_curve).max == static_cast<float>(ModCurve::Smooth), "lfo curve row");
-static_assert(config::indexInGroup(config::Slot::lfo_curve) == GEODE_LFO_CONFIG_FLOATS - 1, "one lfo row per wire float");
+static_assert(config::indexInGroup(config::Slot::lfo_beats) == GEODE_LFO_CONFIG_FLOATS - 1, "one lfo row per wire float");
 
 bool chainOf(LfoTarget target, ModChain& out) {
     switch (target) {

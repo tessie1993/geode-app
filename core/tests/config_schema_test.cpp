@@ -75,11 +75,12 @@ void theGroupsAreTheWires() {
     check(rowsIn("lfo") == GEODE_LFO_CONFIG_FLOATS, "one lfo row per geode_viz_set_lfo float");
     check(rowsIn("adsr") == GEODE_ADSR_CONFIG_FLOATS, "one adsr row per geode_viz_set_adsr float before the targets");
     check(rowsIn("macro") == kMacroCount && kMacroCount == 6, "six macro rows, one per knob (MacroStore.COUNT)");
-    // geode_viz_set_lfo: enabled, source, target, wave, rate_seconds, depth, polarity, curve.
+    // geode_viz_set_lfo: enabled, source, target, wave, rate_seconds, depth, polarity, curve, beats.
     check(config::indexInGroup(Slot::lfo_enabled) == 0, "lfo enabled is float 0");
     check(config::indexInGroup(Slot::lfo_rateSeconds) == 4, "lfo rate is float 4");
     check(config::indexInGroup(Slot::lfo_depth) == 5, "lfo depth is float 5");
     check(config::indexInGroup(Slot::lfo_curve) == 7, "lfo curve is float 7");
+    check(config::indexInGroup(Slot::lfo_beats) == 8, "lfo beats is float 8");
     // geode_viz_set_adsr: enabled, attack, decay, sustain, release, amount, band, gate, sustain track, retrigger.
     check(config::indexInGroup(Slot::adsr_attack) == 1, "adsr attack is float 1");
     check(config::indexInGroup(Slot::adsr_band) == 6, "adsr band is float 6");

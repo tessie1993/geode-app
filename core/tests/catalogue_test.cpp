@@ -233,7 +233,20 @@ void marchedStylesMatchTheOldSet() {
         "terra_volcano", "terra_wire", "truchet_relief", "vanishing",
         "foam_fall", "foam_neon", "foam_soap", "foam_chrome", "foam_ember", "foam_ice",
         "foam_orb", "foam_kaleido", "foam_ink", "foam_coral", "foam_ghost", "foam_show",
-        "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral", "morph_world"};
+        "neon_chrome_sea", "black_hole", "hex_hive", "mandelbox_cathedral", "morph_world",
+        "julia", "tunnel", "mandel", "kaleido", "plasma", "bars", "ring", "scope", "liss", "warp", "grid", "voronoi",
+        "metaballs", "ripples", "starfield", "waves", "hexgrid", "spiral", "aurora", "solar", "winter", "lava",
+        "orb_lattice", "neon_tiles", "chroma_orb", "mandala_dome", "bead_vortex", "merkaba_grid", "spiral_eye",
+        "blacklight_bloom", "fractal_temple", "glow_vortex",
+        "arbor_grove", "arbor_frost", "arbor_bolt", "arbor_roots", "arbor_rosette", "arbor_sakura", "chrys_bloom",
+        "chrys_phyllo", "chrys_dahlia", "chrys_lotus", "chrys_meadow", "chrys_glass", "chrys_ink", "chrys_neon",
+        "chrys_fall", "chrys_kaleido", "chrys_tunnel", "lucid_weave", "lucid_mandala", "lucid_spiral",
+        "lucid_tunnel", "lucid_disc", "lucid_hive", "lucid_ink", "lucid_mirror", "lucid_bulge", "lucid_petal",
+        "lucid_lattice", "lucid_vortex", "glass_orb", "glass_pool", "glass_prism", "glass_lens", "glass_drops",
+        "glass_bubbles", "glass_marble", "glass_caustic", "nebula_dust", "nebula_spiral", "nebula_ring",
+        "nebula_veil", "nebula_pulsar", "nebula_cluster", "nebula_nova", "nebula_horizon", "terra_topo",
+        "truchet_arcs", "truchet_hex", "truchet_weave", "truchet_maze", "truchet_tri", "truchet_quad",
+        "truchet_tubes", "truchet_neon", "truchet_flow", "truchet_knot", "truchet_tunnel"};
     std::set<std::string> marched;
     for (const auto& id : catalogue::allIds()) {
         if (catalogue::isMarched(id)) marched.insert(id);
@@ -257,7 +270,7 @@ void paramScopesMatchTheOldParamScope() {
     check(catalogue::reaches(Scope::Turbulence, "plasma"), "turbulence reaches a shader");
     check(!catalogue::reaches(Scope::Turbulence, "silk_web"), "turbulence misses silk");
     check(catalogue::reaches(Scope::MarchDetail, "vanishing"), "detail reaches a marched style");
-    check(!catalogue::reaches(Scope::MarchDetail, "plasma"), "detail misses an unmarched shader");
+    check(!catalogue::reaches(Scope::MarchDetail, "outrun_drive"), "detail misses an unmarched shader");
     check(!catalogue::reaches(Scope::FlowFieldSim, "fluid_ink"), "fluid drives its own field");
     check(catalogue::reaches(Scope::FlowFieldSim, "silk_web"), "flow field reaches silk");
     check(!catalogue::reaches(Scope::RippleOverlay, "water"), "water has no ripple overlay");
@@ -271,6 +284,72 @@ void paramScopesMatchTheOldParamScope() {
     check(catalogue::kindOf("no_such_style") == Kind::Silk, "unknown ids are silk");
     check(catalogue::reaches(Scope::TrailToggle, "no_such_style"), "an unknown id is described as silk");
     for (const auto& id : catalogue::allIds()) check(catalogue::reaches(Scope::Universal, id), id + " is reached by universal");
+}
+
+// The Styles page's look groups, as the Kotlin StyleLookTags placed them before the tags moved here:
+// a family style by its family, a dedicated renderer's style by its kind, a loose shader one by one,
+// and an untagged loose style under Psychedelic (only Winter was).
+const std::map<std::string, std::string> kOldFamilyLooks = {
+    {"bulb", "FRACTALS"}, {"arbor", "FRACTALS"}, {"foam", "FRACTALS"},       {"dive", "FLY_THROUGH"},
+    {"terrain", "FLY_THROUGH"}, {"nebula", "SPACE"}, {"glass", "GLASS"},     {"truchet", "PATTERNS"},
+    {"lucid", "PSYCHEDELIC"},   {"chrysanthemum", "PSYCHEDELIC"},
+};
+const std::map<Kind, std::string> kOldKindLooks = {
+    {Kind::Silk, "FLOWING"}, {Kind::Fluid, "FLOWING"},     {Kind::CurlFlow, "FLOWING"}, {Kind::Water, "FLOWING"},
+    {Kind::Life, "LIVING"},  {Kind::Mycelium, "LIVING"},   {Kind::Acid, "PSYCHEDELIC"}, {Kind::Cymatics, "PATTERNS"},
+    {Kind::Milkdrop, "CLASSIC"},
+};
+const std::map<std::string, std::string> kOldLooseLooks = [] {
+    std::map<std::string, std::string> out;
+    const auto put = [&out](std::initializer_list<const char*> ids, const char* look) {
+        for (const char* id : ids) out[id] = look;
+    };
+    put({"julia", "mandel", "kifs", "fractal_temple", "menger_core", "mandelbox_cathedral", "supershape"}, "FRACTALS");
+    put({"tunnel", "rod_tunnel", "particle_tunnel", "fractal_dive", "fractal_tunnel", "outrun_drive", "vanishing",
+         "crystal_canyon", "spectrum_terrain", "gyroid_cavern", "noneuclid", "morph_world"},
+        "FLY_THROUGH");
+    put({"starfield", "nebula", "solar", "chrome_nebula", "ringed_planet", "black_hole", "aurora", "aurora_ocean"}, "SPACE");
+    put({"orb_lattice", "neon_tiles", "chroma_orb", "blacklight_bloom", "prism_rain", "glow_vortex", "neon_chrome_sea",
+         "neon_city", "merkaba_grid", "bead_vortex"},
+        "GLASS");
+    put({"kaleido", "grid", "voronoi", "hexgrid", "spiral", "mandala_dome", "hex_hive", "spiral_eye"}, "PATTERNS");
+    put({"bars", "ring", "scope", "liss", "waves"}, "CLASSIC");
+    put({"plasma", "warp", "metaballs", "lava", "morphogen", "curl_bloom", "nectar_flow", "jelly_abyss", "ribbon_storm",
+         "ripples"},
+        "FLOWING");
+    put({"winter"}, "PSYCHEDELIC");
+    return out;
+}();
+
+void everyStyleKeepsItsOldLookGroup() {
+    const std::set<std::string> names = {"FLOWING", "LIVING", "PSYCHEDELIC", "FRACTALS", "SPACE",
+                                         "FLY_THROUGH", "GLASS", "PATTERNS", "CLASSIC"};
+    std::set<std::string> used;
+    for (int l = 0; l < catalogue::kLookCount; ++l) used.insert(catalogue::name(static_cast<catalogue::Look>(l)));
+    check(used == names, "look names are Kotlin's StyleLook entries");
+    std::map<std::string, std::string> familyOf;
+    for (const auto& family : catalogue::families()) {
+        for (const char* id : family.ids) familyOf[id] = family.name;
+    }
+    int loose = 0;
+    for (const auto& id : catalogue::allIds()) {
+        const std::string got = catalogue::name(catalogue::lookOf(id));
+        std::string want;
+        if (const auto f = familyOf.find(id); f != familyOf.end()) {
+            want = kOldFamilyLooks.at(f->second);
+        } else if (catalogue::kindOf(id) != Kind::Shader) {
+            want = kOldKindLooks.at(catalogue::kindOf(id));
+        } else {
+            ++loose;
+            const auto tag = kOldLooseLooks.find(id);
+            check(tag != kOldLooseLooks.end(), "loose style " + id + " has a look tag");
+            if (tag != kOldLooseLooks.end()) want = tag->second;
+        }
+        check(names.count(got) == 1, id + " has a look group");
+        check(got == want, "look of " + id + ": got " + got + ", the Kotlin tags gave " + want);
+    }
+    check(loose == 61 && kOldLooseLooks.size() == 61, "every loose style is tagged once");
+    check(catalogue::lookOf("no_such_style") == catalogue::Look::Flowing, "an unknown id is silk, so flowing");
 }
 
 std::vector<std::string> split(const std::string& s, char sep) {
@@ -291,7 +370,8 @@ void textRoundTrips() {
         if (f[0] == "style") {
             styleIds.push_back(f[1]);
             check(f[2] == catalogue::name(catalogue::kindOf(f[1])), "kind row of " + f[1]);
-            check((f.size() == 4 && f[3] == "MARCH_DETAIL") == catalogue::isMarched(f[1]), "marched field of " + f[1]);
+            check(f.size() >= 4 && f[3] == catalogue::name(catalogue::lookOf(f[1])), "look field of " + f[1]);
+            check((f.size() == 5 && f[4] == "MARCH_DETAIL") == catalogue::isMarched(f[1]), "marched field of " + f[1]);
         } else if (f[0] == "kind") {
             ++kinds;
         } else if (f[0] == "family") {
@@ -352,6 +432,7 @@ int main(int argc, char** argv) {
     spinRateAndShaderStyleAgree();
     marchedStylesMatchTheOldSet();
     paramScopesMatchTheOldParamScope();
+    everyStyleKeepsItsOldLookGroup();
     textRoundTrips();
     textEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/catalogue.txt");
     if (failures == 0) std::printf("catalogue_test: all checks passed\n");

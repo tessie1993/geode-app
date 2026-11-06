@@ -8,108 +8,309 @@ out vec4 fragColor;
 
 //#include lib_scene_uniforms
 //#include lib_scene_motion
+//#include lib_camera
 //#include lib_palette
 //#include lib_scene_grade
+//#include lib_sdf3
 //#include lib_lucid
 
-// Lucid Lattice: a quasicrystal folded through itself. Seven plane waves at
-// equal angles sum to a pattern with seven-fold symmetry that never repeats -
-// a Penrose-like order with no tile. Here that sum is the nest's field: each
-// of three levels reads the crystal, and its analytic gradient (the waves'
-// derivative, so no extra taps) displaces where the next level reads. The
-// crystal's rosettes buckle into one another and drift as the waves' phases
-// travel.
+// Lucid Lattice: a quasicrystal folded through itself, now a crystal you fly
+// through. The 2D style summed seven plane waves at equal angles into a
+// pattern with seven-fold symmetry that never repeats; here the same seven
+// waves are tilted out of the screen into space. Each keeps its direction in
+// the xy plane (k * pi / N, as before) and gains a small z wavenumber, a whole
+// multiple of 2 pi / 16, so every slice across the flight still shows the
+// Penrose-like rosettes while the crystal stacks and twists along the flight.
+// It never repeats sideways; along z it repeats every 16 world units, which is
+// what the rig's travel wrap needs.
 //
-// Coloured as holographic foil: the direction the field slopes picks the hue,
-// so every facet catches a different colour the way embossed foil does, with
-// a bright sheen where the slope is steep.
+// The sum is the nest's field, as in 2D: a coarser read of the same crystal
+// (its analytic gradient, so no extra taps) displaces where the surface reads,
+// and the rosettes buckle into one another and drift as the phases travel.
+// Two solids come out of one field: BEADS where the waves add up (the
+// crystal's bright nodes, F above an iso) and SHEETS around its nodal surface
+// (|F| below a half-width), thin cracked membranes between the beads.
+//
+// Coloured as holographic foil, as before: the direction the surface faces
+// (its normal, which is the field's gradient) picks the hue, so every facet
+// catches a different colour the way embossed foil does; the view angle adds a
+// thin-film shift, and a bright sheen rides the grazing edges and highlights.
+// A faint haze gathers where rays pass close to the crystal.
+//
+// ---- camera and the wrap ------------------------------------------------------
+//
+// camFly: the eye rides the rig's path down +z. A tube around the z axis is
+// smoothly carved out of the crystal as the flight channel, and a sphere
+// around the eye out of everything, so the eye is never inside a bead or a
+// sheet. Every z term is a wave whose z wavenumber is m * 2 pi / 16 with m an
+// integer (-2..2), and the phases depend on time only, so the field tiles with
+// period 16 along z; the eye is rebased by mod(z, 16), which is exact, keeps
+// z precise, and 16 divides the rig's 8192 wrap, so neither ever shows. x and
+// y are not wrapped: the crystal is aperiodic across the flight, as it should be.
 //
 // ---- audio ------------------------------------------------------------------
 //
-// HARMONICITY (uHarmony, smoothed over 1 s) chooses the crystal's grain:
-// tonal, sustained music keeps it a smooth interference pattern; noisy,
-// percussive passages fold it into ridges (1 - |f|) - the same crystal with
-// cracked, glassy creases - and the warp follows the same morph. A tonal
-// break visibly heals the lattice. The beat envelope (SND_KICK_ENV) gently
-// tightens the crystal's scale. Brightness follows (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) gently.
+// HARMONICITY (uHarmony, smoothed over 1 s) chooses the crystal's grain, as in
+// 2D: tonal, sustained music grows the beads and dissolves the sheets (a field
+// of smooth glowing nodes); noisy, percussive passages crack the crystal open
+// into glassy nodal sheets as the beads shrink away, and the warp folds with
+// the same morph (ridged gradient). A tonal break visibly heals the lattice.
+// The beat (SND_KICK_ENV through lucidBump, so it eases in instead of stepping)
+// swells the crystal: its xy wavenumber drops a little, the rosettes open
+// around the flight axis. Brightness follows
+// (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) gently, as before.
 //
-// ---- macros -----------------------------------------------------------------
+// ---- macros and knobs ---------------------------------------------------------
 //
-// Speed: uSpeed scales the clock and the wave phases. Complexity: uMorph
-// adds two more plane waves (seven to nine) past 0.5, and a nest level.
-// Chaos: uTurbulence/uWarp raise warp strength and jitter the crystal; uTwist
-// twists the plane. Kaleido: when uKaleido is on, uSymmetry (3..11) sets the
-// number of waves, which is the crystal's symmetry order. Color: the foil is
-// half pal(), half interference ramp. Energy: uIntensity scales the beat
-// contraction and how hard harmony re-grains the crystal. Space: uZoom/
-// uRotation through lucidView.
+// Speed: uTime and uFlowTime drive the wave phases (never times uSpeed).
+// Complexity: uMorph adds two waves (seven to nine) past 0.5, and a nest level
+// (lucidDetail). Chaos: uTurbulence/uWarp raise the warp strength
+// (lucidChaos, capped at 2.5 for the march). Kaleido: when uKaleido is on,
+// uSymmetry (3..11) sets the number of waves, the crystal's symmetry order.
+// Color: the foil is half pal(), half the lucidFilm interference ramp. Energy:
+// uIntensity scales the beat swell and how hard harmony re-grains the crystal.
+// Space: uZoom/uRotation/uTwist through lucidView (the screen, so the rays).
+// Knobs (offsets from 0.5, so off is the tuned look): k0 PULSE the beat swell,
+// k1 TEXTURE the crystal's scale, k2 FLOW the warp strength, k3 TONE the hue,
+// k4 BUILD the sheen and haze, k5 SPACE the flight channel's radius.
+//
+// ---- why the distance estimate is safe ------------------------------------------
+//
+// F = (1/N) sum cos(d_k . p + phi_k), d_k = (s u_k, c_k). Its gradient is
+// (1/N) sum a_k d_k with |a_k| <= 1. The xy part is at most
+// s * max_e (1/N) sum |u_k . e|, and for N directions evenly spread over a
+// half turn that sum peaks at 1 / sin(pi / 2N) (0.64..0.67 of N, computed per
+// frame); the z part is at most (1/N) sum |c_k|. So |grad F| <= G0, their
+// root-sum-square. A nest level returns grad F_l / G_l, a unit-bounded vector
+// whose own Lipschitz bound is H_l / G_l, H_l = s_l^2 + (1/N) sum c_k^2 the
+// Hessian bound; the ridged fold (abs - 0.3) and the mix with the smooth one
+// keep it, and a rotation of xy is an isometry. Chaining the levels gives the
+// warp's bound Lw, and the surface field F(p + w(p)) is G0 * (1 + Lw)-
+// Lipschitz. Beads (iso - F) and sheets (|F| - hw) share that bound, and so
+// does their min; the distance is divided by it. The tube is smoothly
+// subtracted (smax, a slight overestimate in the blend) and the eye sphere
+// joins through max. The march over-relaxes (omega 1.4) and falls back to a
+// plain step whenever two consecutive spheres fail to overlap (Keinert et
+// al.'s check), so the extra speed never skips a surface the bound guards.
 
 #define LAT_MAX_WAVES 11
+/** Nest levels the march can afford: one normally, two with Complexity. */
+#define LAT_LEVELS 2
+#define LAT_MAX_STEPS 96
+#define LAT_FAR 30.0
+#define LAT_ZWRAP 16.0
+/** 2 pi / 16: the z wavenumber unit. Every z rate is an integer multiple. */
+#define LAT_ZU 0.39269908
+/** xy wavenumber at rest: a rosette every ~4.5 world units. */
+#define LAT_S 1.4
+#define LAT_TUBE 1.9
+#define LAT_BUBBLE 0.75
 
-float quasi(vec2 p, float waves, float phase, out vec2 grad) {
+int gN;
+float gInvN;
+vec2 gU[LAT_MAX_WAVES];
+float gCz[LAT_MAX_WAVES];
+float gPh[LAT_MAX_WAVES];
+int gDepth;
+float gLvS[LAT_LEVELS];
+float gLvG[LAT_LEVELS];
+float gLvP[LAT_LEVELS];
+mat2 gLvR[LAT_LEVELS];
+float gS;
+float gLip;
+float gWarpA;
+float gSmooth;
+float gSheet;
+float gBead;
+float gTube;
+vec3 gEye;
+/** Set by map(): the surface field at the point. */
+float gF;
+
+/** The crystal at xy wavenumber `sxy`, phases scaled by `ps`. -1..1. */
+float quasi(vec3 q, float sxy, float ps) {
     float s = 0.0;
-    grad = vec2(0.0);
     for (int k = 0; k < LAT_MAX_WAVES; k++) {
-        float fk = float(k);
-        if (fk >= waves) break;
-        float a = fk * LUCID_PI / waves;
-        vec2 d = vec2(cos(a), sin(a));
-        float x = dot(p, d) + phase * (mod(fk, 2.0) * 2.0 - 1.0) * (1.0 + 0.13 * fk);
-        s += cos(x);
-        grad -= sin(x) * d;
+        if (k >= gN) break;
+        vec3 d = vec3(gU[k] * sxy, gCz[k]);
+        s += cos(dot(q, d) + gPh[k] * ps);
     }
-    return s / waves;
-    // grad is left unnormalised on purpose: its length is the sheen.
+    return s * gInvN;
+}
+
+/** The crystal's analytic gradient at the same wavenumber and phases. */
+vec3 quasiGrad(vec3 q, float sxy, float ps) {
+    vec3 g = vec3(0.0);
+    for (int k = 0; k < LAT_MAX_WAVES; k++) {
+        if (k >= gN) break;
+        vec3 d = vec3(gU[k] * sxy, gCz[k]);
+        g -= sin(dot(q, d) + gPh[k] * ps) * d;
+    }
+    return g * gInvN;
+}
+
+float map(vec3 p) {
+    vec3 w = vec3(0.0);
+    for (int i = 0; i < LAT_LEVELS; i++) {
+        if (i >= gDepth) break;
+        vec3 q = p + w;
+        q.xy = gLvR[i] * q.xy;
+        vec3 g = quasiGrad(q, gLvS[i], gLvP[i]) / gLvG[i];
+        // Ridged mode folds the warp too: the gradient's sign flips at the creases.
+        w = gWarpA * mix(abs(g) - 0.3, g, gSmooth);
+    }
+    float f = quasi(p + w, gS, 1.0);
+    gF = f;
+    float d = min(gBead - f, abs(f) - gSheet) / gLip;
+    d = smax(d, gTube - length(p.xy), 0.8);
+    return max(d, LAT_BUBBLE - length(p - gEye));
+}
+
+vec3 normalAt(vec3 p, float eps) {
+    vec2 k = vec2(1.0, -1.0);
+    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
+                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
 }
 
 void main() {
     vec2 uv = lucidView(false);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float flow = uFlowTime;
+
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
-    // 1 = smooth crystal, 0 = fully ridged.
+    // 1 = smooth crystal (beads), 0 = fully ridged (sheets).
     float smoothness = clamp(mix(1.0, clamp(uHarmony, 0.0, 1.0), clamp(uIntensity, 0.0, 1.5)), 0.0, 1.0);
-    float beat = clamp(SND_KICK_ENV, 0.0, 1.0) * uIntensity;
+    gSmooth = smoothness;
+    float beat = lucidBump(SND_KICK_ENV) * clamp(uIntensity, 0.0, 1.5);
 
     float waves = (uKaleido > 0.5 && uSymmetry >= 2.0) ? clamp(floor(uSymmetry + 0.5), 3.0, 11.0)
                                                        : 7.0 + (uMorph >= 0.5 ? 2.0 : 0.0);
-    int depth = lucidDetail(3, 2);
-    float chaos = lucidChaos();
+    gN = int(waves);
+    gInvN = 1.0 / waves;
+    gDepth = min(lucidDetail(1, 0), LAT_LEVELS);
 
-    // Fine enough that a phone screen holds a few dozen rosettes (a wave
-    // every ~0.15 of the half-height). At 6 the
-    // frame held one and a half, so the crystal never showed: it read as a
-    // soft hue gradient, the same picture as any smooth Lucid nest.
-    vec2 p = uv * (42.0 - 4.0 * beat);
-    p += lucidJitter(p, t) * 3.0;
+    // The waves: xy directions k * pi / N as in 2D, z wavenumbers m * 2 pi / 16
+    // with m = (2k mod 5) - 2, and phases travelling in alternate directions.
     float phase = t * 0.35 + flow * 0.4;
-
-    vec2 w = vec2(0.0);
-    for (int i = 0; i < LUCID_MAX_DEPTH; i++) {
-        if (i >= depth) break;
-        float lv = float(depth - 1 - i);
-        vec2 g;
-        vec2 pi = lucidRot(0.4 * lv) * p * exp2(-0.5 * lv) + w;
-        quasi(pi, waves, phase * (1.0 - 0.2 * lv), g);
-        // Ridged mode folds the warp too: the gradient's sign flips at the creases.
-        // The gradient's length grows with the wave count (up to ~sqrt(waves)
-        // per wave), so it is normalised here: unnormalised it pushed the read
-        // point several rosettes away and smeared the crystal into mush.
-        g /= sqrt(waves);
-        vec2 ridged = abs(g) - 0.3;
-        w = 0.45 * chaos * mix(ridged, g, smoothness);
+    float czAbs = 0.0;
+    float czSq = 0.0;
+    for (int k = 0; k < LAT_MAX_WAVES; k++) {
+        if (k >= gN) break;
+        float fk = float(k);
+        float a = fk * LUCID_PI / waves;
+        gU[k] = vec2(cos(a), sin(a));
+        gCz[k] = (mod(2.0 * fk, 5.0) - 2.0) * LAT_ZU;
+        gPh[k] = phase * (mod(fk, 2.0) * 2.0 - 1.0) * (1.0 + 0.13 * fk);
+        czAbs += abs(gCz[k]);
+        czSq += gCz[k] * gCz[k];
     }
-    vec2 g;
-    float f = quasi(p + w, waves, phase, g);
-    float field = mix(1.0 - 2.0 * abs(f), f, smoothness);
+    czAbs *= gInvN;
+    czSq *= gInvN;
+    float xyBound = gInvN / sin(LUCID_PI / (2.0 * waves));
 
-    float hue = atan(g.y, g.x) / LUCID_TAU + 0.35 * field;
-    float slope = length(g) / sqrt(waves);
-    vec3 foil = mix(lucidFilm(hue), pal(hue), 0.5);
-    vec3 col = foil * (0.18 + 0.55 * smoothstep(-0.4, 0.9, field));
-    col += mix(vec3(1.0), pal(hue + 0.5), 0.4) * smoothstep(0.55, 1.1, slope) * 0.35;
-    col = lucidCubic(col, 0.6);
+    // The beat swells the crystal: a lower xy wavenumber opens the rosettes.
+    gS = LAT_S * (1.0 + 0.5 * kTexture) * (1.0 - clamp(0.08 + 0.12 * kPulse, 0.0, 0.2) * beat);
+    gWarpA = 0.28 * min(lucidChaos(), 2.5) * (1.0 + kFlow);
+
+    // Nest levels, coarsest first, and the warp's Lipschitz bound (header).
+    float lw = 0.0;
+    for (int i = 0; i < LAT_LEVELS; i++) {
+        if (i >= gDepth) break;
+        float lv = float(gDepth - i);
+        float sl = gS * exp2(-0.5 * lv);
+        float gl = sqrt(sl * sl * xyBound * xyBound + czAbs * czAbs);
+        float hl = sl * sl + czSq;
+        gLvS[i] = sl;
+        gLvG[i] = gl;
+        gLvP[i] = 1.0 - 0.2 * lv;
+        gLvR[i] = lucidRot(0.4 * lv);
+        lw = gWarpA * (hl / gl) * (1.0 + lw);
+    }
+    gLip = sqrt(gS * gS * xyBound * xyBound + czAbs * czAbs) * (1.0 + lw);
+
+    // Beads vanish (iso above any F) as the music turns noisy, sheets vanish
+    // (negative half-width) as it turns tonal; in between both are there.
+    gBead = mix(1.6, 0.3, smoothstep(0.0, 0.65, smoothness));
+    gSheet = 0.11 - 0.6 * smoothstep(0.35, 1.0, smoothness);
+    gTube = LAT_TUBE * (1.0 + 0.6 * kSpace);
+
+    vec3 ro;
+    vec3 rd;
+    camFly(uv, ro, rd);
+    // Every z term has a period dividing 16 (header), so this is exact.
+    ro.z = mod(ro.z, LAT_ZWRAP);
+    gEye = ro;
+
+    float hue0 = 0.3 * kTone + 0.03 * sin(t * 0.021);
+    float build = 1.0 + kBuild;
+
+    float tm = 0.03;
+    float hitT = -1.0;
+    float used = 0.0;
+    float haze = 0.0;
+    float omega = 1.4;
+    float prevR = 0.0;
+    float stepLen = 0.0;
+    for (int i = 0; i < LAT_MAX_STEPS; i++) {
+        // uSteps is the user's Detail; this loop's own bound is the constant.
+        if (float(i) >= uSteps) break;
+        if (tm > LAT_FAR) break;
+        used = float(i);
+        float d = map(ro + rd * tm);
+        float r = abs(d);
+        bool fail = omega > 1.0 && (r + prevR) < stepLen;
+        if (fail) {
+            // The spheres stopped overlapping: step back inside the last safe one.
+            stepLen -= omega * stepLen;
+            omega = 1.0;
+        } else {
+            float eps = 0.0008 * tm + 0.0006;
+            if (d < eps) {
+                hitT = tm;
+                break;
+            }
+            stepLen = max(d * omega * 0.9, eps);
+            haze += 1.0 / (1.0 + 300.0 * d * d);
+        }
+        prevR = r;
+        tm += stepLen;
+    }
+
+    float ahead = pow(max(rd.z, 0.0), 8.0);
+    vec3 fogCol = mix(lucidFilm(hue0 + 0.6), pal(hue0 + 0.6), 0.6) * (0.03 + 0.13 * ahead) + vec3(0.004, 0.003, 0.008);
+    vec3 col = fogCol;
+    if (hitT > 0.0) {
+        vec3 p = ro + rd * hitT;
+        vec3 n = normalAt(p, max(0.0015, 0.0012 * hitT));
+        // Restore the hit's field after the normal taps.
+        map(p);
+        float field = gF;
+        float ndv = clamp(dot(n, -rd), 0.0, 1.0);
+        float fres = pow(1.0 - ndv, 3.0);
+        float ao = clamp(1.0 - used / max(uSteps, 1.0) * 1.1, 0.25, 1.0);
+        vec3 L = normalize(vec3(-0.4, 0.7, 0.55));
+        float dif = 0.5 + 0.5 * dot(n, L);
+        // Cracked sheets read as glass: a tighter, harder highlight.
+        float spec = pow(max(dot(reflect(rd, n), L), 0.0), mix(64.0, 24.0, smoothness));
+
+        // Foil: the facing direction picks the hue, the view angle shifts it.
+        float hue = hue0 + atan(n.y, n.x + 1e-5) / LUCID_TAU + 0.35 * field + 0.25 * (1.0 - ndv);
+        vec3 foil = mix(lucidFilm(hue), pal(hue), 0.5);
+        col = foil * (0.12 + 0.5 * dif) * ao;
+        col += mix(vec3(1.0), pal(hue + 0.5), 0.4) * (0.45 * spec + 0.3 * fres) * build * (0.4 + 0.6 * ao);
+        col = lucidCubic(col, 0.6);
+        col = mix(col, fogCol, 1.0 - exp(-hitT * 0.06));
+    }
+    col += pal(hue0 + 0.2) * clamp(haze * 0.004, 0.0, 0.3) * build;
 
     col *= 0.85 + 0.12 * swell;
+    col *= 0.75 + 0.25 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

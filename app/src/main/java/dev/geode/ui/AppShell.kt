@@ -556,11 +556,14 @@ private fun AppShellCompact(
     val onVisuals = appState.dest == GeodeDestination.VISUALS
     val showsPlayer = hasMedia && !appState.onPlayer
     var barHeight by remember { mutableStateOf(0.dp) }
+    var dockDrawn by remember { mutableStateOf(0.dp) }
     Box(Modifier.fillMaxSize()) {
-        // The handle's zone only while there is a handle to keep clear (the mini player hides on
-        // Player itself), so Player does not lose a touch target's height to nothing.
         val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-        val bottom = navInset + barHeight + DOCK_GAP + if (showsPlayer) HANDLE_ZONE else 0.dp
+        // The dock as drawn (the tab bar, and the mini player or its handle above it), measured
+        // every frame of their expand and shrink: the screen above moves up with the mini player
+        // instead of being covered by it (owner: no overlap), and never jumps. Never less than the
+        // bar's own place, so the first frame, before the dock is measured, is not padded short.
+        val bottom = maxOf(dockDrawn, navInset + barHeight + DOCK_GAP) + DOCK_GAP
         // What the Visuals options stand on: the tab bar's place, whether or not the bar is showing,
         // so the sheet never slides as the dock fades (owner: less twitchy). The mini player is not
         // in it there: Visuals docks it to the options (LocalDockedMiniPlayer).
@@ -600,26 +603,42 @@ private fun AppShellCompact(
                 // Any touch in the dock restarts its sleep timer, so it never fades under a
                 // finger on its way to a tab (it used to vanish before a second tap could land).
                 .restartsSleepTimer(chrome)
+                .onSizeChanged { dockDrawn = with(density) { it.height.toDp() } }
                 .navigationBarsPadding()
                 .padding(horizontal = GeodeSpacing.EdgeInset)
                 .padding(bottom = DOCK_GAP),
-            verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
         ) {
-            AnimatedVisibility(
-                showsPlayer && chrome.awake && !onVisuals,
-                enter = fadeIn(dockFade) + expandVertically(dockSize),
-                exit = fadeOut(dockFade) + shrinkVertically(dockSize),
-            ) {
-                miniPlayer(Modifier)
+            // Into and out of Visuals the floating player only fades, at its full size and in place,
+            // while the docked one fades in over the same spot: one player changing shape, not a card
+            // that shrinks into the tab bar and a second one appearing (owner: it read as loose).
+            AnimatedVisibility(!onVisuals, enter = fadeIn(dockFade), exit = fadeOut(dockFade)) {
+                Column {
+                    // Asleep and awake on the same screen: the card and its handle trade places on one
+                    // spring, so the dock's height (and the screen's padding) moves once, smoothly. The
+                    // gap to the bar is inside each, so nothing is left behind when both are gone.
+                    AnimatedVisibility(
+                        showsPlayer && chrome.awake,
+                        enter = fadeIn(dockFade) + expandVertically(dockSize),
+                        exit = fadeOut(dockFade) + shrinkVertically(dockSize),
+                    ) {
+                        Box(Modifier.padding(bottom = GeodeSpacing.S)) { miniPlayer(Modifier) }
+                    }
+                    AnimatedVisibility(
+                        showsPlayer && !chrome.awake,
+                        enter = fadeIn(dockFade) + expandVertically(dockSize),
+                        exit = fadeOut(dockFade) + shrinkVertically(dockSize),
+                    ) {
+                        Box(Modifier.padding(bottom = GeodeSpacing.S)) { MiniPlayerHandle(onWake = chrome::wake) }
+                    }
+                }
             }
-            if (showsPlayer && !chrome.awake && !onVisuals) MiniPlayerHandle(onWake = chrome::wake)
-            // On Visuals the bar stays while the options are up (they stand on it, the player docked
-            // to them), and otherwise fades in place on the same fade as the docked player's pill,
-            // never resizing the dock.
+            // The bar only ever fades in place, never resizing the dock: on Visuals it stays while the
+            // options are up (they stand on it, the player docked to them) and otherwise fades with the
+            // docked player's pill; elsewhere it is always there.
             AnimatedVisibility(
                 !onVisuals || chrome.awake || chrome.docked,
-                enter = if (onVisuals) fadeIn(dockFade) else fadeIn(dockFade) + expandVertically(dockSize),
-                exit = if (onVisuals) fadeOut(dockFade) else fadeOut(dockFade) + shrinkVertically(dockSize),
+                enter = fadeIn(dockFade),
+                exit = fadeOut(dockFade),
             ) {
                 FloatingTabBar(
                     items = navEntries.map { it.item },
@@ -656,6 +675,7 @@ private fun AppShellExpanded(
     val density = LocalDensity.current
     // From the motion scheme, so "Remove animations" makes the dock appear without moving.
     val dockFade = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
+    val dockSize = LocalGeodeMotion.current.defaultSpatialSpec<IntSize>()
     // safeDrawing rather than the status and navigation bars alone: in landscape the display
     // cutout sits on a side edge, where it would cover the rail or the content's far edge. It
     // includes the keyboard too, so a focused field stays above it.
@@ -663,19 +683,34 @@ private fun AppShellExpanded(
         // A PiP window is the visual alone, with no rail beside it.
         if (!pip) NavRail(navEntries, appState, centerRail)
         Box(Modifier.weight(1f).fillMaxHeight()) {
-            content()
+            var dockDrawn by remember { mutableStateOf(0.dp) }
+            val onVisuals = appState.dest == GeodeDestination.VISUALS
+            // Visuals is the visual under its own options; every other screen ends above the player.
+            Box(Modifier.fillMaxSize().padding(bottom = if (onVisuals) 0.dp else dockDrawn)) { content() }
             Column(
                 Modifier
                     .align(Alignment.BottomCenter)
                     .widthIn(max = MINI_PLAYER_MAX_WIDTH)
                     .fillMaxWidth()
-                    .onSizeChanged { onDock(with(density) { it.height.toDp() }) }
-                    .padding(GeodeSpacing.EdgeInset),
+                    .onSizeChanged {
+                        dockDrawn = with(density) { it.height.toDp() }
+                        onDock(dockDrawn)
+                    }.padding(GeodeSpacing.EdgeInset),
             ) {
-                AnimatedVisibility(showMiniPlayer && chrome.awake, enter = fadeIn(dockFade), exit = fadeOut(dockFade)) {
+                AnimatedVisibility(
+                    showMiniPlayer && chrome.awake,
+                    enter = fadeIn(dockFade) + expandVertically(dockSize),
+                    exit = fadeOut(dockFade) + shrinkVertically(dockSize),
+                ) {
                     miniPlayer(Modifier)
                 }
-                if (showMiniPlayer && !chrome.awake && appState.dest != GeodeDestination.VISUALS) MiniPlayerHandle(onWake = chrome::wake)
+                AnimatedVisibility(
+                    showMiniPlayer && !chrome.awake && !onVisuals,
+                    enter = fadeIn(dockFade) + expandVertically(dockSize),
+                    exit = fadeOut(dockFade) + shrinkVertically(dockSize),
+                ) {
+                    MiniPlayerHandle(onWake = chrome::wake)
+                }
             }
         }
     }
@@ -732,9 +767,6 @@ val LocalDockReserve = compositionLocalOf { 0.dp }
  * options alone.
  */
 val LocalDockedMiniPlayer = compositionLocalOf<(@Composable (Modifier) -> Unit)?> { null }
-
-/** The handle pill's full touch target, kept clear above the tab bar on every screen. */
-private val HANDLE_ZONE = 48.dp
 
 /** How wide the floating mini player grows on a tablet before it stops. */
 private val MINI_PLAYER_MAX_WIDTH = 640.dp

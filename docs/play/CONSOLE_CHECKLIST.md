@@ -115,9 +115,8 @@ sign uploads with an **upload key** you create and keep.
 - [ ] **Privacy policy**: paste
       `https://tessie1993.github.io/geode-app/privacy-policy.html`. It is published by
       `.github/workflows/pages.yml` from `docs/privacy-policy.html` on every push to
-      `claude/geode-finish` or `main`. One-time setup: GitHub > Settings > Pages >
-      Source = **GitHub Actions** (and, to deploy from `main`, add it under Settings >
-      Environments > github-pages > Deployment branches). Open the URL before pasting it.
+      `main`. One-time setup: GitHub > Settings > Pages >
+      Source = **GitHub Actions**. Open the URL before pasting it.
       It must be a live HTML page (not a PDF, not editable by others) and name the app.
       The app also shows the same text offline (Settings > About > Privacy policy) and the
       store description points there, but Play still requires this URL: the in-app copy

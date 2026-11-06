@@ -1,7 +1,6 @@
 package dev.geode.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
@@ -80,7 +79,7 @@ import kotlinx.coroutines.withContext
  *   class) a side panel on the right, full height (V2 rule 5). Never a sheet stacked under the
  *   visual. Its pages (Styles first, then Customize, Presets and MilkDrop) are a Navigation 3 back
  *   stack, and one [VisualsNavState] drives both layouts.
- * - The drop-ins: the Macros drawer and the quick settings, over everything.
+ * - The drop-in: the Macros drawer, over everything. Settings is a page of the options (the ⚙).
  *
  * Back undoes the most recent first ([VisualsNavState.back]): hidden options come back, then the
  * route in reverse. No per-entry ViewModel decorator: every ViewModel here stays in the Activity's
@@ -131,11 +130,10 @@ internal fun VisualsHub(
     KeepScreenOnWhileShown(behaviour.keepScreenOnVisuals)
     val studioViewModel: StudioViewModel = geodeViewModel()
     val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
-    var quickSettings by rememberSaveable { mutableStateOf(false) }
     var macros by rememberSaveable { mutableStateOf(false) }
     // While a drop-in is up the options fade out and take no touch (UI V2 rule 6: the visual shows
     // through, not the sheet); the nav state keeps the sheet's height, so it returns as it was.
-    val dropInOpen = quickSettings || macros
+    val dropInOpen = macros
     val fadeSpec = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
     val optionsFade = animateFloatAsState(if (dropInOpen) 0f else 1f, fadeSpec, label = "dropIn")
     val actions =
@@ -144,7 +142,7 @@ internal fun VisualsHub(
             visualizerView = visualizerView,
             stepStyle = stepStyle,
             onShowMiniPlayer = chrome::wake,
-            onQuickSettings = { quickSettings = true },
+            onQuickSettings = { nav.openTab(VisualsPage.SETTINGS) },
             onToggleSheet = { if (nav.sheetShown) nav.hideSheet() else nav.showSheet() },
             onMacros = { macros = true },
             onRecord = { if (!takes.recording) studioViewModel.startRecording() },
@@ -221,6 +219,7 @@ internal fun VisualsHub(
                 // Full screen is the options hidden (owner: the old live view goes), the double tap's twin.
                 onFullScreen = { actions.run(GestureAction.TOGGLE_SHEET, 0) },
                 onOpenStudioRender = onOpenStudioRender,
+                onSettings = { nav.openTab(VisualsPage.SETTINGS) },
                 // ‹ › are the sideways swipe's twin: they step what it steps, styles when it steps nothing.
                 onStep = { step ->
                     val sideways = behaviour.actionFor(CanvasGesture.SWIPE_SIDEWAYS)
@@ -304,6 +303,7 @@ internal fun VisualsHub(
                                 VisualsPage.MILKDROP ->
                                     MilkDropTab(viewModel, visualizerView, onOpenTextures = { nav.push(VisualsPage.TEXTURES) })
                                 VisualsPage.TEXTURES -> TexturesHubTab(viewModel, visualizerView)
+                                VisualsPage.SETTINGS -> VisualsSettingsPage(viewModel)
                             }
                         }
                     },
@@ -322,16 +322,6 @@ internal fun VisualsHub(
             },
             modifier = Modifier.fillMaxSize(),
         )
-        val drop = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
-        AnimatedVisibility(quickSettings, Modifier.fillMaxSize(), enter = fadeIn(drop), exit = fadeOut(drop)) {
-            // `visible` is the target, not the fade: Back stops being the panel's once it starts leaving.
-            VisualsQuickSettings(
-                viewModel,
-                visible = quickSettings,
-                onDismiss = { quickSettings = false },
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
     }
 }
 

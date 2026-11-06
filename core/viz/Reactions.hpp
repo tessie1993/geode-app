@@ -152,7 +152,10 @@ ReactSourceMask sources(std::uint32_t mask);
 int momentOf(ReactSource s);
 // Process-wide like the macros and the director, so every renderer's director (screen, export, wallpaper,
 // dream) keeps off the same moments. 0 (nothing the hand's) until the shell pushes the saved mask.
-void setGlobal(std::uint32_t mask);
+// A mask counts only while the user has a list of their own (`hasUser`): with none the DNA plays every
+// moment, so a mask left over from a stale or unreadable saved list (#355) must not switch off the
+// director's routes. global() is then 0, whatever mask came with it.
+void setGlobal(std::uint32_t mask, bool hasUser);
 std::uint32_t global();
 }  // namespace hand
 

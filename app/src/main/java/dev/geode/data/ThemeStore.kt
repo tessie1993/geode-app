@@ -79,7 +79,6 @@ data class GuiPrefs(
      * tour has ended (finished or Skip all) and so is not offered again.
      */
     val tutorialProgress: TutorialProgress = TutorialProgress(),
-    val reducedMotion: Boolean = false,
     val micReactive: Boolean = false,
     val touchSmear: Boolean = false,
     val touchSmearStrength: Float = 1f,
@@ -105,7 +104,7 @@ data class GuiPrefs(
     companion object {
         const val TEXT_SCALE_MIN = 0.85f
         const val TEXT_SCALE_MAX = 1.3f
-        const val MINI_PLAYER_FADE_DEFAULT_SECONDS = 3f
+        const val MINI_PLAYER_FADE_DEFAULT_SECONDS = 6f
         const val MINI_PLAYER_FADE_MAX_SECONDS = 10f
     }
 }
@@ -164,7 +163,6 @@ class ThemeStore(
                     prefs.getString(KEY_TUTORIAL_DONE, null),
                     prefs.getString(KEY_TUTORIAL_RESUME, null),
                 ),
-            reducedMotion = loadReducedMotion(),
             touchSmear = prefs.getBoolean(KEY_TOUCH_SMEAR, false),
             touchSmearStrength = prefs.getFloat(KEY_TOUCH_SMEAR_STRENGTH, 1f).coerceIn(0.2f, 2f),
             touchTransform = prefs.getBoolean(KEY_TOUCH_TRANSFORM, true),
@@ -200,19 +198,6 @@ class ThemeStore(
             prefs.getString(KEY_INTENT, null) != null
         }
 
-    /**
-     * Reduced motion survives the same migration: it used to be one of the three answers, and it is
-     * the only one of them that described something other than the flash clamp. The old answer is
-     * never deleted, so it seeds the setting only until the setting has been saved once; after that
-     * turning reduced motion off has to stick.
-     */
-    private fun loadReducedMotion(): Boolean =
-        if (prefs.contains(KEY_REDUCED_MOTION)) {
-            prefs.getBoolean(KEY_REDUCED_MOTION, false)
-        } else {
-            prefs.getString(KEY_SAFETY_CHOICE, null) == LEGACY_CHOICE_REDUCED_MOTION
-        }
-
     fun saveGui(gui: GuiPrefs) {
         val fontColor = gui.fontColorOverride
         prefs.edit {
@@ -242,7 +227,9 @@ class ThemeStore(
             remove(KEY_TUTORIAL_ON_FIRST_RUN)
             putString(KEY_TUTORIAL_DONE, gui.tutorialProgress.encodeDone())
             putString(KEY_TUTORIAL_RESUME, gui.tutorialProgress.encodeResume())
-            putBoolean(KEY_REDUCED_MOTION, gui.reducedMotion)
+            // Reduced motion follows Android's "Remove animations" alone now (data/SystemMotion,
+            // #336); the app's own switch is gone, so its old answer is dropped on the next save.
+            remove(KEY_REDUCED_MOTION)
             putBoolean(KEY_TOUCH_SMEAR, gui.touchSmear)
             putFloat(KEY_TOUCH_SMEAR_STRENGTH, gui.touchSmearStrength)
             putBoolean(KEY_TOUCH_TRANSFORM, gui.touchTransform)
@@ -264,7 +251,6 @@ class ThemeStore(
 
         /** Read-only now: the old three-way answer, kept solely to migrate existing installs. */
         const val KEY_SAFETY_CHOICE = "gui_safety_choice"
-        const val LEGACY_CHOICE_REDUCED_MOTION = "REDUCED_MOTION"
 
         /** Retired with the gem theme packs; removed on the next save. */
         const val KEY = "app_theme"
@@ -303,6 +289,8 @@ class ThemeStore(
         const val LEGACY_MORPH_BPM = 120f
 
         const val PRESET_MORPH_SECONDS_MAX = 8f
+
+        /** Retired with the app's own reduced-motion switch (#336); removed on the next save. */
         const val KEY_REDUCED_MOTION = "gui_reduced_motion"
         const val KEY_TOUCH_SMEAR = "gui_touch_smear"
         const val KEY_TOUCH_SMEAR_STRENGTH = "gui_touch_smear_strength"

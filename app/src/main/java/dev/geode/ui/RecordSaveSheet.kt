@@ -30,16 +30,17 @@ import dev.geode.R
 import dev.geode.data.SaveTarget
 
 /**
- * The ask-once question after a recorded take that has nowhere to render yet
- * ([TakeUiState.pendingSave]): render to the Videos library (Movies/MuzViz, no permission) or to a
- * folder the user picks, and whether to keep that answer for every later take ("Use for every
- * take", on by default). A kept answer (`data/RecordSaveStore`) means later takes render without
- * this sheet; an answer not kept renders this take only, and the next stop asks again.
+ * The ask-once question after a recorded take that has nowhere to go yet
+ * ([TakeUiState.pendingSave]): save its video to the Videos library (Movies/MuzViz, no permission)
+ * or to a folder the user picks, and whether to keep that answer for every later take ("Use for
+ * every take", on by default). A kept answer (`data/RecordSaveStore`) means later takes are saved
+ * without this sheet; an answer not kept places this take only, and the next stop asks again.
  *
  * Stateless apart from the checkbox: [RecordSaveHost] shows it while [takeName] is non-null and
- * passes the answer to `TakeController.chooseSaveTarget`; dismissing it is `skipPendingSave`, which
- * leaves the take in My videos, unrendered. The folder picker hands back a tree URI whose
- * persistable grant the store takes either way, since the render outlives the picker.
+ * passes the answer to `TakeController.chooseSaveTarget`. Dismissing it, or "just this once", is
+ * `skipPendingSave`: the take is already a video (ADR 0008), so it goes to the Videos library this
+ * once rather than being lost, and nothing is kept. The folder picker hands back a tree URI whose
+ * persistable grant the store takes either way.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

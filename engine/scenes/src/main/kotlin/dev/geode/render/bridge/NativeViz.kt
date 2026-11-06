@@ -228,6 +228,11 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetFrameRate(handle, fps)
     }
 
+    /** See [GeodeNative.vizSetTakeStage]. A no-op before the handle exists. */
+    fun setTakeStage(on: Boolean) {
+        if (handle != 0L) GeodeNative.vizSetTakeStage(handle, on)
+    }
+
     /** The glass sheet's blur region; see [GeodeNative.vizSetUiBlurRegion]. Latched before the handle exists. */
     @Synchronized
     fun setUiBlurRegion(

@@ -448,6 +448,12 @@ object GeodeNative {
         fps: Int,
     )
 
+    /** The in-app stage, the one renderer a capture take copies its frames from (`geode_viz_set_take_stage`). */
+    external fun vizSetTakeStage(
+        handle: Long,
+        on: Boolean,
+    )
+
     /**
      * Frosted glass under the app's sheet (`core/viz/UiBlurPass`): the renderer blurs its finished frame
      * inside one rounded rect. The rect is normalised to the viewport, y down (view pixels over the
@@ -1195,6 +1201,44 @@ object GeodeNative {
 
     /** A start after a stop: forget the gap, keep the panel's period. */
     external fun pacerResume(state: LongArray)
+    // Capture takes (core/output/TakeSession, ADR 0008): Record encodes the live stage and the heard sound.
+
+    /**
+     * Starts a take into [fd] (read-write; keep it open until [takeEnd] returns) at the stage's size and
+     * [displayFps] up to 60, under the entitlement's limits, the same as a render's: [capMs] > 0 is the
+     * longest the take may run; [tile] (ARGB, [tileW] x [tileH], rasterised for a frame whose short side is [tileShortSide]) is
+     * the wordmark tiled over the take's frames only, null for none. False when no stage has drawn, a take
+     * is running, or no encoder would start.
+     */
+    external fun takeBeginLimited(
+        fd: Int,
+        displayFps: Float,
+        capMs: Long,
+        tile: IntArray?,
+        tileW: Int,
+        tileH: Int,
+        tileShortSide: Int,
+    ): Boolean
+
+    /** The running take has reached its cap: stop it. */
+    external fun takeReachedCap(): Boolean
+
+    /** Ends the take and finishes its MP4: its length in ms, or -1 with no picture. Blocks; never on Main. */
+    external fun takeEnd(): Long
+
+    external fun takeActive(): Boolean
+
+    /**
+     * The record tap: [bytes] of interleaved 16-bit PCM from [offset] in the direct [buffer], as heard.
+     * A no-op while no take runs, or for a buffer that is not direct.
+     */
+    external fun takeWriteAudio(
+        buffer: java.nio.ByteBuffer,
+        offset: Int,
+        bytes: Int,
+        channels: Int,
+        sampleRate: Int,
+    )
 
     /** The cap a surface asking for [capFps] runs at now, under the thermal cap; 0 = none. For `Surface.setFrameRate`. */
     external fun pacerEffectiveCap(capFps: Float): Float

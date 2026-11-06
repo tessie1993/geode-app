@@ -85,6 +85,9 @@ jobs:
           # An export segment's style schedule: every later style is gated by the entitlement (#357).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/style_schedule_test.cpp core/viz/StyleSchedule.cpp -o style_schedule_test
           ./style_schedule_test
+          # A capture take's clock (#456, ADR 0008): sizes, frame pick and the heard sound on the take's time zero.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/take_clock_test.cpp core/output/TakeClock.cpp core/audio/dsp/PcmResampler.cpp -o take_clock_test
+          ./take_clock_test
           # Takes move out of project folders, beside their project and out of cloud backup (#384).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/studio_files_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o studio_files_test
           ./studio_files_test

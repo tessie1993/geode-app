@@ -59,7 +59,8 @@ class WatermarkOverlay(
         if (owned != 0L) GeodeNative.exportPassDestroy(owned)
     }
 
-    private fun rasteriseTile(shortSide: Int): Bitmap {
+    /** One tile of the mark for a frame whose short side is [shortSide]; also what a trial take tiles natively. */
+    fun rasteriseTile(shortSide: Int): Bitmap {
         val textPx = GeodeNative.exportWatermarkTextPx(shortSide)
         val paint =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {

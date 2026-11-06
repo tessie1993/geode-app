@@ -9,6 +9,9 @@ add_library(geode_core STATIC
     api/geode_underlay_api.cpp
     api/geode_frame_api.cpp
     api/geode_surface_api.cpp
+    api/geode_take_api.cpp
+    output/TakeClock.cpp
+    output/TakeSession.cpp
     sound/Fft.cpp
     sound/Emotion.cpp
     sound/Form.cpp
@@ -48,6 +51,7 @@ add_library(geode_core STATIC
     viz/ProgramStager.cpp
     viz/StyleSchedule.cpp
     viz/ShaderOverrides.cpp
+    viz/TakeSurface.cpp
     viz/Texture.cpp
     viz/Framebuffer.cpp
     viz/Quad.cpp
@@ -124,7 +128,7 @@ target_include_directories(geode_core PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/taglib/taglib/toolkit
     ${CMAKE_BINARY_DIR}/third_party/taglib)
 target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})
-target_link_libraries(geode_core PUBLIC projectM tag GLESv3 EGL log android)
+target_link_libraries(geode_core PUBLIC projectM tag GLESv3 EGL mediandk log android)
 
 # glTF import (core/scene/object, #474): cgltf is header-only (its one implementation is compiled in
 # GltfImport.cpp); meshoptimizer builds only what the import uses, the simplifier and the

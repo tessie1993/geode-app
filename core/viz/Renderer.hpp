@@ -37,6 +37,7 @@
 #include "viz/SceneRegistry.hpp"
 #include "viz/SceneResidency.hpp"
 #include "viz/StyleSchedule.hpp"
+#include "viz/TakeSurface.hpp"
 #include "viz/ShaderSource.hpp"
 #include "viz/ThermalGovernor.hpp"
 #include "viz/TouchField.hpp"
@@ -73,6 +74,9 @@ public:
     void setOffscreen(bool on) { offscreen_.store(on, std::memory_order_relaxed); }
     // Export: step every frame by exactly 1/fps (viz/FrameStep); 0 measures the frame time, as live does.
     void setFixedFrameRate(int fps) { fixedFps_.store(fps > 0 ? fps : 0, std::memory_order_relaxed); }
+    // The in-app stage (geode_viz_set_take_stage): the one renderer a capture take copies its frames from
+    // (TakeSurface, output::TakeSession). Wallpaper, dream and cast renderers never are. Any thread.
+    void setTakeStage(bool on) { takeStage_.store(on, std::memory_order_relaxed); }
     // The app's glass sheet over the live visual (UiBlurPass): latched for the next frame. Any thread.
     void setUiBlurRegion(const UiBlurRegion& region);
     // The wallpaper's edge look (frame::EdgeGlowPass): latched for the next frame. Any thread.
@@ -260,6 +264,9 @@ private:
     // Frosted glass under the app's sheet. The region is guarded by stateLock_; uiBlurOn_ lets a frame
     // with no sheet skip the lock.
     UiBlurPass uiBlurPass_;
+    // A capture take's copy of the finished frame (ADR 0008), before the UI blur. GL thread only.
+    TakeSurface takeSurface_;
+    std::atomic<bool> takeStage_{false};
     UiBlurRegion uiBlurRegion_;
     std::atomic<bool> uiBlurOn_{false};
     // The wallpaper's edge look, the first frame::Pass (#439). Its options are guarded by stateLock_ and

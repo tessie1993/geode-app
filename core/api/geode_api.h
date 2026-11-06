@@ -158,6 +158,9 @@ GEODE_API void        geode_viz_set_frame_rate(geode_viz*, int fps);
  * An offscreen (export) renderer never draws it. */
 GEODE_API void        geode_viz_set_ui_blur_region(geode_viz*, float left, float top, float right, float bottom,
                                                    float strength, float corner_px);
+/* The in-app stage (on = 1): the one live renderer a capture take copies its finished frames from, after the
+ * composite and before the UI blur (core/viz/TakeSurface). Wallpaper, dream and cast renderers leave it 0. */
+GEODE_API void        geode_viz_set_take_stage(geode_viz*, int on);
 /* The wallpaper's edge look (core/viz/frame/EdgeGlowPass): after the composite, black over the frame except
  * along the screen's rounded rim, the band breathing with the music's level. opts, in this order
  * (core/viz/frame/EdgeGlowMath.hpp): enabled (> 0.5 = on), then the part of the surface on screen in
@@ -613,6 +616,27 @@ GEODE_API int64_t geode_pcm_samples_before_us(int64_t us, int rate, int channels
  * out_pts_us when not NULL. A buffer that straddles the start keeps the frames from the start on. */
 GEODE_API int64_t geode_pcm_trim_s16(int64_t start_us, int64_t buf_pts_us, int64_t bytes, int rate, int channels,
                                      int64_t* out_pts_us);
+/* Capture takes (core/output/TakeSession, ADR 0008): Record encodes the live stage's frames, at screen size and
+ * the display's rate up to 60 fps, with the sound the performer heard, straight into one MP4. Process-wide:
+ * one take at a time, fed by the stage renderer (geode_viz_set_take_stage) and the record tap at the end of the
+ * playback chain. Timestamps are the engine's frame time and the tap's arrival time on one clock (BOOTTIME);
+ * every timing and sizing rule is core/output/TakeClock, which a host test pins.
+ * begin: fd open for reading and writing, kept open by the caller until end returns; 1 = recording, 0 = no stage
+ * has drawn yet, a take is already running, or no encoder took any offered size. end blocks while the encoders
+ * drain (never call it on the main thread) and returns the take's length in ms, or -1 when it holds no picture.
+ * write_audio: interleaved 16-bit PCM as heard, any rate and channel count; a no-op while no take runs. */
+GEODE_API int         geode_take_begin(int fd, float display_fps);
+/* geode_take_begin under the entitlement's limits, the same as a render's: cap_ms > 0 is the longest the take may
+ * run (no frame or sound past it is kept, and geode_take_reached_cap turns 1 so the shell stops it); tile_argb is
+ * the wordmark tile (Bitmap.getPixels ARGB, tile_w x tile_h, rasterised for a frame whose short side is
+ * tile_short_side), tiled over every frame of the take only, never the screen; NULL for none. */
+GEODE_API int         geode_take_begin_limited(int fd, float display_fps, int64_t cap_ms, const uint32_t* tile_argb,
+                                               int tile_w, int tile_h, int tile_short_side);
+GEODE_API int         geode_take_reached_cap(void);
+GEODE_API int64_t     geode_take_end(void);
+GEODE_API int         geode_take_active(void);
+GEODE_API void        geode_take_write_audio(const int16_t* interleaved, int frames, int channels, int sample_rate);
+
 /* Cast's live HLS timing (viz/frame/HlsSegments): a segment lasts the media time its fragment holds (the
  * video track's trun sample durations over its mdhd timescale), never the wall time between cuts. */
 #define GEODE_HLS_WINDOW 6           /* segments kept and listed */

@@ -555,6 +555,10 @@ void geode_viz_set_offscreen(geode_viz* v, int on) {
     }
 }
 
+void geode_viz_set_take_stage(geode_viz* v, int on) {
+    if (v) v->renderer.setTakeStage(on != 0);
+}
+
 void geode_viz_set_ui_blur_region(geode_viz* v, float left, float top, float right, float bottom, float strength,
                                   float corner_px) {
     if (!v) return;

@@ -721,6 +721,7 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
 }
 
 void Renderer::releaseScenes() {
+    takeSurface_.release();
     stager_.clear();
     prep_.done();
     for (auto& entry : scenes_) entry.second->release();

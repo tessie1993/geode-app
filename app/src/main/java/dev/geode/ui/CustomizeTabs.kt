@@ -229,8 +229,9 @@ private fun RowMenu(
     var open by remember { mutableStateOf(false) }
     var explaining by remember { mutableStateOf(false) }
     Box {
-        // 40 dp drawn; IconButton still answers to the 48 dp target around it.
-        IconButton(onClick = { open = true }, modifier = Modifier.size(40.dp)) {
+        // Material's own size: a 40 dp state layer inside a laid-out 48 dp target. A size()
+        // modifier here clamped the layout to 40 dp, below the minimum touch target.
+        IconButton(onClick = { open = true }) {
             Icon(
                 Icons.Filled.MoreVert,
                 contentDescription = stringResource(R.string.customize_a11y_more_for, name),

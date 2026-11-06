@@ -926,7 +926,13 @@ internal fun ShuffleButton(
     shuffle: Boolean,
     onToggle: () -> Unit,
 ) {
-    IconToggleButton(checked = shuffle, onCheckedChange = { onToggle() }) {
+    // "On"/"Off" as the quick-action tiles say it, not the checkbox's "checked"/"not checked".
+    val state = stringResource(if (shuffle) R.string.a11y_state_on else R.string.a11y_state_off)
+    IconToggleButton(
+        checked = shuffle,
+        onCheckedChange = { onToggle() },
+        modifier = Modifier.semantics { stateDescription = state },
+    ) {
         StoneIconArt(
             StoneIcon.SHUFFLE,
             stringResource(R.string.action_shuffle),

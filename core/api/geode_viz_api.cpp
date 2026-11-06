@@ -121,6 +121,14 @@ void geode_viz_set_reduced_motion(geode_viz* v, int on) {
     if (v) v->renderer.setReducedMotion(on != 0);
 }
 
+void geode_viz_set_camera_comfort(geode_viz* v, int level) {
+    if (v) v->renderer.setCameraComfort(level >= 0 && level <= 2 ? level : 1);
+}
+
+void geode_viz_set_surface_kind(geode_viz* v, int kind) {
+    if (v) v->renderer.setSurfaceKind(kind >= 0 && kind <= 3 ? kind : 0);
+}
+
 void geode_viz_set_transition(geode_viz* v, const char* id, int64_t duration_ms) {
     if (v) v->renderer.setTransition(text(id), duration_ms);
 }

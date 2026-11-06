@@ -144,6 +144,18 @@ object GeodeNative {
         on: Boolean,
     )
 
+    /** The scene camera's comfort: 0 Calm, 1 Normal, 2 Wild (`geode_viz_set_camera_comfort`). */
+    external fun vizSetCameraComfort(
+        handle: Long,
+        level: Int,
+    )
+
+    /** Which surface a renderer draws: 0 Live, 1 Wallpaper, 2 Dream, 3 Export (`geode_viz_set_surface_kind`). */
+    external fun vizSetSurfaceKind(
+        handle: Long,
+        kind: Int,
+    )
+
     /** Process-wide (core/viz/LayerState): every renderer draws it; "" = no layer. */
     external fun layerSet(
         sceneId: String,

@@ -2,6 +2,8 @@ package dev.geode.render.bridge
 
 import android.content.Context
 import android.content.res.AssetManager
+import android.service.dreams.DreamService
+import android.service.wallpaper.WallpaperService
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
@@ -24,6 +26,15 @@ class NativeViz(
     private val assets: AssetManager = context.assets
     private val cacheDir: String = context.cacheDir.absolutePath
     private val milkTextureDir: String = File(context.filesDir, "milk/textures").absolutePath
+
+    // Which Android surface this is, known only by the Context it was built with; native decides what
+    // follows from it (`geode_viz_set_surface_kind`). An export says so in [setOffscreen].
+    private val surfaceKind: Int =
+        when (context) {
+            is WallpaperService -> SURFACE_WALLPAPER
+            is DreamService -> SURFACE_DREAM
+            else -> SURFACE_LIVE
+        }
 
     // Written on the GL thread (surfaceCreated) and read/written from composition-time call
     // sites on the main thread (e.g. milkdropAvailable, loadMilkPreset); @Volatile keeps every
@@ -50,6 +61,7 @@ class NativeViz(
             sent.clear()
             if (handle != 0L) {
                 GeodeNative.vizSetMilkTextureDir(handle, milkTextureDir)
+                GeodeNative.vizSetSurfaceKind(handle, surfaceKind)
                 applyUiBlur()
                 edgeGlow?.let { GeodeNative.vizSetEdgeGlow(handle, it) }
                 onCreated()
@@ -218,7 +230,9 @@ class NativeViz(
     }
 
     fun setOffscreen(on: Boolean) {
-        if (handle != 0L) GeodeNative.vizSetOffscreen(handle, on)
+        if (handle == 0L) return
+        GeodeNative.vizSetOffscreen(handle, on)
+        GeodeNative.vizSetSurfaceKind(handle, if (on) SURFACE_EXPORT else surfaceKind)
     }
 
     /**
@@ -341,6 +355,11 @@ class NativeViz(
     }
 
     private companion object {
+        // scene::camera::Surface ordinals (Group E's frame::Surface order).
+        const val SURFACE_LIVE = 0
+        const val SURFACE_WALLPAPER = 1
+        const val SURFACE_DREAM = 2
+        const val SURFACE_EXPORT = 3
         const val UI_BLUR_FLOATS = 6
 
         @Volatile

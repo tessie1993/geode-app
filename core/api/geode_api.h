@@ -30,6 +30,12 @@ GEODE_API const char* geode_viz_param_name(int index);   /* NULL past the end */
 /* Every scene parameter in geode_viz_param_name order; ints and flags travel as floats. */
 GEODE_API void        geode_viz_set_params(geode_viz*, const float* values, int count);
 GEODE_API void        geode_viz_set_reduced_motion(geode_viz*, int on);
+/* The scene camera's comfort (core/scene/camera), chosen explicitly: 0 Calm, 1 Normal, 2 Wild; anything else
+   is Normal. Until it is called the surface kind's default plays. Reduced motion forces Calm whatever. */
+GEODE_API void        geode_viz_set_camera_comfort(geode_viz*, int level);
+/* Which surface this renderer draws: 0 Live, 1 Wallpaper, 2 Dream, 3 Export (Group E's frame::Surface order);
+   anything else is Live. Native picks what follows from it (the wallpaper and the dream start on Calm). */
+GEODE_API void        geode_viz_set_surface_kind(geode_viz*, int kind);
 GEODE_API void        geode_viz_set_transition(geode_viz*, const char* id, int64_t duration_ms);
 GEODE_API void        geode_viz_begin_param_morph(geode_viz*, float seconds);
 GEODE_API void        geode_viz_set_touch(geode_viz*, const float* xy_ndc, int points);   /* 0 points = all lifted */

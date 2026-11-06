@@ -64,21 +64,6 @@ int geode_params_randomize(const char* style_id, const char* tab, const char* lo
     return 0;
 }
 
-void geode_params_reset_tab(const char* tab, const float* in, float* out) {
-    const SceneParams current = SceneParams::fromWire(in);
-    const auto which = tab ? randomizer::tabNamed(tab) : std::nullopt;
-    (which ? randomizer::resetTab(current, *which) : current).toWire(out);
-}
-
-const char* geode_params_roll_keys(void) {
-    static const std::string kText = [] {
-        std::string out;
-        for (const auto& roll : randomizer::rolledKeys()) out += std::string(randomizer::name(roll.tab)) + "|" + roll.key + "\n";
-        return out;
-    }();
-    return kText.c_str();
-}
-
 const char* geode_customize_text(void) { return customize::text().c_str(); }
 
 int geode_customize_lockable(const char* key) {

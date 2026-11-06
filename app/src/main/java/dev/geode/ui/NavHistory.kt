@@ -49,14 +49,6 @@ internal class NavHistory<K : Any>(
         return true
     }
 
-    /** Back to the last key [where] holds for, keeping it; false when none does. */
-    fun popTo(where: (K) -> Boolean): Boolean {
-        val at = route.indexOfLast(where)
-        if (at < 0) return false
-        truncateTo(at)
-        return true
-    }
-
     /**
      * Sideways: [top] becomes its neighbour [delta] places along [order], adding no back entry.
      * The ends do not wrap (the arrow there is simply off), and a top that is not in [order] does

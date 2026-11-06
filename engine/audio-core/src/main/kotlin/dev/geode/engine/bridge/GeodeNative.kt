@@ -668,11 +668,6 @@ object GeodeNative {
         out: LongArray,
     )
 
-    external fun loopSeamWeight(
-        tail: Int,
-        seamFrames: Int,
-    ): Float
-
     /** Every repeat of a long-form loop as (offset µs, loop index) pairs. */
     external fun loopExtendPlan(
         loopUs: Long,
@@ -1045,9 +1040,6 @@ object GeodeNative {
 
     /** A surface's stored fps choice as its pacer caps to: snapped to a listed rate, <= 0 the default. */
     external fun surfaceFpsChoice(requestedFps: Int): Int
-
-    /** The rates a surface's fps setting offers, ascending (for the settings rows). */
-    external fun surfaceFpsChoices(): IntArray
 
     const val SURFACE_HAS_SURFACE = 1 shl 0
     const val SURFACE_VISIBLE = 1 shl 1

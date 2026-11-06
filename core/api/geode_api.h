@@ -264,10 +264,6 @@ GEODE_API const char* geode_catalogue_text(void);
  * Returns 1 when the roll changed something, 0 when out is a copy of in. */
 GEODE_API int         geode_params_randomize(const char* style_id, const char* tab, const char* locked, uint64_t seed,
                                              const float* in, float* out);
-GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, float* out);
-/* Every rolled control as "TAB|ParamKeys string" lines, in roll order: what the panel offers to lock and what
- * each tab's Randomize and Reset cover. Static: the pointer stays valid for the process. */
-GEODE_API const char* geode_params_roll_keys(void);
 
 /* Customize panel map (core/viz/CustomizeMap): ten categories, each a free Basics section and Pro sections, and
  * which control lives in which. geode_customize_text is its versioned '|'-separated line table (rows in
@@ -337,7 +333,6 @@ GEODE_API geode_export_pass*  geode_export_watermark_create(AAssetManager*, cons
 GEODE_API void                geode_export_watermark_draw(geode_export_pass*, int frame_w, int frame_h);
 /* Loop seam: up to `requested` full-frame textures of stash (returns how many fitted), filled by capture from
  * the default framebuffer and laid back over it by blend at closing frame `tail` of `seam_frames`. */
-GEODE_API float               geode_export_seam_weight(int tail, int seam_frames);
 GEODE_API geode_export_pass*  geode_export_seam_create(AAssetManager*, int width, int height);
 GEODE_API int                 geode_export_seam_allocate(geode_export_pass*, int requested);
 GEODE_API void                geode_export_seam_capture(geode_export_pass*, int index);
@@ -443,7 +438,6 @@ GEODE_API void            geode_thermal_push(int platform_status, float headroom
 GEODE_API int64_t geode_export_total_frames(int64_t duration_us, int fps);            /* >= 1 */
 GEODE_API int64_t geode_export_frame_pts_ns(int64_t frame, int fps);                  /* floor(n*1e9/fps) */
 GEODE_API int64_t geode_export_frame_time_ms(int64_t frame, int fps);                 /* floor(n*1000/fps) */
-GEODE_API int64_t geode_export_samples_through(int64_t frame, int fps, int sample_rate); /* llround((n+1)*rate/fps) */
 
 /* Long-form loops (output/LoopPlan). */
 typedef struct geode_loop_spec {
@@ -531,7 +525,6 @@ GEODE_API const uint32_t* geode_cube_lut_argb(const geode_cube_lut*);           
 GEODE_API size_t  geode_pcm_downmix_s16(const int16_t* in, size_t frames, int src_channels, int dst_channels,
                                         int16_t* out);
 GEODE_API void    geode_pcm_float_to_s16(const float* in, size_t samples, int16_t* out);
-GEODE_API void    geode_pcm_s16_to_float(const int16_t* in, size_t samples, float* out);
 
 /* PCM timing (audio/dsp/PcmTiming): the AAC encoder's rate, s16 durations, the start skip and trim. */
 GEODE_API int     geode_aac_rate_for(int source_rate);          /* own rate to 48k; above: 44.1k family -> 44.1k, else 48k */

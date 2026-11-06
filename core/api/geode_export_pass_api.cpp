@@ -99,7 +99,6 @@ void geode_export_watermark_draw(geode_export_pass* h, int frame_w, int frame_h)
     if (auto* p = as<WatermarkPass>(h)) run(*p, {}, {0u, frame_w, frame_h});
 }
 
-float geode_export_seam_weight(int tail, int seam_frames) { return exportmath::seam::weight(tail, seam_frames); }
 
 geode_export_pass* geode_export_seam_create(AAssetManager* assets, int width, int height) {
     auto* h = make<SeamPass>(assets);

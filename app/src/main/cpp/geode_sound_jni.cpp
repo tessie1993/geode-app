@@ -57,15 +57,4 @@ Java_dev_geode_engine_bridge_GeodeNative_surfaceFpsChoice(JNIEnv*, jobject, jint
     return geode_surface_fps_choice(requestedFps);
 }
 
-JNIEXPORT jintArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_surfaceFpsChoices(JNIEnv* env, jobject) {
-    const int n = geode_surface_fps_choices(nullptr, 0);
-    jintArray out = env->NewIntArray(n);
-    if (out == nullptr || n <= 0) return out;
-    std::vector<jint> values(static_cast<size_t>(n));
-    geode_surface_fps_choices(values.data(), n);
-    env->SetIntArrayRegion(out, 0, n, values.data());
-    return out;
-}
-
 }  // extern "C"

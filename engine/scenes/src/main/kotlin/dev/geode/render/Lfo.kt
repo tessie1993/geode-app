@@ -154,6 +154,7 @@ data class LfoConfig(
         const val MIN_RATE_SECONDS: Float = 0.05f
 
         const val MAX_RATE_SECONDS: Float = 60f
+
         /** Beat periods after "Free". */
         val BEAT_CHOICES: List<Int> = listOf(1, 2, 4, 8, 16, 32)
 

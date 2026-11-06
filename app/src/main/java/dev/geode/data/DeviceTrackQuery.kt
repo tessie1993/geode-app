@@ -66,9 +66,9 @@ object DeviceTrackQuery {
                         out +=
                             DeviceTrack(
                                 uri = uri.toString(),
-                                title = c.getString(ti) ?: context.getString(dev.geode.R.string.library_unknown_title),
-                                artist = c.getString(ar) ?: context.getString(dev.geode.R.string.subtitle_unknown_artist),
-                                album = c.getString(al) ?: context.getString(dev.geode.R.string.library_unknown_album),
+                                title = tagOr(c.getString(ti), context.getString(dev.geode.R.string.library_unknown_title)),
+                                artist = tagOr(c.getString(ar), context.getString(dev.geode.R.string.subtitle_unknown_artist)),
+                                album = tagOr(c.getString(al), context.getString(dev.geode.R.string.library_unknown_album)),
                                 folder = path.substringBeforeLast('/', ""),
                                 durationMs = durationMs,
                                 addedSec = c.getLong(ad),
@@ -78,4 +78,14 @@ object DeviceTrackQuery {
         }
         return out
     }
+
+    /**
+     * A tag as the library shows it: MediaStore writes [MediaStore.UNKNOWN_STRING] ("<unknown>")
+     * for an untagged file's artist and album, which the list and the mini player showed raw, so
+     * that, a missing and a blank tag all read as the localized [fallback].
+     */
+    fun tagOr(
+        value: String?,
+        fallback: String,
+    ): String = if (value.isNullOrBlank() || value == MediaStore.UNKNOWN_STRING) fallback else value
 }

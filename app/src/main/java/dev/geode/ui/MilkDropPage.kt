@@ -72,7 +72,7 @@ import java.io.File
 
 /**
  * Visuals › MilkDrop: the user's own .milk presets and what they need, as an overview (V2 rules
- * 1–3). The page opens as collapsed cards, each with its name and its state on the right ("Neon
+ * 1–3). The page opens on cards, Your presets open, each with its name and its state on the right ("Neon
  * Cathedral", "2 to check", "14 images"); a tap opens one in place and closes the last. Loading a
  * file or a folder sits in the presets card's ⋮, not in a row of buttons, and nothing carries a
  * caption paragraph.
@@ -115,8 +115,9 @@ internal fun MilkDropTab(
             }
     }
     var pickTextureFor by remember { mutableStateOf<String?>(null) }
-    // One card open at a time (solo accordion), none at first.
-    var open by rememberSaveable { mutableStateOf<String?>(null) }
+    // One card open at a time (solo accordion), Your presets at first: the page is for picking
+    // one, and a closed card read "6 presets" over an empty sheet with none in sight (QA).
+    var open by rememberSaveable { mutableStateOf<String?>(CARD_PRESETS) }
     val milkFolderPicker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             if (uri != null) {

@@ -112,7 +112,8 @@ internal fun paletteStops(
 ): List<Int> {
     val id = if (second) p.customPalette2Id else p.customPaletteId
     val custom = if (second) p.usesCustomPalette2 else p.usesCustomPalette
-    saved.firstOrNull { custom && it.id == id }?.stops?.takeIf { it.isNotEmpty() }?.let { return it }
+    val own = saved.firstOrNull { custom && it.id == id }?.stops.orEmpty()
+    if (own.isNotEmpty()) return own
     return PaletteStore.legacyStops(
         if (second) p.palette2Base else p.paletteBase,
         if (second) p.palette2Range else p.paletteRange,

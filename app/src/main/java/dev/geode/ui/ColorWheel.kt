@@ -99,6 +99,7 @@ internal fun ColorWheel(
                         val geometry = WheelGeometry(size.width.toFloat(), size.height.toFloat())
                         val down = awaitFirstDown()
                         val onRing = geometry.onRing(down.position)
+
                         fun apply(at: Offset) {
                             val (h, s, v) = current
                             if (onRing) {

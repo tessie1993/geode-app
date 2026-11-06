@@ -19,8 +19,11 @@ class GlassContrastTest {
     @Test
     fun worstBackdropIsTheFloorOverWhiteWithTheRaisedFill() {
         // 1 − 0.72 = 0.28, then 5% white over it: 0.28 + 0.05 × 0.72 = 0.316 in sRGB.
+        // An sRGB Color keeps 8 bits a channel, so each copy(alpha) and compositeOver rounds to a
+        // 1/255 step (0.72 is stored as 184/255, the grey lands on 80/255 = 0.3137): the tolerance
+        // is that one step. A real token change (the floor 0.01 lower) moves it by more than two.
         val grey = GeodeGlass.WorstBackdrop
-        assertEquals(0.316f, grey.red, 0.002f)
+        assertEquals(0.316f, grey.red, 1f / 255f)
         assertEquals(grey.red, grey.green, 0.0001f)
         assertEquals(grey.red, grey.blue, 0.0001f)
         assertEquals(1f, grey.alpha, 0.0001f)

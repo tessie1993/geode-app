@@ -37,8 +37,7 @@ on:
         type: boolean
         default: true
   # Every merge into main ships a pre-release, docs-only merges included, so
-  # each merged PR has an installable build. claude/geode-finish is not listed:
-  # android.yml runs on it (claude/**) and ships it once that run is green.
+  # each merged PR has an installable build.
   push:
     branches:
       - main

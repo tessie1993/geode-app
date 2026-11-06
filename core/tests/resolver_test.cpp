@@ -264,7 +264,7 @@ void testPinnedAgainstGlobals() {
     check(same, "changing the process globals mid-run never reaches a resolver's frames");
 }
 
-// Same inputs, same bits: params, camera moves, luminance drive and the note uniforms, over 600 frames
+// Same inputs, same bits: params, camera moves and the note uniforms, over 600 frames
 // with a style switch halfway.
 void testDeterministic() {
     const EngineSettings s = richSettings();
@@ -288,7 +288,6 @@ void testDeterministic() {
         moments += fa.styleMoments;
         same = same && sameBits(wire(fa.params), wire(fb.params)) && fa.styleMoments == fb.styleMoments &&
                std::memcmp(&fa.cameraMoves, &fb.cameraMoves, sizeof(fa.cameraMoves)) == 0 &&
-               std::memcmp(fa.luminanceDrive.data(), fb.luminanceDrive.data(), sizeof(float) * fa.luminanceDrive.size()) == 0 &&
                std::memcmp(&a->noteUniforms(), &b->noteUniforms(), sizeof(geode::viz::NoteUniforms)) == 0;
     }
     check(same, "two resolvers given the same inputs give bit-identical frames over 600 frames");

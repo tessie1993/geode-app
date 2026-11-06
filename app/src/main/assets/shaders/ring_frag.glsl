@@ -8,153 +8,323 @@ precision highp sampler2D;
 in vec2 vUv;
 out vec4 fragColor;
 
-uniform float uTime;
-uniform vec2 uResolution;
-//#include lib_sound
-uniform float uSpeed;
-uniform float uZoom;
-uniform float uRotation;
-//#include lib_zoom
-uniform float uColorShift;
-uniform float uHueRange;
-uniform float uSat;
-uniform float uBright;
-uniform float uInvert;
-uniform float uIntensity;
-uniform float uMirrorX;
-uniform float uTurbulence;
-uniform float uPalBase;
-uniform float uPalRange;
-uniform float uContrast;
-uniform float uGamma;
-uniform float uPal2Base;
-uniform float uPal2Range;
-uniform float uPaletteMix;
-uniform float uDuotone;
-uniform float uBloom;
-uniform float uWarp;
-uniform float uRipple;
-uniform float uSymmetry;
-uniform float uKaleido;
-uniform float uMorph;
-uniform float uPixelate;
-uniform float uPosterize;
-uniform float uSway;
-uniform float uPulse;
-uniform float uDriftX;
-uniform float uDriftY;
-uniform float uShake;
-uniform float uTile;
-uniform float uTwist;
-uniform float uTemperature;
-uniform float uSolarize;
-uniform float uFlash;
-
-
-vec2 view() {
-    vec2 uv = vUv * 2.0 - 1.0;
-    uv.x *= uResolution.x / uResolution.y;
-    if (uPixelate > 0.001) {
-        float px = mix(1.0, 12.0, uPixelate) * 24.0;
-        uv = floor(uv * px) / px;
-    }
-    if (uMirrorX > 0.5) uv.x = abs(uv.x);
-    // Kaleidoscope: fold the plane into uSymmetry angular wedges.
-    if (uKaleido > 0.5 && uSymmetry >= 2.0) {
-        float ang = atan(uv.y, uv.x);
-        float rad = length(uv);
-        float seg = 6.2831853 / uSymmetry;
-        ang = abs(mod(ang, seg) - seg * 0.5);
-        uv = vec2(cos(ang), sin(ang)) * rad;
-    }
-    // Morph: blend the plane toward a polar remap (angle,radius swap), a
-    // smooth geometric metamorphosis that works on any scene.
-    if (uMorph > 0.001) {
-        float mr = length(uv);
-        float ma = mr > 1e-5 ? atan(uv.y, uv.x) : 0.0; // atan(0, 0) is undefined in GLSL ES
-        vec2 polar = vec2(abs(ma) / 1.5707963 - 1.0, (mr - 0.7) * 1.6);
-        // Faded to nothing at the centre: atan has no angle at r = 0, so every
-        // angle met at one point and the centre of the frame drew as a pinched
-        // vortex whenever morph was up (MotionField holds it near 0.7).
-        uv = mix(uv, polar, uMorph * (0.6 + 0.15 * sin(uTime * 0.31)) * smoothstep(0.0, 0.6, mr));
-    }
-    float a = uRotation + uSway * 0.35 * sin(uTime * 0.7);
-    uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
-    // Drift and shake move the picture after the spin and the morph. Added
-    // before them, the rotation pivoted on -drift and the morph's pinch rode
-    // the drift, so the whole frame spun around a wandering off-centre point.
-    // Drift ping-pongs rather than running away. The composite pass wraps its
-    // own drift with fract() because it samples a BOUNDED image ("Wrap so the
-    // image scrolls instead of smearing at the clamped edge"), but uv here
-    // indexes an unbounded procedural domain, where a hard wrap would teleport
-    // the whole field by a screen width once per cycle. A triangle wave is the
-    // bounded form that stays continuous: its slope is exactly the old one for
-    // the first cycle, so nothing pops on the styles that read as scrolling
-    // (plasma, aurora, voronoi, grid, waves), while a centred subject - the
-    // sun, the ring, the spiral - always comes back instead of leaving frame
-    // for good and stranding the user on a black screen.
-    vec2 driftPhase = fract(vec2(uDriftX, uDriftY) * uTime * 0.025 + 0.25);
-    uv += 1.0 - 2.0 * abs(2.0 * driftPhase - 1.0);
-    // Endless zoom: this layer\'s magnification (lib_zoom draws two, an octave apart).
-    gZoomRead = true;
-    float z = uZoom * gZoomMag;
-    uv /= max(z, 0.05);
-    uv += uTurbulence * 0.06 * vec2(sin(uv.y * 6.0 + uTime), cos(uv.x * 6.0 + uTime * 1.3));
-    // Radial twist: rotate by an angle growing with radius.
-    if (abs(uTwist) > 0.001) {
-        float tr = length(uv) * uTwist * 2.0;
-        uv = mat2(cos(tr), -sin(tr), sin(tr), cos(tr)) * uv;
-    }
-    // Tiling: repeat the plane into a uTile x uTile grid, every other tile
-    // mirrored so neighbours meet edge to edge. A hard mod() wrap cracked the
-    // picture along every tile boundary, and the macros drive uTile live.
-    if (uTile > 1.01) {
-        uv = 1.0 - abs(mod(uv * uTile * 0.5 + 1.0, 4.0) - 2.0);
-    }
-    // Domain warp: swirl coordinates by a sin/cos field.
-    if (uWarp > 0.001) {
-        float w = uWarp * 0.5;
-        uv += w * vec2(sin(uv.y * 3.0 + uTime * 1.1), cos(uv.x * 3.0 + uTime * 0.9));
-    }
-    // Concentric ripple distortion driven by radius.
-    if (uRipple > 0.001) {
-        float r = length(uv);
-        uv *= 1.0 + uRipple * 0.15 * sin(r * 14.0 - uTime * 3.0 + sndLevel(SND_SUB_ATT) * 4.0);
-    }
-    return uv;
-}
-
+// Morph, Warp and Turbulence are spent on the crown below, not on the rays.
+#define VIEW_OWNS_SHAPE
+//#include lib_scene_uniforms
+//#include lib_scene_motion
+//#include lib_camera
 //#include lib_palette
+//#include lib_scene_grade
+//#include lib_sdf3
 
-vec3 grade(vec3 col) {
-    if (uBloom > 0.001) col += uBloom * col * col;
-    if (uPosterize > 0.001) {
-        float levels = mix(24.0, 3.0, uPosterize);
-        col = floor(col * levels + 0.5) / levels;
-    }
-    float g = dot(col, vec3(0.299, 0.587, 0.114));
-    if (uDuotone > 0.5) col = pal(g);
-    col = mix(vec3(g), col, uSat);
-    col = (col - 0.5) * uContrast + 0.5;
-    col = pow(max(col, 0.0), vec3(1.0 / max(uGamma, 0.05)));
-    col.r += uTemperature * 0.12;
-    col.b -= uTemperature * 0.12;
-    if (uSolarize > 0.5) col = abs(1.0 - 2.0 * col);
-    col = col * uBright * uIntensity;
-    return mix(col, max(vec3(1.0) - col, 0.0), uInvert);
+// Ring: the circular spectrum, built as an object. A crown of RG_SECTORS
+// glass blades stands on a thin chrome hub around a glowing core; each blade
+// is one spectrum band and grows out from the hub as far as its band is loud,
+// so the crown's outline IS the spectrum, mirrored round the circle (bass
+// opposite the highs) the way the flat ring drew it. Inside the hub the
+// waveform runs round the ring plane as a glowing oscillogram line. The core
+// is the scene's light: the blades are lit from the centre, and their tips
+// glow with their own band.
+//
+// The camera is the shared rig (camAround): the eye circles the crown at
+// 2 * CAM_SPIN_UNIT per unit of travel, so the 8192 travel wrap lands on a
+// whole number of turns and is invisible; the dolly pulls it in. The crown is
+// tilted toward the eye (the eye sits RG_TILT above the ring plane), so it
+// always reads as an ellipse and never goes edge-on, and the orbit shows up
+// as the crown turning past. uZoom, the rig's look, roll and shake reach the
+// rays as on every rig style.
+//
+// ---- audio ------------------------------------------------------------------
+//
+//   spectrum (sndSpectrum)       each blade's length and thickness, and its tip glow
+//   kick (SND_KICK_ENV)          the core swells (geometry); PULSE scales it
+//   sub (SND_SUB_ATT)            the core's and the halo's brightness, as before
+//   waveform (sndWave01)         the oscillogram line inside the hub
+//   mids (sndShaped(SND_MIDDLE)) the oscillogram's brightness
+//   drop (SND_HELD_SURGE)        the crown tips toward face-on and back, a 0-1-0 bump
+//   pitch change (SND_HELD_NOTE_CHANGE) slides the hue
+//   section (uOrbit)             a slow wobble of the tilt, eased by MotionField
+//
+// Overall level follows SND_ENERGY_TREND and SND_LEVEL only.
+//
+// Shape controls: Morph tips the blades up out of the ring plane (a flat
+// sunburst becomes a cup of spikes), Warp undulates the ring (each blade's
+// base rides a three-lobed wave) and widens the oscillogram, Turbulence
+// shimmers the blade lengths. Knobs (offset from 0.5): k0 PULSE the kick
+// swell, k1 TEXTURE the blade thickness, k2 FLOW the oscillogram swing, k3
+// TONE the hue, k4 BUILD the blade gain, k5 SPACE the orbit radius.
+//
+// ---- why the estimate is safe ----------------------------------------------
+//
+// The blades are a polar repeat: a point measures only its own sector's blade.
+// Every other blade lies across one of the sector's two boundary planes (each
+// a full plane through the axis), and no blade comes within RG_GAP of a
+// boundary (the hub radius times sin(pi / N), minus the blade's tangential
+// half-width and rounding), so the distance to any other blade is at least
+// the distance to the nearer boundary plus RG_GAP. That bound is only taken
+// inside the annulus that holds every blade; outside it, the distance to the
+// annulus (an exact 2D box distance in (r, y), since the annulus is a solid
+// of revolution) is the bound. Each blade's length, base and tilt are
+// constants of its sector, so its own box is exact. The core and hub are
+// exact. The march steps 0.85 of the estimate and starts at the bounding
+// sphere RG_BOUND, which the dolly's closest eye (0.65 * RG_CAM_MIN) never
+// enters; a bubble round the eye is carved out all the same.
+
+#define RG_MAX_STEPS 96
+#define RG_TAU 6.2831853
+#define RG_SECTORS 48.0
+/** Hub radius: where the blades stand. */
+#define RG_RIN 1.45
+/** Blade tangential half-width, before rounding. */
+#define RG_TH 0.03
+#define RG_ROUND 0.012
+/** (RG_RIN - 0.2) * sin(pi / 48) - (RG_TH + RG_ROUND) = 0.0397, less a margin. */
+#define RG_GAP 0.035
+/** Longest a blade can be: 0.06 + 1.2 * 1.5625 + 0.3. */
+#define RG_LMAX 2.25
+/** Every surface lies inside this sphere: RG_RIN + RG_LMAX + thickness + warp lift. */
+#define RG_BOUND 4.3
+/** Orbit radius at SPACE 0 and 1; the dolly pulls in to 0.65 of it, 4.55 at the closest. */
+#define RG_CAM_MIN 7.0
+#define RG_CAM_MAX 9.0
+/** The eye's elevation above the ring plane at rest, radians (sin = 0.6). */
+#define RG_TILT 0.6435
+/** Radius of the oscillogram line in the ring plane. */
+#define RG_WAVE_R 1.12
+
+float gPhase;
+float gGain;
+float gThick;
+float gLean;
+float gWarp;
+float gTurb;
+float gCore;
+
+float gMat;
+float gBand;
+float gSecFrac;
+float gAlong;
+
+/** Mirrored round the circle so the spectrum (and the palette) meets itself without a seam. */
+float mirror01(float u) {
+    return abs(2.0 * fract(u) - 1.0);
 }
 
-// Circular spectrum: bands radiate from a bass-pulsing core.
+float map(vec3 p) {
+    float r = length(p.xz);
+    float ang = r > 1e-5 ? atan(p.z, p.x) : 0.0; // atan(0, 0) is undefined in GLSL ES
+
+    // ---- the blade of this sector ----
+    float u = ang / RG_TAU + gPhase;
+    float s = floor(u * RG_SECTORS);
+    float secFrac = fract((s + 0.5) / RG_SECTORS);
+    float sec = mod(s, RG_SECTORS);
+    float centre = ((s + 0.5) / RG_SECTORS - gPhase) * RG_TAU;
+    vec2 cs = vec2(cos(centre), sin(centre));
+    float xr = dot(p.xz, cs);
+    float zt = dot(p.xz, vec2(-cs.y, cs.x));
+
+    float band = clamp(sndSpectrum(mirror01(secFrac)), 0.0, 1.2);
+    float h = hash11(sec + 0.37);
+    float len = 0.06 + band * gGain
+              + gTurb * 0.3 * (0.5 + 0.5 * sin(uTime * (2.0 + 1.5 * h) + h * RG_TAU));
+    float base = gWarp * 0.25 * sin(3.0 * secFrac * RG_TAU + uTime * 0.6);
+    vec2 dir = vec2(cos(gLean), sin(gLean));
+    vec2 q = vec2(xr - RG_RIN, p.y - base);
+    float along = dot(q, dir);
+    float perp = dot(q, vec2(-dir.y, dir.x));
+    float hp = (0.05 + 0.05 * band) * gThick;
+    float dOwn = sdBox(vec3(along - len * 0.5, perp, zt), vec3(len * 0.5, hp, RG_TH)) - RG_ROUND;
+
+    // Distance to the nearer sector boundary plane (both are full planes through the axis).
+    const float sw = 0.0654031; // sin(pi / 48)
+    const float cw = 0.9978589; // cos(pi / 48)
+    float toEdge = max(sw * xr - cw * abs(zt), 0.0);
+    // The annulus every blade lives in, as a box in (r, y).
+    vec2 bc = vec2(RG_RIN + 0.5 * RG_LMAX, 0.5 * RG_LMAX);
+    vec2 bh = vec2(0.5 * RG_LMAX + 0.5, 0.5 * RG_LMAX + 0.5);
+    vec2 bq = abs(vec2(r, p.y) - bc) - bh;
+    float dBound = length(max(bq, 0.0)) + min(max(bq.x, bq.y), 0.0);
+    float dBlades = min(dOwn, max(toEdge + RG_GAP, dBound));
+
+    // ---- the hub and the core ----
+    float dHub = sdTorus(p, vec2(RG_RIN - 0.1, 0.06));
+    float dCore = length(p) - gCore;
+
+    float d = dBlades;
+    gMat = 1.0;
+    if (dHub < d) {
+        d = dHub;
+        gMat = 2.0;
+    }
+    if (dCore < d) {
+        d = dCore;
+        gMat = 0.0;
+    }
+    gBand = band;
+    gSecFrac = secFrac;
+    gAlong = clamp(along / max(len, 1e-3), 0.0, 1.0);
+    return d;
+}
+
+vec3 normalAt(vec3 p, float eps) {
+    vec2 k = vec2(1.0, -1.0);
+    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
+                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+}
+
+vec3 skyColour(vec3 rd, float hueBase) {
+    vec3 col = pal(hueBase + 0.6) * 0.025 * (0.6 + 0.4 * rd.y);
+    vec3 sp = rd * 120.0;
+    float s = hashCell(ivec3(floor(sp)));
+    float star = (1.0 - smoothstep(0.0, 0.3, length(fract(sp) - 0.5))) * step(0.997, s);
+    col += vec3(0.7) * star * (0.6 + 0.4 * sin(uTime * 2.0 + s * 400.0));
+    return col;
+}
+
+float knob(int i) {
+    return clamp(uKnob[i], 0.0, 1.0) - 0.5;
+}
+
 void main() {
     vec2 uv = view();
-    float angle = fract(atan(uv.y, uv.x) / 6.2831853 + 0.5 + uTime * 0.02);
-    float r = length(uv);
-    float band = sndSpectrum(abs(angle * 2.0 - 1.0));
-    float inner = 0.35;
-    float spike = inner + band * 0.5;
-    float ring = smoothstep(spike + 0.02, spike, r) * smoothstep(inner - 0.02, inner, r);
-    float core = exp(-r * 5.0) * (0.4 + sndLevel(SND_SUB_ATT));
-    float wave = sndWave01(angle) * exp(-abs(r - inner + 0.08) * 20.0);
-    vec3 col = pal(angle) * (ring * (0.3 + band * 1.4) + wave) + pal(0.1) * core;
+
+    float kPulse = knob(0);
+    float kTexture = knob(1);
+    float kFlow = knob(2);
+    float kTone = knob(3);
+    float kBuild = knob(4);
+    float kSpace = knob(5);
+
+    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5);
+    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float sub = sndLevel(SND_SUB_ATT);
+    float mids = clamp(sndShaped(SND_MIDDLE), 0.0, 1.0);
+    float drop = clamp(SND_HELD_SURGE, 0.0, 1.0);
+    float dropBump = 4.0 * drop * (1.0 - drop);
+    float hueBase = 0.22 * clamp(SND_HELD_NOTE_CHANGE, 0.0, 1.0) + 0.15 * kTone;
+
+    float spin = 2.0 * CAM_SPIN_UNIT;
+    float orbit = uCamTravel * spin;
+    gPhase = fract(uTime * 0.02 + orbit / RG_TAU);
+    gGain = 1.25 * (1.0 + 0.5 * kBuild);
+    gThick = 1.0 + 0.6 * kTexture;
+    gLean = 0.85 * clamp(uMorph, 0.0, 1.0);
+    gWarp = clamp(uWarp, 0.0, 1.2);
+    gTurb = clamp(uTurbulence, 0.0, 1.0);
+    gCore = 0.48 + 0.16 * kick * (1.0 + 1.6 * kPulse);
+
+    vec3 ro;
+    vec3 rd;
+    camAround(uv, mix(RG_CAM_MIN, RG_CAM_MAX, kSpace + 0.5), spin, ro, rd);
+    // Into the crown's frame: undo the orbit's turn about +y (the eye then
+    // sits near -z), then tip the ring plane toward the eye so the eye sits
+    // beta above it. Both are rotations, so distances keep.
+    float ca = cos(orbit);
+    float sa = sin(orbit);
+    mat3 unturn = mat3(ca, 0.0, sa, 0.0, 1.0, 0.0, -sa, 0.0, ca);
+    float beta = RG_TILT + 0.3 * dropBump + 0.08 * uOrbit.x;
+    float cb = cos(beta);
+    float sb = sin(beta);
+    mat3 tilt = mat3(1.0, 0.0, 0.0, 0.0, cb, sb, 0.0, -sb, cb);
+    mat3 toRing = tilt * unturn;
+    ro = toRing * ro;
+    rd = toRing * rd;
+
+    // March only inside the bounding sphere.
+    float bOff = dot(ro, rd);
+    float bDisc = bOff * bOff - (dot(ro, ro) - RG_BOUND * RG_BOUND);
+    float hitT = -1.0;
+    if (bDisc > 0.0) {
+        float bRoot = sqrt(bDisc);
+        float t = max(-bOff - bRoot, 0.0);
+        float tEnd = -bOff + bRoot;
+        for (int i = 0; i < RG_MAX_STEPS; i++) {
+            // uSteps is the user's Detail; this loop's own bound is the constant.
+            if (float(i) >= uSteps) break;
+            vec3 p = ro + rd * t;
+            float d = max(map(p), 0.5 - length(p - ro));
+            if (d < 0.0012 + 0.0007 * t) {
+                hitT = t;
+                break;
+            }
+            t += d * 0.85;
+            if (t > tEnd) break;
+        }
+    }
+
+    vec3 sky = skyColour(rd, hueBase);
+    vec3 col = sky;
+    float coreLight = 0.7 + 0.8 * sub + 0.3 * kick;
+    if (hitT > 0.0) {
+        vec3 p = ro + rd * hitT;
+        vec3 n = normalAt(p, max(0.0012, 0.0008 * hitT));
+        float occ = 0.0;
+        float sc = 1.0;
+        for (int k = 0; k < 2; k++) {
+            float hk = 0.08 + 0.14 * float(k);
+            occ += (hk - map(p + n * hk)) * sc;
+            sc *= 0.6;
+        }
+        float ao = clamp(1.0 - 1.8 * occ, 0.3, 1.0);
+        // Restore the hit's globals after the normal and AO taps.
+        map(p);
+
+        float rl = length(p);
+        vec3 L = -p / max(rl, 1e-4);
+        float fall = coreLight / (1.0 + 0.35 * rl * rl);
+        float dif = max(dot(n, L), 0.0);
+        float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 3.0);
+        float spec = pow(max(dot(reflect(rd, n), L), 0.0), 32.0);
+
+        if (gMat < 0.5) {
+            // The core: emissive, brighter at the limb.
+            vec3 c = pal(hueBase + 0.1);
+            col = c * (0.55 + 0.6 * sub + 0.25 * kick) * (0.7 + 0.6 * fres) + vec3(0.15) * fres;
+        } else if (gMat < 1.5) {
+            // A blade: lit from the core, its tip glowing with its band.
+            vec3 c = pal(hueBase + 0.5 * mirror01(gSecFrac));
+            float tip = smoothstep(0.15, 1.0, gAlong);
+            col = c * (0.05 + 0.85 * dif * fall) * ao
+                + c * tip * (0.08 + 0.9 * gBand)
+                + mix(vec3(1.0), c, 0.4) * spec * fall * 0.5
+                + c * fres * 0.18;
+        } else {
+            // The hub: dark chrome catching the core and the crown's colour.
+            vec3 c = pal(hueBase + 0.5 * mirror01(gSecFrac) + 0.25);
+            col = c * (0.03 + 0.4 * dif * fall) * ao + vec3(0.8) * spec * fall * 0.6 + c * fres * 0.3;
+        }
+        col = mix(col, sky, 1.0 - exp(-max(hitT - 3.0, 0.0) * 0.04));
+    }
+
+    // The oscillogram: the waveform drawn round the ring plane (y = 0), in
+    // front of whatever the march hit. Analytic, so it costs no steps.
+    if (abs(rd.y) > 1e-4) {
+        float tp = -ro.y / rd.y;
+        if (tp > 0.0 && (hitT < 0.0 || tp < hitT)) {
+            vec3 pp = ro + rd * tp;
+            float pr = length(pp.xz);
+            float pa = pr > 1e-5 ? atan(pp.z, pp.x) : 0.0;
+            float wu = fract(pa / RG_TAU + gPhase);
+            float w = sndWave01(mirror01(wu));
+            float amp = 0.45 * (1.0 + 0.6 * gWarp + 0.8 * kFlow);
+            float off = abs(pr - (RG_WAVE_R + (w - 0.5) * amp));
+            float line = 1.0 - smoothstep(0.0, 0.02 + 0.002 * tp, off);
+            float glowW = exp(-off * 16.0) * 0.3;
+            col += pal(hueBase + 0.3 + 0.5 * mirror01(wu)) * (line + glowW) * (0.35 + 0.9 * mids);
+        }
+    }
+
+    // The core's halo, from the ray's closest pass by the centre, hidden
+    // when something was hit in front of it.
+    float tc = max(-dot(ro, rd), 0.0);
+    if (hitT < 0.0 || hitT > tc) {
+        float dc = length(ro + rd * tc);
+        col += pal(hueBase + 0.1) * exp(-dc * 2.2) * (0.25 + 0.6 * sub) * 0.6;
+    }
+
+    col *= 0.8 + 0.25 * swell + 0.1 * energy;
+    col *= 0.72 + 0.28 * (1.0 - smoothstep(0.5, 2.2, length(uv)));
     fragColor = vec4(grade(col), 1.0);
 }

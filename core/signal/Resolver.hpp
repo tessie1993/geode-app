@@ -23,7 +23,7 @@ namespace geode::signal {
 //   → auto-director (its look lies under everything after it)
 //   → Note & key reactions (inside the director's look: its hue anchors the notes' colours)
 //   → macros (the user's knobs with the director's laid over them)
-//   → LFOs → envelopes (and what both add to the luminance targets, for the flash limiter, #363)
+//   → LFOs → envelopes
 //   → reaction routes (the user's or the style's DNA) → macro routes → director routes
 //   → motion field → safety::apply, last, so nothing before it can pass the flash and motion limits
 //
@@ -74,8 +74,6 @@ public:
         int styleMoments = 0;
         // The camera rig's music moves: the macros' Space and Speed under the director's look.
         viz::CameraRig::Moves cameraMoves{};
-        // What the envelopes and LFOs added to each luminance target, for the flash limiter (#363).
-        viz::LuminanceDrive luminanceDrive{};
     };
 
     // Per-renderer configuration, kept until changed. Plain copies; call from the stepping thread.

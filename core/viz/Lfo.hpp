@@ -9,7 +9,8 @@
 
 namespace geode::viz {
 
-enum class LfoWave { Sine, Triangle, Saw, Square, Random };
+enum class LfoWave { Sine, Triangle, Saw, Square, Random,
+                      /* Appended: every cycle picks a new random value and glides to it. */ RandomGlide };
 enum class ModSource { Lfo, Bass, Mid, Treble, Level, Brightness, Transient, StereoWidth, StereoPan };
 enum class ModPolarity { Bipolar, Positive, Negative };
 enum class ModCurve { Linear, Exponential, Logarithmic, Smooth };
@@ -51,6 +52,8 @@ struct LfoConfig {
     float depth = config::spec(config::Slot::lfo_depth).defaultValue;
     ModPolarity polarity = ModPolarity::Bipolar;
     ModCurve curve = ModCurve::Linear;
+    /* 0 = free (rateSeconds). 1, 2, 4, 8, 16 or 32 = one cycle per that many beats of the music clock. */
+    float beats = 0.0f;
 };
 
 float polarized(float raw, ModPolarity polarity);
@@ -79,7 +82,9 @@ private:
     static constexpr float kFollowRiseSeconds = 0.02f;
     static constexpr float kFollowFallSeconds = 0.16f;
 
-    float oscillator(int i, const LfoConfig& c, float dt);
+    float oscillator(int i, const LfoConfig& c, float dt, const GeodeSoundFrame& sound);
+    /* The cycle position (0..1) a beat-timed slot sits at; sets wrapped when it crossed into a new cycle. */
+    float syncedPhase(int i, const LfoConfig& c, float dt, const GeodeSoundFrame& sound, bool& wrapped);
     float follow(int i, float value, float dt);
     float followBipolar(int i, float value, float dt);
 
@@ -91,6 +96,15 @@ private:
     std::array<float, kSlots> out_{};
     std::array<float, kSlots> rateAdd_{};
     std::array<float, kSlots> depthAdd_{};
+    // Beat timing: the free clock's phase (cycles), the last good tempo, whether the music clock held last
+    // frame, and the offset still being eased out after it came back.
+    std::array<float, kSlots> syncFree_{};
+    std::array<float, kSlots> syncJump_{};
+    std::array<bool, kSlots> syncLocked_{};
+    std::array<float, kSlots> glideFrom_{};
+    std::array<float, kSlots> glideTo_{};
+    std::array<float, kSlots> prevPhase_{};
+    float lastBpm_ = 120.0f;
     std::minstd_rand rng_{12345};
 };
 

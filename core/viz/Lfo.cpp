@@ -156,7 +156,7 @@ const std::array<float, LfoEngine::kSlots>& LfoEngine::tick(float dt, const Geod
         const float depth = std::clamp(c.depth + depthAdd_[i], config::spec(config::Slot::lfo_depth).min, kMaxModulatedDepth);
         float raw = 0.0f;
         switch (c.source) {
-            case ModSource::Lfo: raw = oscillator(i, c, dt); break;
+            case ModSource::Lfo: raw = oscillator(i, c, dt, sound); break;
             // The sound engine's frame: the bands' fast att envelopes halved (typical 0.5, a hit 1),
             // the shaped level, the centroid, the note-start envelope and the stereo field.
             case ModSource::Bass: raw = follow(i, 0.5f * sound.bassAtt, dt); break;
@@ -189,25 +189,81 @@ SceneParams LfoEngine::apply(const SceneParams& p, const std::array<float, kSlot
 }
 
 
-float LfoEngine::oscillator(int i, const LfoConfig& c, float dt) {
-    const float period = std::clamp(c.rateSeconds, LfoConfig::kMinRateSeconds, LfoConfig::kMaxRateSeconds);
-    const float rate = safety::limitLfoRate(std::clamp(1.0f / period + rateAdd_[i], kMinRateHz, kMaxRateHz), c.target);
-    phases_[i] = std::fmod(phases_[i] + rate * dt, 1.0f);
-    totalPhase_[i] = std::fmod(totalPhase_[i] + rate * dt, kShPhaseWrap);
-    const float ph = phases_[i];
+float LfoEngine::syncedPhase(int i, const LfoConfig& c, float dt, const GeodeSoundFrame& sound, bool& wrapped) {
+    constexpr float kLockConf = 0.35f;
+    constexpr float kEaseSeconds = 0.5f;
+    const float n = std::clamp(c.beats, 1.0f, 32.0f);
+    const bool locked = sound.bpm > 0.0f && sound.beatConf >= kLockConf;
+    if (sound.bpm > 0.0f) lastBpm_ = sound.bpm;
+    // The free clock keeps the last good tempo (120 before any), so silence runs on, never stops.
+    const float hz = safety::limitLfoRate(lastBpm_ / 60.0f / n, c.target);
+    const bool limited = hz < lastBpm_ / 60.0f / n;
+    float ph;
+    if (locked && !limited) {
+        // beatCount wraps at 4096, a multiple of 32, so the position stays continuous across the wrap.
+        const float pos = std::fmod(sound.beatCount + sound.beatPhase, n) / n;
+        if (!syncLocked_[i]) {
+            const float d = syncFree_[i] - pos;
+            syncJump_[i] = d - std::round(d);
+        }
+        syncJump_[i] -= syncJump_[i] * std::clamp(dt / kEaseSeconds, 0.0f, 1.0f);
+        syncFree_[i] = pos;
+        ph = pos + syncJump_[i];
+    } else {
+        syncFree_[i] = std::fmod(syncFree_[i] + hz * dt, 1.0f);
+        syncJump_[i] = 0.0f;
+        ph = syncFree_[i];
+    }
+    syncLocked_[i] = locked && !limited;
+    ph -= std::floor(ph);
+    wrapped = ph < prevPhase_[i] - 0.5f;
+    prevPhase_[i] = ph;
+    return ph;
+}
+
+float LfoEngine::oscillator(int i, const LfoConfig& c, float dt, const GeodeSoundFrame& sound) {
+    const bool synced = c.beats >= 1.0f;
+    bool wrapped = false;
+    float ph;
+    if (synced) {
+        ph = syncedPhase(i, c, dt, sound, wrapped);
+    } else {
+        const float period = std::clamp(c.rateSeconds, LfoConfig::kMinRateSeconds, LfoConfig::kMaxRateSeconds);
+        const float rate = safety::limitLfoRate(std::clamp(1.0f / period + rateAdd_[i], kMinRateHz, kMaxRateHz), c.target);
+        phases_[i] = std::fmod(phases_[i] + rate * dt, 1.0f);
+        totalPhase_[i] = std::fmod(totalPhase_[i] + rate * dt, kShPhaseWrap);
+        ph = phases_[i];
+        wrapped = ph < prevPhase_[i];
+        prevPhase_[i] = ph;
+    }
+    std::uniform_real_distribution<float> unit(0.0f, 1.0f);
     switch (c.wave) {
         case LfoWave::Sine: return std::sin(ph * kTau);
         case LfoWave::Triangle: return 4.0f * std::fabs(ph - 0.5f) - 1.0f;
         case LfoWave::Saw: return ph * 2.0f - 1.0f;
         case LfoWave::Square: return ph < 0.5f ? 1.0f : -1.0f;
         case LfoWave::Random: {
+            // Free slots step on each whole turn of the long phase; beat-timed ones on the cycle's wrap.
             const int cycle = static_cast<int>(std::floor(totalPhase_[i]));
-            if (cycle != lastCycle_[i]) {
-                lastCycle_[i] = cycle;
-                std::uniform_real_distribution<float> unit(0.0f, 1.0f);
+            const bool step = synced ? (wrapped || lastCycle_[i] < 0) : cycle != lastCycle_[i];
+            if (step) {
+                lastCycle_[i] = synced ? 0 : cycle;
                 sampleHold_[i] = unit(rng_) * 2.0f - 1.0f;
             }
             return sampleHold_[i];
+        }
+        case LfoWave::RandomGlide: {
+            // Each cycle ends on the value it was gliding to, which becomes the start of the next, so
+            // the output is continuous across the wrap; the first cycle leaves from rest (0).
+            if (lastCycle_[i] < 0) {
+                lastCycle_[i] = 0;
+                glideTo_[i] = unit(rng_) * 2.0f - 1.0f;
+            } else if (wrapped) {
+                glideFrom_[i] = glideTo_[i];
+                glideTo_[i] = unit(rng_) * 2.0f - 1.0f;
+            }
+            const float t = ph * ph * (3.0f - 2.0f * ph);
+            return glideFrom_[i] + (glideTo_[i] - glideFrom_[i]) * t;
         }
     }
     return 0.0f;

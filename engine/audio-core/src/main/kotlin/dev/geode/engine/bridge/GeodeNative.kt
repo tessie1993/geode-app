@@ -483,6 +483,26 @@ object GeodeNative {
         opts: FloatArray?,
     )
 
+    /**
+     * The live wallpaper's on-screen window (`core/viz/frame/WallpaperWindow.hpp`): from the surface and
+     * display sizes and the raw `onOffsetsChanged` values (xOffset, yOffset, xOffsetStep, yOffsetStep,
+     * xPixels, yPixels), writes left, top, width, height into [out] (4 floats), as [vizSetEdgeGlow] takes them.
+     */
+    external fun wallpaperWindow(
+        surfaceW: Float,
+        surfaceH: Float,
+        displayW: Float,
+        displayH: Float,
+        offsets: FloatArray?,
+        out: FloatArray,
+    )
+
+    /** The wallpaper's frame rate: [targetFps] lowered to the Performance cap ([capFps] <= 0 = none); never 0. */
+    external fun wallpaperFps(
+        targetFps: Float,
+        capFps: Float,
+    ): Float
+
     external fun vizKnows(
         handle: Long,
         sceneId: String,

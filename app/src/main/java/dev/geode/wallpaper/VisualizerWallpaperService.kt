@@ -109,9 +109,9 @@ class VisualizerWallpaperService : WallpaperService() {
         private var surfaceWidth = 1f
         private var surfaceHeight = 1f
 
-        /** Where the screen sits on a panning surface, in surface pixels; see [onOffsetsChanged]. */
-        private var panX = 0f
-        private var panY = 0f
+        /** The launcher's last [onOffsetsChanged], raw (`GEODE_WALLPAPER_OFFSETS`), and the window native makes of it. */
+        private val offsets = FloatArray(6)
+        private val window = FloatArray(4)
 
         private inner class WallpaperGlSurfaceView(
             context: Context,
@@ -347,7 +347,7 @@ class VisualizerWallpaperService : WallpaperService() {
 
         /**
          * The launcher's pan, so the edge look draws on the screen's edge rather than the
-         * surface's. [xPixels] and [yPixels] are the surface's offset from the screen (≤ 0).
+         * surface's. Passed on raw; `core/viz/frame/WallpaperWindow.hpp` makes the window of it.
          */
         override fun onOffsetsChanged(
             xOffset: Float,
@@ -358,22 +358,21 @@ class VisualizerWallpaperService : WallpaperService() {
             yPixels: Int,
         ) {
             super.onOffsetsChanged(xOffset, yOffset, xOffsetStep, yOffsetStep, xPixels, yPixels)
-            panX = -xPixels.toFloat()
-            panY = -yPixels.toFloat()
+            offsets[0] = xOffset
+            offsets[1] = yOffset
+            offsets[2] = xOffsetStep
+            offsets[3] = yOffsetStep
+            offsets[4] = xPixels.toFloat()
+            offsets[5] = yPixels.toFloat()
             updateVisibleWindow()
         }
 
         private fun updateVisibleWindow() {
             val metrics = resources.displayMetrics
-            // Within a nav bar's worth of the display, the surface is the screen.
-            val wide = surfaceWidth > metrics.widthPixels * PAN_SLACK
-            val tall = surfaceHeight > metrics.heightPixels * PAN_SLACK
-            wallpaperRenderer?.setVisibleWindow(
-                if (wide) panX else 0f,
-                if (tall) panY else 0f,
-                if (wide) metrics.widthPixels.toFloat() else surfaceWidth,
-                if (tall) metrics.heightPixels.toFloat() else surfaceHeight,
-            )
+            val displayWidth = metrics.widthPixels.toFloat()
+            val displayHeight = metrics.heightPixels.toFloat()
+            GeodeNative.wallpaperWindow(surfaceWidth, surfaceHeight, displayWidth, displayHeight, offsets, window)
+            wallpaperRenderer?.setVisibleWindow(window[0], window[1], window[2], window[3])
         }
 
         /**

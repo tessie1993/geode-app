@@ -147,7 +147,9 @@ class PlayRecorder(
                             )
                         }
                     if (tracks.isEmpty()) return null
-                    return SessionStore.Saved(tracks, player.currentMediaItemIndex, player.currentPosition)
+                    // Items without a URI were dropped above, so the index counts only the kept ones before it.
+                    val index = (0 until player.currentMediaItemIndex).count { player.getMediaItemAt(it).localConfiguration != null }
+                    return SessionStore.Saved(tracks, index, player.currentPosition)
                 }
             }
     }

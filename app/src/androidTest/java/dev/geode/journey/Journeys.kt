@@ -18,8 +18,10 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.printToLog
 import androidx.core.content.edit
 import androidx.test.core.app.ApplicationProvider
+import dev.geode.data.BehaviourStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PerformanceStore
+import dev.geode.data.StartScreen
 import dev.geode.data.ThemeStore
 import dev.geode.render.PerformanceSettings
 import org.junit.rules.ExternalResource
@@ -58,6 +60,8 @@ class Onboarded(
         }
         val general = context.getSharedPreferences(GeodePrefsFiles.GENERAL, Context.MODE_PRIVATE)
         PerformanceStore(general, context).set(PerformanceSettings.SAVER)
+        // The journeys start from the empty Player; a new install opens on Library (#796).
+        BehaviourStore(general).run { save(load().copy(startScreen = StartScreen.PLAYER)) }
     }
 }
 

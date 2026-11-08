@@ -45,6 +45,7 @@ class SoundTuningTest {
                 "pitchThreshold" to SoundTuning.PITCH_THRESHOLD,
                 "noteHold" to SoundTuning.NOTE_HOLD,
                 "silenceDb" to SoundTuning.SILENCE_DB,
+                "inputTrimDb" to SoundTuning.INPUT_TRIM_DB,
             ),
             slots,
         )
@@ -56,6 +57,13 @@ class SoundTuningTest {
         val f = FloatArray(SoundFrameLayout.TUNING_FLOATS) { it.toFloat() }
         assertEquals(f.toList(), SoundTuning.fromFloats(f).savedFloats()?.toList())
         assertEquals(SoundTuning.fromFloats(f), SoundTuning.fromFloats(f.copyOf()))
+    }
+
+    @Test
+    fun aSaveFromBeforeTheInputTrimKeepsItsSliders() {
+        val old = FloatArray(SoundFrameLayout.TUNING_FLOATS - 1) { it.toFloat() }
+        val loaded = SoundTuning.fromFloats(old).savedFloats()!!
+        assertEquals(old.toList() + 0f, loaded.toList())
     }
 
     @Test

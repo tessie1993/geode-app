@@ -36,7 +36,14 @@ void check(bool ok, const char* what) {
     }
 }
 
-GeodeSoundFrame silence() { return GeodeSoundFrame{}; }
+// The frame most of these tests start from. Its drive (the music's absolute magnitude, core/sound/DriveGain) is
+// full, so a route or a motion term reads at the strength the test says; driveScalesTheMagnitudeOfMotion below
+// is the one that turns it down.
+GeodeSoundFrame silence() {
+    GeodeSoundFrame f{};
+    f.drive = 1.0f;
+    return f;
+}
 
 void foldIsBoundedAndContinuous() {
     float prev = ReactionEngine::fold(0.0f);
@@ -1026,7 +1033,7 @@ void endlessZoomFollowsTheBassNotTheLoudness() {
     loud.intensity = 1.0f;
     loud.energyTrend = 1.0f;
     loud.surge = 1.0f;
-    check(endless::musicRate(loud, 1.0f) == hit, "loudness never changes the dive rate");
+    check(endless::musicRate(loud, 1.0f) == hit, "a louder frame at the same drive never changes the dive rate");
     s.bassAtt = 0.0f;
     check(endless::musicRate(s, 2.0f) >= endless::kMinRate, "a bass drop slows the dive but never stalls it");
     check(endless::musicRate(s, 0.0f) == 1.0f, "Audio drive 0 leaves the dive steady");
@@ -1035,6 +1042,66 @@ void endlessZoomFollowsTheBassNotTheLoudness() {
     s.presence = INFINITY;
     const float odd = endless::musicRate(s, NAN);
     check(std::isfinite(odd) && odd >= endless::kMinRate, "non-finite sound leaves a finite rate");
+}
+
+// The music's absolute magnitude (the frame's drive) scales how much audio moves the picture: the same relative
+// swell on a pad (drive 0.1) moves the dive, the routes, the motion field and the camera less than on a fat
+// track (drive 0.8). The base values, and the silence drift, are untouched.
+void driveScalesTheMagnitudeOfMotion() {
+    GeodeSoundFrame fat = playing();
+    fat.drive = 0.8f;
+    GeodeSoundFrame pad = fat;
+    pad.drive = 0.1f;
+    check(geode::sound::driveGain(fat) > 0.999f, "a loud dense track spends everything");
+    check(geode::sound::driveGain(pad) > geode::sound::kDriveGainFloor && geode::sound::driveGain(pad) < 0.4f, "a pad keeps a floor but moves little");
+    fat.bassAtt = pad.bassAtt = 2.0f;
+    fat.volAtt = pad.volAtt = fat.midAtt = pad.midAtt = fat.trebleAtt = pad.trebleAtt = 1.0f;  // a typical level for the song
+    const float fatPush = endless::musicRate(fat, 1.0f) - 1.0f;
+    const float padPush = endless::musicRate(pad, 1.0f) - 1.0f;
+    check(fatPush > 0.3f && padPush > 0.0f && padPush < 0.4f * fatPush, "the dive's bass push follows the drive");
+
+    ReactionEngine loudRoutes;
+    ReactionEngine quietRoutes;
+    for (ReactionEngine* e : {&loudRoutes, &quietRoutes}) {
+        e->routes[0] = {true, ReactSource::KickEnv, LfoTarget::Zoom, ReactMode::Follow, 0.5f, ModCurve::Linear, 0.0f, 0.0f};
+    }
+    fat.kickEnv = pad.kickEnv = 0.8f;
+    loudRoutes.tick(fat, 1.0f / 60.0f);
+    quietRoutes.tick(pad, 1.0f / 60.0f);
+    const float base = SceneParams{}.zoom;
+    const float loudMove = loudRoutes.apply(SceneParams{}).zoom - base;
+    const float quietMove = quietRoutes.apply(SceneParams{}).zoom - base;
+    check(loudMove > 0.0f && quietMove > 0.0f && quietMove < 0.4f * loudMove, "a route's audio part follows the drive");
+
+    MotionField loud;
+    MotionField quiet;
+    for (int k = 0; k < 600; ++k) {
+        loud.step(fat, 1.0f / 60.0f);
+        quiet.step(pad, 1.0f / 60.0f);
+    }
+    check(quiet.state().energyRel < 0.4f * loud.state().energyRel, "the motion field's energy follows the drive");
+    check(quiet.state().midRel < 0.4f * loud.state().midRel, "so does the drift's mid clock");
+    check(loud.apply(SceneParams{}, false, 1.0f).speed > quiet.apply(SceneParams{}, false, 1.0f).speed, "and the speed it adds");
+
+    SceneParams p;
+    p.camFly = 1.0f;
+    CameraRig loudRig;
+    CameraRig quietRig;
+    float loudSwing = 0.0f;
+    float quietSwing = 0.0f;
+    fat.midTime = pad.midTime = 3.0f;
+    for (int k = 0; k < 600; ++k) {
+        fat.midTime = pad.midTime = 0.05f * static_cast<float>(k);
+        loudRig.step(p, {}, 1.0f / 60.0f, false, true, &fat);
+        quietRig.step(p, {}, 1.0f / 60.0f, false, true, &pad);
+        loudSwing = std::max(loudSwing, std::fabs(loudRig.pose().yaw));
+        quietSwing = std::max(quietSwing, std::fabs(quietRig.pose().yaw));
+    }
+    check(loudSwing > 0.0f && quietSwing < 0.5f * loudSwing, "the camera's own moves follow the drive");
+
+    GeodeSoundFrame gone = pad;
+    gone.drive = NAN;
+    check(geode::sound::driveGain(gone) == 1.0f, "a non-finite drive is neutral, never a stall");
 }
 
 void endlessZoomDrivesTheRigForward() {
@@ -1556,6 +1623,7 @@ int main() {
     endlessZoomOnlyDivesIn();
     endlessZoomPhaseWrapsForEverInBothDirections();
     endlessZoomFollowsTheBassNotTheLoudness();
+    driveScalesTheMagnitudeOfMotion();
     endlessZoomDrivesTheRigForward();
     endlessZoomReducedMotionScalesTheDiveOnce();
     buildBudgetBoundsAFrame();

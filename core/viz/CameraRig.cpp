@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "sound/DriveGain.hpp"
 #include "viz/EndlessZoom.hpp"
 #include "viz/VisualSafety.hpp"
 
@@ -154,9 +155,10 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     if (sound != nullptr) {
         const GeodeSoundFrame& s = *sound;
         auto val = [](float v) { return std::isfinite(v) ? v : 0.0f; };
-        const float intensity = std::clamp(val(s.intensity), 0.0f, 1.0f);
+        // The reach is the absolute drive (core/sound/DriveGain), not the song's own rise over its average:
+        // an ambient pad moves the camera a little, a loud dense track fully, whatever either is mastered at.
         const float amp = std::clamp(p.motionAmount, 0.0f, 1.0f) * g * std::clamp(val(s.presence), 0.0f, 1.0f) *
-                          (0.3f + 0.7f * std::pow(intensity, 1.5f));
+                          sound::driveGain(s);
         sinceCut_ += dt;
         sinceReframe_ += dt;
         sinceNoteLook_ += dt;

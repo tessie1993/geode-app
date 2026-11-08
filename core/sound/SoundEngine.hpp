@@ -8,6 +8,7 @@
 #include "sound/Fft.hpp"
 #include "sound/Form.hpp"
 #include "sound/Harmony.hpp"
+#include "sound/LufsMeter.hpp"
 #include "sound/Rhythm.hpp"
 #include "sound/SoundFrame.h"
 #include "sound/Stages.hpp"
@@ -77,6 +78,7 @@ public:
     int hopSamples() const { return rhythm_.hopSamples(); }
     // The one-hop triggers held from hop to step (kick … drop): > 0 on the frame that follows their hop.
     static constexpr int kTriggers = 23;
+    static constexpr double kHitFloorLufs = -45.0;
     // Clamped to sound/Tuning's ranges, whatever the caller hands in (a NaN slot is its default).
     void setTuning(const GeodeSoundTuning& tuning);
     const GeodeSoundTuning& tuning() const { return tuning_; }
@@ -112,8 +114,10 @@ private:
         std::array<float, 3> presence{};
         std::array<float, 3> bandTime{};
         float curvedTime = 0.0f;
-        float levelPeak = 1e-4f;
-        float intensity = 0.0f;
+        float drive = 0.0f;      // the eased magnitude of the music (SoundFrame.h)
+        float rise = 0.0f;       // momentary loudness over the short-term one, eased
+        float onsetRate = 0.0f;  // onsets per second over ~2 s
+        float hitRate = 0.0f;    // kicks and snares per second over ~2 s
         float warmSeconds = 50.0f / 30.0f;  // MilkDrop's 50 warm-up frames at its 30 fps reference
         float quietSeconds = 0.0f;
         std::array<RelativeLevel, GEODE_SOUND_EQ_BANDS> eq;
@@ -190,6 +194,10 @@ private:
     void melody(float dt, GeodeSoundFrame& out);
     void clocks(float dt, GeodeSoundFrame& out);
     void musical(float dt, bool warm, bool silent, GeodeSoundFrame& out);
+    void absolute(float dt, GeodeSoundFrame& out);
+    // A kick, snare, onset or hard cut may fire: the gate is open and the momentary loudness is above the
+    // floor a hit needs, so a soft swell in a quiet ambient passage cannot fire a full-strength hit.
+    bool hitsAllowed() const { return meter_.open() && meter_.momentaryLufs() >= kHitFloorLufs; }
     void estimatePitch(float held, float& midi, float& confidence, float& evenness);
     void rewarm();
 
@@ -220,6 +228,8 @@ private:
     bool fresh_ = false;
     float starvedSeconds_ = 0.0f;
     bool starved_ = false;  // nothing written for a while: the window reads as silence, not a frozen loop
+    LufsMeter meter_;          // absolute loudness and the one silence gate
+    float trimGain_ = 1.0f;    // the input trim, linear: analysis only
     std::array<SliceBand, kSlices> bank_;
     std::array<float, kSlices> sliceNow_{};   // this hop's slice levels
     std::array<float, kSlices> punchNow_{};   // and the highest punch each slice held

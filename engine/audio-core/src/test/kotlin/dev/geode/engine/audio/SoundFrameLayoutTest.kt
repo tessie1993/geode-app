@@ -117,6 +117,10 @@ class SoundFrameLayoutTest {
             "buildUp",
             "drop",
             "fadeGain",
+            "loudnessM",
+            "loudnessS",
+            "busy",
+            "drive",
         )
 
     // Gradle runs module tests from the module directory; walk up to the repo root.

@@ -33,6 +33,20 @@ _Avoid_: External audio, visualize other apps (UI label only)
 What the analysis hears in one moment of audio: levels, bands, onsets, beat, bar, key, section.
 _Avoid_: FFT data, spectrum (the spectrum is one feature)
 
+**Loudness (loudnessM / loudnessS)**:
+The music's absolute volume, measured as fosfora does: BS.1770 K-weighted LUFS over 400 ms (momentary) and 3 s (short-term), -60 LUFS = 0 … 0 LUFS = 1 on every song. Never relative to the song's own average (that is what the bass, mid and treble ratios are). `core/sound/LufsMeter`.
+_Avoid_: Level (the sound frame's `level` is the RMS in dBFS, also absolute, but not K-weighted)
+
+**Silence gate**:
+The one flag every detector reads: opens when the momentary loudness reaches -55 LUFS, closes after 250 ms under -60, starts closed. Not the wallpaper's rest rule (`Silence`), which is about when to draw.
+
+**Busy**:
+How dense the music is, 0..1, on fixed scales: onsets a second (8 = 1), kicks and snares a second, and how sure the beat is.
+
+**Drive**:
+How much the music is, 0..1: short-term loudness × (0.35 + 0.65 · busy), eased. The magnitude of every audio-driven motion is its gain (`sound/DriveGain`: 0.15 at no drive, 1 at 0.7 and up), so an ambient pad moves the picture a little and a loud dense track fully. The relative ratios only shape the pulse inside it.
+_Avoid_: Audio drive (the user's Customize amount, which scales the reach of the music further)
+
 **Feature timeline**:
 The audio features of a whole track, computed ahead of time, so an export is frame-exact.
 _Avoid_: Analysis cache (that is where it is stored)

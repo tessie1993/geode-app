@@ -1,13 +1,6 @@
 package dev.geode.engine.audio
 
-/**
- * Float offsets into a `GeodeSoundFrame` (`core/sound/SoundFrame.h`) as it crosses JNI: every field in
- * declaration order, then the EQ, spectrum, waveform and three chroma arrays. `SoundFrameLayoutTest` parses the header
- * against its own list of the names, so a field the engine adds, drops or moves fails CI there instead of shifting
- * every reader by one.
- *
- * What each value means (relative, shaped, clock, trigger) is documented on the struct, not repeated here.
- */
+/** Float offsets into a `GeodeSoundFrame` (`core/sound/SoundFrame.h`) as it crosses JNI; `SoundFrameLayoutTest` parses the header. */
 @Suppress("unused")
 object SoundFrameLayout {
     const val BASS = 0
@@ -120,7 +113,7 @@ object SoundFrameLayout {
     const val DROP = 107
     const val FADE_GAIN = 108
 
-    const val SCALARS = 109
+    const val SCALARS = 113
     const val EQ_BANDS = 16
     const val SPECTRUM_POINTS = 64
     const val WAVEFORM_POINTS = 128
@@ -134,5 +127,5 @@ object SoundFrameLayout {
     const val FLOATS = CHROMA_SLOW + CHROMA_POINTS
 
     /** `GeodeSoundTuning` as floats: gain, threshold, offset, attack, release, drum, drumDecay (3 each), then 8 scalars. */
-    const val TUNING_FLOATS = 29
+    const val TUNING_FLOATS = 30
 }

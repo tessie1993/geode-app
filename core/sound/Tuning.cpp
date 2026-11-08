@@ -36,6 +36,7 @@ constexpr std::array<Slot, kSlots> kTable{{
     {0.35f, 0.1f, 0.9f},       // pitchThreshold
     {0.08f, 0.02f, 0.5f},      // noteHold, seconds
     {-60.0f, -90.0f, -30.0f},  // silenceDb
+    {0.0f, -24.0f, 24.0f},     // inputTrimDb
 }};
 
 }  // namespace

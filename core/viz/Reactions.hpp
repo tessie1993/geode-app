@@ -186,6 +186,9 @@ private:
     ReactSignals signals_;
     std::array<float, kRoutes> acc_{};
     std::array<float, kRoutes> out_{};
+    // The music's absolute reach (core/sound/DriveGain) of the frame last ticked: apply() scales what the audio
+    // adds by it, never the params' base values.
+    float gain_ = 1.0f;
     std::array<bool, kRoutes> high_{};
     std::array<unsigned int, kRoutes> jumpSeed_{};
     // A Follow route on a circular source smooths the source on its circle, before the curve and the

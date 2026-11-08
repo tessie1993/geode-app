@@ -490,7 +490,7 @@ float slotOf(const GeodeSoundTuning& t, int i) {
 
 void testTuningSchema() {
     namespace tuning = geode::sound::tuning;
-    CHECK(tuning::kSlots == 29 && GEODE_SOUND_TUNING_FLOATS == 29, "29 slots, %d", tuning::kSlots);
+    CHECK(tuning::kSlots == 30 && GEODE_SOUND_TUNING_FLOATS == 30, "30 slots, %d", tuning::kSlots);
     struct Old {
         int slot;
         float def, lo, hi;
@@ -507,6 +507,7 @@ void testTuningSchema() {
         {21, 1.0f, 0.0f, 3.0f},    {22, 1.0f, 0.0f, 4.0f},                                // reactivity, speed
         {23, 2.0f, 1.0f, 4.0f},    {24, 2.5f, 1.5f, 4.0f},    {25, 60.0f, 5.0f, 180.0f},   // onset, cut, half-life
         {26, 0.35f, 0.1f, 0.9f},   {27, 0.08f, 0.02f, 0.5f},  {28, -60.0f, -90.0f, -30.0f},  // pitch, hold, silence
+        {29, 0.0f, -24.0f, 24.0f},                                                       // input trim
     };
     CHECK(std::size(old) == static_cast<size_t>(tuning::kSlots), "every slot pinned");
     const GeodeSoundTuning d = tuning::defaults();

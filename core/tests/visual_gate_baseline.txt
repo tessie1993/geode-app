@@ -1,3 +1,0 @@
-# The visual gate's baseline (core/tests/visual_gate.cpp): styles that fail a check today.
-# `<style id> <check>[,<check>]`, checks black, blown, render; `#` starts the reason.
-# A new failure fails CI; fix the style or add it here with a reason, in the same PR.

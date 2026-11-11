@@ -613,6 +613,11 @@ GEODE_API float           geode_pacer_effective_cap(float cap_fps);
 /* One reading: PowerManager's thermal status (< 0 = no thermal API) and its headroom forecast (NaN = none
    this time; the last real one holds a while). Settles the shared tier. */
 GEODE_API void            geode_thermal_push(int platform_status, float headroom);
+
+/* Memory pressure (#854): Android's onTrimMemory level, forwarded as is. Native acts on TRIM_MEMORY_UI_HIDDEN (20)
+   and TRIM_MEMORY_BACKGROUND (40) only and ignores every other level. Every renderer in the process then sheds its
+   spare scenes on its own GL thread at its next frame; what it draws, the layer and the requested style stay. Any thread. */
+GEODE_API void            geode_memory_trim(int android_level);
 /* ── Export planning and clip maths (ADR 0006: core/output, core/signal/timeline; ADR 0003 ports) ──────────
  * Pure functions and plain handles, any thread, no GL. The Kotlin exporters (VideoExporter, LoopRender,
  * LoopExtend, StudioExporter, the Media3 clip effects, AudioTranscoder) call these instead of carrying the

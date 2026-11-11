@@ -4,7 +4,7 @@ import androidx.annotation.OptIn
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
-import dev.geode.playback.PlaybackSession
+import dev.geode.playback.PlaybackEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
  * Settings › Playback › Fade: pause, resume and skip fade out and back in. When to fade, and what to do
  * once a fade-out is heard, is decided here; the ramp itself is native (`geode_dsp_ramp_to`), linear in
  * dB on the samples, so it has no steps (#483). The samples run up to a sink buffer ahead of the speaker,
- * so an action after a fade-out waits the fade plus [PlaybackSession.SINK_LAG_MS], and a resume after
+ * so an action after a fade-out waits the fade plus [PlaybackEngine.sinkLagMs], and a resume after
  * one of these pauses fades back in from the silence it left in that buffer.
  */
 internal class PlaybackFades(
@@ -48,7 +48,7 @@ internal class PlaybackFades(
         lateinit var self: Job
         self =
             scope.launch {
-                delay(durationMs + PlaybackSession.SINK_LAG_MS)
+                delay(durationMs + PlaybackEngine.sinkLagMs())
                 then()
                 // `then()` (skipFaded's fade-in) may have started a new fadeJob; only clear our own.
                 if (fadeJob === self) fadeJob = null

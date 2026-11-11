@@ -36,8 +36,11 @@ class PlaybackSession internal constructor(
      * Where the tap, mic and capture write, and what every surface's sound engine reads: the one native
      * ring every renderer hears, MilkDrop's raw PCM included. Each block carries its source's rate. The
      * ring is freed once nothing holds this object, so a surface still reading it after [release] is safe.
+     * Its size is native: a live renderer reads it at the speaker ([PlaybackEngine.playout]), a sink
+     * buffer and the output's latency behind the tap, and must not be overrun there.
      */
-    val sampleRing = SampleRing(capacityFrames = 1 shl 16, channelCount = 2)
+    val sampleRing =
+        SampleRing(GeodeNative.playoutRingFrames(), channelCount = 2, maxWriteFrames = GeodeNative.playoutRingRunway())
 
     private val prefsFiles = GeodePrefsFiles(context)
 
@@ -68,7 +71,14 @@ class PlaybackSession internal constructor(
         ExoPlayer
             .Builder(
                 context,
-                TapRenderersFactory(context, tap, dsp = listOf(dsp), nativeOutput = { nativeOutput }) { out ->
+                TapRenderersFactory(
+                    context,
+                    tap,
+                    sampleRing,
+                    PlaybackEngine.playout,
+                    dsp = listOf(dsp),
+                    nativeOutput = { nativeOutput },
+                ) { out ->
                     bitPerfect.onOutput(out.sampleRate, out.channelMask, out.encoding)
                 },
             ).setMediaSourceFactory(
@@ -136,6 +146,7 @@ class PlaybackSession internal constructor(
         player.addListener(autoDirector)
         player.addListener(crossfade)
         player.addListener(recorder)
+        GeodeNative.pcmRingSetPlayout(sampleRing.handle, PlaybackEngine.playout)
         dev.geode.audio.AudioBus.soundInput = sampleRing
         // The saved options go on here, not only when the UI attaches: a session the service starts
         // alone (a headset button, Android Auto or System UI resuming playback) has no PlayerSession,
@@ -152,7 +163,7 @@ class PlaybackSession internal constructor(
     /**
      * The UI fade (pause, resume, skip): native ramps to full level or to silence over [ms]. The ramp runs
      * on the samples, which are processed up to a sink buffer ahead of the speaker, so a caller that acts
-     * once the fade is heard (a pause) waits [ms] plus [SINK_LAG_MS].
+     * once the fade is heard (a pause) waits [ms] plus [PlaybackEngine.sinkLagMs].
      */
     fun rampUiFade(
         audible: Boolean,
@@ -202,13 +213,6 @@ class PlaybackSession internal constructor(
     }
 
     companion object {
-        /**
-         * How long a gain ramp that ended on the samples takes to reach the speaker: DefaultAudioSink's PCM
-         * buffer, 250 ms on the usual phone (its minimum). Until the playout clock (#482) says which sample
-         * the speaker is on, a pause after a fade-out waits this long so it never cuts the fade short.
-         */
-        const val SINK_LAG_MS = 250L
-
         private const val TAG = "PlaybackSession"
 
         /** One file, written in order off the main thread; a daemon, like the history writer. */
@@ -220,6 +224,20 @@ class PlaybackSession internal constructor(
 }
 
 object PlaybackEngine {
+    /**
+     * The process's one playout clock (`core/sound/interp/PlayoutClock`): the player's sink reports to it,
+     * and every renderer fed the player's ring reads only up to the sample it says the speaker plays.
+     * Never freed, so a ring or renderer that outlives a session cannot reach a dead one.
+     */
+    val playout: Long by lazy { GeodeNative.playoutCreate() }
+
+    /**
+     * How long, from now, until the newest sample the sink took is heard: the sink's buffer and the
+     * output's latency, as the playout clock measures them. A pause after a fade-out waits this long so
+     * it never cuts the fade short.
+     */
+    fun sinkLagMs(): Long = GeodeNative.playoutLagMs(playout, System.nanoTime()).toLong()
+
     private var app: Context? = null
     private var session: PlaybackSession? = null
     private var uiHolds = 0

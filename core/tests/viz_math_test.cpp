@@ -1038,6 +1038,12 @@ void driveScalesTheMagnitudeOfMotion() {
     check(quiet.state().energyRel < 0.4f * loud.state().energyRel, "the motion field's energy follows the drive");
     check(quiet.state().midRel < 0.4f * loud.state().midRel, "so does the drift's mid clock");
     check(loud.apply(SceneParams{}, false, 1.0f).speed > quiet.apply(SceneParams{}, false, 1.0f).speed, "and the speed it adds");
+    // Speed used to follow the loudness whatever the dial said. It is under the Motion dial like every
+    // other term: at 0 the music leaves the user's Speed alone.
+    SceneParams undriven;
+    undriven.motionAmount = 0.0f;
+    undriven.speed = 1.3f;
+    check(loud.apply(undriven, false, 1.0f).speed == 1.3f && quiet.apply(undriven, false, 1.0f).speed == 1.3f, "Motion at 0: the music does not touch Speed");
     // A steady passage sits on the song's own average: its size, density and trails stay the user's.
     GeodeSoundFrame steady = pad;
     steady.volAtt = steady.bassAtt = steady.midAtt = steady.trebleAtt = 1.0f;

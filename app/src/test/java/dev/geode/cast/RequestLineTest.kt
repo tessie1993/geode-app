@@ -43,6 +43,26 @@ class RequestLineTest {
     }
 
     @Test
+    fun headersAreReadToTheBlankLine() {
+        client.getOutputStream().apply {
+            write("GET /a/seg3.m4s HTTP/1.1\r\nHost: x\r\nOrigin: https://r\r\n\r\nNEXT".toByteArray())
+            flush()
+        }
+        assertEquals(RequestLine.Line("GET /a/seg3.m4s HTTP/1.1"), RequestLineReader.read(accepted, deadlineIn(5_000)))
+        assertEquals('N'.code, accepted.getInputStream().read())
+    }
+
+    @Test
+    fun headersOverTheirCapAreRefused() {
+        client.getOutputStream().apply {
+            write("GET / HTTP/1.1\r\n".toByteArray())
+            repeat(RequestLineReader.MAX_HEADER_BYTES / 64 + 2) { write("X-Pad: ${"p".repeat(56)}\r\n".toByteArray()) }
+            flush()
+        }
+        assertEquals(RequestLine.HeadersTooLarge, RequestLineReader.read(accepted, deadlineIn(5_000)))
+    }
+
+    @Test
     fun lineOverTheCapIsRefused() {
         client.getOutputStream().apply {
             write(ByteArray(RequestLineReader.MAX_LINE_BYTES + 10) { 'a'.code.toByte() })
@@ -55,7 +75,7 @@ class RequestLineTest {
     fun lineExactlyAtTheCapIsKept() {
         val line = "G".repeat(RequestLineReader.MAX_LINE_BYTES)
         client.getOutputStream().apply {
-            write("$line\n".toByteArray())
+            write("$line\n\n".toByteArray())
             flush()
         }
         assertEquals(RequestLine.Line(line), RequestLineReader.read(accepted, deadlineIn(5_000)))

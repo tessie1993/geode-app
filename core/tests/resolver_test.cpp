@@ -26,6 +26,7 @@
 
 #include "signal/Resolver.hpp"
 #include "sound/Harmony.hpp"
+#include "viz/CustomizeMap.hpp"
 #include "viz/Director.hpp"
 #include "viz/MacroBank.hpp"
 #include "viz/MotionField.hpp"
@@ -1346,7 +1347,59 @@ void testDirectorLeavesTheBankAlone() {
     macrobank::setGlobal(macrobank::defaultBank());
 }
 
+// Customize › Look end to end through the chain: every control the map files under Look names schema
+// fields, and moving its first field (within what the safety clamp lets show) moves the resolved value,
+// with the director off and at full weight (base plus modulation: it must never replace the slider).
+void testEveryLookControlReachesTheResolvedParams() {
+    namespace customize = geode::viz::customize;
+    const auto resolved = [](const SceneParams& req, float amount) {
+        Resolver r;
+        EngineSettings s;
+        s.director = {amount, 7};
+        StyleContext style;
+        style.id = &kStyle;
+        style.switched = true;
+        SceneParams out;
+        for (int i = 0; i < 600; ++i) {
+            out = r.step(req, frame(static_cast<float>(i) * kDt), kDt, s, style, nullptr).params;
+            style.switched = false;
+        }
+        return out;
+    };
+    int controls = 0;
+    for (const auto& section : customize::sections()) {
+        if (section.category != customize::Category::Look) continue;
+        for (const char* control : section.controls) {
+            if (control[0] == '@') continue;
+            ++controls;
+            const auto fields = customize::fieldsOf(control);
+            check(!fields.empty(), std::string(control) + ": a Look control with no schema field");
+            if (fields.empty()) continue;
+            const std::string field = fields.front();
+            const int slot = SceneParams::slotOf(field);
+            check(slot >= 0, std::string(control) + ": " + field + " is not in the params schema");
+            if (slot < 0) continue;
+            const auto& spec = SceneParams::schema()[static_cast<size_t>(slot)];
+            const float hi = std::min(spec.max, spec.min + 1.0f + safety::kMaxFlashDepth);
+            SceneParams a;
+            SceneParams b;
+            a.set(field, spec.min + 0.1f * (hi - spec.min));
+            b.set(field, spec.min + 0.9f * (hi - spec.min));
+            for (float amount : {0.0f, 1.0f}) {
+                const SceneParams ra = resolved(a, amount);
+                const SceneParams rb = resolved(b, amount);
+                const bool moved = field == "palette"    ? ra.paletteBase() != rb.paletteBase()
+                                   : field == "palette2" ? ra.palette2Base() != rb.palette2Base()
+                                                         : ra.get(field) != rb.get(field);
+                check(moved, std::string(control) + " does not move " + field + (amount > 0.0f ? " with the director" : ""));
+            }
+        }
+    }
+    check(controls >= 14, "Look has its controls");
+}
+
 int main() {
+    testEveryLookControlReachesTheResolvedParams();
     testOrder();
     testNoColourNarrowingNoFixedReactions();
     testReducedMotionOnce();

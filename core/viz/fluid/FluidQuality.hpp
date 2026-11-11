@@ -38,4 +38,50 @@ inline int effectiveIndex(int userIndex, int autoDowngradeSteps) {
     return std::min(std::clamp(userIndex, 0, kTierCount - 1) + std::max(autoDowngradeSteps, 0), kTierCount - 1);
 }
 
+// "Lower the quality when the phone struggles": the rungs a fluid scene has stepped down. It used to
+// only ever step down, so one hot spell or one janky moment cost the scene its quality for as long
+// as it stayed resident, which in a long session is hours. Now a long run of kept-up frames steps
+// back up one rung, as the thermal governor's measured floor does; a step up that a deficit undoes
+// within the probe doubles the next wait, so a style too heavy for the phone settles instead of flapping.
+struct AutoDowngrade {
+    static constexpr float kRelaxSeconds = 45.0f;
+    static constexpr float kProbeSeconds = 15.0f;
+    static constexpr float kRelaxMaxSeconds = 720.0f;
+
+    int steps = 0;
+    float keptUpSeconds = 0.0f;
+    float relaxSeconds = kRelaxSeconds;
+    float sinceRelaxSeconds = kProbeSeconds;  // at kProbeSeconds: no probe in flight
+
+    void reset() { *this = AutoDowngrade{}; }
+
+    // One frame: `relief` rungs the monitor asks for (0 = none), `keepingUp` whether its window holds the
+    // target. True when the rung changed, so the caller restarts its monitor.
+    bool onFrame(int relief, bool keepingUp, float dt) {
+        if (sinceRelaxSeconds < kProbeSeconds) {
+            sinceRelaxSeconds += dt;
+            if (sinceRelaxSeconds >= kProbeSeconds) relaxSeconds = kRelaxSeconds;
+        }
+        if (relief > 0) {
+            if (sinceRelaxSeconds < kProbeSeconds) {
+                relaxSeconds = std::min(relaxSeconds * 2.0f, kRelaxMaxSeconds);
+                sinceRelaxSeconds = kProbeSeconds;
+            }
+            keptUpSeconds = 0.0f;
+            steps = std::min(steps + relief, kTierCount - 1);
+            return true;
+        }
+        if (steps == 0 || !keepingUp) {
+            keptUpSeconds = 0.0f;
+            return false;
+        }
+        keptUpSeconds += dt;
+        if (keptUpSeconds < relaxSeconds) return false;
+        keptUpSeconds = 0.0f;
+        steps--;
+        sinceRelaxSeconds = 0.0f;
+        return true;
+    }
+};
+
 }  // namespace geode::viz::fluid::quality

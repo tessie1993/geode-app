@@ -237,11 +237,61 @@ private fun QuickSettingsRows(
     onOpenPlaylist: (() -> Unit)?,
     twoColumns: Boolean,
 ) {
+    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    val timer = rememberTimerSource(viz)
+    val left: @Composable () -> Unit = {
+        AutoDirectorRows()
+        TimerRows(viewModel, viz, timer)
+    }
+    val right: @Composable () -> Unit = {
+        ConnectedDisplayRows()
+        TimerPoolRow(viewModel, viz, timer.source, onOpenPlaylist)
+        GlassRows(gui, onGuiChange)
+    }
+    if (twoColumns) {
+        Row(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.L)) {
+            Column(Modifier.weight(1f)) { left() }
+            Column(Modifier.weight(1f)) { right() }
+        }
+    } else {
+        left()
+        right()
+    }
+}
+
+/**
+ * Settings › Visual playback's style timer: the same rows as here, from the same stores, in one
+ * column: the switch, its interval, what it steps through and what Random picks from (or how many
+ * looks the playlist holds).
+ */
+@Composable
+internal fun StyleTimerRows(viewModel: PlayerViewModel) {
+    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    val timer = rememberTimerSource(viz)
+    TimerRows(viewModel, viz, timer)
+    TimerPoolRow(viewModel, viz, timer.source, onOpenPlaylist = null)
+}
+
+/** Auto, the auto-director ([AutoDirectorStore]), and how far it reaches while it is on. */
+@Composable
+internal fun AutoDirectorRows() {
     val context = LocalContext.current
     val director = remember { AutoDirectorStore.get(context) }
     val directorOn by director.enabled.collectAsStateWithLifecycle()
     val reach by director.reach.collectAsStateWithLifecycle()
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    SwitchRow(stringResource(R.string.visuals_qs_auto), checked = directorOn, onCheckedChange = director::setEnabled)
+    if (directorOn) ReachRow(reach, director::setReach)
+}
+
+/** The timer's source as the rows show it, and the user's own pick while the timer is off. */
+private class TimerSourceState(
+    val source: TimerSource,
+    val running: Boolean,
+    val pick: (TimerSource) -> Unit,
+)
+
+@Composable
+private fun rememberTimerSource(viz: VizUiState): TimerSourceState {
     var picked by rememberSaveable { mutableStateOf(if (viz.vizPlaylistEnabled) TimerSource.PLAYLIST else TimerSource.RANDOM) }
     // A mode started elsewhere (Settings, the Now Playing Auto button) wins over the local pick.
     val source =
@@ -250,58 +300,62 @@ private fun QuickSettingsRows(
             viz.randomEnabled -> TimerSource.RANDOM
             else -> picked
         }
-    val running = viz.randomEnabled || viz.vizPlaylistEnabled
-    val timer: @Composable () -> Unit = {
-        SwitchRow(stringResource(R.string.visuals_qs_auto), checked = directorOn, onCheckedChange = director::setEnabled)
-        if (directorOn) ReachRow(reach, director::setReach)
-        SwitchRow(
-            stringResource(R.string.visuals_qs_timer),
-            checked = running,
-            onCheckedChange = { on ->
-                when {
-                    on && source == TimerSource.PLAYLIST -> viewModel.setVizPlaylistEnabled(true)
-                    on -> viewModel.setRandomEnabled(true)
-                    viz.vizPlaylistEnabled -> viewModel.setVizPlaylistEnabled(false)
-                    else -> viewModel.setRandomEnabled(false)
-                }
-            },
-        )
-        val interval = if (source == TimerSource.PLAYLIST) viz.vizPlaylistIntervalSec else viz.randomIntervalSec
-        SliderRow(
-            label = stringResource(R.string.visuals_qs_every),
-            valueText = stringResource(R.string.visuals_qs_seconds, interval),
-            value = interval.toFloat(),
-            valueRange = INTERVAL_RANGE,
-            onValueChange = {
-                val seconds = it.roundToInt()
-                if (source == TimerSource.PLAYLIST) viewModel.setVizPlaylistInterval(seconds) else viewModel.setRandomInterval(seconds)
-            },
-        )
-        SourceRow(source) { next ->
-            picked = next
-            // Switching while the timer runs moves it to the other mode; the controller stops the first.
-            if (running && next != source) {
-                if (next == TimerSource.PLAYLIST) viewModel.setVizPlaylistEnabled(true) else viewModel.setRandomEnabled(true)
+    return TimerSourceState(source, viz.randomEnabled || viz.vizPlaylistEnabled) { picked = it }
+}
+
+/** The timer switch, its interval and what it steps through. */
+@Composable
+private fun TimerRows(
+    viewModel: PlayerViewModel,
+    viz: VizUiState,
+    timer: TimerSourceState,
+) {
+    val source = timer.source
+    val running = timer.running
+    SwitchRow(
+        stringResource(R.string.visuals_qs_timer),
+        checked = running,
+        onCheckedChange = { on ->
+            when {
+                on && source == TimerSource.PLAYLIST -> viewModel.setVizPlaylistEnabled(true)
+                on -> viewModel.setRandomEnabled(true)
+                viz.vizPlaylistEnabled -> viewModel.setVizPlaylistEnabled(false)
+                else -> viewModel.setRandomEnabled(false)
             }
+        },
+    )
+    val interval = if (source == TimerSource.PLAYLIST) viz.vizPlaylistIntervalSec else viz.randomIntervalSec
+    SliderRow(
+        label = stringResource(R.string.visuals_qs_every),
+        valueText = stringResource(R.string.visuals_qs_seconds, interval),
+        value = interval.toFloat(),
+        valueRange = INTERVAL_RANGE,
+        onValueChange = {
+            val seconds = it.roundToInt()
+            if (source == TimerSource.PLAYLIST) viewModel.setVizPlaylistInterval(seconds) else viewModel.setRandomInterval(seconds)
+        },
+    )
+    SourceRow(source) { next ->
+        timer.pick(next)
+        // Switching while the timer runs moves it to the other mode; the controller stops the first.
+        if (running && next != source) {
+            if (next == TimerSource.PLAYLIST) viewModel.setVizPlaylistEnabled(true) else viewModel.setRandomEnabled(true)
         }
     }
-    val rest: @Composable () -> Unit = {
-        ConnectedDisplayRows()
-        if (source == TimerSource.RANDOM) {
-            RandomPicksRow(viz, viewModel)
-        } else {
-            PlaylistRow(viz.vizPlaylist.size, onOpenPlaylist)
-        }
-        GlassRows(gui, onGuiChange)
-    }
-    if (twoColumns) {
-        Row(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.L)) {
-            Column(Modifier.weight(1f)) { timer() }
-            Column(Modifier.weight(1f)) { rest() }
-        }
+}
+
+/** What the timer draws from: Random's picks, or the visual playlist. */
+@Composable
+private fun TimerPoolRow(
+    viewModel: PlayerViewModel,
+    viz: VizUiState,
+    source: TimerSource,
+    onOpenPlaylist: (() -> Unit)?,
+) {
+    if (source == TimerSource.RANDOM) {
+        RandomPicksRow(viz, viewModel)
     } else {
-        timer()
-        rest()
+        PlaylistRow(viz.vizPlaylist.size, onOpenPlaylist)
     }
 }
 

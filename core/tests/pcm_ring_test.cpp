@@ -8,7 +8,8 @@
 //
 // Build and run (one command):
 //   g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/pcm_ring_test.cpp
-//   core/audio/ingest/PcmRing.cpp core/api/geode_ingest_api.cpp -o pcm_ring_test && ./pcm_ring_test
+//   core/audio/ingest/PcmRing.cpp core/audio/ingest/AiffReader.cpp core/audio/ingest/TrackFeed.cpp
+//   core/api/geode_ingest_api.cpp -o pcm_ring_test && ./pcm_ring_test
 #include <atomic>
 #include <cstdint>
 #include <cstdio>

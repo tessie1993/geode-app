@@ -6,7 +6,9 @@
 
 #include "api/geode_api.h"
 #include "api/geode_ingest_handles.hpp"
+#include "audio/ingest/AiffReader.hpp"
 #include "audio/ingest/PcmRing.hpp"
+#include "audio/ingest/TrackFeed.hpp"
 #include "sound/Silence.hpp"
 
 namespace {
@@ -32,6 +34,14 @@ int16_t roundToS16(float v) {
 }
 
 }  // namespace
+
+struct geode_aiff {
+    std::unique_ptr<geode::audio::ingest::AiffReader> reader;
+};
+
+struct geode_track_feed {
+    geode::audio::ingest::TrackFeed feed;
+};
 
 struct geode_pcm_cursor {
     explicit geode_pcm_cursor(std::shared_ptr<const PcmRing> shared, int max_frames)
@@ -157,6 +167,77 @@ int geode_pcm_cursor_take_s16(geode_pcm_cursor* c, int16_t* out, int capacity_fr
 
 void geode_pcm_cursor_reset(geode_pcm_cursor* c) {
     if (c) c->cursor.reset();
+}
+
+geode_aiff* geode_aiff_open_fd(int fd, int64_t start_offset, int64_t length) {
+    using geode::audio::ingest::AiffReader;
+    using geode::audio::ingest::FdSource;
+    try {
+        auto reader = AiffReader::open(std::make_unique<FdSource>(fd, start_offset, length));
+        return reader ? new geode_aiff{std::move(reader)} : nullptr;
+    } catch (...) {
+        return nullptr;
+    }
+}
+
+void geode_aiff_close(geode_aiff* a) {
+    std::unique_ptr<geode_aiff> owned(a);
+}
+
+int geode_aiff_channels(const geode_aiff* a) { return a ? a->reader->channels() : 0; }
+
+int geode_aiff_sample_rate(const geode_aiff* a) { return a ? a->reader->sampleRate() : 0; }
+
+int64_t geode_aiff_total_frames(const geode_aiff* a) { return a ? a->reader->totalFrames() : 0; }
+
+float geode_aiff_progress(const geode_aiff* a) { return a ? a->reader->progress() : 0.0f; }
+
+int geode_aiff_read_s16(geode_aiff* a, int16_t* out, int capacity) {
+    try {
+        return a ? a->reader->readS16(out, capacity) : -1;
+    } catch (...) {
+        return -1;
+    }
+}
+
+geode_track_feed* geode_track_feed_create(int64_t start_ms) {
+    try {
+        return new geode_track_feed{geode::audio::ingest::TrackFeed(start_ms)};
+    } catch (...) {
+        return nullptr;
+    }
+}
+
+void geode_track_feed_destroy(geode_track_feed* f) {
+    std::unique_ptr<geode_track_feed> owned(f);
+}
+
+void geode_track_feed_push_decoded(geode_track_feed* f, const void* data, size_t bytes, int is_float, int channels,
+                                   int sample_rate, int64_t pts_us) {
+    if (!f) return;
+    try {
+        f->feed.pushDecoded(static_cast<const uint8_t*>(data), bytes, is_float != 0, channels, sample_rate, pts_us);
+    } catch (...) {
+    }
+}
+
+int geode_track_feed_push_aiff(geode_track_feed* f, geode_aiff* a) {
+    if (!f || !a) return 0;
+    try {
+        return f->feed.pushAiff(*a->reader) ? 1 : 0;
+    } catch (...) {
+        return 0;
+    }
+}
+
+int geode_track_feed_has_rate(const geode_track_feed* f) { return f && f->feed.hasRate() ? 1 : 0; }
+
+void geode_track_feed_target_ms(geode_track_feed* f, int64_t end_ms) {
+    if (f) f->feed.setTargetMs(end_ms);
+}
+
+int geode_track_feed_deliver(geode_track_feed* f, geode_track_sink sink, void* context) {
+    return f && f->feed.deliver(sink, context) ? 1 : 0;
 }
 
 }  // extern "C"

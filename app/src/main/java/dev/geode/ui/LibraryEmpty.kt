@@ -113,7 +113,7 @@ internal fun LibraryEmpty(
 
 /**
  * [LibraryEmpty] wired to the app: Rescan re-asks MediaStore (and re-walks any chosen folders),
- * the folder button opens Settings › Folders, and listening starts the capture the Player's quick
+ * the folder button opens Settings › Library, and listening starts the capture the Player's quick
  * actions start (same permission and consent steps) and then opens Visuals, where the sound is.
  */
 @Composable

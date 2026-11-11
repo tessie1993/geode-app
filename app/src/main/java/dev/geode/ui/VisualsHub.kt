@@ -115,7 +115,7 @@ internal fun VisualsHub(
     onRequestedPageShown: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    // Read once per visit, off the main thread; Settings › Behaviour is another screen, so a change
+    // Read once per visit, off the main thread; Settings is another screen, so a change
     // there is always read on the way back.
     val behaviour by produceState(BehaviourPrefs()) {
         value = withContext(Dispatchers.IO) { BehaviourStore(GeodePrefsFiles(context).general).load() }
@@ -197,7 +197,7 @@ private fun VisualsHubContent(
             Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
         }
     }
-    // Settings › Behaviour › Keep the screen on in Visuals: held while this screen is composed (#337).
+    // Settings › Displays & casting › Keep the screen on in Visuals: held while this is composed (#337).
     KeepScreenOnWhileShown(behaviour.keepScreenOnVisuals)
     // The hidden gestures (EasterEggs.kt): shake to screenshot, tap along for new Music moments.
     val visualsViewModel: VisualsViewModel = geodeViewModel()
@@ -205,6 +205,8 @@ private fun VisualsHubContent(
     val tapAlong = rememberTapAlong(visualizerView, visualsViewModel)
     val studioViewModel: StudioViewModel = geodeViewModel()
     val record by studioViewModel.recordState.collectAsStateWithLifecycle()
+    val settingsViewModel: SettingsViewModel = geodeViewModel()
+    val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     // Why a recording ended or was not kept (too short, the maximum length, a failure).
     LaunchedEffect(record.note) { record.note?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show() } }
     var macros by rememberSaveable { mutableStateOf(false) }
@@ -314,6 +316,7 @@ private fun VisualsHubContent(
             // The halves of the visual left in view above the sheet; the whole height beside the panel.
             tapSplitPx = { if (side) fullPx / 2f else (fullPx - heightPx.value - reservePx) / 2f },
             onTapDown = tapAlong,
+            onPinch = viewModel::nudgeTransform.takeIf { gui.touchTransform },
         )
         // What the glass blurs: the stage icons, never the GL surface (GlassBlur.kt says why).
         Box(Modifier.matchParentSize().glassBackdrop(backdrop)) {
@@ -428,10 +431,12 @@ private fun VisualsHubContent(
         CloseOnBack(enabled = !nav.sheetShown, onBack = nav::showSheet)
         MacrosDrawer(
             visible = macros,
+            sceneId = viz.sceneId,
             onDismiss = { macros = false },
             onEdit = {
                 macros = false
                 nav.openTab(VisualsPage.CUSTOMIZE)
+                nav.openCustomizeCard(CustomizeCategory.QUICK_KNOBS.name)
             },
             modifier = Modifier.fillMaxSize(),
         )

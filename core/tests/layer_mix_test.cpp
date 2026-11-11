@@ -7,7 +7,8 @@
 //
 // Build and run (one command):
 //   g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/layer_mix_test.cpp
-//   core/audio/ingest/LayerMix.cpp core/audio/ingest/PcmRing.cpp core/api/geode_ingest_api.cpp
+//   core/audio/ingest/LayerMix.cpp core/audio/ingest/PcmRing.cpp core/audio/ingest/AiffReader.cpp
+//   core/audio/ingest/TrackFeed.cpp core/api/geode_ingest_api.cpp
 //   -o layer_mix_test && ./layer_mix_test
 #include <cmath>
 #include <cstdio>

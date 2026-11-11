@@ -1,6 +1,8 @@
 package dev.geode.data
 
 import android.content.SharedPreferences
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import kotlin.math.roundToInt
 
 data class PlayerPrefs(
@@ -126,7 +128,7 @@ class PlayerPrefsStore(
             .apply()
     }
 
-    private companion object {
+    internal companion object {
         const val KEY_SLEEP_FINISH = "sleep_finish_track"
         const val KEY_FADE_MS = "fade_ms"
         const val KEY_SHUFFLE = "shuffle"
@@ -149,6 +151,15 @@ class PlayerPrefsStore(
 
         /** Not the removed native player's `native_engine`: this only swaps the output under ExoPlayer. */
         const val KEY_NATIVE_OUTPUT = "oboe_output"
+
+        val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.PLAYER) {
+                portable(PrefType.BOOLEAN, KEY_SHUFFLE, KEY_SKIP_SILENCE, KEY_NOISY, KEY_SCREEN_ON, KEY_AUTO_RESUME, KEY_SLEEP_FINISH)
+                portable(PrefType.BOOLEAN, KEY_REPLAYGAIN_CLIP_GUARD, KEY_RESUME_LONG, KEY_BIT_PERFECT, KEY_NATIVE_OUTPUT)
+                portable(PrefType.INT, KEY_REPEAT, KEY_SLEEP_MIN, KEY_FADE_MS, KEY_REPLAYGAIN_MODE, KEY_CROSSFADE_MS)
+                portable(PrefType.FLOAT, KEY_SPEED, KEY_PITCH, KEY_REPLAYGAIN_PREAMP)
+                retired(null, "native_engine", "crossfade_ms", "crossfade_curve", "gapless")
+            }
     }
 }
 
@@ -180,5 +191,10 @@ class BookmarkStore(
         const val LONG_TRACK_MS: Long = 20L * 60_000L
         const val EDGE_MS: Long = 10_000L
         private const val PREFIX = "bookmark:"
+
+        internal val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.PLAYER) {
+                portablePrefix(PrefType.LONG, PREFIX)
+            }
     }
 }

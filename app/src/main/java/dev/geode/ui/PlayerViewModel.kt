@@ -219,6 +219,12 @@ class PlayerViewModel
             decay: Float,
         ) = session.visual.setReactivity(attack, decay)
 
+        /** Settings › Gestures & controls › Touch › Pinch and twist: a pinch's factor on Zoom, a twist's degrees on Rotation. */
+        fun nudgeTransform(
+            zoomFactor: Float,
+            degrees: Float,
+        ) = session.visual.nudgeTransform(zoomFactor, degrees)
+
         fun reportShaderError(error: String?) = session.visual.reportShaderError(error)
 
         fun reportLiquidMode(mode: Int) = session.reportLiquidMode(mode)

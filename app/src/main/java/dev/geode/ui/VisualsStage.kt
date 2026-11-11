@@ -63,12 +63,13 @@ import kotlin.math.roundToInt
 
 /**
  * The stage: the live visual, full screen, and the gestures on it ([visualGestures],
- * ui/VisualGestures.kt), each doing what Settings › Behaviour's gesture map gives it
+ * ui/VisualGestures.kt), each doing what Settings › Gestures & controls' map gives it
  * ([BehaviourPrefs.actionFor]). A swipe that starts in the system's gesture strips is left to
  * Android (back, home, the shade), and TalkBack gets every gesture as a custom action.
  *
  * [tapSplitPx] is where a tap stops counting as the top of the visual (quick settings) and starts
- * counting as the bottom (the mini player): the middle of what the options leave in view.
+ * counting as the bottom (the mini player): the middle of what the options leave in view. [onPinch]
+ * is Settings › Gestures & controls › Touch's pinch and twist (null while it is off).
  */
 @Composable
 internal fun BoxScope.VisualsStage(
@@ -78,6 +79,7 @@ internal fun BoxScope.VisualsStage(
     recording: Boolean,
     tapSplitPx: () -> Float,
     onTapDown: (Long) -> Unit,
+    onPinch: ((zoomFactor: Float, degrees: Float) -> Unit)?,
 ) {
     // The visual itself is not drawn here: the shell hosts the one VisualizerView beneath every
     // screen (VisualizerCanvasHost) and shows it through this transparent stage.
@@ -92,6 +94,7 @@ internal fun BoxScope.VisualsStage(
                 holdArmed = !(recording && behaviour.actionFor(CanvasGesture.LONG_PRESS) == GestureAction.RECORD),
                 onGesture = { gesture, step -> actions.run(behaviour.actionFor(gesture), step) },
                 onTouchPoints = visualizerView.visualizerRenderer::submitTouchPoints,
+                onPinch = onPinch,
                 a11yActions = rememberVisualA11yActions(behaviour::actionFor, actions, recording),
                 onTapDown = onTapDown,
             ),

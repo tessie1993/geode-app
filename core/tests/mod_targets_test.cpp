@@ -25,9 +25,11 @@ int main(int argc, char** argv) {
         double idx = -1;
         check(r.size() >= 6 && hostcheck::parseNum(r[1], idx) && static_cast<int>(idx) == expected, "target indices run 0.. in order");
         ++expected;
-        double lo = 0, hi = 0;
+        // target|<index>|<name>|<scope>|<chained slot, -1 for none>|<flag 0 or 1>
+        double slot = 0, flag = 0;
         if (r.size() >= 6) {
-            check(hostcheck::parseNum(r[4], lo) && hostcheck::parseNum(r[5], hi) && lo <= hi, "target " + r[2] + " has a valid range");
+            check(hostcheck::parseNum(r[4], slot) && slot >= -1, "target " + r[2] + " has a chained slot >= -1");
+            check(hostcheck::parseNum(r[5], flag) && (flag == 0 || flag == 1), "target " + r[2] + " has a 0/1 flag");
         }
     }
     // One polarity row per source: the natural polarity each source starts on.

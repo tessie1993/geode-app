@@ -275,7 +275,8 @@ class ThemeStore(
                 retired(PrefType.BOOLEAN, KEY_WHITE_FONT)
                 // Read once to fold an old install's "tour ended" into the chapters, then removed.
                 retired(PrefType.BOOLEAN, KEY_TUTORIAL_SEEN, backup = BackupClass.STATE)
-                retired(PrefType.INT, LEGACY_KEY_MORPH_BEATS)
+                // The morph length in beats: no longer read (the tempo is not a setting), still in old installs' files.
+                retired(PrefType.INT, "morph_beats")
                 retired(null, KEY, KEY_DIM, KEY_FOLLOW_DARK, KEY_CLEAR_VIZ_MENU, KEY_TUTORIAL_ON_FIRST_RUN, KEY_REDUCED_MOTION)
             }
     }

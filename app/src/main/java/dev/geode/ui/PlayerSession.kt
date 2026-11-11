@@ -224,10 +224,11 @@ class PlayerSession internal constructor(
     private val visual: VisualSettingsController =
         VisualSettingsController(
             vizStateStore,
+            scope,
             object : VisualSettingsController.Host {
                 override val guiPrefs: GuiPrefs get() = settings.guiPrefs.value
 
-                override fun milkPathFor(preset: Preset): String? = presetLibrary.milkPresetPathFor(preset)
+                override suspend fun milkPathFor(preset: Preset): String? = presetLibrary.milkPresetPathFor(preset)
             },
         )
 

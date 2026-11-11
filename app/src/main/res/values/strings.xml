@@ -569,10 +569,6 @@
     <string name="export_segment">Segment</string>
     <string name="export_segment_hint">Drag to pick at least %1$d second of the track. Anything shorter renders the whole thing instead.</string>
     <string name="export_segment_summary">Renders %1$s–%2$s (%3$s). The clip starts at 0:00 in the file, and the visuals are the ones from that part of the track.</string>
-    <string name="export_group_performance">Performance</string>
-    <string name="export_live_settings">Live settings</string>
-    <!-- The name a recorded performance take gets when none is typed. -->
-    <string name="take_default_name">Take %1$d</string>
     <string name="export_4k_fallback">4K depends on your device\'s encoder; it falls back automatically if unsupported.</string>
     <string name="export_render_to_folder">Render to chosen folder…</string>
     <string name="export_cancel">Cancel export</string>
@@ -734,7 +730,7 @@
     <string name="behavior_touch_smear_hint">Drag on the fullscreen visualizer to push the image around: the drag raises the surface ahead of your finger and dips it behind, and whatever is on screen bends through it. On the Water style it stirs the pool itself and paints into it.</string>
     <string name="behavior_smear_strength">"Smear strength  %1$d%%"</string>
     <string name="behavior_touch_transform">Pinch and twist the canvas</string>
-    <string name="behavior_touch_transform_hint">Two fingers on the fullscreen visualizer: pinch moves the Zoom slider, twist moves Rotation. They are the same controls the Customize panel shows, so a gesture is saved into presets and takes — and undone by dragging the slider back.</string>
+    <string name="behavior_touch_transform_hint">Two fingers on the fullscreen visualizer: pinch moves the Zoom slider, twist moves Rotation. They are the same controls the Customize panel shows, so a gesture is saved into presets — and undone by dragging the slider back.</string>
     <string name="behavior_display_use">Use a connected display</string>
     <string name="behavior_display_connected">The visual moves there at that screen\'s own resolution and the phone keeps the controls. Both screens stay on while it shows; it pauses when you leave the app.</string>
     <string name="behavior_display_none">Nothing connected. Plug in HDMI or USB-C, or connect a wireless display, and the visual can move to that screen while the phone keeps the controls.</string>
@@ -995,7 +991,7 @@
     <string name="visuals_gesture_next_look">Next look</string>
     <string name="visuals_gesture_previous_look">Previous look</string>
     <string name="visuals_gesture_macros">Macros</string>
-    <string name="visuals_gesture_record">Record a take</string>
+    <string name="visuals_gesture_record">Record a video</string>
     <string name="visuals_gesture_randomize">Randomize everything</string>
     <string name="visuals_gesture_touch_play">Stir the visual</string>
     <string name="visuals_gesture_play_pause">Play or pause</string>
@@ -1025,7 +1021,7 @@
     <string name="settings_group_export">Export</string>
     <string name="settings_group_export_summary">Recording quality and length; renders live in Studio</string>
     <string name="settings_section_record">Record</string>
-    <string name="record_hint">A hold on the visual records a take, which is saved as a video. These rows set that video.</string>
+    <string name="record_hint">A hold on the visual records what it shows and hears, until you stop. These rows set that video.</string>
     <string name="record_resolution">Resolution</string>
     <string name="record_fps">%1$d fps</string>
     <string name="record_max_length">Maximum length</string>
@@ -1033,9 +1029,9 @@
     <string name="record_length_seconds">%1$d s</string>
     <string name="record_length_minutes">%1$d min</string>
     <string name="record_size_per_minute">About %1$s for each minute recorded.</string>
-    <string name="record_size_at_most">Recording stops there. A take is about %1$s at most.</string>
-    <string name="record_size_lowered">Recording stops there. A take is about %1$s at most; the quality is lowered to keep a take this long under 4 GB.</string>
-    <string name="record_free_cap">Without Pro a take\'s video is its first minute, with the watermark.</string>
+    <string name="record_size_at_most">Recording stops there. A recording is about %1$s at most.</string>
+    <string name="record_size_lowered">Recording stops there. A recording is about %1$s at most; the quality is lowered to keep one this long under 4 GB.</string>
+    <string name="record_free_cap">In the trial a recording stops after a minute, with the watermark.</string>
     <string name="record_stopped_at_max">Recording stopped at the maximum length (%1$s) and was saved</string>
     <string name="settings_group_help">Tutorials &amp; help</string>
     <string name="settings_group_help_summary">Replay the tour and read how things work</string>

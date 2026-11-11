@@ -42,13 +42,6 @@ class RecordPrefsStoreTest {
         assertEquals(0, store(values).maxLengthSec())
     }
 
-    @Test
-    fun `a take keeps the Custom ratio, codec and folder and takes the Record size and rate`() {
-        val folder = custom.copy(saveTo = SaveTarget.Folder("content://tree/videos"), loopSafe = true)
-        val applied = RecordPrefs(ExportQuality.HD720, 25, maxLengthSec = 30).applyTo(folder)
-        assertEquals(folder.copy(quality = ExportQuality.HD720, fps = 25), applied)
-    }
-
     /** In-memory [SharedPreferences] over [values]: the platform one is a stub in local unit tests. */
     private fun mapPrefs(values: MutableMap<String, Any?>): SharedPreferences {
         val loader = javaClass.classLoader

@@ -158,6 +158,11 @@ public:
     // Told, on the GL thread inside beginFrame, each scene the style schedule switches to, before this frame's
     // params resolve. geode_viz uses it to re-deal the reaction DNA to the style now playing (#352).
     void setScheduledSceneHook(std::function<void(const std::string&)> hook) { scheduledSceneHook_ = std::move(hook); }
+    // Told, on the GL thread inside render, that targetFbo now holds the finished visual (composite and edge
+    // glow) at width x height, before the UI blur frosts part of it. Record copies the frame from here.
+    void setCompositeHook(std::function<void(GLuint, int, int)> hook) { compositeHook_ = std::move(hook); }
+    int width() const { return width_; }
+    int height() const { return height_; }
     void warmTransition(const std::string& id);
     void cut();
     void render(double timeSeconds, GLuint targetFbo);
@@ -381,6 +386,7 @@ private:
     std::optional<StyleSchedule> styleScheduleRequest_;
     StyleSchedule styleSchedule_;
     std::function<void(const std::string&)> scheduledSceneHook_;
+    std::function<void(GLuint, int, int)> compositeHook_;
     bool milkReloadRequested_ = false;
     std::string milkTextureDir_;
     bool milkTextureDirDirty_ = false;

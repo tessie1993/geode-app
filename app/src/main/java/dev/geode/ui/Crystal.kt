@@ -169,8 +169,10 @@ fun Modifier.crystalPanel(
 /**
  * The app's one live [VisualizerView], hosted once by the shell (`AppRoot`) for every screen and
  * laid out at [bounds] (the Visuals screen's, in root pixels), so a tab switch never detaches it.
- * Off Visuals ([shown] false) it is hidden, `INVISIBLE`: SurfaceView gives its surface back,
- * GLSurfaceView keeps its GL thread and EGL context, and the view stops its own pacer and gyro.
+ * Off Visuals ([shown] false) it is hidden with alpha 0, not `INVISIBLE` (#852): an invisible
+ * SurfaceView gives its surface back, and showing it again is a `surfaceChanged` that parks the
+ * main thread until the GL thread has drawn a frame. At alpha 0 the surface and the GL thread
+ * and EGL context all stay; the view stops its own pacer and gyro (see `VisualizerView.setAlpha`).
  *
  * It used to be composed inside Visuals, so leaving Visuals removed it from the hierarchy: a
  * main-thread wait of up to 200 ms for the scene release, a GL thread join, and coming back a
@@ -208,6 +210,6 @@ fun VisualizerCanvasHost(
                 val placeable = measurable.measure(constraints.copy(minWidth = w, maxWidth = w, minHeight = h, maxHeight = h))
                 layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(r.left, r.top) }
             },
-        update = { it.visibility = if (visible) android.view.View.VISIBLE else android.view.View.INVISIBLE },
+        update = { it.alpha = if (visible) 1f else 0f },
     )
 }

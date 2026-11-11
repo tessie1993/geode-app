@@ -15,7 +15,7 @@ class LookApplierTest {
     private class FakeTarget : LookTarget {
         val calls = mutableListOf<String>()
         var knows = true
-        var params: SceneParams? = null
+        var seenParams: SceneParams? = null
         var reducedMotion: Boolean? = null
         var transition: Pair<String, Long>? = null
 
@@ -26,7 +26,7 @@ class LookApplierTest {
 
         override fun setParams(p: SceneParams) {
             calls += "params"
-            params = p
+            seenParams = p
         }
 
         override fun setLfoConfigs(configs: List<LfoConfig>) {
@@ -111,7 +111,7 @@ class LookApplierTest {
         target.calls.clear()
         applier.apply(look.copy(params = look.params.copy(reactSeed = 7)), target)
         assertEquals(listOf("params"), target.calls)
-        assertEquals(7, target.params?.reactSeed)
+        assertEquals(7, target.seenParams?.reactSeed)
     }
 
     @Test
@@ -150,7 +150,7 @@ class LookApplierTest {
 
         val target = FakeTarget()
         LookApplier().apply(pinned, target)
-        assertSame(before, target.params)
+        assertSame(before, target.seenParams)
         assertEquals(false, target.reducedMotion)
         assertEquals(2, source.current().params.reactSeed)
     }

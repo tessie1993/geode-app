@@ -627,6 +627,7 @@ class PlayerSession internal constructor(
         pendingUnlockSceneId = null
         if (allowsStyle(sceneId)) {
             visual.selectScene(sceneId)
+            autoVisuals.noteHandPick()
         } else {
             // Kept so that buying Pro from this paywall ends on the style that asked for it.
             pendingUnlockSceneId = sceneId
@@ -669,7 +670,12 @@ class PlayerSession internal constructor(
 
     fun applyPreset(preset: Preset) {
         pendingUnlockSceneId = null
-        if (allowsStyle(preset.sceneId)) visual.applyPreset(preset) else onStyleLocked()
+        if (allowsStyle(preset.sceneId)) {
+            visual.applyPreset(preset)
+            autoVisuals.noteHandPick()
+        } else {
+            onStyleLocked()
+        }
     }
 
     /**

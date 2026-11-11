@@ -42,6 +42,9 @@ internal class AutoVisualsController(
 
     private var cachedMilkFiles: List<MilkFile> = emptyList()
 
+    /** Whether [cachedMilkFiles] was asked for; Auto's switches come back from the prefs, not a toggle. */
+    private var milkListed = false
+
     /** The style and params as Auto last left them; a difference at the next moment is the user's hand. */
     private var leftAs: Pair<String, SceneParams>? = null
 
@@ -58,6 +61,17 @@ internal class AutoVisualsController(
             }
             field = value
         }
+
+    /**
+     * The user picked a style, a preset or a .milk by hand: Auto's wait starts over, as MilkDrop's does
+     * on any load, so the timer does not replace the pick a moment later and a .milk's `progress` runs
+     * over the wait that now applies to it.
+     */
+    fun noteHandPick() {
+        val now = android.os.SystemClock.elapsedRealtime()
+        GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_PLAYLIST, now)
+        GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_RANDOM, now)
+    }
 
     /** Auto changes nothing now: Customize is open or nothing plays. */
     private val holding get() = editing || !host.isPlaying
@@ -187,6 +201,7 @@ internal class AutoVisualsController(
     }
 
     private fun refreshMilkCache() {
+        milkListed = true
         host.milkFilesAsync { cachedMilkFiles = it }
     }
 
@@ -211,6 +226,8 @@ internal class AutoVisualsController(
 
     fun advanceRandomMode() {
         val s = host.vizState.value
+        // "MilkDrop presets" restored on at start draws from the list too, not only after a toggle.
+        if (s.randomIncludeMilk && !milkListed) refreshMilkCache()
         val running = s.randomEnabled && !holding
         val now = android.os.SystemClock.elapsedRealtime()
         if (GeodeNative.autoTimerDue(GeodeNative.AUTO_TIMER_RANDOM, now, s.randomIntervalSec, running)) randomStepNow()

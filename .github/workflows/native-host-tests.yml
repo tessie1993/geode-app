@@ -363,3 +363,18 @@ jobs:
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/sound_rate_test.cpp core/sound/*.cpp core/output/FrameClock.cpp -o sound_rate_test
           ./sound_rate_test
+
+      # A small golden vector: the whole sound frame of a fixed synthetic song at six instants, within 1e-4.
+      - name: Sound golden vector
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/sound_golden_test.cpp core/sound/*.cpp -o sound_golden_test
+          ./sound_golden_test core/tests/sound_golden.txt
+
+      # The accuracy bench's smoke run (tools/sound_bench): a few synthetic pieces scored for tempo, beat, meter
+      # and key. It measures and exits 0; this only keeps it building and running.
+      - name: Sound accuracy bench (smoke)
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O2 -Wall -Wextra -Werror -Icore tools/sound_bench/sound_bench.cpp core/sound/*.cpp -o sound_bench
+          ./sound_bench --quick

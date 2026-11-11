@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "sound/FilterBank.hpp"
+#include "sound/Decimate.hpp"
 #include "sound/Emotion.hpp"
 #include "sound/Fft.hpp"
 #include "sound/Form.hpp"
@@ -56,11 +57,15 @@ class SoundEngine {
 public:
     explicit SoundEngine(int sampleRateHz);
 
-    // About 40 ms of audio at any rate: 2048 at 44.1/48 kHz, 4096 at 88.2/96, 8192 at 176.4/192.
+    // About 40 ms of audio at the rate analysed: 2048 at 44.1/48 kHz.
     static int fftSizeFor(int sampleRateHz);
+    // The rate the analysis runs at: the input's, halved while it is 88.2 kHz or more (HalfBand), so
+    // 88.2/96 and 176.4/192 kHz are analysed at 44.1/48 kHz.
+    static int analysisRateFor(int sampleRateHz);
     static GeodeSoundTuning defaultTuning();
 
-    int sampleRateHz() const { return sampleRateHz_; }
+    // The rate written to write(), as constructed (at least 8 kHz).
+    int sampleRateHz() const { return inputRateHz_; }
 
     // Interleaved float PCM; mono feeds both channels, channels past the second are ignored.
     void write(const float* interleaved, int frames, int channels);
@@ -202,7 +207,9 @@ private:
     void rewarm();
 
     // Configuration, fixed after construction.
-    int sampleRateHz_;
+    int inputRateHz_;
+    int halvings_;     // HalfBand stages between write() and the analysis
+    int sampleRateHz_;  // the analysis rate
     int n_;
     float binHz_;
     GeodeSoundTuning tuning_;
@@ -230,6 +237,7 @@ private:
     bool starved_ = false;  // nothing written for a while: the window reads as silence, not a frozen loop
     LufsMeter meter_;          // absolute loudness and the one silence gate
     float trimGain_ = 1.0f;    // the input trim, linear: analysis only
+    std::array<std::array<HalfBand, 2>, 3> decimate_{};  // per halving, per channel
     float dcR_ = 0.0f;         // the DC blocker's pole, from the sample rate
     std::array<float, 2> dcX_{};  // its last input and output, per channel
     std::array<float, 2> dcY_{};

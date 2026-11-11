@@ -8,6 +8,7 @@
 //   g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/track_feed_test.cpp
 //     core/audio/ingest/AiffReader.cpp core/audio/ingest/TrackFeed.cpp core/audio/ingest/PcmRing.cpp
 //     core/api/geode_ingest_api.cpp -o track_feed_test && ./track_feed_test
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -252,9 +253,11 @@ void fdSource() {
     const int fd = mkstemp(path);
     check(fd >= 0, "temp file");
     if (fd < 0) return;
-    std::vector<uint8_t> padded(7, 0xAB);  // an asset's lead-in before the file's span
-    padded.insert(padded.end(), bytes.begin(), bytes.end());
-    padded.insert(padded.end(), 5, 0xCD);  // and bytes after it
+    // An asset's lead-in before the file's span, and bytes after it. Sized once: GCC 15's
+    // -Warray-bounds misreads a small vector grown by insert() as a write past its first buffer.
+    std::vector<uint8_t> padded(7 + bytes.size() + 5, 0xCD);
+    std::fill_n(padded.begin(), 7, uint8_t{0xAB});
+    std::copy(bytes.begin(), bytes.end(), padded.begin() + 7);
     check(write(fd, padded.data(), padded.size()) == static_cast<ssize_t>(padded.size()), "write temp file");
     lseek(fd, 0, SEEK_SET);
     geode_aiff* h = geode_aiff_open_fd(fd, 7, static_cast<int64_t>(bytes.size()));

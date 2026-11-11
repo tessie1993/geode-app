@@ -298,7 +298,9 @@ void crossfadeFollowsSpeed() {
     const auto a = run(d, 2 * quarter);  // 1 s of media at 2x is 500 ms of frames
     geode_dsp_end_stream(d);
     geode_dsp_flush(d);
-    geode_dsp_begin_stream(d, "b", 0, 1000000);
+    // B is twice as long as A: in a track only as long as the crossfade the fade-in's last frame is
+    // also the first of its own fade-out, so it would not be back at full level there.
+    geode_dsp_begin_stream(d, "b", 0, 2000000);
     const auto b = run(d, 2 * quarter);
     check(near(a[quarter - 1], 0.0, 1e-9) && a[quarter] < 0.0 && a.back() == kNoGain, "the fade-out is 250 ms of frames at 2x");
     check(b[0] == kNoGain && b[quarter - 1] < 0.0 && near(b[quarter], 0.0, 1e-9), "the fade-in is 250 ms of frames at 2x");

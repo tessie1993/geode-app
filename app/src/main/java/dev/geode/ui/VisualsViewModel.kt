@@ -195,7 +195,7 @@ class VisualsViewModel
             if (!PresetLink.isPresetLink(data)) {
                 PresetLinkImport.NotALink
             } else {
-                session
+                session.presetLibrary
                     .importPresetLink(data)
                     ?.let(PresetLinkImport::Imported)
                     ?: PresetLinkImport.Unreadable

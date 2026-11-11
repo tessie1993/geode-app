@@ -105,7 +105,7 @@ import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
 import dev.geode.analysis.SearchMatcher
 import dev.geode.data.BootAnimationStore
-import dev.geode.data.GeodePrefsFiles
+import dev.geode.geodeContainer
 import dev.geode.model.QueueTrack
 import dev.geode.model.TourChapter
 import dev.geode.model.TourPlace
@@ -221,7 +221,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
     // SharedPreferences read blocks until the whole file has been parsed. Null until it lands,
     // and nothing below that depends on it (the notice, setup, the intro) draws until then.
     val bootAnimEnabled by produceState<Boolean?>(null) {
-        value = withContext(Dispatchers.IO) { BootAnimationStore(GeodePrefsFiles(context).general).load() }
+        value = withContext(Dispatchers.IO) { BootAnimationStore(context.geodeContainer.prefsFiles.general).load() }
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     // Not delegated: only the mini player's seek bar and progress line read .value, in their own scope.

@@ -8,7 +8,7 @@ import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.Player
 import dev.geode.data.BehaviourStore
-import dev.geode.data.GeodePrefsFiles
+import dev.geode.geodeContainer
 
 /**
  * Settings › Output & devices › Start on headphones (default off). When wired headphones, a USB headset or
@@ -24,7 +24,7 @@ internal class HeadphoneAutoplay(
     private val player: Player,
 ) {
     private val audioManager = context.getSystemService(AudioManager::class.java)
-    private val behaviour = BehaviourStore(GeodePrefsFiles(context).general)
+    private val behaviour = BehaviourStore(context.geodeContainer.prefsFiles.general)
     private val main = Handler(Looper.getMainLooper())
 
     /** The first callback lists the devices already connected at registration; only later ones are news. */

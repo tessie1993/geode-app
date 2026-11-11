@@ -163,10 +163,15 @@ internal class QueueController(
         host.refreshUi()
     }
 
+    /**
+     * The item for [uri], built without a ContentResolver query: a library title if known, else a
+     * placeholder that [resolveTitlesAsync] replaces off the main thread once the item is in the queue.
+     * Callers ([playNext], [enqueue], the resume-last-played fallback) run on main.
+     */
     fun mediaItemFor(uri: Uri): MediaItem {
-        val known = host.libraryTracks.firstOrNull { it.uri == uri.toString() }
-        val (t, a) = if (known != null) known.title to known.artist else metadataQuick(uri)
-        return mediaItemFor(uri, t, a)
+        val quick = quickMediaItem(uri)
+        if (quick.unresolved) resolveTitlesAsync(listOf(uri), openGeneration)
+        return quick.item
     }
 
     private fun mediaItemFor(

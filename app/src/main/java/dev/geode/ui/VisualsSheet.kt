@@ -61,7 +61,6 @@ import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.edgeFade
 import dev.geode.ui.theme.floatingGlass
-import dev.geode.ui.theme.glassBlur
 import dev.geode.ui.theme.performStoneHaptic
 import dev.geode.ui.tour.GestureTip
 import dev.geode.ui.tour.GestureTips
@@ -134,7 +133,6 @@ internal fun VisualsOptions(
     Column(
         modifier
             .onGloballyPositioned { bounds = it.boundsInWindow() }
-            .glassBlur(shape)
             .floatingGlass(shape, fillAlpha = opacity),
     ) {
         Box(

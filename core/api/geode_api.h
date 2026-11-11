@@ -153,8 +153,9 @@ GEODE_API void        geode_viz_gyro_reset(geode_viz*);
    geode_viz_set_params / _set_lfo / _set_adsr / _set_sound_tuning, before geode_viz_render. A clear-only
    frame wants none. Export never calls it. Answers a bitmask of GEODE_FRAME_*; 0 for a null handle. */
 #define GEODE_FRAME_CLEAR_ONLY     0x1 /* the first frame on a new surface, cleared to black: present it, do nothing else */
-#define GEODE_FRAME_THERMAL_DUE    0x2 /* read PowerManager and call geode_thermal_push */
+#define GEODE_FRAME_THERMAL_DUE    0x2 /* ask PowerManager's headroom and call geode_thermal_push */
 #define GEODE_FRAME_LIQUID_CHANGED 0x4 /* Liquid mode changed: GEODE_FRAME_LIQUID_MODE(due) */
+#define GEODE_FRAME_ERROR_CHANGED  0x8 /* the error text changed, or this is the handle's first frame: geode_viz_last_error */
 /* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode). */
 #define GEODE_FRAME_LIQUID_MODE(due) ((int)(((unsigned)(due) >> 8) & 0xFu))
 #define GEODE_FRAME_PUSH_PARAMS    0x10 /* push the scene params (geode_viz_set_params) */
@@ -647,10 +648,11 @@ GEODE_API void            geode_pacer_resume(long long* state);
 GEODE_API float           geode_pacer_effective_cap(float cap_fps);
 
 /* The process's one thermal state (core/viz/frame/Thermal): every renderer reads the same tier. The
-   once-a-second cadence across the process is native; a live renderer learns its turn from
-   GEODE_FRAME_THERMAL_DUE (geode_viz_frame_begin), then reads PowerManager and pushes. */
-/* One reading: PowerManager's thermal status (< 0 = no thermal API) and its headroom forecast (NaN = none
-   this time; the last real one holds a while). Settles the shared tier. */
+   cadence across the process is native: a live renderer learns from GEODE_FRAME_THERMAL_DUE
+   (geode_viz_frame_begin), every ten seconds, that it asks PowerManager's headroom and pushes it; the
+   status is pushed by PowerManager's status listener when it changes. */
+/* One reading: PowerManager's thermal status (< 0 = none this time; the last one holds) and its headroom
+   forecast (NaN = none this time; the last real one holds a while). Settles the shared tier. */
 GEODE_API void            geode_thermal_push(int platform_status, float headroom);
 
 /* Memory pressure (#854): Android's onTrimMemory level, forwarded as is. Native acts on TRIM_MEMORY_UI_HIDDEN (20)
@@ -815,6 +817,11 @@ GEODE_API int               geode_pcm_ring_write_s16(geode_pcm_ring*, const int1
                                                      int sample_rate, float* peak_out);
 GEODE_API int               geode_pcm_ring_write_bytes(geode_pcm_ring*, const void* data, size_t bytes, int encoding,
                                                        int channels, int sample_rate, float* peak_out);
+/* A second source layered over `ring` (the mic over the player's tap; audio/ingest/LayerMix): every renderer
+ * fed `ring` hears the two mixed while `ring` gains frames, and `layer` alone once it has not for 0.3 s.
+ * `layer` keeps its own writer and rate; begin an epoch on it when its source starts and when it stops.
+ * Other readers of `ring` (a cursor, Cast's sound) hear `ring` only. NULL removes the layer. Any thread. */
+GEODE_API void              geode_pcm_ring_set_layer(geode_pcm_ring* ring, const geode_pcm_ring* layer);
 /* A new stream (track change, seek, source switch): every cursor restarts at its next take. Any thread. */
 GEODE_API void              geode_pcm_ring_begin_epoch(geode_pcm_ring*);
 GEODE_API int64_t           geode_pcm_ring_written(const geode_pcm_ring*);   /* frames since the last epoch began */

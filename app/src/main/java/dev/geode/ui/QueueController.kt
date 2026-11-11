@@ -39,8 +39,6 @@ internal class QueueController(
         val libraryTracks: List<LibraryTrack>
         val deviceTracks: List<DeviceTrack>
 
-        fun stopLiveInput()
-
         fun onQueueStarted(startUri: Uri)
 
         fun skipFaded(action: () -> Unit)
@@ -109,7 +107,6 @@ internal class QueueController(
     ) {
         val window = PlaybackQueue.window(tracks, startUri)
         if (window.tracks.isEmpty()) return
-        host.stopLiveInput()
         lastBrowseContext = tracks
         val generation = ++openGeneration
         val unresolved = mutableListOf<Uri>()

@@ -864,14 +864,10 @@ float layerWeight(const endless::Layers& l, float mag) {
     return w;
 }
 
-// The feedback dive: the same travel and the same streak length at any frame rate, never frozen.
+// The feedback dive's pour: the same streak length at any frame rate, never frozen. Its motion (in and
+// out, per frame) is liquid::motion's, pinned in feedback_motion_test.
 void feedbackDiveIsFrameRateIndependent() {
     namespace fb = endless::feedback;
-    const float at60 = fb::scale(0.5f, 1.0f / 60.0f);
-    const float at30 = fb::scale(0.5f, 1.0f / 30.0f);
-    check(at60 > 1.0f && std::fabs(at30 - at60 * at60) < 1e-5f, "two 60 Hz frames magnify as far as one 30 Hz frame");
-    check(fb::scale(0.0f, 1.0f / 60.0f) == 1.0f && fb::scale(-1.0f, 1.0f / 60.0f) == 1.0f, "no speed, no magnification; it never backs out");
-    check(fb::scale(std::nanf(""), 1.0f / 60.0f) == 1.0f && fb::scale(0.5f, std::nanf("")) == 1.0f, "non-finite input holds still");
     const float keep60 = 1.0f - fb::inject(0.5f, 1.0f / 60.0f);
     const float keep30 = 1.0f - fb::inject(0.5f, 1.0f / 30.0f);
     check(std::fabs(keep30 - keep60 * keep60) < 1e-5f, "the pour fades at the same rate at 30 and 60 Hz");
@@ -884,7 +880,8 @@ void feedbackDiveIsFrameRateIndependent() {
     check(fb::inject(0.0f, 1.0f / 60.0f) > 0.0f && fb::inject(0.0f, 1.0f / 60.0f) < 0.01f, "a stopped dive still refreshes, slowly");
 }
 
-// A shader style's Trails in the feedback pass: MilkDrop's sustain and video echo.
+// A shader style's Trails in the feedback pass: MilkDrop's sustain. The echo zoom and warp are motion,
+// pinned in feedback_motion_test.
 void sustainHoldsLongerAtLongerTrails() {
     namespace fb = endless::feedback;
     const float dt = 1.0f / 60.0f;
@@ -896,11 +893,7 @@ void sustainHoldsLongerAtLongerTrails() {
     float kept = 1.0f;
     for (int i = 0; i < 180; ++i) kept *= 1.0f - fb::sustainInject(1.0f, dt);
     check(std::fabs(kept - 0.5f) < 0.01f, "the longest trail is half gone after its half-life");
-    check(fb::echoScale(0.0f, dt) == 1.0f && fb::echoScale(0.3f, dt) > 1.0f && fb::echoScale(-0.3f, dt) < 1.0f,
-          "the echo grows outward above zero and inward below");
-    check(std::fabs(fb::echoScale(0.3f, 1.0f / 30.0f) - fb::echoScale(0.3f, dt) * fb::echoScale(0.3f, dt)) < 1e-5f,
-          "the echo travels as far per second at any frame rate");
-    check(fb::echoScale(std::nanf(""), dt) == 1.0f && fb::sustainInject(std::nanf(""), dt) > 0.0f, "non-finite input holds still");
+    check(fb::sustainInject(std::nanf(""), dt) > 0.0f, "non-finite input holds still");
 }
 
 void endlessZoomOnlyDivesIn() {

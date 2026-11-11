@@ -118,6 +118,7 @@ class PlayerSession internal constructor(
             application,
             scope,
             playback.sampleRing,
+            playback.micRing,
             object : CaptureController.Host {
                 override fun pausePlayback() = player.pause()
 
@@ -429,10 +430,6 @@ class PlayerSession internal constructor(
                     audible: Boolean,
                     ms: Int,
                 ) = playback.rampUiFade(audible, ms)
-
-                override fun stopLiveInput() {
-                    if (captureController.micActive) setMicEnabled(false)
-                }
             },
         )
 
@@ -542,10 +539,6 @@ class PlayerSession internal constructor(
                 override val libraryTracks: List<LibraryTrack> get() = library.value.tracks
                 override val deviceTracks: List<DeviceTrack> get() = musicLibrary.deviceTracks.value
 
-                override fun stopLiveInput() {
-                    if (captureController.micActive) setMicEnabled(false)
-                }
-
                 override fun onQueueStarted(startUri: Uri) {
                     currentUri = startUri
                     onTrackChanged()
@@ -580,7 +573,6 @@ class PlayerSession internal constructor(
     ) = queueController.playAll(tracks, shuffled)
 
     fun togglePlayPause() {
-        if (!player.isPlaying && captureController.micActive) setMicEnabled(false)
         if (settings.playerPrefs.value.fadeMs > 0) {
             togglePlayPauseFaded()
         } else if (player.isPlaying) {
@@ -887,7 +879,6 @@ class PlayerSession internal constructor(
 
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     if (!isPlaying) return
-                    if (captureController.micActive) setMicEnabled(false)
                     if (externalAudio.value.active) stopExternalAudio()
                     fades.ensureAudibleAfterExternalPlay()
                     PlaybackService.ensureRunning(application)

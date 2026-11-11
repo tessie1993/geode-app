@@ -175,6 +175,23 @@ void rollsStayInsideTheSchemasRanges() {
     }
 }
 
+// A choice roll picks from the whole schema range, so a value added to ParamTable.inc is rolled too
+// (the camera's drive, fall and rise paths were left out by a count kept beside the schema).
+void choiceRollsReachEverySchemaValue() {
+    for (const ParamSlot slot : {ParamSlot::palette, ParamSlot::palette2, ParamSlot::camPath}) {
+        const ParamSpec& spec = SceneParams::spec(slot);
+        std::set<int> rolled;
+        for (uint64_t seed = 0; seed < 2000; ++seed) {
+            rolled.insert(static_cast<int>(randomizer::randomize(kDefaults, seed, std::nullopt, "", {}).get(spec.name)));
+        }
+        const int count = static_cast<int>(spec.max - spec.min) + 1;
+        check(static_cast<int>(rolled.size()) == count,
+              std::string(spec.name) + " rolls " + std::to_string(rolled.size()) + " of its " + std::to_string(count) + " values");
+        check(*rolled.begin() == static_cast<int>(spec.min) && *rolled.rbegin() == static_cast<int>(spec.max),
+              std::string(spec.name) + " rolls from min to max");
+    }
+}
+
 void aPaletteRollDropsACustomPalette() {
     SceneParams custom;
     custom.paletteBaseOverride = 0.3f;
@@ -202,6 +219,7 @@ int main() {
     resetTabRestoresExactlyItsFields();
     rollsStayUnderTheFlashClamp();
     rollsStayInsideTheSchemasRanges();
+    choiceRollsReachEverySchemaValue();
     aPaletteRollDropsACustomPalette();
     theWireRoundTrips();
     if (failures == 0) std::printf("params_test: all checks passed\n");

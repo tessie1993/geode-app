@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- MuzViz Pro: the paywall, the locked-feature panels and the export wordmark.
+<!-- BeatRealms Pro: the paywall, the locked-feature panels and the export wordmark.
      Kept apart from strings.xml so the paywall stays self-contained while the rest of the UI is
      restyled. -->
 <resources>
     <!-- Tiled diagonally across non-Pro exports. Product name: not translated. -->
-    <string name="pro_watermark_text" translatable="false">MuzViz Studio Pro</string>
+    <string name="pro_watermark_text" translatable="false">BeatRealms 3D</string>
 
     <string name="pro_badge">PRO</string>
     <string name="pro_badge_description">Pro feature</string>
@@ -86,13 +86,13 @@
 
     <!-- Purchased. -->
     <string name="pro_owned_title">You\'re Pro</string>
-    <string name="pro_owned_body">Every style and every tool is unlocked, for good. Thank you for supporting MuzViz.</string>
+    <string name="pro_owned_body">Every style and every tool is unlocked, for good. Thank you for supporting BeatRealms.</string>
     <string name="pro_done">Start creating</string>
 
     <!-- The Settings row. -->
-    <string name="pro_settings_title">MuzViz Pro</string>
+    <string name="pro_settings_title">BeatRealms Pro</string>
     <string name="pro_settings_free">Unlock every style, full-length 4K 60 fps exports, recorded takes and the live wallpaper. One payment.</string>
-    <string name="pro_settings_owned">Unlocked. Thank you for supporting MuzViz.</string>
+    <string name="pro_settings_owned">Unlocked. Thank you for supporting BeatRealms.</string>
     <string name="pro_settings_go">Go Pro</string>
 
     <!-- Debug builds only: the fake billing panel. Never shown in a store build. -->

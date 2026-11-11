@@ -33,7 +33,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.data.ExportPrefsStore
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.export.ExportAspect
 import dev.geode.export.LoopSpec
 import dev.geode.export.TimeOfDayDrift
@@ -59,7 +58,7 @@ fun LoopRenderSheet(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val defaults = remember { ExportPrefsStore(GeodePrefsFiles(context).general).load() }
+    val defaults = remember { ExportPrefsStore(context.geodeContainer.prefsFiles.general).load() }
 
     var loopSeconds by rememberSaveable { mutableStateOf(LoopSpec.MIN_LOOP_MS / 1000f) }
     var crossfadeSeconds by rememberSaveable { mutableStateOf(LoopSpec.DEFAULT_CROSSFADE_MS / 1000f) }

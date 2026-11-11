@@ -57,8 +57,8 @@ import dev.geode.R
 import dev.geode.data.BehaviourPrefs
 import dev.geode.data.BehaviourStore
 import dev.geode.data.CanvasGesture
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GestureAction
+import dev.geode.geodeContainer
 import dev.geode.model.GestureTip
 import dev.geode.render.VisualizerView
 import dev.geode.render.scene.SceneIds
@@ -118,7 +118,7 @@ internal fun VisualsHub(
     // Read once per visit, off the main thread; Settings is another screen, so a change
     // there is always read on the way back.
     val behaviour by produceState(BehaviourPrefs()) {
-        value = withContext(Dispatchers.IO) { BehaviourStore(GeodePrefsFiles(context).general).load() }
+        value = withContext(Dispatchers.IO) { BehaviourStore(context.geodeContainer.prefsFiles.general).load() }
     }
     // A gesture tip is said only while the user's gesture map still has that gesture do that thing.
     val nudge = LocalTourNudge.current

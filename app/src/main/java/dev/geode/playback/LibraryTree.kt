@@ -6,11 +6,11 @@ import androidx.media3.common.MediaMetadata
 import dev.geode.R
 import dev.geode.data.DeviceTrackQuery
 import dev.geode.data.FavouritesStore
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.HistoryStore
 import dev.geode.data.MusicPlaylistStore
 import dev.geode.data.TrackLibrary
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.geodeContainer
 import dev.geode.model.DeviceTrack
 
 /**
@@ -58,7 +58,7 @@ class LibraryTree(
             ARTISTS -> groups(ARTISTS, tracks().map { it.artist }, MediaMetadata.MEDIA_TYPE_ARTIST)
             PLAYLISTS ->
                 MusicPlaylistStore(context).list().map { folder("$PLAYLISTS/${it.name}", it.name, MediaMetadata.MEDIA_TYPE_PLAYLIST) }
-            FAVOURITES -> rowsFor(FavouritesStore(GeodePrefsFiles(context).favourites).all()).map { playable(parentId, it) }
+            FAVOURITES -> rowsFor(FavouritesStore(context.geodeContainer.prefsFiles.favourites).all()).map { playable(parentId, it) }
             RECENT ->
                 HistoryStore(context).recentlyPlayed(RECENT_LIMIT).map { playable(parentId, Row(it.uri, it.title, it.artist, "")) }
             else -> groupChildren(parentId)

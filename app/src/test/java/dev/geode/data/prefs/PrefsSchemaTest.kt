@@ -147,9 +147,11 @@ class PrefsSchemaTest {
                 RecordPrefsStore(it[general]) { seconds -> seconds }.save(record)
             },
             Owner("$DATA/RecordSaveStore.kt", RecordSaveStore.PREF_KEYS) { RecordSaveStore(it).choose(SaveTarget.VideosLibrary) },
-            Owner("$APP/wallpaper/WallpaperPrefs.kt", WallpaperPrefsStore.PREF_KEYS) { WallpaperPrefsStore(it).save(WallpaperSettings()) },
+            Owner("$APP/wallpaper/WallpaperPrefs.kt", WallpaperPrefsStore.PREF_KEYS) {
+                WallpaperPrefsStore(it[GeodePrefsFiles.WALLPAPER]).save(WallpaperSettings())
+            },
             Owner("$APP/widget/WidgetState.kt", WidgetState.PREF_KEYS) {
-                WidgetState.save(it, WidgetState(artPath = "/cache/art.png", styleId = "plasma"))
+                WidgetState.save(it[GeodePrefsFiles.WIDGET], WidgetState(artPath = "/cache/art.png", styleId = "plasma"))
             },
             Owner("$APP/billing/EntitlementStore.kt", PrefsEntitlementStore.PREF_KEYS) {
                 PrefsEntitlementStore(it[PrefsEntitlementStore.PREFS_FILE]).save(CachedEntitlement.NONE)

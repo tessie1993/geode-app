@@ -7,13 +7,13 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import dev.geode.RingLog
 import dev.geode.audio.AudioBus
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.LookStore
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.audio.SoundCursor
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.EncoderSurface
 import dev.geode.export.PcmResampler
+import dev.geode.geodeContainer
 import dev.geode.playback.PlaybackEngine
 import dev.geode.render.PacedRate
 import dev.geode.render.VisualizerRenderer
@@ -49,7 +49,7 @@ internal class CastStream(
     private val onFailed: () -> Unit,
 ) {
     private val appContext = context.applicationContext
-    private val prefsFiles = GeodePrefsFiles(appContext)
+    private val prefsFiles = appContext.geodeContainer.prefsFiles
     private val segments = LiveSegments()
     private val server = LiveHttpServer(segments, lanAddress(appContext) ?: throw NoLanAddress())
     private var thread: Thread? = null

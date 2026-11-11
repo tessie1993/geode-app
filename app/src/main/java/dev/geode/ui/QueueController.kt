@@ -334,18 +334,6 @@ internal class QueueController(
         rebuildQueue()
     }
 
-    fun queueTitles(): List<String> =
-        playOrder().mapIndexed { position, i ->
-            val item = player.getMediaItemAt(i)
-            item.mediaMetadata.title?.toString()
-                ?: item.localConfiguration
-                    ?.uri
-                    ?.lastPathSegment
-                    ?.substringAfterLast('/')
-                    ?.substringBeforeLast('.')
-                ?: application.getString(dev.geode.R.string.playlist_untitled_track, position + 1)
-        }
-
     fun playQueueIndex(index: Int) {
         val timelineIndex = QueueOps.timelineIndexOf(playOrder(), index)
         if (timelineIndex >= 0) {

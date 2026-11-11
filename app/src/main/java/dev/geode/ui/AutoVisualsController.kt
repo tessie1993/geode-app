@@ -155,11 +155,6 @@ internal class AutoVisualsController(
         persistAutoVisuals()
     }
 
-    fun setRandomizeColors(enabled: Boolean) {
-        host.updateViz { it.copy(randomizeColors = enabled) }
-        persistAutoVisuals()
-    }
-
     private fun persistAutoVisuals() {
         prefsStore.save(host.vizState.value)
     }

@@ -19,6 +19,7 @@ import dev.geode.render.ReactionRoute
 import dev.geode.render.bridge.ModConfigCodec
 import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.scene.SceneParams
+import dev.geode.util.bestEffort
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -80,6 +81,8 @@ internal class ModulationController(
     fun toggleParamLock(label: String) {
         _lockedParams.update { if (label in it) it - label else it + label }
         prefs.edit().putStringSet("locked_params", _lockedParams.value).apply()
+        // The director's reach leaves a kept control alone too (AutoDirectorStore pushes the saved set at start).
+        bestEffort(TAG, "push keep set") { GeodeNative.directorKeepSet(_lockedParams.value.joinToString("\n")) }
     }
 
     /**
@@ -271,6 +274,8 @@ internal class ModulationController(
     }
 
     private companion object {
+        const val TAG = "ModulationController"
+
         const val HISTORY_DEPTH = 64
 
         const val CHECKPOINT_GAP_MS = 700L

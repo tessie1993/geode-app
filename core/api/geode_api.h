@@ -54,6 +54,13 @@ GEODE_API int         geode_react_source_catalog(char* out, int capacity);
  * play's, so a new seed is a new play (the renderer forgets the song so far) and an export pinned with it
  * makes the same film. */
 GEODE_API void        geode_director_set(int on, float amount, long long seed);
+/* The director's reach past its look (core/viz/DirectorReach), process-wide like geode_director_set and pinned
+ * with it by an export. level: 0 the look alone, 1 + it shuffles Customize categories at a new section or a
+ * drop, 2 + its own slow modulators on sliders; anything else is 0. Nothing happens while the director is off. */
+GEODE_API void        geode_director_reach_set(int level);
+/* Customize's keep set, which the reach never moves: one control key or "#CATEGORY" per line (the lock set
+ * geode_params_randomize takes). Null or "" keeps nothing. */
+GEODE_API void        geode_director_keep_set(const char* keys);
 /* Note & key reactions (core/viz/NoteResponse): notes, chords, key and mood driving the style knobs, note
  * colours, the tint and a gentle shape and distortion on every style. Process-wide like the director; each
  * renderer eases it in and out, and off (0) is exactly the picture without it. The seed is the director's. */

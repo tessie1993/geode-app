@@ -129,11 +129,8 @@ _Avoid_: Section (that is the analyser's structure boundary)
 The reaction routes a style plays until the user edits them, generated from the style id and a seed.
 
 **Macro**:
-One of the six Customize knobs (Energy, Speed, Complexity, Mood, Space, Chaos), -1..1 with "as styled" at the centre, laid over every style by `core/viz/Macros`. It never writes a slider; it shapes the look, the sound tuning, the camera's music moves and a few routes of its own.
+One knob of the macro bank (`core/viz/MacroBank`): a name, a value -1..1 with "as styled" at the centre, and up to twelve links, each a scene param and how far a full turn up and down moves it, as a fraction of its range. Global, laid over every style after the auto-director and before the LFOs; it adds to the slider's value and never writes it. Four built in (Glow, Heat, Bend, Flow); the user's own come with the knob editor.
 _Avoid_: Meta control, master knob
-
-**Macro preset**:
-A named set of the six knob positions: the built-in starters (Calm, Groove, Rave, Dreamy, Wide, Glitch) or the user's own (saving is Pro). Separate from look presets.
 
 **Event recipe**:
 A named bundle of reaction routes offered in the Events tab ("Kick punch", "Snare crack"), turned on and off as one.
@@ -263,16 +260,20 @@ What the music feels like now: valence (sad … happy), energy and tension, and 
 _Avoid_: Mood label, emotion name
 
 **Auto-director**:
-Settings › Behaviour's switch that lets the feeling choose a director look at each section, drop or key change: palette, macro knobs, camera moves and what reacts to what, on every style. Pro; free gets the first minute of each song.
+Settings › Behaviour's switch that lets the feeling choose a director look at each section, drop or key change: palette, its behaviour axes (offsets on the scene params), camera moves and what reacts to what, on every style. Pro; free gets the first minute of each song.
 _Avoid_: Auto visuals (that switches styles on a timer)
 
 **Look**:
-Everything the user set for the visual: the style, the base values of its scene params, the reaction routes, the macros, the layer, the transition, custom shader code and the MilkDrop preset. Saved, undone and gated as one, and a preset is a named look. What moves it this frame (sound, LFOs, the auto-director, touch, a take's replay) is modulation, never the look itself. ADR 0006 and `docs/architecture/kotlin-target.md`.
+Everything the user set for the visual: the style, the base values of its scene params, the reaction routes, the layer, the transition, custom shader code and the MilkDrop preset. Saved, undone and gated as one, and a preset is a named look. What moves it this frame (sound, LFOs, the auto-director, touch, a take's replay) is modulation, never the look itself. ADR 0006 and `docs/architecture/kotlin-target.md`.
 _Avoid_: State, settings, the look for one auto-director decision (that is a director look)
 
 **Director look**:
 One auto-director decision: a palette, a behaviour and a set of routes, glided in over a bar. Never the same director look twice in a row of six. It modulates the user's look; it never changes it.
 _Avoid_: Look (alone)
+
+**Director reach**:
+How far the auto-director goes past its director look, one native setting (Visuals › Settings, under Auto). Look only: the director look alone. Shuffle: at a new section, a drop or a long stretch it also rolls some Customize categories with the randomizer, sliders gliding, toggles flipping on the moment. Shuffle and modulate: it also runs slow waves and sound followers of its own on sliders. Both are offsets over the user's look, seeded by the play, and keep off kept controls, the style's unreached controls, a control the user moved since the last moment and the hand mask's moments. `core/viz/DirectorReach`.
+_Avoid_: Auto level, auto-randomize, shuffle mode
 
 **Look snapshot**:
 Everything the user set that decides what a renderer draws (style, params, LFOs, envelopes, their own reactions, sound tuning, reduced motion, transition, background), as one value every surface draws: live, wallpaper, dream, Cast, export. An export pins one when it starts. `render/look/LookSnapshot`.
@@ -294,8 +295,8 @@ How much of the track is drums, measured as it plays (hit and onset rate, noise,
 _Avoid_: Drum mode, genre
 
 **Style knobs**:
-The six per-style controls every style may read (`uKnob`): PULSE, TEXTURE, FLOW, TONE, BUILD, SPACE. Driven by Note & key reactions, else 0.5. Not Customize › Macros.
-_Avoid_: Macros (those are the user's six)
+The six per-style controls every style may read (`uKnob`): PULSE, TEXTURE, FLOW, TONE, BUILD, SPACE. Driven by Note & key reactions, else 0.5. Not the macro bank's knobs.
+_Avoid_: Macros (those are the user's bank)
 
 **Scale mood**:
 The brightness (dark Locrian … bright Lydian) and tension of the scale the music is in, from the musical intelligence database (`docs/musical-intelligence`).
@@ -308,7 +309,7 @@ Code that turns sound into numbers or numbers into pixels: DSP, analysis, featur
 _Avoid_: Core logic, backend
 
 **Playout clock**:
-The engine's answer to "which ring sample is the speaker playing now": the sink's position (output and Bluetooth latency included) mapped onto the ring, plus the user's A/V offset. Live surfaces read up to it, never past it (`core/sound/interp/PlayoutClock`).
+The engine's answer to "which ring sample is the speaker playing now": the sink's position (output and Bluetooth latency included) mapped onto the ring, plus the user's A/V offset. Live surfaces read the player's ring up to it, never past it (`core/sound/interp/PlayoutClock`, `SpeakerSync`; `audio/PlayoutSink` reports the sink to it). The mic, another app's audio and Cast have no sink in between and read the newest sample.
 _Avoid_: Presentation clock, sink clock (the deleted Kotlin ones)
 
 **Shell**:
@@ -316,11 +317,11 @@ The Kotlin around the engine: JNI declarations, Android lifecycle, Media3 and Me
 _Avoid_: Wrapper, glue layer
 
 **Scene params resolver**:
-The engine's per-frame chain that turns the requested scene params into the ones a scene is drawn with: the param fade, then the auto-director, Note & key reactions, macros, LFOs, envelopes, reaction routes, motion field, and the safety clamp last. It knows nothing of GL. It reads the sound frame, dt, the style on screen and the engine settings, and also returns the director's style moments and camera moves. Device policy (thermal tier, post-FX, Liquid's hot policy) and the camera rig stay in the renderer. It lives at `core/signal/Resolver`, the seam ADR 0006's later steps rebuild behind (#344).
+The engine's per-frame chain that turns the requested scene params into the ones a scene is drawn with: the param fade, then the auto-director, Note & key reactions, the director's axes, the macro bank, LFOs, envelopes, reaction routes, motion field, and the safety clamp last. It knows nothing of GL. It reads the sound frame, dt, the style on screen and the engine settings, and also returns the director's style moments and camera moves. Device policy (thermal tier, post-FX, Liquid's hot policy) and the camera rig stay in the renderer. It lives at `core/signal/Resolver`, the seam ADR 0006's later steps rebuild behind (#344).
 _Avoid_: Look resolver (the look is what the user set; the resolver turns it and this frame's modulation into the scene params drawn), param pipeline
 
 **Engine settings**:
-The process-wide values the scene params resolver reads: macro knobs, the auto-director's amount and seed, the Note & key switch, the hand mask, reduced motion and the note entropy. The renderer latches one copy per frame and uses the same copy for the sound engine's tuning. An export pins its own copy at prepare, built natively from what Kotlin last forwarded plus the entitlement (Pro, trial or free; native applies what it means for the auto-director), with the note entropy at 0 so a re-render is the same film. A live edit never reaches a render.
+The process-wide values the scene params resolver reads: the macro bank, the auto-director's amount, seed, reach and keep set, the Note & key switch, the hand mask, reduced motion and the note entropy. The renderer latches one copy per frame. An export pins its own copy at prepare, built natively from what Kotlin last forwarded plus the entitlement (Pro, trial or free; native applies what it means for the auto-director), with the note entropy at 0 so a re-render is the same film. A live edit never reaches a render.
 _Avoid_: Globals, settings (alone), scene params
 
 **Gain ramp**:

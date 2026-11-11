@@ -25,7 +25,6 @@
 #include "viz/GlProfile.hpp"
 #include "viz/LayerState.hpp"
 #include "viz/Lfo.hpp"
-#include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/Overlays.hpp"
@@ -90,7 +89,7 @@ public:
         return liquidModeTaken_.exchange(mode, std::memory_order_relaxed) == mode ? -1 : mode;
     }
     // An export's engine settings (signal::SettingsLatch, #350): pinned once at prepare, after which this
-    // renderer never reads the process-wide macros, Note & key switch, hand mask or director again, so live
+    // renderer never reads the process-wide macro bank, Note & key switch, hand mask or director again, so live
     // edits and the player moving on never reach a render in progress. The director comes from the user's
     // switch, `entitled` and `durationMs` (director::forExport); the note entropy is 0. Any thread.
     // Returns the pinned hand mask.
@@ -306,8 +305,6 @@ private:
     bool soundHeard_ = false;
     uint64_t emotionSeed_ = 0;
     bool emotionSeeded_ = false;
-    // Customize › Macros: the knobs the sound engine's tuning was last built from.
-    MacroKnobs tunedKnobs_{};
     std::atomic<float> lookYaw_{0.0f};
     std::atomic<float> lookPitch_{0.0f};
     Framebuffer fboA_{"sceneA"};

@@ -22,8 +22,8 @@ void Resolver::reset() {
     // commit count carry on (a reset director counts from 0, so the next commit is a new moment again).
     motionField_.reset();
     reactions_.reset();
-    macroReactions_.reset();
     director_.reset();
+    directorReach_.reset();
     notes_.reset();
 }
 
@@ -47,7 +47,7 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     const float fade = std::max(requested.paramFadeSec, morph);
     displayed_ = fade <= 0.01f ? requested : viz::lerpParams(displayed_, requested, std::clamp(glide / fade, 0.0f, 1.0f));
 
-    // The auto-director hears the frame first: its look lies under the macros, so the user's own knobs,
+    // The auto-director hears the frame first: its look lies under the user's knobs, so the macro bank,
     // the LFOs, the reactions, the motion field and the safety clamp all still act on top of it.
     director_.configure(settings.director);
     // The engine's own feeling when the caller has one (the renderer), else the director steps its own.
@@ -57,14 +57,30 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
         director_.step(sound, dt, settings.handMask);
     }
     frame_.styleMoments = 0;
-    if (director_.commits() != directorCommitsSeen_) {
+    const bool committed = director_.commits() != directorCommitsSeen_;
+    if (committed) {
         directorCommitsSeen_ = director_.commits();
         if (director_.styleMoment()) frame_.styleMoments = 1;
     }
-    directedKnobs_ = director_.knobs(settings.knobs);
+    {
+        viz::DirectorReach::Inputs in;
+        in.reach = settings.reach;
+        in.seed = settings.director.seed;
+        in.handMask = settings.handMask;
+        in.reducedMotion = settings.reducedMotion;
+        in.kept = settings.kept;
+        in.styleId = &styleId;
+        in.weight = director_.weight();
+        in.committed = committed;
+        in.reason = director_.lastReason();
+        in.commit = director_.commits();
+        in.energy = director_.target().energy;
+        in.wallDt = glide;
+        directorReach_.step(requested, sound, dt, in);
+    }
     // Note & key reactions hear the frame next, inside the director's look: its hue anchors the notes'
     // colours, and its feeling (the director's emotion, stepped whether or not it drives) is the mood. Its
-    // tuning is the style's own (Customize), read before the director and macros touch it.
+    // tuning is the style's own (Customize), read before the director and the knobs touch it.
     notes_.configure({settings.notesOn, settings.director.seed ^ settings.noteEntropy});
     {
         const SceneParams& own = displayed_;
@@ -82,20 +98,24 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     const auto& envValues = adsr_.tick(dt, sound);
     viz::AdsrEngine::lfoOffsets(adsr_.configs, envValues, envRate_, envDepth_);
     const auto& lfoValues = lfo_.tick(dt, sound, envRate_.data(), envDepth_.data());
-    // Order: the director's look, the note layer inside it, then the user's macros and LFOs over both. The
-    // macros lay over the user's params first, so every stage after them (and the safety clamp) sees the
-    // knobbed look.
-    SceneParams p = lfo_.apply(viz::macros::apply(notes_.apply(director_.apply(displayed_, style.shaderFamily)), directedKnobs_), lfoValues);
+    // Order: the director's shuffle, its look, the note layer inside it, its axes and modulators, then the user's macro bank
+    // and LFOs over all of it. The bank adds its offsets to what the director left (base plus modulation),
+    // so every stage after it (and the safety clamp) sees the knobbed look.
+    if (!reachKnown_ || styleId != reachStyle_) {
+        reach_ = viz::macrobank::reachMask(styleId);
+        reachStyle_ = styleId;
+        reachKnown_ = true;
+    }
+    SceneParams p = director_.applyAxes(notes_.apply(director_.apply(directorReach_.applyShuffle(displayed_), style.shaderFamily)));
+    p = directorReach_.applyModulation(p);
+    if (settings.bank) p = viz::macrobank::apply(p, *settings.bank, reach_);
+    p = lfo_.apply(p, lfoValues);
     p = viz::AdsrEngine::apply(p, adsr_.configs, envValues);
     // The reaction matrix: per-style routes from the sound frame to many targets. Ahead of the motion
     // field and the safety clamp, like the LFOs.
     reactions_.tick(sound, dt);
     p = reactions_.apply(p);
-    // The macros' own routes, in an engine of their own so they never take a user slot.
-    macroReactions_.routes = viz::macros::routes(directedKnobs_);
-    macroReactions_.tick(sound, dt);
-    p = macroReactions_.apply(p);
-    // The director's routes, crossfading at each decision, in engines of their own.
+    // The director's routes: its axes', then its look's, crossfading at each decision, in engines of their own.
     p = director_.applyRoutes(p);
     // The continuous motion system: the one stage every family's parameters pass through, fed the sound
     // frame (never a single drum hit or PCM impulse), ahead of the safety clamp so nothing it adds can
@@ -104,7 +124,7 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     p = motionField_.apply(p, settings.reducedMotion, style.spin);
     p = viz::safety::apply(p, settings.reducedMotion);
     frame_.params = p;
-    frame_.cameraMoves = director_.moves(viz::macros::camera(directedKnobs_));
+    frame_.cameraMoves = director_.moves();
     return frame_;
 }
 

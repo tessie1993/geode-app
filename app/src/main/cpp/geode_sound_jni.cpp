@@ -79,6 +79,11 @@ Java_dev_geode_engine_bridge_GeodeNative_surfaceRunMode(JNIEnv*, jobject, jint f
     return geode_surface_run_mode(static_cast<unsigned>(flags), animateUntilMs, nowMs);
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_stageRun(JNIEnv*, jobject, jint flags) {
+    return static_cast<jint>(geode_stage_run(static_cast<unsigned>(flags)));
+}
+
 JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_surfaceListening(JNIEnv*, jobject, jint flags, jlong animateUntilMs,
                                                           jlong nowMs) {
@@ -103,6 +108,16 @@ Java_dev_geode_engine_bridge_GeodeNative_surfaceSettleMs(JNIEnv*, jobject, jint 
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_surfaceFpsChoice(JNIEnv*, jobject, jint requestedFps) {
     return geode_surface_fps_choice(requestedFps);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_autoTimerRestart(JNIEnv*, jobject, jint timer, jlong nowMs) {
+    geode_auto_timer_restart(timer, nowMs);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_autoTimerDue(JNIEnv*, jobject, jint timer, jlong nowMs, jint intervalSec, jboolean running) {
+    return geode_auto_timer_due(timer, nowMs, intervalSec, running == JNI_TRUE ? 1 : 0) ? JNI_TRUE : JNI_FALSE;
 }
 
 }  // extern "C"

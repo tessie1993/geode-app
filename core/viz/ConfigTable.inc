@@ -1,11 +1,11 @@
 // The config params schema (#423): every value the data stores hold beside the scene params, written
-// once. The scene params are viz/ParamTable.inc; these are the modulation slots, the macro knobs, the
-// palette maker, the look's envelope, the Studio clip edit and the preset morph. Not a header: it holds
+// once. The scene params are viz/ParamTable.inc; these are the modulation slots, the palette maker,
+// the look's envelope, the Studio clip edit and the preset morph. Not a header: it holds
 // only GEODE_CONFIG rows, and each includer defines GEODE_CONFIG, includes this file and #undefs it.
 //
 //   GEODE_CONFIG(group, name, kind, default, min, max, unit)
 //
-//   group    which store or engine owns the value: lfo, adsr, macro, palette, look, clip, theme.
+//   group    which store or engine owns the value: lfo, adsr, palette, look, clip, theme.
 //   name     the store's JSON or prefs key where it has one, else the Kotlin property. The slot is
 //            config::Slot::<group>_<name>.
 //   kind     Float, Int (an enum ordinal or a count) or Bool.
@@ -16,8 +16,8 @@
 //            Turns (a fraction of a hue turn), Degrees, Points (percentage points), Times (a multiplier).
 //
 // Inside a group the row order is the order the engine takes the values: the lfo rows are the
-// geode_viz_set_lfo floats, the adsr rows the geode_viz_set_adsr floats before the target list, the
-// macro rows the knobs in viz/Macros' Macro order. Append within a group; never reorder.
+// geode_viz_set_lfo floats, the adsr rows the geode_viz_set_adsr floats before the target list.
+// Append within a group; never reorder.
 // core/tests/config_schema_test.cpp checks the table; geode_config_schema_text publishes it.
 //
 // Where native already enforced a number, the row takes native's; where only Kotlin had one, the row
@@ -31,8 +31,8 @@ GEODE_CONFIG(lfo, enabled, Bool, 0, 0, 1, None)
 GEODE_CONFIG(lfo, source, Int, 0, 0, 8, None)
 // LfoTarget: None .. EndlessZoomSpeed (ordinal 25 is the retired Glitch).
 GEODE_CONFIG(lfo, target, Int, 0, 0, 55, None)
-// LfoWave: Sine .. Random.
-GEODE_CONFIG(lfo, wave, Int, 0, 0, 4, None)
+// LfoWave: Sine .. RandomGlide.
+GEODE_CONFIG(lfo, wave, Int, 0, 0, 5, None)
 // The period, not a frequency (LfoConfig.kt and the old Lfo.hpp kDefault/kMin/kMaxRateSeconds: 2, 0.05,
 // 60). A slot saved in Hz migrates through config::lfoRateSecondsFromHz.
 GEODE_CONFIG(lfo, rateSeconds, Float, 2.0f, 0.05f, 60.0f, Seconds)
@@ -62,16 +62,6 @@ GEODE_CONFIG(adsr, band, Int, 0, 0, 5, None)
 GEODE_CONFIG(adsr, gateThreshold, Float, 0.25f, 0.05f, 1.0f, Fraction)
 GEODE_CONFIG(adsr, sustainTrack, Bool, 0, 0, 1, None)
 GEODE_CONFIG(adsr, retrigger, Bool, 1, 0, 1, None)
-
-// ---- Macro knobs (viz/Macros, MacroStore.kt) -------------------------------------------------------
-// One row per knob, so the knob count (MacroStore.COUNT = 6, MacroStore.kt:117) is the row count.
-// -1..1, 0 = as styled (Macros.cpp clampKnob; MacroStore.kt:52, 59, 151 coerceIn(-1f, 1f)).
-GEODE_CONFIG(macro, energy, Float, 0.0f, -1.0f, 1.0f, None)
-GEODE_CONFIG(macro, speed, Float, 0.0f, -1.0f, 1.0f, None)
-GEODE_CONFIG(macro, complexity, Float, 0.0f, -1.0f, 1.0f, None)
-GEODE_CONFIG(macro, mood, Float, 0.0f, -1.0f, 1.0f, None)
-GEODE_CONFIG(macro, space, Float, 0.0f, -1.0f, 1.0f, None)
-GEODE_CONFIG(macro, chaos, Float, 0.0f, -1.0f, 1.0f, None)
 
 // ---- Palette maker's gradient (PaletteStore.kt) ----------------------------------------------------
 // What applyGradient writes into the four palette overrides (PaletteStore.kt:77-78) and a saved palette

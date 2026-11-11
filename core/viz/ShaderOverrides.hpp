@@ -8,7 +8,7 @@ namespace geode::viz::shader_overrides {
 
 // Customize › Advanced › Shader code: the user's edited fragment source per style id, process-wide
 // (#364). It used to live on one Renderer (the live screen's), so an export, the live wallpaper and the
-// dream each built the stock style. Like Macros and the director, the state is one table every
+// dream each built the stock style. Like the macro bank and the director, the state is one table every
 // renderer reads: a renderer applies the override when it builds a scene and, when generation() moves,
 // re-applies it to the scenes it keeps resident (Renderer::syncShaderOverrides). The main thread
 // writes; GL threads read at scene build and on a generation change, so a mutex is enough.

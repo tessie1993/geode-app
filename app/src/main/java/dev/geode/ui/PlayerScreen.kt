@@ -706,7 +706,11 @@ private fun UpNextCard(
             upNext.forEach { t ->
                 Text(
                     t.title.ifBlank { untitled },
-                    Modifier.fillMaxWidth().clickable(onClick = onOpenQueue).heightIn(min = GeodeSpacing.TouchTarget).wrapContentHeight(),
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onOpenQueue)
+                        .heightIn(min = GeodeSpacing.TouchTarget)
+                        .wrapContentHeight(),
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

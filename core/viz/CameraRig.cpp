@@ -166,7 +166,7 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
         // A hard cut: a new place on the path and a new orbit phase, with no tween (the springs are
         // snapped below) and the shake and dolly kick cleared, at most once per kCutGapSeconds.
         const Moves& m = moves_;
-        // The Chaos macro shortens the gap between cuts (cut 2 = half) or stops them (cut 0).
+        // The director's Chaos axis shortens the gap between cuts (cut 2 = half) or stops them (cut 0).
         const float cutGap = m.cut > 0.05f ? kCutGapSeconds / m.cut : INFINITY;
         if (val(s.hardCut) > 0.0f && sinceCut_ >= cutGap && amp > 0.0f) {
             cut = true;

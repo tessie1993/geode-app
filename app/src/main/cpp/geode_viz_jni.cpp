@@ -244,12 +244,26 @@ Java_dev_geode_engine_bridge_GeodeNative_reactSourceCatalog(JNIEnv* env, jobject
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_macrosSet(JNIEnv* env, jobject, jfloatArray knobs) {
-    if (!knobs) return;
-    const jsize n = std::min<jsize>(env->GetArrayLength(knobs), 16);
-    float k[16]{};
-    env->GetFloatArrayRegion(knobs, 0, n, k);
-    geode_macros_set(k, n);
+Java_dev_geode_engine_bridge_GeodeNative_macroBankSet(JNIEnv* env, jobject, jstring bank) {
+    Utf8Chars text(env, bank);
+    geode_macro_bank_set(text.get());
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankDefault(JNIEnv* env, jobject) {
+    return env->NewStringUTF(geode_macro_bank_default());
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankNormalize(JNIEnv* env, jobject, jstring bank) {
+    Utf8Chars text(env, bank);
+    return env->NewStringUTF(geode_macro_bank_normalize(text.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankSetValue(JNIEnv* env, jobject, jstring bank, jint knobId, jfloat value) {
+    Utf8Chars text(env, bank);
+    return env->NewStringUTF(geode_macro_bank_set_value(text.get(), knobId, value));
 }
 
 JNIEXPORT void JNICALL
@@ -258,28 +272,19 @@ Java_dev_geode_engine_bridge_GeodeNative_directorSet(JNIEnv*, jobject, jboolean 
 }
 
 JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_directorReachSet(JNIEnv*, jobject, jint level) {
+    geode_director_reach_set(level);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_directorKeepSet(JNIEnv* env, jobject, jstring keys) {
+    Utf8Chars text(env, keys);
+    geode_director_keep_set(text.get());
+}
+
+JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_noteResponseSet(JNIEnv*, jobject, jboolean enabled) {
     geode_note_response_set(enabled ? 1 : 0);
-}
-
-JNIEXPORT jfloatArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_macrosSurprise(JNIEnv* env, jobject, jfloatArray knobs, jint lockMask, jlong seed) {
-    const jsize n = knobs ? std::min<jsize>(env->GetArrayLength(knobs), 16) : 0;
-    float k[16]{};
-    float out[16]{};
-    if (n > 0) env->GetFloatArrayRegion(knobs, 0, n, k);
-    geode_macros_surprise(k, n, static_cast<unsigned>(lockMask), static_cast<long long>(seed), out);
-    jfloatArray result = env->NewFloatArray(n);
-    if (result) env->SetFloatArrayRegion(result, 0, n, out);
-    return result;
-}
-
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_macroStarters(JNIEnv* env, jobject) {
-    const int need = geode_macro_starters(nullptr, 0);
-    std::vector<char> text(static_cast<size_t>(need) + 1);
-    geode_macro_starters(text.data(), need + 1);
-    return env->NewStringUTF(text.data());
 }
 
 JNIEXPORT void JNICALL
@@ -721,6 +726,27 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsRandomize(JNIEnv* env, jobject, j
     const int changed = geode_params_randomize(style.get(), tabName.get(), lockedKeys.get(), static_cast<uint64_t>(seed),
                                                input.data(), output.data());
     env->SetFloatArrayRegion(out, 0, static_cast<jsize>(output.size()), output.data());
+    return changed ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_wavesRandomize(JNIEnv* env, jobject, jstring styleId, jstring locked, jlong seed,
+                                                        jboolean runningOnly, jfloatArray params, jfloatArray in, jfloatArray out) {
+    constexpr jsize kWaves = GEODE_LFO_SLOTS * GEODE_LFO_CONFIG_FLOATS;
+    if (!params || !in || !out || env->GetArrayLength(params) < geode_viz_param_count() || env->GetArrayLength(in) < kWaves ||
+        env->GetArrayLength(out) < kWaves) {
+        return JNI_FALSE;
+    }
+    Utf8Chars style(env, styleId);
+    Utf8Chars lockedKeys(env, locked);
+    std::vector<float> look(static_cast<size_t>(geode_viz_param_count()));
+    float input[kWaves];
+    float output[kWaves];
+    env->GetFloatArrayRegion(params, 0, static_cast<jsize>(look.size()), look.data());
+    env->GetFloatArrayRegion(in, 0, kWaves, input);
+    const int changed = geode_waves_randomize(style.get(), lockedKeys.get(), static_cast<uint64_t>(seed), runningOnly ? 1 : 0,
+                                              look.data(), input, output);
+    env->SetFloatArrayRegion(out, 0, kWaves, output);
     return changed ? JNI_TRUE : JNI_FALSE;
 }
 

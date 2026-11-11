@@ -20,6 +20,7 @@ import dev.geode.model.PresetLink
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
 import dev.geode.render.UnderlayBlend
+import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.StateFlow
 import java.io.File
@@ -194,6 +195,23 @@ class VisualsViewModel
         ): String? = session.renamePreset(from, to)
 
         fun duplicatePreset(name: String): String? = session.presetLibrary.duplicatePreset(name)
+
+        /**
+         * A .milk a file manager opened in the app: imported as the MilkDrop page's picker imports one,
+         * then chosen like a tap on it (MilkDrop through the style gate, which opens the paywall if locked).
+         */
+        fun openMilkFile(
+            uri: Uri,
+            onDone: (Boolean) -> Unit,
+        ) = session.milkImport.importOpenedMilkAsync(uri) { path ->
+            if (path != null) {
+                session.selectScene(SceneIds.MILKDROP)
+                if (session.allowsStyle(SceneIds.MILKDROP)) {
+                    session.visual.emitApply(VizApply(milkPath = path, sceneId = SceneIds.MILKDROP))
+                }
+            }
+            onDone(path != null)
+        }
 
         fun presetFile(name: String): File? = session.presetLibrary.presetFile(name)
 

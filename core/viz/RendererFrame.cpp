@@ -176,7 +176,10 @@ SceneParams Renderer::resolveParams(float dt) {
         heard = &soundEmotion_;
     }
     // The chain itself, param fade to safety clamp (signal/Resolver).
-    const signal::Resolver::Frame& out = resolver_.step(requested, soundFrame_, dt, frameSettings_, style, heard);
+    // The band trims reach the whole chain, not only the scene's own read of the frame: the reactions,
+    // the motion field and the director hear the bass the user turned up.
+    const signal::Resolver::Frame& out =
+        resolver_.step(requested, gainAdjusted(soundFrame_, requested), dt, frameSettings_, style, heard);
     if (out.styleMoments > 0) directorStyleMoments_.fetch_add(out.styleMoments, std::memory_order_acq_rel);
     SceneParams p = out.params;
     // The device's masks, after the clamp: the thermal tier and Settings › Performance.

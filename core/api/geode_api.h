@@ -48,11 +48,6 @@ GEODE_API int         geode_viz_take_director_style_moments(geode_viz*);
 /* The reaction source catalogue, one line per source in wire order: "NAME|Label|GROUP|event(0/1)\n".
  * Writes at most capacity bytes (NUL-terminated when it fits) and returns the length it needs. */
 GEODE_API int         geode_react_source_catalog(char* out, int capacity);
-/* Customize › Macros (core/viz/Macros): six knobs, -1..1, process-wide, read by every renderer each frame.
- * surprise writes `count` knobs to out; starters lists "Name|e,s,c,m,sp,ch" lines like the source catalogue. */
-GEODE_API void        geode_macros_set(const float* knobs, int count);
-GEODE_API void        geode_macros_surprise(const float* knobs, int count, unsigned lock_mask, long long seed, float* out);
-GEODE_API int         geode_macro_starters(char* out, int capacity);
 /* The auto-director (core/viz/Director): the music's feeling deciding palette, behaviour and routing over
  * every style. on is the user's switch as set (1/0), which an export directs by (geode_viz_pin_engine_settings);
  * amount 0 off .. 1 full is what live surfaces drive with now, eased in and out by each renderer; seed is the
@@ -193,9 +188,9 @@ GEODE_API void        geode_wallpaper_window(float surface_w, float surface_h, f
                                              const float* offsets, int count, float* out);
 GEODE_API float       geode_wallpaper_fps(float target_fps, float cap_fps);
 /* An export's engine settings (signal::SettingsLatch, #350), once at prepare: from now on this renderer never
- * reads geode_macros_set, geode_note_response_set, geode_hand_set or geode_director_set again, so live edits,
- * the player's next track and its free taste never reach the render. The macros, the Note & key switch and the
- * hand mask are copied as they are now; the director is the user's switch and the play's seed, full for the
+ * reads geode_macro_bank_set, geode_note_response_set, geode_hand_set or geode_director_set again, so live
+ * edits, the player's next track and its free taste never reach the render. The macro bank, the Note & key switch
+ * and the hand mask are copied as they are now; the director is the user's switch and the play's seed, full for the
  * whole export when entitled (Pro or the trial, 1/0) or when duration_ms fits the free taste, else off
  * (director::forExport); the note entropy is 0, so an export is deterministic. Returns the pinned hand mask,
  * for the export's route merge (geode_style_reactions_hand); 0 for a null handle. */
@@ -374,12 +369,11 @@ GEODE_API const char* geode_params_roll_keys(void);
  * process; the shell parses it once. Labels and page placement stay in Kotlin. */
 GEODE_API const char* geode_params_schema_text(void);
 /* The config params schema (core/viz/ConfigTable.inc): the values the data stores hold beside the scene params
- * (LFO and envelope slots, macro knobs, the palette maker's gradient, the look's envelope, the Studio clip edit,
+ * (LFO and envelope slots, the palette maker's gradient, the look's envelope, the Studio clip edit,
  * the preset morph), one row each, as a versioned '|'-separated line table:
  *   configs|<version>|<count>
  *   config|<group>|<index>|<name>|<FLOAT|INT|BOOL>|<default>|<min>|<max>|<NONE|SECONDS|FRACTION|TURNS|DEGREES|POINTS|TIMES>
- * index = the row's place in its group (for lfo and adsr the float index of geode_viz_set_lfo / _adsr, for macro
- * the knob). A sibling of geode_params_schema_text, whose format it leaves alone. Static; parse once. */
+ * index = the row's place in its group (for lfo and adsr the float index of geode_viz_set_lfo / _adsr). A sibling of geode_params_schema_text, whose format it leaves alone. Static; parse once. */
 GEODE_API const char* geode_config_schema_text(void);
 /* The two-finger transform on the visual (core/viz/TouchTransform): a pinch's scale factor times Zoom, a twist in
  * degrees added to Rotation, each clamped to its schema range; a broken gesture value returns current unchanged. */
@@ -416,7 +410,9 @@ GEODE_API void        geode_customize_borrow(const char* category, const float* 
  * static; every other pointer stays valid until this thread's next macro bank call.
  * target is a ModTargets wire name; up and down are the offsets at a full turn each way, as signed fractions of
  * the target's range. geode_macro_bank_live lists "knob|<id>|<up 0/1>|<down 0/1>" per knob: whether turning it
- * that way moves anything on style_id. No renderer reads a bank yet. */
+ * that way moves anything on style_id. geode_macro_bank_set makes a bank the process-wide one every renderer
+ * adds to its params each frame, after the director and the note layer and before the LFOs. */
+GEODE_API void        geode_macro_bank_set(const char* bank);
 GEODE_API const char* geode_macro_bank_default(void);
 GEODE_API const char* geode_macro_bank_targets_text(void);
 GEODE_API const char* geode_macro_bank_normalize(const char* bank);

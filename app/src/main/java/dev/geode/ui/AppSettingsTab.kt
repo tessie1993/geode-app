@@ -84,7 +84,6 @@ enum class SettingsGroupKey(
             SettingsSectionKey.GESTURES,
             SettingsSectionKey.NOTIFICATION,
             SettingsSectionKey.PICTURE_IN_PICTURE,
-            SettingsSectionKey.INTENT,
         ),
     ),
     VISUALS(
@@ -141,7 +140,6 @@ enum class SettingsSectionKey(
     GESTURES(R.string.settings_section_gestures),
     NOTIFICATION(R.string.settings_section_notification),
     PICTURE_IN_PICTURE(R.string.behavior_group_pip),
-    INTENT(R.string.behavior_group_intent),
     TOUCH(R.string.behavior_group_touch),
     CONNECTED_DISPLAY(R.string.behavior_group_display),
     WALLPAPER_DREAM(R.string.settings_section_wallpaper_dream),
@@ -324,7 +322,6 @@ private fun SettingsSectionBody(
         SettingsSectionKey.GESTURES -> behaviour?.let { b -> b.prefs?.let { GesturesSection(it, b.update) } }
         SettingsSectionKey.NOTIFICATION -> behaviour?.let { b -> b.prefs?.let { NotificationButtonsSection(it, b.update) } }
         SettingsSectionKey.PICTURE_IN_PICTURE -> PictureInPictureSection(settings)
-        SettingsSectionKey.INTENT -> IntentSection(settings)
         SettingsSectionKey.TOUCH -> TouchSection(settings)
         SettingsSectionKey.CONNECTED_DISPLAY -> ConnectedDisplaySection(settings)
         SettingsSectionKey.WALLPAPER_DREAM -> behaviour?.let { b -> b.prefs?.let { WallpaperDreamSection(it, b.update) } }

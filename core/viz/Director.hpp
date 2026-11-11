@@ -5,7 +5,6 @@
 #include "sound/Emotion.hpp"
 #include "sound/SoundFrame.h"
 #include "viz/CameraRig.hpp"
-#include "viz/Macros.hpp"
 #include "viz/Params.hpp"
 #include "viz/Reactions.hpp"
 
@@ -16,9 +15,10 @@ namespace geode::viz {
 //
 //   palette ─► paletteBase/Range overrides, the second palette and its mix, saturation, brightness,
 //              temperature, contrast (every shader style's pal(), the simulations' hue, MilkDrop's tint)
-//   behaviour ─► the six macro knobs (Energy, Speed, Complexity, Space, Chaos; never Mood, the palette is
-//              the director's own) laid over the user's, the camera rig's music moves, its spring
-//              softness, the motion field's breath, orbit and drift
+//   behaviour ─► five axes of its own (Energy, Speed, Complexity, Space, Chaos), each an offset on a
+//              set of scene params, a scale on the camera rig's music moves and a few routes; the
+//              camera's spring softness, the motion field's breath, orbit and drift. The user's macro
+//              bank (viz/MacroBank) is never touched: it adds on top of whatever the director left
 //   what reacts to what ─► a reaction engine of its own, re-dealt from the feeling's archetypes, with its
 //              hands off every moment the user set by hand (Customize › Music, the hand mask of
 //              viz/Reactions.hpp, handed to step()): the hand wins per moment
@@ -35,7 +35,7 @@ namespace geode::viz {
 // export that uses the play's seed is the same film.
 //
 // A pure function of (seed, sound frames, dt): no clock, no randomness of its own, state reset with the
-// renderer. Process-wide configuration, like the macros, so the screen, an export, the wallpaper and the
+// renderer. Process-wide configuration, like the macro bank, so the screen, an export, the wallpaper and the
 // dream all follow the same switch.
 struct DirectorConfig {
     float amount = 0.0f;  // 0 off .. 1 full
@@ -64,6 +64,11 @@ class Director {
 public:
     static constexpr int kRoutes = 5;
     using Routes = std::array<ReactRoute, ReactionEngine::kRoutes>;
+    // The behaviour axes, each -1..1, 0 = as styled. They were the old macro knobs' rows the director
+    // turned (Mood never: the palette is the director's mood); now they are the director's alone.
+    enum class Axis { Energy, Speed, Complexity, Space, Chaos };
+    static constexpr int kAxes = 5;
+    using Axes = std::array<float, kAxes>;
 
     struct Look {
         // Colour: hues 0..1 on the colour wheel (red 0, yellow 1/6, green 1/3, blue 2/3).
@@ -77,7 +82,7 @@ public:
         float temperature = 0.0f;
         float contrast = 1.0f;
         // Behaviour.
-        MacroKnobs knobs{};
+        Axes axes{};
         float camSmooth = 0.5f;
         float motionBreath = 0.5f;
         float motionOrbit = 0.5f;
@@ -103,15 +108,18 @@ public:
     // way, so the feeling is the same at every frame rate and in an export.
     void step(const GeodeSoundFrame& f, const sound::Emotion::State& heard, float dt, std::uint32_t handMask = 0);
 
-    // Before the macros: the palette and the motion character, lerped by the amount. `palWheel` says how
+    // First in the chain: the palette and the motion character, lerped by the amount. `palWheel` says how
     // the scene reads paletteBase: true for the shader styles (lib_palette's pal() runs the colour wheel
     // backwards), false for MilkDrop's tint and the simulations, which read it as a plain hue.
     SceneParams apply(const SceneParams& p, bool palWheel = true) const;
-    // The user's knobs plus the director's, each clamped to -1..1.
-    MacroKnobs knobs(const MacroKnobs& user) const;
-    // The camera rig's music moves, multiplied by the look's.
-    CameraRig::Moves moves(const CameraRig::Moves& base) const;
-    // After the user's and the macros' routes: the director's own.
+    // The look's axes breathing with the live feeling, times the weight, each -1..1; all 0 while off.
+    Axes axes() const;
+    // After the note layer, before the user's macro bank: each axis moves its fields toward an end of
+    // their range, added to the value it is given (base plus modulation).
+    SceneParams applyAxes(const SceneParams& p) const;
+    // The camera rig's music moves: Space and Chaos, times the look's own.
+    CameraRig::Moves moves() const;
+    // After the user's routes: the axes' routes, then the director's own.
     SceneParams applyRoutes(const SceneParams& p) const;
 
     // How much it is driving now: the switch, eased, times whether a look has been chosen yet.
@@ -152,6 +160,8 @@ private:
 
     ReactionEngine outgoing_;
     ReactionEngine incoming_;
+    // The axes' routes, in an engine of their own; ticked at the end of each step.
+    ReactionEngine axisReactions_;
     Routes outgoingBase_{};
     Routes incomingBase_{};
 
@@ -179,5 +189,17 @@ private:
     float accentSign_ = 1.0f;
     float accentTension_ = 0.0f;
 };
+
+namespace director {
+// The axes' maths, pure, so a test can turn one axis alone; Director feeds them its axes().
+// p with each axis's fields moved toward an end of their slider range: at a full turn the style's
+// default reaches the end, and a value the user moved keeps its whole offset (base plus modulation).
+SceneParams applyAxes(const SceneParams& p, const Director::Axes& axes);
+// Space widens or narrows every music move; Chaos scales the shake, the reframes and the hard cuts
+// (-1 stops cuts). All 1 at rest.
+CameraRig::Moves axisMoves(const Director::Axes& axes);
+// Each axis's routes at a full turn up, scaled by the axis; off at or below 0.
+Director::Routes axisRoutes(const Director::Axes& axes);
+}  // namespace director
 
 }  // namespace geode::viz

@@ -75,7 +75,7 @@ import dev.geode.ui.theme.performStoneHaptic
  * Visuals › Styles: every style in one vertical menu that opens level by level, family › style ›
  * variation (owner, 2026-11-06: no stills, no group dropdown, no search).
  *
- * - **Family**, the engine that draws it: Silk, Life, Mycelium, Acid, Shaders, MilkDrop, Fluid,
+ * - **Family**, the engine that draws it: Silk, Life, Mycelium, Morphing, Shaders, MilkDrop, Fluid,
  *   Cymatics, in catalogue order ([Catalogue]); a family of one style is a plain row.
  * - **Style**: a shader family (Arbor, Nebula, Truchet…) is one style whose twelve looks are its
  *   variations; every other style is its own row and loads on a tap.
@@ -486,7 +486,7 @@ private fun kindLabel(kind: SceneKind): String =
         SceneKind.SILK -> "Silk"
         SceneKind.LIFE -> "Life"
         SceneKind.MYCELIUM -> "Mycelium"
-        SceneKind.ACID -> "Acid"
+        SceneKind.ACID -> "Morphing"
         SceneKind.MILKDROP -> "MilkDrop"
         SceneKind.FLUID, SceneKind.CURL_FLOW, SceneKind.WATER -> "Fluid"
         SceneKind.CYMATICS -> "Cymatics"

@@ -50,13 +50,12 @@ import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.floatingGlass
 
 /**
- * The Macros drawer: the six macro knobs on a glass panel pulled down from the top of the visual
+ * The Macros drawer: the macro bank's knobs on a glass panel pulled down from the top of the visual
  * (a swipe down, by default; ui-flow decisions: "Macros live in both places", here and as
- * Customize's first page). The knobs are Customize › Macros' own ([MacrosTab]) over the same
+ * Customize's first page). The knobs are Customize › Quick knobs' own ([MacrosTab]) over the same
  * [MacroStore], so a turn here is a turn there.
  *
- * The edit icon ([onEdit]) opens Customize on Macros, where the sets and making a macro live; the
- * drawer only turns the knobs. It closes the standard ways: Back, a tap outside, the ×, or pushing
+ * The edit icon ([onEdit]) opens Customize on Quick knobs; the drawer only turns the knobs. It closes the standard ways: Back, a tap outside, the ×, or pushing
  * it back up. No scrim, as with the quick settings, so the visual stays lit while the knobs move it.
  *
  * It slides on the app's spatial spring ([LocalGeodeMotion]), which is a jump under reduced

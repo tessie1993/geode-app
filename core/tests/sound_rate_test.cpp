@@ -97,12 +97,12 @@ constexpr double kTau = 2.0 * std::numbers::pi;
 
 // ---- The synthetic song ---------------------------------------------------------------------------------
 //
-// 120 BPM (a beat is 0.5 s, a bar 2 s), ten bars:
-//   0–8 s    verse in C major, C–Am–F–G, kick on 1 and 3, snare on 2 and 4, eighth hats, an eighth bass
-//   8–10 s   build: no kick or bass, a snare roll that speeds up, a rising noise sweep, chords held
-//   10–16 s  drop in E♭ major (the key change), Eb–Cm–Ab–Bb, four on the floor, sixteenth hats, louder
-//   16–17 s  silence
-//   17–20 s  back in E♭ at verse level
+// 141 BPM (a bar 1.70 s), in bars:
+//   0–5      verse in C major, C–Am–F–G, kick on 1 and 3, snare on 2 and 4, eighth hats, an eighth bass
+//   5–6      build: no kick or bass, a snare roll that speeds up, a rising noise sweep, chords held
+//   6–9.5    drop in E♭ major (the key change), Eb–Cm–Ab–Bb, four on the floor, sixteenth hats, louder
+//   9.5–10   silence
+//   10–20 s  back in E♭ at verse level
 // Every random number comes from one LCG with a fixed seed, so the song is identical on every run.
 
 struct Lcg {
@@ -121,12 +121,14 @@ struct Section {
     bool kick, bass, roll, sweep, sixteenths, fourOnFloor;
     double gain;
 };
+constexpr double kBeat = 60.0 / 141.0;
+constexpr double kBar = 4 * kBeat;
 constexpr Section kSections[] = {
-    {0.0, 8.0, 0, true, true, false, false, false, false, 0.7},
-    {8.0, 10.0, 0, false, false, true, true, false, false, 0.75},
-    {10.0, 16.0, 3, true, true, false, false, true, true, 1.25},
-    {16.0, 17.0, 3, false, false, false, false, false, false, 0.0},
-    {17.0, 20.0, 3, true, true, false, false, false, false, 0.7},
+    {0.0, 5 * kBar, 0, true, true, false, false, false, false, 0.7},
+    {5 * kBar, 6 * kBar, 0, false, false, true, true, false, false, 0.75},
+    {6 * kBar, 9.5 * kBar, 3, true, true, false, false, true, true, 1.25},
+    {9.5 * kBar, 10 * kBar, 3, false, false, false, false, false, false, 0.0},
+    {10 * kBar, kSeconds, 3, true, true, false, false, false, false, 0.7},
 };
 
 // I–vi–IV–V as (root, minor) above the key, one chord per bar.
@@ -138,7 +140,7 @@ std::vector<float> buildSong() {
     std::vector<float> out(static_cast<size_t>(2 * total));
     Lcg noise;
     double hatPrev = 0.0;
-    const double beat = 0.5;
+    const double beat = kBeat;
     for (int64_t s = 0; s < total; s++) {
         const double t = static_cast<double>(s) / kRate;
         const Section* sec = &kSections[0];
@@ -169,8 +171,8 @@ std::vector<float> buildSong() {
             double step = 0.0;
             double offset = 0.0;
             if (sec->roll) {
-                const double into = t - sec->from;
-                step = into < 1.0 ? beat / 2 : (into < 1.5 ? beat / 4 : beat / 8);
+                const double into = (t - sec->from) / (sec->to - sec->from);
+                step = into < 0.5 ? beat / 2 : (into < 0.75 ? beat / 4 : beat / 8);
             } else if (sec->kick) {
                 step = 2 * beat;
                 offset = beat;
@@ -179,7 +181,7 @@ std::vector<float> buildSong() {
                 const double since = std::fmod(t - sec->from - offset, step);
                 const double body = 0.25 * std::sin(kTau * 190.0 * since) * std::exp(-since / 0.05);
                 const double rattle = 0.3 * n * std::exp(-since / 0.08);
-                const double roll = sec->roll ? 0.5 + 0.25 * (t - sec->from) : 1.0;
+                const double roll = sec->roll ? 0.5 + 0.5 * (t - sec->from) / (sec->to - sec->from) : 1.0;
                 left += roll * (body + rattle);
                 right += roll * (body + rattle);
             }

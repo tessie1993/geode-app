@@ -110,9 +110,10 @@ void phaseRouteStaysMonotonic() {
     float prev = 0.0f;
     float travelled = 0.0f;
     bool backward = false;
-    for (int i = 0; i < 600; ++i) {  // 10 s at 120 bpm: 20 wraps
+    const float beatsPerSecond = 141.0f / 60.0f;
+    for (int i = 0; i < 600; ++i) {  // 10 s at 141 bpm: 23.5 wraps
         const float t = static_cast<float>(i) * dt;
-        f.beatPhase = 2.0f * t - std::floor(2.0f * t);
+        f.beatPhase = beatsPerSecond * t - std::floor(beatsPerSecond * t);
         e.tick(f, dt);
         const float v = e.output(0);
         if (i >= 60) {  // after the route's ease-in
@@ -123,7 +124,7 @@ void phaseRouteStaysMonotonic() {
         prev = v;
     }
     check(!backward, "a smoothed beat phase never steps backward, wraps included");
-    check(std::fabs(travelled - 18.0f) < 0.1f, "and turns once per beat (18 beats in the checked 9 s)");
+    check(std::fabs(travelled - 9.0f * beatsPerSecond) < 0.1f, "and turns once per beat (21.15 beats in the checked 9 s)");
 }
 
 void stepRouteJumpsOncePerEdge() {
@@ -1555,15 +1556,15 @@ void beatTimedLfoLocksToTheMusicClock() {
         double beats = 100.0;  // an arbitrary start, still on an n-beat multiple or not
         float prev = 0.0f;
         int wraps = 0;
-        for (int i = 0; i < 60 * 120; ++i) {  // 120 s at 120 BPM = 240 beats
-            beats += dt * 120.0 / 60.0;
-            const float v = e.tick(static_cast<float>(dt), clockAt(beats, 120.0f))[0];
+        for (int i = 0; i < 60 * 120; ++i) {  // 120 s at 93 BPM = 186 beats
+            beats += dt * 93.0 / 60.0;
+            const float v = e.tick(static_cast<float>(dt), clockAt(beats, 93.0f))[0];
             if (i > 0 && v < prev - 1.0f) ++wraps;
             prev = v;
             const double pos = std::fmod(beats, static_cast<double>(n)) / n;  // saw = 2 pos - 1
             if (i > 600) check(std::fabs(v - (2.0 * pos - 1.0)) < 0.02 || pos < 0.02 || pos > 0.98, "synced saw sits at the music clock's phase");
         }
-        check(wraps == static_cast<int>(240.0 / n) || wraps == static_cast<int>(240.0 / n) + 1 || wraps == static_cast<int>(240.0 / n) - 1,
+        check(std::abs(wraps - static_cast<int>(186.0 / n)) <= 1,
               "a synced wave completes one cycle per n beats");
     }
 }
@@ -1574,9 +1575,9 @@ void beatTimedLfoIsAtZeroOnMultiples() {
     for (const double b : {0.0, 4.0, 8.0, 40.0}) {
         e = LfoEngine{};
         e.configs[0] = {true, ModSource::Lfo, LfoTarget::Sway, LfoWave::Sine, 2.0f, 1.0f, ModPolarity::Bipolar, ModCurve::Linear, 4.0f};
-        const float v = e.tick(1.0f / 60.0f, clockAt(b, 120.0f))[0];
+        const float v = e.tick(1.0f / 60.0f, clockAt(b, 77.0f))[0];
         check(std::fabs(v) < 1e-3f, "a 4-beat sine is at phase 0 on beat multiples of 4");
-        const float q = e.tick(1.0f / 60.0f, clockAt(b + 1.0, 120.0f))[0];
+        const float q = e.tick(1.0f / 60.0f, clockAt(b + 1.0, 77.0f))[0];
         check(std::fabs(q - 1.0f) < 1e-2f, "a 4-beat sine peaks one beat in");
     }
 }
@@ -1604,11 +1605,30 @@ void beatTimedLfoSurvivesTempoChangeAndSilence() {
     check(worst < 0.15f, "no discontinuity across tempo change, silence and the beat returning");
 }
 
+// No tempo heard yet: a beat-timed slot assumes none. It free-runs on its own rate in seconds
+// (3 s here: four turns in 12 s), where a stand-in tempo would turn it at some other speed.
+void beatTimedLfoWithNoTempoRunsOnItsOwnSeconds() {
+    LfoEngine e;
+    e.configs[0] = {true, ModSource::Lfo, LfoTarget::Sway, LfoWave::Saw, 3.0f, 1.0f, ModPolarity::Bipolar, ModCurve::Linear, 4.0f};
+    const GeodeSoundFrame quiet = silence();
+    check(quiet.bpm == 0.0f, "silence carries no tempo");
+    float prev = e.tick(1.0f / 60.0f, quiet)[0];
+    int wraps = 0;
+    for (int i = 0; i < 60 * 12 - 1; ++i) {
+        const float v = e.tick(1.0f / 60.0f, quiet)[0];
+        if (v < prev - 1.0f) wraps++;
+        prev = v;
+    }
+    check(wraps == 3 || wraps == 4, "a beat-timed wave with no tempo heard turns once per its own rate in seconds");
+    check(std::fabs(prev - 1.0f) < 0.05f || std::fabs(prev + 1.0f) < 0.05f, "... and is at the end of its fourth turn after 12 s");
+}
+
 void randomLfoStepsOnTheBeatAndGlideIsContinuous() {
     LfoEngine a, g;
     a.configs[0] = {true, ModSource::Lfo, LfoTarget::Sway, LfoWave::Random, 2.0f, 1.0f, ModPolarity::Bipolar, ModCurve::Linear, 4.0f};
     g.configs[0] = {true, ModSource::Lfo, LfoTarget::Sway, LfoWave::RandomGlide, 2.0f, 1.0f, ModPolarity::Bipolar, ModCurve::Linear, 4.0f};
-    GeodeSoundFrame f0 = clockAt(0.0, 120.0f);
+    const double beatsPerSecond = 174.0 / 60.0;
+    GeodeSoundFrame f0 = clockAt(0.0, 174.0f);
     a.tick(1.0f / 60.0f, f0);
     g.tick(1.0f / 60.0f, f0);
     const double dt = 1.0 / 60.0;
@@ -1617,9 +1637,9 @@ void randomLfoStepsOnTheBeatAndGlideIsContinuous() {
     int steps = 0;
     std::set<int> targets;
     float worstGlide = 0.0f;
-    for (int i = 0; i < 60 * 32; ++i) {  // 64 beats = 16 cycles
-        beats += dt * 2.0;
-        const GeodeSoundFrame f = clockAt(beats, 120.0f);
+    for (int i = 0; i < 60 * 32; ++i) {  // 92.8 beats = 23.2 cycles
+        beats += dt * beatsPerSecond;
+        const GeodeSoundFrame f = clockAt(beats, 174.0f);
         const float va = a.tick(static_cast<float>(dt), f)[0];
         const float vg = g.tick(static_cast<float>(dt), f)[0];
         if (std::fabs(va - la) > 1e-6f) {
@@ -1632,14 +1652,14 @@ void randomLfoStepsOnTheBeatAndGlideIsContinuous() {
         lg = vg;
         if (std::fmod(beats, 4.0) > 3.9) targets.insert(static_cast<int>(vg * 1000.0f));
     }
-    check(steps >= 15 && steps <= 17, "sample & hold steps once per cycle");
+    check(steps >= 22 && steps <= 24, "sample & hold steps once per cycle");
     check(worstGlide < 0.1f, "random glide never jumps");
     check(targets.size() >= 12, "random glide picks a new target each cycle");
     LfoEngine g2;
     g2.configs[0] = g.configs[0];
     g2.tick(1.0f / 60.0f, f0);
     float again = 0.0f;
-    for (int i = 0; i < 100; ++i) again = g2.tick(static_cast<float>(dt), clockAt(2.0 + i * dt * 2.0, 120.0f))[0];
+    for (int i = 0; i < 100; ++i) again = g2.tick(static_cast<float>(dt), clockAt(2.0 + i * dt * beatsPerSecond, 174.0f))[0];
     check(std::isfinite(again), "random glide is deterministic and finite");
 }
 
@@ -1706,6 +1726,7 @@ int main() {
     beatTimedLfoLocksToTheMusicClock();
     beatTimedLfoIsAtZeroOnMultiples();
     beatTimedLfoSurvivesTempoChangeAndSilence();
+    beatTimedLfoWithNoTempoRunsOnItsOwnSeconds();
     randomLfoStepsOnTheBeatAndGlideIsContinuous();
     if (failures == 0) std::printf("viz_math_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;

@@ -153,9 +153,7 @@ internal class VisualSettingsController(
     /**
      * How long a preset load glides in for.
      *
-     * The length used to be a count of beats divided by the tracked tempo, which made the glide
-     * as wrong as the estimate and silently used 120 BPM on live input, where there is no
-     * estimate. It is a duration the user set, in seconds, and nothing consults the analyser.
+     * It is a duration the user set, in seconds; nothing consults the analyser or assumes a tempo.
      */
     private fun emitPresetMorph() {
         val seconds = host.guiPrefs.presetMorphSeconds

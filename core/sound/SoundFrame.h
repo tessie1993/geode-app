@@ -36,6 +36,11 @@
 #define GEODE_SECTION_BREAKDOWN 4
 #define GEODE_SECTION_OUTRO 5
 
+/* The slowest and fastest beat the tempo detector can measure (three periods in its 6 s window, a
+ * 0.2 s period). Limits of the measurement, flat in between: no tempo inside them is weighted. */
+#define GEODE_SOUND_BPM_SLOWEST 30.0f
+#define GEODE_SOUND_BPM_FASTEST 300.0f
+
 typedef struct GeodeSoundFrame {
     /* Relative levels, the MilkDrop core, over a +6 dB/octave tilted spectrum. bass 20–250 Hz, mid 250 Hz–
      * 4 kHz, treble 4–16 kHz; sub 20–60 Hz and midHigh 2–6 kHz split out the floor and the presence region.
@@ -130,8 +135,10 @@ typedef struct GeodeSoundFrame {
     /* The musical layer. Rhythm, from core/sound/Rhythm: an onset envelope
      * at a fixed 100 Hz hop, its autocorrelation over 6 s for the tempo, and a phase-locked beat oscillator.
      * While beatConf is low the phases fall back to the hit clock (beat = one hit, bar = four) and the
-     * beat, downbeat and phrase triggers stay silent. */
-    float bpm;          /* tempo, beats per minute (60..200); the last good value while unlocked, 0 before any */
+     * beat, downbeat and phrase triggers stay silent. The tempo is the music's own: no tempo is preferred
+     * or assumed, and before one is heard bpm is 0 and beatCount, barCount and the triggers stay still. */
+    float bpm;          /* tempo, beats per minute, 0 = none heard yet (never a stand-in number); the last heard
+                           while unlocked. Within GEODE_SOUND_BPM_SLOWEST..FASTEST, the detector's search limits */
     float beatPhase;    /* 0 on the beat … 1 just before the next: 1 - beatPhase is how soon it lands */
     float beatConf;     /* how sure the tracker is of the beat, 0..1 (locked above ~0.35) */
     float beat;         /* trigger on each beat the oscillator predicts */

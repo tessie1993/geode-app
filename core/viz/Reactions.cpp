@@ -66,7 +66,7 @@ constexpr std::array<SourceSpec, kReactSourceCount> kSourceTable = {{
     GEODE_SRC(BarPhase, barPhase, Unit, 0),
     GEODE_SRC(PhrasePhase, phrasePhase, Unit, 0),
     GEODE_SRC(BeatConf, beatConf, Unit, 0),
-    GEODE_SRC(Bpm, bpm, Scaled, 1.0f / 200.0f),
+    GEODE_SRC(Bpm, bpm, Scaled, 1.0f / GEODE_SOUND_BPM_FASTEST),
     GEODE_SRC(Beat, beat, Trigger, 0.25f),
     GEODE_SRC(Downbeat, downbeat, Trigger, 0.5f),
     GEODE_SRC(Phrase, phrase, Trigger, 1.5f),

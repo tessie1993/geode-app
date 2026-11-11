@@ -17,8 +17,6 @@ std::atomic<float> gAmount{0.0f};
 std::atomic<uint64_t> gSeed{0};
 std::atomic<bool> gSwitch{false};
 
-constexpr float kUntimedGlideSeconds = 2.0f;
-
 float lerp(float a, float b, float k) { return a + (b - a) * k; }
 float clamp01(float x) { return std::clamp(x, 0.0f, 1.0f); }
 float smooth(float x) {
@@ -225,9 +223,12 @@ void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float
     // A trigger's value is its strength (the beat tracker's confidence), not a level: any downbeat
     // or phrase the tracker fires counts, as with Form's events below.
     if (f.downbeat > 0.0f) barsSinceCommit_ += 1;
-    // A look glides in over a bar of the tempo the tracker hears. With no tempo heard none is assumed:
-    // the glide is a plain two seconds.
-    const float barGlide = f.bpm > 0.0f && f.beatConf > 0.3f ? std::clamp(240.0f / f.bpm, 1.0f, 4.0f) : kUntimedGlideSeconds;
+    // A look glides in over one bar, held to 1..4 s. With no tempo known there is no bar: the glide is a
+    // plain time in seconds, the geometric middle of that range.
+    constexpr float kGlideMin = 1.0f;
+    constexpr float kGlideMax = 4.0f;
+    const bool barKnown = f.bpm > 0.0f && f.beatConf > 0.3f;
+    const float barGlide = barKnown ? std::clamp(240.0f / f.bpm, kGlideMin, kGlideMax) : std::sqrt(kGlideMin * kGlideMax);
 
     if (commits_ == 0) {
         // The first look waits for a key it can trust, or twelve seconds of music, whichever comes first:

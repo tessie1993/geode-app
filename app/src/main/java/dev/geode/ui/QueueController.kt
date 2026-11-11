@@ -16,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -55,7 +56,7 @@ internal class QueueController(
     private var lastBrowseContext: List<QueueTrack> = emptyList()
 
     // Host exposes no coroutine scope, so title resolution owns a small IO scope of its own,
-    // scoped to this controller's (effectively app-scoped) lifetime.
+    // cancelled in release().
     private val resolveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     // Bumped by every open()/playFrom() so a title resolution batch from a superseded call can
@@ -94,6 +95,7 @@ internal class QueueController(
     /** Detaches from the player, which outlives this controller's session. */
     fun release() {
         player.removeListener(queueListener)
+        resolveScope.cancel()
     }
 
     fun playTrack(uri: String) = playFrom(PlaybackQueue.contextFor(uri, lastBrowseContext, host.deviceTracks, host.libraryTracks), uri)

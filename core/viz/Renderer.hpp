@@ -216,6 +216,9 @@ private:
     GLuint drawBorn(Scene& scene, const SceneParams& p, float dt);
     // Runs the liquid over the scene target; 0 when Liquid is off (the composite then reads the target).
     GLuint drawLiquid(Scene& scene, const SceneParams& p, float dt);
+    // A flat style's Endless zoom with Liquid off: MilkDrop's feedback dive (EndlessZoom.hpp's feedback),
+    // run through the liquid pass. 0 when its targets are not there.
+    GLuint drawDive(const SceneParams& p, float octavesPerSecond, float dt);
     bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off && liveLiquid_ != liquid::Mode::Paused; }
     void applyPendingFluidInjection();
     void applyMilkRequests();
@@ -389,6 +392,7 @@ private:
     std::string bornAsked_;
     std::string bornAskedBefore_;
     bool liquidWasOn_ = false;
+    bool diveWasOn_ = false;
     std::atomic<int> liquidHotPolicy_{0};
     std::atomic<int> liquidMode_{0};
     std::atomic<int> liquidModeTaken_{-1};

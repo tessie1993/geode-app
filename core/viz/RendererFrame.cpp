@@ -410,16 +410,25 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     SceneParams sceneParams = p;
     if (liquidOn() && !scene->drawsCamera()) sceneParams.endlessZoom = false;
     // Camera travel on a flat style: Fly speed (forward zooms in, backward out) dives the picture
-    // through the same looping endless zoom, in Dive speed's place when that is off or beside it.
-    else if (!scene->drawsCamera()) {
+    // through the same endless zoom, in Dive speed's place when that is off or beside it.
+    float feedbackDive = 0.0f;
+    if (!liquidOn() && !scene->drawsCamera()) {
         const float dive = CameraRig::flatDive(p);
-        if (dive != 0.0f) {
-            sceneParams.endlessZoomSpeed = (p.endlessZoom ? p.endlessZoomSpeed : 0.0f) + dive;
+        const float speed = (p.endlessZoom ? p.endlessZoomSpeed : 0.0f) + dive;
+        // Diving in is a feedback zoom, the way MilkDrop falls into the screen. Backing out has no
+        // feedback form (the edges have nothing to pull in), so it keeps the two crossfaded layers;
+        // so does a paused Liquid, which holds the pass's targets.
+        if (speed > 0.0f && liveLiquid_ == liquid::Mode::Off && liquidPass_.ensure(renderWidth_, renderHeight_)) {
+            feedbackDive = speed;
+            sceneParams.endlessZoom = false;
+        } else if (dive != 0.0f) {
+            sceneParams.endlessZoomSpeed = speed;
             sceneParams.endlessZoom = true;
         }
     }
+    if (feedbackDive <= 0.0f) diveWasOn_ = false;
     drawSceneTarget(*scene, sceneParams, dt);
-    const GLuint liquidTex = drawLiquid(*scene, p, dt);
+    const GLuint liquidTex = feedbackDive > 0.0f ? drawDive(p, feedbackDive, dt) : drawLiquid(*scene, p, dt);
     composite(p, progress, targetFbo, liquidTex);
     drawEdgeGlow(targetFbo, timeSeconds, dt);
     drawUiBlur(targetFbo);
@@ -560,6 +569,32 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
     next->update(gainAdjusted(soundFrame_, p), dt);
     next->draw(timeSeconds_);
     return bornFbo_.tex();
+}
+
+GLuint Renderer::drawDive(const SceneParams& p, float octavesPerSecond, float dt) {
+    if (!diveWasOn_) {
+        // Starts from this frame's style: an old pour must not show.
+        liquidPass_.reset();
+        diveWasOn_ = true;
+    }
+    const float rate = std::clamp(octavesPerSecond, 0.0f, 1.2f) * endless::musicRate(soundFrame_, p.audioDrive);
+    liquid::LiquidPass::Frame f;
+    f.styleTex = fboA_.tex();
+    f.bornTex = fboA_.tex();
+    f.velocityTex = compositePass_.zeroTex();
+    f.styleWidth = renderWidth_;
+    f.styleHeight = renderHeight_;
+    f.dt = dt;
+    f.dive.scale = endless::feedback::scale(rate, dt);
+    f.inject = endless::feedback::inject(rate, dt);
+    f.edge = kLiquidEdge;
+    f.sharpen = kLiquidSharpen;
+    f.bornRadius = endless::feedback::kBornRadius;
+    f.bornGain = 1.0f;
+    f.feedback = true;
+    f.time = timeSeconds_;
+    f.quadVao = quadVao_;
+    return liquidPass_.run(f);
 }
 
 GLuint Renderer::drawLiquid(Scene& scene, const SceneParams& p, float dt) {

@@ -116,4 +116,42 @@ inline Layers layers(float phase) {
     return l;
 }
 
+// The feedback dive: what a flat style's Endless zoom draws while Liquid is off.
+//
+// The two layers above only ever show the picture between 1x and 2x, dissolving from one copy to
+// the next, so the eye reads a pulse, not travel. MilkDrop's dive reads as falling in because of
+// feedback: every frame the last frame is magnified a little about the centre and the new picture
+// is laid over it, so everything on screen streams outward for as long as it stays visible and the
+// zoom has no end to arrive at. That is this: viz/liquid/LiquidPass run with no flow, a straight
+// dive about the centre, and the live style born small at the vanishing point.
+namespace feedback {
+
+/** How far (octaves of zoom) a pour travels before half of it is replaced: the length of the streaks. */
+inline constexpr float kTrailOctaves = 0.5f;
+/** However slow the dive, half the picture is fresh within this many seconds, so it never freezes. */
+inline constexpr float kSlowestHalfLife = 2.0f;
+/** The disc at the vanishing point the live style is born in, centred units. */
+inline constexpr float kBornRadius = 0.14f;
+
+inline float clampedDt(float dt) { return std::isfinite(dt) ? std::clamp(dt, 0.0f, 0.1f) : 0.0f; }
+inline float clampedRate(float octavesPerSecond) {
+    return std::isfinite(octavesPerSecond) ? std::clamp(octavesPerSecond, 0.0f, 2.0f) : 0.0f;
+}
+
+/** This frame's magnification of the last frame, >= 1; the same travel per second at any frame rate. */
+inline float scale(float octavesPerSecond, float dt) { return std::exp2(clampedRate(octavesPerSecond) * clampedDt(dt)); }
+
+/**
+ * The share of the style poured over the feedback this frame. Tied to the dive, not the clock: a
+ * pour lasts kTrailOctaves of travel, so a slow dive leaves streaks as long as a fast one.
+ */
+inline float inject(float octavesPerSecond, float dt) {
+    const float t = clampedDt(dt);
+    const float byTravel = 1.0f - std::exp2(-clampedRate(octavesPerSecond) * t / kTrailOctaves);
+    const float byTime = 1.0f - std::exp2(-t / kSlowestHalfLife);
+    return std::max(byTravel, byTime);
+}
+
+}  // namespace feedback
+
 }  // namespace geode::viz::endless

@@ -1802,6 +1802,29 @@ object GeodeNative {
         untilUs: Long,
         out: LongArray,
     )
+
+    /** Size of the encoder feed's state (GEODE_CAST_AUDIO_FEED_STATE): frames taken or dropped, pending, rate. */
+    const val CAST_AUDIO_FEED_STATE = 3
+
+    /** Starts the AAC encoder's backlog [state] at [rateHz]; returns its cap in frames (a second). */
+    external fun castAudioFeedStart(
+        state: LongArray,
+        rateHz: Int,
+    ): Int
+
+    /** A block of [frames] joins the backlog; returns how many of the oldest pending frames to drop first. */
+    external fun castAudioFeedAdd(
+        state: LongArray,
+        frames: Int,
+    ): Int
+
+    /** Frames the next codec input buffer takes from the backlog's head (up to [bufferFrames]; 0 = none), its PTS in [ptsUs]`[0]`. */
+    external fun castAudioFeedTake(
+        state: LongArray,
+        bufferFrames: Int,
+        ptsUs: LongArray,
+    ): Int
+
     // Cast's live HLS timing (core/viz/frame/HlsSegments): media-time segment durations and the playlist.
 
     /** Segments kept and listed (GEODE_HLS_WINDOW). */
@@ -1821,4 +1844,15 @@ object GeodeNative {
         segmentPrefix: String,
         segmentSuffix: String,
     ): String?
+
+    /** Size of the decode times [hlsRewriteFragment] keeps (GEODE_HLS_TRACKS), zeroed at the stream's start. */
+    const val HLS_TRACKS = 8
+
+    /** [fragment] (moof + mdat, its moof at [moofAt] in the muxer's output) as a self-contained segment; null = refused. */
+    external fun hlsRewriteFragment(
+        init: ByteArray,
+        moofAt: Long,
+        fragment: ByteArray,
+        decodeTimes: LongArray,
+    ): ByteArray?
 }

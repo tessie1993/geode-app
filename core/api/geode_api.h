@@ -972,6 +972,15 @@ GEODE_API double          geode_hls_fragment_seconds(const uint8_t* init, size_t
 GEODE_API int             geode_hls_playlist(int64_t first_sequence, const double* durations, int count,
                                              const char* init_uri, const char* segment_prefix,
                                              const char* segment_suffix, char* out, int cap);
+/* A fragment (moof + mdat) rewritten into a self-contained segment: default-base-is-moof, a tfdt per traf
+ * from decode_times (GEODE_HLS_TRACKS int64s the caller keeps, zeroed at the stream's start, moved on by
+ * each rewrite), data offsets and sizes fixed. moof_at is the moof's position in the muxer's output. out
+ * needs fragment_size + GEODE_HLS_FRAGMENT_GROWTH bytes. Returns the length written; 0 = refused. */
+#define GEODE_HLS_TRACKS 8
+#define GEODE_HLS_FRAGMENT_GROWTH 160
+GEODE_API size_t          geode_hls_rewrite_fragment(const uint8_t* init, size_t init_size, int64_t moof_at,
+                                                     const uint8_t* fragment, size_t fragment_size,
+                                                     int64_t* decode_times, uint8_t* out, size_t cap);
 
 /* Cast's audio pump (viz/frame/CastAudio): how much of what the ring gained to keep, and how many frames to
  * queue and pad up to the frame clock's audio cut. Pure counts: the caller owns GEODE_CAST_AUDIO_STATE int64s
@@ -985,6 +994,14 @@ GEODE_API int             geode_hls_playlist(int64_t first_sequence, const doubl
 #define GEODE_CAST_AUDIO_STEP 6
 GEODE_API int             geode_cast_audio_start(int64_t* state, int rate_hz);   /* the hold's capacity, frames */
 GEODE_API void            geode_cast_audio_step(int64_t* state, int64_t gained_frames, int64_t until_us, int64_t* out);
+/* The AAC encoder's backlog of queued blocks (viz/frame/CastAudio, CastAudioFeed): GEODE_CAST_AUDIO_FEED_STATE
+ * int64s the caller owns (frames taken or dropped, frames pending, rate). Start returns the cap in frames.
+ * Add takes a block's frames and returns how many of the oldest pending to drop first; take hands the next
+ * input buffer up to buffer_frames from the head, its PTS in *pts_us, and returns how many (0 = none wait). */
+#define GEODE_CAST_AUDIO_FEED_STATE 3
+GEODE_API int             geode_cast_audio_feed_start(int64_t* state, int rate_hz);
+GEODE_API int64_t         geode_cast_audio_feed_add(int64_t* state, int64_t frames);
+GEODE_API int64_t         geode_cast_audio_feed_take(int64_t* state, int64_t buffer_frames, int64_t* pts_us);
 
 #ifdef __cplusplus
 }

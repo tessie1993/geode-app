@@ -107,15 +107,20 @@ internal fun BoxScope.VisualsStage(
  * layout pass. ‹ › centre in what is left once both are taken off, so they never sit under the
  * sheet or the panel.
  *
+ * [room] says which of them the options leave room for ([stageIconRoom]): an icon the sheet's top
+ * edge or the panel would reach is faded out and takes no touch, like a sleeping one, so a tall
+ * sheet never shows the icons through its glass or over its tabs.
+ *
  * They fade with the shell's chrome through the layer's alpha, never AnimatedVisibility: the Cast
  * button feeds the cast mirror while Visuals is up, so it has to stay composed (CAST decision). A
  * faded icon takes no touches and no TalkBack focus, so a tap where it was reaches the visual.
- * Record stays while a take is being recorded, red, as its stop.
+ * Record stays while a take is being recorded, red, as its stop, wherever the options leave it room.
  */
 @Composable
 internal fun BoxScope.StageIcons(
     chrome: ShellChromeState,
     sheetShown: Boolean,
+    room: StageIconRoom,
     sheetTopPx: () -> Float,
     endPx: () -> Float,
     onFullScreen: () -> Unit,
@@ -129,8 +134,12 @@ internal fun BoxScope.StageIcons(
     val glass = Modifier.floatingGlass(RoundedCornerShape(50), fillAlpha = GeodeGlass.MATTE_FILL)
     val fade = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
     val awake = chrome.awake
-    val shown = animateFloatAsState(if (awake) 1f else 0f, fade, label = "stage-icons")
-    val recordShown = animateFloatAsState(if (awake || takes.recording) 1f else 0f, fade, label = "stage-record")
+    val rowOn = awake && room.topRow
+    val arrowsOn = awake && room.arrows
+    val recordOn = (awake || takes.recording) && room.record
+    val shown = animateFloatAsState(if (rowOn) 1f else 0f, fade, label = "stage-icons")
+    val arrowsShown = animateFloatAsState(if (arrowsOn) 1f else 0f, fade, label = "stage-arrows")
+    val recordShown = animateFloatAsState(if (recordOn) 1f else 0f, fade, label = "stage-record")
     val toLeft = Modifier.offset { IntOffset(-endPx().roundToInt(), 0) }
     Row(
         Modifier
@@ -146,7 +155,7 @@ internal fun BoxScope.StageIcons(
         // its taps and TalkBack skips it, as the other icons do when disabled.
         Box(Modifier.size(GeodeSpacing.TouchTarget), contentAlignment = Alignment.Center) {
             CastButton()
-            if (!awake) {
+            if (!rowOn) {
                 Box(
                     Modifier
                         .matchParentSize()
@@ -167,14 +176,14 @@ internal fun BoxScope.StageIcons(
             )
         }
         // Visuals › Settings, a page of the options (owner: an icon, no drop-down, no gesture).
-        StageIconButton(StoneIcon.SETTINGS, stringResource(R.string.visuals_qs_title), awake, onSettings)
+        StageIconButton(StoneIcon.SETTINGS, stringResource(R.string.visuals_qs_title), rowOn, onSettings)
         // Export, loop render and the takes list live in Studio; this only takes you there.
-        StageIconButton(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render), awake, onOpenStudioRender)
+        StageIconButton(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render), rowOn, onOpenStudioRender)
         StageIconButton(
             StoneIcon.FULLSCREEN,
             // With the options hidden this is the visible way back to them, so it says so.
             stringResource(if (sheetShown) R.string.visuals_gesture_toggle_sheet else R.string.visuals_show_options),
-            awake,
+            rowOn,
             onClick = {
                 nudge(GestureTip.DOUBLE_TAP_SHEET)
                 onFullScreen()
@@ -214,7 +223,7 @@ internal fun BoxScope.StageIcons(
         StageIconButton(
             StoneIcon.CHEVRON_LEFT,
             stringResource(R.string.visuals_previous_style),
-            awake,
+            arrowsOn,
             {
                 nudge(GestureTip.SWIPE_STYLES)
                 onStep(-1)
@@ -222,13 +231,13 @@ internal fun BoxScope.StageIcons(
             Modifier
                 .align(Alignment.CenterStart)
                 .padding(GeodeSpacing.S)
-                .faded(shown)
+                .faded(arrowsShown)
                 .then(glass),
         )
         StageIconButton(
             StoneIcon.CHEVRON_RIGHT,
             stringResource(R.string.visuals_next_style),
-            awake,
+            arrowsOn,
             {
                 nudge(GestureTip.SWIPE_STYLES)
                 onStep(1)
@@ -237,14 +246,14 @@ internal fun BoxScope.StageIcons(
                 .align(Alignment.CenterEnd)
                 .padding(GeodeSpacing.S)
                 .tourTarget(TourSpot.STAGE_ARROWS)
-                .faded(shown)
+                .faded(arrowsShown)
                 .then(glass),
         )
     }
     StageIconButton(
         icon = if (takes.recording) StoneIcon.STOP else StoneIcon.RECORD,
         description = stringResource(if (takes.recording) R.string.visuals_stop_take else R.string.visuals_gesture_record),
-        enabled = awake || takes.recording,
+        enabled = recordOn,
         onClick = {
             if (takes.recording) {
                 studioViewModel.stopRecording()
@@ -265,6 +274,53 @@ internal fun BoxScope.StageIcons(
         tint = if (takes.recording) MaterialTheme.colorScheme.error else Color.Unspecified,
     )
 }
+
+/** Which of the stage's icons the options leave room for: the top row, ‹ ›, and Record. */
+internal data class StageIconRoom(
+    val topRow: Boolean,
+    val arrows: Boolean,
+    val record: Boolean,
+)
+
+/**
+ * The one rule for the stage icons and the options (owner: the icons overlapped the tall sheet's
+ * tabs): an icon is drawn only where all of it lies in the part of the stage the options leave in
+ * view, so nothing of the stage shows over (or through) the sheet or the panel, and only what is
+ * drawn takes touches. All in px in the stage's own coordinates, from geometry alone, so every
+ * height of the sheet, a drag between them and the panel at any width answer the same way.
+ *
+ * [sheetPx] is how far up from the stage's bottom the portrait sheet reaches (its glass, margin
+ * and the dock under it; 0 beside the panel), [panelPx] how far in from the end side the landscape
+ * panel reaches (its margin included; 0 in portrait). [topInsetPx] is the window's top inset the
+ * row sits under, [iconPx] one icon's touch box, [marginPx] the row's and Record's margin and
+ * [arrowMarginPx] the arrows'. The row is [TOP_ROW_ICONS] icons at the top end; Record sits at the
+ * bottom end of the part in view and must stay below the row; ‹ › centre vertically in that part
+ * and must stay below the row too (› shares the end side with it).
+ */
+internal fun stageIconRoom(
+    stageWidthPx: Float,
+    stageHeightPx: Float,
+    sheetPx: Float,
+    panelPx: Float,
+    topInsetPx: Float,
+    iconPx: Float,
+    marginPx: Float,
+    arrowMarginPx: Float,
+): StageIconRoom {
+    val openWidth = stageWidthPx - panelPx
+    val openHeight = stageHeightPx - sheetPx
+    val rowBottom = topInsetPx + marginPx + iconPx
+    val rowWidth = TOP_ROW_ICONS * iconPx + 2 * marginPx
+    val arrowBox = iconPx + 2 * arrowMarginPx
+    return StageIconRoom(
+        topRow = rowWidth <= openWidth && rowBottom <= openHeight,
+        arrows = 2 * arrowBox <= openWidth && (openHeight - arrowBox) / 2 >= rowBottom,
+        record = iconPx + 2 * marginPx <= openWidth && openHeight - marginPx - iconPx >= rowBottom,
+    )
+}
+
+/** The top row's icons: Cast, Settings, Studio and Full screen. */
+private const val TOP_ROW_ICONS = 4
 
 /** The layer's alpha from [alpha], read in the draw pass, so a fade never recomposes the icons. */
 private fun Modifier.faded(alpha: State<Float>): Modifier = graphicsLayer { this.alpha = alpha.value }

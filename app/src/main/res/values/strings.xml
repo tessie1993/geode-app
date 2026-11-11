@@ -22,9 +22,6 @@
     <!-- First-run photosensitivity notice. Safety copy: translate carefully,
          the flash rate is factual and must survive translation. This is an
          acknowledgement, not a choice — there is no setting behind it. -->
-    <string name="wordmark_beat" translatable="false">Beat</string>
-    <string name="wordmark_realms" translatable="false">Realms</string>
-    <string name="wordmark_3d" translatable="false">3D</string>
     <string name="boot_tagline">Visualize the invisible</string>
     <string name="safety_title">Before the visuals start</string>
     <string name="safety_warning">BeatRealms reacts to music with light, and the visuals are intense — bright, fast and full-screen.</string>
@@ -193,6 +190,7 @@
     <string name="subtitle_capture_refused">%1$s will not be captured — see Settings</string>
     <string name="subtitle_capture_refused_unknown_app">That app</string>
     <string name="subtitle_captured_from_another_app">Captured from another app</string>
+    <string name="subtitle_capture_silent">Hearing silence: nothing plays, or the app blocks capture</string>
     <string name="subtitle_microphone_hears">Whatever the microphone hears</string>
     <string name="subtitle_unknown_artist">Unknown artist</string>
     <string name="subtitle_nothing_playing">Your library, your history, or the room</string>
@@ -503,6 +501,7 @@
     <string name="ext_waiting_permission">Waiting for the capture permission…</string>
     <string name="ext_listening_to">Listening to %1$s.</string>
     <string name="ext_listening_idle">Listening. Start something playing in any app.</string>
+    <string name="ext_hearing_silence">Listening, but hearing only silence. Either nothing is playing, or the app that is playing does not let other apps capture its audio (some music and video apps block it). Try another app, or the microphone.</string>
     <string name="ext_now_playing_line">%1$s: %2$s</string>
     <string name="ext_now_playing_line_with_artist">%1$s: %2$s — %3$s</string>
     <string name="ext_read_now_playing_explainer">BeatRealms can also show WHAT the other app is playing — the track and artist, on the visualizer. That reads the media session, which Android gates behind notification access. Optional: the visuals work on the sound alone.</string>

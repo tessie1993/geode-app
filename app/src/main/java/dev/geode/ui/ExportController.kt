@@ -46,7 +46,6 @@ import dev.geode.export.MixClip
 import dev.geode.export.ProjectComposition
 import dev.geode.export.ProjectComposition.SceneSegment
 import dev.geode.export.RenderBatch
-import dev.geode.export.RenderScope
 import dev.geode.export.StudioExporter
 import dev.geode.export.TimeOfDayDrift
 import dev.geode.export.VideoExporter

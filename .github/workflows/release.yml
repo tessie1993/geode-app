@@ -149,6 +149,28 @@ jobs:
           grep -q 'com.android.vending.BILLING' "$manifest" \
             || { echo "::error::Play Billing's BILLING permission is missing from the merged manifest"; exit 1; }
 
+          # Every permission the store build asks for is one somebody approved: a library update
+          # must not add one unseen. tools/release-permissions.txt is the list and says how to
+          # update it. The names are read as XML, since the merger may put android:name on its
+          # own line.
+          requested=$(python3 - "$manifest" <<'PY' | LC_ALL=C sort -u
+          import sys
+          import xml.etree.ElementTree as ET
+
+          NAME = "{http://schemas.android.com/apk/res/android}name"
+          for element in ET.parse(sys.argv[1]).getroot():
+              if element.tag.startswith("uses-permission") and element.get(NAME):
+                  print(element.get(NAME))
+          PY
+          )
+          test -n "$requested" || { echo "::error::No <uses-permission> read from the merged manifest"; exit 1; }
+          echo "Permissions requested:"; echo "$requested" | sed 's/^/  /'
+          unexpected=$(comm -23 <(echo "$requested") <(grep -v '^#' tools/release-permissions.txt | sed '/^$/d' | LC_ALL=C sort -u))
+          if [ -n "$unexpected" ]; then
+            echo "::error::The merged release manifest requests permissions that are not in tools/release-permissions.txt: $(echo $unexpected). See that file's header."
+            exit 1
+          fi
+
           # Play's target API requirement (API 36 for new apps and updates since 31 Aug 2026).
           target=$(sed -n 's/.*android:targetSdkVersion="\([0-9]*\)".*/\1/p' "$manifest" | head -n 1)
           echo "targetSdkVersion=$target"

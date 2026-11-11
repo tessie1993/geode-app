@@ -13,9 +13,16 @@ import dev.geode.render.HandMask
 import dev.geode.render.HandReactions
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
+import dev.geode.render.LfoTarget
+import dev.geode.render.LfoWave
+import dev.geode.render.ModCurve
+import dev.geode.render.ModPolarity
+import dev.geode.render.ModSource
 import dev.geode.render.ReactionRoute
+import dev.geode.render.bridge.ModConfigCodec
 import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.scene.SceneParams
+import dev.geode.util.bestEffort
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -77,6 +84,8 @@ internal class ModulationController(
     fun toggleParamLock(label: String) {
         _lockedParams.update { if (label in it) it - label else it + label }
         prefs.edit().putStringSet(KEY_LOCKED_PARAMS, _lockedParams.value).apply()
+        // The director's reach leaves a kept control alone too (AutoDirectorStore pushes the saved set at start).
+        bestEffort(TAG, "push keep set") { GeodeNative.directorKeepSet(_lockedParams.value.joinToString("\n")) }
     }
 
     /**
@@ -127,8 +136,8 @@ internal class ModulationController(
     /**
      * Rolls [category], or everything when null. The roll is native (core/viz/CustomizeMap over
      * core/viz/ParamRandomizer): the category's own controls that reach the style, minus the kept
-     * ones; this only carries the frame there and back. The knobs are not params: Quick knobs
-     * rolls them through MacroStore.
+     * ones; this only carries the frame there and back. The knobs are not params, and Quick
+     * knobs has no roll.
      */
     fun randomizeParams(category: CustomizeCategory? = null) {
         if (category == CustomizeCategory.QUICK_KNOBS) return
@@ -143,6 +152,39 @@ internal class ModulationController(
                 GeodeNative.customizeRandomize(host.sceneId, category.name, locked, seed, input, out)
             }
         if (changed) commitSceneParams(SceneParamsCodec.unpack(out, host.params))
+        if (category == null || category == CustomizeCategory.MUSIC) randomizeWaves(all = false)
+    }
+
+    /**
+     * Randomize for the waves. The roll is native (core/viz/WaveRandomizer): [all] is the wave editor's
+     * button, every wave switched on and rolled; otherwise a category roll, which only re-rolls the
+     * steady waves already on and holds them when Music is kept. This only carries the slots there and back.
+     */
+    fun randomizeWaves(all: Boolean) {
+        val floats = ModConfigCodec.packLfo(LfoConfig()).size
+        val input = FloatArray(LfoEngine.SLOTS * floats)
+        _lfos.value.take(LfoEngine.SLOTS).forEachIndexed { i, c -> ModConfigCodec.packLfo(c).copyInto(input, i * floats) }
+        val out = FloatArray(input.size)
+        val locked = _lockedParams.value.joinToString("\n")
+        val params = SceneParamsCodec.pack(host.params)
+        if (!GeodeNative.wavesRandomize(host.sceneId, locked, Random.nextLong(), !all, params, input, out)) return
+        val rolled =
+            List(LfoEngine.SLOTS) { i ->
+                val o = i * floats
+                LfoConfig(
+                    enabled = out[o] > 0.5f,
+                    source = ModSource.entries[out[o + 1].toInt()],
+                    target = LfoTarget.entries[out[o + 2].toInt()],
+                    wave = LfoWave.entries[out[o + 3].toInt()],
+                    rateSeconds = out[o + 4],
+                    depth = out[o + 5],
+                    polarity = ModPolarity.entries[out[o + 6].toInt()],
+                    curve = ModCurve.entries[out[o + 7].toInt()],
+                    beats = out[o + 8].toInt(),
+                )
+            }
+        _lfos.value = rolled
+        lfoStore.save(rolled)
     }
 
     /**
@@ -235,6 +277,8 @@ internal class ModulationController(
     }
 
     companion object {
+        private const val TAG = "ModulationController"
+
         private const val HISTORY_DEPTH = 64
 
         private const val CHECKPOINT_GAP_MS = 700L

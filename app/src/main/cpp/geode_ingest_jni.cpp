@@ -92,6 +92,15 @@ JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingWritten(
     return geode_pcm_ring_written(ringOf(handle));
 }
 
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingHead(JNIEnv*, jobject, jlong handle) {
+    return geode_pcm_ring_head(ringOf(handle));
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingSetPlayout(JNIEnv*, jobject, jlong handle,
+                                                                                  jlong playout) {
+    geode_pcm_ring_set_playout(ringOf(handle), reinterpret_cast<const geode_playout*>(playout));
+}
+
 JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingHeardAt(JNIEnv*, jobject, jlong handle,
                                                                                 jint frames, jlong nowMs,
                                                                                 jlong heardAtMs) {

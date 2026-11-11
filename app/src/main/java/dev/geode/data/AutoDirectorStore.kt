@@ -29,13 +29,21 @@ import kotlin.random.Random
  * change on top (Auto visuals' timer, `AutoVisualsPrefsStore`), and a fresh install
  * starts with the director part on. A free user gets the first minute of each song ([AutoDirectorPolicy]).
  *
+ * How far it reaches past its look is [reach] (Visuals › Settings, under Auto): the levels and what each
+ * does are native (core/viz/DirectorReach); this store keeps the choice and hands it over, with Customize's
+ * keep set, which the reach never moves.
+ *
  * Called on the main thread (the settings screen and [dev.geode.playback.AutoDirectorFeed]).
  */
 class AutoDirectorStore private constructor(
     private val prefs: SharedPreferences,
+    kept: Set<String>,
 ) {
     private val _enabled = MutableStateFlow(prefs.getBoolean(KEY_ENABLED, DEFAULT_ENABLED))
     val enabled: StateFlow<Boolean> = _enabled
+
+    private val _reach = MutableStateFlow(prefs.getInt(KEY_REACH, DEFAULT_REACH))
+    val reach: StateFlow<Int> = _reach
 
     private var seed = Random.nextLong()
     private var gate = FeatureGate.FREE
@@ -45,6 +53,24 @@ class AutoDirectorStore private constructor(
 
     init {
         push()
+        pushReach()
+        setKept(kept)
+    }
+
+    /** The native level (GeodeNative.directorReachSet): 0 the look alone, 1 shuffle, 2 shuffle and modulate. */
+    fun setReach(level: Int) {
+        _reach.value = level
+        prefs.edit().putInt(KEY_REACH, level).apply()
+        pushReach()
+    }
+
+    /** Customize's locked controls and kept categories, as saved under [KEY_KEPT]. */
+    fun setKept(keys: Set<String>) {
+        bestEffort(TAG, "push keep set") { GeodeNative.directorKeepSet(keys.joinToString("\n")) }
+    }
+
+    private fun pushReach() {
+        bestEffort(TAG, "push reach") { GeodeNative.directorReachSet(_reach.value) }
     }
 
     fun setEnabled(on: Boolean) {
@@ -102,17 +128,26 @@ class AutoDirectorStore private constructor(
         private const val TAG = "AutoDirectorStore"
         private const val KEY_ENABLED = "auto_director_enabled"
         const val DEFAULT_ENABLED = true
+        private const val KEY_REACH = "auto_director_reach"
+        const val DEFAULT_REACH = 0
+
+        /** Customize's lock set in the modulation prefs, which `ModulationController` edits. */
+        const val KEY_KEPT = "locked_params"
 
         internal val PREF_KEYS =
             prefKeys(GeodePrefsFiles.GENERAL) {
                 portable(PrefType.BOOLEAN, KEY_ENABLED)
+                portable(PrefType.INT, KEY_REACH)
             }
 
         @Volatile private var instance: AutoDirectorStore? = null
 
         fun get(context: Context): AutoDirectorStore =
             instance ?: synchronized(this) {
-                instance ?: AutoDirectorStore(GeodePrefsFiles(context.applicationContext).general).also { instance = it }
+                instance ?: create(GeodePrefsFiles(context.applicationContext)).also { instance = it }
             }
+
+        private fun create(files: GeodePrefsFiles): AutoDirectorStore =
+            AutoDirectorStore(files.general, files.modulation.getStringSet(KEY_KEPT, emptySet()) ?: emptySet())
     }
 }

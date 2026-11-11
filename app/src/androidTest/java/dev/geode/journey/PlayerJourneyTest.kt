@@ -11,6 +11,8 @@ import androidx.media3.session.MediaBrowser
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import com.google.common.truth.Truth.assertThat
+import dev.geode.data.FavouritesStore
+import dev.geode.data.GeodePrefsFiles
 import dev.geode.ui.MainActivity
 import org.junit.After
 import org.junit.Rule
@@ -94,5 +96,28 @@ class PlayerJourneyTest {
         }
         // OFF → ALL → ONE → OFF: three different modes, three different descriptions.
         assertThat(spoken.toSet()).hasSize(3)
+    }
+
+    /**
+     * A tap on the heart changes what the button says and is saved under the track's URI, the
+     * key Library, the notification and Android Auto read. The filled shape is not in the
+     * semantics tree; it is on the device checklist.
+     */
+    @Test
+    fun theHeartSaysAndSavesItsState() {
+        compose.awaitEmptyPlayer()
+        val b = connectBrowser().also { browser = it }
+        val uri = TestTrack.write()
+        onMain {
+            b.setMediaItem(TestTrack.mediaItem(uri))
+            b.prepare()
+        }
+        compose.tap("Add to favourites")
+        compose.awaitNode(hasContentDescription("Remove from favourites") and hasClickAction())
+        val saved = FavouritesStore(GeodePrefsFiles(compose.activity).favourites)
+        assertThat(saved.isFavourite(uri.toString())).isTrue()
+
+        compose.tap("Remove from favourites")
+        compose.awaitNode(hasContentDescription("Add to favourites") and hasClickAction())
     }
 }

@@ -28,6 +28,8 @@ import dev.geode.data.NoteResponseStore
 import dev.geode.data.PerformanceStore
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsStore
+import dev.geode.data.RecordPrefs
+import dev.geode.data.RecordPrefsStore
 import dev.geode.data.RecordSaveStore
 import dev.geode.data.SaveTarget
 import dev.geode.data.StudioPrefsStore
@@ -38,6 +40,7 @@ import dev.geode.data.backup.BackupFormat
 import dev.geode.data.backup.BackupSection
 import dev.geode.engine.audio.SoundFrameLayout
 import dev.geode.engine.audio.SoundTuning
+import dev.geode.export.ExportQuality
 import dev.geode.model.TutorialChapter
 import dev.geode.model.TutorialPosition
 import dev.geode.model.TutorialProgress
@@ -100,7 +103,10 @@ class PrefsSchemaTest {
                 store.saveAdsrs(store.loadAdsrs())
                 store.saveReactions(emptyList())
             },
-            Owner("$DATA/AutoDirectorStore.kt", AutoDirectorStore.PREF_KEYS) { AutoDirectorStore.get(it).setEnabled(false) },
+            Owner("$DATA/AutoDirectorStore.kt", AutoDirectorStore.PREF_KEYS) {
+                AutoDirectorStore.get(it).setEnabled(false)
+                AutoDirectorStore.get(it).setReach(AutoDirectorStore.DEFAULT_REACH)
+            },
             Owner("$DATA/NoteResponseStore.kt", NoteResponseStore.PREF_KEYS) { NoteResponseStore(it[general]) {}.setEnabled(false) },
             Owner("$DATA/AutoVisualsPrefsStore.kt", AutoVisualsPrefsStore.PREF_KEYS) {
                 AutoVisualsPrefsStore(it[GeodePrefsFiles.VIZ]).save(VizUiState())
@@ -138,6 +144,10 @@ class PrefsSchemaTest {
                         override fun setSceneParams(params: SceneParams) = Unit
                     }
                 ModulationController(LfoStore(it[general]), it[GeodePrefsFiles.MODULATION], host).toggleParamLock("speed")
+            },
+            Owner("$DATA/RecordPrefs.kt", RecordPrefsStore.PREF_KEYS) {
+                val record = RecordPrefs(ExportQuality.entries.first(), fps = 30, maxLengthSec = 60)
+                RecordPrefsStore(it[general]) { seconds -> seconds }.save(record)
             },
             Owner("$DATA/RecordSaveStore.kt", RecordSaveStore.PREF_KEYS) { RecordSaveStore(it).choose(SaveTarget.VideosLibrary) },
             Owner("$APP/wallpaper/WallpaperPrefs.kt", WallpaperPrefsStore.PREF_KEYS) { WallpaperPrefsStore(it).save(WallpaperSettings()) },
@@ -269,7 +279,10 @@ class PrefsSchemaTest {
 
     @Test
     fun theOlderKeySetsStillMatchTheSchema() {
-        assertEquals(MacroStore.KEYS, MacroStore.PREF_KEYS.map { it.name }.toSet())
+        val (macroRetired, macroLive) = MacroStore.PREF_KEYS.partition { it.retired }
+        assertEquals(MacroStore.KEYS, macroLive.map { it.name }.toSet())
+        assertEquals(MacroStore.RETIRED_KEYS, macroRetired.map { it.name }.toSet())
+        assertEquals(RecordPrefsStore.KEYS, RecordPrefsStore.PREF_KEYS.map { it.name }.toSet())
         assertEquals(LfoStore.KEYS, LfoStore.PREF_KEYS.map { it.name }.toSet())
         assertEquals(PerformanceStore.KEYS, PerformanceStore.PREF_KEYS.map { it.name }.toSet())
     }

@@ -87,12 +87,16 @@ class PrefKeysBuilder internal constructor(
         keys += PrefKey(file, name, type, BackupClass.PORTABLE, prefix = true)
     }
 
-    /** Retired keys ride in a backup like the file they sit in, so they are [BackupClass.PORTABLE] until removed. */
+    /**
+     * Retired keys ride in a backup like the file they sit in, so they are [BackupClass.PORTABLE]
+     * until removed, unless the backup names them to be skipped ([backup]).
+     */
     fun retired(
         type: PrefType?,
         vararg names: String,
+        backup: BackupClass = BackupClass.PORTABLE,
     ) {
-        names.mapTo(keys) { PrefKey(file, it, type, BackupClass.PORTABLE, retired = true) }
+        names.mapTo(keys) { PrefKey(file, it, type, backup, retired = true) }
     }
 }
 

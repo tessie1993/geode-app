@@ -95,7 +95,8 @@ fun Modifier.glassBlur(
     if (backdrop == null) return this
     val blurred = rememberGraphicsLayer()
     val radiusPx = with(LocalDensity.current) { radius.toPx() }
-    SideEffect { blurred.renderEffect = BlurEffect(radiusPx, radiusPx, TileMode.Clamp) }
+    val effect = remember(radiusPx) { BlurEffect(radiusPx, radiusPx, TileMode.Clamp) }
+    SideEffect { blurred.renderEffect = effect }
     // State read in the draw pass only: a move redraws the blur, it never recomposes the glass.
     val here = remember { mutableStateOf(Offset.Zero) }
     return this

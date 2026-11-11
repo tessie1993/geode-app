@@ -127,8 +127,7 @@ object BackupFormat {
      * left out of an export, and a restore neither writes nor removes them.
      *
      * - "Seen it" flags (safety notice, first-run setup, tutorial and its progress): a new phone
-     *   should show the photosensitivity notice and the tour again; the user's answers themselves
-     *   (intent) are restored.
+     *   should show the photosensitivity notice and the tour again.
      * - Folder and image URIs picked through the system picker: their read grant belongs to
      *   this install and does not survive a reinstall, so a restored URI points at nothing.
      * - Settings › Performance ([PerformanceStore.KEYS]): picked for this phone's RAM and

@@ -26,23 +26,13 @@
     <string name="boot_tagline">Visualize the invisible</string>
     <string name="safety_title">Before the visuals start</string>
     <string name="safety_warning">BeatRealms reacts to music with light, and the visuals are intense — bright, fast and full-screen.</string>
-    <string name="safety_prompt">The flash rate is limited in the engine, by design. Nothing on screen can flash more than three times a second, no preset or imported file can raise that, and the video you export is held to the same limit as the screen you saw. There is no setting for this and nothing to switch off.</string>
+    <string name="safety_prompt">BeatRealms limits its own effects: strobe and flash depth are clamped, and brightness modulation is slowed, in the engine and in exported video alike. It does not measure the finished picture, so it cannot promise a flash rate, and MilkDrop presets and imported shaders are not limited at all. There is no setting for this and nothing to switch off.</string>
     <string name="safety_acknowledge">I understand</string>
 
     <!-- First run, after the notice: where the music is, and what you came here to do. -->
     <!-- First run: permission, then an optional folder. Nothing else is asked. -->
     <string name="permission_open_settings">Open settings</string>
     <string name="onboarding_step">Step %1$d of %2$d</string>
-
-    <!-- The intent setting. No longer asked at first run; it lives in Settings › Behaviour and gestures. -->
-    <string name="settings_intent_title">What do you use BeatRealms for?</string>
-    <string name="settings_intent_body">Sets where the app opens and whether Studio appears in the navigation bar.</string>
-    <string name="settings_intent_listening">Listening</string>
-    <string name="settings_intent_listening_detail">Opens on the player. Studio stays out of the way.</string>
-    <string name="settings_intent_videos">Making videos</string>
-    <string name="settings_intent_videos_detail">Opens in Studio, with your projects and render queue to hand.</string>
-    <string name="settings_intent_both">Both</string>
-    <string name="settings_intent_both_detail">Opens on the player, with Studio one tap away.</string>
 
     <!-- Settings tab bar. In the same order the tabs are shown. -->
     <string name="settings_tab_lyrics">Lyrics</string>
@@ -80,9 +70,9 @@
     <string name="help_topic_visuals">Styles, presets and Customize</string>
     <string name="help_topic_visuals_body">A style is the renderer; a preset is a style plus every control around it. Customize hides controls a style cannot use, so an empty section means that style ignores it rather than that something is broken.</string>
     <string name="help_topic_touch">Touch on the visualizer</string>
-    <string name="help_topic_touch_body">Every style reads where your finger is and means something by it — a vanishing point, a spawn point, a place the geometry reaches toward. Pinch and twist map onto the real Zoom and Rotation controls, so a gesture you like is saved with the preset.</string>
+    <string name="help_topic_touch_body">Every style reads where your finger is and means something by it — a vanishing point, a spawn point, a place the geometry reaches toward. Drag with two fingers to play with the visual; Settings › Behaviour &amp; gestures sets what each gesture does.</string>
     <string name="help_topic_safety">Flashing and motion</string>
-    <string name="help_topic_safety_body">Nothing on screen can flash more than three times a second. That limit lives in the engine, covers exported video as well as the screen, and is always on — there is no switch for it and nothing to turn on. Motion follows Android: turn on Remove animations (Settings › Accessibility) and the visual, the interface and exported video all move gently.</string>
+    <string name="help_topic_safety_body">BeatRealms clamps how deep its strobe and flash effects go and slows brightness modulation, on screen and in exported video, and that is always on. It does not measure the finished picture, so it cannot promise a flash rate, and MilkDrop presets and imported shaders are not limited. Motion follows Android: turn on Remove animations (Settings › Accessibility) and the visual, the interface and exported video all move gently.</string>
     <string name="help_topic_performance">If it runs hot or stutters</string>
     <string name="help_topic_performance_body">The engine already lowers its own quality when the device heats up. The Detail control on the marched styles is the biggest single lever you have, and lowering it costs less than you would expect.</string>
 
@@ -461,7 +451,7 @@
     <string name="folders_min_track_seconds">%1$d s</string>
     <string name="folders_min_track_explainer">Leaves ringtones, notification sounds and voice notes out of the library. Tracks of unknown length always show.</string>
     <string name="folders_group_export">Export destination</string>
-    <string name="folders_export_explainer">Exports land in your Videos library (Movies/BeatRealms), or in a folder you pick at render time — there is no standing export folder to configure. Defaults for quality and size live in the Export tab.</string>
+    <string name="folders_export_explainer">Exports land in your Videos library (Movies/BeatRealms), or in a folder you pick at render time — there is no standing export folder to configure. Defaults for quality and size are in Studio › Render.</string>
     <string name="folders_preset_chosen">Preset folder: chosen — saves are mirrored there</string>
     <string name="folders_preset_internal">Preset folder: internal only</string>
     <string name="folders_choose_preset">Choose preset folder</string>
@@ -704,14 +694,10 @@
     <string name="look_font_color_hint">Recolors the writing everywhere; Auto returns to the theme\'s own text colors.</string>
     <string name="look_group_layout">Layout</string>
     <string name="look_bar_opacity">"Bar opacity  %1$d%%"</string>
-    <string name="look_player_position">Player position</string>
-    <string name="look_position_top">Top</string>
-    <string name="look_position_bottom">Bottom</string>
     <string name="look_corner_style">Corner style</string>
     <string name="look_corner_sharp">Sharp</string>
     <string name="look_corner_rounded">Rounded</string>
     <string name="look_corner_pill">Pill</string>
-    <string name="look_compact_player">Compact mini-player</string>
     <string name="look_boot_animation">Boot animation</string>
 
     <!-- Font colour swatches. Mineral names; the argb value is what persists. -->
@@ -752,10 +738,9 @@
     <string name="behavior_touch_transform_hint">Two fingers on the fullscreen visualizer: pinch moves the Zoom slider, twist moves Rotation. They are the same controls the Customize panel shows, so a gesture is saved into presets and takes — and undone by dragging the slider back.</string>
     <string name="behavior_display_use">Use a connected display</string>
     <string name="behavior_display_connected">Connected: %1$s. The visuals play there and the phone becomes the control surface — the canvas moves rather than being mirrored, so the big screen shows exactly what the app renders.</string>
-    <string name="behavior_display_none">Nothing connected. Plug in HDMI or start casting, and the visuals move to that screen while the phone keeps the controls.</string>
-    <string name="behavior_group_intent">What you\'re here for</string>
+    <string name="behavior_display_none">Nothing connected. Plug in HDMI, and the visuals move to that screen while the phone keeps the controls.</string>
     <string name="behavior_safety_title">Flashing and motion</string>
-    <string name="behavior_flash_guidance">Nothing in BeatRealms can flash more than three times a second. Published guidance (WCAG 2.3.1) puts the general limit there, and the clamp sits in the render path itself — it applies to every scene, every preset and every imported file, on screen and in exported video alike. It is not a setting, so there is nothing here to adjust.</string>
+    <string name="behavior_flash_guidance">BeatRealms clamps how deep its strobe and flash effects go and slows its brightness modulation. These are limits on the engine\'s own controls, on screen and in exported video alike, not a measurement of the picture: MilkDrop presets and imported shaders are not covered. It is not a setting, so there is nothing here to adjust.</string>
     <string name="behavior_wallpaper_hint">Set the visualizer as your wallpaper. It uses the style and settings the app was last showing, reacts to whatever BeatRealms is playing, and drifts gently on its own the rest of the time. It draws nothing while another app is in front, so it is not a background battery drain.</string>
     <string name="behavior_wallpaper_button">Set as live wallpaper</string>
     <string name="behavior_pip_auto_enter">Enter automatically</string>
@@ -872,6 +857,7 @@
     <string name="wallpaper_options_rest">Rest when silent</string>
     <string name="wallpaper_options_rest_hint">After a few quiet seconds the wallpaper holds still and stops drawing. It wakes when sound comes back.</string>
     <string name="wallpaper_options_saver">Pause in battery saver</string>
+    <string name="wallpaper_options_saver_hint">While Android\'s battery saver is on, the wallpaper holds a still frame.</string>
     <string name="wallpaper_options_cover_hint">It always stops while an app, the notification shade or recent apps covers it.</string>
     <string name="wallpaper_options_group_look">Look</string>
     <string name="wallpaper_options_home">Home screen</string>

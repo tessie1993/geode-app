@@ -128,6 +128,7 @@ private fun WallpaperOptionsScreen(
                         checked = settings.pauseInBatterySaver,
                         onCheckedChange = { update(settings.copy(pauseInBatterySaver = it)) },
                     )
+                    Hint(stringResource(R.string.wallpaper_options_saver_hint))
                     Hint(stringResource(R.string.wallpaper_options_cover_hint))
                 }
             }

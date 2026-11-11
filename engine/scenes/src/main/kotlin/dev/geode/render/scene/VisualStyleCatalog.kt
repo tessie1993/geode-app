@@ -42,7 +42,7 @@ object VisualStyleCatalog {
             "life_coral" to "Coral Bloom",
             "life_labyrinth" to "Living Ink",
             "life_worms" to "Ember Worms",
-            "acid_tv" to "TV Acid",
+            "acid_tv" to "TV Morphing",
             "acid_well" to "Phosphor Well",
             "acid_kaleid" to "Kaleido Melt",
             "acid_droste" to "Droste Throat",

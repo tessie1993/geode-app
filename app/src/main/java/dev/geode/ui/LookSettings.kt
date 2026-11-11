@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -162,6 +163,7 @@ private fun FontColorSwatch(
         } ?: Brush.verticalGradient(listOf(cs.primary, cs.secondary))
     Column(
         Modifier
+            .minimumInteractiveComponentSize()
             .graphicsLayer { alpha = if (usable) 1f else 0.35f }
             .clickable(enabled = usable, onClick = onSelect)
             .padding(2.dp),

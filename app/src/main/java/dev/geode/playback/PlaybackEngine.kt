@@ -161,9 +161,9 @@ class PlaybackSession internal constructor(
         player.setHandleAudioBecomingNoisy(p.pauseOnNoisy)
         replayGain.configure(p.replayGainMode, p.replayGainPreampDb, p.replayGainClipGuard)
         GeodeNative.dspSetSpeed(dsp.nativeHandle(), p.speed)
-        val native = p.nativeOutput && !(p.bitPerfect && BitPerfectOutput.supported)
-        if (native != nativeOutput) {
-            nativeOutput = native
+        val oboe = p.nativeOutput && !(p.bitPerfect && BitPerfectOutput.supported)
+        if (oboe != nativeOutput) {
+            nativeOutput = oboe
             // The output already open was built under the old choice. A playing item is seeked to where
             // it stands, as for bit-perfect: Media3 rebuilds the output there, so the switch applies now.
             if (player.playbackState != Player.STATE_IDLE && player.currentMediaItem != null) {

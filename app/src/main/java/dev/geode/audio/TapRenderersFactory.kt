@@ -52,8 +52,8 @@ class TapRenderersFactory(
                 object : ForwardingAudioOutputProvider(AudioTrackAudioOutputProvider.Builder(context).build()) {
                     override fun getAudioOutput(config: AudioOutputProvider.OutputConfig): AudioOutput {
                         onAudioOutput(config)
-                        val native = if (nativeOutput()) OboeAudioOutput.open(config) else null
-                        return native ?: super.getAudioOutput(config)
+                        val oboe = if (nativeOutput()) OboeAudioOutput.open(config) else null
+                        return oboe ?: super.getAudioOutput(config)
                     }
                 },
             ).build()

@@ -3,43 +3,27 @@
 #include <bit>
 #include <cmath>
 #include <cstdlib>
-#include <numbers>
+
+// Reached by its path from this file, so the host tests' plain `-Icore` builds find it too.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#include "../../third_party/kissfft/kissfft.hh"
+#pragma GCC diagnostic pop
 
 namespace geode::sound {
 
-Fft::Fft(int size)
-    : n_(size), bitrev_(static_cast<size_t>(size)), twiddle_(static_cast<size_t>(size / 2)), work_(static_cast<size_t>(size)) {
-    // Radix-2 only: any other size would make the bit reversal index past the end of work_.
+Fft::Fft(int size) : n_(size), in_(static_cast<size_t>(size)), out_(static_cast<size_t>(size)) {
+    // Power-of-two sizes only: the engine's frame sizes are, and KISS FFT stays on its radix-4 and
+    // radix-2 butterflies for them, which never touch its scratch buffer.
     if (size < 2 || !std::has_single_bit(static_cast<unsigned>(size))) std::abort();
-    int bits = 0;
-    while ((1 << bits) < size) bits++;
-    for (int i = 0; i < size; i++) {
-        int r = 0;
-        for (int b = 0; b < bits; b++) {
-            if (i & (1 << b)) r |= 1 << (bits - 1 - b);
-        }
-        bitrev_[i] = r;
-    }
-    for (int k = 0; k < size / 2; k++) {
-        const double a = -2.0 * std::numbers::pi * k / size;
-        twiddle_[k] = {static_cast<float>(std::cos(a)), static_cast<float>(std::sin(a))};
-    }
+    plan_ = std::make_shared<const kissfft<float>>(static_cast<std::size_t>(size), false);
 }
 
 void Fft::magnitudes(const float* real, float* out) {
-    for (int i = 0; i < n_; i++) work_[bitrev_[i]] = {real[i], 0.0f};
-    for (int len = 2; len <= n_; len <<= 1) {
-        const int half = len / 2;
-        const int stride = n_ / len;
-        for (int i = 0; i < n_; i += len) {
-            for (int j = 0; j < half; j++) {
-                const std::complex<float> t = twiddle_[j * stride] * work_[i + j + half];
-                work_[i + j + half] = work_[i + j] - t;
-                work_[i + j] += t;
-            }
-        }
-    }
-    for (int k = 0; k <= n_ / 2; k++) out[k] = std::sqrt(std::norm(work_[k]));
+    for (int i = 0; i < n_; i++) in_[static_cast<size_t>(i)] = {real[i], 0.0f};
+    plan_->transform(in_.data(), out_.data());
+    for (int k = 0; k <= n_ / 2; k++) out[k] = std::sqrt(std::norm(out_[static_cast<size_t>(k)]));
 }
 
 }  // namespace geode::sound

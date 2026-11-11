@@ -144,14 +144,25 @@ internal class ModulationController(
 
     /**
      * Puts one category's controls back to their defaults (native: every field its controls
-     * write) and leaves every other category alone. Behaviour's Reset also drops the user's own
+     * write) and leaves every other category alone. Music's Reset also drops the user's own
      * reaction routes, which are not params.
      */
     fun resetCategory(category: CustomizeCategory) {
         if (category == CustomizeCategory.QUICK_KNOBS) return
-        if (category == CustomizeCategory.BEHAVIOUR) setReactions(null)
+        if (category == CustomizeCategory.MUSIC) setReactions(null)
         val out = FloatArray(SceneParamsCodec.FIELDS)
         GeodeNative.customizeReset(category.name, SceneParamsCodec.pack(host.params), out)
+        commitSceneParams(SceneParamsCodec.unpack(out, host.params))
+    }
+
+    /** Takes one category's controls from another look ([from], a preset's params) and leaves the rest. Native. */
+    fun borrowCategory(
+        category: CustomizeCategory,
+        from: SceneParams,
+    ) {
+        if (category == CustomizeCategory.QUICK_KNOBS) return
+        val out = FloatArray(SceneParamsCodec.FIELDS)
+        GeodeNative.customizeBorrow(category.name, SceneParamsCodec.pack(host.params), SceneParamsCodec.pack(from), out)
         commitSceneParams(SceneParamsCodec.unpack(out, host.params))
     }
 

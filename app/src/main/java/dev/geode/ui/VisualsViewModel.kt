@@ -14,6 +14,7 @@ import dev.geode.data.TemplateImport
 import dev.geode.data.TemplateParse
 import dev.geode.data.TemplateWrite
 import dev.geode.data.VideoTemplate
+import dev.geode.data.VizUiState
 import dev.geode.di.PlayerSessionProvider
 import dev.geode.model.PresetLink
 import dev.geode.render.AdsrConfig
@@ -87,80 +88,85 @@ class VisualsViewModel
         /** What Liquid mode is doing now (0 off, 1 full, 2 lite, 3 warp, 4 paused); see [VisualizerRepository.liquidMode]. */
         val liquidMode: StateFlow<Int> get() = visualizer.liquidMode
 
-        val textures: StateFlow<List<MilkTexture>> get() = session.textures
+        val textures: StateFlow<List<MilkTexture>> get() = session.textureController.textures
 
-        val lfos: StateFlow<List<LfoConfig>> get() = session.lfos
+        val lfos: StateFlow<List<LfoConfig>> get() = session.modulation.lfos
 
         val adsrs: StateFlow<List<AdsrConfig>> get() = session.adsrs
 
-        val reactions: StateFlow<List<dev.geode.render.ReactionRoute>?> get() = session.reactions
+        val reactions: StateFlow<List<dev.geode.render.ReactionRoute>?> get() = session.modulation.reactions
 
         val handMask: StateFlow<Int> get() = session.handMask
 
-        val lockedParams: StateFlow<Set<String>> get() = session.lockedParams
+        val lockedParams: StateFlow<Set<String>> get() = session.modulation.lockedParams
 
-        val presetFolders: StateFlow<PresetFolders> get() = session.presetFolders
+        val presetFolders: StateFlow<PresetFolders> get() = session.presetLibrary.folders
 
-        val backgroundPrefs: StateFlow<BackgroundPrefs> get() = session.backgroundPrefs
+        val backgroundPrefs: StateFlow<BackgroundPrefs> get() = session.backgroundController.prefs
 
         val backgroundPush: StateFlow<BackgroundPushState> get() = session.backgroundPush
 
-        fun pickBackgroundImage(uri: Uri) = session.pickBackgroundImage(uri)
+        fun pickBackgroundImage(uri: Uri) = session.backgroundController.pick(uri)
 
-        fun clearBackgroundImage() = session.clearBackgroundImage()
+        fun clearBackgroundImage() = session.backgroundController.clear()
 
-        fun setBackgroundBlend(blend: UnderlayBlend) = session.setBackgroundBlend(blend)
+        fun setBackgroundBlend(blend: UnderlayBlend) = session.backgroundController.setBlend(blend)
 
-        fun setBackgroundAmount(amount: Float) = session.setBackgroundAmount(amount)
+        fun setBackgroundAmount(amount: Float) = session.backgroundController.setAmount(amount)
 
-        fun setBackgroundBlurRadius(radius: Int) = session.setBackgroundBlurRadius(radius)
+        fun setBackgroundBlurRadius(radius: Int) = session.backgroundController.setBlurRadius(radius)
 
-        fun setBackgroundDim(dim: Float) = session.setBackgroundDim(dim)
+        fun setBackgroundDim(dim: Float) = session.backgroundController.setDim(dim)
 
         fun setBackgroundRenderSize(
             width: Int,
             height: Int,
-        ) = session.setBackgroundRenderSize(width, height)
+        ) = session.backgroundController.setRenderSize(width, height)
 
-        fun toggleParamLock(label: String) = session.toggleParamLock(label)
+        fun toggleParamLock(label: String) = session.modulation.toggleParamLock(label)
 
-        fun randomizeParams(category: CustomizeCategory? = null) = session.randomizeParams(category)
+        fun borrowCustomizeCategory(
+            category: CustomizeCategory,
+            from: SceneParams,
+        ) = session.modulation.borrowCategory(category, from)
+
+        fun randomizeParams(category: CustomizeCategory? = null) = session.modulation.randomizeParams(category)
 
         val paramHistory: StateFlow<ParamHistoryState> get() = session.paramHistory
 
         /** The one write path for a Customize edit, so the panel's undo covers every control. */
-        fun editSceneParams(params: SceneParams) = session.editSceneParams(params)
+        fun editSceneParams(params: SceneParams) = session.modulation.editSceneParams(params)
 
-        fun undoParams() = session.undoParams()
+        fun undoParams() = session.modulation.undo()
 
-        fun redoParams() = session.redoParams()
+        fun redoParams() = session.modulation.redo()
 
-        fun resetCustomizeCategory(category: CustomizeCategory) = session.resetCustomizeCategory(category)
+        fun resetCustomizeCategory(category: CustomizeCategory) = session.modulation.resetCategory(category)
 
-        fun resetAllCustomize() = session.resetAllCustomize()
+        fun resetAllCustomize() = session.modulation.resetAll()
 
         fun setAdsr(
             index: Int,
             config: AdsrConfig,
-        ) = session.setAdsr(index, config)
+        ) = session.modulation.setAdsr(index, config)
 
         fun setLfo(
             index: Int,
             config: LfoConfig,
-        ) = session.setLfo(index, config)
+        ) = session.modulation.setLfo(index, config)
 
-        fun setReactions(routes: List<dev.geode.render.ReactionRoute>?) = session.setReactions(routes)
+        fun setReactions(routes: List<dev.geode.render.ReactionRoute>?) = session.modulation.setReactions(routes)
 
-        fun setHandReactions(edit: dev.geode.render.HandReactions) = session.setHandReactions(edit)
+        fun setHandReactions(edit: dev.geode.render.HandReactions) = session.modulation.setHandReactions(edit)
 
-        fun rerollReactions() = session.rerollReactions()
+        fun rerollReactions() = session.modulation.rerollReactions()
 
         fun importTextures(
             uris: List<Uri>,
             onImported: () -> Unit,
         ) = session.importTextures(uris, onImported)
 
-        fun removeTexture(name: String) = session.removeTexture(name)
+        fun removeTexture(name: String) = session.textureController.removeTexture(name)
 
         fun useTexture(
             name: String,
@@ -173,28 +179,28 @@ class VisualsViewModel
             name: String,
             customShader: String?,
             folder: String = "",
-        ) = session.savePreset(name, customShader, folder)
+        ) = session.presetLibrary.savePreset(name, customShader, folder)
 
-        fun deletePreset(name: String) = session.deletePreset(name)
+        fun deletePreset(name: String) = session.presetLibrary.deletePreset(name)
 
         fun renamePreset(
             from: String,
             to: String,
         ): String? = session.renamePreset(from, to)
 
-        fun duplicatePreset(name: String): String? = session.duplicatePreset(name)
+        fun duplicatePreset(name: String): String? = session.presetLibrary.duplicatePreset(name)
 
-        fun presetFile(name: String): File? = session.presetFile(name)
+        fun presetFile(name: String): File? = session.presetLibrary.presetFile(name)
 
-        fun presetShareLink(name: String): String? = session.presetShareLink(name)
+        fun presetShareLink(name: String): String? = session.presetLibrary.presetShareLink(name)
 
-        fun importPresetLink(text: String): String? = session.importPresetLink(text)
+        fun importPresetLink(text: String): String? = session.presetLibrary.importPresetLink(text)
 
         fun importSharedPreset(data: String): PresetLinkImport =
             if (!PresetLink.isPresetLink(data)) {
                 PresetLinkImport.NotALink
             } else {
-                session
+                session.presetLibrary
                     .importPresetLink(data)
                     ?.let(PresetLinkImport::Imported)
                     ?: PresetLinkImport.Unreadable
@@ -205,27 +211,27 @@ class VisualsViewModel
             onResult: (String?) -> Unit,
         ) = session.importPresetFile(uri, onResult)
 
-        fun addPresetFolder(path: String) = session.addPresetFolder(path)
+        fun addPresetFolder(path: String) = session.presetLibrary.addPresetFolder(path)
 
         fun renamePresetFolder(
             from: String,
             to: String,
-        ) = session.renamePresetFolder(from, to)
+        ) = session.presetLibrary.renamePresetFolder(from, to)
 
         fun movePresetToFolder(
             name: String,
             folder: String,
-        ) = session.movePresetToFolder(name, folder)
+        ) = session.presetLibrary.movePresetToFolder(name, folder)
 
-        fun userMilkPresets(): List<File> = session.userMilkPresets()
+        fun userMilkPresets(): List<File> = session.presetLibrary.userMilkPresets()
 
-        fun noteMilkPreset(path: String) = session.noteMilkPreset(path)
+        fun noteMilkPreset(path: String) = session.vizStateStore.noteMilkPreset(path)
 
-        val templates: StateFlow<List<VideoTemplate>> get() = session.templates
+        val templates: StateFlow<List<VideoTemplate>> get() = session.templateLibrary.library
 
-        val templateStarters: List<VideoTemplate> get() = session.templateStarters
+        val templateStarters: List<VideoTemplate> get() = session.templateLibrary.starters
 
-        fun applyTemplate(template: VideoTemplate) = session.applyTemplate(template)
+        fun applyTemplate(template: VideoTemplate) = session.templateLibrary.applyTemplate(template)
 
         fun saveCurrentAsTemplate(
             name: String,
@@ -238,7 +244,7 @@ class VisualsViewModel
             onResult: (TemplateImport) -> Unit,
         ) = session.adoptTemplate(starter, onResult)
 
-        fun deleteTemplate(id: TemplateId) = session.deleteTemplate(id)
+        fun deleteTemplate(id: TemplateId) = session.templateLibrary.deleteTemplate(id)
 
         fun importTemplateText(
             text: String,
@@ -250,7 +256,7 @@ class VisualsViewModel
             onResult: (TemplateImport) -> Unit,
         ) = session.importTemplateFile(uri, onResult)
 
-        fun templateShareLink(template: VideoTemplate): String? = session.templateShareLink(template)
+        fun templateShareLink(template: VideoTemplate): String? = session.templateLibrary.shareLink(template)
 
         /**
          * Reads a shared link without importing it, for the confirm dialog. Null when [data]
@@ -265,7 +271,7 @@ class VisualsViewModel
             val link = TemplateFormat.linkIn(data) ?: return null
             val template = (TemplateFormat.decode(link) as? TemplateParse.Parsed)?.template ?: return null
             val replaces =
-                session.templates.value
+                session.templateLibrary.library.value
                     .firstOrNull { it.id == template.id }
                     ?.name
             return SharedLinkOffer.Template(data, template.name.trim(), replaces)

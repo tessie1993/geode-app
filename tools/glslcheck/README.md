@@ -61,8 +61,9 @@ g++ -std=c++20 -O1 -Icore core/tests/visual_gate.cpp -o visual_gate
 ```
 
 Every style plays the sound engine's own output, not a hand-made groove:
-`core/tests/golden/sound_frames.tsv`, each `GeodeSoundFrame` scalar at 60 fps
-over `sound_golden_test`'s 20 s song (verse, build, a drop with four on the
+`out/sound_frames.tsv` (write it first with `sound_rate_test --write`, or point
+`GEODE_SOUND_FRAMES` at one), each `GeodeSoundFrame` scalar at 60 fps
+over `sound_rate_test`'s 20 s song (verse, build, a drop with four on the
 floor and sixteenth hats, silence, verse). Its columns are matched to
 `lib_sound`'s `SND_*` names, so the two cannot drift silently. The held
 events, counts, Speed clocks, beat and bar oscillators and camera travel
@@ -80,12 +81,9 @@ the run from 9.5 s to 12 s (the end of the build into the drop) at 32 px and
 
 Why these numbers: a frame with 92 % black pixels has nothing on it (Morph
 World's darkest world was 13 %, thin-line styles sit near 90 %). One dark or
-bright still is a moment in the music; half the song is a broken style. The
-flash line is where the app's limiter takes hold and squeezes the picture
-toward grey, which on a plain groove is a style the user sees going flat;
-WCAG's own line (more than three flashes, six transitions, a second) is
-above it, and the report prints both. The flash rules are the limiter's code
-and constants, linked in, never copied.
+bright still is a moment in the music; half the song is a broken style. There
+is no flash check: the app's output flash limiter was removed, and the gate's
+flash rule, which was that limiter's code linked in, went with it.
 
 Styles that fail today are listed with a reason in
 `core/tests/visual_gate_baseline.txt`; only a failure not listed there fails

@@ -28,6 +28,9 @@ namespace geode::viz::endless {
 // shaders hold no zoom maths of their own. The 3D styles (lib_camera) do not
 // draw two layers: they would march every ray twice. They dive by flying the
 // CameraRig further along its path instead (CameraRig::step).
+//
+// A flat style now dives by feedback (the `feedback` section below); the layers are what it falls
+// back to while Liquid is paused or the feedback targets will not build.
 
 /**
  * Crossfade window inside the octave. Outside it a single layer is drawn, so the
@@ -60,7 +63,7 @@ inline float advance(float phase, float octavesPerSecond, float dt) {
 
 /** How hard a bass hit pushes the dive: bassAtt 2 (a strong hit) dives 1.35x as fast. */
 inline constexpr float kBassPush = 0.35f;
-/** Silence drifts at this share of Dive speed: slow, but never a full stop (owner's call). */
+/** The dive eases to this share of Dive speed as the music fades; the frame's clock then stops it (sound::motionRate). */
 inline constexpr float kSilenceRate = 0.3f;
 /** However far below its mean the bass falls, the dive never stalls or backs out. */
 inline constexpr float kMinRate = 0.25f;
@@ -75,7 +78,7 @@ inline constexpr float kMinRate = 0.25f;
  * (core/sound/DriveGain): a loud dense song dives harder than a quiet sparse one.
  *
  * presence (0..1, ~2 s fades) blends between the music's rate and the silent
- * drift, so a pause eases the dive down to kSilenceRate instead of freezing it.
+ * rate, so a pause eases the dive down to kSilenceRate before the frame's clock stops.
  * Audio drive scales the music's reach like everywhere else; at 0 the dive runs
  * at exactly Dive speed whatever plays.
  */
@@ -115,5 +118,57 @@ inline Layers layers(float phase) {
     if (l.weight1 < kSkipWeight) l.weight1 = 0.0f;
     return l;
 }
+
+// The feedback dive: what a flat style's Endless zoom draws while Liquid is off.
+//
+// The two layers above only ever show the picture between 1x and 2x, dissolving from one copy to
+// the next, so the eye reads a pulse, not travel. MilkDrop's dive reads as falling in because of
+// feedback: every frame the last frame is magnified a little about the centre and the new picture
+// is laid over it, so everything on screen streams outward for as long as it stays visible and the
+// zoom has no end to arrive at. That is viz/liquid/LiquidPass run with no flow: the motion is
+// viz/liquid/FeedbackMotion's (in or out, heard from the sound), the live style born small at the
+// centre while diving in. What is left here is the pour: how much of the style is laid over it.
+namespace feedback {
+
+/** How far (octaves of zoom) a pour travels before half of it is replaced: the length of the streaks. */
+inline constexpr float kTrailOctaves = 0.5f;
+/** However slow the dive, half the picture is fresh within this many seconds, so it never freezes. */
+inline constexpr float kSlowestHalfLife = 2.0f;
+/** The disc at the vanishing point the live style is born in, centred units. */
+inline constexpr float kBornRadius = 0.14f;
+
+inline float clampedDt(float dt) { return std::isfinite(dt) ? std::clamp(dt, 0.0f, 0.1f) : 0.0f; }
+inline float clampedRate(float octavesPerSecond) {
+    return std::isfinite(octavesPerSecond) ? std::clamp(octavesPerSecond, 0.0f, 2.0f) : 0.0f;
+}
+
+/**
+ * The share of the style poured over the feedback this frame. Tied to the dive, not the clock: a
+ * pour lasts kTrailOctaves of travel (either way), so a slow dive leaves streaks as long as a fast one.
+ */
+inline float inject(float octavesPerSecond, float dt) {
+    const float t = clampedDt(dt);
+    const float byTravel = 1.0f - std::exp2(-clampedRate(octavesPerSecond) * t / kTrailOctaves);
+    const float byTime = 1.0f - std::exp2(-t / kSlowestHalfLife);
+    return std::max(byTravel, byTime);
+}
+
+// Sustain: Trails on a shader style. Those styles redraw the whole frame, so a trail kept in the
+// scene target was painted over and the four trail controls did nothing there. In the feedback pass
+// they are MilkDrop's own three: Trail length is its sustain (how long a frame lingers), Trail zoom
+// its video echo and Trail warp its warp (those two are motion, liquid::motion::diveBase).
+
+/** Half-life of a lingering frame at Trail length 0 and at 1, seconds. */
+inline constexpr float kShortTrail = 0.12f;
+inline constexpr float kLongTrail = 3.0f;
+
+/** The share of the style poured over the lingering frames: a long trail pours little. */
+inline float sustainInject(float trailLength, float dt) {
+    const float l = std::isfinite(trailLength) ? std::clamp(trailLength, 0.0f, 1.0f) : 0.5f;
+    const float halfLife = kShortTrail * std::pow(kLongTrail / kShortTrail, l);
+    return 1.0f - std::exp2(-clampedDt(dt) / halfLife);
+}
+
+}  // namespace feedback
 
 }  // namespace geode::viz::endless

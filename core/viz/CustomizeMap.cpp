@@ -19,7 +19,6 @@ const std::vector<Section>& table() {
     static const std::vector<Section> kSections = {
         {C::QuickKnobs, "basics", true, S::Always, {"@macros"}},
         {C::QuickKnobs, "sets", false, S::Always, {"@macro_sets"}},
-        {C::QuickKnobs, "randomize", false, S::Always, {"@randomize_reset"}},
 
         {C::Look, "basics", true, S::Always, {"Palette", "Brightness", "Saturation", "Bloom"}},
         {C::Look,
@@ -62,15 +61,21 @@ const std::vector<Section>& table() {
         {C::Camera, "framing", false, S::ThreeD, {"Field of view", "Swing", "Push in", "Look turn", "Look tilt", "Roll"}},
         {C::Camera, "feel", false, S::ThreeD, {"Handheld shake", "Tilt phone to look", "Drag to look", "Camera smoothing"}},
 
-        {C::Music, "basics", true, S::Always, {"Audio drive", "Reaction strength", "@auto_moments"}},
+        {C::Music, "basics", true, S::Always, {"Audio drive", "Reaction strength", "Reaction DNA", "@auto_moments"}},
         {C::Music, "moments", false, S::Always, {"@moments"}},
         {C::Music, "listening", false, S::Always, {"Bass gain", "Mid gain", "Treble gain", "@rise_fall"}},
         {C::Music, "notes_key", false, S::Always, {"Key colour", "@notes_key"}},
+        // The modulation editors sit with the music they follow: MilkDrop keeps a preset's motion and
+        // its per-frame reactions in one menu, and so does this page.
+        {C::Music, "reactions", false, S::Always, {"@reactions"}},
+        {C::Music, "envelopes", false, S::Always, {"@envelopes"}},
+        {C::Music, "waves", false, S::Always, {"@waves"}},
 
-        {C::Effects, "basics", true, S::Always, {"Trails", "Vignette"}},
+        {C::Effects, "basics", true, S::Always, {"Trails", "Vignette", "@transition_style"}},
         {C::Effects, "trail_detail", false, S::Always, {"Trail length", "Trail zoom (echo in/out)", "Trail warp (liquid echo)"}},
         {C::Effects, "lens", false, S::Always, {"Chromatic aberration", "Fisheye"}},
         {C::Effects, "film", false, S::Always, {"Film grain", "Scanlines", "Posterize", "Duotone", "Solarize", "Invert"}},
+        {C::Effects, "transition_detail", false, S::Always, {"@transition_length", "Glide time"}},
 
         {C::Liquid, "basics", true, S::Always, {"Flow field on", "Flow strength"}},
         {C::Liquid, "push_swirl", false, S::Always, {"Flow force", "Flow curl"}},
@@ -88,25 +93,36 @@ const std::vector<Section>& table() {
          S::Water,
          {"Ripple strength", "Depth", "Specular", "Flow drift", "Liquid", "Liquid flow", "Liquid fade"}},
 
-        {C::Behaviour, "basics", true, S::Always, {"Reaction DNA", "@transition_style"}},
-        {C::Behaviour, "transition_detail", false, S::Always, {"@transition_length", "Glide time"}},
-        {C::Behaviour, "reactions", false, S::Always, {"@reactions"}},
-        {C::Behaviour, "envelopes", false, S::Always, {"@envelopes"}},
-        {C::Behaviour, "waves", false, S::Always, {"@waves"}},
-
+        // One section per engine, split so no list runs past a dozen rows; each shows only where its
+        // controls reach.
         {C::Expert,
-         "engine",
+         "fluid_flow",
          false,
          S::Engine,
-         {// Fluid
-          "Solver iterations", "Fluid curl", "Motion fade", "Fluid fade", "Chromatic aging", "Pressure", "Shading (embossed ink)",
-          "Glow (fluid)", "Fluid glow", "Glow threshold", "Sunrays", "Sunrays weight", "Curl from mids", "Glow from loudness",
-          "Fade when quiet", "Palette cycle", "Particle brightness", "Particle layer", "Ink layer",
-          // Cymatics
-          "Geometry", "Fundamental (Hz)", "Standing waves", "Tonal focus", "Plate ring", "Field scale", "Wave flow", "Field swirl",
-          "Fill", "Nodal lines", "Nodal glow", "Iridescence", "Caustic sheen",
-          // MilkDrop
-          "Blend preset changes", "MilkDrop palette tint"}},
+         {"Solver iterations", "Fluid curl", "Motion fade", "Fluid fade", "Chromatic aging", "Pressure",
+          "Curl from mids", "Fade when quiet"}},
+        {C::Expert,
+         "fluid_look",
+         false,
+         S::Engine,
+         {"Shading (embossed ink)", "Glow (fluid)", "Fluid glow", "Glow threshold", "Glow from loudness",
+          "Sunrays", "Sunrays weight", "Palette cycle", "Particle brightness", "Particle layer", "Ink layer"}},
+        {C::Expert,
+         "plate",
+         false,
+         S::Engine,
+         {"Geometry", "Fundamental (Hz)", "Standing waves", "Tonal focus", "Plate ring", "Field scale", "Wave flow",
+          "Field swirl"}},
+        {C::Expert,
+         "plate_look",
+         false,
+         S::Engine,
+         {"Fill", "Nodal lines", "Nodal glow", "Iridescence", "Caustic sheen"}},
+        {C::Expert,
+         "milkdrop",
+         false,
+         S::Engine,
+         {"Blend preset changes", "MilkDrop palette tint"}},
         {C::Expert, "layers", false, S::Always, {"@layers"}},
         {C::Expert, "shader_code", false, S::ShaderCode, {"@shader_code"}},
     };
@@ -140,7 +156,6 @@ const std::vector<HeldControl>& held() {
         // page draws as a block, so its Reset puts them back.
         {"@macros", {}, std::nullopt},
         {"@macro_sets", {}, std::nullopt},
-        {"@randomize_reset", {}, std::nullopt},
         {"@palette_maker", {}, std::nullopt},
         {"@auto_moments", {}, std::nullopt},
         {"@moments", {}, std::nullopt},
@@ -157,8 +172,8 @@ const std::vector<HeldControl>& held() {
     return kHeld;
 }
 
-constexpr const char* kCategoryNames[] = {"QUICK_KNOBS", "LOOK",    "SHAPE",  "MOTION",    "CAMERA",
-                                          "MUSIC",       "EFFECTS", "LIQUID", "BEHAVIOUR", "EXPERT"};
+constexpr const char* kCategoryNames[] = {"QUICK_KNOBS", "LOOK",    "SHAPE",  "MOTION", "CAMERA",
+                                          "MUSIC",       "EFFECTS", "LIQUID", "EXPERT"};
 constexpr const char* kShowNames[] = {"ALWAYS", "THREE_D", "PARTICLES", "WATER", "ENGINE", "SHADER_CODE"};
 
 const randomizer::RolledKey* rolled(std::string_view key) {
@@ -180,7 +195,7 @@ bool rule(Show show, const std::string& styleId) {
     const Kind kind = catalogue::kindOf(styleId);
     switch (show) {
         case Show::Always: return true;
-        case Show::ThreeD: return catalogue::isMarched(styleId);
+        case Show::ThreeD: return catalogue::fliesCamera(styleId);
         case Show::Particles: return catalogue::reaches(Scope::ParticleSprite, styleId);
         case Show::Water: return kind == Kind::Water;
         case Show::Engine: return kind == Kind::Fluid || kind == Kind::Cymatics || kind == Kind::Milkdrop;
@@ -190,7 +205,7 @@ bool rule(Show show, const std::string& styleId) {
 }
 
 // Camera shows on every style now: Fly speed and the path pan and tilt a flat picture too. Only its
-// framing and feel sections stay with the raymarched styles.
+// framing and feel sections stay with the styles on the camera rig.
 Show categoryRule(Category) { return Show::Always; }
 
 }  // namespace
@@ -217,6 +232,23 @@ std::optional<Category> categoryOf(std::string_view key) {
         }
     }
     return std::nullopt;
+}
+
+std::set<std::string> expandLocks(const std::set<std::string>& locked) {
+    std::set<std::string> out;
+    for (const auto& key : locked) {
+        if (key.empty() || key[0] != kCategoryLockPrefix) {
+            out.insert(key);
+            continue;
+        }
+        const auto category = categoryNamed(std::string_view(key).substr(1));
+        if (!category) continue;
+        for (const auto& section : table()) {
+            if (section.category != *category) continue;
+            for (const char* control : section.controls) out.insert(control);
+        }
+    }
+    return out;
 }
 
 bool reaches(std::string_view key, const std::string& styleId) {
@@ -263,17 +295,18 @@ SceneParams randomize(const SceneParams& current, uint64_t seed, Category catego
     return randomizer::randomize(current, seed, std::nullopt, styleId, held);
 }
 
-SceneParams reset(const SceneParams& current, Category category) {
-    const SceneParams defaults{};
+SceneParams borrow(const SceneParams& current, const SceneParams& from, Category category) {
     SceneParams out = current;
     for (const auto& section : table()) {
         if (section.category != category) continue;
         for (const char* control : section.controls) {
-            for (const char* field : fieldsOf(control)) out.set(field, defaults.get(field));
+            for (const char* field : fieldsOf(control)) out.set(field, from.get(field));
         }
     }
     return out;
 }
+
+SceneParams reset(const SceneParams& current, Category category) { return borrow(current, SceneParams{}, category); }
 
 const std::string& text() {
     static const std::string kText = [] {

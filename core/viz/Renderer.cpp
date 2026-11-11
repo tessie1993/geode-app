@@ -34,7 +34,8 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           [this] { return offscreen_.load(std::memory_order_relaxed); }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity),
-      pcmDeliverScratch_(kPcmCapacity, 0.0f) {
+      pcmDeliverScratch_(kPcmCapacity, 0.0f),
+      pcmSideScratch_(kPcmCapacity, 0.0f) {
     programCache_.install(cacheDir_);
 }
 
@@ -177,6 +178,8 @@ void Renderer::applyMilkRequests() {
     }
     Scene* milk = builtScene("milkdrop");
     if (!milk) return;
+    // A preset picked in silence still loads and shows: about a second of redraws.
+    if (!preset.empty() || reload || !textureDir.empty()) redrawFrames_ = 60;
     if (!textureDir.empty()) milk->setMilkTextureDir(textureDir);
     if (!preset.empty()) milk->queueMilkPreset(preset);
     if (reload) milk->reloadMilkPreset();
@@ -355,6 +358,8 @@ void Renderer::onSurfaceCreated() {
     liquidWasOn_ = false;
     lastBornSceneId_.clear();
     activeScene_ = nullptr;
+    heldScene_ = nullptr;
+    heldLayer_ = nullptr;
     outgoingScene_ = nullptr;
     outgoingParams_.reset();
     overlays_.recreate();
@@ -532,6 +537,8 @@ void Renderer::warmTransition(const std::string& id) { compositePass_.warmTransi
 
 void Renderer::cut() {
     activeScene_ = nullptr;
+    heldScene_ = nullptr;
+    heldLayer_ = nullptr;
     outgoingScene_ = nullptr;
     outgoingParams_.reset();
     layerScene_ = nullptr;
@@ -567,6 +574,14 @@ void Renderer::trimScenes(const std::string& keepId, MemoryTrim trim) {
         const Scene* s = builtScene(id);
         return s != nullptr && (s == activeScene_ || s == outgoingScene_ || s == layerScene_);
     };
+    if (trim != MemoryTrim::None) {
+        // The passes' own targets are the larger share of what a hidden app holds (the liquid's two
+        // sides alone are six screens of pixels). Each is built again by the frame that needs it.
+        liquidPass_.releaseTargets();
+        trailPass_.releaseTargets();
+        uiBlurPass_.releaseTargets();
+        bornFbo_.release();
+    }
     for (const std::string& victim : residency_.evict(pinned, SceneResidency::spareBudget(appliedTier_, trim))) {
         for (auto it = scenes_.begin(); it != scenes_.end(); ++it) {
             if (it->first != victim) continue;
@@ -721,6 +736,8 @@ void Renderer::releaseScenes() {
     scenes_.clear();
     residency_.clear();
     activeScene_ = nullptr;
+    heldScene_ = nullptr;
+    heldLayer_ = nullptr;
     outgoingScene_ = nullptr;
     layerScene_ = nullptr;
 }

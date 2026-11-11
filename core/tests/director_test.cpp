@@ -287,6 +287,24 @@ void testDeterministicAndOff() {
     check(near(-q.paletteBaseOverride - 0.5f * q.paletteRangeOverride, hue), "shader styles get the look's hue");
     const SceneParams sim = a.apply(p, false);
     check(near(sim.paletteBaseOverride + 0.5f * sim.paletteRangeOverride, hue), "simulations get the same hue");
+    // The look is added to the user's dials, never put in their place: at full weight a slider still moves the picture.
+    SceneParams dim = p;
+    dim.brightness = p.brightness - 0.3f;
+    dim.saturation = p.saturation - 0.4f;
+    dim.contrast = p.contrast - 0.2f;
+    const SceneParams qDim = a.apply(dim);
+    check(std::fabs((q.brightness - qDim.brightness) - 0.3f) < 1e-5f && std::fabs((q.saturation - qDim.saturation) - 0.4f) < 1e-5f &&
+              std::fabs((q.contrast - qDim.contrast) - 0.2f) < 1e-5f,
+          "the user's Brightness, Saturation and Contrast steps come through the look whole");
+    // The palette too: another palette under the same look is another picture, turned by as much as
+    // the two palettes differ.
+    SceneParams forest = p;
+    forest.palette = 6;
+    const SceneParams qForest = a.apply(forest);
+    const auto drawn = [](const SceneParams& sp) { return -sp.paletteBaseOverride - 0.5f * sp.paletteRangeOverride; };
+    const auto picked = [](const SceneParams& sp) { return -sp.paletteBase() - 0.5f * sp.paletteRange(); };
+    check(near(drawn(qForest) - drawn(q), picked(forest) - picked(p)), "the user's palette pick comes through the look whole");
+    check(!near(drawn(qForest), drawn(q)), "so the palette pickers still change the picture with Auto on");
     Director off;
     off.configure({0.0f, 99});
     float t3 = 0.0f;
@@ -295,6 +313,89 @@ void testDeterministicAndOff() {
     check(std::memcmp(&r, &p, sizeof(SceneParams)) == 0, "off leaves the params alone");
     const geode::viz::MacroKnobs user{0.1f, -0.2f, 0.0f, 0.3f, 0.0f, 0.5f};
     check(off.knobs(user) == user, "and the knobs");
+}
+
+// The look is an offset on the user's dials, so a slider at either end of its range must not be
+// pushed past it: a saturation below zero inverts the colour.
+void testDialsStayInRange() {
+    Director d;
+    d.configure({1.0f, 99});
+    float t = 0.0f;
+    run(d, kSad, 15.0f, t);
+    SceneParams low;
+    low.saturation = 0.0f;
+    low.brightness = 0.2f;
+    low.contrast = 0.3f;
+    low.temperature = -1.0f;
+    low.hueRange = 0.0f;
+    low.paletteMix = low.milkdropPaletteTint = low.camSmooth = 0.0f;
+    low.motionBreath = low.motionOrbit = low.motionDrift = 0.0f;
+    SceneParams high;
+    high.saturation = 1.5f;
+    high.brightness = 2.0f;
+    high.contrast = 1.25f;
+    high.temperature = 1.0f;
+    high.hueRange = 1.5f;
+    high.paletteMix = high.milkdropPaletteTint = high.camSmooth = 1.0f;
+    high.motionBreath = high.motionOrbit = high.motionDrift = 1.0f;
+    for (const SceneParams& user : {low, high}) {
+        const SceneParams o = d.apply(user);
+        const auto in = [](float v, float lo, float hi) { return v >= lo && v <= hi; };
+        check(in(o.saturation, 0.0f, 1.5f) && in(o.brightness, 0.2f, 2.0f) && in(o.contrast, 0.3f, 1.25f) &&
+                  in(o.temperature, -1.0f, 1.0f) && in(o.hueRange, 0.0f, 1.5f),
+              "the look never pushes a colour dial past its range");
+        check(in(o.paletteMix, 0.0f, 1.0f) && in(o.milkdropPaletteTint, 0.0f, 1.0f) && in(o.camSmooth, 0.0f, 1.0f) &&
+                  in(o.motionBreath, 0.0f, 1.0f) && in(o.motionOrbit, 0.0f, 1.0f) && in(o.motionDrift, 0.0f, 1.0f),
+              "nor a unit dial");
+    }
+}
+
+// The beat tracker's downbeat carries its confidence as a strength, and it locks at 0.35. Counting only
+// downbeats above 0.5 meant that on a beat held at, say, 0.4 no bar was ever counted and a modulation
+// never landed.
+void testWeakDownbeatsCount() {
+    Director d;
+    d.configure({1.0f, 42});
+    float t = 0.0f;
+    run(d, kHappy, 6.0f, t);
+    check(d.commits() == 1, "one first look before the modulation");
+    const Song moved{"aeolian", 4, 0.85f, 132.0f, 0.6f, 0.2f};
+    for (float end = t + 10.0f; t < end; t += kDt) {
+        GeodeSoundFrame f = frame(moved, t, kDt);
+        f.downbeat *= 0.4f;
+        d.step(f, kDt);
+    }
+    check(d.commits() == 2 && d.lastReason() == Director::Reason::Modulation, "a modulation lands on a downbeat of strength 0.4");
+}
+
+// A new track is a new play, but the picture must not fall back to the user's bare settings while the
+// new play waits to make its first decision: the look on screen is carried, and glided from.
+void testLookCarriesAcrossPlays() {
+    Director d;
+    d.configure({1.0f, 5});
+    float t = 0.0f;
+    run(d, kHappy, 15.0f, t);
+    const float weight = d.weight();
+    const float hue = d.look().hue;
+    check(weight > 0.9f, "the look is fully in after fifteen seconds");
+    d.configure({1.0f, 6});
+    check(d.commits() == 0, "a new seed still starts the decisions over");
+    d.step(frame(kSad, t, kDt), kDt);
+    t += kDt;
+    check(d.weight() >= weight - 1e-3f && std::fabs(d.look().hue - hue) < 1e-4f, "the look stays on screen into the next track");
+    run(d, kSad, 13.0f, t);
+    check(d.commits() >= 1 && d.weight() > 0.9f, "and the new play's first look takes over from it");
+}
+
+// Music with no sections and no drops (ambient, a steady groove) still gets a new style now and then.
+void testLongStretchStepsTheStyle() {
+    Director d;
+    d.configure({1.0f, 42});
+    float t = 0.0f;
+    run(d, kHappy, 6.0f, t);
+    check(d.commits() == 1 && !d.styleMoment(), "the first look is not a style change");
+    run(d, kHappy, 76.0f, t);
+    check(d.commits() == 2 && d.lastReason() == Director::Reason::Long && d.styleMoment(), "75 s with no section steps the style");
 }
 
 // With Auto off the director still steps (Note & key reactions read its feeling) and still commits, but
@@ -325,6 +426,10 @@ int main() {
     testFeelingSurvivesTheSeed();
     testDeterministicAndOff();
     testNoStyleMomentWhenOff();
+    testDialsStayInRange();
+    testWeakDownbeatsCount();
+    testLookCarriesAcrossPlays();
+    testLongStretchStepsTheStyle();
     if (failures) {
         std::printf("director_test: %d failed\n", failures);
         return 1;

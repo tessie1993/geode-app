@@ -4,8 +4,9 @@ name: Play release bundle
 # things Play and the app's own promises depend on before anyone uploads it.
 #
 # Runs only on request (Actions > Play release bundle > Run workflow): pull requests and
-# tags don't build it. It signs with the upload key; without the key it builds UNSIGNED
-# with a warning. The manifest promise checks (INTERNET only with Cast, no AD_ID, targetSdk) also run
+# tags don't build it. It signs with the upload key; without the key it fails, unless the run
+# asks for an unsigned bundle (a dry run, never for Play). It also fails when a check on the
+# commit is red. The manifest promise checks (INTERNET only with Cast, no AD_ID, targetSdk) also run
 # on every PR in build-lint.yml (tools/check-manifest.sh), against the debug build.
 #
 # Repository secrets (Settings > Secrets and variables > Actions > Secrets):
@@ -22,9 +23,15 @@ name: Play release bundle
 
 on:
   workflow_dispatch:
+    inputs:
+      allow_unsigned:
+        description: "Dry run: build an UNSIGNED bundle when the upload key is missing (not for Play)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
+  checks: read
 
 concurrency:
   group: geode-release-${{ github.ref }}
@@ -41,8 +48,25 @@ jobs:
           # third_party/* are submodules; the root CMakeLists.txt builds them.
           submodules: recursive
 
+      # The release job runs no tests of its own: the commit's own checks (unit tests, lint, host
+      # tests, the gates) are the gate, so a red or still-running one stops the bundle.
+      - name: The commit's checks are green
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          runs=$(gh api "repos/${{ github.repository }}/commits/$(git rev-parse HEAD)/check-runs?per_page=100" --paginate \
+            --jq '.check_runs[] | select(.name != "Build release AAB") | "\(.status)\t\(.conclusion)\t\(.name)"')
+          echo "$runs"
+          echo "$runs" | grep -q "Native host tests" || { echo "::error::No Native host tests run on this commit."; exit 1; }
+          bad=$(echo "$runs" | awk -F'\t' '$1 != "completed" || ($2 != "success" && $2 != "skipped" && $2 != "neutral")')
+          if [ -n "$bad" ]; then
+            echo "::error::Checks on this commit are not green: $(echo "$bad" | cut -f3 | paste -sd, -)"
+            exit 1
+          fi
+
       - name: Set up JDK 21
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: "21"
@@ -60,7 +84,7 @@ jobs:
           "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "ndk;28.0.13004108" "cmake;3.22.1"
 
       # Only a manual run on the repository's own branches reaches this, so the upload key is
-      # never readable by pull request code. A missing key builds unsigned with a warning.
+      # never readable by pull request code. A missing key fails, unless the run asked for unsigned.
       - name: Decode upload keystore
         id: keystore
         env:
@@ -69,6 +93,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.MUZVIZ_UPLOAD_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.MUZVIZ_UPLOAD_KEY_PASSWORD }}
           LICENSE_KEY: ${{ vars.PLAY_LICENSE_KEY }}
+          ALLOW_UNSIGNED: ${{ inputs.allow_unsigned }}
         run: |
           set -euo pipefail
           # A key that is set must be a Base64 X.509 RSA public key (billing/PurchaseVerifier.kt
@@ -78,6 +103,10 @@ jobs:
             exit 1
           fi
           if [ -z "${KEYSTORE_BASE64:-}" ] || [ -z "${STORE_PASSWORD:-}" ] || [ -z "${KEY_ALIAS:-}" ] || [ -z "${KEY_PASSWORD:-}" ]; then
+            if [ "$ALLOW_UNSIGNED" != "true" ]; then
+              echo "::error::Upload key secrets incomplete (the four MUZVIZ_UPLOAD_* secrets at the top of release.yml). Run with allow_unsigned for a dry run."
+              exit 1
+            fi
             [ -n "${LICENSE_KEY:-}" ] || echo "::warning::PLAY_LICENSE_KEY (repository variable) is not set either."
             echo "::warning::Upload key secrets incomplete: building an UNSIGNED bundle. The four MUZVIZ_UPLOAD_* secrets are listed at the top of release.yml."
             echo "signed=false" >> "$GITHUB_OUTPUT"
@@ -202,13 +231,13 @@ jobs:
             echo "$verdict" | grep -q '^jar verified'               || { echo "::error::$aab is not signed with the upload key"; exit 1; }
             echo "Signed with the upload key."
           else
-            echo "::notice::Unsigned bundle (no upload key secrets). Fine for CI; Play needs it signed."
+            echo "::warning::Unsigned dry-run bundle: do not upload it to Play."
           fi
 
       - name: Upload AAB, R8 mapping and native symbols
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: muzviz-release-${{ github.run_number }}
+          name: beatrealms-3d-release-${{ github.run_number }}
           # Upload mapping.txt to Play Console with the bundle, or crash traces
           # stay obfuscated. Native debug symbols are embedded in the AAB.
           path: |

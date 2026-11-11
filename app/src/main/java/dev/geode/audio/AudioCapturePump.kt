@@ -7,7 +7,7 @@ import dev.geode.util.bestEffort
 import kotlin.concurrent.thread
 
 abstract class AudioCapturePump(
-    private val sink: dev.geode.engine.audio.PcmSink,
+    private val ring: dev.geode.engine.audio.SampleRing,
     defaultRateHz: Int,
     protected val nowMs: () -> Long = { android.os.SystemClock.elapsedRealtime() },
 ) {
@@ -31,9 +31,9 @@ abstract class AudioCapturePump(
 
     protected abstract val threadName: String
 
+    /** [peak] is the largest magnitude of the block just written, as the ring measured it. */
     protected abstract fun noteLevel(
-        buffer: FloatArray,
-        count: Int,
+        peak: Float,
         startedAtMs: Long,
     )
 
@@ -44,7 +44,6 @@ abstract class AudioCapturePump(
     protected fun startPump(
         rec: AudioRecord,
         channels: Int,
-        onSampleRate: (Int) -> Unit,
     ): Boolean {
         val recording =
             runCatching { rec.startRecording() }.isSuccess &&
@@ -60,35 +59,36 @@ abstract class AudioCapturePump(
         running = true
         lastAudibleAtMs = 0L
         resetLevel()
-        onSampleRate(sampleRateHz)
+        // The rate this record was opened at travels with every block it writes.
+        val rate = sampleRateHz
         worker =
             thread(name = threadName, isDaemon = true) {
-                val floats = FloatArray(READ_FRAMES * channels)
-                val shorts = ShortArray(READ_FRAMES * channels)
                 val asFloat = rec.audioFormat == AudioFormat.ENCODING_PCM_FLOAT
+                val floats = FloatArray(if (asFloat) READ_FRAMES * channels else 0)
+                val shorts = ShortArray(if (asFloat) 0 else READ_FRAMES * channels)
                 val startedAt = nowMs()
                 while (running && runGeneration == generation) {
                     val n =
                         if (asFloat) {
                             rec.read(floats, 0, floats.size, AudioRecord.READ_BLOCKING)
                         } else {
-                            val read = rec.read(shorts, 0, shorts.size)
-                            if (read > 0) {
-                                for (i in 0 until read) floats[i] = shorts[i] / 32768f
-                            }
-                            read
+                            rec.read(shorts, 0, shorts.size)
                         }
                     // stop() bumps runGeneration before it returns, so a read that was
                     // already blocked when stop() was called but only unblocks afterwards
-                    // lands here with a stale generation — skip writing into a sink this run
+                    // lands here with a stale generation — skip writing into a ring this run
                     // no longer owns.
                     if (runGeneration != generation) break
-                    if (n > 0) {
-                        val frames = n / channels
-                        if (frames > 0) {
-                            sink.write(floats, frames, channels)
-                            noteLevel(floats, n, startedAt)
-                        }
+                    val frames = if (n > 0) n / channels else 0
+                    if (frames > 0) {
+                        // The ring converts 16-bit to float and measures the block: no sample is read here.
+                        val peak =
+                            if (asFloat) {
+                                ring.write(floats, frames, channels, rate)
+                            } else {
+                                ring.write(shorts, frames, channels, rate)
+                            }
+                        noteLevel(peak, startedAt)
                     } else if (n < 0) {
                         android.util.Log.w(javaClass.simpleName, "AudioRecord.read error $n")
                         break
@@ -109,7 +109,7 @@ abstract class AudioCapturePump(
         running = false
         // Invalidate the generation the worker captured at start. If join() below times out
         // with the worker still inside a blocking rec.read(), this lets it notice on return
-        // and exit without writing into the sink or touching a record a later run now owns.
+        // and exit without writing into the ring or touching a record a later run now owns.
         runGeneration++
         record?.let { runCatching { it.stop() } }
         worker?.let { runCatching { it.join(500) } }

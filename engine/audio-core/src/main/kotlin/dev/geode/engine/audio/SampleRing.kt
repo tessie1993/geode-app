@@ -1,105 +1,95 @@
 package dev.geode.engine.audio
 
+import dev.geode.engine.bridge.GeodeNative
+import java.lang.ref.Cleaner
+import java.lang.ref.Reference
+import java.nio.ByteBuffer
+
+/**
+ * A handle on a native PCM ring (`core/audio/ingest/PcmRing`): what one audio source writes and every
+ * surface's sound engine reads. The samples, the int16 and 8-bit conversions, the rate each block was
+ * written at and the readers' cursors are all native; this only passes blocks and values across.
+ *
+ * Lifetime: the native ring lives as long as this object is reachable and is freed once it is collected,
+ * so a writer thread or a renderer that holds the ring can never reach a freed one, and nobody has to
+ * close it at the right moment. Native readers (a renderer's feed, a [SoundCursor]) share the ring and
+ * keep it alive on their own. One writer at a time; [beginEpoch] and the getters from any thread.
+ */
 class SampleRing(
-    val capacityFrames: Int,
+    capacityFrames: Int,
     val channelCount: Int,
     val maxWriteFrames: Int = capacityFrames / DEFAULT_RUNWAY_DIVISOR,
-) : PcmSink {
+) {
+    /** The native handle, for calls that take a ring; only valid while this object is held. */
+    val handle: Long = GeodeNative.pcmRingCreate(capacityFrames, channelCount, maxWriteFrames)
+
     init {
-        require(capacityFrames > 0 && capacityFrames and (capacityFrames - 1) == 0) {
-            "capacityFrames must be a power of two, was $capacityFrames"
-        }
-        require(channelCount > 0) { "channelCount must be positive, was $channelCount" }
-        require(maxWriteFrames in 1..capacityFrames) {
-            "maxWriteFrames must be between 1 and $capacityFrames, was $maxWriteFrames"
-        }
+        require(handle != 0L) { "no ring of $capacityFrames frames x $channelCount, runway $maxWriteFrames" }
+        val owned = handle
+        cleaner.register(this) { GeodeNative.pcmRingDestroy(owned) }
     }
 
-    private val channels: Array<FloatArray> = Array(channelCount) { FloatArray(capacityFrames) }
-    private val mask: Long = (capacityFrames - 1).toLong()
+    /** Frames written since the last [beginEpoch]. */
+    val writtenFrames: Long get() = held { GeodeNative.pcmRingWritten(handle) }
 
-    @Volatile
-    private var written: Long = 0
+    /** A new stream (track change, seek, source switch): every reader restarts at its next take. */
+    fun beginEpoch() = held { GeodeNative.pcmRingBeginEpoch(handle) }
 
-    @Volatile
-    private var epochValue: Int = 0
+    /** Writes [frames] interleaved frames recorded at [sampleRateHz]; returns the block's peak magnitude. */
+    fun write(
+        samples: FloatArray,
+        frames: Int,
+        sourceChannels: Int,
+        sampleRateHz: Int,
+    ): Float = held { GeodeNative.pcmRingWriteFloats(handle, samples, frames, sourceChannels, sampleRateHz) }
 
-    val writtenFrames: Long get() = written
+    fun write(
+        samples: ShortArray,
+        frames: Int,
+        sourceChannels: Int,
+        sampleRateHz: Int,
+    ): Float = held { GeodeNative.pcmRingWriteShorts(handle, samples, frames, sourceChannels, sampleRateHz) }
 
-    val epoch: Int get() = epochValue
+    /** Writes the first [count] bytes of [samples] in an `AudioFormat.ENCODING_PCM_*` [encoding]; returns the frames. */
+    fun write(
+        samples: ByteArray,
+        count: Int,
+        encoding: Int,
+        sourceChannels: Int,
+        sampleRateHz: Int,
+    ): Int = held { GeodeNative.pcmRingWriteBytes(handle, samples, count, encoding, sourceChannels, sampleRateHz) }
 
-    @Volatile
-    private var sourceChannels: Int = 0
-
-    val sourceChannelCount: Int get() = sourceChannels
-
-    val oldestAvailable: Long get() = maxOf(0L, written + maxWriteFrames - capacityFrames)
-
-    fun beginEpoch() {
-        written = 0
-        epochValue += 1
-    }
-
-    override fun write(
-        interleaved: FloatArray,
-        frameCount: Int,
-        sourceChannelCount: Int,
-    ) {
-        require(sourceChannelCount > 0) { "sourceChannelCount must be positive" }
-        require(frameCount.toLong() * sourceChannelCount <= interleaved.size) {
-            "$frameCount frames x $sourceChannelCount channels exceeds ${interleaved.size}"
+    /** Writes what a direct [buffer] holds between its position and limit, leaving both alone; returns the frames. */
+    fun write(
+        buffer: ByteBuffer,
+        encoding: Int,
+        sourceChannels: Int,
+        sampleRateHz: Int,
+    ): Int =
+        held {
+            val bytes = buffer.remaining()
+            GeodeNative.pcmRingWriteDirect(handle, buffer, buffer.position(), bytes, encoding, sourceChannels, sampleRateHz)
         }
-        require(frameCount <= maxWriteFrames) {
-            "$frameCount frames exceeds maxWriteFrames of $maxWriteFrames"
-        }
-        sourceChannels = sourceChannelCount
-        var w = written
-        var read = 0
-        repeat(frameCount) {
-            val slot = (w and mask).toInt()
-            for (c in 0 until channelCount) {
-                channels[c][slot] = if (c < sourceChannelCount) interleaved[read + c] else 0f
-            }
-            read += sourceChannelCount
-            w++
-        }
-        written = w
-    }
 
-    fun snapshotLatest(out: Array<FloatArray>): Boolean {
-        val frames = out.minOf { it.size }
-        if (frames > capacityFrames) return false
-        val w = written
-        if (w < frames) return false
-        for (c in out.indices.take(channelCount)) {
-            val src = channels[c]
-            val dst = out[c]
-            var r = w - frames
-            for (i in 0 until frames) {
-                dst[i] = src[(r and mask).toInt()]
-                r++
-            }
+    /** The rest-when-silent rule over the newest [frames] frames: [nowMs] when any is audible, else [heardAtMs]. */
+    fun heardAt(
+        frames: Int,
+        nowMs: Long,
+        heardAtMs: Long,
+    ): Long = held { GeodeNative.pcmRingHeardAt(handle, frames, nowMs, heardAtMs) }
+
+    /** Runs a native call with this object held past it, so the collector cannot free the ring under the call. */
+    private inline fun <T> held(call: () -> T): T =
+        try {
+            call()
+        } finally {
+            Reference.reachabilityFence(this)
         }
-        return true
-    }
 
     companion object {
         const val DEFAULT_RUNWAY_DIVISOR = 4
-    }
 
-    internal fun copyInto(
-        firstSample: Long,
-        count: Int,
-        out: Array<FloatArray>,
-    ) {
-        for (c in out.indices.take(channelCount)) {
-            val src = channels[c]
-            val dst = out[c]
-            var r = firstSample
-            for (i in 0 until count) {
-                dst[i] = src[(r and mask).toInt()]
-                r++
-            }
-        }
+        /** Frees a ring once its holder is collected; one daemon thread for every ring. */
+        private val cleaner: Cleaner = Cleaner.create()
     }
 }

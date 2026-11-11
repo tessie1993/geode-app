@@ -891,8 +891,43 @@ void macrosTurnTowardTheEndsAndStayInRange() {
     check(wide.zoom < p.zoom && wide.vignette <= p.vignette && wide.camFov > p.camFov, "Space up widens: zoom out, less vignette, wider lens");
     SceneParams wild = p;
     wild.bloom = 9.0f;
-    check(macros::apply(wild, knobs(Macro::Energy, 1.0f)).bloom <= 0.25f, "a knob never pushes a field past its slider");
+    check(macros::apply(wild, knobs(Macro::Energy, 1.0f)).bloom == wild.bloom, "a knob never pushes a field further past its slider");
     check(macros::apply(p, knobs(Macro::Mood, 1.0f)).speed == p.speed, "a knob only moves its own fields");
+}
+
+// The slider is the base and the knob adds to it: whatever the knobs (or the auto-director turning
+// them) do, moving a slider still moves the picture.
+void macrosAddToTheSliderNeverReplaceIt() {
+    SceneParams low;
+    low.speed = 0.4f;
+    low.zoom = 0.8f;
+    low.brightness = 0.6f;
+    low.camFov = 0.8f;
+    SceneParams high = low;
+    high.speed = 0.9f;
+    high.zoom = 1.3f;
+    high.brightness = 0.8f;
+    high.camFov = 1.0f;
+    for (float turn : {0.3f, 0.6f, 1.0f, -0.3f}) {
+        MacroKnobs k{};
+        k.fill(turn);
+        const SceneParams a = macros::apply(low, k);
+        const SceneParams b = macros::apply(high, k);
+        check(b.speed > a.speed && b.brightness > a.brightness && b.camFov > a.camFov && b.zoom > a.zoom,
+              "at any turn a higher slider still gives a higher value");
+    }
+    MacroKnobs half{};
+    half[static_cast<size_t>(Macro::Speed)] = 0.25f;
+    check(std::fabs((macros::apply(high, half).speed - macros::apply(low, half).speed) - (high.speed - low.speed)) < 1e-5f,
+          "away from the ends the slider's whole step comes through");
+    SceneParams back;
+    back.camFly = -1.5f;
+    check(macros::apply(back, half).camFly < 0.0f, "a backward Fly speed still flies backward under a small Speed turn");
+    SceneParams stopped;
+    stopped.camFly = -1.0f;
+    MacroKnobs down{};
+    down[static_cast<size_t>(Macro::Speed)] = -1.0f;
+    check(macros::apply(stopped, down).camFly == stopped.camFly, "a knob never drags back a value already past its end");
 }
 
 void macrosScaleTheSoundAndTheCamera() {
@@ -954,6 +989,38 @@ float layerWeight(const endless::Layers& l, float mag) {
     if (std::fabs(l.mag0 - mag) < 1e-4f) w += 1.0f - l.weight1;
     if (std::fabs(l.mag1 - mag) < 1e-4f) w += l.weight1;
     return w;
+}
+
+// The feedback dive's pour: the same streak length at any frame rate, never frozen. Its motion (in and
+// out, per frame) is liquid::motion's, pinned in feedback_motion_test.
+void feedbackDiveIsFrameRateIndependent() {
+    namespace fb = endless::feedback;
+    const float keep60 = 1.0f - fb::inject(0.5f, 1.0f / 60.0f);
+    const float keep30 = 1.0f - fb::inject(0.5f, 1.0f / 30.0f);
+    check(std::fabs(keep30 - keep60 * keep60) < 1e-5f, "the pour fades at the same rate at 30 and 60 Hz");
+    // After kTrailOctaves of travel half of a pour is left.
+    float kept = 1.0f;
+    const int frames = static_cast<int>(std::lround(fb::kTrailOctaves / 0.5f * 60.0f));
+    for (int i = 0; i < frames; ++i) kept *= 1.0f - fb::inject(0.5f, 1.0f / 60.0f);
+    check(std::fabs(kept - 0.5f) < 0.01f, "a pour is half replaced after the trail length");
+    check(fb::inject(1.0f, 1.0f / 60.0f) > fb::inject(0.2f, 1.0f / 60.0f), "a faster dive pours faster");
+    check(fb::inject(0.0f, 1.0f / 60.0f) > 0.0f && fb::inject(0.0f, 1.0f / 60.0f) < 0.01f, "a stopped dive still refreshes, slowly");
+}
+
+// A shader style's Trails in the feedback pass: MilkDrop's sustain. The echo zoom and warp are motion,
+// pinned in feedback_motion_test.
+void sustainHoldsLongerAtLongerTrails() {
+    namespace fb = endless::feedback;
+    const float dt = 1.0f / 60.0f;
+    check(fb::sustainInject(1.0f, dt) < fb::sustainInject(0.5f, dt) && fb::sustainInject(0.5f, dt) < fb::sustainInject(0.0f, dt),
+          "a longer trail pours less of the new frame");
+    const float keep60 = 1.0f - fb::sustainInject(0.7f, 1.0f / 60.0f);
+    const float keep30 = 1.0f - fb::sustainInject(0.7f, 1.0f / 30.0f);
+    check(std::fabs(keep30 - keep60 * keep60) < 1e-5f, "the trail lasts as long at 30 Hz as at 60");
+    float kept = 1.0f;
+    for (int i = 0; i < 180; ++i) kept *= 1.0f - fb::sustainInject(1.0f, dt);
+    check(std::fabs(kept - 0.5f) < 0.01f, "the longest trail is half gone after its half-life");
+    check(fb::sustainInject(std::nanf(""), dt) > 0.0f, "non-finite input holds still");
 }
 
 void endlessZoomOnlyDivesIn() {
@@ -1047,6 +1114,21 @@ void endlessZoomFollowsTheBassNotTheLoudness() {
 // The music's absolute magnitude (the frame's drive) scales how much audio moves the picture: the same relative
 // swell on a pad (drive 0.1) moves the dive, the routes, the motion field and the camera less than on a fat
 // track (drive 0.8). The base values, and the silence drift, are untouched.
+// No sound, no movement: the picture's clock stops in silence, runs whole while music plays, and eases
+// between the two as presence fades.
+void theClockStopsInSilence() {
+    GeodeSoundFrame f = silence();
+    check(geode::sound::motionRate(f) == 0.0f, "silence stops the clock");
+    f.presence = 0.04f;
+    check(geode::sound::motionRate(f) == 0.0f, "the tail of a fade is a full stop, not a crawl");
+    f.presence = 0.25f;
+    const float easing = geode::sound::motionRate(f);
+    check(easing > 0.0f && easing < 1.0f, "a fading presence eases the clock");
+    check(geode::sound::motionRate(playing()) == 1.0f, "music runs the clock whole");
+    f.presence = std::nanf("");
+    check(geode::sound::motionRate(f) == 0.0f, "a non-finite presence is silence");
+}
+
 void driveScalesTheMagnitudeOfMotion() {
     GeodeSoundFrame fat = playing();
     fat.drive = 0.8f;
@@ -1082,6 +1164,24 @@ void driveScalesTheMagnitudeOfMotion() {
     check(quiet.state().energyRel < 0.4f * loud.state().energyRel, "the motion field's energy follows the drive");
     check(quiet.state().midRel < 0.4f * loud.state().midRel, "so does the drift's mid clock");
     check(loud.apply(SceneParams{}, false, 1.0f).speed > quiet.apply(SceneParams{}, false, 1.0f).speed, "and the speed it adds");
+    // A steady passage sits on the song's own average: its size, density and trails stay the user's.
+    GeodeSoundFrame steady = pad;
+    steady.volAtt = steady.bassAtt = steady.midAtt = steady.trebleAtt = 1.0f;
+    SceneParams dial;
+    dial.motionAmount = 1.0f;
+    MotionField level;
+    for (int k = 0; k < 600; ++k) level.step(steady, 1.0f / 60.0f);
+    const SceneParams held = level.apply(dial, false, 1.0f);
+    check(std::fabs(level.state().energySwing) < 1e-3f && std::fabs(level.state().midSwing) < 1e-3f, "a steady quiet passage has no swing");
+    check(std::fabs(held.particleSize - dial.particleSize) < 1e-3f && std::fabs(held.density - dial.density) < 1e-3f &&
+              std::fabs(held.fluidStirrerSpeed - dial.fluidStirrerSpeed) < 1e-3f,
+          "so quiet music does not shrink the particles, the density or the stirrer");
+    GeodeSoundFrame swell = steady;
+    swell.volAtt = 1.8f;
+    MotionField rising;
+    for (int k = 0; k < 600; ++k) rising.step(swell, 1.0f / 60.0f);
+    check(rising.state().energySwing > 0.0f && rising.apply(dial, false, 1.0f).particleSize > held.particleSize,
+          "and a swell above the average still grows them");
 
     SceneParams p;
     p.camFly = 1.0f;
@@ -1427,7 +1527,10 @@ void recipeOnlyAddsWhatTheStyleCanShow() {
     check(targetReaches(LT::PaletteMix, kShaderStyle) && !targetReaches(LT::PaletteMix, kFluidStyle), "palette blend is a shader look");
     check(targetReaches(LT::CamYaw, kFluidStyle) && targetReaches(LT::Bloom, "milkdrop"), "camera and composite targets are universal");
     check(!targetReaches(LT::ParticleSize, kShaderStyle) && targetReaches(LT::ParticleSize, kFluidStyle), "particle size");
-    check(!targetReaches(LT::TrailLength, kShaderStyle) && !targetReaches(LT::Turbulence, kFluidStyle), "trail and turbulence scopes");
+    // A shader style's trail is the feedback pass's sustain; a fluid has none of its own to lengthen.
+    check(targetReaches(LT::TrailLength, kShaderStyle) && !targetReaches(LT::TrailLength, kFluidStyle) &&
+              !targetReaches(LT::Turbulence, kFluidStyle),
+          "trail and turbulence scopes");
 }
 
 void aFullMatrixRefusesARecipeRatherThanDroppingRoutes() {
@@ -1616,13 +1719,17 @@ int main() {
     sourceCatalogueIsCompleteAndUnique();
     macrosAtRestChangeNothing();
     macrosTurnTowardTheEndsAndStayInRange();
+    macrosAddToTheSliderNeverReplaceIt();
     macrosScaleTheSoundAndTheCamera();
     chaosDownStopsCameraCuts();
     surpriseIsSeededAndKeepsLocks();
     startersAreNamedAndInRange();
     endlessZoomOnlyDivesIn();
+    feedbackDiveIsFrameRateIndependent();
+    sustainHoldsLongerAtLongerTrails();
     endlessZoomPhaseWrapsForEverInBothDirections();
     endlessZoomFollowsTheBassNotTheLoudness();
+    theClockStopsInSilence();
     driveScalesTheMagnitudeOfMotion();
     endlessZoomDrivesTheRigForward();
     endlessZoomReducedMotionScalesTheDiveOnce();

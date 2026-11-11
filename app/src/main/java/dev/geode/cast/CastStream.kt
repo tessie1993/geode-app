@@ -7,17 +7,17 @@ import dev.geode.RingLog
 import dev.geode.audio.AudioBus
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.LookStore
+import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.audio.SoundCursor
-import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.EncoderSurface
 import dev.geode.export.PcmResampler
+import dev.geode.render.PacedRate
 import dev.geode.render.VisualizerRenderer
 import dev.geode.util.bestEffort
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.util.concurrent.locks.LockSupport
-import kotlin.math.roundToInt
 
 /**
  * One cast: the phone draws the live look into [CastEncoder] and serves it to the TV.
@@ -42,7 +42,7 @@ import kotlin.math.roundToInt
 internal class CastStream(
     context: Context,
     /** The player's own feed: only its sound goes to the TV (see [AudioPump]). */
-    private val musicInput: SoundInput?,
+    private val musicInput: SampleRing?,
     private val onFailed: () -> Unit,
 ) {
     private val appContext = context.applicationContext
@@ -110,6 +110,10 @@ internal class CastStream(
         try {
             egl.makeCurrent()
             renderer.soundInput = { AudioBus.soundInput }
+            // The encoder's fixed rate, not the stage's cap: at 30 this renderer is keeping up, so its fluid
+            // monitor and the shared thermal trend must not read its frames against the phone's 60 (or 120).
+            val castFps = CastEncoder.FPS.toFloat()
+            renderer.pacedRate = PacedRate { castFps }
             renderer.onSurfaceCreated(null, null)
             renderer.onSurfaceChanged(null, encoder.width, encoder.height)
             val clock = LongArray(GeodeNative.FRAME_CLOCK_STATE)
@@ -157,9 +161,9 @@ internal class CastStream(
      */
     private class AudioPump(
         private val encoder: CastEncoder,
-        private val musicInput: SoundInput?,
+        private val musicInput: SampleRing?,
     ) : AutoCloseable {
-        private var input: SoundInput? = null
+        private var input: SampleRing? = null
         private var cursor: SoundCursor? = null
         private var resampler: PcmResampler? = null
         private var resamplerInRate = 0
@@ -191,18 +195,15 @@ internal class CastStream(
             if (current !== musicInput) return null
             if (current !== input) {
                 input = current
-                cursor = SoundCursor(current.ring)
+                cursor?.close()
+                cursor = SoundCursor(current)
             }
             val c = cursor ?: return null
-            val take = c.take()
-            if (take.frames <= 0 || c.channels != CH) return null
-            val rate = current.sampleRateHz
-            if (rate <= 0) return null
-            val pcm = ShortArray(take.frames * CH)
-            for (i in pcm.indices) {
-                pcm[i] = (c.interleaved[i].coerceIn(-1f, 1f) * Short.MAX_VALUE).roundToInt().toShort()
-            }
-            return resamplerFor(rate).process(pcm, take.frames)
+            // 16-bit straight from the native cursor, with the rate these frames were written at.
+            val frames = c.take()
+            val rate = c.sampleRateHz
+            if (frames <= 0 || c.channels != CH || rate <= 0) return null
+            return resamplerFor(rate).process(c.pcm, frames)
         }
 
         private fun resamplerFor(rate: Int): PcmResampler {
@@ -216,6 +217,8 @@ internal class CastStream(
         }
 
         override fun close() {
+            cursor?.close()
+            cursor = null
             resampler?.close()
             resampler = null
         }

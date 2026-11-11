@@ -109,6 +109,9 @@ public:
     void writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz);
     // A seek, track change or source switch: drop the engine's history.
     void resetAudio();
+    // The live feed hears only its layered source (the mic, the player stopped): the engine then treats
+    // the source as not the player's, so its silence rule and fadeGain are the mic's (PlayerSignals).
+    void setLayerAlone(bool on) { layerAlone_.store(on, std::memory_order_relaxed); }
     // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
     void setSoundTuning(const GeodeSoundTuning& tuning);
     void queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength);
@@ -158,6 +161,10 @@ public:
     // built, so the main thread GLSurfaceView parks in surfaceChanged is released at once.
     void clearToBlack(GLuint targetFbo);
     void releaseScenes();
+    // The surface is about to stop drawing (the host's pause, a hidden wallpaper): the spares go now, as a
+    // UiHidden trim sheds them, since the trim signal is only read by a frame and none follows. GL thread,
+    // with the context current.
+    void trimSpares() { trimScenes({}, MemoryTrim::UiHidden); }
     const GlProfile& profile() const { return profile_; }
 
 private:
@@ -189,7 +196,8 @@ private:
     // This frame's engine settings (signal/EngineSettings): the process globals, or an export's pinned copy.
     signal::EngineSettings latchEngineSettings() { return settingsLatch_.latch(reducedMotion_.load(std::memory_order_relaxed)); }
     // Latches the requested params and configs, steps the resolver, then the device masks.
-    SceneParams resolveParams(float dt);
+    SceneParams resolveParams(float dt, float wallDt);
+    bool holds(const Scene& scene, const Scene* held) const;
     void resolveLayerScene();
     // beginFrame, under stateLock_: takes the layer layerFollower_ hands over when it changed.
     void syncLayerLocked();
@@ -212,6 +220,10 @@ private:
     GLuint drawBorn(Scene& scene, const SceneParams& p, float dt);
     // Runs the liquid over the scene target; 0 when Liquid is off (the composite then reads the target).
     GLuint drawLiquid(Scene& scene, const SceneParams& p, float dt);
+    // A flat style's Endless zoom and Fly with Liquid off: MilkDrop's feedback motion (liquid/FeedbackMotion,
+    // heard from the sound frame, stepped on the wall clock), run through the liquid pass, in or out.
+    // 0 when its targets are not there. `ask.sustain` adds a shader style's Trails (length, echo zoom, warp).
+    GLuint drawDive(const SceneParams& p, const liquid::motion::DiveAsk& ask, float dt, float wallDt);
     bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off && liveLiquid_ != liquid::Mode::Paused; }
     void applyPendingFluidInjection();
     void applyMilkRequests();
@@ -276,6 +288,7 @@ private:
     frame::edge_glow::Options edgeGlowOptions_;
     std::atomic<bool> edgeGlowOn_{false};
     std::atomic<bool> offscreen_{false};
+    std::atomic<bool> layerAlone_{false};
     std::atomic<int> fixedFps_{0};
     CameraRig camera_;
     // One engine per renderer (one per surface), so each is frame-locked to its own dt. Guarded by soundLock_
@@ -333,6 +346,7 @@ private:
     PcmHandoff pcm_;
     int framePcmCount_ = 0;  // GL thread: samples of pcmDeliverScratch_ this frame's scenes get.
     std::vector<float> pcmDeliverScratch_;
+    std::vector<float> pcmSideScratch_;
     // Drained by beginFrame; nothing queues into it since the overrides went process-wide (#364), and
     // the frame code that drains it is being moved (#344), which drops it.
     std::vector<std::pair<std::string, std::string>> pendingShaders_;
@@ -384,6 +398,9 @@ private:
     std::string bornAsked_;
     std::string bornAskedBefore_;
     bool liquidWasOn_ = false;
+    bool diveWasOn_ = false;
+    // Frames since the feedback pass last drew; its targets are freed once this passes kFeedbackIdleFrames.
+    int feedbackIdleFrames_ = 0;
     std::atomic<int> liquidHotPolicy_{0};
     std::atomic<int> liquidMode_{0};
     std::atomic<int> liquidModeTaken_{-1};
@@ -409,6 +426,17 @@ private:
     double lastTimeS_ = -1.0;
     double frameNowS_ = 0.0;
     float timeSeconds_ = 0.0f;
+    // The music's rate on the picture's clock this frame (sound::motionRate): 0 in silence.
+    float musicRate_ = 0.0f;
+    // What a stopped clock holds: the scenes whose targets carry their last frame, and the look and size
+    // they were drawn at. redrawFrames_ lets a request the params do not carry (a MilkDrop preset) through.
+    bool frameStill_ = false;
+    const Scene* heldScene_ = nullptr;
+    const Scene* heldLayer_ = nullptr;
+    std::array<float, SceneParams::kFieldCount> heldWire_{};
+    int heldWidth_ = 0;
+    int heldHeight_ = 0;
+    int redrawFrames_ = 0;
     // Latched once per frame in beginFrame, so the
     // rest of the frame (composite(), drawSecondaryTargets(), ...) reads a
     // stable snapshot instead of racing pinLayer()/setTransition() on

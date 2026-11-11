@@ -28,7 +28,18 @@ class PresetStore(
 
     private val milkDir = File(context.filesDir, "milk")
 
-    init {
+    private var migrated = false
+
+    /**
+     * Renames files saved under older name rules, once, before the first read or write of the
+     * folder. It walks the tree and parses every preset, so it runs on whichever thread first uses
+     * the store (the session's first use is its IO listing at start) and not in the constructor,
+     * which the session runs on the main thread.
+     */
+    @Synchronized
+    private fun ensureMigrated() {
+        if (migrated) return
+        migrated = true
         migrateLegacyFileNames()
     }
 
@@ -50,6 +61,7 @@ class PresetStore(
     }
 
     fun folderOf(name: String): String {
+        ensureMigrated()
         val f = findFile(name) ?: return ""
         return f.parentFile
             ?.relativeTo(dir)
@@ -58,15 +70,18 @@ class PresetStore(
     }
 
     @WorkerThread
-    fun folders(): List<String> =
-        dir
+    fun folders(): List<String> {
+        ensureMigrated()
+        return dir
             .walkTopDown()
             .filter { it.isDirectory && it != dir }
             .map { it.relativeTo(dir).path }
             .sorted()
             .toList()
+    }
 
     fun addFolder(path: String) {
+        ensureMigrated()
         File(dir, sanitize(path)).mkdirs()
     }
 
@@ -74,6 +89,7 @@ class PresetStore(
         from: String,
         to: String,
     ) {
+        ensureMigrated()
         val src = File(dir, sanitize(from))
         if (src.isDirectory) src.renameTo(File(dir, sanitize(to)))
     }
@@ -83,12 +99,16 @@ class PresetStore(
         name: String,
         folder: String,
     ) {
+        ensureMigrated()
         val f = findFile(name) ?: return
         val destDir = if (folder.isEmpty()) dir else File(dir, sanitize(folder)).apply { mkdirs() }
         f.renameTo(File(destDir, f.name))
     }
 
-    fun fileOf(name: String): File? = findFile(name)
+    fun fileOf(name: String): File? {
+        ensureMigrated()
+        return findFile(name)
+    }
 
     fun milkFileOf(presetName: String): File = File(milkDir, milkFileName(presetName))
 
@@ -97,6 +117,7 @@ class PresetStore(
         presetName: String,
         source: String?,
     ): String? {
+        ensureMigrated()
         val file = milkFileOf(presetName)
         if (source != null) {
             val stale = runCatching { !file.isFile || file.readText() != source }.getOrDefault(true)
@@ -109,8 +130,9 @@ class PresetStore(
         dir.walkTopDown().firstOrNull { it.isFile && it.extension == "json" && it.nameWithoutExtension == safeFileName(name) }
 
     @WorkerThread
-    fun list(): List<Preset> =
-        dir
+    fun list(): List<Preset> {
+        ensureMigrated()
+        return dir
             .walkTopDown()
             .filter { it.isFile && it.extension == "json" }
             .mapNotNull { f ->
@@ -119,12 +141,14 @@ class PresetStore(
                     .getOrNull()
             }.sortedBy { it.name }
             .toList()
+    }
 
     @WorkerThread
     fun save(
         preset: Preset,
         folder: String = "",
     ) {
+        ensureMigrated()
         val destDir = if (folder.isEmpty()) dir else File(dir, sanitize(folder)).apply { mkdirs() }
         val dest = File(destDir, safeFileName(preset.name) + ".json")
         val previous = findFile(preset.name)?.takeIf { it != dest }
@@ -133,6 +157,7 @@ class PresetStore(
 
     @WorkerThread
     fun delete(name: String) {
+        ensureMigrated()
         findFile(name)?.delete()
     }
 

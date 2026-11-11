@@ -208,11 +208,22 @@ void Director::reset() {
 }
 
 void Director::configure(const DirectorConfig& config) {
-    // A new seed is a new play: forget the song so far and start deciding afresh.
+    // A new seed is a new play: forget the song so far and start deciding afresh. The look on screen
+    // stays until the new play's first decision, which glides from it. Dropping it here snapped the
+    // palette, the dials and the routes back to the user's own for the four to twelve seconds the
+    // first decision waits, at every track change.
     if (configured_ && config.seed != config_.seed) {
         const float amount = amount_;
+        const float presence = presence_;
+        const Look shown = now_;
+        const ReactionEngine routes = incoming_;
+        const Routes routesBase = incomingBase_;
         reset();
         amount_ = amount;
+        presence_ = presence;
+        from_ = to_ = now_ = shown;
+        incoming_ = routes;
+        incomingBase_ = routesBase;
     }
     config_ = config;
     configured_ = true;
@@ -346,11 +357,14 @@ void Director::commit(Reason reason, float glideSeconds) {
     recent_[0] = best;
     recentCount_ = std::min(recentCount_ + 1, kRecent);
 
-    from_ = commits_ == 0 ? best : now_;
+    // Nothing on screen to glide from: the first look of the first play. A look carried over from the
+    // last play (configure) is glided from like any other.
+    const bool fresh = commits_ == 0 && presence_ <= 0.0f;
+    from_ = fresh ? best : now_;
     to_ = best;
-    glide_ = commits_ == 0 ? 1.0f : 0.0f;
+    glide_ = fresh ? 1.0f : 0.0f;
     glideSeconds_ = std::max(glideSeconds, 0.05f);
-    now_ = commits_ == 0 ? best : now_;
+    now_ = fresh ? best : now_;
     // The routes cross over: the playing set fades out while the new one fades in.
     outgoing_ = incoming_;
     outgoingBase_ = incomingBase_;
@@ -383,7 +397,9 @@ void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float
     }
     if (f.loudness > 0.15f) heard_ += dt;
     sinceCommit_ += dt;
-    if (f.downbeat > 0.5f) barsSinceCommit_ += 1;
+    // A trigger's value is its strength (the beat tracker's confidence), not a level: any downbeat
+    // or phrase the tracker fires counts, as with Form's events below.
+    if (f.downbeat > 0.0f) barsSinceCommit_ += 1;
     const float bar = f.bpm > 0.0f && f.beatConf > 0.3f ? 240.0f / f.bpm : 2.0f;
     const float barGlide = std::clamp(bar, 1.0f, 4.0f);
 
@@ -403,10 +419,10 @@ void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float
         // there is no beat to land on).
         const bool moved = key_ >= 0 && key_ != committedKey_ && f.keyClarity >= 0.3f;
         modulationSeconds_ = moved ? modulationSeconds_ + dt : 0.0f;
-        const bool onBar = f.downbeat > 0.5f || f.beatConf < 0.3f;
+        const bool onBar = f.downbeat > 0.0f || f.beatConf < 0.3f;
         if (modulationSeconds_ >= 6.0f && onBar && sinceCommit_ >= 4.0f) {
             commit(Reason::Modulation, barGlide);
-        } else if ((barsSinceCommit_ >= 32 && f.phrase > 0.5f) || sinceCommit_ >= 75.0f) {
+        } else if ((barsSinceCommit_ >= 32 && f.phrase > 0.0f) || sinceCommit_ >= 75.0f) {
             commit(Reason::Long, barGlide);
         }
     }
@@ -448,28 +464,48 @@ SceneParams Director::apply(const SceneParams& p, bool palWheel) const {
     // A build contracts the palette toward one hue (Huron's ITPRA: tension narrows), the drop releases it.
     const float range = L.range * (1.0f - 0.5f * buildUp_);
 
-    const float userHue = palHue(p.paletteBase(), p.paletteRange(), palWheel);
-    const float userHue2 = palHue(p.palette2Base(), p.palette2Range(), palWheel);
-    const float hue = mixHue(userHue, L.hue, a);
-    const float r1 = lerp(p.paletteRange(), range, a);
-    const float hue2 = mixHue(userHue2, L.hue2, a);
-    const float r2 = lerp(p.palette2Range(), L.range2, a);
-    o.paletteBaseOverride = palBase(hue, r1, palWheel);
-    o.paletteRangeOverride = std::max(r1, 0.0f);
-    o.palette2BaseOverride = palBase(hue2, r2, palWheel);
-    o.palette2RangeOverride = std::max(r2, 0.0f);
-    o.paletteMix = lerp(p.paletteMix, L.mix, a);
-    if (a > 0.5f) o.paletteLut = SceneParams::kNoPaletteLut;
-    o.hueRange = lerp(p.hueRange, 1.0f, a);
-    o.saturation = lerp(p.saturation, std::clamp(sat, 0.2f, 1.5f), a);
-    o.brightness = lerp(p.brightness, std::clamp(bright, 0.5f, 1.25f), a);
-    o.temperature = lerp(p.temperature, L.temperature, a);
-    o.contrast = lerp(p.contrast, std::clamp(contrast, 0.6f, 1.5f), a);
-    o.milkdropPaletteTint = lerp(p.milkdropPaletteTint, 0.6f, a);
-    o.camSmooth = lerp(p.camSmooth, L.camSmooth, a);
-    o.motionBreath = lerp(p.motionBreath, L.motionBreath, a);
-    o.motionOrbit = lerp(p.motionOrbit, L.motionOrbit, a);
-    o.motionDrift = lerp(p.motionDrift, L.motionDrift, a);
+    // The palette, like the dials below, is base plus modulation: the look turns the user's palette
+    // by its own distance from the default one, so picking another palette still changes the picture
+    // with Auto on. Blending to the look's hue outright made the palette pickers dead at full weight.
+    // A palette the user built (a LUT) is theirs whole: the look leaves it alone.
+    static const SceneParams kDefaults{};
+    if (p.paletteLut == SceneParams::kNoPaletteLut) {
+        const auto turn = [](float from, float to) {
+            const float d = wrap01(to - from);
+            return d > 0.5f ? d - 1.0f : d;
+        };
+        const auto widen = [a](float user, float look, float base) { return std::max(user + a * (look - base), 0.0f); };
+        const float baseHue = palHue(kDefaults.paletteBase(), kDefaults.paletteRange(), palWheel);
+        const float baseHue2 = palHue(kDefaults.palette2Base(), kDefaults.palette2Range(), palWheel);
+        const float hue = wrap01(palHue(p.paletteBase(), p.paletteRange(), palWheel) + a * turn(baseHue, L.hue));
+        const float hue2 = wrap01(palHue(p.palette2Base(), p.palette2Range(), palWheel) + a * turn(baseHue2, L.hue2));
+        const float r1 = widen(p.paletteRange(), range, kDefaults.paletteRange());
+        const float r2 = widen(p.palette2Range(), L.range2, kDefaults.palette2Range());
+        o.paletteBaseOverride = palBase(hue, r1, palWheel);
+        o.paletteRangeOverride = r1;
+        o.palette2BaseOverride = palBase(hue2, r2, palWheel);
+        o.palette2RangeOverride = r2;
+    }
+    // The dials: base plus modulation. The look is what the director would make of an untouched
+    // style, so it is added as its distance from the default; a slider the user moved keeps its
+    // whole offset. Blending toward the look instead ignored the slider at full weight, which is
+    // every Pro and trial play: Brightness and Saturation stopped answering while Auto was on.
+    // Held to the dial's own range (ParamTable.inc): a low slider under a look below the default
+    // would otherwise go negative, and a negative saturation inverts the colour.
+    const auto over = [a](float user, float look, float base, float lo = 0.0f, float hi = 1.0f) {
+        return std::clamp(user + a * (look - base), std::min(lo, user), std::max(hi, user));
+    };
+    o.paletteMix = over(p.paletteMix, L.mix, kDefaults.paletteMix);
+    o.hueRange = over(p.hueRange, 1.0f, kDefaults.hueRange, 0.0f, 1.5f);
+    o.saturation = over(p.saturation, std::clamp(sat, 0.2f, 1.5f), kDefaults.saturation, 0.0f, 1.5f);
+    o.brightness = over(p.brightness, std::clamp(bright, 0.5f, 1.25f), kDefaults.brightness, 0.2f, 2.0f);
+    o.temperature = over(p.temperature, L.temperature, kDefaults.temperature, -1.0f, 1.0f);
+    o.contrast = over(p.contrast, std::clamp(contrast, 0.6f, 1.5f), kDefaults.contrast, 0.3f, 1.25f);
+    o.milkdropPaletteTint = over(p.milkdropPaletteTint, 0.6f, kDefaults.milkdropPaletteTint);
+    o.camSmooth = over(p.camSmooth, L.camSmooth, kDefaults.camSmooth);
+    o.motionBreath = over(p.motionBreath, L.motionBreath, kDefaults.motionBreath);
+    o.motionOrbit = over(p.motionOrbit, L.motionOrbit, kDefaults.motionOrbit);
+    o.motionDrift = over(p.motionDrift, L.motionDrift, kDefaults.motionDrift);
     // The melody's degree: a short tint toward warm for the stable ones, cool for the dark ones, and a
     // little strain on the leaning ones.
     o.colorShift += a * accent_ * accentSign_ * (0.02f + 0.04f * accentTension_);

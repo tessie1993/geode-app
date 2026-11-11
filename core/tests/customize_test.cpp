@@ -155,6 +155,28 @@ void randomizeStaysInsideItsCategory() {
     }
 }
 
+// A kept category (MilkDrop's locked mash-up bin) holds through a roll of everything.
+void aKeptCategoryHoldsThroughARollOfEverything() {
+    const auto kept = customize::expandLocks({"#MOTION", "Bloom", "#NO_SUCH"});
+    check(kept.count("Speed") && kept.count("Drift X"), "#MOTION expands to Motion's controls");
+    check(kept.count("Bloom"), "a control's own lock passes through");
+    check(!kept.count("#MOTION") && !kept.count("#NO_SUCH"), "markers do not stay in the set");
+    check(!kept.count("Palette") && !kept.count("Camera path"), "other categories stay free");
+
+    const SceneParams start;
+    const auto motion = fieldsOfCategory(Category::Motion);
+    bool movedElsewhere = false;
+    for (uint64_t seed = 1; seed <= 40; ++seed) {
+        const SceneParams out = randomizer::randomize(start, seed, std::nullopt, "", kept);
+        for (const char* field : SceneParams::fieldNames()) {
+            if (out.get(field) == start.get(field)) continue;
+            check(!motion.count(field), std::string("a kept Motion holds ") + field);
+            movedElsewhere = true;
+        }
+    }
+    check(movedElsewhere, "the roll still moves the other categories");
+}
+
 void resetPutsBackOnlyItsCategory() {
     SceneParams changed;
     changed.speed = 2.0f;           // Motion
@@ -178,6 +200,18 @@ void resetPutsBackOnlyItsCategory() {
     check(customize::reset(changed, Category::Music).noteColor == defaults.noteColor, "Music reset puts Notes & key back");
 }
 
+// MilkDrop's mash-up: one category of another look laid over this one.
+void borrowTakesOnlyItsCategory() {
+    SceneParams from;
+    from.speed = 2.0f;   // Motion
+    from.grain = 0.4f;   // Effects
+    from.camFly = 1.3f;  // Camera
+    const SceneParams current;
+    const SceneParams out = customize::borrow(current, from, Category::Motion);
+    check(out.speed == from.speed, "borrowing Motion takes its Speed");
+    check(out.grain == current.grain && out.camFly == current.camFly, "borrowing Motion leaves Effects and Camera");
+}
+
 bool shownSection(const std::string& styleId, const char* where) {
     std::istringstream lines(customize::shownOn(styleId));
     for (std::string line; std::getline(lines, line);) {
@@ -187,17 +221,26 @@ bool shownSection(const std::string& styleId, const char* where) {
 }
 
 void categoriesAndSectionsFollowTheStyle() {
-    check(customize::shows(Category::Camera, "vanishing"), "Camera on a raymarched style");
-    check(customize::shows(Category::Camera, "ribbon_storm"), "Camera on a flat style: path and Fly speed pan it");
-    check(!shownSection("ribbon_storm", "CAMERA/framing"), "no 3D framing on a flat style");
-    check(shownSection("vanishing", "CAMERA/framing"), "3D framing on a raymarched style");
+    check(customize::shows(Category::Camera, "crystal_canyon"), "Camera on a style on the rig");
+    check(customize::shows(Category::Camera, "silk_web"), "Camera off the rig too: path and Fly speed pan it");
+    check(shownSection("silk_web", "CAMERA/basics"), "Camera basics off the rig");
+    check(shownSection("crystal_canyon", "CAMERA/framing") && shownSection("crystal_canyon", "CAMERA/feel"),
+          "framing and feel on a style on the rig");
+    for (const char* id : {"outrun_drive", "ringed_planet", "ribbon_storm"}) {
+        check(shownSection(id, "CAMERA/framing") && shownSection(id, "CAMERA/feel"), std::string(id) + ": on the rig without a march");
+    }
+    for (const char* id : {"vanishing", "morphogen", "noneuclid", "curl_bloom", "nectar_flow", "silk_web", "milkdrop"}) {
+        check(!shownSection(id, "CAMERA/framing") && !shownSection(id, "CAMERA/feel"), std::string(id) + ": no rig, no framing or feel");
+    }
     check(shownSection("water", "LIQUID/water"), "Water section on the Water style");
     check(!shownSection("julia", "LIQUID/water"), "no Water section elsewhere");
     check(shownSection("fluid", "SHAPE/particles"), "Particles on a fluid style");
     check(!shownSection("julia", "SHAPE/particles"), "no Particles on a shader style");
-    check(shownSection("fluid", "EXPERT/engine"), "Fluid's engine in Expert");
-    check(shownSection("milkdrop", "EXPERT/engine"), "MilkDrop's engine in Expert");
-    check(!shownSection("julia", "EXPERT/engine"), "no engine section on a shader style");
+    check(shownSection("fluid", "EXPERT/fluid_flow") && shownSection("fluid", "EXPERT/fluid_look"), "Fluid's engine in Expert");
+    check(!shownSection("fluid", "EXPERT/plate") && !shownSection("fluid", "EXPERT/milkdrop"), "only its own engine on Fluid");
+    check(shownSection("milkdrop", "EXPERT/milkdrop"), "MilkDrop's engine in Expert");
+    check(!shownSection("julia", "EXPERT/fluid_flow") && !shownSection("julia", "EXPERT/plate") && !shownSection("julia", "EXPERT/milkdrop"),
+          "no engine section on a shader style");
     check(shownSection("julia", "EXPERT/shader_code"), "shader code on a shader style");
     check(!shownSection("milkdrop", "EXPERT/shader_code"), "no shader code on MilkDrop");
     check(shownSection("julia", "LOOK/basics"), "Look's Basics everywhere");
@@ -239,7 +282,9 @@ int main(int argc, char** argv) {
     heldFieldsAreSceneParams();
     basicsAreFirstFewAndExpertHasNone();
     randomizeStaysInsideItsCategory();
+    aKeptCategoryHoldsThroughARollOfEverything();
     resetPutsBackOnlyItsCategory();
+    borrowTakesOnlyItsCategory();
     categoriesAndSectionsFollowTheStyle();
     textEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/customize.txt");
     if (failures == 0) std::printf("customize_test: all checks passed\n");

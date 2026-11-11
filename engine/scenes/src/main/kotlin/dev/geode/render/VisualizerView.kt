@@ -33,10 +33,7 @@ class VisualizerView(
             syncPacer()
         }
 
-    /**
-     * Between the host's [onResume] and [onPause]. A new GLSurfaceView runs until it is first
-     * paused, so this starts true; it gates only the sensor, the pacer keeps its own rules.
-     */
+    /** Between the host's [onResume] and [onPause] (a new GLSurfaceView runs until first paused). Gates only the sensor. */
     private var resumed = true
 
     /**
@@ -64,6 +61,7 @@ class VisualizerView(
         // invisible, and rebuilding every scene, shader and FBO on each resume would cost a visible
         // black flash. The driver is free to refuse, which is why onSurfaceCreated stays re-entrant.
         preserveEGLContextOnPause = true
+        visualizerRenderer.pacedRate = framePacer
         setRenderer(visualizerRenderer)
         // RENDERMODE_WHEN_DIRTY does not mean "draw rarely": the pacer drives it every vsync it
         // decides to keep. It means the GL thread idles the moment the pacer stops, which is what
@@ -119,12 +117,13 @@ class VisualizerView(
     }
 
     /**
-     * The activity forwards its pause here (AppShell). The sensor stops with it: a rotation-vector
-     * listener left registered behind a paused activity keeps the sensor hub awake for nothing.
+     * The activity forwards its pause here (AppShell). The sensor stops with it (left on, it keeps the sensor hub
+     * awake), and the spare scenes go first: an event queued before the pause still has the context (#854).
      */
     override fun onPause() {
         resumed = false
         gyroLook.setActive(false)
+        queueEvent { visualizerRenderer.trimSpares() }
         super.onPause()
     }
 
@@ -182,10 +181,7 @@ class VisualizerView(
         syncPacer()
     }
 
-    /**
-     * Off Visuals the app hides this view with alpha 0 (#852), not `INVISIBLE`, which gives the
-     * surface back and makes showing it a `surfaceChanged` main waits out; see [setAlpha].
-     */
+    /** Off Visuals the app hides this view with alpha 0 (#852): `INVISIBLE` would give the surface back; see [setAlpha]. */
     override fun onVisibilityChanged(
         changedView: View,
         visibility: Int,

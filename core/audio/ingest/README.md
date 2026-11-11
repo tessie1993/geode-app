@@ -1,20 +1,32 @@
-# core/audio/ingest (skeleton, empty)
+# core/audio/ingest
 
-Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md). Nothing here yet.
+Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.md). The ring is here; the hop thread that should read it is not.
 
-**Owns:** one native PCM ring per audio source (the player tap, the mic, another app's audio, a decoded file for export). Each write carries the sample rate and an epoch together, so a format change can never pair new samples with an old rate. Converts int16 to float here, not in Kotlin.
+**Owns:** one native PCM ring per audio source (the player tap, the mic, another app's audio, the wallpaper's output-mix capture; later a decoded file for export). Each write carries the sample rate and the source's channel count, so a format change can never pair new samples with an old rate. Converts int16 and unsigned 8-bit to float here, not in Kotlin.
+
+**Here now**
+- `PcmRing.{hpp,cpp}` (`geode::audio::ingest`): the lock-free single-writer ring (power-of-two capacity, a runway a slow reader stays behind, an atomic head and epoch), the writers for interleaved float, int16 and raw bytes in an encoding, and `Cursor`, the each-sample-once reader. A take ends where the rate changes, so one take has one rate. Readers hold the ring const and never change it, so a second reader (an output callback) can read the same samples.
+- `LayerMix.{hpp,cpp}`: a second ring layered over a reader's own (the mic over the player's tap, `geode_pcm_ring_set_layer`). Each renderer mixes at its reader: the layer waits in a short queue (0.1 s to join, 0.25 s at most), is resampled to the block it joins and added, so the player's samples stay the clock; once the player has stopped for 0.3 s the layer is handed out alone. The mic's level is added as it is: on the phone's speaker it hears the track a second time, quieter and a room later.
+- The C ABI is `geode_pcm_ring_*` and `geode_pcm_cursor_*` in `core/api/geode_ingest_api.cpp`; `geode_viz_feed_ring` (`core/api/geode_viz_api.cpp`) lets a live renderer take from a ring with its own cursor, so no sample crosses JNI on the GL thread.
+- Lifetime: a `geode_pcm_ring` handle and every cursor made from it share the ring, which is freed with the last of them. Kotlin's `SampleRing` holds the handle and frees it when it is collected (a `Cleaner`), so a writer thread or a surface that still holds the ring never reaches a freed one; a renderer's feed and Cast's `SoundCursor` keep the ring on their own.
 
 **Contract**
-- In: interleaved PCM from the tap's direct `ByteBuffer`, any thread (the player's playback thread, a capture thread).
-- Out: a lock-free single-writer ring that `core/sound/hop` reads on its own thread; also the raw tail MilkDrop (projectM) needs, so `pushPcm` goes away.
+- In: interleaved PCM from the tap's direct `ByteBuffer` (read where it lies), or a capture's `short[]`, `float[]` or `byte[]` (pinned for one copy), any thread, one writer at a time.
+- Out: what each reader's cursor has not seen yet, with its rate. Today every renderer's `core/sound` engine reads it on its GL thread; `core/sound/hop` should read it on its own thread. The raw tail MilkDrop needs is the mono mix of what the renderer's engine heard (`core/viz/PcmHandoff`), so `pushPcm` is gone.
 - Clock: the sample count. No wall time.
 
-**Moves in (today, `cf7e88f`)**
-- `engine/audio-core/.../audio/SampleRing.kt`, `SoundCursor.kt`, `SoundInput.kt` (the ring, the each-sample-once cursor, rate as a separate volatile)
-- ~~`app/.../audio/PcmRingBuffer.kt`~~ gone (#486): MilkDrop's raw PCM is the mono mix of what each renderer's engine heard, `core/viz/PcmHandoff`
-- the per-sample int16 → float loops in `engine/audio-android/.../PcmTap.kt`, `app/.../audio/AudioCapturePump.kt:77`, `app/.../audio/dsp/NativeDspProcessor.kt:96,107`
-- the capture level and silence guesses in `app/.../audio/MicCapture.kt:47-64` and `PlaybackCapture.kt:49` (one silence flag comes from `core/sound/hop` instead)
+**Moved in**
+- `SampleRing.kt`, `SoundCursor.kt` (now handle holders in `engine/audio-core`), `SoundInput.kt` and `PcmSink.kt` (gone: the rate was a separate volatile beside the ring, now it is in each write)
+- the per-sample loops of `PcmTap.kt` (16-bit and float from the tap's buffer), `AudioCapturePump.kt` (int16 to float), `OutputMixCapture.kt` (8-bit to float), Cast's float to int16 (`CastStream.kt`, now `geode_pcm_cursor_take_s16`) and the wallpaper's level snapshot (`SoundSource.kt`, now `geode_pcm_ring_heard_at`)
+- the peak scan of `MicCapture.kt` and `PlaybackCapture.kt`: a write returns the block's peak
+- ~~`app/.../audio/PcmRingBuffer.kt`~~ gone earlier (#486)
+
+**Still to move**
+- the int16 loops in `app/.../audio/dsp/NativeDspProcessor.kt` (the playback DSP's hand-over, not the ring's)
+- the silence and "blocked" timing in `MicCapture.kt` and `PlaybackCapture.kt` (one silence flag should come from `core/sound/hop`)
+- the playout clock (`core/sound/interp/PlayoutClock`) is not fed the ring's frame counts yet (#488)
+- rates above 88.2 kHz are not halved on the way in
 
 **fosfora:** `audio/capture.rs` (SPSC ring, no DSP in the callback), `audio/decimate.rs` (rates above 88.2 kHz halved first).
 
-**Test that proves it:** a host test writes PCM in random chunk sizes and at a mid-stream rate change, and checks the reader sees every sample once, in order, each with the rate it was written at.
+**Tests that prove it:** `core/tests/layer_mix_test.cpp` (the layer: two rates, a silent mic, mic on and off mid-stream, pause and resume, epochs, drift) and `core/tests/pcm_ring_test.cpp`, which writes PCM in random chunk sizes with rate changes mid-stream, on one thread and with a writer thread, and checks the reader sees every sample once, in order, each with the rate it was written at; it also holds the old Kotlin `SoundCursorTest` cases, the encodings and the C ABI.

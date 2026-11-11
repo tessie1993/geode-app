@@ -8,40 +8,30 @@ import dev.geode.engine.bridge.GeodeNative
  * The platform's thermal readings, handed raw to the process's one native thermal state
  * (`core/viz/frame/Thermal`), which settles the tier every renderer reads and the pacer's fps cap.
  *
- * [attach] resolves PowerManager once per process; [sample] reads it when native says a reading is
- * due (`FRAME_THERMAL_DUE` from the renderer's one per-frame call).
+ * [attach] resolves PowerManager once per process and has it push the status, now and on every change
+ * (on the main thread); [sample] asks for the headroom when native says one is due
+ * (`FRAME_THERMAL_DUE` from the renderer's one per-frame call).
  */
 object ThermalGovernor {
-    /**
-     * The rate the renderer is currently asking the display for, or 0 when it free-runs.
-     *
-     * Publish it from whoever owns the frame pacer, so a deliberate cap is never mistaken for a
-     * device that cannot keep up.
-     */
-    @Volatile
-    var pacedFps: Float = 0f
-
     @Volatile
     private var power: PowerManager? = null
 
     @Synchronized
     fun attach(context: Context) {
-        // Application context: this reference outlives every Activity and surface by design.
-        if (power == null) power = context.applicationContext.getSystemService(PowerManager::class.java)
+        if (power != null) return
+        // Application context: this reference and its listener outlive every Activity and surface by design.
+        val service = context.applicationContext.getSystemService(PowerManager::class.java) ?: return
+        power = service
+        runCatching { service.addThermalStatusListener { GeodeNative.thermalPush(it, Float.NaN) } }
     }
 
     /**
-     * Called on a live renderer's GL thread only on the frame native said a reading is due, once a
-     * second for the whole process: PowerManager may answer NaN to a second ask inside its one-second
-     * window, which is how a second renderer used to read no forecast and stay at Full (#387). The
-     * status is read here too, at that cadence, rather than kept by a listener. Native keeps the last
-     * real headroom across a NaN and settles the one tier every renderer reads.
+     * Called on a live renderer's GL thread only on the frame native said a headroom is due, every ten seconds
+     * for the whole process: PowerManager answers NaN when asked more often, and native holds the last real one.
      */
     fun sample() {
-        val service = power
-        if (service == null) return GeodeNative.thermalPush(-1, Float.NaN)
-        val status = runCatching { service.currentThermalStatus }.getOrDefault(-1)
-        GeodeNative.thermalPush(status, runCatching { service.getThermalHeadroom(FORECAST_SECONDS) }.getOrDefault(Float.NaN))
+        val headroom = runCatching { power?.getThermalHeadroom(FORECAST_SECONDS) }.getOrNull() ?: Float.NaN
+        GeodeNative.thermalPush(-1, headroom)
     }
 }
 

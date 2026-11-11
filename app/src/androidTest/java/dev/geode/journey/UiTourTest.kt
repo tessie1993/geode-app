@@ -3,7 +3,6 @@ package dev.geode.journey
 import android.Manifest
 import android.app.PictureInPictureParams
 import android.graphics.PointF
-import android.os.Build
 import android.os.SystemClock
 import android.view.KeyEvent
 import androidx.compose.ui.semantics.Role
@@ -22,6 +21,7 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaBrowser
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
+import androidx.test.platform.app.InstrumentationRegistry
 import dev.geode.ui.MainActivity
 import org.junit.After
 import org.junit.Rule
@@ -61,9 +61,16 @@ class UiTourTest {
     private val tour by lazy { UiTour(compose, setup) }
     private var browser: MediaBrowser? = null
 
+    /**
+     * Closes the activity and lets the main thread finish detaching its window before the
+     * compose rule cancels its Recomposer on this thread: an effect still alive then is
+     * cancelled off the main thread, which Media3's Cast route button throws on.
+     */
     @After
     fun release() {
         browser?.let { b -> runCatching { b.stopAndRelease() } }
+        compose.activityRule.scenario.close()
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
     }
 
     // -- cases -------------------------------------------------------------------------------
@@ -409,14 +416,14 @@ class UiTourTest {
     }
 
     private fun presets() {
-        tour.step("presets", "open", "the Presets grid") { tour.tap(PRESETS) }
-        tour.pages("presets", "grid", pages = 3)
-        tour.step("presets", "card-sheet", "a card's long-press sheet") {
+        tour.step("presets", "open", "the Presets list") { tour.tap(PRESETS) }
+        tour.pages("presets", "list", pages = 3)
+        tour.step("presets", "row-sheet", "a row's long-press sheet") {
             compose.onAllNodes(LONG_PRESSABLE).onFirst().performSemanticsAction(SemanticsActions.OnLongClick)
             null
         }
         tour.back()
-        tour.step("presets", "save-dialog", "Save current look's dialog") { tour.tap(SAVE_LOOK) }
+        tour.step("presets", "save-dialog", "Save look's dialog") { tour.tap(SAVE_LOOK) }
         tour.back()
         tour.back()
     }
@@ -482,12 +489,12 @@ class UiTourTest {
         }
     }
 
-    /** The floating mini player: a tap pins it, a swipe down hides it, a swipe up opens Player. */
+    /** The floating mini player: a tap opens Library, a swipe down hides it, a swipe up opens Player. */
     private fun miniPlayerGestures() {
         val mini = hasCustomAction(UiTour.MINI_PLAYER_OPEN)
         val cases =
             listOf(
-                Triple("tap", "the player stays shown (pinned)") { c: PointF -> UiTourTouch.tap(c) },
+                Triple("tap", "Library opens") { c: PointF -> UiTourTouch.tap(c) },
                 Triple("swipe-down", "the player hides") { c: PointF -> UiTourTouch.swipe(c, PointF(c.x, c.y + SWIPE_PX * dp())) },
                 Triple("swipe-up", "Player opens") { c: PointF -> UiTourTouch.swipe(c, PointF(c.x, c.y - SWIPE_PX * dp())) },
             )
@@ -627,13 +634,7 @@ class UiTourTest {
 
     /** Music access, granted from the shell as a user who said yes would have. */
     private fun grantMusic() {
-        val permission =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                Manifest.permission.READ_MEDIA_AUDIO
-            } else {
-                Manifest.permission.READ_EXTERNAL_STORAGE
-            }
-        TourDevice.shell("pm grant ${compose.activity.packageName} $permission")
+        TourDevice.shell("pm grant ${compose.activity.packageName} ${Manifest.permission.READ_MEDIA_AUDIO}")
     }
 
     private fun dp(): Float = tour.window.density
@@ -670,7 +671,7 @@ class UiTourTest {
         const val SHADERS = "Shaders"
         const val ARBOR = "Arbor"
         const val LOCKED_STYLE = "Halvorsen Web"
-        const val SAVE_LOOK = "Save current look"
+        const val SAVE_LOOK = "Save look"
         const val MACROS = "Macros"
         const val MOTION = "Motion"
         const val CAMERA = "Camera"
@@ -705,7 +706,8 @@ class UiTourTest {
                 ABOUT,
             )
         val RENDER_SCOPES = listOf("Play queue", "Playlist", "Chosen tracks")
-        val RENDER_OPTIONS = listOf("Made for", "Segment", "Whole track", "Loop", "Ask where each time", "Videos library (Movies/MuzViz)")
+        val RENDER_OPTIONS =
+            listOf("Made for", "Segment", "Whole track", "Loop", "Ask where each time", "Videos library (Movies/BeatRealms)")
         val RENDER_OPTIONS_THAT_OPEN = setOf("Made for", "Loop")
         val MY_VIDEOS_CHIPS = listOf("Renders", "Takes", "All")
 

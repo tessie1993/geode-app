@@ -31,13 +31,13 @@ class StudioViewModel
         /** The project folders (takes and kept renders), for My videos and the Render bar. */
         val editor: StateFlow<EditorUiState> get() = session.editor.state
 
-        val exportState: StateFlow<ExportUiState> get() = session.exportState
+        val exportState: StateFlow<ExportUiState> get() = session.exportController.exportState
 
-        val takeState: StateFlow<TakeUiState> get() = session.takeState
+        val takeState: StateFlow<TakeUiState> get() = session.takeController.state
 
-        fun startRecording() = session.startRecording()
+        fun startRecording() = session.takeController.startRecording()
 
-        fun stopRecording(name: String? = null) = session.stopRecording(name)
+        fun stopRecording(name: String? = null) = session.takeController.stopRecording(name)
 
         /** The ask-once save sheet's answer for the take waiting in [TakeUiState.pendingSave]. */
         fun chooseTakeSaveTarget(
@@ -46,30 +46,30 @@ class StudioViewModel
         ) = session.chooseTakeSaveTarget(target, remember)
 
         /** The save sheet was dismissed: the take stays in My videos, unrendered. */
-        fun skipTakeSave() = session.skipTakeSave()
+        fun skipTakeSave() = session.takeController.skipPendingSave()
 
-        fun playTake(name: String) = session.playTake(name)
+        fun playTake(name: String) = session.takeController.playTake(name)
 
-        fun stopReplay() = session.stopReplay()
+        fun stopReplay() = session.takeController.stopReplay()
 
-        fun deleteTake(name: String) = session.deleteTake(name)
+        fun deleteTake(name: String) = session.takeController.deleteTake(name)
 
         fun renameTake(
             from: String,
             to: String,
-        ) = session.renameTake(from, to)
+        ) = session.takeController.renameTake(from, to)
 
-        fun setExportTake(name: String?) = session.setExportTake(name)
+        fun setExportTake(name: String?) = session.takeController.setExportTake(name)
 
-        fun cancelExport() = session.cancelExport()
+        fun cancelExport() = session.exportController.cancelExport()
 
-        fun resetExportState() = session.resetExportState()
+        fun resetExportState() = session.exportController.resetExportState()
 
-        val loopState: StateFlow<LoopUiState> get() = session.loopState
+        val loopState: StateFlow<LoopUiState> get() = session.exportController.loopState
 
-        fun cancelLoopRender() = session.cancelLoopRender()
+        fun cancelLoopRender() = session.exportController.cancelLoopRender()
 
-        fun clearLoopResult() = session.clearLoopResult()
+        fun clearLoopResult() = session.exportController.clearLoopResult()
 
         // ---------------------------------------------------------------- Render
 
@@ -128,7 +128,8 @@ class StudioViewModel
             keepJob =
                 viewModelScope.launch {
                     // The render about to start resets the state first; wait for it to run, then end.
-                    val ended = session.exportState.dropWhile { !it.phase.isBusy }.first { !it.phase.isBusy }
+                    val exportState = session.exportController.exportState
+                    val ended = exportState.dropWhile { !it.phase.isBusy }.first { !it.phase.isBusy }
                     val done = ended.phase as? ExportPhase.Done ?: return@launch
                     val render = ProjectRender(done.resultUri.toString(), track.title, System.currentTimeMillis(), track.durationMs)
                     session.editor.createWithLook(track, sceneId, milkPath, render)

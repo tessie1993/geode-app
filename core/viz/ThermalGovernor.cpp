@@ -61,7 +61,7 @@ void ThermalGovernor::setAdaptive(bool on) {
 
 void ThermalGovernor::onFrame(float dtSeconds) {
     if (offscreenDepth_.load() > 0) return;
-    // The platform's readings arrive through ThermalState::push, once a second for the whole process;
+    // The platform's readings arrive through ThermalState::push, settled once a second for the process;
     // per frame there is only this surface's own frame time to watch.
     trackMeasuredTrend(dtSeconds);
 }

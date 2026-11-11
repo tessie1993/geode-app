@@ -6,7 +6,6 @@ import dev.geode.audio.MicCapture
 import dev.geode.audio.NowPlayingBridge
 import dev.geode.audio.PlaybackCapture
 import dev.geode.audio.PlaybackCaptureService
-import dev.geode.audio.playbackCaptureSupported
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +21,6 @@ data class MicState(
 )
 
 data class ExternalAudioState(
-    val supported: Boolean = playbackCaptureSupported,
     val active: Boolean = false,
     val awaitingConsent: Boolean = false,
     val failure: CaptureFailure? = null,
@@ -36,16 +34,21 @@ data class ExternalAudioState(
 internal class CaptureController(
     private val application: Application,
     private val scope: CoroutineScope,
-    capture: dev.geode.engine.audio.PcmSink,
+    capture: dev.geode.engine.audio.SampleRing,
+    /** The mic's own ring, layered over the player's natively: the mic never takes [capture]. */
+    private val micRing: dev.geode.engine.audio.SampleRing,
     private val host: Host,
 ) {
     interface Host {
+        /** Before another app's audio is captured; the mic never pauses the player. */
         fun pausePlayback()
 
-        /** The ring changed hands: a new epoch, and whether the player (not the mic or a capture) now writes it. */
+        /**
+         * The ring changes hands: a new epoch, and whether the player (not a capture of another app) writes
+         * it. Called with false before a capture starts writing and with the new owner once one has
+         * stopped, so the ring never has two writers.
+         */
         fun resetSound(playerOwnsRing: Boolean)
-
-        fun setSoundRate(rateHz: Int)
 
         fun setMicReactivePref(on: Boolean)
 
@@ -53,7 +56,7 @@ internal class CaptureController(
         val micReactivePref: Boolean
     }
 
-    private val micCapture = MicCapture(application, capture)
+    private val micCapture = MicCapture(application, micRing)
 
     private val _micState = MutableStateFlow(MicState())
 
@@ -71,12 +74,13 @@ internal class CaptureController(
     private var micPausedInBackground = false
 
     /**
-     * Live input is on, whether or not it is reading right now. Counting the background pause
-     * as on matters: pressing play on the notification while the app is away goes through the
-     * same "playback started, so drop the mic" path as pressing it on screen, and the mic must
-     * not come back over the music when the app does.
+     * Stops the mic. The epoch ends its stream for every reader: what waited in a renderer's mix is
+     * dropped, and a paused player counts as the source again.
      */
-    val micActive: Boolean get() = micCapture.active || micPausedInBackground
+    private fun stopMic() {
+        micCapture.stop()
+        micRing.beginEpoch()
+    }
 
     /**
      * The app left the screen. Live input exists to drive visuals someone is looking at, and
@@ -86,7 +90,7 @@ internal class CaptureController(
      */
     fun onBackground() {
         if (!micCapture.active) return
-        micCapture.stop()
+        stopMic()
         micPausedInBackground = true
     }
 
@@ -96,15 +100,6 @@ internal class CaptureController(
         micPausedInBackground = false
         if (hasMicPermission()) setMicEnabled(true) else refreshMicState()
     }
-
-    @Volatile
-    private var tapSampleRateHz: Int = 0
-
-    val audioFormatHook: (sampleRateHz: Int, channelCount: Int, encoding: Int) -> Unit =
-        { rate, _, _ ->
-            tapSampleRateHz = rate
-            if (!externalAudioOwnsRing()) host.setSoundRate(rate)
-        }
 
     /**
      * Begins watching for a media projection.
@@ -132,7 +127,6 @@ internal class CaptureController(
                     } else if (_externalAudio.value.active) {
                         playbackCapture.stop()
                         host.resetSound(!externalAudioOwnsRing())
-                        host.setSoundRate(playbackRateFallback())
                         _externalAudio.update { it.copy(active = false, refusedByApp = false) }
                     }
                 }
@@ -148,29 +142,29 @@ internal class CaptureController(
         }
     }
 
-    private fun playbackRateFallback(): Int = tapSampleRateHz.takeIf { it > 0 } ?: 44100
+    private fun externalAudioOwnsRing(): Boolean = playbackCapture.active
 
-    private fun externalAudioOwnsRing(): Boolean = micCapture.active || playbackCapture.active
-
+    /**
+     * The mic as a layer over playback: it writes its own ring, so the player keeps playing and keeps its
+     * ring, and the visuals hear both. Only a capture of another app still gives way to it.
+     */
     fun setMicEnabled(enabled: Boolean): MicCapture.Failure? {
         if (!enabled) {
             micPausedInBackground = false
-            micCapture.stop()
-            host.resetSound(!externalAudioOwnsRing())
-            host.setSoundRate(playbackRateFallback())
+            stopMic()
             _micState.value = MicState(active = false)
             host.setMicReactivePref(false)
             return null
         }
         if (micCapture.active) return null
         if (playbackCapture.active || _externalAudio.value.active) stopExternalAudio()
-        host.pausePlayback()
-        val failure = micCapture.start { rate -> host.setSoundRate(rate) }
+        // A new epoch before the first block: nothing an earlier run left in the ring is heard.
+        micRing.beginEpoch()
+        val failure = micCapture.start()
         if (failure != null) {
             _micState.value = MicState(active = false, failure = failure)
             return failure
         }
-        host.resetSound(!externalAudioOwnsRing())
         _micState.value = MicState(active = true)
         host.setMicReactivePref(true)
         return null
@@ -197,12 +191,10 @@ internal class CaptureController(
         }
         host.pausePlayback()
         if (micCapture.active) setMicEnabled(false)
-        val failure = playbackCapture.start(projection) { rate -> host.setSoundRate(rate) }
+        host.resetSound(playerOwnsRing = false)
+        val failure = playbackCapture.start(projection)
         host.resetSound(!externalAudioOwnsRing())
-        if (failure != null) {
-            host.setSoundRate(playbackRateFallback())
-            PlaybackCaptureService.stop(application)
-        }
+        if (failure != null) PlaybackCaptureService.stop(application)
         _externalAudio.update {
             it.copy(
                 active = failure == null,
@@ -216,7 +208,6 @@ internal class CaptureController(
     fun stopExternalAudio() {
         playbackCapture.stop()
         host.resetSound(!externalAudioOwnsRing())
-        host.setSoundRate(playbackRateFallback())
         PlaybackCaptureService.stop(application)
         _externalAudio.update {
             it.copy(active = false, awaitingConsent = false, refusedByApp = false)
@@ -264,18 +255,19 @@ internal class CaptureController(
 
     fun refreshMicState() {
         if (!_micState.value.active || micCapture.active) return
-        host.resetSound(!externalAudioOwnsRing())
-        host.setSoundRate(playbackRateFallback())
+        micRing.beginEpoch()
         _micState.value = MicState(active = false, failure = MicCapture.Failure.UNAVAILABLE)
         host.setMicReactivePref(false)
     }
 
     fun shutdown() {
-        micCapture.stop()
+        stopMic()
         // Stop the pump on the pump's own state, not the UI mirror of it. After this the owning
         // scope is cancelled, so the projection collector that would otherwise notice is gone —
         // a pump left running here keeps an AudioRecord and its reader thread alive, writing into
         // a released playback session, for the rest of the process.
         if (playbackCapture.active || _externalAudio.value.active) stopExternalAudio()
+        // The playback session outlives this one: its tap must not stay shut out of its own ring.
+        host.resetSound(playerOwnsRing = true)
     }
 }

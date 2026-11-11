@@ -2,10 +2,12 @@ package dev.geode.ui
 
 import android.app.Application
 import android.net.Uri
+import dev.geode.data.BuiltInPresets
 import dev.geode.data.Preset
 import dev.geode.data.PresetFolders
 import dev.geode.data.PresetRepository
 import dev.geode.data.PresetStore
+import dev.geode.data.VizUiState
 import dev.geode.model.PresetFiltering
 import dev.geode.model.PresetLink
 import dev.geode.render.scene.SceneIds
@@ -136,9 +138,9 @@ internal class PresetLibraryController(
             PresetStore.milkFileName(presetName),
         )
 
-    fun milkPresetPathFor(preset: Preset): String? {
+    suspend fun milkPresetPathFor(preset: Preset): String? {
         if (preset.sceneId != SceneIds.MILKDROP) return null
-        return presets.materializeMilk(preset.name, preset.milkPreset)
+        return withContext(Dispatchers.IO) { presets.materializeMilk(preset.name, preset.milkPreset) }
     }
 
     fun presetShareLink(name: String): String? {

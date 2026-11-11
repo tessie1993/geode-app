@@ -9,7 +9,7 @@
 #include "viz/Catalogue.hpp"
 #include "viz/Params.hpp"
 
-// The Customize panel's map: ten categories grouped by what their controls do, each split into a
+// The Customize panel's map: nine categories grouped by what their controls do, each split into a
 // free Basics section and Pro sections below it, and which control lives where. Pure: no GL, no JNI.
 //
 // WHY native (ADR 0003): the map decides what a category's Randomize rolls and what its Reset puts
@@ -29,14 +29,14 @@ namespace geode::viz::customize {
 constexpr int kTextVersion = 1;
 
 // In panel order. Names match Kotlin's CustomizeCategory.
-enum class Category { QuickKnobs, Look, Shape, Motion, Camera, Music, Effects, Liquid, Behaviour, Expert };
-constexpr int kCategoryCount = 10;
+enum class Category { QuickKnobs, Look, Shape, Motion, Camera, Music, Effects, Liquid, Expert };
+constexpr int kCategoryCount = 9;
 
 // Which styles a category or section is offered on, beyond each control's own scope. A section is
 // also hidden when no control in it reaches the style (a dive on a style that cannot dive).
 enum class Show {
     Always,
-    ThreeD,      // the raymarched styles, which fly the camera (catalogue::isMarched)
+    ThreeD,      // the styles on the camera rig (catalogue::fliesCamera)
     Particles,   // styles with a particle layer (Scope::ParticleSprite)
     Water,       // the Water style (Kind::Water)
     Engine,      // a style with an engine of its own to tune: Fluid, Cymatics, MilkDrop
@@ -72,6 +72,12 @@ std::optional<Category> categoryNamed(std::string_view name);
 const char* name(Category category);
 const char* name(Show show);
 
+// A kept category, after MilkDrop's mash-up bins, each of which can be locked against the next
+// random load: "#MOTION" in a lock set holds every control Motion owns. Returns the set with each
+// such marker replaced by its category's controls; a marker naming no category is dropped.
+inline constexpr char kCategoryLockPrefix = '#';
+std::set<std::string> expandLocks(const std::set<std::string>& locked);
+
 // The category a control lives in, or nullopt for a key the panel does not show.
 std::optional<Category> categoryOf(std::string_view key);
 
@@ -87,6 +93,10 @@ std::vector<const char*> fieldsOf(std::string_view key);
 // empty) and is not in locked. Controls in other categories hold. Returns current when nothing can change.
 SceneParams randomize(const SceneParams& current, uint64_t seed, Category category, const std::string& styleId,
                       const std::set<std::string>& locked);
+
+// current with every field the category's controls write taken from another look: MilkDrop's
+// mash-up, one bin loaded from another preset.
+SceneParams borrow(const SceneParams& current, const SceneParams& from, Category category);
 
 // current with every field the category's controls write put back to its default.
 SceneParams reset(const SceneParams& current, Category category);

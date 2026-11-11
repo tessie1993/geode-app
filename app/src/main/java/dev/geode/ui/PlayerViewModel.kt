@@ -8,13 +8,18 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.util.UnstableApi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.geode.audio.MicCapture
+import dev.geode.data.Lyrics
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.Preset
+import dev.geode.data.VizUiState
 import dev.geode.di.PlayerSessionProvider
 import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
+import dev.geode.model.QueueTrack
+import dev.geode.model.QueueUiState
+import dev.geode.model.VizPlaylistEntry
 import dev.geode.pro.FeatureGate
 import dev.geode.pro.GetFeatureGateUseCase
 import dev.geode.pro.PaywallNavigator
@@ -58,15 +63,15 @@ class PlayerViewModel
 
         val activeMilkPath: StateFlow<String?> get() = visualizer.activeMilkPath
 
-        val micState: StateFlow<MicState> get() = session.micState
+        val micState: StateFlow<MicState> get() = session.captureController.micState
 
         val externalAudio: StateFlow<ExternalAudioState> get() = session.externalAudio
 
-        val historyTick: StateFlow<Int> get() = session.historyTick
+        val historyTick: StateFlow<Int> get() = session.listening.historyTick
 
         val favourites: StateFlow<Set<String>> get() = session.favourites
 
-        val artPaletteNote: StateFlow<String?> get() = session.artPaletteNote
+        val artPaletteNote: StateFlow<String?> get() = session.trackColor.artPaletteNote
 
         val lyrics: StateFlow<Lyrics?> get() = session.lyrics
 
@@ -74,36 +79,36 @@ class PlayerViewModel
 
         val sleepTimerRemainingMs: StateFlow<Long?> get() = session.sleepTimerRemainingMs
 
-        val vizApply: SharedFlow<VizApply> get() = session.vizApply
+        val vizApply: SharedFlow<VizApply> get() = session.visual.vizApply
 
-        val morphFade: SharedFlow<Float> get() = session.morphFade
+        val morphFade: SharedFlow<Float> get() = session.visual.morphFade
 
         fun setMicEnabled(enabled: Boolean): MicCapture.Failure? = session.setMicEnabled(enabled)
 
-        fun onAppBackground() = session.onAppBackground()
+        fun onAppBackground() = session.captureController.onBackground()
 
-        fun onAppForeground() = session.onAppForeground()
+        fun onAppForeground() = session.captureController.onForeground()
 
-        fun hasMicPermission(): Boolean = session.hasMicPermission()
+        fun hasMicPermission(): Boolean = session.captureController.hasMicPermission()
 
-        fun noteExternalAudioConsentPending() = session.noteExternalAudioConsentPending()
+        fun noteExternalAudioConsentPending() = session.captureController.noteExternalAudioConsentPending()
 
-        fun noteExternalAudioConsentDenied() = session.noteExternalAudioConsentDenied()
+        fun noteExternalAudioConsentDenied() = session.captureController.noteExternalAudioConsentDenied()
 
         fun stopExternalAudio() = session.stopExternalAudio()
 
-        fun notificationAccessIntent(): Intent = session.notificationAccessIntent()
+        fun notificationAccessIntent(): Intent = session.captureController.notificationAccessIntent()
 
-        fun toggleShuffle() = session.toggleShuffle()
+        fun toggleShuffle() = session.settings.toggleShuffle()
 
-        fun cycleRepeatMode() = session.cycleRepeatMode()
+        fun cycleRepeatMode() = session.settings.cycleRepeatMode()
 
         fun importMilkPresetAsync(
             uri: Uri,
             onDone: (String?) -> Unit,
         ) = session.importMilkPresetAsync(uri, onDone)
 
-        fun milkTextureLinksFor(path: String) = session.milkTextureLinksFor(path)
+        fun milkTextureLinksFor(path: String) = session.milkImport.textureLinksFor(path)
 
         fun assignMilkTextureAsync(
             path: String,
@@ -117,56 +122,56 @@ class PlayerViewModel
             onDone: (MilkPackImporter.Report) -> Unit,
         ) = session.importMilkFolderAsync(treeUri, onDone)
 
-        fun applyArtworkPalette() = session.applyArtworkPalette()
+        fun applyArtworkPalette() = session.trackColor.applyArtworkPalette()
 
         fun startSleepTimer(minutes: Int) = session.startSleepTimer(minutes)
 
         fun cancelSleepTimer() = session.cancelSleepTimer()
 
-        fun addToVizPlaylist(entry: VizPlaylistEntry) = session.addToVizPlaylist(entry)
+        fun addToVizPlaylist(entry: VizPlaylistEntry) = session.autoVisuals.addToVizPlaylist(entry)
 
-        fun removeVizPlaylistAt(index: Int) = session.removeVizPlaylistAt(index)
+        fun removeVizPlaylistAt(index: Int) = session.autoVisuals.removeVizPlaylistAt(index)
 
-        fun setVizPlaylistEnabled(enabled: Boolean) = session.setVizPlaylistEnabled(enabled)
+        fun setVizPlaylistEnabled(enabled: Boolean) = session.autoVisuals.setVizPlaylistEnabled(enabled)
 
-        fun setVizPlaylistInterval(seconds: Int) = session.setVizPlaylistInterval(seconds)
+        fun setVizPlaylistInterval(seconds: Int) = session.autoVisuals.setVizPlaylistInterval(seconds)
 
-        fun setRandomEnabled(enabled: Boolean) = session.setRandomEnabled(enabled)
+        fun setRandomEnabled(enabled: Boolean) = session.autoVisuals.setRandomEnabled(enabled)
 
-        fun setRandomInterval(seconds: Int) = session.setRandomInterval(seconds)
+        fun setRandomInterval(seconds: Int) = session.autoVisuals.setRandomInterval(seconds)
 
-        fun setRandomIncludeStyles(enabled: Boolean) = session.setRandomIncludeStyles(enabled)
+        fun setRandomIncludeStyles(enabled: Boolean) = session.autoVisuals.setRandomIncludeStyles(enabled)
 
-        fun setRandomIncludePresets(enabled: Boolean) = session.setRandomIncludePresets(enabled)
+        fun setRandomIncludePresets(enabled: Boolean) = session.autoVisuals.setRandomIncludePresets(enabled)
 
-        fun setRandomIncludeMilk(enabled: Boolean) = session.setRandomIncludeMilk(enabled)
+        fun setRandomIncludeMilk(enabled: Boolean) = session.autoVisuals.setRandomIncludeMilk(enabled)
 
-        fun onDirectorStyleMoment() = session.onDirectorStyleMoment()
+        fun onDirectorStyleMoment() = session.autoVisuals.onDirectorMoment()
 
-        fun stepVizPlaylist(step: Int = 1): Boolean = session.stepVizPlaylist(step)
+        fun stepVizPlaylist(step: Int = 1): Boolean = session.autoVisuals.stepVizPlaylist(step)
 
-        fun recentlyPlayed() = session.recentlyPlayed()
+        fun recentlyPlayed() = session.listening.recentlyPlayed()
 
         fun currentTrackUri(): String? = session.currentTrackUri()
 
         fun toggleFavourite(uri: String? = null) = session.toggleFavourite(uri)
 
-        fun cycleAbLoop() = session.cycleAbLoop()
+        fun cycleAbLoop() = session.queueController.cycleAbLoop()
 
-        fun removeQueueItem(index: Int) = session.removeQueueItem(index)
+        fun removeQueueItem(index: Int) = session.queueController.removeQueueItem(index)
 
         fun moveQueueItem(
             from: Int,
             to: Int,
-        ) = session.moveQueueItem(from, to)
+        ) = session.queueController.moveQueueItem(from, to)
 
         fun resumeLastPlayed() = session.resumeLastPlayed()
 
-        fun playNext(uri: String) = session.playNext(uri)
+        fun playNext(uri: String) = session.queueController.playNext(uri)
 
         fun playFromSearch(query: String) = session.playFromSearch(query)
 
-        fun enqueue(uri: String) = session.enqueue(uri)
+        fun enqueue(uri: String) = session.queueController.enqueue(uri)
 
         fun shuffleAllHistory() = session.shuffleAllHistory()
 
@@ -182,19 +187,19 @@ class PlayerViewModel
             shuffled: Boolean = false,
         ) = session.playAll(tracks, shuffled)
 
-        fun open(uris: List<Uri>) = session.open(uris)
+        fun open(uris: List<Uri>) = session.queueController.open(uris)
 
-        fun playQueueIndex(index: Int) = session.playQueueIndex(index)
+        fun playQueueIndex(index: Int) = session.queueController.playQueueIndex(index)
 
-        fun next() = session.next()
+        fun next() = session.queueController.next()
 
-        fun previous() = session.previous()
+        fun previous() = session.queueController.previous()
 
         fun togglePlayPause() = session.togglePlayPause()
 
-        fun seekToMs(positionMs: Long) = session.seekToMs(positionMs)
+        fun seekToMs(positionMs: Long) = session.queueController.seekToMs(positionMs)
 
-        fun seekTo(fraction: Float) = session.seekTo(fraction)
+        fun seekTo(fraction: Float) = session.queueController.seekTo(fraction)
 
         fun clearPlaybackNotice() = session.clearPlaybackNotice()
 
@@ -207,17 +212,17 @@ class PlayerViewModel
         fun setReactivity(
             attack: Float,
             decay: Float,
-        ) = session.setReactivity(attack, decay)
+        ) = session.visual.setReactivity(attack, decay)
 
-        fun reportShaderError(error: String?) = session.reportShaderError(error)
+        fun reportShaderError(error: String?) = session.visual.reportShaderError(error)
 
         fun reportLiquidMode(mode: Int) = session.reportLiquidMode(mode)
 
-        fun applyCustomShader(source: String) = session.applyCustomShader(source)
+        fun applyCustomShader(source: String) = session.visual.applyCustomShader(source)
 
-        fun setTransitionId(id: String) = session.setTransitionId(id)
+        fun setTransitionId(id: String) = session.visual.setTransitionId(id)
 
-        fun setTransitionDuration(seconds: Float) = session.setTransitionDuration(seconds)
+        fun setTransitionDuration(seconds: Float) = session.visual.setTransitionDuration(seconds)
 
         fun applyPreset(preset: Preset) = session.applyPreset(preset)
 
@@ -253,7 +258,7 @@ class PlayerViewModel
                 paywall.open(PaywallTrigger.Feature(ProFeature.FULL_LENGTH_EXPORT))
                 return
             }
-            session.startBatch(tracks, aspect, fps, sceneFactory, sceneParams, codec, gate.value.watermarksExports)
+            session.exportController.startBatch(tracks, aspect, fps, sceneFactory, sceneParams, codec, gate.value.watermarksExports)
         }
 
         fun startLoopRender(
@@ -273,7 +278,7 @@ class PlayerViewModel
                 paywall.open(PaywallTrigger.Feature(ProFeature.FULL_LENGTH_EXPORT))
                 return
             }
-            session.startLoopRender(
+            session.exportController.startLoopRender(
                 aspect,
                 codec,
                 fps,

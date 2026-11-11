@@ -1,9 +1,11 @@
 #include "viz/Renderer.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <random>
 
+#include "sound/DriveGain.hpp"
 #include "sound/Form.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/CompositeGrade.hpp"
@@ -25,6 +27,8 @@ constexpr float kSwirlRadius = 0.07f;
 // How hard the liquid sharpens its own back-trace, and how much extra the style's edges are re-poured.
 constexpr float kLiquidSharpen = 0.35f;
 constexpr float kLiquidEdge = 0.6f;
+// About two seconds at 60 Hz.
+constexpr int kFeedbackIdleFrames = 120;
 
 // The per-scene band trims (bassGain, midGain, trebGain) on the sound frame a scene reads: each band's
 // level and att envelope, and its shaped low/middle/high.
@@ -50,7 +54,6 @@ float Renderer::beginFrame(double timeSeconds) {
     const float dt = frameStepSeconds(fixedFps_.load(std::memory_order_relaxed), lastTimeS_, timeSeconds);
     lastTimeS_ = timeSeconds;
     thermal_.onFrame(dt);
-    timeSeconds_ = std::fmod(timeSeconds_ + dt, kTimeWrapSeconds);
     {
         // Before anything reads it this frame. No engine yet (nothing written) leaves the frame silent.
         std::lock_guard<std::mutex> lock(soundLock_);
@@ -71,7 +74,8 @@ float Renderer::beginFrame(double timeSeconds) {
                 if (sound_) sound_->trackBoundary();
             }
             if (sound_) {
-                sound_->setPlayerSource(sound::player::playerIsSource());
+                sound_->setPlayerSource(sound::player::playerIsSource() &&
+                                        !layerAlone_.load(std::memory_order_relaxed));
                 sound_->setFadeGain(sound::player::fadeGain());
             }
         } else if (sound_) {
@@ -83,6 +87,10 @@ float Renderer::beginFrame(double timeSeconds) {
         }
         soundHeard_ = sound_ != nullptr;
     }
+    // No sound, no movement: the picture's clock is the frame's step times the music's rate. A renderer
+    // nothing feeds stays still.
+    musicRate_ = soundHeard_ ? sound::motionRate(soundFrame_) : 0.0f;
+    timeSeconds_ = std::fmod(timeSeconds_ + dt * musicRate_, kTimeWrapSeconds);
     applyStyleSchedule();
     std::vector<std::pair<std::string, std::string>> pending;
     {
@@ -94,7 +102,7 @@ float Renderer::beginFrame(double timeSeconds) {
         frameTransitionId_ = transitionId_;
         frameTransitionDurationMs_ = transitionDurationMs_;
         // The samples heard since the last frame reach this frame's scenes once; none heard, no PCM (PcmHandoff).
-        framePcmCount_ = pcm_.take(pcmDeliverScratch_.data());
+        framePcmCount_ = pcm_.take(pcmDeliverScratch_.data(), pcmSideScratch_.data());
     }
     for (const auto& [id, src] : pending) {
         if (Scene* scene = builtScene(id)) scene->setFragmentSource(src);
@@ -125,13 +133,15 @@ Scene* Renderer::resolveActiveScene() {
         }
         activeScene_ = requested;
         sceneJustSwitched_ = true;
+        // A new style gets about a second of draws even in silence: its build and first load span frames.
+        redrawFrames_ = 60;
         // The resolver's motion field takes the new style's variant at its next step.
         styleSwitchPending_ = true;
     }
     return activeScene_;
 }
 
-SceneParams Renderer::resolveParams(float dt) {
+SceneParams Renderer::resolveParams(float dt, float wallDt) {
     SceneParams requested;
     {
         // The frame latch: the shell's latest params, morph and configs reach the resolver as copies.
@@ -176,7 +186,10 @@ SceneParams Renderer::resolveParams(float dt) {
         heard = &soundEmotion_;
     }
     // The chain itself, param fade to safety clamp (signal/Resolver).
-    const signal::Resolver::Frame& out = resolver_.step(requested, soundFrame_, dt, frameSettings_, style, heard);
+    // The band trims reach the whole chain, not only the scene's own read of the frame: the reactions,
+    // the motion field and the director hear the bass the user turned up.
+    const signal::Resolver::Frame& out =
+        resolver_.step(requested, gainAdjusted(soundFrame_, requested), dt, frameSettings_, style, heard, wallDt);
     if (out.styleMoments > 0) directorStyleMoments_.fetch_add(out.styleMoments, std::memory_order_acq_rel);
     SceneParams p = out.params;
     // The device's masks, after the clamp: the thermal tier and Settings › Performance.
@@ -230,7 +243,7 @@ bool Renderer::ensureTargets() {
 
 void Renderer::deliverPcm(Scene& scene) {
     // beginFrame took this frame's block (if any) into the scratch buffer; acceptPcm() runs unlocked.
-    if (framePcmCount_ > 0) scene.acceptPcm(pcmDeliverScratch_.data(), framePcmCount_);
+    if (framePcmCount_ > 0) scene.acceptPcmStereo(pcmDeliverScratch_.data(), pcmSideScratch_.data(), framePcmCount_);
 }
 
 void Renderer::bindSecondaryTarget() {
@@ -241,7 +254,10 @@ void Renderer::bindSecondaryTarget() {
 
 float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
     float progress = 1.0f;
-    if (layerScene_) {
+    if (layerScene_ && holds(*layerScene_, heldLayer_)) {
+        // fboB_ keeps the layer's last frame.
+    } else if (layerScene_) {
+        heldLayer_ = layerScene_;
         bindSecondaryTarget();
         wireFlow(*layerScene_, p);
         layerScene_->setParams(p);
@@ -266,7 +282,15 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
     return progress;
 }
 
+// A simulation, particle or MilkDrop style steps once per draw whatever the step, so a stopped clock keeps
+// the frame it last drew. A shader style is a function of the clock and redraws the same picture.
+bool Renderer::holds(const Scene& scene, const Scene* held) const {
+    return frameStill_ && held == &scene && scene.family() != SceneFamily::Shader;
+}
+
 void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
+    if (!sceneJustSwitched_ && holds(scene, heldScene_)) return;
+    heldScene_ = &scene;
     glBindFramebuffer(GL_FRAMEBUFFER, fboA_.fbo());
     glViewport(0, 0, renderWidth_, renderHeight_);
     const float keep = scene.trailRetention(p);
@@ -385,11 +409,13 @@ void Renderer::wireFlow(Scene& target, const SceneParams& p) {
 }
 
 void Renderer::render(double timeSeconds, GLuint targetFbo) {
-    const float dt = beginFrame(timeSeconds);
+    const float wallDt = beginFrame(timeSeconds);
+    const float dt = wallDt * musicRate_;
     if (thermal_.tier() != appliedTier_ || userScale_.load(std::memory_order_relaxed) != appliedUserScale_) {
         applyRenderScale();
     }
-    // Memory pressure (#854): shed the spare scenes on this GL thread; what is drawn is pinned.
+    // Memory pressure (#854): shed the spare scenes on this GL thread; what is drawn is pinned. This reaches
+    // a surface that is still drawing; one that pauses sheds them at the pause (trimSpares).
     if (SceneResidency::trimSignal().poll(seenTrim_)) trimScenes({}, MemoryTrim::UiHidden);
     Scene* scene = resolveActiveScene();
     if (!scene || !ensureTargets()) {
@@ -399,9 +425,19 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
         glClear(GL_COLOR_BUFFER_BIT);
         return;
     }
-    const SceneParams p = resolveParams(dt);
+    const SceneParams p = resolveParams(dt, wallDt);
     applyPendingFluidInjection();
     resolveLayerScene();
+    if (!layerScene_) heldLayer_ = nullptr;
+    // Still: the clock is stopped and nothing the scenes draw from changed since the last frame.
+    std::array<float, SceneParams::kFieldCount> wire;
+    p.toWire(wire.data());
+    const bool sameLook = wire == heldWire_ && heldWidth_ == renderWidth_ && heldHeight_ == renderHeight_;
+    if (redrawFrames_ > 0) redrawFrames_--;
+    frameStill_ = !(dt > 0.0f) && sameLook && redrawFrames_ == 0 && !outgoingScene_;
+    heldWire_ = wire;
+    heldWidth_ = renderWidth_;
+    heldHeight_ = renderHeight_;
     stepOverlays(*scene, p, dt);
     stepCamera(p, dt);
     const float progress = drawSecondaryTargets(p, dt);
@@ -409,16 +445,42 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     SceneParams sceneParams = p;
     if (liquidOn() && !scene->drawsCamera()) sceneParams.endlessZoom = false;
     // Camera travel on a flat style: Fly speed (forward zooms in, backward out) dives the picture
-    // through the same looping endless zoom, in Dive speed's place when that is off or beside it.
-    else if (!scene->drawsCamera()) {
-        const float dive = CameraRig::flatDive(p);
-        if (dive != 0.0f) {
-            sceneParams.endlessZoomSpeed = (p.endlessZoom ? p.endlessZoomSpeed : 0.0f) + dive;
+    // through the same endless zoom, in Dive speed's place when that is off or beside it.
+    liquid::motion::DiveAsk ask;
+    bool feedback = false;
+    if (!liquidOn()) {
+        const bool flat = !scene->drawsCamera();
+        const float dive = flat ? CameraRig::flatDive(p) : 0.0f;
+        const float speed = flat ? (p.endlessZoom ? p.endlessZoomSpeed : 0.0f) + dive : 0.0f;
+        // A shader style paints its whole frame, so its Trails cannot live in the scene target: they
+        // are the feedback pass's sustain. The particle styles keep their own trail (trailRetention).
+        const bool wantsSustain = p.trails && scene->family() == SceneFamily::Shader && scene->trailRetention(p) <= 0.0f;
+        // Both ways are a feedback zoom, the way MilkDrop falls into the screen; backing out pulls the
+        // edges in through the mirror fold. Only a paused Liquid (it holds the pass's targets) or targets
+        // that will not build fall back to the two crossfaded layers.
+        if (liveLiquid_ == liquid::Mode::Off && (speed != 0.0f || wantsSustain) && liquidPass_.ensure(renderWidth_, renderHeight_)) {
+            feedback = true;
+            ask.octaves = speed;
+            ask.sustain = wantsSustain;
+            ask.trailZoom = p.trailZoom;
+            ask.trailWarp = p.trailWarp;
+            if (speed != 0.0f) sceneParams.endlessZoom = false;
+        } else if (dive != 0.0f) {
+            sceneParams.endlessZoomSpeed = speed;
             sceneParams.endlessZoom = true;
         }
     }
+    if (!feedback) diveWasOn_ = false;
+    // A paused Liquid keeps its place, so only Off counts as unused. The wait keeps a dive speed
+    // that an LFO swings through zero from rebuilding the targets every beat.
+    if (feedback || liveLiquid_ != liquid::Mode::Off) {
+        feedbackIdleFrames_ = 0;
+    } else if (++feedbackIdleFrames_ == kFeedbackIdleFrames) {
+        liquidPass_.releaseTargets();
+        bornFbo_.release();
+    }
     drawSceneTarget(*scene, sceneParams, dt);
-    const GLuint liquidTex = drawLiquid(*scene, p, dt);
+    const GLuint liquidTex = feedback ? drawDive(p, ask, dt, wallDt) : drawLiquid(*scene, p, dt);
     composite(p, progress, targetFbo, liquidTex);
     drawEdgeGlow(targetFbo, timeSeconds, dt);
     drawUiBlur(targetFbo);
@@ -561,6 +623,44 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
     return bornFbo_.tex();
 }
 
+GLuint Renderer::drawDive(const SceneParams& p, const liquid::motion::DiveAsk& ask, float dt, float wallDt) {
+    namespace motion = liquid::motion;
+    if (!diveWasOn_) {
+        // Starts from this frame's style: an old pour must not show.
+        liquidPass_.reset();
+        diveWasOn_ = true;
+    }
+    // The motion is per second and already held to the silence rule, so it steps on the wall clock;
+    // the frame clock (dt) has that rule in it too and would apply it twice.
+    const motion::Motion heard = motion::diveMotion(ask, soundFrame_, frameSettings_.reducedMotion);
+    liquid::LiquidPass::Frame f;
+    f.styleTex = fboA_.tex();
+    f.bornTex = fboA_.tex();
+    f.velocityTex = compositePass_.zeroTex();
+    f.styleWidth = renderWidth_;
+    f.styleHeight = renderHeight_;
+    f.dt = dt;
+    f.motion = motion::perFrame(heard, wallDt);
+    const bool diving = motion::asksDive(ask);
+    f.inject = endless::feedback::inject(motion::travelOctaves(heard), wallDt);
+    if (ask.sustain) {
+        // The longer of the two holds: a long trail is not cut short by a fast dive.
+        const float held = endless::feedback::sustainInject(p.trailLength, dt);
+        f.inject = diving ? std::min(f.inject, held) : held;
+    }
+    // MilkDrop pours nothing back by edges: pinning the style's outlines in place held them still while
+    // the rest streamed past, which read as a pulse. Trails alone keep them readable.
+    f.edge = diving ? 0.0f : kLiquidEdge;
+    f.sharpen = kLiquidSharpen;
+    f.bornRadius = endless::feedback::kBornRadius;
+    // Nothing is born at the centre unless the picture is travelling into it.
+    f.bornGain = ask.octaves > 0.0f ? 1.0f : 0.0f;
+    f.feedback = true;
+    f.time = timeSeconds_;
+    f.quadVao = quadVao_;
+    return liquidPass_.run(f);
+}
+
 GLuint Renderer::drawLiquid(Scene& scene, const SceneParams& p, float dt) {
     if (!liquidOn()) return 0;
     const liquid::Plan plan = liquid::planFor(liveLiquid_);
@@ -580,7 +680,9 @@ GLuint Renderer::drawLiquid(Scene& scene, const SceneParams& p, float dt) {
     f.styleWidth = renderWidth_;
     f.styleHeight = renderHeight_;
     f.dt = dt;
-    f.dive = liquidFrame_;
+    f.motion = liquid::motion::fromDive(liquidFrame_, static_cast<float>(w) / static_cast<float>(h));
+    f.vpX = liquidFrame_.vpX;
+    f.vpY = liquidFrame_.vpY;
     const float liquidity = std::clamp(p.flowStrength, 0.0f, 1.0f);
     f.inject = liquid::injectWeight(liquidity, dt);
     f.edge = kLiquidEdge * (1.0f - 0.5f * liquidity);

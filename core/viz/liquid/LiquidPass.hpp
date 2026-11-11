@@ -5,6 +5,7 @@
 
 #include "viz/Program.hpp"
 #include "viz/ShaderSource.hpp"
+#include "viz/liquid/FeedbackMotion.hpp"
 #include "viz/liquid/LiquidMath.hpp"
 
 namespace geode::viz::liquid {
@@ -27,7 +28,9 @@ public:
         int styleWidth = 1;
         int styleHeight = 1;
         float dt = 0.0f;
-        DiveFrame dive;
+        motion::FrameMotion motion;  // MilkDrop's transform of the last frame (lib_feedback)
+        float vpX = 0.0f;            // the born disc's centre, centred units
+        float vpY = 0.0f;
         float inject = 0.5f;
         float edge = 0.0f;
         float sharpen = 0.0f;
@@ -50,6 +53,8 @@ public:
     bool ensure(int width, int height);
     // Starts the liquid over from the next frame's style: switching Liquid on must not show an old pour.
     void reset() { fresh_ = true; }
+    // Frees both sides and keeps the program: ensure() builds them again, starting from the style.
+    void releaseTargets();
     // Runs one frame; returns the texture to show, 0 when the targets are not there.
     GLuint run(const Frame& f);
     int width() const { return width_; }

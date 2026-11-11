@@ -71,6 +71,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
+import dev.geode.model.QueueTrack
+import dev.geode.model.QueueUiState
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.StoneIcon
@@ -380,7 +382,9 @@ private fun PlayerHero(
     val uri = remember(state.title, state.artist) { viewModel.currentTrackUri() }
     val foreign = external.active
     val foreignTrack = external.nowPlaying?.takeIf { it.title.isNotBlank() }
-    val hasSource = foreign || micActive || state.hasMedia
+    // The mic is a layer over playback: with a track loaded the hero stays the track's.
+    val roomOnly = micActive && !state.hasMedia
+    val hasSource = foreign || roomOnly || state.hasMedia
     val isFavourite = uri != null && uri in favourites
     Column(
         modifier
@@ -394,7 +398,7 @@ private fun PlayerHero(
         // Square and as wide as the card on a phone, but never taller than [artMax]: on a tablet a
         // full-width square pushed the title and transport two screens down.
         TrackArtwork(
-            if (foreign || micActive) null else uri,
+            if (foreign || roomOnly) null else uri,
             Modifier
                 .align(Alignment.CenterHorizontally)
                 .widthIn(max = artMax)
@@ -407,7 +411,7 @@ private fun PlayerHero(
                 Text(
                     when {
                         foreign -> external.nowPlaying?.appLabel ?: stringResource(R.string.source_other_apps)
-                        micActive -> stringResource(R.string.source_live_input)
+                        roomOnly -> stringResource(R.string.source_live_input)
                         state.isPlaying -> stringResource(R.string.state_now_playing)
                         state.hasMedia -> stringResource(R.string.state_paused)
                         else -> stringResource(R.string.state_nothing_playing)
@@ -418,7 +422,7 @@ private fun PlayerHero(
                 Text(
                     when {
                         foreign -> foreignTrack?.title ?: stringResource(R.string.title_whatever_is_playing)
-                        micActive -> stringResource(R.string.title_the_room)
+                        roomOnly -> stringResource(R.string.title_the_room)
                         state.hasMedia -> state.title ?: stringResource(R.string.title_untitled)
                         else -> stringResource(R.string.title_pick_something)
                     },
@@ -437,7 +441,7 @@ private fun PlayerHero(
                         foreign ->
                             foreignTrack?.artist?.ifBlank { null }
                                 ?: stringResource(R.string.subtitle_captured_from_another_app)
-                        micActive -> stringResource(R.string.subtitle_microphone_hears)
+                        roomOnly -> stringResource(R.string.subtitle_microphone_hears)
                         state.hasMedia ->
                             state.artist?.takeIf { it.isNotBlank() }
                                 ?: stringResource(R.string.subtitle_unknown_artist)
@@ -728,7 +732,7 @@ private fun QuickActionsCard(
     val offered =
         listOfNotNull(
             stringResource(R.string.source_live_input),
-            stringResource(R.string.source_other_apps).takeIf { external.supported },
+            stringResource(R.string.source_other_apps),
             stringResource(R.string.quick_sleep_30m),
             stringResource(R.string.quick_shuffle_all),
         )
@@ -812,23 +816,21 @@ private fun QuickActions(
                 }
             }
         }
-        if (external.supported) {
-            item {
-                QuickAction(
-                    Icons.Filled.Cast,
-                    stringResource(if (external.active) R.string.quick_capturing else R.string.source_other_apps),
-                    active = external.active,
-                ) {
-                    if (external.active) {
-                        viewModel.stopExternalAudio()
-                    } else {
-                        capturePermissions.launch(
-                            arrayOf(
-                                android.Manifest.permission.RECORD_AUDIO,
-                                android.Manifest.permission.POST_NOTIFICATIONS,
-                            ),
-                        )
-                    }
+        item {
+            QuickAction(
+                Icons.Filled.Cast,
+                stringResource(if (external.active) R.string.quick_capturing else R.string.source_other_apps),
+                active = external.active,
+            ) {
+                if (external.active) {
+                    viewModel.stopExternalAudio()
+                } else {
+                    capturePermissions.launch(
+                        arrayOf(
+                            android.Manifest.permission.RECORD_AUDIO,
+                            android.Manifest.permission.POST_NOTIFICATIONS,
+                        ),
+                    )
                 }
             }
         }

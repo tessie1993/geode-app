@@ -70,7 +70,6 @@ GEODE_API void        geode_layer_set(const char* scene_id, float mix, int blend
 /* The renderer's own sound engine: interleaved PCM in play order, every sample once, written on the render
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);
-GEODE_API void        geode_viz_reset_audio(geode_viz*);
 GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const GeodeSoundTuning*);
 /* Customize › Advanced › Shader code (core/viz/ShaderOverrides): the user's fragment source for a style, process-wide
  * like geode_director_set, so live, export, the wallpaper and the dream all draw it. A null or empty source clears it
@@ -152,8 +151,9 @@ GEODE_API void        geode_viz_gyro_reset(geode_viz*);
    geode_viz_set_params / _set_lfo / _set_adsr / _set_sound_tuning, before geode_viz_render. A clear-only
    frame wants none. Export never calls it. Answers a bitmask of GEODE_FRAME_*; 0 for a null handle. */
 #define GEODE_FRAME_CLEAR_ONLY     0x1 /* the first frame on a new surface, cleared to black: present it, do nothing else */
-#define GEODE_FRAME_THERMAL_DUE    0x2 /* read PowerManager and call geode_thermal_push */
+#define GEODE_FRAME_THERMAL_DUE    0x2 /* ask PowerManager's headroom and call geode_thermal_push */
 #define GEODE_FRAME_LIQUID_CHANGED 0x4 /* Liquid mode changed: GEODE_FRAME_LIQUID_MODE(due) */
+#define GEODE_FRAME_ERROR_CHANGED  0x8 /* the error text changed, or this is the handle's first frame: geode_viz_last_error */
 /* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode). */
 #define GEODE_FRAME_LIQUID_MODE(due) ((int)(((unsigned)(due) >> 8) & 0xFu))
 #define GEODE_FRAME_PUSH_PARAMS    0x10 /* push the scene params (geode_viz_set_params) */
@@ -229,6 +229,11 @@ GEODE_API void        geode_viz_render(geode_viz*, double time_seconds, uint32_t
  * (geode_viz_set_offscreen(1)), cut transitions, and fixed fluid quality on every later set_params. */
 GEODE_API void        geode_viz_prepare_offscreen(geode_viz*);
 GEODE_API void        geode_viz_release_scenes(geode_viz*);
+/* The surface is about to stop drawing (the host pauses it, the wallpaper hides): sheds this renderer's spare
+ * scenes now, exactly as a TRIM_MEMORY_UI_HIDDEN trim does (geode_memory_trim), because that signal is only read
+ * by a frame and a paused surface draws none. What is drawn, the layer, the born and the requested style stay.
+ * GL thread, while the context is still current; without one it does nothing. */
+GEODE_API void        geode_viz_trim_spares(geode_viz*);
 
 /* Playback DSP: gain -> 10-band equalizer -> loudness makeup -> crossfeed -> lookahead limiter on float
  * interleaved PCM, one chain per input format, switched on the Media3 AudioProcessor contract (audio/dsp/DspProcessor):
@@ -381,12 +386,13 @@ GEODE_API const char* geode_config_schema_text(void);
 GEODE_API float       geode_touch_zoom(float current, float scale_factor);
 GEODE_API float       geode_touch_rotation(float current, float degrees);
 
-/* Customize panel map (core/viz/CustomizeMap): ten categories, each a free Basics section and Pro sections, and
+/* Customize panel map (core/viz/CustomizeMap): nine categories, each a free Basics section and Pro sections, and
  * which control lives in which. geode_customize_text is its versioned '|'-separated line table (rows in
  * CustomizeMap.hpp). Static: the pointer stays valid for the process. geode_customize_shown lists what the panel
  * offers on style_id ("CATEGORY" and "CATEGORY/section" lines); the pointer stays valid until this thread's next call.
  * geode_customize_randomize rolls one category's controls (named by its CustomizeMap name; an unknown one rolls
  * nothing), holding every other control and the newline-joined ParamKeys in locked; 1 when it changed something.
+ * In locked, here and in geode_params_randomize, a line "#CATEGORY" keeps every control of that category.
  * geode_customize_reset puts back every field the category's controls write. Wire as geode_params_randomize. */
 GEODE_API const char* geode_customize_text(void);
 /* 1 when the control named key (a ParamKeys string) is one a roll can move, so the panel offers to keep it. */
@@ -397,6 +403,30 @@ GEODE_API const char* geode_customize_shown(const char* style_id);
 GEODE_API int         geode_customize_randomize(const char* style_id, const char* category, const char* locked, uint64_t seed,
                                                 const float* in, float* out);
 GEODE_API void        geode_customize_reset(const char* category, const float* in, float* out);
+/* in with every field the category's controls write taken from the look in from (same wire); an unknown category
+ * copies in. */
+GEODE_API void        geode_customize_borrow(const char* category, const float* in, const float* from, float* out);
+/* The macro bank (core/viz/MacroBank): the user's knobs, each a name, a value -1..1 and the links that say which
+ * scene params it moves and how far each way. Pure: no viz handle, any thread. A bank travels as the versioned
+ * '|'-separated line table MacroBank.hpp documents; the shell stores that string and decides nothing about it.
+ * Every call that takes a bank reads any text (NULL, empty or unreadable = the default bank) and every edit
+ * returns the whole new bank, normalized but otherwise unchanged when the edit is refused (an unknown knob or
+ * target, a non-finite number, a full bank). geode_macro_bank_default (the four built-in knobs, also Reset) and
+ * geode_macro_bank_targets_text (what a link may name: target, param, range, default, scope, and the caps) are
+ * static; every other pointer stays valid until this thread's next macro bank call.
+ * target is a ModTargets wire name; up and down are the offsets at a full turn each way, as signed fractions of
+ * the target's range. geode_macro_bank_live lists "knob|<id>|<up 0/1>|<down 0/1>" per knob: whether turning it
+ * that way moves anything on style_id. No renderer reads a bank yet. */
+GEODE_API const char* geode_macro_bank_default(void);
+GEODE_API const char* geode_macro_bank_targets_text(void);
+GEODE_API const char* geode_macro_bank_normalize(const char* bank);
+GEODE_API const char* geode_macro_bank_set_value(const char* bank, int knob_id, float value);
+GEODE_API const char* geode_macro_bank_rename(const char* bank, int knob_id, const char* name);
+GEODE_API const char* geode_macro_bank_add_knob(const char* bank, const char* name);
+GEODE_API const char* geode_macro_bank_remove_knob(const char* bank, int knob_id);
+GEODE_API const char* geode_macro_bank_set_link(const char* bank, int knob_id, const char* target, float up, float down);
+GEODE_API const char* geode_macro_bank_remove_link(const char* bank, int knob_id, const char* target);
+GEODE_API const char* geode_macro_bank_live(const char* bank, const char* style_id);
 /* Background image bake (core/viz/Underlay), before geode_viz_set_underlay_rgba: pure, no viz handle, any
  * thread. The shell decodes the picture, cuts it to geode_underlay_crop_rect (out = x, y, width, height of the
  * centred crop of src to the target's aspect) and scales it to the render size, then geode_underlay_finish
@@ -615,15 +645,17 @@ GEODE_API void            geode_pacer_resume(long long* state);
 GEODE_API float           geode_pacer_effective_cap(float cap_fps);
 
 /* The process's one thermal state (core/viz/frame/Thermal): every renderer reads the same tier. The
-   once-a-second cadence across the process is native; a live renderer learns its turn from
-   GEODE_FRAME_THERMAL_DUE (geode_viz_frame_begin), then reads PowerManager and pushes. */
-/* One reading: PowerManager's thermal status (< 0 = no thermal API) and its headroom forecast (NaN = none
-   this time; the last real one holds a while). Settles the shared tier. */
+   cadence across the process is native: a live renderer learns from GEODE_FRAME_THERMAL_DUE
+   (geode_viz_frame_begin), every ten seconds, that it asks PowerManager's headroom and pushes it; the
+   status is pushed by PowerManager's status listener when it changes. */
+/* One reading: PowerManager's thermal status (< 0 = none this time; the last one holds) and its headroom
+   forecast (NaN = none this time; the last real one holds a while). Settles the shared tier. */
 GEODE_API void            geode_thermal_push(int platform_status, float headroom);
 
 /* Memory pressure (#854): Android's onTrimMemory level, forwarded as is. Native acts on TRIM_MEMORY_UI_HIDDEN (20)
    and TRIM_MEMORY_BACKGROUND (40) only and ignores every other level. Every renderer in the process then sheds its
-   spare scenes on its own GL thread at its next frame; what it draws, the layer and the requested style stay. Any thread. */
+   spare scenes on its own GL thread at its next frame; what it draws, the layer and the requested style stay. A surface
+   that is paused draws no frame: it sheds them at its pause instead (geode_viz_trim_spares). Any thread. */
 GEODE_API void            geode_memory_trim(int android_level);
 /* ── Export planning and clip maths (ADR 0006: core/output, core/signal/timeline; ADR 0003 ports) ──────────
  * Pure functions and plain handles, any thread, no GL. The Kotlin exporters (VideoExporter, LoopRender,
@@ -669,7 +701,6 @@ GEODE_API int     geode_export_capped_video_bps(int requested_bps, int64_t durat
 GEODE_API int64_t geode_export_audio_bytes(int64_t duration_us, int bps);
 GEODE_API int64_t geode_export_muxer_hard_limit_bytes(void);
 GEODE_API void    geode_export_frame_size(int short_side, int w_ratio, int h_ratio, int* out_w, int* out_h);
-GEODE_API int     geode_export_fallback_fps(int requested_fps);
 GEODE_API int     geode_export_clamp_fps(int requested_fps);     /* 24..60 */
 
 /* Chapter spans (output/Chapters); titles stay Kotlin, keyed by out_source (-1 = the lead-in chapter that
@@ -757,6 +788,99 @@ GEODE_API void           geode_playout_set_offset_ms(geode_playout*, int ms);
 /* The newest ring sample heard at now_ns, offset applied: never past the newest sample written. -1 when
  * nothing was handled since create or flush (and for NULL); the first handled sample until a position. */
 GEODE_API int64_t        geode_playout_speaker_frame(const geode_playout*, int64_t now_ns);
+/* The PCM ingest ring (audio/ingest/PcmRing): one lock-free ring per audio source, written by one thread
+ * at a time (the player's tap, a capture thread) and read by any number of cursors, which never change it.
+ * Every write carries its sample rate and source channel count, so a reader gets each frame with the rate
+ * it was written at. Lifetime: the handle and every cursor (a renderer's feed included) share the ring, so
+ * it is freed when the last of them goes; destroy the handle only once no thread writes through it. Every
+ * call is safe on a NULL handle. */
+typedef struct geode_pcm_ring   geode_pcm_ring;
+typedef struct geode_pcm_cursor geode_pcm_cursor;
+/* Sample encodings of geode_pcm_ring_write_bytes, numbered as Android's AudioFormat.ENCODING_PCM_*. */
+#define GEODE_PCM_S16 2     /* signed 16-bit, x / 32768 */
+#define GEODE_PCM_U8 3      /* unsigned 8-bit, (x - 128) / 128 */
+#define GEODE_PCM_FLOAT 4   /* 32-bit float */
+/* capacity_frames a power of two; the ring stores `channels` channels; max_write_frames is the runway
+ * (0 = a quarter of the ring). NULL for arguments it cannot take. */
+GEODE_API geode_pcm_ring*   geode_pcm_ring_create(int capacity_frames, int channels, int max_write_frames);
+GEODE_API void              geode_pcm_ring_destroy(geode_pcm_ring*);
+/* Interleaved frames of `channels` source channels at sample_rate (missing ring channels stored silent,
+ * extra ones dropped). Returns the frames written, 0 for a refused block; peak_out (may be NULL) gets the
+ * largest magnitude stored. write_bytes takes whole frames of `encoding` from unaligned bytes in the
+ * machine's byte order and ignores a trailing part of a frame. Writer thread only. */
+GEODE_API int               geode_pcm_ring_write_f32(geode_pcm_ring*, const float* interleaved, int frames, int channels,
+                                                     int sample_rate, float* peak_out);
+GEODE_API int               geode_pcm_ring_write_s16(geode_pcm_ring*, const int16_t* interleaved, int frames, int channels,
+                                                     int sample_rate, float* peak_out);
+GEODE_API int               geode_pcm_ring_write_bytes(geode_pcm_ring*, const void* data, size_t bytes, int encoding,
+                                                       int channels, int sample_rate, float* peak_out);
+/* A second source layered over `ring` (the mic over the player's tap; audio/ingest/LayerMix): every renderer
+ * fed `ring` hears the two mixed while `ring` gains frames, and `layer` alone once it has not for 0.3 s.
+ * `layer` keeps its own writer and rate; begin an epoch on it when its source starts and when it stops.
+ * Other readers of `ring` (a cursor, Cast's sound) hear `ring` only. NULL removes the layer. Any thread. */
+GEODE_API void              geode_pcm_ring_set_layer(geode_pcm_ring* ring, const geode_pcm_ring* layer);
+/* A new stream (track change, seek, source switch): every cursor restarts at its next take. Any thread. */
+GEODE_API void              geode_pcm_ring_begin_epoch(geode_pcm_ring*);
+GEODE_API int64_t           geode_pcm_ring_written(const geode_pcm_ring*);   /* frames since the last epoch began */
+/* geode_silence_heard_at over the ring's newest `frames` frames: heard_at_ms unchanged when the epoch has
+ * not written that many, else now_ms when any of them is audible. */
+GEODE_API long long         geode_pcm_ring_heard_at(const geode_pcm_ring*, int frames, long long now_ms,
+                                                    long long heard_at_ms);
+/* One reader's place in a ring: every frame once, in order. max_frames is the most one take hands out
+ * (0 = the ring's runway). One thread per cursor. */
+GEODE_API geode_pcm_cursor* geode_pcm_cursor_create(const geode_pcm_ring*, int max_frames);
+GEODE_API void              geode_pcm_cursor_destroy(geode_pcm_cursor*);
+GEODE_API int               geode_pcm_cursor_max_frames(const geode_pcm_cursor*);
+GEODE_API int               geode_pcm_cursor_channels(const geode_pcm_cursor*);   /* the ring's channel count */
+/* What the ring gained since the last take, interleaved at the ring's channel count (a mono source on every
+ * channel): returns the frames, all written at *sample_rate; *restarted is 1 on a first take or a new epoch
+ * (reset the consumer first). After a stall it keeps the newest audio. A take ends where the rate changes;
+ * the rest comes with the next. A take the writer lapped during the copy returns 0 and the next restarts.
+ * -1 without taking when out holds fewer than max_frames frames. take_s16 clamps to -1..1, scales by
+ * 32767 and rounds. */
+GEODE_API int               geode_pcm_cursor_take(geode_pcm_cursor*, float* out, int capacity_frames, int* restarted,
+                                                  int* sample_rate);
+GEODE_API int               geode_pcm_cursor_take_s16(geode_pcm_cursor*, int16_t* out, int capacity_frames,
+                                                      int* restarted, int* sample_rate);
+GEODE_API void              geode_pcm_cursor_reset(geode_pcm_cursor*);   /* the next take starts from the newest audio */
+/* The live renderer's feed: hands what `ring` gained since this renderer's last call to its sound engine,
+ * resetting the engine on a restart, with no copy through the shell. The renderer keeps its own cursor (and
+ * so the ring) until it is fed another ring or NULL, which drops it. Render thread, before geode_viz_render. */
+GEODE_API void              geode_viz_feed_ring(geode_viz*, const geode_pcm_ring* ring);
+/* The playback output (audio/output, Android only): an Oboe stream fed through a lock-free FIFO, standing
+ * where the AudioTrack stands under Media3's DefaultAudioSink. For plain PCM only: 16-bit or float (numbered
+ * as GEODE_PCM_S16 and GEODE_PCM_FLOAT), mono or stereo, 8 to 192 kHz. One control thread (Media3's playback
+ * thread) makes every call; the audio callback only reads the FIFO. Every call is safe on a NULL handle. */
+typedef struct geode_audio_out geode_audio_out;
+/* geode_audio_out_events' bits, each reported once. */
+#define GEODE_AUDIO_OUT_ADVANCING 1   /* the position moved for the first time since play */
+#define GEODE_AUDIO_OUT_UNDERRUN 2    /* the stream ran dry mid-stream */
+#define GEODE_AUDIO_OUT_FAILED 4      /* the stream is gone for good; writes take nothing (-1): the shell reports
+                                         the output stalled, so the sink builds a new one */
+GEODE_API int              geode_audio_out_supports(int encoding, int channels, int sample_rate);   /* 1 or 0 */
+/* Opens the stream for writes of `encoding`. buffer_bytes is the sink's buffer for this output (the FIFO
+ * and the stream's own buffer share it; 0 = 250 ms); session_id the player's audio session (0 = allocate
+ * one). NULL when the format is not supported or the device gave no stream that is exactly it. */
+GEODE_API geode_audio_out* geode_audio_out_open(int sample_rate, int channels, int encoding, int buffer_bytes,
+                                                int session_id);
+/* Silences the stream at once and closes it on a thread of its own; the handle is gone when this returns. */
+GEODE_API void             geode_audio_out_release(geode_audio_out*);
+GEODE_API void             geode_audio_out_play(geode_audio_out*);
+GEODE_API void             geode_audio_out_pause(geode_audio_out*);   /* the position stands still */
+GEODE_API void             geode_audio_out_flush(geode_audio_out*);   /* drops what waits; the position restarts */
+GEODE_API void             geode_audio_out_stop(geode_audio_out*);    /* the last frame was written: play it out */
+/* Never blocks: takes the whole frames that fit and returns the bytes taken; -1 once the stream has failed. */
+GEODE_API int64_t          geode_audio_out_write(geode_audio_out*, const void* data, size_t bytes);
+/* How much of what was written the listener has heard, in microseconds of audio: from the stream's
+ * timestamp, never backwards, never past what was written, exactly the amount written once played out. */
+GEODE_API int64_t          geode_audio_out_position_us(geode_audio_out*);
+GEODE_API void             geode_audio_out_set_volume(geode_audio_out*, float volume);   /* 0..1, ramped */
+/* The device to play on (AudioDeviceInfo.getId; 0 = the default). A change reopens the stream. */
+GEODE_API void             geode_audio_out_set_device(geode_audio_out*, int device_id);
+GEODE_API int              geode_audio_out_events(geode_audio_out*);    /* GEODE_AUDIO_OUT_* since the last call */
+GEODE_API int              geode_audio_out_stalled(geode_audio_out*);   /* 1: playing, frames wait, nothing pulls */
+GEODE_API int              geode_audio_out_session_id(const geode_audio_out*);   /* the stream's audio session */
+GEODE_API int64_t          geode_audio_out_buffer_frames(const geode_audio_out*);   /* FIFO + stream buffer */
 /* Cast's live HLS timing (viz/frame/HlsSegments): a segment lasts the media time its fragment holds (the
  * video track's trun sample durations over its mdhd timescale), never the wall time between cuts. */
 #define GEODE_HLS_WINDOW 6           /* segments kept and listed */

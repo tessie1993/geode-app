@@ -265,7 +265,14 @@ object GeodeNative {
         sampleRate: Int,
     )
 
-    external fun vizResetAudio(handle: Long)
+    /**
+     * The live feed: the renderer takes what the ring at [ring] (a [pcmRingCreate] handle; 0 for none)
+     * gained since its last call straight into its sound engine, resetting it on a restart. Render thread.
+     */
+    external fun vizFeedRing(
+        handle: Long,
+        ring: Long,
+    )
 
     external fun vizSetSoundTuning(
         handle: Long,
@@ -478,11 +485,14 @@ object GeodeNative {
     /** Mirrors GEODE_FRAME_CLEAR_ONLY: native cleared a new surface's first frame; present it, do nothing else. */
     const val FRAME_CLEAR_ONLY: Int = 0x1
 
-    /** Mirrors GEODE_FRAME_THERMAL_DUE: read PowerManager and call [thermalPush]. */
+    /** Mirrors GEODE_FRAME_THERMAL_DUE: ask PowerManager's headroom and call [thermalPush]. */
     const val FRAME_THERMAL_DUE: Int = 0x2
 
     /** Mirrors GEODE_FRAME_LIQUID_CHANGED: Liquid mode changed; read it with [frameLiquidMode]. */
     const val FRAME_LIQUID_CHANGED: Int = 0x4
+
+    /** Mirrors GEODE_FRAME_ERROR_CHANGED: the error text changed; read it with [vizLastError]. */
+    const val FRAME_ERROR_CHANGED: Int = 0x8
 
     /** Mirrors GEODE_FRAME_LIQUID_MODE: 0 off, 1 full, 2 lite, 3 warp, 4 paused (`liquid::Mode`). */
     fun frameLiquidMode(due: Int): Int = (due ushr 8) and 0xF
@@ -624,6 +634,9 @@ object GeodeNative {
 
     external fun vizReleaseScenes(handle: Long)
 
+    /** Sheds the renderer's spare scenes as a UI_HIDDEN trim does; GL thread, before it pauses (`geode_viz_trim_spares`). */
+    external fun vizTrimSpares(handle: Long)
+
     /**
      * Full-frame RGBA8 underlay blended UNDER/INTO the scene: [blend] 0 = screen (replaces the scene
      * where it is black), 1 = multiply, 2 = add; [amount] 0..1. `pixels` is Android's `Bitmap.getPixels`
@@ -648,7 +661,7 @@ object GeodeNative {
 
     /**
      * The catalogue's presets section (core/viz/CataloguePresets): the bundled looks and every bundled
-     * preset, as its versioned line table (`geode_catalogue_presets_text`). Static; parse once (ui/BuiltInPresets does).
+     * preset, as its versioned line table (`geode_catalogue_presets_text`). Static; parse once (data/BuiltInPresets does).
      */
     external fun cataloguePresetsText(): String
 
@@ -726,6 +739,14 @@ object GeodeNative {
     external fun customizeReset(
         category: String,
         input: FloatArray,
+        output: FloatArray,
+    )
+
+    /** [input] with every field [category]'s controls write taken from the look in [from], into [output]. */
+    external fun customizeBorrow(
+        category: String,
+        input: FloatArray,
+        from: FloatArray,
         output: FloatArray,
     )
 
@@ -930,8 +951,6 @@ object GeodeNative {
         out: IntArray,
     )
 
-    external fun exportFallbackFps(requestedFps: Int): Int
-
     /** The requested frame rate clamped to what the export offers, 24..60. */
     external fun exportClampFps(requestedFps: Int): Int
 
@@ -1041,18 +1060,6 @@ object GeodeNative {
     ): Long
 
     // Rest when silent (core/sound/Silence): the wallpaper's and the dream's silence rule.
-
-    /**
-     * The time sound was last heard, given this poll's newest [frames] samples per channel (0 when
-     * nothing new was written): [nowMs] when any is above about -42 dBFS, else [heardAtMs].
-     */
-    external fun silenceHeardAt(
-        left: FloatArray,
-        right: FloatArray,
-        frames: Int,
-        nowMs: Long,
-        heardAtMs: Long,
-    ): Long
 
     /** Whether a surface may rest: nothing heard for 6 s. */
     external fun silenceResting(
@@ -1391,6 +1398,110 @@ object GeodeNative {
     /** A start after a stop: forget the gap, keep the panel's period. */
     external fun pacerResume(state: LongArray)
 
+    // The PCM ingest ring (core/audio/ingest/PcmRing): one lock-free ring per audio source. Every write
+    // carries its rate, and the int16 and 8-bit conversions to float happen inside it.
+
+    /** A ring of [capacityFrames] (a power of two) by [channels]; 0 for sizes it cannot take. Freed with [pcmRingDestroy]. */
+    external fun pcmRingCreate(
+        capacityFrames: Int,
+        channels: Int,
+        maxWriteFrames: Int,
+    ): Long
+
+    /** Drops the handle; the ring itself goes once no native cursor reads it. Never while a thread writes. */
+    external fun pcmRingDestroy(handle: Long)
+
+    /**
+     * Writes the whole frames in [bytes] bytes of a direct [buffer] from [position], in the machine's byte
+     * order; [encoding] is `AudioFormat.ENCODING_PCM_16BIT`, `_8BIT` or `_FLOAT`. Returns the frames
+     * written, 0 for a heap buffer or an encoding it does not read.
+     */
+    external fun pcmRingWriteDirect(
+        handle: Long,
+        buffer: java.nio.ByteBuffer,
+        position: Int,
+        bytes: Int,
+        encoding: Int,
+        channels: Int,
+        sampleRate: Int,
+    ): Int
+
+    /** Writes [frames] interleaved frames; returns the block's peak magnitude. */
+    external fun pcmRingWriteFloats(
+        handle: Long,
+        samples: FloatArray,
+        frames: Int,
+        channels: Int,
+        sampleRate: Int,
+    ): Float
+
+    /** [pcmRingWriteFloats] for 16-bit samples, scaled by 1/32768 natively. */
+    external fun pcmRingWriteShorts(
+        handle: Long,
+        samples: ShortArray,
+        frames: Int,
+        channels: Int,
+        sampleRate: Int,
+    ): Float
+
+    /** Writes the whole frames in the first [count] bytes of [samples], as [pcmRingWriteDirect] reads them. */
+    external fun pcmRingWriteBytes(
+        handle: Long,
+        samples: ByteArray,
+        count: Int,
+        encoding: Int,
+        channels: Int,
+        sampleRate: Int,
+    ): Int
+
+    /**
+     * Layers the ring at [layer] (0 for none) over the one at [handle]: every renderer fed [handle] hears
+     * the two mixed natively, and [layer] alone while [handle] gains nothing. The mic over the player.
+     */
+    external fun pcmRingSetLayer(
+        handle: Long,
+        layer: Long,
+    )
+
+    /** A new stream: every reader restarts at its next take. Any thread. */
+    external fun pcmRingBeginEpoch(handle: Long)
+
+    /** Frames written since the last [pcmRingBeginEpoch]. */
+    external fun pcmRingWritten(handle: Long): Long
+
+    /**
+     * The rest-when-silent rule over the ring's newest [frames] frames: [nowMs] when any is above about
+     * -42 dBFS, else [heardAtMs] (also when the ring has not written that many).
+     */
+    external fun pcmRingHeardAt(
+        handle: Long,
+        frames: Int,
+        nowMs: Long,
+        heardAtMs: Long,
+    ): Long
+
+    /** A reader's place in the ring at [ring]; [maxFrames] 0 is the ring's runway. Freed with [pcmCursorDestroy]. */
+    external fun pcmCursorCreate(
+        ring: Long,
+        maxFrames: Int,
+    ): Long
+
+    external fun pcmCursorDestroy(handle: Long)
+
+    /** The most frames one take hands out. */
+    external fun pcmCursorMaxFrames(handle: Long): Int
+
+    /**
+     * What the ring gained since the last take, as interleaved 16-bit frames in [out] (which must hold
+     * [pcmCursorMaxFrames] frames); returns the frames. [info] gets 1 at [0] on a restart and the rate the
+     * frames were written at in [1].
+     */
+    external fun pcmCursorTakeS16(
+        handle: Long,
+        out: ShortArray,
+        info: IntArray,
+    ): Int
+
     // Playout clock (core/sound/interp/PlayoutClock, #349): the ring sample the speaker plays now.
 
     /** One clock per player, freed with [playoutDestroy]. */
@@ -1438,12 +1549,82 @@ object GeodeNative {
         nowNs: Long,
     ): Long
 
+    // The playback output (core/audio/output): an Oboe stream under Media3's sink, where the AudioTrack stands.
+
+    /** Whether the output plays [encoding] (`C.ENCODING_PCM_16BIT` or `_FLOAT`) at [channels] and [sampleRateHz]. */
+    external fun audioOutSupports(
+        encoding: Int,
+        channels: Int,
+        sampleRateHz: Int,
+    ): Boolean
+
+    /**
+     * Opens a stream for writes of [encoding]; [bufferBytes] is the sink's buffer size for it, [sessionId]
+     * the player's audio session (0 allocates one). 0 when the device gave no stream that is exactly this.
+     * Ends with [audioOutRelease].
+     */
+    external fun audioOutOpen(
+        sampleRateHz: Int,
+        channels: Int,
+        encoding: Int,
+        bufferBytes: Int,
+        sessionId: Int,
+    ): Long
+
+    /** Silences the stream and closes it off-thread; the handle is dead when this returns. */
+    external fun audioOutRelease(handle: Long)
+
+    external fun audioOutPlay(handle: Long)
+
+    external fun audioOutPause(handle: Long)
+
+    external fun audioOutFlush(handle: Long)
+
+    /** The last frame was written: what waits plays out, and the position ends on it. */
+    external fun audioOutStop(handle: Long)
+
+    /**
+     * Takes the whole frames that fit from [bytes] bytes of a direct [buffer] at [position], without
+     * blocking. Returns the bytes taken; -1 for a heap buffer or once the stream has failed for good.
+     */
+    external fun audioOutWrite(
+        handle: Long,
+        buffer: java.nio.ByteBuffer,
+        position: Int,
+        bytes: Int,
+    ): Int
+
+    /** How much of what was written the listener has heard, in µs of audio; never backwards. */
+    external fun audioOutPositionUs(handle: Long): Long
+
+    /** 0..1, reached over a short ramp. */
+    external fun audioOutSetVolume(
+        handle: Long,
+        volume: Float,
+    )
+
+    /** The device to play on (`AudioDeviceInfo.getId`), 0 for the default; a change reopens the stream. */
+    external fun audioOutSetDevice(
+        handle: Long,
+        deviceId: Int,
+    )
+
+    /** Bits since the last call: 1 the position began to move, 2 an underrun, 4 the stream failed for good. */
+    external fun audioOutEvents(handle: Long): Int
+
+    external fun audioOutStalled(handle: Long): Boolean
+
+    external fun audioOutSessionId(handle: Long): Int
+
+    /** The output's buffer in frames: the FIFO plus the stream's own. */
+    external fun audioOutBufferFrames(handle: Long): Long
+
     /** The cap a surface asking for [capFps] runs at now, under the thermal cap; 0 = none. For `Surface.setFrameRate`. */
     external fun pacerEffectiveCap(capFps: Float): Float
 
-    // The process's one thermal state (core/viz/frame/Thermal); a reading is due on FRAME_THERMAL_DUE.
+    // The process's one thermal state (core/viz/frame/Thermal); a headroom is due on FRAME_THERMAL_DUE.
 
-    /** One PowerManager reading: status (< 0 = no thermal API) and headroom (NaN = none this time). */
+    /** One PowerManager reading: status (< 0 = none this time) and headroom (NaN = none this time). */
     external fun thermalPush(
         platformStatus: Int,
         headroom: Float,

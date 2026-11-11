@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
  * The one-time Pro unlock as the rest of the app sees it.
  *
  * Two implementations: `PlayBillingRepository`, which talks to the Play Store app over its bound
- * service (IPC, so the app still needs no network permission of its own), and
+ * service (IPC, so billing itself never opens a connection), and
  * `FakeBillingRepository`, which debug builds and tests use instead. Nothing outside the billing
  * package knows which one it has.
  */

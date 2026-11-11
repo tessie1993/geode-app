@@ -57,6 +57,12 @@ constexpr std::array<const char*, 58> kLooseMarched = {
     "morph_world",
 };
 
+// Marching and flying the camera rig (lib_camera's uCamBasis) mostly go together. These five march
+// from a view of their own, so the Camera framing and feel controls have nothing to move.
+constexpr std::array<const char*, 5> kMarchedOffRig = {"vanishing", "morphogen", "noneuclid", "curl_bloom", "nectar_flow"};
+// And these three fly the rig through scenes they draw without a march.
+constexpr std::array<const char*, 3> kRigUnmarched = {"outrun_drive", "ringed_planet", "ribbon_storm"};
+
 // The look group of each loose shader style (the owner's tags, first drafted in the Styles page's
 // StyleLookTags). Every loose style is listed; catalogue_test fails a loose style missing here, so a
 // new one is placed on purpose. Winter had no tag there and showed under Psychedelic; it keeps that.
@@ -338,9 +344,10 @@ bool reachesKind(Scope s, Kind k) {
         case Scope::EndlessZoom: return k == Kind::Shader || k == Kind::Milkdrop;
         case Scope::Turbulence: return k == Kind::Shader || k == Kind::Mycelium || k == Kind::Acid || k == Kind::CurlFlow;
         case Scope::DyeDensity: return k == Kind::Fluid;
+        // A shader style's trails are the feedback pass's sustain, echo zoom and warp (EndlessZoom.hpp).
         case Scope::TrailToggle:
-        case Scope::TrailLength: return k == Kind::Silk || k == Kind::CurlFlow;
-        case Scope::TrailEcho: return k == Kind::CurlFlow;
+        case Scope::TrailLength: return k == Kind::Shader || k == Kind::Silk || k == Kind::CurlFlow;
+        case Scope::TrailEcho: return k == Kind::Shader || k == Kind::CurlFlow;
         case Scope::ParticleSprite: return k == Kind::Fluid || k == Kind::CurlFlow;
         case Scope::Milkdrop: return k == Kind::Milkdrop;
         case Scope::FluidSim: return k == Kind::Fluid;
@@ -452,6 +459,10 @@ Kind kindOf(const std::string& id) {
 }
 
 bool isMarched(const std::string& id) { return listed(kLooseMarched, id) || listed(kFamilyMarched, id); }
+
+bool fliesCamera(const std::string& id) {
+    return listed(kRigUnmarched, id) || (isMarched(id) && !listed(kMarchedOffRig, id));
+}
 
 float spinRate(const std::string& id) {
     for (const Spin& known : kSpinning) {

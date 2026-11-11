@@ -19,9 +19,6 @@
 // params_schema_test holds core/tests/params_schema.txt, the JVM tests' copy, to the text). Never insert or reorder:
 // append, and retire a field by leaving its row where it is. core/tests/params_schema_test.cpp checks
 // the table; geode_params_schema_text publishes it to the shell.
-//
-// PR #413's generic ParamSchema (core/signal/params) is to be generated from these rows later, not
-// written beside them.
 
 GEODE_PARAM(Float, speed, 1.0f, 0.05f, 4.0f, Fade)
 // A pinch scales Zoom and a twist turns Rotation, held to the catalogue's touch ranges.

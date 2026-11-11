@@ -1,8 +1,6 @@
 package dev.geode.ui
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.AutoDirectorStore
 import dev.geode.data.MacroStore
+import dev.geode.data.VizUiState
 import dev.geode.model.ControlRange
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
@@ -31,7 +30,6 @@ import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
 import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneParams
-import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalUiSounds
 import dev.geode.ui.theme.UiSound
 
@@ -67,15 +65,14 @@ private fun CustomizeControl(
         PanelPiece(key, host, viz, onChange)
         return
     }
-    when (CustomizeMapTable.categoryOf(key)) {
-        CustomizeCategory.LOOK -> LookControl(key, host, p, onChange)
-        CustomizeCategory.SHAPE -> ShapeControl(key, p, onChange)
-        CustomizeCategory.MOTION, CustomizeCategory.CAMERA -> MotionControl(key, p, onChange)
-        CustomizeCategory.MUSIC, CustomizeCategory.EFFECTS -> MusicControl(key, p, onChange)
-        CustomizeCategory.LIQUID, CustomizeCategory.BEHAVIOUR -> LiquidControl(key, host, p, onChange)
-        CustomizeCategory.EXPERT -> EngineControl(key, p, onChange)
-        CustomizeCategory.QUICK_KNOBS, null -> Unit
-    }
+    // Each group draws only the keys it knows, so where the native map files a control never
+    // decides whether it draws.
+    LookControl(key, host, p, onChange)
+    ShapeControl(key, p, onChange)
+    MotionControl(key, p, onChange)
+    MusicControl(key, p, onChange)
+    LiquidControl(key, host, p, onChange)
+    EngineControl(key, p, onChange)
 }
 
 @Composable
@@ -242,7 +239,8 @@ private fun MotionControl(
         ParamKeys.CAM_ROLL -> LabeledSlider(key, p, SceneParams::camRoll) { onChange(p.copy(camRoll = it)) }
         ParamKeys.CAM_SHAKE -> LabeledSlider(key, p, SceneParams::camShake) { onChange(p.copy(camShake = it)) }
         ParamKeys.CAM_GYRO -> CheckRow(key, p.camGyro) { onChange(p.copy(camGyro = it)) }
-        ParamKeys.CAM_TOUCH -> CheckRow(key, p.camTouch) { onChange(p.copy(camTouch = it)) }
+        // One finger never reaches the visual (ui/VisualGestures); the look follows a two-finger drag.
+        ParamKeys.CAM_TOUCH -> CheckRow(key, p.camTouch, display = "Two-finger drag to look") { onChange(p.copy(camTouch = it)) }
         ParamKeys.CAM_SMOOTH -> LabeledSlider(key, p, SceneParams::camSmooth) { onChange(p.copy(camSmooth = it)) }
         else -> Unit
     }
@@ -334,7 +332,7 @@ private fun LiquidControl(
             CheckRow(key, p.rippleOverlayEnabled, scope = ParamScope.RIPPLE_OVERLAY) { onChange(p.copy(rippleOverlayEnabled = it)) }
         ParamKeys.RIPPLE_OVERLAY_STRENGTH ->
             if (p.rippleOverlayEnabled) {
-                LabeledSlider(key, p, SceneParams::rippleOverlayStrength, display = "Ripple strength") {
+                LabeledSlider(key, p, SceneParams::rippleOverlayStrength, display = "Overlay strength") {
                     onChange(p.copy(rippleOverlayStrength = it))
                 }
             }
@@ -395,7 +393,7 @@ private fun EngineControl(
             LabeledIntSlider(key, p, SceneParams::fluidIterations, display = "Accuracy") { onChange(p.copy(fluidIterations = it)) }
         ParamKeys.FLUID_CURL ->
             if (SceneCapabilities.isFluid(sceneId)) {
-                LabeledSlider(key, p, SceneParams::fluidCurl, display = "Swirl") { onChange(p.copy(fluidCurl = it)) }
+                LabeledSlider(key, p, SceneParams::fluidCurl, display = "Fluid swirl") { onChange(p.copy(fluidCurl = it)) }
             }
         ParamKeys.MOTION_FADE ->
             LabeledSlider(key, p, SceneParams::fluidVelocityDissipation) {
@@ -412,7 +410,7 @@ private fun EngineControl(
         ParamKeys.PRESSURE ->
             LabeledSlider(key, p, SceneParams::fluidPressure) { onChange(p.copy(fluidPressure = it)) }
         ParamKeys.SHADING_EMBOSSED_INK -> CheckRow(key, p.fluidShading, display = "Embossed ink") { onChange(p.copy(fluidShading = it)) }
-        ParamKeys.GLOW_FLUID -> CheckRow(key, p.fluidBloom, display = "Glow") { onChange(p.copy(fluidBloom = it)) }
+        ParamKeys.GLOW_FLUID -> CheckRow(key, p.fluidBloom, display = "Fluid glow") { onChange(p.copy(fluidBloom = it)) }
         ParamKeys.FLUID_GLOW ->
             if (p.fluidBloom) {
                 LabeledSlider(key, p, SceneParams::fluidBloomIntensity, display = "Glow amount") {
@@ -521,20 +519,6 @@ private fun PanelPiece(
             val macros by store.state.collectAsStateWithLifecycle()
             val lock = LocalProLock.current
             MacroSetsPage(macros, store, canSavePresets = lock.unlocked, onLockedSave = lock.onLocked)
-        }
-        "@randomize_reset" -> {
-            val store = remember { MacroStore.get(context) }
-            val sounds = LocalUiSounds.current
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
-                FilledTonalButton(onClick = {
-                    sounds.play(UiSound.TAP)
-                    store.surprise()
-                }) { Text("Surprise me") }
-                FilledTonalButton(onClick = {
-                    sounds.play(UiSound.TAP)
-                    store.resetKnobs()
-                }) { Text("Reset the knobs") }
-            }
         }
         "@palette_maker" -> ProGated(id, "Make a palette") { if (sectionVisible()) PaletteMakerCard(p, onChange, rememberSavedPalettes()) }
         "@auto_moments" -> DirectorSwitch()
@@ -677,7 +661,7 @@ private fun LiquidSwitch(
 }
 
 /**
- * Behaviour's Personality: a new reaction DNA for the style (core/viz/ReactionDna). The same
+ * Music's Personality: a new reaction DNA for the style (core/viz/ReactionDna). The same
  * shuffle the reaction editor offers; the user's own routes go back to the style's.
  */
 @Composable

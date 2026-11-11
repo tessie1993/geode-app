@@ -57,7 +57,7 @@ class VisualizerWallpaperService : WallpaperService() {
         private val systemAnimations = SystemAnimations(this@VisualizerWallpaperService) { syncRunState() }
 
         /**
-         * What the wallpaper hears: the app's ring while MuzViz feeds it, else any app's audio.
+         * What the wallpaper hears: the app's ring while BeatRealms feeds it, else any app's audio.
          * Its silence flips restate the run mode, which is how "rest when silent" happens.
          */
         private val sound = SoundSource(this@VisualizerWallpaperService) { syncRunState() }
@@ -130,6 +130,8 @@ class VisualizerWallpaperService : WallpaperService() {
             restoreLook(engine)
             settings = prefsStore.load()
             applyFps()
+            // Its own pacer's rate, not the stage's: the app's pacer may be running beside this one.
+            engine.pacedRate = pacer
             engine.soundInput = { sound.input }
             val wrapped = WallpaperRenderer(engine)
             wallpaperRenderer = wrapped
@@ -236,8 +238,11 @@ class VisualizerWallpaperService : WallpaperService() {
                 WallpaperRunMode.STOPPED -> {
                     // Stopped first, and on this same main-thread callback: the vsync callback is gone
                     // before onPause is even asked for, so no frame can be requested after the
-                    // wallpaper stops being visible.
+                    // wallpaper stops being visible. The spare scenes go on the way in (#854): an event
+                    // queued before the pause runs while the GL thread still has its context, and the
+                    // system's trim only arrives once no frame is left to read it.
                     pacer.stop()
+                    if (previous != WallpaperRunMode.STOPPED) glView?.queueEvent { renderer?.trimSpares() }
                     glView?.onPause()
                 }
             }

@@ -28,6 +28,8 @@ uniform vec3 uCamLook;
 
 /** One full turn per 1024 world units: multiply by an integer for a spin rate that survives the travel wrap. */
 #define CAM_SPIN_UNIT (6.2831853 / 1024.0)
+/** How much faster an object-centred style turns than its own spin rate says. An integer. */
+#define CAM_AROUND_GAIN 8.0
 
 /** The view ray through screen point `uv` (aspect-corrected, y up, as view() returns before zoom). */
 vec3 camRayDir(vec2 uv) {
@@ -47,7 +49,9 @@ void camFly(vec2 uv, out vec3 ro, out vec3 rd) {
  * around one subject. The dolly pulls the eye in.
  */
 void camAround(vec2 uv, float radius, float spin, out vec3 ro, out vec3 rd) {
-    float a = uCamTravel * spin;
+    // A whole multiple, so the turn still closes at the travel wrap. Without it Fly speed turned the
+    // subject at about half a degree a second at its default, too slow to see the slider act.
+    float a = uCamTravel * spin * CAM_AROUND_GAIN;
     mat3 turn = mat3(cos(a), 0.0, -sin(a), 0.0, 1.0, 0.0, sin(a), 0.0, cos(a));
     mat3 b = turn * uCamBasis;
     ro = -b[2] * radius * (1.0 - 0.35 * uCamDolly);

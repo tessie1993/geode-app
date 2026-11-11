@@ -12,9 +12,9 @@ import java.util.Base64
  * Checks that a purchase really came from Play before Pro is granted.
  *
  * Play signs every purchase's JSON with the app's licence key. The usual place to verify that is a
- * backend; this app has no network and no backend, so it verifies on the device against the
- * public half of the key, which Play Console shows under Monetization setup > Licensing. It is a
- * public key, not a secret, and reaches the build as `PLAY_LICENSE_KEY`.
+ * backend; this app has none (its only network use is Cast, on the LAN), so it verifies on the
+ * device against the public half of the key, which Play Console shows under Monetization setup >
+ * Licensing. It is a public key, not a secret, and reaches the build as `PLAY_LICENSE_KEY`.
  *
  * Fails closed: with a blank or unparsable key every purchase is refused, and the reason is logged
  * once. Only a build that bills against [FakeBillingRepository] (`BuildConfig.USE_FAKE_BILLING`)
@@ -68,7 +68,7 @@ class PurchaseVerifier(
          * check. [ProSnapshot] needs the same rule as [PlayBillingRepository] without the injection
          * graph.
          */
-        fun forThisBuild(): PurchaseVerifier = PurchaseVerifier(BuildConfig.PLAY_LICENSE_KEY, allowUnsigned = BuildConfig.USE_FAKE_BILLING)
+        fun forThisBuild(): PurchaseVerifier = PurchaseVerifier(BuildConfig.PLAY_LICENSE_KEY, allowUnsigned = BillingBuild.usesFake)
 
         private const val TAG = "PurchaseVerifier"
         private const val KEY_ALGORITHM = "RSA"

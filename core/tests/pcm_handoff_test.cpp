@@ -20,6 +20,7 @@
 
 using geode::viz::PcmHandoff;
 using geode::viz::PcmPulse;
+using geode::viz::PcmStarve;
 
 namespace {
 
@@ -214,6 +215,67 @@ void pulseDecaysWithoutNewPcm() {
 
 }  // namespace
 
+void sideSignalGivesStereoBack() {
+    PcmHandoff handoff(8);
+    std::vector<float> mono(8, 0.0f);
+    std::vector<float> side(8, 9.0f);
+    const float stereo[] = {0.5f, -0.3f, 0.2f, 0.2f, -1.0f, 1.0f};
+    handoff.write(stereo, 3, 2);
+    check(handoff.take(mono.data(), side.data()) == 3, "three stereo frames taken");
+    bool rebuilt = true;
+    for (int i = 0; i < 3; ++i) {
+        rebuilt = rebuilt && near(mono[i] + side[i], stereo[i * 2]) && near(mono[i] - side[i], stereo[i * 2 + 1]);
+    }
+    check(rebuilt, "mono + side is left and mono - side is right");
+    check(near(mono[2], 0.0f) && near(side[2], -1.0f), "out-of-phase content survives in the side signal");
+
+    const float single[] = {0.4f, -0.6f};
+    handoff.write(single, 2, 1);
+    check(handoff.take(mono.data(), side.data()) == 2 && side[0] == 0.0f && side[1] == 0.0f, "a mono source has no side signal");
+
+    // 96 kHz is halved: the side signal is averaged over the same pair of frames as the mono mix.
+    const float hiRes[] = {1.0f, 0.0f, 0.0f, 1.0f, 0.5f, -0.5f, 0.5f, -0.5f};
+    handoff.write(hiRes, 4, 2, 96000);
+    check(handoff.take(mono.data(), side.data()) == 2, "four frames at 96 kHz are two samples");
+    check(near(mono[0], 0.5f) && near(side[0], 0.0f) && near(mono[1], 0.0f) && near(side[1], 0.5f), "decimated like the mono mix");
+
+    // Over capacity, the side signal keeps the same newest samples as the mono mix.
+    PcmHandoff small(2);
+    const float ramp[] = {1.0f, 0.0f, 2.0f, 0.0f, 3.0f, 0.0f};
+    small.write(ramp, 3, 2);
+    check(small.take(mono.data(), side.data()) == 2 && near(mono[0], 1.0f) && near(side[0], 1.0f) && near(mono[1], 1.5f) && near(side[1], 1.5f),
+          "the newest samples, on both signals");
+}
+
+void starvedEngineIsFlushedOnce() {
+    const float dt = 1.0f / 60.0f;
+    PcmStarve never;
+    bool flushedUnfed = false;
+    for (int frame = 0; frame < 120; ++frame) flushedUnfed = flushedUnfed || never.tick(false, dt);
+    check(!flushedUnfed, "an engine that was never fed is not handed silence");
+
+    PcmStarve starve;
+    check(!starve.tick(true, dt), "a frame with samples is not starved");
+    // A decoder that delivers a block every 100 ms leaves five empty frames in six.
+    bool flushedBetweenBlocks = false;
+    for (int frame = 0; frame < 60; ++frame) flushedBetweenBlocks = flushedBetweenBlocks || starve.tick(frame % 6 == 0, dt);
+    check(!flushedBetweenBlocks, "gaps between decoder blocks are not silence");
+    int flushes = 0;
+    int firstFlush = -1;
+    for (int frame = 0; frame < 300; ++frame) {
+        if (starve.tick(false, dt)) {
+            ++flushes;
+            if (firstFlush < 0) firstFlush = frame;
+        }
+    }
+    check(flushes == 1, "a pause hands the engine silence exactly once");
+    check(firstFlush >= 9 && firstFlush <= 15, "about a quarter of a second in");
+    check(!starve.tick(true, dt), "samples end the gap");
+    flushes = 0;
+    for (int frame = 0; frame < 60; ++frame) flushes += starve.tick(false, dt) ? 1 : 0;
+    check(flushes == 1, "and the next pause is flushed again");
+}
+
 int main() {
     noNewSamplesGivesNothing();
     monoPassesThrough();
@@ -222,6 +284,8 @@ int main() {
     newEpochDropsTheOld();
     hiResSourcesAreDecimated();
     pulseDecaysWithoutNewPcm();
+    sideSignalGivesStereoBack();
+    starvedEngineIsFlushedOnce();
     if (failures == 0) std::printf("pcm_handoff_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

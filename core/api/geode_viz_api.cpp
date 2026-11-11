@@ -10,7 +10,11 @@
 #include <string_view>
 #include <vector>
 
+#include <EGL/egl.h>
+
 #include "api/geode_api.h"
+#include "api/geode_ingest_handles.hpp"
+#include "audio/ingest/LayerMix.hpp"
 #include "viz/Director.hpp"
 #include "viz/GyroLook.hpp"
 #include "viz/NoteResponse.hpp"
@@ -59,6 +63,13 @@ struct geode_viz {
     // on the render thread only when one changed. reactLock guards it: set_params may come from any thread.
     std::mutex reactLock;
     geode::viz::ReactionResolve reactions{&styleTraits};
+    // The live feed (geode_viz_feed_ring): the ring this renderer hears and its place in it. The cursor is
+    // declared after the ring it refers to. Render thread only.
+    std::shared_ptr<const geode::audio::ingest::PcmRing> feedRing;
+    std::unique_ptr<geode::audio::ingest::Cursor> feedCursor;
+    // The ring layered over it (geode_pcm_ring_set_layer) and this renderer's mix of the two.
+    std::shared_ptr<const geode::audio::ingest::PcmRing> feedLayerRing;
+    std::unique_ptr<geode::audio::ingest::LayerMix> feedLayer;
 
     static geode::viz::StyleTraits styleTraits(std::string_view id) {
         const std::string s(id);
@@ -70,6 +81,9 @@ namespace {
 
 using namespace geode::viz;
 
+// Takes per geode_viz_feed_ring: one per rate in the frame's audio, with room for a change or two.
+constexpr int kFeedRunsPerFrame = 4;
+
 static_assert(LfoEngine::kSlots == GEODE_LFO_SLOTS);
 static_assert(AdsrEngine::kCount == GEODE_ADSR_SLOTS);
 static_assert(ReactionEngine::kRoutes == GEODE_REACT_ROUTES);
@@ -79,6 +93,7 @@ static_assert(frame::wallpaper::kOffsetFloats == GEODE_WALLPAPER_OFFSETS);
 static_assert(frame::kFrameClearOnly == GEODE_FRAME_CLEAR_ONLY);
 static_assert(frame::kFrameThermalDue == GEODE_FRAME_THERMAL_DUE);
 static_assert(frame::kFrameLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
+static_assert(frame::kFrameErrorChanged == GEODE_FRAME_ERROR_CHANGED);
 static_assert(frame::kFramePushParams == GEODE_FRAME_PUSH_PARAMS);
 static_assert(frame::kFramePushLfo == GEODE_FRAME_PUSH_LFO);
 static_assert(frame::kFramePushAdsr == GEODE_FRAME_PUSH_ADSR);
@@ -200,8 +215,54 @@ void geode_viz_write_audio(geode_viz* v, const float* interleaved, int frames, i
     if (v) v->renderer.writeAudio(interleaved, frames, channels, sample_rate);
 }
 
-void geode_viz_reset_audio(geode_viz* v) {
-    if (v) v->renderer.resetAudio();
+void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
+    if (!v) return;
+    if (!ring) {
+        v->feedCursor.reset();
+        v->feedRing.reset();
+        v->feedLayer.reset();
+        v->feedLayerRing.reset();
+        v->renderer.setLayerAlone(false);
+        return;
+    }
+    if (auto layer = ring->layerRing(); layer != v->feedLayerRing) {
+        v->feedLayer.reset();
+        v->feedLayerRing = std::move(layer);
+        try {
+            if (v->feedLayerRing) v->feedLayer = std::make_unique<geode::audio::ingest::LayerMix>(*v->feedLayerRing);
+        } catch (...) {
+            // No memory for the mix: hear the ring alone this frame and try again on the next.
+            v->feedLayerRing.reset();
+        }
+    }
+    if (v->feedRing != ring->ring) {
+        v->feedCursor.reset();
+        v->feedRing = ring->ring;
+        try {
+            v->feedCursor = std::make_unique<geode::audio::ingest::Cursor>(*v->feedRing);
+        } catch (...) {
+            // No memory for the cursor: hear nothing this frame and try again on the next.
+            v->feedRing.reset();
+            return;
+        }
+    }
+    // A take ends where the rate changes, so a frame that straddles one takes twice; the bound keeps a
+    // writer that outruns this loop from holding the frame.
+    for (int run = 0; run < kFeedRunsPerFrame; ++run) {
+        const geode::audio::ingest::Cursor::Take take = v->feedCursor->take();
+        if (take.restarted) v->renderer.resetAudio();
+        if (take.frames <= 0) break;
+        const int channels = v->feedCursor->channels();
+        const float* block = v->feedCursor->interleaved();
+        if (v->feedLayer) block = v->feedLayer->mixed(block, take.frames, channels, take.sampleRateHz);
+        v->renderer.writeAudio(block, take.frames, channels, take.sampleRateHz);
+    }
+    if (v->feedLayer) {
+        // With the ring's own source stopped, the layer is what this renderer hears.
+        const geode::audio::ingest::LayerMix::Alone alone = v->feedLayer->takeAlone();
+        v->renderer.writeAudio(alone.interleaved, alone.frames, alone.channels, alone.sampleRateHz);
+    }
+    v->renderer.setLayerAlone(v->feedLayer && v->feedLayer->heardAlone());
 }
 
 void geode_viz_set_sound_tuning(geode_viz* v, const GeodeSoundTuning* tuning) {
@@ -569,13 +630,15 @@ int geode_viz_frame_begin(geode_viz* v, float paced_fps, float render_scale, flo
         r.setUserQuality(quality.renderScale, quality.marchScale, quality.postFx, quality.adaptive);
         r.setLiquidHotPolicy(quality.liquidHotPolicy);
     }
-    const uint32_t due = v->cadence.step([] { return ThermalState::process().claimSample(monotonicSeconds()); },
+    uint32_t due = v->cadence.step([] { return ThermalState::process().headroomDue(monotonicSeconds()); },
                                          [&r] { return r.takeLiquidMode(); });
     if (due & frame::kFrameClearOnly) {
         // The shell returns at once on this frame, so nothing it would push may count as applied yet.
         r.clearToBlack(0);
         return static_cast<int>(due);
     }
+    // An error raised while a frame drew is told on the next one, so the shell asks for the text only then.
+    if (v->cadence.offerError(r.lastError())) due |= frame::kFrameErrorChanged;
     const uint32_t want = v->pushes.offer({params_version, lfo_version, adsr_version, tuning_version});
     return static_cast<int>(due | want);
 }
@@ -745,6 +808,13 @@ void geode_viz_prepare_offscreen(geode_viz* v) {
 
 void geode_viz_release_scenes(geode_viz* v) {
     if (v) v->renderer.releaseScenes();
+}
+
+void geode_viz_trim_spares(geode_viz* v) {
+    // Without a current context (the surface already gone) every GL delete is a no-op: the scenes would be
+    // forgotten while their objects stayed in the kept context. Then nothing is shed here.
+    if (!v || eglGetCurrentContext() == EGL_NO_CONTEXT) return;
+    v->renderer.trimSpares();
 }
 
 }

@@ -23,24 +23,24 @@ class SettingsViewModel
 
         val userDataLoaded: StateFlow<Boolean> get() = userData.loaded
 
-        val playerPrefs: StateFlow<PlayerPrefs> get() = session.playerPrefs
+        val playerPrefs: StateFlow<PlayerPrefs> get() = session.settings.playerPrefs
 
-        val audioFx: StateFlow<AudioFxState> get() = session.audioFx
+        val audioFx: StateFlow<AudioFxState> get() = session.settings.audioFxState
 
         fun setGuiPrefs(prefs: GuiPrefs) = session.setGuiPrefs(prefs)
 
         fun setPlayerPrefs(prefs: PlayerPrefs) = session.setPlayerPrefs(prefs)
 
-        fun setAudioFxEnabled(enabled: Boolean) = session.setAudioFxEnabled(enabled)
+        fun setAudioFxEnabled(enabled: Boolean) = session.settings.setAudioFxEnabled(enabled)
 
         fun setAudioFxBand(
             band: Int,
             levelMb: Int,
-        ) = session.setAudioFxBand(band, levelMb)
+        ) = session.settings.setAudioFxBand(band, levelMb)
 
-        fun useAudioFxPreset(index: Int) = session.useAudioFxPreset(index)
+        fun useAudioFxPreset(index: Int) = session.settings.useAudioFxPreset(index)
 
-        fun setAudioFxBassBoost(strength: Int) = session.setAudioFxBassBoost(strength)
+        fun setAudioFxBassBoost(strength: Int) = session.settings.setAudioFxBassBoost(strength)
 
-        fun setAudioFxLoudness(gainMb: Int) = session.setAudioFxLoudness(gainMb)
+        fun setAudioFxLoudness(gainMb: Int) = session.settings.setAudioFxLoudness(gainMb)
     }

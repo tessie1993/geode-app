@@ -1,6 +1,5 @@
 package dev.geode.ui
 
-import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -59,6 +58,7 @@ import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.NavigationEventState
 import androidx.navigationevent.compose.rememberNavigationEventState
 import dev.geode.R
+import dev.geode.data.BuiltInPresets
 import dev.geode.data.EXPORT_FPS_OPTIONS
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportDestination
@@ -378,7 +378,6 @@ internal fun StudioRenderTab(
                                         ?: stringResource(R.string.render_nothing_playing)
                                 },
                             batchLocked = !gate.allows(ProFeature.FULL_LENGTH_EXPORT),
-                            batchSupported = RenderScope.batchSupported(Build.VERSION.SDK_INT),
                             onScope = { selection = selection.copy(scope = it) },
                             onPickPlaylist = { picking = RenderPick.PLAYLIST },
                             onPickTracks = { picking = RenderPick.TRACKS },

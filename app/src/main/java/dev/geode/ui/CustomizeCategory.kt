@@ -6,7 +6,6 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Videocam
@@ -16,7 +15,7 @@ import dev.geode.engine.bridge.GeodeNative
 import java.io.File
 
 /**
- * Customize's ten categories, in panel order, by what their controls do. The names are
+ * Customize's nine categories, in panel order, by what their controls do. The names are
  * core/viz/CustomizeMap's; everything about a category but its words and icon is native: which
  * sections and controls it has, which are free (Basics), which styles it shows on, what its
  * Randomize rolls and what its Reset puts back. Kotlin draws it.
@@ -31,10 +30,9 @@ enum class CustomizeCategory(
     SHAPE("Shape", "Morph, symmetry and the style's own form", Icons.Filled.Category),
     MOTION("Motion", "Speed, zoom, spin, drift and the dive", Icons.Filled.Speed),
     CAMERA("Camera", "How the camera flies through the 3D world", Icons.Filled.Videocam),
-    MUSIC("Music", "How the music moves the picture", Icons.Filled.MusicNote),
-    EFFECTS("Effects", "Trails, lens and film looks", Icons.Filled.AutoAwesome),
+    MUSIC("Music", "How the music moves the picture: personality, reactions, modulation", Icons.Filled.MusicNote),
+    EFFECTS("Effects", "Trails, lens and film looks, transitions", Icons.Filled.AutoAwesome),
     LIQUID("Liquid", "Turn the style into a flowing liquid", Icons.Filled.Waves),
-    BEHAVIOUR("Behaviour", "Reaction personality, transitions, modulation", Icons.Filled.Psychology),
     EXPERT("Expert", "The style's engine, layers and shader code", Icons.Filled.Code),
     ;
 
@@ -63,7 +61,6 @@ private val SECTION_TITLES =
     mapOf(
         "basics" to "Basics",
         "sets" to "Sets",
-        "randomize" to "Randomize & reset",
         "colour_detail" to "Colour detail",
         "colour_cycle" to "Colour cycle",
         "light_detail" to "Light detail",
@@ -92,7 +89,11 @@ private val SECTION_TITLES =
         "reactions" to "Reactions",
         "envelopes" to "Envelopes",
         "waves" to "Waves",
-        "engine" to "This style's engine",
+        "fluid_flow" to "Fluid: flow",
+        "fluid_look" to "Fluid: glow and layers",
+        "plate" to "Plate",
+        "plate_look" to "Plate: look",
+        "milkdrop" to "MilkDrop",
         "layers" to "Layers",
         "shader_code" to "Shader code",
     )

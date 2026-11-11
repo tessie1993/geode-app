@@ -23,7 +23,7 @@ std::set<std::string> lockedSet(const char* locked) {
         std::istringstream lines(locked);
         for (std::string key; std::getline(lines, key);) keys.insert(key);
     }
-    return keys;
+    return customize::expandLocks(keys);
 }
 
 int copyOut(const SceneParams& before, const SceneParams& after, float* out) {
@@ -51,19 +51,8 @@ int geode_params_randomize(const char* style_id, const char* tab, const char* lo
             return 0;
         }
     }
-    std::set<std::string> lockedKeys;
-    if (locked) {
-        std::istringstream lines(locked);
-        for (std::string key; std::getline(lines, key);) lockedKeys.insert(key);
-    }
-    const SceneParams rolled = randomizer::randomize(current, seed, only, style_id ? style_id : "", lockedKeys);
-    rolled.toWire(out);
-    float before[SceneParams::kFieldCount];
-    current.toWire(before);
-    for (int i = 0; i < SceneParams::kFieldCount; ++i) {
-        if (before[i] != out[i]) return 1;
-    }
-    return 0;
+    const SceneParams rolled = randomizer::randomize(current, seed, only, style_id ? style_id : "", lockedSet(locked));
+    return copyOut(current, rolled, out);
 }
 
 void geode_params_reset_tab(const char* tab, const float* in, float* out) {
@@ -117,6 +106,12 @@ int geode_customize_randomize(const char* style_id, const char* category, const 
     }
     const SceneParams rolled = customize::randomize(current, seed, *which, style_id ? style_id : "", lockedSet(locked));
     return copyOut(current, rolled, out);
+}
+
+void geode_customize_borrow(const char* category, const float* in, const float* from, float* out) {
+    const SceneParams current = SceneParams::fromWire(in);
+    const auto which = category ? customize::categoryNamed(category) : std::nullopt;
+    (which ? customize::borrow(current, SceneParams::fromWire(from), *which) : current).toWire(out);
 }
 
 void geode_customize_reset(const char* category, const float* in, float* out) {

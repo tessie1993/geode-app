@@ -2,14 +2,17 @@ package dev.geode.ui
 
 import android.app.Application
 import android.net.Uri
-import android.provider.OpenableColumns
 import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import dev.geode.data.displayNameOf
 import dev.geode.model.DeviceTrack
 import dev.geode.model.LibraryTrack
+import dev.geode.model.QueueTrack
+import dev.geode.model.QueueUiState
 import dev.geode.playback.MediaArtwork
+import dev.geode.playback.PlaybackQueue
 import dev.geode.playback.QueueOps
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,8 +38,6 @@ internal class QueueController(
         val player: Player
         val libraryTracks: List<LibraryTrack>
         val deviceTracks: List<DeviceTrack>
-
-        fun stopLiveInput()
 
         fun onQueueStarted(startUri: Uri)
 
@@ -106,7 +107,6 @@ internal class QueueController(
     ) {
         val window = PlaybackQueue.window(tracks, startUri)
         if (window.tracks.isEmpty()) return
-        host.stopLiveInput()
         lastBrowseContext = tracks
         val generation = ++openGeneration
         val unresolved = mutableListOf<Uri>()
@@ -269,12 +269,7 @@ internal class QueueController(
     }
 
     private fun metadataQuick(uri: Uri): Pair<String, String> {
-        val name =
-            runCatching {
-                application.contentResolver
-                    .query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-                    ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
-            }.getOrNull()?.substringBeforeLast('.')
+        val name = application.contentResolver.displayNameOf(uri)?.substringBeforeLast('.')
         return (name ?: application.getString(dev.geode.R.string.library_untitled_track)) to ""
     }
 

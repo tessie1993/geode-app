@@ -2,7 +2,6 @@ package dev.geode.ui
 
 import android.app.Application
 import android.net.Uri
-import android.os.Build
 import android.provider.DocumentsContract
 import android.widget.Toast
 import androidx.core.net.toUri
@@ -47,7 +46,6 @@ import dev.geode.export.MixClip
 import dev.geode.export.ProjectComposition
 import dev.geode.export.ProjectComposition.SceneSegment
 import dev.geode.export.RenderBatch
-import dev.geode.export.RenderScope
 import dev.geode.export.StudioExporter
 import dev.geode.export.TimeOfDayDrift
 import dev.geode.export.VideoExporter
@@ -91,7 +89,7 @@ data class ExportUiState(
      */
     val loudnessAdvice: LoudnessAdvice? = null,
     /**
-     * The finished file's name in Movies/MuzViz, so the Render bar can say what was made. Null for a
+     * The finished file's name in Movies/BeatRealms, so the Render bar can say what was made. Null for a
      * folder the user picked: that name is the picker's, and the result URI is a SAF document id.
      */
     val fileName: String? = null,
@@ -204,7 +202,7 @@ internal class ExportController(
         exportJob =
             ExportRun.launch {
                 try {
-                    val name = "muzviz_${System.currentTimeMillis()}.mp4"
+                    val name = "beatrealms_${System.currentTimeMillis()}.mp4"
                     val exportTake = host.loadExportTake()
                     val sceneId =
                         if (exportTake != null && sceneFactoryFor != null) {
@@ -330,7 +328,7 @@ internal class ExportController(
 
     /**
      * Renders [tracks] one after another through the same exporter as [startExport], each to its
-     * own `muzviz_*.mp4` in Movies/MuzViz, under one [ExportRun] so the foreground service and its
+     * own `beatrealms_*.mp4` in Movies/BeatRealms, under one [ExportRun] so the foreground service and its
      * notification cover the whole batch. A track that fails is recorded and the next one starts.
      * Cancel stops the track rendering now, the same way it stops a single render, and marks it
      * and every track after it cancelled; files already finished stay. Every track uses
@@ -347,13 +345,6 @@ internal class ExportController(
         watermark: Boolean,
     ) {
         if (tracks.isEmpty() || _exportState.value.phase.isBusy || ExportRun.running) return
-        // The scope picker hides batches below Android 10; this catches any other way in, since
-        // there every track would fail at the MediaStore insert (RenderScope.BATCH_MIN_SDK).
-        if (!RenderScope.batchSupported(Build.VERSION.SDK_INT)) {
-            _exportState.value =
-                ExportUiState(phase = ExportPhase.Failed(application.getString(dev.geode.R.string.render_batch_needs_q)))
-            return
-        }
         exportCancelled = false
         var batch = RenderBatch(tracks)
         _exportState.value = ExportUiState(phase = ExportPhase.Running(0f), batch = batch)
@@ -404,7 +395,7 @@ internal class ExportController(
         publish: (Float) -> Unit,
     ): BatchOutcome {
         val uri = track.uri.toUri()
-        val name = "muzviz_${System.currentTimeMillis()}.mp4"
+        val name = "beatrealms_${System.currentTimeMillis()}.mp4"
         val result =
             exporter.export(
                 audioUri = uri,
@@ -500,7 +491,7 @@ internal class ExportController(
                     val export = project.export
                     val plan = ProjectComposition.plan(edit)
                     val notice = plan.report.message(application)
-                    val name = "muzviz_cut_${System.currentTimeMillis()}.mp4"
+                    val name = "beatrealms_cut_${System.currentTimeMillis()}.mp4"
                     // A document this call makes in the user's folder exists the moment it is created,
                     // so every outcome but Saved deletes it again (#366): a locked style, nothing to
                     // render, a failed segment, Cancel, an exception or the job's own cancellation. A
@@ -992,7 +983,7 @@ internal class ExportController(
                                 },
                             )
                         }
-                    val name = "muzviz_loop_${System.currentTimeMillis()}.mp4"
+                    val name = "beatrealms_loop_${System.currentTimeMillis()}.mp4"
                     val extended =
                         loopExtender.extend(
                             reel = reel,

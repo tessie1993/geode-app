@@ -158,10 +158,6 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportFrameSize(
     env->SetIntArrayRegion(out, 0, 2, size);
 }
 
-JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportFallbackFps(JNIEnv*, jobject, jint requestedFps) {
-    return geode_export_fallback_fps(requestedFps);
-}
-
 JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportClampFps(JNIEnv*, jobject, jint requestedFps) {
     return geode_export_clamp_fps(requestedFps);
 }

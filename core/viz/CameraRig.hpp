@@ -49,7 +49,8 @@ public:
     static constexpr float kMaxPitch = 0.45f;
     static constexpr float kMaxRoll = 0.8f;
     static constexpr float kTouchLook = 0.9f;      // radians at the screen edge
-    static constexpr float kDollyReach = 0.9f;     // world units at camPush 1
+    // World units at camPush 1. 0.9 was about one second of travel on a fly-through, too little to see.
+    static constexpr float kDollyReach = 2.5f;
     static constexpr float kBaseFocal = 1.6f;
     static constexpr float kShakeRadians = 0.025f;
     static constexpr float kFlatTilt = 0.35f;      // 2D plane tilt is gentler than the 3D look

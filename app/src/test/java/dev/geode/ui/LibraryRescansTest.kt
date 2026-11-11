@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import dev.geode.data.libraryRescans
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow

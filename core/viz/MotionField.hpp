@@ -55,6 +55,10 @@ public:
         float breath = 1.0f;      // uBreath, 0.9..1.1
         float flowPhase = 0.0f;   // uFlowPhase: monotonic integrator
         float flowTime = 0.0f;    // uFlowTime: flowPhase at Speed's rate, integrated (equal at Speed 1)
+        // Energy and mids as their swing about the song's own average, scaled by the drive: 0 on a
+        // steady passage however quiet, where energyRel and midRel sit below 1.
+        float energySwing = 0.0f;
+        float midSwing = 0.0f;
     };
 
     MotionField();

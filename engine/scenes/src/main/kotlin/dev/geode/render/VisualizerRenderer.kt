@@ -3,8 +3,7 @@ package dev.geode.render
 import android.content.Context
 import android.opengl.GLSurfaceView
 import android.os.SystemClock
-import dev.geode.engine.audio.SoundCursor
-import dev.geode.engine.audio.SoundInput
+import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.look.LookApplier
@@ -60,6 +59,10 @@ class VisualizerRenderer(
     @Volatile
     var performance: PerformanceSettings = PerformanceSettings.HIGH
 
+    /** What paces this surface, set by its host: the view's or the wallpaper's own pacer, Cast's fixed rate. */
+    @Volatile
+    var pacedRate: PacedRate = PacedRate { 0f }
+
     @Volatile
     var onShaderError: (String?) -> Unit = {}
 
@@ -80,15 +83,13 @@ class VisualizerRenderer(
     var onSurfaceSizeChanged: (width: Int, height: Int) -> Unit = { _, _ -> }
 
     /**
-     * The audio this surface's sound engine hears (core/sound, owned by the native renderer). Read on the
-     * GL thread each frame through [soundCursor], so the engine gets every sample once, in order, and is
-     * stepped with this surface's own frame time. Asked every frame, so a playback session that comes and
+     * The ring this surface's sound engine hears (core/sound, owned by the native renderer). Read on the
+     * GL thread each frame through the renderer's own native cursor, so the engine gets every sample once,
+     * in order, and is stepped with this surface's own frame time. Asked every frame, so a playback session that comes and
      * goes under a running wallpaper is picked up. Null: the engine hears nothing and its frame stays silent.
      */
     @Volatile
-    var soundInput: () -> SoundInput? = { null }
-
-    private var soundCursor: SoundCursor? = null
+    var soundInput: () -> SampleRing? = { null }
 
     /**
      * Gyro reading in radians from [GyroLook] (NaN azimuth while off); core/viz/GyroLook makes the
@@ -138,6 +139,9 @@ class VisualizerRenderer(
 
     /** Frees the native renderer; only when this renderer is being discarded, on the GL thread. */
     fun releaseScenes() = nativeViz.destroy()
+
+    /** Sheds the spare scenes before the surface pauses: the system's trim arrives when no frame reads it. GL thread. */
+    fun trimSpares() = nativeViz.trimSpares()
 
     /** Process-wide: export, the wallpaper and the dream draw it too (core/viz/ShaderOverrides). */
     fun submitShader(
@@ -207,7 +211,8 @@ class VisualizerRenderer(
         // The handle may outlive the surface, or be new: either way the next frame resends the whole look.
         lookApplier.reset()
         // A new native renderer starts a new engine: hand it a full window, not the tail of the last.
-        soundCursor = null
+        // Dropping the feed makes the next frame's cursor a new one.
+        nativeViz.feedRing(null)
     }
 
     override fun onSurfaceChanged(
@@ -244,7 +249,7 @@ class VisualizerRenderer(
         val perf = performance
         val due =
             nativeViz.frameBegin(
-                ThermalGovernor.pacedFps,
+                pacedRate.fps(),
                 perf.renderScale,
                 perf.marchScale,
                 perf.postFx,
@@ -260,7 +265,7 @@ class VisualizerRenderer(
         if (due and GeodeNative.FRAME_LIQUID_CHANGED != 0) liquidModeState.value = GeodeNative.frameLiquidMode(due)
         syncNativeState(due)
         nativeViz.render(SystemClock.elapsedRealtimeNanos() / NANOS_PER_SECOND, targetFbo = 0)
-        nativeViz.pollError(onShaderError)
+        if (due and GeodeNative.FRAME_ERROR_CHANGED != 0) nativeViz.pollError(onShaderError)
         nativeViz.takeMilkPresetLoaded()?.let { path ->
             milkPreset.loaded(path)
             onMilkPresetLoaded(path)
@@ -271,19 +276,15 @@ class VisualizerRenderer(
     private fun syncNativeState(due: Int) {
         lookApplier.apply(look, nativeViz, due)
         val azimuth = gyroAzimuth
-        if (azimuth.isNaN() || gyroSession != nativeGyroSession) nativeViz.gyroReset()
-        nativeGyroSession = gyroSession
+        val session = if (azimuth.isNaN()) -1 else gyroSession // off is a session too: one reset, not one a frame
+        if (session != nativeGyroSession) nativeViz.gyroReset()
+        nativeGyroSession = session
         if (!azimuth.isNaN()) nativeViz.gyroSample(azimuth, gyroPitch)
         feedSound()
     }
 
-    private fun feedSound() {
-        val input = soundInput() ?: return
-        val cursor = soundCursor?.takeIf { it.ring === input.ring } ?: SoundCursor(input.ring).also { soundCursor = it }
-        val take = cursor.take()
-        if (take.restarted) nativeViz.resetAudio()
-        nativeViz.writeAudio(cursor.interleaved, take.frames, cursor.channels, input.sampleRateHz)
-    }
+    // No sample crosses here: the native renderer keeps its own cursor on the ring and takes from it.
+    private fun feedSound() = nativeViz.feedRing(soundInput())
 
     fun exportSceneFactory(sceneId: String): SceneFactory {
         val id = sceneId

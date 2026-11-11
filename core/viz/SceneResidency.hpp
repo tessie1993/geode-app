@@ -39,6 +39,9 @@
 // for that reason; a rebuilt spare costs one staged build, never a black frame. The signal is
 // process-wide (one process serves the app, the wallpaper and the dream) and each renderer reads it
 // on its own GL thread, so no release ever runs off the thread that owns the context.
+// Only a frame reads the signal, and UI_HIDDEN arrives after the app's GL thread has paused, so a surface
+// that stops drawing sheds the same way at its pause, while its context is still current
+// (Renderer::trimSpares, geode_viz_trim_spares); the signal is for the surfaces that go on drawing.
 namespace geode::viz {
 
 // What the system asked for. Background is the stronger ask; scenes shed the same way for both.

@@ -200,7 +200,7 @@ Java_dev_geode_engine_bridge_GeodeNative_vizTakeMilkPresetLoaded(JNIEnv* env, jo
     char buffer[4096];
     const size_t length = geode_viz_take_milk_preset_loaded(vizOf(handle), buffer, sizeof(buffer));
     if (length == 0 || length >= sizeof(buffer)) return nullptr;
-    return env->NewStringUTF(buffer);
+    return geode::jni::utf8String(env, buffer);
 }
 
 JNIEXPORT jint JNICALL
@@ -220,9 +220,11 @@ Java_dev_geode_engine_bridge_GeodeNative_vizWriteAudio(JNIEnv* env, jobject, jlo
     geode_viz_write_audio(vizOf(handle), data.data(), count, channels, sampleRate);
 }
 
+// The live feed: the renderer takes from the ring itself, so no sample crosses JNI. A ring handle is
+// valid while its Kotlin holder is reachable, and the caller holds it for this call.
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizResetAudio(JNIEnv*, jobject, jlong handle) {
-    geode_viz_reset_audio(vizOf(handle));
+Java_dev_geode_engine_bridge_GeodeNative_vizFeedRing(JNIEnv*, jobject, jlong handle, jlong ring) {
+    geode_viz_feed_ring(vizOf(handle), reinterpret_cast<const geode_pcm_ring*>(ring));
 }
 
 JNIEXPORT void JNICALL
@@ -295,7 +297,7 @@ Java_dev_geode_engine_bridge_GeodeNative_shaderOverride(JNIEnv* env, jobject, js
     if (length == 0) return nullptr;
     std::vector<char> buffer(length + 1, '\0');
     geode_shader_override(id.get(), buffer.data(), buffer.size());
-    return env->NewStringUTF(buffer.data());
+    return geode::jni::utf8String(env, buffer.data());
 }
 
 JNIEXPORT void JNICALL
@@ -512,7 +514,7 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSceneIds(JNIEnv* env, jobject, jlong
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizLastError(JNIEnv* env, jobject, jlong handle) {
-    return env->NewStringUTF(geode_viz_last_error(vizOf(handle)));
+    return geode::jni::utf8String(env, geode_viz_last_error(vizOf(handle)));
 }
 
 JNIEXPORT void JNICALL
@@ -577,6 +579,11 @@ Java_dev_geode_engine_bridge_GeodeNative_vizPrepareOffscreen(JNIEnv*, jobject, j
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizReleaseScenes(JNIEnv*, jobject, jlong handle) {
     geode_viz_release_scenes(vizOf(handle));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizTrimSpares(JNIEnv*, jobject, jlong handle) {
+    geode_viz_trim_spares(vizOf(handle));
 }
 
 // pixels is a Java IntArray? (ARGB per Android's Bitmap.getPixels), so a null array is a valid "clear"
@@ -672,6 +679,23 @@ Java_dev_geode_engine_bridge_GeodeNative_customizeReset(JNIEnv* env, jobject, js
     env->SetFloatArrayRegion(out, 0, static_cast<jsize>(output.size()), output.data());
 }
 
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_customizeBorrow(JNIEnv* env, jobject, jstring category, jfloatArray in, jfloatArray from,
+                                                         jfloatArray out) {
+    const jsize count = static_cast<jsize>(geode_viz_param_count());
+    if (!in || !from || !out || env->GetArrayLength(in) < count || env->GetArrayLength(from) < count || env->GetArrayLength(out) < count) {
+        return;
+    }
+    Utf8Chars categoryName(env, category);
+    std::vector<float> input(static_cast<size_t>(count));
+    std::vector<float> source(input.size());
+    std::vector<float> output(input.size());
+    env->GetFloatArrayRegion(in, 0, count, input.data());
+    env->GetFloatArrayRegion(from, 0, count, source.data());
+    geode_customize_borrow(categoryName.get(), input.data(), source.data(), output.data());
+    env->SetFloatArrayRegion(out, 0, count, output.data());
+}
+
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_configSchemaText(JNIEnv* env, jobject) {
     return env->NewStringUTF(geode_config_schema_text());
@@ -747,7 +771,7 @@ Java_dev_geode_engine_bridge_GeodeNative_castFormat(JNIEnv* env, jobject, jintAr
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_exportPassError(JNIEnv* env, jobject, jlong handle) {
-    return env->NewStringUTF(geode_export_pass_error(passOf(handle)));
+    return geode::jni::utf8String(env, geode_export_pass_error(passOf(handle)));
 }
 
 JNIEXPORT void JNICALL
@@ -1021,7 +1045,7 @@ Java_dev_geode_engine_bridge_GeodeNative_hlsPlaylist(JNIEnv* env, jobject, jlong
                                   suffix.get(), out, cap);
     };
     std::vector<char> text(static_cast<size_t>(write(nullptr, 0)) + 1);
-    return write(text.data(), static_cast<int>(text.size())) > 0 ? env->NewStringUTF(text.data()) : nullptr;
+    return write(text.data(), static_cast<int>(text.size())) > 0 ? geode::jni::utf8String(env, text.data()) : nullptr;
 }
 
 }

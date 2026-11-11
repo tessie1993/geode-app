@@ -7,11 +7,9 @@ category|CAMERA|ALWAYS
 category|MUSIC|ALWAYS
 category|EFFECTS|ALWAYS
 category|LIQUID|ALWAYS
-category|BEHAVIOUR|ALWAYS
 category|EXPERT|ALWAYS
 section|QUICK_KNOBS|basics|BASICS|ALWAYS|@macros
 section|QUICK_KNOBS|sets|PRO|ALWAYS|@macro_sets
-section|QUICK_KNOBS|randomize|PRO|ALWAYS|@randomize_reset
 section|LOOK|basics|BASICS|ALWAYS|Palette,Brightness,Saturation,Bloom
 section|LOOK|colour_detail|PRO|ALWAYS|Palette 2,Palette blend,Colour map,Hue shift,Hue range,Temperature
 section|LOOK|colour_cycle|PRO|ALWAYS|Color cycle,Cycle speed
@@ -30,24 +28,27 @@ section|MOTION|inner_motion|PRO|ALWAYS|Motion amount,Breath,Spin drift
 section|CAMERA|basics|BASICS|ALWAYS|Camera path,Fly speed
 section|CAMERA|framing|PRO|THREE_D|Field of view,Swing,Push in,Look turn,Look tilt,Roll
 section|CAMERA|feel|PRO|THREE_D|Handheld shake,Tilt phone to look,Drag to look,Camera smoothing
-section|MUSIC|basics|BASICS|ALWAYS|Audio drive,Reaction strength,@auto_moments
+section|MUSIC|basics|BASICS|ALWAYS|Audio drive,Reaction strength,Reaction DNA,@auto_moments
 section|MUSIC|moments|PRO|ALWAYS|@moments
 section|MUSIC|listening|PRO|ALWAYS|Bass gain,Mid gain,Treble gain,@rise_fall
 section|MUSIC|notes_key|PRO|ALWAYS|Key colour,@notes_key
-section|EFFECTS|basics|BASICS|ALWAYS|Trails,Vignette
+section|MUSIC|reactions|PRO|ALWAYS|@reactions
+section|MUSIC|envelopes|PRO|ALWAYS|@envelopes
+section|MUSIC|waves|PRO|ALWAYS|@waves
+section|EFFECTS|basics|BASICS|ALWAYS|Trails,Vignette,@transition_style
 section|EFFECTS|trail_detail|PRO|ALWAYS|Trail length,Trail zoom (echo in/out),Trail warp (liquid echo)
 section|EFFECTS|lens|PRO|ALWAYS|Chromatic aberration,Fisheye
 section|EFFECTS|film|PRO|ALWAYS|Film grain,Scanlines,Posterize,Duotone,Solarize,Invert
+section|EFFECTS|transition_detail|PRO|ALWAYS|@transition_length,Glide time
 section|LIQUID|basics|BASICS|ALWAYS|Flow field on,Flow strength
 section|LIQUID|push_swirl|PRO|ALWAYS|Flow force,Flow curl
 section|LIQUID|surface|PRO|ALWAYS|Born inside,Colour age,Surface
 section|LIQUID|ripples|PRO|ALWAYS|Water ripples on,Ripple overlay strength,Ripple glint,Wave speed,Damping
 section|LIQUID|water|PRO|WATER|Ripple strength,Depth,Specular,Flow drift,Liquid,Liquid flow,Liquid fade
-section|BEHAVIOUR|basics|BASICS|ALWAYS|Reaction DNA,@transition_style
-section|BEHAVIOUR|transition_detail|PRO|ALWAYS|@transition_length,Glide time
-section|BEHAVIOUR|reactions|PRO|ALWAYS|@reactions
-section|BEHAVIOUR|envelopes|PRO|ALWAYS|@envelopes
-section|BEHAVIOUR|waves|PRO|ALWAYS|@waves
-section|EXPERT|engine|PRO|ENGINE|Solver iterations,Fluid curl,Motion fade,Fluid fade,Chromatic aging,Pressure,Shading (embossed ink),Glow (fluid),Fluid glow,Glow threshold,Sunrays,Sunrays weight,Curl from mids,Glow from loudness,Fade when quiet,Palette cycle,Particle brightness,Particle layer,Ink layer,Geometry,Fundamental (Hz),Standing waves,Tonal focus,Plate ring,Field scale,Wave flow,Field swirl,Fill,Nodal lines,Nodal glow,Iridescence,Caustic sheen,Blend preset changes,MilkDrop palette tint
+section|EXPERT|fluid_flow|PRO|ENGINE|Solver iterations,Fluid curl,Motion fade,Fluid fade,Chromatic aging,Pressure,Curl from mids,Fade when quiet
+section|EXPERT|fluid_look|PRO|ENGINE|Shading (embossed ink),Glow (fluid),Fluid glow,Glow threshold,Glow from loudness,Sunrays,Sunrays weight,Palette cycle,Particle brightness,Particle layer,Ink layer
+section|EXPERT|plate|PRO|ENGINE|Geometry,Fundamental (Hz),Standing waves,Tonal focus,Plate ring,Field scale,Wave flow,Field swirl
+section|EXPERT|plate_look|PRO|ENGINE|Fill,Nodal lines,Nodal glow,Iridescence,Caustic sheen
+section|EXPERT|milkdrop|PRO|ENGINE|Blend preset changes,MilkDrop palette tint
 section|EXPERT|layers|PRO|ALWAYS|@layers
 section|EXPERT|shader_code|PRO|SHADER_CODE|@shader_code

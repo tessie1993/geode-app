@@ -26,7 +26,7 @@ class GeodeApp : Application() {
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             runCatching {
                 File(filesDir, "crash-latest.txt").writeText(
-                    "MuzViz ${BuildConfig.VERSION_NAME}\n" +
+                    "BeatRealms ${BuildConfig.VERSION_NAME}\n" +
                         "Thread: ${thread.name}\n\n" +
                         android.util.Log.getStackTraceString(throwable) +
                         "\n\n-- recent non-fatal failures --\n" +
@@ -46,6 +46,10 @@ class GeodeApp : Application() {
         // The auto-director's switch is process-wide too, and so is Note & key reactions'.
         AutoDirectorStore.get(this)
         NoteResponseStore.get(this)
+        // Builds the container now: its init starts the IO load of the prefs the playback session
+        // reads while it is constructed on main. A process the playback service starts alone never
+        // touched the lazy container, so its session parsed those files on the main thread.
+        container
     }
 
     /**

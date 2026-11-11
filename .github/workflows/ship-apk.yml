@@ -1,4 +1,4 @@
-name: Ship Geode APK
+name: Ship BeatRealms 3D APK
 
 # Builds the debug-signed APK and publishes it as a GitHub Release, so it can be
 # downloaded and sideloaded without a GitHub login and without the 30-day expiry
@@ -12,7 +12,7 @@ name: Ship Geode APK
 # Releases are marked pre-release: this is Android's debug signing key, not the
 # Play upload key. The Play Store build is release.yml.
 #
-# Pre-release N (the Nth GitHub release) is "Geode <base>.N", tag apk-v<base>.N,
+# Pre-release N (the Nth GitHub release) is "BeatRealms 3D <base>.N", tag apk-v<base>.N,
 # versionName <base>.N; see the "Reserve release number" step.
 
 on:
@@ -88,7 +88,7 @@ jobs:
           submodules: recursive
 
       - name: Set up Java 21
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: "21"
@@ -162,7 +162,7 @@ jobs:
           # run, so tag the commit actually built.
           BUILT_SHA=$(git rev-parse HEAD)
           SHORT_SHA=${BUILT_SHA::7}
-          FILE_NAME="Geode-${VERSION_NAME}-debug.apk"
+          FILE_NAME="BeatRealms3D-${VERSION_NAME}-debug.apk"
 
           mkdir -p dist
           cp "$APK_SOURCE" "dist/$FILE_NAME"
@@ -194,7 +194,7 @@ jobs:
         run: |
           set -euo pipefail
           NOTES=$(cat <<EOF
-          Debug-signed Geode APK built by GitHub Actions.
+          Debug-signed BeatRealms 3D APK built by GitHub Actions.
 
           | | |
           | --- | --- |
@@ -233,7 +233,7 @@ jobs:
               "dist/$FILE_NAME" "dist/$FILE_NAME.sha256" \
               --draft \
               --target "$BUILT_SHA" \
-              --title "Geode $VERSION_NAME" \
+              --title "BeatRealms 3D $VERSION_NAME" \
               --notes "$NOTES" \
               "${PRERELEASE_FLAG[@]}"
           fi

@@ -4,6 +4,7 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <filesystem>
 
 #include "util/Log.hpp"
 #include "viz/CompositeGrade.hpp"
@@ -59,11 +60,16 @@ std::optional<std::string> MilkdropScene::takeError() {
     return out;
 }
 
-void MilkdropScene::acceptPcm(const float* samples, int count) {
+// pcm_ holds stereo frames, L R interleaved: MilkDrop presets plot one channel against the other.
+void MilkdropScene::acceptPcmStereo(const float* mono, const float* side, int count) {
     const int n = std::min(count, kPcmCapacity);
     if (n <= 0) return;
     if (pcmCount_ + n > kPcmCapacity) pcmCount_ = 0;
-    std::copy(samples + (count - n), samples + count, pcm_.begin() + pcmCount_);
+    float* out = pcm_.data() + static_cast<size_t>(pcmCount_) * 2;
+    for (int i = count - n; i < count; ++i) {
+        *out++ = mono[i] + side[i];
+        *out++ = mono[i] - side[i];
+    }
     pcmCount_ += n;
 }
 
@@ -82,6 +88,8 @@ void MilkdropScene::reloadMilkPreset() {
     if (lastPresetPath_.empty()) return;
     pendingPresetPath_ = lastPresetPath_;
     lastLoadSeconds_ = 0.0;
+    // A reload follows a texture the user added or relinked: the engine must look at the folders again.
+    rescanTextures_ = true;
 }
 
 void MilkdropScene::setMilkTextureDir(const std::string& dir) {
@@ -141,7 +149,10 @@ void MilkdropScene::ensureEngine(double now) {
         }
         reportedCreateFailure_ = false;
         engineHasPreset_ = false;
-        projectm_set_fps(engine_.get(), 60);
+        engineFps_ = 0;
+        engineClockS_ = 0.0;
+        textureDirs_.clear();
+        pcmStarve_ = PcmStarve{};
         projectm_set_mesh_size(engine_.get(), 48, 32);
         projectm_set_soft_cut_duration(engine_.get(), 3.0);
         projectm_set_preset_duration(engine_.get(), 999999.0);
@@ -175,12 +186,30 @@ void MilkdropScene::update(const GeodeSoundFrame& features, float dt) {
     if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
     beatPulse_ = std::max(std::max(live::hit(features), beatPulse_ - dt * 3.0f), 0.0f);
     if (!engine_) return;
-    // A frame with no new PCM feeds the engine nothing (PcmHandoff's contract).
+    const bool offscreen = host_.offscreen && host_.offscreen();
+    // Presets read the real rate: the paced one live (30 on the wallpaper, less on a hot phone), an
+    // export's own from its fixed step.
+    const float paced = host_.pacedFps ? host_.pacedFps() : 0.0f;
+    const int fps = offscreen && dt > 0.0f ? static_cast<int>(std::lround(1.0f / dt)) : paced > 0.0f ? static_cast<int>(std::lround(paced)) : 60;
+    if (fps != engineFps_ && fps > 0) {
+        engineFps_ = fps;
+        projectm_set_fps(engine_.get(), fps);
+    }
+    if (offscreen) {
+        projectm_set_frame_time(engine_.get(), engineClockS_);
+        engineClockS_ += static_cast<double>(dt);
+    }
+    // A frame with no new PCM feeds the engine nothing (PcmHandoff's contract), until the gap is long
+    // enough to be silence: then one block of zeros flattens the waveform projectM would otherwise hold.
+    if (pcmStarve_.tick(pcmCount_ > 0, dt)) {
+        std::fill(pcm_.begin(), pcm_.begin() + kEnginePcmSamples * 2, 0.0f);
+        projectm_pcm_add_float(engine_.get(), pcm_.data(), static_cast<unsigned int>(kEnginePcmSamples), PROJECTM_STEREO);
+    }
     if (pcmCount_ > 0) {
         const int n = std::min(pcmCount_, kEnginePcmSamples);
-        if (n < pcmCount_) std::copy(pcm_.begin() + (pcmCount_ - n), pcm_.begin() + pcmCount_, pcm_.begin());
+        if (n < pcmCount_) std::copy(pcm_.begin() + (pcmCount_ - n) * 2, pcm_.begin() + pcmCount_ * 2, pcm_.begin());
         pcmCount_ = 0;
-        projectm_pcm_add_float(engine_.get(), pcm_.data(), static_cast<unsigned int>(n), PROJECTM_MONO);
+        projectm_pcm_add_float(engine_.get(), pcm_.data(), static_cast<unsigned int>(n), PROJECTM_STEREO);
     }
 }
 
@@ -195,15 +224,28 @@ void MilkdropScene::loadPendingPreset(double now) {
         if (pendingPresetPath_.empty() || (debounce && now - lastLoadSeconds_ < kLoadDebounceSeconds)) return;
         path.swap(pendingPresetPath_);
         shared = sharedTextureDir_;
+        if (rescanTextures_) textureDirs_.clear();
+        rescanTextures_ = false;
     }
     lastLoadSeconds_ = now;
     const std::string dir = parentDir(path);
-    // The per-preset link directory goes first: search order is the only precedence projectM has.
-    std::vector<std::string> dirs = {dir + "/textures/.links/" + stemOf(path), dir, dir + "/textures"};
+    // The per-preset link directory goes first: search order is the only precedence projectM has. Only
+    // a preset with linked textures has one, and setting the paths makes projectM rebuild its texture
+    // manager (noise textures regenerated, every cached image dropped), so a preset without links keeps
+    // the paths, and the cache, of the one before it.
+    std::vector<std::string> dirs;
+    const std::string links = dir + "/textures/.links/" + stemOf(path);
+    std::error_code ignored;
+    if (std::filesystem::is_directory(links, ignored)) dirs.push_back(links);
+    dirs.push_back(dir);
+    dirs.push_back(dir + "/textures");
     if (!shared.empty()) dirs.push_back(shared);
-    std::vector<const char*> paths;
-    for (const auto& d : dirs) paths.push_back(d.c_str());
-    projectm_set_texture_search_paths(engine_.get(), paths.data(), paths.size());
+    if (dirs != textureDirs_) {
+        std::vector<const char*> paths;
+        for (const auto& d : dirs) paths.push_back(d.c_str());
+        projectm_set_texture_search_paths(engine_.get(), paths.data(), paths.size());
+        textureDirs_ = dirs;
+    }
     {
         std::lock_guard<std::mutex> lock(errorLock_);
         lastError_.clear();

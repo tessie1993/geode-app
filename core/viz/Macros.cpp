@@ -111,16 +111,31 @@ MacroKnobs global() {
     return k;
 }
 
+// Base plus modulation, MilkDrop's rule: the slider's value is the base and a knob adds to it. The
+// knob used to pull the field toward an end of its range by |x|, so at a full turn the slider was
+// ignored, and the auto-director turns these knobs on its own: Speed, Zoom, Brightness, Fly speed
+// and the rest stopped answering their sliders while Auto played.
+//
+// The offset is what takes the style's default to the end at a full turn, so an untouched look
+// moves exactly as before; a slider the user moved carries its whole offset through. A knob never
+// carries a field past the end it turns toward, and never drags back a value already beyond it.
 SceneParams apply(const SceneParams& p, const MacroKnobs& k) {
+    static const SceneParams kDefaults{};
     SceneParams out = p;
     for (const Drive& d : kDrives) {
         const float x = knob(k, d.macro);
         if (x == 0.0f) continue;
         const float up = d.inverted ? d.lo : d.hi;
         const float down = d.inverted ? d.hi : d.lo;
+        const float end = x > 0.0f ? up : down;
+        const float delta = std::fabs(x) * (end - std::clamp(kDefaults.*d.field, d.lo, d.hi));
         float& v = out.*d.field;
-        const float base = std::clamp(v, d.lo, d.hi);
-        v = std::clamp(base + std::fabs(x) * ((x > 0.0f ? up : down) - base), d.lo, d.hi);
+        if (!std::isfinite(v)) continue;
+        if (delta > 0.0f) {
+            v = std::min(v + delta, std::max(end, v));
+        } else if (delta < 0.0f) {
+            v = std::max(v + delta, std::min(end, v));
+        }
     }
     return out;
 }

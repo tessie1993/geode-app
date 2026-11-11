@@ -30,7 +30,7 @@ constexpr size_t kHeaderBytes = 16;
 constexpr size_t kKeyBytes = 16;
 constexpr size_t kNamespaceBytes = 8;
 constexpr uintmax_t kMaxTotalBytes = 24ull * 1024ull * 1024ull;
-constexpr size_t kMaxEntries = 256;
+constexpr size_t kMaxEntries = 512;
 constexpr GLint kMaxEntryBytes = 4 * 1024 * 1024;
 constexpr size_t kWriteQueueLimit = 32;
 constexpr int kSweepAfterWrites = 32;
@@ -307,21 +307,28 @@ void ProgramBinaryCache::sweep() {
     auto probation = filesIn(probation_);
     auto proven = filesIn(proven_);
     std::error_code ec;
+    // file_size answers uintmax_t(-1) on an error; counted as is, one unreadable entry could make the
+    // total look over the cap and the loop below delete every program.
+    auto sizeOf = [&ec](const fs::directory_entry& f) {
+        const uintmax_t size = f.file_size(ec);
+        return ec ? uintmax_t{0} : size;
+    };
     uintmax_t bytes = 0;
-    for (const auto& f : probation) bytes += f.file_size(ec);
-    for (const auto& f : proven) bytes += f.file_size(ec);
+    for (const auto& f : probation) bytes += sizeOf(f);
+    for (const auto& f : proven) bytes += sizeOf(f);
     size_t count = probation.size() + proven.size();
     if (bytes <= kMaxTotalBytes && count <= kMaxEntries) return;
     auto byAge = [&](const fs::directory_entry& a, const fs::directory_entry& b) { return a.last_write_time(ec) < b.last_write_time(ec); };
-    std::sort(probation.begin(), probation.end(), byAge);
-    std::sort(proven.begin(), proven.end(), byAge);
+    // Oldest first across both folders. Emptying probation first would delete each new program as
+    // soon as the kept folder alone filled the cache, so styles met late would never be cached.
     std::vector<fs::directory_entry> order = probation;
     order.insert(order.end(), proven.begin(), proven.end());
+    std::sort(order.begin(), order.end(), byAge);
     for (const auto& file : order) {
         if (bytes <= kMaxTotalBytes && count <= kMaxEntries) return;
-        const uintmax_t size = file.file_size(ec);
+        const uintmax_t size = sizeOf(file);
         if (fs::remove(file.path(), ec)) {
-            bytes -= size;
+            bytes -= std::min(bytes, size);
             count--;
         }
     }

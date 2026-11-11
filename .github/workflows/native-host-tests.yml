@@ -51,6 +51,9 @@ jobs:
           # Liquid mode's pure maths: thermal modes, inject weight, the random dive, gestures, born clock, drop flare.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/liquid_test.cpp core/viz/liquid/LiquidMath.cpp -o liquid_test
           ./liquid_test
+          # The feedback pass's motion, MilkDrop's per-frame UV transform made per second: each term, 30/60/120 fps, sound, silence, the fold.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/feedback_motion_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o feedback_motion_test
+          ./feedback_motion_test
           # The scene params resolver (#344): the chain's order, reduced motion once, pinned settings, an export's pin (#350), determinism, safety last.
           g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/resolver_test.cpp core/signal/Resolver.cpp core/signal/EngineSettings.cpp core/sound/*.cpp \
             core/viz/Director.cpp core/viz/NoteResponse.cpp core/viz/Lfo.cpp core/viz/Adsr.cpp core/viz/Reactions.cpp core/viz/Macros.cpp \
@@ -81,14 +84,24 @@ jobs:
           # Note & key reactions: knobs by meaning, the drum weight, hues per note, the tint, off = today.
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/note_response_test.cpp core/viz/NoteResponse.cpp -o note_response_test
           ./note_response_test
-          # core/signal: the param state machine and store, the events, the bus and event routes (flash limit).
-          # Built from core/signal alone: no GL, no core/viz.
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/signal_test.cpp core/signal/params/*.cpp \
-            core/signal/events/*.cpp core/signal/bindings/*.cpp -o signal_test
-          ./signal_test
           # The raw-PCM hand-off: each pushed block reaches the scenes once, so a paused pulse decays.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/pcm_handoff_test.cpp -o pcm_handoff_test
           ./pcm_handoff_test
+          # The PCM ingest ring: random chunk sizes and a mid-stream rate change, every sample once, in order, with its rate; the C ABI.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/pcm_ring_test.cpp core/audio/ingest/PcmRing.cpp \
+            core/api/geode_ingest_api.cpp -o pcm_ring_test
+          ./pcm_ring_test
+          # The mic layered over the player's ring: the primary's samples stay the clock, the mic resampled to its rate with
+          # no frame lost, a silent mic changes nothing, alone after a pause and mixed again on resume, mic on and off mid-stream.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/layer_mix_test.cpp \
+            core/audio/ingest/LayerMix.cpp core/audio/ingest/PcmRing.cpp core/api/geode_ingest_api.cpp -o layer_mix_test
+          ./layer_mix_test
+          # The playback output's FIFO (Oboe's feed): odd chunk sizes lose and repeat nothing, an underrun is silence and
+          # counted once, the position is monotonic, frozen in pause, reset by a flush and exact at 44.1/48/96 kHz, the
+          # volume ramps without a step, a flush under a running consumer plays no torn frame, two threads keep a pattern.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/output_fifo_test.cpp core/audio/output/OutputFifo.cpp \
+            -o output_fifo_test
+          ./output_fifo_test
           # The process-wide Customize layer every renderer draws (#364): set, clamp, generation, follow, export pin.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/layer_state_test.cpp core/viz/LayerState.cpp -o layer_state_test
           ./layer_state_test
@@ -202,3 +215,95 @@ jobs:
           # The renderer's reaction resolve (#750): DNA, or the user's routes under the hand mask, as the old Kotlin path; resolved exactly on a change of scene, seed, routes or mask.
           g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/reaction_resolve_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Lfo.cpp core/viz/Macros.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o reaction_resolve_test
           ./reaction_resolve_test
+
+      # Moved from android.yml, which runs by hand: there a stale fixture and a failing crossfade test
+      # went unseen for days. Each fixture below is what the JVM tests read as "what native emits".
+      # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes, ranges, and
+      # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.
+      - name: Catalogue host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/catalogue_test.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o catalogue_test
+          ./catalogue_test core/tests/catalogue.txt
+          # Shader truth: each shader style's camera rig and march facts against what its assembled shader reads.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl core/tests/style_reads_test.cpp core/viz/ShaderSource.cpp core/viz/Catalogue.cpp \
+            core/viz/scenes/StyleCatalog.cpp -o style_reads_test
+          ./style_reads_test app/src/main/assets/
+          # The bundled looks (#648): every value pinned to the Kotlin literals it replaced, the text read back bit for bit.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/presets_test.cpp core/viz/CataloguePresets.cpp core/viz/Catalogue.cpp \
+            core/viz/scenes/StyleCatalog.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp -o presets_test
+          ./presets_test
+      # The modulation-target table (core/viz/ModTargets, #642): each target's scope and chained slot, the
+      # slot defaults, each source's natural polarity, and its text byte-equal to core/tests/mod_targets.txt.
+      - name: Modulation target host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/mod_targets_test.cpp core/viz/ModTargets.cpp \
+            core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp \
+            core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o mod_targets_test
+          ./mod_targets_test core/tests/mod_targets.txt
+      # The macro bank (core/viz/MacroBank): the user's knobs as weighted offsets on scene params. Centre is
+      # the identity, both ways move, the range and the safety clamp hold, edits validate, the text round trips.
+      - name: Macro bank host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/macro_bank_test.cpp core/viz/MacroBank.cpp \
+            core/api/geode_macro_bank_api.cpp core/viz/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
+            core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+            core/viz/VisualSafety.cpp -o macro_bank_test
+          ./macro_bank_test
+      # The export DSP (resampler, BS.1770 loudness meter), ported from Kotlin (ADR 0003), the playback DSP's hand-off and its gain.
+      - name: Native export DSP tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/resampler_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/audio/dsp/PcmConvert.cpp core/api/geode_export_dsp_api.cpp -o resampler_test
+          ./resampler_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/loudness_test.cpp core/audio/dsp/PcmResampler.cpp core/audio/dsp/Loudness.cpp core/audio/dsp/PcmConvert.cpp core/api/geode_export_dsp_api.cpp -o loudness_test
+          ./loudness_test
+          # The playback DSP's format hand-off (#356): the old format's tail drains through its own chain
+          # until flush, and no block is ever processed past its buffer.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/dsp_handoff_test.cpp core/api/geode_dsp_api.cpp \
+            core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o dsp_handoff_test
+          ./dsp_handoff_test
+          # Bit-perfect USB (#353, #489): with bit-perfect live the playback DSP passes every byte through,
+          # whatever gain, EQ, crossfeed or limiter is set; plus the native 16-bit conversion.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/bit_perfect_test.cpp core/api/geode_dsp_api.cpp \
+            core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o bit_perfect_test
+          ./bit_perfect_test
+          # The playback gain as native ramps (#483): linear in dB and sample-accurate, ReplayGain on the
+          # boundary sample (#351), the crossfade's halves mirrored, the sleep fade, bit-identical at 0 dB.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/gain_ramp_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o gain_ramp_test
+          ./gain_ramp_test
+
+      # Export planning and clip maths ported from Kotlin (ADR 0003, ADR 0006 core/output and
+      # core/signal/timeline): frame clock, loops, encoder budget, chapters, keyframes, speed ramps,
+      # clip grade, .cube LUTs, PCM conversion and timing, each through its C ABI too.
+      - name: Native export planning tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          EXPORT_SRCS="core/api/geode_export_api.cpp core/output/FrameClock.cpp core/output/LoopPlan.cpp core/output/EncodePlan.cpp core/output/Chapters.cpp core/signal/timeline/Keyframes.cpp core/signal/timeline/SpeedRamp.cpp core/viz/ClipGrade.cpp core/util/CubeLut.cpp core/audio/dsp/PcmConvert.cpp core/audio/dsp/PcmTiming.cpp"
+          for t in output_test timeline_test clip_media_test; do
+            g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/$t.cpp $EXPORT_SRCS -o $t
+            ./$t
+          done
+
+      # The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/Params).
+      - name: Params host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/params_test.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o params_test
+          ./params_test
+
+      # The Customize panel's nine categories, their sections and per-category roll and reset (core/viz/CustomizeMap).
+      - name: Customize map host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/customize_test.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o customize_test
+          ./customize_test core/tests/customize.txt
+
+      # The sound engine at 30 and 120 fps must equal 60 at every shared sample.
+      - name: Sound across frame rates
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_rate_test.cpp core/sound/*.cpp -o sound_rate_test
+          ./sound_rate_test

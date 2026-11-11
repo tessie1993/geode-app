@@ -49,14 +49,16 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.geode.data.BuiltInPresets
 import dev.geode.data.Preset
 import dev.geode.model.PresetFiltering
+import dev.geode.model.VizPlaylistEntry
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.VisualStyleCatalog
 import dev.geode.ui.theme.GeodeSpacing
 
 /**
- * The long-press sheet of a preset card. It and the dialogs below hold no state beyond what is
+ * The long-press sheet of a preset row. It and the dialogs below hold no state beyond what is
  * typed, so `PresetsTab` stays the one place that decides what an action does.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -379,7 +381,7 @@ internal fun sharePreset(
         if (link != null) {
             android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                 type = "text/plain"
-                putExtra(android.content.Intent.EXTRA_SUBJECT, "MuzViz preset: $name")
+                putExtra(android.content.Intent.EXTRA_SUBJECT, "BeatRealms preset: $name")
                 putExtra(android.content.Intent.EXTRA_TEXT, link)
             }
         } else {

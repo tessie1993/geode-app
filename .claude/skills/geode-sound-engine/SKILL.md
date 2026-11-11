@@ -7,7 +7,7 @@ description: Use when changing how Geode hears music - the playback audio chain,
 
 Geode's visuals are only as good as what they hear. Two separate paths carry sound and they must not be confused:
 
-1. **Playback chain** (Kotlin, Media3): ExoPlayer runs `MvzAudioProcessorChain` on its playback thread. `PcmTap` is first, before any DSP, so DSP never moves the visuals. Read `docs/AUDIO_CHAIN.md` in full before touching it. Two rules never bend: the tap stays first, and the chain never gets float output.
+1. **Playback chain** (Kotlin, Media3): ExoPlayer runs `MvzAudioProcessorChain` on its playback thread. `PcmTap` is first, before any DSP, so DSP never moves the visuals. Read `docs/AUDIO_CHAIN.md` in full before touching it. Two rules never bend: the tap stays first, and the chain never gets float output. What the sink then plays the PCM through is below the chain and changes neither: an AudioTrack, or the native Oboe output (`core/audio/output`, `audio/OboeAudioOutput`) when Settings › Playback has it on.
 2. **Sound engine** (C++, `core/sound`): every renderer owns one. On each GL frame it is fed the ring's new PCM (`AudioBus.soundInput`); every 10 ms of written samples it runs one analysis hop (FFT, filter bank, drums, melody, Rhythm, Harmony, Form, Emotion), and `step(dt)` only reads the newest hop's `GeodeSoundFrame` (triggers held since the last step, beat phases moved to the frame's sample) (`core/sound/SoundFrame.h`). Styles read it through `lib_sound`.
 
 ## Where things are
@@ -26,7 +26,7 @@ Geode's visuals are only as good as what they hear. Two separate paths carry sou
 ## Rules
 
 - Engine logic lives in C++ (ADR 0003). Kotlin only feeds samples and reads results.
-- Export must equal live: `OffscreenSceneRenderer` steps its own engine at 1/fps from `TrackAudio`. Analysis runs per hop with the hop's dt, never the frame's; `core/tests/sound_golden_test.cpp` fails if 30 or 120 fps differ from 60 at a shared sample.
+- Export must equal live: `OffscreenSceneRenderer` steps its own engine at 1/fps from `TrackAudio`. Analysis runs per hop with the hop's dt, never the frame's; `core/tests/sound_rate_test.cpp` fails if 30 or 120 fps differ from 60 at a shared sample.
 - Never edit `ScaleTable.inc` or `EmotionTable.inc` by hand: change the CSV or the generator and regenerate.
 - A new `GeodeSoundFrame` value is also a new `ReactSource`. Update the reaction DNA (`core/viz/ReactionDna`) and the wire layouts the JVM tests check (`engine/scenes/src/test/`).
 

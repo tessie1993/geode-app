@@ -2,11 +2,13 @@
 
 package dev.geode.ui
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,6 +29,8 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
+import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.StoneHapticCue
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
@@ -69,9 +74,8 @@ import kotlinx.coroutines.delay
  *
  * WHY it fades on every screen (docs/ui-redesign): the owner wants the screen to belong to what is
  * on it, and the player back within one touch. It wakes on [wake] (a tap at the bottom of the
- * visual, the handle pill, a new track, a new screen) and falls asleep [fadeMs] later; [pin]
- * holds it awake for [PIN_MS] (a tap on the player itself), [hide] puts it to sleep at once (a
- * swipe down on it). A [fadeMs] of zero means it never fades. While [held] (a PiP window, which
+ * visual, the handle pill, a new track, a new screen) and falls asleep [fadeMs] later; [hide]
+ * puts it to sleep at once (a swipe down on it). A [fadeMs] of zero means it never fades. While [held] (a PiP window, which
  * shows the visual alone) nothing wakes it.
  */
 @Stable
@@ -83,11 +87,8 @@ internal class ShellChromeState {
 
     val awake: Boolean get() = shown && !held
 
-    /** Bumped on every wake or pin, so the sleep timer starts over. */
+    /** Bumped on every wake, so the sleep timer starts over. */
     internal var stamp by mutableLongStateOf(0L)
-        private set
-
-    internal var pinned by mutableStateOf(false)
         private set
 
     /**
@@ -97,15 +98,20 @@ internal class ShellChromeState {
      */
     var docked by mutableStateOf(false)
 
+    /**
+     * Set by Visuals while a drop-in (the Macros drawer) fades its options out. With the mini
+     * player docked the tab bar stands on the options' glass, so it fades out with them.
+     */
+    var optionsHidden by mutableStateOf(false)
+
+    /**
+     * The tab bar's drawn height. Visuals runs its options' glass down behind the bar by this much
+     * while the mini player is docked, so sheet, player and tabs are one slab.
+     */
+    var tabBarHeightPx by mutableIntStateOf(0)
+
     fun wake() {
         shown = true
-        pinned = false
-        stamp++
-    }
-
-    fun pin() {
-        shown = true
-        pinned = true
         stamp++
     }
 
@@ -116,17 +122,10 @@ internal class ShellChromeState {
 
     fun hide() {
         shown = false
-        pinned = false
     }
 
     internal fun sleep() {
         shown = false
-        pinned = false
-    }
-
-    companion object {
-        /** How long a pinned player stays: "for a while", long enough to read and reach it. */
-        const val PIN_MS = 30_000L
     }
 }
 
@@ -153,7 +152,7 @@ internal fun rememberShellChrome(
     }
     LaunchedEffect(state.awake, state.stamp, fadeSeconds) {
         if (!state.awake || fadeSeconds <= 0f) return@LaunchedEffect
-        val base = if (state.pinned) ShellChromeState.PIN_MS else (fadeSeconds * MILLIS_PER_SECOND).toLong()
+        val base = (fadeSeconds * MILLIS_PER_SECOND).toLong()
         val timeout = a11y?.calculateRecommendedTimeoutMillis(base, containsIcons = true, containsControls = true) ?: base
         delay(timeout)
         state.sleep()
@@ -164,8 +163,9 @@ internal fun rememberShellChrome(
 private const val MILLIS_PER_SECOND = 1000f
 
 /**
- * The floating mini player: art, title · artist, play/pause and next over a thin progress line,
- * on matte glass. A tap pins it, a swipe up opens Player, a swipe down hides it (the music plays
+ * The floating mini player: art, title · artist, play/pause and next over a thin progress line.
+ * It draws no glass of its own: on a phone the dock's one slab is around it and the tab bar
+ * ([DockSlab]); beside the rail the caller's modifier makes it a card. A tap opens Library, a swipe up opens Player, a swipe down hides it (the music plays
  * on). The buttons are the only way to skip, so a sideways brush never changes the song.
  *
  * A swipe must travel [SWIPE_DP] (48 dp, a full touch target): at 24 dp the brush of a tap aimed
@@ -185,8 +185,7 @@ internal fun FloatingMiniPlayer(
     artworkUri: String?,
     isPlaying: Boolean,
     progress: () -> Float,
-    opacity: Float,
-    onPin: () -> Unit,
+    onOpenLibrary: () -> Unit,
     onOpenPlayer: () -> Unit,
     onHide: () -> Unit,
     onPlayPause: () -> Unit,
@@ -201,8 +200,7 @@ internal fun FloatingMiniPlayer(
     Box(
         modifier
             .fillMaxWidth()
-            .floatingGlass(fillAlpha = opacity)
-            .miniPlayerGestures(onPin, onOpenPlayer, onHide, progress, inset = GeodeRadius.Floating),
+            .miniPlayerGestures(onOpenLibrary, onOpenPlayer, onHide, progress, inset = GeodeRadius.Floating),
     ) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(start = GeodeSpacing.S, end = GeodeSpacing.XS),
@@ -250,7 +248,7 @@ internal fun DockedMiniPlayer(
     title: String?,
     isPlaying: Boolean,
     progress: () -> Float,
-    onPin: () -> Unit,
+    onOpenLibrary: () -> Unit,
     onOpenPlayer: () -> Unit,
     onHide: () -> Unit,
     onPrevious: () -> Unit,
@@ -267,8 +265,8 @@ internal fun DockedMiniPlayer(
         modifier
             .fillMaxWidth()
             .height(DOCKED_PLAYER_HEIGHT)
-            .miniPlayerGestures(onPin, onOpenPlayer, onHide, progress, inset = GeodeSpacing.L)
-            .padding(start = GeodeSpacing.L, end = GeodeSpacing.XS),
+            .miniPlayerGestures(onOpenLibrary, onOpenPlayer, onHide, progress, inset = GeodeSpacing.L)
+            .padding(start = GeodeSpacing.L, end = GeodeSpacing.S),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -312,12 +310,12 @@ internal val DOCKED_PLAYER_HEIGHT = 52.dp
 
 /**
  * The mini player's touch and its progress line, shared by the floating card and the docked bar:
- * a tap pins, a swipe of [SWIPE_DP] up opens Player and down hides it, TalkBack gets both as
+ * a tap opens Library, a swipe of [SWIPE_DP] up opens Player and down hides it, TalkBack gets both as
  * actions, and the line runs along the top edge [inset] in from each side.
  */
 @Composable
 private fun Modifier.miniPlayerGestures(
-    onPin: () -> Unit,
+    onOpenLibrary: () -> Unit,
     onOpenPlayer: () -> Unit,
     onHide: () -> Unit,
     progress: () -> Float,
@@ -326,7 +324,7 @@ private fun Modifier.miniPlayerGestures(
     val accent = MaterialTheme.colorScheme.primary
     val openLabel = stringResource(R.string.mini_player_open)
     val hideLabel = stringResource(R.string.mini_player_hide)
-    val pinLabel = stringResource(R.string.mini_player_pin)
+    val libraryLabel = stringResource(R.string.mini_player_library)
     val view = LocalView.current
     // A tap is a light tick; a swipe that changes the screen (Player opens, the player hides) confirms.
     val tap = { action: () -> Unit ->
@@ -349,10 +347,10 @@ private fun Modifier.miniPlayerGestures(
                 }
             },
         ) { _, delta -> dy += delta }
-    }.clickable(onClickLabel = pinLabel) {
-        // A tap is the long way to Player: the tip says a swipe up opens it.
+    }.clickable(onClickLabel = libraryLabel) {
+        // A tap goes to Library; the tip says a swipe up opens Player.
         GestureTips.nudge(GestureTip.SWIPE_UP_PLAYER)
-        tap(onPin)
+        tap(onOpenLibrary)
     }.semantics {
         customActions =
             listOf(
@@ -418,8 +416,9 @@ internal data class DockItem(
 )
 
 /**
- * The tab bar as a floating pill of matte glass: the standard M3 NavigationBar (Android's own
- * bottom navigation), with no window insets of its own because the pill sits above them.
+ * The tab bar: the standard M3 NavigationBar (Android's own bottom navigation), with no window
+ * insets of its own because the dock sits above them, and no glass of its own: the dock's slab
+ * ([DockSlab]) or, on Visuals with the mini player docked, the options' glass is behind it.
  *
  * WHY the labels can step aside (#558): five `labelSmall` labels in a pill share less than a
  * fifth of the window each, so at a large font or on a narrow phone they overran and clipped.
@@ -445,13 +444,18 @@ internal fun FloatingTabBar(
     items: List<DockItem>,
     selected: Int,
     onSelect: (Int) -> Unit,
-    opacity: Float,
     modifier: Modifier = Modifier,
 ) {
     val view = LocalView.current
     val compact = compactTabLabels()
-    Box(modifier.fillMaxWidth().floatingGlass(RoundedCornerShape(50), fillAlpha = opacity)) {
-        NavigationBar(containerColor = Color.Transparent, tonalElevation = 0.dp, windowInsets = WindowInsets(0, 0, 0, 0)) {
+    Box(modifier.fillMaxWidth()) {
+        NavigationBar(
+            // The first and last items stand clear of the rounded ends.
+            modifier = Modifier.padding(horizontal = GeodeSpacing.M),
+            containerColor = Color.Transparent,
+            tonalElevation = 0.dp,
+            windowInsets = WindowInsets(0, 0, 0, 0),
+        ) {
             items.forEachIndexed { i, item ->
                 val isSelected = i == selected
                 val showLabel = !compact || isSelected
@@ -481,6 +485,33 @@ internal fun FloatingTabBar(
             }
         }
     }
+}
+
+/**
+ * The dock's one glass: the mini player and the tab bar under it are [content] of a single slab,
+ * so they share one fill and one shadow and nothing shows between them (each used to be its own
+ * glass, and the bar's shadow drew a seam across the player's foot).
+ *
+ * With the player on it ([joined]) the slab is a rounded card; the bar alone is a pill, half its
+ * [barHeight] round. The radius moves between the two on the motion scheme's spring while the
+ * player grows and shrinks, so the corners never jump; a bar not yet measured takes the card's
+ * radius, and the pill's as soon as it is. Without [glass] it only stacks its content: on Visuals
+ * the options' glass runs down behind the bar instead.
+ */
+@Composable
+internal fun DockSlab(
+    joined: Boolean,
+    barHeight: Dp,
+    modifier: Modifier = Modifier,
+    glass: Boolean = true,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val measured = barHeight > 0.dp
+    val target = if (joined || !measured) GeodeRadius.Floating else barHeight / 2
+    val spec = LocalGeodeMotion.current.defaultSpatialSpec<Dp>()
+    val radius by key(measured) { animateDpAsState(target, spec, label = "dockRadius") }
+    val surface = if (glass) Modifier.floatingGlass(RoundedCornerShape(radius.coerceAtLeast(0.dp))) else Modifier
+    Column(modifier.fillMaxWidth().then(surface), content = content)
 }
 
 /**

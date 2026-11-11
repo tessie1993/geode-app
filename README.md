@@ -1,4 +1,4 @@
-# Geode — Android music player, visualizer and video suite
+# BeatRealms 3D (internal name Geode): Android music player, visualizer and video suite
 
 Native Android music player, real-time GPU music visualizer and a small video
 suite. Kotlin and Jetpack Compose on top; a C++20 engine built by CMake and
@@ -65,7 +65,7 @@ Gradle modules, package `dev.geode`:
 
 | Module | What it holds |
 |---|---|
-| `:engine:audio-core` | `GeodeNative`, the JNI binding to `libgeode.so`; the PCM ring (`SampleRing`), the sound engine's feed (`SoundInput`, `SoundCursor`), the sound frame layout and the presentation clock |
+| `:engine:audio-core` | `GeodeNative`, the JNI binding to `libgeode.so`; the handle on the native PCM ring (`SampleRing`, `SoundCursor`; the ring is `core/audio/ingest`), the sound frame layout and the presentation clock |
 | `:engine:audio-android` | The PCM tap, presentation clock driver and other Android-side audio plumbing |
 | `:engine:scenes` | Scene ids and parameters, the GL-thread adapter over the native renderer, offscreen rendering for export (`TrackAudio` feeds it the track), the style catalogue as Kotlin reads it |
 | `:app` | Compose UI, playback service and media session, library and playlist stores, the editor model, the export pipelines, the wallpaper and the widget |

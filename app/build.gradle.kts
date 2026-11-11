@@ -63,8 +63,8 @@ android {
         testInstrumentationRunnerArguments["clearPackageData"] = "true"
 
         // The public half of the Play licence key (Play Console > Monetization setup > Licensing),
-        // used to check purchase signatures on the device. Public, not a secret; empty skips the
-        // check. Supplied as the muzviz.playLicenseKey property or PLAY_LICENSE_KEY env variable.
+        // used to check purchase signatures on the device. Public, not a secret; with it empty
+        // every real purchase is refused (only fake billing passes). Supplied as the muzviz.playLicenseKey property or PLAY_LICENSE_KEY env variable.
         val playLicenseKey =
             (findProperty("muzviz.playLicenseKey") as String?)
                 ?: System.getenv("PLAY_LICENSE_KEY").orEmpty()
@@ -128,7 +128,8 @@ android {
         }
     }
 
-    // Builds libgeode.so and libprojectM-4.so from the root CMakeLists.txt.
+    // Builds libgeode.so and libprojectM-4.so from the root CMakeLists.txt; liboboe.so comes prebuilt
+    // from the Oboe AAR (Prefab), and libgeode.so links it.
     externalNativeBuild {
         cmake {
             path = file("../CMakeLists.txt")
@@ -189,6 +190,8 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        // Oboe ships as a Prefab AAR: the root CMakeLists.txt finds it with find_package(oboe).
+        prefab = true
     }
 }
 
@@ -222,7 +225,8 @@ val checkNativePageAlignment =
             if (bad.isNotEmpty()) {
                 throw GradleException(
                     "16 KB page-size check failed — every packaged .so is built by the root CMakeLists.txt " +
-                        "with GEODE_PAGE_FLAGS:\n" +
+                        "with GEODE_PAGE_FLAGS, except liboboe.so, which the Oboe AAR ships prebuilt " +
+                        "(16 KB aligned from 1.9.3 on):\n" +
                         bad.joinToString("\n"),
                 )
             }
@@ -261,6 +265,8 @@ dependencies {
     implementation(libs.media3.effect)
     implementation(libs.media3.cast)
     implementation(libs.media3.muxer)
+    // The native playback output (core/audio/output): liboboe.so, linked by libgeode.so through Prefab.
+    implementation(libs.oboe)
     implementation(libs.documentfile)
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

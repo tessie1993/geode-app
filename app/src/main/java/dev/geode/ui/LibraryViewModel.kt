@@ -5,7 +5,10 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.geode.data.LibraryRepository
+import dev.geode.data.LibraryState
 import dev.geode.data.MusicPlaylist
+import dev.geode.data.PlaylistImportResult
 import dev.geode.data.SmartPlaylist
 import dev.geode.data.TagWriteOutcome
 import dev.geode.di.PlayerSessionProvider
@@ -93,10 +96,10 @@ internal class LibraryInputs(
         fun of(session: PlayerSession) =
             LibraryInputs(
                 deviceTracks = session.deviceTracks,
-                deviceTracksLoaded = session.deviceTracksLoaded,
+                deviceTracksLoaded = session.musicLibrary.deviceTracksLoaded,
                 library = session.library,
-                overrides = session.trackOverrides,
-                scanning = session.libraryScanning,
+                overrides = session.musicLibrary.trackOverrides,
+                scanning = session.musicLibrary.libraryScanning,
             )
     }
 }
@@ -122,6 +125,9 @@ class LibraryViewModel
         // Lazy so a test of the browse pipeline never builds a session; in the app the provider's
         // one session already exists by the time this runs.
         private val session: PlayerSession by lazy(sessionRef)
+
+        // The library itself: everything below except the three calls that start playback.
+        private val libraryRepository: LibraryRepository by lazy { session.musicLibrary }
 
         // Search and sort survive process death with the rest of the screen's saved state, so
         // coming back to a filtered library does not silently reset it.
@@ -196,34 +202,34 @@ class LibraryViewModel
         }
 
         /** Settings › Library folders' "Hide tracks shorter than", in seconds; 0 lists everything. */
-        val minTrackSeconds: StateFlow<Int> get() = session.minTrackSeconds
+        val minTrackSeconds: StateFlow<Int> get() = libraryRepository.minTrackSeconds
 
-        fun setMinTrackSeconds(seconds: Int) = session.setMinTrackSeconds(seconds)
+        fun setMinTrackSeconds(seconds: Int) = libraryRepository.setMinTrackSeconds(seconds)
 
-        val mediaRoots: StateFlow<Set<String>> get() = session.mediaRoots
+        val mediaRoots: StateFlow<Set<String>> get() = libraryRepository.mediaRoots
 
         // Migration debt. [uiState] is the canonical read surface; these are the raw session flows
         // the other screens still collect directly, and each one should fold into the UiState of
         // the screen that uses it rather than being read straight off the session here.
-        val library: StateFlow<LibraryState> get() = session.library
+        val library: StateFlow<LibraryState> get() = libraryRepository.library
 
-        val deviceTracks: StateFlow<List<DeviceTrack>> get() = session.deviceTracks
+        val deviceTracks: StateFlow<List<DeviceTrack>> get() = libraryRepository.deviceTracks
 
-        val libraryScanning: StateFlow<Boolean> get() = session.libraryScanning
+        val libraryScanning: StateFlow<Boolean> get() = libraryRepository.libraryScanning
 
-        val trackOverrides: StateFlow<Map<String, LibraryTrack>> get() = session.trackOverrides
+        val trackOverrides: StateFlow<Map<String, LibraryTrack>> get() = libraryRepository.trackOverrides
 
-        fun refreshDeviceTracks() = session.refreshDeviceTracks()
+        fun refreshDeviceTracks() = libraryRepository.refreshDeviceTracks()
 
-        fun importTracks(uris: List<Uri>) = session.importTracks(uris)
+        fun importTracks(uris: List<Uri>) = libraryRepository.importTracks(uris)
 
-        fun importFolder(treeUri: Uri) = session.importFolder(treeUri)
+        fun importFolder(treeUri: Uri) = libraryRepository.importFolder(treeUri)
 
-        fun removeMediaRoot(uriStr: String) = session.removeMediaRoot(uriStr)
+        fun removeMediaRoot(uriStr: String) = libraryRepository.removeMediaRoot(uriStr)
 
-        fun rescanMediaRoots() = session.rescanMediaRoots()
+        fun rescanMediaRoots() = libraryRepository.rescanMediaRoots()
 
-        suspend fun trackInfoFor(uriStr: String): LibraryTrack = session.trackInfoFor(uriStr)
+        suspend fun trackInfoFor(uriStr: String): LibraryTrack = libraryRepository.trackInfoFor(uriStr)
 
         fun saveTrackInfo(
             uri: String,
@@ -234,7 +240,7 @@ class LibraryViewModel
             year: Int,
             trackNo: Int,
             comment: String,
-        ) = session.saveTrackInfo(uri, title, artist, album, genre, year, trackNo, comment)
+        ) = libraryRepository.saveTrackInfo(uri, title, artist, album, genre, year, trackNo, comment)
 
         suspend fun writeTrackInfo(
             uri: String,
@@ -245,43 +251,46 @@ class LibraryViewModel
             year: Int,
             trackNo: Int,
             comment: String,
-        ): TagWriteOutcome = session.writeTrackInfo(uri, title, artist, album, genre, year, trackNo, comment)
+        ): TagWriteOutcome = libraryRepository.writeTrackInfo(uri, title, artist, album, genre, year, trackNo, comment)
 
-        fun createMusicPlaylist(name: String) = session.createMusicPlaylist(name)
+        fun createMusicPlaylist(
+            name: String,
+            uris: List<String> = emptyList(),
+        ) = libraryRepository.createMusicPlaylist(name, uris)
 
-        suspend fun importPlaylistFile(uri: Uri): PlaylistImportResult = session.importPlaylistFile(uri)
+        suspend fun importPlaylistFile(uri: Uri): PlaylistImportResult = libraryRepository.importPlaylistFile(uri)
 
         fun renameMusicPlaylist(
             oldName: String,
             newName: String,
-        ): Boolean = session.renameMusicPlaylist(oldName, newName)
+        ) = libraryRepository.renameMusicPlaylist(oldName, newName)
 
         fun moveMusicPlaylistTrack(
             name: String,
             from: Int,
             to: Int,
-        ) = session.moveMusicPlaylistTrack(name, from, to)
+        ) = libraryRepository.moveMusicPlaylistTrack(name, from, to)
 
-        fun deleteMusicPlaylist(name: String) = session.deleteMusicPlaylist(name)
+        fun deleteMusicPlaylist(name: String) = libraryRepository.deleteMusicPlaylist(name)
 
         fun addTrackToPlaylist(
             playlist: String,
             uri: String,
-        ) = session.addTrackToPlaylist(playlist, uri)
+        ) = libraryRepository.addTrackToPlaylist(playlist, uri)
 
         fun removeTrackFromPlaylist(
             playlist: String,
             uri: String,
-        ) = session.removeTrackFromPlaylist(playlist, uri)
+        ) = libraryRepository.removeTrackFromPlaylist(playlist, uri)
 
         fun playPlaylist(
             playlist: String,
             startIndex: Int = 0,
         ) = session.playPlaylist(playlist, startIndex)
 
-        fun saveSmartPlaylist(playlist: SmartPlaylist) = session.saveSmartPlaylist(playlist)
+        fun saveSmartPlaylist(playlist: SmartPlaylist) = libraryRepository.saveSmartPlaylist(playlist)
 
-        fun deleteSmartPlaylist(name: String) = session.deleteSmartPlaylist(name)
+        fun deleteSmartPlaylist(name: String) = libraryRepository.deleteSmartPlaylist(name)
 
         fun resolveSmartPlaylist(playlist: SmartPlaylist): List<DeviceTrack> = session.resolveSmartPlaylist(playlist)
 

@@ -67,25 +67,48 @@ class TextureStore(
     ): Boolean =
         when (ext) {
             "dds" ->
-                bytes.size >= 4 &&
+                bytes.size >= DDS_HEADER_BYTES &&
                     bytes[0] == 'D'.code.toByte() &&
                     bytes[1] == 'D'.code.toByte() &&
                     bytes[2] == 'S'.code.toByte() &&
-                    bytes[3] == ' '.code.toByte()
+                    bytes[3] == ' '.code.toByte() &&
+                    fitsTexture(le32(bytes, DDS_WIDTH_AT), le32(bytes, DDS_HEIGHT_AT))
             "tga" -> isTgaHeader(bytes)
             else -> {
                 val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 runCatching { BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts) }
-                opts.outWidth > 0 && opts.outHeight > 0
+                fitsTexture(opts.outWidth, opts.outHeight)
             }
         }
+
+    /**
+     * The engine decodes a texture whole, to RGBA, on the GL thread: a file well under
+     * [MAX_TEXTURE_BYTES] can still be 8000 px a side, a quarter gigabyte once decoded.
+     */
+    private fun fitsTexture(
+        width: Int,
+        height: Int,
+    ): Boolean = width in 1..MAX_TEXTURE_SIDE && height in 1..MAX_TEXTURE_SIDE
+
+    private fun le16(
+        b: ByteArray,
+        at: Int,
+    ): Int = (b[at].toInt() and BYTE_MASK) or ((b[at + 1].toInt() and BYTE_MASK) shl BYTE_BITS)
+
+    private fun le32(
+        b: ByteArray,
+        at: Int,
+    ): Int = le16(b, at) or (le16(b, at + 2) shl (2 * BYTE_BITS))
 
     private fun isTgaHeader(b: ByteArray): Boolean {
         if (b.size < 18) return false
         val colorMapType = b[1].toInt() and 0xff
         val imageType = b[2].toInt() and 0xff
         val pixelDepth = b[16].toInt() and 0xff
-        return colorMapType <= 1 && imageType in TGA_IMAGE_TYPES && pixelDepth in TGA_PIXEL_DEPTHS
+        return colorMapType <= 1 &&
+            imageType in TGA_IMAGE_TYPES &&
+            pixelDepth in TGA_PIXEL_DEPTHS &&
+            fitsTexture(le16(b, TGA_WIDTH_AT), le16(b, TGA_HEIGHT_AT))
     }
 
     fun remove(name: String): List<MilkTexture> = removeDetailed(name).textures
@@ -141,11 +164,7 @@ class TextureStore(
         }.getOrNull()
 
     private fun displayName(uri: Uri): String? =
-        runCatching {
-            appContext.contentResolver
-                .query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
-                ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
-        }.getOrNull() ?: uri.lastPathSegment?.substringAfterLast('/')
+        appContext.contentResolver.displayNameOf(uri) ?: uri.lastPathSegment?.substringAfterLast('/')
 
     private fun generatedDir(): File = File(appContext.filesDir, "milk/generated")
 
@@ -200,7 +219,22 @@ class TextureStore(
         /** Comfortably above any real MilkDrop texture, far below what exhausts the heap. */
         private const val MAX_TEXTURE_BYTES = 16 * 1024 * 1024
 
+        /** 4096 px a side is 64 MB decoded, and within the texture limit of the phones Android 13 runs on. */
+        private const val MAX_TEXTURE_SIDE = 4096
+
         private const val READ_BUFFER_BYTES = 64 * 1024
+
+        private const val BYTE_MASK = 0xff
+        private const val BYTE_BITS = 8
+
+        // DDS: the magic, then a 124-byte header whose height and width follow its size and flags.
+        private const val DDS_HEADER_BYTES = 128
+        private const val DDS_HEIGHT_AT = 12
+        private const val DDS_WIDTH_AT = 16
+
+        // TGA: width and height close the 18-byte header's image specification.
+        private const val TGA_WIDTH_AT = 12
+        private const val TGA_HEIGHT_AT = 14
 
         private val TGA_IMAGE_TYPES = setOf(1, 2, 3, 9, 10, 11)
 

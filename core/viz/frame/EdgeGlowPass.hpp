@@ -15,8 +15,7 @@ namespace geode::viz::frame {
 // the renderer's GL state and read the PCM ring itself for its level. Native, it runs inside the frame like
 // any other pass, hears the frame's own sound engine, and the shell only hands over its options.
 //
-// Drawn by Renderer::render after the composite and before the output probe, into the target framebuffer,
-// so the flash limiter measures the frame as it is shown. Only while the shell has turned it on
+// Drawn by Renderer::render after the composite, into the target framebuffer. Only while the shell has turned it on
 // (geode_viz_set_edge_glow; the wallpaper is the only caller) and never offscreen: an export is never a
 // wallpaper. Cost: one full-screen triangle of arithmetic, no texture reads.
 class EdgeGlowPass final : public Pass {

@@ -55,6 +55,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.geode.R
+import dev.geode.data.Lyrics
+import dev.geode.model.QueueTrack
+import dev.geode.model.QueueUiState
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
@@ -369,10 +372,7 @@ fun QueuePanel(
             title = stringResource(R.string.queue_save_dialog_title),
             confirmLabel = stringResource(R.string.action_save),
             taken = library.playlists.map { it.name }.toSet(),
-            onName = { name ->
-                viewModel.createMusicPlaylist(name)
-                queue.tracks.forEach { viewModel.addTrackToPlaylist(name, it.uri) }
-            },
+            onName = { name -> viewModel.createMusicPlaylist(name, queue.tracks.map { it.uri }) },
             onDismiss = { saving = false },
         )
     }

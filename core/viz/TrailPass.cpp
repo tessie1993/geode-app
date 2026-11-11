@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "viz/liquid/LiquidMath.hpp"
+
 namespace geode::viz {
 
 bool TrailPass::create(const ShaderSource& assets, ProgramBinaryCache* cache, const std::string& fadeVert, std::string* error) {
@@ -32,6 +34,10 @@ float TrailPass::fadeAlpha(float keep, float dt) { return 1.0f - std::pow(keep *
 
 float TrailPass::warpDecay(float retention, float dt) { return std::pow(std::clamp(retention * 0.97f + 0.02f, 0.0f, 0.99f), dt * 60.0f); }
 
+float TrailPass::warpScale(float trailZoom, float dt) {
+    return std::pow(1.0f - std::clamp(trailZoom, -1.0f, 1.0f) * 0.06f, liquid::frames60(dt));
+}
+
 void TrailPass::apply(const SceneParams& p, float keep, float timeSeconds, float dt, const Framebuffer& sceneTarget, GLuint quadVao,
                       int renderWidth, int renderHeight) {
     if (p.trailZoom != 0.0f || p.trailWarp > 0.0f) {
@@ -60,8 +66,8 @@ void TrailPass::drawTrailWarp(const SceneParams& p, float retention, float timeS
     glBindTexture(GL_TEXTURE_2D, trail_.tex());
     glUniform1i(trailUniforms_.loc("uPrev"), 0);
     glUniform1f(trailUniforms_.loc("uDecay"), warpDecay(retention, dt));
-    glUniform1f(trailUniforms_.loc("uZoom"), p.trailZoom);
-    glUniform1f(trailUniforms_.loc("uWarp"), p.trailWarp);
+    glUniform1f(trailUniforms_.loc("uScale"), warpScale(p.trailZoom, dt));
+    glUniform1f(trailUniforms_.loc("uWarp"), p.trailWarp * liquid::frames60(dt));
     glUniform1f(trailUniforms_.loc("uTime"), timeSeconds);
     glBindVertexArray(quadVao);
     glDrawArrays(GL_TRIANGLES, 0, 3);

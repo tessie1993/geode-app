@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <memory>
 #include <utility>
@@ -21,6 +22,13 @@ static_assert(GEODE_PCM_FLOAT == geode::audio::ingest::kFloat32);
 int report(const PcmRing::Written& written, float* peak_out) {
     if (peak_out) *peak_out = written.peak;
     return written.frames;
+}
+
+// A snapshot ring's write: stitched onto the capture clock, which is when it arrived.
+PcmRing::Written stitched(geode_pcm_ring* r, const void* data, size_t bytes, int encoding, int channels, int rate) {
+    const auto now = std::chrono::steady_clock::now().time_since_epoch();
+    const int64_t nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(now).count();
+    return r->snapshots->write(*r->ring, data, bytes, encoding, channels, rate, nowNs);
 }
 
 // Float to 16-bit for Cast's encoder: clamped, scaled by 32767 and rounded, as the Kotlin it replaces
@@ -60,18 +68,42 @@ void geode_pcm_ring_destroy(geode_pcm_ring* r) {
 
 int geode_pcm_ring_write_f32(geode_pcm_ring* r, const float* interleaved, int frames, int channels, int sample_rate,
                              float* peak_out) {
+    if (r && r->snapshots && frames > 0 && channels > 0) {
+        const size_t bytes = static_cast<size_t>(frames) * static_cast<size_t>(channels) * sizeof(float);
+        return report(stitched(r, interleaved, bytes, GEODE_PCM_FLOAT, channels, sample_rate), peak_out);
+    }
     return report(r ? r->ring->writeFloat(interleaved, frames, channels, sample_rate) : PcmRing::Written{}, peak_out);
 }
 
 int geode_pcm_ring_write_s16(geode_pcm_ring* r, const int16_t* interleaved, int frames, int channels, int sample_rate,
                              float* peak_out) {
+    if (r && r->snapshots && frames > 0 && channels > 0) {
+        const size_t bytes = static_cast<size_t>(frames) * static_cast<size_t>(channels) * sizeof(int16_t);
+        return report(stitched(r, interleaved, bytes, GEODE_PCM_S16, channels, sample_rate), peak_out);
+    }
     return report(r ? r->ring->writeInt16(interleaved, frames, channels, sample_rate) : PcmRing::Written{}, peak_out);
 }
 
 int geode_pcm_ring_write_bytes(geode_pcm_ring* r, const void* data, size_t bytes, int encoding, int channels,
                                int sample_rate, float* peak_out) {
+    if (r && r->snapshots) return report(stitched(r, data, bytes, encoding, channels, sample_rate), peak_out);
     return report(r ? r->ring->writeBytes(data, bytes, encoding, channels, sample_rate) : PcmRing::Written{},
                   peak_out);
+}
+
+int geode_pcm_ring_set_snapshots(geode_pcm_ring* r, int on) {
+    if (!r) return 0;
+    if (!on) {
+        r->snapshots.reset();
+        return 1;
+    }
+    if (r->snapshots) return 1;
+    try {
+        r->snapshots = std::make_unique<geode::audio::ingest::SnapshotStitch>();
+        return 1;
+    } catch (...) {
+        return 0;
+    }
 }
 
 void geode_pcm_ring_set_layer(geode_pcm_ring* r, const geode_pcm_ring* layer) {

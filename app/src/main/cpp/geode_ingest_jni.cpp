@@ -84,6 +84,11 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingSetLayer(
     geode_pcm_ring_set_layer(ringOf(handle), ringOf(layer));
 }
 
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingSetSnapshots(JNIEnv*, jobject, jlong handle,
+                                                                                        jboolean on) {
+    return geode_pcm_ring_set_snapshots(ringOf(handle), on ? 1 : 0) ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingBeginEpoch(JNIEnv*, jobject, jlong handle) {
     geode_pcm_ring_begin_epoch(ringOf(handle));
 }

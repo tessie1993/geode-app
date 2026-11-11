@@ -59,6 +59,10 @@ class VisualizerRenderer(
     @Volatile
     var performance: PerformanceSettings = PerformanceSettings.HIGH
 
+    /** What paces this surface, set by its host: the view's or the wallpaper's own pacer, Cast's fixed rate. */
+    @Volatile
+    var pacedRate: PacedRate = PacedRate { 0f }
+
     @Volatile
     var onShaderError: (String?) -> Unit = {}
 
@@ -135,6 +139,9 @@ class VisualizerRenderer(
 
     /** Frees the native renderer; only when this renderer is being discarded, on the GL thread. */
     fun releaseScenes() = nativeViz.destroy()
+
+    /** Sheds the spare scenes before the surface pauses: the system's trim arrives when no frame reads it. GL thread. */
+    fun trimSpares() = nativeViz.trimSpares()
 
     /** Process-wide: export, the wallpaper and the dream draw it too (core/viz/ShaderOverrides). */
     fun submitShader(
@@ -242,7 +249,7 @@ class VisualizerRenderer(
         val perf = performance
         val due =
             nativeViz.frameBegin(
-                ThermalGovernor.pacedFps,
+                pacedRate.fps(),
                 perf.renderScale,
                 perf.marchScale,
                 perf.postFx,

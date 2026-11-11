@@ -631,6 +631,9 @@ object GeodeNative {
 
     external fun vizReleaseScenes(handle: Long)
 
+    /** Sheds the renderer's spare scenes as a UI_HIDDEN trim does; GL thread, before it pauses (`geode_viz_trim_spares`). */
+    external fun vizTrimSpares(handle: Long)
+
     /**
      * Full-frame RGBA8 underlay blended UNDER/INTO the scene: [blend] 0 = screen (replaces the scene
      * where it is black), 1 = multiply, 2 = add; [amount] 0..1. `pixels` is Android's `Bitmap.getPixels`

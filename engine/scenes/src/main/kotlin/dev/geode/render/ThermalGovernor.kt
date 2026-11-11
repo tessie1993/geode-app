@@ -12,15 +12,6 @@ import dev.geode.engine.bridge.GeodeNative
  * due (`FRAME_THERMAL_DUE` from the renderer's one per-frame call).
  */
 object ThermalGovernor {
-    /**
-     * The rate the renderer is currently asking the display for, or 0 when it free-runs.
-     *
-     * Publish it from whoever owns the frame pacer, so a deliberate cap is never mistaken for a
-     * device that cannot keep up.
-     */
-    @Volatile
-    var pacedFps: Float = 0f
-
     @Volatile
     private var power: PowerManager? = null
 

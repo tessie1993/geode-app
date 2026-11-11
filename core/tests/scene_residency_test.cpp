@@ -153,6 +153,39 @@ void memoryTrimShedsSparesNotPinned() {
     }
 }
 
+// The pause path (Renderer::trimSpares, geode_viz_trim_spares): a surface that stops drawing sheds as a
+// UiHidden trim does, at once, whatever the tier. What it keeps is what it shows when it comes back: the
+// scene drawn, the one fading out, the layer, the born style and the one requested (built or not). The
+// signal that arrives later, read by the first frame after the return, then finds nothing left to drop,
+// and a spare built after the return is under the tier's budget again.
+void pauseTrimKeepsWhatIsShownAndIsNotRepeated() {
+    for (ThermalTier tier : {ThermalTier::Full, ThermalTier::Eased, ThermalTier::Reduced, ThermalTier::Minimal}) {
+        SceneResidency r;
+        r.insert("old", false, 1);
+        r.insert("fluid_spare", true, 1);
+        r.insert("born", false, 1);
+        r.insert("layer", false, 1);
+        r.insert("fading", false, 1);
+        r.insert("recent", false, 1);
+        r.insert("drawn", true, 1);
+        const auto pinned = [](const std::string& id) {
+            return id == "drawn" || id == "fading" || id == "layer" || id == "born" || id == "requested";
+        };
+        const int budget = SceneResidency::spareBudget(tier, MemoryTrim::UiHidden);
+        const auto victims = r.evict(pinned, budget);
+        check(victims.size() == 3, "a pause sheds every spare, at any tier");
+        check(!has(r, "old") && !has(r, "fluid_spare") && !has(r, "recent"), "the light, the heavy and the newest spare go");
+        check(has(r, "drawn") && has(r, "fading") && has(r, "layer") && has(r, "born"), "what is shown stays");
+        check(r.size() == 4, "nothing else is resident through the background");
+        check(r.evict(pinned, budget).empty(), "the trim signal read after the return drops nothing more");
+        // Back on screen: a new style is admitted under the tier's own budget, as before the pause.
+        r.insert("next", false, 1);
+        const auto later = r.evict(pinned, SceneResidency::spareBudget(tier));
+        check(has(r, "next") == (SceneResidency::spareBudget(tier) >= 1), "after the return the tier decides again");
+        check(later.size() == (SceneResidency::spareBudget(tier) >= 1 ? 0u : 1u), "and only what is over it goes");
+    }
+}
+
 // The signal reaches every renderer once, and a level that does nothing reaches none.
 void trimSignalReachesEachRendererOnce() {
     SceneResidency::TrimSignal s;
@@ -172,6 +205,7 @@ void trimSignalReachesEachRendererOnce() {
 
 int main() {
     memoryTrimShedsSparesNotPinned();
+    pauseTrimKeepsWhatIsShownAndIsNotRepeated();
     trimSignalReachesEachRendererOnce();
     longAutoSessionStaysBounded();
     workedExampleFromTheHeader();

@@ -181,6 +181,39 @@ void twoRenderersShareOneState() {
     check(exportRenderer.tier() == ThermalTier::Reduced, "after the export it reads the shared tier");
 }
 
+// Cast's renderer draws a fixed 30 fps beside the stage's 60, on one thermal state, with Adapt on. Each is
+// told its own paced rate (the shell used to hand both the stage's, the process's last-started pacer), so
+// both are keeping up and nothing steps down. Worked by hand: the monitor's target is min(50, 0.85 × paced),
+// 25.5 for the 30 fps surface and 50 for the 60 one. The second half is what the mislabel did: 30 fps read
+// against a 60 cap is 40 % under the 50 target, a severe deficit after 2.5 s, so the floor rose two rungs
+// and the stage itself was capped to 30.
+void eachSurfaceIsReadAgainstItsOwnPacedRate() {
+    ThermalState shared;
+    shared.push(0, NAN, 100.0);
+    ThermalGovernor stage(shared);
+    ThermalGovernor cast(shared);
+    stage.setAdaptive(true);
+    cast.setAdaptive(true);
+    stage.setPacedFps(60.0f);
+    cast.setPacedFps(30.0f);
+    for (int i = 0; i < 60 * 20; ++i) {  // 20 s: the stage every 60th of a second, Cast every other one
+        stage.onFrame(1.0f / 60.0f);
+        if (i % 2 == 0) cast.onFrame(1.0f / 30.0f);
+    }
+    check(shared.raises() == 0, "a 30 fps surface and a 60 fps one, both keeping up, raise nothing");
+    check(shared.measuredFloor() == ThermalTier::Full && shared.fpsCap() == 0.0f, "so no surface is capped");
+    check(stage.pacedFps() == 60.0f && cast.pacedFps() == 30.0f, "and each keeps its own rate");
+
+    ThermalState mislabelled;
+    mislabelled.push(0, NAN, 100.0);
+    ThermalGovernor castAsStage(mislabelled);
+    castAsStage.setAdaptive(true);
+    castAsStage.setPacedFps(60.0f);  // the stage's rate on a renderer that is driven at 30
+    for (int i = 0; i < 30 * 10; ++i) castAsStage.onFrame(1.0f / 30.0f);
+    check(mislabelled.measuredFloor() == ThermalTier::Reduced, "read against another surface's 60, the same frames step down");
+    check(mislabelled.fpsCap() == 30.0f, "which is the cap the stage then drew under");
+}
+
 void measuredFloorIsShared() {
     // A phone without a thermal API: frame time is the only signal.
     ThermalState shared;
@@ -549,6 +582,7 @@ int main() {
     cadenceOncePerSecond();
     capReachesThePacer();
     twoRenderersShareOneState();
+    eachSurfaceIsReadAgainstItsOwnPacedRate();
     measuredFloorIsShared();
     headroomThresholdsAreInclusive();
     aCoolPhoneWithAThermalApiIgnoresAMildDeficit();

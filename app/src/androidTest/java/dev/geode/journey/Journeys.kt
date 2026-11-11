@@ -23,7 +23,9 @@ import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PerformanceStore
 import dev.geode.data.StartScreen
 import dev.geode.data.ThemeStore
+import dev.geode.geodeContainer
 import dev.geode.render.PerformanceSettings
+import kotlinx.coroutines.runBlocking
 import org.junit.rules.ExternalResource
 
 /**
@@ -35,6 +37,11 @@ import org.junit.rules.ExternalResource
  * when the user gets past them, before the activity is launched, so the shell comes up on the
  * Player tab. The keys are ThemeStore's own constants, so a rename breaks the build here rather
  * than silently putting every journey back behind onboarding.
+ *
+ * The file alone is not enough: the instrumented process runs `GeodeApp.onCreate` before any rule,
+ * and that builds the container, whose `UserDataRepository` reads the GUI prefs once and keeps
+ * them. So the seeded prefs are also handed to that repository ([publishSeededGuiPrefs]); without
+ * it the shell draws the fresh install's safety notice over every journey.
  *
  * It also pins Settings › Performance to [PerformanceSettings.SAVER]. Left unset, the app picks
  * a mode from the device's RAM on first run, so the same journey rendered at half scale on the
@@ -62,7 +69,19 @@ class Onboarded(
         PerformanceStore(general, context).set(PerformanceSettings.SAVER)
         // The journeys start from the empty Player; a new install opens on Library (#796).
         BehaviourStore(general).run { save(load().copy(startScreen = StartScreen.PLAYER)) }
+        if (skipOnboarding) publishSeededGuiPrefs(context)
     }
+}
+
+/**
+ * Gives the app's live `UserDataRepository` the GUI prefs a rule has just written to the prefs
+ * file. The repository loaded that file when the application started, before the rule ran, and
+ * the shell draws from its copy; `setGuiPrefs` is the call the app's own screens make, and it
+ * also marks the repository loaded, so a load still in flight cannot put the old values back.
+ */
+internal fun publishSeededGuiPrefs(context: Context) {
+    val seeded = ThemeStore(context.getSharedPreferences(GeodePrefsFiles.GENERAL, Context.MODE_PRIVATE)).loadGui()
+    runBlocking { context.geodeContainer.userData.setGuiPrefs(seeded) }
 }
 
 /**

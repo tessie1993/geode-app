@@ -113,7 +113,8 @@ class CustomizeBrowserTest {
         val before = listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
         assertTrue("the list scrolled", before.first > 0 || before.second > 0)
         compose.onNodeWithText("Expert").performClick()
-        compose.onNodeWithText("This style's engine").assertIsDisplayed()
+        // Expert has no Basics; its first section header is the top of the page.
+        compose.onNodeWithText("Fluid: flow").assertIsDisplayed()
         back()
         compose.onNodeWithText("Expert").assertIsDisplayed()
         assertEquals(before, listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset)

@@ -77,6 +77,8 @@ void MotionField::step(const GeodeSoundFrame& f, float dt, float speed) {
     state_.bassRel = slew(state_.bassRel, 1.0f + gain * (bassRatio - 1.0f), dt, kBandAttackSeconds, kBandReleaseSeconds);
     state_.midRel = slew(state_.midRel, midRatio * gain, dt, kBandAttackSeconds, kBandReleaseSeconds);
     state_.trebRel = slew(state_.trebRel, 1.0f + gain * (trebRatio - 1.0f), dt, kBandAttackSeconds, kBandReleaseSeconds);
+    state_.energySwing = slew(state_.energySwing, gain * (energyRatio - 1.0f), dt, kEnergyAttackSeconds, kEnergyReleaseSeconds);
+    state_.midSwing = slew(state_.midSwing, gain * (midRatio - 1.0f), dt, kBandAttackSeconds, kBandReleaseSeconds);
 
     // ---- timbre: brightness and tonality (the engine's flatness, inverted) ----
     state_.bright = oneOle(state_.bright, std::clamp(f.centroid, 0.0f, 1.0f), dt, kBrightSeconds);
@@ -207,12 +209,12 @@ SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion, float s
     o.colorShift = p.colorShift + motionHue * (keyHueOffset + 0.1f * (s.bright - 0.5f));
 
     o.turbulence = std::clamp(p.turbulence + amountDial * 0.35f * (s.trebRel - 1.0f), 0.0f, 1.5f);
-    o.particleSize = std::clamp(p.particleSize * (1.0f + motionAmount * 0.2f * (s.energyRel - 1.0f)), 0.3f, 2.5f);
-    o.density = std::clamp(p.density * (1.0f + motionAmount * 0.15f * (s.energyRel - 1.0f)), 0.1f, 1.0f);
-    o.trailLength = std::clamp(p.trailLength + motionAmount * 0.15f * (s.energyRel - 1.0f), 0.05f, 0.98f);
+    o.particleSize = std::clamp(p.particleSize * (1.0f + motionAmount * 0.2f * s.energySwing), 0.3f, 2.5f);
+    o.density = std::clamp(p.density * (1.0f + motionAmount * 0.15f * s.energySwing), 0.1f, 1.0f);
+    o.trailLength = std::clamp(p.trailLength + motionAmount * 0.15f * s.energySwing, 0.05f, 0.98f);
 
     o.fluidCurl = std::clamp(p.fluidCurl + motionAmount * 10.0f * (s.bassRel - 1.0f), 0.0f, 50.0f);
-    o.fluidStirrerSpeed = std::clamp(p.fluidStirrerSpeed * (1.0f + motionAmount * 0.4f * (s.midRel - 1.0f)), 0.0f, 2.0f);
+    o.fluidStirrerSpeed = std::clamp(p.fluidStirrerSpeed * (1.0f + motionAmount * 0.4f * s.midSwing), 0.0f, 2.0f);
     o.fluidSplatForce = std::clamp(p.fluidSplatForce * (1.0f + motionAmount * 0.3f * (s.bassRel - 1.0f)), 0.0f, 3.0f);
 
     o.cymaticsFlow = std::clamp(p.cymaticsFlow + motionAmount * 0.25f * (s.bassRel - 1.0f), 0.0f, 1.0f);

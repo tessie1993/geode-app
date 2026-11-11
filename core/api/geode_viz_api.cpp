@@ -132,17 +132,16 @@ const char* geode_viz_param_name(int index) {
 
 void geode_viz_set_params(geode_viz* v, const float* values, int count) {
     if (!v || !values || count != SceneParams::kFieldCount) return;
-    const auto& names = SceneParams::fieldNames();
-    SceneParams p;
-    for (int i = 0; i < count; ++i) p.set(names[static_cast<size_t>(i)], values[i]);
+    SceneParams p = SceneParams::fromWire(values);
     // Quality never adapts downward in an export: its wall-clock frame time is the encoder's pace.
+    // The renderer takes this one value: a second setParams of the raw wire used to follow and put
+    // the user's switch back, so an export's fluid lowered its quality whenever the encoder was slow.
     if (v->offline.load(std::memory_order_relaxed)) p.fluidAutoQuality = false;
     {
         std::lock_guard<std::mutex> lock(v->reactLock);
         v->reactions.setSeed(p.reactSeed);
     }
     v->renderer.setParams(p);
-    v->renderer.setParams(SceneParams::fromWire(values));
 }
 
 void geode_viz_set_reduced_motion(geode_viz* v, int on) {

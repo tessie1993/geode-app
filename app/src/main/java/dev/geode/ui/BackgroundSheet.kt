@@ -44,7 +44,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
@@ -265,7 +265,7 @@ private fun SliderCard(
                         .clickable(role = Role.Button, onClick = onToggle)
                         .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" },
             ) {
-                Icon(Icons.Filled.ExpandMore, contentDescription = null, modifier = Modifier.rotate(turn))
+                Icon(Icons.Filled.ExpandMore, contentDescription = null, modifier = Modifier.graphicsLayer { rotationZ = turn })
             }
             AnimatedVisibility(
                 visible = expanded,

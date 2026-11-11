@@ -56,3 +56,10 @@
 # (not the members wholesale) costs no shrinking: the fields are all live. Only
 # instance fields: the layout's NAMES never hold a static one.
 -keepclassmembernames class dev.geode.render.scene.SceneParams { !static <fields>; }
+
+# ---------------------------------------------------------------------------
+# Glance widget
+# ---------------------------------------------------------------------------
+# Glance builds an ActionCallback (WidgetTransportAction, WidgetStyleAction) from
+# its class name with the no-argument constructor.
+-keep class * implements androidx.glance.appwidget.action.ActionCallback { public <init>(); }

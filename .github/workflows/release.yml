@@ -71,14 +71,20 @@ jobs:
           LICENSE_KEY: ${{ vars.PLAY_LICENSE_KEY }}
         run: |
           set -euo pipefail
+          # A key that is set must be a Base64 X.509 RSA public key (billing/PurchaseVerifier.kt
+          # refuses every purchase otherwise), signed bundle or not.
+          if [ -n "${LICENSE_KEY:-}" ] && ! echo "$LICENSE_KEY" | base64 -d | openssl rsa -pubin -inform DER -noout 2>/dev/null; then
+            echo "::error::PLAY_LICENSE_KEY (repository variable) is not a Base64 X.509 RSA public key."
+            exit 1
+          fi
           if [ -z "${KEYSTORE_BASE64:-}" ] || [ -z "${STORE_PASSWORD:-}" ] || [ -z "${KEY_ALIAS:-}" ] || [ -z "${KEY_PASSWORD:-}" ]; then
             [ -n "${LICENSE_KEY:-}" ] || echo "::warning::PLAY_LICENSE_KEY (repository variable) is not set either."
             echo "::warning::Upload key secrets incomplete: building an UNSIGNED bundle. The four MUZVIZ_UPLOAD_* secrets are listed at the top of release.yml."
             echo "signed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # A signed bundle can go to Play, and without the licence key it would skip purchase
-          # signature checks (billing/PurchaseVerifier.kt), so signing requires it.
+          # A signed bundle can go to Play, and without the licence key it would refuse every purchase
+          # (billing/PurchaseVerifier.kt), so signing requires it.
           if [ -z "${LICENSE_KEY:-}" ]; then
             echo "::error::PLAY_LICENSE_KEY (repository variable) is not set; a signed store build must verify purchase signatures."
             exit 1

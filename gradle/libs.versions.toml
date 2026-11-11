@@ -22,6 +22,9 @@ androidxTestTruth = "1.7.0"
 androidxTestOrchestrator = "1.6.1"
 androidxTestServices = "1.6.0"
 espresso = "3.7.0"
+# Robolectric runs Android code in local JVM tests. 4.17 is the latest stable on Maven Central
+# (4.18 is beta); it supports up to API 36, so tests pin sdk=36 in robolectric.properties.
+robolectric = "4.17"
 ktlint = "14.2.0"
 detekt = "1.23.8"
 # Play Billing Library. 9.1.0 (2026-06-18) is the latest stable; PBL 9 needs compileSdk 35+.
@@ -56,6 +59,7 @@ lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel
 lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 junit = { module = "junit:junit", version.ref = "junit" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 # The real org.json for JVM unit tests: android.jar's copy is a stub that returns defaults.
 org-json = { module = "org.json:json", version = "20240303" }

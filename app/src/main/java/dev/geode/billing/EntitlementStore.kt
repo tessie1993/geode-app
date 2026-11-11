@@ -25,7 +25,7 @@ data class CachedEntitlement(
 ) {
     /**
      * Whether the cache alone vouches for Pro, with [isGenuine] the licence-key check
-     * ([PurchaseVerifier.isGenuine]).
+     * ([PurchaseVerifier.isGenuine], which refuses everything when a real-billing build has no usable key).
      *
      * Nothing but the signed purchase counts. A cache holding `owned` without one used to get a
      * month from [verifiedAtMs]; that was Pro with no signature for anyone who wrote the two prefs,

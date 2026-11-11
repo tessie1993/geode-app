@@ -45,6 +45,23 @@ internal class AutoVisualsController(
     /** The style and params as Auto last left them; a difference at the next moment is the user's hand. */
     private var leftAs: Pair<String, SceneParams>? = null
 
+    /**
+     * Customize is open. Auto holds every change meanwhile (a moment, the timer, the playlist), as
+     * MilkDrop locks the preset while a menu is up, and its timers start over when it closes.
+     */
+    var editing = false
+        set(value) {
+            if (field && !value) {
+                val now = android.os.SystemClock.elapsedRealtime()
+                GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_PLAYLIST, now)
+                GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_RANDOM, now)
+            }
+            field = value
+        }
+
+    /** Auto changes nothing now: Customize is open or nothing plays. */
+    private val holding get() = editing || !host.isPlaying
+
     fun addToVizPlaylist(entry: VizPlaylistEntry) {
         val s = host.vizState.value
         val duplicate =
@@ -104,7 +121,7 @@ internal class AutoVisualsController(
 
     fun advanceVizPlaylist() {
         val s = host.vizState.value
-        val running = s.vizPlaylistEnabled && s.vizPlaylist.size >= 2 && host.isPlaying
+        val running = s.vizPlaylistEnabled && s.vizPlaylist.size >= 2 && !holding
         val now = android.os.SystemClock.elapsedRealtime()
         if (!GeodeNative.autoTimerDue(GeodeNative.AUTO_TIMER_PLAYLIST, now, s.vizPlaylistIntervalSec, running)) return
         vizPlaylistIndex = (vizPlaylistIndex + 1) % s.vizPlaylist.size
@@ -177,7 +194,7 @@ internal class AutoVisualsController(
      * minute for free), so the style changes follow the same rule.
      */
     fun onDirectorMoment() {
-        if (!host.isPlaying) return
+        if (holding) return
         // A style picked or a control moved since Auto's last change: this moment is the user's
         // (MilkDrop restarts its timer on a manual load and holds while a menu is up). While they
         // keep editing every moment is skipped; Auto picks up again at the first one after they stop.
@@ -191,7 +208,7 @@ internal class AutoVisualsController(
 
     fun advanceRandomMode() {
         val s = host.vizState.value
-        val running = s.randomEnabled && host.isPlaying
+        val running = s.randomEnabled && !holding
         val now = android.os.SystemClock.elapsedRealtime()
         if (GeodeNative.autoTimerDue(GeodeNative.AUTO_TIMER_RANDOM, now, s.randomIntervalSec, running)) randomStepNow()
     }

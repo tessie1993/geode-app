@@ -47,6 +47,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -1155,6 +1156,7 @@ private fun PlaybackNoticeBanner(viewModel: PlayerViewModel) {
                 color = MaterialTheme.colorScheme.onErrorContainer,
                 modifier =
                     Modifier
+                        .minimumInteractiveComponentSize()
                         .clickable { viewModel.clearPlaybackNotice() }
                         .semantics { contentDescription = dismissDescription }
                         .padding(8.dp),

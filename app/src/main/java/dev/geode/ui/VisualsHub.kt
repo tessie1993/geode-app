@@ -45,6 +45,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -52,12 +53,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import androidx.window.core.layout.WindowSizeClass
+import dev.geode.R
 import dev.geode.data.BehaviourPrefs
 import dev.geode.data.BehaviourStore
 import dev.geode.data.CanvasGesture
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GestureAction
 import dev.geode.render.VisualizerView
+import dev.geode.render.scene.SceneIds
 import dev.geode.ui.theme.GeodeMotionScheme
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
@@ -123,11 +126,26 @@ internal fun VisualsHub(
             nav.showSheet()
         }
     }
+    val customizing = !pip && nav.sheetShown && nav.top == VisualsPage.CUSTOMIZE
+    DisposableEffect(customizing) {
+        viewModel.setCustomizing(customizing)
+        onDispose { viewModel.setCustomizing(false) }
+    }
     val stepStyle: (Int) -> Unit = { step ->
         nextStageStyle(stageStyleOrder(), viz.sceneId, step) { !gate.allowsStyle(it) }?.let(viewModel::selectScene)
     }
     val context = LocalContext.current
+    val resources = LocalResources.current
     val view = LocalView.current
+    // A MilkDrop preset that did not load: the stage says so briefly. The MilkDrop page shows it itself.
+    val milkError = viz.shaderError?.takeIf { viz.sceneId == SceneIds.MILKDROP }
+    LaunchedEffect(milkError) {
+        val onMilkPage = nav.sheetShown && nav.top == VisualsPage.MILKDROP
+        if (milkError != null && !pip && !onMilkPage) {
+            val text = resources.getString(R.string.milk_load_failed, milkError.substringAfterLast('/'))
+            Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+        }
+    }
     // Read once per visit, off the main thread; Settings › Behaviour is another screen, so a change
     // there is always read on the way back.
     val behaviour by produceState(BehaviourPrefs()) {

@@ -64,4 +64,6 @@ tasks.withType<Test>().configureEach {
     systemProperty("geode.paramsSchema", rootProject.file("core/tests/params_schema.txt").absolutePath)
     // dev.geode.render.ModTable's copy, proven by core/tests/mod_targets_test (#642).
     systemProperty("geode.modTargets", rootProject.file("core/tests/mod_targets.txt").absolutePath)
+    // The knob editor's read of a sample bank (core/viz/MacroBank's editorText), proven by core/tests/macro_bank_test.
+    systemProperty("geode.macroEditor", rootProject.file("core/tests/macro_editor.txt").absolutePath)
 }

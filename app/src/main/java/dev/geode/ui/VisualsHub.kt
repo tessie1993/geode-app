@@ -426,10 +426,12 @@ private fun VisualsHubContent(
         CloseOnBack(enabled = !nav.sheetShown, onBack = nav::showSheet)
         MacrosDrawer(
             visible = macros,
+            sceneId = viz.sceneId,
             onDismiss = { macros = false },
             onEdit = {
                 macros = false
                 nav.openTab(VisualsPage.CUSTOMIZE)
+                nav.openCustomizeCard(CustomizeCategory.QUICK_KNOBS.name)
             },
             modifier = Modifier.fillMaxSize(),
         )

@@ -73,6 +73,7 @@ add_library(geode_core STATIC
     viz/Lfo.cpp
     viz/ModTargets.cpp
     viz/MacroBank.cpp
+    viz/MacroControls.cpp
     viz/Director.cpp
     viz/DirectorReach.cpp
     viz/LayerState.cpp

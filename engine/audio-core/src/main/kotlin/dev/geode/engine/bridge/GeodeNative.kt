@@ -315,6 +315,98 @@ object GeodeNative {
         value: Float,
     ): String
 
+    external fun macroBankRename(
+        bank: String,
+        knobId: Int,
+        name: String,
+    ): String
+
+    external fun macroBankAddKnob(
+        bank: String,
+        name: String,
+    ): String
+
+    /** Refused for a built-in knob, which [macroBankResetKnob] puts back as built instead. */
+    external fun macroBankRemoveKnob(
+        bank: String,
+        knobId: Int,
+    ): String
+
+    external fun macroBankDuplicateKnob(
+        bank: String,
+        knobId: Int,
+    ): String
+
+    external fun macroBankResetKnob(
+        bank: String,
+        knobId: Int,
+    ): String
+
+    /** The knob [delta] places along the bank, negative earlier. */
+    external fun macroBankMoveKnob(
+        bank: String,
+        knobId: Int,
+        delta: Int,
+    ): String
+
+    /** [target] is a modulation target's wire name; [up] and [down] are -1..1 of its range at a full turn each way. */
+    external fun macroBankSetLink(
+        bank: String,
+        knobId: Int,
+        target: String,
+        up: Float,
+        down: Float,
+    ): String
+
+    /** Links a target the knob does not move yet, at the weights native starts a link on. */
+    external fun macroBankAddLink(
+        bank: String,
+        knobId: Int,
+        target: String,
+    ): String
+
+    external fun macroBankRemoveLink(
+        bank: String,
+        knobId: Int,
+        target: String,
+    ): String
+
+    /** The knob editor's one read on [styleId]: the caps, each knob with what it offers, its links, every target. */
+    external fun macroBankEditor(
+        bank: String,
+        styleId: String,
+    ): String
+
+    /** How a link follows the knob: [curve] is LINEAR, EASE_IN, EASE_OUT or S_CURVE. */
+    external fun macroBankSetCurve(
+        bank: String,
+        knobId: Int,
+        target: String,
+        curve: String,
+    ): String
+
+    /** A new knob that moves the Customize control [control] (a ParamKeys name); native names it. */
+    external fun macroBankAddKnobFor(
+        bank: String,
+        control: String,
+    ): String
+
+    /** Every Customize control a knob can move, its category, and the knobs that move it now. */
+    external fun macroBankControls(bank: String): String
+
+    /** A random set of links for the knob in place of its own; the same [seed], the same set. */
+    external fun macroBankRoll(
+        bank: String,
+        knobId: Int,
+        seed: Long,
+    ): String
+
+    /** The name native offers when the knob is saved (a name, not a bank). */
+    external fun macroBankAutoName(
+        bank: String,
+        knobId: Int,
+    ): String
+
     /**
      * The auto-director (core/viz/Director): the music's feeling decides behaviour (axes, camera, motion)
      * over every style; never a colour, never a route. [on] is the user's switch as set, which an export directs by ([vizPinEngineSettings]);

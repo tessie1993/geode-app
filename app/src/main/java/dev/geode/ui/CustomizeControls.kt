@@ -512,7 +512,12 @@ private fun PanelPiece(
         "@macros" -> {
             val store = remember { MacroStore.get(context) }
             val macros by store.state.collectAsStateWithLifecycle()
-            MacrosTab(macros, store)
+            MacrosTab(macros, store, viz.sceneId, LocalProLock.current)
+        }
+        "@macro_editor" -> {
+            val store = remember { MacroStore.get(context) }
+            val macros by store.state.collectAsStateWithLifecycle()
+            ProGated(id, stringResource(R.string.macro_editor_title)) { MacroEditor(macros, store, viz.sceneId) }
         }
         "@palette_maker" -> ProGated(id, "Make a palette") { if (sectionVisible()) PaletteMakerCard(p, onChange, rememberSavedPalettes()) }
         "@auto_moments" -> DirectorSwitch()

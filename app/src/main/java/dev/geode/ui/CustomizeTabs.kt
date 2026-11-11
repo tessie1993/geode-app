@@ -560,31 +560,38 @@ internal fun LabeledSlider(
     val reset: (() -> Unit)? = default?.takeIf { abs(value - it) > RESET_EPSILON }?.let { d -> { onChange(d) } }
     val resetLabel = stringResource(R.string.customize_a11y_reset)
     val sliderLabel = if (locked) stringResource(R.string.customize_a11y_part_of_pro, name) else name
+    // A slider a knob can move: long-press its name row (or TalkBack's action) to put it on a knob.
+    val knobSlot = rememberKnobSlot(label)
+    val knobLabel = stringResource(R.string.macro_add_to_knob)
     Column(Modifier.alpha(if (locked) LOCKED_ALPHA else 1f)) {
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = 32.dp)
-                    .pointerInput(label, locked, reset) { detectTapGestures(onDoubleTap = { if (!locked) reset?.invoke() }) }
-                    // Merged, so the row is one TalkBack stop ("Name, value") that can carry the action;
+                    .pointerInput(label, locked, reset, knobSlot) {
+                        detectTapGestures(
+                            onDoubleTap = { if (!locked) reset?.invoke() },
+                            onLongPress = { knobSlot?.open() },
+                        )
+                    }
+                    // Merged, so the row is one TalkBack stop ("Name, value") that can carry the actions;
                     // the ⋮ inside keeps its own stop, being clickable.
                     .semantics(mergeDescendants = true) {
-                        val action = reset?.takeIf { !locked }
-                        if (action != null) {
-                            customActions =
-                                listOf(
-                                    CustomAccessibilityAction(resetLabel) {
-                                        action()
-                                        true
-                                    },
-                                )
-                        }
+                        val actions =
+                            listOfNotNull(
+                                reset?.takeIf { !locked }?.let { action ->
+                                    CustomAccessibilityAction(resetLabel) { true.also { action() } }
+                                },
+                                knobSlot?.let { slot -> CustomAccessibilityAction(knobLabel) { true.also { slot.open() } } },
+                            )
+                        if (actions.isNotEmpty()) customActions = actions
                     },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(name, style = MaterialTheme.typography.bodyMedium)
             KeptMark(label)
+            KnobMark(knobSlot)
             Spacer(Modifier.weight(1f))
             Text(shown, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (!locked) RowMenu(name, label, reset)
@@ -614,6 +621,7 @@ internal fun LabeledSlider(
                 },
         )
     }
+    knobSlot?.let { AddToKnobHost(it, name) }
 }
 
 private const val RESET_EPSILON = 1e-4f

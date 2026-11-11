@@ -444,12 +444,19 @@ GEODE_API void        geode_customize_borrow(const char* category, const float* 
  * '|'-separated line table MacroBank.hpp documents; the shell stores that string and decides nothing about it.
  * Every call that takes a bank reads any text (NULL, empty or unreadable = the default bank) and every edit
  * returns the whole new bank, normalized but otherwise unchanged when the edit is refused (an unknown knob or
- * target, a non-finite number, a full bank). geode_macro_bank_default (the four built-in knobs, also Reset) and
+ * target, a non-finite number, a full bank, removing a built-in knob, resetting one that is not). geode_macro_bank_default (the four built-in knobs, also Reset) and
  * geode_macro_bank_targets_text (what a link may name: target, param, range, default, scope, and the caps) are
  * static; every other pointer stays valid until this thread's next macro bank call.
  * target is a ModTargets wire name; up and down are the offsets at a full turn each way, as signed fractions of
- * the target's range. geode_macro_bank_live lists "knob|<id>|<up 0/1>|<down 0/1>" per knob: whether turning it
- * that way moves anything on style_id. geode_macro_bank_set makes a bank the process-wide one every renderer
+ * the target's range; geode_macro_bank_add_link links a target the knob does not move yet at the starting weights. geode_macro_bank_live lists "knob|<id>|<up 0/1>|<down 0/1>" per knob: whether turning it
+ * that way moves anything on style_id. geode_macro_bank_editor is the knob editor's one read (MacroBank.hpp's
+ * editorText: the caps, what each knob offers, its links and every target, with what reaches style_id).
+ * geode_macro_bank_move_knob steps a knob delta places along the bank. geode_macro_bank_set_curve sets how a link
+ * follows the knob (curve: LINEAR, EASE_IN, EASE_OUT or S_CURVE; up and down stay its range). geode_macro_bank_add_knob_for
+ * makes a knob that moves one Customize control (a ParamKeys name), named by native after it; geode_macro_bank_controls
+ * lists every control a knob can move, its category and the knobs that move it (MacroBank.hpp's controlsText).
+ * geode_macro_bank_roll gives a knob a random set of links (the same seed, the same set); geode_macro_bank_auto_name
+ * is the name native offers when a knob is saved (not a bank: the name alone). geode_macro_bank_set makes a bank the process-wide one every renderer
  * adds to its params each frame, after the director and the note layer and before the LFOs. */
 GEODE_API void        geode_macro_bank_set(const char* bank);
 GEODE_API const char* geode_macro_bank_default(void);
@@ -459,9 +466,19 @@ GEODE_API const char* geode_macro_bank_set_value(const char* bank, int knob_id, 
 GEODE_API const char* geode_macro_bank_rename(const char* bank, int knob_id, const char* name);
 GEODE_API const char* geode_macro_bank_add_knob(const char* bank, const char* name);
 GEODE_API const char* geode_macro_bank_remove_knob(const char* bank, int knob_id);
+GEODE_API const char* geode_macro_bank_duplicate_knob(const char* bank, int knob_id);
+GEODE_API const char* geode_macro_bank_move_knob(const char* bank, int knob_id, int delta);
+GEODE_API const char* geode_macro_bank_reset_knob(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_set_link(const char* bank, int knob_id, const char* target, float up, float down);
+GEODE_API const char* geode_macro_bank_add_link(const char* bank, int knob_id, const char* target);
 GEODE_API const char* geode_macro_bank_remove_link(const char* bank, int knob_id, const char* target);
+GEODE_API const char* geode_macro_bank_set_curve(const char* bank, int knob_id, const char* target, const char* curve);
+GEODE_API const char* geode_macro_bank_add_knob_for(const char* bank, const char* control);
+GEODE_API const char* geode_macro_bank_controls(const char* bank);
+GEODE_API const char* geode_macro_bank_roll(const char* bank, int knob_id, long long seed);
+GEODE_API const char* geode_macro_bank_auto_name(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_live(const char* bank, const char* style_id);
+GEODE_API const char* geode_macro_bank_editor(const char* bank, const char* style_id);
 /* Background image bake (core/viz/Underlay), before geode_viz_set_underlay_rgba: pure, no viz handle, any
  * thread. The shell decodes the picture, cuts it to geode_underlay_crop_rect (out = x, y, width, height of the
  * centred crop of src to the target's aspect) and scales it to the render size, then geode_underlay_finish

@@ -226,6 +226,11 @@ Java_dev_geode_engine_bridge_GeodeNative_vizHearTrack(JNIEnv*, jobject, jlong ha
     return geode_viz_hear_track(vizOf(handle), reinterpret_cast<geode_track_feed*>(feed)) ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizEndPreRoll(JNIEnv*, jobject, jlong handle, jlong rangeStartMs) {
+    return geode_viz_end_pre_roll(vizOf(handle), rangeStartMs) ? JNI_TRUE : JNI_FALSE;
+}
+
 // The live feed: the renderer takes from the ring itself, so no sample crosses JNI. A ring handle is
 // valid while its Kotlin holder is reachable, and the caller holds it for this call.
 JNIEXPORT void JNICALL

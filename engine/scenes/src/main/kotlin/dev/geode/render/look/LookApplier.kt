@@ -27,7 +27,7 @@ interface LookTarget {
         mask: Int,
     )
 
-    fun setSoundTuning(floats: FloatArray)
+    fun setSoundTuning(tuning: dev.geode.engine.audio.SoundTuning)
 
     fun setReducedMotion(on: Boolean)
 
@@ -81,7 +81,7 @@ class LookApplier {
         if (pushes(GeodeNative.FRAME_PUSH_PARAMS, look.params !== was?.params)) target.setParams(look.params)
         if (pushes(GeodeNative.FRAME_PUSH_LFO, look.lfos !== was?.lfos)) target.setLfoConfigs(look.lfos)
         if (pushes(GeodeNative.FRAME_PUSH_ADSR, look.adsrs !== was?.adsrs)) target.setAdsrConfigs(look.adsrs)
-        if (pushes(GeodeNative.FRAME_PUSH_TUNING, look.soundTuning !== was?.soundTuning)) target.setSoundTuning(look.soundTuning.toFloats())
+        if (pushes(GeodeNative.FRAME_PUSH_TUNING, look.soundTuning !== was?.soundTuning)) target.setSoundTuning(look.soundTuning)
         if (was == null || look.reactions !== was.reactions || handMask != appliedMask) target.setUserReactions(look.reactions, handMask)
         if (was == null || look.reducedMotion != was.reducedMotion) target.setReducedMotion(look.reducedMotion)
         if (was == null || look.transitionId != was.transitionId || look.transitionMs != was.transitionMs) {

@@ -43,7 +43,13 @@ int64_t Recorder::position(int64_t elapsedNs) const {
     return sec * kAudioRateHz + (rest * kAudioRateHz + kNsPerSec / 2) / kNsPerSec;
 }
 
-int64_t Recorder::frame(int64_t nowNs, int stageWidth, int stageHeight) {
+int Recorder::captureFps(int fps, int heat) {
+    constexpr int kCaps[] = {0, 30, 20, 15};
+    const int cap = kCaps[std::clamp(heat, 0, 3)];
+    return cap > 0 ? std::min(fps, cap) : fps;
+}
+
+int64_t Recorder::frame(int64_t nowNs, int stageWidth, int stageHeight, int heat) {
     if (stopped() != Stop::None) return -1;
     if (stageWidth != config_.stageWidth || stageHeight != config_.stageHeight) {
         stop(Stop::Resized, nowNs);
@@ -69,7 +75,9 @@ int64_t Recorder::frame(int64_t nowNs, int stageWidth, int stageHeight) {
     const int64_t tolerance = slotNs / kSlotToleranceDiv;
     const int64_t claim = stageFrameNs_ < 0 ? tolerance : std::max(stageFrameNs_ / 2, tolerance);
     const int64_t slot = (elapsed + claim) * config_.fps / kNsPerSec;
-    if (slot <= lastSlot_) return -1;
+    const int capture = captureFps(config_.fps, heat);
+    const int64_t stride = (config_.fps + capture - 1) / capture;
+    if (slot <= lastSlot_ || (lastSlot_ >= 0 && slot < lastSlot_ + stride)) return -1;
     const int64_t pending = taken_.load(std::memory_order_relaxed) - encoded_.load(std::memory_order_relaxed);
     if (pending >= kMaxPending && nowNs - lastSubmitNs_ < kProbeNs) {
         dropped_.fetch_add(1, std::memory_order_relaxed);
@@ -248,6 +256,29 @@ int videoBps(int width, int height, int fps, int64_t limitMs) {
     if (limitMs <= 0) return asked;
     const int64_t durationUs = limitMs * kMsPerSec;
     return encode::cappedVideoBps(asked, durationUs, encode::audioBytes(durationUs));
+}
+
+bool encoderAttempt(int stageWidth, int stageHeight, int shortSide, int fps, int64_t limitMs, int attempt,
+                    EncoderAsk* out) {
+    constexpr int kRungs[] = {1080, 720};
+    const int first = std::min(shortSide, std::min(stageWidth, stageHeight));
+    if (first <= 0 || attempt < 0 || !out) return false;
+    int side = first;
+    for (int left = attempt; left > 0; --left) {
+        int next = 0;
+        for (const int rung : kRungs) {
+            if (rung < side) {
+                next = rung;
+                break;
+            }
+        }
+        if (next == 0) return false;
+        side = next;
+    }
+    const encode::FrameSize size = frameSize(stageWidth, stageHeight, side);
+    if (size.width <= 0 || size.height <= 0) return false;
+    *out = {size.width, size.height, videoBps(size.width, size.height, fps, limitMs)};
+    return true;
 }
 
 }  // namespace geode::output::record

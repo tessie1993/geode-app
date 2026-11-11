@@ -1,4 +1,5 @@
 // geode_recorder_* and the Record plan (core/api/geode_api.h): Record's clock, core/output/Recorder.
+#include <chrono>
 #include <memory>
 #include <new>
 
@@ -14,8 +15,14 @@ static_assert(static_cast<int>(record::Stop::FileFull) == GEODE_RECORD_STOP_FILE
 static_assert(static_cast<int>(record::Stop::Failed) == GEODE_RECORD_STOP_FAILED);
 static_assert(record::Recorder::kAudioRateHz == GEODE_RECORD_AUDIO_RATE_HZ);
 static_assert(record::Recorder::kChannels == GEODE_RECORD_AUDIO_CHANNELS);
+static_assert(encode::kAacBps == GEODE_RECORD_AUDIO_BPS);
 
 extern "C" {
+
+int64_t geode_record_now_ns(void) {
+    using namespace std::chrono;
+    return duration_cast<nanoseconds>(steady_clock::now().time_since_epoch()).count();
+}
 
 geode_recorder* geode_recorder_create(int stage_w, int stage_h, int fps, int max_sec, int64_t cap_ms) {
     if (stage_w <= 0 || stage_h <= 0) return nullptr;
@@ -76,5 +83,19 @@ void geode_record_frame_size(int stage_w, int stage_h, int short_side, int* out_
 int geode_record_video_bps(int width, int height, int fps, int64_t limit_ms) {
     return record::videoBps(width, height, fps, limit_ms);
 }
+
+int geode_record_encoder_attempt(int stage_w, int stage_h, int short_side, int fps, int64_t limit_ms, int attempt,
+                                 int* out_w, int* out_h, int* out_video_bps) {
+    record::EncoderAsk ask;
+    if (!record::encoderAttempt(stage_w, stage_h, short_side, fps, limit_ms, attempt, &ask)) return 0;
+    if (out_w) *out_w = ask.width;
+    if (out_h) *out_h = ask.height;
+    if (out_video_bps) *out_video_bps = ask.videoBps;
+    return 1;
+}
+
+int geode_record_worth_keeping(int64_t recorded_ms) { return record::worthKeeping(recorded_ms) ? 1 : 0; }
+
+int64_t geode_recorder_limit_ms(const geode_recorder* h) { return h ? h->recorder->limitNs() / 1'000'000 : 0; }
 
 }  // extern "C"

@@ -483,6 +483,7 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     const GLuint liquidTex = feedback ? drawDive(p, ask, dt, wallDt) : drawLiquid(*scene, p, dt);
     composite(p, progress, targetFbo, liquidTex);
     drawEdgeGlow(targetFbo, timeSeconds, dt);
+    if (compositeHook_) compositeHook_(targetFbo, width_, height_);
     drawUiBlur(targetFbo);
 }
 

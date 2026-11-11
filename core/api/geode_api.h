@@ -225,6 +225,19 @@ GEODE_API void        geode_viz_set_style_schedule(geode_viz*, const double* at_
                                                    const char* const* cut_ids, int cut_count, int every_beats,
                                                    const char* const* locked_ids, int locked_count);
 GEODE_API void        geode_viz_render(geode_viz*, double time_seconds, uint32_t target_fbo);
+/* Record's tee (core/viz/frame/RecordTap), render thread with the stage's context current. From the next
+ * geode_viz_render on, each frame the recorder's clock keeps is copied, after the composite and the edge
+ * glow and before the UI blur, into `native_window` (the video encoder's input surface as an ANativeWindow,
+ * width x height), stamped with the clock's PTS; and every block geode_viz_feed_ring hands the sound engine
+ * goes to the recorder too. `watermark` (a geode_export_watermark_create pass built on this thread, or
+ * NULL) is drawn over each copied frame. 1 when the surface opened, 0 when the driver refused it. The
+ * recorder and the pass must outlive the tee; the window must until geode_viz_record_stop, which is safe
+ * with no context current (the surface went first) and when nothing records. */
+typedef struct geode_recorder geode_recorder;
+typedef struct geode_export_pass geode_export_pass;
+GEODE_API int         geode_viz_record_start(geode_viz*, const geode_recorder* recorder, void* native_window, int width,
+                                             int height, geode_export_pass* watermark);
+GEODE_API void        geode_viz_record_stop(geode_viz*);
 /* Offline (export) render: prepare pins the renderer for it, any thread: the offscreen tier
  * (geode_viz_set_offscreen(1)), cut transitions, and fixed fluid quality on every later set_params. */
 GEODE_API void        geode_viz_prepare_offscreen(geode_viz*);
@@ -728,6 +741,10 @@ typedef struct geode_recorder geode_recorder;
 #define GEODE_RECORD_STOP_FAILED     5
 #define GEODE_RECORD_AUDIO_RATE_HZ   48000
 #define GEODE_RECORD_AUDIO_CHANNELS  2
+#define GEODE_RECORD_AUDIO_BPS       192000 /* what the AAC encoder is asked for */
+/* The clock every now_ns here is read from (monotonic, ns): the one the render thread stamps frames and
+   heard blocks with. */
+GEODE_API int64_t geode_record_now_ns(void);
 GEODE_API geode_recorder* geode_recorder_create(int stage_w, int stage_h, int fps, int max_sec, int64_t cap_ms);
 GEODE_API void    geode_recorder_destroy(geode_recorder*);
 /* GL thread, before a stage frame is drawn: its PTS in ns when it goes into the file, else -1. */
@@ -753,6 +770,14 @@ GEODE_API int64_t geode_recorder_frames_dropped(const geode_recorder*);
  * file would pass the muxer's target. */
 GEODE_API void    geode_record_frame_size(int stage_w, int stage_h, int short_side, int* out_w, int* out_h);
 GEODE_API int     geode_record_video_bps(int width, int height, int fps, int64_t limit_ms);
+/* What the shell asks the video encoder for on its attempt-th try (0 first): the chosen short side, then
+ * each smaller rung the stage fills, with the bit rate for it. 0 past the last attempt. */
+GEODE_API int     geode_record_encoder_attempt(int stage_w, int stage_h, int short_side, int fps, int64_t limit_ms,
+                                               int attempt, int* out_w, int* out_h, int* out_video_bps);
+/* 1 when a recording this long is kept, 0 when it is a mis-tap. */
+GEODE_API int     geode_record_worth_keeping(int64_t recorded_ms);
+/* The longest this recording may run, the shorter of its two limits; 0 for none. */
+GEODE_API int64_t geode_recorder_limit_ms(const geode_recorder*);
 
 /* Chapter spans (output/Chapters); titles stay Kotlin, keyed by out_source (-1 = the lead-in chapter that
  * makes a marker list start at 0:00). Each writes min(count, capacity) spans and returns the count. */

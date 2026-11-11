@@ -81,8 +81,12 @@ public:
 
     // One stage frame about to be drawn at nowNs (monotonic) on a stage of this size: its PTS in ns when
     // it goes into the file, -1 when it does not (too soon for the ceiling, the encoder is behind, or the
-    // recording has ended, which this may decide).
-    int64_t frame(int64_t nowNs, int stageWidth, int stageHeight);
+    // recording has ended, which this may decide). heat is the process's thermal tier (0 cool .. 3).
+    int64_t frame(int64_t nowNs, int stageWidth, int stageHeight, int heat = 0);
+
+    // The recording's frame rate on a phone this hot. The live visual never goes under 30 fps
+    // (viz/frame/Thermal); the recording gives up frames first, keeping every stride-th slot of its grid.
+    static int captureFps(int fps, int heat);
 
     // A block the renderer's sound engine just took, interleaved float at rateHz. Nothing before the first
     // frame or after the end is kept.
@@ -164,5 +168,20 @@ encode::FrameSize frameSize(int stageWidth, int stageHeight, int shortSide);
 // The video bit rate for that frame at fps: 12 Mbit/s for 1080p30, by area, half as much again above
 // 30 fps, inside 2 to 40 Mbit/s, and lowered when a maximum length would pass the muxer's target.
 int videoBps(int width, int height, int fps, int64_t limitMs);
+
+// What the video encoder is asked for, attempt after attempt until it accepts one: the chosen short side
+// first, then each smaller rung of 1080 and 720 the stage still fills (a phone that will not encode its own
+// screen size). False past the last.
+struct EncoderAsk {
+    int width = 0;
+    int height = 0;
+    int videoBps = 0;
+};
+bool encoderAttempt(int stageWidth, int stageHeight, int shortSide, int fps, int64_t limitMs, int attempt,
+                    EncoderAsk* out);
+
+// A recording shorter than this is a mis-tap, not a video.
+constexpr int64_t kMinKeepMs = 1'000;
+inline bool worthKeeping(int64_t recordedMs) { return recordedMs >= kMinKeepMs; }
 
 }  // namespace geode::output::record

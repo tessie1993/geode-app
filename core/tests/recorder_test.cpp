@@ -62,6 +62,7 @@ struct Stage {
     double sourceSpeed = 1.0;      // the sample clock against the wall clock
     int64_t jitterNs = 0;          // each display frame is this early or late, alternating
     bool encoderRuns = true;
+    int heat = 0;                  // the thermal tier the stage reports
 
     Recorder* recorder = nullptr;
     int64_t nowNs = kT0;
@@ -122,7 +123,7 @@ struct Stage {
                 nowNs = at;
                 if (drawing) {
                     deliver();
-                    const int64_t p = recorder->frame(nowNs, config.stageWidth, config.stageHeight);
+                    const int64_t p = recorder->frame(nowNs, config.stageWidth, config.stageHeight, heat);
                     if (p >= 0) {
                         if (startNs < 0) startNs = nowNs;
                         pts.push_back(p);
@@ -225,6 +226,38 @@ void displayRates() {
     }
     check(std::llabs(offsets[0] - offsets[1]) <= kRate / 30 && std::llabs(offsets[0] - offsets[2]) <= kRate / 30,
           "the sound sits in the same place, to a frame, whatever the stage rate");
+}
+
+// A hot phone: the recording gives up frames before the visual does, on the same grid, and the sound stays.
+void hot() {
+    check(Recorder::captureFps(60, 0) == 60 && Recorder::captureFps(60, 1) == 30 && Recorder::captureFps(60, 2) == 20 &&
+              Recorder::captureFps(60, 3) == 15 && Recorder::captureFps(24, 1) == 24,
+          "the capture ladder");
+    Stage s;
+    s.config.fps = 60;
+    s.displayFps = 60;
+    s.begin();
+    s.run(2'000);
+    const size_t cool = s.pts.size();
+    check(cool == 120, "a cool phone records every 60 fps slot");
+    s.heat = 1;
+    s.run(2'000);
+    check(s.pts.size() - cool == 60, "an eased phone records every other slot");
+    s.heat = 3;
+    const size_t eased = s.pts.size();
+    s.run(2'000);
+    check(s.pts.size() - eased == 30, "a hot phone records a quarter of them");
+    for (size_t i = cool; i < s.pts.size(); ++i) {
+        if (s.pts[i] % (kSec / 60) > kSec / 60 / 8 && s.pts[i] % (kSec / 60) < kSec / 60 - kSec / 60 / 8) {
+            check(false, "frames stay on the 60 fps grid");
+            break;
+        }
+    }
+    s.finish();
+    int64_t silent = 0;
+    int64_t breaks = 0;
+    s.scan(kRate / 2, s.body(), &silent, &breaks);
+    check(silent == 0 && breaks == 0, "the sound is whole while the picture thins");
 }
 
 void pacing() {
@@ -501,6 +534,20 @@ void plan() {
     check(record::videoBps(320, 240, 30, 0) == encode::kFloorBps, "never under the floor");
     check(record::videoBps(4096, 2304, 60, 0) == 40'000'000, "never over the ceiling");
     check(record::videoBps(4096, 2304, 60, 1'800'000) < 40'000'000, "a long limit lowers the rate under the muxer's target");
+    record::EncoderAsk ask;
+    check(record::encoderAttempt(1440, 3200, 2160, 30, 0, 0, &ask) && ask.width == 1440 && ask.height == 3200,
+          "the first attempt is the choice, held to the stage");
+    check(record::encoderAttempt(1440, 3200, 2160, 30, 0, 1, &ask) && ask.width == 1080 && ask.height == 2400,
+          "then the 1080 rung");
+    check(ask.videoBps == record::videoBps(1080, 2400, 30, 0), "with that frame's bit rate");
+    check(record::encoderAttempt(1440, 3200, 2160, 30, 0, 2, &ask) && ask.width == 720, "then 720");
+    check(!record::encoderAttempt(1440, 3200, 2160, 30, 0, 3, &ask), "and no more");
+    check(!record::encoderAttempt(720, 1600, 1080, 30, 0, 1, &ask), "a 720 stage has no smaller rung");
+    check(!record::worthKeeping(999) && record::worthKeeping(1'000), "under a second is a mis-tap");
+    int w = 0, h = 0, bps = 0;
+    check(geode_record_encoder_attempt(1080, 2400, 1080, 60, 0, 1, &w, &h, &bps) == 1 && w == 720 && h == 1600 && bps > 0,
+          "the attempt through the C ABI");
+    check(geode_record_worth_keeping(500) == 0, "worth keeping through the C ABI");
 }
 
 void abi() {
@@ -541,6 +588,7 @@ void abi() {
 
 int main() {
     displayRates();
+    hot();
     pacing();
     paused();
     burstAfterSilence();

@@ -32,7 +32,8 @@ class WireLayoutTest {
     @Test
     fun everyKotlinFieldHasASchemaRowAndEveryLiveRowAField() {
         assertEquals(ParamSchema.params.size, SceneParamsCodec.FIELDS)
-        assertEquals(kotlinFields.keys, ParamSchema.params.filterNot { it.retired }.map { it.name }.toSet())
+        val live = ParamSchema.params.filterNot { it.retired }
+        assertEquals(kotlinFields.keys, live.map { it.name }.toSet())
         SceneParams.NOT_RENDERED.keys.forEach { assertNull(it, ParamSchema[it]) }
     }
 
@@ -58,7 +59,11 @@ class WireLayoutTest {
             val frame =
                 FloatArray(SceneParamsCodec.FIELDS) {
                     val spec = ParamSchema[it]
-                    if (spec.retired) spec.default else if (top) spec.range.endInclusive else spec.range.start
+                    when {
+                        spec.retired -> spec.default
+                        top -> spec.range.endInclusive
+                        else -> spec.range.start
+                    }
                 }
             val stale = FloatArray(SceneParamsCodec.FIELDS) { ParamSchema[it].range.let { r -> if (top) r.endInclusive else r.start } }
             assertEquals(SceneParamsCodec.unpack(frame, SceneParams.DEFAULT), SceneParamsCodec.unpack(stale, SceneParams.DEFAULT))

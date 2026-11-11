@@ -60,7 +60,8 @@ class PresetGoldenTest {
     @Test
     fun theWrittenKeysAreTheLiveSchemaNamesPlusThePaletteIds() {
         val keys = PresetStore.paramsToJson(SceneParams.DEFAULT).keyNames()
-        val expected = ParamSchema.params.filterNot { it.retired }.map { it.name }.toSet() + setOf("customPaletteId", "customPalette2Id")
+        val live = ParamSchema.params.filterNot { it.retired }
+        val expected = live.map { it.name }.toSet() + setOf("customPaletteId", "customPalette2Id")
         assertEquals(expected, keys)
     }
 

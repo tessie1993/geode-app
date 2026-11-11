@@ -55,7 +55,8 @@ object ParamSchema {
         val params =
             rows.drop(1).mapIndexed { slot, f ->
                 check(f.size == 9 && f[0] == "param" && f[1] == slot.toString()) { "params schema row $slot is $f" }
-                ParamSpec(slot, f[2], ParamSpec.Kind.valueOf(f[3]), f[4].toFloat(), f[5].toFloat()..f[6].toFloat(), f[7] == "FADE", f[8] == "RETIRED")
+                val range = f[5].toFloat()..f[6].toFloat()
+                ParamSpec(slot, f[2], ParamSpec.Kind.valueOf(f[3]), f[4].toFloat(), range, f[7] == "FADE", f[8] == "RETIRED")
             }
         check(params.size == header[2].toInt()) { "params schema has ${params.size} rows, its header says ${header[2]}" }
         return params

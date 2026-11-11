@@ -5,15 +5,20 @@
 // pads with silence exactly to the cut; a feed that runs ahead of the cut is held for the next frame (and
 // trimmed, oldest first, past half a second); a 3-hour run at 30 fps stays sample-exact at 48 kHz, the
 // position never more or less than the slots taken times 1600. The C ABI is checked against the same
-// rule, since that is what CastStream calls, and the cuts come from the frame clock's own ABI.
+// rule, since that is what CastStream calls, and the cuts come from the frame clock's own ABI. The
+// encoder feed hands every queued frame to the codec once, in order, at its CastAudio position, whatever
+// size the codec's input buffers are and however long it has none free, dropping (and skipping the
+// position past) only what a stalled codec leaves over a second behind.
 #include <cstdint>
 #include <cstdio>
+#include <initializer_list>
 
 #include "api/geode_api.h"
 #include "viz/frame/CastAudio.hpp"
 #include "viz/frame/FixedRateClock.hpp"
 
 using geode::viz::frame::CastAudio;
+using geode::viz::frame::CastAudioFeed;
 using geode::viz::frame::FixedRateClock;
 
 namespace {
@@ -185,6 +190,64 @@ void structMatchesAbi() {
     check(a.cutFrames(0) == 0 && a.cutFrames(-5) == 0, "no cut before the stream starts");
 }
 
+// The pump's blocks through the encoder feed, against codec input buffers of a few sizes, some frames
+// with none free: every frame queued once, PTS on the pump's own sample clock, the backlog drained.
+void feedLosesNothing() {
+    for (const int64_t buffer : {int64_t{1024}, int64_t{1600}, int64_t{4096}, int64_t{700}}) {
+        CastAudio a = CastAudio::started(kRate);
+        CastAudioFeed f = CastAudioFeed::started(kRate);
+        Clock clock;
+        bool onClock = true;
+        int64_t handed = 0;
+        for (int i = 0; i < 3000; ++i) {
+            const CastAudio::Step s = a.step(kPerFrame, clock.nextCutUs());
+            check(f.add(s.take + s.pad) == 0, "a codec that keeps up never drops");
+            const int buffers = (i % 11 == 0) ? 0 : 3;   // now and then none free
+            for (int b = 0; b < buffers; ++b) {
+                int64_t pts = -1;
+                const int64_t n = f.take(buffer, pts);
+                if (n == 0) break;
+                onClock = onClock && pts == handed * 1'000'000 / kRate && n <= buffer;
+                handed += n;
+            }
+        }
+        check(onClock, "each buffer is stamped where the last ended, never larger than the codec's");
+        check(handed + f.pending == a.produced && f.queued == handed, "every frame queued reaches the codec or still waits");
+        check(f.pending < 2 * kPerFrame, "the backlog drains once buffers are free again");
+    }
+}
+
+void feedDropsOnlyPastASecond() {
+    CastAudioFeed f = CastAudioFeed::started(kRate);
+    check(f.capacity() == kRate, "the backlog holds a second");
+    check(f.add(30'000) == 0 && f.add(18'000) == 0, "up to the cap nothing goes");
+    check(f.add(4'000) == 4'000 && f.pending == kRate && f.queued == 4'000, "past it the oldest go, the position moves past them");
+    int64_t pts = 0;
+    check(f.take(1024, pts) == 1024 && pts == int64_t{4'000} * 1'000'000 / kRate, "and the next buffer's PTS is where its frames sit");
+    check(f.add(0) == 0 && f.add(-3) == 0, "nothing in, nothing dropped");
+    CastAudioFeed g = CastAudioFeed::started(kRate);
+    check(g.add(2 * kRate) == kRate && g.pending == kRate, "a block bigger than the cap keeps its newest second");
+    int64_t none = -1;
+    CastAudioFeed e = CastAudioFeed::started(kRate);
+    check(e.take(1024, none) == 0 && none == 0, "an empty backlog takes nothing");
+}
+
+void feedMatchesAbi() {
+    int64_t st[GEODE_CAST_AUDIO_FEED_STATE] = {};
+    check(geode_cast_audio_feed_start(st, kRate) == kRate, "the ABI's cap is the struct's");
+    CastAudioFeed f = CastAudioFeed::started(kRate);
+    bool same = true;
+    for (int i = 0; i < 200; ++i) {
+        const int64_t block = (i * 977) % 5000;
+        same = same && geode_cast_audio_feed_add(st, block) == f.add(block);
+        int64_t p1 = 0;
+        int64_t p2 = 0;
+        same = same && geode_cast_audio_feed_take(st, 1024, &p1) == f.take(1024, p2) && p1 == p2;
+        same = same && st[0] == f.queued && st[1] == f.pending;
+    }
+    check(same, "the feed's C ABI is the struct's rule");
+}
+
 }  // namespace
 
 int main() {
@@ -194,6 +257,9 @@ int main() {
     feedAheadIsHeld();
     threeHoursSampleExact();
     structMatchesAbi();
+    feedLosesNothing();
+    feedDropsOnlyPastASecond();
+    feedMatchesAbi();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

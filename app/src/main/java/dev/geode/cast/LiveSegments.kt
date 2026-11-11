@@ -1,5 +1,6 @@
 package dev.geode.cast
 
+import dev.geode.RingLog
 import dev.geode.engine.bridge.GeodeNative
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
@@ -11,8 +12,9 @@ import java.nio.channels.WritableByteChannel
  * The muxer writes one continuous file: `ftyp` and `moov` once, then a `moof` and `mdat` pair per
  * fragment. HLS with fMP4 segments (CMAF) wants exactly that split up: the header as the init
  * segment (`#EXT-X-MAP`) and each `moof`+`mdat` as one media segment. So this is the channel the
- * muxer writes to, and it cuts the bytes at box boundaries as they arrive: nothing is parsed
- * beyond each top-level box's size and type.
+ * muxer writes to, and it cuts the bytes at box boundaries as they arrive. The muxer's fragments only
+ * make sense inside its one file (absolute offsets, no decode time), so each is rewritten natively
+ * into a self-contained segment before it is kept (`GeodeNative.hlsRewriteFragment`).
  *
  * Only the newest [WINDOW] segments are kept, in memory: a live playlist only ever names the last
  * few, and the receiver starts near the live edge. The timing is native (core/viz/frame/HlsSegments,
@@ -38,6 +40,11 @@ internal class LiveSegments(
     private var fragment: ByteArrayOutputStream? = null
     private val segments = ArrayDeque<Segment>()
     private var nextSequence = 0L
+
+    /** Where the next box starts in the muxer's output, and where the pending fragment's moof did. */
+    private var fileAt = 0L
+    private var moofAt = 0L
+    private val decodeTimes = LongArray(GeodeNative.HLS_TRACKS)
 
     /** Wall time of the last cut, for [msSinceLastSegment] (the freeze watchdog) only, never for timing. */
     private var lastCutMs = 0L
@@ -71,6 +78,7 @@ internal class LiveSegments(
             if (size < BOX_HEADER || bytes.size - at < size) break
             onBox(String(bytes, at + 4, 4, Charsets.US_ASCII), bytes, at, size.toInt())
             at += size.toInt()
+            fileAt += size
         }
         pending.reset()
         pending.write(bytes, at, bytes.size - at)
@@ -90,7 +98,10 @@ internal class LiveSegments(
                     lastCutMs = nowMs()
                 }
             }
-            "moof" -> fragment = ByteArrayOutputStream().apply { write(bytes, offset, size) }
+            "moof" -> {
+                moofAt = fileAt
+                fragment = ByteArrayOutputStream().apply { write(bytes, offset, size) }
+            }
             "mdat" ->
                 fragment?.let {
                     it.write(bytes, offset, size)
@@ -102,8 +113,10 @@ internal class LiveSegments(
         }
     }
 
-    private fun publish(bytes: ByteArray) {
+    private fun publish(raw: ByteArray) {
         lastCutMs = nowMs()
+        val bytes = init?.let { GeodeNative.hlsRewriteFragment(it, moofAt, raw, decodeTimes) } ?: raw
+        if (bytes === raw) RingLog.note(TAG, "fragment $nextSequence served as muxed")
         val duration = init?.let { GeodeNative.hlsFragmentSeconds(it, bytes) } ?: 0.0
         segments.addLast(Segment(nextSequence++, bytes, duration))
         while (segments.size > WINDOW) segments.removeFirst()
@@ -137,6 +150,7 @@ internal class LiveSegments(
         val WINDOW = GeodeNative.hlsWindow()
 
         private const val BOX_HEADER = 8
+        private const val TAG = "LiveSegments"
 
         /** A box's size, reading the 64-bit `largesize` when the 32-bit field is 1; -1 if not all here. */
         private fun boxSize(

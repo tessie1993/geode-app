@@ -56,10 +56,19 @@ jobs:
           ./feedback_motion_test
           # The scene params resolver (#344): the chain's order, reduced motion once, pinned settings, an export's pin (#350), determinism, safety last.
           g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/resolver_test.cpp core/signal/Resolver.cpp core/signal/EngineSettings.cpp core/sound/*.cpp \
-            core/viz/Director.cpp core/viz/NoteResponse.cpp core/viz/Lfo.cpp core/viz/Adsr.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
+            core/viz/Director.cpp core/viz/DirectorReach.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp \
+            core/viz/NoteResponse.cpp core/viz/Lfo.cpp core/viz/Adsr.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
             core/viz/MacroBank.cpp core/viz/ModTargets.cpp core/viz/MotionField.cpp core/viz/CameraRig.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
             core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o resolver_test
           ./resolver_test
+          # The director's reach: the shuffle and its modulators over the user's params (seeded, kept controls, scope,
+          # ranges, glides at 30/60/120 fps, offsets over the base, Look bit-identical, the export pin, no tempo).
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/director_reach_test.cpp core/signal/Resolver.cpp core/signal/EngineSettings.cpp core/sound/*.cpp \
+            core/viz/Director.cpp core/viz/DirectorReach.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp \
+            core/viz/NoteResponse.cpp core/viz/Lfo.cpp core/viz/Adsr.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
+            core/viz/MacroBank.cpp core/viz/ModTargets.cpp core/viz/MotionField.cpp core/viz/CameraRig.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+            core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o director_reach_test
+          ./director_reach_test
           # Which built scenes stay on the GPU (#378): a bounded LRU with pins, spares by thermal tier, lazy resize.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/scene_residency_test.cpp -o scene_residency_test
           ./scene_residency_test

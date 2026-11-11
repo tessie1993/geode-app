@@ -372,6 +372,17 @@ Java_dev_geode_engine_bridge_GeodeNative_directorSet(JNIEnv*, jobject, jboolean 
 }
 
 JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_directorReachSet(JNIEnv*, jobject, jint level) {
+    geode_director_reach_set(level);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_directorKeepSet(JNIEnv* env, jobject, jstring keys) {
+    Utf8Chars text(env, keys);
+    geode_director_keep_set(text.get());
+}
+
+JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_noteResponseSet(JNIEnv*, jobject, jboolean enabled) {
     geode_note_response_set(enabled ? 1 : 0);
 }

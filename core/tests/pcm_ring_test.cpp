@@ -3,6 +3,8 @@
 // The README's proof: PCM written in random chunk sizes with a rate change mid-stream reaches the reader
 // every sample once, in order, each with the rate it was written at; here single-threaded and with a
 // writer thread. Plus the cases the Kotlin SoundCursorTest covered before the ring moved to C++.
+// And what must hold when the easy case breaks: a reader the writer laps never gets a torn take, an
+// epoch begun on a third thread, more format changes than the mark log keeps, two writers at once.
 //
 // Build and run (one command):
 //   g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/pcm_ring_test.cpp
@@ -390,6 +392,187 @@ void testWriterThread() {
     CHECK(!restartedLater, "the cursor restarted without an epoch");
 }
 
+// --- Readers and writers that break the easy case -------------------------------------------------
+
+// True when a take's frames are consecutive frames of the stereo test signal: a copy the writer lapped
+// would hold frames of two laps and fail this.
+bool whole(const Cursor& cursor, const Cursor::Take& take) {
+    const float* pcm = cursor.interleaved();
+    for (int i = 0; i < take.frames; ++i) {
+        if (pcm[i * 2] != pcm[0] + static_cast<float>(i) || pcm[i * 2 + 1] != -pcm[i * 2]) return false;
+    }
+    return true;
+}
+
+// Writes `total` frames of the stereo test signal in random chunks as fast as it can, telling `written`
+// how far it is after each block.
+void writeUnthrottled(PcmRing& ring, int total, uint32_t seed, std::atomic<int>& written) {
+    Lcg rng{seed};
+    int at = 0;
+    while (at < total) {
+        int chunk = 1 + rng.next(256);
+        if (chunk > total - at) chunk = total - at;
+        const std::vector<float> block = stereo(at, chunk);
+        ring.writeFloat(block.data(), chunk, 2, 48000);
+        at += chunk;
+        written.store(at);
+    }
+}
+
+// A reader the writer laps: a small ring and a writer that never waits. Every take is whole, moves
+// forward, and follows the last one unless it says it restarted or skipped; nothing torn gets out.
+void testLappedReader() {
+    constexpr int kTotal = 4000000;
+    PcmRing ring(1024, 2, 256);
+    Cursor cursor(ring);
+    std::atomic<int> written{0};
+    std::thread writer([&] { writeUnthrottled(ring, kTotal, 4242u, written); });
+    int expected = 0;
+    for (;;) {
+        // Read before the take: an empty take after the writer finished is the end of the stream.
+        const bool finished = written.load() == kTotal;
+        const Cursor::Take take = cursor.take();
+        if (take.frames > 0) {
+            const int first = static_cast<int>(cursor.interleaved()[0]);
+            if (!whole(cursor, take)) {
+                CHECK(false, "a torn take of %d frames from frame %d", take.frames, first);
+                break;
+            }
+            if (first < expected) {
+                CHECK(false, "a take went back to frame %d after %d", first, expected);
+                break;
+            }
+            if (first != expected && !take.restarted && !take.skipped) {
+                CHECK(false, "frames %d..%d were dropped without a restart or a skip", expected, first);
+                break;
+            }
+            expected = first + take.frames;
+        }
+        if (finished && take.frames == 0) break;
+    }
+    writer.join();
+    CHECK(failures > 0 || expected == kTotal, "the reader ended at frame %d of %d", expected, kTotal);
+}
+
+// beginEpoch from a third thread while the writer writes: no take hands out a frame from before an
+// epoch that had begun when the take started.
+void testEpochFromThirdThread() {
+    constexpr int kTotal = 1000000;
+    PcmRing ring(4096, 2);
+    Cursor cursor(ring);
+    std::atomic<int> written{0};
+    // A frame known to be in the ring before the newest epoch began: nothing below it may be read.
+    std::atomic<int> floor{0};
+    std::thread writer([&] { writeUnthrottled(ring, kTotal, 99u, written); });
+    std::thread epochs([&] {
+        while (written.load() < kTotal) {
+            const int before = written.load();
+            ring.beginEpoch();
+            floor.store(before);
+            std::this_thread::yield();
+        }
+    });
+    int restarts = 0;
+    for (;;) {
+        const bool finished = written.load() == kTotal;
+        const int low = floor.load();
+        const Cursor::Take take = cursor.take();
+        if (take.restarted) ++restarts;
+        if (take.frames > 0) {
+            const int first = static_cast<int>(cursor.interleaved()[0]);
+            if (!whole(cursor, take)) {
+                CHECK(false, "a torn take of %d frames from frame %d", take.frames, first);
+                break;
+            }
+            if (first < low) {
+                CHECK(false, "frame %d handed out after an epoch that began at or after frame %d", first, low);
+                break;
+            }
+        }
+        if (finished && take.frames == 0) break;
+    }
+    writer.join();
+    epochs.join();
+    CHECK(restarts >= 1, "the cursor never restarted");
+}
+
+// More format changes between two takes than the mark log keeps: the frames older than the log read
+// with the oldest kept format, every later run with its own, and no frame is lost or repeated.
+void testMarkLogWraps() {
+    constexpr int kBlocks = 40;
+    constexpr int kKept = 15;  // one fewer than the log holds
+    PcmRing ring(1024, 2);
+    Cursor cursor(ring);
+    for (int b = 0; b < kBlocks; ++b) writeStereo(ring, b * 4, 4, 8000 + b);
+    const int oldestKept = kBlocks - kKept;
+    Cursor::Take take = cursor.take();
+    CHECK(take.frames == oldestKept * 4, "the frames before the log: %d", take.frames);
+    CHECK(take.sampleRateHz == 8000 + oldestKept, "the frames before the log at %d Hz", take.sampleRateHz);
+    CHECK(whole(cursor, take) && cursor.interleaved()[0] == 0.0f, "the frames before the log are not frames 0 on");
+    for (int b = oldestKept; b < kBlocks; ++b) {
+        take = cursor.take();
+        CHECK(take.frames == 4 && take.sampleRateHz == 8000 + b, "block %d: %d frames at %d Hz", b, take.frames, take.sampleRateHz);
+        CHECK(whole(cursor, take) && cursor.interleaved()[0] == static_cast<float>(b * 4), "block %d starts at %g", b, cursor.interleaved()[0]);
+    }
+    CHECK(cursor.take().frames == 0, "frames left over");
+}
+
+// Two writers at once, which the shell prevents and the ring must survive: the head never goes back,
+// and once one writer is left the reader is back on whole audio with the right rate within a few takes.
+void testTwoWriters() {
+    PcmRing ring(1024, 2, 256);
+    Cursor cursor(ring);
+    std::atomic<int> running{2};
+    const auto hammer = [&](int rate, int channels, uint32_t seed) {
+        Lcg rng{seed};
+        const std::vector<float> block(256 * 2, 0.25f);
+        for (int n = 0; n < 20000; ++n) ring.writeFloat(block.data(), 1 + rng.next(256), channels, rate);
+        running.fetch_sub(1);
+    };
+    std::thread a([&] { hammer(44100, 2, 1u); });
+    std::thread b([&] { hammer(48000, 1, 2u); });
+    int64_t last = 0;
+    bool wentBack = false;
+    while (running.load() > 0) {
+        const int64_t head = ring.writtenFrames();
+        if (head < last) wentBack = true;
+        last = head;
+        cursor.take();
+    }
+    a.join();
+    b.join();
+    CHECK(!wentBack, "the head went backwards under two writers");
+    CHECK(ring.writtenFrames() >= last && ring.writtenFrames() > 0, "the head ended at %lld", static_cast<long long>(ring.writtenFrames()));
+    // At most one take per kept format mark, and one for a restart.
+    int takes = 0;
+    while (cursor.take().frames > 0 && takes < 64) ++takes;
+    CHECK(takes < 64, "the reader did not drain after the writers stopped");
+    writeStereo(ring, 0, 100, 32000);
+    const Cursor::Take take = cursor.take();
+    CHECK(take.frames == 100 && take.sampleRateHz == 32000, "after the overlap: %d frames at %d Hz", take.frames, take.sampleRateHz);
+    CHECK(!take.restarted && !take.skipped, "after the overlap the reader was not in step");
+    CHECK(whole(cursor, take) && cursor.interleaved()[0] == 0.0f, "after the overlap the block was not read back");
+}
+
+// The newest frames when they lie across the end of the storage.
+void testSnapshotAcrossTheWrap() {
+    PcmRing ring(64, 2);
+    writeStereo(ring, 0, 16);
+    writeStereo(ring, 16, 16);
+    writeStereo(ring, 32, 16);
+    writeStereo(ring, 48, 12);
+    writeStereo(ring, 60, 10);
+    float latest[16] = {};
+    CHECK(ring.snapshotLatest(latest, 8), "no snapshot across the wrap");
+    for (int i = 0; i < 8; ++i) {
+        CHECK(latest[i * 2] == static_cast<float>(62 + i) && latest[i * 2 + 1] == -static_cast<float>(62 + i),
+              "snapshot frame %d read as %g, %g", i, latest[i * 2], latest[i * 2 + 1]);
+    }
+    // More than the ring keeps clear of the writer: refused, not handed out half overwritten.
+    float most[64 * 2];
+    CHECK(!ring.snapshotLatest(most, 64), "a snapshot of slots the writer may be in");
+}
+
 // --- The C ABI ------------------------------------------------------------------------------------
 
 void testAbi() {
@@ -481,6 +664,11 @@ int main() {
     testManyRateChanges();
     testTwoReaders();
     testWriterThread();
+    testLappedReader();
+    testEpochFromThirdThread();
+    testMarkLogWraps();
+    testTwoWriters();
+    testSnapshotAcrossTheWrap();
     testAbi();
     if (failures) {
         std::fprintf(stderr, "pcm_ring_test: %d failure(s)\n", failures);

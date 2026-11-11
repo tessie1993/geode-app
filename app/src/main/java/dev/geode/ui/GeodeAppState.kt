@@ -1,6 +1,5 @@
 package dev.geode.ui
 
-import android.view.Display
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -81,9 +80,6 @@ class GeodeAppState(
 
     var studioSection by mutableStateOf(studioSection)
 
-    var externalDisplay: Display? = null
-        internal set
-
     val onPlayer: Boolean get() = dest == GeodeDestination.PLAYER
 
     fun openSearch() {
@@ -153,7 +149,7 @@ class GeodeAppState(
 }
 
 @Composable
-fun rememberGeodeAppState(externalDisplay: Display?): GeodeAppState {
+fun rememberGeodeAppState(): GeodeAppState {
     val context = LocalContext.current
     val general = remember(context) { GeodePrefsFiles(context).general }
     val state =
@@ -167,7 +163,6 @@ fun rememberGeodeAppState(externalDisplay: Display?): GeodeAppState {
                 studioSection = StudioSection.fromName(lastTab) ?: StudioSection.RENDER,
             )
         }
-    state.externalDisplay = externalDisplay
     // "Where you left off" reopens the last screen shown. Recorded on IO each time it changes;
     // Settings is never a start screen, so leaving the app there reopens the screen before it.
     LaunchedEffect(state.dest) {

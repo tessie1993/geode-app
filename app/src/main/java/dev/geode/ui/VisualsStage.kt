@@ -155,6 +155,17 @@ internal fun BoxScope.StageIcons(
                 )
             }
         }
+        // A connected display (HDMI, USB-C, a wireless display): only while one is there; filled while on.
+        val display = rememberConnectedDisplayControl()
+        display.display?.let { connected ->
+            StageIconButton(
+                StoneIcon.DISPLAY,
+                stringResource(display.actionRes, connected.name),
+                awake,
+                display.toggle,
+                selected = display.on,
+            )
+        }
         // Visuals › Settings, a page of the options (owner: an icon, no drop-down, no gesture).
         StageIconButton(StoneIcon.SETTINGS, stringResource(R.string.visuals_qs_title), awake, onSettings)
         // Export, loop render and the takes list live in Studio; this only takes you there.
@@ -271,6 +282,7 @@ private fun StageIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     tint: Color = Color.Unspecified,
+    selected: Boolean = false,
 ) {
     val view = LocalView.current
     val interaction = remember { MutableInteractionSource() }
@@ -294,7 +306,7 @@ private fun StageIconButton(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon.vector, description, tint = if (tint == Color.Unspecified) LocalContentColor.current else tint)
+        Icon(icon.forState(selected), description, tint = if (tint == Color.Unspecified) LocalContentColor.current else tint)
     }
 }
 

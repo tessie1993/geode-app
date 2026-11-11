@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates the MuzViz brand mark: SVG masters in docs/brand/ and the launcher background,
+"""Generates the BeatRealms 3D brand mark (the eye): SVG masters in docs/brand/ and the launcher background,
 themed-icon and status-bar drawables in app/src/main/res/drawable/, all from one geometry.
 
 The launcher foreground, the splash art and the splash video are raster since 2026-11-01:
@@ -14,10 +14,9 @@ purple palette. Edit the geometry here, never the generated files, then run:
 
 The raster store art (docs/brand/flow/) came from Google Flow; its prompts are in the README.
 
-The wordmark is outlined from Montserrat (SIL OFL 1.1), so the SVGs need no font installed.
-Pass --font to point at Montserrat-Regular.ttf if it is not in C:/Windows/Fonts.
+The wordmark is not drawn here: tools/wordmark.py outlines it, and tools/feature_graphic.py
+draws the Play feature graphic.
 """
-import argparse
 import math
 import pathlib
 
@@ -31,7 +30,6 @@ CYAN, BLUE, AMBER = "#89DDFF", "#82AAFF", "#FFCB6B"
 C = 54.0  # centre of the 108x108 adaptive-icon viewport; the mark stays within r=33 of it
 
 BAR_GRADIENT = ("linear", (22, 0, 86, 0), [(0, VIOLET), (0.5, CYAN), (1, VIOLET)])
-WORD_GRADIENT = ("linear", (0, 0, 1, 0), [(0, LILAC), (1, CYAN)])
 
 
 def num(v):
@@ -187,57 +185,18 @@ def background_svg(cx=C, cy=C, r=76, w=108, h=108):
             f'<rect width="{w}" height="{h}" fill="url(#bg)"/>')
 
 
-def text_path(font, s, size, x, y, tracking=0.0):
-    """Outlines s from the font: an SVG path in user units with its baseline at y."""
-    from fontTools.pens.svgPathPen import SVGPathPen
-    from fontTools.pens.transformPen import TransformPen
-
-    gs, cmap, hmtx = font.getGlyphSet(), font.getBestCmap(), font["hmtx"]
-    scale = size / font["head"].unitsPerEm
-    pen, pen_x, ds = None, x, []
-    for ch in s:
-        g = cmap[ord(ch)]
-        pen = SVGPathPen(gs)
-        gs[g].draw(TransformPen(pen, (scale, 0, 0, -scale, pen_x, y)))
-        ds.append(pen.getCommands())
-        pen_x += hmtx[g][0] * scale + tracking * size
-    return " ".join(ds), pen_x - tracking * size - x
-
-
-def write_svgs(font):
+def write_svgs():
     BRAND.mkdir(parents=True, exist_ok=True)
     grad, rect = background_svg()
 
     s = Svg()
     s.defs.append(grad)
-    (BRAND / "muzviz-icon.svg").write_text(s.doc(108, 108, rect + s.body(mark())))
+    (BRAND / "beatrealms-icon.svg").write_text(s.doc(108, 108, rect + s.body(mark())))
     s = Svg()
-    (BRAND / "muzviz-mark.svg").write_text(s.doc(108, 108, s.body(mark())))
+    (BRAND / "beatrealms-mark.svg").write_text(s.doc(108, 108, s.body(mark())))
     s = Svg()
-    (BRAND / "muzviz-monochrome.svg").write_text(s.doc(108, 108, s.body(monochrome())))
+    (BRAND / "beatrealms-monochrome.svg").write_text(s.doc(108, 108, s.body(monochrome())))
 
-    # Lockup: the mark's 64x44 core at 2x, then the wordmark.
-    s = Svg()
-    word, word_w = text_path(font, "MuzViz", 64, 150, 74)
-    sub, sub_w = text_path(font, "STUDIO PRO", 17, 152, 102, tracking=0.42)
-    fill = s.paint(WORD_GRADIENT)
-    w = 150 + max(word_w, sub_w) + 24
-    inner = (f'<g transform="translate(-28,-26.4) scale(1.6)">{s.body(mark())}</g>'
-             f'<path d="{word}" fill="{fill}" stroke="{fill}" stroke-width="2.2" stroke-linejoin="round"/>'
-             f'<path d="{sub}" fill="#A6A8B2"/>')
-    (BRAND / "muzviz-lockup.svg").write_text(s.doc(round(w), 120, inner))
-
-    # Play feature graphic, 1024x500: the Flow banner art (eye left, quiet right) scaled to the
-    # width and centre-cropped, with the outlined wordmark on the right. Image models misspell
-    # text, so the art carries none and the wordmark is ours.
-    s = Svg()
-    word, _ = text_path(font, "MuzViz", 104, 575, 262)
-    sub, _ = text_path(font, "STUDIO PRO", 28, 579, 314, tracking=0.42)
-    fill = s.paint(WORD_GRADIENT)
-    inner = ('<image href="flow/banner-art.jpg" x="0" y="-35.5" width="1024" height="571.5" preserveAspectRatio="none"/>'
-             f'<path d="{word}" fill="{fill}" stroke="{fill}" stroke-width="3.4" stroke-linejoin="round"/>'
-             f'<path d="{sub}" fill="#C3C7D2"/>')
-    (BRAND / "muzviz-feature-graphic.svg").write_text(s.doc(1024, 500, inner))
 
 
 # ---------------------------------------------------------------- VectorDrawable
@@ -309,12 +268,7 @@ def write_drawables():
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--font", default="C:/Windows/Fonts/Montserrat-Regular.ttf")
-    args = ap.parse_args()
-    from fontTools.ttLib import TTFont
-
-    write_svgs(TTFont(args.font))
+    write_svgs()
     write_drawables()
     print("brand assets written")
 

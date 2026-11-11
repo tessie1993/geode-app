@@ -41,8 +41,7 @@ out vec4 fragColor;
 // travels, so the ring always reads as a ring and its depth shows as the
 // near and far rims sliding past each other. The dolly pulls the eye in;
 // k5 SPACE sets the orbit radius; the rig's look, roll and shake reach the
-// rays as on every rig style. 3D styles dive by flying the rig, so there is
-// no lib_zoom here.
+// rays as on every rig style.
 //
 // ---- audio ------------------------------------------------------------------
 //

@@ -57,7 +57,10 @@ void FluidSceneBase::applyQualityTier() {
 }
 
 void FluidSceneBase::autoQualityTick() {
-    if (params_.fluidAutoQuality) {
+    if (params_.fluidAutoQuality && host_.settling && host_.settling()) {
+        // Never upgrades, so a downgrade taken during a style switch would last the scene's life.
+        monitor_.reset();
+    } else if (params_.fluidAutoQuality) {
         monitor_.setPacedFps(host_.pacedFps ? host_.pacedFps() : 0.0f);
         const int severity = monitor_.onFrame(lastDt_);
         if (severity > 0) {

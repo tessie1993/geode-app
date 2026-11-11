@@ -115,8 +115,16 @@ void testScales() {
 // 50 ms of a click from 10 s on, every downbeat on an accented click, and the beat phase on the click: its
 // mean signed offset from the clicks within 5 ms (beat triggers land on frames, 17 ms apart; the phase is
 // read at the frame's own instant, so it says where the oscillator puts the beat).
+//
+// No tempo is preferred: the ten tempos span the range music is made in, each must be read as itself
+// (never its half or double), and all ten are treated alike: the same confidence within 0.1 and the first
+// beat within a second of each other. A tracker that weighs tempos fails the ends of this list.
 void testClickTracks() {
-    for (double bpm : {90.0, 128.0, 174.0}) {
+    float confLow = 1.0f;
+    float confHigh = 0.0f;
+    double lockFirst = 1e9;
+    double lockLast = 0.0;
+    for (double bpm : {60.0, 75.0, 90.0, 100.0, 110.0, 128.0, 140.0, 150.0, 174.0, 190.0}) {
         const double period = 60.0 / bpm;
         SoundEngine e(44100);
         int beats = 0;
@@ -130,6 +138,8 @@ void testClickTracks() {
         const int rate = e.sampleRateHz();
         std::vector<float> buf;
         int64_t done = 0;
+        double lockAt = -1.0;
+        bool guessedEarly = false;
         for (int i = 1; i <= 60 * 20; i++) {
             const int64_t end = std::llround(i * rate / 60.0);
             buf.resize(static_cast<size_t>(2 * (end - done)));
@@ -146,6 +156,9 @@ void testClickTracks() {
             done = end;
             e.step(1.0f / 60.0f, last);
             const double t = i / 60.0;
+            if (last.beat > 0.0f && lockAt < 0.0) lockAt = t;
+            // Two beats of any tempo cannot have been heard yet: there is no tempo, and nothing counts.
+            if (t < 2.0 * period && (last.bpm != 0.0f || last.beatCount != 0.0f || last.beat > 0.0f)) guessedEarly = true;
             // The trail covers the whole run (beat count in brackets), so a failure shows where the bar
             // stood before the checked stretch and what moved it.
             if (last.downbeat > 0.0f || last.harmonicChange > 0.0f || last.drop > 0.0f || last.sectionChange > 0.0f) {
@@ -170,7 +183,13 @@ void testClickTracks() {
         }
         const int expected = static_cast<int>(10.0 / period);
         const double lead = phased > 0 ? offset / phased : 1.0;
-        std::printf("  click %3.0f BPM: beat phase %+.1f ms from the clicks\n", bpm, 1000.0 * lead);
+        std::printf("  click %3.0f BPM read %7.2f, confidence %.2f, first beat at %.2f s, beat phase %+.1f ms from the clicks\n", bpm,
+                    last.bpm, last.beatConf, lockAt, 1000.0 * lead);
+        CHECK(!guessedEarly, "%.0f BPM: a tempo or a beat before two clicks were heard", bpm);
+        confLow = std::min(confLow, last.beatConf);
+        confHigh = std::max(confHigh, last.beatConf);
+        lockFirst = std::min(lockFirst, lockAt);
+        lockLast = std::max(lockLast, lockAt);
         CHECK(std::fabs(lead) < 0.005, "%.0f BPM: the beat phase runs %+.1f ms from the clicks", bpm, 1000.0 * lead);
         CHECK(std::fabs(last.bpm / bpm - 1.0) < 0.02, "%.0f BPM read %.2f", bpm, last.bpm);
         CHECK(last.beatConf > 0.35f, "%.0f BPM confidence %f", bpm, last.beatConf);
@@ -178,6 +197,57 @@ void testClickTracks() {
         CHECK(downs >= expected / 4 - 1 && downAligned == downs, "%.0f BPM: %d downbeats, %d on beat one;%s", bpm, downs, downAligned,
               trail.c_str());
     }
+    CHECK(confHigh - confLow < 0.1f, "confidence differs by tempo: %.2f to %.2f", confLow, confHigh);
+    CHECK(lockFirst > 0.0 && lockLast - lockFirst < 1.0, "the first beat comes at %.2f to %.2f s, depending on the tempo", lockFirst, lockLast);
+}
+
+// The ambiguous case, where a tempo bias shows: a click on every beat and a quieter one on every "and".
+// Both the beat and its double are in the signal, and only the evidence may choose between them. The same
+// pattern is played at eight tempos, slow enough that both levels are inside the search range, so the pair
+// sits below, around and above every tempo a tracker could be centred on. The level read must be the
+// same at all eight: a pull toward any centre reads the double at the slow end and the beat at the fast
+// end. A quiet "and" reads as the beat everywhere, a loud one as its double everywhere.
+void testNoTempoCentre() {
+    std::printf("no tempo centre:\n");
+    for (double andGain : {0.2, 0.9}) {
+        double first = 0.0;
+        std::string read;
+        bool same = true;
+        for (double bpm : {45.0, 56.0, 68.0, 80.0, 95.0, 112.0, 126.0, 144.0}) {
+            const double period = 60.0 / bpm;
+            SoundEngine e(44100);
+            const GeodeSoundFrame f = run(e, [&](double t) {
+                const double u = std::fmod(t, period);
+                const double v = std::fmod(t + 0.5 * period, period);
+                auto click = [](double x) {
+                    return std::exp(-x * 25.0) * std::sin(kTau * 60.0 * x) + 0.4 * std::exp(-x * 200.0) * std::sin(kTau * 3000.0 * x);
+                };
+                return static_cast<float>(0.7 * (click(u) + andGain * click(v)));
+            }, 16.0);
+            const double level = f.bpm / bpm;
+            char one[32];
+            std::snprintf(one, sizeof one, " %.0f:x%.2f", bpm, level);
+            read += one;
+            if (first == 0.0) first = level;
+            same = same && std::fabs(level / first - 1.0) < 0.02;
+        }
+        std::printf("  and at %.1f:%s\n", andGain, read.c_str());
+        CHECK(same, "the level read depends on the tempo (and at %.1f):%s", andGain, read.c_str());
+        const double expected = andGain < 0.5 ? 1.0 : 2.0;
+        CHECK(std::fabs(first / expected - 1.0) < 0.02, "and at %.1f read x%.2f of the beat, x%.0f expected", andGain, first, expected);
+    }
+}
+
+// Nothing to hear a tempo in: there is none. No number stands in for it, and nothing counts beats.
+void testNoTempoIsNoTempo() {
+    SoundEngine silent(44100);
+    const GeodeSoundFrame quiet = run(silent, [](double) { return 0.0f; }, 12.0);
+    CHECK(quiet.bpm == 0.0f && quiet.beatCount == 0.0f && quiet.barCount == 0.0f && quiet.beatConf == 0.0f,
+          "silence: %.1f BPM, %.0f beats, %.0f bars, confidence %.2f", quiet.bpm, quiet.beatCount, quiet.barCount, quiet.beatConf);
+    SoundEngine tone(44100);
+    const GeodeSoundFrame held = run(tone, [](double t) { return static_cast<float>(0.3 * std::sin(kTau * 220.0 * t)); }, 12.0);
+    CHECK(held.bpm == 0.0f && held.beatCount == 0.0f && held.barCount == 0.0f, "a held tone: %.1f BPM, %.0f beats, %.0f bars", held.bpm,
+          held.beatCount, held.barCount);
 }
 
 // I–vi–IV–V in C, two seconds a chord: C major, and a harmonic change near most chord changes.
@@ -235,6 +305,9 @@ struct Noise {
 
 // 120 BPM: a verse (kick, bass, hats) to 24 s, an 8-bar build (no kick or bass; rising noise, a rising
 // sweep and a snare roll that doubles every two bars) to 40 s, then the drop (kick and a louder bass).
+// The kick and bass are at 56 Hz, 28 cycles a beat, so every beat is the same sound. At 55 Hz (27.5
+// cycles) the kick added to the bass on one beat and cancelled it on the next: a song whose beats
+// alternate loud and soft, which only the old 120 BPM prior read as 120 and the evidence reads as 60.
 void testBuildAndDrop() {
     SoundEngine e(44100);
     Noise noise;
@@ -258,8 +331,8 @@ void testBuildAndDrop() {
             const double u = std::fmod(t, p);
             double v = 0.0;
             if (t < 24.0 || t >= 40.0) {
-                v += 0.6 * std::exp(-u * 20.0) * std::sin(kTau * 55.0 * u);
-                v += 0.25 * std::sin(kTau * 55.0 * t) * (t >= 40.0 ? 1.4 : 1.0);
+                v += 0.6 * std::exp(-u * 20.0) * std::sin(kTau * 56.0 * u);
+                v += 0.25 * std::sin(kTau * 56.0 * t) * (t >= 40.0 ? 1.4 : 1.0);
                 v += 0.05 * std::exp(-std::fmod(t, p / 2) * 300.0) * noise.next();
             } else {
                 const double x = (t - 24.0) / 16.0;
@@ -692,7 +765,11 @@ void testOffbeatGrooves() {
     for (double hat : {0.1, 0.5}) {
         char name[48];
         std::snprintf(name, sizeof name, "kick 1-4, open hat %.1f", hat);
-        checkGroove({name, 120.0, {{Voice::kKick, 0.8, fours}, {Voice::kOpenHat, hat, ands}}});
+        Groove g{name, 120.0, {{Voice::kKick, 0.8, fours}, {Voice::kOpenHat, hat, ands}}};
+        // A hat 4 dB under the kick on every "and" is a pulse of 8ths: 240 is in the signal as much as
+        // 120 is, and the evidence may read either. Only the old 120 BPM prior made 120 the one answer.
+        if (hat > 0.3) g.otherLevel = 240.0;
+        checkGroove(g);
     }
     for (double bass : {0.15, 0.4}) {
         char name[48];
@@ -712,7 +789,7 @@ void testGrooveRegressions() {
     checkGroove({"four on the floor", 124.0, {{Voice::kKick, 0.8, fours}, {Voice::kSnare, 0.3, {1, 3}}, {Voice::kClosedHat, 0.15, eighths}}});
     // Kick on 1 and the "and" of 3, snare on 2 and 4: the snare holds the grid.
     Groove breakbeat{"breakbeat", 96.0, {{Voice::kKick, 0.8, {0, 2.5}}, {Voice::kSnare, 0.4, {1, 3}}, {Voice::kClosedHat, 0.15, eighths}}};
-    breakbeat.knownFailure = "the faster-level rule takes the hats' 8ths (193 BPM); tempo levels are the study's R8/R9";
+    breakbeat.knownFailure = "the kicks sit 2.5 and 1.5 beats apart and the 1.5 reads as the period (64 BPM); needs kick and snare events";
     checkGroove(breakbeat);
     // Hats on the 140 grid, the kick on 1 and the snare on 3: 140 or the felt 70 are both right.
     Groove half{"half-time", 140.0, {{Voice::kKick, 0.8, {0}}, {Voice::kSnare, 0.4, {2}}, {Voice::kClosedHat, 0.15, eighths}}};
@@ -820,6 +897,8 @@ int main() {
     testCatalogue();
     testScales();
     testClickTracks();
+    testNoTempoCentre();
+    testNoTempoIsNoTempo();
     testPauseKeepsTempo();
     testChordProgression();
     testBuildAndDrop();

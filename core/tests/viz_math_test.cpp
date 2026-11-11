@@ -1645,6 +1645,24 @@ void beatTimedLfoSurvivesTempoChangeAndSilence() {
     check(worst < 0.15f, "no discontinuity across tempo change, silence and the beat returning");
 }
 
+// No tempo heard yet: a beat-timed slot assumes none. It free-runs on its own rate in seconds
+// (3 s here: four turns in 12 s), where a stand-in tempo would turn it at some other speed.
+void beatTimedLfoWithNoTempoRunsOnItsOwnSeconds() {
+    LfoEngine e;
+    e.configs[0] = {true, ModSource::Lfo, LfoTarget::Sway, LfoWave::Saw, 3.0f, 1.0f, ModPolarity::Bipolar, ModCurve::Linear, 4.0f};
+    const GeodeSoundFrame quiet = silence();
+    check(quiet.bpm == 0.0f, "silence carries no tempo");
+    float prev = e.tick(1.0f / 60.0f, quiet)[0];
+    int wraps = 0;
+    for (int i = 0; i < 60 * 12 - 1; ++i) {
+        const float v = e.tick(1.0f / 60.0f, quiet)[0];
+        if (v < prev - 1.0f) wraps++;
+        prev = v;
+    }
+    check(wraps == 3 || wraps == 4, "a beat-timed wave with no tempo heard turns once per its own rate in seconds");
+    check(std::fabs(prev - 1.0f) < 0.05f || std::fabs(prev + 1.0f) < 0.05f, "... and is at the end of its fourth turn after 12 s");
+}
+
 void randomLfoStepsOnTheBeatAndGlideIsContinuous() {
     LfoEngine a, g;
     a.configs[0] = {true, ModSource::Lfo, LfoTarget::Sway, LfoWave::Random, 2.0f, 1.0f, ModPolarity::Bipolar, ModCurve::Linear, 4.0f};
@@ -1754,6 +1772,7 @@ int main() {
     beatTimedLfoLocksToTheMusicClock();
     beatTimedLfoIsAtZeroOnMultiples();
     beatTimedLfoSurvivesTempoChangeAndSilence();
+    beatTimedLfoWithNoTempoRunsOnItsOwnSeconds();
     randomLfoStepsOnTheBeatAndGlideIsContinuous();
     if (failures == 0) std::printf("viz_math_test: all passed\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;

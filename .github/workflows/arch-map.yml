@@ -1,7 +1,7 @@
 name: Architecture gates
 
-# The layer rule, the engine Kotlin rule, the action pin rule and the notices copy. No path filter, so the check
-# reports on every PR.
+# The layer rule, the engine Kotlin rule, the no-BPM-bias rule, the action pin rule and the notices copy. No path
+# filter, so the check reports on every PR.
 
 on:
   pull_request:
@@ -43,6 +43,38 @@ jobs:
       - name: Nothing below ui names ui
         shell: bash
         run: bash tools/layer-gate.sh
+
+      # Pins the no-BPM-bias gate: each shape the tempo bias came back in must fail it, a test's stimulus,
+      # "no tempo yet" and the detector's search limits must pass.
+      - name: Self-test the no-BPM-bias gate
+        shell: bash
+        run: |
+          set -u
+          t=$(mktemp -d)
+          mkdir -p "$t/core/sound" "$t/core/viz" "$t/core/tests" "$t/app/src/main/java" "$t/docs"
+          echo 'float period_ = 0.0f;  // 0 = none yet' > "$t/core/sound/Rhythm.hpp"
+          echo 'static constexpr float kFastestBpm = 300.0f;' >> "$t/core/sound/Rhythm.hpp"
+          echo 'const double bpm = 120.0;' > "$t/core/tests/musical_test.cpp"
+          bash tools/no-bpm-bias-gate.sh "$t" >/dev/null || { echo "::error::no-BPM-bias gate self-test: clean tree failed"; exit 1; }
+          plant() {
+            printf '%s\n' "$2" > "$t/$1"
+            if bash tools/no-bpm-bias-gate.sh "$t" >/dev/null; then echo "::error::no-BPM-bias gate self-test: passed: $2"; exit 1; fi
+            rm "$t/$1"
+          }
+          plant core/sound/Bias.cpp 'constexpr float kPriorBpm = 120.0f;'
+          plant core/sound/Bias.cpp 'const float w = std::exp(-0.5f * x * x);  // log-normal weight on the lag'
+          plant core/sound/Bias.cpp 'float periodOrDefault() const;'
+          plant core/sound/Bias.cpp 'const float preferredBpm = 100.0f;'
+          plant core/viz/Bias.hpp '    float lastBpm_ = 120.0f;'
+          plant app/src/main/java/Bias.kt '        const val LEGACY_MORPH_BPM = 120f'
+          plant docs/bias.md 'Weight the tempogram with a log-Gaussian prior centred on 120 BPM.'
+          plant docs/bias.md 'With no estimate, fall back to 120 BPM.'
+          plant docs/bias.md 'tempo = librosa.feature.tempo(onset_envelope=env, start_bpm=120)'
+          echo "no-BPM-bias gate self-test passed"
+
+      - name: No tempo prior, preferred tempo or default BPM
+        shell: bash
+        run: bash tools/no-bpm-bias-gate.sh
 
       # Pins the action pin gate: a tag must fail it, a SHA and a local workflow must pass.
       - name: Self-test the action pin gate

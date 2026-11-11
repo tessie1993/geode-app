@@ -194,8 +194,7 @@ float LfoEngine::syncedPhase(int i, const LfoConfig& c, float dt, const GeodeSou
     constexpr float kEaseSeconds = 0.5f;
     const float n = std::clamp(c.beats, 1.0f, 32.0f);
     const bool locked = sound.bpm > 0.0f && sound.beatConf >= kLockConf;
-    if (sound.bpm > 0.0f) lastBpm_ = sound.bpm;
-    // The free clock keeps the last good tempo (120 before any), so silence runs on, never stops.
+    // The free clock keeps the last measured tempo, so silence runs on, never stops.
     const float hz = safety::limitLfoRate(lastBpm_ / 60.0f / n, c.target);
     const bool limited = hz < lastBpm_ / 60.0f / n;
     float ph;
@@ -222,7 +221,9 @@ float LfoEngine::syncedPhase(int i, const LfoConfig& c, float dt, const GeodeSou
 }
 
 float LfoEngine::oscillator(int i, const LfoConfig& c, float dt, const GeodeSoundFrame& sound) {
-    const bool synced = c.beats >= 1.0f;
+    if (sound.bpm > 0.0f) lastBpm_ = sound.bpm;
+    // Beat timing needs a tempo the music gave: before the first one the slot runs on its own period.
+    const bool synced = c.beats >= 1.0f && lastBpm_ > 0.0f;
     bool wrapped = false;
     float ph;
     if (synced) {

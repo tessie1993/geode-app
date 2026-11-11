@@ -97,6 +97,5 @@ GEODE_CONFIG(clip, speed, Float, 1.0f, 0.25f, 4.0f, Times)
 GEODE_CONFIG(clip, rotationDegrees, Float, 0.0f, -180.0f, 180.0f, Degrees)
 
 // ---- Preset morph (ThemeStore.kt) ------------------------------------------------------------------
-// GuiPrefs.presetMorphSeconds: default 2 (ThemeStore.kt:39, :119), at most PRESET_MORPH_SECONDS_MAX
-// (:305). A beat count saved by an older build migrates through config::morphSecondsFromLegacyBeats.
+// GuiPrefs.presetMorphSeconds: default 2, at most PRESET_MORPH_SECONDS_MAX. Seconds, never beats.
 GEODE_CONFIG(theme, presetMorphSeconds, Float, 2.0f, 0.0f, 8.0f, Seconds)

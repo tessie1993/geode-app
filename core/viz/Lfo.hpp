@@ -104,7 +104,7 @@ private:
     std::array<float, kSlots> glideFrom_{};
     std::array<float, kSlots> glideTo_{};
     std::array<float, kSlots> prevPhase_{};
-    float lastBpm_ = 120.0f;
+    float lastBpm_ = 0.0f;
     std::minstd_rand rng_{12345};
 };
 

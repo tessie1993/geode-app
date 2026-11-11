@@ -400,8 +400,12 @@ void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float
     // A trigger's value is its strength (the beat tracker's confidence), not a level: any downbeat
     // or phrase the tracker fires counts, as with Form's events below.
     if (f.downbeat > 0.0f) barsSinceCommit_ += 1;
-    const float bar = f.bpm > 0.0f && f.beatConf > 0.3f ? 240.0f / f.bpm : 2.0f;
-    const float barGlide = std::clamp(bar, 1.0f, 4.0f);
+    // A look glides in over one bar, held to 1..4 s. With no tempo known there is no bar: the glide is a
+    // plain time in seconds, the geometric middle of that range.
+    constexpr float kGlideMin = 1.0f;
+    constexpr float kGlideMax = 4.0f;
+    const bool barKnown = f.bpm > 0.0f && f.beatConf > 0.3f;
+    const float barGlide = barKnown ? std::clamp(240.0f / f.bpm, kGlideMin, kGlideMax) : std::sqrt(kGlideMin * kGlideMax);
 
     if (commits_ == 0) {
         // The first look waits for a key it can trust, or twelve seconds of music, whichever comes first:

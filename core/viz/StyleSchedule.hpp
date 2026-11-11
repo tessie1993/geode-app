@@ -22,8 +22,8 @@ struct StyleCue {
 //   sound engine (GeodeSoundFrame::beatCount), so the cut lands on the song's beat in the export
 //   exactly as it would live.
 //
-// beatCount keeps counting on the hit clock while the tempo tracker is unsure (the beat trigger
-// stays silent then), so a quiet intro still cuts, just on hits rather than predicted beats.
+// beatCount keeps counting at the last tempo heard while the tracker is unsure (the beat trigger
+// stays silent then). Before any tempo is heard there are no beats to count, and the cut waits.
 //
 // The entitlement (#357): `lockedIds` are the catalogue styles this user may not draw (empty for Pro
 // and the trial). set() drops every cue and beat-cut id among them, so a take recorded during the

@@ -32,9 +32,7 @@ data class GuiPrefs(
     /**
      * How long a preset load takes to glide in, in SECONDS.
      *
-     * Was a count of beats, converted with the tracked tempo — so the glide was the wrong
-     * length whenever the estimate was, and fell back to a flat 120 BPM on live input where
-     * there is no estimate at all. Seconds are the thing the user is actually choosing.
+     * A duration, never a count of beats: nothing here consults or assumes a tempo.
      */
     val presetMorphSeconds: Float = 2f,
     val accentIntensity: Float = 1f,
@@ -112,14 +110,8 @@ data class GuiPrefs(
 class ThemeStore(
     private val prefs: SharedPreferences,
 ) {
-    /** Reads the morph length, converting a beat count saved by an older build. */
-    private fun readPresetMorphSeconds(prefs: SharedPreferences): Float {
-        if (prefs.contains(KEY_PRESET_MORPH_SEC)) {
-            return prefs.getFloat(KEY_PRESET_MORPH_SEC, 2f).coerceIn(0f, PRESET_MORPH_SECONDS_MAX)
-        }
-        val beats = prefs.getInt(LEGACY_KEY_MORPH_BEATS, 4)
-        return (beats * 60f / LEGACY_MORPH_BPM).coerceIn(0f, PRESET_MORPH_SECONDS_MAX)
-    }
+    private fun readPresetMorphSeconds(prefs: SharedPreferences): Float =
+        prefs.getFloat(KEY_PRESET_MORPH_SEC, 2f).coerceIn(0f, PRESET_MORPH_SECONDS_MAX)
 
     fun loadGui(): GuiPrefs {
         val fontColor =
@@ -285,10 +277,6 @@ class ThemeStore(
         }
 
         const val KEY_PRESET_MORPH_SEC = "gui_preset_morph_seconds"
-        const val LEGACY_KEY_MORPH_BEATS = "morph_beats"
-
-        /** The tempo the old beat-count morph fell back to; used only to migrate a saved value. */
-        const val LEGACY_MORPH_BPM = 120f
 
         const val PRESET_MORPH_SECONDS_MAX = 8f
 

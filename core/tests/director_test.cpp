@@ -1,8 +1,10 @@
 // Host test of the auto-director: the emotion table (tools/music_emotion.py), the live feeling
 // (sound/Emotion) and the director's decisions (viz/Director): when it decides, that the same feeling never
 // gives the same picture, that happy and sad stay apart whatever the seed, and that it is deterministic.
-// Built by CI (.github/workflows/android.yml, "Director test") with core/sound/*.cpp and the viz sources
-// Director.cpp, Reactions.cpp, Lfo.cpp, Macros.cpp, CameraRig.cpp, Params.cpp and ParamsFields.cpp.
+// Then the director's behaviour axes (viz/Director's director::applyAxes, axisMoves, axisRoutes): what the
+// old macro knobs did when the director turned them, now the director's own and never the user's bank.
+// Built by CI (.github/workflows/native-host-tests.yml) with core/sound/*.cpp and the viz sources
+// Director.cpp, Reactions.cpp, Lfo.cpp, CameraRig.cpp, Params.cpp, ParamsFields.cpp and VisualSafety.cpp.
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -13,9 +15,11 @@
 #include "sound/Emotion.hpp"
 #include "sound/Form.hpp"
 #include "sound/Harmony.hpp"
+#include "viz/CameraRig.hpp"
 #include "viz/Director.hpp"
 
 using geode::sound::Emotion;
+using geode::viz::CameraRig;
 using geode::viz::Director;
 using geode::viz::DirectorConfig;
 using geode::viz::SceneParams;
@@ -311,8 +315,120 @@ void testDeterministicAndOff() {
     run(off, kSad, 15.0f, t3);
     const SceneParams r = off.apply(p);
     check(std::memcmp(&r, &p, sizeof(SceneParams)) == 0, "off leaves the params alone");
-    const geode::viz::MacroKnobs user{0.1f, -0.2f, 0.0f, 0.3f, 0.0f, 0.5f};
-    check(off.knobs(user) == user, "and the knobs");
+    for (float v : off.axes()) check(v == 0.0f, "off turns no axis");
+    const SceneParams ra = off.applyAxes(p);
+    check(std::memcmp(&ra, &p, sizeof(SceneParams)) == 0, "and its axes leave the params alone");
+    const SceneParams rr = off.applyRoutes(p);
+    check(std::memcmp(&rr, &p, sizeof(SceneParams)) == 0, "and so do its routes");
+    const CameraRig::Moves m = off.moves();
+    check(m.orbit == 1.0f && m.lean == 1.0f && m.dolly == 1.0f && m.breath == 1.0f && m.shake == 1.0f && m.reframe == 1.0f &&
+              m.cut == 1.0f,
+          "and the camera's music moves");
+    float t4 = 0.0f;
+    run(a, kSad, 5.0f, t4);
+    bool turned = false;
+    for (float v : a.axes()) {
+        check(v >= -1.0f && v <= 1.0f, "an axis stays in -1..1");
+        turned = turned || v != 0.0f;
+    }
+    check(turned, "a director that is in turns its axes");
+}
+
+// ---- The director's axes (director::applyAxes, axisMoves, axisRoutes) ----
+// The rows the old macro knobs moved, kept for the director when the user's knobs became the bank:
+// Energy, Speed, Complexity, Space and Chaos (Mood was never the director's).
+
+using Axis = Director::Axis;
+
+Director::Axes axis(Axis which, float v) {
+    Director::Axes x{};
+    x[static_cast<size_t>(which)] = v;
+    return x;
+}
+
+void testAxesAtRestChangeNothing() {
+    SceneParams p;
+    p.speed = 1.7f;
+    p.vignette = 0.3f;
+    const SceneParams q = geode::viz::director::applyAxes(p, {});
+    check(std::memcmp(&q, &p, sizeof(SceneParams)) == 0, "axes at rest leave the look as styled");
+    const CameraRig::Moves m = geode::viz::director::axisMoves({});
+    check(m.orbit == 1.0f && m.shake == 1.0f && m.cut == 1.0f, "axes at rest leave the camera's music moves as styled");
+    for (const auto& r : geode::viz::director::axisRoutes({})) check(!r.enabled, "axes at rest add no routes");
+}
+
+void testAxesTurnTowardTheEnds() {
+    namespace dir = geode::viz::director;
+    SceneParams p;
+    const SceneParams up = dir::applyAxes(p, axis(Axis::Speed, 1.0f));
+    check(std::fabs(up.speed - 4.0f) < 1e-5f, "a full Speed turn up reaches the top of the range");
+    const SceneParams half = dir::applyAxes(p, axis(Axis::Speed, 0.5f));
+    check(half.speed > p.speed && half.speed < up.speed, "half a turn goes part of the way");
+    const SceneParams down = dir::applyAxes(p, axis(Axis::Speed, -1.0f));
+    check(std::fabs(down.speed - 0.05f) < 1e-5f, "a full turn down reaches the bottom");
+    const SceneParams wide = dir::applyAxes(p, axis(Axis::Space, 1.0f));
+    check(wide.zoom < p.zoom && wide.vignette <= p.vignette && wide.camFov > p.camFov, "Space up widens: zoom out, less vignette, wider lens");
+    SceneParams wild = p;
+    wild.bloom = 9.0f;
+    check(dir::applyAxes(wild, axis(Axis::Energy, 1.0f)).bloom == wild.bloom, "an axis never pushes a field further past its slider");
+    check(dir::applyAxes(p, axis(Axis::Chaos, 1.0f)).speed == p.speed, "an axis only moves its own fields");
+    check(dir::applyAxes(p, axis(Axis::Energy, 1.0f)).saturation == p.saturation, "no axis moves the colour: the palette is the look's");
+}
+
+// The value it is given is the base and the axis adds to it, so a slider still moves the picture under Auto.
+void testAxesAddToTheSlider() {
+    namespace dir = geode::viz::director;
+    SceneParams low;
+    low.speed = 0.4f;
+    low.zoom = 0.8f;
+    low.camFov = 0.8f;
+    SceneParams high = low;
+    high.speed = 0.9f;
+    high.zoom = 1.3f;
+    high.camFov = 1.0f;
+    for (float turn : {0.3f, 0.6f, 1.0f, -0.3f}) {
+        Director::Axes x{};
+        x.fill(turn);
+        const SceneParams a = dir::applyAxes(low, x);
+        const SceneParams b = dir::applyAxes(high, x);
+        check(b.speed > a.speed && b.camFov > a.camFov && b.zoom > a.zoom, "at any turn a higher slider still gives a higher value");
+    }
+    const Director::Axes quarter = axis(Axis::Speed, 0.25f);
+    check(std::fabs((dir::applyAxes(high, quarter).speed - dir::applyAxes(low, quarter).speed) - (high.speed - low.speed)) < 1e-5f,
+          "away from the ends the slider's whole step comes through");
+    SceneParams back;
+    back.camFly = -1.5f;
+    check(dir::applyAxes(back, quarter).camFly < 0.0f, "a backward Fly speed still flies backward under a small Speed turn");
+    SceneParams stopped;
+    stopped.camFly = -1.0f;
+    check(dir::applyAxes(stopped, axis(Axis::Speed, -1.0f)).camFly == stopped.camFly, "an axis never drags back a value already past its end");
+}
+
+void testAxesScaleTheCameraAndPlayRoutes() {
+    namespace dir = geode::viz::director;
+    check(dir::axisMoves(axis(Axis::Chaos, -1.0f)).cut == 0.0f, "Chaos all the way down stops hard cuts");
+    check(dir::axisMoves(axis(Axis::Space, 1.0f)).orbit == 2.0f, "Space up doubles the orbit");
+    int on = 0;
+    for (const auto& r : dir::axisRoutes(axis(Axis::Chaos, 0.5f))) {
+        if (!r.enabled) continue;
+        ++on;
+        check(r.amount > 0.0f && r.amount <= 0.25f + 1e-5f, "a half turn plays its routes at half depth");
+    }
+    check(on == 2, "Chaos up adds its two routes and nothing else");
+    for (const auto& r : dir::axisRoutes(axis(Axis::Energy, -1.0f))) check(!r.enabled, "an axis turned down plays no route");
+    SceneParams p;
+    p.camFly = 1.0f;
+    CameraRig rig;
+    rig.setMoves(dir::axisMoves(axis(Axis::Chaos, -1.0f)));
+    GeodeSoundFrame f{};
+    f.drive = 1.0f;
+    f.presence = 1.0f;
+    f.intensity = 1.0f;
+    f.bassAtt = 1.0f;
+    for (int i = 0; i < 60; ++i) rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    f.hardCut = 1.0f;
+    rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    check(rig.cuts() == 0, "with Chaos all the way down a big moment does not cut");
 }
 
 // The look is an offset on the user's dials, so a slider at either end of its range must not be
@@ -430,6 +546,10 @@ int main() {
     testWeakDownbeatsCount();
     testLookCarriesAcrossPlays();
     testLongStretchStepsTheStyle();
+    testAxesAtRestChangeNothing();
+    testAxesTurnTowardTheEnds();
+    testAxesAddToTheSlider();
+    testAxesScaleTheCameraAndPlayRoutes();
     if (failures) {
         std::printf("director_test: %d failed\n", failures);
         return 1;

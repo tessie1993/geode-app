@@ -57,13 +57,8 @@ float Renderer::beginFrame(double timeSeconds) {
     {
         // Before anything reads it this frame. No engine yet (nothing written) leaves the frame silent.
         std::lock_guard<std::mutex> lock(soundLock_);
-        // The engine settings, latched once per frame: the same copy re-tunes the sound engine (the macros'
-        // Energy and Speed) and drives the resolver.
+        // The engine settings, latched once per frame for the resolver.
         frameSettings_ = latchEngineSettings();
-        if (sound_ && frameSettings_.knobs != tunedKnobs_) {
-            tunedKnobs_ = frameSettings_.knobs;
-            sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
-        }
         // What the player told the engines (core/sound/PlayerSignals), live renderers only: an export hears
         // its own track, with no boundaries but its own and no player fades, so it keeps fadeGain at 1, and
         // counts as the player, so a silent stretch in the track holds the song like a pause does live.

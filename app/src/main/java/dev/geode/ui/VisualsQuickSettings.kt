@@ -304,7 +304,6 @@ private fun QuickSettingsRows(
     }
 }
 
-/** "Steps through": Random or the visual playlist, one row whose value opens the choice. */
 /** How far Auto reaches; the position in [REACH_LABELS] is the native level. */
 @Composable
 private fun ReachRow(
@@ -330,6 +329,7 @@ private fun ReachRow(
     }
 }
 
+/** "Steps through": Random or the visual playlist, one row whose value opens the choice. */
 @Composable
 private fun SourceRow(
     source: TimerSource,

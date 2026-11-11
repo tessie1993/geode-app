@@ -501,9 +501,7 @@ internal class MusicLibraryRepository(
             val fileName = openableInfoFor(uri).first.ifBlank { uri.lastPathSegment.orEmpty() }
             val text =
                 runCatching {
-                    application.contentResolver.openInputStream(uri)?.use { stream ->
-                        stream.readBytes().toString(Charsets.UTF_8)
-                    }
+                    application.contentResolver.openInputStream(uri)?.use(ReadCap.PLAYLIST::text)
                 }.getOrNull()
             if (text == null) {
                 return@withContext PlaylistImportResult.Failed("could not open the picked file")

@@ -10,7 +10,6 @@ import android.content.Intent
 import android.provider.Settings
 import android.view.WindowManager
 import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,7 +42,7 @@ import kotlinx.coroutines.withContext
 
 // Settings › Behaviour & gestures and Settings › Visuals: what the app does by itself and what each
 // gesture on the visual means ([BehaviourPrefs], `geode-prefs`, defaults the owner's), and how the
-// visual behaves around the user (touch, a second screen, safety, the wallpaper and the dream).
+// visual behaves around the user (a second screen, safety, the wallpaper and the dream).
 // Only options the app honours get a row (#337): a switch that does nothing is worse than no
 // switch. Auto (the auto-director, the style timer and its sources) lives in Visuals'
 // quick settings alone, where it is seen working.
@@ -206,39 +205,6 @@ internal fun VisualsBasics() {
             bestEffortStart(context, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         },
     )
-}
-
-/** Settings › Visuals › Touch: smearing the picture with a finger, and pinch and twist. */
-@Composable
-internal fun TouchSection(viewModel: SettingsViewModel) {
-    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
-    Column {
-        LabeledSwitch(
-            stringResource(R.string.behavior_touch_smear),
-            checked = gui.touchSmear,
-            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(touchSmear = it)) },
-        )
-        SettingsHint(stringResource(R.string.behavior_touch_smear_hint))
-        if (gui.touchSmear) {
-            Text(
-                stringResource(R.string.behavior_smear_strength, (gui.touchSmearStrength * 100).toInt()),
-                style = MaterialTheme.typography.labelMedium,
-            )
-            CrystalSlider(
-                value = gui.touchSmearStrength,
-                onValueChange = { viewModel.setGuiPrefs(gui.copy(touchSmearStrength = it)) },
-                valueRange = 0.2f..2f,
-            )
-        }
-    }
-    Column {
-        LabeledSwitch(
-            stringResource(R.string.behavior_touch_transform),
-            checked = gui.touchTransform,
-            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(touchTransform = it)) },
-        )
-        SettingsHint(stringResource(R.string.behavior_touch_transform_hint))
-    }
 }
 
 /** Settings › Visuals › Connected display: the visual on HDMI or a cast display. */

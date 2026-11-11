@@ -154,7 +154,6 @@ data class BehaviourPrefs(
                 CanvasGesture.LONG_PRESS to GestureAction.RECORD,
                 CanvasGesture.SWIRL to GestureAction.RANDOMIZE_ALL,
                 CanvasGesture.TWO_FINGER_DRAG to GestureAction.TOUCH_PLAY,
-                CanvasGesture.PINCH_TWIST to GestureAction.OFF,
             )
     }
 }
@@ -181,7 +180,7 @@ class BehaviourStore(
             dreamShowNowPlaying = prefs.getBoolean(KEY_DREAM_NOW_PLAYING, d.dreamShowNowPlaying),
             dreamFps = prefs.getInt(KEY_DREAM_FPS, d.dreamFps),
             gestures =
-                CanvasGesture.entries.associateWith { gesture ->
+                MAPPED_GESTURES.associateWith { gesture ->
                     enumOf(KEY_GESTURE_PREFIX + gesture.name, d.actionFor(gesture))
                 },
         )
@@ -200,7 +199,8 @@ class BehaviourStore(
             putBoolean(KEY_DREAM_CLOCK, b.dreamShowClock)
             putBoolean(KEY_DREAM_NOW_PLAYING, b.dreamShowNowPlaying)
             putInt(KEY_DREAM_FPS, b.dreamFps)
-            for (gesture in CanvasGesture.entries) putString(KEY_GESTURE_PREFIX + gesture.name, b.actionFor(gesture).name)
+            for (gesture in MAPPED_GESTURES) putString(KEY_GESTURE_PREFIX + gesture.name, b.actionFor(gesture).name)
+            remove(KEY_GESTURE_PREFIX + CanvasGesture.PINCH_TWIST.name)
         }
     }
 
@@ -216,18 +216,21 @@ class BehaviourStore(
         default: E,
     ): E = prefs.getString(key, null)?.let { name -> enumValues<E>().firstOrNull { it.name == name } } ?: default
 
-    private companion object {
-        const val KEY_START_SCREEN = "behaviour_start_screen"
-        const val KEY_LAST_SCREEN = "behaviour_last_screen"
-        const val KEY_KEEP_SCREEN_ON_VISUALS = "behaviour_keep_screen_on_visuals"
-        const val KEY_START_ON_HEADPHONES = "behaviour_start_on_headphones"
+    internal companion object {
+        /** Pinch and twist are only told apart from a drag; no action is ever mapped to them. */
+        private val MAPPED_GESTURES = CanvasGesture.entries - CanvasGesture.PINCH_TWIST
+
+        private const val KEY_START_SCREEN = "behaviour_start_screen"
+        private const val KEY_LAST_SCREEN = "behaviour_last_screen"
+        private const val KEY_KEEP_SCREEN_ON_VISUALS = "behaviour_keep_screen_on_visuals"
+        private const val KEY_START_ON_HEADPHONES = "behaviour_start_on_headphones"
         const val KEY_NOTIFICATION_BUTTONS = "behaviour_notification_buttons"
-        const val KEY_REMEMBER_SHUFFLE_REPEAT = "behaviour_remember_shuffle_repeat"
-        const val KEY_QUEUE_END = "behaviour_queue_end"
-        const val KEY_DREAM_BRIGHT = "behaviour_dream_screen_bright"
-        const val KEY_DREAM_CLOCK = "behaviour_dream_show_clock"
-        const val KEY_DREAM_NOW_PLAYING = "behaviour_dream_show_now_playing"
-        const val KEY_DREAM_FPS = "behaviour_dream_fps"
-        const val KEY_GESTURE_PREFIX = "behaviour_gesture_"
+        private const val KEY_REMEMBER_SHUFFLE_REPEAT = "behaviour_remember_shuffle_repeat"
+        private const val KEY_QUEUE_END = "behaviour_queue_end"
+        private const val KEY_DREAM_BRIGHT = "behaviour_dream_screen_bright"
+        private const val KEY_DREAM_CLOCK = "behaviour_dream_show_clock"
+        private const val KEY_DREAM_NOW_PLAYING = "behaviour_dream_show_now_playing"
+        private const val KEY_DREAM_FPS = "behaviour_dream_fps"
+        private const val KEY_GESTURE_PREFIX = "behaviour_gesture_"
     }
 }

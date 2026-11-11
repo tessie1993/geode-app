@@ -403,7 +403,7 @@
     <string name="playback_pitch">"Pitch  %1$s st (0 = normal)"</string>
     <string name="playback_fade_off">Fade on pause, resume and skip — off</string>
     <string name="playback_fade">"Fade on pause, resume and skip  %1$ss"</string>
-    <string name="playback_fade_explainer">Ramps the volume instead of cutting it. Not a crossfade — one player decodes one track at a time, and a second one would give the analyser two streams to sum — but it removes the hard edges, which is the part you hear.</string>
+    <string name="playback_fade_explainer">Ramps the volume instead of cutting it when you pause, resume or skip. The crossfade above joins one track to the next.</string>
     <string name="playback_skip_silence">Skip silence</string>
     <string name="playback_pause_unplugged">Pause when unplugged</string>
     <string name="playback_keep_screen_on">Keep screen on</string>
@@ -713,7 +713,6 @@
     <string name="font_color_mint">Mint</string>
 
     <!-- Settings: Behavior tab. -->
-    <string name="behavior_group_touch">Touch</string>
     <string name="behavior_group_display">Connected display</string>
     <string name="notes_switch">Note &amp; key reactions</string>
     <string name="notes_body">Every style answers the melody, the chords, the key and the mood, not just the drums: each note leans the picture toward its own colour, leaps swing it, tension bends it and resolution smooths it back. Drums count for as much as the track is made of them.</string>
@@ -733,11 +732,6 @@
     <string name="note_key_drums">Drums</string>
     <string name="note_key_drums_hint">How much the kick, snare and hats push on top of the notes.</string>
     <string name="behavior_group_pip">Picture-in-picture</string>
-    <string name="behavior_touch_smear">Smear the visuals with a finger</string>
-    <string name="behavior_touch_smear_hint">Drag on the fullscreen visualizer to push the image around: the drag raises the surface ahead of your finger and dips it behind, and whatever is on screen bends through it. On the Water style it stirs the pool itself and paints into it.</string>
-    <string name="behavior_smear_strength">"Smear strength  %1$d%%"</string>
-    <string name="behavior_touch_transform">Pinch and twist the canvas</string>
-    <string name="behavior_touch_transform_hint">Two fingers on the fullscreen visualizer: pinch moves the Zoom slider, twist moves Rotation. They are the same controls the Customize panel shows, so a gesture is saved into presets and takes — and undone by dragging the slider back.</string>
     <string name="behavior_display_use">Use a connected display</string>
     <string name="behavior_display_connected">Connected: %1$s. The visuals play there and the phone becomes the control surface — the canvas moves rather than being mirrored, so the big screen shows exactly what the app renders.</string>
     <string name="behavior_display_none">Nothing connected. Plug in HDMI, and the visuals move to that screen while the phone keeps the controls.</string>
@@ -746,7 +740,7 @@
     <string name="behavior_wallpaper_hint">Set the visualizer as your wallpaper. It uses the style and settings the app was last showing, reacts to whatever BeatRealms is playing, and drifts gently on its own the rest of the time. It draws nothing while another app is in front, so it is not a background battery drain.</string>
     <string name="behavior_wallpaper_button">Set as live wallpaper</string>
     <string name="behavior_pip_auto_enter">Enter automatically</string>
-    <string name="behavior_pip_auto_enter_hint">Leaving the fullscreen visualizer while something is playing shrinks it into a picture-in-picture window instead of just backgrounding the app. Off, the PiP button on the visualizer and the platform\'s own swipe-home gesture are still there — this only changes what leaving does by default.</string>
+    <string name="behavior_pip_auto_enter_hint">Leaving Visuals while something is playing shrinks the visual into a picture-in-picture window. Off, leaving only sends the app to the background.</string>
 
     <!-- Settings: Auto visuals (rendered inside the Behavior tab). -->
     <string name="autoviz_pick_from">Pick from</string>
@@ -1008,7 +1002,7 @@
     <string name="settings_group_behaviour">Behaviour &amp; gestures</string>
     <string name="settings_group_behaviour_summary">Start screen, screen on, headphones, queue end, gestures</string>
     <string name="settings_group_visuals">Visuals</string>
-    <string name="settings_group_visuals_summary">Note reactions, safety, touch, second screen, wallpaper</string>
+    <string name="settings_group_visuals_summary">Note reactions, safety, second screen, wallpaper</string>
     <string name="settings_group_sound_input">Sound input</string>
     <string name="settings_group_sound_input_summary">Microphone, other apps\' audio, how the visual listens</string>
     <string name="settings_group_look">Look</string>

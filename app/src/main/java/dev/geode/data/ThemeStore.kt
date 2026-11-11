@@ -36,7 +36,6 @@ data class GuiPrefs(
      * gives the canvas back.
      */
     val miniPlayerFadeSeconds: Float = MINI_PLAYER_FADE_DEFAULT_SECONDS,
-    val whiteFont: Boolean = false,
     val fontColorArgb: Int? = null,
     val textScale: Float = 1f,
     /**
@@ -62,15 +61,11 @@ data class GuiPrefs(
      */
     val tutorialProgress: TutorialProgress = TutorialProgress(),
     val micReactive: Boolean = false,
-    val touchSmear: Boolean = false,
-    val touchSmearStrength: Float = 1f,
     val secondScreen: Boolean = true,
-    val touchTransform: Boolean = true,
     /**
      * Whether leaving the fullscreen visualizer while something is playing drops straight into
-     * picture-in-picture, instead of just backgrounding the app. Off by default: PiP is a
-     * deliberate action (the button on the visualizer, or the platform's own gesture on API 31+)
-     * until someone opts into it happening automatically too.
+     * picture-in-picture, instead of just backgrounding the app. Off by default, and the only way
+     * into PiP: there is no PiP button.
      */
     val autoEnterPip: Boolean = false,
     /**
@@ -80,9 +75,6 @@ data class GuiPrefs(
      */
     val uiSounds: Boolean = false,
 ) {
-    val fontColorOverride: Int?
-        get() = fontColorArgb ?: FontColorChoice.WHITE_ARGB.takeIf { whiteFont }
-
     companion object {
         const val TEXT_SCALE_MIN = 0.85f
         const val TEXT_SCALE_MAX = 1.3f
@@ -136,9 +128,6 @@ class ThemeStore(
                     prefs.getString(KEY_TUTORIAL_DONE, null),
                     prefs.getString(KEY_TUTORIAL_RESUME, null),
                 ),
-            touchSmear = prefs.getBoolean(KEY_TOUCH_SMEAR, false),
-            touchSmearStrength = prefs.getFloat(KEY_TOUCH_SMEAR_STRENGTH, 1f).coerceIn(0.2f, 2f),
-            touchTransform = prefs.getBoolean(KEY_TOUCH_TRANSFORM, true),
             secondScreen = prefs.getBoolean(KEY_SECOND_SCREEN, true),
             micReactive = prefs.getBoolean(KEY_MIC_REACTIVE, false),
             autoEnterPip = prefs.getBoolean(KEY_AUTO_ENTER_PIP, false),
@@ -172,7 +161,7 @@ class ThemeStore(
         }
 
     fun saveGui(gui: GuiPrefs) {
-        val fontColor = gui.fontColorOverride
+        val fontColor = gui.fontColorArgb
         prefs.edit {
             putString(KEY_CORNER, gui.cornerStyle.name)
             putFloat(KEY_OPACITY, gui.barOpacity)
@@ -202,9 +191,9 @@ class ThemeStore(
             // Reduced motion follows Android's "Remove animations" alone now (data/SystemMotion,
             // #336); the app's own switch is gone, so its old answer is dropped on the next save.
             remove(KEY_REDUCED_MOTION)
-            putBoolean(KEY_TOUCH_SMEAR, gui.touchSmear)
-            putFloat(KEY_TOUCH_SMEAR_STRENGTH, gui.touchSmearStrength)
-            putBoolean(KEY_TOUCH_TRANSFORM, gui.touchTransform)
+            remove(KEY_TOUCH_SMEAR)
+            remove(KEY_TOUCH_SMEAR_STRENGTH)
+            remove(KEY_TOUCH_TRANSFORM)
             putBoolean(KEY_SECOND_SCREEN, gui.secondScreen)
             putBoolean(KEY_MIC_REACTIVE, gui.micReactive)
             putBoolean(KEY_AUTO_ENTER_PIP, gui.autoEnterPip)
@@ -264,6 +253,8 @@ class ThemeStore(
 
         /** Retired with the app's own reduced-motion switch (#336); removed on the next save. */
         const val KEY_REDUCED_MOTION = "gui_reduced_motion"
+
+        /** Retired with the Touch section, which nothing read; removed on the next save. */
         const val KEY_TOUCH_SMEAR = "gui_touch_smear"
         const val KEY_TOUCH_SMEAR_STRENGTH = "gui_touch_smear_strength"
         const val KEY_TOUCH_TRANSFORM = "gui_touch_transform"

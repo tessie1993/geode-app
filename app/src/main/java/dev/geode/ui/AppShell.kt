@@ -112,6 +112,7 @@ import dev.geode.model.TutorialProgress
 import dev.geode.pro.PaywallTrigger
 import dev.geode.render.VisualizerView
 import dev.geode.render.scene.SceneIds
+import dev.geode.ui.cast.CastHost
 import dev.geode.ui.pro.PaywallHost
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeMotionScheme
@@ -524,6 +525,7 @@ fun AppRoot() {
             }
             RecordSaveHost()
             PaywallHost(reducedMotion = reducedMotion)
+            CastHost()
             SharedLinkConfirm()
         }
     }

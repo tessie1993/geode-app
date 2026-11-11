@@ -6,6 +6,7 @@ import dev.geode.audio.MicCapture
 import dev.geode.audio.NowPlayingBridge
 import dev.geode.audio.PlaybackCapture
 import dev.geode.audio.PlaybackCaptureService
+import dev.geode.cast.CastService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -73,6 +74,8 @@ internal class CaptureController(
     /** The mic was stopped because the app left the screen, and comes back with it ([onForeground]). */
     private var micPausedInBackground = false
 
+    private var inBackground = false
+
     /**
      * Stops the mic. The epoch ends its stream for every reader: what waited in a renderer's mix is
      * dropped, and a paused player counts as the source again.
@@ -80,6 +83,7 @@ internal class CaptureController(
     private fun stopMic() {
         micCapture.stop()
         micRing.beginEpoch()
+        CastService.setMicWanted(application, false)
     }
 
     /**
@@ -87,15 +91,22 @@ internal class CaptureController(
      * without a microphone foreground service Android gives a background app silence anyway,
      * so the AudioRecord and its reader thread are released instead of reading zeros. The
      * preference and the on-screen state stay as they are for [onForeground] to resume.
+     * A cast is still somebody looking: while it holds the microphone type the mic keeps going.
      */
     fun onBackground() {
-        if (!micCapture.active) return
+        inBackground = true
+        if (!micCapture.active || CastService.micHeld.value) return
+        pauseMicInBackground()
+    }
+
+    private fun pauseMicInBackground() {
         stopMic()
         micPausedInBackground = true
     }
 
     /** The app is back on screen: resume the mic [onBackground] stopped, unless access went meanwhile. */
     fun onForeground() {
+        inBackground = false
         if (!micPausedInBackground) return
         micPausedInBackground = false
         if (hasMicPermission()) setMicEnabled(true) else refreshMicState()
@@ -118,6 +129,12 @@ internal class CaptureController(
         // the person can re-enable it from the mic control, which will prompt as usual.
         if (host.micReactivePref && !micCapture.active && hasMicPermission()) {
             setMicEnabled(true)
+        }
+        // The cast ended (or lost the microphone type) with the app away: Android would hand the mic silence.
+        scope.launch {
+            CastService.micHeld.collect { held ->
+                if (!held && inBackground && micCapture.active) pauseMicInBackground()
+            }
         }
         scope.launch {
             dev.geode.audio.MediaProjectionHolder.projection
@@ -167,6 +184,7 @@ internal class CaptureController(
         }
         _micState.value = MicState(active = true)
         host.setMicReactivePref(true)
+        CastService.setMicWanted(application, true)
         return null
     }
 
@@ -256,6 +274,7 @@ internal class CaptureController(
     fun refreshMicState() {
         if (!_micState.value.active || micCapture.active) return
         micRing.beginEpoch()
+        CastService.setMicWanted(application, false)
         _micState.value = MicState(active = false, failure = MicCapture.Failure.UNAVAILABLE)
         host.setMicReactivePref(false)
     }

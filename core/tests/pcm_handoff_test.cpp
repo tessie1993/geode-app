@@ -20,6 +20,7 @@
 
 using geode::viz::PcmHandoff;
 using geode::viz::PcmPulse;
+using geode::viz::PcmStarve;
 
 namespace {
 
@@ -214,6 +215,35 @@ void pulseDecaysWithoutNewPcm() {
 
 }  // namespace
 
+void starvedEngineIsFlushedOnce() {
+    const float dt = 1.0f / 60.0f;
+    PcmStarve never;
+    bool flushedUnfed = false;
+    for (int frame = 0; frame < 120; ++frame) flushedUnfed = flushedUnfed || never.tick(false, dt);
+    check(!flushedUnfed, "an engine that was never fed is not handed silence");
+
+    PcmStarve starve;
+    check(!starve.tick(true, dt), "a frame with samples is not starved");
+    // A decoder that delivers a block every 100 ms leaves five empty frames in six.
+    bool flushedBetweenBlocks = false;
+    for (int frame = 0; frame < 60; ++frame) flushedBetweenBlocks = flushedBetweenBlocks || starve.tick(frame % 6 == 0, dt);
+    check(!flushedBetweenBlocks, "gaps between decoder blocks are not silence");
+    int flushes = 0;
+    int firstFlush = -1;
+    for (int frame = 0; frame < 300; ++frame) {
+        if (starve.tick(false, dt)) {
+            ++flushes;
+            if (firstFlush < 0) firstFlush = frame;
+        }
+    }
+    check(flushes == 1, "a pause hands the engine silence exactly once");
+    check(firstFlush >= 9 && firstFlush <= 15, "about a quarter of a second in");
+    check(!starve.tick(true, dt), "samples end the gap");
+    flushes = 0;
+    for (int frame = 0; frame < 60; ++frame) flushes += starve.tick(false, dt) ? 1 : 0;
+    check(flushes == 1, "and the next pause is flushed again");
+}
+
 int main() {
     noNewSamplesGivesNothing();
     monoPassesThrough();
@@ -222,6 +252,7 @@ int main() {
     newEpochDropsTheOld();
     hiResSourcesAreDecimated();
     pulseDecaysWithoutNewPcm();
+    starvedEngineIsFlushedOnce();
     if (failures == 0) std::printf("pcm_handoff_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

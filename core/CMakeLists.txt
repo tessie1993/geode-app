@@ -5,6 +5,7 @@ add_library(geode_core STATIC
     api/geode_library_api.cpp
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
+    api/geode_macro_bank_api.cpp
     api/geode_sound_api.cpp
     api/geode_underlay_api.cpp
     api/geode_frame_api.cpp
@@ -67,6 +68,7 @@ add_library(geode_core STATIC
     viz/Lfo.cpp
     viz/ModTargets.cpp
     viz/Macros.cpp
+    viz/MacroBank.cpp
     viz/Director.cpp
     viz/LayerState.cpp
     viz/NoteResponse.cpp

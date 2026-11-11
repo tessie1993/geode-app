@@ -147,4 +147,13 @@ Java_dev_geode_engine_bridge_GeodeNative_autoTimerDue(JNIEnv*, jobject, jint tim
     return geode_auto_timer_due(timer, nowMs, intervalSec, running == JNI_TRUE ? 1 : 0) ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_autoMarkChange(JNIEnv* env, jobject, jstring key) {
+    if (!key) return;
+    const char* chars = env->GetStringUTFChars(key, nullptr);
+    if (!chars) return;
+    geode_auto_mark_change(chars);
+    env->ReleaseStringUTFChars(key, chars);
+}
+
 }  // extern "C"

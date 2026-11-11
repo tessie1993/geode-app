@@ -8,6 +8,7 @@
 #include "viz/ThermalGovernor.hpp"
 #include "viz/fluid/FluidChoreography.hpp"
 #include "viz/fluid/FluidParticles.hpp"
+#include "viz/fluid/FluidQuality.hpp"
 #include "viz/scenes/ProgramLoader.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 
@@ -61,7 +62,7 @@ protected:
     bool hasLast_ = false;
     GeodeSoundFrame last_{};
     float featuresAgeSec_ = 0.0f;
-    int autoDowngrade_ = 0;
+    fluid::quality::AutoDowngrade autoDowngrade_;
     int lastUserQuality_ = -1;
     int appliedTier_ = -1;
 

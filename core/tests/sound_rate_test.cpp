@@ -1,7 +1,7 @@
 // Frame-rate test for the sound engine (core/sound): 20 s of synthetic music run at 30, 60 and 120 fps.
 // Built with the runner's own compiler in CI:
-//   g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_rate_test.cpp core/sound/*.cpp -o sound_rate_test
-//   ./sound_rate_test                          the synthetic song across frame rates
+//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/sound_rate_test.cpp core/sound/*.cpp core/output/FrameClock.cpp -o sound_rate_test
+//   ./sound_rate_test                          the synthetic song across frame rates, and export against live
 //   ./sound_rate_test --pcm <file.f32> <rate>  a real track (stereo float32) across frame rates, with a report
 //   ./sound_rate_test --write <file.tsv>       every frame's scalars at 60 fps, for tools/glslcheck --stills
 //
@@ -26,6 +26,7 @@
 #include <string>
 #include <vector>
 
+#include "output/FrameClock.hpp"
 #include "sound/SoundEngine.hpp"
 #include "tests/SoundFields.hpp"
 
@@ -410,6 +411,131 @@ int compareHiRes(const Run& at48, const Run& at96) {
     return bad;
 }
 
+// ---- Export equals live -----------------------------------------------------------------------------------
+//
+// The same samples must give the same sound frame whoever cut them. The export writes, per frame, exactly
+// the audio up to the frame's end on its whole-ms clock (OffscreenSceneRenderer: TrackAudio.deliverUntilMs(
+// FrameClock::frameTimeMs(n + 1))) and steps 1/fps. Live writes the tap's blocks as they arrive, in sizes
+// that never line up with a frame (several in one frame, none in another), and steps by a measured, jittered
+// frame time. At checkpoints where both have been written the same samples (every 15th export frame), every
+// state field and feeling value must be equal bit for bit, and every trigger equal to the strongest since
+// the previous checkpoint on each side.
+
+struct Checkpoints {
+    std::vector<std::vector<float>> values;
+    std::vector<std::vector<float>> feel;
+};
+
+// Folds one step into the open window: state fields as they stand now, triggers as the strongest so far.
+void fold(std::vector<float>& window, const std::vector<float>& row, bool fresh, bool (*trigger)(int)) {
+    for (size_t k = 0; k < row.size(); k++) {
+        window[k] = fresh || !trigger(static_cast<int>(k)) ? row[k] : std::max(window[k], row[k]);
+    }
+}
+bool frameTrigger(int k) { return isTrigger(kFields[k].name); }
+bool feelTrigger(int k) { return isTrigger(feelName(k)); }
+
+struct Window {
+    std::vector<float> values = std::vector<float>(kFieldCount);
+    std::vector<float> feel = std::vector<float>(kFeelCount);
+    bool fresh = true;
+    void take(const GeodeSoundFrame& f, const geode::sound::Emotion::State& e) {
+        std::vector<float> row(kFieldCount);
+        for (int k = 0; k < kFieldCount; k++) row[k] = f.*kFields[k].member;
+        fold(values, row, fresh, frameTrigger);
+        fold(feel, feelRow(e), fresh, feelTrigger);
+        fresh = false;
+    }
+    void close(Checkpoints& out) {
+        out.values.push_back(values);
+        out.feel.push_back(feel);
+        fresh = true;
+    }
+};
+
+constexpr int kExportFps = 60;
+constexpr int kCheckpointEvery = 15;
+
+// The export's cut of each frame, and the checkpoints: the cut at every kCheckpointEvery-th frame.
+std::vector<int64_t> exportCuts(int64_t total) {
+    const geode::output::FrameClock clock(kExportFps, kRate);
+    std::vector<int64_t> cuts;
+    for (int64_t n = 0;; n++) {
+        const int64_t end = clock.frameTimeMs(n + 1) * kRate / 1000;
+        if (end > total) break;
+        cuts.push_back(end);
+    }
+    return cuts;
+}
+
+Checkpoints runExport(const std::vector<float>& song, const std::vector<int64_t>& cuts) {
+    SoundEngine engine(kRate);
+    Checkpoints out;
+    Window w;
+    GeodeSoundFrame f{};
+    int64_t done = 0;
+    for (size_t n = 0; n < cuts.size(); n++) {
+        engine.write(song.data() + 2 * done, static_cast<int>(cuts[n] - done), 2);
+        done = cuts[n];
+        engine.step(1.0f / kExportFps, f);
+        w.take(f, engine.emotion());
+        if ((n + 1) % kCheckpointEvery == 0) w.close(out);
+    }
+    return out;
+}
+
+Checkpoints runLive(const std::vector<float>& song, const std::vector<int64_t>& cuts, uint32_t seed) {
+    SoundEngine engine(kRate);
+    Lcg rng;
+    rng.state = seed;
+    const auto uniform = [&rng](double lo, double hi) { return lo + (hi - lo) * 0.5 * (rng.next() + 1.0); };
+    Checkpoints out;
+    Window w;
+    GeodeSoundFrame f{};
+    int64_t done = 0;
+    int empty = 0;
+    for (size_t c = kCheckpointEvery - 1; c < cuts.size(); c += kCheckpointEvery) {
+        const int64_t checkpoint = cuts[c];
+        while (done < checkpoint) {
+            // A live frame: none of the tap's blocks (at most twice running, well under the starve time) or
+            // up to ~40 ms of them, cut short at the checkpoint.
+            int64_t end = done;
+            if (empty >= 2 || rng.next() > -0.6) end = std::min(checkpoint, done + static_cast<int64_t>(uniform(1.0, 1920.0)));
+            empty = end == done ? empty + 1 : 0;
+            while (done < end) {
+                const int block = static_cast<int>(std::min<int64_t>(end - done, static_cast<int64_t>(uniform(32.0, 1024.0))));
+                engine.write(song.data() + 2 * done, block, 2);
+                done += block;
+            }
+            engine.step(static_cast<float>(uniform(0.004, 0.05)), f);
+            w.take(f, engine.emotion());
+        }
+        w.close(out);
+    }
+    return out;
+}
+
+int compareExportLive(const Checkpoints& ex, const Checkpoints& live, uint32_t seed) {
+    int bad = 0;
+    if (ex.values.size() != live.values.size() || ex.values.empty()) {
+        std::printf("  FAIL export has %zu checkpoints, live %zu\n", ex.values.size(), live.values.size());
+        return 1;
+    }
+    auto report = [&](const std::vector<std::vector<float>>& a, const std::vector<std::vector<float>>& b, int k,
+                      const std::string& name) {
+        double max = 0.0;
+        for (size_t i = 0; i < a.size(); i++) max = std::max(max, std::fabs(static_cast<double>(a[i][k]) - b[i][k]));
+        if (max == 0.0) return;
+        bad++;
+        std::printf("  FAIL %-16s max|d| %10.4g\n", name.c_str(), max);
+    };
+    std::printf("\nexport vs live (seed %08x) over %zu checkpoints (every field must agree)\n", seed, ex.values.size());
+    for (int k = 0; k < kFieldCount; k++) report(ex.values, live.values, k, kFields[k].name);
+    for (int k = 0; k < kFeelCount; k++) report(ex.feel, live.feel, k, feelName(k));
+    if (bad == 0) std::printf("  all %d fields and feeling values equal\n", kFieldCount + kFeelCount);
+    return bad;
+}
+
 // ---- Real music (--pcm) -----------------------------------------------------------------------------------
 //
 // A decoded track (raw interleaved stereo float32, e.g. `ffmpeg -i t.mp3 -f f32le -ac 2 -ar 44100 t.f32`)
@@ -477,6 +603,9 @@ int main(int argc, char** argv) {
     int failures = compareRates(at60, run(song, 30.0), 30.0);
     failures += compareRates(at60, run(song, 120.0), 120.0);
     failures += compareHiRes(run(buildSong(kRate, true), 60.0), run(buildSong(96000, true), 60.0, 96000));
+    const std::vector<int64_t> cuts = exportCuts(static_cast<int64_t>(song.size() / 2));
+    const Checkpoints exported = runExport(song, cuts);
+    for (uint32_t seed : {0x1u, 0xC0FFEEu}) failures += compareExportLive(exported, runLive(song, cuts, seed), seed);
     if (failures == 0) std::printf("\nsound_rate_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

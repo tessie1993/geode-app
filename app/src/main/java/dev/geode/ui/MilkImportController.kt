@@ -1,6 +1,7 @@
 package dev.geode.ui
 
 import android.app.Application
+import android.content.ContentResolver
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import dev.geode.RingLog
@@ -62,15 +63,56 @@ internal class MilkImportController(
         }
     }
 
+    /**
+     * A .milk another app (a file manager) asked us to open. The uri is untrusted: only a content or
+     * file uri whose name ends in .milk is read, a file uri never from inside this app's own storage,
+     * and the copy goes through the same capped, name-sanitised import as the picker's.
+     */
+    fun importOpenedMilkAsync(
+        uri: Uri,
+        onDone: (String?) -> Unit,
+    ) {
+        scope.launch(Dispatchers.IO) {
+            val path = if (isOpenableMilk(uri)) importMilkPresetBlocking(uri) else null
+            withContext(Dispatchers.Main) { onDone(path) }
+        }
+    }
+
+    private fun isOpenableMilk(uri: Uri): Boolean {
+        val name = runCatching { displayNameOf(uri) }.getOrNull() ?: return false
+        if (!name.endsWith(".milk", ignoreCase = true)) return false
+        return when (uri.scheme) {
+            ContentResolver.SCHEME_CONTENT -> true
+            ContentResolver.SCHEME_FILE -> {
+                val path = uri.path ?: return false
+                val own = File(application.applicationInfo.dataDir).canonicalPath
+                val target = runCatching { File(path).canonicalPath }.getOrNull() ?: return false
+                target != own && !target.startsWith("$own/")
+            }
+            else -> false
+        }
+    }
+
     @Suppress("TooGenericExceptionCaught")
     internal fun importMilkPresetBlocking(uri: Uri): String? =
         try {
             val dir = importDir().apply { mkdirs() }
             val display = displayNameOf(uri).orEmpty().ifBlank { "preset" }
             val file = File(dir, PresetStore.milkFileName(display))
+            // A .milk is text, tens of KB; anything past the cap is not one, and the write is dropped.
             val written =
                 application.contentResolver.openInputStream(uri)?.use { input ->
-                    AtomicWrite.stream(file) { out -> input.copyTo(out) }
+                    AtomicWrite.stream(file) { out ->
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        var total = 0L
+                        while (true) {
+                            val n = input.read(buffer)
+                            if (n < 0) break
+                            total += n
+                            check(total <= MILK_MAX_BYTES) { "larger than a .milk preset" }
+                            out.write(buffer, 0, n)
+                        }
+                    }
                 } ?: false
             if (written) textureLinks.relink(file)
             if (written) file.absolutePath else null
@@ -138,5 +180,6 @@ internal class MilkImportController(
 
     private companion object {
         const val MILK_WALK_DEPTH = 4
+        const val MILK_MAX_BYTES = 2L * 1024 * 1024
     }
 }

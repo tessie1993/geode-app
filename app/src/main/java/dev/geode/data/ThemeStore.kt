@@ -4,6 +4,9 @@ import android.content.SharedPreferences
 import androidx.annotation.StringRes
 import androidx.core.content.edit
 import dev.geode.R
+import dev.geode.data.prefs.BackupClass
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.model.TourProgress
 
@@ -256,5 +259,25 @@ class ThemeStore(
         const val KEY_MIC_REACTIVE = "gui_mic_reactive"
         const val KEY_AUTO_ENTER_PIP = "gui_auto_enter_pip"
         const val KEY_UI_SOUNDS = "gui_ui_sounds"
+
+        val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.GENERAL) {
+                portable(PrefType.STRING, KEY_CORNER, KEY_SOUND_TUNING)
+                portable(PrefType.FLOAT, KEY_OPACITY, KEY_PRESET_MORPH_SEC, KEY_ACCENT, KEY_MINI_PLAYER_FADE, KEY_TEXT_SCALE)
+                portable(PrefType.FLOAT, KEY_TOUCH_SMEAR_STRENGTH)
+                portable(PrefType.INT, KEY_FONT_COLOR)
+                portable(PrefType.BOOLEAN, KEY_TOUCH_SMEAR, KEY_TOUCH_TRANSFORM, KEY_SECOND_SCREEN, KEY_MIC_REACTIVE)
+                portable(PrefType.BOOLEAN, KEY_AUTO_ENTER_PIP, KEY_UI_SOUNDS)
+                device(PrefType.STRING, "preset_mirror_uri")
+                state(PrefType.BOOLEAN, KEY_SAFETY_ACKNOWLEDGED, KEY_SETUP_DONE)
+                state(PrefType.STRING, KEY_TUTORIAL_DONE, KEY_TUTORIAL_RESUME, KEY_TUTORIAL_TIPS)
+                retired(PrefType.STRING, KEY_INTENT, KEY_SAFETY_CHOICE)
+                retired(PrefType.BOOLEAN, KEY_WHITE_FONT)
+                // Read once to fold an old install's "tour ended" into the chapters, then removed.
+                retired(PrefType.BOOLEAN, KEY_TUTORIAL_SEEN, backup = BackupClass.STATE)
+                // The morph length in beats: no longer read (the tempo is not a setting), still in old installs' files.
+                retired(PrefType.INT, "morph_beats")
+                retired(null, KEY, KEY_DIM, KEY_FOLLOW_DARK, KEY_CLEAR_VIZ_MENU, KEY_TUTORIAL_ON_FIRST_RUN, KEY_REDUCED_MOTION)
+            }
     }
 }

@@ -63,7 +63,6 @@ private val SECTION_TITLES =
     mapOf(
         "basics" to "Basics",
         "sets" to "Sets",
-        "randomize" to "Randomize & reset",
         "colour_detail" to "Colour detail",
         "colour_cycle" to "Colour cycle",
         "light_detail" to "Light detail",
@@ -92,7 +91,11 @@ private val SECTION_TITLES =
         "reactions" to "Reactions",
         "envelopes" to "Envelopes",
         "waves" to "Waves",
-        "engine" to "This style's engine",
+        "fluid_flow" to "Fluid: flow",
+        "fluid_look" to "Fluid: glow and layers",
+        "plate" to "Plate",
+        "plate_look" to "Plate: look",
+        "milkdrop" to "MilkDrop",
         "layers" to "Layers",
         "shader_code" to "Shader code",
     )

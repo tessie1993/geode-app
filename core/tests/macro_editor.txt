@@ -77,6 +77,9 @@ target|CAM_SHAKE|1
 target|FLOW_CURL|1
 target|FLOW_FORCE|1
 target|DIVE_SPEED|1
+target|DIVE_TWIST|1
+target|DIVE_AIM_X|1
+target|DIVE_AIM_Y|1
 curve|LINEAR
 curve|EASE_IN
 curve|EASE_OUT

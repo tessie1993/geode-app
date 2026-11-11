@@ -7,11 +7,9 @@ import android.widget.Toast
 import androidx.core.net.toUri
 import dev.geode.RingLog
 import dev.geode.data.BackgroundPrefsStore
-import dev.geode.data.EditorProjectStore
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.GeodePrefsFiles
-import dev.geode.data.PerformanceTake
 import dev.geode.data.SaveTarget
 import dev.geode.editor.AnimatableParams
 import dev.geode.editor.BeatCut
@@ -23,12 +21,10 @@ import dev.geode.editor.KeyframeSheet
 import dev.geode.editor.Lane
 import dev.geode.editor.LaneId
 import dev.geode.editor.LaneKind
-import dev.geode.editor.ProjectId
 import dev.geode.editor.ProjectRender
 import dev.geode.editor.StudioProject
 import dev.geode.editor.Timeline
 import dev.geode.editor.cappedAt
-import dev.geode.editor.sourceTimeAt
 import dev.geode.export.BatchOutcome
 import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
@@ -102,16 +98,6 @@ data class LoopUiState(
     val phase: ExportPhase = ExportPhase.Idle,
 )
 
-internal fun exportSceneIdFor(
-    take: PerformanceTake.Timeline?,
-    liveSceneId: String,
-): String =
-    take
-        ?.stateAt(0L)
-        ?.sceneId
-        ?.takeIf { it.isNotEmpty() }
-        ?: liveSceneId
-
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 internal class ExportController(
     private val application: Application,
@@ -125,8 +111,6 @@ internal class ExportController(
 
         /** The stage's look; every render pins it once when it starts ([LookSource.pin]), so live edits never reach it. */
         val look: LookSource
-
-        suspend fun loadExportTake(): PerformanceTake.Timeline?
 
         /** Whether the entitlement allows rendering [sceneId] (FeatureGate.allowsStyle). */
         fun allowsStyle(sceneId: String): Boolean
@@ -170,12 +154,9 @@ internal class ExportController(
 
     private var studioJob: Job? = null
 
-    // Built on first use, which is on IO: the store sweeps old folders when it is made.
-    private val projectStore by lazy { EditorProjectStore(application) }
-
     /**
-     * The one-tap Render: the current track as a project with one visual lane over the song (and
-     * the export take, when one is chosen, as that lane's clip), rendered through the same path as
+     * The one-tap Render: the current track as a project with one visual lane over the song,
+     * rendered through the same path as
      * every Studio project ([render]). That project is always a direct one, so the visualizer
      * exporter writes the file itself, as it always has.
      */
@@ -185,7 +166,6 @@ internal class ExportController(
         sceneFactory: SceneFactory,
         destination: Uri? = null,
         range: ExportRange? = null,
-        sceneFactoryFor: ((String) -> SceneFactory)? = null,
         codec: ExportCodec = ExportCodec.H264,
         watermark: Boolean = false,
     ) {
@@ -203,16 +183,7 @@ internal class ExportController(
             ExportRun.launch {
                 try {
                     val name = "beatrealms_${System.currentTimeMillis()}.mp4"
-                    val exportTake = host.loadExportTake()
-                    val sceneId =
-                        if (exportTake != null && sceneFactoryFor != null) {
-                            exportSceneIdFor(exportTake, host.sceneId)
-                        } else {
-                            sceneFactory.sceneId
-                        }
-                    val project = oneTapProject(uri, range, sceneId, sceneFactory.milkPresetPath, exportTake)
-                    val factoryFor: (String, String?) -> SceneFactory =
-                        { id, _ -> if (id == sceneFactory.sceneId) sceneFactory else sceneFactoryFor?.invoke(id) ?: sceneFactory }
+                    val project = oneTapProject(uri, range, sceneFactory.sceneId, sceneFactory.milkPresetPath)
                     val spec =
                         RenderSpec(
                             aspect = aspect,
@@ -224,8 +195,7 @@ internal class ExportController(
                             project = project,
                             plan = ProjectComposition.plan(project),
                             spec = spec,
-                            takes = { exportTake },
-                            factoryFor = factoryFor,
+                            factoryFor = { _, _ -> sceneFactory },
                             fileName = name,
                             destination = destination,
                             onProgress = { p, steady ->
@@ -270,9 +240,7 @@ internal class ExportController(
                 )
             is RenderResult.Failed -> ExportUiState(customDestination = destination != null, phase = ExportPhase.Failed(result.message))
             RenderResult.Cancelled -> ExportUiState(customDestination = destination != null, phase = stoppedPhase(application))
-            // The style that renders is checked, not only the one on stage when Render was pressed:
-            // a take records whatever was on stage, a previewed Pro style or one used during the
-            // trial included, and exporting it must not hand that style out for free.
+            // The style that renders is checked, not only the one on stage when Render was pressed.
             RenderResult.Locked -> {
                 host.onStyleLocked()
                 ExportUiState()
@@ -283,8 +251,7 @@ internal class ExportController(
 
     /**
      * The project a one-tap render is: the song (or the chosen [range] of it) on an audio lane, and
-     * one visual clip over exactly that span. With a [take] the clip is the take, its source time
-     * set so take time lines up with the song as it was recorded. Without a [range] the song's own
+     * one visual clip over exactly that span. Without a [range] the song's own
      * length is not needed: a clip running the whole source from its start renders the whole song.
      */
     private fun oneTapProject(
@@ -292,7 +259,6 @@ internal class ExportController(
         range: ExportRange?,
         sceneId: String,
         milkPath: String?,
-        take: PerformanceTake.Timeline?,
     ): EditorProject {
         val startMs = range?.startMs ?: 0L
         val lengthMs = range?.durationMs ?: WHOLE_SONG_MS
@@ -308,10 +274,9 @@ internal class ExportController(
         val visual =
             Clip(
                 id = ClipId("visual"),
-                content = ClipContent.Scene(sceneId = sceneId, milkPath = milkPath, takeId = take?.let { ONE_TAP_TAKE }),
+                content = ClipContent.Scene(sceneId = sceneId, milkPath = milkPath),
                 startMs = 0L,
                 durationMs = lengthMs,
-                sourceInMs = take?.let { startMs - it.trackOffsetMs } ?: 0L,
             )
         return EditorProject(
             timeline =
@@ -465,14 +430,14 @@ internal class ExportController(
     /**
      * Renders a Studio project: its edit, encoded with its own export settings, saved to its own
      * save target unless [destination] names a file. This is the one entry point every Studio
-     * render goes through (Render, a stopped recording, a batch of projects from a template); see
+     * render goes through (Render, a batch of projects from a template); see
      * [render] for how each clip is drawn. [onRendered] gets the finished video for the project's
      * list ([dev.geode.ui.EditorController.recordRender]), on the main thread, where edits run.
      *
      * The entitlement's limits ([Host.renderLimits]) apply here, to what is drawn: past the cap the
      * edit is cut ([cappedAt]) and the wordmark goes on when the gate says so. Pro renders are
-     * untouched; a trial or free render of a take is the same first minute, watermarked, that the
-     * one-tap Render gives.
+     * untouched; a trial or free render is the same first minute, watermarked, that the one-tap
+     * Render gives.
      */
     fun renderProject(
         project: StudioProject,
@@ -506,7 +471,6 @@ internal class ExportController(
                                 project = edit,
                                 plan = plan,
                                 spec = RenderSpec(ExportAspect.of(export.quality, export.ratio), export, limits.watermark),
-                                takes = { takeId -> loadTake(project.id, takeId) },
                                 factoryFor = ::plainSceneFactory,
                                 fileName = name,
                                 destination = target,
@@ -615,11 +579,11 @@ internal class ExportController(
         data object NothingToRender : RenderResult
     }
 
-    /** What one scene segment draws: its style, and the look over time (a take, keyframes) if it moves. */
+    /** What one scene segment draws: its style, and the look over time (keyframes) if it moves. */
     private class SegmentLook(
         val factory: SceneFactory,
         val paramsAt: ((Long) -> SceneParams)?,
-        /** The styles the segment switches to (a take's switches, a beat cut), timed natively. */
+        /** The styles the segment switches to (a beat cut), timed natively. */
         val styleSchedule: StyleSchedule = StyleSchedule.NONE,
     )
 
@@ -632,15 +596,14 @@ internal class ExportController(
      *   footage and the audio lanes and Transformer writes the file.
      *
      * Every style the project draws is checked against the entitlement: each segment's opening style
-     * here, before anything renders ([RenderResult.Locked]), and every later switch (a take's style
-     * changes, a beat cut's list) by the native schedule, which drops the locked ones (#357).
+     * here, before anything renders ([RenderResult.Locked]), and every later switch (a beat cut's
+     * list) by the native schedule, which drops the locked ones (#357).
      */
     @Suppress("LongParameterList")
     private suspend fun render(
         project: EditorProject,
         plan: ProjectComposition.RenderPlan,
         spec: RenderSpec,
-        takes: suspend (String) -> PerformanceTake.Timeline?,
         factoryFor: (String, String?) -> SceneFactory,
         fileName: String,
         destination: Uri?,
@@ -651,7 +614,7 @@ internal class ExportController(
         if (segments.isEmpty() && plan.clips.none { it is ProjectComposition.ClipRender.Footage }) return RenderResult.NothingToRender
         val pinned = host.look.pin()
         val looks =
-            segments.associateWith { lookFor(it, project.keyframes, it.scene.takeId?.let { id -> takes(id) }, factoryFor, pinned) }
+            segments.associateWith { lookFor(it, project.keyframes, factoryFor, pinned) }
         if (looks.values.any { !host.allowsStyle(it.factory.sceneId) }) return RenderResult.Locked
 
         plan.direct?.let { segment ->
@@ -742,70 +705,38 @@ internal class ExportController(
         )
 
     /**
-     * The look a segment draws. A take clip plays its recorded events at take time (the clip's
-     * source time), opening on the style in force where the segment starts and switching through
-     * every later one (Studio 2D); a beat-cut clip steps its styles on the beat; a look clip is the
-     * stage's look. When each switch lands is the native renderer's call (`core/viz/StyleSchedule`):
-     * this only hands it the take's switches and the cut's list. The project's
-     * scene keyframes, programme-wide or on this clip, fold over either. A segment that neither
-     * takes nor keyframes move draws one still look ([SegmentLook.paramsAt] null).
+     * The look a segment draws: a beat-cut clip steps its styles on the beat (when each switch lands
+     * is the native renderer's call, `core/viz/StyleSchedule`); a look clip is the stage's look. The
+     * project's scene keyframes, programme-wide or on this clip, fold over either. A segment no
+     * keyframe moves draws one still look ([SegmentLook.paramsAt] null).
      */
     private fun lookFor(
         segment: SceneSegment,
         sheet: KeyframeSheet,
-        take: PerformanceTake.Timeline?,
         factoryFor: (String, String?) -> SceneFactory,
         pinned: LookSnapshot,
     ): SegmentLook {
         val clip = segment.clip
-        val takeStartMs = clip.sourceTimeAt(segment.programmeStartMs)
-        val opening = take?.stateAt(takeStartMs)
-        val sceneId =
-            opening?.sceneId?.takeIf { it.isNotEmpty() }
-                ?: if (take != null) exportSceneIdFor(take, segment.scene.sceneId) else segment.scene.sceneId
-        val milkPath = opening?.milkPath ?: segment.scene.milkPath
+        val sceneId = segment.scene.sceneId
+        val milkPath = segment.scene.milkPath
         val animated =
             sheet.tracks.any {
                 it.enabled && (it.clipId == null || it.clipId == clip.id) && AnimatableParams.find(it.paramId)?.isScene == true
             }
         val paramsAt: ((Long) -> SceneParams)? =
-            if (take == null && !animated) {
+            if (!animated) {
                 null
             } else {
                 { ms: Long ->
                     val programmeMs = segment.programmeStartMs + ms
-                    val base = take?.stateAt(clip.sourceTimeAt(programmeMs))?.params ?: pinned.params
-                    if (animated) AnimatableParams.applyToScene(base, sheet.valuesAt(programmeMs, clip.id)) else base
+                    AnimatableParams.applyToScene(pinned.params, sheet.valuesAt(programmeMs, clip.id))
                 }
             }
-        val switches =
-            when {
-                take != null -> takeSchedule(take, takeStartMs, segment.durationMs)
-                segment.scene.beatCut != null -> beatCutSchedule(sceneId, segment.scene.beatCut)
-                else -> StyleSchedule.NONE
-            }
+        val switches = segment.scene.beatCut?.let { beatCutSchedule(sceneId, it) } ?: StyleSchedule.NONE
         // Every later style is gated natively against the entitlement (#357); the opening one in render().
         val styleSchedule = if (switches.isEmpty) switches else switches.copy(lockedStyleIds = lockedStyleIds())
         return SegmentLook(factoryFor(sceneId, milkPath), paramsAt, styleSchedule)
     }
-
-    /**
-     * A take's switches inside this segment, moved from take time to the segment's render time
-     * (the clip plays its take at an offset, [Clip.sourceTimeAt]). The look at the segment's start is
-     * the factory's, so only later switches are cues.
-     */
-    private fun takeSchedule(
-        take: PerformanceTake.Timeline,
-        takeStartMs: Long,
-        durationMs: Long,
-    ): StyleSchedule =
-        StyleSchedule(
-            cues =
-                take
-                    .styleChanges()
-                    .map { change -> StyleSchedule.Cue(change.atMs - takeStartMs, change.sceneId, change.milkPath) }
-                    .filter { it.atMs in 1..durationMs },
-        )
 
     /**
      * The entitlement as a value for the native schedule (#357): every catalogue style the gate
@@ -821,20 +752,6 @@ internal class ExportController(
     ): StyleSchedule {
         val ids = if (cut.sceneIds.firstOrNull() == sceneId) cut.sceneIds else listOf(sceneId) + cut.sceneIds
         return StyleSchedule(beatCutIds = ids, everyBeats = cut.everyBeats)
-    }
-
-    /** A take recorded into project [id], or null for a project with no folder or no such take. */
-    private suspend fun loadTake(
-        id: ProjectId,
-        takeId: String,
-    ): PerformanceTake.Timeline? {
-        if (id.value.isEmpty()) return null
-        return withContext(Dispatchers.IO) {
-            projectStore
-                .loadTake(id, takeId)
-                ?.let { json -> runCatching { PerformanceTake.Timeline(json) }.getOrNull() }
-                ?.takeUnless { it.isEmpty }
-        }
     }
 
     /** A Studio render's style: just the id, and the MilkDrop preset the clip names (if any). */
@@ -1031,9 +948,6 @@ internal class ExportController(
          * own length is read by the exporter, so this only has to say "to the end".
          */
         const val WHOLE_SONG_MS = 24L * 60L * 60L * 1000L
-
-        /** The one-tap render's take clip names the export take by this id. */
-        const val ONE_TAP_TAKE = "export-take"
 
         // Extending mostly copies already-encoded samples, so it gets less of the bar than the
         // GPU render does.

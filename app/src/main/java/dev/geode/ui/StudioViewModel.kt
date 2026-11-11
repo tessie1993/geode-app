@@ -8,6 +8,7 @@ import dev.geode.di.PlayerSessionProvider
 import dev.geode.editor.ProjectId
 import dev.geode.editor.ProjectRender
 import dev.geode.editor.TrackRef
+import dev.geode.render.VisualizerView
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.dropWhile
@@ -17,8 +18,8 @@ import javax.inject.Inject
 
 /**
  * Studio's two tabs, Render and My videos, plus Record. Studio has no editor (the owner dropped
- * video editing from the launch, #227): a project here is only what a take or a kept render is
- * stored as, so [editor] is read for its list of projects and their renders, never edited.
+ * video editing from the launch, #227): a project here is only what a recording or a kept render
+ * is stored as, so [editor] is read for its list of projects and their renders, never edited.
  */
 @HiltViewModel
 class StudioViewModel
@@ -28,38 +29,28 @@ class StudioViewModel
     ) : ViewModel() {
         private val session: PlayerSession = sessions.get()
 
-        /** The project folders (takes and kept renders), for My videos and the Render bar. */
+        /** The project folders (recordings and kept renders), for My videos and the Render bar. */
         val editor: StateFlow<EditorUiState> get() = session.editor.state
 
         val exportState: StateFlow<ExportUiState> get() = session.exportController.exportState
 
-        val takeState: StateFlow<TakeUiState> get() = session.takeController.state
+        val recordState: StateFlow<RecordUiState> get() = session.record.state
 
-        fun startRecording() = session.takeController.startRecording()
+        fun startRecording() = session.record.start()
 
-        fun stopRecording(name: String? = null) = session.takeController.stopRecording(name)
+        fun stopRecording() = session.record.stop()
 
-        /** The ask-once save sheet's answer for the take waiting in [TakeUiState.pendingSave]. */
-        fun chooseTakeSaveTarget(
+        /** The stage Record copies from, while it is on screen; null when it goes. */
+        fun attachRecordStage(stage: VisualizerView?) = session.record.attach(stage)
+
+        /** The ask-once save sheet's answer for the recording waiting in [RecordUiState.pendingSave]. */
+        fun chooseRecordSaveTarget(
             target: SaveTarget,
             remember: Boolean,
-        ) = session.chooseTakeSaveTarget(target, remember)
+        ) = session.record.chooseSaveTarget(target, remember)
 
-        /** The save sheet was dismissed: the take stays in My videos, unrendered. */
-        fun skipTakeSave() = session.takeController.skipPendingSave()
-
-        fun playTake(name: String) = session.takeController.playTake(name)
-
-        fun stopReplay() = session.takeController.stopReplay()
-
-        fun deleteTake(name: String) = session.takeController.deleteTake(name)
-
-        fun renameTake(
-            from: String,
-            to: String,
-        ) = session.takeController.renameTake(from, to)
-
-        fun setExportTake(name: String?) = session.takeController.setExportTake(name)
+        /** The save sheet was dismissed: the recording goes to the Videos library this once. */
+        fun skipRecordSave() = session.record.skipPendingSave()
 
         fun cancelExport() = session.exportController.cancelExport()
 
@@ -94,12 +85,7 @@ class StudioViewModel
          * deletes the item (#322) instead of bringing it back.
          */
         private val videoDeletes =
-            PendingDeletes<VideoDelete>(viewModelScope, keyOf = VideoDelete::key) { item ->
-                when (item) {
-                    is VideoDelete.Render -> deleteRender(item.projectId, item.uri)
-                    is VideoDelete.Take -> deleteTake(item.name)
-                }
-            }
+            PendingDeletes<VideoDelete>(viewModelScope, keyOf = VideoDelete::key) { deleteRender(it.projectId, it.uri) }
 
         /** Keys of My videos items hidden while their Undo is offered. */
         val pendingVideoDeletes: StateFlow<Set<String>> get() = videoDeletes.pending
@@ -137,20 +123,14 @@ class StudioViewModel
         }
     }
 
-/** A My videos item to delete: a render's file, or a take. [key] matches the grid's item key. */
-sealed interface VideoDelete {
-    val key: String
+/** A My videos item to delete: a video's file and the project that lists it. [key] matches the grid's item key. */
+data class VideoDelete(
+    val projectId: ProjectId,
+    val uri: String,
+) {
+    val key: String get() = keyOf(uri)
 
-    data class Render(
-        val projectId: ProjectId,
-        val uri: String,
-    ) : VideoDelete {
-        override val key: String get() = "render:$uri"
-    }
-
-    data class Take(
-        val name: String,
-    ) : VideoDelete {
-        override val key: String get() = "take:$name"
+    companion object {
+        fun keyOf(uri: String): String = "render:$uri"
     }
 }

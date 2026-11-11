@@ -47,9 +47,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
@@ -96,9 +96,6 @@ import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.offset
 import androidx.compose.ui.unit.roundToIntRect
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.NavigationEventTransitionState
@@ -202,26 +199,6 @@ fun AppRoot() {
     val paywallViewModel: PaywallViewModel = geodeViewModel()
     val context = LocalContext.current
     val visualizerView = remember { VisualizerView(context) }
-    // GLSurfaceView renders continuously and only ever stops when its host says so. Without this
-    // the render thread keeps drawing whenever the app is visible but not resumed — behind a
-    // permission dialog, in split-screen, partially obscured — burning battery on frames nobody
-    // sees. GLSurfaceView's contract is that the owner forwards these two.
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, visualizerView) {
-        val observer =
-            LifecycleEventObserver { _, event ->
-                when (event) {
-                    Lifecycle.Event.ON_RESUME -> visualizerView.onResume()
-                    Lifecycle.Event.ON_PAUSE -> visualizerView.onPause()
-                    else -> Unit
-                }
-            }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            visualizerView.onPause()
-        }
-    }
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     val externalDisplay = rememberExternalDisplay()
     val appState = rememberGeodeAppState(externalDisplay)
@@ -232,12 +209,13 @@ fun AppRoot() {
         value = withContext(Dispatchers.IO) { BootAnimationStore(GeodePrefsFiles(context).general).load() }
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    // Not delegated: only the mini player's progress bar reads .value, in its own draw lambda.
+    // Not delegated: only the mini player's seek bar and progress line read .value, in their own scope.
     val position = viewModel.positionMs.collectAsStateWithLifecycle()
     val onSecondScreen = gui.secondScreen && externalDisplay != null
     if (onSecondScreen) {
         SecondScreenCanvas(externalDisplay, visualizerView)
     }
+    StageRunEffect(visualizerView, onSecondScreen, viewModel::onDirectorStyleMoment)
     // The Visuals screen's bounds, in root pixels. The one VisualizerView is hosted once below and
     // laid out there, so leaving Visuals hides it rather than detaching it (VisualizerCanvasHost).
     val visualsBounds = remember { mutableStateOf(IntRect.Zero) }
@@ -284,7 +262,9 @@ fun AppRoot() {
     // The mini player (and on Visuals the tab bar and stage icons) wakes on a new screen or track.
     // A PiP window shows the visual alone (the sheet and the chrome hidden) until it closes.
     val inPip = VisualizerPipCoordinator.inPictureInPicture
-    val chrome = rememberShellChrome(gui.miniPlayerFadeSeconds, inPip, appState.dest, state.title)
+    // Its sleep timer waits while the boot intro or a first-run page covers the shell.
+    val shellCovered = (bootAnimEnabled != false && !appState.bootDone) || !gui.safetyAcknowledged || !gui.setupDone
+    val chrome = rememberShellChrome(gui.miniPlayerFadeSeconds, inPip, shellCovered, appState.dest, state.title)
     var dockHeight by remember { mutableStateOf(0.dp) }
     val visualsReserve by animateDpAsState(dockHeight, motion.defaultSpatialSpec(), label = "dock")
     CrystalMaterialTheme(gui = gui, accentSource = accent) {
@@ -294,7 +274,9 @@ fun AppRoot() {
                 artist = state.artist,
                 artworkUri = viewModel.currentTrackUri(),
                 isPlaying = state.isPlaying,
-                progress = { if (state.durationMs > 0) position.value / state.durationMs.toFloat() else 0f },
+                positionMs = { position.value },
+                durationMs = state.durationMs,
+                onSeek = viewModel::seekTo,
                 onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
                 onOpenPlayer = { appState.navigateTo(GeodeDestination.PLAYER) },
                 onHide = chrome::hide,
@@ -1174,6 +1156,7 @@ private fun PlaybackNoticeBanner(viewModel: PlayerViewModel) {
                 color = MaterialTheme.colorScheme.onErrorContainer,
                 modifier =
                     Modifier
+                        .minimumInteractiveComponentSize()
                         .clickable { viewModel.clearPlaybackNotice() }
                         .semantics { contentDescription = dismissDescription }
                         .padding(8.dp),

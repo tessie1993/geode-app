@@ -55,7 +55,7 @@ class SleepTimer internal constructor(
                         awaitCurrentTrackDone()
                     } else if (!finishTrack) {
                         // The fade ended on the samples, which run a sink buffer ahead of the speaker.
-                        delay(PlaybackSession.SINK_LAG_MS)
+                        delay(PlaybackEngine.sinkLagMs())
                     }
                     player.pause()
                 } finally {

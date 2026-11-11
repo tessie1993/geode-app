@@ -5,6 +5,7 @@
 #include <charconv>
 #include <cmath>
 #include <cstdlib>
+#include <mutex>
 
 #include "viz/Catalogue.hpp"
 #include "viz/ModTargets.hpp"
@@ -168,6 +169,9 @@ Bank buildDefault() {
     }
     return normalized(bank);
 }
+
+std::mutex gLock;
+std::shared_ptr<const Bank> gBank;  // guarded by gLock; null is the default bank
 
 std::string buildTargetsText() {
     std::string out = "macrotargets|" + std::to_string(kTextVersion) + "\n";
@@ -336,6 +340,21 @@ SceneParams apply(const SceneParams& p, const Bank& bank, std::uint64_t reach) {
         out.setSlot(info.slot, info.circular ? base + add : std::clamp(base + add, info.lo, info.hi));
     }
     return out;
+}
+
+void setGlobal(const Bank& bank) {
+    auto next = std::make_shared<const Bank>(normalized(bank));
+    std::lock_guard<std::mutex> guard(gLock);
+    gBank = std::move(next);
+}
+
+std::shared_ptr<const Bank> global() {
+    {
+        std::lock_guard<std::mutex> guard(gLock);
+        if (gBank) return gBank;
+    }
+    static const std::shared_ptr<const Bank> kDefault = std::make_shared<const Bank>(defaultBank());
+    return kDefault;
 }
 
 SceneParams apply(const SceneParams& p, const Bank& bank, const std::string& styleId) {

@@ -4,10 +4,13 @@
          render's own background, so the icon circle the system draws has no visible edge.
          BootIntro opens on the same art at the same size and place, fades it into the first
          frame of the splash video, and the two read as one intro. Static on every API level:
-         the motion is the video's. -->
+         the motion is the video's. The system splash draws no text, so the wordmark is its
+         branding image (200x80dp at the bottom), the only place the name shows when the
+         intro is off or motion is reduced. -->
     <style name="Theme.Geode.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/brand_void</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/splash_mark</item>
+        <item name="android:windowSplashScreenBrandingImage">@drawable/splash_wordmark</item>
         <item name="postSplashScreenTheme">@android:style/Theme.Material.NoActionBar</item>
     </style>
 </resources>

@@ -1,5 +1,6 @@
 package dev.geode.billing
 
+import dev.geode.pro.BillingRepository
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
@@ -12,7 +13,7 @@ import org.junit.Test
  * from Play that no longer lists Pro as purchased takes it away.
  */
 class CachedEntitlementTest {
-    private val purchase = SignedPurchase(json = """{"productId":"muzviz_pro"}""", signature = "sig")
+    private val purchase = SignedPurchase(json = """{"productId":"${BillingRepository.PRO_PRODUCT_ID}"}""", signature = "sig")
 
     /** Stands in for [PurchaseVerifier] with a key configured: only [purchase] verifies. */
     private val keyed: (String, String) -> Boolean = { json, sig -> json == purchase.json && sig == purchase.signature }
@@ -99,21 +100,22 @@ class CachedEntitlementTest {
 
     @Test
     fun `what Play signed must be a completed Pro purchase`() {
+        val pro = BillingRepository.PRO_PRODUCT_ID
         val signedAnything: (String, String) -> Boolean = { _, _ -> true }
         val real =
-            """{"orderId":"GPA.1","packageName":"com.muzviz.studiopro","productId":"muzviz_pro","purchaseTime":1,""" +
+            """{"orderId":"GPA.1","packageName":"com.beatrealms3d.app","productId":"$pro","purchaseTime":1,""" +
                 """"purchaseState":0,"purchaseToken":"t","quantity":1,"acknowledged":true}"""
         assertTrue(owned.copy(purchaseJson = real).vouchesForPro(signedAnything))
         val pending = real.replace("\"purchaseState\":0", "\"purchaseState\": 4")
         assertFalse("a pending payment is signed too", owned.copy(purchaseJson = pending).vouchesForPro(signedAnything))
-        val other = real.replace("muzviz_pro", "tip_jar")
+        val other = real.replace(pro, "tip_jar")
         assertFalse("so is any other product", owned.copy(purchaseJson = other).vouchesForPro(signedAnything))
 
-        assertTrue(SignedPurchase.isCompletedPro("""{"productIds":["tip_jar","muzviz_pro"],"purchaseState":0}"""))
+        assertTrue(SignedPurchase.isCompletedPro("""{"productIds":["tip_jar","$pro"],"purchaseState":0}"""))
         assertFalse(SignedPurchase.isCompletedPro("""{"productIds":["tip_jar"]}"""))
         assertFalse(
             "a value that spells the field does not pass for it",
-            SignedPurchase.isCompletedPro("""{"purchaseToken":"\"productId\":\"muzviz_pro\"","productId":"tip_jar"}"""),
+            SignedPurchase.isCompletedPro("""{"purchaseToken":"\"productId\":\"$pro\"","productId":"tip_jar"}"""),
         )
     }
 

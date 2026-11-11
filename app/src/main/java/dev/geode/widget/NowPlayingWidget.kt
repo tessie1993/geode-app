@@ -2,7 +2,11 @@ package dev.geode.widget
 
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
+import android.os.Handler
+import android.os.Looper
+import androidx.annotation.OptIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -52,12 +56,15 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.util.Util
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import dev.geode.R
 import dev.geode.appLaunchIntent
 import dev.geode.playback.MediaArtwork
 import dev.geode.playback.PlaybackService
+import dev.geode.util.bestEffort
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -528,7 +535,12 @@ private fun IconButton(
     )
 }
 
-/** Transport goes through a MediaController on the session, so the widget drives whatever the service is playing. */
+/**
+ * Transport goes through a MediaController on the session, so the widget drives whatever the service
+ * is playing, by the Quick Settings tile's rule: play/pause is Media3's own button action (it prepares
+ * an idle player and rewinds an ended one), and with nothing loaded the tap opens the app.
+ */
+@OptIn(UnstableApi::class)
 class WidgetTransportAction : ActionCallback {
     override suspend fun onAction(
         context: Context,
@@ -541,15 +553,24 @@ class WidgetTransportAction : ActionCallback {
         future.addListener(
             {
                 val controller = runCatching { future.get() }.getOrNull() ?: return@addListener
-                when (command) {
-                    PLAY_PAUSE -> if (controller.isPlaying) controller.pause() else controller.play()
-                    NEXT -> controller.seekToNext()
-                    PREVIOUS -> controller.seekToPrevious()
+                when {
+                    command == PLAY_PAUSE && controller.currentMediaItem == null -> openApp(context)
+                    command == PLAY_PAUSE -> Util.handlePlayPauseButtonAction(controller)
+                    command == NEXT -> controller.seekToNext()
+                    command == PREVIOUS -> controller.seekToPrevious()
                 }
-                controller.release()
+                // Releasing unbinds the service. Held until the session has had the command and
+                // the service is in the foreground, or a cold start would lose the tap.
+                Handler(Looper.getMainLooper()).postDelayed(controller::release, RELEASE_DELAY_MS)
             },
             ContextCompat.getMainExecutor(context),
         )
+    }
+
+    private fun openApp(context: Context) {
+        bestEffort(TAG, "open the app from the widget") {
+            context.startActivity(context.appLaunchIntent().addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
     }
 
     companion object {
@@ -557,6 +578,8 @@ class WidgetTransportAction : ActionCallback {
         const val PLAY_PAUSE = "play_pause"
         const val NEXT = "next"
         const val PREVIOUS = "previous"
+        private const val TAG = "WidgetTransport"
+        private const val RELEASE_DELAY_MS = 5_000L
     }
 }
 

@@ -110,6 +110,7 @@ import dev.geode.analysis.SearchMatcher
 import dev.geode.data.BootAnimationStore
 import dev.geode.geodeContainer
 import dev.geode.model.QueueTrack
+import dev.geode.model.TabLabels
 import dev.geode.model.TourChapter
 import dev.geode.model.TourPlace
 import dev.geode.model.TourSpot
@@ -352,6 +353,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                                 // The old live view is gone (owner): this opens Visuals, whose full screen is the sheet hidden.
                                 onExpand = { appState.navigateTo(GeodeDestination.VISUALS) },
                                 onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
+                                showTimeLeft = gui.showTimeLeft,
                             )
                         GeodeDestination.LIBRARY ->
                             if (twoPane) {
@@ -369,6 +371,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                                             onOpenSearch = appState::openSearch,
                                             onExpand = { appState.navigateTo(GeodeDestination.VISUALS) },
                                             onOpenLibrary = {},
+                                            showTimeLeft = gui.showTimeLeft,
                                         )
                                     }
                                 }
@@ -456,6 +459,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                         miniPlayer = miniPlayer,
                         dockedPlayer = dockedPlayer,
                         onDock = { dockHeight = it },
+                        tabLabels = gui.tabLabels,
                         content = { destinationContent(false) },
                     )
                 } else {
@@ -589,6 +593,7 @@ private fun AppShellCompact(
     miniPlayer: @Composable (Modifier) -> Unit,
     dockedPlayer: @Composable (Modifier) -> Unit,
     onDock: (Dp) -> Unit,
+    tabLabels: TabLabels,
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
@@ -709,6 +714,7 @@ private fun AppShellCompact(
                         // Studio from a track menu, say. Fall back to the first tab rather than -1.
                         selected = navEntries.indexOfFirst { it.destination == appState.dest }.coerceAtLeast(0),
                         onSelect = { appState.navigateTo(navEntries[it].destination) },
+                        labels = tabLabels,
                         modifier =
                             Modifier.onSizeChanged {
                                 if (it.height > 0) {

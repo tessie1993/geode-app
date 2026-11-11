@@ -8,6 +8,7 @@ import dev.geode.data.prefs.BackupClass
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.audio.SoundTuning
+import dev.geode.model.TabLabels
 import dev.geode.model.TourProgress
 
 enum class CornerStyle(
@@ -74,6 +75,13 @@ data class GuiPrefs(
      * until someone asks for them.
      */
     val uiSounds: Boolean = false,
+    /** Off: the accent stays the fallback #9CC7FF instead of following the visual's palette. */
+    val accentFollowsVisual: Boolean = true,
+    /** The app's own vibration on taps; the system's touch feedback switch still applies on top. */
+    val haptics: Boolean = true,
+    val tabLabels: TabLabels = TabLabels.AUTO,
+    /** Player shows the time left (−m:ss) where the track's length is, instead of the length. */
+    val showTimeLeft: Boolean = false,
 ) {
     companion object {
         const val TEXT_SCALE_MIN = 0.85f
@@ -130,6 +138,10 @@ class ThemeStore(
             micReactive = prefs.getBoolean(KEY_MIC_REACTIVE, false),
             autoEnterPip = prefs.getBoolean(KEY_AUTO_ENTER_PIP, false),
             uiSounds = prefs.getBoolean(KEY_UI_SOUNDS, false),
+            accentFollowsVisual = prefs.getBoolean(KEY_ACCENT_FOLLOWS_VISUAL, true),
+            haptics = prefs.getBoolean(KEY_HAPTICS, true),
+            tabLabels = TabLabels.fromName(prefs.getString(KEY_TAB_LABELS, null)),
+            showTimeLeft = prefs.getBoolean(KEY_SHOW_TIME_LEFT, false),
         )
     }
 
@@ -197,6 +209,10 @@ class ThemeStore(
             putBoolean(KEY_MIC_REACTIVE, gui.micReactive)
             putBoolean(KEY_AUTO_ENTER_PIP, gui.autoEnterPip)
             putBoolean(KEY_UI_SOUNDS, gui.uiSounds)
+            putBoolean(KEY_ACCENT_FOLLOWS_VISUAL, gui.accentFollowsVisual)
+            putBoolean(KEY_HAPTICS, gui.haptics)
+            putString(KEY_TAB_LABELS, gui.tabLabels.name)
+            putBoolean(KEY_SHOW_TIME_LEFT, gui.showTimeLeft)
         }
     }
 
@@ -256,15 +272,20 @@ class ThemeStore(
         const val KEY_MIC_REACTIVE = "gui_mic_reactive"
         const val KEY_AUTO_ENTER_PIP = "gui_auto_enter_pip"
         const val KEY_UI_SOUNDS = "gui_ui_sounds"
+        const val KEY_ACCENT_FOLLOWS_VISUAL = "gui_accent_follows_visual"
+        const val KEY_HAPTICS = "gui_haptics"
+        const val KEY_TAB_LABELS = "gui_tab_labels"
+        const val KEY_SHOW_TIME_LEFT = "gui_show_time_left"
 
         val PREF_KEYS =
             prefKeys(GeodePrefsFiles.GENERAL) {
-                portable(PrefType.STRING, KEY_CORNER, KEY_SOUND_TUNING)
+                portable(PrefType.STRING, KEY_CORNER, KEY_SOUND_TUNING, KEY_TAB_LABELS)
                 portable(PrefType.FLOAT, KEY_OPACITY, KEY_PRESET_MORPH_SEC, KEY_ACCENT, KEY_MINI_PLAYER_FADE, KEY_TEXT_SCALE)
                 portable(PrefType.FLOAT, KEY_TOUCH_SMEAR_STRENGTH)
                 portable(PrefType.INT, KEY_FONT_COLOR)
                 portable(PrefType.BOOLEAN, KEY_TOUCH_SMEAR, KEY_TOUCH_TRANSFORM, KEY_SECOND_SCREEN, KEY_MIC_REACTIVE)
                 portable(PrefType.BOOLEAN, KEY_AUTO_ENTER_PIP, KEY_UI_SOUNDS)
+                portable(PrefType.BOOLEAN, KEY_ACCENT_FOLLOWS_VISUAL, KEY_HAPTICS, KEY_SHOW_TIME_LEFT)
                 device(PrefType.STRING, "preset_mirror_uri")
                 state(PrefType.BOOLEAN, KEY_SAFETY_ACKNOWLEDGED, KEY_SETUP_DONE)
                 state(PrefType.STRING, KEY_TUTORIAL_DONE, KEY_TUTORIAL_RESUME, KEY_TUTORIAL_TIPS)

@@ -27,7 +27,8 @@ constexpr const char* kReactionDna = "Reaction DNA";
 struct RolledKey {
     Tab tab;
     const char* key;
-    // The SceneParams fields the roll writes (Kotlin property names); nullptr past the last.
+    // The SceneParams fields the roll writes (Kotlin property names), in wire order; nullptr past the
+    // last. They are the live rows whose meta row is labelled `key` (viz/ParamTable.inc).
     std::array<const char*, 3> fields;
 };
 

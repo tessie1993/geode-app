@@ -122,6 +122,26 @@ JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopExtend
     return result;
 }
 
+// Loudness advice: the kind, and its numbers in out (GEODE_LOUDNESS_ADVICE_DOUBLES).
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_loudnessAdvise(JNIEnv* env, jobject, jint target,
+                                                                               jboolean gated, jdouble lufs,
+                                                                               jdouble truePeakDbtp, jdoubleArray out) {
+    double values[GEODE_LOUDNESS_ADVICE_DOUBLES] = {};
+    const int kind = geode_loudness_advise(target, gated ? 1 : 0, lufs, truePeakDbtp, values);
+    if (out && env->GetArrayLength(out) >= GEODE_LOUDNESS_ADVICE_DOUBLES) {
+        env->SetDoubleArrayRegion(out, 0, GEODE_LOUDNESS_ADVICE_DOUBLES, values);
+    }
+    return kind;
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_loudnessWindow(JNIEnv* env, jobject, jint target,
+                                                                                   jdoubleArray out) {
+    double values[4] = {};
+    if (!geode_loudness_window(target, values)) return JNI_FALSE;
+    if (out && env->GetArrayLength(out) >= 4) env->SetDoubleArrayRegion(out, 0, 4, values);
+    return JNI_TRUE;
+}
+
 // Time-of-day drift stops as (hue offset, warmth offset) pairs.
 JNIEXPORT jfloatArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopDriftStops(JNIEnv* env, jobject,
                                                                                       jfloat hueTurns, jfloat warmth,

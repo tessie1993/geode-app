@@ -961,6 +961,27 @@ object GeodeNative {
     ): LongArray
 
     /**
+     * What an export's measured loudness asks of platform [target] (0 Leave as-is, 1 YouTube, 2 Shorts;
+     * core/output/LoudnessAdvice): returns the kind (0 nothing to measure, 1 as mixed, 2 on target,
+     * 3 normalise) and fills [out] (9 doubles): gain dB, gain the level alone needed, resulting LUFS and true
+     * peak, direction (1, -1, 0), ceiling limited (1/0), band (-1 under, 1 over, 0 in), LU under YouTube worth
+     * saying (else 0), peak over YouTube's ceiling (1/0). [gated] false: nothing above the meter's gate.
+     */
+    external fun loudnessAdvise(
+        target: Int,
+        gated: Boolean,
+        lufs: Double,
+        truePeakDbtp: Double,
+        out: DoubleArray,
+    ): Int
+
+    /** [target]'s window, aim, low, high LUFS and true-peak ceiling into [out]; false when it does not normalise. */
+    external fun loudnessWindow(
+        target: Int,
+        out: DoubleArray,
+    ): Boolean
+
+    /**
      * A time-of-day drift's stops as (hue offset, warmth offset) pairs, none at the first and the whole
      * drift at the last; one pair of zeros when it does not move (core/output/LoopPlan).
      */

@@ -13,6 +13,7 @@
 #include "output/EncodePlan.hpp"
 #include "output/FrameClock.hpp"
 #include "output/LoopPlan.hpp"
+#include "output/LoudnessAdvice.hpp"
 #include "viz/FrameStep.hpp"
 
 using namespace geode::output;
@@ -244,6 +245,65 @@ void drift() {
     check(geode_loop_drift_stops(0.25f, 0.5f, 5, nullptr, nullptr, 0) == 5, "a count without arrays");
 }
 
+// Loudness advice, pinned to the Kotlin LoudnessTargets.normalise and the LoudnessAdvice decisions it
+// replaces (export/LoudnessTarget.kt): the YouTube and Shorts windows, the min of the level's and the
+// ceiling's gain, the in-band-and-peak-safe and inaudible-gain cases, direction, ceilingLimited, and the
+// as-mixed hints. Each expectation is what that Kotlin returned for the same report.
+void loudnessAdvice() {
+    namespace ld = geode::output::loudness;
+    ld::Window w;
+    check(ld::windowOf(ld::kYouTube, &w) && w.aimLufs == -14.0 && w.lowLufs == -15.0 && w.highLufs == -13.0 &&
+              w.ceilingDbtp == -1.0,
+          "YouTube's window");
+    check(ld::windowOf(ld::kShortsAndTikTok, &w) && w.aimLufs == -11.0 && w.lowLufs == -12.0 && w.highLufs == -10.0 &&
+              w.ceilingDbtp == -1.0,
+          "Shorts' window");
+    check(!ld::windowOf(ld::kLeaveAsIs, &w) && !ld::windowOf(7, &w), "Leave as-is has no window");
+
+    check(ld::advise(ld::kYouTube, false, -14.0, -1.0).kind == ld::kNothingToMeasure, "below the gate: nothing");
+    check(ld::advise(ld::kLeaveAsIs, false, -14.0, -1.0).kind == ld::kNothingToMeasure, "below the gate as mixed too");
+
+    auto mixed = ld::advise(ld::kLeaveAsIs, true, -20.0, -0.5);
+    check(mixed.kind == ld::kAsMixed && mixed.gainDb == 0.0 && mixed.quietLu == 6.0 && mixed.peakWarning,
+          "as mixed: 6 LU under YouTube, peak over -1 dBTP");
+    mixed = ld::advise(ld::kLeaveAsIs, true, -14.5, -1.0);
+    check(mixed.quietLu == 0.0 && !mixed.peakWarning, "half an LU under and a peak at the ceiling say nothing");
+
+    check(ld::advise(ld::kYouTube, true, -14.4, -1.03).kind == ld::kOnTarget, "in band and the peak within rounding");
+    // In band but the peak 0.5 dB over: the ceiling's gain (-0.5) is audible, so it normalises down.
+    auto peak = ld::advise(ld::kYouTube, true, -14.0, -0.5);
+    check(peak.kind == ld::kNormalise && peak.gainDb == -0.5 && peak.gainForLevelDb == 0.0 && peak.direction == -1 &&
+              peak.ceilingLimited && peak.band == 0 && peak.resultingLufs == -14.5 && peak.resultingTruePeakDbtp == -1.0,
+          "a hot peak in band comes down to the ceiling");
+    // Out of band by less than the tolerance after the min: 0.05 dB is inaudible.
+    check(ld::advise(ld::kYouTube, true, -15.2, -0.95).kind == ld::kOnTarget, "an inaudible gain is on target");
+
+    auto quiet = ld::advise(ld::kYouTube, true, -20.0, -6.0);
+    check(quiet.kind == ld::kNormalise && quiet.gainDb == 5.0 && quiet.gainForLevelDb == 6.0 && quiet.direction == 1 &&
+              quiet.ceilingLimited && quiet.band == -1 && quiet.resultingLufs == -15.0 && quiet.resultingTruePeakDbtp == -1.0,
+          "a quiet file is raised only as far as the ceiling lets it");
+    auto room = ld::advise(ld::kShortsAndTikTok, true, -16.0, -9.0);
+    check(room.kind == ld::kNormalise && room.gainDb == 5.0 && room.gainForLevelDb == 5.0 && !room.ceilingLimited &&
+              room.resultingLufs == -11.0,
+          "with headroom it lands on the aim");
+    auto loud = ld::advise(ld::kYouTube, true, -9.0, 0.5);
+    check(loud.kind == ld::kNormalise && loud.gainDb == -5.0 && loud.direction == -1 && !loud.ceilingLimited &&
+              loud.band == 1,
+          "a loud file comes down to the aim");
+    auto clipping = ld::advise(ld::kYouTube, true, -16.0, 1.0);
+    check(clipping.kind == ld::kNormalise && clipping.gainDb == -2.0 && clipping.band == -1 && clipping.ceilingLimited,
+          "quiet but clipping: gain goes down");
+
+    double out[GEODE_LOUDNESS_ADVICE_DOUBLES] = {};
+    check(geode_loudness_advise(1, 1, -20.0, -6.0, out) == 3 && out[0] == 5.0 && out[1] == 6.0 && out[4] == 1.0 &&
+              out[5] == 1.0 && out[6] == -1.0,
+          "the C ABI's advice");
+    check(geode_loudness_advise(0, 1, -20.0, -0.5, out) == 1 && out[7] == 6.0 && out[8] == 1.0, "the C ABI's as mixed");
+    double win[4] = {};
+    check(geode_loudness_window(2, win) == 1 && win[0] == -11.0 && win[3] == -1.0 && geode_loudness_window(0, win) == 0,
+          "the C ABI's window");
+}
+
 int main() {
     frameClock();
     loopSpec();
@@ -251,6 +311,7 @@ int main() {
     encodePlan();
     chapters();
     drift();
+    loudnessAdvice();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

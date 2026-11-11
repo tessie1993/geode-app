@@ -758,6 +758,17 @@ GEODE_API int     geode_loop_drift_stops(float hue_turns, float warmth, int stop
 GEODE_API void    geode_loop_drift_apply(float color_shift, float temperature, float hue_offset, float warmth_offset,
                                          float* out2);
 
+/* Loudness advice (output/LoudnessAdvice): what an export's measured loudness asks of a platform target
+ * (0 Leave as-is, 1 YouTube, 2 Shorts and TikTok). geode_loudness_window fills aim, low, high (LUFS) and the
+ * true-peak ceiling (dBTP) and returns 1 for a target that normalises, else 0. geode_loudness_advise returns
+ * the kind (0 nothing to measure, 1 as mixed, 2 on target, 3 normalise; gated 0 = nothing above the gate)
+ * and fills out[GEODE_LOUDNESS_ADVICE_DOUBLES]: gain dB, gain the level alone needed, resulting LUFS,
+ * resulting true peak, direction (1 up, -1 down, 0 none), ceiling limited (1/0), band (-1 under the window,
+ * 1 over, 0 in), LU under YouTube when worth saying (else 0), peak over YouTube's ceiling (1/0). */
+#define GEODE_LOUDNESS_ADVICE_DOUBLES 9
+GEODE_API int     geode_loudness_window(int target, double* out4);
+GEODE_API int     geode_loudness_advise(int target, int gated, double lufs, double true_peak_dbtp, double* out);
+
 /* Encoder requests (output/EncodePlan). limit_bytes <= 0 means the render target, 3.8 GB. */
 GEODE_API int     geode_export_capped_video_bps(int requested_bps, int64_t duration_us, int64_t audio_bytes,
                                                 int64_t limit_bytes);

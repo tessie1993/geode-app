@@ -18,15 +18,6 @@ inline float lfoRateSecondsFromHz(float hz) {
     return clampTo(Slot::lfo_rateSeconds, 1.0f / hz);
 }
 
-// ThemeStore.readPresetMorphSeconds (ThemeStore.kt:121-122): the morph used to be a beat count at a
-// fixed tempo. LEGACY_MORPH_BPM (ThemeStore.kt:303) and the old key's default beat count (:121).
-inline constexpr float kLegacyMorphBpm = 120.0f;
-inline constexpr int kLegacyMorphBeats = 4;
-
-constexpr float morphSecondsFromLegacyBeats(int beats) {
-    return clampTo(Slot::theme_presetMorphSeconds, static_cast<float>(beats) * 60.0f / kLegacyMorphBpm);
-}
-
 // PaletteStore.sampleHue (PaletteStore.kt:108-117): stop `index` of `stops` along a gradient from
 // baseHue spanning hueSpan of a turn, wrapped into 0..1. Kotlin's Float `%` is fmod's truncated
 // remainder, so the double wrap is the same. PREVIEW_STOPS (PaletteStore.kt:60) is the preview's count.

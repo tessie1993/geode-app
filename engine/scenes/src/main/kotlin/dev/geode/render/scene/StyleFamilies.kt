@@ -34,6 +34,4 @@ object StyleFamilies {
 
     /** Every family style id, in picker order. */
     val ids: List<String> = all.flatMap { it.ids }
-
-    fun of(id: String): StyleFamily? = all.firstOrNull { id in it.ids }
 }

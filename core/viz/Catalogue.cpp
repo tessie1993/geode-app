@@ -273,6 +273,23 @@ bool reachesKind(Scope s, Kind k) {
     return false;
 }
 
+// The Styles page family of a style outside the shader families: its renderer's.
+const char* pickerName(Kind k) {
+    switch (k) {
+        case Kind::Shader: return "shaders";
+        case Kind::Silk: return "silk";
+        case Kind::Life: return "life";
+        case Kind::Mycelium: return "mycelium";
+        case Kind::Acid: return "morphing";
+        case Kind::Milkdrop: return "milkdrop";
+        case Kind::Fluid:
+        case Kind::CurlFlow:
+        case Kind::Water: return "fluid";
+        case Kind::Cymatics: return "cymatics";
+    }
+    return "shaders";
+}
+
 void append(std::vector<std::string>& out, const std::vector<std::string>& ids) { out.insert(out.end(), ids.begin(), ids.end()); }
 
 std::string number(float v) {
@@ -306,6 +323,14 @@ std::string build() {
         for (size_t i = 0; i < family.ids.size(); ++i) {
             if (i > 0) out += ',';
             out += family.ids[i];
+        }
+        out += '\n';
+    }
+    for (const auto& picker : pickerFamilies()) {
+        out += "picker|" + picker.name + "|";
+        for (size_t i = 0; i < picker.ids.size(); ++i) {
+            if (i > 0) out += ',';
+            out += picker.ids[i];
         }
         out += '\n';
     }
@@ -356,6 +381,23 @@ const std::vector<std::string>& allIds() {
         return out;
     }();
     return kIds;
+}
+
+const std::vector<PickerFamily>& pickerFamilies() {
+    static const std::vector<PickerFamily> kPicker = [] {
+        std::vector<PickerFamily> out;
+        for (const auto& id : allIds()) {
+            std::string name = pickerName(kindOf(id));
+            for (const auto& family : kFamilies) {
+                if (listed(family.ids, id)) name = family.name;
+            }
+            auto it = std::find_if(out.begin(), out.end(), [&](const PickerFamily& p) { return p.name == name; });
+            if (it == out.end()) it = out.insert(out.end(), PickerFamily{name, {}});
+            it->ids.push_back(id);
+        }
+        return out;
+    }();
+    return kPicker;
 }
 
 bool isShaderStyle(const std::string& id) { return listed(kLooseShaders, id) || familyStyle(id); }

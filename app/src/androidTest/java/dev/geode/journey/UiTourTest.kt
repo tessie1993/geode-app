@@ -390,7 +390,8 @@ class UiTourTest {
             null
         }
         tour.pages("styles", "list", pages = 3)
-        tour.step("styles", "family-silk", "the Silk family open") { tour.tap(SILK) }
+        tour.step("styles", "family-menu", "the family dropdown open") { tour.tap(STYLE_FAMILY) }
+        tour.step("styles", "family-silk", "the Silk family's styles") { tour.tap(SILK) }
         tour.step("styles", "locked-style", "a Pro style plays while the paywall offers it") {
             tour.tap(LOCKED_STYLE)
             "paywall=${tour.waitFor(hasText(UiTour.PAYWALL_RESTORE))}"
@@ -400,10 +401,13 @@ class UiTourTest {
             tour.tap(UiTour.PAYWALL_CLOSE)
             tour.state().summary()
         }
-        tour.step("styles", "family-silk-closed", "the Silk family closed again") { tour.tap(SILK) }
-        tour.step("styles", "shader-family", "a shader family's variations") {
-            tour.tap(SHADERS)
+        tour.step("styles", "shader-family", "a shader family's styles") {
+            tour.tap(STYLE_FAMILY)
             tour.tap(ARBOR)
+        }
+        tour.step("styles", "your-styles", "Your styles: on screen, favourites, recent") {
+            tour.tap(STYLE_FAMILY)
+            tour.tap(YOUR_STYLES)
         }
         tour.step("styles", "row-menu", "a style's long-press menu") {
             compose.onAllNodes(LONG_PRESSABLE).onFirst().performSemanticsAction(SemanticsActions.OnLongClick)
@@ -703,8 +707,9 @@ class UiTourTest {
         const val PRESETS = "Presets"
         const val MILKDROP = "MilkDrop"
         const val TEXTURES = "Textures"
+        const val STYLE_FAMILY = "Style family"
+        const val YOUR_STYLES = "Your styles"
         const val SILK = "Silk"
-        const val SHADERS = "Shaders"
         const val ARBOR = "Arbor"
         const val LOCKED_STYLE = "Halvorsen Web"
         const val SAVE_LOOK = "Save look"

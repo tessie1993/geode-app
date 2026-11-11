@@ -5,7 +5,7 @@ import kotlin.math.exp
 import kotlin.math.sin
 
 /**
- * A fixed four-bar loop at 120 BPM, synthesised sample by sample: a kick on every beat, a hi-hat
+ * A fixed four-bar loop at 93 BPM, synthesised sample by sample: a kick on every beat, a hi-hat
  * on the off-beats, a bass line on the eighths and a sustained minor-chord pad.
  *
  * Why synthetic and not a bundled track: a thumbnail has to show each style the way it looks
@@ -90,7 +90,8 @@ internal class SyntheticGroove(
     companion object {
         const val SAMPLE_RATE_HZ = 48_000
         const val CHANNELS = 2
-        private const val BEAT_SECONDS = 0.5 // 120 BPM
+        private const val BPM = 93.0
+        private const val BEAT_SECONDS = 60.0 / BPM
         private const val BEATS_PER_BAR = 4
         private const val KICK_HIGH_HZ = 150.0
         private const val KICK_LOW_HZ = 48.0

@@ -303,15 +303,21 @@ struct Noise {
     }
 };
 
-// 120 BPM: a verse (kick, bass, hats) to 24 s, an 8-bar build (no kick or bass; rising noise, a rising
-// sweep and a snare roll that doubles every two bars) to 40 s, then the drop (kick and a louder bass).
-// The kick and bass are at 56 Hz, 28 cycles a beat, so every beat is the same sound. At 55 Hz (27.5
-// cycles) the kick added to the bass on one beat and cancelled it on the next: a song whose beats
-// alternate loud and soft, which only the old 120 BPM prior read as 120 and the evidence reads as 60.
+// 141 BPM: a verse (kick, bass, hats) for 14 bars, an 8-bar build (no kick or bass; rising noise, a rising
+// sweep and a snare roll that doubles every two bars), then the drop (kick and a louder bass) for 16 s.
+// The kick and bass are at 56.4 Hz, 24 cycles a beat, so every beat is the same sound: off a whole number
+// of cycles, the kick adds to the bass on one beat and cancels it on the next, a song whose beats alternate
+// loud and soft, which the evidence reads at half the tempo.
 void testBuildAndDrop() {
     SoundEngine e(44100);
     Noise noise;
-    const double p = 0.5;
+    const double p = 60.0 / 141.0;
+    const double hz = 24.0 / p;
+    const double buildAt = 14 * 4 * p;
+    const double dropAt0 = 22 * 4 * p;
+    const int frames = static_cast<int>((dropAt0 + 16.0) * 60.0);
+    const int dropStateFrame = static_cast<int>((dropAt0 + 2.0) * 60.0);
+    const int dropIdFrame = static_cast<int>((dropAt0 + 10.0) * 60.0);
     float buildPeak = 0.0f;
     bool sawBuildState = false;
     double dropAt = -1.0;
@@ -323,19 +329,19 @@ void testBuildAndDrop() {
     std::vector<float> buf;
     int64_t done = 0;
     GeodeSoundFrame f{};
-    for (int i = 1; i <= 60 * 56; i++) {
+    for (int i = 1; i <= frames; i++) {
         const int64_t end = std::llround(i * rate / 60.0);
         buf.resize(static_cast<size_t>(2 * (end - done)));
         for (int64_t s = done; s < end; s++) {
             const double t = static_cast<double>(s) / rate;
             const double u = std::fmod(t, p);
             double v = 0.0;
-            if (t < 24.0 || t >= 40.0) {
-                v += 0.6 * std::exp(-u * 20.0) * std::sin(kTau * 56.0 * u);
-                v += 0.25 * std::sin(kTau * 56.0 * t) * (t >= 40.0 ? 1.4 : 1.0);
+            if (t < buildAt || t >= dropAt0) {
+                v += 0.6 * std::exp(-u * 20.0) * std::sin(kTau * hz * u);
+                v += 0.25 * std::sin(kTau * hz * t) * (t >= dropAt0 ? 1.4 : 1.0);
                 v += 0.05 * std::exp(-std::fmod(t, p / 2) * 300.0) * noise.next();
             } else {
-                const double x = (t - 24.0) / 16.0;
+                const double x = (t - buildAt) / (dropAt0 - buildAt);
                 v += (0.02 + 0.2 * x) * noise.next();
                 v += 0.05 * std::sin(kTau * (1000.0 + 5000.0 * x) * t);
                 const double div = x < 0.25 ? p : x < 0.5 ? p / 2 : x < 0.75 ? p / 4 : p / 8;
@@ -348,31 +354,32 @@ void testBuildAndDrop() {
         done = end;
         e.step(1.0f / 60.0f, f);
         const double t = i / 60.0;
-        if (t > 28.0 && t < 40.0) {
+        if (t > buildAt + 4.0 && t < dropAt0) {
             buildPeak = std::max(buildPeak, f.buildUp);
             sawBuildState = sawBuildState || std::lround(f.sectionState) == GEODE_SECTION_BUILD;
         }
-        if (t > 20.0 && t < 24.0) verseId = f.sectionId;
+        if (t > buildAt - 4.0 && t < buildAt) verseId = f.sectionId;
         if (f.drop > 0.0f && dropAt < 0.0) dropAt = t;
         if (f.drop > 0.0f) weakestDrop = std::min(weakestDrop, f.drop);
-        if (std::fabs(t - 42.0) < 1e-6) dropState = static_cast<int>(std::lround(f.sectionState));
-        if (std::fabs(t - 50.0) < 1e-6) dropId = f.sectionId;
+        if (i == dropStateFrame) dropState = static_cast<int>(std::lround(f.sectionState));
+        if (i == dropIdFrame) dropId = f.sectionId;
     }
     CHECK(buildPeak > 0.5f, "build-up peaked at %f", buildPeak);
     CHECK(sawBuildState, "the section state never read Build");
-    CHECK(dropAt >= 40.0 && dropAt < 40.5, "drop at %f", dropAt);
+    CHECK(dropAt >= dropAt0 && dropAt < dropAt0 + 0.5, "drop at %f, the drop starts at %f", dropAt, dropAt0);
     CHECK(dropState == GEODE_SECTION_DROP, "state %d after the drop", dropState);
     CHECK(dropId == verseId, "the drop's kick and bass (%f) are the verse's material (%f)", dropId, verseId);
     // Form's one floor: an event fires at kEventFloor..1 or not at all (a 0.3 never reaches a consumer).
     CHECK(weakestDrop >= Form::kEventFloor && weakestDrop <= 1.0f, "a drop fired at %f, outside kEventFloor..1", weakestDrop);
 }
 
-// A B A, 16 bars each at 120 BPM: A a C major pad with kick and hats, B an F# pad over a low buzz. The
+// A B A, 12 bars each at 93 BPM: A a C major pad with kick and hats, B an F# pad over a low buzz. The
 // change into B and back into A fires within two bars, nowhere else, and A comes back under its own id.
 void testSectionsReturn() {
     SoundEngine e(44100);
     Noise noise;
-    const double p = 0.5;
+    const double p = 60.0 / 93.0;
+    const double bLen = 12 * 4 * p;
     std::vector<double> changes;
     float idA = -1.0f;
     float idB = -1.0f;
@@ -382,13 +389,13 @@ void testSectionsReturn() {
     std::vector<float> buf;
     int64_t done = 0;
     GeodeSoundFrame f{};
-    for (int i = 1; i <= 60 * 96; i++) {
+    for (int i = 1; i <= static_cast<int>(3 * bLen * 60.0); i++) {
         const int64_t end = std::llround(i * rate / 60.0);
         buf.resize(static_cast<size_t>(2 * (end - done)));
         for (int64_t s = done; s < end; s++) {
             const double t = static_cast<double>(s) / rate;
             const double u = std::fmod(t, p);
-            const bool b = t >= 32.0 && t < 64.0;
+            const bool b = t >= bLen && t < 2 * bLen;
             double v = 0.5 * std::exp(-u * 20.0) * std::sin(kTau * 50.0 * u);
             for (int n : b ? std::vector<int>{66, 70, 73} : std::vector<int>{60, 64, 67}) v += 0.06 * std::sin(kTau * hzOf(n + 12) * t);
             if (b) {
@@ -405,17 +412,17 @@ void testSectionsReturn() {
         if (f.sectionChange > 0.0f) changes.push_back(t);
         if (f.sectionChange > 0.0f) weakest = std::min(weakest, f.sectionChange);
         if (f.drop > 0.0f) weakest = std::min(weakest, f.drop);
-        if (std::fabs(t - 30.0) < 1e-6) idA = f.sectionId;
-        if (std::fabs(t - 60.0) < 1e-6) idB = f.sectionId;
-        if (std::fabs(t - 90.0) < 1e-6) idA2 = f.sectionId;
+        if (i == static_cast<int>((bLen - 2.0) * 60.0)) idA = f.sectionId;
+        if (i == static_cast<int>((2 * bLen - 2.0) * 60.0)) idB = f.sectionId;
+        if (i == static_cast<int>((3 * bLen - 2.0) * 60.0)) idA2 = f.sectionId;
     }
     bool intoB = false;
     bool backToA = false;
     bool stray = false;
     for (double t : changes) {
-        if (t >= 32.0 && t <= 36.5) {
+        if (t >= bLen && t <= bLen + 8 * p + 0.5) {
             intoB = true;
-        } else if (t >= 64.0 && t <= 68.5) {
+        } else if (t >= 2 * bLen && t <= 2 * bLen + 8 * p + 0.5) {
             backToA = true;
         } else {
             stray = true;
@@ -755,7 +762,7 @@ void checkGroove(const Groove& g) {
 // (docs/research/fosfora/02-rhythm-structure.md R2; its kick model is fosfora's kick_model.rs).
 constexpr const char* kNeedsKickModel = "the low bands hear the bass as a kick; needs a kick model and the phase arbiter (fosfora R2)";
 
-// The fosfora study's two failures (PR #300, docs/research/fosfora/02-rhythm-structure.md §4), at 120 BPM:
+// The fosfora study's two failures (PR #300, docs/research/fosfora/02-rhythm-structure.md §4), at 77 and 93 BPM:
 // a kick on every beat under an open hat on every "and" (the hat's peak 18 dB and 4 dB under the kick's),
 // and a kick on 1 and 3 under a bass note on every "and", the bass quiet and loud.
 void testOffbeatGrooves() {
@@ -765,16 +772,16 @@ void testOffbeatGrooves() {
     for (double hat : {0.1, 0.5}) {
         char name[48];
         std::snprintf(name, sizeof name, "kick 1-4, open hat %.1f", hat);
-        Groove g{name, 120.0, {{Voice::kKick, 0.8, fours}, {Voice::kOpenHat, hat, ands}}};
-        // A hat 4 dB under the kick on every "and" is a pulse of 8ths: 240 is in the signal as much as
-        // 120 is, and the evidence may read either. Only the old 120 BPM prior made 120 the one answer.
-        if (hat > 0.3) g.otherLevel = 240.0;
+        Groove g{name, 77.0, {{Voice::kKick, 0.8, fours}, {Voice::kOpenHat, hat, ands}}};
+        // A hat 4 dB under the kick on every "and" is a pulse of 8ths: the double tempo is in the signal
+        // as much as the kick's, and the evidence may read either.
+        if (hat > 0.3) g.otherLevel = 2.0 * g.bpm;
         checkGroove(g);
     }
     for (double bass : {0.15, 0.4}) {
         char name[48];
         std::snprintf(name, sizeof name, "kick 1+3, bass %.2f on and", bass);
-        Groove g{name, 120.0, {{Voice::kKick, 0.8, {0, 2}}, {Voice::kBass, bass, ands}}};
+        Groove g{name, 93.0, {{Voice::kKick, 0.8, {0, 2}}, {Voice::kBass, bass, ands}}};
         g.knownFailure = kNeedsKickModel;
         checkGroove(g);
     }

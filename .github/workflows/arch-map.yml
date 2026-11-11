@@ -44,17 +44,20 @@ jobs:
         shell: bash
         run: bash tools/layer-gate.sh
 
-      # Pins the no-BPM-bias gate: each shape the tempo bias came back in must fail it, a test's stimulus,
-      # "no tempo yet" and the detector's search limits must pass.
+      # Pins the no-BPM-bias gate: each shape the tempo bias came back in, and a 120 used as a tempo anywhere
+      # (tests included), must fail it; a test's other tempos, "no tempo yet", the detector's search limits and
+      # a 120 that is no tempo (fps, Hz, frames) must pass.
       - name: Self-test the no-BPM-bias gate
         shell: bash
         run: |
           set -u
           t=$(mktemp -d)
-          mkdir -p "$t/core/sound" "$t/core/viz" "$t/core/tests" "$t/app/src/main/java" "$t/docs"
+          mkdir -p "$t/core/sound" "$t/core/viz" "$t/core/tests" "$t/app/src/main/java" "$t/app/src/androidTest" "$t/docs" "$t/tools/glslcheck"
           echo 'float period_ = 0.0f;  // 0 = none yet' > "$t/core/sound/Rhythm.hpp"
           echo 'static constexpr float kFastestBpm = 300.0f;' >> "$t/core/sound/Rhythm.hpp"
-          echo 'const double bpm = 120.0;' > "$t/core/tests/musical_test.cpp"
+          echo 'const double bpm = 93.0;' > "$t/core/tests/musical_test.cpp"
+          echo 'for (int i = 0; i < 60 * 120; ++i) e.tick(1.0f / 120.0f);  // 30/60/120 fps, a 120 Hz panel' >> "$t/core/tests/musical_test.cpp"
+          echo 'private const val BEAT_SECONDS = 60.0 / BPM' > "$t/app/src/androidTest/Groove.kt"
           bash tools/no-bpm-bias-gate.sh "$t" >/dev/null || { echo "::error::no-BPM-bias gate self-test: clean tree failed"; exit 1; }
           plant() {
             printf '%s\n' "$2" > "$t/$1"
@@ -70,6 +73,12 @@ jobs:
           plant docs/bias.md 'Weight the tempogram with a log-Gaussian prior centred on 120 BPM.'
           plant docs/bias.md 'With no estimate, fall back to 120 BPM.'
           plant docs/bias.md 'tempo = librosa.feature.tempo(onset_envelope=env, start_bpm=120)'
+          plant core/tests/Bias.cpp 'const double bpm = 120.0;'
+          plant core/tests/Bias.cpp '// A steady groove at 120 BPM.'
+          plant core/tests/Bias.cpp 'f.beatPhase = std::fmod(t * 120.0 / 60.0, 1.0);'
+          plant app/src/androidTest/Bias.kt '        private const val BEAT_SECONDS = 0.5'
+          plant app/src/main/java/Bias.kt 'val beatSeconds = 60.0f / 120.0f'
+          plant tools/glslcheck/bias.mjs '  0.5, 0.4, 120, 0.3, //        EVENNESS RUN_DENSITY BPM BEAT_PHASE'
           echo "no-BPM-bias gate self-test passed"
 
       - name: No tempo prior, preferred tempo or default BPM

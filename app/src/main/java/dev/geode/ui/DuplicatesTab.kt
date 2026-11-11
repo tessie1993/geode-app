@@ -2,7 +2,6 @@ package dev.geode.ui
 
 import android.app.Activity
 import android.net.Uri
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -84,14 +83,12 @@ internal fun DuplicatesTab(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        TextButton(onClick = {
-                            scope.launch {
-                                val sender = context.geodeContainer.mediaStore.deleteRequest(listOf(Uri.parse(track.uri)))
-                                deleter.launch(IntentSenderRequest.Builder(sender).build())
-                            }
-                        }) { Text(stringResource(R.string.action_delete)) }
-                    }
+                    TextButton(onClick = {
+                        scope.launch {
+                            val sender = context.geodeContainer.mediaStore.deleteRequest(listOf(Uri.parse(track.uri)))
+                            deleter.launch(IntentSenderRequest.Builder(sender).build())
+                        }
+                    }) { Text(stringResource(R.string.action_delete)) }
                 }
             }
         }

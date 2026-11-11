@@ -1,7 +1,6 @@
 package dev.geode.render
 
 import android.content.Context
-import android.os.Build
 import android.os.PowerManager
 import dev.geode.engine.bridge.GeodeNative
 
@@ -40,9 +39,8 @@ object ThermalGovernor {
      */
     fun sample() {
         val service = power
-        if (service == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return GeodeNative.thermalPush(-1, Float.NaN)
+        if (service == null) return GeodeNative.thermalPush(-1, Float.NaN)
         val status = runCatching { service.currentThermalStatus }.getOrDefault(-1)
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return GeodeNative.thermalPush(status, Float.NaN)
         GeodeNative.thermalPush(status, runCatching { service.getThermalHeadroom(FORECAST_SECONDS) }.getOrDefault(Float.NaN))
     }
 }

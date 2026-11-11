@@ -2,7 +2,6 @@ package dev.geode.ui
 
 import android.app.Activity
 import android.media.projection.MediaProjectionManager
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -67,17 +66,13 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
             onCheckedChange = { want ->
                 if (!want) {
                     viewModel.stopExternalAudio()
-                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                } else {
                     permissions.launch(
                         arrayOf(
                             android.Manifest.permission.RECORD_AUDIO,
                             android.Manifest.permission.POST_NOTIFICATIONS,
                         ),
                     )
-                } else if (viewModel.hasMicPermission()) {
-                    askConsent()
-                } else {
-                    permissions.launch(arrayOf(android.Manifest.permission.RECORD_AUDIO))
                 }
             },
         )

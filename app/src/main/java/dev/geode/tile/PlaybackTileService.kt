@@ -11,7 +11,6 @@ import android.os.Bundle
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import androidx.annotation.OptIn
-import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -186,18 +185,15 @@ class PlaybackTileService : TileService() {
                 playing -> getString(R.string.tile_pause_description, title ?: getString(R.string.tile_label))
                 else -> getString(R.string.tile_play_description, title ?: getString(R.string.tile_label))
             }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            tile.subtitle =
-                when {
-                    item == null -> getString(R.string.tile_subtitle_idle)
-                    else -> title ?: getString(if (playing) R.string.tile_state_playing else R.string.tile_state_paused)
-                }
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) describeState(tile, playing, item != null)
+        tile.subtitle =
+            when {
+                item == null -> getString(R.string.tile_subtitle_idle)
+                else -> title ?: getString(if (playing) R.string.tile_state_playing else R.string.tile_state_paused)
+            }
+        describeState(tile, playing, item != null)
         tile.updateTile()
     }
 
-    @RequiresApi(Build.VERSION_CODES.R)
     private fun describeState(
         tile: Tile,
         playing: Boolean,

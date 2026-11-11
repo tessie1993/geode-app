@@ -32,7 +32,7 @@ int PerformanceMonitor::onFrame(float dtSeconds) {
     if (avg < target) deficitSeconds_ += dtSeconds; else deficitSeconds_ = 0.0f;
     if (deficitSeconds_ < sustainSeconds_) return 0;
     const float severity = (target - avg) / target;
-    return severity > 0.35f ? 2 : 1;
+    return severity > 0.35f ? kSevereRelief : kMildRelief;
 }
 
 void PerformanceMonitor::reset() {
@@ -63,12 +63,14 @@ void ThermalGovernor::onFrame(float dtSeconds) {
     if (offscreenDepth_.load() > 0) return;
     // The platform's readings arrive through ThermalState::push, once a second for the whole process;
     // per frame there is only this surface's own frame time to watch.
-    if (!shared_.platformKnows() || adaptive_.load()) trackMeasuredTrend(dtSeconds);
+    trackMeasuredTrend(dtSeconds);
 }
 
 void ThermalGovernor::onSurfaceRecreated() {
     monitor_.reset();
     keptUpSeconds_ = 0.0f;
+    relaxSeconds_ = kMeasuredRelaxSeconds;
+    sinceRelaxSeconds_ = kRelaxProbeSeconds;
 }
 
 void ThermalGovernor::endOffscreenRender() {
@@ -79,7 +81,15 @@ void ThermalGovernor::endOffscreenRender() {
 void ThermalGovernor::trackMeasuredTrend(float dtSeconds) {
     // The effective cap, not the surface's own: under a 30 fps thermal cap, 30 fps is keeping up.
     monitor_.setPacedFps(pacedFps());
-    const int relief = monitor_.onFrame(dtSeconds);
+    int relief = monitor_.onFrame(dtSeconds);
+    const bool adaptive = adaptive_.load();
+    const bool platformKnows = shared_.platformKnows();
+    // Adapt off on a phone that reports thermals (the High preset): the platform owns the tier and a
+    // mild deficit is the price of the quality the user asked for. Frames far under the cap are not:
+    // those step down, and from then on the surface adapts until the floor is back at Full.
+    if (!adaptive && platformKnows && relief < PerformanceMonitor::kSevereRelief && shared_.measuredFloor() == ThermalTier::Full) {
+        relief = 0;
+    }
     // Any surface's raise restarts every surface's wait to step back down, so a cheap surface keeping
     // up (a wallpaper preview) cannot undo the raise a busy one just made.
     const uint64_t raises = shared_.raises();
@@ -87,19 +97,31 @@ void ThermalGovernor::trackMeasuredTrend(float dtSeconds) {
         seenRaises_ = raises;
         keptUpSeconds_ = 0.0f;
     }
+    if (sinceRelaxSeconds_ < kRelaxProbeSeconds) {
+        sinceRelaxSeconds_ += dtSeconds;
+        // The step back up held: the next one waits the usual time again.
+        if (sinceRelaxSeconds_ >= kRelaxProbeSeconds) relaxSeconds_ = kMeasuredRelaxSeconds;
+    }
     if (relief <= 0) {
-        // Only the adaptive mode ever steps back up; without it the measured floor keeps its
-        // old promise of never upgrading.
-        if (!adaptive_.load() || shared_.measuredFloor() == ThermalTier::Full || !monitor_.keepingUp()) {
+        // Without a thermal API and without Adapt, the measured floor keeps its old promise of never
+        // upgrading: frame time is that phone's only signal. Everywhere else it steps back up.
+        const bool stepsBackUp = adaptive || platformKnows;
+        if (!stepsBackUp || shared_.measuredFloor() == ThermalTier::Full || !monitor_.keepingUp()) {
             keptUpSeconds_ = 0.0f;
             return;
         }
         keptUpSeconds_ += dtSeconds;
-        if (keptUpSeconds_ < kMeasuredRelaxSeconds) return;
+        if (keptUpSeconds_ < relaxSeconds_) return;
         keptUpSeconds_ = 0.0f;
         shared_.lowerMeasuredFloor();
+        sinceRelaxSeconds_ = 0.0f;
         monitor_.reset();
         return;
+    }
+    // A raise while a step back up is still on probation: that tier is more than the phone can draw.
+    if (sinceRelaxSeconds_ < kRelaxProbeSeconds) {
+        relaxSeconds_ = std::min(relaxSeconds_ * 2.0f, kMeasuredRelaxMaxSeconds);
+        sinceRelaxSeconds_ = kRelaxProbeSeconds;
     }
     keptUpSeconds_ = 0.0f;
     shared_.raiseMeasuredFloor(relief);

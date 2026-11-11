@@ -219,14 +219,7 @@ fun StudioHub(
                     ) {
                         when (tab) {
                             StudioSection.RENDER -> StudioRenderTab(viewModel, visualizerView, gate)
-                            StudioSection.MY_VIDEOS ->
-                                MyVideosTab(
-                                    viewModel = studioViewModel,
-                                    onRenderTake = { name ->
-                                        studioViewModel.setExportTake(name)
-                                        select(StudioSection.RENDER)
-                                    },
-                                )
+                            StudioSection.MY_VIDEOS -> MyVideosTab(studioViewModel)
                         }
                     }
                 }
@@ -257,7 +250,7 @@ private val studioRouteSaver =
  * Studio › Render: one page that reads top to bottom as the questions a render asks.
  *
  * - Source: what to render (the song playing, the queue, a playlist, chosen tracks; the last three
- *   are a Pro batch) and, for the song playing, which take replays on it.
+ *   are a Pro batch).
  * - Look: the look on stage, or a preset (for one song it is put on stage, so the video shows what
  *   the user sees; for a batch it is used for every track).
  * - Format: a destination (TikTok, Shorts, …) fills in its own defaults from Settings › Export, then
@@ -281,7 +274,6 @@ internal fun StudioRenderTab(
     val player by viewModel.uiState.collectAsStateWithLifecycle()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val export by studioViewModel.exportState.collectAsStateWithLifecycle()
-    val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val store = remember { ExportPrefsStore(GeodePrefsFiles(context).general) }
     val studioPrefs = remember { StudioPrefsStore(GeodePrefsFiles(context).general) }
@@ -385,13 +377,6 @@ internal fun StudioRenderTab(
                             onPickPlaylist = { picking = RenderPick.PLAYLIST },
                             onPickTracks = { picking = RenderPick.TRACKS },
                         )
-                        if (!selection.scope.isBatch && takes.takes.isNotEmpty()) {
-                            RenderTakeChoice(
-                                takes = takes.takes.map { it.name },
-                                selected = takes.exportTake,
-                                onSelect = studioViewModel::setExportTake,
-                            )
-                        }
                     }
                 }
                 item {
@@ -583,20 +568,6 @@ private fun RenderKeepProjectDialog(
         confirmButton = { TextButton(onClick = { onAnswer(true, dontAsk) }) { Text(stringResource(R.string.render_keep_yes)) } },
         dismissButton = { TextButton(onClick = { onAnswer(false, dontAsk) }) { Text(stringResource(R.string.render_keep_no)) } },
     )
-}
-
-/** Source › which recorded take replays on the song, or none (the live look and its reactions). */
-@Composable
-private fun RenderTakeChoice(
-    takes: List<String>,
-    selected: String?,
-    onSelect: (String?) -> Unit,
-) {
-    OptionLabel(stringResource(R.string.export_group_performance))
-    RenderChipRow {
-        RenderChip(stringResource(R.string.export_live_settings), selected == null) { onSelect(null) }
-        takes.forEach { name -> RenderChip(name, selected == name) { onSelect(name) } }
-    }
 }
 
 /**

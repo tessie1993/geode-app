@@ -228,6 +228,19 @@ GEODE_API void        geode_viz_set_style_schedule(geode_viz*, const double* at_
                                                    const char* const* cut_ids, int cut_count, int every_beats,
                                                    const char* const* locked_ids, int locked_count);
 GEODE_API void        geode_viz_render(geode_viz*, double time_seconds, uint32_t target_fbo);
+/* Record's tee (core/viz/frame/RecordTap), render thread with the stage's context current. From the next
+ * geode_viz_render on, each frame the recorder's clock keeps is copied, after the composite and the edge
+ * glow and before the UI blur, into `native_window` (the video encoder's input surface as an ANativeWindow,
+ * width x height), stamped with the clock's PTS; and every block geode_viz_feed_ring hands the sound engine
+ * goes to the recorder too. `watermark` (a geode_export_watermark_create pass built on this thread, or
+ * NULL) is drawn over each copied frame. 1 when the surface opened, 0 when the driver refused it. The
+ * recorder and the pass must outlive the tee; the window must until geode_viz_record_stop, which is safe
+ * with no context current (the surface went first) and when nothing records. */
+typedef struct geode_recorder geode_recorder;
+typedef struct geode_export_pass geode_export_pass;
+GEODE_API int         geode_viz_record_start(geode_viz*, const geode_recorder* recorder, void* native_window, int width,
+                                             int height, geode_export_pass* watermark);
+GEODE_API void        geode_viz_record_stop(geode_viz*);
 /* Offline (export) render: prepare pins the renderer for it, any thread: the offscreen tier
  * (geode_viz_set_offscreen(1)), cut transitions, and fixed fluid quality on every later set_params. */
 GEODE_API void        geode_viz_prepare_offscreen(geode_viz*);
@@ -340,11 +353,6 @@ GEODE_API int         geode_tags_write(int fd, const char* const* texts, int yea
 GEODE_API int         geode_library_search(const char* const* rows, int track_count, const char* query,
                                            const char* focus, const char* artist, const char* album,
                                            const char* title, int* out, int max_out);
-
-/* Studio's folders (core/library/StudioFiles): moves takes saved inside project folders
- * (projects_dir/<id>/takes/) to takes_dir/<id>/, once; a take already there wins. Returns how many could not
- * be moved (they stay where they were). Paths are UTF-8. */
-GEODE_API int         geode_studio_move_takes_out(const char* projects_dir, const char* takes_dir);
 
 /* Scene and style catalogue (core/viz/Catalogue): every style id, its renderer kind and Styles look group, the style families,
  * which Customize controls reach which styles, and the ranges the shell's controls quote, as one versioned
@@ -769,16 +777,67 @@ GEODE_API int64_t geode_export_muxer_hard_limit_bytes(void);
 GEODE_API void    geode_export_frame_size(int short_side, int w_ratio, int h_ratio, int* out_w, int* out_h);
 GEODE_API int     geode_export_clamp_fps(int requested_fps);     /* 24..60 */
 
-/* A recorded take's limits (output/RecordPlan; Settings › Export › Record). A maximum length is in seconds,
- * 0 = no limit. The offered lengths are index 0..count-1; a stored one is snapped onto them. */
+/* A recording's limits (output/RecordPlan; Settings › Export › Record). A maximum length is in seconds,
+ * 0 = no limit. The offered lengths are index 0..count-1; a stored one is snapped onto them. The stop itself
+ * is the recorder's (geode_recorder_*). */
 GEODE_API int     geode_record_max_length_count(void);
 GEODE_API int     geode_record_max_length_at(int index);
 GEODE_API int     geode_record_snap_max_length(int requested_sec);
-GEODE_API int     geode_record_limit_reached(int64_t recorded_ms, int max_sec);       /* 1 = stop the take */
-GEODE_API int64_t geode_record_clamp_length_ms(int64_t length_ms, int max_sec);
 /* The bytes length_sec of video at video_bps takes with its AAC; out_lowered (may be null) is 1 when the
  * render lowers the bit rate to stay under the muxer's 3.8 GB target. */
 GEODE_API int64_t geode_record_estimate_bytes(int video_bps, int length_sec, int* out_lowered);
+
+/* Record (Visuals › Record; output/Recorder): a video of the visual plus the sound, captured live. The
+ * recorder is the file's clock: which stage frames are kept and their PTS, where each sample the visual
+ * heard sits beside them, and when the recording ends. The stage's renderer feeds it (geode_viz_record_start);
+ * the shell's encoder thread takes the audio out and reports what the encoder and muxer did. Times are
+ * CLOCK_MONOTONIC ns (System.nanoTime). max_sec is Settings › Export › Record's maximum length and cap_ms
+ * the entitlement's cap, 0 for none; the shorter one ends the recording. */
+typedef struct geode_recorder geode_recorder;
+#define GEODE_RECORD_STOP_USER       1
+#define GEODE_RECORD_STOP_MAX_LENGTH 2
+#define GEODE_RECORD_STOP_RESIZED    3 /* the stage changed size (a rotation) */
+#define GEODE_RECORD_STOP_FILE_FULL  4 /* near the muxer's 4 GB line */
+#define GEODE_RECORD_STOP_FAILED     5
+#define GEODE_RECORD_AUDIO_RATE_HZ   48000
+#define GEODE_RECORD_AUDIO_CHANNELS  2
+#define GEODE_RECORD_AUDIO_BPS       192000 /* what the AAC encoder is asked for */
+/* The clock every now_ns here is read from (monotonic, ns): the one the render thread stamps frames and
+   heard blocks with. */
+GEODE_API int64_t geode_record_now_ns(void);
+GEODE_API geode_recorder* geode_recorder_create(int stage_w, int stage_h, int fps, int max_sec, int64_t cap_ms);
+GEODE_API void    geode_recorder_destroy(geode_recorder*);
+/* GL thread, before a stage frame is drawn: its PTS in ns when it goes into the file, else -1. */
+GEODE_API int64_t geode_recorder_frame(geode_recorder*, int64_t now_ns, int stage_w, int stage_h);
+/* GL thread: a block the renderer's sound engine just took; restarted when its ring started over. */
+GEODE_API void    geode_recorder_hear(geode_recorder*, const float* interleaved, int frames, int channels,
+                                      int sample_rate, int64_t now_ns);
+GEODE_API void    geode_recorder_restarted(geode_recorder*);
+/* Encoder thread: one video frame came out of the encoder; the muxer wrote `bytes` more. */
+GEODE_API void    geode_recorder_video_encoded(geode_recorder*);
+GEODE_API void    geode_recorder_wrote(geode_recorder*, int64_t bytes, int64_t now_ns);
+/* Encoder thread: up to capacity_frames of 48 kHz stereo s16 due now, stamped *out_pts_us. Returns the
+ * frames written; 0 after the recording stopped means the audio is complete. */
+GEODE_API int     geode_recorder_take_audio(geode_recorder*, int64_t now_ns, int16_t* out, int capacity_frames,
+                                            int64_t* out_pts_us);
+/* Any thread. why is a GEODE_RECORD_STOP_*; the first stop wins. stopped answers it, 0 while rolling. */
+GEODE_API void    geode_recorder_stop(geode_recorder*, int why, int64_t now_ns);
+GEODE_API int     geode_recorder_stopped(const geode_recorder*);
+GEODE_API int64_t geode_recorder_recorded_ms(const geode_recorder*, int64_t now_ns);
+GEODE_API int64_t geode_recorder_frames_dropped(const geode_recorder*);
+/* The encoder's frame for a stage (its shape; the short side the smaller of short_side and the stage's own)
+ * and the video bit rate for it; limit_ms, the recording's longest length or 0, lowers the rate when the
+ * file would pass the muxer's target. */
+GEODE_API void    geode_record_frame_size(int stage_w, int stage_h, int short_side, int* out_w, int* out_h);
+GEODE_API int     geode_record_video_bps(int width, int height, int fps, int64_t limit_ms);
+/* What the shell asks the video encoder for on its attempt-th try (0 first): the chosen short side, then
+ * each smaller rung the stage fills, with the bit rate for it. 0 past the last attempt. */
+GEODE_API int     geode_record_encoder_attempt(int stage_w, int stage_h, int short_side, int fps, int64_t limit_ms,
+                                               int attempt, int* out_w, int* out_h, int* out_video_bps);
+/* 1 when a recording this long is kept, 0 when it is a mis-tap. */
+GEODE_API int     geode_record_worth_keeping(int64_t recorded_ms);
+/* The longest this recording may run, the shorter of its two limits; 0 for none. */
+GEODE_API int64_t geode_recorder_limit_ms(const geode_recorder*);
 
 /* Chapter spans (output/Chapters); titles stay Kotlin, keyed by out_source (-1 = the lead-in chapter that
  * makes a marker list start at 0:00). Each writes min(count, capacity) spans and returns the count. */

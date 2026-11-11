@@ -59,6 +59,10 @@ public:
     // Frames written since the last beginEpoch().
     int64_t writtenFrames() const;
 
+    // Frames ever written, across epochs: the position a playout clock's anchors and a cursor's limit
+    // count in (sound/interp/PlayoutClock).
+    int64_t headFrames() const { return head_.load(); }
+
     // A new stream (track change, seek, source switch): every cursor restarts at its next take and hands
     // out nothing written before this. Any thread, also several at once.
     void beginEpoch();
@@ -110,7 +114,6 @@ private:
     // After a copy of frames from `first`: false when the writer could have reached their slots meanwhile.
     bool stillIntact(int64_t first) const;
     static int64_t startOf(uint64_t epochWord) { return static_cast<int64_t>(epochWord & kStartMask); }
-    int64_t oldestAvailable(int64_t head, int64_t epochStart) const;
 
     const int capacity_;
     const int channels_;
@@ -136,13 +139,23 @@ public:
         int sampleRateHz = 0;    // the rate these frames were written at; 0 with no frames
     };
 
+    // take()'s limit for a reader with no sink between the ring and the listener: the newest frame.
+    static constexpr int64_t kNewest = INT64_MAX;
+
     // maxFrames is the most one take hands out, so a long stall costs one bounded catch-up; 0 = the runway.
     explicit Cursor(const PcmRing& ring, int maxFrames = 0);
 
     // What the ring gained since the last take, into interleaved(). After a stall it keeps the newest
     // audio. A take stops where the format changes, so one take has one rate; the rest comes next take.
     // A take the writer lapped during the copy hands out no frames, and the next one restarts.
-    Take take();
+    //
+    // limit (a headFrames() position, exclusive) is for a reader behind a sink: the frame the speaker
+    // plays now, so the take stops there and "newest" above reads "newest below the limit". A limit at or
+    // behind the last take hands out nothing and never rewinds. A new epoch restarts the cursor once the
+    // limit reaches it; until then the listener still hears the old stream's tail (a gapless track
+    // change) and the cursor reads it. A limit the ring no longer keeps is raised to a runway above the
+    // oldest frame it does: such a reader runs ahead of the speaker rather than stand still.
+    Take take(int64_t limit = kNewest);
 
     // The last take's frames, frames * channels() floats. A mono source is handed out on every channel.
     const float* interleaved() const { return out_.data(); }

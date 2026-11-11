@@ -10,6 +10,7 @@ add_library(geode_core STATIC
     api/geode_underlay_api.cpp
     api/geode_frame_api.cpp
     api/geode_surface_api.cpp
+    api/geode_auto_api.cpp
     api/geode_playout_api.cpp
     api/geode_ingest_api.cpp
     api/geode_audio_out_api.cpp
@@ -44,6 +45,7 @@ add_library(geode_core STATIC
     output/FrameClock.cpp
     output/LoopPlan.cpp
     output/EncodePlan.cpp
+    output/RecordPlan.cpp
     output/Chapters.cpp
     signal/timeline/Keyframes.cpp
     signal/timeline/SpeedRamp.cpp
@@ -95,6 +97,7 @@ add_library(geode_core STATIC
     viz/CataloguePresets.cpp
     viz/ParamRandomizer.cpp
     viz/CustomizeMap.cpp
+    viz/WaveRandomizer.cpp
     viz/SceneRegistry.cpp
     viz/Renderer.cpp
     viz/RendererFrame.cpp

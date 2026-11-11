@@ -1,4 +1,5 @@
 #include "api/geode_api.h"
+#include "viz/StageRun.hpp"
 #include "viz/SurfaceRun.hpp"
 
 namespace surface = geode::viz::surface;
@@ -6,6 +7,8 @@ namespace surface = geode::viz::surface;
 // The header's numbers are the rule's; a drift here would make the shell pass one bit and mean another.
 static_assert(surface::kReducedMotion == GEODE_SURFACE_REDUCED_MOTION);
 static_assert(surface::kDefaultFps == GEODE_SURFACE_DEFAULT_FPS);
+static_assert(geode::viz::stage::kCasting == GEODE_STAGE_CASTING);
+static_assert(geode::viz::stage::kCastLeadsAuto == GEODE_STAGE_CAST_LEADS_AUTO);
 
 extern "C" {
 
@@ -38,5 +41,7 @@ int geode_surface_fps_choices(int* out, int capacity) {
     }
     return n;
 }
+
+unsigned geode_stage_run(unsigned flags) { return geode::viz::stage::run(flags); }
 
 }  // extern "C"

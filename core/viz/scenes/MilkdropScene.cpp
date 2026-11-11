@@ -7,8 +7,10 @@
 #include <filesystem>
 
 #include "util/Log.hpp"
+#include "viz/AutoTimer.hpp"
 #include "viz/CompositeGrade.hpp"
 #include "viz/LiveSignal.hpp"
+#include "viz/MilkProgress.hpp"
 #include "viz/Quad.hpp"
 
 namespace geode::viz {
@@ -154,7 +156,10 @@ void MilkdropScene::ensureEngine(double now) {
         pcmStarve_ = PcmStarve{};
         projectm_set_mesh_size(engine_.get(), 48, 32);
         projectm_set_soft_cut_duration(engine_.get(), 3.0);
-        projectm_set_preset_duration(engine_.get(), 999999.0);
+        // The duration only feeds the preset's `progress` (loadPendingPreset sets it per load); with no
+        // easter egg projectM takes it as given instead of drawing around it.
+        projectm_set_preset_duration(engine_.get(), milk::kHeldSeconds);
+        projectm_set_easter_egg(engine_.get(), 0.0f);
         projectm_set_preset_locked(engine_.get(), true);
         projectm_set_aspect_correction(engine_.get(), true);
         projectm_set_preset_switch_failed_event_callback(engine_.get(), onPresetSwitchFailed, this);
@@ -216,7 +221,8 @@ void MilkdropScene::loadPendingPreset(double now) {
     std::string shared;
     // The debounce is wall time, so an export skips it: a preset cue loads on the frame it falls on,
     // however fast this machine renders.
-    const bool debounce = !(host_.offscreen && host_.offscreen());
+    const bool offscreen = host_.offscreen && host_.offscreen();
+    const bool debounce = !offscreen;
     {
         std::lock_guard<std::mutex> lock(presetLock_);
         if (pendingPresetPath_.empty() || (debounce && now - lastLoadSeconds_ < kLoadDebounceSeconds)) return;
@@ -256,6 +262,8 @@ void MilkdropScene::loadPendingPreset(double now) {
         std::lock_guard<std::mutex> lock(errorLock_);
         lastError_ = "MilkDrop preset is not a file: " + path;
     } else {
+        // Before the load: projectM reads the duration once, when the preset starts.
+        projectm_set_preset_duration(engine_.get(), milk::progressSeconds(auto_timer::liveHoldSeconds(), offscreen));
         projectm_load_preset_file(engine_.get(), path.c_str(), engineHasPreset_ && params_.milkdropBlendPresets);
         projectm_set_preset_locked(engine_.get(), true);
     }
@@ -306,7 +314,6 @@ void MilkdropScene::draw(float timeSeconds) {
         return;
     }
     const SceneParams& p = params_;
-    projectm_set_beat_sensitivity(engine_.get(), std::clamp(0.2f + p.beatResponse, 0.2f, 3.0f));
 
     // The engine composites its frame straight into the scene's FBO. The window surface is never
     // read or written here, so the result does not depend on the EGL config the host chose.

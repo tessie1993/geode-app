@@ -44,9 +44,10 @@ class SharedPrefsFavouritesRepository(
 
     init {
         scope.launch {
+            // Registered before the first read, so a write that lands during it is not missed.
+            prefs.registerOnSharedPreferenceChangeListener(reloadOnChange)
             reload()
             opened.complete(Unit)
-            prefs.registerOnSharedPreferenceChangeListener(reloadOnChange)
         }
     }
 

@@ -246,10 +246,15 @@ void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
             return;
         }
     }
+    // Speaker sync: behind the player's sink the engine hears up to the sample the speaker plays now.
+    // steady_clock is CLOCK_MONOTONIC on Android, the clock System.nanoTime stamps the sink's reports with.
+    const auto sinceBoot = std::chrono::steady_clock::now().time_since_epoch();
+    const int64_t nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(sinceBoot).count();
+    const int64_t limit = geode_playout_listen_limit(ring->playout.load(std::memory_order_acquire), nowNs);
     // A take ends where the rate changes, so a frame that straddles one takes twice; the bound keeps a
     // writer that outruns this loop from holding the frame.
     for (int run = 0; run < kFeedRunsPerFrame; ++run) {
-        const geode::audio::ingest::Cursor::Take take = v->feedCursor->take();
+        const geode::audio::ingest::Cursor::Take take = v->feedCursor->take(limit);
         if (take.restarted) v->renderer.resetAudio();
         if (take.frames <= 0) break;
         const int channels = v->feedCursor->channels();

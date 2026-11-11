@@ -1,10 +1,14 @@
+#include <atomic>
 #include <memory>
 
 #include "api/geode_api.h"
+#include "sound/PlayerSignals.hpp"
 #include "sound/interp/PlayoutClock.hpp"
+#include "sound/interp/SpeakerSync.hpp"
 
 struct geode_playout {
     geode::sound::PlayoutClock clock;
+    std::atomic<bool> bypass{false};
 };
 
 extern "C" {
@@ -43,6 +47,27 @@ void geode_playout_set_offset_ms(geode_playout* p, int ms) {
 
 int64_t geode_playout_speaker_frame(const geode_playout* p, int64_t now_ns) {
     return p ? p->clock.speakerFrame(now_ns) : geode::sound::PlayoutClock::kUnknown;
+}
+
+void geode_playout_set_bypass(geode_playout* p, int on) {
+    if (p) p->bypass.store(on != 0, std::memory_order_relaxed);
+}
+
+int64_t geode_playout_listen_limit(const geode_playout* p, int64_t now_ns) {
+    return geode::sound::interp::listenLimit(p ? &p->clock : nullptr, geode::sound::player::playerIsSource(),
+                                             p && p->bypass.load(std::memory_order_relaxed), now_ns);
+}
+
+int geode_playout_lag_ms(const geode_playout* p, int64_t now_ns) {
+    return p ? p->clock.lagMs(now_ns) : 0;
+}
+
+int geode_playout_ring_frames(void) {
+    return geode::sound::interp::kPlayerRingFrames;
+}
+
+int geode_playout_ring_runway(void) {
+    return geode::sound::interp::kPlayerRingRunway;
 }
 
 }  // extern "C"

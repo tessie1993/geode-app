@@ -163,10 +163,15 @@ internal fun NotificationButtonsSection(
                 ),
             checked = button in prefs.notificationButtons,
             onCheckedChange = { on ->
-                update(prefs.copy(notificationButtons = if (on) prefs.notificationButtons + button else prefs.notificationButtons - button))
+                update(prefs.copy(notificationButtons = NotificationButton.toggled(prefs.notificationButtons, button, on)))
             },
         )
     }
+    Text(
+        stringResource(R.string.settings_beh_notif_room),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 /** Whether swiping home from the fullscreen visualizer during playback drops into PiP on its own. */

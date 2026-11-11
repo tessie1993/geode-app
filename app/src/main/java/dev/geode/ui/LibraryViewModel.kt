@@ -294,5 +294,11 @@ class LibraryViewModel
 
         fun resolveSmartPlaylist(playlist: SmartPlaylist): List<DeviceTrack> = session.resolveSmartPlaylist(playlist)
 
+        val favourites: StateFlow<Set<String>> get() = session.favourites
+
+        fun toggleFavourite(uri: String) = session.toggleFavourite(uri)
+
+        fun playFavourites() = session.playFavourites()
+
         fun playSmartPlaylist(playlist: SmartPlaylist) = session.playSmartPlaylist(playlist)
     }

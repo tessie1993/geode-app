@@ -21,10 +21,13 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 - the peak scan of `MicCapture.kt` and `PlaybackCapture.kt`: a write returns the block's peak
 - ~~`app/.../audio/PcmRingBuffer.kt`~~ gone earlier (#486)
 
+A cursor behind the player's sink takes with a limit (`Cursor::take(limit)`): the frame the speaker
+plays now, from the playout clock (`core/sound/interp/SpeakerSync.hpp`), so the picture does not lead the
+sound by the sink's buffer.
+
 **Still to move**
 - the int16 loops in `app/.../audio/dsp/NativeDspProcessor.kt` (the playback DSP's hand-over, not the ring's)
 - the silence and "blocked" timing in `MicCapture.kt` and `PlaybackCapture.kt` (one silence flag should come from `core/sound/hop`)
-- the playout clock (`core/sound/interp/PlayoutClock`) is not fed the ring's frame counts yet (#488)
 - rates above 88.2 kHz are not halved on the way in
 
 **fosfora:** `audio/capture.rs` (SPSC ring, no DSP in the callback), `audio/decimate.rs` (rates above 88.2 kHz halved first).

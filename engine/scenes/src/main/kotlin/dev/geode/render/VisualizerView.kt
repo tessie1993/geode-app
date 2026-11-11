@@ -183,13 +183,8 @@ class VisualizerView(
     }
 
     /**
-     * The app keeps this view attached on every screen and hides it (alpha 0, see [setAlpha])
-     * off Visuals, because detaching it cost a main-thread wait for the scene release, a GL thread
-     * join, and on the way back a new EGL context, every program recompiled and a black first
-     * frame. An `INVISIBLE` view would also give its surface back, and showing it again is a new
-     * surface and an `onSurfaceChanged` the main thread waits out (#852); a transparent view keeps
-     * the surface, so only the pacer and the gyro have to stop. Called for this view and for any ancestor; the attach check keeps it
-     * out of the constructor, where a View can already be told about its visibility.
+     * Off Visuals the app hides this view with alpha 0 (#852), not `INVISIBLE`, which gives the
+     * surface back and makes showing it a `surfaceChanged` main waits out; see [setAlpha].
      */
     override fun onVisibilityChanged(
         changedView: View,
@@ -199,19 +194,14 @@ class VisualizerView(
         if (isAttachedToWindow) syncPacer()
     }
 
-    /**
-     * The in-app hide is alpha 0 (see [onVisibilityChanged]), which `isShown` cannot see, so the
-     * pacer and the gyro follow alpha too. Called from the View constructor, hence the attach guard.
-     */
     override fun setAlpha(alpha: Float) {
-        val wasHidden = this.alpha <= 0f
         super.setAlpha(alpha)
-        if (isAttachedToWindow && wasHidden != (alpha <= 0f)) syncPacer()
+        if (isAttachedToWindow) syncPacer()
     }
 
     private fun syncPacer() {
         // isShown: this view and every ancestor VISIBLE, in a window. Window visibility on its own
-        // misses the in-app hide, which keeps the window showing.
+        // misses the in-app hide (alpha 0, so setAlpha syncs too; attach-guarded as the constructor calls it).
         val watched = isAttachedToWindow && windowVisibility == VISIBLE && isShown && alpha > 0f
         if (watched) framePacer.start() else framePacer.stop()
         gyroLook.setActive(gyroListens(watched, resumed, gyroWanted))

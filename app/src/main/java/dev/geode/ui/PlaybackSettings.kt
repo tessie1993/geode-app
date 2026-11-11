@@ -199,11 +199,12 @@ internal fun VolumeLevellingSection(viewModel: SettingsViewModel) {
     ReplayGainSettings(prefs) { viewModel.setPlayerPrefs(it) }
 }
 
-/** Settings › Playback › Output and more: bit-perfect USB, skipping silence, Player's screen, long tracks. */
+/** Settings › Playback › Output and more: bit-perfect USB, the native output, skipping silence, Player's screen, long tracks. */
 @Composable
 internal fun PlaybackMoreSection(viewModel: SettingsViewModel) {
     val prefs by viewModel.playerPrefs.collectAsStateWithLifecycle()
     BitPerfectSettings(prefs) { viewModel.setPlayerPrefs(it) }
+    NativeOutputSettings(prefs) { viewModel.setPlayerPrefs(it) }
     PlaybackSwitchRow(stringResource(R.string.playback_skip_silence), prefs.skipSilence) {
         viewModel.setPlayerPrefs(prefs.copy(skipSilence = it))
     }
@@ -282,6 +283,24 @@ private fun BitPerfectSettings(
             stringResource(R.string.playback_bit_perfect_paused),
             style = MaterialTheme.typography.bodySmall,
             color = if (prefs.bitPerfect) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** The Oboe output under ExoPlayer (`audio/OboeAudioOutput`); what it cannot play, the platform track plays. */
+@Composable
+private fun NativeOutputSettings(
+    prefs: PlayerPrefs,
+    onChange: (PlayerPrefs) -> Unit,
+) {
+    Column {
+        PlaybackSwitchRow(stringResource(R.string.playback_native_output), prefs.nativeOutput) {
+            onChange(prefs.copy(nativeOutput = it))
+        }
+        Text(
+            stringResource(R.string.playback_native_output_explainer),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

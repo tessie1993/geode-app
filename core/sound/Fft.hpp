@@ -1,12 +1,16 @@
 #pragma once
 #include <complex>
+#include <memory>
 #include <vector>
+
+template <typename scalar_t>
+class kissfft;
 
 namespace geode::sound {
 
-// Iterative radix-2 FFT of one power-of-two size, bit reversal and twiddles built once. Our own rather
-// than a library's so the engine has no dependency and gives the same numbers on every platform that
-// builds it, which is what lets the live path and the export path agree to the bit.
+// One power-of-two FFT size on KISS FFT (third_party/kissfft, its header-only C++ transform), plan
+// built once. The live path and the export path run this same code on the same samples, which is what
+// keeps them in agreement; sound_golden_test pins the numbers.
 class Fft {
 public:
     explicit Fft(int size);
@@ -16,9 +20,9 @@ public:
 
 private:
     int n_;
-    std::vector<int> bitrev_;
-    std::vector<std::complex<float>> twiddle_;
-    std::vector<std::complex<float>> work_;
+    std::shared_ptr<const kissfft<float>> plan_;
+    std::vector<std::complex<float>> in_;
+    std::vector<std::complex<float>> out_;
 };
 
 }  // namespace geode::sound

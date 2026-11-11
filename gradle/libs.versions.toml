@@ -29,8 +29,12 @@ ktlint = "14.2.0"
 detekt = "1.23.8"
 # Play Billing Library. 9.1.0 (2026-06-18) is the latest stable; PBL 9 needs compileSdk 35+.
 billing = "9.1.0"
+# Oboe (github.com/google/oboe), the playback output's native stream. A Prefab AAR on Google Maven;
+# 1.11.0 (2026-09-15) is the latest, and 16 KB page aligned (every release from 1.9.3 on is).
+oboe = "1.11.0"
 
 [libraries]
+oboe = { module = "com.google.oboe:oboe", version.ref = "oboe" }
 billing = { module = "com.android.billingclient:billing", version.ref = "billing" }
 # Installs the bundled baseline profile on sideloaded and pre-cloud-profile installs.
 profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version = "1.4.1" }

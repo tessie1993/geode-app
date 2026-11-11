@@ -10,6 +10,8 @@ add_library(geode_core STATIC
     api/geode_frame_api.cpp
     api/geode_surface_api.cpp
     api/geode_playout_api.cpp
+    api/geode_ingest_api.cpp
+    api/geode_audio_out_api.cpp
     sound/Fft.cpp
     sound/Emotion.cpp
     sound/Form.cpp
@@ -20,6 +22,9 @@ add_library(geode_core STATIC
     sound/Tuning.cpp
     library/Tags.cpp
     library/Search.cpp
+    audio/ingest/PcmRing.cpp
+    audio/output/OutputFifo.cpp
+    audio/output/OboeOutput.cpp
     audio/dsp/DspProcessor.cpp
     audio/dsp/GainStage.cpp
     audio/dsp/Equalizer.cpp
@@ -133,6 +138,8 @@ target_include_directories(geode_core PRIVATE
     ${CMAKE_BINARY_DIR}/third_party/taglib)
 target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})
 target_link_libraries(geode_core PUBLIC projectM tag GLESv3 EGL log android)
+# The playback output's stream (audio/output/OboeOutput.cpp); found by the root CMakeLists.txt.
+target_link_libraries(geode_core PUBLIC oboe::oboe)
 
 # glTF import (core/scene/object, #474): cgltf is header-only (its one implementation is compiled in
 # GltfImport.cpp); meshoptimizer builds only what the import uses, the simplifier and the

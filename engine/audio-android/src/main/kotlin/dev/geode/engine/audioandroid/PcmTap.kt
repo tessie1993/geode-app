@@ -1,94 +1,55 @@
 package dev.geode.engine.audioandroid
 
 import androidx.annotation.OptIn
+import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.audio.TeeAudioProcessor
-import dev.geode.engine.audio.PcmSink
+import dev.geode.engine.audio.SampleRing
 import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
+/**
+ * The player's PCM tap: hands each buffer the audio chain sees to the native [ring] where it lies, with
+ * the format it was flushed with. The samples are never read here; the ring converts them to float.
+ * Both callbacks run on the playback thread, the ring's one writer while the player is its source.
+ * While the mic or a capture writes the ring, [owns] is false and the tap stays out of it: a paused
+ * player still pushes buffers until its AudioTrack is full.
+ */
 @OptIn(UnstableApi::class)
 class PcmTap(
-    private val sink: PcmSink,
-    private val onFormat: (PcmTapFormat) -> Unit = {},
+    private val ring: SampleRing,
 ) : TeeAudioProcessor.AudioBufferSink {
-    @Volatile
-    var format: PcmTapFormat? = null
-        private set
+    private var sampleRateHz = 0
+    private var channelCount = 0
+    private var encoding = C.ENCODING_INVALID
+    private var staging: ByteBuffer? = null
 
     @Volatile
-    var framesWritten: Long = 0L
-        private set
-
-    private var staging: FloatArray = FloatArray(0)
+    var owns = true
 
     override fun flush(
         sampleRateHz: Int,
         channelCount: Int,
         encoding: Int,
     ) {
-        val next =
-            PcmTapFormat(
-                sampleRateHz = sampleRateHz,
-                channelCount = channelCount,
-                encoding = encoding,
-                generation = (format?.generation ?: 0) + 1,
-            )
-        if (channelCount > 0) {
-            val floats = STAGING_FRAMES * channelCount
-            if (staging.size != floats) staging = FloatArray(floats)
-        }
-        framesWritten = 0L
-        format = next
-        onFormat(next)
+        // Every flush starts a ring epoch, before a sample of the new format is written.
+        if (owns) ring.beginEpoch()
+        this.sampleRateHz = sampleRateHz
+        this.channelCount = channelCount
+        this.encoding = encoding
     }
 
     override fun handleBuffer(buffer: ByteBuffer) {
-        val active = format ?: return
-        val width = active.sampleWidth ?: return
-        val channels = active.channelCount
-        val perChunk = if (channels > 0) staging.size / channels else 0
-        if (perChunk == 0) return
-
-        buffer.order(ByteOrder.LITTLE_ENDIAN)
-
-        val frameBytes = width.bytes * channels
-        var at = buffer.position()
-        val end = buffer.limit()
-        var written = framesWritten
-        while (end - at >= frameBytes) {
-            val frames = minOf(perChunk, (end - at) / frameBytes)
-            val samples = frames * channels
-            when (width) {
-                PcmSampleWidth.SIGNED_16 -> fill16(buffer, at, samples)
-                PcmSampleWidth.FLOAT_32 -> fillFloat(buffer, at, samples)
-            }
-            sink.write(staging, frames, channels)
-            at += samples * width.bytes
-            written += frames
-        }
-        framesWritten = written
+        if (!owns || channelCount <= 0 || sampleRateHz <= 0) return
+        ring.write(if (buffer.isDirect) buffer else staged(buffer), encoding, channelCount, sampleRateHz)
     }
 
-    private fun fill16(
-        buffer: ByteBuffer,
-        from: Int,
-        samples: Int,
-    ) {
-        for (i in 0 until samples) staging[i] = buffer.getShort(from + (i shl 1)) / SHORT_FULL_SCALE
-    }
-
-    private fun fillFloat(
-        buffer: ByteBuffer,
-        from: Int,
-        samples: Int,
-    ) {
-        for (i in 0 until samples) staging[i] = buffer.getFloat(from + (i shl 2))
-    }
-
-    private companion object {
-        const val STAGING_FRAMES = 4096
-
-        const val SHORT_FULL_SCALE = 32768f
+    /** A heap buffer has no address native can read, so its bytes go through a direct one in a single bulk copy. */
+    private fun staged(buffer: ByteBuffer): ByteBuffer {
+        val bytes = buffer.remaining()
+        val copy = staging?.takeIf { it.capacity() >= bytes } ?: ByteBuffer.allocateDirect(bytes).also { staging = it }
+        copy.clear()
+        copy.put(buffer.duplicate())
+        copy.flip()
+        return copy
     }
 }

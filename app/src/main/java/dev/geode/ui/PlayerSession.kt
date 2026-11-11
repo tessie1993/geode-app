@@ -56,6 +56,8 @@ import dev.geode.export.ExportRange
 import dev.geode.geodeContainer
 import dev.geode.model.DeviceTrack
 import dev.geode.model.LibraryTrack
+import dev.geode.model.VizPlaylistEntry
+import dev.geode.model.VizUiState
 import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackErrors
 import dev.geode.playback.PlaybackService

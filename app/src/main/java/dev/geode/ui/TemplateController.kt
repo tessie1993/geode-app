@@ -8,6 +8,7 @@ import dev.geode.data.TemplateLook
 import dev.geode.data.TemplateRepository
 import dev.geode.data.TemplateWrite
 import dev.geode.data.VideoTemplate
+import dev.geode.model.VizUiState
 import dev.geode.render.scene.SceneIds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

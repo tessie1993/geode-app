@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import dev.geode.model.VizUiState
 import kotlinx.coroutines.flow.StateFlow
 
 interface VisualizerRepository {

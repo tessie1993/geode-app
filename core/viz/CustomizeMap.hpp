@@ -36,7 +36,7 @@ constexpr int kCategoryCount = 9;
 // also hidden when no control in it reaches the style (a dive on a style that cannot dive).
 enum class Show {
     Always,
-    ThreeD,      // the raymarched styles, which fly the camera (catalogue::isMarched)
+    ThreeD,      // the styles on the camera rig (catalogue::fliesCamera)
     Particles,   // styles with a particle layer (Scope::ParticleSprite)
     Water,       // the Water style (Kind::Water)
     Engine,      // a style with an engine of its own to tune: Fluid, Cymatics, MilkDrop

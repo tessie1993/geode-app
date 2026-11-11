@@ -398,7 +398,7 @@ class LoopExtend(
             ContentValues().apply {
                 put(MediaStore.Video.Media.DISPLAY_NAME, fileName)
                 put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/MuzViz")
+                put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/BeatRealms")
                 put(MediaStore.Video.Media.IS_PENDING, 1)
             }
         val uri =

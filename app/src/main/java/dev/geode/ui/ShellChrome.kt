@@ -2,11 +2,13 @@
 
 package dev.geode.ui
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,6 +29,8 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
+import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.StoneHapticCue
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
@@ -93,8 +98,17 @@ internal class ShellChromeState {
      */
     var docked by mutableStateOf(false)
 
-    /** Set by Visuals while its docked mini player shows: the tab bar under it joins it as one slab. */
-    var playerAttached by mutableStateOf(false)
+    /**
+     * Set by Visuals while a drop-in (the Macros drawer) fades its options out. With the mini
+     * player docked the tab bar stands on the options' glass, so it fades out with them.
+     */
+    var optionsHidden by mutableStateOf(false)
+
+    /**
+     * The tab bar's drawn height. Visuals runs its options' glass down behind the bar by this much
+     * while the mini player is docked, so sheet, player and tabs are one slab.
+     */
+    var tabBarHeightPx by mutableIntStateOf(0)
 
     fun wake() {
         shown = true
@@ -149,8 +163,9 @@ internal fun rememberShellChrome(
 private const val MILLIS_PER_SECOND = 1000f
 
 /**
- * The floating mini player: art, title · artist, play/pause and next over a thin progress line,
- * on matte glass. A tap opens Library, a swipe up opens Player, a swipe down hides it (the music plays
+ * The floating mini player: art, title · artist, play/pause and next over a thin progress line.
+ * It draws no glass of its own: on a phone the dock's one slab is around it and the tab bar
+ * ([DockSlab]); beside the rail the caller's modifier makes it a card. A tap opens Library, a swipe up opens Player, a swipe down hides it (the music plays
  * on). The buttons are the only way to skip, so a sideways brush never changes the song.
  *
  * A swipe must travel [SWIPE_DP] (48 dp, a full touch target): at 24 dp the brush of a tap aimed
@@ -170,7 +185,6 @@ internal fun FloatingMiniPlayer(
     artworkUri: String?,
     isPlaying: Boolean,
     progress: () -> Float,
-    opacity: Float,
     onOpenLibrary: () -> Unit,
     onOpenPlayer: () -> Unit,
     onHide: () -> Unit,
@@ -186,7 +200,6 @@ internal fun FloatingMiniPlayer(
     Box(
         modifier
             .fillMaxWidth()
-            .floatingGlass(ATTACHED_ABOVE, fillAlpha = opacity)
             .miniPlayerGestures(onOpenLibrary, onOpenPlayer, onHide, progress, inset = GeodeRadius.Floating),
     ) {
         Row(
@@ -403,8 +416,9 @@ internal data class DockItem(
 )
 
 /**
- * The tab bar as a floating pill of matte glass: the standard M3 NavigationBar (Android's own
- * bottom navigation), with no window insets of its own because the pill sits above them.
+ * The tab bar: the standard M3 NavigationBar (Android's own bottom navigation), with no window
+ * insets of its own because the dock sits above them, and no glass of its own: the dock's slab
+ * ([DockSlab]) or, on Visuals with the mini player docked, the options' glass is behind it.
  *
  * WHY the labels can step aside (#558): five `labelSmall` labels in a pill share less than a
  * fifth of the window each, so at a large font or on a narrow phone they overran and clipped.
@@ -430,15 +444,11 @@ internal fun FloatingTabBar(
     items: List<DockItem>,
     selected: Int,
     onSelect: (Int) -> Unit,
-    opacity: Float,
     modifier: Modifier = Modifier,
-    attached: Boolean = false,
 ) {
     val view = LocalView.current
     val compact = compactTabLabels()
-    // Under a mini player the bar is the lower half of one slab; alone it is a pill.
-    val shape = if (attached) ATTACHED_BELOW else RoundedCornerShape(50)
-    Box(modifier.fillMaxWidth().floatingGlass(shape, fillAlpha = opacity)) {
+    Box(modifier.fillMaxWidth()) {
         NavigationBar(
             // The first and last items stand clear of the rounded ends.
             modifier = Modifier.padding(horizontal = GeodeSpacing.M),
@@ -475,6 +485,33 @@ internal fun FloatingTabBar(
             }
         }
     }
+}
+
+/**
+ * The dock's one glass: the mini player and the tab bar under it are [content] of a single slab,
+ * so they share one fill and one shadow and nothing shows between them (each used to be its own
+ * glass, and the bar's shadow drew a seam across the player's foot).
+ *
+ * With the player on it ([joined]) the slab is a rounded card; the bar alone is a pill, half its
+ * [barHeight] round. The radius moves between the two on the motion scheme's spring while the
+ * player grows and shrinks, so the corners never jump; a bar not yet measured takes the card's
+ * radius, and the pill's as soon as it is. Without [glass] it only stacks its content: on Visuals
+ * the options' glass runs down behind the bar instead.
+ */
+@Composable
+internal fun DockSlab(
+    joined: Boolean,
+    barHeight: Dp,
+    modifier: Modifier = Modifier,
+    glass: Boolean = true,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val measured = barHeight > 0.dp
+    val target = if (joined || !measured) GeodeRadius.Floating else barHeight / 2
+    val spec = LocalGeodeMotion.current.defaultSpatialSpec<Dp>()
+    val radius by key(measured) { animateDpAsState(target, spec, label = "dockRadius") }
+    val surface = if (glass) Modifier.floatingGlass(RoundedCornerShape(radius.coerceAtLeast(0.dp))) else Modifier
+    Column(modifier.fillMaxWidth().then(surface), content = content)
 }
 
 /**
@@ -518,10 +555,6 @@ private const val TRACK_ALPHA = 0.2f
 private const val HANDLE_ALPHA = 0.7f
 private val HANDLE_WIDTH = 36.dp
 private val HANDLE_HEIGHT = 4.dp
-
-/** The two halves of the player-and-tabs slab: the player rounds its top, the bar its bottom. */
-internal val ATTACHED_ABOVE = RoundedCornerShape(topStart = GeodeRadius.Floating, topEnd = GeodeRadius.Floating)
-private val ATTACHED_BELOW = RoundedCornerShape(bottomStart = GeodeRadius.Floating, bottomEnd = GeodeRadius.Floating)
 
 /** The mini player's transport buttons: the 48 dp minimum touch target, not Material's 40 dp default. */
 private val MINI_PLAYER_BUTTON = 48.dp

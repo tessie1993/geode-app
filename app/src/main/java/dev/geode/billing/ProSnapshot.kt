@@ -26,7 +26,7 @@ object ProSnapshot {
         val now = WallClock.SYSTEM.nowMs()
         if (PrefsEntitlementStore(prefs).load().vouchesForPro(verifier::isGenuine)) return FeatureGate(Entitlement.Pro)
         val trialStore = PrefsTrialStore(prefs)
-        val trial = TrialState.at(trialStore.startedAtMs(), trialStore.endNoticeShown(), now)
+        val trial = TrialState.at(trialStore.startedAtMs(), trialStore.endNoticeShown(), now, trialStore.lastSeenMs())
         return if (trial is TrialState.Active) FeatureGate(Entitlement.Trial(trial.endsAtMs)) else FeatureGate.FREE
     }
 

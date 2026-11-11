@@ -3,7 +3,6 @@ package dev.geode.journey
 import android.Manifest
 import android.app.PictureInPictureParams
 import android.graphics.PointF
-import android.os.Build
 import android.os.SystemClock
 import android.view.KeyEvent
 import androidx.compose.ui.semantics.Role
@@ -627,13 +626,7 @@ class UiTourTest {
 
     /** Music access, granted from the shell as a user who said yes would have. */
     private fun grantMusic() {
-        val permission =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                Manifest.permission.READ_MEDIA_AUDIO
-            } else {
-                Manifest.permission.READ_EXTERNAL_STORAGE
-            }
-        TourDevice.shell("pm grant ${compose.activity.packageName} $permission")
+        TourDevice.shell("pm grant ${compose.activity.packageName} ${Manifest.permission.READ_MEDIA_AUDIO}")
     }
 
     private fun dp(): Float = tour.window.density

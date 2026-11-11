@@ -1,7 +1,6 @@
 package dev.geode.journey
 
 import android.graphics.Rect
-import android.os.Build
 import android.view.accessibility.AccessibilityNodeInfo
 import org.json.JSONArray
 import org.json.JSONObject
@@ -71,9 +70,7 @@ object UiTourLayout {
                     .put("bounds", "[${bounds.left},${bounds.top}][${bounds.right},${bounds.bottom}]")
                     .put("center", "[${bounds.centerX()},${bounds.centerY()}]")
                     .put("depth", depth)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                entry.put("state-desc", node.stateDescription?.toString().orEmpty())
-            }
+                    .put("state-desc", node.stateDescription?.toString().orEmpty())
             node.viewIdResourceName?.let { entry.put("resource-id", it) }
             out.put(entry)
         }

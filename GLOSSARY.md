@@ -260,7 +260,7 @@ What the music feels like now: valence (sad … happy), energy and tension, and 
 _Avoid_: Mood label, emotion name
 
 **Auto-director**:
-Settings › Behaviour's switch that lets the feeling choose a director look at each section, drop or key change: palette, its behaviour axes (offsets on the scene params), camera moves and what reacts to what, on every style. Pro; free gets the first minute of each song.
+Settings › Behaviour's switch that lets the feeling choose a director look at each section, drop or key change: its behaviour axes (offsets on the scene params), camera moves and the motion dials. Never a colour and never a route: the palette is the style's and the user's, and what reacts to what is the reaction matrix alone. Pro; free gets the first minute of each song.
 _Avoid_: Auto visuals (that switches styles on a timer)
 
 **Look**:
@@ -268,7 +268,7 @@ Everything the user set for the visual: the style, the base values of its scene 
 _Avoid_: State, settings, the look for one auto-director decision (that is a director look)
 
 **Director look**:
-One auto-director decision: a palette, a behaviour and a set of routes, glided in over a bar. Never the same director look twice in a row of six. It modulates the user's look; it never changes it.
+One auto-director decision: a behaviour (axes, camera moves, motion dials), glided in over a bar and then held still. It modulates the user's look; it never changes it, and never its colours.
 _Avoid_: Look (alone)
 
 **Director reach**:
@@ -280,14 +280,14 @@ Everything the user set that decides what a renderer draws (style, params, LFOs,
 _Avoid_: Live state, look (that is the auto-director's)
 
 **Note & key reactions**:
-Settings › Behaviour's switch that lets notes, chords, key and mood move every style inside the director look: a colour per note and a tint toward it, leaps swing and steps glide, tension bends and resolution smooths, a chord change shifts the fold count, drums weighted by how percussive the track is. Free and on by default; Customize › Advanced › Note & key (Pro) tunes it per style. See `docs/research/note-key-response.md`.
+Settings › Behaviour's switch that reads notes, chords, key and mood into the six style knobs each style spends on its own geometry (drums weighted by how percussive the track is). It writes no scene param and no colour. Free and on by default; Customize › Advanced › Note & key (Pro) tunes it per style. See `docs/research/note-key-response.md`.
 _Avoid_: Note mode, melody mode
 
 **Bloom (note bloom)**:
 Removed. The fractal flower each note once grew over every style was dropped by the owner; presets that still carry `bloomLook` or `noteBloom` load and ignore them. "Bloom" now means only the `bloom` glow parameter and the fluid glow.
 
 **Personality (note layer)**:
-Note & key reactions' character for a play: how strongly the notes tint the picture. Rolled at random per play and again at every section and drop.
+Removed with the notes' tint: the layer's character is no longer rolled per play or section.
 _Avoid_: Flower effect, note flash
 
 **Percussiveness**:

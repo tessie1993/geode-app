@@ -203,9 +203,6 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     lastFinalParams_ = p;
     postRotationAngle_ = grade::integrateRotation(postRotationAngle_, p.rotation, dt);
     postCyclePhase_ = grade::integrateCyclePhase(postCyclePhase_, p.cycleSpeed, dt, p.colorCycle);
-    // Wave three: nothing drives the post pass's beat pulse any more, since
-    // it existed to ride the transient FormDrive read.
-    postBeatPulse_ = grade::integrateBeatPulse(postBeatPulse_, 0.0f, dt);
     return p;
 }
 
@@ -258,7 +255,6 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
     } else if (layerScene_) {
         heldLayer_ = layerScene_;
         bindSecondaryTarget();
-        wireFlow(*layerScene_, p);
         layerScene_->setParams(p);
         deliverPcm(*layerScene_);
         layerScene_->update(gainAdjusted(soundFrame_, p), dt);
@@ -298,7 +294,6 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     } else {
         glClear(GL_COLOR_BUFFER_BIT);
     }
-    wireFlow(scene, p);
     scene.setParams(p);
     deliverPcm(scene);
     scene.update(gainAdjusted(soundFrame_, p), dt);
@@ -333,17 +328,10 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.transitionStyle = safety::transitionStyle(TransitionCatalog::builtIn(frameTransitionId_).value_or(TransitionStyle::Fade));
     in.ratio = static_cast<float>(renderWidth_) / static_cast<float>(renderHeight_);
     in.timeSeconds = timeSeconds_;
-    // Wave three: nothing feeds the composite pass's transient reaction any
-    // more (that read live::hit(), a transient flag); flash/strobe/pulse/
-    // shake themselves are already inert (see Params.hpp).
-    in.hitImpulse = 0.0f;
     const SceneParams& fx = lastFinalParams_;
-    // uPostFlash rides uBeat, which is hitImpulse: 0 since wave three, so this term draws nothing.
-    in.flash = fx.flash;
     in.strobeHz = safety::strobeHz();
     in.postRotationAngle = postRotationAngle_;
     in.postCyclePhase = postCyclePhase_;
-    in.postBeatPulse = postBeatPulse_;
     in.quadVao = quadVao_;
     in.fx = fx;
     in.gateA = grade::gateFor(activeScene_->family()).toVec4();
@@ -396,15 +384,6 @@ void Renderer::stepCamera(const SceneParams& p, float dt) {
     if (liquidOn() && activeScene_ != nullptr && activeScene_->drawsCamera()) rigParams.endlessZoom = true;
     camera_.step(rigParams, look, dt, frameSettings_.reducedMotion,
                  sceneSpin_.load(std::memory_order_relaxed) != 0.0f, &soundFrame_);
-}
-
-void Renderer::wireFlow(Scene& target, const SceneParams& p) {
-    fluid::FlowField* ff = overlays_.flow();
-    if (liquidOn() && ff) {
-        target.setFlow(ff->available() ? ff->velocityTex() : compositePass_.zeroTex(), p.flowStrength);
-    } else {
-        target.setFlow(compositePass_.zeroTex(), 0.0f);
-    }
 }
 
 void Renderer::render(double timeSeconds, GLuint targetFbo) {

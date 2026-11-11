@@ -235,7 +235,7 @@ float lucidFbm(vec2 p, int kind, int octaves) {
 //
 // The six Customize macros move standard scene params; a Lucid style answers
 // them with no uniforms of its own. Speed is already in uTime and uFlowTime (ShaderScene
-// integrates both; never multiply either clock by uSpeed), Energy is
+// integrates both; never multiply either clock by Speed), Energy is
 // uIntensity on the audio amounts, Color is pal(), Space is uZoom/uRotation -
 // those a style reads directly. The three below need a shared reading so they
 // mean the same thing on all twelve styles.

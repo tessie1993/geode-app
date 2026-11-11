@@ -188,8 +188,6 @@ object BundledTemplates {
                             speed = 1.3f,
                             audioDrive = 1.6f,
                             beatResponse = 1.9f,
-                            pulse = 0.6f,
-                            flash = 0.35f,
                             bloom = 0.6f,
                             contrast = 1.2f,
                             intensity = 1.15f,

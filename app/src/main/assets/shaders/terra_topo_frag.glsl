@@ -64,7 +64,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the Chaos drift and the tint drift. Complexity
+// Speed scales the Chaos drift and the tint drift. Complexity
 // (uMorph) fades in an octave of ground (terraOctaves). Chaos (uWarp,
 // uTurbulence, uTwist) bends the ridges (terraChaos). Energy (uIntensity)
 // scales the beat's ink and the bass lift. Colour is pal() in the tints, the

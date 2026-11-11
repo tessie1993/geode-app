@@ -83,7 +83,7 @@
 //
 // ---- the Customize macros ---------------------------------------------------
 //
-// Speed: uSpeed scales the animation clock (diveTime), the gyroscopes, the
+// Speed scales the animation clock (diveTime), the gyroscopes, the
 // orbit swing and the scene cycle; the dive itself runs on the rig's Fly.
 // Complexity: uMorph adds a layer to every scene - cross-braces in the
 // lattice, a second ring of star facets on the jewels, a second, smaller
@@ -93,11 +93,11 @@
 // Energy: diveEnergy() is the gain on every in-shader reaction, 0..2.
 // Colour: diveColor() is half the user's cosine palettes, half pal(), so the
 // Colour controls always move the picture. Space: the rig.
-// At defaults (uSpeed 1, uMorph 0, chaos 0, uIntensity 1) each is identity.
+// At defaults (Speed 1, uMorph 0, chaos 0, uIntensity 1) each is identity.
 //
 // INCLUDE ORDER: last, after lib_scene_uniforms, lib_scene_motion,
 // lib_camera, lib_palette and lib_scene_grade. It reads uSteps,
-// uMorph, uWarp, uTurbulence, uSpeed, uIntensity, sndShaped(SND_MIDDLE), uFlowPhase,
+// uMorph, uWarp, uTurbulence, uIntensity, sndShaped(SND_MIDDLE), uFlowPhase,
 // the lib_sound events, the rig and vUv (diveIris), and calls pal().
 // It includes nothing itself and defines its own small helpers (dive_*), so
 // it does not depend on lib_sdf3.

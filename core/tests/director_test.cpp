@@ -329,7 +329,7 @@ void testDialsStayInRange() {
     low.temperature = -1.0f;
     low.hueRange = 0.0f;
     low.paletteMix = low.milkdropPaletteTint = low.camSmooth = 0.0f;
-    low.motionBreath = low.motionOrbit = low.motionDrift = 0.0f;
+    low.motionBreath = low.motionDrift = 0.0f;
     SceneParams high;
     high.saturation = 1.5f;
     high.brightness = 2.0f;
@@ -337,7 +337,7 @@ void testDialsStayInRange() {
     high.temperature = 1.0f;
     high.hueRange = 1.5f;
     high.paletteMix = high.milkdropPaletteTint = high.camSmooth = 1.0f;
-    high.motionBreath = high.motionOrbit = high.motionDrift = 1.0f;
+    high.motionBreath = high.motionDrift = 1.0f;
     for (const SceneParams& user : {low, high}) {
         const SceneParams o = d.apply(user);
         const auto in = [](float v, float lo, float hi) { return v >= lo && v <= hi; };
@@ -345,7 +345,7 @@ void testDialsStayInRange() {
                   in(o.temperature, -1.0f, 1.0f) && in(o.hueRange, 0.0f, 1.5f),
               "the look never pushes a colour dial past its range");
         check(in(o.paletteMix, 0.0f, 1.0f) && in(o.milkdropPaletteTint, 0.0f, 1.0f) && in(o.camSmooth, 0.0f, 1.0f) &&
-                  in(o.motionBreath, 0.0f, 1.0f) && in(o.motionOrbit, 0.0f, 1.0f) && in(o.motionDrift, 0.0f, 1.0f),
+                  in(o.motionBreath, 0.0f, 1.0f) && in(o.motionDrift, 0.0f, 1.0f),
               "nor a unit dial");
     }
 }

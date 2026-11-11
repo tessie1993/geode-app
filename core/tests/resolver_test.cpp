@@ -409,7 +409,6 @@ void testSafetyLast() {
     requested.intensity = 3.0f;
     requested.contrast = 3.0f;
     requested.bloom = 2.0f;
-    requested.flash = 2.0f;
     requested.strobe = 2.0f;
     const float top = 1.0f + safety::kMaxFlashDepth + 1e-6f;
     float t = 0.0f;
@@ -418,11 +417,10 @@ void testSafetyLast() {
         const SceneParams& p = r->step(requested, frame(t), kDt, s, style(kStyle, i == 0)).params;
         held = held && p.brightness <= top && p.intensity <= top && p.contrast <= top &&
                p.bloom <= safety::kMaxFlashDepth + 1e-6f &&
-               p.flash <= safety::kMaxFlashDepth / safety::kFlashShaderDepth + 1e-6f &&
                p.strobe <= safety::kMaxFlashDepth / safety::kStrobeShaderDepth + 1e-6f &&
                p.brightness >= 0.0f && p.intensity >= 0.0f && p.contrast >= 0.0f;
     }
-    check(held, "no stage pushes brightness, intensity, contrast, bloom, flash or strobe past safety::apply");
+    check(held, "no stage pushes brightness, intensity, contrast, bloom or strobe past safety::apply");
 }
 
 // ---- The chain against its own spec (tests for #528) ------------------------------------------------------
@@ -632,7 +630,6 @@ SceneParams randomRequested(Rng& g) {
     p.intensity = g.range(0.0f, 3.0f);
     p.contrast = g.range(0.0f, 3.0f);
     p.bloom = g.range(0.0f, 2.0f);
-    p.flash = g.range(0.0f, 2.0f);
     p.strobe = g.range(0.0f, 2.0f);
     p.temperature = g.range(-1.2f, 1.2f);
     p.chromaAb = g.unit();
@@ -764,9 +761,8 @@ void testParityWithTheOldChain() {
             const SceneParams& p = a.params;
             const bool capped = p.brightness <= top && p.intensity <= top && p.contrast <= top &&
                                 p.bloom <= safety::kMaxFlashDepth + 1e-6f &&
-                                p.flash <= safety::kMaxFlashDepth / safety::kFlashShaderDepth + 1e-6f &&
                                 p.strobe <= safety::kMaxFlashDepth / safety::kStrobeShaderDepth + 1e-6f &&
-                                p.brightness >= 0.0f && p.intensity >= 0.0f && p.contrast >= 0.0f && p.flash >= 0.0f &&
+                                p.brightness >= 0.0f && p.intensity >= 0.0f && p.contrast >= 0.0f &&
                                 p.strobe >= 0.0f && (!s.reducedMotion || p.speed <= 4.0f * 0.4f + 1e-6f);
             if (!capped) ++capBreaks;
             t += dt;

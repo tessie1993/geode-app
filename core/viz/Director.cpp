@@ -150,7 +150,6 @@ Director::Look lerpLook(const Director::Look& a, const Director::Look& b, float 
     for (int i = 0; i < kMacroCount; ++i) o.knobs[i] = lerp(a.knobs[i], b.knobs[i], k);
     o.camSmooth = lerp(a.camSmooth, b.camSmooth, k);
     o.motionBreath = lerp(a.motionBreath, b.motionBreath, k);
-    o.motionOrbit = lerp(a.motionOrbit, b.motionOrbit, k);
     o.motionDrift = lerp(a.motionDrift, b.motionDrift, k);
     o.moves.orbit = lerp(a.moves.orbit, b.moves.orbit, k);
     o.moves.lean = lerp(a.moves.lean, b.moves.lean, k);
@@ -289,7 +288,6 @@ Director::Look Director::make(const Emotion::State& s, uint64_t seed, int index,
         knob(1.4f * t - 0.7f + 0.4f * g[Emotion::kPower] - 0.5f * (g[Emotion::kTenderness] + g[Emotion::kPeace]));
     L.camSmooth = std::clamp(0.5f + 0.5f * calm - 0.6f * hard + 0.1f * rng.signedUnit(), 0.1f, 0.9f);
     L.motionBreath = clamp01(0.3f + 0.9f * (g[Emotion::kTenderness] + g[Emotion::kPeace] + g[Emotion::kSadness]));
-    L.motionOrbit = clamp01(0.3f + 1.2f * (g[Emotion::kTranscendence] + g[Emotion::kWonder]));
     L.motionDrift = clamp01(0.3f + 0.9f * (g[Emotion::kNostalgia] + g[Emotion::kPeace] + g[Emotion::kTranscendence]));
     auto move = [](float x) { return std::clamp(x, 0.0f, 2.5f); };
     L.moves.orbit = move(0.6f + 1.2f * (g[Emotion::kTranscendence] + g[Emotion::kWonder] + g[Emotion::kPeace]) - 0.4f * g[Emotion::kPower]);
@@ -504,7 +502,6 @@ SceneParams Director::apply(const SceneParams& p, bool palWheel) const {
     o.milkdropPaletteTint = over(p.milkdropPaletteTint, 0.6f, kDefaults.milkdropPaletteTint);
     o.camSmooth = over(p.camSmooth, L.camSmooth, kDefaults.camSmooth);
     o.motionBreath = over(p.motionBreath, L.motionBreath, kDefaults.motionBreath);
-    o.motionOrbit = over(p.motionOrbit, L.motionOrbit, kDefaults.motionOrbit);
     o.motionDrift = over(p.motionDrift, L.motionDrift, kDefaults.motionDrift);
     // The melody's degree: a short tint toward warm for the stable ones, cool for the dark ones, and a
     // little strain on the leaning ones.

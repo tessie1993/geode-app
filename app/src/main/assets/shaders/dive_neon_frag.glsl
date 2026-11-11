@@ -27,7 +27,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the clock. Complexity: uMorph adds X braces (more
+// Speed scales the clock. Complexity: uMorph adds X braces (more
 // tubes). Chaos: uWarp/uTurbulence bend them. Energy: uIntensity scales the
 // hue wave and the kick. Colour: diveColor. Space: the rig.
 

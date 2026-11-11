@@ -283,15 +283,15 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"liquidBorn", "a Liquid mode pick"},
         {"liquidAge", "a Liquid mode pick"},
         {"liquidSurface", "a Liquid mode pick"},
-        // Inert since wave three (see SceneParams): no reader, so no control and no roll.
-        {"pulse", "inert since wave three"},
-        {"shake", "inert since wave three"},
         {"beatResponse", "inert since wave three"},
-        {"flash", "inert since wave three"},
-        {"strobe", "inert since wave three"},
-        {"glitch", "retired: the composite Glitch effect is gone"},
-        {"formDrive", "inert since wave three"},
-        {"motionOrbit", "no native reader"},
+        {"strobe", "no control: the composite's strobe, set only by a look"},
+        // SceneParams::retired: no reader, so no control and no roll.
+        {"pulse", "retired"},
+        {"shake", "retired"},
+        {"flash", "retired"},
+        {"glitch", "retired"},
+        {"formDrive", "retired"},
+        {"motionOrbit", "retired"},
     };
     return kNever;
 }

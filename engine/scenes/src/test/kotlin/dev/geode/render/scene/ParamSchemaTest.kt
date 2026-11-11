@@ -43,6 +43,14 @@ class ParamSchemaTest {
     }
 
     @Test
+    fun retiredRowsKeepTheirSlotAndHaveNoField() {
+        val retired = ParamSchema.params.filter { it.retired }.map { it.name }
+        assertEquals(listOf("pulse", "shake", "flash", "glitch", "formDrive", "motionOrbit"), retired)
+        val fields = SceneParams::class.java.declaredFields.map { it.name }.toSet()
+        ParamSchema.params.forEach { assertEquals(it.name, !it.retired, it.name in fields) }
+    }
+
+    @Test
     fun everyCountSnapsAndEveryDefaultLiesInItsRange() {
         ParamSchema.params.forEach { spec ->
             assertTrue(spec.name, spec.default in spec.range)
@@ -53,11 +61,11 @@ class ParamSchemaTest {
 
     @Test
     fun parseReadsAMinimalTable() {
-        val text = "params|1|2\nparam|0|a|FLOAT|0.5|0|1|FADE\nparam|1|b|BOOL|1|0|1|HOLD\n"
+        val text = "params|2|2\nparam|0|a|FLOAT|0.5|0|1|FADE|LIVE\nparam|1|b|BOOL|1|0|1|HOLD|RETIRED\n"
         assertEquals(
             listOf(
                 ParamSpec(0, "a", ParamSpec.Kind.FLOAT, 0.5f, 0f..1f, fades = true),
-                ParamSpec(1, "b", ParamSpec.Kind.BOOL, 1f, 0f..1f, fades = false),
+                ParamSpec(1, "b", ParamSpec.Kind.BOOL, 1f, 0f..1f, fades = false, retired = true),
             ),
             ParamSchema.parse(text),
         )
@@ -65,12 +73,12 @@ class ParamSchemaTest {
 
     @Test
     fun parseRefusesWhatItCannotTrust() {
-        val row = "param|0|a|FLOAT|0.5|0|1|FADE"
-        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|2|1\n$row") }
+        val row = "param|0|a|FLOAT|0.5|0|1|FADE|LIVE"
+        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|1|1\n$row") }
         assertThrows(IllegalStateException::class.java) { ParamSchema.parse("catalogue|1\n$row") }
-        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|1|2\n$row") }
-        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|1|1\nparam|1|a|FLOAT|0.5|0|1|FADE") }
-        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|1|1\nparam|0|a|FLOAT|0.5|0|1") }
+        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|2|2\n$row") }
+        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|2|1\nparam|1|a|FLOAT|0.5|0|1|FADE|LIVE") }
+        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|2|1\nparam|0|a|FLOAT|0.5|0|1|FADE") }
         assertThrows(IllegalStateException::class.java) { ParamSchema.parse("") }
     }
 }

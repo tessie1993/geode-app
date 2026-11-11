@@ -48,11 +48,6 @@ ShaderScene::ShaderScene(std::string id, std::string vertexSrc, std::string frag
 
 ShaderScene::~ShaderScene() { release(); }
 
-void ShaderScene::setFlow(GLuint texture, float strength) {
-    flowTex_ = texture;
-    flowStrength_ = strength;
-}
-
 void ShaderScene::setFragmentSource(const std::string& source) {
     std::lock_guard<std::mutex> lock(pendingLock_);
     // "" is a cleared shader override (viz/ShaderOverrides): back to the built-in style.
@@ -124,13 +119,6 @@ void ShaderScene::draw(float timeSeconds) {
     glUseProgram(program_);
     uploadParams();
     glUniform2f(uniforms_.loc("uResolution"), static_cast<float>(width_), static_cast<float>(height_));
-    if (flowTex_ != 0) {
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, flowTex_);
-        glUniform1i(uniforms_.loc("uFlow"), 1);
-        set1f("uFlowStrength", flowStrength_);
-        glActiveTexture(GL_TEXTURE0);
-    }
     const SceneParams& p = params_;
     const bool lutSelected = p.paletteLut >= 0 && paletteLutTex_ != 0;
     if (paletteLutTex_ != 0) {
@@ -157,7 +145,6 @@ void ShaderScene::draw(float timeSeconds) {
 void ShaderScene::uploadParams() {
     const SceneParams& p = params_;
     set1f("uTime", shaderTime_);
-    set1f("uSpeed", p.speed);
     set1f("uZoom", p.zoom);
     set1f("uRotation", rotationAngle_);
     // The bare phase, for user-written styles that still spell their own zoom; no bundled style reads it.
@@ -189,15 +176,12 @@ void ShaderScene::uploadParams() {
     set1f("uPixelate", p.pixelate);
     set1f("uPosterize", p.posterize);
     set1f("uSway", p.sway);
-    set1f("uPulse", p.pulse);
     set1f("uDriftX", p.driftX);
     set1f("uDriftY", p.driftY);
-    set1f("uShake", p.shake);
     set1f("uTile", p.tile);
     set1f("uTwist", p.twist);
     set1f("uTemperature", p.temperature);
     set1f("uSolarize", flag(p.solarize));
-    set1f("uFlash", p.flash);
     set1f("uContrast", p.contrast);
     set1f("uGamma", p.gamma);
     // The style knobs (lib_scene_uniforms' uKnob): driven by meaning from the
@@ -230,7 +214,6 @@ void ShaderScene::uploadMotion() {
     set1f("uHarmony", m.harmony);
     set1f("uKeyHue", m.keyHue);
     set1f("uKeyStrength", m.keyStrength);
-    set1f("uBeatOsc", m.beatOsc);
     set1f("uBarOsc", m.barOsc);
     glUniform2f(uniforms_.loc("uOrbit"), m.orbitX, m.orbitY);
     set1f("uDrift", m.drift);
@@ -238,12 +221,10 @@ void ShaderScene::uploadMotion() {
     set1f("uFlowPhase", m.flowPhase);
     set1f("uFlowTime", m.flowTime);
     glUniform3f(uniforms_.loc("uSoundTimeSped"), soundTimeSped_[0].value, soundTimeSped_[1].value, soundTimeSped_[2].value);
-    set1f("uMotion", std::clamp(params_.motionAmount, 0.0f, 1.0f));
 
     // Legacy since wave three, held at their neutral constant until R08
-    // deletes the readers: a spike that never fires, a spawn born once and
-    // never re-rolled, a direction that never turns.
-    set1f("uSpike", 0.0f);
+    // deletes the readers: a spawn born once and never re-rolled, a direction
+    // that never turns.
     set1f("uSpawnSeed", 0.0f);
     set1f("uSpawnAge", 1000.0f);
     set1f("uFormPhase", 0.0f);
@@ -276,7 +257,6 @@ void ShaderScene::uploadCamera() {
         set1f("uCamFocal", c.focal);
         set1f("uCamTravel", c.travel);
         set1f("uCamDolly", c.dolly);
-        glUniform3f(uniforms_.loc("uCamLook"), c.yaw, c.pitch, c.roll);
     }
 }
 

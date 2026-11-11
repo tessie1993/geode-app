@@ -17,8 +17,9 @@
 // The row order IS the geode_viz_set_params wire: row i is wire slot i, and SceneParamsCodec packs by
 // these rows (it reads them through ParamSchema; WireLayoutTest holds the Kotlin fields to them, and
 // params_schema_test holds core/tests/params_schema.txt, the JVM tests' copy, to the text). Never insert or reorder:
-// append, and retire a field by leaving its row where it is. core/tests/params_schema_test.cpp checks
-// the table; geode_params_schema_text publishes it to the shell.
+// append, and retire a field by leaving its row where it is and listing it in Params.hpp's kRetiredParams:
+// the slot keeps its place on the wire, always at its default, and no look, control, roll or modulation
+// names it. core/tests/params_schema_test.cpp checks the table; geode_params_schema_text publishes it to the shell.
 
 GEODE_PARAM(Float, speed, 1.0f, 0.05f, 4.0f, Fade)
 // A pinch scales Zoom and a twist turns Rotation, held to the catalogue's touch ranges.
@@ -27,11 +28,11 @@ GEODE_PARAM(Float, rotation, 0.0f, catalogue::kTouchRotation.min, catalogue::kTo
 GEODE_PARAM(Bool, endlessZoom, false, 0, 1, Hold)
 GEODE_PARAM(Float, endlessZoomSpeed, 0.3f, 0.0f, 1.2f, Fade)
 GEODE_PARAM(Float, sway, 0.0f, 0.0f, 1.0f, Fade)
-// Inert since wave three; removed with the next format bump.
+// Retired (SceneParams::retired): no reader since wave three.
 GEODE_PARAM(Float, pulse, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM(Float, driftX, 0.0f, -1.0f, 1.0f, Fade)
 GEODE_PARAM(Float, driftY, 0.0f, -1.0f, 1.0f, Fade)
-// Inert since wave three; removed with the next format bump.
+// Retired (SceneParams::retired): no reader since wave three.
 GEODE_PARAM(Float, shake, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM(Float, audioDrive, 1.0f, 0.2f, 2.5f, Fade)
 // Inert since wave three; removed with the next format bump.
@@ -93,16 +94,16 @@ GEODE_PARAM(Bool, solarize, false, 0, 1, Hold)
 GEODE_PARAM(Float, bassGain, 1.0f, 0.0f, 2.0f, Fade)
 GEODE_PARAM(Float, midGain, 1.0f, 0.0f, 2.0f, Fade)
 GEODE_PARAM(Float, trebGain, 1.0f, 0.0f, 2.0f, Fade)
-// Inert since wave three; removed with the next format bump.
+// Retired (SceneParams::retired): no reader since wave three.
 GEODE_PARAM(Float, flash, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM(Float, chromaAb, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM(Float, vignette, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM(Float, scanlines, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM(Float, grain, 0.0f, 0.0f, 1.0f, Fade)
-// Retired: the composite Glitch effect is gone. No reader; removed with the next format bump.
+// Retired: the composite Glitch effect is gone.
 GEODE_PARAM(Float, glitch, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM(Float, fisheye, 0.0f, -1.0f, 1.0f, Fade)
-// Inert since wave three; removed with the next format bump.
+// The composite's 3 Hz strobe (composite_frag's uStrobe). No control: only a look sets it.
 GEODE_PARAM(Float, strobe, 0.0f, 0.0f, 1.0f, Fade)
 // Customize › Advanced › Glide between settings, in seconds: the fade's own length, never faded.
 GEODE_PARAM(Float, paramFadeSec, 0.0f, 0.0f, 5.0f, Hold)
@@ -180,17 +181,15 @@ GEODE_PARAM(Float, cymaticsSwirl, 0.05f, -1.0f, 1.0f, Fade)
 GEODE_PARAM(Bool, rippleOverlayEnabled, false, 0, 1, Hold)
 GEODE_PARAM(Float, rippleOverlayStrength, 0.4f, 0.0f, 1.0f, Fade)
 GEODE_PARAM(Float, rippleOverlaySpecular, 0.3f, 0.0f, 1.0f, Fade)
-// How far the superformula driver (viz/FormDrive) moved every family's parameters with the music.
-// Inert since wave three (viz/MotionField replaced it); kept, and 0 still switches nothing on, so a
-// preset saved before wave three still decodes.
+// Retired: the superformula driver (viz/FormDrive) it scaled is gone since wave three.
 GEODE_PARAM(Float, formDrive, 0.7f, 0.0f, 1.0f, Fade)
 
-// Wave three: the continuous motion system (viz/MotionField), which replaces formDrive, beatResponse,
-// flash, strobe, pulse and shake as the way the music moves a scene. Appended after the older fields so
-// every existing wire index survives.
+// Wave three: the continuous motion system (viz/MotionField), which replaced formDrive, flash, pulse
+// and shake as the way the music moves a scene. Appended after the older fields so every existing wire
+// index survives.
 GEODE_PARAM(Float, motionAmount, 0.7f, 0.0f, 1.0f, Fade)
 GEODE_PARAM(Float, motionBreath, 0.5f, 0.0f, 1.0f, Fade)
-// No native reader and no control.
+// Retired: never had a reader or a control.
 GEODE_PARAM(Float, motionOrbit, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM(Float, motionDrift, 0.5f, 0.0f, 1.0f, Fade)
 GEODE_PARAM(Float, motionHue, 0.4f, 0.0f, 1.0f, Fade)

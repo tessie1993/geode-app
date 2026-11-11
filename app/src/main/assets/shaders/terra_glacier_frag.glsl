@@ -34,7 +34,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the glints' shimmer and the Chaos drift. Complexity
+// Speed scales the glints' shimmer and the Chaos drift. Complexity
 // (uMorph) fades in an octave of shelf detail. Chaos (uWarp, uTurbulence,
 // uTwist) bends the shelves and cracks (terraChaos). Energy (uIntensity)
 // scales the snare's crack and glints. Colour is pal() in the ice's blues and

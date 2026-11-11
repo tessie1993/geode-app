@@ -27,7 +27,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the clock and the rings. Complexity: uMorph adds a
+// Speed scales the clock and the rings. Complexity: uMorph adds a
 // fourth ring and grows the core. Chaos: uWarp/uTurbulence bend the rings.
 // Energy: uIntensity scales the mids' push. Colour: diveColor. Space: the rig.
 

@@ -155,7 +155,6 @@ void CompositePass::uploadFrameUniforms(UniformCache& p, const Inputs& inputs, c
     glUniform1i(p.loc("uStyle"), styleValue);
     glUniform1f(p.loc("uRatio"), inputs.ratio);
     glUniform1f(p.loc("uTime"), inputs.timeSeconds);
-    glUniform1f(p.loc("uBeat"), inputs.hitImpulse);
 }
 
 void CompositePass::uploadGradeUniforms(UniformCache& p, const Inputs& inputs) {
@@ -179,8 +178,6 @@ void CompositePass::uploadGradeUniforms(UniformCache& p, const Inputs& inputs) {
     glUniform1f(p.loc("uPostDriftX"), fx.driftX);
     glUniform1f(p.loc("uPostDriftY"), fx.driftY);
     glUniform1f(p.loc("uPostSway"), fx.sway);
-    glUniform1f(p.loc("uPostShake"), fx.shake);
-    glUniform1f(p.loc("uPostFlash"), inputs.flash);
     glUniform1f(p.loc("uPostTemp"), fx.temperature);
     glUniform1f(p.loc("uPostSolarize"), fx.solarize ? 1.0f : 0.0f);
     glUniform1f(p.loc("uPostMirror"), fx.mirror ? 1.0f : 0.0f);
@@ -192,7 +189,6 @@ void CompositePass::uploadGradeUniforms(UniformCache& p, const Inputs& inputs) {
     glUniform1f(p.loc("uPostContrast"), fx.contrast);
     glUniform1f(p.loc("uPostGamma"), fx.gamma);
     glUniform1f(p.loc("uPostHue"), fx.colorShift + inputs.postCyclePhase);
-    glUniform1f(p.loc("uPostPulse"), grade::pulseAmount(fx.pulse, inputs.postBeatPulse));
 }
 
 }  // namespace geode::viz

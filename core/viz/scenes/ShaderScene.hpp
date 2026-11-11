@@ -33,7 +33,6 @@ public:
     void draw(float timeSeconds) override;
     void release() override;
 
-    void setFlow(GLuint texture, float strength) override;
     void setPaletteLut(GLuint texture) override { paletteLutTex_ = texture; }
     void setTouchField(const TouchField* field) override { touchField_ = field; }
     void setCamera(const CameraPose* pose) override { camera_ = pose; }
@@ -82,7 +81,7 @@ private:
     std::optional<std::string> pendingFragment_;
 
     // Wave three: the continuous replacement for the old spike-latched state
-    // (uSpike/uMoveDir/uSpawnSeed/uSpawnAge/uFormPhase). See MotionField.hpp.
+    // (uMoveDir/uSpawnSeed/uSpawnAge/uFormPhase). See MotionField.hpp.
     MotionField motionField_;
     SceneParams params_;
     float rotationAngle_ = 0.0f;
@@ -94,8 +93,6 @@ private:
     // never clock * uSpeed, so moving Speed changes how fast they run, not where they are.
     std::array<speedclock::Follower, 3> soundTimeSped_{};
 
-    GLuint flowTex_ = 0;
-    float flowStrength_ = 0.0f;
     GLuint paletteLutTex_ = 0;
     const TouchField* touchField_ = nullptr;
     const CameraPose* camera_ = nullptr;

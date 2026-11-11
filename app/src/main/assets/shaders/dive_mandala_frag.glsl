@@ -29,7 +29,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the clock. Complexity: uMorph steps the fold count up
+// Speed scales the clock. Complexity: uMorph steps the fold count up
 // from 6 to 12 wedges, crossfading at each step. Chaos: uWarp/uTurbulence
 // bend the tunnel. Energy: uIntensity scales the petal swell. Colour:
 // diveColor. Space: the rig.

@@ -29,6 +29,11 @@ enum class ParamSlot : int {
     kCount
 };
 
+// Rows nothing reads any more. Each keeps its wire slot, so every later slot stays where it is, but it
+// is not a param: set() refuses it, the wire reads it as its default, and no look saves it.
+inline constexpr ParamSlot kRetiredParams[] = {ParamSlot::pulse, ParamSlot::shake,     ParamSlot::flash,
+                                               ParamSlot::glitch, ParamSlot::formDrive, ParamSlot::motionOrbit};
+
 // One row, as the shell and the clamps read it. Ints and bools travel as floats, like the wire.
 struct ParamSpec {
     const char* name;
@@ -68,22 +73,29 @@ struct SceneParams {
     static const ParamSpec& spec(ParamSlot slot) { return schema()[static_cast<size_t>(slot)]; }
     // The wire slot of a field name, -1 for an unknown one.
     static int slotOf(std::string_view name);
+    static constexpr bool retired(ParamSlot slot) {
+        for (ParamSlot r : kRetiredParams) {
+            if (r == slot) return true;
+        }
+        return false;
+    }
     // The table as the shell reads it (geode_params_schema_text). Rows, '|'-separated, one per line:
     //   params|<kSchemaTextVersion>|<kFieldCount>
-    //   param|<slot>|<name>|<FLOAT|INT|BOOL|CIRCULAR>|<default>|<min>|<max>|<FADE|HOLD>
+    //   param|<slot>|<name>|<FLOAT|INT|BOOL|CIRCULAR>|<default>|<min>|<max>|<FADE|HOLD>|<LIVE|RETIRED>
     // one param row per slot, in slot order; numbers in the shortest form that reads back to the same float.
-    static constexpr int kSchemaTextVersion = 1;
+    static constexpr int kSchemaTextVersion = 2;
     static const std::string& schemaText();
 
-    // Sets a field by its name; ints round and bools are value > 0.5. False for an unknown name.
+    // Sets a field by its name; ints round and bools are value > 0.5. False for an unknown or a retired
+    // name, which is how an old look's dead keys are dropped.
     bool set(std::string_view name, float value);
     // Reads a field by its name; ints and bools come back as floats (0 for an unknown name).
     float get(std::string_view name) const;
-    // The same by wire slot; a slot outside 0..kFieldCount-1 is ignored (false, 0).
+    // The same by wire slot; a slot outside 0..kFieldCount-1 or a retired one is ignored (false, 0 or its default).
     bool setSlot(int slot, float value);
     float getSlot(int slot) const;
 
-    // The geode_viz_set_params wire: kFieldCount floats in slot order.
+    // The geode_viz_set_params wire: kFieldCount floats in slot order. A retired slot is read as its default.
     static SceneParams fromWire(const float* values);
     void toWire(float* out) const;
 };

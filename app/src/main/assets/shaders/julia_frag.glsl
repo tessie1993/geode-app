@@ -163,7 +163,7 @@ void main() {
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
     float onset = clamp(SND_ONSET_ENV, 0.0, 1.0);
 
-    // uTime is already the speed-integrated clock; never times uSpeed again.
+    // uTime is already the speed-integrated clock; never times Speed again.
     float t = uTime * 0.15;
     vec2 base = mix(vec2(-0.123, 0.745), vec2(-0.391, 0.587), smoothstep(0.0, 1.0, clamp(uMorph, 0.0, 1.0)));
     float amp = 0.035 * (1.0 + 1.5 * clamp(uTurbulence, 0.0, 1.0)) * max(1.0 + k2, 0.2);

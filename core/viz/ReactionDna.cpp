@@ -319,7 +319,6 @@ struct ActionSpec {
 
 using T = LfoTarget;
 const std::array<ActionSpec, kMusicActionCount> kActions{{
-    {T::Pulse, {T::Pulse}, 1, 0.3f, 0.015f, 0.25f, false},
     {T::Bloom, {T::Bloom, T::Brightness}, 2, 0.4f, 0.01f, 0.3f, false},
     {T::Zoom, {T::Zoom, T::CamPush, T::CamFov}, 3, 0.15f, 0.02f, 0.3f, false},
     {T::CamShake, {T::CamShake}, 1, 0.3f, 0.01f, 0.3f, false},

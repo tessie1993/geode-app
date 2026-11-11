@@ -31,7 +31,7 @@ data class ExportDefaults(
 internal const val DEFAULT_EXPORT_FPS: Int = 30
 
 /**
- * Where a render is written. [VideosLibrary] is MediaStore's Movies/MuzViz, which needs no
+ * Where a render is written. [VideosLibrary] is MediaStore's Movies/BeatRealms, which needs no
  * permission; [Folder] is a document tree the user picked (and granted persistently).
  */
 sealed interface SaveTarget {

@@ -68,7 +68,7 @@ class PurchaseVerifier(
          * check. [ProSnapshot] needs the same rule as [PlayBillingRepository] without the injection
          * graph.
          */
-        fun forThisBuild(): PurchaseVerifier = PurchaseVerifier(BuildConfig.PLAY_LICENSE_KEY, allowUnsigned = BuildConfig.USE_FAKE_BILLING)
+        fun forThisBuild(): PurchaseVerifier = PurchaseVerifier(BuildConfig.PLAY_LICENSE_KEY, allowUnsigned = BillingBuild.usesFake)
 
         private const val TAG = "PurchaseVerifier"
         private const val KEY_ALGORITHM = "RSA"

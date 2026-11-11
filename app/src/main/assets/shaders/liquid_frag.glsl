@@ -1,13 +1,15 @@
 #version 300 es
-// Liquid mode (core/viz/liquid/LiquidPass): the style's frame turned into a liquid.
+// The feedback pass (core/viz/liquid/LiquidPass): Liquid mode's liquid, and with Liquid off the flat
+// styles' dive and a shader style's Trails.
 //
 // One pass, two targets. location 0 is the liquid itself, carried frame to frame (half float where
 // the GPU renders it, so a slow fade does not band); location 1 is what the composite shows, the
 // liquid with its Surface lit on top, so the lighting never feeds back into the liquid.
 //
 // Per pixel:
-//   1. back-trace: undo this frame's dive about the vanishing point (a feedback zoom plus a twist,
-//      LiquidMath.hpp says why the dive is not a force in the solver), then the flow field's velocity;
+//   1. back-trace: MilkDrop's per-frame UV transform (lib_feedback: zoom, stretch, warp, rotation,
+//      translation; LiquidMath.hpp says why the dive is not a force in the solver), then the flow
+//      field's velocity, folded back at the edges;
 //   2. read the liquid there, sharpened against the bilinear blur that a magnifying feedback adds
 //      every frame, clamped to its neighbours so the sharpening can never ring or run away;
 //   3. age it (Colour age);
@@ -29,10 +31,8 @@ uniform vec2 uTexel;        // one liquid texel
 uniform vec2 uStyleTexel;   // one style texel
 uniform float uDt;
 uniform float uAspect;
-uniform vec2 uVp;           // vanishing point, centred units (x times the aspect, y -1..1)
-uniform float uScale;       // the dive this frame, >= 1
-uniform float uTwist;       // radians this frame
-uniform float uInject;      // share of the style poured back this frame
+uniform vec2 uVp;           // vanishing point, centred units (x times the aspect, y -1..1): the born disc
+uniform float uInject;     // share of the style poured back this frame
 uniform float uEdge;        // extra pour on the style's edges, 0..1
 uniform float uSharpen;     // 0 off
 uniform float uBornR;       // the born disc's radius, centred units
@@ -42,12 +42,13 @@ uniform int uAge;           // 0 pure, 1 fade deep, 2 ink bleed
 uniform int uSurface;       // 0 ink, 1 wet gloss, 2 glass
 uniform int uFeedback;      // 0: the warp fallback, nothing carried over
 uniform float uShimmer;     // the highs, 0..1
-uniform float uWarp;        // 0..1, a slow sine bend of the carried frame; 0 off
-uniform float uLight;       // the sound's energy, 0..1, lights the surface
+uniform float uLight;      // the sound's energy, 0..1, lights the surface
 uniform float uTime;
 
 layout(location = 0) out vec4 outLiquid;
 layout(location = 1) out vec4 outDisplay;
+
+//#include lib_feedback
 
 vec2 centred(vec2 uv) { return (uv * 2.0 - 1.0) * vec2(uAspect, 1.0); }
 vec2 uncentred(vec2 c) { return (c / vec2(uAspect, 1.0)) * 0.5 + 0.5; }
@@ -70,24 +71,17 @@ vec3 hueRotate(vec3 c, float a) {
 
 void main() {
     vec2 c = centred(vUv);
-    vec2 d = c - uVp;
-    float s = sin(-uTwist);
-    float co = cos(-uTwist);
-    d = mat2(co, s, -s, co) * d / uScale;
-    vec2 src = uncentred(uVp + d);
-    vec2 vel = texture(uVel, src).xy;
+    vec2 src = uvFor(frameMotion(), vUv, uAspect, uTime);
+    vec2 vel = texture(uVel, fold(src)).xy;
     if (any(isnan(vel)) || any(isinf(vel))) vel = vec2(0.0);
     src -= uDt * vel * uVelScale;
-    if (uWarp > 0.001) {
-        src += vec2(sin(src.y * 11.0 + uTime * 0.7), sin(src.x * 13.0 - uTime * 0.9)) * uWarp * 0.004;
-    }
     if (uShimmer > 0.001) {
         vec2 q = src * vec2(uAspect, 1.0) * 38.0 + uTime * 0.9;
         src += (vec2(noise(q), noise(q + 17.3)) - 0.5) * uShimmer * 3.0 * uTexel;
     }
     // Zooming out, a twist or the flow reads past the frame's edge. Clamping there repeats the edge
     // texel as stripes; folding the frame back on itself continues the picture with no seam.
-    src = 1.0 - abs(1.0 - mod(src, 2.0));
+    src = fold(src);
     src = clamp(src, uTexel * 0.5, 1.0 - uTexel * 0.5);
 
     vec3 prev;

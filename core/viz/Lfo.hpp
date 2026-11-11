@@ -59,6 +59,8 @@ struct LfoConfig {
 float polarized(float raw, ModPolarity polarity);
 float shape(float value, ModCurve curve);
 SceneParams applyLfoTarget(const SceneParams& r, LfoTarget target, float v);
+// The wire slot of the field a target writes; -1 for None, the retired slot and the chained targets.
+int paramSlotOf(LfoTarget target);
 
 class LfoEngine {
 public:

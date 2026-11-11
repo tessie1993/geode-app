@@ -40,7 +40,7 @@ out vec4 fragColor;
 //   the drop brings it down to skim the water.
 // - Intensity (neonGlow) is the neon's emission.
 //
-// Provenance: written from scratch for MuzViz from general techniques - a sum
+// Provenance: written from scratch for BeatRealms from general techniques - a sum
 // of exp(sin) waves (sharp crests, broad troughs) where each wave's slope drags
 // the sample point for the next one ("domain drag", which bunches small waves
 // on the big crests); a heightfield march with a slope-bounded step and a

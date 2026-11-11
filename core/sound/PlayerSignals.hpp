@@ -17,8 +17,9 @@ namespace geode::sound::player {
 // pause fade or a crossfade. The player hands the gain over as a number and the frame carries it as
 // fadeGain, a source a reaction route can follow.
 //
-// Player is source: whether the player writes the app's ring, or the mic or another app's audio has taken it
-// (the capture glue's source switch). A pause holds the song's tempo, key and sections, so while the player
+// Player is source: whether the player writes the app's ring, or another app's audio has taken it (the
+// capture glue's source switch). The mic never takes the ring (audio/ingest/LayerMix): a renderer that
+// hears only the mic, the player stopped, reads this as false for itself (Renderer::setLayerAlone). A pause holds the song's tempo, key and sections, so while the player
 // is the source the engines' 2 s silence re-warm is off and only a boundary or a seek (the ring's new
 // epoch) starts fresh; for the mic and capture, which have no player to name their boundaries, the silence
 // rule stays, and fadeGain reads 1 (SoundEngine::setPlayerSource).

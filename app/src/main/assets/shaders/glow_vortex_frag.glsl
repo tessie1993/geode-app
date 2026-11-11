@@ -84,7 +84,7 @@ out vec4 fragColor;
 // the wall. Steps are bounded
 // by the constant GV_MAX_STEPS and broken on the user's Detail (uSteps).
 //
-// Provenance: written from scratch for MuzViz from general techniques - a
+// Provenance: written from scratch for BeatRealms from general techniques - a
 // cylinder chart (angle, z) with integer-wound helix families; line rendering
 // with an ANALYTIC pixel footprint (the phase gradient times the surface's
 // world-per-pixel size over the view cosine), so the lines stay one pixel thin

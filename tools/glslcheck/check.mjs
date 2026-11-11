@@ -289,6 +289,17 @@ function injectWeight(l, dt) {
   return 1 - Math.pow(1 - per60, dt * 60);
 }
 const bornRadius = (l) => 0.12 + 0.08 * l;
+// liquid::motion::fromDive: the dive about the vanishing point as lib_feedback's FrameMotion uniforms.
+function fromDive(scale, twist, vpX, vpY, aspect) {
+  const k = 0.5 * (aspect > 1 ? 1 / aspect : 1);
+  const cx = 0.5 + vpX * k, cy = 0.5 - vpY * k;
+  const pull = 1 - 1 / scale, ox = (0.5 - cx) * pull, oy = (0.5 - cy) * pull;
+  const c = Math.cos(twist), s = Math.sin(twist);
+  return {
+    uZoom: scale, uZoomExp: 1, uRot: twist, uCx: cx, uCy: cy, uDx: ox * c - oy * s, uDy: ox * s + oy * c,
+    uSx: 1, uSy: 1, uWarp: 0, uWarpScale: 1, uWarpSpeed: 1,
+  };
+}
 const ease = (v, t, tau, dt) => v + (t - v) * (1 - Math.exp(-dt / tau));
 
 function liquidJobs(args, registry) {
@@ -303,7 +314,7 @@ function liquidJobs(args, registry) {
   const styleFrag = styleFile(args.liquid);
   const bornId = args.born === 2 ? (args.bornStyle ?? 'kifs') : args.liquid;
   const bornFrag = styleFile(bornId);
-  const liquidFrag = fs.readFileSync(path.join(SHADERS, 'liquid_frag.glsl'), 'utf8');
+  const liquidFrag = resolveIncludes(fs.readFileSync(path.join(SHADERS, 'liquid_frag.glsl'), 'utf8'), registry);
   const styleU = parseUniforms(styleFrag);
   const bornU = parseUniforms(bornFrag);
   const liquidU = parseUniforms(liquidFrag);
@@ -345,7 +356,8 @@ function liquidJobs(args, registry) {
     const threeD = args.threeD;
     const liquidValues = {
       uVelScale: [64 / 32, 64 / 32], uTexel: [1 / W, 1 / H], uStyleTexel: [1 / W, 1 / H], uDt: dt, uAspect: aspect,
-      uVp: threeD ? [0, 0] : [vx, vy], uScale: threeD ? 1 : Math.pow(2, rate * dt), uTwist: threeD ? 0 : twist * dt,
+      uVp: threeD ? [0, 0] : [vx, vy],
+      ...(threeD ? fromDive(1, 0, 0, 0, aspect) : fromDive(Math.pow(2, rate * dt), twist * dt, vx, vy, aspect)),
       uInject: injectWeight(args.liquidity, dt), uEdge: 0.6 * (1 - args.liquidity * 0.5), uSharpen: 0.35,
       uBornR: bornRadius(args.liquidity), uBornGain: threeD ? 0 : gain, uBornMode: args.born === 3 ? 3 : 0,
       uAge: args.age, uSurface: args.surface, uFeedback: 1, uShimmer: 0.35, uLight: 0.5, uTime: t,

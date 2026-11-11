@@ -149,6 +149,7 @@ class PrefsSchemaTest {
             Owner("$APP/billing/StoredTrialRepository.kt", PrefsTrialStore.PREF_KEYS) {
                 PrefsTrialStore(it[PrefsEntitlementStore.PREFS_FILE]).saveStartedAt(1L)
                 PrefsTrialStore(it[PrefsEntitlementStore.PREFS_FILE]).saveEndNoticeShown()
+                PrefsTrialStore(it[PrefsEntitlementStore.PREFS_FILE]).saveLastSeen(1L)
             },
             Owner("$DATA/PerformanceStore.kt", PerformanceStore.PREF_KEYS),
             Owner("$DATA/LookStore.kt", LookStore.PREF_KEYS),

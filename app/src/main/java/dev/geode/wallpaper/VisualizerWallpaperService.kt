@@ -57,7 +57,7 @@ class VisualizerWallpaperService : WallpaperService() {
         private val systemAnimations = SystemAnimations(this@VisualizerWallpaperService) { syncRunState() }
 
         /**
-         * What the wallpaper hears: the app's ring while MuzViz feeds it, else any app's audio.
+         * What the wallpaper hears: the app's ring while BeatRealms feeds it, else any app's audio.
          * Its silence flips restate the run mode, which is how "rest when silent" happens.
          */
         private val sound = SoundSource(this@VisualizerWallpaperService) { syncRunState() }

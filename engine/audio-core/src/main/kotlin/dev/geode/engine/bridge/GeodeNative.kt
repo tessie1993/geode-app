@@ -485,11 +485,14 @@ object GeodeNative {
     /** Mirrors GEODE_FRAME_CLEAR_ONLY: native cleared a new surface's first frame; present it, do nothing else. */
     const val FRAME_CLEAR_ONLY: Int = 0x1
 
-    /** Mirrors GEODE_FRAME_THERMAL_DUE: read PowerManager and call [thermalPush]. */
+    /** Mirrors GEODE_FRAME_THERMAL_DUE: ask PowerManager's headroom and call [thermalPush]. */
     const val FRAME_THERMAL_DUE: Int = 0x2
 
     /** Mirrors GEODE_FRAME_LIQUID_CHANGED: Liquid mode changed; read it with [frameLiquidMode]. */
     const val FRAME_LIQUID_CHANGED: Int = 0x4
+
+    /** Mirrors GEODE_FRAME_ERROR_CHANGED: the error text changed; read it with [vizLastError]. */
+    const val FRAME_ERROR_CHANGED: Int = 0x8
 
     /** Mirrors GEODE_FRAME_LIQUID_MODE: 0 off, 1 full, 2 lite, 3 warp, 4 paused (`liquid::Mode`). */
     fun frameLiquidMode(due: Int): Int = (due ushr 8) and 0xF
@@ -1451,6 +1454,15 @@ object GeodeNative {
         sampleRate: Int,
     ): Int
 
+    /**
+     * Layers the ring at [layer] (0 for none) over the one at [handle]: every renderer fed [handle] hears
+     * the two mixed natively, and [layer] alone while [handle] gains nothing. The mic over the player.
+     */
+    external fun pcmRingSetLayer(
+        handle: Long,
+        layer: Long,
+    )
+
     /** A new stream: every reader restarts at its next take. Any thread. */
     external fun pcmRingBeginEpoch(handle: Long)
 
@@ -1610,9 +1622,9 @@ object GeodeNative {
     /** The cap a surface asking for [capFps] runs at now, under the thermal cap; 0 = none. For `Surface.setFrameRate`. */
     external fun pacerEffectiveCap(capFps: Float): Float
 
-    // The process's one thermal state (core/viz/frame/Thermal); a reading is due on FRAME_THERMAL_DUE.
+    // The process's one thermal state (core/viz/frame/Thermal); a headroom is due on FRAME_THERMAL_DUE.
 
-    /** One PowerManager reading: status (< 0 = no thermal API) and headroom (NaN = none this time). */
+    /** One PowerManager reading: status (< 0 = none this time) and headroom (NaN = none this time). */
     external fun thermalPush(
         platformStatus: Int,
         headroom: Float,

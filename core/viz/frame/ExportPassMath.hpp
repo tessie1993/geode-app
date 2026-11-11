@@ -2,7 +2,7 @@
 
 // The pure maths of the export post-passes (ExportPasses.hpp): no GL, so core/tests/export_passes_test.cpp
 // pins it on the host. Each function is a line-for-line port of the Kotlin it replaced
-// (export/WatermarkOverlay.kt, export/GlTransitionEffect.kt, LoopRender's seam), float for float, because
+// (export/WatermarkOverlay.kt, LoopRender's seam), float for float, because
 // the acceptance for #442 is the same frames before and after: a rounding that moved one tile edge or one
 // dissolve weight would show up in a pixel diff of a fixed export.
 
@@ -82,23 +82,5 @@ inline float weight(int tail, int seamFrames) {
 }
 
 }  // namespace seam
-
-namespace transition {
-
-// How far into the transition a frame at ptsUs is, the clip's first frame (originUs) being 0. No duration
-// means the transition is already over. Long-to-float then float division, as the Kotlin did.
-inline float progress(int64_t ptsUs, int64_t originUs, int64_t durationUs) {
-    if (durationUs <= 0) return 1.0f;
-    const float p = static_cast<float>(ptsUs - originUs) / static_cast<float>(durationUs);
-    return std::clamp(p, 0.0f, 1.0f);
-}
-
-// GL Transitions' `ratio` uniform: width over height, a zero height read as one pixel.
-inline float ratio(int width, int height) { return static_cast<float>(width) / static_cast<float>(std::max(height, 1)); }
-
-// The frame is drawn plain (the copy program) without an outgoing frame, and from the end on.
-inline bool passthrough(bool hasFrom, float progress) { return !hasFrom || progress >= 1.0f; }
-
-}  // namespace transition
 
 }  // namespace geode::viz::frame::exportmath

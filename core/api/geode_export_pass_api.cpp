@@ -52,15 +52,6 @@ void run(Pass& pass, const PassInputs& inputs, const PassTarget& target) {
     pass.draw(inputs, target);
 }
 
-// Media3 binds each program's output framebuffer and viewport before it calls drawFrame.
-PassTarget boundTarget() {
-    GLint fbo = 0;
-    GLint viewport[4] = {0, 0, 0, 0};
-    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &fbo);
-    glGetIntegerv(GL_VIEWPORT, viewport);
-    return {static_cast<unsigned>(fbo), viewport[2], viewport[3]};
-}
-
 template <typename P>
 geode_export_pass* make(AAssetManager* assets) {
     auto* h = new (std::nothrow) geode_export_pass(assets);
@@ -154,54 +145,6 @@ float geode_export_loop_progress(int stop, int stops, int frame, int loop_frames
 
 int64_t geode_export_loop_reported_crossfade_ms(int seam_frames, int fps) {
     return loopseam::reportedCrossfadeMs(seam_frames, fps);
-}
-
-geode_export_pass* geode_export_transition_create(AAssetManager* assets, const char* id, int64_t duration_us) {
-    auto* h = make<TransitionPass>(assets);
-    if (h && !as<TransitionPass>(h)->create(h->source, id ? id : "", duration_us, &h->error) && h->error.empty()) {
-        h->error = "transition pass failed to build";
-    }
-    return h;
-}
-
-void geode_export_transition_configure(geode_export_pass* h, int width, int height) {
-    if (auto* p = as<TransitionPass>(h)) p->configure(width, height);
-}
-
-void geode_export_transition_set_from(geode_export_pass* h, const uint8_t* rgba, int width, int height) {
-    if (auto* p = as<TransitionPass>(h)) p->setFrom(rgba, width, height);
-}
-
-void geode_export_transition_draw(geode_export_pass* h, unsigned input_tex, int64_t pts_us) {
-    if (auto* p = as<TransitionPass>(h)) {
-        p->setPresentationUs(pts_us);
-        PassInputs inputs;
-        inputs.sceneTex = input_tex;
-        run(*p, inputs, boundTarget());
-    }
-}
-
-geode_export_pass* geode_export_capture_create(AAssetManager* assets) {
-    auto* h = make<CapturePass>(assets);
-    if (h && !as<CapturePass>(h)->create(h->source, &h->error) && h->error.empty()) h->error = "capture pass failed to build";
-    return h;
-}
-
-void geode_export_capture_configure(geode_export_pass* h, int width, int height) {
-    if (auto* p = as<CapturePass>(h)) p->configure(width, height);
-}
-
-void geode_export_capture_draw(geode_export_pass* h, unsigned input_tex) {
-    if (auto* p = as<CapturePass>(h)) {
-        PassInputs inputs;
-        inputs.sceneTex = input_tex;
-        run(*p, inputs, boundTarget());
-    }
-}
-
-int geode_export_capture_read(geode_export_pass* h, uint8_t* out, size_t capacity) {
-    const auto* p = as<CapturePass>(h);
-    return p && p->readBack(out, capacity) ? 1 : 0;
 }
 
 }  // extern "C"

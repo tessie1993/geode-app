@@ -55,9 +55,6 @@ add_library(geode_core STATIC
     output/RecordPlan.cpp
     output/Recorder.cpp
     output/Chapters.cpp
-    signal/timeline/Keyframes.cpp
-    signal/timeline/SpeedRamp.cpp
-    util/CubeLut.cpp
     api/geode_output_api.cpp
     viz/ShaderSource.cpp
     viz/GlCaps.cpp
@@ -100,7 +97,6 @@ add_library(geode_core STATIC
     viz/TouchField.cpp
     viz/Transition.cpp
     viz/CompositeGrade.cpp
-    viz/ClipGrade.cpp
     viz/CompositePass.cpp
     viz/TrailPass.cpp
     viz/Catalogue.cpp

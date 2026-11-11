@@ -49,6 +49,7 @@ import dev.geode.data.CanvasGesture
 import dev.geode.data.GestureAction
 import dev.geode.pro.FeatureGate
 import dev.geode.render.TouchField
+import dev.geode.ui.theme.StoneHaptics
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
@@ -245,11 +246,11 @@ internal fun Modifier.visualGestures(
                             downId = down.id,
                             ring = ring,
                             onHold = {
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                if (StoneHaptics.enabled) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 fire(CanvasGesture.LONG_PRESS, 0)
                             },
                             onSwirl = {
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                if (StoneHaptics.enabled) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 fire(CanvasGesture.SWIRL, 0)
                             },
                             publishTo = publishTo,

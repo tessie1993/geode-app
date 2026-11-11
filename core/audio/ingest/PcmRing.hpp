@@ -17,7 +17,9 @@
 // The runway keeps a slow reader off the slots being written: the writer publishes at most
 // maxWriteFrames at a time and a reader never starts below head + maxWriteFrames - capacity, so a copy
 // that starts at the oldest safe frame is only overtaken after the writer publishes a whole runway
-// more. A reader that slow gets torn audio once, as it did in Kotlin; it never reads out of bounds.
+// more. A reader that slow is caught: it reads the head again after its copy and throws the copy away
+// when the writer could have reached those slots, so torn audio is never handed on. The samples are
+// relaxed atomics (plain loads and stores on every target), which makes that discarded read defined.
 //
 // The clock is the sample count. No wall time.
 namespace geode::audio::ingest {
@@ -72,8 +74,7 @@ public:
     Written writeBytes(const void* data, size_t bytes, int encoding, int sourceChannels, int sampleRateHz);
 
     // The newest `frames` frames, interleaved at channelCount, for a level check. False when this epoch
-    // has not written that many yet or the ring cannot hold them. Not runway-safe: the newest slots are
-    // the ones nearest the writer, which a level check can live with and a sound engine cannot.
+    // has not written that many yet, the ring cannot hold them, or the writer reached them during the copy.
     bool snapshotLatest(float* interleaved, int frames) const;
 
 private:
@@ -102,6 +103,8 @@ private:
     void mark(int64_t head, uint64_t format);
     Run runAt(int64_t pos, int64_t limit) const;
     void copyOut(int64_t first, int count, bool monoSource, float* interleaved) const;
+    // After a copy of frames from `first`: false when the writer could have reached their slots meanwhile.
+    bool stillIntact(int64_t first) const;
     static int64_t startOf(uint64_t epochWord) { return static_cast<int64_t>(epochWord & kStartMask); }
     int64_t oldestAvailable(int64_t head, int64_t epochStart) const;
 
@@ -109,7 +112,7 @@ private:
     const int channels_;
     const int maxWrite_;
     const int64_t mask_;
-    std::vector<float> samples_;  // capacity_ frames, interleaved at channels_
+    std::vector<std::atomic<float>> samples_;  // capacity_ frames, interleaved at channels_
     std::atomic<int64_t> head_{0};  // frames ever written; never reset, so a slot index never repeats early
     std::atomic<uint64_t> epoch_{0};
     Mark marks_[kMarks];
@@ -124,6 +127,7 @@ public:
     struct Take {
         int frames = 0;
         bool restarted = false;  // a new epoch or a first take: reset the consumer before using the frames
+        bool skipped = false;    // a stall: frames between the last take and this one were dropped
         int sampleRateHz = 0;    // the rate these frames were written at; 0 with no frames
     };
 
@@ -132,6 +136,7 @@ public:
 
     // What the ring gained since the last take, into interleaved(). After a stall it keeps the newest
     // audio. A take stops where the format changes, so one take has one rate; the rest comes next take.
+    // A take the writer lapped during the copy hands out no frames, and the next one restarts.
     Take take();
 
     // The last take's frames, frames * channels() floats. A mono source is handed out on every channel.

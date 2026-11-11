@@ -141,6 +141,7 @@ void testStallKeepsTheNewestAudio() {
     const Cursor::Take take = cursor.take();
     CHECK(take.frames == 256, "took %d", take.frames);
     CHECK(!take.restarted, "a stall restarted the cursor");
+    CHECK(take.skipped, "a stall was not reported as a skip");
     CHECK(cursor.interleaved()[0] == static_cast<float>(810 - 256), "first %g", cursor.interleaved()[0]);
 }
 

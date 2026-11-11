@@ -22,6 +22,9 @@ float readSigned16(const unsigned char* p) {
     return static_cast<float>(v) / 32768.0f;
 }
 
+// The samples are atomics only to make a lapped reader's discarded copy defined; they must stay plain moves.
+static_assert(std::atomic<float>::is_always_lock_free);
+
 float readUnsigned8(const unsigned char* p) { return (static_cast<float>(*p) - 128.0f) / 128.0f; }
 
 uint64_t packFormat(int sampleRateHz, int sourceChannels) {
@@ -41,7 +44,7 @@ PcmRing::PcmRing(int capacityFrames, int channelCount, int maxWriteFrames)
       channels_(channelCount),
       maxWrite_(maxWriteFrames > 0 ? maxWriteFrames : capacityFrames / kRunwayDivisor),
       mask_(static_cast<int64_t>(capacityFrames) - 1),
-      samples_(static_cast<size_t>(capacityFrames) * static_cast<size_t>(channelCount), 0.0f) {}
+      samples_(static_cast<size_t>(capacityFrames) * static_cast<size_t>(channelCount)) {}
 
 int64_t PcmRing::writtenFrames() const {
     // The epoch first: the head only grows, so it is never below the start read before it.
@@ -106,14 +109,14 @@ PcmRing::Written PcmRing::put(const unsigned char* data, int frames, int sourceC
         const int block = std::min(frames - out.frames, maxWrite_);
         mark(head, format);
         for (int i = 0; i < block; ++i) {
-            float* slot = &samples_[static_cast<size_t>((head + i) & mask_) * stride];
+            std::atomic<float>* slot = &samples_[static_cast<size_t>((head + i) & mask_) * stride];
             for (int c = 0; c < stored; ++c) {
                 const float v = read(data + static_cast<size_t>(c) * width);
-                slot[c] = v;
+                slot[c].store(v, std::memory_order_relaxed);
                 const float magnitude = std::fabs(v);
                 if (magnitude > out.peak) out.peak = magnitude;
             }
-            for (int c = stored; c < channels_; ++c) slot[c] = 0.0f;
+            for (int c = stored; c < channels_; ++c) slot[c].store(0.0f, std::memory_order_relaxed);
             data += frameBytes;
         }
         head += block;
@@ -156,12 +159,18 @@ PcmRing::Written PcmRing::writeBytes(const void* data, size_t bytes, int encodin
 void PcmRing::copyOut(int64_t first, int count, bool monoSource, float* interleaved) const {
     const size_t stride = static_cast<size_t>(channels_);
     for (int i = 0; i < count; ++i) {
-        const float* slot = &samples_[static_cast<size_t>((first + i) & mask_) * stride];
+        const std::atomic<float>* slot = &samples_[static_cast<size_t>((first + i) & mask_) * stride];
         float* out = interleaved + static_cast<size_t>(i) * stride;
         // A mono source left the other channels silent; handing its one channel to all of them reads
         // centred and narrow instead of hard left.
-        for (int c = 0; c < channels_; ++c) out[c] = slot[monoSource ? 0 : c];
+        for (int c = 0; c < channels_; ++c) out[c] = slot[monoSource ? 0 : c].load(std::memory_order_relaxed);
     }
+}
+
+bool PcmRing::stillIntact(int64_t first) const {
+    // The writer may be a whole block past the head it last published, and frame f shares its slot with
+    // frame f + capacity: the copy is whole only if `first` is still at or above the oldest safe frame.
+    return first >= head_.load() + maxWrite_ - capacity_;
 }
 
 bool PcmRing::snapshotLatest(float* interleaved, int frames) const {
@@ -170,7 +179,7 @@ bool PcmRing::snapshotLatest(float* interleaved, int frames) const {
     const int64_t head = head_.load();
     if (head - startOf(word) < frames) return false;
     copyOut(head - frames, frames, false, interleaved);
-    return true;
+    return stillIntact(head - frames);
 }
 
 Cursor::Cursor(const PcmRing& ring, int maxFrames)
@@ -192,14 +201,21 @@ Cursor::Take Cursor::take() {
         out.restarted = true;
     }
     // A stall longer than the ring holds: skip to the oldest frame still safe to read.
-    if (read_ < oldest) read_ = oldest;
     // A stall longer than one take: keep the newest audio, which is what is playing now.
-    if (head - read_ > maxFrames_) read_ = head - maxFrames_;
+    const int64_t from = std::max({read_, oldest, head - maxFrames_});
+    out.skipped = !out.restarted && from != read_;
+    read_ = from;
     if (head <= read_) return out;
     const PcmRing::Run run = ring_.runAt(read_, head);
     const int count = static_cast<int>(std::min(head, run.end) - read_);
     if (count <= 0) return out;
     ring_.copyOut(read_, count, run.sourceChannels == 1, out_.data());
+    if (!ring_.stillIntact(read_)) {
+        // The writer lapped this copy: it may hold frames of two laps. Hand out nothing and start over
+        // on the newest audio at the next take, which reports the restart.
+        pending_ = true;
+        return out;
+    }
     read_ += count;
     out.frames = count;
     out.sampleRateHz = run.sampleRateHz;

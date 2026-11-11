@@ -6,6 +6,7 @@ import android.net.Uri
 import dev.geode.RingLog
 import dev.geode.data.BackgroundPrefs
 import dev.geode.data.BackgroundPrefsStore
+import dev.geode.data.persistGrant
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.UnderlayBlend
 import dev.geode.viz.BackgroundImage
@@ -69,9 +70,7 @@ internal class BackgroundController(
     }
 
     fun pick(uri: Uri) {
-        runCatching {
-            application.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
+        application.contentResolver.persistGrant(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
         releasePermission(_prefs.value.uri)
         setPrefs(_prefs.value.copy(uri = uri.toString()))
     }

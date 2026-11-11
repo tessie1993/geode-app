@@ -7,6 +7,7 @@ import dev.geode.RingLog
 import dev.geode.data.FavouritesRepository
 import dev.geode.data.HistoryStore
 import dev.geode.data.SessionRepository
+import dev.geode.model.QueueTrack
 import dev.geode.playback.ResumeSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow

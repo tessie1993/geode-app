@@ -66,6 +66,7 @@ import dev.geode.R
 import dev.geode.data.StyleShelfStore
 import dev.geode.model.StyleEntry
 import dev.geode.model.StyleShelf
+import dev.geode.model.VizPlaylistEntry
 import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.SceneKind
 import dev.geode.render.scene.StyleFamilies

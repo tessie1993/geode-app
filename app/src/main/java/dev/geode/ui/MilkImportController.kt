@@ -2,7 +2,6 @@ package dev.geode.ui
 
 import android.app.Application
 import android.net.Uri
-import android.provider.OpenableColumns
 import androidx.documentfile.provider.DocumentFile
 import dev.geode.RingLog
 import dev.geode.data.AtomicWrite
@@ -10,6 +9,8 @@ import dev.geode.data.MilkPackImporter
 import dev.geode.data.MilkTextureLink
 import dev.geode.data.MilkTextureLinks
 import dev.geode.data.PresetStore
+import dev.geode.data.displayNameOf
+import dev.geode.model.MilkFile
 import dev.geode.render.scene.MilkStarterPack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -133,11 +134,7 @@ internal class MilkImportController(
     }
 
     private fun displayNameOf(uri: Uri): String? =
-        runCatching {
-            application.contentResolver
-                .query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-                ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
-        }.getOrNull() ?: uri.lastPathSegment?.substringAfterLast('/')
+        application.contentResolver.displayNameOf(uri) ?: uri.lastPathSegment?.substringAfterLast('/')
 
     private companion object {
         const val MILK_WALK_DEPTH = 4

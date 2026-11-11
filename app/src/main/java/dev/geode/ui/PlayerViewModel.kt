@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.util.UnstableApi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.geode.audio.MicCapture
+import dev.geode.data.Lyrics
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.Preset
 import dev.geode.di.PlayerSessionProvider
@@ -15,6 +16,9 @@ import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
+import dev.geode.model.QueueTrack
+import dev.geode.model.QueueUiState
+import dev.geode.model.VizPlaylistEntry
 import dev.geode.pro.FeatureGate
 import dev.geode.pro.GetFeatureGateUseCase
 import dev.geode.pro.PaywallNavigator

@@ -77,7 +77,7 @@ class LibraryTree(
     }
 
     /**
-     * Settings › Behaviour › At queue end › Play similar: tracks that share [uri]'s artist or album,
+     * Settings › Playback › At queue end › Play similar: tracks that share [uri]'s artist or album,
      * or sit in a playlist with it, shuffled and without [exclude]. The owner also named the record
      * label, but no tag reader keeps a label yet, so it is not matched.
      */

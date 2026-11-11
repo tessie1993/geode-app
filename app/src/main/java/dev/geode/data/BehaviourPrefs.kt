@@ -7,8 +7,8 @@ import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 
-// Settings › Behaviour: what the app does by itself, what each screen does, and what each gesture on
-// the visual means. The owner decided every default here (wave 1, 1C). Kept in `geode-prefs`, so
+// What the app does by itself, what each screen does, and what each gesture on the visual means
+// (Settings spreads these rows over seven of its tabs). The owner decided every default here (wave 1, 1C). Kept in `geode-prefs`, so
 // Settings › Backup carries it in the Settings section.
 // "Resume last track on launch" is not here: it is PlayerPrefs.autoResume, which already existed.
 

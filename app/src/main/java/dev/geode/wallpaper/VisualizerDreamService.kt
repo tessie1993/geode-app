@@ -28,7 +28,7 @@ import dev.geode.util.bestEffort
 /**
  * The visualizer as a screensaver (Daydream): the same renderer [VisualizerWallpaperService]
  * hosts, on a plain window instead of a wallpaper surface, with the time and what is playing
- * over it ([DreamOverlay], each part a Settings › Behaviour toggle).
+ * over it ([DreamOverlay], each part a Settings › Wallpaper & screen saver toggle).
  *
  * Reusing [VisualizerView] itself — rather than wiring a bare `GLSurfaceView` the way the
  * wallpaper has to — is what a Dream's window buys over a wallpaper's: it is a real window with a
@@ -46,7 +46,7 @@ import dev.geode.util.bestEffort
  * not to Settings › Performance's cap, which is the live visual's.
  * A dream has no Settings page of its own (`res/xml/dream_info.xml`), so those two options are
  * on, the battery-friendly defaults of [WallpaperSettings]. It hears the app's ring while
- * BeatRealms feeds it, else, when Settings › Visuals › Wallpaper & screen saver says so
+ * BeatRealms feeds it, else, when Settings › Wallpaper & screen saver says so
  * ([dev.geode.data.BehaviourPrefs.dreamHearOtherApps]) and the permission the output-mix capture
  * needs is granted, any app's audio, as the wallpaper's "React to any app" does.
  */
@@ -121,7 +121,7 @@ class VisualizerDreamService : DreamService() {
         isInteractive = false
         isFullscreen = true
         val prefsFiles = GeodePrefsFiles(this)
-        // Its own switch (Settings › Behaviour), no longer Player's keep-screen-on.
+        // Its own switch (Settings › Wallpaper & screen saver), no longer Player's keep-screen-on.
         val behaviour = BehaviourStore(prefsFiles.general).load()
         isScreenBright = behaviour.dreamScreenBright
         settings = WallpaperSettings(hearOtherApps = behaviour.dreamHearOtherApps)

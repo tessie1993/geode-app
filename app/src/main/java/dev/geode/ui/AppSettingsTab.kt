@@ -21,12 +21,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.Backup
-import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Equalizer
+import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -54,104 +56,195 @@ import dev.geode.ui.theme.edgeFade
 import dev.geode.ui.theme.floatingGlass
 
 /**
- * Settings' groups, in the order the list shows them: the order of how often people reach for
- * them in a music player (docs/research/settings-behaviour.md), Playback and Behaviour first, the
- * look and the app's own housekeeping last. Each group's page is Basics (always open) and
- * [sections] that drop open below it. Saved by name, so reordering never restores the wrong page.
+ * Settings' fourteen tabs, in the order the list shows them (owner, 2026-11-11, after a survey of
+ * Poweramp, Symfonium and VJ apps' settings): how often people reach for each in
+ * a music player and visualizer, playback and sound first, the look and the app's own housekeeping
+ * last. Each tab's page is [basics] (always open) and [sections] that drop open below it.
  *
- * There is no Auto group: Auto (the auto-director, the style timer and its sources) is Visuals'
- * quick settings alone, where its effect is on screen.
+ * Saved by name, so reordering never restores the wrong page; [fromName] also takes the names of
+ * the ten groups before the regroup, so a page saved then still opens on the tab its rows went to.
+ * Every row is placed exactly once across all tabs ([SettingsRowKey], pinned by `SettingsMapTest`).
  */
 enum class SettingsGroupKey(
     @param:StringRes val titleRes: Int,
     @param:StringRes val summaryRes: Int,
+    val basics: List<SettingsRowKey>,
     val sections: List<SettingsSectionKey> = emptyList(),
 ) {
     PLAYBACK(
         R.string.settings_group_playback,
         R.string.settings_group_playback_summary,
         listOf(
-            SettingsSectionKey.SPEED_PITCH,
-            SettingsSectionKey.VOLUME_LEVELLING,
-            SettingsSectionKey.EQUALIZER,
-            SettingsSectionKey.PLAYBACK_MORE,
+            SettingsRowKey.CROSSFADE,
+            SettingsRowKey.FADE,
+            SettingsRowKey.AUTO_RESUME,
+            SettingsRowKey.SLEEP_TIMER,
+            SettingsRowKey.QUEUE_END,
+            SettingsRowKey.REMEMBER_SHUFFLE,
         ),
+        listOf(SettingsSectionKey.SPEED_PITCH, SettingsSectionKey.VOLUME_LEVELLING, SettingsSectionKey.PLAYBACK_MORE),
     ),
-    BEHAVIOUR(
-        R.string.settings_group_behaviour,
-        R.string.settings_group_behaviour_summary,
-        listOf(
-            SettingsSectionKey.GESTURES,
-            SettingsSectionKey.NOTIFICATION,
-            SettingsSectionKey.PICTURE_IN_PICTURE,
-        ),
+    SOUND_EQ(R.string.settings_group_sound_eq, R.string.settings_group_sound_eq_summary, listOf(SettingsRowKey.EQUALIZER)),
+    OUTPUT(
+        R.string.settings_group_output,
+        R.string.settings_group_output_summary,
+        listOf(SettingsRowKey.PAUSE_UNPLUGGED, SettingsRowKey.HEADPHONES_AUTOPLAY),
+        listOf(SettingsSectionKey.OUTPUT_ENGINE, SettingsSectionKey.NOTIFICATION),
     ),
-    VISUALS(
-        R.string.settings_group_visuals,
-        R.string.settings_group_visuals_summary,
-        listOf(SettingsSectionKey.TOUCH, SettingsSectionKey.CONNECTED_DISPLAY, SettingsSectionKey.WALLPAPER_DREAM),
-    ),
-    SOUND_INPUT(R.string.settings_group_sound_input, R.string.settings_group_sound_input_summary, listOf(SettingsSectionKey.ANALYSIS)),
-    LOOK(
-        R.string.settings_group_look,
-        R.string.settings_group_look_summary,
-        listOf(SettingsSectionKey.LOOK_TEXT, SettingsSectionKey.LOOK_LAYOUT),
-    ),
-    PERFORMANCE(R.string.settings_group_performance, R.string.settings_group_performance_summary, listOf(SettingsSectionKey.PERF_DETAILS)),
     LIBRARY(
         R.string.settings_group_library,
         R.string.settings_group_library_summary,
+        listOf(SettingsRowKey.MUSIC_FOLDERS),
         listOf(SettingsSectionKey.LYRICS, SettingsSectionKey.OTHER_FOLDERS),
     ),
-    EXPORT(R.string.settings_group_export, R.string.settings_group_export_summary, listOf(SettingsSectionKey.RECORD)),
-    HELP(R.string.settings_group_help, R.string.settings_group_help_summary, listOf(SettingsSectionKey.HELP_TOPICS)),
-    BACKUP_ABOUT(R.string.settings_group_about, R.string.settings_group_about_summary, listOf(SettingsSectionKey.ABOUT)),
+    VISUAL_PLAYBACK(
+        R.string.settings_group_visual_playback,
+        R.string.settings_group_visual_playback_summary,
+        listOf(SettingsRowKey.AUTO_DIRECTOR, SettingsRowKey.STYLE_TIMER, SettingsRowKey.PRESET_MORPH),
+    ),
+    SOUND_REACTION(
+        R.string.settings_group_sound_reaction,
+        R.string.settings_group_sound_reaction_summary,
+        listOf(SettingsRowKey.LIVE_INPUT, SettingsRowKey.OTHER_APPS_AUDIO, SettingsRowKey.NOTE_RESPONSE),
+        listOf(SettingsSectionKey.ANALYSIS),
+    ),
+    SAFETY(
+        R.string.settings_group_safety,
+        R.string.settings_group_safety_summary,
+        listOf(SettingsRowKey.FLASH_LIMITS, SettingsRowKey.REDUCED_MOTION),
+    ),
+    DISPLAYS(
+        R.string.settings_group_displays,
+        R.string.settings_group_displays_summary,
+        listOf(SettingsRowKey.KEEP_SCREEN_ON_IN_VISUALS, SettingsRowKey.KEEP_SCREEN_ON_WITH_VISUAL),
+        listOf(SettingsSectionKey.CONNECTED_DISPLAY, SettingsSectionKey.PICTURE_IN_PICTURE),
+    ),
+    WALLPAPER(
+        R.string.settings_group_wallpaper,
+        R.string.settings_group_wallpaper_summary,
+        listOf(
+            SettingsRowKey.LIVE_WALLPAPER,
+            SettingsRowKey.DREAM_BRIGHT,
+            SettingsRowKey.DREAM_CLOCK,
+            SettingsRowKey.DREAM_NOW_PLAYING,
+            SettingsRowKey.DREAM_OTHER_APPS,
+        ),
+    ),
+    GESTURES(
+        R.string.settings_group_gestures,
+        R.string.settings_group_gestures_summary,
+        listOf(SettingsRowKey.GESTURE_MAP),
+        listOf(SettingsSectionKey.TOUCH),
+    ),
+    LOOK(
+        R.string.settings_group_look,
+        R.string.settings_group_look_summary,
+        listOf(SettingsRowKey.START_SCREEN, SettingsRowKey.LOOK_THEME),
+        listOf(SettingsSectionKey.LOOK_TEXT, SettingsSectionKey.LOOK_LAYOUT),
+    ),
+    PERFORMANCE(
+        R.string.settings_group_performance,
+        R.string.settings_group_performance_summary,
+        listOf(SettingsRowKey.PERFORMANCE_MODE),
+        listOf(SettingsSectionKey.PERF_DETAILS),
+    ),
+    EXPORT(
+        R.string.settings_group_export,
+        R.string.settings_group_export_summary,
+        listOf(SettingsRowKey.OPEN_STUDIO_RENDER, SettingsRowKey.KEEP_RENDERS),
+        listOf(SettingsSectionKey.RECORD),
+    ),
+    HELP_ABOUT(
+        R.string.settings_group_help_about,
+        R.string.settings_group_help_about_summary,
+        listOf(SettingsRowKey.BACKUP),
+        listOf(SettingsSectionKey.TUTORIALS, SettingsSectionKey.HELP_TOPICS, SettingsSectionKey.ABOUT),
+    ),
     ;
+
+    /** Every row on this tab's page, Basics first, then each section's in order. */
+    val rows: List<SettingsRowKey>
+        get() = basics + sections.flatMap { it.rows }
 
     /** A Material Symbol from [StoneIcon] where the app has one, else the Material icon. */
     val icon: ImageVector
         get() =
             when (this) {
-                PLAYBACK -> Icons.Filled.GraphicEq
-                BEHAVIOUR -> Icons.Filled.TouchApp
-                VISUALS -> StoneIcon.VISUALIZER.vector
-                SOUND_INPUT -> StoneIcon.MICROPHONE.vector
+                PLAYBACK -> StoneIcon.PLAY.vector
+                SOUND_EQ -> Icons.Filled.Equalizer
+                OUTPUT -> Icons.Filled.Headphones
+                LIBRARY -> StoneIcon.LIBRARY.vector
+                VISUAL_PLAYBACK -> StoneIcon.VISUALIZER.vector
+                SOUND_REACTION -> StoneIcon.MICROPHONE.vector
+                SAFETY -> Icons.Filled.Accessibility
+                DISPLAYS -> StoneIcon.CAST.vector
+                WALLPAPER -> Icons.Filled.Wallpaper
+                GESTURES -> Icons.Filled.TouchApp
                 LOOK -> Icons.Filled.Palette
                 PERFORMANCE -> Icons.Filled.Speed
-                LIBRARY -> StoneIcon.LIBRARY.vector
                 EXPORT -> StoneIcon.STUDIO.vector
-                HELP -> Icons.Filled.School
-                BACKUP_ABOUT -> Icons.Filled.Backup
+                HELP_ABOUT -> Icons.Filled.Backup
             }
 
     companion object {
-        fun byName(name: String?): SettingsGroupKey? = entries.firstOrNull { it.name == name }
+        /**
+         * The ten groups before the regroup (2026-11-11), by the tab most of their rows went to:
+         * Behaviour's own rows split four ways, so it opens on Gestures & controls, the half of it
+         * named in its title; Visuals opens on Visual playback; Tutorials and Backup became one tab.
+         */
+        private val FORMER_GROUPS =
+            mapOf(
+                "BEHAVIOUR" to GESTURES,
+                "VISUALS" to VISUAL_PLAYBACK,
+                "SOUND_INPUT" to SOUND_REACTION,
+                "HELP" to HELP_ABOUT,
+                "BACKUP_ABOUT" to HELP_ABOUT,
+            )
+
+        /**
+         * Sections that were folded into a tab's Basics, by that tab: Equalizer is Sound &
+         * equalizer, the gesture map is Gestures & controls, and the wallpaper and screen saver
+         * are a tab of their own.
+         */
+        private val FORMER_SECTIONS =
+            mapOf(
+                "EQUALIZER" to SOUND_EQ,
+                "GESTURES" to GESTURES,
+                "WALLPAPER_DREAM" to WALLPAPER,
+            )
+
+        /** A tab by a saved name: today's, or a group's from before the regroup; null for none. */
+        fun fromName(name: String?): SettingsGroupKey? = entries.firstOrNull { it.name == name } ?: FORMER_GROUPS[name]
+
+        /** The tab that holds a section saved by name, today's or one folded into a tab's Basics. */
+        fun ofSection(name: String?): SettingsGroupKey? =
+            entries.firstOrNull { tab -> tab.sections.any { it.name == name } } ?: FORMER_SECTIONS[name]
     }
 }
 
-/** The sections below a group's Basics, each named for its card. */
+/** The sections below a tab's Basics, each named for its card, with the rows it holds. */
 enum class SettingsSectionKey(
     @param:StringRes val titleRes: Int,
+    val rows: List<SettingsRowKey>,
 ) {
-    SPEED_PITCH(R.string.settings_section_speed_pitch),
-    VOLUME_LEVELLING(R.string.settings_section_volume_levelling),
-    EQUALIZER(R.string.settings_section_equalizer),
-    PLAYBACK_MORE(R.string.settings_section_playback_more),
-    GESTURES(R.string.settings_section_gestures),
-    NOTIFICATION(R.string.settings_section_notification),
-    PICTURE_IN_PICTURE(R.string.behavior_group_pip),
-    TOUCH(R.string.behavior_group_touch),
-    CONNECTED_DISPLAY(R.string.behavior_group_display),
-    WALLPAPER_DREAM(R.string.settings_section_wallpaper_dream),
-    ANALYSIS(R.string.audio_group_analysis),
-    LOOK_TEXT(R.string.look_group_text),
-    LOOK_LAYOUT(R.string.look_group_layout),
-    PERF_DETAILS(R.string.perf_details_title),
-    LYRICS(R.string.settings_tab_lyrics),
-    OTHER_FOLDERS(R.string.settings_section_other_folders),
-    RECORD(R.string.settings_section_record),
-    HELP_TOPICS(R.string.help_topics_group),
-    ABOUT(R.string.settings_tab_about),
+    SPEED_PITCH(R.string.settings_section_speed_pitch, listOf(SettingsRowKey.SPEED_PITCH)),
+    VOLUME_LEVELLING(R.string.settings_section_volume_levelling, listOf(SettingsRowKey.REPLAYGAIN)),
+    PLAYBACK_MORE(R.string.settings_section_playback_more, listOf(SettingsRowKey.SKIP_SILENCE, SettingsRowKey.RESUME_LONG_TRACKS)),
+    OUTPUT_ENGINE(R.string.settings_section_output_engine, listOf(SettingsRowKey.NATIVE_OUTPUT, SettingsRowKey.BIT_PERFECT)),
+    NOTIFICATION(R.string.settings_section_notification, listOf(SettingsRowKey.NOTIFICATION_BUTTONS)),
+    PICTURE_IN_PICTURE(R.string.behavior_group_pip, listOf(SettingsRowKey.PIP_AUTO_ENTER)),
+    TOUCH(R.string.behavior_group_touch, listOf(SettingsRowKey.TOUCH_SMEAR, SettingsRowKey.TOUCH_TRANSFORM)),
+    CONNECTED_DISPLAY(R.string.behavior_group_display, listOf(SettingsRowKey.CONNECTED_DISPLAY)),
+    ANALYSIS(R.string.audio_group_analysis, listOf(SettingsRowKey.SOUND_TUNING)),
+    LOOK_TEXT(R.string.look_group_text, listOf(SettingsRowKey.LOOK_TEXT)),
+    LOOK_LAYOUT(R.string.look_group_layout, listOf(SettingsRowKey.LOOK_LAYOUT)),
+    PERF_DETAILS(R.string.perf_details_title, listOf(SettingsRowKey.PERFORMANCE_DETAILS)),
+    LYRICS(R.string.settings_tab_lyrics, listOf(SettingsRowKey.LYRICS)),
+    OTHER_FOLDERS(R.string.settings_section_other_folders, listOf(SettingsRowKey.PRESET_FOLDER)),
+    RECORD(R.string.settings_section_record, listOf(SettingsRowKey.RECORD_QUALITY)),
+    TUTORIALS(R.string.settings_section_tutorials, listOf(SettingsRowKey.TUTORIALS)),
+    HELP_TOPICS(R.string.help_topics_group, listOf(SettingsRowKey.HELP_TOPICS)),
+    ABOUT(R.string.settings_tab_about, listOf(SettingsRowKey.ABOUT)),
 }
 
 /**
@@ -177,7 +270,7 @@ internal fun AppSettingsTab(
     // The open sections, as "GROUP/SECTION" names joined by ",", across every group: a group
     // stepped away from and back to opens as it was left.
     var openSections by rememberSaveable { mutableStateOf("") }
-    val group = SettingsGroupKey.byName(groupName)
+    val group = SettingsGroupKey.fromName(groupName)
     val listState = rememberLazyListState()
     // Another screen asked for a group (the empty library's "Choose a music folder" → Library):
     // open it once, then hand the request back so a later visit opens where the user left it.
@@ -268,7 +361,17 @@ private fun SettingsGroupRow(
     )
 }
 
-/** A group's page: Basics, then its sections, each open or closed by [open]. */
+/** What a row may need from the page it is drawn on. */
+private class SettingsPageDeps(
+    val viewModel: PlayerViewModel,
+    val settings: SettingsViewModel,
+    val behaviour: BehaviourPrefsHolder,
+    val onOpenStudioRender: () -> Unit,
+    val onPlayTutorial: (List<TourChapter>) -> Unit,
+    val onResetTutorials: () -> Unit,
+)
+
+/** A tab's page: Basics, then its sections, each open or closed by [open]; every row by its key. */
 @Composable
 private fun SettingsGroupPage(
     group: SettingsGroupKey,
@@ -280,22 +383,11 @@ private fun SettingsGroupPage(
     onResetTutorials: () -> Unit,
 ) {
     val settings: SettingsViewModel = geodeViewModel()
-    // Behaviour and Visuals write the same prefs file; one copy for the page, read once on IO.
-    val behaviour =
-        if (group == SettingsGroupKey.BEHAVIOUR || group == SettingsGroupKey.VISUALS) rememberBehaviourPrefs() else null
+    // BehaviourPrefs' rows sit on seven tabs now; one copy for the page, read once on IO.
+    val behaviour = rememberBehaviourPrefs()
+    val deps = SettingsPageDeps(viewModel, settings, behaviour, onOpenStudioRender, onPlayTutorial, onResetTutorials)
     SettingsBasicsCard {
-        when (group) {
-            SettingsGroupKey.PLAYBACK -> PlaybackBasics(settings)
-            SettingsGroupKey.BEHAVIOUR -> behaviour?.let { b -> b.prefs?.let { BehaviourBasics(it, b.update) } }
-            SettingsGroupKey.VISUALS -> VisualsBasics()
-            SettingsGroupKey.SOUND_INPUT -> SoundInputBasics(viewModel)
-            SettingsGroupKey.LOOK -> LookBasics(settings)
-            SettingsGroupKey.PERFORMANCE -> PerformanceBasics()
-            SettingsGroupKey.LIBRARY -> MusicFoldersBasics()
-            SettingsGroupKey.EXPORT -> ExportLinkBasics(onOpenStudioRender)
-            SettingsGroupKey.HELP -> TutorialSettingsTab(settings, onPlay = onPlayTutorial, onReset = onResetTutorials)
-            SettingsGroupKey.BACKUP_ABOUT -> BackupSection()
-        }
+        group.basics.forEach { SettingsRowContent(it, deps) }
     }
     group.sections.forEach { section ->
         SettingsSectionCard(
@@ -303,57 +395,92 @@ private fun SettingsGroupPage(
             expanded = open(section),
             onToggle = { onToggle(section) },
         ) {
-            SettingsSectionBody(section, viewModel, settings, behaviour)
+            section.rows.forEach { SettingsRowContent(it, deps) }
         }
     }
 }
 
+/** One row by its key: whichever tab holds it, it draws and stores the same. */
 @Composable
-private fun SettingsSectionBody(
-    section: SettingsSectionKey,
-    viewModel: PlayerViewModel,
-    settings: SettingsViewModel,
-    behaviour: BehaviourPrefsHolder?,
+private fun SettingsRowContent(
+    row: SettingsRowKey,
+    deps: SettingsPageDeps,
 ) {
-    when (section) {
-        SettingsSectionKey.SPEED_PITCH -> SpeedPitchSection(settings)
-        SettingsSectionKey.VOLUME_LEVELLING -> VolumeLevellingSection(settings)
-        SettingsSectionKey.EQUALIZER -> EqualizerSettings(settings)
-        SettingsSectionKey.PLAYBACK_MORE -> PlaybackMoreSection(settings)
-        SettingsSectionKey.GESTURES -> behaviour?.let { b -> b.prefs?.let { GesturesSection(it, b.update) } }
-        SettingsSectionKey.NOTIFICATION -> behaviour?.let { b -> b.prefs?.let { NotificationButtonsSection(it, b.update) } }
-        SettingsSectionKey.PICTURE_IN_PICTURE -> PictureInPictureSection(settings)
-        SettingsSectionKey.TOUCH -> TouchSection(settings)
-        SettingsSectionKey.CONNECTED_DISPLAY -> ConnectedDisplaySection()
-        SettingsSectionKey.WALLPAPER_DREAM -> behaviour?.let { b -> b.prefs?.let { WallpaperDreamSection(it, b.update) } }
-        SettingsSectionKey.ANALYSIS -> SoundAnalysisSection(settings)
-        SettingsSectionKey.LOOK_TEXT -> LookTextSection(settings)
-        SettingsSectionKey.LOOK_LAYOUT -> LookLayoutSection(settings)
-        SettingsSectionKey.PERF_DETAILS -> PerformanceDetailsSection()
-        SettingsSectionKey.LYRICS -> LyricsSection(viewModel)
-        SettingsSectionKey.OTHER_FOLDERS -> OtherFoldersSection()
-        SettingsSectionKey.RECORD -> RecordSection()
-        SettingsSectionKey.HELP_TOPICS -> HelpTopicsSection()
-        SettingsSectionKey.ABOUT -> AboutSection()
+    val settings = deps.settings
+    when (row) {
+        SettingsRowKey.CROSSFADE,
+        SettingsRowKey.FADE,
+        SettingsRowKey.AUTO_RESUME,
+        SettingsRowKey.SLEEP_TIMER,
+        SettingsRowKey.SPEED_PITCH,
+        SettingsRowKey.REPLAYGAIN,
+        SettingsRowKey.SKIP_SILENCE,
+        SettingsRowKey.RESUME_LONG_TRACKS,
+        SettingsRowKey.PAUSE_UNPLUGGED,
+        SettingsRowKey.NATIVE_OUTPUT,
+        SettingsRowKey.BIT_PERFECT,
+        SettingsRowKey.KEEP_SCREEN_ON_WITH_VISUAL,
+        -> PlayerPrefsRow(row, settings)
+        SettingsRowKey.QUEUE_END,
+        SettingsRowKey.REMEMBER_SHUFFLE,
+        SettingsRowKey.HEADPHONES_AUTOPLAY,
+        SettingsRowKey.NOTIFICATION_BUTTONS,
+        SettingsRowKey.KEEP_SCREEN_ON_IN_VISUALS,
+        SettingsRowKey.DREAM_BRIGHT,
+        SettingsRowKey.DREAM_CLOCK,
+        SettingsRowKey.DREAM_NOW_PLAYING,
+        SettingsRowKey.DREAM_OTHER_APPS,
+        SettingsRowKey.GESTURE_MAP,
+        SettingsRowKey.START_SCREEN,
+        -> deps.behaviour.prefs?.let { BehaviourRow(row, it, deps.behaviour.update) }
+        SettingsRowKey.EQUALIZER -> EqualizerSettings(settings)
+        SettingsRowKey.MUSIC_FOLDERS -> MusicFoldersBasics()
+        SettingsRowKey.LYRICS -> LyricsSection(deps.viewModel)
+        SettingsRowKey.PRESET_FOLDER -> OtherFoldersSection()
+        SettingsRowKey.AUTO_DIRECTOR -> AutoDirectorRows()
+        SettingsRowKey.STYLE_TIMER -> StyleTimerRows(deps.viewModel)
+        SettingsRowKey.PRESET_MORPH -> PresetMorphRow(settings)
+        SettingsRowKey.LIVE_INPUT -> LiveInputRow(deps.viewModel)
+        SettingsRowKey.OTHER_APPS_AUDIO -> OtherAppsAudioRow(deps.viewModel)
+        SettingsRowKey.NOTE_RESPONSE -> NoteResponseGroup()
+        SettingsRowKey.SOUND_TUNING -> SoundAnalysisSection(settings)
+        SettingsRowKey.FLASH_LIMITS -> FlashLimitsRow()
+        SettingsRowKey.REDUCED_MOTION -> ReducedMotionRow()
+        SettingsRowKey.CONNECTED_DISPLAY -> ConnectedDisplaySection()
+        SettingsRowKey.PIP_AUTO_ENTER -> PictureInPictureSection(settings)
+        SettingsRowKey.LIVE_WALLPAPER -> LiveWallpaperRow()
+        SettingsRowKey.TOUCH_SMEAR -> TouchSmearRow(settings)
+        SettingsRowKey.TOUCH_TRANSFORM -> TouchTransformRow(settings)
+        SettingsRowKey.LOOK_THEME -> LookBasics(settings)
+        SettingsRowKey.LOOK_TEXT -> LookTextSection(settings)
+        SettingsRowKey.LOOK_LAYOUT -> LookLayoutSection(settings)
+        SettingsRowKey.PERFORMANCE_MODE -> PerformanceBasics()
+        SettingsRowKey.PERFORMANCE_DETAILS -> PerformanceDetailsSection()
+        SettingsRowKey.OPEN_STUDIO_RENDER -> OpenStudioRenderRow(deps.onOpenStudioRender)
+        SettingsRowKey.KEEP_RENDERS -> KeepRendersRow()
+        SettingsRowKey.RECORD_QUALITY -> RecordSection()
+        SettingsRowKey.BACKUP -> BackupSection()
+        SettingsRowKey.TUTORIALS -> TutorialSettingsTab(settings, onPlay = deps.onPlayTutorial, onReset = deps.onResetTutorials)
+        SettingsRowKey.HELP_TOPICS -> HelpTopicsSection()
+        SettingsRowKey.ABOUT -> AboutSection()
     }
 }
 
 /**
- * Export, loop render and their defaults belong to Studio › Render; Basics points there, so
- * someone who looks for them in Settings (where they used to be) still finds the way, and keeps
- * Render's "add it to My videos?" answer changeable ([KeepRendersRow]). What a
- * recorded take renders at is the group's one section ([RecordSection]): a take renders in the
- * background with no Render page to choose on.
+ * Export, loop render and their defaults belong to Studio › Render; Export & recording's Basics
+ * points there, so someone who looks for them in Settings (where they used to be) still finds the
+ * way. Render's "add it to My videos?" answer stays changeable beside it ([KeepRendersRow]), and
+ * what a recorded take renders at is the tab's one section ([RecordSection]): a take renders in
+ * the background with no Render page to choose on.
  */
 @Composable
-private fun ExportLinkBasics(onOpenStudioRender: () -> Unit) {
+private fun OpenStudioRenderRow(onOpenStudioRender: () -> Unit) {
     Text(
         stringResource(R.string.settings_export_moved),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     CrystalButton(onClick = onOpenStudioRender) { Text(stringResource(R.string.settings_export_open_studio)) }
-    KeepRendersRow()
 }
 
 /** A lazy list of [SettingsGroup] cards; Studio › Render's options still use it. */

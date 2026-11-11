@@ -19,7 +19,7 @@ import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.NotificationButton
 
 /**
- * Settings › Behaviour › Notification buttons: the extra buttons the media notification (and the
+ * Settings › Output & devices › Notification buttons: the extra buttons the media notification (and the
  * lock screen, Android Auto and the system media controls, which share it) carries beside previous,
  * play and next. The default is shuffle and repeat. Favourite can be added.
  *

@@ -70,7 +70,7 @@ internal class HoldRingState {
 
 /**
  * The things a gesture on the visual can do, one lambda per [GestureAction]. The detector only
- * says which [CanvasGesture] happened; [run] looks the action up in Settings › Behaviour's gesture
+ * says which [CanvasGesture] happened; [run] looks the action up in Settings › Gestures & controls'
  * map, so any gesture can be given any action and the detector never learns what they mean.
  * [stepStyle], [stepPreset] and [stepPlaylist] take +1 for next and -1 for previous; a gesture with
  * no direction of its own steps forward.
@@ -121,7 +121,7 @@ internal class VisualActions(
  * they move together, and a pinch / twist from the moment their spread or angle changes past its
  * threshold; whichever of the two is given [GestureAction.TOUCH_PLAY] hands the fingers to the
  * visualizer's touch field ([onTouchPoints], in y-up NDC) while it lasts, which is what touch play
- * is. While [onPinch] is given (Settings › Visuals › Touch › Pinch and twist the canvas), a pinch also
+ * is. While [onPinch] is given (Settings › Gestures & controls › Touch › Pinch and twist the canvas), a pinch also
  * hands it each event's scale factor and twist in degrees, which move the Zoom and Rotation sliders
  * (clamped natively, `core/viz/TouchTransform`). One finger never touches the visual (ui-flow
  * decisions).

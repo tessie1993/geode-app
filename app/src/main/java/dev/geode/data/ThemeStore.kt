@@ -56,11 +56,11 @@ data class GuiPrefs(
     /** The tour: chapters seen or skipped, where an unfinished one picks up, the tips said. */
     val tourProgress: TourProgress = TourProgress(),
     val micReactive: Boolean = false,
-    /** Settings › Visuals › Touch: the fingers on the visual also drag the picture (core/viz/TouchSmear). */
+    /** Settings › Gestures & controls › Touch: the fingers on the visual also drag the picture (core/viz/TouchSmear). */
     val touchSmear: Boolean = false,
     val touchSmearStrength: Float = 1f,
     val secondScreen: Boolean = true,
-    /** Settings › Visuals › Touch: a pinch moves Zoom and a twist Rotation (core/viz/TouchTransform). */
+    /** Settings › Gestures & controls › Touch: a pinch moves Zoom and a twist Rotation (core/viz/TouchTransform). */
     val touchTransform: Boolean = true,
     /**
      * Whether leaving the fullscreen visualizer while something is playing drops straight into

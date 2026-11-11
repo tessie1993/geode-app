@@ -688,8 +688,8 @@ private fun RiseAndFall(
 }
 
 /**
- * Music's Auto moments: the auto-director, the same switch (and store) as Settings › Behaviour ›
- * Auto-director and Visuals' quick settings, so the three never disagree.
+ * Music's Auto moments: the auto-director, the same switch (and store) as Settings › Visual playback ›
+ * Auto and Visuals' quick settings, so the three never disagree.
  */
 @Composable
 private fun DirectorSwitch() {

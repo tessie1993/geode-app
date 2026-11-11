@@ -25,7 +25,7 @@ import kotlin.random.Random
  * own 12/24-hour choice comes free with [TextClock] (both formats left unset), and the date
  * pattern is the locale's best one for weekday, day and month.
  *
- * Now playing is MuzViz's own track first ([WidgetState], which the playback service publishes on
+ * Now playing is BeatRealms's own track first ([WidgetState], which the playback service publishes on
  * every player event, so reading it starts no session), else whatever another app plays through
  * [NowPlayingBridge], which only answers once the user has given notification access. Nothing
  * playing, the line goes away. It is read every [REFRESH_MS] while the dream runs: a lookup in a

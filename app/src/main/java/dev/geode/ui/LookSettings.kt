@@ -37,7 +37,6 @@ import dev.geode.data.CornerStyle
 import dev.geode.data.FontColorChoice
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GuiPrefs
-import dev.geode.data.PlayerPosition
 import dev.geode.ui.theme.isReadableOnCanvas
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -210,15 +209,6 @@ private fun LayoutGroup(
         )
     }
     Column {
-        Text(stringResource(R.string.look_player_position), style = MaterialTheme.typography.labelMedium)
-        CrystalSegmented(
-            options = PlayerPosition.entries.map { stringResource(it.labelRes) },
-            selected = PlayerPosition.entries.indexOf(gui.playerPosition),
-            onSelect = { viewModel.setGuiPrefs(gui.copy(playerPosition = PlayerPosition.entries[it])) },
-            modifier = Modifier.padding(top = 4.dp),
-        )
-    }
-    Column {
         Text(stringResource(R.string.look_corner_style), style = MaterialTheme.typography.labelMedium)
         CrystalSegmented(
             options = CornerStyle.entries.map { stringResource(it.labelRes) },
@@ -227,11 +217,6 @@ private fun LayoutGroup(
             modifier = Modifier.padding(top = 4.dp),
         )
     }
-    LabeledSwitch(
-        stringResource(R.string.look_compact_player),
-        checked = gui.compactPlayer,
-        onCheckedChange = { viewModel.setGuiPrefs(gui.copy(compactPlayer = it)) },
-    )
     BootAnimationRow()
 }
 

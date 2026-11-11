@@ -78,7 +78,7 @@ out vec4 fragColor;
 //   the ramp's hot end.
 // - In silence (neonQuiet) the ribs and the shafts dim to embers.
 //
-// Provenance: written from scratch for MuzViz from general techniques - the
+// Provenance: written from scratch for BeatRealms from general techniques - the
 // Mandelbox distance estimator (box fold, sphere fold, scale, offset;
 // |p| / |dr|); domain repetition; a two-centred pointed arch as an
 // intersection of discs; tubes as the distance to a curve in a 2D section;

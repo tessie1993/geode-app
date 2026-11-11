@@ -237,7 +237,7 @@ jobs:
       - name: Upload AAB, R8 mapping and native symbols
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: muzviz-release-${{ github.run_number }}
+          name: beatrealms-3d-release-${{ github.run_number }}
           # Upload mapping.txt to Play Console with the bundle, or crash traces
           # stay obfuscated. Native debug symbols are embedded in the AAB.
           path: |

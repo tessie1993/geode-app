@@ -91,6 +91,11 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/pcm_ring_test.cpp core/audio/ingest/PcmRing.cpp \
             core/api/geode_ingest_api.cpp -o pcm_ring_test
           ./pcm_ring_test
+          # The mic layered over the player's ring: the primary's samples stay the clock, the mic resampled to its rate with
+          # no frame lost, a silent mic changes nothing, alone after a pause and mixed again on resume, mic on and off mid-stream.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/layer_mix_test.cpp \
+            core/audio/ingest/LayerMix.cpp core/audio/ingest/PcmRing.cpp core/api/geode_ingest_api.cpp -o layer_mix_test
+          ./layer_mix_test
           # The playback output's FIFO (Oboe's feed): odd chunk sizes lose and repeat nothing, an underrun is silence and
           # counted once, the position is monotonic, frozen in pause, reset by a flush and exact at 44.1/48/96 kHz, the
           # volume ramps without a step, a flush under a running consumer plays no torn frame, two threads keep a pattern.
@@ -220,6 +225,10 @@ jobs:
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/catalogue_test.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o catalogue_test
           ./catalogue_test core/tests/catalogue.txt
+          # Shader truth: each shader style's camera rig and march facts against what its assembled shader reads.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl core/tests/style_reads_test.cpp core/viz/ShaderSource.cpp core/viz/Catalogue.cpp \
+            core/viz/scenes/StyleCatalog.cpp -o style_reads_test
+          ./style_reads_test app/src/main/assets/
           # The bundled looks (#648): every value pinned to the Kotlin literals it replaced, the text read back bit for bit.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/presets_test.cpp core/viz/CataloguePresets.cpp core/viz/Catalogue.cpp \
             core/viz/scenes/StyleCatalog.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp -o presets_test

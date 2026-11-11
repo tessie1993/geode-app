@@ -532,7 +532,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                 FirstRunGate(
                     onDone = {
                         settingsViewModel.setGuiPrefs(gui.copy(setupDone = true))
-                        appState.navigateTo(gui.intent.landingDestination)
+                        appState.navigateTo(GeodeDestination.PLAYER)
                         // No Pro offer here: the tour makes it, after the first look at Visuals.
                     },
                 )

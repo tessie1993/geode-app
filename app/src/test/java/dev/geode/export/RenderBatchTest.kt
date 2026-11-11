@@ -47,11 +47,11 @@ class RenderBatchTest {
         var batch = RenderBatch(listOf(a, b, c))
         assertEquals(a, batch.current)
 
-        batch = batch.record(BatchOutcome.Saved("content://out/1", "muzviz_1.mp4"))
+        batch = batch.record(BatchOutcome.Saved("content://out/1", "beatrealms_1.mp4"))
         assertEquals(b, batch.current)
         batch = batch.record(BatchOutcome.Failed("unreadable"))
         assertEquals(c, batch.current)
-        batch = batch.record(BatchOutcome.Saved("content://out/3", "muzviz_3.mp4"))
+        batch = batch.record(BatchOutcome.Saved("content://out/3", "beatrealms_3.mp4"))
 
         assertTrue(batch.finished)
         assertNull(batch.current)

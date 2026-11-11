@@ -737,7 +737,8 @@ class UiTourTest {
                 ABOUT,
             )
         val RENDER_SCOPES = listOf("Play queue", "Playlist", "Chosen tracks")
-        val RENDER_OPTIONS = listOf("Made for", "Segment", "Whole track", "Loop", "Ask where each time", "Videos library (Movies/MuzViz)")
+        val RENDER_OPTIONS =
+            listOf("Made for", "Segment", "Whole track", "Loop", "Ask where each time", "Videos library (Movies/BeatRealms)")
         val RENDER_OPTIONS_THAT_OPEN = setOf("Made for", "Loop")
         val MY_VIDEOS_CHIPS = listOf("Renders", "Takes", "All")
 

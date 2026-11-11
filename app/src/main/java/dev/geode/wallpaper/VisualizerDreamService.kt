@@ -45,7 +45,7 @@ import dev.geode.util.bestEffort
  * not to Settings › Performance's cap, which is the live visual's.
  * A dream has no Settings page of its own (`res/xml/dream_info.xml`), so those two options are
  * on, the battery-friendly defaults of [WallpaperSettings]. It hears what the wallpaper hears:
- * the app's ring while MuzViz feeds it, else any app's audio once the user has granted the
+ * the app's ring while BeatRealms feeds it, else any app's audio once the user has granted the
  * permission the output-mix capture needs.
  */
 class VisualizerDreamService : DreamService() {

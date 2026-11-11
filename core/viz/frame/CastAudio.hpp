@@ -85,4 +85,47 @@ struct CastAudio {
     }
 };
 
+// What the AAC encoder has taken of the blocks CastAudio queued (#772). A block goes in whole, but the
+// codec takes input buffers of its own size and has none free while it is behind; this keeps the
+// frames it has not taken and says how many the next buffer takes and its PTS, so every frame reaches
+// the encoder once, in order, at the position CastAudio counted it at. The backlog is capped at a
+// second: past that the encoder has stalled and the oldest frames are dropped, with the position moved
+// past them, so the PTS that follow still sit on the frame clock's cut.
+struct CastAudioFeed {
+    int64_t queued = 0;    // frames handed to the codec, or dropped: the next one's position
+    int64_t pending = 0;   // frames waiting for an input buffer
+    int rateHz = CastAudio::kDefaultRateHz;
+
+    static CastAudioFeed started(int rateHz) {
+        CastAudioFeed f;
+        f.rateHz = rateHz > 0 ? rateHz : CastAudio::kDefaultRateHz;
+        return f;
+    }
+
+    int64_t capacity() const { return rateHz; }
+
+    // A block of frames joins the backlog; returns how many of the oldest to drop first (the caller
+    // drops them from its PCM before appending the block's tail). A block bigger than the cap keeps
+    // its newest frames.
+    int64_t add(int64_t frames) {
+        if (frames <= 0) return 0;
+        const int64_t over = pending + frames - capacity();
+        const int64_t drop = over > 0 ? over : 0;
+        queued += drop;
+        pending += frames - drop;
+        return drop;
+    }
+
+    // The next input buffer, holding up to bufferFrames: how many frames it takes from the head of the
+    // backlog (0 when none wait), stamped ptsUs.
+    int64_t take(int64_t bufferFrames, int64_t& ptsUs) {
+        const int64_t n = bufferFrames < pending ? bufferFrames : pending;
+        ptsUs = queued * CastAudio::kMicrosPerSec / rateHz;
+        if (n <= 0) return 0;
+        queued += n;
+        pending -= n;
+        return n;
+    }
+};
+
 }  // namespace geode::viz::frame

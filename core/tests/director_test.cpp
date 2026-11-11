@@ -500,6 +500,40 @@ void testAxesAddToTheSlider() {
     check(dir::applyAxes(stopped, axis(Axis::Speed, -1.0f)).camFly == stopped.camFly, "an axis never drags back a value already past its end");
 }
 
+// A slider between the default and the end keeps moving the picture under a turn: Auto's offset shrinks
+// with the room left instead of pinning the param at the end, so every step up is still a step up.
+void testAxesLeaveTheSliderRoom() {
+    namespace dir = geode::viz::director;
+    struct Row {
+        const char* name;
+        Axis axis;
+        float SceneParams::*field;
+        float from;
+        float to;
+    };
+    const Row rows[] = {{"Intensity", Axis::Energy, &SceneParams::intensity, 1.0f, 1.25f},
+                        {"Glow", Axis::Energy, &SceneParams::bloom, 0.0f, 0.25f},
+                        {"Cycle speed", Axis::Speed, &SceneParams::cycleSpeed, 0.1f, 0.6f},
+                        {"Speed", Axis::Speed, &SceneParams::speed, 1.0f, 4.0f}};
+    for (const Row& r : rows) {
+        for (float turn : {0.25f, 0.5f, 0.9f}) {
+            float prev = -1e9f;
+            bool rises = true;
+            for (int i = 0; i < 20; ++i) {
+                SceneParams p;
+                p.*r.field = r.from + (r.to - r.from) * static_cast<float>(i) / 20.0f;
+                const float o = dir::applyAxes(p, axis(r.axis, turn)).*r.field;
+                rises = rises && o > prev && o <= r.to;
+                prev = o;
+            }
+            check(rises, std::string(r.name) + ": every step of the slider up to the end still moves it under a turn");
+        }
+    }
+    SceneParams top;
+    top.intensity = 1.25f;
+    check(dir::applyAxes(top, axis(Axis::Energy, 0.5f)).intensity == 1.25f, "a slider at the end stays there");
+}
+
 void testAxesScaleTheCamera() {
     namespace dir = geode::viz::director;
     check(dir::axisMoves(axis(Axis::Chaos, -1.0f)).cut == 0.0f, "Chaos all the way down stops hard cuts");
@@ -678,6 +712,7 @@ int main() {
     testAxesAtRestChangeNothing();
     testAxesTurnTowardTheEnds();
     testAxesAddToTheSlider();
+    testAxesLeaveTheSliderRoom();
     testAxesScaleTheCamera();
     testNoLookTwistsEveryStyle();
     testAxesNeverHoldThePictureTwisted();

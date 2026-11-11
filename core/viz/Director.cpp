@@ -319,8 +319,12 @@ namespace director {
 
 // Base plus modulation, MilkDrop's rule: the value it is given is the base and an axis adds to it. The
 // offset is what takes the style's default to the end at a full turn, so an untouched look moves as the
-// old knobs moved it, and a slider the user moved carries its whole offset through. An axis never
-// carries a field past the end it turns toward, and never drags back a value already beyond it.
+// old knobs moved it, and a slider the user moved carries its whole offset through. A slider already
+// between the default and the end has less room than that offset, so there the offset shrinks with the
+// room left (the same share of the way to the end the default would go): added whole and clipped at the
+// end, as it was, Auto pinned the param there and the top of the slider changed nothing (at half a turn,
+// half of Intensity's travel above its default). An axis never carries a field past the end it turns
+// toward, and never drags back a value already beyond it.
 SceneParams applyAxes(const SceneParams& p, const Director::Axes& x) {
     static const SceneParams kDefaults{};
     SceneParams out = p;
@@ -330,14 +334,12 @@ SceneParams applyAxes(const SceneParams& p, const Director::Axes& x) {
         const float up = d.inverted ? d.lo : d.hi;
         const float down = d.inverted ? d.hi : d.lo;
         const float end = v > 0.0f ? up : down;
-        const float delta = std::fabs(v) * (end - std::clamp(kDefaults.*d.field, d.lo, d.hi));
+        const float room = end - std::clamp(kDefaults.*d.field, d.lo, d.hi);
         float& f = out.*d.field;
-        if (!std::isfinite(f)) continue;
-        if (delta > 0.0f) {
-            f = std::min(f + delta, std::max(end, f));
-        } else if (delta < 0.0f) {
-            f = std::max(f + delta, std::min(end, f));
-        }
+        if (room == 0.0f || !std::isfinite(f)) continue;
+        // The share of the default's room this slider still has: 0 or less at or past the end.
+        const float share = (end - f) / room;
+        if (share > 0.0f) f += std::fabs(v) * room * std::min(1.0f, share);
     }
     return out;
 }

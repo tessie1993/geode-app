@@ -80,6 +80,12 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
                     color = accentTextColor(),
                 )
             external.refusedByApp -> RefusedNotice(viewModel, external)
+            external.active && external.hearingSilence ->
+                Text(
+                    stringResource(R.string.ext_hearing_silence),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = accentTextColor(),
+                )
             external.active ->
                 Text(
                     external.nowPlaying?.let { stringResource(R.string.ext_listening_to, it.appLabel) }

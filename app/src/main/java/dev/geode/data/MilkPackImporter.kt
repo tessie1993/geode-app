@@ -69,7 +69,8 @@ object MilkPackImporter {
         target: File,
     ): Boolean =
         runCatching {
-            entry.open()?.use { input -> AtomicWrite.stream(target) { out -> input.copyTo(out) } } ?: false
+            val cap = if (target.extension == "milk") ReadCap.MILK else ReadCap.TEXTURE
+            entry.open()?.use { input -> AtomicWrite.stream(target) { out -> cap.copy(input, out) } } ?: false
         }.getOrDefault(false)
 
     fun missesATexture(
@@ -78,12 +79,7 @@ object MilkPackImporter {
     ): Boolean {
         val text = runCatching { preset.readText() }.getOrDefault("")
         if (text.isEmpty()) return false
-        val available =
-            textureDir
-                .listFiles()
-                .orEmpty()
-                .map { it.nameWithoutExtension.lowercase() }
-                .toSet()
+        val available = textureDir.listFiles().orEmpty().mapTo(HashSet()) { it.nameWithoutExtension.lowercase() }
         // The sampler grammar lives in MilkTextureLinks so the importer and the linker can
         // never drift apart on what counts as a texture reference.
         return MilkTextureLinks.SAMPLER_REFERENCE

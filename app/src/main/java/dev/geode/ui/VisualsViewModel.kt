@@ -79,6 +79,12 @@ sealed interface SharedLinkOffer {
         override val name: String,
         val replaces: String?,
     ) : SharedLinkOffer
+
+    /** A .milk another app opened in this one; [link] is its uri. */
+    data class MilkFile(
+        override val link: String,
+        override val name: String,
+    ) : SharedLinkOffer
 }
 
 @HiltViewModel
@@ -220,9 +226,18 @@ class VisualsViewModel
 
         fun duplicatePreset(name: String): String? = session.presetLibrary.duplicatePreset(name)
 
+        /** A .milk another app opened here, named for the confirm dialog; null when it is no .milk we read. */
+        fun offerMilkFile(
+            uri: Uri,
+            onDone: (SharedLinkOffer?) -> Unit,
+        ) = session.milkImport.offerOpenedMilkAsync(uri) { name ->
+            onDone(name?.let { SharedLinkOffer.MilkFile(uri.toString(), it.removeSuffix(".milk")) })
+        }
+
         /**
-         * A .milk a file manager opened in the app: imported as the MilkDrop page's picker imports one,
-         * then chosen like a tap on it (MilkDrop through the style gate, which opens the paywall if locked).
+         * A .milk the user agreed to open: imported as the MilkDrop page's picker imports one (under a
+         * new name, never over a preset already there), then chosen like a tap on it (MilkDrop through
+         * the style gate, which opens the paywall if locked).
          */
         fun openMilkFile(
             uri: Uri,

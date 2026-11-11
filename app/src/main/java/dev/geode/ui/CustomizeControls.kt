@@ -563,6 +563,11 @@ private fun PanelPiece(
             if (sectionVisible()) {
                 ProGated(id, "Waves") {
                     Column {
+                        val sounds = LocalUiSounds.current
+                        FilledTonalButton(onClick = {
+                            sounds.play(UiSound.TAP)
+                            vm.randomizeWaves()
+                        }) { Text("Randomize waves") }
                         for (i in 0 until LfoEngine.SLOTS) {
                             ModulatorCard(index = i, config = lfos.getOrElse(i) { LfoConfig() }, onChange = { vm.setLfo(i, it) })
                         }

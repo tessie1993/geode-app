@@ -121,11 +121,12 @@ public:
     const Look& target() const { return to_; }
     int commits() const { return commits_; }
     Reason lastReason() const { return reason_; }
-    // Whether the last commit should change the style: a new section or a drop, and only while the
-    // director drives (Auto on). It steps with Auto off too, for its feeling (Note & key reactions read
-    // it), and those commits must not step the user's chosen style.
+    // Whether the last commit should change the style: a new section, a drop, or a long stretch with
+    // neither (MilkDrop's timer: music with no clear sections still gets a new style now and then), and
+    // only while the director drives (Auto on). It steps with Auto off too, for its feeling (Note & key
+    // reactions read it), and those commits must not step the user's chosen style.
     bool styleMoment() const {
-        return config_.amount > 0.0f && (reason_ == Reason::Section || reason_ == Reason::Drop);
+        return config_.amount > 0.0f && (reason_ == Reason::Section || reason_ == Reason::Drop || reason_ == Reason::Long);
     }
     void reset();
 

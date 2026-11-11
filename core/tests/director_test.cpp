@@ -368,6 +368,36 @@ void testWeakDownbeatsCount() {
     check(d.commits() == 2 && d.lastReason() == Director::Reason::Modulation, "a modulation lands on a downbeat of strength 0.4");
 }
 
+// A new track is a new play, but the picture must not fall back to the user's bare settings while the
+// new play waits to make its first decision: the look on screen is carried, and glided from.
+void testLookCarriesAcrossPlays() {
+    Director d;
+    d.configure({1.0f, 5});
+    float t = 0.0f;
+    run(d, kHappy, 15.0f, t);
+    const float weight = d.weight();
+    const float hue = d.look().hue;
+    check(weight > 0.9f, "the look is fully in after fifteen seconds");
+    d.configure({1.0f, 6});
+    check(d.commits() == 0, "a new seed still starts the decisions over");
+    d.step(frame(kSad, t, kDt), kDt);
+    t += kDt;
+    check(d.weight() >= weight - 1e-3f && std::fabs(d.look().hue - hue) < 1e-4f, "the look stays on screen into the next track");
+    run(d, kSad, 13.0f, t);
+    check(d.commits() >= 1 && d.weight() > 0.9f, "and the new play's first look takes over from it");
+}
+
+// Music with no sections and no drops (ambient, a steady groove) still gets a new style now and then.
+void testLongStretchStepsTheStyle() {
+    Director d;
+    d.configure({1.0f, 42});
+    float t = 0.0f;
+    run(d, kHappy, 6.0f, t);
+    check(d.commits() == 1 && !d.styleMoment(), "the first look is not a style change");
+    run(d, kHappy, 76.0f, t);
+    check(d.commits() == 2 && d.lastReason() == Director::Reason::Long && d.styleMoment(), "75 s with no section steps the style");
+}
+
 // With Auto off the director still steps (Note & key reactions read its feeling) and still commits, but
 // none of those commits may step the user's style: that is what claimed the style with Note & key on.
 void testNoStyleMomentWhenOff() {
@@ -398,6 +428,8 @@ int main() {
     testNoStyleMomentWhenOff();
     testDialsStayInRange();
     testWeakDownbeatsCount();
+    testLookCarriesAcrossPlays();
+    testLongStretchStepsTheStyle();
     if (failures) {
         std::printf("director_test: %d failed\n", failures);
         return 1;

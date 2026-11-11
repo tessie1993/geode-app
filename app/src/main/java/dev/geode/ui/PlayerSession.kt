@@ -44,7 +44,6 @@ import dev.geode.data.SmartPlaylist
 import dev.geode.data.SmartPlaylistMatcher
 import dev.geode.data.SystemMotion
 import dev.geode.data.TakeStore
-import dev.geode.data.TemplateId
 import dev.geode.data.TemplateImport
 import dev.geode.data.TemplateLook
 import dev.geode.data.TemplateRepository
@@ -54,7 +53,6 @@ import dev.geode.data.VideoTemplate
 import dev.geode.data.VizStateStore
 import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportRange
@@ -177,7 +175,7 @@ class PlayerSession internal constructor(
 
     private val templateRepository: TemplateRepository = FileTemplateRepository.from(application)
 
-    private val templateLibrary: TemplateController =
+    internal val templateLibrary: TemplateController =
         TemplateController(
             application,
             templateRepository,
@@ -198,10 +196,10 @@ class PlayerSession internal constructor(
         )
 
     private val autoVisualsPrefsStore = AutoVisualsPrefsStore(prefsFiles.viz)
-    private val vizStateStore = VizStateStore(prefsFiles.viz, scope, autoVisualsPrefsStore, MilkPresetMemory.shared(application))
+    internal val vizStateStore = VizStateStore(prefsFiles.viz, scope, autoVisualsPrefsStore, MilkPresetMemory.shared(application))
     private val audioFxController = playback.audioFx
 
-    private val settings: PlayerSettingsController =
+    internal val settings: PlayerSettingsController =
         PlayerSettingsController(
             container.userData,
             playerPrefsRepository,
@@ -215,7 +213,7 @@ class PlayerSession internal constructor(
             },
         )
 
-    private val visual: VisualSettingsController =
+    internal val visual: VisualSettingsController =
         VisualSettingsController(
             vizStateStore,
             scope,
@@ -258,24 +256,7 @@ class PlayerSession internal constructor(
 
     fun setPlayerPrefs(prefs: PlayerPrefs) = settings.setPlayerPrefs(prefs)
 
-    fun setAudioFxEnabled(enabled: Boolean) = settings.setAudioFxEnabled(enabled)
-
-    fun setAudioFxBand(
-        band: Int,
-        levelMb: Int,
-    ) = settings.setAudioFxBand(band, levelMb)
-
-    fun useAudioFxPreset(index: Int) = settings.useAudioFxPreset(index)
-
-    fun setAudioFxBassBoost(strength: Int) = settings.setAudioFxBassBoost(strength)
-
-    fun setAudioFxLoudness(gainMb: Int) = settings.setAudioFxLoudness(gainMb)
-
-    fun toggleShuffle() = settings.toggleShuffle()
-
-    fun cycleRepeatMode() = settings.cycleRepeatMode()
-
-    private val textureController: TextureController =
+    internal val textureController: TextureController =
         TextureController(
             application,
             scope,
@@ -321,8 +302,6 @@ class PlayerSession internal constructor(
         onImported: () -> Unit,
     ) = textureController.importTextures(uris, onImported)
 
-    fun removeTexture(name: String) = textureController.removeTexture(name)
-
     fun useTexture(
         name: String,
         onReady: (String) -> Unit,
@@ -358,7 +337,7 @@ class PlayerSession internal constructor(
             settings.playerPrefs.value.resumeLongTracks
         }
 
-    private val listening: ListeningTracker =
+    internal val listening: ListeningTracker =
         ListeningTracker(
             playback.history,
             favouritesRepository,
@@ -419,7 +398,7 @@ class PlayerSession internal constructor(
 
     val takeState: StateFlow<TakeUiState> get() = takeController.state
 
-    private val trackColor: TrackColorController =
+    internal val trackColor: TrackColorController =
         TrackColorController(
             application,
             scope,
@@ -432,8 +411,6 @@ class PlayerSession internal constructor(
         )
 
     val artPaletteNote: StateFlow<String?> get() = trackColor.artPaletteNote
-
-    fun applyArtworkPalette() = trackColor.applyArtworkPalette()
 
     private val _lyrics = MutableStateFlow<Lyrics?>(null)
 
@@ -576,8 +553,6 @@ class PlayerSession internal constructor(
         val tracks = uris.map { u -> byUri[u]?.let(PlaybackQueue::queueTrack) ?: QueueTrack(u) }
         playFrom(tracks, uris[startIndex.coerceIn(0, uris.size - 1)])
     }
-
-    fun recentlyPlayed() = listening.recentlyPlayed()
 
     fun resolveSmartPlaylist(playlist: SmartPlaylist): List<DeviceTrack> =
         SmartPlaylistMatcher.resolve(playlist, deviceTracks.value, listening::playCountOf, favourites.value)
@@ -750,13 +725,6 @@ class PlayerSession internal constructor(
     /** The chosen style, which a preview on the stage does not change (see [previewScene]). */
     val chosenSceneId: String get() = visual.chosenSceneId
 
-    fun setReactivity(
-        attack: Float,
-        decay: Float,
-    ) = visual.setReactivity(attack, decay)
-
-    fun reportShaderError(error: String?) = visual.reportShaderError(error)
-
     private val liquidModeState = MutableStateFlow(0)
 
     /** What Liquid mode ran last frame in the in-app renderer (`liquid::Mode` as an int); see [reportLiquidMode]. */
@@ -767,20 +735,12 @@ class PlayerSession internal constructor(
         liquidModeState.value = mode
     }
 
-    fun applyCustomShader(source: String) = visual.applyCustomShader(source)
-
-    fun setTransitionId(id: String) = visual.setTransitionId(id)
-
-    fun setTransitionDuration(seconds: Float) = visual.setTransitionDuration(seconds)
-
     fun applyPreset(preset: Preset) {
         pendingUnlockSceneId = null
         if (allowsStyle(preset.sceneId)) visual.applyPreset(preset) else onStyleLocked()
     }
 
     val activeMilkPath: StateFlow<String?> get() = vizStateStore.activeMilkPath
-
-    fun noteMilkPreset(path: String) = vizStateStore.noteMilkPreset(path)
 
     fun importPresetFile(
         uri: Uri,
@@ -797,8 +757,6 @@ class PlayerSession internal constructor(
 
     val templateStarters: List<VideoTemplate> get() = templateLibrary.starters
 
-    fun applyTemplate(template: VideoTemplate) = templateLibrary.applyTemplate(template)
-
     fun saveCurrentAsTemplate(
         name: String,
         customShader: String?,
@@ -809,8 +767,6 @@ class PlayerSession internal constructor(
         starter: VideoTemplate,
         onResult: (TemplateImport) -> Unit,
     ) = templateLibrary.adopt(starter, onResult)
-
-    fun deleteTemplate(id: TemplateId) = templateLibrary.deleteTemplate(id)
 
     fun importTemplateText(
         text: String,
@@ -824,7 +780,7 @@ class PlayerSession internal constructor(
 
     fun templateShareLink(template: VideoTemplate): String? = templateLibrary.shareLink(template)
 
-    private val exportController: ExportController =
+    internal val exportController: ExportController =
         ExportController(
             application,
             scope,
@@ -899,43 +855,12 @@ class PlayerSession internal constructor(
         watermark: Boolean = false,
     ) = exportController.startExport(aspect, fps, sceneFactory, destination, range, sceneFactoryFor, codec, watermark)
 
-    fun startBatch(
-        tracks: List<BatchTrack>,
-        aspect: ExportAspect,
-        fps: Int,
-        sceneFactory: SceneFactory,
-        sceneParams: SceneParams?,
-        codec: ExportCodec,
-        watermark: Boolean,
-    ) = exportController.startBatch(tracks, aspect, fps, sceneFactory, sceneParams, codec, watermark)
-
-    fun cancelExport() = exportController.cancelExport()
-
-    fun resetExportState() = exportController.resetExportState()
-
     fun deleteStudioClip(
         uri: String,
         onResult: (Boolean) -> Unit,
     ) = exportController.deleteStudioClip(uri, onResult)
 
     val loopState: StateFlow<LoopUiState> get() = exportController.loopState
-
-    fun startLoopRender(
-        aspect: ExportAspect,
-        codec: ExportCodec,
-        fps: Int,
-        sceneFactory: SceneFactory,
-        loopMs: Long,
-        crossfadeMs: Long,
-        drift: dev.geode.export.TimeOfDayDrift,
-        audioClips: List<Uri>,
-        destination: Uri? = null,
-        watermark: Boolean = false,
-    ) = exportController.startLoopRender(aspect, codec, fps, sceneFactory, loopMs, crossfadeMs, drift, audioClips, destination, watermark)
-
-    fun cancelLoopRender() = exportController.cancelLoopRender()
-
-    fun clearLoopResult() = exportController.clearLoopResult()
 
     /**
      * Tears the session down. Called only by [dev.geode.di.PlayerSessionProvider], on behalf of the

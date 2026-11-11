@@ -61,15 +61,15 @@ class StudioViewModel
 
         fun setExportTake(name: String?) = session.takeController.setExportTake(name)
 
-        fun cancelExport() = session.cancelExport()
+        fun cancelExport() = session.exportController.cancelExport()
 
-        fun resetExportState() = session.resetExportState()
+        fun resetExportState() = session.exportController.resetExportState()
 
         val loopState: StateFlow<LoopUiState> get() = session.loopState
 
-        fun cancelLoopRender() = session.cancelLoopRender()
+        fun cancelLoopRender() = session.exportController.cancelLoopRender()
 
-        fun clearLoopResult() = session.clearLoopResult()
+        fun clearLoopResult() = session.exportController.clearLoopResult()
 
         // ---------------------------------------------------------------- Render
 

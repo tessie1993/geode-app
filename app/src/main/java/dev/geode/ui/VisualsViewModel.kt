@@ -161,7 +161,7 @@ class VisualsViewModel
             onImported: () -> Unit,
         ) = session.importTextures(uris, onImported)
 
-        fun removeTexture(name: String) = session.removeTexture(name)
+        fun removeTexture(name: String) = session.textureController.removeTexture(name)
 
         fun useTexture(
             name: String,
@@ -220,13 +220,13 @@ class VisualsViewModel
 
         fun userMilkPresets(): List<File> = session.presetLibrary.userMilkPresets()
 
-        fun noteMilkPreset(path: String) = session.noteMilkPreset(path)
+        fun noteMilkPreset(path: String) = session.vizStateStore.noteMilkPreset(path)
 
         val templates: StateFlow<List<VideoTemplate>> get() = session.templates
 
         val templateStarters: List<VideoTemplate> get() = session.templateStarters
 
-        fun applyTemplate(template: VideoTemplate) = session.applyTemplate(template)
+        fun applyTemplate(template: VideoTemplate) = session.templateLibrary.applyTemplate(template)
 
         fun saveCurrentAsTemplate(
             name: String,
@@ -239,7 +239,7 @@ class VisualsViewModel
             onResult: (TemplateImport) -> Unit,
         ) = session.adoptTemplate(starter, onResult)
 
-        fun deleteTemplate(id: TemplateId) = session.deleteTemplate(id)
+        fun deleteTemplate(id: TemplateId) = session.templateLibrary.deleteTemplate(id)
 
         fun importTemplateText(
             text: String,

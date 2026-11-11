@@ -55,7 +55,8 @@ const SHADERS = path.join(ROOT, 'app', 'src', 'main', 'assets', 'shaders');
 const SHADER_INCLUDES_INC = path.join(ROOT, 'core', 'viz', 'ShaderIncludes.inc');
 const CATALOGUE_TXT = path.join(ROOT, 'core', 'tests', 'catalogue.txt');
 const FLUID_LOOK_HPP = path.join(ROOT, 'core', 'viz', 'fluid', 'FluidLook.hpp');
-const GOLDEN_SONG = path.join(ROOT, 'core', 'tests', 'golden', 'sound_frames.tsv');
+// Written on demand by core/tests/sound_rate_test --write; nothing is committed.
+const GOLDEN_SONG = process.env.GEODE_SOUND_FRAMES || path.join(HERE, 'out', 'sound_frames.tsv');
 const VISUAL_GATE_CPP = path.join(ROOT, 'core', 'tests', 'visual_gate.cpp');
 
 // ---- includes, as ShaderSource.cpp does them ------------------------------
@@ -401,8 +402,8 @@ function applyOverrides(values, args) {
 
 // ---- The stills gate (--stills <tsv>) ----------------------------------------
 //
-// Every style through the sound engine's own output, not a hand-made groove: core/tests/golden/
-// sound_frames.tsv is every GeodeSoundFrame scalar at 60 fps over sound_golden_test's 20 s synthetic song
+// Every style through the sound engine's own output, not a hand-made groove: out/sound_frames.tsv
+// (sound_rate_test --write) is every GeodeSoundFrame scalar at 60 fps over that test's 20 s synthetic song
 // (verse, a build with a snare roll, a drop in a new key with four on the floor and sixteenth hats, a
 // second of silence, the verse again). Its columns are matched to lib_sound's SND_* names by name, so a
 // field added to one and not the other stops the run instead of shifting every slot after it.

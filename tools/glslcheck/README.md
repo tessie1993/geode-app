@@ -61,8 +61,9 @@ g++ -std=c++20 -O1 -Icore core/tests/visual_gate.cpp -o visual_gate
 ```
 
 Every style plays the sound engine's own output, not a hand-made groove:
-`core/tests/golden/sound_frames.tsv`, each `GeodeSoundFrame` scalar at 60 fps
-over `sound_golden_test`'s 20 s song (verse, build, a drop with four on the
+`out/sound_frames.tsv` (write it first with `sound_rate_test --write`, or point
+`GEODE_SOUND_FRAMES` at one), each `GeodeSoundFrame` scalar at 60 fps
+over `sound_rate_test`'s 20 s song (verse, build, a drop with four on the
 floor and sixteenth hats, silence, verse). Its columns are matched to
 `lib_sound`'s `SND_*` names, so the two cannot drift silently. The held
 events, counts, Speed clocks, beat and bar oscillators and camera travel

@@ -236,7 +236,8 @@ void categoriesAndSectionsFollowTheStyle() {
     // Pool spends Morph, Warp, Turbulence and Intensity on its water, so Shape and Look reach it.
     check(shownSection("pool", "SHAPE/basics") && shownSection("pool", "SHAPE/form") && shownSection("pool", "LOOK/light_detail"),
           "Pool's shape and light sections");
-    check(!shownSection("pool", "CAMERA/framing") && shownSection("pool", "EXPERT/shader_code"), "Pool is a shader style off the rig");
+    check(!shownSection("pool", "CAMERA/framing") && !shownSection("pool", "EXPERT/fluid_flow") && !shownSection("pool", "EXPERT/shader_code"),
+          "Pool is a shader style off the rig");
     check(shownSection("fluid", "SHAPE/particles"), "Particles on a fluid style");
     check(!shownSection("julia", "SHAPE/particles"), "no Particles on a shader style");
     check(shownSection("fluid", "EXPERT/fluid_flow") && shownSection("fluid", "EXPERT/fluid_look"), "Fluid's engine in Expert");

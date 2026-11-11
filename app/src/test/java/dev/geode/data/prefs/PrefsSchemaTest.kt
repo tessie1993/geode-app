@@ -38,6 +38,9 @@ import dev.geode.data.backup.BackupFormat
 import dev.geode.data.backup.BackupSection
 import dev.geode.engine.audio.SoundFrameLayout
 import dev.geode.engine.audio.SoundTuning
+import dev.geode.model.TutorialChapter
+import dev.geode.model.TutorialPosition
+import dev.geode.model.TutorialProgress
 import dev.geode.render.MilkPresetMemory
 import dev.geode.render.scene.SceneParams
 import dev.geode.ui.ModulationController
@@ -74,7 +77,10 @@ class PrefsSchemaTest {
         listOf(
             Owner("$DATA/ThemeStore.kt", ThemeStore.PREF_KEYS) {
                 val tuning = SoundTuning.fromFloats(FloatArray(SoundFrameLayout.TUNING_FLOATS))
-                ThemeStore(it[general]).saveGui(GuiPrefs(soundTuning = tuning, presetMirrorUri = "content://presets", fontColorArgb = 1))
+                val tour = TutorialProgress(resume = TutorialPosition(TutorialChapter.WELCOME, 1))
+                ThemeStore(it[general]).saveGui(
+                    GuiPrefs(soundTuning = tuning, presetMirrorUri = "content://presets", fontColorArgb = 1, tutorialProgress = tour),
+                )
             },
             Owner("$DATA/BehaviourPrefs.kt", BehaviourStore.PREF_KEYS) { BehaviourStore(it[general]).save(BehaviourPrefs()) },
             Owner("$DATA/ExportPrefs.kt", ExportPrefsStore.PREF_KEYS) {
@@ -286,7 +292,8 @@ class PrefsSchemaTest {
                 .filter { touches.containsMatchIn(it.readText()) }
                 .map { it.relativeTo(root).invariantSeparatorsPath }
                 .toSet()
-        assertEquals(owners.map { it.source }.toSet() + passThrough, found)
+        // LookStore reaches its file through GeodePrefsFiles, so it is an owner the scan does not see.
+        assertEquals(owners.map { it.source }.toSet() + passThrough - "$DATA/LookStore.kt", found)
     }
 
     private fun typeOf(value: Any): PrefType? =

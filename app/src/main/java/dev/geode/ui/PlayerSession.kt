@@ -638,8 +638,8 @@ class PlayerSession internal constructor(
     internal var onStyleLocked: () -> Unit = {}
 
     /**
-     * The entitlement's export limits for every project render (a take, Studio's Render), set by the
-     * provider like [allowsStyle]; open until set.
+     * The entitlement's export limits for a recording (Record's cap), set by the provider like
+     * [allowsStyle]; open until set.
      */
     internal var renderLimits: () -> dev.geode.pro.RenderLimits = { dev.geode.pro.RenderLimits.NONE }
 
@@ -801,8 +801,6 @@ class PlayerSession internal constructor(
                 override fun allowsStyle(sceneId: String) = this@PlayerSession.allowsStyle(sceneId)
 
                 override fun onStyleLocked() = this@PlayerSession.onStyleLocked()
-
-                override fun renderLimits() = this@PlayerSession.renderLimits()
             },
         )
 

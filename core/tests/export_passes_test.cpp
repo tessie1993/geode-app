@@ -1,5 +1,5 @@
 // Host-side checks for core/viz/frame/ExportPassMath (#442): the maths of the export post-passes that moved
-// from Kotlin GL to native Passes (the watermark, a loop's seam, a Studio transition). Built and run by CI
+// from Kotlin GL to native Passes (the watermark and a loop's seam). Built and run by CI
 // ("Native host tests" in .github/workflows/android.yml) with the system compiler; no GL.
 //
 // What is pinned: every value equals what the Kotlin computed before the move (the expected numbers below
@@ -14,7 +14,6 @@
 
 namespace wm = geode::viz::frame::exportmath::watermark;
 namespace seam = geode::viz::frame::exportmath::seam;
-namespace tr = geode::viz::frame::exportmath::transition;
 
 namespace {
 
@@ -104,25 +103,6 @@ void seamWeightReachesBothEnds() {
     }
 }
 
-void transitionProgressFromTheFirstFrame() {
-    check(same(tr::progress(1'000'000, 1'000'000, 500'000), 0.0f), "the clip's first frame is the start");
-    check(same(tr::progress(1'250'000, 1'000'000, 500'000), 0.5f), "half way through the duration is 0.5");
-    check(same(tr::progress(1'500'000, 1'000'000, 500'000), 1.0f), "the end is 1");
-    check(same(tr::progress(9'000'000, 1'000'000, 500'000), 1.0f), "past the end stays 1");
-    check(same(tr::progress(900'000, 1'000'000, 500'000), 0.0f), "an earlier time clamps to 0");
-    check(same(tr::progress(5, 0, 0), 1.0f), "no duration is already over");
-    check(same(tr::progress(33'333, 0, 1'000'000), static_cast<float>(33'333) / static_cast<float>(1'000'000)),
-          "long to float, then float division, as Kotlin");
-}
-
-void transitionRatioAndPassthrough() {
-    check(same(tr::ratio(1920, 1080), 1920.0f / 1080.0f), "ratio is width over height");
-    check(same(tr::ratio(640, 0), 640.0f), "a zero height reads as one pixel");
-    check(tr::passthrough(false, 0.3f), "no outgoing frame draws the clip plain");
-    check(tr::passthrough(true, 1.0f), "the end draws the clip plain");
-    check(!tr::passthrough(true, 0.99f), "inside the window it blends");
-}
-
 // ---- Added by the mutation pass on #552. Every expected value is a hand-worked literal. ----
 
 // Kills: truncate -> round or ceil (95.2 * 1.35 = 128.52 would round up past 128); kTileSpacing nudged
@@ -208,36 +188,6 @@ void seamWeightsMirrorAndStepEvenly() {
     check(seam::weight(3, -4) == 1.0f, "a negative seam length weighs one, like no seam");
 }
 
-// Kills: `durationUs <= 0` -> `< 0` (zero duration at the origin is 0 / 0 = NaN, which std::clamp passes
-// through) or `== 0` (a negative duration would run backwards and clamp to 0).
-void transitionWithNoDurationIsOverAtEveryFrame() {
-    check(tr::progress(1'000'000, 1'000'000, 0) == 1.0f, "zero duration on the clip's first frame is already over");
-    check(tr::progress(1'000'005, 1'000'000, -1) == 1.0f, "a negative duration is already over");
-    check(tr::progress(999'000, 1'000'000, -500'000) == 1.0f, "even before the origin");
-}
-
-// Kills: float(pts) - float(origin) in place of float(pts - origin). An hour into a render the microsecond
-// clock is 3.6e12, where a float's step is 262144 us, so converting before subtracting loses a whole
-// half-second transition; the difference must be taken in 64 bits first, as the Kotlin did.
-void transitionProgressHoldsAnHourIntoTheRender() {
-    const int64_t hour = 3'600'000'000'000LL;
-    check(tr::progress(hour, hour, 500'000) == 0.0f, "an hour in, the clip's first frame is still the start");
-    check(tr::progress(hour + 250'000, hour, 500'000) == 0.5f, "and half its duration later is 0.5");
-    check(tr::progress(hour + 125'000, hour, 500'000) == 0.25f, "and a quarter of it is 0.25");
-}
-
-// Kills: either clamp bound dropped or swapped; passthrough's end test moved to the start (progress >= 0).
-void transitionProgressRisesFromZeroToOne() {
-    float last = -1.0f;
-    for (int64_t t = -100'000; t <= 700'000; t += 12'500) {
-        const float p = tr::progress(t, 0, 500'000);
-        check(p >= 0.0f && p <= 1.0f, "progress stays inside 0..1");
-        check(p >= last, "and never falls back");
-        last = p;
-    }
-    check(!tr::passthrough(true, 0.0f), "the first frame of a transition with an outgoing frame blends");
-}
-
 }  // namespace
 
 int main() {
@@ -246,17 +196,12 @@ int main() {
     tileIsAPowerOfTwoAboveTheText();
     tilesCountFramePixelsOverTilePixels();
     seamWeightReachesBothEnds();
-    transitionProgressFromTheFirstFrame();
-    transitionRatioAndPassthrough();
     tileWidthTruncatesTextPlusGapBeforeRounding();
     tileWidthStaysAPositivePowerOfTwoForAbsurdWidths();
     tileHeightIsHalfTheTileWidth();
     textPxAtFourKAndOddFrames();
     tilesAtFourKAndOddFramesBothOrientations();
     seamWeightsMirrorAndStepEvenly();
-    transitionWithNoDurationIsOverAtEveryFrame();
-    transitionProgressHoldsAnHourIntoTheRender();
-    transitionProgressRisesFromZeroToOne();
     if (failures == 0) std::printf("export_passes_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

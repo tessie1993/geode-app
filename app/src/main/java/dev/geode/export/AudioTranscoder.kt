@@ -42,7 +42,7 @@ class AudioTranscoder(
     /**
      * Interleaved s16 from [srcCh] down to [dstCh] channels: a 5.1 or 7.1 fold (the rest's mean, halved,
      * on each side) or a mono mean. Native (`core/audio/dsp/PcmConvert`, tested by
-     * `core/tests/clip_media_test.cpp`); this only moves the samples in and out of the buffers.
+     * `core/tests/export_pcm_test.cpp`); this only moves the samples in and out of the buffers.
      */
     private fun downmix(
         src: ByteBuffer,

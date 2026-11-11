@@ -382,22 +382,7 @@
         <item quantity="other">%1$d clips</item>
     </plurals>
 
-    <string name="studio_brightness">Brightness</string>
-    <string name="studio_contrast">Contrast</string>
-    <string name="studio_saturation">Saturation</string>
-    <string name="studio_hue_shift">Hue shift</string>
-    <string name="studio_speed">Speed</string>
-    <string name="studio_rotate">Rotate</string>
-    <string name="studio_as_shot">As shot</string>
     <string name="studio_render">Render</string>
-
-    <!-- Studio: the Look section's preset chips ("As shot" is studio_as_shot), and the name of a clip that has none. -->
-    <string name="studio_look_punch">Punch</string>
-    <string name="studio_look_bleach">Bleach</string>
-    <string name="studio_look_neon">Neon</string>
-    <string name="studio_look_night">Night</string>
-    <string name="studio_look_mono">Mono</string>
-    <string name="studio_look_invert">Invert</string>
 
     <!-- Settings › Audio › Playback. -->
     <string name="playback_speed">"Speed  %1$sx"</string>
@@ -647,7 +632,7 @@
     <string name="export_loudness_lower_loud_limited_detail">Measured %1$s, true peak %2$s. That is %3$s over the %4$s %5$s plays at — %6$s. Taking off %7$s in your mix — a shade more than the level alone needs, so the true peak clears the %8$s ceiling too — would land it at %9$s with a true peak of %10$s. BeatRealms leaves the level as it is.</string>
     <string name="export_loudness_lower_peak_detail">Measured %1$s, true peak %2$s. The level is where %3$s wants it, but the peak is over the %4$s ceiling, where lossy encoders start to distort. Taking off %5$s in your mix would land it at %6$s. BeatRealms leaves the level as it is.</string>
 
-    <!-- Export: failure messages. Shared by VideoExporter, StudioExporter and LoopRender. -->
+    <!-- Export: failure messages. Shared by VideoExporter and LoopRender. -->
     <string name="export_error_library_insert">Your Videos library would not accept a new file. Check that storage is not full, or render to a folder you choose instead.</string>
     <string name="export_error_library_open">The new file in your Videos library could not be opened for writing.</string>
     <string name="export_error_library_publish">The render finished but could not be added to your Videos library, so it was removed. Try again.</string>
@@ -655,13 +640,6 @@
     <string name="export_error_encoder_buffer_null">The video encoder returned an empty buffer (codec error state).</string>
     <string name="export_error_encoder_no_output">The video encoder produced no output — this device\'s encoder or the chosen format may not be supported.</string>
     <string name="export_error_encoder_stalled">The video encoder stalled while flushing — the export is incomplete.</string>
-    <string name="export_error_studio_save">The finished file could not be saved to Movies/BeatRealms.</string>
-    <string name="export_error_studio_start">The export could not be started.</string>
-    <string name="export_error_destination_save">The export could not be saved to that folder.</string>
-    <string name="export_error_encoder_unsupported">This device\'s video encoder would not accept that output — try a smaller size or a different aspect ratio.</string>
-    <string name="export_error_decode_unsupported">That clip could not be read — the file may have moved, or be in a format this device cannot decode.</string>
-    <string name="export_error_no_permission">BeatRealms does not have permission to read that file.</string>
-    <string name="export_error_generic">The export failed.</string>
     <string name="export_error_loop_encoder_rejected">This device\'s video encoder would not accept %1$d×%2$d. Try a smaller size or a different aspect ratio.</string>
     <string name="export_error_loop_low_gpu_memory">There is not enough graphics memory to hold even one crossfade frame at %1$d×%2$d — render the loop at a smaller size.</string>
     <string name="export_error_loop_stopped">The loop render stopped unexpectedly.</string>
@@ -768,28 +746,8 @@
     <string name="autoviz_pick_from">Pick from</string>
     <string name="autoviz_pick_styles">Styles</string>
 
-    <!-- Studio clip preview. -->
-    <!-- Studio renders: the render plan's notices (export/ProjectComposition). -->
-    <string name="editor_export_skipped_kinds">Skipped clips this export can\'t carry: %1$s</string>
-    <!-- One render path (#232): the render plan's skipped-clip report and the Studio render labels. -->
-    <string name="editor_export_nothing">Nothing to render yet. Put a video or still on the timeline, or a visual over a song.</string>
-    <string name="render_video_label">Rendering your video</string>
-    <plurals name="render_skip_overlay">
-        <item quantity="one">%1$d overlay clip (overlays don\'t render yet)</item>
-        <item quantity="other">%1$d overlay clips (overlays don\'t render yet)</item>
-    </plurals>
-    <plurals name="render_skip_no_song">
-        <item quantity="one">%1$d visual clip with no song under it</item>
-        <item quantity="other">%1$d visual clips with no song under them</item>
-    </plurals>
-    <plurals name="render_skip_past_song">
-        <item quantity="one">the end of %1$d visual clip, past its song</item>
-        <item quantity="other">the ends of %1$d visual clips, past their song</item>
-    </plurals>
-    <plurals name="render_skip_wrong_lane">
-        <item quantity="one">%1$d clip on a lane that can\'t carry it</item>
-        <item quantity="other">%1$d clips on lanes that can\'t carry them</item>
-    </plurals>
+    <!-- The one-tap Render: a part of the song too short to draw over. -->
+    <string name="editor_export_nothing">Nothing to render: the part of the song you chose is too short.</string>
 
     <!-- Shared verbs. One definition each, so a translator sees them once. -->
     <string name="action_save">Save</string>

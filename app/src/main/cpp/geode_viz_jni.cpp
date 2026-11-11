@@ -1027,53 +1027,6 @@ Java_dev_geode_engine_bridge_GeodeNative_exportLoopReportedCrossfadeMs(JNIEnv*, 
     return geode_export_loop_reported_crossfade_ms(seamFrames, fps);
 }
 
-JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportTransitionCreate(JNIEnv* env, jobject, jobject assetManager, jstring id,
-                                                               jlong durationUs) {
-    Utf8Chars name(env, id);
-    return reinterpret_cast<jlong>(geode_export_transition_create(assetsOf(env, assetManager), name.get(), durationUs));
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportTransitionConfigure(JNIEnv*, jobject, jlong handle, jint width, jint height) {
-    geode_export_transition_configure(passOf(handle), width, height);
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportTransitionSetFrom(JNIEnv* env, jobject, jlong handle, jobject rgba, jint width,
-                                                                jint height) {
-    const uint8_t* pixels = directBytes(env, rgba, rgbaBytes(width, height));
-    if (pixels) geode_export_transition_set_from(passOf(handle), pixels, width, height);
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportTransitionDraw(JNIEnv*, jobject, jlong handle, jint inputTex, jlong ptsUs) {
-    geode_export_transition_draw(passOf(handle), static_cast<unsigned>(inputTex), ptsUs);
-}
-
-JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportCaptureCreate(JNIEnv* env, jobject, jobject assetManager) {
-    return reinterpret_cast<jlong>(geode_export_capture_create(assetsOf(env, assetManager)));
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportCaptureConfigure(JNIEnv*, jobject, jlong handle, jint width, jint height) {
-    geode_export_capture_configure(passOf(handle), width, height);
-}
-
-JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportCaptureDraw(JNIEnv*, jobject, jlong handle, jint inputTex) {
-    geode_export_capture_draw(passOf(handle), static_cast<unsigned>(inputTex));
-}
-
-JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportCaptureRead(JNIEnv* env, jobject, jlong handle, jobject out) {
-    auto* bytes = out ? static_cast<uint8_t*>(env->GetDirectBufferAddress(out)) : nullptr;
-    const jlong capacity = bytes ? env->GetDirectBufferCapacity(out) : 0;
-    return bytes && capacity > 0 && geode_export_capture_read(passOf(handle), bytes, static_cast<size_t>(capacity)) ? JNI_TRUE
-                                                                                                                  : JNI_FALSE;
-}
-
 JNIEXPORT jbyteArray JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_transitionsTable(JNIEnv* env, jobject, jobject assetManager) {
     // Bytes, not a jstring: NewStringUTF takes modified UTF-8, and the library's text is plain UTF-8.

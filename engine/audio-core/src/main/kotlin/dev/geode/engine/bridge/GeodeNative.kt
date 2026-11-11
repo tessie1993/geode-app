@@ -1035,8 +1035,8 @@ object GeodeNative {
         out: DoubleArray,
     ): Boolean
 
-    // Export planning and clip maths (core/output, core/signal/timeline, viz/ClipGrade, util/CubeLut,
-    // audio/dsp/PcmConvert). Pure functions, any thread; the Kotlin exporters only marshal through these.
+    // Export planning and PCM maths (core/output, audio/dsp/PcmConvert and PcmTiming). Pure functions, any
+    // thread; the Kotlin exporters only marshal through these.
 
     /** Frames a render of [durationUs] draws at [fps], at least 1. */
     external fun exportTotalFrames(
@@ -1361,46 +1361,6 @@ object GeodeNative {
         totalMs: Long,
     ): LongArray
 
-    /**
-     * A keyframed clip speed as Media3 segments. Keys are parallel arrays: [keyTimesMs], [keyKinds]
-     * (0 scalar, 1 vector2, 2 colour, 3 toggle, 4 choice), [keyInterps] (0 hold, 1 linear, 2 bezier),
-     * four [keyValues] and four [keyCurves] floats per key. Returns [source span µs, segment starts µs…]
-     * with the speeds written to [speedsOut]; null when there are no keys.
-     */
-    external fun speedRampBuild(
-        keyTimesMs: LongArray,
-        keyKinds: IntArray,
-        keyValues: FloatArray,
-        keyInterps: IntArray,
-        keyCurves: FloatArray,
-        clipStartMs: Long,
-        clipDurationMs: Long,
-        stepMs: Long,
-        speedsOut: FloatArray,
-    ): LongArray?
-
-    /** A saved clip speed made safe: NaN, infinite, 0 or negative is 1x, else 0.25..4. */
-    external fun clipSpeedSanitize(speed: Float): Float
-
-    /** The clip grade as a column-major 4x4 into [out] (16 floats). */
-    external fun clipGradeMatrix(
-        brightness: Float,
-        contrast: Float,
-        saturationPercent: Float,
-        hueDegrees: Float,
-        out: FloatArray,
-    )
-
-    /** A .cube file's ARGB entries, size^3 in [r][g][b] order; null when it is not a usable cube. */
-    external fun cubeLutParse(text: ByteArray): IntArray?
-
-    external fun cubeLutGamma(
-        red: Float,
-        green: Float,
-        blue: Float,
-        size: Int,
-    ): IntArray
-
     /** Interleaved s16 [frames] from [srcChannels] down to [dstChannels] (1 or 2); empty when not a downmix. */
     external fun pcmDownmixS16(
         input: ShortArray,
@@ -1572,9 +1532,9 @@ object GeodeNative {
 
     /** The Cast stream's format into [out] ([CAST_FORMAT_INTS] ints): width, height, fps, keyframe interval (s), video and audio bit/s. */
     external fun castFormat(out: IntArray)
-    // Export post-passes (core/viz/frame/ExportPasses): the watermark, a loop's seam, a Studio transition and
-    // its capture. [assets] is the app's AssetManager (typed as Any, as for [vizCreate]); every call but the
-    // three watermark sizes and the seam budget needs the export's GL context current, destroy included.
+    // Export post-passes (core/viz/frame/ExportPasses): the watermark and a loop's seam. [assets] is the
+    // app's AssetManager (typed as Any, as for [vizCreate]); every call but the three watermark sizes and
+    // the seam budget needs the export's GL context current, destroy included.
 
     /** "" when the pass built; otherwise why not (the handle must still be destroyed). */
     external fun exportPassError(handle: Long): String
@@ -1655,53 +1615,6 @@ object GeodeNative {
         seamFrames: Int,
         fps: Int,
     ): Long
-
-    /** [id]: a GL Transitions name; an unknown one only copies. */
-    external fun exportTransitionCreate(
-        assets: Any,
-        id: String,
-        durationUs: Long,
-    ): Long
-
-    external fun exportTransitionConfigure(
-        handle: Long,
-        width: Int,
-        height: Int,
-    )
-
-    /** [rgba]: a direct buffer, RGBA8 bottom row first; the first one is kept. */
-    external fun exportTransitionSetFrom(
-        handle: Long,
-        rgba: java.nio.ByteBuffer,
-        width: Int,
-        height: Int,
-    )
-
-    /** Into the framebuffer and viewport Media3 bound for this program's output. */
-    external fun exportTransitionDraw(
-        handle: Long,
-        inputTex: Int,
-        ptsUs: Long,
-    )
-
-    external fun exportCaptureCreate(assets: Any): Long
-
-    external fun exportCaptureConfigure(
-        handle: Long,
-        width: Int,
-        height: Int,
-    )
-
-    external fun exportCaptureDraw(
-        handle: Long,
-        inputTex: Int,
-    )
-
-    /** Writes the last frame drawn (RGBA8, bottom row first) into the direct buffer [out]; false when none or it is too small. */
-    external fun exportCaptureRead(
-        handle: Long,
-        out: java.nio.ByteBuffer,
-    ): Boolean
 
     /**
      * The GL Transitions library as UTF-8 bytes, in the control-separated table of

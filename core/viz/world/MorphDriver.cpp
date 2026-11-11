@@ -212,6 +212,27 @@ void MorphDriver::travel(const std::array<float, 3>& eye, float dt) {
     publish();
 }
 
+uint32_t MorphDriver::parts() const {
+    if (!started_) return kAllParts;
+    uint32_t bits = 0;
+    for (const Genome* g : {&from_, &to_, &live_}) {
+        for (int i = 0; i < kPrimCount; ++i) {
+            if ((*g)[PBox + i] > 0.0f) bits |= 1u << i;
+        }
+        if ((*g)[Terrain] > 0.0f) bits |= 1u << kTerrainPart;
+    }
+    return bits;
+}
+
+std::string withParts(const std::string& fragment, uint32_t parts) {
+    const std::string define = "#define WG_PARTS " + std::to_string(parts) + "\n";
+    const size_t version = fragment.find("#version");
+    if (version == std::string::npos) return define + fragment;
+    const size_t eol = fragment.find('\n', version);
+    if (eol == std::string::npos) return fragment + "\n" + define;
+    return fragment.substr(0, eol + 1) + define + fragment.substr(eol + 1);
+}
+
 Way MorphDriver::way() const {
     Way w;
     w.zPhase = uniforms_[ZPhase];

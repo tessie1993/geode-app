@@ -60,6 +60,7 @@ private:
     void uploadTouch();
     void uploadCamera();
     void uploadWorld();
+    void specializeWorld();
     void set1f(const char* name, float value);
     float marchSteps(float detail);
 
@@ -113,6 +114,9 @@ private:
     GLuint worldShapesTex_ = 0;
     GLuint worldMapsTex_ = 0;
     bool worldSeeded_ = false;
+    // The lib_world parts (MorphDriver::parts) the program in program_ was built with; 0 while it is
+    // the stock source, which has every part.
+    uint32_t worldParts_ = 0;
 
     float stepsDetail_ = -1.0f;
     float stepsBudget_ = 0.0f;

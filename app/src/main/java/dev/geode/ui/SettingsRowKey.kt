@@ -87,6 +87,9 @@ enum class SettingsRowKey {
     KEEP_RENDERS,
     RECORD_QUALITY,
 
+    // Preferences: the watermark's placement and Pro's switch are one block
+    WATERMARK,
+
     // Backup, help & about
     BACKUP,
     TUTORIALS,

@@ -45,8 +45,8 @@ P* as(geode_export_pass* h) {
     return h && h->kind == kindOf<P>() ? static_cast<P*>(h->pass.get()) : nullptr;
 }
 
-void run(Pass& pass, const PassInputs& inputs, const PassTarget& target) {
-    const FrameCtx ctx{target.width, target.height, 0.0, 0.0f, Surface::Export, nullptr};
+void run(Pass& pass, const PassInputs& inputs, const PassTarget& target, double seconds = 0.0) {
+    const FrameCtx ctx{target.width, target.height, seconds, 0.0f, Surface::Export, nullptr};
     if (!pass.wants(ctx)) return;
     pass.prepare(ctx);
     pass.draw(inputs, target);
@@ -73,24 +73,37 @@ void geode_export_pass_destroy(geode_export_pass* h) {
     delete h;
 }
 
-float geode_export_watermark_text_px(int short_side) { return exportmath::watermark::textPx(short_side); }
+int geode_export_watermark_placement(int required, int pro_adds, int placement, int use) {
+    return exportmath::watermark::placement(required != 0, pro_adds != 0, placement, use);
+}
 
-int geode_export_watermark_tile_width(float text_width) { return exportmath::watermark::tileWidth(text_width); }
+float geode_export_watermark_text_px(int short_side, int placement) { return exportmath::watermark::textPx(short_side, placement); }
 
-int geode_export_watermark_tile_height(int tile_width) { return exportmath::watermark::tileHeight(tile_width); }
+float geode_export_watermark_angle(int placement) { return exportmath::watermark::angleDegrees(placement); }
 
-geode_export_pass* geode_export_watermark_create(AAssetManager* assets, const uint8_t* rgba, int tile_w, int tile_h) {
+int geode_export_watermark_alpha(int placement) { return exportmath::watermark::textAlpha(placement); }
+
+int geode_export_watermark_tile_width(float text_width, float text_px, int placement) {
+    return exportmath::watermark::tileWidth(text_width, text_px, placement);
+}
+
+int geode_export_watermark_tile_height(int tile_width, float text_px, int placement) {
+    return exportmath::watermark::tileHeight(tile_width, text_px, placement);
+}
+
+geode_export_pass* geode_export_watermark_create(AAssetManager* assets, const uint8_t* rgba, int tile_w, int tile_h, int placement,
+                                                 int corner, int64_t length_ms) {
     auto* h = make<WatermarkPass>(assets);
-    if (h && !as<WatermarkPass>(h)->create(h->source, rgba, tile_w, tile_h, &h->error) && h->error.empty()) {
+    if (h && !as<WatermarkPass>(h)->create(h->source, rgba, tile_w, tile_h, placement, corner, length_ms, &h->error) &&
+        h->error.empty()) {
         h->error = "watermark pass failed to build";
     }
     return h;
 }
 
-void geode_export_watermark_draw(geode_export_pass* h, int frame_w, int frame_h) {
-    if (auto* p = as<WatermarkPass>(h)) run(*p, {}, {0u, frame_w, frame_h});
+void geode_export_watermark_draw(geode_export_pass* h, int frame_w, int frame_h, int64_t time_ms) {
+    if (auto* p = as<WatermarkPass>(h)) run(*p, {}, {0u, frame_w, frame_h}, static_cast<double>(time_ms) / 1000.0);
 }
-
 
 geode_export_pass* geode_export_seam_create(AAssetManager* assets, int width, int height) {
     auto* h = make<SeamPass>(assets);

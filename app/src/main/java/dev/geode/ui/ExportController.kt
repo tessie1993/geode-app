@@ -25,6 +25,7 @@ import dev.geode.export.RenderBatch
 import dev.geode.export.TimeOfDayDrift
 import dev.geode.export.VideoExporter
 import dev.geode.geodeContainer
+import dev.geode.model.WatermarkChoice
 import dev.geode.render.SceneFactory
 import dev.geode.render.look.LookSnapshot
 import dev.geode.render.look.LookSource
@@ -118,7 +119,7 @@ internal class ExportController(
         destination: Uri? = null,
         range: ExportRange? = null,
         codec: ExportCodec = ExportCodec.H264,
-        watermark: Boolean = false,
+        watermark: WatermarkChoice = WatermarkChoice.NONE,
     ) {
         val uri = host.exportUri ?: return
         if (_exportState.value.phase.isBusy || ExportRun.running) return
@@ -216,7 +217,7 @@ internal class ExportController(
         sceneFactory: SceneFactory,
         sceneParams: SceneParams?,
         codec: ExportCodec,
-        watermark: Boolean,
+        watermark: WatermarkChoice,
     ) {
         if (tracks.isEmpty() || _exportState.value.phase.isBusy || ExportRun.running) return
         exportCancelled = false
@@ -265,7 +266,7 @@ internal class ExportController(
         sceneFactory: SceneFactory,
         look: LookSnapshot,
         codec: ExportCodec,
-        watermark: Boolean,
+        watermark: WatermarkChoice,
         publish: (Float) -> Unit,
     ): BatchOutcome {
         val uri = track.uri.toUri()
@@ -342,7 +343,7 @@ internal class ExportController(
         val fps: Int,
         val codec: ExportCodec,
         val loudnessTarget: LoudnessTarget,
-        val watermark: Boolean,
+        val watermark: WatermarkChoice,
     )
 
     private sealed interface RenderResult {
@@ -462,7 +463,7 @@ internal class ExportController(
         drift: TimeOfDayDrift,
         audioClips: List<Uri>,
         destination: Uri? = null,
-        watermark: Boolean = false,
+        watermark: WatermarkChoice = WatermarkChoice.NONE,
     ) {
         val uri = host.exportUri ?: return
         if (_loopState.value.phase.isBusy || ExportRun.running) return

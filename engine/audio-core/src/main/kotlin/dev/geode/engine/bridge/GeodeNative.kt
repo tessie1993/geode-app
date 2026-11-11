@@ -1533,35 +1533,70 @@ object GeodeNative {
     /** The Cast stream's format into [out] ([CAST_FORMAT_INTS] ints): width, height, fps, keyframe interval (s), video and audio bit/s. */
     external fun castFormat(out: IntArray)
     // Export post-passes (core/viz/frame/ExportPasses): the watermark and a loop's seam. [assets] is the
-    // app's AssetManager (typed as Any, as for [vizCreate]); every call but the three watermark sizes and
-    // the seam budget needs the export's GL context current, destroy included.
+    // app's AssetManager (typed as Any, as for [vizCreate]); every call but the watermark's pure calls
+    // (placement to tile size) and the seam budget needs the export's GL context current, destroy included.
 
     /** "" when the pass built; otherwise why not (the handle must still be destroyed). */
     external fun exportPassError(handle: Long): String
 
     external fun exportPassDestroy(handle: Long)
 
+    /**
+     * Whether a render's frames carry the wordmark and where (`exportmath::watermark::placement`): 0 for
+     * none, else the placement code (`dev.geode.model.WatermarkChoice`), an end card becoming a corner
+     * mark on frames of a [use] whose end is not known.
+     */
+    external fun exportWatermarkPlacement(
+        required: Boolean,
+        proAdds: Boolean,
+        placement: Int,
+        use: Int,
+    ): Int
+
     /** The wordmark's text size in pixels for a frame whose short side is [shortSide]. */
-    external fun exportWatermarkTextPx(shortSide: Int): Float
+    external fun exportWatermarkTextPx(
+        shortSide: Int,
+        placement: Int,
+    ): Float
 
-    /** The power-of-two tile width for the wordmark measured at [textWidth] pixels. */
-    external fun exportWatermarkTileWidth(textWidth: Float): Int
+    /** The tile's rotation in degrees, and the text's alpha (0..255). */
+    external fun exportWatermarkAngle(placement: Int): Float
 
-    external fun exportWatermarkTileHeight(tileWidth: Int): Int
+    external fun exportWatermarkAlpha(placement: Int): Int
 
-    /** [rgba]: a direct buffer of the tile's premultiplied RGBA8 pixels, top row first (Bitmap.copyPixelsToBuffer). */
+    /** The tile width for the wordmark measured at [textWidth] pixels (a power of two for the tiled pattern). */
+    external fun exportWatermarkTileWidth(
+        textWidth: Float,
+        textPx: Float,
+        placement: Int,
+    ): Int
+
+    external fun exportWatermarkTileHeight(
+        tileWidth: Int,
+        textPx: Float,
+        placement: Int,
+    ): Int
+
+    /**
+     * [rgba]: a direct buffer of the tile's premultiplied RGBA8 pixels, top row first (Bitmap.copyPixelsToBuffer).
+     * [lengthMs] is the video's, for an end card; 0 when unknown.
+     */
     external fun exportWatermarkCreate(
         assets: Any,
         rgba: java.nio.ByteBuffer,
         tileWidth: Int,
         tileHeight: Int,
+        placement: Int,
+        corner: Int,
+        lengthMs: Long,
     ): Long
 
-    /** Over the default framebuffer, after the scene. */
+    /** Over the default framebuffer, after the scene; [timeMs] is the frame's time in the video. */
     external fun exportWatermarkDraw(
         handle: Long,
         frameWidth: Int,
         frameHeight: Int,
+        timeMs: Long,
     )
 
     external fun exportSeamCreate(

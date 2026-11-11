@@ -584,14 +584,36 @@ GEODE_API int             geode_encoder_attempts(int requested_fps, int bit_rate
 typedef struct geode_export_pass geode_export_pass;
 GEODE_API const char*         geode_export_pass_error(const geode_export_pass*);   /* "" when clean or NULL */
 GEODE_API void                geode_export_pass_destroy(geode_export_pass*);
-/* The wordmark's text size for a frame's short side, and the power-of-two tile for the measured text width. */
-GEODE_API float               geode_export_watermark_text_px(int short_side);
-GEODE_API int                 geode_export_watermark_tile_width(float text_width);
-GEODE_API int                 geode_export_watermark_tile_height(int tile_width);
-/* rgba: the tile, tile_w x tile_h premultiplied RGBA8, top row first (an ARGB_8888 Bitmap's pixels). */
-GEODE_API geode_export_pass*  geode_export_watermark_create(AAssetManager*, const uint8_t* rgba, int tile_w, int tile_h);
-/* Over the default framebuffer (the encoder surface), frame_w x frame_h pixels, after the scene. */
-GEODE_API void                geode_export_watermark_draw(geode_export_pass*, int frame_w, int frame_h);
+/* Watermark placement (Settings › Preferences) and corner, and what the frames are (`use`). */
+#define GEODE_WATERMARK_NONE 0
+#define GEODE_WATERMARK_TILED 1
+#define GEODE_WATERMARK_CORNER 2
+#define GEODE_WATERMARK_END_CARD 3
+#define GEODE_WATERMARK_TOP_LEFT 0
+#define GEODE_WATERMARK_TOP_RIGHT 1
+#define GEODE_WATERMARK_BOTTOM_LEFT 2
+#define GEODE_WATERMARK_BOTTOM_RIGHT 3
+#define GEODE_WATERMARK_USE_WHOLE 0   /* a whole video, its end known */
+#define GEODE_WATERMARK_USE_SEGMENT 1 /* a Studio scene segment, layered later */
+#define GEODE_WATERMARK_USE_LOOP 2
+#define GEODE_WATERMARK_USE_LIVE 3    /* Record */
+/* Whether frames are marked (the entitlement requires it, or Pro adds it) and where: GEODE_WATERMARK_NONE, or
+ * the placement asked for, an end card becoming a corner mark where the video's end is not known. Pure. */
+GEODE_API int                 geode_export_watermark_placement(int required, int pro_adds, int placement, int use);
+/* The raster the placement wants: the text size for a frame's short side, its rotation in degrees and alpha
+ * (0..255), and the tile for the measured text width (the tiled pattern's is a power of two). Pure. */
+GEODE_API float               geode_export_watermark_text_px(int short_side, int placement);
+GEODE_API float               geode_export_watermark_angle(int placement);
+GEODE_API int                 geode_export_watermark_alpha(int placement);
+GEODE_API int                 geode_export_watermark_tile_width(float text_width, float text_px, int placement);
+GEODE_API int                 geode_export_watermark_tile_height(int tile_width, float text_px, int placement);
+/* rgba: the tile, tile_w x tile_h premultiplied RGBA8, top row first (an ARGB_8888 Bitmap's pixels). length_ms
+ * is the video's (an end card's last seconds), 0 when unknown. */
+GEODE_API geode_export_pass*  geode_export_watermark_create(AAssetManager*, const uint8_t* rgba, int tile_w, int tile_h,
+                                                            int placement, int corner, int64_t length_ms);
+/* Over the default framebuffer (the encoder surface), frame_w x frame_h pixels, after the scene; time_ms is the
+ * frame's time in the video. */
+GEODE_API void                geode_export_watermark_draw(geode_export_pass*, int frame_w, int frame_h, int64_t time_ms);
 /* Loop seam: up to `requested` full-frame textures of stash (returns how many fitted), filled by capture from
  * the default framebuffer and laid back over it by blend at closing frame `tail` of `seam_frames`. */
 GEODE_API geode_export_pass*  geode_export_seam_create(AAssetManager*, int width, int height);

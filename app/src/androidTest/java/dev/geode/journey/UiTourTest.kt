@@ -736,8 +736,9 @@ class UiTourTest {
         val LIBRARY_TABS = listOf("Tracks", "Albums", "Artists", "Folders", "Playlists", "Duplicates")
 
         /**
-         * Settings' fourteen tabs in list order (`SettingsGroupKey`, 2026-11-11): the ten groups
-         * before them were regrouped, Tutorials & help and Backup & about becoming one tab.
+         * Settings' fifteen tabs in list order (`SettingsGroupKey`, 2026-11-11): the ten groups
+         * before them were regrouped, Tutorials & help and Backup & about becoming one tab, and
+         * Preferences added for small choices like the watermark.
          */
         val SETTINGS_TABS =
             listOf(
@@ -754,6 +755,7 @@ class UiTourTest {
                 "Look",
                 "Performance",
                 EXPORT,
+                "Preferences",
                 HELP_ABOUT,
             )
         val RENDER_SCOPES = listOf("Play queue", "Playlist", "Chosen tracks")

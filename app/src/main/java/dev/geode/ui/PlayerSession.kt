@@ -7,10 +7,8 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
-import dev.geode.audio.AudioFxState
 import dev.geode.audio.MicCapture
 import dev.geode.data.AutoVisualsPrefsStore
-import dev.geode.data.BackgroundPrefs
 import dev.geode.data.BackgroundPrefsStore
 import dev.geode.data.BehaviourStore
 import dev.geode.data.DeviceTrackQuery
@@ -26,13 +24,11 @@ import dev.geode.data.LibraryState
 import dev.geode.data.Lyrics
 import dev.geode.data.LyricsLoader
 import dev.geode.data.MilkPackImporter
-import dev.geode.data.MilkTexture
 import dev.geode.data.MusicLibraryRepository
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsRepository
 import dev.geode.data.PlayerPrefsStore
 import dev.geode.data.Preset
-import dev.geode.data.PresetFolders
 import dev.geode.data.PresetRepository
 import dev.geode.data.PresetStore
 import dev.geode.data.SaveTarget
@@ -67,10 +63,8 @@ import dev.geode.playback.PlaybackErrors
 import dev.geode.playback.PlaybackQueue
 import dev.geode.playback.PlaybackService
 import dev.geode.render.AdsrConfig
-import dev.geode.render.LfoConfig
 import dev.geode.render.MilkPresetMemory
 import dev.geode.render.SceneFactory
-import dev.geode.render.UnderlayBlend
 import dev.geode.render.look.LookSource
 import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
@@ -83,7 +77,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
@@ -143,15 +136,9 @@ class PlayerSession internal constructor(
             },
         )
 
-    val micState: StateFlow<MicState> get() = captureController.micState
-
     val externalAudio: StateFlow<ExternalAudioState> get() = captureController.externalAudio
 
     fun setMicEnabled(enabled: Boolean): MicCapture.Failure? = captureController.setMicEnabled(enabled)
-
-    fun onAppBackground() = captureController.onBackground()
-
-    fun onAppForeground() = captureController.onForeground()
 
     fun stopExternalAudio() = captureController.stopExternalAudio()
 
@@ -235,22 +222,14 @@ class PlayerSession internal constructor(
     private val _vizState get() = vizStateStore.state
     val vizState: StateFlow<VizUiState> get() = vizStateStore.state
 
-    val exportState: StateFlow<ExportUiState> get() = exportController.exportState
-
     /** The music library: tracks, folders, playlists and tags. [LibraryViewModel] calls it directly. */
     internal val musicLibrary = MusicLibraryRepository(application, prefsFiles.library, scope)
 
     val library: StateFlow<LibraryState> get() = musicLibrary.library
 
-    val trackOverrides: StateFlow<Map<String, LibraryTrack>> get() = musicLibrary.trackOverrides
-
     val userDataLoaded: StateFlow<Boolean> get() = container.userData.loaded
 
     val guiPrefs: StateFlow<GuiPrefs> get() = settings.guiPrefs
-
-    val playerPrefs: StateFlow<PlayerPrefs> get() = settings.playerPrefs
-
-    val audioFx: StateFlow<AudioFxState> get() = settings.audioFxState
 
     fun setGuiPrefs(prefs: GuiPrefs) = settings.setGuiPrefs(prefs)
 
@@ -267,8 +246,6 @@ class PlayerSession internal constructor(
             },
         )
 
-    val textures: StateFlow<List<MilkTexture>> get() = textureController.textures
-
     internal val modulation: ModulationController =
         ModulationController(
             LfoStore(prefsFiles.general),
@@ -282,20 +259,9 @@ class PlayerSession internal constructor(
             },
         )
 
-    val lfos: StateFlow<List<LfoConfig>> get() = modulation.lfos
     val adsrs: StateFlow<List<AdsrConfig>> get() = modulation.adsrs
-    val reactions: StateFlow<List<dev.geode.render.ReactionRoute>?> get() = modulation.reactions
     val handMask: StateFlow<Int> get() = modulation.handMask
-    val lockedParams: StateFlow<Set<String>> get() = modulation.lockedParams
     val paramHistory: StateFlow<ParamHistoryState> get() = modulation.history
-
-    fun undoParams() = modulation.undo()
-
-    fun redoParams() = modulation.redo()
-
-    fun resetCustomizeCategory(category: CustomizeCategory) = modulation.resetCategory(category)
-
-    fun resetAllCustomize() = modulation.resetAll()
 
     fun importTextures(
         uris: List<Uri>,
@@ -307,7 +273,7 @@ class PlayerSession internal constructor(
         onReady: (String) -> Unit,
     ) = textureController.useTexture(name, onReady)
 
-    private val milkImport = MilkImportController(application, scope)
+    internal val milkImport = MilkImportController(application, scope)
 
     fun milkPresetFilesAsync(onDone: (List<MilkFile>) -> Unit) = milkImport.milkPresetFilesAsync(onDone)
 
@@ -315,8 +281,6 @@ class PlayerSession internal constructor(
         uri: Uri,
         onDone: (String?) -> Unit,
     ) = milkImport.importMilkPresetAsync(uri, onDone)
-
-    fun milkTextureLinksFor(path: String) = milkImport.textureLinksFor(path)
 
     fun assignMilkTextureAsync(
         path: String,
@@ -352,8 +316,6 @@ class PlayerSession internal constructor(
                 override fun mediaItemFor(track: QueueTrack) = queueController.mediaItemFor(track)
             },
         )
-
-    val historyTick: StateFlow<Int> get() = listening.historyTick
 
     val favourites: StateFlow<Set<String>> get() = listening.favourites
 
@@ -396,8 +358,6 @@ class PlayerSession internal constructor(
             takeName = { application.getString(dev.geode.R.string.take_default_name, it) },
         )
 
-    val takeState: StateFlow<TakeUiState> get() = takeController.state
-
     internal val trackColor: TrackColorController =
         TrackColorController(
             application,
@@ -409,8 +369,6 @@ class PlayerSession internal constructor(
                 override fun setSceneParams(params: SceneParams) = visual.setSceneParams(params)
             },
         )
-
-    val artPaletteNote: StateFlow<String?> get() = trackColor.artPaletteNote
 
     private val _lyrics = MutableStateFlow<Lyrics?>(null)
 
@@ -493,10 +451,6 @@ class PlayerSession internal constructor(
         sleepTimer.cancel()
     }
 
-    val vizApply: SharedFlow<VizApply> get() = visual.vizApply
-
-    val morphFade: SharedFlow<Float> get() = visual.morphFade
-
     internal val autoVisuals: AutoVisualsController =
         AutoVisualsController(
             autoVisualsPrefsStore,
@@ -526,18 +480,7 @@ class PlayerSession internal constructor(
             },
         )
 
-    fun onDirectorStyleMoment() = autoVisuals.onDirectorMoment()
-
     val deviceTracks: StateFlow<List<DeviceTrack>> get() = musicLibrary.deviceTracks
-
-    val mediaRoots: StateFlow<Set<String>> get() = musicLibrary.mediaRoots
-
-    val libraryScanning: StateFlow<Boolean> get() = musicLibrary.libraryScanning
-
-    /** False until the first device-track query has answered; see [MusicLibraryRepository.deviceTracksLoaded]. */
-    val deviceTracksLoaded: StateFlow<Boolean> get() = musicLibrary.deviceTracksLoaded
-
-    val minTrackSeconds: StateFlow<Int> get() = musicLibrary.minTrackSeconds
 
     fun playPlaylist(
         playlist: String,
@@ -588,8 +531,6 @@ class PlayerSession internal constructor(
     fun shuffleAllHistory() {
         playAll(listening.recentlyPlayed(100).map { QueueTrack(it.uri, it.title) }, shuffled = true)
     }
-
-    val presetFolders: StateFlow<PresetFolders> get() = presetLibrary.folders
 
     internal val queueController: QueueController =
         QueueController(
@@ -667,8 +608,6 @@ class PlayerSession internal constructor(
         target: SaveTarget,
         remember: Boolean,
     ) = takeController.chooseSaveTarget(target, remember)
-
-    fun skipTakeSave() = takeController.skipPendingSave()
 
     /**
      * The Pro style gate, set by [dev.geode.di.PlayerSessionProvider] from the entitlement use
@@ -753,10 +692,6 @@ class PlayerSession internal constructor(
         to: String,
     ): String? = presetLibrary.renamePreset(from, to)?.also { autoVisuals.renamePresetInPlaylist(from, it) }
 
-    val templates: StateFlow<List<VideoTemplate>> get() = templateLibrary.library
-
-    val templateStarters: List<VideoTemplate> get() = templateLibrary.starters
-
     fun saveCurrentAsTemplate(
         name: String,
         customShader: String?,
@@ -777,8 +712,6 @@ class PlayerSession internal constructor(
         uri: Uri,
         onResult: (TemplateImport) -> Unit,
     ) = templateLibrary.importTemplateFile(uri, onResult)
-
-    fun templateShareLink(template: VideoTemplate): String? = templateLibrary.shareLink(template)
 
     internal val exportController: ExportController =
         ExportController(
@@ -813,28 +746,10 @@ class PlayerSession internal constructor(
     internal val editor: EditorController = EditorController(EditorProjectStore(application), storeScope).also { it.refresh() }
 
     // W02: the background image behind the scene - see BackgroundController for why it takes no Host.
-    private val backgroundController: BackgroundController =
+    internal val backgroundController: BackgroundController =
         BackgroundController(application, storeScope, BackgroundPrefsStore(prefsFiles.background)).also { it.start() }
 
-    val backgroundPrefs: StateFlow<BackgroundPrefs> get() = backgroundController.prefs
     val backgroundPush: StateFlow<BackgroundPushState> get() = backgroundController.push
-
-    fun pickBackgroundImage(uri: Uri) = backgroundController.pick(uri)
-
-    fun clearBackgroundImage() = backgroundController.clear()
-
-    fun setBackgroundBlend(blend: UnderlayBlend) = backgroundController.setBlend(blend)
-
-    fun setBackgroundAmount(amount: Float) = backgroundController.setAmount(amount)
-
-    fun setBackgroundBlurRadius(radius: Int) = backgroundController.setBlurRadius(radius)
-
-    fun setBackgroundDim(dim: Float) = backgroundController.setDim(dim)
-
-    fun setBackgroundRenderSize(
-        width: Int,
-        height: Int,
-    ) = backgroundController.setRenderSize(width, height)
 
     fun trackDurationMs(): Long = player.duration.coerceAtLeast(0L)
 
@@ -859,8 +774,6 @@ class PlayerSession internal constructor(
         uri: String,
         onResult: (Boolean) -> Unit,
     ) = exportController.deleteStudioClip(uri, onResult)
-
-    val loopState: StateFlow<LoopUiState> get() = exportController.loopState
 
     /**
      * Tears the session down. Called only by [dev.geode.di.PlayerSessionProvider], on behalf of the

@@ -31,9 +31,9 @@ class StudioViewModel
         /** The project folders (takes and kept renders), for My videos and the Render bar. */
         val editor: StateFlow<EditorUiState> get() = session.editor.state
 
-        val exportState: StateFlow<ExportUiState> get() = session.exportState
+        val exportState: StateFlow<ExportUiState> get() = session.exportController.exportState
 
-        val takeState: StateFlow<TakeUiState> get() = session.takeState
+        val takeState: StateFlow<TakeUiState> get() = session.takeController.state
 
         fun startRecording() = session.takeController.startRecording()
 
@@ -46,7 +46,7 @@ class StudioViewModel
         ) = session.chooseTakeSaveTarget(target, remember)
 
         /** The save sheet was dismissed: the take stays in My videos, unrendered. */
-        fun skipTakeSave() = session.skipTakeSave()
+        fun skipTakeSave() = session.takeController.skipPendingSave()
 
         fun playTake(name: String) = session.takeController.playTake(name)
 
@@ -65,7 +65,7 @@ class StudioViewModel
 
         fun resetExportState() = session.exportController.resetExportState()
 
-        val loopState: StateFlow<LoopUiState> get() = session.loopState
+        val loopState: StateFlow<LoopUiState> get() = session.exportController.loopState
 
         fun cancelLoopRender() = session.exportController.cancelLoopRender()
 
@@ -128,7 +128,8 @@ class StudioViewModel
             keepJob =
                 viewModelScope.launch {
                     // The render about to start resets the state first; wait for it to run, then end.
-                    val ended = session.exportState.dropWhile { !it.phase.isBusy }.first { !it.phase.isBusy }
+                    val exportState = session.exportController.exportState
+                    val ended = exportState.dropWhile { !it.phase.isBusy }.first { !it.phase.isBusy }
                     val done = ended.phase as? ExportPhase.Done ?: return@launch
                     val render = ProjectRender(done.resultUri.toString(), track.title, System.currentTimeMillis(), track.durationMs)
                     session.editor.createWithLook(track, sceneId, milkPath, render)

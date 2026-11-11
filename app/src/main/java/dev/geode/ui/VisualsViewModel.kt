@@ -88,40 +88,40 @@ class VisualsViewModel
         /** What Liquid mode is doing now (0 off, 1 full, 2 lite, 3 warp, 4 paused); see [VisualizerRepository.liquidMode]. */
         val liquidMode: StateFlow<Int> get() = visualizer.liquidMode
 
-        val textures: StateFlow<List<MilkTexture>> get() = session.textures
+        val textures: StateFlow<List<MilkTexture>> get() = session.textureController.textures
 
-        val lfos: StateFlow<List<LfoConfig>> get() = session.lfos
+        val lfos: StateFlow<List<LfoConfig>> get() = session.modulation.lfos
 
         val adsrs: StateFlow<List<AdsrConfig>> get() = session.adsrs
 
-        val reactions: StateFlow<List<dev.geode.render.ReactionRoute>?> get() = session.reactions
+        val reactions: StateFlow<List<dev.geode.render.ReactionRoute>?> get() = session.modulation.reactions
 
         val handMask: StateFlow<Int> get() = session.handMask
 
-        val lockedParams: StateFlow<Set<String>> get() = session.lockedParams
+        val lockedParams: StateFlow<Set<String>> get() = session.modulation.lockedParams
 
-        val presetFolders: StateFlow<PresetFolders> get() = session.presetFolders
+        val presetFolders: StateFlow<PresetFolders> get() = session.presetLibrary.folders
 
-        val backgroundPrefs: StateFlow<BackgroundPrefs> get() = session.backgroundPrefs
+        val backgroundPrefs: StateFlow<BackgroundPrefs> get() = session.backgroundController.prefs
 
         val backgroundPush: StateFlow<BackgroundPushState> get() = session.backgroundPush
 
-        fun pickBackgroundImage(uri: Uri) = session.pickBackgroundImage(uri)
+        fun pickBackgroundImage(uri: Uri) = session.backgroundController.pick(uri)
 
-        fun clearBackgroundImage() = session.clearBackgroundImage()
+        fun clearBackgroundImage() = session.backgroundController.clear()
 
-        fun setBackgroundBlend(blend: UnderlayBlend) = session.setBackgroundBlend(blend)
+        fun setBackgroundBlend(blend: UnderlayBlend) = session.backgroundController.setBlend(blend)
 
-        fun setBackgroundAmount(amount: Float) = session.setBackgroundAmount(amount)
+        fun setBackgroundAmount(amount: Float) = session.backgroundController.setAmount(amount)
 
-        fun setBackgroundBlurRadius(radius: Int) = session.setBackgroundBlurRadius(radius)
+        fun setBackgroundBlurRadius(radius: Int) = session.backgroundController.setBlurRadius(radius)
 
-        fun setBackgroundDim(dim: Float) = session.setBackgroundDim(dim)
+        fun setBackgroundDim(dim: Float) = session.backgroundController.setDim(dim)
 
         fun setBackgroundRenderSize(
             width: Int,
             height: Int,
-        ) = session.setBackgroundRenderSize(width, height)
+        ) = session.backgroundController.setRenderSize(width, height)
 
         fun toggleParamLock(label: String) = session.modulation.toggleParamLock(label)
 
@@ -137,13 +137,13 @@ class VisualsViewModel
         /** The one write path for a Customize edit, so the panel's undo covers every control. */
         fun editSceneParams(params: SceneParams) = session.modulation.editSceneParams(params)
 
-        fun undoParams() = session.undoParams()
+        fun undoParams() = session.modulation.undo()
 
-        fun redoParams() = session.redoParams()
+        fun redoParams() = session.modulation.redo()
 
-        fun resetCustomizeCategory(category: CustomizeCategory) = session.resetCustomizeCategory(category)
+        fun resetCustomizeCategory(category: CustomizeCategory) = session.modulation.resetCategory(category)
 
-        fun resetAllCustomize() = session.resetAllCustomize()
+        fun resetAllCustomize() = session.modulation.resetAll()
 
         fun setAdsr(
             index: Int,
@@ -227,9 +227,9 @@ class VisualsViewModel
 
         fun noteMilkPreset(path: String) = session.vizStateStore.noteMilkPreset(path)
 
-        val templates: StateFlow<List<VideoTemplate>> get() = session.templates
+        val templates: StateFlow<List<VideoTemplate>> get() = session.templateLibrary.library
 
-        val templateStarters: List<VideoTemplate> get() = session.templateStarters
+        val templateStarters: List<VideoTemplate> get() = session.templateLibrary.starters
 
         fun applyTemplate(template: VideoTemplate) = session.templateLibrary.applyTemplate(template)
 
@@ -256,7 +256,7 @@ class VisualsViewModel
             onResult: (TemplateImport) -> Unit,
         ) = session.importTemplateFile(uri, onResult)
 
-        fun templateShareLink(template: VideoTemplate): String? = session.templateShareLink(template)
+        fun templateShareLink(template: VideoTemplate): String? = session.templateLibrary.shareLink(template)
 
         /**
          * Reads a shared link without importing it, for the confirm dialog. Null when [data]
@@ -271,7 +271,7 @@ class VisualsViewModel
             val link = TemplateFormat.linkIn(data) ?: return null
             val template = (TemplateFormat.decode(link) as? TemplateParse.Parsed)?.template ?: return null
             val replaces =
-                session.templates.value
+                session.templateLibrary.library.value
                     .firstOrNull { it.id == template.id }
                     ?.name
             return SharedLinkOffer.Template(data, template.name.trim(), replaces)

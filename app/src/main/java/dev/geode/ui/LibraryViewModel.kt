@@ -96,10 +96,10 @@ internal class LibraryInputs(
         fun of(session: PlayerSession) =
             LibraryInputs(
                 deviceTracks = session.deviceTracks,
-                deviceTracksLoaded = session.deviceTracksLoaded,
+                deviceTracksLoaded = session.musicLibrary.deviceTracksLoaded,
                 library = session.library,
-                overrides = session.trackOverrides,
-                scanning = session.libraryScanning,
+                overrides = session.musicLibrary.trackOverrides,
+                scanning = session.musicLibrary.libraryScanning,
             )
     }
 }

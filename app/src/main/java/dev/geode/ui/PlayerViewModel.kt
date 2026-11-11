@@ -63,15 +63,15 @@ class PlayerViewModel
 
         val activeMilkPath: StateFlow<String?> get() = visualizer.activeMilkPath
 
-        val micState: StateFlow<MicState> get() = session.micState
+        val micState: StateFlow<MicState> get() = session.captureController.micState
 
         val externalAudio: StateFlow<ExternalAudioState> get() = session.externalAudio
 
-        val historyTick: StateFlow<Int> get() = session.historyTick
+        val historyTick: StateFlow<Int> get() = session.listening.historyTick
 
         val favourites: StateFlow<Set<String>> get() = session.favourites
 
-        val artPaletteNote: StateFlow<String?> get() = session.artPaletteNote
+        val artPaletteNote: StateFlow<String?> get() = session.trackColor.artPaletteNote
 
         val lyrics: StateFlow<Lyrics?> get() = session.lyrics
 
@@ -79,15 +79,15 @@ class PlayerViewModel
 
         val sleepTimerRemainingMs: StateFlow<Long?> get() = session.sleepTimerRemainingMs
 
-        val vizApply: SharedFlow<VizApply> get() = session.vizApply
+        val vizApply: SharedFlow<VizApply> get() = session.visual.vizApply
 
-        val morphFade: SharedFlow<Float> get() = session.morphFade
+        val morphFade: SharedFlow<Float> get() = session.visual.morphFade
 
         fun setMicEnabled(enabled: Boolean): MicCapture.Failure? = session.setMicEnabled(enabled)
 
-        fun onAppBackground() = session.onAppBackground()
+        fun onAppBackground() = session.captureController.onBackground()
 
-        fun onAppForeground() = session.onAppForeground()
+        fun onAppForeground() = session.captureController.onForeground()
 
         fun hasMicPermission(): Boolean = session.captureController.hasMicPermission()
 
@@ -108,7 +108,7 @@ class PlayerViewModel
             onDone: (String?) -> Unit,
         ) = session.importMilkPresetAsync(uri, onDone)
 
-        fun milkTextureLinksFor(path: String) = session.milkTextureLinksFor(path)
+        fun milkTextureLinksFor(path: String) = session.milkImport.textureLinksFor(path)
 
         fun assignMilkTextureAsync(
             path: String,
@@ -146,7 +146,7 @@ class PlayerViewModel
 
         fun setRandomIncludeMilk(enabled: Boolean) = session.autoVisuals.setRandomIncludeMilk(enabled)
 
-        fun onDirectorStyleMoment() = session.onDirectorStyleMoment()
+        fun onDirectorStyleMoment() = session.autoVisuals.onDirectorMoment()
 
         fun stepVizPlaylist(step: Int = 1): Boolean = session.autoVisuals.stepVizPlaylist(step)
 

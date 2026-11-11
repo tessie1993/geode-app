@@ -112,12 +112,20 @@ object MacroEditorTable {
                     }
                 "bank" -> if (f.size == BANK_FIELDS) state = state.copy(canAdd = f[1] == ON, isDefault = f[2] == ON)
                 "knob" -> knobOf(f)?.let(knobs::add)
-                "link" -> linkOf(f)?.let { link -> knobs.lastOrNull()?.let { knobs[knobs.lastIndex] = it.copy(links = it.links + link) } }
+                "link" -> attach(knobs, linkOf(f))
                 "target" -> if (f.size == TARGET_FIELDS) targets += MacroTarget(f[1], f[2] == ON)
                 "curve" -> if (f.size == CURVE_FIELDS) curves += f[1]
             }
         }
         return state.copy(knobs = knobs, targets = targets, curves = curves)
+    }
+
+    private fun attach(
+        knobs: MutableList<MacroEditorKnob>,
+        link: MacroLink?,
+    ) {
+        val knob = knobs.lastOrNull() ?: return
+        if (link != null) knobs[knobs.lastIndex] = knob.copy(links = knob.links + link)
     }
 
     private fun knobOf(f: List<String>): MacroEditorKnob? {

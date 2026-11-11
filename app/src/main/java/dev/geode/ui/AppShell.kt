@@ -488,6 +488,12 @@ fun AppRoot() {
             LaunchedEffect(gui.autoEnterPip, state.isPlaying, visualShowing) {
                 context.findMainActivity()?.refreshPipParams()
             }
+            // The aspect ratio and the source rect hint follow the canvas: after first layout, a
+            // rotation or a window resize (a snapshotFlow, so a bounds change never recomposes AppRoot).
+            LaunchedEffect(Unit) {
+                snapshotFlow { VisualizerPipCoordinator.canvasBoundsPx }
+                    .collect { context.findMainActivity()?.refreshPipParams() }
+            }
             if ((bootAnimEnabled == false || appState.bootDone) && !gui.safetyAcknowledged) {
                 SafetyConsent(
                     onAcknowledge = { settingsViewModel.setGuiPrefs(gui.copy(safetyAcknowledged = true)) },

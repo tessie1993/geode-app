@@ -160,7 +160,6 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     }
     signal::StyleContext style;
     style.id = activeScene_ ? &activeScene_->id() : nullptr;
-    style.shaderFamily = !activeScene_ || activeScene_->family() == SceneFamily::Shader;
     style.spin = sceneSpin_.load(std::memory_order_relaxed);
     style.switched = styleSwitchPending_;
     styleSwitchPending_ = false;
@@ -345,7 +344,6 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.underlayTex = compositePass_.underlayTexOrZero();
     in.underlayBlend = compositePass_.underlayBlendMode();
     in.underlayAmount = compositePass_.underlayAmount();
-    in.noteTint = resolver_.noteUniforms().tint;
     compositePass_.draw(in);
 }
 

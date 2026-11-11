@@ -46,8 +46,9 @@ GEODE_API int         geode_viz_take_director_style_moments(geode_viz*);
 /* The reaction source catalogue, one line per source in wire order: "NAME|Label|GROUP|event(0/1)\n".
  * Writes at most capacity bytes (NUL-terminated when it fits) and returns the length it needs. */
 GEODE_API int         geode_react_source_catalog(char* out, int capacity);
-/* The auto-director (core/viz/Director): the music's feeling deciding palette, behaviour and routing over
- * every style. on is the user's switch as set (1/0), which an export directs by (geode_viz_pin_engine_settings);
+/* The auto-director (core/viz/Director): the music's feeling deciding behaviour (its axes, camera moves,
+ * motion dials) over every style; never a colour, never a route. on is the user's switch as set (1/0), which
+ * an export directs by (geode_viz_pin_engine_settings);
  * amount 0 off .. 1 full is what live surfaces drive with now, eased in and out by each renderer; seed is the
  * play's, so a new seed is a new play (the renderer forgets the song so far) and an export pinned with it
  * makes the same film. */
@@ -59,8 +60,8 @@ GEODE_API void        geode_director_reach_set(int level);
 /* Customize's keep set, which the reach never moves: one control key or "#CATEGORY" per line (the lock set
  * geode_params_randomize takes). Null or "" keeps nothing. */
 GEODE_API void        geode_director_keep_set(const char* keys);
-/* Note & key reactions (core/viz/NoteResponse): notes, chords, key and mood driving the style knobs, note
- * colours, the tint and a gentle shape and distortion on every style. Process-wide like the director; each
+/* Note & key reactions (core/viz/NoteResponse): notes, chords, key and mood driving the six style knobs each
+ * style spends its own way; no scene param and no colour. Process-wide like the director; each
  * renderer eases it in and out, and off (0) is exactly the picture without it. The seed is the director's. */
 GEODE_API void        geode_note_response_set(int enabled);
 /* Customize › Advanced › Layers (core/viz/LayerState): a second style over the main one, process-wide like

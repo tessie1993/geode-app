@@ -290,8 +290,8 @@ object GeodeNative {
     ): String
 
     /**
-     * The auto-director (core/viz/Director): the music's feeling decides palette, behaviour and routing over
-     * every style. [on] is the user's switch as set, which an export directs by ([vizPinEngineSettings]);
+     * The auto-director (core/viz/Director): the music's feeling decides behaviour (axes, camera, motion)
+     * over every style; never a colour, never a route. [on] is the user's switch as set, which an export directs by ([vizPinEngineSettings]);
      * [amount] 0 off .. 1 full is what live surfaces drive with now; [seed] is the play's, so a new seed
      * starts the song afresh and an export pinned with it makes the same film.
      */
@@ -315,8 +315,8 @@ object GeodeNative {
     external fun directorKeepSet(keys: String)
 
     /**
-     * Note & key reactions (core/viz/NoteResponse): the notes, chords, key and mood drive the style knobs,
-     * the note colours, the tint toward them and a gentle shape and distortion. Process-wide like
+     * Note & key reactions (core/viz/NoteResponse): the notes, chords, key and mood drive the six style
+     * knobs each style spends its own way; no scene param, no colour. Process-wide like
      * the director, so the screen, an export, the wallpaper and the dream agree; off is exactly the picture
      * without it. The play's seed is the director's ([directorSet]). A live renderer mixes fresh entropy into it per play,
      * so the live note response differs every time; an export pins its settings with none

@@ -5,6 +5,7 @@
 #include <mutex>
 
 #include "audio/ingest/PcmRing.hpp"
+#include "audio/ingest/SnapshotStitch.hpp"
 
 struct geode_playout;
 
@@ -19,6 +20,9 @@ struct geode_pcm_ring {
     // the player). Set on the main thread, read once per frame on each render thread.
     mutable std::mutex layerLock{};
     std::shared_ptr<const geode::audio::ingest::PcmRing> layer{};
+    // geode_pcm_ring_set_snapshots: the writes are a capture's snapshots, stitched onto the capture clock.
+    // Writer thread only, like the writes.
+    std::unique_ptr<geode::audio::ingest::SnapshotStitch> snapshots{};
 
     std::shared_ptr<const geode::audio::ingest::PcmRing> layerRing() const {
         std::lock_guard<std::mutex> lock(layerLock);

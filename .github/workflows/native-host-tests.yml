@@ -97,7 +97,8 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/pcm_handoff_test.cpp -o pcm_handoff_test
           ./pcm_handoff_test
           # The PCM ingest ring: random chunk sizes and a mid-stream rate change, every sample once, in order, with its rate; the C ABI.
-          INGEST_SRCS="core/audio/ingest/PcmRing.cpp core/audio/ingest/AiffReader.cpp core/audio/ingest/TrackFeed.cpp core/api/geode_ingest_api.cpp"
+          INGEST_SRCS="core/audio/ingest/PcmRing.cpp core/audio/ingest/AiffReader.cpp core/audio/ingest/TrackFeed.cpp \
+            core/audio/ingest/SnapshotStitch.cpp core/api/geode_ingest_api.cpp"
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/pcm_ring_test.cpp $INGEST_SRCS -o pcm_ring_test
           ./pcm_ring_test
           # An export's track audio (TrackFeed) and the AIFF reader, pinned to the Kotlin TrackAudio and AiffPcm: every
@@ -110,6 +111,11 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/layer_mix_test.cpp \
             core/audio/ingest/LayerMix.cpp $INGEST_SRCS -o layer_mix_test
           ./layer_mix_test
+          # The output mix's snapshots (#999 F10): the ring gains the capture clock's time with no seam, the level holds, and
+          # click tracks heard through 20 snapshots a second read their own tempo (butted together they read 2.3x fast).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/snapshot_stitch_test.cpp \
+            $INGEST_SRCS core/sound/*.cpp -o snapshot_stitch_test
+          ./snapshot_stitch_test
           # The playback output's FIFO (Oboe's feed): odd chunk sizes lose and repeat nothing, an underrun is silence and
           # counted once, the position is monotonic, frozen in pause, reset by a flush and exact at 44.1/48/96 kHz, the
           # volume ramps without a step, a flush under a running consumer plays no torn frame, two threads keep a pattern.

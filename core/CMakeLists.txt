@@ -28,6 +28,7 @@ add_library(geode_core STATIC
     audio/ingest/PcmRing.cpp
     audio/ingest/TrackFeed.cpp
     audio/ingest/LayerMix.cpp
+    audio/ingest/SnapshotStitch.cpp
     audio/output/OutputFifo.cpp
     audio/output/OboeOutput.cpp
     audio/dsp/DspProcessor.cpp

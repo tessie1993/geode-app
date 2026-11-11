@@ -974,6 +974,12 @@ GEODE_API int               geode_pcm_ring_write_s16(geode_pcm_ring*, const int1
                                                      int sample_rate, float* peak_out);
 GEODE_API int               geode_pcm_ring_write_bytes(geode_pcm_ring*, const void* data, size_t bytes, int encoding,
                                                        int channels, int sample_rate, float* peak_out);
+/* on != 0: the ring's writes are a capture's snapshots, not a stream (the wallpaper's output mix: the
+ * newest ~1024 samples ~20 times a second). Each write then adds the real time since the last one, on the
+ * monotonic clock, filled from that snapshot alone (audio/ingest/SnapshotStitch), so the readers' sample
+ * clock is real time and no two snapshots are joined at a seam. on = 0 writes blocks as they are again.
+ * Writer thread only, before the writes it applies to. Returns 0 only when it could not allocate. */
+GEODE_API int               geode_pcm_ring_set_snapshots(geode_pcm_ring*, int on);
 /* A second source layered over `ring` (the mic over the player's tap; audio/ingest/LayerMix): every renderer
  * fed `ring` hears the two mixed while `ring` gains frames, and `layer` alone once it has not for 0.3 s.
  * `layer` keeps its own writer and rate; begin an epoch on it when its source starts and when it stops.

@@ -1811,6 +1811,16 @@ object GeodeNative {
         layer: Long,
     )
 
+    /**
+     * Marks the ring's writes as a capture's snapshots (the output mix's Visualizer), not a stream: each
+     * write is then stitched natively onto the capture clock. Writer thread, before its first write. False
+     * only when it could not allocate.
+     */
+    external fun pcmRingSetSnapshots(
+        handle: Long,
+        on: Boolean,
+    ): Boolean
+
     /** A new stream: every reader restarts at its next take. Any thread. */
     external fun pcmRingBeginEpoch(handle: Long)
 

@@ -69,7 +69,7 @@ public:
         float pitch = 0.0f;
     };
 
-    // How hard the music moves below play, from Customize › Macros (viz/Macros); 1 everywhere is as styled.
+    // How hard the music moves below play, from the auto-director (Director::moves); 1 everywhere is as styled.
     struct Moves {
         float orbit = 1.0f;    // the mid-clock Lissajous look and the roll sway
         float lean = 1.0f;     // stereo pan, melody height and the note look

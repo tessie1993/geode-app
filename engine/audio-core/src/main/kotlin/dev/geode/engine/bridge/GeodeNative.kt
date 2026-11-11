@@ -273,8 +273,22 @@ object GeodeNative {
     /** The reaction source catalogue (core/viz/Reactions.cpp), see `dev.geode.render.ReactSourceCatalog`. */
     external fun reactSourceCatalog(): String
 
-    /** Customize › Macros (core/viz/Macros): the six knobs, -1..1, for every renderer in the process. */
-    external fun macrosSet(knobs: FloatArray)
+    /**
+     * The macro bank (core/viz/MacroBank), as the text the store keeps: [macroBankSet] makes it the one
+     * every renderer in the process adds to its params; the others return a new bank text and decide
+     * everything (unreadable text is the default bank, a refused edit the bank unchanged).
+     */
+    external fun macroBankSet(bank: String)
+
+    external fun macroBankDefault(): String
+
+    external fun macroBankNormalize(bank: String): String
+
+    external fun macroBankSetValue(
+        bank: String,
+        knobId: Int,
+        value: Float,
+    ): String
 
     /**
      * The auto-director (core/viz/Director): the music's feeling decides palette, behaviour and routing over
@@ -289,6 +303,19 @@ object GeodeNative {
     )
 
     /**
+     * How far the director reaches past its look (core/viz/DirectorReach): 0 the look alone, 1 it also
+     * shuffles Customize categories at a new section or a drop, 2 it also runs slow modulators of its own.
+     * Process-wide like [directorSet] and pinned with it by an export; nothing happens while Auto is off.
+     */
+    external fun directorReachSet(level: Int)
+
+    /**
+     * Customize's keep set, which the director's reach never moves: one control key or `#CATEGORY` per
+     * line, the lock set [paramsRandomize] takes.
+     */
+    external fun directorKeepSet(keys: String)
+
+    /**
      * Note & key reactions (core/viz/NoteResponse): the notes, chords, key and mood drive the style knobs,
      * the note colours, the tint toward them and a gentle shape and distortion. Process-wide like
      * the director, so the screen, an export, the wallpaper and the dream agree; off is exactly the picture
@@ -298,16 +325,6 @@ object GeodeNative {
      * the screen drew.
      */
     external fun noteResponseSet(enabled: Boolean)
-
-    /** Surprise: unlocked knobs (bit i of [lockMask] locks knob i) to new spots, seeded. */
-    external fun macrosSurprise(
-        knobs: FloatArray,
-        lockMask: Int,
-        seed: Long,
-    ): FloatArray
-
-    /** The built-in macro presets, "Name|e,s,c,m,sp,ch" lines. */
-    external fun macroStarters(): String
 
     /** Process-wide (core/viz/ShaderOverrides): every renderer draws it; "" clears it. */
     external fun shaderOverrideSet(
@@ -502,7 +519,7 @@ object GeodeNative {
 
     /**
      * Pins an export renderer's engine settings once (geode_viz_pin_engine_settings, #350): from then on it
-     * ignores [macrosSet], [noteResponseSet], [handSet] and [directorSet], so live edits never reach a render
+     * ignores [macroBankSet], [noteResponseSet], [handSet] and [directorSet], so live edits never reach a render
      * in progress. The director is decided natively from the user's switch, [entitled] and [durationMs].
      * Returns the pinned hand mask, for the export's route merge.
      */

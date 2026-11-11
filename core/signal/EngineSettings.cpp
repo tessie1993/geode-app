@@ -9,8 +9,10 @@ namespace geode::signal {
 
 EngineSettings globalSettings() {
     EngineSettings s;
-    s.knobs = viz::macros::global();
+    s.bank = viz::macrobank::global();
     s.director = viz::director::global();
+    s.reach = viz::director::reach();
+    s.kept = viz::director::kept();
     s.notesOn = viz::note_response::globalEnabled();
     s.handMask = viz::hand::global();
     return s;

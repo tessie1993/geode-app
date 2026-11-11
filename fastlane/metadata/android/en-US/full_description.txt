@@ -1,0 +1,37 @@
+BeatRealms 3D is a music player whose visuals move with the music you play, and a studio that turns those visuals into video. It works offline, with no account, no ads and no tracking.
+
+PLAY YOUR MUSIC
+• Plays the music on your phone: tracks, albums, artists, folders and playlists, with search.
+• Queue, shuffle, repeat, sleep timer, ReplayGain, an equalizer and fades between tracks.
+• Lyrics from an .lrc file or the track's tags.
+• Android Auto, a home screen widget and a Quick Settings tile.
+• The visuals can also follow the microphone or the sound of another app, if you turn that on.
+
+WATCH IT
+• 244 visual styles: 3D scenes you fly through, fractals, nebulae, terrain, glass, fluid and particle simulations, and MilkDrop presets (bring your own .milk files).
+• The visuals listen to the sound itself: loudness, bass, mids and treble, drum hits, notes, chords and key, and the build-ups and drops of a song.
+• Auto mode picks colours, camera moves and new looks as the song moves from one part to the next.
+• Customize in nine groups, from quick knobs to camera, motion, effects and a liquid mode you can push around with your fingers.
+• More than 700 bundled looks, and you can save, organise and share your own.
+
+MAKE A VIDEO
+• Render the visual over a song to an MP4 file on your phone.
+• 720p, 1080p or 4K; 24 to 60 frames per second; H.264 or HEVC.
+• Widescreen, vertical, square and other shapes, with ready-made settings for short vertical video and for widescreen.
+• Loop renders, renders of a whole queue or playlist, and recorded takes of your own performance (Pro).
+
+EVERYWHERE ELSE (Pro)
+• Live wallpaper and screen saver that react to what is playing.
+• Cast the visual and the music to a TV with Google Cast.
+
+FREE AND PRO
+Free, with no ads: the music player, more than 60 styles (including one from each of the ten style families), the basic controls of every Customize group, and video export up to 1080p at 30 frames per second, one minute long, with a watermark across the picture. Auto mode directs the first minute of each song.
+Pro is a single purchase, not a subscription: every style, every control, 4K and 60 frames per second, full-length video without the watermark, loop and batch renders, recorded takes, the live wallpaper, the screen saver, Cast to TV, and Auto mode for the whole song. You can try Pro for one hour before buying.
+
+PRIVACY
+No account, no ads, no analytics. Your music, your listening history and your settings stay on your phone. The app uses the internet for one thing only, Cast to TV, and only on your own Wi-Fi.
+
+PHOTOSENSITIVITY WARNING
+The visuals are bright, fast and full-screen, and they can flash. A small number of people can have a seizure when they see flashing lights or patterns, even with no history of epilepsy. The app holds back how hard and how fast its effects flash and follows Android's "Remove animations" setting, but it cannot make the visuals safe for everyone. If you or anyone watching is sensitive to flashing light, do not use the visuals, and stop at once if you feel unwell.
+
+Requires Android 13 or newer.

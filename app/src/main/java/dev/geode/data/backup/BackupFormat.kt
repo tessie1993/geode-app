@@ -43,7 +43,7 @@ internal fun fail(
  * The modulation slots live in the `geode-mod` prefs file and favourites in `geode-favourites`,
  * so those files ride with the section the user thinks of them in rather than with Settings.
  *
- * The macros, LFOs, envelopes and reaction routes are the exception: they are creative work, but
+ * The macro bank, LFOs, envelopes and reaction routes are the exception: they are creative work, but
  * their stores ([MacroStore], [LfoStore]) write into `geode-prefs`, beside the settings, and the
  * wallpaper and the dream read them from there. Moving them to another file would mean moving
  * every reader too, so [borrowedKeys] lets Creative own just those keys of Settings' file instead.
@@ -132,6 +132,9 @@ object BackupFormat {
      * - Settings › Performance ([PerformanceStore.KEYS]): picked for this phone's RAM and
      *   performance class at first launch. A backup from a fast phone restored onto a slow one
      *   would run it hot; the new phone keeps its own pick.
+     * - The old six macro knobs, their locks and saved sets ([MacroStore.RETIRED_KEYS]): dropped
+     *   with no migration when the knobs became the macro bank, so an older backup's copies are
+     *   skipped rather than written back.
      *
      * There is no crash or permission state in prefs: the crash report is `crash-latest.txt`,
      * which is never in a backup, and runtime permissions are the system's.
@@ -146,7 +149,7 @@ object BackupFormat {
                     "gui_tutorial_done",
                     "gui_tutorial_resume",
                     "preset_mirror_uri",
-                ) + PerformanceStore.KEYS,
+                ) + PerformanceStore.KEYS + MacroStore.RETIRED_KEYS,
             GeodePrefsFiles.LIBRARY to setOf("roots"),
             GeodePrefsFiles.BACKGROUND to setOf("background_uri"),
         )

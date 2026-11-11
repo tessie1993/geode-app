@@ -285,46 +285,63 @@ private fun OptionsHeader(
             )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            val tabScroll = rememberScrollState()
-            PrimaryScrollableTabRow(
-                selectedTabIndex = nav.selectedTab,
-                modifier = Modifier.weight(1f).edgeFade(tabScroll, horizontal = true),
-                scrollState = tabScroll,
-                // Tabs as wide as their labels with no edge padding, so all four fit beside × on a
-                // phone instead of reading "tyles" or "MilkDr" at the scroll window's ends. Where
-                // they still overflow (a large font, the narrow side panel), the cut ends fade.
-                edgePadding = 0.dp,
-                minTabWidth = 0.dp,
-                containerColor = Color.Transparent,
-                contentColor = MaterialTheme.colorScheme.primary,
-                // Plain glass: no hairline under the tabs, the indicator alone marks the page.
-                divider = {},
-            ) {
-                VisualsTabs.forEachIndexed { i, page ->
-                    val selected = i == nav.selectedTab
-                    Tab(
-                        selected = selected,
-                        onClick = {
-                            view.performStoneHaptic(StoneHapticCue.TAP)
-                            nav.openTab(page)
-                        },
-                        selectedContentColor = MaterialTheme.colorScheme.primary,
-                        unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    ) {
-                        // The content overload: Material's text one pads 16 dp a side, more than four
-                        // labels and × have room for on a 400 dp phone.
-                        Box(Modifier.height(TAB_HEIGHT).padding(horizontal = TAB_TEXT_PADDING), contentAlignment = Alignment.Center) {
-                            Text(stringResource(page.titleRes), style = MaterialTheme.typography.titleSmall, maxLines = 1)
-                        }
-                    }
-                }
-            }
+            VisualsTabRow(
+                selectedTab = nav.selectedTab,
+                onSelect = { page ->
+                    view.performStoneHaptic(StoneHapticCue.TAP)
+                    nav.openTab(page)
+                },
+                modifier = Modifier.weight(1f),
+            )
             IconButton(onClick = {
                 view.performStoneHaptic(StoneHapticCue.TAP)
                 GestureTips.nudge(GestureTip.DOUBLE_TAP_SHEET)
                 onSettle(SheetHeight.HIDDEN)
             }) {
                 StoneIconArt(StoneIcon.CLOSE, close)
+            }
+        }
+    }
+}
+
+/**
+ * The page tabs. Scrollable so a large font still reaches every page, but the side panel is kept
+ * at least [PANEL_MIN] wide so the four labels fit beside × at the default font scale (#865);
+ * where they still overflow, the cut ends fade.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun VisualsTabRow(
+    selectedTab: Int,
+    onSelect: (VisualsPage) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val tabScroll = rememberScrollState()
+    PrimaryScrollableTabRow(
+        selectedTabIndex = selectedTab,
+        modifier = modifier.edgeFade(tabScroll, horizontal = true),
+        scrollState = tabScroll,
+        // Tabs as wide as their labels with no edge padding, so all four fit beside × on a
+        // phone instead of reading "tyles" or "MilkDr" at the scroll window's ends.
+        edgePadding = 0.dp,
+        minTabWidth = 0.dp,
+        containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.primary,
+        // Plain glass: no hairline under the tabs, the indicator alone marks the page.
+        divider = {},
+    ) {
+        VisualsTabs.forEachIndexed { i, page ->
+            Tab(
+                selected = i == selectedTab,
+                onClick = { onSelect(page) },
+                selectedContentColor = MaterialTheme.colorScheme.primary,
+                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ) {
+                // The content overload: Material's text one pads 16 dp a side, more than four
+                // labels and × have room for on a 400 dp phone.
+                Box(Modifier.height(TAB_HEIGHT).padding(horizontal = TAB_TEXT_PADDING), contentAlignment = Alignment.Center) {
+                    Text(stringResource(page.titleRes), style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                }
             }
         }
     }
@@ -497,7 +514,7 @@ internal fun panelRange(
 internal val SHEET_PEEK = 72.dp
 
 internal const val PANEL_DEFAULT_FRACTION = 0.4f
-internal val PANEL_MIN = 280.dp
+internal val PANEL_MIN = 360.dp
 internal val PANEL_MAX = 480.dp
 
 private const val PANEL_MIN_FRACTION = 0.3f

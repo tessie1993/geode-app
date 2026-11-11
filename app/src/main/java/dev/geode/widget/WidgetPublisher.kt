@@ -14,8 +14,8 @@ import dev.geode.geodeContainer
 import dev.geode.playback.MediaArtwork
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -153,8 +153,7 @@ class WidgetPublisher(
                 while (isActive) {
                     delay(TICK_MS)
                     if (!player.isPlaying) break
-                    if (unseen()) continue
-                    refreshProgress(advanceTick = true)
+                    if (!unseen()) refreshProgress(advanceTick = true)
                 }
             }
         if (!screenOnRegistered) {

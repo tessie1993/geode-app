@@ -44,11 +44,17 @@ object ArtworkCache {
     /** At most two cover decodes at once, so a fling can't open a retriever per visible row. */
     private val decodeDispatcher = Dispatchers.IO.limitedParallelism(2)
 
-    // An eighth of the app's heap, as the Android bitmap-cache guide suggests, counted in bytes.
+    // An eighth of the app's heap, as the Android bitmap-cache guide suggests, but never past the
+    // 24 MB the count cache used to reach (#854): the visual needs the rest. Counted in bytes.
+    private const val MAX_CACHE_BYTES = 24L * 1024 * 1024
+
     private val cache =
-        ByteBudgetCache<String, ImageBitmap>(Runtime.getRuntime().maxMemory() / 8, MAX_MISSES) {
+        ByteBudgetCache<String, ImageBitmap>(minOf(Runtime.getRuntime().maxMemory() / 8, MAX_CACHE_BYTES), MAX_MISSES) {
             it.width.toLong() * it.height * 4
         }
+
+    /** Drops the covers when the system asks for memory back (`MemoryTrim`); they redecode on demand. */
+    fun clear() = cache.clear()
 
     private fun key(
         uri: String,

@@ -43,6 +43,16 @@ class ByteBudgetCache<K : Any, V : Any>(
     /** The cached value, or null when absent or known to have none. Never decodes. */
     fun peek(key: K): V? = synchronized(lock) { values[key] }
 
+    /**
+     * Drops every real value (the system asked for memory back). The "decodes to nothing" answers
+     * stay: they cost a key each, and forgetting them would decode every artless track again.
+     */
+    fun clear() =
+        synchronized(lock) {
+            values.clear()
+            bytes = 0L
+        }
+
     /** True when [key] is already known to decode to nothing. */
     fun isKnownMissing(key: K): Boolean = synchronized(lock) { misses.containsKey(key) }
 

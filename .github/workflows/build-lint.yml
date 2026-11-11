@@ -1,8 +1,9 @@
 name: Build and lint
 
 # The pull-request gate: compile and build the debug APK (Kotlin and the native core through
-# CMake), then the linters (detekt, Android lint, ktlint). No tests: the host tests, unit tests
-# and emulator tests are in native-host-tests.yml and android.yml, run by hand from the Actions tab.
+# CMake), the manifest promise checks, the JVM unit tests of every module, then the linters
+# (detekt, Android lint, ktlint). The native host tests run beside it (native-host-tests.yml, also
+# on every pull request). Only the emulator job in android.yml stays manual: it takes minutes to boot.
 
 on:
   workflow_dispatch:
@@ -70,6 +71,15 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      # Same checks as android.yml, from one script, so the promise in release.yml holds.
+      - name: Check the merged manifest against the app's promises
+        run: tools/check-manifest.sh
+
+      # A red unit test fails the pull request here, not a day later in a manual run.
+      - name: Run unit tests
+        if: success() || failure()
+        run: ./gradlew :app:testDebugUnitTest :engine:audio-core:test :engine:scenes:testDebugUnitTest :engine:audio-android:testDebugUnitTest --continue --stacktrace --no-daemon
+
       - name: detekt
         if: success() || failure()
         run: ./gradlew :app:detekt :engine:audio-core:detekt :engine:scenes:detekt :engine:audio-android:detekt --continue --stacktrace --no-daemon
@@ -98,6 +108,8 @@ jobs:
           name: build-lint-reports-${{ github.run_number }}
           path: |
             app/build/reports/
+            app/build/test-results/
             engine/*/build/reports/
+            engine/*/build/test-results/
           if-no-files-found: ignore
           retention-days: 14

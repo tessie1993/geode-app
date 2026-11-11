@@ -1,6 +1,6 @@
 name: Architecture gates
 
-# The layer rule and the engine Kotlin rule. No path filter, so the check
+# The layer rule, the engine Kotlin rule and the action pin rule. No path filter, so the check
 # reports on every PR.
 
 on:
@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -43,6 +43,24 @@ jobs:
       - name: Nothing below ui names ui
         shell: bash
         run: bash tools/layer-gate.sh
+
+      # Pins the action pin gate: a tag must fail it, a SHA and a local workflow must pass.
+      - name: Self-test the action pin gate
+        shell: bash
+        run: |
+          set -u
+          t=$(mktemp -d)
+          mkdir -p "$t/.github/workflows"
+          printf '%s\n' '      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1' \
+            '    uses: ./.github/workflows/ship-apk.yml' > "$t/.github/workflows/a.yml"
+          bash tools/actions-pin-gate.sh "$t" >/dev/null || { echo "::error::pin gate self-test: pinned tree failed"; exit 1; }
+          echo '      - uses: actions/checkout@v7' > "$t/.github/workflows/b.yml"
+          if bash tools/actions-pin-gate.sh "$t" >/dev/null; then echo "::error::pin gate self-test: tag passed"; exit 1; fi
+          echo "action pin gate self-test passed"
+
+      - name: Every action is pinned to a commit SHA
+        shell: bash
+        run: bash tools/actions-pin-gate.sh
 
       # Pins the engine Kotlin gate: growth in an engine path must fail it, shrinking must pass.
       - name: Self-test the engine Kotlin gate

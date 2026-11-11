@@ -574,11 +574,14 @@ object GeodeNative {
     /** Mirrors GEODE_RECIPE_FITS: turning the recipe on stays within GEODE_REACT_ROUTES. */
     const val RECIPE_FITS: Int = 2
 
-    /** One gyro reading (azimuth, pitch in radians from SensorManager.getOrientation); core/viz/GyroLook makes the look. */
+    /** One game rotation vector reading (quaternion) on a screen at [displayRotation] (Surface.ROTATION_*); core/viz/GyroLook makes the look. */
     external fun vizGyroSample(
         handle: Long,
-        azimuth: Float,
-        pitch: Float,
+        x: Float,
+        y: Float,
+        z: Float,
+        w: Float,
+        displayRotation: Int,
     )
 
     /** Gyro off or switched on again: recentre the look and recapture the baseline on the next sample. */

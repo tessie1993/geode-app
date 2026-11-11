@@ -533,8 +533,9 @@ Java_dev_geode_engine_bridge_GeodeNative_eventRecipeToggle(JNIEnv* env, jobject,
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizGyroSample(JNIEnv*, jobject, jlong handle, jfloat azimuth, jfloat pitch) {
-    geode_viz_gyro_sample(vizOf(handle), azimuth, pitch);
+Java_dev_geode_engine_bridge_GeodeNative_vizGyroSample(JNIEnv*, jobject, jlong handle, jfloat x, jfloat y, jfloat z,
+                                                      jfloat w, jint displayRotation) {
+    geode_viz_gyro_sample(vizOf(handle), x, y, z, w, displayRotation);
 }
 
 JNIEXPORT void JNICALL

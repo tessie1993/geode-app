@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -155,7 +157,12 @@ private fun MacrosDrawerPanel(
                 StoneIconArt(StoneIcon.CLOSE, close)
             }
         }
-        MacrosTab(macros, store, sceneId, lock)
+        // A landscape phone is shorter than eight knobs: then, and only then, they scroll, so a
+        // push up on a bank that fits still closes the drawer.
+        val scroll = rememberScrollState()
+        Column(Modifier.weight(1f, fill = false).verticalScroll(scroll, enabled = scroll.maxValue > 0)) {
+            MacrosTab(macros, store, sceneId, lock)
+        }
     }
 }
 

@@ -224,11 +224,9 @@ class NativeViz(
         }
     }
 
-    fun gyroSample(
-        azimuth: Float,
-        pitch: Float,
-    ) {
-        if (handle != 0L) GeodeNative.vizGyroSample(handle, azimuth, pitch)
+    /** [reading] is [dev.geode.render.GyroLook]'s: the rotation vector's x, y, z, w and the display rotation. */
+    fun gyroSample(reading: FloatArray) {
+        if (handle != 0L) GeodeNative.vizGyroSample(handle, reading[0], reading[1], reading[2], reading[3], reading[4].toInt())
     }
 
     fun gyroReset() {

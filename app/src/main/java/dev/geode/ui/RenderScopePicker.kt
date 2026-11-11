@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -69,7 +70,7 @@ internal fun RenderScopeChooser(
 ) {
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
-        Column(Modifier.clickable(role = Role.DropdownList) { open = true }) {
+        Column(Modifier.minimumInteractiveComponentSize().clickable(role = Role.DropdownList) { open = true }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(renderScopeLabel(scope), style = MaterialTheme.typography.labelMedium)
                 Icon(Icons.Filled.ArrowDropDown, contentDescription = null)

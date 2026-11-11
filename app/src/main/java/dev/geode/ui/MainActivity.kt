@@ -275,6 +275,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        // A flag left set by a PiP window that ended without its callback would keep the dock away.
+        VisualizerPipCoordinator.inPictureInPicture = isInPictureInPictureMode
         playerViewModel.onAppForeground()
     }
 

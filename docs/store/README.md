@@ -30,11 +30,11 @@ Before pasting, run `bash tools/store-check.sh` (lengths, banned words) and
 | 8 | App content › Content rating | Answer the questionnaire | [content-rating.md](content-rating.md) |
 | 9 | App content › Target audience, Ads, App access, News, Health, Government, Financial | Target age: 13-15, 16-17, 18 and over. The rest as written. See "A 13+ app" below | [content-rating.md](content-rating.md) |
 | 10 | App content › Foreground service permissions (appears once a bundle is uploaded) | One description and one video per service type | [permissions.md](permissions.md) |
-| 11 | Monetize › Products › In-app products | Create the one-time product with id `muzviz_pro`, set its price, activate it | owner |
+| 11 | Monetize › Products › In-app products | Create the one-time product with id `beatrealms3d_pro`, set its price, activate it | owner |
 | 12 | Release › Production (or a test track first) | Upload the AAB from `release.yml`, paste the release notes | `fastlane/metadata/android/en-US/changelogs/default.txt` |
 
-The product id stays `muzviz_pro` after the rename: it is in the code
-(`BillingRepository.PRO_PRODUCT_ID`) and a buyer never sees it.
+The product id is `beatrealms3d_pro`, as in the code
+(`BillingRepository.PRO_PRODUCT_ID`); a buyer never sees it.
 
 ## A 13+ app: what Play still asks
 

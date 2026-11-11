@@ -9,7 +9,7 @@
 #include "viz/CameraRig.hpp"
 #include "viz/Director.hpp"
 #include "viz/Lfo.hpp"
-#include "viz/Macros.hpp"
+#include "viz/MacroBank.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/Params.hpp"
@@ -23,13 +23,14 @@ namespace geode::signal {
 //   param fade (the style's own paramFadeSec, or a preset morph)
 //   → auto-director (its look lies under everything after it)
 //   → Note & key reactions (inside the director's look: its hue anchors the notes' colours)
-//   → macros (the user's knobs with the director's laid over them)
+//   → the director's axes (its behaviour offsets)
+//   → the macro bank (the user's knobs, an offset added to whatever the director left)
 //   → LFOs → envelopes
-//   → reaction routes (the user's or the style's DNA) → macro routes → director routes
+//   → reaction routes (the user's or the style's DNA) → the director's axis routes, then its own
 //   → motion field → safety::apply, last, so nothing before it can pass the flash and motion limits
 //
 // WHY a module of its own (#344): the chain used to sit inside the GL renderer, behind its mutex and
-// atomics, reading the process-wide macros, Note & key switch and hand mask live. The order was only
+// atomics, reading the process-wide knobs, Note & key switch and hand mask live. The order was only
 // visible on a device, and an export heard live edits. Here it knows nothing of GL or threads: everything
 // it reads arrives as a plain value (EngineSettings, StyleContext, the sound frame, dt), so the order is
 // host-tested in one place (core/tests/resolver_test.cpp), two resolvers given the same inputs give the
@@ -40,7 +41,7 @@ namespace geode::signal {
 // and the post pass's integrators stay in the renderer, after the step.
 //
 // It depends on core/sound (the frame) and on the GL-free stage code still in core/viz (Director,
-// NoteResponse, Lfo, Adsr, Reactions, Macros, MotionField, VisualSafety, Catalogue); never on a GL header.
+// NoteResponse, Lfo, Adsr, Reactions, MacroBank, MotionField, VisualSafety, Catalogue); never on a GL header.
 // ADR 0006's later steps (route producers, base plus modulation, one clamp) rebuild behind this interface.
 
 // The chain reads one EngineSettings value a frame (signal/EngineSettings.hpp): the renderer's SettingsLatch
@@ -65,7 +66,7 @@ public:
         // The director's style moments this step: a look committed at a new section or a drop (Auto
         // changes style on each).
         int styleMoments = 0;
-        // The camera rig's music moves: the macros' Space and Speed under the director's look.
+        // The camera rig's music moves: the director's Space and Chaos axes under its look.
         viz::CameraRig::Moves cameraMoves{};
     };
 
@@ -97,8 +98,6 @@ private:
     viz::LfoEngine lfo_;
     viz::AdsrEngine adsr_;
     viz::ReactionEngine reactions_;
-    // The macros' own routes, in an engine of their own so they never take a user slot.
-    viz::ReactionEngine macroReactions_;
     viz::Director director_;
     int directorCommitsSeen_ = 0;
     viz::NoteResponse notes_;
@@ -109,8 +108,10 @@ private:
     viz::SceneParams displayed_;
     float morphFadeSec_ = 0.0f;
     float morphRemainSec_ = 0.0f;
-    // The user's knobs with the director's laid over them, this frame; what the params and the camera read.
-    viz::MacroKnobs directedKnobs_{};
+    // Which targets the macro bank may move on the style on screen, worked out when the style changes.
+    std::string reachStyle_;
+    std::uint64_t reach_ = 0;
+    bool reachKnown_ = false;
     std::array<float, viz::LfoEngine::kSlots> envRate_{};
     std::array<float, viz::LfoEngine::kSlots> envDepth_{};
     Frame frame_;

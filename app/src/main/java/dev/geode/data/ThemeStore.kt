@@ -7,13 +7,6 @@ import dev.geode.R
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.model.TutorialProgress
 
-enum class PlayerPosition(
-    @param:StringRes val labelRes: Int,
-) {
-    TOP(R.string.look_position_top),
-    BOTTOM(R.string.look_position_bottom),
-}
-
 enum class CornerStyle(
     @param:StringRes val labelRes: Int,
 ) {
@@ -23,7 +16,6 @@ enum class CornerStyle(
 }
 
 data class GuiPrefs(
-    val playerPosition: PlayerPosition = PlayerPosition.BOTTOM,
     val cornerStyle: CornerStyle = CornerStyle.ROUNDED,
     val barOpacity: Float = 0.72f,
     /** The sound engine's tuning (Settings › Audio): every surface and the export read it. */
@@ -36,7 +28,6 @@ data class GuiPrefs(
      */
     val presetMorphSeconds: Float = 2f,
     val accentIntensity: Float = 1f,
-    val compactPlayer: Boolean = false,
     /**
      * How long the mini player on Visuals stays after the last touch before it fades to invisible,
      * in seconds; 0 keeps it on screen. Three seconds shows the track long enough to read, then
@@ -60,15 +51,6 @@ data class GuiPrefs(
      * side effect of an answer.
      */
     val setupDone: Boolean = false,
-    /**
-     * What the person came here to do: which tab the app opens on, and whether Studio appears
-     * in the navigation at all.
-     *
-     * No longer asked at first run. Everyone starts on [UserIntent.BOTH], which shows
-     * everything, and anyone who wants a narrower app says so in Settings once they know what
-     * they would be narrowing.
-     */
-    val intent: UserIntent = UserIntent.BOTH,
     /** Whether the walkthrough has been finished or skipped at least once. */
     val tutorialSeen: Boolean = false,
     /**
@@ -121,9 +103,6 @@ class ThemeStore(
                 else -> null
             }
         return GuiPrefs(
-            playerPosition =
-                runCatching { PlayerPosition.valueOf(prefs.getString(KEY_POS, null) ?: PlayerPosition.BOTTOM.name) }
-                    .getOrDefault(PlayerPosition.BOTTOM),
             cornerStyle =
                 runCatching { CornerStyle.valueOf(prefs.getString(KEY_CORNER, null) ?: CornerStyle.ROUNDED.name) }
                     .getOrDefault(CornerStyle.ROUNDED),
@@ -132,7 +111,6 @@ class ThemeStore(
             presetMirrorUri = prefs.getString("preset_mirror_uri", null),
             presetMorphSeconds = readPresetMorphSeconds(prefs),
             accentIntensity = prefs.getFloat(KEY_ACCENT, 1f),
-            compactPlayer = prefs.getBoolean(KEY_COMPACT, false),
             miniPlayerFadeSeconds =
                 prefs
                     .getFloat(KEY_MINI_PLAYER_FADE, GuiPrefs.MINI_PLAYER_FADE_DEFAULT_SECONDS)
@@ -144,11 +122,6 @@ class ThemeStore(
                     .coerceIn(GuiPrefs.TEXT_SCALE_MIN, GuiPrefs.TEXT_SCALE_MAX),
             safetyAcknowledged = loadSafetyAcknowledged(),
             setupDone = loadSetupDone(),
-            intent =
-                prefs
-                    .getString(KEY_INTENT, null)
-                    ?.let { stored -> UserIntent.entries.firstOrNull { it.name == stored } }
-                    ?: UserIntent.BOTH,
             tutorialSeen = prefs.getBoolean(KEY_TUTORIAL_SEEN, false),
             tutorialProgress =
                 TutorialProgress.decode(
@@ -178,8 +151,8 @@ class ThemeStore(
      * finished setup — so they are not walked through it again. The question is gone; the fact
      * that they got past it carries over.
      *
-     * Only while the explicit flag has never been written, though: [saveGui] writes the intent on
-     * every save, so once it has run, a stored intent no longer means anyone answered anything. Read
+     * Only while the explicit flag has never been written, though: older builds wrote the intent on
+     * every save, so once one had run, a stored intent no longer meant anyone answered anything. Read
      * it the other way and acknowledging the safety notice mid-setup would skip the rest of setup on
      * the next launch.
      */
@@ -193,7 +166,6 @@ class ThemeStore(
     fun saveGui(gui: GuiPrefs) {
         val fontColor = gui.fontColorOverride
         prefs.edit {
-            putString(KEY_POS, gui.playerPosition.name)
             putString(KEY_CORNER, gui.cornerStyle.name)
             putFloat(KEY_OPACITY, gui.barOpacity)
             // The engine's defaults save as no key, so they follow native's schema when it changes.
@@ -202,7 +174,6 @@ class ThemeStore(
             putString("preset_mirror_uri", gui.presetMirrorUri)
             putFloat(KEY_PRESET_MORPH_SEC, gui.presetMorphSeconds)
             putFloat(KEY_ACCENT, gui.accentIntensity)
-            putBoolean(KEY_COMPACT, gui.compactPlayer)
             putFloat(KEY_MINI_PLAYER_FADE, gui.miniPlayerFadeSeconds)
             // Dead: no screen read the "clear Visuals menu" switch.
             remove(KEY_CLEAR_VIZ_MENU)
@@ -215,7 +186,6 @@ class ThemeStore(
             putFloat(KEY_TEXT_SCALE, gui.textScale)
             putBoolean(KEY_SAFETY_ACKNOWLEDGED, gui.safetyAcknowledged)
             putBoolean(KEY_SETUP_DONE, gui.setupDone)
-            putString(KEY_INTENT, gui.intent.name)
             putBoolean(KEY_TUTORIAL_SEEN, gui.tutorialSeen)
             // The old "offer it on a fresh install" switch is gone: the tour offers itself once.
             remove(KEY_TUTORIAL_ON_FIRST_RUN)
@@ -236,6 +206,8 @@ class ThemeStore(
 
     internal companion object {
         const val KEY_SAFETY_ACKNOWLEDGED = "gui_safety_acknowledged"
+
+        /** Read-only now: the retired first-run answer, kept solely so an old install counts as set up. */
         const val KEY_INTENT = "gui_intent"
         const val KEY_SETUP_DONE = "gui_setup_done"
         const val KEY_TUTORIAL_SEEN = "gui_tutorial_seen"
@@ -248,12 +220,10 @@ class ThemeStore(
 
         /** Retired with the gem theme packs; removed on the next save. */
         const val KEY = "app_theme"
-        const val KEY_POS = "gui_player_pos"
         const val KEY_CORNER = "gui_corner"
         const val KEY_OPACITY = "gui_opacity"
         const val KEY_ACCENT = "gui_accent_intensity"
         const val KEY_DIM = "gui_background_dim"
-        const val KEY_COMPACT = "gui_compact_player"
         const val KEY_FOLLOW_DARK = "gui_follow_system_dark"
 
         /** Retired: written, never read. Removed on the next save. */

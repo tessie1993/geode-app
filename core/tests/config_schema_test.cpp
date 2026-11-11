@@ -1,7 +1,7 @@
 // Host-side checks for the config params schema (core/viz/ConfigTable.inc, expanded by core/viz/Config.hpp
-// and written out by core/viz/ConfigFields.cpp, #423): the LFO and envelope slots, the macro knobs, the
-// palette maker's gradient, the look's envelope, the Studio clip edit and the preset morph. The rows are
-// well formed, viz/Lfo, viz/Adsr and viz/Macros clamp exactly as their old literals did, the store
+// and written out by core/viz/ConfigFields.cpp, #423): the LFO and envelope slots, the palette maker's
+// gradient, the look's envelope, the Studio clip edit and the preset morph. The rows are well formed,
+// viz/Lfo and viz/Adsr clamp exactly as their old literals did, the store
 // conversions in viz/ConfigMath.hpp equal the Kotlin formulas, and the text reads back to the rows.
 // Built and run by CI (.github/workflows/android.yml, "Native host tests") with the system compiler; no GL.
 #include <cmath>
@@ -18,7 +18,6 @@
 #include "viz/Config.hpp"
 #include "viz/ConfigMath.hpp"
 #include "viz/Lfo.hpp"
-#include "viz/Macros.hpp"
 
 using namespace geode::viz;
 using config::Kind;
@@ -74,7 +73,8 @@ void everyRowIsWellFormed() {
 void theGroupsAreTheWires() {
     check(rowsIn("lfo") == GEODE_LFO_CONFIG_FLOATS, "one lfo row per geode_viz_set_lfo float");
     check(rowsIn("adsr") == GEODE_ADSR_CONFIG_FLOATS, "one adsr row per geode_viz_set_adsr float before the targets");
-    check(rowsIn("macro") == kMacroCount && kMacroCount == 6, "six macro rows, one per knob (MacroStore.COUNT)");
+    // The six macro rows went with the old knobs: the macro bank (viz/MacroBank) keeps its own text.
+    check(rowsIn("macro") == 0, "no macro rows");
     // geode_viz_set_lfo: enabled, source, target, wave, rate_seconds, depth, polarity, curve, beats.
     check(config::indexInGroup(Slot::lfo_enabled) == 0, "lfo enabled is float 0");
     check(config::indexInGroup(Slot::lfo_rateSeconds) == 4, "lfo rate is float 4");
@@ -86,11 +86,9 @@ void theGroupsAreTheWires() {
     check(config::indexInGroup(Slot::adsr_band) == 6, "adsr band is float 6");
     check(config::indexInGroup(Slot::adsr_gateThreshold) == 7, "adsr gate is float 7");
     check(config::indexInGroup(Slot::adsr_retrigger) == 9, "adsr retrigger is float 9");
-    for (int i = 0; i < kMacroCount; ++i) check(config::indexInGroup(knobSlot(i)) == i, "knob " + std::to_string(i) + " is its row");
-    check(knobSlot(static_cast<int>(Macro::Chaos)) == Slot::macro_chaos, "the knob rows follow the Macro enum");
 }
 
-// The literals Lfo, Adsr and Macros held before they read the table, and the Kotlin defaults beside them.
+// The literals Lfo and Adsr held before they read the table, and the Kotlin defaults beside them.
 void theOldLiteralsHold() {
     check(LfoConfig::kDefaultRateSeconds == 2.0f, "LFO default period 2 s");
     check(LfoConfig::kMinRateSeconds == 0.05f, "LFO shortest period 0.05 s");
@@ -171,17 +169,6 @@ void adsrClampsAsBefore() {
         e.step(e.hit, 0.005f);
         check(near(e.step(e.quiet, 0.001f), 0.9f), "decay 10 ms falls half as fast");
     }
-}
-
-void macroKnobsClampAsBefore() {
-    const float inf = std::numeric_limits<float>::infinity();
-    const float in[kMacroCount] = {2.0f, -3.0f, std::nanf(""), inf, 0.5f, -0.25f};
-    const MacroKnobs k = macros::clamped(in, kMacroCount);
-    const float want[kMacroCount] = {1.0f, -1.0f, 0.0f, 0.0f, 0.5f, -0.25f};
-    for (int i = 0; i < kMacroCount; ++i) check(k[static_cast<size_t>(i)] == want[i], "knob " + std::to_string(i) + " clamps as before");
-    macros::setGlobal(MacroKnobs{1.5f, -1.5f, 0.0f, 0.0f, 0.0f, 0.0f});
-    check(macros::global()[0] == 1.0f && macros::global()[1] == -1.0f, "the global knobs hold -1..1");
-    macros::setGlobal(MacroKnobs{});
 }
 
 // The Kotlin formulas, written as Kotlin writes them, to hold the native conversions to.
@@ -265,7 +252,7 @@ void theTextReadsBack() {
     check(row == config::kCount, "one line per row");
     const std::string text = config::schemaText();
     check(text.find("config|lfo|4|rateSeconds|FLOAT|2|0.05|60|SECONDS\n") != std::string::npos, "the LFO period row as the shell reads it");
-    check(text.find("config|macro|5|chaos|FLOAT|0|-1|1|NONE\n") != std::string::npos, "the last knob row");
+    check(text.find("config|macro|") == std::string::npos, "no knob rows");
     check(text.find("config|adsr|9|retrigger|BOOL|1|0|1|NONE\n") != std::string::npos, "a flag row");
 }
 
@@ -277,7 +264,6 @@ int main() {
     theOldLiteralsHold();
     lfoClampsAsBefore();
     adsrClampsAsBefore();
-    macroKnobsClampAsBefore();
     conversionsMatchKotlin();
     clampHelpers();
     theTextReadsBack();

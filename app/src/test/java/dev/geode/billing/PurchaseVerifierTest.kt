@@ -1,5 +1,6 @@
 package dev.geode.billing
 
+import dev.geode.pro.BillingRepository
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -15,7 +16,7 @@ import java.util.Base64
 class PurchaseVerifierTest {
     private val pair = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
     private val goodKey = Base64.getEncoder().encodeToString(pair.public.encoded)
-    private val data = """{"productId":"muzviz_pro"}"""
+    private val data = """{"productId":"${BillingRepository.PRO_PRODUCT_ID}"}"""
 
     private fun sign(
         text: String,

@@ -14,10 +14,10 @@
 
 #include "api/geode_api.h"
 #include "api/geode_ingest_handles.hpp"
+#include "audio/ingest/LayerMix.hpp"
 #include "viz/Director.hpp"
 #include "viz/GyroLook.hpp"
 #include "viz/NoteResponse.hpp"
-#include "viz/Macros.hpp"
 #include "viz/LayerState.hpp"
 #include "viz/ModTargets.hpp"
 #include "viz/ReactionDna.hpp"
@@ -66,6 +66,9 @@ struct geode_viz {
     // declared after the ring it refers to. Render thread only.
     std::shared_ptr<const geode::audio::ingest::PcmRing> feedRing;
     std::unique_ptr<geode::audio::ingest::Cursor> feedCursor;
+    // The ring layered over it (geode_pcm_ring_set_layer) and this renderer's mix of the two.
+    std::shared_ptr<const geode::audio::ingest::PcmRing> feedLayerRing;
+    std::unique_ptr<geode::audio::ingest::LayerMix> feedLayer;
 
     static geode::viz::StyleTraits styleTraits(std::string_view id) {
         const std::string s(id);
@@ -89,6 +92,7 @@ static_assert(frame::wallpaper::kOffsetFloats == GEODE_WALLPAPER_OFFSETS);
 static_assert(frame::kFrameClearOnly == GEODE_FRAME_CLEAR_ONLY);
 static_assert(frame::kFrameThermalDue == GEODE_FRAME_THERMAL_DUE);
 static_assert(frame::kFrameLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
+static_assert(frame::kFrameErrorChanged == GEODE_FRAME_ERROR_CHANGED);
 static_assert(frame::kFramePushParams == GEODE_FRAME_PUSH_PARAMS);
 static_assert(frame::kFramePushLfo == GEODE_FRAME_PUSH_LFO);
 static_assert(frame::kFramePushAdsr == GEODE_FRAME_PUSH_ADSR);
@@ -215,7 +219,20 @@ void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
     if (!ring) {
         v->feedCursor.reset();
         v->feedRing.reset();
+        v->feedLayer.reset();
+        v->feedLayerRing.reset();
+        v->renderer.setLayerAlone(false);
         return;
+    }
+    if (auto layer = ring->layerRing(); layer != v->feedLayerRing) {
+        v->feedLayer.reset();
+        v->feedLayerRing = std::move(layer);
+        try {
+            if (v->feedLayerRing) v->feedLayer = std::make_unique<geode::audio::ingest::LayerMix>(*v->feedLayerRing);
+        } catch (...) {
+            // No memory for the mix: hear the ring alone this frame and try again on the next.
+            v->feedLayerRing.reset();
+        }
     }
     if (v->feedRing != ring->ring) {
         v->feedCursor.reset();
@@ -234,8 +251,17 @@ void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
         const geode::audio::ingest::Cursor::Take take = v->feedCursor->take();
         if (take.restarted) v->renderer.resetAudio();
         if (take.frames <= 0) break;
-        v->renderer.writeAudio(v->feedCursor->interleaved(), take.frames, v->feedCursor->channels(), take.sampleRateHz);
+        const int channels = v->feedCursor->channels();
+        const float* block = v->feedCursor->interleaved();
+        if (v->feedLayer) block = v->feedLayer->mixed(block, take.frames, channels, take.sampleRateHz);
+        v->renderer.writeAudio(block, take.frames, channels, take.sampleRateHz);
     }
+    if (v->feedLayer) {
+        // With the ring's own source stopped, the layer is what this renderer hears.
+        const geode::audio::ingest::LayerMix::Alone alone = v->feedLayer->takeAlone();
+        v->renderer.writeAudio(alone.interleaved, alone.frames, alone.channels, alone.sampleRateHz);
+    }
+    v->renderer.setLayerAlone(v->feedLayer && v->feedLayer->heardAlone());
 }
 
 void geode_viz_set_sound_tuning(geode_viz* v, const GeodeSoundTuning* tuning) {
@@ -537,8 +563,6 @@ int geode_react_source_catalog(char* out, int capacity) {
     return need;
 }
 
-void geode_macros_set(const float* knobs, int count) { macros::setGlobal(macros::clamped(knobs, count)); }
-
 void geode_director_set(int on, float amount, long long seed) {
     director::setGlobal(on != 0, amount, static_cast<uint64_t>(seed));
 }
@@ -547,31 +571,6 @@ void geode_note_response_set(int enabled) { note_response::setGlobal(enabled != 
 
 void geode_layer_set(const char* scene_id, float mix, int blend_mode) {
     layer_state::set(layer_state::Layer{text(scene_id), mix, blend_mode});
-}
-
-void geode_macros_surprise(const float* knobs, int count, unsigned lock_mask, long long seed, float* out) {
-    if (!out) return;
-    const MacroKnobs k = macros::surprise(macros::clamped(knobs, count), lock_mask, static_cast<uint64_t>(seed));
-    for (int i = 0; i < count && i < kMacroCount; ++i) out[i] = k[static_cast<size_t>(i)];
-}
-
-int geode_macro_starters(char* out, int capacity) {
-    std::string text;
-    for (const macros::Starter& s : macros::starters()) {
-        text += s.name;
-        for (int i = 0; i < kMacroCount; ++i) {
-            text += i == 0 ? '|' : ',';
-            text += std::to_string(s.knobs[static_cast<size_t>(i)]);
-        }
-        text += '\n';
-    }
-    const int need = static_cast<int>(text.size());
-    if (out && capacity > 0) {
-        const int n = std::min(need, capacity - 1);
-        std::memcpy(out, text.data(), static_cast<size_t>(n));
-        out[n] = '\0';
-    }
-    return need;
 }
 
 int geode_style_reactions(const char* style_id, int seed, float* out, int capacity) {
@@ -603,13 +602,15 @@ int geode_viz_frame_begin(geode_viz* v, float paced_fps, float render_scale, flo
         r.setUserQuality(quality.renderScale, quality.marchScale, quality.postFx, quality.adaptive);
         r.setLiquidHotPolicy(quality.liquidHotPolicy);
     }
-    const uint32_t due = v->cadence.step([] { return ThermalState::process().claimSample(monotonicSeconds()); },
+    uint32_t due = v->cadence.step([] { return ThermalState::process().headroomDue(monotonicSeconds()); },
                                          [&r] { return r.takeLiquidMode(); });
     if (due & frame::kFrameClearOnly) {
         // The shell returns at once on this frame, so nothing it would push may count as applied yet.
         r.clearToBlack(0);
         return static_cast<int>(due);
     }
+    // An error raised while a frame drew is told on the next one, so the shell asks for the text only then.
+    if (v->cadence.offerError(r.lastError())) due |= frame::kFrameErrorChanged;
     const uint32_t want = v->pushes.offer({params_version, lfo_version, adsr_version, tuning_version});
     return static_cast<int>(due | want);
 }

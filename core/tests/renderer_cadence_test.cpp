@@ -4,11 +4,13 @@
 // What is pinned: a new surface's first frame is a clear and nothing else (no thermal claim, no Liquid
 // take), once; a repeated Settings › Performance push is applied once, a change again, a NaN once, and a
 // new surface applies it again; the thermal bit goes to one caller a second across two surfaces sharing
-// one ThermalState; the Liquid field carries the mode only when it changed; and the bits match the ABI.
+// one ThermalState; the Liquid field carries the mode only when it changed; the error text is told once per
+// change and once per handle; and the bits match the ABI.
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <limits>
+#include <string>
 
 #include "api/geode_api.h"
 #include "viz/frame/Cadence.hpp"
@@ -31,6 +33,7 @@ void check(bool ok, const char* what) {
 static_assert(kFrameClearOnly == GEODE_FRAME_CLEAR_ONLY);
 static_assert(kFrameThermalDue == GEODE_FRAME_THERMAL_DUE);
 static_assert(kFrameLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
+static_assert(kFrameErrorChanged == GEODE_FRAME_ERROR_CHANGED);
 
 struct Asked {
     int thermal = 0;
@@ -127,6 +130,23 @@ void liquidField() {
     check((frame(c, asked, false, 0) & kFrameLiquidChanged) != 0, "mode 0 (off) is still a change");
 }
 
+// Kills: an offer that is always true (the shell reads the text every frame again), one that is never true
+// for an empty text (a new handle leaves the shell showing the last handle's error), and one that does not
+// keep what it reported.
+void errorIsToldOncePerChange() {
+    FrameCadence c;
+    check(c.offerError(""), "a handle's first frame reports, even a clean one");
+    check(!c.offerError(""), "a clean renderer then says nothing, frame after frame");
+    check(c.offerError("shader failed"), "a new error is told");
+    check(!c.offerError("shader failed"), "once");
+    check(c.offerError("link failed"), "another error is a change");
+    check(c.offerError(""), "and so is its clearing");
+    c.surfaceCreated();
+    check(!c.offerError(""), "a new surface on the same handle has nothing new to say");
+    const uint32_t others = kFrameClearOnly | kFrameThermalDue | kFrameLiquidChanged | (kFrameLiquidMask << kFrameLiquidShift);
+    check((kFrameErrorChanged & others) == 0 && (kFrameErrorChanged & 0xF0u) == 0, "the bit is its own");
+}
+
 }  // namespace
 
 int main() {
@@ -134,6 +154,7 @@ int main() {
     qualityDedupes();
     thermalOncePerSecondAcrossSurfaces();
     liquidField();
+    errorIsToldOncePerChange();
     if (failures) {
         std::fprintf(stderr, "renderer_cadence_test: %d failure(s)\n", failures);
         return 1;

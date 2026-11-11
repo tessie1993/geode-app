@@ -51,7 +51,7 @@ collect_device_state() {
     timeout 120 adb pull /data/anr "$dir/anr" >/dev/null 2>&1 || true
     timeout 120 adb pull /data/tombstones "$dir/tombstones" >/dev/null 2>&1 || true
     timeout 60 adb shell dumpsys meminfo >"$dir/meminfo.txt" 2>&1 || true
-    timeout 60 adb shell dumpsys activity exit-info com.muzviz.studiopro.debug >"$dir/exit-info.txt" 2>&1 || true
+    timeout 60 adb shell dumpsys activity exit-info com.beatrealms3d.app.debug >"$dir/exit-info.txt" 2>&1 || true
     timeout 30 adb unroot >/dev/null 2>&1 || true
     timeout 30 adb wait-for-device >/dev/null 2>&1 || true
 }

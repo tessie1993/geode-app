@@ -7,7 +7,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import dev.geode.BuildConfig
+import dev.geode.billing.BillingBuild
 import dev.geode.billing.EntitlementStore
 import dev.geode.billing.FakeBillingRepository
 import dev.geode.billing.ForegroundActivityTracker
@@ -23,8 +23,9 @@ import javax.inject.Singleton
 
 /**
  * Billing wiring. Release builds talk to Play; debug builds get [FakeBillingRepository], whose
- * outcomes the paywall's debug panel switches. `BuildConfig.USE_FAKE_BILLING` decides, and
- * `-Pmuzviz.fakeBilling=false` turns the real client on in a debug build for licence testing.
+ * outcomes the paywall's debug panel switches. [BillingBuild.usesFake] decides (the
+ * `USE_FAKE_BILLING` flag, and only in a debuggable build), and `-Pmuzviz.fakeBilling=false` turns
+ * the real client on in a debug build.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -50,7 +51,7 @@ object BillingModule {
         store: EntitlementStore,
         fake: Lazy<FakeBillingRepository>,
     ): BillingRepository =
-        if (BuildConfig.USE_FAKE_BILLING) {
+        if (BillingBuild.usesFake) {
             fake.get()
         } else {
             PlayBillingRepository(context, activities, store, PurchaseVerifier.forThisBuild(), WallClock.SYSTEM)

@@ -25,7 +25,6 @@
 #include "viz/GlProfile.hpp"
 #include "viz/LayerState.hpp"
 #include "viz/Lfo.hpp"
-#include "viz/Macros.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/Overlays.hpp"
@@ -90,7 +89,7 @@ public:
         return liquidModeTaken_.exchange(mode, std::memory_order_relaxed) == mode ? -1 : mode;
     }
     // An export's engine settings (signal::SettingsLatch, #350): pinned once at prepare, after which this
-    // renderer never reads the process-wide macros, Note & key switch, hand mask or director again, so live
+    // renderer never reads the process-wide macro bank, Note & key switch, hand mask or director again, so live
     // edits and the player moving on never reach a render in progress. The director comes from the user's
     // switch, `entitled` and `durationMs` (director::forExport); the note entropy is 0. Any thread.
     // Returns the pinned hand mask.
@@ -109,6 +108,9 @@ public:
     void writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz);
     // A seek, track change or source switch: drop the engine's history.
     void resetAudio();
+    // The live feed hears only its layered source (the mic, the player stopped): the engine then treats
+    // the source as not the player's, so its silence rule and fadeGain are the mic's (PlayerSignals).
+    void setLayerAlone(bool on) { layerAlone_.store(on, std::memory_order_relaxed); }
     // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
     void setSoundTuning(const GeodeSoundTuning& tuning);
     void queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength);
@@ -217,10 +219,10 @@ private:
     GLuint drawBorn(Scene& scene, const SceneParams& p, float dt);
     // Runs the liquid over the scene target; 0 when Liquid is off (the composite then reads the target).
     GLuint drawLiquid(Scene& scene, const SceneParams& p, float dt);
-    // A flat style's Endless zoom with Liquid off: MilkDrop's feedback dive (EndlessZoom.hpp's feedback),
-    // run through the liquid pass. 0 when its targets are not there.
-    // `sustain` adds a shader style's Trails (length, echo zoom, warp) to the same pass.
-    GLuint drawDive(const SceneParams& p, float octavesPerSecond, bool sustain, float dt);
+    // A flat style's Endless zoom and Fly with Liquid off: MilkDrop's feedback motion (liquid/FeedbackMotion,
+    // heard from the sound frame, stepped on the wall clock), run through the liquid pass, in or out.
+    // 0 when its targets are not there. `ask.sustain` adds a shader style's Trails (length, echo zoom, warp).
+    GLuint drawDive(const SceneParams& p, const liquid::motion::DiveAsk& ask, float dt, float wallDt);
     bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off && liveLiquid_ != liquid::Mode::Paused; }
     void applyPendingFluidInjection();
     void applyMilkRequests();
@@ -285,6 +287,7 @@ private:
     frame::edge_glow::Options edgeGlowOptions_;
     std::atomic<bool> edgeGlowOn_{false};
     std::atomic<bool> offscreen_{false};
+    std::atomic<bool> layerAlone_{false};
     std::atomic<int> fixedFps_{0};
     CameraRig camera_;
     // One engine per renderer (one per surface), so each is frame-locked to its own dt. Guarded by soundLock_
@@ -302,8 +305,6 @@ private:
     bool soundHeard_ = false;
     uint64_t emotionSeed_ = 0;
     bool emotionSeeded_ = false;
-    // Customize › Macros: the knobs the sound engine's tuning was last built from.
-    MacroKnobs tunedKnobs_{};
     std::atomic<float> lookYaw_{0.0f};
     std::atomic<float> lookPitch_{0.0f};
     Framebuffer fboA_{"sceneA"};

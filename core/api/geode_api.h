@@ -48,11 +48,6 @@ GEODE_API int         geode_viz_take_director_style_moments(geode_viz*);
 /* The reaction source catalogue, one line per source in wire order: "NAME|Label|GROUP|event(0/1)\n".
  * Writes at most capacity bytes (NUL-terminated when it fits) and returns the length it needs. */
 GEODE_API int         geode_react_source_catalog(char* out, int capacity);
-/* Customize › Macros (core/viz/Macros): six knobs, -1..1, process-wide, read by every renderer each frame.
- * surprise writes `count` knobs to out; starters lists "Name|e,s,c,m,sp,ch" lines like the source catalogue. */
-GEODE_API void        geode_macros_set(const float* knobs, int count);
-GEODE_API void        geode_macros_surprise(const float* knobs, int count, unsigned lock_mask, long long seed, float* out);
-GEODE_API int         geode_macro_starters(char* out, int capacity);
 /* The auto-director (core/viz/Director): the music's feeling deciding palette, behaviour and routing over
  * every style. on is the user's switch as set (1/0), which an export directs by (geode_viz_pin_engine_settings);
  * amount 0 off .. 1 full is what live surfaces drive with now, eased in and out by each renderer; seed is the
@@ -151,8 +146,9 @@ GEODE_API void        geode_viz_gyro_reset(geode_viz*);
    geode_viz_set_params / _set_lfo / _set_adsr / _set_sound_tuning, before geode_viz_render. A clear-only
    frame wants none. Export never calls it. Answers a bitmask of GEODE_FRAME_*; 0 for a null handle. */
 #define GEODE_FRAME_CLEAR_ONLY     0x1 /* the first frame on a new surface, cleared to black: present it, do nothing else */
-#define GEODE_FRAME_THERMAL_DUE    0x2 /* read PowerManager and call geode_thermal_push */
+#define GEODE_FRAME_THERMAL_DUE    0x2 /* ask PowerManager's headroom and call geode_thermal_push */
 #define GEODE_FRAME_LIQUID_CHANGED 0x4 /* Liquid mode changed: GEODE_FRAME_LIQUID_MODE(due) */
+#define GEODE_FRAME_ERROR_CHANGED  0x8 /* the error text changed, or this is the handle's first frame: geode_viz_last_error */
 /* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode). */
 #define GEODE_FRAME_LIQUID_MODE(due) ((int)(((unsigned)(due) >> 8) & 0xFu))
 #define GEODE_FRAME_PUSH_PARAMS    0x10 /* push the scene params (geode_viz_set_params) */
@@ -192,9 +188,9 @@ GEODE_API void        geode_wallpaper_window(float surface_w, float surface_h, f
                                              const float* offsets, int count, float* out);
 GEODE_API float       geode_wallpaper_fps(float target_fps, float cap_fps);
 /* An export's engine settings (signal::SettingsLatch, #350), once at prepare: from now on this renderer never
- * reads geode_macros_set, geode_note_response_set, geode_hand_set or geode_director_set again, so live edits,
- * the player's next track and its free taste never reach the render. The macros, the Note & key switch and the
- * hand mask are copied as they are now; the director is the user's switch and the play's seed, full for the
+ * reads geode_macro_bank_set, geode_note_response_set, geode_hand_set or geode_director_set again, so live
+ * edits, the player's next track and its free taste never reach the render. The macro bank, the Note & key switch
+ * and the hand mask are copied as they are now; the director is the user's switch and the play's seed, full for the
  * whole export when entitled (Pro or the trial, 1/0) or when duration_ms fits the free taste, else off
  * (director::forExport); the note entropy is 0, so an export is deterministic. Returns the pinned hand mask,
  * for the export's route merge (geode_style_reactions_hand); 0 for a null handle. */
@@ -373,12 +369,11 @@ GEODE_API const char* geode_params_roll_keys(void);
  * process; the shell parses it once. Labels and page placement stay in Kotlin. */
 GEODE_API const char* geode_params_schema_text(void);
 /* The config params schema (core/viz/ConfigTable.inc): the values the data stores hold beside the scene params
- * (LFO and envelope slots, macro knobs, the palette maker's gradient, the look's envelope, the Studio clip edit,
+ * (LFO and envelope slots, the palette maker's gradient, the look's envelope, the Studio clip edit,
  * the preset morph), one row each, as a versioned '|'-separated line table:
  *   configs|<version>|<count>
  *   config|<group>|<index>|<name>|<FLOAT|INT|BOOL>|<default>|<min>|<max>|<NONE|SECONDS|FRACTION|TURNS|DEGREES|POINTS|TIMES>
- * index = the row's place in its group (for lfo and adsr the float index of geode_viz_set_lfo / _adsr, for macro
- * the knob). A sibling of geode_params_schema_text, whose format it leaves alone. Static; parse once. */
+ * index = the row's place in its group (for lfo and adsr the float index of geode_viz_set_lfo / _adsr). A sibling of geode_params_schema_text, whose format it leaves alone. Static; parse once. */
 GEODE_API const char* geode_config_schema_text(void);
 /* The two-finger transform on the visual (core/viz/TouchTransform): a pinch's scale factor times Zoom, a twist in
  * degrees added to Rotation, each clamped to its schema range; a broken gesture value returns current unchanged. */
@@ -405,6 +400,29 @@ GEODE_API void        geode_customize_reset(const char* category, const float* i
 /* in with every field the category's controls write taken from the look in from (same wire); an unknown category
  * copies in. */
 GEODE_API void        geode_customize_borrow(const char* category, const float* in, const float* from, float* out);
+/* The macro bank (core/viz/MacroBank): the user's knobs, each a name, a value -1..1 and the links that say which
+ * scene params it moves and how far each way. Pure: no viz handle, any thread. A bank travels as the versioned
+ * '|'-separated line table MacroBank.hpp documents; the shell stores that string and decides nothing about it.
+ * Every call that takes a bank reads any text (NULL, empty or unreadable = the default bank) and every edit
+ * returns the whole new bank, normalized but otherwise unchanged when the edit is refused (an unknown knob or
+ * target, a non-finite number, a full bank). geode_macro_bank_default (the four built-in knobs, also Reset) and
+ * geode_macro_bank_targets_text (what a link may name: target, param, range, default, scope, and the caps) are
+ * static; every other pointer stays valid until this thread's next macro bank call.
+ * target is a ModTargets wire name; up and down are the offsets at a full turn each way, as signed fractions of
+ * the target's range. geode_macro_bank_live lists "knob|<id>|<up 0/1>|<down 0/1>" per knob: whether turning it
+ * that way moves anything on style_id. geode_macro_bank_set makes a bank the process-wide one every renderer
+ * adds to its params each frame, after the director and the note layer and before the LFOs. */
+GEODE_API void        geode_macro_bank_set(const char* bank);
+GEODE_API const char* geode_macro_bank_default(void);
+GEODE_API const char* geode_macro_bank_targets_text(void);
+GEODE_API const char* geode_macro_bank_normalize(const char* bank);
+GEODE_API const char* geode_macro_bank_set_value(const char* bank, int knob_id, float value);
+GEODE_API const char* geode_macro_bank_rename(const char* bank, int knob_id, const char* name);
+GEODE_API const char* geode_macro_bank_add_knob(const char* bank, const char* name);
+GEODE_API const char* geode_macro_bank_remove_knob(const char* bank, int knob_id);
+GEODE_API const char* geode_macro_bank_set_link(const char* bank, int knob_id, const char* target, float up, float down);
+GEODE_API const char* geode_macro_bank_remove_link(const char* bank, int knob_id, const char* target);
+GEODE_API const char* geode_macro_bank_live(const char* bank, const char* style_id);
 /* Background image bake (core/viz/Underlay), before geode_viz_set_underlay_rgba: pure, no viz handle, any
  * thread. The shell decodes the picture, cuts it to geode_underlay_crop_rect (out = x, y, width, height of the
  * centred crop of src to the target's aspect) and scales it to the render size, then geode_underlay_finish
@@ -623,10 +641,11 @@ GEODE_API void            geode_pacer_resume(long long* state);
 GEODE_API float           geode_pacer_effective_cap(float cap_fps);
 
 /* The process's one thermal state (core/viz/frame/Thermal): every renderer reads the same tier. The
-   once-a-second cadence across the process is native; a live renderer learns its turn from
-   GEODE_FRAME_THERMAL_DUE (geode_viz_frame_begin), then reads PowerManager and pushes. */
-/* One reading: PowerManager's thermal status (< 0 = no thermal API) and its headroom forecast (NaN = none
-   this time; the last real one holds a while). Settles the shared tier. */
+   cadence across the process is native: a live renderer learns from GEODE_FRAME_THERMAL_DUE
+   (geode_viz_frame_begin), every ten seconds, that it asks PowerManager's headroom and pushes it; the
+   status is pushed by PowerManager's status listener when it changes. */
+/* One reading: PowerManager's thermal status (< 0 = none this time; the last one holds) and its headroom
+   forecast (NaN = none this time; the last real one holds a while). Settles the shared tier. */
 GEODE_API void            geode_thermal_push(int platform_status, float headroom);
 
 /* Memory pressure (#854): Android's onTrimMemory level, forwarded as is. Native acts on TRIM_MEMORY_UI_HIDDEN (20)
@@ -791,6 +810,11 @@ GEODE_API int               geode_pcm_ring_write_s16(geode_pcm_ring*, const int1
                                                      int sample_rate, float* peak_out);
 GEODE_API int               geode_pcm_ring_write_bytes(geode_pcm_ring*, const void* data, size_t bytes, int encoding,
                                                        int channels, int sample_rate, float* peak_out);
+/* A second source layered over `ring` (the mic over the player's tap; audio/ingest/LayerMix): every renderer
+ * fed `ring` hears the two mixed while `ring` gains frames, and `layer` alone once it has not for 0.3 s.
+ * `layer` keeps its own writer and rate; begin an epoch on it when its source starts and when it stops.
+ * Other readers of `ring` (a cursor, Cast's sound) hear `ring` only. NULL removes the layer. Any thread. */
+GEODE_API void              geode_pcm_ring_set_layer(geode_pcm_ring* ring, const geode_pcm_ring* layer);
 /* A new stream (track change, seek, source switch): every cursor restarts at its next take. Any thread. */
 GEODE_API void              geode_pcm_ring_begin_epoch(geode_pcm_ring*);
 GEODE_API int64_t           geode_pcm_ring_written(const geode_pcm_ring*);   /* frames since the last epoch began */

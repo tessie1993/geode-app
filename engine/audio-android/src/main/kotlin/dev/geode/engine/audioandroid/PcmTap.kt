@@ -11,7 +11,7 @@ import java.nio.ByteBuffer
  * The player's PCM tap: hands each buffer the audio chain sees to the native [ring] where it lies, with
  * the format it was flushed with. The samples are never read here; the ring converts them to float.
  * Both callbacks run on the playback thread, the ring's one writer while the player is its source.
- * While the mic or a capture writes the ring, [owns] is false and the tap stays out of it: a paused
+ * While a capture of another app writes the ring, [owns] is false and the tap stays out of it: a paused
  * player still pushes buffers until its AudioTrack is full.
  */
 @OptIn(UnstableApi::class)

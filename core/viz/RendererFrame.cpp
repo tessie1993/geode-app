@@ -57,13 +57,8 @@ float Renderer::beginFrame(double timeSeconds) {
     {
         // Before anything reads it this frame. No engine yet (nothing written) leaves the frame silent.
         std::lock_guard<std::mutex> lock(soundLock_);
-        // The engine settings, latched once per frame: the same copy re-tunes the sound engine (the macros'
-        // Energy and Speed) and drives the resolver.
+        // The engine settings, latched once per frame for the resolver.
         frameSettings_ = latchEngineSettings();
-        if (sound_ && frameSettings_.knobs != tunedKnobs_) {
-            tunedKnobs_ = frameSettings_.knobs;
-            sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
-        }
         // What the player told the engines (core/sound/PlayerSignals), live renderers only: an export hears
         // its own track, with no boundaries but its own and no player fades, so it keeps fadeGain at 1, and
         // counts as the player, so a silent stretch in the track holds the song like a pause does live.
@@ -74,7 +69,8 @@ float Renderer::beginFrame(double timeSeconds) {
                 if (sound_) sound_->trackBoundary();
             }
             if (sound_) {
-                sound_->setPlayerSource(sound::player::playerIsSource());
+                sound_->setPlayerSource(sound::player::playerIsSource() &&
+                                        !layerAlone_.load(std::memory_order_relaxed));
                 sound_->setFadeGain(sound::player::fadeGain());
             }
         } else if (sound_) {
@@ -445,8 +441,8 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     if (liquidOn() && !scene->drawsCamera()) sceneParams.endlessZoom = false;
     // Camera travel on a flat style: Fly speed (forward zooms in, backward out) dives the picture
     // through the same endless zoom, in Dive speed's place when that is off or beside it.
-    float feedbackDive = 0.0f;
-    bool sustain = false;
+    liquid::motion::DiveAsk ask;
+    bool feedback = false;
     if (!liquidOn()) {
         const bool flat = !scene->drawsCamera();
         const float dive = flat ? CameraRig::flatDive(p) : 0.0f;
@@ -454,22 +450,21 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
         // A shader style paints its whole frame, so its Trails cannot live in the scene target: they
         // are the feedback pass's sustain. The particle styles keep their own trail (trailRetention).
         const bool wantsSustain = p.trails && scene->family() == SceneFamily::Shader && scene->trailRetention(p) <= 0.0f;
-        // Diving in is a feedback zoom, the way MilkDrop falls into the screen. Backing out has no
-        // feedback form (the edges have nothing to pull in), so it keeps the two crossfaded layers;
-        // so does a paused Liquid, which holds the pass's targets.
-        if (liveLiquid_ == liquid::Mode::Off && (speed > 0.0f || wantsSustain) && liquidPass_.ensure(renderWidth_, renderHeight_)) {
-            sustain = wantsSustain;
-            if (speed > 0.0f) {
-                feedbackDive = speed;
-                sceneParams.endlessZoom = false;
-            }
-        }
-        if (feedbackDive <= 0.0f && dive != 0.0f) {
+        // Both ways are a feedback zoom, the way MilkDrop falls into the screen; backing out pulls the
+        // edges in through the mirror fold. Only a paused Liquid (it holds the pass's targets) or targets
+        // that will not build fall back to the two crossfaded layers.
+        if (liveLiquid_ == liquid::Mode::Off && (speed != 0.0f || wantsSustain) && liquidPass_.ensure(renderWidth_, renderHeight_)) {
+            feedback = true;
+            ask.octaves = speed;
+            ask.sustain = wantsSustain;
+            ask.trailZoom = p.trailZoom;
+            ask.trailWarp = p.trailWarp;
+            if (speed != 0.0f) sceneParams.endlessZoom = false;
+        } else if (dive != 0.0f) {
             sceneParams.endlessZoomSpeed = speed;
             sceneParams.endlessZoom = true;
         }
     }
-    const bool feedback = feedbackDive > 0.0f || sustain;
     if (!feedback) diveWasOn_ = false;
     // A paused Liquid keeps its place, so only Off counts as unused. The wait keeps a dive speed
     // that an LFO swings through zero from rebuilding the targets every beat.
@@ -480,7 +475,7 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
         bornFbo_.release();
     }
     drawSceneTarget(*scene, sceneParams, dt);
-    const GLuint liquidTex = feedback ? drawDive(p, feedbackDive, sustain, dt) : drawLiquid(*scene, p, dt);
+    const GLuint liquidTex = feedback ? drawDive(p, ask, dt, wallDt) : drawLiquid(*scene, p, dt);
     composite(p, progress, targetFbo, liquidTex);
     drawEdgeGlow(targetFbo, timeSeconds, dt);
     drawUiBlur(targetFbo);
@@ -623,13 +618,16 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
     return bornFbo_.tex();
 }
 
-GLuint Renderer::drawDive(const SceneParams& p, float octavesPerSecond, bool sustain, float dt) {
+GLuint Renderer::drawDive(const SceneParams& p, const liquid::motion::DiveAsk& ask, float dt, float wallDt) {
+    namespace motion = liquid::motion;
     if (!diveWasOn_) {
         // Starts from this frame's style: an old pour must not show.
         liquidPass_.reset();
         diveWasOn_ = true;
     }
-    const float rate = std::clamp(octavesPerSecond, 0.0f, 1.2f) * endless::musicRate(soundFrame_, p.audioDrive);
+    // The motion is per second and already held to the silence rule, so it steps on the wall clock;
+    // the frame clock (dt) has that rule in it too and would apply it twice.
+    const motion::Motion heard = motion::diveMotion(ask, soundFrame_, frameSettings_.reducedMotion);
     liquid::LiquidPass::Frame f;
     f.styleTex = fboA_.tex();
     f.bornTex = fboA_.tex();
@@ -637,21 +635,21 @@ GLuint Renderer::drawDive(const SceneParams& p, float octavesPerSecond, bool sus
     f.styleWidth = renderWidth_;
     f.styleHeight = renderHeight_;
     f.dt = dt;
-    const bool diving = octavesPerSecond > 0.0f;
-    f.dive.scale = endless::feedback::scale(rate, dt);
-    f.inject = endless::feedback::inject(rate, dt);
-    if (sustain) {
+    f.motion = motion::perFrame(heard, wallDt);
+    const bool diving = motion::asksDive(ask);
+    f.inject = endless::feedback::inject(motion::travelOctaves(heard), wallDt);
+    if (ask.sustain) {
         // The longer of the two holds: a long trail is not cut short by a fast dive.
         const float held = endless::feedback::sustainInject(p.trailLength, dt);
         f.inject = diving ? std::min(f.inject, held) : held;
-        f.dive.scale *= endless::feedback::echoScale(p.trailZoom, dt);
-        f.warp = std::clamp(p.trailWarp, 0.0f, 1.0f);
     }
-    f.edge = kLiquidEdge;
+    // MilkDrop pours nothing back by edges: pinning the style's outlines in place held them still while
+    // the rest streamed past, which read as a pulse. Trails alone keep them readable.
+    f.edge = diving ? 0.0f : kLiquidEdge;
     f.sharpen = kLiquidSharpen;
     f.bornRadius = endless::feedback::kBornRadius;
     // Nothing is born at the centre unless the picture is travelling into it.
-    f.bornGain = diving ? 1.0f : 0.0f;
+    f.bornGain = ask.octaves > 0.0f ? 1.0f : 0.0f;
     f.feedback = true;
     f.time = timeSeconds_;
     f.quadVao = quadVao_;
@@ -677,7 +675,9 @@ GLuint Renderer::drawLiquid(Scene& scene, const SceneParams& p, float dt) {
     f.styleWidth = renderWidth_;
     f.styleHeight = renderHeight_;
     f.dt = dt;
-    f.dive = liquidFrame_;
+    f.motion = liquid::motion::fromDive(liquidFrame_, static_cast<float>(w) / static_cast<float>(h));
+    f.vpX = liquidFrame_.vpX;
+    f.vpY = liquidFrame_.vpY;
     const float liquidity = std::clamp(p.flowStrength, 0.0f, 1.0f);
     f.inject = liquid::injectWeight(liquidity, dt);
     f.edge = kLiquidEdge * (1.0f - 0.5f * liquidity);

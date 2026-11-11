@@ -956,6 +956,10 @@
     <!-- Visuals quick settings (VisualsQuickSettings) -->
     <string name="visuals_qs_title">Visual settings</string>
     <string name="visuals_qs_auto">Auto</string>
+    <string name="visuals_qs_reach">Auto reach</string>
+    <string name="visuals_qs_reach_look">Look only</string>
+    <string name="visuals_qs_reach_shuffle">Shuffle controls</string>
+    <string name="visuals_qs_reach_modulate">Shuffle and move sliders</string>
     <string name="visuals_qs_timer">Change style on a timer</string>
     <string name="visuals_qs_every">Every</string>
     <string name="visuals_qs_seconds">%1$d s</string>

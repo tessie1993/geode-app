@@ -15,6 +15,7 @@
 #include "api/geode_api.h"
 #include "api/geode_ingest_handles.hpp"
 #include "viz/Director.hpp"
+#include "viz/DirectorReach.hpp"
 #include "viz/GyroLook.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/LayerState.hpp"
@@ -539,6 +540,10 @@ int geode_react_source_catalog(char* out, int capacity) {
 void geode_director_set(int on, float amount, long long seed) {
     director::setGlobal(on != 0, amount, static_cast<uint64_t>(seed));
 }
+
+void geode_director_reach_set(int level) { director::setReach(level); }
+
+void geode_director_keep_set(const char* keys) { director::setKept(text(keys)); }
 
 void geode_note_response_set(int enabled) { note_response::setGlobal(enabled != 0); }
 

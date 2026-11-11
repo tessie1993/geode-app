@@ -1446,6 +1446,9 @@ object GeodeNative {
         headroom: Float,
     )
 
+    /** Android's onTrimMemory level, as is; native acts on UI_HIDDEN and BACKGROUND and ignores the rest (#854). */
+    external fun memoryTrim(level: Int)
+
     // Cast's audio pump (core/viz/frame/CastAudio): counts only; the caller keeps the PCM and the encoder.
 
     /** Size of the audio pump's state (GEODE_CAST_AUDIO_STATE): frames queued, frames held, rate. */

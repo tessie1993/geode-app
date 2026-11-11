@@ -43,7 +43,6 @@ import dev.geode.data.CanvasGesture
 import dev.geode.data.GestureAction
 import dev.geode.model.GestureTip
 import dev.geode.model.TourSpot
-import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
 import dev.geode.render.scene.SceneCapabilities
@@ -51,7 +50,6 @@ import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.StyleFamilies
 import dev.geode.render.scene.VisualStyleCatalog
 import dev.geode.ui.cast.CastButton
-import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
@@ -368,8 +366,10 @@ private fun StageIconButton(
 
 /**
  * What the visual's gestures can do here, for the gesture map to choose from ([VisualActions]).
- * Randomize everything is Customize's roll with no page given (`randomizeParams()`, the native
- * randomizer), which is Pro there; a free user meets the same paywall Customize's roll shows.
+ * Randomize everything is a new style, a preset for it and every Customize category rolled
+ * (`randomizeEverything`, native core/viz/RandomizeAll). Everyone gets the style and preset among
+ * what they may keep; the roll is Pro, as Customize's Randomize is, so a free user's preset stays as
+ * made and no paywall interrupts a gesture that already did something.
  */
 @Composable
 internal fun rememberStageActions(
@@ -383,7 +383,6 @@ internal fun rememberStageActions(
     onRecord: () -> Unit,
 ): VisualActions {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
-    val paywall: PaywallViewModel = geodeViewModel()
     val touchPulse = rememberTouchPulse(visualizerView.visualizerRenderer::submitTouchPoints)
     val gate = { viewModel.gate.value }
     return VisualActions(
@@ -396,13 +395,7 @@ internal fun rememberStageActions(
         stepPlaylist = { step -> if (!viewModel.stepVizPlaylist(step)) stepStyle(step) },
         macros = onMacros,
         record = onRecord,
-        randomizeAll = {
-            if (gate().allows(ProFeature.ADVANCED_CUSTOMIZATION)) {
-                visualsViewModel.randomizeParams()
-            } else {
-                paywall.open(PaywallTrigger.Feature(ProFeature.ADVANCED_CUSTOMIZATION))
-            }
-        },
+        randomizeAll = { visualsViewModel.randomizeEverything(rollParams = gate().allows(ProFeature.ADVANCED_CUSTOMIZATION)) },
         touchPulse = touchPulse,
         playPause = viewModel::togglePlayPause,
     )

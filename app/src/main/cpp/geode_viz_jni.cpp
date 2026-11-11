@@ -702,6 +702,46 @@ Java_dev_geode_engine_bridge_GeodeNative_customizeBorrow(JNIEnv* env, jobject, j
 }
 
 JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_randomizeAllPick(JNIEnv* env, jobject, jlong seed, jstring current, jstring lockedStyles,
+                                                          jstring lookStyles, jint milkCount, jintArray picks) {
+    if (!picks || env->GetArrayLength(picks) < 2) return nullptr;
+    Utf8Chars style(env, current);
+    Utf8Chars locked(env, lockedStyles);
+    Utf8Chars looks(env, lookStyles);
+    char picked[128];
+    int look = -1;
+    int milk = -1;
+    const int ok = geode_randomize_all_pick(static_cast<uint64_t>(seed), style.get(), locked.get(), looks.get(), milkCount, picked,
+                                            static_cast<int>(sizeof picked), &look, &milk);
+    const jint out[2] = {look, milk};
+    env->SetIntArrayRegion(picks, 0, 2, out);
+    return ok ? env->NewStringUTF(picked) : nullptr;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_randomizeAllRoll(JNIEnv* env, jobject, jstring styleId, jstring locked, jlong seed,
+                                                          jboolean rollCategories, jfloatArray before, jfloatArray base,
+                                                          jfloatArray out) {
+    const jsize count = static_cast<jsize>(geode_viz_param_count());
+    if (!before || !base || !out || env->GetArrayLength(before) < count || env->GetArrayLength(base) < count ||
+        env->GetArrayLength(out) < count) {
+        return JNI_FALSE;
+    }
+    Utf8Chars style(env, styleId);
+    Utf8Chars lockedKeys(env, locked);
+    std::vector<float> was(static_cast<size_t>(count));
+    std::vector<float> start(was.size());
+    std::vector<float> rolled(was.size());
+    env->GetFloatArrayRegion(before, 0, count, was.data());
+    env->GetFloatArrayRegion(base, 0, count, start.data());
+    const int changed =
+        geode_randomize_all_roll(style.get(), lockedKeys.get(), static_cast<uint64_t>(seed), rollCategories ? 1 : 0, was.data(),
+                                 start.data(), rolled.data());
+    env->SetFloatArrayRegion(out, 0, count, rolled.data());
+    return changed ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_configSchemaText(JNIEnv* env, jobject) {
     return env->NewStringUTF(geode_config_schema_text());
 }

@@ -66,6 +66,9 @@ import dev.geode.render.AdsrConfig
 import dev.geode.render.MilkPresetMemory
 import dev.geode.render.SceneFactory
 import dev.geode.render.look.LookSource
+import dev.geode.render.scene.Catalogue
+import dev.geode.render.scene.MilkdropEngine
+import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
 import dev.geode.widget.WidgetStyles
@@ -88,6 +91,7 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.random.Random
 
 @OptIn(UnstableApi::class)
 class PlayerSession internal constructor(
@@ -682,6 +686,46 @@ class PlayerSession internal constructor(
     fun applyPreset(preset: Preset) {
         pendingUnlockSceneId = null
         if (allowsStyle(preset.sceneId)) visual.applyPreset(preset) else onStyleLocked()
+    }
+
+    /**
+     * Randomize everything, the two-circle gesture: a new style, a preset for it, every Customize
+     * category rolled. Native decides all of it from one seed (core/viz/RandomizeAll): the style among
+     * those [allowsStyle] lets the user keep (Auto's rule, so the paywall never opens), a saved or
+     * bundled preset made for it, else on MilkDrop a .milk file, then the roll over that look with
+     * Customize's kept controls held. This only lists what the shell knows and applies the pick through
+     * [applyPreset] or [selectScene]. [rollParams] false (the roll is Pro) keeps the preset as it is.
+     */
+    fun randomizeEverything(rollParams: Boolean) {
+        // The .milk list is read off the main thread, and only when MilkDrop could be drawn at all.
+        if (MilkdropEngine.available && allowsStyle(SceneIds.MILKDROP)) {
+            milkPresetFilesAsync { randomizeEverything(rollParams, it) }
+        } else {
+            randomizeEverything(rollParams, emptyList())
+        }
+    }
+
+    private fun randomizeEverything(
+        rollParams: Boolean,
+        milk: List<MilkFile>,
+    ) {
+        val seed = Random.nextLong()
+        val viz = _vizState.value
+        val locked = Catalogue.styles.map { it.id }.filterNot(allowsStyle)
+        val picks = IntArray(2)
+        val style =
+            GeodeNative.randomizeAllPick(
+                seed,
+                chosenSceneId,
+                locked.joinToString("\n"),
+                viz.presets.joinToString("\n") { it.sceneId },
+                milk.size,
+                picks,
+            ) ?: return
+        val preset = viz.presets.getOrNull(picks[0])
+        if (preset != null) applyPreset(preset) else selectScene(style)
+        milk.getOrNull(picks[1])?.let { visual.emitApply(VizApply(milkPath = it.path, sceneId = style)) }
+        modulation.randomizeAllRoll(viz.params, seed, rollParams)
     }
 
     val activeMilkPath: StateFlow<String?> get() = vizStateStore.activeMilkPath

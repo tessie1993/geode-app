@@ -1564,7 +1564,7 @@ object GeodeNative {
     // SURFACE_* bits the shell observed; [animateUntilMs] is the wall-clock time the entitlement
     // lets the visual move until ([SURFACE_FOREVER] for Pro, a trial's end, 0 for free).
 
-    /** 0 stopped, 1 a still frame, 2 moving. */
+    /** 0 stopped, 1 a still frame, 2 moving, 3 dark (no visual). */
     external fun surfaceRunMode(
         flags: Int,
         animateUntilMs: Long,
@@ -1636,6 +1636,9 @@ object GeodeNative {
 
     /** The system's Remove animations: a still frame (ADR 0008). */
     const val SURFACE_REDUCED_MOTION = 1 shl 8
+
+    /** The dream: a silent rest shows no visual rather than a still frame. */
+    const val SURFACE_DARK_WHEN_SILENT = 1 shl 9
     const val SURFACE_FOREVER = Long.MAX_VALUE
 
     /** The wallpaper's and the dream's fps before the user picks one (GEODE_SURFACE_DEFAULT_FPS). */

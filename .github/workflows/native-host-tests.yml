@@ -13,8 +13,10 @@ on:
 permissions:
   contents: read
 
+# Keyed on the commit for a push to main (called from ship-apk.yml): a later push must not cancel the
+# host tests an earlier commit still waits on before it publishes.
 concurrency:
-  group: native-host-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  group: native-host-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.sha }}
   cancel-in-progress: true
 
 env:

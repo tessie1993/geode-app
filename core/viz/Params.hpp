@@ -34,6 +34,24 @@ enum class ParamSlot : int {
 inline constexpr ParamSlot kRetiredParams[] = {ParamSlot::pulse,  ParamSlot::shake,     ParamSlot::flash,      ParamSlot::glitch,
                                                ParamSlot::strobe, ParamSlot::formDrive, ParamSlot::motionOrbit};
 
+namespace catalogue {
+enum class Scope;
+}
+
+// A meta row's flags (ParamTable.inc): kMod, an LfoTarget writes the field.
+inline constexpr unsigned kMod = 1u << 0;
+
+// A live row's meta row, as the engine's tables read it (ParamTable.inc says what each column means).
+// A retired row's is empty: no label, Universal, no flags, no roll range, live false.
+struct ParamMeta {
+    bool live;
+    const char* label;
+    catalogue::Scope scope;
+    unsigned flags;
+    float rollLo;
+    float rollHi;
+};
+
 // One row, as the shell and the clamps read it. Ints and bools travel as floats, like the wire.
 struct ParamSpec {
     const char* name;
@@ -75,6 +93,9 @@ struct SceneParams {
     // The table, one ParamSpec per wire slot. Built once; the reference lives for the process.
     static const std::array<ParamSpec, kFieldCount>& schema();
     static const ParamSpec& spec(ParamSlot slot) { return schema()[static_cast<size_t>(slot)]; }
+    // The meta rows, one per wire slot (a retired slot's empty). Built once; the reference lives for the process.
+    static const std::array<ParamMeta, kFieldCount>& metaTable();
+    static const ParamMeta& meta(ParamSlot slot) { return metaTable()[static_cast<size_t>(slot)]; }
     // The wire slot of a field name, -1 for an unknown one.
     static int slotOf(std::string_view name);
     static constexpr bool retired(ParamSlot slot) {

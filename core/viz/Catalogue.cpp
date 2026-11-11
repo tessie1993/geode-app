@@ -1,7 +1,9 @@
 #include "viz/Catalogue.hpp"
 
+#include <algorithm>
 #include <cstdio>
 
+#include "viz/Params.hpp"
 #include "viz/fluid/FluidQuality.hpp"
 #include "viz/scenes/CymaticsMath.hpp"
 #include "viz/scenes/StyleCatalog.hpp"
@@ -186,96 +188,6 @@ constexpr const char* kMilkdrop = "milkdrop";
 constexpr const char* kCurlFlow = "curlflow";
 constexpr const char* kWater = "water";
 
-struct KeyScope {
-    const char* key;
-    Scope scope;
-};
-// Every control that is NOT universal, keyed by its ParamKeys string (the label, the lock key and
-// the search term at once). The composite pass applies the rest to the finished frame, so they
-// reach every style.
-constexpr KeyScope kKeyScopes[] = {
-    {"Speed", Scope::SceneClock},
-    {"Audio drive", Scope::AudioDrive},
-    {"Bass gain", Scope::BassBand},
-    {"Mid gain", Scope::MidBand},
-    {"Treble gain", Scope::TrebleBand},
-    {"Detail", Scope::MarchDetail},
-    {"Morph", Scope::ShaderLook},
-    {"Colour map", Scope::ShaderLook},
-    {"Palette 2", Scope::ShaderLook},
-    {"Palette blend", Scope::ShaderLook},
-    {"Duotone", Scope::ShaderLook},
-    {"Endless zoom", Scope::EndlessZoom},
-    {"Dive speed", Scope::EndlessZoom},
-    {"Turbulence", Scope::Turbulence},
-    {"Density", Scope::DyeDensity},
-    {"Trails", Scope::TrailToggle},
-    {"Trail length", Scope::TrailLength},
-    {"Trail zoom (echo in/out)", Scope::TrailEcho},
-    {"Trail warp (liquid echo)", Scope::TrailEcho},
-    {"Particle shape", Scope::ParticleSprite},
-    {"Particle size", Scope::ParticleSprite},
-    {"Particle life (s)", Scope::ParticleSprite},
-    {"Particle drag", Scope::ParticleSprite},
-    {"MilkDrop palette tint", Scope::Milkdrop},
-    {"Blend preset changes", Scope::Milkdrop},
-    {"Solver iterations", Scope::FluidSim},
-    {"Pressure", Scope::FluidSim},
-    {"Fluid curl", Scope::FluidSim},
-    {"Motion fade", Scope::FluidSim},
-    {"Fluid fade", Scope::FluidSim},
-    {"Chromatic aging", Scope::FluidSim},
-    {"Palette cycle", Scope::FluidSim},
-    {"Particle brightness", Scope::FluidSim},
-    {"Shading (embossed ink)", Scope::FluidSim},
-    {"Glow (fluid)", Scope::FluidSim},
-    {"Fluid glow", Scope::FluidSim},
-    {"Glow threshold", Scope::FluidSim},
-    {"Sunrays", Scope::FluidSim},
-    {"Sunrays weight", Scope::FluidSim},
-    {"Curl from mids", Scope::FluidSim},
-    {"Glow from loudness", Scope::FluidSim},
-    {"Fade when quiet", Scope::FluidSim},
-    {"Hit pattern", Scope::Emitters},
-    {"Hit splats", Scope::Emitters},
-    {"Stirrers", Scope::Emitters},
-    {"Stirrer speed", Scope::Emitters},
-    {"Fluid splat radius", Scope::Emitters},
-    {"Fluid splat force", Scope::Emitters},
-    {"Bass pump", Scope::Emitters},
-    {"Treble sparkle", Scope::Emitters},
-    {"Radius on hit", Scope::Emitters},
-    {"Path", Scope::Journey},
-    {"Spawn points", Scope::Journey},
-    {"Catch points", Scope::Journey},
-    {"Catch pull", Scope::Journey},
-    {"Catch radius", Scope::Journey},
-    {"Flow force", Scope::FlowFieldSim},
-    {"Flow curl", Scope::FlowFieldSim},
-    {"Ripple strength", Scope::Water},
-    {"Depth", Scope::Water},
-    {"Specular", Scope::Water},
-    {"Flow drift", Scope::Water},
-    {"Liquid", Scope::Water},
-    {"Liquid flow", Scope::Water},
-    {"Liquid fade", Scope::Water},
-    {"Ripple overlay strength", Scope::RippleOverlay},
-    {"Ripple glint", Scope::RippleOverlay},
-    {"Geometry", Scope::Cymatics},
-    {"Fundamental (Hz)", Scope::Cymatics},
-    {"Standing waves", Scope::Cymatics},
-    {"Tonal focus", Scope::Cymatics},
-    {"Plate ring", Scope::Cymatics},
-    {"Field scale", Scope::Cymatics},
-    {"Wave flow", Scope::Cymatics},
-    {"Field swirl", Scope::Cymatics},
-    {"Fill", Scope::Cymatics},
-    {"Nodal lines", Scope::Cymatics},
-    {"Nodal glow", Scope::Cymatics},
-    {"Iridescence", Scope::Cymatics},
-    {"Caustic sheen", Scope::Cymatics},
-};
-
 constexpr const char* kKindNames[kKindCount] = {"SHADER", "SILK",     "LIFE",  "MYCELIUM", "ACID",
                                                 "MILKDROP", "FLUID", "CURL_FLOW", "WATER", "CYMATICS"};
 constexpr const char* kScopeNames[kScopeCount] = {
@@ -402,7 +314,15 @@ std::string build() {
         const int geometry = styles::cymatics(id)->geometryOverride;
         if (geometry >= 0) out += "override|" + id + "|Geometry|" + std::to_string(geometry) + "\n";
     }
-    for (const auto& entry : kKeyScopes) out += std::string("key|") + entry.key + "|" + name(entry.scope) + "\n";
+    // Every control that is NOT universal, by its key, from the params schema's meta rows in wire order
+    // (a control of several fields once): the composite pass applies the rest to the finished frame.
+    std::vector<std::string> keyed;
+    for (const ParamMeta& meta : SceneParams::metaTable()) {
+        if (!meta.live || meta.label[0] == '\0' || meta.scope == Scope::Universal) continue;
+        if (std::find(keyed.begin(), keyed.end(), meta.label) != keyed.end()) continue;
+        keyed.emplace_back(meta.label);
+        out += std::string("key|") + meta.label + "|" + name(meta.scope) + "\n";
+    }
     const auto range = [&out](const char* key, float lo, float hi) {
         out += std::string("range|") + key + "|" + number(lo) + "|" + number(hi) + "\n";
     };
@@ -487,8 +407,8 @@ Look lookOf(const std::string& id) {
 }
 
 Scope scopeOf(const std::string& paramKey) {
-    for (const auto& entry : kKeyScopes) {
-        if (paramKey == entry.key) return entry.scope;
+    for (const ParamMeta& meta : SceneParams::metaTable()) {
+        if (meta.live && paramKey == meta.label) return meta.scope;
     }
     return Scope::Universal;
 }

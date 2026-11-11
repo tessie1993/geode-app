@@ -162,6 +162,11 @@
   "liquidBorn": 2,
   "liquidAge": 1,
   "liquidSurface": 1,
+  "paletteStop0": 16746496,
+  "paletteStop1": 2241535,
+  "paletteStop2": 1106080,
+  "paletteStop3": 16777215,
+  "paletteStop4": 0,
   "customShader": "void main() {}",
   "milkPreset": "golden.milk"
 }

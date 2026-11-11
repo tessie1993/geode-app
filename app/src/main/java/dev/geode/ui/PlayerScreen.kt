@@ -89,6 +89,7 @@ fun PlayerScreen(
     onOpenSearch: () -> Unit,
     onExpand: () -> Unit,
     onOpenLibrary: () -> Unit,
+    showTimeLeft: Boolean = false,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     // Not delegated: only the seek bar and the clock read .value, so a tick recomposes just those.
@@ -162,6 +163,7 @@ fun PlayerScreen(
             state = state,
             position = { position.value },
             abLoop = abLoop,
+            showTimeLeft = showTimeLeft,
             modifier = inset,
         )
     }
@@ -545,6 +547,7 @@ private fun TransportCard(
     state: PlayerUiState,
     position: () -> Long,
     abLoop: AbLoop?,
+    showTimeLeft: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -588,7 +591,11 @@ private fun TransportCard(
                         )
                     }
                 }
-                Text(formatClock(state.durationMs), style = MaterialTheme.typography.labelSmall)
+                if (showTimeLeft) {
+                    PositionClock(position) { formatTimeLeft(it, state.durationMs) }
+                } else {
+                    Text(formatClock(state.durationMs), style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
         // Edge to edge on the card's grid: the shuffle and repeat glyphs end where the times do.
@@ -941,6 +948,12 @@ internal fun formatClock(ms: Long): String {
     val seconds = total % 60
     return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, seconds) else "%d:%02d".format(minutes, seconds)
 }
+
+/** Settings › Look's "Show time left": what is left of the track after a minus sign; an unknown length reads 0:00. */
+internal fun formatTimeLeft(
+    positionMs: Long,
+    durationMs: Long,
+): String = if (durationMs <= 0) formatClock(0) else "\u2212" + formatClock(durationMs - positionMs)
 
 /** A toggle, not a plain button, so TalkBack says whether shuffle is on rather than leaving it to the tint. */
 @Composable

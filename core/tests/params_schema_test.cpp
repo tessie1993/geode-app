@@ -22,6 +22,7 @@
 
 #include "viz/Catalogue.hpp"
 #include "viz/Lfo.hpp"
+#include "viz/ParamRandomizer.hpp"
 #include "viz/Params.hpp"
 #include "viz/scenes/CymaticsMath.hpp"
 
@@ -431,6 +432,49 @@ void palettesAreTheShellsOldTable() {
     }
 }
 
+// The meta rows (#1005 PR 4a): every live row has one, a retired row none (ParamsFields.cpp also asserts
+// it at compile time), the rows one control labels agree on its scope and are few enough for a roll's
+// fields (randomizer::kMaxRollFields), and a roll range sits inside the field's own range.
+void everyLiveRowHasOneMeta() {
+    std::vector<std::string> labels;
+    for (int slot = 0; slot < SceneParams::kFieldCount; ++slot) {
+        const auto s = static_cast<ParamSlot>(slot);
+        const ParamMeta& m = SceneParams::meta(s);
+        const ParamSpec& spec = SceneParams::spec(s);
+        const std::string field = spec.name;
+        check(m.live == !SceneParams::retired(s), field + ": a live row has a meta row, a retired one none");
+        check(m.label != nullptr, field + ": a label, \"\" for none");
+        if (!m.live) {
+            check(m.label[0] == '\0' && m.flags == 0u && m.rollLo == 0.0f && m.rollHi == 0.0f, field + ": a retired row's meta is empty");
+            continue;
+        }
+        if (m.rollLo != 0.0f || m.rollHi != 0.0f) {
+            check(m.rollLo < m.rollHi, field + ": a roll range runs low to high");
+            check(m.rollLo >= spec.min && m.rollHi <= spec.max, field + ": the roll range is inside the field's range");
+        }
+        if (m.label[0] == '\0') continue;
+        int shared = 0;
+        for (int other = 0; other < SceneParams::kFieldCount; ++other) {
+            const ParamMeta& o = SceneParams::meta(static_cast<ParamSlot>(other));
+            if (!o.live || std::strcmp(o.label, m.label) != 0) continue;
+            ++shared;
+            check(o.scope == m.scope, field + ": the fields of " + m.label + " share its scope");
+        }
+        // A panel piece ("@notes_key") is drawn as a block and rolls nothing; a slider or a picker is rolled
+        // as one RolledKey, which carries three fields at most.
+        check(m.label[0] == '@' || shared <= static_cast<int>(randomizer::kMaxRollFields),
+              std::string(m.label) + ": no more fields per control than a roll's RolledKey holds");
+    }
+    check(std::string(SceneParams::meta(ParamSlot::speed).label) == "Speed", "speed's control is Speed");
+    check(SceneParams::meta(ParamSlot::speed).scope == catalogue::Scope::SceneClock, "Speed paces the scene clock");
+    check(std::string(SceneParams::meta(ParamSlot::paletteBaseOverride).label) == "Palette", "a hue override belongs to Palette");
+    check(std::string(SceneParams::meta(ParamSlot::paletteStop4).label) == "Palette", "your colours' stops belong to Palette");
+    check(std::string(SceneParams::meta(ParamSlot::beatResponse).label).empty(), "beatResponse has no control");
+    check((SceneParams::meta(ParamSlot::camYaw).flags & kMod) != 0 && (SceneParams::meta(ParamSlot::camTouch).flags & kMod) == 0,
+          "a modulation target is flagged, a switch is not");
+    check(!SceneParams::meta(ParamSlot::pulse).live && !SceneParams::meta(ParamSlot::glitch).live, "retired rows have no meta");
+}
+
 int main(int argc, char** argv) {
     if (argc == 3 && std::strcmp(argv[1], "--write") == 0) {
         std::ofstream(argv[2], std::ios::binary) << SceneParams::schemaText();
@@ -447,6 +491,7 @@ int main(int argc, char** argv) {
     theCataloguesRangesAgree();
     theTextIsTheTable();
     palettesAreTheShellsOldTable();
+    everyLiveRowHasOneMeta();
     textEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/params_schema.txt");
     if (failures == 0) std::printf("params_schema_test: all checks passed\n");
     return failures;

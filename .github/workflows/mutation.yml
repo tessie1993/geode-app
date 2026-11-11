@@ -57,6 +57,9 @@ jobs:
           # stacked PR can be far back.
           fetch-depth: 0
           persist-credentials: false
+      # core/sound/Fft runs on KISS FFT; the host tests this job reruns need its header.
+      - name: Check out the kissfft submodule
+        run: git submodule update --init --depth 1 third_party/kissfft
 
       - name: Fetch the base branch
         run: git fetch --no-tags origin "+refs/heads/${MUTATION_BASE}:refs/remotes/origin/${MUTATION_BASE}"

@@ -41,6 +41,9 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+      # core/sound/Fft runs on KISS FFT; only that submodule, the others are large and unused here.
+      - name: Check out the kissfft submodule
+        run: git submodule update --init --depth 1 third_party/kissfft
       - name: Build the golden test
         run: g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_golden_test.cpp core/sound/*.cpp -o sound_golden_test
       - name: Write the regenerated golden

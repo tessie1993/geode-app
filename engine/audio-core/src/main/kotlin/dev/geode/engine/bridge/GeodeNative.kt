@@ -730,6 +730,22 @@ object GeodeNative {
     external fun customizeShown(styleId: String): String
 
     /**
+     * Randomize for the waves (core/viz/WaveRandomizer): [input] and [output] are the three slots in
+     * ModConfigCodec.packLfo's layout, one after another; [params] is the look on screen. [runningOnly] false is
+     * the wave editor's button (every wave on and rolled); true is a category roll, which only re-rolls the
+     * steady waves already on and none when [locked] keeps them. True when it changed something.
+     */
+    external fun wavesRandomize(
+        styleId: String?,
+        locked: String?,
+        seed: Long,
+        runningOnly: Boolean,
+        params: FloatArray,
+        input: FloatArray,
+        output: FloatArray,
+    ): Boolean
+
+    /**
      * Rolls one Customize category (core/viz/CustomizeMap; [category] by its CustomizeMap name) from
      * [input] into [output]: its controls that reach [styleId] (null = any), except the newline-joined
      * ParamKeys in [locked]. Every other control holds. True when it changed something.
@@ -1451,6 +1467,22 @@ object GeodeNative {
         lowRam: Boolean,
         mediaPerformanceClass: Int,
     ): Int
+
+    /**
+     * The app's own stage (core/viz/StageRun): [flags] are the STAGE_* bits the shell observed; the answer has
+     * [STAGE_DRAWS] while somebody can see the stage and [STAGE_CAST_LEADS_AUTO] while a cast's renderer
+     * counts the auto-director's style moments in its place.
+     */
+    external fun stageRun(flags: Int): Int
+
+    const val STAGE_STARTED = 1 shl 0
+    const val STAGE_RESUMED = 1 shl 1
+    const val STAGE_PIP = 1 shl 2
+    const val STAGE_SECOND_SCREEN = 1 shl 3
+    const val STAGE_CASTING = 1 shl 4
+    const val STAGE_DRAWS = 1 shl 0
+    const val STAGE_CAST_LEADS_AUTO = 1 shl 1
+
     // The live wallpaper's and the dream's run rule (core/viz/SurfaceRun). [flags] are the
     // SURFACE_* bits the shell observed; [animateUntilMs] is the wall-clock time the entitlement
     // lets the visual move until ([SURFACE_FOREVER] for Pro, a trial's end, 0 for free).
@@ -1492,6 +1524,29 @@ object GeodeNative {
 
     /** A surface's stored fps choice as its pacer caps to: snapped to a listed rate, <= 0 the default. */
     external fun surfaceFpsChoice(requestedFps: Int): Int
+
+    /**
+     * Auto's style timer ([AUTO_TIMER_PLAYLIST], [AUTO_TIMER_RANDOM]; native `core/viz/AutoTimer`): a look
+     * just went up at [nowMs], so the wait starts over with a new random spread on top of the interval.
+     */
+    external fun autoTimerRestart(
+        timer: Int,
+        nowMs: Long,
+    )
+
+    /**
+     * Whether [timer]'s next look is due: the interval plus this look's spread has passed. True restarts
+     * the wait. [running] false (off, paused, nothing to step to) is never due.
+     */
+    external fun autoTimerDue(
+        timer: Int,
+        nowMs: Long,
+        intervalSec: Int,
+        running: Boolean,
+    ): Boolean
+
+    const val AUTO_TIMER_PLAYLIST = 0
+    const val AUTO_TIMER_RANDOM = 1
 
     const val SURFACE_HAS_SURFACE = 1 shl 0
     const val SURFACE_VISIBLE = 1 shl 1
@@ -1604,6 +1659,18 @@ object GeodeNative {
     /** Frames written since the last [pcmRingBeginEpoch]. */
     external fun pcmRingWritten(handle: Long): Long
 
+    /** Frames ever written, across epochs: the position [playoutBufferHandled] counts ring samples in. */
+    external fun pcmRingHead(handle: Long): Long
+
+    /**
+     * The playout clock ([playoutCreate]) of the sink that plays this ring, 0 for none: a renderer fed the
+     * ring then hears up to the sample the speaker plays, not the newest. The clock must outlive the ring.
+     */
+    external fun pcmRingSetPlayout(
+        handle: Long,
+        playout: Long,
+    )
+
     /**
      * The rest-when-silent rule over the ring's newest [frames] frames: [nowMs] when any is above about
      * -42 dBFS, else [heardAtMs] (also when the ring has not written that many).
@@ -1683,6 +1750,23 @@ object GeodeNative {
         handle: Long,
         nowNs: Long,
     ): Long
+
+    /** Cast: while [on], the TV plays the ring as written and every reader takes the newest sample again. */
+    external fun playoutSetBypass(
+        handle: Long,
+        on: Boolean,
+    )
+
+    /** Wall ms from [nowNs] until the newest sample the sink took is heard; 0 with no map, 2000 at most. */
+    external fun playoutLagMs(
+        handle: Long,
+        nowNs: Long,
+    ): Int
+
+    /** The player's ring: its capacity and runway, sized natively so a reader at the speaker is not overrun. */
+    external fun playoutRingFrames(): Int
+
+    external fun playoutRingRunway(): Int
 
     // The playback output (core/audio/output): an Oboe stream under Media3's sink, where the AudioTrack stands.
 

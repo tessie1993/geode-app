@@ -12,6 +12,9 @@ void PlayoutClock::bufferHandled(int64_t presentationUs, int64_t ringFrame, int6
         const Anchor& newest = anchor(count_ - 1);
         // The sink hands the same buffer again when the AudioTrack could not take it whole: one anchor.
         if (presentationUs == newest.presentationUs && ringFrame >= newest.ringFrame) {
+            // Each try reports what it added to the ring: the buffer's samples run to the newest try's end.
+            Anchor& kept = anchors_[static_cast<std::size_t>((first_ + count_ - 1) % kAnchors)];
+            kept.frames = std::max(kept.frames, ringFrame + frames - kept.ringFrame);
             newestWritten_ = std::max(newestWritten_, ringFrame + frames);
             return;
         }
@@ -138,6 +141,23 @@ int64_t PlayoutClock::speakerFrame(int64_t nowNs) const {
     if (!positioned_) return anchor(0).ringFrame;
     const int64_t frame = ringAt(positionAt(nowNs - offsetNs_, nowNs));
     return std::clamp(frame, anchor(0).ringFrame, newestWritten_);
+}
+
+int PlayoutClock::lagMs(int64_t nowNs) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (count_ == 0) return 0;
+    const Anchor& newest = anchor(count_ - 1);
+    // Media time at the end of the newest buffer: its start, plus its frames at the last pair's slope.
+    auto endUs = static_cast<double>(newest.presentationUs);
+    if (count_ >= 2) {
+        const Anchor& prev = anchor(count_ - 2);
+        const auto dr = static_cast<double>(newest.ringFrame - prev.ringFrame);
+        const auto dp = static_cast<double>(newest.presentationUs - prev.presentationUs);
+        if (dr > 0.0) endUs += static_cast<double>(newest.frames) * dp / dr;
+    }
+    const double heardUs = positioned_ ? positionAt(nowNs, nowNs) : static_cast<double>(anchor(0).presentationUs);
+    const double ms = (endUs - heardUs) / 1000.0 / speed_;
+    return static_cast<int>(std::clamp(ms, 0.0, static_cast<double>(kMaxLagMs)));
 }
 
 }  // namespace geode::sound

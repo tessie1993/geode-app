@@ -14,6 +14,8 @@ data class PlayerUiState(
     val title: String? = null,
     val artist: String? = null,
     val hasMedia: Boolean = false,
+    /** The loaded track's key, emitted with its title so the heart and the art never show another track's. */
+    val trackUri: String? = null,
     val queueSize: Int = 0,
     val queueIndex: Int = 0,
     val shuffle: Boolean = false,

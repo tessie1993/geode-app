@@ -148,6 +148,11 @@ class PlayerViewModel
 
         fun onDirectorStyleMoment() = session.autoVisuals.onDirectorMoment()
 
+        /** Customize is open or closed; Auto holds its style changes while it is open. */
+        fun setCustomizing(open: Boolean) {
+            session.autoVisuals.editing = open
+        }
+
         fun stepVizPlaylist(step: Int = 1): Boolean = session.autoVisuals.stepVizPlaylist(step)
 
         fun recentlyPlayed() = session.listening.recentlyPlayed()

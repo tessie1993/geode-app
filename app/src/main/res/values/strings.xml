@@ -63,7 +63,7 @@
     <string name="perf_liquid_hot_full">Full (phone may throttle)</string>
     <string name="perf_liquid_hot_pause">Pause</string>
     <string name="perf_liquid_hot_hint">What Liquid mode does when the phone gets hot. Simplify keeps the flow with fewer details, Full never steps down, Pause freezes the liquid until the phone cools.</string>
-    <string name="perf_export_note">Applies to the visualizer, wallpaper and screensaver. Exports always render at full quality.</string>
+    <string name="perf_export_note">Applies at once to the visualizer, the wallpaper and the screen saver. The frame rate cap is the visualizer\'s alone: the wallpaper and the screen saver keep their own rate. Exports always render at full quality.</string>
 
     <!-- Settings > Help -->
     <string name="help_topics_group">How things work</string>

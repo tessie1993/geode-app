@@ -50,7 +50,7 @@ what goes in which form.
 | 7 | App content › Data safety | Answer as written | [data-safety.md](data-safety.md) |
 | 8 | App content › Content rating | Answer the questionnaire | [content-rating.md](content-rating.md) |
 | 9 | App content › Target audience, Ads, App access, News, Health apps, Government, Financial | Target age: 13-15, 16-17, 18 and over. The rest as written. See "A 13+ app" below | [content-rating.md](content-rating.md) |
-| 10 | App content › Foreground service permissions (appears once a bundle is uploaded) | One description and one video per service type | [permissions.md](permissions.md) |
+| 10 | App content › Foreground service permissions (appears once a bundle is uploaded) | One description and one video per service type: media playback, microphone, media projection, media processing, data sync | [permissions.md](permissions.md) |
 | 11 | Monetize › Products › In-app products | Create the one-time product with id `beatrealms3d_pro`, set its price, activate it | owner |
 | 12 | Release › Production (or a test track first) | Upload the AAB from `release.yml`, paste the release notes | `fastlane/metadata/android/en-US/changelogs/default.txt` |
 
@@ -98,6 +98,8 @@ read 2026-11-11:
   repository's secrets).
 - The contact email and website shown on the store page.
 - Uploading the promo video to YouTube and the foreground-service clips.
+- Creating the app and the in-app product `beatrealms3d_pro`, and accepting Play's terms and
+  declarations.
 - Running the **Store assets** workflow, looking at the pictures and choosing which go up.
 - Confirming the privacy policy's public URL shows the renamed text.
 
@@ -123,32 +125,39 @@ read 2026-11-11:
 5. **The styles named "Acid"** in a store screenshot or the listing: harmless in the app, but
    keep them out of store pictures (the metadata policy bans depictions of drug use, and a
    reviewer reads names).
-6. **Screenshots: decided 2026-11-11**, "screenshots free, record pro". Still open: which styles,
+6. **Screenshots: decided 2026-11-11**, "screenshots free, record pro" (and the hidden easter eggs are free; the listing does not name them). Still open: which styles,
    and whether the player screenshot is retaken on a phone with real cover art.
 7. **Promo video.** Optional. The workflow's clips are silent and software-rendered; a
    published video needs a recording from a real phone ([promo-video.md](promo-video.md)).
 8. **Tags.** Play's tag list could not be read outside the Console; pick from the order in
    [category-tags.md](category-tags.md).
-9. **"MilkDrop" and "Google Cast" in the listing.** Both are other parties' names, used only to
+9. **"Your colours stay yours"** (the Auto mode bullet). True in the code (the director touches
+   no colour param, `core/tests/director_test.cpp`, `resolver_test.cpp`), but it is a promise;
+   drop the sentence if Auto should be free to change colours later.
+10. **"MilkDrop" and "Google Cast" in the listing.** Both are other parties' names, used only to
    say what the app is compatible with ("a MilkDrop-compatible engine", "with Google Cast").
    If a reviewer objects, drop the words; nothing else depends on them.
 
-## Listing sentences to revisit when pending PRs merge
+## Listing lines to change when the open PRs merge
 
-- **Real-time Record (#1035):** the "Record a take (Pro)" bullet describes today's take (the
-  changes are replayed and rendered in the background). Reword it to what #1035 records.
-- **Pool style (#1036):** one more style; rerun `tools/store-stats.sh` and change "244 visual
-  styles" (and the changelog's 244) to the new count. If Pool is free, "more than 60" stays true.
-- **Macro editor (#1034):** the listing says "quick knobs" only. Add "make your own knobs" to the
-  Customize bullet if the editor ships, and say whether it is Pro.
-- **Cast microphone fix:** no listing change; add the microphone foreground-service declaration
-  ([permissions.md](permissions.md) › Pending).
+The listing describes `origin/main` at b1ac6a75a. Landed since the first version and now in the
+text: real-time Record (#1035), the knob editor (#1062), the connected display (#1039), the Cast
+microphone type (#1037). The easter eggs (#1055: shake for a screenshot, tap along) are free and
+hidden, so the listing does not name them; the privacy policy does (sensors, screenshots).
+
+| PR | Change when it merges |
+|---|---|
+| #1065 Customize: Dive and Engine categories | `full_description.txt` "Customize in nine groups" becomes the new count (`tools/store-stats.sh` › Customize categories); screenshot 4's alt text in [screenshots.md](screenshots.md) lists the groups |
+| #1036 Pool replaces Water | Rerun `tools/store-stats.sh`: if the style count moves, change "244" in `full_description.txt`, `changelogs/default.txt` and [promo-video.md](promo-video.md). Pool is not a shader style, so it is Pro and "more than 60" free stays |
+| #1048 Cast: Show on a computer | Add a bullet under "Beyond the app (Pro)" ("Show the visual in a browser on a computer on your Wi-Fi"); reword "The internet is used for Cast to TV only" in the listing, `docs/site/index.html` and the privacy policy's Cast section (three copies) to cover the computer; add its row to [data-safety.md](data-safety.md) › Why nothing else is declared and recheck that the network code is still only under `cast/` |
+| #1024 Retire pulse, shake, flash | No listing change (it names none of them; `tools/store-check.sh` fails if one comes back). The in-app safety strings (`safety_prompt`, `help_topic_safety_body`) still say "strobe and flash depth"; when they change, keep the listing's warning in step |
+| #1059 Sliders tell TalkBack their name and value | None |
 
 ## What has been checked and what has not
 
 Checked: the listing's lengths and banned words (`tools/store-check.sh`); every count
 (`tools/store-stats.sh`, [stats.md](stats.md)); the icon's and the new feature graphic's size
-and format; each claim in the full description against the code on `main` at 022d8dd8d; the collect script on made-up pictures; each form answer against the code lines it
+and format; each claim in the full description against the code on `main` at b1ac6a75a (Graphify, then the files); the collect script on made-up pictures; each form answer against the code lines it
 cites; Play's rules against the help pages named in each file, read on 2026-11-11.
 
 Not checked: the screenshot tests and the workflow have never run. They were not compiled

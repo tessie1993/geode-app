@@ -8,10 +8,10 @@ Play your music
 • The visuals can also follow the microphone or the sound of another app, if you turn that on.
 
 Watch it
-• 244 visual styles: 3D scenes you fly through, fractals, nebulae, terrain, glass, fluid and particle simulations, and a MilkDrop-compatible engine for your own .milk preset files.
-• The visuals listen to the sound itself: loudness, bass, mids and treble, drum hits, notes, chords and key, and the build-ups and drops of a song.
-• Auto mode picks colours, camera moves and new looks as the song moves from one part to the next.
-• Customize in nine groups, from quick knobs to camera, motion, effects and a liquid mode you can push around with your fingers.
+• 244 visual styles: 3D scenes you fly through, fractals, nebulae, terrain, glass, fluid and particle simulations, and, with Pro, a MilkDrop-compatible engine for your own .milk preset files.
+• The visuals listen to the sound itself: loudness, bass, mids and treble, drum hits, notes, chords and key, and the build-ups and drops of a song. No sound, no visuals: when the music stops, the picture comes to rest.
+• Auto mode changes the style, the camera and the motion as the song moves from one part to the next. Your colours stay yours.
+• Customize in nine groups, from quick knobs to camera, motion, effects and a liquid mode you can push around with your fingers. With Pro you can build your own knobs.
 • More than 700 bundled looks, and you can save, organise and share your own.
 
 Make a video
@@ -19,20 +19,21 @@ Make a video
 • 720p, 1080p or 4K; 24 to 60 frames per second; H.264 or HEVC.
 • Widescreen, vertical, square and other shapes, with ready-made settings for short vertical video and for widescreen.
 • Loop renders and renders of a whole queue or playlist (Pro).
-• Record a take (Pro): change the visual while a song plays, and the app renders what you did to an MP4 in the background.
+• Record (Pro): hold a finger on the visual to record a live video of what it shows and hears, until you stop.
 
 Beyond the app (Pro)
 • A live wallpaper and a screen saver that react to what is playing.
 • Cast the visual and the music to a TV with Google Cast.
+• Show the visual on a connected display: HDMI, USB-C or a wireless display.
 
 Free and Pro
 Without Pro, with no ads: the music player, more than 60 styles (including the first of each of the ten style families), the basic controls of every Customize group, and video export up to 1080p at 30 frames per second, one minute long, with a watermark across the picture. Auto mode directs the first minute of each song.
-Pro is a single in-app purchase, not a subscription: every style, every control, 4K and 60 frames per second, full-length video without the watermark, loop and batch renders, recorded takes, the live wallpaper, the screen saver, Cast to TV, and Auto mode for the whole song. You can try Pro for one hour before buying; videos rendered during the trial keep the one-minute limit and the watermark.
+Pro is a single in-app purchase, not a subscription: every style, every control, 4K and 60 frames per second, full-length video without the watermark, loop and batch renders, Record, your own knobs, the live wallpaper, the screen saver, Cast to TV, a connected display, and Auto mode for the whole song. You can try Pro for one hour before buying; videos rendered or recorded during the trial keep the one-minute limit and the watermark.
 
 Privacy
-No account, no ads, no analytics. Your music, your listening history and your settings stay on your phone (and in your Android backup, if you use it). The internet is used for Cast to TV only: finding the TV and streaming to it over your own Wi-Fi. The Google Cast component sends Google anonymous usage logs; the privacy policy explains this.
+No account, no ads, no analytics. Your music, your listening history, your settings and the videos you make stay on your phone (settings and history also in your Android backup, if you use it). The internet is used for Cast to TV only: finding the TV and streaming to it over your own Wi-Fi. The Google Cast component sends Google anonymous usage logs; the privacy policy explains this.
 
 Photosensitivity warning
-The visuals are bright, fast and full-screen, and they can flash. A small number of people can have a seizure when they see flashing lights or patterns, even with no history of epilepsy. The app limits how deep its own strobe and flash effects go and slows its brightness changes, and it follows Android's "Remove animations" setting, but it does not measure the finished picture, and MilkDrop presets you add are not limited. It cannot make the visuals safe for everyone. If you or anyone watching is sensitive to flashing light, do not use the visuals, and stop at once if you feel unwell.
+The visuals are bright, fast and full-screen, and they can flash. A small number of people can have a seizure when they see flashing lights or patterns, even with no history of epilepsy. The app limits how far and how fast its own effects may change the brightness, and it follows Android's "Remove animations" setting, but it does not measure the finished picture, and MilkDrop presets you add are not limited. It cannot make the visuals safe for everyone. If you or anyone watching is sensitive to flashing light, do not use the visuals, and stop at once if you feel unwell.
 
 Requires Android 13 or newer.

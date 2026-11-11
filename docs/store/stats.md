@@ -1,7 +1,7 @@
 # Stats: the numbers the listing may quote
 
 Every number comes from the code or the catalogue and is recounted by `tools/store-stats.sh`
-(run from the repo root). Counted on `origin/main` at b8ac569b5 and recounted, unchanged, at 022d8dd8d, 2026-11-11:
+(run from the repo root). Recounted on `origin/main` at b1ac6a75a, 2026-11-11 (only the permission count moved, 13 to 14, with the Cast microphone type):
 
 ```
 styles                      244
@@ -20,7 +20,7 @@ export destinations         TIKTOK SHORTS FEED SQUARE YOUTUBE MASTER CUSTOM
 free export cap             1080p, 60_000L ms
 minSdk / targetSdk          33 / 36
 version base / code base    1.8.1 / 33
-permissions                 13
+permissions                 14
 ```
 
 How to read them, and what the listing says:

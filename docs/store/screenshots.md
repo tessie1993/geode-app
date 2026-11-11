@@ -51,7 +51,7 @@ The eight, in upload order:
 |---|---|---|---|
 | 1 | `01-visual-neon-chrome-sea` | The app's first style, full screen | A chrome sea under neon light, moving with the music |
 | 2 | `02-styles` | The Styles menu over the running visual | The list of visual styles, opened over a nebula that reacts to the song |
-| 3 | `03-visual-nebula` | Nebula, full screen | A glowing nebula that pulses with the music |
+| 3 | `03-visual-nebula` | Nebula, full screen | A glowing nebula that moves with the music |
 | 4 | `04-customize` | Customize's nine groups | The Customize menu: quick knobs, look, shape, motion, camera, music, effects, liquid |
 | 5 | `05-visual-terrain` | Terrain, full screen | A mountain ridge flown over as the music plays |
 | 6 | `06-player` | The player with a track playing | The music player with a track playing and its controls |
@@ -86,14 +86,17 @@ crop to 9:16 or 16:9 and export without alpha.
 
 **Ready:** `docs/brand/beatrealms-feature-graphic-1024x500.png` (1024 x 500, RGB PNG, no alpha),
 made from `docs/brand/beatrealms-feature-graphic.svg` by `tools/feature_graphic.py` and rendered
-as `docs/brand/README.md` › Regenerating says. It is the launcher icon's neon eye over an
-indigo ground with the splash's outlined "BeatRealms 3D" wordmark, everything inside the middle
-60 %, no tagline, no screenshot. Alt text: "The BeatRealms 3D eye logo, made of sound waves,
+as `docs/brand/README.md` › Regenerating says. It is the launcher icon's neon eye beside the
+app's own wordmark (the glass script "BeatRealms" over a chrome "3d", read from
+`res/drawable/splash_wordmark.xml`, so it follows the app) over an indigo ground, everything
+inside the middle 80 %, no tagline, no screenshot. Regenerated 2026-11-11: the first version
+still carried the wordmark from before #1047. Alt text: "The BeatRealms 3D eye logo, made of sound waves,
 over a spectrum of light".
 
 The ground is indigo on purpose: Play asks feature graphics to avoid pure black and dark grey,
 and the app's own black would vanish into the store's dark theme. If a promo video is added,
-Play draws a play button in the centre of this graphic; the eye sits there, which is fine.
+Play draws a play button in the centre of this graphic; it lands between the eye and the
+wordmark, on the first letter's edge, which is acceptable.
 
 The **Store assets** workflow also writes `feature-graphic/<style>-1024x500.png`, frames of
 free styles from the app's own renderer (`StoreFramesTest.kt`). They are valid alternatives

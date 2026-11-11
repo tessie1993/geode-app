@@ -53,10 +53,17 @@ class PaywallViewModelTest {
     private class InMemoryTrialStore : TrialStore {
         var startedAt: Long? = null
         var noticeShown = false
+        var lastSeen = 0L
 
         override fun startedAtMs(): Long? = startedAt
 
         override fun endNoticeShown(): Boolean = noticeShown
+
+        override fun lastSeenMs(): Long = lastSeen
+
+        override fun saveLastSeen(ms: Long) {
+            lastSeen = ms
+        }
 
         override fun saveStartedAt(ms: Long) {
             startedAt = ms

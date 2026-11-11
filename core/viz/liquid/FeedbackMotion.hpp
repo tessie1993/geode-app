@@ -6,6 +6,7 @@
 #include "sound/DriveGain.hpp"
 #include "sound/SoundFrame.h"
 #include "viz/VisualSafety.hpp"
+#include "viz/liquid/LiquidMath.hpp"
 
 namespace geode::viz::liquid::motion {
 
@@ -15,7 +16,10 @@ namespace geode::viz::liquid::motion {
 //
 // MilkDrop applies its values once per frame, so a preset moves twice as fast at 120 Hz as at 60. Here a
 // Motion is per second and perFrame() turns it into one frame's MilkDrop values for the frame's dt, so the
-// same travel per second results at any frame rate (endless::feedback::scale's rule).
+// same travel per second results at any frame rate.
+//
+// app/src/main/assets/shaders/lib_feedback.glsl is uvFor() and fold() in GLSL, term for term: change
+// both together.
 
 inline constexpr float kMilkDropHz = 60.0f;
 /** MilkDrop's warp displacement per frame per unit warp (milkdropfs.cpp:1812), as a rate at its 60 Hz. */
@@ -58,7 +62,7 @@ struct Uv {
     float v = 0.5f;
 };
 
-// Hard limits on what any caller can ask for, per second. Zoom in matches endless::feedback's 2 octaves.
+// Hard limits on what any caller can ask for, per second.
 inline constexpr float kMaxZoomInOctaves = 2.0f;
 inline constexpr float kMaxZoomOutOctaves = 1.0f;
 inline constexpr float kMaxZoomExp = 4.0f;
@@ -229,6 +233,75 @@ inline Motion fromSound(const Motion& base, const GeodeSoundFrame& s, bool reduc
     m.sx = std::exp2(std::log2(b.sx) * rate);
     m.sy = std::exp2(std::log2(b.sy) * rate);
     return m;
+}
+
+// What the renderer asks of the pass while Liquid is off (Renderer::drawDive): Dive speed and a flat
+// style's Fly as a zoom, and a shader style's Trails as MilkDrop's video echo zoom and warp.
+struct DiveAsk {
+    float octaves = 0.0f;    // per second; negative backs out
+    bool sustain = false;    // the style's Trails ride the pass
+    float trailZoom = 0.0f;  // -0.5..0.5
+    float trailWarp = 0.0f;  // 0..1
+};
+
+/** Dive speed's own ceiling, octaves a second, before the bass pushes it. */
+inline constexpr float kMaxDiveOctaves = 1.2f;
+/** Trail zoom at 1, octaves a second: the 6% a frame the particle styles' trail pass uses, at 60 Hz. */
+inline constexpr float kTrailZoomOctaves = 5.2f;
+
+inline bool asksDive(const DiveAsk& a) { return std::isfinite(a.octaves) && a.octaves != 0.0f; }
+
+inline Motion diveBase(const DiveAsk& a) {
+    using detail::finiteOr;
+    float octaves = std::clamp(finiteOr(a.octaves, 0.0f), -kMaxZoomOutOctaves, kMaxDiveOctaves);
+    Motion m;
+    if (a.sustain) {
+        octaves += std::clamp(finiteOr(a.trailZoom, 0.0f), -0.5f, 0.5f) * kTrailZoomOctaves;
+        m.warp = std::clamp(finiteOr(a.trailWarp, 0.0f), 0.0f, 1.0f);
+    }
+    m.zoom = std::exp2(octaves);
+    return sanitize(m);
+}
+
+/**
+ * This frame's motion for the ask, heard. The bass, mids and treble push only a dive the user asked
+ * for; Trails alone keep their own zoom and warp, held to the silence rule like everything else.
+ */
+inline Motion diveMotion(const DiveAsk& a, const GeodeSoundFrame& s, bool reducedMotion) {
+    GeodeSoundFrame heard = s;
+    if (!asksDive(a)) heard.bassAtt = heard.midAtt = heard.trebleAtt = 1.0f;
+    return fromSound(diveBase(a), heard, reducedMotion);
+}
+
+/** Octaves a second the motion travels, either way: what the pour is timed by. */
+inline float travelOctaves(const Motion& m) {
+    return std::isfinite(m.zoom) && m.zoom > 0.0f ? std::fabs(std::log2(m.zoom)) : 0.0f;
+}
+
+/**
+ * Liquid mode's dive (LiquidMath's Dive: a zoom and a twist about a wandering vanishing point) as one
+ * frame of MilkDrop's transform. MilkDrop zooms about the screen's centre and turns about (cx, cy), so
+ * a zoom about the vanishing point is that zoom, the turn about it, and the translation that carries the
+ * centre's zoom over to it: d = R (0.5 - c) (1 - 1 / zoom). The vanishing point comes in centred units
+ * (x times the aspect, y up), which are MilkDrop's aspect-fitted UV over 0.5 aspY, y flipped.
+ */
+inline FrameMotion fromDive(const DiveFrame& d, float aspect) {
+    using detail::finiteOr;
+    const float a = (std::isfinite(aspect) && aspect > 0.0f) ? aspect : 1.0f;
+    const float k = 0.5f * (a > 1.0f ? 1.0f / a : 1.0f);
+    FrameMotion f;
+    f.zoom = std::clamp(finiteOr(d.scale, 1.0f), 0.5f, 2.0f);
+    f.rot = std::clamp(finiteOr(d.twist, 0.0f), -kMaxRot, kMaxRot);
+    f.cx = 0.5f + std::clamp(finiteOr(d.vpX, 0.0f), -2.0f, 2.0f) * k;
+    f.cy = 0.5f - std::clamp(finiteOr(d.vpY, 0.0f), -2.0f, 2.0f) * k;
+    const float pull = 1.0f - 1.0f / f.zoom;
+    const float ox = (0.5f - f.cx) * pull;
+    const float oy = (0.5f - f.cy) * pull;
+    const float c = std::cos(f.rot);
+    const float s = std::sin(f.rot);
+    f.dx = ox * c - oy * s;
+    f.dy = ox * s + oy * c;
+    return f;
 }
 
 }  // namespace geode::viz::liquid::motion

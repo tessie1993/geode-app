@@ -502,7 +502,7 @@ object BundledTemplates {
         )
 
     private const val ID_PREFIX = "geode.starter."
-    private const val AUTHOR = "MuzViz"
+    private const val AUTHOR = "BeatRealms"
     private const val HOOK_15S = 15_000L
     private const val HOOK_30S = 30_000L
     private const val HOOK_45S = 45_000L

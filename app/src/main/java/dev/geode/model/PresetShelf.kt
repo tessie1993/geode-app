@@ -1,8 +1,8 @@
 package dev.geode.model
 
 /**
- * One preset as the Presets grid sees it. The grid never needs the look itself (params, shader
- * text, a MilkDrop file), only what decides which cards show, in which order and with which marks,
+ * One preset as the Presets list sees it. The list never needs the look itself (params, shader
+ * text, a MilkDrop file), only what decides which rows show, in which order and with which marks,
  * so the rules below stay pure and are tested off-device. The page builds these from `data/Preset`.
  *
  * [forThisStyle] is worked out by the page, since the style families (every Cymatics variant
@@ -19,7 +19,7 @@ data class PresetEntry(
 )
 
 /**
- * The Presets grid's filter chips. One row of chips replaced a long list with a header for each
+ * The Presets list's filter chips. One row of chips replaced a long list with a header for each
  * folder and a second list of built-ins: the shelves the user reaches for first, then each of
  * their folders.
  */
@@ -44,10 +44,10 @@ object PresetFiltering {
             folders.filter { it.isNotBlank() }.distinct().map { PresetFilter.Folder(it) }
 
     /**
-     * The cards [filter] leaves, in grid order: the user's own first (what they made is what they
+     * The rows [filter] leaves, in list order: the user's own first (what they made is what they
      * came for), then the built-ins, those made for the style on stage ahead of the rest. A name
      * shows once: the store can hold a user preset that shadows nothing, but a list read twice
-     * (the session merges the built-ins and the files) must not draw two cards for it.
+     * (the session merges the built-ins and the files) must not draw two rows for it.
      */
     fun apply(
         entries: List<PresetEntry>,
@@ -67,7 +67,7 @@ object PresetFiltering {
     }
 
     /**
-     * The one card that gets the check. The preset the user last tapped wins while the stage
+     * The one row that gets the check. The preset the user last tapped wins while the stage
      * still shows its look; otherwise the first preset whose look the stage shows, so a look
      * applied from somewhere else (a shared link, auto-visuals) is marked too. Null once the
      * user has changed anything, since no preset is on stage then.

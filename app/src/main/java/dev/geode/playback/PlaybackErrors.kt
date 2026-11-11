@@ -35,7 +35,7 @@ object PlaybackErrors {
                     "$subject is missing. It may have been moved, renamed or deleted."
 
                 PlaybackException.ERROR_CODE_IO_NO_PERMISSION ->
-                    "MuzViz can no longer read $subject. Re-add the folder to restore access."
+                    "BeatRealms can no longer read $subject. Re-add the folder to restore access."
 
                 PlaybackException.ERROR_CODE_DECODING_FAILED,
                 PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
@@ -51,7 +51,7 @@ object PlaybackErrors {
                 PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
                 PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED,
                 ->
-                    "$subject is not a file Geode can open — its contents do not match its type."
+                    "$subject is not a file BeatRealms can open — its contents do not match its type."
 
                 else -> "$subject could not be played."
             }

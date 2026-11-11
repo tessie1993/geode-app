@@ -4,8 +4,9 @@
 // What is pinned: the owner's fps-first ladder (ADR 0008: fps, then render scale, then march, then post
 // FX), the thermal cap reaching the pacer as min(surface cap, thermal cap), two renderers' governors
 // reading one state (#387: the second used to read NaN headroom and stay at Full), the once-a-second
-// cadence across threads, the NaN rule (a missed window keeps the last real headroom a while), the dwell
-// both ways, and the measured fallback raising the floor for every surface.
+// cadence across threads with a headroom asked every ten seconds, the NaN rule (a missed window keeps the
+// last real headroom a while), the dwell both ways, and the measured fallback raising the floor for every
+// surface.
 #include <atomic>
 #include <cmath>
 #include <cstdint>
@@ -107,7 +108,7 @@ void headroomAndNaN() {
     t = pushFor(s, 0, NAN, t, 9);
     check(s.tier() == ThermalTier::Reduced, "a NaN is a missed window, not a cool phone");
     // Past the stale limit the headroom is no longer trusted; the cool dwell then runs a minute.
-    t = pushFor(s, 0, NAN, t, 62);
+    t = pushFor(s, 0, NAN, t, 77);
     check(s.tier() == ThermalTier::Eased, "a long run of NaN lets the tier relax, a rung a minute");
     check(ThermalState::headroomTier(NAN) == ThermalTier::Full, "no forecast reads Full");
     check(ThermalState::headroomTier(0.8f) == ThermalTier::Eased, "0.8 eases");
@@ -137,6 +138,39 @@ void cadenceOncePerSecond() {
     }
     for (auto& th : threads) th.join();
     check(won.load() == 1, "one renderer of many wins each sample");
+}
+
+// Kills: kHeadroomPeriodSeconds 10 -> 9 or 11, `>=` -> `>` on it, an ask on every second, and a settle
+// dropped from the seconds between asks. Android's Thermal API guide: no more than once every 10 s.
+void headroomIsAskedEveryTenSeconds() {
+    ThermalState s;
+    check(s.headroomDue(100.0), "the first second asks for a headroom");
+    check(!s.headroomDue(100.5), "nothing is due inside the second");
+    int asks = 0;
+    for (int i = 1; i <= 9; ++i) asks += s.headroomDue(100.0 + i) ? 1 : 0;
+    check(asks == 0, "nor on the nine seconds after an ask");
+    check(s.headroomDue(110.0), "ten seconds after the last ask the next is due");
+    check(!s.headroomDue(111.0) && !s.headroomDue(119.0), "and not again before 120");
+    check(s.headroomDue(120.0), "then at 120");
+    // The status arrives from the platform's listener, not on an ask; the seconds between asks settle it.
+    ThermalState hot;
+    check(hot.headroomDue(200.0), "an ask at 200");
+    hot.push(-1, NAN, 200.0);  // the shell's answer: no forecast
+    hot.push(3, NAN, 200.2);   // the listener: SEVERE
+    check(hot.tier() == ThermalTier::Full && hot.platformKnows(), "one SEVERE status does not drop the rate");
+    hot.headroomDue(201.0);
+    hot.headroomDue(202.0);
+    check(hot.tier() == ThermalTier::Full, "2 s of SEVERE is short of the dwell");
+    hot.headroomDue(203.0);
+    hot.headroomDue(204.0);
+    check(hot.tier() == ThermalTier::Minimal, "the settles between asks carry the dwell to Minimal");
+    // A headroom answered once holds across the settles until the next ask.
+    ThermalState warm;
+    warm.headroomDue(300.0);
+    warm.push(-1, 0.9f, 300.0);
+    for (int i = 1; i <= 9; ++i) warm.headroomDue(300.0 + i);
+    check(warm.tier() == ThermalTier::Reduced, "one forecast of 0.9 holds for the ten seconds to the next ask");
+    check(!warm.platformKnows(), "and a headroom alone is not a status");
 }
 
 void capReachesThePacer() {
@@ -241,7 +275,7 @@ void measuredFloorIsShared() {
 
 // ---- Mutation tests (#548). Each names the mutant of the PR's code it kills. Times are the injected
 // clock in seconds; expected tiers and times are worked by hand from the PR's rules: hotter after 3 s of
-// readings, cooler one rung per 60 s, a real headroom trusted 10 s, a gap counted at most 2 s.
+// readings, cooler one rung per 60 s, a real headroom trusted 25 s, a gap counted at most 2 s.
 
 // A ThermalState climbed to Reduced by three readings of headroom 0.9 at t = 100, 101, 102.
 void climbToReducedByHeadroom(ThermalState& s) { pushFor(s, 0, 0.9f, 100.0, 3); }
@@ -309,7 +343,7 @@ void anInfiniteForecastIsNoForecast() {
 void aNegativeForecastIsAMissedWindow() {
     ThermalState s;
     climbToReducedByHeadroom(s);
-    // Last real reading at 102, trusted to 112; cool readings count from 113, so 103..162 is only 50 s.
+    // Last real reading at 102, trusted to 127; cool readings count from 128, so 103..162 is only 35 s.
     pushFor(s, 0, -1.0f, 103.0, 60);
     check(s.tier() == ThermalTier::Reduced, "a negative headroom keeps the last real one, like NaN");
 }
@@ -324,15 +358,15 @@ void aZeroForecastIsARealCoolReading() {
     check(s.tier() == ThermalTier::Eased, "a minute of headroom 0 relaxes one rung");
 }
 
-// Kills: the stale rule's `>` -> `>=`, kHeadroomStaleSeconds 10 -> 9 or 11, and the relax dwell's
-// `>=` -> `>`. By hand: last real 102, trusted through 112, cool from 113, the 60th cool reading at 172.
-void aMissedWindowHoldsTheLastHeadroomTenSeconds() {
+// Kills: the stale rule's `>` -> `>=`, kHeadroomStaleSeconds 25 -> 24 or 26, and the relax dwell's
+// `>=` -> `>`. By hand: last real 102, trusted through 127, cool from 128, the 60th cool reading at 187.
+void aMissedWindowHoldsTheLastHeadroomTwoAsks() {
     ThermalState s;
     climbToReducedByHeadroom(s);
-    pushFor(s, 0, NAN, 103.0, 69);  // 103..171
-    check(s.tier() == ThermalTier::Reduced, "at 171 the phone has been trusted cool for only 59 s");
-    s.push(0, NAN, 172.0);
-    check(s.tier() == ThermalTier::Eased, "at 172 it has been a minute: one rung down");
+    pushFor(s, 0, NAN, 103.0, 84);  // 103..186
+    check(s.tier() == ThermalTier::Reduced, "at 186 the phone has been trusted cool for only 59 s");
+    s.push(0, NAN, 187.0);
+    check(s.tier() == ThermalTier::Eased, "at 187 it has been a minute: one rung down");
 }
 
 // Kills: not resetting the hot dwell after a climb (the next hotter tier would come at once).
@@ -580,6 +614,7 @@ int main() {
     dwellBothWays();
     headroomAndNaN();
     cadenceOncePerSecond();
+    headroomIsAskedEveryTenSeconds();
     capReachesThePacer();
     twoRenderersShareOneState();
     eachSurfaceIsReadAgainstItsOwnPacedRate();
@@ -590,7 +625,7 @@ int main() {
     anInfiniteForecastIsNoForecast();
     aNegativeForecastIsAMissedWindow();
     aZeroForecastIsARealCoolReading();
-    aMissedWindowHoldsTheLastHeadroomTenSeconds();
+    aMissedWindowHoldsTheLastHeadroomTwoAsks();
     eachClimbWaitsItsOwnThreeSeconds();
     aCoolReadingBreaksAHotRun();
     anyNonCoolReadingRestartsTheMinute();

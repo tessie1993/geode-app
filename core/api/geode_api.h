@@ -384,6 +384,10 @@ GEODE_API const char* geode_params_roll_keys(void);
  * slots 0..count-1 in order; ints and bools as numbers, like the wire. Static: the pointer stays valid for the
  * process; the shell parses it once. Labels and page placement stay in Kotlin. */
 GEODE_API const char* geode_params_schema_text(void);
+/* The hue base and span a palette slot draws (viz/Params paletteBase, paletteRange): the override when it is
+ * >= 0, else built-in palette `palette`, clamped into the table. The same for slot 2. Pure, any thread. */
+GEODE_API float       geode_params_palette_base(int palette, float base_override);
+GEODE_API float       geode_params_palette_range(int palette, float range_override);
 /* The config params schema (core/viz/ConfigTable.inc): the values the data stores hold beside the scene params
  * (LFO and envelope slots, the palette maker's gradient, the look's envelope, the Studio clip edit,
  * the preset morph), one row each, as a versioned '|'-separated line table:
@@ -752,6 +756,27 @@ GEODE_API int64_t geode_loop_estimated_bytes(int64_t loop_us, int64_t total_us, 
                                              int64_t soundtrack_bytes);
 GEODE_API int     geode_loop_fitting_bit_rate(int64_t total_us, int64_t limit_bytes, int64_t soundtrack_bytes);
 
+/* Time-of-day drift (output/LoopPlan): the palette offset of each of `stops` loop renders, none at the first
+ * and the whole drift at the last; one stop at no offset when the drift does not move. Writes min(count,
+ * capacity) offsets (either array may be NULL for a count) and returns the count. */
+GEODE_API int     geode_loop_drift_stops(float hue_turns, float warmth, int stops, float* out_hue, float* out_warmth,
+                                         int capacity);
+/* One stop on a look: out[0] the colorShift moved and wrapped into a turn, out[1] the temperature moved and
+ * held to -1..1. */
+GEODE_API void    geode_loop_drift_apply(float color_shift, float temperature, float hue_offset, float warmth_offset,
+                                         float* out2);
+
+/* Loudness advice (output/LoudnessAdvice): what an export's measured loudness asks of a platform target
+ * (0 Leave as-is, 1 YouTube, 2 Shorts and TikTok). geode_loudness_window fills aim, low, high (LUFS) and the
+ * true-peak ceiling (dBTP) and returns 1 for a target that normalises, else 0. geode_loudness_advise returns
+ * the kind (0 nothing to measure, 1 as mixed, 2 on target, 3 normalise; gated 0 = nothing above the gate)
+ * and fills out[GEODE_LOUDNESS_ADVICE_DOUBLES]: gain dB, gain the level alone needed, resulting LUFS,
+ * resulting true peak, direction (1 up, -1 down, 0 none), ceiling limited (1/0), band (-1 under the window,
+ * 1 over, 0 in), LU under YouTube when worth saying (else 0), peak over YouTube's ceiling (1/0). */
+#define GEODE_LOUDNESS_ADVICE_DOUBLES 9
+GEODE_API int     geode_loudness_window(int target, double* out4);
+GEODE_API int     geode_loudness_advise(int target, int gated, double lufs, double true_peak_dbtp, double* out);
+
 /* Encoder requests (output/EncodePlan). limit_bytes <= 0 means the render target, 3.8 GB. */
 GEODE_API int     geode_export_capped_video_bps(int requested_bps, int64_t duration_us, int64_t audio_bytes,
                                                 int64_t limit_bytes);
@@ -985,6 +1010,42 @@ GEODE_API void              geode_pcm_cursor_reset(geode_pcm_cursor*);   /* the 
  * own cursor (and so the ring) until it is fed another ring or NULL, which drops it. Render thread, before
  * geode_viz_render. */
 GEODE_API void              geode_viz_feed_ring(geode_viz*, const geode_pcm_ring* ring);
+/* AIFF files (audio/ingest/AiffReader), which MediaExtractor does not read: an AIFF or AIFF-C (NONE, sowt)
+ * of 8, 16, 24 or 32 bits read front to back as 16-bit PCM (the top two bytes of a wider sample). open_fd
+ * takes the descriptor and closes it, also when it returns NULL (not an AIFF it reads). With length >= 0 it
+ * reads `length` bytes from start_offset on from the descriptor's position (an AssetFileDescriptor's span),
+ * with length < 0 to the end. One thread at a time per handle. */
+typedef struct geode_aiff geode_aiff;
+GEODE_API geode_aiff*       geode_aiff_open_fd(int fd, int64_t start_offset, int64_t length);
+GEODE_API void              geode_aiff_close(geode_aiff*);
+GEODE_API int               geode_aiff_channels(const geode_aiff*);
+GEODE_API int               geode_aiff_sample_rate(const geode_aiff*);
+GEODE_API int64_t           geode_aiff_total_frames(const geode_aiff*);   /* 0 = read to the end */
+GEODE_API float             geode_aiff_progress(const geode_aiff*);       /* frames read over the total, 0..1 */
+/* Up to `capacity` interleaved 16-bit samples, whole frames while the file has them; -1 at the end. */
+GEODE_API int               geode_aiff_read_s16(geode_aiff*, int16_t* out, int capacity);
+/* An export's track audio (audio/ingest/TrackFeed): the shell pushes each decoded chunk, and the renderer's
+ * sound engine hears exactly the frames up to each video frame's end, counted from the range start.
+ * Frames before start_ms are dropped. One chunk is held at a time: push only after a deliver returned 0.
+ * One thread per handle. */
+typedef struct geode_track_feed geode_track_feed;
+GEODE_API geode_track_feed* geode_track_feed_create(int64_t start_ms);
+GEODE_API void              geode_track_feed_destroy(geode_track_feed*);
+/* A decoder's output: `bytes` of interleaved float (machine order, is_float 1) or 16-bit little-endian PCM,
+ * its first frame at pts_us. */
+GEODE_API void              geode_track_feed_push_decoded(geode_track_feed*, const void* data, size_t bytes, int is_float,
+                                                          int channels, int sample_rate, int64_t pts_us);
+/* One read of an AIFF into the feed: 0 once the file has run out, else 1. */
+GEODE_API int               geode_track_feed_push_aiff(geode_track_feed*, geode_aiff*);
+GEODE_API int               geode_track_feed_has_rate(const geode_track_feed*);   /* 1 once a chunk told the rate */
+/* Aims the next delivers at end_ms into the range, at the latest chunk's rate. */
+GEODE_API void              geode_track_feed_target_ms(geode_track_feed*, int64_t end_ms);
+/* Hands sink the held frames up to the target: 1 once it is reached, 0 when the held chunk ran out first. */
+typedef void (*geode_track_sink)(void* context, const float* interleaved, int frames, int channels, int sample_rate);
+GEODE_API int               geode_track_feed_deliver(geode_track_feed*, geode_track_sink sink, void* context);
+/* geode_track_feed_deliver into this renderer's sound engine (geode_viz_write_audio); a NULL renderer hears
+ * nothing but the feed still moves on. Render thread. */
+GEODE_API int               geode_viz_hear_track(geode_viz*, geode_track_feed*);
 /* The playback output (audio/output, Android only): an Oboe stream fed through a lock-free FIFO, standing
  * where the AudioTrack stands under Media3's DefaultAudioSink. For plain PCM only: 16-bit or float (numbered
  * as GEODE_PCM_S16 and GEODE_PCM_FLOAT), mono or stereo, 8 to 192 kHz. One control thread (Media3's playback

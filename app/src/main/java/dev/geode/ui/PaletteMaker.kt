@@ -142,7 +142,7 @@ internal fun PaletteSlotSelector(
     second: Boolean = false,
 ) {
     val saved = palettes.items
-    val labels = SceneParams.PALETTES.map { it.first } + saved.map { it.name }
+    val labels = SceneParams.PALETTES + saved.map { it.name }
     val selected = paletteChipIndex(p, saved, second)
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         labels.forEachIndexed { index, label ->

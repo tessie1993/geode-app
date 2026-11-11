@@ -3,6 +3,7 @@ package dev.geode.data
 import android.content.ContentUris
 import android.content.Context
 import android.provider.MediaStore
+import dev.geode.geodeContainer
 import dev.geode.model.DeviceTrack
 
 /**
@@ -14,7 +15,8 @@ import dev.geode.model.DeviceTrack
  * the library holds. The rule itself is [MinTrackLength.keeps].
  */
 object DeviceTrackQuery {
-    fun query(context: Context): List<DeviceTrack> = query(context, LibraryPrefsStore(GeodePrefsFiles(context).library).minTrackSeconds())
+    fun query(context: Context): List<DeviceTrack> =
+        query(context, LibraryPrefsStore(context.geodeContainer.prefsFiles.library).minTrackSeconds())
 
     fun query(
         context: Context,

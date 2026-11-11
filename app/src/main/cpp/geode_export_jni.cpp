@@ -75,6 +75,17 @@ JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportFrameTime
     return geode_export_frame_time_ms(frame, fps);
 }
 
+// out[0] where the pre-roll's decode starts, out[1] how long the engine hears from there.
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportPreRoll(JNIEnv* env, jobject, jlong rangeStartMs,
+                                                                              jlongArray out) {
+    if (!out || env->GetArrayLength(out) < 2) return;
+    int64_t from = 0;
+    int64_t heard = 0;
+    geode_export_pre_roll(rangeStartMs, &from, &heard);
+    const jlong values[2] = {static_cast<jlong>(from), static_cast<jlong>(heard)};
+    env->SetLongArrayRegion(out, 0, 2, values);
+}
+
 // Loops (output/LoopPlan).
 
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopSpecOf(JNIEnv* env, jobject, jlong loopMs,

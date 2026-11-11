@@ -9,7 +9,6 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -31,7 +30,7 @@ class MusicLibraryPlaylistEditsTest {
             val controller = MusicLibraryController(application, prefs, backgroundScope, StandardTestDispatcher(testScheduler))
 
             controller.createMusicPlaylist("Road")
-            assertTrue(controller.library.value.playlists.isEmpty())
+            assertEquals(emptyList<MusicPlaylist>(), controller.library.value.playlists)
 
             runCurrent()
             assertEquals(listOf(MusicPlaylist("Road")), controller.library.value.playlists)

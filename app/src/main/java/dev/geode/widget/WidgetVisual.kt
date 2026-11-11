@@ -73,7 +73,8 @@ internal object WidgetVisual {
         val styleId = state.styleId
         val glowSource = Glow(styleId, state.artHue, state.artSpan, state.tick)
         val drawn = previous?.source
-        if (previous != null && (drawn == glowSource || drawn is Thumbnail && drawn.styleId == styleId)) return previous
+        val sameThumbnail = drawn is Thumbnail && drawn.styleId == styleId
+        if (previous != null && (drawn == glowSource || sameThumbnail)) return previous
         // A style that drew the glow last time has no thumbnail to look for again.
         val known = drawn is Glow && drawn.styleId == styleId
         val decoded = if (styleId == null || known) null else thumbnail(context, styleId)

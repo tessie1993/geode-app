@@ -408,9 +408,9 @@ class UiTourTest {
     }
 
     private fun presets() {
-        tour.step("presets", "open", "the Presets grid") { tour.tap(PRESETS) }
-        tour.pages("presets", "grid", pages = 3)
-        tour.step("presets", "card-sheet", "a card's long-press sheet") {
+        tour.step("presets", "open", "the Presets list") { tour.tap(PRESETS) }
+        tour.pages("presets", "list", pages = 3)
+        tour.step("presets", "row-sheet", "a row's long-press sheet") {
             compose.onAllNodes(LONG_PRESSABLE).onFirst().performSemanticsAction(SemanticsActions.OnLongClick)
             null
         }

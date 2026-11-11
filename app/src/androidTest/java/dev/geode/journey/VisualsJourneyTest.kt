@@ -76,10 +76,10 @@ class VisualsJourneyTest {
 
     /**
      * Presets has one save path: "Save look" opens a dialog, and the saved look shows as
-     * a card, under Mine too.
+     * a row, under Mine too.
      */
     @Test
-    fun savingTheCurrentLookAddsAPresetCard() {
+    fun savingTheCurrentLookAddsAPresetRow() {
         openVisuals()
         compose.tap("Presets")
         compose.tap("Save look")

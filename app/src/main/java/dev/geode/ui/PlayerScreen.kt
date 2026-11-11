@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
@@ -35,6 +36,7 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -379,7 +381,7 @@ private fun PlayerHero(
     artMax: Dp,
     modifier: Modifier = Modifier,
 ) {
-    val uri = remember(state.title, state.artist) { viewModel.currentTrackUri() }
+    val uri = state.trackUri
     val foreign = external.active
     val foreignTrack = external.nowPlaying?.takeIf { it.title.isNotBlank() }
     // The mic is a layer over playback: with a track loaded the hero stays the track's.
@@ -459,12 +461,13 @@ private fun PlayerHero(
                 )
             }
             if (state.hasMedia && !foreign) {
-                IconButton(onClick = { viewModel.toggleFavourite() }) {
+                IconButton(onClick = { viewModel.toggleFavourite(uri) }) {
                     StoneIconArt(
                         StoneIcon.FAVORITE,
                         stringResource(
                             if (isFavourite) R.string.action_favourite_remove else R.string.action_favourite_add,
                         ),
+                        selected = isFavourite,
                         tint =
                             if (isFavourite) {
                                 MaterialTheme.colorScheme.primary
@@ -546,7 +549,7 @@ private fun TransportCard(
                 loopStartMs = abLoop?.startMs,
                 loopEndMs = abLoop?.endMs,
                 onSeek = viewModel::seekTo,
-                modifier = Modifier.weight(1f).height(40.dp),
+                modifier = Modifier.weight(1f).height(48.dp),
             )
             Text(formatClock(state.durationMs), style = MaterialTheme.typography.labelSmall)
         }
@@ -689,7 +692,7 @@ private fun UpNextCard(
             upNext.forEach { t ->
                 Text(
                     t.title.ifBlank { untitled },
-                    Modifier.fillMaxWidth().clickable(onClick = onOpenQueue),
+                    Modifier.fillMaxWidth().clickable(onClick = onOpenQueue).heightIn(min = 48.dp).wrapContentHeight(),
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -930,6 +933,7 @@ internal fun ShuffleButton(
         checked = shuffle,
         onCheckedChange = { onToggle() },
         modifier = Modifier.semantics { stateDescription = state },
+        colors = IconButtonDefaults.iconToggleButtonColors(checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer),
     ) {
         StoneIconArt(
             StoneIcon.SHUFFLE,
@@ -945,7 +949,9 @@ internal fun RepeatButton(
     repeatMode: Int,
     onClick: () -> Unit,
 ) {
-    IconButton(onClick = onClick) {
+    // On reads from the fill as well as the tint: the accent and the resting grey are close.
+    val container = if (repeatMode != Player.REPEAT_MODE_OFF) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent
+    IconButton(onClick = onClick, colors = IconButtonDefaults.iconButtonColors(containerColor = container)) {
         StoneIconArt(
             if (repeatMode == Player.REPEAT_MODE_ONE) StoneIcon.REPEAT_ONE else StoneIcon.REPEAT,
             stringResource(

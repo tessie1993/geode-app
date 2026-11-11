@@ -1,11 +1,11 @@
 #include <algorithm>
+#include <cmath>
 #include <memory>
 #include <utility>
 #include <vector>
 
 #include "api/geode_api.h"
 #include "api/geode_ingest_handles.hpp"
-#include "audio/dsp/PcmConvert.hpp"
 #include "audio/ingest/PcmRing.hpp"
 #include "sound/Silence.hpp"
 
@@ -23,6 +23,14 @@ int report(const PcmRing::Written& written, float* peak_out) {
     return written.frames;
 }
 
+// Float to 16-bit for Cast's encoder: clamped, scaled by 32767 and rounded, as the Kotlin it replaces
+// did (the export's floatToS16 truncates); NaN becomes 0.
+int16_t roundToS16(float v) {
+    if (std::isnan(v)) return 0;
+    const float clamped = v < -1.0f ? -1.0f : (v > 1.0f ? 1.0f : v);
+    return static_cast<int16_t>(std::lrintf(clamped * 32767.0f));
+}
+
 }  // namespace
 
 struct geode_pcm_cursor {
@@ -33,11 +41,17 @@ struct geode_pcm_cursor {
     Cursor cursor;
 };
 
+// No exception may leave an extern "C" function: the three that allocate catch it and report nothing made
+// or nothing heard. The rest neither allocate nor throw.
 extern "C" {
 
 geode_pcm_ring* geode_pcm_ring_create(int capacity_frames, int channels, int max_write_frames) {
     if (!PcmRing::valid(capacity_frames, channels, max_write_frames)) return nullptr;
-    return new geode_pcm_ring{std::make_shared<PcmRing>(capacity_frames, channels, max_write_frames)};
+    try {
+        return new geode_pcm_ring{std::make_shared<PcmRing>(capacity_frames, channels, max_write_frames)};
+    } catch (...) {
+        return nullptr;
+    }
 }
 
 void geode_pcm_ring_destroy(geode_pcm_ring* r) {
@@ -69,17 +83,27 @@ int64_t geode_pcm_ring_written(const geode_pcm_ring* r) {
 }
 
 long long geode_pcm_ring_heard_at(const geode_pcm_ring* r, int frames, long long now_ms, long long heard_at_ms) {
-    if (!r || frames <= 0) return heard_at_ms;
-    std::vector<float> latest(static_cast<size_t>(frames) * static_cast<size_t>(r->ring->channelCount()));
-    if (!r->ring->snapshotLatest(latest.data(), frames)) return heard_at_ms;
-    // Any sample above the rule's level counts, whichever channel it is in, so the interleaved block is
-    // judged as one run of samples.
-    const float* block = latest.data();
-    return geode::sound::silence::heardAt(&block, 1, static_cast<int>(latest.size()), now_ms, heard_at_ms);
+    // Checked against the ring before anything is allocated for it.
+    if (!r || frames <= 0 || frames > r->ring->capacityFrames()) return heard_at_ms;
+    try {
+        std::vector<float> latest(static_cast<size_t>(frames) * static_cast<size_t>(r->ring->channelCount()));
+        if (!r->ring->snapshotLatest(latest.data(), frames)) return heard_at_ms;
+        // Any sample above the rule's level counts, whichever channel it is in, so the interleaved block
+        // is judged as one run of samples.
+        const float* block = latest.data();
+        return geode::sound::silence::heardAt(&block, 1, static_cast<int>(latest.size()), now_ms, heard_at_ms);
+    } catch (...) {
+        return heard_at_ms;
+    }
 }
 
 geode_pcm_cursor* geode_pcm_cursor_create(const geode_pcm_ring* r, int max_frames) {
-    return r ? new geode_pcm_cursor(r->ring, max_frames) : nullptr;
+    if (!r) return nullptr;
+    try {
+        return new geode_pcm_cursor(r->ring, max_frames);
+    } catch (...) {
+        return nullptr;
+    }
 }
 
 void geode_pcm_cursor_destroy(geode_pcm_cursor* c) {
@@ -110,8 +134,9 @@ int geode_pcm_cursor_take_s16(geode_pcm_cursor* c, int16_t* out, int capacity_fr
     const Cursor::Take take = c->cursor.take();
     if (restarted) *restarted = take.restarted ? 1 : 0;
     if (sample_rate) *sample_rate = take.sampleRateHz;
-    geode::audio::floatToS16(c->cursor.interleaved(),
-                             static_cast<size_t>(take.frames) * static_cast<size_t>(c->cursor.channels()), out);
+    const size_t samples = static_cast<size_t>(take.frames) * static_cast<size_t>(c->cursor.channels());
+    const float* in = c->cursor.interleaved();
+    for (size_t i = 0; i < samples; ++i) out[i] = roundToS16(in[i]);
     return take.frames;
 }
 

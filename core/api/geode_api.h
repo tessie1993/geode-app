@@ -70,7 +70,6 @@ GEODE_API void        geode_layer_set(const char* scene_id, float mix, int blend
 /* The renderer's own sound engine: interleaved PCM in play order, every sample once, written on the render
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);
-GEODE_API void        geode_viz_reset_audio(geode_viz*);
 GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const GeodeSoundTuning*);
 /* Customize › Advanced › Shader code (core/viz/ShaderOverrides): the user's fragment source for a style, process-wide
  * like geode_director_set, so live, export, the wallpaper and the dream all draw it. A null or empty source clears it
@@ -792,8 +791,9 @@ GEODE_API int               geode_pcm_cursor_channels(const geode_pcm_cursor*); 
 /* What the ring gained since the last take, interleaved at the ring's channel count (a mono source on every
  * channel): returns the frames, all written at *sample_rate; *restarted is 1 on a first take or a new epoch
  * (reset the consumer first). After a stall it keeps the newest audio. A take ends where the rate changes;
- * the rest comes with the next. -1 without taking when out holds fewer than max_frames frames. take_s16
- * clamps to -1..1 and scales by 32767. */
+ * the rest comes with the next. A take the writer lapped during the copy returns 0 and the next restarts.
+ * -1 without taking when out holds fewer than max_frames frames. take_s16 clamps to -1..1, scales by
+ * 32767 and rounds. */
 GEODE_API int               geode_pcm_cursor_take(geode_pcm_cursor*, float* out, int capacity_frames, int* restarted,
                                                   int* sample_rate);
 GEODE_API int               geode_pcm_cursor_take_s16(geode_pcm_cursor*, int16_t* out, int capacity_frames,

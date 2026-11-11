@@ -8,8 +8,7 @@
 //
 // Build and run (one command):
 //   g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/pcm_ring_test.cpp
-//   core/audio/ingest/PcmRing.cpp core/api/geode_ingest_api.cpp core/audio/dsp/PcmConvert.cpp
-//   -o pcm_ring_test && ./pcm_ring_test
+//   core/audio/ingest/PcmRing.cpp core/api/geode_ingest_api.cpp -o pcm_ring_test && ./pcm_ring_test
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
@@ -596,13 +595,14 @@ void testAbi() {
     CHECK(restarted == 1 && rate == 44100, "abi take: restarted %d, rate %d", restarted, rate);
     CHECK(out[0] == 0.5f && out[1] == -0.5f && out[2] == 0.25f, "abi take values");
 
-    // 16-bit out: clamped and scaled by 32767, with the rate of this block.
+    // 16-bit out: clamped, scaled by 32767 and rounded (0.5 is 16383.5), with the rate of this block.
     const float floats[4] = {1.5f, -1.0f, 0.5f, 0.0f};
     CHECK(geode_pcm_ring_write_f32(ring, floats, 2, 2, 48000, nullptr) == 2, "abi f32 write");
     std::vector<int16_t> pcm(256 * 2);
     CHECK(geode_pcm_cursor_take_s16(cursor, pcm.data(), 256, &restarted, &rate) == 2, "abi s16 take");
     CHECK(restarted == 0 && rate == 48000, "abi s16 take: restarted %d, rate %d", restarted, rate);
-    CHECK(pcm[0] == 32767 && pcm[1] == -32767 && pcm[2] == 16383 && pcm[3] == 0, "abi s16 values %d %d %d", pcm[0], pcm[1], pcm[2]);
+    CHECK(pcm[0] == 32767 && pcm[1] == -32767 && pcm[2] == 16384 && pcm[3] == 0, "abi s16 values %d %d %d", pcm[0], pcm[1], pcm[2]);
+    CHECK(geode_pcm_ring_heard_at(ring, 4096, 500, 100) == 100, "abi heard more frames than the ring holds");
 
     const uint8_t bytes[2] = {255, 0};
     CHECK(geode_pcm_ring_write_bytes(ring, bytes, 2, GEODE_PCM_U8, 1, 48000, &peak) == 2, "abi u8 write");

@@ -209,10 +209,6 @@ void geode_viz_write_audio(geode_viz* v, const float* interleaved, int frames, i
     if (v) v->renderer.writeAudio(interleaved, frames, channels, sample_rate);
 }
 
-void geode_viz_reset_audio(geode_viz* v) {
-    if (v) v->renderer.resetAudio();
-}
-
 void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
     if (!v) return;
     if (!ring) {
@@ -223,7 +219,13 @@ void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
     if (v->feedRing != ring->ring) {
         v->feedCursor.reset();
         v->feedRing = ring->ring;
-        v->feedCursor = std::make_unique<geode::audio::ingest::Cursor>(*v->feedRing);
+        try {
+            v->feedCursor = std::make_unique<geode::audio::ingest::Cursor>(*v->feedRing);
+        } catch (...) {
+            // No memory for the cursor: hear nothing this frame and try again on the next.
+            v->feedRing.reset();
+            return;
+        }
     }
     // A take ends where the rate changes, so a frame that straddles one takes twice; the bound keeps a
     // writer that outruns this loop from holding the frame.

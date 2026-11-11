@@ -1,6 +1,7 @@
 package dev.geode.engine.audio
 
 import dev.geode.engine.bridge.GeodeNative
+import java.lang.ref.Reference
 
 /**
  * A Kotlin reader's place in a [SampleRing] (the native `Cursor` of `core/audio/ingest/PcmRing`): each
@@ -16,6 +17,11 @@ class SoundCursor(
     private var handle = GeodeNative.pcmCursorCreate(ring.handle, 0)
     val channels: Int = ring.channelCount
     private val info = IntArray(2)
+
+    init {
+        // The ring's handle was only valid while the ring was held: hold it past the create call.
+        Reference.reachabilityFence(ring)
+    }
 
     /** Interleaved 16-bit output of the last [take], its frames times [channels] long. */
     val pcm = ShortArray(GeodeNative.pcmCursorMaxFrames(handle) * channels)

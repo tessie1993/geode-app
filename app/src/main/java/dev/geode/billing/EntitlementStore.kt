@@ -25,7 +25,7 @@ data class CachedEntitlement(
 ) {
     /**
      * Whether the cache alone vouches for Pro at [nowMs], with [isGenuine] the licence-key check
-     * ([PurchaseVerifier.isGenuine], which passes everything when the build has no key).
+     * ([PurchaseVerifier.isGenuine], which refuses everything when a real-billing build has no usable key).
      *
      * A cache written by an older version holds `owned` without the purchase. Those still get the
      * old month from their last confirmation ([LEGACY_GRACE_MS]; a clock moved back reads as

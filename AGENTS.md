@@ -103,6 +103,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 - `cast.CastService`: foreground service (`mediaPlayback`, plus `microphone` while Live input is on, taken while the app is visible so the mic keeps driving the TV in the background: `CaptureController.onBackground` keeps it then) that keeps a cast streaming in the background; started by `CastController` when a Cast session starts. Media3's `MediaTransferReceiver` (declared) lets the system output switcher start one.
 - `tile.PlaybackTileService`: the Quick Settings tile (`BIND_QUICK_SETTINGS_TILE`), and `tile.TileLongPressActivity` beside it, which answers the tile's long press by opening the app.
 - `FileProvider` `${applicationId}.presets`, for sharing presets.
+- "Open with" for an audio file (`ACTION_VIEW`, `content` only, `audio/*`, `application/ogg`, `application/x-flac`): `ui/OpenedAudioIntent.receiveAudioFile`, ahead of the `.milk` handler in `MainActivity`, reads only the uri and type; `data/OpenedAudioSource` refuses the app's own providers and an ungranted uri, off main; it plays as a one-item queue (`QueueController.playOpened`) under a `model/OpenedAudio` id that `PlayRecorder` keeps out of history and resumption. No copy, no persisted grant.
 
 ## Data flow and threads
 

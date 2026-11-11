@@ -330,6 +330,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         receiveSharedLink(intent)
+        receiveAudioFile(this, intent, playerViewModel)
         receiveMilkFile(intent)
         playFromSearch(intent)
     }
@@ -354,6 +355,7 @@ class MainActivity : ComponentActivity() {
         }
         if (savedInstanceState == null) {
             receiveSharedLink(intent)
+            receiveAudioFile(this, intent, playerViewModel)
             receiveMilkFile(intent)
             playFromSearch(intent)
         }

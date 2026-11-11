@@ -176,6 +176,12 @@ class PlayerViewModel
 
         fun playFromSearch(query: String) = session.playFromSearch(query)
 
+        /** An audio file another app opened; [onResult] is false when it was refused. */
+        fun openAudio(
+            uri: Uri,
+            onResult: (Boolean) -> Unit,
+        ) = session.openAudio(uri, onResult)
+
         fun enqueue(uri: String) = session.queueController.enqueue(uri)
 
         fun shuffleAllHistory() = session.shuffleAllHistory()

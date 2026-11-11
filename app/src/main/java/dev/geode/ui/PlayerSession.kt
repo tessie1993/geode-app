@@ -24,6 +24,7 @@ import dev.geode.data.Lyrics
 import dev.geode.data.LyricsLoader
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.MusicLibraryRepository
+import dev.geode.data.OpenedAudioSource
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsCodec
 import dev.geode.data.PlayerPrefsRepository
@@ -69,6 +70,7 @@ import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
 import dev.geode.util.bestEffort
 import dev.geode.widget.WidgetStyles
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -401,7 +403,7 @@ class PlayerSession internal constructor(
                 durationMs = player.duration.coerceAtLeast(0),
                 artist = player.mediaMetadata.artist?.toString(),
                 title =
-                    player.mediaMetadata.title?.toString()
+                    (player.mediaMetadata.title ?: player.mediaMetadata.displayTitle)?.toString()
                         ?: uri
                             ?.lastPathSegment
                             ?.substringAfterLast('/')
@@ -572,6 +574,30 @@ class PlayerSession internal constructor(
         tracks: List<QueueTrack>,
         startUri: String,
     ) = queueController.playFrom(tracks, startUri)
+
+    // Completed once attachPlayback has run, so a file opened on a cold start is not replaced by the restore.
+    private val playbackAttached = CompletableDeferred<Unit>()
+
+    /**
+     * Plays an audio file another app opened ("Open with") as a one-item queue, after
+     * [dev.geode.data.OpenedAudioSource] has checked the uri off the main thread. [onResult] is false
+     * when it was refused.
+     */
+    fun openAudio(
+        uri: Uri,
+        onResult: (Boolean) -> Unit,
+    ) {
+        scope.launch {
+            val inspection = container.openedAudio.inspect(uri)
+            if (inspection !is OpenedAudioSource.Inspection.Playable) {
+                onResult(false)
+                return@launch
+            }
+            playbackAttached.await()
+            queueController.playOpened(uri, inspection.name ?: application.getString(dev.geode.R.string.opened_audio_untitled))
+            onResult(true)
+        }
+    }
 
     fun playAll(
         tracks: List<QueueTrack>,
@@ -883,7 +909,11 @@ class PlayerSession internal constructor(
         // The playback session records plays (#371); this only tells history screens to re-read.
         scope.launch { playback.playsRecorded.drop(1).collect { listening.onPlayRecorded() } }
         scope.launch {
-            attachPlayback()
+            try {
+                attachPlayback()
+            } finally {
+                playbackAttached.complete(Unit)
+            }
             pollPlaybackState()
         }
     }

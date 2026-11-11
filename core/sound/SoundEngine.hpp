@@ -186,7 +186,7 @@ private:
     void feedSilence(float dt);
     float nextRandom();
     void levels(float dt, bool warm, bool silent, GeodeSoundFrame& out);
-    void spectrumPoints(float dt, float* out);
+    void spectrumPoints(float dt, bool silent, float* out);
     void waveform(float* out);
     void descriptors(float dt, bool warm, bool silent, GeodeSoundFrame& out);
     void drums(float dt, bool silent, GeodeSoundFrame& out);

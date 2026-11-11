@@ -381,6 +381,25 @@ void testLateBlocksAreNotStarvation() {
     }
 }
 
+// The spectrum row is behind the silence gate like everything else: music, then 30 s of noise at about
+// -70 dBFS (under the gate), must not be stretched to full scale as the row's peak decays to the noise.
+void testSpectrumStaysGatedUnderNoise() {
+    const int rate = 48000;
+    SoundEngine e(rate);
+    const Signal music = noise(0.3f);
+    const Signal hiss = noise(4e-4f);
+    const Signal signal = [&](int64_t s, float& l, float& r) { (s < 5 * rate ? music : hiss)(s, l, r); };
+    float playing = 0.0f;
+    float gated = 0.0f;
+    run(e, signal, 35.0, 60.0, [&](double t, const GeodeSoundFrame& f) {
+        const float top = *std::max_element(f.spectrum, f.spectrum + GEODE_SOUND_SPECTRUM_POINTS);
+        if (t > 4.0 && t < 5.0) playing = std::max(playing, top);
+        if (t > 7.0) gated = std::max(gated, top);
+    });
+    CHECK(playing > 0.5f, "the music fills the spectrum row: max %f", playing);
+    CHECK(gated < 0.1f, "noise under the gate reached %f of full scale in the spectrum row", gated);
+}
+
 // A loud entrance after a quiet intro is MilkDrop's hard cut: it fires at once, and only once. Steady
 // music never cuts. On soft-limited ratios (below 4) the starting threshold of 5 could never be reached.
 void testHardCut() {
@@ -609,6 +628,7 @@ int main() {
     testWaveformHoldsStill();
     testStarvedGoesQuiet();
     testLateBlocksAreNotStarvation();
+    testSpectrumStaysGatedUnderNoise();
     testHardCut();
     testFadeGain();
     testPlayerSignals();

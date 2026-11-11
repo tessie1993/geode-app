@@ -325,7 +325,7 @@ void SoundEngine::analyse() {
     }
 
     levels(dt, warm, silent, out);
-    spectrumPoints(dt, out.spectrum);
+    spectrumPoints(dt, silent, out.spectrum);
     descriptors(dt, warm, silent, out);
     drums(dt, silent, out);
     events(dt, warm, out);
@@ -415,7 +415,13 @@ void SoundEngine::levels(float dt, bool warm, bool silent, GeodeSoundFrame& out)
     }
 }
 
-void SoundEngine::spectrumPoints(float dt, float* out) {
+void SoundEngine::spectrumPoints(float dt, bool silent, float* out) {
+    // Behind the gate the row is empty and the peak holds: left to decay, it would fall to the noise
+    // floor and stretch that to full scale while everything else reads silence.
+    if (silent) {
+        std::fill(out, out + GEODE_SOUND_SPECTRUM_POINTS, 0.0f);
+        return;
+    }
     float frameMax = 0.0f;
     for (int i = 0; i < GEODE_SOUND_SPECTRUM_POINTS; i++) {
         float v = 0.0f;

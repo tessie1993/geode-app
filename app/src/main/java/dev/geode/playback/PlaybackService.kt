@@ -1,5 +1,9 @@
 package dev.geode.playback
 
+import android.app.ForegroundServiceStartNotAllowedException
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -18,6 +22,7 @@ import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
+import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
@@ -25,6 +30,7 @@ import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import dev.geode.RingLog
+import dev.geode.appLaunchIntent
 import dev.geode.data.SessionStore
 import dev.geode.widget.WidgetPublisher
 import kotlinx.coroutines.CoroutineScope
@@ -43,6 +49,17 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onCreate() {
         super.onCreate()
+        // Android 12+ can refuse the promotion to the foreground (a start from the background with no
+        // exemption). Media3 catches that and only tells this listener, so without it the music plays on
+        // with no notification and nothing says why.
+        setListener(
+            object : MediaSessionService.Listener {
+                override fun onForegroundServiceStartNotAllowedException() {
+                    RingLog.note("PlaybackService", "foreground start not allowed")
+                    tellForegroundRefused(this@PlaybackService)
+                }
+            },
+        )
         val loader = SessionBitmapLoader(this)
         artworkLoader = loader
         val player = PlaybackEngine.acquireForService(this).player
@@ -365,6 +382,7 @@ class PlaybackService : MediaLibraryService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
 
     override fun onDestroy() {
+        clearListener()
         session?.player?.let { player ->
             buttons?.let(player::removeListener)
             queueEnd?.let(player::removeListener)
@@ -478,15 +496,52 @@ class PlaybackService : MediaLibraryService() {
 
         fun ensureRunning(context: Context) {
             // startService() throws IllegalStateException on API 26+ when called while the app is
-            // backgrounded (this is invoked from onIsPlayingChanged, which can fire off-screen), and
-            // runCatching used to swallow that silently, leaving the service never started.
-            // startForegroundService() is allowed from the background, and MediaSessionService (which
-            // PlaybackService extends) promotes itself to the foreground and posts the playback
-            // notification as soon as its session's player reports isPlaying, satisfying the 5s window.
+            // backgrounded (this is invoked from onIsPlayingChanged, which can fire off-screen), so this
+            // asks for a foreground service: MediaSessionService (which PlaybackService extends) promotes
+            // itself and posts the playback notification as soon as its session's player reports
+            // isPlaying, inside the 5 s window. From the background that start is refused too on API 31+
+            // (ForegroundServiceStartNotAllowedException) unless an exemption holds, such as a visible
+            // activity or a media button, so a refusal is noted and the user is told.
             runCatching {
                 ContextCompat.startForegroundService(context, Intent(context, PlaybackService::class.java))
-            }.onFailure { RingLog.note("PlaybackService.ensureRunning", "startForegroundService failed", it) }
+            }.onFailure {
+                RingLog.note("PlaybackService.ensureRunning", "startForegroundService failed", it)
+                if (it is ForegroundServiceStartNotAllowedException) tellForegroundRefused(context)
+            }
         }
+
+        /**
+         * Says that Android would not let playback run as a foreground service, with a tap that opens the
+         * app, where pressing play is allowed again. Posts nothing while notifications are off.
+         */
+        private fun tellForegroundRefused(context: Context) {
+            val manager = context.getSystemService(NotificationManager::class.java) ?: return
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    REFUSED_CHANNEL_ID,
+                    context.getString(dev.geode.R.string.playback_refused_channel_name),
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ),
+            )
+            val open =
+                PendingIntent.getActivity(context, 0, context.appLaunchIntent(), PendingIntent.FLAG_IMMUTABLE)
+            val text = context.getString(dev.geode.R.string.playback_refused_text)
+            val notification =
+                Notification
+                    .Builder(context, REFUSED_CHANNEL_ID)
+                    .setSmallIcon(dev.geode.R.drawable.ic_stat_muzviz)
+                    .setContentTitle(context.getString(dev.geode.R.string.playback_refused_title))
+                    .setContentText(text)
+                    .setStyle(Notification.BigTextStyle().bigText(text))
+                    .setContentIntent(open)
+                    .setAutoCancel(true)
+                    .build()
+            runCatching { manager.notify(REFUSED_NOTIFICATION_ID, notification) }
+                .onFailure { RingLog.note("PlaybackService", "refusal notification failed", it) }
+        }
+
+        private const val REFUSED_CHANNEL_ID = "geode-playback-refused"
+        private const val REFUSED_NOTIFICATION_ID = 4712
 
         fun stop(context: Context) {
             runCatching {

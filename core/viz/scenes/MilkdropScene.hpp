@@ -22,7 +22,7 @@ namespace geode::viz {
 // The engine never touches the window surface, so the scene is independent of the EGL config.
 class MilkdropScene : public Scene {
 public:
-    MilkdropScene(ProgramLoader loader, SceneHost host) : loader_(loader), host_(std::move(host)), pcm_(kPcmCapacity, 0.0f) {}
+    MilkdropScene(ProgramLoader loader, SceneHost host) : loader_(loader), host_(std::move(host)), pcm_(kPcmCapacity * 2, 0.0f) {}
     ~MilkdropScene() override { release(); }
 
     const std::string& id() const override { return id_; }
@@ -33,7 +33,7 @@ public:
     void update(const GeodeSoundFrame& features, float dt) override;
     void draw(float timeSeconds) override;
     void release() override;
-    void acceptPcm(const float* samples, int count) override;
+    void acceptPcmStereo(const float* mono, const float* side, int count) override;
     void queueMilkPreset(const std::string& path) override;
     void setMilkFallbackPreset(const std::string& path) override;
     void reloadMilkPreset() override;
@@ -72,6 +72,7 @@ private:
     std::string id_ = "milkdrop";
     ProgramLoader loader_;
     SceneHost host_;
+    // Stereo frames (L R interleaved); pcmCount_ counts frames.
     std::vector<float> pcm_;
     int pcmCount_ = 0;
     PcmStarve pcmStarve_;

@@ -94,7 +94,7 @@ float Renderer::beginFrame(double timeSeconds) {
         frameTransitionId_ = transitionId_;
         frameTransitionDurationMs_ = transitionDurationMs_;
         // The samples heard since the last frame reach this frame's scenes once; none heard, no PCM (PcmHandoff).
-        framePcmCount_ = pcm_.take(pcmDeliverScratch_.data());
+        framePcmCount_ = pcm_.take(pcmDeliverScratch_.data(), pcmSideScratch_.data());
     }
     for (const auto& [id, src] : pending) {
         if (Scene* scene = builtScene(id)) scene->setFragmentSource(src);
@@ -230,7 +230,7 @@ bool Renderer::ensureTargets() {
 
 void Renderer::deliverPcm(Scene& scene) {
     // beginFrame took this frame's block (if any) into the scratch buffer; acceptPcm() runs unlocked.
-    if (framePcmCount_ > 0) scene.acceptPcm(pcmDeliverScratch_.data(), framePcmCount_);
+    if (framePcmCount_ > 0) scene.acceptPcmStereo(pcmDeliverScratch_.data(), pcmSideScratch_.data(), framePcmCount_);
 }
 
 void Renderer::bindSecondaryTarget() {

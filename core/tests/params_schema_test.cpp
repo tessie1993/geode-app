@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <limits>
 #include <set>
 #include <sstream>
 #include <string>
@@ -132,6 +133,31 @@ void theWireRoundTrips() {
     std::vector<float> again(kWireFloats);
     SceneParams::fromWire(wire.data()).toWire(again.data());
     check(again == wire, "fromWire(toWire(p)) == p");
+}
+
+// Kills storing a wire value as it came: a NaN or an infinity kept in SceneParams stays in the resolver's
+// lerp for good (and lround of one is undefined), and an int far off its row overflows the round.
+void aBrokenWireKeepsTheDefaults() {
+    std::vector<float> defaults(kWireFloats);
+    SceneParams{}.toWire(defaults.data());
+    const float inf = std::numeric_limits<float>::infinity();
+    for (const float bad : {std::numeric_limits<float>::quiet_NaN(), inf, -inf}) {
+        const std::vector<float> wire(kWireFloats, bad);
+        std::vector<float> got(kWireFloats);
+        SceneParams::fromWire(wire.data()).toWire(got.data());
+        check(got == defaults, "a wire of " + std::to_string(bad) + " yields the defaults");
+    }
+    std::vector<float> wire = defaults;
+    wire[static_cast<size_t>(ParamSlot::speed)] = 2.5f;
+    wire[static_cast<size_t>(ParamSlot::zoom)] = inf;
+    wire[static_cast<size_t>(ParamSlot::symmetry)] = 1e30f;
+    wire[static_cast<size_t>(ParamSlot::paletteLut)] = -1e30f;
+    wire[static_cast<size_t>(ParamSlot::fluidIterations)] = 12.6f;
+    const SceneParams p = SceneParams::fromWire(wire.data());
+    check(p.speed == 2.5f && p.zoom == SceneParams{}.zoom, "one bad float leaves its neighbours alone");
+    check(p.symmetry == static_cast<int>(SceneParams::spec(ParamSlot::symmetry).max), "an int over its row is held to the row's max");
+    check(p.paletteLut == SceneParams::kNoPaletteLut, "an int under its row is held to the row's min");
+    check(p.fluidIterations == 13, "an int in range still rounds");
 }
 
 void fadeGlidesAndHoldSnaps() {
@@ -320,6 +346,7 @@ int main(int argc, char** argv) {
     everyRowIsWellFormed();
     getAndSetRoundTripByNameAndSlot();
     theWireRoundTrips();
+    aBrokenWireKeepsTheDefaults();
     fadeGlidesAndHoldSnaps();
     theLfoClampsAreTheTablesRanges();
     theCataloguesRangesAgree();

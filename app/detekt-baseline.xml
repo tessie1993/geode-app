@@ -39,7 +39,6 @@
     <ID>ReturnCount:PlayerViewModel.kt$PlayerViewModel$private fun waveformOf(timeline: FeatureTimeline): FloatArray?</ID>
     <ID>ReturnCount:PresetLibraryController.kt$PresetLibraryController$fun importPresetLink(text: String): String?</ID>
     <ID>ReturnCount:PresetLink.kt$PresetLink$fun decode(text: String): String?</ID>
-    <ID>ReturnCount:StudioExporter.kt$StudioExporter$suspend fun export( source: Uri, sourceDurationMs: Long, edit: ClipEdit, displayName: String, onProgress: (Float) -&gt; Unit, ): Result</ID>
     <ID>ReturnCount:TakeStore.kt$TakeStore$fun rename( from: String, to: String, ): Boolean</ID>
     <ID>ReturnCount:TextureStore.kt$TextureStore$private fun importOne(uri: Uri): TextureImportResult</ID>
     <ID>ReturnCount:TrackLibrary.kt$TrackLibrary$private fun readLocked(): List&lt;LibraryTrack&gt;?</ID>

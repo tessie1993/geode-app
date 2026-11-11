@@ -54,9 +54,8 @@ data class FeatureGate(
 
     /**
      * What a render under this entitlement may produce, as one value the render itself applies
-     * (`ExportController.renderProject`). Every project render (a stopped take, Studio's
-     * Render) reads this where it runs, so no entry point can forget the cap or the wordmark, which
-     * is how a trial take once came out clean and full length (#354).
+     * (`RecordController`, which reads it when a recording starts), so no entry point can forget the
+     * cap or the wordmark, which is how a trial take once came out clean and full length (#354).
      */
     val renderLimits: RenderLimits get() = RenderLimits(exportCapMs, watermarksExports)
 

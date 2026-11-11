@@ -5,14 +5,14 @@ import dev.geode.render.scene.SceneParams
 import kotlin.reflect.KProperty1
 
 /**
- * The range Customize's slider and a scene keyframe track offer for a scene param: the native params
- * schema's range ([ParamSchema], core/viz/ParamTable.inc), cut short only where [CAPS] says the
- * control stops early. Every slider and keyframe range for a scene param comes from here (#346), so no
- * two controls for one param disagree and none leaves the range the engine clamps to.
+ * The range Customize's slider offers for a scene param: the native params schema's range
+ * ([ParamSchema], core/viz/ParamTable.inc), cut short only where [CAPS] says the control stops early.
+ * Every slider range for a scene param comes from here (#346), so no two controls for one param
+ * disagree and none leaves the range the engine clamps to.
  *
- * It lives in `model` because the editor's keyframe table (`editor/AnimatableParams`) reads it as well,
- * and the layer rule keeps the editor out of the screens' package. The caps are a UI fact, so Kotlin;
- * every range itself is native.
+ * It lives in `model` because the editor's keyframe table read it as well (`editor/AnimatableParams`,
+ * gone with the Studio project render). The caps are a UI fact, so Kotlin; every range itself is
+ * native.
  */
 object ControlRange {
     /**

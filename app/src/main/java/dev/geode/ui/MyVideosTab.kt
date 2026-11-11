@@ -8,7 +8,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -25,7 +24,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,7 +38,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,51 +59,34 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Studio › My videos: everything Studio made, newest first, in one grid. A render is a finished
- * file listed by its project ([dev.geode.editor.StudioProject.renders]); a take is a recorded
- * performance, itself a project since part 1D. The chips narrow the grid to one kind.
+ * Studio › My videos: everything Studio made, newest first, in one grid: each render and each
+ * recording, a finished file listed by its project ([dev.geode.editor.StudioProject.renders]).
  *
  * Deleting is never a dialog: the item leaves the grid at once and a snackbar offers Undo; only
- * when the Undo window passes unanswered is the file (or the take) really deleted, by
+ * when the Undo window passes unanswered is the file really deleted, by
  * [StudioViewModel.deleteVideoLater], which keeps waiting if the tab is left meanwhile.
  */
 @Composable
-internal fun MyVideosTab(
-    viewModel: StudioViewModel,
-    onRenderTake: (String) -> Unit,
-) {
+internal fun MyVideosTab(viewModel: StudioViewModel) {
     val editor by viewModel.editor.collectAsStateWithLifecycle()
-    val takes by viewModel.takeState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
-    var filter by rememberSaveable { mutableStateOf(VideoFilter.ALL) }
     // Items waiting out their Undo snackbar; hidden from the grid until then.
     val pendingDelete by viewModel.pendingVideoDeletes.collectAsStateWithLifecycle()
     val chooserTitle = stringResource(R.string.studio_share_chooser)
     val undoText = stringResource(R.string.my_videos_undo)
 
-    val renders =
-        editor.projects.flatMap { project ->
-            project.renders.map { MyVideo.Render(project.id, it.uri, it.label.ifBlank { project.name }, it.createdAtMs, it.durationMs) }
-        }
-    val takeItems = takes.takes.map { MyVideo.Take(it.projectId, it.name, it.createdAtMs, it.durationMs) }
     val shown =
-        when (filter) {
-            VideoFilter.ALL -> renders + takeItems
-            VideoFilter.RENDERS -> renders
-            VideoFilter.TAKES -> takeItems
-        }.filterNot { it.key in pendingDelete }
+        editor.projects
+            .flatMap { project ->
+                project.renders.map { MyVideo(project.id, it.uri, it.label.ifBlank { project.name }, it.createdAtMs, it.durationMs) }
+            }.filterNot { it.key in pendingDelete }
             .sortedByDescending { it.createdAtMs }
 
     val delete: (MyVideo) -> Unit = { item ->
-        viewModel.deleteVideoLater(
-            when (item) {
-                is MyVideo.Render -> VideoDelete.Render(item.projectId, item.uri)
-                is MyVideo.Take -> VideoDelete.Take(item.title)
-            },
-        )
+        viewModel.deleteVideoLater(VideoDelete(item.projectId, item.uri))
         val deletedText = resources.getString(R.string.my_videos_deleted, item.title)
         // The snackbar only offers Undo; the delete itself waits in the ViewModel and happens even
         // if this tab leaves the screen first (#322).
@@ -124,13 +104,6 @@ internal fun MyVideosTab(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    VideoFilter.entries.forEach { f ->
-                        FilterChip(selected = filter == f, onClick = { filter = f }, label = { Text(stringResource(f.labelRes)) })
-                    }
-                }
-            }
             if (shown.isEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
@@ -144,9 +117,8 @@ internal fun MyVideosTab(
             items(shown, key = { it.key }) { item ->
                 MyVideoCard(
                     item = item,
-                    onPlay = { (item as? MyVideo.Render)?.let { context.viewVideo(Uri.parse(it.uri)) } },
-                    onShare = { (item as? MyVideo.Render)?.let { context.shareVideo(Uri.parse(it.uri), chooserTitle, it.title) } },
-                    onRender = { onRenderTake(item.title) },
+                    onPlay = { context.viewVideo(Uri.parse(item.uri)) },
+                    onShare = { context.shareVideo(Uri.parse(item.uri), chooserTitle, item.title) },
                     onDelete = { delete(item) },
                 )
             }
@@ -155,72 +127,40 @@ internal fun MyVideosTab(
     }
 }
 
-private enum class VideoFilter(
-    val labelRes: Int,
+/** One grid item: a finished file and the project that lists it. */
+private data class MyVideo(
+    val projectId: ProjectId,
+    val uri: String,
+    val title: String,
+    val createdAtMs: Long,
+    val durationMs: Long,
 ) {
-    ALL(R.string.my_videos_all),
-    RENDERS(R.string.my_videos_renders),
-    TAKES(R.string.my_videos_takes),
+    val key: String get() = VideoDelete.keyOf(uri)
 }
 
-/** One grid item: a finished render, or a recorded take that has not been rendered by itself. */
-private sealed interface MyVideo {
-    val projectId: ProjectId
-    val title: String
-    val createdAtMs: Long
-    val durationMs: Long
-    val key: String
-
-    data class Render(
-        override val projectId: ProjectId,
-        val uri: String,
-        override val title: String,
-        override val createdAtMs: Long,
-        override val durationMs: Long,
-    ) : MyVideo {
-        override val key: String get() = "render:$uri"
-    }
-
-    data class Take(
-        override val projectId: ProjectId,
-        override val title: String,
-        override val createdAtMs: Long,
-        override val durationMs: Long,
-    ) : MyVideo {
-        override val key: String get() = "take:$title"
-    }
-}
-
-/**
- * A tap does the obvious thing: a render plays, a take renders (Render opens with the take chosen).
- * The rest sits behind the card's ⋮, as on every row in the app: Share (a render) and Delete, with
- * Undo.
- */
+/** A tap plays it; Share and Delete (with Undo) sit behind the card's ⋮, as on every row in the app. */
 @Composable
 private fun MyVideoCard(
     item: MyVideo,
     onPlay: () -> Unit,
     onShare: () -> Unit,
-    onRender: () -> Unit,
     onDelete: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
-    val primaryLabel = stringResource(if (item is MyVideo.Render) R.string.my_videos_play else R.string.my_videos_render)
     Column(
         Modifier
             .fillMaxWidth()
             .floatingGlass()
-            .clickable(onClickLabel = primaryLabel, onClick = if (item is MyVideo.Render) onPlay else onRender)
+            .clickable(onClickLabel = stringResource(R.string.my_videos_play), onClick = onPlay)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        VideoThumbnail((item as? MyVideo.Render)?.uri)
+        VideoThumbnail(item.uri)
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(item.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(
                     listOf(
-                        stringResource(if (item is MyVideo.Take) R.string.my_videos_kind_take else R.string.my_videos_kind_render),
                         formatClock(item.durationMs),
                         DateUtils.getRelativeTimeSpanString(item.createdAtMs).toString(),
                     ).joinToString(" · "),
@@ -239,9 +179,7 @@ private fun MyVideoCard(
                             action()
                         }
                     }
-                    if (item is MyVideo.Render) {
-                        DropdownMenuItem(text = { Text(stringResource(R.string.my_videos_share)) }, onClick = pick(onShare))
-                    }
+                    DropdownMenuItem(text = { Text(stringResource(R.string.my_videos_share)) }, onClick = pick(onShare))
                     DropdownMenuItem(text = { Text(stringResource(R.string.my_videos_delete)) }, onClick = pick(onDelete))
                 }
             }
@@ -250,16 +188,15 @@ private fun MyVideoCard(
 }
 
 /**
- * A frame of the video, read off the main thread. A take has no file of its own until it is
- * rendered (part 2D), so it keeps the empty tile while a frame loads. A render whose frame cannot
- * be read, after one retry, shows a video icon labelled "Video unavailable" instead of a blank box.
+ * A frame of the video, read off the main thread. One whose frame cannot be read, after one retry,
+ * shows a video icon labelled "Video unavailable" instead of a blank box.
  */
 @Composable
-private fun VideoThumbnail(uri: String?) {
+private fun VideoThumbnail(uri: String) {
     val mediaStore = LocalContext.current.geodeContainer.mediaStore
     var failed by remember(uri) { mutableStateOf(false) }
     val frame by produceState<ImageBitmap?>(null, uri) {
-        val parsed = uri?.let(Uri::parse) ?: return@produceState
+        val parsed = Uri.parse(uri)
         value = mediaStore.videoFrame(parsed, THUMB_WIDTH, THUMB_HEIGHT)?.asImageBitmap()
         if (value == null) {
             delay(THUMB_RETRY_MS)

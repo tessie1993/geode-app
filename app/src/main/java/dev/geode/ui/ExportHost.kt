@@ -21,7 +21,6 @@ import dev.geode.R
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.TimeOfDayDrift
-import dev.geode.render.SceneFactory
 import dev.geode.render.VisualizerView
 
 private val PendingExportSaver =
@@ -191,13 +190,6 @@ internal fun rememberVisualizerExport(
     var pendingExport by rememberSaveable(stateSaver = PendingExportSaver) {
         mutableStateOf<PendingExport?>(null)
     }
-    val sceneFactoryFor: (String, String) -> SceneFactory =
-        { requested, fallback ->
-            val renderer = visualizerView.visualizerRenderer
-            renderer.exportSceneFactory(
-                if (requested in renderer.availableSceneIds()) requested else fallback,
-            )
-        }
     val start: (PendingExport, Uri?) -> Unit = { req, dest ->
         viewModel.startExport(
             req.aspect,
@@ -205,7 +197,6 @@ internal fun rememberVisualizerExport(
             visualizerView.visualizerRenderer.exportSceneFactory(req.sceneId),
             destination = dest,
             range = req.range,
-            sceneFactoryFor = { id -> sceneFactoryFor(id, req.sceneId) },
             codec = req.codec,
         )
     }

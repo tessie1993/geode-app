@@ -84,7 +84,7 @@ import kotlinx.coroutines.withContext
  *   the bottom or the top wakes the shell's chrome (the mini player, the tab bar and the [StageIcons],
  *   which fade together) and, with the options hidden and the chrome already awake, brings the options
  *   back (the Fullscreen icon reads "Show options" then), a double tap hides or brings back the
- *   options, a sideways swipe steps the style, a swipe up wakes the chrome, a swipe down pulls the Macros drawer ([MacrosDrawer]), a hold records a take, a swirl
+ *   options, a sideways swipe steps the style, a swipe up wakes the chrome, a swipe down pulls the Macros drawer ([MacrosDrawer]), a hold records a video, a swirl
  *   randomizes and two fingers play with the visual.
  * - The options ([VisualsOptions], VisualsSheet.kt): matte glass over the visual. In portrait a
  *   bottom sheet of three heights; in landscape (the window wider than tall, from the medium width
@@ -200,11 +200,11 @@ private fun VisualsHubContent(
     // Settings › Behaviour › Keep the screen on in Visuals: held while this screen is composed (#337).
     KeepScreenOnWhileShown(behaviour.keepScreenOnVisuals)
     val studioViewModel: StudioViewModel = geodeViewModel()
-    val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
+    val record by studioViewModel.recordState.collectAsStateWithLifecycle()
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
-    // Why a take ended or was not kept (too short, the maximum length, a render already running).
-    LaunchedEffect(takes.note) { takes.note?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show() } }
+    // Why a recording ended or was not kept (too short, the maximum length, a failure).
+    LaunchedEffect(record.note) { record.note?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show() } }
     var macros by rememberSaveable { mutableStateOf(false) }
     // While a drop-in is up the options fade out and take no touch (UI V2 rule 6: the visual shows
     // through, not the sheet); the nav state keeps the sheet's height, so it returns as it was.
@@ -222,7 +222,7 @@ private fun VisualsHubContent(
             onQuickSettings = { nav.openTab(VisualsPage.SETTINGS) },
             onToggleSheet = { if (nav.sheetShown) nav.hideSheet() else nav.showSheet() },
             onMacros = { macros = true },
-            onRecord = { if (!takes.recording) studioViewModel.startRecording() },
+            onRecord = { if (!record.recording) studioViewModel.startRecording() },
         )
     val sizeClass = currentWindowAdaptiveInfo().windowSizeClass
     val backdrop = rememberGlassBackdrop()
@@ -308,7 +308,7 @@ private fun VisualsHubContent(
             visualizerView = visualizerView,
             behaviour = behaviour,
             actions = actions,
-            recording = takes.recording,
+            recording = record.recording,
             // The halves of the visual left in view above the sheet; the whole height beside the panel.
             tapSplitPx = { if (side) fullPx / 2f else (fullPx - heightPx.value - reservePx) / 2f },
             onPinch = viewModel::nudgeTransform.takeIf { gui.touchTransform },

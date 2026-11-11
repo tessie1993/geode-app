@@ -101,7 +101,7 @@ internal class VisualSettingsController(
 
     /**
      * A pinch and twist on the visual move the real Zoom and Rotation params, not a view-only
-     * transform, so a gesture is kept in presets and takes. The maths and the clamp to each
+     * transform, so a gesture is kept in presets. The maths and the clamp to each
      * slider's range are native (`core/viz/TouchTransform`).
      */
     fun nudgeTransform(

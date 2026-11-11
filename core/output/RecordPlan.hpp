@@ -23,13 +23,6 @@ int maxLengthAt(int index);
 // kNoLimitSec for zero or less, so a value from an older build or a hand-edited backup is never trusted.
 int snapMaxLength(int requestedSec);
 
-// Whether a take recordedMs long has reached maxSec. Never with no limit.
-bool reached(int64_t recordedMs, int maxSec);
-
-// A take's length as it is saved: lengthMs, or the maximum when the 1 s recording tick ran past it, so a
-// 60 s limit gives a 60 s video. No limit leaves the length alone.
-int64_t clampLengthMs(int64_t lengthMs, int maxSec);
-
 struct Estimate {
     int64_t bytes = 0;      // video plus AAC
     bool lowered = false;   // the video bit rate is lowered so the file stays under the muxer's target

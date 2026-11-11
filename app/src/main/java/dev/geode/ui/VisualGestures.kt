@@ -721,7 +721,7 @@ internal fun rememberTouchPulse(onTouchPoints: (FloatArray, Int) -> Unit): () ->
 
 /**
  * The mapped actions as TalkBack custom actions, one per action (a step gives next and previous),
- * in the gesture map's order. Recording leaves the list while a take runs: the red Record icon is
+ * in the gesture map's order. Recording leaves the list while one runs: the red Record icon is
  * its stop.
  */
 @Composable

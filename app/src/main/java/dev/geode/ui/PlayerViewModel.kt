@@ -243,13 +243,12 @@ class PlayerViewModel
             sceneFactory: SceneFactory,
             destination: Uri? = null,
             range: ExportRange? = null,
-            sceneFactoryFor: ((String) -> SceneFactory)? = null,
             codec: ExportCodec = ExportCodec.H264,
         ) {
             if (openPaywallIfLocked(aspect, fps)) return
             val limits = gate.value
             val capped = capRange(range, limits.exportCapMs)
-            session.startExport(aspect, fps, sceneFactory, destination, capped, sceneFactoryFor, codec, limits.watermarksExports)
+            session.startExport(aspect, fps, sceneFactory, destination, capped, codec, limits.watermarksExports)
         }
 
         /**

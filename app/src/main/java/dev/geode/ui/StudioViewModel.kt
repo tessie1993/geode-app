@@ -128,7 +128,8 @@ class StudioViewModel
             keepJob =
                 viewModelScope.launch {
                     // The render about to start resets the state first; wait for it to run, then end.
-                    val ended = session.exportController.exportState.dropWhile { !it.phase.isBusy }.first { !it.phase.isBusy }
+                    val exportState = session.exportController.exportState
+                    val ended = exportState.dropWhile { !it.phase.isBusy }.first { !it.phase.isBusy }
                     val done = ended.phase as? ExportPhase.Done ?: return@launch
                     val render = ProjectRender(done.resultUri.toString(), track.title, System.currentTimeMillis(), track.durationMs)
                     session.editor.createWithLook(track, sceneId, milkPath, render)

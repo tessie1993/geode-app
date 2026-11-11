@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -35,7 +35,7 @@ class VisualsTabsAndPresetsToolbarTest {
     fun everyTabLabelFitsAtTheNarrowestPanel() {
         val labels = mutableListOf<String>()
         compose.setContent {
-            val context = LocalContext.current
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
             VisualsTabs.forEach { labels += context.getString(it.titleRes) }
             MaterialTheme {
                 // The panel's narrowest width, less the 48 dp close button beside the tabs.
@@ -44,7 +44,11 @@ class VisualsTabsAndPresetsToolbarTest {
                 }
             }
         }
-        val rootRight = compose.onRoot().fetchSemanticsNode().boundsInRoot.right
+        val rootRight =
+            compose
+                .onRoot()
+                .fetchSemanticsNode()
+                .boundsInRoot.right
         for (label in labels) {
             val bounds = compose.onNodeWithText(label).fetchSemanticsNode().boundsInRoot
             assertTrue("$label ends at ${bounds.right}, past the row's $rootRight", bounds.right <= rootRight)
@@ -56,7 +60,7 @@ class VisualsTabsAndPresetsToolbarTest {
         var label = ""
         compose.setContent {
             val density = LocalDensity.current
-            label = LocalContext.current.getString(R.string.presets_save_current_look)
+            label = InstrumentationRegistry.getInstrumentation().targetContext.getString(R.string.presets_save_current_look)
             CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 2f)) {
                 MaterialTheme {
                     Row(Modifier.width(320.dp)) {
@@ -74,8 +78,12 @@ class VisualsTabsAndPresetsToolbarTest {
             }
         }
         val results = mutableListOf<TextLayoutResult>()
-        compose.onNodeWithText(label).fetchSemanticsNode().config[SemanticsActions.GetTextLayoutResult]
-            .action?.invoke(results)
+        compose
+            .onNodeWithText(label)
+            .fetchSemanticsNode()
+            .config[SemanticsActions.GetTextLayoutResult]
+            .action
+            ?.invoke(results)
         assertFalse("label was not laid out", results.isEmpty())
         assertFalse("label is cut off", results.first().hasVisualOverflow)
     }

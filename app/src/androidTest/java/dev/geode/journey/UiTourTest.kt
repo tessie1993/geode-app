@@ -681,8 +681,7 @@ class UiTourTest {
     private fun studioTab(label: String) = hasText(label) and SemanticsMatcher.keyIsDefined(SemanticsProperties.Selected)
 
     /** A tab in Settings' list, not a nav item of the same name (Library is both). */
-    private fun settingsTab(label: String) =
-        hasText(label) and !SemanticsMatcher.keyIsDefined(SemanticsProperties.Selected)
+    private fun settingsTab(label: String) = hasText(label) and !SemanticsMatcher.keyIsDefined(SemanticsProperties.Selected)
 
     /** A Settings › Tutorials row (it carries a done / not done state), not the nav item of that name. */
     private fun chapterRow(label: String) = hasText(label) and SemanticsMatcher.keyIsDefined(SemanticsProperties.StateDescription)
@@ -738,6 +737,7 @@ class UiTourTest {
         const val GO_PRO = "Go Pro"
 
         val LIBRARY_TABS = listOf("Tracks", "Albums", "Artists", "Folders", "Playlists", "Duplicates")
+
         /**
          * Settings' fourteen tabs in list order (`SettingsGroupKey`, 2026-11-11): the ten groups
          * before them were regrouped, Tutorials & help and Backup & about becoming one tab.

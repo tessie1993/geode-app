@@ -16,7 +16,12 @@ class SettingsMapTest {
     @Test
     fun everyRowIsPlacedExactlyOnce() {
         val placed = SettingsGroupKey.entries.flatMap { it.rows }
-        val twice = placed.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+        val twice =
+            placed
+                .groupingBy { it }
+                .eachCount()
+                .filterValues { it > 1 }
+                .keys
         assertTrue("rows on more than one tab or section: $twice", twice.isEmpty())
         assertEquals("rows on no tab", emptySet<SettingsRowKey>(), SettingsRowKey.entries.toSet() - placed.toSet())
     }

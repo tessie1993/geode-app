@@ -31,7 +31,7 @@ import dev.geode.data.SaveTarget
 
 /**
  * The ask-once question after a recorded take that has nowhere to render yet
- * ([TakeUiState.pendingSave]): render to the Videos library (Movies/MuzViz, no permission) or to a
+ * ([TakeUiState.pendingSave]): render to the Videos library (Movies/BeatRealms, no permission) or to a
  * folder the user picks, and whether to keep that answer for every later take ("Use for every
  * take", on by default). A kept answer (`data/RecordSaveStore`) means later takes render without
  * this sheet; an answer not kept renders this take only, and the next stop asks again.

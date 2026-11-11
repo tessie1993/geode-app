@@ -1,4 +1,6 @@
-# MuzViz brand
+# BeatRealms 3D brand
+
+The product was renamed from MuzViz Studio Pro to BeatRealms 3D on 2026-11-11. The asset file names below keep the old `muzviz-` prefix, and the lockup and the Play feature graphic still spell the old wordmark: redraw both (`tools/brand_assets.py`, which still outlines "MuzViz / STUDIO PRO") before the Play listing goes up.
 
 The mark is an eye made of sound: spectrum bars (waveform) inside a rippling oscilloscope lid,
 around a twisted-hexagon vortex iris (fractal). The palette is the old neon purple, on brand night

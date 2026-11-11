@@ -1,31 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">MuzViz Studio Pro</string>
-    <string name="wallpaper_label">MuzViz Studio Pro</string>
-    <string name="wallpaper_description">Your last MuzViz style, reacting to whatever the app is playing and drifting gently when it is not.</string>
-    <string name="dream_label">MuzViz Studio Pro</string>
-    <string name="notification_listener_label">MuzViz — now playing in other apps</string>
+    <string name="app_name">BeatRealms 3D</string>
+    <string name="wallpaper_label">BeatRealms 3D</string>
+    <string name="wallpaper_description">Your last BeatRealms style, reacting to whatever the app is playing and drifting gently when it is not.</string>
+    <string name="dream_label">BeatRealms 3D</string>
+    <string name="notification_listener_label">BeatRealms — now playing in other apps</string>
     <string name="capture_channel_name">Visualizing other apps</string>
-    <string name="capture_channel_description">Shown while MuzViz is reading the audio another app is playing.</string>
+    <string name="capture_channel_description">Shown while BeatRealms is reading the audio another app is playing.</string>
     <string name="capture_notification_title">Visualizing other apps</string>
-    <string name="capture_notification_text">MuzViz is reading the audio playing on this device.</string>
+    <string name="capture_notification_text">BeatRealms is reading the audio playing on this device.</string>
     <string name="capture_notification_stop">Stop</string>
     <string name="playback_refused_channel_name">Playback problems</string>
     <string name="playback_refused_title">Playback could not keep running</string>
-    <string name="playback_refused_text">Android did not let MuzViz play in the background. Tap to open the app and press play.</string>
+    <string name="playback_refused_text">Android did not let BeatRealms play in the background. Tap to open the app and press play.</string>
     <string name="export_channel_name">Rendering video</string>
-    <string name="export_channel_description">Shown while MuzViz is rendering a video, so the render is not interrupted.</string>
+    <string name="export_channel_description">Shown while BeatRealms is rendering a video, so the render is not interrupted.</string>
     <string name="export_notification_title">Rendering video</string>
     <string name="export_notification_cancel">Cancel</string>
-    <string name="export_notification_text">MuzViz is rendering your visuals.</string>
+    <string name="export_notification_text">BeatRealms is rendering your visuals.</string>
 
     <!-- First-run photosensitivity notice. Safety copy: translate carefully,
          the flash rate is factual and must survive translation. This is an
          acknowledgement, not a choice — there is no setting behind it. -->
-    <string name="boot_wordmark" translatable="false">MuzViz</string>
+    <string name="boot_wordmark" translatable="false">BeatRealms</string>
     <string name="boot_tagline">Visualize the invisible</string>
     <string name="safety_title">Before the visuals start</string>
-    <string name="safety_warning">MuzViz reacts to music with light, and the visuals are intense — bright, fast and full-screen.</string>
+    <string name="safety_warning">BeatRealms reacts to music with light, and the visuals are intense — bright, fast and full-screen.</string>
     <string name="safety_prompt">The flash rate is limited in the engine, by design. Nothing on screen can flash more than three times a second, no preset or imported file can raise that, and the video you export is held to the same limit as the screen you saw. There is no setting for this and nothing to switch off.</string>
     <string name="safety_acknowledge">I understand</string>
 
@@ -35,7 +35,7 @@
     <string name="onboarding_step">Step %1$d of %2$d</string>
 
     <!-- The intent setting. No longer asked at first run; it lives in Settings › Behaviour and gestures. -->
-    <string name="settings_intent_title">What do you use MuzViz for?</string>
+    <string name="settings_intent_title">What do you use BeatRealms for?</string>
     <string name="settings_intent_body">Sets where the app opens and whether Studio appears in the navigation bar.</string>
     <string name="settings_intent_listening">Listening</string>
     <string name="settings_intent_listening_detail">Opens on the player. Studio stays out of the way.</string>
@@ -76,7 +76,7 @@
     <!-- Settings > Help -->
     <string name="help_topics_group">How things work</string>
     <string name="help_topic_library">Library and folders</string>
-    <string name="help_topic_library_body">MuzViz reads the audio Android already indexes. If you keep music somewhere it does not look — an SD card, or Downloads — add that folder in Settings › Library &amp; lyrics.</string>
+    <string name="help_topic_library_body">BeatRealms reads the audio Android already indexes. If you keep music somewhere it does not look — an SD card, or Downloads — add that folder in Settings › Library &amp; lyrics.</string>
     <string name="help_topic_visuals">Styles, presets and Customize</string>
     <string name="help_topic_visuals_body">A style is the renderer; a preset is a style plus every control around it. Customize hides controls a style cannot use, so an empty section means that style ignores it rather than that something is broken.</string>
     <string name="help_topic_touch">Touch on the visualizer</string>
@@ -124,10 +124,10 @@
     <string name="backup_section_music">Playlists, favourites, history and track edits</string>
     <string name="backup_section_milk">Imported Milk presets and textures</string>
     <string name="backup_restored_title">Backup restored</string>
-    <string name="backup_restored_body">Restart MuzViz to load it.</string>
+    <string name="backup_restored_body">Restart BeatRealms to load it.</string>
     <string name="backup_restart">Restart now</string>
-    <string name="backup_error_not_a_backup">This file isn\'t a MuzViz backup.</string>
-    <string name="backup_error_newer_version">This backup was made by a newer version of MuzViz. Update the app, then try again.</string>
+    <string name="backup_error_not_a_backup">This file isn\'t a BeatRealms backup.</string>
+    <string name="backup_error_newer_version">This backup was made by a newer version of BeatRealms. Update the app, then try again.</string>
     <string name="backup_error_unsafe_path">This backup has files in places it shouldn\'t, so it was not opened.</string>
     <string name="backup_error_damaged">This backup is damaged. Nothing was changed.</string>
     <string name="backup_error_too_large">This backup is over the 512 MB limit.</string>
@@ -163,7 +163,7 @@
     <!-- Offered once, after a run that crashed. -->
     <string name="crash_dialog_title">Previous crash captured</string>
     <string name="crash_dialog_body">The last run crashed. Copy the report to share it, then dismiss.\n\n%1$s</string>
-    <string name="crash_clip_label">MuzViz crash</string>
+    <string name="crash_clip_label">BeatRealms crash</string>
 
     <!-- Search across tracks, playlists and presets. -->
     <string name="search_placeholder">Search tracks, playlists &amp; presets</string>
@@ -258,7 +258,7 @@
     <string name="lyrics_search_web">Search the web</string>
     <string name="lyrics_load_lrc">Load .lrc</string>
     <string name="lyrics_nothing_playing">Play a song to see its lyrics here.</string>
-    <string name="lyrics_search_hint">The search opens in your browser; MuzViz never looks lyrics up itself. Save the lyrics as an .lrc file, then load it here and it sticks to this song.</string>
+    <string name="lyrics_search_hint">The search opens in your browser; BeatRealms never looks lyrics up itself. Save the lyrics as an .lrc file, then load it here and it sticks to this song.</string>
     <string name="lyrics_no_browser">No browser to search with.</string>
     <!-- The web search for the playing song: %1$s is "title artist". -->
     <string name="lyrics_search_query">%1$s lyrics</string>
@@ -298,23 +298,23 @@
     <string name="smart_op_is_not">is not</string>
     <string name="smart_op_at_least">at least</string>
     <string name="smart_op_at_most">at most</string>
-    <string name="widget_label">MuzViz now playing</string>
+    <string name="widget_label">BeatRealms now playing</string>
     <string name="widget_nothing_playing">Nothing playing</string>
     <string name="widget_play">Play</string>
     <string name="widget_pause">Pause</string>
     <string name="widget_next">Next track</string>
     <string name="widget_previous">Previous track</string>
     <string name="widget_preview_title">Night Drive</string>
-    <string name="widget_preview_artist">MuzViz</string>
-    <string name="widget_picker_description">What MuzViz is playing, with its progress, the visual on screen and buttons to change the style.</string>
+    <string name="widget_preview_artist">BeatRealms</string>
+    <string name="widget_picker_description">What BeatRealms is playing, with its progress, the visual on screen and buttons to change the style.</string>
     <string name="widget_style_next">Next style</string>
     <string name="widget_style_previous">Previous style</string>
-    <string name="widget_style_open">Open MuzViz to change the style</string>
+    <string name="widget_style_open">Open BeatRealms to change the style</string>
     <string name="widget_preview_style">Neon Chrome Sea</string>
     <string name="auto_favourites">Favourites</string>
     <string name="auto_recently_played">Recently played</string>
     <string name="library_permission_rationale">Grant music access to browse everything on this device.</string>
-    <string name="library_permission_denied_forever">Music access is turned off for MuzViz, and Android will not ask again from here. Open app settings to turn on Music and audio.</string>
+    <string name="library_permission_denied_forever">Music access is turned off for BeatRealms, and Android will not ask again from here. Open app settings to turn on Music and audio.</string>
     <string name="library_permission_allow">Allow music access</string>
     <string name="library_permission_open_settings">Open app settings</string>
     <string name="library_no_music">No music found on device.</string>
@@ -324,7 +324,7 @@
     <string name="library_no_results">Nothing matches that.</string>
     <!-- Library with access granted and no songs (#340). -->
     <string name="library_empty_title">No songs here yet</string>
-    <string name="library_empty_hint">MuzViz lists the music Android has indexed on this phone. If you just copied songs over, rescan. If they live somewhere else, choose the folder. Or skip the library: the visuals can listen to another app or the room.</string>
+    <string name="library_empty_hint">BeatRealms lists the music Android has indexed on this phone. If you just copied songs over, rescan. If they live somewhere else, choose the folder. Or skip the library: the visuals can listen to another app or the room.</string>
     <string name="library_empty_short_hint">Tracks shorter than %1$d s are hidden. Change that in Settings › Folders.</string>
     <string name="library_empty_rescan">Rescan</string>
     <string name="library_empty_choose_folder">Choose a music folder</string>
@@ -368,7 +368,7 @@
     <string name="playlist_import_done_title">Playlist imported</string>
     <string name="playlist_import_summary">\"%1$s\" — %2$d track(s) added, %3$d not found, %4$d matched more than one file (first used).</string>
     <string name="playlist_import_failed_title">Couldn\'t import playlist</string>
-    <string name="playlist_import_failed_body">That file isn\'t a playlist MuzViz can read (M3U, PLS or XSPF).</string>
+    <string name="playlist_import_failed_body">That file isn\'t a playlist BeatRealms can read (M3U, PLS or XSPF).</string>
     <string name="action_remove_from_playlist">Remove from playlist</string>
 
     <string name="folders_library">Library folders</string>
@@ -461,7 +461,7 @@
     <string name="folders_min_track_seconds">%1$d s</string>
     <string name="folders_min_track_explainer">Leaves ringtones, notification sounds and voice notes out of the library. Tracks of unknown length always show.</string>
     <string name="folders_group_export">Export destination</string>
-    <string name="folders_export_explainer">Exports land in your Videos library (Movies/MuzViz), or in a folder you pick at render time — there is no standing export folder to configure. Defaults for quality and size live in the Export tab.</string>
+    <string name="folders_export_explainer">Exports land in your Videos library (Movies/BeatRealms), or in a folder you pick at render time — there is no standing export folder to configure. Defaults for quality and size live in the Export tab.</string>
     <string name="folders_preset_chosen">Preset folder: chosen — saves are mirrored there</string>
     <string name="folders_preset_internal">Preset folder: internal only</string>
     <string name="folders_choose_preset">Choose preset folder</string>
@@ -502,7 +502,7 @@
     <string name="audio_preset_morph">Preset morph: %1$.1f s (0 = snap)</string>
     <string name="audio_react_mic">React to the microphone</string>
     <string name="audio_react_mic_explainer">Drives the visuals from what the phone hears — a room, an instrument, a speaker across the street. Your music keeps playing: the visuals react to the track and the room together, and to the room alone while nothing plays. On the phone\'s own speaker the microphone hears the track too; headphones keep the two apart. Audio is analysed live and never recorded, saved or sent anywhere.</string>
-    <string name="audio_mic_denied">Microphone access is off for MuzViz. Turn it on in Android Settings › Apps › MuzViz › Permissions to use live input.</string>
+    <string name="audio_mic_denied">Microphone access is off for BeatRealms. Turn it on in Android Settings › Apps › BeatRealms 3D › Permissions to use live input.</string>
     <string name="audio_mic_busy">The microphone could not be opened — another app may be using it.</string>
 
     <!-- Settings › Audio › Other apps (playback capture). -->
@@ -513,24 +513,24 @@
     <string name="ext_listening_idle">Listening. Start something playing in any app.</string>
     <string name="ext_now_playing_line">%1$s: %2$s</string>
     <string name="ext_now_playing_line_with_artist">%1$s: %2$s — %3$s</string>
-    <string name="ext_read_now_playing_explainer">MuzViz can also show WHAT the other app is playing — the track and artist, on the visualizer. That reads the media session, which Android gates behind notification access. Optional: the visuals work on the sound alone.</string>
+    <string name="ext_read_now_playing_explainer">BeatRealms can also show WHAT the other app is playing — the track and artist, on the visualizer. That reads the media session, which Android gates behind notification access. Optional: the visuals work on the sound alone.</string>
     <string name="ext_allow_reading">Allow reading now playing</string>
     <string name="ext_silence_title">Silence, on purpose</string>
     <string name="ext_refused_body">%1$s does not allow other apps to capture its audio. Android honours that, and there is no setting on either side that changes it — the capture is running and being handed digital silence. Most other apps (YouTube, podcast players, games) do allow it and work here.</string>
     <string name="ext_mic_alternative">The microphone still hears your speaker. It picks up the room with it, so it is a rougher signal — but it reacts to %1$s.</string>
     <string name="ext_use_mic_instead">Use the microphone instead</string>
-    <string name="ext_fail_permission">Microphone access is off for MuzViz. Android requires it for audio capture of any kind — turn it on in Android Settings › Apps › MuzViz › Permissions.</string>
+    <string name="ext_fail_permission">Microphone access is off for BeatRealms. Android requires it for audio capture of any kind — turn it on in Android Settings › Apps › BeatRealms 3D › Permissions.</string>
     <string name="ext_fail_consent">Capture permission was not given. Nothing is being read.</string>
     <string name="ext_fail_unavailable">The device would not open an audio capture at any format — another app may be holding it.</string>
 
     <!-- Export: shared by the Export tab and the export dialog. -->
     <string name="render_group_save">Save to</string>
-    <string name="render_save_library">Videos library (Movies/MuzViz)</string>
+    <string name="render_save_library">Videos library (Movies/BeatRealms)</string>
     <string name="render_save_ask">Ask where each time</string>
     <string name="render_scope_current">Current track</string>
     <string name="render_nothing_playing">Nothing is playing. Play a track to render it.</string>
     <string name="render_button">Render</string>
-    <string name="render_saved_named">Saved %1$s to Movies/MuzViz.</string>
+    <string name="render_saved_named">Saved %1$s to Movies/BeatRealms.</string>
     <string name="render_scope_queue">Play queue</string>
     <string name="render_scope_playlist">Playlist</string>
     <string name="render_scope_chosen">Chosen tracks</string>
@@ -543,7 +543,7 @@
     <string name="render_look_current">Current look</string>
     <string name="render_batch_label">Rendering %1$d tracks</string>
     <string name="render_batch_progress">Track %1$d of %2$d · %3$s</string>
-    <string name="render_batch_summary">%1$d of %2$d rendered to Movies/MuzViz.</string>
+    <string name="render_batch_summary">%1$d of %2$d rendered to Movies/BeatRealms.</string>
     <string name="render_batch_failed_track">%1$s: %2$s</string>
     <plurals name="render_tracks_count">
         <item quantity="one">%d track</item>
@@ -567,9 +567,9 @@
     <string name="settings_export_open_studio">Open Studio › Render</string>
     <string name="visuals_open_render">Export this visual in Studio › Render</string>
     <string name="export_rendering_offline">Rendering offline…</string>
-    <string name="export_leave_hint">You can leave MuzViz — the render keeps going and finishes in the background.</string>
+    <string name="export_leave_hint">You can leave BeatRealms — the render keeps going and finishes in the background.</string>
     <string name="export_saved_folder">Saved to your chosen folder.</string>
-    <string name="export_saved_library">Saved to your Videos library (Movies/MuzViz).</string>
+    <string name="export_saved_library">Saved to your Videos library (Movies/BeatRealms).</string>
     <string name="export_failed">Failed: %1$s</string>
     <string name="export_upload_share_to">Upload / share to</string>
     <string name="export_upload_drive">Upload to Drive / Share</string>
@@ -603,7 +603,7 @@
     <string name="export_fps_25">25 fps</string>
     <string name="export_fps_50">50 fps</string>
     <string name="export_notification_permission_title">Show render progress?</string>
-    <string name="export_notification_permission_body">MuzViz can show a notification with the render\'s progress and time remaining, so you can check on it without reopening this dialog. Without it, the render still finishes — you just won\'t see progress outside the app.</string>
+    <string name="export_notification_permission_body">BeatRealms can show a notification with the render\'s progress and time remaining, so you can check on it without reopening this dialog. Without it, the render still finishes — you just won\'t see progress outside the app.</string>
     <string name="export_notification_permission_skip">Not now</string>
 
     <!-- Export: platform presets. Brand names stay as the platforms spell them. -->
@@ -640,7 +640,7 @@
     <string name="export_loudness_none_headline">No audio to measure</string>
     <string name="export_loudness_none_detail">Nothing in this file rises above the -70 LUFS gate, so there is no loudness to report. If the export was meant to have sound, it did not capture any.</string>
     <string name="export_loudness_as_mixed_headline">Leaving the level alone</string>
-    <string name="export_loudness_as_mixed_detail">Measured %1$s, true peak %2$s. MuzViz applies no gain, so the file goes out exactly as mixed.</string>
+    <string name="export_loudness_as_mixed_detail">Measured %1$s, true peak %2$s. BeatRealms applies no gain, so the file goes out exactly as mixed.</string>
     <string name="export_loudness_as_mixed_quiet">For reference: %1$s, and this sits %2$s under it.</string>
     <string name="export_loudness_peak_warning">The true peak is above -1 dBTP, which is where lossy encoders start to distort.</string>
     <string name="export_loudness_on_target_headline">Already at the %1$s level</string>
@@ -648,12 +648,12 @@
     <string name="export_loudness_up_headline">Turn it up %1$s for %2$s</string>
     <string name="export_loudness_down_headline">Turn it down %1$s for %2$s</string>
     <string name="export_loudness_unchanged_detail">Measured %1$s. Close enough to leave alone.</string>
-    <string name="export_loudness_raise_detail">Measured %1$s, %2$s under the %3$s %4$s plays at. %5$s. Adding %6$s in your mix would land it at %7$s with a true peak of %8$s. MuzViz leaves the level as it is.</string>
-    <string name="export_loudness_raise_limited_detail">Measured %1$s, %2$s under the %3$s %4$s plays at. %5$s. Going the whole way would push the true peak past the %6$s ceiling, so gain alone can add only %7$s, landing at %8$s. Closing the rest of the gap needs a limiter on the mix. MuzViz leaves the level as it is.</string>
-    <string name="export_loudness_lower_clipping_detail">Measured %1$s, true peak %2$s. That is under the %3$s %4$s plays at, but the peak is already over the %5$s ceiling, and more gain can only make that worse. Taking off %6$s in your mix would get the peak legal; getting louder as well needs a limiter. MuzViz leaves the level as it is.</string>
-    <string name="export_loudness_lower_loud_detail">Measured %1$s, true peak %2$s. That is %3$s over the %4$s %5$s plays at — %6$s. Taking off %7$s in your mix would land it at %8$s with a true peak of %9$s. MuzViz leaves the level as it is.</string>
-    <string name="export_loudness_lower_loud_limited_detail">Measured %1$s, true peak %2$s. That is %3$s over the %4$s %5$s plays at — %6$s. Taking off %7$s in your mix — a shade more than the level alone needs, so the true peak clears the %8$s ceiling too — would land it at %9$s with a true peak of %10$s. MuzViz leaves the level as it is.</string>
-    <string name="export_loudness_lower_peak_detail">Measured %1$s, true peak %2$s. The level is where %3$s wants it, but the peak is over the %4$s ceiling, where lossy encoders start to distort. Taking off %5$s in your mix would land it at %6$s. MuzViz leaves the level as it is.</string>
+    <string name="export_loudness_raise_detail">Measured %1$s, %2$s under the %3$s %4$s plays at. %5$s. Adding %6$s in your mix would land it at %7$s with a true peak of %8$s. BeatRealms leaves the level as it is.</string>
+    <string name="export_loudness_raise_limited_detail">Measured %1$s, %2$s under the %3$s %4$s plays at. %5$s. Going the whole way would push the true peak past the %6$s ceiling, so gain alone can add only %7$s, landing at %8$s. Closing the rest of the gap needs a limiter on the mix. BeatRealms leaves the level as it is.</string>
+    <string name="export_loudness_lower_clipping_detail">Measured %1$s, true peak %2$s. That is under the %3$s %4$s plays at, but the peak is already over the %5$s ceiling, and more gain can only make that worse. Taking off %6$s in your mix would get the peak legal; getting louder as well needs a limiter. BeatRealms leaves the level as it is.</string>
+    <string name="export_loudness_lower_loud_detail">Measured %1$s, true peak %2$s. That is %3$s over the %4$s %5$s plays at — %6$s. Taking off %7$s in your mix would land it at %8$s with a true peak of %9$s. BeatRealms leaves the level as it is.</string>
+    <string name="export_loudness_lower_loud_limited_detail">Measured %1$s, true peak %2$s. That is %3$s over the %4$s %5$s plays at — %6$s. Taking off %7$s in your mix — a shade more than the level alone needs, so the true peak clears the %8$s ceiling too — would land it at %9$s with a true peak of %10$s. BeatRealms leaves the level as it is.</string>
+    <string name="export_loudness_lower_peak_detail">Measured %1$s, true peak %2$s. The level is where %3$s wants it, but the peak is over the %4$s ceiling, where lossy encoders start to distort. Taking off %5$s in your mix would land it at %6$s. BeatRealms leaves the level as it is.</string>
 
     <!-- Export: failure messages. Shared by VideoExporter, StudioExporter and LoopRender. -->
     <string name="export_error_library_insert">Your Videos library would not accept a new file. Check that storage is not full, or render to a folder you choose instead.</string>
@@ -663,12 +663,12 @@
     <string name="export_error_encoder_buffer_null">The video encoder returned an empty buffer (codec error state).</string>
     <string name="export_error_encoder_no_output">The video encoder produced no output — this device\'s encoder or the chosen format may not be supported.</string>
     <string name="export_error_encoder_stalled">The video encoder stalled while flushing — the export is incomplete.</string>
-    <string name="export_error_studio_save">The finished file could not be saved to Movies/MuzViz.</string>
+    <string name="export_error_studio_save">The finished file could not be saved to Movies/BeatRealms.</string>
     <string name="export_error_studio_start">The export could not be started.</string>
     <string name="export_error_destination_save">The export could not be saved to that folder.</string>
     <string name="export_error_encoder_unsupported">This device\'s video encoder would not accept that output — try a smaller size or a different aspect ratio.</string>
     <string name="export_error_decode_unsupported">That clip could not be read — the file may have moved, or be in a format this device cannot decode.</string>
-    <string name="export_error_no_permission">MuzViz does not have permission to read that file.</string>
+    <string name="export_error_no_permission">BeatRealms does not have permission to read that file.</string>
     <string name="export_error_generic">The export failed.</string>
     <string name="export_error_loop_encoder_rejected">This device\'s video encoder would not accept %1$d×%2$d. Try a smaller size or a different aspect ratio.</string>
     <string name="export_error_loop_low_gpu_memory">There is not enough graphics memory to hold even one crossfade frame at %1$d×%2$d — render the loop at a smaller size.</string>
@@ -680,7 +680,7 @@
     <string name="export_error_loop_no_output">The video encoder produced no output for this loop.</string>
     <string name="export_error_loop_stalled">The video encoder stalled while finishing the loop.</string>
     <string name="export_error_no_message">no message</string>
-    <string name="export_stopped_time_limit">Android stopped the render at its time limit for work in the background. Open MuzViz and render again.</string>
+    <string name="export_stopped_time_limit">Android stopped the render at its time limit for work in the background. Open BeatRealms and render again.</string>
 
     <!-- Export: loop / long-form failures (LoopExtend). Destination errors reuse the export_error_* above. -->
     <string name="export_error_extend_no_loop">There is no rendered loop to extend.</string>
@@ -688,7 +688,7 @@
     <string name="export_error_extend_assemble">The long-form file could not be assembled.</string>
     <string name="export_error_extend_copy">The rendered loop could not be copied into the long file: %1$s</string>
     <string name="export_error_extend_write">Writing the long-form file failed — check there is room on the device. (%1$s)</string>
-    <string name="export_error_extend_track_no_audio">One of the tracks in this mix has no audio MuzViz can read: %1$s</string>
+    <string name="export_error_extend_track_no_audio">One of the tracks in this mix has no audio BeatRealms can read: %1$s</string>
     <string name="export_error_extend_track_unreadable">One of the tracks in this mix could not be read — it may have moved or been deleted.</string>
     <string name="export_error_extend_soundtrack">The soundtrack could not be prepared.</string>
     <string name="export_error_extend_too_big">%1$.1f h at this quality would come to about %2$.1f GB, past the %3$.0f GB an MP4 written on Android can address. Render the loop at about %4$.1f Mbps (a smaller size or lower quality) or make the video shorter.</string>
@@ -755,8 +755,8 @@
     <string name="behavior_display_none">Nothing connected. Plug in HDMI or start casting, and the visuals move to that screen while the phone keeps the controls.</string>
     <string name="behavior_group_intent">What you\'re here for</string>
     <string name="behavior_safety_title">Flashing and motion</string>
-    <string name="behavior_flash_guidance">Nothing in MuzViz can flash more than three times a second. Published guidance (WCAG 2.3.1) puts the general limit there, and the clamp sits in the render path itself — it applies to every scene, every preset and every imported file, on screen and in exported video alike. It is not a setting, so there is nothing here to adjust.</string>
-    <string name="behavior_wallpaper_hint">Set the visualizer as your wallpaper. It uses the style and settings the app was last showing, reacts to whatever MuzViz is playing, and drifts gently on its own the rest of the time. It draws nothing while another app is in front, so it is not a background battery drain.</string>
+    <string name="behavior_flash_guidance">Nothing in BeatRealms can flash more than three times a second. Published guidance (WCAG 2.3.1) puts the general limit there, and the clamp sits in the render path itself — it applies to every scene, every preset and every imported file, on screen and in exported video alike. It is not a setting, so there is nothing here to adjust.</string>
+    <string name="behavior_wallpaper_hint">Set the visualizer as your wallpaper. It uses the style and settings the app was last showing, reacts to whatever BeatRealms is playing, and drifts gently on its own the rest of the time. It draws nothing while another app is in front, so it is not a background battery drain.</string>
     <string name="behavior_wallpaper_button">Set as live wallpaper</string>
     <string name="behavior_pip_auto_enter">Enter automatically</string>
     <string name="behavior_pip_auto_enter_hint">Leaving the fullscreen visualizer while something is playing shrinks it into a picture-in-picture window instead of just backgrounding the app. Off, the PiP button on the visualizer and the platform\'s own swipe-home gesture are still there — this only changes what leaving does by default.</string>
@@ -814,11 +814,11 @@
     <string name="template_link_imported">Template \"%1$s\" imported — open Video templates to use it.</string>
     <string name="template_link_unreadable">That template link could not be read. It may have been cut short in transit.</string>
     <string name="link_offer_preset_title">Import shared preset?</string>
-    <string name="link_offer_preset_body">A link opened MuzViz with the preset \"%1$s\". Importing adds it to Visuals › Presets.</string>
+    <string name="link_offer_preset_body">A link opened BeatRealms with the preset \"%1$s\". Importing adds it to Visuals › Presets.</string>
     <string name="link_offer_template_title">Import shared template?</string>
-    <string name="link_offer_template_body">A link opened MuzViz with the video template \"%1$s\". Importing adds it to your templates.</string>
+    <string name="link_offer_template_body">A link opened BeatRealms with the video template \"%1$s\". Importing adds it to your templates.</string>
     <string name="link_offer_replace_title">Replace template?</string>
-    <string name="link_offer_replace_body">A link opened MuzViz with another version of your template \"%1$s\". Importing replaces yours.</string>
+    <string name="link_offer_replace_body">A link opened BeatRealms with another version of your template \"%1$s\". Importing replaces yours.</string>
     <string name="link_offer_untitled_template">Shared template</string>
     <string name="link_offer_import">Import</string>
     <string name="link_offer_replace">Replace</string>
@@ -840,7 +840,7 @@
     <string name="template_saved">Saved \"%1$s\".</string>
     <string name="template_imported">Imported \"%1$s\".</string>
     <string name="template_updated">Updated \"%1$s\".</string>
-    <string name="template_share_subject">MuzViz template: %1$s</string>
+    <string name="template_share_subject">BeatRealms template: %1$s</string>
     <string name="template_untitled">Template</string>
     <string name="palette_base_hue">Base hue %1$s</string>
     <string name="palette_hue_span">Hue span %1$s</string>

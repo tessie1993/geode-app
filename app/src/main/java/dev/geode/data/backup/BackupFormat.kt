@@ -10,7 +10,7 @@ import org.json.JSONObject
 import java.time.LocalDate
 import java.util.Locale
 
-// The rules of a MuzViz backup archive: what goes in, where it lives, what a restore will
+// The rules of a BeatRealms backup archive: what goes in, where it lives, what a restore will
 // accept. Pure Kotlin on purpose (org.json and java.* only): every check that decides whether
 // a file from outside the app may touch app data is here, where a JVM test can reach it. The
 // stores it names are read only for their key names, never opened.
@@ -229,7 +229,7 @@ object BackupFormat {
     }
 
     fun defaultFileName(date: LocalDate): String =
-        String.format(Locale.ROOT, "muzviz-backup-%04d%02d%02d.zip", date.year, date.monthValue, date.dayOfMonth)
+        String.format(Locale.ROOT, "beatrealms-backup-%04d%02d%02d.zip", date.year, date.monthValue, date.dayOfMonth)
 }
 
 /**

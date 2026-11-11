@@ -1,4 +1,4 @@
-# MuzViz Studio Pro
+# BeatRealms 3D
 
 A music player that draws reactive visuals from the music it plays, and a studio that turns those visuals into videos. One context: listening, watching and making are three views of the same track.
 

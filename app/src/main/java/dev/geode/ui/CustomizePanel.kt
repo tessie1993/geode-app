@@ -82,7 +82,7 @@ internal fun CustomizePanel(
     // Only the scene id, mapped and de-duplicated: a slider drag emits a new VizUiState each time and must not recompose the panel.
     val sceneId by remember(viewModel) {
         viewModel.vizState.map { it.sceneId }.distinctUntilChanged()
-    }.collectAsStateWithLifecycle(viewModel.vizState.value.sceneId)
+    }.collectAsStateWithLifecycle(remember(viewModel) { viewModel.vizState.value.sceneId })
     var query by rememberSaveable { mutableStateOf("") }
     var searching by rememberSaveable { mutableStateOf(false) }
     var showTips by rememberSaveable { mutableStateOf(false) }
@@ -221,7 +221,7 @@ private fun CustomizeHeader(
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val changed by remember(viewModel) {
         viewModel.vizState.map { CustomizeSummary.changedCount(it.params) }.distinctUntilChanged()
-    }.collectAsStateWithLifecycle(CustomizeSummary.changedCount(viewModel.vizState.value.params))
+    }.collectAsStateWithLifecycle(remember(viewModel) { CustomizeSummary.changedCount(viewModel.vizState.value.params) })
     val history by visualsViewModel.paramHistory.collectAsStateWithLifecycle()
     var menuOpen by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }

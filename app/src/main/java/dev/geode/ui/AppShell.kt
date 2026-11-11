@@ -269,7 +269,8 @@ fun AppRoot() {
         remember(viewModel) {
             viewModel.vizState.map(::accentOf).distinctUntilChanged()
         }
-    val accentTarget by accentSource.collectAsStateWithLifecycle(accentOf(viewModel.vizState.value))
+    // The first value is read once, in remember: lint rejects StateFlow.value in composition.
+    val accentTarget by accentSource.collectAsStateWithLifecycle(remember(viewModel) { accentOf(viewModel.vizState.value) })
     // Outside the theme, so the motion scheme is built here from the same switches the theme reads.
     // Android's "Remove animations" alone (data/SystemMotion, #336); the paywall below reads it too.
     val reducedMotion = rememberSystemReducedMotion()

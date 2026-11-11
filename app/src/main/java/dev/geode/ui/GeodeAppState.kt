@@ -106,6 +106,18 @@ class GeodeAppState(
      */
     var settingsGroupRequest by mutableStateOf<SettingsGroupKey?>(null)
 
+    /**
+     * A page of the Visuals options another screen asked for (the tour's replay), opened once by
+     * `VisualsHub` and then cleared. Not saved, like [settingsGroupRequest].
+     */
+    internal var visualsPageRequest by mutableStateOf<VisualsPage?>(null)
+
+    /** Opens Visuals with its options up on [page]. */
+    internal fun openVisualsPage(page: VisualsPage) {
+        visualsPageRequest = page
+        navigateTo(GeodeDestination.VISUALS)
+    }
+
     /** Opens Settings › Library: where music folders and the short-track filter live. */
     fun openSettingsFolders() {
         settingsGroupRequest = SettingsGroupKey.LIBRARY

@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.net.wifi.WifiManager
 import android.os.Handler
@@ -26,6 +27,8 @@ import dev.geode.playback.PlaybackSession
 import dev.geode.pro.ProFeature
 import dev.geode.startedInForeground
 import dev.geode.util.bestEffort
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Keeps a cast running with the app in the background or the screen off (owner, 2026-11-02):
@@ -102,9 +105,15 @@ class CastService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        // A mic change reaching a cast that has already ended must not bring the service back.
+        if (intent?.action == ACTION_MIC && stream == null) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         // fail() ends the cast session too, so the TV is not left waiting on a stream.
-        if (!startedInForeground(TAG, ::startInForeground, ::fail)) return START_NOT_STICKY
-        if (stream == null) startStream()
+        if (!startedInForeground(TAG, ::startInForeground) { fail(CastFailure.BACKGROUND_START) }) return START_NOT_STICKY
+        running = true
+        if (intent?.action != ACTION_MIC && stream == null) startStream()
         return START_NOT_STICKY
     }
 
@@ -112,7 +121,8 @@ class CastService : Service() {
         mutePhone()
         val started = runCatching { CastStream(this, playback?.sampleRing) { handler.post { fail() } }.also { it.start() } }
         started.onFailure { RingLog.note(TAG, "stream did not start: $it") }
-        val s = started.getOrNull() ?: return fail()
+        val noLan = started.exceptionOrNull() is CastStream.NoLanAddress
+        val s = started.getOrNull() ?: return fail(if (noLan) CastFailure.NO_LAN else CastFailure.STREAM)
         stream = s
         // The phone encodes the picture; with the music paused nothing else keeps the CPU awake.
         wakeLock.acquire(LONG_WORK_WAKE_MS)
@@ -123,11 +133,10 @@ class CastService : Service() {
     }
 
     /** Ends the cast because the stream can't run; onDestroy gives the phone its sound back. */
-    private fun fail() {
+    private fun fail(reason: CastFailure = CastFailure.STREAM) {
         if (failed) return
         failed = true
-        Toast.makeText(this, R.string.cast_failed, Toast.LENGTH_LONG).show()
-        CastController.get(this).onStreamFailed()
+        CastController.get(this).onStreamFailed(reason)
         stopSelf()
     }
 
@@ -191,6 +200,8 @@ class CastService : Service() {
     }
 
     override fun onDestroy() {
+        running = false
+        micHeldFlow.value = false
         handler.removeCallbacksAndMessages(null)
         wakeLock.release()
         bestEffort(TAG, "wifiLock.release()") { wifiLock?.takeIf { it.isHeld }?.release() }
@@ -228,7 +239,22 @@ class CastService : Service() {
                 .setContentIntent(open)
                 .addAction(Notification.Action.Builder(null, getString(R.string.cast_stop), stop).build())
                 .build()
-        startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        // With the mic on, the microphone type keeps it hearing in the background. Android grants it only while
+        // the app is visible (or the service was started then); refused, the cast goes on without it.
+        val playbackType = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+        val withMic =
+            micWanted &&
+                checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED &&
+                runCatching {
+                    startForeground(
+                        NOTIFICATION_ID,
+                        notification,
+                        playbackType or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE,
+                    )
+                }.onFailure { RingLog.note(TAG, "no microphone type: $it") }
+                    .isSuccess
+        if (!withMic) startForeground(NOTIFICATION_ID, notification, playbackType)
+        micHeldFlow.value = withMic
     }
 
     companion object {
@@ -236,17 +262,43 @@ class CastService : Service() {
         private const val CHANNEL_ID = "cast"
         private const val NOTIFICATION_ID = 0xCA57
         private const val ACTION_STOP = "dev.geode.cast.STOP"
+        private const val ACTION_MIC = "dev.geode.cast.MIC"
         private const val POLL_MS = 250L
         private const val PRO_RECHECK_MS = 60_000L
 
         /** Enough for the three segments the receiver starts on, with room for a slow first encode. */
         private const val START_TIMEOUT_MS = 15_000L
 
-        /** Starts the service; false if Android refused (a background start it doesn't allow). */
-        fun start(context: Context): Boolean =
+        @Volatile
+        private var running = false
+
+        @Volatile
+        private var micWanted = false
+        private val micHeldFlow = MutableStateFlow(false)
+
+        /** True while a cast holds the microphone foreground type, so the mic may keep running in the background. */
+        val micHeld: StateFlow<Boolean> = micHeldFlow
+
+        /**
+         * The mic started or stopped. A running cast takes or drops the microphone type; call it while the app
+         * is visible, the only time Android grants that type.
+         */
+        fun setMicWanted(
+            context: Context,
+            on: Boolean,
+        ) {
+            if (micWanted == on) return
+            micWanted = on
+            if (!running) return
+            runCatching { context.startService(Intent(context, CastService::class.java).setAction(ACTION_MIC)) }
+                .onFailure { RingLog.note(TAG, "mic update refused: $it") }
+        }
+
+        /** Starts the service; returns why Android refused (a background start it doesn't allow), or null. */
+        fun start(context: Context): Throwable? =
             runCatching { context.startForegroundService(Intent(context, CastService::class.java)) }
                 .onFailure { RingLog.note(TAG, "start refused: $it") }
-                .isSuccess
+                .exceptionOrNull()
 
         fun stop(context: Context) {
             context.stopService(Intent(context, CastService::class.java))

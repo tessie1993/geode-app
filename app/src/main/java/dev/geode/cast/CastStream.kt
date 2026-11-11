@@ -12,6 +12,7 @@ import dev.geode.engine.audio.SoundCursor
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.EncoderSurface
 import dev.geode.export.PcmResampler
+import dev.geode.playback.PlaybackEngine
 import dev.geode.render.PacedRate
 import dev.geode.render.VisualizerRenderer
 import dev.geode.util.bestEffort
@@ -108,12 +109,15 @@ internal class CastStream(
         val renderer = VisualizerRenderer(appContext)
         val audio = AudioPump(encoder, musicInput)
         try {
+            // The TV plays the ring as written, not the muted phone's sink: no reader waits for the speaker.
+            GeodeNative.playoutSetBypass(PlaybackEngine.playout, true)
             egl.makeCurrent()
             renderer.soundInput = { AudioBus.soundInput }
             // The encoder's fixed rate, not the stage's cap: at 30 this renderer is keeping up, so its fluid
             // monitor and the shared thermal trend must not read its frames against the phone's 60 (or 120).
             val castFps = CastEncoder.FPS.toFloat()
             renderer.pacedRate = PacedRate { castFps }
+            renderer.onDirectorStyleMoment = CastMirror::directorMoment
             renderer.onSurfaceCreated(null, null)
             renderer.onSurfaceChanged(null, encoder.width, encoder.height)
             val clock = LongArray(GeodeNative.FRAME_CLOCK_STATE)
@@ -128,6 +132,7 @@ internal class CastStream(
                 audio.pump(untilUs = GeodeNative.frameClockAudioUntilUs(clock))
             }
         } finally {
+            GeodeNative.playoutSetBypass(PlaybackEngine.playout, false)
             bestEffort(TAG, "renderer.releaseScenes()") { renderer.releaseScenes() }
             audio.close()
             egl.release()

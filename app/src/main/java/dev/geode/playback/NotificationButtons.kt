@@ -54,7 +54,7 @@ internal class NotificationButtons(
     fun commands(base: SessionCommands): SessionCommands = base.buildUpon().addSessionCommands(ALL).build()
 
     fun buttons(): List<CommandButton> =
-        behaviour.load().notificationButtons.sortedBy { it.ordinal }.mapNotNull { button ->
+        NotificationButton.ordered(behaviour.load().notificationButtons).mapNotNull { button ->
             when (button) {
                 NotificationButton.SHUFFLE -> shuffleButton()
                 NotificationButton.REPEAT -> repeatButton()

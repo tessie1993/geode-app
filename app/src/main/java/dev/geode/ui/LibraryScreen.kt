@@ -278,7 +278,7 @@ fun LibraryScreen(
                     1 -> GroupList(state.browse.albums, playerViewModel, libraryViewModel, columns)
                     2 -> GroupList(state.browse.artists, playerViewModel, libraryViewModel, columns)
                     3 -> FoldersTab(state.browse.folders, playerViewModel, wide)
-                    PLAYLISTS_TAB -> PlaylistsTab(libraryViewModel, wide)
+                    PLAYLISTS_TAB -> PlaylistsTab(libraryViewModel, playerViewModel, wide)
                     DUPLICATES_TAB -> DuplicatesTab(duplicates, playerViewModel, onDeleted = { reloadKey++ })
                 }
             }
@@ -372,10 +372,11 @@ private fun TrackList(
     val queue = remember(tracks) { tracks.map(PlaybackQueue::queueTrack) }
     // Collected once for the list: per row it was a ViewModel lookup and a collector per item.
     val overrides by libraryViewModel.trackOverrides.collectAsStateWithLifecycle()
+    val favourites by libraryViewModel.favourites.collectAsStateWithLifecycle()
     // Still a list, read row by row; a wide pane only flows it into side-by-side columns.
     LazyVerticalGrid(GridCells.Fixed(columns), Modifier.libraryListWidth(columns)) {
         items(tracks, key = { it.uri }, contentType = { "track" }) { t ->
-            TrackRow(t, viewModel, libraryViewModel, overrides[t.uri], queue = queue)
+            TrackRow(t, viewModel, libraryViewModel, overrides[t.uri], t.uri in favourites, queue = queue)
         }
         if (tracks.isEmpty()) {
             // An empty library and an empty result set are different problems, and telling
@@ -394,6 +395,7 @@ private fun TrackRow(
     viewModel: PlayerViewModel,
     libraryViewModel: LibraryViewModel,
     stored: LibraryTrack?,
+    favourite: Boolean,
     subtitleOverride: String? = null,
     queue: List<QueueTrack> = emptyList(),
 ) {
@@ -432,6 +434,15 @@ private fun TrackRow(
                 )
             }
         }
+        if (favourite) {
+            StoneIconArt(
+                StoneIcon.FAVORITE,
+                stringResource(R.string.a11y_favourite),
+                Modifier.padding(start = 8.dp).size(16.dp),
+                tint = MaterialTheme.colorScheme.primary,
+                selected = true,
+            )
+        }
         if (duration.isNotBlank()) {
             Text(
                 duration,
@@ -442,6 +453,15 @@ private fun TrackRow(
         }
         IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.action_more)) }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(
+                text = {
+                    Text(stringResource(if (favourite) R.string.action_favourite_remove else R.string.action_favourite_add))
+                },
+                onClick = {
+                    libraryViewModel.toggleFavourite(t.uri)
+                    menu = false
+                },
+            )
             DropdownMenuItem(text = { Text(stringResource(R.string.action_play_next)) }, onClick = {
                 viewModel.playNext(t.uri)
                 menu = false
@@ -532,6 +552,7 @@ private fun GroupList(
     val dismiss = rememberPredictiveDismiss(enabled = sel != null) { open = null }
     if (sel != null && groups.containsKey(sel)) {
         val overrides by libraryViewModel.trackOverrides.collectAsStateWithLifecycle()
+        val favourites by libraryViewModel.favourites.collectAsStateWithLifecycle()
         Column(Modifier.dismissTransform(dismiss)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 // A real button rather than a text link: the link's touch target was its 24 dp line height.
@@ -564,7 +585,15 @@ private fun GroupList(
             }
             LazyVerticalGrid(GridCells.Fixed(columns), Modifier.libraryListWidth(columns)) {
                 items(groups.getValue(sel), key = { it.uri }, contentType = { "track" }) { t ->
-                    TrackRow(t, viewModel, libraryViewModel, overrides[t.uri], subtitleOverride = t.album, queue = queue)
+                    TrackRow(
+                        t,
+                        viewModel,
+                        libraryViewModel,
+                        overrides[t.uri],
+                        t.uri in favourites,
+                        subtitleOverride = t.album,
+                        queue = queue,
+                    )
                 }
             }
         }
@@ -597,12 +626,58 @@ private fun GroupList(
     }
 }
 
+/** Every favourite, above the hand-made playlists: opens in place like one, and plays newest first. */
+@Composable
+private fun FavouritesRow(
+    count: Int,
+    open: Boolean,
+    onToggle: () -> Unit,
+    onPlay: () -> Unit,
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .semantics {
+                if (open) {
+                    collapse {
+                        onToggle()
+                        true
+                    }
+                } else {
+                    expand {
+                        onToggle()
+                        true
+                    }
+                }
+            }.padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StoneIconArt(StoneIcon.FAVORITE, null, tint = MaterialTheme.colorScheme.primary, selected = true)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.auto_favourites))
+            Text(pluralStringResource(R.plurals.track_count, count, count), style = MaterialTheme.typography.bodySmall)
+        }
+        IconButton(onClick = onPlay, enabled = count > 0) {
+            StoneIconArt(StoneIcon.PLAY, stringResource(R.string.action_play))
+        }
+    }
+}
+
 @Composable
 private fun PlaylistsTab(
     viewModel: LibraryViewModel,
+    playerViewModel: PlayerViewModel,
     wide: Boolean = false,
 ) {
     val library by viewModel.library.collectAsStateWithLifecycle()
+    val favourites by viewModel.favourites.collectAsStateWithLifecycle()
+    val deviceTracks by viewModel.deviceTracks.collectAsStateWithLifecycle()
+    val overrides by viewModel.trackOverrides.collectAsStateWithLifecycle()
+    val favouriteTracks = remember(favourites, deviceTracks) { LibraryBrowse.favouriteTracks(favourites, deviceTracks) }
+    val favouriteQueue = remember(favouriteTracks) { favouriteTracks.map(PlaybackQueue::queueTrack) }
+    var favouritesOpen by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var expanded by remember { mutableStateOf<String?>(null) }
     var renaming by remember { mutableStateOf<String?>(null) }
@@ -638,6 +713,29 @@ private fun PlaylistsTab(
             // playlist named like the fixed items cannot collide with them.
             LazyColumn(Modifier.weight(1f).fillMaxHeight()) {
                 if (!wide) item(key = "smart", contentType = "smart") { SmartPlaylistsSection(viewModel) }
+                item(key = "favourites", contentType = "favourites") {
+                    FavouritesRow(
+                        count = favouriteTracks.size,
+                        open = favouritesOpen,
+                        onToggle = { favouritesOpen = !favouritesOpen },
+                        onPlay = viewModel::playFavourites,
+                    )
+                }
+                if (favouritesOpen) {
+                    items(favouriteTracks, key = { "favourite:${it.uri}" }, contentType = { "track" }) { t ->
+                        TrackRow(t, playerViewModel, viewModel, overrides[t.uri], favourite = true, queue = favouriteQueue)
+                    }
+                    if (favouriteTracks.isEmpty()) {
+                        item(key = "favourites-empty", contentType = "empty") {
+                            Text(
+                                stringResource(R.string.library_favourites_empty),
+                                Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
                 items(library.playlists, key = { "playlist:${it.name}" }, contentType = { "playlist" }) { pl ->
                     Column(Modifier.fillMaxWidth()) {
                         Row(

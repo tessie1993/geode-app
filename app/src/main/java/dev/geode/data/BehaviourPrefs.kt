@@ -23,6 +23,25 @@ enum class NotificationButton {
     SHUFFLE,
     REPEAT,
     FAVOURITE,
+    ;
+
+    companion object {
+        /** Android's media controls draw two buttons beside previous, play and next; a third is dropped. */
+        const val ROOM = 2
+
+        /** Favourite first: it is the one asked for beyond the defaults, so it is never the one dropped. */
+        private val PRIORITY = listOf(FAVOURITE, SHUFFLE, REPEAT)
+
+        /** The order the session offers [chosen] in: controllers fill their slots from the front. */
+        fun ordered(chosen: Set<NotificationButton>): List<NotificationButton> = PRIORITY.filter { it in chosen }
+
+        /** [chosen] with [button] switched; switching one on past [ROOM] switches the last other one off. */
+        fun toggled(
+            chosen: Set<NotificationButton>,
+            button: NotificationButton,
+            on: Boolean,
+        ): Set<NotificationButton> = if (on) (listOf(button) + ordered(chosen - button)).take(ROOM).toSet() else chosen - button
+    }
 }
 
 /** What happens when the queue runs out. */

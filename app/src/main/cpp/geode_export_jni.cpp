@@ -162,6 +162,45 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_exportClampFps(J
     return geode_export_clamp_fps(requestedFps);
 }
 
+// A recorded take's limits (output/RecordPlan).
+
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordMaxLengths(JNIEnv* env, jobject) {
+    const jint count = geode_record_max_length_count();
+    jintArray out = env->NewIntArray(count);
+    if (!out) return nullptr;
+    for (jint i = 0; i < count; ++i) {
+        const jint sec = geode_record_max_length_at(i);
+        env->SetIntArrayRegion(out, i, 1, &sec);
+    }
+    return out;
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordSnapMaxLength(JNIEnv*, jobject, jint requestedSec) {
+    return geode_record_snap_max_length(requestedSec);
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordLimitReached(JNIEnv*, jobject, jlong recordedMs,
+                                                                                        jint maxSec) {
+    return geode_record_limit_reached(recordedMs, maxSec) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordClampLengthMs(JNIEnv*, jobject, jlong lengthMs,
+                                                                                      jint maxSec) {
+    return geode_record_clamp_length_ms(lengthMs, maxSec);
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordEstimateBytes(JNIEnv*, jobject, jint videoBps,
+                                                                                      jint lengthSec) {
+    return geode_record_estimate_bytes(videoBps, lengthSec, nullptr);
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordRateLowered(JNIEnv*, jobject, jint videoBps,
+                                                                                       jint lengthSec) {
+    int lowered = 0;
+    geode_record_estimate_bytes(videoBps, lengthSec, &lowered);
+    return lowered ? JNI_TRUE : JNI_FALSE;
+}
+
 // Chapters (output/Chapters).
 
 JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_chaptersFromClips(JNIEnv* env, jobject,

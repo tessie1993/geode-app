@@ -62,10 +62,6 @@ void PcmRing::beginEpoch() {
     }
 }
 
-int64_t PcmRing::oldestAvailable(int64_t head, int64_t epochStart) const {
-    return std::max(epochStart, head + maxWrite_ - capacity_);
-}
-
 void PcmRing::mark(int64_t head, uint64_t format) {
     // Compared with the log's own tail, not a copy kept by the writer: when two sources overlap at a
     // hand-over, each block of the other source is marked again.
@@ -204,27 +200,35 @@ Cursor::Cursor(const PcmRing& ring, int maxFrames)
       maxFrames_(std::min(maxFrames > 0 ? maxFrames : ring.maxWriteFrames(), ring.capacityFrames())),
       out_(static_cast<size_t>(maxFrames_) * static_cast<size_t>(ring.channelCount()), 0.0f) {}
 
-Cursor::Take Cursor::take() {
+Cursor::Take Cursor::take(int64_t limit) {
     Take out;
     // The epoch, then the head, each once: everything below this head is published, and a head read
     // after the epoch is never below that epoch's start.
     const uint64_t word = ring_.epoch_.load();
     const int64_t head = ring_.head_.load();
-    const int64_t oldest = ring_.oldestAvailable(head, PcmRing::startOf(word));
-    if (pending_ || word != epoch_ || read_ > head) {
+    const int64_t start = PcmRing::startOf(word);
+    // The oldest frame the writer cannot reach during a copy, whatever its epoch.
+    const int64_t floor = head + ring_.maxWrite_ - ring_.capacity_;
+    // A limit the ring no longer keeps is raised a runway above the floor: a reader that far behind
+    // the writer follows it at the ring's length instead of standing on frames about to be written.
+    const int64_t end = std::min(head, std::max(limit, floor + ring_.maxWrite_));
+    const bool entered = word != epoch_ && end >= start;
+    if (pending_ || entered || read_ > head) {
         pending_ = false;
         epoch_ = word;
-        read_ = std::max(oldest, head - maxFrames_);
+        read_ = std::max({start, floor, end - maxFrames_});
         out.restarted = true;
     }
+    // Still in the epoch before this one (the limit has not reached the new one): only the floor binds.
+    const int64_t oldest = word == epoch_ ? std::max(start, floor) : floor;
     // A stall longer than the ring holds: skip to the oldest frame still safe to read.
     // A stall longer than one take: keep the newest audio, which is what is playing now.
-    const int64_t from = std::max({read_, oldest, head - maxFrames_});
+    const int64_t from = std::max({read_, oldest, end - maxFrames_});
     out.skipped = !out.restarted && from != read_;
     read_ = from;
-    if (head <= read_) return out;
-    const PcmRing::Run run = ring_.runAt(read_, head);
-    const int count = static_cast<int>(std::min(head, run.end) - read_);
+    if (end <= read_) return out;
+    const PcmRing::Run run = ring_.runAt(read_, end);
+    const int count = static_cast<int>(std::min(end, run.end) - read_);
     if (count <= 0) return out;
     ring_.copyOut(read_, count, run.sourceChannels == 1, out_.data());
     if (!ring_.stillIntact(read_)) {

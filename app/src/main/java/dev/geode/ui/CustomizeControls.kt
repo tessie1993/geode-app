@@ -520,6 +520,11 @@ private fun PanelPiece(
             if (sectionVisible()) {
                 ProGated(id, "Waves") {
                     Column {
+                        val sounds = LocalUiSounds.current
+                        FilledTonalButton(onClick = {
+                            sounds.play(UiSound.TAP)
+                            vm.randomizeWaves()
+                        }) { Text("Randomize waves") }
                         for (i in 0 until LfoEngine.SLOTS) {
                             ModulatorCard(index = i, config = lfos.getOrElse(i) { LfoConfig() }, onChange = { vm.setLfo(i, it) })
                         }
@@ -547,7 +552,7 @@ private fun PaletteControl(
             FilledTonalButton(onClick = {
                 sounds.play(UiSound.TAP)
                 host.viewModel.applyArtworkPalette()
-            }) { Text("Take the colours from the artwork") }
+            }) { Text(stringResource(R.string.customize_palette_from_artwork)) }
         }
         artNote?.let { ControlHint(it) }
     }
@@ -624,7 +629,7 @@ private fun PersonalityControl(host: AdvancedHost) {
         FilledTonalButton(onClick = {
             sounds.play(UiSound.TAP)
             host.visualsViewModel.rerollReactions()
-        }) { Text("New personality") }
+        }) { Text(stringResource(R.string.customize_new_personality)) }
     }
 }
 

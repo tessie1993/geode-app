@@ -60,11 +60,16 @@ std::optional<std::string> MilkdropScene::takeError() {
     return out;
 }
 
-void MilkdropScene::acceptPcm(const float* samples, int count) {
+// pcm_ holds stereo frames, L R interleaved: MilkDrop presets plot one channel against the other.
+void MilkdropScene::acceptPcmStereo(const float* mono, const float* side, int count) {
     const int n = std::min(count, kPcmCapacity);
     if (n <= 0) return;
     if (pcmCount_ + n > kPcmCapacity) pcmCount_ = 0;
-    std::copy(samples + (count - n), samples + count, pcm_.begin() + pcmCount_);
+    float* out = pcm_.data() + static_cast<size_t>(pcmCount_) * 2;
+    for (int i = count - n; i < count; ++i) {
+        *out++ = mono[i] + side[i];
+        *out++ = mono[i] - side[i];
+    }
     pcmCount_ += n;
 }
 
@@ -197,14 +202,14 @@ void MilkdropScene::update(const GeodeSoundFrame& features, float dt) {
     // A frame with no new PCM feeds the engine nothing (PcmHandoff's contract), until the gap is long
     // enough to be silence: then one block of zeros flattens the waveform projectM would otherwise hold.
     if (pcmStarve_.tick(pcmCount_ > 0, dt)) {
-        std::fill(pcm_.begin(), pcm_.begin() + kEnginePcmSamples, 0.0f);
-        projectm_pcm_add_float(engine_.get(), pcm_.data(), static_cast<unsigned int>(kEnginePcmSamples), PROJECTM_MONO);
+        std::fill(pcm_.begin(), pcm_.begin() + kEnginePcmSamples * 2, 0.0f);
+        projectm_pcm_add_float(engine_.get(), pcm_.data(), static_cast<unsigned int>(kEnginePcmSamples), PROJECTM_STEREO);
     }
     if (pcmCount_ > 0) {
         const int n = std::min(pcmCount_, kEnginePcmSamples);
-        if (n < pcmCount_) std::copy(pcm_.begin() + (pcmCount_ - n), pcm_.begin() + pcmCount_, pcm_.begin());
+        if (n < pcmCount_) std::copy(pcm_.begin() + (pcmCount_ - n) * 2, pcm_.begin() + pcmCount_ * 2, pcm_.begin());
         pcmCount_ = 0;
-        projectm_pcm_add_float(engine_.get(), pcm_.data(), static_cast<unsigned int>(n), PROJECTM_MONO);
+        projectm_pcm_add_float(engine_.get(), pcm_.data(), static_cast<unsigned int>(n), PROJECTM_STEREO);
     }
 }
 

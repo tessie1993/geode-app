@@ -215,6 +215,38 @@ void pulseDecaysWithoutNewPcm() {
 
 }  // namespace
 
+void sideSignalGivesStereoBack() {
+    PcmHandoff handoff(8);
+    std::vector<float> mono(8, 0.0f);
+    std::vector<float> side(8, 9.0f);
+    const float stereo[] = {0.5f, -0.3f, 0.2f, 0.2f, -1.0f, 1.0f};
+    handoff.write(stereo, 3, 2);
+    check(handoff.take(mono.data(), side.data()) == 3, "three stereo frames taken");
+    bool rebuilt = true;
+    for (int i = 0; i < 3; ++i) {
+        rebuilt = rebuilt && near(mono[i] + side[i], stereo[i * 2]) && near(mono[i] - side[i], stereo[i * 2 + 1]);
+    }
+    check(rebuilt, "mono + side is left and mono - side is right");
+    check(near(mono[2], 0.0f) && near(side[2], -1.0f), "out-of-phase content survives in the side signal");
+
+    const float single[] = {0.4f, -0.6f};
+    handoff.write(single, 2, 1);
+    check(handoff.take(mono.data(), side.data()) == 2 && side[0] == 0.0f && side[1] == 0.0f, "a mono source has no side signal");
+
+    // 96 kHz is halved: the side signal is averaged over the same pair of frames as the mono mix.
+    const float hiRes[] = {1.0f, 0.0f, 0.0f, 1.0f, 0.5f, -0.5f, 0.5f, -0.5f};
+    handoff.write(hiRes, 4, 2, 96000);
+    check(handoff.take(mono.data(), side.data()) == 2, "four frames at 96 kHz are two samples");
+    check(near(mono[0], 0.5f) && near(side[0], 0.0f) && near(mono[1], 0.0f) && near(side[1], 0.5f), "decimated like the mono mix");
+
+    // Over capacity, the side signal keeps the same newest samples as the mono mix.
+    PcmHandoff small(2);
+    const float ramp[] = {1.0f, 0.0f, 2.0f, 0.0f, 3.0f, 0.0f};
+    small.write(ramp, 3, 2);
+    check(small.take(mono.data(), side.data()) == 2 && near(mono[0], 1.0f) && near(side[0], 1.0f) && near(mono[1], 1.5f) && near(side[1], 1.5f),
+          "the newest samples, on both signals");
+}
+
 void starvedEngineIsFlushedOnce() {
     const float dt = 1.0f / 60.0f;
     PcmStarve never;
@@ -252,6 +284,7 @@ int main() {
     newEpochDropsTheOld();
     hiResSourcesAreDecimated();
     pulseDecaysWithoutNewPcm();
+    sideSignalGivesStereoBack();
     starvedEngineIsFlushedOnce();
     if (failures == 0) std::printf("pcm_handoff_test: all checks passed\n");
     return failures == 0 ? 0 : 1;

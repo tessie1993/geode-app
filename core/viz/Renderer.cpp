@@ -34,7 +34,8 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           [this] { return offscreen_.load(std::memory_order_relaxed); }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity),
-      pcmDeliverScratch_(kPcmCapacity, 0.0f) {
+      pcmDeliverScratch_(kPcmCapacity, 0.0f),
+      pcmSideScratch_(kPcmCapacity, 0.0f) {
     programCache_.install(cacheDir_);
 }
 

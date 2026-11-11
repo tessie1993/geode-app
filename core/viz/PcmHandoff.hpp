@@ -16,7 +16,8 @@ namespace geode::viz {
 // samples again. Not locked: Renderer guards it with stateLock_.
 class PcmHandoff {
 public:
-    explicit PcmHandoff(int capacity) : pending_(static_cast<size_t>(std::max(capacity, 0)), 0.0f) {}
+    explicit PcmHandoff(int capacity)
+        : pending_(static_cast<size_t>(std::max(capacity, 0)), 0.0f), side_(static_cast<size_t>(std::max(capacity, 0)), 0.0f) {}
 
     // How many source frames make one sample for projectM: its buffers and bands are sized for 44.1-48 kHz,
     // so 88.2 and 96 kHz are halved and 176.4 and 192 kHz quartered. An unknown rate (0) passes through.
@@ -37,29 +38,44 @@ public:
             factor_ = factor;
             held_ = 0;
             heldSum_ = 0.0f;
+            heldSide_ = 0.0f;
         }
         const int produced = (held_ + frames) / factor;
         const int n = std::min(produced, capacity());
         const int skip = produced - n;
         const int keep = std::min(count_, capacity() - n);
-        if (keep < count_) std::copy(pending_.begin() + (count_ - keep), pending_.begin() + count_, pending_.begin());
+        if (keep < count_) {
+            std::copy(pending_.begin() + (count_ - keep), pending_.begin() + count_, pending_.begin());
+            std::copy(side_.begin() + (count_ - keep), side_.begin() + count_, side_.begin());
+        }
+        // The side signal, (L - R) / 2 of the first two channels: with the mono mix it gives stereo back
+        // (L = mono + side, R = mono - side) for the one consumer that draws left against right, MilkDrop.
+        const float sideScale = channels >= 2 ? 0.5f / static_cast<float>(factor) : 0.0f;
         const float scale = 1.0f / static_cast<float>(channels * factor);
         int made = 0;
         for (int i = 0; i < frames; ++i) {
-            for (int c = 0; c < channels; ++c) heldSum_ += interleaved[static_cast<size_t>(i) * static_cast<size_t>(channels) + c];
+            const float* frame = interleaved + static_cast<size_t>(i) * static_cast<size_t>(channels);
+            for (int c = 0; c < channels; ++c) heldSum_ += frame[c];
+            if (channels >= 2) heldSide_ += frame[0] - frame[1];
             if (++held_ < factor) continue;
-            if (made >= skip) pending_[static_cast<size_t>(keep + made - skip)] = heldSum_ * scale;
+            if (made >= skip) {
+                pending_[static_cast<size_t>(keep + made - skip)] = heldSum_ * scale;
+                side_[static_cast<size_t>(keep + made - skip)] = heldSide_ * sideScale;
+            }
             ++made;
             held_ = 0;
             heldSum_ = 0.0f;
+            heldSide_ = 0.0f;
         }
         count_ = keep + n;
     }
 
-    // Copies the pending samples into `out` (room for capacity() samples) and marks them consumed.
-    int take(float* out) {
+    // Copies the pending samples into `out` (room for capacity() samples) and marks them consumed;
+    // `sideOut`, when given, gets their side signal (all zero for a mono source).
+    int take(float* out, float* sideOut = nullptr) {
         const int n = count_;
         if (n > 0) std::copy(pending_.begin(), pending_.begin() + n, out);
+        if (n > 0 && sideOut) std::copy(side_.begin(), side_.begin() + n, sideOut);
         count_ = 0;
         return n;
     }
@@ -69,17 +85,20 @@ public:
         count_ = 0;
         held_ = 0;
         heldSum_ = 0.0f;
+        heldSide_ = 0.0f;
     }
 
     int capacity() const { return static_cast<int>(pending_.size()); }
 
 private:
     std::vector<float> pending_;
+    std::vector<float> side_;
     int count_ = 0;
     // Decimation: the factor in use, and the frames (and their sum) still short of one sample.
     int factor_ = 1;
     int held_ = 0;
     float heldSum_ = 0.0f;
+    float heldSide_ = 0.0f;
 };
 
 // When the raw PCM stops (paused, starved, the source gone), projectM keeps redrawing the last block it

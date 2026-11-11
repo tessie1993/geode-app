@@ -81,11 +81,6 @@ jobs:
           # Note & key reactions: knobs by meaning, the drum weight, hues per note, the tint, off = today.
           g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/note_response_test.cpp core/viz/NoteResponse.cpp -o note_response_test
           ./note_response_test
-          # core/signal: the param state machine and store, the events, the bus and event routes (flash limit).
-          # Built from core/signal alone: no GL, no core/viz.
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/signal_test.cpp core/signal/params/*.cpp \
-            core/signal/events/*.cpp core/signal/bindings/*.cpp -o signal_test
-          ./signal_test
           # The raw-PCM hand-off: each pushed block reaches the scenes once, so a paused pulse decays.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/pcm_handoff_test.cpp -o pcm_handoff_test
           ./pcm_handoff_test

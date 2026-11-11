@@ -8,7 +8,8 @@ import dev.geode.billing.PrefsEntitlementStore
 import dev.geode.billing.PrefsTrialStore
 import dev.geode.data.AppState
 import dev.geode.data.AppStateCodec
-import dev.geode.data.AutoDirectorStore
+import dev.geode.data.AutoDirectorCodec
+import dev.geode.data.AutoDirectorSettings
 import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.BackgroundPrefs
 import dev.geode.data.BackgroundPrefsStore
@@ -29,8 +30,9 @@ import dev.geode.data.LibrarySettings
 import dev.geode.data.LibrarySettingsCodec
 import dev.geode.data.LookStore
 import dev.geode.data.MEDIA_ROOTS_PREF_KEYS
+import dev.geode.data.MacroBankCodec
 import dev.geode.data.MacroStore
-import dev.geode.data.NoteResponseStore
+import dev.geode.data.NoteResponseCodec
 import dev.geode.data.PerformanceStore
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsStore
@@ -41,7 +43,7 @@ import dev.geode.data.SaveTarget
 import dev.geode.data.SoundInputSettings
 import dev.geode.data.SoundInputSettingsCodec
 import dev.geode.data.StudioPrefsStore
-import dev.geode.data.StyleShelfStore
+import dev.geode.data.StyleShelfCodec
 import dev.geode.data.VisualsSettings
 import dev.geode.data.VisualsSettingsCodec
 import dev.geode.data.VizUiState
@@ -51,6 +53,7 @@ import dev.geode.engine.audio.SoundFrameLayout
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.export.ExportQuality
 import dev.geode.model.GestureTip
+import dev.geode.model.StyleShelf
 import dev.geode.model.TourProgress
 import dev.geode.model.TourSpot
 import dev.geode.render.MilkPresetMemory
@@ -112,22 +115,23 @@ class PrefsSchemaTest {
                 StudioPrefsStore(it[general]).saveKeepAsProject(true)
             },
             Owner("$DATA/BootAnimationStore.kt", BootAnimationStore.PREF_KEYS) { BootAnimationStore(it[general]).save(false) },
-            Owner("$DATA/MacroStore.kt", MacroStore.PREF_KEYS) { MacroStore.get(it).commit() },
+            Owner("$DATA/MacroStore.kt", MacroStore.PREF_KEYS) { MacroBankCodec { bank -> bank }.save(it[general], "macrobank|1|1\n") },
             Owner("$DATA/LfoStore.kt", LfoStore.PREF_KEYS) {
                 val store = LfoStore(it[general])
                 store.save(store.load())
                 store.saveAdsrs(store.loadAdsrs())
                 store.saveReactions(emptyList())
             },
-            Owner("$DATA/AutoDirectorStore.kt", AutoDirectorStore.PREF_KEYS) {
-                AutoDirectorStore.get(it).setEnabled(false)
-                AutoDirectorStore.get(it).setReach(AutoDirectorStore.DEFAULT_REACH)
+            Owner("$DATA/AutoDirectorStore.kt", AutoDirectorCodec.keys) {
+                AutoDirectorCodec.save(it[general], AutoDirectorSettings(enabled = false))
             },
-            Owner("$DATA/NoteResponseStore.kt", NoteResponseStore.PREF_KEYS) { NoteResponseStore(it[general]) {}.setEnabled(false) },
+            Owner("$DATA/NoteResponseStore.kt", NoteResponseCodec.keys) { NoteResponseCodec.save(it[general], false) },
             Owner("$DATA/AutoVisualsPrefsStore.kt", AutoVisualsPrefsStore.PREF_KEYS) {
                 AutoVisualsPrefsStore(it[GeodePrefsFiles.VIZ]).save(VizUiState())
             },
-            Owner("$DATA/StyleShelfStore.kt", StyleShelfStore.PREF_KEYS) { StyleShelfStore.get(it).toggleFavourite("plasma") },
+            Owner("$DATA/StyleShelfStore.kt", StyleShelfCodec.keys) {
+                StyleShelfCodec.save(it[GeodePrefsFiles.VIZ], StyleShelf().toggleFavourite("plasma"))
+            },
             Owner("engine/scenes/src/main/kotlin/dev/geode/render/MilkPresetMemory.kt", GeodePrefsFiles.MILK_PRESET_PREF_KEYS) {
                 MilkPresetMemory.shared(it).loaded("/milk/a.milk")
             },

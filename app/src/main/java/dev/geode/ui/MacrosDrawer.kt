@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.MacroStore
+import dev.geode.geodeContainer
 import dev.geode.pro.FreeTier
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
@@ -105,7 +106,7 @@ private fun MacrosDrawerPanel(
     onEdit: () -> Unit,
 ) {
     val context = LocalContext.current
-    val store = remember { MacroStore.get(context) }
+    val store = remember { context.geodeContainer.macros }
     val macros by store.state.collectAsStateWithLifecycle()
     // The same gate as Customize's knob editor, which the drawer sits outside of.
     val paywall: PaywallViewModel = geodeViewModel()

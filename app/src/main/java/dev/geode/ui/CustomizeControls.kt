@@ -14,9 +14,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.data.AutoDirectorStore
-import dev.geode.data.MacroStore
 import dev.geode.data.VizUiState
+import dev.geode.geodeContainer
 import dev.geode.model.ControlRange
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
@@ -510,12 +509,12 @@ private fun PanelPiece(
     val p = viz.params
     when (id) {
         "@macros" -> {
-            val store = remember { MacroStore.get(context) }
+            val store = remember { context.geodeContainer.macros }
             val macros by store.state.collectAsStateWithLifecycle()
             MacrosTab(macros, store, viz.sceneId, LocalProLock.current)
         }
         "@macro_editor" -> {
-            val store = remember { MacroStore.get(context) }
+            val store = remember { context.geodeContainer.macros }
             val macros by store.state.collectAsStateWithLifecycle()
             ProGated(id, stringResource(R.string.macro_editor_title)) { MacroEditor(macros, store, viz.sceneId) }
         }
@@ -701,7 +700,7 @@ private fun DirectorSwitch() {
     val label = stringResource(R.string.customize_director)
     if (!visible(label, ParamScope.UNIVERSAL)) return
     val context = LocalContext.current
-    val store = remember { AutoDirectorStore.get(context) }
+    val store = remember { context.geodeContainer.autoDirector }
     val on by store.enabled.collectAsStateWithLifecycle()
     LabeledSwitch(label, checked = on, onCheckedChange = store::setEnabled)
 }

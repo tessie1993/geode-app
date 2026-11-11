@@ -73,6 +73,7 @@ import dev.geode.data.AutoDirectorStore
 import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.GeneralSettings
 import dev.geode.data.VizUiState
+import dev.geode.geodeContainer
 import dev.geode.render.scene.MilkdropEngine
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeSpacing
@@ -276,7 +277,7 @@ internal fun StyleTimerRows(viewModel: PlayerViewModel) {
 @Composable
 internal fun AutoDirectorRows() {
     val context = LocalContext.current
-    val director = remember { AutoDirectorStore.get(context) }
+    val director = remember { context.geodeContainer.autoDirector }
     val directorOn by director.enabled.collectAsStateWithLifecycle()
     val reach by director.reach.collectAsStateWithLifecycle()
     SwitchRow(stringResource(R.string.visuals_qs_auto), checked = directorOn, onCheckedChange = director::setEnabled)

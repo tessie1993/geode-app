@@ -9,6 +9,8 @@ import android.os.Bundle
 import android.provider.MediaStore
 import dev.geode.data.AppStateCodec
 import dev.geode.data.AppStateRepository
+import dev.geode.data.AutoDirectorCodec
+import dev.geode.data.AutoDirectorStore
 import dev.geode.data.BehaviourCodec
 import dev.geode.data.BehaviourRepository
 import dev.geode.data.GeneralSettingsCodec
@@ -16,10 +18,16 @@ import dev.geode.data.GeneralSettingsRepository
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.LibrarySettingsCodec
 import dev.geode.data.LibrarySettingsRepository
+import dev.geode.data.MacroBankCodec
+import dev.geode.data.MacroStore
 import dev.geode.data.MediaStoreSource
+import dev.geode.data.NoteResponseCodec
+import dev.geode.data.NoteResponseStore
 import dev.geode.data.PerformanceStore
 import dev.geode.data.SoundInputSettingsCodec
 import dev.geode.data.SoundInputSettingsRepository
+import dev.geode.data.StyleShelfCodec
+import dev.geode.data.StyleShelfStore
 import dev.geode.data.VisualsSettingsCodec
 import dev.geode.data.VisualsSettingsRepository
 import dev.geode.data.prefs.PrefsSettingsRepository
@@ -28,6 +36,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 class GeodeContainer(
@@ -52,6 +61,21 @@ class GeodeContainer(
 
     /** What the app remembers about this install (onboarding, the tour); not a preference. */
     val appState: AppStateRepository = PrefsSettingsRepository(prefsFiles.general, AppStateCodec, appScope)
+
+    // The process-wide engine configuration: each hands its saved value to native as soon as the
+    // read is back, so the app, the wallpaper, the dream and an export all start from it.
+
+    val macros = MacroStore(PrefsSettingsRepository(prefsFiles.general, MacroBankCodec(), appScope), appScope)
+
+    val autoDirector =
+        AutoDirectorStore(PrefsSettingsRepository(prefsFiles.general, AutoDirectorCodec, appScope), appScope) {
+            withContext(Dispatchers.IO) { AutoDirectorCodec.readKept(prefsFiles.modulation) }
+        }
+
+    val noteResponse = NoteResponseStore(PrefsSettingsRepository(prefsFiles.general, NoteResponseCodec, appScope), appScope)
+
+    /** The Styles grid's favourites and recents. */
+    val styleShelf = StyleShelfStore(PrefsSettingsRepository(prefsFiles.viz, StyleShelfCodec, appScope), appScope)
 
     /** Settings › Performance; the wallpaper and dream read the same prefs through their own store. */
     val performance: PerformanceStore by lazy { PerformanceStore(prefsFiles.general, context.applicationContext) }

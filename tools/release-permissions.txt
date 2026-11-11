@@ -27,4 +27,4 @@ android.permission.RECORD_AUDIO
 android.permission.VIBRATE
 android.permission.WAKE_LOCK
 com.android.vending.BILLING
-com.muzviz.studiopro.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+com.beatrealms3d.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION

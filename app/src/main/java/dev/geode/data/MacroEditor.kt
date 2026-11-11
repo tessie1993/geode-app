@@ -50,7 +50,12 @@ object MacroEditorTable {
     private const val VERSION = "1"
 
     fun parse(text: String): MacroEditorState {
-        val rows = text.lineSequence().filter { it.isNotEmpty() }.map { it.split('|') }.toList()
+        val rows =
+            text
+                .lineSequence()
+                .filter { it.isNotEmpty() }
+                .map { it.split('|') }
+                .toList()
         if (rows.firstOrNull() != listOf("macroeditor", VERSION)) return MacroEditorState()
         var state = MacroEditorState()
         val knobs = mutableListOf<MacroEditorKnob>()

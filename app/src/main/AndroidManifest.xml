@@ -56,11 +56,8 @@
          (android.yml, release.yml); Data safety and the privacy policy describe Cast. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!--
-      The crystal packs' haptic cues name Android feedback constants that all
-      landed after minSdk 26, so older devices fall back to the vibration
-      patterns the packs ship alongside them.
-    -->
+    <!-- A haptic cue the device has no feedback constant for falls back to a
+         Vibrator waveform (ui/theme/StoneHapticCue). -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Bit-perfect USB output asks the platform for a mixer path through
          AudioManager.setPreferredMixerAttributes, which needs this normal

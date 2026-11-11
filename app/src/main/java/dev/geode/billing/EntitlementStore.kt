@@ -24,23 +24,15 @@ data class CachedEntitlement(
     val signature: String = "",
 ) {
     /**
-     * Whether the cache alone vouches for Pro at [nowMs], with [isGenuine] the licence-key check
-     * ([PurchaseVerifier.isGenuine], which passes everything when the build has no key).
+     * Whether the cache alone vouches for Pro, with [isGenuine] the licence-key check
+     * ([PurchaseVerifier.isGenuine], which refuses everything when a real-billing build has no usable key).
      *
-     * A cache written by an older version holds `owned` without the purchase. Those still get the
-     * old month from their last confirmation ([LEGACY_GRACE_MS]; a clock moved back reads as
-     * "just confirmed"), so an update installed offline does not lock anyone out. The next answer
-     * from Play rewrites the cache with the purchase, and from then on the month no longer matters.
+     * Nothing but the signed purchase counts. A cache holding `owned` without one used to get a
+     * month from [verifiedAtMs]; that was Pro with no signature for anyone who wrote the two prefs,
+     * and for good with a date in the future, so it is gone. Such a cache is not Pro until Play
+     * answers with the purchase.
      */
-    fun vouchesForPro(
-        nowMs: Long,
-        isGenuine: (signedData: String, signature: String) -> Boolean,
-    ): Boolean =
-        when {
-            !owned -> false
-            isGenuine(purchaseJson, signature) -> true
-            else -> purchaseJson.isEmpty() && nowMs - verifiedAtMs < LEGACY_GRACE_MS
-        }
+    fun vouchesForPro(isGenuine: (signedData: String, signature: String) -> Boolean): Boolean = owned && isGenuine(purchaseJson, signature)
 
     /**
      * The cache after [answer] from Play at [nowMs]. Only [PlayAnswer.FullList] (a successful
@@ -65,9 +57,6 @@ data class CachedEntitlement(
     ): CachedEntitlement = CachedEntitlement(owned = true, verifiedAtMs = nowMs, purchase.json, purchase.signature)
 
     companion object {
-        /** How long a cache from before the purchase was stored outlives Play being unreachable. */
-        const val LEGACY_GRACE_MS: Long = 30L * 24L * 60L * 60L * 1000L
-
         val NONE: CachedEntitlement = CachedEntitlement(owned = false, verifiedAtMs = 0L)
     }
 }

@@ -24,7 +24,7 @@
 <body>
 <!-- Generated from docs/privacy-policy.md; edit that file and regenerate. -->
 <h1>MuzViz Studio Pro — Privacy Policy</h1>
-<p class="updated">Last updated: 2 November 2026</p>
+<p class="updated">Last updated: 11 November 2026</p>
 <p>MuzViz Studio Pro ("MuzViz", "the app") is a music player, music visualizer and music video studio for Android. This policy describes what the app does with your information. The short version: <strong>MuzViz collects nothing, sells nothing and has no servers.</strong> Two exceptions: buying MuzViz Pro, which Google Play handles, and the optional <em>Cast to TV</em>, which uses Google Cast on your own network.</p>
 
 <h2>Information the app does not collect</h2>
@@ -49,6 +49,7 @@
     <tr><td>The name of the app and track playing elsewhere — only with the optional notification access</td><td>To label what the visuals are reacting to</td><td>Shown on screen; not stored or transmitted</td></tr>
     <tr><td>Folders you pick</td><td>Optional music folders and preset folders</td><td>Granted by you through the Android file picker; revocable at any time</td></tr>
     <tr><td>Your presets, playlists, projects, track edits and settings</td><td>To remember your setup</td><td>The app's private storage</td></tr>
+    <tr><td>Your listening history (which tracks you played, when, how often and for how long)</td><td>To show what you played recently and how often</td><td>The app's private storage</td></tr>
     <tr><td>Whether you own MuzViz Pro, and when your free trial started</td><td>To unlock Pro features, including offline</td><td>The app's private storage</td></tr>
     <tr><td>Crash details</td><td>The in-app "last crash" report you can read and copy yourself</td><td>A file in the app's private storage; nothing is sent</td></tr>
   </tbody>
@@ -65,7 +66,7 @@
 
 <h2>Permissions</h2>
 <ul>
-  <li><strong><code>READ_MEDIA_AUDIO</code></strong> (Android 13+) / <strong><code>READ_EXTERNAL_STORAGE</code></strong> (Android 12 and below): to find and play the music on your device.</li>
+  <li><strong><code>READ_MEDIA_AUDIO</code></strong>: to find and play the music on your device.</li>
   <li><strong><code>RECORD_AUDIO</code></strong>: only for the optional <em>Live input</em> and <em>Visualize other apps</em> features and the live wallpaper's optional <em>Hear other apps</em> setting (Android requires it for its playback-capture and audio-visualizer APIs). Requested when you turn one of them on, never at launch.</li>
   <li><strong><code>POST_NOTIFICATIONS</code></strong> (Android 13+): playback controls, and the ongoing notifications Android requires while <em>Visualize other apps</em> or a video render runs.</li>
   <li><strong><code>FOREGROUND_SERVICE</code></strong> with the media-playback, media-projection, media-processing and data-sync types: lets playback, casting, capture and video rendering continue while the app is not on screen, always with a visible notification.</li>
@@ -73,6 +74,7 @@
   <li><strong><code>INTERNET</code></strong> and <strong><code>ACCESS_NETWORK_STATE</code></strong>: only for <em>Cast to TV</em>: to find the TV, talk to Google Cast and stream to the TV on your Wi-Fi.</li>
   <li><strong><code>MODIFY_AUDIO_SETTINGS</code></strong>: for bit-perfect USB audio output to an external DAC.</li>
   <li><strong><code>VIBRATE</code></strong>: haptic feedback for the app's controls.</li>
+  <li><strong><code>WAKE_LOCK</code></strong>: keeps the music playing while the screen is off.</li>
 </ul>
 <p>MuzViz requests no camera, contacts or location permission.</p>
 
@@ -82,11 +84,14 @@
 <h2>Now playing (notification access)</h2>
 <p>Optionally, you can give MuzViz <em>notification access</em> so it can show which app and track is playing elsewhere. It reads only the media sessions Android exposes through that access; notification contents are not read, stored or sent. You can revoke it in system settings at any time.</p>
 
+<h2>Lyrics search</h2>
+<p><em>Search the web</em> in Settings › Library &amp; lyrics opens your browser or search app with the playing track's title and artist followed by "lyrics". MuzViz does not make that search itself; what you search for goes to the browser and search engine you use, under their policies, and only when you tap the button.</p>
+
 <h2>Video export</h2>
 <p>Exported videos are MP4 files saved where you choose. They stay on your device unless <em>you</em> share them; the app you share to handles them under its own policy. Exports made without Pro are limited to one minute and carry a "MuzViz Studio Pro" watermark.</p>
 
 <h2>Backups</h2>
-<p>If Android backup is on, your MuzViz settings, presets and playlists may be included in your Google account backup, handled by Google. The crash file, imported textures and recorded takes are excluded. You can turn backup off in your device settings.</p>
+<p>If Android backup is on, your MuzViz settings, presets, playlists and listening history may be included in your Google account backup, handled by Google. The crash file, imported textures and recorded takes are excluded. You can turn backup off in your device settings.</p>
 <p>Settings › Backup can also save one zip file, only when you ask it to, to a place you choose with the system file picker. It holds your settings, presets, palettes, templates, editor projects, playlists, library list and listening history, and your MilkDrop presets. MuzViz never sends it anywhere; restoring reads it back from where you saved it.</p>
 
 <h2>Children</h2>

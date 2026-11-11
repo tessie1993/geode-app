@@ -17,7 +17,11 @@ constexpr float kSilenceHold = 0.5f;
 constexpr float kReturnAfter = 1.0f;
 constexpr float kWarmSeconds = 50.0f / 30.0f;
 constexpr float kRewarmAfter = 2.0f;  // silence this long re-arms the warm-up (a new track)
-constexpr float kStarved = 0.1f;
+// Nothing written for longer than this is a stall. Well over a decoder's block cadence (about 100 ms), so
+// a block a frame or two late is not one.
+constexpr float kStarved = 0.25f;
+// The DC blocker's corner: under every band, over the drift of a mic or a capture's offset.
+constexpr float kDcCornerHz = 10.0f;
 // A band quieter than this holds nothing worth measuring. Absolute (about -74 dBFS), like everything that
 // says how loud the music is: a floor that followed the track's own peak made a quiet ambient master as
 // "loud" as a mastered one to every detector below it.
@@ -144,6 +148,7 @@ SoundEngine::SoundEngine(int sampleRateHz)
     audible_ = bins(20, 20000);
     musical_ = bins(100, 10000);
     fluxBins_ = bins(30, 16000);
+    dcR_ = std::exp(-2.0f * std::numbers::pi_v<float> * kDcCornerHz / static_cast<float>(sampleRateHz_));
     waveBlock_ = std::max(1, n_ / 512);  // 160 × block always fits the window: ~13 ms at every rate
     // Only the middle of the drawn wave counts when aligning, so the centre is what holds still.
     rhythm_.configure(sampleRateHz_);
@@ -192,9 +197,18 @@ void SoundEngine::write(const float* interleaved, int frames, int channels) {
     // The input trim comes after it: it is the analysis's gain (a mic or another app's audio of unknown level),
     // never the recording's, and feeds the loudness and every detector alike.
     const auto clean = [](float x) { return std::isfinite(x) ? std::clamp(x, -4.0f, 4.0f) : 0.0f; };
+    // Then the DC blocker, one pole per channel (y = x - x1 + R * y1): an offset would read as sub-bass and
+    // as level, and hold `silence` and `presence` off under a source that plays nothing.
+    const auto block = [this](int c, float x) {
+        float y = x - dcX_[c] + dcR_ * dcY_[c];
+        if (std::fabs(y) < 1e-20f) y = 0.0f;
+        dcX_[c] = x;
+        dcY_[c] = y;
+        return y;
+    };
     for (int i = 0; i < frames; i++) {
-        const float l = clean(interleaved[static_cast<size_t>(i) * channels]);
-        const float r = channels > 1 ? clean(interleaved[static_cast<size_t>(i) * channels + 1]) : l;
+        const float l = block(0, clean(interleaved[static_cast<size_t>(i) * channels]));
+        const float r = channels > 1 ? block(1, clean(interleaved[static_cast<size_t>(i) * channels + 1])) : l;
         feed(l * trimGain_, r * trimGain_);
     }
 }
@@ -323,7 +337,7 @@ void SoundEngine::analyse() {
     }
 
     levels(dt, warm, silent, out);
-    spectrumPoints(dt, out.spectrum);
+    spectrumPoints(dt, silent, out.spectrum);
     descriptors(dt, warm, silent, out);
     drums(dt, silent, out);
     events(dt, warm, out);
@@ -413,7 +427,13 @@ void SoundEngine::levels(float dt, bool warm, bool silent, GeodeSoundFrame& out)
     }
 }
 
-void SoundEngine::spectrumPoints(float dt, float* out) {
+void SoundEngine::spectrumPoints(float dt, bool silent, float* out) {
+    // Behind the gate the row is empty and the peak holds: left to decay, it would fall to the noise
+    // floor and stretch that to full scale while everything else reads silence.
+    if (silent) {
+        std::fill(out, out + GEODE_SOUND_SPECTRUM_POINTS, 0.0f);
+        return;
+    }
     float frameMax = 0.0f;
     for (int i = 0; i < GEODE_SOUND_SPECTRUM_POINTS; i++) {
         float v = 0.0f;
@@ -957,6 +977,8 @@ void SoundEngine::reset() {
     fluxHead_ = 0;
     fluxCount_ = 0;
     silenceCarry_ = 0.0;
+    dcX_ = {};
+    dcY_ = {};
     held_ = {};
     hopFrame_ = GeodeSoundFrame{};
     // What a silent engine says before its first hop, as Harmony leaves it.

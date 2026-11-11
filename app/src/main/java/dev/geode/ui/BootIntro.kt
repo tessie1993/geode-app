@@ -137,6 +137,12 @@ fun BootIntro(onDone: () -> Unit) {
         player.addListener(listener)
         onDispose {
             player.removeListener(listener)
+            // Detach the TextureView and stop before releasing: released with the surface still
+            // attached, the decoder kept posting to its callback thread after that thread had quit
+            // ("sending message to a Handler on a dead thread", and a GraphicsTracker error per
+            // buffer it could no longer hand back) on every cold start.
+            player.clearVideoSurface()
+            player.stop()
             player.release()
         }
     }

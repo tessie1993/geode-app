@@ -1,6 +1,5 @@
 package dev.geode.ui.tour
 
-import android.os.Build
 import android.view.WindowManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -203,18 +202,11 @@ private fun fitSpotlightWindow(window: android.view.Window) {
     window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
     window.setDimAmount(0f)
     window.setWindowAnimations(0)
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-        window.attributes =
-            window.attributes.apply {
-                layoutInDisplayCutoutMode =
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-                    } else {
-                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-                    }
-            }
-    }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) window.isNavigationBarContrastEnforced = false
+    window.attributes =
+        window.attributes.apply {
+            layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+        }
+    window.isNavigationBarContrastEnforced = false
 }
 
 /**

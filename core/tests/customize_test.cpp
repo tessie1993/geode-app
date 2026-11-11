@@ -49,6 +49,20 @@ void everyRolledControlIsPlacedOnce() {
     }
 }
 
+// The one batch the panel reads instead of a call per row: exactly the rolled keys, each once.
+void lockableKeysAreTheRolledKeys() {
+    std::set<std::string> rolled;
+    for (const auto& roll : randomizer::rolledKeys()) rolled.insert(roll.key);
+    std::set<std::string> listed;
+    std::istringstream lines(randomizer::lockableKeysText());
+    for (std::string key; std::getline(lines, key);) {
+        check(listed.insert(key).second, "lockable key listed once: " + key);
+    }
+    check(!listed.empty(), "lockable keys are not empty");
+    check(listed == rolled, "lockable keys equal the rolled keys");
+    check(randomizer::lockableKeysText().back() == '\n', "lockable keys end with a newline");
+}
+
 void everyPlacedControlIsKnownAndPlacedOnce() {
     std::set<std::string> rolled;
     for (const auto& roll : randomizer::rolledKeys()) rolled.insert(roll.key);
@@ -220,6 +234,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     everyRolledControlIsPlacedOnce();
+    lockableKeysAreTheRolledKeys();
     everyPlacedControlIsKnownAndPlacedOnce();
     heldFieldsAreSceneParams();
     basicsAreFirstFewAndExpertHasNone();

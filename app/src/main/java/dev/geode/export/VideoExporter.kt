@@ -15,6 +15,8 @@ import androidx.annotation.StringRes
 import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.billing.ProSnapshot
+import dev.geode.data.pendingRows
+import dev.geode.data.publishPending
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.pro.ProFeature
 import dev.geode.render.SceneFactory
@@ -210,10 +212,8 @@ class VideoExporter(
                 ContentValues().apply {
                     put(MediaStore.Video.Media.DISPLAY_NAME, fileName)
                     put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                    if (android.os.Build.VERSION.SDK_INT >= 29) {
-                        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/MuzViz")
-                        put(MediaStore.Video.Media.IS_PENDING, 1)
-                    }
+                    put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/MuzViz")
+                    put(MediaStore.Video.Media.IS_PENDING, 1)
                 }
             val outUri =
                 resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
@@ -244,12 +244,10 @@ class VideoExporter(
                 if (isCancelled()) {
                     bestEffort(TAG, "resolver.delete(outUri, null, null)") { resolver.delete(outUri, null, null) }
                     Result.Cancelled
-                } else {
-                    if (android.os.Build.VERSION.SDK_INT >= 29) {
-                        val done = ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }
-                        resolver.update(outUri, done, null, null)
-                    }
+                } else if (publishPending(resolver.pendingRows(), outUri)) {
                     Result.Saved(outUri, measureLoudness(outUri, loudnessTarget))
+                } else {
+                    failed(R.string.export_error_library_publish)
                 }
             } catch (e: Exception) {
                 bestEffort(TAG, "resolver.delete(outUri, null, null)") { resolver.delete(outUri, null, null) }

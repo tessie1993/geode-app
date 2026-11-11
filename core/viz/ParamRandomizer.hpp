@@ -34,6 +34,10 @@ struct RolledKey {
 // Every rolled control in roll order, tab by tab.
 const std::vector<RolledKey>& rolledKeys();
 
+// The key of every rolled control, one per line (each once, in roll order), for a panel that
+// asks about a whole page of rows at once. Static: the reference stays valid for the process.
+const std::string& lockableKeysText();
+
 // The fields no roll writes, each with why. Every SceneParams field is either rolled by exactly
 // one control or listed here.
 const std::vector<std::pair<const char*, const char*>>& neverRolled();

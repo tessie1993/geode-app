@@ -53,13 +53,16 @@ class ExportService : Service() {
         intent: Intent?,
         flags: Int,
         startId: Int,
-    ): Int = START_NOT_STICKY
+    ): Int {
+        routeCommand(intent?.action, ExportRun::requestCancel)
+        return START_NOT_STICKY
+    }
 
     override fun onTimeout(
         startId: Int,
         fgsType: Int,
     ) {
-        ExportRun.requestCancel()
+        dev.geode.ExportTimeLimit.reached(ExportRun.running, ExportRun::requestCancel)
         stopSelf()
     }
 
@@ -81,15 +84,14 @@ class ExportService : Service() {
                 setShowBadge(false)
             },
         )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIFICATION_ID, build(state), foregroundType())
-        } else {
-            startForeground(NOTIFICATION_ID, build(state))
-        }
+        startForeground(NOTIFICATION_ID, build(state), foregroundType())
     }
 
     private fun build(state: ExportRun.State): Notification {
         val open = PendingIntent.getActivity(this, 0, appLaunchIntent(), PendingIntent.FLAG_IMMUTABLE)
+        val cancelIntent = Intent(this, ExportService::class.java).setAction(ACTION_CANCEL)
+        val cancel = PendingIntent.getService(this, 0, cancelIntent, PendingIntent.FLAG_IMMUTABLE)
+        val cancelLabel = getString(dev.geode.R.string.export_notification_cancel)
         val builder =
             Notification
                 .Builder(this, CHANNEL_ID)
@@ -101,6 +103,8 @@ class ExportService : Service() {
                     ).joinToString(" · "),
                 ).setSmallIcon(dev.geode.R.drawable.ic_stat_capture)
                 .setOngoing(true)
+                .setCategory(Notification.CATEGORY_PROGRESS)
+                .addAction(Notification.Action.Builder(null, cancelLabel, cancel).build())
                 .setContentIntent(open)
         val progress = state.progress
         return builder.setProgress(PROGRESS_MAX, ((progress ?: 0f) * PROGRESS_MAX).toInt(), progress == null).build()
@@ -114,6 +118,8 @@ class ExportService : Service() {
         }
 
     companion object {
+        /** The Cancel button's action: reaches the same [ExportRun.requestCancel] as the in-app Cancel. */
+        const val ACTION_CANCEL = "dev.geode.export.CANCEL"
         private const val CHANNEL_ID = "geode-export"
         private const val NOTIFICATION_ID = 4711
         private const val PROGRESS_MAX = 1000
@@ -124,5 +130,11 @@ class ExportService : Service() {
         }
     }
 }
+
+/** Runs [cancel] when [action] is [ExportService.ACTION_CANCEL]; true if it did. Pure, so a JVM test pins the wiring. */
+internal fun routeCommand(
+    action: String?,
+    cancel: () -> Unit,
+): Boolean = (action == ExportService.ACTION_CANCEL).also { if (it) cancel() }
 
 private const val TAG = "ExportService"

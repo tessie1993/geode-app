@@ -30,7 +30,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -61,7 +61,6 @@ import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.edgeFade
 import dev.geode.ui.theme.floatingGlass
-import dev.geode.ui.theme.glassBlur
 import dev.geode.ui.theme.performStoneHaptic
 import dev.geode.ui.tour.GestureTip
 import dev.geode.ui.tour.GestureTips
@@ -127,14 +126,14 @@ internal fun VisualsOptions(
             )
         }
     val shape = RoundedCornerShape(GeodeRadius.Floating)
-    var bounds by remember { mutableStateOf<Rect?>(null) }
-    UiBlurRegion(visualizerView, bounds, blurActive)
+    // Read by the blur's effect, never in composition: a drag moves the bounds every frame.
+    val bounds = remember { mutableStateOf<Rect?>(null) }
+    UiBlurRegion(visualizerView, { bounds.value }, blurActive)
     // One glass slab: the sheet, and under it the docked mini player ([bottomBar]) when there is
     // one. A hidden sheet lays out at zero height, which leaves the player alone as a pill.
     Column(
         modifier
-            .onGloballyPositioned { bounds = it.boundsInWindow() }
-            .glassBlur(shape)
+            .onGloballyPositioned { bounds.value = it.boundsInWindow() }
             .floatingGlass(shape, fillAlpha = opacity),
     ) {
         Box(
@@ -197,28 +196,30 @@ internal fun VisualsOptions(
 @Composable
 private fun UiBlurRegion(
     view: VisualizerView,
-    bounds: Rect?,
+    bounds: () -> Rect?,
     active: Boolean,
 ) {
     val cornerPx = with(LocalDensity.current) { GeodeRadius.Floating.toPx() }
-    LaunchedEffect(view, bounds, active, cornerPx) {
+    LaunchedEffect(view, active, cornerPx) {
         val loc = IntArray(2)
-        view.getLocationInWindow(loc)
-        val w = view.width.toFloat()
-        val h = view.height.toFloat()
-        // A rect only once laid out and measured; anything else turns the blur off.
-        val rect = bounds?.takeIf { !it.isEmpty && w > 0f && h > 0f }
-        if (rect == null || !active) {
-            view.setUiBlurRegion(0f, 0f, 0f, 0f, 0f, cornerPx)
-        } else {
-            view.setUiBlurRegion(
-                (rect.left - loc[0]) / w,
-                (rect.top - loc[1]) / h,
-                (rect.right - loc[0]) / w,
-                (rect.bottom - loc[1]) / h,
-                1f,
-                cornerPx,
-            )
+        snapshotFlow(bounds).collect { inWindow ->
+            view.getLocationInWindow(loc)
+            val w = view.width.toFloat()
+            val h = view.height.toFloat()
+            // A rect only once laid out and measured; anything else turns the blur off.
+            val rect = inWindow?.takeIf { !it.isEmpty && w > 0f && h > 0f }
+            if (rect == null || !active) {
+                view.setUiBlurRegion(0f, 0f, 0f, 0f, 0f, cornerPx)
+            } else {
+                view.setUiBlurRegion(
+                    (rect.left - loc[0]) / w,
+                    (rect.top - loc[1]) / h,
+                    (rect.right - loc[0]) / w,
+                    (rect.bottom - loc[1]) / h,
+                    1f,
+                    cornerPx,
+                )
+            }
         }
     }
     DisposableEffect(view) {
@@ -516,6 +517,12 @@ internal val SHEET_PEEK = 72.dp
 internal const val PANEL_DEFAULT_FRACTION = 0.4f
 internal val PANEL_MIN = 360.dp
 internal val PANEL_MAX = 480.dp
+
+/** The portrait bottom sheet's widest body, the mini player's cap too: a tablet's sheet is not a full-width bar. */
+internal val SHEET_MAX_WIDTH = 640.dp
+
+/** The bottom sheet's width in dp in a window [windowDp] wide: the whole width up to [SHEET_MAX_WIDTH]. */
+internal fun sheetWidthDp(windowDp: Float): Float = windowDp.coerceAtMost(SHEET_MAX_WIDTH.value)
 
 private const val PANEL_MIN_FRACTION = 0.3f
 private const val PANEL_MAX_FRACTION = 0.5f

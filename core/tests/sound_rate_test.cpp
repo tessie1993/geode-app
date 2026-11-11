@@ -112,19 +112,29 @@ constexpr Section kSections[] = {
 constexpr int kChordRoot[4] = {0, 9, 5, 7};
 constexpr bool kChordMinor[4] = {false, true, false, false};
 
-std::vector<float> buildSong() {
-    const int64_t total = static_cast<int64_t>(kSeconds * kRate);
+// `bandLimited`: the noise (snare rattle, hats, the sweep) becomes clusters of sines below 16 kHz, a function
+// of time rather than of the sample index, so the song is the same signal at every rate.
+std::vector<float> buildSong(int rate = kRate, bool bandLimited = false) {
+    const int64_t total = static_cast<int64_t>(kSeconds * rate);
     std::vector<float> out(static_cast<size_t>(2 * total));
     Lcg noise;
     double hatPrev = 0.0;
     const double beat = kBeat;
     for (int64_t s = 0; s < total; s++) {
-        const double t = static_cast<double>(s) / kRate;
+        const double t = static_cast<double>(s) / rate;
         const Section* sec = &kSections[0];
         for (const Section& c : kSections) if (t >= c.from && t < c.to) sec = &c;
-        const double n = noise.next();  // drawn every sample, so later sections never shift earlier noise
-        const double hatNoise = n - hatPrev;  // a first difference: noise tilted toward the top
+        double n = noise.next();  // drawn every sample, so later sections never shift earlier noise
+        double hatNoise = n - hatPrev;  // a first difference: noise tilted toward the top
         hatPrev = n;
+        if (bandLimited) {
+            n = 0.0;
+            hatNoise = 0.0;
+            for (int k = 0; k < 6; k++) {
+                n += 0.4 * std::sin(kTau * (1100.0 + 1370.0 * k) * t + k);
+                hatNoise += 0.5 * std::sin(kTau * (8300.0 + 1270.0 * k) * t + 2 * k);
+            }
+        }
         if (sec->gain == 0.0) continue;
 
         const int bar = static_cast<int>(t / (4 * beat));
@@ -330,6 +340,76 @@ int compareRates(const Run& base, const Run& other, double fps) {
     return bad;
 }
 
+// ---- Hi-res sources ---------------------------------------------------------------------------------------
+//
+// 88.2 kHz and up is analysed at half the rate (or a quarter), behind a half-band decimator
+// (core/sound/Decimate.hpp, SoundEngine::analysisRateFor). The filter must be flat through the audible band
+// and shut above it, and the same band-limited song written at 96 kHz must read as it does at 48 kHz: the
+// same tempo, beats, drums, key and scale, and levels within a hair (the decimator's 0.24 ms delay moves
+// the hops a little against the music; nothing else differs).
+
+double halfBandGainDb(double cycles) {  // a sine at `cycles` of the input rate, through one HalfBand
+    geode::sound::HalfBand h;
+    double in = 0.0;
+    double out = 0.0;
+    float y = 0.0f;
+    for (int i = 0; i < 8000; i++) {
+        const float x = static_cast<float>(std::sin(kTau * cycles * i));
+        if (h.push(x, y) && i >= 4000) out += static_cast<double>(y) * y;
+        if (i >= 4000) in += 0.5 * static_cast<double>(x) * x;
+    }
+    return 10.0 * std::log10(std::max(out, 1e-30) / in);
+}
+
+int compareHiRes(const Run& at48, const Run& at96) {
+    int bad = 0;
+    auto check = [&](bool ok, const char* what, double value) {
+        if (!ok) {
+            std::printf("  FAIL %s (%.4g)\n", what, value);
+            bad++;
+        }
+    };
+    std::printf("\nHalf-band decimator and a 96 kHz song against the same song at 48 kHz\n");
+    for (double c : {0.01, 0.1, 0.2}) check(std::fabs(halfBandGainDb(c)) < 0.1, "half-band flat to 0.2 of the rate", halfBandGainDb(c));
+    for (double c : {0.32, 0.4, 0.49}) check(halfBandGainDb(c) < -70.0, "half-band shut from 0.32 of the rate", halfBandGainDb(c));
+    check(SoundEngine::analysisRateFor(44100) == 44100 && SoundEngine::analysisRateFor(48000) == 48000 &&
+              SoundEngine::analysisRateFor(88200) == 44100 && SoundEngine::analysisRateFor(96000) == 48000 &&
+              SoundEngine::analysisRateFor(176400) == 44100 && SoundEngine::analysisRateFor(192000) == 48000,
+          "88.2 kHz and up analysed at 44.1/48 kHz", 0.0);
+    check(SoundEngine(96000).sampleRateHz() == 96000, "the engine still names its input rate", 0.0);
+
+    const size_t n = std::min(at48.values.size(), at96.values.size());
+    struct Limit {
+        const char* name;
+        double meanAbs;  // the mean |96k - 48k| over every frame
+    };
+    // About ten times what was measured when the decimator landed, so a real regression fails and a libm does not.
+    for (const Limit& l : {Limit{"bpm", 0.1}, Limit{"beatPhase", 0.01}, Limit{"keyRoot", 0.01}, Limit{"keyMajor", 0.01},
+                           Limit{"scale", 0.05}, Limit{"level", 0.01}, Limit{"loudnessS", 0.01}, Limit{"bass", 0.05},
+                           Limit{"mid", 0.05}, Limit{"treble", 0.1}, Limit{"centroid", 0.01}, Limit{"flatness", 0.02},
+                           Limit{"pitch", 0.05}, Limit{"drive", 0.03}}) {
+        const int k = fieldIndex(l.name);
+        double d = 0.0;
+        for (size_t i = 0; i < n; i++) d += std::fabs(at96.values[i][k] - at48.values[i][k]);
+        d /= std::max<size_t>(1, n);
+        std::printf("  %-10s mean |96k - 48k| %.4f\n", l.name, d);
+        check(d <= l.meanAbs, l.name, d);
+    }
+    for (const char* name : {"kick", "snare", "hat", "onset", "beat", "downbeat", "noteChange", "sectionChange", "drop"}) {
+        const int k = fieldIndex(name);
+        int a = 0;
+        int b = 0;
+        for (size_t i = 0; i < n; i++) {
+            a += at48.values[i][k] > 0.0f;
+            b += at96.values[i][k] > 0.0f;
+        }
+        std::printf("  %-10s %d at 48 kHz, %d at 96 kHz\n", name, a, b);
+        check(std::abs(a - b) <= 1, name, b - a);
+    }
+    if (bad == 0) std::printf("  96 kHz reads as 48 kHz\n");
+    return bad;
+}
+
 // ---- Real music (--pcm) -----------------------------------------------------------------------------------
 //
 // A decoded track (raw interleaved stereo float32, e.g. `ffmpeg -i t.mp3 -f f32le -ac 2 -ar 44100 t.f32`)
@@ -396,6 +476,7 @@ int main(int argc, char** argv) {
     }
     int failures = compareRates(at60, run(song, 30.0), 30.0);
     failures += compareRates(at60, run(song, 120.0), 120.0);
+    failures += compareHiRes(run(buildSong(kRate, true), 60.0), run(buildSong(96000, true), 60.0, 96000));
     if (failures == 0) std::printf("\nsound_rate_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

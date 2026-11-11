@@ -27,6 +27,16 @@ class PlaybackQueueTest {
     }
 
     @Test
+    fun anyListIsCutTheSameWayAroundAnIndex() {
+        val all = List(5_000) { it }
+        val (slice, index) = PlaybackQueue.around(all, 4_999)
+        assertEquals(PlaybackQueue.MAX_QUEUE, slice.size)
+        assertEquals(4_999, slice[index])
+        val short = List(10) { it }
+        assertSame(short, PlaybackQueue.around(short, 3).first)
+    }
+
+    @Test
     fun aTrackOutsideTheListPlaysAlone() {
         val window = PlaybackQueue.window(tracks(5), "elsewhere")
         assertEquals(listOf(QueueTrack("elsewhere")), window.tracks)

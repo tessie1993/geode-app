@@ -71,7 +71,9 @@ class LibraryTree(
         if (parent.isEmpty()) return null
         val siblings = children(parent).filter { it.mediaMetadata.isPlayable == true }
         val index = siblings.indexOfFirst { it.mediaId == mediaId }
-        return if (index < 0) null else siblings to index
+        // The app caps a tapped list at PlaybackQueue.MAX_QUEUE; a tap on "Tracks" in Android Auto
+        // queued the whole library, which the session then rewrote to disk every few seconds.
+        return if (index < 0) null else PlaybackQueue.around(siblings, index)
     }
 
     /**
@@ -116,7 +118,8 @@ class LibraryTree(
                 .toTypedArray()
         val out = IntArray(rows.size)
         val count = GeodeNative.librarySearch(cells, asked, out).coerceIn(0, out.size)
-        return (0 until count).map { playable(TRACKS, rows[out[it]]) }
+        // A blank "play music" matches every track: the same cap as a tapped list.
+        return (0 until minOf(count, PlaybackQueue.MAX_QUEUE)).map { playable(TRACKS, rows[out[it]]) }
     }
 
     private fun Row.sharesTagWith(other: Row): Boolean {

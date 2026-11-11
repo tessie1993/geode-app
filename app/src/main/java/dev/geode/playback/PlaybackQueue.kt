@@ -20,10 +20,21 @@ object PlaybackQueue {
     ): Window {
         val at = tracks.indexOfFirst { it.uri == startUri }
         if (at < 0) return Window(listOf(QueueTrack(startUri)), 0)
-        if (tracks.size <= MAX_QUEUE) return Window(tracks, at)
-        val half = MAX_QUEUE / 2
-        val from = (at - half).coerceIn(0, tracks.size - MAX_QUEUE)
-        return Window(tracks.subList(from, from + MAX_QUEUE), at - from)
+        val (slice, index) = around(tracks, at)
+        return Window(slice, index)
+    }
+
+    /**
+     * At most [MAX_QUEUE] of [items] around the one at [at], and where it sits in the slice. The one
+     * rule for every way a queue is built: a tap in the app, a tap in Android Auto, a voice request.
+     */
+    fun <T> around(
+        items: List<T>,
+        at: Int,
+    ): Pair<List<T>, Int> {
+        if (items.size <= MAX_QUEUE) return items to at
+        val from = (at - MAX_QUEUE / 2).coerceIn(0, items.size - MAX_QUEUE)
+        return items.subList(from, from + MAX_QUEUE) to at - from
     }
 
     fun contextFor(

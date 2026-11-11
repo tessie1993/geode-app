@@ -79,18 +79,16 @@ abstract class AudioCapturePump(
                     // lands here with a stale generation — skip writing into a ring this run
                     // no longer owns.
                     if (runGeneration != generation) break
-                    if (n > 0) {
-                        val frames = n / channels
-                        if (frames > 0) {
-                            // The ring converts 16-bit to float and measures the block: no sample is read here.
-                            val peak =
-                                if (asFloat) {
-                                    ring.write(floats, frames, channels, rate)
-                                } else {
-                                    ring.write(shorts, frames, channels, rate)
-                                }
-                            noteLevel(peak, startedAt)
-                        }
+                    val frames = if (n > 0) n / channels else 0
+                    if (frames > 0) {
+                        // The ring converts 16-bit to float and measures the block: no sample is read here.
+                        val peak =
+                            if (asFloat) {
+                                ring.write(floats, frames, channels, rate)
+                            } else {
+                                ring.write(shorts, frames, channels, rate)
+                            }
+                        noteLevel(peak, startedAt)
                     } else if (n < 0) {
                         android.util.Log.w(javaClass.simpleName, "AudioRecord.read error $n")
                         break

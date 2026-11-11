@@ -20,7 +20,7 @@ To run it again: load the skill in an agent session and follow its two phases; i
 
 ---
 
-# Play Policy Compliance Report: com.muzviz.studiopro
+# Play Policy Compliance Report: com.beatrealms3d.app
 
 **Status:** Compliant **Scan Date:** 2026-11-11
 

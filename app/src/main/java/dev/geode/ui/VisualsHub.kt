@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import android.widget.Toast
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
@@ -44,6 +45,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -51,6 +53,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import androidx.window.core.layout.WindowSizeClass
+import dev.geode.R
 import dev.geode.data.BehaviourPrefs
 import dev.geode.data.BehaviourStore
 import dev.geode.data.CanvasGesture
@@ -58,6 +61,7 @@ import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GestureAction
 import dev.geode.model.GestureTip
 import dev.geode.render.VisualizerView
+import dev.geode.render.scene.SceneIds
 import dev.geode.ui.theme.GeodeMotionScheme
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
@@ -173,14 +177,32 @@ private fun VisualsHubContent(
             nav.showSheet()
         }
     }
+    val customizing = !pip && nav.sheetShown && nav.top == VisualsPage.CUSTOMIZE
+    DisposableEffect(customizing) {
+        viewModel.setCustomizing(customizing)
+        onDispose { viewModel.setCustomizing(false) }
+    }
     val stepStyle: (Int) -> Unit = { step ->
         nextStageStyle(stageStyleOrder(), viz.sceneId, step) { !gate.allowsStyle(it) }?.let(viewModel::selectScene)
     }
+    val context = LocalContext.current
+    val resources = LocalResources.current
     val view = LocalView.current
+    // A MilkDrop preset that did not load: the stage says so briefly. The MilkDrop page shows it itself.
+    val milkError = viz.shaderError?.takeIf { viz.sceneId == SceneIds.MILKDROP }
+    LaunchedEffect(milkError) {
+        val onMilkPage = nav.sheetShown && nav.top == VisualsPage.MILKDROP
+        if (milkError != null && !pip && !onMilkPage) {
+            val text = resources.getString(R.string.milk_load_failed, milkError.substringAfterLast('/'))
+            Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+        }
+    }
     // Settings › Behaviour › Keep the screen on in Visuals: held while this screen is composed (#337).
     KeepScreenOnWhileShown(behaviour.keepScreenOnVisuals)
     val studioViewModel: StudioViewModel = geodeViewModel()
     val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
+    // Why a take ended or was not kept (too short, the maximum length, a render already running).
+    LaunchedEffect(takes.note) { takes.note?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show() } }
     var macros by rememberSaveable { mutableStateOf(false) }
     // While a drop-in is up the options fade out and take no touch (UI V2 rule 6: the visual shows
     // through, not the sheet); the nav state keeps the sheet's height, so it returns as it was.
@@ -250,7 +272,8 @@ private fun VisualsHubContent(
         // (ShellChromeState.docked); with the options hidden it is a pill that sleeps with the
         // chrome, on the same fade as the tab bar under it.
         val playerOn = docked != null && !pip && (nav.sheetShown || chrome.awake)
-        val holdsDock = docked != null && !pip && nav.sheetShown
+        // With no track loaded there is no player to dock, and the tab bar still stays under the options.
+        val holdsDock = !pip && nav.sheetShown
         DisposableEffect(holdsDock, dropInOpen) {
             chrome.docked = holdsDock
             chrome.optionsHidden = dropInOpen

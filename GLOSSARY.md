@@ -309,7 +309,7 @@ Code that turns sound into numbers or numbers into pixels: DSP, analysis, featur
 _Avoid_: Core logic, backend
 
 **Playout clock**:
-The engine's answer to "which ring sample is the speaker playing now": the sink's position (output and Bluetooth latency included) mapped onto the ring, plus the user's A/V offset. Live surfaces read up to it, never past it (`core/sound/interp/PlayoutClock`).
+The engine's answer to "which ring sample is the speaker playing now": the sink's position (output and Bluetooth latency included) mapped onto the ring, plus the user's A/V offset. Live surfaces read the player's ring up to it, never past it (`core/sound/interp/PlayoutClock`, `SpeakerSync`; `audio/PlayoutSink` reports the sink to it). The mic, another app's audio and Cast have no sink in between and read the newest sample.
 _Avoid_: Presentation clock, sink clock (the deleted Kotlin ones)
 
 **Shell**:

@@ -59,6 +59,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleStartEffect
 import dev.geode.R
 import dev.geode.model.GestureTip
 import dev.geode.model.TourSpot
@@ -82,6 +83,10 @@ import kotlinx.coroutines.delay
  * visual, the handle pill, a new track, a new screen) and falls asleep [fadeMs] later; [hide]
  * puts it to sleep at once (a swipe down on it). A [fadeMs] of zero means it never fades. While [held] (a PiP window, which
  * shows the visual alone) nothing wakes it.
+ *
+ * Every start of the activity wakes it ([rememberShellChrome]): the sleep timer kept running while
+ * the app was in the background, so coming back used to find the player and, on Visuals, the tab
+ * bar gone. While [covered] the timer waits, so a cold start's countdown begins when the app shows.
  */
 @Stable
 internal class ShellChromeState {
@@ -92,14 +97,20 @@ internal class ShellChromeState {
 
     val awake: Boolean get() = shown && !held
 
+    /** Set while the boot intro or a first-run page covers the shell: nothing under it is seen yet. */
+    internal var covered by mutableStateOf(false)
+
+    /** Whether the sleep timer runs: awake and in view. Turning true starts it from the top. */
+    internal val counting: Boolean get() = awake && !covered
+
     /** Bumped on every wake, so the sleep timer starts over. */
     internal var stamp by mutableLongStateOf(0L)
         private set
 
     /**
-     * Set by Visuals while its options sheet is up: the mini player is docked to the sheet and the
-     * tab bar under it stays with it, so neither fades on a stage tap. The stage icons still
-     * follow [awake].
+     * Set by Visuals while its options sheet is up: the tab bar under the sheet stays, and with it
+     * the mini player docked to the sheet when a track is loaded, so neither fades on a stage tap.
+     * The stage icons still follow [awake].
      */
     var docked by mutableStateOf(false)
 
@@ -137,18 +148,27 @@ internal class ShellChromeState {
 /**
  * The shell's chrome state, asleep [fadeSeconds] after each wake (the user's Settings value,
  * 0 = never), stretched by the accessibility timeout the user set so TalkBack users are not raced.
- * Any change in [wakeKeys] (the screen, the track) wakes it. While [held] it stays asleep. While
- * [pinned] (the tour is pointing at it) it is awake and does not fade.
+ * Any change in [wakeKeys] (the screen, the track) wakes it, and so does every start of the
+ * activity. While [held] it stays asleep; while [covered] it stays awake and the timer waits.
+ * While [pinned] (the tour is pointing at it) it is awake and does not fade.
  */
 @Composable
 internal fun rememberShellChrome(
     fadeSeconds: Float,
     held: Boolean,
     pinned: Boolean,
+    covered: Boolean,
     vararg wakeKeys: Any?,
 ): ShellChromeState {
     val state = remember { ShellChromeState() }
-    SideEffect { state.held = held }
+    SideEffect {
+        state.held = held
+        state.covered = covered
+    }
+    LifecycleStartEffect(state) {
+        state.wake()
+        onStopOrDispose { }
+    }
     val a11y = LocalAccessibilityManager.current
     // In the same frame as the new screen or track, not an effect a frame later: leaving Visuals
     // asleep would otherwise lay the dock out with the handle first, then grow it into the card.
@@ -157,8 +177,8 @@ internal fun rememberShellChrome(
         state.wake()
         true
     }
-    LaunchedEffect(state.awake, state.stamp, fadeSeconds, pinned) {
-        if (!state.awake || fadeSeconds <= 0f || pinned) return@LaunchedEffect
+    LaunchedEffect(state.counting, state.stamp, fadeSeconds, pinned) {
+        if (!state.counting || fadeSeconds <= 0f || pinned) return@LaunchedEffect
         val base = (fadeSeconds * MILLIS_PER_SECOND).toLong()
         val timeout = a11y?.calculateRecommendedTimeoutMillis(base, containsIcons = true, containsControls = true) ?: base
         delay(timeout)

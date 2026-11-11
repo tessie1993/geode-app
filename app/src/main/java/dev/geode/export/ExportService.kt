@@ -14,7 +14,6 @@ import dev.geode.appLaunchIntent
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -25,7 +24,7 @@ import kotlinx.coroutines.launch
 
 class ExportService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private var watcher: Job? = null
+    private val wakeLock by lazy { dev.geode.ServiceWakeLock(this, TAG) }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -35,18 +34,18 @@ class ExportService : Service() {
         // ExportRun publishes every rendered frame. The notification is re-posted only when what it
         // shows changes (progress in tenths of a percent, the ETA, the label), and at most once a
         // second: conflate keeps the newest state through the pause (#379).
-        watcher =
-            scope.launch {
-                ExportRun.state
-                    .map { it.copy(progress = it.progress?.let { p -> (p * PROGRESS_MAX).toInt() / PROGRESS_MAX.toFloat() }) }
-                    .distinctUntilChanged()
-                    .conflate()
-                    .collect {
-                        if (!it.running) return@collect stopSelf()
-                        bestEffort(TAG, "notify") { getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, build(it)) }
-                        delay(UPDATE_MS)
-                    }
-            }
+        wakeLock.acquire(dev.geode.LONG_WORK_WAKE_MS)
+        scope.launch {
+            ExportRun.state
+                .map { it.copy(progress = it.progress?.let { p -> (p * PROGRESS_MAX).toInt() / PROGRESS_MAX.toFloat() }) }
+                .distinctUntilChanged()
+                .conflate()
+                .collect {
+                    if (!it.running) return@collect stopSelf()
+                    bestEffort(TAG, "notify") { getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, build(it)) }
+                    delay(UPDATE_MS)
+                }
+        }
     }
 
     override fun onStartCommand(
@@ -67,7 +66,7 @@ class ExportService : Service() {
     }
 
     override fun onDestroy() {
-        watcher?.cancel()
+        wakeLock.release()
         scope.cancel()
         super.onDestroy()
     }

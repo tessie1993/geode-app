@@ -94,7 +94,7 @@ fun TrackSeekBar(
     val primary = MaterialTheme.colorScheme.primary
     val idle = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
     val loopTint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.28f)
-    val playhead = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+    val playhead = MaterialTheme.colorScheme.onSurface
     val positionLabel = formatClock(if (dragFraction >= 0f) (dragFraction * durationMs).toLong() else positionMs())
     val durationLabel = formatClock(durationMs)
     val seekDescription = stringResource(R.string.seek_description, positionLabel, durationLabel)
@@ -127,24 +127,31 @@ fun TrackSeekBar(
                 }
             },
     ) {
+        // The canvas is the 48 dp touch target; the drawing keeps to a band around the track, so
+        // the thumb is a dot on the line and not a bar the height of the target.
+        val h = SEEK_TRACK.toPx()
+        val thumb = SEEK_THUMB_RADIUS.toPx()
+        val mid = size.height / 2f
         if (loopStartMs != null && durationMs > 0) {
             val from = (loopStartMs / durationMs.toFloat()).coerceIn(0f, 1f) * size.width
             val to = ((loopEndMs ?: durationMs) / durationMs.toFloat()).coerceIn(0f, 1f) * size.width
-            drawRect(loopTint, topLeft = Offset(from, 0f), size = Size((to - from).coerceAtLeast(2f), size.height))
+            drawRoundRect(
+                loopTint,
+                topLeft = Offset(from, mid - thumb),
+                size = Size((to - from).coerceAtLeast(2f), thumb * 2f),
+                cornerRadius = CornerRadius(h / 2f),
+            )
         }
-        val h = 3.dp.toPx()
-        val y = size.height / 2f - h / 2f
+        val y = mid - h / 2f
         drawRoundRect(idle, Offset(0f, y), Size(size.width, h), CornerRadius(h / 2f))
         drawRoundRect(primary, Offset(0f, y), Size(size.width * played, h), CornerRadius(h / 2f))
-        val x = (size.width * played).coerceIn(1f, maxOf(1f, size.width - 1f))
-        drawRoundRect(
-            playhead,
-            topLeft = Offset(x - 1.dp.toPx(), 0f),
-            size = Size(2.dp.toPx(), size.height),
-            cornerRadius = CornerRadius(1.dp.toPx()),
-        )
+        val x = (size.width * played).coerceIn(thumb, maxOf(thumb, size.width - thumb))
+        drawCircle(playhead, radius = thumb, center = Offset(x, mid))
     }
 }
+
+private val SEEK_TRACK = 4.dp
+private val SEEK_THUMB_RADIUS = 6.dp
 
 @Composable
 fun LyricsPanel(

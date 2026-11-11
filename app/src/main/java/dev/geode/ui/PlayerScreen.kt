@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -55,7 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.SubcomposeLayout
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -75,6 +76,7 @@ import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
 import dev.geode.model.QueueTrack
 import dev.geode.model.QueueUiState
+import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.StoneIcon
@@ -117,10 +119,12 @@ fun PlayerScreen(
             !sizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
     // Every block stops at a readable width, so a tablet column is not one stretched strip.
     val readable = Modifier.widthIn(max = COLUMN_MAX_WIDTH)
+    val inset = readable.padding(horizontal = SCREEN_INSET)
 
     val header: @Composable () -> Unit = {
         Row(
-            readable.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp),
+            // The title starts on the cards' edge and the search glyph ends on it.
+            readable.fillMaxWidth().padding(start = SCREEN_INSET, end = ICON_ROW_INSET).padding(vertical = GeodeSpacing.S),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
@@ -138,7 +142,7 @@ fun PlayerScreen(
             IconButton(onClick = onOpenSearch) { StoneIconArt(StoneIcon.SEARCH, stringResource(R.string.action_search)) }
         }
     }
-    val hero: @Composable (Dp) -> Unit = { artMax ->
+    val hero: @Composable () -> Unit = {
         PlayerHero(
             viewModel = viewModel,
             state = state,
@@ -149,8 +153,7 @@ fun PlayerScreen(
             canResume = canShuffle,
             onExpand = onExpand,
             onOpenLibrary = onOpenLibrary,
-            artMax = artMax,
-            modifier = readable.padding(horizontal = 16.dp),
+            modifier = inset,
         )
     }
     val transport: @Composable () -> Unit = {
@@ -159,7 +162,7 @@ fun PlayerScreen(
             state = state,
             position = { position.value },
             abLoop = abLoop,
-            modifier = readable.padding(horizontal = 16.dp),
+            modifier = inset,
         )
     }
 
@@ -173,7 +176,7 @@ fun PlayerScreen(
                     expanded = openCard == CARD_UP_NEXT,
                     onToggle = { toggleCard(CARD_UP_NEXT) },
                     onOpenQueue = { queueSheet = true },
-                    modifier = readable.padding(horizontal = 16.dp),
+                    modifier = inset,
                 )
             }
         }
@@ -187,12 +190,14 @@ fun PlayerScreen(
                 canShuffle = canShuffle,
                 expanded = openCard == CARD_QUICK,
                 onToggle = { toggleCard(CARD_QUICK) },
-                modifier = readable.padding(horizontal = 16.dp),
+                modifier = inset,
             )
         }
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    // The pane ends above the floating dock (the phone shell's reserve), as every other screen
+    // does: the dock's glass is translucent, so a card left under it read through the tab labels.
+    BoxWithConstraints(Modifier.fillMaxSize().padding(bottom = LocalDockReserve.current)) {
         // Two columns in landscape or at expanded width: art and transport on one side, the cards
         // on the other. The window says when; this pane's width says whether there is room, so the
         // Player half of the two-pane Library stays one column.
@@ -203,8 +208,6 @@ fun PlayerScreen(
         // Under the art when the pane is tall enough for both; on a phone on its side it heads the
         // other column instead, where it is never below the fold.
         val transportWithArt = paneHeight >= SHORT_HEIGHT
-        // The dock's height over this pane's bottom (AppShell), padded inside the scroll.
-        val dockReserve = LocalDockReserve.current
         if (sideBySide) {
             Row(Modifier.fillMaxSize()) {
                 Column(
@@ -212,39 +215,29 @@ fun PlayerScreen(
                         .weight(1f)
                         .fillMaxHeight()
                         .verticalScroll(rememberScrollState())
-                        .padding(bottom = 24.dp + dockReserve),
+                        .padding(bottom = CARD_GAP),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    header()
-                    if (transportWithArt) {
-                        HeroOverTransport(paneHeight = paneHeight - dockReserve, hero = hero, transport = transport)
-                    } else {
-                        hero((paneHeight - dockReserve - HERO_CHROME).coerceIn(MIN_ART, MAX_ART))
-                    }
+                    AboveTheFold(paneHeight, header, hero, if (transportWithArt) transport else null)
                 }
                 LazyColumn(
                     Modifier.weight(1f).fillMaxHeight(),
-                    contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp + dockReserve),
+                    contentPadding = PaddingValues(top = GeodeSpacing.S, bottom = CARD_GAP),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(CARD_GAP),
                 ) {
                     if (!transportWithArt) item { transport() }
                     cards()
                 }
             }
         } else {
-            // The art takes what the pane leaves above the dock once the transport is measured, as
-            // in the side-by-side branch, so the transport opens above the fold instead of half
-            // under the tab bar; the list itself scrolls under the glass.
             LazyColumn(
                 Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 24.dp + dockReserve),
+                contentPadding = PaddingValues(bottom = CARD_GAP),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(CARD_GAP),
             ) {
-                item { header() }
-                item { HeroOverTransport(paneHeight = paneHeight - dockReserve, hero = hero, transport = transport) }
+                item { AboveTheFold(paneHeight, header, hero, transport) }
                 cards()
             }
         }
@@ -255,61 +248,56 @@ fun PlayerScreen(
 }
 
 /**
- * The side-by-side hero with the transport under it, in one measure pass: the transport is
- * measured first, then the hero is composed with the art size what is left of [paneHeight]
- * under [HERO_CHROME] and the transport, so at a large font the art shrinks while the transport
- * grows instead of pushing it off the pane (#558; Compose's scalable-content guide: content
- * reflows to fit its container, Context7 `/websites/developer_android_develop_ui_compose`).
+ * The header, the hero and the transport as the pane's first screenful, in one measure pass: the
+ * header and the transport are measured first and the hero gets what is left of [paneHeight] as
+ * its height limit, which its art (the one weighted child) shrinks into. So the art is as wide as
+ * the card when the pane is tall enough, the transport still ends above the fold when it is not,
+ * and at a large font the art gives way while the text and the transport grow (#558).
  *
- * WHY measure here and not `onSizeChanged`: writing the transport's height to state in the
- * layout phase and reading it in composition is a backwards write. The first frame drew the art
- * at the floor's size and the second popped it to the measured one (compose-performance skill,
- * references/diagnosis.md axis 3, "`onSizeChanged` (layout phase) writing state read by a
- * sibling in composition"; jetpack-compose-performance skill, references/layouts.md § "Prohibit
- * layout feedback loops"; Android docs, kb://android/develop/ui/compose/performance/backwards-write).
- * Here the height flows forward inside one layout pass, so the first frame is already right.
- *
- * WHY a subcomposition and not a plain `Layout` with the art at `Constraints.fixed(side, side)`:
- * the art is not a sibling of the transport but the top of the hero card, under its padding and
- * above its title rows, and its cap is a composition parameter of [PlayerHero]. A plain `Layout`
- * could only hand that cap down through state written mid-measure, which is the same backwards
- * flow one phase later, or by changing the card's width, which changes the look. Subcomposing
- * the hero once the transport is measured is what `SubcomposeLayout` is for. Its cost is the
- * one the layouts reference warns of in lazy items and hot paths; this sits once per pane (a
- * scrolling `Column`, or the single top item of the portrait list, never a repeated row), and it
- * recomposes only when the pane or the transport's height changes the art's size.
- *
- * The look at font scale 1.0 is unchanged: the same [MIN_ART]..[MAX_ART] clamp, the same
- * [TRANSPORT_GAP] the column's `spacedBy` used to put between them, and [TRANSPORT_HEIGHT] as
- * the floor the transport's measured height only takes over from when it needs more.
+ * WHY constraints and not an art size worked out from constants: the old 300 dp guess at "the
+ * chrome around the art" was 80 dp more than the header and title rows take on a phone, and the
+ * art was drawn that much smaller than the room it had.
  */
 @Composable
-private fun HeroOverTransport(
+private fun AboveTheFold(
     paneHeight: Dp,
-    hero: @Composable (Dp) -> Unit,
-    transport: @Composable () -> Unit,
+    header: @Composable () -> Unit,
+    hero: @Composable () -> Unit,
+    transport: (@Composable () -> Unit)?,
 ) {
-    SubcomposeLayout { constraints ->
-        // The column scrolls, so the height is unbounded; only the width is the column's.
+    Layout(
+        content = {
+            header()
+            hero()
+            transport?.invoke()
+        },
+    ) { measurables, constraints ->
+        // The pane scrolls, so the height is unbounded; only the width is the column's.
         val loose = constraints.copy(minWidth = 0, minHeight = 0)
-        val transportPlaceable = subcompose(HeroSlot.TRANSPORT, transport).single().measure(loose)
-        val gap = TRANSPORT_GAP.roundToPx()
-        val transportRoom = maxOf(transportPlaceable.height + gap, TRANSPORT_HEIGHT.roundToPx())
-        val side = (paneHeight - HERO_CHROME - transportRoom.toDp()).coerceIn(MIN_ART, MAX_ART)
-        val heroPlaceable = subcompose(HeroSlot.HERO) { hero(side) }.single().measure(loose)
+        val gap = CARD_GAP.roundToPx()
+        val headerPlaceable = measurables[HEADER_SLOT].measure(loose)
+        val transportPlaceable = measurables.getOrNull(TRANSPORT_SLOT)?.measure(loose)
+        val below = transportPlaceable?.let { it.height + gap } ?: 0
+        val heroRoom = maxOf(paneHeight.roundToPx() - gap - headerPlaceable.height - below, MIN_HERO.roundToPx())
+        val heroPlaceable = measurables[HERO_SLOT].measure(loose.copy(maxHeight = heroRoom))
         val width =
-            maxOf(heroPlaceable.width, transportPlaceable.width)
+            maxOf(headerPlaceable.width, heroPlaceable.width, transportPlaceable?.width ?: 0)
                 .coerceIn(constraints.minWidth, constraints.maxWidth)
-        val height = heroPlaceable.height + gap + transportPlaceable.height
-        layout(width, height) {
-            heroPlaceable.placeRelative((width - heroPlaceable.width) / 2, 0)
-            transportPlaceable.placeRelative((width - transportPlaceable.width) / 2, heroPlaceable.height + gap)
+        layout(width, headerPlaceable.height + heroPlaceable.height + below) {
+            headerPlaceable.placeRelative((width - headerPlaceable.width) / 2, 0)
+            heroPlaceable.placeRelative((width - heroPlaceable.width) / 2, headerPlaceable.height)
+            transportPlaceable?.placeRelative(
+                (width - transportPlaceable.width) / 2,
+                headerPlaceable.height + heroPlaceable.height + gap,
+            )
         }
     }
 }
 
-/** The two slots of [HeroOverTransport]'s subcomposition. */
-private enum class HeroSlot { TRANSPORT, HERO }
+/** The children of [AboveTheFold], in the order it emits them. */
+private const val HEADER_SLOT = 0
+private const val HERO_SLOT = 1
+private const val TRANSPORT_SLOT = 2
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -349,23 +337,30 @@ private val SHORT_HEIGHT = 480.dp
 /** A readable column: wider than this, a block stops growing and centres. */
 private val COLUMN_MAX_WIDTH = 600.dp
 
-/**
- * The least room the art leaves for the transport card (seek row, buttons, A–B and Auto) under
- * it, gap included. WHY a floor and not the answer: it was the whole answer until #558, and the
- * layout at font scale 1.0 was tuned against it, so the card's measured height only takes over
- * when it needs more (a large font, a long translation), and today's look is kept at 1.0.
- */
-private val TRANSPORT_HEIGHT = 180.dp
-
-/** The gap between the hero and the transport in [HeroOverTransport]: the column's `spacedBy` gap. */
-private val TRANSPORT_GAP = 16.dp
-
-/** On a phone the art fills the width; on anything wider it stops here. */
+/** On a phone the art fills the card's width; on anything wider it stops here. */
 private val MAX_ART = 420.dp
-private val MIN_ART = 160.dp
 
-/** Header, title rows, chips and buttons around the art in the side-by-side hero. */
-private val HERO_CHROME = 300.dp
+/**
+ * The least height the hero is given, however short the pane: below it the pane scrolls instead
+ * of squeezing the art further (about 160 dp of art at the default font).
+ */
+private val MIN_HERO = 280.dp
+
+/** The cards' inset from the pane's edges and the content's inset inside a card: one grid. */
+private val SCREEN_INSET = GeodeSpacing.L
+private val CARD_INSET = GeodeSpacing.L
+
+/**
+ * The inset of a row that ends (or starts) with icon buttons: a 24 dp glyph sits 12 dp inside its
+ * 48 dp target, so the glyph's edge lands on [CARD_INSET], where the text beside it ends.
+ */
+private val ICON_ROW_INSET = GeodeSpacing.XS
+
+/** Between cards, and between the blocks inside one. */
+private val CARD_GAP = GeodeSpacing.M
+
+private val CARD_SHAPE = RoundedCornerShape(GeodeRadius.ExtraLarge)
+private val TILE_SHAPE = RoundedCornerShape(GeodeRadius.Large)
 
 @Composable
 private fun PlayerHero(
@@ -378,7 +373,6 @@ private fun PlayerHero(
     canResume: Boolean,
     onExpand: () -> Unit,
     onOpenLibrary: () -> Unit,
-    artMax: Dp,
     modifier: Modifier = Modifier,
 ) {
     val uri = state.trackUri
@@ -388,28 +382,34 @@ private fun PlayerHero(
     val roomOnly = micActive && !state.hasMedia
     val hasSource = foreign || roomOnly || state.hasMedia
     val isFavourite = uri != null && uri in favourites
+    val showFavourite = state.hasMedia && !foreign
     Column(
         modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
+            .clip(CARD_SHAPE)
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .clickable(enabled = hasSource, onClick = onExpand)
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(vertical = CARD_INSET),
+        verticalArrangement = Arrangement.spacedBy(CARD_GAP),
     ) {
-        // Square and as wide as the card on a phone, but never taller than [artMax]: on a tablet a
-        // full-width square pushed the title and transport two screens down.
+        // Square and as wide as the card, unless the height [AboveTheFold] leaves is less: the one
+        // weighted child, so it takes what the rows under it do not.
         TrackArtwork(
             if (foreign || roomOnly) null else uri,
             Modifier
                 .align(Alignment.CenterHorizontally)
-                .widthIn(max = artMax)
-                .fillMaxWidth()
+                .weight(1f, fill = false)
+                .padding(horizontal = CARD_INSET)
+                .widthIn(max = MAX_ART)
                 .aspectRatio(1f),
-            corner = 18.dp,
+            corner = GeodeRadius.Medium,
         )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
+        Column(verticalArrangement = Arrangement.spacedBy(GeodeSpacing.XS)) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = CARD_INSET),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
                 Text(
                     when {
                         foreign -> external.nowPlaying?.appLabel ?: stringResource(R.string.source_other_apps)
@@ -418,73 +418,82 @@ private fun PlayerHero(
                         state.hasMedia -> stringResource(R.string.state_paused)
                         else -> stringResource(R.string.state_nothing_playing)
                     },
+                    Modifier.weight(1f),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    when {
-                        foreign -> foreignTrack?.title ?: stringResource(R.string.title_whatever_is_playing)
-                        roomOnly -> stringResource(R.string.title_the_room)
-                        state.hasMedia -> state.title ?: stringResource(R.string.title_untitled)
-                        else -> stringResource(R.string.title_pick_something)
-                    },
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(
-                    when {
-                        external.refusedByApp ->
-                            stringResource(
-                                R.string.subtitle_capture_refused,
-                                external.refusingApp
-                                    ?: stringResource(R.string.subtitle_capture_refused_unknown_app),
-                            )
-                        foreign ->
-                            foreignTrack?.artist?.ifBlank { null }
-                                ?: stringResource(R.string.subtitle_captured_from_another_app)
-                        roomOnly -> stringResource(R.string.subtitle_microphone_hears)
-                        state.hasMedia ->
-                            state.artist?.takeIf { it.isNotBlank() }
-                                ?: stringResource(R.string.subtitle_unknown_artist)
-                        else -> stringResource(R.string.subtitle_nothing_playing)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color =
-                        if (external.refusedByApp) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                SceneChip(styleLabel, Modifier.weight(1f, fill = false).padding(start = GeodeSpacing.S))
             }
-            if (state.hasMedia && !foreign) {
-                IconButton(onClick = { viewModel.toggleFavourite(uri) }) {
-                    StoneIconArt(
-                        StoneIcon.FAVORITE,
-                        stringResource(
-                            if (isFavourite) R.string.action_favourite_remove else R.string.action_favourite_add,
-                        ),
-                        selected = isFavourite,
-                        tint =
-                            if (isFavourite) {
-                                MaterialTheme.colorScheme.primary
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = GeodeSpacing.TouchTarget)
+                    .padding(start = CARD_INSET, end = if (showFavourite) ICON_ROW_INSET else CARD_INSET),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        when {
+                            foreign -> foreignTrack?.title ?: stringResource(R.string.title_whatever_is_playing)
+                            roomOnly -> stringResource(R.string.title_the_room)
+                            state.hasMedia -> state.title ?: stringResource(R.string.title_untitled)
+                            else -> stringResource(R.string.title_pick_something)
+                        },
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        when {
+                            external.refusedByApp ->
+                                stringResource(
+                                    R.string.subtitle_capture_refused,
+                                    external.refusingApp
+                                        ?: stringResource(R.string.subtitle_capture_refused_unknown_app),
+                                )
+                            foreign ->
+                                foreignTrack?.artist?.ifBlank { null }
+                                    ?: stringResource(R.string.subtitle_captured_from_another_app)
+                            roomOnly -> stringResource(R.string.subtitle_microphone_hears)
+                            state.hasMedia ->
+                                state.artist?.takeIf { it.isNotBlank() }
+                                    ?: stringResource(R.string.subtitle_unknown_artist)
+                            else -> stringResource(R.string.subtitle_nothing_playing)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color =
+                            if (external.refusedByApp) {
+                                MaterialTheme.colorScheme.error
                             } else {
                                 MaterialTheme.colorScheme.onSurfaceVariant
                             },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
+                }
+                if (showFavourite) {
+                    IconButton(onClick = { viewModel.toggleFavourite(uri) }) {
+                        StoneIconArt(
+                            StoneIcon.FAVORITE,
+                            stringResource(
+                                if (isFavourite) R.string.action_favourite_remove else R.string.action_favourite_add,
+                            ),
+                            selected = isFavourite,
+                            tint =
+                                if (isFavourite) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                        )
+                    }
                 }
             }
         }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            SceneChip(styleLabel)
-            Box(Modifier.weight(1f))
-            if (foreign) {
+        if (foreign) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = CARD_INSET), horizontalArrangement = Arrangement.End) {
                 FilledTonalButton(
                     onClick = viewModel::stopExternalAudio,
                     contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
@@ -494,7 +503,10 @@ private fun PlayerHero(
             }
         }
         if (!hasSource) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                Modifier.padding(horizontal = CARD_INSET),
+                horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
+            ) {
                 Button(onClick = viewModel::resumeLastPlayed, enabled = canResume) {
                     Text(stringResource(R.string.action_resume_last_played))
                 }
@@ -504,13 +516,17 @@ private fun PlayerHero(
     }
 }
 
+/** The style on screen, on a raised fill so its text's inset reads as a chip's, not as a stray indent. */
 @Composable
-private fun SceneChip(label: String) {
+private fun SceneChip(
+    label: String,
+    modifier: Modifier = Modifier,
+) {
     Box(
-        Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+        modifier
+            .clip(RoundedCornerShape(GeodeRadius.Medium))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .padding(horizontal = GeodeSpacing.S, vertical = GeodeSpacing.XS),
     ) {
         Text(
             label,
@@ -533,30 +549,52 @@ private fun TransportCard(
     Column(
         modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
+            .clip(CARD_SHAPE)
             .background(MaterialTheme.colorScheme.surfaceContainer)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .padding(top = GeodeSpacing.S, bottom = GeodeSpacing.M),
     ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            PositionClock(position)
+        // The bar keeps its 48 dp target; the times and A–B sit under the track, over the lower
+        // edge of that target, so the three read as one block and A–B needs no row of its own.
+        Box(Modifier.fillMaxWidth().padding(horizontal = CARD_INSET)) {
             TrackSeekBar(
                 positionMs = position,
                 durationMs = state.durationMs,
                 loopStartMs = abLoop?.startMs,
                 loopEndMs = abLoop?.endMs,
                 onSeek = viewModel::seekTo,
-                modifier = Modifier.weight(1f).height(48.dp),
+                modifier = Modifier.fillMaxWidth().height(GeodeSpacing.TouchTarget),
             )
-            Text(formatClock(state.durationMs), style = MaterialTheme.typography.labelSmall)
+            Row(
+                Modifier.fillMaxWidth().padding(top = GeodeSpacing.TouchTarget - GeodeSpacing.M),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PositionClock(position)
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    TextButton(onClick = viewModel::cycleAbLoop, enabled = state.hasMedia) {
+                        Text(
+                            when {
+                                abLoop == null -> stringResource(R.string.ab_loop_idle)
+                                abLoop.endMs == null -> stringResource(R.string.ab_loop_set_b)
+                                else -> stringResource(R.string.ab_loop_looping)
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            color =
+                                if (abLoop != null) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                        )
+                    }
+                }
+                Text(formatClock(state.durationMs), style = MaterialTheme.typography.labelSmall)
+            }
         }
+        // Edge to edge on the card's grid: the shuffle and repeat glyphs end where the times do.
         Row(
-            Modifier.fillMaxWidth(),
+            Modifier.fillMaxWidth().padding(horizontal = ICON_ROW_INSET),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             ShuffleButton(state.shuffle, viewModel::toggleShuffle)
             IconButton(onClick = viewModel::previous, enabled = state.hasMedia) {
@@ -577,29 +615,6 @@ private fun TransportCard(
                 StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next))
             }
             RepeatButton(state.repeatMode, viewModel::cycleRepeatMode)
-        }
-        // The queue's show/hide toggle that sat here is the Up next card's header now.
-        Row(
-            Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
-            TextButton(onClick = viewModel::cycleAbLoop, enabled = state.hasMedia) {
-                Text(
-                    when {
-                        abLoop == null -> stringResource(R.string.ab_loop_idle)
-                        abLoop.endMs == null -> stringResource(R.string.ab_loop_set_b)
-                        else -> stringResource(R.string.ab_loop_looping)
-                    },
-                    style = MaterialTheme.typography.labelMedium,
-                    color =
-                        if (abLoop != null) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                )
-            }
         }
     }
 }
@@ -623,7 +638,7 @@ private fun CollapsibleCard(
     Column(
         modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(CARD_SHAPE)
             .background(MaterialTheme.colorScheme.surfaceContainer)
             .animateContentSize(motion.defaultSpatialSpec()),
     ) {
@@ -644,13 +659,13 @@ private fun CollapsibleCard(
                         }
                     }
                 }.clickable(role = Role.Button, onClick = onToggle)
-                .padding(start = 14.dp, end = 8.dp),
+                .padding(horizontal = CARD_INSET),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(title, style = MaterialTheme.typography.titleSmall)
             Text(
                 summary,
-                Modifier.weight(1f).padding(horizontal = 12.dp),
+                Modifier.weight(1f).padding(horizontal = GeodeSpacing.M),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.End,
@@ -685,20 +700,20 @@ private fun UpNextCard(
         modifier = modifier,
     ) {
         Column(
-            Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            Modifier.fillMaxWidth().padding(start = CARD_INSET, end = CARD_INSET, bottom = GeodeSpacing.XS),
         ) {
             val untitled = stringResource(R.string.title_untitled)
             upNext.forEach { t ->
                 Text(
                     t.title.ifBlank { untitled },
-                    Modifier.fillMaxWidth().clickable(onClick = onOpenQueue).heightIn(min = 48.dp).wrapContentHeight(),
+                    Modifier.fillMaxWidth().clickable(onClick = onOpenQueue).heightIn(min = GeodeSpacing.TouchTarget).wrapContentHeight(),
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            // The button's own 12 dp padding puts its label on the card's inset.
+            Row(Modifier.fillMaxWidth().offset(x = GeodeSpacing.M), horizontalArrangement = Arrangement.End) {
                 TextButton(onClick = onOpenQueue) {
                     Text(
                         stringResource(R.string.action_open_queue),
@@ -752,7 +767,7 @@ private fun QuickActionsCard(
             external = external,
             sleepRunning = sleepRunning,
             canShuffle = canShuffle,
-            contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = 14.dp),
+            contentPadding = PaddingValues(start = CARD_INSET, end = CARD_INSET, bottom = CARD_INSET),
         )
     }
 }
@@ -801,7 +816,7 @@ private fun QuickActions(
             }
         }
     LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
         contentPadding = contentPadding,
     ) {
         item {
@@ -891,15 +906,16 @@ private fun QuickActionShell(
         Modifier
             // A minimum, not a fixed width, so "Shuffle all" at 200% font wraps instead of "Shu…".
             .widthIn(min = 84.dp, max = 120.dp)
-            .selectedGlow(active, RoundedCornerShape(18.dp))
-            .clip(RoundedCornerShape(18.dp))
-            // On reads from the fill as well as the tint, not from colour alone.
-            .background(if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer)
+            .selectedGlow(active, TILE_SHAPE)
+            .clip(TILE_SHAPE)
+            // On reads from the fill as well as the tint, not from colour alone; off is a step above
+            // the card, so the tile has an edge.
+            .background(if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest)
             .semantics { if (active) stateDescription = onLabel }
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-            .padding(vertical = 12.dp, horizontal = 6.dp),
+            .padding(vertical = GeodeSpacing.M, horizontal = GeodeSpacing.S),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(GeodeSpacing.XS),
     ) {
         icon(tint)
         Text(

@@ -24,7 +24,9 @@ add_library(geode_core STATIC
     sound/Tuning.cpp
     library/Tags.cpp
     library/Search.cpp
+    audio/ingest/AiffReader.cpp
     audio/ingest/PcmRing.cpp
+    audio/ingest/TrackFeed.cpp
     audio/ingest/LayerMix.cpp
     audio/output/OutputFifo.cpp
     audio/output/OboeOutput.cpp
@@ -45,6 +47,7 @@ add_library(geode_core STATIC
     audio/dsp/PcmTiming.cpp
     output/FrameClock.cpp
     output/LoopPlan.cpp
+    output/LoudnessAdvice.cpp
     output/EncodePlan.cpp
     output/RecordPlan.cpp
     output/Recorder.cpp

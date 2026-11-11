@@ -394,7 +394,6 @@
     <string name="studio_look_night">Night</string>
     <string name="studio_look_mono">Mono</string>
     <string name="studio_look_invert">Invert</string>
-    <string name="studio_clip_untitled">Clip</string>
 
     <!-- Settings › Audio › Playback. -->
     <string name="playback_speed">"Speed  %1$sx"</string>

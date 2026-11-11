@@ -254,7 +254,8 @@ class VisualizerWallpaperService : WallpaperService() {
                         glView?.requestRender()
                     }
                 }
-                WallpaperRunMode.STOPPED -> {
+                // DARK is the dream's alone: the wallpaper never asks for it.
+                WallpaperRunMode.STOPPED, WallpaperRunMode.DARK -> {
                     // Stopped first, and on this same main-thread callback: the vsync callback is gone
                     // before onPause is even asked for, so no frame can be requested after the
                     // wallpaper stops being visible. The spare scenes go on the way in (#854): an event

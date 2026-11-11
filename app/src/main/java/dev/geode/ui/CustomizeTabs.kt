@@ -347,7 +347,7 @@ internal fun PaletteDropdown(
     second: Boolean,
 ) {
     val saved = palettes.items
-    val labels = SceneParams.PALETTES.map { it.first } + saved.map { it.name }
+    val labels = SceneParams.PALETTES + saved.map { it.name }
     Column {
         DropdownRow(
             name = name,

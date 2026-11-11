@@ -676,7 +676,9 @@ GEODE_API void            geode_frame_clock_start(int64_t* state, int fps, int64
 GEODE_API int64_t         geode_frame_clock_wait_ns(const int64_t* state, int64_t now_ns);   /* 0 = due now */
 GEODE_API int64_t         geode_frame_clock_take(int64_t* state, int64_t now_ns);   /* the frame's PTS, ns */
 GEODE_API int64_t         geode_frame_clock_audio_until_us(const int64_t* state);   /* end of the last frame taken */
-/* The Cast stream's format: out[0] width, out[1] height, out[2] fps, out[3] keyframe interval (s). */
+/* The Cast stream's format: out[0] width, out[1] height, out[2] fps, out[3] keyframe interval (s), out[4] the
+ * video bit rate, out[5] the audio bit rate (bit/s). out holds GEODE_CAST_FORMAT_INTS ints. */
+#define GEODE_CAST_FORMAT_INTS 6
 GEODE_API void            geode_cast_format(int* out);
 /* The GL Transitions library (gl_transitions.json, core/viz/TransitionLibrary): the shell's one read of it,
    as the table encodeTransitionTable describes (UTF-8, control-separated). Read from the APK once per
@@ -1209,6 +1211,80 @@ GEODE_API void            geode_cast_audio_step(int64_t* state, int64_t gained_f
 GEODE_API int             geode_cast_audio_feed_start(int64_t* state, int rate_hz);
 GEODE_API int64_t         geode_cast_audio_feed_add(int64_t* state, int64_t frames);
 GEODE_API int64_t         geode_cast_audio_feed_take(int64_t* state, int64_t buffer_frames, int64_t* pts_us);
+
+/* Show on a computer (viz/frame/LinkShare, LinkPage): the browser link's routes, headers, page, master playlist
+ * and state; cast/LiveHttpServer owns only the socket and the bytes. Every path sits under a token of
+ * GEODE_LINK_TOKEN_CHARS lowercase hex characters (16 bytes from SecureRandom), compared in constant time. */
+#define GEODE_LINK_TOKEN_CHARS 32
+#define GEODE_LINK_NONE     0   /* 404 */
+#define GEODE_LINK_PAGE     1   /* /<token>/ and /<token>/index.html */
+#define GEODE_LINK_SCRIPT   2   /* player.js */
+#define GEODE_LINK_STYLE    3   /* player.css */
+#define GEODE_LINK_MASTER   4   /* index.m3u8: CODECS for a browser */
+#define GEODE_LINK_PLAYLIST 5   /* live.m3u8 */
+#define GEODE_LINK_INIT     6   /* init.mp4 */
+#define GEODE_LINK_SEGMENT  7   /* seg<n>.m4s, n in *sequence */
+#define GEODE_LINK_REDIRECT 8   /* /<token>: 308 to /<token>/ */
+/* A request's method and request-target against the token: returns the status (200, 204, 308, 404, 405) and
+ * fills *resource (GEODE_LINK_*) and *sequence (a segment's, else -1). */
+GEODE_API int             geode_link_route(const char* method, const char* target, const char* token, int* resource,
+                                           int64_t* sequence);
+/* The response head for status and resource with a body of length bytes, NUL-terminated into out; the size-query
+ * convention of geode_hls_playlist (returns the length; nothing written when length + 1 > cap). */
+GEODE_API int             geode_link_response_head(int status, int resource, int64_t length, const char* token,
+                                                   char* out, int cap);
+/* A static file's bytes (GEODE_LINK_PAGE, _SCRIPT or _STYLE), UTF-8, *size set; null for any other resource. */
+GEODE_API const char*     geode_link_asset(int resource, size_t* size);
+/* The master playlist for an init segment (CODECS read from its avcC and esds), same convention; 0 = not yet. */
+GEODE_API int             geode_link_master_playlist(const uint8_t* init, size_t init_size, char* out, int cap);
+/* The share's state: the caller owns GEODE_LINK_STATE ints (phase, reason), zeroed = idle. A step takes one
+ * GEODE_LINK_EVENT_* and its argument and returns GEODE_LINK_DO_* bits for the shell to carry out. */
+#define GEODE_LINK_STATE 2
+#define GEODE_LINK_PHASE_IDLE     0
+#define GEODE_LINK_PHASE_STARTING 1
+#define GEODE_LINK_PHASE_LIVE     2
+#define GEODE_LINK_PHASE_ENDED    3
+#define GEODE_LINK_REASON_STREAM     1
+#define GEODE_LINK_REASON_NO_LAN     2
+#define GEODE_LINK_REASON_BACKGROUND 3
+#define GEODE_LINK_REASON_NETWORK    4
+#define GEODE_LINK_REASON_TRIAL      5
+#define GEODE_LINK_EVENT_START  1   /* arg: GEODE_LINK_ENTITLED | GEODE_LINK_HAS_LAN */
+#define GEODE_LINK_EVENT_READY  2
+#define GEODE_LINK_EVENT_FAILED 3   /* arg: GEODE_LINK_REASON_* */
+#define GEODE_LINK_EVENT_STOP   4
+#define GEODE_LINK_EVENT_SHOWN  5
+#define GEODE_LINK_ENTITLED 1
+#define GEODE_LINK_HAS_LAN  2
+#define GEODE_LINK_DO_START_STREAM 1
+#define GEODE_LINK_DO_STOP_STREAM  2
+#define GEODE_LINK_DO_PAYWALL      4
+GEODE_API int             geode_link_step(int* state, int event, int arg);
+/* Who may connect, by source address, before a byte is read (LinkShare's admit): IPv4 in host order, 0 =
+ * unknown; prefix the bound address's prefix length; wants GEODE_LINK_WANT_* bits. A TV cast admits the Cast
+ * device's address alone (the bound subnet when the SDK names none), a live link any site-local peer on the
+ * bound subnet. Returns GEODE_LINK_PEER_*. */
+#define GEODE_LINK_WANT_TV   1
+#define GEODE_LINK_WANT_LINK 2
+#define GEODE_LINK_PEER_REFUSED  0
+#define GEODE_LINK_PEER_RECEIVER 1   /* the TV: its fetches count for geode_link_receiver_health */
+#define GEODE_LINK_PEER_BROWSER  2
+GEODE_API int             geode_link_admit(uint32_t peer, uint32_t bound, int prefix, uint32_t tv, int wants);
+/* Whether the TV plays the stream after the LOAD: the receiver's MediaStatus player state and idle reason, and
+ * when the TV last fetched (one monotonic clock, ms, 0 = never). Returns GEODE_LINK_RECEIVER_*. */
+#define GEODE_LINK_RECEIVER_OK          0
+#define GEODE_LINK_RECEIVER_ERROR       1   /* idle, reason ERROR: it could not play the stream */
+#define GEODE_LINK_RECEIVER_GONE        2   /* idle for another reason: our stream is off the TV */
+#define GEODE_LINK_RECEIVER_UNREACHABLE 3   /* no fetch 20 s after the LOAD, or none for 30 s while it plays */
+GEODE_API int             geode_link_receiver_health(int64_t now_ms, int64_t load_ms, int64_t last_fetch_ms,
+                                                     int player_state, int idle_reason);
+
+/* A QR code (util/QrCode): byte mode, level M, versions 1..10, the best mask. Writes side * side modules (1 =
+ * dark, row-major) into out (GEODE_QR_MAX_MODULES bytes) and returns side; 0 when size > GEODE_QR_MAX_BYTES. */
+#define GEODE_QR_MAX_BYTES 213
+#define GEODE_QR_MAX_SIDE 57
+#define GEODE_QR_MAX_MODULES (GEODE_QR_MAX_SIDE * GEODE_QR_MAX_SIDE)
+GEODE_API int             geode_qr_encode(const uint8_t* data, int size, uint8_t* out, int cap);
 
 #ifdef __cplusplus
 }

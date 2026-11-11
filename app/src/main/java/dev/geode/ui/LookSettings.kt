@@ -69,11 +69,8 @@ private fun ThemeGroup(
     gui: GuiPrefs,
 ) {
     Column {
-        Text(
-            stringResource(R.string.look_accent_intensity, (gui.accentIntensity * 100).toInt()),
-            style = MaterialTheme.typography.labelMedium,
-        )
         CrystalSlider(
+            label = stringResource(R.string.look_accent_intensity, (gui.accentIntensity * 100).toInt()),
             value = gui.accentIntensity,
             onValueChange = { viewModel.setGuiPrefs(gui.copy(accentIntensity = it)) },
             valueRange = 0.5f..1.5f,
@@ -100,11 +97,8 @@ private fun TextGroup(
 ) {
     FontColorRow(viewModel, gui)
     Column {
-        Text(
-            stringResource(R.string.look_text_size, (gui.textScale * 100).toInt()),
-            style = MaterialTheme.typography.labelMedium,
-        )
         CrystalSlider(
+            label = stringResource(R.string.look_text_size, (gui.textScale * 100).toInt()),
             value = gui.textScale,
             onValueChange = { viewModel.setGuiPrefs(gui.copy(textScale = it)) },
             valueRange = GuiPrefs.TEXT_SCALE_MIN..GuiPrefs.TEXT_SCALE_MAX,

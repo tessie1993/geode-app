@@ -12,6 +12,10 @@ namespace geode::viz {
 class PerformanceMonitor {
 public:
     static constexpr float kFreeRunning = 0.0f;
+    // What onFrame answers for a sustained deficit: a mild one (one rung of relief), or frames more
+    // than 35 % under the target (two rungs).
+    static constexpr int kMildRelief = 1;
+    static constexpr int kSevereRelief = 2;
 
     explicit PerformanceMonitor(float targetFps = 50.0f, float sustainSeconds = 2.5f, int windowSize = 30);
     void setPacedFps(float fps) { pacedFps_.store(fps); }
@@ -53,8 +57,11 @@ public:
     // The fluid scenes and the measured fallback read this, so a 30 fps thermal cap is never mistaken
     // for a phone that cannot keep up with 60.
     float pacedFps() const { return frame::effectiveCapFps(pacedFps_.load(), tierInfo().fpsCap); }
-    // Settings › Performance "Adapt to frame time": measured frame time steers the tier even when
-    // the platform reports thermals, and a sustained run of kept-up frames steps it back up.
+    // Settings › Performance "Adapt to frame time": any sustained frame-time deficit steers the tier
+    // even when the platform reports thermals, and a sustained run of kept-up frames steps it back up.
+    // Off (the High preset) full quality is the user's choice, so a mild deficit is left alone; only
+    // frames far under the cap step down, since nobody chooses 20 fps. Once stepped down, the surface
+    // adapts as if the switch were on until it is back at Full.
     void setAdaptive(bool on);
 
     void onFrame(float dtSeconds);
@@ -64,6 +71,12 @@ public:
 
 private:
     static constexpr float kMeasuredRelaxSeconds = 45.0f;
+    // A step back up is a probe: a raise within this long of it means the phone could not hold the
+    // better tier, and the next step up waits twice as long (up to the maximum), so a style too heavy
+    // for the phone settles on the tier it can draw instead of flapping every 45 s. A probe that
+    // holds puts the wait back.
+    static constexpr float kRelaxProbeSeconds = 15.0f;
+    static constexpr float kMeasuredRelaxMaxSeconds = 720.0f;
 
     void trackMeasuredTrend(float dtSeconds);
 
@@ -72,6 +85,8 @@ private:
     std::atomic<float> pacedFps_{0.0f};
     std::atomic<bool> adaptive_{false};
     float keptUpSeconds_ = 0.0f;
+    float relaxSeconds_ = kMeasuredRelaxSeconds;
+    float sinceRelaxSeconds_ = kRelaxProbeSeconds;  // at kRelaxProbeSeconds: no probe in flight
     uint64_t seenRaises_ = 0;
     PerformanceMonitor monitor_;
 };

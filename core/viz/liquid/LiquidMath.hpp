@@ -56,6 +56,11 @@ Plan planFor(Mode mode);
 // liquid holds for seconds and the style mostly enters through the vanishing point.
 float injectWeight(float liquidity, float dt);
 
+// A frame's length in 60 Hz frames, and a weight or a step given per 60 Hz frame as this frame's
+// share of it, so the feedback keeps one look at 30, 60 and 120 Hz and in an export.
+float frames60(float dt);
+float perFrameWeight(float per60, float dt);
+
 // The vanishing point's own disc: born content fills it, the live style is kept out of it.
 float bornRadius(float liquidity);
 

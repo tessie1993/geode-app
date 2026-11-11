@@ -46,8 +46,13 @@ Plan planFor(Mode mode) {
 float injectWeight(float liquidity, float dt) {
     const float l = std::clamp(finiteOr(liquidity, 0.35f), 0.0f, 1.0f);
     const float per60 = std::exp(std::log(0.5f) + (std::log(0.012f) - std::log(0.5f)) * l);
-    const float frames = std::clamp(finiteOr(dt, 1.0f / 60.0f), 0.0f, 0.1f) * 60.0f;
-    return 1.0f - std::pow(1.0f - per60, frames);
+    return perFrameWeight(per60, dt);
+}
+
+float frames60(float dt) { return std::clamp(finiteOr(dt, 1.0f / 60.0f), 0.0f, 0.1f) * 60.0f; }
+
+float perFrameWeight(float per60, float dt) {
+    return 1.0f - std::pow(1.0f - std::clamp(finiteOr(per60, 0.0f), 0.0f, 1.0f), frames60(dt));
 }
 
 float bornRadius(float liquidity) {

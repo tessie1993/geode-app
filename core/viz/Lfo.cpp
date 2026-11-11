@@ -143,6 +143,11 @@ SceneParams applyLfoTarget(const SceneParams& r, LfoTarget target, float v) {
     return o;
 }
 
+int paramSlotOf(LfoTarget target) {
+    Drive drive{};
+    return driveOf(target, drive) ? static_cast<int>(drive.slot) : -1;
+}
+
 const std::array<float, LfoEngine::kSlots>& LfoEngine::tick(float dt, const GeodeSoundFrame& sound, const float* extRateAdd,
                                                              const float* extDepthAdd) {
     for (int i = 0; i < kSlots; i++) {

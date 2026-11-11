@@ -954,6 +954,36 @@ object GeodeNative {
     /** The requested frame rate clamped to what the export offers, 24..60. */
     external fun exportClampFps(requestedFps: Int): Int
 
+    /** The maximum take lengths Settings › Export › Record offers, in seconds; 0 is "no limit". */
+    external fun recordMaxLengths(): IntArray
+
+    /** A stored maximum take length made one of [recordMaxLengths]. */
+    external fun recordSnapMaxLength(requestedSec: Int): Int
+
+    /** Whether a take [recordedMs] long has reached [maxSec] (never with 0, no limit). */
+    external fun recordLimitReached(
+        recordedMs: Long,
+        maxSec: Int,
+    ): Boolean
+
+    /** A take's saved length: [lengthMs], or [maxSec] when the recording tick ran past it. */
+    external fun recordClampLengthMs(
+        lengthMs: Long,
+        maxSec: Int,
+    ): Long
+
+    /** The bytes [lengthSec] of video at [videoBps] takes with its AAC, the muxer's target applied. */
+    external fun recordEstimateBytes(
+        videoBps: Int,
+        lengthSec: Int,
+    ): Long
+
+    /** Whether a render that long lowers [videoBps] to stay under the muxer's target. */
+    external fun recordRateLowered(
+        videoBps: Int,
+        lengthSec: Int,
+    ): Boolean
+
     /** Chapter spans as (start ms, duration ms, source) triples; empty under two clips. */
     external fun chaptersFromClips(
         startsMs: LongArray,

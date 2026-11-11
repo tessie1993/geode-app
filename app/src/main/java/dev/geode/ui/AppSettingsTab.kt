@@ -103,7 +103,7 @@ enum class SettingsGroupKey(
         R.string.settings_group_library_summary,
         listOf(SettingsSectionKey.LYRICS, SettingsSectionKey.OTHER_FOLDERS),
     ),
-    EXPORT(R.string.settings_group_export, R.string.settings_group_export_summary),
+    EXPORT(R.string.settings_group_export, R.string.settings_group_export_summary, listOf(SettingsSectionKey.RECORD)),
     HELP(R.string.settings_group_help, R.string.settings_group_help_summary, listOf(SettingsSectionKey.HELP_TOPICS)),
     BACKUP_ABOUT(R.string.settings_group_about, R.string.settings_group_about_summary, listOf(SettingsSectionKey.ABOUT)),
     ;
@@ -149,6 +149,7 @@ enum class SettingsSectionKey(
     PERF_DETAILS(R.string.perf_details_title),
     LYRICS(R.string.settings_tab_lyrics),
     OTHER_FOLDERS(R.string.settings_section_other_folders),
+    RECORD(R.string.settings_section_record),
     HELP_TOPICS(R.string.help_topics_group),
     ABOUT(R.string.settings_tab_about),
 }
@@ -331,14 +332,17 @@ private fun SettingsSectionBody(
         SettingsSectionKey.PERF_DETAILS -> PerformanceDetailsSection()
         SettingsSectionKey.LYRICS -> LyricsSection(viewModel)
         SettingsSectionKey.OTHER_FOLDERS -> OtherFoldersSection()
+        SettingsSectionKey.RECORD -> RecordSection()
         SettingsSectionKey.HELP_TOPICS -> HelpTopicsSection()
         SettingsSectionKey.ABOUT -> AboutSection()
     }
 }
 
 /**
- * Export, loop render and their defaults belong to Studio › Render; this group only points there,
- * so someone who looks for them in Settings (where they used to be) still finds the way.
+ * Export, loop render and their defaults belong to Studio › Render; Basics only points there, so
+ * someone who looks for them in Settings (where they used to be) still finds the way. What a
+ * recorded take renders at is the group's one section ([RecordSection]): a take renders in the
+ * background with no Render page to choose on.
  */
 @Composable
 private fun ExportLinkBasics(onOpenStudioRender: () -> Unit) {

@@ -320,6 +320,8 @@ class PlayerSession internal constructor(
 
     val favourites: StateFlow<Set<String>> get() = listening.favourites
 
+    private val recordPrefs = dev.geode.data.RecordPrefsStore(prefsFiles.general)
+
     internal val takeController: TakeController =
         TakeController(
             FileTakeRepository(TakeStore(application)),
@@ -341,6 +343,8 @@ class PlayerSession internal constructor(
                     path: String,
                     sceneId: String,
                 ) = visual.emitApply(VizApply(milkPath = path, sceneId = sceneId))
+
+                override fun lengthLimitNote(recordedMs: Long): String? = recordLimitNote(application, recordPrefs, recordedMs)
 
                 override fun canRecord(): Boolean = allowsRecording()
 

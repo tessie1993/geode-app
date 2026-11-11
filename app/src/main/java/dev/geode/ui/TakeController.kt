@@ -23,11 +23,8 @@ private const val TAKE_REPLAY_HZ = 30L
 data class TakeUiState(
     val takes: List<TakeInfo> = emptyList(),
     val recording: Boolean = false,
-    val recordedEvents: Int = 0,
     val recordedMs: Long = 0L,
     val replaying: String? = null,
-    val replayMs: Long = 0L,
-    val replayEndMs: Long = 0L,
     val exportTake: String? = null,
     val note: String? = null,
     /** A take saved on the first stop with nowhere to render yet: `RecordSaveSheet` asks until [TakeController.chooseSaveTarget]. */
@@ -73,6 +70,9 @@ internal class TakeController(
             sceneId: String,
         )
 
+        /** Why a take [recordedMs] long stops now (Settings › Export › Record's maximum length), else null. */
+        fun lengthLimitNote(recordedMs: Long): String?
+
         /** Whether this user may record (Pro and the trial). */
         fun canRecord(): Boolean
 
@@ -116,7 +116,7 @@ internal class TakeController(
         recordTrackUri = host.trackUri
         wallStartMs = android.os.SystemClock.elapsedRealtime()
         recorder = PerformanceTake.Recorder(s.sceneId, s.params, host.activeMilkPath, startTrackMs = takeClockMs())
-        _state.update { it.copy(recording = true, recordedEvents = 1, recordedMs = 0L, note = null) }
+        _state.update { it.copy(recording = true, recordedMs = 0L, note = null) }
         recordJob =
             scope.launch {
                 host.vizState.collect { live -> sample(live) }
@@ -144,8 +144,10 @@ internal class TakeController(
             return
         }
         rec.append(takeClockMs(), live.sceneId, live.params, host.activeMilkPath)
-        _state.update { it.copy(recordedEvents = rec.size, recordedMs = rec.durationMs) }
-        if (!rec.hasRoom) stopRecording()
+        _state.update { it.copy(recordedMs = rec.durationMs) }
+        val full = host.lengthLimitNote(rec.durationMs)
+        if (full != null || !rec.hasRoom) stopRecording()
+        full?.let(::showNote)
     }
 
     fun stopRecording(name: String? = null) {
@@ -163,7 +165,7 @@ internal class TakeController(
         // The look and song position are read now, so the take ends on what was on screen at stop;
         // the JSON is built once the name is known. Nothing else touches the recorder after this.
         val pending = { label: String -> rec.finish(label, trackUri, stopMs, live.sceneId, live.params, milk) }
-        _state.update { it.copy(recording = false, recordedEvents = 0, recordedMs = 0L) }
+        _state.update { it.copy(recording = false, recordedMs = 0L) }
         if (maxOf(rec.durationMs, stopMs - rec.startTrackMs) < MIN_TAKE_MS) {
             showNote(TAKE_DISCARDED_NOTE)
             refresh()
@@ -249,9 +251,6 @@ internal class TakeController(
     private fun takeClockMs(): Long =
         if (recordTrackUri != null) host.trackPositionMs else android.os.SystemClock.elapsedRealtime() - wallStartMs
 
-    /** The project the take called [name] lives in, to open it in Edit. */
-    suspend fun projectOf(name: String): ProjectId? = takes.projectOf(name)
-
     private suspend fun defaultTakeName(): String {
         val taken = takes.list().map { it.name }.toSet()
         var n = 1
@@ -267,7 +266,7 @@ internal class TakeController(
                 val timeline = takes.load(name) ?: return@launch
                 if (timeline.isEmpty) return@launch
                 val endMs = maxOf(timeline.lastEventMs(), timeline.durationMs)
-                _state.update { it.copy(replaying = name, replayMs = 0L, replayEndMs = endMs) }
+                _state.update { it.copy(replaying = name) }
                 val startedAt = android.os.SystemClock.elapsedRealtime()
                 while (true) {
                     val at = android.os.SystemClock.elapsedRealtime() - startedAt
@@ -280,18 +279,17 @@ internal class TakeController(
                             host.applyMilk(path, state.sceneId)
                         }
                     }
-                    _state.update { it.copy(replayMs = at) }
                     if (at >= endMs) break
                     delay(1000L / TAKE_REPLAY_HZ)
                 }
-                _state.update { it.copy(replaying = null, replayMs = 0L, replayEndMs = 0L) }
+                _state.update { it.copy(replaying = null) }
             }
     }
 
     fun stopReplay() {
         replayJob?.cancel()
         replayJob = null
-        _state.update { it.copy(replaying = null, replayMs = 0L, replayEndMs = 0L) }
+        _state.update { it.copy(replaying = null) }
     }
 
     fun deleteTake(name: String) {

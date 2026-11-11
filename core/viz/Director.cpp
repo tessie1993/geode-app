@@ -3,9 +3,9 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <initializer_list>
 
 #include "sound/Form.hpp"
-#include "viz/Circular.hpp"
 
 namespace geode::viz {
 
@@ -17,76 +17,8 @@ std::atomic<float> gAmount{0.0f};
 std::atomic<uint64_t> gSeed{0};
 std::atomic<bool> gSwitch{false};
 
-// Where each GEMS feeling sits on the colour wheel (red 0, yellow 1/6, green 1/3, blue 2/3), after the
-// colour-emotion studies: joy yellow-orange, power and tension red, sadness blue, peace green-teal,
-// tenderness pink, nostalgia amber, wonder violet, transcendence sky blue (Jonauskaite et al. 2020, 30
-// nations, r = .88; Palmer et al. 2013 and Whiteford et al. 2018 for music: happy and fast is lighter,
-// yellower and more saturated, sad and slow darker, bluer and greyer).
-constexpr std::array<float, Emotion::kGems> kAnchor = {
-    0.76f,  // wonder: violet
-    0.56f,  // transcendence: sky
-    0.93f,  // tenderness: pink
-    0.08f,  // nostalgia: amber
-    0.42f,  // peace: green-teal
-    0.00f,  // power: red
-    0.13f,  // joy: yellow-orange
-    0.97f,  // tension: crimson
-    0.63f,  // sadness: blue
-};
+constexpr float kUntimedGlideSeconds = 2.0f;
 
-// What reacts to what, per feeling archetype.
-struct Pick {
-    ReactSource source;
-    LfoTarget target;
-    float amount;
-    float attack;
-    float release;
-};
-constexpr int kPerPool = 3;
-using Pool = std::array<Pick, kPerPool>;
-const std::array<Pool, Emotion::kGems> kPools = {{
-    // Wonder: slow expansion and sparkle; harmony moves the colour, the melody lifts the eye.
-    {{{ReactSource::ChordHue, LfoTarget::ColorShift, 0.25f, 1.0f, 2.0f},
-      {ReactSource::PitchHeight, LfoTarget::CamPitch, 0.3f, 0.4f, 1.0f},
-      {ReactSource::HarmonicChange, LfoTarget::Bloom, 0.3f, 0.05f, 1.2f}}},
-    // Transcendence: vast and upward, the phrase turns the view.
-    {{{ReactSource::PhrasePhase, LfoTarget::CamOrbit, 0.4f, 0.5f, 0.5f},
-      {ReactSource::CurvedTime, LfoTarget::CamYaw, 0.2f, 1.0f, 1.0f},
-      {ReactSource::Intensity, LfoTarget::Bloom, 0.25f, 0.5f, 1.0f}}},
-    // Tenderness: round, close, breathing.
-    {{{ReactSource::MidAtt, LfoTarget::Sway, 0.3f, 0.3f, 0.8f},
-      {ReactSource::Level, LfoTarget::Bloom, 0.2f, 0.4f, 1.0f},
-      {ReactSource::NoteChange, LfoTarget::CamPush, 0.15f, 0.2f, 1.0f}}},
-    // Nostalgia: warm drift, chords change the light.
-    {{{ReactSource::HarmonicChange, LfoTarget::Temperature, 0.3f, 0.2f, 2.0f},
-      {ReactSource::DensitySlow, LfoTarget::Saturation, -0.25f, 0.5f, 1.5f},
-      {ReactSource::Vibrato, LfoTarget::Sway, 0.3f, 0.3f, 1.0f}}},
-    // Peace: horizontal, slow.
-    {{{ReactSource::CurvedTime, LfoTarget::DriftX, 0.25f, 1.0f, 1.0f},
-      {ReactSource::Level, LfoTarget::Zoom, 0.1f, 0.5f, 1.5f},
-      {ReactSource::MidAtt, LfoTarget::CamOrbit, 0.2f, 0.5f, 1.0f}}},
-    // Power: heavy, low, impacts.
-    {{{ReactSource::Kick, LfoTarget::CamPush, 0.45f, 0.02f, 0.4f},
-      {ReactSource::BassAtt, LfoTarget::Zoom, 0.3f, 0.03f, 0.4f},
-      {ReactSource::Downbeat, LfoTarget::CamShake, 0.4f, 0.01f, 0.3f}}},
-    // Joy: bouncy, bright.
-    {{{ReactSource::Beat, LfoTarget::Bloom, 0.3f, 0.01f, 0.25f},
-      {ReactSource::Snare, LfoTarget::Twist, 0.3f, 0.02f, 0.3f},
-      {ReactSource::Kick, LfoTarget::Zoom, 0.2f, 0.02f, 0.3f}}},
-    // Tension: angular, shaking.
-    {{{ReactSource::Tension, LfoTarget::ChromaAb, 0.5f, 0.3f, 0.6f},
-      {ReactSource::HatEnv, LfoTarget::CamShake, 0.3f, 0.01f, 0.2f},
-      {ReactSource::Hfc, LfoTarget::Twist, 0.15f, 0.02f, 0.2f}}},
-    // Sadness: sinking, dark, sparse.
-    {{{ReactSource::Loudness, LfoTarget::Brightness, 0.2f, 0.8f, 2.0f},
-      {ReactSource::PitchHeight, LfoTarget::CamPitch, -0.2f, 0.5f, 1.5f},
-      {ReactSource::Level, LfoTarget::Vignette, 0.3f, 0.5f, 1.5f}}},
-}};
-
-// The colour wheel's one set of helpers (viz/Circular.hpp): hueDelta is the shortest way round, -0.5..0.5.
-using circular::mixHue;
-using circular::wrap01;
-float hueDelta(float from, float to) { return circular::arcDelta(from, to); }
 float lerp(float a, float b, float k) { return a + (b - a) * k; }
 float clamp01(float x) { return std::clamp(x, 0.0f, 1.0f); }
 float smooth(float x) {
@@ -108,45 +40,8 @@ struct Rng {
     float signedUnit() { return 2.0f * next() - 1.0f; }
 };
 
-// A GEMS factor drawn with probability ∝ weight^power, skipping `not1` and `not2`.
-int draw(const Emotion::GemsVec& g, Rng& rng, float power, int not1 = -1, int not2 = -1) {
-    std::array<float, Emotion::kGems> w{};
-    float sum = 0.0f;
-    for (int i = 0; i < Emotion::kGems; ++i) {
-        if (i == not1 || i == not2) continue;
-        w[i] = std::pow(std::max(g[i], 0.0f), power);
-        sum += w[i];
-    }
-    float u = rng.next() * sum;
-    for (int i = 0; i < Emotion::kGems; ++i) {
-        if (w[i] <= 0.0f) continue;
-        if (u < w[i]) return i;
-        u -= w[i];
-    }
-    for (int i = Emotion::kGems - 1; i >= 0; --i) {
-        if (i != not1 && i != not2) return i;
-    }
-    return 0;
-}
-
-// The pal() cosine ramp runs the colour wheel backwards (lib_palette.glsl: red, then blue at a third,
-// green at two thirds), so there a look centred on `hue` and `range` wide starts at -hue - range/2. MilkDrop's
-// tint and the simulations (SceneCommon's hue::base) read the base as a hue and sweep forward from it.
-float palBase(float hue, float range, bool palWheel) { return palWheel ? wrap01(-hue - 0.5f * range) : wrap01(hue - 0.5f * range); }
-// The other way: the hue at the centre of a palette.
-float palHue(float base, float range, bool palWheel) { return palWheel ? wrap01(-base - 0.5f * range) : wrap01(base + 0.5f * range); }
-
 Director::Look lerpLook(const Director::Look& a, const Director::Look& b, float k) {
     Director::Look o = b;
-    o.hue = mixHue(a.hue, b.hue, k);
-    o.range = lerp(a.range, b.range, k);
-    o.hue2 = mixHue(a.hue2, b.hue2, k);
-    o.range2 = lerp(a.range2, b.range2, k);
-    o.mix = lerp(a.mix, b.mix, k);
-    o.saturation = lerp(a.saturation, b.saturation, k);
-    o.brightness = lerp(a.brightness, b.brightness, k);
-    o.temperature = lerp(a.temperature, b.temperature, k);
-    o.contrast = lerp(a.contrast, b.contrast, k);
     for (int i = 0; i < kMacroCount; ++i) o.knobs[i] = lerp(a.knobs[i], b.knobs[i], k);
     o.camSmooth = lerp(a.camSmooth, b.camSmooth, k);
     o.motionBreath = lerp(a.motionBreath, b.motionBreath, k);
@@ -159,29 +54,8 @@ Director::Look lerpLook(const Director::Look& a, const Director::Look& b, float 
     o.moves.shake = lerp(a.moves.shake, b.moves.shake, k);
     o.moves.reframe = lerp(a.moves.reframe, b.moves.reframe, k);
     o.moves.cut = lerp(a.moves.cut, b.moves.cut, k);
-    o.valence = lerp(a.valence, b.valence, k);
-    o.energy = lerp(a.energy, b.energy, k);
-    o.tension = lerp(a.tension, b.tension, k);
     return o;
 }
-
-// The playing set at weight k, with its hands off every source the user set by hand (Customize › Music:
-// "the director leaves it alone"). Checked per frame, so a moment set or reset mid-look takes effect at once.
-Director::Routes scaled(const Director::Routes& base, float k, const ReactSourceMask& userOwned) {
-    Director::Routes out = base;
-    for (ReactRoute& r : out) {
-        r.amount *= k;
-        r.enabled = r.enabled && k > 0.0f && !userOwned[static_cast<size_t>(r.source)];
-    }
-    return out;
-}
-
-// Rejecting a draw: how far two looks are apart, in hue (doubled), width and saturation.
-float lookDistance(const Director::Look& a, const Director::Look& b) {
-    return 2.0f * std::fabs(hueDelta(a.hue, b.hue)) + std::fabs(a.range - b.range) + 0.5f * std::fabs(a.saturation - b.saturation);
-}
-constexpr float kMinDistance = 0.18f;
-constexpr int kTries = 12;
 
 }  // namespace
 
@@ -210,20 +84,16 @@ void Director::reset() {
 void Director::configure(const DirectorConfig& config) {
     // A new seed is a new play: forget the song so far and start deciding afresh. The look on screen
     // stays until the new play's first decision, which glides from it. Dropping it here snapped the
-    // palette, the dials and the routes back to the user's own for the four to twelve seconds the
-    // first decision waits, at every track change.
+    // dials back to the user's own for the four to twelve seconds the first decision waits, at every
+    // track change.
     if (configured_ && config.seed != config_.seed) {
         const float amount = amount_;
         const float presence = presence_;
         const Look shown = now_;
-        const ReactionEngine routes = incoming_;
-        const Routes routesBase = incomingBase_;
         reset();
         amount_ = amount;
         presence_ = presence;
         from_ = to_ = now_ = shown;
-        incoming_ = routes;
-        incomingBase_ = routesBase;
     }
     config_ = config;
     configured_ = true;
@@ -233,56 +103,18 @@ Director::Look Director::make(const Emotion::State& s, uint64_t seed, int index,
     Rng rng{seed ^ (0xD1B54A32D192ED03ull * static_cast<uint64_t>(index + 1))};
     const auto& g = s.gems;
     const float e = drop ? std::max(s.energy, 0.85f) : s.energy;
-    const float v = s.valence;
     const float t = s.tension;
-    const float sad = g[Emotion::kSadness] + g[Emotion::kNostalgia];
     const float calm = g[Emotion::kPeace] + g[Emotion::kTenderness] + g[Emotion::kTranscendence];
     const float hard = g[Emotion::kTension] + g[Emotion::kPower];
 
     Look L;
-    L.valence = v;
-    L.energy = e;
-    L.tension = t;
-    L.primary = draw(g, rng, 2.0f);
-    const int second = draw(g, rng, 1.0f, L.primary);
-    const int third = draw(g, rng, 1.0f, L.primary, second);
-
-    // Colour. The key turns the feeling's hue a little around the circle of fifths, so the same feeling
-    // in another key is a neighbouring colour, and the sharp side leans warm, the flat side cool.
-    const float fifths = static_cast<float>((s.root * 7) % 12) / 12.0f - 0.5f;
-    const float keyTurn = s.scale >= 0 ? 0.08f * fifths + 0.03f * s.sharpness : 0.0f;
-    L.hue = wrap01(kAnchor[L.primary] + keyTurn + 0.05f * rng.signedUnit());
-    if (t > 0.55f) {
-        // Strain: split complementary.
-        L.range = 0.12f + 0.13f * rng.next();
-        L.hue2 = wrap01(L.hue + 0.5f + 0.08f * rng.signedUnit());
-        L.mix = 0.25f + 0.3f * t;
-    } else if (sad > 0.45f && e < 0.5f) {
-        // Melancholy: nearly one colour.
-        L.range = 0.03f + 0.05f * rng.next();
-        L.hue2 = wrap01(L.hue + 0.04f * rng.signedUnit());
-        L.mix = 0.2f;
-    } else {
-        // Consonance: neighbours, wider the more joyful and energetic.
-        const float lift = g[Emotion::kJoy] + g[Emotion::kWonder] + 0.3f;
-        L.range = std::clamp(0.1f + 0.35f * e * lift + 0.05f * rng.signedUnit(), 0.06f, 0.6f);
-        L.hue2 = wrap01(kAnchor[second] + keyTurn + 0.05f * rng.signedUnit());
-        L.mix = 0.15f + 0.25f * rng.next();
-    }
-    L.range2 = std::clamp(L.range * (0.7f + 0.6f * rng.next()), 0.03f, 0.6f);
-    // Valdez & Mehrabian 1994: saturation carries arousal, brightness pleasure.
-    L.saturation = std::clamp(0.55f + 0.6f * e - 0.35f * sad + 0.25f * g[Emotion::kJoy] + 0.08f * rng.signedUnit(), 0.3f, 1.4f);
-    L.brightness = std::clamp(0.88f + 0.18f * v + 0.1f * g[Emotion::kJoy] - 0.12f * g[Emotion::kSadness] + 0.04f * rng.signedUnit(), 0.6f, 1.2f);
-    L.temperature = std::clamp(0.35f * v + 0.5f * g[Emotion::kNostalgia] - 0.35f * g[Emotion::kSadness] + 0.1f * s.sharpness, -0.8f, 0.8f);
-    L.contrast = std::clamp(0.95f + 0.35f * t + 0.25f * g[Emotion::kPower] - 0.2f * g[Emotion::kPeace], 0.7f, 1.4f);
-
     // Behaviour: the macro knobs, the camera, the motion field. Each gets a little seeded variety.
     auto knob = [&](float x) { return std::clamp(0.8f * x + 0.15f * rng.signedUnit(), -1.0f, 1.0f); };
     L.knobs[static_cast<int>(Macro::Energy)] = knob(2.0f * e - 1.0f + 0.3f * (g[Emotion::kPower] + g[Emotion::kJoy]) - 0.3f * g[Emotion::kPeace]);
     L.knobs[static_cast<int>(Macro::Speed)] = knob(1.6f * e - 0.8f - 0.4f * (g[Emotion::kPeace] + g[Emotion::kTranscendence]) + 0.3f * g[Emotion::kJoy]);
     L.knobs[static_cast<int>(Macro::Complexity)] =
         knob(1.5f * (g[Emotion::kWonder] + g[Emotion::kTension] + g[Emotion::kJoy]) - 1.2f * (g[Emotion::kSadness] + g[Emotion::kPeace]) + 0.3f * rng.signedUnit());
-    L.knobs[static_cast<int>(Macro::Mood)] = 0.0f;  // the palette above is the director's mood
+    L.knobs[static_cast<int>(Macro::Mood)] = 0.0f;  // colour is the style's and the user's, never the director's
     L.knobs[static_cast<int>(Macro::Space)] =
         knob(1.6f * (g[Emotion::kTranscendence] + g[Emotion::kWonder] + g[Emotion::kPeace]) - 1.2f * hard);
     L.knobs[static_cast<int>(Macro::Chaos)] =
@@ -299,63 +131,11 @@ Director::Look Director::make(const Emotion::State& s, uint64_t seed, int index,
     L.moves.shake = move(0.3f + 1.8f * hard);
     L.moves.reframe = move(0.5f + 1.5f * g[Emotion::kJoy] + g[Emotion::kPower]);
     L.moves.cut = move(0.4f + 1.5f * (g[Emotion::kPower] + g[Emotion::kJoy]) - g[Emotion::kPeace]);
-
-    // What reacts to what: two from the leading feeling, one each from the next two, louder with energy.
-    const float gain = 0.6f + 0.6f * e;
-    int n = 0;
-    auto add = [&](const Pick& p) {
-        if (n >= kRoutes) return;
-        for (int i = 0; i < n; ++i) {
-            if (L.routes[i].target == p.target) return;  // one route per target, so none fights another
-        }
-        ReactRoute& r = L.routes[n++];
-        r.enabled = true;
-        r.source = p.source;
-        r.target = p.target;
-        r.mode = ReactMode::Follow;
-        r.amount = p.amount * gain;
-        r.curve = ModCurve::Linear;
-        r.attackSeconds = p.attack;
-        r.releaseSeconds = p.release;
-    };
-    const int skip = static_cast<int>(rng.next() * kPerPool) % kPerPool;
-    for (int i = 0; i < kPerPool; ++i) {
-        if (i != skip) add(kPools[L.primary][i]);
-    }
-    add(kPools[second][static_cast<int>(rng.next() * kPerPool) % kPerPool]);
-    add(kPools[third][static_cast<int>(rng.next() * kPerPool) % kPerPool]);
     return L;
 }
 
-bool Director::farFromRecent(const Look& candidate) const {
-    for (int i = 0; i < recentCount_; ++i) {
-        if (lookDistance(candidate, recent_[i]) < kMinDistance) return false;
-    }
-    return true;
-}
-
 void Director::commit(Reason reason, float glideSeconds) {
-    const bool drop = reason == Reason::Drop;
-    // Same feeling, never the same picture: draw until the look is far from the last six, else keep the
-    // farthest of the draws.
-    Look best = make(feeling_, config_.seed, commits_ * kTries, drop);
-    float bestDistance = -1.0f;
-    for (int i = 0; i < kTries; ++i) {
-        const Look candidate = i == 0 ? best : make(feeling_, config_.seed, commits_ * kTries + i, drop);
-        if (farFromRecent(candidate)) {
-            best = candidate;
-            break;
-        }
-        float nearest = 1e9f;
-        for (int j = 0; j < recentCount_; ++j) nearest = std::min(nearest, lookDistance(candidate, recent_[j]));
-        if (nearest > bestDistance) {
-            bestDistance = nearest;
-            best = candidate;
-        }
-    }
-    for (int i = kRecent - 1; i > 0; --i) recent_[i] = recent_[i - 1];
-    recent_[0] = best;
-    recentCount_ = std::min(recentCount_ + 1, kRecent);
+    const Look best = make(feeling_, config_.seed, commits_, reason == Reason::Drop);
 
     // Nothing on screen to glide from: the first look of the first play. A look carried over from the
     // last play (configure) is glided from like any other.
@@ -365,27 +145,21 @@ void Director::commit(Reason reason, float glideSeconds) {
     glide_ = fresh ? 1.0f : 0.0f;
     glideSeconds_ = std::max(glideSeconds, 0.05f);
     now_ = fresh ? best : now_;
-    // The routes cross over: the playing set fades out while the new one fades in.
-    outgoing_ = incoming_;
-    outgoingBase_ = incomingBase_;
-    incoming_.reset();
-    incomingBase_ = best.routes;
     commits_ += 1;
     reason_ = reason;
     sinceCommit_ = 0.0f;
     barsSinceCommit_ = 0;
     modulationSeconds_ = 0.0f;
     committedKey_ = key_;
-    if (drop) dropBoost_ = 1.0f;
 }
 
-void Director::step(const GeodeSoundFrame& f, float dt, std::uint32_t handMask) {
+void Director::step(const GeodeSoundFrame& f, float dt) {
     if (!(dt > 0.0f)) return;
     emotion_.step(f, dt);
-    step(f, emotion_.state(), dt, handMask);
+    step(f, emotion_.state(), dt);
 }
 
-void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float dt, std::uint32_t handMask) {
+void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float dt) {
     if (!(dt > 0.0f)) return;
     feeling_ = heard;
     amount_ += (config_.amount - amount_) * (1.0f - std::exp(-dt / 0.7f));
@@ -400,8 +174,9 @@ void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float
     // A trigger's value is its strength (the beat tracker's confidence), not a level: any downbeat
     // or phrase the tracker fires counts, as with Form's events below.
     if (f.downbeat > 0.0f) barsSinceCommit_ += 1;
-    const float bar = f.bpm > 0.0f && f.beatConf > 0.3f ? 240.0f / f.bpm : 2.0f;
-    const float barGlide = std::clamp(bar, 1.0f, 4.0f);
+    // A look glides in over a bar of the tempo the tracker hears. With no tempo heard none is assumed:
+    // the glide is a plain two seconds.
+    const float barGlide = f.bpm > 0.0f && f.beatConf > 0.3f ? std::clamp(240.0f / f.bpm, 1.0f, 4.0f) : kUntimedGlideSeconds;
 
     if (commits_ == 0) {
         // The first look waits for a key it can trust, or twelve seconds of music, whichever comes first:
@@ -430,100 +205,50 @@ void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float
     if (commits_ > 0) presence_ += (1.0f - presence_) * (1.0f - std::exp(-dt / 1.0f));
     glide_ = std::min(1.0f, glide_ + dt / glideSeconds_);
     now_ = lerpLook(from_, to_, smooth(glide_));
-
-    const float k = smooth(glide_);
-    const float w = weight();
-    const ReactSourceMask userOwned = hand::sources(handMask);
-    outgoing_.routes = scaled(outgoingBase_, (1.0f - k) * w, userOwned);
-    incoming_.routes = scaled(incomingBase_, k * w, userOwned);
-    outgoing_.tick(f, dt);
-    incoming_.tick(f, dt);
-
-    buildUp_ = f.buildUp;
-    dropBoost_ *= std::exp(-dt / 3.0f);
-    if (s.degreeAccent > 0.5f) {
-        accent_ = 1.0f;
-        accentSign_ = s.degreeValence >= 0.0f ? 1.0f : -1.0f;
-        accentTension_ = s.degreeTension;
-    } else {
-        accent_ *= std::exp(-dt / 0.5f);
-    }
 }
 
-SceneParams Director::apply(const SceneParams& p, bool palWheel) const {
+SceneParams Director::apply(const SceneParams& p) const {
     const float a = weight();
     if (a <= 0.0f) return p;
-    const Emotion::State& s = feeling_;
     const Look& L = now_;
     SceneParams o = p;
-
-    // Between decisions the look breathes with the live feeling, read against the one it was made for.
-    const float sat = L.saturation * (1.0f + 0.3f * (s.energy - L.energy) + 0.2f * dropBoost_);
-    const float bright = L.brightness + 0.1f * (s.valence - L.valence) + 0.08f * dropBoost_;
-    const float contrast = L.contrast + 0.2f * (s.tension - L.tension);
-    // A build contracts the palette toward one hue (Huron's ITPRA: tension narrows), the drop releases it.
-    const float range = L.range * (1.0f - 0.5f * buildUp_);
-
-    // The palette, like the dials below, is base plus modulation: the look turns the user's palette
-    // by its own distance from the default one, so picking another palette still changes the picture
-    // with Auto on. Blending to the look's hue outright made the palette pickers dead at full weight.
-    // A palette the user built (a LUT) is theirs whole: the look leaves it alone.
+    // Colour is not here, on purpose: the palette, saturation, brightness, temperature and contrast
+    // are the style's and the user's. The looks drew them all from nine hue anchors and one
+    // saturation curve, so under Auto every style wore the same few colours.
     static const SceneParams kDefaults{};
-    if (p.paletteLut == SceneParams::kNoPaletteLut) {
-        const auto turn = [](float from, float to) {
-            const float d = wrap01(to - from);
-            return d > 0.5f ? d - 1.0f : d;
-        };
-        const auto widen = [a](float user, float look, float base) { return std::max(user + a * (look - base), 0.0f); };
-        const float baseHue = palHue(kDefaults.paletteBase(), kDefaults.paletteRange(), palWheel);
-        const float baseHue2 = palHue(kDefaults.palette2Base(), kDefaults.palette2Range(), palWheel);
-        const float hue = wrap01(palHue(p.paletteBase(), p.paletteRange(), palWheel) + a * turn(baseHue, L.hue));
-        const float hue2 = wrap01(palHue(p.palette2Base(), p.palette2Range(), palWheel) + a * turn(baseHue2, L.hue2));
-        const float r1 = widen(p.paletteRange(), range, kDefaults.paletteRange());
-        const float r2 = widen(p.palette2Range(), L.range2, kDefaults.palette2Range());
-        o.paletteBaseOverride = palBase(hue, r1, palWheel);
-        o.paletteRangeOverride = r1;
-        o.palette2BaseOverride = palBase(hue2, r2, palWheel);
-        o.palette2RangeOverride = r2;
-    }
-    // The dials: base plus modulation. The look is what the director would make of an untouched
-    // style, so it is added as its distance from the default; a slider the user moved keeps its
-    // whole offset. Blending toward the look instead ignored the slider at full weight, which is
-    // every Pro and trial play: Brightness and Saturation stopped answering while Auto was on.
-    // Held to the dial's own range (ParamTable.inc): a low slider under a look below the default
-    // would otherwise go negative, and a negative saturation inverts the colour.
-    const auto over = [a](float user, float look, float base, float lo = 0.0f, float hi = 1.0f) {
-        return std::clamp(user + a * (look - base), std::min(lo, user), std::max(hi, user));
+    // The camera's spring softness is base plus modulation: the look is what the director would make
+    // of an untouched style, added as its distance from the default, so a slider the user moved keeps
+    // its whole offset.
+    o.camSmooth = std::clamp(p.camSmooth + a * (L.camSmooth - kDefaults.camSmooth), std::min(0.0f, p.camSmooth), std::max(1.0f, p.camSmooth));
+    // The motion dials scale how far the music moves the picture (viz/MotionField), so the look turns
+    // them by a factor, never an offset: a dial the user set to 0 stays off, and the director cannot
+    // switch on a reaction to the sound the user switched off.
+    const auto turned = [a](float user, float look, float base) {
+        return std::clamp(user * (1.0f + 2.0f * a * (look - base)), 0.0f, std::max(1.0f, user));
     };
-    o.paletteMix = over(p.paletteMix, L.mix, kDefaults.paletteMix);
-    o.hueRange = over(p.hueRange, 1.0f, kDefaults.hueRange, 0.0f, 1.5f);
-    o.saturation = over(p.saturation, std::clamp(sat, 0.2f, 1.5f), kDefaults.saturation, 0.0f, 1.5f);
-    o.brightness = over(p.brightness, std::clamp(bright, 0.5f, 1.25f), kDefaults.brightness, 0.2f, 2.0f);
-    o.temperature = over(p.temperature, L.temperature, kDefaults.temperature, -1.0f, 1.0f);
-    o.contrast = over(p.contrast, std::clamp(contrast, 0.6f, 1.5f), kDefaults.contrast, 0.3f, 1.25f);
-    o.milkdropPaletteTint = over(p.milkdropPaletteTint, 0.6f, kDefaults.milkdropPaletteTint);
-    o.camSmooth = over(p.camSmooth, L.camSmooth, kDefaults.camSmooth);
-    o.motionBreath = over(p.motionBreath, L.motionBreath, kDefaults.motionBreath);
-    o.motionOrbit = over(p.motionOrbit, L.motionOrbit, kDefaults.motionOrbit);
-    o.motionDrift = over(p.motionDrift, L.motionDrift, kDefaults.motionDrift);
-    // The melody's degree: a short tint toward warm for the stable ones, cool for the dark ones, and a
-    // little strain on the leaning ones.
-    o.colorShift += a * accent_ * accentSign_ * (0.02f + 0.04f * accentTension_);
-    o.camShake = std::clamp(o.camShake + a * accent_ * 0.2f * accentTension_, 0.0f, 1.0f);
+    o.motionBreath = turned(p.motionBreath, L.motionBreath, kDefaults.motionBreath);
+    o.motionOrbit = turned(p.motionOrbit, L.motionOrbit, kDefaults.motionOrbit);
+    o.motionDrift = turned(p.motionDrift, L.motionDrift, kDefaults.motionDrift);
+    return o;
+}
+
+SceneParams Director::direct(const SceneParams& p, const MacroKnobs& user) const {
+    if (weight() <= 0.0f) return macros::apply(p, user);
+    SceneParams o = macros::apply(apply(p), knobs(user));
+    const SceneParams own = macros::apply(p, user);
+    for (float SceneParams::*dial : {&SceneParams::motionAmount, &SceneParams::motionBreath, &SceneParams::motionOrbit, &SceneParams::motionDrift}) {
+        if (own.*dial <= 0.0f) o.*dial = 0.0f;
+    }
     return o;
 }
 
 MacroKnobs Director::knobs(const MacroKnobs& user) const {
     const float a = weight();
     if (a <= 0.0f) return user;
-    const Emotion::State& s = feeling_;
-    MacroKnobs d = now_.knobs;
-    d[static_cast<int>(Macro::Energy)] += 0.4f * (s.energy - now_.energy) + 0.4f * dropBoost_;
-    d[static_cast<int>(Macro::Chaos)] += 0.4f * (s.tension - now_.tension) + 0.3f * dropBoost_;
-    d[static_cast<int>(Macro::Speed)] += 0.3f * buildUp_;
-    d[static_cast<int>(Macro::Space)] += 0.3f * dropBoost_ - 0.4f * buildUp_;
+    // The look as decided, held until the next decision: nothing here follows the frame, so between
+    // decisions the picture moves only by the reaction matrix and the user's motion dials.
     MacroKnobs out = user;
-    for (int i = 0; i < kMacroCount; ++i) out[i] = std::clamp(user[i] + a * d[i], -1.0f, 1.0f);
+    for (int i = 0; i < kMacroCount; ++i) out[i] = std::clamp(user[i] + a * now_.knobs[i], -1.0f, 1.0f);
     return out;
 }
 
@@ -540,11 +265,6 @@ CameraRig::Moves Director::moves(const CameraRig::Moves& base) const {
     o.reframe *= lerp(1.0f, m.reframe, a);
     o.cut *= lerp(1.0f, m.cut, a);
     return o;
-}
-
-SceneParams Director::applyRoutes(const SceneParams& p) const {
-    if (weight() <= 0.0f) return p;
-    return incoming_.apply(outgoing_.apply(p));
 }
 
 }  // namespace geode::viz

@@ -53,14 +53,14 @@ GEODE_API int         geode_react_source_catalog(char* out, int capacity);
 GEODE_API void        geode_macros_set(const float* knobs, int count);
 GEODE_API void        geode_macros_surprise(const float* knobs, int count, unsigned lock_mask, long long seed, float* out);
 GEODE_API int         geode_macro_starters(char* out, int capacity);
-/* The auto-director (core/viz/Director): the music's feeling deciding palette, behaviour and routing over
- * every style. on is the user's switch as set (1/0), which an export directs by (geode_viz_pin_engine_settings);
+/* The auto-director (core/viz/Director): the music's feeling deciding behaviour (macro knobs, camera moves,
+ * motion dials) over every style; never a colour, never a route. on is the user's switch as set (1/0), which an export directs by (geode_viz_pin_engine_settings);
  * amount 0 off .. 1 full is what live surfaces drive with now, eased in and out by each renderer; seed is the
  * play's, so a new seed is a new play (the renderer forgets the song so far) and an export pinned with it
  * makes the same film. */
 GEODE_API void        geode_director_set(int on, float amount, long long seed);
-/* Note & key reactions (core/viz/NoteResponse): notes, chords, key and mood driving the style knobs, note
- * colours, the tint and a gentle shape and distortion on every style. Process-wide like the director; each
+/* Note & key reactions (core/viz/NoteResponse): notes, chords, key and mood driving the six style knobs each
+ * style spends its own way; no scene param and no colour. Process-wide like the director; each
  * renderer eases it in and out, and off (0) is exactly the picture without it. The seed is the director's. */
 GEODE_API void        geode_note_response_set(int enabled);
 /* Customize › Advanced › Layers (core/viz/LayerState): a second style over the main one, process-wide like

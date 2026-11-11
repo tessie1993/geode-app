@@ -459,8 +459,8 @@ private fun NoteKeySlider(
 }
 
 /**
- * Music › Notes & key: how strongly each part of the musical layer (core/viz/NoteResponse) moves this
- * style, saved with the style like every Customize value. The switch that runs the layer at all is
+ * Music › Notes & key: how strongly each part of the musical layer (core/viz/NoteResponse) feeds this
+ * style's own knobs, saved with the style like every Customize value. The switch that runs the layer at all is
  * Settings › Behaviour (free, on by default); with it off these sliders do nothing, so the page says so
  * rather than letting a user drag a dead control.
  */
@@ -473,9 +473,6 @@ internal fun NoteKeyPage(
     val running by remember { NoteResponseStore.get(context) }.enabled.collectAsStateWithLifecycle()
     if (!running && sectionVisible()) ControlHint(stringResource(R.string.note_key_off))
     ControlHint(stringResource(R.string.note_key_intro))
-    NoteKeySlider(R.string.note_key_color, R.string.note_key_color_hint, p, SceneParams::noteColor) {
-        onChange(p.copy(noteColor = it))
-    }
     NoteKeySlider(R.string.note_key_pitch, R.string.note_key_pitch_hint, p, SceneParams::notePitch) {
         onChange(p.copy(notePitch = it))
     }

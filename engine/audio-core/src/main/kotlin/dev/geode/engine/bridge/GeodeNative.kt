@@ -298,8 +298,8 @@ object GeodeNative {
     )
 
     /**
-     * Note & key reactions (core/viz/NoteResponse): the notes, chords, key and mood drive the style knobs,
-     * the note colours, the tint toward them and a gentle shape and distortion. Process-wide like
+     * Note & key reactions (core/viz/NoteResponse): the notes, chords, key and mood drive the six style
+     * knobs each style spends its own way; no scene param, no colour. Process-wide like
      * the director, so the screen, an export, the wallpaper and the dream agree; off is exactly the picture
      * without it. The play's seed is the director's ([directorSet]). A live renderer mixes fresh entropy into it per play,
      * so the live note response differs every time; an export pins its settings with none

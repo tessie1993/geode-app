@@ -15,7 +15,7 @@ struct EngineSettings {
     viz::MacroKnobs knobs{};          // Customize › Macros, each -1..1
     viz::DirectorConfig director{};   // the auto-director's amount and play seed
     bool notesOn = false;             // Settings › Behaviour › Note & key reactions
-    std::uint32_t handMask = 0;       // Customize › Music: the moments set by hand (viz::hand), the director keeps off
+    std::uint32_t handMask = 0;       // Customize › Music: the moments set by hand (viz::hand); an export pins it for its route merge
     bool reducedMotion = false;       // the system's reduced motion, applied once by the motion field and the clamp
     std::uint64_t noteEntropy = 0;    // mixed into the note layer's seed (the play seed ^ this)
 };

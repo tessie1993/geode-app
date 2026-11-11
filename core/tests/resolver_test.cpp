@@ -120,7 +120,6 @@ GeodeSoundFrame frame(float t) {
 StyleContext style(const std::string& id, bool switched) {
     StyleContext s;
     s.id = &id;
-    s.shaderFamily = true;
     s.spin = 1.0f;
     s.switched = switched;
     return s;
@@ -153,15 +152,13 @@ ReactRoute route(ReactSource source, LfoTarget target, float amount) {
     return r;
 }
 
-// The director's look under the macros, each added to the user's value (base plus modulation): Mood -1
-// takes the look's saturation down by the knob's whole reach, to 0 where the look had less than that
-// to give. An LFO on saturation then shows on top of both. The hand mask keeps the director's own
-// routes off every moment, so nothing else writes saturation.
+// The director's look under the macros, under the LFOs: its knobs are added to the user's (Speed runs above
+// the user's own under a happy song), the user's Mood -1 still takes the saturation down by the knob's whole
+// reach, and an LFO on saturation shows on top of both. No route is set, so nothing else writes them.
 void testOrder() {
     EngineSettings s;
     s.director = {1.0f, 42};
     s.knobs[static_cast<int>(Macro::Mood)] = -1.0f;
-    s.handMask = hand::kAll;
     EngineSettings centred = s;
     centred.knobs[static_cast<int>(Macro::Mood)] = 0.0f;
     auto plain = std::make_unique<Resolver>();
@@ -187,13 +184,146 @@ void testOrder() {
             lowered = lowered && (a.saturation <= 1e-6f || a.saturation < c.saturation - 0.5f);
             maxPlain = std::max(maxPlain, std::fabs(a.saturation));
             maxLfo = std::max(maxLfo, b.saturation);
-            lookInPlace = lookInPlace && a.paletteBaseOverride != SceneParams::kUnsetOverride;
+            lookInPlace = lookInPlace && a.camSmooth != requested.camSmooth && c.saturation == requested.saturation;
         }
     }
     check(plain->director().commits() >= 1 && plain->director().weight() > 0.9f, "the director is fully in");
-    check(lookInPlace, "the director's look reaches the final params");
-    check(lowered, "the macros lie over the director's look (Mood -1 takes its saturation down, peak " + std::to_string(maxPlain) + ")");
+    check(lookInPlace, "the director's look reaches the final params, and leaves the saturation the user's");
+    check(lowered, "the macros lie over the director's look (Mood -1 takes the saturation down, peak " + std::to_string(maxPlain) + ")");
     check(maxLfo > 0.2f, "an LFO moves on top of the director and the macros (peak " + std::to_string(maxLfo) + ")");
+}
+
+// The owner's two rules, held on the whole chain with Auto and Note & key reactions both on.
+//
+// "No colour narrowing": every colour param the scene is drawn with is the one the user set, through a
+// song with kicks, a melody, a drop and a new section. (Hue drift is the user's own Motion dial; it is
+// off here, and its own maths is viz_math_test's.)
+//
+// "No hardcoded reactions": with no route set and the Motion dials at 0, the params do not hear the
+// frame at all. Two resolvers get the same feeling and the same decisions (key, sections, a drop) but
+// one hears drums, a melody, a build and chord changes and the other a flat tone: their params are equal
+// bit for bit. One reaction route (the user's, or the style's DNA: the same engine) is what makes the
+// picture move.
+GeodeSoundFrame flat(float t) {
+    GeodeSoundFrame f = frame(t);
+    f.onset = f.onsetEnv = 0.0f;
+    f.bass = f.bassAtt = 1.0f;
+    f.low = 0.5f;
+    f.pitchClass = 0.0f;
+    f.pitchHeight = 0.5f;
+    f.pitch = 60.0f;
+    f.noteChange = 0.0f;
+    return f;
+}
+
+GeodeSoundFrame busy(float t, int i) {
+    GeodeSoundFrame f = frame(t);
+    f.kick = f.onset;
+    f.kickEnv = f.onsetEnv;
+    f.snare = i % 24 == 12 ? 1.0f : 0.0f;
+    f.snareEnv = f.snare;
+    f.hat = i % 6 == 0 ? 0.7f : 0.0f;
+    f.kickRandom = 0.37f * static_cast<float>(i % 7);
+    f.interval = i % 2 == 0 ? 0.6f : -0.2f;
+    f.harmonicChange = i % 150 == 75 ? 0.8f : 0.0f;
+    f.buildUp = static_cast<float>(i % 600) / 600.0f;
+    f.tension = 0.5f + 0.4f * std::sin(0.01f * static_cast<float>(i));
+    f.intensity = 0.5f + 0.5f * std::sin(0.02f * static_cast<float>(i));
+    f.stereoWidth = 0.6f;
+    f.stereoPan = 0.5f * std::sin(0.03f * static_cast<float>(i));
+    f.treble = f.trebleAtt = 1.0f + 0.8f * std::fabs(std::sin(0.2f * static_cast<float>(i)));
+    f.mid = f.midAtt = 1.0f + 0.6f * std::fabs(std::sin(0.13f * static_cast<float>(i)));
+    f.vol = f.volAtt = 1.0f + 0.5f * f.onsetEnv;
+    f.hardCut = i % 400 == 399 ? 1.0f : 0.0f;
+    f.presence = 1.0f;
+    return f;
+}
+
+void testNoColourNarrowingNoFixedReactions() {
+    EngineSettings s;
+    s.director = {1.0f, 42};
+    s.notesOn = true;
+    s.noteEntropy = 0xABCDull;
+    SceneParams requested;
+    requested.palette = 6;
+    requested.paletteMix = 0.4f;
+    requested.hueRange = 0.7f;
+    requested.saturation = 0.6f;
+    requested.brightness = 1.1f;
+    requested.temperature = -0.2f;
+    requested.contrast = 0.9f;
+    requested.colorShift = 0.15f;
+    requested.milkdropPaletteTint = 0.3f;
+    requested.motionHue = 0.0f;
+    static const char* const kColour[] = {"palette", "paletteBaseOverride", "paletteRangeOverride", "paletteMix", "hueRange", "saturation",
+                                          "brightness", "temperature", "contrast", "colorShift", "milkdropPaletteTint"};
+    geode::sound::Emotion::State feeling;
+    feeling.valence = 0.5f;
+    feeling.energy = 0.8f;
+    feeling.tension = 0.4f;
+    feeling.confidence = 0.9f;
+    feeling.gems[geode::sound::Emotion::kJoy] = 0.6f;
+    feeling.gems[geode::sound::Emotion::kPower] = 0.4f;
+
+    auto coloured = std::make_unique<Resolver>();
+    std::string strayed;
+    float knobTravel = 0.0f;
+    const int frames = static_cast<int>(40.0f / kDt);
+    float t = 0.0f;
+    for (int i = 0; i < frames; ++i, t += kDt) {
+        GeodeSoundFrame f = busy(t, i);
+        if (i == 1200) f.drop = 1.0f;
+        if (i == 1800) f.sectionChange = 1.0f;
+        const SceneParams& p = coloured->step(requested, f, kDt, s, style(kStyle, i == 0), &feeling).params;
+        for (const char* name : kColour) {
+            if (strayed.empty() && p.get(name) != requested.get(name)) strayed = name;
+        }
+        for (float k : coloured->noteUniforms().knobs) knobTravel = std::max(knobTravel, std::fabs(k - 0.5f));
+    }
+    check(coloured->director().commits() >= 3 && coloured->director().weight() > 0.9f, "the director decided, at the drop and the section too");
+    check(coloured->notes().amount() > 0.9f && knobTravel > 0.2f, "the note layer is in and its knobs move");
+    check(strayed.empty(), "with Auto and Note & key on every colour param is the user's (strayed: " + strayed + ")");
+
+    SceneParams still = requested;
+    still.motionAmount = still.motionBreath = still.motionOrbit = still.motionDrift = still.motionHue = 0.0f;
+    for (const bool routed : {false, true}) {
+        auto heard = std::make_unique<Resolver>();
+        auto deaf = std::make_unique<Resolver>();
+        if (routed) {
+            std::array<ReactRoute, ReactionEngine::kRoutes> routes{};
+            routes[0] = route(ReactSource::Bass, LfoTarget::Zoom, 0.6f);
+            heard->setReactionRoutes(routes);
+            deaf->setReactionRoutes(routes);
+        }
+        bool same = true;
+        std::string moved;
+        t = 0.0f;
+        for (int i = 0; i < frames; ++i, t += kDt) {
+            GeodeSoundFrame a = busy(t, i);
+            GeodeSoundFrame b = flat(t);
+            // The decisions are the same in both: the hard cut, the drop and the section are what a look is made at.
+            b.hardCut = a.hardCut;
+            if (i == 1200) a.drop = b.drop = 1.0f;
+            if (i == 1800) a.sectionChange = b.sectionChange = 1.0f;
+            const Resolver::Frame& fa = heard->step(still, a, kDt, s, style(kStyle, i == 0), &feeling);
+            const Resolver::Frame& fb = deaf->step(still, b, kDt, s, style(kStyle, i == 0), &feeling);
+            if (!sameBits(wire(fa.params), wire(fb.params))) {
+                if (same) {
+                    for (const auto& spec : SceneParams::schema()) {
+                        if (fa.params.get(spec.name) != fb.params.get(spec.name)) moved += std::string(spec.name) + " ";
+                    }
+                }
+                same = false;
+            }
+            same = same && std::memcmp(&fa.cameraMoves, &fb.cameraMoves, sizeof(fa.cameraMoves)) == 0;
+        }
+        if (routed) {
+            check(!same && moved == "zoom ", "a reaction route is what moves the picture, and only its target (moved: " + moved + ")");
+        } else {
+            check(heard->director().commits() >= 3, "the director decided through it");
+            check(same, "with no route and the Motion dials at 0 no param hears the drums, the melody or a build (moved: " + moved + ")");
+        }
+    }
 }
 
 // Reduced motion scales the forward speeds once, by kReducedMotionScale (0.4), never 0.4 x 0.4.
@@ -448,10 +578,10 @@ struct Rng {
     bool coin() { return (raw() & 1u) != 0u; }
 };
 
-// The per-frame chain exactly as main's Renderer::resolveParams ran it before #344, the stages called in that
-// order on stages of its own. The one change: the director takes the hand mask as an argument, where the old
-// step read hand::global(); the oracle hands it the same mask the resolver gets, which is what the global
-// held. The parity property below holds the resolver to it bit for bit.
+// The per-frame chain as Renderer::resolveParams ran it before #344, the stages called in that order on
+// stages of its own, less what the owner's rules took out since: the director's palette and routes, the
+// note layer's params and the director's knobs on the macro routes. The parity property below holds the
+// resolver to it bit for bit.
 struct OldChain {
     viz::LfoEngine lfo;
     viz::AdsrEngine adsr;
@@ -488,8 +618,7 @@ struct OldChain {
     // Renderer::resolveActiveScene, on a new style.
     void sceneSwitched(const std::string& id) { motionField.setVariant(viz::styleVariantSeed(id)); }
 
-    void resolve(const SceneParams& requested, const GeodeSoundFrame& soundFrame, float dt, const EngineSettings& s,
-                 bool palWheel, float spin) {
+    void resolve(const SceneParams& requested, const GeodeSoundFrame& soundFrame, float dt, const EngineSettings& s, float spin) {
         float morph;
         if (morphRemainSec > 0.0f) {
             morphRemainSec -= dt;
@@ -501,7 +630,7 @@ struct OldChain {
         displayedParams = fade <= 0.01f ? requested : viz::lerpParams(displayedParams, requested, std::clamp(dt / fade, 0.0f, 1.0f));
         const viz::DirectorConfig directorConfig = s.director;
         director.configure(directorConfig);
-        director.step(soundFrame, dt, s.handMask);
+        director.step(soundFrame, dt);
         styleMoments = 0;
         if (director.commits() != directorCommitsSeen) {
             directorCommitsSeen = director.commits();
@@ -513,9 +642,6 @@ struct OldChain {
         {
             const SceneParams& own = displayedParams;
             viz::NoteResponse::Inputs in;
-            in.anchorHue = director.look().hue;
-            in.anchorWeight = director.weight();
-            in.color = own.noteColor;
             in.pitch = own.notePitch;
             in.intervals = own.noteIntervals;
             in.tension = own.noteTension;
@@ -526,14 +652,20 @@ struct OldChain {
         const auto& envValues = adsr.tick(dt, soundFrame);
         AdsrEngine::lfoOffsets(adsr.configs, envValues, envRate, envDepth);
         const auto& lfoValues = lfo.tick(dt, soundFrame, envRate.data(), envDepth.data());
-        SceneParams p = lfo.apply(viz::macros::apply(notes.apply(director.apply(displayedParams, palWheel)), directedKnobs), lfoValues);
+        SceneParams directed = viz::macros::apply(director.apply(displayedParams), directedKnobs);
+        // A Motion dial the user's own settings hold at 0 stays off under the look.
+        const SceneParams own = viz::macros::apply(displayedParams, s.knobs);
+        if (own.motionAmount <= 0.0f) directed.motionAmount = 0.0f;
+        if (own.motionBreath <= 0.0f) directed.motionBreath = 0.0f;
+        if (own.motionOrbit <= 0.0f) directed.motionOrbit = 0.0f;
+        if (own.motionDrift <= 0.0f) directed.motionDrift = 0.0f;
+        SceneParams p = lfo.apply(directed, lfoValues);
         p = AdsrEngine::apply(p, adsr.configs, envValues);
         reactions.tick(soundFrame, dt);
         p = reactions.apply(p);
-        macroReactions.routes = viz::macros::routes(directedKnobs);
+        macroReactions.routes = viz::macros::routes(s.knobs);
         macroReactions.tick(soundFrame, dt);
         p = macroReactions.apply(p);
-        p = director.applyRoutes(p);
         motionField.step(soundFrame, dt);
         p = motionField.apply(p, s.reducedMotion, spin);
         p = safety::apply(p, s.reducedMotion);
@@ -683,9 +815,9 @@ float randomDt(Rng& g) {
 // Parity: the resolver gives the old chain's frames bit for bit (params, style moments, camera moves,
 // note uniforms) over 16 seeded runs of 900 frames, with configs, settings, requests,
 // style switches, preset morphs and new surfaces changing at random. Kills any two stages swapped (director/
-// notes/macros/LFO nesting, LFO/envelope, envelope/reactions, reactions/macro routes/director routes, motion
+// macros/LFO nesting, LFO/envelope, envelope/reactions, reactions/macro routes, motion
 // field/safety), any stage dropped, the morph's x3 and <= 0, the fade's 0.01 cut, max, clamp and dt/fade,
-// the hand mask, the note seed's ^ entropy, the anchor hue and weight, the note inputs read from the faded
+// the macro routes read from the user's knobs, the note seed's ^ entropy, the note inputs read from the faded
 // params, the style moments' Section || Drop and their reset each frame, the
 // camera moves read from the directed knobs, reducedMotion and spin passed to the motion field, the style
 // switch's variant, and every reset() of a stage.
@@ -708,7 +840,6 @@ void testParityWithTheOldChain() {
         EngineSettings s = randomSettings(g);
         SceneParams requested = randomRequested(g);
         const std::string* id = nullptr;
-        bool shader = true;
         float spin = 1.0f;
         float t = 0.0f;
         bool same = true;
@@ -735,7 +866,7 @@ void testParityWithTheOldChain() {
             bool switched = false;
             if (i == 30 || g.below(120) == 0) {
                 id = &kIds[static_cast<size_t>(g.below(3))];
-                shader = g.coin();
+                g.coin();  // once the palette wheel's pick; drawn still, so the runs keep their sequence
                 spin = kSpins[g.below(3)];
                 switched = true;
                 old->sceneSwitched(*id);
@@ -749,14 +880,12 @@ void testParityWithTheOldChain() {
             }
             const float dt = randomDt(g);
             const GeodeSoundFrame f = noisyFrame(t, g);
-            const bool palWheel = id == nullptr || shader;
             StyleContext st;
             st.id = id;
-            st.shaderFamily = palWheel;
             st.spin = spin;
             st.switched = switched;
             const Resolver::Frame& a = now->step(requested, f, dt, s, st);
-            old->resolve(requested, f, dt, s, palWheel, spin);
+            old->resolve(requested, f, dt, s, spin);
             moments += a.styleMoments;
             same = same && sameBits(wire(a.params), wire(old->params)) && a.styleMoments == old->styleMoments &&
                    std::memcmp(&a.cameraMoves, &old->cameraMoves, sizeof(a.cameraMoves)) == 0 &&
@@ -977,8 +1106,9 @@ void testDisabledStagesAreExactIdentity() {
     check(same, "LFOs, envelopes and routes switched off change no bit of the params");
 }
 
-// The note layer switched off is exact identity whatever the play's entropy: the knobs sit at exactly 0.5,
-// no tint, and the params match bit for bit. Switched on, a new entropy is a new personality.
+// The note layer switched off is exact identity whatever the play's entropy: the knobs sit at exactly 0.5
+// and the params match bit for bit. Switched on, a new entropy swings the chord changes another way (the
+// SPACE knob), and still changes no param: the layer writes none.
 // Kills: the note layer configured on whatever the switch, the entropy left out of the note seed.
 void testNoteLayerOffIgnoresEntropyOnHearsIt() {
     EngineSettings a = richSettings();
@@ -999,10 +1129,10 @@ void testNoteLayerOffIgnoresEntropyOnHearsIt() {
         same = same && sameBits(wa, wb);
         const viz::NoteUniforms& u = ra->noteUniforms();
         for (float k : u.knobs) rest = rest && k == 0.5f;
-        rest = rest && u.amount == 0.0f && u.tint[3] == 0.0f;
+        rest = rest && u.amount == 0.0f;
     }
     check(same, "with the note layer off, the play's entropy changes nothing");
-    check(rest, "with the note layer off its knobs sit at exactly 0.5 and there is no tint");
+    check(rest, "with the note layer off its knobs sit at exactly 0.5");
 
     a.notesOn = true;
     b.notesOn = true;
@@ -1010,16 +1140,18 @@ void testNoteLayerOffIgnoresEntropyOnHearsIt() {
     auto cb = std::make_unique<Resolver>();
     t = 0.0f;
     bool differ = false;
+    bool paramsSame = true;
     for (int i = 0; i < 600; ++i, t += kDt) {
         GeodeSoundFrame f = frame(t);
-        if (i == 400) f.sectionChange = 1.0f;
+        if (i % 120 == 60) f.harmonicChange = 0.7f;
         const StyleContext st = style(kStyle, i == 0);
         const Wire wa = wire(ca->step(requested, f, kDt, a, st).params);
         const Wire wb = wire(cb->step(requested, f, kDt, b, st).params);
-        differ = differ || !sameBits(wa, wb) ||
-                 std::memcmp(&ca->noteUniforms(), &cb->noteUniforms(), sizeof(viz::NoteUniforms)) != 0;
+        paramsSame = paramsSame && sameBits(wa, wb);
+        differ = differ || std::memcmp(&ca->noteUniforms(), &cb->noteUniforms(), sizeof(viz::NoteUniforms)) != 0;
     }
-    check(differ, "with the note layer on, a new play's entropy gives the notes a new personality");
+    check(differ, "with the note layer on, a new play's entropy swings the chord changes another way");
+    check(paramsSame, "and the note layer still writes no param");
 }
 
 // A live renderer and an export render share one process: three resolvers stepped in turn (live at
@@ -1093,6 +1225,7 @@ void testLiveAndExportNeverHearEachOther() {
 
 int main() {
     testOrder();
+    testNoColourNarrowingNoFixedReactions();
     testReducedMotionOnce();
     testPinnedAgainstGlobals();
     testDirectorForExport();

@@ -52,9 +52,9 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     director_.configure(settings.director);
     // The engine's own feeling when the caller has one (the renderer), else the director steps its own.
     if (heard != nullptr) {
-        director_.step(sound, *heard, dt, settings.handMask);
+        director_.step(sound, *heard, dt);
     } else {
-        director_.step(sound, dt, settings.handMask);
+        director_.step(sound, dt);
     }
     frame_.styleMoments = 0;
     if (director_.commits() != directorCommitsSeen_) {
@@ -62,16 +62,13 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
         if (director_.styleMoment()) frame_.styleMoments = 1;
     }
     directedKnobs_ = director_.knobs(settings.knobs);
-    // Note & key reactions hear the frame next, inside the director's look: its hue anchors the notes'
-    // colours, and its feeling (the director's emotion, stepped whether or not it drives) is the mood. Its
-    // tuning is the style's own (Customize), read before the director and macros touch it.
+    // Note & key reactions hear the frame next, with the feeling the director heard (stepped whether or
+    // not it drives). They publish the style knobs only and write no param. Their tuning is the style's
+    // own (Customize).
     notes_.configure({settings.notesOn, settings.director.seed ^ settings.noteEntropy});
     {
         const SceneParams& own = displayed_;
         viz::NoteResponse::Inputs in;
-        in.anchorHue = director_.look().hue;
-        in.anchorWeight = director_.weight();
-        in.color = own.noteColor;
         in.pitch = own.notePitch;
         in.intervals = own.noteIntervals;
         in.tension = own.noteTension;
@@ -82,21 +79,19 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     const auto& envValues = adsr_.tick(dt, sound);
     viz::AdsrEngine::lfoOffsets(adsr_.configs, envValues, envRate_, envDepth_);
     const auto& lfoValues = lfo_.tick(dt, sound, envRate_.data(), envDepth_.data());
-    // Order: the director's look, the note layer inside it, then the user's macros and LFOs over both. The
-    // macros lay over the user's params first, so every stage after them (and the safety clamp) sees the
-    // knobbed look.
-    SceneParams p = lfo_.apply(viz::macros::apply(notes_.apply(director_.apply(displayed_, style.shaderFamily)), directedKnobs_), lfoValues);
+    // Order: the director's look, then the macros and the user's LFOs over it. The macros lay over the
+    // user's params first, so every stage after them (and the safety clamp) sees the knobbed look.
+    SceneParams p = lfo_.apply(director_.direct(displayed_, settings.knobs), lfoValues);
     p = viz::AdsrEngine::apply(p, adsr_.configs, envValues);
     // The reaction matrix: per-style routes from the sound frame to many targets. Ahead of the motion
     // field and the safety clamp, like the LFOs.
     reactions_.tick(sound, dt);
     p = reactions_.apply(p);
-    // The macros' own routes, in an engine of their own so they never take a user slot.
-    macroReactions_.routes = viz::macros::routes(directedKnobs_);
+    // The macros' own routes, in an engine of their own so they never take a user slot. They follow the
+    // knobs the user turned, never the director's: Auto plays no route of its own.
+    macroReactions_.routes = viz::macros::routes(settings.knobs);
     macroReactions_.tick(sound, dt);
     p = macroReactions_.apply(p);
-    // The director's routes, crossfading at each decision, in engines of their own.
-    p = director_.applyRoutes(p);
     // The continuous motion system: the one stage every family's parameters pass through, fed the sound
     // frame (never a single drum hit or PCM impulse), ahead of the safety clamp so nothing it adds can
     // exceed the flash and motion limits.

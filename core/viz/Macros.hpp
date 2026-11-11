@@ -36,7 +36,7 @@ namespace macros {
 
 // The macros' own routes ride in a second reaction engine, so they never take one of the 12 slots the
 // style DNA, Events and the user share.
-constexpr int kRoutes = 7;
+constexpr int kRoutes = 6;
 
 MacroKnobs clamped(const float* values, int count);
 

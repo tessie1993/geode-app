@@ -952,7 +952,7 @@ void macrosNeverHoldThePictureTwisted() {
     for (const ReactRoute& r : macros::routes(all)) {
         if (r.enabled && r.target == LfoTarget::Twist) kick += std::fabs(r.amount);
     }
-    check(kick <= 0.2f + 1e-5f, "with every knob full up the knobs' routes twist by a nudge, not a spiral");
+    check(kick == 0.0f, "with every knob full up no knob's route twists the picture (Chaos kicked it on every style)");
 }
 
 void macrosScaleTheSoundAndTheCamera() {
@@ -969,7 +969,7 @@ void macrosScaleTheSoundAndTheCamera() {
         ++on;
         check(r.amount > 0.0f && r.amount <= 0.25f + 1e-5f, "a half turn plays its routes at half depth");
     }
-    check(on == 2, "Chaos up adds its two routes and nothing else");
+    check(on == 1, "Chaos up adds its one route and nothing else");
 }
 
 void chaosDownStopsCameraCuts() {
@@ -1189,6 +1189,12 @@ void driveScalesTheMagnitudeOfMotion() {
     check(quiet.state().energyRel < 0.4f * loud.state().energyRel, "the motion field's energy follows the drive");
     check(quiet.state().midRel < 0.4f * loud.state().midRel, "so does the drift's mid clock");
     check(loud.apply(SceneParams{}, false, 1.0f).speed > quiet.apply(SceneParams{}, false, 1.0f).speed, "and the speed it adds");
+    // Speed used to follow the loudness whatever the dial said. It is under the Motion dial like every
+    // other term: at 0 the music leaves the user's Speed alone.
+    SceneParams undriven;
+    undriven.motionAmount = 0.0f;
+    undriven.speed = 1.3f;
+    check(loud.apply(undriven, false, 1.0f).speed == 1.3f && quiet.apply(undriven, false, 1.0f).speed == 1.3f, "Motion at 0: the music does not touch Speed");
     // A steady passage sits on the song's own average: its size, density and trails stay the user's.
     GeodeSoundFrame steady = pad;
     steady.volAtt = steady.bassAtt = steady.midAtt = steady.trebleAtt = 1.0f;

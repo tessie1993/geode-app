@@ -69,9 +69,8 @@ import kotlinx.coroutines.delay
  *
  * WHY it fades on every screen (docs/ui-redesign): the owner wants the screen to belong to what is
  * on it, and the player back within one touch. It wakes on [wake] (a tap at the bottom of the
- * visual, the handle pill, a new track, a new screen) and falls asleep [fadeMs] later; [pin]
- * holds it awake for [PIN_MS] (a tap on the player itself), [hide] puts it to sleep at once (a
- * swipe down on it). A [fadeMs] of zero means it never fades. While [held] (a PiP window, which
+ * visual, the handle pill, a new track, a new screen) and falls asleep [fadeMs] later; [hide]
+ * puts it to sleep at once (a swipe down on it). A [fadeMs] of zero means it never fades. While [held] (a PiP window, which
  * shows the visual alone) nothing wakes it.
  */
 @Stable
@@ -83,11 +82,8 @@ internal class ShellChromeState {
 
     val awake: Boolean get() = shown && !held
 
-    /** Bumped on every wake or pin, so the sleep timer starts over. */
+    /** Bumped on every wake, so the sleep timer starts over. */
     internal var stamp by mutableLongStateOf(0L)
-        private set
-
-    internal var pinned by mutableStateOf(false)
         private set
 
     /**
@@ -97,15 +93,11 @@ internal class ShellChromeState {
      */
     var docked by mutableStateOf(false)
 
+    /** Set by Visuals while its docked mini player shows: the tab bar under it joins it as one slab. */
+    var playerAttached by mutableStateOf(false)
+
     fun wake() {
         shown = true
-        pinned = false
-        stamp++
-    }
-
-    fun pin() {
-        shown = true
-        pinned = true
         stamp++
     }
 
@@ -116,17 +108,10 @@ internal class ShellChromeState {
 
     fun hide() {
         shown = false
-        pinned = false
     }
 
     internal fun sleep() {
         shown = false
-        pinned = false
-    }
-
-    companion object {
-        /** How long a pinned player stays: "for a while", long enough to read and reach it. */
-        const val PIN_MS = 30_000L
     }
 }
 
@@ -153,7 +138,7 @@ internal fun rememberShellChrome(
     }
     LaunchedEffect(state.awake, state.stamp, fadeSeconds) {
         if (!state.awake || fadeSeconds <= 0f) return@LaunchedEffect
-        val base = if (state.pinned) ShellChromeState.PIN_MS else (fadeSeconds * MILLIS_PER_SECOND).toLong()
+        val base = (fadeSeconds * MILLIS_PER_SECOND).toLong()
         val timeout = a11y?.calculateRecommendedTimeoutMillis(base, containsIcons = true, containsControls = true) ?: base
         delay(timeout)
         state.sleep()
@@ -165,7 +150,7 @@ private const val MILLIS_PER_SECOND = 1000f
 
 /**
  * The floating mini player: art, title · artist, play/pause and next over a thin progress line,
- * on matte glass. A tap pins it, a swipe up opens Player, a swipe down hides it (the music plays
+ * on matte glass. A tap opens Library, a swipe up opens Player, a swipe down hides it (the music plays
  * on). The buttons are the only way to skip, so a sideways brush never changes the song.
  *
  * A swipe must travel [SWIPE_DP] (48 dp, a full touch target): at 24 dp the brush of a tap aimed
@@ -186,7 +171,7 @@ internal fun FloatingMiniPlayer(
     isPlaying: Boolean,
     progress: () -> Float,
     opacity: Float,
-    onPin: () -> Unit,
+    onOpenLibrary: () -> Unit,
     onOpenPlayer: () -> Unit,
     onHide: () -> Unit,
     onPlayPause: () -> Unit,
@@ -201,8 +186,8 @@ internal fun FloatingMiniPlayer(
     Box(
         modifier
             .fillMaxWidth()
-            .floatingGlass(fillAlpha = opacity)
-            .miniPlayerGestures(onPin, onOpenPlayer, onHide, progress, inset = GeodeRadius.Floating),
+            .floatingGlass(ATTACHED_ABOVE, fillAlpha = opacity)
+            .miniPlayerGestures(onOpenLibrary, onOpenPlayer, onHide, progress, inset = GeodeRadius.Floating),
     ) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(start = GeodeSpacing.S, end = GeodeSpacing.XS),
@@ -250,7 +235,7 @@ internal fun DockedMiniPlayer(
     title: String?,
     isPlaying: Boolean,
     progress: () -> Float,
-    onPin: () -> Unit,
+    onOpenLibrary: () -> Unit,
     onOpenPlayer: () -> Unit,
     onHide: () -> Unit,
     onPrevious: () -> Unit,
@@ -267,8 +252,8 @@ internal fun DockedMiniPlayer(
         modifier
             .fillMaxWidth()
             .height(DOCKED_PLAYER_HEIGHT)
-            .miniPlayerGestures(onPin, onOpenPlayer, onHide, progress, inset = GeodeSpacing.L)
-            .padding(start = GeodeSpacing.L, end = GeodeSpacing.XS),
+            .miniPlayerGestures(onOpenLibrary, onOpenPlayer, onHide, progress, inset = GeodeSpacing.L)
+            .padding(start = GeodeSpacing.L, end = GeodeSpacing.S),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -312,12 +297,12 @@ internal val DOCKED_PLAYER_HEIGHT = 52.dp
 
 /**
  * The mini player's touch and its progress line, shared by the floating card and the docked bar:
- * a tap pins, a swipe of [SWIPE_DP] up opens Player and down hides it, TalkBack gets both as
+ * a tap opens Library, a swipe of [SWIPE_DP] up opens Player and down hides it, TalkBack gets both as
  * actions, and the line runs along the top edge [inset] in from each side.
  */
 @Composable
 private fun Modifier.miniPlayerGestures(
-    onPin: () -> Unit,
+    onOpenLibrary: () -> Unit,
     onOpenPlayer: () -> Unit,
     onHide: () -> Unit,
     progress: () -> Float,
@@ -326,7 +311,7 @@ private fun Modifier.miniPlayerGestures(
     val accent = MaterialTheme.colorScheme.primary
     val openLabel = stringResource(R.string.mini_player_open)
     val hideLabel = stringResource(R.string.mini_player_hide)
-    val pinLabel = stringResource(R.string.mini_player_pin)
+    val libraryLabel = stringResource(R.string.mini_player_library)
     val view = LocalView.current
     // A tap is a light tick; a swipe that changes the screen (Player opens, the player hides) confirms.
     val tap = { action: () -> Unit ->
@@ -349,10 +334,10 @@ private fun Modifier.miniPlayerGestures(
                 }
             },
         ) { _, delta -> dy += delta }
-    }.clickable(onClickLabel = pinLabel) {
-        // A tap is the long way to Player: the tip says a swipe up opens it.
+    }.clickable(onClickLabel = libraryLabel) {
+        // A tap goes to Library; the tip says a swipe up opens Player.
         GestureTips.nudge(GestureTip.SWIPE_UP_PLAYER)
-        tap(onPin)
+        tap(onOpenLibrary)
     }.semantics {
         customActions =
             listOf(
@@ -447,11 +432,20 @@ internal fun FloatingTabBar(
     onSelect: (Int) -> Unit,
     opacity: Float,
     modifier: Modifier = Modifier,
+    attached: Boolean = false,
 ) {
     val view = LocalView.current
     val compact = compactTabLabels()
-    Box(modifier.fillMaxWidth().floatingGlass(RoundedCornerShape(50), fillAlpha = opacity)) {
-        NavigationBar(containerColor = Color.Transparent, tonalElevation = 0.dp, windowInsets = WindowInsets(0, 0, 0, 0)) {
+    // Under a mini player the bar is the lower half of one slab; alone it is a pill.
+    val shape = if (attached) ATTACHED_BELOW else RoundedCornerShape(50)
+    Box(modifier.fillMaxWidth().floatingGlass(shape, fillAlpha = opacity)) {
+        NavigationBar(
+            // The first and last items stand clear of the rounded ends.
+            modifier = Modifier.padding(horizontal = GeodeSpacing.M),
+            containerColor = Color.Transparent,
+            tonalElevation = 0.dp,
+            windowInsets = WindowInsets(0, 0, 0, 0),
+        ) {
             items.forEachIndexed { i, item ->
                 val isSelected = i == selected
                 val showLabel = !compact || isSelected
@@ -524,6 +518,10 @@ private const val TRACK_ALPHA = 0.2f
 private const val HANDLE_ALPHA = 0.7f
 private val HANDLE_WIDTH = 36.dp
 private val HANDLE_HEIGHT = 4.dp
+
+/** The two halves of the player-and-tabs slab: the player rounds its top, the bar its bottom. */
+internal val ATTACHED_ABOVE = RoundedCornerShape(topStart = GeodeRadius.Floating, topEnd = GeodeRadius.Floating)
+private val ATTACHED_BELOW = RoundedCornerShape(bottomStart = GeodeRadius.Floating, bottomEnd = GeodeRadius.Floating)
 
 /** The mini player's transport buttons: the 48 dp minimum touch target, not Material's 40 dp default. */
 private val MINI_PLAYER_BUTTON = 48.dp

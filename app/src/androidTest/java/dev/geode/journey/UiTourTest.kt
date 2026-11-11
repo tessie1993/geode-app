@@ -481,12 +481,12 @@ class UiTourTest {
         }
     }
 
-    /** The floating mini player: a tap pins it, a swipe down hides it, a swipe up opens Player. */
+    /** The floating mini player: a tap opens Library, a swipe down hides it, a swipe up opens Player. */
     private fun miniPlayerGestures() {
         val mini = hasCustomAction(UiTour.MINI_PLAYER_OPEN)
         val cases =
             listOf(
-                Triple("tap", "the player stays shown (pinned)") { c: PointF -> UiTourTouch.tap(c) },
+                Triple("tap", "Library opens") { c: PointF -> UiTourTouch.tap(c) },
                 Triple("swipe-down", "the player hides") { c: PointF -> UiTourTouch.swipe(c, PointF(c.x, c.y + SWIPE_PX * dp())) },
                 Triple("swipe-up", "Player opens") { c: PointF -> UiTourTouch.swipe(c, PointF(c.x, c.y - SWIPE_PX * dp())) },
             )

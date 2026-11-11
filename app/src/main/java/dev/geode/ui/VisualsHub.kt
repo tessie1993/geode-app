@@ -164,8 +164,10 @@ internal fun VisualsHub(
         // the sheet's room, so PEEK is the tabs over the player and TALL still clears the status bar.
         val docked = LocalDockedMiniPlayer.current.takeIf { !side }
         val dockedHeight = if (docked != null) DOCKED_PLAYER_HEIGHT else 0.dp
+        // With the player docked the options stand on the tab bar itself: one slab, no gap.
+        val dockGap = if (docked != null) 0.dp else GeodeSpacing.EdgeInset
         val roomPx =
-            with(density) { (maxHeight - statusTop - bottomReserve - GeodeSpacing.EdgeInset - dockedHeight).toPx() }.coerceAtLeast(0f)
+            with(density) { (maxHeight - statusTop - bottomReserve - dockGap - dockedHeight).toPx() }.coerceAtLeast(0f)
         val anchors = remember(roomPx, density) { sheetAnchors(roomPx, with(density) { SHEET_PEEK.toPx() }) }
         val fullPx = constraints.maxHeight.toFloat()
         val fullWidthPx = constraints.maxWidth.toFloat()
@@ -193,15 +195,19 @@ internal fun VisualsHub(
         LaunchedEffect(nav.sheetShown, settles, panelWidth, side) {
             panelPx.animateTo(if (side && nav.sheetShown) panelWidth else 0f, settleSpec)
         }
-        val reservePx = with(density) { (bottomReserve + GeodeSpacing.EdgeInset + dockedHeight).toPx() }
+        val reservePx = with(density) { (bottomReserve + dockGap + dockedHeight).toPx() }
         // The docked player stays while the options are up and holds the tab bar with it
         // (ShellChromeState.docked); with the options hidden it is a pill that sleeps with the
         // chrome, on the same fade as the tab bar under it.
         val playerOn = docked != null && !pip && (nav.sheetShown || chrome.awake)
         val holdsDock = docked != null && !pip && nav.sheetShown
-        DisposableEffect(holdsDock) {
+        DisposableEffect(holdsDock, playerOn) {
             chrome.docked = holdsDock
-            onDispose { chrome.docked = false }
+            chrome.playerAttached = playerOn
+            onDispose {
+                chrome.docked = false
+                chrome.playerAttached = false
+            }
         }
         val playerAlpha = animateFloatAsState(if (playerOn) 1f else 0f, fadeSpec, label = "dockedPlayer")
         val playerFaded by remember { derivedStateOf { playerAlpha.value == 0f } }

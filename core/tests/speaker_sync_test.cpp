@@ -337,6 +337,36 @@ void onlyThePlayersSinkDelays() {
     check(mic.read == kPlayerRingRunway, "source: so the mic's reader takes the newest at once");
 }
 
+// Another app's audio in the player's ring (audio/PlaybackCapture): the player paused, the ring handed over
+// (a new epoch, the player no longer its source), a capture thread writing 1024-frame blocks at 48 kHz. The
+// paused sink's clock still answers a speaker sample behind the capture's first frame; a reader held to it
+// would read nothing for as long as the capture runs. Released, it hears every captured frame, in order.
+void aCaptureIsHeardWhileThePlayerIsPaused() {
+    Sink sink(44'100, 500, 0);
+    Reader reader(sink.ring);
+    sink.play();
+    run(sink, reader, 60, 1'000 * kMs);
+    sink.pause();
+    sink.ring.beginEpoch();
+    const int64_t first = sink.ring.headFrames();
+    std::vector<float> block(1024 * 2);
+    double owed = 0.0;
+    for (int frame = 0; frame < 300; ++frame) {
+        owed += 48'000.0 / 60.0;
+        for (; owed >= 1024.0; owed -= 1024.0) {
+            const int64_t at = sink.ring.headFrames();
+            for (size_t i = 0; i < 1024; ++i) block[i * 2] = block[i * 2 + 1] = static_cast<float>(at) + static_cast<float>(i);
+            sink.ring.writeFloat(block.data(), 1024, 2, 48'000);
+        }
+        sink.advanceTo(sink.nowNs + 16'666'667);
+        check(listenLimit(&sink.clock, true, false, sink.nowNs) < first, "capture: the paused sink names no captured frame");
+        reader.frame(sink, false);
+    }
+    check(reader.firstRead == first, "capture: the reader starts at the capture's first frame");
+    check(reader.ordered && reader.skips == 0, "capture: every captured frame once, in order");
+    check(reader.newest == sink.ring.headFrames() - 1, "capture: the reader is at the newest captured frame");
+}
+
 void theLagIsWhatTheSinkStillHolds() {
     PlayoutClock idle;
     check(idle.lagMs(0) == 0, "lag: nothing handled, nothing to wait for");
@@ -391,6 +421,7 @@ int main() {
     aLimitTheRingLostFollowsTheWriter();
     aLimitNeverRewindsOrPassesTheHead();
     onlyThePlayersSinkDelays();
+    aCaptureIsHeardWhileThePlayerIsPaused();
     theLagIsWhatTheSinkStillHolds();
     aRetryAddsItsFramesToTheBuffer();
     if (failures) {

@@ -16,27 +16,53 @@ internal sealed interface RequestLine {
     /** The line passed its size cap before a line break. */
     data object TooLong : RequestLine
 
+    /** The header lines after it passed their size cap before the blank line. */
+    data object HeadersTooLarge : RequestLine
+
     /** The client closed, went quiet, or ran past the connection's deadline. */
     data object Dropped : RequestLine
 }
 
 /**
- * Reads the request line of [LiveHttpServer] under two bounds a plain `readLine()` lacks: a size
- * cap, so a line that never ends can't grow memory, and one deadline for the whole connection.
- * The socket timeout alone is per read, so a client sending a byte a second would hold a pool
- * thread for as long as it liked; here every read's timeout is cut to what is left of the
- * deadline.
+ * Reads the request line of [LiveHttpServer], then the header lines up to the blank line that ends
+ * them, under two bounds a plain `readLine()` lacks: size caps, so a head that never ends can't grow
+ * memory, and one deadline for the whole connection. The headers are read only so the request is
+ * consumed: closing a socket with unread input sends a reset, which can cut off the response the
+ * client is still receiving. The socket timeout alone is per read, so a client sending a byte a second
+ * would hold a pool thread for as long as it liked; here every read's timeout is cut to what is left
+ * of the deadline.
  */
 internal object RequestLineReader {
     /** Longest request line taken, in bytes; the receiver's longest path is under 100. */
     const val MAX_LINE_BYTES = 8 * 1024
 
+    /** Most header bytes taken after it. */
+    const val MAX_HEADER_BYTES = 16 * 1024
+
     private const val NANOS_PER_MS = 1_000_000L
+    private const val CRLF = 2
 
     fun read(
         socket: Socket,
         deadlineNanos: Long,
         maxBytes: Int = MAX_LINE_BYTES,
+    ): RequestLine {
+        val first = readLine(socket, deadlineNanos, maxBytes)
+        if (first !is RequestLine.Line) return first
+        var used = 0
+        while (true) {
+            when (val header = readLine(socket, deadlineNanos, MAX_HEADER_BYTES - used)) {
+                is RequestLine.Line -> if (header.text.isEmpty()) return first else used += header.text.length + CRLF
+                RequestLine.TooLong -> return RequestLine.HeadersTooLarge
+                else -> return header
+            }
+        }
+    }
+
+    private fun readLine(
+        socket: Socket,
+        deadlineNanos: Long,
+        maxBytes: Int,
     ): RequestLine {
         val input = socket.getInputStream()
         val bytes = ByteArrayOutputStream()

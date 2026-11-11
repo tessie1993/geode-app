@@ -190,21 +190,17 @@ internal fun PaletteMakerCard(
             style = MaterialTheme.typography.labelSmall,
         )
         GradientPreview(baseHue, hueSpan, modifier = Modifier.fillMaxWidth())
-        Text(
-            stringResource(R.string.palette_base_hue, "%.2f".format(baseHue)),
-            style = MaterialTheme.typography.labelSmall,
-        )
         CrystalSlider(
+            label = stringResource(R.string.palette_base_hue, "%.2f".format(baseHue)),
+            labelStyle = MaterialTheme.typography.labelSmall,
             value = baseHue,
             onValueChange = { baseHue = it },
             valueRange = 0f..1f,
             modifier = Modifier.fillMaxWidth(),
         )
-        Text(
-            stringResource(R.string.palette_hue_span, "%.2f".format(hueSpan)),
-            style = MaterialTheme.typography.labelSmall,
-        )
         CrystalSlider(
+            label = stringResource(R.string.palette_hue_span, "%.2f".format(hueSpan)),
+            labelStyle = MaterialTheme.typography.labelSmall,
             value = hueSpan,
             onValueChange = { hueSpan = it },
             valueRange = 0f..1f,

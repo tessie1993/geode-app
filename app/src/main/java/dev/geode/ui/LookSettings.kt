@@ -70,11 +70,8 @@ private fun ThemeGroup(
     gui: GuiPrefs,
 ) {
     Column {
-        Text(
-            stringResource(R.string.look_accent_intensity, (gui.accentIntensity * 100).toInt()),
-            style = MaterialTheme.typography.labelMedium,
-        )
         CrystalSlider(
+            label = stringResource(R.string.look_accent_intensity, (gui.accentIntensity * 100).toInt()),
             value = gui.accentIntensity,
             onValueChange = { viewModel.setGuiPrefs(gui.copy(accentIntensity = it)) },
             valueRange = 0.5f..1.5f,
@@ -101,11 +98,8 @@ private fun TextGroup(
 ) {
     FontColorRow(viewModel, gui)
     Column {
-        Text(
-            stringResource(R.string.look_text_size, (gui.textScale * 100).toInt()),
-            style = MaterialTheme.typography.labelMedium,
-        )
         CrystalSlider(
+            label = stringResource(R.string.look_text_size, (gui.textScale * 100).toInt()),
             value = gui.textScale,
             onValueChange = { viewModel.setGuiPrefs(gui.copy(textScale = it)) },
             valueRange = GuiPrefs.TEXT_SCALE_MIN..GuiPrefs.TEXT_SCALE_MAX,
@@ -203,8 +197,8 @@ private fun LayoutGroup(
     // label shows the clamped value, rounded as quick settings rounds it, so both read the same %.
     val drawnOpacity = gui.barOpacity.coerceIn(SHEET_OPACITY_RANGE)
     Column {
-        Text(stringResource(R.string.look_bar_opacity, (drawnOpacity * 100).roundToInt()), style = MaterialTheme.typography.labelMedium)
         CrystalSlider(
+            label = stringResource(R.string.look_bar_opacity, (drawnOpacity * 100).roundToInt()),
             value = drawnOpacity,
             onValueChange = { viewModel.setGuiPrefs(gui.copy(barOpacity = it)) },
             valueRange = SHEET_OPACITY_RANGE,

@@ -219,11 +219,8 @@ internal fun TouchSection(viewModel: SettingsViewModel) {
         )
         SettingsHint(stringResource(R.string.behavior_touch_smear_hint))
         if (gui.touchSmear) {
-            Text(
-                stringResource(R.string.behavior_smear_strength, (gui.touchSmearStrength * 100).toInt()),
-                style = MaterialTheme.typography.labelMedium,
-            )
             CrystalSlider(
+                label = stringResource(R.string.behavior_smear_strength, (gui.touchSmearStrength * 100).toInt()),
                 value = gui.touchSmearStrength,
                 onValueChange = { viewModel.setGuiPrefs(gui.copy(touchSmearStrength = it)) },
                 valueRange = 0.2f..2f,

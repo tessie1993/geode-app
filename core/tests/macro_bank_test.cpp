@@ -119,13 +119,13 @@ void linkableTargetsWriteLiveParams() {
         check(range.min >= spec.min && range.max <= spec.max, name + " stays inside its schema range");
         check(macrobank::targetNamed(name) == t, name + " is found by name");
     }
-    for (LfoTarget t : {LfoTarget::None, LfoTarget::Pulse, LfoTarget::Retired25, LfoTarget::Lfo1Rate, LfoTarget::Lfo3Depth}) {
+    for (LfoTarget t : {LfoTarget::None, LfoTarget::Retired5, LfoTarget::Retired25, LfoTarget::Lfo1Rate, LfoTarget::Lfo3Depth}) {
         check(!macrobank::linkable(t), std::string("not linkable: ") + modtargets::name(t));
         check(macrobank::rangeOf(t).max == 0.0f, "an unlinkable target has no range");
     }
     check(!macrobank::linkable(static_cast<LfoTarget>(-1)) && !macrobank::linkable(static_cast<LfoTarget>(999)),
           "outside the enum is not linkable");
-    check(macrobank::targetNamed("PULSE") == LfoTarget::None && macrobank::targetNamed("nope") == LfoTarget::None &&
+    check(macrobank::targetNamed("PULSE") == LfoTarget::None && macrobank::targetNamed("RETIRED_5") == LfoTarget::None && macrobank::targetNamed("nope") == LfoTarget::None &&
               macrobank::targetNamed("") == LfoTarget::None,
           "an unlinkable or unknown name is None");
     // The top of a range is what safety::apply lets through, so no travel is clamped away later.
@@ -323,7 +323,7 @@ void editsValidate() {
     check(b.knobs.back().links.size() == 1u && (b.knobs.back().links.front() == Link{LfoTarget::Zoom, 1.0f, -1.0f}),
           "the same target replaces its link, weights held to -1..1");
     const Bank before = b;
-    check(macrobank::setLink(b, mine, LfoTarget::Pulse, 0.5f, 0.5f) == before, "an inert target is refused");
+    check(macrobank::setLink(b, mine, LfoTarget::Retired5, 0.5f, 0.5f) == before, "a retired target is refused");
     check(macrobank::setLink(b, mine, LfoTarget::Lfo1Rate, 0.5f, 0.5f) == before, "a chained target is refused");
     check(macrobank::setLink(b, mine, LfoTarget::None, 0.5f, 0.5f) == before, "None is refused");
     check(macrobank::setLink(b, 4242, LfoTarget::Warp, 0.5f, 0.5f) == before, "a link on an unknown knob is refused");
@@ -348,7 +348,7 @@ void editsValidate() {
     a.id = 3;
     a.name = "A";
     a.value = 4.0f;
-    a.links = {Link{LfoTarget::Warp, 0.1f, 0.0f}, Link{LfoTarget::Pulse, 1.0f, 1.0f}, Link{LfoTarget::Warp, 0.3f, 0.0f}};
+    a.links = {Link{LfoTarget::Warp, 0.1f, 0.0f}, Link{LfoTarget::Retired5, 1.0f, 1.0f}, Link{LfoTarget::Warp, 0.3f, 0.0f}};
     Knob dup = a;
     dup.name = "Dup";
     Knob zero;
@@ -975,7 +975,7 @@ void targetsTextListsWhatALinkMayName() {
     for (size_t pos = text.find("\ntarget|"); pos != std::string::npos; pos = text.find("\ntarget|", pos + 1)) ++rows;
     check(rows == linkableTargets().size(), "one target row per linkable target");
     check(text.find("\ntarget|BLOOM|bloom|0|0.25|0|UNIVERSAL\n") != std::string::npos, "the Bloom row carries its safe range");
-    check(text.find("|PULSE|") == std::string::npos && text.find("LFO1_RATE") == std::string::npos, "no unlinkable target is listed");
+    check(text.find("|PULSE|") == std::string::npos && text.find("RETIRED") == std::string::npos && text.find("LFO1_RATE") == std::string::npos, "no unlinkable target is listed");
 }
 
 void theAbiEditsTextToText() {

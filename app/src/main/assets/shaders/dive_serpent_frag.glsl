@@ -27,7 +27,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the clock. Complexity: uMorph adds X braces.
+// Speed scales the clock. Complexity: uMorph adds X braces.
 // Chaos: uWarp/uTurbulence bend the girders. Energy: uIntensity scales the
 // swing and the kick. Colour: diveColor by depth. Space: the rig's look rides
 // on top of the serpent's heading.

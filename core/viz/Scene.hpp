@@ -41,7 +41,6 @@ public:
         (void) side;
         acceptPcm(mono, count);
     }
-    virtual void setFlow(GLuint texture, float strength) { (void) texture; (void) strength; }
     virtual void setPaletteLut(GLuint texture) { (void) texture; }
     virtual void setTouchField(const TouchField* field) { (void) field; }
     // The renderer's camera rig pose, stable for the scene's lifetime; stepped once per frame before draw.

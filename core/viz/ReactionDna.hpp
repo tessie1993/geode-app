@@ -67,8 +67,8 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
 // user's routes and the live DNA merge, and what each chip on the page does to the routes. Kotlin only
 // labels the rows and chips and calls these through geode_music_* and geode_style_reactions_hand.
 
-// What a moment can do to the picture, one chip each. Wire ordinals; append only.
-enum class MusicAction { Pulse, Flash, Zoom, Shake, Colour, Camera, Warp };
+// What a moment can do to the picture, one chip each. The ordinal is the geode_music_* call value, never saved.
+enum class MusicAction { Flash, Zoom, Shake, Colour, Camera, Warp };
 constexpr int kMusicActionCount = static_cast<int>(MusicAction::Warp) + 1;
 
 using RouteArray = std::array<ReactRoute, ReactionEngine::kRoutes>;

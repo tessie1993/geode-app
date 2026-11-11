@@ -41,7 +41,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the vein drift. Complexity (uMorph) adds up to two
+// Speed scales the vein drift. Complexity (uMorph) adds up to two
 // fractal iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) bends
 // the bulb before it is inverted (bulbChaos in q, estimate divided by
 // bulbChaosLip). Energy (uIntensity) scales the drop twist. Colour is tone(),

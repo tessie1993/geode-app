@@ -98,7 +98,7 @@ int SceneParams::slotOf(std::string_view name) {
 }
 
 bool SceneParams::setSlot(int slot, float value) {
-    if (slot < 0 || slot >= kFieldCount) return false;
+    if (slot < 0 || slot >= kFieldCount || retired(static_cast<ParamSlot>(slot))) return false;
     kAccess[static_cast<size_t>(slot)].set(*this, value);
     return true;
 }

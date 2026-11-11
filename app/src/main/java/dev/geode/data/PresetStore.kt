@@ -235,13 +235,6 @@ class PresetStore(
         ): Float = finiteOr(raw, range.start).coerceIn(range)
 
         /**
-         * Schema rows preset JSON has never carried. `glitch` is retired (no reader, see
-         * [SceneParams.glitch]) and was left out of the format before the schema existed; writing it
-         * now would add a key to every file, so it stays out and reads back as its default.
-         */
-        private val NOT_SAVED = setOf("glitch")
-
-        /**
          * The two Kotlin-only fields ([SceneParams.NOT_RENDERED]): the saved palette slots' ids. They
          * are not schema rows, so they travel by hand, under their own names, as strings.
          */
@@ -261,7 +254,7 @@ class PresetStore(
         ) {
             val frame = SceneParamsCodec.pack(params)
             for (spec in ParamSchema.params) {
-                if (spec.name in NOT_SAVED) continue
+                if (spec.retired) continue
                 val v = frame[spec.slot]
                 when (spec.kind) {
                     ParamSpec.Kind.BOOL -> o.put(spec.name, v > 0.5f)
@@ -286,7 +279,7 @@ class PresetStore(
                 val def = spec.default
                 val v =
                     when {
-                        spec.name in NOT_SAVED -> def
+                        spec.retired -> def
                         spec.kind == ParamSpec.Kind.BOOL -> if (o.optBoolean(spec.name, def > 0.5f)) 1f else 0f
                         spec.kind == ParamSpec.Kind.INT -> o.optInt(spec.name, def.roundToInt()).toFloat()
                         else -> finiteOr(o.optDouble(spec.name, def.toDouble()), def)

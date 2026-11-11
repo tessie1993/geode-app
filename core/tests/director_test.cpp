@@ -225,15 +225,15 @@ bool colourParam(const std::string& name) {
     return false;
 }
 
-// The four params a look may move. Everything else in SceneParams, every colour among it, is the style's
+// The three params a look may move. Everything else in SceneParams, every colour among it, is the style's
 // and the user's.
 bool lookParam(const std::string& name) {
-    return name == "camSmooth" || name == "motionBreath" || name == "motionOrbit" || name == "motionDrift";
+    return name == "camSmooth" || name == "motionBreath" || name == "motionDrift";
 }
 
 // The owner's rule, "no colour narrowing": the looks used to draw every style's palette from nine hue
 // anchors and one saturation curve, so under Auto every style wore the same few colours. Whatever the
-// scale, key, song and seed, a look now leaves every param but its four motion dials exactly as given, and
+// scale, key, song and seed, a look now leaves every param but its three motion dials exactly as given, and
 // its axes never move a colour param.
 void testNeverTouchesColour() {
     const Song songs[] = {{"ionian", 0, 0.85f, 132.0f, 0.6f, 0.2f}, {"aeolian", 0, 0.55f, 72.0f, 0.3f, 1.2f}, {"dorian", 0, 0.7f, 100.0f, 0.45f, 0.5f}};
@@ -293,7 +293,7 @@ void testNeverTouchesColour() {
             }
         }
     }
-    check(looks > 300 && moved > looks, "the looks tried do drive their own four dials");
+    check(looks > 300 && moved > looks, "the looks tried do drive their own three dials");
 }
 
 // "No hardcoded reactions": a look is decided, glided in and then held. Between decisions nothing the
@@ -401,13 +401,13 @@ void testDeterministicAndOff() {
     SceneParams soft = p;
     soft.motionBreath = 0.5f * p.motionBreath;
     SceneParams none = p;
-    none.motionBreath = none.motionOrbit = none.motionDrift = 0.0f;
+    none.motionBreath = none.motionDrift = 0.0f;
     const SceneParams q = a.apply(p);
     const SceneParams qSoft = a.apply(soft);
     const SceneParams qNone = a.apply(none);
     check(q.motionBreath != p.motionBreath, "the look moves its motion dials");
     check(qSoft.motionBreath < q.motionBreath, "the user's step on a dial comes through the look");
-    check(qNone.motionBreath == 0.0f && qNone.motionOrbit == 0.0f && qNone.motionDrift == 0.0f, "a motion dial at 0 stays off under the look");
+    check(qNone.motionBreath == 0.0f && qNone.motionDrift == 0.0f, "a motion dial at 0 stays off under the look");
     Director off;
     off.configure({0.0f, 99});
     float t3 = 0.0f;
@@ -561,13 +561,13 @@ void testDialsStayInRange() {
     float t = 0.0f;
     run(d, kSad, 15.0f, t);
     SceneParams low;
-    low.camSmooth = low.motionBreath = low.motionOrbit = low.motionDrift = 0.0f;
+    low.camSmooth = low.motionBreath = low.motionDrift = 0.0f;
     SceneParams high;
-    high.camSmooth = high.motionBreath = high.motionOrbit = high.motionDrift = 1.0f;
+    high.camSmooth = high.motionBreath = high.motionDrift = 1.0f;
     for (const SceneParams& user : {low, high}) {
         const SceneParams o = d.apply(user);
         const auto in = [](float v, float lo, float hi) { return v >= lo && v <= hi; };
-        check(in(o.camSmooth, 0.0f, 1.0f) && in(o.motionBreath, 0.0f, 1.0f) && in(o.motionOrbit, 0.0f, 1.0f) && in(o.motionDrift, 0.0f, 1.0f),
+        check(in(o.camSmooth, 0.0f, 1.0f) && in(o.motionBreath, 0.0f, 1.0f) && in(o.motionDrift, 0.0f, 1.0f),
               "the look never pushes a dial past its range");
     }
 }

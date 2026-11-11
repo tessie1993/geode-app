@@ -38,7 +38,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the Earth's clouds and its slow rise. Complexity
+// Speed scales the Earth's clouds and its slow rise. Complexity
 // (uMorph) fades in an octave of ground. Chaos (uWarp, uTurbulence, uTwist)
 // bends the ground and its craters (terraChaos). Energy (uIntensity) scales
 // the ejecta's glow. Colour is pal() in the regolith and the Earth. Space is

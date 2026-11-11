@@ -47,7 +47,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the slow turn of the window lattice. Complexity
+// Speed scales the slow turn of the window lattice. Complexity
 // (uMorph) adds up to two fractal iterations (bulbIters). Chaos (uWarp,
 // uTurbulence, uTwist) warps the bulb before it is hollowed (bulbChaos,
 // estimate divided by bulbChaosLip). Energy (uIntensity) scales the sub's

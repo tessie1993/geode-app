@@ -53,7 +53,8 @@ const std::string& SceneParams::schemaText() {
         for (int slot = 0; slot < kFieldCount; ++slot) {
             const ParamSpec& s = rows[static_cast<size_t>(slot)];
             out += "param|" + std::to_string(slot) + "|" + s.name + "|" + kindName(s.kind) + "|" + tableNumber(s.defaultValue) +
-                   "|" + tableNumber(s.min) + "|" + tableNumber(s.max) + "|" + (s.fade == ParamFade::Fade ? "FADE" : "HOLD") + "\n";
+                   "|" + tableNumber(s.min) + "|" + tableNumber(s.max) + "|" + (s.fade == ParamFade::Fade ? "FADE" : "HOLD") +
+                   (retired(static_cast<ParamSlot>(slot)) ? "|RETIRED\n" : "|LIVE\n");
         }
         return out;
     }();

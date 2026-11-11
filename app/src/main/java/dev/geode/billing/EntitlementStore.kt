@@ -105,19 +105,20 @@ data class SignedPurchase(
 
         /**
          * Whether [json], a purchase as Play signed it, is Pro paid for: it names
-         * [BillingRepository.PRO_PRODUCT_ID] and is not a pending payment. A field Play left out
-         * decides nothing (the fake's cache has no JSON at all); only one that says otherwise
-         * refuses. Read by pattern, not `org.json`, which is a stub in JVM tests; a quote inside a
-         * JSON string is escaped, so a value cannot pass for a field.
+         * [BillingRepository.PRO_PRODUCT_ID] and is not a pending payment. Only an empty [json]
+         * passes without naming it: the fake's unsigned cache, which only a fake-billing build's
+         * verifier accepts (a keyed one refuses empty data). Read by pattern, not `org.json`, which
+         * is a stub in JVM tests; a quote inside a JSON string is escaped, so a value cannot pass
+         * for a field.
          */
         fun isCompletedPro(
             json: String,
             productId: String = BillingRepository.PRO_PRODUCT_ID,
         ): Boolean {
+            if (json.isEmpty()) return true
             if (STATE.find(json)?.groupValues?.get(1) == STATE_PENDING) return false
             val single = PRODUCT_ID.find(json)?.groupValues?.get(1)
             val listed = PRODUCT_IDS.find(json)?.groupValues?.get(1)
-            if (single == null && listed == null) return true
             return single == productId || listed?.contains("\"$productId\"") == true
         }
     }

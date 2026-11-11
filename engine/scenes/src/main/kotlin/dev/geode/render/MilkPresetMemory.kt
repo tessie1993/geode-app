@@ -17,9 +17,9 @@ import java.io.File
  * call: the wallpaper and the dream show the preset the app last showed, and a preset the
  * wallpaper moves on to is the one the app comes back on.
  *
- * Only a load the native side has reported counts as shown, and only that is saved: a request
- * that never reports was either still in flight or failed to compile, and a failed one would
- * only bring back black, so it is used just while nothing has loaded yet. A saved path whose
+ * Only a load the native side has reported counts as shown, and only that is saved; native reports
+ * a preset once it has drawn clean frames (`core/viz/MilkShown`). A request that never reports was
+ * in flight, failed to compile or failed to draw, so it is used just while nothing has loaded. A saved path whose
  * file has gone (deleted, or an old build's `milk-builtin` copy) is skipped. With nothing saved,
  * a first launch starts on one of the bundled presets ([FIRST_RUN_PRESET]), never the idle one.
  */

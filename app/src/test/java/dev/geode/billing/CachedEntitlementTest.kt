@@ -113,6 +113,10 @@ class CachedEntitlementTest {
 
         assertTrue(SignedPurchase.isCompletedPro("""{"productIds":["tip_jar","$pro"],"purchaseState":0}"""))
         assertFalse(SignedPurchase.isCompletedPro("""{"productIds":["tip_jar"]}"""))
+        val unnamed = real.replace(""""productId":"$pro",""", "")
+        assertFalse("a signed purchase that names no product is not Pro", owned.copy(purchaseJson = unnamed).vouchesForPro(signedAnything))
+        assertFalse(SignedPurchase.isCompletedPro("""{"purchaseState":0}"""))
+        assertTrue("the fake's unsigned cache has no JSON", SignedPurchase.isCompletedPro(""))
         assertFalse(
             "a value that spells the field does not pass for it",
             SignedPurchase.isCompletedPro("""{"purchaseToken":"\"productId\":\"$pro\"","productId":"tip_jar"}"""),

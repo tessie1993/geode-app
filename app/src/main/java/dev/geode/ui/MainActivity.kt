@@ -11,6 +11,7 @@ import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.Rect
 import android.graphics.drawable.Icon
+import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Rational
@@ -129,6 +130,7 @@ internal fun SharedLinkConfirm() {
     val title =
         when {
             offer is SharedLinkOffer.Preset -> R.string.link_offer_preset_title
+            offer is SharedLinkOffer.MilkFile -> R.string.link_offer_milk_title
             replaces != null -> R.string.link_offer_replace_title
             else -> R.string.link_offer_template_title
         }
@@ -139,6 +141,7 @@ internal fun SharedLinkConfirm() {
                     R.string.link_offer_preset_body,
                     offer.name.ifBlank { stringResource(R.string.preset_shared_untitled) },
                 )
+            offer is SharedLinkOffer.MilkFile -> stringResource(R.string.link_offer_milk_body, offer.name)
             replaces != null -> stringResource(R.string.link_offer_replace_body, replaces)
             else ->
                 stringResource(
@@ -146,7 +149,12 @@ internal fun SharedLinkConfirm() {
                     offer.name.ifBlank { stringResource(R.string.link_offer_untitled_template) },
                 )
         }
-    val confirm = if (replaces != null) R.string.link_offer_replace else R.string.link_offer_import
+    val confirm =
+        when {
+            replaces != null -> R.string.link_offer_replace
+            offer is SharedLinkOffer.MilkFile -> R.string.link_offer_open
+            else -> R.string.link_offer_import
+        }
     AlertDialog(
         onDismissRequest = dismiss,
         title = { Text(stringResource(title)) },
@@ -157,6 +165,7 @@ internal fun SharedLinkConfirm() {
                 when (offer) {
                     is SharedLinkOffer.Preset -> importSharedPreset(context, visualsViewModel, offer.link)
                     is SharedLinkOffer.Template -> importSharedTemplate(context, visualsViewModel, offer.link)
+                    is SharedLinkOffer.MilkFile -> openMilkFile(context, visualsViewModel, offer.link)
                 }
             }) { Text(stringResource(confirm)) }
         },
@@ -176,6 +185,20 @@ private fun importSharedPreset(
             PresetLinkImport.Unreadable -> context.getString(R.string.preset_link_unreadable)
         }
     Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+}
+
+private fun openMilkFile(
+    context: Context,
+    visualsViewModel: VisualsViewModel,
+    uri: String,
+) {
+    visualsViewModel.openMilkFile(Uri.parse(uri)) { ok ->
+        if (ok) {
+            MilkFileInbox.opened = true
+        } else {
+            Toast.makeText(context, R.string.milk_open_failed, Toast.LENGTH_LONG).show()
+        }
+    }
 }
 
 private fun importSharedTemplate(
@@ -243,19 +266,19 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * A .milk opened from a file manager (ACTION_VIEW on a content or file uri). The uri is
-     * untrusted: [VisualsViewModel.openMilkFile] reads it only through the ContentResolver, only when
-     * its name ends in .milk, capped in size and under a sanitised name, then loads it. Only the
-     * manifest's .milk filter routes a view here; anything it refuses gets a toast.
+     * A .milk opened from another app (ACTION_VIEW on a content or file uri). Anything can send one,
+     * so like a shared link it waits in [SharedLinkInbox] for the user's yes before anything is
+     * imported or loaded ([openMilkFile]). The uri is read only through the ContentResolver, only when
+     * its name ends in .milk, capped in size and under a sanitised name; a refused one gets a toast.
      */
     private fun receiveMilkFile(intent: Intent?) {
         if (intent?.action != Intent.ACTION_VIEW) return
         val uri = intent.data ?: return
         if (uri.scheme != ContentResolver.SCHEME_CONTENT && uri.scheme != ContentResolver.SCHEME_FILE) return
         intent.data = null
-        visualsViewModel.openMilkFile(uri) { ok ->
-            if (ok) {
-                MilkFileInbox.opened = true
+        visualsViewModel.offerMilkFile(uri) { offer ->
+            if (offer != null) {
+                SharedLinkInbox.offer = offer
             } else {
                 Toast.makeText(this, R.string.milk_open_failed, Toast.LENGTH_LONG).show()
             }

@@ -56,7 +56,7 @@ bool RecordTap::start(void* nativeWindow, int width, int height) {
     EGLConfig recordable{};
     const bool hasRecordable = recordableConfig(display, own, &recordable);
     const EGLConfig tries[] = {hasRecordable ? recordable : own, own};
-    const auto window = static_cast<EGLNativeWindowType>(reinterpret_cast<uintptr_t>(nativeWindow));
+    const auto window = reinterpret_cast<EGLNativeWindowType>(nativeWindow);
     for (const EGLConfig config : tries) {
         const EGLSurface surface = eglCreateWindowSurface(display, config, window, nullptr);
         if (surface == EGL_NO_SURFACE) continue;

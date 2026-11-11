@@ -669,6 +669,7 @@
     <string name="export_error_loop_no_output">The video encoder produced no output for this loop.</string>
     <string name="export_error_loop_stalled">The video encoder stalled while finishing the loop.</string>
     <string name="export_error_no_message">no message</string>
+    <string name="export_stopped_time_limit">Android stopped the render at its time limit for work in the background. Open MuzViz and render again.</string>
 
     <!-- Export: loop / long-form failures (LoopExtend). Destination errors reuse the export_error_* above. -->
     <string name="export_error_extend_no_loop">There is no rendered loop to extend.</string>

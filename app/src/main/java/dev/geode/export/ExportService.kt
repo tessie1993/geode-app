@@ -59,7 +59,7 @@ class ExportService : Service() {
         startId: Int,
         fgsType: Int,
     ) {
-        ExportRun.requestCancel()
+        dev.geode.ExportTimeLimit.reached(ExportRun.running, ExportRun::requestCancel)
         stopSelf()
     }
 

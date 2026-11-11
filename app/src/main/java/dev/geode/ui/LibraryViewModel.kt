@@ -198,7 +198,7 @@ class LibraryViewModel
         /** Settings › Library folders' "Hide tracks shorter than", in seconds; 0 lists everything. */
         val minTrackSeconds: StateFlow<Int> get() = session.minTrackSeconds
 
-        fun setMinTrackSeconds(seconds: Int) = session.setMinTrackSeconds(seconds)
+        fun setMinTrackSeconds(seconds: Int) = session.musicLibrary.setMinTrackSeconds(seconds)
 
         val mediaRoots: StateFlow<Set<String>> get() = session.mediaRoots
 
@@ -213,17 +213,17 @@ class LibraryViewModel
 
         val trackOverrides: StateFlow<Map<String, LibraryTrack>> get() = session.trackOverrides
 
-        fun refreshDeviceTracks() = session.refreshDeviceTracks()
+        fun refreshDeviceTracks() = session.musicLibrary.refreshDeviceTracks()
 
-        fun importTracks(uris: List<Uri>) = session.importTracks(uris)
+        fun importTracks(uris: List<Uri>) = session.musicLibrary.importTracks(uris)
 
-        fun importFolder(treeUri: Uri) = session.importFolder(treeUri)
+        fun importFolder(treeUri: Uri) = session.musicLibrary.importFolder(treeUri)
 
-        fun removeMediaRoot(uriStr: String) = session.removeMediaRoot(uriStr)
+        fun removeMediaRoot(uriStr: String) = session.musicLibrary.removeMediaRoot(uriStr)
 
-        fun rescanMediaRoots() = session.rescanMediaRoots()
+        fun rescanMediaRoots() = session.musicLibrary.rescanMediaRoots()
 
-        suspend fun trackInfoFor(uriStr: String): LibraryTrack = session.trackInfoFor(uriStr)
+        suspend fun trackInfoFor(uriStr: String): LibraryTrack = session.musicLibrary.trackInfoFor(uriStr)
 
         fun saveTrackInfo(
             uri: String,
@@ -234,7 +234,7 @@ class LibraryViewModel
             year: Int,
             trackNo: Int,
             comment: String,
-        ) = session.saveTrackInfo(uri, title, artist, album, genre, year, trackNo, comment)
+        ) = session.musicLibrary.saveTrackInfo(uri, title, artist, album, genre, year, trackNo, comment)
 
         suspend fun writeTrackInfo(
             uri: String,
@@ -245,46 +245,46 @@ class LibraryViewModel
             year: Int,
             trackNo: Int,
             comment: String,
-        ): TagWriteOutcome = session.writeTrackInfo(uri, title, artist, album, genre, year, trackNo, comment)
+        ): TagWriteOutcome = session.musicLibrary.writeTrackInfo(uri, title, artist, album, genre, year, trackNo, comment)
 
         fun createMusicPlaylist(
             name: String,
             uris: List<String> = emptyList(),
-        ) = session.createMusicPlaylist(name, uris)
+        ) = session.musicLibrary.createMusicPlaylist(name, uris)
 
-        suspend fun importPlaylistFile(uri: Uri): PlaylistImportResult = session.importPlaylistFile(uri)
+        suspend fun importPlaylistFile(uri: Uri): PlaylistImportResult = session.musicLibrary.importPlaylistFile(uri)
 
         fun renameMusicPlaylist(
             oldName: String,
             newName: String,
-        ) = session.renameMusicPlaylist(oldName, newName)
+        ) = session.musicLibrary.renameMusicPlaylist(oldName, newName)
 
         fun moveMusicPlaylistTrack(
             name: String,
             from: Int,
             to: Int,
-        ) = session.moveMusicPlaylistTrack(name, from, to)
+        ) = session.musicLibrary.moveMusicPlaylistTrack(name, from, to)
 
-        fun deleteMusicPlaylist(name: String) = session.deleteMusicPlaylist(name)
+        fun deleteMusicPlaylist(name: String) = session.musicLibrary.deleteMusicPlaylist(name)
 
         fun addTrackToPlaylist(
             playlist: String,
             uri: String,
-        ) = session.addTrackToPlaylist(playlist, uri)
+        ) = session.musicLibrary.addTrackToPlaylist(playlist, uri)
 
         fun removeTrackFromPlaylist(
             playlist: String,
             uri: String,
-        ) = session.removeTrackFromPlaylist(playlist, uri)
+        ) = session.musicLibrary.removeTrackFromPlaylist(playlist, uri)
 
         fun playPlaylist(
             playlist: String,
             startIndex: Int = 0,
         ) = session.playPlaylist(playlist, startIndex)
 
-        fun saveSmartPlaylist(playlist: SmartPlaylist) = session.saveSmartPlaylist(playlist)
+        fun saveSmartPlaylist(playlist: SmartPlaylist) = session.musicLibrary.saveSmartPlaylist(playlist)
 
-        fun deleteSmartPlaylist(name: String) = session.deleteSmartPlaylist(name)
+        fun deleteSmartPlaylist(name: String) = session.musicLibrary.deleteSmartPlaylist(name)
 
         fun resolveSmartPlaylist(playlist: SmartPlaylist): List<DeviceTrack> = session.resolveSmartPlaylist(playlist)
 

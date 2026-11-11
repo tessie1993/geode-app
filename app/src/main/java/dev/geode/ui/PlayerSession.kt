@@ -1,7 +1,6 @@
 package dev.geode.ui
 
 import android.app.Application
-import android.content.Intent
 import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.media3.common.PlaybackException
@@ -65,7 +64,6 @@ import dev.geode.model.LibraryTrack
 import dev.geode.model.MilkFile
 import dev.geode.model.QueueTrack
 import dev.geode.model.QueueUiState
-import dev.geode.model.VizPlaylistEntry
 import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackErrors
 import dev.geode.playback.PlaybackQueue
@@ -98,7 +96,6 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import java.io.File
 
 @OptIn(UnstableApi::class)
 class PlayerSession internal constructor(
@@ -125,7 +122,7 @@ class PlayerSession internal constructor(
 
     private val presetRepository: PresetRepository = FilePresetRepository(PresetStore(application))
 
-    private val captureController: CaptureController =
+    internal val captureController: CaptureController =
         CaptureController(
             application,
             scope,
@@ -158,17 +155,9 @@ class PlayerSession internal constructor(
 
     fun onAppForeground() = captureController.onForeground()
 
-    fun hasMicPermission(): Boolean = captureController.hasMicPermission()
-
-    fun noteExternalAudioConsentPending() = captureController.noteExternalAudioConsentPending()
-
-    fun noteExternalAudioConsentDenied() = captureController.noteExternalAudioConsentDenied()
-
     fun stopExternalAudio() = captureController.stopExternalAudio()
 
-    fun notificationAccessIntent(): Intent = captureController.notificationAccessIntent()
-
-    private val presetLibrary: PresetLibraryController =
+    internal val presetLibrary: PresetLibraryController =
         PresetLibraryController(
             application,
             presetRepository,
@@ -299,7 +288,7 @@ class PlayerSession internal constructor(
 
     val textures: StateFlow<List<MilkTexture>> get() = textureController.textures
 
-    private val modulation: ModulationController =
+    internal val modulation: ModulationController =
         ModulationController(
             LfoStore(prefsFiles.general),
             prefsFiles.modulation,
@@ -319,12 +308,6 @@ class PlayerSession internal constructor(
     val lockedParams: StateFlow<Set<String>> get() = modulation.lockedParams
     val paramHistory: StateFlow<ParamHistoryState> get() = modulation.history
 
-    fun toggleParamLock(label: String) = modulation.toggleParamLock(label)
-
-    fun randomizeParams(category: CustomizeCategory? = null) = modulation.randomizeParams(category)
-
-    fun editSceneParams(params: SceneParams) = modulation.editSceneParams(params)
-
     fun undoParams() = modulation.undo()
 
     fun redoParams() = modulation.redo()
@@ -332,22 +315,6 @@ class PlayerSession internal constructor(
     fun resetCustomizeCategory(category: CustomizeCategory) = modulation.resetCategory(category)
 
     fun resetAllCustomize() = modulation.resetAll()
-
-    fun setAdsr(
-        index: Int,
-        config: AdsrConfig,
-    ) = modulation.setAdsr(index, config)
-
-    fun setLfo(
-        index: Int,
-        config: LfoConfig,
-    ) = modulation.setLfo(index, config)
-
-    fun setReactions(routes: List<dev.geode.render.ReactionRoute>?) = modulation.setReactions(routes)
-
-    fun setHandReactions(edit: dev.geode.render.HandReactions) = modulation.setHandReactions(edit)
-
-    fun rerollReactions() = modulation.rerollReactions()
 
     fun importTextures(
         uris: List<Uri>,
@@ -411,7 +378,7 @@ class PlayerSession internal constructor(
 
     val favourites: StateFlow<Set<String>> get() = listening.favourites
 
-    private val takeController: TakeController =
+    internal val takeController: TakeController =
         TakeController(
             FileTakeRepository(TakeStore(application)),
             scope,
@@ -553,7 +520,7 @@ class PlayerSession internal constructor(
 
     val morphFade: SharedFlow<Float> get() = visual.morphFade
 
-    private val autoVisuals: AutoVisualsController =
+    internal val autoVisuals: AutoVisualsController =
         AutoVisualsController(
             autoVisualsPrefsStore,
             object : AutoVisualsController.Host {
@@ -582,27 +549,7 @@ class PlayerSession internal constructor(
             },
         )
 
-    fun addToVizPlaylist(entry: VizPlaylistEntry) = autoVisuals.addToVizPlaylist(entry)
-
-    fun removeVizPlaylistAt(index: Int) = autoVisuals.removeVizPlaylistAt(index)
-
-    fun setVizPlaylistEnabled(enabled: Boolean) = autoVisuals.setVizPlaylistEnabled(enabled)
-
-    fun setVizPlaylistInterval(seconds: Int) = autoVisuals.setVizPlaylistInterval(seconds)
-
-    fun setRandomEnabled(enabled: Boolean) = autoVisuals.setRandomEnabled(enabled)
-
-    fun setRandomInterval(seconds: Int) = autoVisuals.setRandomInterval(seconds)
-
-    fun setRandomIncludeStyles(enabled: Boolean) = autoVisuals.setRandomIncludeStyles(enabled)
-
-    fun setRandomIncludePresets(enabled: Boolean) = autoVisuals.setRandomIncludePresets(enabled)
-
-    fun setRandomIncludeMilk(enabled: Boolean) = autoVisuals.setRandomIncludeMilk(enabled)
-
     fun onDirectorStyleMoment() = autoVisuals.onDirectorMoment()
-
-    fun stepVizPlaylist(step: Int = 1): Boolean = autoVisuals.stepVizPlaylist(step)
 
     val deviceTracks: StateFlow<List<DeviceTrack>> get() = musicLibrary.deviceTracks
 
@@ -648,18 +595,9 @@ class PlayerSession internal constructor(
 
     val abLoop: StateFlow<AbLoop?> get() = queueController.abLoop
 
-    fun cycleAbLoop() = queueController.cycleAbLoop()
-
     fun clearAbLoop() = queueController.clearAbLoop()
 
     val queue: StateFlow<QueueUiState> get() = queueController.queue
-
-    fun removeQueueItem(index: Int) = queueController.removeQueueItem(index)
-
-    fun moveQueueItem(
-        from: Int,
-        to: Int,
-    ) = queueController.moveQueueItem(from, to)
 
     fun togglePlayPauseFaded() = fades.togglePlayPauseFaded()
 
@@ -672,31 +610,13 @@ class PlayerSession internal constructor(
         playTrack(last.uri)
     }
 
-    fun playNext(uri: String) = queueController.playNext(uri)
-
-    fun enqueue(uri: String) = queueController.enqueue(uri)
-
     fun shuffleAllHistory() {
         playAll(listening.recentlyPlayed(100).map { QueueTrack(it.uri, it.title) }, shuffled = true)
     }
 
     val presetFolders: StateFlow<PresetFolders> get() = presetLibrary.folders
 
-    fun addPresetFolder(path: String) = presetLibrary.addPresetFolder(path)
-
-    fun renamePresetFolder(
-        from: String,
-        to: String,
-    ) = presetLibrary.renamePresetFolder(from, to)
-
-    fun movePresetToFolder(
-        name: String,
-        folder: String,
-    ) = presetLibrary.movePresetToFolder(name, folder)
-
-    fun userMilkPresets(): List<File> = presetLibrary.userMilkPresets()
-
-    private val queueController: QueueController =
+    internal val queueController: QueueController =
         QueueController(
             application,
             object : QueueController.Host {
@@ -741,14 +661,6 @@ class PlayerSession internal constructor(
         shuffled: Boolean = false,
     ) = queueController.playAll(tracks, shuffled)
 
-    fun open(uris: List<Uri>) = queueController.open(uris)
-
-    fun playQueueIndex(index: Int) = queueController.playQueueIndex(index)
-
-    fun next() = queueController.next()
-
-    fun previous() = queueController.previous()
-
     fun togglePlayPause() {
         if (!player.isPlaying && captureController.micActive) setMicEnabled(false)
         if (settings.playerPrefs.value.fadeMs > 0) {
@@ -760,10 +672,6 @@ class PlayerSession internal constructor(
             Util.handlePlayButtonAction(player)
         }
     }
-
-    fun seekToMs(positionMs: Long) = queueController.seekToMs(positionMs)
-
-    fun seekTo(fraction: Float) = queueController.seekTo(fraction)
 
     private fun onTrackChanged() {
         clearAbLoop()
@@ -780,29 +688,12 @@ class PlayerSession internal constructor(
         _playbackNotice.value = null
     }
 
-    fun startRecording() = takeController.startRecording()
-
-    fun stopRecording(name: String? = null) = takeController.stopRecording(name)
-
     fun chooseTakeSaveTarget(
         target: SaveTarget,
         remember: Boolean,
     ) = takeController.chooseSaveTarget(target, remember)
 
     fun skipTakeSave() = takeController.skipPendingSave()
-
-    fun playTake(name: String) = takeController.playTake(name)
-
-    fun stopReplay() = takeController.stopReplay()
-
-    fun deleteTake(name: String) = takeController.deleteTake(name)
-
-    fun renameTake(
-        from: String,
-        to: String,
-    ) = takeController.renameTake(from, to)
-
-    fun setExportTake(name: String?) = takeController.setExportTake(name)
 
     /**
      * The Pro style gate, set by [dev.geode.di.PlayerSessionProvider] from the entitlement use
@@ -887,36 +778,20 @@ class PlayerSession internal constructor(
         if (allowsStyle(preset.sceneId)) visual.applyPreset(preset) else onStyleLocked()
     }
 
-    fun savePreset(
-        name: String,
-        customShader: String?,
-        folder: String = "",
-    ) = presetLibrary.savePreset(name, customShader, folder)
-
     val activeMilkPath: StateFlow<String?> get() = vizStateStore.activeMilkPath
 
     fun noteMilkPreset(path: String) = vizStateStore.noteMilkPreset(path)
-
-    fun presetShareLink(name: String): String? = presetLibrary.presetShareLink(name)
-
-    fun importPresetLink(text: String): String? = presetLibrary.importPresetLink(text)
 
     fun importPresetFile(
         uri: Uri,
         onResult: (String?) -> Unit,
     ) = presetLibrary.importPresetFile(uri, onResult)
 
-    fun presetFile(name: String): File? = presetLibrary.presetFile(name)
-
-    fun deletePreset(name: String) = presetLibrary.deletePreset(name)
-
     /** Renames a user preset and keeps its place in the visual playlist. */
     fun renamePreset(
         from: String,
         to: String,
     ): String? = presetLibrary.renamePreset(from, to)?.also { autoVisuals.renamePresetInPlaylist(from, it) }
-
-    fun duplicatePreset(name: String): String? = presetLibrary.duplicatePreset(name)
 
     val templates: StateFlow<List<VideoTemplate>> get() = templateLibrary.library
 

@@ -89,7 +89,7 @@ enum class SettingsGroupKey(
     VISUALS(
         R.string.settings_group_visuals,
         R.string.settings_group_visuals_summary,
-        listOf(SettingsSectionKey.CONNECTED_DISPLAY, SettingsSectionKey.WALLPAPER_DREAM),
+        listOf(SettingsSectionKey.TOUCH, SettingsSectionKey.CONNECTED_DISPLAY, SettingsSectionKey.WALLPAPER_DREAM),
     ),
     SOUND_INPUT(R.string.settings_group_sound_input, R.string.settings_group_sound_input_summary, listOf(SettingsSectionKey.ANALYSIS)),
     LOOK(
@@ -140,6 +140,7 @@ enum class SettingsSectionKey(
     GESTURES(R.string.settings_section_gestures),
     NOTIFICATION(R.string.settings_section_notification),
     PICTURE_IN_PICTURE(R.string.behavior_group_pip),
+    TOUCH(R.string.behavior_group_touch),
     CONNECTED_DISPLAY(R.string.behavior_group_display),
     WALLPAPER_DREAM(R.string.settings_section_wallpaper_dream),
     ANALYSIS(R.string.audio_group_analysis),
@@ -322,6 +323,7 @@ private fun SettingsSectionBody(
         SettingsSectionKey.GESTURES -> behaviour?.let { b -> b.prefs?.let { GesturesSection(it, b.update) } }
         SettingsSectionKey.NOTIFICATION -> behaviour?.let { b -> b.prefs?.let { NotificationButtonsSection(it, b.update) } }
         SettingsSectionKey.PICTURE_IN_PICTURE -> PictureInPictureSection(settings)
+        SettingsSectionKey.TOUCH -> TouchSection(settings)
         SettingsSectionKey.CONNECTED_DISPLAY -> ConnectedDisplaySection(settings)
         SettingsSectionKey.WALLPAPER_DREAM -> behaviour?.let { b -> b.prefs?.let { WallpaperDreamSection(it, b.update) } }
         SettingsSectionKey.ANALYSIS -> SoundAnalysisSection(settings)

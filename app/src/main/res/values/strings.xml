@@ -713,6 +713,7 @@
     <string name="font_color_mint">Mint</string>
 
     <!-- Settings: Behavior tab. -->
+    <string name="behavior_group_touch">Touch</string>
     <string name="behavior_group_display">Connected display</string>
     <string name="notes_switch">Note &amp; key reactions</string>
     <string name="notes_body">Each style hears the melody, the chords and the mood, not just the drums, through six knobs of its own, and spends them its own way. Colours stay the style\'s and yours. Drums count for as much as the track is made of them.</string>
@@ -730,6 +731,11 @@
     <string name="note_key_drums">Drums</string>
     <string name="note_key_drums_hint">How much the kick, snare and hats move the style\'s pulse knob.</string>
     <string name="behavior_group_pip">Picture-in-picture</string>
+    <string name="behavior_touch_smear">Smear the visuals with your fingers</string>
+    <string name="behavior_touch_smear_hint">While your fingers play on the visual (a two-finger drag, unless Behaviour &amp; gestures says otherwise), they also push the picture around: ripples spread from them and whatever is on screen bends through them. On the Water style they stir the pool itself. In Liquid mode the fingers move the liquid instead.</string>
+    <string name="behavior_smear_strength">"Smear strength  %1$d%%"</string>
+    <string name="behavior_touch_transform">Pinch and twist the canvas</string>
+    <string name="behavior_touch_transform_hint">Two fingers on the visual: pinch moves the Zoom slider, twist moves Rotation. They are the same controls Customize shows, so a gesture is saved into presets and takes, and undone by dragging the slider back.</string>
     <string name="behavior_display_use">Use a connected display</string>
     <string name="behavior_display_connected">Connected: %1$s. The visuals play there and the phone becomes the control surface — the canvas moves rather than being mirrored, so the big screen shows exactly what the app renders.</string>
     <string name="behavior_display_none">Nothing connected. Plug in HDMI, and the visuals move to that screen while the phone keeps the controls.</string>
@@ -1000,7 +1006,7 @@
     <string name="settings_group_behaviour">Behaviour &amp; gestures</string>
     <string name="settings_group_behaviour_summary">Start screen, screen on, headphones, queue end, gestures</string>
     <string name="settings_group_visuals">Visuals</string>
-    <string name="settings_group_visuals_summary">Note reactions, safety, second screen, wallpaper</string>
+    <string name="settings_group_visuals_summary">Note reactions, safety, touch, second screen, wallpaper</string>
     <string name="settings_group_sound_input">Sound input</string>
     <string name="settings_group_sound_input_summary">Microphone, other apps\' audio, how the visual listens</string>
     <string name="settings_group_look">Look</string>

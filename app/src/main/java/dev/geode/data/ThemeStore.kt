@@ -55,7 +55,12 @@ data class GuiPrefs(
     /** The tour: chapters seen or skipped, where an unfinished one picks up, the tips said. */
     val tourProgress: TourProgress = TourProgress(),
     val micReactive: Boolean = false,
+    /** Settings › Visuals › Touch: the fingers on the visual also drag the picture (core/viz/TouchSmear). */
+    val touchSmear: Boolean = false,
+    val touchSmearStrength: Float = 1f,
     val secondScreen: Boolean = true,
+    /** Settings › Visuals › Touch: a pinch moves Zoom and a twist Rotation (core/viz/TouchTransform). */
+    val touchTransform: Boolean = true,
     /**
      * Whether leaving the fullscreen visualizer while something is playing drops straight into
      * picture-in-picture, instead of just backgrounding the app. Off by default, and the only way
@@ -123,6 +128,9 @@ class ThemeStore(
                     tips = prefs.getString(KEY_TUTORIAL_TIPS, null),
                     legacySeen = prefs.getBoolean(KEY_TUTORIAL_SEEN, false),
                 ),
+            touchSmear = prefs.getBoolean(KEY_TOUCH_SMEAR, false),
+            touchSmearStrength = prefs.getFloat(KEY_TOUCH_SMEAR_STRENGTH, 1f),
+            touchTransform = prefs.getBoolean(KEY_TOUCH_TRANSFORM, true),
             secondScreen = prefs.getBoolean(KEY_SECOND_SCREEN, true),
             micReactive = prefs.getBoolean(KEY_MIC_REACTIVE, false),
             autoEnterPip = prefs.getBoolean(KEY_AUTO_ENTER_PIP, false),
@@ -187,9 +195,9 @@ class ThemeStore(
             // Reduced motion follows Android's "Remove animations" alone now (data/SystemMotion,
             // #336); the app's own switch is gone, so its old answer is dropped on the next save.
             remove(KEY_REDUCED_MOTION)
-            remove(KEY_TOUCH_SMEAR)
-            remove(KEY_TOUCH_SMEAR_STRENGTH)
-            remove(KEY_TOUCH_TRANSFORM)
+            putBoolean(KEY_TOUCH_SMEAR, gui.touchSmear)
+            putFloat(KEY_TOUCH_SMEAR_STRENGTH, gui.touchSmearStrength)
+            putBoolean(KEY_TOUCH_TRANSFORM, gui.touchTransform)
             putBoolean(KEY_SECOND_SCREEN, gui.secondScreen)
             putBoolean(KEY_MIC_REACTIVE, gui.micReactive)
             putBoolean(KEY_AUTO_ENTER_PIP, gui.autoEnterPip)
@@ -250,8 +258,6 @@ class ThemeStore(
 
         /** Retired with the app's own reduced-motion switch (#336); removed on the next save. */
         const val KEY_REDUCED_MOTION = "gui_reduced_motion"
-
-        /** Retired with the Touch section, which nothing read; removed on the next save. */
         const val KEY_TOUCH_SMEAR = "gui_touch_smear"
         const val KEY_TOUCH_SMEAR_STRENGTH = "gui_touch_smear_strength"
         const val KEY_TOUCH_TRANSFORM = "gui_touch_transform"

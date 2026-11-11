@@ -10,6 +10,7 @@ import android.content.Intent
 import android.provider.Settings
 import android.view.WindowManager
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,7 +43,7 @@ import kotlinx.coroutines.withContext
 
 // Settings › Behaviour & gestures and Settings › Visuals: what the app does by itself and what each
 // gesture on the visual means ([BehaviourPrefs], `geode-prefs`, defaults the owner's), and how the
-// visual behaves around the user (a second screen, safety, the wallpaper and the dream).
+// visual behaves around the user (touch, a second screen, safety, the wallpaper and the dream).
 // Only options the app honours get a row (#337): a switch that does nothing is worse than no
 // switch. Auto (the auto-director, the style timer and its sources) lives in Visuals'
 // quick settings alone, where it is seen working.
@@ -124,8 +125,8 @@ internal fun BehaviourBasics(
 
 /**
  * Settings › Behaviour › Gestures on the visual: one dropdown per gesture ([BehaviourPrefs.gestures],
- * read by `VisualGestures` the next time Visuals opens). Pinch and twist do nothing by the owner's
- * decision, so they get no row.
+ * read by `VisualGestures` the next time Visuals opens). Pinch and twist can only be given touch play:
+ * what the pinch does to the canvas itself is Settings › Visuals › Touch's switch.
  */
 @Composable
 internal fun GesturesSection(
@@ -133,7 +134,7 @@ internal fun GesturesSection(
     update: (BehaviourPrefs) -> Unit,
 ) {
     SettingsHint(stringResource(R.string.settings_gestures_hint))
-    CanvasGesture.entries.filter { it != CanvasGesture.PINCH_TWIST }.forEach { gesture ->
+    CanvasGesture.entries.forEach { gesture ->
         SettingsChoiceRow(
             title = stringResource(gestureLabel(gesture)),
             options = gestureChoices(gesture, prefs.actionFor(gesture)),
@@ -205,6 +206,42 @@ internal fun VisualsBasics() {
             bestEffortStart(context, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         },
     )
+}
+
+/**
+ * Settings › Visuals › Touch: the fingers smearing the picture (handed to native by `EnginePlumbing`,
+ * drawn by `core/viz/TouchSmear`), and pinch and twist moving Zoom and Rotation (`VisualsHub`).
+ */
+@Composable
+internal fun TouchSection(viewModel: SettingsViewModel) {
+    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
+    Column {
+        LabeledSwitch(
+            stringResource(R.string.behavior_touch_smear),
+            checked = gui.touchSmear,
+            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(touchSmear = it)) },
+        )
+        SettingsHint(stringResource(R.string.behavior_touch_smear_hint))
+        if (gui.touchSmear) {
+            Text(
+                stringResource(R.string.behavior_smear_strength, (gui.touchSmearStrength * 100).toInt()),
+                style = MaterialTheme.typography.labelMedium,
+            )
+            CrystalSlider(
+                value = gui.touchSmearStrength,
+                onValueChange = { viewModel.setGuiPrefs(gui.copy(touchSmearStrength = it)) },
+                valueRange = 0.2f..2f,
+            )
+        }
+    }
+    Column {
+        LabeledSwitch(
+            stringResource(R.string.behavior_touch_transform),
+            checked = gui.touchTransform,
+            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(touchTransform = it)) },
+        )
+        SettingsHint(stringResource(R.string.behavior_touch_transform_hint))
+    }
 }
 
 /** Settings › Visuals › Connected display: the visual on HDMI or a cast display. */
@@ -298,7 +335,7 @@ private fun bestEffortStart(
 
 /**
  * The actions a gesture can take: a sideways swipe steps through something (a style, a preset or
- * the playlist's look); a two-finger drag moves over the visual; the taps, the other swipes, the
+ * the playlist's look); a two-finger drag and a pinch move over the visual; the taps, the other swipes, the
  * hold and the swirl each open or do one thing. Its current action always stays on the list, so a
  * choice made elsewhere is never hidden.
  */
@@ -309,7 +346,7 @@ private fun gestureChoices(
     val suited =
         when (gesture) {
             CanvasGesture.SWIPE_SIDEWAYS -> listOf(GestureAction.STEP_STYLE, GestureAction.STEP_PRESET, GestureAction.STEP_PLAYLIST)
-            CanvasGesture.TWO_FINGER_DRAG -> listOf(GestureAction.TOUCH_PLAY)
+            CanvasGesture.TWO_FINGER_DRAG, CanvasGesture.PINCH_TWIST -> listOf(GestureAction.TOUCH_PLAY)
             else -> ONE_SHOT_ACTIONS
         }
     return (suited + GestureAction.OFF).let { if (current in it) it else listOf(current) + it }

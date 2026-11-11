@@ -154,6 +154,7 @@ data class BehaviourPrefs(
                 CanvasGesture.LONG_PRESS to GestureAction.RECORD,
                 CanvasGesture.SWIRL to GestureAction.RANDOMIZE_ALL,
                 CanvasGesture.TWO_FINGER_DRAG to GestureAction.TOUCH_PLAY,
+                CanvasGesture.PINCH_TWIST to GestureAction.OFF,
             )
     }
 }
@@ -180,7 +181,7 @@ class BehaviourStore(
             dreamShowNowPlaying = prefs.getBoolean(KEY_DREAM_NOW_PLAYING, d.dreamShowNowPlaying),
             dreamFps = prefs.getInt(KEY_DREAM_FPS, d.dreamFps),
             gestures =
-                MAPPED_GESTURES.associateWith { gesture ->
+                CanvasGesture.entries.associateWith { gesture ->
                     enumOf(KEY_GESTURE_PREFIX + gesture.name, d.actionFor(gesture))
                 },
         )
@@ -199,8 +200,7 @@ class BehaviourStore(
             putBoolean(KEY_DREAM_CLOCK, b.dreamShowClock)
             putBoolean(KEY_DREAM_NOW_PLAYING, b.dreamShowNowPlaying)
             putInt(KEY_DREAM_FPS, b.dreamFps)
-            for (gesture in MAPPED_GESTURES) putString(KEY_GESTURE_PREFIX + gesture.name, b.actionFor(gesture).name)
-            remove(KEY_GESTURE_PREFIX + CanvasGesture.PINCH_TWIST.name)
+            for (gesture in CanvasGesture.entries) putString(KEY_GESTURE_PREFIX + gesture.name, b.actionFor(gesture).name)
         }
     }
 
@@ -217,9 +217,6 @@ class BehaviourStore(
     ): E = prefs.getString(key, null)?.let { name -> enumValues<E>().firstOrNull { it.name == name } } ?: default
 
     internal companion object {
-        /** Pinch and twist are only told apart from a drag; no action is ever mapped to them. */
-        private val MAPPED_GESTURES = CanvasGesture.entries - CanvasGesture.PINCH_TWIST
-
         private const val KEY_START_SCREEN = "behaviour_start_screen"
         private const val KEY_LAST_SCREEN = "behaviour_last_screen"
         private const val KEY_KEEP_SCREEN_ON_VISUALS = "behaviour_keep_screen_on_visuals"

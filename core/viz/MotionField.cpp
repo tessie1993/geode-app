@@ -196,7 +196,8 @@ SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion, float s
     }
     o.warp = std::clamp(p.warp + motionAmount * 0.3f * (1.0f - s.harmony), 0.0f, 1.0f);
     o.morph = std::clamp(p.morph + motionAmount * (1.0f - s.harmony), 0.0f, 1.0f);
-    o.speed = std::clamp(p.speed * (0.7f + 0.5f * s.energyRel), 0.05f, 4.0f);
+    // Under the Motion dial like every other term here: at 0 the music leaves Speed alone.
+    o.speed = std::clamp(p.speed * (1.0f + amountDial * (0.5f * s.energyRel - 0.3f)), 0.05f, 4.0f);
     // The key's hue, gated by how confident the key detector is, offset
     // slightly further by how bright the passage reads.
     const float keyHueOffset = s.keyStrength * wrappedDelta01(0.5f, s.keyHue);

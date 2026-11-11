@@ -66,8 +66,6 @@ public:
         GLuint underlayTex = 0;
         int underlayBlend = 0;
         float underlayAmount = 0.0f;
-        // Note & key reactions' whole-picture tint (NoteUniforms::tint): rgb and amount, 0 while off.
-        std::array<float, 4> noteTint{1.0f, 1.0f, 1.0f, 0.0f};
     };
 
     CompositePass(const ShaderSource& assets, ProgramBinaryCache* cache) : transitions_(assets, cache), assets_(assets) {}

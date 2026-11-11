@@ -1,8 +1,8 @@
 // Host test of the note & key reactions (viz/NoteResponse): that the six style knobs each answer to at
 // least two fields of the sound frame, that a percussive track raises the drum weight and a tonal one
-// lowers it, that note colours come from note onsets only and are deterministic, that a melody paints
-// more than one hue, that off is exactly today's picture, that silence is stable, and that each play
-// varies, the user's amounts scale each source and the camera hears leaps and builds.
+// lowers it, that the knobs are all it hands on (no scene param, no colour), that it is deterministic,
+// that off is exactly 0.5 on every knob, that silence is stable, and that the user's amounts scale each
+// source.
 // Built by CI (.github/workflows/android.yml, "Note response test") with core/viz/NoteResponse.cpp alone:
 // the emotion state is an input, so the test sets it directly.
 #include <cmath>
@@ -11,7 +11,6 @@
 #include <cstring>
 #include <functional>
 #include <initializer_list>
-#include <set>
 #include <string>
 
 #include "viz/NoteResponse.hpp"
@@ -225,88 +224,45 @@ GeodeSoundFrame melody(float t) {
     return f;
 }
 
-void notesPaintTheWheel() {
-    // No note onsets: no note colours, however loud the drums.
-    NoteResponse drums = on();
-    run(drums, 6.0f, percussive);
-    check(drums.notesHeard() == 0, "drums alone hear no notes");
+// The owner's rules, "no hardcoded reactions" and "no colour narrowing": the layer used to lay a twist on
+// every leap, a bend on tension, a fold shift on every chord change, a zoom on the drums and a tint toward
+// the notes' colour over every style alike. It now hands on the six knobs and its amount, nothing else:
+// no call takes or returns scene params, and the uniforms hold no colour.
+template <typename N>
+concept WritesParams = requires(const N& n, const SceneParams& p) { n.apply(p); };
+static_assert(!WritesParams<NoteResponse>, "the note layer writes no scene param");
+static_assert(sizeof(NoteUniforms) == (NoteUniforms::kKnobs + 1) * sizeof(float), "the note uniforms are the six knobs and the amount: no tint, no hues");
 
-    NoteResponse n = on();
+void deterministic() {
     const int frames = static_cast<int>(8.0f / kDt);
-    int onsets = 0;
-    for (int i = 0; i < frames; ++i) {
-        const GeodeSoundFrame f = melody(i * kDt);
-        if (f.noteChange > 0.0f) ++onsets;
-        n.step(f, calm(), {}, kDt);
-    }
-    check(n.notesHeard() == onsets, "one colour per note onset (" + std::to_string(n.notesHeard()) + " for " + std::to_string(onsets) + ")");
-
-    // Hues: a melody paints more than one colour.
-    std::set<int> hueBins;
-    for (float h : n.uniforms().hues) hueBins.insert(static_cast<int>(h * 12.0f) % 12);
-    check(hueBins.size() >= 4, "a melody paints at least four hues (" + std::to_string(hueBins.size()) + ")");
-    float minHue = 1.0f, maxHue = 0.0f;
-    for (float h : n.uniforms().hues) {
-        minHue = std::min(minHue, h);
-        maxHue = std::max(maxHue, h);
-    }
-    check(maxHue - minHue > 0.2f, "the melody's hues spread across the wheel");
-
-    // Deterministic: same seed, same frames, same uniforms; another seed, other colours.
+    NoteResponse n = on();
     NoteResponse again = on();
-    NoteResponse other = on(99);
     for (int i = 0; i < frames; ++i) {
+        n.step(melody(i * kDt), calm(), {}, kDt);
         again.step(melody(i * kDt), calm(), {}, kDt);
-        other.step(melody(i * kDt), calm(), {}, kDt);
     }
     check(std::memcmp(&again.uniforms(), &n.uniforms(), sizeof(NoteUniforms)) == 0, "same seed and frames: same uniforms");
-    bool differs = false;
-    for (int k = 0; k < NoteUniforms::kHues; ++k) differs = differs || other.uniforms().hues[k] != n.uniforms().hues[k];
-    check(differs, "another seed paints other hues");
 }
 
-void chordChangesShiftTheScene() {
+void chordChangesSwing() {
     NoteResponse n = on();
-    run(n, 10.0f, [](float t) {
+    float peak = 0.0f;
+    const int frames = static_cast<int>(10.0f / kDt);
+    for (int i = 0; i < frames; ++i) {
         GeodeSoundFrame f = base();
-        if (std::fmod(t, 2.0f) < kDt && t > 0.5f) f.harmonicChange = 0.6f;
-        return f;
-    });
-    check(n.sceneShifts() >= 4, "chord changes shift the scene");
-    check(n.symmetryShift() != 0 && std::abs(n.symmetryShift()) <= 3, "the fold count moves, within three folds");
-    SceneParams p;
-    const SceneParams q = n.apply(p);
-    check(q.symmetry == p.symmetry + n.symmetryShift(), "the shift reaches the fold count");
-    // Chatter: harmonicChange every frame still shifts at most once per 1.5 s.
+        if (std::fmod(i * kDt, 2.0f) < kDt && i * kDt > 0.5f) f.harmonicChange = 0.6f;
+        n.step(f, calm(), {}, kDt);
+        peak = std::max(peak, std::fabs(n.swing()));
+    }
+    check(n.chordShifts() >= 4 && peak > 0.05f, "chord changes swing the SPACE knob's spring");
+    // Chatter: harmonicChange every frame still counts at most once per 1.5 s.
     NoteResponse chatter = on();
     run(chatter, 3.0f, [](float) {
         GeodeSoundFrame f = base();
         f.harmonicChange = 0.6f;
         return f;
     });
-    check(chatter.sceneShifts() <= 2, "chord-change chatter is rate limited");
-}
-
-void tensionDistortsAndResolves() {
-    NoteResponse n = on();
-    Emotion::State tense = calm();
-    tense.tension = 0.9f;
-    run(n, 2.0f, [](float) {
-        GeodeSoundFrame f = base();
-        f.tension = 0.95f;
-        return f;
-    }, tense);
-    const float strained = n.distortion();
-    const SceneParams p;
-    const SceneParams q = n.apply(p);
-    check(strained > 0.6f, "tension bends the picture");
-    check(q.warp > p.warp + 0.15f && q.chromaAb > p.chromaAb + 0.05f, "the bend reaches warp and chromatic split");
-    run(n, 4.0f, [](float) {
-        GeodeSoundFrame f = base();
-        f.tension = 0.05f;
-        return f;
-    });
-    check(n.distortion() < 0.1f, "resolution smooths it back");
+    check(chatter.chordShifts() <= 2, "chord-change chatter is rate limited");
 }
 
 void intervalsMove() {
@@ -324,44 +280,13 @@ void intervalsMove() {
     check(std::fabs(step.swing()) < 0.05f && step.glide() > 0.1f, "a step glides without swinging");
 }
 
-void keyAndMood() {
-    // Major warm, minor cool (with no director).
-    NoteResponse major = on();
-    run(major, 4.0f, [](float) { return base(); });
-    NoteResponse minor = on();
-    run(minor, 4.0f, [](float) {
-        GeodeSoundFrame f = base();
-        f.keyMajor = 0.0f;
-        f.keyRoot = 9.0f / 12.0f;
-        f.keyHue = 0.0f;
-        return f;
-    });
-    const SceneParams p;
-    check(major.apply(p).temperature > p.temperature + 0.05f, "a major key warms");
-    check(minor.apply(p).temperature < p.temperature - 0.05f, "a minor key cools");
-    auto distanceTo = [](float h, float target) { return std::fabs(std::fmod(h - target + 1.5f, 1.0f) - 0.5f); };
-    check(distanceTo(major.anchorHue(), 0.07f) < distanceTo(minor.anchorHue(), 0.07f), "major sits nearer amber than minor");
-    // Under the director its look's hue leads, and the layer leaves temperature to it.
-    NoteResponse directed = on();
-    run(directed, 6.0f, [](float) { return base(); }, calm(), {0.4f, 1.0f});
-    check(distanceTo(directed.anchorHue(), 0.4f) < 0.02f, "the director's hue anchors the notes");
-    check(std::fabs(directed.apply(p).temperature - p.temperature) < 1e-4f, "the director keeps the palette's temperature");
-}
-
 void offIsToday() {
     NoteResponse n;
     n.configure({false, 7});
     run(n, 6.0f, melody);
     const NoteUniforms& u = n.uniforms();
     for (float k : u.knobs) check(k == 0.5f, "off: every knob at exactly 0.5");
-    check(n.notesHeard() == 0 && u.tint[3] == 0.0f, "off: no notes, no tint");
-    SceneParams p;
-    p.warp = 0.3f;
-    p.symmetry = 5;
-    const SceneParams q = n.apply(p);
-    check(std::memcmp(&p, &q, sizeof(SceneParams)) == 0 || (q.warp == p.warp && q.symmetry == p.symmetry && q.zoom == p.zoom &&
-                                                              q.temperature == p.temperature && q.morph == p.morph),
-          "off: apply changes nothing");
+    check(u.amount == 0.0f, "off: no amount");
     // Switched off mid-song: eases out, then is exactly off again.
     NoteResponse fading = on();
     run(fading, 4.0f, melody);
@@ -371,7 +296,6 @@ void offIsToday() {
     run(fading, 8.0f, melody);
     check(fading.amount() == 0.0f, "then it is off");
     for (float k : fading.uniforms().knobs) check(k == 0.5f, "and every knob is back at 0.5");
-    check(fading.uniforms().tint[3] == 0.0f, "and no tint is left");
 }
 
 void silenceIsStable() {
@@ -379,10 +303,8 @@ void silenceIsStable() {
     run(n, 20.0f, [](float) { return GeodeSoundFrame{}; }, Emotion::State{});
     const NoteUniforms& u = n.uniforms();
     for (float k : u.knobs) check(std::isfinite(k) && k >= 0.0f && k <= 1.0f, "silence: knobs finite and in range");
-    for (float h : u.hues) check(std::isfinite(h) && h >= 0.0f && h < 1.0f, "silence: hues finite");
-    check(n.notesHeard() == 0 && u.tint[3] == 0.0f, "silence: no notes, no tint");
     check(std::isfinite(n.percussiveness()) && std::fabs(n.percussiveness() - 0.5f) < 0.2f, "silence: drum weight undecided");
-    check(std::fabs(n.swing()) < 1e-3f && n.distortion() < 1e-3f, "silence: still");
+    check(std::fabs(n.swing()) < 1e-3f && std::fabs(n.glide()) < 1e-3f, "silence: still");
     // A garbage frame does not poison it.
     GeodeSoundFrame bad{};
     bad.interval = NAN;
@@ -393,23 +315,22 @@ void silenceIsStable() {
     bad.hfc = NAN;
     bad.keyHue = NAN;
     bad.flatness = NAN;
-    n.step(bad, Emotion::State{}, {NAN, NAN}, kDt);
+    n.step(bad, Emotion::State{}, {NAN, NAN, NAN, NAN, NAN}, kDt);
     run(n, 1.0f, [](float) { return GeodeSoundFrame{}; }, Emotion::State{});
     for (float k : n.uniforms().knobs) check(std::isfinite(k), "a NaN frame leaves the knobs finite");
-    check(std::isfinite(n.swing()) && std::isfinite(n.anchorHue()) && std::isfinite(n.distortion()) &&
-              std::isfinite(n.percussiveness()),
-          "a NaN frame leaves the motion finite");
-    const SceneParams q = n.apply(SceneParams{});
-    check(std::isfinite(q.warp) && std::isfinite(q.twist) && std::isfinite(q.morph) && std::isfinite(q.temperature),
-          "a NaN frame leaves the params finite");
+    check(std::isfinite(n.swing()) && std::isfinite(n.glide()) && std::isfinite(n.percussiveness()), "a NaN frame leaves the motion finite");
 }
 
 void newPlayForgets() {
     NoteResponse n = on(1);
-    run(n, 3.0f, melody);
-    check(n.notesHeard() > 0, "notes before the new play");
+    run(n, 5.0f, [](float t) {
+        GeodeSoundFrame f = base();
+        if (std::fmod(t, 2.0f) < kDt && t > 0.5f) f.harmonicChange = 0.6f;
+        return f;
+    });
+    check(n.chordShifts() > 0, "chord changes before the new play");
     n.configure({true, 2});
-    check(n.notesHeard() == 0, "a new seed is a new play");
+    check(n.chordShifts() == 0, "a new seed is a new play");
 }
 
 // A minor-key line with leaps and a tritone, rising tension and a chord change every two seconds.
@@ -435,60 +356,42 @@ GeodeSoundFrame minorLeaps(float t) {
     return f;
 }
 
-// Each play has its own character and every section rolls it again; the user's Note & key amounts scale
-// each source; the camera hears leaps and builds.
-void variationTuningAndMotion() {
-    // Two plays differ; a section change rolls a new character.
-    NoteResponse a = on(1);
-    NoteResponse b = on(2);
-    run(a, 0.5f, [](float) { return base(); });
-    run(b, 0.5f, [](float) { return base(); });
-    const auto& pa = a.personality();
-    const auto& pb = b.personality();
-    check(pa.tint != pb.tint, "two plays have different characters");
-    for (const auto* m : {&pa, &pb}) check(m->tint >= 0.04f && m->tint <= 0.3f, "tint in range");
-    const int before = a.rolls();
-    GeodeSoundFrame section = base();
-    section.sectionChange = 1.0f;
-    a.step(section, calm(), {}, kDt);
-    check(a.rolls() == before + 1, "a new section rolls a new character");
-
-    // The tint: a melody leans the picture toward its colour, inside the cap; Note colours 0 removes it.
-    NoteResponse melodic = on();
-    run(melodic, 4.0f, melody);
-    const float tint = melodic.uniforms().tint[3];
-    check(tint > 0.0f && tint <= 0.45f, "a melody tints the picture, within the cap");
-    NoteResponse::Inputs grey;
-    grey.color = 0.0f;
-    NoteResponse plain = on();
-    run(plain, 4.0f, melody, calm(), grey);
-    check(plain.uniforms().tint[3] == 0.0f, "Note colours at 0: no tint");
-
-    // Chord changes 0 never shifts; Leaps and steps 0 never swings.
+// The style's Notes & key amounts scale what feeds each knob, down to nothing at 0.
+void amountsScaleTheKnobs() {
     NoteResponse::Inputs quiet;
     quiet.chords = 0.0f;
     quiet.intervals = 0.0f;
     NoteResponse muted = on();
     run(muted, 6.0f, minorLeaps, calm(), quiet);
-    check(muted.sceneShifts() == 0, "Chord changes 0 never shifts the scene");
-    check(std::fabs(muted.swing()) < 1e-3f, "Leaps and steps 0 never swings");
+    check(muted.chordShifts() == 0, "Chord changes 0 never counts a chord");
+    check(std::fabs(muted.swing()) < 1e-3f && std::fabs(muted.glide()) < 1e-3f, "Leaps and steps 0 never swings or glides");
 
-    // The camera: a leap rolls it, a build pushes it in.
-    NoteResponse leap = on();
-    GeodeSoundFrame f = base();
-    f.noteChange = 0.8f;
-    f.interval = 0.75f;
-    leap.step(f, calm(), {}, kDt);
-    run(leap, 0.3f, [](float) { return base(); });
-    const SceneParams p;
-    check(std::fabs(leap.apply(p).camRoll - p.camRoll) > 0.03f, "a leap rolls the camera");
-    NoteResponse build = on();
-    run(build, 4.0f, [](float) {
-        GeodeSoundFrame g = base();
-        g.buildUp = 1.0f;
-        return g;
-    });
-    check(build.apply(p).camPush > p.camPush + 0.15f, "a build pushes the camera in");
+    const auto knobAt = [](int k, const NoteResponse::Inputs& in, const std::function<void(GeodeSoundFrame&, Emotion::State&)>& tweak) {
+        NoteResponse n = on();
+        Emotion::State e = calm();
+        GeodeSoundFrame f = base();
+        tweak(f, e);
+        run(n, 4.0f, [&](float) { return f; }, e, in);
+        return n.uniforms().knobs[k];
+    };
+    const auto high = [](GeodeSoundFrame& f, Emotion::State&) { f.pitchHeight = 0.95f; };
+    const auto low = [](GeodeSoundFrame& f, Emotion::State&) { f.pitchHeight = 0.05f; };
+    NoteResponse::Inputs noPitch;
+    noPitch.pitch = 0.0f;
+    check(knobAt(3, {}, high) > knobAt(3, {}, low) + 0.1f, "Pitch height 1: TONE follows the melody");
+    check(knobAt(3, noPitch, high) == knobAt(3, noPitch, low), "Pitch height 0: TONE holds still");
+    const auto tense = [](GeodeSoundFrame& f, Emotion::State& e) { f.tension = e.tension = 0.9f; };
+    const auto rest = [](GeodeSoundFrame& f, Emotion::State& e) { f.tension = e.tension = 0.0f; };
+    NoteResponse::Inputs noTension;
+    noTension.tension = 0.0f;
+    check(knobAt(4, {}, tense) > knobAt(4, {}, rest) + 0.1f, "Tension 1: BUILD follows the tension");
+    check(knobAt(4, noTension, tense) == knobAt(4, noTension, rest), "Tension 0: BUILD ignores it");
+    NoteResponse::Inputs noDrums;
+    noDrums.drums = 0.0f;
+    const auto hit = [](GeodeSoundFrame& f, Emotion::State&) { f.kickEnv = 1.0f; };
+    const auto none = [](GeodeSoundFrame&, Emotion::State&) {};
+    check(knobAt(0, {}, hit) > knobAt(0, {}, none) + 0.1f, "Drums 1: PULSE follows the drums");
+    check(knobAt(0, noDrums, hit) == knobAt(0, noDrums, none), "Drums 0: PULSE ignores them");
 }
 
 }  // namespace
@@ -496,15 +399,13 @@ void variationTuningAndMotion() {
 int main() {
     knobsAnswerSeveralFields();
     drumWeightFollowsTheInput();
-    notesPaintTheWheel();
-    chordChangesShiftTheScene();
-    tensionDistortsAndResolves();
+    deterministic();
+    chordChangesSwing();
     intervalsMove();
-    keyAndMood();
     offIsToday();
     silenceIsStable();
     newPlayForgets();
-    variationTuningAndMotion();
+    amountsScaleTheKnobs();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

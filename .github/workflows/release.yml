@@ -6,7 +6,7 @@ name: Play release bundle
 # Runs only on request (Actions > Play release bundle > Run workflow): pull requests and
 # tags don't build it. It signs with the upload key; without the key it builds UNSIGNED
 # with a warning. The manifest promise checks (INTERNET only with Cast, no AD_ID, targetSdk) also run
-# on every PR in android.yml, against the debug build.
+# on every PR in build-lint.yml (tools/check-manifest.sh), against the debug build.
 #
 # Repository secrets (Settings > Secrets and variables > Actions > Secrets):
 #   MUZVIZ_UPLOAD_KEYSTORE_BASE64   base64 of the upload keystore (.jks):

@@ -62,8 +62,17 @@ env:
   APK_SOURCE: app/build/outputs/apk/debug/app-debug.apk
 
 jobs:
+  # A push to main publishes only if the native host tests pass; a run called from
+  # android.yml (or by hand) already passed them, so it skips this.
+  host-tests:
+    name: Native host tests
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/native-host-tests.yml
+
   ship-apk:
     name: Build and publish APK
+    needs: host-tests
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -106,6 +115,13 @@ jobs:
       - name: Make Gradle wrapper executable
         working-directory: ${{ env.PROJECT_DIR }}
         run: chmod +x gradlew
+
+      # Before the number is reserved, so a red test burns no release. On a push to main only;
+      # android.yml has already run them for the other callers.
+      - name: Run unit tests
+        if: github.event_name == 'push'
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: ./gradlew :app:testDebugUnitTest :engine:audio-core:test :engine:scenes:testDebugUnitTest :engine:audio-android:testDebugUnitTest --stacktrace --no-daemon
 
       # Each pre-release gets its own number N (versionName <base>.N, tag apk-v<base>.N):
       # releases so far + 1, reserved by pushing the tag first so concurrent runs never

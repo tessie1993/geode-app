@@ -1473,6 +1473,18 @@ object GeodeNative {
     /** Frames written since the last [pcmRingBeginEpoch]. */
     external fun pcmRingWritten(handle: Long): Long
 
+    /** Frames ever written, across epochs: the position [playoutBufferHandled] counts ring samples in. */
+    external fun pcmRingHead(handle: Long): Long
+
+    /**
+     * The playout clock ([playoutCreate]) of the sink that plays this ring, 0 for none: a renderer fed the
+     * ring then hears up to the sample the speaker plays, not the newest. The clock must outlive the ring.
+     */
+    external fun pcmRingSetPlayout(
+        handle: Long,
+        playout: Long,
+    )
+
     /**
      * The rest-when-silent rule over the ring's newest [frames] frames: [nowMs] when any is above about
      * -42 dBFS, else [heardAtMs] (also when the ring has not written that many).
@@ -1552,6 +1564,23 @@ object GeodeNative {
         handle: Long,
         nowNs: Long,
     ): Long
+
+    /** Cast: while [on], the TV plays the ring as written and every reader takes the newest sample again. */
+    external fun playoutSetBypass(
+        handle: Long,
+        on: Boolean,
+    )
+
+    /** Wall ms from [nowNs] until the newest sample the sink took is heard; 0 with no map, 2000 at most. */
+    external fun playoutLagMs(
+        handle: Long,
+        nowNs: Long,
+    ): Int
+
+    /** The player's ring: its capacity and runway, sized natively so a reader at the speaker is not overrun. */
+    external fun playoutRingFrames(): Int
+
+    external fun playoutRingRunway(): Int
 
     // The playback output (core/audio/output): an Oboe stream under Media3's sink, where the AudioTrack stands.
 

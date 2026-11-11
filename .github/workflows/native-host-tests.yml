@@ -169,6 +169,13 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/playout_test.cpp core/sound/interp/PlayoutClock.cpp \
             core/api/geode_playout_api.cpp -o playout_test
           ./playout_test
+          # Speaker sync (#349, #488): the real ring, cursor and playout clock behind a fake sink. A reader held
+          # to the speaker reads nothing of the sink's first buffer until it plays, every frame once at
+          # 30/60/120 fps, stands in a pause, drops a seek's unheard tail, reads a gapless tail, is not
+          # overrun at 192 kHz over Bluetooth; the mic, Cast and a ring with no sink read the newest.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/speaker_sync_test.cpp \
+            core/audio/ingest/PcmRing.cpp core/sound/interp/PlayoutClock.cpp -o speaker_sync_test
+          ./speaker_sync_test
           # The encoder fallback ladder (#607): the rungs, the 30 fps floor, the 2/3 bit rate, an unknown ceiling.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/encoder_ladder_test.cpp core/api/geode_output_api.cpp -o encoder_ladder_test
           ./encoder_ladder_test

@@ -11,7 +11,7 @@ namespace geode::sound {
  * Which ring sample the speaker is playing now (#349).
  *
  * The tap sees each sample when the sink takes it, not when it is heard. Between the two sit the
- * AudioTrack's buffer (Media3 sizes it at about 250 ms for PCM, up to 750 ms), the HAL, and on
+ * AudioTrack's buffer (Media3 1.11 sizes it at 500 ms for PCM), the HAL, and on
  * Bluetooth the A2DP link (another 150-250 ms). A renderer that hears up to the ring's newest sample
  * draws every beat, onset and drop that much early. This clock answers the one question a renderer
  * needs: the newest ring sample the listener has heard at a given monotonic time, so its cursor stops
@@ -103,6 +103,16 @@ public:
      * read (nothing of it has reached the speaker yet).
      */
     int64_t speakerFrame(int64_t nowNs) const;
+
+    /** lagMs' ceiling: more than any sink buffer and link holds, so a broken report cannot stall a pause. */
+    static constexpr int kMaxLagMs = 2000;
+
+    /**
+     * How long, in wall ms from monotonic [nowNs], until the newest sample the sink took is heard: what the
+     * sink's buffer, the HAL and the link still hold (no A/V offset: that is the picture's). 0 with no
+     * map. A gain ramp that ended on the samples has reached the speaker after this long.
+     */
+    int lagMs(int64_t nowNs) const;
 
 private:
     struct Anchor {

@@ -9,7 +9,7 @@
 #include "viz/Catalogue.hpp"
 #include "viz/Params.hpp"
 
-// The Customize panel's map: ten categories grouped by what their controls do, each split into a
+// The Customize panel's map: nine categories grouped by what their controls do, each split into a
 // free Basics section and Pro sections below it, and which control lives where. Pure: no GL, no JNI.
 //
 // WHY native (ADR 0003): the map decides what a category's Randomize rolls and what its Reset puts
@@ -29,8 +29,8 @@ namespace geode::viz::customize {
 constexpr int kTextVersion = 1;
 
 // In panel order. Names match Kotlin's CustomizeCategory.
-enum class Category { QuickKnobs, Look, Shape, Motion, Camera, Music, Effects, Liquid, Behaviour, Expert };
-constexpr int kCategoryCount = 10;
+enum class Category { QuickKnobs, Look, Shape, Motion, Camera, Music, Effects, Liquid, Expert };
+constexpr int kCategoryCount = 9;
 
 // Which styles a category or section is offered on, beyond each control's own scope. A section is
 // also hidden when no control in it reaches the style (a dive on a style that cannot dive).

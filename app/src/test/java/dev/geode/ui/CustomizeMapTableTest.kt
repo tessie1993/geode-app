@@ -48,7 +48,7 @@ class CustomizeMapTableTest {
     }
 
     @Test
-    fun tenCategoriesInPanelOrderEachWithAtMostOneBasicsFirst() {
+    fun nineCategoriesInPanelOrderEachWithAtMostOneBasicsFirst() {
         assertEquals(CustomizeCategory.entries, sections.map { it.category }.distinct())
         CustomizeCategory.entries.forEach { category ->
             val own = CustomizeMapTable.sectionsOf(category)

@@ -68,7 +68,7 @@ import dev.geode.ui.theme.LocalGeodeMotion
  * Native decides all of it ([MusicMoments] only calls it); this page draws the rows and sends taps.
  *
  * The ready-made [EventRecipe]s stay below as one menu of one-tap bundles across moments. How
- * strongly the music moves things overall is Music's Basics; each route on its own is Behaviour ›
+ * strongly the music moves things overall is Music's Basics; each route on its own is Music ›
  * Reactions.
  *
  * Pro, like every section below a category's Basics: a free user can open it and see the moments,

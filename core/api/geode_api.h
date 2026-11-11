@@ -385,7 +385,7 @@ GEODE_API const char* geode_config_schema_text(void);
 GEODE_API float       geode_touch_zoom(float current, float scale_factor);
 GEODE_API float       geode_touch_rotation(float current, float degrees);
 
-/* Customize panel map (core/viz/CustomizeMap): ten categories, each a free Basics section and Pro sections, and
+/* Customize panel map (core/viz/CustomizeMap): nine categories, each a free Basics section and Pro sections, and
  * which control lives in which. geode_customize_text is its versioned '|'-separated line table (rows in
  * CustomizeMap.hpp). Static: the pointer stays valid for the process. geode_customize_shown lists what the panel
  * offers on style_id ("CATEGORY" and "CATEGORY/section" lines); the pointer stays valid until this thread's next call.

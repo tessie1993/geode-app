@@ -2,7 +2,10 @@ package dev.geode.ui
 
 import android.content.SharedPreferences
 import android.os.SystemClock
+import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.LfoStore
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
@@ -68,7 +71,7 @@ internal class ModulationController(
     val handMask: StateFlow<Int> = _handMask
 
     private val _lockedParams =
-        MutableStateFlow<Set<String>>(prefs.getStringSet("locked_params", emptySet()) ?: emptySet())
+        MutableStateFlow<Set<String>>(prefs.getStringSet(KEY_LOCKED_PARAMS, emptySet()) ?: emptySet())
     val lockedParams: StateFlow<Set<String>> = _lockedParams
 
     private val _history = MutableStateFlow(ParamHistoryState())
@@ -80,7 +83,7 @@ internal class ModulationController(
 
     fun toggleParamLock(label: String) {
         _lockedParams.update { if (label in it) it - label else it + label }
-        prefs.edit().putStringSet("locked_params", _lockedParams.value).apply()
+        prefs.edit().putStringSet(KEY_LOCKED_PARAMS, _lockedParams.value).apply()
         // The director's reach leaves a kept control alone too (AutoDirectorStore pushes the saved set at start).
         bestEffort(TAG, "push keep set") { GeodeNative.directorKeepSet(_lockedParams.value.joinToString("\n")) }
     }
@@ -150,6 +153,25 @@ internal class ModulationController(
             }
         if (changed) commitSceneParams(SceneParamsCodec.unpack(out, host.params))
         if (category == null || category == CustomizeCategory.MUSIC) randomizeWaves(all = false)
+    }
+
+    /**
+     * Randomize everything's roll (core/viz/RandomizeAll), after its style and preset are on screen:
+     * the controls Customize keeps go back to their values in [before], then, with [rollCategories],
+     * every category is rolled from [seed] and the steady waves already on with it. One undo entry.
+     */
+    fun randomizeAllRoll(
+        before: SceneParams,
+        seed: Long,
+        rollCategories: Boolean,
+    ) {
+        val out = FloatArray(SceneParamsCodec.FIELDS)
+        val locked = _lockedParams.value.joinToString("\n")
+        val base = SceneParamsCodec.pack(host.params)
+        if (GeodeNative.randomizeAllRoll(host.sceneId, locked, seed, rollCategories, SceneParamsCodec.pack(before), base, out)) {
+            commitSceneParams(SceneParamsCodec.unpack(out, host.params))
+        }
+        if (rollCategories) randomizeWaves(all = false)
     }
 
     /**
@@ -273,11 +295,18 @@ internal class ModulationController(
         _history.value = ParamHistoryState(canUndo = undoStack.isNotEmpty(), canRedo = redoStack.isNotEmpty())
     }
 
-    private companion object {
-        const val TAG = "ModulationController"
+    companion object {
+        private const val TAG = "ModulationController"
 
-        const val HISTORY_DEPTH = 64
+        private const val HISTORY_DEPTH = 64
 
-        const val CHECKPOINT_GAP_MS = 700L
+        private const val CHECKPOINT_GAP_MS = 700L
+
+        private const val KEY_LOCKED_PARAMS = "locked_params"
+
+        val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.MODULATION) {
+                portable(PrefType.STRING_SET, KEY_LOCKED_PARAMS)
+            }
     }
 }

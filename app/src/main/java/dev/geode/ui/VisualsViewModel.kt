@@ -1,13 +1,18 @@
 package dev.geode.ui
 
+import android.content.Context
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.geode.data.BackgroundPrefs
 import dev.geode.data.MilkTexture
 import dev.geode.data.Preset
 import dev.geode.data.PresetFolders
 import dev.geode.data.PresetStore
+import dev.geode.data.StillFiles
 import dev.geode.data.TemplateFormat
 import dev.geode.data.TemplateId
 import dev.geode.data.TemplateImport
@@ -20,8 +25,12 @@ import dev.geode.model.PresetLink
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
 import dev.geode.render.UnderlayBlend
+import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 
@@ -77,9 +86,11 @@ class VisualsViewModel
     @Inject
     constructor(
         private val sessions: PlayerSessionProvider,
+        @ApplicationContext context: Context,
     ) : ViewModel() {
         private val session: PlayerSession = sessions.get()
         private val visualizer: VisualizerRepository = session.visualizerRepository
+        private val stills = StillFiles(context)
 
         val vizState: StateFlow<VizUiState> get() = visualizer.viz
 
@@ -133,6 +144,23 @@ class VisualsViewModel
         fun randomizeParams(category: CustomizeCategory? = null) = session.modulation.randomizeParams(category)
 
         fun randomizeWaves() = session.modulation.randomizeWaves(all = true)
+
+        /** The two-circle gesture's Randomize everything: style, preset and, with [rollParams] (Pro), every category. */
+        fun randomizeEverything(rollParams: Boolean) = session.randomizeEverything(rollParams)
+
+        /** Tap along's roll, free: Customize › Music's randomize (new moments and reactions), Keep respected. */
+        fun tapAlongRoll() = session.modulation.randomizeParams(CustomizeCategory.MUSIC)
+
+        /** Shake to screenshot: saves [still] to Pictures off the main thread; [onSaved] hears whether it landed. */
+        fun saveStill(
+            still: Bitmap,
+            onSaved: (Boolean) -> Unit,
+        ) {
+            viewModelScope.launch {
+                val saved = withContext(Dispatchers.IO) { stills.save(still, System.currentTimeMillis()) } != null
+                onSaved(saved)
+            }
+        }
 
         val paramHistory: StateFlow<ParamHistoryState> get() = session.paramHistory
 
@@ -191,6 +219,23 @@ class VisualsViewModel
         ): String? = session.renamePreset(from, to)
 
         fun duplicatePreset(name: String): String? = session.presetLibrary.duplicatePreset(name)
+
+        /**
+         * A .milk a file manager opened in the app: imported as the MilkDrop page's picker imports one,
+         * then chosen like a tap on it (MilkDrop through the style gate, which opens the paywall if locked).
+         */
+        fun openMilkFile(
+            uri: Uri,
+            onDone: (Boolean) -> Unit,
+        ) = session.milkImport.importOpenedMilkAsync(uri) { path ->
+            if (path != null) {
+                session.selectScene(SceneIds.MILKDROP)
+                if (session.allowsStyle(SceneIds.MILKDROP)) {
+                    session.visual.emitApply(VizApply(milkPath = path, sceneId = SceneIds.MILKDROP))
+                }
+            }
+            onDone(path != null)
+        }
 
         fun presetFile(name: String): File? = session.presetLibrary.presetFile(name)
 

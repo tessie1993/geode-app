@@ -1,6 +1,8 @@
 package dev.geode.data
 
 import android.content.SharedPreferences
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 
 class FavouritesStore(
     private val prefs: SharedPreferences,
@@ -36,9 +38,14 @@ class FavouritesStore(
         prefs.edit().putString(KEY, uris.joinToString(SEPARATOR)).apply()
     }
 
-    private companion object {
+    internal companion object {
         const val KEY = "uris"
 
         const val SEPARATOR = "\n"
+
+        val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.FAVOURITES) {
+                portable(PrefType.STRING, KEY)
+            }
     }
 }

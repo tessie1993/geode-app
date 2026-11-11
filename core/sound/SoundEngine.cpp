@@ -90,6 +90,12 @@ int SoundEngine::fftSizeFor(int sampleRateHz) {
     return n;
 }
 
+int SoundEngine::analysisRateFor(int sampleRateHz) {
+    int rate = std::max(8000, sampleRateHz);
+    for (int i = 0; i < 3 && rate >= 88200; i++) rate /= 2;
+    return rate;
+}
+
 GeodeSoundTuning SoundEngine::defaultTuning() { return tuning::defaults(); }
 
 void SoundEngine::setTuning(const GeodeSoundTuning& t) {
@@ -98,7 +104,9 @@ void SoundEngine::setTuning(const GeodeSoundTuning& t) {
 }
 
 SoundEngine::SoundEngine(int sampleRateHz)
-    : sampleRateHz_(std::max(8000, sampleRateHz)),
+    : inputRateHz_(std::max(8000, sampleRateHz)),
+      halvings_(static_cast<int>(std::lround(std::log2(static_cast<double>(inputRateHz_) / analysisRateFor(inputRateHz_))))),
+      sampleRateHz_(analysisRateFor(inputRateHz_)),
       n_(fftSizeFor(sampleRateHz_)),
       binHz_(static_cast<float>(sampleRateHz_) / static_cast<float>(n_)),
       tuning_(defaultTuning()),
@@ -207,8 +215,16 @@ void SoundEngine::write(const float* interleaved, int frames, int channels) {
         return y;
     };
     for (int i = 0; i < frames; i++) {
-        const float l = block(0, clean(interleaved[static_cast<size_t>(i) * channels]));
-        const float r = channels > 1 ? block(1, clean(interleaved[static_cast<size_t>(i) * channels + 1])) : l;
+        float l = clean(interleaved[static_cast<size_t>(i) * channels]);
+        float r = channels > 1 ? clean(interleaved[static_cast<size_t>(i) * channels + 1]) : l;
+        bool ready = true;
+        for (int h = 0; h < halvings_ && ready; h++) {
+            ready = decimate_[h][0].push(l, l);
+            decimate_[h][1].push(r, r);
+        }
+        if (!ready) continue;
+        l = block(0, l);
+        r = block(1, r);
         feed(l * trimGain_, r * trimGain_);
     }
 }
@@ -979,6 +995,9 @@ void SoundEngine::reset() {
     silenceCarry_ = 0.0;
     dcX_ = {};
     dcY_ = {};
+    for (auto& stage : decimate_) {
+        for (HalfBand& channel : stage) channel.reset();
+    }
     held_ = {};
     hopFrame_ = GeodeSoundFrame{};
     // What a silent engine says before its first hop, as Harmony leaves it.

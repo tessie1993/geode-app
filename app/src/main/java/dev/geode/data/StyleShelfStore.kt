@@ -2,6 +2,8 @@ package dev.geode.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.model.StyleShelf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -53,6 +55,12 @@ class StyleShelfStore private constructor(
 
         // Style ids are lowercase words and underscores, never a comma.
         private const val SEPARATOR = ","
+
+        internal val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.VIZ) {
+                portable(PrefType.STRING_SET, KEY_FAVOURITES)
+                portable(PrefType.STRING, KEY_RECENTS)
+            }
 
         @Volatile private var instance: StyleShelfStore? = null
 

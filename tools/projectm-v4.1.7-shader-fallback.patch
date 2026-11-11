@@ -1,0 +1,244 @@
+diff --git a/src/api/include/projectM-4/core.h b/src/api/include/projectM-4/core.h
+index 59fc294a3..63faa2481 100644
+--- a/src/api/include/projectM-4/core.h
++++ b/src/api/include/projectM-4/core.h
+@@ -71,6 +71,17 @@ PROJECTM_EXPORT void projectm_destroy(projectm_handle instance);
+ PROJECTM_EXPORT void projectm_load_preset_file(projectm_handle instance, const char* filename,
+                                                bool smooth_transition);
+ 
++/**
++ * @brief The shaders the last loaded preset could not use, replaced by the default ones.
++ *
++ * MilkDrop's rule: a warp or composite shader that fails to translate or compile is swapped for the
++ * default one and the rest of the preset still plays. Reset by every load.
++ *
++ * @param instance The projectM instance handle.
++ * @return A bit mask: 1 the warp shader, 2 the composite shader; 0 when the preset used its own.
++ */
++PROJECTM_EXPORT uint32_t projectm_get_dropped_shaders(projectm_handle instance);
++
+ /**
+  * @brief Loads a preset from the data pointer.
+  *
+diff --git a/src/libprojectM/MilkdropPreset/FinalComposite.cpp b/src/libprojectM/MilkdropPreset/FinalComposite.cpp
+index 549c95043..8092f8697 100644
+--- a/src/libprojectM/MilkdropPreset/FinalComposite.cpp
++++ b/src/libprojectM/MilkdropPreset/FinalComposite.cpp
+@@ -61,6 +61,7 @@ void FinalComposite::LoadCompositeShader(const PresetState& presetState)
+                 (void)ex; // silence unused parameter warning
+ #endif
+                 // Fall back to default shader
++                m_compositeShaderDropped = true;
+                 m_compositeShader = std::make_unique<MilkdropShader>(MilkdropShader::ShaderType::CompositeShader);
+                 m_compositeShader->LoadCode(defaultCompositeShader);
+             }
+@@ -107,6 +108,7 @@ void FinalComposite::CompileCompositeShader(PresetState& presetState)
+                 (void)ex; // silence unused parameter warning
+ #endif
+             // Fall back to default shader
++            m_compositeShaderDropped = true;
+             m_compositeShader = std::make_unique<MilkdropShader>(MilkdropShader::ShaderType::CompositeShader);
+             m_compositeShader->LoadCode(defaultCompositeShader);
+             m_compositeShader->LoadTexturesAndCompile(presetState);
+diff --git a/src/libprojectM/MilkdropPreset/FinalComposite.hpp b/src/libprojectM/MilkdropPreset/FinalComposite.hpp
+index b9cf50b40..58de8daee 100644
+--- a/src/libprojectM/MilkdropPreset/FinalComposite.hpp
++++ b/src/libprojectM/MilkdropPreset/FinalComposite.hpp
+@@ -48,6 +48,14 @@ public:
+      */
+     auto HasCompositeShader() const -> bool;
+ 
++    /**
++     * @brief Returns whether the preset's own composite shader failed and the default stands in.
++     */
++    auto CompositeShaderDropped() const -> bool
++    {
++        return m_compositeShaderDropped;
++    }
++
+ private:
+     /**
+      * Composite mesh vertex with all required attributes.
+@@ -98,6 +106,7 @@ private:
+     int m_viewportHeight{}; //!< Last known viewport height.
+ 
+     std::unique_ptr<MilkdropShader> m_compositeShader; //!< The composite shader. Either preset-defined or empty.
++    bool m_compositeShaderDropped{false}; //!< The preset's composite shader failed; the default one is used.
+     std::unique_ptr<VideoEcho> m_videoEcho; //!< Video echo effect. Used if no composite shader is loaded and video echo is enabled.
+     std::unique_ptr<Filters> m_filters; //!< Color post-processing filters. Used if no composite shader is loaded.
+ };
+diff --git a/src/libprojectM/MilkdropPreset/MilkdropPreset.cpp b/src/libprojectM/MilkdropPreset/MilkdropPreset.cpp
+index e311cf0bb..c4e2b44e3 100755
+--- a/src/libprojectM/MilkdropPreset/MilkdropPreset.cpp
++++ b/src/libprojectM/MilkdropPreset/MilkdropPreset.cpp
+@@ -296,6 +296,11 @@ void MilkdropPreset::CompileCodeAndRunInitExpressions()
+     }
+ }
+ 
++auto MilkdropPreset::DroppedShaders() const -> uint32_t
++{
++    return (m_perPixelMesh.WarpShaderDropped() ? 1u : 0u) | (m_finalComposite.CompositeShaderDropped() ? 2u : 0u);
++}
++
+ void MilkdropPreset::LoadShaderCode()
+ {
+     m_perPixelMesh.LoadWarpShader(m_state);
+diff --git a/src/libprojectM/MilkdropPreset/MilkdropPreset.hpp b/src/libprojectM/MilkdropPreset/MilkdropPreset.hpp
+index cd55339a9..1383bad25 100644
+--- a/src/libprojectM/MilkdropPreset/MilkdropPreset.hpp
++++ b/src/libprojectM/MilkdropPreset/MilkdropPreset.hpp
+@@ -86,6 +86,8 @@ public:
+ 
+     void DrawInitialImage(const std::shared_ptr<Renderer::Texture>& image, const Renderer::RenderContext& renderContext) override;
+ 
++    auto DroppedShaders() const -> uint32_t override;
++
+ private:
+     void PerFrameUpdate();
+ 
+diff --git a/src/libprojectM/MilkdropPreset/PerPixelMesh.cpp b/src/libprojectM/MilkdropPreset/PerPixelMesh.cpp
+index d1f031411..00be62449 100644
+--- a/src/libprojectM/MilkdropPreset/PerPixelMesh.cpp
++++ b/src/libprojectM/MilkdropPreset/PerPixelMesh.cpp
+@@ -83,6 +83,7 @@ void PerPixelMesh::LoadWarpShader(const PresetState& presetState)
+                 (void)ex; // silence unused parameter warning
+ #endif
+                 m_warpShader.reset();
++                m_warpShaderDropped = true;
+             }
+         }
+     }
+@@ -107,6 +108,7 @@ void PerPixelMesh::CompileWarpShader(PresetState& presetState)
+             (void)ex; // silence unused parameter warning
+ #endif
+             m_warpShader.reset();
++            m_warpShaderDropped = true;
+         }
+     }
+ }
+diff --git a/src/libprojectM/MilkdropPreset/PerPixelMesh.hpp b/src/libprojectM/MilkdropPreset/PerPixelMesh.hpp
+index 6dcef4299..b9e2f35f1 100644
+--- a/src/libprojectM/MilkdropPreset/PerPixelMesh.hpp
++++ b/src/libprojectM/MilkdropPreset/PerPixelMesh.hpp
+@@ -56,6 +56,13 @@ public:
+               const PerFrameContext& perFrameContext,
+               PerPixelContext& perPixelContext);
+ 
++    /**
++     * @brief Returns whether the preset's own warp shader failed and the default warp stands in.
++     */
++    auto WarpShaderDropped() const -> bool
++    {
++        return m_warpShaderDropped;
++    }
+ 
+ private:
+     /**
+@@ -124,6 +131,7 @@ private:
+ 
+     Renderer::Shader m_perPixelMeshShader;                            //!< Special shader which calculates the per-pixel UV coordinates.
+     std::unique_ptr<MilkdropShader> m_warpShader;           //!< The warp shader. Either preset-defined or a default shader.
++    bool m_warpShaderDropped{false};                        //!< The preset's warp shader failed; the default warp is used.
+     Renderer::Sampler m_perPixelSampler{GL_CLAMP_TO_EDGE, GL_LINEAR}; //!< The main texture sampler.
+ };
+ 
+diff --git a/src/libprojectM/Preset.hpp b/src/libprojectM/Preset.hpp
+index ba06a14d9..0af40c541 100644
+--- a/src/libprojectM/Preset.hpp
++++ b/src/libprojectM/Preset.hpp
+@@ -5,6 +5,7 @@
+ #include <Renderer/RenderContext.hpp>
+ #include <Renderer/Texture.hpp>
+ 
++#include <cstdint>
+ #include <memory>
+ #include <string>
+ 
+@@ -47,6 +48,15 @@ public:
+     virtual void DrawInitialImage(const std::shared_ptr<Renderer::Texture>& image,
+                                   const Renderer::RenderContext& renderContext) = 0;
+ 
++    /**
++     * @brief The preset's own shaders that failed and were replaced by the defaults.
++     * @return A bit mask: 1 the warp shader, 2 the composite shader.
++     */
++    virtual auto DroppedShaders() const -> uint32_t
++    {
++        return 0;
++    }
++
+     inline void SetFilename(const std::string& filename)
+     {
+         m_filename = filename;
+diff --git a/src/libprojectM/ProjectM.cpp b/src/libprojectM/ProjectM.cpp
+index 928e33c89..0d235075e 100644
+--- a/src/libprojectM/ProjectM.cpp
++++ b/src/libprojectM/ProjectM.cpp
+@@ -55,6 +55,7 @@ void ProjectM::PresetSwitchFailedEvent(const std::string&, const std::string&) c
+ 
+ void ProjectM::LoadPresetFile(const std::string& presetFilename, bool smoothTransition)
+ {
++    m_droppedShaders = 0;
+     try
+     {
+         m_textureManager->PurgeTextures();
+@@ -68,6 +69,7 @@ void ProjectM::LoadPresetFile(const std::string& presetFilename, bool smoothTran
+ 
+ void ProjectM::LoadPresetData(std::istream& presetData, bool smoothTransition)
+ {
++    m_droppedShaders = 0;
+     try
+     {
+         m_textureManager->PurgeTextures();
+@@ -250,6 +252,7 @@ void ProjectM::StartPresetTransition(std::unique_ptr<Preset>&& preset, bool hard
+     }
+ 
+     preset->Initialize(GetRenderContext());
++    m_droppedShaders = preset->DroppedShaders();
+ 
+     // If already in a transition, force immediate completion.
+     if (m_transitioningPreset != nullptr)
+diff --git a/src/libprojectM/ProjectM.hpp b/src/libprojectM/ProjectM.hpp
+index 62661be26..33c1f9082 100644
+--- a/src/libprojectM/ProjectM.hpp
++++ b/src/libprojectM/ProjectM.hpp
+@@ -87,6 +87,14 @@ public:
+      */
+     void LoadPresetData(std::istream& presetData, bool smoothTransition);
+ 
++    /**
++     * @brief The shaders the last loaded preset dropped for the defaults (Preset::DroppedShaders()).
++     */
++    auto DroppedShaders() const -> uint32_t
++    {
++        return m_droppedShaders;
++    }
++
+     void SetWindowSize(uint32_t width, uint32_t height);
+ 
+     /**
+@@ -225,6 +233,7 @@ private:
+     std::unique_ptr<Preset> m_transitioningPreset;                                //!< Destination preset when smooth preset switching.
+     std::unique_ptr<Renderer::PresetTransition> m_transition;                     //!< Transition effect used for blending.
+     std::unique_ptr<TimeKeeper> m_timeKeeper;                                     //!< Keeps the different timers used to render and switch presets.
++    uint32_t m_droppedShaders{0};                                                 //!< Shaders the last loaded preset dropped for the defaults.
+ };
+ 
+ } // namespace libprojectM
+diff --git a/src/libprojectM/ProjectMCWrapper.cpp b/src/libprojectM/ProjectMCWrapper.cpp
+index aefb2f69b..7e672b1d9 100644
+--- a/src/libprojectM/ProjectMCWrapper.cpp
++++ b/src/libprojectM/ProjectMCWrapper.cpp
+@@ -87,6 +87,12 @@ void projectm_load_preset_file(projectm_handle instance, const char* filename,
+     projectMInstance->LoadPresetFile(filename, smooth_transition);
+ }
+ 
++uint32_t projectm_get_dropped_shaders(projectm_handle instance)
++{
++    auto projectMInstance = handle_to_instance(instance);
++    return projectMInstance->DroppedShaders();
++}
++
+ void projectm_load_preset_data(projectm_handle instance, const char* data,
+                                bool smooth_transition)
+ {

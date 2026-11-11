@@ -56,7 +56,7 @@ internal fun CrystalMaterialTheme(
     accentSource: Color? = null,
     content: @Composable () -> Unit,
 ) {
-    val fontColor = gui.fontColorOverride?.let { Color(it) }?.takeIf { isReadableOnCanvas(it) }
+    val fontColor = gui.fontColorArgb?.let { Color(it) }?.takeIf { isReadableOnCanvas(it) }
     val scheme =
         geodeColorScheme(
             accentIntensity = gui.accentIntensity,

@@ -2,6 +2,7 @@
 #include <GLES3/gl3.h>
 #include <projectM-4/projectM.h>
 
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -104,6 +105,7 @@ private:
     float cyclePhase_ = 0.0f;
     float beatPulse_ = 0.0f;
     double lastLoadSeconds_ = 0.0;
+    uint64_t seenAutoMark_ = 0;  // the last of Auto's marks a load here took (transition_choice::takeAuto)
     SceneParams params_;
     int diagFrames_ = 0;
     bool diagDone_ = false;

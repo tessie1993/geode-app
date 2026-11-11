@@ -2,6 +2,7 @@ package dev.geode.render.bridge
 
 import android.content.Context
 import android.content.res.AssetManager
+import android.graphics.Bitmap
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.engine.bridge.GeodeNative
@@ -15,6 +16,7 @@ import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.render.scene.SceneParams
 import java.io.File
 import java.lang.ref.Reference
+import java.nio.ByteBuffer
 
 /**
  * Owns one `geode_viz` handle: the native renderer behind a GL surface or an offscreen target.
@@ -40,6 +42,10 @@ class NativeViz(
     private val sent = LastSent()
     private var reportedError = ""
 
+    // Shake to screenshot's waiting request: set from any thread, answered on the GL thread after a frame.
+    @Volatile
+    private var stillThen: ((Bitmap) -> Unit)? = null
+
     /**
      * Runs once per new handle, inside [create], on whichever thread created it. A handle is
      * created again after every [destroy], and that new renderer knows none of the state the old
@@ -56,6 +62,8 @@ class NativeViz(
                 GeodeNative.vizSetMilkTextureDir(handle, milkTextureDir)
                 applyUiBlur()
                 edgeGlow?.let { GeodeNative.vizSetEdgeGlow(handle, it) }
+                if (stillThen != null) GeodeNative.vizStillRequest(handle)
+                if (smearOn) GeodeNative.vizSetTouchSmear(handle, true, smearStrength)
                 onCreated()
             }
         }
@@ -101,15 +109,14 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetTouch(handle, xy, n)
     }
 
-    fun queueTouchStroke(
-        nx: Float,
-        ny: Float,
-        ndx: Float,
-        ndy: Float,
-        dt: Float,
+    /** Kept for a new handle, like the edge glow: the user's smear switch outlives a detach. */
+    fun setTouchSmear(
+        on: Boolean,
         strength: Float,
     ) {
-        if (handle != 0L) GeodeNative.vizQueueTouchStroke(handle, nx, ny, ndx, ndy, dt, strength)
+        smearOn = on
+        smearStrength = strength
+        if (handle != 0L) GeodeNative.vizSetTouchSmear(handle, on, strength)
     }
 
     fun setFluidInjectionShaders(
@@ -142,6 +149,13 @@ class NativeViz(
     ) {
         if (handle != 0L && frames > 0) GeodeNative.vizWriteAudio(handle, interleaved, frames, channels, sampleRateHz)
     }
+
+    /**
+     * An export's track audio: the native feed at [feed] hands this renderer's sound engine its held frames
+     * up to the feed's target, with no copy through Kotlin (to nobody once destroyed). True once the target is
+     * reached.
+     */
+    fun hearTrack(feed: Long): Boolean = GeodeNative.vizHearTrack(handle, feed)
 
     /**
      * The live feed: the renderer's sound engine takes what [ring] gained since the last frame, natively,
@@ -236,6 +250,8 @@ class NativeViz(
      */
     private val uiBlur = FloatArray(UI_BLUR_FLOATS)
     private var edgeGlow: FloatArray? = null
+    private var smearOn = false
+    private var smearStrength = 1f
 
     /** Pins this renderer for an export; see [GeodeNative.vizPrepareOffscreen]. */
     fun prepareOffscreen() {
@@ -331,7 +347,27 @@ class NativeViz(
         timeSeconds: Double,
         targetFbo: Int,
     ) {
-        if (handle != 0L) GeodeNative.vizRender(handle, timeSeconds, targetFbo)
+        if (handle == 0L) return
+        GeodeNative.vizRender(handle, timeSeconds, targetFbo)
+        stillThen?.let(::deliverStill)
+    }
+
+    /** The next finished visual (no app UI), handed to [then] on the GL thread. Any thread. */
+    fun requestStill(then: (Bitmap) -> Unit) {
+        stillThen = then
+        if (handle != 0L) GeodeNative.vizStillRequest(handle)
+    }
+
+    /** Tap along: true on the tap that completes a streak on the beat this renderer heard ([GeodeNative.vizTapAlong]). Any thread. */
+    fun tapAlong(uptimeNs: Long): Boolean = handle != 0L && GeodeNative.vizTapAlong(handle, uptimeNs)
+
+    private fun deliverStill(then: (Bitmap) -> Unit) {
+        val size = IntArray(2)
+        if (!GeodeNative.vizStillSize(handle, size)) return
+        stillThen = null
+        val pixels = ByteBuffer.allocateDirect(size[0] * size[1] * 4)
+        if (!GeodeNative.vizStillRead(handle, pixels)) return
+        then(Bitmap.createBitmap(size[0], size[1], Bitmap.Config.ARGB_8888).apply { copyPixelsFromBuffer(pixels) })
     }
 
     fun releaseScenes() {

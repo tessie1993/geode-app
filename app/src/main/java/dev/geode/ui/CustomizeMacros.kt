@@ -21,9 +21,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,8 +36,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
@@ -54,13 +58,19 @@ import kotlin.math.roundToInt
  * offsets to the params it links, on screen and in exports, the wallpaper and the dream alike; the
  * names, hints and values come from the bank, and every turn is a native edit through [MacroStore].
  *
- * Drag a knob up or down, double-tap it back to centre. Making and editing knobs is a later page.
+ * Drag a knob up or down, double-tap it back to centre, long-press it (or TalkBack's Edit knob) for its
+ * editor ([KnobEditorDialog]). New macro under them makes an empty knob to fill and save ([NewMacroButton]).
+ * Editing is the knob editor's, so [lock] gates it as it gates Edit knobs.
  */
 @Composable
 internal fun MacrosTab(
     state: MacroBankState,
     store: MacroStore,
+    sceneId: String,
+    lock: ProLock,
 ) {
+    var editing by rememberSaveable { mutableIntStateOf(NO_KNOB) }
+    val editAllowed = lock.allows(EDITOR_KEY)
     Column {
         // No caption over the knobs (UI V2 rule 3): each knob's ⋮ › What is this says what it does.
         state.knobs.chunked(KNOBS_PER_ROW).forEach { row ->
@@ -71,14 +81,20 @@ internal fun MacrosTab(
                         onChange = { store.setValue(knob.id, it, persist = false) },
                         onCommit = store::commit,
                         onSet = { store.setValue(knob.id, it) },
+                        onEdit = { if (editAllowed) editing = knob.id else lock.onLocked() },
                         modifier = Modifier.weight(1f),
                     )
                 }
                 repeat(KNOBS_PER_ROW - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
+        val room = remember(state, sceneId) { store.editor(sceneId).canAdd }
+        NewMacroButton(state, store, sceneId, enabled = room, allowed = editAllowed, onLocked = lock.onLocked)
     }
+    if (editing != NO_KNOB) KnobEditorDialog(editing, state, store, sceneId) { editing = NO_KNOB }
 }
+
+private const val NO_KNOB = -1
 
 /** Centre, or how far off it, for the label and TalkBack. */
 private fun knobText(v: Float): String = if (abs(v) < KNOB_EPSILON) "as styled" else "%+d%%".format((v * PERCENT).roundToInt())
@@ -89,8 +105,11 @@ private fun MacroKnobDial(
     onChange: (Float) -> Unit,
     onCommit: () -> Unit,
     onSet: (Float) -> Unit,
+    onEdit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val edit by rememberUpdatedState(onEdit)
+    val editLabel = stringResource(R.string.macro_edit_knob)
     val current by rememberUpdatedState(knob.value)
     val change by rememberUpdatedState(onChange)
     // A full sweep, -1 to 1, is two of these: a comfortable thumb travel.
@@ -108,9 +127,10 @@ private fun MacroKnobDial(
                         change((current - dy / unitPx).coerceIn(-1f, 1f))
                     }
                 }.pointerInput(Unit) {
-                    detectTapGestures(onDoubleTap = { onSet(0f) })
+                    detectTapGestures(onDoubleTap = { onSet(0f) }, onLongPress = { edit() })
                 }.semantics {
                     contentDescription = knob.name
+                    customActions = listOf(CustomAccessibilityAction(editLabel) { true.also { edit() } })
                     stateDescription = text
                     progressBarRangeInfo = ProgressBarRangeInfo(knob.value, -1f..1f, steps = KNOB_STEPS)
                     setProgress { target ->

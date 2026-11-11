@@ -2,6 +2,8 @@ package dev.geode.widget
 
 import android.content.Context
 import android.graphics.Bitmap
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,6 +52,15 @@ data class WidgetState(
         private const val KEY_ART_SPAN = "art_span"
         private const val KEY_TICK = "tick"
         private const val ART_FILE = "widget_art.png"
+
+        internal val PREF_KEYS =
+            prefKeys(PREFS) {
+                cache(PrefType.STRING, KEY_TITLE, KEY_ARTIST, KEY_ART, KEY_STYLE)
+                cache(PrefType.BOOLEAN, KEY_PLAYING)
+                cache(PrefType.LONG, KEY_POSITION, KEY_DURATION)
+                cache(PrefType.FLOAT, KEY_ART_HUE, KEY_ART_SPAN)
+                cache(PrefType.INT, KEY_TICK)
+            }
 
         // The live copy for a widget session that is already composed. Glance keeps a session's
         // composition alive between updates, so state read once in provideGlance would go stale;

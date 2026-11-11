@@ -21,27 +21,37 @@ import dev.geode.data.ThemeStore
 import dev.geode.engine.audio.SoundTuning
 import kotlin.math.roundToInt
 
-/** Settings › Sound input › Basics: the microphone, then other apps' audio. */
+/** Sound reaction › Basics: the microphone, a layer over whatever plays. */
 @Composable
-internal fun SoundInputBasics(viewModel: PlayerViewModel) {
+internal fun LiveInputRow(viewModel: PlayerViewModel) {
     CrystalOverline(stringResource(R.string.source_live_input), color = MaterialTheme.colorScheme.onSurfaceVariant)
     LiveInputGroup(viewModel)
+}
+
+/** Sound reaction › Basics: other apps' audio, and naming what they play. */
+@Composable
+internal fun OtherAppsAudioRow(viewModel: PlayerViewModel) {
     CrystalOverline(stringResource(R.string.source_other_apps), color = MaterialTheme.colorScheme.onSurfaceVariant)
     ExternalAudioSettings(viewModel)
 }
 
-/** Settings › Sound input › How the visual listens: the sound engine's tuning and the preset morph. */
+/** Sound reaction › Analysis: the sound engine's tuning. */
 @Composable
 internal fun SoundAnalysisSection(viewModel: SettingsViewModel) {
-    AnalysisGroup(viewModel)
-}
-
-@Composable
-private fun AnalysisGroup(viewModel: SettingsViewModel) {
     val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
     Column {
         SoundTuningControls(gui.soundTuning) { viewModel.setGuiPrefs(gui.copy(soundTuning = it.clamped())) }
     }
+}
+
+/**
+ * Visual playback › Preset morph: how long one look glides into the next when a preset is applied
+ * ([dev.geode.data.GuiPrefs.presetMorphSeconds]); it moved from Sound input with the regroup, since
+ * it is how the visual changes, not how it hears.
+ */
+@Composable
+internal fun PresetMorphRow(viewModel: SettingsViewModel) {
+    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
     Column {
         CrystalSlider(
             label = stringResource(R.string.audio_preset_morph, gui.presetMorphSeconds),

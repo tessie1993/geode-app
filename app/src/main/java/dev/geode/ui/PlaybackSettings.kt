@@ -32,92 +32,122 @@ private val REPLAYGAIN_MODES =
     )
 
 /**
- * Settings › Playback › Basics: what people reach for first in a music player's playback
- * settings (docs/research/settings-behaviour.md): the crossfade between tracks, the fade on play
- * and pause, pausing when headphones come out, resuming on launch and the sleep timer.
+ * Every Settings row stored in [PlayerPrefs], whichever tab draws it: Playback's crossfade, fades,
+ * resume, sleep timer, speed and pitch, ReplayGain, skipping silence and long tracks; Output &
+ * devices' pause when unplugged, the native output and bit-perfect USB; Displays & casting's keep
+ * the screen on while the visual shows. One write path ([SettingsViewModel.setPlayerPrefs]), so a
+ * row moved between tabs stores exactly what it did.
  */
 @Composable
-internal fun PlaybackBasics(viewModel: SettingsViewModel) {
-    val playerViewModel: PlayerViewModel = geodeViewModel()
+internal fun PlayerPrefsRow(
+    row: SettingsRowKey,
+    viewModel: SettingsViewModel,
+) {
     val prefs by viewModel.playerPrefs.collectAsStateWithLifecycle()
-    val sleepRemainingMs by playerViewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        CrossfadeSlider(prefs) { viewModel.setPlayerPrefs(it) }
-        Column {
-            CrystalSlider(
-                label =
-                    if (prefs.fadeMs <= 0) {
-                        stringResource(R.string.playback_fade_off)
-                    } else {
-                        stringResource(R.string.playback_fade, "%.1f".format(prefs.fadeMs / 1000f))
-                    },
-                value = prefs.fadeMs.toFloat(),
-                onValueChange = {
-                    viewModel.setPlayerPrefs(prefs.copy(fadeMs = (PlaybackMath.snap(it, 250f)).toInt()))
+    val set: (PlayerPrefs) -> Unit = { viewModel.setPlayerPrefs(it) }
+    when (row) {
+        SettingsRowKey.CROSSFADE -> CrossfadeSlider(prefs, set)
+        SettingsRowKey.FADE -> FadeSlider(prefs, set)
+        SettingsRowKey.AUTO_RESUME ->
+            PlaybackSwitchRow(stringResource(R.string.playback_auto_resume), prefs.autoResume) { set(prefs.copy(autoResume = it)) }
+        SettingsRowKey.SLEEP_TIMER -> SleepTimerRow(prefs, set)
+        SettingsRowKey.SPEED_PITCH -> SpeedPitch(prefs, set)
+        SettingsRowKey.REPLAYGAIN -> ReplayGainSettings(prefs, set)
+        SettingsRowKey.SKIP_SILENCE ->
+            PlaybackSwitchRow(stringResource(R.string.playback_skip_silence), prefs.skipSilence) { set(prefs.copy(skipSilence = it)) }
+        SettingsRowKey.RESUME_LONG_TRACKS -> ResumeLongTracks(prefs, set)
+        SettingsRowKey.PAUSE_UNPLUGGED ->
+            PlaybackSwitchRow(stringResource(R.string.playback_pause_unplugged), prefs.pauseOnNoisy) { set(prefs.copy(pauseOnNoisy = it)) }
+        SettingsRowKey.NATIVE_OUTPUT -> NativeOutputSettings(prefs, set)
+        SettingsRowKey.BIT_PERFECT -> BitPerfectSettings(prefs, set)
+        SettingsRowKey.KEEP_SCREEN_ON_WITH_VISUAL ->
+            PlaybackSwitchRow(stringResource(R.string.playback_keep_screen_on), prefs.keepScreenOn) { set(prefs.copy(keepScreenOn = it)) }
+        else -> Unit
+    }
+}
+
+/** The fade on play and pause, in quarter seconds. */
+@Composable
+private fun FadeSlider(
+    prefs: PlayerPrefs,
+    onChange: (PlayerPrefs) -> Unit,
+) {
+    Column {
+        CrystalSlider(
+            label =
+                if (prefs.fadeMs <= 0) {
+                    stringResource(R.string.playback_fade_off)
+                } else {
+                    stringResource(R.string.playback_fade, "%.1f".format(prefs.fadeMs / 1000f))
                 },
-                valueRange = 0f..PlayerPrefs.MAX_FADE_MS.toFloat(),
-                accessibilityStep = 250f,
-            )
-            Text(
-                stringResource(R.string.playback_fade_explainer),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        PlaybackSwitchRow(stringResource(R.string.playback_pause_unplugged), prefs.pauseOnNoisy) {
-            viewModel.setPlayerPrefs(prefs.copy(pauseOnNoisy = it))
-        }
-        PlaybackSwitchRow(stringResource(R.string.playback_auto_resume), prefs.autoResume) {
-            viewModel.setPlayerPrefs(prefs.copy(autoResume = it))
-        }
-        Column {
-            Text(stringResource(R.string.playback_sleep_timer), style = MaterialTheme.typography.labelMedium)
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                val running = sleepRemainingMs != null
-                SLEEP_TIMER_CHOICES.forEach { minutes ->
-                    FilterChip(
-                        selected =
-                            if (running) {
-                                minutes != 0 && minutes == prefs.sleepTimerMinutes
-                            } else {
-                                minutes == 0
-                            },
-                        onClick = {
-                            if (minutes == 0) playerViewModel.cancelSleepTimer() else playerViewModel.startSleepTimer(minutes)
-                        },
-                        label = {
-                            Text(
-                                if (minutes == 0) {
-                                    stringResource(R.string.playback_sleep_off)
-                                } else {
-                                    stringResource(R.string.playback_sleep_minutes, minutes)
-                                },
-                                style = MaterialTheme.typography.labelSmall,
-                            )
-                        },
-                    )
-                }
-            }
-            PlaybackSwitchRow(stringResource(R.string.playback_sleep_finish_track), prefs.sleepFinishTrack) {
-                viewModel.setPlayerPrefs(prefs.copy(sleepFinishTrack = it))
-            }
-            sleepRemainingMs?.let { remaining ->
-                Text(
-                    stringResource(
-                        if (prefs.sleepFinishTrack) {
-                            R.string.playback_sleep_pausing_after_track
+            value = prefs.fadeMs.toFloat(),
+            onValueChange = { onChange(prefs.copy(fadeMs = (PlaybackMath.snap(it, 250f)).toInt())) },
+            valueRange = 0f..PlayerPrefs.MAX_FADE_MS.toFloat(),
+            accessibilityStep = 250f,
+        )
+        Text(
+            stringResource(R.string.playback_fade_explainer),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** The sleep timer's choices, finishing the track first, and the countdown while it runs. */
+@Composable
+private fun SleepTimerRow(
+    prefs: PlayerPrefs,
+    onChange: (PlayerPrefs) -> Unit,
+) {
+    val playerViewModel: PlayerViewModel = geodeViewModel()
+    val sleepRemainingMs by playerViewModel.sleepTimerRemainingMs.collectAsStateWithLifecycle()
+    Column {
+        Text(stringResource(R.string.playback_sleep_timer), style = MaterialTheme.typography.labelMedium)
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            val running = sleepRemainingMs != null
+            SLEEP_TIMER_CHOICES.forEach { minutes ->
+                FilterChip(
+                    selected =
+                        if (running) {
+                            minutes != 0 && minutes == prefs.sleepTimerMinutes
                         } else {
-                            R.string.playback_sleep_pausing_in
+                            minutes == 0
                         },
-                        PlaybackMath.formatCountdown(remaining),
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = accentTextColor(),
+                    onClick = {
+                        if (minutes == 0) playerViewModel.cancelSleepTimer() else playerViewModel.startSleepTimer(minutes)
+                    },
+                    label = {
+                        Text(
+                            if (minutes == 0) {
+                                stringResource(R.string.playback_sleep_off)
+                            } else {
+                                stringResource(R.string.playback_sleep_minutes, minutes)
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    },
                 )
             }
+        }
+        PlaybackSwitchRow(stringResource(R.string.playback_sleep_finish_track), prefs.sleepFinishTrack) {
+            onChange(prefs.copy(sleepFinishTrack = it))
+        }
+        sleepRemainingMs?.let { remaining ->
+            Text(
+                stringResource(
+                    if (prefs.sleepFinishTrack) {
+                        R.string.playback_sleep_pausing_after_track
+                    } else {
+                        R.string.playback_sleep_pausing_in
+                    },
+                    PlaybackMath.formatCountdown(remaining),
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = accentTextColor(),
+            )
         }
     }
 }
@@ -156,15 +186,17 @@ private fun CrossfadeSlider(
     }
 }
 
-/** Settings › Playback › Speed & pitch. */
+/** Playback › Speed & pitch, with the note that the visuals hear the music before either. */
 @Composable
-internal fun SpeedPitchSection(viewModel: SettingsViewModel) {
-    val prefs by viewModel.playerPrefs.collectAsStateWithLifecycle()
+private fun SpeedPitch(
+    prefs: PlayerPrefs,
+    onChange: (PlayerPrefs) -> Unit,
+) {
     Column {
         CrystalSlider(
             label = stringResource(R.string.playback_speed, "%.2f".format(prefs.speed)),
             value = prefs.speed,
-            onValueChange = { viewModel.setPlayerPrefs(prefs.copy(speed = PlaybackMath.snap(it, 0.05f))) },
+            onValueChange = { onChange(prefs.copy(speed = PlaybackMath.snap(it, 0.05f))) },
             valueRange = 0.5f..2f,
             accessibilityStep = 0.05f,
         )
@@ -173,7 +205,7 @@ internal fun SpeedPitchSection(viewModel: SettingsViewModel) {
         CrystalSlider(
             label = stringResource(R.string.playback_pitch, "%.1f".format(prefs.pitchSemitones)),
             value = prefs.pitchSemitones,
-            onValueChange = { viewModel.setPlayerPrefs(prefs.copy(pitchSemitones = PlaybackMath.snap(it, 0.5f))) },
+            onValueChange = { onChange(prefs.copy(pitchSemitones = PlaybackMath.snap(it, 0.5f))) },
             valueRange = -6f..6f,
             accessibilityStep = 0.5f,
         )
@@ -185,33 +217,22 @@ internal fun SpeedPitchSection(viewModel: SettingsViewModel) {
     )
 }
 
-/** Settings › Playback › Volume levelling: ReplayGain. */
+/** Playback › More: where a long track (an audiobook, a mix) picks up when it is played again. */
 @Composable
-internal fun VolumeLevellingSection(viewModel: SettingsViewModel) {
-    val prefs by viewModel.playerPrefs.collectAsStateWithLifecycle()
-    ReplayGainSettings(prefs) { viewModel.setPlayerPrefs(it) }
-}
-
-/** Settings › Playback › Output and more: bit-perfect USB, the native output, skipping silence, Player's screen, long tracks. */
-@Composable
-internal fun PlaybackMoreSection(viewModel: SettingsViewModel) {
-    val prefs by viewModel.playerPrefs.collectAsStateWithLifecycle()
-    BitPerfectSettings(prefs) { viewModel.setPlayerPrefs(it) }
-    NativeOutputSettings(prefs) { viewModel.setPlayerPrefs(it) }
-    PlaybackSwitchRow(stringResource(R.string.playback_skip_silence), prefs.skipSilence) {
-        viewModel.setPlayerPrefs(prefs.copy(skipSilence = it))
+private fun ResumeLongTracks(
+    prefs: PlayerPrefs,
+    onChange: (PlayerPrefs) -> Unit,
+) {
+    Column {
+        PlaybackSwitchRow(stringResource(R.string.playback_resume_long_tracks), prefs.resumeLongTracks) {
+            onChange(prefs.copy(resumeLongTracks = it))
+        }
+        Text(
+            stringResource(R.string.playback_resume_long_tracks_explainer),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
-    PlaybackSwitchRow(stringResource(R.string.playback_keep_screen_on), prefs.keepScreenOn) {
-        viewModel.setPlayerPrefs(prefs.copy(keepScreenOn = it))
-    }
-    PlaybackSwitchRow(stringResource(R.string.playback_resume_long_tracks), prefs.resumeLongTracks) {
-        viewModel.setPlayerPrefs(prefs.copy(resumeLongTracks = it))
-    }
-    Text(
-        stringResource(R.string.playback_resume_long_tracks_explainer),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
 }
 
 @Composable

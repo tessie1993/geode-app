@@ -680,7 +680,6 @@
     <string name="export_error_extend_track_unreadable">One of the tracks in this mix could not be read — it may have moved or been deleted.</string>
     <string name="export_error_extend_soundtrack">The soundtrack could not be prepared.</string>
     <string name="export_error_extend_too_big">%1$.1f h at this quality would come to about %2$.1f GB, past the %3$.0f GB an MP4 written on Android can address. Render the loop at about %4$.1f Mbps (a smaller size or lower quality) or make the video shorter.</string>
-    <string name="export_error_extend_library_pre_q">On this version of Android, MuzViz cannot add to your Videos library directly. Render to a folder you choose instead.</string>
 
     <!-- Settings: Look tab. -->
     <string name="look_accent_intensity">"Accent intensity  %1$d%%"</string>

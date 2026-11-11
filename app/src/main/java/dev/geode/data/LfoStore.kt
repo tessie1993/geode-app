@@ -1,6 +1,8 @@
 package dev.geode.data
 
 import android.content.SharedPreferences
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
@@ -178,5 +180,11 @@ class LfoStore(
 
         /** Every key this store writes: a backup files the LFOs, envelopes and reactions under Creative. */
         val KEYS: Set<String> = setOf(KEY, KEY_ADSR, KEY_REACTIONS, KEY_REACTIONS_HAND)
+
+        val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.GENERAL) {
+                portable(PrefType.STRING, KEY, KEY_ADSR, KEY_REACTIONS)
+                portable(PrefType.INT, KEY_REACTIONS_HAND)
+            }
     }
 }

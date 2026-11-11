@@ -2,6 +2,8 @@ package dev.geode.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.pro.AutoDirectorPolicy
 import dev.geode.pro.FeatureGate
@@ -131,6 +133,12 @@ class AutoDirectorStore private constructor(
 
         /** Customize's lock set in the modulation prefs, which `ModulationController` edits. */
         const val KEY_KEPT = "locked_params"
+
+        internal val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.GENERAL) {
+                portable(PrefType.BOOLEAN, KEY_ENABLED)
+                portable(PrefType.INT, KEY_REACH)
+            }
 
         @Volatile private var instance: AutoDirectorStore? = null
 

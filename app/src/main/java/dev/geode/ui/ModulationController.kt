@@ -155,6 +155,17 @@ internal class ModulationController(
         commitSceneParams(SceneParamsCodec.unpack(out, host.params))
     }
 
+    /** Takes one category's controls from another look ([from], a preset's params) and leaves the rest. Native. */
+    fun borrowCategory(
+        category: CustomizeCategory,
+        from: SceneParams,
+    ) {
+        if (category == CustomizeCategory.QUICK_KNOBS) return
+        val out = FloatArray(SceneParamsCodec.FIELDS)
+        GeodeNative.customizeBorrow(category.name, SceneParamsCodec.pack(host.params), SceneParamsCodec.pack(from), out)
+        commitSceneParams(SceneParamsCodec.unpack(out, host.params))
+    }
+
     fun resetAll() = commitSceneParams(SceneParams.DEFAULT)
 
     fun setAdsr(

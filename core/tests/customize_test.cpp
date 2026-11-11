@@ -200,6 +200,18 @@ void resetPutsBackOnlyItsCategory() {
     check(customize::reset(changed, Category::Music).noteColor == defaults.noteColor, "Music reset puts Notes & key back");
 }
 
+// MilkDrop's mash-up: one category of another look laid over this one.
+void borrowTakesOnlyItsCategory() {
+    SceneParams from;
+    from.speed = 2.0f;   // Motion
+    from.grain = 0.4f;   // Effects
+    from.camFly = 1.3f;  // Camera
+    const SceneParams current;
+    const SceneParams out = customize::borrow(current, from, Category::Motion);
+    check(out.speed == from.speed, "borrowing Motion takes its Speed");
+    check(out.grain == current.grain && out.camFly == current.camFly, "borrowing Motion leaves Effects and Camera");
+}
+
 bool shownSection(const std::string& styleId, const char* where) {
     std::istringstream lines(customize::shownOn(styleId));
     for (std::string line; std::getline(lines, line);) {
@@ -265,6 +277,7 @@ int main(int argc, char** argv) {
     randomizeStaysInsideItsCategory();
     aKeptCategoryHoldsThroughARollOfEverything();
     resetPutsBackOnlyItsCategory();
+    borrowTakesOnlyItsCategory();
     categoriesAndSectionsFollowTheStyle();
     textEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/customize.txt");
     if (failures == 0) std::printf("customize_test: all checks passed\n");

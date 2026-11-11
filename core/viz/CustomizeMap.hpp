@@ -94,6 +94,10 @@ std::vector<const char*> fieldsOf(std::string_view key);
 SceneParams randomize(const SceneParams& current, uint64_t seed, Category category, const std::string& styleId,
                       const std::set<std::string>& locked);
 
+// current with every field the category's controls write taken from another look: MilkDrop's
+// mash-up, one bin loaded from another preset.
+SceneParams borrow(const SceneParams& current, const SceneParams& from, Category category);
+
 // current with every field the category's controls write put back to its default.
 SceneParams reset(const SceneParams& current, Category category);
 

@@ -679,6 +679,23 @@ Java_dev_geode_engine_bridge_GeodeNative_customizeReset(JNIEnv* env, jobject, js
     env->SetFloatArrayRegion(out, 0, static_cast<jsize>(output.size()), output.data());
 }
 
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_customizeBorrow(JNIEnv* env, jobject, jstring category, jfloatArray in, jfloatArray from,
+                                                         jfloatArray out) {
+    const jsize count = static_cast<jsize>(geode_viz_param_count());
+    if (!in || !from || !out || env->GetArrayLength(in) < count || env->GetArrayLength(from) < count || env->GetArrayLength(out) < count) {
+        return;
+    }
+    Utf8Chars categoryName(env, category);
+    std::vector<float> input(static_cast<size_t>(count));
+    std::vector<float> source(input.size());
+    std::vector<float> output(input.size());
+    env->GetFloatArrayRegion(in, 0, count, input.data());
+    env->GetFloatArrayRegion(from, 0, count, source.data());
+    geode_customize_borrow(categoryName.get(), input.data(), source.data(), output.data());
+    env->SetFloatArrayRegion(out, 0, count, output.data());
+}
+
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_configSchemaText(JNIEnv* env, jobject) {
     return env->NewStringUTF(geode_config_schema_text());

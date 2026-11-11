@@ -739,6 +739,14 @@ object GeodeNative {
         output: FloatArray,
     )
 
+    /** [input] with every field [category]'s controls write taken from the look in [from], into [output]. */
+    external fun customizeBorrow(
+        category: String,
+        input: FloatArray,
+        from: FloatArray,
+        output: FloatArray,
+    )
+
     // Background image bake (core/viz/Underlay): pure, any thread, before vizSetUnderlay.
 
     /** The centred crop of a [srcW]x[srcH] picture to [targetW]:[targetH]'s aspect, as `[x, y, width, height]`. */

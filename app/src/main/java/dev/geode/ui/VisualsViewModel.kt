@@ -125,6 +125,11 @@ class VisualsViewModel
 
         fun toggleParamLock(label: String) = session.modulation.toggleParamLock(label)
 
+        fun borrowCustomizeCategory(
+            category: CustomizeCategory,
+            from: SceneParams,
+        ) = session.modulation.borrowCategory(category, from)
+
         fun randomizeParams(category: CustomizeCategory? = null) = session.modulation.randomizeParams(category)
 
         val paramHistory: StateFlow<ParamHistoryState> get() = session.paramHistory

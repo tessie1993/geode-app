@@ -173,6 +173,16 @@ android {
             // instead of throwing "not mocked". Without this, touching an Android
             // type in passing forces an otherwise pure test onto a device.
             isReturnDefaultValues = true
+            // Robolectric's API 36 environment reaches into JDK internals (FileDescriptor,
+            // ApplicationSharedMemory); JDK 17+ refuses that unless the package is opened.
+            all {
+                it.jvmArgs(
+                    "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED",
+                    "--add-opens=java.base/java.io=ALL-UNNAMED",
+                    "--add-opens=java.base/java.lang=ALL-UNNAMED",
+                    "--add-opens=java.base/java.util=ALL-UNNAMED",
+                )
+            }
         }
     }
 

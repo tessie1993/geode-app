@@ -105,7 +105,9 @@ class TextureStore(
         val colorMapType = b[1].toInt() and 0xff
         val imageType = b[2].toInt() and 0xff
         val pixelDepth = b[16].toInt() and 0xff
-        return colorMapType <= 1 && imageType in TGA_IMAGE_TYPES && pixelDepth in TGA_PIXEL_DEPTHS &&
+        return colorMapType <= 1 &&
+            imageType in TGA_IMAGE_TYPES &&
+            pixelDepth in TGA_PIXEL_DEPTHS &&
             fitsTexture(le16(b, TGA_WIDTH_AT), le16(b, TGA_HEIGHT_AT))
     }
 

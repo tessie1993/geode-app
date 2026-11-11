@@ -19,7 +19,7 @@ Video.
 | Time | Shot | On screen text |
 |---|---|---|
 | 0-3 s | The visual full screen, already moving, on a loud part of the song | none |
-| 3-8 s | Swipe to the next style, twice | "244 styles" |
+| 3-8 s | Swipe to the next style, twice (Pro styles) | "244 styles with Pro" |
 | 8-12 s | Tap: the Styles menu slides up over the visual, pick a family | none |
 | 12-16 s | Customize: turn one quick knob, the picture changes | "Shape every look" |
 | 16-20 s | Two fingers on the visual in liquid mode | none |
@@ -35,8 +35,15 @@ playing). Add a line in the YouTube description: "Photosensitivity warning: flas
 ## What the repo can record, and what it cannot
 
 The **Store assets** workflow records raw clips with the emulator's own `screenrecord`
-(`StoreReelTest.kt`): one clip per free style, full screen, 20 seconds each by default, in
-portrait and landscape, uploaded as `promo-clips/` in the artifact.
+(`StoreReelTest.kt`): one clip per style, full screen, 20 seconds each by default, in portrait
+and landscape, uploaded as `promo-clips/` in the artifact.
+
+The clips show **Pro** (owner decision, 2026-11-11: "screenshots free, record pro"). The test
+seeds the app as a Pro owner (debug builds bill against the fake store) and runs four styles
+only Pro unlocks (`black_hole`, `nebula_pulsar`, `terra_volcano`, `mandelbox_cathedral`). A
+video cut from them should say so on screen, as the shot list does ("with Pro"), so the store
+page does not let a viewer think the free download gives them (Play's metadata policy forbids
+misleading listings).
 
 They are material for a rough cut, not the video:
 

@@ -58,9 +58,10 @@ The eight, in upload order:
 | 7 | `07-studio-render` | Studio › Render | The video render page: source, look, format, length and save |
 | 8 | `08-presets` | The preset grid | A grid of saved looks to apply to the visual |
 
-They show the **free** app: every style on screen is one a free user keeps, and Pro badges in
-the lists are what a free user sees. Run the workflow with `pro = 1` to capture as a Pro owner
-(debug builds bill against the fake store).
+They show the **free** app (owner decision, 2026-11-11: "screenshots free, record pro"): every
+style on screen is one a free user keeps, and Pro badges in the lists are what a free user
+sees. `StoreSetup` refuses a Pro style in a screenshot test, and no workflow input can turn a
+screenshot into a Pro one. The recorded clips are the Pro half ([promo-video.md](promo-video.md)).
 
 ### Honest limits
 

@@ -17,6 +17,10 @@ name: Store assets
 # out today's tall phone profiles. The collect step checks every file against the size it asked
 # for and against Play's limits, and the job fails when a set is short or the wrong size.
 #
+# Free and Pro (the owner's rule, 2026-11-11): the screenshots are the free app, every style in them
+# one a free user keeps; the promo clips are recorded as a Pro owner (fake billing) on Pro styles.
+# The tests fix that themselves, so there is no input for it.
+#
 # Quality: the app's Settings > Performance decides the visual's render scale. Each set is tried
 # at the first mode in `quality` and, if captures are missing (the app died under the cost of
 # software rendering), again at the next, keeping the fullest attempt.
@@ -31,10 +35,6 @@ on:
       quality:
         description: "Settings > Performance modes to try, best first (high, balanced, saver)"
         default: "high balanced saver"
-        required: true
-      pro:
-        description: "1 = capture as a Pro owner (fake billing); 0 = the free app"
-        default: "0"
         required: true
       reel_seconds:
         description: "Length of each promo clip in seconds (0 = no clips)"
@@ -60,7 +60,6 @@ jobs:
     env:
       STORE_FORMS: ${{ inputs.forms }}
       STORE_QUALITY: ${{ inputs.quality }}
-      STORE_PRO: ${{ inputs.pro }}
       STORE_REEL_SECONDS: ${{ inputs.reel_seconds }}
       STORE_FRAMES: ${{ inputs.frames }}
 
@@ -152,7 +151,6 @@ jobs:
               -Pandroid.testInstrumentationRunnerArguments."$gate"=1 \
               -Pandroid.testInstrumentationRunnerArguments.storeForm="$form" \
               -Pandroid.testInstrumentationRunnerArguments.storeQuality="$quality" \
-              -Pandroid.testInstrumentationRunnerArguments.storePro="$STORE_PRO" \
               -Pandroid.testInstrumentationRunnerArguments.useTestStorageService=true \
               "$@" 2>&1 | tee "$OUT/logs/$log.log"
             return "${PIPESTATUS[0]}"

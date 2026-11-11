@@ -12,10 +12,11 @@ import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 
 /**
- * Raw clips for the promo video: the screen recorded (`screenrecord`) while one free style runs
- * full screen on the demo groove. One clip per style rather than one long take that swipes
- * between styles, because a free user's swipe reaches Pro styles and the paywall with them, and
- * a clip per test keeps what the emulator did not lose.
+ * Raw clips for the promo video: the screen recorded (`screenrecord`) while one style runs full
+ * screen on the demo groove. The clips show Pro (the owner's rule, 2026-11-11: screenshots free,
+ * recordings Pro), so the app is seeded as a Pro owner and every style here is one only Pro
+ * unlocks; a video cut from them has to label them Pro (docs/store/promo-video.md). One clip per
+ * style rather than one long take, because a clip per test keeps what the emulator did not lose.
  *
  * Skipped unless `storereel=1`; `storeReelSeconds` sets each clip's length (default
  * [DEFAULT_SECONDS]; `screenrecord` stops at 180). These are material, not the video: the CI
@@ -26,7 +27,7 @@ import org.junit.runner.RunWith
 @LargeTest
 @RunWith(AndroidJUnit4::class)
 class StoreReelTest {
-    private val setup = StoreSetup(gateArg = "storereel")
+    private val setup = StoreSetup(gateArg = "storereel", pro = true)
     private val compose = createAndroidComposeRule<MainActivity>()
 
     @get:Rule
@@ -38,20 +39,20 @@ class StoreReelTest {
     fun release() = stage.release()
 
     @Test
-    @StoreShot(index = 1, name = "neon-chrome-sea")
-    fun neonChromeSea() = clip()
+    @StoreShot(index = 1, name = "black-hole", styleId = "black_hole")
+    fun blackHole() = clip()
 
     @Test
-    @StoreShot(index = 2, name = "nebula", styleId = "nebula_dust")
-    fun nebula() = clip()
+    @StoreShot(index = 2, name = "nebula-pulsar", styleId = "nebula_pulsar")
+    fun nebulaPulsar() = clip()
 
     @Test
-    @StoreShot(index = 3, name = "terrain", styleId = "terra_ridge")
-    fun terrain() = clip()
+    @StoreShot(index = 3, name = "terrain-volcano", styleId = "terra_volcano")
+    fun terrainVolcano() = clip()
 
     @Test
-    @StoreShot(index = 4, name = "bulb", styleId = "bulb_classic")
-    fun bulb() = clip()
+    @StoreShot(index = 4, name = "mandelbox-cathedral", styleId = "mandelbox_cathedral")
+    fun mandelboxCathedral() = clip()
 
     private fun clip() {
         compose.awaitEmptyPlayer()

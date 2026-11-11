@@ -32,6 +32,6 @@ PRIVACY
 No account, no ads, no analytics. Your music, your listening history and your settings stay on your phone. The app uses the internet for one thing only, Cast to TV, and only on your own Wi-Fi.
 
 PHOTOSENSITIVITY WARNING
-The visuals are bright, fast and full-screen, and they can flash. A small number of people can have a seizure when they see flashing lights or patterns, even with no history of epilepsy. The app holds back how hard and how fast its effects flash and follows Android's "Remove animations" setting, but it cannot make the visuals safe for everyone. If you or anyone watching is sensitive to flashing light, do not use the visuals, and stop at once if you feel unwell.
+The visuals are bright, fast and full-screen, and they can flash. A small number of people can have a seizure when they see flashing lights or patterns, even with no history of epilepsy. The app holds back how hard and how fast its effects flash and follows Android's "Remove animations" setting, but it cannot make the visuals safe for everyone. If you or anyone watching is sensitive to flashing light, do not use the visuals, and stop at once if you feel unwell. Parents: please read this warning before a child uses the app.
 
 Requires Android 13 or newer.

@@ -53,9 +53,9 @@ internal typealias StoreRule = AndroidComposeTestRule<ActivityScenarioRule<MainA
 
 /**
  * One store capture: its number in the set, its file name, and the style on screen when the app
- * comes up. The style has to be one a free user keeps ([FreeTier.freeStyleIds]) unless the run
- * asks for Pro (`storePro=1`): a locked style would be swapped for the first style at start, and
- * the capture would show something other than its name says.
+ * comes up. In a free capture the style has to be one a free user keeps ([FreeTier.freeStyleIds]),
+ * and [StoreSetup] refuses any other: a locked style would be swapped for the first style at
+ * start, and the capture would show something other than its name says.
  */
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.RUNTIME)
@@ -79,14 +79,17 @@ internal annotation class StoreShot(
  *   workflow asks for High first and falls back when the software-rendered emulator cannot keep
  *   the app alive at that cost;
  * - the style on screen ([StoreShot.styleId]), as the saved live look the session restores;
- * - Pro, only with `storePro=1` on a build billed against the fake store. The default set is the
- *   free app, so nothing in a screenshot is something a free user does not get.
+ * - Pro, only for a class that asks for it ([pro]), on a build billed against the fake store (the
+ *   case is skipped on any other build). The owner's rule (2026-11-11): the screenshots show what
+ *   a free user gets, the recorded clips show Pro. So [StoreShotsTest] is the free app and
+ *   [StoreReelTest] owns Pro; no run argument can turn a screenshot into a Pro one.
  *
  * The screen size is not set here: the workflow sets it with `wm size` and `wm density` before the
  * run and names it in `storeForm`, which is only the folder the files go in.
  */
 internal class StoreSetup(
     private val gateArg: String,
+    private val pro: Boolean = false,
 ) : TestRule {
     val form: String = storeArgs().getString(FORM_ARG) ?: DEFAULT_FORM
 
@@ -100,7 +103,9 @@ internal class StoreSetup(
         object : Statement() {
             override fun evaluate() {
                 assumeTrue("store captures run only with -e $gateArg 1", storeArgs().getString(gateArg) == "1")
+                assumeTrue("a Pro capture needs a build billed against the fake store", !pro || BuildConfig.USE_FAKE_BILLING)
                 shot = checkNotNull(description.getAnnotation(StoreShot::class.java)) { "store capture without @StoreShot" }
+                check(pro || shot.styleId in FreeTier.freeStyleIds) { "${shot.styleId} is a Pro style in a free capture" }
                 val seeded =
                     object : Statement() {
                         override fun evaluate() {
@@ -121,7 +126,7 @@ internal class StoreSetup(
         context.getSharedPreferences(GeodePrefsFiles.VIZ, Context.MODE_PRIVATE).edit(commit = true) {
             putString(LIVE_STATE_KEY, PresetStore.toJson(look))
         }
-        if (storeArgs().getString(PRO_ARG) == "1" && BuildConfig.USE_FAKE_BILLING) {
+        if (pro) {
             val store = PrefsEntitlementStore(PrefsEntitlementStore.open(context))
             store.save(CachedEntitlement(owned = true, verifiedAtMs = System.currentTimeMillis()))
         }
@@ -135,7 +140,6 @@ internal class StoreSetup(
     private companion object {
         const val FORM_ARG = "storeForm"
         const val QUALITY_ARG = "storeQuality"
-        const val PRO_ARG = "storePro"
         const val DEFAULT_FORM = "phone"
 
         // VizStateStore's key and the name it saves the live look under; both private there.

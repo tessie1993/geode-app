@@ -21,6 +21,7 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaBrowser
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
+import androidx.test.platform.app.InstrumentationRegistry
 import dev.geode.ui.MainActivity
 import org.junit.After
 import org.junit.Rule
@@ -60,9 +61,16 @@ class UiTourTest {
     private val tour by lazy { UiTour(compose, setup) }
     private var browser: MediaBrowser? = null
 
+    /**
+     * Closes the activity and lets the main thread finish detaching its window before the
+     * compose rule cancels its Recomposer on this thread: an effect still alive then is
+     * cancelled off the main thread, which Media3's Cast route button throws on.
+     */
     @After
     fun release() {
         browser?.let { b -> runCatching { b.stopAndRelease() } }
+        compose.activityRule.scenario.close()
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync()
     }
 
     // -- cases -------------------------------------------------------------------------------

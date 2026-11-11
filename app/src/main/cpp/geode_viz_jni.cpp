@@ -164,9 +164,8 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetTouch(JNIEnv* env, jobject, jlong
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizQueueTouchStroke(JNIEnv*, jobject, jlong handle, jfloat nx, jfloat ny, jfloat ndx, jfloat ndy,
-                                                             jfloat dt, jfloat strength) {
-    geode_viz_queue_touch_stroke(vizOf(handle), nx, ny, ndx, ndy, dt, strength);
+Java_dev_geode_engine_bridge_GeodeNative_vizSetTouchSmear(JNIEnv*, jobject, jlong handle, jboolean on, jfloat strength) {
+    geode_viz_set_touch_smear(vizOf(handle), on == JNI_TRUE ? 1 : 0, strength);
 }
 
 JNIEXPORT void JNICALL

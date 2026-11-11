@@ -352,6 +352,7 @@ void Renderer::onSurfaceCreated() {
         quadVao_ = 0;
     }
     touchField_.reset();
+    smearTrail_.reset();
     fboA_.release();
     fboB_.release();
     bornFbo_.release();

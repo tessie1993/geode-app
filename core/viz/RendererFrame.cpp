@@ -361,6 +361,12 @@ void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
     smearing_ = overlays_.smearing(monotonicSeconds());
     // Stepped once per frame ahead of every draw so each scene reads the same anchor.
     touchField_.step(dt);
+    // Smear: the fingers the touch field holds drag the picture too (viz/TouchSmear), drained just below.
+    const touch::SmearSettings smear{smearOn_.load(std::memory_order_relaxed), smearStrength_.load(std::memory_order_relaxed)};
+    const double now = monotonicSeconds();
+    smearTrail_.step(touchField_.points(), dt, smear, [&](const touch::SmearStroke& st) {
+        overlays_.queueTouchStroke(st.nx, st.ny, st.ndx, st.ndy, st.dt, st.strength, now);
+    });
     // In Liquid mode a finger moves the liquid (stepLiquid) instead of dropping ripples.
     overlays_.drainTouchStrokes(scene, liquidOn());
     stepLiquid(scene, p, dt);

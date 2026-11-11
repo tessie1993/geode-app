@@ -221,8 +221,6 @@ class VisualsViewModel
 
         fun noteMilkPreset(path: String) = session.noteMilkPreset(path)
 
-        internal fun milkPresetPathFor(preset: Preset): String? = session.milkPresetPathFor(preset)
-
         val templates: StateFlow<List<VideoTemplate>> get() = session.templates
 
         val templateStarters: List<VideoTemplate> get() = session.templateStarters

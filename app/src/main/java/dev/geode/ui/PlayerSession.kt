@@ -614,8 +614,6 @@ class PlayerSession internal constructor(
 
     fun importTracks(uris: List<Uri>) = musicLibrary.importTracks(uris)
 
-    fun trackOverride(uri: String): LibraryTrack? = musicLibrary.trackOverride(uri)
-
     suspend fun trackInfoFor(uriStr: String): LibraryTrack = musicLibrary.trackInfoFor(uriStr)
 
     fun saveTrackInfo(
@@ -954,8 +952,6 @@ class PlayerSession internal constructor(
         customShader: String?,
         folder: String = "",
     ) = presetLibrary.savePreset(name, customShader, folder)
-
-    internal fun milkPresetPathFor(preset: Preset): String? = presetLibrary.milkPresetPathFor(preset)
 
     val activeMilkPath: StateFlow<String?> get() = vizStateStore.activeMilkPath
 

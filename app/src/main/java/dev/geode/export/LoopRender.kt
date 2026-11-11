@@ -247,7 +247,7 @@ class LoopRender(
         // The free tier's corner wordmark; see WatermarkOverlay.
         watermark: Boolean = false,
         // The track the loop is cut from: the export's sound engine hears it.
-        audioUri: Uri? = null,
+        audioUri: Uri,
         // How long the long-form file LoopExtend will repeat this reel into, or 0 when unknown.
         longFormMs: Long = 0L,
     ): Result =
@@ -283,7 +283,7 @@ class LoopRender(
         val drift: TimeOfDayDrift,
         val paramsAt: ((Long) -> SceneParams)?,
         val watermarkText: String?,
-        val audioUri: Uri?,
+        val audioUri: Uri,
     )
 
     private data class EncoderChoice(

@@ -285,6 +285,10 @@ int geode_viz_hear_track(geode_viz* v, geode_track_feed* feed) {
     return geode_track_feed_deliver(feed, v ? sink : nullptr, v);
 }
 
+int geode_viz_end_pre_roll(geode_viz* v, int64_t range_start_ms) {
+    return v && v->renderer.endPreRoll(range_start_ms) ? 1 : 0;
+}
+
 void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
     if (!v) return;
     if (!ring) {

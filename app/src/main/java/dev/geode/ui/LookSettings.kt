@@ -36,8 +36,8 @@ import dev.geode.R
 import dev.geode.data.BootAnimationStore
 import dev.geode.data.CornerStyle
 import dev.geode.data.FontColorChoice
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GuiPrefs
+import dev.geode.geodeContainer
 import dev.geode.model.TabLabels
 import dev.geode.ui.theme.isReadableOnCanvas
 import kotlinx.coroutines.Dispatchers
@@ -240,7 +240,7 @@ private fun TabLabels.labelRes(): Int =
 @Composable
 private fun BootAnimationRow() {
     val ctx = LocalContext.current
-    val store = remember { BootAnimationStore(GeodePrefsFiles(ctx).general) }
+    val store = remember { BootAnimationStore(ctx.geodeContainer.prefsFiles.general) }
     // Read on IO: opening a prefs file is disk I/O, and this runs in composition. The switch
     // stays disabled for the moment that takes. save() uses apply(), which is already async.
     var bootAnim by remember { mutableStateOf<Boolean?>(null) }

@@ -65,9 +65,9 @@ class GeodeContainer(
      * `acquireForUi`/`acquireForService` directly, already carrying the saved options. What makes
      * the read a stall is the parse, since a SharedPreferences getter blocks until its file is
      * loaded. Opening the files here, at process start and on IO, means the parse has normally
-     * finished long before the session asks, so its read is a map lookup. The session opens its
-     * own [GeodePrefsFiles], but `getSharedPreferences` hands every caller the same process-wide
-     * instance per name, so the load started here is the one it gets.
+     * finished long before the session asks, so its read is a map lookup. The session reads the
+     * same [prefsFiles] (nothing outside `data/` and this class builds another), so the load started
+     * here is the one it gets.
      */
     private fun warmPlaybackPrefs() {
         appScope.launch(Dispatchers.IO) {

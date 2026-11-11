@@ -177,12 +177,13 @@ void cAbi() {
     check(bad[2] == 30, "abi: a bad rate falls back to 30 fps");
     check(geode_frame_clock_take(nullptr, 0) == 0 && geode_frame_clock_wait_ns(nullptr, 0) == 0, "abi: null state is safe");
 
-    int format[4] = {};
+    int format[GEODE_CAST_FORMAT_INTS] = {};
     geode_cast_format(format);
     check(format[0] == CastFormat::kWidth && format[1] == CastFormat::kHeight && format[2] == CastFormat::kFps,
           "abi: cast format");
     check(format[0] == 1280 && format[1] == 720 && format[2] == 30, "abi: cast stays 1280x720 at 30 fps");
     check(format[3] == CastFormat::kKeyframeIntervalSec && format[3] == 1, "abi: a keyframe a second (one-second HLS segments)");
+    check(format[4] == 4'000'000 && format[5] == 160'000, "abi: the encoders' bit rates");
 }
 
 }  // namespace

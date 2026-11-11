@@ -218,10 +218,11 @@ class PlayerSession internal constructor(
     private val visual: VisualSettingsController =
         VisualSettingsController(
             vizStateStore,
+            scope,
             object : VisualSettingsController.Host {
                 override val guiPrefs: GuiPrefs get() = settings.guiPrefs.value
 
-                override fun milkPathFor(preset: Preset): String? = presetLibrary.milkPresetPathFor(preset)
+                override suspend fun milkPathFor(preset: Preset): String? = presetLibrary.milkPresetPathFor(preset)
             },
         )
 
@@ -638,14 +639,17 @@ class PlayerSession internal constructor(
 
     fun rescanMediaRoots() = musicLibrary.rescanMediaRoots()
 
-    fun createMusicPlaylist(name: String) = musicLibrary.createMusicPlaylist(name)
+    fun createMusicPlaylist(
+        name: String,
+        uris: List<String> = emptyList(),
+    ) = musicLibrary.createMusicPlaylist(name, uris)
 
     suspend fun importPlaylistFile(uri: Uri): PlaylistImportResult = musicLibrary.importPlaylistFile(uri)
 
     fun renameMusicPlaylist(
         oldName: String,
         newName: String,
-    ): Boolean = musicLibrary.renameMusicPlaylist(oldName, newName)
+    ) = musicLibrary.renameMusicPlaylist(oldName, newName)
 
     fun moveMusicPlaylistTrack(
         name: String,

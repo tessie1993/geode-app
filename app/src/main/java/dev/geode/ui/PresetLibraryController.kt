@@ -136,9 +136,9 @@ internal class PresetLibraryController(
             PresetStore.milkFileName(presetName),
         )
 
-    fun milkPresetPathFor(preset: Preset): String? {
+    suspend fun milkPresetPathFor(preset: Preset): String? {
         if (preset.sceneId != SceneIds.MILKDROP) return null
-        return presets.materializeMilk(preset.name, preset.milkPreset)
+        return withContext(Dispatchers.IO) { presets.materializeMilk(preset.name, preset.milkPreset) }
     }
 
     fun presetShareLink(name: String): String? {

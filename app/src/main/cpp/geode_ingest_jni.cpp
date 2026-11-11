@@ -79,6 +79,11 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingWriteByte
     return frames;
 }
 
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingSetLayer(JNIEnv*, jobject, jlong handle,
+                                                                                jlong layer) {
+    geode_pcm_ring_set_layer(ringOf(handle), ringOf(layer));
+}
+
 JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_pcmRingBeginEpoch(JNIEnv*, jobject, jlong handle) {
     geode_pcm_ring_begin_epoch(ringOf(handle));
 }

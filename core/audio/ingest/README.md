@@ -6,6 +6,7 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 
 **Here now**
 - `PcmRing.{hpp,cpp}` (`geode::audio::ingest`): the lock-free single-writer ring (power-of-two capacity, a runway a slow reader stays behind, an atomic head and epoch), the writers for interleaved float, int16 and raw bytes in an encoding, and `Cursor`, the each-sample-once reader. A take ends where the rate changes, so one take has one rate. Readers hold the ring const and never change it, so a second reader (an output callback) can read the same samples.
+- `LayerMix.{hpp,cpp}`: a second ring layered over a reader's own (the mic over the player's tap, `geode_pcm_ring_set_layer`). Each renderer mixes at its reader: the layer waits in a short queue (0.1 s to join, 0.25 s at most), is resampled to the block it joins and added, so the player's samples stay the clock; once the player has stopped for 0.3 s the layer is handed out alone. The mic's level is added as it is: on the phone's speaker it hears the track a second time, quieter and a room later.
 - The C ABI is `geode_pcm_ring_*` and `geode_pcm_cursor_*` in `core/api/geode_ingest_api.cpp`; `geode_viz_feed_ring` (`core/api/geode_viz_api.cpp`) lets a live renderer take from a ring with its own cursor, so no sample crosses JNI on the GL thread.
 - Lifetime: a `geode_pcm_ring` handle and every cursor made from it share the ring, which is freed with the last of them. Kotlin's `SampleRing` holds the handle and frees it when it is collected (a `Cleaner`), so a writer thread or a surface that still holds the ring never reaches a freed one; a renderer's feed and Cast's `SoundCursor` keep the ring on their own.
 
@@ -28,4 +29,4 @@ Part of the target in [ADR 0006](../../../docs/adr/0006-fosfora-aligned-engine.m
 
 **fosfora:** `audio/capture.rs` (SPSC ring, no DSP in the callback), `audio/decimate.rs` (rates above 88.2 kHz halved first).
 
-**Test that proves it:** `core/tests/pcm_ring_test.cpp` writes PCM in random chunk sizes with rate changes mid-stream, on one thread and with a writer thread, and checks the reader sees every sample once, in order, each with the rate it was written at; it also holds the old Kotlin `SoundCursorTest` cases, the encodings and the C ABI.
+**Tests that prove it:** `core/tests/layer_mix_test.cpp` (the layer: two rates, a silent mic, mic on and off mid-stream, pause and resume, epochs, drift) and `core/tests/pcm_ring_test.cpp`, which writes PCM in random chunk sizes with rate changes mid-stream, on one thread and with a writer thread, and checks the reader sees every sample once, in order, each with the rate it was written at; it also holds the old Kotlin `SoundCursorTest` cases, the encodings and the C ABI.

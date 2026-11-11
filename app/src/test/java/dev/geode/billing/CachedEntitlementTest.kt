@@ -66,11 +66,56 @@ class CachedEntitlementTest {
     }
 
     @Test
-    fun `a full list without a genuine purchase revokes`() {
-        val after = owned.after(PlayAnswer.FullList(genuine = null), 99_000L)
+    fun `one full list without the purchase starts the wait, one a day later revokes`() {
+        val grace = CachedEntitlement.REVOKE_GRACE_MS
+        val first = owned.after(PlayAnswer.FullList(genuine = null), 99_000L)
+        assertTrue("Play's empty cache is not a refund", first.vouchesForPro(keyed))
+        assertEquals(99_000L, first.missingSinceMs)
+
+        assertSame(first, first.after(PlayAnswer.FullList(genuine = null), 99_000L + grace - 1))
+        assertSame("errors do not run the wait out", first, first.after(PlayAnswer.NoAnswer, 99_000L + grace * 2))
+
+        val after = first.after(PlayAnswer.FullList(genuine = null), 99_000L + grace)
         assertFalse(after.owned)
-        assertEquals(99_000L, after.verifiedAtMs)
+        assertEquals(99_000L + grace, after.verifiedAtMs)
         assertFalse(after.vouchesForPro(keyless))
+    }
+
+    @Test
+    fun `the purchase turning up again ends the wait`() {
+        val grace = CachedEntitlement.REVOKE_GRACE_MS
+        val missing = owned.after(PlayAnswer.FullList(genuine = null), 99_000L)
+        val back = missing.after(PlayAnswer.FullList(purchase), 100_000L)
+        assertEquals(0L, back.missingSinceMs)
+        val again = back.after(PlayAnswer.FullList(genuine = null), 100_000L + grace * 2)
+        assertTrue("a later gap waits afresh", again.vouchesForPro(keyed))
+    }
+
+    @Test
+    fun `a clock moved back restarts the wait and a free cache stays free`() {
+        val missing = owned.after(PlayAnswer.FullList(genuine = null), 99_000L)
+        assertEquals(50_000L, missing.after(PlayAnswer.FullList(genuine = null), 50_000L).missingSinceMs)
+        assertFalse(CachedEntitlement.NONE.after(PlayAnswer.FullList(genuine = null), 5L).owned)
+    }
+
+    @Test
+    fun `what Play signed must be a completed Pro purchase`() {
+        val signedAnything: (String, String) -> Boolean = { _, _ -> true }
+        val real =
+            """{"orderId":"GPA.1","packageName":"com.beatrealms3d.app","productId":"${BillingRepository.PRO_PRODUCT_ID}","purchaseTime":1,""" +
+                """"purchaseState":0,"purchaseToken":"t","quantity":1,"acknowledged":true}"""
+        assertTrue(owned.copy(purchaseJson = real).vouchesForPro(signedAnything))
+        val pending = real.replace("\"purchaseState\":0", "\"purchaseState\": 4")
+        assertFalse("a pending payment is signed too", owned.copy(purchaseJson = pending).vouchesForPro(signedAnything))
+        val other = real.replace(BillingRepository.PRO_PRODUCT_ID, "tip_jar")
+        assertFalse("so is any other product", owned.copy(purchaseJson = other).vouchesForPro(signedAnything))
+
+        assertTrue(SignedPurchase.isCompletedPro("""{"productIds":["tip_jar","${BillingRepository.PRO_PRODUCT_ID}"],"purchaseState":0}"""))
+        assertFalse(SignedPurchase.isCompletedPro("""{"productIds":["tip_jar"]}"""))
+        assertFalse(
+            "a value that spells the field does not pass for it",
+            SignedPurchase.isCompletedPro("""{"purchaseToken":"\"productId\":\"${BillingRepository.PRO_PRODUCT_ID}\"","productId":"tip_jar"}"""),
+        )
     }
 
     @Test

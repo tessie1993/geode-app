@@ -221,10 +221,17 @@ bool shownSection(const std::string& styleId, const char* where) {
 }
 
 void categoriesAndSectionsFollowTheStyle() {
-    check(customize::shows(Category::Camera, "vanishing"), "Camera on a raymarched style");
-    check(customize::shows(Category::Camera, "ribbon_storm"), "Camera on a flat style: path and Fly speed pan it");
-    check(!shownSection("ribbon_storm", "CAMERA/framing"), "no 3D framing on a flat style");
-    check(shownSection("vanishing", "CAMERA/framing"), "3D framing on a raymarched style");
+    check(customize::shows(Category::Camera, "crystal_canyon"), "Camera on a style on the rig");
+    check(customize::shows(Category::Camera, "silk_web"), "Camera off the rig too: path and Fly speed pan it");
+    check(shownSection("silk_web", "CAMERA/basics"), "Camera basics off the rig");
+    check(shownSection("crystal_canyon", "CAMERA/framing") && shownSection("crystal_canyon", "CAMERA/feel"),
+          "framing and feel on a style on the rig");
+    for (const char* id : {"outrun_drive", "ringed_planet", "ribbon_storm"}) {
+        check(shownSection(id, "CAMERA/framing") && shownSection(id, "CAMERA/feel"), std::string(id) + ": on the rig without a march");
+    }
+    for (const char* id : {"vanishing", "morphogen", "noneuclid", "curl_bloom", "nectar_flow", "silk_web", "milkdrop"}) {
+        check(!shownSection(id, "CAMERA/framing") && !shownSection(id, "CAMERA/feel"), std::string(id) + ": no rig, no framing or feel");
+    }
     check(shownSection("water", "LIQUID/water"), "Water section on the Water style");
     check(!shownSection("julia", "LIQUID/water"), "no Water section elsewhere");
     check(shownSection("fluid", "SHAPE/particles"), "Particles on a fluid style");

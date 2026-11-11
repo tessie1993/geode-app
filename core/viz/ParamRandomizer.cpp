@@ -38,14 +38,18 @@ struct Roll {
     RollFn roll;
 };
 
+// A choice anywhere in the field's own schema range (ParamTable.inc), so a value added there is rolled.
+int choice(Rng& r, ParamSlot slot) {
+    const ParamSpec& spec = SceneParams::spec(slot);
+    return r.n(static_cast<int>(spec.min), static_cast<int>(spec.max));
+}
+
 // Choice counts the rolls pick from (SceneParams.kt's lists and Renderer's cyclic LUT rows).
-constexpr int kPalettes = 21;
 constexpr int kCyclicPalettes = 5;
 constexpr int kParticleShapes = 7;
 constexpr int kFluidPatterns = 4;
 constexpr int kFluidPaths = 5;
 constexpr int kCymaticsGeometries = 2;
-constexpr int kCameraPaths = 4;
 constexpr int kFolds[] = {2, 3, 4, 5, 6, 7, 8, 9, 12, 16};
 // reactSeed travels as a float; above 2^24 it would not come back as the same int.
 constexpr int kMaxReactSeed = (1 << 24) - 1;
@@ -61,7 +65,7 @@ const std::vector<Roll>& rolls() {
         {{T::Motion, "Sway", {"sway"}}, [](SceneParams& p, Rng& r) { p.sway = r.sometimes(0.5f, 0.1f, 0.8f); }},
         {{T::Motion, "Drift X", {"driftX"}}, [](SceneParams& p, Rng& r) { p.driftX = r.sometimes(0.3f, -0.5f, 0.5f); }},
         {{T::Motion, "Drift Y", {"driftY"}}, [](SceneParams& p, Rng& r) { p.driftY = r.sometimes(0.3f, -0.5f, 0.5f); }},
-        {{T::Motion, "Camera path", {"camPath"}}, [](SceneParams& p, Rng& r) { p.camPath = r.below(kCameraPaths); }},
+        {{T::Motion, "Camera path", {"camPath"}}, [](SceneParams& p, Rng& r) { p.camPath = choice(r, ParamSlot::camPath); }},
         {{T::Motion, "Fly speed", {"camFly"}}, [](SceneParams& p, Rng& r) { p.camFly = r.f(0.2f, 1.4f); }},
         {{T::Motion, "Swing", {"camOrbit"}}, [](SceneParams& p, Rng& r) { p.camOrbit = r.f(0.1f, 0.8f); }},
         {{T::Motion, "Field of view", {"camFov"}}, [](SceneParams& p, Rng& r) { p.camFov = r.f(0.8f, 1.4f); }},
@@ -103,7 +107,7 @@ const std::vector<Roll>& rolls() {
         // A rolled palette replaces a user-made one: the custom hue overrides go back to unset.
         {{T::Color, "Palette", {"palette", "paletteBaseOverride", "paletteRangeOverride"}},
          [](SceneParams& p, Rng& r) {
-             p.palette = r.below(kPalettes);
+             p.palette = choice(r, ParamSlot::palette);
              p.paletteBaseOverride = SceneParams::kUnsetOverride;
              p.paletteRangeOverride = SceneParams::kUnsetOverride;
          }},
@@ -111,7 +115,7 @@ const std::vector<Roll>& rolls() {
          [](SceneParams& p, Rng& r) { p.paletteLut = r.chance(0.25f) ? r.below(kCyclicPalettes) : SceneParams::kNoPaletteLut; }},
         {{T::Color, "Palette 2", {"palette2", "palette2BaseOverride", "palette2RangeOverride"}},
          [](SceneParams& p, Rng& r) {
-             p.palette2 = r.below(kPalettes);
+             p.palette2 = choice(r, ParamSlot::palette2);
              p.palette2BaseOverride = SceneParams::kUnsetOverride;
              p.palette2RangeOverride = SceneParams::kUnsetOverride;
          }},

@@ -531,6 +531,68 @@ void testNoStyleMomentWhenOff() {
         check(d.styleMoment() == (amount > 0.0f), amount > 0.0f ? "Auto on: a section steps the style" : "Auto off: a section leaves the style alone");
     }
 }
+
+// The owner's report: "almost all visuals have a yin-yang curve and all seem to behave similarly".
+// Twist spirals any style about the screen centre, and the director's Complexity axis used to hold
+// it bent on every style: toward +1 for a busy feeling, toward -1 for a calm one. Whatever the key,
+// scale, song and seed, the look must leave an untouched style untwisted and a twisted one as set.
+void testNoLookTwistsEveryStyle() {
+    const Song songs[] = {{"ionian", 0, 0.85f, 132.0f, 0.6f, 0.2f}, {"aeolian", 0, 0.55f, 72.0f, 0.3f, 1.2f}, {"dorian", 0, 0.7f, 100.0f, 0.45f, 0.5f}};
+    int looks = 0;
+    int turned = 0;
+    for (int scale = 0; scale < geode::sound::scaleCount(); ++scale) {
+        for (int root = 0; root < 12; root += 4) {
+            for (const Song& base : songs) {
+                Song s = base;
+                s.scale = geode::sound::scaleInfo(scale).id;
+                s.root = root;
+                Director d;
+                d.configure({1.0f, static_cast<uint64_t>(7919 * (scale + 1) + root)});
+                float t = 0.0f;
+                run(d, s, 15.0f, t);
+                const Director::Axes x = d.axes();
+                if (std::fabs(x[static_cast<size_t>(Axis::Complexity)]) > 0.2f) ++turned;
+                SceneParams styled;
+                SceneParams user;
+                user.twist = -0.3f;
+                const float a = d.applyAxes(d.apply(styled, true)).twist;
+                const float b = d.applyAxes(d.apply(user, true)).twist;
+                if (a != 0.0f || b != -0.3f) {
+                    check(false, std::string("a look twists the picture: ") + s.scale + " root " + std::to_string(root) + " twist " + std::to_string(a));
+                    return;
+                }
+                ++looks;
+            }
+        }
+    }
+    check(looks > 300 && turned > looks / 10, "the looks tried do turn the Complexity axis, both ways");
+}
+
+// The same rule on the axes' pure maths (it was viz_math_test's check on the old macro knobs, whose
+// rows the director's axes took over): Twist bends every style's picture the same way, so an axis
+// that holds it bent stamps one S-curve on every style. Twist rests in the middle of its range, so
+// either direction of Complexity used to twist. Twist is the user's slider and the style's own
+// reactions, never an axis's; the one route that reaches it is a nudge.
+void testAxesNeverHoldThePictureTwisted() {
+    namespace dir = geode::viz::director;
+    SceneParams styled;
+    SceneParams turned;
+    turned.twist = 0.3f;
+    for (int a = 0; a < Director::kAxes; ++a) {
+        for (float turn : {-1.0f, -0.4f, 0.4f, 1.0f}) {
+            const Director::Axes x = axis(static_cast<Axis>(a), turn);
+            check(dir::applyAxes(styled, x).twist == 0.0f, "no axis twists an untwisted style, either way");
+            check(dir::applyAxes(turned, x).twist == 0.3f, "and the Twist slider is the user's alone");
+        }
+    }
+    Director::Axes all{};
+    all.fill(1.0f);
+    float kick = 0.0f;
+    for (const auto& r : dir::axisRoutes(all)) {
+        if (r.enabled && r.target == geode::viz::LfoTarget::Twist) kick += std::fabs(r.amount);
+    }
+    check(kick <= 0.2f + 1e-5f, "with every axis full up the axes' routes twist by a nudge, not a spiral");
+}
 }  // namespace
 
 int main() {
@@ -550,6 +612,8 @@ int main() {
     testAxesTurnTowardTheEnds();
     testAxesAddToTheSlider();
     testAxesScaleTheCameraAndPlayRoutes();
+    testNoLookTwistsEveryStyle();
+    testAxesNeverHoldThePictureTwisted();
     if (failures) {
         std::printf("director_test: %d failed\n", failures);
         return 1;

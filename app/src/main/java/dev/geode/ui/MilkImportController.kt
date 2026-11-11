@@ -10,6 +10,7 @@ import dev.geode.data.MilkPackImporter
 import dev.geode.data.MilkTextureLink
 import dev.geode.data.MilkTextureLinks
 import dev.geode.data.PresetStore
+import dev.geode.model.MilkFile
 import dev.geode.render.scene.MilkStarterPack
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

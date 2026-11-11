@@ -2,6 +2,7 @@ package dev.geode.ui
 
 import androidx.media3.common.Player
 import dev.geode.data.Preset
+import dev.geode.model.VizPlaylistEntry
 import dev.geode.pro.FreeTier
 import dev.geode.render.TransitionStyle
 import dev.geode.render.scene.SceneParams
@@ -46,31 +47,8 @@ data class VizUiState(
     val randomizeColors: Boolean = false,
 )
 
-data class VizPlaylistEntry(
-    val sceneId: String,
-    val presetName: String? = null,
-    val milkPath: String? = null,
-    val label: String,
-)
-
 data class VizApply(
     val milkPath: String? = null,
     val customShader: String? = null,
     val sceneId: String? = null,
-)
-
-data class MilkFile(
-    val name: String,
-    val path: String,
-)
-
-data class QueueTrack(
-    val uri: String,
-    val title: String = "",
-    val artist: String = "",
-)
-
-data class QueueUiState(
-    val tracks: List<QueueTrack> = emptyList(),
-    val index: Int = 0,
 )

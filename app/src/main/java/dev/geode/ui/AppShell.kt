@@ -107,6 +107,7 @@ import dev.geode.R
 import dev.geode.analysis.SearchMatcher
 import dev.geode.data.BootAnimationStore
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.model.QueueTrack
 import dev.geode.model.TutorialChapter
 import dev.geode.model.TutorialProgress
 import dev.geode.pro.PaywallTrigger

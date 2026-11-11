@@ -71,6 +71,7 @@ import dev.geode.model.PresetEntry
 import dev.geode.model.PresetFilter
 import dev.geode.model.PresetFiltering
 import dev.geode.model.StyleEntry
+import dev.geode.model.VizPlaylistEntry
 import dev.geode.render.VisualizerView
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.StyleFamilies

@@ -51,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.geode.data.Preset
 import dev.geode.model.PresetFiltering
+import dev.geode.model.VizPlaylistEntry
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.VisualStyleCatalog
 import dev.geode.ui.theme.GeodeSpacing

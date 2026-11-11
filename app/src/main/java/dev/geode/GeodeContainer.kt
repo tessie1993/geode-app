@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.MediaStoreSource
 import dev.geode.data.PerformanceStore
 import dev.geode.data.SharedPrefsUserDataRepository
 import dev.geode.data.UserDataRepository
@@ -30,6 +31,11 @@ class GeodeContainer(
 
     /** Settings › Performance; the wallpaper and dream read the same prefs through their own store. */
     val performance: PerformanceStore by lazy { PerformanceStore(prefsFiles.general, context.applicationContext) }
+
+    /** The `ContentResolver` source the screens reach their consent requests and picked-folder grants through. */
+    val mediaStore: MediaStoreSource by lazy {
+        MediaStoreSource(context.applicationContext.contentResolver, Dispatchers.IO)
+    }
 
     init {
         warmPlaybackPrefs()

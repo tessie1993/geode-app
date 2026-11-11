@@ -3,7 +3,6 @@ package dev.geode.ui
 import android.app.Activity
 import android.net.Uri
 import android.os.Build
-import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -29,6 +29,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.geode.R
+import dev.geode.geodeContainer
+import kotlinx.coroutines.launch
 
 /**
  * Same title, artist and length, listed side by side so the spare copy can be played to check and
@@ -42,6 +44,7 @@ internal fun DuplicatesTab(
     onDeleted: () -> Unit,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val deleter =
         rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) onDeleted()
@@ -83,8 +86,10 @@ internal fun DuplicatesTab(
                     }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                         TextButton(onClick = {
-                            val request = MediaStore.createDeleteRequest(context.contentResolver, listOf(Uri.parse(track.uri)))
-                            deleter.launch(IntentSenderRequest.Builder(request.intentSender).build())
+                            scope.launch {
+                                val sender = context.geodeContainer.mediaStore.deleteRequest(listOf(Uri.parse(track.uri)))
+                                deleter.launch(IntentSenderRequest.Builder(sender).build())
+                            }
                         }) { Text(stringResource(R.string.action_delete)) }
                     }
                 }

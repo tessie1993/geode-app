@@ -19,6 +19,7 @@ import dev.geode.data.SmartPlaylistStore
 import dev.geode.data.TagWriteOutcome
 import dev.geode.data.TrackLibrary
 import dev.geode.data.TrackTagEdit
+import dev.geode.data.persistGrant
 import dev.geode.model.DeviceTrack
 import dev.geode.model.LibraryTrack
 import dev.geode.util.bestEffort
@@ -260,19 +261,9 @@ internal class MusicLibraryController(
         scope.launch(Dispatchers.IO) {
             val tracks =
                 uris.map { uri ->
-                    runCatching {
-                        application.contentResolver.takePersistableUriPermission(
-                            uri,
-                            android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION,
-                        )
-                    }
+                    application.contentResolver.persistGrant(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     // Taken separately: a picker that granted read only would otherwise refuse both flags.
-                    runCatching {
-                        application.contentResolver.takePersistableUriPermission(
-                            uri,
-                            android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-                        )
-                    }
+                    application.contentResolver.persistGrant(uri, android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                     libraryTrackFor(uri.toString(), metadataFor(uri))
                 }
             trackLibrary.addAll(tracks)?.let { merged -> _library.update { it.copy(tracks = merged) } }
@@ -359,12 +350,7 @@ internal class MusicLibraryController(
     val libraryScanning: StateFlow<Boolean> = _libraryScanning
 
     fun importFolder(treeUri: Uri) {
-        runCatching {
-            application.contentResolver.takePersistableUriPermission(
-                treeUri,
-                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION,
-            )
-        }
+        application.contentResolver.persistGrant(treeUri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         _mediaRoots.update { it + treeUri.toString() }
         libraryPrefs.edit().putStringSet("roots", _mediaRoots.value).apply()
         scope.launch(Dispatchers.IO) {

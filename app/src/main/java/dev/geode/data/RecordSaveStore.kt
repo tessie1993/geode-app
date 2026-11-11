@@ -3,9 +3,9 @@ package dev.geode.data
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.core.content.edit
 import androidx.core.net.toUri
-import dev.geode.util.bestEffort
 
 /**
  * Where a recorded take's MP4 goes, asked once: the first stopped recording asks the user (Videos
@@ -47,8 +47,8 @@ class RecordSaveStore(
         remember: Boolean = true,
     ): Boolean {
         if (target is SaveTarget.Folder) {
-            bestEffort(TAG, "take persistable grant") {
-                appContext.contentResolver.takePersistableUriPermission(target.treeUri.toUri(), GRANT_FLAGS)
+            if (!appContext.contentResolver.persistGrant(target.treeUri.toUri(), GRANT_FLAGS)) {
+                Log.w(TAG, "take persistable grant failed")
             }
             if (!holdsGrant(target.treeUri)) return false
         }

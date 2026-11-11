@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.provider.DocumentsContract
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -207,14 +206,10 @@ private fun BatchSummary(
 internal fun Context.showRendersFolder(): Boolean {
     val folder = DocumentsContract.buildDocumentUri(EXTERNAL_STORAGE_DOCUMENTS, "primary:$RENDERS_RELATIVE_PATH")
     val attempts =
-        listOfNotNull(
+        listOf(
             Intent(Intent.ACTION_VIEW).setDataAndType(folder, DocumentsContract.Document.MIME_TYPE_DIR),
             Intent(Intent.ACTION_VIEW).setDataAndType(folder, "resource/folder"),
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_FILES)
-            } else {
-                null
-            },
+            Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_FILES),
         )
     return attempts.any { intent ->
         runCatching { startActivity(intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) }.isSuccess

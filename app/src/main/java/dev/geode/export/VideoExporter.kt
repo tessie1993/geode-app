@@ -210,10 +210,8 @@ class VideoExporter(
                 ContentValues().apply {
                     put(MediaStore.Video.Media.DISPLAY_NAME, fileName)
                     put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                    if (android.os.Build.VERSION.SDK_INT >= 29) {
-                        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/MuzViz")
-                        put(MediaStore.Video.Media.IS_PENDING, 1)
-                    }
+                    put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/MuzViz")
+                    put(MediaStore.Video.Media.IS_PENDING, 1)
                 }
             val outUri =
                 resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
@@ -245,10 +243,8 @@ class VideoExporter(
                     bestEffort(TAG, "resolver.delete(outUri, null, null)") { resolver.delete(outUri, null, null) }
                     Result.Cancelled
                 } else {
-                    if (android.os.Build.VERSION.SDK_INT >= 29) {
-                        val done = ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }
-                        resolver.update(outUri, done, null, null)
-                    }
+                    val done = ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }
+                    resolver.update(outUri, done, null, null)
                     Result.Saved(outUri, measureLoudness(outUri, loudnessTarget))
                 }
             } catch (e: Exception) {

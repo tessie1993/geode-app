@@ -183,12 +183,12 @@ class VisualizerView(
     }
 
     /**
-     * The app keeps this view attached on every screen and hides it (`INVISIBLE`) off Visuals,
-     * because detaching it cost a main-thread wait for the scene release, a GL thread join, and on
-     * the way back a new EGL context, every program recompiled and a black first frame. Hidden,
-     * SurfaceView gives its surface back and GLSurfaceView keeps its thread and context, so only
-     * the pacer and the gyro have to stop here; showing it again is a new surface and one
-     * `onSurfaceChanged`. Called for this view and for any ancestor; the attach check keeps it
+     * The app keeps this view attached on every screen and hides it (alpha 0, see [setAlpha])
+     * off Visuals, because detaching it cost a main-thread wait for the scene release, a GL thread
+     * join, and on the way back a new EGL context, every program recompiled and a black first
+     * frame. An `INVISIBLE` view would also give its surface back, and showing it again is a new
+     * surface and an `onSurfaceChanged` the main thread waits out (#852); a transparent view keeps
+     * the surface, so only the pacer and the gyro have to stop. Called for this view and for any ancestor; the attach check keeps it
      * out of the constructor, where a View can already be told about its visibility.
      */
     override fun onVisibilityChanged(
@@ -199,10 +199,20 @@ class VisualizerView(
         if (isAttachedToWindow) syncPacer()
     }
 
+    /**
+     * The in-app hide is alpha 0 (see [onVisibilityChanged]), which `isShown` cannot see, so the
+     * pacer and the gyro follow alpha too. Called from the View constructor, hence the attach guard.
+     */
+    override fun setAlpha(alpha: Float) {
+        val wasHidden = this.alpha <= 0f
+        super.setAlpha(alpha)
+        if (isAttachedToWindow && wasHidden != (alpha <= 0f)) syncPacer()
+    }
+
     private fun syncPacer() {
         // isShown: this view and every ancestor VISIBLE, in a window. Window visibility on its own
         // misses the in-app hide, which keeps the window showing.
-        val watched = isAttachedToWindow && windowVisibility == VISIBLE && isShown
+        val watched = isAttachedToWindow && windowVisibility == VISIBLE && isShown && alpha > 0f
         if (watched) framePacer.start() else framePacer.stop()
         gyroLook.setActive(gyroListens(watched, resumed, gyroWanted))
     }

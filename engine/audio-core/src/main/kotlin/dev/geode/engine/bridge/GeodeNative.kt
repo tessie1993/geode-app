@@ -1118,6 +1118,41 @@ object GeodeNative {
     /** GL thread, or after its surface went: ends the copy. */
     external fun vizRecordStop(handle: Long)
 
+    /** Shake to screenshot: read the next finished visual back once (`geode_viz_still_request`). Any thread. */
+    external fun vizStillRequest(handle: Long)
+
+    /** GL thread: the still's width and height into [out], true once it is ready. */
+    external fun vizStillSize(
+        handle: Long,
+        out: IntArray,
+    ): Boolean
+
+    /** GL thread: the still, RGBA8 rows top first, into the direct buffer [out]; then it is let go. */
+    external fun vizStillRead(
+        handle: Long,
+        out: java.nio.ByteBuffer,
+    ): Boolean
+
+    /** Tap along (`core/viz/TapAlong`): a touch-down at [uptimeNs]; true on the tap that completes a streak on the beat. Any thread. */
+    external fun vizTapAlong(
+        handle: Long,
+        uptimeNs: Long,
+    ): Boolean
+
+    /** Shake to screenshot's detector (`core/viz/Shake`), one per listener. */
+    external fun shakeCreate(): Long
+
+    external fun shakeDestroy(handle: Long)
+
+    /** One TYPE_ACCELEROMETER event; true on the sample that completes a shake. */
+    external fun shakeSample(
+        handle: Long,
+        timeNs: Long,
+        x: Float,
+        y: Float,
+        z: Float,
+    ): Boolean
+
     /** The maximum take lengths Settings › Export › Record offers, in seconds; 0 is "no limit". */
     external fun recordMaxLengths(): IntArray
 

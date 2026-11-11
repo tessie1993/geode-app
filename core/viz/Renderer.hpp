@@ -161,6 +161,8 @@ public:
     // Told, on the GL thread inside render, that targetFbo now holds the finished visual (composite and edge
     // glow) at width x height, before the UI blur frosts part of it. Record copies the frame from here.
     void setCompositeHook(std::function<void(GLuint, int, int)> hook) { compositeHook_ = std::move(hook); }
+    // The sound frame the last render stepped to. Render thread only.
+    const GeodeSoundFrame& soundFrame() const { return soundFrame_; }
     int width() const { return width_; }
     int height() const { return height_; }
     void warmTransition(const std::string& id);

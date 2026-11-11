@@ -170,8 +170,10 @@ internal fun Modifier.visualGestures(
     onGesture: (CanvasGesture, Int) -> Unit,
     onTouchPoints: (FloatArray, Int) -> Unit,
     a11yActions: List<CustomAccessibilityAction>,
+    onTapDown: (Long) -> Unit = {},
 ): Modifier {
     val action by rememberUpdatedState(actionFor)
+    val tapDown by rememberUpdatedState(onTapDown)
     val split by rememberUpdatedState(tapSplitPx)
     val armed by rememberUpdatedState(holdArmed)
     val fire by rememberUpdatedState(onGesture)
@@ -261,6 +263,7 @@ internal fun Modifier.visualGestures(
                         read.moved -> Unit
                         read.ringShown || read.now - read.startMs > read.showMs -> Unit
                         else -> {
+                            tapDown(down.uptimeMillis)
                             val tap = if (start.y < split()) CanvasGesture.TAP_TOP else CanvasGesture.TAP_BOTTOM
                             val second =
                                 if (action(CanvasGesture.DOUBLE_TAP) != GestureAction.OFF) {
@@ -268,6 +271,7 @@ internal fun Modifier.visualGestures(
                                 } else {
                                     SecondTap.NONE
                                 }
+                            if (second.double) tapDown(second.downMs)
                             fire(if (second.double) CanvasGesture.DOUBLE_TAP else tap, 0)
                             next = second.next
                         }
@@ -323,10 +327,10 @@ private suspend fun AwaitPointerEventScope.follow(
 private class SecondTap(
     val double: Boolean,
     val next: PointerInputChange?,
+    val downMs: Long = 0L,
 ) {
     companion object {
         val NONE = SecondTap(double = false, next = null)
-        val DOUBLE = SecondTap(double = true, next = null)
     }
 }
 
@@ -362,7 +366,7 @@ private suspend fun AwaitPointerEventScope.awaitSecondTap(
             return SecondTap(double = false, next = second)
         }
     } while (change != null && change.pressed)
-    return SecondTap.DOUBLE
+    return SecondTap(double = true, next = null, downMs = second.uptimeMillis)
 }
 
 /**

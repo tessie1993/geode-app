@@ -996,6 +996,9 @@
     <string name="visuals_gesture_randomize">Randomize style, preset and settings</string>
     <string name="visuals_gesture_touch_play">Stir the visual</string>
     <string name="visuals_gesture_play_pause">Play or pause</string>
+    <!-- Shake to screenshot (ui/EasterEggs.kt): the visual alone, saved to Pictures. -->
+    <string name="visuals_screenshot_saved">Screenshot saved to Pictures</string>
+    <string name="visuals_screenshot_failed">Could not save the screenshot</string>
     <!-- The Macros drawer (ui/MacrosDrawer.kt). -->
     <string name="macros_drawer_title">Macros</string>
     <string name="macros_drawer_edit">Edit and make macros</string>

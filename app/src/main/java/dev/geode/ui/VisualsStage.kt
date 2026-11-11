@@ -77,6 +77,7 @@ internal fun BoxScope.VisualsStage(
     actions: VisualActions,
     recording: Boolean,
     tapSplitPx: () -> Float,
+    onTapDown: (Long) -> Unit,
 ) {
     // The visual itself is not drawn here: the shell hosts the one VisualizerView beneath every
     // screen (VisualizerCanvasHost) and shows it through this transparent stage.
@@ -92,6 +93,7 @@ internal fun BoxScope.VisualsStage(
                 onGesture = { gesture, step -> actions.run(behaviour.actionFor(gesture), step) },
                 onTouchPoints = visualizerView.visualizerRenderer::submitTouchPoints,
                 a11yActions = rememberVisualA11yActions(behaviour::actionFor, actions, recording),
+                onTapDown = onTapDown,
             ),
     )
     HoldRing(ring)

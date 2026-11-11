@@ -680,6 +680,21 @@ object GeodeNative {
     external fun paramsSchemaText(): String
 
     /**
+     * The hue base a palette slot draws: [override] when it is >= 0, else built-in palette [palette]'s, the
+     * index clamped into the table (`geode_params_palette_base`, core/viz/Params). Pure.
+     */
+    external fun paramsPaletteBase(
+        palette: Int,
+        override: Float,
+    ): Float
+
+    /** [paramsPaletteBase] for the hue span (`geode_params_palette_range`). */
+    external fun paramsPaletteRange(
+        palette: Int,
+        override: Float,
+    ): Float
+
+    /**
      * The config params schema (core/viz/ConfigTable.inc) as its versioned line table: per row the group
      * (lfo, adsr, macro, palette, look, clip, theme), its index in the group, name, kind, default, control
      * range and unit (`geode_config_schema_text`). The stores' clamps and defaults are to read it. Static; parse once.
@@ -935,6 +950,46 @@ object GeodeNative {
         totalUs: Long,
         loops: Int,
     ): LongArray
+
+    /**
+     * What an export's measured loudness asks of platform [target] (0 Leave as-is, 1 YouTube, 2 Shorts;
+     * core/output/LoudnessAdvice): returns the kind (0 nothing to measure, 1 as mixed, 2 on target,
+     * 3 normalise) and fills [out] (9 doubles): gain dB, gain the level alone needed, resulting LUFS and true
+     * peak, direction (1, -1, 0), ceiling limited (1/0), band (-1 under, 1 over, 0 in), LU under YouTube worth
+     * saying (else 0), peak over YouTube's ceiling (1/0). [gated] false: nothing above the meter's gate.
+     */
+    external fun loudnessAdvise(
+        target: Int,
+        gated: Boolean,
+        lufs: Double,
+        truePeakDbtp: Double,
+        out: DoubleArray,
+    ): Int
+
+    /** [target]'s window, aim, low, high LUFS and true-peak ceiling into [out]; false when it does not normalise. */
+    external fun loudnessWindow(
+        target: Int,
+        out: DoubleArray,
+    ): Boolean
+
+    /**
+     * A time-of-day drift's stops as (hue offset, warmth offset) pairs, none at the first and the whole
+     * drift at the last; one pair of zeros when it does not move (core/output/LoopPlan).
+     */
+    external fun loopDriftStops(
+        hueTurns: Float,
+        warmth: Float,
+        stops: Int,
+    ): FloatArray
+
+    /** One drift stop on a look: [out] gets the wrapped colorShift, then the temperature held to -1..1. */
+    external fun loopDriftApply(
+        colorShift: Float,
+        temperature: Float,
+        hueOffset: Float,
+        warmthOffset: Float,
+        out: FloatArray,
+    )
 
     /** What the long file weighs: every repeat copies [loopBytes] again, plus 2 % for the sample tables. */
     external fun loopEstimatedBytes(
@@ -1509,7 +1564,7 @@ object GeodeNative {
     // SURFACE_* bits the shell observed; [animateUntilMs] is the wall-clock time the entitlement
     // lets the visual move until ([SURFACE_FOREVER] for Pro, a trial's end, 0 for free).
 
-    /** 0 stopped, 1 a still frame, 2 moving. */
+    /** 0 stopped, 1 a still frame, 2 moving, 3 dark (no visual). */
     external fun surfaceRunMode(
         flags: Int,
         animateUntilMs: Long,
@@ -1581,6 +1636,9 @@ object GeodeNative {
 
     /** The system's Remove animations: a still frame (ADR 0008). */
     const val SURFACE_REDUCED_MOTION = 1 shl 8
+
+    /** The dream: a silent rest shows no visual rather than a still frame. */
+    const val SURFACE_DARK_WHEN_SILENT = 1 shl 9
     const val SURFACE_FOREVER = Long.MAX_VALUE
 
     /** The wallpaper's and the dream's fps before the user picks one (GEODE_SURFACE_DEFAULT_FPS). */
@@ -1609,6 +1667,78 @@ object GeodeNative {
 
     /** A start after a stop: forget the gap, keep the panel's period. */
     external fun pacerResume(state: LongArray)
+
+    // AIFF files and an export's track audio (core/audio/ingest/AiffReader, TrackFeed).
+
+    /**
+     * An AIFF or AIFF-C (NONE, sowt) read as 16-bit PCM from [fd], which native takes and closes, also when it
+     * returns 0 (not an AIFF it reads). [length] >= 0 reads that many bytes from [startOffset] on (an
+     * AssetFileDescriptor's span); < 0 to the end. Freed with [aiffClose].
+     */
+    external fun aiffOpenFd(
+        fd: Int,
+        startOffset: Long,
+        length: Long,
+    ): Long
+
+    external fun aiffClose(handle: Long)
+
+    /** [out] gets the channel count, the sample rate and the COMM frame count (0 = read to the end). */
+    external fun aiffInfo(
+        handle: Long,
+        out: LongArray,
+    )
+
+    /** Frames read over the total, 0..1. */
+    external fun aiffProgress(handle: Long): Float
+
+    /** Up to [out]'s size in interleaved 16-bit samples, whole frames while the file has them; -1 at the end. */
+    external fun aiffReadS16(
+        handle: Long,
+        out: ShortArray,
+    ): Int
+
+    /** An export's track audio from [startMs] into the track; frames before it are dropped. Freed with [trackFeedDestroy]. */
+    external fun trackFeedCreate(startMs: Long): Long
+
+    external fun trackFeedDestroy(handle: Long)
+
+    /**
+     * A decoder's output: [size] bytes at [offset] in the direct [buffer], float when [isFloat] else 16-bit, its
+     * first frame at [ptsUs]. Read in place, never kept; false (nothing taken) for a heap buffer. Push only
+     * after [vizHearTrack] returned false: one chunk is held at a time.
+     */
+    external fun trackFeedPushDirect(
+        handle: Long,
+        buffer: java.nio.ByteBuffer,
+        offset: Int,
+        size: Int,
+        isFloat: Boolean,
+        channels: Int,
+        sampleRate: Int,
+        ptsUs: Long,
+    ): Boolean
+
+    /** One read of the AIFF at [aiff] into the feed; false once the file has run out. */
+    external fun trackFeedPushAiff(
+        handle: Long,
+        aiff: Long,
+    ): Boolean
+
+    /** Whether a chunk has told the rate yet. */
+    external fun trackFeedHasRate(handle: Long): Boolean
+
+    /** Aims the next [vizHearTrack] at [endMs] into the range. */
+    external fun trackFeedTargetMs(
+        handle: Long,
+        endMs: Long,
+    )
+
+    /** The feed's held frames up to its target into renderer [handle]'s sound engine; true once reached. */
+    external fun vizHearTrack(
+        handle: Long,
+        feed: Long,
+    ): Boolean
 
     // The PCM ingest ring (core/audio/ingest/PcmRing): one lock-free ring per audio source. Every write
     // carries its rate, and the int16 and 8-bit conversions to float happen inside it.

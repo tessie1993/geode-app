@@ -1,6 +1,8 @@
 package dev.geode.data
 
 import android.content.SharedPreferences
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.UnderlayBlend
 
@@ -56,5 +58,13 @@ class BackgroundPrefsStore(
         private const val KEY_AMOUNT = "background_amount"
         private const val KEY_BLUR = "background_blur_radius"
         private const val KEY_DIM = "background_dim"
+
+        internal val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.BACKGROUND) {
+                device(PrefType.STRING, KEY_URI)
+                portable(PrefType.STRING, KEY_BLEND)
+                portable(PrefType.FLOAT, KEY_AMOUNT, KEY_DIM)
+                portable(PrefType.INT, KEY_BLUR)
+            }
     }
 }

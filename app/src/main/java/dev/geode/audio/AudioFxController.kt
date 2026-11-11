@@ -3,6 +3,9 @@ package dev.geode.audio
 import android.content.SharedPreferences
 import dev.geode.audio.dsp.DspSettings
 import dev.geode.audio.dsp.NativeDspProcessor
+import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 
 data class AudioFxBand(
     val label: String,
@@ -186,11 +189,18 @@ class AudioFxController(
         )
     }
 
-    private companion object {
+    internal companion object {
         const val KEY_ENABLED = "enabled"
         const val KEY_BANDS = "band_levels"
         const val KEY_PRESET = "preset"
         const val KEY_BASS = "bass"
         const val KEY_LOUDNESS = "loudness"
+
+        val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.AUDIO_FX) {
+                portable(PrefType.BOOLEAN, KEY_ENABLED)
+                portable(PrefType.STRING, KEY_BANDS)
+                portable(PrefType.INT, KEY_PRESET, KEY_BASS, KEY_LOUDNESS)
+            }
     }
 }

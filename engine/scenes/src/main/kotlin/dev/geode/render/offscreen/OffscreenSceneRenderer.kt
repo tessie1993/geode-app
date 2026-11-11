@@ -111,7 +111,7 @@ class OffscreenSceneRenderer(
         // Keyframed params ride in the look; reactSeed among them, so native re-deals the DNA when keyframes change it.
         looks.apply(spec.paramsAt?.let { look.copy(params = it(timeMs)) } ?: look, viz, handMask = pinnedHandMask ?: HandMask.current)
         // Exactly the audio up to the end of this frame, then a render steps the engine by 1/fps.
-        audio?.deliverUntilMs(nextTimeMs) { pcm, frames, channels, rate -> viz.writeAudio(pcm, frames, channels, rate) }
+        audio?.deliverUntilMs(nextTimeMs, viz)
         // The frame's exact time, not the whole-ms one above (#377): floor(n * 1e9 / fps) ns.
         viz.render(GeodeNative.exportFramePtsNs(frame.toLong(), fps) / NANOS_PER_SECOND, targetFbo)
     }

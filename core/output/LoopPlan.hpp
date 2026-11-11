@@ -55,6 +55,27 @@ struct LoopSpec {
 // untouched renders.
 float seamWeight(int tail, int seamFrames);
 
+// Time-of-day drift: a slow palette movement across the finished video, quantised into
+// `stops` loop renders. Ported from the Kotlin TimeOfDayDrift.stopPhases and DriftStop.applyTo
+// (export/LoopRender.kt) with the same float arithmetic.
+struct DriftStop {
+    int index = 0;
+    float hueOffset = 0.0f;
+    float warmthOffset = 0.0f;
+};
+
+constexpr int kMaxDriftStops = 8;
+
+// Whether a drift moves at all: more than one stop and a non-zero hue or warmth.
+bool driftMoves(float hueTurns, float warmth, int stops);
+// The palette offset of each stop, none at the first and the whole drift at the last; one stop at no offset
+// when the drift does not move. Writes min(count, capacity) stops and returns the count.
+int driftStops(float hueTurns, float warmth, int stops, DriftStop* out, int capacity);
+// A stop applied to a look: colorShift moved by the hue offset and wrapped into 0..1 (a turn), temperature
+// moved by the warmth offset and held to -1..1, the params schema's range.
+void applyDrift(float colorShift, float temperature, float hueOffset, float warmthOffset, float* outColorShift,
+                float* outTemperature);
+
 // One run of repeats of one rendered loop (a time-of-day drift stop), starting at startUs.
 struct LoopSegment {
     int loopIndex = 0;

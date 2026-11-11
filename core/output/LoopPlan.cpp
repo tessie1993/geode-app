@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <climits>
+#include <cmath>
 
 namespace geode::output {
 
@@ -48,6 +49,29 @@ LoopSpec LoopSpec::budgeted(int width, int height) const {
 
 float seamWeight(int tail, int seamFrames) {
     return seamFrames > 1 ? static_cast<float>(tail) / (static_cast<float>(seamFrames) - 1.0f) : 1.0f;
+}
+
+bool driftMoves(float hueTurns, float warmth, int stops) { return stops > 1 && (hueTurns != 0.0f || warmth != 0.0f); }
+
+int driftStops(float hueTurns, float warmth, int stops, DriftStop* out, int capacity) {
+    if (!driftMoves(hueTurns, warmth, stops)) {
+        if (out && capacity > 0) out[0] = DriftStop{};
+        return 1;
+    }
+    const float last = static_cast<float>(stops - 1);
+    for (int i = 0; out && i < std::min(stops, capacity); ++i) {
+        const float progress = static_cast<float>(i) / last;
+        out[i] = DriftStop{i, hueTurns * progress, warmth * progress};
+    }
+    return stops;
+}
+
+void applyDrift(float colorShift, float temperature, float hueOffset, float warmthOffset, float* outColorShift,
+                float* outTemperature) {
+    const float hue = colorShift + hueOffset;
+    const float fraction = hue - std::floor(hue);
+    if (outColorShift) *outColorShift = clampTo(fraction, 0.0f, 1.0f);
+    if (outTemperature) *outTemperature = clampTo(temperature + warmthOffset, -1.0f, 1.0f);
 }
 
 LoopExtendPlan LoopExtendPlan::of(int64_t loopDurationUs, int64_t totalDurationUs, int loops) {

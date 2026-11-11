@@ -19,6 +19,7 @@ import dev.geode.R
 import dev.geode.data.AutoDirectorStore
 import dev.geode.data.MacroStore
 import dev.geode.model.ControlRange
+import dev.geode.model.VizUiState
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
 import dev.geode.render.HandReactions

@@ -16,7 +16,7 @@ description: Use when working in Geode's C++20 core (core/, app/src/main/cpp) - 
 
 ## Check and test on the host
 
-clangd is set up by `compile_flags.txt` at the repo root (C++20, `-Icore`, the test stubs, and `tools/clangd-stubs` for `<android/log.h>`). Run `clangd --check=<file>` for diagnostics. It reads 87 of the 91 sources cleanly; the other four (`core/library/Tags.cpp`, `core/viz/scenes/MilkdropScene.cpp`, `core/viz/SceneRegistry.cpp`, `core/viz/ShaderSource.cpp`) need the projectM or TagLib submodules or the NDK.
+clangd is set up by `compile_flags.txt` at the repo root (C++20, `-Icore`, the test stubs, and `tools/clangd-stubs` for `<android/log.h>`). Run `clangd --check=<file>` for diagnostics. It reads 87 of the 91 sources cleanly; the other four (`core/library/Tags.cpp`, `core/viz/scenes/MilkdropScene.cpp`, `core/viz/SceneRegistry.cpp`, `core/viz/ShaderSource.cpp`) need the projectM or TagLib submodules or the NDK, and `core/audio/output/OboeOutput.cpp` with `core/api/geode_audio_out_api.cpp` need Oboe's headers (the Prefab AAR Gradle unpacks; everything a host test reaches of the output is in `OutputFifo`).
 
 Unit tests are plain `g++` builds in `core/tests/`; copy the exact command for each from `.github/workflows/android.yml` (for example `viz_math_test`, `catalogue_test`, `params_test`). Put new pure logic where such a test can reach it, and write the test before the change. `tools/hostlink` checks the native link on the host.
 

@@ -73,6 +73,12 @@ set(WITH_ZLIB OFF CACHE BOOL "" FORCE)
 set(VISIBILITY_HIDDEN ON CACHE BOOL "" FORCE)
 add_subdirectory(third_party/taglib)
 
+# Oboe, the playback output's stream (core/audio/output/OboeOutput): the Prefab package of the
+# com.google.oboe:oboe AAR (app/build.gradle.kts, buildFeatures.prefab). It offers one target,
+# oboe::oboe, a prebuilt shared liboboe.so (16 KB aligned, built against c++_shared like this
+# project), which the Android Gradle plugin packages beside libgeode.so.
+find_package(oboe REQUIRED CONFIG)
+
 add_subdirectory(core)
 
 add_library(geode SHARED
@@ -82,7 +88,9 @@ add_library(geode SHARED
     app/src/main/cpp/geode_export_dsp_jni.cpp
     app/src/main/cpp/geode_export_jni.cpp
     app/src/main/cpp/geode_sound_jni.cpp
-    app/src/main/cpp/geode_playout_jni.cpp)
+    app/src/main/cpp/geode_playout_jni.cpp
+    app/src/main/cpp/geode_ingest_jni.cpp
+    app/src/main/cpp/geode_audio_out_jni.cpp)
 target_compile_options(geode PRIVATE ${GEODE_COMPILE_OPTIONS})
 target_link_options(geode PRIVATE ${GEODE_LINK_OPTIONS})
 target_link_libraries(geode PRIVATE geode_core log android)

@@ -19,11 +19,10 @@ import dev.geode.data.HistoryStore
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsStore
 import dev.geode.data.SessionStore
-import dev.geode.engine.audio.PcmSink
 import dev.geode.engine.audio.SampleRing
-import dev.geode.engine.audio.SoundInput
 import dev.geode.engine.audioandroid.PcmTap
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,13 +32,12 @@ import kotlinx.coroutines.cancel
 class PlaybackSession internal constructor(
     context: Context,
 ) {
-    internal val sampleRing = SampleRing(capacityFrames = 1 shl 16, channelCount = 2)
-
-    @Volatile
-    var onAudioFormat: ((sampleRateHz: Int, channelCount: Int, encoding: Int) -> Unit)? = null
-
-    /** Where the tap, mic and capture write: the one ring every renderer hears, MilkDrop's raw PCM included. */
-    internal val captureSink: PcmSink = sampleRing
+    /**
+     * Where the tap, mic and capture write, and what every surface's sound engine reads: the one native
+     * ring every renderer hears, MilkDrop's raw PCM included. Each block carries its source's rate. The
+     * ring is freed once nothing holds this object, so a surface still reading it after [release] is safe.
+     */
+    val sampleRing = SampleRing(capacityFrames = 1 shl 16, channelCount = 2)
 
     private val prefsFiles = GeodePrefsFiles(context)
 
@@ -51,17 +49,15 @@ class PlaybackSession internal constructor(
      */
     private val bitPerfect = BitPerfectOutput(context) { dsp.bitPerfect = it }
 
-    internal val tap =
-        PcmTap(captureSink) { format ->
-            // Every tap flush starts a ring epoch, before the new format's rate is published.
-            sampleRing.beginEpoch()
-            val hook = onAudioFormat
-            if (hook != null) {
-                hook(format.sampleRateHz, format.channelCount, format.encoding)
-            } else {
-                sampleRateHz = format.sampleRateHz
-            }
-        }
+    internal val tap = PcmTap(sampleRing)
+
+    /**
+     * Settings › Playback › Native audio output, as it applies now: on, and bit-perfect USB off (that
+     * path is the platform track's: the mixer attributes are matched against an AudioTrack's format).
+     * Read on the playback thread each time the sink builds an output.
+     */
+    @Volatile
+    private var nativeOutput = false
 
     /**
      * The one player: ExoPlayer, with the tap first in its processor chain ([TapRenderersFactory]).
@@ -72,7 +68,7 @@ class PlaybackSession internal constructor(
         ExoPlayer
             .Builder(
                 context,
-                TapRenderersFactory(context, tap, dsp = listOf(dsp)) { out ->
+                TapRenderersFactory(context, tap, dsp = listOf(dsp), nativeOutput = { nativeOutput }) { out ->
                     bitPerfect.onOutput(out.sampleRate, out.channelMask, out.encoding)
                 },
             ).setMediaSourceFactory(
@@ -130,23 +126,12 @@ class PlaybackSession internal constructor(
     /** Bumps once per recorded play; the UI's history tick follows it. */
     val playsRecorded = recorder.plays
 
-    /**
-     * The rate of whichever source writes [sampleRing] right now: the tap's format when nothing else
-     * claims it, otherwise what the UI session's capture controller sets (mic, other apps' audio, or
-     * back to the player). Written from the playback and capture threads, read on every GL thread.
-     */
-    @Volatile
-    var sampleRateHz: Int = DEFAULT_SAMPLE_RATE_HZ
-
-    /** What every surface's sound engine reads; the rate follows whichever source owns the ring. */
-    val soundInput = SoundInput(sampleRing) { sampleRateHz }
-
     init {
         player.addListener(replayGain)
         player.addListener(autoDirector)
         player.addListener(crossfade)
         player.addListener(recorder)
-        dev.geode.audio.AudioBus.soundInput = soundInput
+        dev.geode.audio.AudioBus.soundInput = sampleRing
         // The saved options go on here, not only when the UI attaches: a session the service starts
         // alone (a headset button, Android Auto or System UI resuming playback) has no PlayerSession,
         // and without this it would ignore pause-on-unplug, ReplayGain, shuffle and repeat until the
@@ -176,6 +161,15 @@ class PlaybackSession internal constructor(
         player.setHandleAudioBecomingNoisy(p.pauseOnNoisy)
         replayGain.configure(p.replayGainMode, p.replayGainPreampDb, p.replayGainClipGuard)
         GeodeNative.dspSetSpeed(dsp.nativeHandle(), p.speed)
+        val oboe = p.nativeOutput && !(p.bitPerfect && BitPerfectOutput.supported)
+        if (oboe != nativeOutput) {
+            nativeOutput = oboe
+            // The output already open was built under the old choice. A playing item is seeked to where
+            // it stands, as for bit-perfect: Media3 rebuilds the output there, so the switch applies now.
+            if (player.playbackState != Player.STATE_IDLE && player.currentMediaItem != null) {
+                bestEffort(TAG, "reopen the audio output") { player.seekTo(player.currentPosition) }
+            }
+        }
         bitPerfect.setEnabled(p.bitPerfect, player)
         crossfade.crossfadeMs = p.crossfadeMs
     }
@@ -187,10 +181,9 @@ class PlaybackSession internal constructor(
                 player.playbackState != Player.STATE_ENDED
 
     internal fun release() {
-        if (dev.geode.audio.AudioBus.soundInput === soundInput) dev.geode.audio.AudioBus.soundInput = null
+        if (dev.geode.audio.AudioBus.soundInput === sampleRing) dev.geode.audio.AudioBus.soundInput = null
         recorder.release()
         scope.cancel()
-        onAudioFormat = null
         audioFx.release()
         player.removeListener(replayGain)
         player.removeListener(autoDirector)
@@ -204,14 +197,14 @@ class PlaybackSession internal constructor(
     }
 
     companion object {
-        private const val DEFAULT_SAMPLE_RATE_HZ = 48_000
-
         /**
          * How long a gain ramp that ended on the samples takes to reach the speaker: DefaultAudioSink's PCM
          * buffer, 250 ms on the usual phone (its minimum). Until the playout clock (#482) says which sample
          * the speaker is on, a pause after a fade-out waits this long so it never cuts the fade short.
          */
         const val SINK_LAG_MS = 250L
+
+        private const val TAG = "PlaybackSession"
 
         /** One file, written in order off the main thread; a daemon, like the history writer. */
         private val sessionWriter: java.util.concurrent.ExecutorService =

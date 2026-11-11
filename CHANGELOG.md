@@ -13,6 +13,24 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 
 - **Summary of the work since v1.8.0, newest first.** The entries below this
   one are kept as written; several describe code that has since been replaced.
+  - **Oboe is back, as the playback output only.** Settings › Playback ›
+    Output and more has a new switch, "Native output (Oboe)",
+    off by default and experimental. ExoPlayer still decodes, keeps the queue,
+    Android Auto, the notification and its whole audio sink (the tap, the DSP,
+    speed and pitch, gapless joins); only the AudioTrack at the end is
+    replaced, by an Oboe stream fed through a lock-free native FIFO
+    (`core/audio/output`: `OutputFifo`, `OboeOutput`, C ABI
+    `geode_audio_out_*`; Kotlin's `OboeAudioOutput` only forwards). It plays
+    plain 16-bit or float PCM in mono or stereo, in the player's audio
+    session, and reopens its stream when the route changes. Everything else
+    stays on the AudioTrack by itself: surround files, bit-perfect USB,
+    offload, a stream the device will not open, and a stream that fails
+    mid-play (the sink rebuilds its output on the AudioTrack). The FIFO and
+    the stream's buffer together are the size Media3 asks an AudioTrack for,
+    so fades and the crossfade keep their timing; the switch is about the
+    output path, and latency is about what it was. Oboe 1.11.0 comes as a
+    Prefab AAR (`liboboe.so`, 16 KB aligned), not a submodule. New host test:
+    `core/tests/output_fifo_test.cpp`. Not yet checked on a phone.
   - **Dead code and doc cleanup.** Unused native and JNI entry points are
     gone (the `geode_sound_*` C API, `geode_params_blend`, and the JNI
     `dspBandCount`, `dspBand`, `dspSetSampleRate`, `dspSampleRate`,

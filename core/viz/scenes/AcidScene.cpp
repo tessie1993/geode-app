@@ -57,13 +57,13 @@ void AcidScene::init() {
     const std::string quad = loader_.source("quad_vert.glsl", &error);
     const GLuint step = loader_.buildSource(quad, loader_.source("acid_step_frag.glsl", &error), &error);
     if (step == 0) {
-        host_.onShaderError("Acid unavailable on this GPU: " + error);
+        host_.onShaderError("Morphing unavailable on this GPU: " + error);
         return;
     }
     step_ = UniformCache(step);
     const GLuint show = loader_.buildSource(quad, loader_.source("acid_show_frag.glsl", &error), &error);
     if (show == 0) {
-        host_.onShaderError("Acid unavailable on this GPU: " + error);
+        host_.onShaderError("Morphing unavailable on this GPU: " + error);
         return;
     }
     show_ = UniformCache(show);

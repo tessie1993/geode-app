@@ -227,7 +227,7 @@ internal fun BoxScope.StageIcons(
     }
     StageIconButton(
         icon = if (record.recording) StoneIcon.STOP else StoneIcon.RECORD,
-        description = stringResource(if (record.recording) R.string.visuals_stop_take else R.string.visuals_gesture_record),
+        description = stringResource(if (record.recording) R.string.visuals_stop_record else R.string.visuals_gesture_record),
         enabled = awake || record.recording,
         onClick = {
             if (record.recording) {

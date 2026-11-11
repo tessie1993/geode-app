@@ -230,12 +230,12 @@ class UiTourTest {
         for (g in tour.visualGestures().filter { it.name in wanted }) {
             tour.runGesture("gesture-pro", g) { tour.stageBaseline() }
             if (g.name == "hold") {
-                tour.pages("gesture-pro", "record-save-sheet", pages = 1)
-                tour.step("gesture-pro", "stop-take", "the take stops") {
-                    tour.back()
-                    tour.tapIfPresent(UiTour.STOP_TAKE)
+                // The hold starts a recording; the first stop saves it and asks where recordings go.
+                tour.step("gesture-pro", "stop-recording", "the recording stops and is saved") {
+                    tour.tapIfPresent(UiTour.STOP_RECORDING)
                     tour.state().summary()
                 }
+                tour.pages("gesture-pro", "record-save-sheet", pages = 1)
             }
         }
         pictureInPicture()

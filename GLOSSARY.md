@@ -175,11 +175,11 @@ _Avoid_: Theme (alone), skin
 ## Making
 
 **Studio**:
-Where videos are made and kept: Render (one tap, a batch or a loop) and My videos (every render and take). It has no editor: the owner dropped video editing from the launch (#227).
+Where videos are made and kept: Render (one tap, a batch or a loop) and My videos (every render and recording). It has no editor: the owner dropped video editing from the launch (#227).
 _Avoid_: Editor (the code name for the project model), timeline
 
 **Project**:
-A Studio folder: one edit (lanes, clips, markers, keyframes) that the render path draws and no screen edits, its own export settings, the takes recorded into it and every video rendered from it. A **Loop** project draws a short seamless loop and repeats it to a long length.
+A Studio folder: one edit (lanes, clips, markers, keyframes) that the render path draws and no screen edits, its own export settings and every video rendered from it. A **Loop** project draws a short seamless loop and repeats it to a long length.
 _Avoid_: Untitled, document, session
 
 **Destination**:
@@ -202,9 +202,9 @@ A value pinned at a time on a curve, for a scene param or a clip param.
 **Marker**:
 A named instant on the timeline, often tapped in live to the beat.
 
-**Take**:
-A recording of a live performance: every style, Milk preset and param change, timed by the song position. Stopping one makes a project in which the take is a visual clip over its song.
-_Avoid_: Recording, session
+**Recording**:
+A live video of the stage and what it hears, made by Record (a hold on the visual, Pro) until the user stops it, then saved like a render and listed in My videos.
+_Avoid_: Take (the replayed performance it replaced), session
 
 **Template**:
 A project minus its audio: lanes, looks, text, overlays and export settings, fitted to whatever track a new project is made over. A **Batch** is one template over many tracks, one project each.
@@ -264,7 +264,7 @@ Settings › Behaviour's switch that lets the feeling choose a director look at 
 _Avoid_: Auto visuals (that switches styles on a timer)
 
 **Look**:
-Everything the user set for the visual: the style, the base values of its scene params, the reaction routes, the layer, the transition, custom shader code and the MilkDrop preset. Saved, undone and gated as one, and a preset is a named look. What moves it this frame (sound, LFOs, the auto-director, touch, a take's replay) is modulation, never the look itself. ADR 0006 and `docs/architecture/kotlin-target.md`.
+Everything the user set for the visual: the style, the base values of its scene params, the reaction routes, the layer, the transition, custom shader code and the MilkDrop preset. Saved, undone and gated as one, and a preset is a named look. What moves it this frame (sound, LFOs, the auto-director, touch) is modulation, never the look itself. ADR 0006 and `docs/architecture/kotlin-target.md`.
 _Avoid_: State, settings, the look for one auto-director decision (that is a director look)
 
 **Director look**:

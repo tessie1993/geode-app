@@ -24,11 +24,11 @@ namespace geode::signal {
 //   param fade (the style's own paramFadeSec, or a preset morph)
 //   → the director's shuffle (rolled offsets over the user's params, when its reach asks)
 //   → auto-director (its look lies under everything after it)
-//   → Note & key reactions (inside the director's look: its hue anchors the notes' colours)
-//   → the director's axes (its behaviour offsets) → the director's own modulators (its reach)
+//   → Note & key reactions (the six style knobs only; they write no param)
+//   → the director's axes (its behaviour offsets; never a colour) → the director's own modulators (its reach)
 //   → the macro bank (the user's knobs, an offset added to whatever the director left)
 //   → LFOs → envelopes
-//   → reaction routes (the user's or the style's DNA) → the director's axis routes, then its own
+//   → reaction routes (the user's or the style's DNA; the director plays no route)
 //   → motion field → safety::apply, last, so nothing before it can pass the flash and motion limits
 //
 // WHY a module of its own (#344): the chain used to sit inside the GL renderer, behind its mutex and
@@ -52,9 +52,6 @@ namespace geode::signal {
 // The style on screen this frame.
 struct StyleContext {
     const std::string* id = nullptr;  // null when no style is on screen
-    // How the style reads paletteBase: true for the shader family (lib_palette's pal() runs the colour wheel
-    // backwards), and when nothing is on screen; false for MilkDrop's tint and the simulations (a plain hue).
-    bool shaderFamily = true;
     float spin = 0.0f;                // SceneRegistry::spinRate of the requested style
     // A new style came on screen since the last step: the motion field takes that style's variant.
     bool switched = false;
@@ -88,7 +85,7 @@ public:
 
     // The last step's result.
     const Frame& frame() const { return frame_; }
-    // The note knobs, hues and tint the last step published; the scenes and the composite read them.
+    // The note knobs the last step published; the scenes read them.
     // The reference stays valid for the resolver's life.
     const viz::NoteUniforms& noteUniforms() const { return notes_.uniforms(); }
 

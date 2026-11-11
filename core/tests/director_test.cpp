@@ -1,10 +1,10 @@
 // Host test of the auto-director: the emotion table (tools/music_emotion.py), the live feeling
-// (sound/Emotion) and the director's decisions (viz/Director): when it decides, that the same feeling never
-// gives the same picture, that happy and sad stay apart whatever the seed, and that it is deterministic.
-// Then the director's behaviour axes (viz/Director's director::applyAxes, axisMoves, axisRoutes): what the
-// old macro knobs did when the director turned them, now the director's own and never the user's bank.
+// (sound/Emotion) and the director's decisions (viz/Director): when it decides, that it never touches a colour
+// param and holds its look still between decisions, that happy and sad stay apart whatever the seed, and that
+// it is deterministic. Then the director's behaviour axes (director::applyAxes, axisMoves).
 // Built by CI (.github/workflows/native-host-tests.yml) with core/sound/*.cpp and the viz sources
 // Director.cpp, Reactions.cpp, Lfo.cpp, CameraRig.cpp, Params.cpp, ParamsFields.cpp and VisualSafety.cpp.
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -167,7 +167,7 @@ void testPacing() {
     t += kDt;
     check(d.commits() == 3 && d.lastReason() == Director::Reason::Drop, "a drop always decides");
     run(d, kHappy, 0.3f, t);
-    check(std::fabs(d.look().hue - d.target().hue) < 1e-3f, "a drop cuts in a quarter second");
+    check(d.look().axes == d.target().axes && d.look().camSmooth == d.target().camSmooth, "a drop cuts in a quarter second");
     // A modulation that holds.
     run(d, Song{"aeolian", 4, 0.85f, 132.0f, 0.6f, 0.2f}, 10.0f, t);
     check(d.commits() == 4 && d.lastReason() == Director::Reason::Modulation, "a held modulation decides on a downbeat");
@@ -216,40 +216,159 @@ void testWeakEventsDecide() {
     }
 }
 
-float distance(const Director::Look& a, const Director::Look& b) {
-    const float dh = std::fabs(std::fmod(a.hue - b.hue + 1.5f, 1.0f) - 0.5f);
-    return 2.0f * dh + std::fabs(a.range - b.range) + 0.5f * std::fabs(a.saturation - b.saturation);
+constexpr size_t kEnergy = static_cast<size_t>(Director::Axis::Energy);
+
+bool colourParam(const std::string& name) {
+    for (const char* word : {"palette", "Palette", "hue", "Hue", "color", "Color", "saturation", "brightness", "temperature", "contrast", "Tint"}) {
+        if (name.find(word) != std::string::npos) return true;
+    }
+    return false;
 }
 
-void testNeverTheSame() {
+// The four params a look may move. Everything else in SceneParams, every colour among it, is the style's
+// and the user's.
+bool lookParam(const std::string& name) {
+    return name == "camSmooth" || name == "motionBreath" || name == "motionOrbit" || name == "motionDrift";
+}
+
+// The owner's rule, "no colour narrowing": the looks used to draw every style's palette from nine hue
+// anchors and one saturation curve, so under Auto every style wore the same few colours. Whatever the
+// scale, key, song and seed, a look now leaves every param but its four motion dials exactly as given, and
+// its axes never move a colour param.
+void testNeverTouchesColour() {
+    const Song songs[] = {{"ionian", 0, 0.85f, 132.0f, 0.6f, 0.2f}, {"aeolian", 0, 0.55f, 72.0f, 0.3f, 1.2f}, {"dorian", 0, 0.7f, 100.0f, 0.45f, 0.5f}};
+    SceneParams user;
+    user.palette = 6;
+    user.paletteBaseOverride = 0.31f;
+    user.paletteRangeOverride = 0.22f;
+    user.paletteMix = 0.4f;
+    user.hueRange = 0.7f;
+    user.saturation = 0.6f;
+    user.brightness = 1.1f;
+    user.temperature = -0.2f;
+    user.contrast = 0.9f;
+    user.colorShift = 0.15f;
+    user.milkdropPaletteTint = 0.3f;
+    int looks = 0;
+    int moved = 0;
+    for (int scale = 0; scale < geode::sound::scaleCount(); ++scale) {
+        for (int root = 0; root < 12; root += 4) {
+            for (const Song& base : songs) {
+                Song s = base;
+                s.scale = geode::sound::scaleInfo(scale).id;
+                s.root = root;
+                Director d;
+                d.configure({1.0f, static_cast<uint64_t>(104729 * (scale + 1) + root)});
+                float t = 0.0f;
+                run(d, s, 15.0f, t);
+                GeodeSoundFrame f = frame(s, t, kDt);
+                f.drop = 1.0f;
+                d.step(f, kDt);
+                t += kDt;
+                run(d, s, 1.0f, t);
+                for (const SceneParams& in : {SceneParams{}, user}) {
+                    const SceneParams out = d.apply(in);
+                    for (const auto& spec : SceneParams::schema()) {
+                        const std::string name(spec.name);
+                        const bool same = out.get(name) == in.get(name);
+                        if (lookParam(name)) {
+                            if (!same) ++moved;
+                        } else if (!same) {
+                            check(false, "a look moved " + name + " (" + s.scale + " root " + std::to_string(root) + ")");
+                            return;
+                        }
+                    }
+                }
+                for (const SceneParams& in : {SceneParams{}, user}) {
+                    const SceneParams out = d.applyAxes(in);
+                    for (const auto& spec : SceneParams::schema()) {
+                        const std::string name(spec.name);
+                        if (colourParam(name) && out.get(name) != in.get(name)) {
+                            check(false, "a look's axes moved " + name + " (" + s.scale + ")");
+                            return;
+                        }
+                    }
+                }
+                ++looks;
+            }
+        }
+    }
+    check(looks > 300 && moved > looks, "the looks tried do drive their own four dials");
+}
+
+// "No hardcoded reactions": a look is decided, glided in and then held. Between decisions nothing the
+// director hands on (params, axes, camera moves) follows the frame, however hard the drums, the melody
+// or a build push: what moves then is the reaction matrix alone.
+void testHeldBetweenDecisions() {
     Director d;
-    d.configure({1.0f, 7});
+    d.configure({1.0f, 42});
     float t = 0.0f;
-    run(d, kHappy, 8.0f, t);
-    std::vector<Director::Look> looks{d.target()};
-    for (int i = 0; i < 12; ++i) {
-        run(d, kHappy, 5.0f, t);
+    run(d, kHappy, 20.0f, t);
+    check(d.commits() == 1 && d.weight() > 0.99f, "one look, fully in");
+    const SceneParams p;
+    const SceneParams held = d.apply(p);
+    const Director::Axes heldAxes = d.axes();
+    const CameraRig::Moves heldMoves = d.moves();
+    bool still = true;
+    float maxAxis = 0.0f;
+    for (int i = 0; i < 1200; ++i, t += kDt) {
         GeodeSoundFrame f = frame(kHappy, t, kDt);
+        f.kick = f.kickEnv = i % 30 == 0 ? 1.0f : 0.0f;
+        f.snare = f.snareEnv = i % 60 == 30 ? 1.0f : 0.0f;
+        f.bassAtt = 1.0f + 1.5f * std::fabs(std::sin(0.3f * i));
+        f.buildUp = (i % 600) / 600.0f;
+        f.energyTrend = 0.5f + 0.5f * std::sin(0.01f * i);
+        f.noteChange = i % 20 == 0 ? 1.0f : 0.0f;
+        f.pitchHeight = 0.5f + 0.5f * std::sin(0.05f * i);
+        f.intensity = 0.5f + 0.5f * std::sin(0.02f * i);
+        d.step(f, kDt);
+        const SceneParams now = d.apply(p);
+        const Director::Axes x = d.axes();
+        const CameraRig::Moves m = d.moves();
+        for (int j = 0; j < Director::kAxes; ++j) maxAxis = std::max(maxAxis, std::fabs(x[j] - heldAxes[j]));
+        still = still && std::fabs(now.camSmooth - held.camSmooth) < 1e-3f && std::fabs(now.motionBreath - held.motionBreath) < 1e-3f &&
+                std::fabs(m.shake - heldMoves.shake) < 1e-3f && std::fabs(m.orbit - heldMoves.orbit) < 1e-3f;
+    }
+    check(d.commits() == 1, "no decision in those twenty seconds");
+    check(still && maxAxis < 1e-3f, "between decisions the look holds still under drums, melody and a build (axis drift " + std::to_string(maxAxis) + ")");
+}
+
+// A look glides in over a bar of the tempo the tracker hears. With no tempo heard none is assumed (no
+// 120 bpm default): the glide is the same whatever stale bpm the frame carries.
+void testNoTempoAssumed() {
+    float glides[3] = {};
+    const float bpms[3] = {0.0f, 60.0f, 240.0f};
+    for (int n = 0; n < 3; ++n) {
+        Director d;
+        d.configure({1.0f, 42});
+        float t = 0.0f;
+        run(d, kHappy, 20.0f, t);
+        GeodeSoundFrame f = frame(kHappy, t, kDt);
+        f.bpm = bpms[n];
+        f.beatConf = 0.0f;
+        f.downbeat = 0.0f;
         f.sectionChange = 1.0f;
         d.step(f, kDt);
-        t += kDt;
-        looks.push_back(d.target());
+        const float goal = d.target().axes[kEnergy];
+        const float start = d.look().axes[kEnergy];
+        for (int i = 0; i < 600 && std::fabs(d.look().axes[kEnergy] - goal) > 1e-4f * (1.0f + std::fabs(goal - start)); ++i) {
+            t += kDt;
+            f = frame(kHappy, t, kDt);
+            f.bpm = bpms[n];
+            f.beatConf = 0.0f;
+            f.downbeat = 0.0f;
+            d.step(f, kDt);
+            glides[n] += kDt;
+        }
     }
-    float nearest = 1e9f;
-    for (size_t i = 1; i < looks.size(); ++i) {
-        for (size_t j = i >= 6 ? i - 6 : 0; j < i; ++j) nearest = std::min(nearest, distance(looks[i], looks[j]));
-    }
-    std::printf("same feeling, 13 looks: nearest of any six in a row %.3f\n", nearest);
-    check(nearest > 0.1f, "the same feeling never repeats a look within six decisions");
+    check(glides[0] == glides[1] && glides[1] == glides[2], "with no beat heard the glide does not depend on a bpm");
+    check(glides[0] > 1.5f && glides[0] < 2.1f, "and is a plain two seconds (" + std::to_string(glides[0]) + ")");
 }
 
 void testFeelingSurvivesTheSeed() {
-    // Whatever the seed, happy looks are brighter and more saturated than sad ones (Palmer et al. 2013).
-    float happyBright = 0.0f;
-    float sadBright = 0.0f;
-    float happySat = 0.0f;
-    float sadSat = 0.0f;
-    std::set<int> hues;
+    // Whatever the seed, a happy look runs hotter than a sad one: the feeling decides, the seed only varies.
+    int hotter = 0;
+    std::set<int> variety;
     for (uint64_t seed = 1; seed <= 20; ++seed) {
         Director h;
         Director s;
@@ -259,17 +378,11 @@ void testFeelingSurvivesTheSeed() {
         float t2 = 0.0f;
         run(h, kHappy, 12.0f, t1);
         run(s, kSad, 12.0f, t2);
-        happyBright += h.target().brightness;
-        sadBright += s.target().brightness;
-        happySat += h.target().saturation;
-        sadSat += s.target().saturation;
-        hues.insert(static_cast<int>(h.target().hue * 24.0f));
+        if (h.target().axes[kEnergy] > s.target().axes[kEnergy] + 0.3f) ++hotter;
+        variety.insert(static_cast<int>(h.target().axes[kEnergy] * 100.0f));
     }
-    std::printf("bright %.2f vs %.2f, saturation %.2f vs %.2f, %zu hue bins over 20 plays\n", happyBright / 20, sadBright / 20,
-                happySat / 20, sadSat / 20, hues.size());
-    check(happyBright > sadBright + 0.5f, "happy is lighter than sad, every seed");
-    check(happySat > sadSat + 1.0f, "happy is more saturated than sad, every seed");
-    check(hues.size() >= 4, "and each play of the same song is its own palette");
+    check(hotter == 20, "happy drives the Energy axis above sad, every seed (" + std::to_string(hotter) + " of 20)");
+    check(variety.size() >= 4, "and each play of the same song is its own look");
 }
 
 void testDeterministicAndOff() {
@@ -282,33 +395,19 @@ void testDeterministicAndOff() {
     run(a, kSad, 15.0f, t1);
     run(b, kSad, 15.0f, t2);
     check(std::memcmp(&a.look(), &b.look(), sizeof(Director::Look)) == 0, "same seed and sound, same look");
+    // The look turns the user's motion dials by a factor, never puts its own in their place: at full
+    // weight a slider still moves the picture, and a dial at 0 stays off.
     SceneParams p;
+    SceneParams soft = p;
+    soft.motionBreath = 0.5f * p.motionBreath;
+    SceneParams none = p;
+    none.motionBreath = none.motionOrbit = none.motionDrift = 0.0f;
     const SceneParams q = a.apply(p);
-    check(q.paletteBaseOverride >= 0.0f && q.paletteRangeOverride >= 0.0f, "the look sets the palette");
-    // Both hue conventions land on the look's hue: pal() runs the wheel backwards, the simulations forward.
-    const auto near = [](float a, float b) { return std::fabs(std::fmod(a - b + 1.5f, 1.0f) - 0.5f) < 0.03f; };
-    const float hue = a.look().hue;
-    check(near(-q.paletteBaseOverride - 0.5f * q.paletteRangeOverride, hue), "shader styles get the look's hue");
-    const SceneParams sim = a.apply(p, false);
-    check(near(sim.paletteBaseOverride + 0.5f * sim.paletteRangeOverride, hue), "simulations get the same hue");
-    // The look is added to the user's dials, never put in their place: at full weight a slider still moves the picture.
-    SceneParams dim = p;
-    dim.brightness = p.brightness - 0.3f;
-    dim.saturation = p.saturation - 0.4f;
-    dim.contrast = p.contrast - 0.2f;
-    const SceneParams qDim = a.apply(dim);
-    check(std::fabs((q.brightness - qDim.brightness) - 0.3f) < 1e-5f && std::fabs((q.saturation - qDim.saturation) - 0.4f) < 1e-5f &&
-              std::fabs((q.contrast - qDim.contrast) - 0.2f) < 1e-5f,
-          "the user's Brightness, Saturation and Contrast steps come through the look whole");
-    // The palette too: another palette under the same look is another picture, turned by as much as
-    // the two palettes differ.
-    SceneParams forest = p;
-    forest.palette = 6;
-    const SceneParams qForest = a.apply(forest);
-    const auto drawn = [](const SceneParams& sp) { return -sp.paletteBaseOverride - 0.5f * sp.paletteRangeOverride; };
-    const auto picked = [](const SceneParams& sp) { return -sp.paletteBase() - 0.5f * sp.paletteRange(); };
-    check(near(drawn(qForest) - drawn(q), picked(forest) - picked(p)), "the user's palette pick comes through the look whole");
-    check(!near(drawn(qForest), drawn(q)), "so the palette pickers still change the picture with Auto on");
+    const SceneParams qSoft = a.apply(soft);
+    const SceneParams qNone = a.apply(none);
+    check(q.motionBreath != p.motionBreath, "the look moves its motion dials");
+    check(qSoft.motionBreath < q.motionBreath, "the user's step on a dial comes through the look");
+    check(qNone.motionBreath == 0.0f && qNone.motionOrbit == 0.0f && qNone.motionDrift == 0.0f, "a motion dial at 0 stays off under the look");
     Director off;
     off.configure({0.0f, 99});
     float t3 = 0.0f;
@@ -318,8 +417,6 @@ void testDeterministicAndOff() {
     for (float v : off.axes()) check(v == 0.0f, "off turns no axis");
     const SceneParams ra = off.applyAxes(p);
     check(std::memcmp(&ra, &p, sizeof(SceneParams)) == 0, "and its axes leave the params alone");
-    const SceneParams rr = off.applyRoutes(p);
-    check(std::memcmp(&rr, &p, sizeof(SceneParams)) == 0, "and so do its routes");
     const CameraRig::Moves m = off.moves();
     check(m.orbit == 1.0f && m.lean == 1.0f && m.dolly == 1.0f && m.breath == 1.0f && m.shake == 1.0f && m.reframe == 1.0f &&
               m.cut == 1.0f,
@@ -334,7 +431,7 @@ void testDeterministicAndOff() {
     check(turned, "a director that is in turns its axes");
 }
 
-// ---- The director's axes (director::applyAxes, axisMoves, axisRoutes) ----
+// ---- The director's axes (director::applyAxes, axisMoves) ----
 // The rows the old macro knobs moved, kept for the director when the user's knobs became the bank:
 // Energy, Speed, Complexity, Space and Chaos (Mood was never the director's).
 
@@ -354,7 +451,6 @@ void testAxesAtRestChangeNothing() {
     check(std::memcmp(&q, &p, sizeof(SceneParams)) == 0, "axes at rest leave the look as styled");
     const CameraRig::Moves m = geode::viz::director::axisMoves({});
     check(m.orbit == 1.0f && m.shake == 1.0f && m.cut == 1.0f, "axes at rest leave the camera's music moves as styled");
-    for (const auto& r : geode::viz::director::axisRoutes({})) check(!r.enabled, "axes at rest add no routes");
 }
 
 void testAxesTurnTowardTheEnds() {
@@ -404,18 +500,10 @@ void testAxesAddToTheSlider() {
     check(dir::applyAxes(stopped, axis(Axis::Speed, -1.0f)).camFly == stopped.camFly, "an axis never drags back a value already past its end");
 }
 
-void testAxesScaleTheCameraAndPlayRoutes() {
+void testAxesScaleTheCamera() {
     namespace dir = geode::viz::director;
     check(dir::axisMoves(axis(Axis::Chaos, -1.0f)).cut == 0.0f, "Chaos all the way down stops hard cuts");
     check(dir::axisMoves(axis(Axis::Space, 1.0f)).orbit == 2.0f, "Space up doubles the orbit");
-    int on = 0;
-    for (const auto& r : dir::axisRoutes(axis(Axis::Chaos, 0.5f))) {
-        if (!r.enabled) continue;
-        ++on;
-        check(r.amount > 0.0f && r.amount <= 0.25f + 1e-5f, "a half turn plays its routes at half depth");
-    }
-    check(on == 2, "Chaos up adds its two routes and nothing else");
-    for (const auto& r : dir::axisRoutes(axis(Axis::Energy, -1.0f))) check(!r.enabled, "an axis turned down plays no route");
     SceneParams p;
     p.camFly = 1.0f;
     CameraRig rig;
@@ -432,37 +520,21 @@ void testAxesScaleTheCameraAndPlayRoutes() {
 }
 
 // The look is an offset on the user's dials, so a slider at either end of its range must not be
-// pushed past it: a saturation below zero inverts the colour.
+// pushed past it.
 void testDialsStayInRange() {
     Director d;
     d.configure({1.0f, 99});
     float t = 0.0f;
     run(d, kSad, 15.0f, t);
     SceneParams low;
-    low.saturation = 0.0f;
-    low.brightness = 0.2f;
-    low.contrast = 0.3f;
-    low.temperature = -1.0f;
-    low.hueRange = 0.0f;
-    low.paletteMix = low.milkdropPaletteTint = low.camSmooth = 0.0f;
-    low.motionBreath = low.motionOrbit = low.motionDrift = 0.0f;
+    low.camSmooth = low.motionBreath = low.motionOrbit = low.motionDrift = 0.0f;
     SceneParams high;
-    high.saturation = 1.5f;
-    high.brightness = 2.0f;
-    high.contrast = 1.25f;
-    high.temperature = 1.0f;
-    high.hueRange = 1.5f;
-    high.paletteMix = high.milkdropPaletteTint = high.camSmooth = 1.0f;
-    high.motionBreath = high.motionOrbit = high.motionDrift = 1.0f;
+    high.camSmooth = high.motionBreath = high.motionOrbit = high.motionDrift = 1.0f;
     for (const SceneParams& user : {low, high}) {
         const SceneParams o = d.apply(user);
         const auto in = [](float v, float lo, float hi) { return v >= lo && v <= hi; };
-        check(in(o.saturation, 0.0f, 1.5f) && in(o.brightness, 0.2f, 2.0f) && in(o.contrast, 0.3f, 1.25f) &&
-                  in(o.temperature, -1.0f, 1.0f) && in(o.hueRange, 0.0f, 1.5f),
-              "the look never pushes a colour dial past its range");
-        check(in(o.paletteMix, 0.0f, 1.0f) && in(o.milkdropPaletteTint, 0.0f, 1.0f) && in(o.camSmooth, 0.0f, 1.0f) &&
-                  in(o.motionBreath, 0.0f, 1.0f) && in(o.motionOrbit, 0.0f, 1.0f) && in(o.motionDrift, 0.0f, 1.0f),
-              "nor a unit dial");
+        check(in(o.camSmooth, 0.0f, 1.0f) && in(o.motionBreath, 0.0f, 1.0f) && in(o.motionOrbit, 0.0f, 1.0f) && in(o.motionDrift, 0.0f, 1.0f),
+              "the look never pushes a dial past its range");
     }
 }
 
@@ -492,13 +564,13 @@ void testLookCarriesAcrossPlays() {
     float t = 0.0f;
     run(d, kHappy, 15.0f, t);
     const float weight = d.weight();
-    const float hue = d.look().hue;
+    const float energy = d.look().axes[kEnergy];
     check(weight > 0.9f, "the look is fully in after fifteen seconds");
     d.configure({1.0f, 6});
     check(d.commits() == 0, "a new seed still starts the decisions over");
     d.step(frame(kSad, t, kDt), kDt);
     t += kDt;
-    check(d.weight() >= weight - 1e-3f && std::fabs(d.look().hue - hue) < 1e-4f, "the look stays on screen into the next track");
+    check(d.weight() >= weight - 1e-3f && std::fabs(d.look().axes[kEnergy] - energy) < 1e-4f, "the look stays on screen into the next track");
     run(d, kSad, 13.0f, t);
     check(d.commits() >= 1 && d.weight() > 0.9f, "and the new play's first look takes over from it");
 }
@@ -555,8 +627,8 @@ void testNoLookTwistsEveryStyle() {
                 SceneParams styled;
                 SceneParams user;
                 user.twist = -0.3f;
-                const float a = d.applyAxes(d.apply(styled, true)).twist;
-                const float b = d.applyAxes(d.apply(user, true)).twist;
+                const float a = d.applyAxes(d.apply(styled)).twist;
+                const float b = d.applyAxes(d.apply(user)).twist;
                 if (a != 0.0f || b != -0.3f) {
                     check(false, std::string("a look twists the picture: ") + s.scale + " root " + std::to_string(root) + " twist " + std::to_string(a));
                     return;
@@ -572,7 +644,7 @@ void testNoLookTwistsEveryStyle() {
 // rows the director's axes took over): Twist bends every style's picture the same way, so an axis
 // that holds it bent stamps one S-curve on every style. Twist rests in the middle of its range, so
 // either direction of Complexity used to twist. Twist is the user's slider and the style's own
-// reactions, never an axis's; the one route that reaches it is a nudge.
+// reactions, never an axis's.
 void testAxesNeverHoldThePictureTwisted() {
     namespace dir = geode::viz::director;
     SceneParams styled;
@@ -585,13 +657,6 @@ void testAxesNeverHoldThePictureTwisted() {
             check(dir::applyAxes(turned, x).twist == 0.3f, "and the Twist slider is the user's alone");
         }
     }
-    Director::Axes all{};
-    all.fill(1.0f);
-    float kick = 0.0f;
-    for (const auto& r : dir::axisRoutes(all)) {
-        if (r.enabled && r.target == geode::viz::LfoTarget::Twist) kick += std::fabs(r.amount);
-    }
-    check(kick <= 0.2f + 1e-5f, "with every axis full up the axes' routes twist by a nudge, not a spiral");
 }
 }  // namespace
 
@@ -600,7 +665,9 @@ int main() {
     testLiveFeeling();
     testPacing();
     testWeakEventsDecide();
-    testNeverTheSame();
+    testNeverTouchesColour();
+    testHeldBetweenDecisions();
+    testNoTempoAssumed();
     testFeelingSurvivesTheSeed();
     testDeterministicAndOff();
     testNoStyleMomentWhenOff();
@@ -611,7 +678,7 @@ int main() {
     testAxesAtRestChangeNothing();
     testAxesTurnTowardTheEnds();
     testAxesAddToTheSlider();
-    testAxesScaleTheCameraAndPlayRoutes();
+    testAxesScaleTheCamera();
     testNoLookTwistsEveryStyle();
     testAxesNeverHoldThePictureTwisted();
     if (failures) {

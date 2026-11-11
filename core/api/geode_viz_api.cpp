@@ -21,6 +21,7 @@
 #include "viz/ReactionResolve.hpp"
 #include "viz/Renderer.hpp"
 #include "viz/SceneRegistry.hpp"
+#include "viz/SceneResidency.hpp"
 #include "viz/ShaderSource.hpp"
 #include "viz/TransitionLibrary.hpp"
 #include "viz/frame/Cadence.hpp"
@@ -317,6 +318,10 @@ float geode_pacer_effective_cap(float cap_fps) {
 
 void geode_thermal_push(int platform_status, float headroom) {
     geode::viz::ThermalState::process().push(platform_status, headroom, monotonicSeconds());
+}
+
+void geode_memory_trim(int android_level) {
+    geode::viz::SceneResidency::trimSignal().request(geode::viz::SceneResidency::trimForAndroidLevel(android_level));
 }
 
 void geode_pacer_resume(long long* state) {

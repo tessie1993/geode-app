@@ -87,6 +87,8 @@ void geode_cast_format(int* out) {
     out[1] = CastFormat::kHeight;
     out[2] = CastFormat::kFps;
     out[3] = CastFormat::kKeyframeIntervalSec;
+    out[4] = CastFormat::kVideoBitrate;
+    out[5] = CastFormat::kAudioBitrate;
 }
 
 int geode_hls_window(void) { return hls::kWindow; }

@@ -229,7 +229,8 @@ jobs:
       # still available from the workflow run for device testing.
       # The promises Play and the privacy policy rest on, checked on every PR so a break
       # shows up here, not only when a release bundle is requested (release.yml). INTERNET is
-      # for Cast to TV only (dev.geode.cast), so it may appear only with the Cast service; the
+      # for Cast only (dev.geode.cast: Cast to TV and Show on a computer, one stream served on the
+      # LAN by cast/LiveHttpServer), so it may appear only with the Cast service; the
       # main manifest is the same for every build type, so the debug manifest is a fair proxy.
       # Cast to TV is the app's only internet use (owner, 2026-11-02). The manifest check below
       # can only see the permission, so this one looks at the code and the dependencies: no
@@ -243,7 +244,7 @@ jobs:
           hits=$(grep -rnE "$pattern" app/src/main engine/*/src/main --include=*.kt --include=*.java             | grep -v '/dev/geode/cast/' || true)
           if [ -n "$hits" ]; then
             echo "$hits"
-            echo "::error::Network APIs used outside dev.geode.cast; Cast to TV is the only internet use."; exit 1
+            echo "::error::Network APIs used outside dev.geode.cast; Cast (to a TV or a computer) is the only internet use."; exit 1
           fi
           deps=$(./gradlew :app:dependencies --configuration releaseRuntimeClasspath --no-daemon -q)
           # Firebase by product: Cast's own logging (datatransport) brings firebase-encoders, which only

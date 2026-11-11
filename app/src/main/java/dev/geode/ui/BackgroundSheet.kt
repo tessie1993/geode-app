@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -32,7 +31,6 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
@@ -141,44 +139,46 @@ private fun BackgroundOptions(
         BlendRow(prefs.blend, visualsViewModel::setBackgroundBlend)
     }
     val amount: @Composable () -> Unit = {
+        val text = stringResource(R.string.background_amount, (prefs.amount * 100).roundToInt())
         SliderCard(
-            text = stringResource(R.string.background_amount, (prefs.amount * 100).roundToInt()),
+            text = text,
             expanded = openCard == CARD_AMOUNT,
             onToggle = { toggle(CARD_AMOUNT) },
         ) {
-            // A thumb at 0 sits in the back-gesture strip; without the exclusion a drag from it leaves the sheet.
-            Slider(
+            CrystalSlider(
                 value = prefs.amount,
                 onValueChange = visualsViewModel::setBackgroundAmount,
-                modifier = Modifier.systemGestureExclusion(),
+                valueDescription = text,
                 valueRange = 0f..1f,
             )
         }
     }
     val blur: @Composable () -> Unit = {
+        val text = stringResource(R.string.background_blur, prefs.blurRadius)
         SliderCard(
-            text = stringResource(R.string.background_blur, prefs.blurRadius),
+            text = text,
             expanded = openCard == CARD_BLUR,
             onToggle = { toggle(CARD_BLUR) },
         ) {
-            Slider(
+            CrystalSlider(
                 value = prefs.blurRadius.toFloat(),
                 onValueChange = { visualsViewModel.setBackgroundBlurRadius(it.roundToInt()) },
-                modifier = Modifier.systemGestureExclusion(),
+                valueDescription = text,
                 valueRange = BackgroundPrefsStore.BLUR_RANGE.first.toFloat()..BackgroundPrefsStore.BLUR_RANGE.last.toFloat(),
             )
         }
     }
     val dim: @Composable () -> Unit = {
+        val text = stringResource(R.string.background_dim, (prefs.dim * 100).roundToInt())
         SliderCard(
-            text = stringResource(R.string.background_dim, (prefs.dim * 100).roundToInt()),
+            text = text,
             expanded = openCard == CARD_DIM,
             onToggle = { toggle(CARD_DIM) },
         ) {
-            Slider(
+            CrystalSlider(
                 value = prefs.dim,
                 onValueChange = visualsViewModel::setBackgroundDim,
-                modifier = Modifier.systemGestureExclusion(),
+                valueDescription = text,
                 valueRange = 0f..1f,
             )
         }

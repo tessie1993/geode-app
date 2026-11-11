@@ -4,9 +4,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 /** #853: a destroy never frees the native renderer under a call in flight on another thread. */
@@ -75,7 +77,7 @@ class HandleGuardTest {
         val bad = AtomicInteger()
         val pool = Executors.newFixedThreadPool(4)
         try {
-            val stop = java.util.concurrent.atomic.AtomicBoolean(false)
+            val stop = AtomicBoolean(false)
             val users =
                 List(3) {
                     pool.submit {
@@ -98,7 +100,7 @@ class HandleGuardTest {
     }
 
     private class ConcurrentHashSetOfHandles {
-        private val set = java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
+        private val set = ConcurrentHashMap.newKeySet<Long>()
 
         fun add(h: Long) = set.add(h)
 

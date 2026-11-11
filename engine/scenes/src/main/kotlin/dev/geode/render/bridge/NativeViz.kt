@@ -44,15 +44,14 @@ class NativeViz(
     var onCreated: () -> Unit = {}
 
     @Synchronized
-    fun create(): Boolean {
-        return guard.create({ GeodeNative.vizCreate(assets, cacheDir) }) { h ->
+    fun create(): Boolean =
+        guard.create({ GeodeNative.vizCreate(assets, cacheDir) }) { h ->
             sent.clear()
             GeodeNative.vizSetMilkTextureDir(h, milkTextureDir)
             applyUiBlur()
             edgeGlow?.let { GeodeNative.vizSetEdgeGlow(h, it) }
             onCreated()
         }
-    }
 
     @Synchronized
     fun destroy() {
@@ -190,8 +189,8 @@ class NativeViz(
         lfoVersion: Long,
         adsrVersion: Long,
         tuningVersion: Long,
-    ): Int {
-        return guard.use(0) { h ->
+    ): Int =
+        guard.use(0) { h ->
             GeodeNative.vizFrameBegin(
                 h,
                 pacedFps,
@@ -206,7 +205,6 @@ class NativeViz(
                 tuningVersion,
             )
         }
-    }
 
     /** Pins an export's engine settings and returns the pinned hand mask; see [GeodeNative.vizPinEngineSettings]. */
     fun pinEngineSettings(

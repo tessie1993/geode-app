@@ -11,12 +11,16 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
@@ -69,10 +73,10 @@ import kotlinx.coroutines.withContext
  * three layers, each in its own file.
  *
  * - The stage ([VisualsStage], VisualsStage.kt): the visual and its gestures. By default a tap on
- *   the bottom wakes the shell's chrome (the mini player, the tab bar and the [StageIcons], which
- *   fade together), a tap on the top opens the quick settings ([VisualsQuickSettings]), a double
- *   tap hides or brings back the options, a sideways swipe steps the style, a swipe up wakes the
- *   chrome, a swipe down pulls the Macros drawer ([MacrosDrawer]), a hold records a take, a swirl
+ *   the bottom or the top wakes the shell's chrome (the mini player, the tab bar and the [StageIcons],
+ *   which fade together) and, with the options hidden and the chrome already awake, brings the options
+ *   back (the Fullscreen icon reads "Show options" then), a double tap hides or brings back the
+ *   options, a sideways swipe steps the style, a swipe up wakes the chrome, a swipe down pulls the Macros drawer ([MacrosDrawer]), a hold records a take, a swirl
  *   randomizes and two fingers play with the visual.
  * - The options ([VisualsOptions], VisualsSheet.kt): matte glass over the visual. In portrait a
  *   bottom sheet of three heights; in landscape (the window wider than tall, from the medium width
@@ -141,7 +145,9 @@ internal fun VisualsHub(
             viewModel = viewModel,
             visualizerView = visualizerView,
             stepStyle = stepStyle,
-            onShowMiniPlayer = chrome::wake,
+            // The first tap wakes the chrome (and with it the stage icons); a tap while it is awake
+            // and the options are hidden brings them back, so a single tap is a way out of full screen.
+            onShowMiniPlayer = { if (tapRestoresOptions(chrome.awake, nav.sheetShown)) nav.showSheet() else chrome.wake() },
             onQuickSettings = { nav.openTab(VisualsPage.SETTINGS) },
             onToggleSheet = { if (nav.sheetShown) nav.hideSheet() else nav.showSheet() },
             onMacros = { macros = true },
@@ -214,6 +220,7 @@ internal fun VisualsHub(
         Box(Modifier.matchParentSize().glassBackdrop(backdrop)) {
             StageIcons(
                 chrome = chrome,
+                sheetShown = nav.sheetShown,
                 sheetTopPx = { if (side) 0f else heightPx.value + reservePx },
                 endPx = { if (panelPx.value > 0f) panelPx.value + insetPx else 0f },
                 // Full screen is the options hidden (owner: the old live view goes), the double tap's twin.
@@ -270,12 +277,14 @@ internal fun VisualsHub(
                             .fillMaxHeight()
                             .padding(bottom = bottomReserve)
                             .then(swallowTaps)
-                            .windowInsetsPadding(WindowInsets.statusBars)
+                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.End))
                             .padding(GeodeSpacing.EdgeInset)
                             .hiddenUnderDropIn(dropInOpen) { optionsFade.value }
                     } else {
                         Modifier
                             .align(Alignment.BottomCenter)
+                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                            .widthIn(max = SHEET_MAX_WIDTH)
                             .fillMaxWidth()
                             .padding(bottom = bottomReserve)
                             .then(swallowTaps)
@@ -344,3 +353,13 @@ internal fun VisualsHub(
  */
 private fun pageCrossFade(motion: GeodeMotionScheme): ContentTransform =
     fadeIn(motion.defaultEffectsSpec()) togetherWith fadeOut(motion.defaultEffectsSpec())
+
+/**
+ * Whether the "show the mini player" action (the default tap) brings the options back instead of
+ * waking the chrome: only when the chrome is already awake, so the first tap out of full screen
+ * shows the controls and the next one the options, and a tap never hides what a swipe woke.
+ */
+internal fun tapRestoresOptions(
+    chromeAwake: Boolean,
+    sheetShown: Boolean,
+): Boolean = chromeAwake && !sheetShown

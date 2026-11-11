@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -36,6 +37,8 @@ import dev.geode.data.GeodePrefsFiles
 import dev.geode.export.ExportAspect
 import dev.geode.export.LoopSpec
 import dev.geode.export.TimeOfDayDrift
+import dev.geode.geodeContainer
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
@@ -55,6 +58,7 @@ fun LoopRenderSheet(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val defaults = remember { ExportPrefsStore(GeodePrefsFiles(context).general).load() }
 
     var loopSeconds by rememberSaveable { mutableStateOf(LoopSpec.MIN_LOOP_MS / 1000f) }
@@ -70,12 +74,10 @@ fun LoopRenderSheet(
             // The grant is read-only and per-URI; it must be taken now, while the picker's own
             // grant is still active, so the clip is still readable after a process death and
             // restore — a long-form render is exactly the case meant to survive one.
-            uris.forEach { uri ->
-                runCatching {
-                    context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
+            scope.launch {
+                context.geodeContainer.mediaStore.keepReadAccess(uris)
+                audioClips = audioClips + uris.map { it.toString() }
             }
-            audioClips = audioClips + uris.map { it.toString() }
         }
 
     fun buildRequest(): LoopRenderRequest =

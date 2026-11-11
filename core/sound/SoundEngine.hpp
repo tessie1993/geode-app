@@ -47,7 +47,7 @@ namespace geode::sound {
 // frame up to 100 fps, so a frame never reads a value more than 10 ms old. The cost: 100 FFTs (and pitch
 // FFTs) a second, ~1.7× the old per-frame analysis at 60 fps and ~0.8× at 120 fps.
 //
-// step() runs the analysis only when the writer has stopped (> 0.1 s without audio): it feeds silence,
+// step() runs the analysis only when the writer has stopped (> 0.25 s without audio): it feeds silence,
 // dt worth, so the levels fall and silence fires instead of the last window being read forever.
 //
 // One engine per surface (screen, wallpaper, export), never shared between threads. Allocation-free after
@@ -186,7 +186,7 @@ private:
     void feedSilence(float dt);
     float nextRandom();
     void levels(float dt, bool warm, bool silent, GeodeSoundFrame& out);
-    void spectrumPoints(float dt, float* out);
+    void spectrumPoints(float dt, bool silent, float* out);
     void waveform(float* out);
     void descriptors(float dt, bool warm, bool silent, GeodeSoundFrame& out);
     void drums(float dt, bool silent, GeodeSoundFrame& out);
@@ -230,6 +230,9 @@ private:
     bool starved_ = false;  // nothing written for a while: the window reads as silence, not a frozen loop
     LufsMeter meter_;          // absolute loudness and the one silence gate
     float trimGain_ = 1.0f;    // the input trim, linear: analysis only
+    float dcR_ = 0.0f;         // the DC blocker's pole, from the sample rate
+    std::array<float, 2> dcX_{};  // its last input and output, per channel
+    std::array<float, 2> dcY_{};
     std::array<SliceBand, kSlices> bank_;
     std::array<float, kSlices> sliceNow_{};   // this hop's slice levels
     std::array<float, kSlices> punchNow_{};   // and the highest punch each slice held

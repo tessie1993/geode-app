@@ -99,6 +99,8 @@ int geode_customize_lockable(const char* key) {
     return 0;
 }
 
+const char* geode_customize_lockable_keys(void) { return randomizer::lockableKeysText().c_str(); }
+
 const char* geode_customize_shown(const char* style_id) {
     thread_local std::string shown;
     shown = customize::shownOn(style_id ? style_id : "");

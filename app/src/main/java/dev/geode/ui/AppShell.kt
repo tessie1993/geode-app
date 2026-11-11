@@ -497,6 +497,12 @@ fun AppRoot() {
             LaunchedEffect(gui.autoEnterPip, state.isPlaying, visualShowing) {
                 context.findMainActivity()?.refreshPipParams()
             }
+            // The aspect ratio and the source rect hint follow the canvas: after first layout, a
+            // rotation or a window resize (a snapshotFlow, so a bounds change never recomposes AppRoot).
+            LaunchedEffect(Unit) {
+                snapshotFlow { VisualizerPipCoordinator.canvasBoundsPx }
+                    .collect { context.findMainActivity()?.refreshPipParams() }
+            }
             if ((bootAnimEnabled == false || appState.bootDone) && !gui.safetyAcknowledged) {
                 SafetyConsent(
                     onAcknowledge = { settingsViewModel.setGuiPrefs(gui.copy(safetyAcknowledged = true)) },
@@ -613,6 +619,7 @@ private fun AppShellCompact(
                 // finger on its way to a tab (it used to vanish before a second tap could land).
                 .restartsSleepTimer(chrome)
                 .onSizeChanged { dockDrawn = with(density) { it.height.toDp() } }
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
                 .navigationBarsPadding()
                 .padding(horizontal = GeodeSpacing.EdgeInset)
                 .padding(bottom = DOCK_GAP),
@@ -683,15 +690,25 @@ private fun AppShellExpanded(
     // From the motion scheme, so "Remove animations" makes the dock appear without moving.
     val dockFade = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
     val dockSize = LocalGeodeMotion.current.defaultSpatialSpec<IntSize>()
+    val onVisuals = appState.dest == GeodeDestination.VISUALS
     // safeDrawing rather than the status and navigation bars alone: in landscape the display
     // cutout sits on a side edge, where it would cover the rail or the content's far edge. It
-    // includes the keyboard too, so a focused field stays above it.
-    Row(Modifier.fillMaxSize().safeDrawingPadding()) {
+    // includes the keyboard too, so a focused field stays above it. Visuals is the exception: its
+    // canvas draws edge to edge behind the bars and the cutout, and only the rail, the stage
+    // controls, the options and the dock take the insets themselves (#864).
+    val railInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Start + WindowInsetsSides.Vertical)
+    Row(Modifier.fillMaxSize().then(if (onVisuals) Modifier else Modifier.safeDrawingPadding())) {
         // A PiP window is the visual alone, with no rail beside it.
-        if (!pip) NavRail(navEntries, appState, centerRail)
-        Box(Modifier.weight(1f).fillMaxHeight()) {
+        if (!pip) {
+            Box(if (onVisuals) Modifier.windowInsetsPadding(railInsets) else Modifier) {
+                NavRail(navEntries, appState, centerRail)
+            }
+        }
+        // The rail took the start edge's inset, so the controls beside it must not take it again.
+        val besideRail =
+            if (onVisuals && !pip) Modifier.consumeWindowInsets(WindowInsets.safeDrawing.only(WindowInsetsSides.Start)) else Modifier
+        Box(Modifier.weight(1f).fillMaxHeight().then(besideRail)) {
             var dockDrawn by remember { mutableStateOf(0.dp) }
-            val onVisuals = appState.dest == GeodeDestination.VISUALS
             // Visuals is the visual under its own options; every other screen ends above the player.
             Box(Modifier.fillMaxSize().padding(bottom = if (onVisuals) 0.dp else dockDrawn)) { content() }
             Column(
@@ -702,7 +719,8 @@ private fun AppShellExpanded(
                     .onSizeChanged {
                         dockDrawn = with(density) { it.height.toDp() }
                         onDock(dockDrawn)
-                    }.padding(GeodeSpacing.EdgeInset),
+                    }.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.End + WindowInsetsSides.Bottom))
+                    .padding(GeodeSpacing.EdgeInset),
             ) {
                 AnimatedVisibility(
                     showMiniPlayer && chrome.awake,

@@ -21,8 +21,6 @@ internal class AutoVisualsController(
 
         val isPlaying: Boolean
 
-        val presetLocked: Boolean
-
         fun selectScene(sceneId: String)
 
         fun applyPreset(preset: Preset)
@@ -158,11 +156,6 @@ internal class AutoVisualsController(
         persistAutoVisuals()
     }
 
-    fun setRandomizeColors(enabled: Boolean) {
-        host.updateViz { it.copy(randomizeColors = enabled) }
-        persistAutoVisuals()
-    }
-
     private fun persistAutoVisuals() {
         prefsStore.save(host.vizState.value)
     }
@@ -190,7 +183,6 @@ internal class AutoVisualsController(
     }
 
     fun randomStepNow() {
-        if (host.presetLocked) return
         val s = host.vizState.value
         lastRandomSwitchMs = android.os.SystemClock.elapsedRealtime()
         val choices = mutableListOf<VizPlaylistEntry>()

@@ -7,10 +7,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -111,6 +113,7 @@ internal fun BoxScope.VisualsStage(
 @Composable
 internal fun BoxScope.StageIcons(
     chrome: ShellChromeState,
+    sheetShown: Boolean,
     sheetTopPx: () -> Float,
     endPx: () -> Float,
     onFullScreen: () -> Unit,
@@ -130,7 +133,7 @@ internal fun BoxScope.StageIcons(
         Modifier
             .align(Alignment.TopEnd)
             .then(toLeft)
-            .windowInsetsPadding(WindowInsets.statusBars)
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.End))
             .padding(GeodeSpacing.EdgeInset)
             .faded(shown)
             .then(glass),
@@ -154,7 +157,8 @@ internal fun BoxScope.StageIcons(
         StageIconButton(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render), awake, onOpenStudioRender)
         StageIconButton(
             StoneIcon.FULLSCREEN,
-            stringResource(R.string.visuals_gesture_toggle_sheet),
+            // With the options hidden this is the visible way back to them, so it says so.
+            stringResource(if (sheetShown) R.string.visuals_gesture_toggle_sheet else R.string.visuals_show_options),
             awake,
             onClick = {
                 GestureTips.nudge(GestureTip.DOUBLE_TAP_SHEET)
@@ -237,6 +241,7 @@ internal fun BoxScope.StageIcons(
             Modifier
                 .align(Alignment.BottomEnd)
                 .offset { IntOffset(-endPx().roundToInt(), -sheetTopPx().roundToInt()) }
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.End))
                 .padding(GeodeSpacing.EdgeInset)
                 .faded(recordShown)
                 .then(glass),

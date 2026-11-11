@@ -5,7 +5,6 @@ import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.geode.audio.MicCapture
@@ -24,7 +23,6 @@ import dev.geode.pro.PaywallNavigator
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.render.SceneFactory
-import dev.geode.render.TransitionStyle
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -47,8 +45,6 @@ class PlayerViewModel
         val gate: StateFlow<FeatureGate> = getFeatureGate().stateIn(viewModelScope, SharingStarted.Eagerly, FeatureGate.FREE)
         private val playback: PlaybackRepository = session.playbackRepository
         private val visualizer: VisualizerRepository = session.visualizerRepository
-
-        val player: Player get() = session.player
 
         val uiState: StateFlow<PlayerUiState> get() = playback.state
 
@@ -104,14 +100,10 @@ class PlayerViewModel
 
         fun cycleRepeatMode() = session.cycleRepeatMode()
 
-        fun milkPresetFilesAsync(onDone: (List<MilkFile>) -> Unit) = session.milkPresetFilesAsync(onDone)
-
         fun importMilkPresetAsync(
             uri: Uri,
             onDone: (String?) -> Unit,
         ) = session.importMilkPresetAsync(uri, onDone)
-
-        internal fun importMilkPresetBlocking(uri: Uri): String? = session.importMilkPresetBlocking(uri)
 
         fun milkTextureLinksFor(path: String) = session.milkTextureLinksFor(path)
 
@@ -151,13 +143,7 @@ class PlayerViewModel
 
         fun setRandomIncludeMilk(enabled: Boolean) = session.setRandomIncludeMilk(enabled)
 
-        fun setRandomizeColors(enabled: Boolean) = session.setRandomizeColors(enabled)
-
-        fun randomStepNow() = session.randomStepNow()
-
         fun onDirectorStyleMoment() = session.onDirectorStyleMoment()
-
-        fun applyVizEntry(entry: VizPlaylistEntry) = session.applyVizEntry(entry)
 
         fun stepVizPlaylist(step: Int = 1): Boolean = session.stepVizPlaylist(step)
 
@@ -169,16 +155,12 @@ class PlayerViewModel
 
         fun cycleAbLoop() = session.cycleAbLoop()
 
-        fun clearAbLoop() = session.clearAbLoop()
-
         fun removeQueueItem(index: Int) = session.removeQueueItem(index)
 
         fun moveQueueItem(
             from: Int,
             to: Int,
         ) = session.moveQueueItem(from, to)
-
-        fun togglePlayPauseFaded() = session.togglePlayPauseFaded()
 
         fun resumeLastPlayed() = session.resumeLastPlayed()
 
@@ -204,8 +186,6 @@ class PlayerViewModel
 
         fun open(uris: List<Uri>) = session.open(uris)
 
-        fun queueTitles(): List<String> = session.queueTitles()
-
         fun playQueueIndex(index: Int) = session.playQueueIndex(index)
 
         fun next() = session.next()
@@ -224,8 +204,6 @@ class PlayerViewModel
 
         fun previewScene(sceneId: String) = session.previewScene(sceneId)
 
-        fun cancelScenePreview() = session.cancelScenePreview()
-
         fun leaveScenePreview() = session.leaveScenePreview()
 
         fun setReactivity(
@@ -233,22 +211,11 @@ class PlayerViewModel
             decay: Float,
         ) = session.setReactivity(attack, decay)
 
-        fun setSceneParams(params: SceneParams) = session.setSceneParams(params)
-
-        fun resetSceneParams() = session.resetSceneParams()
-
-        fun nudgeTransform(
-            zoomFactor: Float,
-            rotationDegrees: Float,
-        ) = session.nudgeTransform(zoomFactor, rotationDegrees)
-
         fun reportShaderError(error: String?) = session.reportShaderError(error)
 
         fun reportLiquidMode(mode: Int) = session.reportLiquidMode(mode)
 
         fun applyCustomShader(source: String) = session.applyCustomShader(source)
-
-        fun setTransitionStyle(style: TransitionStyle) = session.setTransitionStyle(style)
 
         fun setTransitionId(id: String) = session.setTransitionId(id)
 

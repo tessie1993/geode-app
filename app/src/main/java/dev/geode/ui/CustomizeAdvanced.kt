@@ -31,6 +31,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -46,6 +47,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
+import dev.geode.RingLog
 import dev.geode.data.NoteResponseStore
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
@@ -77,6 +79,8 @@ import dev.geode.ui.theme.LocalUiSounds
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.UiSound
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.ln
 import kotlin.math.pow
 import kotlin.reflect.KProperty1
@@ -599,9 +603,18 @@ private fun InjectionShaderEditors(
             "uMid, uTreble, uEnergy, uBeat. Clear the text to go back to the built-in.",
     )
     val ctx = LocalContext.current
-    val template = remember { FluidShaderTemplate.splat(ctx) }
-    var forceSrc by remember { mutableStateOf(template) }
-    var dyeSrc by remember { mutableStateOf(template) }
+    // The asset read is disk I/O, so it runs on IO and the editors wait for it (no empty-editor flash).
+    val template by produceState<String?>(initialValue = null, ctx) {
+        value =
+            withContext(Dispatchers.IO) {
+                FluidShaderTemplate.splat(ctx).also {
+                    if (it.isEmpty()) RingLog.note("CustomizeAdvanced", "fluid splat asset read failed")
+                }
+            }
+    }
+    val builtIn = template ?: return
+    var forceSrc by remember(builtIn) { mutableStateOf(builtIn) }
+    var dyeSrc by remember(builtIn) { mutableStateOf(builtIn) }
     var editorsUsed by remember { mutableStateOf(false) }
     Text("Force shader", style = MaterialTheme.typography.bodyMedium)
     OutlinedTextField(
@@ -628,13 +641,13 @@ private fun InjectionShaderEditors(
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         TextButton(onClick = {
-            val f = forceSrc.takeIf { editorsUsed && it.isNotBlank() && it != template }
-            val d = dyeSrc.takeIf { editorsUsed && it.isNotBlank() && it != template }
+            val f = forceSrc.takeIf { editorsUsed && it.isNotBlank() && it != builtIn }
+            val d = dyeSrc.takeIf { editorsUsed && it.isNotBlank() && it != builtIn }
             onApplyInjectionShaders(f, d)
         }) { Text("Apply shaders") }
         TextButton(onClick = {
-            forceSrc = template
-            dyeSrc = template
+            forceSrc = builtIn
+            dyeSrc = builtIn
             onApplyInjectionShaders(null, null)
         }) { Text("Back to built-in") }
     }

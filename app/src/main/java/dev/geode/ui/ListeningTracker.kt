@@ -3,9 +3,11 @@ package dev.geode.ui
 import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import dev.geode.RingLog
 import dev.geode.data.FavouritesRepository
 import dev.geode.data.HistoryStore
 import dev.geode.data.SessionRepository
+import dev.geode.playback.ResumeSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -81,30 +83,25 @@ internal class ListeningTracker(
 
     fun awaitHistoryWrites(timeoutMs: Long) = historyStore.awaitWrites(timeoutMs)
 
-    @Suppress("ReturnCount")
+    /** Restores the saved queue at its track and position, or nothing (#877); same rule as the service. */
     suspend fun prepareLastPlayed(): Uri? {
-        val player = host.player
-        val saved = sessionRepository.load()
-        if (saved != null) {
-            val restored =
-                runCatching {
-                    player.setMediaItems(
-                        saved.tracks.map { host.mediaItemFor(QueueTrack(it.uri, it.title, it.artist)) },
-                        saved.index,
-                        saved.positionMs,
-                    )
-                    player.prepare()
-                    Uri.parse(saved.tracks[saved.index].uri)
-                }.getOrNull()
-            if (restored != null) return restored
+        val source = ResumeSource.of(sessionRepository.load())
+        if (source !is ResumeSource.Queue) {
+            RingLog.note("ListeningTracker.resume", "no saved session, resuming nothing")
+            return null
         }
-        val last = historyStore.recentlyPlayed(1).firstOrNull() ?: return null
+        val saved = source.saved
+        val player = host.player
         return runCatching {
-            val uri = Uri.parse(last.uri)
-            player.setMediaItems(listOf(host.mediaItemFor(uri)))
+            player.setMediaItems(
+                saved.tracks.map { host.mediaItemFor(QueueTrack(it.uri, it.title, it.artist)) },
+                saved.index,
+                saved.positionMs,
+            )
             player.prepare()
-            uri
-        }.getOrNull()
+            Uri.parse(saved.tracks[saved.index].uri)
+        }.onFailure { RingLog.note("ListeningTracker.resume", "restoring the saved queue failed", it) }
+            .getOrNull()
     }
 
     private companion object {

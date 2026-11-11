@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -23,8 +24,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.GuiPrefs
 import dev.geode.data.MinTrackLength
+import dev.geode.geodeContainer
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
+import kotlinx.coroutines.launch
 
 /** Settings › Library › Basics: the folders the library reads music from, and the short-track filter. */
 @Composable
@@ -55,18 +58,15 @@ private fun PresetFolderGroup(
     gui: GuiPrefs,
 ) {
     val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
     val folderPicker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             if (uri != null) {
-                val persisted =
-                    runCatching {
-                        ctx.contentResolver.takePersistableUriPermission(
-                            uri,
-                            android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                                android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-                        )
-                    }.isSuccess
-                if (persisted) viewModel.setGuiPrefs(gui.copy(presetMirrorUri = uri.toString()))
+                scope.launch {
+                    if (ctx.geodeContainer.mediaStore.keepFolderAccess(uri)) {
+                        viewModel.setGuiPrefs(gui.copy(presetMirrorUri = uri.toString()))
+                    }
+                }
             }
         }
     Column {

@@ -18,20 +18,40 @@ class PcmHandoff {
 public:
     explicit PcmHandoff(int capacity) : pending_(static_cast<size_t>(std::max(capacity, 0)), 0.0f) {}
 
+    // How many source frames make one sample for projectM: its buffers and bands are sized for 44.1-48 kHz,
+    // so 88.2 and 96 kHz are halved and 176.4 and 192 kHz quartered. An unknown rate (0) passes through.
+    static int decimationFor(int sampleRateHz) {
+        const int ratio = sampleRateHz / 44100;
+        return ratio >= 4 ? 4 : ratio >= 2 ? 2 : 1;
+    }
+
     // Appends the mono mix (the mean of the channels, so mono passes through unchanged and stereo is
-    // (L + R) / 2) of `frames` interleaved frames. Several writes in one frame (an export delivering in
-    // pieces) add up; only the newest capacity() samples are kept, as projectM only wants the tail.
-    void write(const float* interleaved, int frames, int channels) {
+    // (L + R) / 2) of `frames` interleaved frames, averaged over decimationFor(sampleRateHz) frames; frames
+    // short of one sample wait for the next write, so chunk sizes drop nothing. Several writes in one frame
+    // (an export delivering in pieces) add up; only the newest capacity() samples are kept, as projectM
+    // only wants the tail.
+    void write(const float* interleaved, int frames, int channels, int sampleRateHz = 0) {
         if (!interleaved || frames <= 0 || channels <= 0 || capacity() == 0) return;
-        const int n = std::min(frames, capacity());
-        const float* src = interleaved + static_cast<size_t>(frames - n) * static_cast<size_t>(channels);
+        const int factor = decimationFor(sampleRateHz);
+        if (factor != factor_) {
+            factor_ = factor;
+            held_ = 0;
+            heldSum_ = 0.0f;
+        }
+        const int produced = (held_ + frames) / factor;
+        const int n = std::min(produced, capacity());
+        const int skip = produced - n;
         const int keep = std::min(count_, capacity() - n);
         if (keep < count_) std::copy(pending_.begin() + (count_ - keep), pending_.begin() + count_, pending_.begin());
-        const float scale = 1.0f / static_cast<float>(channels);
-        for (int i = 0; i < n; ++i) {
-            float acc = 0.0f;
-            for (int c = 0; c < channels; ++c) acc += src[static_cast<size_t>(i) * static_cast<size_t>(channels) + c];
-            pending_[static_cast<size_t>(keep + i)] = acc * scale;
+        const float scale = 1.0f / static_cast<float>(channels * factor);
+        int made = 0;
+        for (int i = 0; i < frames; ++i) {
+            for (int c = 0; c < channels; ++c) heldSum_ += interleaved[static_cast<size_t>(i) * static_cast<size_t>(channels) + c];
+            if (++held_ < factor) continue;
+            if (made >= skip) pending_[static_cast<size_t>(keep + made - skip)] = heldSum_ * scale;
+            ++made;
+            held_ = 0;
+            heldSum_ = 0.0f;
         }
         count_ = keep + n;
     }
@@ -45,13 +65,21 @@ public:
     }
 
     // A new epoch (seek, track or source change): samples of the old one never reach the next frame.
-    void clear() { count_ = 0; }
+    void clear() {
+        count_ = 0;
+        held_ = 0;
+        heldSum_ = 0.0f;
+    }
 
     int capacity() const { return static_cast<int>(pending_.size()); }
 
 private:
     std::vector<float> pending_;
     int count_ = 0;
+    // Decimation: the factor in use, and the frames (and their sum) still short of one sample.
+    int factor_ = 1;
+    int held_ = 0;
+    float heldSum_ = 0.0f;
 };
 
 // The peak of the newest PCM block, decaying per second.

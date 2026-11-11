@@ -52,8 +52,8 @@ enum class ProFeature {
 
     /**
      * The visuals on a TV through Google Cast (`dev.geode.cast`): the phone renders and streams them,
-     * with the sound, to the Default Media Receiver. The app's only internet use (the owner's rule;
-     * docs/play/DATA_SAFETY.md).
+     * with the sound, to the Default Media Receiver. The app's only internet use (the owner's rule,
+     * which the privacy policy and Play's Data safety answers state).
      */
     CAST,
 }

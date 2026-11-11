@@ -100,8 +100,6 @@ class VisualsViewModel
 
         val lockedParams: StateFlow<Set<String>> get() = session.lockedParams
 
-        val presetLocked: StateFlow<Boolean> get() = session.presetLocked
-
         val presetFolders: StateFlow<PresetFolders> get() = session.presetFolders
 
         val backgroundPrefs: StateFlow<BackgroundPrefs> get() = session.backgroundPrefs
@@ -170,8 +168,6 @@ class VisualsViewModel
             onReady: (String) -> Unit,
         ) = session.useTexture(name, onReady)
 
-        fun togglePresetLock() = session.togglePresetLock()
-
         fun applyPreset(preset: Preset) = session.applyPreset(preset)
 
         fun savePreset(
@@ -225,8 +221,6 @@ class VisualsViewModel
         fun userMilkPresets(): List<File> = session.userMilkPresets()
 
         fun noteMilkPreset(path: String) = session.noteMilkPreset(path)
-
-        internal fun milkPresetPathFor(preset: Preset): String? = session.milkPresetPathFor(preset)
 
         val templates: StateFlow<List<VideoTemplate>> get() = session.templates
 

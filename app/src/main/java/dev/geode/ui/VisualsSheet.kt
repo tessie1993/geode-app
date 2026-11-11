@@ -61,7 +61,6 @@ import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.edgeFade
 import dev.geode.ui.theme.floatingGlass
-import dev.geode.ui.theme.glassBlur
 import dev.geode.ui.theme.performStoneHaptic
 import dev.geode.ui.tour.GestureTip
 import dev.geode.ui.tour.GestureTips
@@ -135,7 +134,6 @@ internal fun VisualsOptions(
     Column(
         modifier
             .onGloballyPositioned { bounds.value = it.boundsInWindow() }
-            .glassBlur(shape)
             .floatingGlass(shape, fillAlpha = opacity),
     ) {
         Box(
@@ -502,6 +500,12 @@ internal val SHEET_PEEK = 72.dp
 internal const val PANEL_DEFAULT_FRACTION = 0.4f
 internal val PANEL_MIN = 280.dp
 internal val PANEL_MAX = 480.dp
+
+/** The portrait bottom sheet's widest body, the mini player's cap too: a tablet's sheet is not a full-width bar. */
+internal val SHEET_MAX_WIDTH = 640.dp
+
+/** The bottom sheet's width in dp in a window [windowDp] wide: the whole width up to [SHEET_MAX_WIDTH]. */
+internal fun sheetWidthDp(windowDp: Float): Float = windowDp.coerceAtMost(SHEET_MAX_WIDTH.value)
 
 private const val PANEL_MIN_FRACTION = 0.3f
 private const val PANEL_MAX_FRACTION = 0.5f

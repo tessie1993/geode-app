@@ -3,9 +3,7 @@ package dev.geode.ui
 import dev.geode.data.GuiPrefs
 import dev.geode.data.Preset
 import dev.geode.data.VizStateStore
-import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.TransitionCatalog
-import dev.geode.render.TransitionStyle
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -62,13 +60,6 @@ internal class VisualSettingsController(
      */
     val chosenSceneId: String get() = vizStateStore.committedSceneId ?: state.value.sceneId
 
-    /** Back to the chosen style: the grid was left without the check. */
-    fun cancelPreview() {
-        val chosen = vizStateStore.committedSceneId ?: return
-        vizStateStore.committedSceneId = null
-        state.update { it.copy(sceneId = chosen) }
-    }
-
     /**
      * The grid was left (Customize, Presets, another tab) with a preview up. A tapped card is what
      * people mean as their pick, so the shown style becomes the chosen one if [mayKeep] allows it;
@@ -97,21 +88,6 @@ internal class VisualSettingsController(
         vizStateStore.persist()
     }
 
-    fun resetSceneParams() = setSceneParams(SceneParams.DEFAULT)
-
-    fun nudgeTransform(
-        zoomFactor: Float,
-        rotationDegrees: Float,
-    ) {
-        val p = state.value.params
-        val next =
-            p.copy(
-                zoom = GeodeNative.touchZoom(p.zoom, zoomFactor),
-                rotation = GeodeNative.touchRotation(p.rotation, rotationDegrees),
-            )
-        if (next != p) setSceneParams(next)
-    }
-
     fun reportShaderError(error: String?) {
         state.update { it.copy(shaderError = error) }
     }
@@ -120,11 +96,6 @@ internal class VisualSettingsController(
         val sceneId = state.value.sceneId
         state.update { it.copy(shaderError = null) }
         _vizApply.tryEmit(VizApply(customShader = source, sceneId = sceneId))
-    }
-
-    fun setTransitionStyle(style: TransitionStyle) {
-        state.update { it.copy(transitionStyle = style, transitionId = style.name.lowercase()) }
-        vizStateStore.persist()
     }
 
     fun setTransitionId(id: String) {

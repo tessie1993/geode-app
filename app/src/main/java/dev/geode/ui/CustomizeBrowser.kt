@@ -360,7 +360,7 @@ private fun CategoryBody(
         modifier = modifier,
         contentPadding = PaddingValues(start = GeodeSpacing.L, end = GeodeSpacing.L, bottom = GeodeSpacing.XL),
     ) {
-        items(sections, key = { it.path }) { section ->
+        items(sections, key = { it.path }, contentType = { if (it.basics) "basics" else "section" }) { section ->
             if (section.basics) {
                 Column(Modifier.fillMaxWidth().padding(bottom = GeodeSpacing.S)) { sectionContent(section) }
             } else {

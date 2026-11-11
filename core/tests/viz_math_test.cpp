@@ -319,14 +319,13 @@ void flatStylesDiveBothWays() {
     check(CameraRig::flatDive(p) == 0.0f, "hover does not dive");
     // Backward shrinks the picture without a pop: the endless zoom phase wraps either way.
     float ph = 0.0f;
-    float lastMag = endless::layers(ph).mag0;
+    float last = ph;
     float maxJump = 0.0f;
     for (int i = 0; i < 1200; ++i) {
         ph = endless::advance(ph, out, 1.0f / 60.0f);
-        const endless::Layers l = endless::layers(ph);
-        const float m = l.mag0 * (1.0f - l.weight1) + l.mag1 * l.weight1;
-        maxJump = std::fmax(maxJump, std::fabs(m - lastMag));
-        lastMag = m;
+        const float moved = std::fabs(ph - last);
+        maxJump = std::fmax(maxJump, std::fmin(moved, 1.0f - moved));
+        last = ph;
     }
     check(maxJump < 0.05f, "zooming out loops without a pop");
     // Reduced motion already scaled Fly speed in safety::apply, so the dive shrinks with it.
@@ -855,30 +854,62 @@ void sourceCatalogueIsCompleteAndUnique() {
           "levels are lines");
 }
 
-// Endless zoom used to spell its magnification as a triangle, 1x -> 2x -> 1x, so the dive
-// backed out every other half-octave. Each layer must only ever grow, the pair must be the
-// same picture either side of the phase wrap, and phase 0 is plain 1x.
-float layerWeight(const endless::Layers& l, float mag) {
-    float w = 0.0f;
-    if (std::fabs(l.mag0 - mag) < 1e-4f) w += 1.0f - l.weight1;
-    if (std::fabs(l.mag1 - mag) < 1e-4f) w += l.weight1;
-    return w;
+// The share of the pixel drawn at each magnification from 1/64x to 4x: what the dive stage puts on screen.
+std::array<float, 9> tunnelPicture(float phase, float x, float y) {
+    std::array<float, 9> out{};
+    for (int j = 0; j < 9; ++j) out[static_cast<size_t>(j)] = endless::tunnel::share(phase, std::exp2(static_cast<float>(j - 6)), x, y);
+    return out;
 }
 
-// The feedback dive's pour: the same streak length at any frame rate, never frozen. Its motion (in and
-// out, per frame) is liquid::motion's, pinned in feedback_motion_test.
-void feedbackDiveIsFrameRateIndependent() {
-    namespace fb = endless::feedback;
-    const float keep60 = 1.0f - fb::inject(0.5f, 1.0f / 60.0f);
-    const float keep30 = 1.0f - fb::inject(0.5f, 1.0f / 30.0f);
-    check(std::fabs(keep30 - keep60 * keep60) < 1e-5f, "the pour fades at the same rate at 30 and 60 Hz");
-    // After kTrailOctaves of travel half of a pour is left.
-    float kept = 1.0f;
-    const int frames = static_cast<int>(std::lround(fb::kTrailOctaves / 0.5f * 60.0f));
-    for (int i = 0; i < frames; ++i) kept *= 1.0f - fb::inject(0.5f, 1.0f / 60.0f);
-    check(std::fabs(kept - 0.5f) < 0.01f, "a pour is half replaced after the trail length");
-    check(fb::inject(1.0f, 1.0f / 60.0f) > fb::inject(0.2f, 1.0f / 60.0f), "a faster dive pours faster");
-    check(fb::inject(0.0f, 1.0f / 60.0f) > 0.0f && fb::inject(0.0f, 1.0f / 60.0f) < 0.01f, "a stopped dive still refreshes, slowly");
+// Endless zoom is the picture nested inside itself an octave apart. Every copy only ever grows, the frame
+// is always covered, no copy is magnified past two times (four in the rounded frame's corner slivers), and the picture just before the phase wraps is
+// the picture just after it. An earlier law ran one copy 1x -> 2x -> 1x, which backed out every half-octave.
+void endlessZoomIsOneSeamlessTunnel() {
+    namespace t = endless::tunnel;
+    const float pts[][2] = {{0.0f, 0.0f}, {0.03f, 0.01f}, {0.2f, -0.1f}, {0.5f, 0.5f}, {-0.7f, 0.3f}, {0.95f, 0.0f}, {1.0f, 1.0f}, {-1.0f, 0.4f}};
+    for (const auto& pt : pts) {
+        const auto before = tunnelPicture(0.99999f, pt[0], pt[1]);
+        const auto after = tunnelPicture(0.0f, pt[0], pt[1]);
+        for (size_t j = 0; j < before.size(); ++j) check(std::fabs(before[j] - after[j]) < 2e-3f, "no pop at the phase wrap");
+        for (int i = 1; i <= 1000; ++i) {
+            const float ph = static_cast<float>(i) / 1000.0f * 0.99999f;
+            float total = 0.0f;
+            for (int k = t::kInner; k >= -t::kBase; --k) {
+                const float s = t::scale(ph, k);
+                const float part = t::share(ph, s, pt[0], pt[1]);
+                check(part >= 0.0f && part <= 1.0f, "a copy's share is a share");
+                const bool corner = t::rim(pt[0], pt[1]) > 1.0f;
+                check(part == 0.0f || s <= (corner ? 4.0f : 2.0f), "no copy is magnified past two times, four in the corner slivers");
+                total += part;
+            }
+            check(total <= 1.0f + 1e-5f, "the copies never add up to more than the frame");
+            check(total >= 1.0f - t::kShade - 1e-5f, "a wall's shadow is all that ever darkens it");
+        }
+    }
+    for (int k = t::kInner; k >= -t::kBase; --k) {
+        check(t::scale(0.6f, k) > t::scale(0.4f, k), "diving in, every copy grows");
+        if (k > -t::kBase) check(std::fabs(t::scale(0.3f, k) * 2.0f - t::scale(0.3f, k - 1)) < 1e-6f, "the copies sit an octave apart");
+    }
+    check(t::scale(0.0f, 0) == 1.0f && t::cover(0.0f, t::kInner, 0.0f, 0.0f) == 0.0f, "phase 0 is the plain picture with the newest copy still shut");
+    // The centre is never a hole: the copy there is whole, and small.
+    for (int i = 0; i <= 100; ++i) {
+        const float ph = static_cast<float>(i) / 100.0f * 0.99999f;
+        float centre = 0.0f;
+        for (int k = t::kInner; k >= t::kInner - 1; --k) centre += t::share(ph, t::scale(ph, k), 0.0f, 0.0f);
+        check(std::fabs(centre - 1.0f) < 1e-5f, "the centre is always the two innermost copies");
+    }
+    // What a point shows changes smoothly as the dive runs: a copy's soft edge crossing it, never a cut.
+    for (const auto& pt : pts) {
+        float worst = 0.0f;
+        for (int i = 1; i <= 2000; ++i) {
+            const float a = static_cast<float>(i - 1) / 2000.0f * 0.99999f;
+            const float b = static_cast<float>(i) / 2000.0f * 0.99999f;
+            for (int k = t::kInner; k >= -t::kBase; --k) {
+                worst = std::max(worst, std::fabs(t::share(b, t::scale(b, k), pt[0], pt[1]) - t::share(a, t::scale(a, k), pt[0], pt[1])));
+            }
+        }
+        check(worst < 0.02f, "no copy's share of a pixel jumps");
+    }
 }
 
 // A shader style's Trails in the feedback pass: MilkDrop's sustain. The echo zoom and warp are motion,
@@ -897,50 +928,6 @@ void sustainHoldsLongerAtLongerTrails() {
     check(fb::sustainInject(std::nanf(""), dt) > 0.0f, "non-finite input holds still");
 }
 
-void endlessZoomOnlyDivesIn() {
-    // Follow the two layers through one octave by identity (the outgoing one starts at 1x).
-    float prevOut = 0.0f;
-    float prevIn = 0.0f;
-    int twoLayerFrames = 0;
-    for (int i = 0; i <= 1000; ++i) {
-        const float ph = static_cast<float>(i) / 1000.0f;
-        const endless::Layers l = endless::layers(ph);
-        const float out = std::exp2(ph);
-        const float in = std::exp2(ph - 1.0f);
-        check(layerWeight(l, out) + layerWeight(l, in) > 0.999f, "the two layers are the octave pair");
-        check(l.weight1 >= 0.0f && l.weight1 <= 0.5f, "the second layer never dominates");
-        check(l.mag0 >= 0.5f && l.mag0 <= 2.0f && l.mag1 >= 0.5f && l.mag1 <= 2.0f, "scale stays within an octave of 1x");
-        if (i > 0) check(out > prevOut && in > prevIn, "both layers only ever zoom in");
-        if (l.weight1 > 0.0f) ++twoLayerFrames;
-        prevOut = out;
-        prevIn = in;
-    }
-    // The second pass is the whole cost on a low-end GPU: it must stay inside the ~40% window.
-    check(twoLayerFrames <= 410, "the second layer draws only inside the crossfade window");
-    const endless::Layers start = endless::layers(0.0f);
-    check(start.mag0 == 1.0f && start.weight1 == 0.0f, "phase 0 (and off) is one layer at exactly 1x");
-    // Seam: what is on screen just before the wrap is what is on screen just after it.
-    const endless::Layers before = endless::layers(0.99999f);
-    check(std::fabs(before.mag0 - start.mag0) < 1e-3f && before.weight1 == 0.0f, "no pop at the phase wrap");
-    // The visible mix moves smoothly: no step changes either layer's weight by much.
-    float prevW = 0.0f;
-    for (int i = 1; i <= 1000; ++i) {
-        const float ph = static_cast<float>(i) / 1000.0f;
-        const float w = layerWeight(endless::layers(ph), std::exp2(ph - 1.0f));
-        check(std::fabs(w - prevW) < 0.01f, "the crossfade has no jumps");
-        prevW = w;
-    }
-    // The magnification the screen settles on is continuous too: the weighted log-scale.
-    float prevLog = 0.0f;
-    for (int i = 0; i <= 2000; ++i) {
-        const float ph = std::fmod(static_cast<float>(i) / 1000.0f, 1.0f);
-        const endless::Layers l = endless::layers(ph);
-        const float logMag = (1.0f - l.weight1) * std::log2(l.mag0) + l.weight1 * std::log2(l.mag1);
-        if (i > 0) check(std::fabs(logMag - prevLog) < 0.01f, "the blended scale never jumps, across the wrap too");
-        prevLog = logMag;
-    }
-}
-
 void endlessZoomPhaseWrapsForEverInBothDirections() {
     float ph = 0.0f;
     for (int i = 0; i < 60 * 60 * 60; ++i) ph = endless::advance(ph, 1.2f, 1.0f / 60.0f);  // an hour at full speed
@@ -955,38 +942,146 @@ void endlessZoomPhaseWrapsForEverInBothDirections() {
     check(endless::advance(0.0f, -1e-9f, 1.0f) < 1.0f, "a tiny negative step never lands on 1.0");
 }
 
-// The music pushes the dive the MilkDrop way, on the relative bass (over the song's own mean),
-// and never on loudness. Silence drifts slowly; it never stops the dive.
-void endlessZoomFollowsTheBassNotTheLoudness() {
-    GeodeSoundFrame s = silence();
-    check(std::fabs(endless::musicRate(s, 1.0f) - endless::kSilenceRate) < 1e-6f, "silence drifts slowly");
-    check(endless::musicRate(s, 2.0f) > 0.0f, "silence never stops the dive, at any Audio drive");
-    s.presence = 1.0f;
-    s.bassAtt = 1.0f;
-    check(std::fabs(endless::musicRate(s, 1.0f) - 1.0f) < 1e-6f, "typical bass dives at Dive speed");
-    s.bassAtt = 2.0f;
-    const float hit = endless::musicRate(s, 1.0f);
-    check(hit > 1.2f, "a bass hit pushes the dive");
-    GeodeSoundFrame loud = s;
-    loud.vol = loud.volAtt = 3.0f;
-    loud.rms = 0.9f;
-    loud.loudness = 1.0f;
-    loud.intensity = 1.0f;
-    loud.energyTrend = 1.0f;
-    loud.surge = 1.0f;
-    check(endless::musicRate(loud, 1.0f) == hit, "a louder frame at the same drive never changes the dive rate");
-    s.bassAtt = 0.0f;
-    check(endless::musicRate(s, 2.0f) >= endless::kMinRate, "a bass drop slows the dive but never stalls it");
-    check(endless::musicRate(s, 0.0f) == 1.0f, "Audio drive 0 leaves the dive steady");
-    check(endless::musicRate(silence(), 0.0f) == 1.0f, "Audio drive 0 keeps Dive speed through silence too");
-    s.bassAtt = NAN;
-    s.presence = INFINITY;
-    const float odd = endless::musicRate(s, NAN);
-    check(std::isfinite(odd) && odd >= endless::kMinRate, "non-finite sound leaves a finite rate");
+// A song as the sound engine reports it: a locked beat `beatSeconds` long (what Rhythm measured, never a
+// tempo the dive assumes), a steady drive, and whatever the test adds on top.
+GeodeSoundFrame songAt(double t, double beatSeconds, float drive) {
+    GeodeSoundFrame f = playing();
+    f.beatConf = 0.9f;
+    f.beatPhase = static_cast<float>(std::fmod(t, beatSeconds) / beatSeconds);
+    f.drive = drive;
+    return f;
+}
+
+// Octaves a dive at `speed` travels through `seconds` of a song whose drive is `driveAt(t)`.
+template <typename DriveAt>
+double diveTravel(float fps, double seconds, double beatSeconds, float speed, DriveAt driveAt, float* lastRate = nullptr) {
+    endless::Follow follow;
+    const float dt = 1.0f / fps;
+    double octaves = 0.0;
+    const int frames = static_cast<int>(std::lround(seconds * fps));
+    for (int i = 0; i < frames; ++i) {
+        const double t = static_cast<double>(i) / fps;
+        follow.step(songAt(t, beatSeconds, driveAt(t)), dt, 1.0f);
+        octaves += static_cast<double>(endless::travel(speed, follow)) * dt;
+    }
+    if (lastRate != nullptr) *lastRate = follow.rate();
+    return octaves;
+}
+
+// The dive is its own thing: no hit, band or beat moves it. The music's only hand on it is how big it has
+// been over the last eight beats the tracker measured, worth a few percent, and nothing without a locked beat.
+void endlessZoomIgnoresHitsAndFollowsOnlyTheLongRun() {
+    using endless::Follow;
+    const float dt = 1.0f / 60.0f;
+    check(endless::travel(0.3f, Follow{}) == 0.3f && endless::travel(-0.3f, Follow{}) == -0.3f, "Dive speed is the rate, in and out");
+    check(endless::travel(9.0f, Follow{}) == endless::kMaxSpeed && endless::travel(-9.0f, Follow{}) == -endless::kMaxSpeed, "clamped to its range");
+    check(endless::travel(NAN, Follow{}) == 0.0f, "a non-finite speed holds still");
+
+    // No measured beat: the rate is Dive speed exactly, however loud or busy the frame.
+    Follow unlocked;
+    for (int i = 0; i < 3600; ++i) {
+        GeodeSoundFrame f = songAt(i * dt, 0.47, 1.0f);
+        f.beatConf = 0.2f;
+        f.bassAtt = 3.0f;
+        f.kickEnv = 1.0f;
+        unlocked.step(f, dt, 2.0f);
+        check(unlocked.rate() == 1.0f, "without a locked beat the music does not touch the dive");
+    }
+
+    // Every per-hit value differs between these two songs; the dive is the same to the bit.
+    Follow plain;
+    Follow hit;
+    for (int i = 0; i < 3600; ++i) {
+        const GeodeSoundFrame f = songAt(i * dt, 0.47, 0.6f);
+        GeodeSoundFrame g = f;
+        g.bassAtt = (i % 28) < 4 ? 3.0f : 0.2f;
+        g.midAtt = g.trebleAtt = g.volAtt = 2.5f;
+        g.bass = g.mid = g.treble = g.vol = 2.0f;
+        g.kickEnv = g.snareEnv = g.hatEnv = (i % 28) < 4 ? 1.0f : 0.0f;
+        g.surge = g.intensity = g.loudness = g.energyTrend = 1.0f;
+        plain.step(f, dt, 1.0f);
+        hit.step(g, dt, 1.0f);
+        check(plain.rate() == hit.rate(), "bass, bands, drums and loudness never reach the dive");
+    }
+
+    // The first eight measured beats change nothing; after them the rate eases toward the long average.
+    Follow early;
+    for (int i = 0; i < static_cast<int>(7.5 * 0.47 * 60.0); ++i) {
+        early.step(songAt(i * dt, 0.47, 1.0f), dt, 1.0f);
+        check(early.rate() == 1.0f, "fewer than eight measured beats: no follow yet");
+    }
+    float fatRate = 1.0f;
+    float padRate = 1.0f;
+    diveTravel(60.0f, 60.0, 0.47, 0.3f, [](double) { return 1.0f; }, &fatRate);
+    diveTravel(60.0f, 60.0, 0.47, 0.3f, [](double) { return 0.0f; }, &padRate);
+    check(fatRate > 1.1f && fatRate <= 1.0f + Follow::kReach + 1e-6f, "a long fat passage dives a little faster");
+    check(padRate < 0.9f && padRate >= 1.0f - Follow::kReach - 1e-6f, "a long thin one a little slower, never stopped");
+
+    // One kick: a tenth of a second at full drive in a steady song. The rate does not move measurably.
+    float steadyRate = 1.0f;
+    float kickRate = 1.0f;
+    float worst = 0.0f;
+    {
+        Follow steady;
+        Follow kicked;
+        for (int i = 0; i < 3600; ++i) {
+            const double t = i * dt;
+            steady.step(songAt(t, 0.47, 0.3f), dt, 1.0f);
+            kicked.step(songAt(t, 0.47, t >= 30.0 && t < 30.1 ? 1.0f : 0.3f), dt, 1.0f);
+            worst = std::max(worst, std::fabs(kicked.rate() - steady.rate()));
+        }
+        steadyRate = steady.rate();
+        kickRate = kicked.rate();
+    }
+    check(worst < 0.01f && std::fabs(kickRate - steadyRate) < 0.01f, "a single kick moves the dive by under one percent");
+
+    // Audio drive 0 switches the follow off; losing the beat lets it go.
+    Follow off;
+    Follow lost;
+    for (int i = 0; i < 3600; ++i) {
+        off.step(songAt(i * dt, 0.47, 1.0f), dt, 0.0f);
+        lost.step(songAt(i * dt, 0.47, 1.0f), dt, 1.0f);
+    }
+    check(off.rate() == 1.0f, "Audio drive 0 leaves the dive at Dive speed");
+    check(lost.rate() > 1.1f, "locked and loud");
+    for (int i = 0; i < 1200; ++i) {
+        GeodeSoundFrame f = songAt(i * dt, 0.47, 1.0f);
+        f.beatConf = 0.0f;
+        lost.step(f, dt, 1.0f);
+    }
+    check(std::fabs(lost.rate() - 1.0f) < 1e-3f, "when the beat is lost the dive returns to Dive speed");
+
+    Follow odd;
+    GeodeSoundFrame bad = songAt(0.0, 0.47, NAN);
+    bad.beatPhase = NAN;
+    bad.beatConf = INFINITY;
+    for (int i = 0; i < 600; ++i) odd.step(bad, NAN, NAN);
+    check(std::isfinite(odd.rate()), "non-finite sound leaves a finite rate");
+}
+
+// The same song travels the same distance at any frame rate, and at any measured beat length the average is
+// over eight of those beats: the follow keeps no tempo of its own.
+void endlessZoomTravelsTheSameAtAnyFrameRate() {
+    const auto song = [](double t) { return 0.35f + 0.3f * static_cast<float>(std::sin(t * 0.21)) + (std::fmod(t, 0.61) < 0.08 ? 0.25f : 0.0f); };
+    for (const double beatSeconds : {0.61, 0.33, 1.1}) {
+        const double at60 = diveTravel(60.0f, 90.0, beatSeconds, 0.4f, song);
+        const double at30 = diveTravel(30.0f, 90.0, beatSeconds, 0.4f, song);
+        const double at120 = diveTravel(120.0f, 90.0, beatSeconds, 0.4f, song);
+        check(std::fabs(at30 - at60) < 0.002 * at60 && std::fabs(at120 - at60) < 0.002 * at60, "30, 60 and 120 fps travel the same distance");
+        const double out = diveTravel(60.0f, 90.0, beatSeconds, -0.4f, song);
+        check(std::fabs(out + at60) < 1e-6 * at60, "rising out is falling in, reversed");
+    }
+    // A slow song's window is eight of its own beats: a step in the music reaches the rate later there.
+    const auto step = [](double t) { return t < 20.0 ? 0.0f : 1.0f; };
+    float fastSong = 1.0f;
+    float slowSong = 1.0f;
+    diveTravel(60.0f, 23.0, 0.33, 0.4f, step, &fastSong);
+    diveTravel(60.0f, 23.0, 1.1, 0.4f, step, &slowSong);
+    check(fastSong > slowSong, "the window is counted in measured beats, not seconds");
 }
 
 // The music's absolute magnitude (the frame's drive) scales how much audio moves the picture: the same relative
-// swell on a pad (drive 0.1) moves the dive, the routes, the motion field and the camera less than on a fat
+// swell on a pad (drive 0.1) moves the routes, the motion field and the camera less than on a fat
 // track (drive 0.8). The base values, and the silence drift, are untouched.
 // No sound, no movement: the picture's clock stops in silence, runs whole while music plays, and eases
 // between the two as presence fades.
@@ -1012,9 +1107,6 @@ void driveScalesTheMagnitudeOfMotion() {
     check(geode::sound::driveGain(pad) > geode::sound::kDriveGainFloor && geode::sound::driveGain(pad) < 0.4f, "a pad keeps a floor but moves little");
     fat.bassAtt = pad.bassAtt = 2.0f;
     fat.volAtt = pad.volAtt = fat.midAtt = pad.midAtt = fat.trebleAtt = pad.trebleAtt = 1.0f;  // a typical level for the song
-    const float fatPush = endless::musicRate(fat, 1.0f) - 1.0f;
-    const float padPush = endless::musicRate(pad, 1.0f) - 1.0f;
-    check(fatPush > 0.3f && padPush > 0.0f && padPush < 0.4f * fatPush, "the dive's bass push follows the drive");
 
     ReactionEngine loudRoutes;
     ReactionEngine quietRoutes;
@@ -1084,37 +1176,32 @@ void driveScalesTheMagnitudeOfMotion() {
     check(geode::sound::driveGain(gone) == 1.0f, "a non-finite drive is neutral, never a stall");
 }
 
-void endlessZoomDrivesTheRigForward() {
+// Endless zoom is a stage of its own: it never moves the camera, so Fly speed means the same with it on.
+void endlessZoomLeavesTheRigAlone() {
     CameraRig still;
     CameraRig diving;
     SceneParams p;
-    p.camFly = 0.0f;
     SceneParams q = p;
     q.endlessZoom = true;
-    q.endlessZoomSpeed = 0.5f;
+    q.endlessZoomSpeed = 1.2f;
+    const GeodeSoundFrame f = playing();
     for (int i = 0; i < 600; ++i) {
-        still.step(p, {}, 1.0f / 60.0f, false, false, nullptr);
-        diving.step(q, {}, 1.0f / 60.0f, false, false, nullptr);
+        still.step(p, {}, 1.0f / 60.0f, false, true, &f);
+        diving.step(q, {}, 1.0f / 60.0f, false, true, &f);
     }
-    check(diving.pose().travel > still.pose().travel + 1.0f, "Endless zoom flies the 3D styles forward");
+    check(diving.pose().travel == still.pose().travel && diving.pose().yaw == still.pose().yaw, "Endless zoom does not fly the camera");
 }
 
-// The 3D dive, like the 2D one, is slowed once by safety::apply and never again by the rig.
+// Reduced motion slows the dive once, in safety::apply, in both directions.
 void endlessZoomReducedMotionScalesTheDiveOnce() {
     SceneParams p;
-    p.camFly = 0.0f;
     p.endlessZoom = true;
-    p.endlessZoomSpeed = 1.0f;
-    const SceneParams normal = safety::apply(p, false);
-    const SceneParams reduced = safety::apply(p, true);
-    CameraRig full;
-    CameraRig slow;
-    for (int i = 0; i < 600; ++i) {
-        full.step(normal, {}, 1.0f / 60.0f, false, false, nullptr);
-        slow.step(reduced, {}, 1.0f / 60.0f, true, false, nullptr);
+    for (const float speed : {1.0f, -1.0f}) {
+        p.endlessZoomSpeed = speed;
+        const float normal = endless::travel(safety::apply(p, false).endlessZoomSpeed, endless::Follow{});
+        const float reduced = endless::travel(safety::apply(p, true).endlessZoomSpeed, endless::Follow{});
+        check(normal == speed && std::fabs(reduced - speed * safety::kReducedMotionScale) < 1e-6f, "reduced motion scales the dive exactly once");
     }
-    const float ratio = slow.pose().travel / full.pose().travel;
-    check(std::fabs(ratio - safety::kReducedMotionScale) < 0.05f, "reduced motion scales the 3D dive exactly once");
 }
 
 void buildBudgetBoundsAFrame() {
@@ -1616,14 +1703,14 @@ int main() {
     motionFieldReducedMotionScalesRatesOnce();
     motionFieldDriftWrapNeverPopsAStyle();
     sourceCatalogueIsCompleteAndUnique();
-    endlessZoomOnlyDivesIn();
-    feedbackDiveIsFrameRateIndependent();
+    endlessZoomIsOneSeamlessTunnel();
     sustainHoldsLongerAtLongerTrails();
     endlessZoomPhaseWrapsForEverInBothDirections();
-    endlessZoomFollowsTheBassNotTheLoudness();
+    endlessZoomIgnoresHitsAndFollowsOnlyTheLongRun();
+    endlessZoomTravelsTheSameAtAnyFrameRate();
     theClockStopsInSilence();
     driveScalesTheMagnitudeOfMotion();
-    endlessZoomDrivesTheRigForward();
+    endlessZoomLeavesTheRigAlone();
     endlessZoomReducedMotionScalesTheDiveOnce();
     buildBudgetBoundsAFrame();
     scenePrepRetargetsAndCaps();

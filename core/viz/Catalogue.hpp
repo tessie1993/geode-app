@@ -33,7 +33,7 @@ enum class Scope {
     BandGains,      // reads at least one band envelope
     ShaderLook,     // morph, dual palette, colour map, duotone: the fragment programs
     MarchDetail,    // the raymarch step budget; per STYLE, only the marched ones
-    EndlessZoom,    // integrated by the shader scenes and MilkDrop
+    EndlessZoom,    // a stage over the finished picture (DivePass): every kind
     Turbulence,     // an in-scene force
     DyeDensity,
     TrailToggle,

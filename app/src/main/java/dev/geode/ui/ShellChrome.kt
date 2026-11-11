@@ -61,6 +61,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import dev.geode.R
+import dev.geode.model.GestureTip
+import dev.geode.model.TourSpot
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
@@ -69,8 +71,8 @@ import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.floatingGlass
 import dev.geode.ui.theme.performStoneHaptic
-import dev.geode.ui.tour.GestureTip
-import dev.geode.ui.tour.GestureTips
+import dev.geode.ui.tour.LocalTourNudge
+import dev.geode.ui.tour.tourTarget
 import kotlinx.coroutines.delay
 
 /**
@@ -148,11 +150,13 @@ internal class ShellChromeState {
  * 0 = never), stretched by the accessibility timeout the user set so TalkBack users are not raced.
  * Any change in [wakeKeys] (the screen, the track) wakes it, and so does every start of the
  * activity. While [held] it stays asleep; while [covered] it stays awake and the timer waits.
+ * While [pinned] (the tour is pointing at it) it is awake and does not fade.
  */
 @Composable
 internal fun rememberShellChrome(
     fadeSeconds: Float,
     held: Boolean,
+    pinned: Boolean,
     covered: Boolean,
     vararg wakeKeys: Any?,
 ): ShellChromeState {
@@ -169,12 +173,12 @@ internal fun rememberShellChrome(
     // In the same frame as the new screen or track, not an effect a frame later: leaving Visuals
     // asleep would otherwise lay the dock out with the handle first, then grow it into the card.
     // A remember must hold a value; true, not the stamp, whose read would recompose on every touch.
-    remember(*wakeKeys) {
+    remember(pinned, *wakeKeys) {
         state.wake()
         true
     }
-    LaunchedEffect(state.counting, state.stamp, fadeSeconds) {
-        if (!state.counting || fadeSeconds <= 0f) return@LaunchedEffect
+    LaunchedEffect(state.counting, state.stamp, fadeSeconds, pinned) {
+        if (!state.counting || fadeSeconds <= 0f || pinned) return@LaunchedEffect
         val base = (fadeSeconds * MILLIS_PER_SECOND).toLong()
         val timeout = a11y?.calculateRecommendedTimeoutMillis(base, containsIcons = true, containsControls = true) ?: base
         delay(timeout)
@@ -394,6 +398,7 @@ private fun Modifier.miniPlayerGestures(
     val hideLabel = stringResource(R.string.mini_player_hide)
     val libraryLabel = stringResource(R.string.mini_player_library)
     val view = LocalView.current
+    val nudge = LocalTourNudge.current
     // A tap is a light tick; a swipe that changes the screen (Player opens, the player hides) confirms.
     val tap = { action: () -> Unit ->
         view.performStoneHaptic(StoneHapticCue.TAP)
@@ -422,7 +427,7 @@ private fun Modifier.miniPlayerGestures(
         ) { _, delta -> dy += delta }
     }.clickable(onClickLabel = libraryLabel) {
         // A tap goes to Library; the tip says a swipe up opens Player.
-        GestureTips.nudge(GestureTip.SWIPE_UP_PLAYER)
+        nudge(GestureTip.SWIPE_UP_PLAYER)
         tap(onOpenLibrary)
     }.semantics {
         customActions =
@@ -487,6 +492,8 @@ internal fun MiniPlayerHandle(
 internal data class DockItem(
     val label: String,
     val icon: StoneIcon,
+    /** The tour's name for this tab, where it points at it. */
+    val tour: TourSpot? = null,
 )
 
 /**
@@ -535,6 +542,7 @@ internal fun FloatingTabBar(
                 val showLabel = !compact || isSelected
                 NavigationBarItem(
                     selected = isSelected,
+                    modifier = item.tour?.let { Modifier.tourTarget(it) } ?: Modifier,
                     onClick = {
                         view.performStoneHaptic(StoneHapticCue.TAP)
                         onSelect(i)

@@ -33,10 +33,9 @@ data class EditorUiState(
 /**
  * Keeps the list of Studio's project folders (`files/projects/<id>/`) and the renders each one
  * lists. Studio has no editor: the owner dropped video editing from the launch (#227), so nothing
- * here opens, edits or undoes a project. A project is only how a recorded take and a kept render
- * are stored (ADR 0005): a take becomes one when its recording stops (`TakeController`,
- * `data/TakeStore`), and a one-tap render the user adds to My videos becomes one in
- * [createWithLook].
+ * here opens, edits or undoes a project. A project is only how a recording and a kept render are
+ * stored (ADR 0005): a saved recording becomes one in [keepRecording], and a one-tap render the
+ * user adds to My videos becomes one in [createWithLook].
  *
  * The render path records each finished file with [recordRender], so a render that finishes after
  * the user moved on still lands in its project. The store is touched only on [storeScope], one
@@ -51,9 +50,36 @@ internal class EditorController(
 
     private val ids = IdSource { UUID.randomUUID().toString() }
 
-    /** Re-reads the project list, for a caller that knows the disk changed (a new take). */
-    fun refresh() {
-        storeScope.launch { refreshLists() }
+    /**
+     * Reads the project list once at start, first deleting the projects that list no video: only
+     * the old replayed takes were saved without one, and the owner chose to delete those.
+     */
+    fun start() {
+        storeScope.launch {
+            store.list().filter { it.renders.isEmpty() }.forEach { store.delete(it.id) }
+            refreshLists()
+        }
+    }
+
+    /** A saved recording in My videos: a project over [track] (none for the mic or another app) listing [render]. */
+    fun keepRecording(
+        track: TrackRef?,
+        render: ProjectRender,
+    ) {
+        storeScope.launch {
+            val project =
+                StudioProject.create(
+                    id = store.newId(),
+                    name = render.label.ifBlank { nextName(store.list()) },
+                    destination = ExportDestination.CUSTOM,
+                    defaults = store.defaultsFor(ExportDestination.CUSTOM),
+                    nowMs = store.clock(),
+                    ids = ids,
+                    track = track,
+                )
+            store.save(project.withRender(render))
+            refreshLists()
+        }
     }
 
     /**

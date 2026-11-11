@@ -41,19 +41,6 @@ void lengths() {
     check(geode_record_snap_max_length(170) == 180, "ABI snap");
 }
 
-void stop() {
-    using namespace record;
-    check(!reached(59'999, 60) && reached(60'000, 60) && reached(60'400, 60), "a take stops at its maximum");
-    check(!reached(100LL * 3'600'000, kNoLimitSec), "no limit never stops a take");
-    check(!reached(1'000, -3), "a negative maximum is no limit");
-    check(geode_record_limit_reached(30'000, 30) == 1 && geode_record_limit_reached(29'000, 30) == 0, "ABI stop");
-
-    check(clampLengthMs(60'700, 60) == 60'000, "the tick's overshoot is cut off");
-    check(clampLengthMs(45'000, 60) == 45'000, "a take stopped by hand keeps its length");
-    check(clampLengthMs(90'000, kNoLimitSec) == 90'000, "no limit leaves the length alone");
-    check(geode_record_clamp_length_ms(15'999, 15) == 15'000, "ABI clamp");
-}
-
 void size() {
     using namespace record;
     // 1080p's 12 Mbit/s plus 192 kbit/s AAC: 1.524 MB a second.
@@ -84,7 +71,6 @@ void size() {
 
 int main() {
     lengths();
-    stop();
     size();
     if (failures) {
         std::printf("%d failure(s)\n", failures);

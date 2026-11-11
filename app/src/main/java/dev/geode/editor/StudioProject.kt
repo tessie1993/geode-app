@@ -5,10 +5,10 @@ import dev.geode.data.ExportDestination
 
 /*
  * The Studio project model (wave 1, issue #231): what a project is, what a template is, and the
- * three ways one is made (from a template, from a take, as one of a batch).
+ * ways one is made (from a template, as one of a batch, around a kept render or recording).
  *
- * A project is a folder. It holds its edit (timeline, markers, keyframes), its own export settings,
- * the takes recorded into it and the list of every video rendered from it. Studio opens to the list
+ * A project is a folder. It holds its edit (timeline, markers, keyframes), its own export settings
+ * and the list of every video rendered from it. Studio opens to the list
  * of these folders; there is no global "Untitled" any more. Storage is `data/EditorProjectStore`;
  * nothing here touches a file, so every rule below is plain data in, plain data out.
  *
@@ -97,15 +97,6 @@ data class StudioProject(
     val lengthMs: Long
         get() = maxOf(edit.timeline.durationMs, edit.contentEndMs())
 
-    /** Every take recorded into this project, by id, in the order their clips start. */
-    val takeIds: List<String>
-        get() =
-            edit.timeline.lanes
-                .flatMap { it.clips }
-                .sortedBy { it.startMs }
-                .mapNotNull { (it.content as? ClipContent.Scene)?.takeId }
-                .distinct()
-
     /** Newest first, which is how My videos lists them. */
     fun withRender(render: ProjectRender): StudioProject = copy(renders = (listOf(render) + renders.filterNot { it.uri == render.uri }))
 
@@ -145,62 +136,6 @@ data class StudioProject(
             )
         }
 
-        /**
-         * The project a stopped recording becomes: the song on an audio lane and the take as one
-         * visual clip over it, both on track time.
-         *
-         * The programme is the span that was recorded: it starts where the recording started in
-         * the song ([TakeSpan.trackStartMs]), so the audio clip begins at that point of the track
-         * ([Clip.sourceInMs]) and the take clip begins at the take's own start. Both map programme
-         * time 0 to the same instant of the song, which is what keeps every style change on the beat
-         * it was made on. A take recorded with no track (mic or another app's audio) is the visual
-         * clip alone.
-         */
-        fun fromTake(
-            id: ProjectId,
-            name: String,
-            take: TakeSpan,
-            track: TrackRef?,
-            destination: ExportDestination,
-            defaults: ExportDefaults,
-            nowMs: Long,
-            ids: IdSource,
-        ): StudioProject {
-            val clip = take.toClip(ClipId(ids.next()), name)
-            val visual = Lane(id = LaneId(ids.next()), kind = LaneKind.Visual, name = name, clips = listOf(clip))
-            // The song's full length is often unknown here; the take's end is a floor for it, so the
-            // audio can be trimmed back to the song's start but never stretched past what was heard.
-            val audio =
-                track?.let {
-                    Lane(
-                        id = LaneId(ids.next()),
-                        kind = LaneKind.Audio,
-                        name = it.title,
-                        clips =
-                            listOf(
-                                Clip(
-                                    id = ClipId(ids.next()),
-                                    content = ClipContent.Audio(it.uri),
-                                    startMs = 0L,
-                                    durationMs = clip.durationMs,
-                                    sourceInMs = take.trackStartMs,
-                                    sourceDurationMs = maxOf(it.durationMs, take.trackStartMs + clip.durationMs),
-                                    label = it.title,
-                                ),
-                            ),
-                    )
-                }
-            return StudioProject(
-                id = id,
-                name = name,
-                destination = destination,
-                export = defaults,
-                edit = EditorProject(timeline = Timeline(lanes = listOfNotNull(visual, audio), durationMs = clip.durationMs)),
-                createdAtMs = nowMs,
-                updatedAtMs = nowMs,
-            )
-        }
-
         internal fun audioLane(
             track: TrackRef,
             ids: IdSource,
@@ -228,49 +163,17 @@ data class StudioProject(
     }
 }
 
-/**
- * Where a recorded take sits in its song. [trackStartMs] is the song position the recording began
- * at (after any seek back, the earliest position recorded); [durationMs] is how much song time it
- * covers. [firstSceneId] is the style it opened on.
- */
-data class TakeSpan(
-    val takeId: String,
-    val firstSceneId: String,
-    val trackStartMs: Long,
-    val durationMs: Long,
-) {
-    /** The take as a visual clip at programme time 0; its source time is take time. */
-    fun toClip(
-        id: ClipId,
-        label: String,
-    ): Clip =
-        Clip(
-            id = id,
-            content = ClipContent.Scene(sceneId = firstSceneId, takeId = takeId),
-            startMs = 0L,
-            durationMs = durationMs.coerceAtLeast(MIN_CLIP_DURATION_MS),
-            sourceDurationMs = durationMs.coerceAtLeast(MIN_CLIP_DURATION_MS),
-            label = label,
-        )
-}
-
-/** Take time (ms from the take's start) shown by this clip at programme time [programmeMs]. */
-fun Clip.sourceTimeAt(programmeMs: Long): Long = programmeMs - startMs + sourceInMs
-
 /*
  * Templates.
  */
 
 /**
- * A template: a project minus its audio. It keeps the lanes, looks, takes' places, text, overlays,
+ * A template: a project minus its audio. It keeps the lanes, looks, text, overlays,
  * intro and outro, the kind and the export settings, and drops the song and everything tied to the
  * song (the audio lanes, the markers, which are marks against the music, and the renders).
  *
  * [lengthMs] is the length of the song it was made over. "New from template" fits that length to
  * the new song ([ProjectTemplate.newProject]).
- *
- * Takes are dropped with the song too: a take is a performance of one song and means nothing over
- * another, so a take clip becomes a plain look of the style it opened on.
  */
 data class ProjectTemplate(
     val id: ProjectId,

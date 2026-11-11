@@ -30,25 +30,25 @@ import dev.geode.R
 import dev.geode.data.SaveTarget
 
 /**
- * The ask-once question after a recorded take that has nowhere to render yet
- * ([TakeUiState.pendingSave]): render to the Videos library (Movies/BeatRealms, no permission) or to a
- * folder the user picks, and whether to keep that answer for every later take ("Use for every
- * take", on by default). A kept answer (`data/RecordSaveStore`) means later takes render without
- * this sheet; an answer not kept renders this take only, and the next stop asks again.
+ * The ask-once question after the first recording, which has nowhere to go yet
+ * ([RecordUiState.pendingSave]): the Videos library (Movies/BeatRealms, no permission) or a folder
+ * the user picks, and whether to keep that answer for every later recording (on by default). A kept
+ * answer (`data/RecordSaveStore`) means later recordings are written straight there; an answer not
+ * kept places this one only, and the next stop asks again.
  *
- * Stateless apart from the checkbox: [RecordSaveHost] shows it while [takeName] is non-null and
- * passes the answer to `TakeController.chooseSaveTarget`; dismissing it is `skipPendingSave`, which
- * leaves the take in My videos, unrendered. The folder picker hands back a tree URI whose
- * persistable grant the store takes either way, since the render outlives the picker.
+ * Stateless apart from the checkbox: [RecordSaveHost] shows it while [title] is non-null and passes
+ * the answer to `RecordController.chooseSaveTarget`; dismissing it is `skipPendingSave`, which puts
+ * this recording in the Videos library. The folder picker hands back a tree URI whose persistable
+ * grant the store takes either way.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecordSaveSheet(
-    takeName: String?,
+    title: String?,
     onChoose: (target: SaveTarget, remember: Boolean) -> Unit,
     onSkip: () -> Unit,
 ) {
-    if (takeName == null) return
+    if (title == null) return
     var keep by rememberSaveable { mutableStateOf(true) }
     val folderPicker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
@@ -62,7 +62,7 @@ fun RecordSaveSheet(
         ) {
             Text(stringResource(R.string.record_save_title), style = MaterialTheme.typography.titleMedium)
             Text(
-                stringResource(R.string.record_save_body, takeName),
+                stringResource(R.string.record_save_body, title),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -94,17 +94,17 @@ fun RecordSaveSheet(
 }
 
 /**
- * Draws [RecordSaveSheet] for the take waiting to be placed, wherever the user is when the take
+ * Draws [RecordSaveSheet] for the recording waiting to be placed, wherever the user is when it
  * stops: from `AppRoot`, beside the paywall, rather than inside one screen, since a recording also
- * ends on its own (a new song, the recorder full) while the user may be elsewhere.
+ * ends on its own (its maximum length, a full file) while the user may be elsewhere.
  */
 @Composable
 fun RecordSaveHost() {
     val studioViewModel: StudioViewModel = geodeViewModel()
-    val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
+    val record by studioViewModel.recordState.collectAsStateWithLifecycle()
     RecordSaveSheet(
-        takeName = takes.pendingSave,
-        onChoose = studioViewModel::chooseTakeSaveTarget,
-        onSkip = studioViewModel::skipTakeSave,
+        title = record.pendingSave,
+        onChoose = studioViewModel::chooseRecordSaveTarget,
+        onSkip = studioViewModel::skipRecordSave,
     )
 }

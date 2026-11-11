@@ -6,31 +6,18 @@ import dev.geode.RingLog
 import dev.geode.editor.ProjectId
 import dev.geode.editor.ProjectTemplate
 import dev.geode.editor.StudioProject
-import dev.geode.engine.bridge.GeodeNative
 import java.io.File
 import java.util.UUID
 
 /**
- * Studio's projects and templates on disk. A project is a folder, and its takes sit in a sibling
- * folder of the same id:
+ * Studio's projects and templates on disk. A project is a folder:
  *
  * ```
  * files/projects/<id>/
  *   project.json        the StudioProject: edit, kind, export settings, renders (EditorProjectJson)
- * files/project-takes/<id>/
- *   <takeId>.json       every take recorded into it (PerformanceTake's format)
  * files/project-templates/<id>/
  *   template.json       a ProjectTemplate: a project minus its audio
  * ```
- *
- * Why the takes are not inside the project folder (#384): a long take is megabytes of JSON, and
- * Android's cloud backup stops backing up *everything* (presets, playlists, history) once the app
- * passes its ~25 MB quota. The backup rules can only exclude a fixed path, never
- * `projects/<any id>/takes`, so the takes live under one root that `backup_rules.xml` and
- * `data_extraction_rules.xml` exclude, while the small `project.json` still backs up and My videos
- * keeps its list after a restore. A phone-to-phone transfer and the manual backup zip carry takes.
- * Takes saved before the move are moved once, when the store is built, by native code
- * (`core/library/StudioFiles`, `GeodeNative.studioMoveTakesOut`).
  *
  * The folder name is the project id, never the user's name for it, so renaming is one field and two
  * projects may share a name. Rendered videos are not in the folder: they live where the user saved
@@ -46,20 +33,15 @@ import java.util.UUID
 class EditorProjectStore(
     private val projectsDir: File,
     private val templatesDir: File,
-    private val takesDir: File = File(projectsDir.parentFile, TAKES_DIR),
     val defaultsFor: (ExportDestination) -> ExportDefaults = { it.factoryDefaults() },
     val clock: () -> Long = System::currentTimeMillis,
 ) {
     constructor(context: Context) : this(
         projectsDir = File(context.filesDir, PROJECTS_DIR),
         templatesDir = File(context.filesDir, TEMPLATES_DIR),
-        takesDir = File(context.filesDir, TAKES_DIR),
         defaultsFor = ExportPrefsStore(GeodePrefsFiles(context).general)::loadFor,
     ) {
         startFresh(context.filesDir)
-        // Takes saved inside project folders before #384 move out, once; the move is native.
-        val notMoved = GeodeNative.studioMoveTakesOut(projectsDir.path, takesDir.path)
-        if (notMoved > 0) RingLog.note(TAG, "$notMoved takes not moved out of their projects")
     }
 
     fun newId(): ProjectId = ProjectId(UUID.randomUUID().toString())
@@ -87,42 +69,9 @@ class EditorProjectStore(
 
     fun touch(project: StudioProject): StudioProject = project.copy(updatedAtMs = clock())
 
-    /** The folder [id]'s takes are saved in (beside the project folder, not inside it; see the class KDoc). */
-    fun takesFolderOf(id: ProjectId): File = File(takesDir, safeId(id))
-
-    /** Removes the folder, its takes and everything in them. The rendered videos stay where they were saved. */
+    /** Removes the folder and everything in it. The rendered videos stay where they were saved. */
     @WorkerThread
-    fun delete(id: ProjectId): Boolean {
-        val takesGone = takesFolderOf(id).deleteRecursively()
-        return folderOf(id).deleteRecursively() && takesGone
-    }
-
-    @WorkerThread
-    fun saveTake(
-        id: ProjectId,
-        takeId: String,
-        json: String,
-    ): Boolean {
-        val dir = takesFolderOf(id).apply { mkdirs() }
-        return AtomicWrite.text(File(dir, PresetStore.safeFileName(takeId) + ".json"), json)
-    }
-
-    /** The take's JSON (PerformanceTake's format), or null when the project has no such take. */
-    @WorkerThread
-    fun loadTake(
-        id: ProjectId,
-        takeId: String,
-    ): String? =
-        File(takesFolderOf(id), PresetStore.safeFileName(takeId) + ".json")
-            .takeIf { it.isFile }
-            ?.let { runCatching { it.readText() }.getOrNull() }
-
-    /** Bytes the project takes on disk (project file plus takes), for My videos' details line. */
-    @WorkerThread
-    fun sizeOf(id: ProjectId): Long =
-        listOf(folderOf(id), takesFolderOf(id))
-            .flatMap { it.walkTopDown().filter(File::isFile).toList() }
-            .sumOf { it.length() }
+    fun delete(id: ProjectId): Boolean = folderOf(id).deleteRecursively()
 
     @WorkerThread
     fun templates(): List<ProjectTemplate> =
@@ -157,15 +106,15 @@ class EditorProjectStore(
         const val PROJECT_FILE = "project.json"
         const val TEMPLATE_FILE = "template.json"
 
-        /** Every project's takes, one folder per project id. Kept out of cloud backup by name (#384). */
+        /** Where recorded takes were kept before Record became a live video; still out of cloud backup. */
         const val TAKES_DIR = "project-takes"
 
         /**
-         * Wave 1 starts fresh (pre-launch, testers only): the one global "Untitled" project in
-         * `files/editor` and the loose takes in `files/takes` are deleted, not migrated. A take
-         * there was look automation on wall-clock time with no project to live in; see ADR 0005.
+         * Deleted, not migrated: the one global "Untitled" project in `files/editor` and the takes
+         * (look automation replayed into a render) in `files/takes` and [TAKES_DIR]. Record is a
+         * live video now; the owner chose to delete the old takes.
          */
-        private val LEGACY_DIRS = listOf("editor", "takes")
+        private val LEGACY_DIRS = listOf("editor", "takes", TAKES_DIR)
 
         private fun startFresh(filesDir: File) {
             LEGACY_DIRS.map { File(filesDir, it) }.filter { it.exists() }.forEach { it.deleteRecursively() }

@@ -3,6 +3,7 @@ package dev.geode.ui.wallpaper
 import android.Manifest
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
@@ -55,7 +56,12 @@ import dev.geode.wallpaper.WallpaperSettings
  */
 class WallpaperOptionsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
+        // The page is black in every system mode: SystemBarStyle.auto would draw dark bar icons on it
+        // under a light system theme (MainActivity does the same).
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
         super.onCreate(savedInstanceState)
         val gui = ThemeStore(GeodePrefsFiles(this).general).loadGui()
         val store = WallpaperPrefsStore(this)

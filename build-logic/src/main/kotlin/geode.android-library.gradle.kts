@@ -14,7 +14,9 @@ extensions.configure<com.android.build.api.dsl.LibraryExtension> {
     }
 }
 
+val catalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
+
 dependencies {
-    "testImplementation"("junit:junit:4.13.2")
-    "testImplementation"("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
+    "testImplementation"(catalog.findLibrary("junit").get())
+    "testImplementation"(catalog.findLibrary("kotlinx-coroutines-test").get())
 }

@@ -53,6 +53,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -255,10 +256,15 @@ fun AppRoot() {
             }
     }
     VisualizerEngineBindings(viewModel, visualizerView)
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    val vizState = viewModel.vizState.collectAsStateWithLifecycle()
     // The accent follows the visual: the middle of its palette's hues; MilkDrop paints its own.
-    val accentTarget =
-        if (viz.sceneId == SceneIds.MILKDROP) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
+    // Derived, so the root recomposes when the accent changes, not on every Customize slider tick.
+    val accentTarget by remember {
+        derivedStateOf {
+            val viz = vizState.value
+            if (viz.sceneId == SceneIds.MILKDROP) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
+        }
+    }
     // Outside the theme, so the motion scheme is built here from the same switches the theme reads.
     // Android's "Remove animations" alone (data/SystemMotion, #336); the paywall below reads it too.
     val reducedMotion = rememberSystemReducedMotion()
@@ -305,11 +311,11 @@ fun AppRoot() {
             )
         }
         val tutorial = rememberTutorialState()
-        // Remembered on the labels, so the tab bar gets the same list until the language changes and can skip.
+        // Remembered: a fresh list each recomposition would recompose the tab bar and rail with it.
         val navLabels = GeodeDestination.entries.map { stringResource(it.labelRes) }
         val navEntries =
             remember(navLabels) {
-                GeodeDestination.entries.mapIndexed { i, d -> NavEntry(d, DockItem(navLabels[i], d.icon)) }
+                GeodeDestination.entries.mapIndexed { i, destination -> NavEntry(destination, DockItem(navLabels[i], destination.icon)) }
             }
         // Keyed by destination, not by position: rotating swaps the bar layout for the rail
         // layout, which would otherwise drop every screen's saved tab and scroll state.
@@ -558,7 +564,7 @@ private fun AppShellCompact(
     val onVisuals = appState.dest == GeodeDestination.VISUALS
     val showsPlayer = hasMedia && !appState.onPlayer
     var barHeight by remember { mutableStateOf(0.dp) }
-    val navItems = remember(navEntries) { navEntries.map { it.item } }
+    val tabItems = remember(navEntries) { navEntries.map { it.item } }
     var dockDrawn by remember { mutableStateOf(0.dp) }
     Box(Modifier.fillMaxSize()) {
         val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -644,7 +650,7 @@ private fun AppShellCompact(
                 exit = fadeOut(dockFade),
             ) {
                 FloatingTabBar(
-                    items = navItems,
+                    items = tabItems,
                     // A destination can be hidden while still being the current one — reaching
                     // Studio from a track menu, say. Fall back to the first tab rather than -1.
                     selected = navEntries.indexOfFirst { it.destination == appState.dest }.coerceAtLeast(0),

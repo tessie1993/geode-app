@@ -2,9 +2,7 @@ package dev.geode.ui
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.media.MediaMetadataRetriever
 import android.net.Uri
-import android.os.Build
 import android.text.format.DateUtils
 import android.util.Size
 import androidx.compose.foundation.Image
@@ -276,22 +274,11 @@ private fun VideoThumbnail(uri: String?) {
     }
 }
 
-/** Android 10+ has a cached thumbnail per media row; older phones decode one frame. Null on any failure. */
+/** The cached thumbnail of the media row. Null on any failure. */
 private fun Context.videoFrame(uri: Uri): Bitmap? {
     var frame: Bitmap? = null
     bestEffort(TAG, "video thumbnail") {
-        frame =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                contentResolver.loadThumbnail(uri, Size(THUMB_WIDTH, THUMB_HEIGHT), null)
-            } else {
-                val retriever = MediaMetadataRetriever()
-                try {
-                    retriever.setDataSource(this, uri)
-                    retriever.frameAtTime
-                } finally {
-                    retriever.release()
-                }
-            }
+        frame = contentResolver.loadThumbnail(uri, Size(THUMB_WIDTH, THUMB_HEIGHT), null)
     }
     return frame
 }

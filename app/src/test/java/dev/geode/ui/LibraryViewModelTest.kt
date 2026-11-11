@@ -82,6 +82,7 @@ class LibraryViewModelTest {
                 runs += Run(query, currentCoroutineContext()[ContinuationInterceptor] as? CoroutineDispatcher)
                 LibraryBrowse.browse(index, query, sort)
             },
+            indexFn = { LibraryBrowse.index(it) { all -> FakeLibrarySearcher(all) } },
         )
 
     @Test

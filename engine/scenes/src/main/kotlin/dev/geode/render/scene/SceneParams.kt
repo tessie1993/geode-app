@@ -1,5 +1,7 @@
 package dev.geode.render.scene
 
+import dev.geode.engine.bridge.GeodeNative
+
 data class SceneParams(
     val speed: Float = 1f,
     val zoom: Float = 1f,
@@ -214,29 +216,34 @@ data class SceneParams(
                 "customPalette2Id" to "which saved palette slot 2 uses; rendering reads the resolved hues",
             )
 
-        val PALETTES: List<Triple<String, Float, Float>> =
+        /**
+         * The built-in palettes' names, in `palette` index order: labels only. Each one's hue base and
+         * span are native (`core/viz/Params`, read through [paletteBase] and friends), and the params
+         * schema's `palette` range is this list's length (`ParamSchemaTest`).
+         */
+        val PALETTES: List<String> =
             listOf(
-                Triple("Spectrum", 0.0f, 1.0f),
-                Triple("Neon", 0.5f, 0.45f),
-                Triple("Fire", 0.0f, 0.14f),
-                Triple("Ocean", 0.5f, 0.2f),
-                Triple("Mono", 0.6f, 0.02f),
-                Triple("Candy", 0.85f, 0.5f),
-                Triple("Forest", 0.33f, 0.18f),
-                Triple("Aurora", 0.45f, 0.7f),
-                Triple("Sunset", 0.05f, 0.3f),
-                Triple("Ice", 0.55f, 0.15f),
-                Triple("Vapor", 0.78f, 0.35f),
-                Triple("Toxic", 0.25f, 0.25f),
-                Triple("Royal", 0.7f, 0.25f),
-                Triple("Blush", 0.93f, 0.12f),
-                Triple("Copper", 0.07f, 0.1f),
-                Triple("Mint", 0.4f, 0.12f),
-                Triple("Galaxy", 0.65f, 0.5f),
-                Triple("Cherry", 0.97f, 0.08f),
-                Triple("Cyan", 0.5f, 0.08f),
-                Triple("Magenta", 0.833f, 0.08f),
-                Triple("Yellow", 0.167f, 0.08f),
+                "Spectrum",
+                "Neon",
+                "Fire",
+                "Ocean",
+                "Mono",
+                "Candy",
+                "Forest",
+                "Aurora",
+                "Sunset",
+                "Ice",
+                "Vapor",
+                "Toxic",
+                "Royal",
+                "Blush",
+                "Copper",
+                "Mint",
+                "Galaxy",
+                "Cherry",
+                "Cyan",
+                "Magenta",
+                "Yellow",
             )
 
         val PARTICLE_SHAPES: List<String> = listOf("Dot", "Ring", "Star", "Square", "Spark", "Hex", "Bubble")
@@ -261,17 +268,19 @@ data class SceneParams(
     val usesCustomPalette2: Boolean
         get() = palette2BaseOverride >= 0f || palette2RangeOverride >= 0f
 
+    // The override when it is set, else the built-in palette's (index clamped into the table): native,
+    // `geode_params_palette_base`/`_range`, the same rule the renderer draws by.
     val paletteBase: Float
-        get() = if (paletteBaseOverride >= 0f) paletteBaseOverride else PALETTES[palette.coerceIn(0, PALETTES.size - 1)].second
+        get() = GeodeNative.paramsPaletteBase(palette, paletteBaseOverride)
 
     val paletteRange: Float
-        get() = if (paletteRangeOverride >= 0f) paletteRangeOverride else PALETTES[palette.coerceIn(0, PALETTES.size - 1)].third
+        get() = GeodeNative.paramsPaletteRange(palette, paletteRangeOverride)
 
     val palette2Base: Float
-        get() = if (palette2BaseOverride >= 0f) palette2BaseOverride else PALETTES[palette2.coerceIn(0, PALETTES.size - 1)].second
+        get() = GeodeNative.paramsPaletteBase(palette2, palette2BaseOverride)
 
     val palette2Range: Float
-        get() = if (palette2RangeOverride >= 0f) palette2RangeOverride else PALETTES[palette2.coerceIn(0, PALETTES.size - 1)].third
+        get() = GeodeNative.paramsPaletteRange(palette2, palette2RangeOverride)
 
     fun withoutCustomPalette(second: Boolean = false): SceneParams =
         if (second) {

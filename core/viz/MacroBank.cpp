@@ -4,6 +4,7 @@
 #include <array>
 #include <charconv>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <mutex>
 
@@ -61,6 +62,13 @@ const TargetInfo* infoOf(LfoTarget target) {
 }
 
 float unit(float v) { return std::isfinite(v) ? std::clamp(v, -1.0f, 1.0f) : 0.0f; }
+
+constexpr std::array<const char*, kCurveCount> kCurveNames = {"LINEAR", "EASE_IN", "EASE_OUT", "S_CURVE"};
+
+Curve validCurve(Curve curve) {
+    const int i = static_cast<int>(curve);
+    return i >= 0 && i < kCurveCount ? curve : Curve::Linear;
+}
 
 // Text the codec can carry and a label can show: no control characters, no field separator, no
 // outer spaces, at most maxBytes without splitting a UTF-8 character.
@@ -130,12 +138,51 @@ struct Seed {
     std::vector<Link> links;
 };
 
-// The built-in knobs. Four axes of a picture that do not overlap (no target is on two knobs): its
-// light, its colour, its shape and its motion. Every knob has a link that reaches every style both
-// ways (the composite's and the camera's fields), plus the ones only some engines have. Weights are
-// fractions of rangeOf, which already stops at the safety maxima.
+// The built-in knobs: four jobs that do not overlap (no target is on two knobs), its shape, its motion,
+// its colour and its depth. Each spends a full turn on params every engine shows strongly (the view's
+// geometry, the clocks and the camera, a hue turn, zoom and the lens), not on the ones the safety clamp
+// keeps small (Bloom and Intensity stop at 0.25 over neutral, so a knob made of them barely shows), and
+// most of each param's range, so a full turn is a different picture on every style. Weights are
+// fractions of rangeOf, which already stops at the safety maxima; the motion fields are the ones
+// safety::apply scales under reduced motion. core/tests/macro_bank_test.cpp pins their strength.
 const std::vector<Seed>& seeds() {
     static const std::vector<Seed> kSeeds = {
+        {"Shape", "Down twists the picture into mirrored tiles, up melts, warps and twists it",
+         {{LfoTarget::Morph, 0.9f, 0.0f},
+          {LfoTarget::Warp, 0.8f, 0.0f},
+          {LfoTarget::Turbulence, 0.5f, 0.0f},
+          {LfoTarget::Twist, 0.6f, -0.6f},
+          {LfoTarget::Tile, 0.0f, 0.5f}}},
+        {"Motion", "Down slows the picture and stills the camera, up speeds, sways and spins it",
+         {{LfoTarget::Speed, 0.5f, -0.22f},
+          {LfoTarget::Sway, 0.6f, 0.0f},
+          {LfoTarget::Rotation, 0.08f, 0.0f},
+          {LfoTarget::CamFly, 0.3f, -0.1f},
+          {LfoTarget::CamOrbit, 0.3f, -0.35f},
+          {LfoTarget::FluidForce, 0.4f, -0.25f}}},
+        {"Colour", "Down turns the colours cool and dim, up warm, vivid and glowing",
+         {{LfoTarget::ColorShift, 0.35f, -0.35f},
+          {LfoTarget::Temperature, 0.5f, -0.5f},
+          {LfoTarget::Saturation, 0.25f, 0.0f},
+          {LfoTarget::PaletteMix, 0.7f, 0.0f},
+          {LfoTarget::Bloom, 1.0f, 0.0f},
+          {LfoTarget::Intensity, 0.2f, -0.3f}}},
+        {"Depth", "Down pulls in close, up opens a wide, deep view",
+         {{LfoTarget::Zoom, -0.22f, 0.35f},
+          {LfoTarget::CamFov, 0.4f, -0.25f},
+          {LfoTarget::Fisheye, 0.35f, -0.35f},
+          {LfoTarget::CamPush, -0.4f, 0.4f},
+          {LfoTarget::Vignette, 0.0f, 0.5f}}},
+    };
+    return kSeeds;
+}
+
+// The built-in knobs as they first shipped (Glow, Heat, Bend, Flow, #1001), by id. A saved knob that still
+// matches one exactly (the user turned it but never edited it) is that built-in knob, not the user's
+// own, so decode hands it back as the knob that now has its id, centred: its old turn was a turn of a
+// different job. Anything the user edited stays as they left it.
+const std::vector<Seed>& retiredSeeds() {
+    static const std::vector<Seed> kRetired = {
         {"Glow", "Down dims the picture into a dark frame, up makes it bright and blooming",
          {{LfoTarget::Bloom, 1.0f, 0.0f}, {LfoTarget::Intensity, 0.2f, -0.5f}, {LfoTarget::Vignette, 0.0f, 0.5f}}},
         {"Heat", "Down turns the colours cool and pale, up warm and vivid",
@@ -153,7 +200,7 @@ const std::vector<Seed>& seeds() {
           {LfoTarget::CamFly, 0.2f, -0.1f},
           {LfoTarget::FluidForce, 0.3f, -0.2f}}},
     };
-    return kSeeds;
+    return kRetired;
 }
 
 Bank buildDefault() {
@@ -167,6 +214,28 @@ Bank buildDefault() {
         bank.knobs.push_back(std::move(knob));
     }
     return normalized(bank);
+}
+
+const Seed* seedOf(int id) {
+    return id >= 1 && id <= static_cast<int>(seeds().size()) ? &seeds()[static_cast<size_t>(id - 1)] : nullptr;
+}
+
+// A knob's definition (what Reset puts back) against the built-in one: its value is the user's turn, not part of it.
+bool asBuilt(const Knob& knob) {
+    const Knob* built = nullptr;
+    for (const Knob& k : defaultBank().knobs) {
+        if (k.id == knob.id) built = &k;
+    }
+    return built && knob.name == built->name && knob.hint == built->hint && knob.links == built->links;
+}
+
+const char* flag(bool on) { return on ? "1" : "0"; }
+
+// An offset in a param's units for the editor to show: four significant digits, no float noise.
+std::string units(float v) {
+    char buf[32];
+    std::snprintf(buf, sizeof buf, "%.4g", static_cast<double>(v) == 0.0 ? 0.0 : static_cast<double>(v));
+    return buf;
 }
 
 std::mutex gLock;
@@ -189,6 +258,30 @@ std::string buildTargetsText() {
 
 }  // namespace
 
+const char* name(Curve curve) { return kCurveNames[static_cast<size_t>(validCurve(curve))]; }
+
+std::optional<Curve> curveNamed(std::string_view curveName) {
+    for (int i = 0; i < kCurveCount; ++i) {
+        if (curveName == kCurveNames[static_cast<size_t>(i)]) return static_cast<Curve>(i);
+    }
+    return std::nullopt;
+}
+
+float shape(Curve curve, float t) {
+    const float x = std::isfinite(t) ? std::clamp(t, 0.0f, 1.0f) : 0.0f;
+    switch (validCurve(curve)) {
+        case Curve::EaseIn:
+            return x * x;
+        case Curve::EaseOut:
+            return x * (2.0f - x);
+        case Curve::SCurve:
+            return x * x * (3.0f - 2.0f * x);
+        case Curve::Linear:
+            break;
+    }
+    return x;
+}
+
 bool linkable(LfoTarget target) { return infoOf(target) != nullptr; }
 
 Range rangeOf(LfoTarget target) {
@@ -209,6 +302,8 @@ const Bank& defaultBank() {
     return kDefault;
 }
 
+bool isBase(int id) { return seedOf(id) != nullptr; }
+
 Bank normalized(const Bank& bank) {
     Bank out;
     int maxId = 0;
@@ -223,7 +318,7 @@ Bank normalized(const Bank& bank) {
         knob.value = unit(in.value);
         for (const Link& link : in.links) {
             if (!linkable(link.target)) continue;
-            const Link fixed{link.target, unit(link.up), unit(link.down)};
+            const Link fixed{link.target, unit(link.up), unit(link.down), validCurve(link.curve)};
             const auto same = linkOn(knob, link.target);
             if (same != knob.links.end()) {
                 *same = fixed;
@@ -266,19 +361,59 @@ Bank addKnob(const Bank& bank, std::string_view name) {
     return out;
 }
 
+Bank duplicateKnob(const Bank& bank, int id) {
+    Bank out = normalized(bank);
+    const auto at = std::find_if(out.knobs.begin(), out.knobs.end(), [id](const Knob& k) { return k.id == id; });
+    if (at == out.knobs.end() || static_cast<int>(out.knobs.size()) >= kMaxKnobs || out.nextId > kMaxId) return out;
+    Knob copy = *at;
+    copy.id = out.nextId++;
+    copy.name = cleanText(cleanText(at->name, kMaxNameBytes - 2) + " 2", kMaxNameBytes);
+    copy.hint.clear();
+    out.knobs.insert(at + 1, std::move(copy));
+    return out;
+}
+
+Bank moveKnob(const Bank& bank, int id, int delta) {
+    Bank out = normalized(bank);
+    const auto at = std::find_if(out.knobs.begin(), out.knobs.end(), [id](const Knob& k) { return k.id == id; });
+    if (at == out.knobs.end()) return out;
+    const int last = static_cast<int>(out.knobs.size()) - 1;
+    const int from = static_cast<int>(at - out.knobs.begin());
+    const int to = static_cast<int>(std::clamp<long long>(static_cast<long long>(from) + delta, 0, last));
+    if (to < from) {
+        std::rotate(out.knobs.begin() + to, at, at + 1);
+    } else if (to > from) {
+        std::rotate(at, at + 1, out.knobs.begin() + to + 1);
+    }
+    return out;
+}
+
 Bank removeKnob(const Bank& bank, int id) {
     Bank out = normalized(bank);
+    if (isBase(id)) return out;
     std::erase_if(out.knobs, [id](const Knob& knob) { return knob.id == id; });
     return out;
+}
+
+Bank resetKnob(const Bank& bank, int id) {
+    Bank out = normalized(bank);
+    Knob* knob = knobById(out, id);
+    const Seed* seed = seedOf(id);
+    if (!knob || !seed) return out;
+    knob->name = seed->name;
+    knob->hint = seed->hint;
+    knob->links = seed->links;
+    return normalized(out);
 }
 
 Bank setLink(const Bank& bank, int id, LfoTarget target, float up, float down) {
     Bank out = normalized(bank);
     Knob* knob = knobById(out, id);
     if (!knob || !linkable(target) || !std::isfinite(up) || !std::isfinite(down)) return out;
-    const Link link{target, unit(up), unit(down)};
+    Link link{target, unit(up), unit(down)};
     const auto same = linkOn(*knob, target);
     if (same != knob->links.end()) {
+        link.curve = same->curve;
         if (*same == link) return out;
         *same = link;
     } else {
@@ -289,6 +424,13 @@ Bank setLink(const Bank& bank, int id, LfoTarget target, float up, float down) {
     return out;
 }
 
+Bank addLink(const Bank& bank, int id, LfoTarget target) {
+    Bank out = normalized(bank);
+    Knob* knob = knobById(out, id);
+    if (!knob || linkOn(*knob, target) != knob->links.end()) return out;
+    return setLink(out, id, target, kNewLinkWeight, -kNewLinkWeight);
+}
+
 Bank removeLink(const Bank& bank, int id, LfoTarget target) {
     Bank out = normalized(bank);
     Knob* knob = knobById(out, id);
@@ -296,6 +438,60 @@ Bank removeLink(const Bank& bank, int id, LfoTarget target) {
     const auto same = linkOn(*knob, target);
     if (same == knob->links.end()) return out;
     knob->links.erase(same);
+    knob->hint.clear();
+    return out;
+}
+
+namespace {
+
+std::uint64_t splitmix(std::uint64_t& state) {
+    std::uint64_t z = (state += 0x9E3779B97F4A7C15ull);
+    z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ull;
+    z = (z ^ (z >> 27)) * 0x94D049BB133111EBull;
+    return z ^ (z >> 31);
+}
+
+float between(std::uint64_t& state, float lo, float hi) {
+    return lo + (hi - lo) * static_cast<float>(splitmix(state) >> 40) / static_cast<float>(std::uint64_t{1} << 24);
+}
+
+}  // namespace
+
+Bank roll(const Bank& bank, int id, std::uint64_t seed) {
+    Bank out = normalized(bank);
+    Knob* knob = knobById(out, id);
+    if (!knob) return out;
+    std::vector<LfoTarget> pool;
+    for (int i = 0; i < kTargetCount; ++i) {
+        const TargetInfo& info = infos()[static_cast<size_t>(i)];
+        if (info.slot >= 0 && info.hi > info.lo) pool.push_back(static_cast<LfoTarget>(i));
+    }
+    std::uint64_t state = seed;
+    const int count = std::min({2 + static_cast<int>(splitmix(state) % 4), kMaxLinks, static_cast<int>(pool.size())});
+    std::vector<Link> links;
+    for (int n = 0; n < count; ++n) {
+        const size_t pick = static_cast<size_t>(splitmix(state) % pool.size());
+        const LfoTarget target = pool[pick];
+        pool.erase(pool.begin() + static_cast<long>(pick));
+        const float sign = (splitmix(state) & 1u) ? 1.0f : -1.0f;
+        const float up = sign * between(state, 0.15f, 0.6f);
+        const float down = (splitmix(state) & 1u) ? -up * between(state, 0.5f, 1.0f) : 0.0f;
+        const auto curve = static_cast<Curve>(splitmix(state) % kCurveCount);
+        links.push_back({target, up, down, curve});
+    }
+    knob->links = std::move(links);
+    knob->hint.clear();
+    return normalized(out);
+}
+
+Bank setCurve(const Bank& bank, int id, LfoTarget target, Curve curve) {
+    Bank out = normalized(bank);
+    Knob* knob = knobById(out, id);
+    const int c = static_cast<int>(curve);
+    if (!knob || c < 0 || c >= kCurveCount) return out;
+    const auto same = linkOn(*knob, target);
+    if (same == knob->links.end() || same->curve == curve) return out;
+    same->curve = curve;
     knob->hint.clear();
     return out;
 }
@@ -322,7 +518,7 @@ SceneParams apply(const SceneParams& p, const Bank& bank, std::uint64_t reach) {
             if (!info) continue;
             const int t = static_cast<int>(link.target);
             if (((reach >> t) & std::uint64_t{1}) == 0) continue;
-            const float weight = value >= 0.0f ? value * link.up : -value * link.down;
+            const float weight = shape(link.curve, std::fabs(value)) * (value >= 0.0f ? link.up : link.down);
             if (!std::isfinite(weight) || weight == 0.0f) continue;
             offset[static_cast<size_t>(t)] += std::clamp(weight, -1.0f, 1.0f) * (info->hi - info->lo);
             moved |= std::uint64_t{1} << t;
@@ -366,8 +562,9 @@ std::string encode(const Bank& bank) {
     for (const Knob& knob : b.knobs) {
         out += "knob|" + std::to_string(knob.id) + "|" + tableNumber(knob.value) + "|" + knob.name + "|" + knob.hint + "\n";
         for (const Link& link : knob.links) {
-            out += std::string("link|") + modtargets::name(link.target) + "|" + tableNumber(link.up) + "|" + tableNumber(link.down) +
-                   "\n";
+            out += std::string("link|") + modtargets::name(link.target) + "|" + tableNumber(link.up) + "|" + tableNumber(link.down);
+            if (link.curve != Curve::Linear) out += std::string("|") + name(link.curve);
+            out += "\n";
         }
     }
     return out;
@@ -409,13 +606,27 @@ Bank decode(std::string_view text) {
             open = true;
         } else if (f[0] == "link" && open) {
             Link link;
-            if (f.size() != 4 || bank.knobs.back().links.size() >= kMaxParsedLinks) continue;
+            if ((f.size() != 4 && f.size() != 5) || bank.knobs.back().links.size() >= kMaxParsedLinks) continue;
             link.target = targetNamed(f[1]);
             if (link.target == LfoTarget::None || !parseFloat(f[2], link.up) || !parseFloat(f[3], link.down)) continue;
+            if (f.size() == 5) link.curve = curveNamed(f[4]).value_or(Curve::Linear);
             bank.knobs.back().links.push_back(link);
         }
     }
-    return header ? normalized(bank) : defaultBank();
+    if (!header) return defaultBank();
+    Bank out = normalized(bank);
+    for (Knob& knob : out.knobs) {
+        const auto& retired = retiredSeeds();
+        if (knob.id < 1 || knob.id > static_cast<int>(retired.size())) continue;
+        const Seed& was = retired[static_cast<size_t>(knob.id - 1)];
+        const Seed* now = seedOf(knob.id);
+        if (!now || knob.name != was.name || knob.hint != was.hint || knob.links != was.links) continue;
+        knob.name = now->name;
+        knob.hint = now->hint;
+        knob.links = now->links;
+        knob.value = 0.0f;
+    }
+    return normalized(out);
 }
 
 const std::string& targetsText() {
@@ -437,6 +648,38 @@ std::string liveText(const Bank& bank, const std::string& styleId) {
         }
         out += "knob|" + std::to_string(knob.id) + "|" + (up ? "1" : "0") + "|" + (down ? "1" : "0") + "\n";
     }
+    return out;
+}
+
+std::string editorText(const Bank& bank, const std::string& styleId) {
+    const std::uint64_t reach = reachMask(styleId);
+    const auto reaches = [reach](LfoTarget target) { return ((reach >> static_cast<int>(target)) & std::uint64_t{1}) != 0; };
+    const Bank valid = normalized(bank);
+    const bool room = static_cast<int>(valid.knobs.size()) < kMaxKnobs && valid.nextId <= kMaxId;
+    bool pristine = valid.knobs.size() == defaultBank().knobs.size();
+    for (size_t i = 0; pristine && i < valid.knobs.size(); ++i) {
+        pristine = valid.knobs[i].id == defaultBank().knobs[i].id && asBuilt(valid.knobs[i]);
+    }
+    std::string out = "macroeditor|" + std::to_string(kTextVersion) + "\n";
+    out += "caps|" + std::to_string(kMaxKnobs) + "|" + std::to_string(kMaxLinks) + "|" + std::to_string(kMaxNameBytes) + "\n";
+    out += std::string("bank|") + flag(room) + "|" + flag(pristine) + "\n";
+    for (const Knob& knob : valid.knobs) {
+        out += "knob|" + std::to_string(knob.id) + "|" + flag(isBase(knob.id)) + "|" + flag(asBuilt(knob)) + "|" +
+               flag(static_cast<int>(knob.links.size()) < kMaxLinks) + "|" + tableNumber(knob.value) + "|" + knob.name + "|" +
+               knob.hint + "\n";
+        for (const Link& link : knob.links) {
+            const Range range = rangeOf(link.target);
+            const float width = range.max - range.min;
+            out += std::string("link|") + modtargets::name(link.target) + "|" + tableNumber(link.up) + "|" + tableNumber(link.down) +
+                   "|" + flag(reaches(link.target)) + "|" + name(link.curve) + "|" + units(link.up * width) + "|" +
+                   units(link.down * width) + "\n";
+        }
+    }
+    for (int i = 0; i < kTargetCount; ++i) {
+        const auto target = static_cast<LfoTarget>(i);
+        if (linkable(target)) out += std::string("target|") + modtargets::name(target) + "|" + flag(reaches(target)) + "\n";
+    }
+    for (const char* curve : kCurveNames) out += std::string("curve|") + curve + "\n";
     return out;
 }
 

@@ -469,7 +469,7 @@ private fun NoteKeySlider(
 /**
  * Music › Notes & key: how strongly each part of the musical layer (core/viz/NoteResponse) feeds this
  * style's own knobs, saved with the style like every Customize value. The switch that runs the layer at all is
- * Settings › Behaviour (free, on by default); with it off these sliders do nothing, so the page says so
+ * Settings › Sound reaction (free, on by default); with it off these sliders do nothing, so the page says so
  * rather than letting a user drag a dead control.
  */
 @Composable

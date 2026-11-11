@@ -134,60 +134,62 @@ internal fun CustomizePanel(
             customizeNav.open(CustomizeCategory.MUSIC.name)
         },
     ) {
-        ParamSurface(sceneId = sceneId, query = query) {
-            val header: @Composable (CustomizeCategory?) -> Unit = { category ->
-                CustomizeHeader(
-                    viewModel = viewModel,
-                    visualizerView = visualizerView,
-                    category = category,
-                    proLock = proLock,
-                    searching = searching,
-                    onSearching = { on ->
-                        searching = on
-                        if (!on) query = ""
-                    },
-                    showTips = showTips,
-                    onShowTips = { showTips = it },
-                )
-                if (searching) {
-                    OutlinedTextField(
-                        value = query,
-                        onValueChange = { query = it },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = GeodeSpacing.L),
-                        singleLine = true,
-                        label = { Text(stringResource(R.string.customize_a11y_search)) },
+        ProvideKnobLinks(sceneId, proLock) {
+            ParamSurface(sceneId = sceneId, query = query) {
+                val header: @Composable (CustomizeCategory?) -> Unit = { category ->
+                    CustomizeHeader(
+                        viewModel = viewModel,
+                        visualizerView = visualizerView,
+                        category = category,
+                        proLock = proLock,
+                        searching = searching,
+                        onSearching = { on ->
+                            searching = on
+                            if (!on) query = ""
+                        },
+                        showTips = showTips,
+                        onShowTips = { showTips = it },
                     )
-                }
-            }
-            if (query.isNotBlank()) {
-                // A search shows every match at once, in every category; each control hides itself unless it matches.
-                Column(Modifier.fillMaxSize()) {
-                    header(open)
-                    LazyColumn(
-                        modifier = Modifier.weight(1f).fillMaxWidth(),
-                        contentPadding = PaddingValues(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.XS),
-                        verticalArrangement = Arrangement.spacedBy(GeodeSpacing.XS),
-                    ) {
-                        items(categories.flatMap(sectionsOf), key = { it.path }) { section ->
-                            Column(Modifier.fillMaxWidth()) { CustomizeControls(section.controls, host) }
-                        }
+                    if (searching) {
+                        OutlinedTextField(
+                            value = query,
+                            onValueChange = { query = it },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = GeodeSpacing.L),
+                            singleLine = true,
+                            label = { Text(stringResource(R.string.customize_a11y_search)) },
+                        )
                     }
                 }
-            } else {
-                CustomizeBrowser(
-                    categories = categories,
-                    sectionsOf = sectionsOf,
-                    nav = customizeNav,
-                    listState = listState,
-                    openSections = openSections.value,
-                    onToggleSection = { section ->
-                        val path = section.path
-                        openSections.value = if (path in openSections.value) openSections.value - path else openSections.value + path
-                    },
-                    sectionLocked = { !proLock.unlocked && !FreeTier.customizeSectionFree(it.basics) },
-                    modifier = Modifier.fillMaxSize(),
-                    header = header,
-                ) { section -> CustomizeControls(section.controls, host) }
+                if (query.isNotBlank()) {
+                    // A search shows every match at once, in every category; each control hides itself unless it matches.
+                    Column(Modifier.fillMaxSize()) {
+                        header(open)
+                        LazyColumn(
+                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.XS),
+                            verticalArrangement = Arrangement.spacedBy(GeodeSpacing.XS),
+                        ) {
+                            items(categories.flatMap(sectionsOf), key = { it.path }) { section ->
+                                Column(Modifier.fillMaxWidth()) { CustomizeControls(section.controls, host) }
+                            }
+                        }
+                    }
+                } else {
+                    CustomizeBrowser(
+                        categories = categories,
+                        sectionsOf = sectionsOf,
+                        nav = customizeNav,
+                        listState = listState,
+                        openSections = openSections.value,
+                        onToggleSection = { section ->
+                            val path = section.path
+                            openSections.value = if (path in openSections.value) openSections.value - path else openSections.value + path
+                        },
+                        sectionLocked = { !proLock.unlocked && !FreeTier.customizeSectionFree(it.basics) },
+                        modifier = Modifier.fillMaxSize(),
+                        header = header,
+                    ) { section -> CustomizeControls(section.controls, host) }
+                }
             }
         }
     }

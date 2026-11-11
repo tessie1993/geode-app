@@ -6,6 +6,8 @@ import android.content.SharedPreferences
 import android.util.Log
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 
 /**
  * Where a recorded take's MP4 goes, asked once: the first stopped recording asks the user (Videos
@@ -62,10 +64,15 @@ class RecordSaveStore(
     private fun holdsGrant(treeUri: String): Boolean =
         appContext.contentResolver.persistedUriPermissions.any { it.uri.toString() == treeUri && it.isWritePermission }
 
-    private companion object {
+    internal companion object {
         const val TAG = "RecordSave"
         const val FILE = "geode-record"
         const val KEY_TARGET = "save_target"
         const val GRANT_FLAGS = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+
+        val PREF_KEYS =
+            prefKeys(FILE) {
+                device(PrefType.STRING, KEY_TARGET)
+            }
     }
 }

@@ -51,6 +51,7 @@ private val WhileUiSubscribed = SharingStarted.WhileSubscribed(5_000)
  * [browse] is already searched, ranked, sorted and grouped, off the main thread — the screen
  * renders what it is given rather than deciding what to show, so the ordering rules live
  * somewhere they can be reasoned about and no tab groups the library during composition.
+ * While [isSearching] it is one result list (artists, albums, tracks) and the tabs step aside.
  *
  * [query] is the query [browse] answers, which trails the text field by the debounce; the field
  * itself reads [LibraryViewModel.query].
@@ -115,6 +116,7 @@ class LibraryViewModel
         private val savedStateHandle: SavedStateHandle,
         compute: CoroutineDispatcher,
         browseFn: BrowseFn = { index, query, sort -> LibraryBrowse.browse(index, query, sort) },
+        indexFn: (List<DeviceTrack>) -> LibraryIndex = { LibraryBrowse.index(it) },
     ) : ViewModel() {
         @Inject
         constructor(
@@ -146,11 +148,8 @@ class LibraryViewModel
         private val debouncedQuery: Flow<String> =
             queryFlow.debounce { if (it.isBlank()) 0L else QUERY_DEBOUNCE_MS }.distinctUntilChanged()
 
-        /** Folded once per library change, on [compute]: keystrokes then walk ready text. */
-        private val index: Flow<LibraryIndex> =
-            inputs.deviceTracks
-                .map { LibraryBrowse.index(it) }
-                .flowOn(compute)
+        /** One index per library change; the first pass on [compute] folds it, keystrokes then walk ready text. */
+        private val index: Flow<LibraryIndex> = inputs.deviceTracks.map(indexFn)
 
         @OptIn(ExperimentalCoroutinesApi::class)
         private val browseFlow: Flow<Pair<LibraryBrowseResult, Pair<String, LibrarySort>>> =

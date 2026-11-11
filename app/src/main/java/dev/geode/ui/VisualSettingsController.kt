@@ -3,6 +3,7 @@ package dev.geode.ui
 import dev.geode.data.GuiPrefs
 import dev.geode.data.Preset
 import dev.geode.data.VizStateStore
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.TransitionCatalog
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.CoroutineScope
@@ -96,6 +97,24 @@ internal class VisualSettingsController(
     fun setSceneParams(params: SceneParams) {
         state.update { it.copy(params = params) }
         vizStateStore.persist()
+    }
+
+    /**
+     * A pinch and twist on the visual move the real Zoom and Rotation params, not a view-only
+     * transform, so a gesture is kept in presets. The maths and the clamp to each
+     * slider's range are native (`core/viz/TouchTransform`).
+     */
+    fun nudgeTransform(
+        zoomFactor: Float,
+        degrees: Float,
+    ) {
+        val p = state.value.params
+        val next =
+            p.copy(
+                zoom = GeodeNative.touchZoom(p.zoom, zoomFactor),
+                rotation = GeodeNative.touchRotation(p.rotation, degrees),
+            )
+        if (next != p) setSceneParams(next)
     }
 
     fun reportShaderError(error: String?) {

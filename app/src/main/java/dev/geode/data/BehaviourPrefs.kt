@@ -2,10 +2,13 @@ package dev.geode.data
 
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import dev.geode.data.prefs.BackupClass
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 
-// Settings › Behaviour: what the app does by itself, what each screen does, and what each gesture on
-// the visual means. The owner decided every default here (wave 1, 1C). Kept in `geode-prefs`, so
+// What the app does by itself, what each screen does, and what each gesture on the visual means
+// (Settings spreads these rows over seven of its tabs). The owner decided every default here (wave 1, 1C). Kept in `geode-prefs`, so
 // Settings › Backup carries it in the Settings section.
 // "Resume last track on launch" is not here: it is PlayerPrefs.autoResume, which already existed.
 
@@ -128,6 +131,12 @@ data class BehaviourPrefs(
     /** The dream's "title · artist" line under the clock, while something plays. */
     val dreamShowNowPlaying: Boolean = true,
     /**
+     * The dream also reacts to other apps' sound (the output-mix capture the wallpaper's "React to
+     * any app" uses), when BeatRealms is not playing. Off by default, like the wallpaper's: Android
+     * files that capture under the microphone permission, so it is asked for when this is turned on.
+     */
+    val dreamHearOtherApps: Boolean = false,
+    /**
      * Behaviour › Dream's frame rate (ADR 0008), its own and not Settings › Performance's: 30 unless
      * the user picks another. The allowed rates and the snap are native (`GeodeNative.surfaceFpsChoice`).
      */
@@ -179,6 +188,7 @@ class BehaviourStore(
             dreamScreenBright = prefs.getBoolean(KEY_DREAM_BRIGHT, d.dreamScreenBright),
             dreamShowClock = prefs.getBoolean(KEY_DREAM_CLOCK, d.dreamShowClock),
             dreamShowNowPlaying = prefs.getBoolean(KEY_DREAM_NOW_PLAYING, d.dreamShowNowPlaying),
+            dreamHearOtherApps = prefs.getBoolean(KEY_DREAM_OTHER_APPS, d.dreamHearOtherApps),
             dreamFps = prefs.getInt(KEY_DREAM_FPS, d.dreamFps),
             gestures =
                 CanvasGesture.entries.associateWith { gesture ->
@@ -199,6 +209,7 @@ class BehaviourStore(
             putBoolean(KEY_DREAM_BRIGHT, b.dreamScreenBright)
             putBoolean(KEY_DREAM_CLOCK, b.dreamShowClock)
             putBoolean(KEY_DREAM_NOW_PLAYING, b.dreamShowNowPlaying)
+            putBoolean(KEY_DREAM_OTHER_APPS, b.dreamHearOtherApps)
             putInt(KEY_DREAM_FPS, b.dreamFps)
             for (gesture in CanvasGesture.entries) putString(KEY_GESTURE_PREFIX + gesture.name, b.actionFor(gesture).name)
         }
@@ -216,7 +227,7 @@ class BehaviourStore(
         default: E,
     ): E = prefs.getString(key, null)?.let { name -> enumValues<E>().firstOrNull { it.name == name } } ?: default
 
-    private companion object {
+    internal companion object {
         const val KEY_START_SCREEN = "behaviour_start_screen"
         const val KEY_LAST_SCREEN = "behaviour_last_screen"
         const val KEY_KEEP_SCREEN_ON_VISUALS = "behaviour_keep_screen_on_visuals"
@@ -227,7 +238,18 @@ class BehaviourStore(
         const val KEY_DREAM_BRIGHT = "behaviour_dream_screen_bright"
         const val KEY_DREAM_CLOCK = "behaviour_dream_show_clock"
         const val KEY_DREAM_NOW_PLAYING = "behaviour_dream_show_now_playing"
+        const val KEY_DREAM_OTHER_APPS = "behaviour_dream_hear_other_apps"
         const val KEY_DREAM_FPS = "behaviour_dream_fps"
         const val KEY_GESTURE_PREFIX = "behaviour_gesture_"
+
+        val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.GENERAL) {
+                portable(PrefType.STRING, KEY_START_SCREEN, KEY_LAST_SCREEN, KEY_QUEUE_END)
+                add(PrefType.STRING, BackupClass.PORTABLE, CanvasGesture.entries.map { KEY_GESTURE_PREFIX + it.name })
+                portable(PrefType.BOOLEAN, KEY_KEEP_SCREEN_ON_VISUALS, KEY_START_ON_HEADPHONES, KEY_REMEMBER_SHUFFLE_REPEAT)
+                portable(PrefType.BOOLEAN, KEY_DREAM_BRIGHT, KEY_DREAM_CLOCK, KEY_DREAM_NOW_PLAYING, KEY_DREAM_OTHER_APPS)
+                portable(PrefType.STRING_SET, KEY_NOTIFICATION_BUTTONS)
+                portable(PrefType.INT, KEY_DREAM_FPS)
+            }
     }
 }

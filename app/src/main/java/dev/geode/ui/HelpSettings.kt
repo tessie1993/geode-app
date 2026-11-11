@@ -28,7 +28,10 @@ private enum class HelpTopic(
     PERFORMANCE(R.string.help_topic_performance, R.string.help_topic_performance_body),
 }
 
-/** Settings › Help: answers to the questions people actually arrive with. The tour is in Tutorials. */
+/**
+ * Settings › Backup, help & about › How things work: answers to the questions people actually
+ * arrive with. The tour is in the Tutorials section beside it.
+ */
 @Composable
 internal fun HelpTopicsSection() {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

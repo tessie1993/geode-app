@@ -202,6 +202,10 @@ void geode_viz_queue_touch_stroke(geode_viz* v, float nx, float ny, float ndx, f
     if (v) v->renderer.queueTouchStroke(nx, ny, ndx, ndy, dt, strength);
 }
 
+void geode_viz_set_touch_smear(geode_viz* v, int on, float strength) {
+    if (v) v->renderer.setTouchSmear(on != 0, strength);
+}
+
 void geode_viz_set_fluid_injection(geode_viz* v, const char* force_source, const char* dye_source) {
     if (v) v->renderer.setFluidInjectionShaders(text(force_source), text(dye_source));
 }
@@ -235,6 +239,15 @@ int geode_viz_take_director_style_moments(geode_viz* v) {
 
 void geode_viz_write_audio(geode_viz* v, const float* interleaved, int frames, int channels, int sample_rate) {
     if (v) v->renderer.writeAudio(interleaved, frames, channels, sample_rate);
+}
+
+int geode_viz_hear_track(geode_viz* v, geode_track_feed* feed) {
+    // With no renderer the frames are still handed out (to nobody), so the feed keeps its place.
+    const geode_track_sink sink = [](void* context, const float* interleaved, int frames, int channels,
+                                     int sample_rate) {
+        geode_viz_write_audio(static_cast<geode_viz*>(context), interleaved, frames, channels, sample_rate);
+    };
+    return geode_track_feed_deliver(feed, v ? sink : nullptr, v);
 }
 
 void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {

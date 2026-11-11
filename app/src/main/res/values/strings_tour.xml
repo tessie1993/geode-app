@@ -49,7 +49,7 @@
     <string name="tour_tip_hold_to_record">Tip: hold the visual to start recording.</string>
     <string name="tour_tip_swipe_up_player">Tip: swipe the mini player up to open Player.</string>
     <string name="tour_tip_swipe_down_knobs">Tip: swipe down on the visual for the quick knobs.</string>
-    <string name="tour_tip_swirl_randomize">Tip: draw two circles on the visual for a whole new look.</string>
+    <string name="tour_tip_swirl_randomize">Tip: draw two circles on the visual for a random style, preset and settings.</string>
     <string name="tour_tip_got_it">Got it</string>
 
     <!-- Settings › Tutorials. -->

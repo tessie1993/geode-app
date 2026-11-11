@@ -133,7 +133,7 @@ private fun FontColorRow(
                 FontColorSwatch(
                     choice = choice,
                     selected = gui.fontColorArgb == choice.argb,
-                    onSelect = { viewModel.setGuiPrefs(gui.copy(fontColorArgb = choice.argb, whiteFont = false)) },
+                    onSelect = { viewModel.setGuiPrefs(gui.copy(fontColorArgb = choice.argb)) },
                 )
             }
         }

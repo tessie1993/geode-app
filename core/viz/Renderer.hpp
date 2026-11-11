@@ -43,6 +43,7 @@
 #include "viz/ShaderSource.hpp"
 #include "viz/ThermalGovernor.hpp"
 #include "viz/TouchField.hpp"
+#include "viz/TouchSmear.hpp"
 #include "viz/TrailPass.hpp"
 #include "viz/UiBlurPass.hpp"
 #include "viz/VisualSafety.hpp"
@@ -103,6 +104,11 @@ public:
     void setTransition(const std::string& id, int64_t durationMs);
     void beginParamMorph(float seconds);
     void submitTouchPoints(const float* xy, int n) { touchField_.submit(xy, n); }
+    // Settings › Visuals › Touch › Smear (viz/TouchSmear): any thread; the GL thread reads it per frame.
+    void setTouchSmear(bool on, float strength) {
+        smearOn_.store(on, std::memory_order_relaxed);
+        smearStrength_.store(touch::smearStrength(strength), std::memory_order_relaxed);
+    }
     // The sound engine's write side: interleaved PCM in play order, every sample once. A new rate builds a
     // new engine. Call from the render thread before render(), live and in export alike, so the frame the
     // engine is stepped into covers exactly the audio written up to that frame. The same samples, mixed to
@@ -272,6 +278,9 @@ private:
     std::string quadVert_;
 
     TouchField touchField_;
+    touch::SmearTrail smearTrail_;
+    std::atomic<bool> smearOn_{false};
+    std::atomic<float> smearStrength_{touch::kSmearStrengthDefault};
     TrailPass trailPass_;
     CompositePass compositePass_;
     CompositePass::Inputs compositeInputs_;

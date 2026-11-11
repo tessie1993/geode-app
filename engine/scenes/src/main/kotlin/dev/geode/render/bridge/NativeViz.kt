@@ -56,6 +56,7 @@ class NativeViz(
                 GeodeNative.vizSetMilkTextureDir(handle, milkTextureDir)
                 applyUiBlur()
                 edgeGlow?.let { GeodeNative.vizSetEdgeGlow(handle, it) }
+                if (smearOn) GeodeNative.vizSetTouchSmear(handle, true, smearStrength)
                 onCreated()
             }
         }
@@ -101,15 +102,14 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetTouch(handle, xy, n)
     }
 
-    fun queueTouchStroke(
-        nx: Float,
-        ny: Float,
-        ndx: Float,
-        ndy: Float,
-        dt: Float,
+    /** Kept for a new handle, like the edge glow: the user's smear switch outlives a detach. */
+    fun setTouchSmear(
+        on: Boolean,
         strength: Float,
     ) {
-        if (handle != 0L) GeodeNative.vizQueueTouchStroke(handle, nx, ny, ndx, ndy, dt, strength)
+        smearOn = on
+        smearStrength = strength
+        if (handle != 0L) GeodeNative.vizSetTouchSmear(handle, on, strength)
     }
 
     fun setFluidInjectionShaders(
@@ -142,6 +142,13 @@ class NativeViz(
     ) {
         if (handle != 0L && frames > 0) GeodeNative.vizWriteAudio(handle, interleaved, frames, channels, sampleRateHz)
     }
+
+    /**
+     * An export's track audio: the native feed at [feed] hands this renderer's sound engine its held frames
+     * up to the feed's target, with no copy through Kotlin (to nobody once destroyed). True once the target is
+     * reached.
+     */
+    fun hearTrack(feed: Long): Boolean = GeodeNative.vizHearTrack(handle, feed)
 
     /**
      * The live feed: the renderer's sound engine takes what [ring] gained since the last frame, natively,
@@ -236,6 +243,8 @@ class NativeViz(
      */
     private val uiBlur = FloatArray(UI_BLUR_FLOATS)
     private var edgeGlow: FloatArray? = null
+    private var smearOn = false
+    private var smearStrength = 1f
 
     /** Pins this renderer for an export; see [GeodeNative.vizPrepareOffscreen]. */
     fun prepareOffscreen() {

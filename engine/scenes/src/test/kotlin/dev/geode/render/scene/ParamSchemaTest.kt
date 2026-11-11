@@ -52,6 +52,16 @@ class ParamSchemaTest {
     }
 
     @Test
+    fun theBuiltInPalettesSpanThePaletteRange() {
+        // The names are the shell's labels; their colours are native. The index range must name every row.
+        for (field in listOf("palette", "palette2")) {
+            val range = requireNotNull(ParamSchema[field]).range
+            assertEquals(0f, range.start)
+            assertEquals((SceneParams.PALETTES.size - 1).toFloat(), range.endInclusive)
+        }
+    }
+
+    @Test
     fun everyCountSnapsAndEveryDefaultLiesInItsRange() {
         ParamSchema.params.forEach { spec ->
             assertTrue(spec.name, spec.default in spec.range)

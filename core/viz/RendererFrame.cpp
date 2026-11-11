@@ -389,6 +389,8 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     if (thermal_.tier() != appliedTier_ || userScale_.load(std::memory_order_relaxed) != appliedUserScale_) {
         applyRenderScale();
     }
+    // Memory pressure (#854): shed the spare scenes on this GL thread; what is drawn is pinned.
+    if (SceneResidency::trimSignal().poll(seenTrim_)) trimScenes({}, MemoryTrim::UiHidden);
     Scene* scene = resolveActiveScene();
     if (!scene || !ensureTargets()) {
         glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);

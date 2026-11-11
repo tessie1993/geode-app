@@ -443,6 +443,22 @@ GEODE_API int         geode_waves_randomize(const char* style_id, const char* lo
 /* in with every field the category's controls write taken from the look in from (same wire); an unknown category
  * copies in. */
 GEODE_API void        geode_customize_borrow(const char* category, const float* in, const float* from, float* out);
+/* Randomize everything (core/viz/RandomizeAll): the two-circle gesture's new style, look and every Customize category
+ * rolled. Pure, seeded: the same arguments always give the same result; pass one seed to both calls.
+ * geode_randomize_all_pick chooses among every catalogue style not in locked_styles (newline-joined ids the entitlement
+ * locks), not current_style while another is open, MilkDrop only when milk_count > 0; then a look for it:
+ * look_styles is the style id of each of the shell's presets, one per line, and *look_out the index of one made for
+ * the chosen style (-1 when none), else on MilkDrop *milk_out a .milk file index below milk_count (-1 otherwise).
+ * Writes the style id into style_out (NUL-terminated, truncated to style_capacity); 1 when a style was picked.
+ * geode_randomize_all_roll is base with every control locked keeps (keys and "#CATEGORY" lines) put back to its value in
+ * before, then, when roll_categories is 1, every category's other controls that reach style_id rolled (0: the kept
+ * controls alone, for a user the Customize roll is Pro for). Wire as geode_params_randomize; 1 when out differs from
+ * base. */
+GEODE_API int         geode_randomize_all_pick(uint64_t seed, const char* current_style, const char* locked_styles,
+                                               const char* look_styles, int milk_count, char* style_out, int style_capacity,
+                                               int* look_out, int* milk_out);
+GEODE_API int         geode_randomize_all_roll(const char* style_id, const char* locked, uint64_t seed, int roll_categories,
+                                               const float* before, const float* base, float* out);
 /* The macro bank (core/viz/MacroBank): the user's knobs, each a name, a value -1..1 and the links that say which
  * scene params it moves and how far each way. Pure: no viz handle, any thread. A bank travels as the versioned
  * '|'-separated line table MacroBank.hpp documents; the shell stores that string and decides nothing about it.

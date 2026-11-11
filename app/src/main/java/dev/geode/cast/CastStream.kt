@@ -193,7 +193,7 @@ internal class CastStream(
             System.arraycopy(hold, 0, block, 0, take * CH)
             block.fill(SILENCE, take * CH, need * CH)
             System.arraycopy(hold, take * CH, hold, 0, state[HELD].toInt() * CH)
-            encoder.queueAudio(block, need, step[PTS_US])
+            encoder.queueAudio(block, need)
         }
 
         /** What the ring gained since the last call, resampled to the stream's rate; null for none. */
@@ -240,7 +240,6 @@ internal class CastStream(
             const val KEEP = 2
             const val TAKE = 3
             const val PAD = 4
-            const val PTS_US = 5
             const val SILENCE: Short = 0
         }
     }

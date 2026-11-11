@@ -528,6 +528,12 @@ void testPlayerSignals() {
     player::setPlayerIsSource(false);
     CHECK(!player::playerIsSource(), "a capture takes the ring");
     player::setPlayerIsSource(true);
+    // The flag is the app ring's. A renderer fed another ring (the wallpaper's output mix) hears no player:
+    // its engine keeps the silence re-warm and takes no fade or boundary from the app's player.
+    CHECK(player::heardAsPlayer(true, true, false), "the player's ring while the player writes it is the player");
+    CHECK(!player::heardAsPlayer(false, true, false), "the output mix is never the player, whatever the app ring does");
+    CHECK(!player::heardAsPlayer(true, false, false), "another app's audio in the player's ring is not the player");
+    CHECK(!player::heardAsPlayer(true, true, true), "the mic heard alone is not the player");
 }
 
 // A boundary fires one full-strength section change, on the next step only, and survives a reset() between

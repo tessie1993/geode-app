@@ -1140,6 +1140,41 @@ Java_dev_geode_engine_bridge_GeodeNative_castAudioStep(JNIEnv* env, jobject, jlo
     env->SetLongArrayRegion(out, 0, GEODE_CAST_AUDIO_STEP, reinterpret_cast<const jlong*>(o));
 }
 
+// The AAC encoder's backlog (core/viz/frame/CastAudio, CastAudioFeed): a caller-owned long[GEODE_CAST_AUDIO_FEED_STATE].
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_castAudioFeedStart(JNIEnv* env, jobject, jlongArray state, jint rateHz) {
+    if (!state || env->GetArrayLength(state) < GEODE_CAST_AUDIO_FEED_STATE) return 0;
+    int64_t s[GEODE_CAST_AUDIO_FEED_STATE] = {};
+    const int capacity = geode_cast_audio_feed_start(s, rateHz);
+    env->SetLongArrayRegion(state, 0, GEODE_CAST_AUDIO_FEED_STATE, reinterpret_cast<const jlong*>(s));
+    return capacity;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_castAudioFeedAdd(JNIEnv* env, jobject, jlongArray state, jint frames) {
+    if (!state || env->GetArrayLength(state) < GEODE_CAST_AUDIO_FEED_STATE) return 0;
+    int64_t s[GEODE_CAST_AUDIO_FEED_STATE];
+    env->GetLongArrayRegion(state, 0, GEODE_CAST_AUDIO_FEED_STATE, reinterpret_cast<jlong*>(s));
+    const int64_t drop = geode_cast_audio_feed_add(s, frames);
+    env->SetLongArrayRegion(state, 0, GEODE_CAST_AUDIO_FEED_STATE, reinterpret_cast<const jlong*>(s));
+    return static_cast<jint>(drop);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_castAudioFeedTake(JNIEnv* env, jobject, jlongArray state, jint bufferFrames,
+                                                           jlongArray ptsUs) {
+    if (!state || !ptsUs || env->GetArrayLength(state) < GEODE_CAST_AUDIO_FEED_STATE || env->GetArrayLength(ptsUs) < 1) {
+        return 0;
+    }
+    int64_t s[GEODE_CAST_AUDIO_FEED_STATE];
+    int64_t pts = 0;
+    env->GetLongArrayRegion(state, 0, GEODE_CAST_AUDIO_FEED_STATE, reinterpret_cast<jlong*>(s));
+    const int64_t n = geode_cast_audio_feed_take(s, bufferFrames, &pts);
+    env->SetLongArrayRegion(state, 0, GEODE_CAST_AUDIO_FEED_STATE, reinterpret_cast<const jlong*>(s));
+    env->SetLongArrayRegion(ptsUs, 0, 1, reinterpret_cast<const jlong*>(&pts));
+    return static_cast<jint>(n);
+}
+
 // Cast's HLS timing (core/viz/frame/HlsSegments): the init segment's and a fragment's bytes in, its media seconds out.
 JNIEXPORT jdouble JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_hlsFragmentSeconds(JNIEnv* env, jobject, jbyteArray init, jbyteArray fragment) {
@@ -1152,6 +1187,26 @@ Java_dev_geode_engine_bridge_GeodeNative_hlsFragmentSeconds(JNIEnv* env, jobject
     if (f) env->ReleasePrimitiveArrayCritical(fragment, const_cast<uint8_t*>(f), JNI_ABORT);
     if (i) env->ReleasePrimitiveArrayCritical(init, const_cast<uint8_t*>(i), JNI_ABORT);
     return seconds;
+}
+
+// A fragment rewritten into a self-contained segment; the decode times are a caller-owned long[GEODE_HLS_TRACKS].
+JNIEXPORT jbyteArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_hlsRewriteFragment(JNIEnv* env, jobject, jbyteArray init, jlong moofAt,
+                                                            jbyteArray fragment, jlongArray decodeTimes) {
+    if (!init || !fragment || !decodeTimes || env->GetArrayLength(decodeTimes) < GEODE_HLS_TRACKS) return nullptr;
+    std::vector<uint8_t> i(static_cast<size_t>(env->GetArrayLength(init)));
+    std::vector<uint8_t> f(static_cast<size_t>(env->GetArrayLength(fragment)));
+    env->GetByteArrayRegion(init, 0, static_cast<jsize>(i.size()), reinterpret_cast<jbyte*>(i.data()));
+    env->GetByteArrayRegion(fragment, 0, static_cast<jsize>(f.size()), reinterpret_cast<jbyte*>(f.data()));
+    int64_t times[GEODE_HLS_TRACKS];
+    env->GetLongArrayRegion(decodeTimes, 0, GEODE_HLS_TRACKS, reinterpret_cast<jlong*>(times));
+    std::vector<uint8_t> out(f.size() + GEODE_HLS_FRAGMENT_GROWTH);
+    const size_t n = geode_hls_rewrite_fragment(i.data(), i.size(), moofAt, f.data(), f.size(), times, out.data(), out.size());
+    if (n == 0) return nullptr;
+    env->SetLongArrayRegion(decodeTimes, 0, GEODE_HLS_TRACKS, reinterpret_cast<const jlong*>(times));
+    jbyteArray result = env->NewByteArray(static_cast<jsize>(n));
+    if (result) env->SetByteArrayRegion(result, 0, static_cast<jsize>(n), reinterpret_cast<const jbyte*>(out.data()));
+    return result;
 }
 
 JNIEXPORT jint JNICALL

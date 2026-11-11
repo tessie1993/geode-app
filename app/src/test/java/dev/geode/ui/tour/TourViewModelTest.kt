@@ -202,7 +202,8 @@ class TourViewModelTest {
             assertEquals(TourNav.CUSTOMIZE, vm.uiState.value.navigate)
             vm.onNavigated()
             vm.onFacts(TourFacts(shown = TourChapter.CUSTOMIZE.spots.toSet(), place = TourPlace.VISUALS))
-            settle()
+            // The facts have settled, but the replay's own wait (longer than the debounce) has not run out.
+            advanceTimeBy(FACTS_SETTLE)
             assertNull(vm.uiState.value.step)
             advanceTimeBy(REPLAY_WAIT)
             assertEquals(TourSpot.CUSTOMIZE_KNOBS, vm.spot())
@@ -270,5 +271,6 @@ class TourViewModelTest {
     private companion object {
         const val SETTLE = TourViewModel.SETTLE_MS + TourViewModel.OFFER_DELAY_MS + 100
         const val REPLAY_WAIT = TourViewModel.REPLAY_SETTLE_MS
+        const val FACTS_SETTLE = TourViewModel.SETTLE_MS + 100
     }
 }

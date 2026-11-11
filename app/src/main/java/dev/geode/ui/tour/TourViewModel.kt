@@ -226,7 +226,9 @@ class TourViewModel
             settle?.cancel()
             val nav = next?.takeIf { it.replay }?.chapter?.screen
             ready.value = nav == null
-            _uiState.update { it.copy(step = null, tip = if (next == null) it.tip else null, navigate = nav) }
+            // A screen not yet opened stays asked for: the first run's last step (Open Visuals) asks
+            // for Visuals and its chapter ends at once, before the host has read the request.
+            _uiState.update { it.copy(step = null, tip = if (next == null) it.tip else null, navigate = nav ?: it.navigate) }
             run.value = next
             if (nav != null) {
                 settle =

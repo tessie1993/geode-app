@@ -287,6 +287,15 @@ void testDeterministicAndOff() {
     check(near(-q.paletteBaseOverride - 0.5f * q.paletteRangeOverride, hue), "shader styles get the look's hue");
     const SceneParams sim = a.apply(p, false);
     check(near(sim.paletteBaseOverride + 0.5f * sim.paletteRangeOverride, hue), "simulations get the same hue");
+    // The look is added to the user's dials, never put in their place: at full weight a slider still moves the picture.
+    SceneParams dim = p;
+    dim.brightness = p.brightness - 0.3f;
+    dim.saturation = p.saturation - 0.4f;
+    dim.contrast = p.contrast - 0.2f;
+    const SceneParams qDim = a.apply(dim);
+    check(std::fabs((q.brightness - qDim.brightness) - 0.3f) < 1e-5f && std::fabs((q.saturation - qDim.saturation) - 0.4f) < 1e-5f &&
+              std::fabs((q.contrast - qDim.contrast) - 0.2f) < 1e-5f,
+          "the user's Brightness, Saturation and Contrast steps come through the look whole");
     Director off;
     off.configure({0.0f, 99});
     float t3 = 0.0f;

@@ -153,17 +153,21 @@ ReactRoute route(ReactSource source, LfoTarget target, float amount) {
     return r;
 }
 
-// The director's look under the macros: Mood -1 drives saturation to exactly 0 whatever the director chose
-// (a director laid after the macros would lerp it back toward its own saturation, never below 0.2). An LFO
-// on saturation then shows on top of both (one laid before the macros would be wiped out by Mood -1).
-// The hand mask keeps the director's own routes off every moment, so nothing else writes saturation.
+// The director's look under the macros, each added to the user's value (base plus modulation): Mood -1
+// takes the look's saturation down by the knob's whole reach, to 0 where the look had less than that
+// to give. An LFO on saturation then shows on top of both. The hand mask keeps the director's own
+// routes off every moment, so nothing else writes saturation.
 void testOrder() {
     EngineSettings s;
     s.director = {1.0f, 42};
     s.knobs[static_cast<int>(Macro::Mood)] = -1.0f;
     s.handMask = hand::kAll;
+    EngineSettings centred = s;
+    centred.knobs[static_cast<int>(Macro::Mood)] = 0.0f;
     auto plain = std::make_unique<Resolver>();
     auto lfo = std::make_unique<Resolver>();
+    auto unturned = std::make_unique<Resolver>();
+    bool lowered = true;
     std::array<LfoConfig, LfoEngine::kSlots> configs{};
     configs[0] = sineOn(LfoTarget::Saturation, 0.3f, 1.0f);
     lfo->setLfoConfigs(configs);
@@ -178,7 +182,9 @@ void testOrder() {
         const StyleContext st = style(kStyle, i == 0);
         const SceneParams& a = plain->step(requested, f, kDt, s, st).params;
         const SceneParams& b = lfo->step(requested, f, kDt, s, st).params;
+        const SceneParams& c = unturned->step(requested, f, kDt, centred, st).params;
         if (t >= 38.0f) {
+            lowered = lowered && (a.saturation <= 1e-6f || a.saturation < c.saturation - 0.5f);
             maxPlain = std::max(maxPlain, std::fabs(a.saturation));
             maxLfo = std::max(maxLfo, b.saturation);
             lookInPlace = lookInPlace && a.paletteBaseOverride != SceneParams::kUnsetOverride;
@@ -186,7 +192,7 @@ void testOrder() {
     }
     check(plain->director().commits() >= 1 && plain->director().weight() > 0.9f, "the director is fully in");
     check(lookInPlace, "the director's look reaches the final params");
-    check(maxPlain < 1e-6f, "the macros lie over the director's look (Mood -1: saturation 0, got " + std::to_string(maxPlain) + ")");
+    check(lowered, "the macros lie over the director's look (Mood -1 takes its saturation down, peak " + std::to_string(maxPlain) + ")");
     check(maxLfo > 0.2f, "an LFO moves on top of the director and the macros (peak " + std::to_string(maxLfo) + ")");
 }
 

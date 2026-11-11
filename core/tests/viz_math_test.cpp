@@ -891,8 +891,43 @@ void macrosTurnTowardTheEndsAndStayInRange() {
     check(wide.zoom < p.zoom && wide.vignette <= p.vignette && wide.camFov > p.camFov, "Space up widens: zoom out, less vignette, wider lens");
     SceneParams wild = p;
     wild.bloom = 9.0f;
-    check(macros::apply(wild, knobs(Macro::Energy, 1.0f)).bloom <= 0.25f, "a knob never pushes a field past its slider");
+    check(macros::apply(wild, knobs(Macro::Energy, 1.0f)).bloom == wild.bloom, "a knob never pushes a field further past its slider");
     check(macros::apply(p, knobs(Macro::Mood, 1.0f)).speed == p.speed, "a knob only moves its own fields");
+}
+
+// The slider is the base and the knob adds to it: whatever the knobs (or the auto-director turning
+// them) do, moving a slider still moves the picture.
+void macrosAddToTheSliderNeverReplaceIt() {
+    SceneParams low;
+    low.speed = 0.4f;
+    low.zoom = 0.8f;
+    low.brightness = 0.6f;
+    low.camFov = 0.8f;
+    SceneParams high = low;
+    high.speed = 0.9f;
+    high.zoom = 1.3f;
+    high.brightness = 0.8f;
+    high.camFov = 1.0f;
+    for (float turn : {0.3f, 0.6f, 1.0f, -0.3f}) {
+        MacroKnobs k{};
+        k.fill(turn);
+        const SceneParams a = macros::apply(low, k);
+        const SceneParams b = macros::apply(high, k);
+        check(b.speed > a.speed && b.brightness > a.brightness && b.camFov > a.camFov && b.zoom > a.zoom,
+              "at any turn a higher slider still gives a higher value");
+    }
+    MacroKnobs half{};
+    half[static_cast<size_t>(Macro::Speed)] = 0.25f;
+    check(std::fabs((macros::apply(high, half).speed - macros::apply(low, half).speed) - (high.speed - low.speed)) < 1e-5f,
+          "away from the ends the slider's whole step comes through");
+    SceneParams back;
+    back.camFly = -1.5f;
+    check(macros::apply(back, half).camFly < 0.0f, "a backward Fly speed still flies backward under a small Speed turn");
+    SceneParams stopped;
+    stopped.camFly = -1.0f;
+    MacroKnobs down{};
+    down[static_cast<size_t>(Macro::Speed)] = -1.0f;
+    check(macros::apply(stopped, down).camFly == stopped.camFly, "a knob never drags back a value already past its end");
 }
 
 void macrosScaleTheSoundAndTheCamera() {
@@ -1616,6 +1651,7 @@ int main() {
     sourceCatalogueIsCompleteAndUnique();
     macrosAtRestChangeNothing();
     macrosTurnTowardTheEndsAndStayInRange();
+    macrosAddToTheSliderNeverReplaceIt();
     macrosScaleTheSoundAndTheCamera();
     chaosDownStopsCameraCuts();
     surpriseIsSeededAndKeepsLocks();

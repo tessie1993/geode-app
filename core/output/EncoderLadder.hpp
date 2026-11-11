@@ -14,14 +14,13 @@
 // capability table can be wrong in either direction; the ceiling only skips a rung the table says
 // is out of reach, so a 4K60 request on an encoder that lists 30 does not pay a refused configure.
 //
-// The rules, unchanged from the Kotlin:
+// The rules:
 // - The request is clamped to the rates any export offers, 24..60.
 // - Rung 0 is the request at the full bit rate.
 // - Rung 1 is the fallback: half the rate above 30 fps (50 -> 25, 60 -> 30, so the retry stays in the
 //   request's cadence family), the rate itself at 30 and below, at 2/3 of the bit rate. One halving
-//   always lands at or below 30, the floor above which a rate is halved. It is not clamped again:
-//   a request of 31..47 falls back to 15..23, below the 24 a request is clamped to, exactly as the
-//   Kotlin's `requested / 2` did.
+//   always lands at or below 30, the floor above which a rate is halved, and never below the 24 an
+//   export offers: a request of 31..47 retries at 24 (the Kotlin's bare `requested / 2` gave 15..23).
 // - A ceiling of 0 or less is "unknown": every rung is offered.
 // - A known ceiling drops the rungs above it, but never the last one: when even the floor is over
 //   the ceiling, the floor is still tried, since configure, not the table, has the final word.
@@ -45,8 +44,8 @@ struct EncoderRung {
     int bitRate = 0;
 };
 
-/** The rate a refused request retries at: half above the floor, the request itself at or below it. */
-constexpr int fallbackFps(int fps) { return fps > kLadderFloorFps ? fps / 2 : fps; }
+/** The rate a refused request retries at: half above the floor (never under 24), the request itself at or below it. */
+constexpr int fallbackFps(int fps) { return fps > kLadderFloorFps ? std::max(fps / 2, kLadderMinFps) : fps; }
 
 /** 2/3 of a bit rate, in 64-bit so a large rate cannot wrap; never negative. */
 constexpr int reducedBitRate(int bitRate) {

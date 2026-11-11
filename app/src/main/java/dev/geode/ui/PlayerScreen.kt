@@ -692,7 +692,11 @@ private fun UpNextCard(
             upNext.forEach { t ->
                 Text(
                     t.title.ifBlank { untitled },
-                    Modifier.fillMaxWidth().clickable(onClick = onOpenQueue).heightIn(min = 48.dp).wrapContentHeight(),
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onOpenQueue)
+                        .heightIn(min = 48.dp)
+                        .wrapContentHeight(),
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

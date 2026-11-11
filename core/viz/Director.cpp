@@ -208,11 +208,22 @@ void Director::reset() {
 }
 
 void Director::configure(const DirectorConfig& config) {
-    // A new seed is a new play: forget the song so far and start deciding afresh.
+    // A new seed is a new play: forget the song so far and start deciding afresh. The look on screen
+    // stays until the new play's first decision, which glides from it. Dropping it here snapped the
+    // palette, the dials and the routes back to the user's own for the four to twelve seconds the
+    // first decision waits, at every track change.
     if (configured_ && config.seed != config_.seed) {
         const float amount = amount_;
+        const float presence = presence_;
+        const Look shown = now_;
+        const ReactionEngine routes = incoming_;
+        const Routes routesBase = incomingBase_;
         reset();
         amount_ = amount;
+        presence_ = presence;
+        from_ = to_ = now_ = shown;
+        incoming_ = routes;
+        incomingBase_ = routesBase;
     }
     config_ = config;
     configured_ = true;
@@ -346,11 +357,14 @@ void Director::commit(Reason reason, float glideSeconds) {
     recent_[0] = best;
     recentCount_ = std::min(recentCount_ + 1, kRecent);
 
-    from_ = commits_ == 0 ? best : now_;
+    // Nothing on screen to glide from: the first look of the first play. A look carried over from the
+    // last play (configure) is glided from like any other.
+    const bool fresh = commits_ == 0 && presence_ <= 0.0f;
+    from_ = fresh ? best : now_;
     to_ = best;
-    glide_ = commits_ == 0 ? 1.0f : 0.0f;
+    glide_ = fresh ? 1.0f : 0.0f;
     glideSeconds_ = std::max(glideSeconds, 0.05f);
-    now_ = commits_ == 0 ? best : now_;
+    now_ = fresh ? best : now_;
     // The routes cross over: the playing set fades out while the new one fades in.
     outgoing_ = incoming_;
     outgoingBase_ = incomingBase_;

@@ -632,6 +632,11 @@ GEODE_API int                 geode_export_capture_read(geode_export_pass*, uint
 GEODE_API long long       geode_silence_heard_at(const float* const* channels, int channel_count, int frames,
                                                  long long now_ms, long long heard_at_ms);
 GEODE_API int             geode_silence_resting(long long now_ms, long long heard_at_ms);   /* 1 = may rest */
+/* A capture's digital silence (sound/Silence): heard_at moved to now when the peak of the block it just wrote
+ * (the ring's write answer) is above digital zero; quiet is 4 s of none since then. Start heard_at at the
+ * capture's start. Pure, any thread. */
+GEODE_API long long       geode_capture_heard_at(float peak, long long now_ms, long long heard_at_ms);
+GEODE_API int             geode_capture_quiet(long long now_ms, long long heard_at_ms);     /* 1 = quiet */
 
 /* What the player tells every live renderer's sound engine that the tap cannot hear (sound/PlayerSignals).
  * A track boundary: a new track (or the same one again) is a new play with `seed`; each live engine forgets

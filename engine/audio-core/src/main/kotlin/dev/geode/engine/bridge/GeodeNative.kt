@@ -1462,6 +1462,19 @@ object GeodeNative {
         heardAtMs: Long,
     ): Boolean
 
+    /** A capture's last sound: [nowMs] when [peak] (a ring write's answer) is above digital zero, else [heardAtMs]. */
+    external fun captureHeardAt(
+        peak: Float,
+        nowMs: Long,
+        heardAtMs: Long,
+    ): Long
+
+    /** Whether a capture has heard only digital zero for 4 s since [heardAtMs]. */
+    external fun captureQuiet(
+        nowMs: Long,
+        heardAtMs: Long,
+    ): Boolean
+
     // What the player tells the sound engines that the tap cannot hear (core/sound/PlayerSignals).
 
     /**

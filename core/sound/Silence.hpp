@@ -45,4 +45,17 @@ inline int64_t heardAt(const float* const* channels, int channelCount, int frame
 // Whether the surface may rest: nothing heard for longer than kRestAfterMs.
 inline bool resting(int64_t nowMs, int64_t heardAtMs) { return nowMs - heardAtMs > kRestAfterMs; }
 
+// A capture (the mic, another app's audio) that hears only digital zero: what Android hands a capture an
+// app refuses, so the Player can say so. Any sample above kCapturePeak is sound; kCaptureQuietMs of none
+// since the capture started or last heard sound is quiet. The caller keeps the one timestamp.
+inline constexpr float kCapturePeak = 1e-6f;
+inline constexpr int64_t kCaptureQuietMs = 4000;
+
+// The time the capture last heard sound, given the peak of the block it just wrote.
+inline int64_t captureHeardAt(float peak, int64_t nowMs, int64_t heardAtMs) {
+    return std::fabs(peak) > kCapturePeak ? nowMs : heardAtMs;
+}
+
+inline bool captureQuiet(int64_t nowMs, int64_t heardAtMs) { return nowMs - heardAtMs > kCaptureQuietMs; }
+
 }  // namespace geode::sound::silence

@@ -51,8 +51,8 @@ value).
 
 ## Stills gate
 
-`--stills <file.tsv>` is the input of CI's visual quality gate (#470, the
-`visual-stills` and `visual-gate` jobs in `.github/workflows/android.yml`):
+`--stills <file.tsv>` is the input of the visual quality gate (#470; its CI
+jobs were taken out in #786, so it runs by hand):
 
 ```sh
 node check.mjs --stills out/stills.tsv --out out/stills       # every style; --shard 2/4 for a quarter
@@ -87,7 +87,7 @@ flash rule, which was that limiter's code linked in, went with it.
 
 Styles that fail today are listed with a reason in
 `core/tests/visual_gate_baseline.txt`; only a failure not listed there fails
-CI. `./visual_gate --write <baseline> <tsv>...` rewrites the list on purpose.
+the gate. `./visual_gate --write <baseline> <tsv>...` rewrites the list on purpose.
 An entry that passes again is reported as stale; remove it by hand. The
 still PNGs are in the `visual-stills-*` artifacts: look at them before
 baselining a style.

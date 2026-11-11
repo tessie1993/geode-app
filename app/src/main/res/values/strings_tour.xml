@@ -1,79 +1,69 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The tour: pointers on the real controls, the guided path and one-time gesture tips (ui/tour). -->
+<!-- The tour (ui/tour): pointers on the real controls, one-time gesture tips, Settings › Tutorials. -->
 <resources>
     <string name="tour_step_of">%1$d of %2$d</string>
+    <string name="tour_pane_title">%1$s, step %2$d of %3$d</string>
     <string name="tour_next">Next</string>
     <string name="tour_done">Done</string>
     <string name="tour_skip">Skip</string>
     <string name="tour_skip_tour">Skip tour</string>
+    <string name="tour_ok">OK</string>
+    <string name="tour_replay_note">You can replay the tour in Settings, under Tutorials &amp; help.</string>
 
-    <!-- The guided path, once after first run. -->
-    <string name="tour_guide_library_title">Start with a song</string>
-    <string name="tour_guide_library_body">Open Library and tap any song to play it.</string>
-    <string name="tour_guide_open_library">Open Library</string>
-    <string name="tour_guide_play_hint">Tap any song to play it</string>
-    <string name="tour_guide_visuals_title">Now see it</string>
-    <string name="tour_guide_visuals_body">Visuals turns your music into light. Open it while the song plays.</string>
-    <string name="tour_guide_open_visuals">Open Visuals</string>
-
-    <!-- Player. -->
-    <string name="tour_player_play_title">Play and pause</string>
-    <string name="tour_player_play_body">Play, pause, or skip back and ahead.</string>
-    <string name="tour_player_seek_title">Jump anywhere</string>
-    <string name="tour_player_seek_body">Drag to move through the song.</string>
-    <string name="tour_player_queue_title">Up next</string>
-    <string name="tour_player_queue_body">See what plays next and change the order.</string>
-
-    <!-- Library. -->
-    <string name="tour_library_search_title">Find anything</string>
-    <string name="tour_library_search_body">Search songs, albums, playlists and saved looks.</string>
-    <string name="tour_library_track_title">Play a song</string>
-    <string name="tour_library_track_body">Tap any song to play it now.</string>
-    <string name="tour_mini_player_title">The mini player</string>
-    <string name="tour_mini_player_body">It fades after a few seconds. Tap the handle to bring it back.</string>
+    <!-- First steps: once, on a new install. -->
+    <string name="tour_nav_library_title">Start with a song</string>
+    <string name="tour_nav_library_body">Open Library and play any song.</string>
+    <string name="tour_nav_library_action">Open Library</string>
+    <string name="tour_play_song">Play any song to go on.</string>
+    <string name="tour_nav_visuals_title">Now see it</string>
+    <string name="tour_nav_visuals_body">Visuals turns your music into light.</string>
+    <string name="tour_nav_visuals_action">Open Visuals</string>
 
     <!-- Visuals. -->
-    <string name="tour_visuals_sheet_title">Your options, over the visual</string>
-    <string name="tour_visuals_sheet_body">Drag this edge to show more or less. Drag it down to watch full screen.</string>
-    <string name="tour_visuals_tabs_title">Four tabs</string>
-    <string name="tour_visuals_tabs_body">Styles picks a look, Customize shapes it, Presets saves it. MilkDrop has classic presets.</string>
+    <string name="tour_visuals_tabs_title">Pick a look</string>
+    <string name="tour_visuals_tabs_body">Styles picks a look. Customize changes it. Presets saves it. MilkDrop has the classic presets.</string>
     <string name="tour_stage_arrows_title">Next style</string>
-    <string name="tour_stage_arrows_body">Go to the next or previous style.</string>
-    <string name="tour_stage_record_title">Record a take</string>
-    <string name="tour_stage_record_body">Record a take while the song plays, then render it in Studio.</string>
+    <string name="tour_stage_arrows_body">The arrows step to the next or previous style.</string>
+    <string name="tour_stage_tools_title">Up here</string>
+    <string name="tour_stage_tools_body">Cast to a TV. The gear has Auto, which changes the style with the music. Studio makes a video. The last one shows the visual alone.</string>
+    <string name="tour_stage_record_title">Record</string>
+    <string name="tour_stage_record_body">Records the visual and the music as a video. Find it in Studio, under My videos.</string>
 
     <!-- Customize. -->
-    <string name="tour_customize_pages_title">Every control has one home</string>
-    <string name="tour_customize_pages_body">Tap a page name to jump there, or keep scrolling.</string>
-    <string name="tour_customize_tools_title">Search, randomize, undo</string>
-    <string name="tour_customize_tools_body">Find a control, roll a new look for this page, or undo.</string>
-    <string name="tour_customize_row_title">More on each control</string>
-    <string name="tour_customize_row_body">Tap ⋮ on a row to learn what it does, reset it, or keep it when you randomize.</string>
+    <string name="tour_customize_knobs_title">Quick knobs</string>
+    <string name="tour_customize_knobs_body">A few knobs that move the whole look at once.</string>
+    <string name="tour_customize_list_title">A group for each part</string>
+    <string name="tour_customize_list_body">Look, Shape, Motion, Music and more. Each opens on the basics, with more below.</string>
+    <string name="tour_customize_randomize_title">Roll the dice</string>
+    <string name="tour_customize_randomize_body">In a group, the dice rolls new settings for it. Undo, next to it, takes them back.</string>
 
     <!-- Studio. -->
-    <string name="tour_studio_tabs_title">Make a video</string>
-    <string name="tour_studio_tabs_body">Render makes a video. My videos keeps your takes and renders.</string>
-    <string name="tour_studio_render_title">One tap to render</string>
-    <string name="tour_studio_render_body">Pick what to render, then tap Render. It keeps going if you leave the app.</string>
-
+    <string name="tour_studio_render_title">Make a video</string>
+    <string name="tour_studio_render_body">Pick a song and a look, then tap Render. It keeps going if you leave the app.</string>
     <string name="tour_studio_videos_title">Your videos</string>
-    <string name="tour_studio_videos_body">Takes and renders, newest first. Play, share or render one.</string>
-
-    <!-- Settings. -->
-    <string name="tour_settings_groups_title">Settings, in groups</string>
-    <string name="tour_settings_groups_body">Open a group to see its options.</string>
-    <string name="tour_settings_playback_title">Sound</string>
-    <string name="tour_settings_playback_body">Playback &amp; audio holds the EQ, crossfade and ReplayGain.</string>
-    <string name="tour_settings_tutorials_title">See these again</string>
-    <string name="tour_settings_tutorials_body">Replay the tips for any screen here.</string>
+    <string name="tour_studio_videos_body">Your renders and takes are kept under My videos.</string>
 
     <!-- One-time gesture tips. -->
     <string name="tour_tip_swipe_styles">Tip: swipe sideways on the visual to change style.</string>
     <string name="tour_tip_double_tap_sheet">Tip: double tap the visual to hide or show the options.</string>
     <string name="tour_tip_hold_to_record">Tip: hold the visual to start recording.</string>
     <string name="tour_tip_swipe_up_player">Tip: swipe the mini player up to open Player.</string>
+    <string name="tour_tip_swipe_down_knobs">Tip: swipe down on the visual for the quick knobs.</string>
+    <string name="tour_tip_swirl_randomize">Tip: draw two circles on the visual for a whole new look.</string>
     <string name="tour_tip_got_it">Got it</string>
 
+    <!-- Settings › Tutorials. -->
+    <string name="tour_chapter_start">First steps</string>
+    <string name="tour_chapter_visuals">Visuals</string>
+    <string name="tour_chapter_customize">Customize</string>
+    <string name="tour_chapter_studio">Studio</string>
+    <string name="tutorials_group">Tour</string>
+    <string name="tutorials_progress">%1$d of %2$d seen</string>
+    <string name="tutorials_play_all">Play the whole tour</string>
+    <string name="tutorials_reset">Reset all</string>
+    <string name="tutorials_reset_done">Cleared. The tour starts again next time you open the app.</string>
+    <string name="tutorials_chapter_done">Seen</string>
+    <string name="tutorials_chapter_not_done">Not seen yet</string>
     <plurals name="tour_chapter_pointers">
         <item quantity="one">%d step</item>
         <item quantity="other">%d steps</item>

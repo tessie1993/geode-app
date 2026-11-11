@@ -40,8 +40,8 @@ SceneParams apply(const SceneParams& p, bool reducedMotion) {
         out.pulse *= kReducedMotionScale;
         out.cycleSpeed *= kReducedMotionScale;
         // The two forward speeds, the fly-through and the dive, are scaled here and only here:
-        // the 2D styles read endlessZoomSpeed straight from these params and CameraRig takes both
-        // as they arrive, so the one scale reaches every render path once.
+        // CameraRig and the dive stage take them as they arrive, so the one scale reaches every
+        // render path once.
         out.camFly *= kReducedMotionScale;
         out.endlessZoomSpeed *= kReducedMotionScale;
     }

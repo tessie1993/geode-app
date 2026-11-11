@@ -4,7 +4,6 @@
 #include <cmath>
 
 #include "sound/DriveGain.hpp"
-#include "viz/EndlessZoom.hpp"
 #include "viz/VisualSafety.hpp"
 
 namespace geode::viz {
@@ -129,19 +128,11 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     const float lookYaw = p.camYaw * kMaxYaw + (p.camTouch || p.camGyro ? look.yaw * kTouchLook : 0.0f);
     const float lookPitch = p.camPitch * kMaxPitch + (p.camTouch || p.camGyro ? look.pitch * kTouchLook : 0.0f);
     float fovTarget = std::clamp(p.camFov, 0.5f, 2.0f);
-    // camFly and endlessZoomSpeed arrive already scaled for reduced motion by safety::apply, their
-    // one owner, so forward travel takes them as they are; g is for the rig's own moves below.
+    // camFly arrives already scaled for reduced motion by safety::apply, its one owner, so forward
+    // travel takes it as it is; g is for the rig's own moves below. Endless zoom is not the rig's: it is
+    // a stage of its own over every style's picture (EndlessZoom.hpp).
     float speedTarget = std::clamp(p.camFly, -2.5f, 2.5f) * kBaseSpeed;
     const int path = std::clamp(p.camPath, 0, kPathCount - 1);
-    // Endless zoom is a dive. The 2D styles draw it as an octave crossfade (EndlessZoom.hpp);
-    // a 3D style would have to march every ray twice for that, so it dives the way a camera
-    // does instead, by flying further in, pushed by the same bass law. The renderer clears
-    // endlessZoom for scenes that do not march the rig, so a 2D style's flat pan never speeds up.
-    if (p.endlessZoom) {
-        const float music = sound != nullptr ? endless::musicRate(*sound, p.audioDrive) : 1.0f;
-        speedTarget += std::clamp(p.endlessZoomSpeed, 0.0f, 1.2f) * music * kDivePerOctave;
-    }
-
     // ---- SoundMoves: what the music does to the camera by itself ----------------------------
     // Sources: MilkDrop's zoom on bass_att and its slow rot on time; TouchDesigner's lag-shaped
     // levels; Eiserloh (GDC 2016) for trauma shake. Every offset is eased by the springs below and

@@ -8,7 +8,6 @@
 
 #include "util/Log.hpp"
 #include "viz/CompositeGrade.hpp"
-#include "viz/EndlessZoom.hpp"
 #include "viz/LiveSignal.hpp"
 #include "viz/Quad.hpp"
 
@@ -182,7 +181,6 @@ void MilkdropScene::armLastPreset() {
 void MilkdropScene::update(const GeodeSoundFrame& features, float dt) {
     const SceneParams& p = params_;
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
-    zoomPhase_ = p.endlessZoom ? endless::advance(zoomPhase_, p.endlessZoomSpeed * endless::musicRate(features, p.audioDrive), dt) : 0.0f;
     if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
     beatPulse_ = std::max(std::max(live::hit(features), beatPulse_ - dt * 3.0f), 0.0f);
     if (!engine_) return;
@@ -329,9 +327,6 @@ void MilkdropScene::draw(float timeSeconds) {
     glUniform1i(postLocs_.loc("uTex"), 0);
     set1f("uZoom", p.zoom * (1.0f + beatPulse_ * p.beatResponse * 0.08f));
     set1f("uRotation", rotationAngle_);
-    // The post pass samples the preset's frame twice, an octave apart (EndlessZoom.hpp).
-    const endless::Layers zoom = endless::layers(zoomPhase_);
-    glUniform3f(postLocs_.loc("uZoomLayers"), zoom.mag0, zoom.mag1, zoom.weight1);
     set1f("uMirrorX", p.mirror ? 1.0f : 0.0f);
     set1f("uPalBase", p.paletteBase());
     set1f("uPalSpan", grade::paletteSpan(p.hueRange, p.paletteRange()));

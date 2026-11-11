@@ -77,4 +77,13 @@ class LibraryBrowseTest {
         assertEquals(listOf("1"), LibraryBrowse.search(tracks, "cafe").map { it.uri })
         assertEquals(tracks, LibraryBrowse.search(tracks, ""))
     }
+
+    @Test
+    fun favouritesAreTheLibrarysTracksNewestFirstWithoutTheOnesGone() {
+        val tracks = listOf(track("a", "A"), track("b", "B"), track("c", "C"))
+        // The store's order (newest first) is kept; "gone" was deleted from the device.
+        val favourites = LibraryBrowse.favouriteTracks(listOf("c", "gone", "a"), tracks)
+        assertEquals(listOf("c", "a"), favourites.map { it.uri })
+        assertTrue(LibraryBrowse.favouriteTracks(emptySet(), tracks).isEmpty())
+    }
 }

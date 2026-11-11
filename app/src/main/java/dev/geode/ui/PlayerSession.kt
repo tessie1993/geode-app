@@ -320,6 +320,8 @@ class PlayerSession internal constructor(
 
     val favourites: StateFlow<Set<String>> get() = listening.favourites
 
+    private val recordPrefs = dev.geode.data.RecordPrefsStore(prefsFiles.general)
+
     internal val takeController: TakeController =
         TakeController(
             FileTakeRepository(TakeStore(application)),
@@ -341,6 +343,8 @@ class PlayerSession internal constructor(
                     path: String,
                     sceneId: String,
                 ) = visual.emitApply(VizApply(milkPath = path, sceneId = sceneId))
+
+                override fun lengthLimitNote(recordedMs: Long): String? = recordLimitNote(application, recordPrefs, recordedMs)
 
                 override fun canRecord(): Boolean = allowsRecording()
 
@@ -395,6 +399,7 @@ class PlayerSession internal constructor(
     private var playerListener: Player.Listener? = null
 
     private fun refresh() {
+        val uri = player.currentMediaItem?.localConfiguration?.uri
         _positionMs.value = player.currentPosition.coerceAtLeast(0)
         _uiState.value =
             PlayerUiState(
@@ -403,13 +408,12 @@ class PlayerSession internal constructor(
                 artist = player.mediaMetadata.artist?.toString(),
                 title =
                     player.mediaMetadata.title?.toString()
-                        ?: player.currentMediaItem
-                            ?.localConfiguration
-                            ?.uri
+                        ?: uri
                             ?.lastPathSegment
                             ?.substringAfterLast('/')
                             ?.substringBeforeLast('.'),
                 hasMedia = player.currentMediaItem != null,
+                trackUri = uri?.toString(),
                 queueSize = player.mediaItemCount,
                 queueIndex = player.currentMediaItemIndex,
                 shuffle = player.shuffleModeEnabled,
@@ -494,6 +498,14 @@ class PlayerSession internal constructor(
         val byUri = library.value.tracks.associateBy { it.uri }
         val tracks = uris.map { u -> byUri[u]?.let(PlaybackQueue::queueTrack) ?: QueueTrack(u) }
         playFrom(tracks, uris[startIndex.coerceIn(0, uris.size - 1)])
+    }
+
+    /** The favourites still on the device, newest first: Library's Favourites list. */
+    fun favouriteTracks(): List<DeviceTrack> = LibraryBrowse.favouriteTracks(favourites.value, deviceTracks.value)
+
+    fun playFavourites() {
+        val tracks = favouriteTracks().map(PlaybackQueue::queueTrack)
+        if (tracks.isNotEmpty()) playFrom(tracks, tracks.first().uri)
     }
 
     fun resolveSmartPlaylist(playlist: SmartPlaylist): List<DeviceTrack> =

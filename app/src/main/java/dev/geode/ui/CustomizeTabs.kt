@@ -260,14 +260,14 @@ private fun RowMenu(
                 })
             }
             if (onReset != null) {
-                DropdownMenuItem(text = { Text("Reset") }, onClick = {
+                DropdownMenuItem(text = { Text(stringResource(R.string.action_reset)) }, onClick = {
                     open = false
                     onReset()
                 })
             }
             if (lockable) {
                 DropdownMenuItem(
-                    text = { Text("Keep when randomizing") },
+                    text = { Text(stringResource(R.string.customize_keep_when_randomizing)) },
                     trailingIcon = { Checkbox(checked = lockKey in kept, onCheckedChange = null) },
                     onClick = {
                         open = false
@@ -276,7 +276,7 @@ private fun RowMenu(
                 )
             }
             if (reactTo != null) {
-                DropdownMenuItem(text = { Text("Make it react to music") }, onClick = {
+                DropdownMenuItem(text = { Text(stringResource(R.string.customize_make_it_react)) }, onClick = {
                     open = false
                     reactTo()
                 })

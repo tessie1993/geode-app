@@ -46,9 +46,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.geode.R
 import dev.geode.data.BuiltInPresets
 import dev.geode.data.Preset
 import dev.geode.model.PresetFiltering
@@ -80,29 +82,35 @@ internal fun PresetActionsSheet(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                if (builtIn) "Built-in · ${sceneDisplayLabel(preset.sceneId)}" else sceneDisplayLabel(preset.sceneId),
+                sceneDisplayLabel(preset.sceneId).let { if (builtIn) stringResource(R.string.presets_built_in_style, it) else it },
                 Modifier.padding(horizontal = GeodeSpacing.XL, vertical = GeodeSpacing.XS),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             SheetAction(
                 if (inPlaylist) Icons.Filled.PlaylistRemove else Icons.AutoMirrored.Filled.PlaylistAdd,
-                if (inPlaylist) "Remove from visual playlist" else "Add to visual playlist",
+                stringResource(if (inPlaylist) R.string.presets_playlist_remove else R.string.presets_playlist_add),
             ) { onAction(PresetAction.PLAYLIST) }
-            SheetAction(Icons.Filled.Share, "Share") { onAction(PresetAction.SHARE) }
-            SheetAction(Icons.Filled.ContentCopy, "Duplicate") { onAction(PresetAction.DUPLICATE) }
+            SheetAction(Icons.Filled.Share, stringResource(R.string.presets_share)) { onAction(PresetAction.SHARE) }
+            SheetAction(Icons.Filled.ContentCopy, stringResource(R.string.presets_duplicate)) { onAction(PresetAction.DUPLICATE) }
             if (builtIn) {
                 Text(
-                    "Built-in presets cannot be changed. Duplicate one to make it your own.",
+                    stringResource(R.string.presets_built_in_note),
                     Modifier.padding(horizontal = GeodeSpacing.XL, vertical = GeodeSpacing.S),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
-                SheetAction(Icons.Filled.Edit, "Rename") { onAction(PresetAction.RENAME) }
-                SheetAction(Icons.AutoMirrored.Filled.DriveFileMove, "Move to folder") { onAction(PresetAction.MOVE) }
-                SheetAction(Icons.Filled.Refresh, "Replace with current look") { onAction(PresetAction.REPLACE) }
-                SheetAction(Icons.Filled.Delete, "Delete", MaterialTheme.colorScheme.error) { onAction(PresetAction.DELETE) }
+                SheetAction(Icons.Filled.Edit, stringResource(R.string.action_rename)) { onAction(PresetAction.RENAME) }
+                SheetAction(Icons.AutoMirrored.Filled.DriveFileMove, stringResource(R.string.presets_move_to_folder)) {
+                    onAction(PresetAction.MOVE)
+                }
+                SheetAction(Icons.Filled.Refresh, stringResource(R.string.presets_replace_with_current)) {
+                    onAction(PresetAction.REPLACE)
+                }
+                SheetAction(Icons.Filled.Delete, stringResource(R.string.action_delete), MaterialTheme.colorScheme.error) {
+                    onAction(PresetAction.DELETE)
+                }
             }
         }
     }
@@ -151,20 +159,20 @@ internal fun SavePresetDialog(
             presets.any { BuiltInPresets.isBuiltIn(it.name) && it.name.equals(cleaned, ignoreCase = true) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Save current look") },
+        title = { Text(stringResource(R.string.presets_save_current_look)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     singleLine = true,
-                    label = { Text("Preset name") },
+                    label = { Text(stringResource(R.string.preset_name)) },
                     isError = builtInClash,
                     supportingText = {
                         when {
-                            builtInClash -> Text("A built-in preset has this name. Pick another.")
+                            builtInClash -> Text(stringResource(R.string.presets_name_built_in_clash))
                             replaces != null ->
-                                Text("You already have \"$replaces\". Saving replaces its look; there is no undo.")
+                                Text(stringResource(R.string.presets_name_replaces, replaces))
                             else -> Unit
                         }
                     },
@@ -175,10 +183,10 @@ internal fun SavePresetDialog(
         },
         confirmButton = {
             Button(enabled = cleaned.isNotEmpty() && !builtInClash, onClick = { onSave(cleaned, folder) }) {
-                Text(if (replaces != null) "Replace" else "Save")
+                Text(stringResource(if (replaces != null) R.string.presets_replace else R.string.action_save))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -199,7 +207,7 @@ private fun FolderPickRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
         ) {
-            Text("Folder", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(R.string.presets_folder), Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
             Text(
                 folder.ifEmpty { NO_FOLDER },
                 style = MaterialTheme.typography.bodyLarge,
@@ -252,7 +260,7 @@ internal fun NameDialog(
         confirmButton = {
             Button(enabled = problem == null, onClick = { onConfirm(text) }) { Text(confirmLabel) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -268,7 +276,7 @@ internal fun MovePresetDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Move \"$name\"", maxLines = 2, overflow = TextOverflow.Ellipsis) },
+        title = { Text(stringResource(R.string.presets_move_title, name), maxLines = 2, overflow = TextOverflow.Ellipsis) },
         text = {
             Column(Modifier.selectableGroup()) {
                 (listOf("") + folders).forEach { f ->
@@ -289,11 +297,11 @@ internal fun MovePresetDialog(
                 }
                 TextButton(onClick = onNewFolder, modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget)) {
                     Icon(Icons.Filled.CreateNewFolder, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Text("New folder", Modifier.padding(start = GeodeSpacing.S))
+                    Text(stringResource(R.string.presets_new_folder), Modifier.padding(start = GeodeSpacing.S))
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
 }
 
@@ -310,7 +318,7 @@ internal fun ConfirmDialog(
         title = { Text(title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
         text = { Text(text) },
         confirmButton = { Button(onClick = onConfirm) { Text(confirmLabel) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 

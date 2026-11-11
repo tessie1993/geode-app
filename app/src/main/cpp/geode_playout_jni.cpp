@@ -53,4 +53,22 @@ JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_playoutSpeakerF
     return geode_playout_speaker_frame(playoutOf(handle), nowNs);
 }
 
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_playoutSetBypass(JNIEnv*, jobject, jlong handle,
+                                                                                 jboolean on) {
+    geode_playout_set_bypass(playoutOf(handle), on ? 1 : 0);
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_playoutLagMs(JNIEnv*, jobject, jlong handle,
+                                                                             jlong nowNs) {
+    return geode_playout_lag_ms(playoutOf(handle), nowNs);
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_playoutRingFrames(JNIEnv*, jobject) {
+    return geode_playout_ring_frames();
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_playoutRingRunway(JNIEnv*, jobject) {
+    return geode_playout_ring_runway();
+}
+
 }  // extern "C"

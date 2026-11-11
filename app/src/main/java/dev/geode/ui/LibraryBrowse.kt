@@ -61,6 +61,19 @@ data class LibraryBrowseResult(
  * are known, which is the whole point: the library never waits for anything.
  */
 object LibraryBrowse {
+    /**
+     * The favourites as tracks, in the order given (the store's newest first). A favourite the
+     * device no longer lists (deleted, or under the minimum length) is left out, not shown dead.
+     */
+    fun favouriteTracks(
+        favourites: Collection<String>,
+        tracks: List<DeviceTrack>,
+    ): List<DeviceTrack> {
+        if (favourites.isEmpty()) return emptyList()
+        val byUri = tracks.associateBy { it.uri }
+        return favourites.mapNotNull { byUri[it] }
+    }
+
     fun index(tracks: List<DeviceTrack>): LibraryIndex = LibraryIndex(tracks.map(::IndexedTrack))
 
     /**

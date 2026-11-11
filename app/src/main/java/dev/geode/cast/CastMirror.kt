@@ -1,5 +1,8 @@
 package dev.geode.cast
 
+import android.os.Handler
+import android.os.Looper
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +31,27 @@ object CastMirror {
     @Volatile
     var look: Look? = null
         private set
+
+    /** What the shell last saw of the stage (the `GeodeNative.STAGE_*` bits, written by `ui/StageRun`); 0 with no Activity. */
+    @Volatile
+    var stageFlags: Int = 0
+
+    /** Auto's step on a director moment, on the main thread; null while no Activity holds a session. */
+    @Volatile
+    var onDirectorMoment: (() -> Unit)? = null
+
+    private val main = Handler(Looper.getMainLooper())
+
+    /**
+     * The cast's renderer reached a director moment (its render thread). Auto steps on it only while the
+     * stage is not drawing, which is when the stage's own renderer stops counting them: without this a TV
+     * cast from the background stayed on one style for the rest of the session. The rule is native
+     * (core/viz/StageRun).
+     */
+    fun directorMoment() {
+        val leads = GeodeNative.stageRun(stageFlags or GeodeNative.STAGE_CASTING) and GeodeNative.STAGE_CAST_LEADS_AUTO != 0
+        if (leads) main.post { onDirectorMoment?.invoke() }
+    }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var following: Job? = null

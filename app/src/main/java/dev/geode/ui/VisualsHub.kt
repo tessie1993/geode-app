@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -131,13 +132,14 @@ internal fun VisualsHub(
         nextStageStyle(stageStyleOrder(), viz.sceneId, step) { !gate.allowsStyle(it) }?.let(viewModel::selectScene)
     }
     val context = LocalContext.current
+    val resources = LocalResources.current
     val view = LocalView.current
     // A MilkDrop preset that did not load: the stage says so briefly. The MilkDrop page shows it itself.
     val milkError = viz.shaderError?.takeIf { viz.sceneId == SceneIds.MILKDROP }
     LaunchedEffect(milkError) {
         val onMilkPage = nav.sheetShown && nav.top == VisualsPage.MILKDROP
         if (milkError != null && !pip && !onMilkPage) {
-            val text = context.getString(R.string.milk_load_failed, milkError.substringAfterLast('/'))
+            val text = resources.getString(R.string.milk_load_failed, milkError.substringAfterLast('/'))
             Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
         }
     }

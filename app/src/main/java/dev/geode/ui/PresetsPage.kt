@@ -54,6 +54,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -113,6 +114,7 @@ internal fun PresetsTab(
     val presetFolders by visualsViewModel.presetFolders.collectAsStateWithLifecycle()
     val folders = presetFolders.folders
     val context = LocalContext.current
+    val resources = LocalResources.current
     var filterKey by rememberSaveable { mutableStateOf(FILTER_ALL) }
     // The card the user tapped last, so it keeps the check over another preset with the same look.
     var lastTapped by rememberSaveable { mutableStateOf<String?>(null) }
@@ -126,7 +128,8 @@ internal fun PresetsTab(
             if (uri != null) {
                 visualsViewModel.importPresetFile(uri) { name ->
                     importNote =
-                        name?.let { context.getString(R.string.presets_added, it) } ?: context.getString(R.string.presets_file_not_preset)
+                        name?.let { resources.getString(R.string.presets_added, it) }
+                            ?: resources.getString(R.string.presets_file_not_preset)
                 }
             }
         }
@@ -161,10 +164,10 @@ internal fun PresetsTab(
                 val pasted = clipboardText(context)
                 importNote =
                     when {
-                        pasted.isNullOrBlank() -> context.getString(R.string.presets_clipboard_empty)
+                        pasted.isNullOrBlank() -> resources.getString(R.string.presets_clipboard_empty)
                         else ->
-                            visualsViewModel.importPresetLink(pasted)?.let { context.getString(R.string.presets_added, it) }
-                                ?: context.getString(R.string.presets_clipboard_not_link)
+                            visualsViewModel.importPresetLink(pasted)?.let { resources.getString(R.string.presets_added, it) }
+                                ?: resources.getString(R.string.presets_clipboard_not_link)
                     }
             },
             onOpenFile = { presetFilePicker.launch(arrayOf("*/*")) },
@@ -241,7 +244,7 @@ internal fun PresetsTab(
                         }
                     PresetAction.SHARE -> sharePreset(context, visualsViewModel, name)
                     PresetAction.DUPLICATE ->
-                        visualsViewModel.duplicatePreset(name)?.let { importNote = context.getString(R.string.presets_copy_made, it) }
+                        visualsViewModel.duplicatePreset(name)?.let { importNote = resources.getString(R.string.presets_copy_made, it) }
                     PresetAction.RENAME -> dialog = PresetDialog.Rename(name)
                     PresetAction.MOVE -> dialog = PresetDialog.Move(name)
                     PresetAction.REPLACE -> dialog = PresetDialog.Replace(name)

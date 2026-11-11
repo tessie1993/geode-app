@@ -61,6 +61,9 @@ internal class AutoVisualsController(
             field = value
         }
 
+    /** Auto changes nothing now: Customize is open or nothing plays. */
+    private val holding get() = editing || !host.isPlaying
+
     fun addToVizPlaylist(entry: VizPlaylistEntry) {
         val s = host.vizState.value
         val duplicate =
@@ -120,7 +123,7 @@ internal class AutoVisualsController(
 
     fun advanceVizPlaylist() {
         val s = host.vizState.value
-        if (editing || !s.vizPlaylistEnabled || s.vizPlaylist.size < 2 || !host.isPlaying) return
+        if (holding || !s.vizPlaylistEnabled || s.vizPlaylist.size < 2) return
         val now = android.os.SystemClock.elapsedRealtime()
         if (now - lastVizSwitchMs < s.vizPlaylistIntervalSec * 1000L) return
         lastVizSwitchMs = now
@@ -192,7 +195,7 @@ internal class AutoVisualsController(
      * minute for free), so the style changes follow the same rule.
      */
     fun onDirectorMoment() {
-        if (editing || !host.isPlaying) return
+        if (holding) return
         // A style picked or a control moved since Auto's last change: this moment is the user's
         // (MilkDrop restarts its timer on a manual load and holds while a menu is up). While they
         // keep editing every moment is skipped; Auto picks up again at the first one after they stop.
@@ -206,7 +209,7 @@ internal class AutoVisualsController(
 
     fun advanceRandomMode() {
         val s = host.vizState.value
-        if (editing || !s.randomEnabled || !host.isPlaying) return
+        if (holding || !s.randomEnabled) return
         if (android.os.SystemClock.elapsedRealtime() - lastRandomSwitchMs < s.randomIntervalSec * 1000L) return
         randomStepNow()
     }

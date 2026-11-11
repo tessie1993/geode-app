@@ -217,10 +217,10 @@ private:
     GLuint drawBorn(Scene& scene, const SceneParams& p, float dt);
     // Runs the liquid over the scene target; 0 when Liquid is off (the composite then reads the target).
     GLuint drawLiquid(Scene& scene, const SceneParams& p, float dt);
-    // A flat style's Endless zoom with Liquid off: MilkDrop's feedback dive (EndlessZoom.hpp's feedback),
-    // run through the liquid pass. 0 when its targets are not there.
-    // `sustain` adds a shader style's Trails (length, echo zoom, warp) to the same pass.
-    GLuint drawDive(const SceneParams& p, float octavesPerSecond, bool sustain, float dt);
+    // A flat style's Endless zoom and Fly with Liquid off: MilkDrop's feedback motion (liquid/FeedbackMotion,
+    // heard from the sound frame, stepped on the wall clock), run through the liquid pass, in or out.
+    // 0 when its targets are not there. `ask.sustain` adds a shader style's Trails (length, echo zoom, warp).
+    GLuint drawDive(const SceneParams& p, const liquid::motion::DiveAsk& ask, float dt, float wallDt);
     bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off && liveLiquid_ != liquid::Mode::Paused; }
     void applyPendingFluidInjection();
     void applyMilkRequests();

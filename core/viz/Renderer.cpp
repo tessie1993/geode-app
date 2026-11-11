@@ -30,7 +30,8 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           // The user's march scale under the thermal ladder's (ADR 0008: march is its third rung).
                           [this] { return marchScale_.load(std::memory_order_relaxed) * thermal_.tierInfo().marchScale; },
                           [this] { return &resolver_.noteUniforms(); },
-                          [this] { return settingsLatch_.directorSeed(); }}),
+                          [this] { return settingsLatch_.directorSeed(); },
+                          [this] { return offscreen_.load(std::memory_order_relaxed); }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity),
       pcmDeliverScratch_(kPcmCapacity, 0.0f) {

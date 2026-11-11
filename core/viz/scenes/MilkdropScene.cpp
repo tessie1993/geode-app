@@ -187,9 +187,12 @@ void MilkdropScene::update(const GeodeSoundFrame& features, float dt) {
 void MilkdropScene::loadPendingPreset(double now) {
     std::string path;
     std::string shared;
+    // The debounce is wall time, so an export skips it: a preset cue loads on the frame it falls on,
+    // however fast this machine renders.
+    const bool debounce = !(host_.offscreen && host_.offscreen());
     {
         std::lock_guard<std::mutex> lock(presetLock_);
-        if (pendingPresetPath_.empty() || now - lastLoadSeconds_ < kLoadDebounceSeconds) return;
+        if (pendingPresetPath_.empty() || (debounce && now - lastLoadSeconds_ < kLoadDebounceSeconds)) return;
         path.swap(pendingPresetPath_);
         shared = sharedTextureDir_;
     }

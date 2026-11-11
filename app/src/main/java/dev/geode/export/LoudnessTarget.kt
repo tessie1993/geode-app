@@ -207,7 +207,6 @@ sealed interface LoudnessAdvice {
         val ceilingLimited: Boolean,
         val band: Int,
     ) : LoudnessAdvice {
-
         override fun headline(res: Resources): String {
             val label = res.getString(target.labelRes)
             return when (direction) {

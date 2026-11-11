@@ -1,7 +1,6 @@
 package dev.geode.ui
 
 import android.content.Context
-import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -22,53 +21,59 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.geode.data.ByteBudgetCache
 import dev.geode.playback.MediaArtwork
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.math.ceil
 
 object ArtworkCache {
-    private val NONE = Any()
+    /** Full-size art for the big views. Rows pass their own, smaller size. */
+    const val LARGE_PX = 384
 
-    // Sized in bytes, not entries: a 384 px ARGB_8888 cover is ~590 KB, so 40 entries was ~24 MB (#854).
-    // The "no art" marker counts one byte.
+    private const val MAX_MISSES = 4000
+
+    /** At most two cover decodes at once, so a fling can't open a retriever per visible row. */
+    private val decodeDispatcher = Dispatchers.IO.limitedParallelism(2)
+
+    // An eighth of the app's heap, as the Android bitmap-cache guide suggests, but never past the
+    // 24 MB the count cache used to reach (#854): the visual needs the rest. Counted in bytes.
+    private const val MAX_CACHE_BYTES = 24L * 1024 * 1024
+
     private val cache =
-        object : LruCache<String, Any>(CACHE_BYTES) {
-            override fun sizeOf(
-                key: String,
-                value: Any,
-            ): Int = (value as? ImageBitmap)?.asAndroidBitmap()?.byteCount ?: 1
+        ByteBudgetCache<String, ImageBitmap>(minOf(Runtime.getRuntime().maxMemory() / 8, MAX_CACHE_BYTES), MAX_MISSES) {
+            it.width.toLong() * it.height * 4
         }
 
-    private const val ART_PX = 384
-    private const val CACHE_BYTES = 24 * 1024 * 1024
+    /** Drops the covers when the system asks for memory back (`MemoryTrim`); they redecode on demand. */
+    fun clear() = cache.clear()
 
-    /** Empties the cache when the system asks for memory back (`GeodeApp.onTrimMemory`); covers redecode on demand. */
-    fun clear() = cache.evictAll()
+    private fun key(
+        uri: String,
+        px: Int,
+    ) = "$uri@$px"
 
     suspend fun load(
         context: Context,
         uri: String,
-    ): ImageBitmap? {
-        cache.get(uri)?.let { return if (it === NONE) null else it as ImageBitmap }
-        // Cached on the IO side: a row that scrolls away cancels this call, and the finished decode
-        // would otherwise be thrown away and redone on the way back.
-        return withContext(Dispatchers.IO) { decode(context, uri).also { cache.put(uri, it ?: NONE) } }
-    }
+        px: Int = LARGE_PX,
+    ): ImageBitmap? =
+        cache.get(key(uri, px)) {
+            withContext(decodeDispatcher) { MediaArtwork.decodeEmbedded(context, uri, px)?.asImageBitmap() }
+        }
 
-    fun peek(uri: String): ImageBitmap? = cache.get(uri)?.takeIf { it !== NONE } as? ImageBitmap
-
-    private fun decode(
-        context: Context,
+    fun peek(
         uri: String,
-    ): ImageBitmap? = MediaArtwork.decodeEmbedded(context, uri, ART_PX)?.asImageBitmap()
+        px: Int = LARGE_PX,
+    ): ImageBitmap? = cache.peek(key(uri, px))
 }
 
 @Composable
@@ -76,12 +81,15 @@ fun TrackArtwork(
     uri: String?,
     modifier: Modifier = Modifier,
     corner: Dp = 14.dp,
+    decodeSize: Dp? = null,
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
+    val px = decodeSize?.let { with(density) { ceil(it.toPx()).toInt() } } ?: ArtworkCache.LARGE_PX
     val inspecting = LocalInspectionMode.current
-    var art by remember(uri) { mutableStateOf(uri?.let(ArtworkCache::peek)) }
-    LaunchedEffect(uri) {
-        if (uri != null && art == null && !inspecting) art = ArtworkCache.load(context, uri)
+    var art by remember(uri, px) { mutableStateOf(uri?.let { ArtworkCache.peek(it, px) }) }
+    LaunchedEffect(uri, px) {
+        if (uri != null && art == null && !inspecting) art = ArtworkCache.load(context, uri, px)
     }
     Box(
         modifier.clip(

@@ -306,6 +306,59 @@ void testDeterministicAndOff() {
     check(off.knobs(user) == user, "and the knobs");
 }
 
+// The look is an offset on the user's dials, so a slider at either end of its range must not be
+// pushed past it: a saturation below zero inverts the colour.
+void testDialsStayInRange() {
+    Director d;
+    d.configure({1.0f, 99});
+    float t = 0.0f;
+    run(d, kSad, 15.0f, t);
+    SceneParams low;
+    low.saturation = 0.0f;
+    low.brightness = 0.2f;
+    low.contrast = 0.3f;
+    low.temperature = -1.0f;
+    low.hueRange = 0.0f;
+    low.paletteMix = low.milkdropPaletteTint = low.camSmooth = 0.0f;
+    low.motionBreath = low.motionOrbit = low.motionDrift = 0.0f;
+    SceneParams high;
+    high.saturation = 1.5f;
+    high.brightness = 2.0f;
+    high.contrast = 1.25f;
+    high.temperature = 1.0f;
+    high.hueRange = 1.5f;
+    high.paletteMix = high.milkdropPaletteTint = high.camSmooth = 1.0f;
+    high.motionBreath = high.motionOrbit = high.motionDrift = 1.0f;
+    for (const SceneParams& user : {low, high}) {
+        const SceneParams o = d.apply(user);
+        const auto in = [](float v, float lo, float hi) { return v >= lo && v <= hi; };
+        check(in(o.saturation, 0.0f, 1.5f) && in(o.brightness, 0.2f, 2.0f) && in(o.contrast, 0.3f, 1.25f) &&
+                  in(o.temperature, -1.0f, 1.0f) && in(o.hueRange, 0.0f, 1.5f),
+              "the look never pushes a colour dial past its range");
+        check(in(o.paletteMix, 0.0f, 1.0f) && in(o.milkdropPaletteTint, 0.0f, 1.0f) && in(o.camSmooth, 0.0f, 1.0f) &&
+                  in(o.motionBreath, 0.0f, 1.0f) && in(o.motionOrbit, 0.0f, 1.0f) && in(o.motionDrift, 0.0f, 1.0f),
+              "nor a unit dial");
+    }
+}
+
+// The beat tracker's downbeat carries its confidence as a strength, and it locks at 0.35. Counting only
+// downbeats above 0.5 meant that on a beat held at, say, 0.4 no bar was ever counted and a modulation
+// never landed.
+void testWeakDownbeatsCount() {
+    Director d;
+    d.configure({1.0f, 42});
+    float t = 0.0f;
+    run(d, kHappy, 6.0f, t);
+    check(d.commits() == 1, "one first look before the modulation");
+    const Song moved{"aeolian", 4, 0.85f, 132.0f, 0.6f, 0.2f};
+    for (float end = t + 10.0f; t < end; t += kDt) {
+        GeodeSoundFrame f = frame(moved, t, kDt);
+        f.downbeat *= 0.4f;
+        d.step(f, kDt);
+    }
+    check(d.commits() == 2 && d.lastReason() == Director::Reason::Modulation, "a modulation lands on a downbeat of strength 0.4");
+}
+
 // With Auto off the director still steps (Note & key reactions read its feeling) and still commits, but
 // none of those commits may step the user's style: that is what claimed the style with Note & key on.
 void testNoStyleMomentWhenOff() {
@@ -334,6 +387,8 @@ int main() {
     testFeelingSurvivesTheSeed();
     testDeterministicAndOff();
     testNoStyleMomentWhenOff();
+    testDialsStayInRange();
+    testWeakDownbeatsCount();
     if (failures) {
         std::printf("director_test: %d failed\n", failures);
         return 1;

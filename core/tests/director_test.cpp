@@ -296,6 +296,15 @@ void testDeterministicAndOff() {
     check(std::fabs((q.brightness - qDim.brightness) - 0.3f) < 1e-5f && std::fabs((q.saturation - qDim.saturation) - 0.4f) < 1e-5f &&
               std::fabs((q.contrast - qDim.contrast) - 0.2f) < 1e-5f,
           "the user's Brightness, Saturation and Contrast steps come through the look whole");
+    // The palette too: another palette under the same look is another picture, turned by as much as
+    // the two palettes differ.
+    SceneParams forest = p;
+    forest.palette = 6;
+    const SceneParams qForest = a.apply(forest);
+    const auto drawn = [](const SceneParams& sp) { return -sp.paletteBaseOverride - 0.5f * sp.paletteRangeOverride; };
+    const auto picked = [](const SceneParams& sp) { return -sp.paletteBase() - 0.5f * sp.paletteRange(); };
+    check(near(drawn(qForest) - drawn(q), picked(forest) - picked(p)), "the user's palette pick comes through the look whole");
+    check(!near(drawn(qForest), drawn(q)), "so the palette pickers still change the picture with Auto on");
     Director off;
     off.configure({0.0f, 99});
     float t3 = 0.0f;

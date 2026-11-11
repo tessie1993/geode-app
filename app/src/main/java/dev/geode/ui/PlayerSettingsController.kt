@@ -29,7 +29,7 @@ internal class PlayerSettingsController(
 
     val guiPrefs: StateFlow<GuiPrefs> = userData.guiPrefs
 
-    val playerPrefs: StateFlow<PlayerPrefs> = playerPrefsRepository.prefs
+    val playerPrefs: StateFlow<PlayerPrefs> = playerPrefsRepository.value
 
     suspend fun loadedPlayerPrefs(): PlayerPrefs = playerPrefsRepository.loaded()
 

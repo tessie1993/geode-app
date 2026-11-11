@@ -1,7 +1,7 @@
 package dev.geode.wallpaper
 
-import android.content.Context
 import android.content.SharedPreferences
+import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
@@ -54,7 +54,7 @@ data class WallpaperSettings(
 )
 
 /**
- * Keeps [WallpaperSettings] in their own preference file.
+ * Keeps [WallpaperSettings] in their own preference file, `GeodePrefsFiles.wallpaper`.
  *
  * Their own file, not `GeodePrefsFiles.general`, so the wallpaper's options never share a key
  * space with the app's stores and a future backup row can take or leave them as one piece.
@@ -62,11 +62,8 @@ data class WallpaperSettings(
  * caches the file after the first read, so a re-read costs a map lookup.
  */
 class WallpaperPrefsStore(
-    context: Context,
+    private val prefs: SharedPreferences,
 ) {
-    private val prefs: SharedPreferences =
-        context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
-
     fun load(): WallpaperSettings {
         val d = WallpaperSettings()
         return WallpaperSettings(
@@ -104,7 +101,7 @@ class WallpaperPrefsStore(
     ): WallpaperLook = prefs.getString(key, null)?.let { name -> WallpaperLook.entries.firstOrNull { it.name == name } } ?: fallback
 
     internal companion object {
-        const val FILE = "geode-wallpaper"
+        const val FILE = GeodePrefsFiles.WALLPAPER
         const val KEY_REST = "rest_when_silent"
         const val KEY_SAVER = "pause_in_battery_saver"
         const val KEY_OTHER_APPS = "hear_other_apps"

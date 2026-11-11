@@ -4,7 +4,6 @@ import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.LfoStore
 import dev.geode.data.MacroStore
 import dev.geode.data.PerformanceStore
-import dev.geode.data.PlayerPrefsStore
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -153,7 +152,7 @@ object BackupFormat {
                     "preset_mirror_uri",
                 ) + PerformanceStore.KEYS + MacroStore.RETIRED_KEYS,
             GeodePrefsFiles.LIBRARY to setOf("roots"),
-            GeodePrefsFiles.PLAYER to setOf(PlayerPrefsStore.KEY_PICTURE_DELAY),
+            GeodePrefsFiles.PLAYER to setOf(PlayerPrefsCodec.KEY_PICTURE_DELAY),
             GeodePrefsFiles.BACKGROUND to setOf("background_uri"),
         )
 

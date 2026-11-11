@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat
 import dev.geode.audio.AudioBus
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.geodeContainer
 
 /**
  * What the wallpaper hears, and whether it is hearing anything at all.
@@ -41,7 +42,7 @@ class SoundSource(
     private val onSilenceChanged: () -> Unit,
 ) {
     private val capture = OutputMixCapture()
-    private val prefs = WallpaperPrefsStore(context)
+    private val prefs by lazy { WallpaperPrefsStore(context.geodeContainer.prefsFiles.wallpaper) }
     private val handler = Handler(Looper.getMainLooper())
 
     /** The input the renderer should read this frame. Written on main, read on the GL thread. */

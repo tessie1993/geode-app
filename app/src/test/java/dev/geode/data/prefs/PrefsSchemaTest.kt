@@ -148,11 +148,11 @@ class PrefsSchemaTest {
             },
             Owner("$DATA/RecordSaveStore.kt", RecordSaveStore.PREF_KEYS) { RecordSaveStore(it).choose(SaveTarget.VideosLibrary) },
             Owner("$APP/wallpaper/WallpaperPrefs.kt", WallpaperPrefsStore.PREF_KEYS) {
-                WallpaperPrefsStore(it).save(WallpaperSettings())
-                WallpaperPrefsStore(it).saveMixRefused(true)
+                WallpaperPrefsStore(it[GeodePrefsFiles.WALLPAPER]).save(WallpaperSettings())
+                WallpaperPrefsStore(it[GeodePrefsFiles.WALLPAPER]).saveMixRefused(true)
             },
             Owner("$APP/widget/WidgetState.kt", WidgetState.PREF_KEYS) {
-                WidgetState.save(it, WidgetState(artPath = "/cache/art.png", styleId = "plasma"))
+                WidgetState.save(it[GeodePrefsFiles.WIDGET], WidgetState(artPath = "/cache/art.png", styleId = "plasma"))
             },
             Owner("$APP/billing/EntitlementStore.kt", PrefsEntitlementStore.PREF_KEYS) {
                 PrefsEntitlementStore(it[PrefsEntitlementStore.PREFS_FILE]).save(CachedEntitlement.NONE)
@@ -185,6 +185,7 @@ class PrefsSchemaTest {
     private val passThrough =
         setOf(
             "$DATA/GeodePrefsFiles.kt",
+            "$DATA/prefs/SettingsRepository.kt",
             "$DATA/VizStateStore.kt",
             "$DATA/FavouritesRepository.kt",
             "$DATA/UserDataRepository.kt",

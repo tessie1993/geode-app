@@ -116,6 +116,9 @@ public:
     void writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz);
     // A seek, track change or source switch: drop the engine's history.
     void resetAudio();
+    // Export: the pre-roll the shell wrote before frame 0 is heard (output/PreRoll): its triggers dropped,
+    // its raw PCM not frame 0's, the song started over where the plan says. False when nothing was heard.
+    bool endPreRoll(int64_t rangeStartMs);
     // The live feed hears only its layered source (the mic, the player stopped): the engine then treats
     // the source as not the player's, so its silence rule and fadeGain are the mic's (PlayerSignals).
     void setLayerAlone(bool on) { layerAlone_.store(on, std::memory_order_relaxed); }

@@ -6,6 +6,7 @@ import dev.geode.RingLog
 import dev.geode.editor.ProjectId
 import dev.geode.editor.ProjectTemplate
 import dev.geode.editor.StudioProject
+import dev.geode.geodeContainer
 import java.io.File
 import java.util.UUID
 
@@ -39,7 +40,7 @@ class EditorProjectStore(
     constructor(context: Context) : this(
         projectsDir = File(context.filesDir, PROJECTS_DIR),
         templatesDir = File(context.filesDir, TEMPLATES_DIR),
-        defaultsFor = ExportPrefsStore(GeodePrefsFiles(context).general)::loadFor,
+        defaultsFor = ExportPrefsStore(context.geodeContainer.prefsFiles.general)::loadFor,
     ) {
         startFresh(context.filesDir)
     }

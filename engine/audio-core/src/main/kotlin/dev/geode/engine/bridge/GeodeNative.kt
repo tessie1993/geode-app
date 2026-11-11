@@ -1056,6 +1056,12 @@ object GeodeNative {
         fps: Int,
     ): Long
 
+    /** The pre-roll before a range at [rangeStartMs] (core/output/PreRoll): [out] gets where its decode starts and how long the engine hears. */
+    external fun exportPreRoll(
+        rangeStartMs: Long,
+        out: LongArray,
+    )
+
     /** Fields of the long[7] [loopSpecOf] and [loopSpecBudgeted] fill. */
     const val LOOP_SPEC_LOOP_MS = 0
     const val LOOP_SPEC_CROSSFADE_MS = 1
@@ -1937,6 +1943,12 @@ object GeodeNative {
     external fun vizHearTrack(
         handle: Long,
         feed: Long,
+    ): Boolean
+
+    /** Ends the pre-roll before frame 0; false when renderer [handle]'s engine heard nothing (the render must fail). */
+    external fun vizEndPreRoll(
+        handle: Long,
+        rangeStartMs: Long,
     ): Boolean
 
     // The PCM ingest ring (core/audio/ingest/PcmRing): one lock-free ring per audio source. Every write

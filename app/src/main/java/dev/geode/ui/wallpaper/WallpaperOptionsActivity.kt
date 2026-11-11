@@ -32,9 +32,9 @@ import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.billing.ProSnapshot
 import dev.geode.billing.WallClock
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.SystemMotion
 import dev.geode.data.ThemeStore
+import dev.geode.geodeContainer
 import dev.geode.pro.ProFeature
 import dev.geode.ui.CrystalMaterialTheme
 import dev.geode.ui.CrystalSegmented
@@ -70,8 +70,8 @@ class WallpaperOptionsActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
         super.onCreate(savedInstanceState)
-        val gui = ThemeStore(GeodePrefsFiles(this).general).loadGui()
-        val store = WallpaperPrefsStore(this)
+        val gui = ThemeStore(geodeContainer.prefsFiles.general).loadGui()
+        val store = WallpaperPrefsStore(geodeContainer.prefsFiles.wallpaper)
         // The home screen as it stands, so the page can say why the wallpaper would hold still there.
         val home =
             WallpaperConditions(

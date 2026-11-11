@@ -185,6 +185,9 @@ class NativeViz(
      */
     fun hearTrack(feed: Long): Boolean = GeodeNative.vizHearTrack(handle, feed)
 
+    /** After the pre-roll, before frame 0 (core/output/PreRoll); false when the engine heard nothing. */
+    fun endPreRoll(rangeStartMs: Long): Boolean = GeodeNative.vizEndPreRoll(handle, rangeStartMs)
+
     /**
      * The live feed: the renderer's sound engine takes what [ring] gained since the last frame, natively,
      * each sample once, and starts over on a new epoch or another ring. Null: it hears nothing and lets

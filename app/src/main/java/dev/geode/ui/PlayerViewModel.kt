@@ -99,9 +99,9 @@ class PlayerViewModel
 
         fun notificationAccessIntent(): Intent = session.captureController.notificationAccessIntent()
 
-        fun toggleShuffle() = session.toggleShuffle()
+        fun toggleShuffle() = session.settings.toggleShuffle()
 
-        fun cycleRepeatMode() = session.cycleRepeatMode()
+        fun cycleRepeatMode() = session.settings.cycleRepeatMode()
 
         fun importMilkPresetAsync(
             uri: Uri,
@@ -122,7 +122,7 @@ class PlayerViewModel
             onDone: (MilkPackImporter.Report) -> Unit,
         ) = session.importMilkFolderAsync(treeUri, onDone)
 
-        fun applyArtworkPalette() = session.applyArtworkPalette()
+        fun applyArtworkPalette() = session.trackColor.applyArtworkPalette()
 
         fun startSleepTimer(minutes: Int) = session.startSleepTimer(minutes)
 
@@ -150,7 +150,7 @@ class PlayerViewModel
 
         fun stepVizPlaylist(step: Int = 1): Boolean = session.autoVisuals.stepVizPlaylist(step)
 
-        fun recentlyPlayed() = session.recentlyPlayed()
+        fun recentlyPlayed() = session.listening.recentlyPlayed()
 
         fun currentTrackUri(): String? = session.currentTrackUri()
 
@@ -212,17 +212,17 @@ class PlayerViewModel
         fun setReactivity(
             attack: Float,
             decay: Float,
-        ) = session.setReactivity(attack, decay)
+        ) = session.visual.setReactivity(attack, decay)
 
-        fun reportShaderError(error: String?) = session.reportShaderError(error)
+        fun reportShaderError(error: String?) = session.visual.reportShaderError(error)
 
         fun reportLiquidMode(mode: Int) = session.reportLiquidMode(mode)
 
-        fun applyCustomShader(source: String) = session.applyCustomShader(source)
+        fun applyCustomShader(source: String) = session.visual.applyCustomShader(source)
 
-        fun setTransitionId(id: String) = session.setTransitionId(id)
+        fun setTransitionId(id: String) = session.visual.setTransitionId(id)
 
-        fun setTransitionDuration(seconds: Float) = session.setTransitionDuration(seconds)
+        fun setTransitionDuration(seconds: Float) = session.visual.setTransitionDuration(seconds)
 
         fun applyPreset(preset: Preset) = session.applyPreset(preset)
 
@@ -258,7 +258,7 @@ class PlayerViewModel
                 paywall.open(PaywallTrigger.Feature(ProFeature.FULL_LENGTH_EXPORT))
                 return
             }
-            session.startBatch(tracks, aspect, fps, sceneFactory, sceneParams, codec, gate.value.watermarksExports)
+            session.exportController.startBatch(tracks, aspect, fps, sceneFactory, sceneParams, codec, gate.value.watermarksExports)
         }
 
         fun startLoopRender(
@@ -278,7 +278,7 @@ class PlayerViewModel
                 paywall.open(PaywallTrigger.Feature(ProFeature.FULL_LENGTH_EXPORT))
                 return
             }
-            session.startLoopRender(
+            session.exportController.startLoopRender(
                 aspect,
                 codec,
                 fps,

@@ -31,16 +31,16 @@ class SettingsViewModel
 
         fun setPlayerPrefs(prefs: PlayerPrefs) = session.setPlayerPrefs(prefs)
 
-        fun setAudioFxEnabled(enabled: Boolean) = session.setAudioFxEnabled(enabled)
+        fun setAudioFxEnabled(enabled: Boolean) = session.settings.setAudioFxEnabled(enabled)
 
         fun setAudioFxBand(
             band: Int,
             levelMb: Int,
-        ) = session.setAudioFxBand(band, levelMb)
+        ) = session.settings.setAudioFxBand(band, levelMb)
 
-        fun useAudioFxPreset(index: Int) = session.useAudioFxPreset(index)
+        fun useAudioFxPreset(index: Int) = session.settings.useAudioFxPreset(index)
 
-        fun setAudioFxBassBoost(strength: Int) = session.setAudioFxBassBoost(strength)
+        fun setAudioFxBassBoost(strength: Int) = session.settings.setAudioFxBassBoost(strength)
 
-        fun setAudioFxLoudness(gainMb: Int) = session.setAudioFxLoudness(gainMb)
+        fun setAudioFxLoudness(gainMb: Int) = session.settings.setAudioFxLoudness(gainMb)
     }

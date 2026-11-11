@@ -158,6 +158,10 @@ public:
     // built, so the main thread GLSurfaceView parks in surfaceChanged is released at once.
     void clearToBlack(GLuint targetFbo);
     void releaseScenes();
+    // The surface is about to stop drawing (the host's pause, a hidden wallpaper): the spares go now, as a
+    // UiHidden trim sheds them, since the trim signal is only read by a frame and none follows. GL thread,
+    // with the context current.
+    void trimSpares() { trimScenes({}, MemoryTrim::UiHidden); }
     const GlProfile& profile() const { return profile_; }
 
 private:

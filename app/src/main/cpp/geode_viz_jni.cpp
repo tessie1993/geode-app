@@ -581,6 +581,11 @@ Java_dev_geode_engine_bridge_GeodeNative_vizReleaseScenes(JNIEnv*, jobject, jlon
     geode_viz_release_scenes(vizOf(handle));
 }
 
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizTrimSpares(JNIEnv*, jobject, jlong handle) {
+    geode_viz_trim_spares(vizOf(handle));
+}
+
 // pixels is a Java IntArray? (ARGB per Android's Bitmap.getPixels), so a null array is a valid "clear"
 // call rather than a JNI error - handled before touching the (possibly null) array. width*height is
 // checked against the array's actual length and treated as a

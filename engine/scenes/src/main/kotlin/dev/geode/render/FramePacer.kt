@@ -22,6 +22,15 @@ fun interface FrameSink {
 }
 
 /**
+ * The rate one surface's frames are asked for, 0 when it free-runs. Each renderer is handed its own
+ * ([VisualizerRenderer.pacedRate]), so a deliberate cap is never mistaken for a device that cannot keep
+ * up, and one surface's cap is never another's target: Cast draws a fixed 30 beside the stage's 60.
+ */
+fun interface PacedRate {
+    fun fps(): Float
+}
+
+/**
  * What the engine asks the display for.
  *
  * These are the two answers `docs/quality/bar-visualizer.md` §4.3 accepts on a 90/120 Hz panel:
@@ -66,30 +75,26 @@ sealed interface FrameRatePolicy {
  *
  * [start] and [stop] may be called from any thread (in practice the main thread, for both
  * `GLSurfaceView` and `WallpaperService.Engine`); they flip [running] at once, so the existing
- * idempotence and the [ThermalGovernor] cap publish stay synchronous, and hand the callback
- * itself to the pacer thread in order. Every frame-timing field below is confined to the pacer
- * thread. [applyTo] is a Surface call and runs anywhere. [dtSeconds] is safe to read from any
- * thread.
+ * idempotence stays synchronous, and hand the callback itself to the pacer thread in order.
+ * Every frame-timing field below is confined to the pacer thread. [applyTo] is a Surface call
+ * and runs anywhere. [dtSeconds] and [fps] are safe to read from any thread.
  */
 class FramePacer(
     initialPolicy: FrameRatePolicy = FrameRatePolicy.Capped(DEFAULT_TARGET_FPS),
     private val sink: FrameSink,
-) {
+) : PacedRate {
     /**
      * Settable from any thread — a quality scaler reacting to thermal headroom will not be on the
      * Choreographer thread — and read back on the next vsync, which is where the divide is
      * recomputed. It does not touch the surface: call [applyTo] afterwards to push the new
-     * preference to the display as well.
-     *
-     * Also re-publishes [ThermalGovernor.pacedFps] while this pacer is running, so a cap change
-     * reaches the native governor at once. A no-op when a more recently started pacer is active.
+     * preference to the display as well. [fps] answers the new cap at once, until a vsync says
+     * what native paced it to.
      */
     @Volatile
     var policy: FrameRatePolicy = initialPolicy
         set(value) {
             field = value
             pacedMilliHz = -1L
-            if (running) publishActiveCap()
         }
 
     /**
@@ -147,13 +152,6 @@ class FramePacer(
     fun start() {
         if (running) return
         running = true
-        // A pacer that starts twice without stopping (start() is idempotent, so this only runs
-        // once per start) must not end up twice in the stack ahead of itself.
-        synchronized(runningStack) {
-            runningStack.remove(this)
-            runningStack.add(this)
-        }
-        publishActiveCap()
         PacerThread.handler.post(beginOnPacerThread)
     }
 
@@ -169,29 +167,17 @@ class FramePacer(
         if (!running) return
         running = false
         PacerThread.handler.post(endOnPacerThread)
-        // Drop out of the running stack before republishing: if another pacer (the view's and the
-        // wallpaper's can both be live at once) is still running, its cap — not 0 — is what
-        // ThermalGovernor should read next.
-        synchronized(runningStack) { runningStack.remove(this) }
-        publishActiveCap()
     }
 
-    /** [FrameRatePolicy.Capped] publishes its rate; anything else (free-running) publishes 0. */
+    /** [FrameRatePolicy.Capped] asks for its rate; anything else (free-running) for 0. */
     private fun requestedFps(): Float =
         when (val current = policy) {
             FrameRatePolicy.Native -> 0f
             is FrameRatePolicy.Capped -> current.fps
         }
 
-    /**
-     * Publishes [ThermalGovernor.pacedFps] from the most recently started pacer still running (the
-     * view's and the wallpaper's can both be live): its paced rate, or its cap until a vsync says.
-     */
-    private fun publishActiveCap() {
-        val active = synchronized(runningStack) { runningStack.lastOrNull() }
-        val paced = active?.pacedMilliHz ?: 0L
-        ThermalGovernor.pacedFps = if (paced < 0L) active?.requestedFps() ?: 0f else paced / 1000f
-    }
+    /** This pacer's own rate, whichever others run: what native last paced it to, or its cap until a vsync says. */
+    override fun fps(): Float = pacedMilliHz.let { if (it < 0L) requestedFps() else it / MILLI_HZ }
 
     /**
      * Publishes the rate preference to the display. Call it from `surfaceCreated` and
@@ -228,20 +214,13 @@ class FramePacer(
             askedCapMilliHz = cap
             surface?.let { applyTo(it) }
         }
-        val paced = clock[GeodeNative.PACER_PACED_SLOT]
-        if (paced != pacedMilliHz) {
-            pacedMilliHz = paced
-            publishActiveCap()
-        }
+        pacedMilliHz = clock[GeodeNative.PACER_PACED_SLOT]
         if (dt <= 0f) return
         dtSeconds = dt
         sink.onFrame(dt)
     }
 
     companion object {
-        /** Every running pacer, in start order; [publishActiveCap] reads the last one. */
-        private val runningStack = mutableListOf<FramePacer>()
-
         /**
          * The rate the scenes are authored and tuned at. Above it the fragment cost of a
          * full-screen visualizer scales linearly for motion that is already smooth, and the
@@ -250,6 +229,7 @@ class FramePacer(
         const val DEFAULT_TARGET_FPS = 60f
 
         private const val DEFAULT_DT_SECONDS = 1f / 60f
+        private const val MILLI_HZ = 1000f
     }
 }
 

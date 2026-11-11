@@ -325,6 +325,11 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizReleaseScenes(handle)
     }
 
+    /** The surface is about to stop drawing: the spare scenes go now. GL thread, context still current. */
+    fun trimSpares() {
+        if (handle != 0L) GeodeNative.vizTrimSpares(handle)
+    }
+
     /**
      * Full-frame RGBA8 underlay blended UNDER/INTO the scene: blend 0 = replace scene where scene is
      * black (screen), 1 = multiply, 2 = add; amount 0..1. null clears. Any thread; latched.

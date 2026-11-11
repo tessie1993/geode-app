@@ -228,6 +228,11 @@ GEODE_API void        geode_viz_render(geode_viz*, double time_seconds, uint32_t
  * (geode_viz_set_offscreen(1)), cut transitions, and fixed fluid quality on every later set_params. */
 GEODE_API void        geode_viz_prepare_offscreen(geode_viz*);
 GEODE_API void        geode_viz_release_scenes(geode_viz*);
+/* The surface is about to stop drawing (the host pauses it, the wallpaper hides): sheds this renderer's spare
+ * scenes now, exactly as a TRIM_MEMORY_UI_HIDDEN trim does (geode_memory_trim), because that signal is only read
+ * by a frame and a paused surface draws none. What is drawn, the layer, the born and the requested style stay.
+ * GL thread, while the context is still current; without one it does nothing. */
+GEODE_API void        geode_viz_trim_spares(geode_viz*);
 
 /* Playback DSP: gain -> 10-band equalizer -> loudness makeup -> crossfeed -> lookahead limiter on float
  * interleaved PCM, one chain per input format, switched on the Media3 AudioProcessor contract (audio/dsp/DspProcessor):
@@ -622,7 +627,8 @@ GEODE_API void            geode_thermal_push(int platform_status, float headroom
 
 /* Memory pressure (#854): Android's onTrimMemory level, forwarded as is. Native acts on TRIM_MEMORY_UI_HIDDEN (20)
    and TRIM_MEMORY_BACKGROUND (40) only and ignores every other level. Every renderer in the process then sheds its
-   spare scenes on its own GL thread at its next frame; what it draws, the layer and the requested style stay. Any thread. */
+   spare scenes on its own GL thread at its next frame; what it draws, the layer and the requested style stay. A surface
+   that is paused draws no frame: it sheds them at its pause instead (geode_viz_trim_spares). Any thread. */
 GEODE_API void            geode_memory_trim(int android_level);
 /* ── Export planning and clip maths (ADR 0006: core/output, core/signal/timeline; ADR 0003 ports) ──────────
  * Pure functions and plain handles, any thread, no GL. The Kotlin exporters (VideoExporter, LoopRender,

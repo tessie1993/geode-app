@@ -1011,6 +1011,25 @@ void feedbackDiveIsFrameRateIndependent() {
     check(fb::inject(0.0f, 1.0f / 60.0f) > 0.0f && fb::inject(0.0f, 1.0f / 60.0f) < 0.01f, "a stopped dive still refreshes, slowly");
 }
 
+// A shader style's Trails in the feedback pass: MilkDrop's sustain and video echo.
+void sustainHoldsLongerAtLongerTrails() {
+    namespace fb = endless::feedback;
+    const float dt = 1.0f / 60.0f;
+    check(fb::sustainInject(1.0f, dt) < fb::sustainInject(0.5f, dt) && fb::sustainInject(0.5f, dt) < fb::sustainInject(0.0f, dt),
+          "a longer trail pours less of the new frame");
+    const float keep60 = 1.0f - fb::sustainInject(0.7f, 1.0f / 60.0f);
+    const float keep30 = 1.0f - fb::sustainInject(0.7f, 1.0f / 30.0f);
+    check(std::fabs(keep30 - keep60 * keep60) < 1e-5f, "the trail lasts as long at 30 Hz as at 60");
+    float kept = 1.0f;
+    for (int i = 0; i < 180; ++i) kept *= 1.0f - fb::sustainInject(1.0f, dt);
+    check(std::fabs(kept - 0.5f) < 0.01f, "the longest trail is half gone after its half-life");
+    check(fb::echoScale(0.0f, dt) == 1.0f && fb::echoScale(0.3f, dt) > 1.0f && fb::echoScale(-0.3f, dt) < 1.0f,
+          "the echo grows outward above zero and inward below");
+    check(std::fabs(fb::echoScale(0.3f, 1.0f / 30.0f) - fb::echoScale(0.3f, dt) * fb::echoScale(0.3f, dt)) < 1e-5f,
+          "the echo travels as far per second at any frame rate");
+    check(fb::echoScale(std::nanf(""), dt) == 1.0f && fb::sustainInject(std::nanf(""), dt) > 0.0f, "non-finite input holds still");
+}
+
 void endlessZoomOnlyDivesIn() {
     // Follow the two layers through one octave by identity (the outgoing one starts at 1x).
     float prevOut = 0.0f;
@@ -1482,7 +1501,10 @@ void recipeOnlyAddsWhatTheStyleCanShow() {
     check(targetReaches(LT::PaletteMix, kShaderStyle) && !targetReaches(LT::PaletteMix, kFluidStyle), "palette blend is a shader look");
     check(targetReaches(LT::CamYaw, kFluidStyle) && targetReaches(LT::Bloom, "milkdrop"), "camera and composite targets are universal");
     check(!targetReaches(LT::ParticleSize, kShaderStyle) && targetReaches(LT::ParticleSize, kFluidStyle), "particle size");
-    check(!targetReaches(LT::TrailLength, kShaderStyle) && !targetReaches(LT::Turbulence, kFluidStyle), "trail and turbulence scopes");
+    // A shader style's trail is the feedback pass's sustain; a fluid has none of its own to lengthen.
+    check(targetReaches(LT::TrailLength, kShaderStyle) && !targetReaches(LT::TrailLength, kFluidStyle) &&
+              !targetReaches(LT::Turbulence, kFluidStyle),
+          "trail and turbulence scopes");
 }
 
 void aFullMatrixRefusesARecipeRatherThanDroppingRoutes() {
@@ -1678,6 +1700,7 @@ int main() {
     startersAreNamedAndInRange();
     endlessZoomOnlyDivesIn();
     feedbackDiveIsFrameRateIndependent();
+    sustainHoldsLongerAtLongerTrails();
     endlessZoomPhaseWrapsForEverInBothDirections();
     endlessZoomFollowsTheBassNotTheLoudness();
     driveScalesTheMagnitudeOfMotion();

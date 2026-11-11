@@ -218,7 +218,8 @@ private:
     GLuint drawLiquid(Scene& scene, const SceneParams& p, float dt);
     // A flat style's Endless zoom with Liquid off: MilkDrop's feedback dive (EndlessZoom.hpp's feedback),
     // run through the liquid pass. 0 when its targets are not there.
-    GLuint drawDive(const SceneParams& p, float octavesPerSecond, float dt);
+    // `sustain` adds a shader style's Trails (length, echo zoom, warp) to the same pass.
+    GLuint drawDive(const SceneParams& p, float octavesPerSecond, bool sustain, float dt);
     bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off && liveLiquid_ != liquid::Mode::Paused; }
     void applyPendingFluidInjection();
     void applyMilkRequests();

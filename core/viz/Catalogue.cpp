@@ -338,9 +338,10 @@ bool reachesKind(Scope s, Kind k) {
         case Scope::EndlessZoom: return k == Kind::Shader || k == Kind::Milkdrop;
         case Scope::Turbulence: return k == Kind::Shader || k == Kind::Mycelium || k == Kind::Acid || k == Kind::CurlFlow;
         case Scope::DyeDensity: return k == Kind::Fluid;
+        // A shader style's trails are the feedback pass's sustain, echo zoom and warp (EndlessZoom.hpp).
         case Scope::TrailToggle:
-        case Scope::TrailLength: return k == Kind::Silk || k == Kind::CurlFlow;
-        case Scope::TrailEcho: return k == Kind::CurlFlow;
+        case Scope::TrailLength: return k == Kind::Shader || k == Kind::Silk || k == Kind::CurlFlow;
+        case Scope::TrailEcho: return k == Kind::Shader || k == Kind::CurlFlow;
         case Scope::ParticleSprite: return k == Kind::Fluid || k == Kind::CurlFlow;
         case Scope::Milkdrop: return k == Kind::Milkdrop;
         case Scope::FluidSim: return k == Kind::Fluid;

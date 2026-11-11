@@ -415,23 +415,33 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     // Camera travel on a flat style: Fly speed (forward zooms in, backward out) dives the picture
     // through the same endless zoom, in Dive speed's place when that is off or beside it.
     float feedbackDive = 0.0f;
-    if (!liquidOn() && !scene->drawsCamera()) {
-        const float dive = CameraRig::flatDive(p);
-        const float speed = (p.endlessZoom ? p.endlessZoomSpeed : 0.0f) + dive;
+    bool sustain = false;
+    if (!liquidOn()) {
+        const bool flat = !scene->drawsCamera();
+        const float dive = flat ? CameraRig::flatDive(p) : 0.0f;
+        const float speed = flat ? (p.endlessZoom ? p.endlessZoomSpeed : 0.0f) + dive : 0.0f;
+        // A shader style paints its whole frame, so its Trails cannot live in the scene target: they
+        // are the feedback pass's sustain. The particle styles keep their own trail (trailRetention).
+        const bool wantsSustain = p.trails && scene->family() == SceneFamily::Shader && scene->trailRetention(p) <= 0.0f;
         // Diving in is a feedback zoom, the way MilkDrop falls into the screen. Backing out has no
         // feedback form (the edges have nothing to pull in), so it keeps the two crossfaded layers;
         // so does a paused Liquid, which holds the pass's targets.
-        if (speed > 0.0f && liveLiquid_ == liquid::Mode::Off && liquidPass_.ensure(renderWidth_, renderHeight_)) {
-            feedbackDive = speed;
-            sceneParams.endlessZoom = false;
-        } else if (dive != 0.0f) {
+        if (liveLiquid_ == liquid::Mode::Off && (speed > 0.0f || wantsSustain) && liquidPass_.ensure(renderWidth_, renderHeight_)) {
+            sustain = wantsSustain;
+            if (speed > 0.0f) {
+                feedbackDive = speed;
+                sceneParams.endlessZoom = false;
+            }
+        }
+        if (feedbackDive <= 0.0f && dive != 0.0f) {
             sceneParams.endlessZoomSpeed = speed;
             sceneParams.endlessZoom = true;
         }
     }
-    if (feedbackDive <= 0.0f) diveWasOn_ = false;
+    const bool feedback = feedbackDive > 0.0f || sustain;
+    if (!feedback) diveWasOn_ = false;
     drawSceneTarget(*scene, sceneParams, dt);
-    const GLuint liquidTex = feedbackDive > 0.0f ? drawDive(p, feedbackDive, dt) : drawLiquid(*scene, p, dt);
+    const GLuint liquidTex = feedback ? drawDive(p, feedbackDive, sustain, dt) : drawLiquid(*scene, p, dt);
     composite(p, progress, targetFbo, liquidTex);
     drawEdgeGlow(targetFbo, timeSeconds, dt);
     drawUiBlur(targetFbo);
@@ -574,7 +584,7 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
     return bornFbo_.tex();
 }
 
-GLuint Renderer::drawDive(const SceneParams& p, float octavesPerSecond, float dt) {
+GLuint Renderer::drawDive(const SceneParams& p, float octavesPerSecond, bool sustain, float dt) {
     if (!diveWasOn_) {
         // Starts from this frame's style: an old pour must not show.
         liquidPass_.reset();
@@ -588,12 +598,21 @@ GLuint Renderer::drawDive(const SceneParams& p, float octavesPerSecond, float dt
     f.styleWidth = renderWidth_;
     f.styleHeight = renderHeight_;
     f.dt = dt;
+    const bool diving = octavesPerSecond > 0.0f;
     f.dive.scale = endless::feedback::scale(rate, dt);
     f.inject = endless::feedback::inject(rate, dt);
+    if (sustain) {
+        // The longer of the two holds: a long trail is not cut short by a fast dive.
+        const float held = endless::feedback::sustainInject(p.trailLength, dt);
+        f.inject = diving ? std::min(f.inject, held) : held;
+        f.dive.scale *= endless::feedback::echoScale(p.trailZoom, dt);
+        f.warp = std::clamp(p.trailWarp, 0.0f, 1.0f);
+    }
     f.edge = kLiquidEdge;
     f.sharpen = kLiquidSharpen;
     f.bornRadius = endless::feedback::kBornRadius;
-    f.bornGain = 1.0f;
+    // Nothing is born at the centre unless the picture is travelling into it.
+    f.bornGain = diving ? 1.0f : 0.0f;
     f.feedback = true;
     f.time = timeSeconds_;
     f.quadVao = quadVao_;

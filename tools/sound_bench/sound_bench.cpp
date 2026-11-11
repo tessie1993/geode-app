@@ -5,6 +5,7 @@
 //   g++ -std=c++20 -O2 -Icore tools/sound_bench/sound_bench.cpp core/sound/*.cpp -o sound_bench
 //   ./sound_bench            the whole set (~25 min of audio, under a minute)
 //   ./sound_bench --quick    a few cases of each kind, the CI smoke run
+//   ./sound_bench --seed 7   other melodies and noise over the same tempos and keys, to see a gain is not luck
 //
 // The material is built in code from a fixed seed, so a number moves only when the engine does:
 //   rhythm  click tracks (4/4, accented one), a drum kit with bass and chords, the kit with swung
@@ -26,6 +27,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <numbers>
 #include <string>
@@ -479,6 +481,7 @@ struct KeyScore {
     int final = -1;
     double mirexFinal = 0.0;
     double exactShare = 0.0;
+    double clarity = 0.0;  // the mean keyClarity, what the director and the feeling gate on
     std::array<double, kProfileCount> profileMirex{};
     std::array<double, kProfileCount> profileExact{};
 };
@@ -491,6 +494,7 @@ KeyScore scoreKey(const Song& s, const std::vector<Frame>& frames) {
         if (fr.t < kKeyFrom) continue;
         n++;
         if (engineKey(fr.f) == s.key) exact++;
+        k.clarity += fr.f.keyClarity;
         for (int p = 0; p < kProfileCount; p++) {
             const int got = bestKey(fr.f.chromaSlow, kProfiles[p]);
             k.profileMirex[static_cast<size_t>(p)] += mirex(s.key, got);
@@ -503,6 +507,7 @@ KeyScore scoreKey(const Song& s, const std::vector<Frame>& frames) {
             k.profileExact[static_cast<size_t>(p)] /= n;
         }
         k.exactShare = static_cast<double>(exact) / n;
+        k.clarity /= n;
     }
     k.final = frames.empty() ? -1 : engineKey(frames.back().f);
     k.mirexFinal = mirex(s.key, k.final);
@@ -519,7 +524,12 @@ struct RhythmCase {
 }  // namespace
 
 int main(int argc, char** argv) {
-    const bool quick = argc > 1 && std::strcmp(argv[1], "--quick") == 0;
+    bool quick = false;
+    uint32_t seed = 0;  // --seed n: other melodies and noise, the same tempos and keys
+    for (int i = 1; i < argc; i++) {
+        if (std::strcmp(argv[i], "--quick") == 0) quick = true;
+        if (std::strcmp(argv[i], "--seed") == 0 && i + 1 < argc) seed = static_cast<uint32_t>(std::strtoul(argv[++i], nullptr, 10)) * 0x9E3779B9u;
+    }
     std::vector<RhythmCase> rhythm;
     if (quick) {
         rhythm = {{Style::Clicks, 93}, {Style::Kit, 141}, {Style::Swung, 104}, {Style::Waltz, 150}};
@@ -543,7 +553,7 @@ int main(int argc, char** argv) {
     std::array<Sum, 5> sums{};  // per style, then all
     for (const RhythmCase& c : rhythm) {
         Song s = rhythmSong(c.style, c.bpm, rhythmSeconds);
-        const std::vector<Frame> frames = analyse(render(s, 0xBEA7u + static_cast<uint32_t>(c.bpm)));
+        const std::vector<Frame> frames = analyse(render(s, (0xBEA7u + static_cast<uint32_t>(c.bpm)) ^ seed));
         const RhythmScore r = scoreRhythm(s, frames);
         std::printf("  %-15s %6.1f %8.2f %5s %5s %6.3f %6.3f %3d/%d %+6.1fms %6.2fs\n", s.name.c_str(), s.bpm, r.bpm, r.acc1 ? "yes" : "no",
                     r.acc2 ? "yes" : "no", r.beatF, r.downF, r.meter, s.meter, r.phaseMs, r.firstBeat);
@@ -571,6 +581,7 @@ int main(int argc, char** argv) {
     double keyMirex = 0.0;
     int keyExactFinal = 0;
     double keyShare = 0.0;
+    double keyClarity = 0.0;
     std::array<double, kProfileCount> profMirex{};
     std::array<double, kProfileCount> profExact{};
     std::array<std::array<double, 2>, 2> byMode{};  // [minor][mirex, n]
@@ -585,14 +596,15 @@ int main(int argc, char** argv) {
     for (const auto& [tonic, pi] : pieces) {
         const Progression& prog = kProgressions[pi];
         const double bpm = 72.0 + 7.0 * ((tonic * 4 + pi) % 13);
-        Song s = keySong(tonic, prog, bpm, keySeconds, 0x1234u + static_cast<uint32_t>(tonic * 4 + pi));
-        const std::vector<Frame> frames = analyse(render(s, 0xC0DEu + static_cast<uint32_t>(tonic * 4 + pi)));
+        Song s = keySong(tonic, prog, bpm, keySeconds, (0x1234u + static_cast<uint32_t>(tonic * 4 + pi)) ^ seed);
+        const std::vector<Frame> frames = analyse(render(s, (0xC0DEu + static_cast<uint32_t>(tonic * 4 + pi)) ^ seed));
         const KeyScore k = scoreKey(s, frames);
         std::printf("  %-22s read %-4s mirex %.1f  exact %5.1f %%\n", s.name.c_str(), keyName(k.final).c_str(), k.mirexFinal, 100.0 * k.exactShare);
         keyN++;
         keyMirex += k.mirexFinal;
         keyExactFinal += k.final == s.key;
         keyShare += k.exactShare;
+        keyClarity += k.clarity;
         byMode[prog.minorKey][0] += k.mirexFinal;
         byMode[prog.minorKey][1] += 1.0;
         for (int p = 0; p < kProfileCount; p++) {
@@ -600,9 +612,9 @@ int main(int argc, char** argv) {
             profExact[static_cast<size_t>(p)] += k.profileExact[static_cast<size_t>(p)];
         }
     }
-    std::printf("\n  engine: %d pieces, exact at the end %.3f, MIREX at the end %.3f (major %.3f, minor %.3f), exact frames %.3f\n", keyN,
+    std::printf("\n  engine: %d pieces, exact at the end %.3f, MIREX at the end %.3f (major %.3f, minor %.3f), exact frames %.3f, mean clarity %.3f\n", keyN,
                 static_cast<double>(keyExactFinal) / keyN, keyMirex / keyN, byMode[0][0] / std::max(1.0, byMode[0][1]),
-                byMode[1][0] / std::max(1.0, byMode[1][1]), keyShare / keyN);
+                byMode[1][0] / std::max(1.0, byMode[1][1]), keyShare / keyN, keyClarity / keyN);
     std::printf("\n  profiles on the engine's slow chroma, every frame from 8 s on (no hysteresis):\n");
     std::printf("  %-14s %7s %7s\n", "profile", "exact", "MIREX");
     for (int p = 0; p < kProfileCount; p++) {

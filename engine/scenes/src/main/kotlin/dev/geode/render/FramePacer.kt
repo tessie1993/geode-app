@@ -1,6 +1,5 @@
 package dev.geode.render
 
-import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Process
@@ -202,7 +201,7 @@ class FramePacer(
      */
     fun applyTo(surface: Surface) {
         this.surface = surface
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && surface.isValid) {
+        if (surface.isValid) {
             // Zero is the platform's "no preference": it clears any standing request instead of
             // leaving the last cap latched on a surface that has since changed its mind. The rate is
             // the effective cap (this surface's under the thermal one), so a hot phone's 30 fps can

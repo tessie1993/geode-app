@@ -330,27 +330,6 @@ data class TemplateText(
     }
 }
 
-/**
- * A token usable inside [TextSlot.pattern] and [TemplateExport.fileNamePattern].
- *
- * Adding a value here is always safe: older builds drop the fragment when rendering
- * but keep the pattern string itself, so the template is never damaged.
- */
-enum class TemplatePlaceholder(
-    val key: String,
-) {
-    TITLE("title"),
-    ARTIST("artist"),
-    ALBUM("album"),
-    DURATION("duration"),
-    INDEX("index"),
-    TOTAL("total"),
-    DATE("date"),
-    ;
-
-    val token: String get() = "{$key}"
-}
-
 // ---------------------------------------------------------------------------
 // Export
 // ---------------------------------------------------------------------------

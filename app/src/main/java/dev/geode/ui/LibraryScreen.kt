@@ -2,7 +2,6 @@ package dev.geode.ui
 
 import android.Manifest
 import android.net.Uri
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -154,8 +153,7 @@ fun LibraryScreen(
 ) {
     val libraryViewModel: LibraryViewModel = geodeViewModel()
     val playerViewModel: PlayerViewModel = geodeViewModel()
-    val permission =
-        if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
+    val permission = Manifest.permission.READ_MEDIA_AUDIO
     // Through rememberPermissionRequest, not a one-off check: it re-reads the grant on every
     // resume. The old check ran once per composition, so music access turned on in system
     // Settings (the only way back after "don't ask again") left the library empty until the app

@@ -250,7 +250,9 @@ void CameraRig::step(const SceneParams& p, const LookInput& look, float dt, bool
     fov_.step(fovTarget, dt, soft);
     // Speed eases slower than the look: a surge should feel like thrust.
     speed_.step(speedTarget, dt, soft * 2.0f);
-    orbit_.step(std::clamp(p.camOrbit, 0.0f, 1.0f) * g, dt, soft * 3.0f);
+    // Swing sets the size of a wander that already takes tens of seconds to cross; a slow spring on
+    // top of that hid the slider for seconds more.
+    orbit_.step(std::clamp(p.camOrbit, 0.0f, 1.0f) * g, dt, soft);
     facing_.step(facingOf(speed_.x), dt, kTurnAroundSeconds);
 
     time_ = std::fmod(time_ + dt, kPathPeriod);

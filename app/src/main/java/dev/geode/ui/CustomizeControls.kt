@@ -239,7 +239,8 @@ private fun MotionControl(
         ParamKeys.CAM_ROLL -> LabeledSlider(key, p, SceneParams::camRoll) { onChange(p.copy(camRoll = it)) }
         ParamKeys.CAM_SHAKE -> LabeledSlider(key, p, SceneParams::camShake) { onChange(p.copy(camShake = it)) }
         ParamKeys.CAM_GYRO -> CheckRow(key, p.camGyro) { onChange(p.copy(camGyro = it)) }
-        ParamKeys.CAM_TOUCH -> CheckRow(key, p.camTouch) { onChange(p.copy(camTouch = it)) }
+        // One finger never reaches the visual (ui/VisualGestures); the look follows a two-finger drag.
+        ParamKeys.CAM_TOUCH -> CheckRow(key, p.camTouch, display = "Two-finger drag to look") { onChange(p.copy(camTouch = it)) }
         ParamKeys.CAM_SMOOTH -> LabeledSlider(key, p, SceneParams::camSmooth) { onChange(p.copy(camSmooth = it)) }
         else -> Unit
     }

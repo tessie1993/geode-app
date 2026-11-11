@@ -148,14 +148,18 @@ internal class QueueController(
         if (unresolved.isNotEmpty()) resolveTitlesAsync(unresolved, generation)
     }
 
-    fun playNext(uri: String) {
-        val at = QueueOps.insertNextIndex(player.currentMediaItemIndex, player.mediaItemCount)
-        player.addMediaItem(at, mediaItemFor(uri.toUri()))
-        host.refreshUi()
-    }
+    fun playNext(uri: String) = addQuick(QueueOps.insertNextIndex(player.currentMediaItemIndex, player.mediaItemCount), uri.toUri())
 
-    fun enqueue(uri: String) {
-        player.addMediaItem(mediaItemFor(uri.toUri()))
+    fun enqueue(uri: String) = addQuick(player.mediaItemCount, uri.toUri())
+
+    /** Adds without a ContentResolver query on the main thread: the title is patched in, as [open] does. */
+    private fun addQuick(
+        index: Int,
+        uri: Uri,
+    ) {
+        val quick = quickMediaItem(uri)
+        player.addMediaItem(index, quick.item)
+        if (quick.unresolved) resolveTitlesAsync(listOf(uri), openGeneration)
         host.refreshUi()
     }
 

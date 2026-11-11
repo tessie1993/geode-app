@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.provider.MediaStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.MediaStoreSource
+import dev.geode.data.OpenedAudioSource
 import dev.geode.data.PerformanceStore
 import dev.geode.data.SharedPrefsUserDataRepository
 import dev.geode.data.UserDataRepository
@@ -35,6 +36,9 @@ class GeodeContainer(
     val mediaStore: MediaStoreSource by lazy {
         MediaStoreSource(context.applicationContext.contentResolver, Dispatchers.IO)
     }
+
+    /** The checks an audio file another app opened passes before it plays ("Open with"). */
+    val openedAudio: OpenedAudioSource by lazy { OpenedAudioSource(context.applicationContext, Dispatchers.IO) }
 
     init {
         warmPlaybackPrefs()

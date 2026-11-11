@@ -554,6 +554,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
             PaywallHost(reducedMotion = reducedMotion)
             CastHost()
             SharedLinkConfirm()
+            AudioFileOpened(appState)
             MilkFileOpened(appState)
         }
     }

@@ -185,6 +185,20 @@
                 <data android:pathPattern=".*\\..*\\..*\\..*\\.milk" />
                 <data android:pathPattern=".*\\.MILK" />
             </intent-filter>
+            <!--
+              An audio file another app opens ("Open with"): played, never imported
+              (ui/OpenedAudioIntent.kt). Content uris only, no file scheme and no BROWSABLE: the
+              sender grants read access; data/OpenedAudioSource refuses the app's own providers and
+              a uri nobody granted.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="audio/*" />
+                <data android:mimeType="application/ogg" />
+                <data android:mimeType="application/x-flac" />
+            </intent-filter>
             <!-- Android Auto voice search: "play <something> on Geode" arrives here
                  with a query, and the activity plays the first library match. -->
             <intent-filter>

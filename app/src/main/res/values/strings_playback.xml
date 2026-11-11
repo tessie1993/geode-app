@@ -10,4 +10,6 @@
     <string name="notification_unfavourite">Remove from favourites</string>
     <string name="settings_beh_notif_room">The notification has room for two. Turning on a third turns one off.</string>
     <string name="library_favourites_empty">No favourites yet. Tap the heart in Player, or a track\'s ⋮ menu here.</string>
+    <string name="opened_audio_untitled">Opened file</string>
+    <string name="opened_audio_refused">BeatRealms can\'t play that file.</string>
 </resources>

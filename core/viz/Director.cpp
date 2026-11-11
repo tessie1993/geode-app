@@ -458,18 +458,24 @@ SceneParams Director::apply(const SceneParams& p, bool palWheel) const {
     o.paletteRangeOverride = std::max(r1, 0.0f);
     o.palette2BaseOverride = palBase(hue2, r2, palWheel);
     o.palette2RangeOverride = std::max(r2, 0.0f);
-    o.paletteMix = lerp(p.paletteMix, L.mix, a);
     if (a > 0.5f) o.paletteLut = SceneParams::kNoPaletteLut;
-    o.hueRange = lerp(p.hueRange, 1.0f, a);
-    o.saturation = lerp(p.saturation, std::clamp(sat, 0.2f, 1.5f), a);
-    o.brightness = lerp(p.brightness, std::clamp(bright, 0.5f, 1.25f), a);
-    o.temperature = lerp(p.temperature, L.temperature, a);
-    o.contrast = lerp(p.contrast, std::clamp(contrast, 0.6f, 1.5f), a);
-    o.milkdropPaletteTint = lerp(p.milkdropPaletteTint, 0.6f, a);
-    o.camSmooth = lerp(p.camSmooth, L.camSmooth, a);
-    o.motionBreath = lerp(p.motionBreath, L.motionBreath, a);
-    o.motionOrbit = lerp(p.motionOrbit, L.motionOrbit, a);
-    o.motionDrift = lerp(p.motionDrift, L.motionDrift, a);
+    // The dials: base plus modulation. The look is what the director would make of an untouched
+    // style, so it is added as its distance from the default; a slider the user moved keeps its
+    // whole offset. Blending toward the look instead ignored the slider at full weight, which is
+    // every Pro and trial play: Brightness and Saturation stopped answering while Auto was on.
+    static const SceneParams kDefaults{};
+    const auto over = [a](float user, float look, float base) { return user + a * (look - base); };
+    o.paletteMix = std::clamp(over(p.paletteMix, L.mix, kDefaults.paletteMix), 0.0f, 1.0f);
+    o.hueRange = over(p.hueRange, 1.0f, kDefaults.hueRange);
+    o.saturation = over(p.saturation, std::clamp(sat, 0.2f, 1.5f), kDefaults.saturation);
+    o.brightness = over(p.brightness, std::clamp(bright, 0.5f, 1.25f), kDefaults.brightness);
+    o.temperature = over(p.temperature, L.temperature, kDefaults.temperature);
+    o.contrast = over(p.contrast, std::clamp(contrast, 0.6f, 1.5f), kDefaults.contrast);
+    o.milkdropPaletteTint = over(p.milkdropPaletteTint, 0.6f, kDefaults.milkdropPaletteTint);
+    o.camSmooth = std::clamp(over(p.camSmooth, L.camSmooth, kDefaults.camSmooth), 0.0f, 1.0f);
+    o.motionBreath = over(p.motionBreath, L.motionBreath, kDefaults.motionBreath);
+    o.motionOrbit = over(p.motionOrbit, L.motionOrbit, kDefaults.motionOrbit);
+    o.motionDrift = over(p.motionDrift, L.motionDrift, kDefaults.motionDrift);
     // The melody's degree: a short tint toward warm for the stable ones, cool for the dark ones, and a
     // little strain on the leaning ones.
     o.colorShift += a * accent_ * accentSign_ * (0.02f + 0.04f * accentTension_);

@@ -21,21 +21,21 @@
 
     <!-- Visuals. -->
     <string name="tour_visuals_tabs_title">Pick a look</string>
-    <string name="tour_visuals_tabs_body">Styles picks a look. Customize shapes it. Presets keeps it.</string>
+    <string name="tour_visuals_tabs_body">Styles picks a look. Customize changes it. Presets saves it. MilkDrop has the classic presets.</string>
     <string name="tour_stage_arrows_title">Next style</string>
-    <string name="tour_stage_arrows_body">Tap an arrow or swipe sideways. Double tap hides the options. Swipe down for the quick knobs.</string>
+    <string name="tour_stage_arrows_body">The arrows step to the next or previous style.</string>
     <string name="tour_stage_tools_title">Up here</string>
-    <string name="tour_stage_tools_body">Cast to a TV. The gear has Auto, which changes the style with the music. Studio makes a video.</string>
-    <string name="tour_stage_record_title">Record a take</string>
-    <string name="tour_stage_record_body">Tap here, or hold the visual. Studio turns your take into a video.</string>
+    <string name="tour_stage_tools_body">Cast to a TV. The gear has Auto, which changes the style with the music. Studio makes a video. The last one shows the visual alone.</string>
+    <string name="tour_stage_record_title">Record</string>
+    <string name="tour_stage_record_body">Records the visual and the music as a video. Find it in Studio, under My videos.</string>
 
     <!-- Customize. -->
-    <string name="tour_customize_knobs_title">Start with the knobs</string>
-    <string name="tour_customize_knobs_body">A few knobs change the whole look.</string>
-    <string name="tour_customize_list_title">One group for each part</string>
-    <string name="tour_customize_list_body">Colour, shape, motion, music. Liquid makes a style flow under your finger.</string>
+    <string name="tour_customize_knobs_title">Quick knobs</string>
+    <string name="tour_customize_knobs_body">A few knobs that move the whole look at once.</string>
+    <string name="tour_customize_list_title">A group for each part</string>
+    <string name="tour_customize_list_body">Look, Shape, Motion, Music and more. Each opens on the basics, with more below.</string>
     <string name="tour_customize_randomize_title">Roll the dice</string>
-    <string name="tour_customize_randomize_body">Rolls a new look. Undo is next to it.</string>
+    <string name="tour_customize_randomize_body">In a group, the dice rolls new settings for it. Undo, next to it, takes them back.</string>
 
     <!-- Studio. -->
     <string name="tour_studio_render_title">Make a video</string>
@@ -48,8 +48,8 @@
     <string name="tour_tip_double_tap_sheet">Tip: double tap the visual to hide or show the options.</string>
     <string name="tour_tip_hold_to_record">Tip: hold the visual to start recording.</string>
     <string name="tour_tip_swipe_up_player">Tip: swipe the mini player up to open Player.</string>
-    <string name="tour_tip_swipe_down_knobs">Tip: swipe down on the visual for these knobs.</string>
-    <string name="tour_tip_swirl_randomize">Tip: draw two circles on the visual to randomize everything.</string>
+    <string name="tour_tip_swipe_down_knobs">Tip: swipe down on the visual for the quick knobs.</string>
+    <string name="tour_tip_swirl_randomize">Tip: draw two circles on the visual for a whole new look.</string>
     <string name="tour_tip_got_it">Got it</string>
 
     <!-- Settings › Tutorials. -->

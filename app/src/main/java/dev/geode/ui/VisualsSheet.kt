@@ -66,11 +66,11 @@ import dev.geode.ui.theme.floatingGlass
 import dev.geode.ui.theme.performStoneHaptic
 import dev.geode.ui.tour.LocalTourNudge
 import dev.geode.ui.tour.tourTarget
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 
 /**
  * The options over the full-screen visual: one glass surface, two layouts (V2 rule 5), one

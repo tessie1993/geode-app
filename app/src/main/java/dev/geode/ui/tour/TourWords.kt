@@ -2,6 +2,9 @@ package dev.geode.ui.tour
 
 import androidx.annotation.StringRes
 import dev.geode.R
+import dev.geode.data.BehaviourPrefs
+import dev.geode.data.CanvasGesture
+import dev.geode.data.GestureAction
 import dev.geode.model.GestureTip
 import dev.geode.model.TourChapter
 import dev.geode.model.TourSpot
@@ -54,3 +57,15 @@ internal val GestureTip.textRes: Int
             GestureTip.SWIPE_DOWN_KNOBS -> R.string.tour_tip_swipe_down_knobs
             GestureTip.SWIRL_RANDOMIZE -> R.string.tour_tip_swirl_randomize
         }
+
+/** Whether [behaviour]'s gesture map still gives this tip's gesture its action: a tip never names a gesture the user moved. */
+internal fun GestureTip.fits(behaviour: BehaviourPrefs): Boolean =
+    when (this) {
+        GestureTip.SWIPE_STYLES -> behaviour.actionFor(CanvasGesture.SWIPE_SIDEWAYS) == GestureAction.STEP_STYLE
+        GestureTip.DOUBLE_TAP_SHEET -> behaviour.actionFor(CanvasGesture.DOUBLE_TAP) == GestureAction.TOGGLE_SHEET
+        GestureTip.HOLD_TO_RECORD -> behaviour.actionFor(CanvasGesture.LONG_PRESS) == GestureAction.RECORD
+        GestureTip.SWIPE_DOWN_KNOBS -> behaviour.actionFor(CanvasGesture.SWIPE_DOWN) == GestureAction.MACROS
+        GestureTip.SWIRL_RANDOMIZE -> behaviour.actionFor(CanvasGesture.SWIRL) == GestureAction.RANDOMIZE_ALL
+        // The mini player's own swipe, not one of the visual's.
+        GestureTip.SWIPE_UP_PLAYER -> true
+    }

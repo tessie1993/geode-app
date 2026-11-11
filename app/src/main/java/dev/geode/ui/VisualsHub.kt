@@ -56,6 +56,7 @@ import dev.geode.data.BehaviourStore
 import dev.geode.data.CanvasGesture
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GestureAction
+import dev.geode.model.GestureTip
 import dev.geode.render.VisualizerView
 import dev.geode.ui.theme.GeodeMotionScheme
 import dev.geode.ui.theme.GeodeSpacing
@@ -65,6 +66,8 @@ import dev.geode.ui.theme.StoneHapticCue
 import dev.geode.ui.theme.glassBackdrop
 import dev.geode.ui.theme.performStoneHaptic
 import dev.geode.ui.theme.rememberGlassBackdrop
+import dev.geode.ui.tour.LocalTourNudge
+import dev.geode.ui.tour.fits
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -107,13 +110,49 @@ internal fun VisualsHub(
     requestedPage: VisualsPage? = null,
     onRequestedPageShown: () -> Unit = {},
 ) {
+    val context = LocalContext.current
+    // Read once per visit, off the main thread; Settings › Behaviour is another screen, so a change
+    // there is always read on the way back.
+    val behaviour by produceState(BehaviourPrefs()) {
+        value = withContext(Dispatchers.IO) { BehaviourStore(GeodePrefsFiles(context).general).load() }
+    }
+    // A gesture tip is said only while the user's gesture map still has that gesture do that thing.
+    val nudge = LocalTourNudge.current
+    val heard = remember(nudge, behaviour) { { tip: GestureTip -> if (tip.fits(behaviour)) nudge(tip) } }
+    CompositionLocalProvider(LocalTourNudge provides heard) {
+        VisualsHubContent(
+            viewModel,
+            visualizerView,
+            chrome,
+            bottomReserve,
+            sheetOpacity,
+            onOpenStudioRender,
+            pip,
+            requestedPage,
+            onRequestedPageShown,
+            behaviour,
+        )
+    }
+}
+
+@Composable
+private fun VisualsHubContent(
+    viewModel: PlayerViewModel,
+    visualizerView: VisualizerView,
+    chrome: ShellChromeState,
+    bottomReserve: Dp,
+    sheetOpacity: Float,
+    onOpenStudioRender: () -> Unit,
+    pip: Boolean,
+    requestedPage: VisualsPage?,
+    onRequestedPageShown: () -> Unit,
+    behaviour: BehaviourPrefs,
+) {
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val gate by viewModel.gate.collectAsStateWithLifecycle()
     // Every navigation decision lives in VisualsNavState (VisualsNavigation.kt); this only draws.
     val nav = rememberVisualsNavState()
-    // A PiP window shows the visual alone (owner: the old live view goes): the sheet hides on the way
-    // in and comes back on the way out if it was up; the stage icons sleep with the shell's chrome
-    // ([rememberShellChrome] keeps it asleep while [pip]).
+    // A page asked for from outside (the tour's replay): the sheet comes up on it.
     LaunchedEffect(requestedPage) {
         val page = requestedPage ?: return@LaunchedEffect
         nav.closeCustomizeCard()
@@ -121,6 +160,9 @@ internal fun VisualsHub(
         nav.showSheet()
         onRequestedPageShown()
     }
+    // A PiP window shows the visual alone (owner: the old live view goes): the sheet hides on the way
+    // in and comes back on the way out if it was up; the stage icons sleep with the shell's chrome
+    // ([rememberShellChrome] keeps it asleep while [pip]).
     var sheetBeforePip by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(pip) {
         if (pip) {
@@ -134,13 +176,7 @@ internal fun VisualsHub(
     val stepStyle: (Int) -> Unit = { step ->
         nextStageStyle(stageStyleOrder(), viz.sceneId, step) { !gate.allowsStyle(it) }?.let(viewModel::selectScene)
     }
-    val context = LocalContext.current
     val view = LocalView.current
-    // Read once per visit, off the main thread; Settings › Behaviour is another screen, so a change
-    // there is always read on the way back.
-    val behaviour by produceState(BehaviourPrefs()) {
-        value = withContext(Dispatchers.IO) { BehaviourStore(GeodePrefsFiles(context).general).load() }
-    }
     // Settings › Behaviour › Keep the screen on in Visuals: held while this screen is composed (#337).
     KeepScreenOnWhileShown(behaviour.keepScreenOnVisuals)
     val studioViewModel: StudioViewModel = geodeViewModel()

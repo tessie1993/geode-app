@@ -140,8 +140,29 @@ class TourTest {
         assertEquals(TourProgress(), TourProgress.decode(null, null, null))
         assertEquals(
             TourProgress(done = setOf(TourChapter.VISUALS)),
-            TourProgress.decode("WELCOME,PLAYER,VISUALS,ANYWHERE", "PLAYER:2", "GONE"),
+            TourProgress.decode("PLAYER,VISUALS,ANYWHERE,", "PLAYER:2", "GONE,,SWIPE"),
         )
+    }
+
+    @Test
+    fun `the old tour's saved progress maps onto the new chapters`() {
+        // Mid-way through the old tour: its guided path (WELCOME) is First steps, and the old
+        // "CHAPTER:card" resume names no step, so the next chapter starts from its top.
+        val old = TourProgress.decode("WELCOME,PLAYER,LIBRARY,CUSTOMIZE,LIVE_VIEW,PRO", "CUSTOMIZE:3", null)
+        assertEquals(setOf(TourChapter.START, TourChapter.CUSTOMIZE), old.done)
+        assertNull(old.resume)
+        assertEquals(TourChapter.VISUALS, Tour.due(old, visualsShown))
+        assertEquals(0, Tour.resume(TourChapter.VISUALS, old).at)
+        // Reset in an old build: nothing done, so First steps leads again.
+        assertEquals(TourChapter.START, Tour.due(TourProgress.decode("", "", ""), visualsShown))
+    }
+
+    @Test
+    fun `migrated progress saves under the new names only`() {
+        val old = TourProgress.decode("WELCOME,SETTINGS,STUDIO", null, "SWIPE_STYLES,HOLD_TO_RECORD")
+        assertEquals(setOf("START", "STUDIO"), old.encodeDone().split(',').toSet())
+        assertNull(old.encodeResume())
+        assertEquals(old, TourProgress.decode(old.encodeDone(), old.encodeResume(), old.encodeTips()))
     }
 
     @Test

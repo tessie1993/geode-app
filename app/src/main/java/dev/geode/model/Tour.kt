@@ -68,7 +68,9 @@ data class TourProgress(
 
         /**
          * [legacySeen] is the flag older builds kept for "the first-run tour ended". Those installs
-         * know the app, so every chapter counts as done and nothing plays on its own.
+         * know the app, so every chapter counts as done and nothing plays on its own. Older builds'
+         * WELCOME was the same guided path as [TourChapter.START]; their other chapter names that
+         * still exist keep their tick, and their "CHAPTER:card" resume is dropped.
          */
         fun decode(
             done: String?,
@@ -81,13 +83,18 @@ data class TourProgress(
                     if (legacySeen) {
                         TourChapter.entries.toSet()
                     } else {
-                        names(done).mapNotNull { n -> TourChapter.entries.firstOrNull { it.name == n } }.toSet()
+                        names(done).mapNotNull(::chapterNamed).toSet()
                     },
                 resume = TourSpot.entries.firstOrNull { it.name == resume },
                 tips = names(tips).mapNotNull { n -> GestureTip.entries.firstOrNull { it.name == n } }.toSet(),
             )
 
         private fun names(joined: String?) = joined.orEmpty().split(',')
+
+        private fun chapterNamed(name: String): TourChapter? =
+            if (name == LEGACY_WELCOME) TourChapter.START else TourChapter.entries.firstOrNull { it.name == name }
+
+        private const val LEGACY_WELCOME = "WELCOME"
     }
 }
 

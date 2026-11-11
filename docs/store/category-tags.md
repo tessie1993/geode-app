@@ -35,5 +35,7 @@ streaming service, a downloader, a radio, an editor, a game).
 
 ## Contact details and the rest of Store settings
 
-Email is required; website and phone are optional. These are the owner's own details and are
-not in the repo on purpose.
+Email is required ([answer/9859152](https://support.google.com/googleplay/android-developer/answer/9859152));
+website and phone are optional. Use the same address that replaces `CONTACT_EMAIL` in the privacy
+policy. A website is recommended: the GitHub Pages root that `pages.yml` publishes from
+`docs/site/` will do. These are the owner's own details and are not in the repo on purpose.

@@ -42,6 +42,7 @@ enum class StoneIcon(
     CHEVRON_RIGHT(MaterialSymbols.CHEVRON_RIGHT_OUTLINED, MaterialSymbols.CHEVRON_RIGHT_FILLED, mirrored = true),
     CLOSE(MaterialSymbols.CLOSE_OUTLINED, MaterialSymbols.CLOSE_FILLED),
     CROWN(MaterialSymbols.CROWN_OUTLINED, MaterialSymbols.CROWN_FILLED, filledAtRest = true),
+    DISPLAY(MaterialSymbols.DISPLAY_OUTLINED, MaterialSymbols.DISPLAY_FILLED),
     DELETE(MaterialSymbols.DELETE_OUTLINED, MaterialSymbols.DELETE_FILLED),
     EDIT(MaterialSymbols.EDIT_OUTLINED, MaterialSymbols.EDIT_FILLED),
     EXPAND(MaterialSymbols.EXPAND_OUTLINED, MaterialSymbols.EXPAND_FILLED),

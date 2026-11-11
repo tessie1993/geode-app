@@ -20,8 +20,6 @@
 "lib_camera",
 // The sound engine's frame (core/sound): uSound, uSoundTex and the SND_* names.
 "lib_sound",
-// Endless zoom's two octave layers (core/viz/EndlessZoom.hpp); pasted by lib_scene_uniforms.
-"lib_zoom",
 // The feedback pass's MilkDrop UV transform (core/viz/liquid/FeedbackMotion.hpp); liquid_frag.
 "lib_feedback",
 // The simulation scenes' shared 2.5D look (parallax relief, light, eight materials); after lib_sound.

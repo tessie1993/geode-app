@@ -1,7 +1,7 @@
 package dev.geode.cast
 
+import android.app.ForegroundServiceStartNotAllowedException
 import android.content.Context
-import android.widget.Toast
 import androidx.annotation.MainThread
 import androidx.annotation.OptIn
 import androidx.media3.cast.RemoteCastPlayer
@@ -15,7 +15,22 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-/** Where casting stands, for the Cast button. */
+/** Why a cast ended early; the UI words it. */
+enum class CastFailure {
+    /** The stream couldn't start, froze, or the renderer died. */
+    STREAM,
+
+    /** No Wi-Fi or Ethernet network to serve the TV from (cellular or a VPN alone can't reach it). */
+    NO_LAN,
+
+    /** Android refused to start the cast's foreground service with the app in the background. */
+    BACKGROUND_START,
+}
+
+/**
+ * Where casting stands, for the Cast button. [Locked], [Failed] and [TrialEnded] are one-shot: they hold until
+ * the UI has shown them and calls [CastController.consumed].
+ */
 sealed interface CastState {
     data object Idle : CastState
 
@@ -31,8 +46,10 @@ sealed interface CastState {
     /** A TV was picked without Pro; the session was ended. The UI shows the paywall. */
     data object Locked : CastState
 
-    /** The stream failed (couldn't start, froze, the renderer died). The session was ended. */
-    data object Failed : CastState
+    /** The cast could not start or stopped early; the session was ended. */
+    data class Failed(
+        val reason: CastFailure,
+    ) : CastState
 
     /** The trial ran out while casting; the cast stopped at the end of that song. */
     data object TrialEnded : CastState
@@ -58,8 +75,6 @@ class CastController private constructor(
     context: Context,
 ) {
     private val app = context.applicationContext
-    private val mutableState = MutableStateFlow<CastState>(CastState.Idle)
-    val state: StateFlow<CastState> = mutableState.asStateFlow()
 
     private val remote: RemoteCastPlayer =
         RemoteCastPlayer
@@ -92,10 +107,8 @@ class CastController private constructor(
             return
         }
         mutableState.value = CastState.Connecting(deviceName())
-        if (!CastService.start(app)) {
-            Toast.makeText(app, R.string.cast_failed, Toast.LENGTH_LONG).show()
-            onStreamFailed()
-        }
+        val refused = CastService.start(app) ?: return
+        onStreamFailed(if (refused is ForegroundServiceStartNotAllowedException) CastFailure.BACKGROUND_START else CastFailure.STREAM)
     }
 
     private fun onSessionEnded() {
@@ -113,8 +126,8 @@ class CastController private constructor(
         mutableState.value = CastState.Casting(deviceName())
     }
 
-    internal fun onStreamFailed() {
-        mutableState.value = CastState.Failed
+    internal fun onStreamFailed(reason: CastFailure) {
+        mutableState.value = CastState.Failed(reason)
         endSession()
     }
 
@@ -139,6 +152,17 @@ class CastController private constructor(
     companion object {
         @Volatile
         private var instance: CastController? = null
+
+        private val mutableState = MutableStateFlow<CastState>(CastState.Idle)
+
+        /** Process-wide, so the UI can follow it without building Cast. */
+        val state: StateFlow<CastState> = mutableState.asStateFlow()
+
+        /** The UI has shown a one-shot state ([CastState.Locked], [CastState.Failed], [CastState.TrialEnded]). */
+        @MainThread
+        fun consumed(shown: CastState) {
+            mutableState.compareAndSet(shown, CastState.Idle)
+        }
 
         /** The process's controller; builds it (and Cast) on first use. Main thread. */
         @MainThread

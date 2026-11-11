@@ -492,10 +492,6 @@ void main() {
     float trebN = clamp(sndShaped(SND_HIGH), 0.0, 1.5) / 1.5;
     float energyN = clamp(sndShaped(SND_LEVEL), 0.0, 1.5) / 1.5;
 
-    // Was the beat-phase bump, which reaches its peak inside one frame. uSpike is
-    // the same accent with a rise on it, so it swells rather than flashing, and it
-    // is already silent between hits without needing the phase clock.
-    float beatHit = uSpike;
 
     // ---- touch -----------------------------------------------------------
     //

@@ -9,12 +9,8 @@ data class SceneParams(
     val endlessZoom: Boolean = false,
     val endlessZoomSpeed: Float = 0.3f,
     val sway: Float = 0f,
-    // Inert since wave three; removed with the next format bump.
-    val pulse: Float = 0f,
     val driftX: Float = 0f,
     val driftY: Float = 0f,
-    // Inert since wave three; removed with the next format bump.
-    val shake: Float = 0f,
     val audioDrive: Float = 1f,
     // Inert since wave three; removed with the next format bump.
     val beatResponse: Float = 1f,
@@ -67,17 +63,11 @@ data class SceneParams(
     val bassGain: Float = 1f,
     val midGain: Float = 1f,
     val trebGain: Float = 1f,
-    // Inert since wave three; removed with the next format bump.
-    val flash: Float = 0f,
     val chromaAb: Float = 0f,
     val vignette: Float = 0f,
     val scanlines: Float = 0f,
     val grain: Float = 0f,
-    // Retired: the composite Glitch effect is gone. No reader; removed with the next format bump.
-    val glitch: Float = 0f,
     val fisheye: Float = 0f,
-    // Inert since wave three; removed with the next format bump.
-    val strobe: Float = 0f,
     val paramFadeSec: Float = 0f,
     val fluidQuality: Int = 2,
     val fluidAutoQuality: Boolean = true,
@@ -146,12 +136,9 @@ data class SceneParams(
     val rippleOverlayEnabled: Boolean = false,
     val rippleOverlayStrength: Float = 0.4f,
     val rippleOverlaySpecular: Float = 0.3f,
-    // Inert since wave three (core/viz/MotionField replaced it); kept so an older preset decodes.
-    val formDrive: Float = 0.7f,
-    // Wave three: the continuous motion system (core/viz/MotionField). Appended, as every field below.
+    // Wave three: the continuous motion system (core/viz/MotionField).
     val motionAmount: Float = 0.7f,
     val motionBreath: Float = 0.5f,
-    val motionOrbit: Float = 0.5f,
     val motionDrift: Float = 0.5f,
     val motionHue: Float = 0.4f,
     // The camera rig (core/viz/CameraRig); push/yaw/pitch/roll are the offsets routes and LFOs write.

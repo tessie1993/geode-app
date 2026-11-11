@@ -570,7 +570,7 @@ void main() {
     float shockR = (1.0 - beatEnv) * NEB_SHOCK_SPEED;
 
     // Ambient life. Both of these run at a constant rate off uTime, which is
-    // already ShaderScene's speed-INTEGRATED clock - multiplying by uSpeed
+    // already ShaderScene's speed-INTEGRATED clock - multiplying by Speed
     // again would make the rate go as speed^2 and reintroduce the teleport
     // that integrating exists to prevent. With every audio uniform at zero
     // this drift and this tumble are the whole animation, and they are what

@@ -62,7 +62,7 @@ out vec4 fragColor;
 //
 // ---- macros and knobs ---------------------------------------------------------
 //
-// Speed: uTime and uFlowTime drive the wave phases (never times uSpeed).
+// Speed: uTime and uFlowTime drive the wave phases (never times Speed).
 // Complexity: uMorph adds two waves (seven to nine) past 0.5, and a nest level
 // (lucidDetail). Chaos: uTurbulence/uWarp raise the warp strength
 // (lucidChaos, capped at 2.5 for the march). Kaleido: when uKaleido is on,

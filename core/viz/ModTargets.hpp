@@ -23,12 +23,12 @@ constexpr int kTargetCount = static_cast<int>(LfoTarget::DiveAimY) + 1;
 // The wire name; "" outside the enum.
 const char* name(LfoTarget target);
 catalogue::Scope scopeOf(LfoTarget target);
-// False for the retired Glitch slot, which only holds later ordinals in place.
+// False for the retired Pulse and Glitch slots, which only hold later ordinals in place.
 bool offered(LfoTarget target);
 // The slot a chained target steers (its rate or depth), -1 for one that moves a scene param.
 int chainSlot(LfoTarget target);
 // Whether moving `target` changes anything on `styleId`. A chained target steers another slot, so it
-// reaches every style; the retired slot and anything outside the enum reach none.
+// reaches every style; a retired slot and anything outside the enum reach none.
 bool reaches(LfoTarget target, const std::string& styleId);
 // Who is picking a target, for offeredTo: a reaction route, an envelope, or a wave slot by its index
 // (0..LfoEngine::kSlots-1). Anything else is offered nothing.

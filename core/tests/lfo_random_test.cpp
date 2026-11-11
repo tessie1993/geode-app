@@ -250,7 +250,7 @@ void rolledWavesAreUsable() {
                 check(waves::kindOf(c.target) >= 0, where + ": a target the roll knows");
                 ModChain chain{};
                 check(!chainOf(c.target, chain), where + ": moves the picture, not another wave");
-                check(c.target != LfoTarget::Pulse && c.target != LfoTarget::Brightness && c.target != LfoTarget::Intensity &&
+                check(c.target != LfoTarget::Retired5 && c.target != LfoTarget::Brightness && c.target != LfoTarget::Intensity &&
                           c.target != LfoTarget::CamShake,
                       where + ": no retired or flickering target");
                 check(c.rateSeconds >= 1.0f && c.rateSeconds <= 24.0f, where + ": a period of 1 to 24 s");

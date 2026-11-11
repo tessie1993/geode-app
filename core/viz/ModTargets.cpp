@@ -26,7 +26,7 @@ constexpr std::array<TargetRow, kTargetCount> kTargets{{
     {"ZOOM", Scope::Universal},
     {"ROTATION", Scope::Universal},
     {"SWAY", Scope::Universal},
-    {"PULSE", Scope::Universal},
+    {"RETIRED_5", Scope::Universal},  // was PULSE; a saved "PULSE" no longer resolves
     {"DRIFT_X", Scope::Universal},
     {"DRIFT_Y", Scope::Universal},
     {"WARP", Scope::Universal},
@@ -137,7 +137,7 @@ const char* name(LfoTarget target) { return known(target) ? kTargets[static_cast
 
 Scope scopeOf(LfoTarget target) { return known(target) ? kTargets[static_cast<size_t>(target)].scope : Scope::Universal; }
 
-bool offered(LfoTarget target) { return known(target) && target != LfoTarget::Retired25; }
+bool offered(LfoTarget target) { return known(target) && target != LfoTarget::Retired5 && target != LfoTarget::Retired25; }
 
 int chainSlot(LfoTarget target) {
     ModChain c{};

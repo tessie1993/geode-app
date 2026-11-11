@@ -43,7 +43,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the room's idle turn. Complexity (uMorph) adds up to
+// Speed scales the room's idle turn. Complexity (uMorph) adds up to
 // two fractal iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) warps
 // the clay before it is inverted (bulbChaos in q, estimate divided by
 // bulbChaosLip). Energy (uIntensity) scales the beat nod. Colour is tone(),

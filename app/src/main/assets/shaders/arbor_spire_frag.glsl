@@ -38,7 +38,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the grid's scroll and the slow hue drift.
+// Speed scales the grid's scroll and the slow hue drift.
 // Complexity: uMorph adds a fork level to every branch (arbLevels). Chaos:
 // uTurbulence and uWarp jitter each branch's height and length from its index;
 // uTwist adds a standing twist to every branch's fork planes. Colour: tube

@@ -28,7 +28,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the clock. Complexity: uMorph braces the side faces
+// Speed scales the clock. Complexity: uMorph braces the side faces
 // with X struts. Chaos: uWarp/uTurbulence bend the girders (diveChaos).
 // Energy: uIntensity scales the kick swell. Colour: diveColor (the cosine
 // palettes with pal()). Space: the rig - Fly is the dive speed, the look

@@ -39,7 +39,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales every clock (curtain sway, water lap, fireflies).
+// Speed scales every clock (curtain sway, water lap, fireflies).
 // Complexity: uMorph adds a fold level (arbLevels) and a fourth curtain ring.
 // Chaos: uTurbulence and uWarp shake the per-level twist and the strands'
 // sway into a wind-torn curtain; uTwist winds the canopy into a spiral.

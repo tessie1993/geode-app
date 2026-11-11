@@ -34,8 +34,6 @@ out vec4 fragColor;
 // Bass (SND_BASS_PRESENCE)   the spheres breathe (radius) and the web glows.
 // Treble (sndShaped(SND_HIGH)) the lit web nodes and the merkaba points glint.
 // Level (SND_LEVEL)          the column of light widens and brightens.
-// A transient (uSpike)       swells the merkaba points and the burst over ~120 ms
-//                            and grows the merkabas a little.
 // uSpawnSeed                 re-picks which web nodes are lit, grown in over a
 //                            second (spawnGrow), never at once.
 // uFormPhase                 steps the web between three densities and the
@@ -87,7 +85,6 @@ out vec4 fragColor;
 float gBass;
 /** FLOW's turn of every merkaba, radians (an offset, never a rate). */
 float gSpinRate;
-float gGrow;
 float gMorph;
 float gBob;
 vec3 gEye;
@@ -143,7 +140,7 @@ float map(vec3 p) {
     float k1 = uhashUnit(v);
     float k2 = uhashUnit(uhash(v));
     float k3 = uhashUnit(uhash(v ^ 0x51edu));
-    float s = (0.55 + 0.2 * k1) * gGrow;
+    float s = 0.55 + 0.2 * k1;
     vec3 mc = vec3(MG_MK_X + (k2 - 0.5) * 0.8, 0.6 + 2.0 * k3 + gBob * sin(uTime * 0.31 + k1 * 40.0),
                    zm * MG_CELL + (k1 - 0.5) * 2.4);
     vec3 q = a - mc;
@@ -225,7 +222,7 @@ float second4(vec4 v) {
 }
 
 /** The far end of the hall: dark nave, the rising column of light and its burst. */
-vec3 skyColour(vec3 rd, float hue, float swell, float build, float spike) {
+vec3 skyColour(vec3 rd, float hue, float swell, float build) {
     vec3 col = pal(hue + 0.6) * 0.025 + vec3(0.004, 0.003, 0.008);
     float ahead = max(rd.z, 0.0);
     col += pal(hue + 0.08) * 0.10 * pow(ahead, 12.0);
@@ -238,7 +235,7 @@ vec3 skyColour(vec3 rd, float hue, float swell, float build, float spike) {
     vec2 b = sp - vec2(0.0, 0.55);
     float br = length(b);
     float spokes = 0.55 + 0.45 * cos(atan(b.y, b.x) * 12.0 + uFlowPhase * 2.0);
-    col += mix(vec3(1.0), pal(hue), 0.4) * exp(-br * 6.0) * spokes * (0.35 + 0.5 * spike) * build
+    col += mix(vec3(1.0), pal(hue), 0.4) * exp(-br * 6.0) * spokes * 0.35 * build
          * smoothstep(0.2, 0.7, ahead);
     col += vec3(1.0) * exp(-br * br * 260.0) * 1.2 * build * smoothstep(0.3, 0.8, ahead);
     return col;
@@ -257,7 +254,6 @@ void main() {
     float bass = clamp(SND_BASS_PRESENCE * (1.0 + 0.8 * kPulse), 0.0, 1.5);
     float treb = clamp(sndShaped(SND_HIGH), 0.0, 1.5);
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
-    float spike = clamp(uSpike, 0.0, 1.0);
     float intensity = clamp(uIntensity, 0.0, 2.0);
     float warp = clamp(uWarp, 0.0, 1.0);
     float turb = clamp(uTurbulence, 0.0, 1.0);
@@ -269,7 +265,6 @@ void main() {
 
     gBass = bass;
     gSpinRate = 2.0 * kFlow;
-    gGrow = 1.0 + 0.08 * spike;
     gMorph = 0.6 * clamp(uMorph, 0.0, 1.0);
     gBob = 0.15 + 0.35 * turb;
 
@@ -302,7 +297,7 @@ void main() {
         if (t > MG_FAR) break;
     }
 
-    vec3 sky = skyColour(rd, hue, swell, build, spike);
+    vec3 sky = skyColour(rd, hue, swell, build);
     vec3 col = sky;
     float sceneT = hitT > 0.0 ? hitT : MG_FAR;
     float px = sceneT * 2.0 / (max(uCamFocal, 0.1) * uResolution.y);
@@ -379,7 +374,7 @@ void main() {
             float tip = 1.0 - smoothstep(0.0, gSize * 0.35, gVert);
             col = tint * (0.03 + 0.10 * dif) * ao + tint * fres * 0.4
                 + mix(tint, vec3(1.0), 0.3) * edge * 0.9
-                + mix(vec3(1.0), tint, 0.35) * tip * (0.3 + 0.8 * treb + 0.6 * spike)
+                + mix(vec3(1.0), tint, 0.35) * tip * (0.3 + 0.8 * treb)
                 + vec3(spec) * 0.5;
         }
 
@@ -387,7 +382,7 @@ void main() {
     }
 
     // The points' halo gathered along the ray.
-    col += mix(vec3(1.0), pal(hue + 0.3), 0.5) * min(glow * 0.02, 0.6) * (0.4 + 0.6 * treb + 0.5 * spike);
+    col += mix(vec3(1.0), pal(hue + 0.3), 0.5) * min(glow * 0.02, 0.6) * (0.4 + 0.6 * treb);
 
     // Motes: points on world z slices every 2 units ahead of the eye, one
     // hashed candidate per 1.4-unit cell. Slices sit at fixed world z (index

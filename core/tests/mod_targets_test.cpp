@@ -40,7 +40,7 @@ void check(bool ok, const std::string& what) {
 // The old Kotlin LfoTarget rows (name, ParamScope), in wire order.
 const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     {"NONE", "UNIVERSAL"}, {"SPEED", "SCENE_CLOCK"}, {"ZOOM", "UNIVERSAL"}, {"ROTATION", "UNIVERSAL"},
-    {"SWAY", "UNIVERSAL"}, {"PULSE", "UNIVERSAL"}, {"DRIFT_X", "UNIVERSAL"}, {"DRIFT_Y", "UNIVERSAL"},
+    {"SWAY", "UNIVERSAL"}, {"RETIRED_5", "UNIVERSAL"}, {"DRIFT_X", "UNIVERSAL"}, {"DRIFT_Y", "UNIVERSAL"},
     {"WARP", "UNIVERSAL"}, {"RIPPLE", "UNIVERSAL"}, {"MORPH", "SHADER_LOOK"}, {"TWIST", "UNIVERSAL"},
     {"TILE", "UNIVERSAL"}, {"PIXELATE", "UNIVERSAL"}, {"POSTERIZE", "UNIVERSAL"}, {"COLOR_SHIFT", "UNIVERSAL"},
     {"PALETTE_MIX", "SHADER_LOOK"}, {"SATURATION", "UNIVERSAL"}, {"BRIGHTNESS", "UNIVERSAL"}, {"INTENSITY", "UNIVERSAL"},
@@ -71,10 +71,10 @@ void everyTargetKeepsItsNameAndScope() {
           "wire ordinals");
 }
 
-void onlyTheRetiredSlotIsHidden() {
+void onlyTheRetiredSlotsAreHidden() {
     for (int i = 0; i < modtargets::kTargetCount; ++i) {
         const auto t = static_cast<LfoTarget>(i);
-        check(modtargets::offered(t) == (t != LfoTarget::Retired25), std::string("offered ") + modtargets::name(t));
+        check(modtargets::offered(t) == (t != LfoTarget::Retired5 && t != LfoTarget::Retired25), std::string("offered ") + modtargets::name(t));
     }
 }
 
@@ -85,7 +85,8 @@ void reachFollowsTheScope() {
     check(modtargets::reaches(LfoTarget::FluidCurl, "fluid"), "Fluid curl reaches Fluid");
     check(!modtargets::reaches(LfoTarget::FluidCurl, "julia"), "Fluid curl does not reach a shader style");
     check(modtargets::reaches(LfoTarget::Lfo2Depth, "milkdrop"), "a chained target reaches every style");
-    check(!modtargets::reaches(LfoTarget::Retired25, "julia"), "the retired slot reaches nothing");
+    check(!modtargets::reaches(LfoTarget::Retired5, "julia") && !modtargets::reaches(LfoTarget::Retired25, "julia"),
+          "a retired slot reaches nothing");
     check(!modtargets::reaches(static_cast<LfoTarget>(99), "julia"), "an unknown target reaches nothing");
 }
 
@@ -139,7 +140,8 @@ void pickersOfferWhatTheEngineRuns() {
     for (int picker : {kPickerReaction, kPickerEnvelope, 0, 1, 2}) {
         check(modtargets::offeredTo(LfoTarget::Morph, "julia", picker) && !modtargets::offeredTo(LfoTarget::Morph, "silk_web", picker),
               "a scene target follows the style's reach for picker " + std::to_string(picker));
-        check(!modtargets::offeredTo(LfoTarget::Retired25, "julia", picker), "the retired slot is offered to no picker");
+        check(!modtargets::offeredTo(LfoTarget::Retired5, "julia", picker) && !modtargets::offeredTo(LfoTarget::Retired25, "julia", picker),
+              "a retired slot is offered to no picker");
     }
     check(!modtargets::offeredTo(LfoTarget::Zoom, "julia", 3) && !modtargets::offeredTo(LfoTarget::Zoom, "julia", -3),
           "an unknown picker is offered nothing");
@@ -172,7 +174,8 @@ void textCarriesEveryRow() {
     check(t.rfind("modulation|2\n", 0) == 0, "header first");
     check(hasLine(t, "config|2|0.05|60|0.3|3"), "config row: default rate, rate range, default depth, slots");
     check(hasLine(t, "target|10|MORPH|SHADER_LOOK|-1|1"), "a scene target row");
-    check(hasLine(t, "target|25|RETIRED_25|UNIVERSAL|-1|0"), "the retired row is not offered");
+    check(hasLine(t, "target|5|RETIRED_5|UNIVERSAL|-1|0") && hasLine(t, "target|25|RETIRED_25|UNIVERSAL|-1|0"),
+          "the retired rows are not offered");
     check(hasLine(t, "target|43|LFO3_RATE|UNIVERSAL|2|1"), "a chained row names its slot");
     check(hasLine(t, "source|0|LFO|BIPOLAR") && hasLine(t, "source|1|BASS|POSITIVE") && hasLine(t, "source|8|STEREO_PAN|BIPOLAR"),
           "source rows carry their natural polarity");
@@ -211,7 +214,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     everyTargetKeepsItsNameAndScope();
-    onlyTheRetiredSlotIsHidden();
+    onlyTheRetiredSlotsAreHidden();
     reachFollowsTheScope();
     musicActionsReachWhatTheirTargetsReach();
     chainedTargetsSteerTheirSlot();

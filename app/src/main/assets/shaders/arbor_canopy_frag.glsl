@@ -36,7 +36,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the dapple drift and the leaves' stir. Complexity:
+// Speed scales the dapple drift and the leaves' stir. Complexity:
 // uMorph adds a fork level (arbLevels). Chaos: uTurbulence and uWarp scatter
 // each tree's twist and lean from its hash; uTwist adds a standing spiral to
 // every crown. Colour: bark, leaves, light and haze from pal(). Energy:

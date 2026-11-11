@@ -68,7 +68,7 @@ enum class LfoTarget(
     ZOOM("Zoom"),
     ROTATION("Rotation"),
     SWAY("Sway"),
-    PULSE("Pulse"),
+    RETIRED_5(""),
     DRIFT_X("Drift X"),
     DRIFT_Y("Drift Y"),
     WARP("Warp"),
@@ -89,7 +89,7 @@ enum class LfoTarget(
     CHROMA_AB("Chroma AB"),
     VIGNETTE("Vignette"),
 
-    // Was GLITCH: holds the slot so later ordinals match native. Never offered; a saved "GLITCH" loads as dropped.
+    // RETIRED_5 was PULSE, this was GLITCH: each holds its slot so later ordinals match native. Never offered; a saved name loads as dropped.
     RETIRED_25(""),
 
     FISHEYE("Fisheye"),

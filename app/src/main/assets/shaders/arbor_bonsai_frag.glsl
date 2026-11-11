@@ -37,7 +37,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the pads' slow breath. Complexity: uMorph adds a level to every form (arbLevels).
+// Speed scales the pads' slow breath. Complexity: uMorph adds a level to every form (arbLevels).
 // Chaos: uTurbulence and uWarp deepen the trunk's sinuous warp; uTwist adds a
 // standing spiral to the forks. Colour: the ink and wash tints from pal(); the
 // paper and the seal are fixed accents. Energy: uIntensity scales the harmony

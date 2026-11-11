@@ -101,7 +101,7 @@ out vec4 fragColor;
  * plus the largest lobe radius 0.34 gives 1.03, one fuse can add 0.11 (four
  * chained fuses cannot all peak at one point - that would need five spheres
  * equidistant there, and five spheres equidistant at a point all contain it),
- * plus 0.009 of relief and 0.030 of shockwave = 1.18. The rest is the margin
+ * plus 0.009 of relief = 1.15. The rest is the margin
  * that makes the clip below invisible rather than a straight edge across the
  * silhouette.
  */
@@ -194,21 +194,6 @@ out vec4 fragColor;
  * places on the same style is not a conflict.
  */
 #define MORPH_HOLD 0.44
-
-/**
- * How far a beat lunges the body toward its next skeleton.
- *
- * This is the discrete beat event, and it is deliberately the ONLY thing the
- * beat moves in the geometry. The segment index cannot be beat-derived - a
- * fragment shader has no memory and cannot count beats, only read the phase of
- * the current one - so the clock owns the CADENCE and the beat owns the
- * MOTION: on every hit the organism surges toward what it is becoming and
- * relaxes back, the surges grow as the segment runs out because they are
- * scaled by (1 - t), and the last one before the ease saturates is what
- * completes the change. So the arrival is always on a beat even though the
- * schedule is not.
- */
-#define MORPH_KICK 0.42
 
 /** Below this the second skeleton is not evaluated at all - see map(). */
 #define MORPH_EPS 0.004
@@ -355,7 +340,7 @@ out vec4 fragColor;
 /** Turns per second of the crystal's own spin. */
 #define CRYSTAL_SPIN 0.17
 
-// ---- skin, shockwave, touch ----------------------------------------------
+// ---- skin, touch ----------------------------------------------
 
 /** Spatial frequency of the bass relief. */
 #define RELIEF_FREQ 9.0
@@ -373,15 +358,6 @@ out vec4 fragColor;
 
 /** RELIEF_FREQ * sqrt(3): the gradient bound of a product of three sines. */
 #define RELIEF_LIP 15.588
-
-/** Peak geometric amplitude of the beat shockwave, in world units. */
-#define SHELL_AMP 0.030
-
-/** Half-width of the shockwave front. Wider = cheaper Lipschitz, softer ring. */
-#define SHELL_W 0.16
-
-/** max over u of (2u/W)exp(-u^2) = 0.8578/W: the front's steepest slope. */
-#define SHELL_LIP 5.361
 
 /**
  * Where a touch bulge is centred, as a radius from the body's centre.
@@ -466,8 +442,6 @@ vec3 gBlobC[4];
 float gBlobRad[4];
 mat3 gCrystalRot;
 float gRelief;
-float gShellA;
-float gShellR;
 float gSpinK;
 /** The body's own clip radius: BODY_BOUND, or TOUCH_BOUND with a finger down. */
 float gBodyBound;
@@ -639,8 +613,7 @@ float map(vec3 p) {
     gFuse = 0.0;
     gFront = 0.0;
 
-    // One length(), used three times: the body's bound, the shockwave's radius
-    // and the final clip.
+    // One length(), used twice: the body's bound and the final clip.
     float r = length(p);
 
     // Every skeleton is inside BODY_BOUND, so the distance to that sphere is
@@ -715,16 +688,6 @@ float map(vec3 p) {
         d -= gRelief * sin(q.x * RELIEF_FREQ)
             * sin(q.y * RELIEF_FREQ + 1.7)
             * sin(q.z * RELIEF_FREQ + 3.1);
-    }
-
-    // The beat's discrete event, as a shockwave rather than a new object: a
-    // Gaussian ridge at radius gShellR, born at the transient deep inside the
-    // body and expanding out through the skin as sndPhase(SND_BASS_TIME, 2.0) runs. Born inside
-    // means it is invisible at the moment it appears, which is the difference
-    // between a pulse crossing the surface and a sphere popping into frame.
-    if (gShellA > 0.0) {
-        float u = (r - gShellR) / SHELL_W;
-        d -= gShellA * exp(-u * u);
     }
 
     // The fingers, fused into whatever the body is. With nothing touching this
@@ -815,23 +778,8 @@ void main() {
     gIa = mod(segf, 4.0);
     gIb = mod(segf + 1.0, 4.0);
 
-    // uSpike rather than the beat-phase bump: it takes ~120ms to arrive, so the
-    // morph is nudged along rather than jolted on a single frame. beatEnv keeps
-    // its name because the shockwave below squares it - the gate is unchanged,
-    // only the signal under it is now slew-limited.
-    float beatEnv = clamp(uSpike, 0.0, 1.0);
-    float kick = beatEnv;
-
     float hold = MORPH_HOLD * (1.0 - clamp(uMorph, 0.0, 1.0));
     gMt = smoothstep(hold * 0.5, 1.0 - hold * 0.5, f);
-    // The kick is tapered to nothing at both ends of the segment. Without the
-    // taper a beat landing on the wrap took the body from "finished skeleton
-    // B" straight to "40% of the way from B to C" in one frame, because at the
-    // wrap B stops being the destination and starts being the origin. Tapered,
-    // both sides of the wrap agree that the body is exactly B and nothing
-    // jumps.
-    float window = smoothstep(0.0, 0.15, f) * (1.0 - smoothstep(0.85, 1.0, f));
-    gMt = clamp(gMt + MORPH_KICK * kick * window * (1.0 - gMt), 0.0, 1.0);
 
     // ---- audio, clamped before anything structural reads it ---------------
     //
@@ -898,12 +846,6 @@ void main() {
     gFoldIters = int(clamp(floor(uSteps * 0.046875), 3.0, float(FOLD_MAX_ITERS)));
     gRelief = RELIEF_AMP * bass;
 
-    // The shockwave rides sndPhase(SND_BASS_TIME, 2.0) from inside the body to just past the
-    // skin, and its amplitude rides the squared envelope so it is silent
-    // between hits and absent altogether in silence.
-    gShellA = SHELL_AMP * beatEnv * beatEnv;
-    gShellR = mix(0.10, 1.16, clamp(sndPhase(SND_BASS_TIME, 2.0), 0.0, 1.0));
-
     gSpinK = SPIN_GAIN * clamp(uTouchSpin, -8.0, 8.0);
 
     // The organism's own slow turn, on two unrelated rates so it never returns
@@ -915,8 +857,7 @@ void main() {
     // exactly 1 when its driver is 0, so a silent untouched frame divides by
     // exactly 1.0 and marches at full speed.
     gLip = sqrt(1.0 + gSpinK * gSpinK)
-        * (1.0 + RELIEF_LIP * gRelief)
-        * (1.0 + SHELL_LIP * gShellA);
+        * (1.0 + RELIEF_LIP * gRelief);
 
     // ---- where the fingers are, as geometry -------------------------------
     //
@@ -1063,15 +1004,6 @@ void main() {
             // colour rather than spreading out to the same width as it.
             col += vec3(1.0) * pow(clamp(heat, 0.0, 1.0), 5.0) * 0.38;
 
-            // The shockwave, as light. The 0.03-unit geometric ridge above is
-            // most of a pixel at the silhouette and nothing at all face-on;
-            // the same profile added to the heat is what actually makes a beat
-            // visible as a ring crossing the skin, and it costs one exp.
-            if (gShellA > 0.0) {
-                float u = (length(p) - gShellR) / SHELL_W;
-                col += hot * exp(-u * u) * beatEnv * beatEnv * 0.35;
-            }
-
             // The finger's own highlight, in the folded frame: touchAnchor()
             // is not pushed through view()'s kaleidoscope or tiling, and using
             // the folded uv here is deliberate - the same mirrors that repeat
@@ -1087,7 +1019,7 @@ void main() {
 
     col += pal(baseHue + 0.42) * glow * 0.45 * (0.45 + 0.55 * energy);
 
-    // Body, rim, specular, seam, core, shockwave, touch and haze all added
+    // Body, rim, specular, seam, core, touch and haze all added
     // together: HDR by construction. Clipping would flatten every rim and every
     // seam into the same white; the exponential rolls them off instead and,
     // being bounded by 1, is also what guarantees that no combination of audio

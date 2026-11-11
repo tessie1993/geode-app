@@ -38,7 +38,6 @@ out vec4 fragColor;
 // Hat (SND_HAT_ENV)                            the small dots twinkle, each its own phase.
 // Level (sndShaped(SND_LEVEL))                 neon bloom: bright colour feeds on itself.
 // Bass presence (SND_BASS_PRESENCE)            the halo between the orbs thickens.
-// Spike (uSpike)                               the orbs' accent swell (rises over ~120 ms).
 // Form phase (uFormPhase)                      the fold count, held until the next spike
 //                                              (or the user's Symmetry with Kaleido on).
 // Spawn seed / move dir                        the lattice slides to a new offset, grown in.
@@ -163,7 +162,6 @@ void main() {
     float enA = clamp(sndShaped(SND_LEVEL), 0.0, 1.3);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0) * clamp(0.5 + uKnob[0], 0.0, 1.5);
     float hat = clamp(SND_HAT_ENV, 0.0, 1.0);
-    float hit = clamp(uSpike, 0.0, 1.0);
 
     gFolds = max(foldCount(), 2.0);
     // A slow rigid turn of the whole fold; the catalogue's spin rolls the view on top.
@@ -246,7 +244,6 @@ void main() {
         vec3 L = normalize(vec3(-0.3, 0.8, -0.5));
         float spec = pow(max(dot(reflect(rd, n), L), 0.0), 40.0);
         vec3 orb = body * 0.55 + fringe * 0.9 + vec3(spec) * 0.35;
-        orb *= 1.0 + 0.25 * hit;
         col = mix(orb, fogCol, 1.0 - exp(-hitT * 0.075));
     }
 

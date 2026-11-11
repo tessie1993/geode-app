@@ -47,8 +47,7 @@ public:
         float harmony = 0.5f;     // uHarmony: tonality (1 - flatness), 0..1
         float keyHue = 0.0f;      // uKeyHue: the style's hue driver, eased round the wheel, 0..1
         float keyStrength = 0.0f; // uKeyStrength: how much that driver is worth trusting, 0..1
-        float beatOsc = 0.5f;     // uBeatOsc: oscillator on a music-driven clock, 0..1
-        float barOsc = 0.5f;      // uBarOsc: the same clock, a quarter as fast, 0..1
+        float barOsc = 0.5f;      // uBarOsc: oscillator on a music-driven clock, 0..1
         float orbitX = 0.0f;      // uOrbit.x, -1..1
         float orbitY = 0.0f;      // uOrbit.y, -1..1
         float drift = 0.0f;       // uDrift: accumulated angle, radians, in [0, kDriftWrap) (a shader angle, never a rate)
@@ -77,7 +76,7 @@ public:
     // keeps the default.
     void step(const GeodeSoundFrame& f, float dt, float speed = 1.0f);
     // Reshapes p with the state step() just computed; never touches
-    // brightness/intensity/contrast/flash/strobe/pulse/shake. Reduced motion
+    // brightness/intensity/contrast. Reduced motion
     // scales the shape terms here; the rates safety::apply scales next
     // (rotation, sway, turbulence) are left to it, so each is scaled once.
     // spin is the style's SceneRegistry::spinRate: it scales and signs the drift

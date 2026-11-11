@@ -212,7 +212,7 @@ void main() {
         // The halo: rays that grazed the body without hitting it. `near` is
         // the closest approach, so this is a true silhouette glow and not a
         // radial gradient pasted behind the object.
-        col += dmtHalo(near, 0.50, 5.5, 0.30 + 0.35 * uSpike);
+        col += dmtHalo(near, 0.50, 5.5, 0.30);
     }
 
     // The particle layer, in screen space, riding the 2D half of the same

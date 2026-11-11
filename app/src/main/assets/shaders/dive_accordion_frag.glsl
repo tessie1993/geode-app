@@ -28,7 +28,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the clock. Complexity: uMorph grows the second ring
+// Speed scales the clock. Complexity: uMorph grows the second ring
 // of small mushrooms. Chaos: uWarp/uTurbulence bend the stems. Energy:
 // uIntensity scales the bellows and the cap pulse. Colour: diveColor.
 // Space: the rig.

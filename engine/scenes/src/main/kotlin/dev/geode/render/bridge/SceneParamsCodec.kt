@@ -9,10 +9,11 @@ import java.lang.reflect.Field
  * schema ([ParamSchema], core/viz/ParamTable.inc): slot i carries the field that schema row i names.
  * Each field is found by that name (app/proguard-rules.pro keeps the names), so no Kotlin list holds
  * the order and nothing here can fall out of step with the table: a row the data class lacks fails
- * the codec's first use loudly instead of shifting every slot after it. Ints and flags travel as floats.
+ * the codec's first use loudly instead of shifting every slot after it. A retired row has no field:
+ * its slot carries the row's default out and is skipped coming back. Ints and flags travel as floats.
  */
 object SceneParamsCodec {
-    private val SLOTS: Array<Field> = slotFields()
+    private val SLOTS: Array<Field?> = slotFields()
 
     /** The frame's float count: one per schema row. */
     val FIELDS: Int = SLOTS.size
@@ -24,9 +25,10 @@ object SceneParamsCodec {
         check(out.size >= FIELDS) { "scene parameter frame needs $FIELDS floats, got ${out.size}" }
         SLOTS.forEachIndexed { slot, field ->
             out[slot] =
-                when (field.type) {
-                    Boolean::class.javaPrimitiveType -> if (field.getBoolean(p)) 1f else 0f
-                    Int::class.javaPrimitiveType -> field.getInt(p).toFloat()
+                when {
+                    field == null -> ParamSchema[slot].default
+                    field.type == Boolean::class.javaPrimitiveType -> if (field.getBoolean(p)) 1f else 0f
+                    field.type == Int::class.javaPrimitiveType -> field.getInt(p).toFloat()
                     else -> field.getFloat(p)
                 }
         }
@@ -49,10 +51,11 @@ object SceneParamsCodec {
         val out = base.copy()
         SLOTS.forEachIndexed { slot, field ->
             val v = values[slot]
-            when (field.type) {
-                Float::class.javaPrimitiveType -> field.setFloat(out, v)
-                Int::class.javaPrimitiveType -> field.setInt(out, Math.round(v))
-                Boolean::class.javaPrimitiveType -> field.setBoolean(out, v > 0.5f)
+            when {
+                field == null -> Unit
+                field.type == Float::class.javaPrimitiveType -> field.setFloat(out, v)
+                field.type == Int::class.javaPrimitiveType -> field.setInt(out, Math.round(v))
+                field.type == Boolean::class.javaPrimitiveType -> field.setBoolean(out, v > 0.5f)
                 else -> error("${field.name} is not a wire type")
             }
         }
@@ -62,12 +65,16 @@ object SceneParamsCodec {
         return result
     }
 
-    /** The [SceneParams] field of every schema row, in slot order. */
-    private fun slotFields(): Array<Field> {
+    /** The [SceneParams] field of every schema row, in slot order; null for a retired row. */
+    private fun slotFields(): Array<Field?> {
         val byName = SceneParams::class.java.declaredFields.associateBy { it.name }
         return Array(ParamSchema.params.size) { slot ->
-            val name = ParamSchema[slot].name
-            checkNotNull(byName[name]) { "native scene param $name has no SceneParams field" }.apply { isAccessible = true }
+            val spec = ParamSchema[slot]
+            if (spec.retired) {
+                null
+            } else {
+                checkNotNull(byName[spec.name]) { "native scene param ${spec.name} has no SceneParams field" }.apply { isAccessible = true }
+            }
         }
     }
 }

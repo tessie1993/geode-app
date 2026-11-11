@@ -69,15 +69,15 @@ internal class MusicLibraryRepository(
     private val libraryPrefs: SharedPreferences,
     private val scope: CoroutineScope,
     private val playlistEdits: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(1),
-) {
+) : LibraryRepository {
     private val trackLibrary = TrackLibrary(application)
     private val musicPlaylists = MusicPlaylistStore(application)
     private val smartPlaylists = SmartPlaylistStore(application)
 
     private val _library = MutableStateFlow(LibraryState())
-    val library: StateFlow<LibraryState> = _library
+    override val library: StateFlow<LibraryState> = _library
 
-    val trackOverrides: StateFlow<Map<String, LibraryTrack>> =
+    override val trackOverrides: StateFlow<Map<String, LibraryTrack>> =
         _library
             .map { st -> st.tracks.associateBy { it.uri } }
             .stateIn(
@@ -117,7 +117,7 @@ internal class MusicLibraryRepository(
 
     private val _deviceTracks = MutableStateFlow<List<DeviceTrack>>(emptyList())
 
-    val deviceTracks: StateFlow<List<DeviceTrack>> = _deviceTracks
+    override val deviceTracks: StateFlow<List<DeviceTrack>> = _deviceTracks
 
     private val _deviceTracksLoaded = MutableStateFlow(false)
 
@@ -126,22 +126,22 @@ internal class MusicLibraryRepository(
      * empty list before the query is "not read yet", not "no music": the library's empty state
      * (Rescan, choose a folder, listen to another app) waits for this.
      */
-    val deviceTracksLoaded: StateFlow<Boolean> = _deviceTracksLoaded
+    override val deviceTracksLoaded: StateFlow<Boolean> = _deviceTracksLoaded
 
     private val libraryPrefsStore = LibraryPrefsStore(libraryPrefs)
 
     private val _minTrackSeconds = MutableStateFlow(libraryPrefsStore.minTrackSeconds())
 
     /** Settings › Library folders' "Hide tracks shorter than"; see [dev.geode.data.MinTrackLength]. */
-    val minTrackSeconds: StateFlow<Int> = _minTrackSeconds
+    override val minTrackSeconds: StateFlow<Int> = _minTrackSeconds
 
-    fun setMinTrackSeconds(seconds: Int) {
+    override fun setMinTrackSeconds(seconds: Int) {
         libraryPrefsStore.setMinTrackSeconds(seconds)
         _minTrackSeconds.value = libraryPrefsStore.minTrackSeconds()
         refreshDeviceTracks()
     }
 
-    fun refreshDeviceTracks() {
+    override fun refreshDeviceTracks() {
         scope.launch(Dispatchers.IO) {
             _deviceTracks.value = queryDeviceTracksBlocking()
             _deviceTracksLoaded.value = true
@@ -251,7 +251,7 @@ internal class MusicLibraryRepository(
             sizeBytes = m.sizeBytes,
         )
 
-    fun importTracks(uris: List<Uri>) {
+    override fun importTracks(uris: List<Uri>) {
         if (uris.isEmpty()) return
         scope.launch(Dispatchers.IO) {
             val tracks =
@@ -267,12 +267,12 @@ internal class MusicLibraryRepository(
 
     fun trackOverride(uri: String): LibraryTrack? = _library.value.tracks.firstOrNull { it.uri == uri }
 
-    suspend fun trackInfoFor(uriStr: String): LibraryTrack =
+    override suspend fun trackInfoFor(uriStr: String): LibraryTrack =
         trackOverride(uriStr) ?: withContext(Dispatchers.IO) {
             libraryTrackFor(uriStr, metadataFor(Uri.parse(uriStr)))
         }
 
-    fun saveTrackInfo(
+    override fun saveTrackInfo(
         uri: String,
         title: String,
         artist: String,
@@ -289,7 +289,7 @@ internal class MusicLibraryRepository(
     }
 
     /** Writes the edit into the audio file itself, keeping its album artist; see [TagWriteOutcome] for the result. */
-    suspend fun writeTrackInfo(
+    override suspend fun writeTrackInfo(
         uri: String,
         title: String,
         artist: String,
@@ -339,12 +339,12 @@ internal class MusicLibraryRepository(
     private val _mediaRoots =
         MutableStateFlow<Set<String>>(libraryPrefs.getStringSet("roots", emptySet()) ?: emptySet())
 
-    val mediaRoots: StateFlow<Set<String>> = _mediaRoots
+    override val mediaRoots: StateFlow<Set<String>> = _mediaRoots
 
     private val _libraryScanning = MutableStateFlow(false)
-    val libraryScanning: StateFlow<Boolean> = _libraryScanning
+    override val libraryScanning: StateFlow<Boolean> = _libraryScanning
 
-    fun importFolder(treeUri: Uri) {
+    override fun importFolder(treeUri: Uri) {
         application.contentResolver.persistGrant(treeUri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         _mediaRoots.update { it + treeUri.toString() }
         libraryPrefs.edit().putStringSet("roots", _mediaRoots.value).apply()
@@ -358,12 +358,12 @@ internal class MusicLibraryRepository(
         }
     }
 
-    fun removeMediaRoot(uriStr: String) {
+    override fun removeMediaRoot(uriStr: String) {
         _mediaRoots.update { it - uriStr }
         libraryPrefs.edit().putStringSet("roots", _mediaRoots.value).apply()
     }
 
-    fun rescanMediaRoots() {
+    override fun rescanMediaRoots() {
         if (_libraryScanning.value) return
         scope.launch(Dispatchers.IO) {
             _libraryScanning.value = true
@@ -443,47 +443,47 @@ internal class MusicLibraryRepository(
     }
 
     /** A new playlist holding [uris] (each once, in order), written as one file however many there are. */
-    fun createMusicPlaylist(
+    override fun createMusicPlaylist(
         name: String,
-        uris: List<String> = emptyList(),
+        uris: List<String>,
     ) {
         if (name.isBlank()) return
         editPlaylists { musicPlaylists.save(MusicPlaylist(name.trim(), uris.distinct())) }
     }
 
-    fun renameMusicPlaylist(
+    override fun renameMusicPlaylist(
         oldName: String,
         newName: String,
     ) = editPlaylists { musicPlaylists.rename(oldName, newName.trim()) }
 
-    fun moveMusicPlaylistTrack(
+    override fun moveMusicPlaylistTrack(
         name: String,
         from: Int,
         to: Int,
     ) = editPlaylists { musicPlaylists.move(name, from, to) }
 
-    fun deleteMusicPlaylist(name: String) = editPlaylists { musicPlaylists.delete(name) }
+    override fun deleteMusicPlaylist(name: String) = editPlaylists { musicPlaylists.delete(name) }
 
-    fun addTrackToPlaylist(
+    override fun addTrackToPlaylist(
         playlist: String,
         uri: String,
     ) = editPlaylists { musicPlaylists.addTrack(playlist, uri) }
 
-    fun removeTrackFromPlaylist(
+    override fun removeTrackFromPlaylist(
         playlist: String,
         uri: String,
     ) = editPlaylists { musicPlaylists.removeTrack(playlist, uri) }
 
-    fun saveSmartPlaylist(playlist: SmartPlaylist) = editSmartPlaylists { smartPlaylists.save(playlist) }
+    override fun saveSmartPlaylist(playlist: SmartPlaylist) = editSmartPlaylists { smartPlaylists.save(playlist) }
 
-    fun deleteSmartPlaylist(name: String) = editSmartPlaylists { smartPlaylists.delete(name) }
+    override fun deleteSmartPlaylist(name: String) = editSmartPlaylists { smartPlaylists.delete(name) }
 
     /**
      * Reads an M3U/PLS/XSPF file the user picked, resolves its entries against the imported
      * library by file name, and creates a new playlist from whatever matched. Entries that name a
      * file nothing in the library has stay unresolved and are only reported, never guessed at.
      */
-    suspend fun importPlaylistFile(uri: Uri): PlaylistImportResult =
+    override suspend fun importPlaylistFile(uri: Uri): PlaylistImportResult =
         withContext(Dispatchers.IO) {
             val fileName = openableInfoFor(uri).first.ifBlank { uri.lastPathSegment.orEmpty() }
             val text =

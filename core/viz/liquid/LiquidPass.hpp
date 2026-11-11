@@ -5,6 +5,7 @@
 
 #include "viz/Program.hpp"
 #include "viz/ShaderSource.hpp"
+#include "viz/liquid/FeedbackMotion.hpp"
 #include "viz/liquid/LiquidMath.hpp"
 
 namespace geode::viz::liquid {
@@ -27,7 +28,9 @@ public:
         int styleWidth = 1;
         int styleHeight = 1;
         float dt = 0.0f;
-        DiveFrame dive;
+        motion::FrameMotion motion;  // MilkDrop's transform of the last frame (lib_feedback)
+        float vpX = 0.0f;            // the born disc's centre, centred units
+        float vpY = 0.0f;
         float inject = 0.5f;
         float edge = 0.0f;
         float sharpen = 0.0f;
@@ -38,7 +41,6 @@ public:
         int surface = 0;
         bool feedback = true;
         float shimmer = 0.0f;
-        float warp = 0.0f;  // 0..1, a slow sine bend of the carried frame (MilkDrop's warp); 0 off
         float light = 0.0f;
         float time = 0.0f;
         GLuint quadVao = 0;

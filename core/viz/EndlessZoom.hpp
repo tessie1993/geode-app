@@ -28,6 +28,9 @@ namespace geode::viz::endless {
 // shaders hold no zoom maths of their own. The 3D styles (lib_camera) do not
 // draw two layers: they would march every ray twice. They dive by flying the
 // CameraRig further along its path instead (CameraRig::step).
+//
+// A flat style now dives by feedback (the `feedback` section below); the layers are what it falls
+// back to while Liquid is paused or the feedback targets will not build.
 
 /**
  * Crossfade window inside the octave. Outside it a single layer is drawn, so the
@@ -122,8 +125,9 @@ inline Layers layers(float phase) {
 // the next, so the eye reads a pulse, not travel. MilkDrop's dive reads as falling in because of
 // feedback: every frame the last frame is magnified a little about the centre and the new picture
 // is laid over it, so everything on screen streams outward for as long as it stays visible and the
-// zoom has no end to arrive at. That is this: viz/liquid/LiquidPass run with no flow, a straight
-// dive about the centre, and the live style born small at the vanishing point.
+// zoom has no end to arrive at. That is viz/liquid/LiquidPass run with no flow: the motion is
+// viz/liquid/FeedbackMotion's (in or out, heard from the sound), the live style born small at the
+// centre while diving in. What is left here is the pour: how much of the style is laid over it.
 namespace feedback {
 
 /** How far (octaves of zoom) a pour travels before half of it is replaced: the length of the streaks. */
@@ -138,12 +142,9 @@ inline float clampedRate(float octavesPerSecond) {
     return std::isfinite(octavesPerSecond) ? std::clamp(octavesPerSecond, 0.0f, 2.0f) : 0.0f;
 }
 
-/** This frame's magnification of the last frame, >= 1; the same travel per second at any frame rate. */
-inline float scale(float octavesPerSecond, float dt) { return std::exp2(clampedRate(octavesPerSecond) * clampedDt(dt)); }
-
 /**
  * The share of the style poured over the feedback this frame. Tied to the dive, not the clock: a
- * pour lasts kTrailOctaves of travel, so a slow dive leaves streaks as long as a fast one.
+ * pour lasts kTrailOctaves of travel (either way), so a slow dive leaves streaks as long as a fast one.
  */
 inline float inject(float octavesPerSecond, float dt) {
     const float t = clampedDt(dt);
@@ -155,25 +156,17 @@ inline float inject(float octavesPerSecond, float dt) {
 // Sustain: Trails on a shader style. Those styles redraw the whole frame, so a trail kept in the
 // scene target was painted over and the four trail controls did nothing there. In the feedback pass
 // they are MilkDrop's own three: Trail length is its sustain (how long a frame lingers), Trail zoom
-// its video echo (each lingering frame a little larger or smaller) and Trail warp its warp.
+// its video echo and Trail warp its warp (those two are motion, liquid::motion::diveBase).
 
 /** Half-life of a lingering frame at Trail length 0 and at 1, seconds. */
 inline constexpr float kShortTrail = 0.12f;
 inline constexpr float kLongTrail = 3.0f;
-/** Trail zoom at 1, in octaves a second: the 6% a frame the particle styles' trail pass uses, at 60 Hz. */
-inline constexpr float kEchoOctaves = 5.2f;
 
 /** The share of the style poured over the lingering frames: a long trail pours little. */
 inline float sustainInject(float trailLength, float dt) {
     const float l = std::isfinite(trailLength) ? std::clamp(trailLength, 0.0f, 1.0f) : 0.5f;
     const float halfLife = kShortTrail * std::pow(kLongTrail / kShortTrail, l);
     return 1.0f - std::exp2(-clampedDt(dt) / halfLife);
-}
-
-/** The echo's magnification this frame: above 1 the trail grows outward, below it shrinks inward. */
-inline float echoScale(float trailZoom, float dt) {
-    const float z = std::isfinite(trailZoom) ? std::clamp(trailZoom, -0.5f, 0.5f) : 0.0f;
-    return std::exp2(z * kEchoOctaves * clampedDt(dt));
 }
 
 }  // namespace feedback

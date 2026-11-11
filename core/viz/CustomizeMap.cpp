@@ -295,17 +295,18 @@ SceneParams randomize(const SceneParams& current, uint64_t seed, Category catego
     return randomizer::randomize(current, seed, std::nullopt, styleId, held);
 }
 
-SceneParams reset(const SceneParams& current, Category category) {
-    const SceneParams defaults{};
+SceneParams borrow(const SceneParams& current, const SceneParams& from, Category category) {
     SceneParams out = current;
     for (const auto& section : table()) {
         if (section.category != category) continue;
         for (const char* control : section.controls) {
-            for (const char* field : fieldsOf(control)) out.set(field, defaults.get(field));
+            for (const char* field : fieldsOf(control)) out.set(field, from.get(field));
         }
     }
     return out;
 }
+
+SceneParams reset(const SceneParams& current, Category category) { return borrow(current, SceneParams{}, category); }
 
 const std::string& text() {
     static const std::string kText = [] {

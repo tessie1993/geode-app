@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.MacroStore
@@ -51,6 +52,7 @@ import dev.geode.pro.FreeTier
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
+import dev.geode.render.scene.SceneParams
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalUiSounds
@@ -230,6 +232,7 @@ private fun CustomizeHeader(
     var menuOpen by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }
     var savingPreset by remember { mutableStateOf(false) }
+    var borrowing by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val macroStore = remember { MacroStore.get(context) }
     val target = category ?: CustomizeCategory.QUICK_KNOBS
@@ -289,6 +292,13 @@ private fun CustomizeHeader(
                     },
                 )
                 if (!onKnobs) {
+                    DropdownMenuItem(
+                        text = { Text("Take ${target.title} from a preset") },
+                        onClick = {
+                            menuOpen = false
+                            if (proLock.unlocked) borrowing = true else proLock.onLocked()
+                        },
+                    )
                     // The engine expands the marker to the category's controls (core/viz/CustomizeMap).
                     val (kept, toggleKeep) = LocalParamLocks.current
                     val keepKey = "#${target.name}"
@@ -326,6 +336,17 @@ private fun CustomizeHeader(
                 )
             }
         }
+    }
+    if (borrowing) {
+        BorrowCategoryDialog(
+            category = target,
+            viewModel = viewModel,
+            onPick = { from ->
+                borrowing = false
+                visualsViewModel.borrowCustomizeCategory(target, from)
+            },
+            onDismiss = { borrowing = false },
+        )
     }
     if (savingPreset) {
         SavePresetDialog(
@@ -383,3 +404,37 @@ private fun SavePresetDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
 }
+
+/**
+ * ⋮ › Take a category from a preset: MilkDrop's mash-up, one part of another look laid over this
+ * one. Only the list is drawn here; which fields the category owns is native.
+ */
+@Composable
+private fun BorrowCategoryDialog(
+    category: CustomizeCategory,
+    viewModel: PlayerViewModel,
+    onPick: (SceneParams) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val presets by remember(viewModel) {
+        viewModel.vizState.map { it.presets }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(remember(viewModel) { viewModel.vizState.value.presets })
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Take ${category.title} from") },
+        text = {
+            if (presets.isEmpty()) {
+                Text("No presets yet. Save as preset makes the first one.")
+            } else {
+                LazyColumn(Modifier.heightIn(max = BORROW_LIST_MAX_HEIGHT)) {
+                    items(presets) { preset ->
+                        DropdownMenuItem(text = { Text(preset.name) }, onClick = { onPick(preset.params) })
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+private val BORROW_LIST_MAX_HEIGHT = 360.dp

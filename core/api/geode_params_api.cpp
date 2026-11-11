@@ -108,6 +108,12 @@ int geode_customize_randomize(const char* style_id, const char* category, const 
     return copyOut(current, rolled, out);
 }
 
+void geode_customize_borrow(const char* category, const float* in, const float* from, float* out) {
+    const SceneParams current = SceneParams::fromWire(in);
+    const auto which = category ? customize::categoryNamed(category) : std::nullopt;
+    (which ? customize::borrow(current, SceneParams::fromWire(from), *which) : current).toWire(out);
+}
+
 void geode_customize_reset(const char* category, const float* in, float* out) {
     const SceneParams current = SceneParams::fromWire(in);
     const auto which = category ? customize::categoryNamed(category) : std::nullopt;

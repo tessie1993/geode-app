@@ -1,6 +1,6 @@
 // The visual quality gate (#470): judges the stills tools/glslcheck renders of every style and fails on a
-// mostly black picture or blown highlights. Built and
-// run by CI ("Visual gate" in .github/workflows/android.yml) with the system compiler; no GL here.
+// mostly black picture or blown highlights. CI only compiles it (.github/workflows/native-host-tests.yml):
+// the render jobs that fed it left CI in #786, so it runs by hand; no GL here.
 //
 //   node tools/glslcheck/check.mjs --stills out/stills.tsv           renders (glslcheck README, "Stills gate")
 //   ./visual_gate core/tests/visual_gate_baseline.txt out/stills*.tsv judges, exit 1 on a new failure

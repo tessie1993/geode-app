@@ -16,7 +16,6 @@ import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
 import dev.geode.billing.ProSnapshot
 import dev.geode.billing.WallClock
-import dev.geode.data.BehaviourStore
 import dev.geode.data.LookStore
 import dev.geode.data.PerformanceStore
 import dev.geode.engine.bridge.GeodeNative
@@ -128,7 +127,7 @@ class VisualizerDreamService : DreamService() {
         isFullscreen = true
         val prefsFiles = geodeContainer.prefsFiles
         // Its own switch (Settings › Wallpaper & screen saver), no longer Player's keep-screen-on.
-        val behaviour = BehaviourStore(prefsFiles.general).load()
+        val behaviour = geodeContainer.behaviour.current()
         isScreenBright = behaviour.dreamScreenBright
         settings = WallpaperSettings(hearOtherApps = behaviour.dreamHearOtherApps)
         val view = VisualizerView(this)

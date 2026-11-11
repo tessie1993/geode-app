@@ -18,7 +18,6 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.printToLog
 import androidx.core.content.edit
 import androidx.test.core.app.ApplicationProvider
-import dev.geode.data.BehaviourStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.PerformanceStore
 import dev.geode.data.StartScreen
@@ -67,8 +66,9 @@ class Onboarded(
         }
         val general = context.getSharedPreferences(GeodePrefsFiles.GENERAL, Context.MODE_PRIVATE)
         PerformanceStore(general, context).set(PerformanceSettings.SAVER)
-        // The journeys start from the empty Player; a new install opens on Library (#796).
-        BehaviourStore(general).run { save(load().copy(startScreen = StartScreen.PLAYER)) }
+        // The journeys start from the empty Player; a new install opens on Library (#796). Through the
+        // app's own repository: it read the file when the application started, before this rule.
+        runBlocking { context.geodeContainer.behaviour.update { it.copy(startScreen = StartScreen.PLAYER) } }
         if (skipOnboarding) publishSeededGuiPrefs(context)
     }
 }

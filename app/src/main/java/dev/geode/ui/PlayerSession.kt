@@ -10,7 +10,6 @@ import androidx.media3.common.util.Util
 import dev.geode.audio.MicCapture
 import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.BackgroundPrefsStore
-import dev.geode.data.BehaviourStore
 import dev.geode.data.DeviceTrackQuery
 import dev.geode.data.EditorProjectStore
 import dev.geode.data.FavouritesRepository
@@ -884,7 +883,7 @@ class PlayerSession internal constructor(
 
     private suspend fun attachPlayback() {
         val pp = settings.loadedPlayerPrefs()
-        if (withContext(Dispatchers.IO) { BehaviourStore(prefsFiles.general).load().rememberShuffleRepeat }) {
+        if (container.behaviour.loaded().rememberShuffleRepeat) {
             player.shuffleModeEnabled = pp.shuffle
             player.repeatMode = pp.repeatMode
         }

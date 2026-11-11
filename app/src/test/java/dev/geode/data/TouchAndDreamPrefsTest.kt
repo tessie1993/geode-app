@@ -44,20 +44,20 @@ class TouchAndDreamPrefsTest {
 
     @Test
     fun thePinchGestureKeyIsReadAndSaved() {
-        val store = BehaviourStore(prefs)
-        assertEquals(GestureAction.OFF, store.load().actionFor(CanvasGesture.PINCH_TWIST))
-        val b = store.load()
-        store.save(b.copy(gestures = b.gestures + (CanvasGesture.PINCH_TWIST to GestureAction.TOUCH_PLAY)))
-        assertEquals(GestureAction.TOUCH_PLAY, BehaviourStore(prefs).load().actionFor(CanvasGesture.PINCH_TWIST))
+        assertEquals(GestureAction.OFF, BehaviourCodec.read(prefs).actionFor(CanvasGesture.PINCH_TWIST))
+        val b = BehaviourCodec.read(prefs)
+        saveBehaviour(b.copy(gestures = b.gestures + (CanvasGesture.PINCH_TWIST to GestureAction.TOUCH_PLAY)))
+        assertEquals(GestureAction.TOUCH_PLAY, BehaviourCodec.read(prefs).actionFor(CanvasGesture.PINCH_TWIST))
         assertEquals("TOUCH_PLAY", prefs.getString("behaviour_gesture_PINCH_TWIST", null))
     }
 
     @Test
     fun theScreenSaverHearsOtherAppsOnlyWhenAsked() {
-        val store = BehaviourStore(prefs)
-        assertFalse(store.load().dreamHearOtherApps)
-        store.save(store.load().copy(dreamHearOtherApps = true))
-        assertTrue(BehaviourStore(prefs).load().dreamHearOtherApps)
+        assertFalse(BehaviourCodec.read(prefs).dreamHearOtherApps)
+        saveBehaviour(BehaviourCodec.read(prefs).copy(dreamHearOtherApps = true))
+        assertTrue(BehaviourCodec.read(prefs).dreamHearOtherApps)
         assertTrue(prefs.getBoolean("behaviour_dream_hear_other_apps", false))
     }
+
+    private fun saveBehaviour(value: BehaviourPrefs) = prefs.edit().also { BehaviourCodec.write(it, value) }.commit()
 }

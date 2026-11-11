@@ -13,7 +13,6 @@ import dev.geode.audio.AudioFxController
 import dev.geode.audio.AudioFxPresets
 import dev.geode.audio.TapRenderersFactory
 import dev.geode.audio.dsp.NativeDspProcessor
-import dev.geode.data.BehaviourStore
 import dev.geode.data.HistoryStore
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsStore
@@ -163,7 +162,8 @@ class PlaybackSession internal constructor(
         // and without this it would ignore pause-on-unplug, ReplayGain, shuffle and repeat until the
         // app was opened. The UI applies the same prefs again when it attaches, which is harmless.
         val saved = PlayerPrefsStore(prefsFiles.player).load()
-        if (BehaviourStore(prefsFiles.general).load().rememberShuffleRepeat) {
+        val behaviour = context.geodeContainer.behaviour
+        if (behaviour.current().rememberShuffleRepeat) {
             player.shuffleModeEnabled = saved.shuffle
             player.repeatMode = saved.repeatMode
         }

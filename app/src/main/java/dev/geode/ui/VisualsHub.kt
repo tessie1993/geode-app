@@ -34,7 +34,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -55,7 +54,6 @@ import androidx.navigation3.ui.NavDisplay
 import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
 import dev.geode.data.BehaviourPrefs
-import dev.geode.data.BehaviourStore
 import dev.geode.data.CanvasGesture
 import dev.geode.data.GestureAction
 import dev.geode.geodeContainer
@@ -72,8 +70,6 @@ import dev.geode.ui.theme.performStoneHaptic
 import dev.geode.ui.theme.rememberGlassBackdrop
 import dev.geode.ui.tour.LocalTourNudge
 import dev.geode.ui.tour.fits
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 /**
  * Visuals: the visual fills the whole screen, and everything else floats over it (docs/ui-redesign;
@@ -115,11 +111,8 @@ internal fun VisualsHub(
     onRequestedPageShown: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    // Read once per visit, off the main thread; Settings is another screen, so a change
-    // there is always read on the way back.
-    val behaviour by produceState(BehaviourPrefs()) {
-        value = withContext(Dispatchers.IO) { BehaviourStore(context.geodeContainer.prefsFiles.general).load() }
-    }
+    val behaviour by context.geodeContainer.behaviour.value
+        .collectAsStateWithLifecycle()
     // A gesture tip is said only while the user's gesture map still has that gesture do that thing.
     val nudge = LocalTourNudge.current
     val heard = remember(nudge, behaviour) { { tip: GestureTip -> if (tip.fits(behaviour)) nudge(tip) } }

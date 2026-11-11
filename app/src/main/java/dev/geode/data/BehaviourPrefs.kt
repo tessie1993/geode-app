@@ -1,9 +1,10 @@
 package dev.geode.data
 
 import android.content.SharedPreferences
-import androidx.core.content.edit
 import dev.geode.data.prefs.BackupClass
 import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.PrefsCodec
+import dev.geode.data.prefs.SettingsRepository
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 
@@ -168,14 +169,22 @@ data class BehaviourPrefs(
     }
 }
 
-class BehaviourStore(
-    private val prefs: SharedPreferences,
-) {
-    fun load(): BehaviourPrefs {
-        val d = BehaviourPrefs()
+/** Behaviour's options as one repository, built once by the container (#1009, PR 4). */
+typealias BehaviourRepository = SettingsRepository<BehaviourPrefs>
+
+/**
+ * How [BehaviourPrefs] is kept in `geode-prefs`. An update writes only the fields it changed
+ * ([writeChanges]): the last screen is recorded on every screen change, and a whole write there
+ * would pin every default (the gesture map, the dream's rate) for users who never chose one.
+ */
+object BehaviourCodec : PrefsCodec<BehaviourPrefs> {
+    override val defaults = BehaviourPrefs()
+
+    override fun read(prefs: SharedPreferences): BehaviourPrefs {
+        val d = defaults
         return BehaviourPrefs(
-            startScreen = enumOf(KEY_START_SCREEN, d.startScreen),
-            lastScreen = enumOf(KEY_LAST_SCREEN, d.lastScreen).takeIf { it != StartScreen.LAST_USED } ?: d.lastScreen,
+            startScreen = prefs.enumOf(KEY_START_SCREEN, d.startScreen),
+            lastScreen = prefs.enumOf(KEY_LAST_SCREEN, d.lastScreen),
             keepScreenOnVisuals = prefs.getBoolean(KEY_KEEP_SCREEN_ON_VISUALS, d.keepScreenOnVisuals),
             startOnHeadphones = prefs.getBoolean(KEY_START_ON_HEADPHONES, d.startOnHeadphones),
             notificationButtons =
@@ -184,7 +193,7 @@ class BehaviourStore(
                     ?.mapNotNullTo(mutableSetOf()) { name -> NotificationButton.entries.firstOrNull { it.name == name } }
                     ?: d.notificationButtons,
             rememberShuffleRepeat = prefs.getBoolean(KEY_REMEMBER_SHUFFLE_REPEAT, d.rememberShuffleRepeat),
-            queueEnd = enumOf(KEY_QUEUE_END, d.queueEnd),
+            queueEnd = prefs.enumOf(KEY_QUEUE_END, d.queueEnd),
             dreamScreenBright = prefs.getBoolean(KEY_DREAM_BRIGHT, d.dreamScreenBright),
             dreamShowClock = prefs.getBoolean(KEY_DREAM_CLOCK, d.dreamShowClock),
             dreamShowNowPlaying = prefs.getBoolean(KEY_DREAM_NOW_PLAYING, d.dreamShowNowPlaying),
@@ -192,64 +201,79 @@ class BehaviourStore(
             dreamFps = prefs.getInt(KEY_DREAM_FPS, d.dreamFps),
             gestures =
                 CanvasGesture.entries.associateWith { gesture ->
-                    enumOf(KEY_GESTURE_PREFIX + gesture.name, d.actionFor(gesture))
+                    prefs.enumOf(KEY_GESTURE_PREFIX + gesture.name, d.actionFor(gesture))
                 },
         )
     }
 
-    fun save(b: BehaviourPrefs) {
-        prefs.edit {
-            putString(KEY_START_SCREEN, b.startScreen.name)
-            putString(KEY_LAST_SCREEN, b.lastScreen.name)
-            putBoolean(KEY_KEEP_SCREEN_ON_VISUALS, b.keepScreenOnVisuals)
-            putBoolean(KEY_START_ON_HEADPHONES, b.startOnHeadphones)
-            putStringSet(KEY_NOTIFICATION_BUTTONS, b.notificationButtons.mapTo(mutableSetOf()) { it.name })
-            putBoolean(KEY_REMEMBER_SHUFFLE_REPEAT, b.rememberShuffleRepeat)
-            putString(KEY_QUEUE_END, b.queueEnd.name)
-            putBoolean(KEY_DREAM_BRIGHT, b.dreamScreenBright)
-            putBoolean(KEY_DREAM_CLOCK, b.dreamShowClock)
-            putBoolean(KEY_DREAM_NOW_PLAYING, b.dreamShowNowPlaying)
-            putBoolean(KEY_DREAM_OTHER_APPS, b.dreamHearOtherApps)
-            putInt(KEY_DREAM_FPS, b.dreamFps)
-            for (gesture in CanvasGesture.entries) putString(KEY_GESTURE_PREFIX + gesture.name, b.actionFor(gesture).name)
+    /** [StartScreen.LAST_USED] is a choice, never a screen shown: as a last screen it reads as the default. */
+    override fun normalize(value: BehaviourPrefs): BehaviourPrefs =
+        if (value.lastScreen == StartScreen.LAST_USED) value.copy(lastScreen = defaults.lastScreen) else value
+
+    override fun write(
+        editor: SharedPreferences.Editor,
+        value: BehaviourPrefs,
+    ) = put(editor, null, value)
+
+    override fun writeChanges(
+        editor: SharedPreferences.Editor,
+        previous: BehaviourPrefs,
+        value: BehaviourPrefs,
+    ) = put(editor, previous, value)
+
+    /** Every field of [value], or only those that differ from [previous] when there is one. */
+    private fun put(
+        editor: SharedPreferences.Editor,
+        previous: BehaviourPrefs?,
+        value: BehaviourPrefs,
+    ) {
+        fun changed(field: (BehaviourPrefs) -> Any): Boolean = previous == null || field(previous) != field(value)
+        if (changed { it.startScreen }) editor.putString(KEY_START_SCREEN, value.startScreen.name)
+        if (changed { it.lastScreen }) editor.putString(KEY_LAST_SCREEN, value.lastScreen.name)
+        if (changed { it.keepScreenOnVisuals }) editor.putBoolean(KEY_KEEP_SCREEN_ON_VISUALS, value.keepScreenOnVisuals)
+        if (changed { it.startOnHeadphones }) editor.putBoolean(KEY_START_ON_HEADPHONES, value.startOnHeadphones)
+        if (changed { it.notificationButtons }) {
+            editor.putStringSet(KEY_NOTIFICATION_BUTTONS, value.notificationButtons.mapTo(mutableSetOf()) { it.name })
+        }
+        if (changed { it.rememberShuffleRepeat }) editor.putBoolean(KEY_REMEMBER_SHUFFLE_REPEAT, value.rememberShuffleRepeat)
+        if (changed { it.queueEnd }) editor.putString(KEY_QUEUE_END, value.queueEnd.name)
+        if (changed { it.dreamScreenBright }) editor.putBoolean(KEY_DREAM_BRIGHT, value.dreamScreenBright)
+        if (changed { it.dreamShowClock }) editor.putBoolean(KEY_DREAM_CLOCK, value.dreamShowClock)
+        if (changed { it.dreamShowNowPlaying }) editor.putBoolean(KEY_DREAM_NOW_PLAYING, value.dreamShowNowPlaying)
+        if (changed { it.dreamHearOtherApps }) editor.putBoolean(KEY_DREAM_OTHER_APPS, value.dreamHearOtherApps)
+        if (changed { it.dreamFps }) editor.putInt(KEY_DREAM_FPS, value.dreamFps)
+        for (gesture in CanvasGesture.entries) {
+            if (changed { it.actionFor(gesture) }) editor.putString(KEY_GESTURE_PREFIX + gesture.name, value.actionFor(gesture).name)
         }
     }
 
-    /** Records the screen now shown, for [StartScreen.LAST_USED]; alone, so it never rewrites the rest. */
-    fun saveLastScreen(screen: StartScreen) {
-        if (screen == StartScreen.LAST_USED) return
-        prefs.edit { putString(KEY_LAST_SCREEN, screen.name) }
-    }
-
     /** A stored enum by name; an unknown or missing name (renamed in a later build) reads as [default]. */
-    private inline fun <reified E : Enum<E>> enumOf(
+    private inline fun <reified E : Enum<E>> SharedPreferences.enumOf(
         key: String,
         default: E,
-    ): E = prefs.getString(key, null)?.let { name -> enumValues<E>().firstOrNull { it.name == name } } ?: default
+    ): E = getString(key, null)?.let { name -> enumValues<E>().firstOrNull { it.name == name } } ?: default
 
-    internal companion object {
-        const val KEY_START_SCREEN = "behaviour_start_screen"
-        const val KEY_LAST_SCREEN = "behaviour_last_screen"
-        const val KEY_KEEP_SCREEN_ON_VISUALS = "behaviour_keep_screen_on_visuals"
-        const val KEY_START_ON_HEADPHONES = "behaviour_start_on_headphones"
-        const val KEY_NOTIFICATION_BUTTONS = "behaviour_notification_buttons"
-        const val KEY_REMEMBER_SHUFFLE_REPEAT = "behaviour_remember_shuffle_repeat"
-        const val KEY_QUEUE_END = "behaviour_queue_end"
-        const val KEY_DREAM_BRIGHT = "behaviour_dream_screen_bright"
-        const val KEY_DREAM_CLOCK = "behaviour_dream_show_clock"
-        const val KEY_DREAM_NOW_PLAYING = "behaviour_dream_show_now_playing"
-        const val KEY_DREAM_OTHER_APPS = "behaviour_dream_hear_other_apps"
-        const val KEY_DREAM_FPS = "behaviour_dream_fps"
-        const val KEY_GESTURE_PREFIX = "behaviour_gesture_"
+    internal const val KEY_START_SCREEN = "behaviour_start_screen"
+    internal const val KEY_LAST_SCREEN = "behaviour_last_screen"
+    internal const val KEY_KEEP_SCREEN_ON_VISUALS = "behaviour_keep_screen_on_visuals"
+    internal const val KEY_START_ON_HEADPHONES = "behaviour_start_on_headphones"
+    internal const val KEY_NOTIFICATION_BUTTONS = "behaviour_notification_buttons"
+    internal const val KEY_REMEMBER_SHUFFLE_REPEAT = "behaviour_remember_shuffle_repeat"
+    internal const val KEY_QUEUE_END = "behaviour_queue_end"
+    internal const val KEY_DREAM_BRIGHT = "behaviour_dream_screen_bright"
+    internal const val KEY_DREAM_CLOCK = "behaviour_dream_show_clock"
+    internal const val KEY_DREAM_NOW_PLAYING = "behaviour_dream_show_now_playing"
+    internal const val KEY_DREAM_OTHER_APPS = "behaviour_dream_hear_other_apps"
+    internal const val KEY_DREAM_FPS = "behaviour_dream_fps"
+    internal const val KEY_GESTURE_PREFIX = "behaviour_gesture_"
 
-        val PREF_KEYS =
-            prefKeys(GeodePrefsFiles.GENERAL) {
-                portable(PrefType.STRING, KEY_START_SCREEN, KEY_LAST_SCREEN, KEY_QUEUE_END)
-                add(PrefType.STRING, BackupClass.PORTABLE, CanvasGesture.entries.map { KEY_GESTURE_PREFIX + it.name })
-                portable(PrefType.BOOLEAN, KEY_KEEP_SCREEN_ON_VISUALS, KEY_START_ON_HEADPHONES, KEY_REMEMBER_SHUFFLE_REPEAT)
-                portable(PrefType.BOOLEAN, KEY_DREAM_BRIGHT, KEY_DREAM_CLOCK, KEY_DREAM_NOW_PLAYING, KEY_DREAM_OTHER_APPS)
-                portable(PrefType.STRING_SET, KEY_NOTIFICATION_BUTTONS)
-                portable(PrefType.INT, KEY_DREAM_FPS)
-            }
-    }
+    override val keys =
+        prefKeys(GeodePrefsFiles.GENERAL) {
+            portable(PrefType.STRING, KEY_START_SCREEN, KEY_LAST_SCREEN, KEY_QUEUE_END)
+            add(PrefType.STRING, BackupClass.PORTABLE, CanvasGesture.entries.map { KEY_GESTURE_PREFIX + it.name })
+            portable(PrefType.BOOLEAN, KEY_KEEP_SCREEN_ON_VISUALS, KEY_START_ON_HEADPHONES, KEY_REMEMBER_SHUFFLE_REPEAT)
+            portable(PrefType.BOOLEAN, KEY_DREAM_BRIGHT, KEY_DREAM_CLOCK, KEY_DREAM_NOW_PLAYING, KEY_DREAM_OTHER_APPS)
+            portable(PrefType.STRING_SET, KEY_NOTIFICATION_BUTTONS)
+            portable(PrefType.INT, KEY_DREAM_FPS)
+        }
 }

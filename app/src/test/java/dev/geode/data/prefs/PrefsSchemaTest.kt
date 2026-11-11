@@ -9,8 +9,8 @@ import dev.geode.data.AutoDirectorStore
 import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.BackgroundPrefs
 import dev.geode.data.BackgroundPrefsStore
+import dev.geode.data.BehaviourCodec
 import dev.geode.data.BehaviourPrefs
-import dev.geode.data.BehaviourStore
 import dev.geode.data.BookmarkStore
 import dev.geode.data.BootAnimationStore
 import dev.geode.data.ExportDefaults
@@ -82,7 +82,9 @@ class PrefsSchemaTest {
                     GuiPrefs(soundTuning = tuning, presetMirrorUri = "content://presets", fontColorArgb = 1, tourProgress = tour),
                 )
             },
-            Owner("$DATA/BehaviourPrefs.kt", BehaviourStore.PREF_KEYS) { BehaviourStore(it[general]).save(BehaviourPrefs()) },
+            Owner("$DATA/BehaviourPrefs.kt", BehaviourCodec.keys) {
+                it[general].edit().also { editor -> BehaviourCodec.write(editor, BehaviourPrefs()) }.apply()
+            },
             Owner("$DATA/ExportPrefs.kt", ExportPrefsStore.PREF_KEYS) {
                 val store = ExportPrefsStore(it[general])
                 store.save(ExportDefaults())

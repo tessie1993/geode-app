@@ -69,7 +69,7 @@ LfoTarget targetOfControl(std::string_view key) {
 Bank addKnobFor(const Bank& bank, std::string_view key) {
     Bank out = normalized(bank);
     const LfoTarget target = targetOfControl(key);
-    if (target == LfoTarget::None || static_cast<int>(out.knobs.size()) >= kMaxKnobs || out.nextId > kMaxId) return out;
+    if (target == LfoTarget::None || !roomForNew(out)) return out;
     out = addKnob(out, unique(out, std::string(stemOf(key)), 0));
     return addLink(out, out.knobs.back().id, target);
 }
@@ -98,6 +98,7 @@ std::string controlsText(const Bank& bank) {
             if (target == LfoTarget::None) continue;
             std::string ids;
             for (const Knob& knob : valid.knobs) {
+                if (!knob.shown) continue;
                 if (std::none_of(knob.links.begin(), knob.links.end(), [target](const Link& l) { return l.target == target; })) continue;
                 if (!ids.empty()) ids += ",";
                 ids += std::to_string(knob.id);

@@ -1,6 +1,7 @@
 macroeditor|1
 caps|8|12|24
 bank|1|0
+screen|1
 knob|1|1|0|1|0|Shine|
 link|MORPH|0.9|0|1|LINEAR|0.9|0
 link|WARP|0.8|0|1|LINEAR|0.8|0
@@ -81,3 +82,4 @@ curve|LINEAR
 curve|EASE_IN
 curve|EASE_OUT
 curve|S_CURVE
+library|6|0|Spare|

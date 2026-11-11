@@ -401,6 +401,25 @@ object GeodeNative {
         seed: Long,
     ): String
 
+    /** A new turn for every knob on screen that moves something on [styleId]; the same [seed], the same turns. */
+    external fun macroBankRollValues(
+        bank: String,
+        styleId: String,
+        seed: Long,
+    ): String
+
+    /** The knob off screen into the bank's library, centred. */
+    external fun macroBankHideKnob(
+        bank: String,
+        knobId: Int,
+    ): String
+
+    /** A knob from the library back on screen, last; refused when the screen is full. */
+    external fun macroBankShowKnob(
+        bank: String,
+        knobId: Int,
+    ): String
+
     /** The name native offers when the knob is saved (a name, not a bank). */
     external fun macroBankAutoName(
         bank: String,

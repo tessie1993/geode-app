@@ -90,6 +90,14 @@ const char* geode_macro_bank_roll(const char* bank, int knob_id, long long seed)
     return handOut(macrobank::roll(bankOf(bank), knob_id, static_cast<std::uint64_t>(seed)));
 }
 
+const char* geode_macro_bank_roll_values(const char* bank, const char* style_id, long long seed) {
+    return handOut(macrobank::rollValues(bankOf(bank), std::string(style_id ? style_id : ""), static_cast<std::uint64_t>(seed)));
+}
+
+const char* geode_macro_bank_hide_knob(const char* bank, int knob_id) { return handOut(macrobank::hideKnob(bankOf(bank), knob_id)); }
+
+const char* geode_macro_bank_show_knob(const char* bank, int knob_id) { return handOut(macrobank::showKnob(bankOf(bank), knob_id)); }
+
 const char* geode_macro_bank_auto_name(const char* bank, int knob_id) { return handOut(macrobank::autoName(bankOf(bank), knob_id)); }
 
 const char* geode_macro_bank_controls(const char* bank) { return handOut(macrobank::controlsText(bankOf(bank))); }

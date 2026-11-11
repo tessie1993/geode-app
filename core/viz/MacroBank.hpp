@@ -16,15 +16,18 @@
 // camera side path.
 //
 // The bank is process-wide (setGlobal) and the user's own: knobs can be added, copied, renamed, reordered and
-// removed, and what a knob moves is edited link by link. The four built-in knobs can be edited and put back
-// (resetKnob) but not removed, so a bank always has the four the app is described with. The shell keeps it as one opaque string (encode) and hands it
+// removed, and what a knob moves is edited link by link. A knob is on screen or in the bank's library (hideKnob,
+// showKnob): one in the library is centred and moves nothing until it is put back. The four built-in knobs can be
+// edited, put back as built (resetKnob) and taken off screen, never deleted, so the library always offers them. The shell keeps it as one opaque string (encode) and hands it
 // back (decode); every edit is a pure function here, so Kotlin parses and decides nothing (ADR 0003).
 // Pure: no GL, no JNI.
 namespace geode::viz::macrobank {
 
 // Bumped whenever a row type or field changes meaning; decode answers the default bank to any other.
 constexpr int kTextVersion = 1;
-constexpr int kMaxKnobs = 8;
+// Knobs in the bank, on screen and in the library together; at most kMaxShown on screen.
+constexpr int kMaxKnobs = 16;
+constexpr int kMaxShown = 8;
 constexpr int kMaxLinks = 12;
 // UTF-8 bytes, cut on a character boundary.
 constexpr int kMaxNameBytes = 24;
@@ -59,6 +62,8 @@ struct Knob {
     std::string hint;
     // -1..1; 0 moves nothing.
     float value = 0.0f;
+    // False while the knob is in the library: centred, drawn nowhere, applied nowhere.
+    bool shown = true;
     std::vector<Link> links;
     bool operator==(const Knob&) const = default;
 };
@@ -88,21 +93,31 @@ const Bank& defaultBank();
 // Whether id is one of the built-in knobs' (ids are never handed out twice, so a user's knob never has one).
 bool isBase(int id);
 // The bank made valid: ids unique and in range, names trimmed and capped, values and weights in
-// -1..1 (a non-finite one is 0), unlinkable targets dropped, one link per target, the caps held.
+// -1..1 (a non-finite one is 0), unlinkable targets dropped, one link per target, the caps held (a knob past
+// kMaxShown on screen goes to the library), a knob in the library centred.
 Bank normalized(const Bank& bank);
+int shownCount(const Bank& bank);
+// Whether a new knob fits: room in the bank and on screen, and an id left.
+bool roomForNew(const Bank& bank);
 
 // Edits. Each answers the normalized bank with the change made, or just normalized when the edit is
 // refused: an unknown id, a non-finite number, an unlinkable target, an empty name, a full bank.
 Bank setValue(const Bank& bank, int id, float value);
 Bank rename(const Bank& bank, int id, std::string_view name);
-// The new knob is last, at centre with no links; an empty name gives "Knob <id>".
+// The new knob is last on screen, at centre with no links; an empty name gives "Knob <id>".
 Bank addKnob(const Bank& bank, std::string_view name);
 // A copy of the knob right after it: a new id, the name with " 2", the same links and value, no hint.
 Bank duplicateKnob(const Bank& bank, int id);
-// The knob `delta` places along the bank (negative is earlier), stopping at either end.
+// The knob `delta` places along the screen (negative is earlier, the library's knobs not counted), stopping at
+// either end.
 Bank moveKnob(const Bank& bank, int id, int delta);
-// Refused for a built-in knob.
+// Deletes the knob, on screen or in the library. Refused for a built-in knob, which hideKnob takes off screen.
 Bank removeKnob(const Bank& bank, int id);
+// Off screen into the library, centred, its name and links kept.
+Bank hideKnob(const Bank& bank, int id);
+// From the library back on screen, last and centred; a built-in knob missing from the bank comes back as built.
+// Refused when the screen is full or nothing in the library has that id.
+Bank showKnob(const Bank& bank, int id);
 // A built-in knob's name, hint and links as defaultBank has them; its value stays. Refused for a user's knob.
 Bank resetKnob(const Bank& bank, int id);
 // Adds the link (Linear), or replaces the range of the knob's link on the same target, keeping its curve.
@@ -118,6 +133,13 @@ Bank removeLink(const Bank& bank, int id, LfoTarget target);
 // back) and curve. The same seed rolls the same set, so the shell passes a new seed for each press. Ranges are
 // fractions of rangeOf, which already stops at the safety maxima, so no roll reaches past VisualSafety.
 Bank roll(const Bank& bank, int id, std::uint64_t seed);
+// A new turn for every knob on screen that can move the picture on the style (`reach`, reachMask): at least
+// kRollMin of a full turn, up or down at random, or the one way the knob moves there. A knob that moves nothing on
+// the style keeps its turn, the library's stay centred, and the links are untouched. The same seed rolls the same
+// turns, and a knob's draw does not depend on the others'.
+constexpr float kRollMin = 0.3f;
+Bank rollValues(const Bank& bank, std::uint64_t reach, std::uint64_t seed);
+Bank rollValues(const Bank& bank, const std::string& styleId, std::uint64_t seed);
 // Refused when the knob does not link the target.
 Bank setCurve(const Bank& bank, int id, LfoTarget target, Curve curve);
 
@@ -152,6 +174,8 @@ std::shared_ptr<const Bank> global();
 //   knob|<id>|<value>|<name>|<hint>
 //   link|<TARGET>|<up>|<down>[|<CURVE>]   the links of the knob row above, by ModTargets name; no CURVE is
 //                                         Linear (encode leaves it out then, so text from before curves reads alike)
+//   shelf|<id>                            the knob is in the library; text from before the library has none, so
+//                                         every knob it holds stays on screen
 // encode writes the normalized bank. decode never fails: text without this version's header is the
 // default bank, and a row it cannot read (an unknown target, a bad number) is dropped; an unknown curve is Linear.
 // A built-in knob saved exactly as it first shipped (Glow, Heat, Bend, Flow) comes back as the knob that now has
@@ -166,25 +190,28 @@ Bank decode(std::string_view text);
 // Labels stay in the shell, keyed by TARGET like the modulation pickers'. Built once.
 const std::string& targetsText();
 // Which way each knob can move the picture on styleId, so the shell dims a knob that cannot:
-//   knob|<id>|<up 0/1>|<down 0/1>      one row per knob, in bank order
+//   knob|<id>|<up 0/1>|<down 0/1>      one row per knob on screen, in bank order
 std::string liveText(const Bank& bank, const std::string& styleId);
 // Everything the knob editor draws and offers on styleId, so the shell decides none of it. Rows:
 //   macroeditor|<kTextVersion>
 //   caps|<max knobs>|<max links per knob>|<max name bytes>
 //   bank|<a knob can be added 0/1>|<equals the default bank, values aside 0/1>
-//   knob|<id>|<built-in 0/1>|<as built 0/1>|<a link can be added 0/1>|<value>|<name>|<hint>     bank order
+//   screen|<a knob can be put back from the library 0/1>
+//   knob|<id>|<built-in 0/1>|<as built 0/1>|<a link can be added 0/1>|<value>|<name>|<hint>     on screen, bank order
 //   link|<TARGET>|<up>|<down>|<reaches the style 0/1>|<CURVE>|<offset at a full turn up>|<offset at a full turn down>
 //                                                              the links of the knob row above; the offsets are
 //                                                              in the param's own units (up or down x its range)
 //   target|<TARGET>|<reaches the style 0/1>                    every linkable target, wire order
 //   curve|<CURVE>                                              every curve, in the order the editor offers them
-// A built-in knob can be reset unless it is as built; any other knob can be removed.
+//   library|<id>|<built-in 0/1>|<name>|<hint>                  what Add macro offers: the built-in knobs off screen
+//                                                              by id, then the user's in bank order
+// caps' max knobs is kMaxShown, the screen's. A built-in knob can be reset unless it is as built; any other knob can be removed.
 std::string editorText(const Bank& bank, const std::string& styleId);
 // Which Customize sliders a knob can move, and which knobs move each now, so the shell marks a slider and
 // offers "Add to knob" by asking for none of it. Rows:
 //   macrocontrols|<kTextVersion>
 //   control|<ParamKeys name>|<TARGET>|<CATEGORY>|<knob id>,<knob id>...   every linkable control, panel order;
-//                                                                         its Customize category; ids in bank order
+//                                                                         its Customize category; on-screen knobs' ids in bank order
 std::string controlsText(const Bank& bank);
 
 }  // namespace geode::viz::macrobank

@@ -16,6 +16,10 @@ import kotlinx.coroutines.launch
  * shows (owner, 2026-11-02), a style only previewed in the Styles grid included, which the saved
  * live state deliberately leaves out.
  *
+ * The MilkDrop preset is mirrored too ([milkPath]): the cast renderer restores the process's
+ * remembered preset only when it is built, so without it a .milk picked on the phone, or drawn by
+ * Auto while the app is in the background, never reached the TV.
+ *
  * The UI feeds it ([follow], from `ui/cast/CastButton`); `cast/` can't read the UI's state itself
  * (the layer rule keeps the UI package out of every other package). It follows that flow for the
  * life of the process, so it keeps mirroring with the app in the background. Until something has
@@ -30,6 +34,11 @@ object CastMirror {
 
     @Volatile
     var look: Look? = null
+        private set
+
+    /** The .milk the stage last asked for or showed; null before one, or once it was deleted. */
+    @Volatile
+    var milkPath: String? = null
         private set
 
     /** What the shell last saw of the stage (the `GeodeNative.STAGE_*` bits, written by `ui/StageRun`); 0 with no Activity. */
@@ -56,10 +65,20 @@ object CastMirror {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var following: Job? = null
 
-    /** Follows [source] from now on; called again (a new Activity), it replaces the old source. */
+    /**
+     * Follows [source] and [milk] (each preset the stage asks for or reports loaded) from now on;
+     * called again (a new Activity), it replaces the old sources.
+     */
     @Synchronized
-    fun follow(source: Flow<Look>) {
+    fun follow(
+        source: Flow<Look>,
+        milk: Flow<String?>,
+    ) {
         following?.cancel()
-        following = scope.launch { source.collect { look = it } }
+        following =
+            scope.launch {
+                launch { milk.collect { milkPath = it } }
+                source.collect { look = it }
+            }
     }
 }

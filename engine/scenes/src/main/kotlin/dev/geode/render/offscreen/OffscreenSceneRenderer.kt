@@ -2,7 +2,6 @@ package dev.geode.render.offscreen
 
 import android.content.Context
 import android.net.Uri
-import android.util.Log
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.HandMask
 import dev.geode.render.SceneFactory
@@ -31,8 +30,8 @@ data class OffscreenRenderSpec(
     val look: LookSnapshot,
     val paramsAt: ((Long) -> SceneParams)? = null,
     // The track the range is cut from: the export's own sound engine hears it frame by frame
-    // (TrackAudio), the same way the screen's engine hears the ring. Null renders without sound.
-    val audioUri: Uri? = null,
+    // (TrackAudio), the same way the screen's engine hears the ring, after its pre-roll.
+    val audioUri: Uri,
     // An export's length: non-null pins the engine settings (macro bank, Note & key switch, hand mask, director)
     // natively at prepare (NativeViz.pinEngineSettings, #350), so live edits never reach the render; the
     // director's free-taste rule is native. Null follows the process globals (previews, thumbnails).
@@ -84,13 +83,12 @@ class OffscreenSceneRenderer(
         pinnedHandMask = spec.pinDurationMs?.let { viz.pinEngineSettings(spec.entitled, it) }
         looks.apply(look, viz, handMask = pinnedHandMask ?: HandMask.current)
         native = viz
-        // A track that will not decode still exports, silent to the engine, rather than failing the render.
-        audio =
-            spec.audioUri?.let { uri ->
-                runCatching { TrackAudio(context, uri, spec.rangeStartMs) }
-                    .onFailure { Log.w(TAG, "track audio unavailable; the sound engine stays silent", it) }
-                    .getOrNull()
-            }
+        // The pre-roll (core/output/PreRoll): the engine hears the track before frame 0, so the render opens warm, as live
+        // plays on. A track it cannot hear fails the render; it used to export a picture the silence rule froze (#999 F1).
+        val (fromMs, heardMs) = LongArray(2).also { GeodeNative.exportPreRoll(spec.rangeStartMs, it) }
+        TrackAudio(context, spec.audioUri, fromMs).use { it.deliverUntilMs(heardMs, viz) }
+        check(viz.endPreRoll(spec.rangeStartMs)) { "the track's audio could not be heard" }
+        audio = TrackAudio(context, spec.audioUri, spec.rangeStartMs)
     }
 
     /**

@@ -6,7 +6,6 @@ import androidx.core.net.toUri
 import dev.geode.data.BackgroundPrefsStore
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportPrefsStore
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.editor.MIN_CLIP_DURATION_MS
 import dev.geode.export.BatchOutcome
 import dev.geode.export.BatchTrack
@@ -25,6 +24,7 @@ import dev.geode.export.MixClip
 import dev.geode.export.RenderBatch
 import dev.geode.export.TimeOfDayDrift
 import dev.geode.export.VideoExporter
+import dev.geode.geodeContainer
 import dev.geode.render.SceneFactory
 import dev.geode.render.look.LookSnapshot
 import dev.geode.render.look.LookSource
@@ -415,20 +415,20 @@ internal class ExportController(
     }
 
     private suspend fun loadExportDefaults(): ExportDefaults =
-        withContext(Dispatchers.IO) { ExportPrefsStore(GeodePrefsFiles(application).general).load() }
+        withContext(Dispatchers.IO) { ExportPrefsStore(application.geodeContainer.prefsFiles.general).load() }
 
     // The main export's UI (Studio › Render) has no path to this controller's public API for
     // per-render options that aren't already threaded through startExport's callers, so the
     // loudness target rides along as a persisted default instead.
     private fun defaultLoudnessTarget(): LoudnessTarget =
         LoudnessTarget.byId(
-            ExportPrefsStore(GeodePrefsFiles(application).general).load().loudnessTargetId,
+            ExportPrefsStore(application.geodeContainer.prefsFiles.general).load().loudnessTargetId,
         )
 
     // Same "no per-render option wired through startExport's callers" situation as
     // defaultLoudnessTarget() above: the background image rides along as the persisted default.
     private fun defaultBackground(): BackgroundExportSpec? {
-        val p = BackgroundPrefsStore(GeodePrefsFiles(application).background).load()
+        val p = BackgroundPrefsStore(application.geodeContainer.prefsFiles.background).load()
         val uri = p.uri ?: return null
         return BackgroundExportSpec(uri.toUri(), p.blend, p.amount, p.blurRadius, p.dim)
     }

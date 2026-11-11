@@ -25,15 +25,14 @@ import dev.geode.data.LyricsLoader
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.MusicLibraryRepository
 import dev.geode.data.PlayerPrefs
+import dev.geode.data.PlayerPrefsCodec
 import dev.geode.data.PlayerPrefsRepository
-import dev.geode.data.PlayerPrefsStore
 import dev.geode.data.Preset
 import dev.geode.data.PresetRepository
 import dev.geode.data.PresetStore
 import dev.geode.data.SessionRepository
 import dev.geode.data.SessionStore
 import dev.geode.data.SharedPrefsFavouritesRepository
-import dev.geode.data.SharedPrefsPlayerPrefsRepository
 import dev.geode.data.SmartPlaylist
 import dev.geode.data.SmartPlaylistMatcher
 import dev.geode.data.SystemMotion
@@ -45,6 +44,7 @@ import dev.geode.data.UserDataRepository
 import dev.geode.data.VideoTemplate
 import dev.geode.data.VizStateStore
 import dev.geode.data.VizUiState
+import dev.geode.data.prefs.PrefsSettingsRepository
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
@@ -106,7 +106,7 @@ class PlayerSession internal constructor(
     private val prefsFiles = container.prefsFiles
 
     private val playerPrefsRepository: PlayerPrefsRepository =
-        SharedPrefsPlayerPrefsRepository(PlayerPrefsStore(prefsFiles.player), storeScope)
+        PrefsSettingsRepository(prefsFiles.player, PlayerPrefsCodec, storeScope)
 
     private val favouritesRepository: FavouritesRepository =
         SharedPrefsFavouritesRepository(prefsFiles.favourites, storeScope)
@@ -627,6 +627,7 @@ class PlayerSession internal constructor(
         pendingUnlockSceneId = null
         if (allowsStyle(sceneId)) {
             visual.selectScene(sceneId)
+            autoVisuals.noteHandPick()
         } else {
             // Kept so that buying Pro from this paywall ends on the style that asked for it.
             pendingUnlockSceneId = sceneId
@@ -669,7 +670,12 @@ class PlayerSession internal constructor(
 
     fun applyPreset(preset: Preset) {
         pendingUnlockSceneId = null
-        if (allowsStyle(preset.sceneId)) visual.applyPreset(preset) else onStyleLocked()
+        if (allowsStyle(preset.sceneId)) {
+            visual.applyPreset(preset)
+            autoVisuals.noteHandPick()
+        } else {
+            onStyleLocked()
+        }
     }
 
     /**

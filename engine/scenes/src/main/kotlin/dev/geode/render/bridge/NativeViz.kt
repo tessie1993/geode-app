@@ -15,6 +15,7 @@ import dev.geode.render.look.LookTarget
 import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.render.scene.SceneParams
 import java.io.File
+import java.lang.ref.Cleaner
 import java.lang.ref.Reference
 import java.nio.ByteBuffer
 
@@ -38,6 +39,19 @@ class NativeViz(
     // so two threads racing on a 0L handle cannot both create (and leak) a renderer.
     @Volatile
     private var handle = 0L
+
+    // The handle again, for the Cleaner (#999). A teardown queues the release on the GL thread and waits
+    // 200 ms (VisualizerView, the wallpaper engine); when the wait runs out, the queued job dies with the
+    // thread and nothing else destroyed the native renderer: its scenes, sound engine and projectM heap
+    // leaked for the life of the process. Once this object is unreachable the Cleaner destroys what is
+    // left. JNI's destroy waits for calls in flight and ignores a handle already gone; without a context
+    // its GL deletes are no-ops, and the lost context took those objects with it.
+    private val owned = Owned()
+
+    init {
+        CLEANER.register(this, owned)
+    }
+
     private val paramFrame = FloatArray(SceneParamsCodec.FIELDS)
     private val sent = LastSent()
     private var reportedError = ""
@@ -57,6 +71,7 @@ class NativeViz(
     fun create(): Boolean {
         if (handle == 0L) {
             handle = GeodeNative.vizCreate(assets, cacheDir)
+            owned.handle = handle
             sent.clear()
             if (handle != 0L) {
                 GeodeNative.vizSetMilkTextureDir(handle, milkTextureDir)
@@ -75,6 +90,19 @@ class NativeViz(
         if (handle == 0L) return
         GeodeNative.vizDestroy(handle)
         handle = 0L
+        owned.handle = 0L
+    }
+
+    /** Holds no reference to its [NativeViz], or the Cleaner could never run it. */
+    private class Owned : Runnable {
+        @Volatile
+        var handle = 0L
+
+        override fun run() {
+            val h = handle
+            handle = 0L
+            if (h != 0L) GeodeNative.vizDestroy(h)
+        }
     }
 
     fun knows(sceneId: String): Boolean = handle != 0L && GeodeNative.vizKnows(handle, sceneId)
@@ -156,6 +184,9 @@ class NativeViz(
      * reached.
      */
     fun hearTrack(feed: Long): Boolean = GeodeNative.vizHearTrack(handle, feed)
+
+    /** After the pre-roll, before frame 0 (core/output/PreRoll); false when the engine heard nothing. */
+    fun endPreRoll(rangeStartMs: Long): Boolean = GeodeNative.vizEndPreRoll(handle, rangeStartMs)
 
     /**
      * The live feed: the renderer's sound engine takes what [ring] gained since the last frame, natively,
@@ -404,6 +435,9 @@ class NativeViz(
 
     private companion object {
         const val UI_BLUR_FLOATS = 6
+
+        /** One daemon thread for every renderer in the process. */
+        val CLEANER: Cleaner = Cleaner.create()
     }
 }
 

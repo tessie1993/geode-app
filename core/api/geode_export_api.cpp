@@ -12,6 +12,7 @@
 #include "output/FrameClock.hpp"
 #include "output/LoopPlan.hpp"
 #include "output/LoudnessAdvice.hpp"
+#include "output/PreRoll.hpp"
 #include "output/RecordPlan.hpp"
 
 namespace out = geode::output;
@@ -50,6 +51,12 @@ int64_t geode_export_total_frames(int64_t duration_us, int fps) { return out::Fr
 int64_t geode_export_frame_pts_ns(int64_t frame, int fps) { return out::FrameClock(fps, 0).ptsNs(frame); }
 
 int64_t geode_export_frame_time_ms(int64_t frame, int fps) { return out::FrameClock(fps, 0).frameTimeMs(frame); }
+
+void geode_export_pre_roll(int64_t range_start_ms, int64_t* from_ms, int64_t* heard_ms) {
+    const out::PreRoll plan = out::preRollFor(range_start_ms);
+    if (from_ms) *from_ms = plan.fromMs;
+    if (heard_ms) *heard_ms = plan.heardMs;
+}
 
 void geode_loop_spec_of(int64_t loop_ms, int64_t crossfade_ms, int fps, geode_loop_spec* o) {
     if (o) fill(out::LoopSpec::of(loop_ms, crossfade_ms, fps), o);

@@ -2,8 +2,10 @@ package dev.geode.billing
 
 import android.content.Context
 import android.content.SharedPreferences
+import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
+import dev.geode.geodeContainer
 import dev.geode.pro.BillingRepository
 
 /**
@@ -183,7 +185,7 @@ class PrefsEntitlementStore(
     }
 
     companion object {
-        const val PREFS_FILE: String = "geode-pro"
+        const val PREFS_FILE: String = GeodePrefsFiles.PRO
         private const val KEY_OWNED = "pro_owned"
         private const val KEY_VERIFIED_AT = "pro_verified_at"
         private const val KEY_PURCHASE_JSON = "pro_purchase_json"
@@ -197,6 +199,6 @@ class PrefsEntitlementStore(
                 cache(PrefType.STRING, KEY_PURCHASE_JSON, KEY_SIGNATURE)
             }
 
-        fun open(context: Context): SharedPreferences = context.applicationContext.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
+        fun open(context: Context): SharedPreferences = context.geodeContainer.prefsFiles.pro
     }
 }

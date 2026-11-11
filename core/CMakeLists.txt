@@ -135,6 +135,8 @@ target_include_directories(geode_core PRIVATE
     ${CMAKE_BINARY_DIR}/third_party/taglib)
 target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})
 target_link_libraries(geode_core PUBLIC projectM tag GLESv3 EGL log android)
+# The playback output's stream (audio/output/OboeOutput.cpp); found by the root CMakeLists.txt.
+target_link_libraries(geode_core PUBLIC oboe::oboe)
 
 # glTF import (core/scene/object, #474): cgltf is header-only (its one implementation is compiled in
 # GltfImport.cpp); meshoptimizer builds only what the import uses, the simplifier and the

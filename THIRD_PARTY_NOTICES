@@ -153,6 +153,16 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+Oboe
+----
+The optional native playback output (core/audio/output/OboeOutput.cpp,
+Settings > Playback > Native audio output) plays through Oboe
+(https://github.com/google/oboe), v1.11.0, the prebuilt liboboe.so from the
+com.google.oboe:oboe package on Google Maven, unmodified.
+
+Copyright The Android Open Source Project. Licensed under the Apache
+License, Version 2.0: https://www.apache.org/licenses/LICENSE-2.0
+
 TagLib
 ------
 The tag reader and writer behind the library's track info and tag editing

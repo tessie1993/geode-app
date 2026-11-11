@@ -53,6 +53,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -255,10 +256,15 @@ fun AppRoot() {
             }
     }
     VisualizerEngineBindings(viewModel, visualizerView)
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    val vizState = viewModel.vizState.collectAsStateWithLifecycle()
     // The accent follows the visual: the middle of its palette's hues; MilkDrop paints its own.
-    val accentTarget =
-        if (viz.sceneId == SceneIds.MILKDROP) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
+    // Derived, so the root recomposes when the accent changes, not on every Customize slider tick.
+    val accentTarget by remember {
+        derivedStateOf {
+            val viz = vizState.value
+            if (viz.sceneId == SceneIds.MILKDROP) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
+        }
+    }
     // Outside the theme, so the motion scheme is built here from the same switches the theme reads.
     // Android's "Remove animations" alone (data/SystemMotion, #336); the paywall below reads it too.
     val reducedMotion = rememberSystemReducedMotion()

@@ -985,7 +985,10 @@ fun SearchScreen(
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    modifier = Modifier.weight(1f).focusRequester(searchFocus),
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .focusRequester(searchFocus),
                     placeholder = { Text(stringResource(R.string.search_placeholder)) },
                     singleLine = true,
                 )

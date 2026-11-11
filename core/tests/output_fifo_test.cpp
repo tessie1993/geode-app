@@ -387,6 +387,80 @@ void testPositionAt(int rate) {
     CHECK(step("ended") == last, "%d Hz: it stays on the last frame", rate);
 }
 
+// The stream's timestamp as production has it (OboeOutput reads one every 200 ms and runs on from it by
+// the clock in between, and the stream sometimes has none): aged, too old to run on from, from the
+// future, and missing then back mid-play with an estimate that is off. Whatever it is given, the
+// position never goes back, never passes the frames read, and stays within a buffer of the truth.
+void testAgedFutureAndMissingTimestamps() {
+    const int rate = 48000;
+    const int latency = rate / 20;
+    const int burst = 192;  // 4 ms: the device clock moves in whole nanoseconds
+    const int total = rate * 4;
+    const std::vector<float> signal = stereo(0, total);
+    OutputFifo fifo(rate, 2, rate / 4);
+    Device device(fifo, rate, latency);
+    int next = 0;
+    int64_t last = 0;
+    const auto check = [&](const char* phase, const StreamTime& stamp, int64_t estimate, int64_t tolerance) {
+        fifo.positionUs(device.clockNs, stamp, estimate);
+        const int64_t frames = fifo.positionFrames();
+        const int64_t played = fifo.framesPlayed();
+        const int64_t truth = std::max<int64_t>(played - latency, 0);
+        CHECK(frames >= last, "%s: position went back, %lld after %lld", phase, static_cast<long long>(frames),
+              static_cast<long long>(last));
+        CHECK(frames <= played, "%s: position %lld is ahead of the %lld frames read", phase,
+              static_cast<long long>(frames), static_cast<long long>(played));
+        CHECK(frames - truth <= tolerance && truth - frames <= tolerance, "%s: position %lld, truth %lld", phase,
+              static_cast<long long>(frames), static_cast<long long>(truth));
+        last = frames;
+    };
+    const auto pull = [&] {
+        next = topUp(fifo, signal, next, total);
+        device.burst(burst);
+    };
+
+    fifo.play(device.clockNs);
+    for (int i = 0; i < 100; ++i) {
+        pull();
+        check("fresh", device.time(), latency, 2);
+    }
+
+    // Aged: read every 50 bursts (200 ms), run on from in between.
+    StreamTime cached = device.time();
+    for (int i = 0; i < 200; ++i) {
+        if (i % 50 == 0) cached = device.time();
+        pull();
+        check("aged", cached, latency, 2);
+    }
+
+    // Never read again: past a second it is not run on from, and the estimate carries on from there.
+    cached = device.time();
+    for (int i = 0; i < 300; ++i) {
+        pull();
+        check("too old", cached, latency, 2);
+    }
+
+    // From the future, and far ahead: not believed.
+    for (int i = 0; i < 50; ++i) {
+        pull();
+        StreamTime ahead = device.time();
+        ahead.timeNs += kSecondNs / 20;
+        ahead.framePosition += rate;
+        check("future", ahead, latency, 2);
+    }
+
+    // Missing, then back, over and over, with an estimate that hears half the latency there is: the
+    // position holds while the timestamp says less than the estimate did, and never jumps back.
+    for (int i = 0; i < 200; ++i) {
+        const bool missing = (i / 25) % 2 == 0;
+        if (i % 25 == 0) cached = device.time();
+        pull();
+        check(missing ? "missing" : "back", missing ? StreamTime{} : cached, latency / 2, latency);
+    }
+    CHECK(fifo.underruns() == 0, "no underrun in the timestamp cases");
+    CHECK(last > rate * 3, "the cases played on: %lld frames", static_cast<long long>(last));
+}
+
 // After stop() the end is reached by the clock even when the stream never reports or pulls again.
 void testStopEndsWithoutAStream() {
     OutputFifo fifo(48000, 2, 12000);
@@ -430,7 +504,7 @@ void testStopPlaysOutAndIgnoresPause() {
 
     // The pause is ignored: the position keeps moving to the end.
     fifo.pause();
-    const int64_t early = fifo.positionUs(kSecondNs / 480, none, 0);  // 100 frames by the clock
+    const int64_t early = fifo.positionUs(kSecondNs / 480, none, 0);
     CHECK(early > 0, "a pause after stop does not freeze the position: %lld us", static_cast<long long>(early));
     fifo.play(kSecondNs / 480);  // ignored too: nothing starts over
     fifo.read(got.data(), 300);
@@ -661,6 +735,7 @@ int main() {
     testPositionAt(44100);
     testPositionAt(48000);
     testPositionAt(96000);
+    testAgedFutureAndMissingTimestamps();
     testStopEndsWithoutAStream();
     testStopPlaysOutAndIgnoresPause();
     testVolumeRamp();

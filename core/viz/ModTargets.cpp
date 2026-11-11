@@ -19,7 +19,7 @@ struct TargetRow {
 
 // One row per LfoTarget, in wire order. A target's scope is the scope of the field it writes: the
 // camera rig's and the composite's offsets are Universal (every family is seen through them), the
-// shader look only reaches the fragment styles, the fluid and water knobs only their own scenes.
+// shader look only reaches the fragment styles, the fluid knobs only their own scenes.
 constexpr std::array<TargetRow, kTargetCount> kTargets{{
     {"NONE", Scope::Universal},
     {"SPEED", Scope::SceneClock},
@@ -58,8 +58,8 @@ constexpr std::array<TargetRow, kTargetCount> kTargets{{
     {"FLUID_CATCH_PULL", Scope::Journey},
     {"FLUID_CATCH_RADIUS", Scope::Journey},
     {"FLOW_STRENGTH", Scope::Universal},
-    {"WATER_RIPPLE", Scope::Water},
-    {"RIPPLE_OVERLAY", Scope::RippleOverlay},
+    {"RETIRED_37", Scope::Universal},  // was WATER_RIPPLE
+    {"RETIRED_38", Scope::Universal},  // was RIPPLE_OVERLAY
     {"LFO1_RATE", Scope::Universal},
     {"LFO1_DEPTH", Scope::Universal},
     {"LFO2_RATE", Scope::Universal},
@@ -134,7 +134,9 @@ const char* name(LfoTarget target) { return known(target) ? kTargets[static_cast
 
 Scope scopeOf(LfoTarget target) { return known(target) ? kTargets[static_cast<size_t>(target)].scope : Scope::Universal; }
 
-bool offered(LfoTarget target) { return known(target) && target != LfoTarget::Retired25; }
+bool offered(LfoTarget target) {
+    return known(target) && target != LfoTarget::Retired25 && target != LfoTarget::Retired37 && target != LfoTarget::Retired38;
+}
 
 int chainSlot(LfoTarget target) {
     ModChain c{};

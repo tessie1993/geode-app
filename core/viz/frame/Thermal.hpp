@@ -34,7 +34,7 @@ struct ThermalTierInfo {
     float fpsCap;         // 0 = none; the pacer applies min(surface cap, this)
     float renderScale;    // the scene targets' size
     float marchScale;     // ray-march steps (uSteps), on top of the user's Detail and march scale
-    bool optionalPasses;  // the post FX a cool phone can afford (ripple overlay)
+    bool optionalPasses;  // the post FX a cool phone can afford
 };
 
 // The owner's ladder (ADR 0008 point 2), cool to hot: fps drops to 30 first, then render scale, then

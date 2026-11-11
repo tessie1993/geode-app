@@ -328,49 +328,6 @@ private fun LiquidControl(
             ParamChips(key, LIQUID_SURFACE_CHOICES, p.liquidSurface.coerceIn(0, 2), scope = ParamScope.UNIVERSAL) {
                 onChange(p.copy(liquidSurface = it))
             }
-        RIPPLES_ON ->
-            CheckRow(key, p.rippleOverlayEnabled, scope = ParamScope.RIPPLE_OVERLAY) { onChange(p.copy(rippleOverlayEnabled = it)) }
-        ParamKeys.RIPPLE_OVERLAY_STRENGTH ->
-            if (p.rippleOverlayEnabled) {
-                LabeledSlider(key, p, SceneParams::rippleOverlayStrength, display = "Overlay strength") {
-                    onChange(p.copy(rippleOverlayStrength = it))
-                }
-            }
-        ParamKeys.RIPPLE_GLINT ->
-            if (p.rippleOverlayEnabled) {
-                LabeledSlider(key, p, SceneParams::rippleOverlaySpecular) {
-                    onChange(p.copy(rippleOverlaySpecular = it))
-                }
-            }
-        ParamKeys.WAVE_SPEED ->
-            if (p.rippleOverlayEnabled || ParamScope.WATER.appliesTo(LocalSceneId.current)) {
-                LabeledSlider(key, p, SceneParams::waterWaveSpeed) { onChange(p.copy(waterWaveSpeed = it)) }
-            }
-        ParamKeys.DAMPING ->
-            if (p.rippleOverlayEnabled || ParamScope.WATER.appliesTo(LocalSceneId.current)) {
-                LabeledSlider(key, p, SceneParams::waterDamping, display = "Calming") {
-                    onChange(p.copy(waterDamping = it))
-                }
-            }
-        ParamKeys.RIPPLE_STRENGTH ->
-            LabeledSlider(key, p, SceneParams::waterRippleStrength) {
-                onChange(p.copy(waterRippleStrength = it))
-            }
-        ParamKeys.DEPTH -> LabeledSlider(key, p, SceneParams::waterDepth) { onChange(p.copy(waterDepth = it)) }
-        ParamKeys.SPECULAR ->
-            LabeledSlider(key, p, SceneParams::waterSpecular, display = "Shine") {
-                onChange(p.copy(waterSpecular = it))
-            }
-        ParamKeys.FLOW_DRIFT -> LabeledSlider(key, p, SceneParams::waterFlow) { onChange(p.copy(waterFlow = it)) }
-        ParamKeys.LIQUID -> LabeledSlider(key, p, SceneParams::waterLiquid) { onChange(p.copy(waterLiquid = it)) }
-        ParamKeys.LIQUID_FLOW ->
-            if (p.waterLiquid > PALETTE_MIX_SHOWN) {
-                LabeledSlider(key, p, SceneParams::waterLiquidFlow) { onChange(p.copy(waterLiquidFlow = it)) }
-            }
-        ParamKeys.LIQUID_FADE ->
-            if (p.waterLiquid > PALETTE_MIX_SHOWN) {
-                LabeledSlider(key, p, SceneParams::waterLiquidFade) { onChange(p.copy(waterLiquidFade = it)) }
-            }
         REACTION_DNA -> PersonalityControl(host)
         GLIDE_TIME ->
             LabeledSlider(key, p, SceneParams::paramFadeSec, scope = ParamScope.UNIVERSAL, unit = ParamUnit.SECONDS) {
@@ -702,7 +659,7 @@ private fun DirectorSwitch() {
     LabeledSwitch(label, checked = on, onCheckedChange = store::setEnabled)
 }
 
-/** Above this the second palette (or a water film) is in the picture, so its controls show. */
+/** Above this the second palette is in the picture, so its controls show. */
 private const val PALETTE_MIX_SHOWN = 0.001f
 
 // Names of panel controls that are not ParamKeys, as core/viz/CustomizeMap spells them.
@@ -713,7 +670,6 @@ private const val AUTO_QUALITY = "Lower the quality when the phone struggles"
 private const val PARTICLE_LAYER = "Particle layer"
 private const val INK_LAYER = "Ink layer"
 private const val LIQUID_ON = "Flow field on"
-private const val RIPPLES_ON = "Water ripples on"
 private const val GLIDE_TIME = "Glide time"
 private const val TRANSITION_LENGTH = "Transition length"
 private const val RISE = "Rise"

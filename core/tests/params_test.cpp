@@ -110,7 +110,7 @@ void neverRolledFieldsNeverChange() {
 
 void aRollOnAStyleTouchesOnlyWhatItCanShow() {
     const SceneParams base = everythingChanged();
-    for (const char* style : {"plasma", "vanishing", "silk_web", "fluid_ink", "water", "milkdrop", "kundt_tube", "curlflow"}) {
+    for (const char* style : {"plasma", "vanishing", "silk_web", "fluid_ink", "milkdrop", "kundt_tube", "curlflow"}) {
         for (uint64_t seed = 1; seed <= 40; ++seed) {
             const SceneParams out = randomizer::randomize(base, seed, std::nullopt, style, {});
             for (const auto& roll : randomizer::rolledKeys()) {

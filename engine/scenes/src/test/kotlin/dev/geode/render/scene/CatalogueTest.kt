@@ -34,6 +34,13 @@ class CatalogueTest {
     }
 
     @Test
+    fun aRetiredStyleOpensOnItsReplacement() {
+        assertEquals(SceneIds.POOL, Catalogue.resolve("water"))
+        assertEquals(SceneIds.PLASMA, Catalogue.resolve(SceneIds.PLASMA))
+        assertEquals("no_such_style", Catalogue.resolve("no_such_style"))
+    }
+
+    @Test
     fun everyStyleCarriesItsLookGroup() {
         // The look column sits between the kind and the per-style scopes; a shifted field would show
         // up here as a scope name read as a look, or Detail lost from a marched style.

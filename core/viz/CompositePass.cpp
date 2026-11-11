@@ -126,12 +126,6 @@ void CompositePass::bindTextures(UniformCache& p, const Inputs& inputs) {
     glBindTexture(GL_TEXTURE_2D, inputs.flowTex);
     glUniform1i(p.loc("uFlow"), 2);
     glUniform1f(p.loc("uFlowStrength"), inputs.flowStrength);
-    glActiveTexture(GL_TEXTURE3);
-    glBindTexture(GL_TEXTURE_2D, inputs.rippleTex);
-    glUniform1i(p.loc("uRipple"), 3);
-    glUniform2f(p.loc("uRippleTexel"), inputs.rippleTexelW, inputs.rippleTexelH);
-    glUniform1f(p.loc("uRippleStrength"), inputs.rippleStrength);
-    glUniform1f(p.loc("uRippleSpecular"), inputs.rippleSpecular);
     glActiveTexture(GL_TEXTURE4);
     glBindTexture(GL_TEXTURE_2D, noiseTex_);
     glUniform1i(p.loc("uNoise"), 4);

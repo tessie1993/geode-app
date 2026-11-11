@@ -720,7 +720,7 @@ class UiTourTest {
                 MACROS to listOf(SETS_AND_MACROS),
                 "Look" to listOf("Make a palette"),
                 "Style" to emptyList<String>(),
-                MOTION to listOf(CAMERA, "Liquid", "Water ripples"),
+                MOTION to listOf(CAMERA, "Liquid"),
                 "Music" to listOf("How it listens", "Notes & key"),
                 "Modulate" to listOf("Reactions", "Envelopes", "Waves"),
                 ADVANCED to listOf("Layers", "Transitions", "Shader code"),

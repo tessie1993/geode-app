@@ -18,8 +18,8 @@ namespace geode::viz::catalogue {
 constexpr int kTextVersion = 2;
 
 // Which scene class an id builds. One per renderer, not per style. Names match Kotlin's SceneKind.
-enum class Kind { Shader, Silk, Life, Mycelium, Acid, Milkdrop, Fluid, CurlFlow, Water, Cymatics };
-constexpr int kKindCount = 10;
+enum class Kind { Shader, Silk, Life, Mycelium, Acid, Milkdrop, Fluid, CurlFlow, Cymatics };
+constexpr int kKindCount = 9;
 
 // Which styles a Customize parameter can move (R4: no dead controls; a control that cannot move
 // the style on screen is hidden). Names and order match Kotlin's ParamScope.
@@ -42,14 +42,12 @@ enum class Scope {
     ParticleSprite,
     Milkdrop,
     FluidSim,
-    Emitters,       // Fluid and Water splats
-    Journey,        // spawn/catch choreography: Fluid, Curl Flow, Water
-    Water,
+    Emitters,       // Fluid splats
+    Journey,        // spawn/catch choreography: Fluid, Curl Flow
     Cymatics,
     FlowFieldSim,   // Fluid drives its field from its own solver instead
-    RippleOverlay,  // Water's own surface already refracts
 };
-constexpr int kScopeCount = 24;
+constexpr int kScopeCount = 22;
 
 // The Styles page's group a style is shown in: what it looks like, not which renderer draws it
 // (the owner's groups, 2026-11-02). Names and order match Kotlin's model/StyleLook, which keeps the
@@ -76,6 +74,8 @@ struct Family {
 
 // Morph World: the one style whose ShaderScene runs a World Genome driver (core/viz/world).
 constexpr const char* kMorphWorld = "morph_world";
+// Pool: a swimming pool seen from above; its ShaderScene runs the surface driver (core/viz/pool).
+constexpr const char* kPool = "pool";
 
 // The user's Detail control; ShaderScene turns it into the march step budget.
 constexpr Range kMarchDetail{0.25f, 1.5f};
@@ -85,9 +85,17 @@ constexpr Range kTouchRotation{-3.0f, 3.0f};
 constexpr float kTouchRotationPerDegree = 0.012f;
 
 // Every id, in the order the picker lists them: silk, life, mycelium, acid, shaders (loose, then
-// the families in family order), milkdrop, fluid, curl flow, water, cymatics.
+// the families in family order), milkdrop, fluid, curl flow, cymatics.
 const std::vector<std::string>& allIds();
 bool knows(const std::string& id);
+// A retired id and the style that replaced it, so a look, playlist entry, take or template saved on
+// it opens on the new one. Every other id, known or not, is itself.
+struct Retired {
+    const char* id;
+    const char* now;
+};
+constexpr std::array<Retired, 1> kRetired = {{{"water", kPool}}};
+const std::string& resolveId(const std::string& id);
 // Unknown ids are Silk: the default style is a Silk one and the registry falls back to it, so the
 // Customize panel describes what will actually be on screen.
 Kind kindOf(const std::string& id);
@@ -117,6 +125,7 @@ const char* name(Look look);
 // Rows, '|'-separated, one per line, in this order:
 //   catalogue|<kTextVersion>
 //   kind|<KIND>|<SCOPE>,<SCOPE>,...       every scope that reaches the kind (MarchDetail never: it is per style)
+//   retired|<id>|<id>                         resolveId(): a retired id, then the style that replaced it
 //   style|<id>|<KIND>|<LOOK>[|MARCH_DETAIL]   allIds() order; the extra field lists per-style scopes
 //   family|<name>|<prefix>|<library>|<id>,<id>,...   opener first
 //   override|<id>|<ParamKeys string>|<value>   the style holds that control at that value

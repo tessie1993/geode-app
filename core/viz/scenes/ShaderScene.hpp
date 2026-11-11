@@ -12,6 +12,7 @@
 #include "viz/Scene.hpp"
 #include "viz/SoundUniforms.hpp"
 #include "viz/Texture.hpp"
+#include "viz/pool/PoolMath.hpp"
 #include "viz/world/MorphDriver.hpp"
 
 namespace geode::viz {
@@ -61,6 +62,8 @@ private:
     void uploadTouch();
     void uploadCamera();
     void uploadWorld();
+    void uploadPool();
+    pool::Controls poolControls() const;
     void set1f(const char* name, float value);
     float marchSteps(float detail);
 
@@ -117,6 +120,9 @@ private:
     GLuint worldShapesTex_ = 0;
     GLuint worldMapsTex_ = 0;
     bool worldSeeded_ = false;
+
+    // Pool (shaders/pool_frag): the surface's waves, rings and wakes, built only for that style.
+    std::unique_ptr<pool::Pool> pool_;
 
     float stepsDetail_ = -1.0f;
     float stepsBudget_ = 0.0f;

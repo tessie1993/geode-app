@@ -164,12 +164,6 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetTouch(JNIEnv* env, jobject, jlong
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizQueueTouchStroke(JNIEnv*, jobject, jlong handle, jfloat nx, jfloat ny, jfloat ndx, jfloat ndy,
-                                                             jfloat dt, jfloat strength) {
-    geode_viz_queue_touch_stroke(vizOf(handle), nx, ny, ndx, ndy, dt, strength);
-}
-
-JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetFluidInjection(JNIEnv* env, jobject, jlong handle, jstring force, jstring dye) {
     Utf8Chars forceSrc(env, force);
     Utf8Chars dyeSrc(env, dye);

@@ -488,7 +488,7 @@ private fun kindLabel(kind: SceneKind): String =
         SceneKind.MYCELIUM -> "Mycelium"
         SceneKind.ACID -> "Morphing"
         SceneKind.MILKDROP -> "MilkDrop"
-        SceneKind.FLUID, SceneKind.CURL_FLOW, SceneKind.WATER -> "Fluid"
+        SceneKind.FLUID, SceneKind.CURL_FLOW -> "Fluid"
         SceneKind.CYMATICS -> "Cymatics"
     }
 

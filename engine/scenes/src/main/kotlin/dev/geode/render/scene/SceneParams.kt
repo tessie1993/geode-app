@@ -127,15 +127,6 @@ data class SceneParams(
     val flowStrength: Float = 0.35f,
     val flowForce: Float = 1f,
     val flowCurl: Float = 25f,
-    val waterWaveSpeed: Float = 1f,
-    val waterDamping: Float = 0.985f,
-    val waterRippleStrength: Float = 1f,
-    val waterDepth: Float = 0.6f,
-    val waterSpecular: Float = 0.7f,
-    val waterFlow: Float = 0.3f,
-    val waterLiquid: Float = 0.85f,
-    val waterLiquidFlow: Float = 1.4f,
-    val waterLiquidFade: Float = 0.35f,
     val cymaticsGeometry: Int = 0,
     val cymaticsFundamental: Float = 110f,
     val cymaticsModes: Int = 5,
@@ -149,9 +140,6 @@ data class SceneParams(
     val cymaticsCaustic: Float = 0.8f,
     val cymaticsFlow: Float = 0.35f,
     val cymaticsSwirl: Float = 0.05f,
-    val rippleOverlayEnabled: Boolean = false,
-    val rippleOverlayStrength: Float = 0.4f,
-    val rippleOverlaySpecular: Float = 0.3f,
     // How far the native superformula driver (core/viz/FormDrive) moved every family's parameters
     // with the music. Inert since wave three (core/viz/MotionField replaced it); kept so a preset
     // saved before wave three still decodes.

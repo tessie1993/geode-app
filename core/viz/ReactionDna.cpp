@@ -541,8 +541,6 @@ catalogue::Scope targetScope(LfoTarget t) {
         case T::FluidForce: return Sc::Emitters;
         case T::FluidCatchPull:
         case T::FluidCatchRadius: return Sc::Journey;
-        case T::WaterRipple: return Sc::Water;
-        case T::RippleOverlay: return Sc::RippleOverlay;
         default: return Sc::Universal;
     }
 }

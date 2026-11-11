@@ -88,6 +88,10 @@ class PresetGoldenTest {
         assertEquals(SceneParams.DEFAULT.liquidBorn, p.liquidBorn)
         assertEquals(SceneParams.DEFAULT.noteDrums, p.noteDrums)
         val written = JSONObject(PresetStore.toJson(PresetStore.fromJson(fixture("legacy.json"))))
+        // A look saved on the retired Water style opens on Pool, which replaced it; its water fields are dropped.
+        val water = PresetStore.fromJson("""{"name":"w","sceneId":"water","attack":0.1,"decay":0.2,"waterDepth":0.7}""")
+        assertEquals("pool", water.sceneId)
+        assertFalse(JSONObject(PresetStore.toJson(water)).has("waterDepth"))
         assertFalse(written.has("glitch"))
         assertFalse(written.has("beatFlash"))
     }
@@ -115,7 +119,6 @@ class PresetGoldenTest {
         assertEquals(0.625f, p.bloom)
         assertEquals(2f, p.intensity)
         assertEquals(40f, p.cymaticsFundamental)
-        assertEquals(0.9f, p.waterDamping)
         assertEquals(50f, p.flowCurl)
         // A circular param wraps natively and is not clamped.
         assertEquals(1.5f, p.colorShift)

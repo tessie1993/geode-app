@@ -35,6 +35,7 @@ import dev.geode.export.ClipLook
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRatio
+import dev.geode.render.scene.Catalogue
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -264,7 +265,7 @@ internal object EditorProjectJson {
         when (val type = o.getString("type")) {
             "scene" ->
                 ClipContent.Scene(
-                    sceneId = o.getString("sceneId"),
+                    sceneId = Catalogue.resolve(o.getString("sceneId")),
                     presetId = o.stringOrNull("presetId"),
                     milkPath = o.stringOrNull("milkPath"),
                     takeId = o.stringOrNull("takeId"),

@@ -16,7 +16,7 @@ import org.junit.Test
 class ParamSchemaTest {
     @Test
     fun everySlotHoldsItsRowInOrder() {
-        assertEquals(164, ParamSchema.params.size)
+        assertEquals(152, ParamSchema.params.size)
         ParamSchema.params.forEachIndexed { slot, spec ->
             assertEquals(slot, spec.slot)
             assertSame(spec, ParamSchema[slot])
@@ -32,8 +32,8 @@ class ParamSchemaTest {
     fun rowsCarryKindDefaultRangeAndFade() {
         assertEquals(ParamSpec(0, "speed", ParamSpec.Kind.FLOAT, 1f, 0.05f..4f, fades = true), ParamSchema["speed"])
         assertEquals(ParamSpec(108, "flowCurl", ParamSpec.Kind.FLOAT, 25f, 0f..50f, fades = true), ParamSchema["flowCurl"])
-        assertEquals(ParamSpec(110, "waterDamping", ParamSpec.Kind.FLOAT, 0.985f, 0.9f..0.999f, fades = true), ParamSchema["waterDamping"])
-        assertEquals(ParamSpec(153, "reactSeed", ParamSpec.Kind.INT, 0f, 0f..16777215f, fades = false), ParamSchema["reactSeed"])
+        assertEquals(ParamSpec(110, "cymaticsFundamental", ParamSpec.Kind.FLOAT, 110f, 40f..440f, true), ParamSchema["cymaticsFundamental"])
+        assertEquals(ParamSpec(141, "reactSeed", ParamSpec.Kind.INT, 0f, 0f..16777215f, fades = false), ParamSchema["reactSeed"])
         assertEquals(ParamSpec.Kind.CIRCULAR, ParamSchema["colorShift"]?.kind)
         assertEquals(ParamSpec.Kind.BOOL, ParamSchema["fluidAutoQuality"]?.kind)
         assertEquals(1f, ParamSchema["fluidAutoQuality"]?.default)

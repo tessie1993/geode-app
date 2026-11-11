@@ -3,7 +3,7 @@ precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
 // fraction bits). uTexA/uTexB hold HDR scene colour; on GPUs honoring
 // sampler precision (Mali) every read is clamped and quantized. (uFlow
-// and uRipple below keep their own explicit highp qualifiers.)
+// below keeps its own explicit highp qualifier.)
 precision highp sampler2D;
 
 in vec2 vUv;
@@ -126,16 +126,6 @@ uniform float uPostPulse;
 // sampler is always valid.
 uniform highp sampler2D uFlow;   // half-float velocities exceed lowp range
 uniform float uFlowStrength;
-// Ripple overlay (F2): the shared RippleSim heightfield refracts ANY scene's
-// output and adds a specular glint on the wave crests, so the water style's
-// surface physics can ride on top of particles, shaders and MilkDrop. Lives
-// inside postFx() so transitions apply it to BOTH images. A 1x1 zero texture
-// is bound when disabled (or when WATER is active - its own display already
-// refracts) so the sampler is always valid.
-uniform highp sampler2D uRipple; // half-float heights exceed lowp range
-uniform vec2 uRippleTexel;
-uniform float uRippleStrength;
-uniform float uRippleSpecular;
 // Underlay (W00): a full-frame RGBA8 background layer, blended into the finished composite
 // colour in main() below, just before the dither - so it applies once, identically, regardless
 // of transitions or Layers. uUnderlayBlend selects the function (0 = screen: shows through where
@@ -280,20 +270,6 @@ vec3 postFx(sampler2D tex, vec2 uv, vec4 gate, float camOn) {
         flow *= 6.0 / (6.0 + length(flow));
         p -= flow * uFlowStrength * 0.015;
     }
-    // Ripple overlay refraction: the height gradient bends the scene fetch,
-    // soft-capped with the same idiom as the uFlow block above (and lockstep
-    // with RippleMath.refractionOffset / water_display_frag: cap 0.08 UV).
-    vec2 rippleGrad = vec2(0.0);
-    if (uRippleStrength > 0.001) {
-        float hL = texture(uRipple, p - vec2(uRippleTexel.x, 0.0)).x;
-        float hR = texture(uRipple, p + vec2(uRippleTexel.x, 0.0)).x;
-        float hT = texture(uRipple, p + vec2(0.0, uRippleTexel.y)).x;
-        float hB = texture(uRipple, p - vec2(0.0, uRippleTexel.y)).x;
-        rippleGrad = vec2(hR - hL, hT - hB);
-        vec2 off = rippleGrad * uRippleStrength * 0.05;
-        off *= 0.08 / (0.08 + length(off));
-        p -= off;
-    }
     if (abs(uFisheye) > 0.001) {
         vec2 c = p - 0.5;
         float r = length(c) * 2.0;
@@ -307,20 +283,6 @@ vec3 postFx(sampler2D tex, vec2 uv, vec4 gate, float camOn) {
         col.b = texture(tex, mirrorUv(p - dir)).b;
     } else {
         col = texture(tex, mirrorUv(p)).rgb;
-    }
-    // Ripple overlay glint: Blinn specular from the wave normal (same light
-    // rig as water_display_frag) plus a small gradient-magnitude shimmer so
-    // crests catch light on any scene underneath.
-    if (uRippleStrength > 0.001 && uRippleSpecular > 0.001) {
-        vec3 rn = normalize(vec3(-rippleGrad * 24.0, 1.0));
-        vec3 lightDir = normalize(vec3(-0.4, 0.6, 0.8));
-        vec3 halfVec = normalize(lightDir + vec3(0.0, 0.0, 1.0));
-        // Fade in with gradient magnitude: a calm (flat) surface must add
-        // nothing, or the overlay would wash every frame with constant spec.
-        float wave = smoothstep(0.003, 0.03, length(rippleGrad));
-        float spec = pow(max(dot(rn, halfVec), 0.0), 24.0) * wave;
-        float shimmer = min(length(rippleGrad) * 0.6, 0.35);
-        col += uRippleSpecular * (spec + shimmer) * vec3(1.0, 0.98, 0.92);
     }
     if (geoOn && uPostBloom > 0.001) col += uPostBloom * col * col;
     if (geoOn && uPostPosterize > 0.001) {

@@ -39,7 +39,7 @@ const std::vector<Section>& table() {
          S::Particles,
          {"Particle shape", "Particle size", "Density", "Particle life (s)", "Particle drag"}},
         // The style's own scene controls from the old Style page: where the particles and colour of
-        // a Fluid, Curl Flow or Water style are born, and what the hits throw into it.
+        // a Fluid or Curl Flow style are born, and what the hits throw into it.
         {C::Shape,
          "journey",
          false,
@@ -80,18 +80,6 @@ const std::vector<Section>& table() {
         {C::Liquid, "basics", true, S::Always, {"Flow field on", "Flow strength"}},
         {C::Liquid, "push_swirl", false, S::Always, {"Flow force", "Flow curl"}},
         {C::Liquid, "surface", false, S::Always, {"Born inside", "Colour age", "Surface"}},
-        // Wave speed and Damping shape the ripple overlay on any style and the Water style's own
-        // surface alike, so they sit here, where every style finds them.
-        {C::Liquid,
-         "ripples",
-         false,
-         S::Always,
-         {"Water ripples on", "Ripple overlay strength", "Ripple glint", "Wave speed", "Damping"}},
-        {C::Liquid,
-         "water",
-         false,
-         S::Water,
-         {"Ripple strength", "Depth", "Specular", "Flow drift", "Liquid", "Liquid flow", "Liquid fade"}},
 
         // One section per engine, split so no list runs past a dozen rows; each shows only where its
         // controls reach.
@@ -145,7 +133,6 @@ const std::vector<HeldControl>& held() {
         {"Born inside", {"liquidBorn"}, std::nullopt},
         {"Colour age", {"liquidAge"}, std::nullopt},
         {"Surface", {"liquidSurface"}, std::nullopt},
-        {"Water ripples on", {"rippleOverlayEnabled"}, Scope::RippleOverlay},
         {"Glide time", {"paramFadeSec"}, std::nullopt},
         {"Progression", {"fluidSpawnProgress"}, Scope::Journey},
         {"Fluid quality", {"fluidQuality"}, Scope::Emitters},
@@ -174,7 +161,7 @@ const std::vector<HeldControl>& held() {
 
 constexpr const char* kCategoryNames[] = {"QUICK_KNOBS", "LOOK",    "SHAPE",  "MOTION", "CAMERA",
                                           "MUSIC",       "EFFECTS", "LIQUID", "EXPERT"};
-constexpr const char* kShowNames[] = {"ALWAYS", "THREE_D", "PARTICLES", "WATER", "ENGINE", "SHADER_CODE"};
+constexpr const char* kShowNames[] = {"ALWAYS", "THREE_D", "PARTICLES", "ENGINE", "SHADER_CODE"};
 
 const randomizer::RolledKey* rolled(std::string_view key) {
     for (const auto& roll : randomizer::rolledKeys()) {
@@ -197,7 +184,6 @@ bool rule(Show show, const std::string& styleId) {
         case Show::Always: return true;
         case Show::ThreeD: return catalogue::fliesCamera(styleId);
         case Show::Particles: return catalogue::reaches(Scope::ParticleSprite, styleId);
-        case Show::Water: return kind == Kind::Water;
         case Show::Engine: return kind == Kind::Fluid || kind == Kind::Cymatics || kind == Kind::Milkdrop;
         case Show::ShaderCode: return kind == Kind::Shader || kind == Kind::Fluid;
     }

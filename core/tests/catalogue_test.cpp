@@ -210,9 +210,9 @@ void spinRateAndShaderStyleAgree() {
     }
     check(spinning == oldSpinning, "the spinning styles are the old SPINNING_SCENES");
     for (const auto& id : spinning) check(catalogue::isShaderStyle(id), id + " spins and is a shader style");
-    check(shaders == 181, "181 shader styles (61 loose + 120 family), got " + std::to_string(shaders));
+    check(shaders == 182, "182 shader styles (62 loose + 120 family), got " + std::to_string(shaders));
     check(catalogue::spinRate("bead_vortex") == 1.4f && catalogue::spinRate("tunnel") == -0.5f, "spin rates kept");
-    for (const char* id : {"silk_web", "milkdrop", "fluid", "water", "curlflow", "cymatics", "no_such_style"}) {
+    for (const char* id : {"silk_web", "milkdrop", "fluid", "curlflow", "cymatics", "no_such_style"}) {
         check(!catalogue::isShaderStyle(id), std::string(id) + " is not a shader style");
     }
     check(catalogue::allIds().size() == 244, "244 ids");
@@ -262,7 +262,6 @@ void paramScopesMatchTheOldParamScope() {
     check(catalogue::scopeOf("Fluid curl") == Scope::FluidSim, "Fluid curl");
     check(catalogue::scopeOf("Radius on hit") == Scope::Emitters, "Radius on hit");
     check(catalogue::scopeOf("Trail warp (liquid echo)") == Scope::TrailEcho, "Trail warp");
-    check(catalogue::scopeOf("Ripple glint") == Scope::RippleOverlay, "Ripple glint");
     check(catalogue::scopeOf("Caustic sheen") == Scope::Cymatics, "Caustic sheen");
     check(catalogue::scopeOf("Flow force") == Scope::FlowFieldSim, "Flow force");
     check(catalogue::scopeOf("not a control") == Scope::Universal, "unlisted keys are universal");
@@ -273,7 +272,6 @@ void paramScopesMatchTheOldParamScope() {
     check(!catalogue::reaches(Scope::MarchDetail, "outrun_drive"), "detail misses an unmarched shader");
     check(!catalogue::reaches(Scope::FlowFieldSim, "fluid_ink"), "fluid drives its own field");
     check(catalogue::reaches(Scope::FlowFieldSim, "silk_web"), "flow field reaches silk");
-    check(!catalogue::reaches(Scope::RippleOverlay, "water"), "water has no ripple overlay");
     check(!catalogue::reaches(Scope::ShaderLook, "milkdrop"), "milkdrop has no shader look");
     check(catalogue::reaches(Scope::EndlessZoom, "milkdrop"), "milkdrop dives");
     check(!catalogue::reaches(Scope::SceneClock, "milkdrop"), "milkdrop paces itself");
@@ -283,6 +281,13 @@ void paramScopesMatchTheOldParamScope() {
     check(catalogue::reaches(Scope::Cymatics, "kundt_tube") && !catalogue::reaches(Scope::Cymatics, "plasma"), "cymatics");
     check(catalogue::kindOf("no_such_style") == Kind::Silk, "unknown ids are silk");
     check(catalogue::reaches(Scope::TrailToggle, "no_such_style"), "an unknown id is described as silk");
+    // A look, playlist entry, take or template saved on Water, which Pool replaced, opens on Pool.
+    check(!catalogue::knows("water") && catalogue::resolveId("water") == catalogue::kPool, "Water is gone and opens on Pool");
+    check(catalogue::isShaderStyle(catalogue::kPool) && catalogue::lookOf(catalogue::kPool) == catalogue::Look::Flowing, "Pool is a flowing shader style");
+    check(catalogue::resolveId("no_such_style") == "no_such_style", "an id never retired is left alone");
+    for (const auto& r : catalogue::kRetired) check(catalogue::knows(r.now) && !catalogue::knows(r.id), std::string("retired to a real style: ") + r.id);
+    for (const auto& id : catalogue::allIds()) check(catalogue::resolveId(id) == id, id + " resolves to itself");
+    check(catalogue::text().find("\nretired|water|pool\n") != std::string::npos, "the shell reads the retired ids");
     for (const auto& id : catalogue::allIds()) check(catalogue::reaches(Scope::Universal, id), id + " is reached by universal");
 }
 
@@ -295,7 +300,7 @@ const std::map<std::string, std::string> kOldFamilyLooks = {
     {"lucid", "PSYCHEDELIC"},   {"chrysanthemum", "PSYCHEDELIC"},
 };
 const std::map<Kind, std::string> kOldKindLooks = {
-    {Kind::Silk, "FLOWING"}, {Kind::Fluid, "FLOWING"},     {Kind::CurlFlow, "FLOWING"}, {Kind::Water, "FLOWING"},
+    {Kind::Silk, "FLOWING"}, {Kind::Fluid, "FLOWING"},     {Kind::CurlFlow, "FLOWING"},
     {Kind::Life, "LIVING"},  {Kind::Mycelium, "LIVING"},   {Kind::Acid, "PSYCHEDELIC"}, {Kind::Cymatics, "PATTERNS"},
     {Kind::Milkdrop, "CLASSIC"},
 };
@@ -315,7 +320,7 @@ const std::map<std::string, std::string> kOldLooseLooks = [] {
     put({"kaleido", "grid", "voronoi", "hexgrid", "spiral", "mandala_dome", "hex_hive", "spiral_eye"}, "PATTERNS");
     put({"bars", "ring", "scope", "liss", "waves"}, "CLASSIC");
     put({"plasma", "warp", "metaballs", "lava", "morphogen", "curl_bloom", "nectar_flow", "jelly_abyss", "ribbon_storm",
-         "ripples"},
+         "ripples", "pool"},
         "FLOWING");
     put({"winter"}, "PSYCHEDELIC");
     return out;
@@ -348,7 +353,7 @@ void everyStyleKeepsItsOldLookGroup() {
         check(names.count(got) == 1, id + " has a look group");
         check(got == want, "look of " + id + ": got " + got + ", the Kotlin tags gave " + want);
     }
-    check(loose == 61 && kOldLooseLooks.size() == 61, "every loose style is tagged once");
+    check(loose == 62 && kOldLooseLooks.size() == 62, "every loose style is tagged once");
     check(catalogue::lookOf("no_such_style") == catalogue::Look::Flowing, "an unknown id is silk, so flowing");
 }
 
@@ -388,7 +393,7 @@ void textRoundTrips() {
         }
     }
     check(styleIds == catalogue::allIds(), "style rows in picker order");
-    check(kinds == catalogue::kKindCount && families == 10 && keys == 80 && overrides == 8, "row counts");
+    check(kinds == catalogue::kKindCount && families == 10 && keys == 71 && overrides == 8, "row counts");
 }
 
 std::string readFile(const char* path) {

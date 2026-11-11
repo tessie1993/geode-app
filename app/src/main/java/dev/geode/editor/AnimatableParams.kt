@@ -221,19 +221,6 @@ object AnimatableParams {
             scalar("scanlines", ParamKeys.SCANLINES, { it.scanlines }) { p, v -> p.copy(scanlines = v) },
             scalar("grain", ParamKeys.FILM_GRAIN, { it.grain }) { p, v -> p.copy(grain = v) },
             scalar("fisheye", ParamKeys.FISHEYE, { it.fisheye }) { p, v -> p.copy(fisheye = v) },
-            scalar(
-                "waterRippleStrength",
-                ParamKeys.RIPPLE_STRENGTH,
-                { it.waterRippleStrength },
-            ) { p, v -> p.copy(waterRippleStrength = v) },
-            scalar("waterDepth", ParamKeys.DEPTH, { it.waterDepth }) { p, v -> p.copy(waterDepth = v) },
-            scalar("waterSpecular", ParamKeys.SPECULAR, { it.waterSpecular }) { p, v -> p.copy(waterSpecular = v) },
-            scalar("waterFlow", ParamKeys.FLOW_DRIFT, { it.waterFlow }) { p, v -> p.copy(waterFlow = v) },
-            scalar("waterWaveSpeed", ParamKeys.WAVE_SPEED, { it.waterWaveSpeed }) { p, v -> p.copy(waterWaveSpeed = v) },
-            scalar("waterDamping", ParamKeys.DAMPING, { it.waterDamping }) { p, v -> p.copy(waterDamping = v) },
-            scalar("waterLiquid", ParamKeys.LIQUID, { it.waterLiquid }) { p, v -> p.copy(waterLiquid = v) },
-            scalar("waterLiquidFlow", ParamKeys.LIQUID_FLOW, { it.waterLiquidFlow }) { p, v -> p.copy(waterLiquidFlow = v) },
-            scalar("waterLiquidFade", ParamKeys.LIQUID_FADE, { it.waterLiquidFade }) { p, v -> p.copy(waterLiquidFade = v) },
             choice("fluidSpawnPath", ParamKeys.PATH, SceneParams.FLUID_PATHS, { it.fluidSpawnPath }) { p, v -> p.copy(fluidSpawnPath = v) },
             count("fluidSpawnPoints", ParamKeys.SPAWN_POINTS, { it.fluidSpawnPoints }) { p, v -> p.copy(fluidSpawnPoints = v) },
             count("fluidCatchPoints", ParamKeys.CATCH_POINTS, { it.fluidCatchPoints }) { p, v -> p.copy(fluidCatchPoints = v) },
@@ -316,14 +303,6 @@ object AnimatableParams {
             scalar("flowStrength", ParamKeys.FLOW_STRENGTH, { it.flowStrength }) { p, v -> p.copy(flowStrength = v) },
             scalar("flowForce", ParamKeys.FLOW_FORCE, { it.flowForce }) { p, v -> p.copy(flowForce = v) },
             scalar("flowCurl", ParamKeys.FLOW_CURL, { it.flowCurl }) { p, v -> p.copy(flowCurl = v) },
-            scalar("rippleOverlayStrength", ParamKeys.RIPPLE_OVERLAY_STRENGTH, {
-                it.rippleOverlayStrength
-            }) { p, v -> p.copy(rippleOverlayStrength = v) },
-            scalar(
-                "rippleOverlaySpecular",
-                ParamKeys.RIPPLE_GLINT,
-                { it.rippleOverlaySpecular },
-            ) { p, v -> p.copy(rippleOverlaySpecular = v) },
             choice("cymaticsGeometry", ParamKeys.GEOMETRY, SceneParams.CYMATICS_GEOMETRIES, {
                 it.cymaticsGeometry
             }) { p, v -> p.copy(cymaticsGeometry = v) },

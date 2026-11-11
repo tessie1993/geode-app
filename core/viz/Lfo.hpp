@@ -20,7 +20,8 @@ enum class LfoTarget {
     None, Speed, Zoom, Rotation, Sway, Pulse, DriftX, DriftY, Warp, Ripple, Morph, Twist, Tile, Pixelate, Posterize,
     ColorShift, PaletteMix, Saturation, Brightness, Intensity, Bloom, Temperature, Turbulence, ChromaAb, Vignette,
     Retired25 /* was Glitch: the slot keeps every later ordinal */, Fisheye, ParticleSize, TrailLength, FluidCurl, FluidRadius, FluidForce, FluidGlow, FluidFade,
-    FluidCatchPull, FluidCatchRadius, FlowStrength, WaterRipple, RippleOverlay,
+    FluidCatchPull, FluidCatchRadius, FlowStrength,
+    Retired37 /* was WaterRipple */, Retired38 /* was RippleOverlay */,
     Lfo1Rate, Lfo1Depth, Lfo2Rate, Lfo2Depth, Lfo3Rate, Lfo3Depth,
     // Appended: the camera rig's offsets (viz/CameraRig). Ordinals above are wire values.
     CamFly, CamOrbit, CamPush, CamYaw, CamPitch, CamRoll, CamFov, CamShake,

@@ -346,7 +346,7 @@ internal fun stageStyleOrder(): List<String> =
         StyleFamilies.ids +
             VisualStyleCatalog.silkIds + VisualStyleCatalog.lifeIds + VisualStyleCatalog.mycoIds + VisualStyleCatalog.acidIds +
             SceneCapabilities.SHADER_SCENES.keys.filterNot { it in StyleFamilies.ids } +
-            VisualStyleCatalog.fluidIds + listOf(SceneIds.CURLFLOW, SceneIds.WATER) + VisualStyleCatalog.cymaticsIds
+            VisualStyleCatalog.fluidIds + SceneIds.CURLFLOW + VisualStyleCatalog.cymaticsIds
     ).distinct()
 
 /**

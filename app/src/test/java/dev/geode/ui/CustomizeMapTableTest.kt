@@ -38,7 +38,6 @@ class CustomizeMapTableTest {
                 "SCENE" to ParamKeys.BLEND_PRESET_CHANGES,
                 "FLUID" to ParamKeys.FLUID_CURL,
                 "FLUID" to ParamKeys.FLOW_STRENGTH,
-                "FLUID" to ParamKeys.RIPPLE_GLINT,
                 "CYMATICS" to ParamKeys.GEOMETRY,
                 "REACTIVITY" to ParamKeys.AUDIO_DRIVE,
                 "REACTIVITY" to "Reaction DNA",

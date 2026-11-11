@@ -37,7 +37,7 @@ object FreeTier {
      * ring, scope, plasma, nebula and the rest of [SceneCapabilities.SHADER_SCENES]), so a loose
      * shader style added later is free too, minus [familyProIds]. A style family gives away its
      * opener (the first, most basic style) and keeps the other eleven for Pro: a free user can try every
-     * family, and buying Pro is what opens the range. Everything else (silk, fluid, water, MilkDrop,
+     * family, and buying Pro is what opens the range. Everything else (silk, fluid, MilkDrop,
      * cymatics and the other dedicated renderers) is Pro, as are [neonProIds], shows a Pro badge and opens the paywall
      * when picked. A renamed or removed id simply stops matching, which makes that style Pro rather
      * than crashing.

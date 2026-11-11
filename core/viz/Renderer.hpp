@@ -114,7 +114,6 @@ public:
     void setLayerAlone(bool on) { layerAlone_.store(on, std::memory_order_relaxed); }
     // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
     void setSoundTuning(const GeodeSoundTuning& tuning);
-    void queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength);
     void setFluidInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc);
     void loadMilkPreset(const std::string& path);
     void reloadMilkPreset();
@@ -404,8 +403,6 @@ private:
     std::atomic<int> liquidHotPolicy_{0};
     std::atomic<int> liquidMode_{0};
     std::atomic<int> liquidModeTaken_{-1};
-    bool rippleOverlayOn_ = false;
-    bool smearing_ = false;
 
     SceneParams lastFinalParams_;
     float postRotationAngle_ = 0.0f;

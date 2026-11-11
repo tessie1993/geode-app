@@ -19,7 +19,7 @@ data class PerformanceSettings(
     val fpsCap: Int,
     /** Multiplier on a 3D style's ray-march step budget (`uSteps`). */
     val marchScale: Float,
-    /** Flow distortion, ripple overlay and fluid bloom: the optional passes. */
+    /** Flow distortion and fluid bloom: the optional passes. */
     val postFx: Boolean,
     /** Measured frame time steps quality down when frames run slow, and back up when they keep up. */
     val adaptive: Boolean,

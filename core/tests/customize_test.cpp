@@ -232,8 +232,10 @@ void categoriesAndSectionsFollowTheStyle() {
     for (const char* id : {"vanishing", "morphogen", "noneuclid", "curl_bloom", "nectar_flow", "silk_web", "milkdrop"}) {
         check(!shownSection(id, "CAMERA/framing") && !shownSection(id, "CAMERA/feel"), std::string(id) + ": no rig, no framing or feel");
     }
-    check(shownSection("water", "LIQUID/water"), "Water section on the Water style");
-    check(!shownSection("julia", "LIQUID/water"), "no Water section elsewhere");
+    // Pool spends Morph, Warp, Turbulence and Intensity on its water, so Shape and Look reach it.
+    check(shownSection("pool", "SHAPE/basics") && shownSection("pool", "SHAPE/form") && shownSection("pool", "LOOK/light_detail"),
+          "Pool's shape and light sections");
+    check(!shownSection("pool", "CAMERA/framing") && shownSection("pool", "EXPERT/shader_code"), "Pool is a shader style off the rig");
     check(shownSection("fluid", "SHAPE/particles"), "Particles on a fluid style");
     check(!shownSection("julia", "SHAPE/particles"), "no Particles on a shader style");
     check(shownSection("fluid", "EXPERT/fluid_flow") && shownSection("fluid", "EXPERT/fluid_look"), "Fluid's engine in Expert");

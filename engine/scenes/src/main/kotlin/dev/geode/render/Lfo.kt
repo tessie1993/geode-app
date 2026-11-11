@@ -103,8 +103,10 @@ enum class LfoTarget(
     FLUID_CATCH_PULL("Catch pull"),
     FLUID_CATCH_RADIUS("Catch radius"),
     FLOW_STRENGTH("Flow strength"),
-    WATER_RIPPLE("Ripple amp"),
-    RIPPLE_OVERLAY("Ripple ovl"),
+
+    // Were WATER_RIPPLE and RIPPLE_OVERLAY: held like RETIRED_25.
+    RETIRED_37(""),
+    RETIRED_38(""),
     LFO1_RATE("Wave 1 speed"),
     LFO1_DEPTH("Wave 1 depth"),
     LFO2_RATE("Wave 2 speed"),

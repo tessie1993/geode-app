@@ -44,6 +44,7 @@ ShaderScene::ShaderScene(std::string id, std::string vertexSrc, std::string frag
       host_(std::move(host)) {
     pendingFragment_ = currentFragment_;
     if (id_ == catalogue::kMorphWorld) world_ = std::make_unique<world::MorphDriver>();
+    if (id_ == catalogue::kPool) pool_ = std::make_unique<pool::Pool>();
 }
 
 ShaderScene::~ShaderScene() { release(); }
@@ -95,6 +96,22 @@ void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
     motionField_.step(sound, dt, p.speed);
     const float soundTimes[3] = {sound.bassTime, sound.midTime, sound.trebleTime};
     for (int b = 0; b < 3; ++b) soundTimeSped_[b].step(soundTimes[b], p.speed, kTimeWrapSeconds);
+    if (pool_) {
+        std::array<float, pool::kMaxFingers * 2> fingers{};
+        int down = 0;
+        if (touchField_) {
+            const auto& pts = touchField_->points();
+            for (int i = 0; i < TouchField::kMaxPoints && down < pool::kMaxFingers; i++) {
+                const size_t base = static_cast<size_t>(i * TouchField::kPointStride);
+                // A lifted finger fades out of the field; only one still down stirs the water.
+                if (pts[base + 2] < 1.0f) continue;
+                fingers[static_cast<size_t>(down * 2)] = pts[base];
+                fingers[static_cast<size_t>(down * 2 + 1)] = pts[base + 1];
+                down++;
+            }
+        }
+        pool_->step(dt, poolControls(), fingers.data(), down, static_cast<float>(width_) / static_cast<float>(std::max(height_, 1)));
+    }
     if (world_) {
         // A new seed is a new play: the world starts over from one of its seeds.
         const uint64_t seed = host_.playSeed ? host_.playSeed() : 0;
@@ -147,6 +164,7 @@ void ShaderScene::draw(float timeSeconds) {
     uploadTouch();
     uploadCamera();
     uploadWorld();
+    uploadPool();
     // The whole GeodeSoundFrame for lib_sound; its texture takes unit 3 (1 and 2 are the flow and the palette LUT).
     sound_.upload(uniforms_, p.audioDrive);
     glBindVertexArray(vao_);
@@ -334,6 +352,30 @@ void ShaderScene::uploadWorld() {
     worldDt_ = 0.0f;
     const auto& u = world_->uniforms();
     glUniform4fv(uniforms_.loc("uWorld"), uniforms_.arrayCount("uWorld", world::kVec4), u.data());
+}
+
+pool::Controls ShaderScene::poolControls() const {
+    const SceneParams& p = params_;
+    pool::Controls c;
+    c.morph = p.morph;
+    c.warp = p.warp;
+    c.turbulence = p.turbulence;
+    c.intensity = p.intensity;
+    c.speed = p.speed;
+    if (const NoteUniforms* notes = host_.notes ? host_.notes() : nullptr) std::copy(notes->knobs.begin(), notes->knobs.end(), c.knobs.begin());
+    return c;
+}
+
+void ShaderScene::uploadPool() {
+    if (!pool_) return;
+    const pool::Surface s = pool_->surface(poolControls());
+    static_assert(sizeof(pool::Wave) == 4 * sizeof(float) && sizeof(pool::Ring) == 4 * sizeof(float) &&
+                  sizeof(pool::Wake) == 4 * sizeof(float));
+    glUniform4fv(uniforms_.loc("uPoolWaves"), uniforms_.arrayCount("uPoolWaves", pool::kWaves), &s.waves[0].kx);
+    glUniform4fv(uniforms_.loc("uPoolRings"), uniforms_.arrayCount("uPoolRings", pool::kRings), &s.rings[0].x);
+    glUniform4fv(uniforms_.loc("uPoolWakes"), uniforms_.arrayCount("uPoolWakes", pool::kMaxWakes), &s.wakes[0].x);
+    glUniform4f(uniforms_.loc("uPoolLook"), s.look.refraction, s.look.focus, s.look.caustics, s.look.shade);
+    glUniform4f(uniforms_.loc("uPoolView"), s.view.sinTilt, s.view.cosTilt, s.view.height, s.view.fov);
 }
 
 void ShaderScene::set1f(const char* name, float value) {

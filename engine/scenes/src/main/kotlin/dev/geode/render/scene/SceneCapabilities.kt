@@ -18,8 +18,6 @@ enum class SceneKind {
 
     CURL_FLOW,
 
-    WATER,
-
     CYMATICS,
 }
 

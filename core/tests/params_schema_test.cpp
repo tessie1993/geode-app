@@ -39,7 +39,7 @@ void check(bool ok, const std::string& what) {
 
 // The geode_viz_set_params frame size. Kotlin's SceneParamsCodec.FIELDS says the same number; a row
 // added to the table changes both, never one.
-constexpr int kWireFloats = 164;
+constexpr int kWireFloats = 152;
 
 bool integral(float v) { return std::floor(v) == v; }
 
@@ -207,7 +207,6 @@ constexpr OldClamp kOldClamps[] = {
     {LfoTarget::FluidForce, "fluidSplatForce", 0.0f, 3.0f}, {LfoTarget::FluidGlow, "fluidBloomIntensity", 0.1f, 2.0f},
     {LfoTarget::FluidFade, "fluidDensityDissipation", 0.0f, 4.0f}, {LfoTarget::FluidCatchPull, "fluidCatchPull", 0.0f, 3.0f},
     {LfoTarget::FluidCatchRadius, "fluidCatchRadius", 0.03f, 0.3f}, {LfoTarget::FlowStrength, "flowStrength", 0.0f, 1.0f},
-    {LfoTarget::WaterRipple, "waterRippleStrength", 0.0f, 2.0f}, {LfoTarget::RippleOverlay, "rippleOverlayStrength", 0.0f, 1.0f},
     {LfoTarget::CamFly, "camFly", -2.5f, 2.5f},          {LfoTarget::CamOrbit, "camOrbit", 0.0f, 1.0f},
     {LfoTarget::CamPush, "camPush", -1.0f, 1.0f},       {LfoTarget::CamYaw, "camYaw", -1.0f, 1.0f},
     {LfoTarget::CamPitch, "camPitch", -1.0f, 1.0f},     {LfoTarget::CamRoll, "camRoll", -1.0f, 1.0f},
@@ -241,7 +240,7 @@ void theLfoClampsAreTheTablesRanges() {
     std::vector<float> before(kWireFloats);
     std::vector<float> after(kWireFloats);
     base.toWire(before.data());
-    for (LfoTarget t : {LfoTarget::None, LfoTarget::Retired25, LfoTarget::Lfo1Rate, LfoTarget::Lfo3Depth}) {
+    for (LfoTarget t : {LfoTarget::None, LfoTarget::Retired25, LfoTarget::Retired37, LfoTarget::Retired38, LfoTarget::Lfo1Rate, LfoTarget::Lfo3Depth}) {
         applyLfoTarget(base, t, 1.0f).toWire(after.data());
         check(after == before, "a target with no scene field changes nothing");
     }
@@ -300,7 +299,7 @@ void theTextIsTheTable() {
     check(slot == kWireFloats, "one row per slot");
     // The largest seed is a whole number on the wire, not "1.67772e+07".
     check(SceneParams::schemaText().find("|reactSeed|INT|0|0|16777215|HOLD\n") != std::string::npos, "reactSeed's max is exact");
-    check(SceneParams::schemaText().find("|waterDamping|FLOAT|0.985|0.9|0.999|FADE\n") != std::string::npos, "short numbers stay short");
+    check(SceneParams::schemaText().find("|fluidCatchRadius|FLOAT|0.12|0.03|0.3|FADE\n") != std::string::npos, "short numbers stay short");
 }
 
 std::string readFile(const char* path) {

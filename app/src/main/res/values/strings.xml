@@ -53,7 +53,7 @@
     <string name="perf_level_medium">Medium</string>
     <string name="perf_level_high">High</string>
     <string name="perf_post_fx">Extra effects</string>
-    <string name="perf_post_fx_hint">Flow distortion, touch ripples and fluid bloom.</string>
+    <string name="perf_post_fx_hint">Flow distortion and fluid bloom.</string>
     <string name="perf_adaptive">Adapt to frame time</string>
     <string name="perf_adaptive_hint">Steps quality down while frames run slow, and back up once they keep up.</string>
     <string name="perf_liquid_hot">Liquid on a hot phone</string>
@@ -732,7 +732,7 @@
     <string name="note_key_drums_hint">How much the kick, snare and hats push on top of the notes.</string>
     <string name="behavior_group_pip">Picture-in-picture</string>
     <string name="behavior_touch_smear">Smear the visuals with a finger</string>
-    <string name="behavior_touch_smear_hint">Drag on the fullscreen visualizer to push the image around: the drag raises the surface ahead of your finger and dips it behind, and whatever is on screen bends through it. On the Water style it stirs the pool itself and paints into it.</string>
+    <string name="behavior_touch_smear_hint">Drag on the fullscreen visualizer to push the image around: the drag raises the surface ahead of your finger and dips it behind, and whatever is on screen bends through it.</string>
     <string name="behavior_smear_strength">"Smear strength  %1$d%%"</string>
     <string name="behavior_touch_transform">Pinch and twist the canvas</string>
     <string name="behavior_touch_transform_hint">Two fingers on the fullscreen visualizer: pinch moves the Zoom slider, twist moves Rotation. They are the same controls the Customize panel shows, so a gesture is saved into presets and takes — and undone by dragging the slider back.</string>

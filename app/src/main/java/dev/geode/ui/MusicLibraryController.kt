@@ -28,6 +28,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -37,6 +39,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -401,7 +404,13 @@ internal class MusicLibraryController(
         }
     }
 
+    /**
+     * Walks a picked folder, one metadata read per audio file. It is blocking work with no
+     * suspension point, so it asks its job between files: once the session's scope is cancelled it
+     * stops walking, and it never writes what a cancelled scan found.
+     */
     private suspend fun scanTreeBlocking(treeUri: Uri) {
+        val job = currentCoroutineContext().job
         val found = mutableListOf<LibraryTrack>()
         runCatching {
             val root =
@@ -414,6 +423,7 @@ internal class MusicLibraryController(
             ) {
                 if (depth > 8) return
                 dir.listFiles().forEach { f ->
+                    if (!job.isActive) return
                     val name = f.name ?: return@forEach
                     if (name.startsWith(".")) return@forEach
                     if (f.isDirectory) {
@@ -430,6 +440,8 @@ internal class MusicLibraryController(
             }
             walk(root, 0)
         }
+        // Outside the runCatching above, which would swallow the cancellation.
+        job.ensureActive()
         if (found.isNotEmpty()) {
             val merged = trackLibrary.addAll(found)
             merged?.let { withContext(Dispatchers.Main) { _library.update { s -> s.copy(tracks = it) } } }

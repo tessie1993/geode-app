@@ -937,8 +937,6 @@ object GeodeNative {
         out: IntArray,
     )
 
-    external fun exportFallbackFps(requestedFps: Int): Int
-
     /** The requested frame rate clamped to what the export offers, 24..60. */
     external fun exportClampFps(requestedFps: Int): Int
 

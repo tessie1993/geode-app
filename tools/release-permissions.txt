@@ -19,6 +19,7 @@ android.permission.FOREGROUND_SERVICE_DATA_SYNC
 android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK
 android.permission.FOREGROUND_SERVICE_MEDIA_PROCESSING
 android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION
+android.permission.FOREGROUND_SERVICE_MICROPHONE
 android.permission.INTERNET
 android.permission.MODIFY_AUDIO_SETTINGS
 android.permission.POST_NOTIFICATIONS

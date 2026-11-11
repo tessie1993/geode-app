@@ -225,7 +225,7 @@ private class RandomPick(
 )
 
 /**
- * The seven controls. In one column they run top to bottom; in two, the timer (Auto, the timer
+ * The controls. In one column they run top to bottom; in two, the timer (Auto and its reach, the timer
  * switch, its interval and what it steps through) is on the left and its source, then the glass, on
  * the right.
  */
@@ -240,6 +240,7 @@ private fun QuickSettingsRows(
     val context = LocalContext.current
     val director = remember { AutoDirectorStore.get(context) }
     val directorOn by director.enabled.collectAsStateWithLifecycle()
+    val reach by director.reach.collectAsStateWithLifecycle()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     var picked by rememberSaveable { mutableStateOf(if (viz.vizPlaylistEnabled) TimerSource.PLAYLIST else TimerSource.RANDOM) }
     // A mode started elsewhere (Settings, the Now Playing Auto button) wins over the local pick.
@@ -252,6 +253,7 @@ private fun QuickSettingsRows(
     val running = viz.randomEnabled || viz.vizPlaylistEnabled
     val timer: @Composable () -> Unit = {
         SwitchRow(stringResource(R.string.visuals_qs_auto), checked = directorOn, onCheckedChange = director::setEnabled)
+        if (directorOn) ReachRow(reach, director::setReach)
         SwitchRow(
             stringResource(R.string.visuals_qs_timer),
             checked = running,
@@ -299,6 +301,31 @@ private fun QuickSettingsRows(
     } else {
         timer()
         rest()
+    }
+}
+
+/** How far Auto reaches; the position in [REACH_LABELS] is the native level. */
+@Composable
+private fun ReachRow(
+    level: Int,
+    onSelect: (Int) -> Unit,
+) {
+    MenuRow(
+        label = stringResource(R.string.visuals_qs_reach),
+        value = stringResource(REACH_LABELS.getOrElse(level) { REACH_LABELS.first() }),
+    ) { close ->
+        REACH_LABELS.forEachIndexed { option, labelRes ->
+            val isSelected = option == level
+            DropdownMenuItem(
+                text = { Text(stringResource(labelRes)) },
+                onClick = {
+                    onSelect(option)
+                    close()
+                },
+                leadingIcon = { CheckSlot(isSelected) },
+                modifier = Modifier.semantics { selected = isSelected },
+            )
+        }
     }
 }
 
@@ -586,6 +613,9 @@ private fun CheckSlot(checked: Boolean) {
 
 /** From this page width the rows go into two columns. */
 private val TWO_COLUMN_WIDTH = 600.dp
+
+private val REACH_LABELS =
+    listOf(R.string.visuals_qs_reach_look, R.string.visuals_qs_reach_shuffle, R.string.visuals_qs_reach_modulate)
 
 private val SLIM_TRACK = 6.dp
 private val SLIM_THUMB = DpSize(4.dp, 24.dp)

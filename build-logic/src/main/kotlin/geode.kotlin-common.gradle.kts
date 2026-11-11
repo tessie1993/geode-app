@@ -1,7 +1,6 @@
 plugins {
     id("org.jlleitschuh.gradle.ktlint")
     id("io.gitlab.arturbosch.detekt")
-    id("geode.provenance")
 }
 
 ktlint {

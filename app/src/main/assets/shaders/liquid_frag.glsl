@@ -85,6 +85,9 @@ void main() {
         vec2 q = src * vec2(uAspect, 1.0) * 38.0 + uTime * 0.9;
         src += (vec2(noise(q), noise(q + 17.3)) - 0.5) * uShimmer * 3.0 * uTexel;
     }
+    // Zooming out, a twist or the flow reads past the frame's edge. Clamping there repeats the edge
+    // texel as stripes; folding the frame back on itself continues the picture with no seam.
+    src = 1.0 - abs(1.0 - mod(src, 2.0));
     src = clamp(src, uTexel * 0.5, 1.0 - uTexel * 0.5);
 
     vec3 prev;

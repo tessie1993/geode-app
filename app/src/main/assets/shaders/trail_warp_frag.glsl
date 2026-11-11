@@ -21,6 +21,8 @@ void main() {
             sin(uv.x * 13.0 - uTime * 0.9)
         ) * uWarp * 0.004;
     }
+    // Past the edge the frame folds back on itself: a clamp there would smear the edge into stripes.
+    uv = 1.0 - abs(1.0 - mod(uv, 2.0));
     vec3 prev = texture(uPrev, clamp(uv, vec2(0.001), vec2(0.999))).rgb;
     // An 8-bit target rounds a slow decay back to the same level, so dim trails would never fade:
     // the step below takes every level down by at least one each frame.

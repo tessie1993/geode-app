@@ -40,7 +40,7 @@ mkdir -p "$RES/drawable-nodpi"
 art 1152 "$RES/drawable-nodpi/splash_mark.webp"
 
 # Play Store icon: 512x512 32-bit PNG, full bleed. Play rounds the corners itself.
-convert "$SRC" -resize 512x512 -alpha set PNG32:docs/brand/muzviz-icon-512.png
+convert "$SRC" -resize 512x512 -alpha set PNG32:docs/brand/beatrealms-icon-512.png
 
 # Splash video: silent, 4.54 s, with every key moment kept and the slow stretches sped up. In
 # 24 fps source frames:

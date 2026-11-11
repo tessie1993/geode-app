@@ -5,8 +5,8 @@ Play Console › Policy and programs › App content › Data safety. The rules 
 ([answer/10787469](https://support.google.com/googleplay/android-developer/answer/10787469), read
 2026-11-11) and Google's Cast SDK disclosure
 ([developers.google.com/cast/docs/android_sender/data_disclosure](https://developers.google.com/cast/docs/android_sender/data_disclosure)).
-File and line numbers are `origin/main` at b8ac569b5; paths under `app/src/main/java/dev/geode/`
-are written from `dev/geode/`.
+File and line numbers are `origin/main` at b8ac569b5, rechecked at 022d8dd8d; paths under
+`app/src/main/java/dev/geode/` are written from `dev/geode/`.
 
 ## What Play counts
 
@@ -16,6 +16,9 @@ are written from `dev/geode/`.
   sheet, a web search they tap) is not sharing, and neither is a transfer to a service provider.
 - Purchases handled by Google Play Billing are Google's, not the app's, as long as the app
   itself does not send purchase data anywhere.
+- **Data an SDK in the app sends counts as the app's collection**, whether it goes to the
+  developer or to a third party (same page, "SDKs"). This is why "the app collects nothing" is
+  not the whole answer here.
 
 ## The one judgement call (owner decides)
 
@@ -27,7 +30,9 @@ that traces to a person, and that neither the user nor the developer can turn it
 it. Under Play's definition an SDK's transmission is the app's collection, and Play checks SDK
 behaviour against the form.
 
-**Recommended: declare it** (the answers below). It is the answer that cannot be called a
+**Recommended: declare it** (the answers below). Google's Cast page (read 2026-11-11) lists the
+SDK's logs as automatic, encrypted in transit, not shared with third parties, and impossible for
+user or developer to opt out of or delete; the answers below say the same. It is the answer that cannot be called a
 mismatch later. The other reading, "no data collected" because Google's logging is anonymous
 and Google is the party receiving it, is defensible but leaves the form disagreeing with what
 Google's own SDK page says the SDK does.
@@ -80,28 +85,22 @@ blocker. [families.md](families.md) keeps what a younger audience would change.
 
 ## Privacy policy: does it agree?
 
-`docs/privacy-policy.html` (and `.md`, and the copy in `app/src/main/assets/privacy_policy.md`)
-describes every row above, including the Cast SDK's logging and the fact that it cannot be
-turned off. Mismatches to settle before the form is submitted:
+Yes, as of this branch. `docs/privacy-policy.html` (and `.md`, and the copy in
+`app/src/main/assets/privacy_policy.md`, which `PrivacyPolicyTest` keeps identical) describes
+every row above:
 
-1. **The headline.** The policy opens with "collects nothing ... Two exceptions". With the
-   recommended form answer (App interactions collected), Play's reviewer and a reader see
-   "collects nothing" beside a form that says data is collected. Reword the opening to say the
-   app itself collects nothing and Google's Cast component logs anonymous usage, as the Cast
-   section already explains.
-2. **The name.** On `main` the policy says "MuzViz Studio Pro". The rename branch
-   (`origin/ccr-0a1f1dcf-87b4sp-beatrealms`, PR #1002) changes it to BeatRealms; the policy
-   Play links to must carry the name on the store page.
-3. **Deletion.** The form answers "no way to request deletion". The policy should say in one
-   line that there is nothing held off the device to delete, and that clearing the app's
-   storage or uninstalling removes what is on it.
-4. **The URL.** Play needs a public, non-PDF URL. `pages.yml` publishes
-   `docs/privacy-policy.html` to GitHub Pages on pushes to `main`; the owner confirms the live
-   URL and that it shows the renamed text.
+- its opening says the app *itself* collects nothing and names Google's Cast logging, so it
+  agrees with "App interactions collected";
+- the Cast section says the logging starts with the app and cannot be turned off or deleted;
+- "Deleting your data" says nothing is held off the device to delete on request, which matches
+  "no way to request deletion";
+- the name is BeatRealms 3D throughout;
+- the contact line is the placeholder `CONTACT_EMAIL`: the owner puts the store listing's
+  contact address there (all three copies, one commit) before the policy goes live.
 
-Nothing in the policy claims less than the code does. One thing in the app claims more: the
-first-run safety notice (`res/values/strings.xml`, `safety_prompt`) says nothing on screen can
-flash more than three times a second and that exported video is held to the same limit, while
-AGENTS.md says the output flash limiter and its readback are gone and the limits are on the
-parameters only. The store listing is worded to the weaker, true claim; the in-app notice is
-the owner's to reconcile.
+Play needs a public, non-PDF URL. `pages.yml` publishes `docs/privacy-policy.html` to GitHub
+Pages on pushes to `main` (the address is in the workflow's header); the owner opens it and checks it shows this text before pasting it.
+
+The in-app safety notice (`res/values/strings.xml`, `safety_prompt`) now says what the code
+does (it limits the engine's own effects and does not measure the finished picture), and the
+listing's photosensitivity warning says the same.

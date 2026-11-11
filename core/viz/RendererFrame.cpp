@@ -8,6 +8,7 @@
 
 #include "sound/DriveGain.hpp"
 #include "sound/Form.hpp"
+#include "viz/BandTrim.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/CompositeGrade.hpp"
 #include "viz/EndlessZoom.hpp"
@@ -33,23 +34,6 @@ constexpr float kLiquidSharpen = 0.35f;
 constexpr float kLiquidEdge = 0.6f;
 // About two seconds at 60 Hz.
 constexpr int kFeedbackIdleFrames = 120;
-
-// The per-scene band trims (bassGain, midGain, trebGain) on the sound frame a scene reads: each band's
-// level and att envelope, and its shaped low/middle/high.
-GeodeSoundFrame gainAdjusted(const GeodeSoundFrame& f, const SceneParams& p) {
-    if (p.bassGain == 1.0f && p.midGain == 1.0f && p.trebGain == 1.0f) return f;
-    GeodeSoundFrame out = f;
-    out.bass = f.bass * p.bassGain;
-    out.bassAtt = f.bassAtt * p.bassGain;
-    out.low = std::clamp(f.low * p.bassGain, 0.0f, 1.0f);
-    out.mid = f.mid * p.midGain;
-    out.midAtt = f.midAtt * p.midGain;
-    out.middle = std::clamp(f.middle * p.midGain, 0.0f, 1.0f);
-    out.treble = f.treble * p.trebGain;
-    out.trebleAtt = f.trebleAtt * p.trebGain;
-    out.high = std::clamp(f.high * p.trebGain, 0.0f, 1.0f);
-    return out;
-}
 }  // namespace
 
 float Renderer::beginFrame(double timeSeconds) {
@@ -209,7 +193,7 @@ SceneParams Renderer::resolveParams(float dt, float wallDt) {
     // The band trims reach the whole chain, not only the scene's own read of the frame: the reactions,
     // the motion field and the director hear the bass the user turned up.
     const signal::Resolver::Frame& out =
-        resolver_.step(requested, gainAdjusted(soundFrame_, requested), dt, frameSettings_, style, heard, wallDt);
+        resolver_.step(requested, bandTrimmed(soundFrame_, requested), dt, frameSettings_, style, heard, wallDt);
     if (out.styleMoments > 0) directorStyleMoments_.fetch_add(out.styleMoments, std::memory_order_acq_rel);
     SceneParams p = out.params;
     // The device's masks, after the clamp: the thermal tier and Settings › Performance.
@@ -278,7 +262,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
         bindSecondaryTarget();
         layerScene_->setParams(p);
         deliverPcm(*layerScene_);
-        layerScene_->update(gainAdjusted(soundFrame_, p), dt);
+        layerScene_->update(bandTrimmed(soundFrame_, p), dt);
         layerScene_->draw(timeSeconds_);
     }
     if (outgoingScene_) {
@@ -291,7 +275,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
             const SceneParams& op = outgoingParams_ ? *outgoingParams_ : p;
             outgoingScene_->setParams(op);
             deliverPcm(*outgoingScene_);
-            outgoingScene_->update(gainAdjusted(soundFrame_, op), dt);
+            outgoingScene_->update(bandTrimmed(soundFrame_, op), dt);
             outgoingScene_->draw(timeSeconds_);
         }
     }
@@ -317,7 +301,7 @@ void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
     }
     scene.setParams(p);
     deliverPcm(scene);
-    scene.update(gainAdjusted(soundFrame_, p), dt);
+    scene.update(bandTrimmed(soundFrame_, p), dt);
     scene.draw(timeSeconds_);
 }
 
@@ -385,7 +369,7 @@ void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
     overlays_.drainTouchStrokes(scene, liquidOn());
     stepLiquid(scene, p, dt);
     rippleOverlayOn_ = overlays_.rippleOverlayActive(p, smearing_, scene.isWater());
-    if (rippleOverlayOn_) overlays_.stepRippleOverlay(gainAdjusted(soundFrame_, p), p, dt);
+    if (rippleOverlayOn_) overlays_.stepRippleOverlay(bandTrimmed(soundFrame_, p), p, dt);
 }
 
 // After stepOverlays, so the look follows this frame's touch anchor.
@@ -554,7 +538,7 @@ void Renderer::stepLiquid(Scene& scene, const SceneParams& p, float dt) {
     // The mids drive the swirl: Swirl is what a full mid band reaches.
     SceneParams fp = p;
     fp.flowCurl = std::clamp(p.flowCurl, 0.0f, 50.0f) * (0.4f + 0.6f * std::clamp(soundFrame_.middle, 0.0f, 1.0f));
-    overlays_.stepFlow(gainAdjusted(soundFrame_, p), dt, fp);
+    overlays_.stepFlow(bandTrimmed(soundFrame_, p), dt, fp);
 }
 
 GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
@@ -600,7 +584,7 @@ GLuint Renderer::drawBorn(Scene& scene, const SceneParams& p, float dt) {
     glClear(GL_COLOR_BUFFER_BIT);
     next->setParams(p);
     deliverPcm(*next);
-    next->update(gainAdjusted(soundFrame_, p), dt);
+    next->update(bandTrimmed(soundFrame_, p), dt);
     next->draw(timeSeconds_);
     return bornFbo_.tex();
 }

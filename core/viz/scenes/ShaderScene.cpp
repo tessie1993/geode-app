@@ -95,7 +95,7 @@ void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
             world_->reset(seed);
             worldSeeded_ = true;
         }
-        world::DriverInput in = world::DriverInput::fromSound(sound);
+        world::DriverInput in = world::DriverInput::fromSound(sound, p.audioDrive);
         in.morph = p.morph;
         in.warp = p.warp;
         in.turbulence = p.turbulence;

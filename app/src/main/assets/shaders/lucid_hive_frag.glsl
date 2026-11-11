@@ -200,9 +200,9 @@ void main() {
     float k4 = clamp(uKnob[4], 0.0, 1.0) - 0.5;
     float k5 = clamp(uKnob[5], 0.0, 1.0) - 0.5;
 
-    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);
-    float swell = clamp(SND_LEVEL, 0.0, 1.5);
-    float trend = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float snare = clamp(SND_SNARE_ENV * uSoundDrive, 0.0, 1.0);
+    float swell = clamp(SND_LEVEL * uSoundDrive, 0.0, 1.5);
+    float trend = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
     float calm = clamp(uHarmony, 0.0, 1.0);
     float morph = clamp(uMorph, 0.0, 1.0);
 

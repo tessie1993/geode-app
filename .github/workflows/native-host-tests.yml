@@ -278,10 +278,12 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/catalogue_test.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
             core/viz/Params.cpp core/viz/ParamsFields.cpp -o catalogue_test
           ./catalogue_test core/tests/catalogue.txt
-          # Shader truth: each shader style's camera rig and march facts against what its assembled shader reads.
+          # Shader truth: each shader style's camera rig and march facts against what its assembled shader reads,
+          # and every Customize control a style shows moves it (known gaps: core/tests/style_param_gaps.txt, only shrinks).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl core/tests/style_reads_test.cpp core/viz/ShaderSource.cpp core/viz/Catalogue.cpp \
-            core/viz/scenes/StyleCatalog.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp -o style_reads_test
-          ./style_reads_test app/src/main/assets/
+            core/viz/scenes/StyleCatalog.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+            -o style_reads_test
+          ./style_reads_test app/src/main/assets/ --gaps core/tests/style_param_gaps.txt --core core/
           # The visual gate's judge (#470): compiled so it keeps building; its render jobs left CI in #786, it runs by hand (tools/glslcheck README).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/visual_gate.cpp -o visual_gate
           # The bundled looks (#648): every value pinned to the Kotlin literals it replaced, the text read back bit for bit.

@@ -821,6 +821,23 @@ void loadAssets(const char* shapes, const char* textures) {
 
 }  // namespace
 
+// Audio drive reaches Morph World: the levels the driver hears scale with it, and 1 is the frame as heard.
+void audioDriveScalesWhatTheWorldHears() {
+    GeodeSoundFrame f{};
+    f.presence = 1.0f;
+    f.loudness = 0.3f;
+    f.intensity = 0.3f;
+    f.bassAtt = 0.5f;
+    f.kickEnv = 0.4f;
+    const DriverInput at1 = DriverInput::fromSound(f);
+    const DriverInput same = DriverInput::fromSound(f, 1.0f);
+    check(at1.energy == same.energy && at1.bass == same.bass && at1.kick == same.kick, "Audio drive 1 is the frame as heard");
+    const DriverInput loud = DriverInput::fromSound(f, 2.0f);
+    const DriverInput soft = DriverInput::fromSound(f, 0.2f);
+    check(loud.energy > at1.energy && loud.bass > at1.bass && loud.kick > at1.kick, "Audio drive 2 makes the world hear more");
+    check(soft.energy < at1.energy && soft.bass < at1.bass && soft.kick < at1.kick, "Audio drive 0.2 makes it hear less");
+}
+
 int main(int argc, char** argv) {
     if (argc == 3 && std::string(argv[1]) == "--dump") {
         const Genome& g = seed(std::atoi(argv[2])).genome;
@@ -845,6 +862,7 @@ int main(int argc, char** argv) {
     }
     if (argc == 4) loadAssets(argv[2], argv[3]);
     lerpEndpointsAreExact();
+    audioDriveScalesWhatTheWorldHears();
     seedsAreValid();
     noWorldIsTheFourWayCross();
     randomGenomesAreValid();

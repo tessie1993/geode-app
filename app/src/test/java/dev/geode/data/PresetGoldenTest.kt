@@ -84,10 +84,8 @@ class PresetGoldenTest {
         // Retired and unknown keys are not read: the frame carries each retired row's default.
         val frame = SceneParamsCodec.pack(p)
         val retired = ParamSchema.params.filter { it.retired }
-        assertEquals(setOf("pulse", "shake", "flash", "glitch", "formDrive", "motionOrbit"), retired.map { it.name }.toSet())
+        assertEquals(setOf("pulse", "shake", "flash", "glitch", "strobe", "formDrive", "motionOrbit"), retired.map { it.name }.toSet())
         for (spec in retired) assertEquals(spec.name, spec.default, frame[spec.slot])
-        // The strobe is live and still read.
-        assertEquals(0.5f, p.strobe)
         // Keys the old file never had come back as the schema's defaults.
         assertEquals(SceneParams.DEFAULT.flowCurl, p.flowCurl)
         assertEquals(SceneParams.DEFAULT.camFly, p.camFly)
@@ -96,7 +94,6 @@ class PresetGoldenTest {
         assertEquals(SceneParams.DEFAULT.noteDrums, p.noteDrums)
         val written = JSONObject(PresetStore.toJson(PresetStore.fromJson(fixture("legacy.json"))))
         for (spec in retired) assertFalse(spec.name, written.has(spec.name))
-        assertTrue(written.has("strobe"))
         assertFalse(written.has("beatFlash"))
     }
 

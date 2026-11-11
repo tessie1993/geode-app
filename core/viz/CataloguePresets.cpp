@@ -56,8 +56,8 @@ const std::vector<GenericLook>& genericLooks() {
             {"saturation", 1.2f}, {"bloom", 0.35f}, {"rotation", 0.2f}, {"tile", 2.0f}}},
         {"Noir", 0.55f, 0.1f, {{"palette", 4}, {"saturation", 0.15f}, {"contrast", 1.25f}, {"vignette", 0.6f},
             {"grain", 0.4f}, {"duotone", 1}, {"brightness", 1.0f}}},
-        {"Strobe", 0.95f, 0.35f, {{"speed", 1.5f}, {"audioDrive", 1.7f}, {"beatResponse", 2.0f}, {"strobe", 0.5f},
-            {"bloom", 0.45f}, {"palette", 1}, {"intensity", 1.2f}, {"bassGain", 1.5f}}},
+        {"Strobe", 0.95f, 0.35f, {{"speed", 1.5f}, {"audioDrive", 1.7f}, {"beatResponse", 2.0f}, {"bloom", 0.45f},
+            {"palette", 1}, {"intensity", 1.2f}, {"bassGain", 1.5f}}},
         {"Deep", 0.4f, 0.07f, {{"endlessZoom", 1}, {"endlessZoomSpeed", 0.5f}, {"zoom", 1.05f}, {"palette", 9},
             {"saturation", 1.0f}, {"bloom", 0.4f}, {"vignette", 0.45f}, {"trails", 1}, {"trailLength", 0.6f}}},
     };

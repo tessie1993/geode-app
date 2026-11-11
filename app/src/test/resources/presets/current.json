@@ -64,7 +64,6 @@
   "scanlines": 0.5,
   "grain": 0.5,
   "fisheye": -0.5,
-  "strobe": 0.5,
   "paramFadeSec": 2.5,
   "solarize": true,
   "fluidQuality": 3,

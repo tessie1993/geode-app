@@ -103,7 +103,7 @@ GEODE_PARAM(Float, grain, 0.0f, 0.0f, 1.0f, Fade)
 // Retired: the composite Glitch effect is gone.
 GEODE_PARAM(Float, glitch, 0.0f, 0.0f, 1.0f, Fade)
 GEODE_PARAM(Float, fisheye, 0.0f, -1.0f, 1.0f, Fade)
-// The composite's 3 Hz strobe (composite_frag's uStrobe). No control: only a look sets it.
+// Retired (SceneParams::retired): the composite's strobe is gone.
 GEODE_PARAM(Float, strobe, 0.0f, 0.0f, 1.0f, Fade)
 // Customize › Advanced › Glide between settings, in seconds: the fade's own length, never faded.
 GEODE_PARAM(Float, paramFadeSec, 0.0f, 0.0f, 5.0f, Hold)
@@ -184,8 +184,8 @@ GEODE_PARAM(Float, rippleOverlaySpecular, 0.3f, 0.0f, 1.0f, Fade)
 // Retired: the superformula driver (viz/FormDrive) it scaled is gone since wave three.
 GEODE_PARAM(Float, formDrive, 0.7f, 0.0f, 1.0f, Fade)
 
-// Wave three: the continuous motion system (viz/MotionField), which replaced formDrive, flash, pulse
-// and shake as the way the music moves a scene. Appended after the older fields so every existing wire
+// Wave three: the continuous motion system (viz/MotionField), which replaced formDrive, flash, strobe,
+// pulse and shake as the way the music moves a scene. Appended after the older fields so every existing wire
 // index survives.
 GEODE_PARAM(Float, motionAmount, 0.7f, 0.0f, 1.0f, Fade)
 GEODE_PARAM(Float, motionBreath, 0.5f, 0.0f, 1.0f, Fade)

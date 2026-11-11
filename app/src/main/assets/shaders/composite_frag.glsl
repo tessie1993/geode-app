@@ -33,9 +33,6 @@ uniform float uVignette;
 uniform float uScanline;
 uniform float uGrain;
 uniform float uFisheye;
-uniform float uStrobe;
-// Strobe rate in flashes/second: safety::strobeHz (core/viz/VisualSafety), 3 Hz, always.
-uniform float uStrobeHz;
 // PER-TEXTURE GATES. Which of the uPost* groups below the composite must
 // apply is a property of the SCENE, not of the frame: shader scenes already
 // warp/grade in view()/grade(), particle scenes in particle_vert/frag,
@@ -233,7 +230,7 @@ vec2 geo(vec2 uv, vec4 gate, float camOn) {
 // identically for shader, particle and milkdrop scenes and during
 // transitions. Order: geometry -> distortion (fisheye) -> sample
 // (chromatic aberration) -> shading (posterize, scanlines, grain, vignette,
-// bloom, strobe, invert).
+// bloom, invert).
 vec3 postFx(sampler2D tex, vec2 uv, vec4 gate, float camOn) {
     bool geoOn = gate.x > 0.5;
     bool invertOn = gate.y > 0.5;
@@ -318,11 +315,6 @@ vec3 postFx(sampler2D tex, vec2 uv, vec4 gate, float camOn) {
         float d = length(uv - 0.5) * 1.4142;
         col *= 1.0 - uVignette * smoothstep(0.5, 1.05, d);
     }
-    if (uStrobe > 0.001) {
-        // max() so an unset uniform (0.0) cannot freeze the strobe on a
-        // permanently-dark half-cycle.
-        col *= 1.0 - uStrobe * 0.85 * step(0.5, fract(uTime * max(uStrobeHz, 0.1)));
-    }
     if (geoOn) {
         col.r += uPostTemp * 0.12;
         col.b -= uPostTemp * 0.12;
@@ -377,7 +369,7 @@ vec4 getToColor(vec2 uv) { return vec4(postFx(uTexA, clamp(uv, 0.0, 1.0), uGateA
  *
  * Every one of them clamps. The scenes upstream are emissive and routinely
  * exceed 1 before the composite grades them down, so ADD in particular would
- * otherwise hand values well over 1 to the dither and the strobe below, where
+ * otherwise hand values well over 1 to the dither below, where
  * they stop behaving like colours. The switch order is BlendMode's ordinals.
  */
 vec3 layerBlend(vec3 base, vec3 top, int mode) {

@@ -74,8 +74,6 @@ data class SceneParams(
     val scanlines: Float = 0f,
     val grain: Float = 0f,
     val fisheye: Float = 0f,
-    // The composite's 3 Hz strobe. No control: only a look or a saved preset sets it.
-    val strobe: Float = 0f,
     val paramFadeSec: Float = 0f,
     val fluidQuality: Int = 2,
     val fluidAutoQuality: Boolean = true,

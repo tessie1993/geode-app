@@ -169,7 +169,7 @@ void MotionField::step(const GeodeSoundFrame& f, float dt, float speed) {
 
 // Reshapes every family's parameters from the continuous state step() just
 // computed. Nothing here is a trigger, and nothing here writes brightness,
-// intensity, contrast or strobe: those stay exactly what
+// intensity or contrast: those stay exactly what
 // the caller passed in and go through the safety clamp unchanged.
 SceneParams MotionField::apply(const SceneParams& p, bool reducedMotion, float spin) const {
     const float g = reducedMotion ? safety::kReducedMotionScale : 1.0f;

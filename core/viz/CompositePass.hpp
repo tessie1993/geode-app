@@ -50,7 +50,6 @@ public:
         std::string transitionId = "fade";
         float ratio = 1.0f;
         float timeSeconds = 0.0f;
-        float strobeHz = 0.0f;
         float postRotationAngle = 0.0f;
         float postCyclePhase = 0.0f;
         GLuint quadVao = 0;

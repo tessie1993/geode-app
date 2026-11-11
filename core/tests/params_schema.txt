@@ -64,7 +64,7 @@ param|61|scanlines|FLOAT|0|0|1|FADE|LIVE
 param|62|grain|FLOAT|0|0|1|FADE|LIVE
 param|63|glitch|FLOAT|0|0|1|FADE|RETIRED
 param|64|fisheye|FLOAT|0|-1|1|FADE|LIVE
-param|65|strobe|FLOAT|0|0|1|FADE|LIVE
+param|65|strobe|FLOAT|0|0|1|FADE|RETIRED
 param|66|paramFadeSec|FLOAT|0|0|5|HOLD|LIVE
 param|67|fluidQuality|INT|2|0|4|HOLD|LIVE
 param|68|fluidAutoQuality|BOOL|1|0|1|HOLD|LIVE

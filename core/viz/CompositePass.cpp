@@ -163,8 +163,6 @@ void CompositePass::uploadGradeUniforms(UniformCache& p, const Inputs& inputs) {
     glUniform1f(p.loc("uScanline"), fx.scanlines);
     glUniform1f(p.loc("uGrain"), fx.grain);
     glUniform1f(p.loc("uFisheye"), fx.fisheye);
-    glUniform1f(p.loc("uStrobe"), fx.strobe);
-    glUniform1f(p.loc("uStrobeHz"), inputs.strobeHz);
     glUniform1f(p.loc("uPostWarp"), fx.warp);
     glUniform1f(p.loc("uPostRipple"), fx.ripple);
     glUniform1f(p.loc("uPostSymmetry"), static_cast<float>(fx.symmetry));

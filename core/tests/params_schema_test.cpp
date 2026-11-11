@@ -138,7 +138,7 @@ void anOldLookWithRetiredNamesStillLoads() {
         const bool dead = slot < 0 || SceneParams::retired(static_cast<ParamSlot>(slot));
         check(p.set(name, value) == !dead, std::string(name) + (dead ? " is dropped" : " is read"));
     }
-    check(p.speed == 1.4f && p.strobe == 0.5f && p.bloom == 0.5f && p.motionDrift == 0.8f, "the live values land");
+    check(p.speed == 1.4f && p.bloom == 0.5f && p.motionDrift == 0.8f, "the live values land");
     check(static_cast<int>(ParamSlot::pulse) == 6 && static_cast<int>(ParamSlot::strobe) > static_cast<int>(ParamSlot::flash),
           "a retired row keeps its slot");
     for (const ParamSlot slot : kRetiredParams) {
@@ -156,7 +156,7 @@ void anOldLookWithRetiredNamesStillLoads() {
     p.toWire(a.data());
     q.toWire(b.data());
     check(a == b, "a retired slot's wire value is ignored");
-    check(!SceneParams::retired(ParamSlot::strobe) && !SceneParams::retired(ParamSlot::beatResponse), "strobe and beatResponse are not retired");
+    check(!SceneParams::retired(ParamSlot::beatResponse), "beatResponse is not retired");
 }
 
 void theWireRoundTrips() {

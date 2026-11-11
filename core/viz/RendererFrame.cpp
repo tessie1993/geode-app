@@ -328,7 +328,6 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.ratio = static_cast<float>(renderWidth_) / static_cast<float>(renderHeight_);
     in.timeSeconds = timeSeconds_;
     const SceneParams& fx = lastFinalParams_;
-    in.strobeHz = safety::strobeHz();
     in.postRotationAngle = postRotationAngle_;
     in.postCyclePhase = postCyclePhase_;
     in.quadVao = quadVao_;

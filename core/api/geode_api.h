@@ -244,6 +244,25 @@ typedef struct geode_export_pass geode_export_pass;
 GEODE_API int         geode_viz_record_start(geode_viz*, const geode_recorder* recorder, void* native_window, int width,
                                              int height, geode_export_pass* watermark);
 GEODE_API void        geode_viz_record_stop(geode_viz*);
+/* Shake to screenshot's picture: the next frame's finished visual (after the composite and the edge glow,
+ * before the UI blur, as Record's tee sees it) is read back once, rows top first, RGBA8. Any thread.
+ * geode_viz_still_size gives its width and height (1 once it is ready, 0 before); geode_viz_still_read copies
+ * it into `out` (at least width*height*4 bytes) and lets it go. GL thread for both. */
+GEODE_API void        geode_viz_still_request(geode_viz*);
+GEODE_API int         geode_viz_still_size(geode_viz*, int* width, int* height);
+GEODE_API int         geode_viz_still_read(geode_viz*, void* out, size_t capacity);
+/* Tap along (core/viz/TapAlong): a tap's touch-down at uptime_ns (CLOCK_MONOTONIC, MotionEvent's clock) against
+ * the beat this renderer's sound engine heard on its last frame. 1 on the tap that completes kTaps on the beat in
+ * a row. Read only: the beat tracking never hears the taps. Any thread. */
+GEODE_API int         geode_viz_tap_along(geode_viz*, int64_t uptime_ns);
+/* Shake to screenshot's detector (core/viz/Shake): one per listener. geode_shake_sample takes one
+ * TYPE_ACCELEROMETER event (its timestamp in ns, x, y, z in m/s²) and is 1 on the sample that completes a
+ * shake. geode_shake_reset forgets the motion (the sensor was off). One thread per handle. */
+typedef struct geode_shake geode_shake;
+GEODE_API geode_shake* geode_shake_create(void);
+GEODE_API void         geode_shake_destroy(geode_shake*);
+GEODE_API void         geode_shake_reset(geode_shake*);
+GEODE_API int          geode_shake_sample(geode_shake*, int64_t time_ns, float x, float y, float z);
 /* Offline (export) render: prepare pins the renderer for it, any thread: the offscreen tier
  * (geode_viz_set_offscreen(1)), cut transitions, and fixed fluid quality on every later set_params. */
 GEODE_API void        geode_viz_prepare_offscreen(geode_viz*);
@@ -1026,6 +1045,12 @@ GEODE_API int               geode_pcm_ring_write_s16(geode_pcm_ring*, const int1
                                                      int sample_rate, float* peak_out);
 GEODE_API int               geode_pcm_ring_write_bytes(geode_pcm_ring*, const void* data, size_t bytes, int encoding,
                                                        int channels, int sample_rate, float* peak_out);
+/* on != 0: the ring's writes are a capture's snapshots, not a stream (the wallpaper's output mix: the
+ * newest ~1024 samples ~20 times a second). Each write then adds the real time since the last one, on the
+ * monotonic clock, filled from that snapshot alone (audio/ingest/SnapshotStitch), so the readers' sample
+ * clock is real time and no two snapshots are joined at a seam. on = 0 writes blocks as they are again.
+ * Writer thread only, before the writes it applies to. Returns 0 only when it could not allocate. */
+GEODE_API int               geode_pcm_ring_set_snapshots(geode_pcm_ring*, int on);
 /* A second source layered over `ring` (the mic over the player's tap; audio/ingest/LayerMix): every renderer
  * fed `ring` hears the two mixed while `ring` gains frames, and `layer` alone once it has not for 0.3 s.
  * `layer` keeps its own writer and rate; begin an epoch on it when its source starts and when it stops.

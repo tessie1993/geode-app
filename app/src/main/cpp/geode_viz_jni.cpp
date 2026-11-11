@@ -1463,4 +1463,43 @@ JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_vizRecordStop(JN
     geode_viz_record_stop(vizOf(handle));
 }
 
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_vizStillRequest(JNIEnv*, jobject, jlong handle) {
+    geode_viz_still_request(vizOf(handle));
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizStillSize(JNIEnv* env, jobject, jlong handle, jintArray out) {
+    if (!out || env->GetArrayLength(out) < 2) return JNI_FALSE;
+    jint size[2] = {0, 0};
+    if (!geode_viz_still_size(vizOf(handle), &size[0], &size[1])) return JNI_FALSE;
+    env->SetIntArrayRegion(out, 0, 2, size);
+    return JNI_TRUE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizStillRead(JNIEnv* env, jobject, jlong handle, jobject out) {
+    void* bytes = out ? env->GetDirectBufferAddress(out) : nullptr;
+    const jlong capacity = bytes ? env->GetDirectBufferCapacity(out) : 0;
+    return bytes && capacity > 0 && geode_viz_still_read(vizOf(handle), bytes, static_cast<size_t>(capacity)) ? JNI_TRUE
+                                                                                                             : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizTapAlong(JNIEnv*, jobject, jlong handle, jlong uptimeNs) {
+    return geode_viz_tap_along(vizOf(handle), uptimeNs) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_shakeCreate(JNIEnv*, jobject) {
+    return reinterpret_cast<jlong>(geode_shake_create());
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_shakeDestroy(JNIEnv*, jobject, jlong handle) {
+    geode_shake_destroy(reinterpret_cast<geode_shake*>(handle));
+}
+
+JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_shakeSample(JNIEnv*, jobject, jlong handle, jlong timeNs,
+                                                                              jfloat x, jfloat y, jfloat z) {
+    return geode_shake_sample(reinterpret_cast<geode_shake*>(handle), timeNs, x, y, z) ? JNI_TRUE : JNI_FALSE;
+}
+
 }

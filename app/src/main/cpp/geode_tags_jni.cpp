@@ -178,12 +178,4 @@ Java_dev_geode_engine_bridge_GeodeNative_libraryIndexSearch(JNIEnv* env, jobject
     return intsOf(env, packed);
 }
 
-// Studio's folders (core/library/StudioFiles): only the two paths cross; the move is native.
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_studioMoveTakesOut(JNIEnv* env, jobject, jstring projectsDir, jstring takesDir) {
-    geode::jni::Utf8Chars projects(env, projectsDir);
-    geode::jni::Utf8Chars takes(env, takesDir);
-    return geode_studio_move_takes_out(projects.get(), takes.get());
-}
-
 }  // extern "C"

@@ -413,7 +413,7 @@ class UiTour(
             paywall = has(hasText(PAYWALL_RESTORE)),
             chromeAwake = has(hasContentDescription(FULLSCREEN) and hasClickAction()),
             miniPlayer = has(hasCustomAction(MINI_PLAYER_OPEN)),
-            recording = has(hasContentDescription(STOP_TAKE)),
+            recording = has(hasContentDescription(STOP_RECORDING)),
             recordSaveAsked = has(hasText(RECORD_SAVE_TITLE)),
             selected = selected.sorted(),
             sceneId = live?.let { SCENE_ID.find(it)?.groupValues?.get(1) },
@@ -507,8 +507,8 @@ class UiTour(
         const val PAYWALL_RESTORE = "Restore purchase"
         const val PAYWALL_CLOSE = "Close"
         const val MINI_PLAYER_OPEN = "Open Player"
-        const val STOP_TAKE = "Stop recording this take"
-        const val RECORD_SAVE_TITLE = "Where should takes be saved?"
+        const val STOP_RECORDING = "Stop recording"
+        const val RECORD_SAVE_TITLE = "Where should recordings be saved?"
         const val LIVE_STATE_KEY = "live_state"
         private val SCENE_ID = Regex("\"sceneId\"\\s*:\\s*\"([^\"]*)\"")
 
@@ -678,7 +678,7 @@ data class TourState(
             if (chromeAwake != before.chromeAwake) add(if (chromeAwake) "chrome woke" else "chrome slept")
             if (miniPlayer != before.miniPlayer) add(if (miniPlayer) "mini player shown" else "mini player hidden")
             if (recording != before.recording) add(if (recording) "recording started" else "recording stopped")
-            if (recordSaveAsked && !before.recordSaveAsked) add("asked where takes go")
+            if (recordSaveAsked && !before.recordSaveAsked) add("asked where recordings go")
             if (selected != before.selected) add("selected ${before.selected}→$selected")
             if (sceneId != before.sceneId) add("style ${before.sceneId}→$sceneId")
             if (sceneId == before.sceneId && paramsHash != before.paramsHash) add("look's params changed")

@@ -73,22 +73,16 @@ sealed interface ClipContent {
     val laneKind: LaneKind
 
     /**
-     * A generated visual. The three visual clip kinds of a Studio project are all this one type, so
-     * every lane, strip and render path that knows a scene clip keeps working when a new kind lands:
+     * A generated visual. The visual clip kinds of a Studio project are all this one type, so every
+     * lane, strip and render path that knows a scene clip keeps working when a new kind lands:
      *
      * - a **look**: [sceneId] with its [presetId] or [milkPath], animated by the keyframe sheet;
-     * - a **take**: [takeId] names a recorded performance in the project folder (`takes/<id>.json`).
-     *   Its events replace the look as the clip plays: the take's time is the clip's source time
-     *   ([Clip.sourceInMs] onwards), which is track time from where the recording started, so a take
-     *   that sits under its audio stays in step with the song. [sceneId] is the take's first style,
-     *   the fallback a renderer that cannot read takes draws;
      * - a **beat-cut sequence**: [beatCut] steps through its styles on the beat, starting at [sceneId].
      */
     data class Scene(
         val sceneId: String,
         val presetId: String? = null,
         val milkPath: String? = null,
-        val takeId: String? = null,
         val beatCut: BeatCut? = null,
     ) : ClipContent {
         override val laneKind: LaneKind = LaneKind.Visual

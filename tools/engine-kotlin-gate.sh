@@ -10,17 +10,22 @@
 #   engine/*/src/main/                 the engine modules
 #   A/export/, A/audio/dsp/            export and playback DSP
 #   Spec 3.0 (#455, #461), where engine logic must never start in Kotlin:
-#   - the take's capture and choices:  A/ui/TakeController.kt, A/data/PerformanceTake.kt, the take
-#                                      timeline A/editor/{Timeline,Keyframes,AnimatableParams}.kt,
-#                                      and any future A/take/ or A/record/ (target: core/signal/timeline)
+#   - Record and the timeline:         A/ui/RecordController.kt and A/record/ (the live recording's
+#                                      shell; its clock is core/output/Recorder, its frame tap
+#                                      core/viz/frame/RecordTap), and the Studio timeline
+#                                      A/editor/{Timeline,Keyframes,AnimatableParams}.kt (target:
+#                                      core/signal/timeline). A/ui/TakeController.kt and
+#                                      A/data/PerformanceTake.kt are gone (#1035); they stay listed
+#                                      only until that PR lands, so deleting them counts against
+#                                      the Record shell that replaces them. Drop them after.
 #   - the Scene model:                 A/scene/ (model types only; the Scene itself is geode::scene)
 #   - glTF and pack import:            A/gltf/, any *Gltf*.kt or *Glb*.kt, any *Pack*Import*.kt
 #                                      (MilkPackImporter today); import is C++ (cgltf, meshoptimizer,
 #                                      Basis Universal)
 #   - the render job:                  A/ui/ExportController.kt, the whole file: the render job sits
 #                                      beside its UI state there (target: core/output)
-# Not watched on purpose: the pack store's networking and billing, storage (TakeStore,
-# TakeRepository, EditorProjectStore), the Studio project list (StudioProject) and every screen.
+# Not watched on purpose: the pack store's networking and billing, storage (RecordFiles,
+# RecordPrefs, EditorProjectStore), the Studio project list (StudioProject) and every screen.
 #
 # Exempt: the two JNI declaration files, which only list `external fun`s for new native calls.
 # There is deliberately no other override: write the logic in core/ and call it through the ABI.
@@ -33,10 +38,11 @@ A='app/src/main/java/dev/geode'
 watched=(
     'engine/[^/]+/src/main/.*'
     "$A/(export|audio/dsp)/.*"
+    "$A/ui/RecordController"
     "$A/ui/TakeController"
     "$A/data/PerformanceTake"
     "$A/editor/(Timeline|Keyframes|AnimatableParams)"
-    "$A/(take|record)/.*"
+    "$A/record/.*"
     "$A/scene/.*"
     "$A/gltf/.*"
     "$A/(.*/)?[^/]*(Gltf|Glb)[^/]*"

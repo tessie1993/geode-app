@@ -14,7 +14,7 @@ import androidx.core.content.edit
  * `StudioSection` type.
  *
  * [keepAsProject] answers Render's "add it to My videos?" once and for all: null until the
- * user ticks "don't ask again", then their answer.
+ * user ticks "don't ask again", then their answer. Settings › Export changes it, null asking again.
  */
 class StudioPrefsStore(
     private val prefs: SharedPreferences,
@@ -25,7 +25,7 @@ class StudioPrefsStore(
 
     fun keepAsProject(): Boolean? = if (prefs.contains(KEY_KEEP)) prefs.getBoolean(KEY_KEEP, false) else null
 
-    fun saveKeepAsProject(keep: Boolean) = prefs.edit { putBoolean(KEY_KEEP, keep) }
+    fun saveKeepAsProject(keep: Boolean?) = prefs.edit { if (keep == null) remove(KEY_KEEP) else putBoolean(KEY_KEEP, keep) }
 
     private companion object {
         const val KEY_TAB = "studio_last_tab"

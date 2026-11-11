@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 namespace geode::viz::underlay {
@@ -54,5 +55,9 @@ void dim(uint32_t* pixels, int count, float dim);
 
 // The whole bake after the crop and scale, in the old order: blur, then dim. Each is skipped at 0.
 void finish(uint32_t* pixels, int width, int height, int blurRadius, float dimAmount);
+
+// Android's ARGB_8888 ints (0xAARRGGBB) as GL's RGBA8 bytes, `count` pixels into out[0, 4 * count).
+// Done once, when the image is set, so the renderer keeps only the bytes it uploads (#999).
+void toRgbaBytes(const uint32_t* argb, size_t count, uint8_t* out);
 
 }  // namespace geode::viz::underlay

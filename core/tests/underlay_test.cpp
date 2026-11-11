@@ -179,9 +179,24 @@ void testClamps() {
           "C ABI clamps");
 }
 
+// #999: the renderer keeps the RGBA8 bytes GL takes, converted once when the image is set.
+void testRgbaBytes() {
+    const uint32_t argb[3] = {0x80112233u, 0xFF000000u, 0x00FFFFFFu};
+    uint8_t out[12] = {};
+    underlay::toRgbaBytes(argb, 3, out);
+    const uint8_t want[12] = {0x11, 0x22, 0x33, 0x80, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0x00};
+    bool same = true;
+    for (int i = 0; i < 12; i++) same = same && out[i] == want[i];
+    check(same, "ARGB ints become R, G, B, A bytes");
+    uint8_t untouched[4] = {7, 7, 7, 7};
+    underlay::toRgbaBytes(nullptr, 1, untouched);
+    check(untouched[0] == 7 && untouched[3] == 7, "a null source writes nothing");
+}
+
 }  // namespace
 
 int main() {
+    testRgbaBytes();
     testCrop();
     testDim();
     testBlur();

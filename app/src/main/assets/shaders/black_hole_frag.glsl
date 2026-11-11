@@ -42,7 +42,7 @@ out vec4 fragColor;
 // - reach: in silence (neonQuiet) the eye drifts back, wider and calmer.
 // - SND_HAT_ENV twinkles the stars. Intensity (neonGlow) is the emission.
 //
-// Provenance: written from scratch for MuzViz from textbook techniques - the
+// Provenance: written from scratch for BeatRealms from textbook techniques - the
 // photon geodesic in Cartesian form (a = -3/2 h^2 x / r^5, units where the
 // Schwarzschild radius is 1), integrated with semi-implicit Euler at a step
 // proportional to r; a thin disc found by plane crossings between steps; the

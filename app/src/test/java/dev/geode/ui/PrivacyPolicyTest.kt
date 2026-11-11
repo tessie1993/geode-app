@@ -21,7 +21,7 @@ class PrivacyPolicyTest {
     @Test
     fun theWholePolicyReadsAsPlainText() {
         val lines = policyLines(File("src/main/assets/privacy_policy.md").readText())
-        assertEquals(PolicyLine.Heading("MuzViz Studio Pro — Privacy Policy"), lines.first())
+        assertEquals(PolicyLine.Heading("BeatRealms 3D — Privacy Policy"), lines.first())
         val text = lines.joinToString("\n") { it.text }
         assertTrue("markup left in: $text", listOf("**", "`", "|", "](").none { it in text })
     }

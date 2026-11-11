@@ -16,7 +16,7 @@
     <ID>MatchingDeclarationName:PaletteMaker.kt$SavedPalettes</ID>
     <ID>NestedBlockDepth:AudioTranscoder.kt$AudioTranscoder$fun transcode( uri: Uri, maxDurationMs: Long, startMs: Long = 0L, outputRateHz: Int? = null, isCancelled: () -&gt; Boolean = { false }, onProgress: (Float) -&gt; Unit = {}, ): Result</ID>
     <ID>NestedBlockDepth:AudioTranscoder.kt$AudioTranscoder$private fun transcodeAiff( aiff: dev.geode.audio.AiffPcm, maxDurationMs: Long, startMs: Long, outputRateHz: Int?, isCancelled: () -&gt; Boolean, onProgress: (Float) -&gt; Unit, ): Result</ID>
-    <ID>NestedBlockDepth:PlaybackCapture.kt$PlaybackCapture$@RequiresApi(Build.VERSION_CODES.Q) private fun openRecord(projection: MediaProjection): AudioRecord?</ID>
+    <ID>NestedBlockDepth:PlaybackCapture.kt$PlaybackCapture$private fun openRecord(projection: MediaProjection): AudioRecord?</ID>
     <ID>NestedBlockDepth:PlayerScreen.kt$internal suspend fun driveSpectrum( live: Boolean, bands: () -&gt; FloatArray, emit: (FloatArray) -&gt; Unit, )</ID>
     <ID>NestedBlockDepth:VideoExporter.kt$VideoExporter$private fun encodeInto( pfd: ParcelFileDescriptor, audioUri: Uri, timeline: FeatureTimeline, sceneFactory: SceneFactory, aspect: ExportAspect, sceneParams: SceneParams, lfoConfigs: List&lt;dev.geode.render.LfoConfig&gt;, adsrConfigs: List&lt;dev.geode.render.AdsrConfig&gt;, reducedMotion: Boolean, requestedFps: Int, paramsAt: ((Long) -&gt; SceneParams)?, loopSafe: Boolean, range: ExportRange?, codec: ExportCodec, onProgress: (Float) -&gt; Unit, isCancelled: () -&gt; Boolean, )</ID>
     <ID>ReturnCount:AiffExtractor.kt$AiffExtractor$override fun read( input: ExtractorInput, seekPosition: PositionHolder, ): Int</ID>
@@ -31,7 +31,7 @@
     <ID>ReturnCount:NowPlayingBridge.kt$NowPlayingBridge$fun current(): External?</ID>
     <ID>ReturnCount:PerformanceTake.kt$PerformanceTake.Recorder$fun append( atMs: Long, sceneId: String, params: SceneParams, milkPath: String?, ): Boolean</ID>
     <ID>ReturnCount:PerformanceTake.kt$PerformanceTake.Timeline$fun stateAt(ms: Long): State?</ID>
-    <ID>ReturnCount:PlaybackCapture.kt$PlaybackCapture$@RequiresApi(Build.VERSION_CODES.Q) @Synchronized fun start( projection: MediaProjection, onSampleRate: (Int) -&gt; Unit = {}, ): CaptureFailure?</ID>
+    <ID>ReturnCount:PlaybackCapture.kt$PlaybackCapture$@Synchronized fun start( projection: MediaProjection, onSampleRate: (Int) -&gt; Unit = {}, ): CaptureFailure?</ID>
     <ID>ReturnCount:PlaybackCaptureService.kt$PlaybackCaptureService$override fun onStartCommand( intent: Intent?, flags: Int, startId: Int, ): Int</ID>
     <ID>ReturnCount:PlaybackQueue.kt$PlaybackQueue$fun contextFor( uri: String, browse: List&lt;QueueTrack&gt;, deviceTracks: List&lt;DeviceTrack&gt;, libraryTracks: List&lt;LibraryTrack&gt;, ): List&lt;QueueTrack&gt;</ID>
     <ID>ReturnCount:PlaybackQueue.kt$PlaybackQueue$fun window( tracks: List&lt;QueueTrack&gt;, startUri: String, ): Window</ID>

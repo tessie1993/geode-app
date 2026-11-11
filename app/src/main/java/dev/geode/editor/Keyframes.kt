@@ -253,7 +253,6 @@ data class KeyframeSheet(
         }
         return out
     }
-        )
 }
 
 internal fun lerp(

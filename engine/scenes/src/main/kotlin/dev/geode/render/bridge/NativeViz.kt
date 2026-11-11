@@ -3,6 +3,7 @@ package dev.geode.render.bridge
 import android.content.Context
 import android.content.res.AssetManager
 import dev.geode.engine.audio.SampleRing
+import dev.geode.engine.audio.SoundTuning
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
@@ -153,9 +154,9 @@ class NativeViz(
         Reference.reachabilityFence(ring)
     }
 
-    /** Settings › Audio, as [dev.geode.engine.audio.SoundTuning.toFloats]. */
-    override fun setSoundTuning(floats: FloatArray) {
-        if (handle != 0L) GeodeNative.vizSetSoundTuning(handle, floats)
+    /** Settings › Audio. The floats are read here, not by the caller: the defaults are native. */
+    override fun setSoundTuning(tuning: SoundTuning) {
+        if (handle != 0L) GeodeNative.vizSetSoundTuning(handle, tuning.toFloats())
     }
 
     override fun setLfoConfigs(configs: List<LfoConfig>) {

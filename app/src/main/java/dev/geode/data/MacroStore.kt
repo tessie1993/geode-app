@@ -24,21 +24,79 @@ data class MacroBankState(
 
 /**
  * Quick knobs' storage, process-wide: the macro bank (core/viz/MacroBank) as the one string native
- * writes. Every edit is a native call that returns the new bank; this keeps the text, reads the knobs
- * off it for drawing and hands it to the engine at once. [GeodeApp] builds the store at start, so a
+ * writes. Every edit (a turn, a name, a link, a new or removed knob) is a native call that returns the
+ * new bank; this keeps the text, reads the knobs off it for drawing, hands it to the engine at once and
+ * saves it, so the knob editor has no Save. [GeodeApp] builds the store at start, so a
  * wallpaper or dream that starts before the app does still gets the bank.
  *
  * The six old knobs, their locks and saved sets are gone with no migration: their keys are dropped
  * the first time the store loads ([RETIRED_KEYS]).
  */
-class MacroStore private constructor(
+class MacroStore internal constructor(
     private val prefs: SharedPreferences,
+    private val normalize: (String) -> String = GeodeNative::macroBankNormalize,
+    private val push: (String) -> Unit = { text -> bestEffort(TAG, "push macro bank") { GeodeNative.macroBankSet(text) } },
 ) {
     private val _state = MutableStateFlow(load())
     val state: StateFlow<MacroBankState> = _state
 
     init {
         push(_state.value.text)
+    }
+
+    /** What the knob editor draws and offers on [styleId], as native lists it for the bank as it is now. */
+    fun editor(styleId: String): MacroEditorState =
+        runCatching { MacroEditorTable.parse(GeodeNative.macroBankEditor(_state.value.text, styleId)) }
+            .onFailure { RingLog.note(TAG, "macro editor read failed", it) }
+            .getOrDefault(MacroEditorState())
+
+    fun rename(
+        id: Int,
+        name: String,
+    ) = edit { GeodeNative.macroBankRename(it, id, name) }
+
+    /** The new knob's id, or null when the bank is full. */
+    fun addKnob(): Int? = added { GeodeNative.macroBankAddKnob(it, "") }
+
+    /** The copy's id, or null when the bank is full. */
+    fun duplicate(id: Int): Int? = added { GeodeNative.macroBankDuplicateKnob(it, id) }
+
+    fun remove(id: Int) = edit { GeodeNative.macroBankRemoveKnob(it, id) }
+
+    fun move(
+        id: Int,
+        delta: Int,
+    ) = edit { GeodeNative.macroBankMoveKnob(it, id, delta) }
+
+    /** A built-in knob's name and links as built. */
+    fun resetKnob(id: Int) = edit { GeodeNative.macroBankResetKnob(it, id) }
+
+    /** The four built-in knobs alone, as built and centred. */
+    fun resetAll() = edit { GeodeNative.macroBankDefault() }
+
+    fun addLink(
+        id: Int,
+        target: String,
+    ) = edit { GeodeNative.macroBankAddLink(it, id, target) }
+
+    /** A drag moves the link live; [commit] once the gesture ends, like [setValue]. */
+    fun setLink(
+        id: Int,
+        target: String,
+        up: Float,
+        down: Float,
+        persist: Boolean = true,
+    ) = edit(persist) { GeodeNative.macroBankSetLink(it, id, target, up, down) }
+
+    fun removeLink(
+        id: Int,
+        target: String,
+    ) = edit { GeodeNative.macroBankRemoveLink(it, id, target) }
+
+    private fun added(change: (String) -> String): Int? {
+        val before = _state.value.knobs.mapTo(mutableSetOf()) { it.id }
+        edit(change = change)
+        return _state.value.knobs.firstOrNull { it.id !in before }?.id
     }
 
     /** A drag moves the knob live; [commit] once the gesture ends, so a drag is one write. */
@@ -59,8 +117,8 @@ class MacroStore private constructor(
     /** Saves what a drag left behind (see [setValue]). */
     fun commit() = write()
 
-    private fun edit(
-        persist: Boolean,
+    internal fun edit(
+        persist: Boolean = true,
         change: (String) -> String,
     ) {
         val text =
@@ -77,15 +135,11 @@ class MacroStore private constructor(
             prefs.edit().apply { RETIRED_KEYS.forEach(::remove) }.apply()
         }
         val stored = prefs.getString(KEY_BANK, null).orEmpty()
-        return stateOf(runCatching { GeodeNative.macroBankNormalize(stored) }.getOrDefault(stored))
+        return stateOf(runCatching { normalize(stored) }.getOrDefault(stored))
     }
 
     private fun write() {
         prefs.edit().putString(KEY_BANK, _state.value.text).apply()
-    }
-
-    private fun push(text: String) {
-        bestEffort(TAG, "push macro bank") { GeodeNative.macroBankSet(text) }
     }
 
     companion object {

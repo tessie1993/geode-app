@@ -195,7 +195,7 @@ bool rule(Show show, const std::string& styleId) {
     const Kind kind = catalogue::kindOf(styleId);
     switch (show) {
         case Show::Always: return true;
-        case Show::ThreeD: return catalogue::isMarched(styleId);
+        case Show::ThreeD: return catalogue::fliesCamera(styleId);
         case Show::Particles: return catalogue::reaches(Scope::ParticleSprite, styleId);
         case Show::Water: return kind == Kind::Water;
         case Show::Engine: return kind == Kind::Fluid || kind == Kind::Cymatics || kind == Kind::Milkdrop;
@@ -205,7 +205,7 @@ bool rule(Show show, const std::string& styleId) {
 }
 
 // Camera shows on every style now: Fly speed and the path pan and tilt a flat picture too. Only its
-// framing and feel sections stay with the raymarched styles.
+// framing and feel sections stay with the styles on the camera rig.
 Show categoryRule(Category) { return Show::Always; }
 
 }  // namespace

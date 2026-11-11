@@ -519,7 +519,7 @@ fun AppRoot() {
                 FirstRunGate(
                     onDone = {
                         settingsViewModel.setGuiPrefs(gui.copy(setupDone = true))
-                        appState.navigateTo(gui.intent.landingDestination)
+                        appState.navigateTo(GeodeDestination.PLAYER)
                         // No Pro offer here: it waits until the guided tour ends (TutorialHost).
                     },
                 )

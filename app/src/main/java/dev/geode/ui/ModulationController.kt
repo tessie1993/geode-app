@@ -137,13 +137,17 @@ internal class ModulationController(
      * Rolls [category], or everything when null. The roll is native (core/viz/CustomizeMap over
      * core/viz/ParamRandomizer): the category's own controls that reach the style, minus the kept
      * ones; this only carries the frame there and back. The knobs are not params, and Quick
-     * knobs has no roll.
+     * knobs has no roll. [basicsOnly] is the roll without Pro: native holds everything below a
+     * Basics (its `#PRO` lock) and the waves stay. True when the look changed.
      */
-    fun randomizeParams(category: CustomizeCategory? = null) {
-        if (category == CustomizeCategory.QUICK_KNOBS) return
+    fun randomizeParams(
+        category: CustomizeCategory? = null,
+        basicsOnly: Boolean = false,
+    ): Boolean {
+        if (category == CustomizeCategory.QUICK_KNOBS) return false
         val input = SceneParamsCodec.pack(host.params)
         val out = FloatArray(SceneParamsCodec.FIELDS)
-        val locked = _lockedParams.value.joinToString("\n")
+        val locked = (if (basicsOnly) _lockedParams.value + PRO_LOCK else _lockedParams.value).joinToString("\n")
         val seed = Random.nextLong()
         val changed =
             if (category == null) {
@@ -152,7 +156,8 @@ internal class ModulationController(
                 GeodeNative.customizeRandomize(host.sceneId, category.name, locked, seed, input, out)
             }
         if (changed) commitSceneParams(SceneParamsCodec.unpack(out, host.params))
-        if (category == null || category == CustomizeCategory.MUSIC) randomizeWaves(all = false)
+        if (!basicsOnly && (category == null || category == CustomizeCategory.MUSIC)) randomizeWaves(all = false)
+        return changed
     }
 
     /**
@@ -278,6 +283,9 @@ internal class ModulationController(
 
     companion object {
         private const val TAG = "ModulationController"
+
+        /** Native's lock for every control below a Basics (core/viz/CustomizeMap `kProLock`). */
+        const val PRO_LOCK = "#PRO"
 
         private const val HISTORY_DEPTH = 64
 

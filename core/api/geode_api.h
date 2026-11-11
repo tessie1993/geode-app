@@ -400,13 +400,16 @@ GEODE_API const char* geode_config_schema_text(void);
 GEODE_API float       geode_touch_zoom(float current, float scale_factor);
 GEODE_API float       geode_touch_rotation(float current, float degrees);
 
-/* Customize panel map (core/viz/CustomizeMap): nine categories, each a free Basics section and Pro sections, and
+/* Customize panel map (core/viz/CustomizeMap): eleven categories, each a free Basics section and Pro sections, and
  * which control lives in which. geode_customize_text is its versioned '|'-separated line table (rows in
  * CustomizeMap.hpp). Static: the pointer stays valid for the process. geode_customize_shown lists what the panel
- * offers on style_id ("CATEGORY" and "CATEGORY/section" lines); the pointer stays valid until this thread's next call.
+ * offers on style_id ("CATEGORY" and "CATEGORY/section" lines, plus "CATEGORY:roll" where the category's roll has
+ * something to move); the pointer stays valid until this thread's next call.
  * geode_customize_randomize rolls one category's controls (named by its CustomizeMap name; an unknown one rolls
  * nothing), holding every other control and the newline-joined ParamKeys in locked; 1 when it changed something.
- * In locked, here and in geode_params_randomize, a line "#CATEGORY" keeps every control of that category.
+ * In locked, here and in geode_params_randomize, a line "#CATEGORY" keeps every control of that category and
+ * "#PRO" every control below a Basics (the roll without Pro). With tab NULL geode_params_randomize rolls what the
+ * panel offers on the style, as every category's roll does.
  * geode_customize_reset puts back every field the category's controls write. Wire as geode_params_randomize. */
 GEODE_API const char* geode_customize_text(void);
 /* 1 when the control named key (a ParamKeys string) is one a roll can move, so the panel offers to keep it. */

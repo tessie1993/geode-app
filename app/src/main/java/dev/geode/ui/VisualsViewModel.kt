@@ -131,7 +131,10 @@ class VisualsViewModel
             from: SceneParams,
         ) = session.modulation.borrowCategory(category, from)
 
-        fun randomizeParams(category: CustomizeCategory? = null) = session.modulation.randomizeParams(category)
+        fun randomizeParams(
+            category: CustomizeCategory? = null,
+            basicsOnly: Boolean = false,
+        ) = session.modulation.randomizeParams(category, basicsOnly)
 
         fun randomizeWaves() = session.modulation.randomizeWaves(all = true)
 

@@ -124,7 +124,7 @@ private val OpenSectionsSaver =
  * Customize as a list of categories, then one category at a time (issue #333).
  *
  * WHY progressive disclosure: the old panel opened as seven cards, any one of which could hold
- * thirty controls. Here the top level is ten rows that say what each category does, a category
+ * thirty controls. Here the top level is eleven rows that say what each category does, a category
  * opens on its Basics (two to four controls, free), and everything deeper waits in sections a tap
  * drops open below them, several at once, so a user who wants "warmer" never meets an envelope
  * editor. ‹ › page through the categories without a back entry; ← and system back return to the
@@ -248,7 +248,7 @@ private fun rememberCardBack(
     return remember(state) { CardBack { state.transitionState } }
 }
 
-/** The ten category rows. One [LazyListState] for every call, so the list comes back where it was. */
+/** The category rows. One [LazyListState] for every call, so the list comes back where it was. */
 @Composable
 private fun CategoryList(
     categories: List<CustomizeCategory>,

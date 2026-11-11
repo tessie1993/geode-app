@@ -245,7 +245,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
         value = withContext(Dispatchers.IO) { BootAnimationStore(GeodePrefsFiles(context).general).load() }
     }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    // Not delegated: only the mini player's progress bar reads .value, in its own draw lambda.
+    // Not delegated: only the mini player's seek bar and progress line read .value, in their own scope.
     val position = viewModel.positionMs.collectAsStateWithLifecycle()
     val onSecondScreen = gui.secondScreen && externalDisplay != null
     if (onSecondScreen) {
@@ -309,7 +309,9 @@ private fun AppContent(tourViewModel: TourViewModel) {
                 artist = state.artist,
                 artworkUri = viewModel.currentTrackUri(),
                 isPlaying = state.isPlaying,
-                progress = { if (state.durationMs > 0) position.value / state.durationMs.toFloat() else 0f },
+                positionMs = { position.value },
+                durationMs = state.durationMs,
+                onSeek = viewModel::seekTo,
                 onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
                 onOpenPlayer = { appState.navigateTo(GeodeDestination.PLAYER) },
                 onHide = chrome::hide,

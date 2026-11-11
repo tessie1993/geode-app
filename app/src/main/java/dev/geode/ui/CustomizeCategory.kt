@@ -60,7 +60,6 @@ internal data class CustomizeSection(
 private val SECTION_TITLES =
     mapOf(
         "basics" to "Basics",
-        "sets" to "Sets",
         "colour_detail" to "Colour detail",
         "colour_cycle" to "Colour cycle",
         "light_detail" to "Light detail",

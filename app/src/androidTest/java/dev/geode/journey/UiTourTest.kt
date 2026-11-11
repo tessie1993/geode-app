@@ -432,9 +432,8 @@ class UiTourTest {
             "paywall=${tour.waitFor(hasText(UiTour.PAYWALL_RESTORE))}"
         }
         tour.tapIfPresent(UiTour.PAYWALL_CLOSE)
-        tour.step("customize-free", "free-sub-page", "Sets & macros, the free sub-page") {
+        tour.step("customize-free", "free-sub-page", "Macros, the free page") {
             tour.tap(MACROS)
-            tour.tap(SETS_AND_MACROS)
             null
         }
         tour.back()
@@ -700,7 +699,6 @@ class UiTourTest {
         const val MACROS = "Macros"
         const val MOTION = "Motion"
         const val CAMERA = "Camera"
-        const val SETS_AND_MACROS = "Sets & macros"
         const val TOUR_NEXT = "Next"
         const val TOUR_DONE = "Done"
         const val TOUR_SKIP = "Skip"
@@ -748,7 +746,7 @@ class UiTourTest {
          */
         val CUSTOMIZE_PAGES =
             linkedMapOf(
-                MACROS to listOf(SETS_AND_MACROS),
+                MACROS to emptyList<String>(),
                 "Look" to listOf("Make a palette"),
                 "Style" to emptyList<String>(),
                 MOTION to listOf(CAMERA, "Liquid", "Water ripples"),

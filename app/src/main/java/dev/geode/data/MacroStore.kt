@@ -7,122 +7,96 @@ import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
 
-/** One saved set of the six Customize › Macros knobs. */
-data class MacroPreset(
+/** One knob of the macro bank as the shell draws it, read off the bank text; [value] runs -1..1. */
+data class MacroKnob(
+    val id: Int,
     val name: String,
-    val knobs: List<Float>,
+    val hint: String,
+    val value: Float,
 )
 
-/** The knobs (-1..1, 0 = as styled), which ones Surprise leaves alone, and the user's own presets. */
-data class MacroState(
-    val knobs: List<Float> = List(MacroStore.COUNT) { 0f },
-    val lockMask: Int = 0,
-    val presets: List<MacroPreset> = emptyList(),
-) {
-    fun isLocked(i: Int): Boolean = lockMask and (1 shl i) != 0
-}
+/** The bank as stored ([text], opaque to Kotlin) and the knobs its `knob|` rows list, in bank order. */
+data class MacroBankState(
+    val text: String = "",
+    val knobs: List<MacroKnob> = emptyList(),
+)
 
 /**
- * Customize › Macros' storage, process-wide.
+ * Quick knobs' storage, process-wide: the macro bank (core/viz/MacroBank) as the one string native
+ * writes. Every edit is a native call that returns the new bank; this keeps the text, reads the knobs
+ * off it for drawing and hands it to the engine at once. [GeodeApp] builds the store at start, so a
+ * wallpaper or dream that starts before the app does still gets the bank.
  *
- * The knobs are a layer over every style (core/viz/Macros does all the work), so they live outside
- * look presets: they survive a style change, and the screen, exports, the wallpaper and the dream all
- * read the one copy the engine holds. Every change is handed to native at once; [GeodeApp] pushes the
- * saved knobs at start, so a wallpaper that starts before the app does still sees them.
+ * The six old knobs, their locks and saved sets are gone with no migration: their keys are dropped
+ * the first time the store loads ([RETIRED_KEYS]).
  */
 class MacroStore private constructor(
     private val prefs: SharedPreferences,
 ) {
-    private val _state = MutableStateFlow(read())
-    val state: StateFlow<MacroState> = _state
+    private val _state = MutableStateFlow(load())
+    val state: StateFlow<MacroBankState> = _state
 
     init {
-        push(_state.value.knobs)
+        push(_state.value.text)
     }
 
-    /** A drag moves the knob live; [persist] once the gesture ends, so a drag is one write. */
-    fun setKnob(
-        i: Int,
+    /** A drag moves the knob live; [commit] once the gesture ends, so a drag is one write. */
+    fun setValue(
+        id: Int,
         value: Float,
         persist: Boolean = true,
     ) {
-        if (i !in 0 until COUNT) return
-        val v = value.coerceIn(-1f, 1f)
-        _state.update { it.copy(knobs = it.knobs.toMutableList().also { k -> k[i] = v }) }
-        push(_state.value.knobs)
+        edit(persist) { GeodeNative.macroBankSetValue(it, id, value) }
+    }
+
+    /** Every knob back to centre; the knobs and what they move stay. */
+    fun centreAll() {
+        val ids = _state.value.knobs.map { it.id }
+        edit(persist = true) { text -> ids.fold(text) { bank, id -> GeodeNative.macroBankSetValue(bank, id, 0f) } }
+    }
+
+    /** Saves what a drag left behind (see [setValue]). */
+    fun commit() = write()
+
+    private fun edit(
+        persist: Boolean,
+        change: (String) -> String,
+    ) {
+        val text =
+            runCatching { change(_state.value.text) }
+                .onFailure { RingLog.note(TAG, "macro bank edit failed", it) }
+                .getOrNull() ?: return
+        _state.value = stateOf(text)
+        push(text)
         if (persist) write()
     }
 
-    fun setKnobs(knobs: List<Float>) {
-        _state.update { it.copy(knobs = List(COUNT) { i -> knobs.getOrElse(i) { 0f }.coerceIn(-1f, 1f) }) }
-        push(_state.value.knobs)
-        write()
+    private fun load(): MacroBankState {
+        if (RETIRED_KEYS.any(prefs::contains)) {
+            prefs.edit().apply { RETIRED_KEYS.forEach(::remove) }.apply()
+        }
+        val stored = prefs.getString(KEY_BANK, null).orEmpty()
+        return stateOf(runCatching { GeodeNative.macroBankNormalize(stored) }.getOrDefault(stored))
     }
-
-    fun resetKnobs() = setKnobs(emptyList())
-
-    /** Saves what a drag left behind (see [setKnob]). */
-    fun commit() = write()
-
-    fun toggleLock(i: Int) {
-        _state.update { it.copy(lockMask = it.lockMask xor (1 shl i)) }
-        write()
-    }
-
-    /** Every unlocked knob to a new spot (core/viz/Macros, seeded from [seed]). */
-    fun surprise(seed: Long = System.nanoTime()) {
-        val s = _state.value
-        runCatching { GeodeNative.macrosSurprise(s.knobs.toFloatArray(), s.lockMask, seed) }
-            .onSuccess { setKnobs(it.toList()) }
-            .onFailure { RingLog.note(TAG, "macro surprise failed", it) }
-    }
-
-    /** Saves the knobs as [name], replacing a preset of the same name. */
-    fun savePreset(name: String) {
-        val clean = name.replace('|', ' ').replace('\n', ' ').trim()
-        if (clean.isEmpty()) return
-        _state.update { s -> s.copy(presets = s.presets.filterNot { it.name == clean } + MacroPreset(clean, s.knobs)) }
-        write()
-    }
-
-    fun deletePreset(name: String) {
-        _state.update { s -> s.copy(presets = s.presets.filterNot { it.name == name }) }
-        write()
-    }
-
-    private fun read(): MacroState =
-        MacroState(
-            knobs = parseKnobs(prefs.getString(KEY_KNOBS, null)) ?: List(COUNT) { 0f },
-            lockMask = prefs.getInt(KEY_LOCKS, 0),
-            presets = parsePresets(prefs.getString(KEY_PRESETS, null).orEmpty()),
-        )
 
     private fun write() {
-        val s = _state.value
-        prefs
-            .edit()
-            .putString(KEY_KNOBS, s.knobs.joinToString(","))
-            .putInt(KEY_LOCKS, s.lockMask)
-            .putString(KEY_PRESETS, formatPresets(s.presets))
-            .apply()
+        prefs.edit().putString(KEY_BANK, _state.value.text).apply()
     }
 
-    private fun push(knobs: List<Float>) {
-        bestEffort(TAG, "push macros") { GeodeNative.macrosSet(knobs.toFloatArray()) }
+    private fun push(text: String) {
+        bestEffort(TAG, "push macro bank") { GeodeNative.macroBankSet(text) }
     }
 
     companion object {
-        const val COUNT = 6
-
         private const val TAG = "MacroStore"
-        private const val KEY_KNOBS = "macro_knobs"
-        private const val KEY_LOCKS = "macro_locks"
-        private const val KEY_PRESETS = "macro_presets"
+        private const val KEY_BANK = "macro_bank"
 
         /** Every key this store writes: a backup files them under Creative, with the presets they shape. */
-        internal val KEYS: Set<String> = setOf(KEY_KNOBS, KEY_LOCKS, KEY_PRESETS)
+        internal val KEYS: Set<String> = setOf(KEY_BANK)
+
+        /** The old six knobs' keys: removed on load, and never backed up or restored. */
+        internal val RETIRED_KEYS: Set<String> = setOf("macro_knobs", "macro_locks", "macro_presets")
 
         @Volatile private var instance: MacroStore? = null
 
@@ -131,24 +105,20 @@ class MacroStore private constructor(
                 instance ?: MacroStore(GeodePrefsFiles(context.applicationContext).general).also { instance = it }
             }
 
-        /** The built-in presets from core/viz/Macros, "As styled" first. */
-        fun starters(): List<MacroPreset> = runCatching { parsePresets(GeodeNative.macroStarters()) }.getOrDefault(emptyList())
+        fun stateOf(text: String): MacroBankState = MacroBankState(text, knobsOf(text))
 
-        /** "Name|v,v,v,v,v,v" lines; a malformed line is skipped. */
-        fun parsePresets(text: String): List<MacroPreset> =
+        /** The `knob|<id>|<value>|<name>|<hint>` rows of a bank text; anything else is skipped. */
+        fun knobsOf(text: String): List<MacroKnob> =
             text
                 .lineSequence()
                 .mapNotNull { line ->
-                    val bar = line.lastIndexOf('|')
-                    if (bar <= 0) return@mapNotNull null
-                    parseKnobs(line.substring(bar + 1))?.let { MacroPreset(line.substring(0, bar), it) }
+                    val f = line.split('|')
+                    if (f.size != KNOB_FIELDS || f[0] != "knob") return@mapNotNull null
+                    val id = f[1].toIntOrNull() ?: return@mapNotNull null
+                    val value = f[2].toFloatOrNull() ?: return@mapNotNull null
+                    MacroKnob(id, f[3], f[4], value)
                 }.toList()
 
-        fun formatPresets(presets: List<MacroPreset>): String = presets.joinToString("\n") { p -> p.name + "|" + p.knobs.joinToString(",") }
-
-        private fun parseKnobs(text: String?): List<Float>? {
-            val v = text?.split(',')?.map { it.trim().toFloatOrNull() ?: return null } ?: return null
-            return if (v.size == COUNT) v.map { it.coerceIn(-1f, 1f) } else null
-        }
+        private const val KNOB_FIELDS = 5
     }
 }

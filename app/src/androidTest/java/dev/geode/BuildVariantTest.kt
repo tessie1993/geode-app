@@ -17,7 +17,7 @@ class BuildVariantTest {
     @Test
     fun debugBuildInstallsUnderItsOwnApplicationId() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.muzviz.studiopro.debug", context.packageName)
+        assertEquals("com.beatrealms3d.app.debug", context.packageName)
     }
 
     @Test

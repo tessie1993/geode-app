@@ -3,6 +3,8 @@ package dev.geode.cast
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import dev.geode.RingLog
 import dev.geode.audio.AudioBus
 import dev.geode.data.GeodePrefsFiles
@@ -49,7 +51,7 @@ internal class CastStream(
     private val appContext = context.applicationContext
     private val prefsFiles = GeodePrefsFiles(appContext)
     private val segments = LiveSegments()
-    private val server = LiveHttpServer(segments, lanAddress(appContext) ?: error("no Wi-Fi address to serve the TV from"))
+    private val server = LiveHttpServer(segments, lanAddress(appContext) ?: throw NoLanAddress())
     private var thread: Thread? = null
 
     @Volatile
@@ -243,6 +245,9 @@ internal class CastStream(
         }
     }
 
+    /** No Wi-Fi or Ethernet network with an IPv4 address: the TV has nothing to fetch the stream from. */
+    class NoLanAddress : IllegalStateException("no Wi-Fi or Ethernet address to serve the TV from")
+
     companion object {
         const val TAG = "CastStream"
 
@@ -250,13 +255,30 @@ internal class CastStream(
         const val FROZEN_MS = 5_000L
         const val JOIN_MS = 2_000L
 
-        /** This phone's IPv4 address on the active network (the Wi-Fi the TV is on), or null. */
+        /**
+         * This phone's IPv4 address on the Wi-Fi or Ethernet the TV shares, or null. Not simply the active
+         * network: with a VPN up, or cellular preferred, that one has no address the TV can reach.
+         */
+        @Suppress("DEPRECATION") // allNetworks: the one synchronous list; a callback would make start async.
         fun lanAddress(context: Context): InetAddress? {
             val connectivity = context.getSystemService(ConnectivityManager::class.java) ?: return null
-            val links = connectivity.getLinkProperties(connectivity.activeNetwork) ?: return null
-            return links.linkAddresses
-                .map { it.address }
-                .firstOrNull { it is Inet4Address && it.isSiteLocalAddress }
+            val candidates = (listOfNotNull(connectivity.activeNetwork) + connectivity.allNetworks).distinct()
+            return candidates.firstNotNullOfOrNull { lanAddressOf(connectivity, it) }
+        }
+
+        private fun lanAddressOf(
+            connectivity: ConnectivityManager,
+            network: Network,
+        ): InetAddress? {
+            val caps = connectivity.getNetworkCapabilities(network) ?: return null
+            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) return null
+            val local = caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) || caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+            if (!local) return null
+            return connectivity
+                .getLinkProperties(network)
+                ?.linkAddresses
+                ?.map { it.address }
+                ?.firstOrNull { it is Inet4Address && it.isSiteLocalAddress }
         }
     }
 }

@@ -36,7 +36,7 @@ out vec4 fragColor;
 // turns per 1024 world units of travel (an integer multiple of CAM_SPIN_UNIT,
 // so the rig's 8192 wrap never shows). Nothing here reads uCamPos or the
 // world's z, so no other period has to fit the wrap. The dive is the rig's
-// dolly pulling the eye in; lib_zoom is not used (3D styles get one layer).
+// dolly pulling the eye in.
 //
 // ---- audio -------------------------------------------------------------------
 //

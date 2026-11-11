@@ -16,8 +16,8 @@
 // point is divergent, and the solver's pressure projection exists to remove divergence; it would cancel
 // the dive within a frame. So the solver carries the swirl, the pushes and the sound's stirring, and the
 // dive is a per-frame magnification about the vanishing point applied in the liquid's own advection,
-// MilkDrop's endless-zoom idiom: a feedback zoom never arrives and never needs EndlessZoom's two
-// octave layers, because each frame only ever samples the one before it.
+// MilkDrop's endless-zoom idiom: a feedback zoom never arrives, because each frame only ever samples
+// the one before it.
 //
 // This file is the pure part (no GL), so core/tests/liquid_test.cpp can pin it on the host.
 namespace geode::viz::liquid {
@@ -75,8 +75,8 @@ struct DiveFrame {
 
 // The dive's course: truly random each play (the user's call), so it never repeats a pattern. Every
 // few seconds it picks a new place for the vanishing point to wander to, a new surge and, now and
-// then, a twist; it eases toward each so nothing jumps. The bass reaches it through EndlessZoom's
-// musicRate (the caller multiplies it into octavesPerSecond), two fingers steer it.
+// then, a twist; it eases toward each so nothing jumps. No hit reaches it: the caller's rate is Dive
+// speed times EndlessZoom's slow follow. Two fingers steer it.
 class Dive {
 public:
     static constexpr float kWander = 0.22f;      // farthest the vanishing point wanders from centre

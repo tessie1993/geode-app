@@ -9,6 +9,9 @@ static_assert(surface::kReducedMotion == GEODE_SURFACE_REDUCED_MOTION);
 static_assert(surface::kDefaultFps == GEODE_SURFACE_DEFAULT_FPS);
 static_assert(geode::viz::stage::kCasting == GEODE_STAGE_CASTING);
 static_assert(geode::viz::stage::kCastLeadsAuto == GEODE_STAGE_CAST_LEADS_AUTO);
+static_assert(geode::viz::stage::kDisplayOn == GEODE_STAGE_DISPLAY_ON);
+static_assert(geode::viz::stage::kDisplayFailureShift == GEODE_STAGE_DISPLAY_FAILURE_SHIFT);
+static_assert(geode::viz::stage::kPresentFound == GEODE_STAGE_PRESENT_FOUND);
 
 extern "C" {
 
@@ -43,5 +46,16 @@ int geode_surface_fps_choices(int* out, int capacity) {
 }
 
 unsigned geode_stage_run(unsigned flags) { return geode::viz::stage::run(flags); }
+
+int geode_stage_display_eligible(unsigned flags) { return geode::viz::stage::displayEligible(flags) ? 1 : 0; }
+
+int geode_stage_pick_display(const int* ids, const unsigned* flags, int count, int preferred_id) {
+    if (count <= 0) return -1;
+    static_assert(sizeof(int) == sizeof(int32_t) && sizeof(unsigned) == sizeof(uint32_t));
+    return geode::viz::stage::pickDisplay(
+        reinterpret_cast<const int32_t*>(ids), reinterpret_cast<const uint32_t*>(flags), static_cast<size_t>(count), preferred_id);
+}
+
+int geode_stage_presents(unsigned flags) { return geode::viz::stage::presents(flags) ? 1 : 0; }
 
 }  // extern "C"

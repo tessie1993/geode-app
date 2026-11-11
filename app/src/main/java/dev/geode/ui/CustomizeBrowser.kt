@@ -54,10 +54,14 @@ import androidx.navigationevent.NavigationEventTransitionState
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import dev.geode.R
+import dev.geode.model.GestureTip
+import dev.geode.model.TourSpot
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.floatingGlass
+import dev.geode.ui.tour.LocalTourNudge
+import dev.geode.ui.tour.tourTarget
 
 /**
  * Where the Customize browser is: which category is open, if any. With the Visuals route
@@ -253,15 +257,21 @@ private fun CategoryList(
     nav: CustomizeNav,
     modifier: Modifier,
 ) {
+    val nudge = LocalTourNudge.current
     LazyColumn(
         state = listState,
-        modifier = modifier,
+        modifier = modifier.tourTarget(TourSpot.CUSTOMIZE_LIST),
         contentPadding =
             PaddingValues(start = GeodeSpacing.M, end = GeodeSpacing.M, top = GeodeSpacing.XS, bottom = GeodeSpacing.XL),
         verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
     ) {
         items(categories, key = { it.name }) { category ->
-            CategoryRow(category, summaryOf(category)) { nav.open(category.name) }
+            val knobs = category == CustomizeCategory.QUICK_KNOBS
+            CategoryRow(category, summaryOf(category), if (knobs) Modifier.tourTarget(TourSpot.CUSTOMIZE_KNOBS) else Modifier) {
+                // The knobs are also one swipe down on the visual, which nothing on screen says.
+                if (knobs) nudge(GestureTip.SWIPE_DOWN_KNOBS)
+                nav.open(category.name)
+            }
         }
     }
 }
@@ -273,12 +283,13 @@ private const val HALF_TURN = 180f
 private fun CategoryRow(
     category: CustomizeCategory,
     summary: String,
+    modifier: Modifier,
     onOpen: () -> Unit,
 ) {
     val shape = RoundedCornerShape(GeodeRadius.Large)
     val openLabel = stringResource(R.string.customize_a11y_open)
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
             .floatingGlass(shape = shape, elevation = 4.dp)
             .heightIn(min = ROW_HEIGHT)

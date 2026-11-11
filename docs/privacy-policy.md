@@ -4,13 +4,13 @@
 
 BeatRealms 3D ("BeatRealms", "the app") is a music player, music visualizer and music
 video studio for Android. This policy describes what the app does with your
-information. The short version: **BeatRealms collects nothing, sells nothing and has no
-servers.** Two exceptions: buying BeatRealms Pro, which Google Play handles, and the
-optional *Cast to TV*, which uses Google Cast on your own network.
+information. The short version: **the app itself collects nothing, sells nothing and has
+no servers.** Two things involve Google: buying BeatRealms Pro, which Google Play handles, and
+Google's Cast component, which sends Google anonymous usage logs (see *Cast to TV* below).
 
 ## Information the app does not collect
 
-BeatRealms does **not** collect, transmit, sell or share personal information. The app has:
+BeatRealms itself does **not** collect, transmit, sell or share personal information. The app has:
 
 - no user accounts, sign-in or registration;
 - no analytics, telemetry, crash-reporting or advertising SDKs;
@@ -91,7 +91,9 @@ Wi-Fi address, accepts short requests only, and stops when you stop casting.
   notifications Android requires while *Visualize other apps* or a video render runs.
 - **`FOREGROUND_SERVICE`** with the media-playback, media-projection, media-processing
   and data-sync types: lets playback, casting, capture and video rendering continue while
-  the app is not on screen, always with a visible notification.
+  the app is not on screen, always with a visible notification. With the microphone type,
+  only while you cast to a TV with *Live input* on: the microphone keeps driving the TV's
+  visuals with the app in the background, analysed in memory as above.
 - **`com.android.vending.BILLING`**: lets the app talk to the Google Play Store app to
   sell and restore BeatRealms Pro.
 - **`INTERNET`** and **`ACCESS_NETWORK_STATE`**: only for *Cast to TV*: to find the TV,
@@ -142,11 +144,12 @@ presets. BeatRealms never sends it anywhere; restoring reads it back from where 
 ## Children
 
 BeatRealms is not directed at children under 13. It contains no ads, no chat and no content
-from other users, and BeatRealms collects no data from anyone, including children.
+from other users, and the app itself collects no data from anyone, including children.
 
 ## Deleting your data
 
-Everything BeatRealms stores lives in its private storage. Uninstalling the app, or
+BeatRealms keeps nothing about you off your device, so there is nothing for us to delete on
+request. Everything the app stores lives in its private storage. Uninstalling the app, or
 *Settings → Apps → BeatRealms 3D → Storage → Clear data*, removes it. Your Pro
 purchase stays with your Google account and is restored automatically after reinstalling.
 Exported videos are ordinary files and are deleted like any other file.
@@ -167,4 +170,4 @@ version, it is published at the same address as before, and the date above chang
 
 ## Contact
 
-Questions about this policy: [tessie-1993@hotmail.com](mailto:tessie-1993@hotmail.com)
+Questions about this policy: [CONTACT_EMAIL](mailto:CONTACT_EMAIL)

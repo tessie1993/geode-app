@@ -67,7 +67,7 @@ internal fun DuplicatesTab(
                         .padding(horizontal = 16.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    TrackArtwork(track.uri, Modifier.size(40.dp), corner = 8.dp)
+                    TrackArtwork(track.uri, Modifier.size(40.dp), corner = 8.dp, decodeSize = 40.dp)
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(track.folder.ifBlank { track.uri }, maxLines = 1, overflow = TextOverflow.Ellipsis)

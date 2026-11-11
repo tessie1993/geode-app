@@ -1,7 +1,6 @@
 package dev.geode.ui
 
 import android.content.Context
-import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -26,36 +25,49 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.geode.data.ByteBudgetCache
 import dev.geode.playback.MediaArtwork
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.math.ceil
 
 object ArtworkCache {
-    private val NONE = Any()
+    /** Full-size art for the big views. Rows pass their own, smaller size. */
+    const val LARGE_PX = 384
 
-    private val cache = LruCache<String, Any>(40)
+    private const val MAX_MISSES = 4000
 
-    private const val ART_PX = 384
+    /** At most two cover decodes at once, so a fling can't open a retriever per visible row. */
+    private val decodeDispatcher = Dispatchers.IO.limitedParallelism(2)
+
+    // An eighth of the app's heap, as the Android bitmap-cache guide suggests, counted in bytes.
+    private val cache =
+        ByteBudgetCache<String, ImageBitmap>(Runtime.getRuntime().maxMemory() / 8, MAX_MISSES) {
+            it.width.toLong() * it.height * 4
+        }
+
+    private fun key(
+        uri: String,
+        px: Int,
+    ) = "$uri@$px"
 
     suspend fun load(
         context: Context,
         uri: String,
-    ): ImageBitmap? {
-        cache.get(uri)?.let { return if (it === NONE) null else it as ImageBitmap }
-        val decoded = withContext(Dispatchers.IO) { decode(context, uri) }
-        cache.put(uri, decoded ?: NONE)
-        return decoded
-    }
+        px: Int = LARGE_PX,
+    ): ImageBitmap? =
+        cache.get(key(uri, px)) {
+            withContext(decodeDispatcher) { MediaArtwork.decodeEmbedded(context, uri, px)?.asImageBitmap() }
+        }
 
-    fun peek(uri: String): ImageBitmap? = cache.get(uri)?.takeIf { it !== NONE } as? ImageBitmap
-
-    private fun decode(
-        context: Context,
+    fun peek(
         uri: String,
-    ): ImageBitmap? = MediaArtwork.decodeEmbedded(context, uri, ART_PX)?.asImageBitmap()
+        px: Int = LARGE_PX,
+    ): ImageBitmap? = cache.peek(key(uri, px))
 }
 
 @Composable
@@ -63,12 +75,15 @@ fun TrackArtwork(
     uri: String?,
     modifier: Modifier = Modifier,
     corner: Dp = 14.dp,
+    decodeSize: Dp? = null,
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
+    val px = decodeSize?.let { with(density) { ceil(it.toPx()).toInt() } } ?: ArtworkCache.LARGE_PX
     val inspecting = LocalInspectionMode.current
-    var art by remember(uri) { mutableStateOf(uri?.let(ArtworkCache::peek)) }
-    LaunchedEffect(uri) {
-        if (uri != null && art == null && !inspecting) art = ArtworkCache.load(context, uri)
+    var art by remember(uri, px) { mutableStateOf(uri?.let { ArtworkCache.peek(it, px) }) }
+    LaunchedEffect(uri, px) {
+        if (uri != null && art == null && !inspecting) art = ArtworkCache.load(context, uri, px)
     }
     Box(
         modifier.clip(

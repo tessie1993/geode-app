@@ -177,7 +177,8 @@ private:
     void admitScene(const std::string& id, const Scene& scene);
     // Releases the built scenes SceneResidency says are over budget; `keepId` is pinned beside the
     // ones in use this frame.
-    void trimScenes(const std::string& keepId);
+    // `trim` other than None drops every spare (#854), whatever the thermal tier would keep.
+    void trimScenes(const std::string& keepId, MemoryTrim trim = MemoryTrim::None);
     std::unique_ptr<Scene> buildScene(const std::string& id);
     float beginFrame(double timeSeconds);
     // Steps styleSchedule_ once per frame (after the sound engine) and requests its change, if any.
@@ -404,6 +405,7 @@ private:
     int renderWidth_ = 1;
     int renderHeight_ = 1;
     ThermalTier appliedTier_ = ThermalTier::Full;
+    uint32_t seenTrim_ = 0;  // the SceneResidency trim signal generation this renderer acted on (GL thread)
     double lastTimeS_ = -1.0;
     double frameNowS_ = 0.0;
     float timeSeconds_ = 0.0f;

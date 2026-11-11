@@ -198,6 +198,12 @@ data class SceneParams(
     val liquidSurface: Int = 0,
     /** Camera travel on the flat styles: how far Fly speed (its sign too) dives the picture in or out. 0 off .. 1. */
     val camFlat: Float = 0f,
+    /** Your colours: the first palette's own stops, packed 0xRRGGBB, set from the first; [NO_STOP] unset (core/viz/Colour.hpp). */
+    val paletteStop0: Int = NO_STOP,
+    val paletteStop1: Int = NO_STOP,
+    val paletteStop2: Int = NO_STOP,
+    val paletteStop3: Int = NO_STOP,
+    val paletteStop4: Int = NO_STOP,
 ) {
     companion object {
         const val UNSET_OVERRIDE: Float = -1f
@@ -205,6 +211,8 @@ data class SceneParams(
         const val NO_CUSTOM_PALETTE: String = ""
 
         const val NO_PALETTE_LUT: Int = -1
+
+        const val NO_STOP: Int = -1
 
         val CYCLIC_PALETTES: List<String> = dev.geode.render.CyclicPalettes.NAMES
 
@@ -216,35 +224,8 @@ data class SceneParams(
                 "customPalette2Id" to "which saved palette slot 2 uses; rendering reads the resolved hues",
             )
 
-        /**
-         * The built-in palettes' names, in `palette` index order: labels only. Each one's hue base and
-         * span are native (`core/viz/Params`, read through [paletteBase] and friends), and the params
-         * schema's `palette` range is this list's length (`ParamSchemaTest`).
-         */
-        val PALETTES: List<String> =
-            listOf(
-                "Spectrum",
-                "Neon",
-                "Fire",
-                "Ocean",
-                "Mono",
-                "Candy",
-                "Forest",
-                "Aurora",
-                "Sunset",
-                "Ice",
-                "Vapor",
-                "Toxic",
-                "Royal",
-                "Blush",
-                "Copper",
-                "Mint",
-                "Galaxy",
-                "Cherry",
-                "Cyan",
-                "Magenta",
-                "Yellow",
-            )
+        /** The built-in palettes' names, in `palette` index order: labels only, from the native params schema. */
+        val PALETTES: List<String> get() = ParamSchema.paletteNames
 
         val PARTICLE_SHAPES: List<String> = listOf("Dot", "Ring", "Star", "Square", "Spark", "Hex", "Bubble")
 
@@ -263,7 +244,10 @@ data class SceneParams(
     }
 
     val usesCustomPalette: Boolean
-        get() = paletteBaseOverride >= 0f || paletteRangeOverride >= 0f
+        get() = paletteBaseOverride >= 0f || paletteRangeOverride >= 0f || paletteStop0 != NO_STOP
+
+    val paletteStops: List<Int>
+        get() = listOf(paletteStop0, paletteStop1, paletteStop2, paletteStop3, paletteStop4).takeWhile { it != NO_STOP }
 
     val usesCustomPalette2: Boolean
         get() = palette2BaseOverride >= 0f || palette2RangeOverride >= 0f
@@ -290,10 +274,13 @@ data class SceneParams(
                 customPalette2Id = NO_CUSTOM_PALETTE,
             )
         } else {
-            copy(
-                paletteBaseOverride = UNSET_OVERRIDE,
-                paletteRangeOverride = UNSET_OVERRIDE,
-                customPaletteId = NO_CUSTOM_PALETTE,
-            )
+            copy(paletteBaseOverride = UNSET_OVERRIDE, paletteRangeOverride = UNSET_OVERRIDE, customPaletteId = NO_CUSTOM_PALETTE)
+                .withPaletteStops(emptyList())
         }
+
+    /** Your colours in the stop fields, the first [colours] in order (at most five), the rest unset. */
+    fun withPaletteStops(colours: List<Int>): SceneParams {
+        val s = List(5) { colours.getOrElse(it) { NO_STOP } }
+        return copy(paletteStop0 = s[0], paletteStop1 = s[1], paletteStop2 = s[2], paletteStop3 = s[3], paletteStop4 = s[4])
+    }
 }

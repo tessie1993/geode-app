@@ -24,12 +24,17 @@ enum class Tab { Shape, Color, Motion, Fx, Reactivity, Scene, Fluid, Cymatics };
 // The lock and roll key of the style's reaction DNA seed (the Reactivity tab's Re-roll button).
 constexpr const char* kReactionDna = "Reaction DNA";
 
+// The most fields one control writes. It was 3 while the widest were Palette and Palette 2 (an index
+// and its two hue overrides); Palette now also owns your colours' five stops (paletteStop0..4).
+inline constexpr size_t kMaxRollFields = 8;
+
 struct RolledKey {
     Tab tab;
     const char* key;
     // The SceneParams fields the roll writes (Kotlin property names), in wire order; nullptr past the
-    // last. They are the live rows whose meta row is labelled `key` (viz/ParamTable.inc).
-    std::array<const char*, 3> fields;
+    // last. They are the live rows whose meta row is labelled `key` (viz/ParamTable.inc), at most
+    // kMaxRollFields of them (params_schema_test holds every label to it).
+    std::array<const char*, kMaxRollFields> fields;
 };
 
 // Every rolled control in roll order, tab by tab.

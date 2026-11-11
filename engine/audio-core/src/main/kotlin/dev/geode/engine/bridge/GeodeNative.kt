@@ -833,6 +833,48 @@ object GeodeNative {
         override: Float,
     ): Float
 
+    /** Your colours (core/viz/Colour.hpp): a packed 0xRRGGBB from hue (wraps), saturation and value (`geode_colour_from_hsv`). Pure. */
+    external fun colourFromHsv(
+        h: Float,
+        s: Float,
+        v: Float,
+    ): Int
+
+    /** Hue, saturation and value (0..1) of a packed 0xRRGGBB into [out] (`geode_colour_to_hsv`). Pure. */
+    external fun colourToHsv(
+        rgb: Int,
+        out: FloatArray,
+    )
+
+    /** "#RRGGBB", "RRGGBB", "#RGB" or "RGB" as a packed colour, -1 if it is none (`geode_colour_parse_hex`). Pure. */
+    external fun colourParseHex(text: String): Int
+
+    /** A packed colour as "#RRGGBB" (`geode_colour_hex`). Pure. */
+    external fun colourHex(rgb: Int): String
+
+    /** The mean of an Android bitmap's ARGB pixels, alpha ignored: the eyedropper (`geode_colour_average_argb`). Pure. */
+    external fun colourAverageArgb(argb: IntArray): Int
+
+    /** [samples] colours along your colours' loop through [stops] (`geode_palette_ramp`). Pure. */
+    external fun paletteRamp(
+        stops: IntArray,
+        samples: Int,
+    ): IntArray
+
+    /** A hue gradient as [count] (<= 5) stops, where the loop puts them (`geode_palette_stops_from_hues`). Pure. */
+    external fun paletteStopsFromHues(
+        base: Float,
+        range: Float,
+        count: Int,
+    ): IntArray
+
+    /** [samples] colours of what a params frame's slot paints, its stops or its hue ramp (`geode_params_palette_preview`). Pure. */
+    external fun paramsPalettePreview(
+        params: FloatArray,
+        second: Boolean,
+        samples: Int,
+    ): IntArray
+
     /**
      * The config params schema (core/viz/ConfigTable.inc) as its versioned line table: per row the group
      * (lfo, adsr, macro, palette, look, clip, theme), its index in the group, name, kind, default, control

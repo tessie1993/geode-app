@@ -6,6 +6,7 @@
 
 #include "util/Log.hpp"
 #include "viz/Catalogue.hpp"
+#include "viz/Colour.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 #include "viz/world/WorldAssets.hpp"
@@ -158,6 +159,19 @@ void ShaderScene::uploadParams() {
     set1f("uPal2Base", p.palette2Base());
     set1f("uPal2Range", p.palette2Range());
     set1f("uPaletteMix", p.paletteMix);
+    {
+        const auto stops = p.paletteStops();
+        const int count = p.paletteStopCount();
+        std::array<float, 3 * colour::kMaxStops> rgb{};
+        for (int i = 0; i < count; ++i) {
+            const colour::Rgb c = colour::unpack(stops[static_cast<size_t>(i)]);
+            rgb[static_cast<size_t>(3 * i)] = c.r;
+            rgb[static_cast<size_t>(3 * i + 1)] = c.g;
+            rgb[static_cast<size_t>(3 * i + 2)] = c.b;
+        }
+        set1f("uPalStopCount", static_cast<float>(count));
+        glUniform3fv(uniforms_.loc("uPalStops"), colour::kMaxStops, rgb.data());
+    }
     set1f("uDuotone", flag(p.duotone));
     set1f("uBloom", p.bloom);
     set1f("uWarp", p.warp);

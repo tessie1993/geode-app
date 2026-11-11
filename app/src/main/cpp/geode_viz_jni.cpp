@@ -16,6 +16,15 @@
 
 namespace {
 
+// A palette swatch's colours as a Java int[]; at most kMaxSwatch, which no swatch needs more of.
+jintArray toJava(JNIEnv* env, const std::vector<int>& values) {
+    jintArray out = env->NewIntArray(static_cast<jsize>(values.size()));
+    if (out) env->SetIntArrayRegion(out, 0, static_cast<jsize>(values.size()), reinterpret_cast<const jint*>(values.data()));
+    return out;
+}
+constexpr jint kMaxSwatch = 256;
+
+
 using geode::jni::FloatElements;
 using geode::jni::Utf8Chars;
 
@@ -768,6 +777,66 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsPaletteBase(JNIEnv*, jobject, jin
 JNIEXPORT jfloat JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_paramsPaletteRange(JNIEnv*, jobject, jint palette, jfloat override) {
     return geode_params_palette_range(palette, override);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_colourFromHsv(JNIEnv*, jobject, jfloat h, jfloat s, jfloat v) {
+    return geode_colour_from_hsv(h, s, v);
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_colourToHsv(JNIEnv* env, jobject, jint rgb, jfloatArray out) {
+    if (!out || env->GetArrayLength(out) < 3) return;
+    float hsv[3];
+    geode_colour_to_hsv(rgb, hsv);
+    env->SetFloatArrayRegion(out, 0, 3, hsv);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_colourParseHex(JNIEnv* env, jobject, jstring text) {
+    Utf8Chars chars(env, text);
+    return geode_colour_parse_hex(chars.get());
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_colourHex(JNIEnv* env, jobject, jint rgb) {
+    return env->NewStringUTF(geode_colour_hex(rgb));
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_colourAverageArgb(JNIEnv* env, jobject, jintArray argb) {
+    if (!argb) return -1;
+    const jsize n = env->GetArrayLength(argb);
+    std::vector<int32_t> px(static_cast<size_t>(n));
+    env->GetIntArrayRegion(argb, 0, n, reinterpret_cast<jint*>(px.data()));
+    return geode_colour_average_argb(px.data(), n);
+}
+
+JNIEXPORT jintArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paletteRamp(JNIEnv* env, jobject, jintArray stops, jint samples) {
+    const jsize n = stops ? std::min<jsize>(env->GetArrayLength(stops), 5) : 0;
+    int in[5] = {-1, -1, -1, -1, -1};
+    if (n > 0) env->GetIntArrayRegion(stops, 0, n, reinterpret_cast<jint*>(in));
+    std::vector<int> out(static_cast<size_t>(std::clamp<jint>(samples, 0, kMaxSwatch)));
+    geode_palette_ramp(in, n, static_cast<int>(out.size()), out.data());
+    return toJava(env, out);
+}
+
+JNIEXPORT jintArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paletteStopsFromHues(JNIEnv* env, jobject, jfloat base, jfloat range, jint count) {
+    std::vector<int> out(static_cast<size_t>(std::clamp<jint>(count, 0, 5)));
+    geode_palette_stops_from_hues(base, range, static_cast<int>(out.size()), out.data());
+    return toJava(env, out);
+}
+
+JNIEXPORT jintArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsPalettePreview(JNIEnv* env, jobject, jfloatArray params, jboolean second, jint samples) {
+    std::vector<int> out(static_cast<size_t>(std::clamp<jint>(samples, 0, kMaxSwatch)));
+    if (!params || env->GetArrayLength(params) < geode_viz_param_count()) return toJava(env, out);
+    std::vector<float> wire(static_cast<size_t>(env->GetArrayLength(params)));
+    env->GetFloatArrayRegion(params, 0, static_cast<jsize>(wire.size()), wire.data());
+    geode_params_palette_preview(wire.data(), second ? 1 : 0, static_cast<int>(out.size()), out.data());
+    return toJava(env, out);
 }
 
 JNIEXPORT jfloat JNICALL

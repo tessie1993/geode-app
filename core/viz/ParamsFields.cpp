@@ -90,6 +90,8 @@ const std::string& SceneParams::schemaText() {
                    "|" + tableNumber(s.min) + "|" + tableNumber(s.max) + "|" + (s.fade == ParamFade::Fade ? "FADE" : "HOLD") +
                    (retired(static_cast<ParamSlot>(slot)) ? "|RETIRED\n" : "|LIVE\n");
         }
+        // The built-in palettes' names: Customize's labels for the `palette` index, so Kotlin keeps no copy.
+        for (size_t i = 0; i < palettes().size(); ++i) out += "palette|" + std::to_string(i) + "|" + palettes()[i].name + "\n";
         return out;
     }();
     return kText;

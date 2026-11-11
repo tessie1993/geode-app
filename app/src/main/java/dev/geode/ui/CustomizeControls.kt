@@ -91,7 +91,7 @@ private fun LookControl(
         ParamKeys.BLOOM -> LabeledSlider(key, p, SceneParams::bloom, display = "Glow") { onChange(p.copy(bloom = it)) }
         ParamKeys.PALETTE_2 ->
             if (p.paletteMix > PALETTE_MIX_SHOWN && visible(key, ParamScope.SHADER_LOOK)) {
-                ProGated(key) { PaletteDropdown(key, "Second palette", p, onChange, rememberSavedPalettes(), second = true) }
+                ProGated(key) { SecondPaletteStepper(p, onChange) }
             }
         ParamKeys.PALETTE_BLEND -> LabeledSlider(key, p, SceneParams::paletteMix) { onChange(p.copy(paletteMix = it)) }
         ParamKeys.COLOUR_MAP ->
@@ -519,7 +519,13 @@ private fun PanelPiece(
             val macros by store.state.collectAsStateWithLifecycle()
             ProGated(id, stringResource(R.string.macro_editor_title)) { MacroEditor(macros, store, viz.sceneId) }
         }
-        "@palette_maker" -> ProGated(id, "Make a palette") { if (sectionVisible()) PaletteMakerCard(p, onChange, rememberSavedPalettes()) }
+        "@palette_maker" ->
+            if (sectionVisible()) {
+                ProGated(
+                    id,
+                    stringResource(R.string.customize_your_colours),
+                ) { YourColoursCard(host, p, onChange, rememberSavedPalettes()) }
+            }
         "@auto_moments" -> DirectorSwitch()
         "@moments" -> {
             val reactions by vm.reactions.collectAsStateWithLifecycle()
@@ -606,7 +612,7 @@ private fun PaletteControl(
     }
     if (visible(ParamKeys.PALETTE, ParamScope.UNIVERSAL)) {
         ProGated(ParamKeys.PALETTE) {
-            PaletteDropdown(ParamKeys.PALETTE, ParamKeys.PALETTE, p, onChange, rememberSavedPalettes(), second = false)
+            PaletteDropdown(ParamKeys.PALETTE, p, onChange, rememberSavedPalettes())
         }
     }
 }

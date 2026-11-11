@@ -401,7 +401,7 @@ private sealed interface PresetDialog {
  * row never wraps to a second line on a phone.
  */
 @Composable
-private fun PresetsToolbar(
+internal fun PresetsToolbar(
     openFolder: String?,
     onSave: () -> Unit,
     onPaste: () -> Unit,
@@ -420,7 +420,8 @@ private fun PresetsToolbar(
         Button(onClick = onSave, modifier = Modifier.weight(1f)) {
             Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-            Text("Save current look", maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // Wraps instead of cutting to "Save curr…" at a large font (#866).
+            Text(stringResource(R.string.presets_save_current_look))
         }
         Box {
             FilledTonalButton(onClick = { importOpen = true }) { Text("Import") }

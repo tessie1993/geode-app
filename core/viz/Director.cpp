@@ -450,22 +450,32 @@ SceneParams Director::apply(const SceneParams& p, bool palWheel) const {
     // A build contracts the palette toward one hue (Huron's ITPRA: tension narrows), the drop releases it.
     const float range = L.range * (1.0f - 0.5f * buildUp_);
 
-    const float userHue = palHue(p.paletteBase(), p.paletteRange(), palWheel);
-    const float userHue2 = palHue(p.palette2Base(), p.palette2Range(), palWheel);
-    const float hue = mixHue(userHue, L.hue, a);
-    const float r1 = lerp(p.paletteRange(), range, a);
-    const float hue2 = mixHue(userHue2, L.hue2, a);
-    const float r2 = lerp(p.palette2Range(), L.range2, a);
-    o.paletteBaseOverride = palBase(hue, r1, palWheel);
-    o.paletteRangeOverride = std::max(r1, 0.0f);
-    o.palette2BaseOverride = palBase(hue2, r2, palWheel);
-    o.palette2RangeOverride = std::max(r2, 0.0f);
-    if (a > 0.5f) o.paletteLut = SceneParams::kNoPaletteLut;
+    // The palette, like the dials below, is base plus modulation: the look turns the user's palette
+    // by its own distance from the default one, so picking another palette still changes the picture
+    // with Auto on. Blending to the look's hue outright made the palette pickers dead at full weight.
+    // A palette the user built (a LUT) is theirs whole: the look leaves it alone.
+    static const SceneParams kDefaults{};
+    if (p.paletteLut == SceneParams::kNoPaletteLut) {
+        const auto turn = [](float from, float to) {
+            const float d = wrap01(to - from);
+            return d > 0.5f ? d - 1.0f : d;
+        };
+        const auto widen = [a](float user, float look, float base) { return std::max(user + a * (look - base), 0.0f); };
+        const float baseHue = palHue(kDefaults.paletteBase(), kDefaults.paletteRange(), palWheel);
+        const float baseHue2 = palHue(kDefaults.palette2Base(), kDefaults.palette2Range(), palWheel);
+        const float hue = wrap01(palHue(p.paletteBase(), p.paletteRange(), palWheel) + a * turn(baseHue, L.hue));
+        const float hue2 = wrap01(palHue(p.palette2Base(), p.palette2Range(), palWheel) + a * turn(baseHue2, L.hue2));
+        const float r1 = widen(p.paletteRange(), range, kDefaults.paletteRange());
+        const float r2 = widen(p.palette2Range(), L.range2, kDefaults.palette2Range());
+        o.paletteBaseOverride = palBase(hue, r1, palWheel);
+        o.paletteRangeOverride = r1;
+        o.palette2BaseOverride = palBase(hue2, r2, palWheel);
+        o.palette2RangeOverride = r2;
+    }
     // The dials: base plus modulation. The look is what the director would make of an untouched
     // style, so it is added as its distance from the default; a slider the user moved keeps its
     // whole offset. Blending toward the look instead ignored the slider at full weight, which is
     // every Pro and trial play: Brightness and Saturation stopped answering while Auto was on.
-    static const SceneParams kDefaults{};
     // Held to the dial's own range (ParamTable.inc): a low slider under a look below the default
     // would otherwise go negative, and a negative saturation inverts the colour.
     const auto over = [a](float user, float look, float base, float lo = 0.0f, float hi = 1.0f) {

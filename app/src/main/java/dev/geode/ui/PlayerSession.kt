@@ -598,8 +598,6 @@ class PlayerSession internal constructor(
 
     val playbackNotice: StateFlow<String?> = _playbackNotice
 
-    private var consecutivePlaybackFailures = 0
-
     fun clearPlaybackNotice() {
         _playbackNotice.value = null
     }
@@ -880,33 +878,13 @@ class PlayerSession internal constructor(
                 }
 
                 override fun onPlayerError(error: PlaybackException) {
-                    consecutivePlaybackFailures++
-                    val failed =
-                        player.currentMediaItem
-                            ?.mediaMetadata
-                            ?.title
-                            ?.toString()
-                    val action =
-                        PlaybackErrors.decide(
-                            consecutivePlaybackFailures,
-                            hasNext = player.hasNextMediaItem(),
-                        )
-                    _playbackNotice.value = PlaybackErrors.describe(error.errorCode, failed, action)
-                    when (action) {
-                        PlaybackErrors.Action.SkipToNext -> {
-                            player.seekToNextMediaItem()
-                            player.prepare()
-                        }
-
-                        PlaybackErrors.Action.StopEndOfQueue,
-                        PlaybackErrors.Action.StopSourceUnavailable,
-                        -> player.pause()
-                    }
+                    // The session has already skipped or stopped (PlaybackErrorRecovery); say what happened.
+                    val failure = playback.errors.last ?: return
+                    _playbackNotice.value = PlaybackErrors.describe(failure.errorCode, failure.title, failure.action)
                 }
 
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     if (!isPlaying) return
-                    consecutivePlaybackFailures = 0
                     if (captureController.micActive) setMicEnabled(false)
                     if (externalAudio.value.active) stopExternalAudio()
                     fades.ensureAudibleAfterExternalPlay()

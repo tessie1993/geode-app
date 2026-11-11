@@ -126,7 +126,12 @@ class PlaybackSession internal constructor(
     /** Bumps once per recorded play; the UI's history tick follows it. */
     val playsRecorded = recorder.plays
 
+    /** Skips or stops on a track that will not play, with or without the UI; the UI reads what it did. */
+    val errors = PlaybackErrorRecovery(player)
+
     init {
+        // First, so the UI's own listener, added later, finds the failure already handled.
+        player.addListener(errors)
         player.addListener(replayGain)
         player.addListener(autoDirector)
         player.addListener(crossfade)

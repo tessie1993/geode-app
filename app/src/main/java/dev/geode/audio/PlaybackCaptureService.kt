@@ -51,7 +51,7 @@ class PlaybackCaptureService : Service() {
             }
         if (!inForeground) return START_NOT_STICKY
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0
-        val data = intent?.let { IntentCompat.projectionData(it) }
+        val data = intent?.getParcelableExtra(EXTRA_RESULT_DATA, Intent::class.java)
         if (resultCode == 0 || data == null) {
             MediaProjectionHolder.noteStartFailure()
             stopSelf()
@@ -87,18 +87,16 @@ class PlaybackCaptureService : Service() {
 
     private fun startForegroundNotification() {
         val manager = getSystemService(NotificationManager::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            manager.createNotificationChannel(
-                NotificationChannel(
-                    CHANNEL_ID,
-                    getString(dev.geode.R.string.capture_channel_name),
-                    NotificationManager.IMPORTANCE_LOW,
-                ).apply {
-                    description = getString(dev.geode.R.string.capture_channel_description)
-                    setShowBadge(false)
-                },
-            )
-        }
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_ID,
+                getString(dev.geode.R.string.capture_channel_name),
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                description = getString(dev.geode.R.string.capture_channel_description)
+                setShowBadge(false)
+            },
+        )
         val open =
             android.app.PendingIntent.getActivity(
                 this,
@@ -133,16 +131,6 @@ class PlaybackCaptureService : Service() {
         }
     }
 
-    private object IntentCompat {
-        @Suppress("DEPRECATION")
-        fun projectionData(intent: Intent): Intent? =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                intent.getParcelableExtra(EXTRA_RESULT_DATA, Intent::class.java)
-            } else {
-                intent.getParcelableExtra(EXTRA_RESULT_DATA)
-            }
-    }
-
     companion object {
         private const val CHANNEL_ID = "geode-capture"
         private const val NOTIFICATION_ID = 42
@@ -155,7 +143,6 @@ class PlaybackCaptureService : Service() {
             resultCode: Int,
             data: Intent,
         ) {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
             val intent =
                 Intent(context, PlaybackCaptureService::class.java)
                     .putExtra(EXTRA_RESULT_CODE, resultCode)

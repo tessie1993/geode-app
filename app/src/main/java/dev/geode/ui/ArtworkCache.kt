@@ -58,9 +58,9 @@ object ArtworkCache {
         uri: String,
     ): ImageBitmap? {
         cache.get(uri)?.let { return if (it === NONE) null else it as ImageBitmap }
-        val decoded = withContext(Dispatchers.IO) { decode(context, uri) }
-        cache.put(uri, decoded ?: NONE)
-        return decoded
+        // Cached on the IO side: a row that scrolls away cancels this call, and the finished decode
+        // would otherwise be thrown away and redone on the way back.
+        return withContext(Dispatchers.IO) { decode(context, uri).also { cache.put(uri, it ?: NONE) } }
     }
 
     fun peek(uri: String): ImageBitmap? = cache.get(uri)?.takeIf { it !== NONE } as? ImageBitmap

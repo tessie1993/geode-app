@@ -4,7 +4,6 @@ import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
-import android.os.Build
 import android.provider.MediaStore
 
 data class StudioClip(
@@ -35,16 +34,8 @@ object StudioClips {
                 MediaStore.Video.Media.WIDTH,
                 MediaStore.Video.Media.HEIGHT,
             )
-        val selection =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                "${MediaStore.Video.Media.RELATIVE_PATH} LIKE ?"
-            } else {
-                "${MediaStore.Video.Media.DATA} LIKE ?"
-            }
-        val args =
-            arrayOf(
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) "Movies/MuzViz%" else "%/Movies/MuzViz/%",
-            )
+        val selection = "${MediaStore.Video.Media.RELATIVE_PATH} LIKE ?"
+        val args = arrayOf("Movies/MuzViz%")
         runCatching {
             context.contentResolver
                 .query(
@@ -241,20 +232,13 @@ object StudioClips {
         context: Context,
         uri: Uri,
     ): String? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
         val projection = arrayOf(MediaStore.Video.Media.DISPLAY_NAME)
         return runCatching {
-            val cursor =
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    val args =
-                        android.os.Bundle().apply {
-                            putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE)
-                        }
-                    context.contentResolver.query(uri, projection, args, null)
-                } else {
-                    @Suppress("DEPRECATION")
-                    context.contentResolver.query(MediaStore.setIncludePending(uri), projection, null, null, null)
+            val args =
+                android.os.Bundle().apply {
+                    putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE)
                 }
+            val cursor = context.contentResolver.query(uri, projection, args, null)
             cursor?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
         }.getOrNull()
     }

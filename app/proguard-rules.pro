@@ -27,7 +27,7 @@
 # reflective renderer lookup also touches platform audiofx wrappers.
 # Both rules are wider than they need to be (the dontwarn now also hides
 # media3-cast and media3-muxer warnings); narrow them only with a device check
-# of playback, since they sit on the audio path (docs/play/R8_KEEP_RULES.md).
+# of playback, since they sit on the audio path.
 -dontwarn androidx.media3.**
 -keep class androidx.media3.exoplayer.audio.** { *; }
 

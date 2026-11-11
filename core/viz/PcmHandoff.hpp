@@ -82,6 +82,33 @@ private:
     float heldSum_ = 0.0f;
 };
 
+// When the raw PCM stops (paused, starved, the source gone), projectM keeps redrawing the last block it
+// was given: its waveform freezes and its spectrum stays lit. MilkDrop itself draws a flat line then.
+// tick() says, once per gap, that the engine should be handed silence: after kSeconds without samples,
+// the same wait core/sound's engine gives a starved source.
+class PcmStarve {
+public:
+    static constexpr float kSeconds = 0.25f;
+
+    bool tick(bool gotSamples, float dt) {
+        if (gotSamples) {
+            quietS_ = 0.0f;
+            flushed_ = false;
+            return false;
+        }
+        if (flushed_) return false;
+        quietS_ += std::max(dt, 0.0f);
+        if (quietS_ < kSeconds) return false;
+        flushed_ = true;
+        return true;
+    }
+
+private:
+    float quietS_ = 0.0f;
+    // Starts true: an engine that was never fed holds silence already.
+    bool flushed_ = true;
+};
+
 // The peak of the newest PCM block, decaying per second.
 class PcmPulse {
 public:

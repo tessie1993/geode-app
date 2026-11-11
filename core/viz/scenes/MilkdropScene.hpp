@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "viz/Framebuffer.hpp"
+#include "viz/PcmHandoff.hpp"
 #include "viz/Program.hpp"
 #include "viz/Scene.hpp"
 #include "viz/scenes/ProgramLoader.hpp"
@@ -73,6 +74,15 @@ private:
     SceneHost host_;
     std::vector<float> pcm_;
     int pcmCount_ = 0;
+    PcmStarve pcmStarve_;
+    // The frame rate presets read as `fps`, and an export's render clock (seconds since this engine's
+    // first frame): projectM otherwise runs on the wall clock, so a render's speed would follow the encoder.
+    int engineFps_ = 0;
+    double engineClockS_ = 0.0;
+    // The texture search paths the engine was last given; setting them rebuilds its texture manager.
+    std::vector<std::string> textureDirs_;
+    // Set by a reload (under presetLock_): the next load hands the paths over again.
+    bool rescanTextures_ = false;
     Engine engine_;
     // Whether engine_ holds a preset of ours. A new engine starts on projectM's idle preset, which
     // the app never shows: until this is set the scene draws black, and the first load is a hard

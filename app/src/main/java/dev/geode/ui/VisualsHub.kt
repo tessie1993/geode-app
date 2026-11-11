@@ -119,6 +119,11 @@ internal fun VisualsHub(
             nav.showSheet()
         }
     }
+    val customizing = !pip && nav.sheetShown && nav.top == VisualsPage.CUSTOMIZE
+    DisposableEffect(customizing) {
+        viewModel.setCustomizing(customizing)
+        onDispose { viewModel.setCustomizing(false) }
+    }
     val stepStyle: (Int) -> Unit = { step ->
         nextStageStyle(stageStyleOrder(), viz.sceneId, step) { !gate.allowsStyle(it) }?.let(viewModel::selectScene)
     }

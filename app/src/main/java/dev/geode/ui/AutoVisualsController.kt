@@ -47,6 +47,20 @@ internal class AutoVisualsController(
     /** The style and params as Auto last left them; a difference at the next moment is the user's hand. */
     private var leftAs: Pair<String, SceneParams>? = null
 
+    /**
+     * Customize is open. Auto holds every change meanwhile (a moment, the timer, the playlist), as
+     * MilkDrop locks the preset while a menu is up, and its timers start over when it closes.
+     */
+    var editing = false
+        set(value) {
+            if (field && !value) {
+                val now = android.os.SystemClock.elapsedRealtime()
+                lastVizSwitchMs = now
+                lastRandomSwitchMs = now
+            }
+            field = value
+        }
+
     fun addToVizPlaylist(entry: VizPlaylistEntry) {
         val s = host.vizState.value
         val duplicate =
@@ -106,7 +120,7 @@ internal class AutoVisualsController(
 
     fun advanceVizPlaylist() {
         val s = host.vizState.value
-        if (!s.vizPlaylistEnabled || s.vizPlaylist.size < 2 || !host.isPlaying) return
+        if (editing || !s.vizPlaylistEnabled || s.vizPlaylist.size < 2 || !host.isPlaying) return
         val now = android.os.SystemClock.elapsedRealtime()
         if (now - lastVizSwitchMs < s.vizPlaylistIntervalSec * 1000L) return
         lastVizSwitchMs = now
@@ -178,7 +192,7 @@ internal class AutoVisualsController(
      * minute for free), so the style changes follow the same rule.
      */
     fun onDirectorMoment() {
-        if (!host.isPlaying) return
+        if (editing || !host.isPlaying) return
         // A style picked or a control moved since Auto's last change: this moment is the user's
         // (MilkDrop restarts its timer on a manual load and holds while a menu is up). While they
         // keep editing every moment is skipped; Auto picks up again at the first one after they stop.
@@ -192,7 +206,7 @@ internal class AutoVisualsController(
 
     fun advanceRandomMode() {
         val s = host.vizState.value
-        if (!s.randomEnabled || !host.isPlaying) return
+        if (editing || !s.randomEnabled || !host.isPlaying) return
         if (android.os.SystemClock.elapsedRealtime() - lastRandomSwitchMs < s.randomIntervalSec * 1000L) return
         randomStepNow()
     }

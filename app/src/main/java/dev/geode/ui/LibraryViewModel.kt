@@ -223,8 +223,6 @@ class LibraryViewModel
 
         fun rescanMediaRoots() = session.rescanMediaRoots()
 
-        fun trackOverride(uri: String): LibraryTrack? = session.trackOverride(uri)
-
         suspend fun trackInfoFor(uriStr: String): LibraryTrack = session.trackInfoFor(uriStr)
 
         fun saveTrackInfo(

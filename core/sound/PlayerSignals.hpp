@@ -26,8 +26,8 @@ namespace geode::sound::player {
 //
 // Process-wide and latched like the macro bank and the director: written on the main thread, read once per
 // frame on each GL thread. An export renderer reads none of them (Renderer::beginFrame): a render has its
-// own track, no player fades, and counts as the player. One flag for the process: a wallpaper hearing the
-// output mix (wallpaper/OutputMixCapture, its own ring) still reads the app ring's source.
+// own track, no player fades, and counts as the player. The flags are the app ring's: a renderer fed another
+// ring (the wallpaper's output mix, wallpaper/OutputMixCapture) hears no player at all (heardAsPlayer).
 //
 // Group C's native ring (core/audio/ingest) carries an epoch with every write; once it lands, the ring can
 // stamp the first sample of the new track with the epoch trackBoundary() returns, so the reset lands on
@@ -62,6 +62,13 @@ inline Boundary boundary() {
 // The player's fade gain as it pushes it; SoundEngine::setFadeGain clamps it into 0..1.
 inline void setFadeGain(float gain) { detail::gFadeGain.store(gain, std::memory_order_relaxed); }
 inline float fadeGain() { return detail::gFadeGain.load(std::memory_order_relaxed); }
+
+// Whether a live renderer's engine hears the player: only on the player's own ring (the one its sink plays,
+// so a playout clock is attached), while the player writes it, and not while the renderer hears its layer
+// (the mic) alone. Else the engine's source is the mic or another app: silence re-warms, no fade, no boundary.
+inline bool heardAsPlayer(bool playersRing, bool playerWrites, bool layerAlone) {
+    return playersRing && playerWrites && !layerAlone;
+}
 
 inline void setPlayerIsSource(bool on) { detail::gPlayerIsSource.store(on, std::memory_order_relaxed); }
 inline bool playerIsSource() { return detail::gPlayerIsSource.load(std::memory_order_relaxed); }

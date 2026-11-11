@@ -39,9 +39,9 @@ sealed interface FrameRatePolicy {
      * Honoured by dividing the vsync cadence by a whole number, so drawn frames stay evenly
      * spaced. A fractional divide is deliberately refused: asking a 90 Hz panel for 60 fps by
      * alternating 11 ms and 22 ms frames averages out on paper and reads as judder in the eye,
-     * and uneven pacing is more visible to users than a higher steady rate. When the divide is
-     * not whole the pacer stays at the panel rate and leaves the reduction to
-     * [Surface.setFrameRate], which can ask the system for a seamless mode change instead.
+     * and uneven pacing is more visible to users than a steady rate. When the divide is not
+     * whole the pacer takes the next whole divide under the cap (45 fps on a 90 Hz panel), and
+     * [Surface.setFrameRate] asks the system for a mode change that would make it whole.
      */
     data class Capped(
         val fps: Float,
@@ -82,13 +82,13 @@ class FramePacer(
      * preference to the display as well.
      *
      * Also re-publishes [ThermalGovernor.pacedFps] while this pacer is running, so a cap change
-     * reaches the native governor immediately instead of waiting for the next [start]. A no-op
-     * publish when another, more recently started pacer is the one currently active.
+     * reaches the native governor at once. A no-op when a more recently started pacer is active.
      */
     @Volatile
     var policy: FrameRatePolicy = initialPolicy
         set(value) {
             field = value
+            pacedMilliHz = -1L
             if (running) publishActiveCap()
         }
 
@@ -120,6 +120,10 @@ class FramePacer(
 
     /** Pacer thread only: the paced cap (millihertz) the display was last asked for after a vsync. */
     private var askedCapMilliHz = -1L
+
+    /** The rate native last paced to (45 fps for a 60 cap on a 90 Hz panel); -1 until a vsync says. */
+    @Volatile
+    private var pacedMilliHz = -1L
 
     /**
      * Posted, not run inline: the frame-timing fields and the Choreographer belong to the pacer
@@ -180,14 +184,13 @@ class FramePacer(
         }
 
     /**
-     * Publishes [ThermalGovernor.pacedFps] from the most recently started pacer that is still
-     * running — the view and the wallpaper can each own a running pacer at once, so the last one
-     * to start wins, and a pacer that stops without being the most recent starter must not
-     * clobber the cap the other one is still asking for. 0 when nothing is running.
+     * Publishes [ThermalGovernor.pacedFps] from the most recently started pacer still running (the
+     * view's and the wallpaper's can both be live): its paced rate, or its cap until a vsync says.
      */
     private fun publishActiveCap() {
         val active = synchronized(runningStack) { runningStack.lastOrNull() }
-        ThermalGovernor.pacedFps = active?.requestedFps() ?: 0f
+        val paced = active?.pacedMilliHz ?: 0L
+        ThermalGovernor.pacedFps = if (paced < 0L) active?.requestedFps() ?: 0f else paced / 1000f
     }
 
     /**
@@ -225,18 +228,18 @@ class FramePacer(
             askedCapMilliHz = cap
             surface?.let { applyTo(it) }
         }
+        val paced = clock[GeodeNative.PACER_PACED_SLOT]
+        if (paced != pacedMilliHz) {
+            pacedMilliHz = paced
+            publishActiveCap()
+        }
         if (dt <= 0f) return
         dtSeconds = dt
         sink.onFrame(dt)
     }
 
     companion object {
-        /**
-         * Every currently running pacer, in start order — the view's and the wallpaper's can both
-         * be live at once. [publishActiveCap] reads the last entry, so the most recently started
-         * pacer's cap is always what [ThermalGovernor.pacedFps] reflects, and a pacer that stops
-         * without being that entry leaves the value alone.
-         */
+        /** Every running pacer, in start order; [publishActiveCap] reads the last one. */
         private val runningStack = mutableListOf<FramePacer>()
 
         /**

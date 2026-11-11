@@ -141,7 +141,8 @@ GEODE_API void        geode_viz_gyro_sample(geode_viz*, float azimuth, float pit
 GEODE_API void        geode_viz_gyro_reset(geode_viz*);
 /* One live frame's start (core/viz/frame/Cadence, #604), on the GL thread before geode_viz_set_scene and
    geode_viz_render. The shell passes what it holds every frame and native applies only what changed:
-   paced_fps is this surface's own fps cap (0 = free-running; the thermal cap is applied under it natively);
+   paced_fps is the rate this surface's pacer draws at (GEODE_PACER_PACED_SLOT; 0 = free-running; the thermal
+   cap is applied under it natively);
    the rest is Settings › Performance (scales 0..1, post_fx / adaptive 0 or 1, liquid_hot_policy 0 simplify,
    1 full, 2 pause: liquid::HotPolicy). The four *_version arguments are the shell's version counters (each
    grows on every write) of its scene params, LFO configs, ADSR configs and sound tuning (core/viz/frame/
@@ -592,11 +593,15 @@ GEODE_API int             geode_surface_fps_choice(int requested_fps);
 GEODE_API int             geode_surface_fps_choices(int* out, int capacity);
 
 /* The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt it draws with.
-   `state` is seven int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS). */
-#define GEODE_PACER_STATE_LONGS 7
+   `state` is eight int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS). */
+#define GEODE_PACER_STATE_LONGS 8
 /* The slot holding the cap the last vsync paced to, in millihertz (0 = none): the shell re-asks
    Surface.setFrameRate when it moves. */
 #define GEODE_PACER_CAP_SLOT 6
+/* The slot holding the rate the last vsync really paced to, in millihertz (0 = every vsync): the cap, or
+   the next whole divide of the panel under it (45 fps for a 60 fps cap on a 90 Hz panel). The shell passes
+   it to geode_viz_frame_begin as paced_fps. */
+#define GEODE_PACER_PACED_SLOT 7
 /* One vsync: the dt in seconds to draw with, or 0 to skip it. cap_fps is the surface's own cap (<= 0 draws
    every vsync); the pacer applies min(cap_fps, the thermal cap). */
 GEODE_API double          geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap_fps);

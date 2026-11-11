@@ -39,7 +39,7 @@ enum class Show {
     ThreeD,      // the styles on the camera rig (catalogue::fliesCamera)
     Particles,   // styles with a particle layer (Scope::ParticleSprite)
     Engine,      // a style with an engine of its own to tune: Fluid, Cymatics, MilkDrop
-    ShaderCode,  // a style whose look is shader code the user can edit: shader styles and Fluid
+    ShaderCode,  // a style with shader code the user can edit in Customize: Fluid's force and dye
 };
 
 struct Section {

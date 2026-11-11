@@ -244,7 +244,9 @@ void categoriesAndSectionsFollowTheStyle() {
     check(shownSection("milkdrop", "EXPERT/milkdrop"), "MilkDrop's engine in Expert");
     check(!shownSection("julia", "EXPERT/fluid_flow") && !shownSection("julia", "EXPERT/plate") && !shownSection("julia", "EXPERT/milkdrop"),
           "no engine section on a shader style");
-    check(shownSection("julia", "EXPERT/shader_code"), "shader code on a shader style");
+    // Shader code holds only Fluid's force and dye editors: the style's own shader box left Customize.
+    check(shownSection("fluid", "EXPERT/shader_code"), "Fluid's shaders in Expert");
+    check(!shownSection("julia", "EXPERT/shader_code"), "no shader code section on a shader style");
     check(!shownSection("milkdrop", "EXPERT/shader_code"), "no shader code on MilkDrop");
     check(shownSection("julia", "LOOK/basics"), "Look's Basics everywhere");
     check(customize::shows(Category::Expert, "julia"), "Expert always has Layers");

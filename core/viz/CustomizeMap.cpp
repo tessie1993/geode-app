@@ -183,7 +183,9 @@ bool rule(Show show, const std::string& styleId) {
         case Show::ThreeD: return catalogue::fliesCamera(styleId);
         case Show::Particles: return catalogue::reaches(Scope::ParticleSprite, styleId);
         case Show::Engine: return kind == Kind::Fluid || kind == Kind::Cymatics || kind == Kind::Milkdrop;
-        case Show::ShaderCode: return kind == Kind::Shader || kind == Kind::Fluid;
+        // Fluid's force and dye editors only: the owner took the style's own shader box out of
+        // Customize (2026-11-11), so a shader style has no Shader code section to show.
+        case Show::ShaderCode: return kind == Kind::Fluid;
     }
     return true;
 }

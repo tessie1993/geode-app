@@ -1126,10 +1126,6 @@
     <string name="customize_transitions_more">%1$d more - narrow the search to reach them.</string>
     <string name="customize_liquid_hot_simplified">Liquid simplified: phone is hot</string>
     <string name="customize_liquid_hot_paused">Liquid paused: phone is hot</string>
-    <string name="customize_shader_title">This style\'s shader</string>
-    <string name="customize_shader_hint">The fragment shader for this style: view(), pal(), grade() and the sound uniforms are available. With the flow field on, declare `uniform sampler2D uFlow` and `uniform float uFlowStrength` to bend by it.</string>
-    <string name="customize_shader_apply">Apply shader</string>
-    <string name="customize_shader_revert">Revert</string>
     <string name="customize_fluid_shaders_title">Custom fluid shaders</string>
     <string name="customize_fluid_shaders_hint">Replace how the fluid is pushed (force) and coloured (dye). Both start from the built-in splat (uMode 0 = push, 1 = colour); a failed compile keeps the last good one. Extra uniforms: uDt, uDx, uTime, uBass, uMid, uTreble, uEnergy, uBeat. Clear the text to go back to the built-in.</string>
     <string name="customize_fluid_force_shader">Force shader</string>

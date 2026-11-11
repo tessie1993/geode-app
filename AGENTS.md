@@ -1,7 +1,7 @@
 # AGENTS.md: BeatRealms 3D (internal name Geode)
 
 Android music player, reactive visualizer and video studio. Kotlin and Compose with Hilt, plus a C++20 native core (`libgeode.so`).
-The product name is BeatRealms 3D ("BeatRealms" in running text, "BeatRealms Pro" for the unlock); the old name MuzViz Studio Pro survives only in ids: applicationId `com.muzviz.studiopro`, product id `muzviz_pro`, the `MUZVIZ_UPLOAD_*` secrets, `muzviz.*` Gradle properties, the backup format id. Kotlin packages stay `dev.geode.*`. minSdk 33 (Android 13+), targetSdk 36, compileSdk 37.
+The product name is BeatRealms 3D ("BeatRealms" in running text, "BeatRealms Pro" for the unlock); applicationId `com.beatrealms3d.app` (debug adds `.debug`), product id `beatrealms3d_pro`. The old name MuzViz Studio Pro survives only in names the owner sets by hand or old data needs: the `MUZVIZ_UPLOAD_*` secrets, `muzviz.*` Gradle properties, the backup format id, the old `Movies/MuzViz` folder. Kotlin packages stay `dev.geode.*`. minSdk 33 (Android 13+), targetSdk 36, compileSdk 37.
 
 ## Owner's hard rule: Kotlin is the shell, C++ is the app (read first)
 
@@ -123,7 +123,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 
 ## Pro (one-time unlock)
 
-- Product id `muzviz_pro` (`BillingRepository.PRO_PRODUCT_ID`). Every gate asks a `FeatureGate` from `GetFeatureGateUseCase` (Pro beats the 1-hour trial beats free); what free keeps is `pro/FreeTier.kt` alone. Free gets the loose shader styles, the first style of each style family and the neon opener, Neon Chrome Sea, which is also every install's first style (`FreeTier.FIRST_STYLE_ID`); the other eleven per family are Pro (`FreeTier.familyProIds`; the catalogue names each family's opener).
+- Product id `beatrealms3d_pro` (`BillingRepository.PRO_PRODUCT_ID`). Every gate asks a `FeatureGate` from `GetFeatureGateUseCase` (Pro beats the 1-hour trial beats free); what free keeps is `pro/FreeTier.kt` alone. Free gets the loose shader styles, the first style of each style family and the neon opener, Neon Chrome Sea, which is also every install's first style (`FreeTier.FIRST_STYLE_ID`); the other eleven per family are Pro (`FreeTier.familyProIds`; the catalogue names each family's opener).
 - Gates: `PlayerViewModel.startExport`/`startLoopRender`/`startBatch` (4K, 60 fps, the 1-minute cap, the full-frame watermark; loop and batch renders need Pro), `PlayerSession.selectScene`/`applyPreset` via `PlayerSessionProvider` (styles; auto-visuals skips locked ones silently), Record (`ProFeature.STUDIO`, through `PlayerSessionProvider`; Studio › Render is open to free and trial users within `FreeTier`), the wallpaper button, `CastController` when a Cast session starts (`ProFeature.CAST`; a locked session is ended; a trial that runs out mid-cast ends it after the song), `ProSnapshot` in the wallpaper and dream services and the auto-director (`AutoDirectorPolicy`, live: Pro and trial get the whole song, free the first minute of each; an export's director is native, `director::forExport`, from the switch, the entitlement and the length the export forwards: Pro and trial throughout, free only when the export fits the minute). Note & key reactions are free (Settings › Behaviour, on by default); their Customize › Advanced card is Pro like every card.
 - `PaywallNavigator.request` is state; `PaywallHost` (a `Dialog`, drawn from `AppRoot`) shows it. Debug builds bill against `FakeBillingRepository` (`BuildConfig.USE_FAKE_BILLING`) with a debug panel on the paywall.
 

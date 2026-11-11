@@ -1,5 +1,6 @@
 package dev.geode.billing
 
+import dev.geode.pro.BillingRepository
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
@@ -12,7 +13,7 @@ import org.junit.Test
  * from Play that no longer lists Pro as purchased takes it away.
  */
 class CachedEntitlementTest {
-    private val purchase = SignedPurchase(json = """{"productId":"muzviz_pro"}""", signature = "sig")
+    private val purchase = SignedPurchase(json = """{"productId":"${BillingRepository.PRO_PRODUCT_ID}"}""", signature = "sig")
 
     /** Stands in for [PurchaseVerifier] with a key configured: only [purchase] verifies. */
     private val keyed: (String, String) -> Boolean = { json, sig -> json == purchase.json && sig == purchase.signature }

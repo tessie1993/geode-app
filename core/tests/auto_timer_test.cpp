@@ -150,14 +150,30 @@ void theAbi() {
 
 void milkProgressDuration() {
     check(milk::progressSeconds(23.4, false) == 23.4, "Auto's timer runs: progress goes 0 to 1 over the wait");
-    check(milk::progressSeconds(0.0, false) == milk::kHeldSeconds, "Auto off: a held preset, MilkDrop's locked one");
+    check(milk::progressSeconds(0.0, false) == 30.0, "Auto off: a held preset runs over projectM's 30 s");
     check(milk::progressSeconds(23.4, true) == milk::kHeldSeconds, "an export never reads the live timer");
     check(milk::progressSeconds(-1.0, false) == milk::kHeldSeconds, "a negative hold is no hold");
     check(milk::progressSeconds(std::nan(""), false) == milk::kHeldSeconds, "nor is NaN");
     check(milk::progressSeconds(0.2, false) == milk::kMinSeconds, "projectM's floor of one second");
-    // projectM: progress = min(age / duration, 1).
-    check(3600.0 / milk::kHeldSeconds < 0.005, "an hour on a held preset still reads as progress 0");
-    check(std::min(30.0 / milk::progressSeconds(20.0, false), 1.0) == 1.0, "a preset that outstays the wait holds at 1");
+}
+
+void milkProgressOfAHeldPreset() {
+    const double held = milk::progressSeconds(0.0, false);
+    check(milk::progressAt(0.0, held) == 0.0, "a held preset starts at 0");
+    check(milk::progressAt(15.0, held) == 0.5, "is halfway at 15 s");
+    check(milk::progressAt(30.0, held) == 1.0, "reaches 1 at 30 s");
+    check(milk::progressAt(3600.0, held) == 1.0, "and holds at 1 for as long as it stays");
+    double last = -1.0;
+    bool rising = true;
+    for (int frame = 0; frame <= 30 * 60; ++frame) {
+        const double p = milk::progressAt(frame / 60.0, held);
+        rising = rising && p > last;
+        last = p;
+    }
+    check(rising && last == 1.0, "rising every frame on the way");
+    check(milk::progressAt(-1.0, held) == 0.0, "never below 0");
+    check(milk::progressAt(30.0, milk::progressSeconds(20.0, false)) == 1.0, "a preset that outstays Auto's wait holds at 1");
+    check(milk::progressAt(0.5, 0.0) == 0.5, "the floor guards a zero duration");
 }
 
 }  // namespace
@@ -170,6 +186,7 @@ int main() {
     holdIsTheWaitOfThisLook();
     theAbi();
     milkProgressDuration();
+    milkProgressOfAHeldPreset();
     if (failures == 0) std::printf("auto_timer_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

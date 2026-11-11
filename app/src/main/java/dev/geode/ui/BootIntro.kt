@@ -29,14 +29,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -45,7 +45,10 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import dev.geode.R
 import dev.geode.RingLog
+import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalReducedMotion
+import dev.geode.ui.theme.Wordmark
+import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -69,10 +72,15 @@ private const val FIRST_FRAME_TIMEOUT_MS = 1500L
 private const val VIDEO_ASPECT = 720f / 1280f
 
 /**
- * Where the wordmark sits: below the eye, whose waves reach about 17% of the clip's height under
- * its centre, as a fraction of the clip's height.
+ * Where the wordmark's top sits, as a fraction of the clip's height: just under the eye, whose
+ * lower wave reaches 71% down the clip. Anchored by its top, so larger text only grows downwards.
  */
-private const val WORDMARK_DROP = 0.22f
+private const val WORDMARK_TOP = 0.735f
+
+/** The system splash's branding image: 200x80dp, 60dp above the window's bottom edge. */
+private val BRANDING_WIDTH = 200.dp
+private val BRANDING_HEIGHT = 80.dp
+private val BRANDING_BOTTOM = 60.dp
 
 /**
  * The system splash's icon box when the icon has no background of its own: 288dp, with the art
@@ -168,8 +176,7 @@ fun BootIntro(onDone: () -> Unit) {
     }
 
     val primary = MaterialTheme.colorScheme.primary
-    val onBackground = MaterialTheme.colorScheme.onBackground
-    val wordmark = LocalFontColor.current ?: lerp(primary, onBackground, 0.72f)
+    val wordmark = LocalFontColor.current ?: MaterialTheme.colorScheme.onBackground
     Box(
         Modifier
             .fillMaxSize()
@@ -195,22 +202,21 @@ fun BootIntro(onDone: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier =
                     Modifier
-                        .offset(y = maxHeight * WORDMARK_DROP)
+                        .align(Alignment.TopCenter)
+                        .offset(y = maxHeight * WORDMARK_TOP)
+                        .padding(horizontal = GeodeSpacing.XL)
                         .graphicsLayer {
                             alpha = textAlpha.value
                             scaleX = textScale.value
                             scaleY = textScale.value
                         },
             ) {
+                Wordmark(color = wordmark)
                 Text(
-                    stringResource(R.string.boot_wordmark),
-                    color = wordmark,
-                    style = MaterialTheme.typography.displaySmall,
-                )
-                Text(
-                    stringResource(R.string.boot_tagline).uppercase(),
+                    stringResource(R.string.boot_tagline).uppercase(Locale.getDefault()),
                     color = primary.copy(alpha = 0.85f),
-                    style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 3.5.sp),
+                    style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.16.em),
+                    textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 10.dp),
                 )
             }
@@ -219,6 +225,17 @@ fun BootIntro(onDone: () -> Unit) {
             painterResource(R.drawable.splash_mark),
             contentDescription = null,
             modifier = Modifier.size(SPLASH_ICON_SIZE).graphicsLayer { alpha = markAlpha.value },
+        )
+        // The splash's wordmark, where the system drew it, leaving with the splash art.
+        Image(
+            painterResource(R.drawable.splash_wordmark),
+            contentDescription = null,
+            modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = BRANDING_BOTTOM)
+                    .size(BRANDING_WIDTH, BRANDING_HEIGHT)
+                    .graphicsLayer { alpha = markAlpha.value },
         )
     }
 }

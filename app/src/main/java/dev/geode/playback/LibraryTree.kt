@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import dev.geode.R
-import dev.geode.analysis.SearchMatcher
 import dev.geode.data.DeviceTrackQuery
 import dev.geode.data.FavouritesStore
 import dev.geode.data.GeodePrefsFiles
@@ -100,10 +99,20 @@ class LibraryTree(
     }
 
     /**
-     * The tracks a voice "play X" plays, in library order, as playable rows of [TRACKS]; empty when nothing
+     * The tracks a voice "play X" plays, best match first, as playable rows of [TRACKS]; empty when nothing
      * matches. The matching is native (`core/library/Search`); this only hands it the rows' tags.
      */
     fun search(request: VoiceSearch): List<MediaItem> {
+        val asked = arrayOf(request.query, request.focus, request.artist, request.album, request.title)
+        // A blank "play music" matches every track: the same cap as a tapped list.
+        return nativeSearch(asked, PlaybackQueue.MAX_QUEUE).map { playable(TRACKS, it) }
+    }
+
+    /** The first [max] rows the native search finds for [asked] (query, focus, artist, album, title), best first. */
+    private fun nativeSearch(
+        asked: Array<String?>,
+        max: Int,
+    ): List<Row> {
         val rows = tracks()
         if (rows.isEmpty()) return emptyList()
         val cells = arrayOfNulls<ByteArray>(rows.size * 3)
@@ -112,14 +121,10 @@ class LibraryTree(
             cells[i * 3 + 1] = row.artist.encodeToByteArray()
             cells[i * 3 + 2] = row.album.encodeToByteArray()
         }
-        val asked =
-            arrayOf(request.query, request.focus, request.artist, request.album, request.title)
-                .map { it?.encodeToByteArray() }
-                .toTypedArray()
         val out = IntArray(rows.size)
-        val count = GeodeNative.librarySearch(cells, asked, out).coerceIn(0, out.size)
-        // A blank "play music" matches every track: the same cap as a tapped list.
-        return (0 until minOf(count, PlaybackQueue.MAX_QUEUE)).map { playable(TRACKS, rows[out[it]]) }
+        val request = asked.map { it?.encodeToByteArray() }.toTypedArray()
+        val count = GeodeNative.librarySearch(cells, request, out).coerceIn(0, out.size)
+        return (0 until minOf(count, max)).map { rows[out[it]] }
     }
 
     private fun Row.sharesTagWith(other: Row): Boolean {
@@ -146,8 +151,8 @@ class LibraryTree(
 
     /**
      * Android Auto's and Assistant's search (`MediaLibrarySession.Callback.onSearch` /
-     * `onGetSearchResult`): the library screen's own match, so case and accents never matter
-     * ("beyonce" finds "Beyoncé") and title hits come before artist, then album hits. Each result's
+     * `onGetSearchResult`): the library screen's own match (native, `core/library/Search`), so case and
+     * accents never matter ("beyonce" finds "Beyoncé") and the best match comes first. Each result's
      * parent is `search/<query>`, so a tapped result plays the whole result list from that row,
      * the way a tapped row in a browsed folder does.
      */
@@ -156,14 +161,9 @@ class LibraryTree(
         return searchRows(parent.substringAfter('/', "")).map { playable(parent, it) }
     }
 
+    /** A blank query is no search: the native match would answer it with the whole library. */
     private fun searchRows(query: String): List<Row> =
-        SearchMatcher.filterTracks(
-            terms = SearchMatcher.terms(query),
-            items = tracks(),
-            max = SEARCH_LIMIT,
-            uriOf = { it.uri },
-            fieldsOf = { listOf(it.title, it.artist, it.album) },
-        )
+        if (query.isBlank()) emptyList() else nativeSearch(arrayOf(query, null, null, null, null), SEARCH_LIMIT)
 
     private fun groupChildren(parentId: String): List<MediaItem> {
         val kind = parentId.substringBefore('/')

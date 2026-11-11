@@ -348,14 +348,28 @@ GEODE_API int         geode_tags_replaygain(const geode_tags*, float* track_gain
  * slot, leaves that field unchanged; "" clears it). 1 = saved, 0 = failed. */
 GEODE_API int         geode_tags_write(int fd, const char* const* texts, int year, int track);
 
-/* Voice "play X" over the library (core/library/Search). `rows` holds 3 UTF-8 strings per track, title,
- * artist, album, `track_count` tracks in library order. `query` is the spoken query; `focus`, `artist`,
+/* Voice "play X" and Android Auto's search over the library (core/library/Search), best match first. `rows`
+ * holds 3 UTF-8 strings per track, title, artist, album, `track_count` tracks in library order. `query` is the spoken query; `focus`, `artist`,
  * `album` and `title` are MediaStore's EXTRA_MEDIA_FOCUS / _ARTIST / _ALBUM / _TITLE (NULL = absent).
  * Writes up to `max_out` matching track indices to `out` and returns how many match in all, so a count
  * above `max_out` means the buffer was short. Nothing asked plays the whole library; 0 = no match. */
 GEODE_API int         geode_library_search(const char* const* rows, int track_count, const char* query,
                                            const char* focus, const char* artist, const char* album,
                                            const char* title, int* out, int max_out);
+
+/* The library index (core/library/Search, SearchIndex): the Library screen's order and search. `rows` holds
+ * 3 UTF-8 strings per track (title, artist, album); `durations_ms` and `added_sec` one value per track (NULL =
+ * zeros). Built once per library change, read from any thread, freed with _destroy (NULL is fine).
+ * _order writes every row in `sort` order (0 title, 1 artist, 2 album, 3 duration, 4 newest first) and returns
+ * the row count. _search writes three counts (tracks, albums, artists) and then those rows, best first, an
+ * album or artist as its first row; it returns the ints in all, so a value above `max_out` means the buffer
+ * was short. A blank query finds nothing. */
+typedef struct geode_library_index geode_library_index;
+GEODE_API geode_library_index* geode_library_index_create(const char* const* rows, const long long* durations_ms,
+                                                          const long long* added_sec, int track_count);
+GEODE_API void        geode_library_index_destroy(geode_library_index*);
+GEODE_API int         geode_library_index_order(const geode_library_index*, int sort, int* out, int max_out);
+GEODE_API int         geode_library_index_search(const geode_library_index*, const char* query, int* out, int max_out);
 
 /* Scene and style catalogue (core/viz/Catalogue): every style id, its renderer kind and Styles look group, the style families,
  * which Customize controls reach which styles, and the ranges the shell's controls quote, as one versioned

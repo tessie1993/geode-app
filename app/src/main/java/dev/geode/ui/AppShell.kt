@@ -350,7 +350,6 @@ private fun AppContent(tourViewModel: TourViewModel) {
                                 Row(Modifier.fillMaxSize()) {
                                     Box(Modifier.weight(1f)) {
                                         LibraryScreen(
-                                            onOpenSearch = appState::openSearch,
                                             onOpenFolders = appState::openSettingsFolders,
                                             onOpenVisuals = { appState.navigateTo(GeodeDestination.VISUALS) },
                                         )
@@ -367,7 +366,6 @@ private fun AppContent(tourViewModel: TourViewModel) {
                                 }
                             } else {
                                 LibraryScreen(
-                                    onOpenSearch = appState::openSearch,
                                     onOpenFolders = appState::openSettingsFolders,
                                     onOpenVisuals = { appState.navigateTo(GeodeDestination.VISUALS) },
                                 )

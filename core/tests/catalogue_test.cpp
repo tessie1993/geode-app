@@ -366,7 +366,7 @@ void textRoundTrips() {
     const auto lines = split(catalogue::text(), '\n');
     check(!lines.empty() && lines[0] == "catalogue|" + std::to_string(catalogue::kTextVersion), "versioned header");
     std::vector<std::string> styleIds;
-    int kinds = 0, families = 0, keys = 0, overrides = 0;
+    int kinds = 0, families = 0, keys = 0, overrides = 0, pickers = 0;
     for (const auto& line : lines) {
         const auto f = split(line, '|');
         if (f[0] == "style") {
@@ -379,6 +379,9 @@ void textRoundTrips() {
         } else if (f[0] == "family") {
             ++families;
             check(split(f[4], ',').size() == 12, "family row lists twelve ids");
+        } else if (f[0] == "picker") {
+            const auto& p = catalogue::pickerFamilies()[static_cast<size_t>(pickers++)];
+            check(f.size() == 3 && f[1] == p.name && split(f[2], ',') == p.ids, "picker row of " + f[1]);
         } else if (f[0] == "override") {
             ++overrides;
             check(styles::cymatics(f[1]) && f[2] == "Geometry" && std::stoi(f[3]) == styles::cymatics(f[1])->geometryOverride,
@@ -390,10 +393,42 @@ void textRoundTrips() {
         }
     }
     check(styleIds == catalogue::allIds(), "style rows in picker order");
+    check(pickers == static_cast<int>(catalogue::pickerFamilies().size()), "a picker row per picker family");
     // 86 keys: the 80 of the old hand list plus the six held controls whose scope Customize kept to itself
     // (Fluid quality and its auto switch, Progression, the two fluid layers, Water ripples on) until the
     // params schema's meta rows carried every control's scope (#1005 PR 4a).
     check(kinds == catalogue::kKindCount && families == 10 && keys == 86 && overrides == 8, "row counts");
+}
+
+// The Styles page's dropdown: one flat level, every style once, in the order the stage swipes.
+void pickerFamiliesAreFlatAndCoverEveryStyleOnce() {
+    const auto& picker = catalogue::pickerFamilies();
+    std::vector<std::string> ids;
+    std::set<std::string> names;
+    for (const auto& p : picker) {
+        check(!p.ids.empty(), "picker family " + p.name + " has styles");
+        check(names.insert(p.name).second, "picker family " + p.name + " is listed once");
+        ids.insert(ids.end(), p.ids.begin(), p.ids.end());
+    }
+    check(ids == catalogue::allIds(), "picker families list every style once, in picker order");
+    std::map<std::string, std::vector<std::string>> byName;
+    for (const auto& p : picker) byName[p.name] = p.ids;
+    for (const auto& family : catalogue::families()) {
+        check(byName[family.name] == std::vector<std::string>(family.ids.begin(), family.ids.end()),
+              "shader family " + std::string(family.name) + " is one picker family");
+    }
+    for (const auto& id : byName["shaders"]) {
+        check(catalogue::kindOf(id) == Kind::Shader, id + " in shaders is a shader style");
+        for (const auto& family : catalogue::families()) {
+            check(std::find(family.ids.begin(), family.ids.end(), id) == family.ids.end(), id + " in shaders has no family");
+        }
+    }
+    check(byName["shaders"].size() > 1 && std::count(byName["shaders"].begin(), byName["shaders"].end(), "neon_chrome_sea") == 1,
+          "loose shader styles, the neon set among them, are in shaders");
+    std::vector<std::string> fluid = styles::fluidIds();
+    fluid.insert(fluid.end(), {"curlflow", "water"});
+    check(byName["fluid"] == fluid, "Fluid, Curl Flow and Water are one picker family");
+    check(byName["milkdrop"] == std::vector<std::string>{"milkdrop"}, "MilkDrop is its own picker family");
 }
 
 std::string readFile(const char* path) {
@@ -438,6 +473,7 @@ int main(int argc, char** argv) {
     marchedStylesMatchTheOldSet();
     paramScopesMatchTheOldParamScope();
     everyStyleKeepsItsOldLookGroup();
+    pickerFamiliesAreFlatAndCoverEveryStyleOnce();
     textRoundTrips();
     textEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/catalogue.txt");
     if (failures == 0) std::printf("catalogue_test: all checks passed\n");

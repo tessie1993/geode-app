@@ -6,13 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class StyleShelfTest {
-    private val entries =
-        listOf(
-            StyleEntry("arbor_a", "Arbor One", "Shaders", "Arbor"),
-            StyleEntry("arbor_b", "Arbor Two", "Shaders", "Arbor"),
-            StyleEntry("silk_a", "Silk Veil", "Silk", null),
-            StyleEntry("fluid_a", "Ink Bloom", "Fluid", null),
-        )
+    private val order = listOf("arbor_a", "arbor_b", "silk_a", "fluid_a")
 
     @Test
     fun recentsAreNewestFirstWithoutRepeats() {
@@ -40,25 +34,10 @@ class StyleShelfTest {
     }
 
     @Test
-    fun recentFilterKeepsShelfOrder() {
-        val shelf = StyleShelf(recents = listOf("fluid_a", "missing", "arbor_a"))
-        val ids = StyleFiltering.apply(entries, StyleFilter.Recent, shelf, "").map { it.id }
-        assertEquals(listOf("fluid_a", "arbor_a"), ids)
-    }
-
-    @Test
-    fun kindFamilyAndFavouriteFilters() {
-        val shelf = StyleShelf(favourites = setOf("silk_a"))
-        assertEquals(listOf("silk_a"), StyleFiltering.apply(entries, StyleFilter.Favourites, shelf, "").map { it.id })
-        assertEquals(2, StyleFiltering.apply(entries, StyleFilter.Family("Arbor"), shelf, "").size)
-        assertEquals(listOf("fluid_a"), StyleFiltering.apply(entries, StyleFilter.Kind("Fluid"), shelf, "").map { it.id })
-    }
-
-    @Test
-    fun searchMatchesEveryWordAcrossNameKindAndFamily() {
-        val all = StyleFilter.All
-        assertEquals(listOf("arbor_b"), StyleFiltering.apply(entries, all, StyleShelf(), "arbor two").map { it.id })
-        assertEquals(listOf("silk_a"), StyleFiltering.apply(entries, all, StyleShelf(), "  silk ").map { it.id })
-        assertEquals(entries, StyleFiltering.apply(entries, all, StyleShelf(), " "))
+    fun yoursIsOnScreenThenFavouritesThenRecentEachOnce() {
+        val shelf = StyleShelf(favourites = setOf("silk_a", "arbor_a"), recents = listOf("fluid_a", "missing", "arbor_a"))
+        assertEquals(listOf("arbor_b", "arbor_a", "silk_a", "fluid_a"), shelf.yours(order, onScreen = "arbor_b"))
+        assertEquals(listOf("fluid_a"), StyleShelf(recents = listOf("fluid_a", "gone")).yours(order, onScreen = null))
+        assertEquals(emptyList<String>(), StyleShelf().yours(order, onScreen = "gone"))
     }
 }

@@ -45,10 +45,8 @@ import dev.geode.model.GestureTip
 import dev.geode.model.TourSpot
 import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
-import dev.geode.render.scene.SceneCapabilities
+import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.SceneIds
-import dev.geode.render.scene.StyleFamilies
-import dev.geode.render.scene.VisualStyleCatalog
 import dev.geode.ui.cast.CastButton
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeSpacing
@@ -410,16 +408,11 @@ internal fun rememberStageActions(
 internal val STEP_ACTIONS = setOf(GestureAction.STEP_STYLE, GestureAction.STEP_PRESET, GestureAction.STEP_PLAYLIST)
 
 /**
- * Every style the stage swipes through, in the order the Styles page lists them. MilkDrop is left
- * out: its presets are a library of their own, picked from the MilkDrop page.
+ * Every style the stage swipes through, in the order the Styles page lists them (the native
+ * picker's families one after another). MilkDrop is left out: its presets are a library of their
+ * own, picked from the MilkDrop page.
  */
-internal fun stageStyleOrder(): List<String> =
-    (
-        StyleFamilies.ids +
-            VisualStyleCatalog.silkIds + VisualStyleCatalog.lifeIds + VisualStyleCatalog.mycoIds + VisualStyleCatalog.acidIds +
-            SceneCapabilities.SHADER_SCENES.keys.filterNot { it in StyleFamilies.ids } +
-            VisualStyleCatalog.fluidIds + listOf(SceneIds.CURLFLOW, SceneIds.WATER) + VisualStyleCatalog.cymaticsIds
-    ).distinct()
+internal fun stageStyleOrder(): List<String> = Catalogue.picker.values.flatten() - SceneIds.MILKDROP
 
 /**
  * The style [step] places (+1 next, -1 previous) from [current] in [order], wrapping at the ends

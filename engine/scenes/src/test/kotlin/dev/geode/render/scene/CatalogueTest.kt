@@ -50,6 +50,16 @@ class CatalogueTest {
     }
 
     @Test
+    fun thePickerIsOneFlatLevelOverEveryStyle() {
+        assertEquals(Catalogue.styles.map { it.id }, Catalogue.picker.values.flatten())
+        assertEquals(listOf("silk", "life", "mycelium", "morphing", "shaders"), Catalogue.picker.keys.take(5))
+        assertTrue("neon_chrome_sea" in Catalogue.picker.getValue("shaders"))
+        StyleFamilies.all.forEach { assertEquals(it.ids, Catalogue.picker[it.name]) }
+        assertEquals(listOf(SceneIds.MILKDROP), Catalogue.picker["milkdrop"])
+        assertEquals("MilkDrop", VisualStyleCatalog.familyLabel("milkdrop"))
+    }
+
+    @Test
     fun everyDedicatedRendererStyleHasALabel() {
         val labelled = setOf(SceneKind.SILK, SceneKind.LIFE, SceneKind.MYCELIUM, SceneKind.ACID, SceneKind.FLUID, SceneKind.CYMATICS)
         Catalogue.styles.filter { it.kind in labelled }.forEach { style ->

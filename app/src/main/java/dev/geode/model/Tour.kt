@@ -164,7 +164,10 @@ object Tour {
         )
 
     /** [run] on its next chapter, or null when that was the last. */
-    fun nextChapter(run: TourRun): TourRun? = run.chapters.drop(1).takeIf { it.isNotEmpty() }?.let { TourRun(it, replay = run.replay) }
+    fun nextChapter(run: TourRun): TourRun? {
+        val rest = run.chapters.drop(1)
+        return if (rest.isEmpty()) null else TourRun(rest, replay = run.replay)
+    }
 
     /**
      * The chapter that should start by itself, if any. START leads once, on a new install. Each
@@ -187,8 +190,10 @@ object Tour {
     ): TourRun = TourRun(listOf(chapter), at = progress.resume?.takeIf { it.chapter == chapter }?.let(chapter.spots::indexOf) ?: 0)
 
     /** A replay of [chapters] from Settings, in tour order. */
-    fun replay(chapters: Collection<TourChapter>): TourRun? =
-        TourChapter.entries.filter { it in chapters }.takeIf { it.isNotEmpty() }?.let { TourRun(it, replay = true) }
+    fun replay(chapters: Collection<TourChapter>): TourRun? {
+        val ordered = TourChapter.entries.filter { it in chapters }
+        return if (ordered.isEmpty()) null else TourRun(ordered, replay = true)
+    }
 
     /**
      * Progress once [run]'s chapter has ended. A replay changes nothing. Skipping START turns the

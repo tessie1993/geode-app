@@ -79,11 +79,14 @@ class TourViewModel
 
         init {
             viewModelScope.launch {
-                userData.guiPrefs.map { it.tourProgress }.distinctUntilChanged().collect { p -> _uiState.update { it.copy(progress = p) } }
+                userData.guiPrefs
+                    .map { it.tourProgress }
+                    .distinctUntilChanged()
+                    .collect { p -> _uiState.update { it.copy(progress = p) } }
             }
             viewModelScope.launch {
-                combine(run, facts.debounce(SETTLE_MS), blocked, ready, uiState.map { it.progress }.distinctUntilChanged()) {
-                    run, facts, blocked, ready, progress ->
+                val saved = uiState.map { it.progress }.distinctUntilChanged()
+                combine(run, facts.debounce(SETTLE_MS), blocked, ready, saved) { run, facts, blocked, ready, progress ->
                     Inputs(run, facts, blocked || !ready, progress)
                 }.collectLatest(::resolve)
             }
@@ -111,13 +114,20 @@ class TourViewModel
             }
             // A step the user ended by doing what it asked counts as passed.
             val shown = _uiState.value.step?.spot
-            if (shown != null && shown.chapter == current.chapter && Tour.reached(shown, now.facts) && current.at <= shown.ordinalInChapter) {
+            if (shown != null && doneByUser(shown, current, now.facts)) {
                 run.value = Tour.pass(current, shown)
                 return
             }
             val step = Tour.step(current, now.facts)
             if (step == null) end(current, skipped = false) else show(step, current)
         }
+
+        /** Whether [shown], the step on screen, is one [current] has not passed yet and the user just did. */
+        private fun doneByUser(
+            shown: TourSpot,
+            current: TourRun,
+            facts: TourFacts,
+        ): Boolean = shown.chapter == current.chapter && current.at <= shown.ordinalInChapter && Tour.reached(shown, facts)
 
         private fun show(
             step: TourStep?,

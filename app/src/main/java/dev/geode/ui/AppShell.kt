@@ -336,7 +336,9 @@ private fun AppContent(tourViewModel: TourViewModel) {
         val navLabels = GeodeDestination.entries.map { stringResource(it.labelRes) }
         val navEntries =
             remember(navLabels) {
-                GeodeDestination.entries.mapIndexed { i, destination -> NavEntry(destination, DockItem(navLabels[i], destination.icon, destination.tourSpot)) }
+                GeodeDestination.entries.mapIndexed { i, destination ->
+                    NavEntry(destination, DockItem(navLabels[i], destination.icon, destination.tourSpot))
+                }
             }
         // Keyed by destination, not by position: rotating swaps the bar layout for the rail
         // layout, which would otherwise drop every screen's saved tab and scroll state.
@@ -545,7 +547,11 @@ private fun AppContent(tourViewModel: TourViewModel) {
                 place = appState.dest.tourPlace,
                 playing = state.isPlaying,
                 blocked =
-                    (bootAnimEnabled != false && !appState.bootDone) || !gui.safetyAcknowledged || !gui.setupDone || paywall.visible || inPip,
+                    (bootAnimEnabled != false && !appState.bootDone) ||
+                        !gui.safetyAcknowledged ||
+                        !gui.setupDone ||
+                        paywall.visible ||
+                        inPip,
                 onNavigate = { showTourScreen(it, appState) },
                 onOfferPro = { paywallViewModel.open(PaywallTrigger.Onboarding) },
             )

@@ -72,12 +72,12 @@ class TourViewModelTest {
         runTest(main) {
             val data = FakeUserData(TourProgress())
             val vm = tour(data, onLibrary)
-            assertEquals(TourSpot.PLAY_SONG, vm.uiState.value.step?.spot)
+            assertEquals(TourSpot.PLAY_SONG, vm.spot())
             assertEquals(TourSpot.PLAY_SONG, data.progress.resume)
 
             vm.onFacts(onLibrary.copy(playing = true))
             settle()
-            assertEquals(TourSpot.NAV_VISUALS, vm.uiState.value.step?.spot)
+            assertEquals(TourSpot.NAV_VISUALS, vm.spot())
 
             vm.onPrimary()
             settle()
@@ -101,7 +101,7 @@ class TourViewModelTest {
             vm.onFacts(onVisuals)
             settle()
             assertEquals(setOf(TourChapter.START), data.progress.done)
-            assertEquals(TourSpot.VISUALS_TABS, vm.uiState.value.step?.spot)
+            assertEquals(TourSpot.VISUALS_TABS, vm.spot())
         }
 
     @Test
@@ -130,7 +130,7 @@ class TourViewModelTest {
             val vm = tour(data, onVisuals)
             vm.onFacts(onVisuals.copy(shown = setOf(TourSpot.STAGE_TOOLS)))
             settle()
-            assertEquals(TourSpot.STAGE_TOOLS, vm.uiState.value.step?.spot)
+            assertEquals(TourSpot.STAGE_TOOLS, vm.spot())
             vm.onFacts(onVisuals.copy(shown = emptySet()))
             settle()
             assertNull(vm.uiState.value.step)
@@ -176,7 +176,7 @@ class TourViewModelTest {
             assertEquals(TourSpot.STAGE_ARROWS, data.progress.resume)
 
             val next = tour(FakeUserData(data.progress), onVisuals)
-            assertEquals(TourSpot.STAGE_ARROWS, next.uiState.value.step?.spot)
+            assertEquals(TourSpot.STAGE_ARROWS, next.spot())
         }
 
     @Test
@@ -190,7 +190,7 @@ class TourViewModelTest {
             assertNull(vm.uiState.value.step)
             vm.onBlocked(false)
             settle()
-            assertEquals(TourSpot.STAGE_ARROWS, vm.uiState.value.step?.spot)
+            assertEquals(TourSpot.STAGE_ARROWS, vm.spot())
         }
 
     @Test
@@ -205,7 +205,7 @@ class TourViewModelTest {
             settle()
             assertNull(vm.uiState.value.step)
             advanceTimeBy(REPLAY_WAIT)
-            assertEquals(TourSpot.CUSTOMIZE_KNOBS, vm.uiState.value.step?.spot)
+            assertEquals(TourSpot.CUSTOMIZE_KNOBS, vm.spot())
             assertTrue(vm.uiState.value.replay)
 
             vm.onSkip()
@@ -262,8 +262,10 @@ class TourViewModelTest {
             assertNull(vm.uiState.value.step)
 
             val next = tour(FakeUserData(data.progress), onLibrary)
-            assertEquals(TourSpot.PLAY_SONG, next.uiState.value.step?.spot)
+            assertEquals(TourSpot.PLAY_SONG, next.spot())
         }
+
+    private fun TourViewModel.spot(): TourSpot? = uiState.value.step?.spot
 
     private companion object {
         const val SETTLE = TourViewModel.SETTLE_MS + TourViewModel.OFFER_DELAY_MS + 100

@@ -242,6 +242,7 @@ private fun OptionsHeader(
     onSettle: (SheetHeight) -> Unit,
 ) {
     val view = LocalView.current
+    val nudge = LocalTourNudge.current
     val drag = rememberDraggableState(onDrag)
     val handle = stringResource(R.string.visuals_sheet_handle)
     val expand = stringResource(R.string.visuals_sheet_expand)

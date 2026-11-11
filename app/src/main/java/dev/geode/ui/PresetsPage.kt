@@ -67,6 +67,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
+import dev.geode.data.BuiltInPresets
 import dev.geode.model.PresetEntry
 import dev.geode.model.PresetFilter
 import dev.geode.model.PresetFiltering

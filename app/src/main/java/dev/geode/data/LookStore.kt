@@ -7,7 +7,7 @@ import dev.geode.render.look.LookSource
 
 /**
  * The look as the app last saved it (#345), for the surfaces that run without the app's session: the
- * wallpaper, the dream and Cast. It reads the same keys the session writes (`ui/VizStateStore` for the
+ * wallpaper, the dream and Cast. It reads the same keys the session writes (`data/VizStateStore` for the
  * style, params and transition; [ThemeStore] for Settings › Audio, [SystemMotion] for reduce motion; [LfoStore] for the
  * modulation and the user's reactions), so those surfaces can never draw a look the app does not.
  *

@@ -1,6 +1,5 @@
-package dev.geode.ui
+package dev.geode.data
 
-import dev.geode.data.Preset
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.scene.ParamSchema

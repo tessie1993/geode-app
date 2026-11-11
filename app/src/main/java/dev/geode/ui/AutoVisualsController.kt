@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.PaletteStore
 import dev.geode.data.Preset
 import dev.geode.model.VizPlaylistEntry

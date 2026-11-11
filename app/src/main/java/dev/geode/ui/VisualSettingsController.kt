@@ -2,6 +2,7 @@ package dev.geode.ui
 
 import dev.geode.data.GuiPrefs
 import dev.geode.data.Preset
+import dev.geode.data.VizStateStore
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.TransitionCatalog
 import dev.geode.render.TransitionStyle

@@ -10,6 +10,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
 import dev.geode.audio.AudioFxState
 import dev.geode.audio.MicCapture
+import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.BackgroundPrefs
 import dev.geode.data.BackgroundPrefsStore
 import dev.geode.data.BehaviourStore
@@ -48,6 +49,7 @@ import dev.geode.data.TemplateRepository
 import dev.geode.data.TemplateWrite
 import dev.geode.data.UserDataRepository
 import dev.geode.data.VideoTemplate
+import dev.geode.data.VizStateStore
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect

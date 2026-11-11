@@ -70,6 +70,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.AutoDirectorStore
+import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.GuiPrefs
 import dev.geode.model.VizUiState
 import dev.geode.render.scene.MilkdropEngine

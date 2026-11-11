@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.geode.data.BuiltInPresets
 import dev.geode.data.Preset
 import dev.geode.model.PresetFiltering
 import dev.geode.model.VizPlaylistEntry

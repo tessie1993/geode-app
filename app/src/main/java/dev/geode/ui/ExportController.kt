@@ -152,8 +152,6 @@ internal class ExportController(
 
     private val _studio = MutableStateFlow(StudioUiState())
 
-    val studio: StateFlow<StudioUiState> = _studio
-
     @Volatile
     private var exportCancelled = false
 

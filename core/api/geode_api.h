@@ -391,6 +391,7 @@ GEODE_API float       geode_touch_rotation(float current, float degrees);
  * offers on style_id ("CATEGORY" and "CATEGORY/section" lines); the pointer stays valid until this thread's next call.
  * geode_customize_randomize rolls one category's controls (named by its CustomizeMap name; an unknown one rolls
  * nothing), holding every other control and the newline-joined ParamKeys in locked; 1 when it changed something.
+ * In locked, here and in geode_params_randomize, a line "#CATEGORY" keeps every control of that category.
  * geode_customize_reset puts back every field the category's controls write. Wire as geode_params_randomize. */
 GEODE_API const char* geode_customize_text(void);
 /* 1 when the control named key (a ParamKeys string) is one a roll can move, so the panel offers to keep it. */

@@ -155,6 +155,28 @@ void randomizeStaysInsideItsCategory() {
     }
 }
 
+// A kept category (MilkDrop's locked mash-up bin) holds through a roll of everything.
+void aKeptCategoryHoldsThroughARollOfEverything() {
+    const auto kept = customize::expandLocks({"#MOTION", "Bloom", "#NO_SUCH"});
+    check(kept.count("Speed") && kept.count("Drift X"), "#MOTION expands to Motion's controls");
+    check(kept.count("Bloom"), "a control's own lock passes through");
+    check(!kept.count("#MOTION") && !kept.count("#NO_SUCH"), "markers do not stay in the set");
+    check(!kept.count("Palette") && !kept.count("Camera path"), "other categories stay free");
+
+    const SceneParams start;
+    const auto motion = fieldsOfCategory(Category::Motion);
+    bool movedElsewhere = false;
+    for (uint64_t seed = 1; seed <= 40; ++seed) {
+        const SceneParams out = randomizer::randomize(start, seed, std::nullopt, "", kept);
+        for (const char* field : SceneParams::fieldNames()) {
+            if (out.get(field) == start.get(field)) continue;
+            check(!motion.count(field), std::string("a kept Motion holds ") + field);
+            movedElsewhere = true;
+        }
+    }
+    check(movedElsewhere, "the roll still moves the other categories");
+}
+
 void resetPutsBackOnlyItsCategory() {
     SceneParams changed;
     changed.speed = 2.0f;           // Motion
@@ -241,6 +263,7 @@ int main(int argc, char** argv) {
     heldFieldsAreSceneParams();
     basicsAreFirstFewAndExpertHasNone();
     randomizeStaysInsideItsCategory();
+    aKeptCategoryHoldsThroughARollOfEverything();
     resetPutsBackOnlyItsCategory();
     categoriesAndSectionsFollowTheStyle();
     textEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/customize.txt");

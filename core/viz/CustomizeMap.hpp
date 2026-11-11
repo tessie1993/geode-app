@@ -72,6 +72,12 @@ std::optional<Category> categoryNamed(std::string_view name);
 const char* name(Category category);
 const char* name(Show show);
 
+// A kept category, after MilkDrop's mash-up bins, each of which can be locked against the next
+// random load: "#MOTION" in a lock set holds every control Motion owns. Returns the set with each
+// such marker replaced by its category's controls; a marker naming no category is dropped.
+inline constexpr char kCategoryLockPrefix = '#';
+std::set<std::string> expandLocks(const std::set<std::string>& locked);
+
 // The category a control lives in, or nullopt for a key the panel does not show.
 std::optional<Category> categoryOf(std::string_view key);
 

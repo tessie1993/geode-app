@@ -234,6 +234,23 @@ std::optional<Category> categoryOf(std::string_view key) {
     return std::nullopt;
 }
 
+std::set<std::string> expandLocks(const std::set<std::string>& locked) {
+    std::set<std::string> out;
+    for (const auto& key : locked) {
+        if (key.empty() || key[0] != kCategoryLockPrefix) {
+            out.insert(key);
+            continue;
+        }
+        const auto category = categoryNamed(std::string_view(key).substr(1));
+        if (!category) continue;
+        for (const auto& section : table()) {
+            if (section.category != *category) continue;
+            for (const char* control : section.controls) out.insert(control);
+        }
+    }
+    return out;
+}
+
 bool reaches(std::string_view key, const std::string& styleId) {
     if (styleId.empty()) return true;
     if (const auto* h = heldNamed(key); h && h->scope) return catalogue::reaches(*h->scope, styleId);

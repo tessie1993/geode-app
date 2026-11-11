@@ -288,6 +288,19 @@ private fun CustomizeHeader(
                         if (onKnobs) macroStore.resetKnobs() else visualsViewModel.resetCustomizeCategory(target)
                     },
                 )
+                if (!onKnobs) {
+                    // The engine expands the marker to the category's controls (core/viz/CustomizeMap).
+                    val (kept, toggleKeep) = LocalParamLocks.current
+                    val keepKey = "#${target.name}"
+                    DropdownMenuItem(
+                        text = { Text("Keep ${target.title} when randomizing") },
+                        trailingIcon = { Checkbox(checked = keepKey in kept, onCheckedChange = null) },
+                        onClick = {
+                            menuOpen = false
+                            toggleKeep(keepKey)
+                        },
+                    )
+                }
                 DropdownMenuItem(
                     text = { Text(if (changed == 0) "Reset everything" else "Reset everything ($changed changed)") },
                     enabled = changed > 0,

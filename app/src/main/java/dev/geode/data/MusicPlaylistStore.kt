@@ -15,7 +15,17 @@ class MusicPlaylistStore(
 ) {
     private val dir = File(context.filesDir, "music-playlists").apply { mkdirs() }
 
-    init {
+    private var migrated = false
+
+    /**
+     * Renames files saved under older name rules, once, before the first read or write of the
+     * folder. It parses every playlist, so it runs on whichever thread first uses the store (an IO
+     * one for the app's own) and not in the constructor, which the session runs on the main thread.
+     */
+    @Synchronized
+    private fun ensureMigrated() {
+        if (migrated) return
+        migrated = true
         migrateLegacyFileNames()
     }
 
@@ -32,18 +42,22 @@ class MusicPlaylistStore(
             }
     }
 
-    fun list(): List<MusicPlaylist> =
-        dir
+    fun list(): List<MusicPlaylist> {
+        ensureMigrated()
+        return dir
             .listFiles { f -> f.extension == "json" }
             ?.mapNotNull { runCatching { fromJson(it.readText()) }.getOrNull() }
             ?.sortedBy { it.name.lowercase() }
             .orEmpty()
+    }
 
     fun save(playlist: MusicPlaylist) {
+        ensureMigrated()
         AtomicWrite.text(fileOf(playlist.name), toJson(playlist))
     }
 
     fun delete(name: String) {
+        ensureMigrated()
         fileOf(name).delete()
     }
 
@@ -51,6 +65,7 @@ class MusicPlaylistStore(
         name: String,
         uri: String,
     ): MusicPlaylist {
+        ensureMigrated()
         val current = current(name) ?: return MusicPlaylist(name)
         val updated =
             if (current.trackUris.contains(uri)) current else current.copy(trackUris = current.trackUris + uri)
@@ -62,6 +77,7 @@ class MusicPlaylistStore(
         oldName: String,
         newName: String,
     ): Boolean {
+        ensureMigrated()
         val current = list().firstOrNull { it.name == oldName } ?: return false
         if (newName.isBlank() || list().any { it.name == newName }) return false
         if (!AtomicWrite.text(fileOf(newName), toJson(current.copy(name = newName)))) return false
@@ -74,6 +90,7 @@ class MusicPlaylistStore(
         from: Int,
         to: Int,
     ): MusicPlaylist {
+        ensureMigrated()
         val current = current(name) ?: return MusicPlaylist(name)
         val uris = current.trackUris.toMutableList()
         if (from !in uris.indices) return current
@@ -89,6 +106,7 @@ class MusicPlaylistStore(
         name: String,
         uri: String,
     ): MusicPlaylist {
+        ensureMigrated()
         val current = current(name) ?: return MusicPlaylist(name)
         val updated = current.copy(trackUris = current.trackUris.filterNot { it == uri })
         save(updated)

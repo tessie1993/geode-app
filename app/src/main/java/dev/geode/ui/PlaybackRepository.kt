@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import dev.geode.model.QueueUiState
 import kotlinx.coroutines.flow.StateFlow
 
 interface PlaybackRepository {

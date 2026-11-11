@@ -39,11 +39,47 @@ internal object WidgetVisual {
         return styleId.split('_').joinToString(" ") { word -> word.replaceFirstChar { it.uppercase() } }
     }
 
-    /** The picture for [state]: the style's thumbnail when it has one, else the glow. Never null. */
+    /** What a picture was drawn from. A picture is drawn again only when its source changes. */
+    sealed interface Source
+
+    /** A style's thumbnail: the same for as long as the style is. */
+    data class Thumbnail(
+        val styleId: String,
+    ) : Source
+
+    /** The glow: everything [glow] reads, so it still moves on every tick. */
+    data class Glow(
+        val styleId: String?,
+        val artHue: Float,
+        val artSpan: Float,
+        val tick: Int,
+    ) : Source
+
+    class Picture(
+        val bitmap: Bitmap,
+        val source: Source,
+    )
+
+    /**
+     * The picture for [state]: the style's thumbnail when it has one, else the glow. Never null.
+     * [previous] is returned as it is when it was drawn from the same source, so a state that only
+     * moved the progress bar costs no asset read and no decode.
+     */
     fun render(
         context: Context,
         state: WidgetState,
-    ): Bitmap = state.styleId?.let { thumbnail(context, it) } ?: glow(state)
+        previous: Picture? = null,
+    ): Picture {
+        val styleId = state.styleId
+        val glowSource = Glow(styleId, state.artHue, state.artSpan, state.tick)
+        val drawn = previous?.source
+        val sameThumbnail = drawn is Thumbnail && drawn.styleId == styleId
+        if (previous != null && (drawn == glowSource || sameThumbnail)) return previous
+        // A style that drew the glow last time has no thumbnail to look for again.
+        val known = drawn is Glow && drawn.styleId == styleId
+        val decoded = if (styleId == null || known) null else thumbnail(context, styleId)
+        return if (decoded != null && styleId != null) Picture(decoded, Thumbnail(styleId)) else Picture(glow(state), glowSource)
+    }
 
     private fun thumbnail(
         context: Context,

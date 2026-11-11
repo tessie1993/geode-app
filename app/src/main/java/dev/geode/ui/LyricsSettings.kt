@@ -28,9 +28,9 @@ import dev.geode.R
  * seeks there), a web search for them, and a way to load an .lrc file for this song. They used to
  * be a panel of the fullscreen live view, which is now for watching.
  *
- * The search hands the query to the browser; the app itself fetches nothing from the
- * internet and stays that way. What the user saves from it comes back through "Load .lrc", which keeps a copy for
- * this track ([LyricsLoader.attach]).
+ * The search hands the query to the browser; the app itself fetches nothing from the internet and
+ * stays that way. What the user saves from it comes back through "Load .lrc", which keeps a copy
+ * for this track ([dev.geode.data.LyricsLoader.attach]).
  */
 @Composable
 internal fun LyricsSection(viewModel: PlayerViewModel) {

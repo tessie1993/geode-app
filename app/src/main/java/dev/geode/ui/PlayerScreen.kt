@@ -71,6 +71,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
+import dev.geode.model.QueueTrack
+import dev.geode.model.QueueUiState
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.StoneIcon

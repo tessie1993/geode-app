@@ -64,7 +64,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.runningFold
 import java.io.File
 import kotlin.math.roundToInt
 
@@ -86,15 +86,20 @@ class NowPlayingWidget : GlanceAppWidget() {
     ) {
         val first = WidgetSnapshot.of(context, WidgetState.load(context), WidgetStyles.listening.value)
         provideContent {
-            val snapshot by remember { snapshots(context) }.collectAsState(first)
+            val snapshot by remember { snapshots(context, first) }.collectAsState(first)
             NowPlaying(snapshot)
         }
     }
 
-    private fun snapshots(context: Context): Flow<WidgetSnapshot> =
+    // Each snapshot is built from the one before it: the progress tick changes the position every
+    // 20 s, and the pictures must not be read and decoded again for that (see WidgetSnapshot.of).
+    private fun snapshots(
+        context: Context,
+        first: WidgetSnapshot,
+    ): Flow<WidgetSnapshot> =
         combine(WidgetState.changes.filterNotNull(), WidgetStyles.listening) { state, listening -> state to listening }
             .distinctUntilChanged()
-            .map { (state, listening) -> WidgetSnapshot.of(context, state, listening) }
+            .runningFold(first) { previous, (state, listening) -> WidgetSnapshot.of(context, state, listening, previous) }
             .flowOn(Dispatchers.IO)
 }
 
@@ -106,15 +111,47 @@ class NowPlayingWidgetReceiver : GlanceAppWidgetReceiver() {
 internal class WidgetSnapshot(
     val state: WidgetState,
     val art: Bitmap?,
-    val visual: Bitmap,
     val listening: Boolean,
+    private val artKey: ArtKey?,
+    private val picture: WidgetVisual.Picture,
 ) {
+    val visual: Bitmap get() = picture.bitmap
+
     companion object {
+        /**
+         * The frame for [state]. A picture whose source did not change since [previous] is taken
+         * from it, the same Bitmap, and not decoded again: the artwork while its file is the same
+         * one ([ArtKey]), the visual while it draws the same thing ([WidgetVisual.render]).
+         */
         fun of(
             context: Context,
             state: WidgetState,
             listening: Boolean,
-        ) = WidgetSnapshot(state, state.artPath?.let { loadArt(context, it) }, WidgetVisual.render(context, state), listening)
+            previous: WidgetSnapshot? = null,
+        ): WidgetSnapshot {
+            val artKey = state.artPath?.let { ArtKey.of(it) }
+            val art =
+                when {
+                    artKey == null -> null
+                    previous != null && previous.artKey == artKey -> previous.art
+                    else -> loadArt(context, artKey.path)
+                }
+            return WidgetSnapshot(state, art, listening, artKey, WidgetVisual.render(context, state, previous?.picture))
+        }
+    }
+}
+
+/** Which artwork file a decoded bitmap came from: the path alone is not enough, every track overwrites one file. */
+internal data class ArtKey(
+    val path: String,
+    val lastModified: Long,
+    val length: Long,
+) {
+    companion object {
+        fun of(path: String): ArtKey {
+            val file = File(path)
+            return ArtKey(path, file.lastModified(), file.length())
+        }
     }
 }
 

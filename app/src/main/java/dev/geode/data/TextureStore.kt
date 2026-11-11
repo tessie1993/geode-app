@@ -141,11 +141,7 @@ class TextureStore(
         }.getOrNull()
 
     private fun displayName(uri: Uri): String? =
-        runCatching {
-            appContext.contentResolver
-                .query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
-                ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
-        }.getOrNull() ?: uri.lastPathSegment?.substringAfterLast('/')
+        appContext.contentResolver.displayNameOf(uri) ?: uri.lastPathSegment?.substringAfterLast('/')
 
     private fun generatedDir(): File = File(appContext.filesDir, "milk/generated")
 

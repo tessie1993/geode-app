@@ -10,6 +10,8 @@
 #include <string_view>
 #include <vector>
 
+#include <EGL/egl.h>
+
 #include "api/geode_api.h"
 #include "api/geode_ingest_handles.hpp"
 #include "viz/Director.hpp"
@@ -777,6 +779,13 @@ void geode_viz_prepare_offscreen(geode_viz* v) {
 
 void geode_viz_release_scenes(geode_viz* v) {
     if (v) v->renderer.releaseScenes();
+}
+
+void geode_viz_trim_spares(geode_viz* v) {
+    // Without a current context (the surface already gone) every GL delete is a no-op: the scenes would be
+    // forgotten while their objects stayed in the kept context. Then nothing is shed here.
+    if (!v || eglGetCurrentContext() == EGL_NO_CONTEXT) return;
+    v->renderer.trimSpares();
 }
 
 }

@@ -22,6 +22,8 @@ import dev.geode.data.FileTakeRepository
 import dev.geode.data.FileTemplateRepository
 import dev.geode.data.GuiPrefs
 import dev.geode.data.LfoStore
+import dev.geode.data.Lyrics
+import dev.geode.data.LyricsLoader
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.MilkTexture
 import dev.geode.data.PlayerPrefs
@@ -56,8 +58,13 @@ import dev.geode.export.ExportRange
 import dev.geode.geodeContainer
 import dev.geode.model.DeviceTrack
 import dev.geode.model.LibraryTrack
+import dev.geode.model.MilkFile
+import dev.geode.model.QueueTrack
+import dev.geode.model.QueueUiState
+import dev.geode.model.VizPlaylistEntry
 import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackErrors
+import dev.geode.playback.PlaybackQueue
 import dev.geode.playback.PlaybackService
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
@@ -218,10 +225,11 @@ class PlayerSession internal constructor(
     private val visual: VisualSettingsController =
         VisualSettingsController(
             vizStateStore,
+            scope,
             object : VisualSettingsController.Host {
                 override val guiPrefs: GuiPrefs get() = settings.guiPrefs.value
 
-                override fun milkPathFor(preset: Preset): String? = presetLibrary.milkPresetPathFor(preset)
+                override suspend fun milkPathFor(preset: Preset): String? = presetLibrary.milkPresetPathFor(preset)
             },
         )
 
@@ -638,14 +646,17 @@ class PlayerSession internal constructor(
 
     fun rescanMediaRoots() = musicLibrary.rescanMediaRoots()
 
-    fun createMusicPlaylist(name: String) = musicLibrary.createMusicPlaylist(name)
+    fun createMusicPlaylist(
+        name: String,
+        uris: List<String> = emptyList(),
+    ) = musicLibrary.createMusicPlaylist(name, uris)
 
     suspend fun importPlaylistFile(uri: Uri): PlaylistImportResult = musicLibrary.importPlaylistFile(uri)
 
     fun renameMusicPlaylist(
         oldName: String,
         newName: String,
-    ): Boolean = musicLibrary.renameMusicPlaylist(oldName, newName)
+    ) = musicLibrary.renameMusicPlaylist(oldName, newName)
 
     fun moveMusicPlaylistTrack(
         name: String,

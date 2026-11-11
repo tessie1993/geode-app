@@ -2,6 +2,8 @@ package dev.geode.ui
 
 import dev.geode.data.PaletteStore
 import dev.geode.data.Preset
+import dev.geode.model.MilkFile
+import dev.geode.model.VizPlaylistEntry
 import dev.geode.render.scene.MilkdropEngine
 import dev.geode.render.scene.SceneIds
 import dev.geode.render.scene.SceneParams

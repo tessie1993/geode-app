@@ -603,7 +603,7 @@ int geode_viz_frame_begin(geode_viz* v, float paced_fps, float render_scale, flo
         r.setUserQuality(quality.renderScale, quality.marchScale, quality.postFx, quality.adaptive);
         r.setLiquidHotPolicy(quality.liquidHotPolicy);
     }
-    const uint32_t due = v->cadence.step([] { return ThermalState::process().claimSample(monotonicSeconds()); },
+    const uint32_t due = v->cadence.step([] { return ThermalState::process().headroomDue(monotonicSeconds()); },
                                          [&r] { return r.takeLiquidMode(); });
     if (due & frame::kFrameClearOnly) {
         // The shell returns at once on this frame, so nothing it would push may count as applied yet.

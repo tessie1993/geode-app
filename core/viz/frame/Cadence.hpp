@@ -22,8 +22,8 @@ namespace geode::viz::frame {
 // ends, long enough for an input-dispatch ANR. A clear releases the main thread at once; the build runs on
 // the next frame the pacer asks for, where nobody waits on it.
 inline constexpr uint32_t kFrameClearOnly = 1u << 0;
-// This caller won the process's once-a-second thermal slot (ThermalState::claimSample): read PowerManager
-// and push it (geode_thermal_push).
+// This caller won the process's thermal slot on a second a headroom is due (ThermalState::headroomDue): ask
+// PowerManager for it and push it (geode_thermal_push).
 inline constexpr uint32_t kFrameThermalDue = 1u << 1;
 // What Liquid mode ran changed since the last frame that said so; the mode is in the liquid field.
 inline constexpr uint32_t kFrameLiquidChanged = 1u << 2;

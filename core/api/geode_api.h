@@ -151,7 +151,7 @@ GEODE_API void        geode_viz_gyro_reset(geode_viz*);
    geode_viz_set_params / _set_lfo / _set_adsr / _set_sound_tuning, before geode_viz_render. A clear-only
    frame wants none. Export never calls it. Answers a bitmask of GEODE_FRAME_*; 0 for a null handle. */
 #define GEODE_FRAME_CLEAR_ONLY     0x1 /* the first frame on a new surface, cleared to black: present it, do nothing else */
-#define GEODE_FRAME_THERMAL_DUE    0x2 /* read PowerManager and call geode_thermal_push */
+#define GEODE_FRAME_THERMAL_DUE    0x2 /* ask PowerManager's headroom and call geode_thermal_push */
 #define GEODE_FRAME_LIQUID_CHANGED 0x4 /* Liquid mode changed: GEODE_FRAME_LIQUID_MODE(due) */
 /* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode). */
 #define GEODE_FRAME_LIQUID_MODE(due) ((int)(((unsigned)(due) >> 8) & 0xFu))
@@ -623,10 +623,11 @@ GEODE_API void            geode_pacer_resume(long long* state);
 GEODE_API float           geode_pacer_effective_cap(float cap_fps);
 
 /* The process's one thermal state (core/viz/frame/Thermal): every renderer reads the same tier. The
-   once-a-second cadence across the process is native; a live renderer learns its turn from
-   GEODE_FRAME_THERMAL_DUE (geode_viz_frame_begin), then reads PowerManager and pushes. */
-/* One reading: PowerManager's thermal status (< 0 = no thermal API) and its headroom forecast (NaN = none
-   this time; the last real one holds a while). Settles the shared tier. */
+   cadence across the process is native: a live renderer learns from GEODE_FRAME_THERMAL_DUE
+   (geode_viz_frame_begin), every ten seconds, that it asks PowerManager's headroom and pushes it; the
+   status is pushed by PowerManager's status listener when it changes. */
+/* One reading: PowerManager's thermal status (< 0 = none this time; the last one holds) and its headroom
+   forecast (NaN = none this time; the last real one holds a while). Settles the shared tier. */
 GEODE_API void            geode_thermal_push(int platform_status, float headroom);
 
 /* Memory pressure (#854): Android's onTrimMemory level, forwarded as is. Native acts on TRIM_MEMORY_UI_HIDDEN (20)

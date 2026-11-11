@@ -7,10 +7,10 @@ Play's rules are from "Add preview assets to showcase your app"
 | Asset | Rule |
 |---|---|
 | Screenshots | JPEG or 24-bit PNG, no alpha. Each side 320 to 3840 px, the long side at most twice the short side. At least 2 to publish, up to 8 per device type |
-| Large screens (7-inch, 10-inch tablet) | 16:9 or 9:16, each side 1080 to 7680 px, at least 4 |
+| Large screens (7-inch, 10-inch tablet, Chromebook) | 16:9 or 9:16, each side 1080 to 7680 px, at least 4 per type uploaded. Optional, but without them the app is not featured on large screens |
 | To be eligible for recommendations | At least 4 screenshots of 1080 px or more: 1920 x 1080 landscape or 1080 x 1920 portrait |
 | Content | The real app. A tagline may cover at most 20 % of the image. No device frames needed, no "best", "#1", "new", prices or calls to action. A clean status bar. Alt text up to 140 characters |
-| Feature graphic | 1024 x 500, JPEG or 24-bit PNG, no alpha. Required |
+| Feature graphic | 1024 x 500, JPEG or 24-bit PNG, no alpha. Required. Key elements away from the edges; avoid a pure black, white or dark grey ground; no device pictures, badges, price or "best". Alt text up to 140 characters |
 | App icon | 512 x 512, 32-bit PNG with alpha, at most 1024 KB |
 
 ## How the screenshots are made
@@ -84,24 +84,40 @@ crop to 9:16 or 16:9 and export without alpha.
 
 ## Feature graphic
 
-Play requires one. `docs/brand/muzviz-feature-graphic-1024x500.png` is the right size and
-format but carries the old "MuzViz" wordmark, so it cannot ship under the new name.
+**Ready:** `docs/brand/beatrealms-feature-graphic-1024x500.png` (1024 x 500, RGB PNG, no alpha),
+made from `docs/brand/beatrealms-feature-graphic.svg` by `tools/feature_graphic.py` and rendered
+as `docs/brand/README.md` › Regenerating says. It is the launcher icon's neon eye over an
+indigo ground with the splash's outlined "BeatRealms 3D" wordmark, everything inside the middle
+60 %, no tagline, no screenshot. Alt text: "The BeatRealms 3D eye logo, made of sound waves,
+over a spectrum of light".
 
-What the workflow gives: `feature-graphic/<style>-1024x500.png`, six frames of free styles drawn
-by the app's own renderer at 2048 x 1000 and filtered down
-(`app/src/androidTest/java/dev/geode/store/StoreFramesTest.kt`, the same offscreen path that
-renders the style thumbnails). They are renders, not screenshots: there is no app chrome
-because a feature graphic has none. They are valid feature graphics as they are.
+The ground is indigo on purpose: Play asks feature graphics to avoid pure black and dark grey,
+and the app's own black would vanish into the store's dark theme. If a promo video is added,
+Play draws a play button in the centre of this graphic; the eye sits there, which is fine.
 
-What only the owner can decide: whether the graphic carries the wordmark. If it does, it is
-the "BeatRealms 3D" lockup from the rename's brand work laid over one of these frames by the
-brand tooling (`docs/brand/README.md`: `tools/brand_assets.py`, the outlined Montserrat
-wordmark). Keep the wordmark inside the middle 60 % (Play crops the edges in some placements),
-no tagline, no "new", no price, no device picture.
+The **Store assets** workflow also writes `feature-graphic/<style>-1024x500.png`, frames of
+free styles from the app's own renderer (`StoreFramesTest.kt`). They are valid alternatives
+without the wordmark.
 
 ## App icon
 
-`docs/brand/muzviz-icon-512.png` is 512 x 512, RGBA PNG, 358 KB: it passes Play's format rules
-(checked with Pillow). It is the neon eye mark with no wordmark, so the rename does not touch
-it unless the owner wants a new mark. Play applies its own rounded mask and shadow; do not
+**Ready:** `docs/brand/beatrealms-icon-512.png` is 512 x 512, RGBA PNG, 359 KB: it passes
+Play's format rules (checked with Pillow). It is the neon eye mark the launcher icon uses, with
+no wordmark (`tools/brand_raster.sh` makes it from `docs/brand/flow/icon-neon.jpg`). Play applies its own rounded mask and shadow; do not
 bake either in.
+
+## Shot list (summary)
+
+| Set | Count | Size | Source | Status |
+|---|---|---|---|---|
+| Phone | 8 (min 2; 4+ at 1080 px for recommendations) | 1080 x 1920 portrait | Store assets workflow, `screenshots/phone/` | Needs an emulator run (not possible in the agent container) |
+| Phone landscape (optional extra) | up to the 8 phone slots | 1920 x 1080 | `screenshots/phone-land/` | Needs an emulator run |
+| 7-inch tablet | 8 (min 4) | 1920 x 1080 | `screenshots/tablet7/` | Needs an emulator run |
+| 10-inch tablet | 8 (min 4) | 2560 x 1440 | `screenshots/tablet10/` | Needs an emulator run |
+| Chromebook | optional | 16:9 | not made | Skip unless the owner wants it |
+| Feature graphic | 1 | 1024 x 500 | `docs/brand/beatrealms-feature-graphic-1024x500.png` | Ready |
+| App icon | 1 | 512 x 512 | `docs/brand/beatrealms-icon-512.png` | Ready |
+| Promo video | optional | YouTube URL | [promo-video.md](promo-video.md) | Owner |
+
+Every screenshot shows a free style and real app screens, no device frame, no tagline, a clean
+status bar, and an alt text from the table above.

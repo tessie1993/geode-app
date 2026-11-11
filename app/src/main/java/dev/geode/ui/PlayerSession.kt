@@ -16,7 +16,6 @@ import dev.geode.data.EditorProjectStore
 import dev.geode.data.FavouritesRepository
 import dev.geode.data.FilePresetRepository
 import dev.geode.data.FileSessionRepository
-import dev.geode.data.FileTakeRepository
 import dev.geode.data.FileTemplateRepository
 import dev.geode.data.GuiPrefs
 import dev.geode.data.LfoStore
@@ -31,7 +30,6 @@ import dev.geode.data.PlayerPrefsStore
 import dev.geode.data.Preset
 import dev.geode.data.PresetRepository
 import dev.geode.data.PresetStore
-import dev.geode.data.SaveTarget
 import dev.geode.data.SessionRepository
 import dev.geode.data.SessionStore
 import dev.geode.data.SharedPrefsFavouritesRepository
@@ -39,7 +37,6 @@ import dev.geode.data.SharedPrefsPlayerPrefsRepository
 import dev.geode.data.SmartPlaylist
 import dev.geode.data.SmartPlaylistMatcher
 import dev.geode.data.SystemMotion
-import dev.geode.data.TakeStore
 import dev.geode.data.TemplateImport
 import dev.geode.data.TemplateLook
 import dev.geode.data.TemplateRepository
@@ -326,46 +323,38 @@ class PlayerSession internal constructor(
     val favourites: StateFlow<Set<String>> get() = listening.favourites
 
     private val recordPrefs = dev.geode.data.RecordPrefsStore(prefsFiles.general)
+    private val exportPrefs = dev.geode.data.ExportPrefsStore(prefsFiles.general)
 
-    internal val takeController: TakeController =
-        TakeController(
-            FileTakeRepository(TakeStore(application)),
+    internal val record: RecordController =
+        RecordController(
+            application,
             scope,
-            storeScope,
-            object : TakeController.Host {
-                override val vizState: StateFlow<VizUiState> get() = _vizState
-                override val activeMilkPath: String? get() = vizStateStore.activeMilkPath.value
-                override val trackUri: String? get() = currentUri?.toString()
-
-                override val trackPositionMs: Long
-                    get() = runCatching { player.currentPosition }.getOrDefault(0L)
-
-                override fun selectScene(sceneId: String) = visual.selectScene(sceneId)
-
-                override fun setSceneParams(params: SceneParams) = visual.setSceneParams(params)
-
-                override fun applyMilk(
-                    path: String,
-                    sceneId: String,
-                ) = visual.emitApply(VizApply(milkPath = path, sceneId = sceneId))
-
-                override fun lengthLimitNote(recordedMs: Long): String? = recordLimitNote(application, recordPrefs, recordedMs)
-
+            dev.geode.data.RecordFiles(application),
+            object : RecordController.Host {
                 override fun canRecord(): Boolean = allowsRecording()
 
                 override fun onRecordLocked() = onRecordingLocked()
 
-                override fun renderProject(
-                    project: dev.geode.editor.StudioProject,
-                    onRendered: (dev.geode.editor.ProjectRender) -> Unit,
-                ) = exportController.renderProject(project, onRendered = onRendered)
+                override fun prefs() = recordPrefs.load(exportPrefs.loadFor(dev.geode.data.ExportDestination.CUSTOM))
 
-                override fun recordRender(
-                    id: dev.geode.editor.ProjectId,
+                override fun limits() = renderLimits()
+
+                override fun track(): dev.geode.editor.TrackRef? =
+                    currentUri?.let { uri ->
+                        dev.geode.editor.TrackRef(
+                            uri.toString(),
+                            player.mediaMetadata.title
+                                ?.toString()
+                                .orEmpty(),
+                            trackDurationMs(),
+                        )
+                    }
+
+                override fun keep(
+                    track: dev.geode.editor.TrackRef?,
                     render: dev.geode.editor.ProjectRender,
-                ) = editor.recordRender(id, render)
+                ) = editor.keepRecording(track, render)
             },
-            takeName = { application.getString(dev.geode.R.string.take_default_name, it) },
         )
 
     internal val trackColor: TrackColorController =
@@ -613,11 +602,6 @@ class PlayerSession internal constructor(
         _playbackNotice.value = null
     }
 
-    fun chooseTakeSaveTarget(
-        target: SaveTarget,
-        remember: Boolean,
-    ) = takeController.chooseSaveTarget(target, remember)
-
     /**
      * The Pro style gate, set by [dev.geode.di.PlayerSessionProvider] from the entitlement use
      * case. Open until set, so a session built outside the provider (a test) behaves as before.
@@ -782,8 +766,6 @@ class PlayerSession internal constructor(
                         )
                     }
 
-                override suspend fun loadExportTake() = takeController.loadExportTake()
-
                 override fun allowsStyle(sceneId: String) = this@PlayerSession.allowsStyle(sceneId)
 
                 override fun onStyleLocked() = this@PlayerSession.onStyleLocked()
@@ -792,7 +774,7 @@ class PlayerSession internal constructor(
             },
         )
 
-    internal val editor: EditorController = EditorController(EditorProjectStore(application), storeScope).also { it.refresh() }
+    internal val editor: EditorController = EditorController(EditorProjectStore(application), storeScope).also { it.start() }
 
     // W02: the background image behind the scene - see BackgroundController for why it takes no Host.
     internal val backgroundController: BackgroundController =
@@ -814,10 +796,9 @@ class PlayerSession internal constructor(
         sceneFactory: SceneFactory,
         destination: Uri? = null,
         range: ExportRange? = null,
-        sceneFactoryFor: ((String) -> SceneFactory)? = null,
         codec: ExportCodec = ExportCodec.H264,
         watermark: Boolean = false,
-    ) = exportController.startExport(aspect, fps, sceneFactory, destination, range, sceneFactoryFor, codec, watermark)
+    ) = exportController.startExport(aspect, fps, sceneFactory, destination, range, codec, watermark)
 
     fun deleteStudioClip(
         uri: String,
@@ -876,7 +857,6 @@ class PlayerSession internal constructor(
         // the capture controller needs before it may call back into this session.
         captureController.start()
         musicLibrary.refreshNumericTitles()
-        takeController.refresh()
         presetLibrary.refreshInitial()
         templateLibrary.refreshInitial()
         musicLibrary.refresh()

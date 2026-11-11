@@ -221,7 +221,7 @@ class TextureStore(
         /** Comfortably above any real MilkDrop texture, far below what exhausts the heap. */
         private const val MAX_TEXTURE_BYTES = 16 * 1024 * 1024
 
-        /** 4096 px a side is 64 MB decoded, and no larger than any GLES 3 device's texture limit. */
+        /** 4096 px a side is 64 MB decoded, and within the texture limit of the phones Android 13 runs on. */
         private const val MAX_TEXTURE_SIDE = 4096
 
         private const val READ_BUFFER_BYTES = 64 * 1024

@@ -65,15 +65,14 @@ private fun CustomizeControl(
         PanelPiece(key, host, viz, onChange)
         return
     }
-    when (CustomizeMapTable.categoryOf(key)) {
-        CustomizeCategory.LOOK -> LookControl(key, host, p, onChange)
-        CustomizeCategory.SHAPE -> ShapeControl(key, p, onChange)
-        CustomizeCategory.MOTION, CustomizeCategory.CAMERA -> MotionControl(key, p, onChange)
-        CustomizeCategory.MUSIC, CustomizeCategory.EFFECTS -> MusicControl(key, p, onChange)
-        CustomizeCategory.LIQUID, CustomizeCategory.BEHAVIOUR -> LiquidControl(key, host, p, onChange)
-        CustomizeCategory.EXPERT -> EngineControl(key, p, onChange)
-        CustomizeCategory.QUICK_KNOBS, null -> Unit
-    }
+    // Each group draws only the keys it knows, so where the native map files a control never
+    // decides whether it draws.
+    LookControl(key, host, p, onChange)
+    ShapeControl(key, p, onChange)
+    MotionControl(key, p, onChange)
+    MusicControl(key, p, onChange)
+    LiquidControl(key, host, p, onChange)
+    EngineControl(key, p, onChange)
 }
 
 @Composable
@@ -661,7 +660,7 @@ private fun LiquidSwitch(
 }
 
 /**
- * Behaviour's Personality: a new reaction DNA for the style (core/viz/ReactionDna). The same
+ * Music's Personality: a new reaction DNA for the style (core/viz/ReactionDna). The same
  * shuffle the reaction editor offers; the user's own routes go back to the style's.
  */
 @Composable

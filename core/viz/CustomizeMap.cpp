@@ -61,15 +61,21 @@ const std::vector<Section>& table() {
         {C::Camera, "framing", false, S::ThreeD, {"Field of view", "Swing", "Push in", "Look turn", "Look tilt", "Roll"}},
         {C::Camera, "feel", false, S::ThreeD, {"Handheld shake", "Tilt phone to look", "Drag to look", "Camera smoothing"}},
 
-        {C::Music, "basics", true, S::Always, {"Audio drive", "Reaction strength", "@auto_moments"}},
+        {C::Music, "basics", true, S::Always, {"Audio drive", "Reaction strength", "Reaction DNA", "@auto_moments"}},
         {C::Music, "moments", false, S::Always, {"@moments"}},
         {C::Music, "listening", false, S::Always, {"Bass gain", "Mid gain", "Treble gain", "@rise_fall"}},
         {C::Music, "notes_key", false, S::Always, {"Key colour", "@notes_key"}},
+        // The modulation editors sit with the music they follow: MilkDrop keeps a preset's motion and
+        // its per-frame reactions in one menu, and so does this page.
+        {C::Music, "reactions", false, S::Always, {"@reactions"}},
+        {C::Music, "envelopes", false, S::Always, {"@envelopes"}},
+        {C::Music, "waves", false, S::Always, {"@waves"}},
 
-        {C::Effects, "basics", true, S::Always, {"Trails", "Vignette"}},
+        {C::Effects, "basics", true, S::Always, {"Trails", "Vignette", "@transition_style"}},
         {C::Effects, "trail_detail", false, S::Always, {"Trail length", "Trail zoom (echo in/out)", "Trail warp (liquid echo)"}},
         {C::Effects, "lens", false, S::Always, {"Chromatic aberration", "Fisheye"}},
         {C::Effects, "film", false, S::Always, {"Film grain", "Scanlines", "Posterize", "Duotone", "Solarize", "Invert"}},
+        {C::Effects, "transition_detail", false, S::Always, {"@transition_length", "Glide time"}},
 
         {C::Liquid, "basics", true, S::Always, {"Flow field on", "Flow strength"}},
         {C::Liquid, "push_swirl", false, S::Always, {"Flow force", "Flow curl"}},
@@ -86,12 +92,6 @@ const std::vector<Section>& table() {
          false,
          S::Water,
          {"Ripple strength", "Depth", "Specular", "Flow drift", "Liquid", "Liquid flow", "Liquid fade"}},
-
-        {C::Behaviour, "basics", true, S::Always, {"Reaction DNA", "@transition_style"}},
-        {C::Behaviour, "transition_detail", false, S::Always, {"@transition_length", "Glide time"}},
-        {C::Behaviour, "reactions", false, S::Always, {"@reactions"}},
-        {C::Behaviour, "envelopes", false, S::Always, {"@envelopes"}},
-        {C::Behaviour, "waves", false, S::Always, {"@waves"}},
 
         // One section per engine, split so no list runs past a dozen rows; each shows only where its
         // controls reach.
@@ -172,8 +172,8 @@ const std::vector<HeldControl>& held() {
     return kHeld;
 }
 
-constexpr const char* kCategoryNames[] = {"QUICK_KNOBS", "LOOK",    "SHAPE",  "MOTION",    "CAMERA",
-                                          "MUSIC",       "EFFECTS", "LIQUID", "BEHAVIOUR", "EXPERT"};
+constexpr const char* kCategoryNames[] = {"QUICK_KNOBS", "LOOK",    "SHAPE",  "MOTION", "CAMERA",
+                                          "MUSIC",       "EFFECTS", "LIQUID", "EXPERT"};
 constexpr const char* kShowNames[] = {"ALWAYS", "THREE_D", "PARTICLES", "WATER", "ENGINE", "SHADER_CODE"};
 
 const randomizer::RolledKey* rolled(std::string_view key) {
@@ -232,6 +232,23 @@ std::optional<Category> categoryOf(std::string_view key) {
         }
     }
     return std::nullopt;
+}
+
+std::set<std::string> expandLocks(const std::set<std::string>& locked) {
+    std::set<std::string> out;
+    for (const auto& key : locked) {
+        if (key.empty() || key[0] != kCategoryLockPrefix) {
+            out.insert(key);
+            continue;
+        }
+        const auto category = categoryNamed(std::string_view(key).substr(1));
+        if (!category) continue;
+        for (const auto& section : table()) {
+            if (section.category != *category) continue;
+            for (const char* control : section.controls) out.insert(control);
+        }
+    }
+    return out;
 }
 
 bool reaches(std::string_view key, const std::string& styleId) {

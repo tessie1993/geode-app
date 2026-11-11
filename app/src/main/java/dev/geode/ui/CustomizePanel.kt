@@ -123,9 +123,9 @@ internal fun CustomizePanel(
         LocalProLock provides proLock,
         LocalShowTips provides showTips,
         LocalReactTo provides {
-            // "Make it react to music": Behaviour, with its Reactions open.
-            openSections.value += "${CustomizeCategory.BEHAVIOUR.name}/reactions"
-            customizeNav.open(CustomizeCategory.BEHAVIOUR.name)
+            // "Make it react to music": Music, with its Reactions open.
+            openSections.value += "${CustomizeCategory.MUSIC.name}/reactions"
+            customizeNav.open(CustomizeCategory.MUSIC.name)
         },
     ) {
         ParamSurface(sceneId = sceneId, query = query) {
@@ -288,6 +288,19 @@ private fun CustomizeHeader(
                         if (onKnobs) macroStore.resetKnobs() else visualsViewModel.resetCustomizeCategory(target)
                     },
                 )
+                if (!onKnobs) {
+                    // The engine expands the marker to the category's controls (core/viz/CustomizeMap).
+                    val (kept, toggleKeep) = LocalParamLocks.current
+                    val keepKey = "#${target.name}"
+                    DropdownMenuItem(
+                        text = { Text("Keep ${target.title} when randomizing") },
+                        trailingIcon = { Checkbox(checked = keepKey in kept, onCheckedChange = null) },
+                        onClick = {
+                            menuOpen = false
+                            toggleKeep(keepKey)
+                        },
+                    )
+                }
                 DropdownMenuItem(
                     text = { Text(if (changed == 0) "Reset everything" else "Reset everything ($changed changed)") },
                     enabled = changed > 0,

@@ -108,7 +108,7 @@ internal fun ProCrown(modifier: Modifier = Modifier) {
 }
 
 /**
- * Behaviour › Reactions: the route list.
+ * Music › Reactions: the route list.
  *
  * Shows the style's own reactions until the user edits one; the first edit copies them into the
  * user's own list, and "Use the style's own reactions" drops it again. The moments and their recipes
@@ -496,7 +496,7 @@ internal fun NoteKeyPage(
 private const val TRANSITION_CHIP_LIMIT = 40
 
 /**
- * Behaviour's transition style: how one style hands over to the next. The built-in transitions,
+ * Effects' transition style: how one style hands over to the next. The built-in transitions,
  * then the gl-transitions library behind a search. Nothing while the renderer has no transition yet.
  */
 @Composable

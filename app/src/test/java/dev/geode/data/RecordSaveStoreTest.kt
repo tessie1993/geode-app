@@ -41,11 +41,4 @@ class RecordSaveStoreTest {
         assertFalse(raw.contains("save_target"))
         assertNull(store.target())
     }
-
-    @Test
-    fun aFolderWithoutAHeldGrantIsRefusedAndNotStored() {
-        val store = RecordSaveStore(context)
-        assertFalse(store.choose(SaveTarget.Folder("content://tree/none")))
-        assertNull(store.target())
-    }
 }

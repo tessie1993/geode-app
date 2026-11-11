@@ -1,5 +1,6 @@
 package dev.geode.render.look
 
+import dev.geode.engine.audio.SoundTuning
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
@@ -44,7 +45,7 @@ class LookApplierTest {
             calls += "reactions"
         }
 
-        override fun setSoundTuning(floats: FloatArray) {
+        override fun setSoundTuning(tuning: SoundTuning) {
             calls += "tuning"
         }
 
@@ -84,7 +85,8 @@ class LookApplierTest {
         val target = FakeTarget()
         LookApplier().apply(LookSnapshot(), target)
         assertEquals(
-            listOf("scene neon_chrome_sea", "params", "lfos", "adsrs", "reactions", "tuning", "reducedMotion", "transition", "underlay"),
+            // The applier's order: the four parts native asks for by bit (params, LFOs, envelopes, tuning), then the rest.
+            listOf("scene neon_chrome_sea", "params", "lfos", "adsrs", "tuning", "reactions", "reducedMotion", "transition", "underlay"),
             target.calls,
         )
     }

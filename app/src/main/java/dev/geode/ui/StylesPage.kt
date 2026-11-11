@@ -517,6 +517,9 @@ private object StyleThumbs {
 
     fun cached(id: String): ImageBitmap? = cache.get(id)
 
+    /** Empties the decoded bitmaps; the next bind decodes again. `missing` is a few strings and stays. */
+    fun clear() = cache.evictAll()
+
     fun load(
         context: Context,
         id: String,
@@ -539,6 +542,9 @@ private object StyleThumbs {
     private const val CACHE_BYTES = 16 * 1024 * 1024
     private const val BYTES_PER_PIXEL = 4
 }
+
+/** Frees the style thumbnails on memory pressure (`GeodeApp.onTrimMemory`, #854). */
+internal fun trimStyleThumbs() = StyleThumbs.clear()
 
 /**
  * The menu's open headers, kept for the process; null until the user opens or closes one, so a

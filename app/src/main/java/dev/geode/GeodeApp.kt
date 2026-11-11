@@ -6,6 +6,7 @@ import dev.geode.billing.ForegroundActivityTracker
 import dev.geode.data.AutoDirectorStore
 import dev.geode.data.MacroStore
 import dev.geode.data.NoteResponseStore
+import dev.geode.di.MemoryTrim
 import java.io.File
 import javax.inject.Inject
 
@@ -45,5 +46,14 @@ class GeodeApp : Application() {
         // The auto-director's switch is process-wide too, and so is Note & key reactions'.
         AutoDirectorStore.get(this)
         NoteResponseStore.get(this)
+    }
+
+    /**
+     * Memory pressure (#854). The one process serves the app, the wallpaper and the dream, so this one
+     * callback covers all of them. Kotlin only forwards: see [MemoryTrim].
+     */
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        MemoryTrim.onTrim(level)
     }
 }

@@ -553,7 +553,7 @@ void Renderer::admitScene(const std::string& id, const Scene& scene) {
     trimScenes(id);
 }
 
-void Renderer::trimScenes(const std::string& keepId) {
+void Renderer::trimScenes(const std::string& keepId, MemoryTrim trim) {
     std::string requestedId;
     std::string layerId;
     {
@@ -566,7 +566,7 @@ void Renderer::trimScenes(const std::string& keepId) {
         const Scene* s = builtScene(id);
         return s != nullptr && (s == activeScene_ || s == outgoingScene_ || s == layerScene_);
     };
-    for (const std::string& victim : residency_.evict(pinned, SceneResidency::spareBudget(appliedTier_))) {
+    for (const std::string& victim : residency_.evict(pinned, SceneResidency::spareBudget(appliedTier_, trim))) {
         for (auto it = scenes_.begin(); it != scenes_.end(); ++it) {
             if (it->first != victim) continue;
             it->second->release();

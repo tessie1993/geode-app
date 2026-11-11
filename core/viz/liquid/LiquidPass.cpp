@@ -141,6 +141,7 @@ GLuint LiquidPass::run(const Frame& f) {
     glUniform1i(uniforms_.loc("uSurface"), f.surface);
     glUniform1i(uniforms_.loc("uFeedback"), f.feedback ? 1 : 0);
     glUniform1f(uniforms_.loc("uShimmer"), f.shimmer);
+    glUniform1f(uniforms_.loc("uWarp"), f.warp);
     glUniform1f(uniforms_.loc("uLight"), f.light);
     glUniform1f(uniforms_.loc("uTime"), f.time);
     glBindVertexArray(f.quadVao);

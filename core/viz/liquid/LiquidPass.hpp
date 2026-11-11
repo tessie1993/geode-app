@@ -38,6 +38,7 @@ public:
         int surface = 0;
         bool feedback = true;
         float shimmer = 0.0f;
+        float warp = 0.0f;  // 0..1, a slow sine bend of the carried frame (MilkDrop's warp); 0 off
         float light = 0.0f;
         float time = 0.0f;
         GLuint quadVao = 0;

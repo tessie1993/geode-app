@@ -42,6 +42,7 @@ uniform int uAge;           // 0 pure, 1 fade deep, 2 ink bleed
 uniform int uSurface;       // 0 ink, 1 wet gloss, 2 glass
 uniform int uFeedback;      // 0: the warp fallback, nothing carried over
 uniform float uShimmer;     // the highs, 0..1
+uniform float uWarp;        // 0..1, a slow sine bend of the carried frame; 0 off
 uniform float uLight;       // the sound's energy, 0..1, lights the surface
 uniform float uTime;
 
@@ -77,6 +78,9 @@ void main() {
     vec2 vel = texture(uVel, src).xy;
     if (any(isnan(vel)) || any(isinf(vel))) vel = vec2(0.0);
     src -= uDt * vel * uVelScale;
+    if (uWarp > 0.001) {
+        src += vec2(sin(src.y * 11.0 + uTime * 0.7), sin(src.x * 13.0 - uTime * 0.9)) * uWarp * 0.004;
+    }
     if (uShimmer > 0.001) {
         vec2 q = src * vec2(uAspect, 1.0) * 38.0 + uTime * 0.9;
         src += (vec2(noise(q), noise(q + 17.3)) - 0.5) * uShimmer * 3.0 * uTexel;

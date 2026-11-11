@@ -6,33 +6,27 @@
 #include "sound/SoundFrame.h"
 #include "viz/CameraRig.hpp"
 #include "viz/Params.hpp"
-#include "viz/Reactions.hpp"
 
 namespace geode::viz {
 
-// The auto-director: the music's feeling (sound/Emotion) decides how every style looks and behaves, the
-// way a VJ would, through the machinery every style already shares, so no style needs a line of its own:
+// The auto-director: the music's feeling (sound/Emotion) decides how a style behaves, the way a VJ
+// would turn a few knobs between sections, through the machinery every style already shares:
 //
-//   palette ─► paletteBase/Range overrides, the second palette and its mix, saturation, brightness,
-//              temperature, contrast (every shader style's pal(), the simulations' hue, MilkDrop's tint)
 //   behaviour ─► five axes of its own (Energy, Speed, Complexity, Space, Chaos), each an offset on a
-//              set of scene params, a scale on the camera rig's music moves and a few routes; the
-//              camera's spring softness, the motion field's breath, orbit and drift. The user's macro
-//              bank (viz/MacroBank) is never touched: it adds on top of whatever the director left
-//   what reacts to what ─► a reaction engine of its own, re-dealt from the feeling's archetypes, with its
-//              hands off every moment the user set by hand (Customize › Music, the hand mask of
-//              viz/Reactions.hpp, handed to step()): the hand wins per moment
+//              set of scene params and a scale on the camera rig's music moves; the camera's spring
+//              softness, the motion field's breath, orbit and drift. The user's macro bank
+//              (viz/MacroBank) is never touched: it adds on top of whatever the director left
 //
-// It decides at musical moments only: the first confident key,
-// a new section, a drop, a modulation that holds, and after 32 bars without one. Each decision is a
-// "look", glided in over a bar (a drop cuts in a quarter second). Between decisions the look breathes with
-// the live energy and tension, a build contracts it, and the melody's scale degree adds short accents.
+// Two things it never does (owner's rule). It never touches colour: the palette, saturation,
+// brightness, temperature and contrast are the style's and the user's. And it plays no reaction of its
+// own: what moves on a kick, a note or a drop is the reaction matrix alone (the user's routes, else the
+// style's DNA, viz/ReactionDna), which the user can see and edit. A look is decided, glided in and then
+// held; nothing in it follows the frame.
 //
-// Same feeling, never the same picture: emotion picks a region (hue anchors from the colour-emotion
-// studies, lightness and saturation ranges), the key turns it around the circle of fifths, the harmony
-// picks its shape (analogous, split, near-monochrome), and a seeded draw that rejects anything close to
-// the last six looks picks the point. The seed is set per play (setGlobal), so a replay is new and an
-// export that uses the play's seed is the same film.
+// It decides at musical moments only: the first confident key, a new section, a drop, a modulation that
+// holds, and after 32 bars without one. Each decision is a "look", glided in over a bar (a drop cuts in
+// a quarter second). The seed is set per play (setGlobal), so a replay is new and an export that uses
+// the play's seed is the same film.
 //
 // A pure function of (seed, sound frames, dt): no clock, no randomness of its own, state reset with the
 // renderer. Process-wide configuration, like the macro bank, so the screen, an export, the wallpaper and the
@@ -62,65 +56,41 @@ DirectorConfig forExport(bool switchOn, uint64_t seed, bool entitled, long long 
 
 class Director {
 public:
-    static constexpr int kRoutes = 5;
-    using Routes = std::array<ReactRoute, ReactionEngine::kRoutes>;
-    // The behaviour axes, each -1..1, 0 = as styled. They were the old macro knobs' rows the director
-    // turned (Mood never: the palette is the director's mood); now they are the director's alone.
+    // The behaviour axes, each -1..1, 0 = as styled. No axis is a mood: colour is never the director's.
     enum class Axis { Energy, Speed, Complexity, Space, Chaos };
     static constexpr int kAxes = 5;
     using Axes = std::array<float, kAxes>;
 
     struct Look {
-        // Colour: hues 0..1 on the colour wheel (red 0, yellow 1/6, green 1/3, blue 2/3).
-        float hue = 0.0f;
-        float range = 0.3f;
-        float hue2 = 0.5f;
-        float range2 = 0.3f;
-        float mix = 0.0f;
-        float saturation = 1.0f;
-        float brightness = 1.0f;
-        float temperature = 0.0f;
-        float contrast = 1.0f;
-        // Behaviour.
+        // The feeling's energy the look was made for (a drop's at least 0.85): how hard the reach shuffles.
+        float energy = 0.5f;
         Axes axes{};
         float camSmooth = 0.5f;
         float motionBreath = 0.5f;
         float motionOrbit = 0.5f;
         float motionDrift = 0.5f;
         CameraRig::Moves moves{};
-        Routes routes{};
-        // The feeling it was made for, so the live breathing reads against it.
-        float valence = 0.0f;
-        float energy = 0.5f;
-        float tension = 0.3f;
-        int primary = 0;  // the GEMS factor that led
     };
 
     enum class Reason { First, Section, Drop, Modulation, Long };
 
     void configure(const DirectorConfig& config);
-    // `handMask` is Customize › Music's hand mask (viz::hand): the routes keep off every moment it sets.
-    // An input, not hand::global, so a resolver's engine settings decide it (signal/Resolver, #344); 0 is
-    // nothing the hand's, the global's own default.
     // Hears the frame and steps its own feeling with it (tests, and a renderer with no sound engine).
-    void step(const GeodeSoundFrame& f, float dt, std::uint32_t handMask = 0);
+    void step(const GeodeSoundFrame& f, float dt);
     // Hears the frame with the feeling the sound engine stepped on its own sample clock: the renderer's
     // way, so the feeling is the same at every frame rate and in an export.
-    void step(const GeodeSoundFrame& f, const sound::Emotion::State& heard, float dt, std::uint32_t handMask = 0);
+    void step(const GeodeSoundFrame& f, const sound::Emotion::State& heard, float dt);
 
-    // First in the chain: the palette and the motion character, lerped by the amount. `palWheel` says how
-    // the scene reads paletteBase: true for the shader styles (lib_palette's pal() runs the colour wheel
-    // backwards), false for MilkDrop's tint and the simulations, which read it as a plain hue.
-    SceneParams apply(const SceneParams& p, bool palWheel = true) const;
-    // The look's axes breathing with the live feeling, times the weight, each -1..1; all 0 while off.
+    // Before the macros: the camera's softness added by the amount, the motion dials turned by a factor
+    // (a dial at 0 stays off). Never a colour param.
+    SceneParams apply(const SceneParams& p) const;
+    // The look's axes times the weight, each -1..1; all 0 while off. Held between decisions.
     Axes axes() const;
-    // After the note layer, before the user's macro bank: each axis moves its fields toward an end of
-    // their range, added to the value it is given (base plus modulation).
+    // Before the user's macro bank: each axis moves its fields toward an end of their range, added to
+    // the value it is given (base plus modulation). A Motion dial given at 0 stays 0.
     SceneParams applyAxes(const SceneParams& p) const;
     // The camera rig's music moves: Space and Chaos, times the look's own.
     CameraRig::Moves moves() const;
-    // After the user's routes: the axes' routes, then the director's own.
-    SceneParams applyRoutes(const SceneParams& p) const;
 
     // How much it is driving now: the switch, eased, times whether a look has been chosen yet.
     float weight() const { return amount_ * presence_; }
@@ -143,7 +113,6 @@ public:
 
 private:
     void commit(Reason reason, float glideSeconds);
-    bool farFromRecent(const Look& candidate) const;
 
     sound::Emotion emotion_;
     sound::Emotion::State feeling_{};  // what this step heard: its own emotion_'s, or the engine's
@@ -158,13 +127,6 @@ private:
     float glide_ = 1.0f;
     float glideSeconds_ = 1.0f;
 
-    ReactionEngine outgoing_;
-    ReactionEngine incoming_;
-    // The axes' routes, in an engine of their own; ticked at the end of each step.
-    ReactionEngine axisReactions_;
-    Routes outgoingBase_{};
-    Routes incomingBase_{};
-
     int commits_ = 0;
     Reason reason_ = Reason::First;
     float heard_ = 0.0f;
@@ -177,17 +139,6 @@ private:
     int committedKey_ = -1;
     int key_ = -1;
     float modulationSeconds_ = 0.0f;
-
-    static constexpr int kRecent = 6;
-    std::array<Look, kRecent> recent_{};
-    int recentCount_ = 0;
-
-    // Live, between decisions.
-    float buildUp_ = 0.0f;
-    float dropBoost_ = 0.0f;
-    float accent_ = 0.0f;
-    float accentSign_ = 1.0f;
-    float accentTension_ = 0.0f;
 };
 
 namespace director {
@@ -198,8 +149,6 @@ SceneParams applyAxes(const SceneParams& p, const Director::Axes& axes);
 // Space widens or narrows every music move; Chaos scales the shake, the reframes and the hard cuts
 // (-1 stops cuts). All 1 at rest.
 CameraRig::Moves axisMoves(const Director::Axes& axes);
-// Each axis's routes at a full turn up, scaled by the axis; off at or below 0.
-Director::Routes axisRoutes(const Director::Axes& axes);
 }  // namespace director
 
 }  // namespace geode::viz

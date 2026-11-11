@@ -130,6 +130,8 @@ class VisualizerWallpaperService : WallpaperService() {
             restoreLook(engine)
             settings = prefsStore.load()
             applyFps()
+            // Its own pacer's rate, not the stage's: the app's pacer may be running beside this one.
+            engine.pacedRate = pacer
             engine.soundInput = { sound.input }
             val wrapped = WallpaperRenderer(engine)
             wallpaperRenderer = wrapped

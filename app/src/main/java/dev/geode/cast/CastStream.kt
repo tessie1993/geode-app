@@ -12,6 +12,7 @@ import dev.geode.engine.audio.SoundCursor
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.EncoderSurface
 import dev.geode.export.PcmResampler
+import dev.geode.render.PacedRate
 import dev.geode.render.VisualizerRenderer
 import dev.geode.util.bestEffort
 import java.net.Inet4Address
@@ -109,6 +110,10 @@ internal class CastStream(
         try {
             egl.makeCurrent()
             renderer.soundInput = { AudioBus.soundInput }
+            // The encoder's fixed rate, not the stage's cap: at 30 this renderer is keeping up, so its fluid
+            // monitor and the shared thermal trend must not read its frames against the phone's 60 (or 120).
+            val castFps = CastEncoder.FPS.toFloat()
+            renderer.pacedRate = PacedRate { castFps }
             renderer.onSurfaceCreated(null, null)
             renderer.onSurfaceChanged(null, encoder.width, encoder.height)
             val clock = LongArray(GeodeNative.FRAME_CLOCK_STATE)

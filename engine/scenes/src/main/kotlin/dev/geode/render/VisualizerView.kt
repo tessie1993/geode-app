@@ -61,6 +61,7 @@ class VisualizerView(
         // invisible, and rebuilding every scene, shader and FBO on each resume would cost a visible
         // black flash. The driver is free to refuse, which is why onSurfaceCreated stays re-entrant.
         preserveEGLContextOnPause = true
+        visualizerRenderer.pacedRate = framePacer
         setRenderer(visualizerRenderer)
         // RENDERMODE_WHEN_DIRTY does not mean "draw rarely": the pacer drives it every vsync it
         // decides to keep. It means the GL thread idles the moment the pacer stops, which is what

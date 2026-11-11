@@ -59,6 +59,10 @@ class VisualizerRenderer(
     @Volatile
     var performance: PerformanceSettings = PerformanceSettings.HIGH
 
+    /** What paces this surface, set by its host: the view's or the wallpaper's own pacer, Cast's fixed rate. */
+    @Volatile
+    var pacedRate: PacedRate = PacedRate { 0f }
+
     @Volatile
     var onShaderError: (String?) -> Unit = {}
 
@@ -245,7 +249,7 @@ class VisualizerRenderer(
         val perf = performance
         val due =
             nativeViz.frameBegin(
-                ThermalGovernor.pacedFps,
+                pacedRate.fps(),
                 perf.renderScale,
                 perf.marchScale,
                 perf.postFx,

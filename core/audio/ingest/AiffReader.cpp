@@ -12,7 +12,8 @@ constexpr size_t kReadAhead = size_t{1} << 16;
 
 FdSource::FdSource(int fd, int64_t startOffset, int64_t length) : fd_(fd), remaining_(length < 0 ? -1 : length) {
     if (fd_ < 0 || length < 0 || startOffset <= 0) return;
-    if (::lseek(fd_, static_cast<off_t>(startOffset), SEEK_CUR) >= 0) return;
+    // An asset descriptor's start offset is from the file's start, wherever a shared descriptor was left.
+    if (::lseek(fd_, static_cast<off_t>(startOffset), SEEK_SET) >= 0) return;
     // Not seekable (a pipe): read the lead-in away.
     uint8_t scrap[4096];
     int64_t left = startOffset;

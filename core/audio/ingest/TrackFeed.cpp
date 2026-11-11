@@ -39,7 +39,8 @@ void TrackFeed::pushDecoded(const uint8_t* data, size_t bytes, bool isFloat, int
     const int64_t startUs = startMs_ * 1000;
     int from = 0;
     if (ptsUs < startUs) {
-        from = std::min(static_cast<int>(static_cast<int32_t>((startUs - ptsUs) * sampleRate / 1'000'000)), count);
+        // 64-bit until clamped: hours of pre-roll at a high rate pass 2^31 frames, and a wrapped cut reads past the chunk.
+        from = static_cast<int>(std::clamp<int64_t>((startUs - ptsUs) * sampleRate / 1'000'000, 0, count));
         count -= from;
     }
     if (count > 0) {

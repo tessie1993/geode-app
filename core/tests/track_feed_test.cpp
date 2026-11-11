@@ -259,7 +259,7 @@ void fdSource() {
     std::fill_n(padded.begin(), 7, uint8_t{0xAB});
     std::copy(bytes.begin(), bytes.end(), padded.begin() + 7);
     check(write(fd, padded.data(), padded.size()) == static_cast<ssize_t>(padded.size()), "write temp file");
-    lseek(fd, 0, SEEK_SET);
+    // The descriptor is left at the end, as a shared one may be: the span's offset is from the file's start.
     geode_aiff* h = geode_aiff_open_fd(fd, 7, static_cast<int64_t>(bytes.size()));
     int16_t buf[8] = {};
     check(h && geode_aiff_channels(h) == 1 && geode_aiff_sample_rate(h) == 44100 && geode_aiff_total_frames(h) == 4,
@@ -347,6 +347,10 @@ void codecPreRoll() {
     const auto mb = s16Bytes(mono);
     odd.pushDecoded(mb.data(), mb.size(), false, 1, 44100, 0);
     check(odd.heldFrames() == 92, "the cut truncates toward zero");
+    // 12 000 s of pre-roll at 192 kHz is 2.3e9 frames, past int32: the whole chunk goes, nothing more.
+    TrackFeed far(12'000'000);
+    far.pushDecoded(mb.data(), mb.size(), false, 1, 192000, 0);
+    check(far.heldFrames() == 0, "a cut longer than 2^31 frames drops the chunk and no more");
 }
 
 void frameExactHandOut() {

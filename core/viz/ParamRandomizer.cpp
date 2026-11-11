@@ -241,8 +241,7 @@ const std::string& lockableKeysText() {
         std::string out;
         std::set<std::string_view> seen;
         for (const auto& roll : rolledKeys()) {
-            if (seen.insert(roll.key).second) out += std::string(roll.key) + "
-";
+            if (seen.insert(roll.key).second) out += std::string(roll.key) + "\n";
         }
         return out;
     }();

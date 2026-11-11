@@ -60,8 +60,7 @@ void lockableKeysAreTheRolledKeys() {
     }
     check(!listed.empty(), "lockable keys are not empty");
     check(listed == rolled, "lockable keys equal the rolled keys");
-    check(randomizer::lockableKeysText().back() == '
-', "lockable keys end with a newline");
+    check(randomizer::lockableKeysText().back() == '\n', "lockable keys end with a newline");
 }
 
 void everyPlacedControlIsKnownAndPlacedOnce() {

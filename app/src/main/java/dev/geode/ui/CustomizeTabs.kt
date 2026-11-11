@@ -215,7 +215,11 @@ internal fun ControlHint(
  * JNI call and a linear scan per row). Kotlin only holds what native returned.
  */
 private val lockableKeys: Set<String> by lazy {
-    GeodeNative.customizeLockableKeys().lineSequence().filter { it.isNotEmpty() }.toSet()
+    GeodeNative
+        .customizeLockableKeys()
+        .lineSequence()
+        .filter { it.isNotEmpty() }
+        .toSet()
 }
 
 /**

@@ -6,7 +6,6 @@
 
 #include "util/Log.hpp"
 #include "viz/Catalogue.hpp"
-#include "viz/EndlessZoom.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/scenes/SceneCommon.hpp"
 #include "viz/world/WorldAssets.hpp"
@@ -89,8 +88,6 @@ void ShaderScene::update(const GeodeSoundFrame& sound, float dt) {
     const SceneParams& p = params_;
     shaderTime_ = std::fmod(shaderTime_ + p.speed * dt, kTimeWrapSeconds);
     rotationAngle_ = std::fmod(rotationAngle_ + p.rotation * dt, kTwoPi);
-    // Bass-pushed, never loudness-pushed; silence eases it down, and the stopped frame clock holds it (EndlessZoom.hpp).
-    zoomPhase_ = p.endlessZoom ? endless::advance(zoomPhase_, p.endlessZoomSpeed * endless::musicRate(sound, p.audioDrive), dt) : 0.0f;
     if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
     // Wave three: the continuous motion layer, never a transient/beat trigger.
     motionField_.step(sound, dt, p.speed);
@@ -179,11 +176,6 @@ void ShaderScene::uploadParams() {
     set1f("uZoom", p.zoom);
     set1f("uRotation", rotationAngle_);
     // The bare phase, for user-written styles that still spell their own zoom; no bundled style reads it.
-    set1f("uZoomPhase", zoomPhase_);
-    // Endless zoom's two octave layers (lib_zoom). A style that reads the camera rig dives by
-    // travel instead (CameraRig::step), so it stays one layer at 1x and never marches twice.
-    const endless::Layers zoom = drawsCamera_ ? endless::Layers{} : endless::layers(zoomPhase_);
-    glUniform3f(uniforms_.loc("uZoomLayers"), zoom.mag0, zoom.mag1, zoom.weight1);
     set1f("uColorShift", p.colorShift + cyclePhase_);
     set1f("uHueRange", p.hueRange);
     set1f("uSat", p.saturation);

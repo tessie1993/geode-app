@@ -212,7 +212,7 @@ constexpr OldClamp kOldClamps[] = {
     {LfoTarget::CamPitch, "camPitch", -1.0f, 1.0f},     {LfoTarget::CamRoll, "camRoll", -1.0f, 1.0f},
     {LfoTarget::CamFov, "camFov", 0.5f, 2.0f},          {LfoTarget::CamShake, "camShake", 0.0f, 1.0f},
     {LfoTarget::FlowCurl, "flowCurl", 0.0f, 50.0f},     {LfoTarget::FlowForce, "flowForce", 0.0f, 3.0f},
-    {LfoTarget::EndlessZoomSpeed, "endlessZoomSpeed", 0.0f, 1.2f},
+    {LfoTarget::EndlessZoomSpeed, "endlessZoomSpeed", -1.2f, 1.2f},
 };
 
 void theLfoClampsAreTheTablesRanges() {

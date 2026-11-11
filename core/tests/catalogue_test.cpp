@@ -273,7 +273,9 @@ void paramScopesMatchTheOldParamScope() {
     check(!catalogue::reaches(Scope::FlowFieldSim, "fluid_ink"), "fluid drives its own field");
     check(catalogue::reaches(Scope::FlowFieldSim, "silk_web"), "flow field reaches silk");
     check(!catalogue::reaches(Scope::ShaderLook, "milkdrop"), "milkdrop has no shader look");
-    check(catalogue::reaches(Scope::EndlessZoom, "milkdrop"), "milkdrop dives");
+    check(catalogue::reaches(Scope::EndlessZoom, "milkdrop") && catalogue::reaches(Scope::EndlessZoom, "silk_web") &&
+              catalogue::reaches(Scope::EndlessZoom, "fluid_ink") && catalogue::reaches(Scope::EndlessZoom, "curlflow"),
+          "every kind dives");
     check(!catalogue::reaches(Scope::SceneClock, "milkdrop"), "milkdrop paces itself");
     check(!catalogue::reaches(Scope::BassBand, "life_orbium") && catalogue::reaches(Scope::TrebleBand, "life_orbium"),
           "life reads treble, not bass");

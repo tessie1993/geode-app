@@ -174,7 +174,7 @@ const SOUND_SCALARS = [
 
 const SHADER_VALUES = {
   uTime: 37.0, uResolution: [0, 0],
-  uSpeed: 1, uZoom: 1, uRotation: 0, uZoomLayers: [1, 1, 0], uColorShift: 0, uHueRange: 1, uSat: 1, uBright: 1,
+  uSpeed: 1, uZoom: 1, uRotation: 0, uColorShift: 0, uHueRange: 1, uSat: 1, uBright: 1,
   uInvert: 0, uIntensity: 1, uMirrorX: 0, uTurbulence: 0, uPalBase: 0, uPalRange: 1,
   uContrast: 1, uGamma: 1, uPal2Base: 0, uPal2Range: 1, uPaletteMix: 0, uDuotone: 0, uBloom: 0, uWarp: 0,
   uRipple: 0, uSymmetry: 6, uKaleido: 0, uMorph: 0, uPixelate: 0, uPosterize: 0, uSway: 0, uPulse: 0,
@@ -380,6 +380,35 @@ function liquidJobs(args, registry) {
   return { styleVert: quadVert, styleFrag, bornFrag, liquidVert: quadVert, liquidFrag, frames, bornSeparate: args.born === 1 || args.born === 2, width: W, height: H };
 }
 
+// ---- Endless zoom (--dive <style>) ------------------------------------------
+//
+// The style, then dive_frag.glsl over its picture (core/viz/DivePass): --frames snapshots spread over
+// one octave of travel at --speed octaves a second (negative rises out), so the first and the one
+// after the last are the same picture. Look at them in order: every copy only grows, none pops.
+function diveJob(args, registry) {
+  const W = args.size, H = args.height ?? args.size;
+  const quadVert = fs.readFileSync(path.join(SHADERS, 'quad_vert.glsl'), 'utf8');
+  const file = path.join(SHADERS, `${args.dive}_frag.glsl`);
+  if (!fs.existsSync(file)) throw new Error(`no such fragment style: ${args.dive}`);
+  const styleFrag = resolveIncludes(fs.readFileSync(file, 'utf8'), registry);
+  const diveFrag = fs.readFileSync(path.join(SHADERS, 'dive_frag.glsl'), 'utf8');
+  const styleU = parseUniforms(styleFrag);
+  const diveU = parseUniforms(diveFrag);
+  const n = args.frames === 240 ? 8 : args.frames;
+  const speed = args.speed ?? 0.3;
+  const t0 = args.time ?? 37;
+  const frames = [];
+  for (let i = 0; i < n; i++) {
+    const travelled = i / n;
+    const phase = speed >= 0 ? travelled : (1 - travelled) % 1;
+    frames.push({
+      style: plan(styleU, { ...SHADER_VALUES, uTime: t0 + travelled / Math.max(Math.abs(speed), 0.01) }, SHADER_TEXTURES, W, H),
+      dive: plan(diveU, { uTexel: [1 / W, 1 / H], uPhase: phase, uMix: 1 }, { uScene: 'style' }, W, H),
+    });
+  }
+  return { vert: quadVert, styleFrag, diveFrag, frames, width: W, height: H };
+}
+
 // ---- driving the page ------------------------------------------------------
 
 function withKeywords(src, defines) {
@@ -567,7 +596,7 @@ async function runStills(args, registry) {
 function parseArgs(argv) {
   const a = {
     size: 240, height: null, shaders: [], all: false, list: false, fluidDisplay: false, out: null, time: null,
-    liquid: null, frames: 240, born: 1, bornStyle: null, age: 0, surface: 0, liquidity: 0.35, seed: 1, threeD: false,
+    liquid: null, dive: null, speed: null, frames: 240, born: 1, bornStyle: null, age: 0, surface: 0, liquidity: 0.35, seed: 1, threeD: false,
     sound: [], set: [], stills: null, shard: null, stillSize: 96, runSize: 32,
   };
   for (let i = 0; i < argv.length; i++) {
@@ -581,6 +610,8 @@ function parseArgs(argv) {
     else if (v === '--out') a.out = argv[++i];
     else if (v === '--time') a.time = Number(argv[++i]);
     else if (v === '--liquid') a.liquid = argv[++i];
+    else if (v === '--dive') a.dive = argv[++i];
+    else if (v === '--speed') a.speed = Number(argv[++i]);
     else if (v === '--frames') a.frames = Number(argv[++i]);
     else if (v === '--born') a.born = Number(argv[++i]);
     else if (v === '--born-style') a.bornStyle = argv[++i];
@@ -620,6 +651,26 @@ async function main() {
   }
   if (args.stills) {
     await runStills(args, registry);
+    return;
+  }
+  if (args.dive) {
+    const job = diveJob(args, registry);
+    const browser = await launch();
+    try {
+      const page = await browser.openPage(pathToFileURL(path.join(HERE, 'page.html')).href);
+      const r = await page.call('__dive', job);
+      for (const line of page.drainConsole()) console.log(`  [page] ${line}`);
+      if (r.error) {
+        console.log(`FAIL dive ${args.dive}: ${r.error}`);
+        process.exit(1);
+      }
+      const dir = args.out ?? path.join(HERE, 'out', `dive_${args.dive}`);
+      fs.mkdirSync(dir, { recursive: true });
+      r.frames.forEach((png, i) => fs.writeFileSync(path.join(dir, `f${String(i).padStart(2, '0')}.png`), Buffer.from(png, 'base64')));
+      console.log(`ok   dive ${args.dive}: wrote ${r.frames.length} frames of one octave to ${dir} (glError ${r.glError})`);
+    } finally {
+      await browser.close();
+    }
     return;
   }
   if (args.liquid) {

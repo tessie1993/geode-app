@@ -332,7 +332,7 @@ bool reachesKind(Scope s, Kind k) {
         case Scope::BandGains: return readsBass(k) || readsMid(k) || readsTreble(k);
         case Scope::ShaderLook: return k == Kind::Shader;
         case Scope::MarchDetail: return false;
-        case Scope::EndlessZoom: return k == Kind::Shader || k == Kind::Milkdrop;
+        case Scope::EndlessZoom: return true;
         case Scope::Turbulence: return k == Kind::Shader || k == Kind::Mycelium || k == Kind::Acid || k == Kind::CurlFlow;
         case Scope::DyeDensity: return k == Kind::Fluid;
         // A shader style's trails are the feedback pass's sustain, echo zoom and warp (EndlessZoom.hpp).

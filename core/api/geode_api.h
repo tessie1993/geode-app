@@ -657,6 +657,21 @@ GEODE_API double          geode_auto_timer_hold_s(void);
 #define GEODE_STAGE_CAST_LEADS_AUTO          (1u << 1)
 GEODE_API unsigned        geode_stage_run(unsigned flags);
 
+/* The connected display the stage shows on (viz/StageRun): flags per display are the GEODE_STAGE_DISPLAY_* bits
+ * plus its failures so far << GEODE_STAGE_DISPLAY_FAILURE_SHIFT. pick returns the index of the display to use
+ * (preferred_id while it qualifies) or -1; presents is 1 when the GEODE_STAGE_PRESENT_* bits all hold. Pure. */
+#define GEODE_STAGE_DISPLAY_PRESENTATION     (1u << 0)
+#define GEODE_STAGE_DISPLAY_DEFAULT          (1u << 1)
+#define GEODE_STAGE_DISPLAY_HOST             (1u << 2)
+#define GEODE_STAGE_DISPLAY_ON               (1u << 3)
+#define GEODE_STAGE_DISPLAY_FAILURE_SHIFT    8
+#define GEODE_STAGE_PRESENT_WANTED           (1u << 0)
+#define GEODE_STAGE_PRESENT_ENTITLED         (1u << 1)
+#define GEODE_STAGE_PRESENT_FOUND            (1u << 2)
+GEODE_API int             geode_stage_display_eligible(unsigned flags);
+GEODE_API int             geode_stage_pick_display(const int* ids, const unsigned* flags, int count, int preferred_id);
+GEODE_API int             geode_stage_presents(unsigned flags);
+
 /* The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt it draws with.
    `state` is eight int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS). */
 #define GEODE_PACER_STATE_LONGS 8

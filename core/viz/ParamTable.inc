@@ -25,7 +25,7 @@ GEODE_PARAM(Float, speed, 1.0f, 0.05f, 4.0f, Fade)
 GEODE_PARAM(Float, zoom, 1.0f, catalogue::kTouchZoom.min, catalogue::kTouchZoom.max, Fade)
 GEODE_PARAM(Float, rotation, 0.0f, catalogue::kTouchRotation.min, catalogue::kTouchRotation.max, Fade)
 GEODE_PARAM(Bool, endlessZoom, false, 0, 1, Hold)
-GEODE_PARAM(Float, endlessZoomSpeed, 0.3f, 0.0f, 1.2f, Fade)
+GEODE_PARAM(Float, endlessZoomSpeed, 0.3f, -1.2f, 1.2f, Fade)
 GEODE_PARAM(Float, sway, 0.0f, 0.0f, 1.0f, Fade)
 // Inert since wave three; removed with the next format bump.
 GEODE_PARAM(Float, pulse, 0.0f, 0.0f, 1.0f, Fade)

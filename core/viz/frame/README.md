@@ -25,7 +25,7 @@ Export post-passes: `ExportPasses` (watermark, loop seam, Studio GL transition a
 
 **Keep as they are:** `ScenePrep`, `ProgramStager`, `ProgramBinaryCache`, `GlCaps`/`GlProber`, `VisualSafety` (as the last step before drawing), the catalogue text table.
 
-**Shader contract** (shaders stay in `app/src/main/assets/shaders`): a generated params uniform block from `core/signal/params` and a generated sound block from `core/sound/schema`, pasted by the prelude every style includes; include-once in `core/viz/ShaderSource.cpp`, exposed through the C ABI so `tools/check_shaders.py` stops re-implementing the resolver (the Kotlin `GlUtil` copy is gone, #603). Family libraries (`lib_<family>`, `lib_neon`, `lib_relief`, `lib_zoom`, `lib_camera`) stay, on top of the prelude.
+**Shader contract** (shaders stay in `app/src/main/assets/shaders`): a generated params uniform block from `core/signal/params` and a generated sound block from `core/sound/schema`, pasted by the prelude every style includes; include-once in `core/viz/ShaderSource.cpp`, exposed through the C ABI so `tools/check_shaders.py` stops re-implementing the resolver (the Kotlin `GlUtil` copy is gone, #603). Family libraries (`lib_<family>`, `lib_neon`, `lib_relief`, `lib_camera`) stay, on top of the prelude.
 
 **fosfora:** `gpu/frame_prep.rs`, `gpu/frame_graph.rs` (`execute_and_composite`, "extracted … the headless scene renderer would have been a third copy"), `gpu/layer.rs` (`Layer`, `LayerStack`), `gpu/uniforms.rs` (append-only, layout-guarded).
 

@@ -284,7 +284,9 @@ fun AppRoot() {
     // The mini player (and on Visuals the tab bar and stage icons) wakes on a new screen or track.
     // A PiP window shows the visual alone (the sheet and the chrome hidden) until it closes.
     val inPip = VisualizerPipCoordinator.inPictureInPicture
-    val chrome = rememberShellChrome(gui.miniPlayerFadeSeconds, inPip, appState.dest, state.title)
+    // Its sleep timer waits while the boot intro or a first-run page covers the shell.
+    val shellCovered = (bootAnimEnabled != false && !appState.bootDone) || !gui.safetyAcknowledged || !gui.setupDone
+    val chrome = rememberShellChrome(gui.miniPlayerFadeSeconds, inPip, shellCovered, appState.dest, state.title)
     var dockHeight by remember { mutableStateOf(0.dp) }
     val visualsReserve by animateDpAsState(dockHeight, motion.defaultSpatialSpec(), label = "dock")
     CrystalMaterialTheme(gui = gui, accentSource = accent) {

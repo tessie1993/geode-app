@@ -9,13 +9,12 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import androidx.core.content.ContextCompat
 import dev.geode.util.bestEffort
-import kotlin.math.abs
 
 class MicCapture(
     private val context: Context,
-    sink: dev.geode.engine.audio.PcmSink,
+    ring: dev.geode.engine.audio.SampleRing,
     nowMs: () -> Long = { android.os.SystemClock.elapsedRealtime() },
-) : AudioCapturePump(sink, DEFAULT_RATE, nowMs) {
+) : AudioCapturePump(ring, DEFAULT_RATE, nowMs) {
     enum class Failure {
         PERMISSION,
 
@@ -36,24 +35,18 @@ class MicCapture(
         ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
     @Synchronized
-    fun start(onSampleRate: (Int) -> Unit = {}): Failure? {
+    fun start(): Failure? {
         if (active) return null
         if (!hasPermission()) return Failure.PERMISSION
         val rec = openRecord() ?: return Failure.UNAVAILABLE
-        if (!startPump(rec, 1, onSampleRate)) return Failure.UNAVAILABLE
+        if (!startPump(rec, 1)) return Failure.UNAVAILABLE
         return null
     }
 
     override fun noteLevel(
-        buffer: FloatArray,
-        count: Int,
+        peak: Float,
         startedAtMs: Long,
     ) {
-        var peak = 0f
-        for (i in 0 until count) {
-            val v = abs(buffer[i])
-            if (v > peak) peak = v
-        }
         peakLevel = peak
         val now = nowMs()
         if (peak > SILENCE_EPSILON) {

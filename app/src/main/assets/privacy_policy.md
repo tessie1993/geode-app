@@ -75,6 +75,11 @@ Neither you nor MuzViz can turn that logging off or delete it. The SDK starts wh
 the app, so that the Cast button and Android's own output switcher can find your TV, and it
 looks for TVs on your network while the Cast button is on screen.
 
+The stream is plain HTTP on your local network, with a random secret in its address, because
+Google's Cast receiver cannot play a stream from a phone over HTTPS. Anyone on the same Wi-Fi
+who learns that address while you cast could watch the stream. The app listens only on your
+Wi-Fi address, accepts short requests only, and stops when you stop casting.
+
 ## Permissions
 
 - **`READ_MEDIA_AUDIO`**: to find and play the music on your device.

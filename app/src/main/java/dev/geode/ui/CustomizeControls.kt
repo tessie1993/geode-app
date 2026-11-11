@@ -45,15 +45,26 @@ import dev.geode.ui.theme.UiSound
  * asks [LocalProLock] whether this user may keep a change, so a Pro control can still be tried.
  */
 @Composable
-internal fun CustomizeControl(
-    key: String,
+internal fun CustomizeControls(
+    keys: List<String>,
     host: AdvancedHost,
 ) {
+    // One collector for the whole section, not one per control: each control used to subscribe to
+    // the full VizUiState itself, so a slider drag woke every collector in every open section.
     val viz by host.viewModel.vizState.collectAsStateWithLifecycle()
+    keys.forEach { CustomizeControl(it, host, viz) }
+}
+
+@Composable
+private fun CustomizeControl(
+    key: String,
+    host: AdvancedHost,
+    viz: VizUiState,
+) {
     val p = viz.params
     val onChange: (SceneParams) -> Unit = host.visualsViewModel::editSceneParams
     if (key.startsWith("@")) {
-        PanelPiece(key, host, p, onChange)
+        PanelPiece(key, host, viz, onChange)
         return
     }
     when (CustomizeMapTable.categoryOf(key)) {
@@ -493,12 +504,12 @@ private fun EngineControl(
 private fun PanelPiece(
     id: String,
     host: AdvancedHost,
-    p: SceneParams,
+    viz: VizUiState,
     onChange: (SceneParams) -> Unit,
 ) {
     val context = LocalContext.current
     val vm = host.visualsViewModel
-    val viz by host.viewModel.vizState.collectAsStateWithLifecycle()
+    val p = viz.params
     when (id) {
         "@macros" -> {
             val store = remember { MacroStore.get(context) }

@@ -25,6 +25,12 @@ data class PlayerPrefs(
      * default: gapless is what an album expects, and a crossfade is a choice for mixes and playlists.
      */
     val crossfadeMs: Int = 0,
+    /**
+     * Settings › Playback › Output and more: play through the native Oboe output instead of the
+     * platform's AudioTrack. Experimental, so off by default; a format or route it cannot play falls
+     * back to the AudioTrack by itself (`audio/OboeAudioOutput`).
+     */
+    val nativeOutput: Boolean = false,
 ) {
     fun coerced(): PlayerPrefs =
         copy(
@@ -88,6 +94,7 @@ class PlayerPrefsStore(
             resumeLongTracks = prefs.getBoolean(KEY_RESUME_LONG, true),
             bitPerfect = prefs.getBoolean(KEY_BIT_PERFECT, false),
             crossfadeMs = prefs.getInt(KEY_CROSSFADE_MS, 0),
+            nativeOutput = prefs.getBoolean(KEY_NATIVE_OUTPUT, false),
         ).coerced()
 
     fun save(p: PlayerPrefs) {
@@ -110,6 +117,7 @@ class PlayerPrefsStore(
             .putBoolean(KEY_RESUME_LONG, p.resumeLongTracks)
             .putBoolean(KEY_BIT_PERFECT, p.bitPerfect)
             .putInt(KEY_CROSSFADE_MS, p.crossfadeMs)
+            .putBoolean(KEY_NATIVE_OUTPUT, p.nativeOutput)
             // The native engine's options, gone with it (ExoPlayer joins tracks gaplessly by itself).
             .remove("native_engine")
             .remove("crossfade_ms")
@@ -138,6 +146,9 @@ class PlayerPrefsStore(
 
         /** Not the native engine's old `crossfade_ms`, removed above: an install that kept one must not get it back. */
         const val KEY_CROSSFADE_MS = "playback_crossfade_ms"
+
+        /** Not the removed native player's `native_engine`: this only swaps the output under ExoPlayer. */
+        const val KEY_NATIVE_OUTPUT = "oboe_output"
     }
 }
 

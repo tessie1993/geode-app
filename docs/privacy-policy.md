@@ -1,16 +1,16 @@
-# MuzViz Studio Pro — Privacy Policy
+# BeatRealms 3D — Privacy Policy
 
 *Last updated: 11 November 2026*
 
-MuzViz Studio Pro ("MuzViz", "the app") is a music player, music visualizer and music
+BeatRealms 3D ("BeatRealms", "the app") is a music player, music visualizer and music
 video studio for Android. This policy describes what the app does with your
-information. The short version: **MuzViz collects nothing, sells nothing and has no
-servers.** Two exceptions: buying MuzViz Pro, which Google Play handles, and the
+information. The short version: **BeatRealms collects nothing, sells nothing and has no
+servers.** Two exceptions: buying BeatRealms Pro, which Google Play handles, and the
 optional *Cast to TV*, which uses Google Cast on your own network.
 
 ## Information the app does not collect
 
-MuzViz does **not** collect, transmit, sell or share personal information. The app has:
+BeatRealms does **not** collect, transmit, sell or share personal information. The app has:
 
 - no user accounts, sign-in or registration;
 - no analytics, telemetry, crash-reporting or advertising SDKs;
@@ -20,7 +20,7 @@ MuzViz does **not** collect, transmit, sell or share personal information. The a
 
 ## Information the app uses on your device
 
-To do its job MuzViz reads data that never leaves your device:
+To do its job BeatRealms reads data that never leaves your device:
 
 | What | Why | Where it goes |
 |---|---|---|
@@ -33,16 +33,16 @@ To do its job MuzViz reads data that never leaves your device:
 | Folders you pick | Optional music folders and preset folders | Granted by you through the Android file picker; revocable at any time |
 | Your presets, playlists, projects, track edits and settings | To remember your setup | The app's private storage |
 | Your listening history (which tracks you played, when, how often and for how long) | To show what you played recently and how often | The app's private storage |
-| Whether you own MuzViz Pro, and when your free trial started | To unlock Pro features, including offline | The app's private storage |
+| Whether you own BeatRealms Pro, and when your free trial started | To unlock Pro features, including offline | The app's private storage |
 | Crash details | The in-app "last crash" report you can read and copy yourself | A file in the app's private storage; nothing is sent |
 
-## Buying MuzViz Pro (Google Play)
+## Buying BeatRealms Pro (Google Play)
 
-MuzViz Pro is a one-time in-app purchase made through **Google Play Billing**. When you
+BeatRealms Pro is a one-time in-app purchase made through **Google Play Billing**. When you
 buy it, Google Play handles the whole payment: your payment method, billing address and
 the order are processed by Google under the
 [Google Payments privacy notice](https://payments.google.com/payments/apis-secure/get_legal_document?ldo=0&ldt=privacynotice)
-and the [Google Privacy Policy](https://policies.google.com/privacy). MuzViz never sees
+and the [Google Privacy Policy](https://policies.google.com/privacy). BeatRealms never sees
 your payment details.
 
 To unlock Pro, the app asks the Google Play Store app on your device which purchases
@@ -52,8 +52,8 @@ ID and a purchase token). The app checks its signature on the device and confirm
 signed purchase record on the device, with the time it last checked, so Pro keeps working
 when the Play Store can't be reached; it is removed when Play reports the purchase is no
 longer owned. Like the rest of the app's settings it is included in Android's own device
-backup. The purchase record isn't sent anywhere else. This exchange goes between MuzViz and the Play Store app on your
-device; MuzViz makes no internet connection of its own for it.
+backup. The purchase record isn't sent anywhere else. This exchange goes between BeatRealms and the Play Store app on your
+device; BeatRealms makes no internet connection of its own for it.
 
 The free one-hour trial of Pro runs entirely on your device: the app stores when it
 started, and nothing else.
@@ -62,8 +62,8 @@ started, and nothing else.
 
 If you cast to a TV, your phone draws the visuals and streams them, with the sound, to the
 TV over your own Wi-Fi. The stream goes from your phone straight to the TV on your local
-network; it is never sent to MuzViz or stored anywhere. Google's own Cast receiver plays
-it on the TV. Only the music MuzViz plays goes to the TV: while *Live input* or *Visualize
+network; it is never sent to BeatRealms or stored anywhere. Google's own Cast receiver plays
+it on the TV. Only the music BeatRealms plays goes to the TV: while *Live input* or *Visualize
 other apps* drives the visuals, the TV gets the picture but not that sound.
 
 To find and connect to the TV the app uses the **Google Cast SDK**. Google says the SDK
@@ -71,7 +71,7 @@ logs how it is used (discovery and session events, device and app information) a
 sends that to Google, aggregated, without identifiers that trace back to you, encrypted in
 transit and kept for a short time, to improve Cast
 ([Google's Cast SDK disclosure](https://developers.google.com/cast/docs/android_sender/data_disclosure)).
-Neither you nor MuzViz can turn that logging off or delete it. The SDK starts when you open
+Neither you nor BeatRealms can turn that logging off or delete it. The SDK starts when you open
 the app, so that the Cast button and Android's own output switcher can find your TV, and it
 looks for TVs on your network while the Cast button is on screen.
 
@@ -93,14 +93,14 @@ Wi-Fi address, accepts short requests only, and stops when you stop casting.
   and data-sync types: lets playback, casting, capture and video rendering continue while
   the app is not on screen, always with a visible notification.
 - **`com.android.vending.BILLING`**: lets the app talk to the Google Play Store app to
-  sell and restore MuzViz Pro.
+  sell and restore BeatRealms Pro.
 - **`INTERNET`** and **`ACCESS_NETWORK_STATE`**: only for *Cast to TV*: to find the TV,
   talk to Google Cast and stream to the TV on your Wi-Fi.
 - **`MODIFY_AUDIO_SETTINGS`**: for bit-perfect USB audio output to an external DAC.
 - **`VIBRATE`**: haptic feedback for the app's controls.
 - **`WAKE_LOCK`**: keeps the music playing while the screen is off.
 
-MuzViz requests no camera, contacts or location permission.
+BeatRealms requests no camera, contacts or location permission.
 
 ## Visualize other apps (playback capture)
 
@@ -110,7 +110,7 @@ the visuals. It passes through an in-memory buffer and is never saved, recorded 
 
 ## Now playing (notification access)
 
-Optionally, you can give MuzViz *notification access* so it can show which app and track
+Optionally, you can give BeatRealms *notification access* so it can show which app and track
 is playing elsewhere. It reads only the media sessions Android exposes through that
 access; notification contents are not read, stored or sent. You can revoke it in system
 settings at any time.
@@ -118,7 +118,7 @@ settings at any time.
 ## Lyrics search
 
 *Search the web* in Settings › Library & lyrics opens your browser or search app with the
-playing track's title and artist followed by "lyrics". MuzViz does not make that search
+playing track's title and artist followed by "lyrics". BeatRealms does not make that search
 itself; what you search for goes to the browser and search engine you use, under their
 policies, and only when you tap the button.
 
@@ -126,34 +126,34 @@ policies, and only when you tap the button.
 
 Exported videos are MP4 files saved where you choose. They stay on your device unless
 *you* share them; the app you share to handles them under its own policy. Exports made
-without Pro are limited to one minute and carry a "MuzViz Studio Pro" watermark.
+without Pro are limited to one minute and carry a "BeatRealms 3D" watermark.
 
 ## Backups
 
-If Android backup is on, your MuzViz settings, presets, playlists and listening history
+If Android backup is on, your BeatRealms settings, presets, playlists and listening history
 may be included in your Google account backup, handled by Google. The crash file, imported textures and
 recorded takes are excluded. You can turn backup off in your device settings.
 
 Settings › Backup can also save one zip file, only when you ask it to, to a place you
 choose with the system file picker. It holds your settings, presets, palettes, templates,
 editor projects, playlists, library list and listening history, and your MilkDrop
-presets. MuzViz never sends it anywhere; restoring reads it back from where you saved it.
+presets. BeatRealms never sends it anywhere; restoring reads it back from where you saved it.
 
 ## Children
 
-MuzViz is not directed at children under 13. It contains no ads, no chat and no content
-from other users, and MuzViz collects no data from anyone, including children.
+BeatRealms is not directed at children under 13. It contains no ads, no chat and no content
+from other users, and BeatRealms collects no data from anyone, including children.
 
 ## Deleting your data
 
-Everything MuzViz stores lives in its private storage. Uninstalling the app, or
-*Settings → Apps → MuzViz Studio Pro → Storage → Clear data*, removes it. Your Pro
+Everything BeatRealms stores lives in its private storage. Uninstalling the app, or
+*Settings → Apps → BeatRealms 3D → Storage → Clear data*, removes it. Your Pro
 purchase stays with your Google account and is restored automatically after reinstalling.
 Exported videos are ordinary files and are deleted like any other file.
 
 ## Third-party components
 
-MuzViz bundles open-source libraries (including libprojectM, AndroidX/Jetpack and Media3),
+BeatRealms bundles open-source libraries (including libprojectM, AndroidX/Jetpack and Media3),
 the Google Play Billing Library and the Google Cast SDK. None of them collect or transmit
 data in this app, apart from the Play purchase exchange and the Cast logging described
 above. The open-source notices are in the

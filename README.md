@@ -1,4 +1,4 @@
-# Geode — Android music player, visualizer and video suite
+# BeatRealms 3D (internal name Geode): Android music player, visualizer and video suite
 
 Native Android music player, real-time GPU music visualizer and a small video
 suite. Kotlin and Jetpack Compose on top; a C++20 engine built by CMake and

@@ -18,7 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
@@ -33,7 +32,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -557,44 +555,14 @@ internal fun liquidHotNote(liquidMode: Int): String? =
         else -> null
     }
 
-private const val MAX_SAVED_SHADER_DRAFT_CHARS = 8 * 1024
-
-private val ShaderDraftSaver =
-    Saver<String, String>(
-        save = { draft -> draft.takeIf { it.length <= MAX_SAVED_SHADER_DRAFT_CHARS } },
-        restore = { it },
-    )
-
-/** Expert › Shader code: the style's own fragment shader, and the custom fluid shaders on Fluid. */
+/**
+ * Expert › Shader code: the custom fluid shaders (force and dye) on Fluid. The style's own shader box
+ * is no longer offered here (the owner's call, 2026-11-11); native's map shows this section on Fluid
+ * only (`core/viz/CustomizeMap`, Show::ShaderCode), and a look's saved custom shader still applies.
+ */
 @Composable
 internal fun ShaderCodePage(host: AdvancedHost) {
     val viz by host.viewModel.vizState.collectAsStateWithLifecycle()
-    if (SceneCapabilities.hasShaderLook(viz.sceneId)) {
-        var source by rememberSaveable(viz.sceneId, stateSaver = ShaderDraftSaver) {
-            mutableStateOf(host.visualizerView.visualizerRenderer.customShaderFor(viz.sceneId) ?: "")
-        }
-        SectionHeader(stringResource(R.string.customize_shader_title))
-        ControlHint(
-            stringResource(R.string.customize_shader_hint),
-        )
-        OutlinedTextField(
-            value = source,
-            onValueChange = { source = it },
-            modifier = Modifier.fillMaxWidth().height(360.dp),
-            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-        )
-        viz.shaderError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-        Row(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
-            val sounds = LocalUiSounds.current
-            Button(onClick = {
-                sounds.play(UiSound.CONFIRM)
-                host.viewModel.applyCustomShader(source)
-            }) { Text(stringResource(R.string.customize_shader_apply)) }
-            TextButton(onClick = { source = host.visualizerView.visualizerRenderer.customShaderFor(viz.sceneId) ?: "" }) {
-                Text(stringResource(R.string.customize_shader_revert))
-            }
-        }
-    }
     if (SceneCapabilities.isFluid(viz.sceneId)) {
         InjectionShaderEditors(viz.shaderError) { force, dye ->
             host.visualizerView.visualizerRenderer.submitFluidInjectionShaders(force, dye)

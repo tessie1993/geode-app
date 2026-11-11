@@ -777,7 +777,7 @@ class UiTourTest {
                 MOTION to listOf(CAMERA, "Liquid", "Water ripples"),
                 "Music" to listOf("How it listens", "Notes & key"),
                 "Modulate" to listOf("Reactions", "Envelopes", "Waves"),
-                ADVANCED to listOf("Layers", "Transitions", "Shader code"),
+                ADVANCED to listOf("Layers", "Transitions"),
             )
 
         val LONG_PRESSABLE = SemanticsMatcher.keyIsDefined(SemanticsActions.OnLongClick)

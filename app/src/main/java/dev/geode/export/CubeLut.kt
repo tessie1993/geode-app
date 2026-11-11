@@ -2,6 +2,7 @@ package dev.geode.export
 
 import android.content.Context
 import android.net.Uri
+import dev.geode.data.ReadCap
 import dev.geode.engine.bridge.GeodeNative
 
 /**
@@ -22,7 +23,7 @@ class CubeLut private constructor(
         ): CubeLut? =
             runCatching {
                 context.contentResolver.openInputStream(Uri.parse(uri))?.use { stream ->
-                    GeodeNative.cubeLutParse(stream.readBytes())?.let(::fromFlat)
+                    GeodeNative.cubeLutParse(ReadCap.CUBE.read(stream))?.let(::fromFlat)
                 }
             }.getOrNull()
 

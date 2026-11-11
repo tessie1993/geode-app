@@ -63,14 +63,16 @@ float Renderer::beginFrame(double timeSeconds) {
         // its own track, with no boundaries but its own and no player fades, so it keeps fadeGain at 1, and
         // counts as the player, so a silent stretch in the track holds the song like a pause does live.
         if (!offscreen_.load(std::memory_order_relaxed)) {
+            const bool player = sound::player::heardAsPlayer(fedPlayersRing_.load(std::memory_order_relaxed),
+                                                             sound::player::playerIsSource(),
+                                                             layerAlone_.load(std::memory_order_relaxed));
             const sound::player::Boundary boundary = sound::player::boundary();
             if (boundary.epoch != boundarySeen_) {
                 boundarySeen_ = boundary.epoch;
-                if (sound_) sound_->trackBoundary();
+                if (sound_ && player) sound_->trackBoundary();
             }
             if (sound_) {
-                sound_->setPlayerSource(sound::player::playerIsSource() &&
-                                        !layerAlone_.load(std::memory_order_relaxed));
+                sound_->setPlayerSource(player);
                 sound_->setFadeGain(sound::player::fadeGain());
             }
         } else if (sound_) {

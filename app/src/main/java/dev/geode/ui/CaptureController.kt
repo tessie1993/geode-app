@@ -27,6 +27,8 @@ data class ExternalAudioState(
     val nowPlaying: NowPlayingBridge.External? = null,
     val hasSessionAccess: Boolean = false,
     val refusedByApp: Boolean = false,
+    /** Capturing, but only silence for a while: nothing plays, or the playing app blocks capture. */
+    val hearingSilence: Boolean = false,
 ) {
     val refusingApp: String? get() = if (refusedByApp) nowPlaying?.appLabel else null
 }
@@ -247,6 +249,7 @@ internal class CaptureController(
                     nowPlaying = now,
                     hasSessionAccess = access,
                     refusedByApp = refused,
+                    hearingSilence = playbackCapture.active && playbackCapture.blockedLikely,
                 )
             }
             externalAudioRefreshInFlight = false

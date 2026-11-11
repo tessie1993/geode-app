@@ -810,6 +810,9 @@
     <string name="link_offer_replace_title">Replace template?</string>
     <string name="link_offer_replace_body">A link opened BeatRealms with another version of your template \"%1$s\". Importing replaces yours.</string>
     <string name="link_offer_untitled_template">Shared template</string>
+    <string name="link_offer_milk_title">Open MilkDrop preset?</string>
+    <string name="link_offer_milk_body">Another app opened BeatRealms with the MilkDrop preset \"%1$s\". Opening adds it to your MilkDrop presets and plays it.</string>
+    <string name="link_offer_open">Open</string>
     <string name="link_offer_import">Import</string>
     <string name="link_offer_replace">Replace</string>
     <string name="template_entry_point">Video templates</string>

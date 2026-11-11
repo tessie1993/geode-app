@@ -92,7 +92,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 ## Entry points (`app/src/main/AndroidManifest.xml`)
 
 - `GeodeApp`: `@HiltAndroidApp`. It installs the crash handler, and its lazy `GeodeContainer` sweeps leftover render scratch and pending MediaStore rows.
-- `ui.MainActivity`: the only `@AndroidEntryPoint`, and the app's one activity (launcher, and PiP of Visuals; the wallpaper options page below is the only other). It handles `geode://preset`, `geode://template` and `MEDIA_PLAY_FROM_SEARCH`, then calls `AppRoot()` in `ui/AppShell.kt`.
+- `ui.MainActivity`: the only `@AndroidEntryPoint`, and the app's one activity (launcher, and PiP of Visuals; the wallpaper options page below is the only other). It handles `geode://preset`, `geode://template`, a `.milk` another app opens (all three imported only after the user's yes in `SharedLinkConfirm`; a `.milk` never over an existing preset) and `MEDIA_PLAY_FROM_SEARCH`, then calls `AppRoot()` in `ui/AppShell.kt`.
 - `playback.PlaybackService`: exported Media3 library service, also used by Android Auto. Media3's `MediaButtonReceiver` handles resumption.
 - `audio.PlaybackCaptureService`: MediaProjection foreground service.
 - `audio.GeodeNotificationListener` (in `NowPlayingBridge.kt`): lets the app name what another app is playing.

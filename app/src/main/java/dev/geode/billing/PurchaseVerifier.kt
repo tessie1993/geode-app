@@ -19,10 +19,12 @@ import java.util.Base64
  * Fails closed: with a blank or unparsable key every purchase is refused, and the reason is logged
  * once. Only a build that bills against [FakeBillingRepository] (`BuildConfig.USE_FAKE_BILLING`)
  * passes [allowUnsigned], because its cache holds no signed purchase to check. The caller says so
- * explicitly; an empty key never means "skip". A usable key is always checked.
+ * explicitly; an empty key never means "skip". A usable key is always checked, and what it signed must
+ * name this install's [packageName] (with the debug build's `.debug` suffix when that is what runs).
  */
 class PurchaseVerifier(
     base64PublicKey: String,
+    private val packageName: String,
     private val allowUnsigned: Boolean = false,
 ) {
     private val key: PublicKey? =
@@ -52,6 +54,7 @@ class PurchaseVerifier(
             return false
         }
         if (signedData.isEmpty() || signature.isEmpty()) return false
+        if (PACKAGE_NAME.find(signedData)?.groupValues?.get(1) != packageName) return false
         return runCatching {
             Signature.getInstance(SIGNATURE_ALGORITHM).run {
                 initVerify(publicKey)
@@ -68,7 +71,10 @@ class PurchaseVerifier(
          * check. [ProSnapshot] needs the same rule as [PlayBillingRepository] without the injection
          * graph.
          */
-        fun forThisBuild(): PurchaseVerifier = PurchaseVerifier(BuildConfig.PLAY_LICENSE_KEY, allowUnsigned = BillingBuild.usesFake)
+        fun forThisBuild(): PurchaseVerifier =
+            PurchaseVerifier(BuildConfig.PLAY_LICENSE_KEY, BuildConfig.APPLICATION_ID, allowUnsigned = BillingBuild.usesFake)
+
+        private val PACKAGE_NAME = Regex(""""packageName"\s*:\s*"([^"]*)"""")
 
         private const val TAG = "PurchaseVerifier"
         private const val KEY_ALGORITHM = "RSA"

@@ -1,7 +1,7 @@
 // Host-side checks for the offline render's planning (core/output: FrameClock, LoopPlan, EncodePlan,
-// Chapters) and its C ABI. Built and run by CI (.github/workflows/android.yml, "Native export planning
-// tests") with the system compiler; no device. Where a value pins the Kotlin it replaces (VideoExporter,
-// LoopSpec, LoopExtendPlan, MuxerBudget, ExportAspect, fallbackExportFps, ChapterMarkers), the comment says
+// Chapters) and its C ABI. Built and run by CI (.github/workflows/native-host-tests.yml, "Native export
+// planning tests") with the system compiler; no device. Where a value pins the Kotlin it replaces (VideoExporter,
+// LoopSpec, LoopExtendPlan, MuxerBudget, ExportAspect, ChapterMarkers), the comment says
 // so; the deliberate changes (exact pts, the seam budget's lost frame, the 0:00 lead-in) say why.
 #include <cstdint>
 #include <cstdio>
@@ -66,6 +66,63 @@ void frameClock() {
     check(frameStepSeconds(0, -1.0, 5.0) == static_cast<float>(1.0 / 60), "live's first frame is 1/60 s");
     check(frameStepSeconds(0, 1.0, 1.02) > 0.0199f && frameStepSeconds(0, 1.0, 1.02) < 0.0201f, "live measures");
     check(frameStepSeconds(0, 1.0, 3.0) == 0.1f && frameStepSeconds(0, 1.0, 1.0) == 0.001f, "live is clamped");
+}
+
+// The export's frame grid and audio cut over a three-hour render, at every rate Studio offers (24, 25, 30, 50,
+// 60: the export takes whole rates only, so there is no 29.97 grid). Every value is computed from n, so the
+// last frame lands exactly on three hours: pts within 1 ns of n / fps, each frame's step one of the two
+// whole-ns neighbours of 1e9 / fps, each frame hearing its rounded share of samples, and the whole-ms cut the
+// offscreen renderer feeds the engine by (TrackAudio.deliverUntilMs(frameTimeMs(n + 1))) never going
+// backwards and never more than 1 ms behind the exact one.
+void frameGridOverThreeHours() {
+    constexpr int64_t kSeconds = 3 * 3600;
+    const int rates[] = {44100, 48000, 96000};
+    const int fpsList[] = {24, 25, 30, 50, 60};
+    for (int fps : fpsList) {
+        const int64_t frames = kSeconds * fps;
+        check(geode_export_total_frames(kSeconds * 1'000'000, fps) == frames, "3 h: frames = seconds * fps");
+        check(geode_export_frame_pts_ns(frames, fps) == kSeconds * 1'000'000'000, "3 h: the frame after the last is at 3 h");
+        check(geode_export_frame_time_ms(frames, fps) == kSeconds * 1000, "3 h: the ms clock ends on 3 h");
+        for (int rate : rates) {
+            const FrameClock c(fps, rate);
+            const int64_t stepLo = 1'000'000'000 / fps;
+            const int64_t perLo = rate / fps;
+            const int64_t msUnit = rate / 1000 + 1;  // samples in one whole ms, rounded up
+            bool pts = true;
+            bool steps = true;
+            bool share = true;
+            bool cut = true;
+            bool cutStep = true;
+            int64_t prevPts = 0;
+            int64_t prevThrough = 0;
+            int64_t prevCut = 0;
+            for (int64_t n = 0; n < frames; ++n) {
+                const int64_t p = c.ptsNs(n);
+                // floor(n * 1e9 / fps): p * fps <= n * 1e9 < (p + 1) * fps.
+                if (p * fps > n * 1'000'000'000 || (p + 1) * fps <= n * 1'000'000'000) pts = false;
+                if (n > 0 && p - prevPts != stepLo && p - prevPts != stepLo + 1) steps = false;
+                const int64_t through = c.samplesThrough(n);
+                const int64_t heard = through - prevThrough;
+                if (heard != perLo && heard != perLo + 1) share = false;
+                // Within half a sample of (n + 1) * rate / fps.
+                const int64_t twice = 2 * through * fps - 2 * (n + 1) * rate;
+                if (twice > fps || twice < -fps) share = false;
+                const int64_t msCut = c.frameTimeMs(n + 1) * rate / 1000;
+                if (msCut < prevCut) cutStep = false;
+                if (msCut > through || through - msCut > msUnit) cut = false;
+                prevPts = p;
+                prevThrough = through;
+                prevCut = msCut;
+            }
+            check(pts, "3 h: every pts is n * 1e9 / fps rounded down, no drift");
+            check(steps, "3 h: every frame step is one of the two whole-ns neighbours of 1 / fps");
+            check(share, "3 h: every frame hears its rounded share of samples");
+            check(prevThrough == kSeconds * rate, "3 h: the last frame has heard exactly three hours of samples");
+            check(cut, "3 h: the whole-ms cut stays within 1 ms behind the exact one");
+            check(cutStep, "3 h: the whole-ms cut never goes backwards");
+            check(prevCut == kSeconds * rate, "3 h: the whole-ms cut also ends on three hours");
+        }
+    }
 }
 
 void loopSpec() {
@@ -165,8 +222,6 @@ void encodePlan() {
     geode_export_frame_size(1080, 16, 9, &w, &h);
     check(w == 1920 && h == 1080, "ABI frame size");
 
-    check(fallbackFps(60) == 30 && fallbackFps(50) == 25 && fallbackFps(30) == 30 && fallbackFps(24) == 24,
-          "the retry keeps the cadence family");
     check(clampFps(10) == 24 && clampFps(120) == 60 && clampFps(25) == 25, "fps clamp");
 }
 
@@ -206,6 +261,7 @@ void chapters() {
 
 int main() {
     frameClock();
+    frameGridOverThreeHours();
     loopSpec();
     loopExtend();
     encodePlan();

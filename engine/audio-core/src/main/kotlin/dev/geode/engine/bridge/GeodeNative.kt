@@ -1528,6 +1528,76 @@ object GeodeNative {
         nowNs: Long,
     ): Long
 
+    // The playback output (core/audio/output): an Oboe stream under Media3's sink, where the AudioTrack stands.
+
+    /** Whether the output plays [encoding] (`C.ENCODING_PCM_16BIT` or `_FLOAT`) at [channels] and [sampleRateHz]. */
+    external fun audioOutSupports(
+        encoding: Int,
+        channels: Int,
+        sampleRateHz: Int,
+    ): Boolean
+
+    /**
+     * Opens a stream for writes of [encoding]; [bufferBytes] is the sink's buffer size for it, [sessionId]
+     * the player's audio session (0 allocates one). 0 when the device gave no stream that is exactly this.
+     * Ends with [audioOutRelease].
+     */
+    external fun audioOutOpen(
+        sampleRateHz: Int,
+        channels: Int,
+        encoding: Int,
+        bufferBytes: Int,
+        sessionId: Int,
+    ): Long
+
+    /** Silences the stream and closes it off-thread; the handle is dead when this returns. */
+    external fun audioOutRelease(handle: Long)
+
+    external fun audioOutPlay(handle: Long)
+
+    external fun audioOutPause(handle: Long)
+
+    external fun audioOutFlush(handle: Long)
+
+    /** The last frame was written: what waits plays out, and the position ends on it. */
+    external fun audioOutStop(handle: Long)
+
+    /**
+     * Takes the whole frames that fit from [bytes] bytes of a direct [buffer] at [position], without
+     * blocking. Returns the bytes taken; -1 for a heap buffer or once the stream has failed for good.
+     */
+    external fun audioOutWrite(
+        handle: Long,
+        buffer: java.nio.ByteBuffer,
+        position: Int,
+        bytes: Int,
+    ): Int
+
+    /** How much of what was written the listener has heard, in µs of audio; never backwards. */
+    external fun audioOutPositionUs(handle: Long): Long
+
+    /** 0..1, reached over a short ramp. */
+    external fun audioOutSetVolume(
+        handle: Long,
+        volume: Float,
+    )
+
+    /** The device to play on (`AudioDeviceInfo.getId`), 0 for the default; a change reopens the stream. */
+    external fun audioOutSetDevice(
+        handle: Long,
+        deviceId: Int,
+    )
+
+    /** Bits since the last call: 1 the position began to move, 2 an underrun, 4 the stream failed for good. */
+    external fun audioOutEvents(handle: Long): Int
+
+    external fun audioOutStalled(handle: Long): Boolean
+
+    external fun audioOutSessionId(handle: Long): Int
+
+    /** The output's buffer in frames: the FIFO plus the stream's own. */
+    external fun audioOutBufferFrames(handle: Long): Long
+
     /** The cap a surface asking for [capFps] runs at now, under the thermal cap; 0 = none. For `Surface.setFrameRate`. */
     external fun pacerEffectiveCap(capFps: Float): Float
 

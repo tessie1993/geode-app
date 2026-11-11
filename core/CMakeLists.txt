@@ -11,6 +11,7 @@ add_library(geode_core STATIC
     api/geode_surface_api.cpp
     api/geode_playout_api.cpp
     api/geode_ingest_api.cpp
+    api/geode_audio_out_api.cpp
     sound/Fft.cpp
     sound/Emotion.cpp
     sound/Form.cpp
@@ -22,6 +23,8 @@ add_library(geode_core STATIC
     library/Tags.cpp
     library/Search.cpp
     audio/ingest/PcmRing.cpp
+    audio/output/OutputFifo.cpp
+    audio/output/OboeOutput.cpp
     audio/dsp/DspProcessor.cpp
     audio/dsp/GainStage.cpp
     audio/dsp/Equalizer.cpp

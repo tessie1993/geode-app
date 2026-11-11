@@ -808,6 +808,39 @@ GEODE_API void              geode_pcm_cursor_reset(geode_pcm_cursor*);   /* the 
  * resetting the engine on a restart, with no copy through the shell. The renderer keeps its own cursor (and
  * so the ring) until it is fed another ring or NULL, which drops it. Render thread, before geode_viz_render. */
 GEODE_API void              geode_viz_feed_ring(geode_viz*, const geode_pcm_ring* ring);
+/* The playback output (audio/output, Android only): an Oboe stream fed through a lock-free FIFO, standing
+ * where the AudioTrack stands under Media3's DefaultAudioSink. For plain PCM only: 16-bit or float (numbered
+ * as GEODE_PCM_S16 and GEODE_PCM_FLOAT), mono or stereo, 8 to 192 kHz. One control thread (Media3's playback
+ * thread) makes every call; the audio callback only reads the FIFO. Every call is safe on a NULL handle. */
+typedef struct geode_audio_out geode_audio_out;
+/* geode_audio_out_events' bits, each reported once. */
+#define GEODE_AUDIO_OUT_ADVANCING 1   /* the position moved for the first time since play */
+#define GEODE_AUDIO_OUT_UNDERRUN 2    /* the stream ran dry mid-stream */
+#define GEODE_AUDIO_OUT_FAILED 4      /* the stream is gone and would not reopen: make a new output */
+GEODE_API int              geode_audio_out_supports(int encoding, int channels, int sample_rate);   /* 1 or 0 */
+/* Opens the stream for writes of `encoding`. buffer_bytes is the sink's buffer for this output (the FIFO
+ * and the stream's own buffer share it; 0 = 250 ms); session_id the player's audio session (0 = allocate
+ * one). NULL when the format is not supported or the device gave no stream that is exactly it. */
+GEODE_API geode_audio_out* geode_audio_out_open(int sample_rate, int channels, int encoding, int buffer_bytes,
+                                                int session_id);
+/* Silences the stream at once and closes it on a thread of its own; the handle is gone when this returns. */
+GEODE_API void             geode_audio_out_release(geode_audio_out*);
+GEODE_API void             geode_audio_out_play(geode_audio_out*);
+GEODE_API void             geode_audio_out_pause(geode_audio_out*);   /* the position stands still */
+GEODE_API void             geode_audio_out_flush(geode_audio_out*);   /* drops what waits; the position restarts */
+GEODE_API void             geode_audio_out_stop(geode_audio_out*);    /* the last frame was written: play it out */
+/* Never blocks: takes the whole frames that fit and returns the bytes taken; -1 once the stream has failed. */
+GEODE_API int64_t          geode_audio_out_write(geode_audio_out*, const void* data, size_t bytes);
+/* How much of what was written the listener has heard, in microseconds of audio: from the stream's
+ * timestamp, never backwards, never past what was written, exactly the amount written once played out. */
+GEODE_API int64_t          geode_audio_out_position_us(geode_audio_out*);
+GEODE_API void             geode_audio_out_set_volume(geode_audio_out*, float volume);   /* 0..1, ramped */
+/* The device to play on (AudioDeviceInfo.getId; 0 = the default). A change reopens the stream. */
+GEODE_API void             geode_audio_out_set_device(geode_audio_out*, int device_id);
+GEODE_API int              geode_audio_out_events(geode_audio_out*);    /* GEODE_AUDIO_OUT_* since the last call */
+GEODE_API int              geode_audio_out_stalled(geode_audio_out*);   /* 1: playing, frames wait, nothing pulls */
+GEODE_API int              geode_audio_out_session_id(const geode_audio_out*);   /* the stream's audio session */
+GEODE_API int64_t          geode_audio_out_buffer_frames(const geode_audio_out*);   /* FIFO + stream buffer */
 /* Cast's live HLS timing (viz/frame/HlsSegments): a segment lasts the media time its fragment holds (the
  * video track's trun sample durations over its mdhd timescale), never the wall time between cuts. */
 #define GEODE_HLS_WINDOW 6           /* segments kept and listed */

@@ -93,6 +93,12 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/pcm_ring_test.cpp core/audio/ingest/PcmRing.cpp \
             core/api/geode_ingest_api.cpp -o pcm_ring_test
           ./pcm_ring_test
+          # The playback output's FIFO (Oboe's feed): odd chunk sizes lose and repeat nothing, an underrun is silence and
+          # counted once, the position is monotonic, frozen in pause, reset by a flush and exact at 44.1/48/96 kHz, the
+          # volume ramps without a step, a flush under a running consumer plays no torn frame, two threads keep a pattern.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/output_fifo_test.cpp core/audio/output/OutputFifo.cpp \
+            -o output_fifo_test
+          ./output_fifo_test
           # The process-wide Customize layer every renderer draws (#364): set, clamp, generation, follow, export pin.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/layer_state_test.cpp core/viz/LayerState.cpp -o layer_state_test
           ./layer_state_test

@@ -89,7 +89,8 @@ add_library(geode SHARED
     app/src/main/cpp/geode_export_jni.cpp
     app/src/main/cpp/geode_sound_jni.cpp
     app/src/main/cpp/geode_playout_jni.cpp
-    app/src/main/cpp/geode_ingest_jni.cpp)
+    app/src/main/cpp/geode_ingest_jni.cpp
+    app/src/main/cpp/geode_audio_out_jni.cpp)
 target_compile_options(geode PRIVATE ${GEODE_COMPILE_OPTIONS})
 target_link_options(geode PRIVATE ${GEODE_LINK_OPTIONS})
 target_link_libraries(geode PRIVATE geode_core log android)

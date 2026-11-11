@@ -200,6 +200,10 @@ private fun VisualsHubContent(
     }
     // Settings › Displays & casting › Keep the screen on in Visuals: held while this is composed (#337).
     KeepScreenOnWhileShown(behaviour.keepScreenOnVisuals)
+    // The hidden gestures (EasterEggs.kt): shake to screenshot, tap along for new Music moments.
+    val visualsViewModel: VisualsViewModel = geodeViewModel()
+    ShakeToScreenshot(enabled = !pip, visualizerView = visualizerView, viewModel = visualsViewModel)
+    val tapAlong = rememberTapAlong(visualizerView, visualsViewModel)
     val studioViewModel: StudioViewModel = geodeViewModel()
     val record by studioViewModel.recordState.collectAsStateWithLifecycle()
     val settingsViewModel: SettingsViewModel = geodeViewModel()
@@ -312,6 +316,7 @@ private fun VisualsHubContent(
             recording = record.recording,
             // The halves of the visual left in view above the sheet; the whole height beside the panel.
             tapSplitPx = { if (side) fullPx / 2f else (fullPx - heightPx.value - reservePx) / 2f },
+            onTapDown = tapAlong,
             onPinch = viewModel::nudgeTransform.takeIf { gui.touchTransform },
         )
         // What the glass blurs: the stage icons, never the GL surface (GlassBlur.kt says why).

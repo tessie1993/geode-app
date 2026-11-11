@@ -8,6 +8,7 @@ import android.media.audiofx.Visualizer
 import androidx.core.content.ContextCompat
 import dev.geode.RingLog
 import dev.geode.engine.audio.SampleRing
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
 
 /**
@@ -21,12 +22,11 @@ import dev.geode.util.bestEffort
  * by the system with the capabilities a visible wallpaper needs to keep it.
  *
  * What it hands over is coarser than the app's tap: 8-bit mono, and only the newest
- * [Visualizer.getCaptureSize] samples at each capture (about 20 a second). Each capture is
- * written to the ring as it arrives, its bytes as they are (the ring makes them float), with the
- * mix's true rate, so pitch, key and
- * the band split read correctly and an onset lands on the frame it happens; what is lost is
- * the audio between captures, so tempo reads slow from this source. That is the right way round
- * for a wallpaper, which shows hits and colour far more than it shows bar counts.
+ * [Visualizer.getCaptureSize] samples at each capture (about 20 a second, ~21 ms of every 50).
+ * Those are snapshots, not a stream, and the ring is told so: each capture is written as it
+ * arrives, its bytes as they are, with the mix's true rate, and native stitches it onto the
+ * capture clock (`core/audio/ingest/SnapshotStitch`), so the engine's sample clock (tempo, bars,
+ * loudness) is real time and no two snapshots meet at a seam. What falls between captures is lost.
  *
  * Main thread only: [start] registers the capture listener there, so captures arrive on the
  * same Looper and the ring has one writer. The renderer's GL thread is its one reader.
@@ -34,6 +34,10 @@ import dev.geode.util.bestEffort
 class OutputMixCapture {
     /** What the renderer reads while this runs. Freed with this object, once no renderer holds it. */
     val soundInput = SampleRing(RING_FRAMES, channelCount = 2)
+
+    init {
+        if (!GeodeNative.pcmRingSetSnapshots(soundInput.handle, true)) RingLog.note(TAG, "no snapshot stitch")
+    }
 
     private var rateHz = FALLBACK_RATE_HZ
 
@@ -113,7 +117,9 @@ class OutputMixCapture {
     private companion object {
         const val TAG = "WallpaperMix"
         const val OUTPUT_MIX_SESSION = 0
-        const val RING_FRAMES = 16_384
+
+        // Its runway (a quarter) is the longest gap between captures the native stitch fills: 170 ms at 48 kHz.
+        const val RING_FRAMES = 32_768
         const val FALLBACK_RATE_HZ = 48_000
         const val MILLIHERTZ_PER_HERTZ = 1000
     }

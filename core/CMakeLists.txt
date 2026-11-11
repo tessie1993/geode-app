@@ -6,6 +6,7 @@ add_library(geode_core STATIC
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
     api/geode_randomize_all_api.cpp
+    api/geode_shake_api.cpp
     api/geode_macro_bank_api.cpp
     api/geode_sound_api.cpp
     api/geode_underlay_api.cpp
@@ -29,6 +30,7 @@ add_library(geode_core STATIC
     audio/ingest/PcmRing.cpp
     audio/ingest/TrackFeed.cpp
     audio/ingest/LayerMix.cpp
+    audio/ingest/SnapshotStitch.cpp
     audio/output/OutputFifo.cpp
     audio/output/OboeOutput.cpp
     audio/dsp/DspProcessor.cpp

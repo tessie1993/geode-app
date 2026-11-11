@@ -169,6 +169,25 @@ PcmRing::Written PcmRing::writeBytes(const void* data, size_t bytes, int encodin
     }
 }
 
+int PcmRing::decode(const void* data, size_t bytes, int encoding, int sourceChannels, float* out, int maxFrames) {
+    if (!data || !out || sourceChannels <= 0 || maxFrames <= 0) return 0;
+    float (*read)(const unsigned char*) = nullptr;
+    size_t width = 0;
+    switch (encoding) {
+        case kSigned16: read = readSigned16; width = sizeof(int16_t); break;
+        case kUnsigned8: read = readUnsigned8; width = 1; break;
+        case kFloat32: read = readFloat32; width = sizeof(float); break;
+        default: return 0;
+    }
+    const size_t frameBytes = width * static_cast<size_t>(sourceChannels);
+    const size_t whole = bytes / frameBytes;
+    const int frames = static_cast<int>(std::min<size_t>(whole, static_cast<size_t>(maxFrames)));
+    const auto* p = static_cast<const unsigned char*>(data) + (whole - static_cast<size_t>(frames)) * frameBytes;
+    const size_t samples = static_cast<size_t>(frames) * static_cast<size_t>(sourceChannels);
+    for (size_t i = 0; i < samples; ++i) out[i] = read(p + i * width);
+    return frames;
+}
+
 void PcmRing::copyOut(int64_t first, int count, bool monoSource, float* interleaved) const {
     const size_t stride = static_cast<size_t>(channels_);
     for (int i = 0; i < count; ++i) {

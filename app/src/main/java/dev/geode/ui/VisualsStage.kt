@@ -78,6 +78,7 @@ internal fun BoxScope.VisualsStage(
     actions: VisualActions,
     recording: Boolean,
     tapSplitPx: () -> Float,
+    onTapDown: (Long) -> Unit,
     onPinch: ((zoomFactor: Float, degrees: Float) -> Unit)?,
 ) {
     // The visual itself is not drawn here: the shell hosts the one VisualizerView beneath every
@@ -95,6 +96,7 @@ internal fun BoxScope.VisualsStage(
                 onTouchPoints = visualizerView.visualizerRenderer::submitTouchPoints,
                 onPinch = onPinch,
                 a11yActions = rememberVisualA11yActions(behaviour::actionFor, actions, recording),
+                onTapDown = onTapDown,
             ),
     )
     HoldRing(ring)

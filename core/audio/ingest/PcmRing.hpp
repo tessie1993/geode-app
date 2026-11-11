@@ -81,6 +81,10 @@ public:
     // Whole frames of `encoding` in `bytes` bytes; a trailing part of a frame is ignored. No alignment needed.
     Written writeBytes(const void* data, size_t bytes, int encoding, int sourceChannels, int sampleRateHz);
 
+    // The newest maxFrames whole frames of `encoding` in `bytes` bytes, as interleaved float at sourceChannels,
+    // converted as the writers convert. Returns the frames decoded: 0 for an unknown encoding or no frames.
+    static int decode(const void* data, size_t bytes, int encoding, int sourceChannels, float* out, int maxFrames);
+
     // The newest `frames` frames, interleaved at channelCount, for a level check. False when this epoch
     // has not written that many yet, the ring cannot hold them, or the writer reached them during the copy.
     bool snapshotLatest(float* interleaved, int frames) const;

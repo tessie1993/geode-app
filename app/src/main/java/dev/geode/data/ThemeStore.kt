@@ -37,7 +37,6 @@ data class GuiPrefs(
      * gives the canvas back.
      */
     val miniPlayerFadeSeconds: Float = MINI_PLAYER_FADE_DEFAULT_SECONDS,
-    val whiteFont: Boolean = false,
     val fontColorArgb: Int? = null,
     val textScale: Float = 1f,
     /**
@@ -57,15 +56,16 @@ data class GuiPrefs(
     /** The tour: chapters seen or skipped, where an unfinished one picks up, the tips said. */
     val tourProgress: TourProgress = TourProgress(),
     val micReactive: Boolean = false,
+    /** Settings › Gestures & controls › Touch: the fingers on the visual also drag the picture (core/viz/TouchSmear). */
     val touchSmear: Boolean = false,
     val touchSmearStrength: Float = 1f,
     val secondScreen: Boolean = true,
+    /** Settings › Gestures & controls › Touch: a pinch moves Zoom and a twist Rotation (core/viz/TouchTransform). */
     val touchTransform: Boolean = true,
     /**
      * Whether leaving the fullscreen visualizer while something is playing drops straight into
-     * picture-in-picture, instead of just backgrounding the app. Off by default: PiP is a
-     * deliberate action (the button on the visualizer, or the platform's own gesture on API 31+)
-     * until someone opts into it happening automatically too.
+     * picture-in-picture, instead of just backgrounding the app. Off by default, and the only way
+     * into PiP: there is no PiP button.
      */
     val autoEnterPip: Boolean = false,
     /**
@@ -75,9 +75,6 @@ data class GuiPrefs(
      */
     val uiSounds: Boolean = false,
 ) {
-    val fontColorOverride: Int?
-        get() = fontColorArgb ?: FontColorChoice.WHITE_ARGB.takeIf { whiteFont }
-
     companion object {
         const val TEXT_SCALE_MIN = 0.85f
         const val TEXT_SCALE_MAX = 1.3f
@@ -127,7 +124,7 @@ class ThemeStore(
                     legacySeen = prefs.getBoolean(KEY_TUTORIAL_SEEN, false),
                 ),
             touchSmear = prefs.getBoolean(KEY_TOUCH_SMEAR, false),
-            touchSmearStrength = prefs.getFloat(KEY_TOUCH_SMEAR_STRENGTH, 1f).coerceIn(0.2f, 2f),
+            touchSmearStrength = prefs.getFloat(KEY_TOUCH_SMEAR_STRENGTH, 1f),
             touchTransform = prefs.getBoolean(KEY_TOUCH_TRANSFORM, true),
             secondScreen = prefs.getBoolean(KEY_SECOND_SCREEN, true),
             micReactive = prefs.getBoolean(KEY_MIC_REACTIVE, false),
@@ -162,7 +159,7 @@ class ThemeStore(
         }
 
     fun saveGui(gui: GuiPrefs) {
-        val fontColor = gui.fontColorOverride
+        val fontColor = gui.fontColorArgb
         prefs.edit {
             putString(KEY_CORNER, gui.cornerStyle.name)
             putFloat(KEY_OPACITY, gui.barOpacity)

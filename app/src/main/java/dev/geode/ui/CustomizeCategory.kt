@@ -27,7 +27,7 @@ enum class CustomizeCategory(
     val summary: String,
     val icon: ImageVector,
 ) {
-    QUICK_KNOBS("Quick knobs", "Six knobs that change the whole look", Icons.Filled.Tune),
+    QUICK_KNOBS("Quick knobs", "Your knobs, each moving several controls at once", Icons.Filled.Tune),
     LOOK("Look", "Palette, brightness, colour and glow", Icons.Filled.Palette),
     SHAPE("Shape", "Morph, symmetry and the style's own form", Icons.Filled.Category),
     MOTION("Motion", "Speed, zoom, spin and drift", Icons.Filled.Speed),
@@ -64,6 +64,7 @@ internal data class CustomizeSection(
 private val SECTION_TITLES =
     mapOf(
         "basics" to "Basics",
+        "knob_editor" to "Edit knobs",
         "colour_detail" to "Colour detail",
         "colour_cycle" to "Colour cycle",
         "light_detail" to "Light detail",

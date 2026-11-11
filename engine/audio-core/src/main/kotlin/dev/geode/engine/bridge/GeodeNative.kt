@@ -163,9 +163,9 @@ object GeodeNative {
     ): Boolean
 
     /**
-     * Voice "play X" over the library (core/library/Search). [rows] holds three UTF-8 strings per track
-     * (title, artist, album) in library order; [request] the query, then MediaStore's focus, artist, album
-     * and title extras (null = absent). Writes matching track indices into [out] and returns how many
+     * Voice "play X" and Android Auto's search over the library (core/library/Search), best first. [rows]
+     * holds three UTF-8 strings per track (title, artist, album) in library order; [request] the query,
+     * then MediaStore's focus, artist, album and title extras (null = absent). Writes matching track indices into [out] and returns how many
      * match in all; nothing asked matches every track, 0 means no match.
      */
     external fun librarySearch(
@@ -173,6 +173,34 @@ object GeodeNative {
         request: Array<ByteArray?>,
         out: IntArray,
     ): Int
+
+    /**
+     * The Library screen's index (core/library/Search): [rows] as in [librarySearch], one duration and one
+     * added time per track. Built once per library change; 0 when it cannot be built. Freed with
+     * [libraryIndexDestroy].
+     */
+    external fun libraryIndexCreate(
+        rows: Array<ByteArray?>,
+        durationsMs: LongArray,
+        addedSec: LongArray,
+    ): Long
+
+    external fun libraryIndexDestroy(handle: Long)
+
+    /** Every row of the index in [sort] order: 0 title, 1 artist, 2 album, 3 duration, 4 newest first. */
+    external fun libraryIndexOrder(
+        handle: Long,
+        sort: Int,
+    ): IntArray
+
+    /**
+     * What a UTF-8 [query] finds, best first: three counts (tracks, albums, artists), then those rows, an
+     * album or artist as its first row. A blank query finds nothing.
+     */
+    external fun libraryIndexSearch(
+        handle: Long,
+        query: ByteArray,
+    ): IntArray
 
     /** [assets] is the app's `android.content.res.AssetManager`; typed as Any because this module has no Android SDK. */
     external fun vizCreate(
@@ -216,13 +244,10 @@ object GeodeNative {
         points: Int,
     )
 
-    external fun vizQueueTouchStroke(
+    /** Settings › Visuals › Touch › Smear: on, the fingers touching the visual drag it too (core/viz/TouchSmear). */
+    external fun vizSetTouchSmear(
         handle: Long,
-        nx: Float,
-        ny: Float,
-        ndx: Float,
-        ndy: Float,
-        dt: Float,
+        on: Boolean,
         strength: Float,
     )
 
@@ -288,6 +313,98 @@ object GeodeNative {
         bank: String,
         knobId: Int,
         value: Float,
+    ): String
+
+    external fun macroBankRename(
+        bank: String,
+        knobId: Int,
+        name: String,
+    ): String
+
+    external fun macroBankAddKnob(
+        bank: String,
+        name: String,
+    ): String
+
+    /** Refused for a built-in knob, which [macroBankResetKnob] puts back as built instead. */
+    external fun macroBankRemoveKnob(
+        bank: String,
+        knobId: Int,
+    ): String
+
+    external fun macroBankDuplicateKnob(
+        bank: String,
+        knobId: Int,
+    ): String
+
+    external fun macroBankResetKnob(
+        bank: String,
+        knobId: Int,
+    ): String
+
+    /** The knob [delta] places along the bank, negative earlier. */
+    external fun macroBankMoveKnob(
+        bank: String,
+        knobId: Int,
+        delta: Int,
+    ): String
+
+    /** [target] is a modulation target's wire name; [up] and [down] are -1..1 of its range at a full turn each way. */
+    external fun macroBankSetLink(
+        bank: String,
+        knobId: Int,
+        target: String,
+        up: Float,
+        down: Float,
+    ): String
+
+    /** Links a target the knob does not move yet, at the weights native starts a link on. */
+    external fun macroBankAddLink(
+        bank: String,
+        knobId: Int,
+        target: String,
+    ): String
+
+    external fun macroBankRemoveLink(
+        bank: String,
+        knobId: Int,
+        target: String,
+    ): String
+
+    /** The knob editor's one read on [styleId]: the caps, each knob with what it offers, its links, every target. */
+    external fun macroBankEditor(
+        bank: String,
+        styleId: String,
+    ): String
+
+    /** How a link follows the knob: [curve] is LINEAR, EASE_IN, EASE_OUT or S_CURVE. */
+    external fun macroBankSetCurve(
+        bank: String,
+        knobId: Int,
+        target: String,
+        curve: String,
+    ): String
+
+    /** A new knob that moves the Customize control [control] (a ParamKeys name); native names it. */
+    external fun macroBankAddKnobFor(
+        bank: String,
+        control: String,
+    ): String
+
+    /** Every Customize control a knob can move, its category, and the knobs that move it now. */
+    external fun macroBankControls(bank: String): String
+
+    /** A random set of links for the knob in place of its own; the same [seed], the same set. */
+    external fun macroBankRoll(
+        bank: String,
+        knobId: Int,
+        seed: Long,
+    ): String
+
+    /** The name native offers when the knob is saved (a name, not a bank). */
+    external fun macroBankAutoName(
+        bank: String,
+        knobId: Int,
     ): String
 
     /**
@@ -789,6 +906,37 @@ object GeodeNative {
         output: FloatArray,
     )
 
+    /**
+     * Randomize everything (core/viz/RandomizeAll), the two-circle gesture: a style among every catalogue
+     * style not in [lockedStyles] (newline-joined ids), not [current] while another is open, MilkDrop
+     * only when [milkCount] > 0. [picks] gets the index into [lookStyles] (each preset's style id, one
+     * per line) of a preset made for it, or -1, then on MilkDrop with no preset a .milk index, or -1.
+     * Null when no style is open. Pass the same [seed] to [randomizeAllRoll].
+     */
+    external fun randomizeAllPick(
+        seed: Long,
+        current: String,
+        lockedStyles: String,
+        lookStyles: String,
+        milkCount: Int,
+        picks: IntArray,
+    ): String?
+
+    /**
+     * [base] (the look once the pick is applied) with the controls [locked] keeps put back to their
+     * values in [before], then, with [rollCategories], every Customize category's other controls that
+     * reach [styleId] rolled, into [output]. True when it changed [base].
+     */
+    external fun randomizeAllRoll(
+        styleId: String,
+        locked: String,
+        seed: Long,
+        rollCategories: Boolean,
+        before: FloatArray,
+        base: FloatArray,
+        output: FloatArray,
+    ): Boolean
+
     // Background image bake (core/viz/Underlay): pure, any thread, before vizSetUnderlay.
 
     /** The centred crop of a [srcW]x[srcH] picture to [targetW]:[targetH]'s aspect, as `[x, y, width, height]`. */
@@ -1141,6 +1289,41 @@ object GeodeNative {
 
     /** GL thread, or after its surface went: ends the copy. */
     external fun vizRecordStop(handle: Long)
+
+    /** Shake to screenshot: read the next finished visual back once (`geode_viz_still_request`). Any thread. */
+    external fun vizStillRequest(handle: Long)
+
+    /** GL thread: the still's width and height into [out], true once it is ready. */
+    external fun vizStillSize(
+        handle: Long,
+        out: IntArray,
+    ): Boolean
+
+    /** GL thread: the still, RGBA8 rows top first, into the direct buffer [out]; then it is let go. */
+    external fun vizStillRead(
+        handle: Long,
+        out: java.nio.ByteBuffer,
+    ): Boolean
+
+    /** Tap along (`core/viz/TapAlong`): a touch-down at [uptimeNs]; true on the tap that completes a streak on the beat. Any thread. */
+    external fun vizTapAlong(
+        handle: Long,
+        uptimeNs: Long,
+    ): Boolean
+
+    /** Shake to screenshot's detector (`core/viz/Shake`), one per listener. */
+    external fun shakeCreate(): Long
+
+    external fun shakeDestroy(handle: Long)
+
+    /** One TYPE_ACCELEROMETER event; true on the sample that completes a shake. */
+    external fun shakeSample(
+        handle: Long,
+        timeNs: Long,
+        x: Float,
+        y: Float,
+        z: Float,
+    ): Boolean
 
     /** The maximum take lengths Settings › Export › Record offers, in seconds; 0 is "no limit". */
     external fun recordMaxLengths(): IntArray
@@ -1810,6 +1993,16 @@ object GeodeNative {
         handle: Long,
         layer: Long,
     )
+
+    /**
+     * Marks the ring's writes as a capture's snapshots (the output mix's Visualizer), not a stream: each
+     * write is then stitched natively onto the capture clock. Writer thread, before its first write. False
+     * only when it could not allocate.
+     */
+    external fun pcmRingSetSnapshots(
+        handle: Long,
+        on: Boolean,
+    ): Boolean
 
     /** A new stream: every reader restarts at its next take. Any thread. */
     external fun pcmRingBeginEpoch(handle: Long)

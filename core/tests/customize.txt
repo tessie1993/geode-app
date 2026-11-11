@@ -11,6 +11,7 @@ category|LIQUID|ALWAYS
 category|ENGINE|ALWAYS
 category|EXPERT|ALWAYS
 section|QUICK_KNOBS|basics|BASICS|ALWAYS|@macros
+section|QUICK_KNOBS|knob_editor|PRO|ALWAYS|@macro_editor
 section|LOOK|basics|BASICS|ALWAYS|Palette,Brightness,Saturation,Bloom
 section|LOOK|colour_detail|PRO|ALWAYS|Palette 2,Palette blend,Colour map,Hue shift,Hue range,Temperature
 section|LOOK|colour_cycle|PRO|ALWAYS|Color cycle,Cycle speed

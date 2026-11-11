@@ -521,7 +521,12 @@ private fun PanelPiece(
         "@macros" -> {
             val store = remember { MacroStore.get(context) }
             val macros by store.state.collectAsStateWithLifecycle()
-            MacrosTab(macros, store)
+            MacrosTab(macros, store, viz.sceneId, LocalProLock.current)
+        }
+        "@macro_editor" -> {
+            val store = remember { MacroStore.get(context) }
+            val macros by store.state.collectAsStateWithLifecycle()
+            ProGated(id, stringResource(R.string.macro_editor_title)) { MacroEditor(macros, store, viz.sceneId) }
         }
         "@palette_maker" -> ProGated(id, "Make a palette") { if (sectionVisible()) PaletteMakerCard(p, onChange, rememberSavedPalettes()) }
         "@auto_moments" -> DirectorSwitch()
@@ -697,8 +702,8 @@ private fun RiseAndFall(
 }
 
 /**
- * Music's Auto moments: the auto-director, the same switch (and store) as Settings › Behaviour ›
- * Auto-director and Visuals' quick settings, so the three never disagree.
+ * Music's Auto moments: the auto-director, the same switch (and store) as Settings › Visual playback ›
+ * Auto and Visuals' quick settings, so the three never disagree.
  */
 @Composable
 private fun DirectorSwitch() {

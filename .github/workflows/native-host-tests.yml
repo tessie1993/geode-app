@@ -45,6 +45,9 @@ jobs:
           # The pinch and twist on the visual (#654): Zoom and Rotation clamped to their schema ranges.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_transform_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o touch_transform_test
           ./touch_transform_test
+          # Settings › Visuals › Touch › Smear: off draws no stroke, on one per moving finger, the strength slider clamped.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_smear_test.cpp -o touch_smear_test
+          ./touch_smear_test
           # The fluid engine: multigrid pressure plan, MacCormack, splat batching, heat, tracers, tiers.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/fluid_math_test.cpp core/viz/fluid/FluidMath.cpp -o fluid_math_test
           ./fluid_math_test
@@ -97,7 +100,8 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/pcm_handoff_test.cpp -o pcm_handoff_test
           ./pcm_handoff_test
           # The PCM ingest ring: random chunk sizes and a mid-stream rate change, every sample once, in order, with its rate; the C ABI.
-          INGEST_SRCS="core/audio/ingest/PcmRing.cpp core/audio/ingest/AiffReader.cpp core/audio/ingest/TrackFeed.cpp core/api/geode_ingest_api.cpp"
+          INGEST_SRCS="core/audio/ingest/PcmRing.cpp core/audio/ingest/AiffReader.cpp core/audio/ingest/TrackFeed.cpp \
+            core/audio/ingest/SnapshotStitch.cpp core/api/geode_ingest_api.cpp"
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/pcm_ring_test.cpp $INGEST_SRCS -o pcm_ring_test
           ./pcm_ring_test
           # An export's track audio (TrackFeed) and the AIFF reader, pinned to the Kotlin TrackAudio and AiffPcm: every
@@ -110,6 +114,11 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/layer_mix_test.cpp \
             core/audio/ingest/LayerMix.cpp $INGEST_SRCS -o layer_mix_test
           ./layer_mix_test
+          # The output mix's snapshots (#999 F10): the ring gains the capture clock's time with no seam, the level holds, and
+          # click tracks heard through 20 snapshots a second read their own tempo (butted together they read 2.3x fast).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/snapshot_stitch_test.cpp \
+            $INGEST_SRCS core/sound/*.cpp -o snapshot_stitch_test
+          ./snapshot_stitch_test
           # The playback output's FIFO (Oboe's feed): odd chunk sizes lose and repeat nothing, an underrun is silence and
           # counted once, the position is monotonic, frozen in pause, reset by a flush and exact at 44.1/48/96 kHz, the
           # volume ramps without a step, a flush under a running consumer plays no torn frame, two threads keep a pattern.
@@ -181,7 +190,7 @@ jobs:
           # The process-wide shader overrides every renderer draws (#364): set, replace, clear, generation, copies.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/shader_overrides_test.cpp core/viz/ShaderOverrides.cpp -o shader_overrides_test
           ./shader_overrides_test
-          # Voice "play X" over the library (#382): query, focus extras, blank = everything, no match = nothing.
+          # The library's one match (Library screen, Android Auto, voice "play X", #382): folding, ranking, order, the index.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/library_search_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o library_search_test
           ./library_search_test
           # The playout clock (#349, #482): the ring sample the speaker plays at 1x and 1.5x, behind a 250 ms
@@ -286,10 +295,10 @@ jobs:
       - name: Macro bank host tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/macro_bank_test.cpp core/viz/MacroBank.cpp \
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/macro_bank_test.cpp core/viz/MacroBank.cpp core/viz/MacroControls.cpp \
             core/api/geode_macro_bank_api.cpp core/viz/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
             core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
-            core/viz/VisualSafety.cpp -o macro_bank_test
+            core/viz/VisualSafety.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp -o macro_bank_test
           ./macro_bank_test
       # The export DSP (resampler, BS.1770 loudness meter), ported from Kotlin (ADR 0003), the playback DSP's hand-off and its gain.
       - name: Native export DSP tests
@@ -351,9 +360,38 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/customize_test.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o customize_test
           ./customize_test core/tests/customize.txt
 
+      # The two-circle gesture's Randomize everything (core/viz/RandomizeAll): a seeded style and look, never a locked style, every category rolled, Keep held.
+      - name: Randomize everything host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/randomize_all_test.cpp core/viz/RandomizeAll.cpp core/api/geode_randomize_all_api.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o randomize_all_test
+          ./randomize_all_test
+
+      # The hidden Visuals gestures: shake to screenshot's detector (core/viz/Shake) and tap along's beat matcher (core/viz/TapAlong).
+      - name: Easter egg host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/easter_eggs_test.cpp core/api/geode_shake_api.cpp -o easter_eggs_test
+          ./easter_eggs_test
+
       # The sound engine at 30 and 120 fps must equal 60 at every shared sample, and an export's cut equal live's.
       - name: Sound across frame rates
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/sound_rate_test.cpp core/sound/*.cpp core/output/FrameClock.cpp -o sound_rate_test
           ./sound_rate_test
+
+      # A small golden vector: the whole sound frame of a fixed synthetic song at six instants, within 1e-4.
+      - name: Sound golden vector
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/sound_golden_test.cpp core/sound/*.cpp -o sound_golden_test
+          ./sound_golden_test core/tests/sound_golden.txt
+
+      # The accuracy bench's smoke run (tools/sound_bench): a few synthetic pieces scored for tempo, beat, meter
+      # and key. It measures and exits 0; this only keeps it building and running.
+      - name: Sound accuracy bench (smoke)
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O2 -Wall -Wextra -Werror -Icore tools/sound_bench/sound_bench.cpp core/sound/*.cpp -o sound_bench
+          ./sound_bench --quick

@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.SharedPreferences
 import android.opengl.GLSurfaceView
 import android.os.Build
 import android.os.Handler
@@ -51,6 +52,17 @@ class VisualizerWallpaperService : WallpaperService() {
         private var covered = false
 
         private val prefsStore = WallpaperPrefsStore(this@VisualizerWallpaperService)
+        private val generalPrefs = GeodePrefsFiles(this@VisualizerWallpaperService).general
+
+        /**
+         * Settings › Performance, followed live: the app and the wallpaper share this process and
+         * the prefs file, so a change reaches the running engine at once (split screen, or the app
+         * in PiP over the home screen), not at its next start. A field: listeners are held weakly.
+         */
+        private val performanceChanged =
+            SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                if (key in PerformanceStore.KEYS) renderer?.let(::applyPerformance)
+            }
         private var settings = WallpaperSettings()
 
         /** The system's Remove animations; a flip restates the run mode at once. */
@@ -161,6 +173,7 @@ class VisualizerWallpaperService : WallpaperService() {
             )
             // For the engine's whole life, like the receiver: the setting can flip while hidden.
             systemAnimations.start()
+            generalPrefs.registerOnSharedPreferenceChangeListener(performanceChanged)
         }
 
         /**
@@ -178,9 +191,15 @@ class VisualizerWallpaperService : WallpaperService() {
             val looks = LookStore(prefsFiles, contentResolver)
             looks.pushProcessWide()
             engine.look = looks.current()
-            // Settings › Performance's quality; its fps cap is the live visual's, and the wallpaper
-            // paces to its own choice instead (applyFps, ADR 0008).
-            engine.performance = PerformanceStore(prefsFiles.general, this@VisualizerWallpaperService).settings.value
+            applyPerformance(engine)
+        }
+
+        /**
+         * Settings › Performance's quality; its fps cap is the live visual's, and the wallpaper paces
+         * to its own choice instead (applyFps, ADR 0008). A new store reads the file afresh.
+         */
+        private fun applyPerformance(engine: VisualizerRenderer) {
+            engine.performance = PerformanceStore(generalPrefs, this@VisualizerWallpaperService).settings.value
         }
 
         /**
@@ -408,6 +427,7 @@ class VisualizerWallpaperService : WallpaperService() {
             pacer.stop()
             sound.stop()
             systemAnimations.stop()
+            generalPrefs.unregisterOnSharedPreferenceChangeListener(performanceChanged)
             bestEffort(TAG, "unregister system receiver") { unregisterReceiver(systemReceiver) }
             releaseScenesOnGlThread()
             glView?.destroy()

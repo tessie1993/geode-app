@@ -189,6 +189,8 @@ class PrefsSchemaTest {
             "$APP/di/DataModule.kt",
             "$APP/cast/CastStream.kt",
             "$APP/playback/NotificationButtons.kt",
+            "$APP/wallpaper/VisualizerWallpaperService.kt",
+            "$APP/wallpaper/VisualizerDreamService.kt",
         )
 
     /**

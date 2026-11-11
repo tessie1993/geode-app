@@ -161,6 +161,9 @@ jobs:
           # Reduced motion on the wallpaper and the dream over every flag, the still frame's settle table, each surface's fps choice as the pacer draws it (#441).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/surface_motion_test.cpp core/api/geode_surface_api.cpp -o surface_motion_test
           ./surface_motion_test
+          # Auto's style timer: the interval plus a spread per look, never sooner than the interval; and the duration a .milk preset's progress runs over.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/auto_timer_test.cpp core/api/geode_auto_api.cpp -o auto_timer_test
+          ./auto_timer_test
           # The frame clock every surface shares (#436): vsync divides, the settle window, hitches, resume, one dt clamp.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/pacer_test.cpp -o pacer_test
           ./pacer_test
@@ -178,6 +181,13 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/playout_test.cpp core/sound/interp/PlayoutClock.cpp \
             core/api/geode_playout_api.cpp -o playout_test
           ./playout_test
+          # Speaker sync (#349, #488): the real ring, cursor and playout clock behind a fake sink. A reader held
+          # to the speaker reads nothing of the sink's first buffer until it plays, every frame once at
+          # 30/60/120 fps, stands in a pause, drops a seek's unheard tail, reads a gapless tail, is not
+          # overrun at 192 kHz over Bluetooth; the mic, Cast and a ring with no sink read the newest.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/speaker_sync_test.cpp \
+            core/audio/ingest/PcmRing.cpp core/sound/interp/PlayoutClock.cpp -o speaker_sync_test
+          ./speaker_sync_test
           # The encoder fallback ladder (#607): the rungs, the 30 fps floor, the 2/3 bit rate, an unknown ceiling.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/encoder_ladder_test.cpp core/api/geode_output_api.cpp -o encoder_ladder_test
           ./encoder_ladder_test
@@ -251,6 +261,15 @@ jobs:
             core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp \
             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o mod_targets_test
           ./mod_targets_test core/tests/mod_targets.txt
+      # Random on waves: the two random wave shapes (a value per cycle, the same at 30/60/120 fps, per slot and seed,
+      # a tempo only once the music gives one) and the roll of a set of waves (core/viz/WaveRandomizer).
+      - name: Random waves host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/lfo_random_test.cpp core/viz/WaveRandomizer.cpp \
+            core/viz/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
+            core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o lfo_random_test
+          ./lfo_random_test
       # The macro bank (core/viz/MacroBank): the user's knobs as weighted offsets on scene params. Centre is
       # the identity, both ways move, the range and the safety clamp hold, edits validate, the text round trips,
       # the process-wide bank (geode_macro_bank_set).
@@ -287,12 +306,13 @@ jobs:
 
       # Export planning and clip maths ported from Kotlin (ADR 0003, ADR 0006 core/output and
       # core/signal/timeline): frame clock, loops, encoder budget, chapters, keyframes, speed ramps,
-      # clip grade, .cube LUTs, PCM conversion and timing, each through its C ABI too.
+      # clip grade, .cube LUTs, PCM conversion and timing, each through its C ABI too; and a recorded take's
+      # limits (core/output/RecordPlan: the offered maximum lengths, the stop, the file size estimate).
       - name: Native export planning tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          EXPORT_SRCS="core/api/geode_export_api.cpp core/output/FrameClock.cpp core/output/LoopPlan.cpp core/output/EncodePlan.cpp core/output/Chapters.cpp core/signal/timeline/Keyframes.cpp core/signal/timeline/SpeedRamp.cpp core/viz/ClipGrade.cpp core/util/CubeLut.cpp core/audio/dsp/PcmConvert.cpp core/audio/dsp/PcmTiming.cpp"
-          for t in output_test timeline_test clip_media_test; do
+          EXPORT_SRCS="core/api/geode_export_api.cpp core/output/FrameClock.cpp core/output/LoopPlan.cpp core/output/EncodePlan.cpp core/output/RecordPlan.cpp core/output/Chapters.cpp core/signal/timeline/Keyframes.cpp core/signal/timeline/SpeedRamp.cpp core/viz/ClipGrade.cpp core/util/CubeLut.cpp core/audio/dsp/PcmConvert.cpp core/audio/dsp/PcmTiming.cpp"
+          for t in output_test record_plan_test timeline_test clip_media_test; do
             g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/$t.cpp $EXPORT_SRCS -o $t
             ./$t
           done

@@ -132,6 +132,8 @@ class VisualsViewModel
 
         fun randomizeParams(category: CustomizeCategory? = null) = session.modulation.randomizeParams(category)
 
+        fun randomizeWaves() = session.modulation.randomizeWaves(all = true)
+
         val paramHistory: StateFlow<ParamHistoryState> get() = session.paramHistory
 
         /** The one write path for a Customize edit, so the panel's undo covers every control. */

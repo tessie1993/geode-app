@@ -1,6 +1,6 @@
 #pragma once
 #include <array>
-#include <random>
+#include <cstdint>
 #include <vector>
 
 #include "api/geode_api.h"
@@ -65,12 +65,14 @@ int paramSlotOf(LfoTarget target);
 class LfoEngine {
 public:
     static constexpr int kSlots = 3;
-    static constexpr float kShPhaseWrap = 64.0f;
     // The depth an oscillator runs at after an envelope or an earlier slot adds to it. Wider than the
     // control's 0..1 (the lfo_depth row) on purpose: chained modulation may push a full slot past it.
     static constexpr float kMaxModulatedDepth = 2.0f;
 
     std::array<LfoConfig, kSlots> configs{};
+    // What the two random waves draw from: a slot's value in a cycle is a hash of this, the slot and the
+    // cycle's number, so it is the same at any frame rate and differs per slot.
+    std::uint32_t seed = 0x9E3779B9u;
 
     const std::array<float, kSlots>& tick(float dt, const GeodeSoundFrame& sound, const float* extRateAdd = nullptr,
                                           const float* extDepthAdd = nullptr);
@@ -85,29 +87,28 @@ private:
     static constexpr float kFollowFallSeconds = 0.16f;
 
     float oscillator(int i, const LfoConfig& c, float dt, const GeodeSoundFrame& sound);
-    /* The cycle position (0..1) a beat-timed slot sits at; sets wrapped when it crossed into a new cycle. */
-    float syncedPhase(int i, const LfoConfig& c, float dt, const GeodeSoundFrame& sound, bool& wrapped);
+    /* The cycle position (0..1) a beat-timed slot sits at on the measured tempo. */
+    float syncedPhase(int i, const LfoConfig& c, float dt, const GeodeSoundFrame& sound);
+    /* The random waves' value for one cycle of a slot, -1..1. */
+    float held(int i, std::uint32_t cycle) const;
     float follow(int i, float value, float dt);
     float followBipolar(int i, float value, float dt);
 
     std::array<float, kSlots> phases_{};
-    std::array<float, kSlots> sampleHold_{};
-    std::array<float, kSlots> totalPhase_{};
-    std::array<int, kSlots> lastCycle_{-1, -1, -1};
+    // Whole cycles since the slot started: forward on a wrap, back when the music clock steps back over one.
+    std::array<std::uint32_t, kSlots> cycle_{};
     std::array<float, kSlots> followed_{};
     std::array<float, kSlots> out_{};
     std::array<float, kSlots> rateAdd_{};
     std::array<float, kSlots> depthAdd_{};
-    // Beat timing: the free clock's phase (cycles), the last good tempo, whether the music clock held last
-    // frame, and the offset still being eased out after it came back.
+    // Beat timing: the free clock's phase (cycles), the last measured tempo (0 until the music gives one;
+    // a beat-timed slot runs on its own period till then), whether the music clock held last frame, and
+    // the offset still being eased out after it came back.
     std::array<float, kSlots> syncFree_{};
     std::array<float, kSlots> syncJump_{};
     std::array<bool, kSlots> syncLocked_{};
-    std::array<float, kSlots> glideFrom_{};
-    std::array<float, kSlots> glideTo_{};
     std::array<float, kSlots> prevPhase_{};
     float lastBpm_ = 0.0f;
-    std::minstd_rand rng_{12345};
 };
 
 }  // namespace geode::viz

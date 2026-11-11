@@ -147,7 +147,12 @@ struct AxisField {
     bool inverted;
 };
 
-constexpr std::array<AxisField, 24> kAxisFields = {{
+// Twist is not here, on purpose. It spirals the frame about the screen centre in the shared view()
+// and in the composite, so it draws the same S-curve on every style, and it rests at 0 in the
+// middle of its range: an axis turned up pulled it toward +1 and one turned down toward -1, so
+// Complexity twisted the picture whichever way it went, on every look ("almost all visuals have a
+// yin-yang curve"). Twist stays the user's slider, the style's own reactions and the short kick below.
+constexpr std::array<AxisField, 23> kAxisFields = {{
     {Axis::Energy, &SceneParams::reactAmount, 0.0f, 2.0f, false},
     {Axis::Energy, &SceneParams::audioDrive, 0.2f, 2.5f, false},
     {Axis::Energy, &SceneParams::motionAmount, 0.0f, 1.0f, false},
@@ -159,7 +164,6 @@ constexpr std::array<AxisField, 24> kAxisFields = {{
     {Axis::Speed, &SceneParams::motionDrift, 0.0f, 1.0f, false},
     {Axis::Complexity, &SceneParams::tile, 1.0f, 6.0f, false},
     {Axis::Complexity, &SceneParams::warp, 0.0f, 1.0f, false},
-    {Axis::Complexity, &SceneParams::twist, -1.0f, 1.0f, false},
     {Axis::Complexity, &SceneParams::morph, 0.0f, 1.0f, false},
     {Axis::Space, &SceneParams::camFov, 0.5f, 2.0f, false},
     {Axis::Space, &SceneParams::zoom, 0.3f, 3.0f, true},
@@ -189,7 +193,9 @@ constexpr std::array<AxisRoute, 6> kAxisRoutes = {{
     {Axis::Speed, ReactSource::CurvedTime, LfoTarget::Speed, 0.4f, 0.3f, 0.6f},
     {Axis::Complexity, ReactSource::DensitySlow, LfoTarget::Morph, 0.4f, 0.3f, 0.8f},
     {Axis::Space, ReactSource::StereoPan, LfoTarget::DriftX, 0.3f, 0.3f, 0.6f},
-    {Axis::Chaos, ReactSource::KickRandom, LfoTarget::Twist, 0.5f, 0.05f, 0.1f},
+    // KickRandom holds its draw until the next kick, so this is a held twist, not a pulse: at 0.5
+    // it kept every style half spiralled between kicks whenever Chaos was up. 0.2 is a nudge.
+    {Axis::Chaos, ReactSource::KickRandom, LfoTarget::Twist, 0.2f, 0.05f, 0.1f},
     {Axis::Chaos, ReactSource::SnareToggle, LfoTarget::ChromaAb, 0.4f, 0.03f, 0.03f},
 }};
 static_assert(kAxisRoutes.size() <= ReactionEngine::kRoutes, "the axis routes fit one reaction engine");

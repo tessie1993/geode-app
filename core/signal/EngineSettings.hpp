@@ -21,7 +21,7 @@ struct EngineSettings {
     viz::director::Reach reach = viz::director::Reach::Look;  // how far the director reaches past its look
     std::shared_ptr<const viz::director::Kept> kept;          // Customize's keep set; null keeps nothing
     bool notesOn = false;             // Settings › Behaviour › Note & key reactions
-    std::uint32_t handMask = 0;       // Customize › Music: the moments set by hand (viz::hand), the director keeps off
+    std::uint32_t handMask = 0;       // Customize › Music: the moments set by hand (viz::hand); an export pins it for its route merge
     bool reducedMotion = false;       // the system's reduced motion, applied once by the motion field and the clamp
     std::uint64_t noteEntropy = 0;    // mixed into the note layer's seed (the play seed ^ this)
 };

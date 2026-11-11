@@ -801,6 +801,9 @@ GEODE_API void            geode_memory_trim(int android_level);
 GEODE_API int64_t geode_export_total_frames(int64_t duration_us, int fps);            /* >= 1 */
 GEODE_API int64_t geode_export_frame_pts_ns(int64_t frame, int fps);                  /* floor(n*1e9/fps) */
 GEODE_API int64_t geode_export_frame_time_ms(int64_t frame, int fps);                 /* floor(n*1000/fps) */
+/* The pre-roll before a range starting at range_start_ms (output/PreRoll): the engine hears *heard_ms of the
+ * track from *from_ms before frame 0, then geode_viz_end_pre_roll. */
+GEODE_API void    geode_export_pre_roll(int64_t range_start_ms, int64_t* from_ms, int64_t* heard_ms);
 
 /* Long-form loops (output/LoopPlan). */
 typedef struct geode_loop_spec {
@@ -1125,6 +1128,9 @@ GEODE_API int               geode_track_feed_deliver(geode_track_feed*, geode_tr
 /* geode_track_feed_deliver into this renderer's sound engine (geode_viz_write_audio); a NULL renderer hears
  * nothing but the feed still moves on. Render thread. */
 GEODE_API int               geode_viz_hear_track(geode_viz*, geode_track_feed*);
+/* After the pre-roll was heard (geode_export_pre_roll), before frame 0: 0 when the engine heard nothing (the
+ * track gave no audio), and the render must fail rather than export a still picture. Render thread. */
+GEODE_API int               geode_viz_end_pre_roll(geode_viz*, int64_t range_start_ms);
 /* The playback output (audio/output, Android only): an Oboe stream fed through a lock-free FIFO, standing
  * where the AudioTrack stands under Media3's DefaultAudioSink. For plain PCM only: 16-bit or float (numbered
  * as GEODE_PCM_S16 and GEODE_PCM_FLOAT), mono or stereo, 8 to 192 kHz. One control thread (Media3's playback

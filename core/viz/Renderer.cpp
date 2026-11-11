@@ -5,6 +5,7 @@
 #include <cmath>
 #include <utility>
 
+#include "output/PreRoll.hpp"
 #include "sound/Tuning.hpp"
 #include "util/Log.hpp"
 #include "viz/GlProber.hpp"
@@ -93,6 +94,8 @@ void Renderer::writeAudio(const float* interleaved, int frames, int channels, in
         if (!sound_ || sound_->sampleRateHz() != std::max(8000, sampleRateHz)) {
             sound_ = std::make_unique<sound::SoundEngine>(sampleRateHz);
             sound_->setTuning(soundTuning_);
+            // An export's track is the player from its first sample, the pre-roll's included (beginFrame).
+            if (offscreen_.load(std::memory_order_relaxed)) sound_->setPlayerSource(true);
         }
         sound_->write(interleaved, frames, channels);
     }
@@ -109,6 +112,16 @@ void Renderer::resetAudio() {
     }
     std::lock_guard<std::mutex> lock(stateLock_);
     pcm_.clear();
+}
+
+bool Renderer::endPreRoll(int64_t rangeStartMs) {
+    {
+        std::lock_guard<std::mutex> lock(soundLock_);
+        if (!output::endPreRoll(sound_.get(), output::preRollFor(rangeStartMs))) return false;
+    }
+    std::lock_guard<std::mutex> lock(stateLock_);
+    pcm_.clear();
+    return true;
 }
 
 void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {

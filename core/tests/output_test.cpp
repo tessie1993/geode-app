@@ -14,6 +14,7 @@
 #include "output/FrameClock.hpp"
 #include "output/LoopPlan.hpp"
 #include "output/LoudnessAdvice.hpp"
+#include "output/PreRoll.hpp"
 #include "viz/FrameStep.hpp"
 
 using namespace geode::output;
@@ -359,6 +360,20 @@ void loudnessAdvice() {
           "the C ABI's window");
 }
 
+// The pre-roll's plan through the C ABI the shell reads (export_preroll_test runs the pre-roll itself).
+void preRoll() {
+    for (int64_t start : {int64_t{-5}, int64_t{0}, int64_t{1999}, int64_t{2000}, int64_t{7000}, int64_t{8000}, int64_t{95000}}) {
+        int64_t from = -1;
+        int64_t heard = -1;
+        geode_export_pre_roll(start, &from, &heard);
+        const geode::output::PreRoll plan = geode::output::preRollFor(start);
+        check(from == plan.fromMs && heard == plan.heardMs, "geode_export_pre_roll is preRollFor");
+        check(from >= 0 && heard > 0, "the pre-roll starts in the track and hears something");
+        check(plan.boundary || from + heard == start, "a pre-roll with no boundary runs on into the range");
+    }
+    geode_export_pre_roll(0, nullptr, nullptr);  // null outs are ignored
+}
+
 int main() {
     frameClock();
     frameGridOverThreeHours();
@@ -368,6 +383,7 @@ int main() {
     chapters();
     drift();
     loudnessAdvice();
+    preRoll();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

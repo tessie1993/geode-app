@@ -337,6 +337,49 @@ void textEqualsTheFixture(const char* path) {
 
 }  // namespace
 
+// The palette a slot draws, pinned to the Kotlin SceneParams.PALETTES table and its paletteBase/paletteRange
+// getters it replaces (the shell now asks geode_params_palette_base/_range): the override when >= 0, else
+// the built-in palette, the index clamped into the 21 rows; and the table as long as the schema's range.
+void palettesAreTheShellsOldTable() {
+    struct Row {
+        float base, range;
+    };
+    const Row kotlin[] = {{0.0f, 1.0f},   {0.5f, 0.45f},  {0.0f, 0.14f}, {0.5f, 0.2f},   {0.6f, 0.02f},  {0.85f, 0.5f},
+                          {0.33f, 0.18f}, {0.45f, 0.7f},  {0.05f, 0.3f}, {0.55f, 0.15f}, {0.78f, 0.35f}, {0.25f, 0.25f},
+                          {0.7f, 0.25f},  {0.93f, 0.12f}, {0.07f, 0.1f}, {0.4f, 0.12f},  {0.65f, 0.5f},  {0.97f, 0.08f},
+                          {0.5f, 0.08f},  {0.833f, 0.08f}, {0.167f, 0.08f}};
+    constexpr int kRows = static_cast<int>(sizeof(kotlin) / sizeof(kotlin[0]));
+    check(static_cast<int>(SceneParams::palettes().size()) == kRows, "21 built-in palettes, as Kotlin listed");
+    const ParamSpec& palette = SceneParams::spec(ParamSlot::palette);
+    check(static_cast<int>(palette.max) == kRows - 1 && static_cast<int>(palette.min) == 0,
+          "the palette field's range is the table's rows");
+    auto at = [&](int palette, float baseOverride, float rangeOverride, bool second) {
+        SceneParams p;
+        if (second) {
+            p.palette2 = palette;
+            p.palette2BaseOverride = baseOverride;
+            p.palette2RangeOverride = rangeOverride;
+            return Row{p.palette2Base(), p.palette2Range()};
+        }
+        p.palette = palette;
+        p.paletteBaseOverride = baseOverride;
+        p.paletteRangeOverride = rangeOverride;
+        return Row{p.paletteBase(), p.paletteRange()};
+    };
+    for (int second = 0; second < 2; ++second) {
+        for (int i = -3; i < kRows + 3; ++i) {
+            const Row want = kotlin[i < 0 ? 0 : (i >= kRows ? kRows - 1 : i)];
+            const Row got = at(i, SceneParams::kUnsetOverride, SceneParams::kUnsetOverride, second != 0);
+            check(got.base == want.base && got.range == want.range,
+                  "palette " + std::to_string(i) + " reads the Kotlin row, clamped into the table");
+        }
+        const Row custom = at(4, 0.31f, 0.0f, second != 0);
+        check(custom.base == 0.31f && custom.range == 0.0f, "an override >= 0 wins, 0 included");
+        const Row half = at(4, 0.31f, -1.0f, second != 0);
+        check(half.base == 0.31f && half.range == 0.02f, "each override stands alone");
+    }
+}
+
 int main(int argc, char** argv) {
     if (argc == 3 && std::strcmp(argv[1], "--write") == 0) {
         std::ofstream(argv[2], std::ios::binary) << SceneParams::schemaText();
@@ -351,6 +394,7 @@ int main(int argc, char** argv) {
     theLfoClampsAreTheTablesRanges();
     theCataloguesRangesAgree();
     theTextIsTheTable();
+    palettesAreTheShellsOldTable();
     textEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/params_schema.txt");
     if (failures == 0) std::printf("params_schema_test: all checks passed\n");
     return failures;

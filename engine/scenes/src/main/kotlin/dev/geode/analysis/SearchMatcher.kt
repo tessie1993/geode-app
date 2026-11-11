@@ -4,18 +4,16 @@ import java.text.Normalizer
 import java.util.Locale
 
 /**
- * The app's one text match for search: the library's track list, the global search sheet and
- * voice search all ask it, so "beyonce" finds "Beyoncé" everywhere or nowhere.
+ * The text match of the global search sheet (tracks, playlists, presets), the last search still in
+ * Kotlin: the Library screen, Android Auto and voice search ask the native `core/library/Search`,
+ * which this is to follow (ADR 0003). Do not add callers.
  *
  * Matching happens on folded text ([fold]): lower case, accents stripped, a few letters that do not
- * decompose spelled out. Folding is done per field once per library change by the callers that can
- * keep it ([fold] is cheap but not free: a 15k-track library folds four fields per track), and on
- * the fly for the small lists the global search walks.
+ * decompose spelled out.
  *
  * Ranking ([tier]) answers "where did every word land?": a track whose title holds every word is
  * what the user typed, one that needs the artist too comes next, then the album, then anything
- * else. Within a tier the caller's own order stands, so the sort the user picked still means
- * something while searching.
+ * else. Within a tier the caller's own order stands.
  */
 object SearchMatcher {
     const val TRACK_LIMIT = 30
@@ -55,17 +53,14 @@ object SearchMatcher {
         return out.toString()
     }
 
-    /** True when every (folded) term is inside some field. Fields are folded here; see [matchesFolded] to skip that. */
+    /** True when every (folded) term is inside some field. */
     fun matches(
         terms: List<String>,
         fields: List<String>,
-    ): Boolean = matchesFolded(terms, fields.map(::fold))
-
-    /** [matches] over fields the caller already ran through [fold]. */
-    fun matchesFolded(
-        terms: List<String>,
-        foldedFields: List<String>,
-    ): Boolean = terms.isNotEmpty() && terms.all { term -> foldedFields.any { it.contains(term) } }
+    ): Boolean {
+        val folded = fields.map(::fold)
+        return terms.isNotEmpty() && terms.all { term -> folded.any { it.contains(term) } }
+    }
 
     /**
      * Which field the match needed, as one of the TIER_ constants, or [NO_MATCH].
@@ -74,24 +69,15 @@ object SearchMatcher {
      * folder). The tier is the shortest prefix of that list in which every term lands, so a title
      * hit beats an artist hit beats an album hit, and a query split across title and artist
      * ("nirvana teen spirit") ranks as an artist match, below a song actually called that.
-     * [termHits] decides whether one term lands in the field at an index; the default is a plain
-     * substring, and the library passes its typo-tolerant match.
      */
     fun tier(
         terms: List<String>,
         foldedFields: List<String>,
-        termHits: (term: String, fieldIndex: Int) -> Boolean = { term, i -> foldedFields[i].contains(term) },
     ): Int {
         if (terms.isEmpty()) return NO_MATCH
         var needed = 0
         for (term in terms) {
-            var at = NO_MATCH
-            for (i in foldedFields.indices) {
-                if (termHits(term, i)) {
-                    at = i
-                    break
-                }
-            }
+            val at = foldedFields.indexOfFirst { it.contains(term) }
             if (at == NO_MATCH) return NO_MATCH
             if (at > needed) needed = at
         }

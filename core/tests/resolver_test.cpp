@@ -119,7 +119,7 @@ GeodeSoundFrame frame(float t) {
     return f;
 }
 
-// The four built-in knobs (Glow, Heat, Bend, Flow) turned to `values`, in bank order.
+// The four built-in knobs (Shape, Motion, Colour, Depth) turned to `values`, in bank order.
 macrobank::Bank turned(std::initializer_list<float> values) {
     macrobank::Bank b = macrobank::defaultBank();
     size_t i = 0;
@@ -175,21 +175,21 @@ ReactRoute route(ReactSource source, LfoTarget target, float amount) {
     return r;
 }
 
-// The director's look under the macro bank, each added to the user's value (base plus modulation): Heat -1
-// takes the saturation down by its link's reach (0.35 of the range), to 0 where there was less than that to
-// give. An LFO on saturation then shows on top of both. No route is set, so nothing else writes saturation.
+// The director's look under the macro bank, each added to the user's value (base plus modulation): Colour +1
+// takes the saturation up by its link's reach (0.25 of the range), to the top where there was less than that
+// to give. An LFO on saturation then shows on top of both. No route is set, so nothing else writes saturation.
 void testOrder() {
     EngineSettings s;
     s.director = {1.0f, 42};
-    s.bank = shared(macrobank::setValue(macrobank::defaultBank(), knobId("Heat"), -1.0f));
+    s.bank = shared(macrobank::setValue(macrobank::defaultBank(), knobId("Colour"), 1.0f));
     EngineSettings centred = s;
     centred.bank = shared(macrobank::defaultBank());
     const macrobank::Range sat = macrobank::rangeOf(LfoTarget::Saturation);
-    const float reach = 0.35f * (sat.max - sat.min);
+    const float reach = 0.25f * (sat.max - sat.min);
     auto plain = std::make_unique<Resolver>();
     auto lfo = std::make_unique<Resolver>();
     auto unturned = std::make_unique<Resolver>();
-    bool lowered = true;
+    bool raised = true;
     std::array<LfoConfig, LfoEngine::kSlots> configs{};
     configs[0] = sineOn(LfoTarget::Saturation, 0.3f, 1.0f);
     lfo->setLfoConfigs(configs);
@@ -206,7 +206,7 @@ void testOrder() {
         const SceneParams& b = lfo->step(requested, f, kDt, s, st).params;
         const SceneParams& c = unturned->step(requested, f, kDt, centred, st).params;
         if (t >= 38.0f) {
-            lowered = lowered && (a.saturation <= sat.min + 1e-6f || std::fabs(a.saturation - (c.saturation - reach)) < 1e-4f);
+            raised = raised && (a.saturation >= sat.max - 1e-6f || std::fabs(a.saturation - (c.saturation + reach)) < 1e-4f);
             maxPlain = std::max(maxPlain, std::fabs(a.saturation));
             maxLfo = std::max(maxLfo, b.saturation);
             lookInPlace = lookInPlace && a.camSmooth != requested.camSmooth && c.saturation == requested.saturation;
@@ -214,7 +214,7 @@ void testOrder() {
     }
     check(plain->director().commits() >= 1 && plain->director().weight() > 0.9f, "the director is fully in");
     check(lookInPlace, "the director's look reaches the final params, and leaves the saturation the user's");
-    check(lowered, "the bank lies over the director's look (Heat -1 takes the saturation down, peak " + std::to_string(maxPlain) + ")");
+    check(raised, "the bank lies over the director's look (Colour +1 takes the saturation up, peak " + std::to_string(maxPlain) + ")");
     check(maxLfo > 0.2f, "an LFO moves on top of the director and the bank (peak " + std::to_string(maxLfo) + ")");
 }
 
@@ -1240,23 +1240,23 @@ void testLiveAndExportNeverHearEachOther() {
 
 }  // namespace
 
-// The bank's offset reaches the resolved params whole: with nothing else writing Warp, Bend at a full turn
-// up moves it by its link's weight (0.6) times Warp's range over the same chain at centre, and a turn down
-// (Bend has no Warp down) leaves it. A knob whose links do not reach the style moves nothing there.
+// The bank's offset reaches the resolved params whole: with nothing else writing Warp, Shape at a full turn
+// up moves it by its link's weight (0.8) times Warp's range over the same chain at centre, and a turn down
+// (Shape has no Warp down) leaves it. A knob whose links do not reach the style moves nothing there.
 void testBankReachesTheParams() {
     EngineSettings centred;
     centred.bank = shared(macrobank::defaultBank());
     EngineSettings up = centred;
-    up.bank = shared(macrobank::setValue(macrobank::defaultBank(), knobId("Bend"), 1.0f));
+    up.bank = shared(macrobank::setValue(macrobank::defaultBank(), knobId("Shape"), 1.0f));
     EngineSettings down = centred;
-    down.bank = shared(macrobank::setValue(macrobank::defaultBank(), knobId("Bend"), -1.0f));
+    down.bank = shared(macrobank::setValue(macrobank::defaultBank(), knobId("Shape"), -1.0f));
     EngineSettings none;
     auto a = std::make_unique<Resolver>();
     auto b = std::make_unique<Resolver>();
     auto c = std::make_unique<Resolver>();
     auto d = std::make_unique<Resolver>();
     const macrobank::Range warp = macrobank::rangeOf(LfoTarget::Warp);
-    const float reach = 0.6f * (warp.max - warp.min);
+    const float reach = 0.8f * (warp.max - warp.min);
     SceneParams requested;
     requested.warp = 0.1f;
     float t = 0.0f;
@@ -1274,8 +1274,8 @@ void testBankReachesTheParams() {
         untouchedDown = untouchedDown && pc.warp == pa.warp && pc.twist < pa.twist;
         identity = identity && sameBits(wire(pa), wire(pd));
     }
-    check(whole, "Bend up adds its whole Warp offset to the resolved params");
-    check(untouchedDown, "Bend down leaves Warp (no down weight) and turns Twist back");
+    check(whole, "Shape up adds its whole Warp offset to the resolved params");
+    check(untouchedDown, "Shape down leaves Warp (no down weight) and turns Twist back");
     check(identity, "a bank at centre resolves the same bits as no bank");
     // Reach: a link on a target the style cannot show is skipped, so the knob is a no-op there.
     check(macrobank::reachMask(kStyle) != 0, "the bank reaches the shader style");

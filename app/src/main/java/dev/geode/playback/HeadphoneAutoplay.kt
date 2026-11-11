@@ -11,7 +11,7 @@ import dev.geode.data.BehaviourStore
 import dev.geode.data.GeodePrefsFiles
 
 /**
- * Settings › Behaviour › Start on headphones (default off). When wired headphones, a USB headset or
+ * Settings › Output & devices › Start on headphones (default off). When wired headphones, a USB headset or
  * a Bluetooth audio device connects while a track is loaded and paused, play it.
  *
  * Android delivers no headset broadcast to a manifest receiver any more, so this only listens while

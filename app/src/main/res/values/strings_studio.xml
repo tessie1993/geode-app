@@ -23,6 +23,10 @@
     <string name="render_keep_yes">Add</string>
     <string name="render_keep_no">Just the video</string>
     <string name="render_keep_remember">Don\'t ask again</string>
+    <string name="settings_keep_renders">Add renders to My videos</string>
+    <string name="settings_keep_renders_ask">Ask each time</string>
+    <string name="settings_keep_renders_always">Always</string>
+    <string name="settings_keep_renders_never">Never, just the video</string>
 
     <!-- Studio › My videos -->
     <string name="my_videos_empty">Nothing here yet. Render a video, or record one on Visuals.</string>

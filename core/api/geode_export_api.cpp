@@ -14,6 +14,7 @@
 #include "output/EncodePlan.hpp"
 #include "output/FrameClock.hpp"
 #include "output/LoopPlan.hpp"
+#include "output/LoudnessAdvice.hpp"
 #include "output/RecordPlan.hpp"
 #include "signal/timeline/Keyframes.hpp"
 #include "signal/timeline/SpeedRamp.hpp"
@@ -97,6 +98,44 @@ void geode_loop_spec_fill(geode_loop_spec* spec) {
 }
 
 float geode_loop_seam_weight(int tail, int seam_frames) { return out::seamWeight(tail, seam_frames); }
+
+int geode_loudness_window(int target, double* out4) {
+    out::loudness::Window w;
+    if (!out::loudness::windowOf(target, &w)) return 0;
+    if (out4) {
+        out4[0] = w.aimLufs;
+        out4[1] = w.lowLufs;
+        out4[2] = w.highLufs;
+        out4[3] = w.ceilingDbtp;
+    }
+    return 1;
+}
+
+int geode_loudness_advise(int target, int gated, double lufs, double true_peak_dbtp, double* o) {
+    const auto a = out::loudness::advise(target, gated != 0, lufs, true_peak_dbtp);
+    if (o) {
+        const double values[GEODE_LOUDNESS_ADVICE_DOUBLES] = {
+            a.gainDb, a.gainForLevelDb, a.resultingLufs, a.resultingTruePeakDbtp, static_cast<double>(a.direction),
+            a.ceilingLimited ? 1.0 : 0.0, static_cast<double>(a.band), a.quietLu, a.peakWarning ? 1.0 : 0.0};
+        std::copy(values, values + GEODE_LOUDNESS_ADVICE_DOUBLES, o);
+    }
+    return a.kind;
+}
+
+int geode_loop_drift_stops(float hue_turns, float warmth, int stops, float* out_hue, float* out_warmth, int capacity) {
+    out::DriftStop all[out::kMaxDriftStops];
+    const int count = out::driftStops(hue_turns, warmth, stops, all, out::kMaxDriftStops);
+    const int writable = std::min({count, std::max(capacity, 0), out::kMaxDriftStops});
+    for (int i = 0; i < writable; ++i) {
+        if (out_hue) out_hue[i] = all[i].hueOffset;
+        if (out_warmth) out_warmth[i] = all[i].warmthOffset;
+    }
+    return count;
+}
+
+void geode_loop_drift_apply(float color_shift, float temperature, float hue_offset, float warmth_offset, float* out2) {
+    if (out2) out::applyDrift(color_shift, temperature, hue_offset, warmth_offset, &out2[0], &out2[1]);
+}
 
 int geode_loop_extend_plan(int64_t loop_us, int64_t total_us, int loops, int64_t* offsets, int32_t* loop_index,
                            int capacity) {

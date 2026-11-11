@@ -709,6 +709,9 @@ GEODE_API int             geode_surface_run_mode(unsigned flags, long long anima
 GEODE_API int             geode_surface_listening(unsigned flags, long long animate_until_ms, long long now_ms);  /* 1 = hear sound */
 GEODE_API int             geode_surface_entitled(long long animate_until_ms, long long now_ms);                   /* 1 = may move */
 GEODE_API long long       geode_surface_recheck_in_ms(long long animate_until_ms, long long now_ms);              /* -1 = never */
+/* Why it is not moving, the rule's first reason: 0 moving, 1 hidden or covered, 2 the entitlement, 3 reduced
+ * motion, 4 battery saver, 5 silence. */
+GEODE_API int             geode_surface_reason(unsigned flags, long long animate_until_ms, long long now_ms);
 /* Milliseconds to keep pacing after a restate from previous_mode to mode before stopping: the still frame's
  * settle (a scene is built across frames), 0 when one frame or the plain on/off is enough. */
 GEODE_API long long       geode_surface_settle_ms(int previous_mode, int mode);

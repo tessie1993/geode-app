@@ -557,6 +557,29 @@ void connectedDisplay() {
     }
 }
 
+// The reason a settings page names agrees with the mode on every combination, and each reason is the first
+// that holds: the entitlement before reduced motion, reduced motion before battery saver and silence.
+void reasonNamesTheMode() {
+    constexpr int kNone = 0, kHidden = 1, kEntitlement = 2, kReduced = 3, kSaver = 4, kSilence = 5;
+    for (const Entitlement& e : kEntitlements) {
+        for (unsigned f = 0; f <= 0x3FFu; ++f) {
+            const int m = geode_surface_run_mode(f, e.until, kWall);
+            const int r = geode_surface_reason(f, e.until, kWall);
+            checkAt((r == kNone) == (m == kAnimated), "no reason exactly when moving", f, e.until);
+            checkAt((r == kHidden) == (m == kStopped), "hidden exactly when stopped", f, e.until);
+            if (m == kDark) checkAt(r == kSilence, "dark only for silence", f, e.until);
+        }
+    }
+    const unsigned rest = GEODE_SURFACE_SILENT | GEODE_SURFACE_BATTERY_SAVER;
+    check(geode_surface_reason(kOnScreen | kDefaults | GEODE_SURFACE_REDUCED_MOTION, kFree, kNow) == kEntitlement,
+          "free: the entitlement first");
+    check(geode_surface_reason(kOnScreen | kDefaults | rest | GEODE_SURFACE_REDUCED_MOTION, kPro, kNow) == kReduced,
+          "reduced motion before battery saver and silence");
+    check(geode_surface_reason(kOnScreen | kDefaults | rest, kPro, kNow) == kSaver, "battery saver before silence");
+    check(geode_surface_reason(kOnScreen | kDefaults | GEODE_SURFACE_SILENT, kPro, kNow) == kSilence, "a silent rest");
+    check(geode_surface_reason(kOnScreen | GEODE_SURFACE_BATTERY_SAVER, kPro, kNow) == kNone, "saver off: moving");
+}
+
 int main() {
     connectedDisplay();
     priorityOrder();
@@ -576,6 +599,7 @@ int main() {
     settle();
     fps();
     stage();
+    reasonNamesTheMode();
     if (failures == 0) std::printf("surface_run_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

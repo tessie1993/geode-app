@@ -1757,6 +1757,13 @@ object GeodeNative {
         nowMs: Long,
     ): Int
 
+    /** Why it is not moving: 0 moving, 1 hidden, 2 the entitlement, 3 reduced motion, 4 battery saver, 5 silence. */
+    external fun surfaceReason(
+        flags: Int,
+        animateUntilMs: Long,
+        nowMs: Long,
+    ): Int
+
     /** Whether the surface should be hearing sound (what wakes it from a silent rest). */
     external fun surfaceListening(
         flags: Int,

@@ -147,7 +147,10 @@ class PrefsSchemaTest {
                 RecordPrefsStore(it[general]) { seconds -> seconds }.save(record)
             },
             Owner("$DATA/RecordSaveStore.kt", RecordSaveStore.PREF_KEYS) { RecordSaveStore(it).choose(SaveTarget.VideosLibrary) },
-            Owner("$APP/wallpaper/WallpaperPrefs.kt", WallpaperPrefsStore.PREF_KEYS) { WallpaperPrefsStore(it).save(WallpaperSettings()) },
+            Owner("$APP/wallpaper/WallpaperPrefs.kt", WallpaperPrefsStore.PREF_KEYS) {
+                WallpaperPrefsStore(it).save(WallpaperSettings())
+                WallpaperPrefsStore(it).saveMixRefused(true)
+            },
             Owner("$APP/widget/WidgetState.kt", WidgetState.PREF_KEYS) {
                 WidgetState.save(it, WidgetState(artPath = "/cache/art.png", styleId = "plasma"))
             },
@@ -211,7 +214,9 @@ class PrefsSchemaTest {
             // Equalizer band levels (owner decision 9 of #1009).
             put(GeodePrefsFiles.AUDIO_FX to "band_levels", BackupClass.DEVICE)
             // The wallpaper's options are the user's choices, but no backup section holds their file.
-            WallpaperPrefsStore.PREF_KEYS.forEach { put(it.file to it.name, BackupClass.PORTABLE) }
+            WallpaperPrefsStore.PREF_KEYS
+                .filterNot { it.name == WallpaperPrefsStore.KEY_MIX_REFUSED }
+                .forEach { put(it.file to it.name, BackupClass.PORTABLE) }
         }
 
     private val allKeys = owners.flatMap { it.keys }

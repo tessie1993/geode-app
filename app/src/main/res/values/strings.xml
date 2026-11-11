@@ -854,7 +854,11 @@
     <!-- Live wallpaper options (wallpaper/*, ui/wallpaper/WallpaperOptionsActivity), opened from the system wallpaper picker. -->
     <string name="wallpaper_options_title">Wallpaper options</string>
     <string name="wallpaper_options_close">Close</string>
+    <string name="wallpaper_options_still_pro">Still frame: moving wallpaper is Pro</string>
+    <string name="wallpaper_options_still_motion">Still frame: Android\'s Remove animations is on</string>
+    <string name="wallpaper_options_still_saver">Still frame: battery saver is on</string>
     <string name="wallpaper_options_group_sound">Sound</string>
+    <string name="wallpaper_options_mix_refused">This phone doesn\'t share its sound with wallpapers. Play your music in BeatRealms, or turn on the mic there, and the wallpaper follows it.</string>
     <string name="wallpaper_options_other_apps">React to any app</string>
     <string name="wallpaper_options_other_apps_hint">Reacts to whatever your phone is playing, from any app. Android lists this under the microphone permission; the wallpaper only reads the sound your phone plays, and nothing is recorded or kept.</string>
     <string name="wallpaper_options_open_settings">Allow in Android settings</string>

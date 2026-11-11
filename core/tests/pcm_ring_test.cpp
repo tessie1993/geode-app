@@ -193,7 +193,7 @@ void testEncodings() {
     CHECK(cursor.interleaved()[0] == -1.0f && cursor.interleaved()[2] == 0.0f && cursor.interleaved()[4] == 0.5f, "u8 values");
     CHECK(cursor.interleaved()[5] == 0.5f, "u8 mono not on both channels");
     // Raw bytes at an odd address, with a trailing half frame: whole frames only.
-    unsigned char raw[1 + 2 * 3 * 2 + 3];
+    unsigned char raw[1 + 2 * 3 * 2 + 3] = {};
     const int16_t six[6] = {100, -100, 200, -200, 300, -300};
     std::memcpy(raw + 1, six, sizeof(six));
     const PcmRing::Written fromBytes = ring.writeBytes(raw + 1, sizeof(six) + 3, geode::audio::ingest::kSigned16, 2, 44100);

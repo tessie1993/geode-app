@@ -80,8 +80,8 @@ class VisualizerRenderer(
 
     /**
      * The ring this surface's sound engine hears (core/sound, owned by the native renderer). Read on the
-     * GL thread each frame through the renderer's own native cursor, so the engine gets every sample once, in order, and is
-     * stepped with this surface's own frame time. Asked every frame, so a playback session that comes and
+     * GL thread each frame through the renderer's own native cursor, so the engine gets every sample once,
+     * in order, and is stepped with this surface's own frame time. Asked every frame, so a playback session that comes and
      * goes under a running wallpaper is picked up. Null: the engine hears nothing and its frame stays silent.
      */
     @Volatile

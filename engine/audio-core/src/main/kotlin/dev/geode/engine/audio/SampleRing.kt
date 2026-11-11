@@ -26,7 +26,7 @@ class SampleRing(
     init {
         require(handle != 0L) { "no ring of $capacityFrames frames x $channelCount, runway $maxWriteFrames" }
         val owned = handle
-        CLEANER.register(this) { GeodeNative.pcmRingDestroy(owned) }
+        cleaner.register(this) { GeodeNative.pcmRingDestroy(owned) }
     }
 
     /** Frames written since the last [beginEpoch]. */
@@ -89,6 +89,7 @@ class SampleRing(
     companion object {
         const val DEFAULT_RUNWAY_DIVISOR = 4
 
-        private val CLEANER: Cleaner = Cleaner.create()
+        /** Frees a ring once its holder is collected; one daemon thread for every ring. */
+        private val cleaner: Cleaner = Cleaner.create()
     }
 }

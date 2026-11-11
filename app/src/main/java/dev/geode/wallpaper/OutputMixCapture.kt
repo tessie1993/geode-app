@@ -22,7 +22,8 @@ import dev.geode.util.bestEffort
  *
  * What it hands over is coarser than the app's tap: 8-bit mono, and only the newest
  * [Visualizer.getCaptureSize] samples at each capture (about 20 a second). Each capture is
- * written to the ring as it arrives, bytes as they are (the ring makes them float), with the mix's true rate, so pitch, key and
+ * written to the ring as it arrives, its bytes as they are (the ring makes them float), with the
+ * mix's true rate, so pitch, key and
  * the band split read correctly and an onset lands on the frame it happens; what is lost is
  * the audio between captures, so tempo reads slow from this source. That is the right way round
  * for a wallpaper, which shows hits and colour far more than it shows bar counts.

@@ -142,32 +142,37 @@ internal class LiveHttpServer(
                 } catch (_: SocketException) {
                     return // closed by stop()
                 }
-            val peer =
-                GeodeNative.linkAdmit(ipv4(client.inetAddress), ipv4(bindAddress), bindPrefix, tvAddress, wants)
-            val who = client.inetAddress?.hostAddress.orEmpty()
-            if (peer == GeodeNative.LINK_PEER_REFUSED) {
-                if (refused.getAndIncrement() == 0) firstRefused = who
-                bestEffort(TAG, "client.close()") { client.close() }
-                continue
-            }
-            if (!perAddress.tryAcquire(who)) {
-                bestEffort(TAG, "client.close()") { client.close() }
-                continue
-            }
-            val deadline = System.nanoTime() + CONNECTION_DEADLINE_MS * NANOS_PER_MS
-            try {
-                pool.execute {
-                    try {
-                        serve(client, deadline, peer)
-                    } finally {
-                        perAddress.release(who)
-                    }
+            admit(client)
+        }
+    }
+
+    /** Refuses a stranger or a peer over its share, else hands the connection to the pool. */
+    private fun admit(client: Socket) {
+        val peer =
+            GeodeNative.linkAdmit(ipv4(client.inetAddress), ipv4(bindAddress), bindPrefix, tvAddress, wants)
+        val who = client.inetAddress?.hostAddress.orEmpty()
+        if (peer == GeodeNative.LINK_PEER_REFUSED) {
+            if (refused.getAndIncrement() == 0) firstRefused = who
+            bestEffort(TAG, "client.close()") { client.close() }
+            return
+        }
+        if (!perAddress.tryAcquire(who)) {
+            bestEffort(TAG, "client.close()") { client.close() }
+            return
+        }
+        val deadline = System.nanoTime() + CONNECTION_DEADLINE_MS * NANOS_PER_MS
+        try {
+            pool.execute {
+                try {
+                    serve(client, deadline, peer)
+                } finally {
+                    perAddress.release(who)
                 }
-            } catch (_: RejectedExecutionException) {
-                overflow.incrementAndGet()
-                perAddress.release(who)
-                bestEffort(TAG, "client.close()") { client.close() }
             }
+        } catch (_: RejectedExecutionException) {
+            overflow.incrementAndGet()
+            perAddress.release(who)
+            bestEffort(TAG, "client.close()") { client.close() }
         }
     }
 

@@ -47,6 +47,7 @@ import dev.geode.ui.theme.StoneIconArt
 @Composable
 internal fun SmartPlaylistsSection(viewModel: LibraryViewModel) {
     val library by viewModel.library.collectAsStateWithLifecycle()
+    val favourites by viewModel.favourites.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<SmartPlaylist?>(null) }
     var creating by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth()) {
@@ -62,7 +63,7 @@ internal fun SmartPlaylistsSection(viewModel: LibraryViewModel) {
             ) { Text(stringResource(R.string.smart_new)) }
         }
         library.smartPlaylists.forEach { pl ->
-            val count = remember(pl, library) { viewModel.resolveSmartPlaylist(pl).size }
+            val count = remember(pl, library, favourites) { viewModel.resolveSmartPlaylist(pl).size }
             Row(
                 Modifier
                     .fillMaxWidth()

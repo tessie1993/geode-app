@@ -19,6 +19,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.analysis.PlaybackMath
 import dev.geode.data.PlayerPrefs
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.playback.BitPerfectOutput
 import dev.geode.playback.ReplayGain
 
@@ -60,11 +61,37 @@ internal fun PlayerPrefsRow(
             PlaybackSwitchRow(stringResource(R.string.playback_pause_unplugged), prefs.pauseOnNoisy) { set(prefs.copy(pauseOnNoisy = it)) }
         SettingsRowKey.NATIVE_OUTPUT -> NativeOutputSettings(prefs, set)
         SettingsRowKey.BIT_PERFECT -> BitPerfectSettings(prefs, set)
+        SettingsRowKey.PICTURE_DELAY -> PictureDelaySlider(prefs, set)
         SettingsRowKey.KEEP_SCREEN_ON_WITH_VISUAL ->
             PlaybackSwitchRow(stringResource(R.string.playback_keep_screen_on), prefs.keepScreenOn) { set(prefs.copy(keepScreenOn = it)) }
         else -> Unit
     }
 }
+
+/** The visual's delay behind the sound, for a headset that misreports its latency; the bound is native. */
+@Composable
+private fun PictureDelaySlider(
+    prefs: PlayerPrefs,
+    onChange: (PlayerPrefs) -> Unit,
+) {
+    val max = GeodeNative.playoutMaxOffsetMs().toFloat()
+    Column {
+        CrystalSlider(
+            label = stringResource(R.string.playback_picture_delay, prefs.pictureDelayMs),
+            value = prefs.pictureDelayMs.toFloat(),
+            onValueChange = { onChange(prefs.copy(pictureDelayMs = PlaybackMath.snap(it, PICTURE_DELAY_STEP_MS).toInt())) },
+            valueRange = -max..max,
+            accessibilityStep = PICTURE_DELAY_STEP_MS,
+        )
+        Text(
+            stringResource(R.string.playback_picture_delay_explainer),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+private const val PICTURE_DELAY_STEP_MS = 10f
 
 /** The fade on play and pause, in quarter seconds. */
 @Composable

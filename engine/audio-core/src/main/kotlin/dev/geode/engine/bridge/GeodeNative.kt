@@ -2100,11 +2100,14 @@ object GeodeNative {
         speed: Float,
     )
 
-    /** The user's A/V offset, clamped to ±1000 ms; positive shows the picture later. */
+    /** The user's A/V offset, clamped to ±[playoutMaxOffsetMs]; positive shows the picture later. */
     external fun playoutSetOffsetMs(
         handle: Long,
         ms: Int,
     )
+
+    /** The offset's bound in ms, for Settings' Picture delay slider. */
+    external fun playoutMaxOffsetMs(): Int
 
     /** The newest ring sample heard at [nowNs], never past the newest written; -1 with no map since a flush. */
     external fun playoutSpeakerFrame(

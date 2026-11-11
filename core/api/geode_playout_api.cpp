@@ -45,6 +45,10 @@ void geode_playout_set_offset_ms(geode_playout* p, int ms) {
     if (p) p->clock.setOffsetMs(ms);
 }
 
+int geode_playout_max_offset_ms(void) {
+    return geode::sound::PlayoutClock::kMaxOffsetMs;
+}
+
 int64_t geode_playout_speaker_frame(const geode_playout* p, int64_t now_ns) {
     return p ? p->clock.speakerFrame(now_ns) : geode::sound::PlayoutClock::kUnknown;
 }

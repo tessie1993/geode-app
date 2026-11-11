@@ -1007,6 +1007,8 @@ GEODE_API void           geode_playout_flush(geode_playout*);           /* a see
 GEODE_API void           geode_playout_speed(geode_playout*, float speed);   /* media per wall time; > 0 */
 /* The user's A/V offset, clamped to +-1000 ms; positive shows the picture later. */
 GEODE_API void           geode_playout_set_offset_ms(geode_playout*, int ms);
+/* The offset's bound in ms: geode_playout_set_offset_ms takes -max..+max (Settings' Picture delay). */
+GEODE_API int            geode_playout_max_offset_ms(void);
 /* The newest ring sample heard at now_ns, offset applied: never past the newest sample written. -1 when
  * nothing was handled since create or flush (and for NULL); the first handled sample until a position. */
 GEODE_API int64_t        geode_playout_speaker_frame(const geode_playout*, int64_t now_ns);

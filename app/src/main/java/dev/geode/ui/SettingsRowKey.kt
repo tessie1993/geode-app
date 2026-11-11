@@ -29,6 +29,7 @@ enum class SettingsRowKey {
     // Output & devices
     PAUSE_UNPLUGGED,
     HEADPHONES_AUTOPLAY,
+    PICTURE_DELAY,
     NATIVE_OUTPUT,
     BIT_PERFECT,
     NOTIFICATION_BUTTONS,

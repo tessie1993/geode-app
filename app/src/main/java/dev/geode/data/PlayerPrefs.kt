@@ -33,6 +33,12 @@ data class PlayerPrefs(
      * back to the AudioTrack by itself (`audio/OboeAudioOutput`).
      */
     val nativeOutput: Boolean = false,
+    /**
+     * Settings › Output & devices › Picture delay: the playout clock's A/V offset in ms, positive shows
+     * the picture later, for a headset that misreports its latency. Device-local: it belongs to this
+     * phone's headsets. The bound and the clamp are native ([dev.geode.engine.bridge.GeodeNative.playoutMaxOffsetMs]).
+     */
+    val pictureDelayMs: Int = 0,
 ) {
     fun coerced(): PlayerPrefs =
         copy(
@@ -97,6 +103,7 @@ class PlayerPrefsStore(
             bitPerfect = prefs.getBoolean(KEY_BIT_PERFECT, false),
             crossfadeMs = prefs.getInt(KEY_CROSSFADE_MS, 0),
             nativeOutput = prefs.getBoolean(KEY_NATIVE_OUTPUT, false),
+            pictureDelayMs = prefs.getInt(KEY_PICTURE_DELAY, 0),
         ).coerced()
 
     fun save(p: PlayerPrefs) {
@@ -120,6 +127,7 @@ class PlayerPrefsStore(
             .putBoolean(KEY_BIT_PERFECT, p.bitPerfect)
             .putInt(KEY_CROSSFADE_MS, p.crossfadeMs)
             .putBoolean(KEY_NATIVE_OUTPUT, p.nativeOutput)
+            .putInt(KEY_PICTURE_DELAY, p.pictureDelayMs)
             // The native engine's options, gone with it (ExoPlayer joins tracks gaplessly by itself).
             .remove("native_engine")
             .remove("crossfade_ms")
@@ -152,12 +160,15 @@ class PlayerPrefsStore(
         /** Not the removed native player's `native_engine`: this only swaps the output under ExoPlayer. */
         const val KEY_NATIVE_OUTPUT = "oboe_output"
 
+        const val KEY_PICTURE_DELAY = "picture_delay_ms"
+
         val PREF_KEYS =
             prefKeys(GeodePrefsFiles.PLAYER) {
                 portable(PrefType.BOOLEAN, KEY_SHUFFLE, KEY_SKIP_SILENCE, KEY_NOISY, KEY_SCREEN_ON, KEY_AUTO_RESUME, KEY_SLEEP_FINISH)
                 portable(PrefType.BOOLEAN, KEY_REPLAYGAIN_CLIP_GUARD, KEY_RESUME_LONG, KEY_BIT_PERFECT, KEY_NATIVE_OUTPUT)
                 portable(PrefType.INT, KEY_REPEAT, KEY_SLEEP_MIN, KEY_FADE_MS, KEY_REPLAYGAIN_MODE, KEY_CROSSFADE_MS)
                 portable(PrefType.FLOAT, KEY_SPEED, KEY_PITCH, KEY_REPLAYGAIN_PREAMP)
+                device(PrefType.INT, KEY_PICTURE_DELAY)
                 retired(null, "native_engine", "crossfade_ms", "crossfade_curve", "gapless")
             }
     }

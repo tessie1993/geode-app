@@ -88,7 +88,7 @@ enum class SettingsGroupKey(
     OUTPUT(
         R.string.settings_group_output,
         R.string.settings_group_output_summary,
-        listOf(SettingsRowKey.PAUSE_UNPLUGGED, SettingsRowKey.HEADPHONES_AUTOPLAY),
+        listOf(SettingsRowKey.PAUSE_UNPLUGGED, SettingsRowKey.HEADPHONES_AUTOPLAY, SettingsRowKey.PICTURE_DELAY),
         listOf(SettingsSectionKey.OUTPUT_ENGINE, SettingsSectionKey.NOTIFICATION),
     ),
     LIBRARY(
@@ -420,6 +420,7 @@ private fun SettingsRowContent(
         SettingsRowKey.NATIVE_OUTPUT,
         SettingsRowKey.BIT_PERFECT,
         SettingsRowKey.KEEP_SCREEN_ON_WITH_VISUAL,
+        SettingsRowKey.PICTURE_DELAY,
         -> PlayerPrefsRow(row, settings)
         SettingsRowKey.QUEUE_END,
         SettingsRowKey.REMEMBER_SHUFFLE,

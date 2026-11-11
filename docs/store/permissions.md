@@ -1,7 +1,8 @@
 # Permissions: what each is for, and the foreground service declaration
 
 Line numbers are `app/src/main/AndroidManifest.xml` and `app/src/main/java/dev/geode/` on
-`origin/main` at b8ac569b5. The released permission list is pinned in
+`origin/main` at b8ac569b5, rechecked at 022d8dd8d (2026-11-11: the manifest's permissions and
+services are unchanged; only the debug permission's package prefix moved to `com.beatrealms3d.app`). The released permission list is pinned in
 `tools/release-permissions.txt` and checked by `tools/check-manifest.sh` in CI.
 
 ## Permissions the store page will list
@@ -48,7 +49,36 @@ the four parts, each showing the user starting the task and its notification.
 | `mediaPlayback` | `playback.PlaybackService` (:217-226), `cast.CastService` (:284-287, started at `cast/CastService.kt:216`) | Media playback | Plays the user's music after they press play and keeps it playing when the app is in the background or the screen is off, with the media notification and its controls. While the user casts to a TV, the same type keeps the cast streaming. | The music or the cast stops as soon as the user leaves the app. | Press play, go to the home screen, pull down the shade: the playback notification. Then start Cast and do the same. |
 | `mediaProjection` | `audio.PlaybackCaptureService` (:262-265, `audio/PlaybackCaptureService.kt:128`) | Media projection | After the user turns on "Visualize other apps" and accepts Android's capture dialog, reads the audio another app is playing so the visuals can move with it. The audio is analysed in memory and never saved or sent. An ongoing notification shows for as long as it runs. | Android stops the capture and the visuals stop following the other app's music. | Turn on Visualize other apps, accept the system dialog, play music in another app, show the notification. |
 | `mediaProcessing` | `export.ExportService` (:274-277, `export/ExportService.kt:86,114-116`) on Android 15 and newer | Media transcoding | After the user taps Render, draws the visual frame by frame and encodes it with the song into an MP4 file on the device. A notification shows progress and lets the user stop. | The render is killed partway and the video file is lost. | Studio › Render, tap Render, leave the app, show the progress notification, come back to the finished file. |
-| `dataSync` | `export.ExportService` on Android 13 and 14, where `mediaProcessing` does not exist | Other (or "Local processing: import or export" if listed): a video render started by the user | The same render as above on Android 13 and 14, which have no media-processing type. Nothing is uploaded or downloaded; the task writes one local MP4 file. | The render is killed partway and the video file is lost. | The same clip as mediaProcessing, recorded on Android 13 or 14 if Play asks. |
+| `dataSync` | `export.ExportService` on Android 13 and 14, where `mediaProcessing` does not exist | **Local processing: Other** (a direct, user-started local task; "Import or export" is for moving files, which this is not) | The same render as above on Android 13 and 14, which have no media-processing type. Nothing is uploaded or downloaded; the task writes one local MP4 file. | The render is killed partway and the video file is lost. | The same clip as mediaProcessing, recorded on Android 13 or 14 if Play asks. |
+
+**`mediaProjection` is the weakest fit.** Play's one listed use case for it is "Media or Content
+Projection and streaming or recording with MediaProjection API", and its video rule speaks of
+streaming or recording the screen to an external display. The app uses MediaProjection only for
+Android's audio playback capture (the API Android requires to hear another app's sound), with
+no screen capture. Pick that use case, say plainly in the description that it captures audio
+only, for an on-screen visual, and show the system consent dialog in the video. If a reviewer
+rejects it, the fallback is to drop "Visualize other apps" from the store build, not to
+reword it.
 
 `dataSync` is the type Play looks at hardest. The honest answer is that it is a fallback for
 two Android versions and does no network transfer; say so in the description, as above.
+
+## Pending: a microphone type for Cast (not on `main` yet)
+
+A Cast fix in review adds the `microphone` foreground-service type to `cast.CastService`, so a
+cast keeps hearing the microphone (Live input) while the phone is in the background. It is not
+on `main` on 2026-11-11, so do not declare it for a bundle built before it merges. When it
+merges:
+
+1. The merged manifest gains `android.permission.FOREGROUND_SERVICE_MICROPHONE`; add it to
+   `tools/release-permissions.txt` in the same PR, or `release.yml` fails.
+2. Play Console › App content › Foreground service permissions gains a **Microphone** row:
+
+| Field | Text to paste |
+|---|---|
+| Use case | **Background Audio Access** (the list's microphone case; this is live input to the visual, not voice recording) |
+| Description | While the user casts the visual to a TV with Live input turned on, the app keeps listening to the microphone so the picture on the TV still follows the room's sound when the phone screen is off or another app is open. The microphone is used only after the user turns on Live input and grants the permission; the audio is analysed in memory and never recorded, saved or sent. A notification shows for as long as the cast runs. |
+| If interrupted | The visual on the TV stops following the room's sound until the user opens the app again. |
+| Video shows | Turn on Live input, start Cast to a TV, go to the home screen, pull down the shade to show the cast notification, make a sound and show the TV visual reacting. |
+
+3. Data safety does not change: the audio stays in memory on the phone.

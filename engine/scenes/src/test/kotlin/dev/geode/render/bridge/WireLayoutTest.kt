@@ -30,9 +30,9 @@ class WireLayoutTest {
     private fun slot(name: String): Int = checkNotNull(ParamSchema[name]) { "no schema row $name" }.slot
 
     @Test
-    fun everyKotlinFieldHasASchemaRowAndEveryRowAField() {
+    fun everyKotlinFieldHasASchemaRowAndEveryLiveRowAField() {
         assertEquals(ParamSchema.params.size, SceneParamsCodec.FIELDS)
-        assertEquals(kotlinFields.keys, ParamSchema.params.map { it.name }.toSet())
+        assertEquals(kotlinFields.keys, ParamSchema.params.filterNot { it.retired }.map { it.name }.toSet())
         SceneParams.NOT_RENDERED.keys.forEach { assertNull(it, ParamSchema[it]) }
     }
 
@@ -46,7 +46,7 @@ class WireLayoutTest {
                     ParamSpec.Kind.INT -> Int::class.javaPrimitiveType
                     ParamSpec.Kind.BOOL -> Boolean::class.javaPrimitiveType
                 }
-            assertEquals(spec.name, type, kotlinFields.getValue(spec.name).type)
+            if (!spec.retired) assertEquals(spec.name, type, kotlinFields.getValue(spec.name).type)
             assertEquals(spec.name, spec.default, defaults[spec.slot])
         }
     }
@@ -54,7 +54,14 @@ class WireLayoutTest {
     @Test
     fun theWireRoundTripsAtEveryRangeEnd() {
         for (top in listOf(false, true)) {
-            val frame = FloatArray(SceneParamsCodec.FIELDS) { ParamSchema[it].range.let { r -> if (top) r.endInclusive else r.start } }
+            // A retired slot carries its default, whatever came in.
+            val frame =
+                FloatArray(SceneParamsCodec.FIELDS) {
+                    val spec = ParamSchema[it]
+                    if (spec.retired) spec.default else if (top) spec.range.endInclusive else spec.range.start
+                }
+            val stale = FloatArray(SceneParamsCodec.FIELDS) { ParamSchema[it].range.let { r -> if (top) r.endInclusive else r.start } }
+            assertEquals(SceneParamsCodec.unpack(frame, SceneParams.DEFAULT), SceneParamsCodec.unpack(stale, SceneParams.DEFAULT))
             val p = SceneParamsCodec.unpack(frame, SceneParams.DEFAULT)
             assertArrayEquals(frame, SceneParamsCodec.pack(p), 0f)
             assertEquals(p, SceneParamsCodec.unpack(SceneParamsCodec.pack(p), SceneParams.DEFAULT))

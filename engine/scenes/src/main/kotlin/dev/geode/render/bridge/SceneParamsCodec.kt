@@ -25,10 +25,10 @@ object SceneParamsCodec {
         check(out.size >= FIELDS) { "scene parameter frame needs $FIELDS floats, got ${out.size}" }
         SLOTS.forEachIndexed { slot, field ->
             out[slot] =
-                when (field?.type) {
-                    null -> ParamSchema[slot].default
-                    Boolean::class.javaPrimitiveType -> if (field.getBoolean(p)) 1f else 0f
-                    Int::class.javaPrimitiveType -> field.getInt(p).toFloat()
+                when {
+                    field == null -> ParamSchema[slot].default
+                    field.type == Boolean::class.javaPrimitiveType -> if (field.getBoolean(p)) 1f else 0f
+                    field.type == Int::class.javaPrimitiveType -> field.getInt(p).toFloat()
                     else -> field.getFloat(p)
                 }
         }
@@ -51,12 +51,12 @@ object SceneParamsCodec {
         val out = base.copy()
         SLOTS.forEachIndexed { slot, field ->
             val v = values[slot]
-            when (field?.type) {
-                null -> Unit
-                Float::class.javaPrimitiveType -> field.setFloat(out, v)
-                Int::class.javaPrimitiveType -> field.setInt(out, Math.round(v))
-                Boolean::class.javaPrimitiveType -> field.setBoolean(out, v > 0.5f)
-                else -> error("${field?.name} is not a wire type")
+            when {
+                field == null -> Unit
+                field.type == Float::class.javaPrimitiveType -> field.setFloat(out, v)
+                field.type == Int::class.javaPrimitiveType -> field.setInt(out, Math.round(v))
+                field.type == Boolean::class.javaPrimitiveType -> field.setBoolean(out, v > 0.5f)
+                else -> error("${field.name} is not a wire type")
             }
         }
         var result = out
@@ -70,8 +70,11 @@ object SceneParamsCodec {
         val byName = SceneParams::class.java.declaredFields.associateBy { it.name }
         return Array(ParamSchema.params.size) { slot ->
             val spec = ParamSchema[slot]
-            if (spec.retired) return@Array null
-            checkNotNull(byName[spec.name]) { "native scene param ${spec.name} has no SceneParams field" }.apply { isAccessible = true }
+            if (spec.retired) {
+                null
+            } else {
+                checkNotNull(byName[spec.name]) { "native scene param ${spec.name} has no SceneParams field" }.apply { isAccessible = true }
+            }
         }
     }
 }

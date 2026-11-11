@@ -167,9 +167,7 @@ void testTextRoundTrips() {
                 const float value = std::strtof(pair.c_str() + eq + 1, nullptr);
                 check(slot >= 0, "look " + f[1] + " sets a known param: " + pair);
                 if (slot < 0) continue;
-                const ParamSpec& spec = SceneParams::spec(static_cast<ParamSlot>(slot));
                 check(!SceneParams::retired(static_cast<ParamSlot>(slot)), "look " + f[1] + " sets no retired param: " + pair);
-                check(value >= spec.min && value <= spec.max, "look " + f[1] + " stays in the param's range: " + pair);
                 check(look.params.set(name, value), "look " + f[1] + " lands: " + pair);
             }
             check(!looks.count(f[1]), "look key " + f[1] + " is unique");

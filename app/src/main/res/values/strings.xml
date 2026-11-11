@@ -167,6 +167,10 @@
     <string name="notice_dismiss">Dismiss</string>
     <string name="notice_dismiss_description">Dismiss playback message</string>
 
+    <plurals name="library_short_hidden">
+        <item quantity="one">%1$d short track hidden · Settings</item>
+        <item quantity="other">%1$d short tracks hidden · Settings</item>
+    </plurals>
     <plurals name="track_count">
         <item quantity="one">%1$d track</item>
         <item quantity="other">%1$d tracks</item>

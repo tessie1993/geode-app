@@ -181,6 +181,7 @@ fun LibraryScreen(
     // The field shows every keystroke; the list follows the debounced query in [state].
     val query by libraryViewModel.query.collectAsStateWithLifecycle()
     val duplicates by libraryViewModel.duplicates.collectAsStateWithLifecycle()
+    val hiddenShort by libraryViewModel.hiddenShortTracks.collectAsStateWithLifecycle()
     LaunchedEffect(granted, reloadKey) { if (granted) libraryViewModel.refreshDeviceTracks() }
     var tab by rememberSaveable { mutableStateOf(0) }
     var searchOpen by rememberSaveable { mutableStateOf(false) }
@@ -266,6 +267,7 @@ fun LibraryScreen(
                 onOpenVisuals = onOpenVisuals,
                 modifier = Modifier.weight(1f),
             )
+            HiddenShortTracks(hiddenShort, onOpenFolders)
             TextButton(onClick = { tab = PLAYLISTS_TAB }, modifier = Modifier.padding(horizontal = 16.dp)) {
                 Text(stringResource(R.string.library_tab_playlists))
             }
@@ -284,6 +286,7 @@ fun LibraryScreen(
                 if (tab != PLAYLISTS_TAB && tab != DUPLICATES_TAB) {
                     SortPicker(state.sort, libraryViewModel::setSort, Modifier.padding(horizontal = GeodeSpacing.S))
                 }
+                if (tab == 0) HiddenShortTracks(hiddenShort, onOpenFolders)
                 // Grouping walks the whole library, so the ViewModel does it off the main thread
                 // (LibraryBrowse.browse); the tabs only draw the groups.
                 when (tab) {
@@ -296,6 +299,18 @@ fun LibraryScreen(
                 }
             }
         }
+    }
+}
+
+/** "N short tracks hidden · Settings": the minimum length's count, opening Settings › Library where it is set. */
+@Composable
+private fun HiddenShortTracks(
+    count: Int,
+    onOpenSettings: () -> Unit,
+) {
+    if (count <= 0) return
+    TextButton(onClick = onOpenSettings, modifier = Modifier.padding(horizontal = GeodeSpacing.S)) {
+        Text(pluralStringResource(R.plurals.library_short_hidden, count, count), style = MaterialTheme.typography.bodySmall)
     }
 }
 

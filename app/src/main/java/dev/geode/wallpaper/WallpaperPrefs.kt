@@ -2,6 +2,8 @@ package dev.geode.wallpaper
 
 import android.content.Context
 import android.content.SharedPreferences
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 
 /** How the wallpaper draws on one screen. */
@@ -94,7 +96,7 @@ class WallpaperPrefsStore(
         fallback: WallpaperLook,
     ): WallpaperLook = prefs.getString(key, null)?.let { name -> WallpaperLook.entries.firstOrNull { it.name == name } } ?: fallback
 
-    private companion object {
+    internal companion object {
         const val FILE = "geode-wallpaper"
         const val KEY_REST = "rest_when_silent"
         const val KEY_SAVER = "pause_in_battery_saver"
@@ -102,5 +104,13 @@ class WallpaperPrefsStore(
         const val KEY_HOME_LOOK = "home_look"
         const val KEY_LOCK_LOOK = "lock_look"
         const val KEY_FPS = "fps"
+
+        /** No backup section holds this file, so its choices stay on this phone for now. */
+        val PREF_KEYS =
+            prefKeys(FILE) {
+                device(PrefType.BOOLEAN, KEY_REST, KEY_SAVER, KEY_OTHER_APPS)
+                device(PrefType.STRING, KEY_HOME_LOOK, KEY_LOCK_LOOK)
+                device(PrefType.INT, KEY_FPS)
+            }
     }
 }

@@ -2,6 +2,8 @@ package dev.geode.data
 
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 
 /**
  * The shortest track the library lists, in seconds. Phones keep ringtones, notification sounds,
@@ -39,5 +41,10 @@ class LibraryPrefsStore(
 
     companion object {
         const val KEY_MIN_TRACK_SECONDS = "min_track_seconds"
+
+        internal val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.LIBRARY) {
+                portable(PrefType.INT, KEY_MIN_TRACK_SECONDS)
+            }
     }
 }

@@ -108,7 +108,7 @@ internal fun BoxScope.VisualsStage(
  * They fade with the shell's chrome through the layer's alpha, never AnimatedVisibility: the Cast
  * button feeds the cast mirror while Visuals is up, so it has to stay composed (CAST decision). A
  * faded icon takes no touches and no TalkBack focus, so a tap where it was reaches the visual.
- * Record stays while a take is being recorded, red, as its stop.
+ * Record stays while recording, red, as its stop.
  */
 @Composable
 internal fun BoxScope.StageIcons(
@@ -122,12 +122,12 @@ internal fun BoxScope.StageIcons(
     onStep: (Int) -> Unit,
 ) {
     val studioViewModel: StudioViewModel = geodeViewModel()
-    val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
+    val record by studioViewModel.recordState.collectAsStateWithLifecycle()
     val glass = Modifier.floatingGlass(RoundedCornerShape(50), fillAlpha = GeodeGlass.MATTE_FILL)
     val fade = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
     val awake = chrome.awake
     val shown = animateFloatAsState(if (awake) 1f else 0f, fade, label = "stage-icons")
-    val recordShown = animateFloatAsState(if (awake || takes.recording) 1f else 0f, fade, label = "stage-record")
+    val recordShown = animateFloatAsState(if (awake || record.recording) 1f else 0f, fade, label = "stage-record")
     val toLeft = Modifier.offset { IntOffset(-endPx().roundToInt(), 0) }
     Row(
         Modifier
@@ -226,11 +226,11 @@ internal fun BoxScope.StageIcons(
         )
     }
     StageIconButton(
-        icon = if (takes.recording) StoneIcon.STOP else StoneIcon.RECORD,
-        description = stringResource(if (takes.recording) R.string.visuals_stop_take else R.string.visuals_gesture_record),
-        enabled = awake || takes.recording,
+        icon = if (record.recording) StoneIcon.STOP else StoneIcon.RECORD,
+        description = stringResource(if (record.recording) R.string.visuals_stop_take else R.string.visuals_gesture_record),
+        enabled = awake || record.recording,
         onClick = {
-            if (takes.recording) {
+            if (record.recording) {
                 studioViewModel.stopRecording()
             } else {
                 GestureTips.nudge(GestureTip.HOLD_TO_RECORD)
@@ -245,7 +245,7 @@ internal fun BoxScope.StageIcons(
                 .padding(GeodeSpacing.EdgeInset)
                 .faded(recordShown)
                 .then(glass),
-        tint = if (takes.recording) MaterialTheme.colorScheme.error else Color.Unspecified,
+        tint = if (record.recording) MaterialTheme.colorScheme.error else Color.Unspecified,
     )
 }
 

@@ -39,8 +39,8 @@
     <string name="tour_visuals_tabs_body">Styles picks a look, Customize shapes it, Presets saves it. MilkDrop has classic presets.</string>
     <string name="tour_stage_arrows_title">Next style</string>
     <string name="tour_stage_arrows_body">Go to the next or previous style.</string>
-    <string name="tour_stage_record_title">Record a take</string>
-    <string name="tour_stage_record_body">Record a take while the song plays, then render it in Studio.</string>
+    <string name="tour_stage_record_title">Record a video</string>
+    <string name="tour_stage_record_body">Record what the visual shows and hears, until you stop. It lands in Studio › My videos.</string>
 
     <!-- Customize. -->
     <string name="tour_customize_pages_title">Every control has one home</string>
@@ -52,7 +52,7 @@
 
     <!-- Studio. -->
     <string name="tour_studio_tabs_title">Make a video</string>
-    <string name="tour_studio_tabs_body">Render makes a video. My videos keeps your takes and renders.</string>
+    <string name="tour_studio_tabs_body">Render makes a video. My videos keeps your recordings and renders.</string>
     <string name="tour_studio_render_title">One tap to render</string>
     <string name="tour_studio_render_body">Pick what to render, then tap Render. It keeps going if you leave the app.</string>
 

@@ -266,9 +266,6 @@ class UiTourTest {
             if (option in RENDER_OPTIONS_THAT_OPEN) tour.back()
         }
         tour.step("studio", "my-videos", "My videos, empty") { tour.tap(studioTab(MY_VIDEOS)) }
-        for (chip in MY_VIDEOS_CHIPS) {
-            tour.step("studio", "my-videos-${slug(chip)}", "the $chip filter") { tour.tap(chip) }
-        }
     }
 
     /**
@@ -709,7 +706,6 @@ class UiTourTest {
         val RENDER_OPTIONS =
             listOf("Made for", "Segment", "Whole track", "Loop", "Ask where each time", "Videos library (Movies/BeatRealms)")
         val RENDER_OPTIONS_THAT_OPEN = setOf("Made for", "Loop")
-        val MY_VIDEOS_CHIPS = listOf("Renders", "Takes", "All")
 
         /**
          * Customize's pages in jump-header order, each with its sub-pages: `CustomizeSubPage` in

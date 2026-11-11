@@ -174,15 +174,6 @@ object GeodeNative {
         out: IntArray,
     ): Int
 
-    /**
-     * Moves takes saved inside project folders ([projectsDir]`/<id>/takes/`) to [takesDir]`/<id>/`,
-     * once (core/library/StudioFiles, #384). Returns how many could not be moved.
-     */
-    external fun studioMoveTakesOut(
-        projectsDir: String,
-        takesDir: String,
-    ): Int
-
     /** [assets] is the app's `android.content.res.AssetManager`; typed as Any because this module has no Android SDK. */
     external fun vizCreate(
         assets: Any,
@@ -1068,18 +1059,6 @@ object GeodeNative {
 
     /** A stored maximum take length made one of [recordMaxLengths]. */
     external fun recordSnapMaxLength(requestedSec: Int): Int
-
-    /** Whether a take [recordedMs] long has reached [maxSec] (never with 0, no limit). */
-    external fun recordLimitReached(
-        recordedMs: Long,
-        maxSec: Int,
-    ): Boolean
-
-    /** A take's saved length: [lengthMs], or [maxSec] when the recording tick ran past it. */
-    external fun recordClampLengthMs(
-        lengthMs: Long,
-        maxSec: Int,
-    ): Long
 
     /** The bytes [lengthSec] of video at [videoBps] takes with its AAC, the muxer's target applied. */
     external fun recordEstimateBytes(

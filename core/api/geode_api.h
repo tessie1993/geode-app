@@ -351,11 +351,6 @@ GEODE_API int         geode_library_search(const char* const* rows, int track_co
                                            const char* focus, const char* artist, const char* album,
                                            const char* title, int* out, int max_out);
 
-/* Studio's folders (core/library/StudioFiles): moves takes saved inside project folders
- * (projects_dir/<id>/takes/) to takes_dir/<id>/, once; a take already there wins. Returns how many could not
- * be moved (they stay where they were). Paths are UTF-8. */
-GEODE_API int         geode_studio_move_takes_out(const char* projects_dir, const char* takes_dir);
-
 /* Scene and style catalogue (core/viz/Catalogue): every style id, its renderer kind and Styles look group, the style families,
  * which Customize controls reach which styles, and the ranges the shell's controls quote, as one versioned
  * '|'-separated line table (see Catalogue.hpp for the rows). Static: the pointer stays valid for the
@@ -716,13 +711,12 @@ GEODE_API int64_t geode_export_muxer_hard_limit_bytes(void);
 GEODE_API void    geode_export_frame_size(int short_side, int w_ratio, int h_ratio, int* out_w, int* out_h);
 GEODE_API int     geode_export_clamp_fps(int requested_fps);     /* 24..60 */
 
-/* A recorded take's limits (output/RecordPlan; Settings › Export › Record). A maximum length is in seconds,
- * 0 = no limit. The offered lengths are index 0..count-1; a stored one is snapped onto them. */
+/* A recording's limits (output/RecordPlan; Settings › Export › Record). A maximum length is in seconds,
+ * 0 = no limit. The offered lengths are index 0..count-1; a stored one is snapped onto them. The stop itself
+ * is the recorder's (geode_recorder_*). */
 GEODE_API int     geode_record_max_length_count(void);
 GEODE_API int     geode_record_max_length_at(int index);
 GEODE_API int     geode_record_snap_max_length(int requested_sec);
-GEODE_API int     geode_record_limit_reached(int64_t recorded_ms, int max_sec);       /* 1 = stop the take */
-GEODE_API int64_t geode_record_clamp_length_ms(int64_t length_ms, int max_sec);
 /* The bytes length_sec of video at video_bps takes with its AAC; out_lowered (may be null) is 1 when the
  * render lowers the bit rate to stay under the muxer's 3.8 GB target. */
 GEODE_API int64_t geode_record_estimate_bytes(int video_bps, int length_sec, int* out_lowered);

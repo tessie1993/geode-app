@@ -8,7 +8,7 @@ import android.view.Surface
 import dev.geode.RingLog
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
-import java.io.File
+import java.io.FileDescriptor
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.CountDownLatch
@@ -21,15 +21,16 @@ import java.util.concurrent.TimeUnit
  * It times nothing. Which frames arrive and their PTS, the audio and its PTS, and when the
  * recording ends all come from the native clock behind [recorder] (`core/output/Recorder`); this
  * thread only moves bytes: audio from that clock into the AAC encoder, both encoders' output into
- * [file], and back to the clock how many frames came out and how much was written.
+ * [output] (a seekable read-write file), and back to the clock how many frames came out and how
+ * much was written.
  *
  * The end is the clock's too. Once it says stopped, [onStopping] asks the owner to close the GL copy
  * (the encoder's surface must not be drawn into after its end of stream), [teeClosed] answers, the
  * rest of the audio is taken, both streams are ended and the file is finished; [onFinished] then
- * says whether [file] holds a video.
+ * says whether [output] holds a video.
  */
 internal class RecordEncoder private constructor(
-    private val file: File,
+    output: FileDescriptor,
     private val recorder: Long,
     private val video: MediaCodec,
     val width: Int,
@@ -39,7 +40,7 @@ internal class RecordEncoder private constructor(
     val surface: Surface = video.createInputSurface()
 
     private val audio: MediaCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC)
-    private val muxer = MediaMuxer(file.path, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+    private val muxer = MediaMuxer(output, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
     private val pcm: ByteBuffer = ByteBuffer.allocateDirect(PCM_FRAMES * FRAME_BYTES).order(ByteOrder.nativeOrder())
     private val ptsUs = LongArray(1)
     private val info = MediaCodec.BufferInfo()
@@ -60,35 +61,47 @@ internal class RecordEncoder private constructor(
         val info: MediaCodec.BufferInfo,
     )
 
-    /** Starts both encoders and the thread. [onStopping] and [onFinished] run on that thread. */
+    /**
+     * Starts both encoders, then the thread; [onStopping] and [onFinished] run on that thread. False
+     * when an encoder would not start: nothing runs then, and [release] has freed everything.
+     */
     fun start(
         onStopping: () -> Unit,
         onFinished: (saved: Boolean) -> Unit,
-    ) {
+    ): Boolean {
         val format =
-            MediaFormat.createAudioFormat(
-                MediaFormat.MIMETYPE_AUDIO_AAC,
-                GeodeNative.RECORD_AUDIO_RATE_HZ,
-                GeodeNative.RECORD_AUDIO_CHANNELS,
-            ).apply {
-                setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
-                setInteger(MediaFormat.KEY_BIT_RATE, GeodeNative.RECORD_AUDIO_BPS)
-            }
+            MediaFormat
+                .createAudioFormat(
+                    MediaFormat.MIMETYPE_AUDIO_AAC,
+                    GeodeNative.RECORD_AUDIO_RATE_HZ,
+                    GeodeNative.RECORD_AUDIO_CHANNELS,
+                ).apply {
+                    setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
+                    setInteger(MediaFormat.KEY_BIT_RATE, GeodeNative.RECORD_AUDIO_BPS)
+                }
+        // Started before the GL thread may draw into the surface.
+        val started =
+            runCatching {
+                audio.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+                video.start()
+                audio.start()
+            }.onFailure { RingLog.note(TAG, "record start: ${it.javaClass.simpleName}") }.isSuccess
+        if (!started) {
+            release()
+            return false
+        }
         Thread({
             val saved =
-                runCatching {
-                    audio.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-                    video.start()
-                    audio.start()
-                    pump(onStopping)
-                }.onFailure {
-                    RingLog.note(TAG, "record: ${it.javaClass.simpleName}")
-                    GeodeNative.recorderStop(recorder, GeodeNative.RECORD_STOP_FAILED, GeodeNative.recordNowNs())
-                    onStopping()
-                    awaitTee()
-                }.isSuccess
+                runCatching { pump(onStopping) }
+                    .onFailure {
+                        RingLog.note(TAG, "record: ${it.javaClass.simpleName}")
+                        GeodeNative.recorderStop(recorder, GeodeNative.RECORD_STOP_FAILED, GeodeNative.recordNowNs())
+                        onStopping()
+                        awaitTee()
+                    }.isSuccess
             onFinished(release() && saved && wroteVideo)
         }, "record-encoder").start()
+        return true
     }
 
     /** The GL copy into [surface] has ended; the video stream may now end too. Any thread. */
@@ -220,10 +233,10 @@ internal class RecordEncoder private constructor(
         /**
          * Opens the video encoder for a stage of [stageWidth] x [stageHeight] at the first size the
          * device accepts of the ones native offers for [shortSide] (`geode_record_encoder_attempt`),
-         * or null when it accepts none.
+         * writing into [output], or null when it accepts none.
          */
         fun open(
-            file: File,
+            output: FileDescriptor,
             recorder: Long,
             stageWidth: Int,
             stageHeight: Int,
@@ -245,7 +258,7 @@ internal class RecordEncoder private constructor(
                 val opened =
                     runCatching {
                         codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-                        RecordEncoder(file, recorder, codec, ask[0], ask[1])
+                        RecordEncoder(output, recorder, codec, ask[0], ask[1])
                     }.onFailure { bestEffort(TAG, "codec.release()") { codec.release() } }.getOrNull()
                 if (opened != null) return opened
             }

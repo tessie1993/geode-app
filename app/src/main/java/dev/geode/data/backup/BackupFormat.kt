@@ -74,11 +74,10 @@ enum class BackupSection(
     CREATIVE(
         "creative",
         listOf(GeodePrefsFiles.MODULATION),
-        // "projects", "project-takes" and "project-templates" are Studio's project folders, their
-        // takes (beside them since #384, so cloud backup can leave the takes out while this zip
-        // keeps them) and its templates; "editor" and "templates" are where they lived before,
-        // kept so an older backup still restores instead of failing the allowlist. An older zip's
-        // takes inside "projects" are moved out by EditorProjectStore on the next start.
+        // "projects" and "project-templates" are Studio's project folders and its templates;
+        // "editor", "templates" and "project-takes" (the old replayed takes) are where things lived
+        // before, kept so an older backup still restores instead of failing the allowlist.
+        // EditorProjectStore deletes the old takes on the next start.
         listOf("presets", "palettes", "templates", "editor", "projects", "project-takes", "project-templates"),
         emptyList(),
         mapOf(GeodePrefsFiles.GENERAL to MacroStore.KEYS + LfoStore.KEYS),

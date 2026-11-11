@@ -1,7 +1,9 @@
 package dev.geode.ui
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -22,11 +24,20 @@ import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.WindowInsetsRulers
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalView
@@ -36,6 +47,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.BehaviourPrefs
@@ -70,6 +82,8 @@ import kotlin.math.roundToInt
  * [tapSplitPx] is where a tap stops counting as the top of the visual (quick settings) and starts
  * counting as the bottom (the mini player): the middle of what the options leave in view. [onPinch]
  * is Settings › Gestures & controls › Touch's pinch and twist (null while it is off).
+ *
+ * [remote] is given on a TV only ([stageRemote]): the stage then takes focus and the remote's keys.
  */
 @Composable
 internal fun BoxScope.VisualsStage(
@@ -80,6 +94,7 @@ internal fun BoxScope.VisualsStage(
     tapSplitPx: () -> Float,
     onTapDown: (Long) -> Unit,
     onPinch: ((zoomFactor: Float, degrees: Float) -> Unit)?,
+    remote: StageRemote? = null,
 ) {
     // The visual itself is not drawn here: the shell hosts the one VisualizerView beneath every
     // screen (VisualizerCanvasHost) and shows it through this transparent stage.
@@ -97,7 +112,7 @@ internal fun BoxScope.VisualsStage(
                 onPinch = onPinch,
                 a11yActions = rememberVisualA11yActions(behaviour::actionFor, actions, recording),
                 onTapDown = onTapDown,
-            ),
+            ).then(if (remote != null) Modifier.stageRemote(remote, behaviour, actions) else Modifier),
     )
     HoldRing(ring)
 }
@@ -277,6 +292,57 @@ internal fun BoxScope.StageIcons(
         tint = if (record.recording) MaterialTheme.colorScheme.error else Color.Unspecified,
     )
 }
+
+/**
+ * What the stage needs to take a TV remote: [stage] is its own focus, [options] the options'
+ * (a focus group the remote enters), [optionsShown] whether they are up and [side] whether they
+ * are the landscape panel at the end side rather than the sheet below.
+ */
+internal class StageRemote(
+    val stage: FocusRequester,
+    val options: FocusRequester,
+    val optionsShown: Boolean,
+    val side: Boolean,
+)
+
+/**
+ * The stage as a focus target on a TV: the keys of [stageKeyGesture] run their gesture's action
+ * from the map, first press only (a held key does not race through every style). The stage covers
+ * the window, so spatial search can never find the options lying over it: while they are up the
+ * arrow toward them (the end side for the panel, down for the sheet) is set to enter them, and
+ * left still finds the rail beside the stage. Focused under the options it draws the accent's
+ * hairline round the visual, so the remote's place is never invisible; full screen draws nothing.
+ */
+@Composable
+private fun Modifier.stageRemote(
+    remote: StageRemote,
+    behaviour: BehaviourPrefs,
+    actions: VisualActions,
+): Modifier {
+    var focused by remember { mutableStateOf(false) }
+    val ring = MaterialTheme.colorScheme.primary
+    return focusRequester(remote.stage)
+        .focusProperties {
+            if (remote.optionsShown) {
+                if (remote.side) end = remote.options else down = remote.options
+            }
+        }.onFocusChanged { focused = it.isFocused }
+        .onKeyEvent { event ->
+            val key = event.nativeKeyEvent
+            val gesture = stageKeyGesture(key.keyCode, remote.optionsShown)
+            when {
+                gesture == null -> false
+                event.type != KeyEventType.KeyDown -> true
+                else -> {
+                    if (key.repeatCount == 0) actions.run(behaviour.actionFor(gesture.first), gesture.second)
+                    true
+                }
+            }
+        }.focusable()
+        .then(if (focused && remote.optionsShown) Modifier.border(STAGE_FOCUS_RING, ring) else Modifier)
+}
+
+private val STAGE_FOCUS_RING = 2.dp
 
 /** Which of the stage's icons the options leave room for: the top row, ‹ ›, and Record. */
 internal data class StageIconRoom(

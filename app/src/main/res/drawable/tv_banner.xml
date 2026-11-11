@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Android TV launcher's banner (320x180dp, TV-LB and TV-BN: it carries the app's name):
+     the wordmark (splash_wordmark, by tools/wordmark.py) on black glass, a dark slab with a
+     faint violet depth and a soft sheen along its top, like the app's floating glass. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <size
+                android:width="320dp"
+                android:height="180dp" />
+            <gradient
+                android:angle="270"
+                android:endColor="@color/brand_void"
+                android:startColor="@color/brand_night"
+                android:type="linear" />
+        </shape>
+    </item>
+    <item
+        android:height="72dp"
+        android:gravity="top|fill_horizontal">
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:endColor="#00FFFFFF"
+                android:startColor="#14FFFFFF"
+                android:type="linear" />
+        </shape>
+    </item>
+    <item
+        android:height="1dp"
+        android:gravity="top|fill_horizontal">
+        <shape android:shape="rectangle">
+            <solid android:color="#33FFFFFF" />
+        </shape>
+    </item>
+    <item
+        android:width="260dp"
+        android:height="104dp"
+        android:drawable="@drawable/splash_wordmark"
+        android:gravity="center" />
+</layer-list>

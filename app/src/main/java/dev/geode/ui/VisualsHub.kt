@@ -10,12 +10,14 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -94,7 +96,8 @@ import kotlinx.coroutines.withContext
  *
  * [bottomReserve] is the tab bar's place at the bottom, kept whether or not the bar shows, so the
  * options never slide as the chrome fades. On a phone the mini player is docked under the options
- * ([LocalDockedMiniPlayer]): one glass slab, a pill alone when the options are hidden.
+ * ([LocalDockedMiniPlayer]) and their glass runs on down behind the tab bar: sheet, player and
+ * tabs are one slab, the player and tabs alone when the options are hidden.
  */
 @Composable
 internal fun VisualsHub(
@@ -183,8 +186,10 @@ internal fun VisualsHub(
         // the sheet's room, so PEEK is the tabs over the player and TALL still clears the status bar.
         val docked = LocalDockedMiniPlayer.current.takeIf { !side }
         val dockedHeight = if (docked != null) DOCKED_PLAYER_HEIGHT else 0.dp
-        // With the player docked the options stand on the tab bar itself: one slab, no gap.
+        // With the player docked the options' glass is the tab bar's too (the shell draws the bar
+        // without glass then): it runs down behind the bar, so nothing shows between them.
         val dockGap = if (docked != null) 0.dp else GeodeSpacing.EdgeInset
+        val barUnder = if (docked != null) with(density) { chrome.tabBarHeightPx.toDp() } else 0.dp
         val roomPx =
             with(density) { (maxHeight - statusTop - bottomReserve - dockGap - dockedHeight).toPx() }.coerceAtLeast(0f)
         val anchors = remember(roomPx, density) { sheetAnchors(roomPx, with(density) { SHEET_PEEK.toPx() }) }
@@ -220,12 +225,12 @@ internal fun VisualsHub(
         // chrome, on the same fade as the tab bar under it.
         val playerOn = docked != null && !pip && (nav.sheetShown || chrome.awake)
         val holdsDock = docked != null && !pip && nav.sheetShown
-        DisposableEffect(holdsDock, playerOn) {
+        DisposableEffect(holdsDock, dropInOpen) {
             chrome.docked = holdsDock
-            chrome.playerAttached = playerOn
+            chrome.optionsHidden = dropInOpen
             onDispose {
                 chrome.docked = false
-                chrome.playerAttached = false
+                chrome.optionsHidden = false
             }
         }
         val playerAlpha = animateFloatAsState(if (playerOn) 1f else 0f, fadeSpec, label = "dockedPlayer")
@@ -276,7 +281,11 @@ internal fun VisualsHub(
                 blurActive = (nav.sheetShown || playerOn) && !pip,
                 bottomBar =
                     if (docked != null && playerComposed) {
-                        { docked(Modifier.restartsSleepTimer(chrome)) }
+                        {
+                            docked(Modifier.restartsSleepTimer(chrome))
+                            // The tab bar's place: the shell draws the bar over this glass.
+                            Spacer(Modifier.height(barUnder))
+                        }
                     } else {
                         null
                     },
@@ -310,9 +319,10 @@ internal fun VisualsHub(
                             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
                             .widthIn(max = SHEET_MAX_WIDTH)
                             .fillMaxWidth()
-                            .padding(bottom = bottomReserve)
+                            .padding(bottom = (bottomReserve - barUnder).coerceAtLeast(0.dp))
                             .then(swallowTaps)
-                            .padding(horizontal = GeodeSpacing.EdgeInset, vertical = GeodeSpacing.EdgeInset / 2)
+                            .padding(horizontal = GeodeSpacing.EdgeInset)
+                            .padding(top = GeodeSpacing.EdgeInset / 2, bottom = dockGap / 2)
                             .graphicsLayer { if (docked != null) alpha = playerAlpha.value }
                             .hiddenUnderDropIn(dropInOpen) { optionsFade.value }
                     },

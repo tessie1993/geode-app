@@ -125,17 +125,15 @@ internal fun VisualsOptions(
                 onRelease = { velocityUp -> currentSettle(settleHeight(heightPx.value, velocityUp, currentAnchors)) },
             )
         }
-    // With the mini player docked under it the slab ends flat on the tab bar, which rounds the bottom.
-    val shape = if (bottomBar != null) ATTACHED_ABOVE else RoundedCornerShape(GeodeRadius.Floating)
     // Read by the blur's effect, never in composition: a drag moves the bounds every frame.
     val bounds = remember { mutableStateOf<Rect?>(null) }
     UiBlurRegion(visualizerView, { bounds.value }, blurActive)
-    // One glass slab: the sheet, and under it the docked mini player ([bottomBar]) when there is
-    // one. A hidden sheet lays out at zero height, which leaves the player alone as a pill.
+    // One glass slab: the sheet, and under it [bottomBar] when there is one (the docked mini
+    // player and the tab bar's place). A hidden sheet lays out at zero height, which leaves those alone.
     Column(
         modifier
             .onGloballyPositioned { bounds.value = it.boundsInWindow() }
-            .floatingGlass(shape, fillAlpha = opacity),
+            .floatingGlass(RoundedCornerShape(GeodeRadius.Floating), fillAlpha = opacity),
     ) {
         Box(
             Modifier

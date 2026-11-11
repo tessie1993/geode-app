@@ -34,8 +34,8 @@ object StudioClips {
                 MediaStore.Video.Media.WIDTH,
                 MediaStore.Video.Media.HEIGHT,
             )
-        val selection = "${MediaStore.Video.Media.RELATIVE_PATH} LIKE ?"
-        val args = arrayOf("Movies/MuzViz%")
+        val selection = "${MediaStore.Video.Media.RELATIVE_PATH} LIKE ? OR ${MediaStore.Video.Media.RELATIVE_PATH} LIKE ?"
+        val args = arrayOf("Movies/BeatRealms%", "Movies/MuzViz%")
         runCatching {
             context.contentResolver
                 .query(

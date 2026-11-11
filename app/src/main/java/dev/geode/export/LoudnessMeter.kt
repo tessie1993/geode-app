@@ -266,7 +266,7 @@ class LoudnessMeter(
             }
         }
 
-        fun unsupportedPcm(encoding: Int): String = "This device's decoder returned PCM Geode cannot measure (encoding $encoding)."
+        fun unsupportedPcm(encoding: Int): String = "This device's decoder returned PCM BeatRealms cannot measure (encoding $encoding)."
 
         fun unsupportedLayout(channels: Int): String =
             "BS.1770 defines channel weights for mono, stereo and 5.1; this file has $channels channels."

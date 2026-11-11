@@ -199,7 +199,7 @@ private fun BatchSummary(
 }
 
 /**
- * Opens Movies/MuzViz in a file manager. Android has no one intent for "show this folder", so this
+ * Opens Movies/BeatRealms in a file manager. Android has no one intent for "show this folder", so this
  * tries the system Files app's own directory view first, then any app that views a folder, then
  * the Files app at its start screen. Returns false when nothing on the device took any of them.
  */
@@ -219,7 +219,7 @@ internal fun Context.showRendersFolder(): Boolean {
 private const val EXTERNAL_STORAGE_DOCUMENTS = "com.android.externalstorage.documents"
 
 // Where VideoExporter puts a render it saves without a picked folder (its RELATIVE_PATH).
-private const val RENDERS_RELATIVE_PATH = "Movies/MuzViz"
+private const val RENDERS_RELATIVE_PATH = "Movies/BeatRealms"
 
 // Shares a finished video: the Render bar's Share and My videos' Share build the one SEND intent here.
 internal fun android.content.Context.shareVideo(

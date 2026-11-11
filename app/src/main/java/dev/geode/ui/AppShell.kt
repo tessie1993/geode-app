@@ -118,13 +118,13 @@ import dev.geode.render.VisualizerView
 import dev.geode.render.scene.SceneIds
 import dev.geode.ui.pro.PaywallHost
 import dev.geode.ui.pro.PaywallViewModel
-import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeMotionScheme
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.VisualAccent
+import dev.geode.ui.theme.floatingGlass
 import dev.geode.ui.theme.geodeMotionScheme
 import dev.geode.ui.theme.rememberSystemReducedMotion
 import kotlinx.coroutines.Dispatchers
@@ -296,7 +296,6 @@ fun AppRoot() {
                 artworkUri = viewModel.currentTrackUri(),
                 isPlaying = state.isPlaying,
                 progress = { if (state.durationMs > 0) position.value / state.durationMs.toFloat() else 0f },
-                opacity = GeodeGlass.MATTE_FILL,
                 onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
                 onOpenPlayer = { appState.navigateTo(GeodeDestination.PLAYER) },
                 onHide = chrome::hide,
@@ -521,7 +520,7 @@ fun AppRoot() {
                 FirstRunGate(
                     onDone = {
                         settingsViewModel.setGuiPrefs(gui.copy(setupDone = true))
-                        appState.navigateTo(gui.intent.landingDestination)
+                        appState.navigateTo(GeodeDestination.PLAYER)
                         // No Pro offer here: it waits until the guided tour ends (TutorialHost).
                     },
                 )
@@ -551,7 +550,8 @@ fun AppRoot() {
 
 /**
  * The phone shell. Every screen fills the window; the mini player and the tab bar float over the
- * bottom of it on matte glass ([FloatingMiniPlayer], [FloatingTabBar]), inset from the edges.
+ * bottom of it as one slab of matte glass ([DockSlab] around [FloatingMiniPlayer] and
+ * [FloatingTabBar]), inset from the edges.
  *
  * The mini player fades on every screen ([ShellChromeState]); asleep, a small handle pill keeps
  * its place. On Visuals the visual takes the whole window: the tab bar fades with the mini player
@@ -638,49 +638,67 @@ private fun AppShellCompact(
                 .padding(horizontal = GeodeSpacing.EdgeInset)
                 .padding(bottom = DOCK_GAP),
         ) {
-            // Into and out of Visuals the floating player only fades, at its full size and in place,
-            // while the docked one fades in over the same spot: one player changing shape, not a card
-            // that shrinks into the tab bar and a second one appearing (owner: it read as loose).
+            // Asleep, the player leaves a handle above the slab. It and the card trade places on one
+            // spring, so the dock's height (and the screen's padding) moves once, smoothly.
             AnimatedVisibility(!onVisuals, enter = fadeIn(dockFade), exit = fadeOut(dockFade)) {
-                Column {
-                    // Asleep and awake on the same screen: the card and its handle trade places on one
-                    // spring, so the dock's height (and the screen's padding) moves once, smoothly. The
-                    // gap to the bar is inside each, so nothing is left behind when both are gone.
-                    AnimatedVisibility(
-                        showsPlayer && chrome.awake,
-                        enter = fadeIn(dockFade) + expandVertically(dockSize),
-                        exit = fadeOut(dockFade) + shrinkVertically(dockSize),
-                    ) {
-                        miniPlayer(Modifier)
-                    }
-                    AnimatedVisibility(
-                        showsPlayer && !chrome.awake,
-                        enter = fadeIn(dockFade) + expandVertically(dockSize),
-                        exit = fadeOut(dockFade) + shrinkVertically(dockSize),
-                    ) {
-                        Box(Modifier.padding(bottom = GeodeSpacing.S)) { MiniPlayerHandle(onWake = chrome::wake) }
-                    }
+                AnimatedVisibility(
+                    showsPlayer && !chrome.awake,
+                    enter = fadeIn(dockFade) + expandVertically(dockSize),
+                    exit = fadeOut(dockFade) + shrinkVertically(dockSize),
+                ) {
+                    Box(Modifier.padding(bottom = GeodeSpacing.S)) { MiniPlayerHandle(onWake = chrome::wake) }
                 }
             }
-            // The bar only ever fades in place, never resizing the dock: on Visuals it stays while the
-            // options are up (they stand on it, the player docked to them) and otherwise fades with the
-            // docked player's pill; elsewhere it is always there.
+            // With the player docked on Visuals the options' glass runs down behind the bar
+            // (VisualsHub), so sheet, player and tabs are one slab there too.
+            val onOptionsGlass = onVisuals && showsPlayer
+            // The slab only ever fades in place: on Visuals it stays while the options are up (they
+            // stand on it, the player docked to them) and otherwise fades with the docked player;
+            // on the options' glass it also goes when a drop-in fades them out. Elsewhere it is
+            // always there.
+            val slabShown =
+                when {
+                    !onVisuals -> true
+                    onOptionsGlass && chrome.optionsHidden -> false
+                    else -> chrome.awake || chrome.docked
+                }
             AnimatedVisibility(
-                !onVisuals || chrome.awake || chrome.docked,
+                slabShown,
                 enter = fadeIn(dockFade),
                 exit = fadeOut(dockFade),
             ) {
-                FloatingTabBar(
-                    items = tabItems,
-                    // A destination can be hidden while still being the current one — reaching
-                    // Studio from a track menu, say. Fall back to the first tab rather than -1.
-                    selected = navEntries.indexOfFirst { it.destination == appState.dest }.coerceAtLeast(0),
-                    onSelect = { appState.navigateTo(navEntries[it].destination) },
-                    opacity = GeodeGlass.MATTE_FILL,
-                    modifier = Modifier.onSizeChanged { if (it.height > 0) barHeight = with(density) { it.height.toDp() } },
-                    // One slab with the player above it: the floating card here, the docked one on Visuals.
-                    attached = if (onVisuals) chrome.playerAttached else showsPlayer && chrome.awake,
-                )
+                DockSlab(
+                    joined = !onVisuals && showsPlayer && chrome.awake,
+                    barHeight = barHeight,
+                    glass = !onOptionsGlass,
+                ) {
+                    // Into and out of Visuals the floating player only fades, at its full size and in
+                    // place, while the docked one fades in over the same spot: one player changing
+                    // shape, not a card that shrinks into the tab bar (owner: it read as loose).
+                    AnimatedVisibility(!onVisuals, enter = fadeIn(dockFade), exit = fadeOut(dockFade)) {
+                        AnimatedVisibility(
+                            showsPlayer && chrome.awake,
+                            enter = fadeIn(dockFade) + expandVertically(dockSize),
+                            exit = fadeOut(dockFade) + shrinkVertically(dockSize),
+                        ) {
+                            miniPlayer(Modifier)
+                        }
+                    }
+                    FloatingTabBar(
+                        items = tabItems,
+                        // A destination can be hidden while still being the current one — reaching
+                        // Studio from a track menu, say. Fall back to the first tab rather than -1.
+                        selected = navEntries.indexOfFirst { it.destination == appState.dest }.coerceAtLeast(0),
+                        onSelect = { appState.navigateTo(navEntries[it].destination) },
+                        modifier =
+                            Modifier.onSizeChanged {
+                                if (it.height > 0) {
+                                    barHeight = with(density) { it.height.toDp() }
+                                    chrome.tabBarHeightPx = it.height
+                                }
+                            },
+                    )
+                }
             }
         }
     }
@@ -743,7 +761,8 @@ private fun AppShellExpanded(
                     enter = fadeIn(dockFade) + expandVertically(dockSize),
                     exit = fadeOut(dockFade) + shrinkVertically(dockSize),
                 ) {
-                    miniPlayer(Modifier)
+                    // No tab bar under it here (the rail has the tabs), so it is a card of its own.
+                    miniPlayer(Modifier.floatingGlass())
                 }
                 AnimatedVisibility(
                     showMiniPlayer && !chrome.awake && !onVisuals,

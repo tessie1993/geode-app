@@ -93,6 +93,7 @@ float& axisOf(Director::Axes& x, Axis a) { return x[static_cast<size_t>(a)]; }
 Director::Look lerpLook(const Director::Look& a, const Director::Look& b, float k) {
     Director::Look o = b;
     for (int i = 0; i < Director::kAxes; ++i) o.axes[i] = lerp(a.axes[i], b.axes[i], k);
+    o.energy = lerp(a.energy, b.energy, k);
     o.camSmooth = lerp(a.camSmooth, b.camSmooth, k);
     o.motionBreath = lerp(a.motionBreath, b.motionBreath, k);
     o.motionOrbit = lerp(a.motionOrbit, b.motionOrbit, k);
@@ -158,6 +159,7 @@ Director::Look Director::make(const Emotion::State& s, uint64_t seed, int index,
     const float hard = g[Emotion::kTension] + g[Emotion::kPower];
 
     Look L;
+    L.energy = e;
     // Behaviour: the axes, the camera, the motion field. Each gets a little seeded variety.
     auto knob = [&](float x) { return std::clamp(0.8f * x + 0.15f * rng.signedUnit(), -1.0f, 1.0f); };
     axisOf(L.axes, Axis::Energy) = knob(2.0f * e - 1.0f + 0.3f * (g[Emotion::kPower] + g[Emotion::kJoy]) - 0.3f * g[Emotion::kPeace]);

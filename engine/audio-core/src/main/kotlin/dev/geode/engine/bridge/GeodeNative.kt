@@ -312,6 +312,19 @@ object GeodeNative {
     )
 
     /**
+     * How far the director reaches past its look (core/viz/DirectorReach): 0 the look alone, 1 it also
+     * shuffles Customize categories at a new section or a drop, 2 it also runs slow modulators of its own.
+     * Process-wide like [directorSet] and pinned with it by an export; nothing happens while Auto is off.
+     */
+    external fun directorReachSet(level: Int)
+
+    /**
+     * Customize's keep set, which the director's reach never moves: one control key or `#CATEGORY` per
+     * line, the lock set [paramsRandomize] takes.
+     */
+    external fun directorKeepSet(keys: String)
+
+    /**
      * Note & key reactions (core/viz/NoteResponse): the notes, chords, key and mood drive the six style
      * knobs each style spends its own way; no scene param, no colour. Process-wide like
      * the director, so the screen, an export, the wallpaper and the dream agree; off is exactly the picture

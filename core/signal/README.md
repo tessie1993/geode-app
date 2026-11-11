@@ -7,14 +7,14 @@ The layer between sound and pictures: what the user set, what moves it, and the 
 The per-frame chain, moved out of the GL renderer unchanged (`core/viz/RendererFrame.cpp`, `Renderer::resolveParams`, which is now a thin caller):
 
 ```
-param fade → Director → Director axes → macro bank → LFO → ADSR
+param fade → director shuffle → Director → Director axes → director modulators → macro bank → LFO → ADSR
   → reaction routes → MotionField → safety::apply
 (NoteResponse steps beside it and publishes the style knobs; it writes no param.)
 ```
 
-- **In, once a frame:** the requested `SceneParams`, the sound frame, dt, one `EngineSettings` value (the macro bank, the director's amount and seed, the Note & key switch, the hand mask, reduced motion, the note entropy), a `StyleContext` (style id, spin rate, "style switched").
+- **In, once a frame:** the requested `SceneParams`, the sound frame, dt, one `EngineSettings` value (the macro bank, the director's amount, seed, reach and keep set, the Note & key switch, the hand mask, reduced motion, the note entropy), a `StyleContext` (style id, spin rate, "style switched").
 - **Out:** the final params (before the renderer's device masks), the director's style moments, the camera rig's music moves and the note uniforms (`noteUniforms()`).
-- **It owns** the stages' state (fade and morph timer, `Director`, `NoteResponse`, the LFO and envelope engines, the user reaction engine, `MotionField`, the macro bank's reach for the style on screen), the LFO, envelope and route configs, and the reset on a new surface.
+- **It owns** the stages' state (fade and morph timer, `Director`, `DirectorReach`, `NoteResponse`, the LFO and envelope engines, the user reaction engine, `MotionField`, the macro bank's reach for the style on screen), the LFO, envelope and route configs, and the reset on a new surface.
 - **Single-threaded, GL-free:** no mutex, no atomics, no GL header. The renderer keeps its lock and atomics, latches one `EngineSettings` a frame through its `SettingsLatch` (the same copy re-tunes its sound engine) and hands the resolver copies. Nothing in the chain reads a global.
 - **Stays in the renderer:** the camera rig, the thermal and post-FX masks, Liquid's hot policy, the post pass's integrators.
 - **Tested** as a chain by `core/tests/resolver_test.cpp` (CI "Native host tests"): order, reduced motion once, settings pinned against the globals, an export's latch and director rule, 600 bit-identical frames, safety last.

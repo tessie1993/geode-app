@@ -8,6 +8,7 @@
 #include "viz/Adsr.hpp"
 #include "viz/CameraRig.hpp"
 #include "viz/Director.hpp"
+#include "viz/DirectorReach.hpp"
 #include "viz/Lfo.hpp"
 #include "viz/MacroBank.hpp"
 #include "viz/MotionField.hpp"
@@ -21,9 +22,10 @@ namespace geode::signal {
 // for into the ones a scene is drawn with. One step a frame, in this order, and nowhere else:
 //
 //   param fade (the style's own paramFadeSec, or a preset morph)
+//   → the director's shuffle (rolled offsets over the user's params, when its reach asks)
 //   → auto-director (its look lies under everything after it)
 //   → Note & key reactions (the six style knobs only; they write no param)
-//   → the director's axes (its behaviour offsets; never a colour)
+//   → the director's axes (its behaviour offsets; never a colour) → the director's own modulators (its reach)
 //   → the macro bank (the user's knobs, an offset added to whatever the director left)
 //   → LFOs → envelopes
 //   → reaction routes (the user's or the style's DNA; the director plays no route)
@@ -88,6 +90,7 @@ public:
     const viz::NoteUniforms& noteUniforms() const { return notes_.uniforms(); }
 
     const viz::Director& director() const { return director_; }
+    const viz::DirectorReach& directorReach() const { return directorReach_; }
     const viz::NoteResponse& notes() const { return notes_; }
     const viz::MotionField& motionField() const { return motionField_; }
 
@@ -97,6 +100,7 @@ private:
     viz::ReactionEngine reactions_;
     viz::Director director_;
     int directorCommitsSeen_ = 0;
+    viz::DirectorReach directorReach_;
     viz::NoteResponse notes_;
     // The one stage every family's parameters pass through, fed the sound frame.
     viz::MotionField motionField_;

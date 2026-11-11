@@ -62,6 +62,8 @@ public:
     using Axes = std::array<float, kAxes>;
 
     struct Look {
+        // The feeling's energy the look was made for (a drop's at least 0.85): how hard the reach shuffles.
+        float energy = 0.5f;
         Axes axes{};
         float camSmooth = 0.5f;
         float motionBreath = 0.5f;

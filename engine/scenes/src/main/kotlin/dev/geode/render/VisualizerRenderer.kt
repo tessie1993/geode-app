@@ -265,7 +265,7 @@ class VisualizerRenderer(
         if (due and GeodeNative.FRAME_LIQUID_CHANGED != 0) liquidModeState.value = GeodeNative.frameLiquidMode(due)
         syncNativeState(due)
         nativeViz.render(SystemClock.elapsedRealtimeNanos() / NANOS_PER_SECOND, targetFbo = 0)
-        nativeViz.pollError(onShaderError)
+        if (due and GeodeNative.FRAME_ERROR_CHANGED != 0) nativeViz.pollError(onShaderError)
         nativeViz.takeMilkPresetLoaded()?.let { path ->
             milkPreset.loaded(path)
             onMilkPresetLoaded(path)
@@ -276,8 +276,9 @@ class VisualizerRenderer(
     private fun syncNativeState(due: Int) {
         lookApplier.apply(look, nativeViz, due)
         val azimuth = gyroAzimuth
-        if (azimuth.isNaN() || gyroSession != nativeGyroSession) nativeViz.gyroReset()
-        nativeGyroSession = gyroSession
+        val session = if (azimuth.isNaN()) -1 else gyroSession // off is a session too: one reset, not one a frame
+        if (session != nativeGyroSession) nativeViz.gyroReset()
+        nativeGyroSession = session
         if (!azimuth.isNaN()) nativeViz.gyroSample(azimuth, gyroPitch)
         feedSound()
     }

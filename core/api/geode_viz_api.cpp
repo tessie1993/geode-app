@@ -89,6 +89,7 @@ static_assert(frame::wallpaper::kOffsetFloats == GEODE_WALLPAPER_OFFSETS);
 static_assert(frame::kFrameClearOnly == GEODE_FRAME_CLEAR_ONLY);
 static_assert(frame::kFrameThermalDue == GEODE_FRAME_THERMAL_DUE);
 static_assert(frame::kFrameLiquidChanged == GEODE_FRAME_LIQUID_CHANGED);
+static_assert(frame::kFrameErrorChanged == GEODE_FRAME_ERROR_CHANGED);
 static_assert(frame::kFramePushParams == GEODE_FRAME_PUSH_PARAMS);
 static_assert(frame::kFramePushLfo == GEODE_FRAME_PUSH_LFO);
 static_assert(frame::kFramePushAdsr == GEODE_FRAME_PUSH_ADSR);
@@ -608,13 +609,15 @@ int geode_viz_frame_begin(geode_viz* v, float paced_fps, float render_scale, flo
         r.setUserQuality(quality.renderScale, quality.marchScale, quality.postFx, quality.adaptive);
         r.setLiquidHotPolicy(quality.liquidHotPolicy);
     }
-    const uint32_t due = v->cadence.step([] { return ThermalState::process().claimSample(monotonicSeconds()); },
+    uint32_t due = v->cadence.step([] { return ThermalState::process().headroomDue(monotonicSeconds()); },
                                          [&r] { return r.takeLiquidMode(); });
     if (due & frame::kFrameClearOnly) {
         // The shell returns at once on this frame, so nothing it would push may count as applied yet.
         r.clearToBlack(0);
         return static_cast<int>(due);
     }
+    // An error raised while a frame drew is told on the next one, so the shell asks for the text only then.
+    if (v->cadence.offerError(r.lastError())) due |= frame::kFrameErrorChanged;
     const uint32_t want = v->pushes.offer({params_version, lfo_version, adsr_version, tuning_version});
     return static_cast<int>(due | want);
 }

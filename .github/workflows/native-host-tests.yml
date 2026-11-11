@@ -51,6 +51,9 @@ jobs:
           # Liquid mode's pure maths: thermal modes, inject weight, the random dive, gestures, born clock, drop flare.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/liquid_test.cpp core/viz/liquid/LiquidMath.cpp -o liquid_test
           ./liquid_test
+          # The feedback pass's motion, MilkDrop's per-frame UV transform made per second: each term, 30/60/120 fps, sound, silence, the fold.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/feedback_motion_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o feedback_motion_test
+          ./feedback_motion_test
           # The scene params resolver (#344): the chain's order, reduced motion once, pinned settings, an export's pin (#350), determinism, safety last.
           g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/resolver_test.cpp core/signal/Resolver.cpp core/signal/EngineSettings.cpp core/sound/*.cpp \
             core/viz/Director.cpp core/viz/NoteResponse.cpp core/viz/Lfo.cpp core/viz/Adsr.cpp core/viz/Reactions.cpp core/viz/Macros.cpp \
@@ -237,6 +240,16 @@ jobs:
             core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp \
             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o mod_targets_test
           ./mod_targets_test core/tests/mod_targets.txt
+      # The macro bank (core/viz/MacroBank): the user's knobs as weighted offsets on scene params. Centre is
+      # the identity, both ways move, the range and the safety clamp hold, edits validate, the text round trips.
+      - name: Macro bank host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/macro_bank_test.cpp core/viz/MacroBank.cpp \
+            core/api/geode_macro_bank_api.cpp core/viz/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
+            core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+            core/viz/VisualSafety.cpp -o macro_bank_test
+          ./macro_bank_test
       # The export DSP (resampler, BS.1770 loudness meter), ported from Kotlin (ADR 0003), the playback DSP's hand-off and its gain.
       - name: Native export DSP tests
         working-directory: ${{ env.PROJECT_DIR }}

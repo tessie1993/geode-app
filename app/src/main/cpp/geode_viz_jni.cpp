@@ -901,6 +901,11 @@ Java_dev_geode_engine_bridge_GeodeNative_thermalPush(JNIEnv*, jobject, jint stat
     geode_thermal_push(status, headroom);
 }
 
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_memoryTrim(JNIEnv*, jobject, jint level) {
+    geode_memory_trim(level);
+}
+
 // Cast's audio pump: the state is a caller-owned long[GEODE_CAST_AUDIO_STATE], a step's result a long[GEODE_CAST_AUDIO_STEP].
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_castAudioStart(JNIEnv* env, jobject, jlongArray state, jint rateHz) {

@@ -10,6 +10,7 @@
 
 #include "viz/SceneResidency.hpp"
 
+using geode::viz::MemoryTrim;
 using geode::viz::SceneResidency;
 using geode::viz::ThermalTier;
 
@@ -124,9 +125,54 @@ void resizeIsLazy() {
     check(!r.needsResize("unknown", 2), "an unbuilt scene needs no resize");
 }
 
+// #854: the system's trim levels. Only UI_HIDDEN (20) and BACKGROUND (40) act; the spares go whatever the
+// thermal tier, and the pinned scenes (the one drawn, fading out, the layer) are never dropped.
+void memoryTrimShedsSparesNotPinned() {
+    check(SceneResidency::trimForAndroidLevel(20) == MemoryTrim::UiHidden, "UI_HIDDEN maps");
+    check(SceneResidency::trimForAndroidLevel(40) == MemoryTrim::Background, "BACKGROUND maps");
+    for (int level : {0, 5, 10, 15, 19, 21, 41, 60, 80}) {
+        check(SceneResidency::trimForAndroidLevel(level) == MemoryTrim::None, "every other level is ignored");
+    }
+    for (ThermalTier tier : {ThermalTier::Full, ThermalTier::Eased, ThermalTier::Reduced, ThermalTier::Minimal}) {
+        check(SceneResidency::spareBudget(tier, MemoryTrim::None) == SceneResidency::spareBudget(tier), "no trim keeps the tier budget");
+        check(SceneResidency::spareBudget(tier, MemoryTrim::UiHidden) == 0, "UI_HIDDEN keeps no spares");
+        check(SceneResidency::spareBudget(tier, MemoryTrim::Background) == 0, "BACKGROUND keeps no spares");
+    }
+    for (MemoryTrim trim : {MemoryTrim::UiHidden, MemoryTrim::Background}) {
+        SceneResidency r;
+        r.insert("old", false, 1);
+        r.insert("fluid", true, 1);
+        r.insert("fading", false, 1);
+        r.insert("layer", false, 1);
+        r.insert("drawn", false, 1);
+        const auto pinned = [](const std::string& id) { return id == "drawn" || id == "fading" || id == "layer"; };
+        const auto victims = r.evict(pinned, SceneResidency::spareBudget(ThermalTier::Full, trim));
+        check(victims.size() == 2, "both spares go");
+        check(has(r, "drawn") && has(r, "fading") && has(r, "layer"), "the pinned scenes stay");
+        check(!has(r, "old") && !has(r, "fluid"), "the spares are gone");
+    }
+}
+
+// The signal reaches every renderer once, and a level that does nothing reaches none.
+void trimSignalReachesEachRendererOnce() {
+    SceneResidency::TrimSignal s;
+    uint32_t a = 0;
+    uint32_t b = 0;
+    check(!s.poll(a), "nothing pending at start");
+    s.request(MemoryTrim::None);
+    check(!s.poll(a), "a level that does nothing is no request");
+    s.request(MemoryTrim::UiHidden);
+    check(s.poll(a) && s.poll(b), "each renderer sees the request");
+    check(!s.poll(a) && !s.poll(b), "and only once");
+    s.request(MemoryTrim::Background);
+    check(s.poll(a), "a later request is seen again");
+}
+
 }  // namespace
 
 int main() {
+    memoryTrimShedsSparesNotPinned();
+    trimSignalReachesEachRendererOnce();
     longAutoSessionStaysBounded();
     workedExampleFromTheHeader();
     backAndForthStaysACacheHit();

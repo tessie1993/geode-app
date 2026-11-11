@@ -216,13 +216,10 @@ object GeodeNative {
         points: Int,
     )
 
-    external fun vizQueueTouchStroke(
+    /** Settings › Visuals › Touch › Smear: on, the fingers touching the visual drag it too (core/viz/TouchSmear). */
+    external fun vizSetTouchSmear(
         handle: Long,
-        nx: Float,
-        ny: Float,
-        ndx: Float,
-        ndy: Float,
-        dt: Float,
+        on: Boolean,
         strength: Float,
     )
 

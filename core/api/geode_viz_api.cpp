@@ -202,6 +202,10 @@ void geode_viz_queue_touch_stroke(geode_viz* v, float nx, float ny, float ndx, f
     if (v) v->renderer.queueTouchStroke(nx, ny, ndx, ndy, dt, strength);
 }
 
+void geode_viz_set_touch_smear(geode_viz* v, int on, float strength) {
+    if (v) v->renderer.setTouchSmear(on != 0, strength);
+}
+
 void geode_viz_set_fluid_injection(geode_viz* v, const char* force_source, const char* dye_source) {
     if (v) v->renderer.setFluidInjectionShaders(text(force_source), text(dye_source));
 }

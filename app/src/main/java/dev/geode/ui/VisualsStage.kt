@@ -70,7 +70,8 @@ import kotlin.math.roundToInt
  * Android (back, home, the shade), and TalkBack gets every gesture as a custom action.
  *
  * [tapSplitPx] is where a tap stops counting as the top of the visual (quick settings) and starts
- * counting as the bottom (the mini player): the middle of what the options leave in view.
+ * counting as the bottom (the mini player): the middle of what the options leave in view. [onPinch]
+ * is Settings › Visuals › Touch's pinch and twist (null while it is off).
  */
 @Composable
 internal fun BoxScope.VisualsStage(
@@ -79,6 +80,7 @@ internal fun BoxScope.VisualsStage(
     actions: VisualActions,
     recording: Boolean,
     tapSplitPx: () -> Float,
+    onPinch: ((zoomFactor: Float, degrees: Float) -> Unit)?,
 ) {
     // The visual itself is not drawn here: the shell hosts the one VisualizerView beneath every
     // screen (VisualizerCanvasHost) and shows it through this transparent stage.
@@ -93,6 +95,7 @@ internal fun BoxScope.VisualsStage(
                 holdArmed = !(recording && behaviour.actionFor(CanvasGesture.LONG_PRESS) == GestureAction.RECORD),
                 onGesture = { gesture, step -> actions.run(behaviour.actionFor(gesture), step) },
                 onTouchPoints = visualizerView.visualizerRenderer::submitTouchPoints,
+                onPinch = onPinch,
                 a11yActions = rememberVisualA11yActions(behaviour::actionFor, actions, recording),
             ),
     )

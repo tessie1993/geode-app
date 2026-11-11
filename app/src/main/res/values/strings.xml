@@ -60,7 +60,7 @@
     <string name="perf_liquid_hot_full">Full (phone may throttle)</string>
     <string name="perf_liquid_hot_pause">Pause</string>
     <string name="perf_liquid_hot_hint">What Liquid mode does when the phone gets hot. Simplify keeps the flow with fewer details, Full never steps down, Pause freezes the liquid until the phone cools.</string>
-    <string name="perf_export_note">Applies to the visualizer, wallpaper and screensaver. Exports always render at full quality.</string>
+    <string name="perf_export_note">Applies at once to the visualizer, the wallpaper and the screen saver. The frame rate cap is the visualizer\'s alone: the wallpaper and the screen saver keep their own rate. Exports always render at full quality.</string>
 
     <!-- Settings > Help -->
     <string name="help_topics_group">How things work</string>
@@ -401,7 +401,7 @@
     <string name="playback_pitch">"Pitch  %1$s st (0 = normal)"</string>
     <string name="playback_fade_off">Fade on pause, resume and skip — off</string>
     <string name="playback_fade">"Fade on pause, resume and skip  %1$ss"</string>
-    <string name="playback_fade_explainer">Ramps the volume instead of cutting it. Not a crossfade — one player decodes one track at a time, and a second one would give the analyser two streams to sum — but it removes the hard edges, which is the part you hear.</string>
+    <string name="playback_fade_explainer">Ramps the volume instead of cutting it when you pause, resume or skip. The crossfade above joins one track to the next.</string>
     <string name="playback_skip_silence">Skip silence</string>
     <string name="playback_pause_unplugged">Pause when unplugged</string>
     <string name="playback_keep_screen_on">Keep screen on</string>
@@ -726,11 +726,11 @@
     <string name="note_key_drums">Drums</string>
     <string name="note_key_drums_hint">How much the kick, snare and hats move the style\'s pulse knob.</string>
     <string name="behavior_group_pip">Picture-in-picture</string>
-    <string name="behavior_touch_smear">Smear the visuals with a finger</string>
-    <string name="behavior_touch_smear_hint">Drag on the fullscreen visualizer to push the image around: the drag raises the surface ahead of your finger and dips it behind, and whatever is on screen bends through it. On the Water style it stirs the pool itself and paints into it.</string>
+    <string name="behavior_touch_smear">Smear the visuals with your fingers</string>
+    <string name="behavior_touch_smear_hint">While your fingers play on the visual (a two-finger drag, unless Behaviour &amp; gestures says otherwise), they also push the picture around: ripples spread from them and whatever is on screen bends through them. On the Water style they stir the pool itself. In Liquid mode the fingers move the liquid instead.</string>
     <string name="behavior_smear_strength">"Smear strength  %1$d%%"</string>
     <string name="behavior_touch_transform">Pinch and twist the canvas</string>
-    <string name="behavior_touch_transform_hint">Two fingers on the fullscreen visualizer: pinch moves the Zoom slider, twist moves Rotation. They are the same controls the Customize panel shows, so a gesture is saved into presets — and undone by dragging the slider back.</string>
+    <string name="behavior_touch_transform_hint">Two fingers on the visual: pinch moves the Zoom slider, twist moves Rotation. They are the same controls Customize shows, so a gesture is saved into presets, and undone by dragging the slider back.</string>
     <string name="behavior_display_use">Use a connected display</string>
     <string name="behavior_display_connected">The visual moves there at that screen\'s own resolution and the phone keeps the controls. Both screens stay on while it shows; it pauses when you leave the app.</string>
     <string name="behavior_display_none">Nothing connected. Plug in HDMI or USB-C, or connect a wireless display, and the visual can move to that screen while the phone keeps the controls.</string>
@@ -748,7 +748,7 @@
     <string name="behavior_wallpaper_hint">Set the visualizer as your wallpaper. It uses the style and settings the app was last showing, reacts to whatever BeatRealms is playing, and drifts gently on its own the rest of the time. It draws nothing while another app is in front, so it is not a background battery drain.</string>
     <string name="behavior_wallpaper_button">Set as live wallpaper</string>
     <string name="behavior_pip_auto_enter">Enter automatically</string>
-    <string name="behavior_pip_auto_enter_hint">Leaving the fullscreen visualizer while something is playing shrinks it into a picture-in-picture window instead of just backgrounding the app. Off, the PiP button on the visualizer and the platform\'s own swipe-home gesture are still there — this only changes what leaving does by default.</string>
+    <string name="behavior_pip_auto_enter_hint">Leaving Visuals while something is playing shrinks the visual into a picture-in-picture window. Off, leaving only sends the app to the background.</string>
 
     <!-- Settings: Auto visuals (rendered inside the Behavior tab). -->
     <string name="autoviz_pick_from">Pick from</string>
@@ -1096,6 +1096,8 @@
     <string name="settings_dream_bright">Screen saver at full brightness</string>
     <string name="settings_dream_clock">Show the time and date on the screen saver</string>
     <string name="settings_dream_now_playing">Show what\'s playing on the screen saver</string>
+    <string name="settings_dream_other_apps">Screen saver reacts to any app</string>
+    <string name="settings_dream_other_apps_hint">When BeatRealms is not playing, the screen saver moves to whatever your phone plays. Android lists this under the microphone permission; only the sound your phone plays is read, and nothing is recorded or kept.</string>
     <!-- Customize: menus, dialogs and the editors' own words (CustomizePanel, CustomizeTabs, CustomizeAdvanced). -->
     <string name="customize_keep_when_randomizing">Keep when randomizing</string>
     <string name="customize_palette_from_artwork">Take the colours from the artwork</string>

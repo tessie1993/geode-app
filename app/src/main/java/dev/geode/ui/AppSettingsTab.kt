@@ -339,8 +339,9 @@ private fun SettingsSectionBody(
 }
 
 /**
- * Export, loop render and their defaults belong to Studio › Render; Basics only points there, so
- * someone who looks for them in Settings (where they used to be) still finds the way. What a
+ * Export, loop render and their defaults belong to Studio › Render; Basics points there, so
+ * someone who looks for them in Settings (where they used to be) still finds the way, and keeps
+ * Render's "add it to My videos?" answer changeable ([KeepRendersRow]). What a
  * recorded take renders at is the group's one section ([RecordSection]): a take renders in the
  * background with no Render page to choose on.
  */
@@ -352,6 +353,7 @@ private fun ExportLinkBasics(onOpenStudioRender: () -> Unit) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     CrystalButton(onClick = onOpenStudioRender) { Text(stringResource(R.string.settings_export_open_studio)) }
+    KeepRendersRow()
 }
 
 /** A lazy list of [SettingsGroup] cards; Studio › Render's options still use it. */

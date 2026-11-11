@@ -45,6 +45,9 @@ jobs:
           # The pinch and twist on the visual (#654): Zoom and Rotation clamped to their schema ranges.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_transform_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o touch_transform_test
           ./touch_transform_test
+          # Settings › Visuals › Touch › Smear: off draws no stroke, on one per moving finger, the strength slider clamped.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/touch_smear_test.cpp -o touch_smear_test
+          ./touch_smear_test
           # The fluid engine: multigrid pressure plan, MacCormack, splat batching, heat, tracers, tiers.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/fluid_math_test.cpp core/viz/fluid/FluidMath.cpp -o fluid_math_test
           ./fluid_math_test

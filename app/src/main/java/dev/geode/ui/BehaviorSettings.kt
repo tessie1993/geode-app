@@ -3,6 +3,7 @@
 
 package dev.geode.ui
 
+import android.Manifest
 import android.app.WallpaperManager
 import android.content.ComponentName
 import android.content.Context
@@ -124,8 +125,8 @@ internal fun BehaviourBasics(
 
 /**
  * Settings › Behaviour › Gestures on the visual: one dropdown per gesture ([BehaviourPrefs.gestures],
- * read by `VisualGestures` the next time Visuals opens). Pinch and twist do nothing by the owner's
- * decision, so they get no row.
+ * read by `VisualGestures` the next time Visuals opens). Pinch and twist can only be given touch play:
+ * what the pinch does to the canvas itself is Settings › Visuals › Touch's switch.
  */
 @Composable
 internal fun GesturesSection(
@@ -133,7 +134,7 @@ internal fun GesturesSection(
     update: (BehaviourPrefs) -> Unit,
 ) {
     SettingsHint(stringResource(R.string.settings_gestures_hint))
-    CanvasGesture.entries.filter { it != CanvasGesture.PINCH_TWIST }.forEach { gesture ->
+    CanvasGesture.entries.forEach { gesture ->
         SettingsChoiceRow(
             title = stringResource(gestureLabel(gesture)),
             options = gestureChoices(gesture, prefs.actionFor(gesture)),
@@ -207,7 +208,10 @@ internal fun VisualsBasics() {
     )
 }
 
-/** Settings › Visuals › Touch: smearing the picture with a finger, and pinch and twist. */
+/**
+ * Settings › Visuals › Touch: the fingers smearing the picture (handed to native by `EnginePlumbing`,
+ * drawn by `core/viz/TouchSmear`), and pinch and twist moving Zoom and Rotation (`VisualsHub`).
+ */
 @Composable
 internal fun TouchSection(viewModel: SettingsViewModel) {
     val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
@@ -300,6 +304,33 @@ internal fun WallpaperDreamSection(
         checked = prefs.dreamShowNowPlaying,
         onCheckedChange = { update(prefs.copy(dreamShowNowPlaying = it)) },
     )
+    DreamOtherAppsRow(prefs, update)
+}
+
+/**
+ * The screen saver reacting to other apps' sound ([BehaviourPrefs.dreamHearOtherApps]), as the
+ * wallpaper's "React to any app" does: turning it on asks for the permission the output-mix
+ * capture needs in place, and while it is on without it one button asks again (or opens Android's
+ * settings once it has stopped asking), so a refusal is never a switch that silently does nothing.
+ */
+@Composable
+private fun DreamOtherAppsRow(
+    prefs: BehaviourPrefs,
+    update: (BehaviourPrefs) -> Unit,
+) {
+    val permission = rememberPermissionRequest(Manifest.permission.RECORD_AUDIO)
+    SettingsSwitchRow(
+        title = stringResource(R.string.settings_dream_other_apps),
+        summary = stringResource(R.string.settings_dream_other_apps_hint),
+        checked = prefs.dreamHearOtherApps,
+        onCheckedChange = { on ->
+            update(prefs.copy(dreamHearOtherApps = on))
+            if (on && !permission.granted) permission.request()
+        },
+    )
+    if (prefs.dreamHearOtherApps && !permission.granted) {
+        CrystalButton(onClick = permission::request) { Text(stringResource(R.string.wallpaper_options_open_settings)) }
+    }
 }
 
 /**
@@ -330,7 +361,7 @@ private fun bestEffortStart(
 
 /**
  * The actions a gesture can take: a sideways swipe steps through something (a style, a preset or
- * the playlist's look); a two-finger drag moves over the visual; the taps, the other swipes, the
+ * the playlist's look); a two-finger drag and a pinch move over the visual; the taps, the other swipes, the
  * hold and the swirl each open or do one thing. Its current action always stays on the list, so a
  * choice made elsewhere is never hidden.
  */
@@ -341,7 +372,7 @@ private fun gestureChoices(
     val suited =
         when (gesture) {
             CanvasGesture.SWIPE_SIDEWAYS -> listOf(GestureAction.STEP_STYLE, GestureAction.STEP_PRESET, GestureAction.STEP_PLAYLIST)
-            CanvasGesture.TWO_FINGER_DRAG -> listOf(GestureAction.TOUCH_PLAY)
+            CanvasGesture.TWO_FINGER_DRAG, CanvasGesture.PINCH_TWIST -> listOf(GestureAction.TOUCH_PLAY)
             else -> ONE_SHOT_ACTIONS
         }
     return (suited + GestureAction.OFF).let { if (current in it) it else listOf(current) + it }

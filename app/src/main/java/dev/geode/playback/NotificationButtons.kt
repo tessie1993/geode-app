@@ -24,8 +24,8 @@ import dev.geode.data.NotificationButton
  * play and next. The default is shuffle and repeat. Favourite can be added.
  *
  * Each button is a custom session command that toggles its state, so its icon always shows the state
- * now. [refresh] runs after every change that could alter an icon, and after the user changes the
- * setting the next time playback changes.
+ * now. [refresh] runs after every change that could alter an icon, and when the user changes the
+ * setting.
  */
 @OptIn(UnstableApi::class)
 internal class NotificationButtons(
@@ -40,13 +40,20 @@ internal class NotificationButtons(
     /** The heart follows a favourite changed in the app too. A field: listeners are held weakly. */
     private val favouritesChanged = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> refresh() }
 
+    private val choiceChanged =
+        SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == BehaviourStore.KEY_NOTIFICATION_BUTTONS) refresh()
+        }
+
     fun attach(session: MediaSession) {
         this.session = session
         prefsFiles.favourites.registerOnSharedPreferenceChangeListener(favouritesChanged)
+        prefsFiles.general.registerOnSharedPreferenceChangeListener(choiceChanged)
     }
 
     fun detach() {
         prefsFiles.favourites.unregisterOnSharedPreferenceChangeListener(favouritesChanged)
+        prefsFiles.general.unregisterOnSharedPreferenceChangeListener(choiceChanged)
         session = null
     }
 

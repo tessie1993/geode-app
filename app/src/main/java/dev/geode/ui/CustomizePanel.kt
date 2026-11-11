@@ -151,7 +151,7 @@ internal fun CustomizePanel(
                         onValueChange = { query = it },
                         modifier = Modifier.fillMaxWidth().padding(horizontal = GeodeSpacing.L),
                         singleLine = true,
-                        label = { Text("Search every control") },
+                        label = { Text(stringResource(R.string.customize_a11y_search)) },
                     )
                 }
             }
@@ -276,7 +276,7 @@ private fun CustomizeHeader(
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 DropdownMenuItem(
-                    text = { Text("Redo") },
+                    text = { Text(stringResource(R.string.action_redo)) },
                     enabled = history.canRedo,
                     leadingIcon = { Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = null) },
                     onClick = {
@@ -285,7 +285,7 @@ private fun CustomizeHeader(
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text("Reset ${target.title}") },
+                    text = { Text(stringResource(R.string.customize_reset_named, target.title)) },
                     onClick = {
                         menuOpen = false
                         if (onKnobs) macroStore.resetKnobs() else visualsViewModel.resetCustomizeCategory(target)
@@ -293,7 +293,7 @@ private fun CustomizeHeader(
                 )
                 if (!onKnobs) {
                     DropdownMenuItem(
-                        text = { Text("Take ${target.title} from a preset") },
+                        text = { Text(stringResource(R.string.customize_take_from_preset, target.title)) },
                         onClick = {
                             menuOpen = false
                             if (proLock.unlocked) borrowing = true else proLock.onLocked()
@@ -303,7 +303,7 @@ private fun CustomizeHeader(
                     val (kept, toggleKeep) = LocalParamLocks.current
                     val keepKey = "#${target.name}"
                     DropdownMenuItem(
-                        text = { Text("Keep ${target.title} when randomizing") },
+                        text = { Text(stringResource(R.string.customize_keep_named, target.title)) },
                         trailingIcon = { Checkbox(checked = keepKey in kept, onCheckedChange = null) },
                         onClick = {
                             menuOpen = false
@@ -312,7 +312,15 @@ private fun CustomizeHeader(
                     )
                 }
                 DropdownMenuItem(
-                    text = { Text(if (changed == 0) "Reset everything" else "Reset everything ($changed changed)") },
+                    text = {
+                        Text(
+                            if (changed == 0) {
+                                stringResource(R.string.customize_reset_everything)
+                            } else {
+                                stringResource(R.string.customize_reset_everything_changed, changed)
+                            },
+                        )
+                    },
                     enabled = changed > 0,
                     onClick = {
                         menuOpen = false
@@ -320,14 +328,14 @@ private fun CustomizeHeader(
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text("Save as preset") },
+                    text = { Text(stringResource(R.string.customize_save_as_preset)) },
                     onClick = {
                         menuOpen = false
                         savingPreset = true
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text("Show tips") },
+                    text = { Text(stringResource(R.string.customize_show_tips)) },
                     trailingIcon = { Checkbox(checked = showTips, onCheckedChange = null) },
                     onClick = {
                         menuOpen = false
@@ -362,11 +370,10 @@ private fun CustomizeHeader(
         val sounds = LocalUiSounds.current
         AlertDialog(
             onDismissRequest = { confirmReset = false },
-            title = { Text("Reset everything?") },
+            title = { Text(stringResource(R.string.customize_reset_everything_title)) },
             text = {
                 Text(
-                    "Puts all $changed changed controls back to their defaults, in every category. " +
-                        "Undo brings them back, and saved presets are not touched.",
+                    stringResource(R.string.customize_reset_everything_text, changed),
                 )
             },
             // Dialog actions are text buttons (M3); the confirm keeps the old button's confirm sound.
@@ -375,9 +382,9 @@ private fun CustomizeHeader(
                     sounds.play(UiSound.CONFIRM)
                     visualsViewModel.resetAllCustomize()
                     confirmReset = false
-                }) { Text("Reset") }
+                }) { Text(stringResource(R.string.action_reset)) }
             },
-            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }
@@ -391,17 +398,22 @@ private fun SavePresetDialog(
     val sounds = LocalUiSounds.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Save as preset") },
+        title = { Text(stringResource(R.string.customize_save_as_preset)) },
         text = {
-            OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true, placeholder = { Text("Preset name") })
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                singleLine = true,
+                placeholder = { Text(stringResource(R.string.preset_name)) },
+            )
         },
         confirmButton = {
             TextButton(enabled = name.isNotBlank(), onClick = {
                 sounds.play(UiSound.CONFIRM)
                 onSave(name.trim())
-            }) { Text("Save") }
+            }) { Text(stringResource(R.string.action_save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -421,10 +433,10 @@ private fun BorrowCategoryDialog(
     }.collectAsStateWithLifecycle(remember(viewModel) { viewModel.vizState.value.presets })
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Take ${category.title} from") },
+        title = { Text(stringResource(R.string.customize_take_from, category.title)) },
         text = {
             if (presets.isEmpty()) {
-                Text("No presets yet. Save as preset makes the first one.")
+                Text(stringResource(R.string.customize_take_none))
             } else {
                 LazyColumn(Modifier.heightIn(max = BORROW_LIST_MAX_HEIGHT)) {
                     items(presets) { preset ->
@@ -433,7 +445,7 @@ private fun BorrowCategoryDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 

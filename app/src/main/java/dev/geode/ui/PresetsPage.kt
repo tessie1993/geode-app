@@ -125,7 +125,8 @@ internal fun PresetsTab(
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
                 visualsViewModel.importPresetFile(uri) { name ->
-                    importNote = name?.let { "Added \"$it\" to Mine." } ?: "That file is not a MuzViz preset."
+                    importNote =
+                        name?.let { context.getString(R.string.presets_added, it) } ?: context.getString(R.string.presets_file_not_preset)
                 }
             }
         }
@@ -160,10 +161,10 @@ internal fun PresetsTab(
                 val pasted = clipboardText(context)
                 importNote =
                     when {
-                        pasted.isNullOrBlank() -> "The clipboard is empty. Copy a shared preset link first."
+                        pasted.isNullOrBlank() -> context.getString(R.string.presets_clipboard_empty)
                         else ->
-                            visualsViewModel.importPresetLink(pasted)?.let { "Added \"$it\" to Mine." }
-                                ?: "The clipboard does not hold a MuzViz preset link."
+                            visualsViewModel.importPresetLink(pasted)?.let { context.getString(R.string.presets_added, it) }
+                                ?: context.getString(R.string.presets_clipboard_not_link)
                     }
             },
             onOpenFile = { presetFilePicker.launch(arrayOf("*/*")) },
@@ -240,7 +241,7 @@ internal fun PresetsTab(
                         }
                     PresetAction.SHARE -> sharePreset(context, visualsViewModel, name)
                     PresetAction.DUPLICATE ->
-                        visualsViewModel.duplicatePreset(name)?.let { importNote = "Made a copy: \"$it\"." }
+                        visualsViewModel.duplicatePreset(name)?.let { importNote = context.getString(R.string.presets_copy_made, it) }
                     PresetAction.RENAME -> dialog = PresetDialog.Rename(name)
                     PresetAction.MOVE -> dialog = PresetDialog.Move(name)
                     PresetAction.REPLACE -> dialog = PresetDialog.Replace(name)
@@ -275,9 +276,9 @@ internal fun PresetsTab(
             )
         is PresetDialog.Rename ->
             NameDialog(
-                title = "Rename preset",
+                title = stringResource(R.string.presets_rename_title),
                 initial = d.name,
-                confirmLabel = "Rename",
+                confirmLabel = stringResource(R.string.action_rename),
                 error = { PresetFiltering.renameError(it, d.name, viz.presets.map { p -> p.name }) },
                 onDismiss = close,
                 onConfirm = { to ->
@@ -299,9 +300,9 @@ internal fun PresetsTab(
             )
         is PresetDialog.Replace ->
             ConfirmDialog(
-                title = "Replace \"${d.name}\"?",
-                text = "It takes the look on the stage now; there is no undo.",
-                confirmLabel = "Replace",
+                title = stringResource(R.string.presets_replace_title, d.name),
+                text = stringResource(R.string.presets_replace_text),
+                confirmLabel = stringResource(R.string.presets_replace),
                 onDismiss = close,
                 onConfirm = {
                     saveCurrent(d.name, presetFolders.folderOf(d.name))
@@ -310,9 +311,9 @@ internal fun PresetsTab(
             )
         is PresetDialog.Delete ->
             ConfirmDialog(
-                title = "Delete \"${d.name}\"?",
-                text = "Removes this preset and its file; there is no undo.",
-                confirmLabel = "Delete",
+                title = stringResource(R.string.presets_delete_title, d.name),
+                text = stringResource(R.string.presets_delete_text),
+                confirmLabel = stringResource(R.string.action_delete),
                 onDismiss = close,
                 onConfirm = {
                     visualsViewModel.deletePreset(d.name)
@@ -321,9 +322,9 @@ internal fun PresetsTab(
             )
         is PresetDialog.NewFolder ->
             NameDialog(
-                title = "New folder",
+                title = stringResource(R.string.presets_new_folder),
                 initial = "",
-                confirmLabel = "Make folder",
+                confirmLabel = stringResource(R.string.presets_make_folder),
                 error = { folderNameError(it, null, folders) },
                 onDismiss = close,
                 onConfirm = { raw ->
@@ -339,9 +340,9 @@ internal fun PresetsTab(
             )
         is PresetDialog.RenameFolder ->
             NameDialog(
-                title = "Rename folder",
+                title = stringResource(R.string.presets_rename_folder),
                 initial = d.name,
-                confirmLabel = "Rename",
+                confirmLabel = stringResource(R.string.action_rename),
                 error = { folderNameError(it, d.name, folders) },
                 onDismiss = close,
                 onConfirm = { raw ->
@@ -424,17 +425,17 @@ internal fun PresetsToolbar(
             Text(stringResource(R.string.presets_save_current_look))
         }
         Box {
-            FilledTonalButton(onClick = { importOpen = true }) { Text("Import") }
+            FilledTonalButton(onClick = { importOpen = true }) { Text(stringResource(R.string.presets_import)) }
             DropdownMenu(expanded = importOpen, onDismissRequest = { importOpen = false }) {
                 DropdownMenuItem(
-                    text = { Text("Paste a shared preset link") },
+                    text = { Text(stringResource(R.string.presets_import_paste)) },
                     onClick = {
                         importOpen = false
                         onPaste()
                     },
                 )
                 DropdownMenuItem(
-                    text = { Text("Open a preset file") },
+                    text = { Text(stringResource(R.string.presets_import_file)) },
                     onClick = {
                         importOpen = false
                         onOpenFile()
@@ -444,12 +445,12 @@ internal fun PresetsToolbar(
         }
         Box {
             IconButton(onClick = { moreOpen = true }) {
-                Icon(Icons.Filled.MoreVert, contentDescription = "More preset options")
+                Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.presets_more_options))
             }
             DropdownMenu(expanded = moreOpen, onDismissRequest = { moreOpen = false }) {
                 if (openFolder != null) {
                     DropdownMenuItem(
-                        text = { Text("Rename this folder") },
+                        text = { Text(stringResource(R.string.presets_rename_this_folder)) },
                         onClick = {
                             moreOpen = false
                             onRenameFolder()
@@ -528,7 +529,7 @@ private fun FolderFilterChip(
         FilterChip(
             selected = open != null,
             onClick = { menuOpen = true },
-            label = { Text(open ?: "Folders", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            label = { Text(open ?: stringResource(R.string.presets_folders), maxLines = 1, overflow = TextOverflow.Ellipsis) },
             leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(18.dp)) },
             trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp)) },
             modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget),
@@ -558,7 +559,7 @@ private fun FolderFilterChip(
                 )
             }
             DropdownMenuItem(
-                text = { Text("New folder") },
+                text = { Text(stringResource(R.string.presets_new_folder)) },
                 leadingIcon = { Icon(Icons.Filled.CreateNewFolder, contentDescription = null) },
                 onClick = {
                     menuOpen = false
@@ -583,24 +584,29 @@ private fun PresetCard(
     val cs = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(GeodeRadius.Medium)
     val styleLabel = sceneDisplayLabel(entry.sceneId)
-    val state = listOfNotNull("Applied".takeIf { applied }, "In the visual playlist".takeIf { inPlaylist })
+    val actionsLabel = stringResource(R.string.presets_actions)
+    val state =
+        listOfNotNull(
+            stringResource(R.string.presets_state_applied).takeIf { applied },
+            stringResource(R.string.presets_state_in_playlist).takeIf { inPlaylist },
+        )
     Column(
         Modifier
             .clip(shape)
             .combinedClickable(
                 role = Role.Button,
                 onClick = onTap,
-                onClickLabel = "Apply",
+                onClickLabel = stringResource(R.string.presets_apply),
                 onLongClick = {
                     view.performStoneHaptic(StoneHapticCue.CONFIRM)
                     onMenu()
                 },
-                onLongClickLabel = ACTIONS_LABEL,
+                onLongClickLabel = actionsLabel,
             ).semantics {
                 if (state.isNotEmpty()) stateDescription = state.joinToString()
                 customActions =
                     listOf(
-                        CustomAccessibilityAction(ACTIONS_LABEL) {
+                        CustomAccessibilityAction(actionsLabel) {
                             onMenu()
                             true
                         },
@@ -689,10 +695,10 @@ private fun EmptyPresets(filter: PresetFilter) {
     val text =
         when (filter) {
             PresetFilter.All, PresetFilter.Mine ->
-                "You have not saved a preset yet. Set up a look you like, then tap Save current look."
-            PresetFilter.ThisStyle -> "No presets for this style yet. Save current look makes the first one."
-            PresetFilter.BuiltIn -> "No built-in presets here."
-            is PresetFilter.Folder -> "This folder is empty. Press and hold a preset, then choose Move to folder."
+                stringResource(R.string.presets_empty_mine)
+            PresetFilter.ThisStyle -> stringResource(R.string.presets_empty_style)
+            PresetFilter.BuiltIn -> stringResource(R.string.presets_empty_built_in)
+            is PresetFilter.Folder -> stringResource(R.string.presets_empty_folder)
         }
     Box(Modifier.fillMaxSize().padding(GeodeSpacing.XL), contentAlignment = Alignment.Center) {
         Text(text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -708,16 +714,16 @@ private fun filterKeyOf(filter: PresetFilter): String =
         is PresetFilter.Folder -> "folder:${filter.name}"
     }
 
+@Composable
 private fun filterLabel(filter: PresetFilter): String =
     when (filter) {
-        PresetFilter.All -> "All"
-        PresetFilter.ThisStyle -> "For this style"
-        PresetFilter.Mine -> "Mine"
-        PresetFilter.BuiltIn -> "Built-in"
+        PresetFilter.All -> stringResource(R.string.presets_filter_all)
+        PresetFilter.ThisStyle -> stringResource(R.string.presets_filter_style)
+        PresetFilter.Mine -> stringResource(R.string.presets_filter_mine)
+        PresetFilter.BuiltIn -> stringResource(R.string.presets_filter_built_in)
         is PresetFilter.Folder -> filter.name
     }
 
 private const val FILTER_ALL = "all"
-private const val ACTIONS_LABEL = "Preset actions"
 private val CARD_MIN_WIDTH = 112.dp
 private const val SCRIM_ALPHA = 0.55f

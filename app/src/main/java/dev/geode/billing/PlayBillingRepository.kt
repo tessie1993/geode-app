@@ -38,7 +38,7 @@ import kotlin.coroutines.resume
 /**
  * [BillingRepository] on the Play Billing Library (PBL 9).
  *
- * Client-only, because the app has no backend and no network permission: every exchange is IPC to
+ * Client-only, because the app has no backend: every exchange is IPC to
  * the Play Store app, which does the networking. That shapes three things here:
  * - Purchases are verified on the device ([PurchaseVerifier]) and acknowledged from the device.
  *   An unacknowledged purchase is refunded by Play after three days, so acknowledgement is retried

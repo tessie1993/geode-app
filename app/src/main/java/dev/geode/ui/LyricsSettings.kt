@@ -28,8 +28,8 @@ import dev.geode.R
  * seeks there), a web search for them, and a way to load an .lrc file for this song. They used to
  * be a panel of the fullscreen live view, which is now for watching.
  *
- * The search hands the query to the browser; the app itself has no network access and stays
- * that way. What the user saves from it comes back through "Load .lrc", which keeps a copy for
+ * The search hands the query to the browser; the app itself fetches nothing from the
+ * internet and stays that way. What the user saves from it comes back through "Load .lrc", which keeps a copy for
  * this track ([LyricsLoader.attach]).
  */
 @Composable

@@ -24,31 +24,32 @@ class CachedEntitlementTest {
 
     @Test
     fun `a verified purchase vouches for Pro with no expiry`() {
-        assertTrue(owned.vouchesForPro(1_000L, keyed))
-        assertTrue(owned.vouchesForPro(1_000L + CachedEntitlement.LEGACY_GRACE_MS * 24, keyed))
-        assertTrue("a clock moved back changes nothing", owned.vouchesForPro(0L, keyed))
+        assertTrue(owned.vouchesForPro(keyed))
+        assertTrue("however long ago Play confirmed it", owned.copy(verifiedAtMs = 0L).vouchesForPro(keyed))
     }
 
     @Test
     fun `the cache is re-verified on read, so a tampered or forged one does not vouch`() {
-        assertFalse(owned.copy(signature = "forged").vouchesForPro(1_000L, keyed))
-        assertFalse(owned.copy(purchaseJson = """{"productId":"other"}""").vouchesForPro(1_000L, keyed))
-        assertFalse(CachedEntitlement.NONE.vouchesForPro(0L, keyless))
-        assertFalse(owned.copy(owned = false).vouchesForPro(1_000L, keyed))
+        assertFalse(owned.copy(signature = "forged").vouchesForPro(keyed))
+        assertFalse(owned.copy(purchaseJson = """{"productId":"other"}""").vouchesForPro(keyed))
+        assertFalse(CachedEntitlement.NONE.vouchesForPro(keyless))
+        assertFalse(owned.copy(owned = false).vouchesForPro(keyed))
     }
 
     @Test
     fun `with no key in the build the cache is trusted, as the live check is`() {
-        assertTrue(CachedEntitlement(owned = true, verifiedAtMs = 0L).vouchesForPro(Long.MAX_VALUE, keyless))
+        assertTrue(CachedEntitlement(owned = true, verifiedAtMs = 0L).vouchesForPro(keyless))
     }
 
     @Test
-    fun `a cache from before the purchase was stored keeps the old month, then needs Play`() {
-        val legacy = CachedEntitlement(owned = true, verifiedAtMs = 10_000L)
-        assertTrue(legacy.vouchesForPro(10_000L, keyed))
-        assertTrue(legacy.vouchesForPro(10_000L + CachedEntitlement.LEGACY_GRACE_MS - 1, keyed))
-        assertFalse(legacy.vouchesForPro(10_000L + CachedEntitlement.LEGACY_GRACE_MS, keyed))
-        assertTrue("a clock moved back reads as just confirmed", legacy.vouchesForPro(0L, keyed))
+    fun `owned without the signed purchase is not Pro, however recent its date`() {
+        assertFalse(CachedEntitlement(owned = true, verifiedAtMs = 10_000L).vouchesForPro(keyed))
+        assertFalse(CachedEntitlement(owned = true, verifiedAtMs = 10_000L, signature = purchase.signature).vouchesForPro(keyed))
+    }
+
+    @Test
+    fun `a date in the future does not make an unsigned cache Pro`() {
+        assertFalse(CachedEntitlement(owned = true, verifiedAtMs = Long.MAX_VALUE).vouchesForPro(keyed))
     }
 
     @Test
@@ -68,17 +69,18 @@ class CachedEntitlementTest {
         val after = owned.after(PlayAnswer.FullList(genuine = null), 99_000L)
         assertFalse(after.owned)
         assertEquals(99_000L, after.verifiedAtMs)
-        assertFalse(after.vouchesForPro(99_000L, keyless))
+        assertFalse(after.vouchesForPro(keyless))
     }
 
     @Test
     fun `a genuine purchase is stored with its signature, so it can be re-verified offline`() {
         val fromList = CachedEntitlement.NONE.after(PlayAnswer.FullList(purchase), 5_000L)
         assertEquals(CachedEntitlement(owned = true, verifiedAtMs = 5_000L, purchase.json, purchase.signature), fromList)
-        assertTrue(fromList.vouchesForPro(Long.MAX_VALUE, keyed))
+        assertTrue(fromList.vouchesForPro(keyed))
 
         val legacy = CachedEntitlement(owned = true, verifiedAtMs = 10_000L)
+        assertFalse(legacy.vouchesForPro(keyed))
         val upgraded = legacy.after(PlayAnswer.Update(purchase), 20_000L)
-        assertTrue("past the legacy month, the stored purchase carries it", upgraded.vouchesForPro(Long.MAX_VALUE, keyed))
+        assertTrue("Play's answer brings the purchase the old cache lacked", upgraded.vouchesForPro(keyed))
     }
 }

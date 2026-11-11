@@ -126,10 +126,9 @@ internal fun ReactionsSection(
     val sceneId = LocalSceneId.current
     ControlHint(
         if (reactions == null) {
-            "Each style comes with its own reactions: which sounds push the camera, change the colour, reshape, spin or " +
-                "grow it. Shuffle for a new set; edit any one to make the list yours."
+            stringResource(R.string.customize_reactions_hint_style)
         } else {
-            "Your own reactions, used on every style. \"Use the style's own reactions\" lets each style choose again."
+            stringResource(R.string.customize_reactions_hint_own)
         },
     )
     // What plays: with moments set on Customize › Music, the user's routes there and the live DNA elsewhere
@@ -144,12 +143,14 @@ internal fun ReactionsSection(
         action()
     }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
-        FilledTonalButton(onClick = { tap(onReroll) }) { Text("Shuffle reactions") }
+        FilledTonalButton(onClick = { tap(onReroll) }) { Text(stringResource(R.string.customize_reactions_shuffle)) }
         if (reactions != null) {
-            FilledTonalButton(onClick = { tap { onReactionsChange(null) } }) { Text("Use the style's own reactions") }
+            FilledTonalButton(onClick = { tap { onReactionsChange(null) } }) {
+                Text(stringResource(R.string.customize_reactions_use_style))
+            }
         }
         if (routes.size < ReactionRoute.MAX_ROUTES) {
-            FilledTonalButton(onClick = { tap { onReactionsChange(routes + NEW_REACTION) } }) { Text("Add") }
+            FilledTonalButton(onClick = { tap { onReactionsChange(routes + NEW_REACTION) } }) { Text(stringResource(R.string.action_add)) }
         }
     }
     routes.forEachIndexed { i, route ->
@@ -193,8 +194,12 @@ private fun ReactionCard(
         }
         if (expanded) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(onClick = { picking = ReactionPick.SOURCE }) { Text("Sound: ${route.source.label}") }
-                TextButton(onClick = { picking = ReactionPick.TARGET }) { Text("Moves: ${route.target.label}") }
+                TextButton(onClick = { picking = ReactionPick.SOURCE }) {
+                    Text(stringResource(R.string.customize_reaction_sound, route.source.label))
+                }
+                TextButton(onClick = { picking = ReactionPick.TARGET }) {
+                    Text(stringResource(R.string.customize_moves, route.target.label))
+                }
             }
             DropdownRow("Mode", ReactMode.entries.map { it.label }, ReactMode.entries.indexOf(route.mode)) {
                 onChange(route.copy(mode = ReactMode.entries[it]))
@@ -211,13 +216,15 @@ private fun ReactionCard(
             DropdownRow("Curve", ModCurve.entries.map { it.label }, ModCurve.entries.indexOf(route.curve)) {
                 onChange(route.copy(curve = ModCurve.entries[it]))
             }
-            TextButton(onClick = onRemove) { Text("Remove") }
+            TextButton(onClick = onRemove) { Text(stringResource(R.string.action_remove)) }
         }
     }
     picking?.let { which ->
         AlertDialog(
             onDismissRequest = { picking = null },
-            title = { Text(if (which == ReactionPick.SOURCE) "Which sound" else "What it moves") },
+            title = {
+                Text(stringResource(if (which == ReactionPick.SOURCE) R.string.customize_pick_sound else R.string.customize_pick_target))
+            },
             text = {
                 Column(modifier = Modifier.height(360.dp).verticalScroll(rememberScrollState())) {
                     if (which == ReactionPick.SOURCE) {
@@ -250,7 +257,7 @@ private fun ReactionCard(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { picking = null }) { Text("Close") } },
+            confirmButton = { TextButton(onClick = { picking = null }) { Text(stringResource(R.string.action_close)) } },
         )
     }
 }
@@ -265,11 +272,15 @@ internal fun ModulatorCard(
     val sceneId = LocalSceneId.current
     Column(modifier = Modifier.padding(vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Wave ${index + 1}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            Text(
+                stringResource(R.string.customize_wave_n, index + 1),
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
             Switch(checked = config.enabled, onCheckedChange = { onChange(config.copy(enabled = it)) })
         }
         if (config.enabled) {
-            TextButton(onClick = { showTargetPicker = true }) { Text("Moves: ${config.target.label}") }
+            TextButton(onClick = { showTargetPicker = true }) { Text(stringResource(R.string.customize_moves, config.target.label)) }
             if (config.target != LfoTarget.NONE && !ModTable.offeredTo(config.target, sceneId, index)) {
                 ControlHint("${config.target.label} does nothing on this style - pick another.")
             }
@@ -299,7 +310,7 @@ internal fun ModulatorCard(
     if (showTargetPicker) {
         AlertDialog(
             onDismissRequest = { showTargetPicker = false },
-            title = { Text("What wave ${index + 1} moves") },
+            title = { Text(stringResource(R.string.customize_wave_moves, index + 1)) },
             text = {
                 Column(modifier = Modifier.height(360.dp).verticalScroll(rememberScrollState())) {
                     LfoTarget.entries.forEach { t ->
@@ -313,7 +324,7 @@ internal fun ModulatorCard(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showTargetPicker = false }) { Text("Close") } },
+            confirmButton = { TextButton(onClick = { showTargetPicker = false }) { Text(stringResource(R.string.action_close)) } },
         )
     }
 }
@@ -335,7 +346,7 @@ private fun RateSecondsSlider(
     val shown = ParamFormat.format(seconds, ParamUnit.SECONDS)
     val cycleLabel = stringResource(R.string.customize_a11y_one_cycle)
     Column(Modifier.padding(vertical = 2.dp)) {
-        Text("One cycle · $shown", style = MaterialTheme.typography.bodyMedium)
+        Text(stringResource(R.string.customize_one_cycle_value, shown), style = MaterialTheme.typography.bodyMedium)
         Slider(
             value = t,
             onValueChange = { onChange(lo * (hi / lo).pow(it)) },
@@ -378,16 +389,15 @@ internal fun AdsrCard(
                 onChange(config.copy(targets = if (t in config.targets) config.targets - t else config.targets + t))
             }
         }
-        CardSubHeader("Shape")
+        CardSubHeader(stringResource(R.string.customize_envelope_shape))
         LabeledSlider(ENV_ATTACK, config.attack, 0.005f..1f, unit = ParamUnit.SECONDS) { onChange(config.copy(attack = it)) }
         LabeledSlider(ENV_DECAY, config.decay, 0.01f..1.5f, unit = ParamUnit.SECONDS) { onChange(config.copy(decay = it)) }
         LabeledSlider(ENV_SUSTAIN, config.sustain, 0f..1f) { onChange(config.copy(sustain = it)) }
         LabeledSlider(ENV_RELEASE, config.release, 0.02f..2f, unit = ParamUnit.SECONDS) { onChange(config.copy(release = it)) }
         LabeledSlider(ENV_AMOUNT, config.amount, 0f..1.5f, unit = ParamUnit.PERCENT) { onChange(config.copy(amount = it)) }
-        CardSubHeader("Hold while loud")
+        CardSubHeader(stringResource(R.string.customize_envelope_hold))
         ControlHint(
-            "The envelope holds while the chosen sound stays above the level and lets go when it drops, so the same hit " +
-                "opens a long swell in a loud chorus and a short blip in a quiet verse.",
+            stringResource(R.string.customize_envelope_hold_hint),
         )
         DropdownRow(ENV_GATE_SOURCE, EnvBand.entries.map { it.label }, EnvBand.entries.indexOf(config.band), lockKey = ENV_GATE_SOURCE) {
             onChange(config.copy(band = EnvBand.entries[it]))
@@ -405,8 +415,7 @@ internal fun LayersPage() {
     val layerScenes by LayersBus.availableScenes.collectAsStateWithLifecycle()
     val activeScene by LayersBus.activeSceneId.collectAsStateWithLifecycle()
     ControlHint(
-        "Draws a second style every frame and blends it under the active one. A whole extra scene, so it costs " +
-            "smoothness. Screen only: a video export carries the active style alone.",
+        stringResource(R.string.customize_layers_hint),
     )
     CheckRow(LAYERS_ENABLED, layers.enabled, scope = ParamScope.UNIVERSAL) { on ->
         val scene = layers.sceneId ?: layerScenes.firstOrNull { it != activeScene }
@@ -416,7 +425,8 @@ internal fun LayersPage() {
     var showLayerPicker by remember { mutableStateOf(false) }
     Box {
         TextButton(onClick = { showLayerPicker = true }) {
-            Text("Layer style: ${layers.sceneId?.let { sceneDisplayLabel(it) } ?: "none"}")
+            val layerStyle = layers.sceneId?.let { sceneDisplayLabel(it) } ?: stringResource(R.string.customize_layer_none)
+            Text(stringResource(R.string.customize_layer_style, layerStyle))
         }
         DropdownMenu(expanded = showLayerPicker, onDismissRequest = { showLayerPicker = false }) {
             layerScenes.filter { it != activeScene }.forEach { id ->
@@ -431,7 +441,7 @@ internal fun LayersPage() {
         }
     }
     if (layers.sceneId != null && layers.sceneId == activeScene) {
-        ControlHint("That style is now the active one, so the layer is idle - pick another.")
+        ControlHint(stringResource(R.string.customize_layer_idle_hint))
     }
     val blendNames = BlendMode.entries.map { mode -> mode.name.lowercase().replaceFirstChar { it.uppercase() } }
     DropdownRow("Blend", blendNames, BlendMode.entries.indexOf(layers.blend)) {
@@ -523,7 +533,7 @@ internal fun TransitionPicker(
         onValueChange = { query = it },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
-        label = { Text("Search transitions") },
+        label = { Text(stringResource(R.string.customize_search_transitions)) },
     )
     val shown = remember(query, library) { if (query.isBlank()) library else library.filter { it.name.contains(query, ignoreCase = true) } }
     val names = shown.take(TRANSITION_CHIP_LIMIT).map { it.name }
@@ -533,14 +543,17 @@ internal fun TransitionPicker(
         names.indexOf(transitionId),
         placeholder = stringResource(R.string.transition_library_pick, shown.size),
     ) { onTransitionId(names[it]) }
-    if (shown.size > TRANSITION_CHIP_LIMIT) ControlHint("${shown.size - TRANSITION_CHIP_LIMIT} more - narrow the search to reach them.")
+    if (shown.size > TRANSITION_CHIP_LIMIT) {
+        ControlHint(stringResource(R.string.customize_transitions_more, shown.size - TRANSITION_CHIP_LIMIT))
+    }
 }
 
 /** The hot-phone line for the renderer's liquid mode (0 off, 1 full, 2 lite, 3 warp, 4 paused), or null. */
+@Composable
 internal fun liquidHotNote(liquidMode: Int): String? =
     when (liquidMode) {
-        2, 3 -> "Liquid simplified: phone is hot"
-        4 -> "Liquid paused: phone is hot"
+        2, 3 -> stringResource(R.string.customize_liquid_hot_simplified)
+        4 -> stringResource(R.string.customize_liquid_hot_paused)
         else -> null
     }
 
@@ -560,10 +573,9 @@ internal fun ShaderCodePage(host: AdvancedHost) {
         var source by rememberSaveable(viz.sceneId, stateSaver = ShaderDraftSaver) {
             mutableStateOf(host.visualizerView.visualizerRenderer.customShaderFor(viz.sceneId) ?: "")
         }
-        SectionHeader("This style's shader")
+        SectionHeader(stringResource(R.string.customize_shader_title))
         ControlHint(
-            "The fragment shader for this style: view(), pal(), grade() and the sound uniforms are available. With the " +
-                "flow field on, declare `uniform sampler2D uFlow` and `uniform float uFlowStrength` to bend by it.",
+            stringResource(R.string.customize_shader_hint),
         )
         OutlinedTextField(
             value = source,
@@ -577,8 +589,10 @@ internal fun ShaderCodePage(host: AdvancedHost) {
             Button(onClick = {
                 sounds.play(UiSound.CONFIRM)
                 host.viewModel.applyCustomShader(source)
-            }) { Text("Apply shader") }
-            TextButton(onClick = { source = host.visualizerView.visualizerRenderer.customShaderFor(viz.sceneId) ?: "" }) { Text("Revert") }
+            }) { Text(stringResource(R.string.customize_shader_apply)) }
+            TextButton(onClick = { source = host.visualizerView.visualizerRenderer.customShaderFor(viz.sceneId) ?: "" }) {
+                Text(stringResource(R.string.customize_shader_revert))
+            }
         }
     }
     if (SceneCapabilities.isFluid(viz.sceneId)) {
@@ -593,11 +607,9 @@ private fun InjectionShaderEditors(
     injectionError: String?,
     onApplyInjectionShaders: (String?, String?) -> Unit,
 ) {
-    SectionHeader("Custom fluid shaders")
+    SectionHeader(stringResource(R.string.customize_fluid_shaders_title))
     ControlHint(
-        "Replace how the fluid is pushed (force) and coloured (dye). Both start from the built-in splat (uMode 0 = " +
-            "push, 1 = colour); a failed compile keeps the last good one. Extra uniforms: uDt, uDx, uTime, uBass, " +
-            "uMid, uTreble, uEnergy, uBeat. Clear the text to go back to the built-in.",
+        stringResource(R.string.customize_fluid_shaders_hint),
     )
     val ctx = LocalContext.current
     // The asset read is disk I/O, so it runs on IO and the editors wait for it (no empty-editor flash).
@@ -613,7 +625,7 @@ private fun InjectionShaderEditors(
     var forceSrc by remember(builtIn) { mutableStateOf(builtIn) }
     var dyeSrc by remember(builtIn) { mutableStateOf(builtIn) }
     var editorsUsed by remember { mutableStateOf(false) }
-    Text("Force shader", style = MaterialTheme.typography.bodyMedium)
+    Text(stringResource(R.string.customize_fluid_force_shader), style = MaterialTheme.typography.bodyMedium)
     OutlinedTextField(
         value = forceSrc,
         onValueChange = {
@@ -623,7 +635,7 @@ private fun InjectionShaderEditors(
         modifier = Modifier.fillMaxWidth().height(180.dp),
         textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
     )
-    Text("Dye shader", style = MaterialTheme.typography.bodyMedium)
+    Text(stringResource(R.string.customize_fluid_dye_shader), style = MaterialTheme.typography.bodyMedium)
     OutlinedTextField(
         value = dyeSrc,
         onValueChange = {
@@ -641,12 +653,12 @@ private fun InjectionShaderEditors(
             val f = forceSrc.takeIf { editorsUsed && it.isNotBlank() && it != builtIn }
             val d = dyeSrc.takeIf { editorsUsed && it.isNotBlank() && it != builtIn }
             onApplyInjectionShaders(f, d)
-        }) { Text("Apply shaders") }
+        }) { Text(stringResource(R.string.customize_fluid_shaders_apply)) }
         TextButton(onClick = {
             forceSrc = builtIn
             dyeSrc = builtIn
             onApplyInjectionShaders(null, null)
-        }) { Text("Back to built-in") }
+        }) { Text(stringResource(R.string.customize_fluid_shaders_builtin)) }
     }
 }
 

@@ -48,7 +48,7 @@ extern "C" {
 geode_pcm_ring* geode_pcm_ring_create(int capacity_frames, int channels, int max_write_frames) {
     if (!PcmRing::valid(capacity_frames, channels, max_write_frames)) return nullptr;
     try {
-        return new geode_pcm_ring{std::make_shared<PcmRing>(capacity_frames, channels, max_write_frames)};
+        return new geode_pcm_ring{std::make_shared<PcmRing>(capacity_frames, channels, max_write_frames), nullptr};
     } catch (...) {
         return nullptr;
     }
@@ -83,6 +83,14 @@ void geode_pcm_ring_set_layer(geode_pcm_ring* r, const geode_pcm_ring* layer) {
 
 void geode_pcm_ring_begin_epoch(geode_pcm_ring* r) {
     if (r) r->ring->beginEpoch();
+}
+
+int64_t geode_pcm_ring_head(const geode_pcm_ring* r) {
+    return r ? r->ring->headFrames() : 0;
+}
+
+void geode_pcm_ring_set_playout(geode_pcm_ring* r, const geode_playout* clock) {
+    if (r) r->playout.store(clock, std::memory_order_release);
 }
 
 int64_t geode_pcm_ring_written(const geode_pcm_ring* r) {

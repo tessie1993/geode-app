@@ -9,6 +9,7 @@ import dev.geode.editor.ProjectId
 import dev.geode.editor.StudioProject
 import dev.geode.editor.TakeSpan
 import dev.geode.editor.TrackRef
+import dev.geode.engine.bridge.GeodeNative
 import java.util.UUID
 
 /**
@@ -33,7 +34,8 @@ data class TakeInfo(
  *
  * Saving a take creates its project folder ([StudioProject.fromTake]): the song on an audio lane and
  * the take as a visual clip on track time, the take's events in `takes/<takeId>.json`, and the
- * export settings copied from Settings › Export's [ExportDestination.CUSTOM] defaults. Listing,
+ * export settings copied from the [ExportDestination.CUSTOM] defaults, with the resolution and
+ * frame rate of Settings › Export › Record ([RecordPrefsStore]) over them. Listing,
  * loading, renaming and deleting a take act on that project, so a take and its project can never
  * drift apart. A take's name is its project's name and is kept unique among projects.
  *
@@ -44,8 +46,16 @@ class TakeStore(
     private val projects: EditorProjectStore,
     /** Where takes render to, asked once (part 2D); null where nothing renders (tests). */
     private val saveTargets: RecordSaveStore? = null,
+    /** Settings › Export › Record's choices; null where takes keep the Custom defaults (tests). */
+    private val recordPrefs: RecordPrefsStore? = null,
+    /** A take's saved length under a maximum (native, `core/output/RecordPlan`). */
+    private val clampLength: (lengthMs: Long, maxSec: Int) -> Long = { ms, max -> GeodeNative.recordClampLengthMs(ms, max) },
 ) {
-    constructor(context: Context) : this(EditorProjectStore(context), RecordSaveStore(context))
+    constructor(context: Context) : this(
+        EditorProjectStore(context),
+        RecordSaveStore(context),
+        RecordPrefsStore(GeodePrefsFiles(context).general),
+    )
 
     private val ids = IdSource { UUID.randomUUID().toString() }
 
@@ -99,14 +109,19 @@ class TakeStore(
         }
         val take = PerformanceTake.Timeline(json)
         val takeId = UUID.randomUUID().toString()
+        val custom = projects.defaultsFor(ExportDestination.CUSTOM)
+        val record = recordPrefs?.load(custom)
+        // The recorder looks at the clock once a second, so a take stopped by the maximum length ran
+        // a little past it; the clip ends on the maximum (native), the events past it are not drawn.
+        val lengthMs = record?.let { clampLength(take.durationMs, it.maxLengthSec) } ?: take.durationMs
         val project =
             StudioProject.fromTake(
                 id = projects.newId(),
                 name = candidate,
-                take = TakeSpan(takeId, take.firstSceneId, take.trackOffsetMs, take.durationMs),
+                take = TakeSpan(takeId, take.firstSceneId, take.trackOffsetMs, lengthMs),
                 track = take.trackUri?.let { TrackRef(uri = it) },
                 destination = ExportDestination.CUSTOM,
-                defaults = projects.defaultsFor(ExportDestination.CUSTOM),
+                defaults = record?.applyTo(custom) ?: custom,
                 nowMs = projects.clock(),
                 ids = ids,
             )

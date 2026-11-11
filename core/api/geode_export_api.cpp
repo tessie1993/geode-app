@@ -132,7 +132,6 @@ void geode_export_frame_size(int short_side, int w_ratio, int h_ratio, int* out_
     if (out_h) *out_h = size.height;
 }
 
-int geode_export_fallback_fps(int requested_fps) { return out::encode::fallbackFps(requested_fps); }
 int geode_export_clamp_fps(int requested_fps) { return out::encode::clampFps(requested_fps); }
 
 int geode_chapters_from_clips(const int64_t* starts_ms, const int64_t* durations_ms, int count, int64_t* out_start_ms,

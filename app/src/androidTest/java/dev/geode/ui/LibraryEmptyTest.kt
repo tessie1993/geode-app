@@ -54,16 +54,4 @@ class LibraryEmptyTest {
         assertEquals(1, mics)
         assertEquals(0, apps)
     }
-
-    @Test
-    fun withoutAppCaptureListeningGoesStraightToTheMic() {
-        var mics = 0
-        compose.setContent {
-            MaterialTheme {
-                LibraryEmpty(onRescan = {}, onChooseFolder = {}, onListenToApp = null, onListenToMic = { mics++ })
-            }
-        }
-        compose.onNodeWithText(text(R.string.library_empty_listen)).performClick()
-        assertEquals(1, mics)
-    }
 }

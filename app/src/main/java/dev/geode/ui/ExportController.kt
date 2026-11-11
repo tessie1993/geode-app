@@ -2,7 +2,6 @@ package dev.geode.ui
 
 import android.app.Application
 import android.net.Uri
-import android.os.Build
 import android.provider.DocumentsContract
 import android.widget.Toast
 import androidx.core.net.toUri
@@ -47,7 +46,6 @@ import dev.geode.export.MixClip
 import dev.geode.export.ProjectComposition
 import dev.geode.export.ProjectComposition.SceneSegment
 import dev.geode.export.RenderBatch
-import dev.geode.export.RenderScope
 import dev.geode.export.StudioExporter
 import dev.geode.export.TimeOfDayDrift
 import dev.geode.export.VideoExporter
@@ -347,13 +345,6 @@ internal class ExportController(
         watermark: Boolean,
     ) {
         if (tracks.isEmpty() || _exportState.value.phase.isBusy || ExportRun.running) return
-        // The scope picker hides batches below Android 10; this catches any other way in, since
-        // there every track would fail at the MediaStore insert (RenderScope.BATCH_MIN_SDK).
-        if (!RenderScope.batchSupported(Build.VERSION.SDK_INT)) {
-            _exportState.value =
-                ExportUiState(phase = ExportPhase.Failed(application.getString(dev.geode.R.string.render_batch_needs_q)))
-            return
-        }
         exportCancelled = false
         var batch = RenderBatch(tracks)
         _exportState.value = ExportUiState(phase = ExportPhase.Running(0f), batch = batch)

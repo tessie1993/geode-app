@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.Flow
 /**
  * The one-hour Pro trial: once per install, wall clock, kept on the device.
  *
- * The app has no network, so there is no server to hold the trial; a reinstall or a cleared app
+ * The app has no backend, so there is no server to hold the trial; a reinstall or a cleared app
  * gets a fresh one. That is accepted — the trial is a taste of Pro, not a licence.
  */
 interface TrialRepository {

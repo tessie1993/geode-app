@@ -114,13 +114,5 @@ data class MarkerSet(
         withinMs: Long = Long.MAX_VALUE,
     ): Marker? = markers.minByOrNull { abs(it.atMs - atMs) }?.takeIf { abs(it.atMs - atMs) <= withinMs }
 
-    /** Follow a ripple edit so the marks stay on the music they were put against. */
-    fun rippled(shift: RippleShift): MarkerSet =
-        ordered(
-            markers.map {
-                if (it.atMs >= shift.fromMs) it.copy(atMs = (it.atMs + shift.deltaMs).coerceAtLeast(0L)) else it
-            },
-        )
-
     private fun ordered(next: List<Marker>): MarkerSet = copy(markers = next.sortedBy { it.atMs })
 }

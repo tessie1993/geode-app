@@ -10,7 +10,6 @@ import android.opengl.GLES20
 import android.os.SystemClock
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.services.storage.TestStorage
 import dev.geode.engine.audio.SoundTuning
@@ -69,10 +68,8 @@ import kotlin.math.abs
  * folder while the test runs, so the thumbnails already written survive such a crash.
  *
  * MilkDrop is skipped: its picture is whichever preset is loaded, so the picker uses its own art.
- * API 30 and up only, for `Bitmap.CompressFormat.WEBP_LOSSY`; the CI emulator is API 30.
  */
 @RunWith(AndroidJUnit4::class)
-@SdkSuppress(minSdkVersion = 30)
 class StyleThumbnailRenderTest {
     private val args = InstrumentationRegistry.getArguments()
     private lateinit var display: EGLDisplay

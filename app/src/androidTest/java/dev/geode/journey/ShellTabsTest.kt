@@ -1,7 +1,6 @@
 package dev.geode.journey
 
 import android.Manifest
-import android.os.Build
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -28,14 +27,7 @@ class ShellTabsTest {
      * it otherwise, and the system dialog is another app's window that no Compose finder sees.
      */
     @get:Rule
-    val music: GrantPermissionRule =
-        GrantPermissionRule.grant(
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                Manifest.permission.READ_MEDIA_AUDIO
-            } else {
-                Manifest.permission.READ_EXTERNAL_STORAGE
-            },
-        )
+    val music: GrantPermissionRule = GrantPermissionRule.grant(Manifest.permission.READ_MEDIA_AUDIO)
 
     @Test
     fun everyTabOpens() {

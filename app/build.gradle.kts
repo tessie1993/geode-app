@@ -63,8 +63,8 @@ android {
         testInstrumentationRunnerArguments["clearPackageData"] = "true"
 
         // The public half of the Play licence key (Play Console > Monetization setup > Licensing),
-        // used to check purchase signatures on the device. Public, not a secret; empty skips the
-        // check. Supplied as the muzviz.playLicenseKey property or PLAY_LICENSE_KEY env variable.
+        // used to check purchase signatures on the device. Public, not a secret; with it empty
+        // every real purchase is refused (only fake billing passes). Supplied as the muzviz.playLicenseKey property or PLAY_LICENSE_KEY env variable.
         val playLicenseKey =
             (findProperty("muzviz.playLicenseKey") as String?)
                 ?: System.getenv("PLAY_LICENSE_KEY").orEmpty()

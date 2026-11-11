@@ -38,7 +38,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the studio lights' slow turn. Complexity (uMorph)
+// Speed scales the studio lights' slow turn. Complexity (uMorph)
 // adds up to two fractal iterations (bulbIters). Chaos (uWarp, uTurbulence,
 // uTwist) warps the metal (bulbChaos, estimate divided by bulbChaosLip), and
 // turbulence jitters the azimuth phase. Energy (uIntensity) scales the mid

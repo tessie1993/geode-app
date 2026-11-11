@@ -17,13 +17,9 @@ namespace safety {
 
 constexpr float kWcagFlashesPerSecond = 3.0f;
 constexpr float kMaxFlashDepth = 0.25f;
-constexpr float kStrobeShaderDepth = 0.85f;
-constexpr float kFlashShaderDepth = 0.6f;
 constexpr float kReducedMotionScale = 0.4f;
 
 SceneParams apply(const SceneParams& p, bool reducedMotion = false);
-inline float flashImpulse(float flash, float beatImpulse) { return flash * beatImpulse * kFlashShaderDepth; }
-inline float strobeHz() { return kWcagFlashesPerSecond; }
 float limitLfoRate(float rateHz, LfoTarget target);
 TransitionStyle transitionStyle(TransitionStyle requested);
 std::string transitionId(const std::string& requested);

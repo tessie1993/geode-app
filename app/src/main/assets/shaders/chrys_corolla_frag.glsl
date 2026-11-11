@@ -42,7 +42,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the head's own spin and the hue clock. Complexity:
+// Speed scales the head's own spin and the hue clock. Complexity:
 // uMorph adds a fourth, innermost ring (high-quality path only; the march
 // ceiling is unchanged). Chaos: uTurbulence + uWarp give each petal its own
 // length and lift, a shaggy, wind-tossed head; uTwist swirls the rings into

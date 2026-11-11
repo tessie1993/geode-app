@@ -41,7 +41,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the web's slow undulation and the twinkle (the flight
+// Speed scales the web's slow undulation and the twinkle (the flight
 // is the rig's). Complexity: uMorph adds a second clumping octave
 // (nebVolOctaves). Chaos: uWarp/uTurbulence bend the web through nebWarp3;
 // uTwist via view(). Colour: filaments and knots from pal(). Energy:

@@ -28,7 +28,7 @@
 // attack/release (uEnergyRel/uBassRel/uMidRel/uTrebRel), spectral brightness
 // and harmonicity (uMotionBright/uHarmony), a chroma-derived key hue
 // (uKeyHue/uKeyStrength), tempo phase as smooth phase-locked oscillators
-// gated by confidence (uBeatOsc/uBarOsc), and slow re-targeting from novelty
+// gated by confidence (uBarOsc), and slow re-targeting from novelty
 // and section boundaries that eases over seconds (uOrbit/uDrift/uBreath). See
 // core/viz/MotionField.hpp for the derivation of every uniform below.
 
@@ -58,9 +58,7 @@ uniform float uKeyStrength;
 
 // ---- wave three: tempo phase, gated by confidence --------------------------
 
-/** 0.5 + 0.5*sin(2*pi*beatPhase) scaled by rhythmLock (pulseConfidence*tempoStability, slewed 1s); 0.5 when unlocked. */
-uniform float uBeatOsc;
-/** Same construction as uBeatOsc, from the bar phase instead of the beat phase. */
+/** 0.5 + 0.5*sin(2*pi*barPhase) scaled by rhythmLock (slewed 1s); 0.5 when unlocked. */
 uniform float uBarOsc;
 /** A slow wander point, -1..1; re-targeted (not stepped) on a novelty rise or a section boundary and eased over 3.0s. */
 uniform vec2 uOrbit;
@@ -72,8 +70,6 @@ uniform vec2 uOrbit;
 uniform float uDrift;
 /** A slow, low-amplitude scale wobble around 1.0, 0.9..1.1, riding uBassRel and uBarOsc. */
 uniform float uBreath;
-/** The Reactivity tab's Motion amount dial (SceneParams.motionAmount), 0..1, verbatim. */
-uniform float uMotion;
 
 /**
  * A monotonically advancing travel phase in seconds. Loudness sets the RATE
@@ -86,16 +82,16 @@ uniform float uFlowPhase;
 /**
  * uFlowPhase at Speed's rate: ShaderScene integrates the same flow rate times
  * Speed (core/viz/SpeedClock.hpp), so it equals uFlowPhase at Speed 1. Read
- * this, never uFlowPhase * uSpeed: an accumulated phase times the live dial
+ * this, never uFlowPhase times Speed: an accumulated phase times the live dial
  * jumps by phase * delta-speed whenever Speed moves (tools/check_shaders.py
- * fails the build on it, as it does on uTime * uSpeed).
+ * fails the build on it).
  */
 uniform float uFlowTime;
 
 /**
  * The sound engine's bass, mid and treble clocks (SND_BASS_TIME, SND_MID_TIME,
  * SND_TREBLE_TIME) at Speed's rate, the same way: their per-frame advance
- * times Speed, integrated. Read this, never SND_*_TIME * uSpeed.
+ * times Speed, integrated. Read this, never SND_*_TIME times Speed.
  */
 uniform vec3 uSoundTimeSped;
 
@@ -105,13 +101,6 @@ uniform vec3 uSoundTimeSped;
 // writes these any more; ShaderScene uploads the neutral constant every
 // frame so a style that has not yet been migrated (R02-R07) still compiles
 // and draws exactly the picture it did with a silent, un-spiking input.
-
-/**
- * The transient envelope. Held at 0: nothing rises on a hit any more, so
- * anything still reading it (fluidWarp's eddy widening below) sees a track
- * that is always exactly as loud as SND_INTENSITY says, never momentarily louder.
- */
-uniform float uSpike;
 
 /**
  * Unit vector, the current direction of travel. Held at (1, 0): nothing turns
@@ -197,11 +186,10 @@ vec2 curlVelocity(vec2 p, float scale) {
 }
 
 /**
- * Advects `p` through the curl field. `amount` in style units; a hit widens
- * the eddies through uSpike rather than displacing anything instantly.
+ * Advects `p` through the curl field. `amount` in style units.
  */
 vec2 fluidWarp(vec2 p, float scale, float amount) {
-    return p + curlVelocity(p, scale) * amount * (0.7 + 0.5 * SND_INTENSITY + 0.3 * uSpike);
+    return p + curlVelocity(p, scale) * amount * (0.7 + 0.5 * SND_INTENSITY);
 }
 
 /**

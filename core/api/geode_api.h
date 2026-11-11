@@ -102,7 +102,7 @@ GEODE_API int         geode_style_reactions(const char* style_id, int seed, floa
    geode_hand_set is process-wide like geode_director_set: every renderer's director keeps off those moments.
    has_user 0 (no list of the user's: the DNA plays) makes the mask count as 0, whatever its bits. */
 #define GEODE_MUSIC_MOMENTS 10
-#define GEODE_MUSIC_ACTIONS 7
+#define GEODE_MUSIC_ACTIONS 6
 #define GEODE_HAND_UNCLAIMED 0x40000000u
 #define GEODE_HAND_ALL 0x400003FFu
 #define GEODE_MUSIC_STATE_FLOATS 5  /* per moment: mine, route count, strength, on-action bits, fits-action bits */

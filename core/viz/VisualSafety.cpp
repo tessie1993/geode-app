@@ -23,21 +23,17 @@ namespace safety {
 
 SceneParams apply(const SceneParams& p, bool reducedMotion) {
     SceneParams out = p;
-    out.strobe = std::clamp(p.strobe, 0.0f, kMaxFlashDepth / kStrobeShaderDepth);
-    out.flash = std::clamp(p.flash, 0.0f, kMaxFlashDepth / kFlashShaderDepth);
     out.bloom = std::min(p.bloom, kMaxFlashDepth);
     out.brightness = std::clamp(p.brightness, 0.0f, 1.0f + kMaxFlashDepth);
     out.intensity = std::clamp(p.intensity, 0.0f, 1.0f + kMaxFlashDepth);
     out.contrast = std::clamp(p.contrast, 0.0f, 1.0f + kMaxFlashDepth);
     if (reducedMotion) {
         out.speed *= kReducedMotionScale;
-        out.shake *= kReducedMotionScale;
         out.sway *= kReducedMotionScale;
         out.driftX *= kReducedMotionScale;
         out.driftY *= kReducedMotionScale;
         out.rotation *= kReducedMotionScale;
         out.turbulence *= kReducedMotionScale;
-        out.pulse *= kReducedMotionScale;
         out.cycleSpeed *= kReducedMotionScale;
         // The two forward speeds, the fly-through and the dive, are scaled here and only here:
         // CameraRig and the dive stage take them as they arrive, so the one scale reaches every

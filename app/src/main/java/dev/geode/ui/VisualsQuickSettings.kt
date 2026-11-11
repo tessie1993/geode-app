@@ -717,9 +717,9 @@ private val INTERVAL_RANGE =
     AutoVisualsPrefsStore.INTERVAL_SEC.first.toFloat()..AutoVisualsPrefsStore.INTERVAL_SEC.last.toFloat()
 
 /**
- * The range the sheet-opacity setting ([GuiPrefs.barOpacity]) moves in, here and in Settings › Look
- * › Layout: exactly the range [floatingGlass] clamps its fill to, so every stop of either slider
- * changes what is drawn and the % shown is the fill drawn (#559).
+ * The range the sheet-opacity setting ([GuiPrefs.barOpacity]) moves in: exactly the range
+ * [floatingGlass] clamps its fill to, so every stop of the slider changes what is drawn and the %
+ * shown is the fill drawn (#559).
  */
 internal val SHEET_OPACITY_RANGE = GeodeGlass.MATTE_FILL_MIN..GeodeGlass.MATTE_FILL_MAX
 

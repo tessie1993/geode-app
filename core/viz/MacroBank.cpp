@@ -34,8 +34,7 @@ std::array<TargetInfo, kTargetCount> buildInfos() {
     for (int i = 0; i < kTargetCount; ++i) {
         const auto target = static_cast<LfoTarget>(i);
         const int slot = paramSlotOf(target);
-        // Pulse writes a field nothing reads since wave three.
-        if (slot < 0 || !modtargets::offered(target) || target == LfoTarget::Pulse) continue;
+        if (slot < 0 || !modtargets::offered(target)) continue;
         const ParamSpec& spec = SceneParams::schema()[static_cast<size_t>(slot)];
         SceneParams top;
         top.setSlot(slot, spec.max);

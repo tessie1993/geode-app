@@ -33,7 +33,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the swell's drift. Complexity (uMorph) fades in an
+// Speed scales the swell's drift. Complexity (uMorph) fades in an
 // octave of coastline. Chaos (uWarp, uTurbulence, uTwist) bends the islands
 // (terraChaos). Energy (uIntensity) scales the tide and the chop. Colour is
 // pal() in the sea, the foliage and the sky. Space is the rig.

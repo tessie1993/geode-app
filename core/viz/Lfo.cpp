@@ -81,7 +81,6 @@ bool driveOf(LfoTarget target, Drive& out) {
         case LfoTarget::Zoom: GEODE_DRIVE(zoom, 1.0f);
         case LfoTarget::Rotation: GEODE_DRIVE(rotation, 1.5f);
         case LfoTarget::Sway: GEODE_DRIVE(sway, 1.0f);
-        case LfoTarget::Pulse: GEODE_DRIVE(pulse, 1.0f);
         case LfoTarget::DriftX: GEODE_DRIVE(driftX, 1.0f);
         case LfoTarget::DriftY: GEODE_DRIVE(driftY, 1.0f);
         case LfoTarget::Warp: GEODE_DRIVE(warp, 1.0f);
@@ -125,7 +124,7 @@ bool driveOf(LfoTarget target, Drive& out) {
         case LfoTarget::FlowCurl: GEODE_DRIVE(flowCurl, 25.0f);
         case LfoTarget::FlowForce: GEODE_DRIVE(flowForce, 1.5f);
         case LfoTarget::EndlessZoomSpeed: GEODE_DRIVE(endlessZoomSpeed, 0.5f);
-        // None, the retired Glitch slot and the chained targets write no scene parameter.
+        // None, the retired slots and the chained targets write no scene parameter.
         default: return false;
     }
 #undef GEODE_DRIVE

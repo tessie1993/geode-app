@@ -37,7 +37,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the river's flow. Complexity (uMorph) fades in an
+// Speed scales the river's flow. Complexity (uMorph) fades in an
 // octave of rock. Chaos (uWarp, uTurbulence, uTwist) warps the walls' rock
 // (terraChaos). Energy (uIntensity) scales the squeeze and the shimmer.
 // Colour is pal() in the strata bands and the sky. Space is the rig.

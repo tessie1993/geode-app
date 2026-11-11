@@ -37,7 +37,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the lava's crawl. Complexity (uMorph) fades in an
+// Speed scales the lava's crawl. Complexity (uMorph) fades in an
 // octave of gully. Chaos (uWarp, uTurbulence, uTwist) bends the flanks and
 // the veins (terraChaos). Energy (uIntensity) scales the kick's pulse. Colour
 // is pal() in the lava, rock and sky. Space is the rig (camAround).

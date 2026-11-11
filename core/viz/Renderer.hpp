@@ -232,7 +232,6 @@ private:
     void deliverPcm(Scene& scene);
     void stepOverlays(Scene& scene, const SceneParams& p, float dt);
     void stepCamera(const SceneParams& p, float dt);
-    void wireFlow(Scene& target, const SceneParams& p);
     // Liquid mode (viz/liquid): the gestures, the flow field and the dive, after the touch field steps.
     void stepLiquid(Scene& scene, const SceneParams& p, float dt);
     // What forms at the vanishing point this frame; the scene target itself for Born = Live.
@@ -439,7 +438,6 @@ private:
     SceneParams lastFinalParams_;
     float postRotationAngle_ = 0.0f;
     float postCyclePhase_ = 0.0f;
-    float postBeatPulse_ = 0.0f;
     Scene* activeScene_ = nullptr;
     Scene* outgoingScene_ = nullptr;
     Scene* layerScene_ = nullptr;

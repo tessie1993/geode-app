@@ -21,7 +21,7 @@ import java.io.File
  */
 object ParamSchema {
     /** The table version this shell reads; core/viz/Params.hpp's `kSchemaTextVersion`. */
-    const val VERSION: Int = 1
+    const val VERSION: Int = 2
 
     const val TEXT_FILE_PROPERTY: String = "geode.paramsSchema"
 
@@ -42,7 +42,7 @@ object ParamSchema {
 
     /**
      * Reads the `geode_params_schema_text` table: a `params|<version>|<count>` header, then one
-     * `param|slot|name|KIND|default|min|max|FADE|HOLD` row per slot, in slot order. Throws on a
+     * `param|slot|name|KIND|default|min|max|FADE|HOLD|LIVE|RETIRED` row per slot, in slot order. Throws on a
      * version this shell does not read, a row out of order or a count that disagrees, since a
      * misread schema would put every param in the wrong wire slot.
      */
@@ -54,8 +54,9 @@ object ParamSchema {
         }
         val params =
             rows.drop(1).mapIndexed { slot, f ->
-                check(f.size == 8 && f[0] == "param" && f[1] == slot.toString()) { "params schema row $slot is $f" }
-                ParamSpec(slot, f[2], ParamSpec.Kind.valueOf(f[3]), f[4].toFloat(), f[5].toFloat()..f[6].toFloat(), f[7] == "FADE")
+                check(f.size == 9 && f[0] == "param" && f[1] == slot.toString()) { "params schema row $slot is $f" }
+                val range = f[5].toFloat()..f[6].toFloat()
+                ParamSpec(slot, f[2], ParamSpec.Kind.valueOf(f[3]), f[4].toFloat(), range, f[7] == "FADE", f[8] == "RETIRED")
             }
         check(params.size == header[2].toInt()) { "params schema has ${params.size} rows, its header says ${header[2]}" }
         return params
@@ -74,6 +75,8 @@ data class ParamSpec(
     val range: ClosedFloatingPointRange<Float>,
     /** True when a param fade glides it; false when it snaps to the new value (every int and flag). */
     val fades: Boolean,
+    /** True for a row nothing reads any more: it keeps its wire slot, has no [SceneParams] field and is not saved. */
+    val retired: Boolean = false,
 ) {
     /** CIRCULAR is a float that wraps: the LFO adds to it unclamped. */
     enum class Kind { FLOAT, INT, BOOL, CIRCULAR }

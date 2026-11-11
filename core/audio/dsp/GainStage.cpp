@@ -130,10 +130,17 @@ GainStage::CrossTarget GainStage::crossfadeTarget(double halfUs, bool followsOn,
     // Fade-in by the media time before this frame, fade-out by the media time left after it: the first frame
     // of a stream that followed on and the last frame of the one it followed are both silence, and the k-th
     // frame from the join on either side has the same level, so the two halves mirror each other.
-    if (followedOn_ && mediaUs_ < halfUs) t.in = kSilenceDb * (1.0 - mediaUs_ / halfUs);
+    // mediaUs_ is a running sum of frame lengths, so after a few seconds it sits a hair off the frame it
+    // stands for. Read raw, the last frame came out a billionth short of silence (and the next stream,
+    // finding the tail not silent, held at full level instead of fading in), and a half could gain or lose
+    // a frame. Both times are taken to the nearest whole frame, and a half ends a quarter frame early.
+    const auto whole = [usPerFrame](double us) { return std::max(0.0, std::round(us / usPerFrame) * usPerFrame); };
+    const double edge = halfUs - 0.25 * usPerFrame;
+    const double before = whole(mediaUs_);
+    if (followedOn_ && before < edge) t.in = kSilenceDb * (1.0 - before / halfUs);
     if (followsOn && durationUs_ > 0.0) {
-        const double after = durationUs_ - (mediaUs_ + usPerFrame);
-        if (after < halfUs) t.out = kSilenceDb * (1.0 - std::max(0.0, after) / halfUs);
+        const double after = whole(durationUs_ - (mediaUs_ + usPerFrame));
+        if (after < edge) t.out = kSilenceDb * (1.0 - after / halfUs);
     }
     return t;
 }

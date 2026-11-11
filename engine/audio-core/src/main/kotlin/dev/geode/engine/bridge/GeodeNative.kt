@@ -1316,6 +1316,7 @@ object GeodeNative {
         lowRam: Boolean,
         mediaPerformanceClass: Int,
     ): Int
+
     /**
      * The app's own stage (core/viz/StageRun): [flags] are the STAGE_* bits the shell observed; the answer has
      * [STAGE_DRAWS] while somebody can see the stage and [STAGE_CAST_LEADS_AUTO] while a cast's renderer

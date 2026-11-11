@@ -64,10 +64,8 @@ class ByteBudgetCache<K : Any, V : Any>(
                 store(key, result)
                 mine.complete(result)
                 result
-            } catch (e: Throwable) {
-                mine.completeExceptionally(e)
-                throw e
             } finally {
+                if (!mine.isCompleted) mine.completeExceptionally(IllegalStateException("decode of $key failed"))
                 inFlight.remove(key)
             }
         }

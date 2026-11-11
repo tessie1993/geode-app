@@ -11,6 +11,7 @@
 #include "viz/CompositeGrade.hpp"
 #include "viz/LiveSignal.hpp"
 #include "viz/MilkProgress.hpp"
+#include "viz/MilkShaderNote.hpp"
 #include "viz/Quad.hpp"
 
 namespace geode::viz {
@@ -268,7 +269,8 @@ void MilkdropScene::loadPendingPreset(double now) {
         projectm_set_preset_locked(engine_.get(), true);
     }
     const auto error = takeError();
-    host_.onShaderError(error.value_or(""));
+    // A shader that failed was swapped for the default and the preset loaded: a note, not an error.
+    host_.onShaderError(error ? *error : milk::droppedShaderNote(path, projectm_get_dropped_shaders(engine_.get())));
     if (error && !engineHasPreset_) {
         // projectM keeps the preset it had when a load fails, and a new engine's is the idle one.
         // The last preset that did load goes back on instead, on the next frame.

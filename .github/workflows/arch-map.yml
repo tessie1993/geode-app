@@ -1,6 +1,6 @@
 name: Architecture gates
 
-# The layer rule, the engine Kotlin rule and the action pin rule. No path filter, so the check
+# The layer rule, the engine Kotlin rule, the action pin rule and the notices copy. No path filter, so the check
 # reports on every PR.
 
 on:
@@ -61,6 +61,12 @@ jobs:
       - name: Every action is pinned to a commit SHA
         shell: bash
         run: bash tools/actions-pin-gate.sh
+
+      # The repository's notices and the copy the app ships are one text (LGPL-2.1 2a: the
+      # projectM modification notice must not differ between them).
+      - name: The notices file equals the shipped asset
+        shell: bash
+        run: cmp THIRD_PARTY_NOTICES app/src/main/assets/third_party_notices.txt
 
       # Pins the engine Kotlin gate: growth in an engine path must fail it, shrinking must pass.
       - name: Self-test the engine Kotlin gate

@@ -166,10 +166,6 @@ vec3 normalAt(vec3 p, float eps) {
 
 void main() {
     vec2 uv = view();
-    // Truchet is still on the old in-and-out zoom law (endless::keepsTriangle),
-    // which view() divides by; a marched style dives by the rig, so undo it.
-    // Harmless once the style leaves that list: gZoomMag is then 1.
-    uv *= gZoomMag;
 
     float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
     float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;

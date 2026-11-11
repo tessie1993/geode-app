@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Checks the Play listing text in fastlane/metadata/android/<locale>/ against Google Play's
-# limits, and against the owner's rule that the listing makes no tempo claim.
+# limits and metadata policy, the old product name, and the owner's rule that the listing makes
+# no tempo claim.
 #
 #   tools/store-check.sh
 #
@@ -9,8 +10,8 @@
 #     support.google.com/googleplay/android-developer/answer/9859152
 #   release notes 500 per language
 #     support.google.com/googleplay/android-developer/answer/9859348
-# Play's metadata policy (answer/9898842) also bans emoji, ALL CAPS words that are not the brand,
-# and ranking or price words in the title; the title check below covers the ones a script can see.
+# Play's metadata policy (answer/9898842) also bans emoji, ALL CAPS used for emphasis, and
+# ranking, price or Play-programme words in the title; the checks below cover what a script can see.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 fail=0
@@ -29,8 +30,32 @@ for dir in fastlane/metadata/android/*/; do
     if grep -nEi '\b(bpm|tempo|beats? per minute)\b' "${dir}"*.txt "${dir}"changelogs/*.txt; then
         echo "TEMPO CLAIM in $dir (the listing makes none)"; fail=1
     fi
-    if grep -nEi '\b(best|#1|top|free|new|sale|download)\b' "${dir}title.txt"; then
+    if grep -nEi '\b(best|#1|top|free|new|sale|download|popular|editor)\b' "${dir}title.txt"; then
         echo "TITLE uses a word Play's metadata policy bans there"; fail=1
     fi
+    # Ranking and award words anywhere in the listing.
+    if grep -nEi '\b(best|#1|top[- ]rated|award|editor.s choice|number one|no\. ?1)\b' "${dir}"*.txt "${dir}"changelogs/*.txt; then
+        echo "RANKING CLAIM in $dir"; fail=1
+    fi
+    # The product is BeatRealms 3D; the old name must not reach the store.
+    if grep -nEi 'muz ?viz|studio pro' "${dir}"*.txt "${dir}"changelogs/*.txt; then
+        echo "OLD NAME in $dir"; fail=1
+    fi
+    # Emoji and shouting: words of four or more capitals, bar the format names the text uses.
+    if python3 - "${dir}" <<'PY'
+import pathlib, re, sys
+d = pathlib.Path(sys.argv[1])
+allowed = {"HEVC"}
+bad = False
+for f in sorted([*d.glob("*.txt"), *d.glob("changelogs/*.txt")]):
+    for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+        if re.search("[\U0001F000-\U0001FAFF\u2600-\u27BF]", line):
+            print(f"EMOJI {f}:{n}: {line}"); bad = True
+        for w in re.findall(r"\b[A-Z]{4,}\b", line):
+            if w not in allowed:
+                print(f"ALL CAPS {f}:{n}: {w}"); bad = True
+sys.exit(1 if bad else 0)
+PY
+    then :; else fail=1; fi
 done
 exit "$fail"

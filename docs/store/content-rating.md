@@ -33,7 +33,9 @@ a music player and video tool, not a game, a social network or a news product).
 Expected result: the lowest band in each scheme (IARC 3+, ESRB Everyone, PEGI 3), with the
 "in-app purchases" descriptor. The rating is whatever the live form returns.
 
-Photosensitivity is not an IARC topic and does not change the rating. It is covered by the
+Photosensitivity is not an IARC topic and does not change the rating; Play has no form field for
+it either. The warning lives in the full description (its last section), the first-run safety
+notice and Settings' help. It is covered by the
 warning in the listing, the first-run safety notice (`ui` › `SafetyConsent`) and the engine's
 limits (`core/viz/VisualSafety`).
 
@@ -52,11 +54,11 @@ Why the 9-12 band was dropped, and what it would take to add it later:
 | Declaration | Answer | Evidence |
 |---|---|---|
 | Ads | **No, the app does not contain ads** | No ads SDK; CI fails the release build if one is added (AGENTS.md › Conventions) |
-| App access | **All functionality is available without special access** (no login). Pro features sit behind a purchase: tell reviewers they can use the one-hour trial from the paywall, or add licence testers | No accounts anywhere in the code |
+| App access | **All functionality is available without special access** (no login). Pro features sit behind a purchase. In the optional instructions field paste: "No login. Pro features: open any Pro style or control, and on the paywall start the free one-hour trial." Licence testers (Setup › License testing) can buy Pro for free in test tracks | No accounts anywhere in the code |
 | Advertising ID | **No**, the app does not use an advertising ID | No `AD_ID` permission; `tools/check-manifest.sh:14-15` fails if it appears |
 | Government app | No | |
 | Financial features | None | |
-| Health | None | The sensor use is the proximity sensor and the gyroscope (`wallpaper/DreamCover`, `GyroLook`) |
+| Health apps declaration | **"My app doesn't provide any health features"** | Required of every published app, on every track ([answer/14738291](https://support.google.com/googleplay/android-developer/answer/14738291), read 2026-11-11). The sensor use is the proximity sensor and the gyroscope (`wallpaper/DreamCover`, `GyroLook`). The photosensitivity warning is a safety notice, not a health feature: do not tick anything for it |
 | News app | No | |
 | Data safety | See [data-safety.md](data-safety.md) | |
 | Foreground service permissions | See [permissions.md](permissions.md) | |

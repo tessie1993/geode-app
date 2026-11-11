@@ -64,6 +64,12 @@ public:
     // adapts as if the switch were on until it is back at Full.
     void setAdaptive(bool on);
 
+    // This frame builds or blends a style (a staged build, a transition, a new MilkDrop preset): its frame
+    // time says nothing about what the phone can draw, so the measured fallback sits out until a moment
+    // after the last such frame. Same thread as onFrame.
+    void noteSettling() { settleHoldSeconds_ = kSettleHoldSeconds; }
+    bool settling() const { return settleHoldSeconds_ > 0.0f; }
+
     void onFrame(float dtSeconds);
     void onSurfaceRecreated();
     void beginOffscreenRender() { offscreenDepth_.fetch_add(1); }
@@ -77,6 +83,8 @@ private:
     // holds puts the wait back.
     static constexpr float kRelaxProbeSeconds = 15.0f;
     static constexpr float kMeasuredRelaxMaxSeconds = 720.0f;
+    // The new style's first frames still upload textures and load its preset.
+    static constexpr float kSettleHoldSeconds = 1.5f;
 
     void trackMeasuredTrend(float dtSeconds);
 
@@ -84,6 +92,7 @@ private:
     std::atomic<int> offscreenDepth_{0};
     std::atomic<float> pacedFps_{0.0f};
     std::atomic<bool> adaptive_{false};
+    float settleHoldSeconds_ = 0.0f;
     float keptUpSeconds_ = 0.0f;
     float relaxSeconds_ = kMeasuredRelaxSeconds;
     float sinceRelaxSeconds_ = kRelaxProbeSeconds;  // at kRelaxProbeSeconds: no probe in flight

@@ -123,14 +123,14 @@ class VisualsViewModel
             height: Int,
         ) = session.setBackgroundRenderSize(width, height)
 
-        fun toggleParamLock(label: String) = session.toggleParamLock(label)
+        fun toggleParamLock(label: String) = session.modulation.toggleParamLock(label)
 
-        fun randomizeParams(category: CustomizeCategory? = null) = session.randomizeParams(category)
+        fun randomizeParams(category: CustomizeCategory? = null) = session.modulation.randomizeParams(category)
 
         val paramHistory: StateFlow<ParamHistoryState> get() = session.paramHistory
 
         /** The one write path for a Customize edit, so the panel's undo covers every control. */
-        fun editSceneParams(params: SceneParams) = session.editSceneParams(params)
+        fun editSceneParams(params: SceneParams) = session.modulation.editSceneParams(params)
 
         fun undoParams() = session.undoParams()
 
@@ -143,18 +143,18 @@ class VisualsViewModel
         fun setAdsr(
             index: Int,
             config: AdsrConfig,
-        ) = session.setAdsr(index, config)
+        ) = session.modulation.setAdsr(index, config)
 
         fun setLfo(
             index: Int,
             config: LfoConfig,
-        ) = session.setLfo(index, config)
+        ) = session.modulation.setLfo(index, config)
 
-        fun setReactions(routes: List<dev.geode.render.ReactionRoute>?) = session.setReactions(routes)
+        fun setReactions(routes: List<dev.geode.render.ReactionRoute>?) = session.modulation.setReactions(routes)
 
-        fun setHandReactions(edit: dev.geode.render.HandReactions) = session.setHandReactions(edit)
+        fun setHandReactions(edit: dev.geode.render.HandReactions) = session.modulation.setHandReactions(edit)
 
-        fun rerollReactions() = session.rerollReactions()
+        fun rerollReactions() = session.modulation.rerollReactions()
 
         fun importTextures(
             uris: List<Uri>,
@@ -174,28 +174,28 @@ class VisualsViewModel
             name: String,
             customShader: String?,
             folder: String = "",
-        ) = session.savePreset(name, customShader, folder)
+        ) = session.presetLibrary.savePreset(name, customShader, folder)
 
-        fun deletePreset(name: String) = session.deletePreset(name)
+        fun deletePreset(name: String) = session.presetLibrary.deletePreset(name)
 
         fun renamePreset(
             from: String,
             to: String,
         ): String? = session.renamePreset(from, to)
 
-        fun duplicatePreset(name: String): String? = session.duplicatePreset(name)
+        fun duplicatePreset(name: String): String? = session.presetLibrary.duplicatePreset(name)
 
-        fun presetFile(name: String): File? = session.presetFile(name)
+        fun presetFile(name: String): File? = session.presetLibrary.presetFile(name)
 
-        fun presetShareLink(name: String): String? = session.presetShareLink(name)
+        fun presetShareLink(name: String): String? = session.presetLibrary.presetShareLink(name)
 
-        fun importPresetLink(text: String): String? = session.importPresetLink(text)
+        fun importPresetLink(text: String): String? = session.presetLibrary.importPresetLink(text)
 
         fun importSharedPreset(data: String): PresetLinkImport =
             if (!PresetLink.isPresetLink(data)) {
                 PresetLinkImport.NotALink
             } else {
-                session
+                session.presetLibrary
                     .importPresetLink(data)
                     ?.let(PresetLinkImport::Imported)
                     ?: PresetLinkImport.Unreadable
@@ -206,19 +206,19 @@ class VisualsViewModel
             onResult: (String?) -> Unit,
         ) = session.importPresetFile(uri, onResult)
 
-        fun addPresetFolder(path: String) = session.addPresetFolder(path)
+        fun addPresetFolder(path: String) = session.presetLibrary.addPresetFolder(path)
 
         fun renamePresetFolder(
             from: String,
             to: String,
-        ) = session.renamePresetFolder(from, to)
+        ) = session.presetLibrary.renamePresetFolder(from, to)
 
         fun movePresetToFolder(
             name: String,
             folder: String,
-        ) = session.movePresetToFolder(name, folder)
+        ) = session.presetLibrary.movePresetToFolder(name, folder)
 
-        fun userMilkPresets(): List<File> = session.userMilkPresets()
+        fun userMilkPresets(): List<File> = session.presetLibrary.userMilkPresets()
 
         fun noteMilkPreset(path: String) = session.noteMilkPreset(path)
 

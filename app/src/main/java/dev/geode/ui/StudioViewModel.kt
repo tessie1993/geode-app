@@ -35,9 +35,9 @@ class StudioViewModel
 
         val takeState: StateFlow<TakeUiState> get() = session.takeState
 
-        fun startRecording() = session.startRecording()
+        fun startRecording() = session.takeController.startRecording()
 
-        fun stopRecording(name: String? = null) = session.stopRecording(name)
+        fun stopRecording(name: String? = null) = session.takeController.stopRecording(name)
 
         /** The ask-once save sheet's answer for the take waiting in [TakeUiState.pendingSave]. */
         fun chooseTakeSaveTarget(
@@ -48,18 +48,18 @@ class StudioViewModel
         /** The save sheet was dismissed: the take stays in My videos, unrendered. */
         fun skipTakeSave() = session.skipTakeSave()
 
-        fun playTake(name: String) = session.playTake(name)
+        fun playTake(name: String) = session.takeController.playTake(name)
 
-        fun stopReplay() = session.stopReplay()
+        fun stopReplay() = session.takeController.stopReplay()
 
-        fun deleteTake(name: String) = session.deleteTake(name)
+        fun deleteTake(name: String) = session.takeController.deleteTake(name)
 
         fun renameTake(
             from: String,
             to: String,
-        ) = session.renameTake(from, to)
+        ) = session.takeController.renameTake(from, to)
 
-        fun setExportTake(name: String?) = session.setExportTake(name)
+        fun setExportTake(name: String?) = session.takeController.setExportTake(name)
 
         fun cancelExport() = session.cancelExport()
 

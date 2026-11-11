@@ -280,12 +280,13 @@ std::string tsv(const Run& r) {
     return out;
 }
 
-// ---- Check 1: the golden at 60 fps ----------------------------------------------------------------------
-
-// Wide enough for a libm ULP that a few hundred frames of smoothing carry forward, far below anything an
-// engine change moves (and %.6g already rounds at ~5e-7 relative).
-constexpr double kAbsTolerance = 1e-4;
-constexpr double kRelTolerance = 1e-3;
+// Compares another frame rate against 60 fps at the times both rendered a frame (every 1/30 s), where both
+// engines have been written exactly the same samples. A state field must be equal there; a trigger must be
+// equal to the strongest the finer run showed since the previous shared time. Any difference fails.
+struct Drift {
+    double mean = 0.0;
+    double max = 0.0;
+};
 
 int compareRates(const Run& base, const Run& other, double fps) {
     const double ratio = fps / 60.0;  // other frames per base frame

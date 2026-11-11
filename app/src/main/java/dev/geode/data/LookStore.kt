@@ -1,6 +1,8 @@
 package dev.geode.data
 
 import android.content.ContentResolver
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.render.HandMask
 import dev.geode.render.look.LookSnapshot
 import dev.geode.render.look.LookSource
@@ -62,5 +64,11 @@ class LookStore(
         const val KEY_TRANSITION_ID = "transition_id"
         const val KEY_TRANSITION_DURATION_SEC = "transition_duration_sec"
         private const val MS_PER_SECOND = 1000
+
+        val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.VIZ) {
+                portable(PrefType.STRING, KEY_LIVE_STATE, KEY_TRANSITION_ID)
+                portable(PrefType.FLOAT, KEY_TRANSITION_DURATION_SEC)
+            }
     }
 }

@@ -2,6 +2,8 @@ package dev.geode.data
 
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 
 /**
  * Studio's own small memory, kept across restarts.
@@ -27,8 +29,14 @@ class StudioPrefsStore(
 
     fun saveKeepAsProject(keep: Boolean) = prefs.edit { putBoolean(KEY_KEEP, keep) }
 
-    private companion object {
+    internal companion object {
         const val KEY_TAB = "studio_last_tab"
         const val KEY_KEEP = "studio_keep_as_project"
+
+        val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.GENERAL) {
+                portable(PrefType.STRING, KEY_TAB)
+                portable(PrefType.BOOLEAN, KEY_KEEP)
+            }
     }
 }

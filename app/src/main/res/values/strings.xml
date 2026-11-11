@@ -147,7 +147,13 @@
     <string name="mini_player_library">Open Library</string>
     <string name="mini_player_show">Show the player</string>
     <string name="visuals_sheet_close">Hide the options</string>
-    <string name="presets_save_current_look">Save current look</string>
+    <string name="presets_save_look">Save look</string>
+    <string name="presets_apply">Apply</string>
+    <string name="presets_actions">Preset actions</string>
+    <string name="presets_state_applied">Applied</string>
+    <string name="presets_state_in_playlist">In the visual playlist</string>
+    <string name="presets_kind_built_in">Built-in</string>
+    <string name="presets_kind_mine">Mine</string>
     <string name="visuals_sheet_handle">Options sheet</string>
     <string name="visuals_sheet_expand">Show more options</string>
     <string name="visuals_sheet_collapse">Show fewer options</string>
@@ -495,7 +501,7 @@
     <string name="audio_input_trim">"Input trim (mic and other apps)  %1$s dB"</string>
     <string name="audio_preset_morph">Preset morph: %1$.1f s (0 = snap)</string>
     <string name="audio_react_mic">React to the microphone</string>
-    <string name="audio_react_mic_explainer">Plays nothing and drives the visuals from what the phone hears — a room, an instrument, a speaker across the street. Playback pauses while it is on, because the analyzer has one input and a track plus the room would just blur together. Audio is analysed live and never recorded, saved or sent anywhere.</string>
+    <string name="audio_react_mic_explainer">Drives the visuals from what the phone hears — a room, an instrument, a speaker across the street. Your music keeps playing: the visuals react to the track and the room together, and to the room alone while nothing plays. On the phone\'s own speaker the microphone hears the track too; headphones keep the two apart. Audio is analysed live and never recorded, saved or sent anywhere.</string>
     <string name="audio_mic_denied">Microphone access is off for BeatRealms. Turn it on in Android Settings › Apps › BeatRealms 3D › Permissions to use live input.</string>
     <string name="audio_mic_busy">The microphone could not be opened — another app may be using it.</string>
 

@@ -14,6 +14,7 @@
 
 #include "api/geode_api.h"
 #include "api/geode_ingest_handles.hpp"
+#include "audio/ingest/LayerMix.hpp"
 #include "viz/Director.hpp"
 #include "viz/GyroLook.hpp"
 #include "viz/NoteResponse.hpp"
@@ -66,6 +67,9 @@ struct geode_viz {
     // declared after the ring it refers to. Render thread only.
     std::shared_ptr<const geode::audio::ingest::PcmRing> feedRing;
     std::unique_ptr<geode::audio::ingest::Cursor> feedCursor;
+    // The ring layered over it (geode_pcm_ring_set_layer) and this renderer's mix of the two.
+    std::shared_ptr<const geode::audio::ingest::PcmRing> feedLayerRing;
+    std::unique_ptr<geode::audio::ingest::LayerMix> feedLayer;
 
     static geode::viz::StyleTraits styleTraits(std::string_view id) {
         const std::string s(id);
@@ -216,7 +220,20 @@ void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
     if (!ring) {
         v->feedCursor.reset();
         v->feedRing.reset();
+        v->feedLayer.reset();
+        v->feedLayerRing.reset();
+        v->renderer.setLayerAlone(false);
         return;
+    }
+    if (auto layer = ring->layerRing(); layer != v->feedLayerRing) {
+        v->feedLayer.reset();
+        v->feedLayerRing = std::move(layer);
+        try {
+            if (v->feedLayerRing) v->feedLayer = std::make_unique<geode::audio::ingest::LayerMix>(*v->feedLayerRing);
+        } catch (...) {
+            // No memory for the mix: hear the ring alone this frame and try again on the next.
+            v->feedLayerRing.reset();
+        }
     }
     if (v->feedRing != ring->ring) {
         v->feedCursor.reset();
@@ -235,8 +252,17 @@ void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
         const geode::audio::ingest::Cursor::Take take = v->feedCursor->take();
         if (take.restarted) v->renderer.resetAudio();
         if (take.frames <= 0) break;
-        v->renderer.writeAudio(v->feedCursor->interleaved(), take.frames, v->feedCursor->channels(), take.sampleRateHz);
+        const int channels = v->feedCursor->channels();
+        const float* block = v->feedCursor->interleaved();
+        if (v->feedLayer) block = v->feedLayer->mixed(block, take.frames, channels, take.sampleRateHz);
+        v->renderer.writeAudio(block, take.frames, channels, take.sampleRateHz);
     }
+    if (v->feedLayer) {
+        // With the ring's own source stopped, the layer is what this renderer hears.
+        const geode::audio::ingest::LayerMix::Alone alone = v->feedLayer->takeAlone();
+        v->renderer.writeAudio(alone.interleaved, alone.frames, alone.channels, alone.sampleRateHz);
+    }
+    v->renderer.setLayerAlone(v->feedLayer && v->feedLayer->heardAlone());
 }
 
 void geode_viz_set_sound_tuning(geode_viz* v, const GeodeSoundTuning* tuning) {

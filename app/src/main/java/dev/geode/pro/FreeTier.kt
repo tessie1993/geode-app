@@ -90,6 +90,9 @@ object FreeTier {
     /** One hour, once per install, measured on the wall clock from the moment it is started. */
     const val TRIAL_DURATION_MS: Long = 60L * 60L * 1000L
 
+    /** How far the wall clock may step back during the trial (a time correction) before that ends it. */
+    const val TRIAL_CLOCK_SLACK_MS: Long = 2L * 60L * 1000L
+
     /**
      * Whether trial exports are held to the free limits: one minute, full-frame watermark. On: the
      * trial is for trying every style, tool and resolution, and a finished, clean, full-length video

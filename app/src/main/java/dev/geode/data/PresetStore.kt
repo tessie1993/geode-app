@@ -158,7 +158,10 @@ class PresetStore(
 
         internal fun safeFileName(name: String): String {
             val stem = name.replace(UNSAFE_CHARS, "_")
-            if (stem == name) return name
+            // A blank name is not a file name: File(dir, "") is dir itself, so a project whose id is
+            // empty (a restored backup, an older app) resolved to the projects root, and deleting it
+            // removed every project and every take.
+            if (stem == name && name.isNotBlank()) return name
             val hash =
                 MessageDigest
                     .getInstance("SHA-256")

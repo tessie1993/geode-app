@@ -21,9 +21,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeContent
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -67,6 +68,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import dev.geode.R
+import dev.geode.model.Tour
+import dev.geode.model.TourRect
 import dev.geode.ui.theme.GeodeColors
 import dev.geode.ui.theme.GeodeElevation
 import dev.geode.ui.theme.GeodeRadius
@@ -87,14 +90,15 @@ import kotlin.math.roundToInt
  * dialog's own dim and zoom are switched off, since the spotlight is the dim and the motion is
  * ours. A screen's pointers reuse one dialog, so a step does not flash a window: the hole morphs
  * to the next control and the card follows. [target] is in screen pixels ([TourTargets]); null
- * centres the card with no spotlight, for a control not on screen.
+ * centres the card with no spotlight, for the moment a control is between two layouts.
  *
- * The last step of a run has no Skip: there is nothing left to skip. Back still ends it.
+ * Skip is on every step, the last one included, and Back does the same.
  */
 @Composable
 internal fun TourPointer(
     title: String,
     body: String,
+    paneTitle: String,
     index: Int,
     count: Int,
     target: Rect?,
@@ -116,9 +120,8 @@ internal fun TourPointer(
         SideEffect { (view.parent as? DialogWindowProvider)?.window?.let(::fitSpotlightWindow) }
         val density = LocalDensity.current
         val motion = LocalGeodeMotion.current
-        val last = count > 1 && index == count
         val primary by rememberUpdatedState {
-            view.performStoneHaptic(if (last || count == 1) StoneHapticCue.CONFIRM else StoneHapticCue.TAP)
+            view.performStoneHaptic(if (index == count) StoneHapticCue.CONFIRM else StoneHapticCue.TAP)
             onPrimary()
         }
         val skip = {
@@ -173,11 +176,12 @@ internal fun TourPointer(
                 TourCard(
                     title = title,
                     body = body,
+                    paneTitle = paneTitle,
                     index = index,
                     count = count,
                     scale = ENTER_SCALE + (1f - ENTER_SCALE) * shown.value,
                 ) {
-                    if (!last) TextButton(onClick = skip) { Text(skipLabel) }
+                    TextButton(onClick = skip) { Text(skipLabel) }
                     Button(onClick = primary) { Text(primaryLabel) }
                 }
             }
@@ -210,8 +214,8 @@ private fun fitSpotlightWindow(window: android.view.Window) {
 }
 
 /**
- * Puts the card on whichever side of the spotlight has more room, a gap away, centred on it and
- * clamped inside the safe area; centred on screen with no spotlight. It follows the hole as it
+ * Puts the card beside the spotlight ([Tour.placeCard]: below, above or to a side, whichever has
+ * room), inside the safe area and clear of the system gesture strips. It follows the hole as it
  * morphs, so the card glides with it.
  */
 @Composable
@@ -219,37 +223,23 @@ private fun PointerPlacement(
     hole: Rect?,
     card: @Composable () -> Unit,
 ) {
-    val insets = WindowInsets.safeDrawing
+    val insets = WindowInsets.safeContent
     Layout(content = card, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
         val compact = constraints.maxWidth < COMPACT_WIDTH.roundToPx()
         val margin = (if (compact) GeodeSpacing.EdgeInsetCompact else GeodeSpacing.EdgeInset).roundToPx()
-        val gap = GeodeSpacing.M.roundToPx()
-        val top = insets.getTop(this) + margin
-        val bottom = constraints.maxHeight - insets.getBottom(this) - margin
-        val width =
-            (constraints.maxWidth - 2 * margin)
-                .coerceIn(CARD_MIN_WIDTH.roundToPx(), CARD_MAX_WIDTH.roundToPx())
-                .coerceAtMost(constraints.maxWidth)
+        val safe =
+            TourRect(
+                left = insets.getLeft(this, layoutDirection) + margin,
+                top = insets.getTop(this) + margin,
+                right = constraints.maxWidth - insets.getRight(this, layoutDirection) - margin,
+                bottom = constraints.maxHeight - insets.getBottom(this) - margin,
+            )
+        val width = (safe.right - safe.left).coerceAtMost(CARD_MAX_WIDTH.roundToPx()).coerceAtLeast(0)
         // Never taller than the safe area: the text scrolls, the buttons stay on screen.
-        val placeable = measurables.first().measure(Constraints(width, width, 0, (bottom - top).coerceAtLeast(0)))
-        val h = placeable.height
-        val y =
-            if (hole == null) {
-                (constraints.maxHeight - h) / 2
-            } else {
-                val roomBelow = bottom - hole.bottom
-                val roomAbove = hole.top - top
-                if (roomBelow >= roomAbove) hole.bottom.roundToInt() + gap else hole.top.roundToInt() - gap - h
-            }
-        val x =
-            if (hole == null) {
-                (constraints.maxWidth - width) / 2
-            } else {
-                (hole.center.x.roundToInt() - width / 2).coerceIn(margin, (constraints.maxWidth - margin - width).coerceAtLeast(margin))
-            }
-        layout(constraints.maxWidth, constraints.maxHeight) {
-            placeable.place(x, y.coerceIn(top, (bottom - h).coerceAtLeast(top)))
-        }
+        val placeable = measurables.first().measure(Constraints(width, width, 0, (safe.bottom - safe.top).coerceAtLeast(0)))
+        val lit = hole?.let { TourRect(it.left.roundToInt(), it.top.roundToInt(), it.right.roundToInt(), it.bottom.roundToInt()) }
+        val (x, y) = Tour.placeCard(lit, placeable.width, placeable.height, safe, gap = GeodeSpacing.M.roundToPx())
+        layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(x, y) }
     }
 }
 
@@ -262,6 +252,7 @@ private fun PointerPlacement(
 private fun TourCard(
     title: String,
     body: String,
+    paneTitle: String,
     index: Int,
     count: Int,
     scale: Float,
@@ -273,7 +264,7 @@ private fun TourCard(
                 scaleX = scale
                 scaleY = scale
             }.floatingGlass(elevation = GeodeElevation.Overlay)
-            .semantics { paneTitle = title }
+            .semantics { this.paneTitle = paneTitle }
             .padding(start = GeodeSpacing.L, end = GeodeSpacing.L, top = GeodeSpacing.L, bottom = GeodeSpacing.S),
     ) {
         Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
@@ -312,9 +303,10 @@ private fun TourCard(
 }
 
 /**
- * A small glass line under the status bar while the guided path waits on the user to do
- * something in the app itself (tap a song), and for gesture tips. Not a dialog: the app
- * underneath must stay usable. It eases in; the reduced-motion scheme drops the slide.
+ * A small glass line near the top while the tour waits on the user to do something in the app
+ * itself (play a song), and for gesture tips. Not a dialog: the app underneath stays usable. It
+ * sits inside the safe area and under a screen's top row of icons, so it covers none of them.
+ * It eases in; the reduced-motion scheme drops the slide.
  */
 @Composable
 internal fun TourHint(
@@ -325,7 +317,13 @@ internal fun TourHint(
     val motion = LocalGeodeMotion.current
     val visible = remember { MutableTransitionState(false).apply { targetState = true } }
     val slide = with(LocalDensity.current) { HINT_SLIDE.roundToPx() }
-    Box(Modifier.fillMaxSize().statusBarsPadding().padding(top = GeodeSpacing.S), contentAlignment = Alignment.TopCenter) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .padding(top = GeodeSpacing.TouchTarget + GeodeSpacing.M),
+        contentAlignment = Alignment.TopCenter,
+    ) {
         AnimatedVisibility(
             visibleState = visible,
             enter = fadeIn(motion.defaultEffectsSpec()) + slideInVertically(motion.defaultSpatialSpec()) { -slide },
@@ -358,7 +356,6 @@ private const val ENTER_SCALE = 0.94f
 private const val HINT_FILL = 0.75f
 private val HOLE_PADDING = 8.dp
 private val MIN_HOLE = GeodeSpacing.TouchTarget
-private val CARD_MIN_WIDTH = 280.dp
 private val CARD_MAX_WIDTH = 360.dp
 private val COMPACT_WIDTH = 360.dp
 private val HINT_SLIDE = 8.dp

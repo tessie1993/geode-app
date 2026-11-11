@@ -22,8 +22,10 @@ import dev.geode.data.TrackTagEdit
 import dev.geode.model.DeviceTrack
 import dev.geode.model.LibraryTrack
 import dev.geode.util.bestEffort
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -70,10 +72,12 @@ private const val RESCAN_QUIET_MS = 1_000L
 
 private val AUDIO_EXTS = setOf("mp3", "wav", "flac", "ogg", "m4a", "aac", "opus", "wma", "aiff")
 
+@OptIn(ExperimentalCoroutinesApi::class)
 internal class MusicLibraryController(
     private val application: Application,
     private val libraryPrefs: SharedPreferences,
     private val scope: CoroutineScope,
+    private val playlistEdits: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(1),
 ) {
     private val trackLibrary = TrackLibrary(application)
     private val musicPlaylists = MusicPlaylistStore(application)
@@ -92,7 +96,8 @@ internal class MusicLibraryController(
             )
 
     fun refresh() {
-        scope.launch(Dispatchers.IO) {
+        // In the playlist edits' lane: a list read before an edit can then never be published after it.
+        scope.launch(playlistEdits) {
             val tracks = trackLibrary.list()
             val playlists = musicPlaylists.list()
             val smart = smartPlaylists.list()
@@ -431,62 +436,62 @@ internal class MusicLibraryController(
         }
     }
 
-    fun createMusicPlaylist(name: String) {
+    /**
+     * Every playlist edit runs here, one at a time and in the order it was asked for: each one
+     * reads the playlist folder, fsyncs a file and reads the folder again for the screen, which is
+     * too much for the main thread a tap arrives on. One lane keeps "create, then add" in order.
+     */
+    private fun editPlaylists(edit: () -> Unit) {
+        scope.launch(playlistEdits) {
+            edit()
+            val playlists = musicPlaylists.list()
+            _library.update { it.copy(playlists = playlists) }
+        }
+    }
+
+    private fun editSmartPlaylists(edit: () -> Unit) {
+        scope.launch(playlistEdits) {
+            edit()
+            val smart = smartPlaylists.list()
+            _library.update { it.copy(smartPlaylists = smart) }
+        }
+    }
+
+    /** A new playlist holding [uris] (each once, in order), written as one file however many there are. */
+    fun createMusicPlaylist(
+        name: String,
+        uris: List<String> = emptyList(),
+    ) {
         if (name.isBlank()) return
-        musicPlaylists.save(MusicPlaylist(name.trim()))
-        _library.update { it.copy(playlists = musicPlaylists.list()) }
+        editPlaylists { musicPlaylists.save(MusicPlaylist(name.trim(), uris.distinct())) }
     }
 
     fun renameMusicPlaylist(
         oldName: String,
         newName: String,
-    ): Boolean {
-        val renamed = musicPlaylists.rename(oldName, newName.trim())
-        if (renamed) {
-            _library.update { it.copy(playlists = musicPlaylists.list()) }
-        }
-        return renamed
-    }
+    ) = editPlaylists { musicPlaylists.rename(oldName, newName.trim()) }
 
     fun moveMusicPlaylistTrack(
         name: String,
         from: Int,
         to: Int,
-    ) {
-        musicPlaylists.move(name, from, to)
-        _library.update { it.copy(playlists = musicPlaylists.list()) }
-    }
+    ) = editPlaylists { musicPlaylists.move(name, from, to) }
 
-    fun deleteMusicPlaylist(name: String) {
-        musicPlaylists.delete(name)
-        _library.update { it.copy(playlists = musicPlaylists.list()) }
-    }
+    fun deleteMusicPlaylist(name: String) = editPlaylists { musicPlaylists.delete(name) }
 
     fun addTrackToPlaylist(
         playlist: String,
         uri: String,
-    ) {
-        musicPlaylists.addTrack(playlist, uri)
-        _library.update { it.copy(playlists = musicPlaylists.list()) }
-    }
+    ) = editPlaylists { musicPlaylists.addTrack(playlist, uri) }
 
     fun removeTrackFromPlaylist(
         playlist: String,
         uri: String,
-    ) {
-        musicPlaylists.removeTrack(playlist, uri)
-        _library.update { it.copy(playlists = musicPlaylists.list()) }
-    }
+    ) = editPlaylists { musicPlaylists.removeTrack(playlist, uri) }
 
-    fun saveSmartPlaylist(playlist: SmartPlaylist) {
-        smartPlaylists.save(playlist)
-        _library.update { it.copy(smartPlaylists = smartPlaylists.list()) }
-    }
+    fun saveSmartPlaylist(playlist: SmartPlaylist) = editSmartPlaylists { smartPlaylists.save(playlist) }
 
-    fun deleteSmartPlaylist(name: String) {
-        smartPlaylists.delete(name)
-        _library.update { it.copy(smartPlaylists = smartPlaylists.list()) }
-    }
+    fun deleteSmartPlaylist(name: String) = editSmartPlaylists { smartPlaylists.delete(name) }
 
     /**
      * Reads an M3U/PLS/XSPF file the user picked, resolves its entries against the imported
@@ -514,9 +519,15 @@ internal class MusicLibraryController(
                             .groupBy({ it.fileName.lowercase() }, { it.uri })
                     val resolution = PlaylistFormats.resolve(parsed.entries, urisByFileName)
                     val untitled = application.getString(dev.geode.R.string.playlist_untitled)
-                    val name = uniquePlaylistName(parsed.name.ifBlank { fileName.ifBlank { untitled } })
-                    musicPlaylists.save(MusicPlaylist(name, resolution.uris))
-                    withContext(Dispatchers.Main) { _library.update { it.copy(playlists = musicPlaylists.list()) } }
+                    // In the edits' lane, so the free name it picks is still free when it is written.
+                    val name =
+                        withContext(playlistEdits) {
+                            val free = uniquePlaylistName(parsed.name.ifBlank { fileName.ifBlank { untitled } })
+                            musicPlaylists.save(MusicPlaylist(free, resolution.uris))
+                            val playlists = musicPlaylists.list()
+                            _library.update { it.copy(playlists = playlists) }
+                            free
+                        }
                     PlaylistImportResult.Imported(
                         name = name,
                         addedCount = resolution.uris.size,

@@ -369,10 +369,7 @@ fun QueuePanel(
             title = stringResource(R.string.queue_save_dialog_title),
             confirmLabel = stringResource(R.string.action_save),
             taken = library.playlists.map { it.name }.toSet(),
-            onName = { name ->
-                viewModel.createMusicPlaylist(name)
-                queue.tracks.forEach { viewModel.addTrackToPlaylist(name, it.uri) }
-            },
+            onName = { name -> viewModel.createMusicPlaylist(name, queue.tracks.map { it.uri }) },
             onDismiss = { saving = false },
         )
     }

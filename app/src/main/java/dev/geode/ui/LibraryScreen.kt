@@ -482,10 +482,7 @@ private fun AddToPlaylistDialog(
             title = stringResource(R.string.playlist_new),
             confirmLabel = stringResource(R.string.action_create),
             taken = library.playlists.map { it.name }.toSet(),
-            onName = { name ->
-                viewModel.createMusicPlaylist(name)
-                viewModel.addTrackToPlaylist(name, uri)
-            },
+            onName = { name -> viewModel.createMusicPlaylist(name, listOf(uri)) },
             onDismiss = onDismiss,
         )
         return
@@ -695,7 +692,7 @@ private fun PlaylistsTab(
             title = stringResource(R.string.playlist_new),
             confirmLabel = stringResource(R.string.action_create),
             taken = library.playlists.map { it.name }.toSet(),
-            onName = viewModel::createMusicPlaylist,
+            onName = { name -> viewModel.createMusicPlaylist(name) },
             onDismiss = { creating = false },
         )
     }

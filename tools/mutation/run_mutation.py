@@ -6,7 +6,7 @@ would notice a wrong `<` or a dropped clamp. This script mutates only the lines 
 changed under core/ (never core/tests/), rebuilds only the host tests that compile those lines,
 and reports which mutants the tests failed to kill, so a test author can kill them.
 
-Where the tests come from: .github/workflows/android.yml is the one place that says how each
+Where the tests come from: .github/workflows/native-host-tests.yml is the one place that says how each
 host test is built (`g++ ... -o X`) and run (`./X args`). This script parses those `run:` blocks
 instead of keeping a second copy, so a new host test is picked up the day it lands in CI.
 
@@ -47,7 +47,7 @@ COMPILERS = ("g++", "clang++", "c++")
 
 
 # --------------------------------------------------------------------------------------------
-# android.yml parsing
+# native-host-tests.yml parsing
 
 
 @dataclasses.dataclass
@@ -790,7 +790,7 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--base", default=env.get("MUTATION_BASE_REF", "origin/main"), help="git ref to diff against (merge-base ...HEAD)")
     p.add_argument("--engine", choices=["source", "mull"], default=env.get("MUTATION_ENGINE") or "source")
-    p.add_argument("--workflow", default=".github/workflows/android.yml")
+    p.add_argument("--workflow", default=".github/workflows/native-host-tests.yml")
     p.add_argument("--root", default=".")
     p.add_argument("--report", default="mutation-report.json")
     p.add_argument("--max-mutants", type=int, default=int(env.get("MUTATION_MAX_MUTANTS") or 300))

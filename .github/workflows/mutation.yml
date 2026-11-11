@@ -2,7 +2,7 @@ name: Mutation testing (changed C++)
 
 # Diff-scoped mutation testing of core/: only the lines a PR changed (never core/tests/) are
 # mutated, and only the host tests whose build reaches them are rebuilt and run. The host tests
-# are read from android.yml's own g++ lines, so there is one definition of how they build.
+# are read from native-host-tests.yml's own g++ lines, so there is one definition of how they build.
 # Report-only: the job summary lists survivors as file:line original → mutant. Set the
 # repository variable MUTATION_MIN_SCORE (0-100) to make it a gate. See docs/testing/MUTATION.md.
 #
@@ -28,7 +28,7 @@ on:
 permissions:
   contents: read
 
-# Keyed on the branch name, as android.yml is since #504: a newer push to the same PR branch
+# Keyed on the branch name, as the other manual workflows are since #504: a newer push to the same PR branch
 # cancels the run in flight. The workflow-name prefix keeps it from cancelling other workflows.
 concurrency:
   group: mutation-${{ github.head_ref || github.ref_name }}

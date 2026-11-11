@@ -1,7 +1,8 @@
 name: Native host tests
 
 # The pure C++ core (core/) built with the runner's own g++ and run on the host. Seconds, no Android
-# SDK. Run it by hand on any branch from the Actions tab.
+# SDK. Run it by hand on any branch from the Actions tab. tools/mutation/run_mutation.py reads the
+# g++ and ./test lines of this file, so keep each one literal (no variables) and run it from the repo root.
 #
 # The suite is the four table tests in core/tests: each builds the text table the core serves to Kotlin
 # (catalogue, params schema, Customize map, modulation targets), checks its invariants and compares it
@@ -26,9 +27,6 @@ concurrency:
   group: native-host-${{ github.ref_name }}
   cancel-in-progress: true
 
-env:
-  CXX_FLAGS: -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests -Icore/tests/stub
-
 jobs:
   host-tests:
     name: Native host tests
@@ -38,33 +36,30 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
-      - name: Build the host tests
+      # Each test is built and run in one block: g++ ... -o X, then ./X <fixture>.
+      - name: Table host tests
+        continue-on-error: ${{ inputs.write_fixtures }}
         run: |
-          mkdir -p build
           # The catalogue: every style, kind and family (core/viz/Catalogue).
-          g++ $CXX_FLAGS core/tests/catalogue_test.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o build/catalogue_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests -Icore/tests/stub core/tests/catalogue_test.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o catalogue_test
+          ./catalogue_test core/tests/catalogue.txt
           # The scene params schema: slots, types, defaults in range (core/viz/Params).
-          g++ $CXX_FLAGS core/tests/params_schema_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o build/params_schema_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests -Icore/tests/stub core/tests/params_schema_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o params_schema_test
+          ./params_schema_test core/tests/params_schema.txt
           # The Customize map: categories and sections (core/viz/CustomizeMap).
-          g++ $CXX_FLAGS core/tests/customize_test.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
-            core/viz/Lfo.cpp core/viz/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o build/customize_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests -Icore/tests/stub core/tests/customize_test.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o customize_test
+          ./customize_test core/tests/customize.txt
           # The modulation targets: reach, slots, polarity (core/viz/ModTargets).
-          g++ $CXX_FLAGS core/tests/mod_targets_test.cpp core/viz/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp \
-            core/viz/ReactionDna.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o build/mod_targets_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests -Icore/tests/stub core/tests/mod_targets_test.cpp core/viz/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o mod_targets_test
+          ./mod_targets_test core/tests/mod_targets.txt
 
-      - name: Run the host tests
-        if: ${{ !inputs.write_fixtures }}
-        run: |
-          for t in catalogue params_schema customize mod_targets; do
-            ./build/${t}_test core/tests/${t}.txt
-          done
-
+      # Uses the binaries the step above built.
       - name: Regenerate the fixtures
         if: ${{ inputs.write_fixtures }}
         run: |
           mkdir -p fixtures
           for t in catalogue params_schema customize mod_targets; do
-            ./build/${t}_test --write fixtures/${t}.txt
+            ./${t}_test --write fixtures/${t}.txt
           done
           ls -l fixtures
 

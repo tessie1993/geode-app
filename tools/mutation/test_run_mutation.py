@@ -73,14 +73,14 @@ class ParserTest(unittest.TestCase):
             srcs = rm.expand_sources(b, root)
             self.assertEqual(srcs[1:3], ["core/sound/A.cpp", "core/sound/Z.cpp"])
 
-    def test_real_android_yml(self):
-        """Guards the parser against android.yml's real shape (fails loudly if CI's layout changes)."""
-        wf = REPO / ".github/workflows/android.yml"
+    def test_real_native_host_tests_yml(self):
+        """Guards the parser against native-host-tests.yml's real shape (fails loudly if CI's layout changes)."""
+        wf = REPO / ".github/workflows/native-host-tests.yml"
         tests = {t.name: t for t in rm.parse_host_tests(wf.read_text(encoding="utf-8"))}
-        for name in ("viz_math_test", "director_test", "catalogue_test", "params_test", "resampler_test"):
+        for name in ("catalogue_test", "params_schema_test", "customize_test", "mod_targets_test"):
             self.assertIn(name, tests)
-        self.assertIn("core/viz/Director.cpp", tests["director_test"].raw_sources())
-        self.assertIn("core/viz/VisualSafety.cpp", tests["director_test"].raw_sources())
+        self.assertIn("core/viz/Reactions.cpp", tests["mod_targets_test"].raw_sources())
+        self.assertIn("core/viz/VisualSafety.cpp", tests["mod_targets_test"].raw_sources())
         self.assertEqual(tests["catalogue_test"].run_argv[1:], ["core/tests/catalogue.txt"])
 
 

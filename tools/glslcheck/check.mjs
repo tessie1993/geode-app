@@ -599,6 +599,11 @@ async function main() {
     return;
   }
   if (args.stills) {
+    // The golden song and visual_gate.cpp were deleted with the old core/tests (#850); fail clearly
+    // until the sound golden and the stills gate are rebuilt, instead of an ENOENT deep in the run.
+    for (const f of [GOLDEN_SONG, VISUAL_GATE_CPP]) {
+      if (!fs.existsSync(f)) throw new Error(`--stills needs ${path.relative(ROOT, f)}, which is not in the repo (#850)`);
+    }
     await runStills(args, registry);
     return;
   }

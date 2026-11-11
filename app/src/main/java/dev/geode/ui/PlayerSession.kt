@@ -1171,7 +1171,7 @@ class PlayerSession internal constructor(
         // Queue every outstanding write BEFORE the pending set is snapshotted below, or the store
         // scope's cancellation races the very writes this teardown exists to preserve.
         listening.flushListenTime()
-        vizStateStore.flushIfDirty()
+        storeScope.launch { vizStateStore.flushIfDirty() }
         val pendingStoreWrites =
             storeScope.coroutineContext.job.children
                 .toList()

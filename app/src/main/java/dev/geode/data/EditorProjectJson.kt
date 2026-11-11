@@ -86,19 +86,6 @@ internal object EditorProjectJson {
         )
     }
 
-    fun templateToJson(t: ProjectTemplate): String =
-        JSONObject()
-            .put("version", FOLDER_VERSION)
-            .put("id", t.id.value)
-            .put("name", t.name)
-            .put("kind", kind(t.kind))
-            .put("destination", t.destination.name)
-            .put("export", export(t.export))
-            .put("lengthMs", t.lengthMs)
-            .put("createdAtMs", t.createdAtMs)
-            .put("edit", edit(t.edit))
-            .toString(2)
-
     fun templateFromJson(json: String): ProjectTemplate {
         val o = JSONObject(json)
         require(o.optInt("version", FOLDER_VERSION) <= FOLDER_VERSION) { "Studio template from a newer app" }

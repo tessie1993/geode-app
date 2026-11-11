@@ -7,7 +7,6 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.net.Uri
-import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.provider.MediaStore
@@ -392,21 +391,12 @@ class LoopExtend(
                     )
             return Target.Opened(destination, descriptor, viaMediaStore = false)
         }
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            // Pre-scoped-storage, writing into the Videos library needs
-            // WRITE_EXTERNAL_STORAGE. Saying so beats letting the insert throw.
-            return Target.Failed(
-                context.getString(R.string.export_error_extend_library_pre_q),
-            )
-        }
         val values =
             ContentValues().apply {
                 put(MediaStore.Video.Media.DISPLAY_NAME, fileName)
                 put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/MuzViz")
-                    put(MediaStore.Video.Media.IS_PENDING, 1)
-                }
+                put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/MuzViz")
+                put(MediaStore.Video.Media.IS_PENDING, 1)
             }
         val uri =
             resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
@@ -422,7 +412,7 @@ class LoopExtend(
     }
 
     private fun publish(target: Target.Opened) {
-        if (!target.viaMediaStore || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        if (!target.viaMediaStore) return
         val done = ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }
         bestEffort(TAG, "resolver.update(target.uri, done, null, null)") {
             context.contentResolver.update(target.uri, done, null, null)

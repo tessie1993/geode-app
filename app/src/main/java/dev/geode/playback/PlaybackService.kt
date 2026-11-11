@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.core.content.ContextCompat
@@ -135,16 +134,10 @@ class PlaybackService : MediaLibraryService() {
             )
         }
 
-        @Suppress("DEPRECATION")
         private fun installerOf(
             pm: PackageManager,
             pkg: String,
-        ): String? =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                pm.getInstallSourceInfo(pkg).installingPackageName
-            } else {
-                pm.getInstallerPackageName(pkg)
-            }
+        ): String? = pm.getInstallSourceInfo(pkg).installingPackageName
 
         /** The media notification's extra buttons ([NotificationButtons]); anything else is not ours. */
         override fun onCustomCommand(

@@ -1501,7 +1501,10 @@ void recipeOnlyAddsWhatTheStyleCanShow() {
     check(targetReaches(LT::PaletteMix, kShaderStyle) && !targetReaches(LT::PaletteMix, kFluidStyle), "palette blend is a shader look");
     check(targetReaches(LT::CamYaw, kFluidStyle) && targetReaches(LT::Bloom, "milkdrop"), "camera and composite targets are universal");
     check(!targetReaches(LT::ParticleSize, kShaderStyle) && targetReaches(LT::ParticleSize, kFluidStyle), "particle size");
-    check(!targetReaches(LT::TrailLength, kShaderStyle) && !targetReaches(LT::Turbulence, kFluidStyle), "trail and turbulence scopes");
+    // A shader style's trail is the feedback pass's sustain; a fluid has none of its own to lengthen.
+    check(targetReaches(LT::TrailLength, kShaderStyle) && !targetReaches(LT::TrailLength, kFluidStyle) &&
+              !targetReaches(LT::Turbulence, kFluidStyle),
+          "trail and turbulence scopes");
 }
 
 void aFullMatrixRefusesARecipeRatherThanDroppingRoutes() {

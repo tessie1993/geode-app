@@ -23,8 +23,7 @@ class MediaStoreSource(
     private val io: CoroutineDispatcher,
 ) {
     /** The system's "allow this app to change these files" request (API 30+) for [uris]. */
-    suspend fun writeRequest(uris: List<Uri>): IntentSender =
-        withContext(io) { MediaStore.createWriteRequest(resolver, uris).intentSender }
+    suspend fun writeRequest(uris: List<Uri>): IntentSender = withContext(io) { MediaStore.createWriteRequest(resolver, uris).intentSender }
 
     /** The system's "delete these files" request (API 30+) for [uris]. */
     suspend fun deleteRequest(uris: List<Uri>): IntentSender =

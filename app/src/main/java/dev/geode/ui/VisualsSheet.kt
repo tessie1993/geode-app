@@ -24,12 +24,13 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -126,15 +127,14 @@ internal fun VisualsOptions(
             )
         }
     val shape = RoundedCornerShape(GeodeRadius.Floating)
-    // Not Compose state: the bounds change every frame of a drag or settle, and a state read here
-    // recomposed the options and restarted an effect each time. The sink pushes from the layout callback.
-    val blurSink = rememberUiBlurSink(visualizerView, blurActive)
-    var bounds by blurSink::bounds
+    // Read by the blur's effect, never in composition: a drag moves the bounds every frame.
+    val bounds = remember { mutableStateOf<Rect?>(null) }
+    UiBlurRegion(visualizerView, { bounds.value }, blurActive)
     // One glass slab: the sheet, and under it the docked mini player ([bottomBar]) when there is
     // one. A hidden sheet lays out at zero height, which leaves the player alone as a pill.
     Column(
         modifier
-            .onGloballyPositioned { bounds = it.boundsInWindow() }
+            .onGloballyPositioned { bounds.value = it.boundsInWindow() }
             .glassBlur(shape)
             .floatingGlass(shape, fillAlpha = opacity),
     ) {
@@ -190,69 +190,42 @@ internal fun VisualsOptions(
 }
 
 /**
- * Tells the native blur where the options surface is ([UiBlurSink.bounds], in the window) so the
- * live visual frosts under it. Only a change of the bounds or of [active] calls through (one small
- * event on the GL thread each); strength is 1 while the surface is shown, 0 when it is hidden or
- * has no size, and 0 again on dispose so leaving Visuals clears it. The bounds are written from
- * layout, outside composition, so a drag does not recompose the sheet.
+ * Tells the native blur where the options surface is ([bounds], in the window) so the live visual
+ * frosts under it. Only a change of the bounds or of [active] calls through (one small event on
+ * the GL thread each); strength is 1 while the surface is shown, 0 when it is hidden or has no
+ * size, and 0 again on dispose so leaving Visuals clears it.
  */
 @Composable
-private fun rememberUiBlurSink(
+private fun UiBlurRegion(
     view: VisualizerView,
+    bounds: () -> Rect?,
     active: Boolean,
-): UiBlurSink {
-    val cornerPx = with(LocalDensity.current) { GeodeRadius.Floating.toPx() }
-    val sink = remember(view) { UiBlurSink(view) }
-    SideEffect { sink.update(active, cornerPx) }
-    DisposableEffect(view) {
-        onDispose { view.setUiBlurRegion(0f, 0f, 0f, 0f, 0f, 0f) }
-    }
-    return sink
-}
-
-private class UiBlurSink(
-    private val view: VisualizerView,
 ) {
-    private var active = false
-    private var cornerPx = 0f
-
-    var bounds: Rect? = null
-        set(value) {
-            if (field != value) {
-                field = value
-                push()
+    val cornerPx = with(LocalDensity.current) { GeodeRadius.Floating.toPx() }
+    LaunchedEffect(view, active, cornerPx) {
+        val loc = IntArray(2)
+        snapshotFlow(bounds).collect { inWindow ->
+            view.getLocationInWindow(loc)
+            val w = view.width.toFloat()
+            val h = view.height.toFloat()
+            // A rect only once laid out and measured; anything else turns the blur off.
+            val rect = inWindow?.takeIf { !it.isEmpty && w > 0f && h > 0f }
+            if (rect == null || !active) {
+                view.setUiBlurRegion(0f, 0f, 0f, 0f, 0f, cornerPx)
+            } else {
+                view.setUiBlurRegion(
+                    (rect.left - loc[0]) / w,
+                    (rect.top - loc[1]) / h,
+                    (rect.right - loc[0]) / w,
+                    (rect.bottom - loc[1]) / h,
+                    1f,
+                    cornerPx,
+                )
             }
         }
-
-    fun update(
-        active: Boolean,
-        cornerPx: Float,
-    ) {
-        if (this.active == active && this.cornerPx == cornerPx) return
-        this.active = active
-        this.cornerPx = cornerPx
-        push()
     }
-
-    private fun push() {
-        val loc = IntArray(2)
-        view.getLocationInWindow(loc)
-        val w = view.width.toFloat()
-        val h = view.height.toFloat()
-        // A rect only once laid out and measured; anything else turns the blur off.
-        val rect = bounds?.takeIf { !it.isEmpty && w > 0f && h > 0f }
-        if (rect == null || !active) {
-            view.setUiBlurRegion(0f, 0f, 0f, 0f, 0f, cornerPx)
-        } else {
-            view.setUiBlurRegion(
-                (rect.left - loc[0]) / w,
-                (rect.top - loc[1]) / h,
-                (rect.right - loc[0]) / w,
-                (rect.bottom - loc[1]) / h,
-                1f,
-                cornerPx,
-            )
-        }
+    DisposableEffect(view) {
+        onDispose { view.setUiBlurRegion(0f, 0f, 0f, 0f, 0f, 0f) }
     }
 }
 

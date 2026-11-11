@@ -2,7 +2,6 @@ package dev.geode.ui
 
 import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.AlertDialog
@@ -169,8 +168,7 @@ internal fun rememberRenderNotificationAsk(): () -> Unit {
     }
     return {
         val alreadyGranted =
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-                ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) ==
+            ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) ==
                 PackageManager.PERMISSION_GRANTED
         if (!asked && !alreadyGranted) {
             asked = true
@@ -181,10 +179,8 @@ internal fun rememberRenderNotificationAsk(): () -> Unit {
 
 /**
  * Starts one visualizer export of the current track through [PlayerViewModel.startExport] (which
- * holds the Pro gates). Passing true first asks where to save; below Q it always asks:
- * saving into the Videos library without asking is a scoped-storage privilege, and below Q the same
- * insert needs WRITE_EXTERNAL_STORAGE, a permission this app does not ask for, so the write failed
- * with a SecurityException the user saw raw. The folder picker is the same save by another route.
+ * holds the Pro gates). Passing true first asks where to save; otherwise the render is saved into
+ * the Videos library without asking.
  */
 @Composable
 internal fun rememberVisualizerExport(
@@ -221,7 +217,7 @@ internal fun rememberVisualizerExport(
         }
     return { req, toFolder ->
         askNotifications()
-        if (toFolder || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+        if (toFolder) {
             pendingExport = req
             destinationPicker.launch("muzviz_${System.currentTimeMillis()}.mp4")
         } else {
@@ -269,21 +265,16 @@ fun ExportHost(
         state = loop,
         onStart = { req ->
             askNotifications()
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                pendingLoopExport = PendingLoopExport.from(req)
-                loopDestinationPicker.launch("muzviz_loop_${System.currentTimeMillis()}.mp4")
-            } else {
-                viewModel.startLoopRender(
-                    req.aspect,
-                    req.codec,
-                    req.fps,
-                    visualizerView.visualizerRenderer.exportSceneFactory(viz.sceneId),
-                    req.loopMs,
-                    req.crossfadeMs,
-                    req.drift,
-                    req.audioClips,
-                )
-            }
+            viewModel.startLoopRender(
+                req.aspect,
+                req.codec,
+                req.fps,
+                visualizerView.visualizerRenderer.exportSceneFactory(viz.sceneId),
+                req.loopMs,
+                req.crossfadeMs,
+                req.drift,
+                req.audioClips,
+            )
         },
         onStartToDestination = { req ->
             askNotifications()

@@ -33,7 +33,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -196,7 +196,7 @@ private fun MomentRow(
                     Icon(
                         Icons.Filled.ExpandMore,
                         contentDescription = null,
-                        modifier = Modifier.padding(start = GeodeSpacing.XS).rotate(turn),
+                        modifier = Modifier.padding(start = GeodeSpacing.XS).graphicsLayer { rotationZ = turn },
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }

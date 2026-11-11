@@ -32,6 +32,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -79,10 +80,8 @@ internal fun CustomizePanel(
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val paywall: PaywallViewModel = geodeViewModel()
     val gate by paywall.gate.collectAsStateWithLifecycle()
-    // Only the scene id, mapped and de-duplicated: a slider drag emits a new VizUiState each time and must not recompose the panel.
-    val sceneId by remember(viewModel) {
-        viewModel.vizState.map { it.sceneId }.distinctUntilChanged()
-    }.collectAsStateWithLifecycle(remember(viewModel) { viewModel.vizState.value.sceneId })
+    val vizState = viewModel.vizState.collectAsStateWithLifecycle()
+    val sceneId by remember { derivedStateOf { vizState.value.sceneId } }
     var query by rememberSaveable { mutableStateOf("") }
     var searching by rememberSaveable { mutableStateOf(false) }
     var showTips by rememberSaveable { mutableStateOf(false) }

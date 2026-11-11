@@ -52,6 +52,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -125,8 +126,6 @@ import dev.geode.ui.theme.rememberSystemReducedMotion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
 private const val CRASH_REPORT_MAX_BYTES = 64 * 1024
@@ -262,15 +261,15 @@ fun AppRoot() {
             }
     }
     VisualizerEngineBindings(viewModel, visualizerView)
+    val vizState = viewModel.vizState.collectAsStateWithLifecycle()
     // The accent follows the visual: the middle of its palette's hues; MilkDrop paints its own.
-    // Mapped and de-duplicated outside this scope, so a slider drag (a new VizUiState each time)
-    // does not invalidate the root; it uses only the scene id and two palette floats.
-    val accentSource =
-        remember(viewModel) {
-            viewModel.vizState.map(::accentOf).distinctUntilChanged()
+    // Derived, so the root recomposes when the accent changes, not on every Customize slider tick.
+    val accentTarget by remember {
+        derivedStateOf {
+            val viz = vizState.value
+            if (viz.sceneId == SceneIds.MILKDROP) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
         }
-    // The first value is read once, in remember: lint rejects StateFlow.value in composition.
-    val accentTarget by accentSource.collectAsStateWithLifecycle(remember(viewModel) { accentOf(viewModel.vizState.value) })
+    }
     // Outside the theme, so the motion scheme is built here from the same switches the theme reads.
     // Android's "Remove animations" alone (data/SystemMotion, #336); the paywall below reads it too.
     val reducedMotion = rememberSystemReducedMotion()
@@ -317,9 +316,12 @@ fun AppRoot() {
             )
         }
         val tutorial = rememberTutorialState()
+        // Remembered: a fresh list each recomposition would recompose the tab bar and rail with it.
+        val navLabels = GeodeDestination.entries.map { stringResource(it.labelRes) }
         val navEntries =
-            GeodeDestination.entries
-                .map { NavEntry(it, DockItem(stringResource(it.labelRes), it.icon)) }
+            remember(navLabels) {
+                GeodeDestination.entries.mapIndexed { i, destination -> NavEntry(destination, DockItem(navLabels[i], destination.icon)) }
+            }
         // Keyed by destination, not by position: rotating swaps the bar layout for the rail
         // layout, which would otherwise drop every screen's saved tab and scroll state.
         val destinationState = rememberSaveableStateHolder()
@@ -567,6 +569,7 @@ private fun AppShellCompact(
     val onVisuals = appState.dest == GeodeDestination.VISUALS
     val showsPlayer = hasMedia && !appState.onPlayer
     var barHeight by remember { mutableStateOf(0.dp) }
+    val tabItems = remember(navEntries) { navEntries.map { it.item } }
     var dockDrawn by remember { mutableStateOf(0.dp) }
     Box(Modifier.fillMaxSize()) {
         val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -657,7 +660,7 @@ private fun AppShellCompact(
                 exit = fadeOut(dockFade),
             ) {
                 FloatingTabBar(
-                    items = navEntries.map { it.item },
+                    items = tabItems,
                     // A destination can be hidden while still being the current one — reaching
                     // Studio from a track menu, say. Fall back to the first tab rather than -1.
                     selected = navEntries.indexOfFirst { it.destination == appState.dest }.coerceAtLeast(0),
@@ -752,10 +755,6 @@ private fun NavRail(
         if (centerRail) Spacer(Modifier.weight(1f))
     }
 }
-
-/** The accent the visual on screen gives; MilkDrop paints its own. */
-private fun accentOf(viz: VizUiState): Color =
-    if (viz.sceneId == SceneIds.MILKDROP) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
 
 /** The accent a palette gives: the middle of its hue span, bright enough to read on black. */
 private fun paletteAccent(

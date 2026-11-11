@@ -5,7 +5,6 @@ import android.content.ContentUris
 import android.content.Context
 import android.database.Cursor
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import dev.geode.data.GeodePrefsFiles
@@ -105,12 +104,10 @@ class GeodeContainer(
      * finishes on its own. It would otherwise sit in Movies/MuzViz or Pictures/MuzViz forever, a
      * broken, unplayable, ever-growing invisible file.
      *
-     * `IS_PENDING` only exists from API 29 (scoped storage), so there is nothing to sweep below
-     * it. A short grace period (rather than sweeping every pending row on sight) keeps this from
+     * A short grace period (rather than sweeping every pending row on sight) keeps this from
      * racing a render that is genuinely in flight in this same process.
      */
     private fun sweepOrphanedPendingExports(context: Context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
         appScope.launch(Dispatchers.IO) {
             bestEffort(TAG, "sweep orphaned pending exports") {
                 val cutoffSeconds = (System.currentTimeMillis() - PENDING_EXPORT_GRACE_MS) / 1000
@@ -142,7 +139,7 @@ class GeodeContainer(
             val idColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
             while (cursor.moveToNext()) {
                 val uri = ContentUris.withAppendedId(collection, cursor.getLong(idColumn))
-                bestEffort(TAG, "resolver.delete(orphaned pending row)") { resolver.delete(includingPending(uri), null, null) }
+                bestEffort(TAG, "resolver.delete(orphaned pending row)") { resolver.delete(uri, null, null) }
             }
         }
     }
@@ -152,8 +149,7 @@ class GeodeContainer(
      * `IS_PENDING` row from a query, its owner's included, so the sweep's `IS_PENDING = 1` filter
      * matched nothing and orphans were never found. API 30 takes the opt-in as a query argument
      * (`QUERY_ARG_MATCH_PENDING = MATCH_INCLUDE`), which only the Bundle form of
-     * `ContentResolver.query` carries, so the selection travels in the same Bundle; API 29 has no
-     * such argument and reads the opt-in off the uri instead ([includingPending]).
+     * `ContentResolver.query` carries, so the selection travels in the same Bundle.
      */
     private fun queryIncludingPending(
         context: Context,
@@ -161,31 +157,15 @@ class GeodeContainer(
         projection: Array<String>,
         selection: String,
         args: Array<String>,
-    ): Cursor? =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val queryArgs =
-                Bundle().apply {
-                    putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
-                    putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, args)
-                    putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE)
-                }
-            context.contentResolver.query(collection, projection, queryArgs, null)
-        } else {
-            context.contentResolver.query(includingPending(collection), projection, selection, args, null)
-        }
-
-    /**
-     * The API 29 spelling of "pending rows too": `MediaStore.setIncludePending` marks the uri.
-     * Deprecated from API 30, where the query argument above replaces it and a delete by id
-     * already reaches its own pending row, so the uri is returned unchanged there.
-     */
-    private fun includingPending(uri: Uri): Uri =
-        if (Build.VERSION.SDK_INT == Build.VERSION_CODES.Q) {
-            @Suppress("DEPRECATION")
-            MediaStore.setIncludePending(uri)
-        } else {
-            uri
-        }
+    ): Cursor? {
+        val queryArgs =
+            Bundle().apply {
+                putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+                putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, args)
+                putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE)
+            }
+        return context.contentResolver.query(collection, projection, queryArgs, null)
+    }
 
     private companion object {
         const val TAG = "GeodeContainer"

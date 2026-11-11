@@ -189,12 +189,6 @@ internal class CaptureController(
     }
 
     private fun startPlaybackCapture(projection: android.media.projection.MediaProjection) {
-        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
-            _externalAudio.update {
-                it.copy(awaitingConsent = false, failure = CaptureFailure.UNSUPPORTED)
-            }
-            return
-        }
         if (!micCapture.hasPermission()) {
             _externalAudio.update {
                 it.copy(awaitingConsent = false, failure = CaptureFailure.PERMISSION)

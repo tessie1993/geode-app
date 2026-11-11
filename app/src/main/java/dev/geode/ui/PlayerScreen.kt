@@ -823,14 +823,10 @@ private fun QuickActions(
                         viewModel.stopExternalAudio()
                     } else {
                         capturePermissions.launch(
-                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                                arrayOf(
-                                    android.Manifest.permission.RECORD_AUDIO,
-                                    android.Manifest.permission.POST_NOTIFICATIONS,
-                                )
-                            } else {
-                                arrayOf(android.Manifest.permission.RECORD_AUDIO)
-                            },
+                            arrayOf(
+                                android.Manifest.permission.RECORD_AUDIO,
+                                android.Manifest.permission.POST_NOTIFICATIONS,
+                            ),
                         )
                     }
                 }

@@ -17,7 +17,7 @@ struct QualityTier {
     float fpsCap;       // the live cap the pacer divides to
     float marchScale;   // ray-march step budget for marched styles
     bool postFx;        // trails and the other optional passes
-    bool adaptive;      // let measured frame time steer the thermal tier
+    bool adaptive;      // any sustained frame-time deficit steers the thermal tier; off, only a severe one
 };
 
 // Saver is cheaper than High on every axis; Balanced sits between. Every value is one the
@@ -31,16 +31,16 @@ inline constexpr std::array<QualityTier, kQualityModes> kQualityTiers = {{
 inline const QualityTier& qualityTier(QualityMode mode) { return kQualityTiers[static_cast<int>(mode)]; }
 
 // The first-run pick. A low-RAM phone, or one under 3 GB, starts on Saver. Media performance class
-// 12 (Android S, 31) or better, or 6 GB and up, starts on High. Everything else starts on Balanced.
-// An unknown RAM (0) is not read as small.
+// 12 (Android S, 31) or better starts on High. Everything else starts on Balanced, however much RAM
+// it has: RAM says nothing about the GPU, and a 6 GB phone picked for High drew a marched style at
+// 20 fps at full resolution. An unknown RAM (0) is not read as small.
 inline constexpr int64_t kMiB = 1024LL * 1024LL;
 inline constexpr int64_t kSaverBelowRam = 3000 * kMiB;
-inline constexpr int64_t kHighFromRam = 6000 * kMiB;
 inline constexpr int kHighPerformanceClass = 31;
 
 inline QualityMode modeForDevice(int64_t totalRamBytes, bool lowRamDevice, int mediaPerformanceClass) {
     if (lowRamDevice || (totalRamBytes >= 1 && totalRamBytes < kSaverBelowRam)) return QualityMode::Saver;
-    if (mediaPerformanceClass >= kHighPerformanceClass || totalRamBytes >= kHighFromRam) return QualityMode::High;
+    if (mediaPerformanceClass >= kHighPerformanceClass) return QualityMode::High;
     return QualityMode::Balanced;
 }
 

@@ -105,4 +105,14 @@ Java_dev_geode_engine_bridge_GeodeNative_surfaceFpsChoice(JNIEnv*, jobject, jint
     return geode_surface_fps_choice(requestedFps);
 }
 
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_autoTimerRestart(JNIEnv*, jobject, jint timer, jlong nowMs) {
+    geode_auto_timer_restart(timer, nowMs);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_autoTimerDue(JNIEnv*, jobject, jint timer, jlong nowMs, jint intervalSec, jboolean running) {
+    return geode_auto_timer_due(timer, nowMs, intervalSec, running == JNI_TRUE ? 1 : 0) ? JNI_TRUE : JNI_FALSE;
+}
+
 }  // extern "C"

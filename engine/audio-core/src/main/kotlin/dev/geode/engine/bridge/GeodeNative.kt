@@ -1355,6 +1355,29 @@ object GeodeNative {
     /** A surface's stored fps choice as its pacer caps to: snapped to a listed rate, <= 0 the default. */
     external fun surfaceFpsChoice(requestedFps: Int): Int
 
+    /**
+     * Auto's style timer ([AUTO_TIMER_PLAYLIST], [AUTO_TIMER_RANDOM]; native `core/viz/AutoTimer`): a look
+     * just went up at [nowMs], so the wait starts over with a new random spread on top of the interval.
+     */
+    external fun autoTimerRestart(
+        timer: Int,
+        nowMs: Long,
+    )
+
+    /**
+     * Whether [timer]'s next look is due: the interval plus this look's spread has passed. True restarts
+     * the wait. [running] false (off, paused, nothing to step to) is never due.
+     */
+    external fun autoTimerDue(
+        timer: Int,
+        nowMs: Long,
+        intervalSec: Int,
+        running: Boolean,
+    ): Boolean
+
+    const val AUTO_TIMER_PLAYLIST = 0
+    const val AUTO_TIMER_RANDOM = 1
+
     const val SURFACE_HAS_SURFACE = 1 shl 0
     const val SURFACE_VISIBLE = 1 shl 1
     const val SURFACE_PREVIEW = 1 shl 2

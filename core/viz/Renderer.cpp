@@ -96,7 +96,7 @@ void Renderer::writeAudio(const float* interleaved, int frames, int channels, in
     // MilkDrop's raw PCM is what the engine just heard (#360): one ring, one cursor, every surface.
     // Taken under its own lock, never nested in soundLock_, so the two locks have no order to keep.
     std::lock_guard<std::mutex> lock(stateLock_);
-    pcm_.write(interleaved, frames, channels);
+    pcm_.write(interleaved, frames, channels, sampleRateHz);
 }
 
 void Renderer::resetAudio() {

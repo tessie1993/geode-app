@@ -17,7 +17,13 @@ struct Drive {
     bool inverted;
 };
 
-constexpr std::array<Drive, 29> kDrives = {{
+// Twist is not here, on purpose. It spirals the frame about the screen centre in the shared view()
+// and in the composite, so it draws the same S-curve on every style, and it rests at 0 in the
+// middle of its range: a knob turned up pulled it toward +1 and a knob turned down toward -1, so
+// Complexity twisted the picture whichever way it went. The auto-director turns Complexity on
+// every look ("almost all visuals have a yin-yang curve"). Twist stays the user's slider, the
+// style's own reactions and the short kick below.
+constexpr std::array<Drive, 28> kDrives = {{
     {Macro::Energy, &SceneParams::reactAmount, 0.0f, 2.0f, false},
     {Macro::Energy, &SceneParams::audioDrive, 0.2f, 2.5f, false},
     {Macro::Energy, &SceneParams::motionAmount, 0.0f, 1.0f, false},
@@ -29,7 +35,6 @@ constexpr std::array<Drive, 29> kDrives = {{
     {Macro::Speed, &SceneParams::motionDrift, 0.0f, 1.0f, false},
     {Macro::Complexity, &SceneParams::tile, 1.0f, 6.0f, false},
     {Macro::Complexity, &SceneParams::warp, 0.0f, 1.0f, false},
-    {Macro::Complexity, &SceneParams::twist, -1.0f, 1.0f, false},
     {Macro::Complexity, &SceneParams::morph, 0.0f, 1.0f, false},
     {Macro::Mood, &SceneParams::temperature, -1.0f, 1.0f, false},
     {Macro::Mood, &SceneParams::saturation, 0.0f, 1.5f, false},
@@ -65,7 +70,9 @@ constexpr std::array<SoundRoute, kRoutes> kSound = {{
     {Macro::Complexity, ReactSource::DensitySlow, LfoTarget::Morph, 0.4f, 0.3f, 0.8f},
     {Macro::Mood, ReactSource::PitchHeight, LfoTarget::Temperature, 0.3f, 0.3f, 0.8f},
     {Macro::Space, ReactSource::StereoPan, LfoTarget::DriftX, 0.3f, 0.3f, 0.6f},
-    {Macro::Chaos, ReactSource::KickRandom, LfoTarget::Twist, 0.5f, 0.05f, 0.1f},
+    // KickRandom holds its draw until the next kick, so this is a held twist, not a pulse: at 0.5
+    // it kept every style half spiralled between kicks whenever Chaos was up. 0.2 is a nudge.
+    {Macro::Chaos, ReactSource::KickRandom, LfoTarget::Twist, 0.2f, 0.05f, 0.1f},
     {Macro::Chaos, ReactSource::SnareToggle, LfoTarget::ChromaAb, 0.4f, 0.03f, 0.03f},
 }};
 static_assert(kRoutes <= ReactionEngine::kRoutes, "the macro routes fit one reaction engine");

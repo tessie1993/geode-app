@@ -238,11 +238,7 @@ private fun CustomizeHeader(
     val target = category ?: CustomizeCategory.QUICK_KNOBS
     val onKnobs = target == CustomizeCategory.QUICK_KNOBS
     val randomize = {
-        when {
-            onKnobs -> macroStore.surprise()
-            !proLock.unlocked -> proLock.onLocked()
-            else -> visualsViewModel.randomizeParams(target)
-        }
+        if (proLock.unlocked) visualsViewModel.randomizeParams(target) else proLock.onLocked()
     }
     Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
         Text(
@@ -264,7 +260,8 @@ private fun CustomizeHeader(
                     stringResource(if (searching) R.string.customize_a11y_close_search else R.string.customize_a11y_search),
             )
         }
-        IconButton(onClick = randomize) {
+        // The knobs have no roll: the bank is the user's own (core/viz/MacroBank).
+        IconButton(onClick = randomize, enabled = !onKnobs) {
             Icon(Icons.Filled.Casino, contentDescription = stringResource(R.string.customize_a11y_randomize, target.title))
         }
         IconButton(onClick = visualsViewModel::undoParams, enabled = history.canUndo) {
@@ -288,7 +285,7 @@ private fun CustomizeHeader(
                     text = { Text("Reset ${target.title}") },
                     onClick = {
                         menuOpen = false
-                        if (onKnobs) macroStore.resetKnobs() else visualsViewModel.resetCustomizeCategory(target)
+                        if (onKnobs) macroStore.centreAll() else visualsViewModel.resetCustomizeCategory(target)
                     },
                 )
                 if (!onKnobs) {

@@ -24,7 +24,7 @@ namespace geode::sound::player {
 // epoch) starts fresh; for the mic and capture, which have no player to name their boundaries, the silence
 // rule stays, and fadeGain reads 1 (SoundEngine::setPlayerSource).
 //
-// Process-wide and latched like the macros and the director: written on the main thread, read once per
+// Process-wide and latched like the macro bank and the director: written on the main thread, read once per
 // frame on each GL thread. An export renderer reads none of them (Renderer::beginFrame): a render has its
 // own track, no player fades, and counts as the player. One flag for the process: a wallpaper hearing the
 // output mix (wallpaper/OutputMixCapture, its own ring) still reads the app ring's source.

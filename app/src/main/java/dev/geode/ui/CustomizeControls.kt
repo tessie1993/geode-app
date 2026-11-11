@@ -471,12 +471,6 @@ private fun PanelPiece(
             val macros by store.state.collectAsStateWithLifecycle()
             MacrosTab(macros, store)
         }
-        "@macro_sets" -> {
-            val store = remember { MacroStore.get(context) }
-            val macros by store.state.collectAsStateWithLifecycle()
-            val lock = LocalProLock.current
-            MacroSetsPage(macros, store, canSavePresets = lock.unlocked, onLockedSave = lock.onLocked)
-        }
         "@palette_maker" -> ProGated(id, "Make a palette") { if (sectionVisible()) PaletteMakerCard(p, onChange, rememberSavedPalettes()) }
         "@auto_moments" -> DirectorSwitch()
         "@moments" -> {

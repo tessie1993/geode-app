@@ -7,7 +7,7 @@ namespace geode::viz {
 //
 // Speed is a rate, so it is integrated, never multiplied onto an accumulated
 // clock. `clock * speed` is elapsed time times the live dial: every Speed
-// change (the slider, an LFO, a macro, a reaction route) moves it by
+// change (the slider, an LFO, a macro knob, a reaction route) moves it by
 // clock * delta-speed in one frame, which an hour into a set is a different
 // picture. ShaderScene already does this for uTime (shaderTime_ += speed * dt);
 // these do it for the other clocks a style may want Speed on: the motion

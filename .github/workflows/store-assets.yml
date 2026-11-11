@@ -1,0 +1,253 @@
+name: Store assets
+
+# Captures the Play Store listing's pictures from the real app on the emulator and uploads them
+# as the artifact store-assets-<run>: the screenshot sets (phone, 7-inch and 10-inch tablet),
+# rendered frames for the feature graphic, and raw screen recordings for the promo video.
+# docs/store/screenshots.md says what each file is for and which Play rule sizes it.
+#
+# Manual only: what goes on the store page is the owner's call, and a run costs an hour or more
+# of software rendering. Nothing here uploads to Play; the owner picks files from the artifact.
+#
+# The captures are instrumented tests in dev.geode.store, each skipped unless its own argument is
+# set (storeshots=1, storereel=1, storeframes=1), so the ordinary emulator job never runs them.
+#
+# One emulator, one boot. Its panel is a 2560 x 1600 tablet, and each set's screen is cut from it
+# with `wm size` and `wm density`: Play wants 16:9 for large screens, which no stock device
+# profile is, and a phone screenshot's long side may be at most twice its short side, which rules
+# out today's tall phone profiles. The collect step checks every file against the size it asked
+# for and against Play's limits, and the job fails when a set is short or the wrong size.
+#
+# Free and Pro (the owner's rule, 2026-11-11): the screenshots are the free app, every style in them
+# one a free user keeps; the promo clips are recorded as a Pro owner (fake billing) on Pro styles.
+# The tests fix that themselves, so there is no input for it.
+#
+# Quality: the app's Settings > Performance decides the visual's render scale. Each set is tried
+# at the first mode in `quality` and, if captures are missing (the app died under the cost of
+# software rendering), again at the next, keeping the fullest attempt.
+
+on:
+  workflow_dispatch:
+    inputs:
+      forms:
+        description: "Screens to capture (phone, phone-land, tablet7, tablet10)"
+        default: "phone phone-land tablet7 tablet10"
+        required: true
+      quality:
+        description: "Settings > Performance modes to try, best first (high, balanced, saver)"
+        default: "high balanced saver"
+        required: true
+      reel_seconds:
+        description: "Length of each promo clip in seconds (0 = no clips)"
+        default: "20"
+        required: true
+      frames:
+        description: "1 = render feature-graphic frames; 0 = skip"
+        default: "1"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-assets-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    name: Store assets (emulator)
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      STORE_FORMS: ${{ inputs.forms }}
+      STORE_QUALITY: ${{ inputs.quality }}
+      STORE_REEL_SECONDS: ${{ inputs.reel_seconds }}
+      STORE_FRAMES: ${{ inputs.frames }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # third_party/* are submodules; the root CMakeLists.txt builds them.
+          submodules: recursive
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-read-only: true
+
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Build app and test APKs
+        run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace --no-daemon
+
+      - name: Write the capture script
+        run: |
+          cat > "$RUNNER_TEMP/store-assets.sh" <<'SH'
+          set -uo pipefail
+          OUT=store-assets-out
+          mkdir -p "$OUT/raw" "$OUT/logs"
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+          adb shell settings put secure show_ime_with_hard_keyboard 0
+          # Gesture navigation: a thin pill, not three buttons, under every screenshot.
+          adb shell cmd overlay enable com.android.internal.systemui.navbar.gestural || true
+          sleep 10
+          adb shell input keyevent 82
+          # A clean status bar, as Play asks: fixed clock, full battery, no notifications.
+          demo() {
+            adb shell settings put global sysui_demo_allowed 1 || true
+            adb shell am broadcast -a com.android.systemui.demo -e command enter || true
+            adb shell am broadcast -a com.android.systemui.demo -e command clock -e hhmm 1200 || true
+            adb shell am broadcast -a com.android.systemui.demo -e command battery -e level 100 -e plugged false || true
+            adb shell am broadcast -a com.android.systemui.demo -e command network -e wifi show -e level 4 || true
+            adb shell am broadcast -a com.android.systemui.demo -e command notifications -e visible false || true
+          }
+          timeout 30 adb logcat -G 16M >/dev/null 2>&1 || true
+          adb logcat -b main,system,crash -v threadtime > "$OUT/logs/logcat.txt" 2>&1 &
+          LOGCAT_PID=$!
+
+          # The screen each set is cut to: logical size and density. Width x height as the user
+          # holds it; sw = short side * 160 / density (phone 411 dp, 7-inch 600 dp, 10-inch 720 dp).
+          screen() {
+            case "$1" in
+              phone)      echo "1080x1920 420" ;;
+              phone-land) echo "1920x1080 420" ;;
+              tablet7)    echo "1920x1080 288" ;;
+              tablet10)   echo "2560x1440 320" ;;
+              *)          echo "" ;;
+            esac
+          }
+          set_screen() {
+            read -r size density <<<"$(screen "$1")"
+            adb shell wm size "$size"
+            adb shell wm density "$density"
+            sleep 5
+            demo
+            adb shell wm size > "$OUT/logs/wm-$1.txt" 2>&1 || true
+            adb shell wm density >> "$OUT/logs/wm-$1.txt" 2>&1 || true
+          }
+          reset_screen() {
+            adb shell wm size reset || true
+            adb shell wm density reset || true
+          }
+          # run <log name> <class> <gate arg> <form> <quality> [extra -P args...]
+          run() {
+            local log="$1" class="$2" gate="$3" form="$4" quality="$5"
+            shift 5
+            ./gradlew :app:connectedDebugAndroidTest --stacktrace --no-daemon \
+              -Pandroid.testInstrumentationRunnerArguments.class="dev.geode.store.$class" \
+              -Pandroid.testInstrumentationRunnerArguments."$gate"=1 \
+              -Pandroid.testInstrumentationRunnerArguments.storeForm="$form" \
+              -Pandroid.testInstrumentationRunnerArguments.storeQuality="$quality" \
+              -Pandroid.testInstrumentationRunnerArguments.useTestStorageService=true \
+              "$@" 2>&1 | tee "$OUT/logs/$log.log"
+            return "${PIPESTATUS[0]}"
+          }
+
+          SHOTS=8
+          for form in $STORE_FORMS; do
+            if [ -z "$(screen "$form")" ]; then echo "::warning::unknown form $form"; continue; fi
+            set_screen "$form"
+            best=-1
+            for quality in $STORE_QUALITY; do
+              echo "::group::Screenshots, $form, $quality"
+              adb shell rm -rf /sdcard/googletest/test_outputfiles/store-shots || true
+              run "shots-$form-$quality" StoreShotsTest storeshots "$form" "$quality" || true
+              tmp="$OUT/raw/shots-$form-$quality"
+              mkdir -p "$tmp"
+              timeout 600 adb pull /sdcard/googletest/test_outputfiles/store-shots "$tmp" >/dev/null 2>&1 || true
+              got=$(find "$tmp" -name '*.png' | wc -l)
+              echo "$form at $quality: $got of $SHOTS screenshots"
+              echo "::endgroup::"
+              if [ "$got" -gt "$best" ]; then
+                best=$got
+                rm -rf "$OUT/raw/shots-$form"
+                mv "$tmp" "$OUT/raw/shots-$form"
+                echo "$quality" > "$OUT/raw/shots-$form/quality.txt"
+              fi
+              [ "$got" -ge "$SHOTS" ] && break
+            done
+            if [ "$STORE_REEL_SECONDS" != "0" ] && { [ "$form" = phone ] || [ "$form" = phone-land ]; }; then
+              echo "::group::Promo clips, $form"
+              adb shell rm -rf /sdcard/store-assets || true
+              quality=$(cat "$OUT/raw/shots-$form/quality.txt" 2>/dev/null || echo balanced)
+              run "reel-$form" StoreReelTest storereel "$form" "$quality" \
+                -Pandroid.testInstrumentationRunnerArguments.storeReelSeconds="$STORE_REEL_SECONDS" || true
+              mkdir -p "$OUT/raw/reel"
+              timeout 900 adb pull /sdcard/store-assets/promo "$OUT/raw/reel" >/dev/null 2>&1 || true
+              echo "::endgroup::"
+            fi
+            reset_screen
+          done
+
+          if [ "$STORE_FRAMES" = "1" ]; then
+            echo "::group::Feature graphic frames"
+            adb shell rm -rf /sdcard/googletest/test_outputfiles/store-frames || true
+            run frames StoreFramesTest storeframes none high || true
+            mkdir -p "$OUT/raw/frames"
+            timeout 600 adb pull /sdcard/googletest/test_outputfiles/store-frames "$OUT/raw/frames" >/dev/null 2>&1 || true
+            echo "::endgroup::"
+          fi
+          kill "$LOGCAT_PID" >/dev/null 2>&1 || true
+          touch "$OUT/raw/finished"
+          SH
+          chmod +x "$RUNNER_TEMP/store-assets.sh"
+
+      - name: Capture on the emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          # A 2560 x 1600 panel, so every set's `wm size` fits inside it.
+          profile: Nexus 10
+          ram-size: 4096M
+          heap-size: 576M
+          cores: 3
+          disk-size: 6000M
+          force-avd-creation: true
+          emulator-boot-timeout: 900
+          emulator-options: -no-snapshot -no-window -gpu swangle_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          working-directory: .
+          script: bash "$RUNNER_TEMP/store-assets.sh"
+
+      - name: Collect and check the assets
+        if: always()
+        shell: bash
+        run: |
+          python3 -m pip install --quiet "pillow==11.0.0"
+          python3 tools/store_assets_collect.py store-assets-out
+
+      - name: Upload the assets
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: store-assets-${{ github.run_number }}
+          path: |
+            store-assets-out/
+            !store-assets-out/raw/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Fail if a set is short or the wrong size
+        if: always()
+        run: |
+          problems=$(cat store-assets-out/problems.txt 2>/dev/null || echo "the collect step did not run")
+          if [ -n "$problems" ]; then
+            echo "::error::Store assets are incomplete; see store-assets-out/report.md in the artifact."
+            echo "$problems"
+            exit 1
+          fi

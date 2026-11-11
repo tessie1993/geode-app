@@ -70,6 +70,11 @@ mkdir -p .claude/skills .git/info
 fetch_skills android/skills bf68e2d66a992a1e6aeb7e9263293cc23fcbf475
 fetch_skills chrisbanes/skills 8df9735a751cfabe5ddae457f28b0a8ea3d4092b
 
+# CI's ktlint without Gradle: the pinned ktlint CLI jar tools/ktlint-changed.sh runs, kept in
+# ~/.cache/geode-tools so every worktree shares it.
+step "ktlint CLI (tools/ktlint-changed.sh)"
+bash tools/ktlint-changed.sh --fetch || echo "warning: could not fetch the ktlint jar"
+
 # The plugins themselves. Claude Code also offers these from .claude/settings.json; installing
 # here means a fresh container has them before the first prompt.
 step "Claude Code plugins (project scope)"
@@ -84,5 +89,6 @@ fi
 
 step "check"
 for tool in clangd glslc; do command -v "$tool" >/dev/null 2>&1 && echo "ok   $tool" || echo "MISS $tool"; done
+bash tools/ktlint-changed.sh --fetch >/dev/null 2>&1 && echo "ok   ktlint" || echo "MISS ktlint"
 { command -v android >/dev/null 2>&1 || [ -x "$HOME/.local/bin/android" ]; } && echo "ok   android" || echo "MISS android"
 exit 0

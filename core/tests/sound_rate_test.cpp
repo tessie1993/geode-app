@@ -27,39 +27,16 @@
 #include <vector>
 
 #include "sound/SoundEngine.hpp"
+#include "tests/SoundFields.hpp"
 
 using geode::sound::SoundEngine;
 
 namespace {
 
-// Every scalar of GeodeSoundFrame, in declaration order. The arrays (eq, spectrum, waveform, chroma) are
-// left out: they are derived from the same spectra as the scalars and would only multiply the golden.
-#define GEODE_SOUND_SCALAR_FIELDS(X)                                                                         \
-    X(bass) X(mid) X(treble) X(vol) X(bassAtt) X(midAtt) X(trebleAtt) X(volAtt) X(sub) X(subAtt) X(midHigh) \
-    X(midHighAtt) X(low) X(middle) X(high) X(level) X(bassPresence) X(midPresence) X(treblePresence)        \
-    X(intensity) X(bassTime) X(midTime) X(trebleTime) X(curvedTime) X(hitTime) X(noteTime) X(presence)      \
-    X(rms) X(loudness) X(centroid) X(rolloff) X(flatness) X(densitySlow) X(densityFast) X(flux)             \
-    X(energyTrend) X(peakFreq) X(peakMag) X(stereoWidth) X(stereoPan) X(kickEnv) X(snareEnv) X(hatEnv)      \
-    X(onsetEnv) X(kickToggle) X(snareToggle) X(kickRandom) X(noteRandom) X(kick) X(snare) X(hat) X(kick2)   \
-    X(kick4) X(kick8) X(kick16) X(snare2) X(snare4) X(hardCut) X(onset) X(silence) X(returned) X(surge)     \
-    X(noteChange) X(legato) X(reattack) X(pitch) X(pitchClass) X(pitchHeight) X(pitchConfidence)            \
-    X(interval) X(glide) X(vibrato) X(evenness) X(runDensity) X(bpm) X(beatPhase) X(beatConf) X(beat)       \
-    X(beatCount) X(downbeat) X(barPhase) X(barCount) X(phrase) X(phraseIndex) X(phrasePhase) X(fluxLow)     \
-    X(fluxMid) X(fluxHigh) X(hfc) X(keyHue) X(keyRoot) X(keyMajor) X(keyClarity) X(chordHue) X(tension)     \
-    X(harmonicChange) X(scale) X(scaleRoot) X(scaleBrightness) X(scaleTension) X(scaleFit) X(novelty)       \
-    X(sectionChange) X(sectionId) X(sectionState) X(sectionBars) X(buildUp) X(drop) X(fadeGain)            \
-    X(loudnessM) X(loudnessS) X(busy) X(drive)
-
-struct Field {
-    const char* name;
-    float GeodeSoundFrame::* member;
-};
-#define GEODE_FIELD_ENTRY(n) Field{#n, &GeodeSoundFrame::n},
-constexpr Field kFields[] = {GEODE_SOUND_SCALAR_FIELDS(GEODE_FIELD_ENTRY)};
-#undef GEODE_FIELD_ENTRY
-constexpr int kFieldCount = static_cast<int>(sizeof(kFields) / sizeof(kFields[0]));
-static_assert(kFieldCount == GEODE_SOUND_SCALARS, "a GeodeSoundFrame scalar was added or removed: update the list");
-static_assert(offsetof(GeodeSoundFrame, eq) == GEODE_SOUND_SCALARS * sizeof(float), "scalars come first");
+using geode::sound::test::Field;
+using geode::sound::test::fieldIndex;
+using geode::sound::test::kFieldCount;
+using geode::sound::test::kFields;
 
 // One-frame triggers: > 0 on the frame after the hop that fired them, so a coarser frame holds the strongest
 // of the finer frames it spans.
@@ -358,13 +335,6 @@ int compareRates(const Run& base, const Run& other, double fps) {
 // A decoded track (raw interleaved stereo float32, e.g. `ffmpeg -i t.mp3 -f f32le -ac 2 -ar 44100 t.f32`)
 // through the same frame-rate check as the synthetic song, plus what the engine heard, for an ear to judge:
 // there are no labels to assert against.
-
-int fieldIndex(const char* name) {
-    for (int k = 0; k < kFieldCount; k++) {
-        if (std::strcmp(kFields[k].name, name) == 0) return k;
-    }
-    return -1;
-}
 
 std::string keyName(float root, float major) {
     static const char* kNames[12] = {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};

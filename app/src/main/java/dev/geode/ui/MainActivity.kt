@@ -55,9 +55,33 @@ internal object VisualizerPipCoordinator {
     var inPictureInPicture by mutableStateOf(false)
         internal set
 
-    /** Window-space bounds of the visualizer canvas, used for the PiP source rect hint and aspect. */
-    var canvasBoundsPx: Rect? = null
+    /**
+     * Window-space bounds of the visualizer canvas, used for the PiP source rect hint and aspect.
+     * State, so `AppRoot` re-pushes the PiP params when a rotation or a window resize moves it.
+     */
+    var canvasBoundsPx by mutableStateOf<Rect?>(null)
 }
+
+/**
+ * The aspect ratio (numerator, denominator) a PiP window of a [width] x [height] canvas asks for,
+ * clamped to the range the platform accepts (roughly 1:2.39 .. 2.39:1), preserving orientation.
+ */
+internal fun pipAspectFraction(
+    width: Int,
+    height: Int,
+): Pair<Int, Int> {
+    val ratio = width.toFloat() / height.toFloat()
+    val clamped = ratio.coerceIn(PIP_MIN_ASPECT, PIP_MAX_ASPECT)
+    return if (clamped >= ratio) {
+        Pair((height * clamped).toInt().coerceAtLeast(1), height)
+    } else {
+        Pair(width, (width / clamped).toInt().coerceAtLeast(1))
+    }
+}
+
+/** The platform clamps `PictureInPictureParams.setAspectRatio` to this range. */
+internal const val PIP_MIN_ASPECT = 1f / 2.39f
+internal const val PIP_MAX_ASPECT = 2.39f
 
 /**
  * Hands a shared link from the Activity's intent to the UI, which asks before importing
@@ -219,7 +243,8 @@ class MainActivity : ComponentActivity() {
         VisualizerPipCoordinator.canvasBoundsPx?.let { bounds ->
             if (bounds.width() > 0 && bounds.height() > 0) {
                 builder.setSourceRectHint(bounds)
-                builder.setAspectRatio(clampedPipAspectRatio(bounds.width(), bounds.height()))
+                val (num, den) = pipAspectFraction(bounds.width(), bounds.height())
+                builder.setAspectRatio(Rational(num, den))
             }
         }
         builder.setAutoEnterEnabled(autoEnterPipEligible())
@@ -246,20 +271,6 @@ class MainActivity : ComponentActivity() {
         actions += RemoteAction(Icon.createWithResource(this, playPauseIcon), playPauseLabel, playPauseLabel, playPause)
         actions += RemoteAction(Icon.createWithResource(this, R.drawable.ic_widget_next), nextLabel, nextLabel, next)
         return actions
-    }
-
-    /** Clamps to the range the platform accepts (roughly 1:2.39 .. 2.39:1), preserving orientation. */
-    private fun clampedPipAspectRatio(
-        width: Int,
-        height: Int,
-    ): Rational {
-        val ratio = width.toFloat() / height.toFloat()
-        val clamped = ratio.coerceIn(PIP_MIN_ASPECT, PIP_MAX_ASPECT)
-        return if (clamped >= ratio) {
-            Rational((height * clamped).toInt().coerceAtLeast(1), height)
-        } else {
-            Rational(width, (width / clamped).toInt().coerceAtLeast(1))
-        }
     }
 
     override fun onStart() {
@@ -302,11 +313,5 @@ class MainActivity : ComponentActivity() {
             receiveSharedLink(intent)
             playFromSearch(intent)
         }
-    }
-
-    private companion object {
-        /** The platform clamps `PictureInPictureParams.setAspectRatio` to this range. */
-        const val PIP_MIN_ASPECT = 1f / 2.39f
-        const val PIP_MAX_ASPECT = 2.39f
     }
 }

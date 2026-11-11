@@ -709,8 +709,8 @@ object GeodeNative {
      */
     external fun customizeText(): String
 
-    /** True when a roll can move the control named [key] (a ParamKeys string), so the panel offers to keep it. */
-    external fun customizeLockable(key: String): Boolean
+    /** Every control a roll can move (ParamKeys strings, one per line), so the panel offers to keep it; ask once. */
+    external fun customizeLockableKeys(): String
 
     /** What the panel offers on [styleId]: `CATEGORY` and `CATEGORY/section` lines, in panel order. */
     external fun customizeShown(styleId: String): String

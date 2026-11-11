@@ -390,6 +390,8 @@ GEODE_API float       geode_touch_rotation(float current, float degrees);
 GEODE_API const char* geode_customize_text(void);
 /* 1 when the control named key (a ParamKeys string) is one a roll can move, so the panel offers to keep it. */
 GEODE_API int         geode_customize_lockable(const char* key);
+/* Every such key, one per line, each once: the panel asks once for all its rows instead of once per row. Static. */
+GEODE_API const char* geode_customize_lockable_keys(void);
 GEODE_API const char* geode_customize_shown(const char* style_id);
 GEODE_API int         geode_customize_randomize(const char* style_id, const char* category, const char* locked, uint64_t seed,
                                                 const float* in, float* out);

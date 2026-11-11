@@ -163,10 +163,15 @@ internal class QueueController(
         host.refreshUi()
     }
 
+    /**
+     * The item for [uri], built without a ContentResolver query: a library title if known, else a
+     * placeholder that [resolveTitlesAsync] replaces off the main thread once the item is in the queue.
+     * Callers ([playNext], [enqueue], the resume-last-played fallback) run on main.
+     */
     fun mediaItemFor(uri: Uri): MediaItem {
-        val known = host.libraryTracks.firstOrNull { it.uri == uri.toString() }
-        val (t, a) = if (known != null) known.title to known.artist else metadataQuick(uri)
-        return mediaItemFor(uri, t, a)
+        val quick = quickMediaItem(uri)
+        if (quick.unresolved) resolveTitlesAsync(listOf(uri), openGeneration)
+        return quick.item
     }
 
     private fun mediaItemFor(
@@ -339,18 +344,6 @@ internal class QueueController(
         player.moveMediaItem(timelineFrom, timelineTo)
         rebuildQueue()
     }
-
-    fun queueTitles(): List<String> =
-        playOrder().mapIndexed { position, i ->
-            val item = player.getMediaItemAt(i)
-            item.mediaMetadata.title?.toString()
-                ?: item.localConfiguration
-                    ?.uri
-                    ?.lastPathSegment
-                    ?.substringAfterLast('/')
-                    ?.substringBeforeLast('.')
-                ?: application.getString(dev.geode.R.string.playlist_untitled_track, position + 1)
-        }
 
     fun playQueueIndex(index: Int) {
         val timelineIndex = QueueOps.timelineIndexOf(playOrder(), index)

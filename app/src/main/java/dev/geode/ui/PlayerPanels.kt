@@ -324,7 +324,7 @@ fun QueuePanel(
                         }.padding(vertical = 6.dp, horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    TrackArtwork(track.uri, Modifier.size(40.dp), corner = 8.dp)
+                    TrackArtwork(track.uri, Modifier.size(40.dp), corner = 8.dp, decodeSize = 40.dp)
                     Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
                         Text(
                             track.title,

@@ -13,6 +13,7 @@
     <string name="export_channel_name">Rendering video</string>
     <string name="export_channel_description">Shown while MuzViz is rendering a video, so the render is not interrupted.</string>
     <string name="export_notification_title">Rendering video</string>
+    <string name="export_notification_cancel">Cancel</string>
     <string name="export_notification_text">MuzViz is rendering your visuals.</string>
 
     <!-- First-run photosensitivity notice. Safety copy: translate carefully,
@@ -650,6 +651,7 @@
     <!-- Export: failure messages. Shared by VideoExporter, StudioExporter and LoopRender. -->
     <string name="export_error_library_insert">Your Videos library would not accept a new file. Check that storage is not full, or render to a folder you choose instead.</string>
     <string name="export_error_library_open">The new file in your Videos library could not be opened for writing.</string>
+    <string name="export_error_library_publish">The render finished but could not be added to your Videos library, so it was removed. Try again.</string>
     <string name="export_error_destination_write">The folder you chose would not let the file be written. Some cloud providers refuse this; try your Videos library or a folder on the device.</string>
     <string name="export_error_encoder_buffer_null">The video encoder returned an empty buffer (codec error state).</string>
     <string name="export_error_encoder_no_output">The video encoder produced no output — this device\'s encoder or the chosen format may not be supported.</string>
@@ -988,6 +990,7 @@
     <string name="visuals_gesture_show_mini_player">Show the mini player</string>
     <string name="visuals_gesture_quick_settings">Visual quick settings</string>
     <string name="visuals_gesture_toggle_sheet">Show or hide the options</string>
+    <string name="visuals_show_options">Show options</string>
     <string name="visuals_gesture_next_preset">Next preset</string>
     <string name="visuals_gesture_previous_preset">Previous preset</string>
     <string name="visuals_gesture_next_look">Next look</string>

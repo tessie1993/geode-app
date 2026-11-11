@@ -78,7 +78,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # A dispatch defaults to main so the APK that ships is main's, even
           # when the run is started from another branch. A call from android.yml
@@ -88,13 +88,13 @@ jobs:
           submodules: recursive
 
       - name: Set up Java 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: "21"
 
       - name: Set up Gradle and cache
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
       - name: Install Android SDK 36, NDK and CMake
         shell: bash
@@ -274,7 +274,7 @@ jobs:
 
       - name: Upload reports when the build fails
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: geode-ship-reports-${{ github.run_number }}
           path: |

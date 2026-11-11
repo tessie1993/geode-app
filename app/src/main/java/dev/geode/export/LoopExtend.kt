@@ -11,6 +11,8 @@ import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import dev.geode.R
+import dev.geode.data.pendingRows
+import dev.geode.data.publishPending
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CancellationException
@@ -212,8 +214,9 @@ class LoopExtend(
         plan: LoopExtendPlan,
         soundtrack: Soundtrack,
     ): Result =
-        if (completed) {
-            publish(target)
+        if (completed && !publish(target)) {
+            Result.Failed(context.getString(R.string.export_error_library_publish))
+        } else if (completed) {
             Result.Saved(
                 uri = target.uri,
                 durationMs = plan.totalDurationUs / 1000,
@@ -411,13 +414,8 @@ class LoopExtend(
         return Target.Opened(uri, descriptor, viaMediaStore = true)
     }
 
-    private fun publish(target: Target.Opened) {
-        if (!target.viaMediaStore) return
-        val done = ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }
-        bestEffort(TAG, "resolver.update(target.uri, done, null, null)") {
-            context.contentResolver.update(target.uri, done, null, null)
-        }
-    }
+    private fun publish(target: Target.Opened): Boolean =
+        !target.viaMediaStore || publishPending(context.contentResolver.pendingRows(), target.uri)
 
     private fun discard(target: Target.Opened) {
         val resolver = context.contentResolver

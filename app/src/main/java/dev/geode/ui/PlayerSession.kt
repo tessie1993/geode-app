@@ -63,7 +63,6 @@ import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
 import dev.geode.render.MilkPresetMemory
 import dev.geode.render.SceneFactory
-import dev.geode.render.TransitionStyle
 import dev.geode.render.UnderlayBlend
 import dev.geode.render.look.LookSource
 import dev.geode.render.scene.SceneParams
@@ -358,8 +357,6 @@ class PlayerSession internal constructor(
         onDone: (String?) -> Unit,
     ) = milkImport.importMilkPresetAsync(uri, onDone)
 
-    internal fun importMilkPresetBlocking(uri: Uri): String? = milkImport.importMilkPresetBlocking(uri)
-
     fun milkTextureLinksFor(path: String) = milkImport.textureLinksFor(path)
 
     fun assignMilkTextureAsync(
@@ -441,9 +438,6 @@ class PlayerSession internal constructor(
         )
 
     val takeState: StateFlow<TakeUiState> get() = takeController.state
-
-    private val _presetLocked = MutableStateFlow(false)
-    val presetLocked: StateFlow<Boolean> = _presetLocked
 
     private val trackColor: TrackColorController =
         TrackColorController(
@@ -556,8 +550,6 @@ class PlayerSession internal constructor(
 
                 override val isPlaying: Boolean get() = _uiState.value.isPlaying
 
-                override val presetLocked: Boolean get() = _presetLocked.value
-
                 // Auto-visuals only cycles through styles the user may keep; it never opens the
                 // paywall on its own.
                 override fun selectScene(sceneId: String) {
@@ -595,13 +587,7 @@ class PlayerSession internal constructor(
 
     fun setRandomIncludeMilk(enabled: Boolean) = autoVisuals.setRandomIncludeMilk(enabled)
 
-    fun setRandomizeColors(enabled: Boolean) = autoVisuals.setRandomizeColors(enabled)
-
-    fun randomStepNow() = autoVisuals.randomStepNow()
-
     fun onDirectorStyleMoment() = autoVisuals.onDirectorMoment()
-
-    fun applyVizEntry(entry: VizPlaylistEntry) = autoVisuals.applyVizEntry(entry)
 
     fun stepVizPlaylist(step: Int = 1): Boolean = autoVisuals.stepVizPlaylist(step)
 
@@ -621,8 +607,6 @@ class PlayerSession internal constructor(
     fun refreshDeviceTracks() = musicLibrary.refreshDeviceTracks()
 
     fun importTracks(uris: List<Uri>) = musicLibrary.importTracks(uris)
-
-    fun trackOverride(uri: String): LibraryTrack? = musicLibrary.trackOverride(uri)
 
     suspend fun trackInfoFor(uriStr: String): LibraryTrack = musicLibrary.trackInfoFor(uriStr)
 
@@ -742,10 +726,6 @@ class PlayerSession internal constructor(
         playTrack(last.uri)
     }
 
-    fun togglePresetLock() {
-        _presetLocked.update { !it }
-    }
-
     fun playNext(uri: String) = queueController.playNext(uri)
 
     fun enqueue(uri: String) = queueController.enqueue(uri)
@@ -816,8 +796,6 @@ class PlayerSession internal constructor(
     ) = queueController.playAll(tracks, shuffled)
 
     fun open(uris: List<Uri>) = queueController.open(uris)
-
-    fun queueTitles(): List<String> = queueController.queueTitles()
 
     fun playQueueIndex(index: Int) = queueController.playQueueIndex(index)
 
@@ -929,8 +907,6 @@ class PlayerSession internal constructor(
         visual.previewScene(sceneId)
     }
 
-    fun cancelScenePreview() = visual.cancelPreview()
-
     /** The Styles grid closed over a preview: keep it if the gate allows, else back to the chosen style. */
     fun leaveScenePreview() = visual.leavePreview(allowsStyle)
 
@@ -941,15 +917,6 @@ class PlayerSession internal constructor(
         attack: Float,
         decay: Float,
     ) = visual.setReactivity(attack, decay)
-
-    fun setSceneParams(params: SceneParams) = visual.setSceneParams(params)
-
-    fun resetSceneParams() = visual.resetSceneParams()
-
-    fun nudgeTransform(
-        zoomFactor: Float,
-        rotationDegrees: Float,
-    ) = visual.nudgeTransform(zoomFactor, rotationDegrees)
 
     fun reportShaderError(error: String?) = visual.reportShaderError(error)
 
@@ -965,8 +932,6 @@ class PlayerSession internal constructor(
 
     fun applyCustomShader(source: String) = visual.applyCustomShader(source)
 
-    fun setTransitionStyle(style: TransitionStyle) = visual.setTransitionStyle(style)
-
     fun setTransitionId(id: String) = visual.setTransitionId(id)
 
     fun setTransitionDuration(seconds: Float) = visual.setTransitionDuration(seconds)
@@ -981,8 +946,6 @@ class PlayerSession internal constructor(
         customShader: String?,
         folder: String = "",
     ) = presetLibrary.savePreset(name, customShader, folder)
-
-    internal fun milkPresetPathFor(preset: Preset): String? = presetLibrary.milkPresetPathFor(preset)
 
     val activeMilkPath: StateFlow<String?> get() = vizStateStore.activeMilkPath
 

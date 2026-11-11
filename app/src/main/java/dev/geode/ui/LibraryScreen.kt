@@ -415,7 +415,7 @@ private fun TrackRow(
             }.padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TrackArtwork(t.uri, Modifier.size(44.dp), corner = 8.dp)
+        TrackArtwork(t.uri, Modifier.size(44.dp), corner = 8.dp, decodeSize = 44.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis)

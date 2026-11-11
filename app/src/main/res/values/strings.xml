@@ -13,6 +13,7 @@
     <string name="export_channel_name">Rendering video</string>
     <string name="export_channel_description">Shown while MuzViz is rendering a video, so the render is not interrupted.</string>
     <string name="export_notification_title">Rendering video</string>
+    <string name="export_notification_cancel">Cancel</string>
     <string name="export_notification_text">MuzViz is rendering your visuals.</string>
 
     <!-- First-run photosensitivity notice. Safety copy: translate carefully,

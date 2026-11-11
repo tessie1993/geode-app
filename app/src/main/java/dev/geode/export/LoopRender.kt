@@ -67,14 +67,6 @@ data class LoopSpec(
 
     val loopDurationUs: Long get() = derived[GeodeNative.LOOP_SPEC_LOOP_DURATION_US]
 
-    /**
-     * Where a preview should start playing to land on the seam.
-     *
-     * The seam is the wrap from the last frame to the first, so a useful preview begins a beat
-     * or two before the dissolve starts and runs past the wrap.
-     */
-    fun seamPreviewStartMs(leadMs: Long = SEAM_PREVIEW_LEAD_MS): Long = (loopMs - crossfadeMs - leadMs).coerceAtLeast(0L)
-
     companion object {
         const val MIN_LOOP_MS: Long = 30_000
         const val MAX_LOOP_MS: Long = 300_000
@@ -83,7 +75,6 @@ data class LoopSpec(
         const val DEFAULT_CROSSFADE_MS: Long = 1_000
         const val MIN_FPS: Int = 24
         const val MAX_FPS: Int = 60
-        const val SEAM_PREVIEW_LEAD_MS: Long = 2_000
 
         /** Parses loose UI numbers into a spec, clamping instead of failing (natively, `core/output/LoopPlan`). */
         fun of(

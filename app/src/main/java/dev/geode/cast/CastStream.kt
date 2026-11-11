@@ -31,9 +31,10 @@ import java.util.concurrent.locks.LockSupport
  * the screen's view: casting keeps going with the app in the background and the screen off (owner,
  * 2026-11-02), when the screen's view is paused. It shows what the screen would: the saved live
  * look: the stage's style and params as they change ([CastMirror], previews included), else the
- * saved live state; modulation and the MilkDrop preset (which the renderer restores itself), re-read
- * whenever the app saves them; the same sound ([AudioBus.soundInput]), from which the native renderer
- * also takes MilkDrop's raw PCM itself (core/viz/PcmHandoff), as the screen's does.
+ * saved live state; modulation, re-read whenever the app saves it; the MilkDrop preset the renderer
+ * restores when built, then each one the stage picks ([CastMirror.milkPath]); the same sound
+ * ([AudioBus.soundInput]), from which the native renderer also takes MilkDrop's raw PCM itself
+ * (core/viz/PcmHandoff), as the screen's does.
  *
  * If the render loop dies after the stream started, [onFailed] runs (on the render thread): a
  * frozen picture on the TV with a muted phone is worse than ending the cast.
@@ -122,6 +123,9 @@ internal class CastStream(
     /** The mirrored look last handed to the renderer; render thread only. */
     private var mirrored: CastMirror.Look? = null
 
+    /** The .milk last handed to the renderer; render thread only. */
+    private var mirroredMilk: String? = null
+
     /** True once segments stopped arriving for [FROZEN_MS]: the encoder or the renderer stalled. */
     val isFrozen: Boolean get() = segments.msSinceLastSegment() > FROZEN_MS
 
@@ -169,6 +173,12 @@ internal class CastStream(
             // The saved live look, read the way the wallpaper and the dream read it.
             renderer.look = LookStore(prefsFiles, appContext.contentResolver).current()
             mirrored = null
+        }
+        // The renderer restores the remembered preset only when it is built; every later pick is followed here.
+        val milk = CastMirror.milkPath
+        if (milk != null && milk != mirroredMilk) {
+            mirroredMilk = milk
+            renderer.loadMilkPreset(milk)
         }
         val look = CastMirror.look ?: return
         if (look === mirrored) return

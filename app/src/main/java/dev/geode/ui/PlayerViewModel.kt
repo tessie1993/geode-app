@@ -223,8 +223,6 @@ class PlayerViewModel
 
         fun reportLiquidMode(mode: Int) = session.reportLiquidMode(mode)
 
-        fun applyCustomShader(source: String) = session.visual.applyCustomShader(source)
-
         fun setTransitionId(id: String) = session.visual.setTransitionId(id)
 
         fun setTransitionDuration(seconds: Float) = session.visual.setTransitionDuration(seconds)

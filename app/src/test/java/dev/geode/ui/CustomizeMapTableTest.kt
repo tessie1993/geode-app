@@ -70,7 +70,7 @@ class CustomizeMapTableTest {
         assertTrue(ParamKeys.PALETTE in union)
         assertTrue("@macros" in union)
         // Deeper controls stay Pro.
-        listOf(ParamKeys.HUE_SHIFT, ParamKeys.FLUID_CURL, "@reactions", "@shader_code").forEach { key ->
+        listOf(ParamKeys.HUE_SHIFT, ParamKeys.FLUID_CURL, "@reactions").forEach { key ->
             assertTrue("$key is Pro", key !in union)
         }
     }

@@ -1,8 +1,7 @@
 #version 300 es
-// Every splat of a frame in ONE pass. The capsule maths is fluid_splat_frag's
-// (which stays the single-splat template the Customize injection editors start
-// from); what changed is that the splats arrive as uniform arrays and are
-// applied in a loop, in the order the emitters queued them.
+// Every splat of a frame in ONE pass: each splat's capsule maths, with the
+// splats arriving as uniform arrays and applied in a loop, in the order the
+// emitters queued them.
 //
 // Why: each splat used to be its own full-grid pass, on the velocity AND on
 // the dye. With sixteen in a busy frame that was thirty-two full-screen

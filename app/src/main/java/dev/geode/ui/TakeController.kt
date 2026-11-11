@@ -65,10 +65,7 @@ internal class TakeController(
 
         fun setSceneParams(params: SceneParams)
 
-        fun applyMilk(
-            path: String,
-            sceneId: String,
-        )
+        fun applyMilk(path: String)
 
         /** Why a take [recordedMs] long stops now (Settings › Export › Record's maximum length), else null. */
         fun lengthLimitNote(recordedMs: Long): String?
@@ -276,7 +273,7 @@ internal class TakeController(
                         }
                         if (state.params != host.vizState.value.params) host.setSceneParams(state.params)
                         state.milkPath?.takeIf { it != host.activeMilkPath }?.let { path ->
-                            host.applyMilk(path, state.sceneId)
+                            host.applyMilk(path)
                         }
                     }
                     if (at >= endMs) break

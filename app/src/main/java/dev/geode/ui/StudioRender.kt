@@ -332,7 +332,7 @@ internal fun StudioRenderTab(
     val lookPresets =
         remember(viz.presets) {
             (viz.presets + BuiltInPresets.ALL)
-                .filter { it.customShader == null && it.milkPreset == null }
+                .filter { it.milkPreset == null }
                 .distinctBy { it.name }
         }
 
@@ -660,8 +660,8 @@ private val RenderSelectionSaver =
 /**
  * The look a render uses: the current one (null) or a preset. For one song the preset is put on
  * stage, so the video is what the user sees; a batch uses it for every track. Presets that draw
- * through a custom shader or a Milkdrop file are left out: the offscreen export renders a scene id
- * and its parameters, and those two need the live view's own shader state.
+ * through a Milkdrop file are left out: the offscreen export renders a scene id and its
+ * parameters, and a Milkdrop file needs the live view's own preset state.
  */
 @Composable
 private fun RenderLookGroup(

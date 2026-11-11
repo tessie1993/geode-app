@@ -123,7 +123,6 @@ const std::vector<Section>& table() {
          S::Engine,
          {"Blend preset changes", "MilkDrop palette tint"}},
         {C::Expert, "layers", false, S::Always, {"@layers"}},
-        {C::Expert, "shader_code", false, S::ShaderCode, {"@shader_code"}},
     };
     return kSections;
 }
@@ -165,14 +164,13 @@ const std::vector<HeldControl>& held() {
         {"@envelopes", {}, std::nullopt},
         {"@waves", {}, std::nullopt},
         {"@layers", {}, std::nullopt},
-        {"@shader_code", {}, std::nullopt},
     };
     return kHeld;
 }
 
 constexpr const char* kCategoryNames[] = {"QUICK_KNOBS", "LOOK",    "SHAPE",  "MOTION", "CAMERA",
                                           "MUSIC",       "EFFECTS", "LIQUID", "EXPERT"};
-constexpr const char* kShowNames[] = {"ALWAYS", "THREE_D", "PARTICLES", "WATER", "ENGINE", "SHADER_CODE"};
+constexpr const char* kShowNames[] = {"ALWAYS", "THREE_D", "PARTICLES", "WATER", "ENGINE"};
 
 const randomizer::RolledKey* rolled(std::string_view key) {
     for (const auto& roll : randomizer::rolledKeys()) {
@@ -197,7 +195,6 @@ bool rule(Show show, const std::string& styleId) {
         case Show::Particles: return catalogue::reaches(Scope::ParticleSprite, styleId);
         case Show::Water: return kind == Kind::Water;
         case Show::Engine: return kind == Kind::Fluid || kind == Kind::Cymatics || kind == Kind::Milkdrop;
-        case Show::ShaderCode: return kind == Kind::Shader || kind == Kind::Fluid;
     }
     return true;
 }

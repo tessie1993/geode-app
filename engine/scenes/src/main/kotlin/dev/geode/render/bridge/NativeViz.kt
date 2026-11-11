@@ -112,13 +112,6 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizQueueTouchStroke(handle, nx, ny, ndx, ndy, dt, strength)
     }
 
-    fun setFluidInjectionShaders(
-        force: String?,
-        dye: String?,
-    ) {
-        if (handle != 0L) GeodeNative.vizSetFluidInjection(handle, force, dye)
-    }
-
     fun loadMilkPreset(path: String) {
         if (handle != 0L) GeodeNative.vizLoadMilkPreset(handle, path)
     }

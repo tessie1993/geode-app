@@ -70,7 +70,6 @@ import dev.geode.model.PresetEntry
 import dev.geode.model.PresetFilter
 import dev.geode.model.PresetFiltering
 import dev.geode.model.VizPlaylistEntry
-import dev.geode.render.VisualizerView
 import dev.geode.render.scene.SceneIds
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeRadius
@@ -94,17 +93,13 @@ import dev.geode.ui.theme.selectedGlow
  * menu lists every folder and "New folder", so the row stays one row however many folders exist.
  *
  * One way to save, at the top: "Save look" opens one dialog with the name and the
- * folder, and calls the same [VisualsViewModel.savePreset] as Customize's "Save as preset", with
- * the stage's own shader text so a custom GLSL look is kept too.
+ * folder, and calls the same [VisualsViewModel.savePreset] as Customize's "Save as preset".
  *
  * A preset of a Pro style shows the ♛; tapping it opens the paywall through the session's gate
  * rather than hiding the row: seeing what Pro holds is the case for it.
  */
 @Composable
-internal fun PresetsTab(
-    viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
-) {
+internal fun PresetsTab(viewModel: PlayerViewModel) {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val gate by viewModel.gate.collectAsStateWithLifecycle()
@@ -252,11 +247,7 @@ internal fun PresetsTab(
     }
 
     val saveCurrent: (String, String) -> Unit = { name, folder ->
-        visualsViewModel.savePreset(
-            name,
-            visualizerView.visualizerRenderer.customShaderFor(viewModel.vizState.value.sceneId),
-            folder,
-        )
+        visualsViewModel.savePreset(name, folder)
         // What was just saved is what the stage shows, so its row gets the check.
         lastTapped = PresetFiltering.cleanName(name)
     }
@@ -354,7 +345,7 @@ internal fun PresetsTab(
             )
     }
     if (showTemplates) {
-        TemplatesSheet(viewModel, visualizerView, onDismiss = { showTemplates = false })
+        TemplatesSheet(onDismiss = { showTemplates = false })
     }
     if (showBackground) {
         BackgroundSheet(onDismiss = { showBackground = false })

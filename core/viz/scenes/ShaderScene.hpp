@@ -3,7 +3,6 @@
 
 #include <array>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <string>
 
@@ -38,7 +37,6 @@ public:
     void setTouchField(const TouchField* field) override { touchField_ = field; }
     void setCamera(const CameraPose* pose) override { camera_ = pose; }
     bool drawsCamera() const override { return drawsCamera_; }
-    void setFragmentSource(const std::string& source) override;
     // Morph World's baked assets (WorldAssets: world_shapes.bin, world_textures.bin), uploaded on the
     // GL thread at the first draw. The shapes also go to the CPU port, process-wide.
     void setWorldAssets(const std::string& shapes, const std::string& maps);
@@ -67,8 +65,6 @@ private:
     std::string id_;
     std::string vertexSrc_;
     std::string currentFragment_;
-    // The built-in source, so clearing a user's shader override (setFragmentSource("")) draws it again.
-    std::string stockFragment_;
     ProgramBinaryCache* cache_;
     SceneHost host_;
 
@@ -78,7 +74,6 @@ private:
     int width_ = 1;
     int height_ = 1;
 
-    std::mutex pendingLock_;
     std::optional<std::string> pendingFragment_;
 
     // Wave three: the continuous replacement for the old spike-latched state

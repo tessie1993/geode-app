@@ -48,13 +48,11 @@ public:
     virtual void setCamera(const CameraPose* pose) { (void) pose; }
     // True when the scene draws the rig's 3D pose itself, so the composite must not also apply its flat projection.
     virtual bool drawsCamera() const { return false; }
-    virtual void setFragmentSource(const std::string& source) { (void) source; }
     // > 0 keeps the previous frame in the scene target (Curl Flow); 0 clears it.
     virtual float trailRetention(const SceneParams& params) const { (void) params; return 0.0f; }
     virtual GLuint velocityTexture() const { return 0; }
     // The fluid scene runs its own flow field; the water scene owns the ripples and the touch smears.
     virtual bool isFluid() const { return false; }
-    virtual void setInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc) { (void) forceSrc; (void) dyeSrc; }
     virtual bool isWater() const { return false; }
     virtual void queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength) {
         (void) nx; (void) ny; (void) ndx; (void) ndy; (void) dt; (void) strength;

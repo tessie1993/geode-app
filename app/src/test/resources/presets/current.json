@@ -168,6 +168,5 @@
   "liquidBorn": 2,
   "liquidAge": 1,
   "liquidSurface": 1,
-  "customShader": "void main() {}",
   "milkPreset": "golden.milk"
 }

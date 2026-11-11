@@ -31,7 +31,6 @@ public:
     void release() override;
     GLuint velocityTexture() const override { return sim_.available() ? sim_.velocityTex() : 0; }
     bool isFluid() const override { return true; }
-    void setInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc) override { sim_.setInjectionShaders(forceSrc, dyeSrc); }
 
 protected:
     GeodeSoundFrame idleFeatures(float dt) override;

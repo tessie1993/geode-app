@@ -74,12 +74,6 @@ void FluidScene::draw(float timeSeconds) {
     sim_.densityDissipation =
         std::clamp(p.fluidDensityDissipation * style_.densityDissipation, 0.0f, 4.0f) * (1.0f + p.fluidFadeAudio * (1.0f - energy));
     sim_.chromaticAging = std::clamp(p.fluidChromaticAging, 0.0f, 1.0f);
-    sim_.audioBass = live::bass(f);
-    sim_.audioMid = live::mid(f);
-    sim_.audioTreble = live::treble(f);
-    sim_.audioEnergy = energy;
-    sim_.audioBeat = live::hit(f);
-    sim_.timeSeconds = time_;
     // The couplings this engine added, each a blend of the sound frame (FluidMath Drives).
     const fluid::math::Drives drive = fluid::math::drives(f);
     // The whole frame's time (#383): the sim splits it into stable steps itself.

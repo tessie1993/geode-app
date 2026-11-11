@@ -24,6 +24,4 @@ data class PlayerUiState(
 
 data class VizApply(
     val milkPath: String? = null,
-    val customShader: String? = null,
-    val sceneId: String? = null,
 )

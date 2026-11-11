@@ -35,8 +35,6 @@ GEODE_API void        geode_viz_begin_param_morph(geode_viz*, float seconds);
 GEODE_API void        geode_viz_set_touch(geode_viz*, const float* xy_ndc, int points);   /* 0 points = all lifted */
 /* One finger sample in 0..1 surface space with its motion, for the fluid smear and the water ripples. */
 GEODE_API void        geode_viz_queue_touch_stroke(geode_viz*, float nx, float ny, float ndx, float ndy, float dt, float strength);
-/* GLSL for the fluid style's force and dye injection; "" restores the built-in splat. */
-GEODE_API void        geode_viz_set_fluid_injection(geode_viz*, const char* force_source, const char* dye_source);
 GEODE_API void        geode_viz_load_milk_preset(geode_viz*, const char* path);
 GEODE_API void        geode_viz_reload_milk_preset(geode_viz*);
 GEODE_API void        geode_viz_set_milk_texture_dir(geode_viz*, const char* dir);
@@ -74,12 +72,6 @@ GEODE_API void        geode_layer_set(const char* scene_id, float mix, int blend
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);
 GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const GeodeSoundTuning*);
-/* Customize › Advanced › Shader code (core/viz/ShaderOverrides): the user's fragment source for a style, process-wide
- * like geode_director_set, so live, export, the wallpaper and the dream all draw it. A null or empty source clears it
- * (the built-in style again). Every renderer applies it at scene build and to its resident scenes on the next frame. */
-GEODE_API void        geode_shader_override_set(const char* style_id, const char* fragment_source);
-/* The style's override; returns its full length, 0 when it draws the built-in style. */
-GEODE_API size_t      geode_shader_override(const char* style_id, char* out, size_t capacity);
 GEODE_API void        geode_viz_set_lfo(geode_viz*, int slot, const float* config, int count);
 GEODE_API void        geode_viz_set_adsr(geode_viz*, int slot, const float* config, int count);
 /* The routes layout: GEODE_REACT_ROUTE_FLOATS per route. What the reaction matrix plays is resolved natively

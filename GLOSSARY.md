@@ -101,7 +101,7 @@ _Avoid_: Settings, knobs
 The pages the scene params are edited in, simple first: Macros, Look (what every style shares), the style's own page (titled with its name), Events, then Advanced. The engine still rolls and resets by its own groups (Shape, Colour, Motion, Effects, Sound response, Scene, Fluid, Cymatics).
 
 **Advanced section**:
-One card in Customize › Advanced (Sound response, Reactions, Layers, Camera, Transitions, Gradient maker, Flow field & water ripples, Shader code), opening its own page. All Pro.
+One card in Customize › Advanced (Sound response, Reactions, Layers, Camera, Transitions, Gradient maker, Flow field & water ripples), opening its own page. All Pro.
 
 **Wave**:
 One of the three modulation slots: an LFO that runs steadily or follows a sound, moving one control.
@@ -162,7 +162,7 @@ The engine choosing and switching scenes for you, on musical events.
 _Avoid_: Auto mode, autopilot
 
 **Preset**:
-A saved scene id plus its scene params (and optionally a custom shader or a MilkDrop preset), shareable as a link or file.
+A saved scene id plus its scene params (and optionally a MilkDrop preset), shareable as a link or file.
 _Avoid_: Profile, config
 
 **Milk preset**:
@@ -264,7 +264,7 @@ Settings › Behaviour's switch that lets the feeling choose a director look at 
 _Avoid_: Auto visuals (that switches styles on a timer)
 
 **Look**:
-Everything the user set for the visual: the style, the base values of its scene params, the reaction routes, the layer, the transition, custom shader code and the MilkDrop preset. Saved, undone and gated as one, and a preset is a named look. What moves it this frame (sound, LFOs, the auto-director, touch, a take's replay) is modulation, never the look itself. ADR 0006 and `docs/architecture/kotlin-target.md`.
+Everything the user set for the visual: the style, the base values of its scene params, the reaction routes, the layer, the transition and the MilkDrop preset. Saved, undone and gated as one, and a preset is a named look. What moves it this frame (sound, LFOs, the auto-director, touch, a take's replay) is modulation, never the look itself. ADR 0006 and `docs/architecture/kotlin-target.md`.
 _Avoid_: State, settings, the look for one auto-director decision (that is a director look)
 
 **Director look**:

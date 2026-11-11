@@ -61,7 +61,6 @@ add_library(geode_core STATIC
     viz/Program.cpp
     viz/ProgramStager.cpp
     viz/StyleSchedule.cpp
-    viz/ShaderOverrides.cpp
     viz/Texture.cpp
     viz/Framebuffer.cpp
     viz/Quad.cpp

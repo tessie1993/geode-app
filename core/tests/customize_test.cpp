@@ -6,6 +6,7 @@
 //
 // The fixture is what the JVM tests parse (they cannot load libgeode): the free set (pro/FreeTier)
 // and the panel's categories are tested against it, so this test is what keeps them honest.
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -242,8 +243,9 @@ void categoriesAndSectionsFollowTheStyle() {
     check(shownSection("milkdrop", "EXPERT/milkdrop"), "MilkDrop's engine in Expert");
     check(!shownSection("julia", "EXPERT/fluid_flow") && !shownSection("julia", "EXPERT/plate") && !shownSection("julia", "EXPERT/milkdrop"),
           "no engine section on a shader style");
-    check(shownSection("julia", "EXPERT/shader_code"), "shader code on a shader style");
-    check(!shownSection("milkdrop", "EXPERT/shader_code"), "no shader code on MilkDrop");
+    check(std::none_of(customize::sections().begin(), customize::sections().end(),
+                       [](const customize::Section& s) { return std::string(s.id) == "shader_code"; }),
+          "no shader code section: user GLSL has no way in");
     check(shownSection("julia", "LOOK/basics"), "Look's Basics everywhere");
     check(customize::shows(Category::Expert, "julia"), "Expert always has Layers");
     // Any style (the empty id) shows everything: Kotlin's previews and tests.

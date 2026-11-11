@@ -29,10 +29,7 @@ internal class AutoVisualsController(
 
         fun applyPreset(preset: Preset)
 
-        fun applyMilk(
-            path: String,
-            sceneId: String,
-        )
+        fun applyMilk(path: String)
 
         fun milkFilesAsync(onDone: (List<MilkFile>) -> Unit)
     }
@@ -257,7 +254,7 @@ internal class AutoVisualsController(
                 ?.let { host.applyPreset(it) }
         }
         if (entry.milkPath != null) {
-            host.applyMilk(entry.milkPath, entry.sceneId)
+            host.applyMilk(entry.milkPath)
         }
         // Auto's own change (a moment, the timer, the playlist) is not the user's hand.
         leftAs = host.vizState.value.let { it.sceneId to it.params }

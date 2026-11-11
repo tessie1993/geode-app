@@ -154,9 +154,6 @@ fun VisualizerEngineBindings(
             apply.milkPath?.let {
                 visualizerView.visualizerRenderer.loadMilkPreset(it)
             }
-            apply.customShader?.let {
-                visualizerView.visualizerRenderer.submitShader(apply.sceneId ?: activeSceneId, it)
-            }
         }
     }
 }

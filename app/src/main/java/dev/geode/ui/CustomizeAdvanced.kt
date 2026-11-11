@@ -18,7 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
@@ -31,9 +30,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,11 +40,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.RingLog
 import dev.geode.data.NoteResponseStore
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
@@ -66,21 +61,16 @@ import dev.geode.render.ReactSource
 import dev.geode.render.ReactSourceGroup
 import dev.geode.render.ReactionRoute
 import dev.geode.render.TransitionCatalog
-import dev.geode.render.VisualizerView
-import dev.geode.render.fluid.FluidShaderTemplate
 import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.render.scene.ParamFormat
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
-import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneParams
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalUiSounds
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.UiSound
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlin.math.ln
 import kotlin.math.pow
 import kotlin.reflect.KProperty1
@@ -89,7 +79,6 @@ import kotlin.reflect.KProperty1
 internal class AdvancedHost(
     val viewModel: PlayerViewModel,
     val visualsViewModel: VisualsViewModel,
-    val visualizerView: VisualizerView,
 )
 
 /**
@@ -556,111 +545,6 @@ internal fun liquidHotNote(liquidMode: Int): String? =
         4 -> stringResource(R.string.customize_liquid_hot_paused)
         else -> null
     }
-
-private const val MAX_SAVED_SHADER_DRAFT_CHARS = 8 * 1024
-
-private val ShaderDraftSaver =
-    Saver<String, String>(
-        save = { draft -> draft.takeIf { it.length <= MAX_SAVED_SHADER_DRAFT_CHARS } },
-        restore = { it },
-    )
-
-/** Expert › Shader code: the style's own fragment shader, and the custom fluid shaders on Fluid. */
-@Composable
-internal fun ShaderCodePage(host: AdvancedHost) {
-    val viz by host.viewModel.vizState.collectAsStateWithLifecycle()
-    if (SceneCapabilities.hasShaderLook(viz.sceneId)) {
-        var source by rememberSaveable(viz.sceneId, stateSaver = ShaderDraftSaver) {
-            mutableStateOf(host.visualizerView.visualizerRenderer.customShaderFor(viz.sceneId) ?: "")
-        }
-        SectionHeader(stringResource(R.string.customize_shader_title))
-        ControlHint(
-            stringResource(R.string.customize_shader_hint),
-        )
-        OutlinedTextField(
-            value = source,
-            onValueChange = { source = it },
-            modifier = Modifier.fillMaxWidth().height(360.dp),
-            textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-        )
-        viz.shaderError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-        Row(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
-            val sounds = LocalUiSounds.current
-            Button(onClick = {
-                sounds.play(UiSound.CONFIRM)
-                host.viewModel.applyCustomShader(source)
-            }) { Text(stringResource(R.string.customize_shader_apply)) }
-            TextButton(onClick = { source = host.visualizerView.visualizerRenderer.customShaderFor(viz.sceneId) ?: "" }) {
-                Text(stringResource(R.string.customize_shader_revert))
-            }
-        }
-    }
-    if (SceneCapabilities.isFluid(viz.sceneId)) {
-        InjectionShaderEditors(viz.shaderError) { force, dye ->
-            host.visualizerView.visualizerRenderer.submitFluidInjectionShaders(force, dye)
-        }
-    }
-}
-
-@Composable
-private fun InjectionShaderEditors(
-    injectionError: String?,
-    onApplyInjectionShaders: (String?, String?) -> Unit,
-) {
-    SectionHeader(stringResource(R.string.customize_fluid_shaders_title))
-    ControlHint(
-        stringResource(R.string.customize_fluid_shaders_hint),
-    )
-    val ctx = LocalContext.current
-    // The asset read is disk I/O, so it runs on IO and the editors wait for it (no empty-editor flash).
-    val template by produceState<String?>(initialValue = null, ctx) {
-        value =
-            withContext(Dispatchers.IO) {
-                FluidShaderTemplate.splat(ctx).also {
-                    if (it.isEmpty()) RingLog.note("CustomizeAdvanced", "fluid splat asset read failed")
-                }
-            }
-    }
-    val builtIn = template ?: return
-    var forceSrc by remember(builtIn) { mutableStateOf(builtIn) }
-    var dyeSrc by remember(builtIn) { mutableStateOf(builtIn) }
-    var editorsUsed by remember { mutableStateOf(false) }
-    Text(stringResource(R.string.customize_fluid_force_shader), style = MaterialTheme.typography.bodyMedium)
-    OutlinedTextField(
-        value = forceSrc,
-        onValueChange = {
-            forceSrc = it
-            editorsUsed = true
-        },
-        modifier = Modifier.fillMaxWidth().height(180.dp),
-        textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-    )
-    Text(stringResource(R.string.customize_fluid_dye_shader), style = MaterialTheme.typography.bodyMedium)
-    OutlinedTextField(
-        value = dyeSrc,
-        onValueChange = {
-            dyeSrc = it
-            editorsUsed = true
-        },
-        modifier = Modifier.fillMaxWidth().height(180.dp),
-        textStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-    )
-    if (injectionError != null) {
-        Text(injectionError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-    }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        TextButton(onClick = {
-            val f = forceSrc.takeIf { editorsUsed && it.isNotBlank() && it != builtIn }
-            val d = dyeSrc.takeIf { editorsUsed && it.isNotBlank() && it != builtIn }
-            onApplyInjectionShaders(f, d)
-        }) { Text(stringResource(R.string.customize_fluid_shaders_apply)) }
-        TextButton(onClick = {
-            forceSrc = builtIn
-            dyeSrc = builtIn
-            onApplyInjectionShaders(null, null)
-        }) { Text(stringResource(R.string.customize_fluid_shaders_builtin)) }
-    }
-}
 
 // Names for the controls that are panel machinery rather than scene parameters. They live in one
 // place so the search matches them and nothing has to spell a string twice.

@@ -226,11 +226,12 @@ object TemplateFormat {
     private fun foreignOf(
         source: JSONObject?,
         emitted: JSONObject,
+        dropped: Set<String> = emptySet(),
     ): ForeignFields {
         if (source == null) return ForeignFields.NONE
         val leftovers = JSONObject()
         for (key in source.keys()) {
-            if (emitted.has(key)) continue
+            if (emitted.has(key) || key in dropped) continue
             runCatching { leftovers.put(key, source.get(key)) }
         }
         return ForeignFields.of(leftovers)
@@ -312,7 +313,6 @@ object TemplateFormat {
             .put(KEY_ATTACK, look.attack.toDouble())
             .put(KEY_DECAY, look.decay.toDouble())
             .put(KEY_PARAMS, PresetStore.paramsToJson(look.params).mergeForeign(look.paramsForeign))
-            .also { out -> look.customShader?.let { out.put(KEY_CUSTOM_SHADER, it) } }
             .also { out -> look.milkPreset?.let { out.put(KEY_MILK_PRESET, it) } }
             .mergeForeign(look.foreign)
 
@@ -328,11 +328,10 @@ object TemplateFormat {
                 attack = optFloat(source, KEY_ATTACK, TemplateLook.DEFAULT_ATTACK).coerceIn(PresetStore.ATTACK_RANGE),
                 decay = optFloat(source, KEY_DECAY, TemplateLook.DEFAULT_DECAY).coerceIn(PresetStore.DECAY_RANGE),
                 params = params,
-                customShader = optStringOrNull(source, KEY_CUSTOM_SHADER),
                 milkPreset = optStringOrNull(source, KEY_MILK_PRESET),
                 paramsForeign = foreignOf(paramsSource, PresetStore.paramsToJson(params)),
             )
-        return bare.copy(foreign = foreignOf(source, lookOf(bare)))
+        return bare.copy(foreign = foreignOf(source, lookOf(bare), dropped = DROPPED_LOOK_KEYS))
     }
 
     // -----------------------------------------------------------------------
@@ -555,8 +554,14 @@ object TemplateFormat {
     private const val KEY_ATTACK = "attack"
     private const val KEY_DECAY = "decay"
     private const val KEY_PARAMS = "params"
-    private const val KEY_CUSTOM_SHADER = "customShader"
     private const val KEY_MILK_PRESET = "milkPreset"
+
+    /**
+     * Look keys never read and never carried as foreign fields. `customShader` held GLSL in looks
+     * saved by older builds; the app compiles no user shader, so the text is left behind on read and
+     * a template written back or shared does not pass it on.
+     */
+    private val DROPPED_LOOK_KEYS = setOf("customShader")
 
     private const val KEY_RATIO = "ratio"
     private const val KEY_ARTWORK = "artwork"

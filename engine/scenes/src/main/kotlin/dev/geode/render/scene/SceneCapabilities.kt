@@ -36,6 +36,4 @@ object SceneCapabilities {
     fun isFluid(sceneId: String): Boolean = kindOf(sceneId) == SceneKind.FLUID
 
     fun isCymatics(sceneId: String): Boolean = kindOf(sceneId) == SceneKind.CYMATICS
-
-    fun hasShaderLook(sceneId: String): Boolean = sceneId in SHADER_SCENES
 }

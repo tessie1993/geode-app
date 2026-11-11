@@ -36,7 +36,6 @@ import dev.geode.R
 import dev.geode.data.TemplateImport
 import dev.geode.data.TemplateWrite
 import dev.geode.data.VideoTemplate
-import dev.geode.render.VisualizerView
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 
@@ -47,13 +46,8 @@ import dev.geode.ui.theme.StoneIconArt
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TemplatesSheet(
-    viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
-    onDismiss: () -> Unit,
-) {
+fun TemplatesSheet(onDismiss: () -> Unit) {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val library by visualsViewModel.templates.collectAsStateWithLifecycle()
     val context = LocalContext.current
     // Resolved here rather than inside the click lambda: lint (LocalContextGetResourceValueCall)
@@ -118,8 +112,7 @@ fun TemplatesSheet(
                     CrystalButton(onClick = {
                         val trimmed = saveName.trim()
                         if (trimmed.isNotEmpty()) {
-                            val shader = visualizerView.visualizerRenderer.customShaderFor(viz.sceneId)
-                            visualsViewModel.saveCurrentAsTemplate(trimmed, shader) { result ->
+                            visualsViewModel.saveCurrentAsTemplate(trimmed) { result ->
                                 note =
                                     when (result) {
                                         TemplateWrite.Written -> resources.getString(R.string.template_saved, trimmed)

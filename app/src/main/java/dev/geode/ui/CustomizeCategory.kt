@@ -33,7 +33,7 @@ enum class CustomizeCategory(
     MUSIC("Music", "How the music moves the picture: personality, reactions, modulation", Icons.Filled.MusicNote),
     EFFECTS("Effects", "Trails, lens and film looks, transitions", Icons.Filled.AutoAwesome),
     LIQUID("Liquid", "Turn the style into a flowing liquid", Icons.Filled.Waves),
-    EXPERT("Expert", "The style's engine, layers and shader code", Icons.Filled.Code),
+    EXPERT("Expert", "The style's engine and layers", Icons.Filled.Code),
     ;
 
     companion object {
@@ -94,7 +94,6 @@ private val SECTION_TITLES =
         "plate_look" to "Plate: look",
         "milkdrop" to "MilkDrop",
         "layers" to "Layers",
-        "shader_code" to "Shader code",
     )
 
 /**

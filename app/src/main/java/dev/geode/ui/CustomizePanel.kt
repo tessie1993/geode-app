@@ -53,7 +53,6 @@ import dev.geode.model.TourSpot
 import dev.geode.pro.FreeTier
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
-import dev.geode.render.VisualizerView
 import dev.geode.render.scene.SceneParams
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeSpacing
@@ -80,7 +79,6 @@ import kotlinx.coroutines.flow.map
 @Composable
 internal fun CustomizePanel(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
     nav: VisualsNavState? = null,
 ) {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
@@ -100,7 +98,7 @@ internal fun CustomizePanel(
                 onLocked = { paywall.open(PaywallTrigger.Feature(ProFeature.ADVANCED_CUSTOMIZATION)) },
             )
         }
-    val host = remember(viewModel, visualsViewModel, visualizerView) { AdvancedHost(viewModel, visualsViewModel, visualizerView) }
+    val host = remember(viewModel, visualsViewModel) { AdvancedHost(viewModel, visualsViewModel) }
 
     // What this style offers, as native says.
     val shown = remember(sceneId) { CustomizeMapTable.shownOn(sceneId) }
@@ -138,7 +136,6 @@ internal fun CustomizePanel(
             val header: @Composable (CustomizeCategory?) -> Unit = { category ->
                 CustomizeHeader(
                     viewModel = viewModel,
-                    visualizerView = visualizerView,
                     category = category,
                     proLock = proLock,
                     searching = searching,
@@ -220,7 +217,6 @@ private class RouteCustomizeNav(
 @Composable
 private fun CustomizeHeader(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
     category: CustomizeCategory?,
     proLock: ProLock,
     searching: Boolean,
@@ -364,7 +360,7 @@ private fun CustomizeHeader(
             onDismiss = { savingPreset = false },
             onSave = { name ->
                 // The one save path: the same call the Presets page makes.
-                visualsViewModel.savePreset(name, visualizerView.visualizerRenderer.customShaderFor(viewModel.vizState.value.sceneId))
+                visualsViewModel.savePreset(name)
                 savingPreset = false
             },
         )

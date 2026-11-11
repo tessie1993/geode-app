@@ -3,7 +3,6 @@
 
 #include <array>
 #include <functional>
-#include <mutex>
 #include <optional>
 #include <string>
 #include <vector>
@@ -45,12 +44,6 @@ public:
     float curlStrength = 30.0f;
     float dyeCeiling = 0.0f;
     float chromaticAging = 0.0f;
-    float audioBass = 0.0f;
-    float audioMid = 0.0f;
-    float audioTreble = 0.0f;
-    float audioEnergy = 0.0f;
-    float audioBeat = 0.0f;
-    float timeSeconds = 0.0f;
     // Second-order advection (FluidQuality's tier decides); off costs nothing, on costs one extra
     // pass per field and a scratch target per field.
     bool macCormack = false;
@@ -79,7 +72,6 @@ public:
     void create();
     bool resize(int w, int h);
     bool applyResolution(int newSimRes, int newDyeRes);
-    void setInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc);
     void queueSplat(const Splat& s);
     void step(float dtRaw);
     void drawDisplay();
@@ -90,7 +82,6 @@ private:
     void stepOnce(float dtStep);
 
     enum Prog {
-        kSplat,
         kSplatBatch,
         kAdvect,
         kMacCormack,
@@ -110,9 +101,6 @@ private:
 
     void allocGrids(bool preserve);
     void copyInto(const Fbo& src, const Fbo& dst);
-    void compileInjectionIfNeeded();
-    std::optional<UniformCache> compileCustom(const std::string& src, std::optional<UniformCache> current, std::string* firstError);
-    void runInjection(DoubleFbo& target, int mode, std::optional<UniformCache>& custom, float dt);
     void runBatchedSplats(DoubleFbo& target, int mode);
     // `scratch` null is first-order; else the field's MacCormack scratch, made on first use.
     void advect(DoubleFbo& field, std::optional<Fbo>* scratch, bool linearVelocity, float dt, float d0, float d1, float d2);
@@ -126,13 +114,11 @@ private:
     static void clearTarget(const Fbo& target);
     void useProgram(int prog, int gridW, int gridH);
     void blitDiscarding(const Fbo& target);
-    void blit(const Fbo& target);
     GLint loc(int prog, const char* name) { return programs_[static_cast<size_t>(prog)].loc(name); }
     void bindTex(const char* name, GLuint tex, int unit, int prog);
     void set1f(int prog, const char* name, float v) { glUniform1f(loc(prog, name), v); }
     void set2f(int prog, const char* name, float a, float b) { glUniform2f(loc(prog, name), a, b); }
     void set3f(int prog, const char* name, float a, float b, float c) { glUniform3f(loc(prog, name), a, b, c); }
-    void deleteCustom(std::optional<UniformCache>& custom);
 
     const ProgramLoader& loader_;
     bool velocityOnly_;
@@ -161,12 +147,6 @@ private:
     std::array<UniformCache, kProgCount> programs_;
     bool programsBuilt_ = false;
     std::vector<Splat> pending_;
-    std::optional<UniformCache> customForce_;
-    std::optional<UniformCache> customDye_;
-    std::mutex injectionLock_;
-    std::string pendingForceSrc_;
-    std::string pendingDyeSrc_;
-    bool injectionDirty_ = false;
     bool available_ = false;
 };
 

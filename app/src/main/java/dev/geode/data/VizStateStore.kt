@@ -79,7 +79,7 @@ internal class VizStateStore(
         dirty = false
         val s = state.value
         val sceneId = committedSceneId ?: s.sceneId
-        val json = PresetStore.toJson(Preset("__live__", sceneId, s.attack, s.decay, null, s.params))
+        val json = PresetStore.toJson(Preset("__live__", sceneId, s.attack, s.decay, s.params))
         prefs
             .edit()
             .putString(KEY_LIVE_STATE, json)

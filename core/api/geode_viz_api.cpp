@@ -33,7 +33,6 @@
 #include "viz/frame/PushVersions.hpp"
 #include "viz/frame/Thermal.hpp"
 #include "viz/frame/Quality.hpp"
-#include "viz/ShaderOverrides.hpp"
 #include "viz/frame/WallpaperWindow.hpp"
 
 struct geode_viz {
@@ -180,10 +179,6 @@ void geode_viz_queue_touch_stroke(geode_viz* v, float nx, float ny, float ndx, f
     if (v) v->renderer.queueTouchStroke(nx, ny, ndx, ndy, dt, strength);
 }
 
-void geode_viz_set_fluid_injection(geode_viz* v, const char* force_source, const char* dye_source) {
-    if (v) v->renderer.setFluidInjectionShaders(text(force_source), text(dye_source));
-}
-
 void geode_viz_load_milk_preset(geode_viz* v, const char* path) {
     if (v && path) v->renderer.loadMilkPreset(path);
 }
@@ -272,21 +267,6 @@ void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
 
 void geode_viz_set_sound_tuning(geode_viz* v, const GeodeSoundTuning* tuning) {
     if (v && tuning) v->renderer.setSoundTuning(*tuning);
-}
-
-void geode_shader_override_set(const char* style_id, const char* fragment_source) {
-    if (style_id) geode::viz::shader_overrides::set(style_id, fragment_source ? fragment_source : "");
-}
-
-size_t geode_shader_override(const char* style_id, char* out, size_t capacity) {
-    if (!style_id) return 0;
-    const std::string source = geode::viz::shader_overrides::get(style_id);
-    if (out && capacity > 0) {
-        const size_t n = std::min(capacity - 1, source.size());
-        std::memcpy(out, source.data(), n);
-        out[n] = '\0';
-    }
-    return source.size();
 }
 
 // Only the periods the editor offers; anything else is free timing.

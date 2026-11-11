@@ -179,9 +179,8 @@ class VisualsViewModel
 
         fun savePreset(
             name: String,
-            customShader: String?,
             folder: String = "",
-        ) = session.presetLibrary.savePreset(name, customShader, folder)
+        ) = session.presetLibrary.savePreset(name, folder)
 
         fun deletePreset(name: String) = session.presetLibrary.deletePreset(name)
 
@@ -237,9 +236,8 @@ class VisualsViewModel
 
         fun saveCurrentAsTemplate(
             name: String,
-            customShader: String?,
             onResult: (TemplateWrite) -> Unit,
-        ) = session.saveCurrentAsTemplate(name, customShader, onResult)
+        ) = session.saveCurrentAsTemplate(name, onResult)
 
         fun adoptTemplate(
             starter: VideoTemplate,

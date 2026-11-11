@@ -160,7 +160,6 @@ data class TemplateLook(
     val attack: Float = DEFAULT_ATTACK,
     val decay: Float = DEFAULT_DECAY,
     val params: SceneParams = SceneParams.DEFAULT,
-    val customShader: String? = null,
     val milkPreset: String? = null,
     val foreign: ForeignFields = ForeignFields.NONE,
     val paramsForeign: ForeignFields = ForeignFields.NONE,
@@ -172,7 +171,6 @@ data class TemplateLook(
             sceneId = sceneId,
             attack = attack,
             decay = decay,
-            customShader = customShader,
             params = params,
             milkPreset = milkPreset,
         )
@@ -187,7 +185,6 @@ data class TemplateLook(
                 attack = preset.attack,
                 decay = preset.decay,
                 params = preset.params,
-                customShader = preset.customShader,
                 milkPreset = preset.milkPreset,
             )
     }

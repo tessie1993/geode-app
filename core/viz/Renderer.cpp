@@ -8,7 +8,6 @@
 #include "sound/Tuning.hpp"
 #include "util/Log.hpp"
 #include "viz/GlProber.hpp"
-#include "viz/ShaderOverrides.hpp"
 
 namespace geode::viz {
 
@@ -125,13 +124,6 @@ void Renderer::queueTouchStroke(float nx, float ny, float ndx, float ndy, float 
     overlays_.queueTouchStroke(nx, ny, ndx, ndy, dt, strength, monotonicSeconds());
 }
 
-void Renderer::setFluidInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc) {
-    std::lock_guard<std::mutex> lock(stateLock_);
-    fluidForceSrc_ = forceSrc;
-    fluidDyeSrc_ = dyeSrc;
-    fluidInjectionDirty_ = true;
-}
-
 void Renderer::loadMilkPreset(const std::string& path) {
     std::lock_guard<std::mutex> lock(stateLock_);
     lastMilkPreset_ = path;
@@ -185,32 +177,6 @@ void Renderer::applyMilkRequests() {
     if (reload) milk->reloadMilkPreset();
 }
 
-void Renderer::applyPendingFluidInjection() {
-    std::string force;
-    std::string dye;
-    {
-        std::lock_guard<std::mutex> lock(stateLock_);
-        if (!fluidInjectionDirty_) return;
-        force = fluidForceSrc_;
-        dye = fluidDyeSrc_;
-    }
-    // Every built scene on the fluid solver, not only the one named "fluid":
-    // the fluid styles are profiles over the same engine and the user's
-    // injection shaders belong to all of them.
-    bool applied = false;
-    for (auto& entry : scenes_) {
-        if (!entry.second->isFluid()) continue;
-        entry.second->setInjectionShaders(force, dye);
-        applied = true;
-    }
-    if (!applied) return;
-    {
-        // A newer edit may have landed while the scenes were rebuilt; keep it dirty for next frame.
-        std::lock_guard<std::mutex> lock(stateLock_);
-        if (fluidForceSrc_ == force && fluidDyeSrc_ == dye) fluidInjectionDirty_ = false;
-    }
-}
-
 // Any thread. Copies the pixel buffer under stateLock_ into the retained underlay buffer; the
 // actual GL upload (and the ARGB->RGBA conversion) happens on the GL thread in
 // applyUnderlayUpload(), a copy-now/convert-later split. blend/amount are only
@@ -231,10 +197,9 @@ void Renderer::setUnderlayRgba(const uint32_t* pixels, int width, int height, in
     underlayDirty_ = true;
 }
 
-// GL thread, called once per frame from beginFrame(). Copies (not swaps, unlike
-// applyPendingFluidInjection: the source buffers are retained state that must survive a surface
-// recreation, not a one-shot request) the latched pixels out from under stateLock_, then does the
-// actual conversion and glTexImage2D/glTexSubImage2D upload unlocked.
+// GL thread, called once per frame from beginFrame(). Copies (not swaps: the pixels are retained
+// state that must survive a surface recreation, not a one-shot request) the latched pixels out from
+// under stateLock_, then does the actual conversion and glTexImage2D/glTexSubImage2D upload unlocked.
 void Renderer::applyUnderlayUpload() {
     bool underlayDirty = false;
     std::vector<uint32_t> underlayPixels;
@@ -300,27 +265,6 @@ std::string Renderer::lastError() const {
     return lastError_;
 }
 
-// GL thread, from readyScene (every frame's way to its scenes). The overrides are process-wide
-// (viz/ShaderOverrides, #364): when their generation moves, every resident scene whose override
-// changed gets the new source (or "" = its built-in one) and recompiles on its next draw through the
-// same path a first build takes, so a compile error still reaches lastError(). One atomic load a
-// frame otherwise.
-void Renderer::syncShaderOverrides() {
-    const uint64_t generation = shader_overrides::generation();
-    if (generation == shaderGeneration_) return;
-    shaderGeneration_ = generation;
-    const auto overrides = shader_overrides::snapshot();
-    const std::string stock;
-    for (auto& [id, scene] : scenes_) {
-        const auto found = overrides.find(id);
-        const std::string& want = found == overrides.end() ? stock : found->second;
-        std::string& have = appliedShaders_[id];
-        if (have == want) continue;
-        have = want;
-        scene->setFragmentSource(want);
-    }
-}
-
 void Renderer::onSurfaceCreated() {
     profile_ = deviceGl_.profileWithCurrentContext();
     GEODE_LOGI(kTag, "surface created: %s", profile_.summary().c_str());
@@ -365,7 +309,6 @@ void Renderer::onSurfaceCreated() {
     overlays_.recreate();
     {
         std::lock_guard<std::mutex> lock(stateLock_);
-        if (!fluidForceSrc_.empty() || !fluidDyeSrc_.empty()) fluidInjectionDirty_ = true;
         // W00: the compositePass_.release() call above already dropped the underlay
         // GL texture, so re-arm from the retained pixel buffer to reupload it once
         // compositePass_.create() (below) has run on the new context.
@@ -604,7 +547,6 @@ Scene* Renderer::builtScene(const std::string& id) {
 // attempt (setup plus the programs already compiled) or one budgeted ProgramStager step. Exports
 // (blockingBuilds_) and scenes that keep deferring (ScenePrep::kMaxAttempts) build inline.
 Scene* Renderer::readyScene(const std::string& id) {
-    syncShaderOverrides();
     if (Scene* scene = builtScene(id)) {
         residency_.touch(id);
         // Skipped by a tier or scale change while it was not drawn: sized now, as it comes back.
@@ -695,16 +637,12 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     // do all the (non-locked) scene setup below so no scene call happens
     // while stateLock_ is held.
     SceneParams initialParams;
-    std::string force;
-    std::string dye;
     std::string preset;
     std::string goodPreset;
     std::string textureDir;
     {
         std::lock_guard<std::mutex> lock(stateLock_);
         initialParams = requestedParams_;
-        force = fluidForceSrc_;
-        dye = fluidDyeSrc_;
         preset = lastMilkPreset_;
         goodPreset = lastGoodMilkPreset_;
         textureDir = milkTextureDir_;
@@ -715,13 +653,6 @@ std::unique_ptr<Scene> Renderer::buildScene(const std::string& id) {
     scene->init();
     scene->setParams(initialParams);
     scene->resize(renderWidth_, renderHeight_);
-    // The user's edited source for this style, whichever renderer this is (live, export, wallpaper,
-    // dream): one process-wide table (viz/ShaderOverrides, #364). Recorded so syncShaderOverrides
-    // only re-applies what changed after this build.
-    const std::string custom = shader_overrides::get(id);
-    appliedShaders_[id] = custom;
-    if (!custom.empty()) scene->setFragmentSource(custom);
-    if (!force.empty() || !dye.empty()) scene->setInjectionShaders(force, dye);
     scene->setWindowSize(width_, height_);
     if (!textureDir.empty()) scene->setMilkTextureDir(textureDir);
     if (!goodPreset.empty()) scene->setMilkFallbackPreset(goodPreset);

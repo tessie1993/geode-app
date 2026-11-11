@@ -122,7 +122,7 @@ internal class StoreSetup(
         val general = context.getSharedPreferences(GeodePrefsFiles.GENERAL, Context.MODE_PRIVATE)
         PerformanceStore(general, context).set(qualityFromArgs().settings)
         val fresh = VizUiState()
-        val look = Preset(LIVE_LOOK_NAME, shot.styleId, fresh.attack, fresh.decay, null, fresh.params)
+        val look = Preset(LIVE_LOOK_NAME, shot.styleId, fresh.attack, fresh.decay, fresh.params)
         context.getSharedPreferences(GeodePrefsFiles.VIZ, Context.MODE_PRIVATE).edit(commit = true) {
             putString(LIVE_STATE_KEY, PresetStore.toJson(look))
         }

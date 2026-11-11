@@ -50,4 +50,3 @@ section|EXPERT|plate|PRO|ENGINE|Geometry,Fundamental (Hz),Standing waves,Tonal f
 section|EXPERT|plate_look|PRO|ENGINE|Fill,Nodal lines,Nodal glow,Iridescence,Caustic sheen
 section|EXPERT|milkdrop|PRO|ENGINE|Blend preset changes,MilkDrop palette tint
 section|EXPERT|layers|PRO|ALWAYS|@layers
-section|EXPERT|shader_code|PRO|SHADER_CODE|@shader_code

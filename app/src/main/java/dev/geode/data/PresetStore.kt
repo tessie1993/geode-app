@@ -16,7 +16,6 @@ data class Preset(
     val sceneId: String,
     val attack: Float,
     val decay: Float,
-    val customShader: String? = null,
     val params: SceneParams = SceneParams.DEFAULT,
     val milkPreset: String? = null,
 )
@@ -169,11 +168,10 @@ class PresetStore(
                 .put("attack", p.attack.toDouble())
                 .put("decay", p.decay.toDouble())
                 .also { putParams(it, p.params) }
-                .apply { if (p.customShader != null) put("customShader", p.customShader) }
                 .apply { if (p.milkPreset != null) put("milkPreset", p.milkPreset) }
                 .toString(2)
 
-        internal val ENVELOPE_KEYS = setOf("name", "sceneId", "attack", "decay", "customShader", "milkPreset")
+        internal val ENVELOPE_KEYS = setOf("name", "sceneId", "attack", "decay", "milkPreset")
 
         internal fun milkFileName(presetName: String): String = safeFileName(presetName.removeSuffix(".milk")) + ".milk"
 
@@ -197,7 +195,7 @@ class PresetStore(
         }
 
         internal fun paramsToJson(params: SceneParams): JSONObject =
-            JSONObject(toJson(Preset("", "", 0f, 0f, null, params)))
+            JSONObject(toJson(Preset("", "", 0f, 0f, params)))
                 .also { o -> ENVELOPE_KEYS.forEach(o::remove) }
 
         internal fun paramsFromJson(o: JSONObject): SceneParams = readParams(o)
@@ -308,7 +306,6 @@ class PresetStore(
                 sceneId = o.getString("sceneId"),
                 attack = finiteIn(o.getDouble("attack"), ATTACK_RANGE),
                 decay = finiteIn(o.getDouble("decay"), DECAY_RANGE),
-                customShader = if (o.has("customShader")) o.getString("customShader") else null,
                 milkPreset = if (o.has("milkPreset")) o.getString("milkPreset") else null,
                 params = readParams(o),
             )

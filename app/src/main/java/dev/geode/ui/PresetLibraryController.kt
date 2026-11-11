@@ -85,7 +85,6 @@ internal class PresetLibraryController(
 
     fun savePreset(
         name: String,
-        customShader: String?,
         folder: String = "",
     ) {
         @Suppress("NAME_SHADOWING")
@@ -100,7 +99,7 @@ internal class PresetLibraryController(
                     null
                 }
             milkSource?.let { source -> presets.materializeMilk(name, source) }
-            presets.save(Preset(name, s.sceneId, s.attack, s.decay, customShader, s.params, milkSource), folder)
+            presets.save(Preset(name, s.sceneId, s.attack, s.decay, s.params, milkSource), folder)
             mirrorPresetToChosenFolder(name)
             relistPresets()
         }

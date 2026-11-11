@@ -87,10 +87,8 @@ float Renderer::beginFrame(double timeSeconds) {
     musicRate_ = soundHeard_ ? sound::motionRate(soundFrame_) : 0.0f;
     timeSeconds_ = std::fmod(timeSeconds_ + dt * musicRate_, kTimeWrapSeconds);
     applyStyleSchedule();
-    std::vector<std::pair<std::string, std::string>> pending;
     {
         std::lock_guard<std::mutex> lock(stateLock_);
-        pending.swap(pendingShaders_);
         syncLayerLocked();
         frameLayerMix_ = layerMix_;
         frameLayerBlend_ = layerBlend_;
@@ -98,9 +96,6 @@ float Renderer::beginFrame(double timeSeconds) {
         frameTransitionDurationMs_ = transitionDurationMs_;
         // The samples heard since the last frame reach this frame's scenes once; none heard, no PCM (PcmHandoff).
         framePcmCount_ = pcm_.take(pcmDeliverScratch_.data(), pcmSideScratch_.data());
-    }
-    for (const auto& [id, src] : pending) {
-        if (Scene* scene = builtScene(id)) scene->setFragmentSource(src);
     }
     applyMilkRequests();
     applyUnderlayUpload();
@@ -419,7 +414,6 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
         return;
     }
     const SceneParams p = resolveParams(dt, wallDt);
-    applyPendingFluidInjection();
     resolveLayerScene();
     if (!layerScene_) heldLayer_ = nullptr;
     // Still: the clock is stopped and nothing the scenes draw from changed since the last frame.

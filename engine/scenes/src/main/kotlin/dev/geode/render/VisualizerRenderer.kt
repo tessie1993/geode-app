@@ -143,28 +143,12 @@ class VisualizerRenderer(
     /** Sheds the spare scenes before the surface pauses: the system's trim arrives when no frame reads it. GL thread. */
     fun trimSpares() = nativeViz.trimSpares()
 
-    /** Process-wide: export, the wallpaper and the dream draw it too (core/viz/ShaderOverrides). */
-    fun submitShader(
-        sceneId: String,
-        fragmentSrc: String,
-    ) = GeodeNative.shaderOverrideSet(sceneId, fragmentSrc)
-
-    fun customShaderFor(sceneId: String): String? = GeodeNative.shaderOverride(sceneId)
-
     /** Customize › Layers, process-wide: exports, the wallpaper and the dream draw it too (core/viz/LayerState). */
     fun submitLayer(
         sceneId: String?,
         mix: Float,
         blend: BlendMode,
     ) = GeodeNative.layerSet(sceneId.orEmpty(), mix, blend.ordinal)
-
-    fun submitFluidInjectionShaders(
-        force: String?,
-        dye: String?,
-    ) {
-        nativeViz.create()
-        nativeViz.setFluidInjectionShaders(force, dye)
-    }
 
     /**
      * When no handle exists yet, [NativeViz.create] first queues [MilkPresetMemory.restorePath]

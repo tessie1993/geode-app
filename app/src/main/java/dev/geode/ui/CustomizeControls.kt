@@ -576,7 +576,6 @@ private fun PanelPiece(
             }
         }
         "@layers" -> ProGated(id, "Layers") { LayersPage() }
-        "@shader_code" -> if (sectionVisible()) ProGated(id, "Shader code") { ShaderCodePage(host) }
         else -> Unit
     }
 }

@@ -339,10 +339,7 @@ class PlayerSession internal constructor(
 
                 override fun setSceneParams(params: SceneParams) = visual.setSceneParams(params)
 
-                override fun applyMilk(
-                    path: String,
-                    sceneId: String,
-                ) = visual.emitApply(VizApply(milkPath = path, sceneId = sceneId))
+                override fun applyMilk(path: String) = visual.emitApply(VizApply(milkPath = path))
 
                 override fun lengthLimitNote(recordedMs: Long): String? = recordLimitNote(application, recordPrefs, recordedMs)
 
@@ -474,10 +471,7 @@ class PlayerSession internal constructor(
                     if (allowsStyle(preset.sceneId)) visual.applyPreset(preset)
                 }
 
-                override fun applyMilk(
-                    path: String,
-                    sceneId: String,
-                ) = visual.emitApply(VizApply(milkPath = path, sceneId = sceneId))
+                override fun applyMilk(path: String) = visual.emitApply(VizApply(milkPath = path))
 
                 override fun milkFilesAsync(onDone: (List<MilkFile>) -> Unit) = milkPresetFilesAsync(onDone)
             },
@@ -698,9 +692,8 @@ class PlayerSession internal constructor(
 
     fun saveCurrentAsTemplate(
         name: String,
-        customShader: String?,
         onResult: (TemplateWrite) -> Unit,
-    ) = templateLibrary.saveCurrentAsTemplate(name, customShader, onResult)
+    ) = templateLibrary.saveCurrentAsTemplate(name, onResult)
 
     fun adoptTemplate(
         starter: VideoTemplate,

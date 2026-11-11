@@ -60,7 +60,6 @@ internal class TemplateController(
      */
     fun saveCurrentAsTemplate(
         name: String,
-        customShader: String?,
         onResult: (TemplateWrite) -> Unit,
     ) {
         val cleaned = name.replace(" · ", " - ").trim().ifEmpty { application.getString(dev.geode.R.string.template_untitled) }
@@ -79,7 +78,6 @@ internal class TemplateController(
                     attack = s.attack,
                     decay = s.decay,
                     params = s.params,
-                    customShader = customShader,
                     milkPreset = milkSource,
                 )
             val template =

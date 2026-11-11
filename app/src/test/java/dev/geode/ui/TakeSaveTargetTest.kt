@@ -82,10 +82,7 @@ class TakeSaveTargetTest {
 
         override fun setSceneParams(params: SceneParams) = Unit
 
-        override fun applyMilk(
-            path: String,
-            sceneId: String,
-        ) = Unit
+        override fun applyMilk(path: String) = Unit
 
         override fun lengthLimitNote(recordedMs: Long): String? = null
 

@@ -39,7 +39,6 @@ ShaderScene::ShaderScene(std::string id, std::string vertexSrc, std::string frag
     : id_(std::move(id)),
       vertexSrc_(std::move(vertexSrc)),
       currentFragment_(std::move(fragmentSrc)),
-      stockFragment_(currentFragment_),
       cache_(cache),
       host_(std::move(host)) {
     pendingFragment_ = currentFragment_;
@@ -53,12 +52,6 @@ void ShaderScene::setFlow(GLuint texture, float strength) {
     flowStrength_ = strength;
 }
 
-void ShaderScene::setFragmentSource(const std::string& source) {
-    std::lock_guard<std::mutex> lock(pendingLock_);
-    // "" is a cleared shader override (viz/ShaderOverrides): back to the built-in style.
-    pendingFragment_ = source.empty() ? stockFragment_ : source;
-}
-
 void ShaderScene::setWorldAssets(const std::string& shapes, const std::string& maps) {
     if (shapes.size() != world::kShapeBytes || maps.size() != world::kTexBytes) return;
     world::setShapeVolumes(std::vector<uint8_t>(shapes.begin(), shapes.end()));
@@ -70,10 +63,7 @@ void ShaderScene::init() {
     motionField_.setVariant(styleVariantSeed(id_));
     program_ = 0;
     uniforms_ = UniformCache(0);
-    {
-        std::lock_guard<std::mutex> lock(pendingLock_);
-        pendingFragment_ = currentFragment_;
-    }
+    pendingFragment_ = currentFragment_;
     glGenVertexArrays(1, &vao_);
     sound_.init();
 }
@@ -351,10 +341,7 @@ float ShaderScene::marchSteps(float detail) {
 
 void ShaderScene::compilePendingIfAny() {
     std::optional<std::string> pending;
-    {
-        std::lock_guard<std::mutex> lock(pendingLock_);
-        pending.swap(pendingFragment_);
-    }
+    pending.swap(pendingFragment_);
     if (!pending) return;
     std::string error;
     const GLuint built = program::build(vertexSrc_, *pending, cache_, &error);

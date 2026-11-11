@@ -6,7 +6,6 @@
 #include <atomic>
 #include <cstdint>
 #include <functional>
-#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -114,7 +113,6 @@ public:
     // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
     void setSoundTuning(const GeodeSoundTuning& tuning);
     void queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength);
-    void setFluidInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc);
     void loadMilkPreset(const std::string& path);
     void reloadMilkPreset();
     void setMilkTextureDir(const std::string& dir);
@@ -224,14 +222,11 @@ private:
     // 0 when its targets are not there. `ask.sustain` adds a shader style's Trails (length, echo zoom, warp).
     GLuint drawDive(const SceneParams& p, const liquid::motion::DiveAsk& ask, float dt, float wallDt);
     bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off && liveLiquid_ != liquid::Mode::Paused; }
-    void applyPendingFluidInjection();
     void applyMilkRequests();
     void applyUnderlayUpload();
     void notePresetLoaded(const std::string& path);
     static double monotonicSeconds();
     void fail(const std::string& message);
-    // Re-applies the process-wide shader overrides (viz/ShaderOverrides) to resident scenes when they change.
-    void syncShaderOverrides();
 
     ShaderSource assets_;
     std::string cacheDir_;
@@ -344,19 +339,9 @@ private:
     int framePcmCount_ = 0;  // GL thread: samples of pcmDeliverScratch_ this frame's scenes get.
     std::vector<float> pcmDeliverScratch_;
     std::vector<float> pcmSideScratch_;
-    // Drained by beginFrame; nothing queues into it since the overrides went process-wide (#364), and
-    // the frame code that drains it is being moved (#344), which drops it.
-    std::vector<std::pair<std::string, std::string>> pendingShaders_;
-    // GL thread: the shader override each built scene was last given ("" = its built-in source), and
-    // the ShaderOverrides generation syncShaderOverrides last applied.
-    std::map<std::string, std::string> appliedShaders_;
-    uint64_t shaderGeneration_ = 0;
-    std::string fluidForceSrc_;
-    std::string fluidDyeSrc_;
-    bool fluidInjectionDirty_ = false;
     // W00: the underlay layer. Retained (not just "pending") so a surface recreation can
-    // re-arm the dirty flag and re-upload, the same way fluidForceSrc_/fluidDyeSrc_ do above;
-    // see onSurfaceCreated() and applyUnderlayUpload(). Empty = cleared.
+    // re-arm the dirty flag and re-upload; see onSurfaceCreated() and applyUnderlayUpload().
+    // Empty = cleared.
     std::vector<uint32_t> underlayPixels_;
     int underlayWidth_ = 0;
     int underlayHeight_ = 0;

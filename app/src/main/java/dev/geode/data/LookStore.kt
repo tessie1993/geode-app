@@ -51,9 +51,8 @@ class LookStore(
     fun pushProcessWide() {
         val modulation = LfoStore(prefsFiles.general)
         HandMask.set(modulation.loadHandMask(), modulation.loadReactions() != null)
-        // Seam: once #602 lands, push the saved Customize › Layers layer here (GeodeNative.layerSet);
-        // once #498 lands, the saved custom shader code (geode_shader_override_set). Both are process-wide
-        // native stores that nothing pushes from the stores when the process starts without UI.
+        // Seam: once #602 lands, push the saved Customize › Layers layer here (GeodeNative.layerSet): a
+        // process-wide native store that nothing pushes from the stores when the process starts without UI.
     }
 
     internal companion object {

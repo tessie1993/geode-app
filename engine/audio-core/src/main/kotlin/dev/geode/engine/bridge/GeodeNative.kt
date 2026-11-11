@@ -235,12 +235,6 @@ object GeodeNative {
         strength: Float,
     )
 
-    external fun vizSetFluidInjection(
-        handle: Long,
-        force: String?,
-        dye: String?,
-    )
-
     external fun vizLoadMilkPreset(
         handle: Long,
         path: String,
@@ -334,15 +328,6 @@ object GeodeNative {
      * the screen drew.
      */
     external fun noteResponseSet(enabled: Boolean)
-
-    /** Process-wide (core/viz/ShaderOverrides): every renderer draws it; "" clears it. */
-    external fun shaderOverrideSet(
-        styleId: String,
-        fragmentSource: String,
-    )
-
-    /** The style's shader override; null when it draws its built-in shader. */
-    external fun shaderOverride(styleId: String): String?
 
     external fun vizSetLfo(
         handle: Long,

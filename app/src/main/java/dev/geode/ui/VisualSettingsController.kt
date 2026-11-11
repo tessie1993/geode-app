@@ -102,12 +102,6 @@ internal class VisualSettingsController(
         state.update { it.copy(shaderError = error) }
     }
 
-    fun applyCustomShader(source: String) {
-        val sceneId = state.value.sceneId
-        state.update { it.copy(shaderError = null) }
-        _vizApply.tryEmit(VizApply(customShader = source, sceneId = sceneId))
-    }
-
     fun setTransitionId(id: String) {
         state.update {
             it.copy(
@@ -136,16 +130,13 @@ internal class VisualSettingsController(
         }
         vizStateStore.persist()
         emitPresetMorph()
-        preset.customShader?.let {
-            _vizApply.tryEmit(VizApply(customShader = it, sceneId = preset.sceneId))
-        }
         // The file is read, and written when stale, off the main thread; only the newest apply's
         // file may load, so two quick applies cannot land in the wrong order.
         milkApply?.cancel()
         milkApply =
             scope.launch {
                 host.milkPathFor(preset)?.let {
-                    _vizApply.tryEmit(VizApply(milkPath = it, sceneId = preset.sceneId))
+                    _vizApply.tryEmit(VizApply(milkPath = it))
                 }
             }
     }

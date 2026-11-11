@@ -23,7 +23,7 @@ import dev.geode.render.scene.SceneParams
  * it. Parts are compared by identity when applied, so a change is a new instance, as the stores make them.
  *
  * Not here, being process-wide native state: the macro bank, Note & key, the director and the hand mask
- * (`EngineSettings`, pinned natively by an export), the layer (#602) and custom shader code (#498).
+ * (`EngineSettings`, pinned natively by an export) and the layer (#602).
  */
 data class LookSnapshot(
     /** Until a look is pushed, the app's first style (FreeTier.FIRST_STYLE_ID), not a Pro one. */

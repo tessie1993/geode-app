@@ -12,7 +12,6 @@ constexpr const char* kTag = "FluidSim";
 
 const char* FluidSim::progAsset(int prog) {
     switch (prog) {
-        case kSplat: return "fluid_splat_frag.glsl";
         case kSplatBatch: return "fluid_splat_batch_frag.glsl";
         case kAdvect: return "fluid_advect_frag.glsl";
         case kMacCormack: return "fluid_maccormack_frag.glsl";
@@ -60,8 +59,6 @@ void FluidSim::create() {
         programs_[static_cast<size_t>(i)] = UniformCache(program);
     }
     programsBuilt_ = true;
-    std::lock_guard<std::mutex> lock(injectionLock_);
-    injectionDirty_ = !pendingForceSrc_.empty() || !pendingDyeSrc_.empty();
 }
 
 bool FluidSim::resize(int w, int h) {
@@ -179,49 +176,6 @@ void FluidSim::copyInto(const Fbo& src, const Fbo& dst) {
     quad_.unbind();
 }
 
-void FluidSim::setInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc) {
-    std::lock_guard<std::mutex> lock(injectionLock_);
-    pendingForceSrc_ = forceSrc;
-    pendingDyeSrc_ = dyeSrc;
-    injectionDirty_ = true;
-}
-
-void FluidSim::compileInjectionIfNeeded() {
-    std::string force;
-    std::string dyeSrc;
-    {
-        std::lock_guard<std::mutex> lock(injectionLock_);
-        if (!injectionDirty_) return;
-        injectionDirty_ = false;
-        force = pendingForceSrc_;
-        dyeSrc = pendingDyeSrc_;
-    }
-    std::string firstError;
-    customForce_ = compileCustom(force, std::move(customForce_), &firstError);
-    customDye_ = compileCustom(dyeSrc, std::move(customDye_), &firstError);
-    onShaderError(firstError);
-}
-
-std::optional<UniformCache> FluidSim::compileCustom(const std::string& src, std::optional<UniformCache> current, std::string* firstError) {
-    if (src.empty()) {
-        deleteCustom(current);
-        return std::nullopt;
-    }
-    std::string error;
-    const GLuint p = loader_.buildSource(baseVertSrc_, src, &error);
-    if (p == 0) {
-        if (firstError->empty()) *firstError = error;
-        return current;
-    }
-    deleteCustom(current);
-    return UniformCache(p);
-}
-
-void FluidSim::deleteCustom(std::optional<UniformCache>& custom) {
-    if (custom) glDeleteProgram(custom->program());
-    custom.reset();
-}
-
 void FluidSim::queueSplat(const Splat& s) {
     if (available_) pending_.push_back(s);
 }
@@ -244,7 +198,6 @@ void FluidSim::stepOnce(float dtStep) {
     const Fbo& div = *divergence_;
     const Fbo& crl = *curl_;
     const float dt = dtStep;
-    compileInjectionIfNeeded();
     glDisable(GL_BLEND);
     quad_.bind();
     const float velInvW = 1.0f / static_cast<float>(vel.width());
@@ -259,7 +212,7 @@ void FluidSim::stepOnce(float dtStep) {
         advect(*temperature_, nullptr, false, dt, cd, cd, cd);
     }
 
-    runInjection(vel, 0, customForce_, dt);
+    runBatchedSplats(vel, 0);
     if (hot && heat > 0.0f) runBatchedSplats(*temperature_, 2);
 
     useProgram(kCurl, crl.width(), crl.height());
@@ -300,7 +253,7 @@ void FluidSim::stepOnce(float dtStep) {
 
     if (!velocityOnly_ && dye_) {
         DoubleFbo& dyeB = *dye_;
-        runInjection(dyeB, 1, customDye_, dt);
+        runBatchedSplats(dyeB, 1);
         const float a = std::clamp(chromaticAging, 0.0f, 1.0f);
         advect(dyeB, macCormack ? &dyeScratch_ : nullptr, true, dt, 1.0f + densityDissipation * (1.0f - 0.20f * a) * dt,
                1.0f + densityDissipation * (1.0f + 0.35f * a) * dt, 1.0f + densityDissipation * (1.0f - 0.05f * a) * dt);
@@ -465,45 +418,6 @@ void FluidSim::runBatchedSplats(DoubleFbo& target, int mode) {
     }
 }
 
-void FluidSim::runInjection(DoubleFbo& target, int mode, std::optional<UniformCache>& custom, float dt) {
-    if (pending_.empty()) return;
-    // The built-in splat runs batched. A user's injection shader keeps the one-splat-per-pass
-    // contract the Customize editor documents (uPrev, uCur, uRadius, uValue), so it keeps the loop.
-    if (!custom) {
-        runBatchedSplats(target, mode);
-        return;
-    }
-    UniformCache& cache = *custom;
-    for (const Splat& s : pending_) {
-        glUseProgram(cache.program());
-        glUniform2f(cache.loc("uInvRes"), 1.0f / static_cast<float>(target.width()), 1.0f / static_cast<float>(target.height()));
-        glUniform1f(cache.loc("uAspect"), aspect_);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, target.read().tex());
-        glUniform1i(cache.loc("uTarget"), 0);
-        glUniform2f(cache.loc("uPrev"), s.prevX, s.prevY);
-        glUniform2f(cache.loc("uCur"), s.curX, s.curY);
-        glUniform1f(cache.loc("uRadius"), s.radius);
-        if (mode == 0) {
-            glUniform3f(cache.loc("uValue"), s.velX, s.velY, 0.0f);
-        } else {
-            glUniform3f(cache.loc("uValue"), s.r, s.g, s.b);
-        }
-        glUniform1i(cache.loc("uMode"), mode);
-        glUniform1f(cache.loc("uCeiling"), dyeCeiling);
-        glUniform1f(cache.loc("uDt"), dt);
-        glUniform1f(cache.loc("uDx"), cellSize_);
-        glUniform1f(cache.loc("uTime"), timeSeconds);
-        glUniform1f(cache.loc("uBass"), audioBass);
-        glUniform1f(cache.loc("uMid"), audioMid);
-        glUniform1f(cache.loc("uTreble"), audioTreble);
-        glUniform1f(cache.loc("uEnergy"), audioEnergy);
-        glUniform1f(cache.loc("uBeat"), audioBeat);
-        blit(target.write());
-        target.swap();
-    }
-}
-
 void FluidSim::drawDisplay() {
     if (!available_ || !dye_) return;
     quad_.bind();
@@ -542,8 +456,6 @@ void FluidSim::release() {
         programsBuilt_ = false;
     }
     programs_.fill(UniformCache(0));
-    deleteCustom(customForce_);
-    deleteCustom(customDye_);
     quad_.release();
     if (linearSampler_ != 0) glDeleteSamplers(1, &linearSampler_);
     linearSampler_ = 0;
@@ -561,12 +473,6 @@ void FluidSim::useProgram(int prog, int gridW, int gridH) {
 void FluidSim::blitDiscarding(const Fbo& target) {
     glBindFramebuffer(GL_FRAMEBUFFER, target.fbo());
     target.discardContents();
-    glViewport(0, 0, target.width(), target.height());
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-}
-
-void FluidSim::blit(const Fbo& target) {
-    glBindFramebuffer(GL_FRAMEBUFFER, target.fbo());
     glViewport(0, 0, target.width(), target.height());
     glDrawArrays(GL_TRIANGLES, 0, 3);
 }

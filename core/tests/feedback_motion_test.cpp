@@ -5,7 +5,9 @@
 // an off-centre point and translation each move a sample by MilkDrop's formula; the warp is bounded, boils
 // with time, never drifts and scales by its warp scale; the same second of motion lands in the same place
 // at 30, 60 and 120 fps; silence is the identity, the bass zooms the MilkDrop way; nothing non-finite gets
-// through; the mirror fold is the identity inside 0..1 and continuous at the edges.
+// through; the mirror fold is the identity inside 0..1 and continuous at the edges. And the renderer's glue:
+// Dive speed and Fly dive in and out, Trails keep their echo zoom and warp, the bass pushes only a dive,
+// silence stops it all at 30, 60 and 120 fps, and Liquid's dive lands where its old back-trace did.
 #include <cmath>
 #include <cstdio>
 #include <initializer_list>
@@ -13,6 +15,7 @@
 #include "viz/liquid/FeedbackMotion.hpp"
 
 using namespace geode::viz::liquid::motion;
+namespace liquid = geode::viz::liquid;
 
 namespace {
 
@@ -318,6 +321,102 @@ void mirrorFoldReflectsTheEdges() {
           "zooming out folds the corners back inside");
 }
 
+// The renderer's glue (Renderer::drawDive): what it asks for, heard from a sound frame, stepped at 30,
+// 60 and 120 fps.
+Uv travelHeard(const DiveAsk& ask, const GeodeSoundFrame& s, Uv p, float hz, float seconds) {
+    return travel(diveMotion(ask, s, false), p, 9.0f / 16.0f, hz, seconds);
+}
+
+void theRendererDivesBothWays() {
+    DiveAsk in;
+    in.octaves = 0.6f;
+    DiveAsk out;
+    out.octaves = -0.6f;
+    const GeodeSoundFrame s = playing(1.0f, 1.0f);
+    check(near(std::log2(diveMotion(in, s, false).zoom), 0.6f, 1e-4f), "Dive speed at the bass's mean is its zoom, octaves a second");
+    check(near(std::log2(diveMotion(out, s, false).zoom), -0.6f, 1e-4f), "a negative Fly backs out by feedback too");
+    check(near(travelOctaves(diveMotion(out, s, false)), 0.6f, 1e-4f), "the pour is timed by travel either way");
+    const Uv p{0.8f, 0.3f};
+    for (float hz : {30.0f, 60.0f, 120.0f}) {
+        const Uv a = travelHeard(in, s, p, hz, 1.0f);
+        check(std::fabs(a.u - 0.5f) < std::fabs(p.u - 0.5f), "diving in samples toward the centre at any rate");
+        check(near(a, travelHeard(in, s, p, 120.0f, 1.0f), 1e-4f), "a second of the dive lands alike at 30, 60 and 120 fps");
+        const Uv b = travelHeard(out, s, p, hz, 1.0f);
+        check(std::fabs(b.u - 0.5f) > std::fabs(p.u - 0.5f), "backing out samples past the start, toward the edge");
+        const Uv f = fold(b);
+        check(f.u >= 0.0f && f.u <= 1.0f && f.v >= 0.0f && f.v <= 1.0f, "and the fold keeps it on the picture");
+    }
+    DiveAsk wild;
+    wild.octaves = 50.0f;
+    check(std::log2(diveBase(wild).zoom) <= kMaxDiveOctaves + 1e-5f, "Dive speed's ceiling holds before the bass");
+    check(diveBase(DiveAsk{}).zoom == 1.0f && !asksDive(DiveAsk{}), "nothing asked, nothing moves");
+}
+
+void theBassPushesOnlyADive() {
+    DiveAsk dive;
+    dive.octaves = 0.5f;
+    DiveAsk trails;
+    trails.sustain = true;
+    trails.trailZoom = 0.1f;
+    trails.trailWarp = 0.6f;
+    const Motion t = diveMotion(trails, playing(2.5f, 1.0f), false);
+    check(near(std::log2(t.zoom), 0.1f * kTrailZoomOctaves, 1e-4f), "Trails alone keep their echo zoom whatever the bass");
+    check(t.rot == 0.0f && near(t.warp, 0.6f, 1e-6f), "Trail warp is MilkDrop's warp, unpushed");
+    check(diveMotion(dive, playing(2.5f, 1.0f), false).zoom > diveMotion(dive, playing(1.0f, 1.0f), false).zoom,
+          "a dive surges on the bass");
+    DiveAsk back;
+    back.sustain = true;
+    back.trailZoom = -0.5f;
+    check(std::log2(diveBase(back).zoom) >= -kMaxZoomOutOctaves - 1e-5f, "a shrinking echo backs out within the limit");
+}
+
+void theRendererIsStillInSilence() {
+    DiveAsk ask;
+    ask.octaves = 1.0f;
+    ask.sustain = true;
+    ask.trailZoom = 0.3f;
+    ask.trailWarp = 1.0f;
+    GeodeSoundFrame quiet = playing(2.0f);
+    quiet.presence = 0.0f;
+    const Motion m = diveMotion(ask, quiet, false);
+    check(m.zoom == 1.0f && m.rot == 0.0f && m.warp == 0.0f, "silence: the dive and the echo stop");
+    for (float hz : {30.0f, 60.0f, 120.0f}) {
+        const Uv p{0.15f, 0.85f};
+        check(near(uvFor(perFrame(m, 1.0f / hz), p, 1.0f, 2.0f), p, 1e-6f), "silence samples where it draws at any rate");
+    }
+}
+
+// The old liquid_frag back-trace (before lib_feedback): rotate by -twist about the vanishing point in
+// centred units (x times the aspect, y up) and divide by the scale.
+Uv oldLiquidBackTrace(const liquid::DiveFrame& d, Uv uv, float aspect) {
+    const float cx = (uv.u * 2.0f - 1.0f) * aspect;
+    const float cy = uv.v * 2.0f - 1.0f;
+    float dx = cx - d.vpX;
+    float dy = cy - d.vpY;
+    const float s = std::sin(-d.twist);
+    const float c = std::cos(-d.twist);
+    const float rx = (c * dx - s * dy) / d.scale;
+    const float ry = (s * dx + c * dy) / d.scale;
+    return {((d.vpX + rx) / aspect) * 0.5f + 0.5f, (d.vpY + ry) * 0.5f + 0.5f};
+}
+
+void liquidDiveIsMilkDropsTransform() {
+    for (float a : kAspects) {
+        for (liquid::DiveFrame d : {liquid::DiveFrame{1.02f, 0.0f, 0.0f, 0.0f}, liquid::DiveFrame{1.03f, 0.01f, 0.2f, -0.1f},
+                                    liquid::DiveFrame{1.01f, -0.008f, -0.15f, 0.18f}}) {
+            const FrameMotion f = fromDive(d, a);
+            for (Uv p : {Uv{0.1f, 0.2f}, Uv{0.5f, 0.5f}, Uv{0.9f, 0.7f}, Uv{0.3f, 0.95f}}) {
+                check(near(uvFor(f, p, a, 4.0f), oldLiquidBackTrace(d, p, a), 2e-6f),
+                      "Liquid's dive through MilkDrop's transform lands where the old back-trace did");
+            }
+        }
+    }
+    const FrameMotion still = fromDive(liquid::DiveFrame{}, 1.0f);
+    check(near(uvFor(still, {0.3f, 0.6f}, 1.0f, 0.0f), Uv{0.3f, 0.6f}, 1e-6f), "a still dive is the identity");
+    const FrameMotion bad = fromDive(liquid::DiveFrame{std::nanf(""), INFINITY, std::nanf(""), 0.0f}, std::nanf(""));
+    check(finite(uvFor(bad, {0.3f, 0.6f}, 1.0f, 0.0f)), "a broken dive cannot poison the sample");
+}
+
 }  // namespace
 
 int main() {
@@ -332,6 +431,10 @@ int main() {
     bassZoomsTheMilkDropWay();
     nothingNonFiniteGetsThrough();
     mirrorFoldReflectsTheEdges();
+    theRendererDivesBothWays();
+    theBassPushesOnlyADive();
+    theRendererIsStillInSilence();
+    liquidDiveIsMilkDropsTransform();
     if (failures > 0) {
         std::printf("%d feedback motion check(s) failed\n", failures);
         return 1;

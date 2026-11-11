@@ -7,12 +7,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -52,7 +50,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -71,36 +68,36 @@ import dev.geode.data.BuiltInPresets
 import dev.geode.model.PresetEntry
 import dev.geode.model.PresetFilter
 import dev.geode.model.PresetFiltering
-import dev.geode.model.StyleEntry
 import dev.geode.model.VizPlaylistEntry
 import dev.geode.render.VisualizerView
 import dev.geode.render.scene.SceneIds
-import dev.geode.render.scene.StyleFamilies
-import dev.geode.ui.pro.ProBadge
+import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneHapticCue
+import dev.geode.ui.theme.StoneIcon
+import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.performStoneHaptic
 import dev.geode.ui.theme.selectedGlow
 
 /**
- * Visuals › Presets: the user's saved looks and the built-ins, as pictures.
+ * Visuals › Presets: the user's saved looks and the built-ins, as a text menu like Styles.
  *
- * It was a list with six icon buttons on every row (apply, share, playlist, move, delete, and a
- * folder header's rename), a second list of built-ins under it and a save form at the bottom, so
- * the one thing people came for, putting a look on the stage, was one small icon among many.
- * Now a card is the preset: a tap applies it, and everything else sits behind a long press (or
- * the TalkBack action "Preset actions") in one sheet. Filtering is one scrolling row: the four
+ * No pictures (owner): no style has a rendered still, so every card showed a generated gradient
+ * that said nothing about the look. A row is the preset: its name, its style under it, whether it
+ * is built-in or the user's own, and a lit row with a check for the one on the stage. A tap applies
+ * it, and everything else sits behind a long press (or the TalkBack action "Preset actions") in
+ * one sheet, never as icons on the row. One column on a phone, more where the options are wide.
+ * Toolbar, chips and rows share one 16 dp text edge. Filtering is one scrolling row: the four
  * fixed shelves (All, For this style, Mine, Built-in) as chips, then one "Folders ▾" chip whose
  * menu lists every folder and "New folder", so the row stays one row however many folders exist.
  *
- * One way to save, at the top: "Save current look" opens one dialog with the name and the
+ * One way to save, at the top: "Save look" opens one dialog with the name and the
  * folder, and calls the same [VisualsViewModel.savePreset] as Customize's "Save as preset", with
  * the stage's own shader text so a custom GLSL look is kept too.
  *
- * A preset of a Pro style shows the Pro badge; tapping it opens the paywall through the session's
- * gate, as the old Apply button did, rather than hiding the card: seeing what Pro holds is the
- * case for it.
+ * A preset of a Pro style shows the ♛; tapping it opens the paywall through the session's gate
+ * rather than hiding the row: seeing what Pro holds is the case for it.
  */
 @Composable
 internal fun PresetsTab(
@@ -114,7 +111,7 @@ internal fun PresetsTab(
     val folders = presetFolders.folders
     val context = LocalContext.current
     var filterKey by rememberSaveable { mutableStateOf(FILTER_ALL) }
-    // The card the user tapped last, so it keeps the check over another preset with the same look.
+    // The row the user tapped last, so it keeps the check over another preset with the same look.
     var lastTapped by rememberSaveable { mutableStateOf<String?>(null) }
     var dialog by remember { mutableStateOf<PresetDialog?>(null) }
     var menuFor by remember { mutableStateOf<String?>(null) }
@@ -141,7 +138,7 @@ internal fun PresetsTab(
                     folder = presetFolders.folderOf(p.name),
                     forThisStyle = builtInPresetMatchesScene(p.sceneId, viz.sceneId),
                     // Every MilkDrop preset shares the default params; only the file tells them
-                    // apart, so a MilkDrop card is marked only when the user tapped it.
+                    // apart, so a MilkDrop row is marked only when the user tapped it.
                     onStage = looks && (p.sceneId != SceneIds.MILKDROP || p.name == lastTapped),
                 )
             }
@@ -193,14 +190,14 @@ internal fun PresetsTab(
             EmptyPresets(filter)
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(CARD_MIN_WIDTH),
-                contentPadding = PaddingValues(GeodeSpacing.M),
-                horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
-                verticalArrangement = Arrangement.spacedBy(GeodeSpacing.M),
+                columns = GridCells.Adaptive(PRESET_COLUMN_MIN),
+                // The bottom clears the docked mini player's progress line under the page.
+                contentPadding = PaddingValues(top = GeodeSpacing.XS, bottom = GeodeSpacing.L),
+                verticalArrangement = Arrangement.spacedBy(GeodeSpacing.XS),
                 modifier = Modifier.fillMaxSize(),
             ) {
-                items(shown, key = { it.name }) { entry ->
-                    PresetCard(
+                items(shown, key = { it.name }, contentType = { "preset" }) { entry ->
+                    PresetRow(
                         entry = entry,
                         applied = entry.name == applied,
                         locked = !gate.allowsStyle(entry.sceneId),
@@ -256,7 +253,7 @@ internal fun PresetsTab(
             visualizerView.visualizerRenderer.customShaderFor(viewModel.vizState.value.sceneId),
             folder,
         )
-        // What was just saved is what the stage shows, so its card gets the check.
+        // What was just saved is what the stage shows, so its row gets the check.
         lastTapped = PresetFiltering.cleanName(name)
     }
     val close = { dialog = null }
@@ -413,18 +410,26 @@ internal fun PresetsToolbar(
     var importOpen by remember { mutableStateOf(false) }
     var moreOpen by remember { mutableStateOf(false) }
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.XS),
+        // The ⋮ is a 48 dp target whose glyph sits 12 dp in, so the row ends 4 dp from the edge.
+        Modifier.fillMaxWidth().padding(start = GeodeSpacing.L, end = GeodeSpacing.XS, top = GeodeSpacing.XS),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
     ) {
-        Button(onClick = onSave, modifier = Modifier.weight(1f)) {
+        Button(
+            onClick = onSave,
+            modifier = Modifier.weight(1f).heightIn(min = GeodeSpacing.TouchTarget),
+            contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+        ) {
             Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-            // Wraps instead of cutting to "Save curr…" at a large font (#866).
-            Text(stringResource(R.string.presets_save_current_look))
+            // Two words, so one line on a 360 dp phone; at a large font it wraps rather than cut (#866).
+            Text(stringResource(R.string.presets_save_look))
         }
         Box {
-            FilledTonalButton(onClick = { importOpen = true }) { Text("Import") }
+            FilledTonalButton(
+                onClick = { importOpen = true },
+                modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget),
+            ) { Text("Import", maxLines = 1) }
             DropdownMenu(expanded = importOpen, onDismissRequest = { importOpen = false }) {
                 DropdownMenuItem(
                     text = { Text("Paste a shared preset link") },
@@ -478,7 +483,8 @@ internal fun PresetsToolbar(
 /**
  * The shelves as chips, then one "Folders ▾" chip: folders are the user's and unbounded, so they
  * live in its menu (a check on the open one, "New folder" last) instead of widening the row. The
- * chip names the open folder while one is shown.
+ * chip names the open folder while one is shown. The chips keep Material's 32 dp look; the
+ * 48 dp touch target around each is the chip's own (`minimumInteractiveComponentSize`).
  */
 @Composable
 private fun PresetFilterRow(
@@ -500,7 +506,6 @@ private fun PresetFilterRow(
                 selected = f == selected,
                 onClick = { onSelect(f) },
                 label = { Text(filterLabel(f)) },
-                modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget),
             )
         }
         item(key = "folders") {
@@ -531,7 +536,6 @@ private fun FolderFilterChip(
             label = { Text(open ?: "Folders", maxLines = 1, overflow = TextOverflow.Ellipsis) },
             leadingIcon = { Icon(Icons.Filled.Folder, contentDescription = null, modifier = Modifier.size(18.dp)) },
             trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp)) },
-            modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget),
         )
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
             folders.forEach { f ->
@@ -569,128 +573,106 @@ private fun FolderFilterChip(
     }
 }
 
+/**
+ * One preset: its name over its style, then what kind it is (built-in or the user's own), a ♛
+ * when its style is Pro, a mark when it is in the visual playlist and a check when it is the look
+ * on the stage. The applied row is lit as the chosen style is in Styles (raised glass, accent
+ * name) with the look's one glow behind it. The text starts 16 dp in, with the toolbar and chips.
+ *
+ * A tap applies; a long press, or TalkBack's "Preset actions", opens the sheet. The marks are
+ * decorative: the row's state description says applied and in the playlist.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun PresetCard(
+internal fun PresetRow(
     entry: PresetEntry,
     applied: Boolean,
     locked: Boolean,
     inPlaylist: Boolean,
     onTap: () -> Unit,
     onMenu: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val view = LocalView.current
     val cs = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(GeodeRadius.Medium)
-    val styleLabel = sceneDisplayLabel(entry.sceneId)
-    val state = listOfNotNull("Applied".takeIf { applied }, "In the visual playlist".takeIf { inPlaylist })
-    Column(
-        Modifier
+    val actionsLabel = stringResource(R.string.presets_actions)
+    val appliedText = stringResource(R.string.presets_state_applied)
+    val playlistText = stringResource(R.string.presets_state_in_playlist)
+    val state = listOfNotNull(appliedText.takeIf { applied }, playlistText.takeIf { inPlaylist })
+    Row(
+        modifier
+            .fillMaxWidth()
+            .padding(horizontal = GeodeSpacing.S)
+            .selectedGlow(applied, shape)
             .clip(shape)
+            .then(if (applied) Modifier.background(Color.White.copy(alpha = GeodeGlass.FILL_RAISED)) else Modifier)
             .combinedClickable(
                 role = Role.Button,
                 onClick = onTap,
-                onClickLabel = "Apply",
+                onClickLabel = stringResource(R.string.presets_apply),
                 onLongClick = {
                     view.performStoneHaptic(StoneHapticCue.CONFIRM)
                     onMenu()
                 },
-                onLongClickLabel = ACTIONS_LABEL,
+                onLongClickLabel = actionsLabel,
             ).semantics {
                 if (state.isNotEmpty()) stateDescription = state.joinToString()
                 customActions =
                     listOf(
-                        CustomAccessibilityAction(ACTIONS_LABEL) {
+                        CustomAccessibilityAction(actionsLabel) {
                             onMenu()
                             true
                         },
                     )
-            },
+            }.heightIn(min = PRESET_ROW_HEIGHT)
+            .padding(horizontal = GeodeSpacing.S, vertical = GeodeSpacing.XS),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
     ) {
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f)
-                // The applied look glows; no accent edge (the look has no hairlines).
-                .selectedGlow(applied, shape)
-                .clip(shape),
-        ) {
-            StyleThumbnail(thumbnailEntry(entry, styleLabel), Modifier.fillMaxSize())
-            if (locked) ProBadge(Modifier.align(Alignment.TopEnd).padding(GeodeSpacing.XS))
-            if (inPlaylist) {
-                val scrim = cs.scrim.copy(alpha = SCRIM_ALPHA)
-                CardMark(Icons.AutoMirrored.Filled.PlaylistPlay, Color.White, scrim, Alignment.TopStart)
-            }
-            if (applied) CardMark(Icons.Filled.Check, cs.onPrimary, cs.primary, Alignment.BottomEnd)
+        Column(Modifier.weight(1f)) {
+            Text(
+                entry.name,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (applied) accentTextColor() else cs.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                sceneDisplayLabel(entry.sceneId),
+                style = MaterialTheme.typography.bodySmall,
+                color = cs.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         Text(
-            entry.name,
-            Modifier.padding(top = GeodeSpacing.XS, start = GeodeSpacing.XXS, end = GeodeSpacing.XXS),
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (applied) accentTextColor() else cs.onSurface,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            styleLabel,
-            Modifier.padding(horizontal = GeodeSpacing.XXS),
-            style = MaterialTheme.typography.bodySmall,
+            stringResource(if (entry.builtIn) R.string.presets_kind_built_in else R.string.presets_kind_mine),
+            style = MaterialTheme.typography.labelSmall,
             color = cs.onSurfaceVariant,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
+        // The app's one ♛ (shared with Styles and Customize), so Pro reads the same on every page.
+        if (locked) ProCrown()
+        if (inPlaylist) {
+            Icon(
+                Icons.AutoMirrored.Filled.PlaylistPlay,
+                contentDescription = null,
+                tint = cs.onSurfaceVariant,
+                modifier = Modifier.size(ROW_MARK),
+            )
+        }
+        if (applied) StoneIconArt(StoneIcon.CHECK, contentDescription = null, modifier = Modifier.size(ROW_MARK), tint = accentTextColor())
     }
 }
-
-/** A small round mark on a card's corner. Decorative: the card's state description says it. */
-@Composable
-private fun BoxScope.CardMark(
-    icon: ImageVector,
-    tint: Color,
-    fill: Color,
-    at: Alignment,
-) {
-    Icon(
-        icon,
-        contentDescription = null,
-        tint = tint,
-        modifier =
-            Modifier
-                .align(at)
-                .padding(GeodeSpacing.XS)
-                .background(fill, RoundedCornerShape(50))
-                .padding(GeodeSpacing.XXS)
-                .size(16.dp),
-    )
-}
-
-/**
- * The still a preset card shows: its style's. A MilkDrop preset's look lives in its own file,
- * which no still can show, so it gets the fallback art under an id of its own; the gradient then
- * differs from one MilkDrop preset to the next instead of making them all one colour.
- */
-private fun thumbnailEntry(
-    entry: PresetEntry,
-    styleLabel: String,
-): StyleEntry =
-    if (entry.sceneId == SceneIds.MILKDROP) {
-        StyleEntry(id = "milkdrop-preset:${entry.name}", label = entry.name, kindLabel = styleLabel, familyLabel = null)
-    } else {
-        StyleEntry(
-            id = entry.sceneId,
-            label = styleLabel,
-            kindLabel = styleLabel,
-            familyLabel = StyleFamilies.of(entry.sceneId)?.label,
-        )
-    }
 
 @Composable
 private fun EmptyPresets(filter: PresetFilter) {
     val text =
         when (filter) {
             PresetFilter.All, PresetFilter.Mine ->
-                "You have not saved a preset yet. Set up a look you like, then tap Save current look."
-            PresetFilter.ThisStyle -> "No presets for this style yet. Save current look makes the first one."
+                "You have not saved a preset yet. Set up a look you like, then tap Save look."
+            PresetFilter.ThisStyle -> "No presets for this style yet. Save look makes the first one."
             PresetFilter.BuiltIn -> "No built-in presets here."
             is PresetFilter.Folder -> "This folder is empty. Press and hold a preset, then choose Move to folder."
         }
@@ -718,6 +700,10 @@ private fun filterLabel(filter: PresetFilter): String =
     }
 
 private const val FILTER_ALL = "all"
-private const val ACTIONS_LABEL = "Preset actions"
-private val CARD_MIN_WIDTH = 112.dp
-private const val SCRIM_ALPHA = 0.55f
+
+/** One column in a phone's sheet (up to ~400 dp of room), two or more where the options are wide. */
+private val PRESET_COLUMN_MIN = 280.dp
+
+/** Two lines of text in more than a 48 dp target. */
+private val PRESET_ROW_HEIGHT = 56.dp
+private val ROW_MARK = 18.dp

@@ -147,7 +147,13 @@
     <string name="mini_player_library">Open Library</string>
     <string name="mini_player_show">Show the player</string>
     <string name="visuals_sheet_close">Hide the options</string>
-    <string name="presets_save_current_look">Save current look</string>
+    <string name="presets_save_look">Save look</string>
+    <string name="presets_apply">Apply</string>
+    <string name="presets_actions">Preset actions</string>
+    <string name="presets_state_applied">Applied</string>
+    <string name="presets_state_in_playlist">In the visual playlist</string>
+    <string name="presets_kind_built_in">Built-in</string>
+    <string name="presets_kind_mine">Mine</string>
     <string name="visuals_sheet_handle">Options sheet</string>
     <string name="visuals_sheet_expand">Show more options</string>
     <string name="visuals_sheet_collapse">Show fewer options</string>

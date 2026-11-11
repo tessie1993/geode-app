@@ -14,7 +14,7 @@ a partial reconstruction, rebuilt from the references in these entries, is at
 - **Summary of the work since v1.8.0, newest first.** The entries below this
   one are kept as written; several describe code that has since been replaced.
   - **Oboe is back, as the playback output only.** Settings › Playback ›
-    Output and more has a new switch, "Low-latency native output (Oboe)",
+    Output and more has a new switch, "Native output (Oboe)",
     off by default and experimental. ExoPlayer still decodes, keeps the queue,
     Android Auto, the notification and its whole audio sink (the tap, the DSP,
     speed and pitch, gapless joins); only the AudioTrack at the end is

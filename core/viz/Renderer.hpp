@@ -109,6 +109,9 @@ public:
     void writeAudio(const float* interleaved, int frames, int channels, int sampleRateHz);
     // A seek, track change or source switch: drop the engine's history.
     void resetAudio();
+    // The live feed hears only its layered source (the mic, the player stopped): the engine then treats
+    // the source as not the player's, so its silence rule and fadeGain are the mic's (PlayerSignals).
+    void setLayerAlone(bool on) { layerAlone_.store(on, std::memory_order_relaxed); }
     // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
     void setSoundTuning(const GeodeSoundTuning& tuning);
     void queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength);
@@ -284,6 +287,7 @@ private:
     frame::edge_glow::Options edgeGlowOptions_;
     std::atomic<bool> edgeGlowOn_{false};
     std::atomic<bool> offscreen_{false};
+    std::atomic<bool> layerAlone_{false};
     std::atomic<int> fixedFps_{0};
     CameraRig camera_;
     // One engine per renderer (one per surface), so each is frame-locked to its own dt. Guarded by soundLock_

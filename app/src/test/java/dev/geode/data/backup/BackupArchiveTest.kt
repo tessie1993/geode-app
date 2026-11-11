@@ -204,7 +204,7 @@ class BackupArchiveTest {
 
     @Test
     fun `default file name carries the date`() {
-        assertEquals("muzviz-backup-20261030.zip", BackupFormat.defaultFileName(LocalDate.of(2026, 10, 30)))
+        assertEquals("beatrealms-backup-20261030.zip", BackupFormat.defaultFileName(LocalDate.of(2026, 10, 30)))
     }
 
     private fun entry(

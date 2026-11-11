@@ -416,14 +416,14 @@ class UiTourTest {
     }
 
     private fun presets() {
-        tour.step("presets", "open", "the Presets grid") { tour.tap(PRESETS) }
-        tour.pages("presets", "grid", pages = 3)
-        tour.step("presets", "card-sheet", "a card's long-press sheet") {
+        tour.step("presets", "open", "the Presets list") { tour.tap(PRESETS) }
+        tour.pages("presets", "list", pages = 3)
+        tour.step("presets", "row-sheet", "a row's long-press sheet") {
             compose.onAllNodes(LONG_PRESSABLE).onFirst().performSemanticsAction(SemanticsActions.OnLongClick)
             null
         }
         tour.back()
-        tour.step("presets", "save-dialog", "Save current look's dialog") { tour.tap(SAVE_LOOK) }
+        tour.step("presets", "save-dialog", "Save look's dialog") { tour.tap(SAVE_LOOK) }
         tour.back()
         tour.back()
     }
@@ -671,7 +671,7 @@ class UiTourTest {
         const val SHADERS = "Shaders"
         const val ARBOR = "Arbor"
         const val LOCKED_STYLE = "Halvorsen Web"
-        const val SAVE_LOOK = "Save current look"
+        const val SAVE_LOOK = "Save look"
         const val MACROS = "Macros"
         const val MOTION = "Motion"
         const val CAMERA = "Camera"
@@ -706,7 +706,8 @@ class UiTourTest {
                 ABOUT,
             )
         val RENDER_SCOPES = listOf("Play queue", "Playlist", "Chosen tracks")
-        val RENDER_OPTIONS = listOf("Made for", "Segment", "Whole track", "Loop", "Ask where each time", "Videos library (Movies/MuzViz)")
+        val RENDER_OPTIONS =
+            listOf("Made for", "Segment", "Whole track", "Loop", "Ask where each time", "Videos library (Movies/BeatRealms)")
         val RENDER_OPTIONS_THAT_OPEN = setOf("Made for", "Loop")
         val MY_VIDEOS_CHIPS = listOf("Renders", "Takes", "All")
 

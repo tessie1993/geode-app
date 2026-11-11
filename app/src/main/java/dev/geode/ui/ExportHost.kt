@@ -219,7 +219,7 @@ internal fun rememberVisualizerExport(
         askNotifications()
         if (toFolder) {
             pendingExport = req
-            destinationPicker.launch("muzviz_${System.currentTimeMillis()}.mp4")
+            destinationPicker.launch("beatrealms_${System.currentTimeMillis()}.mp4")
         } else {
             start(req, null)
         }
@@ -279,7 +279,7 @@ fun ExportHost(
         onStartToDestination = { req ->
             askNotifications()
             pendingLoopExport = PendingLoopExport.from(req)
-            loopDestinationPicker.launch("muzviz_loop_${System.currentTimeMillis()}.mp4")
+            loopDestinationPicker.launch("beatrealms_loop_${System.currentTimeMillis()}.mp4")
         },
         onCancel = studioViewModel::cancelLoopRender,
         onDismiss = {

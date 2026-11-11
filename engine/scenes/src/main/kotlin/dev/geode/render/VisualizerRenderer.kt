@@ -136,6 +136,9 @@ class VisualizerRenderer(
     /** Frees the native renderer; only when this renderer is being discarded, on the GL thread. */
     fun releaseScenes() = nativeViz.destroy()
 
+    /** Sheds the spare scenes before the surface pauses: the system's trim arrives when no frame reads it. GL thread. */
+    fun trimSpares() = nativeViz.trimSpares()
+
     /** Process-wide: export, the wallpaper and the dream draw it too (core/viz/ShaderOverrides). */
     fun submitShader(
         sceneId: String,

@@ -389,7 +389,8 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     if (thermal_.tier() != appliedTier_ || userScale_.load(std::memory_order_relaxed) != appliedUserScale_) {
         applyRenderScale();
     }
-    // Memory pressure (#854): shed the spare scenes on this GL thread; what is drawn is pinned.
+    // Memory pressure (#854): shed the spare scenes on this GL thread; what is drawn is pinned. This reaches
+    // a surface that is still drawing; one that pauses sheds them at the pause (trimSpares).
     if (SceneResidency::trimSignal().poll(seenTrim_)) trimScenes({}, MemoryTrim::UiHidden);
     Scene* scene = resolveActiveScene();
     if (!scene || !ensureTargets()) {

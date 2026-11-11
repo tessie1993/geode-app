@@ -32,6 +32,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -77,7 +78,8 @@ internal fun CustomizePanel(
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val paywall: PaywallViewModel = geodeViewModel()
     val gate by paywall.gate.collectAsStateWithLifecycle()
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    val vizState = viewModel.vizState.collectAsStateWithLifecycle()
+    val sceneId by remember { derivedStateOf { vizState.value.sceneId } }
     var query by rememberSaveable { mutableStateOf("") }
     var searching by rememberSaveable { mutableStateOf(false) }
     var showTips by rememberSaveable { mutableStateOf(false) }
@@ -93,9 +95,14 @@ internal fun CustomizePanel(
     val host = remember(viewModel, visualsViewModel, visualizerView) { AdvancedHost(viewModel, visualsViewModel, visualizerView) }
 
     // What this style offers, as native says.
-    val shown = remember(viz.sceneId) { CustomizeMapTable.shownOn(viz.sceneId) }
+    val shown = remember(sceneId) { CustomizeMapTable.shownOn(sceneId) }
     val categories = remember(shown) { CustomizeCategory.entries.filter { it.name in shown } }
-    val sectionsOf: (CustomizeCategory) -> List<CustomizeSection> = { c -> CustomizeMapTable.sectionsOf(c).filter { it.path in shown } }
+    // Built once per style, not on each pass (a slider drag recomposes this panel), and one stable lambda so the browser can skip.
+    val sectionsByCategory =
+        remember(shown) {
+            CustomizeCategory.entries.associateWith { c -> CustomizeMapTable.sectionsOf(c).filter { it.path in shown } }
+        }
+    val sectionsOf: (CustomizeCategory) -> List<CustomizeSection> = remember(sectionsByCategory) { { c -> sectionsByCategory.getValue(c) } }
 
     val localNav = rememberLocalCustomizeNav()
     val customizeNav = remember(nav, localNav) { nav?.let(::RouteCustomizeNav) ?: localNav }
@@ -119,7 +126,7 @@ internal fun CustomizePanel(
             customizeNav.open(CustomizeCategory.BEHAVIOUR.name)
         },
     ) {
-        ParamSurface(sceneId = viz.sceneId, query = query) {
+        ParamSurface(sceneId = sceneId, query = query) {
             val header: @Composable (CustomizeCategory?) -> Unit = { category ->
                 CustomizeHeader(
                     viewModel = viewModel,

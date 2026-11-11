@@ -2,7 +2,9 @@
 # Prints the release number N for a commit: pre-release N is versionName <base>.N, tag apk-v<base>.N.
 #
 #   tools/release-number.sh <base> <sha> reserve   ship-apk.yml: N = releases so far + 1
-#   tools/release-number.sh <base> <sha>           release.yml: the N this commit shipped as
+#   tools/release-number.sh <base> <sha>           release.yml: the N this commit shipped as;
+#                                                  fails when it never shipped, since any other
+#                                                  number could repeat a versionCode
 #
 # Reserving pushes the tag before the build, and a push onto an existing tag fails, so two runs
 # racing for the same N cannot both get it: the loser takes the next number. A re-run of the same
@@ -17,15 +19,14 @@ if [ -n "$mine" ]; then
   exit 0
 fi
 
-count=$(gh release list --limit 10000 --json tagName --jq length)
 if [ "$mode" != reserve ]; then
-  # Numbers can be skipped (a run lost a race), so the latest is the highest tag, not the count.
-  latest=$(git tag --list "apk-v$base.*" | sed "s/^apk-v$base\.//" | grep -E '^[0-9]+$' | sort -n | tail -n 1 || true)
-  echo "::warning::$sha has no apk-v$base.N tag; using the latest release number, ${latest:-$count}." >&2
-  echo "${latest:-$count}"
-  exit 0
+  # No guess: the latest number belongs to another commit, and Play refuses a versionCode it
+  # has already been sent.
+  echo "::error::$sha has no apk-v$base.N tag, so it has no release number. Build the Play bundle from a commit ship-apk.yml shipped as a pre-release (run it on this commit first)." >&2
+  exit 1
 fi
 
+count=$(gh release list --limit 10000 --json tagName --jq length)
 n=$((count + 1))
 for _ in $(seq 50); do
   if git push --quiet origin "$sha:refs/tags/apk-v$base.$n" 2>/dev/null; then

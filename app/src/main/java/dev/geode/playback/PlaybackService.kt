@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.core.content.ContextCompat
@@ -26,7 +25,6 @@ import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import dev.geode.RingLog
-import dev.geode.data.HistoryStore
 import dev.geode.data.SessionStore
 import dev.geode.widget.WidgetPublisher
 import kotlinx.coroutines.CoroutineScope
@@ -135,16 +133,10 @@ class PlaybackService : MediaLibraryService() {
             )
         }
 
-        @Suppress("DEPRECATION")
         private fun installerOf(
             pm: PackageManager,
             pkg: String,
-        ): String? =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                pm.getInstallSourceInfo(pkg).installingPackageName
-            } else {
-                pm.getInstallerPackageName(pkg)
-            }
+        ): String? = pm.getInstallSourceInfo(pkg).installingPackageName
 
         /** The media notification's extra buttons ([NotificationButtons]); anything else is not ours. */
         override fun onCustomCommand(
@@ -456,44 +448,32 @@ class PlaybackService : MediaLibraryService() {
             }
 
         @OptIn(UnstableApi::class)
-        @Suppress("ReturnCount")
         internal fun lastPlayedResumption(context: Context): MediaSession.MediaItemsWithStartPosition? {
-            SessionStore(context).load()?.let { saved ->
-                val items =
-                    saved.tracks.map { t ->
-                        MediaItem
-                            .Builder()
-                            .setUri(t.uri)
-                            // Distinct per track: MediaMetadata.equals ignores extras, so without
-                            // this two untitled tracks compare equal and the platform session skips
-                            // the metadata update. artworkUri used to supply this discriminator.
-                            .setMediaId(t.uri)
-                            .setMediaMetadata(
-                                MediaMetadata
-                                    .Builder()
-                                    .setTitle(t.title)
-                                    .setArtist(t.artist.ifBlank { null })
-                                    .setExtras(MediaArtwork.embeddedArtExtras(t.uri))
-                                    .build(),
-                            ).build()
-                    }
-                return MediaSession.MediaItemsWithStartPosition(items, saved.index, saved.positionMs)
+            val source = ResumeSource.of(SessionStore(context).load())
+            if (source !is ResumeSource.Queue) {
+                RingLog.note("PlaybackService.resumption", "no saved session, resuming nothing")
+                return null
             }
-            val last = HistoryStore(context).recentlyPlayed(1).firstOrNull() ?: return null
-            val item =
-                MediaItem
-                    .Builder()
-                    .setUri(last.uri)
-                    .setMediaId(last.uri)
-                    .setMediaMetadata(
-                        MediaMetadata
-                            .Builder()
-                            .setTitle(last.title)
-                            .setArtist(last.artist)
-                            .setExtras(MediaArtwork.embeddedArtExtras(last.uri))
-                            .build(),
-                    ).build()
-            return MediaSession.MediaItemsWithStartPosition(listOf(item), 0, 0L)
+            val saved = source.saved
+            val items =
+                saved.tracks.map { t ->
+                    MediaItem
+                        .Builder()
+                        .setUri(t.uri)
+                        // Distinct per track: MediaMetadata.equals ignores extras, so without
+                        // this two untitled tracks compare equal and the platform session skips
+                        // the metadata update. artworkUri used to supply this discriminator.
+                        .setMediaId(t.uri)
+                        .setMediaMetadata(
+                            MediaMetadata
+                                .Builder()
+                                .setTitle(t.title)
+                                .setArtist(t.artist.ifBlank { null })
+                                .setExtras(MediaArtwork.embeddedArtExtras(t.uri))
+                                .build(),
+                        ).build()
+                }
+            return MediaSession.MediaItemsWithStartPosition(items, saved.index, saved.positionMs)
         }
 
         fun ensureRunning(context: Context) {

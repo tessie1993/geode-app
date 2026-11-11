@@ -150,9 +150,7 @@ internal class ExportController(
     private val _exportState = MutableStateFlow(ExportUiState())
     val exportState: StateFlow<ExportUiState> = _exportState
 
-    private val _studio = MutableStateFlow(StudioUiState())
-
-    val studio: StateFlow<StudioUiState> = _studio
+    private val studioState = MutableStateFlow(StudioUiState())
 
     @Volatile
     private var exportCancelled = false
@@ -244,7 +242,7 @@ internal class ExportController(
                     // coincide the flag branch used to win and swallow the CancellationException,
                     // leaving a cancelled coroutine to finish as if it had succeeded.
                     if (t is kotlinx.coroutines.CancellationException) {
-                        _exportState.value = ExportUiState()
+                        _exportState.value = ExportUiState(phase = stoppedPhase(application))
                         throw t
                     } else if (exportCancelled) {
                         _exportState.value = ExportUiState()
@@ -273,7 +271,7 @@ internal class ExportController(
                     fileName = name.takeIf { destination == null },
                 )
             is RenderResult.Failed -> ExportUiState(customDestination = destination != null, phase = ExportPhase.Failed(result.message))
-            RenderResult.Cancelled -> ExportUiState(customDestination = destination != null)
+            RenderResult.Cancelled -> ExportUiState(customDestination = destination != null, phase = stoppedPhase(application))
             // The style that renders is checked, not only the one on stage when Render was pressed:
             // a take records whatever was on stage, a previewed Pro style or one used during the
             // trial included, and exporting it must not hand that style out for free.
@@ -436,7 +434,7 @@ internal class ExportController(
                 when {
                     last != null -> ExportPhase.Done(last.uri.toUri())
                     failures.isNotEmpty() -> ExportPhase.Failed(failures.first().second)
-                    else -> ExportPhase.Idle
+                    else -> stoppedPhase(application)
                 },
             fileName = last?.fileName,
             batch = this,
@@ -490,10 +488,10 @@ internal class ExportController(
         destination: Uri? = null,
         onRendered: (ProjectRender) -> Unit = {},
     ) {
-        if (_studio.value.phase.isBusy || ExportRun.running) return
+        if (studioState.value.phase.isBusy || ExportRun.running) return
         val limits = host.renderLimits()
         val edit = project.cappedAt(limits.capMs).edit
-        _studio.update { it.copy(phase = ExportPhase.Running(0f), notice = null) }
+        studioState.update { it.copy(phase = ExportPhase.Running(0f), notice = null) }
         ExportRun.begin(project.name.ifBlank { application.getString(dev.geode.R.string.render_video_label) })
         ExportService.start(application)
         studioJob =
@@ -534,7 +532,7 @@ internal class ExportController(
                                     ExportPhase.Done(result.uri)
                                 }
                                 is RenderResult.Failed -> ExportPhase.Failed(result.message)
-                                RenderResult.Cancelled -> ExportPhase.Idle
+                                RenderResult.Cancelled -> stoppedPhase(application)
                                 RenderResult.Locked -> {
                                     host.onStyleLocked()
                                     ExportPhase.Idle
@@ -542,7 +540,7 @@ internal class ExportController(
                                 RenderResult.NothingToRender ->
                                     ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_nothing))
                             }
-                        _studio.update { it.copy(phase = phase, notice = notice) }
+                        studioState.update { it.copy(phase = phase, notice = notice) }
                         // The report reaches the user whatever page they are on: the render may finish
                         // long after they left Studio.
                         if (notice != null && result != RenderResult.Cancelled) {
@@ -575,17 +573,17 @@ internal class ExportController(
         try {
             block()
         } catch (c: kotlinx.coroutines.CancellationException) {
-            _studio.update { it.copy(phase = ExportPhase.Idle) }
+            studioState.update { it.copy(phase = stoppedPhase(application)) }
             throw c
         } catch (t: Throwable) {
             val phase =
                 if (ExportRun.cancelRequested) {
-                    ExportPhase.Idle
+                    stoppedPhase(application)
                 } else {
                     val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
                     ExportPhase.Failed("${t.javaClass.simpleName}: $reason")
                 }
-            _studio.update { it.copy(phase = phase) }
+            studioState.update { it.copy(phase = phase) }
         } finally {
             studioJob = null
             ExportRun.finish()
@@ -596,7 +594,7 @@ internal class ExportController(
 
     private fun publishStudioProgress(p: Float) {
         val clamped = p.coerceIn(0f, 1f)
-        _studio.update { it.copy(phase = ExportPhase.Running(clamped)) }
+        studioState.update { it.copy(phase = ExportPhase.Running(clamped)) }
         ExportRun.publish(clamped)
     }
 
@@ -956,7 +954,7 @@ internal class ExportController(
                     _loopState.value = LoopUiState(phase = finishLoopRender(renderResult, uri, audioClips, destination))
                 } catch (t: Throwable) {
                     if (t is kotlinx.coroutines.CancellationException) {
-                        _loopState.value = LoopUiState()
+                        _loopState.value = LoopUiState(phase = stoppedPhase(application))
                         throw t
                     } else if (loopCancelled) {
                         _loopState.value = LoopUiState()
@@ -980,7 +978,7 @@ internal class ExportController(
     ): ExportPhase =
         when (renderResult) {
             is LoopRender.Result.Failed -> ExportPhase.Failed(renderResult.message)
-            LoopRender.Result.Cancelled -> ExportPhase.Idle
+            LoopRender.Result.Cancelled -> stoppedPhase(application)
             is LoopRender.Result.Rendered -> {
                 val reel = renderResult.reel
                 try {
@@ -1007,7 +1005,7 @@ internal class ExportController(
                     when (extended) {
                         is LoopExtend.Result.Saved -> ExportPhase.Done(extended.uri)
                         is LoopExtend.Result.Failed -> ExportPhase.Failed(extended.message)
-                        LoopExtend.Result.Cancelled -> ExportPhase.Idle
+                        LoopExtend.Result.Cancelled -> stoppedPhase(application)
                     }
                 } finally {
                     reel.delete()

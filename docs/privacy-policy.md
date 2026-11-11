@@ -1,6 +1,6 @@
 # MuzViz Studio Pro — Privacy Policy
 
-*Last updated: 2 November 2026*
+*Last updated: 11 November 2026*
 
 MuzViz Studio Pro ("MuzViz", "the app") is a music player, music visualizer and music
 video studio for Android. This policy describes what the app does with your
@@ -32,6 +32,7 @@ To do its job MuzViz reads data that never leaves your device:
 | The name of the app and track playing elsewhere — only with the optional notification access | To label what the visuals are reacting to | Shown on screen; not stored or transmitted |
 | Folders you pick | Optional music folders and preset folders | Granted by you through the Android file picker; revocable at any time |
 | Your presets, playlists, projects, track edits and settings | To remember your setup | The app's private storage |
+| Your listening history (which tracks you played, when, how often and for how long) | To show what you played recently and how often | The app's private storage |
 | Whether you own MuzViz Pro, and when your free trial started | To unlock Pro features, including offline | The app's private storage |
 | Crash details | The in-app "last crash" report you can read and copy yourself | A file in the app's private storage; nothing is sent |
 
@@ -81,8 +82,7 @@ Wi-Fi address, accepts short requests only, and stops when you stop casting.
 
 ## Permissions
 
-- **`READ_MEDIA_AUDIO`** (Android 13+) / **`READ_EXTERNAL_STORAGE`** (Android 12 and
-  below): to find and play the music on your device.
+- **`READ_MEDIA_AUDIO`**: to find and play the music on your device.
 - **`RECORD_AUDIO`**: only for the optional *Live input* and *Visualize other apps*
   features and the live wallpaper's optional *Hear other apps* setting (Android requires it
   for its playback-capture and audio-visualizer APIs). Requested when you turn one of them
@@ -98,6 +98,7 @@ Wi-Fi address, accepts short requests only, and stops when you stop casting.
   talk to Google Cast and stream to the TV on your Wi-Fi.
 - **`MODIFY_AUDIO_SETTINGS`**: for bit-perfect USB audio output to an external DAC.
 - **`VIBRATE`**: haptic feedback for the app's controls.
+- **`WAKE_LOCK`**: keeps the music playing while the screen is off.
 
 MuzViz requests no camera, contacts or location permission.
 
@@ -114,6 +115,13 @@ is playing elsewhere. It reads only the media sessions Android exposes through t
 access; notification contents are not read, stored or sent. You can revoke it in system
 settings at any time.
 
+## Lyrics search
+
+*Search the web* in Settings › Library & lyrics opens your browser or search app with the
+playing track's title and artist followed by "lyrics". MuzViz does not make that search
+itself; what you search for goes to the browser and search engine you use, under their
+policies, and only when you tap the button.
+
 ## Video export
 
 Exported videos are MP4 files saved where you choose. They stay on your device unless
@@ -122,8 +130,8 @@ without Pro are limited to one minute and carry a "MuzViz Studio Pro" watermark.
 
 ## Backups
 
-If Android backup is on, your MuzViz settings, presets and playlists may be included in
-your Google account backup, handled by Google. The crash file, imported textures and
+If Android backup is on, your MuzViz settings, presets, playlists and listening history
+may be included in your Google account backup, handled by Google. The crash file, imported textures and
 recorded takes are excluded. You can turn backup off in your device settings.
 
 Settings › Backup can also save one zip file, only when you ask it to, to a place you

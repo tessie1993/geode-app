@@ -2,7 +2,6 @@ package dev.geode.ui
 
 import android.app.Activity
 import android.net.Uri
-import android.os.Build
 import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
@@ -34,6 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.geode.R
 import dev.geode.data.TagWriteOutcome
+import dev.geode.geodeContainer
 import dev.geode.model.LibraryTrack
 import kotlinx.coroutines.launch
 
@@ -127,12 +127,11 @@ fun TrackInfoEditor(
                     TagWriteOutcome.Written -> {}
                     TagWriteOutcome.NeedsConsent -> {
                         val parsed = Uri.parse(uri)
-                        val canRequestConsent =
-                            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && parsed.authority == MediaStore.AUTHORITY
+                        val canRequestConsent = parsed.authority == MediaStore.AUTHORITY
                         if (canRequestConsent) {
                             pendingEdit = edit
-                            val request = MediaStore.createWriteRequest(context.contentResolver, listOf(parsed))
-                            consentLauncher.launch(IntentSenderRequest.Builder(request.intentSender).build())
+                            val sender = context.geodeContainer.mediaStore.writeRequest(listOf(parsed))
+                            consentLauncher.launch(IntentSenderRequest.Builder(sender).build())
                         } else {
                             writeFailed = true
                         }

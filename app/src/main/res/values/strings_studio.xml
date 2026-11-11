@@ -37,6 +37,7 @@
     <string name="my_videos_share">Share</string>
     <string name="my_videos_render">Render</string>
     <string name="my_videos_delete">Delete</string>
+    <string name="my_videos_thumbnail_unavailable">Video unavailable</string>
 
     <!-- My videos: a card's ⋮ menu. -->
     <string name="edit_home_more_for">More options for %1$s</string>

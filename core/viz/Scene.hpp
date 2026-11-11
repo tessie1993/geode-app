@@ -78,6 +78,9 @@ struct SceneHost {
     // that draws its own choices from it (Morph World's worlds) replays the film the screen showed.
     // Unset reads as 0.
     std::function<uint64_t()> playSeed;
+    // Whether this renderer draws an export (geode_viz_set_offscreen): its frames are on the render clock,
+    // so nothing in a scene may wait on the wall clock. Unset reads as live.
+    std::function<bool()> offscreen;
 };
 
 }  // namespace geode::viz

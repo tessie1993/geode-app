@@ -31,7 +31,9 @@ import kotlinx.coroutines.launch
  * glue: an event saves, nothing decides. The queue is saved on every transition and timeline change
  * (queue edits, also while paused), the position on every pause and seek, and on a coarse tick while
  * playing so a process killed mid-track resumes near where it died. A transition to an item records a
- * play, as the UI listener did. Callbacks and the tick run on the main thread, where the player lives;
+ * play, as the UI listener did, except a queue swapped in while the player is not set to play (a
+ * restore), which counts once playback starts. The queue is walked only after a timeline change; the
+ * position and index are two cheap reads. Callbacks and the tick run on the main thread, where the player lives;
  * [save] does the disk write elsewhere.
  */
 class PlayRecorder(
@@ -45,8 +47,16 @@ class PlayRecorder(
         /** The track now current, or null when the queue is empty or the item has no uri. */
         fun current(): SessionStore.SavedTrack?
 
-        /** The queue, the current index and position, or null when the queue is empty. */
-        fun snapshot(): SessionStore.Saved?
+        /** The queue's tracks (items without a uri left out), or null when the queue is empty. One pass. */
+        fun queue(): List<SessionStore.SavedTrack>?
+
+        /** The current index within the last [queue]; no walk of the queue. */
+        fun index(): Int
+
+        fun positionMs(): Long
+
+        /** Whether the player is set to play (not whether it is yet): a restored queue waits paused. */
+        fun wantsToPlay(): Boolean
     }
 
     private val _plays = MutableStateFlow(0)
@@ -56,13 +66,22 @@ class PlayRecorder(
 
     private var ticker: Job? = null
 
+    // The queue as of the last timeline change. Positions and ticks reuse it, so only a queue edit
+    // pays for the walk over every item on the main thread.
+    private var queue: List<SessionStore.SavedTrack>? = null
+    private var queueStale = true
+
+    // A queue swapped in while paused is a restore, not a play: its track counts once playback starts.
+    private var pendingUri: String? = null
+
     override fun onMediaItemTransition(
         mediaItem: MediaItem?,
         reason: Int,
     ) {
+        pendingUri = null
+        val restoreCandidate = reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED && !source.wantsToPlay()
         source.current()?.let { t ->
-            history.recordPlay(t.uri, t.title, t.artist)
-            _plays.update { it + 1 }
+            if (restoreCandidate) pendingUri = t.uri else recordPlay(t)
         }
         saveNow()
     }
@@ -70,7 +89,10 @@ class PlayRecorder(
     override fun onTimelineChanged(
         timeline: Timeline,
         reason: Int,
-    ) = saveNow()
+    ) {
+        queueStale = true
+        saveNow()
+    }
 
     override fun onPositionDiscontinuity(
         oldPosition: Player.PositionInfo,
@@ -79,6 +101,11 @@ class PlayRecorder(
     ) = saveNow()
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
+        if (isPlaying) {
+            val pending = pendingUri
+            pendingUri = null
+            source.current()?.takeIf { it.uri == pending }?.let(::recordPlay)
+        }
         saveNow()
         if (isPlaying) startTicker() else stopTicker()
     }
@@ -90,8 +117,18 @@ class PlayRecorder(
         history.flush()
     }
 
+    private fun recordPlay(t: SessionStore.SavedTrack) {
+        history.recordPlay(t.uri, t.title, t.artist)
+        _plays.update { it + 1 }
+    }
+
     private fun saveNow() {
-        source.snapshot()?.let(save)
+        if (queueStale || queue == null) {
+            queue = source.queue()
+            queueStale = false
+        }
+        val tracks = queue?.takeIf { it.isNotEmpty() } ?: return
+        save(SessionStore.Saved(tracks, source.index(), source.positionMs()))
     }
 
     private fun startTicker() {
@@ -127,13 +164,30 @@ class PlayRecorder(
                     )
                 }
 
-                override fun snapshot(): SessionStore.Saved? {
+                // Raw positions of items without a uri in the last queue(), so index() needs no walk.
+                private var dropped = IntArray(0)
+
+                override fun wantsToPlay(): Boolean = player.playWhenReady
+
+                override fun positionMs(): Long = player.currentPosition
+
+                override fun index(): Int {
+                    val raw = player.currentMediaItemIndex
+                    return raw - dropped.count { it < raw }
+                }
+
+                override fun queue(): List<SessionStore.SavedTrack>? {
                     val count = player.mediaItemCount
                     if (count == 0) return null
+                    val skipped = ArrayList<Int>()
                     val tracks =
                         (0 until count).mapNotNull { i ->
                             val item = player.getMediaItemAt(i)
-                            val uri = item.localConfiguration?.uri?.toString() ?: return@mapNotNull null
+                            val uri =
+                                item.localConfiguration?.uri?.toString() ?: run {
+                                    skipped.add(i)
+                                    return@mapNotNull null
+                                }
                             SessionStore.SavedTrack(
                                 uri = uri,
                                 title =
@@ -146,10 +200,8 @@ class PlayRecorder(
                                         .orEmpty(),
                             )
                         }
-                    if (tracks.isEmpty()) return null
-                    // Items without a URI were dropped above, so the index counts only the kept ones before it.
-                    val index = (0 until player.currentMediaItemIndex).count { player.getMediaItemAt(it).localConfiguration != null }
-                    return SessionStore.Saved(tracks, index, player.currentPosition)
+                    dropped = skipped.toIntArray()
+                    return tracks.ifEmpty { null }
                 }
             }
     }

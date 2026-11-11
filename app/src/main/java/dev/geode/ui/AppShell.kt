@@ -53,6 +53,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -255,10 +256,15 @@ fun AppRoot() {
             }
     }
     VisualizerEngineBindings(viewModel, visualizerView)
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    val vizState = viewModel.vizState.collectAsStateWithLifecycle()
     // The accent follows the visual: the middle of its palette's hues; MilkDrop paints its own.
-    val accentTarget =
-        if (viz.sceneId == SceneIds.MILKDROP) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
+    // Derived, so the root recomposes when the accent changes, not on every Customize slider tick.
+    val accentTarget by remember {
+        derivedStateOf {
+            val viz = vizState.value
+            if (viz.sceneId == SceneIds.MILKDROP) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
+        }
+    }
     // Outside the theme, so the motion scheme is built here from the same switches the theme reads.
     // Android's "Remove animations" alone (data/SystemMotion, #336); the paywall below reads it too.
     val reducedMotion = rememberSystemReducedMotion()
@@ -305,9 +311,12 @@ fun AppRoot() {
             )
         }
         val tutorial = rememberTutorialState()
+        // Remembered: a fresh list each recomposition would recompose the tab bar and rail with it.
+        val navLabels = GeodeDestination.entries.map { stringResource(it.labelRes) }
         val navEntries =
-            GeodeDestination.entries
-                .map { NavEntry(it, DockItem(stringResource(it.labelRes), it.icon)) }
+            remember(navLabels) {
+                GeodeDestination.entries.mapIndexed { i, destination -> NavEntry(destination, DockItem(navLabels[i], destination.icon)) }
+            }
         // Keyed by destination, not by position: rotating swaps the bar layout for the rail
         // layout, which would otherwise drop every screen's saved tab and scroll state.
         val destinationState = rememberSaveableStateHolder()
@@ -488,6 +497,12 @@ fun AppRoot() {
             LaunchedEffect(gui.autoEnterPip, state.isPlaying, visualShowing) {
                 context.findMainActivity()?.refreshPipParams()
             }
+            // The aspect ratio and the source rect hint follow the canvas: after first layout, a
+            // rotation or a window resize (a snapshotFlow, so a bounds change never recomposes AppRoot).
+            LaunchedEffect(Unit) {
+                snapshotFlow { VisualizerPipCoordinator.canvasBoundsPx }
+                    .collect { context.findMainActivity()?.refreshPipParams() }
+            }
             if ((bootAnimEnabled == false || appState.bootDone) && !gui.safetyAcknowledged) {
                 SafetyConsent(
                     onAcknowledge = { settingsViewModel.setGuiPrefs(gui.copy(safetyAcknowledged = true)) },
@@ -555,6 +570,7 @@ private fun AppShellCompact(
     val onVisuals = appState.dest == GeodeDestination.VISUALS
     val showsPlayer = hasMedia && !appState.onPlayer
     var barHeight by remember { mutableStateOf(0.dp) }
+    val tabItems = remember(navEntries) { navEntries.map { it.item } }
     var dockDrawn by remember { mutableStateOf(0.dp) }
     Box(Modifier.fillMaxSize()) {
         val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -603,6 +619,7 @@ private fun AppShellCompact(
                 // finger on its way to a tab (it used to vanish before a second tap could land).
                 .restartsSleepTimer(chrome)
                 .onSizeChanged { dockDrawn = with(density) { it.height.toDp() } }
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
                 .navigationBarsPadding()
                 .padding(horizontal = GeodeSpacing.EdgeInset)
                 .padding(bottom = DOCK_GAP),
@@ -640,7 +657,7 @@ private fun AppShellCompact(
                 exit = fadeOut(dockFade),
             ) {
                 FloatingTabBar(
-                    items = navEntries.map { it.item },
+                    items = tabItems,
                     // A destination can be hidden while still being the current one — reaching
                     // Studio from a track menu, say. Fall back to the first tab rather than -1.
                     selected = navEntries.indexOfFirst { it.destination == appState.dest }.coerceAtLeast(0),
@@ -673,15 +690,25 @@ private fun AppShellExpanded(
     // From the motion scheme, so "Remove animations" makes the dock appear without moving.
     val dockFade = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
     val dockSize = LocalGeodeMotion.current.defaultSpatialSpec<IntSize>()
+    val onVisuals = appState.dest == GeodeDestination.VISUALS
     // safeDrawing rather than the status and navigation bars alone: in landscape the display
     // cutout sits on a side edge, where it would cover the rail or the content's far edge. It
-    // includes the keyboard too, so a focused field stays above it.
-    Row(Modifier.fillMaxSize().safeDrawingPadding()) {
+    // includes the keyboard too, so a focused field stays above it. Visuals is the exception: its
+    // canvas draws edge to edge behind the bars and the cutout, and only the rail, the stage
+    // controls, the options and the dock take the insets themselves (#864).
+    val railInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Start + WindowInsetsSides.Vertical)
+    Row(Modifier.fillMaxSize().then(if (onVisuals) Modifier else Modifier.safeDrawingPadding())) {
         // A PiP window is the visual alone, with no rail beside it.
-        if (!pip) NavRail(navEntries, appState, centerRail)
-        Box(Modifier.weight(1f).fillMaxHeight()) {
+        if (!pip) {
+            Box(if (onVisuals) Modifier.windowInsetsPadding(railInsets) else Modifier) {
+                NavRail(navEntries, appState, centerRail)
+            }
+        }
+        // The rail took the start edge's inset, so the controls beside it must not take it again.
+        val besideRail =
+            if (onVisuals && !pip) Modifier.consumeWindowInsets(WindowInsets.safeDrawing.only(WindowInsetsSides.Start)) else Modifier
+        Box(Modifier.weight(1f).fillMaxHeight().then(besideRail)) {
             var dockDrawn by remember { mutableStateOf(0.dp) }
-            val onVisuals = appState.dest == GeodeDestination.VISUALS
             // Visuals is the visual under its own options; every other screen ends above the player.
             Box(Modifier.fillMaxSize().padding(bottom = if (onVisuals) 0.dp else dockDrawn)) { content() }
             Column(
@@ -692,7 +719,8 @@ private fun AppShellExpanded(
                     .onSizeChanged {
                         dockDrawn = with(density) { it.height.toDp() }
                         onDock(dockDrawn)
-                    }.padding(GeodeSpacing.EdgeInset),
+                    }.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.End + WindowInsetsSides.Bottom))
+                    .padding(GeodeSpacing.EdgeInset),
             ) {
                 AnimatedVisibility(
                     showMiniPlayer && chrome.awake,

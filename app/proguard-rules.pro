@@ -27,7 +27,7 @@
 # reflective renderer lookup also touches platform audiofx wrappers.
 # Both rules are wider than they need to be (the dontwarn now also hides
 # media3-cast and media3-muxer warnings); narrow them only with a device check
-# of playback, since they sit on the audio path (docs/play/R8_KEEP_RULES.md).
+# of playback, since they sit on the audio path.
 -dontwarn androidx.media3.**
 -keep class androidx.media3.exoplayer.audio.** { *; }
 
@@ -56,3 +56,10 @@
 # (not the members wholesale) costs no shrinking: the fields are all live. Only
 # instance fields: the layout's NAMES never hold a static one.
 -keepclassmembernames class dev.geode.render.scene.SceneParams { !static <fields>; }
+
+# ---------------------------------------------------------------------------
+# Glance widget
+# ---------------------------------------------------------------------------
+# Glance builds an ActionCallback (WidgetTransportAction, WidgetStyleAction) from
+# its class name with the no-argument constructor.
+-keep class * implements androidx.glance.appwidget.action.ActionCallback { public <init>(); }

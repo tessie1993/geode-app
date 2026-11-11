@@ -8,7 +8,9 @@
 //   however the writes were chunked: the same values the deleted Kotlin mono ring (PcmRingBuffer, the mean
 //   of the channels) held, so MilkDrop sees what it saw in the app, now on every surface;
 // - only the newest capacity() samples are kept, a new epoch drops what the old one left;
+// - a hi-res source (88.2-192 kHz) reaches projectM at 44.1-48 kHz, whatever the chunk sizes;
 // - a PcmPulse fed nothing decays to 0 instead of holding its last peak.
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <random>
@@ -131,6 +133,65 @@ void newEpochDropsTheOld() {
     check(handoff.take(out.data()) == 1 && out[0] == 0.1f, "the new epoch's samples follow");
 }
 
+// Kills handing projectM source-rate PCM: its buffers are sized for 44.1-48 kHz, so at 96 kHz they would
+// cover half the time and its bands shift an octave. A 1 kHz stereo sine at 96 kHz, written in odd chunks
+// (so most writes end half way through an output sample), comes out as 48 kHz: half the samples, each the
+// mean of two source frames, one period every 48 samples.
+void hiResSourcesAreDecimated() {
+    check(PcmHandoff::decimationFor(0) == 1 && PcmHandoff::decimationFor(44100) == 1 && PcmHandoff::decimationFor(48000) == 1,
+          "44.1 and 48 kHz pass through");
+    check(PcmHandoff::decimationFor(88200) == 2 && PcmHandoff::decimationFor(96000) == 2, "88.2 and 96 kHz are halved");
+    check(PcmHandoff::decimationFor(176400) == 4 && PcmHandoff::decimationFor(192000) == 4 && PcmHandoff::decimationFor(384000) == 4,
+          "176.4 kHz and up are quartered");
+
+    constexpr int kRate = 96000;
+    constexpr int kFrames = 9600;  // 100 ms
+    constexpr float kTwoPi = 6.2831853f;
+    std::vector<float> stereo(static_cast<size_t>(kFrames) * 2);
+    for (int i = 0; i < kFrames; ++i) {
+        const float s = std::sin(kTwoPi * 1000.0f * static_cast<float>(i) / static_cast<float>(kRate));
+        stereo[static_cast<size_t>(i) * 2] = s;
+        stereo[static_cast<size_t>(i) * 2 + 1] = s;
+    }
+    PcmHandoff handoff(4096);
+    std::vector<float> out(4096, 0.0f);
+    std::vector<float> taken;
+    const int chunks[] = {331, 77, 1023, 1, 505};
+    int at = 0;
+    for (int w = 0; at < kFrames; ++w) {
+        const int n = std::min(chunks[w % 5], kFrames - at);
+        handoff.write(stereo.data() + static_cast<size_t>(at) * 2, n, 2, kRate);
+        at += n;
+        const int got = handoff.take(out.data());
+        taken.insert(taken.end(), out.begin(), out.begin() + got);
+    }
+    check(taken.size() == static_cast<size_t>(kFrames / 2), "96 kHz reaches projectM as 48 kHz: half the samples, none dropped");
+    bool pairs = taken.size() == static_cast<size_t>(kFrames / 2);
+    for (size_t k = 0; pairs && k < taken.size(); ++k) {
+        if (!near(taken[k], 0.5f * (stereo[4 * k] + stereo[4 * k + 2]))) pairs = false;
+    }
+    check(pairs, "each sample is the mean of two source frames, across chunk boundaries");
+    bool periodic = taken.size() > 48;
+    float peak = 0.0f;
+    for (size_t k = 0; k + 48 < taken.size(); ++k) {
+        if (std::fabs(taken[k] - taken[k + 48]) > 1e-3f || std::fabs(taken[k] + taken[k + 24]) > 1e-3f) periodic = false;
+        peak = std::max(peak, std::fabs(taken[k]));
+    }
+    check(periodic, "a 1 kHz sine keeps its pitch: one period every 48 samples");
+    check(peak > 0.99f && peak <= 1.0f, "and its level");
+
+    // 192 kHz: four frames a sample, a remainder carried over the write, dropped by a new epoch.
+    PcmHandoff quad(16);
+    const float ramp[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    quad.write(ramp, 3, 1, 192000);
+    check(quad.take(out.data()) == 0, "three frames at 192 kHz are not yet a sample");
+    quad.write(ramp + 3, 7, 1, 192000);
+    check(quad.take(out.data()) == 2 && near(out[0], 2.5f) && near(out[1], 6.5f), "the remainder joins the next write");
+    quad.clear();
+    quad.write(ramp, 4, 1, 192000);
+    check(quad.take(out.data()) == 1 && near(out[0], 2.5f), "a new epoch drops the old remainder");
+}
+
 void pulseDecaysWithoutNewPcm() {
     PcmHandoff handoff(8);
     PcmPulse pulse;
@@ -159,6 +220,7 @@ int main() {
     rawTailMatchesTheRingsMonoMix();
     keepsTheNewestSamples();
     newEpochDropsTheOld();
+    hiResSourcesAreDecimated();
     pulseDecaysWithoutNewPcm();
     if (failures == 0) std::printf("pcm_handoff_test: all checks passed\n");
     return failures == 0 ? 0 : 1;

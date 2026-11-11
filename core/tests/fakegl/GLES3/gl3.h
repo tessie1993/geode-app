@@ -1,7 +1,7 @@
 /* Host-test stand-in for <GLES3/gl3.h>: the GL system boundary, faked (core/tests/edge_glow_pass_test.cpp).
  *
- * Only the types, enums and entry points that core/viz/frame/EdgeGlowPass.cpp and core/viz/Program.cpp
- * (and the headers they include) name. Declarations only; the test defines every function as a small
+ * Only the types, enums and entry points that core/viz/frame/EdgeGlowPass.cpp, core/viz/Program.cpp and
+ * core/viz/Transition.cpp (core/tests/transition_programs_test.cpp) and the headers they include name. Declarations only; the test defines every function as a small
  * model of a GL context: names that are generated, live and deleted, a bound program, VAO and framebuffer,
  * the blend state, and one probe pixel per framebuffer that a draw blends into. Enum values are the real
  * ones from the Khronos header, so a mixed-up enum still reads as the wrong one.
@@ -69,6 +69,11 @@ void glGetUniformIndices(GLuint program, GLsizei uniformCount, const GLchar* con
 void glGetActiveUniformsiv(GLuint program, GLsizei uniformCount, const GLuint* uniformIndices, GLenum pname, GLint* params);
 void glUseProgram(GLuint program);
 void glUniform1f(GLint location, GLfloat v0);
+void glUniform1i(GLint location, GLint v0);
+void glUniform2f(GLint location, GLfloat v0, GLfloat v1);
+void glUniform2i(GLint location, GLint v0, GLint v1);
+void glUniform3f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2);
+void glUniform3i(GLint location, GLint v0, GLint v1, GLint v2);
 void glUniform4f(GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3);
 
 /* State and drawing. */

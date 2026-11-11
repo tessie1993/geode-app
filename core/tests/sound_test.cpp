@@ -359,6 +359,73 @@ void testStarvedGoesQuiet() {
     CHECK(f.rms == 0.0f, "rms after starving %f", f.rms);
 }
 
+// A decoder hands over about 100 ms at a time, so a block a frame or two late leaves the engine with
+// nothing new for 100 ms or more. That is jitter, not a stall: no frame between blocks may read silence
+// (kills kStarved back at 0.1 s, where the 8-frame gap's 117 ms starves).
+void testLateBlocksAreNotStarvation() {
+    for (const int gap : {7, 8, 12}) {
+        SoundEngine e(48000);
+        std::vector<float> buf(2 * 4800);
+        Noise n;
+        GeodeSoundFrame f{};
+        int zeros = 0;
+        for (int i = 0; i < 20 * gap; i++) {
+            if (i % gap == 0) {
+                for (float& v : buf) v = 0.3f * n.next();
+                e.write(buf.data(), 4800, 2);
+            }
+            e.step(1.0f / 60.0f, f);
+            if (f.rms == 0.0f) zeros++;
+        }
+        CHECK(zeros == 0, "100 ms blocks every %d frames: %d frames read silence", gap, zeros);
+    }
+}
+
+// The spectrum row is behind the silence gate like everything else: music, then 30 s of noise at about
+// -70 dBFS (under the gate), must not be stretched to full scale as the row's peak decays to the noise.
+void testSpectrumStaysGatedUnderNoise() {
+    const int rate = 48000;
+    SoundEngine e(rate);
+    const Signal music = noise(0.3f);
+    const Signal hiss = noise(4e-4f);
+    const Signal signal = [&](int64_t s, float& l, float& r) { (s < 5 * rate ? music : hiss)(s, l, r); };
+    float playing = 0.0f;
+    float gated = 0.0f;
+    run(e, signal, 35.0, 60.0, [&](double t, const GeodeSoundFrame& f) {
+        const float top = *std::max_element(f.spectrum, f.spectrum + GEODE_SOUND_SPECTRUM_POINTS);
+        if (t > 4.0 && t < 5.0) playing = std::max(playing, top);
+        if (t > 7.0) gated = std::max(gated, top);
+    });
+    CHECK(playing > 0.5f, "the music fills the spectrum row: max %f", playing);
+    CHECK(gated < 0.1f, "noise under the gate reached %f of full scale in the spectrum row", gated);
+}
+
+// A mic or a capture with a DC offset and nothing playing is silence: the offset must not read as level,
+// hold `presence` up or keep `silence` from firing. And the blocker (about 10 Hz) leaves the bass alone.
+void testDcOffsetIsSilence() {
+    SoundEngine e(48000);
+    int silences = 0;
+    GeodeSoundFrame last{};
+    run(e, [](int64_t, float& l, float& r) { l = r = 0.2f; }, 4.0, 60.0, [&](double, const GeodeSoundFrame& f) {
+        if (f.silence > 0) silences++;
+        last = f;
+    });
+    CHECK(silences == 1, "a constant offset of 0.2 fired silence %d times", silences);
+    CHECK(last.rms < 1e-4f && last.level == 0.0f, "the offset still reads as level: rms %f level %f", last.rms, last.level);
+    CHECK(last.presence < 0.05f, "the offset holds presence at %f", last.presence);
+
+    // 100 Hz at 40960 Hz: the 2048-sample window holds five whole cycles, so its rms is exact at any phase.
+    const int rate = 40960;
+    SoundEngine bass(rate);
+    CHECK(SoundEngine::fftSizeFor(rate) == 2048, "%d", SoundEngine::fftSizeFor(rate));
+    const Signal sine = [rate](int64_t s, float& l, float& r) {
+        l = r = 0.3f * static_cast<float>(std::sin(kTau * 100.0 * static_cast<double>(s) / rate));
+    };
+    run(bass, sine, 2.0, 60.0, [&](double, const GeodeSoundFrame& f) { last = f; });
+    const double want = 0.3 / std::sqrt(2.0);
+    CHECK(std::fabs(last.rms / want - 1.0) < 0.01, "a 100 Hz sine's rms %f, without the blocker %f", last.rms, want);
+}
+
 // A loud entrance after a quiet intro is MilkDrop's hard cut: it fires at once, and only once. Steady
 // music never cuts. On soft-limited ratios (below 4) the starting threshold of 5 could never be reached.
 void testHardCut() {
@@ -586,6 +653,9 @@ int main() {
     testSilenceAndReturn();
     testWaveformHoldsStill();
     testStarvedGoesQuiet();
+    testLateBlocksAreNotStarvation();
+    testSpectrumStaysGatedUnderNoise();
+    testDcOffsetIsSilence();
     testHardCut();
     testFadeGain();
     testPlayerSignals();

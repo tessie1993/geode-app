@@ -7,11 +7,12 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import android.net.Uri
-import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import dev.geode.R
+import dev.geode.data.pendingRows
+import dev.geode.data.publishPending
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CancellationException
@@ -213,8 +214,9 @@ class LoopExtend(
         plan: LoopExtendPlan,
         soundtrack: Soundtrack,
     ): Result =
-        if (completed) {
-            publish(target)
+        if (completed && !publish(target)) {
+            Result.Failed(context.getString(R.string.export_error_library_publish))
+        } else if (completed) {
             Result.Saved(
                 uri = target.uri,
                 durationMs = plan.totalDurationUs / 1000,
@@ -392,21 +394,12 @@ class LoopExtend(
                     )
             return Target.Opened(destination, descriptor, viaMediaStore = false)
         }
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            // Pre-scoped-storage, writing into the Videos library needs
-            // WRITE_EXTERNAL_STORAGE. Saying so beats letting the insert throw.
-            return Target.Failed(
-                context.getString(R.string.export_error_extend_library_pre_q),
-            )
-        }
         val values =
             ContentValues().apply {
                 put(MediaStore.Video.Media.DISPLAY_NAME, fileName)
                 put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/MuzViz")
-                    put(MediaStore.Video.Media.IS_PENDING, 1)
-                }
+                put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/MuzViz")
+                put(MediaStore.Video.Media.IS_PENDING, 1)
             }
         val uri =
             resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
@@ -421,13 +414,8 @@ class LoopExtend(
         return Target.Opened(uri, descriptor, viaMediaStore = true)
     }
 
-    private fun publish(target: Target.Opened) {
-        if (!target.viaMediaStore || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
-        val done = ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }
-        bestEffort(TAG, "resolver.update(target.uri, done, null, null)") {
-            context.contentResolver.update(target.uri, done, null, null)
-        }
-    }
+    private fun publish(target: Target.Opened): Boolean =
+        !target.viaMediaStore || publishPending(context.contentResolver.pendingRows(), target.uri)
 
     private fun discard(target: Target.Opened) {
         val resolver = context.contentResolver

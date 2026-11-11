@@ -6,7 +6,6 @@ import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
 import android.media.projection.MediaProjection
 import android.os.Build
-import androidx.annotation.RequiresApi
 import dev.geode.util.bestEffort
 import kotlin.math.abs
 
@@ -34,7 +33,6 @@ class PlaybackCapture(
 
     override val threadName = "geode-playback-capture"
 
-    @RequiresApi(Build.VERSION_CODES.Q)
     @Synchronized
     fun start(
         projection: MediaProjection,
@@ -70,7 +68,6 @@ class PlaybackCapture(
         blockedLikely = false
     }
 
-    @RequiresApi(Build.VERSION_CODES.Q)
     private fun openRecord(projection: MediaProjection): AudioRecord? {
         val config =
             AudioPlaybackCaptureConfiguration

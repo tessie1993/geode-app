@@ -2,6 +2,7 @@ package dev.geode.playback
 
 import android.content.ContextWrapper
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import dev.geode.data.HistoryStore
 import dev.geode.data.SessionStore
 import kotlinx.coroutines.test.TestScope
@@ -34,10 +35,60 @@ class PlayRecorderTest {
     ) : PlayRecorder.Source {
         var index = 0
         var positionMs = 0L
+        var wantsToPlay = true
+        var queueReads = 0
 
         override fun current() = tracks[index]
 
-        override fun snapshot() = SessionStore.Saved(tracks, index, positionMs)
+        override fun queue(): List<SessionStore.SavedTrack> {
+            queueReads++
+            return tracks
+        }
+
+        override fun index() = index
+
+        override fun positionMs() = positionMs
+
+        override fun wantsToPlay() = wantsToPlay
+    }
+
+    @Test
+    fun restoredQueueIsNotAPlayUntilPlaybackStarts() {
+        val source = FakeSource(album).also { it.wantsToPlay = false }
+        val history = HistoryStore(context)
+        val recorder = PlayRecorder(source, history, TestScope()) { }
+
+        // The saved queue comes back paused: nothing was listened to yet.
+        recorder.onMediaItemTransition(null, Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED)
+        assertEquals(0, recorder.plays.value)
+        assertEquals(emptyList<String>(), history.recentlyPlayed(10).map { it.uri })
+
+        // Pressing play counts it, once.
+        recorder.onIsPlayingChanged(true)
+        recorder.onIsPlayingChanged(false)
+        recorder.onIsPlayingChanged(true)
+        assertEquals(1, recorder.plays.value)
+        assertEquals(listOf(album[0].uri), history.recentlyPlayed(10).map { it.uri })
+    }
+
+    @Test
+    fun ticksAndSeeksReuseTheQueueAndATimelineChangeRereadsIt() {
+        val source = FakeSource(album)
+        val saved = mutableListOf<SessionStore.Saved>()
+        val recorder = PlayRecorder(source, HistoryStore(context), TestScope()) { saved.add(it) }
+
+        recorder.onTimelineChanged(Timeline.EMPTY, Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED)
+        assertEquals(1, source.queueReads)
+
+        source.positionMs = 5_000
+        recorder.onIsPlayingChanged(false)
+        source.positionMs = 9_000
+        recorder.onIsPlayingChanged(false)
+        assertEquals(1, source.queueReads)
+        assertEquals(listOf(0L, 5_000L, 9_000L), saved.map { it.positionMs })
+
+        recorder.onTimelineChanged(Timeline.EMPTY, Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE)
+        assertEquals(2, source.queueReads)
     }
 
     @Test

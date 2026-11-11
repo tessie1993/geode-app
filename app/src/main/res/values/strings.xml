@@ -13,6 +13,7 @@
     <string name="export_channel_name">Rendering video</string>
     <string name="export_channel_description">Shown while MuzViz is rendering a video, so the render is not interrupted.</string>
     <string name="export_notification_title">Rendering video</string>
+    <string name="export_notification_cancel">Cancel</string>
     <string name="export_notification_text">MuzViz is rendering your visuals.</string>
 
     <!-- First-run photosensitivity notice. Safety copy: translate carefully,
@@ -27,30 +28,8 @@
 
     <!-- First run, after the notice: where the music is, and what you came here to do. -->
     <!-- First run: permission, then an optional folder. Nothing else is asked. -->
-    <string name="first_run_access_title">Let\'s find your music</string>
-    <string name="first_run_access_body">MuzViz needs access to the audio on this device. Nothing leaves your phone — there is no account and no sign-in.</string>
-    <string name="first_run_access_allow">Allow music access</string>
-    <string name="first_run_access_skip">Not now</string>
-    <string name="first_run_access_rationale">Without it, MuzViz can still visualise live sound and play folders you pick by hand. With it, your whole library is here from the start.</string>
-    <string name="first_run_access_skipped">Music access is off for now. A folder you pick here still plays, and Library can ask again whenever you like.</string>
-    <string name="first_run_access_retry">Try again</string>
     <string name="permission_open_settings">Open settings</string>
     <string name="onboarding_step">Step %1$d of %2$d</string>
-    <string name="first_run_access_denied">Music access is off, and Android will not ask again from here. You can turn it on in app settings whenever you like.</string>
-    <string name="first_run_access_granted">Music access granted</string>
-    <plurals name="first_run_scanning">
-        <item quantity="one">%1$d track found</item>
-        <item quantity="other">%1$d tracks found</item>
-    </plurals>
-    <string name="first_run_scanning_working">Scanning your library…</string>
-    <string name="first_run_folder_title">Add a folder?</string>
-    <string name="first_run_folder_body">Optional. Your library is already loading. Add a folder only if you keep music somewhere Android does not index — an SD card, or Downloads.</string>
-    <string name="first_run_folder_pick">Choose a folder</string>
-    <plurals name="first_run_folder_added">
-        <item quantity="one">%1$d folder added</item>
-        <item quantity="other">%1$d folders added</item>
-    </plurals>
-    <string name="first_run_done">Start listening</string>
 
     <!-- The intent setting. No longer asked at first run; it lives in Settings › Behaviour and gestures. -->
     <string name="settings_intent_title">What do you use MuzViz for?</string>
@@ -63,16 +42,8 @@
     <string name="settings_intent_both_detail">Opens on the player, with Studio one tap away.</string>
 
     <!-- Settings tab bar. In the same order the tabs are shown. -->
-    <string name="settings_tab_look">Look</string>
-    <string name="settings_tab_audio">Audio</string>
     <string name="settings_tab_lyrics">Lyrics</string>
-    <string name="settings_tab_export">Export</string>
-    <string name="settings_tab_folders">Folders</string>
-    <string name="settings_tab_behavior">Behavior</string>
-    <string name="settings_tab_help">Help</string>
     <string name="settings_tab_about">About</string>
-    <string name="settings_tab_performance">Performance</string>
-    <string name="perf_mode_title">Mode</string>
     <string name="perf_mode_saver">Saver</string>
     <string name="perf_mode_balanced">Balanced</string>
     <string name="perf_mode_high">High</string>
@@ -126,7 +97,6 @@
     <string name="track_info_write_failed">The file could not be written. Turn the switch off to keep the edit in the app only.</string>
 
     <!-- Settings › About. -->
-    <string name="about_group">About</string>
     <string name="about_version">Version %1$s (%2$d)</string>
     <string name="about_blurb">Plays music from your device and renders it. No account, no ads, no analytics — nothing leaves the phone unless you export a video and share it.</string>
     <string name="about_licenses">Open source licenses</string>
@@ -138,8 +108,6 @@
     <!-- A device with the system file picker disabled (some TVs, managed phones). -->
     <string name="picker_unavailable">This device has no file picker, so a folder can\'t be chosen here.</string>
     <!-- Settings › Backup. One zip, saved and opened through the system file picker. -->
-    <string name="backup_tab">Backup</string>
-    <string name="backup_group">Backup</string>
     <string name="backup_body">Save your settings, presets, playlists and imported Milk presets to one file, then restore them on this phone or a new one. Your music files are not included.</string>
     <string name="backup_export">Export backup…</string>
     <string name="backup_import">Import backup…</string>
@@ -237,17 +205,10 @@
     <string name="action_favourite_add">Add to favourites</string>
     <string name="action_favourite_remove">Remove from favourites</string>
     <string name="a11y_favourite">Favourite</string>
-    <string name="a11y_show_controls">Show controls</string>
-    <string name="a11y_hide_controls">Hide controls</string>
     <string name="a11y_state_on">On</string>
     <string name="a11y_state_off">Off</string>
-    <string name="visuals_view_live">View live</string>
-    <string name="a11y_next_look">Next look</string>
-    <string name="a11y_hide_bars">Hide the player and tabs</string>
-    <string name="a11y_show_bars">Show the player and tabs</string>
     <string name="a11y_next_style">Next style</string>
     <string name="a11y_previous_style">Previous style</string>
-    <string name="a11y_toggle_visuals_panel">Show or hide the Visuals panel</string>
     <string name="action_stop_capture">Stop capture</string>
     <string name="action_resume_last_played">Resume last played</string>
     <string name="action_open_library">Open library</string>
@@ -261,7 +222,6 @@
     <!-- Automatic visual switching. -->
 
     <string name="queue">Queue</string>
-    <string name="queue_with_count">Queue · %1$d</string>
     <string name="queue_up_next">Up next</string>
 
     <!-- Quick actions under the player. -->
@@ -270,12 +230,6 @@
     <string name="quick_sleep_on">Sleep: on</string>
     <string name="quick_sleep_30m">Sleep 30m</string>
     <string name="quick_shuffle_all">Shuffle all</string>
-
-    <!-- Now Playing on a connected display: this screen becomes the remote. -->
-    <string name="second_screen_showing_on">Showing on</string>
-    <string name="second_screen_explainer">The visuals are on the connected display. Everything here still controls them — turn this off in Settings › Visuals › Connected display to bring them back.</string>
-    <string name="action_collapse">Collapse</string>
-    <string name="action_pip">Picture-in-picture</string>
 
     <!-- Panel chips under the transport. -->
 
@@ -335,7 +289,6 @@
     <string name="smart_op_at_least">at least</string>
     <string name="smart_op_at_most">at most</string>
     <string name="widget_label">MuzViz now playing</string>
-    <string name="widget_description">Artwork, title and transport for what MuzViz is playing.</string>
     <string name="widget_nothing_playing">Nothing playing</string>
     <string name="widget_play">Play</string>
     <string name="widget_pause">Pause</string>
@@ -425,7 +378,6 @@
         <item quantity="other">%1$d clips</item>
     </plurals>
 
-
     <string name="studio_brightness">Brightness</string>
     <string name="studio_contrast">Contrast</string>
     <string name="studio_saturation">Saturation</string>
@@ -434,7 +386,6 @@
     <string name="studio_rotate">Rotate</string>
     <string name="studio_as_shot">As shot</string>
     <string name="studio_render">Render</string>
-    <string name="studio_takes">Takes</string>
 
     <!-- Studio: the Look section's preset chips ("As shot" is studio_as_shot), and the name of a clip that has none. -->
     <string name="studio_look_punch">Punch</string>
@@ -493,7 +444,6 @@
 
     <!-- Settings › Folders. -->
     <string name="folders_group_preset">Preset folder</string>
-    <string name="folders_group_music">Music folders</string>
     <string name="folders_min_track_label">Hide tracks shorter than</string>
     <string name="folders_min_track_off">Off — list everything</string>
     <string name="folders_min_track_seconds">%1$d s</string>
@@ -509,7 +459,6 @@
     <string name="action_clear">Clear</string>
 
     <!-- Settings › Audio: sound tuning, live input. -->
-    <string name="audio_group_playback">Playback</string>
     <string name="audio_group_analysis">Analysis</string>
     <!-- Shown once per audio-DSP screen (playback/EQ), so nobody files "the visuals didn't
          change" as a bug per feature. See docs/AUDIO_CHAIN.md, "DSP does not move the visuals". -->
@@ -565,8 +514,6 @@
     <string name="ext_fail_unavailable">The device would not open an audio capture at any format — another app may be holding it.</string>
 
     <!-- Export: shared by the Export tab and the export dialog. -->
-    <string name="render_group_video">Video</string>
-    <string name="render_group_sound">Sound</string>
     <string name="render_group_save">Save to</string>
     <string name="render_save_library">Videos library (Movies/MuzViz)</string>
     <string name="render_save_ask">Ask where each time</string>
@@ -584,8 +531,6 @@
     <string name="render_cancel">Cancel</string>
     <string name="render_group_look">Look</string>
     <string name="render_look_current">Current look</string>
-    <string name="render_look_hint">Every track in the batch renders with this look.</string>
-    <string name="render_batch_hint">A batch renders each track whole, one after another, into Movies/MuzViz. A track that cannot be rendered is skipped.</string>
     <string name="render_batch_needs_q">Rendering a queue, a playlist or chosen tracks needs Android 10 or later.</string>
     <string name="render_batch_label">Rendering %1$d tracks</string>
     <string name="render_batch_progress">Track %1$d of %2$d · %3$s</string>
@@ -602,22 +547,16 @@
     <string name="render_open">Open</string>
     <string name="render_share">Share</string>
     <string name="render_show_in_folder">Show in folder</string>
-    <string name="export_fill_from_platform">Fill from platform</string>
-    <string name="export_fill_from_platform_hint">Sets quality, frame rate, aspect and looping to a platform\'s usual values. Change any of them afterwards.</string>
-    <string name="export_platform_entry">%1$s · %2$s</string>
     <string name="export_quality">Quality</string>
     <string name="export_frame_rate">Frame rate</string>
     <string name="export_codec">Video codec</string>
-    <string name="export_codec_explainer">HEVC (H.265) makes files about a third smaller at the same quality. If a device cannot encode it, the render falls back to H.264 on its own.</string>
     <string name="export_codec_no_hevc">This device has no HEVC encoder; renders will use H.264 whichever is chosen.</string>
     <string name="export_aspect_ratio">Aspect ratio</string>
     <string name="export_fps_30">30 fps</string>
     <string name="export_fps_60">60 fps</string>
-    <string name="studio_render_free_limits">Free and trial renders stop at 1 minute, up to 1080p at 30 fps, with a watermark. Loop renders need Pro.</string>
     <string name="settings_export_moved">Export, loop render and the export defaults live in Studio › Render.</string>
     <string name="settings_export_open_studio">Open Studio › Render</string>
     <string name="visuals_open_render">Export this visual in Studio › Render</string>
-    <string name="export_spec">%1$s, %2$s, %3$d fps</string>
     <string name="export_rendering_offline">Rendering offline…</string>
     <string name="export_leave_hint">You can leave MuzViz — the render keeps going and finishes in the background.</string>
     <string name="export_saved_folder">Saved to your chosen folder.</string>
@@ -632,13 +571,11 @@
     <string name="export_segment_summary">Renders %1$s–%2$s (%3$s). The clip starts at 0:00 in the file, and the visuals are the ones from that part of the track.</string>
     <string name="export_group_performance">Performance</string>
     <string name="export_live_settings">Live settings</string>
-    <string name="export_take_explainer">Renders the take\'s parameter automation — every slider, colour and effect moving as you performed it. A style switch inside the take is not reproduced yet: the render draws through the style the take started on, for its whole length.</string>
     <!-- The name a recorded performance take gets when none is typed. -->
     <string name="take_default_name">Take %1$d</string>
     <string name="export_4k_fallback">4K depends on your device\'s encoder; it falls back automatically if unsupported.</string>
     <string name="export_render_to_folder">Render to chosen folder…</string>
     <string name="export_cancel">Cancel export</string>
-    <string name="export_loop_menu_loop">Loop / long-form…</string>
     <string name="export_loop_title">Loop / long-form export</string>
     <string name="export_loop_source_hint">Loops the current track\'s visuals and repeats them into one long file. The soundtrack is the current track unless you add clips below.</string>
     <string name="export_loop_length">Loop length: %1$d s</string>
@@ -653,7 +590,6 @@
     <string name="export_loop_start">Render loop</string>
     <string name="export_loop_rendering">Rendering… %1$d%%</string>
     <string name="export_loudness_target">Loudness target</string>
-    <string name="export_loudness_hint">MuzViz measures the finished file against this target once export completes. It does not yet change the level to match — pick the platform you\'re shipping to, or Leave as-is to ship the level you mixed.</string>
     <string name="export_fps_24">24 fps</string>
     <string name="export_fps_25">25 fps</string>
     <string name="export_fps_50">50 fps</string>
@@ -713,6 +649,7 @@
     <!-- Export: failure messages. Shared by VideoExporter, StudioExporter and LoopRender. -->
     <string name="export_error_library_insert">Your Videos library would not accept a new file. Check that storage is not full, or render to a folder you choose instead.</string>
     <string name="export_error_library_open">The new file in your Videos library could not be opened for writing.</string>
+    <string name="export_error_library_publish">The render finished but could not be added to your Videos library, so it was removed. Try again.</string>
     <string name="export_error_destination_write">The folder you chose would not let the file be written. Some cloud providers refuse this; try your Videos library or a folder on the device.</string>
     <string name="export_error_encoder_buffer_null">The video encoder returned an empty buffer (codec error state).</string>
     <string name="export_error_encoder_no_output">The video encoder produced no output — this device\'s encoder or the chosen format may not be supported.</string>
@@ -734,6 +671,7 @@
     <string name="export_error_loop_no_output">The video encoder produced no output for this loop.</string>
     <string name="export_error_loop_stalled">The video encoder stalled while finishing the loop.</string>
     <string name="export_error_no_message">no message</string>
+    <string name="export_stopped_time_limit">Android stopped the render at its time limit for work in the background. Open MuzViz and render again.</string>
 
     <!-- Export: loop / long-form failures (LoopExtend). Destination errors reuse the export_error_* above. -->
     <string name="export_error_extend_no_loop">There is no rendered loop to extend.</string>
@@ -745,10 +683,8 @@
     <string name="export_error_extend_track_unreadable">One of the tracks in this mix could not be read — it may have moved or been deleted.</string>
     <string name="export_error_extend_soundtrack">The soundtrack could not be prepared.</string>
     <string name="export_error_extend_too_big">%1$.1f h at this quality would come to about %2$.1f GB, past the %3$.0f GB an MP4 written on Android can address. Render the loop at about %4$.1f Mbps (a smaller size or lower quality) or make the video shorter.</string>
-    <string name="export_error_extend_library_pre_q">On this version of Android, MuzViz cannot add to your Videos library directly. Render to a folder you choose instead.</string>
 
     <!-- Settings: Look tab. -->
-    <string name="look_group_theme">Theme</string>
     <string name="look_accent_intensity">"Accent intensity  %1$d%%"</string>
     <string name="look_ui_sounds">Interface sounds</string>
     <string name="look_ui_sounds_hint">Soft taps on buttons and tabs. Follows the system touch-sounds setting.</string>
@@ -782,13 +718,6 @@
     <!-- Settings: Behavior tab. -->
     <string name="behavior_group_touch">Touch</string>
     <string name="behavior_group_display">Connected display</string>
-    <string name="behavior_group_safety">Visual safety</string>
-    <string name="behavior_group_auto">Auto visuals</string>
-    <string name="behavior_group_director">Auto-director</string>
-    <string name="director_switch">Let the music direct the visuals</string>
-    <string name="director_body">The key, the scale and the song\'s sections decide the colours, the motion, the camera and what reacts to what, on every style. Each play looks different; the feeling stays.</string>
-    <string name="director_taste">Free: the first minute of each song. Pro: the whole song.</string>
-    <string name="behavior_group_notes">Note &amp; key reactions</string>
     <string name="notes_switch">Note &amp; key reactions</string>
     <string name="notes_body">Every style answers the melody, the chords, the key and the mood, not just the drums: each note leans the picture toward its own colour, leaps swing it, tension bends it and resolution smooths it back. Drums count for as much as the track is made of them.</string>
     <!-- Customize › Advanced › Note & key (Pro): six per-style strengths, 1 = as designed. -->
@@ -806,7 +735,6 @@
     <string name="note_key_chords_hint">How hard a new chord turns the scene.</string>
     <string name="note_key_drums">Drums</string>
     <string name="note_key_drums_hint">How much the kick, snare and hats push on top of the notes.</string>
-    <string name="behavior_group_wallpaper">Live wallpaper</string>
     <string name="behavior_group_pip">Picture-in-picture</string>
     <string name="behavior_touch_smear">Smear the visuals with a finger</string>
     <string name="behavior_touch_smear_hint">Drag on the fullscreen visualizer to push the image around: the drag raises the surface ahead of your finger and dips it behind, and whatever is on screen bends through it. On the Water style it stirs the pool itself and paints into it.</string>
@@ -825,33 +753,11 @@
     <string name="behavior_pip_auto_enter_hint">Leaving the fullscreen visualizer while something is playing shrinks it into a picture-in-picture window instead of just backgrounding the app. Off, the PiP button on the visualizer and the platform\'s own swipe-home gesture are still there — this only changes what leaving does by default.</string>
 
     <!-- Settings: Auto visuals (rendered inside the Behavior tab). -->
-    <string name="autoviz_intro">Two modes rotate the look on a clock while a track plays. Only one of them runs at a time: starting the visual playlist stops Random, and turning Random on stops the playlist.</string>
-    <string name="autoviz_random_overline">Random</string>
-    <string name="autoviz_random_running">Random is running.</string>
-    <string name="autoviz_random_off_playlist">Random is off — the visual playlist below has it.</string>
-    <string name="autoviz_random_off_auto">Random is off — the Auto button on the Now Playing screen turns it on.</string>
-    <string name="autoviz_shape_hint">The settings below shape it whether it is running or not, so a session can be set up before it starts — and they are remembered across restarts.</string>
-    <string name="autoviz_switch_every">Switch every %1$d s</string>
     <string name="autoviz_pick_from">Pick from</string>
     <string name="autoviz_pick_styles">Styles</string>
-    <string name="autoviz_pick_presets">Saved presets</string>
-    <string name="autoviz_pick_milk">MilkDrop presets</string>
-    <string name="autoviz_nothing_selected">Nothing is selected, so Random has nothing to switch to and will leave the visuals alone.</string>
-    <string name="autoviz_pick_hint">Styles are the built-in looks; saved presets carry their own settings with them.</string>
-    <string name="autoviz_roll_colors">Roll the colours too</string>
-    <string name="autoviz_roll_colors_hint">Rolls both palettes, the blend between them and the hue shift on every switch. It clears a custom palette you made in Customize › Color, because that override outranks the palettes being rolled and the new ones would otherwise never show.</string>
-    <string name="autoviz_playlist_overline">Visual playlist</string>
-    <string name="autoviz_playlist_play">Play the visual playlist</string>
-    <string name="autoviz_playlist_random_running">Random is running — turning this on will stop it.</string>
-    <plurals name="autoviz_playlist_count">
-        <item quantity="one">%1$d look in the playlist.</item>
-        <item quantity="other">%1$d looks in the playlist.</item>
-    </plurals>
-    <string name="autoviz_playlist_add_hint">Add looks with the heart button in Visuals › Presets. The playlist needs at least two before it has anywhere to go.</string>
 
     <!-- Studio clip preview. -->
     <!-- Studio renders: the render plan's notices (export/ProjectComposition). -->
-    <string name="editor_export_no_video">Put a video or still on a Media lane first — the cut renders that lane.</string>
     <string name="editor_export_skipped_kinds">Skipped clips this export can\'t carry: %1$s</string>
     <!-- One render path (#232): the render plan's skipped-clip report and the Studio render labels. -->
     <string name="editor_export_nothing">Nothing to render yet. Put a video or still on the timeline, or a visual over a song.</string>
@@ -977,7 +883,6 @@
     <string name="music_moment_new_section">New section</string>
     <string name="music_moment_note">Note</string>
     <string name="music_moment_loudness">Loudness</string>
-    <string name="music_moment_auto">Auto</string>
     <string name="music_moment_mine">Mine</string>
     <string name="music_moment_mine_description">Set by you</string>
     <string name="music_moment_reset">Reset to Auto</string>
@@ -1043,26 +948,7 @@
         <item quantity="one">%1$d change</item>
         <item quantity="other">%1$d changes</item>
     </plurals>
-    <plurals name="macros_summary_turned">
-        <item quantity="one">%1$d knob turned</item>
-        <item quantity="other">%1$d knobs turned</item>
-    </plurals>
     <string name="look_summary_custom">Custom palette</string>
-    <string name="motion_summary">Speed %1$s</string>
-    <string name="music_summary_auto">Auto</string>
-    <plurals name="music_summary_mine">
-        <item quantity="one">%1$d moment mine</item>
-        <item quantity="other">%1$d moments mine</item>
-    </plurals>
-    <string name="modulate_summary_style">Style\'s own</string>
-    <string name="modulate_summary_yours">Your reactions</string>
-    <string name="customize_about_macros">Six knobs over every style. Centre is the look as styled; turn right for more, left for less. Double-tap a knob to centre it, long-press to keep it out of Surprise.</string>
-    <string name="customize_about_look">What every style shares: colour and palette, brightness and grading, glow, trails and the screen effects.</string>
-    <string name="customize_about_style">The controls that belong to the style on screen: its shape, symmetry, detail and its own simulation.</string>
-    <string name="customize_about_motion">Everything that moves: speed and drift, the endless dive, inner motion, the camera, liquid and ripples.</string>
-    <string name="customize_about_music">How the picture answers the music: what each moment does, ready-made reactions, how it listens and the auto-director.</string>
-    <string name="customize_about_modulate">Waves, envelopes and reactions: route any sound or rhythm to any control.</string>
-    <string name="customize_about_advanced">Layers, transitions between styles and the style\'s shader code.</string>
     <string name="envelope_moves">Moves</string>
     <string name="envelope_moves_for">What envelope %1$d moves</string>
     <string name="envelope_moves_nothing">Nothing yet</string>
@@ -1102,6 +988,7 @@
     <string name="visuals_gesture_show_mini_player">Show the mini player</string>
     <string name="visuals_gesture_quick_settings">Visual quick settings</string>
     <string name="visuals_gesture_toggle_sheet">Show or hide the options</string>
+    <string name="visuals_show_options">Show options</string>
     <string name="visuals_gesture_next_preset">Next preset</string>
     <string name="visuals_gesture_previous_preset">Previous preset</string>
     <string name="visuals_gesture_next_look">Next look</string>

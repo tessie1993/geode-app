@@ -57,7 +57,7 @@
     <string name="tour_studio_render_body">Pick what to render, then tap Render. It keeps going if you leave the app.</string>
 
     <string name="tour_studio_videos_title">Your videos</string>
-    <string name="tour_studio_videos_body">Takes and renders, newest first. Play, share or render one.</string>
+    <string name="tour_studio_videos_body">Recordings and renders, newest first. Play, share or render one.</string>
 
     <!-- Settings. -->
     <string name="tour_settings_groups_title">Settings, in groups</string>

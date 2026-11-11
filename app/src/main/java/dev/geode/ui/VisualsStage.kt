@@ -200,16 +200,18 @@ internal fun BoxScope.StageIcons(
     // landscape panel open › sits mid-window, and in the expanded shell ‹ sits beside the rail, so a
     // fixed `windowInsetsPadding(safeGestures)` would push them in for nothing (and, being made of
     // insets the shell's `safeDrawingPadding` did not consume, by the wrong amount). The
-    // `WindowInsetsRulers.SafeGestures` rulers give each strip's inner edge in this layout's own
+    // `WindowInsetsRulers.SafeContent` rulers give each strip's inner edge in this layout's own
     // coordinates (Compose reference, `WindowInsetsRulers`; the edge-to-edge skill's rulers route),
-    // so the visible area is cut only by the part of a strip that overlaps it. Rulers are read in
+    // so the visible area is cut only by the part of a strip that overlaps it. SafeContent, not
+    // SafeGestures: in landscape the camera cutout sits mid-way down a side edge, exactly where an
+    // arrow centres, and with three-button navigation no gesture strip covers it. Rulers are read in
     // the placement block, which is why the child is measured there (the reference's own sample).
     Box(
         Modifier
             .matchParentSize()
             .layout { measurable, constraints ->
                 layout(constraints.maxWidth, constraints.maxHeight) {
-                    val strips = WindowInsetsRulers.SafeGestures.current
+                    val strips = WindowInsetsRulers.SafeContent.current
                     val end = endPx().roundToInt()
                     val ltr = layoutDirection == LayoutDirection.Ltr
                     // The visible part of the stage, in physical px: the panel is on the end side.

@@ -674,9 +674,9 @@ int geode_style_reactions(const char* style_id, int seed, float* out, int capaci
     return writeRoutes(dna.routes, dna.count, out, capacity);
 }
 
-void geode_viz_gyro_sample(geode_viz* v, float azimuth, float pitch) {
+void geode_viz_gyro_sample(geode_viz* v, float x, float y, float z, float w, int display_rotation) {
     if (!v) return;
-    const GyroLook::Look look = v->gyro.sample(azimuth, pitch);
+    const GyroLook::Look look = v->gyro.sampleScreen(x, y, z, w, display_rotation);
     v->renderer.setLook(look.yaw, look.pitch);
 }
 

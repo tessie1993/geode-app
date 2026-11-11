@@ -57,7 +57,7 @@ internal fun LookTextSection(viewModel: SettingsViewModel) {
     TextGroup(viewModel, gui)
 }
 
-/** Settings › Look › Layout: corners, tab bar labels, the Player's time and the boot animation. */
+/** Settings › Look › Layout: corners, tab bar labels, the Player's time, screen rotation and the boot animation. */
 @Composable
 internal fun LookLayoutSection(viewModel: SettingsViewModel) {
     val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
@@ -226,6 +226,7 @@ private fun LayoutGroup(
         checked = gui.showTimeLeft,
         onCheckedChange = { viewModel.setGuiPrefs(gui.copy(showTimeLeft = it)) },
     )
+    ScreenRotationRow(gui, viewModel::setGuiPrefs)
     BootAnimationRow()
 }
 

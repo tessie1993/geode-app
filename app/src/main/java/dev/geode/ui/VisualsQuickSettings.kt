@@ -49,6 +49,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -73,6 +74,7 @@ import dev.geode.data.AutoDirectorStore
 import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.GuiPrefs
 import dev.geode.data.VizUiState
+import dev.geode.model.ScreenRotation
 import dev.geode.render.scene.MilkdropEngine
 import dev.geode.ui.cast.ComputerLinkRow
 import dev.geode.ui.theme.GeodeGlass
@@ -244,6 +246,7 @@ private fun QuickSettingsRows(
     val left: @Composable () -> Unit = {
         AutoDirectorRows()
         TimerRows(viewModel, viz, timer)
+        RotationRow(gui, onGuiChange)
     }
     val right: @Composable () -> Unit = {
         ConnectedDisplayRows()
@@ -388,6 +391,38 @@ private fun ConnectedDisplayRows() {
                 )
             }
         }
+    }
+}
+
+/** Settings › Look's screen rotation, the same key; where Android ignores it (600 dp and wider) the row says so. */
+@Composable
+private fun RotationRow(
+    gui: GuiPrefs,
+    onGuiChange: (GuiPrefs) -> Unit,
+) {
+    MenuRow(
+        label = stringResource(R.string.look_screen_rotation),
+        value = stringResource(gui.screenRotation.labelRes()),
+    ) { close ->
+        ScreenRotation.entries.forEach { option ->
+            val isSelected = option == gui.screenRotation
+            DropdownMenuItem(
+                text = { Text(stringResource(option.labelRes())) },
+                onClick = {
+                    onGuiChange(gui.copy(screenRotation = option))
+                    close()
+                },
+                leadingIcon = { CheckSlot(isSelected) },
+                modifier = Modifier.semantics { selected = isSelected },
+            )
+        }
+    }
+    if (LocalConfiguration.current.smallestScreenWidthDp >= LARGE_SCREEN_DP) {
+        Text(
+            stringResource(R.string.look_screen_rotation_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -712,6 +747,9 @@ private val CHECK_SLOT = 24.dp
 private const val LABEL_WEIGHT = 1f
 private const val SLIDER_WEIGHT = 1.2f
 private const val CLAIM_SLOP_FACTOR = 2f
+
+/** Android 16 ignores an app's orientation request on a display this wide (smallest width, dp). */
+private const val LARGE_SCREEN_DP = 600
 
 private val INTERVAL_RANGE =
     AutoVisualsPrefsStore.INTERVAL_SEC.first.toFloat()..AutoVisualsPrefsStore.INTERVAL_SEC.last.toFloat()

@@ -705,6 +705,11 @@
     <string name="look_tab_labels_never">Icons only</string>
     <string name="look_show_time_left">Show time left</string>
     <string name="look_show_time_left_hint">The Player shows the time left in the track instead of its length.</string>
+    <string name="look_screen_rotation">Screen rotation</string>
+    <string name="look_screen_rotation_follow">Follow phone</string>
+    <string name="look_screen_rotation_portrait">Lock portrait</string>
+    <string name="look_screen_rotation_landscape">Lock landscape</string>
+    <string name="look_screen_rotation_hint">Locked, the app stays put while you move the phone. Tablets and unfolded phones always turn with the device.</string>
 
     <!-- Font colour swatches. Mineral names; the argb value is what persists. -->
     <string name="font_color_auto">Auto</string>

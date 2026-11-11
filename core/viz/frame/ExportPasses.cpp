@@ -1,6 +1,7 @@
 #include "viz/frame/ExportPasses.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 #include "viz/frame/ExportPassMath.hpp"
 
@@ -62,8 +63,12 @@ void drawCopy(GLuint program, UniformCache& uniforms, FullscreenTriangle& triang
 
 // ---- WatermarkPass ----------------------------------------------------------------------------------
 
-bool WatermarkPass::create(const ShaderSource& assets, const void* rgba, int tileWidth, int tileHeight, std::string* error) {
+bool WatermarkPass::create(const ShaderSource& assets, const void* rgba, int tileWidth, int tileHeight, int placement,
+                           int corner, int64_t lengthMs, std::string* error) {
     release();
+    placement_ = placement;
+    corner_ = corner;
+    lengthMs_ = lengthMs;
     if (!rgba || tileWidth <= 0 || tileHeight <= 0) {
         if (error) *error = "watermark tile is empty";
         return false;
@@ -71,7 +76,8 @@ bool WatermarkPass::create(const ShaderSource& assets, const void* rgba, int til
     program_ = buildFrom(assets, "export_watermark_vert.glsl", "export_watermark_frag.glsl", error);
     if (program_ == 0) return false;
     uniforms_ = UniformCache(program_);
-    // Power-of-two (exportmath::watermark::tileWidth / tileHeight), so GL_REPEAT is legal on any GLES.
+    // The tiled pattern's tile is a power of two (exportmath::watermark::tileWidth), so GL_REPEAT is legal on any
+    // GLES; a single mark's is clipped in the shader, so its repeat is never seen.
     tile_.createImage(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, tileWidth, tileHeight, GL_LINEAR, GL_REPEAT);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
     tile_.upload(GL_RGBA, GL_UNSIGNED_BYTE, rgba, tileWidth, tileHeight);
@@ -83,13 +89,18 @@ bool WatermarkPass::create(const ShaderSource& assets, const void* rgba, int til
 }
 
 bool WatermarkPass::wants(const FrameCtx& ctx) const {
-    return ctx.surface == Surface::Export && program_ != 0 && tile_.ok() && ctx.width > 0 && ctx.height > 0;
+    return ctx.surface == Surface::Export && program_ != 0 && tile_.ok() && ctx.width > 0 && ctx.height > 0 &&
+           exportmath::watermark::opacity(placement_, static_cast<int64_t>(std::llround(ctx.seconds * 1000.0)), lengthMs_) > 0.0f;
 }
 
 void WatermarkPass::prepare(const FrameCtx& ctx) {
-    const auto tiles = exportmath::watermark::tiles(ctx.width, ctx.height, tileWidth_, tileHeight_);
-    tilesU_ = tiles.u;
-    tilesV_ = tiles.v;
+    const auto at = exportmath::watermark::layout(placement_, corner_, ctx.width, ctx.height, tileWidth_, tileHeight_);
+    originU_ = at.originU;
+    originV_ = at.originV;
+    tilesU_ = at.tilesU;
+    tilesV_ = at.tilesV;
+    clip_ = at.clip ? 1.0f : 0.0f;
+    opacity_ = exportmath::watermark::opacity(placement_, static_cast<int64_t>(std::llround(ctx.seconds * 1000.0)), lengthMs_);
 }
 
 void WatermarkPass::draw(const PassInputs&, const PassTarget& target) {
@@ -107,6 +118,10 @@ void WatermarkPass::draw(const PassInputs&, const PassTarget& target) {
     tile_.bind(0);
     glUniform1i(uniforms_.loc("uTexture"), 0);
     glUniform2f(uniforms_.loc("uTiles"), tilesU_, tilesV_);
+    glUniform2f(uniforms_.loc("uOrigin"), originU_, originV_);
+    glUniform1f(uniforms_.loc("uClip"), clip_);
+    glUniform1f(uniforms_.loc("uDim"), exportmath::watermark::dim(placement_));
+    glUniform1f(uniforms_.loc("uAlpha"), opacity_);
     triangle_.draw();
     glBindTexture(GL_TEXTURE_2D, 0);
     glUseProgram(static_cast<GLuint>(previousProgram));

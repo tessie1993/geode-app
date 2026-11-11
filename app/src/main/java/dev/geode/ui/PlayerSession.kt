@@ -323,6 +323,10 @@ class PlayerSession internal constructor(
     val favourites: StateFlow<Set<String>> get() = listening.favourites
 
     private val recordPrefs = dev.geode.data.RecordPrefsStore(prefsFiles.general)
+
+    /** Settings › Preferences › Watermark; the provider folds it into [renderLimits]. */
+    internal val watermarkPrefs: dev.geode.data.WatermarkPrefsRepository =
+        PrefsSettingsRepository(prefsFiles.general, dev.geode.data.WatermarkPrefsCodec, storeScope)
     private val exportPrefs = dev.geode.data.ExportPrefsStore(prefsFiles.general)
 
     internal val record: RecordController =
@@ -803,7 +807,7 @@ class PlayerSession internal constructor(
         destination: Uri? = null,
         range: ExportRange? = null,
         codec: ExportCodec = ExportCodec.H264,
-        watermark: Boolean = false,
+        watermark: dev.geode.model.WatermarkChoice = dev.geode.model.WatermarkChoice.NONE,
     ) = exportController.startExport(aspect, fps, sceneFactory, destination, range, codec, watermark)
 
     fun deleteStudioClip(

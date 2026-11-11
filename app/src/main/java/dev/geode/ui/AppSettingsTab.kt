@@ -56,10 +56,11 @@ import dev.geode.ui.theme.edgeFade
 import dev.geode.ui.theme.floatingGlass
 
 /**
- * Settings' fourteen tabs, in the order the list shows them (owner, 2026-11-11, after a survey of
+ * Settings' fifteen tabs, in the order the list shows them (owner, 2026-11-11, after a survey of
  * Poweramp, Symfonium and VJ apps' settings): how often people reach for each in
  * a music player and visualizer, playback and sound first, the look and the app's own housekeeping
- * last. Each tab's page is [basics] (always open) and [sections] that drop open below it.
+ * last. Preferences, just before housekeeping, is the home of small choices that fit no other tab
+ * (the watermark first; owner, 2026-11-11). Each tab's page is [basics] (always open) and [sections] that drop open below it.
  *
  * Saved by name, so reordering never restores the wrong page; [fromName] also takes the names of
  * the ten groups before the regroup, so a page saved then still opens on the tab its rows went to.
@@ -154,6 +155,11 @@ enum class SettingsGroupKey(
         listOf(SettingsRowKey.OPEN_STUDIO_RENDER, SettingsRowKey.KEEP_RENDERS),
         listOf(SettingsSectionKey.RECORD),
     ),
+    PREFERENCES(
+        R.string.settings_group_preferences,
+        R.string.settings_group_preferences_summary,
+        listOf(SettingsRowKey.WATERMARK),
+    ),
     HELP_ABOUT(
         R.string.settings_group_help_about,
         R.string.settings_group_help_about_summary,
@@ -183,6 +189,7 @@ enum class SettingsGroupKey(
                 LOOK -> Icons.Filled.Palette
                 PERFORMANCE -> Icons.Filled.Speed
                 EXPORT -> StoneIcon.STUDIO.vector
+                PREFERENCES -> StoneIcon.SETTINGS.vector
                 HELP_ABOUT -> Icons.Filled.Backup
             }
 
@@ -459,6 +466,7 @@ private fun SettingsRowContent(
         SettingsRowKey.OPEN_STUDIO_RENDER -> OpenStudioRenderRow(deps.onOpenStudioRender)
         SettingsRowKey.KEEP_RENDERS -> KeepRendersRow()
         SettingsRowKey.RECORD_QUALITY -> RecordSection()
+        SettingsRowKey.WATERMARK -> WatermarkRows(settings)
         SettingsRowKey.BACKUP -> BackupSection()
         SettingsRowKey.TUTORIALS -> TutorialSettingsTab(settings, onPlay = deps.onPlayTutorial, onReset = deps.onResetTutorials)
         SettingsRowKey.HELP_TOPICS -> HelpTopicsSection()

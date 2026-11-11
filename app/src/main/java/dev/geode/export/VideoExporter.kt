@@ -18,6 +18,7 @@ import dev.geode.billing.ProSnapshot
 import dev.geode.data.pendingRows
 import dev.geode.data.publishPending
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.model.WatermarkChoice
 import dev.geode.pro.ProFeature
 import dev.geode.render.SceneFactory
 import dev.geode.render.bridge.StyleSchedule
@@ -181,8 +182,8 @@ class VideoExporter(
         background: BackgroundExportSpec? = null,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
-        // The free tier's corner wordmark; see WatermarkOverlay.
-        watermark: Boolean = false,
+        // The wordmark, as the render pinned it at its start; see WatermarkOverlay.
+        watermark: WatermarkChoice = WatermarkChoice.NONE,
     ): Result =
         withContext(Dispatchers.Default) {
             // Decoded once, at the export's own pixel size, and reused for whichever destination
@@ -270,7 +271,7 @@ class VideoExporter(
         loudnessTarget: LoudnessTarget,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
-        watermark: Boolean,
+        watermark: WatermarkChoice,
         styleSchedule: StyleSchedule = StyleSchedule.NONE,
     ): Result {
         val resolver = context.contentResolver
@@ -358,7 +359,7 @@ class VideoExporter(
         codec: ExportCodec,
         onProgress: (Float) -> Unit,
         isCancelled: () -> Boolean,
-        watermark: Boolean,
+        watermark: WatermarkChoice,
         styleSchedule: StyleSchedule = StyleSchedule.NONE,
     ) {
         var encoderRef: MediaCodec? = null
@@ -423,14 +424,8 @@ class VideoExporter(
                         ),
                 ).also { rendererRef = it }
             renderer.prepare()
-            val mark =
-                if (watermark) {
-                    WatermarkOverlay(context.getString(R.string.pro_watermark_text), context.assets)
-                        .also { watermarkRef = it }
-                        .apply { prepare(aspect.width, aspect.height) }
-                } else {
-                    null
-                }
+            val mark = WatermarkOverlay(watermark, context).also { watermarkRef = it }
+            mark.prepare(aspect.width, aspect.height, exportDurationUs / 1000L)
 
             var videoTrack = -1
             var audioTrack = -1
@@ -439,8 +434,8 @@ class VideoExporter(
             for (frame in 0 until totalFrames) {
                 if (isCancelled()) break
                 renderer.renderFrame(frame)
-                mark?.draw()
                 val timeMs = GeodeNative.exportFrameTimeMs(frame.toLong(), fps)
+                mark.draw(timeMs)
                 egl.setPresentationTimeNs(GeodeNative.exportFramePtsNs(frame.toLong(), fps))
                 egl.swapBuffers()
 

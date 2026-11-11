@@ -1,5 +1,7 @@
 package dev.geode.pro
 
+import dev.geode.model.WatermarkChoice
+
 /** Where the user's access comes from right now. */
 sealed interface Entitlement {
     data object Free : Entitlement
@@ -46,7 +48,7 @@ data class FeatureGate(
             else -> null
         }
 
-    /** Whether a finished export carries the full-frame wordmark. */
+    /** Whether a finished export must carry the wordmark (where is the user's: Settings › Preferences). */
     val watermarksExports: Boolean get() = !allows(ProFeature.NO_WATERMARK)
 
     /** The longest an export may run, or null for no limit. */
@@ -58,7 +60,7 @@ data class FeatureGate(
      * Render) reads this where it runs, so no entry point can forget the cap or the wordmark, which
      * is how a trial take once came out clean and full length (#354).
      */
-    val renderLimits: RenderLimits get() = RenderLimits(exportCapMs, watermarksExports)
+    val renderLimits: RenderLimits get() = RenderLimits(exportCapMs, WatermarkChoice(required = watermarksExports))
 
     companion object {
         val FREE: FeatureGate = FeatureGate(Entitlement.Free)
@@ -68,13 +70,19 @@ data class FeatureGate(
     }
 }
 
-/** The export limits of one entitlement: the longest a render may run ([capMs], null for no limit), and whether it carries the wordmark. */
+/**
+ * The export limits of one entitlement: the longest a render may run ([capMs], null for no limit), and
+ * its wordmark ([WatermarkChoice.required] by the entitlement; placed as the user's [withMark] says).
+ */
 data class RenderLimits(
     val capMs: Long?,
-    val watermark: Boolean,
+    val watermark: WatermarkChoice,
 ) {
+    /** These limits with the user's watermark preference ([WatermarkChoice.required] stays the entitlement's). */
+    fun withMark(preference: WatermarkChoice): RenderLimits = copy(watermark = preference.copy(required = watermark.required))
+
     companion object {
         /** Pro's: full length, no wordmark. */
-        val NONE: RenderLimits = RenderLimits(capMs = null, watermark = false)
+        val NONE: RenderLimits = RenderLimits(capMs = null, watermark = WatermarkChoice.NONE)
     }
 }

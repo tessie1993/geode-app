@@ -31,15 +31,18 @@
 // The maths (placement, weights, progress) is ExportPassMath.hpp, tested on the host.
 namespace geode::viz::frame {
 
-// The free tier's wordmark tiled diagonally across the whole frame, over the finished scene in the
-// encoder's default framebuffer. One tile is uploaded once (Kotlin rasterises it: text needs Android's
-// Paint); per frame it is one full-frame draw whose texture coordinates repeat that tile.
+// The wordmark over the finished scene in the encoder's default framebuffer: tiled diagonally across the
+// whole frame, one mark in a corner, or an end card (exportmath::watermark::placement). One tile is uploaded
+// once (Kotlin rasterises it: text needs Android's Paint); per frame it is one full-frame draw whose texture
+// coordinates repeat that tile, or show it once (exportmath::watermark::layout).
 class WatermarkPass final : public Pass {
 public:
     ~WatermarkPass() override { release(); }
 
-    // `rgba` is the tile, tileWidth × tileHeight premultiplied RGBA8, top row first (Bitmap order).
-    bool create(const ShaderSource& assets, const void* rgba, int tileWidth, int tileHeight, std::string* error);
+    // `rgba` is the tile, tileWidth × tileHeight premultiplied RGBA8, top row first (Bitmap order). `lengthMs`
+    // is the video's, for the end card; FrameCtx::seconds is the frame's time in it.
+    bool create(const ShaderSource& assets, const void* rgba, int tileWidth, int tileHeight, int placement, int corner,
+                int64_t lengthMs, std::string* error);
 
     bool wants(const FrameCtx& ctx) const override;
     void prepare(const FrameCtx& ctx) override;
@@ -53,8 +56,15 @@ private:
     FullscreenTriangle triangle_;
     int tileWidth_ = 0;
     int tileHeight_ = 0;
+    int placement_ = 0;
+    int corner_ = 0;
+    int64_t lengthMs_ = 0;
+    float originU_ = 0.0f;
+    float originV_ = 0.0f;
     float tilesU_ = 0.0f;
     float tilesV_ = 0.0f;
+    float clip_ = 0.0f;
+    float opacity_ = 1.0f;
 };
 
 // A loop render's seam: the loop's opening frames copied straight off the encoder surface into textures,

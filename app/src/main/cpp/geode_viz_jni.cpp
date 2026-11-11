@@ -966,31 +966,50 @@ Java_dev_geode_engine_bridge_GeodeNative_exportPassDestroy(JNIEnv*, jobject, jlo
     geode_export_pass_destroy(passOf(handle));
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkPlacement(JNIEnv*, jobject, jboolean required, jboolean proAdds,
+                                                                 jint placement, jint use) {
+    return geode_export_watermark_placement(required ? 1 : 0, proAdds ? 1 : 0, placement, use);
+}
+
 JNIEXPORT jfloat JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkTextPx(JNIEnv*, jobject, jint shortSide) {
-    return geode_export_watermark_text_px(shortSide);
+Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkTextPx(JNIEnv*, jobject, jint shortSide, jint placement) {
+    return geode_export_watermark_text_px(shortSide, placement);
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkAngle(JNIEnv*, jobject, jint placement) {
+    return geode_export_watermark_angle(placement);
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkTileWidth(JNIEnv*, jobject, jfloat textWidth) {
-    return geode_export_watermark_tile_width(textWidth);
+Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkAlpha(JNIEnv*, jobject, jint placement) {
+    return geode_export_watermark_alpha(placement);
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkTileHeight(JNIEnv*, jobject, jint tileWidth) {
-    return geode_export_watermark_tile_height(tileWidth);
+Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkTileWidth(JNIEnv*, jobject, jfloat textWidth, jfloat textPx, jint placement) {
+    return geode_export_watermark_tile_width(textWidth, textPx, placement);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkTileHeight(JNIEnv*, jobject, jint tileWidth, jfloat textPx, jint placement) {
+    return geode_export_watermark_tile_height(tileWidth, textPx, placement);
 }
 
 JNIEXPORT jlong JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkCreate(JNIEnv* env, jobject, jobject assetManager, jobject rgba,
-                                                              jint tileWidth, jint tileHeight) {
+                                                              jint tileWidth, jint tileHeight, jint placement, jint corner,
+                                                              jlong lengthMs) {
     const uint8_t* pixels = directBytes(env, rgba, rgbaBytes(tileWidth, tileHeight));
-    return reinterpret_cast<jlong>(geode_export_watermark_create(assetsOf(env, assetManager), pixels, tileWidth, tileHeight));
+    return reinterpret_cast<jlong>(geode_export_watermark_create(assetsOf(env, assetManager), pixels, tileWidth, tileHeight,
+                                                                 placement, corner, lengthMs));
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkDraw(JNIEnv*, jobject, jlong handle, jint frameWidth, jint frameHeight) {
-    geode_export_watermark_draw(passOf(handle), frameWidth, frameHeight);
+Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkDraw(JNIEnv*, jobject, jlong handle, jint frameWidth, jint frameHeight,
+                                                            jlong timeMs) {
+    geode_export_watermark_draw(passOf(handle), frameWidth, frameHeight, timeMs);
 }
 
 JNIEXPORT jlong JNICALL

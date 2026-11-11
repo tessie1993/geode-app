@@ -36,6 +36,7 @@ import dev.geode.data.StudioPrefsStore
 import dev.geode.data.StyleShelfStore
 import dev.geode.data.ThemeStore
 import dev.geode.data.VizUiState
+import dev.geode.data.WatermarkPrefsCodec
 import dev.geode.data.backup.BackupFormat
 import dev.geode.data.backup.BackupSection
 import dev.geode.engine.audio.SoundFrameLayout
@@ -145,6 +146,9 @@ class PrefsSchemaTest {
             Owner("$DATA/RecordPrefs.kt", RecordPrefsStore.PREF_KEYS) {
                 val record = RecordPrefs(ExportQuality.entries.first(), fps = 30, maxLengthSec = 60)
                 RecordPrefsStore(it[general]) { seconds -> seconds }.save(record)
+            },
+            Owner("$DATA/WatermarkPrefs.kt", WatermarkPrefsCodec.keys) {
+                it[general].edit().also { editor -> WatermarkPrefsCodec.write(editor, WatermarkPrefsCodec.defaults) }.apply()
             },
             Owner("$DATA/RecordSaveStore.kt", RecordSaveStore.PREF_KEYS) { RecordSaveStore(it).choose(SaveTarget.VideosLibrary) },
             Owner("$APP/wallpaper/WallpaperPrefs.kt", WallpaperPrefsStore.PREF_KEYS) {

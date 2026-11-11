@@ -86,7 +86,7 @@ struct geode_viz {
         if (!recorder || recordPtsNs < 0) return;
         bool ok = recordTap.begin(fbo, width, height);
         if (ok) {
-            if (recordWatermark) geode_export_watermark_draw(recordWatermark, recordTap.width(), recordTap.height());
+            if (recordWatermark) geode_export_watermark_draw(recordWatermark, recordTap.width(), recordTap.height(), 0);
             ok = recordTap.present(recordPtsNs, fbo);
         }
         if (!ok) recorder->stop(geode::output::record::Stop::Failed, geode_record_now_ns());

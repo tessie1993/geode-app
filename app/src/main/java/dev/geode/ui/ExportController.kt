@@ -45,6 +45,7 @@ import dev.geode.export.StudioExporter
 import dev.geode.export.TimeOfDayDrift
 import dev.geode.export.VideoExporter
 import dev.geode.geodeContainer
+import dev.geode.model.WatermarkChoice
 import dev.geode.render.SceneFactory
 import dev.geode.render.bridge.StyleSchedule
 import dev.geode.render.look.LookSnapshot
@@ -167,7 +168,7 @@ internal class ExportController(
         destination: Uri? = null,
         range: ExportRange? = null,
         codec: ExportCodec = ExportCodec.H264,
-        watermark: Boolean = false,
+        watermark: WatermarkChoice = WatermarkChoice.NONE,
     ) {
         val uri = host.exportUri ?: return
         if (_exportState.value.phase.isBusy || ExportRun.running) return
@@ -307,7 +308,7 @@ internal class ExportController(
         sceneFactory: SceneFactory,
         sceneParams: SceneParams?,
         codec: ExportCodec,
-        watermark: Boolean,
+        watermark: WatermarkChoice,
     ) {
         if (tracks.isEmpty() || _exportState.value.phase.isBusy || ExportRun.running) return
         exportCancelled = false
@@ -356,7 +357,7 @@ internal class ExportController(
         sceneFactory: SceneFactory,
         look: LookSnapshot,
         codec: ExportCodec,
-        watermark: Boolean,
+        watermark: WatermarkChoice,
         publish: (Float) -> Unit,
     ): BatchOutcome {
         val uri = track.uri.toUri()
@@ -557,7 +558,7 @@ internal class ExportController(
     private class RenderSpec(
         val aspect: ExportAspect,
         val defaults: ExportDefaults,
-        val watermark: Boolean,
+        val watermark: WatermarkChoice,
     )
 
     private sealed interface RenderResult {
@@ -701,7 +702,7 @@ internal class ExportController(
             background = defaultBackground(),
             onProgress = { p -> onProgress(p, p >= VideoExporter.AUDIO_PROGRESS_SPAN) },
             isCancelled = isCancelled,
-            watermark = spec.watermark,
+            watermark = if (final) spec.watermark else spec.watermark.copy(use = WatermarkChoice.USE_SEGMENT),
         )
 
     /**
@@ -830,7 +831,7 @@ internal class ExportController(
         drift: TimeOfDayDrift,
         audioClips: List<Uri>,
         destination: Uri? = null,
-        watermark: Boolean = false,
+        watermark: WatermarkChoice = WatermarkChoice.NONE,
     ) {
         val uri = host.exportUri ?: return
         if (_loopState.value.phase.isBusy || ExportRun.running) return

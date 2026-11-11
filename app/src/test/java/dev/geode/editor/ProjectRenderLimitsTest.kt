@@ -2,6 +2,7 @@ package dev.geode.editor
 
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportDestination
+import dev.geode.model.WatermarkChoice
 import dev.geode.pro.Entitlement
 import dev.geode.pro.FeatureGate
 import dev.geode.pro.FreeTier
@@ -37,7 +38,7 @@ class ProjectRenderLimitsTest {
 
         val drawn = project(FIVE_MINUTES_MS).cappedAt(limits.capMs)
 
-        assertTrue(limits.watermark)
+        assertTrue(limits.watermark.required)
         assertEquals(FreeTier.FREE_MAX_EXPORT_MS, drawn.lengthMs)
         for (clip in drawn.edit.timeline.lanes
             .flatMap { it.clips }) {
@@ -49,7 +50,7 @@ class ProjectRenderLimitsTest {
     @Test
     fun `a free render is limited the same way`() {
         val limits = FeatureGate.FREE.renderLimits
-        assertTrue(limits.watermark)
+        assertTrue(limits.watermark.required)
         assertEquals(FreeTier.FREE_MAX_EXPORT_MS, project(FIVE_MINUTES_MS).cappedAt(limits.capMs).lengthMs)
     }
 
@@ -57,9 +58,23 @@ class ProjectRenderLimitsTest {
     fun `a Pro render is whole and clean`() {
         val limits = FeatureGate(Entitlement.Pro).renderLimits
         val whole = project(FIVE_MINUTES_MS)
-        assertFalse(limits.watermark)
+        assertFalse(limits.watermark.required)
         assertSame(whole, whole.cappedAt(limits.capMs))
         assertEquals(FIVE_MINUTES_MS, whole.lengthMs)
+    }
+
+    @Test
+    fun `the watermark preference places the mark and never lifts a required one`() {
+        val preference =
+            WatermarkChoice(required = false, proAdds = true, placement = WatermarkChoice.CORNER, corner = WatermarkChoice.TOP_LEFT)
+        val free = FeatureGate.FREE.renderLimits.withMark(preference)
+        assertTrue(free.watermark.required)
+        assertEquals(WatermarkChoice.CORNER, free.watermark.placement)
+        assertEquals(WatermarkChoice.TOP_LEFT, free.watermark.corner)
+        val pro = FeatureGate(Entitlement.Pro).renderLimits.withMark(preference)
+        assertFalse(pro.watermark.required)
+        assertTrue(pro.watermark.proAdds)
+        assertEquals(WatermarkChoice.TILED, FeatureGate.FREE.renderLimits.watermark.placement)
     }
 
     @Test

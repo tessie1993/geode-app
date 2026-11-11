@@ -1,5 +1,6 @@
 package dev.geode.render.look
 
+import dev.geode.engine.audio.SoundTuning
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
@@ -44,7 +45,7 @@ class LookApplierTest {
             calls += "reactions"
         }
 
-        override fun setSoundTuning(floats: FloatArray) {
+        override fun setSoundTuning(tuning: SoundTuning) {
             calls += "tuning"
         }
 

@@ -8,8 +8,8 @@ import dev.geode.data.prefs.BackupClass
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.audio.SoundTuning
-import dev.geode.model.ScreenRotation
 import dev.geode.model.KnobSize
+import dev.geode.model.ScreenRotation
 import dev.geode.model.TabLabels
 import dev.geode.model.TourProgress
 

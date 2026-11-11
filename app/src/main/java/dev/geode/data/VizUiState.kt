@@ -1,5 +1,6 @@
 package dev.geode.data
 
+import dev.geode.model.VizPlaylistEntry
 import dev.geode.pro.FreeTier
 import dev.geode.render.TransitionStyle
 import dev.geode.render.scene.SceneParams

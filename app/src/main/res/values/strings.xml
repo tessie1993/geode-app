@@ -12,7 +12,7 @@
     <string name="capture_notification_stop">Stop</string>
     <string name="playback_refused_channel_name">Playback problems</string>
     <string name="playback_refused_title">Playback could not keep running</string>
-    <string name="playback_refused_text">Android did not let MuzViz play in the background. Tap to open the app and press play.</string>
+    <string name="playback_refused_text">Android did not let BeatRealms play in the background. Tap to open the app and press play.</string>
     <string name="export_channel_name">Rendering video</string>
     <string name="export_channel_description">Shown while BeatRealms is rendering a video, so the render is not interrupted.</string>
     <string name="export_notification_title">Rendering video</string>

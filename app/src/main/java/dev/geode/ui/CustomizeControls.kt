@@ -16,6 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.AutoDirectorStore
 import dev.geode.data.MacroStore
+import dev.geode.data.VizUiState
 import dev.geode.model.ControlRange
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine

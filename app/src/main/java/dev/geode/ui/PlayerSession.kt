@@ -10,6 +10,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
 import dev.geode.audio.AudioFxState
 import dev.geode.audio.MicCapture
+import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.BackgroundPrefs
 import dev.geode.data.BackgroundPrefsStore
 import dev.geode.data.BehaviourStore
@@ -22,10 +23,12 @@ import dev.geode.data.FileTakeRepository
 import dev.geode.data.FileTemplateRepository
 import dev.geode.data.GuiPrefs
 import dev.geode.data.LfoStore
+import dev.geode.data.LibraryState
 import dev.geode.data.Lyrics
 import dev.geode.data.LyricsLoader
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.MilkTexture
+import dev.geode.data.MusicLibraryRepository
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsRepository
 import dev.geode.data.PlayerPrefsStore
@@ -41,7 +44,6 @@ import dev.geode.data.SharedPrefsPlayerPrefsRepository
 import dev.geode.data.SmartPlaylist
 import dev.geode.data.SmartPlaylistMatcher
 import dev.geode.data.SystemMotion
-import dev.geode.data.TagWriteOutcome
 import dev.geode.data.TakeStore
 import dev.geode.data.TemplateId
 import dev.geode.data.TemplateImport
@@ -50,6 +52,8 @@ import dev.geode.data.TemplateRepository
 import dev.geode.data.TemplateWrite
 import dev.geode.data.UserDataRepository
 import dev.geode.data.VideoTemplate
+import dev.geode.data.VizStateStore
+import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
@@ -246,7 +250,8 @@ class PlayerSession internal constructor(
 
     val exportState: StateFlow<ExportUiState> get() = exportController.exportState
 
-    private val musicLibrary = MusicLibraryController(application, prefsFiles.library, scope)
+    /** The music library: tracks, folders, playlists and tags. [LibraryViewModel] calls it directly. */
+    internal val musicLibrary = MusicLibraryRepository(application, prefsFiles.library, scope)
 
     val library: StateFlow<LibraryState> get() = musicLibrary.library
 
@@ -605,76 +610,10 @@ class PlayerSession internal constructor(
 
     val libraryScanning: StateFlow<Boolean> get() = musicLibrary.libraryScanning
 
-    /** False until the first device-track query has answered; see [MusicLibraryController.deviceTracksLoaded]. */
+    /** False until the first device-track query has answered; see [MusicLibraryRepository.deviceTracksLoaded]. */
     val deviceTracksLoaded: StateFlow<Boolean> get() = musicLibrary.deviceTracksLoaded
 
     val minTrackSeconds: StateFlow<Int> get() = musicLibrary.minTrackSeconds
-
-    fun setMinTrackSeconds(seconds: Int) = musicLibrary.setMinTrackSeconds(seconds)
-
-    fun refreshDeviceTracks() = musicLibrary.refreshDeviceTracks()
-
-    fun importTracks(uris: List<Uri>) = musicLibrary.importTracks(uris)
-
-    suspend fun trackInfoFor(uriStr: String): LibraryTrack = musicLibrary.trackInfoFor(uriStr)
-
-    fun saveTrackInfo(
-        uri: String,
-        title: String,
-        artist: String,
-        album: String,
-        genre: String,
-        year: Int,
-        trackNo: Int,
-        comment: String,
-    ) = musicLibrary.saveTrackInfo(uri, title, artist, album, genre, year, trackNo, comment)
-
-    suspend fun writeTrackInfo(
-        uri: String,
-        title: String,
-        artist: String,
-        album: String,
-        genre: String,
-        year: Int,
-        trackNo: Int,
-        comment: String,
-    ): TagWriteOutcome = musicLibrary.writeTrackInfo(uri, title, artist, album, genre, year, trackNo, comment)
-
-    fun importFolder(treeUri: Uri) = musicLibrary.importFolder(treeUri)
-
-    fun removeMediaRoot(uriStr: String) = musicLibrary.removeMediaRoot(uriStr)
-
-    fun rescanMediaRoots() = musicLibrary.rescanMediaRoots()
-
-    fun createMusicPlaylist(
-        name: String,
-        uris: List<String> = emptyList(),
-    ) = musicLibrary.createMusicPlaylist(name, uris)
-
-    suspend fun importPlaylistFile(uri: Uri): PlaylistImportResult = musicLibrary.importPlaylistFile(uri)
-
-    fun renameMusicPlaylist(
-        oldName: String,
-        newName: String,
-    ) = musicLibrary.renameMusicPlaylist(oldName, newName)
-
-    fun moveMusicPlaylistTrack(
-        name: String,
-        from: Int,
-        to: Int,
-    ) = musicLibrary.moveMusicPlaylistTrack(name, from, to)
-
-    fun deleteMusicPlaylist(name: String) = musicLibrary.deleteMusicPlaylist(name)
-
-    fun addTrackToPlaylist(
-        playlist: String,
-        uri: String,
-    ) = musicLibrary.addTrackToPlaylist(playlist, uri)
-
-    fun removeTrackFromPlaylist(
-        playlist: String,
-        uri: String,
-    ) = musicLibrary.removeTrackFromPlaylist(playlist, uri)
 
     fun playPlaylist(
         playlist: String,
@@ -692,10 +631,6 @@ class PlayerSession internal constructor(
     }
 
     fun recentlyPlayed() = listening.recentlyPlayed()
-
-    fun saveSmartPlaylist(playlist: SmartPlaylist) = musicLibrary.saveSmartPlaylist(playlist)
-
-    fun deleteSmartPlaylist(name: String) = musicLibrary.deleteSmartPlaylist(name)
 
     fun resolveSmartPlaylist(playlist: SmartPlaylist): List<DeviceTrack> =
         SmartPlaylistMatcher.resolve(playlist, deviceTracks.value, listening::playCountOf, favourites.value)

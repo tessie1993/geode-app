@@ -11,6 +11,7 @@ import dev.geode.audio.MicCapture
 import dev.geode.data.Lyrics
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.Preset
+import dev.geode.data.VizUiState
 import dev.geode.di.PlayerSessionProvider
 import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect

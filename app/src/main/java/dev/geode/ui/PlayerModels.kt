@@ -1,11 +1,6 @@
 package dev.geode.ui
 
 import androidx.media3.common.Player
-import dev.geode.data.Preset
-import dev.geode.model.VizPlaylistEntry
-import dev.geode.pro.FreeTier
-import dev.geode.render.TransitionStyle
-import dev.geode.render.scene.SceneParams
 
 /**
  * What playback looks like, apart from the position. The position moves every poll tick, and as a
@@ -23,28 +18,6 @@ data class PlayerUiState(
     val queueIndex: Int = 0,
     val shuffle: Boolean = false,
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
-)
-
-data class VizUiState(
-    /** A fresh install (no saved live look) opens on the free showpiece, for Pro and free alike. */
-    val sceneId: String = FreeTier.FIRST_STYLE_ID,
-    val attack: Float = 0.6f,
-    val decay: Float = 0.12f,
-    val shaderError: String? = null,
-    val presets: List<Preset> = emptyList(),
-    val params: SceneParams = SceneParams.DEFAULT,
-    val vizPlaylist: List<VizPlaylistEntry> = emptyList(),
-    val vizPlaylistEnabled: Boolean = false,
-    val vizPlaylistIntervalSec: Int = 30,
-    val transitionStyle: TransitionStyle = TransitionStyle.FADE,
-    val transitionId: String = TransitionStyle.FADE.name.lowercase(),
-    val transitionDurationSec: Float = 1.2f,
-    val randomEnabled: Boolean = false,
-    val randomIntervalSec: Int = 20,
-    val randomIncludeStyles: Boolean = true,
-    val randomIncludePresets: Boolean = true,
-    val randomIncludeMilk: Boolean = false,
-    val randomizeColors: Boolean = false,
 )
 
 data class VizApply(

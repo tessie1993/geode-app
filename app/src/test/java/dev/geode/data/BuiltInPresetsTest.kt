@@ -1,4 +1,4 @@
-package dev.geode.ui
+package dev.geode.data
 
 import dev.geode.render.scene.SceneParams
 import org.junit.Assert.assertEquals

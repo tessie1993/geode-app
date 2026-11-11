@@ -4,6 +4,7 @@ import dev.geode.data.PerformanceTake
 import dev.geode.data.SaveTarget
 import dev.geode.data.TakeInfo
 import dev.geode.data.TakeRepository
+import dev.geode.data.VizUiState
 import dev.geode.editor.ProjectId
 import dev.geode.editor.ProjectRender
 import dev.geode.editor.StudioProject

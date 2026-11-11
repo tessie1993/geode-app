@@ -658,7 +658,7 @@ object GeodeNative {
 
     /**
      * The catalogue's presets section (core/viz/CataloguePresets): the bundled looks and every bundled
-     * preset, as its versioned line table (`geode_catalogue_presets_text`). Static; parse once (ui/BuiltInPresets does).
+     * preset, as its versioned line table (`geode_catalogue_presets_text`). Static; parse once (data/BuiltInPresets does).
      */
     external fun cataloguePresetsText(): String
 

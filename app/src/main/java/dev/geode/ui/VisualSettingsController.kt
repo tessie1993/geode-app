@@ -2,6 +2,7 @@ package dev.geode.ui
 
 import dev.geode.data.GuiPrefs
 import dev.geode.data.Preset
+import dev.geode.data.VizStateStore
 import dev.geode.render.TransitionCatalog
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.CoroutineScope

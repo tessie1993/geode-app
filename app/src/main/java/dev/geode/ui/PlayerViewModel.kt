@@ -124,6 +124,9 @@ class PlayerViewModel
 
         fun applyArtworkPalette() = session.trackColor.applyArtworkPalette()
 
+        /** The playing track's artwork for the eyedropper, or null (nothing playing, no artwork). Off the main thread. */
+        suspend fun artworkForPicking(): android.graphics.Bitmap? = session.trackColor.artworkBitmap()
+
         fun startSleepTimer(minutes: Int) = session.startSleepTimer(minutes)
 
         fun cancelSleepTimer() = session.cancelSleepTimer()

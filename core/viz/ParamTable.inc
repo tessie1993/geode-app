@@ -255,3 +255,13 @@ GEODE_PARAM(Int, liquidSurface, 0, 0, 2, Hold)
 // Camera travel for the flat (2D) styles: how much Fly speed (its sign too) zooms the picture in or
 // out without end, 0 off .. 1 (CameraRig::flatDive). Appended so every wire index survives.
 GEODE_PARAM(Float, camFlat, 0.0f, 0.0f, 1.0f, Fade)
+
+// Your colours (Customize › Look): the first palette's own colour stops, each a packed 0xRRGGBB
+// (viz/Colour.hpp), kNoStop (-1) unset. Set from paletteStop0 on, they replace that slot's ramp: the
+// stops evenly round a loop (lib_palette's palStops), the first stop's hue for the styles that colour by
+// one hue. Appended so every wire index survives; a float carries 0xFFFFFF exactly, as reactSeed's max.
+GEODE_PARAM(Int, paletteStop0, SceneParams::kNoStop, SceneParams::kNoStop, 16777215, Hold)
+GEODE_PARAM(Int, paletteStop1, SceneParams::kNoStop, SceneParams::kNoStop, 16777215, Hold)
+GEODE_PARAM(Int, paletteStop2, SceneParams::kNoStop, SceneParams::kNoStop, 16777215, Hold)
+GEODE_PARAM(Int, paletteStop3, SceneParams::kNoStop, SceneParams::kNoStop, 16777215, Hold)
+GEODE_PARAM(Int, paletteStop4, SceneParams::kNoStop, SceneParams::kNoStop, 16777215, Hold)

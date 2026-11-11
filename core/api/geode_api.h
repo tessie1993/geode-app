@@ -424,6 +424,23 @@ GEODE_API const char* geode_params_schema_text(void);
  * >= 0, else built-in palette `palette`, clamped into the table. The same for slot 2. Pure, any thread. */
 GEODE_API float       geode_params_palette_base(int palette, float base_override);
 GEODE_API float       geode_params_palette_range(int palette, float range_override);
+/* Your colours (viz/Colour.hpp): a colour is a packed 0xRRGGBB int, -1 for none. Pure, any thread.
+ * from_hsv: hue wraps, saturation and value clamp to 0..1. to_hsv writes hue, saturation, value (0..1) to out[3].
+ * parse_hex: "#RRGGBB", "RRGGBB", "#RGB" or "RGB", or -1. hex: "#RRGGBB" ("" for -1), valid until the
+ * calling thread's next call. average_argb: the mean of n 0xAARRGGBB pixels, alpha ignored (the eyedropper). */
+GEODE_API int         geode_colour_from_hsv(float h, float s, float v);
+GEODE_API void        geode_colour_to_hsv(int rgb, float* out);
+GEODE_API int         geode_colour_parse_hex(const char* text);
+GEODE_API const char* geode_colour_hex(int rgb);
+GEODE_API int         geode_colour_average_argb(const int32_t* argb, int n);
+/* `samples` colours along a palette, for the swatches the shell draws. ramp: your colours' loop through the
+ * first `count` of `stops` (lib_palette's palStops). stops_from_hues: `count` (<= 5) stops of a hue gradient,
+ * placed where ramp() puts them. params_palette_preview: what slot 1 (second = 0) or slot 2 of the
+ * geode_viz_set_params frame `params` paints before Hue shift and Hue range: its stops when set, else the
+ * cosine ramp of its hue base and span. */
+GEODE_API void        geode_palette_ramp(const int* stops, int count, int samples, int* out);
+GEODE_API void        geode_palette_stops_from_hues(float base, float range, int count, int* out);
+GEODE_API void        geode_params_palette_preview(const float* params, int second, int samples, int* out);
 /* The config params schema (core/viz/ConfigTable.inc): the values the data stores hold beside the scene params
  * (LFO and envelope slots, the palette maker's gradient, the look's envelope, the Studio clip edit,
  * the preset morph), one row each, as a versioned '|'-separated line table:

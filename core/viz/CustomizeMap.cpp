@@ -22,14 +22,16 @@ const std::vector<Section>& table() {
         {C::QuickKnobs, "knob_editor", false, S::Always, {"@macro_editor"}},
 
         {C::Look, "basics", true, S::Always, {"Palette", "Brightness", "Saturation", "Bloom"}},
+        // Your colours: the colour picker and eyedropper, first under the one palette list they add to.
+        {C::Look, "palette_maker", false, S::Always, {"@palette_maker"}},
+        // The blend before its second palette, which only shows once the blend is up.
         {C::Look,
          "colour_detail",
          false,
          S::Always,
-         {"Palette 2", "Palette blend", "Colour map", "Hue shift", "Hue range", "Temperature"}},
+         {"Palette blend", "Palette 2", "Colour map", "Hue shift", "Hue range", "Temperature"}},
         {C::Look, "colour_cycle", false, S::Always, {"Color cycle", "Cycle speed"}},
         {C::Look, "light_detail", false, S::Always, {"Contrast", "Gamma", "Intensity"}},
-        {C::Look, "palette_maker", false, S::Always, {"@palette_maker"}},
 
         {C::Shape, "basics", true, S::Always, {"Morph", "Kaleidoscope", "Detail"}},
         {C::Shape, "form", false, S::Always, {"Domain warp", "Twist", "Ripple", "Turbulence"}},

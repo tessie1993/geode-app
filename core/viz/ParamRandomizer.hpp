@@ -27,8 +27,9 @@ constexpr const char* kReactionDna = "Reaction DNA";
 struct RolledKey {
     Tab tab;
     const char* key;
-    // The SceneParams fields the roll writes (Kotlin property names); nullptr past the last.
-    std::array<const char*, 3> fields;
+    // The SceneParams fields the roll writes (Kotlin property names); nullptr past the last. Palette's are
+    // the most: the index, its two hue overrides and your colours' five stops.
+    std::array<const char*, 8> fields;
 };
 
 // Every rolled control in roll order, tab by tab.

@@ -832,18 +832,37 @@
     <string name="template_updated">Updated \"%1$s\".</string>
     <string name="template_share_subject">BeatRealms template: %1$s</string>
     <string name="template_untitled">Template</string>
-    <string name="palette_base_hue">Base hue %1$s</string>
-    <string name="palette_hue_span">Hue span %1$s</string>
-    <string name="palette_apply_gradient">Apply gradient</string>
-    <string name="palette_from_current">From current</string>
+    <!-- Your colours (Customize › Look): the colour picker, the eyedropper and saved palettes. -->
+    <string name="customize_your_colours">Your colours</string>
+    <string name="palette_explainer">Pick up to five colours: tap a swatch, then drag in the square and along the hue strip, type a hex code, or take a colour with the eyedropper. The visual loops through them as you go; Save keeps them beside the built-in palettes and in every preset you save.</string>
+    <string name="palette_stop">Colour %1$d of %2$d, %3$s</string>
+    <string name="palette_stop_add">Add a colour</string>
+    <string name="palette_stop_remove">Remove this colour</string>
+    <string name="palette_sv_square">Saturation and brightness</string>
+    <string name="palette_sv_state">Saturation %1$d%%, brightness %2$d%%</string>
+    <string name="palette_more_saturated">More saturated</string>
+    <string name="palette_less_saturated">Less saturated</string>
+    <string name="palette_brighter">Brighter</string>
+    <string name="palette_darker">Darker</string>
+    <string name="palette_hue_strip">Hue</string>
+    <string name="palette_hex_label">Hex</string>
+    <string name="palette_hex_invalid">Six hex digits, like #FF8800</string>
+    <string name="palette_pick_visual">Pick from the visual</string>
+    <string name="palette_pick_artwork">Pick from the artwork</string>
+    <string name="palette_pick_hint">Drag to the colour you want, then let go</string>
+    <string name="palette_pick_centre">Take the colour in the middle</string>
+    <string name="palette_pick_cancel">Cancel picking</string>
+    <string name="palette_pick_image">The picture to pick a colour from</string>
+    <string name="palette_from_current">Start from this palette</string>
     <string name="palette_name_label">Palette name</string>
     <string name="palette_save">Save palette</string>
-    <string name="palette_saved_heading">Saved palettes</string>
-    <string name="palette_none_yet">None yet — build a gradient above and save it.</string>
+    <string name="palette_saved_heading">Your palettes</string>
+    <string name="palette_none_yet">None yet: make one above and save it.</string>
     <string name="palette_edit">Edit</string>
     <string name="palette_delete">Delete</string>
-    <!-- Palette maker and the palette taken from a track's artwork. -->
-    <string name="palette_explainer">Build a gradient: the base hue is where it starts, the span is how far around the colour wheel it sweeps (0 = one flat colour). Apply auditions it on the scene; Save adds it to the palette row above and to every preset you save afterwards.</string>
+    <string name="palette_second">Second palette</string>
+    <string name="palette_second_previous">Previous second palette</string>
+    <string name="palette_second_next">Next second palette</string>
     <string name="palette_art_nothing_playing">Nothing is playing.</string>
     <string name="palette_art_no_artwork">This track has no embedded artwork.</string>
     <string name="palette_art_greyscale">The artwork has no colour to take — it is greyscale or nearly black.</string>

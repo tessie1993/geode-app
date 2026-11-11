@@ -768,7 +768,7 @@ class UiTourTest {
         val CUSTOMIZE_PAGES =
             linkedMapOf(
                 MACROS to emptyList<String>(),
-                "Look" to listOf("Make a palette"),
+                "Look" to listOf("Your colours"),
                 "Style" to emptyList<String>(),
                 MOTION to listOf(CAMERA, "Liquid", "Water ripples"),
                 "Music" to listOf("How it listens", "Notes & key"),

@@ -40,7 +40,7 @@ void check(bool ok, const std::string& what) {
 
 // The geode_viz_set_params frame size. Kotlin's SceneParamsCodec.FIELDS says the same number; a row
 // added to the table changes both, never one.
-constexpr int kWireFloats = 164;
+constexpr int kWireFloats = 169;
 
 bool integral(float v) { return std::floor(v) == v; }
 
@@ -62,7 +62,7 @@ void theTableIsTheWire() {
     check(SceneParams::spec(ParamSlot::speed).name == std::string("speed"), "ParamSlot::speed is slot 0");
     check(static_cast<int>(ParamSlot::speed) == 0, "speed is the wire's first float");
     check(SceneParams::spec(ParamSlot::flowCurl).name == std::string("flowCurl"), "ParamSlot::flowCurl names flowCurl");
-    check(static_cast<int>(ParamSlot::camFlat) == kWireFloats - 1, "camFlat is the wire's last float");
+    check(static_cast<int>(ParamSlot::paletteStop4) == kWireFloats - 1, "paletteStop4 is the wire's last float");
 }
 
 void everyRowIsWellFormed() {
@@ -314,8 +314,17 @@ void theTextIsTheTable() {
     check(line == "params|" + std::to_string(SceneParams::kSchemaTextVersion) + "|" + std::to_string(kWireFloats),
           "the text starts with its version and row count: " + line);
     int slot = 0;
+    size_t palette = 0;
     while (std::getline(lines, line)) {
         const auto f = split(line);
+        if (!f.empty() && f[0] == "palette") {
+            const auto& names = SceneParams::palettes();
+            check(slot == kWireFloats, "the palette names follow every param row: " + line);
+            check(f.size() == 3 && f[1] == std::to_string(palette) && palette < names.size() && f[2] == names[palette].name,
+                  "a palette row names the built-in at its index: " + line);
+            ++palette;
+            continue;
+        }
         if (slot >= SceneParams::kFieldCount) {
             check(false, "a row past the wire: " + line);
             break;
@@ -339,6 +348,7 @@ void theTextIsTheTable() {
         ++slot;
     }
     check(slot == kWireFloats, "one row per slot");
+    check(palette == SceneParams::palettes().size(), "one name per built-in palette");
     // The largest seed is a whole number on the wire, not "1.67772e+07".
     check(SceneParams::schemaText().find("|reactSeed|INT|0|0|16777215|HOLD|LIVE\n") != std::string::npos, "reactSeed's max is exact");
     check(SceneParams::schemaText().find("|waterDamping|FLOAT|0.985|0.9|0.999|FADE|LIVE\n") != std::string::npos, "short numbers stay short");

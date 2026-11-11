@@ -4,6 +4,7 @@ import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.LfoStore
 import dev.geode.data.MacroStore
 import dev.geode.data.PerformanceStore
+import dev.geode.data.PlayerPrefsCodec
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject

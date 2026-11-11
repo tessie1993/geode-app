@@ -10,21 +10,6 @@ namespace geode::viz {
 
 namespace {
 constexpr const char* kTag = "GeodeCompositePass";
-
-// Android Bitmap.getPixels hands back ARGB_8888 packed as 0xAARRGGBB ints; GLES RGBA8 wants
-// R,G,B,A byte order. Converted once here, on the GL thread, rather than by every caller of
-// setUnderlayRgba (which may be the audio or UI thread).
-void argbToRgbaBytes(const std::vector<uint32_t>& argb, std::vector<uint8_t>& out) {
-    out.resize(argb.size() * 4);
-    for (size_t i = 0; i < argb.size(); i++) {
-        const uint32_t px = argb[i];
-        uint8_t* dst = &out[i * 4];
-        dst[0] = static_cast<uint8_t>((px >> 16) & 0xFFu);  // R
-        dst[1] = static_cast<uint8_t>((px >> 8) & 0xFFu);   // G
-        dst[2] = static_cast<uint8_t>(px & 0xFFu);          // B
-        dst[3] = static_cast<uint8_t>((px >> 24) & 0xFFu);  // A
-    }
-}
 }  // namespace
 
 bool CompositePass::create(const std::string& fadeVert, std::string* error) {
@@ -57,14 +42,12 @@ void CompositePass::releaseStaleTextures() {
     underlayAmount_ = 0.0f;
 }
 
-void CompositePass::uploadUnderlay(const std::vector<uint32_t>& argbPixels, int width, int height, int blend, float amount) {
-    if (width <= 0 || height <= 0 || argbPixels.size() < static_cast<size_t>(width) * static_cast<size_t>(height)) {
-        GEODE_LOGW(kTag, "uploadUnderlay: invalid %dx%d for %zu pixels", width, height, argbPixels.size());
+void CompositePass::uploadUnderlay(const std::vector<uint8_t>& rgba, int width, int height, int blend, float amount) {
+    if (width <= 0 || height <= 0 || rgba.size() < static_cast<size_t>(width) * static_cast<size_t>(height) * 4) {
+        GEODE_LOGW(kTag, "uploadUnderlay: invalid %dx%d for %zu bytes", width, height, rgba.size());
         clearUnderlay();
         return;
     }
-    std::vector<uint8_t> rgba;
-    argbToRgbaBytes(argbPixels, rgba);
     if (!underlayTex_.ok() || underlayTex_.width() != width || underlayTex_.height() != height) {
         underlayTex_.createImage(GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, width, height, GL_LINEAR, GL_CLAMP_TO_EDGE);
     }

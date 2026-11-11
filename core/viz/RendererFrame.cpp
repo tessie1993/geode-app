@@ -414,8 +414,9 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
         applyRenderScale();
     }
     // Memory pressure (#854): shed the spare scenes on this GL thread; what is drawn is pinned. This reaches
-    // a surface that is still drawing; one that pauses sheds them at the pause (trimSpares).
-    if (SceneResidency::trimSignal().poll(seenTrim_)) trimScenes({}, MemoryTrim::UiHidden);
+    // a surface that is still drawing, so its passes keep their history (#999); one that pauses sheds more
+    // at the pause (trimSpares).
+    if (SceneResidency::trimSignal().poll(seenTrim_)) trimScenes({}, SceneResidency::shedFor(MemoryTrim::UiHidden, true));
     Scene* scene = resolveActiveScene();
     // Staging, a fresh switch, a transition's two scenes or a secondary's compiles: not the phone's pace.
     // A target that gave up staging (ScenePrep::Block) and still will not build is not settling.

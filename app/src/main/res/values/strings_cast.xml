@@ -9,5 +9,11 @@
     <string name="cast_stop">Stop casting</string>
     <string name="cast_button_locked">Cast to TV needs Pro</string>
     <string name="cast_failed">Casting stopped. The sound is back on the phone.</string>
+    <string name="cast_failed_no_lan">Casting needs Wi-Fi. Connect the phone to the same Wi-Fi as the TV (turn off a VPN if one is on), then try again.</string>
+    <string name="cast_failed_background">Android didn\'t let casting start while the app was closed. Open the app, then pick the TV again.</string>
+    <string name="cast_connecting">Starting the picture on %1$s…</string>
+    <string name="cast_connecting_unnamed">Starting the picture on the TV…</string>
+    <string name="cast_casting">Casting to %1$s</string>
+    <string name="cast_casting_unnamed">Casting to the TV</string>
     <string name="cast_trial_ended">Your Pro trial has ended, so casting stopped after this song. Go Pro to keep casting.</string>
 </resources>

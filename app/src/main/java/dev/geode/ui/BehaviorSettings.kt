@@ -29,7 +29,6 @@ import dev.geode.data.BehaviourStore
 import dev.geode.data.CanvasGesture
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GestureAction
-import dev.geode.data.GuiPrefs
 import dev.geode.data.NotificationButton
 import dev.geode.data.QueueEndAction
 import dev.geode.data.StartScreen
@@ -241,23 +240,22 @@ internal fun TouchSection(viewModel: SettingsViewModel) {
     }
 }
 
-/** Settings › Visuals › Connected display: the visual on HDMI or a cast display. */
+/** Settings › Visuals › Connected display: the visual on HDMI, USB-C or a wireless display (Pro, as Cast). */
 @Composable
-internal fun ConnectedDisplaySection(viewModel: SettingsViewModel) {
-    val gui: GuiPrefs by viewModel.guiPrefs.collectAsStateWithLifecycle()
-    val external = rememberExternalDisplay()
+internal fun ConnectedDisplaySection() {
+    val control = rememberConnectedDisplayControl()
     LabeledSwitch(
         stringResource(R.string.behavior_display_use),
-        checked = gui.secondScreen,
-        onCheckedChange = { viewModel.setGuiPrefs(gui.copy(secondScreen = it)) },
+        checked = control.on,
+        onCheckedChange = { control.toggle() },
     )
-    SettingsHint(
-        if (external != null) {
-            stringResource(R.string.behavior_display_connected, external.name)
-        } else {
-            stringResource(R.string.behavior_display_none)
-        },
-    )
+    val display = control.display
+    if (display != null) {
+        SettingsHint(stringResource(control.stateRes, display.name))
+        SettingsHint(stringResource(R.string.behavior_display_connected))
+    } else {
+        SettingsHint(stringResource(R.string.behavior_display_none))
+    }
 }
 
 /**

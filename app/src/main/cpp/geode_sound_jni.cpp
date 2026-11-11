@@ -85,6 +85,33 @@ Java_dev_geode_engine_bridge_GeodeNative_stageRun(JNIEnv*, jobject, jint flags) 
 }
 
 JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_stageDisplayEligible(JNIEnv*, jobject, jint flags) {
+    return geode_stage_display_eligible(static_cast<unsigned>(flags)) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_stagePickDisplay(JNIEnv* env, jobject, jintArray ids, jintArray flags,
+                                                          jint preferredId) {
+    if (ids == nullptr || flags == nullptr) return -1;
+    const jsize count = std::min(env->GetArrayLength(ids), env->GetArrayLength(flags));
+    std::vector<int> idv(static_cast<size_t>(count));
+    std::vector<unsigned> flagv(static_cast<size_t>(count));
+    std::vector<jint> raw(static_cast<size_t>(count));
+    if (count > 0) {
+        env->GetIntArrayRegion(ids, 0, count, raw.data());
+        for (jsize i = 0; i < count; ++i) idv[static_cast<size_t>(i)] = raw[static_cast<size_t>(i)];
+        env->GetIntArrayRegion(flags, 0, count, raw.data());
+        for (jsize i = 0; i < count; ++i) flagv[static_cast<size_t>(i)] = static_cast<unsigned>(raw[static_cast<size_t>(i)]);
+    }
+    return geode_stage_pick_display(idv.data(), flagv.data(), count, preferredId);
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_stagePresents(JNIEnv*, jobject, jint flags) {
+    return geode_stage_presents(static_cast<unsigned>(flags)) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_surfaceListening(JNIEnv*, jobject, jint flags, jlong animateUntilMs,
                                                           jlong nowMs) {
     return geode_surface_listening(static_cast<unsigned>(flags), animateUntilMs, nowMs) ? JNI_TRUE : JNI_FALSE;

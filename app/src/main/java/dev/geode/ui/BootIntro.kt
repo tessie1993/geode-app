@@ -176,7 +176,6 @@ fun BootIntro(onDone: () -> Unit) {
     }
 
     val primary = MaterialTheme.colorScheme.primary
-    val wordmark = LocalFontColor.current ?: MaterialTheme.colorScheme.onBackground
     Box(
         Modifier
             .fillMaxSize()
@@ -211,7 +210,7 @@ fun BootIntro(onDone: () -> Unit) {
                             scaleY = textScale.value
                         },
             ) {
-                Wordmark(color = wordmark)
+                Wordmark()
                 Text(
                     stringResource(R.string.boot_tagline).uppercase(LocalConfiguration.current.locales[0]),
                     color = primary.copy(alpha = 0.85f),

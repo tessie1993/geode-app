@@ -184,6 +184,7 @@ class PrefsSchemaTest {
     private val passThrough =
         setOf(
             "$DATA/GeodePrefsFiles.kt",
+            "$DATA/prefs/SettingsRepository.kt",
             "$DATA/VizStateStore.kt",
             "$DATA/FavouritesRepository.kt",
             "$DATA/UserDataRepository.kt",

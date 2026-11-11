@@ -1,9 +1,11 @@
 package dev.geode.journey
 
 import android.Manifest
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.rule.GrantPermissionRule
@@ -59,5 +61,31 @@ class ShellTabsTest {
 
         compose.tap("Player")
         compose.awaitEmptyPlayer()
+    }
+
+    /**
+     * Coming back to the app finds the tab bar on Visuals, however long it was away: the chrome's
+     * sleep timer used to run out in the background, and with no track loaded the bar faded even
+     * under the open options.
+     */
+    @Test
+    fun theTabBarIsThereWhenTheAppComesBack() {
+        compose.awaitEmptyPlayer()
+        compose.tap("Visuals")
+        compose.awaitNode(hasContentDescription("Show or hide the options"))
+
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        compose.awaitNode(hasText("Library") and hasClickAction())
+
+        // Past the default 6 s fade: the options are up, so the bar stays.
+        Thread.sleep(FADE_AND_MORE_MS)
+        compose.awaitNode(hasText("Library") and hasClickAction())
+        compose.tap("Library")
+        compose.awaitNoNode(hasText("Pick something to play"))
+    }
+
+    private companion object {
+        const val FADE_AND_MORE_MS = 8_000L
     }
 }

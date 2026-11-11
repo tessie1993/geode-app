@@ -208,7 +208,8 @@ internal fun VisualsHub(
         // (ShellChromeState.docked); with the options hidden it is a pill that sleeps with the
         // chrome, on the same fade as the tab bar under it.
         val playerOn = docked != null && !pip && (nav.sheetShown || chrome.awake)
-        val holdsDock = docked != null && !pip && nav.sheetShown
+        // With no track loaded there is no player to dock, and the tab bar still stays under the options.
+        val holdsDock = !pip && nav.sheetShown
         DisposableEffect(holdsDock, dropInOpen) {
             chrome.docked = holdsDock
             chrome.optionsHidden = dropInOpen

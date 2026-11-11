@@ -28,13 +28,45 @@ Before pasting, run `bash tools/store-check.sh` (lengths, banned words) and
 | 6 | Policy › App content › Privacy policy | The public URL of `docs/privacy-policy.html` | [data-safety.md](data-safety.md) › Privacy policy |
 | 7 | App content › Data safety | Answer as written | [data-safety.md](data-safety.md) |
 | 8 | App content › Content rating | Answer the questionnaire | [content-rating.md](content-rating.md) |
-| 9 | App content › Target audience, Ads, App access, News, Health, Government, Financial | Answer as written; read the Families checklist before ticking 9-12 | [content-rating.md](content-rating.md), [families.md](families.md) |
+| 9 | App content › Target audience, Ads, App access, News, Health, Government, Financial | Target age: 13-15, 16-17, 18 and over. The rest as written. See "A 13+ app" below | [content-rating.md](content-rating.md) |
 | 10 | App content › Foreground service permissions (appears once a bundle is uploaded) | One description and one video per service type | [permissions.md](permissions.md) |
 | 11 | Monetize › Products › In-app products | Create the one-time product with id `muzviz_pro`, set its price, activate it | owner |
 | 12 | Release › Production (or a test track first) | Upload the AAB from `release.yml`, paste the release notes | `fastlane/metadata/android/en-US/changelogs/default.txt` |
 
 The product id stays `muzviz_pro` after the rename: it is in the code
 (`BillingRepository.PRO_PRODUCT_ID`) and a buyer never sees it.
+
+## A 13+ app: what Play still asks
+
+From "Target audience and content"
+([answer/9867159](https://support.google.com/googleplay/android-developer/answer/9867159)) and
+the Families policy ([answer/9893335](https://support.google.com/googleplay/android-developer/answer/9893335)),
+read 2026-11-11:
+
+- **No neutral age screen.** Play requires one only when the target ages include children
+  and the app shows ads. Neither is true here.
+- **The listing must not look made for children.** If the app is not for children but the
+  listing has "marketing elements that suggest otherwise" (the page names youthful animation
+  and young characters), Play "may reject your app"; the ways out are to remove those elements
+  or to target children and meet the Families policy. The listing text and the planned
+  pictures are abstract visuals and app screens, with nothing of that kind. If the form asks
+  whether the listing could appeal to children, the answer is no.
+- **Tick only what the app is designed for.** Do not add a band under 13 "to be safe": any
+  band with children brings the Families policy back.
+- **13-15 and 16-17 can still be "children" in some countries.** The page says a developer
+  targeting anyone under 21 "must consider if they would be considered children under their
+  local laws". That is a question for the owner's counsel, not a Console field. The app helps
+  its own case: no ads, no accounts, no tracking.
+- **Content rating stays separate.** The IARC answers in [content-rating.md](content-rating.md)
+  do not change, and the rating that comes back may well be lower than 13; that is normal and
+  not a conflict with the target age.
+- **Nothing to switch on for minors.** "Build age-appropriate experiences on Google Play"
+  (`android docs`, `kb://android/distribute/age-appropriate-experiences`) names three tools:
+  the IARC rating (required, see above), Restrict Minor Access (required only for
+  age-restricted categories, optional otherwise and only with 18 and over as the sole band)
+  and the Play Age Signals API (optional). None is needed for this app.
+- **The form is reviewed.** Google checks the declared audience against the app and listing;
+  the page says up to 7 days, longer in some cases.
 
 ## Only the owner can do these
 
@@ -60,10 +92,9 @@ The product id stays `muzviz_pro` after the rename: it is in the code
    screen or in exported video. The code limits the parameters and no longer measures the
    finished frame. The store text makes the weaker claim; the in-app text should match what the
    code does, or the limiter should come back.
-5. **Target age: decided 2026-11-11**, no age limit, aimed at 10 and up: tick 9-12 and every
-   older band. That brings the Families policy; [families.md](families.md) lists what is met,
-   what must change first (the privacy policy's Children section, Cast starting at launch,
-   the safety notice) and what is the owner's in the Console.
+5. **Target age: decided 2026-11-11, "13+"** (it supersedes "target 10+" of the same day):
+   tick 13-15, 16-17 and 18 and over. The Families policy does not apply.
+   [families.md](families.md) keeps why 9-12 was dropped and the four things it would need.
 6. **The content rating questions** are answered from the code, but Google does not print the
    questionnaire in its help pages, so the wording there will differ from the notes.
 7. **The styles named "Acid"** in a store screenshot or the listing: harmless in the app,

@@ -41,12 +41,11 @@ limits (`core/viz/VisualSafety`).
 
 | Question | Answer | Why |
 |---|---|---|
-| Target age groups | **9-12, 13-15, 16-17, 18 and over** | Owner decision, 2026-11-11: "no age limit =, targert 10 +". Play has no 10+ band; 9-12 is the one that holds ten-year-olds. Ticking it puts the app under the Families policy |
+| Target age groups | **13-15, 16-17, 18 and over** | Owner decision, 2026-11-11: "13+" (it supersedes "target 10+" of the same day). No band under 13 is ticked, so the Families policy does not apply. It matches the privacy policy, which says the app is not directed at children under 13 |
+| If the form asks whether the listing could appeal to children | **No** | Abstract visuals, no characters, toys or youthful animation in the app, the listing or the pictures |
 
-What the Families policy then requires, what the repo already meets and what has to change
-first is in [families.md](families.md). Two things there block the tick: the privacy policy
-says the app is not directed at children under 13, and Google Cast starts for every user at
-launch.
+Why the 9-12 band was dropped, and what it would take to add it later:
+[families.md](families.md).
 
 ## The other declarations
 

@@ -71,6 +71,13 @@ If the owner takes the other reading, the whole form is: collects or shares data
 There is no analytics, advertising or crash-reporting SDK (CI fails the release build if one is
 added, AGENTS.md › Conventions), and no network code outside `cast/`.
 
+## Target audience and this form
+
+Owner decision, 2026-11-11: the target audience is 13 and over, so the Families policy's data
+rules (no SDK that is not approved for child-directed services, no identifiers from children)
+do not apply, and the Cast SDK starting at launch is only the judgement call above, not a
+blocker. [families.md](families.md) keeps what a younger audience would change.
+
 ## Privacy policy: does it agree?
 
 `docs/privacy-policy.html` (and `.md`, and the copy in `app/src/main/assets/privacy_policy.md`)

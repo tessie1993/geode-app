@@ -9,7 +9,9 @@ import java.util.concurrent.ConcurrentHashMap
 /** What reading a request line from a client came to. */
 internal sealed interface RequestLine {
     /** A full line, without its line break. */
-    data class Line(val text: String) : RequestLine
+    data class Line(
+        val text: String,
+    ) : RequestLine
 
     /** The line passed its size cap before a line break. */
     data object TooLong : RequestLine
@@ -63,7 +65,9 @@ internal object RequestLineReader {
  * Caps the connections one remote address may hold open, so a single device on the Wi-Fi can't
  * take the whole pool and starve the TV. [tryAcquire] before serving, [release] after.
  */
-internal class PerAddressLimit(private val max: Int) {
+internal class PerAddressLimit(
+    private val max: Int,
+) {
     private val open = ConcurrentHashMap<String, Int>()
 
     fun tryAcquire(address: String): Boolean {

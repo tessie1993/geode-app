@@ -1,6 +1,7 @@
 package dev.geode.journey
 
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -308,8 +309,10 @@ class UiTour(
 
     /**
      * Puts the app back in front after a step left it (an edge swipe that went home, a PiP
-     * window): REORDER_TO_FRONT brings the same activity instance back, so the compose rule
-     * keeps its hierarchy. A notification shade left open is closed first.
+     * window, a back that finished it). The intent equals the one ActivityScenario launched
+     * with: the scenario ignores an activity whose intent differs, so any other intent leaves
+     * the instance (singleTask keeps it, or a new one after a finish) untracked and never
+     * closed. A notification shade left open is closed first.
      */
     fun ensureForeground() {
         if (resumedActivity() != null) return
@@ -317,8 +320,9 @@ class UiTour(
         SystemClock.sleep(SHORT_SETTLE_MS)
         if (resumedActivity() != null) return
         val intent =
-            Intent(context, MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+            Intent
+                .makeMainActivity(ComponentName(context, MainActivity::class.java))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         runCatching { context.startActivity(intent) }
         SystemClock.sleep(FOREGROUND_SETTLE_MS)
     }

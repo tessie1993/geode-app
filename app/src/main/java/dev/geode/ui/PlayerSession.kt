@@ -23,10 +23,12 @@ import dev.geode.data.FileTakeRepository
 import dev.geode.data.FileTemplateRepository
 import dev.geode.data.GuiPrefs
 import dev.geode.data.LfoStore
+import dev.geode.data.LibraryState
 import dev.geode.data.Lyrics
 import dev.geode.data.LyricsLoader
 import dev.geode.data.MilkPackImporter
 import dev.geode.data.MilkTexture
+import dev.geode.data.MusicLibraryRepository
 import dev.geode.data.PlayerPrefs
 import dev.geode.data.PlayerPrefsRepository
 import dev.geode.data.PlayerPrefsStore
@@ -249,7 +251,7 @@ class PlayerSession internal constructor(
     val exportState: StateFlow<ExportUiState> get() = exportController.exportState
 
     /** The music library: tracks, folders, playlists and tags. [LibraryViewModel] calls it directly. */
-    internal val musicLibrary = MusicLibraryController(application, prefsFiles.library, scope)
+    internal val musicLibrary = MusicLibraryRepository(application, prefsFiles.library, scope)
 
     val library: StateFlow<LibraryState> get() = musicLibrary.library
 
@@ -608,7 +610,7 @@ class PlayerSession internal constructor(
 
     val libraryScanning: StateFlow<Boolean> get() = musicLibrary.libraryScanning
 
-    /** False until the first device-track query has answered; see [MusicLibraryController.deviceTracksLoaded]. */
+    /** False until the first device-track query has answered; see [MusicLibraryRepository.deviceTracksLoaded]. */
     val deviceTracksLoaded: StateFlow<Boolean> get() = musicLibrary.deviceTracksLoaded
 
     val minTrackSeconds: StateFlow<Int> get() = musicLibrary.minTrackSeconds

@@ -3,6 +3,7 @@ package dev.geode.ui
 import android.app.Application
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import dev.geode.data.MusicLibraryRepository
 import dev.geode.data.MusicPlaylist
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -27,7 +28,7 @@ class MusicLibraryPlaylistEditsTest {
     @Test
     fun anEditDoesNothingOnTheCallersThread() =
         runTest {
-            val controller = MusicLibraryController(application, prefs, backgroundScope, StandardTestDispatcher(testScheduler))
+            val controller = MusicLibraryRepository(application, prefs, backgroundScope, StandardTestDispatcher(testScheduler))
 
             controller.createMusicPlaylist("Road")
             assertEquals(emptyList<MusicPlaylist>(), controller.library.value.playlists)
@@ -39,7 +40,7 @@ class MusicLibraryPlaylistEditsTest {
     @Test
     fun aQueueIsSavedAsOnePlaylistWithEachTrackOnce() =
         runTest {
-            val controller = MusicLibraryController(application, prefs, backgroundScope, StandardTestDispatcher(testScheduler))
+            val controller = MusicLibraryRepository(application, prefs, backgroundScope, StandardTestDispatcher(testScheduler))
 
             controller.createMusicPlaylist("Queue", listOf("a", "b", "a", "c"))
             runCurrent()
@@ -50,7 +51,7 @@ class MusicLibraryPlaylistEditsTest {
     @Test
     fun editsLandInTheOrderTheyWereAskedFor() =
         runTest {
-            val controller = MusicLibraryController(application, prefs, backgroundScope, StandardTestDispatcher(testScheduler))
+            val controller = MusicLibraryRepository(application, prefs, backgroundScope, StandardTestDispatcher(testScheduler))
 
             controller.createMusicPlaylist("Mix")
             controller.addTrackToPlaylist("Mix", "a")

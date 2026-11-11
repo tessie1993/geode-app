@@ -1,4 +1,4 @@
-package dev.geode.ui
+package dev.geode.data
 
 import android.app.Application
 import android.content.SharedPreferences
@@ -7,19 +7,6 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
-import dev.geode.data.DeviceTrackQuery
-import dev.geode.data.LibraryPrefsStore
-import dev.geode.data.MusicPlaylist
-import dev.geode.data.MusicPlaylistStore
-import dev.geode.data.NativeTags
-import dev.geode.data.PlaylistFormats
-import dev.geode.data.PlaylistParse
-import dev.geode.data.SmartPlaylist
-import dev.geode.data.SmartPlaylistStore
-import dev.geode.data.TagWriteOutcome
-import dev.geode.data.TrackLibrary
-import dev.geode.data.TrackTagEdit
-import dev.geode.data.persistGrant
 import dev.geode.model.DeviceTrack
 import dev.geode.model.LibraryTrack
 import dev.geode.util.bestEffort
@@ -44,7 +31,7 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Outcome of [MusicLibraryController.importPlaylistFile], shown to the user as a single result. */
+/** Outcome of [MusicLibraryRepository.importPlaylistFile], shown to the user as a single result. */
 sealed interface PlaylistImportResult {
     data class Imported(
         val name: String,
@@ -77,7 +64,7 @@ private const val RESCAN_QUIET_MS = 1_000L
 private val AUDIO_EXTS = setOf("mp3", "wav", "flac", "ogg", "m4a", "aac", "opus", "wma", "aiff")
 
 @OptIn(ExperimentalCoroutinesApi::class)
-internal class MusicLibraryController(
+internal class MusicLibraryRepository(
     private val application: Application,
     private val libraryPrefs: SharedPreferences,
     private val scope: CoroutineScope,
@@ -546,4 +533,4 @@ internal class MusicLibraryController(
     }
 }
 
-private const val TAG = "MusicLibraryController"
+private const val TAG = "MusicLibraryRepository"

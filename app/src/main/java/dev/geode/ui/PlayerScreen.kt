@@ -728,7 +728,7 @@ private fun QuickActionsCard(
     val offered =
         listOfNotNull(
             stringResource(R.string.source_live_input),
-            stringResource(R.string.source_other_apps).takeIf { external.supported },
+            stringResource(R.string.source_other_apps),
             stringResource(R.string.quick_sleep_30m),
             stringResource(R.string.quick_shuffle_all),
         )
@@ -812,23 +812,21 @@ private fun QuickActions(
                 }
             }
         }
-        if (external.supported) {
-            item {
-                QuickAction(
-                    Icons.Filled.Cast,
-                    stringResource(if (external.active) R.string.quick_capturing else R.string.source_other_apps),
-                    active = external.active,
-                ) {
-                    if (external.active) {
-                        viewModel.stopExternalAudio()
-                    } else {
-                        capturePermissions.launch(
-                            arrayOf(
-                                android.Manifest.permission.RECORD_AUDIO,
-                                android.Manifest.permission.POST_NOTIFICATIONS,
-                            ),
-                        )
-                    }
+        item {
+            QuickAction(
+                Icons.Filled.Cast,
+                stringResource(if (external.active) R.string.quick_capturing else R.string.source_other_apps),
+                active = external.active,
+            ) {
+                if (external.active) {
+                    viewModel.stopExternalAudio()
+                } else {
+                    capturePermissions.launch(
+                        arrayOf(
+                            android.Manifest.permission.RECORD_AUDIO,
+                            android.Manifest.permission.POST_NOTIFICATIONS,
+                        ),
+                    )
                 }
             }
         }

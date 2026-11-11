@@ -50,16 +50,6 @@ fun ExternalAudioSettings(viewModel: PlayerViewModel) {
         }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (!external.supported) {
-            Text(stringResource(R.string.ext_visualize_other_apps), style = MaterialTheme.typography.bodyMedium)
-            Text(
-                stringResource(R.string.ext_needs_android10),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            return@Column
-        }
-
         LabeledSwitch(
             stringResource(R.string.ext_visualize_other_apps),
             checked = external.active || external.awaitingConsent,
@@ -171,7 +161,6 @@ private fun RefusedNotice(
 
 private fun failureText(failure: CaptureFailure): Int =
     when (failure) {
-        CaptureFailure.UNSUPPORTED -> R.string.ext_fail_unsupported
         CaptureFailure.PERMISSION -> R.string.ext_fail_permission
         CaptureFailure.CONSENT -> R.string.ext_fail_consent
         CaptureFailure.UNAVAILABLE -> R.string.ext_fail_unavailable

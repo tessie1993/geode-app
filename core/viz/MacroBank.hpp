@@ -75,7 +75,7 @@ struct Range {
 };
 
 // A target a link may name: one that writes a live scene param. The chained targets (they steer an
-// LFO slot), the retired slot and the inert Pulse are not.
+// LFO slot) and the retired slots are not.
 bool linkable(LfoTarget target);
 // What a link's fractions are of: the field's schema range, its top held to what safety::apply lets
 // through, so no part of a knob's travel is clamped away afterwards. {0, 0} for a target not linkable.

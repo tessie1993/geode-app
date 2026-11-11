@@ -43,7 +43,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the knife's breathing. Complexity (uMorph) adds up to two fractal
+// Speed scales the knife's breathing. Complexity (uMorph) adds up to two fractal
 // iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) warps and twists
 // space before the fractal (bulbChaos, estimate divided by bulbChaosLip).
 // Energy (uIntensity) scales the kick's push on the knife. Colour is tone(),

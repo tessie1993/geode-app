@@ -50,8 +50,7 @@ out vec4 fragColor;
 //
 // (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) sets the dye's density, sndShaped(SND_LOW) the fold depth, SND_TREBLE_PRESENCE the
 // filament sharpness. A spike re-aims the flight (uMoveDir), re-seeds the dye
-// (uSpawnSeed) and moves the fold count to a new plateau (uFormPhase). The
-// core's flare rides uSpike, which has a rise on it, so it swells.
+// (uSpawnSeed) and moves the fold count to a new plateau (uFormPhase).
 
 #define NF_MAX_STEPS 96
 #define NF_FOCAL 1.35
@@ -166,7 +165,7 @@ void main() {
     // The core the flight is aimed at: a small bright sun on the axis, its
     // halo swelling on a spike rather than flashing.
     float axis = pow(max(1.0 - length(uv) * 0.9, 0.0), 6.0);
-    col += pal(0.06) * axis * (0.16 + 0.26 * uSpike) * trans;
+    col += pal(0.06) * axis * 0.16 * trans;
 
     // The particle layer, matching the rest of the family.
     col += mix(pal(0.50), vec3(1.0), 0.35) * fluidMotes(uv * 1.1, 6.0, 0.14) * 0.22;

@@ -39,7 +39,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the bands' sweep and the churn. Complexity: uMorph
+// Speed scales the bands' sweep and the churn. Complexity: uMorph
 // adds a noise octave (nebVolOctaves, at most four). Chaos: uWarp/uTurbulence
 // swirl the cloud further through nebWarp3; uTwist via view(). Colour: cloud,
 // lit tops and lightning are pal(). Energy: uIntensity scales the bolt and the

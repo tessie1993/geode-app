@@ -43,7 +43,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the light's drift. Complexity: uMorph past 0.5 makes
+// Speed scales the light's drift. Complexity: uMorph past 0.5 makes
 // the tiles two thirds the size (more channels per stride). Chaos: uWarp/uTurbulence bend the floor's
 // plan before it is tiled, so the channels meander (that bend is not periodic
 // in z, so with Chaos up the rig's 8192-unit travel wrap can show once). Energy: uIntensity scales

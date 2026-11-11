@@ -35,7 +35,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the water's shiver and the Chaos drift. Complexity
+// Speed scales the water's shiver and the Chaos drift. Complexity
 // (uMorph) fades in an octave of hillside. Chaos (uWarp, uTurbulence, uTwist)
 // bends the hills, and the terraces with them (terraChaos). Energy
 // (uIntensity) scales the ripples and the ripening. Colour is pal() in the

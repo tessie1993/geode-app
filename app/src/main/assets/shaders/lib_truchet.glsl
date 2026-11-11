@@ -76,7 +76,7 @@
 //
 // INCLUDE ORDER
 //
-// After lib_scene_uniforms (reads uTime, uSpeed, uIntensity, uMorph, uWarp,
+// After lib_scene_uniforms (reads uTime, uIntensity, uMorph, uWarp,
 // uTurbulence). It reads no audio uniform itself - styles hand in floor(
 // floor(SND_HIT_TIME)), SND_ONSET_ENV and their own band levels - and it includes nothing,
 // because the include resolver does not de-duplicate.

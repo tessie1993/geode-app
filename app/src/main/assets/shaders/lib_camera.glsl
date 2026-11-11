@@ -23,8 +23,6 @@ uniform float uCamFocal;
 uniform float uCamTravel;
 /** The smoothed dolly offset, -1..1 (kick punches and drop pushes land here). */
 uniform float uCamDolly;
-/** Smoothed yaw, pitch, roll in radians, for styles that want to tilt something other than the view. */
-uniform vec3 uCamLook;
 
 /** One full turn per 1024 world units: multiply by an integer for a spin rate that survives the travel wrap. */
 #define CAM_SPIN_UNIT (6.2831853 / 1024.0)

@@ -77,7 +77,7 @@
 // coarse surface with the fine normal is the cheap way to get detail.
 //
 // INCLUDE ORDER: last, after lib_scene_uniforms and lib_camera (terraFly). It
-// reads uTime, uSpeed, uIntensity, uMorph, uSteps, uWarp, uTurbulence, uTwist,
+// reads uTime, uIntensity, uMorph, uSteps, uWarp, uTurbulence, uTwist,
 // each only inside the helper that needs it. No audio uniform is read here:
 // what the music moves is each style's business.
 
@@ -96,7 +96,7 @@ const mat2 TERRA_OCT = mat2(2.0, -1.0, 1.0, 2.0);
 
 // ---- the Customize macros ---------------------------------------------------
 //
-// As in every family, neutral at their defaults: Speed (uSpeed) scales
+// As in every family, neutral at their defaults: Speed scales
 // animation time, Complexity (uMorph) adds an octave (terraOctaves), Chaos
 // (uWarp, uTurbulence, uTwist) warps the ground plane before the field reads
 // it (terraChaos), Energy (uIntensity) scales how far the music moves the

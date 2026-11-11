@@ -62,6 +62,8 @@ class ReactionRouteCodecTest {
             true|THEREMIN|ZOOM|FOLLOW|0.3|LINEAR|0.05|0.3
             true|KICK|WARP_DRIVE|FOLLOW|0.3|LINEAR|0.05|0.3
             true|KICK|NONE|FOLLOW|0.3|LINEAR|0.05|0.3
+            true|KICK|PULSE|FOLLOW|0.3|LINEAR|0.05|0.3
+            true|KICK|GLITCH|FOLLOW|0.3|LINEAR|0.05|0.3
             maybe|HAT|TWIST|WOBBLE|0.4|SQUIGGLE|0.05|0.3
             """.trimIndent()
         val routes = ReactionRouteCodec.decode(text)!!

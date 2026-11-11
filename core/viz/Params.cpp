@@ -114,7 +114,16 @@ float SceneParams::get(std::string_view name) const { return getSlot(slotOf(name
 
 SceneParams SceneParams::fromWire(const float* values) {
     SceneParams p;
-    for (int i = 0; i < kFieldCount; ++i) p.setSlot(i, values[i]);
+    const auto& rows = schema();
+    for (int i = 0; i < kFieldCount; ++i) {
+        const ParamSpec& row = rows[static_cast<size_t>(i)];
+        float v = values[i];
+        // A non-finite value keeps the slot's default: stored, the resolver's lerp would hold a NaN for good.
+        if (!std::isfinite(v)) continue;
+        // An int is held to its row's range before it rounds, so a wild float never overflows lround.
+        if (row.kind == ParamKind::Int) v = std::clamp(v, row.min, row.max);
+        p.setSlot(i, v);
+    }
     return p;
 }
 

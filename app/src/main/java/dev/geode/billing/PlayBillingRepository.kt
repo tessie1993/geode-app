@@ -72,7 +72,7 @@ class PlayBillingRepository(
             .enableAutoServiceReconnection()
             .build()
 
-    private val isPro = MutableStateFlow(store.load().vouchesForPro(clock.nowMs(), verifier::isGenuine))
+    private val isPro = MutableStateFlow(store.load().vouchesForPro(verifier::isGenuine))
     private val product = MutableStateFlow<ProductLoad>(ProductLoad.Loading)
     private val status = MutableStateFlow<PurchaseStatus>(PurchaseStatus.Idle)
     private var productDetails: ProductDetails? = null
@@ -223,7 +223,7 @@ class PlayBillingRepository(
         val previous = store.load()
         val next = previous.after(answer, clock.nowMs())
         if (next != previous) store.save(next)
-        isPro.value = next.vouchesForPro(clock.nowMs(), verifier::isGenuine)
+        isPro.value = next.vouchesForPro(verifier::isGenuine)
     }
 
     private suspend fun acknowledge(purchase: Purchase) {

@@ -30,7 +30,8 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           // The user's march scale under the thermal ladder's (ADR 0008: march is its third rung).
                           [this] { return marchScale_.load(std::memory_order_relaxed) * thermal_.tierInfo().marchScale; },
                           [this] { return &resolver_.noteUniforms(); },
-                          [this] { return settingsLatch_.directorSeed(); }}),
+                          [this] { return settingsLatch_.directorSeed(); },
+                          [this] { return offscreen_.load(std::memory_order_relaxed); }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity),
       pcmDeliverScratch_(kPcmCapacity, 0.0f) {
@@ -96,7 +97,7 @@ void Renderer::writeAudio(const float* interleaved, int frames, int channels, in
     // MilkDrop's raw PCM is what the engine just heard (#360): one ring, one cursor, every surface.
     // Taken under its own lock, never nested in soundLock_, so the two locks have no order to keep.
     std::lock_guard<std::mutex> lock(stateLock_);
-    pcm_.write(interleaved, frames, channels);
+    pcm_.write(interleaved, frames, channels, sampleRateHz);
 }
 
 void Renderer::resetAudio() {

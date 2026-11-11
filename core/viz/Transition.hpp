@@ -5,6 +5,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -64,6 +65,8 @@ private:
     std::string source_;
     std::string fadeVert_;
     std::list<std::pair<std::string, std::unique_ptr<UniformCache>>> lru_;
+    // Ids whose spliced program failed to build in this context: not tried again until release().
+    std::set<std::string> failed_;
     const UniformCache* uploadedFor_ = nullptr;
     const TransitionCatalog::Def* uploadedDef_ = nullptr;
 };

@@ -26,7 +26,8 @@ import dev.geode.startedInForeground
 /**
  * Keeps a cast running with the app in the background or the screen off (owner, 2026-11-02):
  * a foreground service of type `mediaPlayback` ("continue video playback from the background"),
- * declared in Play Console with the other three (docs/play/CONSOLE_CHECKLIST.md § 7).
+ * declared in Play Console (Policy > App content > Foreground service permissions) with the
+ * other three types the manifest uses.
  *
  * It owns the [CastStream] and silences the phone while it runs: the sound plays on the TV,
  * inside the stream, and the phone is the remote. The music's player keeps playing (its PCM tap

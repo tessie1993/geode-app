@@ -1,0 +1,30 @@
+# Every permission the Play release may request: the <uses-permission> names of the merged
+# release manifest, one per line, sorted (LC_ALL=C sort). release.yml fails the bundle when the
+# merged manifest carries a name that is not here, so a library update cannot add a permission
+# to the store build unseen.
+#
+# To update: when the check names a new permission, find which dependency brings it (the
+# manifest merger report, app/build/outputs/logs/manifest-merger-release-report.txt), decide
+# whether the app should carry it (else remove it in app/src/main/AndroidManifest.xml with
+# tools:node="remove"), then add the line here and to the Permissions list of the privacy policy
+# (docs/privacy-policy.md and its two copies) in the same change. Remove a line when its
+# permission leaves the manifest.
+#
+# From app/src/main/AndroidManifest.xml, plus two that libraries add: com.android.vending.BILLING
+# (Play Billing) and <applicationId>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION (androidx.core's
+# own signature permission for its unexported receivers; it reaches nothing outside the app).
+android.permission.ACCESS_NETWORK_STATE
+android.permission.FOREGROUND_SERVICE
+android.permission.FOREGROUND_SERVICE_DATA_SYNC
+android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK
+android.permission.FOREGROUND_SERVICE_MEDIA_PROCESSING
+android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION
+android.permission.INTERNET
+android.permission.MODIFY_AUDIO_SETTINGS
+android.permission.POST_NOTIFICATIONS
+android.permission.READ_MEDIA_AUDIO
+android.permission.RECORD_AUDIO
+android.permission.VIBRATE
+android.permission.WAKE_LOCK
+com.android.vending.BILLING
+com.muzviz.studiopro.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION

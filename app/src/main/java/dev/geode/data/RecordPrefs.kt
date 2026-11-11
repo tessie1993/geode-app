@@ -2,6 +2,8 @@ package dev.geode.data
 
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.ExportQuality
 
@@ -58,5 +60,11 @@ class RecordPrefsStore(
 
         /** Every key this store writes. */
         val KEYS: Set<String> = setOf(KEY_QUALITY, KEY_FPS, KEY_MAX_SEC)
+
+        internal val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.GENERAL) {
+                portable(PrefType.STRING, KEY_QUALITY)
+                portable(PrefType.INT, KEY_FPS, KEY_MAX_SEC)
+            }
     }
 }

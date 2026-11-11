@@ -28,6 +28,7 @@ void check(bool ok, const char* what) {
 constexpr int kStopped = 0;
 constexpr int kStill = 1;
 constexpr int kAnimated = 2;
+constexpr int kDark = 3;
 
 constexpr unsigned kOnScreen = GEODE_SURFACE_HAS_SURFACE | GEODE_SURFACE_VISIBLE;
 constexpr unsigned kDefaults = GEODE_SURFACE_PAUSE_IN_BATTERY_SAVER | GEODE_SURFACE_REST_WHEN_SILENT;
@@ -383,6 +384,76 @@ void reducedMotion() {
     check(geode_surface_entitled(ends, kNow) == 1, "reduced motion does not end the dream");
 }
 
+// ---- The dream goes dark in silence (#999 F11) -----------------------------------------------------
+//
+// Owner: "No sound no visuals". The dream asks for GEODE_SURFACE_DARK_WHEN_SILENT, and where the wallpaper
+// rests on a still frame it shows nothing; anything else is the wallpaper's rule unchanged. Kills: the dark
+// branch without its silence or rest option, placed before the sight test or the cover (a covered dream
+// drawn), before the entitlement (a free dream dark, not still), after reduced motion or battery saver (a
+// still frame in silence), a dark preview, a bit that overlaps another, and listening losing the silence.
+
+constexpr unsigned kDarkDream = kDream | GEODE_SURFACE_DARK_WHEN_SILENT;
+
+void dreamGoesDarkInSilence() {
+    check(mode(kDarkDream) == kAnimated, "dream with sound: moving");
+    check(mode(kDarkDream | GEODE_SURFACE_SILENT) == kDark, "dream in silence: dark");
+    check(mode(kWallpaper | GEODE_SURFACE_SILENT) == kStill, "wallpaper in silence: still frame, as before");
+    check(mode(kOnScreen | GEODE_SURFACE_DARK_WHEN_SILENT | GEODE_SURFACE_SILENT) == kAnimated,
+          "rest when silent off: moving through the quiet");
+    check(mode(kDarkDream | GEODE_SURFACE_SILENT | kReduced) == kDark, "silence beats reduced motion: dark");
+    check(mode(kDarkDream | GEODE_SURFACE_SILENT | GEODE_SURFACE_BATTERY_SAVER) == kDark,
+          "silence beats battery saver: dark");
+    check(mode(kDarkDream | GEODE_SURFACE_BATTERY_SAVER) == kStill, "battery saver with sound: still");
+    check(mode(kDarkDream | kReduced) == kStill, "reduced motion with sound: still");
+    check(mode(kDarkDream | GEODE_SURFACE_SILENT | GEODE_SURFACE_COVERED) == kStopped, "covered beats dark");
+    check(mode(GEODE_SURFACE_HAS_SURFACE | kDefaults | GEODE_SURFACE_DARK_WHEN_SILENT | GEODE_SURFACE_SILENT) ==
+              kStopped,
+          "not dreaming: stopped");
+    check(mode(kDarkDream | GEODE_SURFACE_SILENT, kFree) == kStill, "without the entitlement: still (the dream ends)");
+    check(geode_surface_listening(kDarkDream | GEODE_SURFACE_SILENT, kPro, kNow) == 1, "a dark dream listens");
+    check(geode_surface_listening(kDarkDream | GEODE_SURFACE_SILENT | kReduced, kPro, kNow) == 0,
+          "dark under reduced motion hears nothing, as its still frame did");
+
+    // Every combination of the other nine bits under every entitlement: the bit changes exactly the silent
+    // rest, from a still frame to dark, and never listening.
+    constexpr unsigned kNineBits = 0x1FFu;
+    for (const Entitlement& e : kEntitlements) {
+        for (unsigned f = 0; f <= kNineBits; ++f) {
+            const int wallpaper = geode_surface_run_mode(f, e.until, kWall);
+            const int dream = geode_surface_run_mode(f | GEODE_SURFACE_DARK_WHEN_SILENT, e.until, kWall);
+            const bool shown = on(f, GEODE_SURFACE_HAS_SURFACE) && on(f, GEODE_SURFACE_VISIBLE);
+            const bool preview = on(f, GEODE_SURFACE_PREVIEW);
+            const bool rests = on(f, GEODE_SURFACE_SILENT) && on(f, GEODE_SURFACE_REST_WHEN_SILENT);
+            const bool dark = shown && !preview && !on(f, GEODE_SURFACE_COVERED) && e.moves && rests;
+            checkAt(dream == (dark ? kDark : wallpaper), "dark exactly in an entitled, uncovered silent rest", f,
+                    e.until);
+            if (dark) checkAt(wallpaper == kStill, "where the dream is dark the wallpaper is still", f, e.until);
+            checkAt(geode_surface_listening(f | GEODE_SURFACE_DARK_WHEN_SILENT, e.until, kWall) ==
+                        geode_surface_listening(f, e.until, kWall),
+                    "dark never changes listening", f, e.until);
+        }
+    }
+
+    // In and out of dark: nothing to settle, since there is no picture; out of it into a still frame (sound
+    // back in battery saver) the scene settles like any way into still.
+    check(geode_surface_settle_ms(kAnimated, kDark) == 0, "moving to dark: no settle");
+    check(geode_surface_settle_ms(kStill, kDark) == 0, "still to dark: no settle");
+    check(geode_surface_settle_ms(kDark, kAnimated) == 0, "dark to moving: no settle");
+    check(geode_surface_settle_ms(kDark, kStill) == 2'000, "dark to still: settle 2 s");
+
+    // The silence clock feeding it: dark on the first ms past the 6 s grace, sound wakes it.
+    Listener ear;
+    const long long t0 = kWall;
+    ear.heardAt = t0;
+    auto modeAt = [&](long long t, float level) {
+        const bool silent = ear.poll(level, level, t);
+        return geode_surface_run_mode(kDarkDream | (silent ? GEODE_SURFACE_SILENT : 0u), kPro, t);
+    };
+    check(modeAt(t0 + 6'000, 0.0f) == kAnimated, "6 s of quiet: moving");
+    check(modeAt(t0 + 6'001, 0.0f) == kDark, "6.001 s of quiet: dark");
+    check(modeAt(t0 + 60'000, 0.3f) == kAnimated, "sound back: moving again");
+}
+
 void settle() {
     check(geode_surface_settle_ms(kAnimated, kStill) == 2'000, "moving to still: settle 2 s");
     check(geode_surface_settle_ms(kStopped, kStill) == 2'000, "stopped to still: settle 2 s (a fresh scene builds)");
@@ -501,6 +572,7 @@ int main() {
     whatCountsAsSound();
     trialEndsDuringASilentRest();
     reducedMotion();
+    dreamGoesDarkInSilence();
     settle();
     fps();
     stage();

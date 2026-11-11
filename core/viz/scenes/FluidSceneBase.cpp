@@ -47,10 +47,10 @@ void FluidSceneBase::applyQualityTier() {
     const bool userChanged = params_.fluidQuality != lastUserQuality_;
     if (userChanged) {
         lastUserQuality_ = params_.fluidQuality;
-        autoDowngrade_ = 0;
+        autoDowngrade_.reset();
         monitor_.reset();
     }
-    const int idx = fluid::quality::effectiveIndex(params_.fluidQuality, params_.fluidAutoQuality ? autoDowngrade_ : 0);
+    const int idx = fluid::quality::effectiveIndex(params_.fluidQuality, params_.fluidAutoQuality ? autoDowngrade_.steps : 0);
     if (idx == appliedTier_ && tierApplied()) return;
     appliedTier_ = idx;
     onApplyQualityTier(idx, userChanged);
@@ -58,15 +58,12 @@ void FluidSceneBase::applyQualityTier() {
 
 void FluidSceneBase::autoQualityTick() {
     if (params_.fluidAutoQuality && host_.settling && host_.settling()) {
-        // Never upgrades, so a downgrade taken during a style switch would last the scene's life.
+        // A switch's slow frames are not this scene's.
         monitor_.reset();
     } else if (params_.fluidAutoQuality) {
         monitor_.setPacedFps(host_.pacedFps ? host_.pacedFps() : 0.0f);
         const int severity = monitor_.onFrame(lastDt_);
-        if (severity > 0) {
-            autoDowngrade_ += severity;
-            monitor_.reset();
-        }
+        if (autoDowngrade_.onFrame(severity, monitor_.keepingUp(), lastDt_)) monitor_.reset();
     }
     applyQualityTier();
 }

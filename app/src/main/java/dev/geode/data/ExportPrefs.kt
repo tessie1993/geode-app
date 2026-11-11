@@ -1,6 +1,8 @@
 package dev.geode.data
 
 import android.content.SharedPreferences
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.export.ExportCodec
 import dev.geode.export.ExportPreset
 import dev.geode.export.ExportPresets
@@ -166,9 +168,7 @@ class ExportPrefsStore(
             .apply()
     }
 
-    private fun prefixOf(destination: ExportDestination): String = "dest_${destination.name.lowercase()}_"
-
-    private companion object {
+    internal companion object {
         const val KEY_QUALITY = "export_quality"
         const val KEY_FPS = "export_fps"
         const val KEY_RATIO = "export_ratio"
@@ -177,5 +177,17 @@ class ExportPrefsStore(
         const val KEY_LOUDNESS = "export_loudness_target"
         const val KEY_SAVE_TO = "export_save_to"
         val FIELDS = listOf(KEY_QUALITY, KEY_FPS, KEY_RATIO, KEY_LOOP, KEY_CODEC, KEY_LOUDNESS, KEY_SAVE_TO)
+
+        private fun prefixOf(destination: ExportDestination): String = "dest_${destination.name.lowercase()}_"
+
+        /** The Render page's working set, then the same seven per [ExportDestination]. */
+        val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.GENERAL) {
+                for (p in listOf("") + ExportDestination.entries.map(::prefixOf)) {
+                    portable(PrefType.STRING, p + KEY_QUALITY, p + KEY_RATIO, p + KEY_CODEC, p + KEY_LOUDNESS, p + KEY_SAVE_TO)
+                    portable(PrefType.INT, p + KEY_FPS)
+                    portable(PrefType.BOOLEAN, p + KEY_LOOP)
+                }
+            }
     }
 }

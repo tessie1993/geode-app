@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
 import androidx.core.content.edit
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.render.LiquidHotPolicy
 import dev.geode.render.PerformanceMode
 import dev.geode.render.PerformanceSettings
@@ -71,6 +73,13 @@ class PerformanceStore(
          * tuning onto another: the new phone keeps its own pick.
          */
         val KEYS: Set<String> = setOf(KEY_SCALE, KEY_FPS, KEY_MARCH, KEY_POST_FX, KEY_ADAPTIVE, KEY_LIQUID_HOT)
+
+        val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.GENERAL) {
+                device(PrefType.FLOAT, KEY_SCALE, KEY_MARCH)
+                device(PrefType.INT, KEY_FPS, KEY_LIQUID_HOT)
+                device(PrefType.BOOLEAN, KEY_POST_FX, KEY_ADAPTIVE)
+            }
     }
 }
 

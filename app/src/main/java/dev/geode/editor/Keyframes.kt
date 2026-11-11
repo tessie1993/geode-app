@@ -180,28 +180,6 @@ data class Keyframe(
     val interpolation: Interpolation = Interpolation.Linear,
 )
 
-sealed interface KeyframeResult {
-    data class Applied(
-        val track: KeyframeTrack,
-    ) : KeyframeResult
-
-    data class Rejected(
-        val error: KeyframeError,
-    ) : KeyframeResult
-}
-
-sealed interface KeyframeError {
-    /** A track animates one shape of value for its whole life; mixing shapes has no meaning. */
-    data class KindMismatch(
-        val expected: ParamKind,
-        val actual: ParamKind,
-    ) : KeyframeError
-
-    data class KeyNotFound(
-        val id: KeyframeId,
-    ) : KeyframeError
-}
-
 /**
  * The animation of one parameter.
  *
@@ -235,26 +213,6 @@ data class KeyframeTrack(
             else -> blendBetween(keys[index], keys[index + 1], timeMs)
         }
     }
-
-    /** Add a key, or replace the one already sitting on that instant. */
-    fun withKey(key: Keyframe): KeyframeResult {
-        val current = kind
-        return if (current != null && current != key.value.kind) {
-            KeyframeResult.Rejected(KeyframeError.KindMismatch(current, key.value.kind))
-        } else {
-            KeyframeResult.Applied(withKeys(keys.filterNot { it.id == key.id || it.atMs == key.atMs } + key))
-        }
-    }
-
-    /** Follow a ripple edit: keys after the cut move with the picture they were written against. */
-    fun rippled(shift: RippleShift): KeyframeTrack =
-        withKeys(
-            keys.map {
-                if (it.atMs >= shift.fromMs) it.copy(atMs = (it.atMs + shift.deltaMs).coerceAtLeast(0L)) else it
-            },
-        )
-
-    private fun withKeys(next: List<Keyframe>): KeyframeTrack = copy(keys = next.sortedBy { it.atMs })
 }
 
 /** Every animated parameter in the project, programme-level and clip-scoped alike. */
@@ -295,21 +253,6 @@ data class KeyframeSheet(
         }
         return out
     }
-
-    /**
-     * Follow a ripple edit. A clip-scoped track moves when its own clip moved; a programme-level
-     * track only moves when the whole programme did, because a gap closed on one lane says nothing
-     * about the animation running over the piece as a whole.
-     */
-    fun rippled(shift: RippleShift): KeyframeSheet =
-        copy(
-            tracks =
-                tracks.map { track ->
-                    val clipId = track.clipId
-                    val follows =
-                        if (clipId == null) shift.scope == RippleScope.ALL_LANES else clipId in shift.movedClips
-                    if (follows) track.rippled(shift) else track
-                },
         )
 }
 

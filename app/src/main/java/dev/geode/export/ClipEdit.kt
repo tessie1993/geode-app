@@ -102,11 +102,6 @@ data class ClipEdit(
 ) {
     val hasGamma: Boolean get() = gammaRed != 1f || gammaGreen != 1f || gammaBlue != 1f
 
-    fun trimmedMs(sourceDurationMs: Long): Long {
-        val end = if (endMs > 0) endMs.coerceAtMost(sourceDurationMs) else sourceDurationMs
-        return (end - startMs).coerceAtLeast(0L)
-    }
-
     fun clipping(): MediaItem.ClippingConfiguration =
         MediaItem.ClippingConfiguration
             .Builder()

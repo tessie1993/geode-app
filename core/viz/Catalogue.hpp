@@ -105,7 +105,8 @@ const std::array<Family, 10>& families();
 // kind, a loose shader style by its own tag. Unknown ids are Silk's, so Flowing.
 Look lookOf(const std::string& id);
 
-// The scope of a Customize control, named by its ParamKeys string. Anything unlisted is Universal.
+// The scope of a Customize control, named by its ParamKeys string: the scope column of its fields'
+// meta rows in viz/ParamTable.inc. A key no live row names (a panel piece, a typo) is Universal.
 Scope scopeOf(const std::string& paramKey);
 bool reaches(Scope scope, const std::string& styleId);
 
@@ -120,7 +121,7 @@ const char* name(Look look);
 //   style|<id>|<KIND>|<LOOK>[|MARCH_DETAIL]   allIds() order; the extra field lists per-style scopes
 //   family|<name>|<prefix>|<library>|<id>,<id>,...   opener first
 //   override|<id>|<ParamKeys string>|<value>   the style holds that control at that value
-//   key|<ParamKeys string>|<SCOPE>         every non-Universal control
+//   key|<ParamKeys string>|<SCOPE>         every non-Universal control, in the wire order of its first field
 //   range|<ParamKeys string>|<min>|<max>
 //   value|<name>|<number>
 const std::string& text();

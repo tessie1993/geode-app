@@ -254,16 +254,18 @@ jobs:
 
       # Moved from android.yml, which runs by hand: there a stale fixture and a failing crossfade test
       # went unseen for days. Each fixture below is what the JVM tests read as "what native emits".
-      # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes, ranges, and
+      # The scene and style catalogue (core/viz/Catalogue): ids, families, param scopes (the params schema's
+      # meta rows, hence Params), ranges, and
       # its text table byte-equal to core/tests/catalogue.txt, the copy the JVM tests read.
       - name: Catalogue host tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/catalogue_test.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o catalogue_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/catalogue_test.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
+            core/viz/Params.cpp core/viz/ParamsFields.cpp -o catalogue_test
           ./catalogue_test core/tests/catalogue.txt
           # Shader truth: each shader style's camera rig and march facts against what its assembled shader reads.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl core/tests/style_reads_test.cpp core/viz/ShaderSource.cpp core/viz/Catalogue.cpp \
-            core/viz/scenes/StyleCatalog.cpp -o style_reads_test
+            core/viz/scenes/StyleCatalog.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp -o style_reads_test
           ./style_reads_test app/src/main/assets/
           # The visual gate's judge (#470): compiled so it keeps building; its render jobs left CI in #786, it runs by hand (tools/glslcheck README).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/visual_gate.cpp -o visual_gate

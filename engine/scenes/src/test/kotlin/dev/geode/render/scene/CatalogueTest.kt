@@ -61,8 +61,10 @@ class CatalogueTest {
 
     @Test
     fun everyScopedControlIsAParamKey() {
-        // The native table lists 80 controls that are not universal; all of them must be the same
-        // strings Kotlin labels, locks and searches by, or a control would silently go universal.
+        // 80 of the native table's controls that are not universal are ParamKeys (the other six are
+        // Customize's own keys: Fluid quality, its auto switch, Progression, the two fluid layers and
+        // Water ripples on); each must be the same string Kotlin labels, locks and searches by, or a
+        // control would silently go universal.
         assertEquals(80, paramKeys.count { ParamScope.of(it) != ParamScope.UNIVERSAL })
         assertEquals(ParamScope.MARCH_DETAIL, ParamScope.of(ParamKeys.MARCH_DETAIL))
         assertEquals(ParamScope.UNIVERSAL, ParamScope.of(ParamKeys.ZOOM))

@@ -236,6 +236,19 @@ const std::vector<RolledKey>& rolledKeys() {
     return kKeys;
 }
 
+const std::string& lockableKeysText() {
+    static const std::string kText = [] {
+        std::string out;
+        std::set<std::string_view> seen;
+        for (const auto& roll : rolledKeys()) {
+            if (seen.insert(roll.key).second) out += std::string(roll.key) + "
+";
+        }
+        return out;
+    }();
+    return kText;
+}
+
 const std::vector<std::pair<const char*, const char*>>& neverRolled() {
     static const std::vector<std::pair<const char*, const char*>> kNever = {
         {"paramFadeSec", "an automation preference, not a look"},

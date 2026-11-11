@@ -211,6 +211,14 @@ internal fun ControlHint(
 }
 
 /**
+ * The controls a roll can move, as the engine lists them, asked once for the whole panel (it was one
+ * JNI call and a linear scan per row). Kotlin only holds what native returned.
+ */
+private val lockableKeys: Set<String> by lazy {
+    GeodeNative.customizeLockableKeys().lineSequence().filter { it.isNotEmpty() }.toSet()
+}
+
+/**
  * A row's ⋮: reset, keep when randomizing, make it react to music. One small button per row in
  * place of the old Reset text button and lock toggle, so a glance down a page reads names and
  * values, not icons; the overflow is where Android users look for a row's actions.
@@ -224,7 +232,7 @@ private fun RowMenu(
 ) {
     val (kept, toggle) = LocalParamLocks.current
     // The engine says which controls a roll can move (core/viz/ParamRandomizer); only those can be kept.
-    val lockable = remember(lockKey) { GeodeNative.customizeLockable(lockKey) }
+    val lockable = lockKey in lockableKeys
     val reactTo = LocalReactTo.current
     val hasActions = lockable || onReset != null
     if (!hasActions && reactTo == null && about == null) return

@@ -334,7 +334,7 @@ void testHeldBetweenDecisions() {
 }
 
 // A look glides in over a bar of the tempo the tracker hears. With no tempo heard none is assumed (no
-// 120 bpm default): the glide is the same whatever stale bpm the frame carries.
+// stand-in tempo): the glide is the same whatever stale bpm the frame carries.
 void testNoTempoAssumed() {
     float glides[3] = {};
     const float bpms[3] = {0.0f, 60.0f, 240.0f};
@@ -362,7 +362,7 @@ void testNoTempoAssumed() {
         }
     }
     check(glides[0] == glides[1] && glides[1] == glides[2], "with no beat heard the glide does not depend on a bpm");
-    check(glides[0] > 1.5f && glides[0] < 2.1f, "and is a plain two seconds (" + std::to_string(glides[0]) + ")");
+    check(glides[0] > 1.5f && glides[0] < 2.1f, "and is a plain time in seconds, the middle of the 1..4 s glide range (" + std::to_string(glides[0]) + ")");
 }
 
 void testFeelingSurvivesTheSeed() {

@@ -23,9 +23,9 @@ class SettingsViewModel
 
         val userDataLoaded: StateFlow<Boolean> get() = userData.loaded
 
-        val playerPrefs: StateFlow<PlayerPrefs> get() = session.playerPrefs
+        val playerPrefs: StateFlow<PlayerPrefs> get() = session.settings.playerPrefs
 
-        val audioFx: StateFlow<AudioFxState> get() = session.audioFx
+        val audioFx: StateFlow<AudioFxState> get() = session.settings.audioFxState
 
         fun setGuiPrefs(prefs: GuiPrefs) = session.setGuiPrefs(prefs)
 

@@ -372,6 +372,25 @@ Java_dev_geode_engine_bridge_GeodeNative_macroBankRoll(JNIEnv* env, jobject, jst
 }
 
 JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankRollValues(JNIEnv* env, jobject, jstring bank, jstring styleId, jlong seed) {
+    Utf8Chars text(env, bank);
+    Utf8Chars style(env, styleId);
+    return env->NewStringUTF(geode_macro_bank_roll_values(text.get(), style.get(), static_cast<long long>(seed)));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankHideKnob(JNIEnv* env, jobject, jstring bank, jint knobId) {
+    Utf8Chars text(env, bank);
+    return env->NewStringUTF(geode_macro_bank_hide_knob(text.get(), knobId));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankShowKnob(JNIEnv* env, jobject, jstring bank, jint knobId) {
+    Utf8Chars text(env, bank);
+    return env->NewStringUTF(geode_macro_bank_show_knob(text.get(), knobId));
+}
+
+JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_macroBankAutoName(JNIEnv* env, jobject, jstring bank, jint knobId) {
     Utf8Chars text(env, bank);
     return env->NewStringUTF(geode_macro_bank_auto_name(text.get(), knobId));

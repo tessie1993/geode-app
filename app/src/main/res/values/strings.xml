@@ -699,6 +699,10 @@
     <string name="look_haptics">Vibrate on touch</string>
     <string name="look_haptics_hint">Small taps you feel on buttons, tabs and gestures. Follows the system touch-feedback setting.</string>
     <string name="look_tab_labels">Tab bar labels</string>
+    <string name="look_knob_size">Knob size</string>
+    <string name="look_knob_size_small">Small</string>
+    <string name="look_knob_size_medium">Medium</string>
+    <string name="look_knob_size_large">Large</string>
     <string name="look_tab_labels_auto">Automatic</string>
     <string name="look_tab_labels_always">Always</string>
     <string name="look_tab_labels_selected">Selected tab only</string>

@@ -33,6 +33,14 @@ data class MacroEditorKnob(
     val links: List<MacroLink>,
 )
 
+/** A knob in the bank's library, off screen: what Add macro offers to put back. */
+data class MacroLibraryKnob(
+    val id: Int,
+    val builtIn: Boolean,
+    val name: String,
+    val hint: String,
+)
+
 /** A target a link may name, by its modulation wire name, and whether the style on screen shows it. */
 data class MacroTarget(
     val name: String,
@@ -43,10 +51,15 @@ data class MacroEditorState(
     val maxKnobs: Int = 0,
     val maxLinks: Int = 0,
     val maxNameBytes: Int = 0,
+    /** A new knob fits on screen and in the bank. */
     val canAdd: Boolean = false,
+    /** A knob from [library] fits on screen. */
+    val canShow: Boolean = false,
     /** The four built-in knobs as built (their turn aside), so Reset all has nothing to do. */
     val isDefault: Boolean = true,
+    /** The knobs on screen, in bank order. */
     val knobs: List<MacroEditorKnob> = emptyList(),
+    val library: List<MacroLibraryKnob> = emptyList(),
     val targets: List<MacroTarget> = emptyList(),
     /** Every curve a link can take, in the order to offer them. */
     val curves: List<String> = emptyList(),
@@ -104,6 +117,7 @@ object MacroEditorTable {
         val knobs = mutableListOf<MacroEditorKnob>()
         val targets = mutableListOf<MacroTarget>()
         val curves = mutableListOf<String>()
+        val library = mutableListOf<MacroLibraryKnob>()
         for (f in rows.drop(1)) {
             when (f[0]) {
                 "caps" ->
@@ -115,9 +129,11 @@ object MacroEditorTable {
                 "link" -> attach(knobs, linkOf(f))
                 "target" -> if (f.size == TARGET_FIELDS) targets += MacroTarget(f[1], f[2] == ON)
                 "curve" -> if (f.size == CURVE_FIELDS) curves += f[1]
+                "screen" -> if (f.size == SCREEN_FIELDS) state = state.copy(canShow = f[1] == ON)
+                "library" -> libraryOf(f)?.let(library::add)
             }
         }
-        return state.copy(knobs = knobs, targets = targets, curves = curves)
+        return state.copy(knobs = knobs, targets = targets, curves = curves, library = library)
     }
 
     private fun attach(
@@ -133,6 +149,12 @@ object MacroEditorTable {
         val id = f[1].toIntOrNull() ?: return null
         val value = f[5].toFloatOrNull() ?: return null
         return MacroEditorKnob(id, f[2] == ON, f[3] == ON, f[4] == ON, value, f[6], f[7], emptyList())
+    }
+
+    private fun libraryOf(f: List<String>): MacroLibraryKnob? {
+        if (f.size != LIBRARY_FIELDS) return null
+        val id = f[1].toIntOrNull() ?: return null
+        return MacroLibraryKnob(id, f[2] == ON, f[3], f[4])
     }
 
     private fun linkOf(f: List<String>): MacroLink? {
@@ -153,4 +175,6 @@ object MacroEditorTable {
     private const val LINK_FIELDS = 8
     private const val TARGET_FIELDS = 3
     private const val CURVE_FIELDS = 2
+    private const val SCREEN_FIELDS = 2
+    private const val LIBRARY_FIELDS = 5
 }

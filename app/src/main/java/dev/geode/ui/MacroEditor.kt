@@ -18,6 +18,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +55,7 @@ import dev.geode.R
 import dev.geode.data.MacroBankState
 import dev.geode.data.MacroEditorKnob
 import dev.geode.data.MacroEditorState
+import dev.geode.data.MacroLibraryKnob
 import dev.geode.data.MacroLink
 import dev.geode.data.MacroStore
 import dev.geode.data.MacroTarget
@@ -69,7 +71,7 @@ import kotlin.math.roundToInt
  * on its name, a Turn slider (so the edit shows on the visual behind the sheet while it is made) and
  * the params it moves, each with how far a full turn up and a full turn down push it, as a share of
  * the param's range (and in its own units), and the curve it follows. A knob's ⋮ moves, copies, resets or
- * deletes it. New macros are made above, under the knobs ([NewMacroButton]).
+ * deletes it, or takes it off screen into the library. New macros are made above, under the knobs ([AddMacroButton]).
  *
  * Everything offered is native's answer ([MacroStore.editor], core/viz/MacroBank's editorText): the
  * caps, which targets exist and reach [sceneId], whether a knob can be reset or removed, the curves.
@@ -194,6 +196,7 @@ private fun knobActions(
         KnobAction(stringResource(R.string.macro_move_earlier), !place.first) { store.move(knob.id, -1) },
         KnobAction(stringResource(R.string.macro_move_later), !place.last) { store.move(knob.id, 1) },
         KnobAction(stringResource(R.string.macro_duplicate), place.room) { store.duplicate(knob.id)?.let(onOpen) },
+        KnobAction(stringResource(R.string.macro_remove_from_screen), true) { store.hide(knob.id) },
         if (knob.builtIn) {
             KnobAction(stringResource(R.string.macro_reset_knob), !knob.asBuilt) { onAsk(reset) }
         } else {
@@ -559,35 +562,73 @@ private val VALUE_WIDTH = 56.dp
 private val PICKER_MAX_HEIGHT = 420.dp
 
 /**
- * "New macro": an empty knob as a draft, then its editor ([MacroDraftDialog]) to fill it by hand or with
- * Random and save it under a name. Each place that offers it shows its own dialog only for the draft it made,
- * so the drawer and Customize never both open one.
+ * "Add macro" (+): a menu of New macro, an empty knob as a draft, then its editor ([MacroDraftDialog]) to fill it
+ * by hand or with Random and save it under a name, and the knobs in the bank's library (the built-in ones taken
+ * off screen and the user's), a tap putting one back. New macro is the knob editor's and follows [allowed]; putting
+ * a knob back is free, so a knob taken off screen can always come back. Each place that offers it shows its own
+ * dialog only for the draft it made, so the drawer and Customize never both open one.
  */
 @Composable
-internal fun NewMacroButton(
+internal fun AddMacroButton(
     bank: MacroBankState,
+    editor: MacroEditorState,
     store: MacroStore,
     sceneId: String,
-    enabled: Boolean = true,
     allowed: Boolean = true,
     onLocked: () -> Unit = {},
 ) {
     var making by rememberSaveable { mutableStateOf(false) }
-    TextButton(
-        onClick = {
-            if (!allowed) {
-                onLocked()
-            } else if (store.newDraft() != null) {
-                making = true
+    var open by remember { mutableStateOf(false) }
+    val library = if (editor.canShow) editor.library else emptyList()
+    Box {
+        TextButton(
+            onClick = { open = true },
+            enabled = editor.canAdd || library.isNotEmpty(),
+            modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget),
+        ) {
+            StoneIconArt(StoneIcon.ADD, null)
+            Text(stringResource(R.string.macro_add_macro), Modifier.padding(start = GeodeSpacing.S))
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.macro_new_knob)) },
+                leadingIcon = { StoneIconArt(StoneIcon.ADD, null) },
+                enabled = editor.canAdd,
+                onClick = {
+                    open = false
+                    if (!allowed) {
+                        onLocked()
+                    } else if (store.newDraft() != null) {
+                        making = true
+                    }
+                },
+            )
+            if (library.isNotEmpty()) HorizontalDivider()
+            library.forEach { knob ->
+                LibraryItem(knob) {
+                    open = false
+                    store.show(knob.id)
+                }
             }
-        },
-        enabled = enabled,
-        modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget),
-    ) {
-        StoneIconArt(StoneIcon.ADD, null)
-        Text(stringResource(R.string.macro_new_knob), Modifier.padding(start = GeodeSpacing.S))
+        }
     }
     MacroDraftHost(bank, store, sceneId, showing = making, onClosed = { making = false })
+}
+
+@Composable
+private fun LibraryItem(
+    knob: MacroLibraryKnob,
+    onPick: () -> Unit,
+) {
+    DropdownMenuItem(
+        text = {
+            Column {
+                Text(knob.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (knob.hint.isNotEmpty()) Note(knob.hint)
+            }
+        },
+        onClick = onPick,
+    )
 }
 
 /**

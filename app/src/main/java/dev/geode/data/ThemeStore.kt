@@ -8,6 +8,7 @@ import dev.geode.data.prefs.BackupClass
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.audio.SoundTuning
+import dev.geode.model.KnobSize
 import dev.geode.model.TabLabels
 import dev.geode.model.TourProgress
 
@@ -82,6 +83,7 @@ data class GuiPrefs(
     val tabLabels: TabLabels = TabLabels.AUTO,
     /** Player shows the time left (−m:ss) where the track's length is, instead of the length. */
     val showTimeLeft: Boolean = false,
+    val knobSize: KnobSize = KnobSize.SMALL,
 ) {
     companion object {
         const val TEXT_SCALE_MIN = 0.85f
@@ -142,6 +144,7 @@ class ThemeStore(
             haptics = prefs.getBoolean(KEY_HAPTICS, true),
             tabLabels = TabLabels.fromName(prefs.getString(KEY_TAB_LABELS, null)),
             showTimeLeft = prefs.getBoolean(KEY_SHOW_TIME_LEFT, false),
+            knobSize = KnobSize.fromName(prefs.getString(KEY_KNOB_SIZE, null)),
         )
     }
 
@@ -213,6 +216,7 @@ class ThemeStore(
             putBoolean(KEY_HAPTICS, gui.haptics)
             putString(KEY_TAB_LABELS, gui.tabLabels.name)
             putBoolean(KEY_SHOW_TIME_LEFT, gui.showTimeLeft)
+            putString(KEY_KNOB_SIZE, gui.knobSize.name)
         }
     }
 
@@ -276,10 +280,11 @@ class ThemeStore(
         const val KEY_HAPTICS = "gui_haptics"
         const val KEY_TAB_LABELS = "gui_tab_labels"
         const val KEY_SHOW_TIME_LEFT = "gui_show_time_left"
+        const val KEY_KNOB_SIZE = "gui_knob_size"
 
         val PREF_KEYS =
             prefKeys(GeodePrefsFiles.GENERAL) {
-                portable(PrefType.STRING, KEY_CORNER, KEY_SOUND_TUNING, KEY_TAB_LABELS)
+                portable(PrefType.STRING, KEY_CORNER, KEY_SOUND_TUNING, KEY_TAB_LABELS, KEY_KNOB_SIZE)
                 portable(PrefType.FLOAT, KEY_OPACITY, KEY_PRESET_MORPH_SEC, KEY_ACCENT, KEY_MINI_PLAYER_FADE, KEY_TEXT_SCALE)
                 portable(PrefType.FLOAT, KEY_TOUCH_SMEAR_STRENGTH)
                 portable(PrefType.INT, KEY_FONT_COLOR)

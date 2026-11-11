@@ -1,6 +1,5 @@
 package dev.geode.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -71,7 +70,7 @@ internal fun MacrosDrawer(
     onEdit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    BackHandler(enabled = visible, onBack = onDismiss)
+    CloseOnBack(enabled = visible, onBack = onDismiss)
     val motion = LocalGeodeMotion.current
     Box(modifier) {
         // The outside tap: a bare hit target under the panel, only while it is open, with no

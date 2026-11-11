@@ -383,7 +383,9 @@ void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float
     }
     if (f.loudness > 0.15f) heard_ += dt;
     sinceCommit_ += dt;
-    if (f.downbeat > 0.5f) barsSinceCommit_ += 1;
+    // A trigger's value is its strength (the beat tracker's confidence), not a level: any downbeat
+    // or phrase the tracker fires counts, as with Form's events below.
+    if (f.downbeat > 0.0f) barsSinceCommit_ += 1;
     const float bar = f.bpm > 0.0f && f.beatConf > 0.3f ? 240.0f / f.bpm : 2.0f;
     const float barGlide = std::clamp(bar, 1.0f, 4.0f);
 
@@ -403,10 +405,10 @@ void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float
         // there is no beat to land on).
         const bool moved = key_ >= 0 && key_ != committedKey_ && f.keyClarity >= 0.3f;
         modulationSeconds_ = moved ? modulationSeconds_ + dt : 0.0f;
-        const bool onBar = f.downbeat > 0.5f || f.beatConf < 0.3f;
+        const bool onBar = f.downbeat > 0.0f || f.beatConf < 0.3f;
         if (modulationSeconds_ >= 6.0f && onBar && sinceCommit_ >= 4.0f) {
             commit(Reason::Modulation, barGlide);
-        } else if ((barsSinceCommit_ >= 32 && f.phrase > 0.5f) || sinceCommit_ >= 75.0f) {
+        } else if ((barsSinceCommit_ >= 32 && f.phrase > 0.0f) || sinceCommit_ >= 75.0f) {
             commit(Reason::Long, barGlide);
         }
     }
@@ -464,15 +466,19 @@ SceneParams Director::apply(const SceneParams& p, bool palWheel) const {
     // whole offset. Blending toward the look instead ignored the slider at full weight, which is
     // every Pro and trial play: Brightness and Saturation stopped answering while Auto was on.
     static const SceneParams kDefaults{};
-    const auto over = [a](float user, float look, float base) { return user + a * (look - base); };
-    o.paletteMix = std::clamp(over(p.paletteMix, L.mix, kDefaults.paletteMix), 0.0f, 1.0f);
-    o.hueRange = over(p.hueRange, 1.0f, kDefaults.hueRange);
-    o.saturation = over(p.saturation, std::clamp(sat, 0.2f, 1.5f), kDefaults.saturation);
-    o.brightness = over(p.brightness, std::clamp(bright, 0.5f, 1.25f), kDefaults.brightness);
-    o.temperature = over(p.temperature, L.temperature, kDefaults.temperature);
-    o.contrast = over(p.contrast, std::clamp(contrast, 0.6f, 1.5f), kDefaults.contrast);
+    // Held to the dial's own range (ParamTable.inc): a low slider under a look below the default
+    // would otherwise go negative, and a negative saturation inverts the colour.
+    const auto over = [a](float user, float look, float base, float lo = 0.0f, float hi = 1.0f) {
+        return std::clamp(user + a * (look - base), std::min(lo, user), std::max(hi, user));
+    };
+    o.paletteMix = over(p.paletteMix, L.mix, kDefaults.paletteMix);
+    o.hueRange = over(p.hueRange, 1.0f, kDefaults.hueRange, 0.0f, 1.5f);
+    o.saturation = over(p.saturation, std::clamp(sat, 0.2f, 1.5f), kDefaults.saturation, 0.0f, 1.5f);
+    o.brightness = over(p.brightness, std::clamp(bright, 0.5f, 1.25f), kDefaults.brightness, 0.2f, 2.0f);
+    o.temperature = over(p.temperature, L.temperature, kDefaults.temperature, -1.0f, 1.0f);
+    o.contrast = over(p.contrast, std::clamp(contrast, 0.6f, 1.5f), kDefaults.contrast, 0.3f, 1.25f);
     o.milkdropPaletteTint = over(p.milkdropPaletteTint, 0.6f, kDefaults.milkdropPaletteTint);
-    o.camSmooth = std::clamp(over(p.camSmooth, L.camSmooth, kDefaults.camSmooth), 0.0f, 1.0f);
+    o.camSmooth = over(p.camSmooth, L.camSmooth, kDefaults.camSmooth);
     o.motionBreath = over(p.motionBreath, L.motionBreath, kDefaults.motionBreath);
     o.motionOrbit = over(p.motionOrbit, L.motionOrbit, kDefaults.motionOrbit);
     o.motionDrift = over(p.motionDrift, L.motionDrift, kDefaults.motionDrift);

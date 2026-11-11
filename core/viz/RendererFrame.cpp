@@ -25,6 +25,8 @@ constexpr float kSwirlRadius = 0.07f;
 // How hard the liquid sharpens its own back-trace, and how much extra the style's edges are re-poured.
 constexpr float kLiquidSharpen = 0.35f;
 constexpr float kLiquidEdge = 0.6f;
+// About two seconds at 60 Hz.
+constexpr int kFeedbackIdleFrames = 120;
 
 // The per-scene band trims (bassGain, midGain, trebGain) on the sound frame a scene reads: each band's
 // level and att envelope, and its shaped low/middle/high.
@@ -440,6 +442,14 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     }
     const bool feedback = feedbackDive > 0.0f || sustain;
     if (!feedback) diveWasOn_ = false;
+    // A paused Liquid keeps its place, so only Off counts as unused. The wait keeps a dive speed
+    // that an LFO swings through zero from rebuilding the targets every beat.
+    if (feedback || liveLiquid_ != liquid::Mode::Off) {
+        feedbackIdleFrames_ = 0;
+    } else if (++feedbackIdleFrames_ == kFeedbackIdleFrames) {
+        liquidPass_.releaseTargets();
+        bornFbo_.release();
+    }
     drawSceneTarget(*scene, sceneParams, dt);
     const GLuint liquidTex = feedback ? drawDive(p, feedbackDive, sustain, dt) : drawLiquid(*scene, p, dt);
     composite(p, progress, targetFbo, liquidTex);

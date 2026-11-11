@@ -26,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -65,15 +66,15 @@ fun TrackInfoEditor(
     LaunchedEffect(uri) { loaded = viewModel.trackInfoFor(uri) }
     val initial = loaded ?: return
 
-    var title by remember(initial) { mutableStateOf(initial.title) }
-    var artist by remember(initial) { mutableStateOf(initial.artist) }
-    var album by remember(initial) { mutableStateOf(initial.album) }
-    var genre by remember(initial) { mutableStateOf(initial.genre) }
-    var year by remember(initial) { mutableStateOf(if (initial.year > 0) initial.year.toString() else "") }
-    var trackNo by remember(initial) { mutableStateOf(if (initial.trackNo > 0) initial.trackNo.toString() else "") }
-    var comment by remember(initial) { mutableStateOf(initial.comment) }
-    var writeToFile by remember(initial) { mutableStateOf(false) }
-    var writeFailed by remember(initial) { mutableStateOf(false) }
+    var title by rememberSaveable(initial) { mutableStateOf(initial.title) }
+    var artist by rememberSaveable(initial) { mutableStateOf(initial.artist) }
+    var album by rememberSaveable(initial) { mutableStateOf(initial.album) }
+    var genre by rememberSaveable(initial) { mutableStateOf(initial.genre) }
+    var year by rememberSaveable(initial) { mutableStateOf(if (initial.year > 0) initial.year.toString() else "") }
+    var trackNo by rememberSaveable(initial) { mutableStateOf(if (initial.trackNo > 0) initial.trackNo.toString() else "") }
+    var comment by rememberSaveable(initial) { mutableStateOf(initial.comment) }
+    var writeToFile by rememberSaveable(initial) { mutableStateOf(false) }
+    var writeFailed by rememberSaveable(initial) { mutableStateOf(false) }
     var pendingEdit by remember(initial) { mutableStateOf<PendingTrackEdit?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current

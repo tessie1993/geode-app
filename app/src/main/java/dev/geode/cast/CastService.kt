@@ -14,8 +14,10 @@ import android.os.Looper
 import android.os.SystemClock
 import android.widget.Toast
 import androidx.media3.common.Player
+import dev.geode.LONG_WORK_WAKE_MS
 import dev.geode.R
 import dev.geode.RingLog
+import dev.geode.ServiceWakeLock
 import dev.geode.appLaunchIntent
 import dev.geode.billing.ProSnapshot
 import dev.geode.playback.PlaybackEngine
@@ -49,6 +51,7 @@ class CastService : Service() {
     /** Set when the trial ran out mid-cast: the cast ends when this song does. */
     private var stopAtSongEnd = false
     private var failed = false
+    private val wakeLock by lazy { ServiceWakeLock(this, TAG) }
 
     private val keepMuted =
         object : Player.Listener {
@@ -98,6 +101,8 @@ class CastService : Service() {
         started.onFailure { RingLog.note(TAG, "stream did not start: $it") }
         val s = started.getOrNull() ?: return fail()
         stream = s
+        // The phone encodes the picture; with the music paused nothing else keeps the CPU awake.
+        wakeLock.acquire(LONG_WORK_WAKE_MS)
         waitingSinceMs = SystemClock.elapsedRealtime()
         handler.post(waitForStream)
         handler.postDelayed(recheckPro, PRO_RECHECK_MS)
@@ -173,6 +178,7 @@ class CastService : Service() {
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
+        wakeLock.release()
         unmutePhone()
         val s = stream
         stream = null

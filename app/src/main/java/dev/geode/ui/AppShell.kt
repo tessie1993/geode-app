@@ -65,6 +65,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -920,6 +922,9 @@ fun SearchScreen(
         debounced = query
     }
     val dismiss = rememberPredictiveDismiss(onDismiss = onClose)
+    // Search opens ready to type: the field takes focus, which raises the keyboard.
+    val searchFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { searchFocus.requestFocus() }
 
     val terms = remember(debounced) { SearchMatcher.terms(debounced) }
     val trackResults =
@@ -980,7 +985,10 @@ fun SearchScreen(
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    modifier = Modifier.weight(1f),
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .focusRequester(searchFocus),
                     placeholder = { Text(stringResource(R.string.search_placeholder)) },
                     singleLine = true,
                 )

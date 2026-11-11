@@ -1156,6 +1156,24 @@ void driveScalesTheMagnitudeOfMotion() {
     check(quiet.state().energyRel < 0.4f * loud.state().energyRel, "the motion field's energy follows the drive");
     check(quiet.state().midRel < 0.4f * loud.state().midRel, "so does the drift's mid clock");
     check(loud.apply(SceneParams{}, false, 1.0f).speed > quiet.apply(SceneParams{}, false, 1.0f).speed, "and the speed it adds");
+    // A steady passage sits on the song's own average: its size, density and trails stay the user's.
+    GeodeSoundFrame steady = pad;
+    steady.volAtt = steady.bassAtt = steady.midAtt = steady.trebleAtt = 1.0f;
+    SceneParams dial;
+    dial.motionAmount = 1.0f;
+    MotionField level;
+    for (int k = 0; k < 600; ++k) level.step(steady, 1.0f / 60.0f);
+    const SceneParams held = level.apply(dial, false, 1.0f);
+    check(std::fabs(level.state().energySwing) < 1e-3f && std::fabs(level.state().midSwing) < 1e-3f, "a steady quiet passage has no swing");
+    check(std::fabs(held.particleSize - dial.particleSize) < 1e-3f && std::fabs(held.density - dial.density) < 1e-3f &&
+              std::fabs(held.fluidStirrerSpeed - dial.fluidStirrerSpeed) < 1e-3f,
+          "so quiet music does not shrink the particles, the density or the stirrer");
+    GeodeSoundFrame swell = steady;
+    swell.volAtt = 1.8f;
+    MotionField rising;
+    for (int k = 0; k < 600; ++k) rising.step(swell, 1.0f / 60.0f);
+    check(rising.state().energySwing > 0.0f && rising.apply(dial, false, 1.0f).particleSize > held.particleSize,
+          "and a swell above the average still grows them");
 
     SceneParams p;
     p.camFly = 1.0f;

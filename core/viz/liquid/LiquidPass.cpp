@@ -3,6 +3,8 @@
 #include <algorithm>
 
 #include "util/Log.hpp"
+#include "viz/Framebuffer.hpp"
+#include "viz/liquid/LiquidMath.hpp"
 
 namespace geode::viz::liquid {
 
@@ -77,6 +79,14 @@ void LiquidPass::releaseSide(Side& s) {
     s = {};
 }
 
+void LiquidPass::releaseTargets() {
+    releaseSide(sides_[0]);
+    releaseSide(sides_[1]);
+    width_ = height_ = 0;
+    read_ = 0;
+    fresh_ = true;
+}
+
 bool LiquidPass::ensure(int width, int height) {
     width = std::max(width, 1);
     height = std::max(height, 1);
@@ -109,6 +119,8 @@ GLuint LiquidPass::run(const Frame& f) {
     const int write = 1 - read_;
     Side& dst = sides_[write];
     glBindFramebuffer(GL_FRAMEBUFFER, dst.fbo);
+    // Every pixel is written below: a tile GPU must not load the old contents back first.
+    Framebuffer::discardColorAttachments(GL_FRAMEBUFFER, 2);
     glViewport(0, 0, width_, height_);
     glDisable(GL_BLEND);
     glUseProgram(program_);
@@ -132,7 +144,7 @@ GLuint LiquidPass::run(const Frame& f) {
     glUniform1f(uniforms_.loc("uTwist"), f.dive.twist);
     // The first frame after a reset pours the whole style in, so the liquid starts as the style.
     glUniform1f(uniforms_.loc("uInject"), fresh_ ? 1.0f : f.inject);
-    glUniform1f(uniforms_.loc("uEdge"), f.edge);
+    glUniform1f(uniforms_.loc("uEdge"), perFrameWeight(f.edge, f.dt));
     glUniform1f(uniforms_.loc("uSharpen"), f.sharpen);
     glUniform1f(uniforms_.loc("uBornR"), f.bornRadius);
     glUniform1f(uniforms_.loc("uBornGain"), fresh_ ? 0.0f : f.bornGain);
@@ -140,8 +152,8 @@ GLuint LiquidPass::run(const Frame& f) {
     glUniform1i(uniforms_.loc("uAge"), f.age);
     glUniform1i(uniforms_.loc("uSurface"), f.surface);
     glUniform1i(uniforms_.loc("uFeedback"), f.feedback ? 1 : 0);
-    glUniform1f(uniforms_.loc("uShimmer"), f.shimmer);
-    glUniform1f(uniforms_.loc("uWarp"), f.warp);
+    glUniform1f(uniforms_.loc("uShimmer"), f.shimmer * frames60(f.dt));
+    glUniform1f(uniforms_.loc("uWarp"), f.warp * frames60(f.dt));
     glUniform1f(uniforms_.loc("uLight"), f.light);
     glUniform1f(uniforms_.loc("uTime"), f.time);
     glBindVertexArray(f.quadVao);

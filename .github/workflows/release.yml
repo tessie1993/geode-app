@@ -91,6 +91,8 @@ jobs:
       # app/build.gradle.kts reads the GEODE_* names; all four are required to sign.
       # Same version rule as the pre-releases (root build.gradle.kts): the AAB carries the
       # number this commit shipped as (tag apk-v<base>.N), so it matches that pre-release.
+      # A commit that never shipped has no number and fails here: borrowing the latest one could
+      # repeat a versionCode already uploaded to Play.
       - name: Release number
         id: number
         env:
@@ -99,6 +101,9 @@ jobs:
           set -euo pipefail
           BASE=$(sed -n 's/^geode\.versionBase=//p' gradle.properties | tr -d '\r')
           N=$(tools/release-number.sh "$BASE" "$(git rev-parse HEAD)")
+          case "$N" in
+            ''|*[!0-9]*) echo "::error::No release number for this commit (got '$N')."; exit 1 ;;
+          esac
           echo "Version $BASE.$N"
           echo "n=$N" >> "$GITHUB_OUTPUT"
 

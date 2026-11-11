@@ -41,6 +41,8 @@ import dev.geode.R
 import dev.geode.data.BehaviourPrefs
 import dev.geode.data.CanvasGesture
 import dev.geode.data.GestureAction
+import dev.geode.model.GestureTip
+import dev.geode.model.TourSpot
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
@@ -57,8 +59,8 @@ import dev.geode.ui.theme.StoneHapticCue
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.floatingGlass
 import dev.geode.ui.theme.performStoneHaptic
-import dev.geode.ui.tour.GestureTip
-import dev.geode.ui.tour.GestureTips
+import dev.geode.ui.tour.LocalTourNudge
+import dev.geode.ui.tour.tourTarget
 import kotlin.math.roundToInt
 
 /**
@@ -123,6 +125,7 @@ internal fun BoxScope.StageIcons(
 ) {
     val studioViewModel: StudioViewModel = geodeViewModel()
     val record by studioViewModel.recordState.collectAsStateWithLifecycle()
+    val nudge = LocalTourNudge.current
     val glass = Modifier.floatingGlass(RoundedCornerShape(50), fillAlpha = GeodeGlass.MATTE_FILL)
     val fade = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
     val awake = chrome.awake
@@ -135,6 +138,7 @@ internal fun BoxScope.StageIcons(
             .then(toLeft)
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.End))
             .padding(GeodeSpacing.EdgeInset)
+            .tourTarget(TourSpot.STAGE_TOOLS)
             .faded(shown)
             .then(glass),
     ) {
@@ -153,7 +157,7 @@ internal fun BoxScope.StageIcons(
         }
         // Visuals › Settings, a page of the options (owner: an icon, no drop-down, no gesture).
         StageIconButton(StoneIcon.SETTINGS, stringResource(R.string.visuals_qs_title), awake, onSettings)
-        // Export, loop render and the takes list live in Studio; this only takes you there.
+        // Export, loop render and the recordings live in Studio; this only takes you there.
         StageIconButton(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render), awake, onOpenStudioRender)
         StageIconButton(
             StoneIcon.FULLSCREEN,
@@ -161,7 +165,7 @@ internal fun BoxScope.StageIcons(
             stringResource(if (sheetShown) R.string.visuals_gesture_toggle_sheet else R.string.visuals_show_options),
             awake,
             onClick = {
-                GestureTips.nudge(GestureTip.DOUBLE_TAP_SHEET)
+                nudge(GestureTip.DOUBLE_TAP_SHEET)
                 onFullScreen()
             },
         )
@@ -201,7 +205,7 @@ internal fun BoxScope.StageIcons(
             stringResource(R.string.visuals_previous_style),
             awake,
             {
-                GestureTips.nudge(GestureTip.SWIPE_STYLES)
+                nudge(GestureTip.SWIPE_STYLES)
                 onStep(-1)
             },
             Modifier
@@ -215,12 +219,13 @@ internal fun BoxScope.StageIcons(
             stringResource(R.string.visuals_next_style),
             awake,
             {
-                GestureTips.nudge(GestureTip.SWIPE_STYLES)
+                nudge(GestureTip.SWIPE_STYLES)
                 onStep(1)
             },
             Modifier
                 .align(Alignment.CenterEnd)
                 .padding(GeodeSpacing.S)
+                .tourTarget(TourSpot.STAGE_ARROWS)
                 .faded(shown)
                 .then(glass),
         )
@@ -233,7 +238,7 @@ internal fun BoxScope.StageIcons(
             if (record.recording) {
                 studioViewModel.stopRecording()
             } else {
-                GestureTips.nudge(GestureTip.HOLD_TO_RECORD)
+                nudge(GestureTip.HOLD_TO_RECORD)
                 studioViewModel.startRecording()
             }
         },
@@ -243,6 +248,7 @@ internal fun BoxScope.StageIcons(
                 .offset { IntOffset(-endPx().roundToInt(), -sheetTopPx().roundToInt()) }
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.End))
                 .padding(GeodeSpacing.EdgeInset)
+                .tourTarget(TourSpot.STAGE_RECORD)
                 .faded(recordShown)
                 .then(glass),
         tint = if (record.recording) MaterialTheme.colorScheme.error else Color.Unspecified,

@@ -80,33 +80,50 @@ class UiTourTest {
     fun firstRun() {
         tour.requireShell("first-run", hasText(SAFETY_TITLE))
         tour.pages("first-run", "safety-notice", pages = 3)
-        tour.step("first-run", "acknowledge", "the shell opens, with the first-run guide") {
+        tour.step("first-run", "acknowledge", "the shell opens, with the tour's first step and its Skip") {
             tour.tap(SAFETY_ACK)
-            "shell up: ${tour.waitFor(navItem(PLAYER))}"
+            "tour up: ${tour.waitFor(hasText(TOUR_SKIP_ALL))}"
         }
-        walkPointers("first-run", "guide")
+        tour.step("first-run", "skip-tour", "the tour ends at once and the Pro offer comes, once") {
+            tour.tap(TOUR_SKIP_ALL)
+            "offer up: ${tour.waitFor(hasText(PRO_OFFER))}"
+        }
+        tour.step("first-run", "close-offer", "the shell, with one line on where the tour is kept") {
+            tour.tap(CLOSE)
+            "note up: ${tour.waitFor(hasText(TOUR_OK), POINTER_WAIT_MS)}"
+        }
     }
 
     /**
-     * A user past the safety notice who has not seen the tour: the guided path (open Library,
-     * play a song, open Visuals), then each screen's pointers the first time it lays out, then a
-     * replay from Settings › Tutorials.
+     * A user past the safety notice who has not seen the tour: the first steps (a song, then
+     * Visuals), Visuals' pointers and the Pro offer after them, the Customize and Studio pointers
+     * the first time each is on screen, then a replay from Settings › Tutorials.
      */
     @Test
     @TourCase(index = 2, area = "pointers", tutorialSeen = false)
     fun tourPointers() {
-        tour.requireShell("pointers", navItem(LIBRARY))
-        tour.shot("pointers", "guide-start")
-        tour.step("pointers", "guide-open-library", "the guide's next pointer") { tour.tap(LIBRARY) }
-        walkPointers("pointers", "library")
-        tour.step("pointers", "guide-play", "a song playing; the guide points at Visuals") { playTone() }
-        tour.step("pointers", "guide-open-visuals", "Visuals' pointers") { tour.tap(VISUALS) }
-        walkPointers("pointers", "visuals")
-        for (dest in listOf(STUDIO, SETTINGS, PLAYER)) {
-            tour.step("pointers", "open-${slug(dest)}", "$dest's pointers, first time") { tour.tap(dest) }
-            walkPointers("pointers", slug(dest))
+        tour.requireShell("pointers", hasText(TOUR_SKIP_ALL))
+        tour.shot("pointers", "start")
+        tour.step("pointers", "start-open-library", "Library, and the tour waiting for a song") {
+            tour.tapIfPresent(TOUR_OPEN_LIBRARY)
+            null
         }
-        tour.step("pointers", "settings-tutorials", "Settings › Tutorials, a row per chapter") {
+        tour.step("pointers", "start-play", "a song playing; the tour points at the Visuals tab") {
+            val played = playTone()
+            "$played; pointer up: ${tour.waitFor(hasText(TOUR_OPEN_VISUALS))}"
+        }
+        tour.step("pointers", "start-open-visuals", "Visuals' pointers") { tour.tap(TOUR_OPEN_VISUALS) }
+        walkPointers("pointers", "visuals")
+        tour.step("pointers", "pro-offer", "the Pro offer after Visuals' pointers, closed") {
+            val offered = tour.waitFor(hasText(PRO_OFFER), POINTER_WAIT_MS)
+            tour.tapIfPresent(CLOSE)
+            "offered: $offered"
+        }
+        tour.step("pointers", "open-customize", "Customize's pointers, first time") { tour.tap(CUSTOMIZE) }
+        walkPointers("pointers", "customize")
+        tour.step("pointers", "open-studio", "Studio's pointers, first time") { tour.tap(STUDIO) }
+        walkPointers("pointers", "studio")
+        tour.step("pointers", "settings-tutorials", "Settings › Tutorials, every chapter ticked") {
             tour.tap(SETTINGS)
             tour.tap(TUTORIALS)
             null
@@ -117,6 +134,14 @@ class UiTourTest {
             null
         }
         walkPointers("pointers", "replay-customize")
+        tour.step("pointers", "replay-skip", "a replay skipped from its first pointer leaves Studio's page alone") {
+            tour.tap(SETTINGS)
+            tour.tapIfPresent(TUTORIALS)
+            tour.tap(chapterRow(STUDIO))
+            tour.waitFor(hasText(TOUR_SKIP) and hasClickAction(), POINTER_WAIT_MS)
+            tour.tap(TOUR_SKIP)
+            "pointer gone: ${!tour.has(hasText(TOUR_SKIP))}"
+        }
     }
 
     @Test
@@ -673,6 +698,12 @@ class UiTourTest {
         const val CAMERA = "Camera"
         const val TOUR_NEXT = "Next"
         const val TOUR_DONE = "Done"
+        const val TOUR_SKIP = "Skip"
+        const val TOUR_SKIP_ALL = "Skip tour"
+        const val TOUR_OK = "OK"
+        const val TOUR_OPEN_LIBRARY = "Open Library"
+        const val TOUR_OPEN_VISUALS = "Open Visuals"
+        const val PRO_OFFER = "Make your music come to life"
         const val TUTORIALS = "Tutorials & help"
         const val RENDER = "Render"
         const val MY_VIDEOS = "My videos"

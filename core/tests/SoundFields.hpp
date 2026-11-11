@@ -1,6 +1,6 @@
 #pragma once
 // Every scalar of GeodeSoundFrame by name, for the host tests that print or compare whole frames
-// (sound_rate_test, sound_golden_test) and the accuracy bench (tools/sound_bench).
+// (sound_rate_test, sound_golden_test).
 #include <cstddef>
 #include <cstring>
 

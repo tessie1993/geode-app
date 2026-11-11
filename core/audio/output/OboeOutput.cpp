@@ -40,7 +40,7 @@ std::shared_ptr<OboeOutput> OboeOutput::open(const Config& config) {
     // the audio written stays as far ahead of the speaker as it is with an AudioTrack.
     const int asked =
         OutputFifo::capacityFrames(config.sampleRateHz, config.channelCount, config.encoding, config.bufferBytes);
-    const int least = config.sampleRateHz / 1000 * OutputFifo::kMinLatencyMs;
+    const int least = config.sampleRateHz * OutputFifo::kMinLatencyMs / 1000;
     const int capacity = std::max(least, asked - output->streamBufferFrames_.load(std::memory_order_relaxed));
     output->fifo_ = std::make_unique<OutputFifo>(config.sampleRateHz, config.channelCount, capacity);
     return output;
@@ -65,7 +65,8 @@ bool OboeOutput::openStreamLocked() {
         ->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::Medium)
         ->setUsage(oboe::Usage::Media)
         ->setContentType(oboe::ContentType::Music)
-        // 0 is SessionId::Allocate, as it is AudioManager.AUDIO_SESSION_ID_GENERATE.
+        // 0 is SessionId::Allocate, as it is AudioManager.AUDIO_SESSION_ID_GENERATE. The cast is how
+        // Oboe documents passing a specific id (setSessionId: "an allocated sessionID").
         ->setSessionId(static_cast<oboe::SessionId>(session))
         ->setDeviceId(deviceId_ > 0 ? deviceId_ : oboe::kUnspecified)
         ->setDataCallback(std::shared_ptr<oboe::AudioStreamDataCallback>(self))
@@ -99,7 +100,10 @@ bool OboeOutput::openStreamLocked() {
 
 void OboeOutput::closeStreamLocked() {
     if (!stream_) return;
-    // close() also drops the stream's hold on this object (its callbacks).
+    // The stream holds shared_ptrs to its callbacks, which are this object, and this object holds the
+    // stream: a cycle. close() does not let go of the callbacks (Oboe 1.11.0 keeps them until the
+    // stream is destroyed), so only the reset() below breaks it. Both lines are needed: without the
+    // reset the output leaks, and nothing but that hold keeps this object alive through a callback.
     stream_->close();
     stream_.reset();
     streamStarted_ = false;
@@ -284,13 +288,17 @@ oboe::DataCallbackResult OboeOutput::onAudioReady(oboe::AudioStream*, void* audi
     return fifo_->drained() ? oboe::DataCallbackResult::Stop : oboe::DataCallbackResult::Continue;
 }
 
-void OboeOutput::onErrorAfterClose(oboe::AudioStream*, oboe::Result error) {
+void OboeOutput::onErrorAfterClose(oboe::AudioStream* stream, oboe::Result error) {
     std::lock_guard<std::mutex> lock(streamMutex_);
-    if (released_ || !stream_) return;
     // Only for the stream this output holds now: one it already replaced reports late.
-    const oboe::StreamState state = stream_->getState();
-    if (state != oboe::StreamState::Closed && state != oboe::StreamState::Disconnected) return;
-    __android_log_print(ANDROID_LOG_INFO, kTag, "stream lost (%s), reopening", oboe::convertToText(error));
+    if (released_ || !stream_ || stream != stream_.get()) return;
+    if (error != oboe::Result::ErrorDisconnected) {
+        // Not a route change. A new stream would likely meet the same error, and again: no reopen loop.
+        __android_log_print(ANDROID_LOG_WARN, kTag, "stream error (%s)", oboe::convertToText(error));
+        failed_.store(true, std::memory_order_relaxed);
+        return;
+    }
+    __android_log_print(ANDROID_LOG_INFO, kTag, "stream disconnected, reopening");
     // The default device from here on: the one asked for may be the one that went away.
     deviceId_ = 0;
     if (!reopenLocked()) failed_.store(true, std::memory_order_relaxed);

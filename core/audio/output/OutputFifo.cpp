@@ -104,7 +104,10 @@ int OutputFifo::writeBytes(const void* data, size_t bytes, int encoding) {
 }
 
 void OutputFifo::flush() {
-    floor_.store(write_.load(std::memory_order_relaxed), std::memory_order_release);
+    // seq_cst, as the consumer's re-check is: the new floor must be visible to that re-check before
+    // any sample the producer stores after this, and weaker orders do not promise that between two
+    // addresses (AArch64 may let the later sample store pass an earlier release store). A flush is rare.
+    floor_.store(write_.load(std::memory_order_relaxed), std::memory_order_seq_cst);
     stopped_.store(false, std::memory_order_relaxed);
     lastPosition_ = 0;
     stopPosition_ = 0;
@@ -173,7 +176,7 @@ void OutputFifo::read(float* out, int frames) {
 
     // A flush while copying: those frames are gone and the producer may have reused their slots, so
     // none of the copy is played. The read position stays; the floor is ahead of it now.
-    const int64_t floorNow = floor_.load(std::memory_order_acquire);
+    const int64_t floorNow = floor_.load(std::memory_order_seq_cst);  // see flush()
     const bool flushed = floorNow != floor;
     if (flushed) take = 0;
     const int silent = frames - take;

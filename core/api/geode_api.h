@@ -816,7 +816,8 @@ typedef struct geode_audio_out geode_audio_out;
 /* geode_audio_out_events' bits, each reported once. */
 #define GEODE_AUDIO_OUT_ADVANCING 1   /* the position moved for the first time since play */
 #define GEODE_AUDIO_OUT_UNDERRUN 2    /* the stream ran dry mid-stream */
-#define GEODE_AUDIO_OUT_FAILED 4      /* the stream is gone and would not reopen: make a new output */
+#define GEODE_AUDIO_OUT_FAILED 4      /* the stream is gone for good; writes take nothing (-1): the shell reports
+                                         the output stalled, so the sink builds a new one */
 GEODE_API int              geode_audio_out_supports(int encoding, int channels, int sample_rate);   /* 1 or 0 */
 /* Opens the stream for writes of `encoding`. buffer_bytes is the sink's buffer for this output (the FIFO
  * and the stream's own buffer share it; 0 = 250 ms); session_id the player's audio session (0 = allocate

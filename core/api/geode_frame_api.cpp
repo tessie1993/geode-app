@@ -6,11 +6,13 @@
 #include "viz/frame/HlsSegments.hpp"
 
 using geode::viz::frame::CastAudio;
+using geode::viz::frame::CastAudioFeed;
 using geode::viz::frame::CastFormat;
 using geode::viz::frame::FixedRateClock;
 namespace hls = geode::viz::frame::hls;
 
 static_assert(hls::kWindow == GEODE_HLS_WINDOW && hls::kStartSegments == GEODE_HLS_START_SEGMENTS);
+static_assert(hls::kMaxTracks == GEODE_HLS_TRACKS && hls::kMaxGrowth == GEODE_HLS_FRAGMENT_GROWTH);
 
 namespace {
 
@@ -33,6 +35,19 @@ CastAudio loadAudio(const int64_t* state) {
     a.produced = state[0];
     a.held = state[1];
     return a;
+}
+
+CastAudioFeed loadFeed(const int64_t* state) {
+    CastAudioFeed f = CastAudioFeed::started(static_cast<int>(state[2]));
+    f.queued = state[0];
+    f.pending = state[1];
+    return f;
+}
+
+void storeFeed(const CastAudioFeed& f, int64_t* state) {
+    state[0] = f.queued;
+    state[1] = f.pending;
+    state[2] = f.rateHz;
 }
 
 void storeAudio(const CastAudio& a, int64_t* state) {
@@ -91,6 +106,11 @@ int geode_hls_playlist(int64_t first_sequence, const double* durations, int coun
     return static_cast<int>(text.size());
 }
 
+size_t geode_hls_rewrite_fragment(const uint8_t* init, size_t init_size, int64_t moof_at, const uint8_t* fragment,
+                                  size_t fragment_size, int64_t* decode_times, uint8_t* out, size_t cap) {
+    return hls::rewriteFragment(init, init_size, moof_at, fragment, fragment_size, decode_times, out, cap);
+}
+
 int geode_cast_audio_start(int64_t* state, int rate_hz) {
     if (!state) return 0;
     const CastAudio a = CastAudio::started(rate_hz);
@@ -109,6 +129,31 @@ void geode_cast_audio_step(int64_t* state, int64_t gained_frames, int64_t until_
     out[3] = s.take;
     out[4] = s.pad;
     out[5] = s.ptsUs;
+}
+
+int geode_cast_audio_feed_start(int64_t* state, int rate_hz) {
+    if (!state) return 0;
+    const CastAudioFeed f = CastAudioFeed::started(rate_hz);
+    state[0] = f.queued;
+    state[1] = f.pending;
+    state[2] = f.rateHz;
+    return static_cast<int>(f.capacity());
+}
+
+int64_t geode_cast_audio_feed_add(int64_t* state, int64_t frames) {
+    if (!state) return 0;
+    CastAudioFeed f = loadFeed(state);
+    const int64_t drop = f.add(frames);
+    storeFeed(f, state);
+    return drop;
+}
+
+int64_t geode_cast_audio_feed_take(int64_t* state, int64_t buffer_frames, int64_t* pts_us) {
+    if (!state || !pts_us) return 0;
+    CastAudioFeed f = loadFeed(state);
+    const int64_t n = f.take(buffer_frames, *pts_us);
+    storeFeed(f, state);
+    return n;
 }
 
 }  // extern "C"

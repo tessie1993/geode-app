@@ -57,6 +57,11 @@ internal class CastEncoder(
     private val pendingFormats = arrayOfNulls<Format>(2)
     private val held = ArrayList<Triple<Boolean, ByteArray, BufferInfo>>()
 
+    /** PCM queued but not yet taken by an input buffer, and its native counts. */
+    private val feed = LongArray(GeodeNative.CAST_AUDIO_FEED_STATE)
+    private val backlog = ShortArray(GeodeNative.castAudioFeedStart(feed, AUDIO_RATE_HZ) * CHANNELS)
+    private val ptsUs = LongArray(1)
+
     init {
         val videoFormat =
             MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height).apply {
@@ -83,23 +88,34 @@ internal class CastEncoder(
     }
 
     /**
-     * Queues [frames] interleaved stereo frames at [AUDIO_RATE_HZ], stamped [ptsUs]. Called from the
-     * render loop; drops the block if the codec has no free input buffer (a stalled encoder must not
-     * stall the picture).
+     * Queues [frames] interleaved stereo frames at [AUDIO_RATE_HZ], the next block on the stream's
+     * sample clock. Called from the render loop, never waiting on the codec: what its free input
+     * buffers can't take now waits in [backlog] for the next call. How many each buffer takes, its PTS
+     * and what a stalled codec drops are native (core/viz/frame/CastAudio, CastAudioFeed).
      */
     fun queueAudio(
         pcm: ShortArray,
         frames: Int,
-        ptsUs: Long,
     ) {
-        val index = audio.dequeueInputBuffer(0)
-        if (index < 0) return
-        val buffer = audio.getInputBuffer(index) ?: return
-        buffer.clear()
-        buffer.order(ByteOrder.nativeOrder())
-        val samples = minOf(frames * CHANNELS, buffer.capacity() / BYTES_PER_SAMPLE)
-        buffer.asShortBuffer().put(pcm, 0, samples)
-        audio.queueInputBuffer(index, 0, samples * BYTES_PER_SAMPLE, ptsUs, 0)
+        val pending = feed[PENDING].toInt()
+        val drop = GeodeNative.castAudioFeedAdd(feed, frames)
+        val fromBacklog = minOf(drop, pending)
+        System.arraycopy(backlog, fromBacklog * CHANNELS, backlog, 0, (pending - fromBacklog) * CHANNELS)
+        val skip = drop - fromBacklog
+        System.arraycopy(pcm, skip * CHANNELS, backlog, (pending - fromBacklog) * CHANNELS, (frames - skip) * CHANNELS)
+        while (feed[PENDING] > 0) {
+            val index = audio.dequeueInputBuffer(0)
+            if (index < 0) return
+            val buffer = audio.getInputBuffer(index) ?: return
+            buffer.clear()
+            buffer.order(ByteOrder.nativeOrder())
+            val waiting = feed[PENDING].toInt()
+            val n = GeodeNative.castAudioFeedTake(feed, buffer.capacity() / (CHANNELS * BYTES_PER_SAMPLE), ptsUs)
+            buffer.asShortBuffer().put(backlog, 0, n * CHANNELS)
+            audio.queueInputBuffer(index, 0, n * CHANNELS * BYTES_PER_SAMPLE, ptsUs[0], 0)
+            if (n <= 0) return
+            System.arraycopy(backlog, n * CHANNELS, backlog, 0, (waiting - n) * CHANNELS)
+        }
     }
 
     private fun drainLoop() {
@@ -198,6 +214,7 @@ internal class CastEncoder(
         private val KEYFRAME_INTERVAL_SEC = castFormat[3]
         private val FRAGMENT_MS = KEYFRAME_INTERVAL_SEC * 1_000L
         private const val BYTES_PER_SAMPLE = 2
+        private const val PENDING = 1
         private const val IDLE_MS = 5L
         private const val JOIN_MS = 1_000L
 

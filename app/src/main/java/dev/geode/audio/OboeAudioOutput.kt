@@ -106,8 +106,7 @@ internal class OboeAudioOutput private constructor(
 
     override fun setAuxEffectSendLevel(level: Float) = Unit
 
-    override fun setPreferredDevice(preferredDevice: AudioDeviceInfo?) =
-        GeodeNative.audioOutSetDevice(handle, preferredDevice?.id ?: 0)
+    override fun setPreferredDevice(preferredDevice: AudioDeviceInfo?) = GeodeNative.audioOutSetDevice(handle, preferredDevice?.id ?: 0)
 
     /** Native's event bits (`GEODE_AUDIO_OUT_*`) as Media3's listener calls, on the playback thread. */
     private fun report(events: Int) {

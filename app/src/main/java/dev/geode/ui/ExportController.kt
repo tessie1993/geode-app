@@ -150,7 +150,7 @@ internal class ExportController(
     private val _exportState = MutableStateFlow(ExportUiState())
     val exportState: StateFlow<ExportUiState> = _exportState
 
-    private val _studio = MutableStateFlow(StudioUiState())
+    private val studioState = MutableStateFlow(StudioUiState())
 
     @Volatile
     private var exportCancelled = false
@@ -488,10 +488,10 @@ internal class ExportController(
         destination: Uri? = null,
         onRendered: (ProjectRender) -> Unit = {},
     ) {
-        if (_studio.value.phase.isBusy || ExportRun.running) return
+        if (studioState.value.phase.isBusy || ExportRun.running) return
         val limits = host.renderLimits()
         val edit = project.cappedAt(limits.capMs).edit
-        _studio.update { it.copy(phase = ExportPhase.Running(0f), notice = null) }
+        studioState.update { it.copy(phase = ExportPhase.Running(0f), notice = null) }
         ExportRun.begin(project.name.ifBlank { application.getString(dev.geode.R.string.render_video_label) })
         ExportService.start(application)
         studioJob =
@@ -540,7 +540,7 @@ internal class ExportController(
                                 RenderResult.NothingToRender ->
                                     ExportPhase.Failed(application.getString(dev.geode.R.string.editor_export_nothing))
                             }
-                        _studio.update { it.copy(phase = phase, notice = notice) }
+                        studioState.update { it.copy(phase = phase, notice = notice) }
                         // The report reaches the user whatever page they are on: the render may finish
                         // long after they left Studio.
                         if (notice != null && result != RenderResult.Cancelled) {
@@ -573,7 +573,7 @@ internal class ExportController(
         try {
             block()
         } catch (c: kotlinx.coroutines.CancellationException) {
-            _studio.update { it.copy(phase = ExportPhase.Idle) }
+            studioState.update { it.copy(phase = ExportPhase.Idle) }
             throw c
         } catch (t: Throwable) {
             val phase =
@@ -583,7 +583,7 @@ internal class ExportController(
                     val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
                     ExportPhase.Failed("${t.javaClass.simpleName}: $reason")
                 }
-            _studio.update { it.copy(phase = phase) }
+            studioState.update { it.copy(phase = phase) }
         } finally {
             studioJob = null
             ExportRun.finish()
@@ -594,7 +594,7 @@ internal class ExportController(
 
     private fun publishStudioProgress(p: Float) {
         val clamped = p.coerceIn(0f, 1f)
-        _studio.update { it.copy(phase = ExportPhase.Running(clamped)) }
+        studioState.update { it.copy(phase = ExportPhase.Running(clamped)) }
         ExportRun.publish(clamped)
     }
 

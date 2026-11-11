@@ -11,11 +11,6 @@ import androidx.compose.runtime.setValue
 import dev.geode.R
 import dev.geode.model.OpenedAudio
 
-/** Set once an audio file another app opened has started; `AppRoot` shows Player once. Process-wide like [MilkFileInbox]. */
-internal object OpenedAudioInbox {
-    var opened by mutableStateOf(false)
-}
-
 /** Shows Player after [OpenedAudioInbox] took a file in. */
 @Composable
 internal fun AudioFileOpened(appState: GeodeAppState) {
@@ -53,4 +48,9 @@ internal fun receiveAudioFile(
             Toast.makeText(app, R.string.opened_audio_refused, Toast.LENGTH_LONG).show()
         }
     }
+}
+
+/** Set once an audio file another app opened has started; `AppRoot` shows Player once. Process-wide like [MilkFileInbox]. */
+internal object OpenedAudioInbox {
+    var opened by mutableStateOf(false)
 }

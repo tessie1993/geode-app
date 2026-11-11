@@ -15,6 +15,7 @@ The vector stays wherever a single flat colour is needed:
 | Splash video (silent, 4.5 s cut of the owner's 10 s clip) | `tools/brand_raster.sh <source.mp4>` | `res/raw/splash_intro.mp4` |
 | Play Store icon, 512×512 32-bit PNG | Neon render | `muzviz-icon-512.png` |
 | Launcher background layer (hidden under the opaque foreground), themed icon, status-bar icon | Vector, `tools/brand_assets.py` | `res/drawable/ic_launcher_background.xml`, `ic_launcher_monochrome.xml`, `ic_stat_muzviz.xml` |
+| Wordmark on the system splash (its branding image, 200×80 dp) | Outlined Roboto, `tools/wordmark.py` | `res/drawable/splash_wordmark.xml` |
 | Vector masters | Vector, `tools/brand_assets.py` | `muzviz-icon.svg`, `muzviz-mark.svg`, `muzviz-monochrome.svg`, `muzviz-lockup.svg` |
 | Play feature graphic, 1024×500 | Google Flow banner + our outlined wordmark | `muzviz-feature-graphic.svg` → `muzviz-feature-graphic-1024x500.png` |
 
@@ -37,7 +38,12 @@ vector silhouette: the system tints it one colour, which a photo-like render can
 | Blue | `#82AAFF` | Vortex |
 | Amber | `#FFCB6B` | Pupil |
 
-The wordmark is Montserrat Regular (SIL Open Font License 1.1), outlined to paths and
+In the app the wordmark is live text, `ui/theme/Wordmark`: the theme's sans (Roboto on stock
+Android), "Beat" Bold, "Realms" Light with no space between, then "3D" Bold in the accent
+(`#9CC7FF`). One line where it fits; where it does not, "3D" sits at 62% between two rules under
+the name. The system splash can draw no text, so it shows the same one-line lockup outlined.
+
+The old lockup's wordmark is Montserrat Regular (SIL Open Font License 1.1), outlined to paths and
 emboldened with a matching stroke, so no font ships and none needs to be installed.
 
 ## Regenerating

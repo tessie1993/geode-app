@@ -445,9 +445,6 @@ class PlayerSession internal constructor(
 
     val takeState: StateFlow<TakeUiState> get() = takeController.state
 
-    private val _presetLocked = MutableStateFlow(false)
-    val presetLocked: StateFlow<Boolean> = _presetLocked
-
     private val trackColor: TrackColorController =
         TrackColorController(
             application,
@@ -558,8 +555,6 @@ class PlayerSession internal constructor(
                 override fun updateViz(transform: (VizUiState) -> VizUiState) = _vizState.update(transform)
 
                 override val isPlaying: Boolean get() = _uiState.value.isPlaying
-
-                override val presetLocked: Boolean get() = _presetLocked.value
 
                 // Auto-visuals only cycles through styles the user may keep; it never opens the
                 // paywall on its own.
@@ -737,10 +732,6 @@ class PlayerSession internal constructor(
         }
         val last = listening.recentlyPlayed(1).firstOrNull() ?: return
         playTrack(last.uri)
-    }
-
-    fun togglePresetLock() {
-        _presetLocked.update { !it }
     }
 
     fun playNext(uri: String) = queueController.playNext(uri)

@@ -99,8 +99,6 @@ class VisualsViewModel
 
         val lockedParams: StateFlow<Set<String>> get() = session.lockedParams
 
-        val presetLocked: StateFlow<Boolean> get() = session.presetLocked
-
         val presetFolders: StateFlow<PresetFolders> get() = session.presetFolders
 
         val backgroundPrefs: StateFlow<BackgroundPrefs> get() = session.backgroundPrefs
@@ -168,8 +166,6 @@ class VisualsViewModel
             name: String,
             onReady: (String) -> Unit,
         ) = session.useTexture(name, onReady)
-
-        fun togglePresetLock() = session.togglePresetLock()
 
         fun applyPreset(preset: Preset) = session.applyPreset(preset)
 

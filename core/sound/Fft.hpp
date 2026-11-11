@@ -10,7 +10,7 @@ namespace geode::sound {
 
 // One power-of-two FFT size on KISS FFT (third_party/kissfft, its header-only C++ transform), plan
 // built once. The live path and the export path run this same code on the same samples, which is what
-// keeps them in agreement; sound_golden_test pins the numbers.
+// keeps them in agreement.
 class Fft {
 public:
     explicit Fft(int size);

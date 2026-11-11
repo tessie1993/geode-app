@@ -26,7 +26,7 @@ Geode's visuals are only as good as what they hear. Two separate paths carry sou
 ## Rules
 
 - Engine logic lives in C++ (ADR 0003). Kotlin only feeds samples and reads results.
-- Export must equal live: `OffscreenSceneRenderer` steps its own engine at 1/fps from `TrackAudio`. Analysis runs per hop with the hop's dt, never the frame's; `core/tests/sound_golden_test.cpp` fails if 30 or 120 fps differ from 60 at a shared sample.
+- Export must equal live: `OffscreenSceneRenderer` steps its own engine at 1/fps from `TrackAudio`. Analysis runs per hop with the hop's dt, never the frame's; `core/tests/sound_rate_test.cpp` fails if 30 or 120 fps differ from 60 at a shared sample.
 - Never edit `ScaleTable.inc` or `EmotionTable.inc` by hand: change the CSV or the generator and regenerate.
 - A new `GeodeSoundFrame` value is also a new `ReactSource`. Update the reaction DNA (`core/viz/ReactionDna`) and the wire layouts the JVM tests check (`engine/scenes/src/test/`).
 

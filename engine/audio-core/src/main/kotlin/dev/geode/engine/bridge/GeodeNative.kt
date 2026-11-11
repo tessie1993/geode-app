@@ -689,6 +689,21 @@ object GeodeNative {
     external fun paramsSchemaText(): String
 
     /**
+     * The hue base a palette slot draws: [override] when it is >= 0, else built-in palette [palette]'s, the
+     * index clamped into the table (`geode_params_palette_base`, core/viz/Params). Pure.
+     */
+    external fun paramsPaletteBase(
+        palette: Int,
+        override: Float,
+    ): Float
+
+    /** [paramsPaletteBase] for the hue span (`geode_params_palette_range`). */
+    external fun paramsPaletteRange(
+        palette: Int,
+        override: Float,
+    ): Float
+
+    /**
      * The config params schema (core/viz/ConfigTable.inc) as its versioned line table: per row the group
      * (lfo, adsr, macro, palette, look, clip, theme), its index in the group, name, kind, default, control
      * range and unit (`geode_config_schema_text`). The stores' clamps and defaults are to read it. Static; parse once.

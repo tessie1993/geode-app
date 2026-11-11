@@ -376,6 +376,10 @@ GEODE_API const char* geode_params_roll_keys(void);
  * slots 0..count-1 in order; ints and bools as numbers, like the wire. Static: the pointer stays valid for the
  * process; the shell parses it once. Labels and page placement stay in Kotlin. */
 GEODE_API const char* geode_params_schema_text(void);
+/* The hue base and span a palette slot draws (viz/Params paletteBase, paletteRange): the override when it is
+ * >= 0, else built-in palette `palette`, clamped into the table. The same for slot 2. Pure, any thread. */
+GEODE_API float       geode_params_palette_base(int palette, float base_override);
+GEODE_API float       geode_params_palette_range(int palette, float range_override);
 /* The config params schema (core/viz/ConfigTable.inc): the values the data stores hold beside the scene params
  * (LFO and envelope slots, the palette maker's gradient, the look's envelope, the Studio clip edit,
  * the preset morph), one row each, as a versioned '|'-separated line table:

@@ -630,6 +630,16 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsSchemaText(JNIEnv* env, jobject) 
 }
 
 JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsPaletteBase(JNIEnv*, jobject, jint palette, jfloat override) {
+    return geode_params_palette_base(palette, override);
+}
+
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsPaletteRange(JNIEnv*, jobject, jint palette, jfloat override) {
+    return geode_params_palette_range(palette, override);
+}
+
+JNIEXPORT jfloat JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_touchZoom(JNIEnv*, jobject, jfloat current, jfloat scaleFactor) {
     return geode_touch_zoom(current, scaleFactor);
 }

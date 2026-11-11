@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 // When the app's own stage (the one visual the Activity hosts) draws, and who feeds Auto while it does not.
@@ -40,5 +41,52 @@ inline bool draws(uint32_t flags) {
 inline bool castLeadsAuto(uint32_t flags) { return (flags & kCasting) != 0 && !draws(flags); }
 
 inline uint32_t run(uint32_t flags) { return (draws(flags) ? kDraws : 0u) | (castLeadsAuto(flags) ? kCastLeadsAuto : 0u); }
+
+// The connected display the stage moves to (HDMI, USB-C DisplayPort, a wireless display), and whether it does.
+// A display qualifies when Android lets a Presentation show on it: it has FLAG_PRESENTATION, is not the
+// built-in screen, and is not the display the app's own window is on (desktop windowing on a connected display
+// can move the whole Activity there, and a presentation over its own task is refused). A display that refused
+// or dropped the presentation kMaxDisplayFailures times running is skipped until it changes or the app starts
+// again. The user's pick wins while it qualifies; else the first one switched on; else the first.
+enum DisplayFlag : uint32_t {
+    kDisplayPresentation = 1u << 0,
+    kDisplayDefault = 1u << 1,
+    kDisplayHost = 1u << 2,
+    kDisplayOn = 1u << 3,
+};
+inline constexpr uint32_t kDisplayFailureShift = 8;  // failures so far, bits 8..15
+inline constexpr uint32_t kMaxDisplayFailures = 3;
+
+inline bool displayEligible(uint32_t flags) {
+    if ((flags & kDisplayPresentation) == 0 || (flags & (kDisplayDefault | kDisplayHost)) != 0) return false;
+    return ((flags >> kDisplayFailureShift) & 0xFFu) < kMaxDisplayFailures;
+}
+
+inline int pickDisplay(const int32_t* ids, const uint32_t* flags, size_t count, int32_t preferredId) {
+    if (ids == nullptr || flags == nullptr) return -1;
+    int first = -1;
+    int firstOn = -1;
+    for (size_t i = 0; i < count; ++i) {
+        if (!displayEligible(flags[i])) continue;
+        const int index = static_cast<int>(i);
+        if (ids[i] == preferredId) return index;
+        if (first < 0) first = index;
+        if (firstOn < 0 && (flags[i] & kDisplayOn) != 0) firstOn = index;
+    }
+    return firstOn >= 0 ? firstOn : first;
+}
+
+// The stage shows on the picked display only while the user wants it there, the entitlement allows it (Cast's
+// gate) and there is a display to show on.
+enum PresentFlag : uint32_t {
+    kPresentWanted = 1u << 0,
+    kPresentEntitled = 1u << 1,
+    kPresentFound = 1u << 2,
+};
+
+inline bool presents(uint32_t flags) {
+    constexpr uint32_t all = kPresentWanted | kPresentEntitled | kPresentFound;
+    return (flags & all) == all;
+}
 
 }  // namespace geode::viz::stage

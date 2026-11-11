@@ -321,6 +321,42 @@ window.__liquid = async function (job) {
   }
   return out;
 };
+// ---- Endless zoom: the style, then dive_frag.glsl over its picture (check.mjs --dive) ----------------
+window.__dive = async function (job) {
+  const out = { frames: [] };
+  const progs = [];
+  try {
+    const W = job.width, H = job.height;
+    canvas.width = W; canvas.height = H;
+    const styleProg = link(job.vert, job.styleFrag); progs.push(styleProg);
+    const diveProg = link(job.vert, job.diveFrag); progs.push(diveProg);
+    const styleTex = target(W, H, false);
+    const styleFbo = fbo([styleTex]);
+    gl.disableVertexAttribArray(0);
+    gl.viewport(0, 0, W, H);
+    gl.disable(gl.BLEND);
+    for (const fr of job.frames) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, styleFbo);
+      gl.useProgram(styleProg);
+      bindUniforms(styleProg, fr.style, {});
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.useProgram(diveProg);
+      bindUniforms(diveProg, fr.dive, { style: styleTex });
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.finish();
+      out.frames.push(canvas.toDataURL('image/png').split(',')[1]);
+    }
+    const err = gl.getError();
+    out.glError = err === gl.NO_ERROR ? 0 : err;
+  } catch (e) {
+    out.error = String(e.message || e).replace(/\n/g, ' | ');
+  } finally {
+    for (const p of progs) gl.deleteProgram(p);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+  return out;
+};
 // ---- The stills gate: one style through the sound engine's golden song (check.mjs --stills) ----------
 //
 // One program, many frames: a few stills at the report size (black and blown are judged on those), then a

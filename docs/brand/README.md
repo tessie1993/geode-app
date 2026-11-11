@@ -1,6 +1,8 @@
 # BeatRealms 3D brand
 
-The product was renamed from MuzViz Studio Pro to BeatRealms 3D on 2026-11-11. The asset file names below keep the old `muzviz-` prefix, and the lockup and the Play feature graphic still spell the old wordmark: redraw both (`tools/brand_assets.py`, which still outlines "MuzViz / STUDIO PRO") before the Play listing goes up.
+The product was renamed from MuzViz Studio Pro to BeatRealms 3D on 2026-11-11. The old MuzViz
+lockup and feature graphic are gone; the files below carry the new name. (`ic_stat_muzviz.xml` is
+a resource id in the app and keeps its name.)
 
 The mark is an eye made of sound: spectrum bars (waveform) inside a rippling oscilloscope lid,
 around a twisted-hexagon vortex iris (fractal). The palette is the old neon purple, on brand night
@@ -13,11 +15,11 @@ The vector stays wherever a single flat colour is needed:
 |---|---|---|
 | Launcher icon foreground (all densities), system splash, BootIntro's first frame | Neon render, `tools/brand_raster.sh` | `res/drawable-*dpi/ic_launcher_foreground.webp`, `res/drawable-nodpi/splash_mark.webp` |
 | Splash video (silent, 4.5 s cut of the owner's 10 s clip) | `tools/brand_raster.sh <source.mp4>` | `res/raw/splash_intro.mp4` |
-| Play Store icon, 512×512 32-bit PNG | Neon render | `muzviz-icon-512.png` |
+| Play Store icon, 512×512 32-bit PNG | Neon render | `beatrealms-icon-512.png` |
 | Launcher background layer (hidden under the opaque foreground), themed icon, status-bar icon | Vector, `tools/brand_assets.py` | `res/drawable/ic_launcher_background.xml`, `ic_launcher_monochrome.xml`, `ic_stat_muzviz.xml` |
 | Wordmark on the system splash (its branding image, 200×80 dp) and in the app (`ui/theme/Wordmark`, BootIntro) | Outlined Pacifico and Orbitron, `tools/wordmark.py` | `res/drawable/splash_wordmark.xml` |
-| Vector masters | Vector, `tools/brand_assets.py` | `muzviz-icon.svg`, `muzviz-mark.svg`, `muzviz-monochrome.svg`, `muzviz-lockup.svg` |
-| Play feature graphic, 1024×500 | Google Flow banner + our outlined wordmark | `muzviz-feature-graphic.svg` → `muzviz-feature-graphic-1024x500.png` |
+| Vector masters | Vector, `tools/brand_assets.py` | `beatrealms-icon.svg`, `beatrealms-mark.svg`, `beatrealms-monochrome.svg` |
+| Play feature graphic, 1024×500, no alpha | The neon eye over an indigo ground with the splash's outlined wordmark, `tools/feature_graphic.py` | `beatrealms-feature-graphic.svg` → `beatrealms-feature-graphic-1024x500.png` |
 
 The raster icon puts the render at 75% of the canvas on brand void (`#06050B`, the render's own
 background), with a wide feather. The eye then fits the adaptive icon's 72dp visible area and the
@@ -54,15 +56,30 @@ emboldened with a matching stroke, so no font ships and none needs to be install
 ```bash
 python tools/brand_assets.py      # vectors
 tools/brand_raster.sh [clip.mp4]   # icon, splash art, Play icon; with a clip, the splash video
+python3 tools/feature_graphic.py   # the feature graphic's SVG
 ```
 
-Then the PNG exports, with headless Chrome (run from `docs/brand/`):
+Then the PNG, at exactly 1024×500 and device scale 1, with Playwright's Chromium (Node, from the
+repo root; Play wants no alpha, and a screenshot of an opaque page has none):
 
 ```bash
-chrome --headless=new --hide-scrollbars --allow-file-access-from-files --window-size=1024,500 --screenshot=muzviz-feature-graphic-1024x500.png muzviz-feature-graphic.svg
+node -e "
+const { chromium } = require('playwright');
+(async () => {
+  const b = await chromium.launch();
+  const p = await b.newPage({ viewport: { width: 1024, height: 500 }, deviceScaleFactor: 1 });
+  await p.goto('file://' + require('path').resolve('docs/brand/beatrealms-feature-graphic.svg'));
+  await p.screenshot({ path: 'docs/brand/beatrealms-feature-graphic-1024x500.png' });
+  await b.close();
+})();"
 ```
 
-`muzviz-icon-512.png` is `flow/icon-neon.jpg` resized to 512 and saved as RGBA by `tools/brand_raster.sh`. `flow/icon-art.jpg` is the earlier Flow render, kept for the record.
+The ground is indigo, not the app's black: Play asks feature graphics to avoid pure black,
+white and dark grey, which blend into the store. Everything that matters sits in the middle
+60 %. Alt text for the Console: "The BeatRealms 3D eye logo, made of sound waves, over a
+spectrum of light".
+
+`beatrealms-icon-512.png` is `flow/icon-neon.jpg` resized to 512 and saved as RGBA by `tools/brand_raster.sh`. `flow/icon-art.jpg` is the earlier Flow render, kept for the record.
 
 ## Flow prompts
 
@@ -77,7 +94,3 @@ outside turning to blue, violet and lilac towards the centre, with a tiny glowin
 pupil. Rendered as luminous neon light tubes with a glassy glow, on a deep indigo-black background
 (#0E0620) with a soft violet bloom behind the iris. Premium, crisp, perfectly symmetrical, generous
 empty margin around the mark, no text, no letters, no frame, no border, no phone mockup.*
-
-Banner (16:9): *the same eye on the left third, a faint wide audio spectrum of thin vertical bars
-sweeping across the whole banner, soft violet bloom, the right two thirds calm, dark and empty for
-a title; no text, no letters, no logo, no frame.*

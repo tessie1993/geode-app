@@ -101,7 +101,6 @@ private:
     UniformCache postLocs_{0};
     GLuint postVao_ = 0;
     float rotationAngle_ = 0.0f;
-    float zoomPhase_ = 0.0f;
     float cyclePhase_ = 0.0f;
     float beatPulse_ = 0.0f;
     double lastLoadSeconds_ = 0.0;

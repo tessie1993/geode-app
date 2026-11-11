@@ -19,7 +19,7 @@ class ControlRangeTest {
         assertEquals(0f..50f, ControlRange.of("flowCurl"))
         assertEquals(1f..8f, ControlRange.of(SceneParams::cymaticsModes))
         // Both Dive speed sliders read this; the Style page's used to stop at 0.05.
-        assertEquals(0f..1.2f, ControlRange.of(SceneParams::endlessZoomSpeed))
+        assertEquals(-1.2f..1.2f, ControlRange.of(SceneParams::endlessZoomSpeed))
         // The caps: the flash clamp's limits and Fly's old stop; the LFO still reaches the schema's max.
         assertEquals(0.2f..1.25f, ControlRange.of(SceneParams::brightness))
         assertEquals(0.2f..1.25f, ControlRange.of(SceneParams::intensity))

@@ -1,7 +1,7 @@
 # Stats: the numbers the listing may quote
 
 Every number comes from the code or the catalogue and is recounted by `tools/store-stats.sh`
-(run from the repo root). Counted on `origin/main` at b8ac569b5, 2026-11-11:
+(run from the repo root). Counted on `origin/main` at b8ac569b5 and recounted, unchanged, at 022d8dd8d, 2026-11-11:
 
 ```
 styles                      244

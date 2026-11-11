@@ -44,7 +44,6 @@ public:
     static constexpr float kPathPeriod = 1024.0f;
     static constexpr float kTravelWrap = 8192.0f;
     static constexpr float kBaseSpeed = 1.6f;      // world units / s at camFly 1
-    static constexpr float kDivePerOctave = 4.0f;  // extra world units / s per Endless zoom octave / s
     static constexpr float kMaxYaw = 0.6f;         // radians at camYaw 1
     static constexpr float kMaxPitch = 0.45f;
     static constexpr float kMaxRoll = 0.8f;
@@ -84,7 +83,7 @@ public:
     void reset();
     // reducedMotion scales orbit, roll, bank, shake and the sound moves, the
     // vestibular terms the rig makes itself; the look still follows a finger.
-    // Forward travel (camFly, endlessZoomSpeed) comes in already scaled by
+    // Forward travel (camFly) comes in already scaled by
     // safety::apply, which owns that scale for every render path.
     // Fly speed below zero travels backward; the view swings around to face the way it goes.
     // bankFlat false keeps the path's banking out of the flat picture's roll

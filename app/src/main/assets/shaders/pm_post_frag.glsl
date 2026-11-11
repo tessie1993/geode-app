@@ -11,8 +11,6 @@ out vec4 fragColor;
 uniform sampler2D uTex;
 uniform float uZoom;
 uniform float uRotation;
-/** Endless zoom: x, y the two layers' magnifications, z the second's weight (core/viz/EndlessZoom.hpp). */
-uniform vec3 uZoomLayers;
 uniform float uMirrorX;
 uniform float uHue;
 uniform float uSat;
@@ -84,8 +82,8 @@ vec3 hueRotate(vec3 c, float a) {
     return vec3(dot(c, w)) + (c - vec3(dot(c, w))) * cs + cross(vec3(0.57735), c) * sn;
 }
 
-// The incoming layer starts at half size, so the frame is mirrored past its
-// edges: a clamp smeared the border pixels into streaks across the margin.
+// A Zoom below 1 reads past the frame, which is mirrored there: a clamp smeared
+// the border pixels into streaks across the margin.
 vec3 sampleZoomed(vec2 uv, float z) {
     vec2 p = uv / max(z, 0.05) + 0.5;
     return texture(uTex, 1.0 - abs(1.0 - mod(p, 2.0))).rgb;
@@ -96,12 +94,7 @@ void main() {
     if (uMirrorX > 0.5) uv.x = abs(uv.x);
     float a = uRotation;
     uv = mat2(cos(a), -sin(a), sin(a), cos(a)) * uv;
-    // Endless zoom: two copies of the frame an octave apart, both zooming in,
-    // crossfaded so the phase wrap is invisible (core/viz/EndlessZoom.hpp). The
-    // second texture read only happens inside the crossfade window.
-    float mag0 = uZoomLayers.x > 0.0 ? uZoomLayers.x : 1.0;
-    vec3 col = sampleZoomed(uv, uZoom * mag0);
-    if (uZoomLayers.z > 0.0) col = mix(col, sampleZoomed(uv, uZoom * uZoomLayers.y), uZoomLayers.z);
+    vec3 col = sampleZoomed(uv, uZoom);
     // Palette IDENTITY first, hue ROTATION second - the ownership split the
     // fluid family already runs (FluidHue.kt): "Hue shift" and the colour
     // cycle then turn the tinted frame, instead of being cancelled by it.

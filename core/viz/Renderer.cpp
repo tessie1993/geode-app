@@ -342,6 +342,7 @@ void Renderer::onSurfaceCreated() {
     compositePass_.release();
     uiBlurPass_.release();
     liquidPass_.release();
+    divePass_.release();
     overlays_.release();
     if (paletteLutTex_ != 0) {
         glDeleteTextures(1, &paletteLutTex_);
@@ -388,6 +389,8 @@ void Renderer::onSurfaceCreated() {
     if (!edgeGlowPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "edge glow off: %s", error.c_str());
     // Liquid mode: half float where this GPU renders it, so a deep pour-back does not band.
     if (!liquidPass_.create(assets_, &programCache_, *fadeVert, fluid::probeFormats().ok, &error)) fail(error);
+    // Endless zoom is an extra: without its pass the picture shows undived.
+    if (!divePass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "endless zoom off: %s", error.c_str());
 
     // The cyclic palette LUT: five 256-entry RGB rows.
     const auto palette = assets_.readAsset("shaders/cyclic_palettes.bin");
@@ -578,6 +581,7 @@ void Renderer::trimScenes(const std::string& keepId, MemoryTrim trim) {
         // The passes' own targets are the larger share of what a hidden app holds (the liquid's two
         // sides alone are six screens of pixels). Each is built again by the frame that needs it.
         liquidPass_.releaseTargets();
+        divePass_.releaseTarget();
         trailPass_.releaseTargets();
         uiBlurPass_.releaseTargets();
         bornFbo_.release();

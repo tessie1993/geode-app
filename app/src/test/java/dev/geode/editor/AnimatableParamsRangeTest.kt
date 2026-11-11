@@ -31,7 +31,7 @@ class AnimatableParamsRangeTest {
         assertEquals(0f..0.25f, range("bloom"))
         assertEquals(-2f..2f, range("camFly"))
         // The Style page's Dive speed and its keyframes stopped at 0.05; Liquid's slider and the schema at 0.
-        assertEquals(0f..1.2f, range("endlessZoomSpeed"))
+        assertEquals(-1.2f..1.2f, range("endlessZoomSpeed"))
     }
 
     @Test

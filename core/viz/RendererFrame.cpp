@@ -408,6 +408,11 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     // a surface that is still drawing; one that pauses sheds them at the pause (trimSpares).
     if (SceneResidency::trimSignal().poll(seenTrim_)) trimScenes({}, MemoryTrim::UiHidden);
     Scene* scene = resolveActiveScene();
+    // Staging, a fresh switch, a transition's two scenes or a secondary's compiles: not the phone's pace.
+    // A target that gave up staging (ScenePrep::Block) and still will not build is not settling.
+    const bool staging = requestedPending_ && prep_.active() && prep_.attempts() < ScenePrep::kMaxAttempts;
+    if (staging || sceneJustSwitched_ || outgoingScene_ || !stager_.idle()) thermal_.noteSettling();
+    if (!offscreen_.load(std::memory_order_relaxed)) logResidency(wallDt);
     if (!scene || !ensureTargets()) {
         glBindFramebuffer(GL_FRAMEBUFFER, targetFbo);
         glViewport(0, 0, width_, height_);

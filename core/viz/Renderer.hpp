@@ -187,6 +187,8 @@ private:
     // ones in use this frame.
     // `trim` other than None drops every spare (#854), whatever the thermal tier would keep.
     void trimScenes(const std::string& keepId, MemoryTrim trim = MemoryTrim::None);
+    // One logcat line when the resident scene count or the thermal tier changes (the device checklist reads it).
+    void logResidency(float wallDt);
     std::unique_ptr<Scene> buildScene(const std::string& id);
     float beginFrame(double timeSeconds);
     // Steps styleSchedule_ once per frame (after the sound engine) and requests its change, if any.
@@ -429,6 +431,9 @@ private:
     int renderHeight_ = 1;
     ThermalTier appliedTier_ = ThermalTier::Full;
     uint32_t seenTrim_ = 0;  // the SceneResidency trim signal generation this renderer acted on (GL thread)
+    // What `adb logcat -s GeodeRenderer` last showed of scene residency and the tier (logged on a change only).
+    size_t loggedResident_ = SIZE_MAX;
+    ThermalTier loggedTier_ = ThermalTier::Full;
     double lastTimeS_ = -1.0;
     double frameNowS_ = 0.0;
     float timeSeconds_ = 0.0f;

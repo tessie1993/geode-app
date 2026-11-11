@@ -3,7 +3,6 @@ package dev.geode.widget
 import android.content.ComponentName
 import android.content.Context
 import android.graphics.Bitmap
-import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -182,14 +181,10 @@ private fun loadArt(
     return Bitmap.createScaledBitmap(decoded, width, height, true).also { if (it !== decoded) decoded.recycle() }
 }
 
-// Rounded clipping (cornerRadius) only exists from API 31; below it a full-bleed picture would
-// poke square corners out of the rounded glass, so older launchers get the glass alone.
-private val CLIPS_CORNERS = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-
 @Composable
 private fun NowPlaying(snapshot: WidgetSnapshot) {
     val layout = layoutFor(LocalSize.current)
-    val behindGlass = layout == WidgetLayout.LARGE && CLIPS_CORNERS
+    val behindGlass = layout == WidgetLayout.LARGE
     Box(
         modifier =
             GlanceModifier

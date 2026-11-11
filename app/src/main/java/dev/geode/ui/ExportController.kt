@@ -242,7 +242,7 @@ internal class ExportController(
                     // coincide the flag branch used to win and swallow the CancellationException,
                     // leaving a cancelled coroutine to finish as if it had succeeded.
                     if (t is kotlinx.coroutines.CancellationException) {
-                        _exportState.value = ExportUiState()
+                        _exportState.value = ExportUiState(phase = stoppedPhase(application))
                         throw t
                     } else if (exportCancelled) {
                         _exportState.value = ExportUiState()
@@ -271,7 +271,7 @@ internal class ExportController(
                     fileName = name.takeIf { destination == null },
                 )
             is RenderResult.Failed -> ExportUiState(customDestination = destination != null, phase = ExportPhase.Failed(result.message))
-            RenderResult.Cancelled -> ExportUiState(customDestination = destination != null)
+            RenderResult.Cancelled -> ExportUiState(customDestination = destination != null, phase = stoppedPhase(application))
             // The style that renders is checked, not only the one on stage when Render was pressed:
             // a take records whatever was on stage, a previewed Pro style or one used during the
             // trial included, and exporting it must not hand that style out for free.
@@ -434,7 +434,7 @@ internal class ExportController(
                 when {
                     last != null -> ExportPhase.Done(last.uri.toUri())
                     failures.isNotEmpty() -> ExportPhase.Failed(failures.first().second)
-                    else -> ExportPhase.Idle
+                    else -> stoppedPhase(application)
                 },
             fileName = last?.fileName,
             batch = this,
@@ -532,7 +532,7 @@ internal class ExportController(
                                     ExportPhase.Done(result.uri)
                                 }
                                 is RenderResult.Failed -> ExportPhase.Failed(result.message)
-                                RenderResult.Cancelled -> ExportPhase.Idle
+                                RenderResult.Cancelled -> stoppedPhase(application)
                                 RenderResult.Locked -> {
                                     host.onStyleLocked()
                                     ExportPhase.Idle
@@ -573,12 +573,12 @@ internal class ExportController(
         try {
             block()
         } catch (c: kotlinx.coroutines.CancellationException) {
-            studioState.update { it.copy(phase = ExportPhase.Idle) }
+            studioState.update { it.copy(phase = stoppedPhase(application)) }
             throw c
         } catch (t: Throwable) {
             val phase =
                 if (ExportRun.cancelRequested) {
-                    ExportPhase.Idle
+                    stoppedPhase(application)
                 } else {
                     val reason = t.message ?: application.getString(dev.geode.R.string.export_error_no_message)
                     ExportPhase.Failed("${t.javaClass.simpleName}: $reason")
@@ -954,7 +954,7 @@ internal class ExportController(
                     _loopState.value = LoopUiState(phase = finishLoopRender(renderResult, uri, audioClips, destination))
                 } catch (t: Throwable) {
                     if (t is kotlinx.coroutines.CancellationException) {
-                        _loopState.value = LoopUiState()
+                        _loopState.value = LoopUiState(phase = stoppedPhase(application))
                         throw t
                     } else if (loopCancelled) {
                         _loopState.value = LoopUiState()
@@ -978,7 +978,7 @@ internal class ExportController(
     ): ExportPhase =
         when (renderResult) {
             is LoopRender.Result.Failed -> ExportPhase.Failed(renderResult.message)
-            LoopRender.Result.Cancelled -> ExportPhase.Idle
+            LoopRender.Result.Cancelled -> stoppedPhase(application)
             is LoopRender.Result.Rendered -> {
                 val reel = renderResult.reel
                 try {
@@ -1005,7 +1005,7 @@ internal class ExportController(
                     when (extended) {
                         is LoopExtend.Result.Saved -> ExportPhase.Done(extended.uri)
                         is LoopExtend.Result.Failed -> ExportPhase.Failed(extended.message)
-                        LoopExtend.Result.Cancelled -> ExportPhase.Idle
+                        LoopExtend.Result.Cancelled -> stoppedPhase(application)
                     }
                 } finally {
                     reel.delete()

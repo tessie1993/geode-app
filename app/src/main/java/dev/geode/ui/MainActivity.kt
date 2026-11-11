@@ -9,7 +9,6 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Rect
 import android.graphics.drawable.Icon
-import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Rational
@@ -193,30 +192,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * A finger swiping home while Visuals is up and something is playing is the platform's
-     * own signal that this is exactly the moment PiP exists for. On S+ this is redundant with
-     * `setAutoEnterEnabled` (kept in sync by [refreshPipParams]), but on 26-30 the platform has no
-     * auto-enter of its own, so this is the only path there is.
-     */
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S && autoEnterPipEligible()) {
-            enterVisualizerPip()
-        }
-    }
-
     override fun onPictureInPictureModeChanged(
         isInPictureInPictureMode: Boolean,
         newConfig: Configuration,
     ) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         VisualizerPipCoordinator.inPictureInPicture = isInPictureInPictureMode
-    }
-
-    /** Called by [onUserLeaveHint] below S; on S+ the platform enters by itself ([refreshPipParams]). */
-    internal fun enterVisualizerPip() {
-        runCatching { enterPictureInPictureMode(buildPipParams()) }
     }
 
     /**
@@ -241,11 +222,7 @@ class MainActivity : ComponentActivity() {
                 builder.setAspectRatio(clampedPipAspectRatio(bounds.width(), bounds.height()))
             }
         }
-        // Below S, "auto enter" does not exist as a platform concept: onUserLeaveHint above is
-        // the whole of it, and calling setAutoEnterEnabled there would not compile against minSdk.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            builder.setAutoEnterEnabled(autoEnterPipEligible())
-        }
+        builder.setAutoEnterEnabled(autoEnterPipEligible())
         return builder.build()
     }
 

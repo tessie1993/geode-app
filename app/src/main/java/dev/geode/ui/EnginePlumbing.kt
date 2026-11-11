@@ -2,7 +2,9 @@ package dev.geode.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -73,7 +75,10 @@ fun VisualizerEngineBindings(
 ) {
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     val visualsViewModel: VisualsViewModel = geodeViewModel()
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    // Only the two ids, derived: a Customize slider tick changes vizState but must not re-run this.
+    val vizState = viewModel.vizState.collectAsStateWithLifecycle()
+    val activeSceneId by remember { derivedStateOf { vizState.value.sceneId } }
+    val activeTransitionId by remember { derivedStateOf { vizState.value.transitionId } }
     val playerPrefs by settingsViewModel.playerPrefs.collectAsStateWithLifecycle()
     val layers by LayersBus.state.collectAsStateWithLifecycle()
     val performanceStore = LocalContext.current.geodeContainer.performance
@@ -115,8 +120,8 @@ fun VisualizerEngineBindings(
             .distinctUntilChanged()
             .collect { visualizerView.gyroWanted = it }
     }
-    LaunchedEffect(viz.sceneId) {
-        LayersBus.activeSceneId.value = viz.sceneId
+    LaunchedEffect(activeSceneId) {
+        LayersBus.activeSceneId.value = activeSceneId
     }
     LaunchedEffect(layers) {
         // Process-wide (core/viz/LayerState): exports, the wallpaper and the dream draw it too (#364).
@@ -126,9 +131,9 @@ fun VisualizerEngineBindings(
     LaunchedEffect(playerPrefs.keepScreenOn) {
         visualizerView.keepScreenOn = playerPrefs.keepScreenOn
     }
-    LaunchedEffect(viz.transitionId) {
+    LaunchedEffect(activeTransitionId) {
         // The look carries the transition; this only compiles it ahead of the next style change.
-        val id = viz.transitionId
+        val id = activeTransitionId
         val renderer = visualizerView.visualizerRenderer
         visualizerView.queueEvent { renderer.warmTransition(id) }
     }
@@ -149,7 +154,7 @@ fun VisualizerEngineBindings(
                 visualizerView.visualizerRenderer.loadMilkPreset(it)
             }
             apply.customShader?.let {
-                visualizerView.visualizerRenderer.submitShader(apply.sceneId ?: viz.sceneId, it)
+                visualizerView.visualizerRenderer.submitShader(apply.sceneId ?: activeSceneId, it)
             }
         }
     }

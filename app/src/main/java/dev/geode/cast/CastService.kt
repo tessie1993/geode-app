@@ -8,7 +8,6 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -27,7 +26,8 @@ import dev.geode.startedInForeground
 /**
  * Keeps a cast running with the app in the background or the screen off (owner, 2026-11-02):
  * a foreground service of type `mediaPlayback` ("continue video playback from the background"),
- * declared in Play Console with the other three (docs/play/CONSOLE_CHECKLIST.md § 7).
+ * declared in Play Console (Policy > App content > Foreground service permissions) with the
+ * other three types the manifest uses.
  *
  * It owns the [CastStream] and silences the phone while it runs: the sound plays on the TV,
  * inside the stream, and the phone is the remote. The music's player keeps playing (its PCM tap
@@ -207,11 +207,7 @@ class CastService : Service() {
                 .setContentIntent(open)
                 .addAction(Notification.Action.Builder(null, getString(R.string.cast_stop), stop).build())
                 .build()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
-        }
+        startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
     }
 
     companion object {

@@ -2,7 +2,6 @@ package dev.geode.ui
 
 import android.app.Activity
 import android.media.projection.MediaProjectionManager
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -165,11 +164,7 @@ internal fun LibraryEmptyHost(
                         onOpenVisuals()
                     } else {
                         capturePermissions.launch(
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                arrayOf(android.Manifest.permission.RECORD_AUDIO, android.Manifest.permission.POST_NOTIFICATIONS)
-                            } else {
-                                arrayOf(android.Manifest.permission.RECORD_AUDIO)
-                            },
+                            arrayOf(android.Manifest.permission.RECORD_AUDIO, android.Manifest.permission.POST_NOTIFICATIONS),
                         )
                     }
                 }

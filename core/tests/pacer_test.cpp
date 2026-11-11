@@ -5,6 +5,9 @@
 // noise tolerance (a 119.6 Hz panel still halves), no divide until the estimate settles, hitches
 // left out of the estimate, a resume that forgets the gap but keeps the period, a panel that drops
 // below 45 Hz (#452), a NaN or tiny cap (#452), and the one dt clamp the renderer shares.
+// And the cap is a ceiling: a cap the panel rate does not divide (60 on a 90 Hz panel) takes the next
+// whole divide below it (45 fps), never the panel rate. Measured on a 90 Hz phone: the old rule drew 90
+// frames a second under a 60 fps cap, which kept the GPU saturated and the phone at thermal status 3.
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -57,7 +60,7 @@ void divides() {
         float cap;
         int64_t divisor;
     };
-    const Case cases[] = {{60, 60, 1}, {60, 30, 2}, {90, 30, 3}, {90, 60, 1}, {120, 60, 2}, {120, 30, 4}, {119.6, 60, 2}, {144, 60, 2}, {165, 24, 6}};
+    const Case cases[] = {{60, 60, 1}, {60, 30, 2}, {90, 30, 3}, {90, 60, 2}, {120, 60, 2}, {120, 30, 4}, {119.6, 60, 2}, {144, 60, 3}, {165, 24, 7}};
     for (const auto& c : cases) {
         PacerState s;
         const Run r = runPanel(s, c.hz, c.cap, 600);
@@ -172,14 +175,15 @@ void nanAndTinyCaps() {
 }
 
 void wireRoundTrip() {
-    PacerState s{1, 2, 3, 4, 5, 6, 7};
+    PacerState s{1, 2, 3, 4, 5, 6, 7, 8};
     int64_t wire[kPacerStateLongs] = {};
     pack(s, wire);
     const PacerState back = unpack(wire);
     check(back.lastDrawnNs == 1 && back.lastVsyncNs == 2 && back.periodNs == 3 && back.samples == 4 && back.sinceDrawn == 5 && back.divisor == 6 &&
-              back.capMilliHz == 7,
-          "the seven-long wire layout round-trips");
+              back.capMilliHz == 7 && back.pacedMilliHz == 8,
+          "the eight-long wire layout round-trips");
     check(wire[kPacerCapSlot] == 7, "the cap sits in the slot the shell reads");
+    check(wire[kPacerPacedSlot] == 8, "and the paced rate in the one after it");
 }
 
 // The cap a vsync paced to is recorded for the shell's setFrameRate (#440).
@@ -534,7 +538,74 @@ void aCapThatDropsThePanelTo30HzStillDraws30Fps() {
     check(tail == 60, "after the panel drops to 30 Hz under a 30 fps cap, every vsync draws (#452 draws 1 in 4)");
 }
 
+// Red against: the divide truncated instead of rounded up (`static_cast<int64_t>(ratio + epsilon)`:
+// 90 Hz capped at 60 divides by 1 and draws 90 fps, 144 Hz capped at 60 draws 72, 165 Hz capped at 24
+// draws 27.5), a round-up with no noise allowance (a 60.4 Hz panel capped at 60 halves to 30, a
+// 119.6 Hz one capped at 60 is fine either way), and a round-up that overshoots (90 Hz capped at 60
+// dividing by 3). By hand: the divide is the smallest whole number that brings the panel rate to the
+// cap or under it, so 90/60 -> 2 (45 fps), 144/60 -> 3 (48), 75/60 -> 2 (37.5), 165/60 -> 3 (55),
+// 120/45 -> 3 (40), 90/45 -> 2 (45), 60.4/60 -> 1, 119.6/60 -> 2. Draws stay evenly spaced.
+void aCapThePanelCannotDivideIsNeverExceeded() {
+    struct Case {
+        double hz;
+        float cap;
+        int every;  // by hand, above
+    };
+    const Case cases[] = {{90, 60, 2}, {144, 60, 3}, {75, 60, 2}, {165, 60, 3}, {120, 45, 3}, {90, 45, 2}, {60.4, 60, 1}, {119.6, 60, 2}};
+    for (const auto& c : cases) {
+        PacerState s;
+        const auto drawn = drawnOf(feed(s, c.hz, c.cap, 900));
+        bool even = true;
+        int settled = 0;
+        int64_t firstT = 0;
+        int64_t lastT = 0;
+        for (size_t i = 1; i < drawn.size(); ++i) {
+            if (drawn[i].vsync < 32) continue;  // well past the settle window
+            even = even && drawn[i].vsync - drawn[i - 1].vsync == c.every;
+            if (settled == 0) firstT = drawn[i].t;
+            lastT = drawn[i].t;
+            settled++;
+        }
+        const double fps = settled > 1 ? (settled - 1) / (static_cast<double>(lastT - firstT) / 1e9) : 0.0;
+        char what[160];
+        std::snprintf(what, sizeof what, "%.1f Hz capped at %.0f draws every %d vsyncs, evenly", c.hz, c.cap, c.every);
+        check(even && settled > 100, what);
+        // One percent of room: the cap is in whole fps and a panel measures a hair off its nominal rate.
+        std::snprintf(what, sizeof what, "%.1f Hz capped at %.0f draws %.1f fps, never above the cap", c.hz, c.cap, fps);
+        check(fps > 0.0 && fps <= static_cast<double>(c.cap) * 1.01, what);
+    }
+}
+
 }  // namespace
+
+// The paced rate is what the divide really gives, not the cap, when the panel does not divide it. The
+// shell hands it to the renderer as the surface's paced rate, so the measured fallback (ThermalGovernor)
+// judges a 90 Hz panel capped at 60 against the 45 fps it is paced to, not against 60. By hand: the
+// panel rate over the divide, in half-hertz steps, never above the cap.
+// Kills: recording the cap instead, an unrounded rate (the estimate's noise would move the governor's
+// target every vsync), and a paced rate above the cap on a panel a hair fast.
+void recordsThePacedRate() {
+    struct Case {
+        double hz;
+        float cap;
+        int64_t pacedMilliHz;
+    };
+    const Case cases[] = {{90, 60, 45'000},  {144, 60, 48'000},   {75, 60, 37'500},  {165, 60, 55'000}, {120, 60, 60'000},
+                          {60.4, 60, 60'000}, {119.6, 60, 60'000}, {90, 30, 30'000}, {144, 30, 29'000}, {89.7, 60, 45'000}};
+    for (const auto& c : cases) {
+        PacerState s;
+        runPanel(s, c.hz, c.cap, 600);
+        char what[128];
+        std::snprintf(what, sizeof what, "%.1f Hz capped at %.0f paces to %lld mHz", c.hz, c.cap, static_cast<long long>(c.pacedMilliHz));
+        check(s.pacedMilliHz == c.pacedMilliHz, what);
+    }
+    PacerState uncapped;
+    runPanel(uncapped, 120, 0.0f, 100);
+    check(uncapped.pacedMilliHz == 0, "no cap paces to every vsync: 0");
+    PacerState fresh;
+    Pacer::onVsync(fresh, 1'000'000'000, 60.0f);
+    check(fresh.pacedMilliHz == 60'000, "until the estimate settles, the cap is the paced rate");
+}
 
 int main() {
     divides();
@@ -561,6 +632,8 @@ int main() {
     recordsTheCap();
     recordsAnyCapTheShellCanAskFor();
     aCapThatIsNotANumberIsNoCap();
+    aCapThePanelCannotDivideIsNeverExceeded();
+    recordsThePacedRate();
     if (failures == 0) std::printf("pacer_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

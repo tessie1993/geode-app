@@ -19,8 +19,6 @@ name: Play release bundle
 #   PLAY_LICENSE_KEY   Play Console > Monetize with Play > Monetization setup >
 #                      Licensing: the Base64 RSA public key. Public, not a secret;
 #                      the app checks purchase signatures with it.
-#
-# docs/play/CONSOLE_CHECKLIST.md walks through creating all of these.
 
 on:
   workflow_dispatch:
@@ -73,14 +71,20 @@ jobs:
           LICENSE_KEY: ${{ vars.PLAY_LICENSE_KEY }}
         run: |
           set -euo pipefail
+          # A key that is set must be a Base64 X.509 RSA public key (billing/PurchaseVerifier.kt
+          # refuses every purchase otherwise), signed bundle or not.
+          if [ -n "${LICENSE_KEY:-}" ] && ! echo "$LICENSE_KEY" | base64 -d | openssl rsa -pubin -inform DER -noout 2>/dev/null; then
+            echo "::error::PLAY_LICENSE_KEY (repository variable) is not a Base64 X.509 RSA public key."
+            exit 1
+          fi
           if [ -z "${KEYSTORE_BASE64:-}" ] || [ -z "${STORE_PASSWORD:-}" ] || [ -z "${KEY_ALIAS:-}" ] || [ -z "${KEY_PASSWORD:-}" ]; then
             [ -n "${LICENSE_KEY:-}" ] || echo "::warning::PLAY_LICENSE_KEY (repository variable) is not set either."
-            echo "::warning::Upload key secrets incomplete: building an UNSIGNED bundle. See docs/play/CONSOLE_CHECKLIST.md."
+            echo "::warning::Upload key secrets incomplete: building an UNSIGNED bundle. The four MUZVIZ_UPLOAD_* secrets are listed at the top of release.yml."
             echo "signed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # A signed bundle can go to Play, and without the licence key it would skip purchase
-          # signature checks (billing/PurchaseVerifier.kt), so signing requires it.
+          # A signed bundle can go to Play, and without the licence key it would refuse every purchase
+          # (billing/PurchaseVerifier.kt), so signing requires it.
           if [ -z "${LICENSE_KEY:-}" ]; then
             echo "::error::PLAY_LICENSE_KEY (repository variable) is not set; a signed store build must verify purchase signatures."
             exit 1
@@ -91,6 +95,8 @@ jobs:
       # app/build.gradle.kts reads the GEODE_* names; all four are required to sign.
       # Same version rule as the pre-releases (root build.gradle.kts): the AAB carries the
       # number this commit shipped as (tag apk-v<base>.N), so it matches that pre-release.
+      # A commit that never shipped has no number and fails here: borrowing the latest one could
+      # repeat a versionCode already uploaded to Play.
       - name: Release number
         id: number
         env:
@@ -99,6 +105,9 @@ jobs:
           set -euo pipefail
           BASE=$(sed -n 's/^geode\.versionBase=//p' gradle.properties | tr -d '\r')
           N=$(tools/release-number.sh "$BASE" "$(git rev-parse HEAD)")
+          case "$N" in
+            ''|*[!0-9]*) echo "::error::No release number for this commit (got '$N')."; exit 1 ;;
+          esac
           echo "Version $BASE.$N"
           echo "n=$N" >> "$GITHUB_OUTPUT"
 
@@ -143,6 +152,28 @@ jobs:
           fi
           grep -q 'com.android.vending.BILLING' "$manifest" \
             || { echo "::error::Play Billing's BILLING permission is missing from the merged manifest"; exit 1; }
+
+          # Every permission the store build asks for is one somebody approved: a library update
+          # must not add one unseen. tools/release-permissions.txt is the list and says how to
+          # update it. The names are read as XML, since the merger may put android:name on its
+          # own line.
+          requested=$(python3 - "$manifest" <<'PY' | LC_ALL=C sort -u
+          import sys
+          import xml.etree.ElementTree as ET
+
+          NAME = "{http://schemas.android.com/apk/res/android}name"
+          for element in ET.parse(sys.argv[1]).getroot():
+              if element.tag.startswith("uses-permission") and element.get(NAME):
+                  print(element.get(NAME))
+          PY
+          )
+          test -n "$requested" || { echo "::error::No <uses-permission> read from the merged manifest"; exit 1; }
+          echo "Permissions requested:"; echo "$requested" | sed 's/^/  /'
+          unexpected=$(comm -23 <(echo "$requested") <(grep -v '^#' tools/release-permissions.txt | sed '/^$/d' | LC_ALL=C sort -u))
+          if [ -n "$unexpected" ]; then
+            echo "::error::The merged release manifest requests permissions that are not in tools/release-permissions.txt: $(echo $unexpected). See that file's header."
+            exit 1
+          fi
 
           # Play's target API requirement (API 36 for new apps and updates since 31 Aug 2026).
           target=$(sed -n 's/.*android:targetSdkVersion="\([0-9]*\)".*/\1/p' "$manifest" | head -n 1)

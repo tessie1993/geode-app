@@ -231,16 +231,38 @@ void headroomThresholdsAreInclusive() {
 }
 
 // Kills: `status >= 0` -> `status > 0` in push (a cool phone with a thermal API read as one without), and
-// a dropped `!` on platformKnows() in ThermalGovernor::onFrame.
-void aCoolPhoneWithAThermalApiIgnoresSlowFrames() {
+// a dropped platformKnows() or `relief < kSevereRelief` in the High rule of trackMeasuredTrend.
+void aCoolPhoneWithAThermalApiIgnoresAMildDeficit() {
     ThermalState shared;
     shared.push(0, NAN, 100.0);  // THERMAL_STATUS_NONE: the platform answers, and the phone is cool
     check(shared.platformKnows(), "THERMAL_STATUS_NONE is a real answer");
     ThermalGovernor heavyStyle(shared);
     heavyStyle.setPacedFps(60.0f);
-    for (int i = 0; i < 200; ++i) heavyStyle.onFrame(0.05f);  // 20 fps for 10 s: a heavy style, not heat
-    check(shared.measuredFloor() == ThermalTier::Full, "without Adapt, a slow style on a cool phone keeps Full");
+    for (int i = 0; i < 400; ++i) heavyStyle.onFrame(0.025f);  // 40 fps for 10 s: a heavy style, not heat
+    check(shared.measuredFloor() == ThermalTier::Full, "without Adapt, 40 fps under a 60 cap keeps Full");
     check(heavyStyle.pacedFps() == 60.0f, "and its own 60 fps cap");
+}
+
+// The QA trace's phone: the High preset (Adapt off), a marched style at 20 fps under a 60 fps cap.
+// Kills: the High rule swallowing a severe deficit, a step back up refused without Adapt, a mild deficit
+// ignored once the floor is raised, and a failed probe not doubling the next wait. Worked by hand: the
+// monitor needs half its 30-frame window, then 2.5 s of deficit; a step up waits 45 s of kept-up frames.
+void withoutAdaptFramesFarUnderTheCapStepDown() {
+    ThermalState shared;
+    shared.push(0, NAN, 100.0);
+    ThermalGovernor g(shared);
+    g.setPacedFps(60.0f);
+    for (int i = 0; i < 200; ++i) g.onFrame(0.05f);  // 20 fps for 10 s
+    check(shared.measuredFloor() == ThermalTier::Reduced, "20 fps under a 60 cap steps down two rungs, Adapt or not");
+    check(g.pacedFps() == 30.0f, "and the surface draws at the tier's 30");
+    for (int i = 0; i < 50 * 30; ++i) g.onFrame(1.0f / 30.0f);  // keeping up at 30 for 50 s
+    check(shared.measuredFloor() == ThermalTier::Eased, "a kept-up run steps back up one rung without Adapt too");
+    for (int i = 0; i < 5 * 24; ++i) g.onFrame(1.0f / 24.0f);  // 24 fps under the 30 cap for 5 s
+    check(shared.measuredFloor() == ThermalTier::Reduced, "once stepped down, not keeping up counts");
+    for (int i = 0; i < 50 * 30; ++i) g.onFrame(1.0f / 30.0f);
+    check(shared.measuredFloor() == ThermalTier::Reduced, "a step up that did not hold waits twice as long");
+    for (int i = 0; i < 50 * 30; ++i) g.onFrame(1.0f / 30.0f);
+    check(shared.measuredFloor() == ThermalTier::Eased, "and then tries again");
 }
 
 // Kills: `std::isfinite(headroom)` -> `!std::isnan(headroom)` (an infinite forecast read as Minimal).
@@ -529,7 +551,8 @@ int main() {
     twoRenderersShareOneState();
     measuredFloorIsShared();
     headroomThresholdsAreInclusive();
-    aCoolPhoneWithAThermalApiIgnoresSlowFrames();
+    aCoolPhoneWithAThermalApiIgnoresAMildDeficit();
+    withoutAdaptFramesFarUnderTheCapStepDown();
     anInfiniteForecastIsNoForecast();
     aNegativeForecastIsAMissedWindow();
     aZeroForecastIsARealCoolReading();

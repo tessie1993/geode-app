@@ -1,6 +1,9 @@
 package dev.geode.ui
 
+import android.content.Context
 import android.net.Uri
+import dev.geode.ExportTimeLimit
+import dev.geode.R
 
 sealed interface ExportPhase {
     data object Idle : ExportPhase
@@ -19,6 +22,14 @@ sealed interface ExportPhase {
         val message: String,
     ) : ExportPhase
 }
+
+/**
+ * How a render that ended cancelled is shown: nothing for the user's own Cancel, and the reason
+ * when Android stopped it at the foreground-service time limit ([ExportTimeLimit]), which would
+ * otherwise look the same.
+ */
+fun stoppedPhase(context: Context): ExportPhase =
+    if (ExportTimeLimit.justReached()) ExportPhase.Failed(context.getString(R.string.export_stopped_time_limit)) else ExportPhase.Idle
 
 val ExportPhase.isBusy: Boolean
     get() =

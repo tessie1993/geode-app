@@ -184,9 +184,6 @@ internal class VisualsNavState(
 
     val sheetShown: Boolean get() = sheet != SheetHeight.HIDDEN
 
-    /** Whether [back] has anything to undo; false means back leaves Visuals. */
-    val backEnabled: Boolean get() = !sheetShown || history.canPop
-
     /** A tab: forward to its page, on top of the route so far (or back to it, if it is on it). */
     fun openTab(page: VisualsPage) {
         history.open(VisualsKey.Page(page))

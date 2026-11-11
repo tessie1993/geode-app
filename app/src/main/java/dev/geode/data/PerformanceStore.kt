@@ -78,6 +78,6 @@ class PerformanceStore(
 fun devicePerformanceMode(context: Context): PerformanceMode {
     val am = context.getSystemService(ActivityManager::class.java)
     val memory = ActivityManager.MemoryInfo().also { am?.getMemoryInfo(it) }
-    val performanceClass = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Build.VERSION.MEDIA_PERFORMANCE_CLASS else 0
+    val performanceClass = Build.VERSION.MEDIA_PERFORMANCE_CLASS
     return PerformanceSettings.modeForDevice(memory.totalMem, am?.isLowRamDevice == true, performanceClass)
 }

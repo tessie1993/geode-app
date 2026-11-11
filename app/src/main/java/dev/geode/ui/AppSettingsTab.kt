@@ -324,7 +324,7 @@ private fun SettingsSectionBody(
         SettingsSectionKey.NOTIFICATION -> behaviour?.let { b -> b.prefs?.let { NotificationButtonsSection(it, b.update) } }
         SettingsSectionKey.PICTURE_IN_PICTURE -> PictureInPictureSection(settings)
         SettingsSectionKey.TOUCH -> TouchSection(settings)
-        SettingsSectionKey.CONNECTED_DISPLAY -> ConnectedDisplaySection(settings)
+        SettingsSectionKey.CONNECTED_DISPLAY -> ConnectedDisplaySection()
         SettingsSectionKey.WALLPAPER_DREAM -> behaviour?.let { b -> b.prefs?.let { WallpaperDreamSection(it, b.update) } }
         SettingsSectionKey.ANALYSIS -> SoundAnalysisSection(settings)
         SettingsSectionKey.LOOK_TEXT -> LookTextSection(settings)

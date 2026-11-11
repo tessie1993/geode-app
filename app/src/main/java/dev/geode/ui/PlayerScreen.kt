@@ -453,6 +453,7 @@ private fun PlayerHero(
                                     external.refusingApp
                                         ?: stringResource(R.string.subtitle_capture_refused_unknown_app),
                                 )
+                            foreign && external.hearingSilence -> stringResource(R.string.subtitle_capture_silent)
                             foreign ->
                                 foreignTrack?.artist?.ifBlank { null }
                                     ?: stringResource(R.string.subtitle_captured_from_another_app)

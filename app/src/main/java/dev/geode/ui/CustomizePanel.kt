@@ -48,6 +48,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.MacroStore
+import dev.geode.model.GestureTip
+import dev.geode.model.TourSpot
 import dev.geode.pro.FreeTier
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
@@ -57,6 +59,8 @@ import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalUiSounds
 import dev.geode.ui.theme.UiSound
+import dev.geode.ui.tour.LocalTourNudge
+import dev.geode.ui.tour.tourTarget
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
@@ -237,7 +241,9 @@ private fun CustomizeHeader(
     val macroStore = remember { MacroStore.get(context) }
     val target = category ?: CustomizeCategory.QUICK_KNOBS
     val onKnobs = target == CustomizeCategory.QUICK_KNOBS
+    val nudge = LocalTourNudge.current
     val randomize = {
+        nudge(GestureTip.SWIRL_RANDOMIZE)
         when {
             onKnobs -> macroStore.surprise()
             !proLock.unlocked -> proLock.onLocked()
@@ -264,7 +270,7 @@ private fun CustomizeHeader(
                     stringResource(if (searching) R.string.customize_a11y_close_search else R.string.customize_a11y_search),
             )
         }
-        IconButton(onClick = randomize) {
+        IconButton(onClick = randomize, modifier = Modifier.tourTarget(TourSpot.CUSTOMIZE_RANDOMIZE)) {
             Icon(Icons.Filled.Casino, contentDescription = stringResource(R.string.customize_a11y_randomize, target.title))
         }
         IconButton(onClick = visualsViewModel::undoParams, enabled = history.canUndo) {

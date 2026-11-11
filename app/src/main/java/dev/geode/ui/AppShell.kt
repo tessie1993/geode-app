@@ -110,8 +110,9 @@ import dev.geode.analysis.SearchMatcher
 import dev.geode.data.BootAnimationStore
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.model.QueueTrack
-import dev.geode.model.TutorialChapter
-import dev.geode.model.TutorialProgress
+import dev.geode.model.TourChapter
+import dev.geode.model.TourPlace
+import dev.geode.model.TourSpot
 import dev.geode.pro.PaywallTrigger
 import dev.geode.render.VisualizerView
 import dev.geode.render.scene.SceneIds
@@ -126,6 +127,11 @@ import dev.geode.ui.theme.VisualAccent
 import dev.geode.ui.theme.floatingGlass
 import dev.geode.ui.theme.geodeMotionScheme
 import dev.geode.ui.theme.rememberSystemReducedMotion
+import dev.geode.ui.tour.LocalTourNudge
+import dev.geode.ui.tour.TourHost
+import dev.geode.ui.tour.TourNav
+import dev.geode.ui.tour.TourViewModel
+import dev.geode.ui.tour.tourTarget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -197,6 +203,13 @@ private data class NavEntry(
 
 @Composable
 fun AppRoot() {
+    val tourViewModel: TourViewModel = geodeViewModel()
+    val nudge = remember(tourViewModel) { tourViewModel::nudge }
+    CompositionLocalProvider(LocalTourNudge provides nudge) { AppContent(tourViewModel) }
+}
+
+@Composable
+private fun AppContent(tourViewModel: TourViewModel) {
     val viewModel: PlayerViewModel = geodeViewModel()
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     val paywallViewModel: PaywallViewModel = geodeViewModel()
@@ -284,7 +297,9 @@ fun AppRoot() {
     // The mini player (and on Visuals the tab bar and stage icons) wakes on a new screen or track.
     // A PiP window shows the visual alone (the sheet and the chrome hidden) until it closes.
     val inPip = VisualizerPipCoordinator.inPictureInPicture
-    val chrome = rememberShellChrome(gui.miniPlayerFadeSeconds, inPip, appState.dest, state.title)
+    val tour by tourViewModel.uiState.collectAsStateWithLifecycle()
+    // A pointer lights real controls, so the ones that fade stay lit while it is up.
+    val chrome = rememberShellChrome(gui.miniPlayerFadeSeconds, inPip, tour.step != null, appState.dest, state.title)
     var dockHeight by remember { mutableStateOf(0.dp) }
     val visualsReserve by animateDpAsState(dockHeight, motion.defaultSpatialSpec(), label = "dock")
     CrystalMaterialTheme(gui = gui, accentSource = accent) {
@@ -317,12 +332,11 @@ fun AppRoot() {
                 modifier = modifier,
             )
         }
-        val tutorial = rememberTutorialState()
         // Remembered: a fresh list each recomposition would recompose the tab bar and rail with it.
         val navLabels = GeodeDestination.entries.map { stringResource(it.labelRes) }
         val navEntries =
             remember(navLabels) {
-                GeodeDestination.entries.mapIndexed { i, destination -> NavEntry(destination, DockItem(navLabels[i], destination.icon)) }
+                GeodeDestination.entries.mapIndexed { i, destination -> NavEntry(destination, DockItem(navLabels[i], destination.icon, destination.tourSpot)) }
             }
         // Keyed by destination, not by position: rotating swaps the bar layout for the rail
         // layout, which would otherwise drop every screen's saved tab and scroll state.
@@ -387,6 +401,8 @@ fun AppRoot() {
                                     sheetOpacity = gui.barOpacity,
                                     onOpenStudioRender = appState::openStudioRender,
                                     pip = inPip,
+                                    requestedPage = appState.visualsPageRequest,
+                                    onRequestedPageShown = { appState.visualsPageRequest = null },
                                 )
                             }
                         GeodeDestination.STUDIO ->
@@ -402,11 +418,8 @@ fun AppRoot() {
                                 requestedGroup = appState.settingsGroupRequest,
                                 onRequestedGroupShown = { appState.settingsGroupRequest = null },
                                 onOpenStudioRender = appState::openStudioRender,
-                                onPlayTutorial = { tutorial.start(it) },
-                                onResetTutorials = {
-                                    tutorial.autoOfferUsed = true
-                                    settingsViewModel.setGuiPrefs(gui.copy(tutorialSeen = false, tutorialProgress = TutorialProgress()))
-                                },
+                                onPlayTutorial = tourViewModel::replay,
+                                onResetTutorials = tourViewModel::reset,
                             )
                     }
                 }
@@ -520,19 +533,21 @@ fun AppRoot() {
                     onDone = {
                         settingsViewModel.setGuiPrefs(gui.copy(setupDone = true))
                         appState.navigateTo(gui.intent.landingDestination)
-                        // No Pro offer here: it waits until the guided tour ends (TutorialHost).
+                        // No Pro offer here: the tour makes it, after the first look at Visuals.
                     },
                 )
             }
-            // Offered once setup is out of the way, so the tour talks about a real app with a real
-            // library, and held back while the boot intro, the notice, setup or the paywall is up.
+            // Held back while the boot intro, the notice, setup, the paywall or a PiP window is up.
             val paywall by paywallViewModel.uiState.collectAsStateWithLifecycle()
-            TutorialHost(
-                state = tutorial,
-                gui = gui,
-                blocked = (bootAnimEnabled != false && !appState.bootDone) || !gui.safetyAcknowledged || !gui.setupDone || paywall.visible,
-                onGuiChange = settingsViewModel::setGuiPrefs,
-                onShowMe = { target -> showTutorialTarget(target, appState) { paywallViewModel.open(PaywallTrigger.Settings) } },
+            TourHost(
+                viewModel = tourViewModel,
+                state = tour,
+                place = appState.dest.tourPlace,
+                playing = state.isPlaying,
+                blocked =
+                    (bootAnimEnabled != false && !appState.bootDone) || !gui.safetyAcknowledged || !gui.setupDone || paywall.visible || inPip,
+                onNavigate = { showTourScreen(it, appState) },
+                onOfferPro = { paywallViewModel.open(PaywallTrigger.Onboarding) },
             )
             // Drawn while the pref is still loading too (null): BootIntro opens on the splash's
             // last frame, so it covers that gap instead of letting the app flash through. If the
@@ -788,6 +803,7 @@ private fun NavRail(
             val selected = appState.dest == destination
             NavigationRailItem(
                 selected = selected,
+                modifier = item.tour?.let { Modifier.tourTarget(it) } ?: Modifier,
                 onClick = { appState.navigateTo(destination) },
                 // The label below names the item; a description on the icon reads it twice.
                 icon = { StoneIconArt(item.icon, null, selected = selected) },
@@ -872,7 +888,7 @@ fun SettingsScreen(
     requestedGroup: SettingsGroupKey? = null,
     onRequestedGroupShown: () -> Unit = {},
     onOpenStudioRender: () -> Unit,
-    onPlayTutorial: (List<TutorialChapter>) -> Unit,
+    onPlayTutorial: (List<TourChapter>) -> Unit,
     onResetTutorials: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
@@ -901,22 +917,33 @@ fun SettingsScreen(
     }
 }
 
-/** Show me: the real screen behind a tour card. The tour waits behind its Resume pill meanwhile. */
-private fun showTutorialTarget(
-    target: TutorialTarget,
+private fun showTourScreen(
+    screen: TourNav,
     appState: GeodeAppState,
-    openPaywall: () -> Unit,
 ) {
-    when (target) {
-        TutorialTarget.PLAYER -> appState.navigateTo(GeodeDestination.PLAYER)
-        TutorialTarget.LIBRARY -> appState.navigateTo(GeodeDestination.LIBRARY)
-        // The live view is Visuals now: full screen is its sheet hidden.
-        TutorialTarget.VISUALS, TutorialTarget.LIVE_VIEW -> appState.navigateTo(GeodeDestination.VISUALS)
-        TutorialTarget.STUDIO_RENDER -> appState.openStudioRender()
-        TutorialTarget.SETTINGS -> appState.navigateTo(GeodeDestination.SETTINGS)
-        TutorialTarget.PAYWALL -> openPaywall()
+    when (screen) {
+        TourNav.LIBRARY -> appState.navigateTo(GeodeDestination.LIBRARY)
+        TourNav.VISUALS -> appState.openVisualsPage(VisualsPage.STYLES)
+        TourNav.CUSTOMIZE -> appState.openVisualsPage(VisualsPage.CUSTOMIZE)
+        TourNav.STUDIO -> appState.openStudioRender()
     }
 }
+
+private val GeodeDestination.tourSpot: TourSpot?
+    get() =
+        when (this) {
+            GeodeDestination.LIBRARY -> TourSpot.NAV_LIBRARY
+            GeodeDestination.VISUALS -> TourSpot.NAV_VISUALS
+            else -> null
+        }
+
+private val GeodeDestination.tourPlace: TourPlace
+    get() =
+        when (this) {
+            GeodeDestination.LIBRARY -> TourPlace.LIBRARY
+            GeodeDestination.VISUALS -> TourPlace.VISUALS
+            else -> TourPlace.ELSEWHERE
+        }
 
 private data class SearchTrackRow(
     val uri: String,

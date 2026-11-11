@@ -53,6 +53,8 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import dev.geode.R
+import dev.geode.model.GestureTip
+import dev.geode.model.TourSpot
 import dev.geode.render.VisualizerView
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
@@ -62,13 +64,13 @@ import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.edgeFade
 import dev.geode.ui.theme.floatingGlass
 import dev.geode.ui.theme.performStoneHaptic
-import dev.geode.ui.tour.GestureTip
-import dev.geode.ui.tour.GestureTips
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
+import dev.geode.ui.tour.LocalTourNudge
+import dev.geode.ui.tour.tourTarget
 import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * The options over the full-screen visual: one glass surface, two layouts (V2 rule 5), one
@@ -291,11 +293,11 @@ private fun OptionsHeader(
                     view.performStoneHaptic(StoneHapticCue.TAP)
                     nav.openTab(page)
                 },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).tourTarget(TourSpot.VISUALS_TABS),
             )
             IconButton(onClick = {
                 view.performStoneHaptic(StoneHapticCue.TAP)
-                GestureTips.nudge(GestureTip.DOUBLE_TAP_SHEET)
+                nudge(GestureTip.DOUBLE_TAP_SHEET)
                 onSettle(SheetHeight.HIDDEN)
             }) {
                 StoneIconArt(StoneIcon.CLOSE, close)

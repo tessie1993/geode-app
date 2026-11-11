@@ -45,7 +45,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.geode.R
-import dev.geode.model.TutorialChapter
+import dev.geode.model.TourChapter
 import dev.geode.ui.pro.GoProSettingsRow
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
@@ -169,7 +169,7 @@ enum class SettingsSectionKey(
 internal fun AppSettingsTab(
     viewModel: PlayerViewModel,
     onOpenStudioRender: () -> Unit,
-    onPlayTutorial: (List<TutorialChapter>) -> Unit,
+    onPlayTutorial: (List<TourChapter>) -> Unit,
     onResetTutorials: () -> Unit,
     requestedGroup: SettingsGroupKey? = null,
     onRequestedGroupShown: () -> Unit = {},
@@ -277,7 +277,7 @@ private fun SettingsGroupPage(
     open: (SettingsSectionKey) -> Boolean,
     onToggle: (SettingsSectionKey) -> Unit,
     onOpenStudioRender: () -> Unit,
-    onPlayTutorial: (List<TutorialChapter>) -> Unit,
+    onPlayTutorial: (List<TourChapter>) -> Unit,
     onResetTutorials: () -> Unit,
 ) {
     val settings: SettingsViewModel = geodeViewModel()

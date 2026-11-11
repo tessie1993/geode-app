@@ -33,6 +33,8 @@ import dev.geode.R
 import dev.geode.export.ExportRun
 import dev.geode.export.RenderBatch
 import dev.geode.export.RenderEta
+import dev.geode.model.TourSpot
+import dev.geode.ui.tour.tourTarget
 
 /**
  * The bottom of Studio › Render: what a render will cover and the one Render button, then, once a
@@ -78,7 +80,7 @@ internal fun RenderBar(
         if (!export.phase.isBusy) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 scope(Modifier.weight(1f))
-                CrystalButton(onClick = onRender, enabled = canRender) {
+                CrystalButton(onClick = onRender, modifier = Modifier.tourTarget(TourSpot.STUDIO_RENDER), enabled = canRender) {
                     Text(renderLabel)
                 }
             }

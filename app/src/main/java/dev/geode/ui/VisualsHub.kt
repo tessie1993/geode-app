@@ -104,6 +104,8 @@ internal fun VisualsHub(
     sheetOpacity: Float,
     onOpenStudioRender: () -> Unit,
     pip: Boolean = false,
+    requestedPage: VisualsPage? = null,
+    onRequestedPageShown: () -> Unit = {},
 ) {
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
     val gate by viewModel.gate.collectAsStateWithLifecycle()
@@ -112,6 +114,13 @@ internal fun VisualsHub(
     // A PiP window shows the visual alone (owner: the old live view goes): the sheet hides on the way
     // in and comes back on the way out if it was up; the stage icons sleep with the shell's chrome
     // ([rememberShellChrome] keeps it asleep while [pip]).
+    LaunchedEffect(requestedPage) {
+        val page = requestedPage ?: return@LaunchedEffect
+        nav.closeCustomizeCard()
+        nav.openTab(page)
+        nav.showSheet()
+        onRequestedPageShown()
+    }
     var sheetBeforePip by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(pip) {
         if (pip) {

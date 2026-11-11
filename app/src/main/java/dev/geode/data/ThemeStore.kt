@@ -5,7 +5,7 @@ import androidx.annotation.StringRes
 import androidx.core.content.edit
 import dev.geode.R
 import dev.geode.engine.audio.SoundTuning
-import dev.geode.model.TutorialProgress
+import dev.geode.model.TourProgress
 
 enum class PlayerPosition(
     @param:StringRes val labelRes: Int,
@@ -71,14 +71,8 @@ data class GuiPrefs(
      * they would be narrowing.
      */
     val intent: UserIntent = UserIntent.BOTH,
-    /** Whether the walkthrough has been finished or skipped at least once. */
-    val tutorialSeen: Boolean = false,
-    /**
-     * The chapters finished (Settings › Tutorials ticks) and where the first-run tour picks up if
-     * the app was closed mid-tour. Kept apart from [tutorialSeen], which only says the first-run
-     * tour has ended (finished or Skip all) and so is not offered again.
-     */
-    val tutorialProgress: TutorialProgress = TutorialProgress(),
+    /** The tour: chapters seen or skipped, where an unfinished one picks up, the tips said. */
+    val tourProgress: TourProgress = TourProgress(),
     val micReactive: Boolean = false,
     val touchSmear: Boolean = false,
     val touchSmearStrength: Float = 1f,
@@ -157,11 +151,12 @@ class ThemeStore(
                     .getString(KEY_INTENT, null)
                     ?.let { stored -> UserIntent.entries.firstOrNull { it.name == stored } }
                     ?: UserIntent.BOTH,
-            tutorialSeen = prefs.getBoolean(KEY_TUTORIAL_SEEN, false),
-            tutorialProgress =
-                TutorialProgress.decode(
-                    prefs.getString(KEY_TUTORIAL_DONE, null),
-                    prefs.getString(KEY_TUTORIAL_RESUME, null),
+            tourProgress =
+                TourProgress.decode(
+                    done = prefs.getString(KEY_TUTORIAL_DONE, null),
+                    resume = prefs.getString(KEY_TUTORIAL_RESUME, null),
+                    tips = prefs.getString(KEY_TUTORIAL_TIPS, null),
+                    legacySeen = prefs.getBoolean(KEY_TUTORIAL_SEEN, false),
                 ),
             touchSmear = prefs.getBoolean(KEY_TOUCH_SMEAR, false),
             touchSmearStrength = prefs.getFloat(KEY_TOUCH_SMEAR_STRENGTH, 1f).coerceIn(0.2f, 2f),
@@ -224,11 +219,12 @@ class ThemeStore(
             putBoolean(KEY_SAFETY_ACKNOWLEDGED, gui.safetyAcknowledged)
             putBoolean(KEY_SETUP_DONE, gui.setupDone)
             putString(KEY_INTENT, gui.intent.name)
-            putBoolean(KEY_TUTORIAL_SEEN, gui.tutorialSeen)
-            // The old "offer it on a fresh install" switch is gone: the tour offers itself once.
+            // The old "tour ended" flag is folded into the chapters on the first save after it is read.
+            remove(KEY_TUTORIAL_SEEN)
             remove(KEY_TUTORIAL_ON_FIRST_RUN)
-            putString(KEY_TUTORIAL_DONE, gui.tutorialProgress.encodeDone())
-            putString(KEY_TUTORIAL_RESUME, gui.tutorialProgress.encodeResume())
+            putString(KEY_TUTORIAL_DONE, gui.tourProgress.encodeDone())
+            putString(KEY_TUTORIAL_RESUME, gui.tourProgress.encodeResume())
+            putString(KEY_TUTORIAL_TIPS, gui.tourProgress.encodeTips())
             // Reduced motion follows Android's "Remove animations" alone now (data/SystemMotion,
             // #336); the app's own switch is gone, so its old answer is dropped on the next save.
             remove(KEY_REDUCED_MOTION)
@@ -250,6 +246,7 @@ class ThemeStore(
         const val KEY_TUTORIAL_ON_FIRST_RUN = "gui_tutorial_on_first_run"
         const val KEY_TUTORIAL_DONE = "gui_tutorial_done"
         const val KEY_TUTORIAL_RESUME = "gui_tutorial_resume"
+        const val KEY_TUTORIAL_TIPS = "gui_tutorial_tips"
 
         /** Read-only now: the old three-way answer, kept solely to migrate existing installs. */
         const val KEY_SAFETY_CHOICE = "gui_safety_choice"

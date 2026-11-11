@@ -27,7 +27,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -37,31 +36,29 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
-import dev.geode.model.TutorialChapter
+import dev.geode.model.TourChapter
+import dev.geode.model.spots
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
-import dev.geode.ui.tour.GestureTips
-import dev.geode.ui.tour.TourChapters
-import dev.geode.ui.tour.spots
+import dev.geode.ui.tour.titleRes
 
 /**
- * Settings › Tutorials: the guided path and each screen's pointers, replayable on their own, with
- * a tick for each one seen.
+ * Settings › Tutorials: the tour's chapters, replayable on their own, with a tick for each one seen.
  *
- * Someone who skipped the pointers on day one is the person who needs them on day three, so they
- * live here for good. A replay takes the user to each screen in turn and never re-arms the
- * first-run guide; Reset all does, for the next launch, and lets every gesture tip speak once more.
+ * Someone who skipped the tour on day one is the person who needs it on day three, so it lives
+ * here for good. A replay takes the user to each screen in turn and changes no tick; Reset all
+ * clears them for the next launch and lets every gesture tip speak once more.
  */
 @Composable
 internal fun TutorialSettingsTab(
     settingsViewModel: SettingsViewModel,
-    onPlay: (List<TutorialChapter>) -> Unit,
+    onPlay: (List<TourChapter>) -> Unit,
     onReset: () -> Unit,
 ) {
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
-    val done = gui.tutorialProgress.done.intersect(TourChapters.toSet())
-    val context = LocalContext.current
+    val done = gui.tourProgress.done
+    val chapters = TourChapter.entries
     var resetNote by rememberSaveable { mutableStateOf(false) }
     Column(
         verticalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
@@ -73,28 +70,27 @@ internal fun TutorialSettingsTab(
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
-            stringResource(R.string.tutorials_progress, done.size, TourChapters.size),
+            stringResource(R.string.tutorials_progress, done.size, chapters.size),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         LinearProgressIndicator(
-            progress = { done.size / TourChapters.size.toFloat() },
+            progress = { done.size / chapters.size.toFloat() },
             modifier = Modifier.fillMaxWidth().height(4.dp),
             color = MaterialTheme.colorScheme.primary,
             trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
         )
-        Button(onClick = { onPlay(TourChapters) }, modifier = Modifier.fillMaxWidth()) {
+        Button(onClick = { onPlay(chapters) }, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.tutorials_play_all))
         }
         Column {
-            TourChapters.forEach { chapter ->
+            chapters.forEach { chapter ->
                 ChapterRow(chapter, chapter in done, onClick = { onPlay(listOf(chapter)) })
             }
         }
         TextButton(
             onClick = {
                 onReset()
-                GestureTips.reset(context)
                 resetNote = true
             },
             modifier = Modifier.fillMaxWidth(),
@@ -111,7 +107,7 @@ internal fun TutorialSettingsTab(
 
 @Composable
 private fun ChapterRow(
-    chapter: TutorialChapter,
+    chapter: TourChapter,
     done: Boolean,
     onClick: () -> Unit,
 ) {

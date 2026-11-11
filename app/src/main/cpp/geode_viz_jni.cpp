@@ -632,10 +632,9 @@ Java_dev_geode_engine_bridge_GeodeNative_customizeText(JNIEnv* env, jobject) {
     return env->NewStringUTF(geode_customize_text());
 }
 
-JNIEXPORT jboolean JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_customizeLockable(JNIEnv* env, jobject, jstring key) {
-    Utf8Chars name(env, key);
-    return geode_customize_lockable(name.get()) ? JNI_TRUE : JNI_FALSE;
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_customizeLockableKeys(JNIEnv* env, jobject) {
+    return env->NewStringUTF(geode_customize_lockable_keys());
 }
 
 JNIEXPORT jstring JNICALL

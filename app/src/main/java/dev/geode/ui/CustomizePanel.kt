@@ -97,7 +97,12 @@ internal fun CustomizePanel(
     // What this style offers, as native says.
     val shown = remember(sceneId) { CustomizeMapTable.shownOn(sceneId) }
     val categories = remember(shown) { CustomizeCategory.entries.filter { it.name in shown } }
-    val sectionsOf: (CustomizeCategory) -> List<CustomizeSection> = { c -> CustomizeMapTable.sectionsOf(c).filter { it.path in shown } }
+    // Built once per style, not on each pass (a slider drag recomposes this panel), and one stable lambda so the browser can skip.
+    val sectionsByCategory =
+        remember(shown) {
+            CustomizeCategory.entries.associateWith { c -> CustomizeMapTable.sectionsOf(c).filter { it.path in shown } }
+        }
+    val sectionsOf: (CustomizeCategory) -> List<CustomizeSection> = remember(sectionsByCategory) { { c -> sectionsByCategory.getValue(c) } }
 
     val localNav = rememberLocalCustomizeNav()
     val customizeNav = remember(nav, localNav) { nav?.let(::RouteCustomizeNav) ?: localNav }

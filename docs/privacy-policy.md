@@ -91,7 +91,9 @@ Wi-Fi address, accepts short requests only, and stops when you stop casting.
   notifications Android requires while *Visualize other apps* or a video render runs.
 - **`FOREGROUND_SERVICE`** with the media-playback, media-projection, media-processing
   and data-sync types: lets playback, casting, capture and video rendering continue while
-  the app is not on screen, always with a visible notification.
+  the app is not on screen, always with a visible notification. With the microphone type,
+  only while you cast to a TV with *Live input* on: the microphone keeps driving the TV's
+  visuals with the app in the background, analysed in memory as above.
 - **`com.android.vending.BILLING`**: lets the app talk to the Google Play Store app to
   sell and restore BeatRealms Pro.
 - **`INTERNET`** and **`ACCESS_NETWORK_STATE`**: only for *Cast to TV*: to find the TV,

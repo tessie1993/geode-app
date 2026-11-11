@@ -321,22 +321,22 @@ object LoudnessTargets {
     private const val KIND_NORMALISE = 3
 
     /** The advice `core/output/LoudnessAdvice` gives [report] for [target] (`geode_loudness_advise`). */
+    @Suppress("ReturnCount")
     fun advise(
         report: LoudnessReport,
         target: LoudnessTarget,
     ): LoudnessAdvice {
-        val lufs = (report.integrated as? IntegratedLoudness.Lufs)?.value
-        val out = DoubleArray(ADVICE_DOUBLES)
-        val kind = GeodeNative.loudnessAdvise(target.nativeIndex, lufs != null, lufs ?: 0.0, report.truePeakDbtp, out)
+        val lufs = (report.integrated as? IntegratedLoudness.Lufs)?.value ?: return LoudnessAdvice.NothingToMeasure
         val peak = report.truePeakDbtp
-        return when {
-            lufs == null -> LoudnessAdvice.NothingToMeasure
-            kind == KIND_AS_MIXED -> LoudnessAdvice.AsMixed(lufs, peak, quietLu = out[7], peakWarning = out[8] != 0.0)
-            target !is LoudnessTarget.Normalising -> LoudnessAdvice.NothingToMeasure
-            kind == KIND_ON_TARGET -> LoudnessAdvice.OnTarget(target, lufs, peak)
-            kind == KIND_NORMALISE ->
+        val out = DoubleArray(ADVICE_DOUBLES)
+        val kind = GeodeNative.loudnessAdvise(target.nativeIndex, true, lufs, peak, out)
+        if (kind == KIND_AS_MIXED) return LoudnessAdvice.AsMixed(lufs, peak, quietLu = out[7], peakWarning = out[8] != 0.0)
+        val normalising = target as? LoudnessTarget.Normalising ?: return LoudnessAdvice.NothingToMeasure
+        return when (kind) {
+            KIND_ON_TARGET -> LoudnessAdvice.OnTarget(normalising, lufs, peak)
+            KIND_NORMALISE ->
                 LoudnessAdvice.Normalise(
-                    target = target,
+                    target = normalising,
                     lufs = lufs,
                     truePeakDbtp = peak,
                     gainDb = out[0],

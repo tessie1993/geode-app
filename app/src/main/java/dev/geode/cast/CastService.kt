@@ -22,6 +22,7 @@ import dev.geode.RingLog
 import dev.geode.ServiceWakeLock
 import dev.geode.appLaunchIntent
 import dev.geode.billing.ProSnapshot
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackSession
 import dev.geode.pro.ProFeature
@@ -36,15 +37,17 @@ import kotlinx.coroutines.flow.StateFlow
  * declared in Play Console (Policy > App content > Foreground service permissions) with the
  * other three types the manifest uses.
  *
- * It owns the [CastStream] and silences the phone while it runs: the sound plays on the TV,
- * inside the stream, and the phone is the remote. The music's player keeps playing (its PCM tap
- * comes before the volume, so the visuals and the stream still hear it); only its volume goes to
+ * It owns the [CastStream], which serves a TV ([Target.TV], [CastController]) and a browser through "Show on
+ * a computer" ([Target.LINK], [ComputerLink]): one stream, one encoder, for either or both; it runs while one
+ * of them wants it. It silences the phone while it runs: the sound plays on the TV or the computer, inside the
+ * stream (a few seconds behind the phone, so both at once would echo), and the phone is the remote. The
+ * music's player keeps playing (its PCM tap comes before the volume, so the visuals and the stream still hear it); only its volume goes to
  * zero, and anything that raises it while casting (a crossfade, the sleep timer's fade) is put back.
  *
  * Pro is checked again every minute ([recheckPro]). A trial that runs out mid-cast lets the song
  * finish, then ends the cast with a Go Pro note (owner). A stream that fails (won't start, freezes,
  * the renderer dies) ends the cast at once, with the sound back on the phone and a short message;
- * no silent restart (owner).
+ * no silent restart (owner). So does losing the network it serves from: the link would name nothing.
  */
 class CastService : Service() {
     private val handler = Handler(Looper.getMainLooper())
@@ -52,6 +55,11 @@ class CastService : Service() {
     private var playback: PlaybackSession? = null
     private var savedVolume = 1f
     private var waitingSinceMs = 0L
+
+    /** Who wants the stream; the service stops when neither does. */
+    private var forTv = false
+    private var forLink = false
+    private var ready = false
 
     /** Set when the trial ran out mid-cast: the cast ends when this song does. */
     private var stopAtSongEnd = false
@@ -88,8 +96,11 @@ class CastService : Service() {
     private fun endIfTrialOver() {
         if (!stopAtSongEnd) return
         stopAtSongEnd = false
-        Toast.makeText(this, R.string.cast_trial_ended, Toast.LENGTH_LONG).show()
-        CastController.get(this).onTrialEnded()
+        if (forTv) {
+            Toast.makeText(this, R.string.cast_trial_ended, Toast.LENGTH_LONG).show()
+            CastController.get(this).onTrialEnded()
+        }
+        if (forLink) ComputerLink.onFailed(GeodeNative.LINK_REASON_TRIAL)
         stopSelf()
     }
 
@@ -100,21 +111,45 @@ class CastService : Service() {
         flags: Int,
         startId: Int,
     ): Int {
-        if (intent?.action == ACTION_STOP) {
-            CastController.get(this).stop()
+        val action = intent?.action
+        if (action == ACTION_STOP) {
+            if (forTv) CastController.get(this).stop()
+            if (forLink) ComputerLink.onServiceStopped()
             stopSelf()
             return START_NOT_STICKY
         }
+        if (action == ACTION_RELEASE_TV || action == ACTION_RELEASE_LINK) {
+            if (action == ACTION_RELEASE_TV) forTv = false else forLink = false
+            // The other one keeps the stream; its notification says who has it now.
+            if (forTv || forLink) bestEffort(TAG, "startInForeground()") { startInForeground() } else stopSelf()
+            return START_NOT_STICKY
+        }
         // A mic change reaching a cast that has already ended must not bring the service back.
-        if (intent?.action == ACTION_MIC && stream == null) {
+        if (action == ACTION_MIC && stream == null) {
             stopSelf()
             return START_NOT_STICKY
+        }
+        when (action) {
+            ACTION_LINK -> forLink = true
+            ACTION_MIC -> Unit
+            else -> forTv = true
         }
         // fail() ends the cast session too, so the TV is not left waiting on a stream.
         if (!startedInForeground(TAG, ::startInForeground) { fail(CastFailure.BACKGROUND_START) }) return START_NOT_STICKY
         running = true
-        if (intent?.action != ACTION_MIC && stream == null) startStream()
+        when {
+            action == ACTION_MIC -> Unit
+            stream == null -> startStream()
+            ready -> announceReady()
+        }
         return START_NOT_STICKY
+    }
+
+    /** Hands the running stream to whoever wants it: the TV its playlist, the sheet its link. */
+    private fun announceReady() {
+        val s = stream ?: return
+        if (forTv) CastController.get(this).onStreamReady(s.playlistUrl)
+        if (forLink) ComputerLink.onReady(s.pageUrl)
     }
 
     private fun startStream() {
@@ -136,7 +171,8 @@ class CastService : Service() {
     private fun fail(reason: CastFailure = CastFailure.STREAM) {
         if (failed) return
         failed = true
-        CastController.get(this).onStreamFailed(reason)
+        if (forTv) CastController.get(this).onStreamFailed(reason)
+        if (forLink) ComputerLink.onFailed(reason.linkReason)
         stopSelf()
     }
 
@@ -144,8 +180,10 @@ class CastService : Service() {
         object : Runnable {
             override fun run() {
                 if (!ProSnapshot.gate(this@CastService).allows(ProFeature.CAST)) {
-                    // Let the song finish (owner); the player listener ends the cast then.
+                    // Let the song finish (owner); the player listener ends the cast then. With nothing playing
+                    // there is no song to wait for, so it ends now.
                     stopAtSongEnd = true
+                    if (playback?.player?.isPlaying != true) endIfTrialOver()
                     return
                 }
                 handler.postDelayed(this, PRO_RECHECK_MS)
@@ -159,6 +197,9 @@ class CastService : Service() {
                 if (s.isFrozen) {
                     RingLog.note(TAG, "no segment for ${CastStream.FROZEN_MS / 1000} s: ending the cast")
                     fail()
+                } else if (s.address !in CastStream.lanAddresses(this@CastService)) {
+                    RingLog.note(TAG, "the network the stream serves from went away: ending the cast")
+                    fail(CastFailure.NETWORK_CHANGED)
                 } else {
                     handler.postDelayed(this, POLL_MS * 4)
                 }
@@ -171,7 +212,8 @@ class CastService : Service() {
                 val s = stream ?: return
                 when {
                     s.isReady -> {
-                        CastController.get(this@CastService).onStreamReady(s.playlistUrl)
+                        ready = true
+                        announceReady()
                         handler.post(watchFreeze)
                     }
                     SystemClock.elapsedRealtime() - waitingSinceMs > START_TIMEOUT_MS -> {
@@ -229,15 +271,19 @@ class CastService : Service() {
                 Intent(this, CastService::class.java).setAction(ACTION_STOP),
                 PendingIntent.FLAG_IMMUTABLE,
             )
+        // A TV named first: with both watching, the TV is what the user picked from the system's output list too.
+        val title = if (forTv) R.string.cast_notification_title else R.string.link_notification_title
+        val text = if (forTv) R.string.cast_notification_text else R.string.link_notification_text
+        val stopLabel = if (forTv) R.string.cast_stop else R.string.link_stop
         val notification =
             Notification
                 .Builder(this, CHANNEL_ID)
-                .setContentTitle(getString(R.string.cast_notification_title))
-                .setContentText(getString(R.string.cast_notification_text))
+                .setContentTitle(getString(title))
+                .setContentText(getString(text))
                 .setSmallIcon(R.drawable.ic_stat_capture)
                 .setOngoing(true)
                 .setContentIntent(open)
-                .addAction(Notification.Action.Builder(null, getString(R.string.cast_stop), stop).build())
+                .addAction(Notification.Action.Builder(null, getString(stopLabel), stop).build())
                 .build()
         // With the mic on, the microphone type keeps it hearing in the background. Android grants it only while
         // the app is visible (or the service was started then); refused, the cast goes on without it.
@@ -263,6 +309,9 @@ class CastService : Service() {
         private const val NOTIFICATION_ID = 0xCA57
         private const val ACTION_STOP = "dev.geode.cast.STOP"
         private const val ACTION_MIC = "dev.geode.cast.MIC"
+        private const val ACTION_LINK = "dev.geode.cast.LINK"
+        private const val ACTION_RELEASE_TV = "dev.geode.cast.RELEASE_TV"
+        private const val ACTION_RELEASE_LINK = "dev.geode.cast.RELEASE_LINK"
         private const val POLL_MS = 250L
         private const val PRO_RECHECK_MS = 60_000L
 
@@ -294,14 +343,33 @@ class CastService : Service() {
                 .onFailure { RingLog.note(TAG, "mic update refused: $it") }
         }
 
-        /** Starts the service; returns why Android refused (a background start it doesn't allow), or null. */
-        fun start(context: Context): Throwable? =
-            runCatching { context.startForegroundService(Intent(context, CastService::class.java)) }
+        /**
+         * Starts the stream for [target], or hands the running one to it; returns why Android refused (a
+         * background start it doesn't allow), or null.
+         */
+        fun start(
+            context: Context,
+            target: Target,
+        ): Throwable? {
+            val intent = Intent(context, CastService::class.java)
+            if (target == Target.LINK) intent.action = ACTION_LINK
+            return runCatching { context.startForegroundService(intent) }
                 .onFailure { RingLog.note(TAG, "start refused: $it") }
                 .exceptionOrNull()
+        }
 
-        fun stop(context: Context) {
-            context.stopService(Intent(context, CastService::class.java))
+        /** [target] no longer wants the stream; it stops once nobody does. */
+        fun release(
+            context: Context,
+            target: Target,
+        ) {
+            if (!running) return
+            val action = if (target == Target.TV) ACTION_RELEASE_TV else ACTION_RELEASE_LINK
+            runCatching { context.startService(Intent(context, CastService::class.java).setAction(action)) }
+                .onFailure { RingLog.note(TAG, "release refused: $it") }
         }
     }
+
+    /** Who a stream is for: a TV through Cast, or a browser through "Show on a computer". */
+    enum class Target { TV, LINK }
 }

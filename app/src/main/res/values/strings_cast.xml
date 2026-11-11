@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Cast to TV (dev.geode.cast, Pro). The phone renders and streams; the sound plays on the TV. -->
+<!-- Cast to TV and Show on a computer (dev.geode.cast, Pro). The phone renders and streams; the sound plays on the TV or the computer. -->
 <resources>
     <string name="cast_stream_title">BeatRealms 3D</string>
     <string name="cast_channel_name">Cast to TV</string>
-    <string name="cast_channel_description">Shown while your visuals play on a TV</string>
+    <string name="cast_channel_description">Shown while your visuals play on a TV or a computer</string>
     <string name="cast_notification_title">Casting to your TV</string>
     <string name="cast_notification_text">The picture and the sound play on the TV.</string>
     <string name="cast_stop">Stop casting</string>
@@ -15,5 +15,27 @@
     <string name="cast_connecting_unnamed">Starting the picture on the TV…</string>
     <string name="cast_casting">Casting to %1$s</string>
     <string name="cast_casting_unnamed">Casting to the TV</string>
+    <string name="cast_failed_network">Casting stopped because the Wi-Fi changed. The sound is back on the phone.</string>
     <string name="cast_trial_ended">Your Pro trial has ended, so casting stopped after this song. Go Pro to keep casting.</string>
+
+    <!-- Show on a computer: the stream to a browser on the same Wi-Fi, through a link. -->
+    <string name="link_row">Show on a computer</string>
+    <string name="link_row_idle">In a browser on the same Wi-Fi</string>
+    <string name="link_row_starting">Starting…</string>
+    <string name="link_row_live">On</string>
+    <string name="link_row_locked">Show on a computer needs Pro</string>
+    <string name="link_sheet_how">On a computer on the same Wi-Fi, open this address in a browser, or scan the code with a phone camera to send it there.</string>
+    <string name="link_sheet_starting">Starting the picture…</string>
+    <string name="link_sheet_live">Live. Click Play in the browser to start the picture and sound.</string>
+    <string name="link_sheet_sound">The sound plays on the computer; the phone stays silent.</string>
+    <string name="link_sheet_open">Anyone on this Wi-Fi with this link can watch.</string>
+    <string name="link_qr_description">QR code of the link</string>
+    <string name="link_stop">Stop sharing</string>
+    <string name="link_notification_title">Showing on a computer</string>
+    <string name="link_notification_text">The picture and the sound play in the browser.</string>
+    <string name="link_ended_stream">Showing on a computer stopped. The sound is back on the phone.</string>
+    <string name="link_ended_no_lan">Showing on a computer needs Wi-Fi. Connect the phone to the same Wi-Fi as the computer (turn off a VPN if one is on), then try again.</string>
+    <string name="link_ended_background">Android didn\'t let sharing start while the app was closed. Open the app and try again.</string>
+    <string name="link_ended_network">The Wi-Fi changed, so the link stopped working. Start again for a new link.</string>
+    <string name="link_ended_trial">Your Pro trial has ended, so showing on a computer stopped. Go Pro to keep it.</string>
 </resources>

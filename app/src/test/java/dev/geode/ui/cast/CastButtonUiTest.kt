@@ -39,6 +39,7 @@ class CastButtonUiTest {
         assertEquals(R.string.cast_failed, castMessage(CastState.Failed(CastFailure.STREAM)))
         assertEquals(R.string.cast_failed_no_lan, castMessage(CastState.Failed(CastFailure.NO_LAN)))
         assertEquals(R.string.cast_failed_background, castMessage(CastState.Failed(CastFailure.BACKGROUND_START)))
+        assertEquals(R.string.cast_failed_network, castMessage(CastState.Failed(CastFailure.NETWORK_CHANGED)))
     }
 
     @Test

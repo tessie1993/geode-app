@@ -232,6 +232,10 @@ _Avoid_: Screensaver (UI label only)
 **Widget**:
 The home-screen now-playing widget.
 
+**Show on a computer**:
+The visual, with its sound, in a web browser on a computer on the same Wi-Fi: the Cast stream served to a link (an address and its QR code) instead of, or beside, a TV. Pro, like Cast to TV. `cast/ComputerLink`, `core/viz/frame/LinkShare`.
+_Avoid_: Cast to PC, web cast, share (in code names: link)
+
 **Musical layer**:
 The part of the sound engine that hears music rather than sound: tempo and beat (Rhythm), key, chords and scale (Harmony), and sections, build-ups and drops (Form).
 

@@ -23,7 +23,8 @@ import java.net.InetAddress
 import java.util.concurrent.locks.LockSupport
 
 /**
- * One cast: the phone draws the live look into [CastEncoder] and serves it to the TV.
+ * One cast: the phone draws the live look into [CastEncoder] and serves it to the TV, a browser through
+ * "Show on a computer" ([ComputerLink]), or both.
  *
  * The picture comes from its own [VisualizerRenderer] on its own thread and EGL context, not from
  * the screen's view: casting keeps going with the app in the background and the screen off (owner,
@@ -51,7 +52,10 @@ internal class CastStream(
     private val appContext = context.applicationContext
     private val prefsFiles = GeodePrefsFiles(appContext)
     private val segments = LiveSegments()
-    private val server = LiveHttpServer(segments, lanAddress(appContext) ?: throw NoLanAddress())
+
+    /** The Wi-Fi or Ethernet address the stream is served from. */
+    val address: InetAddress = lanAddress(appContext) ?: throw NoLanAddress()
+    private val server = LiveHttpServer(segments, address)
     private var thread: Thread? = null
 
     @Volatile
@@ -63,6 +67,9 @@ internal class CastStream(
 
     /** The URL the receiver loads; valid after [start]. */
     val playlistUrl: String get() = server.playlistUrl
+
+    /** The page a browser opens ("Show on a computer"); valid after [start]. */
+    val pageUrl: String get() = server.pageUrl
 
     /** True once the playlist lists enough segments for the receiver to start on. */
     val isReady: Boolean get() = segments.playlist() != null
@@ -258,11 +265,17 @@ internal class CastStream(
          * This phone's IPv4 address on the Wi-Fi or Ethernet the TV shares, or null. Not simply the active
          * network: with a VPN up, or cellular preferred, that one has no address the TV can reach.
          */
+        fun lanAddress(context: Context): InetAddress? = lanAddresses(context).firstOrNull()
+
+        /**
+         * Every such address, the active network's first. The stream stops when the one it serves from is no
+         * longer here (the phone left that Wi-Fi, or it changed address): the link would name nothing.
+         */
         @Suppress("DEPRECATION") // allNetworks: the one synchronous list; a callback would make start async.
-        fun lanAddress(context: Context): InetAddress? {
-            val connectivity = context.getSystemService(ConnectivityManager::class.java) ?: return null
+        fun lanAddresses(context: Context): List<InetAddress> {
+            val connectivity = context.getSystemService(ConnectivityManager::class.java) ?: return emptyList()
             val candidates = (listOfNotNull(connectivity.activeNetwork) + connectivity.allNetworks).distinct()
-            return candidates.firstNotNullOfOrNull { lanAddressOf(connectivity, it) }
+            return candidates.mapNotNull { lanAddressOf(connectivity, it) }
         }
 
         private fun lanAddressOf(

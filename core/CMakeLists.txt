@@ -9,6 +9,9 @@ add_library(geode_core STATIC
     api/geode_sound_api.cpp
     api/geode_underlay_api.cpp
     api/geode_frame_api.cpp
+    api/geode_link_api.cpp
+    viz/frame/LinkShare.cpp
+    util/QrCode.cpp
     api/geode_surface_api.cpp
     api/geode_auto_api.cpp
     api/geode_playout_api.cpp

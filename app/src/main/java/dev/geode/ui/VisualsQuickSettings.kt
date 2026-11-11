@@ -74,6 +74,7 @@ import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.GuiPrefs
 import dev.geode.data.VizUiState
 import dev.geode.render.scene.MilkdropEngine
+import dev.geode.ui.cast.ComputerLinkRow
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneIcon
@@ -86,7 +87,8 @@ import kotlin.math.roundToInt
  * a page, not a drop-down over the visual, and no gesture for it). It holds the settings a listener
  * reaches for while watching, split from Customize by kind: what changes the look by itself (Auto,
  * the style timer and what it steps through, the visual playlist) and how the glass over the visual
- * behaves (the sheet's opacity, how long the mini player stays).
+ * behaves (the sheet's opacity, how long the mini player stays), and "Show on a computer" (the Cast stream to a
+ * browser, `ui/cast/ComputerLinkRow`), since the ⚙ sits beside the Cast icon.
  *
  * It owns no state of its own. Every row reads and writes the store the matching Settings row uses,
  * so the two can never disagree: Auto is [AutoDirectorStore], the timer, its sources and the
@@ -292,6 +294,8 @@ private fun QuickSettingsRows(
             PlaylistRow(viz.vizPlaylist.size, onOpenPlaylist)
         }
         GlassRows(gui, onGuiChange)
+        // Beside the Cast icon's ⚙: the stream to a browser, for a computer without a Chromecast.
+        ComputerLinkRow()
     }
     if (twoColumns) {
         Row(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.L)) {

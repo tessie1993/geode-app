@@ -1222,7 +1222,10 @@ object GeodeNative {
     /** The audio cut: the end of the last frame taken, in µs of stream time. */
     external fun frameClockAudioUntilUs(state: LongArray): Long
 
-    /** The Cast stream's format into [out] (4 ints): width, height, fps, keyframe interval in seconds. */
+    /** Ints [castFormat] fills (GEODE_CAST_FORMAT_INTS). */
+    const val CAST_FORMAT_INTS = 6
+
+    /** The Cast stream's format into [out] ([CAST_FORMAT_INTS] ints): width, height, fps, keyframe interval (s), video and audio bit/s. */
     external fun castFormat(out: IntArray)
     // Export post-passes (core/viz/frame/ExportPasses): the watermark, a loop's seam, a Studio transition and
     // its capture. [assets] is the app's AssetManager (typed as Any, as for [vizCreate]); every call but the
@@ -1811,6 +1814,81 @@ object GeodeNative {
         state: LongArray,
         bufferFrames: Int,
         ptsUs: LongArray,
+    ): Int
+
+    // Show on a computer (core/viz/frame/LinkShare, LinkPage): the browser link's routes, heads, page, master
+    // playlist and state; and its QR code (core/util/QrCode). cast/LiveHttpServer only moves the bytes.
+
+    /** Resources [linkRoute] names (GEODE_LINK_*). */
+    const val LINK_PAGE = 1
+    const val LINK_SCRIPT = 2
+    const val LINK_STYLE = 3
+    const val LINK_MASTER = 4
+    const val LINK_PLAYLIST = 5
+    const val LINK_INIT = 6
+    const val LINK_SEGMENT = 7
+
+    /**
+     * Routes a request's [method] and [target] against [token]: returns the HTTP status and fills [out] (2 longs)
+     * with the resource and, for a segment, its sequence.
+     */
+    external fun linkRoute(
+        method: String,
+        target: String,
+        token: String,
+        out: LongArray,
+    ): Int
+
+    /** The response head (status line, headers, blank line) for [status] and [resource] with a [length]-byte body. */
+    external fun linkResponseHead(
+        status: Int,
+        resource: Int,
+        length: Long,
+        token: String,
+    ): String
+
+    /** A static file of the page ([LINK_PAGE], [LINK_SCRIPT] or [LINK_STYLE]); null for any other resource. */
+    external fun linkAsset(resource: Int): ByteArray?
+
+    /** The master playlist, CODECS read from the encoder's [init] segment; null until they can be read. */
+    external fun linkMasterPlaylist(init: ByteArray): String?
+
+    /** Size of the share's state (GEODE_LINK_STATE): phase, reason. */
+    const val LINK_STATE = 2
+    const val LINK_PHASE_IDLE = 0
+    const val LINK_PHASE_STARTING = 1
+    const val LINK_PHASE_LIVE = 2
+    const val LINK_PHASE_ENDED = 3
+    const val LINK_REASON_STREAM = 1
+    const val LINK_REASON_NO_LAN = 2
+    const val LINK_REASON_BACKGROUND = 3
+    const val LINK_REASON_NETWORK = 4
+    const val LINK_REASON_TRIAL = 5
+    const val LINK_EVENT_START = 1
+    const val LINK_EVENT_READY = 2
+    const val LINK_EVENT_FAILED = 3
+    const val LINK_EVENT_STOP = 4
+    const val LINK_EVENT_SHOWN = 5
+    const val LINK_ENTITLED = 1
+    const val LINK_HAS_LAN = 2
+    const val LINK_DO_START_STREAM = 1
+    const val LINK_DO_STOP_STREAM = 2
+    const val LINK_DO_PAYWALL = 4
+
+    /** One event of the share's state machine over [state] ([LINK_STATE] ints); returns LINK_DO_* bits. */
+    external fun linkStep(
+        state: IntArray,
+        event: Int,
+        arg: Int,
+    ): Int
+
+    /** Modules a QR code can have (GEODE_QR_MAX_MODULES), the size of [qrEncode]'s buffer. */
+    const val QR_MAX_MODULES = 57 * 57
+
+    /** [text]'s QR code (byte mode, level M) into [out], row-major, 1 = dark; returns its side, 0 when too long. */
+    external fun qrEncode(
+        text: String,
+        out: ByteArray,
     ): Int
 
     // Cast's live HLS timing (core/viz/frame/HlsSegments): media-time segment durations and the playlist.

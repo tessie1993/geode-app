@@ -70,7 +70,7 @@ internal val MEDIA_ROOTS_PREF_KEYS =
         device(PrefType.STRING_SET, KEY_ROOTS)
     }
 
-private val AUDIO_EXTS = setOf("mp3", "wav", "flac", "ogg", "m4a", "aac", "opus", "wma", "aiff")
+private val AUDIO_EXTS = setOf("mp3", "wav", "flac", "ogg", "m4a", "aac", "opus", "aiff", "aif")
 
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class MusicLibraryRepository(

@@ -25,7 +25,9 @@ class WatermarkOverlay(
     private val text: String,
     private val assets: AssetManager,
 ) {
-    private var handle = 0L
+    /** The native pass once [prepare]d, else 0; Record hands it to the stage's tee. */
+    var handle = 0L
+        private set
     private var width = 0
     private var height = 0
 

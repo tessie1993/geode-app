@@ -145,8 +145,8 @@ without Pro are limited to one minute and carry a "BeatRealms 3D" watermark.
 ## Backups
 
 If Android backup is on, your BeatRealms settings, presets, playlists and listening history
-may be included in your Google account backup, handled by Google. The crash file, imported textures and
-recorded takes are excluded. You can turn backup off in your device settings.
+may be included in your Google account backup, handled by Google. The crash file and imported textures
+are excluded; recordings are saved as videos, like exports, outside the backup. You can turn backup off in your device settings.
 
 Settings › Backup can also save one zip file, only when you ask it to, to a place you
 choose with the system file picker. It holds your settings, presets, palettes, templates,

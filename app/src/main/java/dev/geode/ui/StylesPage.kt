@@ -1,12 +1,7 @@
 package dev.geode.ui
 
-import android.content.Context
-import android.graphics.BitmapFactory
-import android.util.LruCache
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -32,7 +27,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -41,13 +35,9 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -80,17 +70,12 @@ import dev.geode.ui.theme.StoneHapticCue
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.performStoneHaptic
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import java.io.IOException
-import java.util.concurrent.ConcurrentHashMap
-import kotlin.math.abs
 
 /**
  * Visuals › Styles: every style in one vertical menu that opens level by level, family › style ›
  * variation (owner, 2026-11-06: no stills, no group dropdown, no search).
  *
- * - **Family**, the engine that draws it: Silk, Life, Mycelium, Acid, Shaders, MilkDrop, Fluid,
+ * - **Family**, the engine that draws it: Silk, Life, Mycelium, Morphing, Shaders, MilkDrop, Fluid,
  *   Cymatics, in catalogue order ([Catalogue]); a family of one style is a plain row.
  * - **Style**: a shader family (Arbor, Nebula, Truchet…) is one style whose twelve looks are its
  *   variations; every other style is its own row and loads on a tap.
@@ -471,83 +456,6 @@ private fun DrawScope.drawChosenGlass() {
 }
 
 /**
- * The still of a style: `assets/thumbs/<id>.webp`, rendered on CI by
- * `StyleThumbnailRenderTest`. Until a style has one (a new style, or MilkDrop, whose look is
- * the preset's) it gets a gradient keyed to its family or kind, so the grid never shows a hole.
- * Internal because the Presets cards show their style's still too.
- */
-@Composable
-internal fun StyleThumbnail(
-    entry: StyleEntry,
-    modifier: Modifier = Modifier,
-) {
-    val context = LocalContext.current
-    val bitmap by produceState(StyleThumbs.cached(entry.id), entry.id) {
-        if (value == null) value = withContext(Dispatchers.IO) { StyleThumbs.load(context, entry.id) }
-    }
-    val image = bitmap
-    if (image != null) {
-        Image(image, contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier)
-    } else {
-        Box(modifier.background(fallbackBrush(entry)))
-    }
-}
-
-/** Two hues from the family (or kind), nudged per style so neighbours in a family still differ. */
-private fun fallbackBrush(entry: StyleEntry): Brush {
-    val base = abs((entry.familyLabel ?: entry.kindLabel).hashCode()) % HUE_TURN
-    val nudge = abs(entry.id.hashCode()) % HUE_NUDGE
-    val a = Color.hsv(((base + nudge) % HUE_TURN).toFloat(), FALLBACK_SAT, FALLBACK_DARK)
-    val b = Color.hsv(((base + nudge + HUE_SPREAD) % HUE_TURN).toFloat(), FALLBACK_SAT, FALLBACK_LIGHT)
-    return Brush.linearGradient(listOf(a, b))
-}
-
-/**
- * Decoded thumbnails, held by bytes so a long scroll cannot hold every one. A style without a
- * file is remembered too, so the grid does not ask the assets again on every bind.
- */
-private object StyleThumbs {
-    private val cache =
-        object : LruCache<String, ImageBitmap>(CACHE_BYTES) {
-            override fun sizeOf(
-                key: String,
-                value: ImageBitmap,
-            ): Int = value.width * value.height * BYTES_PER_PIXEL
-        }
-    private val missing: MutableSet<String> = ConcurrentHashMap.newKeySet()
-
-    fun cached(id: String): ImageBitmap? = cache.get(id)
-
-    /** Empties the decoded bitmaps; the next bind decodes again. `missing` is a few strings and stays. */
-    fun clear() = cache.evictAll()
-
-    fun load(
-        context: Context,
-        id: String,
-    ): ImageBitmap? {
-        cache.get(id)?.let { return it }
-        if (id in missing) return null
-        val bitmap =
-            try {
-                context.assets.open("thumbs/$id.webp").use { BitmapFactory.decodeStream(it) }
-            } catch (_: IOException) {
-                null
-            }
-        if (bitmap == null) {
-            missing += id
-            return null
-        }
-        return bitmap.asImageBitmap().also { cache.put(id, it) }
-    }
-
-    private const val CACHE_BYTES = 16 * 1024 * 1024
-    private const val BYTES_PER_PIXEL = 4
-}
-
-/** Frees the style thumbnails on memory pressure (`GeodeApp.onTrimMemory`, #854). */
-internal fun trimStyleThumbs() = StyleThumbs.clear()
-
-/**
  * The menu's open headers, kept for the process; null until the user opens or closes one, so a
  * fresh start opens the path to the style on screen instead.
  *
@@ -578,7 +486,7 @@ private fun kindLabel(kind: SceneKind): String =
         SceneKind.SILK -> "Silk"
         SceneKind.LIFE -> "Life"
         SceneKind.MYCELIUM -> "Mycelium"
-        SceneKind.ACID -> "Acid"
+        SceneKind.ACID -> "Morphing"
         SceneKind.MILKDROP -> "MilkDrop"
         SceneKind.FLUID, SceneKind.CURL_FLOW, SceneKind.WATER -> "Fluid"
         SceneKind.CYMATICS -> "Cymatics"
@@ -593,9 +501,3 @@ internal fun sceneDisplayLabel(id: String): String {
 private const val HALF_TURN = 180f
 private const val SHADERS = "Shaders"
 private val INDENT = 16.dp
-private const val HUE_TURN = 360
-private const val HUE_NUDGE = 40
-private const val HUE_SPREAD = 50
-private const val FALLBACK_SAT = 0.65f
-private const val FALLBACK_DARK = 0.30f
-private const val FALLBACK_LIGHT = 0.75f

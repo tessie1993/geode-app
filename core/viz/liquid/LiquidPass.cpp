@@ -141,9 +141,19 @@ GLuint LiquidPass::run(const Frame& f) {
                 1.0f / static_cast<float>(std::max(f.styleHeight, 1)));
     glUniform1f(uniforms_.loc("uDt"), f.dt);
     glUniform1f(uniforms_.loc("uAspect"), static_cast<float>(width_) / static_cast<float>(height_));
-    glUniform2f(uniforms_.loc("uVp"), f.dive.vpX, f.dive.vpY);
-    glUniform1f(uniforms_.loc("uScale"), f.dive.scale);
-    glUniform1f(uniforms_.loc("uTwist"), f.dive.twist);
+    glUniform2f(uniforms_.loc("uVp"), f.vpX, f.vpY);
+    glUniform1f(uniforms_.loc("uZoom"), f.motion.zoom);
+    glUniform1f(uniforms_.loc("uZoomExp"), f.motion.zoomExp);
+    glUniform1f(uniforms_.loc("uRot"), f.motion.rot);
+    glUniform1f(uniforms_.loc("uCx"), f.motion.cx);
+    glUniform1f(uniforms_.loc("uCy"), f.motion.cy);
+    glUniform1f(uniforms_.loc("uDx"), f.motion.dx);
+    glUniform1f(uniforms_.loc("uDy"), f.motion.dy);
+    glUniform1f(uniforms_.loc("uSx"), f.motion.sx);
+    glUniform1f(uniforms_.loc("uSy"), f.motion.sy);
+    glUniform1f(uniforms_.loc("uWarp"), f.motion.warp);
+    glUniform1f(uniforms_.loc("uWarpScale"), f.motion.warpScale);
+    glUniform1f(uniforms_.loc("uWarpSpeed"), f.motion.warpSpeed);
     // The first frame after a reset pours the whole style in, so the liquid starts as the style.
     glUniform1f(uniforms_.loc("uInject"), fresh_ ? 1.0f : f.inject);
     glUniform1f(uniforms_.loc("uEdge"), perFrameWeight(f.edge, f.dt));
@@ -155,7 +165,6 @@ GLuint LiquidPass::run(const Frame& f) {
     glUniform1i(uniforms_.loc("uSurface"), f.surface);
     glUniform1i(uniforms_.loc("uFeedback"), f.feedback ? 1 : 0);
     glUniform1f(uniforms_.loc("uShimmer"), f.shimmer * frames60(f.dt));
-    glUniform1f(uniforms_.loc("uWarp"), f.warp * frames60(f.dt));
     glUniform1f(uniforms_.loc("uLight"), f.light);
     glUniform1f(uniforms_.loc("uTime"), f.time);
     glBindVertexArray(f.quadVao);

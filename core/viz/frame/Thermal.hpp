@@ -19,10 +19,11 @@
 // read "no forecast" and settled on Full while the first was easing off (#387). Now one state holds the
 // readings and the settled tier; every renderer's governor reads it, and the pacer applies its fps cap.
 //
-// Android keeps only the reads: a live renderer's one per-frame call (`geode_viz_frame_begin`) claims the slot
-// and says GEODE_FRAME_THERMAL_DUE; only then does `ThermalGovernor.kt` read PowerManager and call
-// `geode_thermal_push`. The cadence, the NaN rule,
-// the dwell and the ladder are all decided here.
+// Android keeps only the reads. The status is never polled: PowerManager's status listener pushes it when
+// it changes. The headroom is asked every ten seconds: a live renderer's one per-frame call
+// (`geode_viz_frame_begin`) claims the slot and says GEODE_FRAME_THERMAL_DUE; only then does
+// `ThermalGovernor.kt` ask PowerManager and call `geode_thermal_push`. The cadence, the NaN rule, the dwell
+// and the ladder are all decided here.
 namespace geode::viz {
 
 enum class ThermalTier { Full, Eased, Reduced, Minimal };
@@ -54,15 +55,18 @@ inline const ThermalTierInfo& thermalTierInfo(ThermalTier tier) {
 }
 
 // The process's one thermal state. Thread-safe: every renderer's GL thread reads it each frame, the
-// pacer thread reads the cap each vsync, and one GL thread a second pushes a reading in.
+// pacer thread reads the cap each vsync, one GL thread a second settles it and the main thread pushes a
+// new status in.
 class ThermalState {
 public:
-    // PowerManager's headroom tracks slow skin sensors and may answer NaN when asked more than about once
-    // a second, so the whole process asks once a second, whoever asks.
+    // The state settles once a second for the whole process, whoever draws.
     static constexpr double kSamplePeriodSeconds = 1.0;
+    // PowerManager's headroom tracks slow skin sensors, and Android's Thermal API guide says to ask no more
+    // than once every ten seconds (it answers NaN otherwise), so the whole process asks that often.
+    static constexpr double kHeadroomPeriodSeconds = 10.0;
     // A NaN between real readings is a missed window, not a cool phone: the last real headroom holds this
-    // long before the state stops trusting it.
-    static constexpr double kHeadroomStaleSeconds = 10.0;
+    // long, two missed asks, before the state stops trusting it.
+    static constexpr double kHeadroomStaleSeconds = 2.5 * kHeadroomPeriodSeconds;
     // Hotter waits three readings in a row, so a single spike does not drop the frame rate; cooler waits a
     // minute per step, so a phone at the edge does not flap between two rates.
     static constexpr double kEscalateDwellSeconds = 3.0;
@@ -92,8 +96,21 @@ public:
         return lastClaimS_.compare_exchange_strong(last, nowSeconds, std::memory_order_relaxed);
     }
 
-    // One reading. `status` < 0: the platform has no thermal API (before API 29). A NaN or negative
-    // `headroom`: no forecast this time (before API 30, or asked inside the window).
+    // The slot's winner, once a second: true when a new headroom is due from the platform, which the caller
+    // asks for and pushes. On the other seconds the state settles on the readings it holds, so the dwells
+    // keep running between asks.
+    bool headroomDue(double nowSeconds) {
+        if (!claimSample(nowSeconds)) return false;
+        if (nowSeconds - lastHeadroomAskS_.load(std::memory_order_relaxed) >= kHeadroomPeriodSeconds) {
+            lastHeadroomAskS_.store(nowSeconds, std::memory_order_relaxed);
+            return true;
+        }
+        push(-1, std::numeric_limits<float>::quiet_NaN(), nowSeconds);
+        return false;
+    }
+
+    // One reading. `status` < 0: none this time (the listener pushes it apart from the headroom). A NaN or
+    // negative `headroom`: no forecast this time (a status push, a settle, or asked inside the window).
     void push(int status, float headroom, double nowSeconds) {
         std::lock_guard<std::mutex> lock(lock_);
         if (status >= 0) {
@@ -189,6 +206,7 @@ private:
 
     std::mutex lock_;
     std::atomic<double> lastClaimS_{-std::numeric_limits<double>::infinity()};
+    std::atomic<double> lastHeadroomAskS_{-std::numeric_limits<double>::infinity()};
     std::atomic<ThermalTier> settled_{ThermalTier::Full};
     std::atomic<ThermalTier> measuredFloor_{ThermalTier::Full};
     std::atomic<bool> platformKnows_{false};

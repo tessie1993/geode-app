@@ -200,7 +200,7 @@ Java_dev_geode_engine_bridge_GeodeNative_vizTakeMilkPresetLoaded(JNIEnv* env, jo
     char buffer[4096];
     const size_t length = geode_viz_take_milk_preset_loaded(vizOf(handle), buffer, sizeof(buffer));
     if (length == 0 || length >= sizeof(buffer)) return nullptr;
-    return env->NewStringUTF(buffer);
+    return geode::jni::utf8String(env, buffer);
 }
 
 JNIEXPORT jint JNICALL
@@ -291,7 +291,7 @@ Java_dev_geode_engine_bridge_GeodeNative_shaderOverride(JNIEnv* env, jobject, js
     if (length == 0) return nullptr;
     std::vector<char> buffer(length + 1, '\0');
     geode_shader_override(id.get(), buffer.data(), buffer.size());
-    return env->NewStringUTF(buffer.data());
+    return geode::jni::utf8String(env, buffer.data());
 }
 
 JNIEXPORT void JNICALL
@@ -508,7 +508,7 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSceneIds(JNIEnv* env, jobject, jlong
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizLastError(JNIEnv* env, jobject, jlong handle) {
-    return env->NewStringUTF(geode_viz_last_error(vizOf(handle)));
+    return geode::jni::utf8String(env, geode_viz_last_error(vizOf(handle)));
 }
 
 JNIEXPORT void JNICALL
@@ -765,7 +765,7 @@ Java_dev_geode_engine_bridge_GeodeNative_castFormat(JNIEnv* env, jobject, jintAr
 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_exportPassError(JNIEnv* env, jobject, jlong handle) {
-    return env->NewStringUTF(geode_export_pass_error(passOf(handle)));
+    return geode::jni::utf8String(env, geode_export_pass_error(passOf(handle)));
 }
 
 JNIEXPORT void JNICALL
@@ -1039,7 +1039,7 @@ Java_dev_geode_engine_bridge_GeodeNative_hlsPlaylist(JNIEnv* env, jobject, jlong
                                   suffix.get(), out, cap);
     };
     std::vector<char> text(static_cast<size_t>(write(nullptr, 0)) + 1);
-    return write(text.data(), static_cast<int>(text.size())) > 0 ? env->NewStringUTF(text.data()) : nullptr;
+    return write(text.data(), static_cast<int>(text.size())) > 0 ? geode::jni::utf8String(env, text.data()) : nullptr;
 }
 
 }

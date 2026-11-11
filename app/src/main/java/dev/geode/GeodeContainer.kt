@@ -107,7 +107,7 @@ class GeodeContainer(
      * [dev.geode.export.LoopExtend] all insert with `IS_PENDING` set and clear it on success or
      * delete the row on a clean failure; nothing runs `START_STICKY` or persists the run for a
      * retry, so a row that is still pending once the app restarts belongs to nobody and never
-     * finishes on its own. It would otherwise sit in Movies/MuzViz or Pictures/MuzViz forever, a
+     * finishes on its own. It would otherwise sit in Movies/BeatRealms or Pictures/BeatRealms forever, a
      * broken, unplayable, ever-growing invisible file.
      *
      * A short grace period (rather than sweeping every pending row on sight) keeps this from
@@ -133,11 +133,15 @@ class GeodeContainer(
             "${MediaStore.MediaColumns.OWNER_PACKAGE_NAME} = ? AND " +
                 "${MediaStore.MediaColumns.IS_PENDING} = 1 AND " +
                 "${MediaStore.MediaColumns.DATE_ADDED} < ? AND " +
-                "(${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ? OR ${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?)"
+                "(${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ? OR ${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ? OR " +
+                "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ? OR ${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?)"
         val args =
             arrayOf(
                 context.packageName,
                 cutoffSeconds.toString(),
+                "Movies/BeatRealms%",
+                "Pictures/BeatRealms%",
+                // Renders made before the rename (the old product name's folders).
                 "Movies/MuzViz%",
                 "Pictures/MuzViz%",
             )

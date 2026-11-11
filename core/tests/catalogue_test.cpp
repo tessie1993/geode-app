@@ -390,7 +390,7 @@ void textRoundTrips() {
         }
     }
     check(styleIds == catalogue::allIds(), "style rows in picker order");
-    check(kinds == catalogue::kKindCount && families == 10 && keys == 80 && overrides == 8, "row counts");
+    check(kinds == catalogue::kKindCount && families == 10 && keys == 89 && overrides == 8, "row counts");
 }
 
 std::string readFile(const char* path) {

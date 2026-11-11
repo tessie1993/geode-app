@@ -54,6 +54,8 @@ const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     {"CAM_FLY", "UNIVERSAL"}, {"CAM_ORBIT", "UNIVERSAL"}, {"CAM_PUSH", "UNIVERSAL"}, {"CAM_YAW", "UNIVERSAL"},
     {"CAM_PITCH", "UNIVERSAL"}, {"CAM_ROLL", "UNIVERSAL"}, {"CAM_FOV", "UNIVERSAL"}, {"CAM_SHAKE", "UNIVERSAL"},
     {"FLOW_CURL", "UNIVERSAL"}, {"FLOW_FORCE", "UNIVERSAL"}, {"DIVE_SPEED", "UNIVERSAL"},
+    // Appended after the port: the dive's spiral and aim.
+    {"DIVE_TWIST", "ENDLESS_ZOOM"}, {"DIVE_AIM_X", "ENDLESS_ZOOM"}, {"DIVE_AIM_Y", "ENDLESS_ZOOM"},
 };
 
 void everyTargetKeepsItsNameAndScope() {
@@ -64,7 +66,9 @@ void everyTargetKeepsItsNameAndScope() {
         check(std::string(catalogue::name(modtargets::scopeOf(t))) == kOldTargets[i].second,
               std::string("scope of ") + kOldTargets[i].first);
     }
-    check(static_cast<int>(LfoTarget::CamShake) == 52 && static_cast<int>(LfoTarget::EndlessZoomSpeed) == 55, "wire ordinals");
+    check(static_cast<int>(LfoTarget::CamShake) == 52 && static_cast<int>(LfoTarget::EndlessZoomSpeed) == 55 &&
+              static_cast<int>(LfoTarget::DiveAimY) == 58,
+          "wire ordinals");
 }
 
 void onlyTheRetiredSlotIsHidden() {

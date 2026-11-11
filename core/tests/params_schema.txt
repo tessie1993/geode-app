@@ -1,4 +1,4 @@
-params|1|164
+params|1|173
 param|0|speed|FLOAT|1|0.05|4|FADE
 param|1|zoom|FLOAT|1|0.3|3|FADE
 param|2|rotation|FLOAT|0|-3|3|FADE
@@ -163,3 +163,12 @@ param|160|liquidBorn|INT|1|0|3|HOLD
 param|161|liquidAge|INT|0|0|2|HOLD
 param|162|liquidSurface|INT|0|0|2|HOLD
 param|163|camFlat|FLOAT|0|0|1|FADE
+param|164|diveSpacing|FLOAT|1|0.5|2|FADE
+param|165|diveTwist|FLOAT|0|-1|1|FADE
+param|166|diveAimX|FLOAT|0|-0.6|0.6|FADE
+param|167|diveAimY|FLOAT|0|-0.6|0.6|FADE
+param|168|diveShape|FLOAT|0.5|0|1|FADE
+param|169|diveBlend|FLOAT|0.75|0|1|FADE
+param|170|diveFog|FLOAT|0|0|1|FADE
+param|171|diveLens|FLOAT|0|-0.5|1.5|FADE
+param|172|diveFollow|FLOAT|1|0|2|FADE

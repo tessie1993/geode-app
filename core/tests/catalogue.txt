@@ -284,6 +284,15 @@ key|Palette blend|SHADER_LOOK
 key|Duotone|SHADER_LOOK
 key|Endless zoom|ENDLESS_ZOOM
 key|Dive speed|ENDLESS_ZOOM
+key|Ring spacing|ENDLESS_ZOOM
+key|Tunnel shape|ENDLESS_ZOOM
+key|Dive blend|ENDLESS_ZOOM
+key|Depth fade|ENDLESS_ZOOM
+key|Dive twist|ENDLESS_ZOOM
+key|Dive aim X|ENDLESS_ZOOM
+key|Dive aim Y|ENDLESS_ZOOM
+key|Dive lens|ENDLESS_ZOOM
+key|Music follow|ENDLESS_ZOOM
 key|Turbulence|TURBULENCE
 key|Density|DYE_DENSITY
 key|Trails|TRAIL_TOGGLE

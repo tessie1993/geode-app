@@ -127,6 +127,9 @@ enum class LfoTarget(
     FLOW_CURL("Swirl"),
     FLOW_FORCE("Push"),
     DIVE_SPEED("Dive"),
+    DIVE_TWIST("Dive twist"),
+    DIVE_AIM_X("Dive aim sideways"),
+    DIVE_AIM_Y("Dive aim up and down"),
 }
 
 /** One modulation slot; the rate is a period in seconds, or in beats of the music when [beats] is set. */

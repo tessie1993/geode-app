@@ -77,6 +77,9 @@ constexpr std::array<TargetRow, kTargetCount> kTargets{{
     {"FLOW_CURL", Scope::Universal},
     {"FLOW_FORCE", Scope::Universal},
     {"DIVE_SPEED", Scope::Universal},  // LfoTarget::EndlessZoomSpeed
+    {"DIVE_TWIST", Scope::EndlessZoom},
+    {"DIVE_AIM_X", Scope::EndlessZoom},
+    {"DIVE_AIM_Y", Scope::EndlessZoom},
 }};
 
 constexpr std::array kSourceNames{"LFO", "BASS", "MID", "TREBLE", "LEVEL", "BRIGHTNESS", "TRANSIENT", "STEREO_WIDTH", "STEREO_PAN"};

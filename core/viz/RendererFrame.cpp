@@ -650,7 +650,7 @@ GLuint Renderer::drawTrails(const SceneParams& p, float dt, float wallDt) {
 
 GLuint Renderer::drawDive(const Scene& scene, const SceneParams& p, float dt, float wallDt, GLuint shown) {
     const float wall = std::isfinite(wallDt) ? std::clamp(wallDt, 0.0f, 0.1f) : 0.0f;
-    diveFollow_.step(soundFrame_, wall, p.audioDrive);
+    diveFollow_.step(soundFrame_, wall, p.audioDrive, p.diveFollow);
     // Liquid mode's liquid has a dive of its own on a flat style (LiquidMath's Dive), which takes Dive
     // speed there; a 3D style in Liquid mode has none, so the stage is its dive.
     const bool flat = !scene.drawsCamera();
@@ -667,12 +667,16 @@ GLuint Renderer::drawDive(const Scene& scene, const SceneParams& p, float dt, fl
         return shown;
     }
     // dt is the music's clock: no sound, no travel.
-    if (on) divePhase_ = endless::advance(divePhase_, endless::travel((zoom ? p.endlessZoomSpeed : 0.0f) + fly, diveFollow_), dt);
+    if (on) {
+        const float octaves = endless::travel((zoom ? p.endlessZoomSpeed : 0.0f) + fly, diveFollow_);
+        divePhase_ = endless::advance(divePhase_, endless::copiesPerSecond(octaves, p.diveSpacing), dt);
+    }
+    const auto look = endless::tunnel::lookFor(p, static_cast<float>(renderWidth_) / static_cast<float>(std::max(renderHeight_, 1)));
     const bool plain = shown == 0;
     const GLuint dived =
         divePass_.run(plain ? fboA_.tex() : shown, plain ? renderWidth_ : liquidPass_.width(),
                       plain ? renderHeight_ : liquidPass_.height(), renderWidth_, renderHeight_, divePhase_,
-                      diveMix_ * diveMix_ * (3.0f - 2.0f * diveMix_), quadVao_);
+                      diveMix_ * diveMix_ * (3.0f - 2.0f * diveMix_), look, quadVao_);
     return dived != 0 ? dived : shown;
 }
 

@@ -854,62 +854,162 @@ void sourceCatalogueIsCompleteAndUnique() {
           "levels are lines");
 }
 
-// The share of the pixel drawn at each magnification from 1/64x to 4x: what the dive stage puts on screen.
-std::array<float, 9> tunnelPicture(float phase, float x, float y) {
-    std::array<float, 9> out{};
-    for (int j = 0; j < 9; ++j) out[static_cast<size_t>(j)] = endless::tunnel::share(phase, std::exp2(static_cast<float>(j - 6)), x, y);
+// The Dive category's settings the tunnel checks run over: the plain tunnel and each control at its ends,
+// on a square, a phone and a wide frame.
+std::vector<endless::tunnel::Look> diveLooks() {
+    std::vector<endless::tunnel::Look> out;
+    const auto with = [&out](float aspect, auto edit) {
+        SceneParams p;
+        edit(p);
+        out.push_back(endless::tunnel::lookFor(p, aspect));
+    };
+    for (float aspect : {1.0f, 0.46f, 2.2f}) {
+        with(aspect, [](SceneParams&) {});
+        with(aspect, [](SceneParams& p) { p.diveSpacing = 0.5f; });
+        with(aspect, [](SceneParams& p) { p.diveSpacing = 2.0f; p.diveBlend = 1.0f; });
+        with(aspect, [](SceneParams& p) { p.diveTwist = 1.0f; });
+        with(aspect, [](SceneParams& p) { p.diveTwist = -0.37f; p.diveAimX = 0.6f; p.diveAimY = -0.6f; });
+        with(aspect, [](SceneParams& p) { p.diveAimX = -0.6f; p.diveAimY = 0.45f; p.diveShape = 0.0f; });
+        with(aspect, [](SceneParams& p) { p.diveShape = 1.0f; p.diveBlend = 0.0f; });
+        with(aspect, [](SceneParams& p) { p.diveBlend = 1.0f; p.diveShape = 0.0f; p.diveLens = 1.5f; });
+    }
     return out;
 }
 
-// Endless zoom is the picture nested inside itself an octave apart. Every copy only ever grows, the frame
-// is always covered, no copy is magnified past two times (four in the rounded frame's corner slivers), and the picture just before the phase wraps is
-// the picture just after it. An earlier law ran one copy 1x -> 2x -> 1x, which backed out every half-octave.
+// Endless zoom is the picture nested inside itself. Every copy only ever grows, the frame is always
+// covered, and the picture just before the phase wraps is the picture just after it, at every setting.
 void endlessZoomIsOneSeamlessTunnel() {
     namespace t = endless::tunnel;
-    const float pts[][2] = {{0.0f, 0.0f}, {0.03f, 0.01f}, {0.2f, -0.1f}, {0.5f, 0.5f}, {-0.7f, 0.3f}, {0.95f, 0.0f}, {1.0f, 1.0f}, {-1.0f, 0.4f}};
-    for (const auto& pt : pts) {
-        const auto before = tunnelPicture(0.99999f, pt[0], pt[1]);
-        const auto after = tunnelPicture(0.0f, pt[0], pt[1]);
-        for (size_t j = 0; j < before.size(); ++j) check(std::fabs(before[j] - after[j]) < 2e-3f, "no pop at the phase wrap");
-        for (int i = 1; i <= 1000; ++i) {
-            const float ph = static_cast<float>(i) / 1000.0f * 0.99999f;
-            float total = 0.0f;
-            for (int k = t::kInner; k >= -t::kBase; --k) {
-                const float s = t::scale(ph, k);
-                const float part = t::share(ph, s, pt[0], pt[1]);
-                check(part >= 0.0f && part <= 1.0f, "a copy's share is a share");
-                const bool corner = t::rim(pt[0], pt[1]) > 1.0f;
-                check(part == 0.0f || s <= (corner ? 4.0f : 2.0f), "no copy is magnified past two times, four in the corner slivers");
-                total += part;
+    for (const t::Look& l : diveLooks()) {
+        for (int yi = 0; yi <= 12; ++yi) {
+            for (int xi = 0; xi <= 12; ++xi) {
+                const float x = static_cast<float>(xi) / 6.0f - 1.0f;
+                const float y = static_cast<float>(yi) / 6.0f - 1.0f;
+                check(t::share(l, 0.0f, l.inner, x, y) == 0.0f, "the newest copy starts shut");
+                check(t::cover(l, 0.999999f, -l.base + 1, x, y) > 1.0f - 1e-5f, "the copy before the last covers the frame at the wrap");
+                for (int k = l.inner; k > -l.base; --k) {
+                    check(std::fabs(t::share(l, 0.999999f, k, x, y) - t::share(l, 0.0f, k - 1, x, y)) < 3e-3f, "no pop at the phase wrap");
+                }
             }
-            check(total <= 1.0f + 1e-5f, "the copies never add up to more than the frame");
-            check(total >= 1.0f - t::kShade - 1e-5f, "a wall's shadow is all that ever darkens it");
         }
+        for (int k = l.inner; k >= -l.base; --k) {
+            check(t::scale(l, 0.6f, k) > t::scale(l, 0.4f, k), "diving in, every copy grows");
+            if (k > -l.base) {
+                check(std::fabs(t::scale(l, 0.3f, k) * std::exp2(l.step) - t::scale(l, 0.3f, k - 1)) < 1e-4f * t::scale(l, 0.3f, k - 1),
+                      "the copies sit Ring spacing apart");
+            }
+        }
+        check(t::scale(l, 0.0f, 0) == 1.0f, "phase 0 is the plain picture");
+        check(t::scale(l, 0.0f, l.inner) <= std::exp2(-t::kInnerOctaves) + 1e-6f, "the newest copy opens five octaves in");
     }
-    for (int k = t::kInner; k >= -t::kBase; --k) {
-        check(t::scale(0.6f, k) > t::scale(0.4f, k), "diving in, every copy grows");
-        if (k > -t::kBase) check(std::fabs(t::scale(0.3f, k) * 2.0f - t::scale(0.3f, k - 1)) < 1e-6f, "the copies sit an octave apart");
-    }
-    check(t::scale(0.0f, 0) == 1.0f && t::cover(0.0f, t::kInner, 0.0f, 0.0f) == 0.0f, "phase 0 is the plain picture with the newest copy still shut");
-    // The centre is never a hole: the copy there is whole, and small.
-    for (int i = 0; i <= 100; ++i) {
-        const float ph = static_cast<float>(i) / 100.0f * 0.99999f;
-        float centre = 0.0f;
-        for (int k = t::kInner; k >= t::kInner - 1; --k) centre += t::share(ph, t::scale(ph, k), 0.0f, 0.0f);
-        check(std::fabs(centre - 1.0f) < 1e-5f, "the centre is always the two innermost copies");
-    }
-    // What a point shows changes smoothly as the dive runs: a copy's soft edge crossing it, never a cut.
+    // What a point shows changes smoothly as the dive runs: a copy's dissolve crossing it, never a cut.
+    const t::Look plain = t::lookFor(SceneParams{}, 1.0f);
+    const float pts[][2] = {{0.0f, 0.0f}, {0.03f, 0.01f}, {0.2f, -0.1f}, {0.5f, 0.5f}, {-0.7f, 0.3f}, {0.95f, 0.0f}, {1.0f, 1.0f}};
     for (const auto& pt : pts) {
         float worst = 0.0f;
         for (int i = 1; i <= 2000; ++i) {
             const float a = static_cast<float>(i - 1) / 2000.0f * 0.99999f;
             const float b = static_cast<float>(i) / 2000.0f * 0.99999f;
-            for (int k = t::kInner; k >= -t::kBase; --k) {
-                worst = std::max(worst, std::fabs(t::share(b, t::scale(b, k), pt[0], pt[1]) - t::share(a, t::scale(a, k), pt[0], pt[1])));
+            for (int k = plain.inner; k >= -plain.base; --k) {
+                worst = std::max(worst, std::fabs(t::share(plain, b, k, pt[0], pt[1]) - t::share(plain, a, k, pt[0], pt[1])));
             }
         }
-        check(worst < 0.02f, "no copy's share of a pixel jumps");
+        check(worst < 0.01f, "no copy's share of a pixel jumps");
     }
+}
+
+// The ridges the first tunnel drew (a shadow outside each copy's edge, a feather over a mirrored
+// border): a flat picture now comes out exactly flat at every phase and setting, a copy draws nothing
+// outside its own edge, and by default it dissolves across a third of its radius, not at a line.
+void endlessZoomDrawsNoRidges() {
+    namespace t = endless::tunnel;
+    for (const t::Look& l : diveLooks()) {
+        for (int i = 0; i <= 96; ++i) {
+            const float ph = static_cast<float>(i) / 96.0f * 0.99999f;
+            for (int yi = 0; yi <= 16; ++yi) {
+                for (int xi = 0; xi <= 16; ++xi) {
+                    const float x = static_cast<float>(xi) / 8.0f - 1.0f;
+                    const float y = static_cast<float>(yi) / 8.0f - 1.0f;
+                    float total = 0.0f;
+                    for (int k = l.inner; k >= -l.base; --k) {
+                        const float part = t::share(l, ph, k, x, y);
+                        check(part >= 0.0f && part <= 1.0f, "a copy's share is a share");
+                        total += part;
+                        float qx = 0.0f;
+                        float qy = 0.0f;
+                        t::into(l, ph, k, x, y, qx, qy);
+                        if (k > -l.base && t::rim(l, qx, qy) >= 1.0f) check(part == 0.0f, "a copy draws nothing outside its own edge");
+                    }
+                    check(std::fabs(total - 1.0f) < 1e-4f, "a flat picture stays flat: no shadow, ring or gap");
+                    check(t::light(l, x, y) == 1.0f, "nothing darkens the frame at Depth fade 0");
+                }
+            }
+        }
+    }
+    const t::Look plain = t::lookFor(SceneParams{}, 1.0f);
+    check(plain.blend * (1.0f - std::exp2(-plain.step)) >= 0.33f, "by default a copy dissolves across a third of its radius");
+    // One percent further from the vanishing point never changes a copy's share by more than a few percent.
+    for (int i = 0; i <= 96; ++i) {
+        const float ph = static_cast<float>(i) / 96.0f * 0.99999f;
+        for (float r = 0.002f; r < 0.99f; r *= 1.01f) {
+            for (int k = plain.inner; k >= -plain.base; --k) {
+                check(std::fabs(t::share(plain, ph, k, r * 1.01f, 0.0f) - t::share(plain, ph, k, r, 0.0f)) < 0.06f,
+                      "no line across the default tunnel");
+            }
+        }
+    }
+    // A shrunk copy's filter widens without a step.
+    check(t::footprint(1.0f) == 0.0f && t::footprint(2.0f) == 0.0f, "a full-size copy is one tap");
+    for (float s = 1.0f; s > 0.01f; s *= 0.99f) {
+        check(t::footprint(s * 0.99f) >= t::footprint(s) && t::footprint(s * 0.99f) - t::footprint(s) < 0.02f * (1.0f + t::footprint(s)),
+              "the footprint grows smoothly");
+    }
+    check(t::footprint(0.001f) == 12.0f, "and is capped");
+    // Depth fade: dark at the vanishing point, full light at the frame, never a step.
+    SceneParams foggy;
+    foggy.diveFog = 1.0f;
+    foggy.diveAimX = 0.3f;
+    const t::Look fog = t::lookFor(foggy, 1.0f);
+    check(t::light(fog, 1.0f, 0.0f) == 1.0f && t::light(fog, -1.0f, 0.0f) == 1.0f, "the frame's edge keeps full light");
+    float last = 0.0f;
+    for (float x = 0.3f; x <= 1.0f; x += 0.01f) {
+        const float v = t::light(fog, x, 0.0f);
+        check(v >= last - 1e-6f && v - last < 0.1f, "Depth fade rises smoothly from the vanishing point");
+        last = v;
+    }
+}
+
+// The Dive controls as the stage reads them: clamped to the schema, finite whatever comes in.
+void diveControlsAreClamped() {
+    namespace t = endless::tunnel;
+    const t::Look plain = t::lookFor(SceneParams{}, 1.0f);
+    check(plain.step == 1.0f && plain.inner == 5 && plain.twist == 0.0f && plain.cx == 0.0f && plain.cy == 0.0f && plain.shape == 4.0f &&
+              plain.fog == 0.0f && plain.lens == 0.0f,
+          "the defaults are the plain tunnel");
+    SceneParams wild;
+    wild.diveSpacing = 99.0f;
+    wild.diveTwist = -99.0f;
+    wild.diveAimX = 99.0f;
+    wild.diveAimY = -99.0f;
+    wild.diveShape = 99.0f;
+    wild.diveBlend = 99.0f;
+    wild.diveFog = 99.0f;
+    wild.diveLens = 99.0f;
+    const t::Look w = t::lookFor(wild, 1.0f);
+    check(w.step == 2.0f && w.twist == -t::kQuarterTurn && w.cx == t::kMaxAim && w.cy == -t::kMaxAim && w.shape == 8.0f && w.blend == 1.0f &&
+              w.fog == 1.5f && w.lens == 1.5f,
+          "each control stops at its range");
+    SceneParams bad;
+    bad.diveSpacing = bad.diveTwist = bad.diveAimX = bad.diveAimY = bad.diveShape = bad.diveBlend = bad.diveFog = bad.diveLens = NAN;
+    const t::Look n = t::lookFor(bad, NAN);
+    check(n.step == 1.0f && n.twist == 0.0f && n.cx == 0.0f && n.shape == 4.0f && n.blend == 0.75f && n.fog == 0.0f && n.lens == 0.0f &&
+              n.aspect == 1.0f && n.base >= 1,
+          "non-finite input is the plain tunnel");
+    check(SceneParams::spec(ParamSlot::diveAimX).max == t::kMaxAim && SceneParams::spec(ParamSlot::diveAimY).min == -t::kMaxAim,
+          "the aim's reach is the schema's");
+    // Ring spacing changes how often a copy passes, never how fast the picture grows.
+    check(endless::copiesPerSecond(0.6f, 2.0f) == 0.3f && endless::copiesPerSecond(0.6f, 0.5f) == 1.2f, "octaves a second to copies a second");
+    check(endless::copiesPerSecond(0.3f, NAN) == 0.3f && endless::copiesPerSecond(0.3f, 0.0f) == 0.6f, "spacing is clamped");
 }
 
 // A shader style's Trails in the feedback pass: MilkDrop's sustain. The echo zoom and warp are motion,
@@ -1051,11 +1151,21 @@ void endlessZoomIgnoresHitsAndFollowsOnlyTheLongRun() {
     }
     check(std::fabs(lost.rate() - 1.0f) < 1e-3f, "when the beat is lost the dive returns to Dive speed");
 
+    // Music follow: 0 lets go, 2 doubles the reach, and it is still the slow hand.
+    Follow none;
+    Follow twice;
+    for (int i = 0; i < 3600; ++i) {
+        none.step(songAt(i * dt, 0.47, 1.0f), dt, 1.0f, 0.0f);
+        twice.step(songAt(i * dt, 0.47, 1.0f), dt, 1.0f, 2.0f);
+    }
+    check(none.rate() == 1.0f, "Music follow 0 leaves the dive at Dive speed");
+    check(twice.rate() > fatRate + 0.1f && twice.rate() <= 1.0f + 2.0f * Follow::kReach + 1e-6f, "Music follow 2 doubles the reach");
+
     Follow odd;
     GeodeSoundFrame bad = songAt(0.0, 0.47, NAN);
     bad.beatPhase = NAN;
     bad.beatConf = INFINITY;
-    for (int i = 0; i < 600; ++i) odd.step(bad, NAN, NAN);
+    for (int i = 0; i < 600; ++i) odd.step(bad, NAN, NAN, NAN);
     check(std::isfinite(odd.rate()), "non-finite sound leaves a finite rate");
 }
 
@@ -1704,6 +1814,8 @@ int main() {
     motionFieldDriftWrapNeverPopsAStyle();
     sourceCatalogueIsCompleteAndUnique();
     endlessZoomIsOneSeamlessTunnel();
+    endlessZoomDrawsNoRidges();
+    diveControlsAreClamped();
     sustainHoldsLongerAtLongerTrails();
     endlessZoomPhaseWrapsForEverInBothDirections();
     endlessZoomIgnoresHitsAndFollowsOnlyTheLongRun();

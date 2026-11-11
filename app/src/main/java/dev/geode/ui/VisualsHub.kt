@@ -1,6 +1,5 @@
 package dev.geode.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
@@ -320,7 +319,7 @@ internal fun VisualsHub(
         }
         // Composed after NavDisplay so it wins over the pages' own back: hidden options come back
         // first. The two overlays below are composed later still, so Back closes them before that.
-        BackHandler(enabled = !nav.sheetShown, onBack = nav::showSheet)
+        CloseOnBack(enabled = !nav.sheetShown, onBack = nav::showSheet)
         MacrosDrawer(
             visible = macros,
             onDismiss = { macros = false },

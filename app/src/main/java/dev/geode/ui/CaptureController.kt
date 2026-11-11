@@ -6,7 +6,6 @@ import dev.geode.audio.MicCapture
 import dev.geode.audio.NowPlayingBridge
 import dev.geode.audio.PlaybackCapture
 import dev.geode.audio.PlaybackCaptureService
-import dev.geode.audio.playbackCaptureSupported
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +21,6 @@ data class MicState(
 )
 
 data class ExternalAudioState(
-    val supported: Boolean = playbackCaptureSupported,
     val active: Boolean = false,
     val awaitingConsent: Boolean = false,
     val failure: CaptureFailure? = null,

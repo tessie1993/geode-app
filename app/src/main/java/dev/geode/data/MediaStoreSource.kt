@@ -3,8 +3,11 @@ package dev.geode.data
 import android.content.ContentResolver
 import android.content.Intent
 import android.content.IntentSender
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.MediaStore
+import android.util.Size
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 
@@ -45,5 +48,30 @@ class MediaStoreSource(
     suspend fun keepFolderAccess(tree: Uri): Boolean =
         withContext(io) {
             resolver.persistGrant(tree, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        }
+
+    /**
+     * A picture of the video at [uri], about [width] × [height]: the media row's cached thumbnail,
+     * else one decoded frame (a document-tree URI or an unindexed row has no cached thumbnail).
+     * Null when both fail.
+     */
+    suspend fun videoFrame(
+        uri: Uri,
+        width: Int,
+        height: Int,
+    ): Bitmap? =
+        withContext(io) {
+            runCatching { resolver.loadThumbnail(uri, Size(width, height), null) }.getOrNull()
+                ?: runCatching {
+                    resolver.openFileDescriptor(uri, "r")?.use { file ->
+                        val retriever = MediaMetadataRetriever()
+                        try {
+                            retriever.setDataSource(file.fileDescriptor)
+                            retriever.getScaledFrameAtTime(-1, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, width, height)
+                        } finally {
+                            retriever.release()
+                        }
+                    }
+                }.getOrNull()
         }
 }

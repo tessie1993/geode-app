@@ -6,7 +6,7 @@
     <dimen name="widget_min_height">110dp</dimen>
     <dimen name="widget_min_resize_width">110dp</dimen>
     <dimen name="widget_min_resize_height">48dp</dimen>
-    <!-- Pre-31 fallbacks, the 1A radius tokens (ExtraLarge, Large); values-v31 uses the launcher's own radii. -->
-    <dimen name="widget_corner_radius">28dp</dimen>
-    <dimen name="widget_inner_radius">16dp</dimen>
+    <!-- The launcher's own radii (API 31+). -->
+    <dimen name="widget_corner_radius">@android:dimen/system_app_widget_background_radius</dimen>
+    <dimen name="widget_inner_radius">@android:dimen/system_app_widget_inner_radius</dimen>
 </resources>

@@ -337,6 +337,7 @@ private:
     PcmHandoff pcm_;
     int framePcmCount_ = 0;  // GL thread: samples of pcmDeliverScratch_ this frame's scenes get.
     std::vector<float> pcmDeliverScratch_;
+    std::vector<float> pcmSideScratch_;
     // Drained by beginFrame; nothing queues into it since the overrides went process-wide (#364), and
     // the frame code that drains it is being moved (#344), which drops it.
     std::vector<std::pair<std::string, std::string>> pendingShaders_;

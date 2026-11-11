@@ -81,13 +81,13 @@ void zoomMovesTowardAndAwayFromTheCentre() {
 void zoomExpShapesTheZoomByRadius() {
     const float dt = 1.0f / 30.0f;
     Motion m;
-    m.zoom = 8.0f;
+    m.zoom = 4.0f;
     m.zoomExp = 2.0f;
     const FrameMotion f = perFrame(m, dt);
     float lastShrink = 0.0f;
     for (float r : {0.25f, 0.5f, 1.0f}) {
         const Uv src = uvFor(f, {0.5f + r * 0.5f, 0.5f}, 1.0f, 0.0f);
-        const float zoom2 = std::pow(std::pow(8.0f, dt), std::pow(2.0f, r * 2.0f - 1.0f));
+        const float zoom2 = std::pow(std::pow(4.0f, dt), std::pow(2.0f, r * 2.0f - 1.0f));
         check(near(src.u, 0.5f + r * 0.5f / zoom2, 1e-5f), "zoomexp: zoom^(zoomexp^(2 rad - 1)), MilkDrop's profile");
         check(near(src.v, 0.5f, 1e-6f), "a point on the axis stays on it");
         const float shrink = r / ((src.u - 0.5f) * 2.0f);
@@ -95,7 +95,7 @@ void zoomExpShapesTheZoomByRadius() {
         lastShrink = shrink;
     }
     const Uv mid = uvFor(f, {0.75f, 0.5f}, 1.0f, 0.0f);
-    check(near(mid.u, 0.5f + 0.25f / std::pow(8.0f, dt), 1e-5f), "at radius one half zoomexp leaves the plain zoom");
+    check(near(mid.u, 0.5f + 0.25f / std::pow(4.0f, dt), 1e-5f), "at radius one half zoomexp leaves the plain zoom");
 }
 
 void rotationAboutAnOffCentrePoint() {

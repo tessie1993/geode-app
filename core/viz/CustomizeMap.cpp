@@ -19,7 +19,6 @@ const std::vector<Section>& table() {
     static const std::vector<Section> kSections = {
         {C::QuickKnobs, "basics", true, S::Always, {"@macros"}},
         {C::QuickKnobs, "sets", false, S::Always, {"@macro_sets"}},
-        {C::QuickKnobs, "randomize", false, S::Always, {"@randomize_reset"}},
 
         {C::Look, "basics", true, S::Always, {"Palette", "Brightness", "Saturation", "Bloom"}},
         {C::Look,
@@ -94,19 +93,36 @@ const std::vector<Section>& table() {
         {C::Behaviour, "envelopes", false, S::Always, {"@envelopes"}},
         {C::Behaviour, "waves", false, S::Always, {"@waves"}},
 
+        // One section per engine, split so no list runs past a dozen rows; each shows only where its
+        // controls reach.
         {C::Expert,
-         "engine",
+         "fluid_flow",
          false,
          S::Engine,
-         {// Fluid
-          "Solver iterations", "Fluid curl", "Motion fade", "Fluid fade", "Chromatic aging", "Pressure", "Shading (embossed ink)",
-          "Glow (fluid)", "Fluid glow", "Glow threshold", "Sunrays", "Sunrays weight", "Curl from mids", "Glow from loudness",
-          "Fade when quiet", "Palette cycle", "Particle brightness", "Particle layer", "Ink layer",
-          // Cymatics
-          "Geometry", "Fundamental (Hz)", "Standing waves", "Tonal focus", "Plate ring", "Field scale", "Wave flow", "Field swirl",
-          "Fill", "Nodal lines", "Nodal glow", "Iridescence", "Caustic sheen",
-          // MilkDrop
-          "Blend preset changes", "MilkDrop palette tint"}},
+         {"Solver iterations", "Fluid curl", "Motion fade", "Fluid fade", "Chromatic aging", "Pressure",
+          "Curl from mids", "Fade when quiet"}},
+        {C::Expert,
+         "fluid_look",
+         false,
+         S::Engine,
+         {"Shading (embossed ink)", "Glow (fluid)", "Fluid glow", "Glow threshold", "Glow from loudness",
+          "Sunrays", "Sunrays weight", "Palette cycle", "Particle brightness", "Particle layer", "Ink layer"}},
+        {C::Expert,
+         "plate",
+         false,
+         S::Engine,
+         {"Geometry", "Fundamental (Hz)", "Standing waves", "Tonal focus", "Plate ring", "Field scale", "Wave flow",
+          "Field swirl"}},
+        {C::Expert,
+         "plate_look",
+         false,
+         S::Engine,
+         {"Fill", "Nodal lines", "Nodal glow", "Iridescence", "Caustic sheen"}},
+        {C::Expert,
+         "milkdrop",
+         false,
+         S::Engine,
+         {"Blend preset changes", "MilkDrop palette tint"}},
         {C::Expert, "layers", false, S::Always, {"@layers"}},
         {C::Expert, "shader_code", false, S::ShaderCode, {"@shader_code"}},
     };
@@ -140,7 +156,6 @@ const std::vector<HeldControl>& held() {
         // page draws as a block, so its Reset puts them back.
         {"@macros", {}, std::nullopt},
         {"@macro_sets", {}, std::nullopt},
-        {"@randomize_reset", {}, std::nullopt},
         {"@palette_maker", {}, std::nullopt},
         {"@auto_moments", {}, std::nullopt},
         {"@moments", {}, std::nullopt},

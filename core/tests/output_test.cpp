@@ -3,6 +3,7 @@
 // tests") with the system compiler; no device. Where a value pins the Kotlin it replaces (VideoExporter,
 // LoopSpec, LoopExtendPlan, MuxerBudget, ExportAspect, fallbackExportFps, ChapterMarkers), the comment says
 // so; the deliberate changes (exact pts, the seam budget's lost frame, the 0:00 lead-in) say why.
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <vector>
@@ -204,12 +205,52 @@ void chapters() {
 
 }  // namespace
 
+// Time-of-day drift, pinned to the Kotlin TimeOfDayDrift.stopPhases and DriftStop.applyTo it replaces
+// (export/LoopRender.kt): progress = index / (stops - 1) as floats, wrapTurn = x - floor(x) held to 0..1,
+// temperature held to -1..1.
+void drift() {
+    DriftStop stops[kMaxDriftStops];
+    check(driftStops(0.25f, 0.5f, 5, stops, kMaxDriftStops) == 5, "five stops drift five times");
+    const float hue[] = {0.0f, 0.0625f, 0.125f, 0.1875f, 0.25f};
+    const float warm[] = {0.0f, 0.125f, 0.25f, 0.375f, 0.5f};
+    for (int i = 0; i < 5; ++i) {
+        check(stops[i].index == i && stops[i].hueOffset == hue[i] && stops[i].warmthOffset == warm[i],
+              "each stop's offset is the drift times index / (stops - 1)");
+    }
+    check(driftStops(0.1f, 0.0f, 3, stops, kMaxDriftStops) == 3 && stops[1].hueOffset == 0.1f * 0.5f &&
+              stops[2].hueOffset == 0.1f,
+          "a hue-only drift");
+    check(driftStops(0.3f, 0.2f, 1, stops, kMaxDriftStops) == 1 && stops[0].hueOffset == 0.0f, "one stop never drifts");
+    check(driftStops(0.0f, 0.0f, 6, stops, kMaxDriftStops) == 1 && stops[0].index == 0 && stops[0].warmthOffset == 0.0f,
+          "no hue and no warmth is one render, not six");
+    check(!driftMoves(0.2f, 0.0f, 1) && driftMoves(0.0f, -0.1f, 2), "drifts as the Kotlin property read");
+
+    float o[2] = {};
+    geode_loop_drift_apply(0.5f, 0.0f, 0.25f, 0.5f, o);
+    check(o[0] == 0.75f && o[1] == 0.5f, "a stop moves colorShift and temperature");
+    geode_loop_drift_apply(0.9f, 0.8f, 0.25f, 0.5f, o);
+    check(o[0] == (0.9f + 0.25f) - std::floor(0.9f + 0.25f) && o[0] > 0.149f && o[0] < 0.151f,
+          "colorShift wraps past a whole turn");
+    check(o[1] == 1.0f, "temperature holds at 1");
+    geode_loop_drift_apply(0.0f, -0.9f, -0.25f, -0.5f, o);
+    check(o[0] == 0.75f && o[1] == -1.0f, "a negative hue wraps up into the turn, temperature holds at -1");
+    geode_loop_drift_apply(0.25f, 0.0f, 0.75f, 0.0f, o);
+    check(o[0] == 0.0f, "exactly a whole turn is 0");
+
+    float hues[kMaxDriftStops] = {};
+    float warms[kMaxDriftStops] = {};
+    check(geode_loop_drift_stops(0.25f, 0.5f, 5, hues, warms, kMaxDriftStops) == 5 && hues[4] == 0.25f && warms[2] == 0.25f,
+          "the C ABI writes each stop");
+    check(geode_loop_drift_stops(0.25f, 0.5f, 5, nullptr, nullptr, 0) == 5, "a count without arrays");
+}
+
 int main() {
     frameClock();
     loopSpec();
     loopExtend();
     encodePlan();
     chapters();
+    drift();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

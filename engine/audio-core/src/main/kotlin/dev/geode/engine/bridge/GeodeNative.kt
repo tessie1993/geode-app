@@ -945,6 +945,25 @@ object GeodeNative {
         loops: Int,
     ): LongArray
 
+    /**
+     * A time-of-day drift's stops as (hue offset, warmth offset) pairs, none at the first and the whole
+     * drift at the last; one pair of zeros when it does not move (core/output/LoopPlan).
+     */
+    external fun loopDriftStops(
+        hueTurns: Float,
+        warmth: Float,
+        stops: Int,
+    ): FloatArray
+
+    /** One drift stop on a look: [out] gets the wrapped colorShift, then the temperature held to -1..1. */
+    external fun loopDriftApply(
+        colorShift: Float,
+        temperature: Float,
+        hueOffset: Float,
+        warmthOffset: Float,
+        out: FloatArray,
+    )
+
     /** What the long file weighs: every repeat copies [loopBytes] again, plus 2 % for the sample tables. */
     external fun loopEstimatedBytes(
         loopUs: Long,

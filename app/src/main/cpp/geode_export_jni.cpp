@@ -122,6 +122,33 @@ JNIEXPORT jlongArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopExtend
     return result;
 }
 
+// Time-of-day drift stops as (hue offset, warmth offset) pairs.
+JNIEXPORT jfloatArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopDriftStops(JNIEnv* env, jobject,
+                                                                                      jfloat hueTurns, jfloat warmth,
+                                                                                      jint stops) {
+    const int count = geode_loop_drift_stops(hueTurns, warmth, stops, nullptr, nullptr, 0);
+    std::vector<float> hue(static_cast<size_t>(count));
+    std::vector<float> warm(static_cast<size_t>(count));
+    const int written = geode_loop_drift_stops(hueTurns, warmth, stops, hue.data(), warm.data(), count);
+    std::vector<jfloat> flat(static_cast<size_t>(written) * 2);
+    for (int i = 0; i < written; ++i) {
+        flat[static_cast<size_t>(i) * 2] = hue[static_cast<size_t>(i)];
+        flat[static_cast<size_t>(i) * 2 + 1] = warm[static_cast<size_t>(i)];
+    }
+    jfloatArray result = env->NewFloatArray(static_cast<jsize>(flat.size()));
+    if (result && !flat.empty()) env->SetFloatArrayRegion(result, 0, static_cast<jsize>(flat.size()), flat.data());
+    return result;
+}
+
+JNIEXPORT void JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopDriftApply(JNIEnv* env, jobject, jfloat colorShift,
+                                                                               jfloat temperature, jfloat hueOffset,
+                                                                               jfloat warmthOffset, jfloatArray out) {
+    if (!out || env->GetArrayLength(out) < 2) return;
+    float values[2] = {};
+    geode_loop_drift_apply(colorShift, temperature, hueOffset, warmthOffset, values);
+    env->SetFloatArrayRegion(out, 0, 2, values);
+}
+
 JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_loopEstimatedBytes(JNIEnv*, jobject, jlong loopUs,
                                                                                      jlong totalUs, jlong loopBytes,
                                                                                      jlong soundtrackBytes) {

@@ -744,6 +744,16 @@ GEODE_API int64_t geode_loop_estimated_bytes(int64_t loop_us, int64_t total_us, 
                                              int64_t soundtrack_bytes);
 GEODE_API int     geode_loop_fitting_bit_rate(int64_t total_us, int64_t limit_bytes, int64_t soundtrack_bytes);
 
+/* Time-of-day drift (output/LoopPlan): the palette offset of each of `stops` loop renders, none at the first
+ * and the whole drift at the last; one stop at no offset when the drift does not move. Writes min(count,
+ * capacity) offsets (either array may be NULL for a count) and returns the count. */
+GEODE_API int     geode_loop_drift_stops(float hue_turns, float warmth, int stops, float* out_hue, float* out_warmth,
+                                         int capacity);
+/* One stop on a look: out[0] the colorShift moved and wrapped into a turn, out[1] the temperature moved and
+ * held to -1..1. */
+GEODE_API void    geode_loop_drift_apply(float color_shift, float temperature, float hue_offset, float warmth_offset,
+                                         float* out2);
+
 /* Encoder requests (output/EncodePlan). limit_bytes <= 0 means the render target, 3.8 GB. */
 GEODE_API int     geode_export_capped_video_bps(int requested_bps, int64_t duration_us, int64_t audio_bytes,
                                                 int64_t limit_bytes);

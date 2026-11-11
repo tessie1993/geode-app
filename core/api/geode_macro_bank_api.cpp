@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <string>
 #include <utility>
 
@@ -73,6 +74,25 @@ const char* geode_macro_bank_add_link(const char* bank, int knob_id, const char*
 const char* geode_macro_bank_remove_link(const char* bank, int knob_id, const char* target) {
     return handOut(macrobank::removeLink(bankOf(bank), knob_id, macrobank::targetNamed(target ? target : "")));
 }
+
+const char* geode_macro_bank_set_curve(const char* bank, int knob_id, const char* target, const char* curve) {
+    const auto shape = macrobank::curveNamed(curve ? curve : "");
+    const macrobank::Bank parsed = bankOf(bank);
+    if (!shape) return handOut(macrobank::normalized(parsed));
+    return handOut(macrobank::setCurve(parsed, knob_id, macrobank::targetNamed(target ? target : ""), *shape));
+}
+
+const char* geode_macro_bank_add_knob_for(const char* bank, const char* control) {
+    return handOut(macrobank::addKnobFor(bankOf(bank), control ? control : ""));
+}
+
+const char* geode_macro_bank_roll(const char* bank, int knob_id, long long seed) {
+    return handOut(macrobank::roll(bankOf(bank), knob_id, static_cast<std::uint64_t>(seed)));
+}
+
+const char* geode_macro_bank_auto_name(const char* bank, int knob_id) { return handOut(macrobank::autoName(bankOf(bank), knob_id)); }
+
+const char* geode_macro_bank_controls(const char* bank) { return handOut(macrobank::controlsText(bankOf(bank))); }
 
 const char* geode_macro_bank_live(const char* bank, const char* style_id) {
     return handOut(macrobank::liveText(bankOf(bank), style_id ? style_id : ""));

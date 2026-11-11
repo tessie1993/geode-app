@@ -22,6 +22,7 @@
 
 #include "api/geode_api.h"
 #include "viz/Catalogue.hpp"
+#include "viz/CustomizeMap.hpp"
 #include "viz/Lfo.hpp"
 #include "viz/MacroBank.hpp"
 #include "viz/ModTargets.hpp"
@@ -504,7 +505,203 @@ std::string editorFixture() {
     b = macrobank::addKnob(b, "Mine");
     b = macrobank::addLink(b, b.knobs.back().id, LfoTarget::Zoom);
     b = macrobank::setLink(b, b.knobs.back().id, LfoTarget::FluidGlow, 1.0f, 0.0f);
+    b = macrobank::setCurve(b, b.knobs.back().id, LfoTarget::Zoom, macrobank::Curve::EaseIn);
     return macrobank::editorText(b, engineStyles().flat);
+}
+
+// A link's curve: how it follows the knob between centre and a full turn, the same each way.
+void curvesShapeTheTurn() {
+    using macrobank::Curve;
+    for (int i = 0; i < macrobank::kCurveCount; ++i) {
+        const auto curve = static_cast<Curve>(i);
+        check(macrobank::shape(curve, 0.0f) == 0.0f && macrobank::shape(curve, 1.0f) == 1.0f,
+              std::string("every curve runs 0 to 1: ") + macrobank::name(curve));
+        float last = 0.0f;
+        for (int k = 1; k <= 100; ++k) {
+            const float y = macrobank::shape(curve, static_cast<float>(k) / 100.0f);
+            check(y >= last, std::string("and never turns back: ") + macrobank::name(curve));
+            last = y;
+        }
+        check(macrobank::curveNamed(macrobank::name(curve)) == curve, "a curve is found by its name");
+    }
+    check(!macrobank::curveNamed("WOBBLE").has_value(), "an unknown curve name is none");
+    check(about(macrobank::shape(Curve::Linear, 0.5f), 0.5f), "linear is even");
+    check(macrobank::shape(Curve::EaseIn, 0.5f) < 0.5f && macrobank::shape(Curve::EaseOut, 0.5f) > 0.5f, "ease in starts slow, ease out fast");
+    check(about(macrobank::shape(Curve::SCurve, 0.5f), 0.5f) && macrobank::shape(Curve::SCurve, 0.2f) < 0.2f &&
+              macrobank::shape(Curve::SCurve, 0.8f) > 0.8f,
+          "the S-curve is slow at both ends");
+    check(macrobank::shape(Curve::Linear, kNan) == 0.0f && macrobank::shape(Curve::EaseIn, 7.0f) == 1.0f, "shape holds its input to 0..1");
+
+    const macrobank::Range r = macrobank::rangeOf(LfoTarget::Zoom);
+    const SceneParams base;
+    const float rest = fieldOf(base, LfoTarget::Zoom);
+    for (const float turn : {0.5f, -0.5f, 1.0f, -1.0f}) {
+        for (int i = 0; i < macrobank::kCurveCount; ++i) {
+            const auto curve = static_cast<Curve>(i);
+            const Bank b = oneKnob({{LfoTarget::Zoom, 0.4f, -0.3f, curve}}, turn);
+            const float want = std::clamp(rest + macrobank::shape(curve, std::fabs(turn)) * (turn >= 0 ? 0.4f : -0.3f) * (r.max - r.min), r.min, r.max);
+            check(about(fieldOf(macrobank::apply(base, b, kEveryTarget), LfoTarget::Zoom), want),
+                  std::string("a link moves by its curve times its range: ") + macrobank::name(curve));
+        }
+    }
+    check(sameParams(macrobank::apply(base, oneKnob({{LfoTarget::Zoom, 1.0f, 1.0f, Curve::EaseIn}}, 0.0f), kEveryTarget), base),
+          "centre still moves nothing");
+}
+
+void curvesAreEditedAndKept() {
+    using macrobank::Curve;
+    const Bank& def = macrobank::defaultBank();
+    const int glow = def.knobs[0].id;
+    Bank b = macrobank::setCurve(def, glow, LfoTarget::Bloom, Curve::EaseOut);
+    check(b.knobs[0].links[0].curve == Curve::EaseOut, "setCurve sets the link's curve");
+    check(b.knobs[0].hint.empty(), "and clears the built-in hint");
+    check(macrobank::setCurve(b, glow, LfoTarget::Zoom, Curve::EaseIn) == b, "a curve on a target the knob does not link is refused");
+    check(macrobank::setCurve(b, 999, LfoTarget::Bloom, Curve::EaseIn) == b, "and on an unknown knob");
+    check(macrobank::setCurve(b, glow, LfoTarget::Bloom, static_cast<Curve>(9)) == b, "and an unknown curve");
+    b = macrobank::setLink(b, glow, LfoTarget::Bloom, 0.5f, -0.5f);
+    check(b.knobs[0].links[0].curve == Curve::EaseOut && b.knobs[0].links[0].up == 0.5f, "a range edit keeps the curve");
+    const Bank copy = macrobank::duplicateKnob(b, glow);
+    check(copy.knobs[1].links[0].curve == Curve::EaseOut, "a copy keeps its curves");
+    check(macrobank::resetKnob(b, glow).knobs[0].links[0].curve == Curve::Linear, "Reset puts a built-in knob's curves back");
+    check(rowsOf(macrobank::editorText(b, ""), "knob")[0][3] == "0", "a changed curve is not as built");
+    Bank wild = b;
+    wild.knobs[0].links[0].curve = static_cast<Curve>(42);
+    check(macrobank::normalized(wild).knobs[0].links[0].curve == Curve::Linear, "normalized makes an unknown curve linear");
+}
+
+void curvesSurviveTheTextAndOldTextLoads() {
+    using macrobank::Curve;
+    const Bank& def = macrobank::defaultBank();
+    const std::string plain = macrobank::encode(def);
+    check(plain.find("LINEAR") == std::string::npos, "a linear link writes no curve, so the text reads as before curves");
+    Bank b = macrobank::setCurve(def, def.knobs[2].id, LfoTarget::Warp, Curve::SCurve);
+    b = macrobank::setCurve(b, def.knobs[3].id, LfoTarget::Speed, Curve::EaseIn);
+    const std::string text = macrobank::encode(b);
+    check(text.find("link|WARP|0.6|0|S_CURVE\n") != std::string::npos, "a curved link writes its curve last");
+    check(macrobank::decode(text) == b, "curves round trip");
+    // Text saved before curves: four fields per link.
+    const std::string old = "macrobank|1|6\nknob|5|0.5|Old|\nlink|ZOOM|0.3|-0.2\nlink|BLOOM|0.1|0.1|WOBBLE\n";
+    const Bank read = macrobank::decode(old);
+    check(read.knobs.size() == 1u && read.knobs[0].links.size() == 2u, "old text loads every link");
+    check(read.knobs[0].links[0].curve == Curve::Linear && about(read.knobs[0].links[0].up, 0.3f) && about(read.knobs[0].links[0].down, -0.2f),
+          "an old link is linear with its range as saved");
+    check(read.knobs[0].links[1].curve == Curve::Linear, "an unknown curve reads as linear");
+    check(macrobank::decode("macrobank|1|6\nknob|5|0|K|\nlink|ZOOM|0.3|0.3|LINEAR|extra\n").knobs[0].links.empty(), "a link row with too many fields is dropped");
+}
+
+void theEditorTextShowsRangesInUnits() {
+    const Bank& def = macrobank::defaultBank();
+    const auto links = rowsOf(macrobank::editorText(def, ""), "link");
+    for (const auto& l : links) {
+        check(l.size() == 8u, "a link row carries its curve and both offsets: " + l[1]);
+        const LfoTarget target = macrobank::targetNamed(l[1]);
+        const macrobank::Range r = macrobank::rangeOf(target);
+        check(l[5] == "LINEAR", "a built-in link is linear: " + l[1]);
+        check(about(std::stof(l[6]), std::stof(l[2]) * (r.max - r.min)) && about(std::stof(l[7]), std::stof(l[3]) * (r.max - r.min)),
+              "its offsets are its range in the param's units: " + l[1]);
+    }
+    check(links[0][1] == "BLOOM" && links[0][6] == "0.25", "a full turn up of Glow adds 0.25 Bloom, the safe top");
+    const auto curves = rowsOf(macrobank::editorText(def, ""), "curve");
+    check(curves.size() == static_cast<size_t>(macrobank::kCurveCount) && curves[0][1] == "LINEAR" && curves[3][1] == "S_CURVE",
+          "the editor lists every curve");
+}
+
+void aSliderMakesOrJoinsAKnob() {
+    const Bank& def = macrobank::defaultBank();
+    check(macrobank::targetOfControl("Bloom") == LfoTarget::Bloom, "the Bloom slider is the Bloom target");
+    check(macrobank::targetOfControl("Palette") == LfoTarget::None && macrobank::targetOfControl("No such") == LfoTarget::None &&
+              macrobank::targetOfControl("@macros") == LfoTarget::None,
+          "a control with no linkable param has no target");
+    Bank b = macrobank::addKnobFor(def, "Bloom");
+    check(b.knobs.size() == 5u && b.knobs.back().name == "Bloom", "a new knob is named after its first control");
+    check(b.knobs.back().links.size() == 1u && b.knobs.back().links[0] == Link{LfoTarget::Bloom, macrobank::kNewLinkWeight, -macrobank::kNewLinkWeight},
+          "and moves it at the starting weights");
+    b = macrobank::addKnobFor(b, "Bloom");
+    check(b.knobs.back().name == "Bloom 2", "a second one is told apart");
+    check(macrobank::addKnobFor(b, "Palette") == b, "a control with no target makes no knob");
+    Bank full = b;
+    while (static_cast<int>(full.knobs.size()) < macrobank::kMaxKnobs) full = macrobank::addKnob(full, "");
+    check(macrobank::addKnobFor(full, "Zoom") == full, "a full bank makes no knob");
+
+    const std::string text = macrobank::controlsText(def);
+    check(text.rfind("macrocontrols|" + std::to_string(macrobank::kTextVersion) + "\n", 0) == 0, "the controls text opens with its version");
+    const auto rows = rowsOf(text, "control");
+    check(!rows.empty(), "some controls can be linked");
+    std::set<std::string> keys;
+    for (const auto& r : rows) {
+        check(r.size() == 5u && customize::categoryNamed(r[3]).has_value() && macrobank::targetNamed(r[2]) == macrobank::targetOfControl(r[1]) && macrobank::targetNamed(r[2]) != LfoTarget::None,
+              "a control row names its target: " + r[1]);
+        check(keys.insert(r[1]).second, "each control once: " + r[1]);
+        if (r[1].back() == ')') {
+            const std::string named = macrobank::addKnobFor(def, r[1]).knobs.back().name;
+            check(named.find('(') == std::string::npos && r[1].rfind(named, 0) == 0, "a knob's name drops the unit: " + named);
+        }
+    }
+    for (const auto& r : rows) {
+        if (r[1] == "Bloom") check(r[3] == "LOOK" && r[4] == std::to_string(def.knobs[0].id), "Bloom is moved by Glow");
+        if (r[1] == "Zoom") check(r[4].empty(), "Zoom by no knob");
+    }
+    const Bank both = macrobank::addLink(macrobank::addKnobFor(def, "Zoom"), def.knobs[0].id, LfoTarget::Zoom);
+    for (const auto& r : rowsOf(macrobank::controlsText(both), "control")) {
+        if (r[1] == "Zoom") check(r[4] == std::to_string(def.knobs[0].id) + "," + std::to_string(both.knobs.back().id), "ids in bank order");
+    }
+}
+
+// An empty knob, then Random: native rolls its links, seeded.
+void aRandomRollGivesAKnobLinks() {
+    Bank b = macrobank::addKnob(macrobank::defaultBank(), "");
+    const int id = b.knobs.back().id;
+    check(b.knobs.back().links.empty() && b.knobs.back().name == "Knob " + std::to_string(id), "a new knob starts empty");
+    check(macrobank::roll(b, id, 7) == macrobank::roll(b, id, 7), "the same seed rolls the same set");
+    check(macrobank::roll(b, 999, 7) == macrobank::normalized(b), "a roll on an unknown knob is refused");
+    const SceneParams base;
+    int differ = 0;
+    for (std::uint64_t seed = 0; seed < 300; ++seed) {
+        const Bank r = macrobank::roll(b, id, seed);
+        const Knob& k = r.knobs.back();
+        check(k.links.size() >= 2u && k.links.size() <= 5u, "a roll is never empty and never a flood");
+        std::set<LfoTarget> seen;
+        for (const Link& l : k.links) {
+            check(macrobank::linkable(l.target) && seen.insert(l.target).second, "a roll links distinct linkable targets");
+            check(std::fabs(l.up) >= 0.15f - 1e-6f && std::fabs(l.up) <= 0.6f + 1e-6f, "a roll's range up is 15-60 %");
+            check(l.down == 0.0f || (l.down * l.up < 0.0f && std::fabs(l.down) <= std::fabs(l.up) + 1e-6f), "and down none or back");
+        }
+        for (const float turn : {1.0f, -1.0f, 0.5f}) {
+            Bank turned = macrobank::setValue(r, id, turn);
+            for (Knob& other : turned.knobs) {
+                if (other.id != id) other.value = 0.0f;
+            }
+            const SceneParams moved = macrobank::apply(base, turned, kEveryTarget);
+            const SceneParams safe = safety::apply(moved);
+            for (const Link& l : k.links) {
+                const macrobank::Range range = macrobank::rangeOf(l.target);
+                const float v = fieldOf(moved, l.target);
+                if (SceneParams::schema()[static_cast<size_t>(paramSlotOf(l.target))].kind != ParamKind::Circular) {
+                    check(v >= range.min - 1e-5f && v <= range.max + 1e-5f, "a rolled knob stays inside the range");
+                    check(about(fieldOf(safe, l.target), v), "and inside the safety clamp");
+                }
+            }
+        }
+        differ += r != macrobank::roll(b, id, seed + 1000) ? 1 : 0;
+    }
+    check(differ > 290, "different seeds roll different sets");
+    const Bank rolled = macrobank::roll(macrobank::defaultBank(), macrobank::defaultBank().knobs[0].id, 3);
+    check(rolled.knobs[0].hint.empty(), "a rolled built-in knob loses its hint");
+    check(std::string(geode_macro_bank_roll(macrobank::encode(b).c_str(), id, 7)) == macrobank::encode(macrobank::roll(b, id, 7)),
+          "geode_macro_bank_roll");
+}
+
+void theSaveNameIsNatives() {
+    Bank b = macrobank::addKnob(macrobank::defaultBank(), "");
+    const int id = b.knobs.back().id;
+    check(macrobank::autoName(b, id) == "Knob " + std::to_string(id), "an empty knob is offered Knob <id>");
+    b = macrobank::addLink(b, id, LfoTarget::Zoom);
+    check(macrobank::autoName(b, id) == "Zoom", "a linked one is named after its first control");
+    b = macrobank::addKnobFor(b, "Zoom");
+    check(macrobank::autoName(b, id) == "Zoom 2", "told apart from another knob");
+    check(macrobank::autoName(b, b.knobs.back().id) == "Zoom", "but not from itself");
+    check(macrobank::autoName(b, 999).empty(), "an unknown knob has no name");
+    check(std::string(geode_macro_bank_auto_name(macrobank::encode(b).c_str(), id)) == "Zoom 2", "geode_macro_bank_auto_name");
 }
 
 void theEditorFixtureIsCurrent(const char* path) {
@@ -699,6 +896,15 @@ void theAbiEditsTextToText() {
     check(macrobank::decode(text).knobs.size() == 4u, "geode_macro_bank_remove_knob");
     text = geode_macro_bank_reset_knob(geode_macro_bank_rename(text.c_str(), first, "Renamed"), first);
     check(macrobank::decode(text).knobs.front().name == macrobank::defaultBank().knobs.front().name, "geode_macro_bank_reset_knob");
+    text = geode_macro_bank_set_curve(def.c_str(), first, "BLOOM", "S_CURVE");
+    check(macrobank::decode(text).knobs.front().links.front().curve == macrobank::Curve::SCurve, "geode_macro_bank_set_curve");
+    check(std::string(geode_macro_bank_set_curve(text.c_str(), first, "BLOOM", "WOBBLE")) == text &&
+              std::string(geode_macro_bank_set_curve(text.c_str(), first, "BLOOM", nullptr)) == text,
+          "an unknown or NULL curve changes nothing");
+    text = geode_macro_bank_add_knob_for(def.c_str(), "Zoom");
+    check(macrobank::decode(text).knobs.back().name == "Zoom", "geode_macro_bank_add_knob_for");
+    check(std::string(geode_macro_bank_add_knob_for(def.c_str(), nullptr)) == def, "a NULL control makes no knob");
+    check(std::string(geode_macro_bank_controls(text.c_str())) == macrobank::controlsText(macrobank::decode(text)), "geode_macro_bank_controls");
     // An edit may be fed its own result: the argument is read before the held string is replaced.
     const char* chained = geode_macro_bank_set_value(geode_macro_bank_set_value(def.c_str(), first, 0.25f), first, -0.25f);
     check(macrobank::decode(chained).knobs.front().value == -0.25f, "a result can be passed straight back in");
@@ -740,6 +946,13 @@ int main(int argc, char** argv) {
     editsValidate();
     theEditorCopiesMovesAndResets();
     theEditorTextSaysWhatToOffer();
+    curvesShapeTheTurn();
+    curvesAreEditedAndKept();
+    curvesSurviveTheTextAndOldTextLoads();
+    theEditorTextShowsRangesInUnits();
+    aSliderMakesOrJoinsAKnob();
+    aRandomRollGivesAKnobLinks();
+    theSaveNameIsNatives();
     theEditorFixtureIsCurrent(argc > 1 ? argv[1] : "core/tests/macro_editor.txt");
     textRoundTrips();
     garbageDecodesToSomethingValid();

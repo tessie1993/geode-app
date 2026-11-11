@@ -1,8 +1,10 @@
 package dev.geode.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -15,6 +17,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -23,16 +26,19 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -50,21 +56,24 @@ import dev.geode.data.MacroEditorKnob
 import dev.geode.data.MacroEditorState
 import dev.geode.data.MacroLink
 import dev.geode.data.MacroStore
+import dev.geode.data.MacroTarget
 import dev.geode.render.LfoTarget
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneIcon
 import dev.geode.ui.theme.StoneIconArt
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
  * Customize › Quick knobs › Edit knobs: the macro bank's editor. A list of the knobs; a tap opens one
  * on its name, a Turn slider (so the edit shows on the visual behind the sheet while it is made) and
  * the params it moves, each with how far a full turn up and a full turn down push it, as a share of
- * the param's range. A knob's ⋮ moves, copies, resets or deletes it.
+ * the param's range (and in its own units), and the curve it follows. A knob's ⋮ moves, copies, resets or
+ * deletes it. New macros are made above, under the knobs ([NewMacroButton]).
  *
  * Everything offered is native's answer ([MacroStore.editor], core/viz/MacroBank's editorText): the
- * caps, which targets exist and reach [sceneId], whether a knob can be reset or removed. Every edit
- * is a native call through [store] that is live and saved at once; there is no Save.
+ * caps, which targets exist and reach [sceneId], whether a knob can be reset or removed, the curves.
+ * Every edit to a saved knob is a native call through [store] that is live and saved at once.
  */
 @Composable
 internal fun MacroEditor(
@@ -72,11 +81,12 @@ internal fun MacroEditor(
     store: MacroStore,
     sceneId: String,
 ) {
-    val editor = remember(bank.text, sceneId) { store.editor(sceneId) }
+    val editor = remember(bank, sceneId) { store.editor(sceneId) }
+    val saved = remember(editor, bank.draft) { editor.knobs.filter { it.id != bank.draft?.id } }
     var openId by rememberSaveable { mutableIntStateOf(NO_KNOB) }
     var asking by remember { mutableStateOf<Ask?>(null) }
     Column(Modifier.fillMaxWidth()) {
-        editor.knobs.forEachIndexed { index, knob ->
+        saved.forEachIndexed { index, knob ->
             val open = knob.id == openId
             KnobRow(
                 knob = knob,
@@ -84,7 +94,7 @@ internal fun MacroEditor(
                 actions =
                     knobActions(
                         knob = knob,
-                        place = Place(first = index == 0, last = index == editor.knobs.lastIndex, room = editor.canAdd),
+                        place = Place(first = index == 0, last = index == saved.lastIndex, room = editor.canAdd),
                         store = store,
                         onOpen = { openId = it },
                         onAsk = { asking = it },
@@ -92,14 +102,6 @@ internal fun MacroEditor(
                 onToggle = { openId = if (open) NO_KNOB else knob.id },
             )
             if (open) KnobPage(knob, editor, store)
-        }
-        TextButton(
-            onClick = { store.addKnob()?.let { openId = it } },
-            enabled = editor.canAdd,
-            modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget),
-        ) {
-            StoneIconArt(StoneIcon.ADD, null)
-            Text(stringResource(R.string.macro_new_knob), Modifier.padding(start = GeodeSpacing.S))
         }
         if (!editor.canAdd && editor.maxKnobs > 0) Note(stringResource(R.string.macro_bank_full, editor.maxKnobs))
         val resetAll = Ask.resetAll { store.resetAll() }
@@ -263,16 +265,20 @@ private fun KnobActionsMenu(
     }
 }
 
-/** The open knob: its name, a Turn to try it with, and its links. */
+/**
+ * The open knob: its name (a draft gets its name when saved instead), a Turn to try it with, its links, and
+ * the two ways to fill it: Add a parameter, or Random (native rolls a new set of links on each press).
+ */
 @Composable
 private fun KnobPage(
     knob: MacroEditorKnob,
     editor: MacroEditorState,
     store: MacroStore,
+    draft: Boolean = false,
 ) {
     var picking by remember(knob.id) { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().padding(start = GeodeSpacing.M, bottom = GeodeSpacing.M)) {
-        KnobName(knob, editor.maxNameBytes) { store.rename(knob.id, it) }
+        if (!draft) KnobName(knob, editor.maxNameBytes) { store.rename(knob.id, it) }
         AmountSlider(
             label = stringResource(R.string.macro_turn),
             spoken = stringResource(R.string.macro_turn_a11y, knob.name),
@@ -286,14 +292,21 @@ private fun KnobPage(
             style = MaterialTheme.typography.labelLarge,
             color = accentTextColor(),
         )
-        knob.links.forEach { link -> LinkRows(knob.id, link, store) }
-        TextButton(
-            onClick = { picking = true },
-            enabled = knob.canLink,
-            modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget),
-        ) {
-            StoneIconArt(StoneIcon.ADD, null)
-            Text(stringResource(R.string.macro_add_link), Modifier.padding(start = GeodeSpacing.S))
+        if (knob.links.isEmpty()) Note(stringResource(R.string.macro_empty_hint))
+        knob.links.forEach { link -> LinkRows(knob.id, link, editor.curves, store) }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
+            TextButton(
+                onClick = { picking = true },
+                enabled = knob.canLink,
+                modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget),
+            ) {
+                StoneIconArt(StoneIcon.ADD, null)
+                Text(stringResource(R.string.macro_add_link), Modifier.padding(start = GeodeSpacing.S))
+            }
+            TextButton(onClick = { store.roll(knob.id) }, modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget)) {
+                StoneIconArt(StoneIcon.SHUFFLE, null)
+                Text(stringResource(R.string.macro_random), Modifier.padding(start = GeodeSpacing.S))
+            }
         }
         if (!knob.canLink && editor.maxLinks > 0) Note(stringResource(R.string.macro_links_full, editor.maxLinks))
     }
@@ -301,6 +314,7 @@ private fun KnobPage(
         TargetPicker(
             knob = knob,
             editor = editor,
+            categories = remember(editor) { store.controls().values.associate { it.target to it.category } },
             onPick = { target ->
                 picking = false
                 store.addLink(knob.id, target)
@@ -344,6 +358,7 @@ private fun KnobName(
 private fun LinkRows(
     knobId: Int,
     link: MacroLink,
+    curves: List<String>,
     store: MacroStore,
 ) {
     val name = targetLabel(link.target)
@@ -363,6 +378,7 @@ private fun LinkRows(
             label = up,
             spoken = stringResource(R.string.macro_link_a11y, name, up),
             value = link.up,
+            units = link.upBy,
             onChange = { store.setLink(knobId, link.target, it, link.down, persist = false) },
             onDone = store::commit,
         )
@@ -370,24 +386,75 @@ private fun LinkRows(
             label = down,
             spoken = stringResource(R.string.macro_link_a11y, name, down),
             value = link.down,
+            units = link.downBy,
             onChange = { store.setLink(knobId, link.target, link.up, it, persist = false) },
             onDone = store::commit,
         )
+        CurveChips(name, link.curve, curves) { store.setCurve(knobId, link.target, it) }
     }
 }
 
-/** A -100 % to +100 % slider: a knob's turn, or a link's push as a share of its param's range. */
+/** How the link follows the knob, one chip per curve native offers. */
+@Composable
+private fun CurveChips(
+    name: String,
+    current: String,
+    curves: List<String>,
+    onPick: (String) -> Unit,
+) {
+    val group = stringResource(R.string.macro_curve_a11y, name)
+    FlowRow(
+        Modifier.semantics { contentDescription = group },
+        horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
+    ) {
+        curves.forEach { curve ->
+            FilterChip(
+                selected = curve == current,
+                onClick = { onPick(curve) },
+                label = { Text(curveLabel(curve)) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun curveLabel(curve: String): String =
+    when (curve) {
+        "LINEAR" -> stringResource(R.string.macro_curve_linear)
+        "EASE_IN" -> stringResource(R.string.macro_curve_ease_in)
+        "EASE_OUT" -> stringResource(R.string.macro_curve_ease_out)
+        "S_CURVE" -> stringResource(R.string.macro_curve_s)
+        else -> curve
+    }
+
+/** An offset in the param's own units, as native worked it out: signed, no trailing zeros. */
+private fun unitsText(v: Float): String =
+    if (abs(v) < UNITS_EPSILON) {
+        "0"
+    } else {
+        "%+.3f".format(v).trimEnd('0').trimEnd('.', ',')
+    }
+
+/**
+ * A -100 % to +100 % slider: a knob's turn, or a link's push as a share of its param's range, with [units],
+ * the same push in the param's own units, under its label.
+ */
 @Composable
 private fun AmountSlider(
     label: String,
     spoken: String,
     value: Float,
+    units: Float? = null,
     onChange: (Float) -> Unit,
     onDone: () -> Unit,
 ) {
-    val shown = "%+d%%".format((value * PERCENT).roundToInt())
+    val percent = "%+d%%".format((value * PERCENT).roundToInt())
+    val shown = units?.let { "$percent, ${unitsText(it)}" } ?: percent
     Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.width(LABEL_WIDTH), style = MaterialTheme.typography.bodySmall, maxLines = 2)
+        Column(Modifier.width(LABEL_WIDTH)) {
+            Text(label, style = MaterialTheme.typography.bodySmall, maxLines = 2)
+            if (units != null) Note(unitsText(units))
+        }
         Slider(
             value = value,
             onValueChange = onChange,
@@ -400,7 +467,7 @@ private fun AmountSlider(
             onValueChangeFinished = onDone,
         )
         Text(
-            shown,
+            percent,
             Modifier.width(VALUE_WIDTH).padding(start = GeodeSpacing.S),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -408,24 +475,34 @@ private fun AmountSlider(
     }
 }
 
-/** The targets the knob does not move yet, the ones this style shows first. */
+/**
+ * The targets the knob does not move yet, grouped by the Customize category whose slider sets them (native's
+ * controls table), the rest under Other; the ones this style does not show are marked.
+ */
 @Composable
 private fun TargetPicker(
     knob: MacroEditorKnob,
     editor: MacroEditorState,
+    categories: Map<String, String>,
     onPick: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val linked = remember(knob.links) { knob.links.mapTo(mutableSetOf()) { it.target } }
     val free = remember(editor.targets, linked) { editor.targets.filter { it.name !in linked } }
+    val groups: List<Pair<String?, List<MacroTarget>>> =
+        remember(free, categories) {
+            val byCategory = free.groupBy { CustomizeCategory.named(categories[it.name]) }
+            CustomizeCategory.entries.mapNotNull { c -> byCategory[c]?.let { c.title to it } } +
+                listOfNotNull(byCategory[null]?.let { null to it })
+        }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.macro_pick_title, knob.name), maxLines = 2, overflow = TextOverflow.Ellipsis) },
         text = {
             Column(Modifier.heightIn(max = PICKER_MAX_HEIGHT).verticalScroll(rememberScrollState())) {
                 if (free.isEmpty()) Text(stringResource(R.string.macro_pick_none))
-                TargetGroup(stringResource(R.string.macro_pick_here), free.filter { it.reaches }.map { it.name }, onPick)
-                TargetGroup(stringResource(R.string.macro_pick_elsewhere), free.filterNot { it.reaches }.map { it.name }, onPick)
+                val other = stringResource(R.string.macro_pick_other)
+                groups.forEach { (title, targets) -> TargetGroup(title ?: other, targets, onPick) }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.macro_pick_close)) } },
@@ -435,7 +512,7 @@ private fun TargetPicker(
 @Composable
 private fun TargetGroup(
     title: String,
-    targets: List<String>,
+    targets: List<MacroTarget>,
     onPick: (String) -> Unit,
 ) {
     if (targets.isEmpty()) return
@@ -445,17 +522,19 @@ private fun TargetGroup(
         style = MaterialTheme.typography.labelLarge,
         color = accentTextColor(),
     )
+    val elsewhere = stringResource(R.string.macro_link_unreached)
     targets.forEach { target ->
-        Text(
-            targetLabel(target),
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = GeodeSpacing.TouchTarget)
-                    .clickable(role = Role.Button) { onPick(target) }
-                    .padding(vertical = GeodeSpacing.M),
-            style = MaterialTheme.typography.bodyLarge,
-        )
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = GeodeSpacing.TouchTarget)
+                .clickable(role = Role.Button) { onPick(target.name) }
+                .padding(vertical = GeodeSpacing.S)
+                .alpha(if (target.reaches) 1f else UNREACHED_ALPHA),
+        ) {
+            Text(targetLabel(target.name), style = MaterialTheme.typography.bodyLarge)
+            if (!target.reaches) Note(elsewhere)
+        }
     }
 }
 
@@ -465,11 +544,175 @@ private fun Note(text: String) {
 }
 
 /** A target's label, the modulation pickers' own; its wire name if this shell does not know it. */
-private fun targetLabel(wire: String): String = LfoTarget.entries.firstOrNull { it.name == wire }?.label?.ifEmpty { wire } ?: wire
+private fun targetLabel(wire: String): String =
+    LfoTarget.entries
+        .firstOrNull { it.name == wire }
+        ?.label
+        ?.ifEmpty { wire } ?: wire
 
 private const val NO_KNOB = -1
+private const val UNITS_EPSILON = 1e-6f
 private const val PERCENT = 100f
 private const val UNREACHED_ALPHA = 0.6f
 private val LABEL_WIDTH = 88.dp
 private val VALUE_WIDTH = 56.dp
 private val PICKER_MAX_HEIGHT = 420.dp
+
+/**
+ * "New macro": an empty knob as a draft, then its editor ([MacroDraftDialog]) to fill it by hand or with
+ * Random and save it under a name. Each place that offers it shows its own dialog only for the draft it made,
+ * so the drawer and Customize never both open one.
+ */
+@Composable
+internal fun NewMacroButton(
+    bank: MacroBankState,
+    store: MacroStore,
+    sceneId: String,
+    enabled: Boolean = true,
+    allowed: Boolean = true,
+    onLocked: () -> Unit = {},
+) {
+    var making by rememberSaveable { mutableStateOf(false) }
+    TextButton(
+        onClick = {
+            if (!allowed) {
+                onLocked()
+            } else if (store.newDraft() != null) {
+                making = true
+            }
+        },
+        enabled = enabled,
+        modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget),
+    ) {
+        StoneIconArt(StoneIcon.ADD, null)
+        Text(stringResource(R.string.macro_new_knob), Modifier.padding(start = GeodeSpacing.S))
+    }
+    MacroDraftHost(bank, store, sceneId, showing = making, onClosed = { making = false })
+}
+
+/**
+ * Shows the draft's dialog while [showing] and there is a draft; closes once the draft is saved or dropped.
+ * A host that leaves the screen with its draft open (the drawer closed under it) drops the draft, unless the
+ * activity is only being recreated.
+ */
+@Composable
+internal fun MacroDraftHost(
+    bank: MacroBankState,
+    store: MacroStore,
+    sceneId: String,
+    showing: Boolean,
+    onClosed: () -> Unit,
+) {
+    val draft = bank.draft
+    LaunchedEffect(showing, draft == null) { if (showing && draft == null) onClosed() }
+    val open by rememberUpdatedState(showing)
+    val activity = LocalContext.current.findActivity()
+    DisposableEffect(store) {
+        onDispose { if (open && activity?.isChangingConfigurations != true) store.discardDraft() }
+    }
+    if (showing && draft != null) MacroDraftDialog(draft.id, bank, store, sceneId)
+}
+
+/**
+ * A new macro before it is saved: its links (added one by one or rolled with Random), then Save as under a
+ * name native suggests until the user types one. Back, a tap outside or Discard asks once, then drops it.
+ */
+@Composable
+private fun MacroDraftDialog(
+    id: Int,
+    bank: MacroBankState,
+    store: MacroStore,
+    sceneId: String,
+) {
+    val editor = remember(bank, sceneId) { store.editor(sceneId) }
+    val knob = editor.knobs.firstOrNull { it.id == id } ?: return
+    val suggested = remember(bank) { store.autoName(id) }
+    var typed by rememberSaveable(id) { mutableStateOf<String?>(null) }
+    val name = typed ?: suggested
+    var leaving by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = { leaving = true },
+        title = { Text(stringResource(R.string.macro_new_title)) },
+        text = {
+            Column(Modifier.heightIn(max = DIALOG_MAX_HEIGHT).verticalScroll(rememberScrollState())) {
+                KnobPage(knob, editor, store, draft = true)
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { if (it.toByteArray().size <= editor.maxNameBytes) typed = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.macro_save_as)) },
+                    singleLine = true,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { store.saveDraft(name) }, enabled = name.isNotBlank()) { Text(stringResource(R.string.macro_save)) }
+        },
+        dismissButton = { TextButton(onClick = { leaving = true }) { Text(stringResource(R.string.macro_discard)) } },
+    )
+    if (leaving) {
+        ConfirmDialog(
+            title = stringResource(R.string.macro_discard_title),
+            text = stringResource(R.string.macro_discard_text),
+            confirmLabel = stringResource(R.string.macro_discard),
+            onDismiss = { leaving = false },
+            onConfirm = {
+                leaving = false
+                store.discardDraft()
+            },
+        )
+    }
+}
+
+/**
+ * A saved knob's editor as a popup, opened by a long press on the knob (or its TalkBack action): rename,
+ * Random, its links with their range and curve, and Delete (Reset for a built-in knob). Edits are live and
+ * saved as they are made, like Edit knobs.
+ */
+@Composable
+internal fun KnobEditorDialog(
+    id: Int,
+    bank: MacroBankState,
+    store: MacroStore,
+    sceneId: String,
+    onDismiss: () -> Unit,
+) {
+    val editor = remember(bank, sceneId) { store.editor(sceneId) }
+    val knob = editor.knobs.firstOrNull { it.id == id }
+    LaunchedEffect(knob == null) { if (knob == null) onDismiss() }
+    if (knob == null) return
+    var asking by remember { mutableStateOf<Ask?>(null) }
+    val delete = Ask.delete(knob.name) { store.remove(knob.id) }
+    val reset = Ask.resetKnob(knob.name) { store.resetKnob(knob.id) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(knob.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        text = {
+            Column(Modifier.heightIn(max = DIALOG_MAX_HEIGHT).verticalScroll(rememberScrollState())) {
+                KnobPage(knob, editor, store)
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.macro_done)) } },
+        dismissButton = {
+            if (knob.builtIn) {
+                TextButton(onClick = { asking = reset }, enabled = !knob.asBuilt) { Text(stringResource(R.string.macro_reset_knob)) }
+            } else {
+                TextButton(onClick = { asking = delete }) { Text(stringResource(R.string.macro_delete)) }
+            }
+        },
+    )
+    asking?.let { ask ->
+        ConfirmDialog(
+            title = ask.title,
+            text = ask.text,
+            confirmLabel = ask.confirm,
+            onDismiss = { asking = null },
+            onConfirm = {
+                asking = null
+                ask.action()
+            },
+        )
+    }
+}
+
+private val DIALOG_MAX_HEIGHT = 520.dp

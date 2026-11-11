@@ -333,6 +333,39 @@ Java_dev_geode_engine_bridge_GeodeNative_macroBankEditor(JNIEnv* env, jobject, j
     return env->NewStringUTF(geode_macro_bank_editor(text.get(), style.get()));
 }
 
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankSetCurve(JNIEnv* env, jobject, jstring bank, jint knobId, jstring target, jstring curve) {
+    Utf8Chars text(env, bank);
+    Utf8Chars name(env, target);
+    Utf8Chars shape(env, curve);
+    return env->NewStringUTF(geode_macro_bank_set_curve(text.get(), knobId, name.get(), shape.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankAddKnobFor(JNIEnv* env, jobject, jstring bank, jstring control) {
+    Utf8Chars text(env, bank);
+    Utf8Chars key(env, control);
+    return env->NewStringUTF(geode_macro_bank_add_knob_for(text.get(), key.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankControls(JNIEnv* env, jobject, jstring bank) {
+    Utf8Chars text(env, bank);
+    return env->NewStringUTF(geode_macro_bank_controls(text.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankRoll(JNIEnv* env, jobject, jstring bank, jint knobId, jlong seed) {
+    Utf8Chars text(env, bank);
+    return env->NewStringUTF(geode_macro_bank_roll(text.get(), knobId, static_cast<long long>(seed)));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankAutoName(JNIEnv* env, jobject, jstring bank, jint knobId) {
+    Utf8Chars text(env, bank);
+    return env->NewStringUTF(geode_macro_bank_auto_name(text.get(), knobId));
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_directorSet(JNIEnv*, jobject, jboolean on, jfloat amount, jlong seed) {
     geode_director_set(on == JNI_TRUE ? 1 : 0, amount, static_cast<long long>(seed));

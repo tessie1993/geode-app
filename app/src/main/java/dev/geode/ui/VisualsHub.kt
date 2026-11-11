@@ -338,6 +338,7 @@ internal fun VisualsHub(
         CloseOnBack(enabled = !nav.sheetShown, onBack = nav::showSheet)
         MacrosDrawer(
             visible = macros,
+            sceneId = viz.sceneId,
             onDismiss = { macros = false },
             onEdit = {
                 macros = false

@@ -361,6 +361,36 @@ object GeodeNative {
         styleId: String,
     ): String
 
+    /** How a link follows the knob: [curve] is LINEAR, EASE_IN, EASE_OUT or S_CURVE. */
+    external fun macroBankSetCurve(
+        bank: String,
+        knobId: Int,
+        target: String,
+        curve: String,
+    ): String
+
+    /** A new knob that moves the Customize control [control] (a ParamKeys name); native names it. */
+    external fun macroBankAddKnobFor(
+        bank: String,
+        control: String,
+    ): String
+
+    /** Every Customize control a knob can move, its category, and the knobs that move it now. */
+    external fun macroBankControls(bank: String): String
+
+    /** A random set of links for the knob in place of its own; the same [seed], the same set. */
+    external fun macroBankRoll(
+        bank: String,
+        knobId: Int,
+        seed: Long,
+    ): String
+
+    /** The name native offers when the knob is saved (a name, not a bank). */
+    external fun macroBankAutoName(
+        bank: String,
+        knobId: Int,
+    ): String
+
     /**
      * The auto-director (core/viz/Director): the music's feeling decides palette, behaviour and routing over
      * every style. [on] is the user's switch as set, which an export directs by ([vizPinEngineSettings]);

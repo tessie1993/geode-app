@@ -4,6 +4,7 @@
 #include <array>
 #include <charconv>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <mutex>
 
@@ -62,6 +63,13 @@ const TargetInfo* infoOf(LfoTarget target) {
 }
 
 float unit(float v) { return std::isfinite(v) ? std::clamp(v, -1.0f, 1.0f) : 0.0f; }
+
+constexpr std::array<const char*, kCurveCount> kCurveNames = {"LINEAR", "EASE_IN", "EASE_OUT", "S_CURVE"};
+
+Curve validCurve(Curve curve) {
+    const int i = static_cast<int>(curve);
+    return i >= 0 && i < kCurveCount ? curve : Curve::Linear;
+}
 
 // Text the codec can carry and a label can show: no control characters, no field separator, no
 // outer spaces, at most maxBytes without splitting a UTF-8 character.
@@ -185,6 +193,13 @@ bool asBuilt(const Knob& knob) {
 
 const char* flag(bool on) { return on ? "1" : "0"; }
 
+// An offset in a param's units for the editor to show: four significant digits, no float noise.
+std::string units(float v) {
+    char buf[32];
+    std::snprintf(buf, sizeof buf, "%.4g", static_cast<double>(v) == 0.0 ? 0.0 : static_cast<double>(v));
+    return buf;
+}
+
 std::mutex gLock;
 std::shared_ptr<const Bank> gBank;  // guarded by gLock; null is the default bank
 
@@ -204,6 +219,30 @@ std::string buildTargetsText() {
 }
 
 }  // namespace
+
+const char* name(Curve curve) { return kCurveNames[static_cast<size_t>(validCurve(curve))]; }
+
+std::optional<Curve> curveNamed(std::string_view curveName) {
+    for (int i = 0; i < kCurveCount; ++i) {
+        if (curveName == kCurveNames[static_cast<size_t>(i)]) return static_cast<Curve>(i);
+    }
+    return std::nullopt;
+}
+
+float shape(Curve curve, float t) {
+    const float x = std::isfinite(t) ? std::clamp(t, 0.0f, 1.0f) : 0.0f;
+    switch (validCurve(curve)) {
+        case Curve::EaseIn:
+            return x * x;
+        case Curve::EaseOut:
+            return x * (2.0f - x);
+        case Curve::SCurve:
+            return x * x * (3.0f - 2.0f * x);
+        case Curve::Linear:
+            break;
+    }
+    return x;
+}
 
 bool linkable(LfoTarget target) { return infoOf(target) != nullptr; }
 
@@ -241,7 +280,7 @@ Bank normalized(const Bank& bank) {
         knob.value = unit(in.value);
         for (const Link& link : in.links) {
             if (!linkable(link.target)) continue;
-            const Link fixed{link.target, unit(link.up), unit(link.down)};
+            const Link fixed{link.target, unit(link.up), unit(link.down), validCurve(link.curve)};
             const auto same = linkOn(knob, link.target);
             if (same != knob.links.end()) {
                 *same = fixed;
@@ -333,9 +372,10 @@ Bank setLink(const Bank& bank, int id, LfoTarget target, float up, float down) {
     Bank out = normalized(bank);
     Knob* knob = knobById(out, id);
     if (!knob || !linkable(target) || !std::isfinite(up) || !std::isfinite(down)) return out;
-    const Link link{target, unit(up), unit(down)};
+    Link link{target, unit(up), unit(down)};
     const auto same = linkOn(*knob, target);
     if (same != knob->links.end()) {
+        link.curve = same->curve;
         if (*same == link) return out;
         *same = link;
     } else {
@@ -364,6 +404,60 @@ Bank removeLink(const Bank& bank, int id, LfoTarget target) {
     return out;
 }
 
+namespace {
+
+std::uint64_t splitmix(std::uint64_t& state) {
+    std::uint64_t z = (state += 0x9E3779B97F4A7C15ull);
+    z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ull;
+    z = (z ^ (z >> 27)) * 0x94D049BB133111EBull;
+    return z ^ (z >> 31);
+}
+
+float between(std::uint64_t& state, float lo, float hi) {
+    return lo + (hi - lo) * static_cast<float>(splitmix(state) >> 40) / static_cast<float>(std::uint64_t{1} << 24);
+}
+
+}  // namespace
+
+Bank roll(const Bank& bank, int id, std::uint64_t seed) {
+    Bank out = normalized(bank);
+    Knob* knob = knobById(out, id);
+    if (!knob) return out;
+    std::vector<LfoTarget> pool;
+    for (int i = 0; i < kTargetCount; ++i) {
+        const TargetInfo& info = infos()[static_cast<size_t>(i)];
+        if (info.slot >= 0 && info.hi > info.lo) pool.push_back(static_cast<LfoTarget>(i));
+    }
+    std::uint64_t state = seed;
+    const int count = std::min({2 + static_cast<int>(splitmix(state) % 4), kMaxLinks, static_cast<int>(pool.size())});
+    std::vector<Link> links;
+    for (int n = 0; n < count; ++n) {
+        const size_t pick = static_cast<size_t>(splitmix(state) % pool.size());
+        const LfoTarget target = pool[pick];
+        pool.erase(pool.begin() + static_cast<long>(pick));
+        const float sign = (splitmix(state) & 1u) ? 1.0f : -1.0f;
+        const float up = sign * between(state, 0.15f, 0.6f);
+        const float down = (splitmix(state) & 1u) ? -up * between(state, 0.5f, 1.0f) : 0.0f;
+        const auto curve = static_cast<Curve>(splitmix(state) % kCurveCount);
+        links.push_back({target, up, down, curve});
+    }
+    knob->links = std::move(links);
+    knob->hint.clear();
+    return normalized(out);
+}
+
+Bank setCurve(const Bank& bank, int id, LfoTarget target, Curve curve) {
+    Bank out = normalized(bank);
+    Knob* knob = knobById(out, id);
+    const int c = static_cast<int>(curve);
+    if (!knob || c < 0 || c >= kCurveCount) return out;
+    const auto same = linkOn(*knob, target);
+    if (same == knob->links.end() || same->curve == curve) return out;
+    same->curve = curve;
+    knob->hint.clear();
+    return out;
+}
+
 std::uint64_t reachMask(const std::string& styleId) {
     std::uint64_t bits = 0;
     for (int i = 0; i < kTargetCount; ++i) {
@@ -386,7 +480,7 @@ SceneParams apply(const SceneParams& p, const Bank& bank, std::uint64_t reach) {
             if (!info) continue;
             const int t = static_cast<int>(link.target);
             if (((reach >> t) & std::uint64_t{1}) == 0) continue;
-            const float weight = value >= 0.0f ? value * link.up : -value * link.down;
+            const float weight = shape(link.curve, std::fabs(value)) * (value >= 0.0f ? link.up : link.down);
             if (!std::isfinite(weight) || weight == 0.0f) continue;
             offset[static_cast<size_t>(t)] += std::clamp(weight, -1.0f, 1.0f) * (info->hi - info->lo);
             moved |= std::uint64_t{1} << t;
@@ -430,8 +524,9 @@ std::string encode(const Bank& bank) {
     for (const Knob& knob : b.knobs) {
         out += "knob|" + std::to_string(knob.id) + "|" + tableNumber(knob.value) + "|" + knob.name + "|" + knob.hint + "\n";
         for (const Link& link : knob.links) {
-            out += std::string("link|") + modtargets::name(link.target) + "|" + tableNumber(link.up) + "|" + tableNumber(link.down) +
-                   "\n";
+            out += std::string("link|") + modtargets::name(link.target) + "|" + tableNumber(link.up) + "|" + tableNumber(link.down);
+            if (link.curve != Curve::Linear) out += std::string("|") + name(link.curve);
+            out += "\n";
         }
     }
     return out;
@@ -473,9 +568,10 @@ Bank decode(std::string_view text) {
             open = true;
         } else if (f[0] == "link" && open) {
             Link link;
-            if (f.size() != 4 || bank.knobs.back().links.size() >= kMaxParsedLinks) continue;
+            if ((f.size() != 4 && f.size() != 5) || bank.knobs.back().links.size() >= kMaxParsedLinks) continue;
             link.target = targetNamed(f[1]);
             if (link.target == LfoTarget::None || !parseFloat(f[2], link.up) || !parseFloat(f[3], link.down)) continue;
+            if (f.size() == 5) link.curve = curveNamed(f[4]).value_or(Curve::Linear);
             bank.knobs.back().links.push_back(link);
         }
     }
@@ -521,14 +617,18 @@ std::string editorText(const Bank& bank, const std::string& styleId) {
                flag(static_cast<int>(knob.links.size()) < kMaxLinks) + "|" + tableNumber(knob.value) + "|" + knob.name + "|" +
                knob.hint + "\n";
         for (const Link& link : knob.links) {
+            const Range range = rangeOf(link.target);
+            const float width = range.max - range.min;
             out += std::string("link|") + modtargets::name(link.target) + "|" + tableNumber(link.up) + "|" + tableNumber(link.down) +
-                   "|" + flag(reaches(link.target)) + "\n";
+                   "|" + flag(reaches(link.target)) + "|" + name(link.curve) + "|" + units(link.up * width) + "|" +
+                   units(link.down * width) + "\n";
         }
     }
     for (int i = 0; i < kTargetCount; ++i) {
         const auto target = static_cast<LfoTarget>(i);
         if (linkable(target)) out += std::string("target|") + modtargets::name(target) + "|" + flag(reaches(target)) + "\n";
     }
+    for (const char* curve : kCurveNames) out += std::string("curve|") + curve + "\n";
     return out;
 }
 

@@ -42,7 +42,34 @@ class MacroEditorTableTest {
     fun `links belong to the knob above them`() {
         assertEquals(listOf("BLOOM", "INTENSITY", "VIGNETTE"), state.knobs[0].links.map { it.target })
         val mine = state.knobs.last()
-        assertEquals(listOf(MacroLink("ZOOM", 0.25f, -0.25f, true), MacroLink("FLUID_GLOW", 1f, 0f, false)), mine.links)
+        assertEquals(
+            listOf(
+                MacroLink("ZOOM", 0.25f, -0.25f, true, "EASE_IN", 0.675f, -0.675f),
+                MacroLink("FLUID_GLOW", 1f, 0f, false, MacroLink.LINEAR, 1.9f, 0f),
+            ),
+            mine.links,
+        )
+    }
+
+    @Test
+    fun `a link's range comes in the param's units too`() {
+        val bloom = state.knobs[0].links.first()
+        assertEquals(MacroLink("BLOOM", 1f, 0f, true, MacroLink.LINEAR, 0.25f, 0f), bloom)
+    }
+
+    @Test
+    fun `the curves are native's list`() {
+        assertEquals(listOf("LINEAR", "EASE_IN", "EASE_OUT", "S_CURVE"), state.curves)
+    }
+
+    @Test
+    fun `the controls table maps a slider to its target and knobs`() {
+        val controls =
+            MacroControlsTable.parse("macrocontrols|1\ncontrol|Bloom|BLOOM|LOOK|1,5\ncontrol|Zoom|ZOOM|MOTION|\ncontrol|bad\n")
+        assertEquals(MacroControl("BLOOM", "LOOK", listOf(1, 5)), controls["Bloom"])
+        assertEquals(MacroControl("ZOOM", "MOTION", emptyList()), controls["Zoom"])
+        assertEquals(2, controls.size)
+        assertTrue(MacroControlsTable.parse("macrocontrols|2\ncontrol|Bloom|BLOOM|LOOK|1\n").isEmpty())
     }
 
     @Test
@@ -50,7 +77,13 @@ class MacroEditorTableTest {
         assertTrue(state.targets.size > 30)
         assertTrue(state.targets.first { it.name == "ZOOM" }.reaches)
         assertFalse(state.targets.first { it.name == "FLUID_GLOW" }.reaches)
-        assertEquals(state.targets.size, state.targets.map { it.name }.toSet().size)
+        assertEquals(
+            state.targets.size,
+            state.targets
+                .map { it.name }
+                .toSet()
+                .size,
+        )
     }
 
     @Test
@@ -63,8 +96,16 @@ class MacroEditorTableTest {
     fun `another version or garbage reads as nothing to offer`() {
         assertEquals(MacroEditorState(), MacroEditorTable.parse("macroeditor|2\nknob|1|1|1|1|0|Glow|\n"))
         assertEquals(MacroEditorState(), MacroEditorTable.parse(""))
-        val odd = MacroEditorTable.parse("macroeditor|1\nknob|x|1|1|1|0|Glow|\nknob|2|1|1|1|0|Heat|\nlink|ZOOM|a|b|1\nwhat|ever\n")
+        val odd =
+            MacroEditorTable.parse(
+                "macroeditor|1\nknob|x|1|1|1|0|Glow|\nknob|2|1|1|1|0|Heat|\nlink|ZOOM|a|b|1|LINEAR|0|0\nwhat|ever\n",
+            )
         assertEquals(listOf(2), odd.knobs.map { it.id })
-        assertTrue(odd.knobs.single().links.isEmpty())
+        assertTrue(
+            odd.knobs
+                .single()
+                .links
+                .isEmpty(),
+        )
     }
 }

@@ -512,7 +512,7 @@ private fun PanelPiece(
         "@macros" -> {
             val store = remember { MacroStore.get(context) }
             val macros by store.state.collectAsStateWithLifecycle()
-            MacrosTab(macros, store)
+            MacrosTab(macros, store, viz.sceneId, LocalProLock.current)
         }
         "@macro_editor" -> {
             val store = remember { MacroStore.get(context) }

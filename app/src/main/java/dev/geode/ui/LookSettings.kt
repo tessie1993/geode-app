@@ -41,7 +41,6 @@ import dev.geode.data.GuiPrefs
 import dev.geode.ui.theme.isReadableOnCanvas
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlin.math.roundToInt
 
 /** Settings › Look › Basics: the accent and the interface sounds. */
 @Composable
@@ -57,7 +56,7 @@ internal fun LookTextSection(viewModel: SettingsViewModel) {
     TextGroup(viewModel, gui)
 }
 
-/** Settings › Look › Layout: the glass, the player's place, corners, the boot animation. */
+/** Settings › Look › Layout: corners and the boot animation. */
 @Composable
 internal fun LookLayoutSection(viewModel: SettingsViewModel) {
     val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
@@ -198,18 +197,6 @@ private fun LayoutGroup(
     viewModel: SettingsViewModel,
     gui: GuiPrefs,
 ) {
-    // The glass's own clamp, shared with Visuals' quick settings (#559): the old 0.2..1 range had a
-    // dead bottom (floatingGlass draws no less than 35 %) and named fills that were never drawn. The
-    // label shows the clamped value, rounded as quick settings rounds it, so both read the same %.
-    val drawnOpacity = gui.barOpacity.coerceIn(SHEET_OPACITY_RANGE)
-    Column {
-        Text(stringResource(R.string.look_bar_opacity, (drawnOpacity * 100).roundToInt()), style = MaterialTheme.typography.labelMedium)
-        CrystalSlider(
-            value = drawnOpacity,
-            onValueChange = { viewModel.setGuiPrefs(gui.copy(barOpacity = it)) },
-            valueRange = SHEET_OPACITY_RANGE,
-        )
-    }
     Column {
         Text(stringResource(R.string.look_corner_style), style = MaterialTheme.typography.labelMedium)
         CrystalSegmented(

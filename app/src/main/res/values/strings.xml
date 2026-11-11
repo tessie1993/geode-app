@@ -689,7 +689,6 @@
     <string name="look_font_color">Font color</string>
     <string name="look_font_color_hint">Recolors the writing everywhere; Auto returns to the theme\'s own text colors.</string>
     <string name="look_group_layout">Layout</string>
-    <string name="look_bar_opacity">"Bar opacity  %1$d%%"</string>
     <string name="look_corner_style">Corner style</string>
     <string name="look_corner_sharp">Sharp</string>
     <string name="look_corner_rounded">Rounded</string>

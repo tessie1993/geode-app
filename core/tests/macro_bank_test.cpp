@@ -2,7 +2,8 @@
 // scene params. Centre is the identity, a full turn each way moves every linked field by its weight
 // and never past its range, a link the style cannot show is skipped, the offset rides on a moved
 // base, every edit validates, the text survives a round trip and garbage, and the four built-in
-// knobs move a flat style, a 3D style, Fluid and MilkDrop both ways within the safety clamp.
+// knobs move a flat style, a 3D style, Fluid and MilkDrop both ways within the safety clamp. The
+// process-wide bank (geode_macro_bank_set) starts as the default, is replaced whole, never in place.
 // Built and run by CI (.github/workflows/native-host-tests.yml, "Macro bank host tests"); no GL.
 #include <algorithm>
 #include <array>
@@ -540,6 +541,24 @@ void theAbiEditsTextToText() {
     check(macrobank::decode(chained).knobs.front().value == -0.25f, "a result can be passed straight back in");
 }
 
+// The process-wide bank every renderer reads: the default until set, then the normalized bank the shell
+// pushed. A set swaps the shared copy, so one a frame already holds keeps its knobs.
+void theGlobalBankIsSwappedWhole() {
+    check(*macrobank::global() == macrobank::defaultBank(), "the process bank starts as the default bank");
+    const Bank turned = macrobank::setValue(macrobank::defaultBank(), macrobank::defaultBank().knobs[0].id, 0.75f);
+    const auto held = macrobank::global();
+    geode_macro_bank_set(macrobank::encode(turned).c_str());
+    check(*macrobank::global() == turned, "geode_macro_bank_set makes the pushed bank the process bank");
+    check(*held == macrobank::defaultBank(), "a copy taken before the set keeps its knobs");
+    geode_macro_bank_set("not a bank");
+    check(*macrobank::global() == macrobank::defaultBank(), "unreadable text sets the default bank");
+    Bank wild = turned;
+    wild.knobs[0].value = 9.0f;
+    macrobank::setGlobal(wild);
+    check(macrobank::global()->knobs[0].value == 1.0f, "the process bank is held normalized");
+    macrobank::setGlobal(macrobank::defaultBank());
+}
+
 }  // namespace
 
 int main() {
@@ -558,6 +577,7 @@ int main() {
     applyIsDeterministic();
     targetsTextListsWhatALinkMayName();
     theAbiEditsTextToText();
+    theGlobalBankIsSwappedWhole();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

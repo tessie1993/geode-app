@@ -18,7 +18,7 @@
 // one section (core/tests/customize_test proves it against randomizer::rolledKeys()).
 //
 // A control is named by its ParamKeys string, the key the user locks by. Panel pieces that are not
-// one SceneParams value (the macro knobs, the moment rows, the route editor, shader code) are named
+// one SceneParams value (the macro bank's knobs, the moment rows, the route editor, shader code) are named
 // "@<id>"; the shell draws each one with the composable it already has.
 //
 // The engine's roll groups (randomizer::Tab) keep their names: saved locks and tests use them. A

@@ -203,6 +203,14 @@ class BackupArchiveTest {
     }
 
     @Test
+    fun `the macro bank rides with Creative and the old knobs with nothing`() {
+        assertEquals(BackupSection.CREATIVE, BackupFormat.sectionOfKey("geode-prefs", "macro_bank"))
+        listOf("macro_knobs", "macro_locks", "macro_presets").forEach { key ->
+            assertNull("$key is neither backed up nor restored", BackupFormat.sectionOfKey("geode-prefs", key))
+        }
+    }
+
+    @Test
     fun `default file name carries the date`() {
         assertEquals("muzviz-backup-20261030.zip", BackupFormat.defaultFileName(LocalDate.of(2026, 10, 30)))
     }

@@ -8,8 +8,8 @@ namespace geode::viz::layer_state {
 
 // Customize › Advanced › Layers: a second style drawn over the main one (its id, how much of it, how it
 // blends), process-wide (#364). It used to live on one Renderer (the live screen's, pushed by Kotlin
-// every frame), so an export, the live wallpaper and the dream each drew the base style alone. Like
-// Macros, the director and the shader overrides, it is now one value every renderer reads: each
+// every frame), so an export, the live wallpaper and the dream each drew the base style alone. Like the
+// macro bank, the director and the shader overrides, it is now one value every renderer reads: each
 // renderer's Follower hands it the layer when the generation moves. The main thread writes; GL threads
 // read, so a mutex is enough.
 

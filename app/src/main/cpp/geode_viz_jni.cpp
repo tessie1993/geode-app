@@ -3,7 +3,11 @@
 
 #include <algorithm>
 #include <cstring>
+#include <memory>
+#include <mutex>
+#include <shared_mutex>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "api/geode_api.h"
@@ -14,7 +18,63 @@ namespace {
 using geode::jni::FloatElements;
 using geode::jni::Utf8Chars;
 
-geode_viz* vizOf(jlong handle) { return reinterpret_cast<geode_viz*>(handle); }
+// Liveness of every renderer handed to Kotlin (#853). Kotlin checks `handle != 0L` and then calls,
+// and destroy() on another thread can run between the two; a raw pointer would then be freed
+// memory. Each handle has a reader/writer lock: every call holds it shared for the whole native
+// call, destroy takes it exclusive after unregistering, so it waits for calls in flight and a
+// later (stale) handle finds nothing and becomes a no-op.
+struct VizEntry {
+    std::shared_mutex lock;
+};
+
+std::mutex gVizMutex;
+std::unordered_map<geode_viz*, std::shared_ptr<VizEntry>> gVizLive;
+
+// A live renderer held for the length of the full expression it appears in; null for a stale handle.
+class VizRef {
+public:
+    explicit VizRef(jlong handle) {
+        auto* v = reinterpret_cast<geode_viz*>(handle);
+        {
+            std::lock_guard<std::mutex> guard(gVizMutex);
+            auto it = gVizLive.find(v);
+            if (it == gVizLive.end()) return;
+            entry_ = it->second;
+        }
+        lock_ = std::shared_lock<std::shared_mutex>(entry_->lock);
+        viz_ = v;
+    }
+    VizRef(const VizRef&) = delete;
+    VizRef& operator=(const VizRef&) = delete;
+    operator geode_viz*() const { return viz_; }
+
+private:
+    std::shared_ptr<VizEntry> entry_;  // declared before lock_: the lock is released first
+    std::shared_lock<std::shared_mutex> lock_;
+    geode_viz* viz_ = nullptr;
+};
+
+VizRef vizOf(jlong handle) { return VizRef(handle); }
+
+void vizRegister(geode_viz* v) {
+    if (!v) return;
+    std::lock_guard<std::mutex> guard(gVizMutex);
+    gVizLive[v] = std::make_shared<VizEntry>();
+}
+
+void vizDestroyLive(jlong handle) {
+    auto* v = reinterpret_cast<geode_viz*>(handle);
+    std::shared_ptr<VizEntry> entry;
+    {
+        std::lock_guard<std::mutex> guard(gVizMutex);
+        auto it = gVizLive.find(v);
+        if (it == gVizLive.end()) return;  // stale or already destroyed
+        entry = std::move(it->second);
+        gVizLive.erase(it);
+    }
+    std::unique_lock<std::shared_mutex> exclusive(entry->lock);  // waits for calls in flight
+    geode_viz_destroy(v);
+}
 geode_export_pass* passOf(jlong handle) { return reinterpret_cast<geode_export_pass*>(handle); }
 AAssetManager* assetsOf(JNIEnv* env, jobject assetManager) { return assetManager ? AAssetManager_fromJava(env, assetManager) : nullptr; }
 
@@ -58,12 +118,14 @@ JNIEXPORT jlong JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizCreate(JNIEnv* env, jobject, jobject assetManager, jstring cacheDir) {
     Utf8Chars dir(env, cacheDir);
     AAssetManager* assets = assetManager ? AAssetManager_fromJava(env, assetManager) : nullptr;
-    return reinterpret_cast<jlong>(geode_viz_create(assets, dir.get()));
+    geode_viz* created = geode_viz_create(assets, dir.get());
+    vizRegister(created);
+    return reinterpret_cast<jlong>(created);
 }
 
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizDestroy(JNIEnv*, jobject, jlong handle) {
-    geode_viz_destroy(vizOf(handle));
+    vizDestroyLive(handle);
 }
 
 JNIEXPORT void JNICALL

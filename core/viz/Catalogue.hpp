@@ -94,6 +94,9 @@ Kind kindOf(const std::string& id);
 bool isShaderStyle(const std::string& id);
 // Spends the Detail budget (MarchDetail reaches it).
 bool isMarched(const std::string& id);
+// Its shader reads the camera rig (uCamBasis), so ShaderScene::drawsCamera() will be true and the
+// Camera framing and feel controls move it. style_reads_test pins both facts to the shaders.
+bool fliesCamera(const std::string& id);
 // How the style turns by default: a signed multiplier on the motion field's drift spin, 0 for a
 // style that holds still (bars, grids, landscapes and trees read as broken when they roll).
 float spinRate(const std::string& id);

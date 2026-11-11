@@ -24,5 +24,4 @@ data class VizUiState(
     val randomIncludeStyles: Boolean = true,
     val randomIncludePresets: Boolean = true,
     val randomIncludeMilk: Boolean = false,
-    val randomizeColors: Boolean = false,
 )

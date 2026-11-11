@@ -91,7 +91,7 @@ void Renderer::writeAudio(const float* interleaved, int frames, int channels, in
         // SoundEngine clamps its rate to 8 kHz; compare the clamped rate or a lower one rebuilds every call.
         if (!sound_ || sound_->sampleRateHz() != std::max(8000, sampleRateHz)) {
             sound_ = std::make_unique<sound::SoundEngine>(sampleRateHz);
-            sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
+            sound_->setTuning(soundTuning_);
         }
         sound_->write(interleaved, frames, channels);
     }
@@ -112,9 +112,9 @@ void Renderer::resetAudio() {
 
 void Renderer::setSoundTuning(const GeodeSoundTuning& tuning) {
     std::lock_guard<std::mutex> lock(soundLock_);
-    // Clamped before the macros scale it, so a NaN Reactivity is the default one turned, not a NaN.
+    // Clamped here, so a NaN Reactivity reaches the engine as the default one, not a NaN.
     soundTuning_ = sound::tuning::clamp(tuning);
-    if (sound_) sound_->setTuning(macros::tuning(soundTuning_, tunedKnobs_));
+    if (sound_) sound_->setTuning(soundTuning_);
 }
 
 double Renderer::monotonicSeconds() {

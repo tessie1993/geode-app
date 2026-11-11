@@ -43,7 +43,7 @@ out vec4 fragColor;
 // at the bottom of the bore and the highs on top): that is drawing the
 // spectrum itself, so it reads the signal directly.
 //
-// Provenance: written from scratch for MuzViz from general techniques - a hex
+// Provenance: written from scratch for BeatRealms from general techniques - a hex
 // lattice as the nearer of two offset rectangular grids; a hexagon SDF; the
 // lattice wrapped onto a cylinder (arc length by angle, depth by radius); a
 // helix tube distance in cylinder coordinates; sphere tracing with a

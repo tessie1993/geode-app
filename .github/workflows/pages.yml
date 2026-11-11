@@ -74,7 +74,7 @@ jobs:
           set -euo pipefail
           test -s _site/index.html
           test -s _site/privacy-policy.html
-          grep -q "MuzViz Studio Pro" _site/privacy-policy.html
+          grep -q "BeatRealms 3D" _site/privacy-policy.html
           grep -q 'href="privacy-policy.html"' _site/index.html
 
       - name: Upload Pages artifact

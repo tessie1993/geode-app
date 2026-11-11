@@ -1,10 +1,11 @@
 #pragma once
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <optional>
 
 #include "viz/Director.hpp"
-#include "viz/Macros.hpp"
+#include "viz/MacroBank.hpp"
 
 namespace geode::signal {
 
@@ -12,7 +13,9 @@ namespace geode::signal {
 // one copy per frame (SettingsLatch), and the same copy re-tunes its sound engine, so nothing changes
 // mid-frame.
 struct EngineSettings {
-    viz::MacroKnobs knobs{};          // Customize › Macros, each -1..1
+    // The user's macro bank (Quick knobs), shared and never edited in place: a frame copies the pointer,
+    // not the knobs. Null moves nothing.
+    std::shared_ptr<const viz::macrobank::Bank> bank;
     viz::DirectorConfig director{};   // the auto-director's amount and play seed
     bool notesOn = false;             // Settings › Behaviour › Note & key reactions
     std::uint32_t handMask = 0;       // Customize › Music: the moments set by hand (viz::hand), the director keeps off
@@ -20,19 +23,19 @@ struct EngineSettings {
     std::uint64_t noteEntropy = 0;    // mixed into the note layer's seed (the play seed ^ this)
 };
 
-// The process globals as they are now (macros::global, director::global, note_response::globalEnabled,
+// The process globals as they are now (macrobank::global, director::global, note_response::globalEnabled,
 // hand::global), as a live surface reads them. reducedMotion and noteEntropy are the renderer's own and
 // are left at their defaults here.
 EngineSettings globalSettings();
 
-// An export's settings (#350), taken once when it is prepared: the knobs, the Note & key switch and the
+// An export's settings (#350), taken once when it is prepared: the macro bank, the Note & key switch and the
 // hand mask as they are now; the director from the user's switch, `entitled` (Pro or the trial) and
 // `durationMs` (director::forExport, never the live amount, which the live free taste may have cut); and
 // no note entropy, so an export is deterministic: the same play exported twice draws the same notes.
 EngineSettings exportSettings(bool entitled, long long durationMs);
 
 // What a renderer reads each frame: the process globals live, or, once pinned (an export), the one copy
-// pinned at prepare, so live edits to the macros, the Note & key switch, the hand mask or the director
+// pinned at prepare, so live edits to the macro bank, the Note & key switch, the hand mask or the director
 // never reach a render in progress (#350). GL-free, so the rule is host-tested (core/tests/resolver_test).
 class SettingsLatch {
 public:

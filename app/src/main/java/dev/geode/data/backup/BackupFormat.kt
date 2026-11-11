@@ -10,7 +10,7 @@ import org.json.JSONObject
 import java.time.LocalDate
 import java.util.Locale
 
-// The rules of a MuzViz backup archive: what goes in, where it lives, what a restore will
+// The rules of a BeatRealms backup archive: what goes in, where it lives, what a restore will
 // accept. Pure Kotlin on purpose (org.json and java.* only): every check that decides whether
 // a file from outside the app may touch app data is here, where a JVM test can reach it. The
 // stores it names are read only for their key names, never opened.
@@ -43,7 +43,7 @@ internal fun fail(
  * The modulation slots live in the `geode-mod` prefs file and favourites in `geode-favourites`,
  * so those files ride with the section the user thinks of them in rather than with Settings.
  *
- * The macros, LFOs, envelopes and reaction routes are the exception: they are creative work, but
+ * The macro bank, LFOs, envelopes and reaction routes are the exception: they are creative work, but
  * their stores ([MacroStore], [LfoStore]) write into `geode-prefs`, beside the settings, and the
  * wallpaper and the dream read them from there. Moving them to another file would mean moving
  * every reader too, so [borrowedKeys] lets Creative own just those keys of Settings' file instead.
@@ -127,13 +127,15 @@ object BackupFormat {
      * left out of an export, and a restore neither writes nor removes them.
      *
      * - "Seen it" flags (safety notice, first-run setup, tutorial and its progress): a new phone
-     *   should show the photosensitivity notice and the tour again; the user's answers themselves
-     *   (intent) are restored.
+     *   should show the photosensitivity notice and the tour again.
      * - Folder and image URIs picked through the system picker: their read grant belongs to
      *   this install and does not survive a reinstall, so a restored URI points at nothing.
      * - Settings › Performance ([PerformanceStore.KEYS]): picked for this phone's RAM and
      *   performance class at first launch. A backup from a fast phone restored onto a slow one
      *   would run it hot; the new phone keeps its own pick.
+     * - The old six macro knobs, their locks and saved sets ([MacroStore.RETIRED_KEYS]): dropped
+     *   with no migration when the knobs became the macro bank, so an older backup's copies are
+     *   skipped rather than written back.
      *
      * There is no crash or permission state in prefs: the crash report is `crash-latest.txt`,
      * which is never in a backup, and runtime permissions are the system's.
@@ -148,7 +150,7 @@ object BackupFormat {
                     "gui_tutorial_done",
                     "gui_tutorial_resume",
                     "preset_mirror_uri",
-                ) + PerformanceStore.KEYS,
+                ) + PerformanceStore.KEYS + MacroStore.RETIRED_KEYS,
             GeodePrefsFiles.LIBRARY to setOf("roots"),
             GeodePrefsFiles.BACKGROUND to setOf("background_uri"),
         )
@@ -229,7 +231,7 @@ object BackupFormat {
     }
 
     fun defaultFileName(date: LocalDate): String =
-        String.format(Locale.ROOT, "muzviz-backup-%04d%02d%02d.zip", date.year, date.monthValue, date.dayOfMonth)
+        String.format(Locale.ROOT, "beatrealms-backup-%04d%02d%02d.zip", date.year, date.monthValue, date.dayOfMonth)
 }
 
 /**

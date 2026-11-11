@@ -175,14 +175,15 @@ void nanAndTinyCaps() {
 }
 
 void wireRoundTrip() {
-    PacerState s{1, 2, 3, 4, 5, 6, 7};
+    PacerState s{1, 2, 3, 4, 5, 6, 7, 8};
     int64_t wire[kPacerStateLongs] = {};
     pack(s, wire);
     const PacerState back = unpack(wire);
     check(back.lastDrawnNs == 1 && back.lastVsyncNs == 2 && back.periodNs == 3 && back.samples == 4 && back.sinceDrawn == 5 && back.divisor == 6 &&
-              back.capMilliHz == 7,
-          "the seven-long wire layout round-trips");
+              back.capMilliHz == 7 && back.pacedMilliHz == 8,
+          "the eight-long wire layout round-trips");
     check(wire[kPacerCapSlot] == 7, "the cap sits in the slot the shell reads");
+    check(wire[kPacerPacedSlot] == 8, "and the paced rate in the one after it");
 }
 
 // The cap a vsync paced to is recorded for the shell's setFrameRate (#440).
@@ -577,6 +578,35 @@ void aCapThePanelCannotDivideIsNeverExceeded() {
 
 }  // namespace
 
+// The paced rate is what the divide really gives, not the cap, when the panel does not divide it. The
+// shell hands it to the renderer as the surface's paced rate, so the measured fallback (ThermalGovernor)
+// judges a 90 Hz panel capped at 60 against the 45 fps it is paced to, not against 60. By hand: the
+// panel rate over the divide, in half-hertz steps, never above the cap.
+// Kills: recording the cap instead, an unrounded rate (the estimate's noise would move the governor's
+// target every vsync), and a paced rate above the cap on a panel a hair fast.
+void recordsThePacedRate() {
+    struct Case {
+        double hz;
+        float cap;
+        int64_t pacedMilliHz;
+    };
+    const Case cases[] = {{90, 60, 45'000},  {144, 60, 48'000},   {75, 60, 37'500},  {165, 60, 55'000}, {120, 60, 60'000},
+                          {60.4, 60, 60'000}, {119.6, 60, 60'000}, {90, 30, 30'000}, {144, 30, 29'000}, {89.7, 60, 45'000}};
+    for (const auto& c : cases) {
+        PacerState s;
+        runPanel(s, c.hz, c.cap, 600);
+        char what[128];
+        std::snprintf(what, sizeof what, "%.1f Hz capped at %.0f paces to %lld mHz", c.hz, c.cap, static_cast<long long>(c.pacedMilliHz));
+        check(s.pacedMilliHz == c.pacedMilliHz, what);
+    }
+    PacerState uncapped;
+    runPanel(uncapped, 120, 0.0f, 100);
+    check(uncapped.pacedMilliHz == 0, "no cap paces to every vsync: 0");
+    PacerState fresh;
+    Pacer::onVsync(fresh, 1'000'000'000, 60.0f);
+    check(fresh.pacedMilliHz == 60'000, "until the estimate settles, the cap is the paced rate");
+}
+
 int main() {
     divides();
     settlesBeforeDividing();
@@ -603,6 +633,7 @@ int main() {
     recordsAnyCapTheShellCanAskFor();
     aCapThatIsNotANumberIsNoCap();
     aCapThePanelCannotDivideIsNeverExceeded();
+    recordsThePacedRate();
     if (failures == 0) std::printf("pacer_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

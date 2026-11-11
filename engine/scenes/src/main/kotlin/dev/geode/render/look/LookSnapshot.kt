@@ -22,7 +22,7 @@ import dev.geode.render.scene.SceneParams
  * Being a value is what pins an export: a render takes one look when it starts, and later edits never reach
  * it. Parts are compared by identity when applied, so a change is a new instance, as the stores make them.
  *
- * Not here, being process-wide native state: the macros, Note & key, the director and the hand mask
+ * Not here, being process-wide native state: the macro bank, Note & key, the director and the hand mask
  * (`EngineSettings`, pinned natively by an export), the layer (#602) and custom shader code (#498).
  */
 data class LookSnapshot(

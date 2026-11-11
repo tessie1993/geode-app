@@ -22,7 +22,6 @@ void Resolver::reset() {
     // commit count carry on (a reset director counts from 0, so the next commit is a new moment again).
     motionField_.reset();
     reactions_.reset();
-    macroReactions_.reset();
     director_.reset();
     notes_.reset();
 }
@@ -47,7 +46,7 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     const float fade = std::max(requested.paramFadeSec, morph);
     displayed_ = fade <= 0.01f ? requested : viz::lerpParams(displayed_, requested, std::clamp(glide / fade, 0.0f, 1.0f));
 
-    // The auto-director hears the frame first: its look lies under the macros, so the user's own knobs,
+    // The auto-director hears the frame first: its look lies under the user's knobs, so the macro bank,
     // the LFOs, the reactions, the motion field and the safety clamp all still act on top of it.
     director_.configure(settings.director);
     // The engine's own feeling when the caller has one (the renderer), else the director steps its own.
@@ -61,7 +60,6 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
         directorCommitsSeen_ = director_.commits();
         if (director_.styleMoment()) frame_.styleMoments = 1;
     }
-    directedKnobs_ = director_.knobs(settings.knobs);
     // Note & key reactions hear the frame next, with the feeling the director heard (stepped whether or
     // not it drives). They publish the style knobs only and write no param. Their tuning is the style's
     // own (Customize).
@@ -79,19 +77,23 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     const auto& envValues = adsr_.tick(dt, sound);
     viz::AdsrEngine::lfoOffsets(adsr_.configs, envValues, envRate_, envDepth_);
     const auto& lfoValues = lfo_.tick(dt, sound, envRate_.data(), envDepth_.data());
-    // Order: the director's look, then the macros and the user's LFOs over it. The macros lay over the
-    // user's params first, so every stage after them (and the safety clamp) sees the knobbed look.
-    SceneParams p = lfo_.apply(director_.direct(displayed_, settings.knobs), lfoValues);
+    // Order: the director's look, its axes, then the user's macro bank and LFOs over all of it. The bank
+    // adds its offsets to what the director left (base plus modulation), so every stage after it (and the
+    // safety clamp) sees the knobbed look.
+    if (!reachKnown_ || styleId != reachStyle_) {
+        reach_ = viz::macrobank::reachMask(styleId);
+        reachStyle_ = styleId;
+        reachKnown_ = true;
+    }
+    SceneParams p = director_.applyAxes(director_.apply(displayed_));
+    if (settings.bank) p = viz::macrobank::apply(p, *settings.bank, reach_);
+    p = lfo_.apply(p, lfoValues);
     p = viz::AdsrEngine::apply(p, adsr_.configs, envValues);
     // The reaction matrix: per-style routes from the sound frame to many targets. Ahead of the motion
     // field and the safety clamp, like the LFOs.
     reactions_.tick(sound, dt);
     p = reactions_.apply(p);
-    // The macros' own routes, in an engine of their own so they never take a user slot. They follow the
-    // knobs the user turned, never the director's: Auto plays no route of its own.
-    macroReactions_.routes = viz::macros::routes(settings.knobs);
-    macroReactions_.tick(sound, dt);
-    p = macroReactions_.apply(p);
+    // No stage follows the matrix with routes of its own: the director plays none (owner's rule).
     // The continuous motion system: the one stage every family's parameters pass through, fed the sound
     // frame (never a single drum hit or PCM impulse), ahead of the safety clamp so nothing it adds can
     // exceed the flash and motion limits.
@@ -99,7 +101,7 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     p = motionField_.apply(p, settings.reducedMotion, style.spin);
     p = viz::safety::apply(p, settings.reducedMotion);
     frame_.params = p;
-    frame_.cameraMoves = director_.moves(viz::macros::camera(directedKnobs_));
+    frame_.cameraMoves = director_.moves();
     return frame_;
 }
 

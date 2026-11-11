@@ -124,8 +124,8 @@ internal class ModulationController(
     /**
      * Rolls [category], or everything when null. The roll is native (core/viz/CustomizeMap over
      * core/viz/ParamRandomizer): the category's own controls that reach the style, minus the kept
-     * ones; this only carries the frame there and back. The knobs are not params: Quick knobs
-     * rolls them through MacroStore.
+     * ones; this only carries the frame there and back. The knobs are not params, and Quick
+     * knobs has no roll.
      */
     fun randomizeParams(category: CustomizeCategory? = null) {
         if (category == CustomizeCategory.QUICK_KNOBS) return

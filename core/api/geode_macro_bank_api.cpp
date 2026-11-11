@@ -23,6 +23,8 @@ const char* handOut(const macrobank::Bank& bank) { return handOut(macrobank::enc
 
 extern "C" {
 
+void geode_macro_bank_set(const char* bank) { macrobank::setGlobal(bankOf(bank)); }
+
 const char* geode_macro_bank_default(void) {
     static const std::string kText = macrobank::encode(macrobank::defaultBank());
     return kText.c_str();

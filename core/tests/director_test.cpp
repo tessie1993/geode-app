@@ -1,9 +1,9 @@
 // Host test of the auto-director: the emotion table (tools/music_emotion.py), the live feeling
 // (sound/Emotion) and the director's decisions (viz/Director): when it decides, that it never touches a colour
 // param and holds its look still between decisions, that happy and sad stay apart whatever the seed, and that
-// it is deterministic.
-// Built by CI (.github/workflows/android.yml, "Director test") with core/sound/*.cpp and the viz sources
-// Director.cpp, Reactions.cpp, Lfo.cpp, Macros.cpp, CameraRig.cpp, Params.cpp and ParamsFields.cpp.
+// it is deterministic. Then the director's behaviour axes (director::applyAxes, axisMoves).
+// Built by CI (.github/workflows/native-host-tests.yml) with core/sound/*.cpp and the viz sources
+// Director.cpp, Reactions.cpp, Lfo.cpp, CameraRig.cpp, Params.cpp, ParamsFields.cpp and VisualSafety.cpp.
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -15,10 +15,11 @@
 #include "sound/Emotion.hpp"
 #include "sound/Form.hpp"
 #include "sound/Harmony.hpp"
+#include "viz/CameraRig.hpp"
 #include "viz/Director.hpp"
-#include "viz/Macros.hpp"
 
 using geode::sound::Emotion;
+using geode::viz::CameraRig;
 using geode::viz::Director;
 using geode::viz::DirectorConfig;
 using geode::viz::SceneParams;
@@ -166,7 +167,7 @@ void testPacing() {
     t += kDt;
     check(d.commits() == 3 && d.lastReason() == Director::Reason::Drop, "a drop always decides");
     run(d, kHappy, 0.3f, t);
-    check(d.look().knobs == d.target().knobs && d.look().camSmooth == d.target().camSmooth, "a drop cuts in a quarter second");
+    check(d.look().axes == d.target().axes && d.look().camSmooth == d.target().camSmooth, "a drop cuts in a quarter second");
     // A modulation that holds.
     run(d, Song{"aeolian", 4, 0.85f, 132.0f, 0.6f, 0.2f}, 10.0f, t);
     check(d.commits() == 4 && d.lastReason() == Director::Reason::Modulation, "a held modulation decides on a downbeat");
@@ -215,8 +216,14 @@ void testWeakEventsDecide() {
     }
 }
 
-constexpr int kEnergy = static_cast<int>(geode::viz::Macro::Energy);
-constexpr int kMood = static_cast<int>(geode::viz::Macro::Mood);
+constexpr size_t kEnergy = static_cast<size_t>(Director::Axis::Energy);
+
+bool colourParam(const std::string& name) {
+    for (const char* word : {"palette", "Palette", "hue", "Hue", "color", "Color", "saturation", "brightness", "temperature", "contrast", "Tint"}) {
+        if (name.find(word) != std::string::npos) return true;
+    }
+    return false;
+}
 
 // The four params a look may move. Everything else in SceneParams, every colour among it, is the style's
 // and the user's.
@@ -227,7 +234,7 @@ bool lookParam(const std::string& name) {
 // The owner's rule, "no colour narrowing": the looks used to draw every style's palette from nine hue
 // anchors and one saturation curve, so under Auto every style wore the same few colours. Whatever the
 // scale, key, song and seed, a look now leaves every param but its four motion dials exactly as given, and
-// never turns the Mood knob (the macro that tints).
+// its axes never move a colour param.
 void testNeverTouchesColour() {
     const Song songs[] = {{"ionian", 0, 0.85f, 132.0f, 0.6f, 0.2f}, {"aeolian", 0, 0.55f, 72.0f, 0.3f, 1.2f}, {"dorian", 0, 0.7f, 100.0f, 0.45f, 0.5f}};
     SceneParams user;
@@ -272,9 +279,15 @@ void testNeverTouchesColour() {
                         }
                     }
                 }
-                if (d.knobs(geode::viz::MacroKnobs{})[kMood] != 0.0f || d.knobs({0, 0, 0, 0.4f, 0, 0})[kMood] != 0.4f) {
-                    check(false, std::string("a look turned the Mood knob: ") + s.scale);
-                    return;
+                for (const SceneParams& in : {SceneParams{}, user}) {
+                    const SceneParams out = d.applyAxes(in);
+                    for (const auto& spec : SceneParams::schema()) {
+                        const std::string name(spec.name);
+                        if (colourParam(name) && out.get(name) != in.get(name)) {
+                            check(false, "a look's axes moved " + name + " (" + s.scale + ")");
+                            return;
+                        }
+                    }
                 }
                 ++looks;
             }
@@ -284,7 +297,7 @@ void testNeverTouchesColour() {
 }
 
 // "No hardcoded reactions": a look is decided, glided in and then held. Between decisions nothing the
-// director hands on (params, knobs, camera moves) follows the frame, however hard the drums, the melody
+// director hands on (params, axes, camera moves) follows the frame, however hard the drums, the melody
 // or a build push: what moves then is the reaction matrix alone.
 void testHeldBetweenDecisions() {
     Director d;
@@ -293,12 +306,11 @@ void testHeldBetweenDecisions() {
     run(d, kHappy, 20.0f, t);
     check(d.commits() == 1 && d.weight() > 0.99f, "one look, fully in");
     const SceneParams p;
-    const geode::viz::MacroKnobs user{0.1f, -0.2f, 0.0f, 0.3f, 0.0f, 0.5f};
     const SceneParams held = d.apply(p);
-    const geode::viz::MacroKnobs heldKnobs = d.knobs(user);
-    const geode::viz::CameraRig::Moves heldMoves = d.moves(geode::viz::CameraRig::Moves{});
+    const Director::Axes heldAxes = d.axes();
+    const CameraRig::Moves heldMoves = d.moves();
     bool still = true;
-    float maxKnob = 0.0f;
+    float maxAxis = 0.0f;
     for (int i = 0; i < 1200; ++i, t += kDt) {
         GeodeSoundFrame f = frame(kHappy, t, kDt);
         f.kick = f.kickEnv = i % 30 == 0 ? 1.0f : 0.0f;
@@ -311,14 +323,14 @@ void testHeldBetweenDecisions() {
         f.intensity = 0.5f + 0.5f * std::sin(0.02f * i);
         d.step(f, kDt);
         const SceneParams now = d.apply(p);
-        const geode::viz::MacroKnobs k = d.knobs(user);
-        const geode::viz::CameraRig::Moves m = d.moves(geode::viz::CameraRig::Moves{});
-        for (int j = 0; j < geode::viz::kMacroCount; ++j) maxKnob = std::max(maxKnob, std::fabs(k[j] - heldKnobs[j]));
+        const Director::Axes x = d.axes();
+        const CameraRig::Moves m = d.moves();
+        for (int j = 0; j < Director::kAxes; ++j) maxAxis = std::max(maxAxis, std::fabs(x[j] - heldAxes[j]));
         still = still && std::fabs(now.camSmooth - held.camSmooth) < 1e-3f && std::fabs(now.motionBreath - held.motionBreath) < 1e-3f &&
                 std::fabs(m.shake - heldMoves.shake) < 1e-3f && std::fabs(m.orbit - heldMoves.orbit) < 1e-3f;
     }
     check(d.commits() == 1, "no decision in those twenty seconds");
-    check(still && maxKnob < 1e-3f, "between decisions the look holds still under drums, melody and a build (knob drift " + std::to_string(maxKnob) + ")");
+    check(still && maxAxis < 1e-3f, "between decisions the look holds still under drums, melody and a build (axis drift " + std::to_string(maxAxis) + ")");
 }
 
 // A look glides in over a bar of the tempo the tracker hears. With no tempo heard none is assumed (no
@@ -337,9 +349,9 @@ void testNoTempoAssumed() {
         f.downbeat = 0.0f;
         f.sectionChange = 1.0f;
         d.step(f, kDt);
-        const float goal = d.target().knobs[kEnergy];
-        const float start = d.look().knobs[kEnergy];
-        for (int i = 0; i < 600 && std::fabs(d.look().knobs[kEnergy] - goal) > 1e-4f * (1.0f + std::fabs(goal - start)); ++i) {
+        const float goal = d.target().axes[kEnergy];
+        const float start = d.look().axes[kEnergy];
+        for (int i = 0; i < 600 && std::fabs(d.look().axes[kEnergy] - goal) > 1e-4f * (1.0f + std::fabs(goal - start)); ++i) {
             t += kDt;
             f = frame(kHappy, t, kDt);
             f.bpm = bpms[n];
@@ -366,10 +378,10 @@ void testFeelingSurvivesTheSeed() {
         float t2 = 0.0f;
         run(h, kHappy, 12.0f, t1);
         run(s, kSad, 12.0f, t2);
-        if (h.target().knobs[kEnergy] > s.target().knobs[kEnergy] + 0.3f) ++hotter;
-        variety.insert(static_cast<int>(h.target().knobs[kEnergy] * 100.0f));
+        if (h.target().axes[kEnergy] > s.target().axes[kEnergy] + 0.3f) ++hotter;
+        variety.insert(static_cast<int>(h.target().axes[kEnergy] * 100.0f));
     }
-    check(hotter == 20, "happy drives the Energy knob above sad, every seed (" + std::to_string(hotter) + " of 20)");
+    check(hotter == 20, "happy drives the Energy axis above sad, every seed (" + std::to_string(hotter) + " of 20)");
     check(variety.size() >= 4, "and each play of the same song is its own look");
 }
 
@@ -402,8 +414,109 @@ void testDeterministicAndOff() {
     run(off, kSad, 15.0f, t3);
     const SceneParams r = off.apply(p);
     check(std::memcmp(&r, &p, sizeof(SceneParams)) == 0, "off leaves the params alone");
-    const geode::viz::MacroKnobs user{0.1f, -0.2f, 0.0f, 0.3f, 0.0f, 0.5f};
-    check(off.knobs(user) == user, "and the knobs");
+    for (float v : off.axes()) check(v == 0.0f, "off turns no axis");
+    const SceneParams ra = off.applyAxes(p);
+    check(std::memcmp(&ra, &p, sizeof(SceneParams)) == 0, "and its axes leave the params alone");
+    const CameraRig::Moves m = off.moves();
+    check(m.orbit == 1.0f && m.lean == 1.0f && m.dolly == 1.0f && m.breath == 1.0f && m.shake == 1.0f && m.reframe == 1.0f &&
+              m.cut == 1.0f,
+          "and the camera's music moves");
+    float t4 = 0.0f;
+    run(a, kSad, 5.0f, t4);
+    bool turned = false;
+    for (float v : a.axes()) {
+        check(v >= -1.0f && v <= 1.0f, "an axis stays in -1..1");
+        turned = turned || v != 0.0f;
+    }
+    check(turned, "a director that is in turns its axes");
+}
+
+// ---- The director's axes (director::applyAxes, axisMoves) ----
+// The rows the old macro knobs moved, kept for the director when the user's knobs became the bank:
+// Energy, Speed, Complexity, Space and Chaos (Mood was never the director's).
+
+using Axis = Director::Axis;
+
+Director::Axes axis(Axis which, float v) {
+    Director::Axes x{};
+    x[static_cast<size_t>(which)] = v;
+    return x;
+}
+
+void testAxesAtRestChangeNothing() {
+    SceneParams p;
+    p.speed = 1.7f;
+    p.vignette = 0.3f;
+    const SceneParams q = geode::viz::director::applyAxes(p, {});
+    check(std::memcmp(&q, &p, sizeof(SceneParams)) == 0, "axes at rest leave the look as styled");
+    const CameraRig::Moves m = geode::viz::director::axisMoves({});
+    check(m.orbit == 1.0f && m.shake == 1.0f && m.cut == 1.0f, "axes at rest leave the camera's music moves as styled");
+}
+
+void testAxesTurnTowardTheEnds() {
+    namespace dir = geode::viz::director;
+    SceneParams p;
+    const SceneParams up = dir::applyAxes(p, axis(Axis::Speed, 1.0f));
+    check(std::fabs(up.speed - 4.0f) < 1e-5f, "a full Speed turn up reaches the top of the range");
+    const SceneParams half = dir::applyAxes(p, axis(Axis::Speed, 0.5f));
+    check(half.speed > p.speed && half.speed < up.speed, "half a turn goes part of the way");
+    const SceneParams down = dir::applyAxes(p, axis(Axis::Speed, -1.0f));
+    check(std::fabs(down.speed - 0.05f) < 1e-5f, "a full turn down reaches the bottom");
+    const SceneParams wide = dir::applyAxes(p, axis(Axis::Space, 1.0f));
+    check(wide.zoom < p.zoom && wide.vignette <= p.vignette && wide.camFov > p.camFov, "Space up widens: zoom out, less vignette, wider lens");
+    SceneParams wild = p;
+    wild.bloom = 9.0f;
+    check(dir::applyAxes(wild, axis(Axis::Energy, 1.0f)).bloom == wild.bloom, "an axis never pushes a field further past its slider");
+    check(dir::applyAxes(p, axis(Axis::Chaos, 1.0f)).speed == p.speed, "an axis only moves its own fields");
+    check(dir::applyAxes(p, axis(Axis::Energy, 1.0f)).saturation == p.saturation, "no axis moves the colour: the palette is the look's");
+}
+
+// The value it is given is the base and the axis adds to it, so a slider still moves the picture under Auto.
+void testAxesAddToTheSlider() {
+    namespace dir = geode::viz::director;
+    SceneParams low;
+    low.speed = 0.4f;
+    low.zoom = 0.8f;
+    low.camFov = 0.8f;
+    SceneParams high = low;
+    high.speed = 0.9f;
+    high.zoom = 1.3f;
+    high.camFov = 1.0f;
+    for (float turn : {0.3f, 0.6f, 1.0f, -0.3f}) {
+        Director::Axes x{};
+        x.fill(turn);
+        const SceneParams a = dir::applyAxes(low, x);
+        const SceneParams b = dir::applyAxes(high, x);
+        check(b.speed > a.speed && b.camFov > a.camFov && b.zoom > a.zoom, "at any turn a higher slider still gives a higher value");
+    }
+    const Director::Axes quarter = axis(Axis::Speed, 0.25f);
+    check(std::fabs((dir::applyAxes(high, quarter).speed - dir::applyAxes(low, quarter).speed) - (high.speed - low.speed)) < 1e-5f,
+          "away from the ends the slider's whole step comes through");
+    SceneParams back;
+    back.camFly = -1.5f;
+    check(dir::applyAxes(back, quarter).camFly < 0.0f, "a backward Fly speed still flies backward under a small Speed turn");
+    SceneParams stopped;
+    stopped.camFly = -1.0f;
+    check(dir::applyAxes(stopped, axis(Axis::Speed, -1.0f)).camFly == stopped.camFly, "an axis never drags back a value already past its end");
+}
+
+void testAxesScaleTheCamera() {
+    namespace dir = geode::viz::director;
+    check(dir::axisMoves(axis(Axis::Chaos, -1.0f)).cut == 0.0f, "Chaos all the way down stops hard cuts");
+    check(dir::axisMoves(axis(Axis::Space, 1.0f)).orbit == 2.0f, "Space up doubles the orbit");
+    SceneParams p;
+    p.camFly = 1.0f;
+    CameraRig rig;
+    rig.setMoves(dir::axisMoves(axis(Axis::Chaos, -1.0f)));
+    GeodeSoundFrame f{};
+    f.drive = 1.0f;
+    f.presence = 1.0f;
+    f.intensity = 1.0f;
+    f.bassAtt = 1.0f;
+    for (int i = 0; i < 60; ++i) rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    f.hardCut = 1.0f;
+    rig.step(p, {}, 1.0f / 60.0f, false, true, &f);
+    check(rig.cuts() == 0, "with Chaos all the way down a big moment does not cut");
 }
 
 // The look is an offset on the user's dials, so a slider at either end of its range must not be
@@ -451,13 +564,13 @@ void testLookCarriesAcrossPlays() {
     float t = 0.0f;
     run(d, kHappy, 15.0f, t);
     const float weight = d.weight();
-    const float energy = d.look().knobs[kEnergy];
+    const float energy = d.look().axes[kEnergy];
     check(weight > 0.9f, "the look is fully in after fifteen seconds");
     d.configure({1.0f, 6});
     check(d.commits() == 0, "a new seed still starts the decisions over");
     d.step(frame(kSad, t, kDt), kDt);
     t += kDt;
-    check(d.weight() >= weight - 1e-3f && std::fabs(d.look().knobs[kEnergy] - energy) < 1e-4f, "the look stays on screen into the next track");
+    check(d.weight() >= weight - 1e-3f && std::fabs(d.look().axes[kEnergy] - energy) < 1e-4f, "the look stays on screen into the next track");
     run(d, kSad, 13.0f, t);
     check(d.commits() >= 1 && d.weight() > 0.9f, "and the new play's first look takes over from it");
 }
@@ -492,7 +605,7 @@ void testNoStyleMomentWhenOff() {
 }
 
 // The owner's report: "almost all visuals have a yin-yang curve and all seem to behave similarly".
-// Twist spirals any style about the screen centre, and the director's Complexity knob used to hold
+// Twist spirals any style about the screen centre, and the director's Complexity axis used to hold
 // it bent on every style: toward +1 for a busy feeling, toward -1 for a calm one. Whatever the key,
 // scale, song and seed, the look must leave an untouched style untwisted and a twisted one as set.
 void testNoLookTwistsEveryStyle() {
@@ -509,13 +622,13 @@ void testNoLookTwistsEveryStyle() {
                 d.configure({1.0f, static_cast<uint64_t>(7919 * (scale + 1) + root)});
                 float t = 0.0f;
                 run(d, s, 15.0f, t);
-                const geode::viz::MacroKnobs k = d.knobs(geode::viz::MacroKnobs{});
-                if (std::fabs(k[static_cast<int>(geode::viz::Macro::Complexity)]) > 0.2f) ++turned;
+                const Director::Axes x = d.axes();
+                if (std::fabs(x[static_cast<size_t>(Axis::Complexity)]) > 0.2f) ++turned;
                 SceneParams styled;
                 SceneParams user;
                 user.twist = -0.3f;
-                const float a = geode::viz::macros::apply(d.apply(styled), k).twist;
-                const float b = geode::viz::macros::apply(d.apply(user), k).twist;
+                const float a = d.applyAxes(d.apply(styled)).twist;
+                const float b = d.applyAxes(d.apply(user)).twist;
                 if (a != 0.0f || b != -0.3f) {
                     check(false, std::string("a look twists the picture: ") + s.scale + " root " + std::to_string(root) + " twist " + std::to_string(a));
                     return;
@@ -524,7 +637,26 @@ void testNoLookTwistsEveryStyle() {
             }
         }
     }
-    check(looks > 300 && turned > looks / 10, "the looks tried do turn the Complexity knob, both ways");
+    check(looks > 300 && turned > looks / 10, "the looks tried do turn the Complexity axis, both ways");
+}
+
+// The same rule on the axes' pure maths (it was viz_math_test's check on the old macro knobs, whose
+// rows the director's axes took over): Twist bends every style's picture the same way, so an axis
+// that holds it bent stamps one S-curve on every style. Twist rests in the middle of its range, so
+// either direction of Complexity used to twist. Twist is the user's slider and the style's own
+// reactions, never an axis's.
+void testAxesNeverHoldThePictureTwisted() {
+    namespace dir = geode::viz::director;
+    SceneParams styled;
+    SceneParams turned;
+    turned.twist = 0.3f;
+    for (int a = 0; a < Director::kAxes; ++a) {
+        for (float turn : {-1.0f, -0.4f, 0.4f, 1.0f}) {
+            const Director::Axes x = axis(static_cast<Axis>(a), turn);
+            check(dir::applyAxes(styled, x).twist == 0.0f, "no axis twists an untwisted style, either way");
+            check(dir::applyAxes(turned, x).twist == 0.3f, "and the Twist slider is the user's alone");
+        }
+    }
 }
 }  // namespace
 
@@ -543,7 +675,12 @@ int main() {
     testWeakDownbeatsCount();
     testLookCarriesAcrossPlays();
     testLongStretchStepsTheStyle();
+    testAxesAtRestChangeNothing();
+    testAxesTurnTowardTheEnds();
+    testAxesAddToTheSlider();
+    testAxesScaleTheCamera();
     testNoLookTwistsEveryStyle();
+    testAxesNeverHoldThePictureTwisted();
     if (failures) {
         std::printf("director_test: %d failed\n", failures);
         return 1;

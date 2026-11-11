@@ -719,15 +719,15 @@
     <string name="note_key_intro">How strongly each part of the music answers on this style. 1× is as designed, 0 turns that part off.</string>
     <string name="note_key_off">Note &amp; key reactions are off. Turn them on in Settings › Visuals to hear these.</string>
     <string name="note_key_pitch">Pitch height</string>
-    <string name="note_key_pitch_hint">How much high and low notes move the style's tone knob.</string>
+    <string name="note_key_pitch_hint">How much high and low notes move the style\'s tone knob.</string>
     <string name="note_key_intervals">Leaps and steps</string>
-    <string name="note_key_intervals_hint">How much melodic leaps and steps move the style's space knob.</string>
+    <string name="note_key_intervals_hint">How much melodic leaps and steps move the style\'s space knob.</string>
     <string name="note_key_tension">Tension</string>
-    <string name="note_key_tension_hint">How much clashing harmony and a build move the style's build knob.</string>
+    <string name="note_key_tension_hint">How much clashing harmony and a build move the style\'s build knob.</string>
     <string name="note_key_chords">Chord changes</string>
-    <string name="note_key_chords_hint">How much a new chord moves the style's space knob.</string>
+    <string name="note_key_chords_hint">How much a new chord moves the style\'s space knob.</string>
     <string name="note_key_drums">Drums</string>
-    <string name="note_key_drums_hint">How much the kick, snare and hats move the style's pulse knob.</string>
+    <string name="note_key_drums_hint">How much the kick, snare and hats move the style\'s pulse knob.</string>
     <string name="behavior_group_pip">Picture-in-picture</string>
     <string name="behavior_touch_smear">Smear the visuals with a finger</string>
     <string name="behavior_touch_smear_hint">Drag on the fullscreen visualizer to push the image around: the drag raises the surface ahead of your finger and dips it behind, and whatever is on screen bends through it. On the Water style it stirs the pool itself and paints into it.</string>
@@ -927,9 +927,6 @@
     <string name="customize_a11y_choose">Choose %1$s</string>
     <string name="customize_a11y_selected">Selected</string>
     <string name="customize_a11y_reset">Reset</string>
-    <string name="customize_a11y_locked">%1$s, locked</string>
-    <string name="customize_a11y_knob_lock">Lock against Surprise</string>
-    <string name="customize_a11y_knob_unlock">Unlock for Surprise</string>
     <string name="customize_a11y_one_cycle">One cycle</string>
     <string name="customize_a11y_close_search">Close search</string>
     <string name="customize_a11y_search">Search every control</string>
@@ -949,12 +946,6 @@
     <string name="transition_from_library">From the library</string>
     <string name="transition_library">Library</string>
     <string name="transition_library_pick">Pick one of %1$d</string>
-    <string name="macro_sets_built_in">Sets</string>
-    <string name="macro_sets_custom">Custom</string>
-    <string name="macro_sets_yours">Yours</string>
-    <string name="macro_sets_count">%1$d saved</string>
-    <string name="macro_sets_delete">Delete %1$s</string>
-    <string name="macro_keep_out_of_surprise">Keep out of Surprise</string>
     <!-- Visuals quick settings (VisualsQuickSettings) -->
     <string name="visuals_qs_title">Visual settings</string>
     <string name="visuals_qs_auto">Auto</string>

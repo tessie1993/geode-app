@@ -5,7 +5,6 @@
 #include "sound/Emotion.hpp"
 #include "sound/SoundFrame.h"
 #include "viz/CameraRig.hpp"
-#include "viz/Macros.hpp"
 #include "viz/Params.hpp"
 
 namespace geode::viz {
@@ -13,9 +12,10 @@ namespace geode::viz {
 // The auto-director: the music's feeling (sound/Emotion) decides how a style behaves, the way a VJ
 // would turn a few knobs between sections, through the machinery every style already shares:
 //
-//   behaviour ─► the macro knobs (Energy, Speed, Complexity, Space, Chaos; never Mood) laid over the
-//              user's, the camera rig's music moves, its spring softness, the motion field's breath,
-//              orbit and drift
+//   behaviour ─► five axes of its own (Energy, Speed, Complexity, Space, Chaos), each an offset on a
+//              set of scene params and a scale on the camera rig's music moves; the camera's spring
+//              softness, the motion field's breath, orbit and drift. The user's macro bank
+//              (viz/MacroBank) is never touched: it adds on top of whatever the director left
 //
 // Two things it never does (owner's rule). It never touches colour: the palette, saturation,
 // brightness, temperature and contrast are the style's and the user's. And it plays no reaction of its
@@ -29,7 +29,7 @@ namespace geode::viz {
 // the play's seed is the same film.
 //
 // A pure function of (seed, sound frames, dt): no clock, no randomness of its own, state reset with the
-// renderer. Process-wide configuration, like the macros, so the screen, an export, the wallpaper and the
+// renderer. Process-wide configuration, like the macro bank, so the screen, an export, the wallpaper and the
 // dream all follow the same switch.
 struct DirectorConfig {
     float amount = 0.0f;  // 0 off .. 1 full
@@ -56,8 +56,13 @@ DirectorConfig forExport(bool switchOn, uint64_t seed, bool entitled, long long 
 
 class Director {
 public:
+    // The behaviour axes, each -1..1, 0 = as styled. No axis is a mood: colour is never the director's.
+    enum class Axis { Energy, Speed, Complexity, Space, Chaos };
+    static constexpr int kAxes = 5;
+    using Axes = std::array<float, kAxes>;
+
     struct Look {
-        MacroKnobs knobs{};
+        Axes axes{};
         float camSmooth = 0.5f;
         float motionBreath = 0.5f;
         float motionOrbit = 0.5f;
@@ -77,14 +82,13 @@ public:
     // Before the macros: the camera's softness added by the amount, the motion dials turned by a factor
     // (a dial at 0 stays off). Never a colour param.
     SceneParams apply(const SceneParams& p) const;
-    // The params the rest of the chain starts from: apply(), then the macros with knobs(user). The look
-    // turns the Motion dials through its knobs too (Energy, Speed, Space), but a dial the user's own
-    // settings hold at 0 is the music's push switched off, and stays off.
-    SceneParams direct(const SceneParams& p, const MacroKnobs& user) const;
-    // The user's knobs plus the look's, each clamped to -1..1.
-    MacroKnobs knobs(const MacroKnobs& user) const;
-    // The camera rig's music moves, multiplied by the look's.
-    CameraRig::Moves moves(const CameraRig::Moves& base) const;
+    // The look's axes times the weight, each -1..1; all 0 while off. Held between decisions.
+    Axes axes() const;
+    // Before the user's macro bank: each axis moves its fields toward an end of their range, added to
+    // the value it is given (base plus modulation). A Motion dial given at 0 stays 0.
+    SceneParams applyAxes(const SceneParams& p) const;
+    // The camera rig's music moves: Space and Chaos, times the look's own.
+    CameraRig::Moves moves() const;
 
     // How much it is driving now: the switch, eased, times whether a look has been chosen yet.
     float weight() const { return amount_ * presence_; }
@@ -134,5 +138,15 @@ private:
     int key_ = -1;
     float modulationSeconds_ = 0.0f;
 };
+
+namespace director {
+// The axes' maths, pure, so a test can turn one axis alone; Director feeds them its axes().
+// p with each axis's fields moved toward an end of their slider range: at a full turn the style's
+// default reaches the end, and a value the user moved keeps its whole offset (base plus modulation).
+SceneParams applyAxes(const SceneParams& p, const Director::Axes& axes);
+// Space widens or narrows every music move; Chaos scales the shake, the reframes and the hard cuts
+// (-1 stops cuts). All 1 at rest.
+CameraRig::Moves axisMoves(const Director::Axes& axes);
+}  // namespace director
 
 }  // namespace geode::viz

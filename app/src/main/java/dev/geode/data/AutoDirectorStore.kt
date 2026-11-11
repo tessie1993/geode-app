@@ -13,9 +13,9 @@ import kotlin.random.Random
 /**
  * The auto-director's switch (Settings › Behaviour) and the play it is directing.
  *
- * The work is native (core/viz/Director): the music's feeling decides behaviour (knobs, camera, motion)
- * over every style, never colour or a reaction route. This store only tells the engine how much to drive (the switch, cut to the free taste by
- * [AutoDirectorPolicy]) and which play it is: each new track gets a new seed, so a replay is a new film
+ * The work is native (core/viz/Director): the music's feeling decides behaviour (axes, camera, motion)
+ * over every style, never colour or a reaction route. This store only tells the engine how much to
+ * drive (the switch, cut to the free taste by [AutoDirectorPolicy]) and which play it is: each new track gets a new seed, so a replay is a new film
  * of the same feeling, and an export started now reads the same seed. Like the macros the configuration
  * is process-wide, so the screen, the wallpaper and the dream all follow it; [GeodeApp] creates the store
  * at start, so a wallpaper that starts before the app does still sees the switch. The switch itself goes

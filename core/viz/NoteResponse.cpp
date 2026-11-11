@@ -24,7 +24,7 @@ float ease(float x, float target, float up, float down, float dt) {
 }
 float finite(float x, float fallback = 0.0f) { return std::isfinite(x) ? x : fallback; }
 
-// splitmix64, the house RNG (Director, ReactionDna, macros::surprise): one value per (seed, stream, index).
+// splitmix64, the house RNG (Director, ReactionDna): one value per (seed, stream, index).
 float draw(uint64_t seed, uint64_t stream, uint64_t index) {
     uint64_t z = seed ^ (stream * 0xD1B54A32D192ED03ull) ^ (index * 0x9E3779B97F4A7C15ull);
     z += 0x9E3779B97F4A7C15ull;

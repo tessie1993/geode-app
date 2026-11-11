@@ -1,5 +1,5 @@
 // Host test of the scene params resolver (signal/Resolver), the chain as a whole rather than each stage
-// alone: that the director's look lies under the macros and an LFO moves on top of both, that reduced
+// alone: that the director's look lies under the macro bank and an LFO moves on top of both, that reduced
 // motion is applied exactly once, that a resolver given explicit engine settings never hears the process
 // globals, that an export's settings latch (signal/EngineSettings, #350) holds its pin while the globals flip
 // and decides the export's director as the free-taste rule says, that two resolvers given the same inputs
@@ -9,6 +9,8 @@
 // Then, for #528's mutants: parity with the old chain (main's Renderer::resolveParams before #344) bit for
 // bit over seeded random setups, the preset morph and param fade by hand-worked frames, the motion field
 // before the clamp, the style moments, disabled stages as exact identity, and live beside export.
+// Then the macro bank (viz/MacroBank, process-wide through geode_macro_bank_set): its offset reaches the
+// resolved params, an export's pin keeps the bank it was pinned with, and the director never touches it.
 // Built by CI (.github/workflows/android.yml, "Native host tests") with core/signal/Resolver.cpp,
 // core/signal/EngineSettings.cpp, core/sound/*.cpp and the GL-free stage sources it links (no GL header anywhere).
 #include <algorithm>
@@ -25,7 +27,7 @@
 #include "signal/Resolver.hpp"
 #include "sound/Harmony.hpp"
 #include "viz/Director.hpp"
-#include "viz/Macros.hpp"
+#include "viz/MacroBank.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/Reactions.hpp"
@@ -39,14 +41,13 @@ using geode::viz::AdsrEngine;
 using geode::viz::LfoConfig;
 using geode::viz::LfoEngine;
 using geode::viz::LfoTarget;
-using geode::viz::Macro;
-using geode::viz::MacroKnobs;
 using geode::viz::ReactionEngine;
 using geode::viz::ReactRoute;
 using geode::viz::ReactSource;
 using geode::viz::SceneParams;
 namespace safety = geode::viz::safety;
 namespace hand = geode::viz::hand;
+namespace macrobank = geode::viz::macrobank;
 
 namespace {
 
@@ -117,6 +118,27 @@ GeodeSoundFrame frame(float t) {
     return f;
 }
 
+// The four built-in knobs (Glow, Heat, Bend, Flow) turned to `values`, in bank order.
+macrobank::Bank turned(std::initializer_list<float> values) {
+    macrobank::Bank b = macrobank::defaultBank();
+    size_t i = 0;
+    for (float v : values) {
+        if (i < b.knobs.size()) b = macrobank::setValue(b, b.knobs[i].id, v);
+        ++i;
+    }
+    return b;
+}
+
+std::shared_ptr<const macrobank::Bank> shared(const macrobank::Bank& b) { return std::make_shared<const macrobank::Bank>(b); }
+
+int knobId(const char* name) {
+    for (const auto& k : macrobank::defaultBank().knobs) {
+        if (k.name == name) return k.id;
+    }
+    std::printf("no knob %s\n", name);
+    std::exit(1);
+}
+
 StyleContext style(const std::string& id, bool switched) {
     StyleContext s;
     s.id = &id;
@@ -152,15 +174,17 @@ ReactRoute route(ReactSource source, LfoTarget target, float amount) {
     return r;
 }
 
-// The director's look under the macros, under the LFOs: its knobs are added to the user's (Speed runs above
-// the user's own under a happy song), the user's Mood -1 still takes the saturation down by the knob's whole
-// reach, and an LFO on saturation shows on top of both. No route is set, so nothing else writes them.
+// The director's look under the macro bank, each added to the user's value (base plus modulation): Heat -1
+// takes the saturation down by its link's reach (0.35 of the range), to 0 where there was less than that to
+// give. An LFO on saturation then shows on top of both. No route is set, so nothing else writes saturation.
 void testOrder() {
     EngineSettings s;
     s.director = {1.0f, 42};
-    s.knobs[static_cast<int>(Macro::Mood)] = -1.0f;
+    s.bank = shared(macrobank::setValue(macrobank::defaultBank(), knobId("Heat"), -1.0f));
     EngineSettings centred = s;
-    centred.knobs[static_cast<int>(Macro::Mood)] = 0.0f;
+    centred.bank = shared(macrobank::defaultBank());
+    const macrobank::Range sat = macrobank::rangeOf(LfoTarget::Saturation);
+    const float reach = 0.35f * (sat.max - sat.min);
     auto plain = std::make_unique<Resolver>();
     auto lfo = std::make_unique<Resolver>();
     auto unturned = std::make_unique<Resolver>();
@@ -181,7 +205,7 @@ void testOrder() {
         const SceneParams& b = lfo->step(requested, f, kDt, s, st).params;
         const SceneParams& c = unturned->step(requested, f, kDt, centred, st).params;
         if (t >= 38.0f) {
-            lowered = lowered && (a.saturation <= 1e-6f || a.saturation < c.saturation - 0.5f);
+            lowered = lowered && (a.saturation <= sat.min + 1e-6f || std::fabs(a.saturation - (c.saturation - reach)) < 1e-4f);
             maxPlain = std::max(maxPlain, std::fabs(a.saturation));
             maxLfo = std::max(maxLfo, b.saturation);
             lookInPlace = lookInPlace && a.camSmooth != requested.camSmooth && c.saturation == requested.saturation;
@@ -189,8 +213,8 @@ void testOrder() {
     }
     check(plain->director().commits() >= 1 && plain->director().weight() > 0.9f, "the director is fully in");
     check(lookInPlace, "the director's look reaches the final params, and leaves the saturation the user's");
-    check(lowered, "the macros lie over the director's look (Mood -1 takes the saturation down, peak " + std::to_string(maxPlain) + ")");
-    check(maxLfo > 0.2f, "an LFO moves on top of the director and the macros (peak " + std::to_string(maxLfo) + ")");
+    check(lowered, "the bank lies over the director's look (Heat -1 takes the saturation down, peak " + std::to_string(maxPlain) + ")");
+    check(maxLfo > 0.2f, "an LFO moves on top of the director and the bank (peak " + std::to_string(maxLfo) + ")");
 }
 
 // The owner's two rules, held on the whole chain with Auto and Note & key reactions both on.
@@ -350,11 +374,11 @@ void testReducedMotionOnce() {
     check(once, "reduced motion scales the fly-through and the dive exactly once");
 }
 
-// A rich setup, so every stage runs: the director, notes, LFOs, an envelope, user routes and the macros.
+// A rich setup, so every stage runs: the director, notes, LFOs, an envelope, user routes and the bank.
 EngineSettings richSettings() {
     EngineSettings s;
     s.director = {1.0f, 7};
-    s.knobs = MacroKnobs{0.4f, -0.3f, 0.6f, 0.2f, -0.5f, 0.7f};
+    s.bank = shared(turned({0.4f, -0.3f, 0.6f, -0.5f}));
     s.notesOn = true;
     s.handMask = hand::bit(geode::viz::Moment::Snare);
     s.noteEntropy = 0x1234ABCDull;
@@ -395,13 +419,13 @@ void testPinnedAgainstGlobals() {
     bool same = true;
     for (int i = 0; i < 600; ++i, t += kDt) {
         const float x = (i % 3 == 0) ? 1.0f : -1.0f;
-        geode::viz::macros::setGlobal(MacroKnobs{x, -x, x, -x, x, -x});
+        macrobank::setGlobal(turned({x, -x, x, -x}));
         geode::viz::note_response::setGlobal(i % 2 == 0);
         hand::setGlobal(i % 2 == 0 ? hand::kAll : 0u, true);
         geode::viz::director::setGlobal(i % 2 != 0, i % 2 == 0 ? 0.0f : 1.0f, static_cast<uint64_t>(i));
         same = same && sameBits(calm[static_cast<size_t>(i)], wire(r->step(requested, frame(t), kDt, s, style(kStyle, i == 0)).params));
     }
-    geode::viz::macros::setGlobal(MacroKnobs{});
+    macrobank::setGlobal(macrobank::defaultBank());
     geode::viz::note_response::setGlobal(false);
     hand::setGlobal(0u, false);
     geode::viz::director::setGlobal(false, 0.0f, 0);
@@ -426,15 +450,15 @@ void testDirectorForExport() {
     check(director::forExport(true, 0xDEADBEEFull, true, 1).seed == 0xDEADBEEFull, "an export keeps the play's seed");
 }
 
-// A pinned latch (an export, #350) keeps the knobs, the Note & key switch, the hand mask and the director it
+// A pinned latch (an export, #350) keeps the macro bank, the Note & key switch, the hand mask and the director it
 // was pinned with, with no note entropy, while every process global flips each frame; a live latch follows
 // the globals. Reduced motion is the renderer's own and passes through either way.
 void testLatchPinnedAgainstGlobals() {
     using geode::signal::SettingsLatch;
     namespace director = geode::viz::director;
-    const MacroKnobs knobs{0.5f, -0.5f, 0.25f, 0.0f, -0.25f, 1.0f};
+    const macrobank::Bank knobs = turned({0.5f, -0.5f, 0.25f, 1.0f});
     const std::uint32_t snare = hand::bit(geode::viz::Moment::Snare);
-    geode::viz::macros::setGlobal(knobs);
+    macrobank::setGlobal(knobs);
     geode::viz::note_response::setGlobal(true);
     hand::setGlobal(snare, true);
     // The live free taste has run out (amount 0), but a 30 s free export is still directed throughout.
@@ -449,21 +473,21 @@ void testLatchPinnedAgainstGlobals() {
     bool followed = true;
     for (int i = 0; i < 120; ++i) {
         const float x = (i % 3 == 0) ? 1.0f : -1.0f;
-        const MacroKnobs now{x, -x, x, -x, x, -x};
-        geode::viz::macros::setGlobal(now);
+        const macrobank::Bank now = turned({x, -x, x, -x});
+        macrobank::setGlobal(now);
         geode::viz::note_response::setGlobal(i % 2 == 0);
         hand::setGlobal(i % 2 == 0 ? hand::kAll : 0u, true);
         director::setGlobal(i % 2 != 0, i % 2 == 0 ? 0.0f : 1.0f, static_cast<uint64_t>(i + 100));
         const bool reduced = i % 2 == 0;
         const EngineSettings p = pinned.latch(reduced);
-        held = held && p.knobs == knobs && p.notesOn && p.handMask == snare && p.director.amount == 1.0f &&
+        held = held && p.bank && *p.bank == knobs && p.notesOn && p.handMask == snare && p.director.amount == 1.0f &&
                p.director.seed == 42 && p.noteEntropy == 0 && p.reducedMotion == reduced;
         const EngineSettings l = live.latch(reduced);
-        followed = followed && l.knobs == now && l.notesOn == (i % 2 == 0) && l.handMask == (i % 2 == 0 ? hand::kAll : 0u) &&
+        followed = followed && l.bank && *l.bank == now && l.notesOn == (i % 2 == 0) && l.handMask == (i % 2 == 0 ? hand::kAll : 0u) &&
                    l.director.amount == (i % 2 == 0 ? 0.0f : 1.0f) && l.director.seed == static_cast<uint64_t>(i + 100) &&
                    l.reducedMotion == reduced;
     }
-    geode::viz::macros::setGlobal(MacroKnobs{});
+    macrobank::setGlobal(macrobank::defaultBank());
     geode::viz::note_response::setGlobal(false);
     hand::setGlobal(0u, false);
     director::setGlobal(false, 0.0f, 0);
@@ -513,8 +537,7 @@ void testDeterministic() {
 void testSafetyLast() {
     EngineSettings s;
     s.director = {1.0f, 3};
-    s.knobs[static_cast<int>(Macro::Energy)] = 1.0f;
-    s.knobs[static_cast<int>(Macro::Mood)] = 1.0f;
+    s.bank = shared(turned({1.0f, 1.0f, 1.0f, 1.0f}));
     s.notesOn = true;
     auto r = std::make_unique<Resolver>();
     std::array<LfoConfig, LfoEngine::kSlots> lfos{};
@@ -579,14 +602,15 @@ struct Rng {
 };
 
 // The per-frame chain as Renderer::resolveParams ran it before #344, the stages called in that order on
-// stages of its own, less what the owner's rules took out since: the director's palette and routes, the
-// note layer's params and the director's knobs on the macro routes. The parity property below holds the
-// resolver to it bit for bit.
+// stages of its own, less what changed since: the owner's rules took out the director's palette and routes
+// and the note layer's params; the old macro knobs became the director's axes and then the user's bank
+// (step 2 of the macro bank); the camera's moves are director.moves(). The oracle takes the bank's reach per
+// frame from the style id, where the resolver caches it per style, so the cache is held to it too. The
+// parity property below holds the resolver to it bit for bit.
 struct OldChain {
     viz::LfoEngine lfo;
     viz::AdsrEngine adsr;
     viz::ReactionEngine reactions;
-    viz::ReactionEngine macroReactions;
     viz::Director director;
     int directorCommitsSeen = 0;
     viz::NoteResponse notes;
@@ -594,7 +618,6 @@ struct OldChain {
     SceneParams displayedParams;
     float morphFadeSec = 0.0f;
     float morphRemainSec = 0.0f;
-    MacroKnobs directedKnobs{};
     std::array<float, LfoEngine::kSlots> envRate{};
     std::array<float, LfoEngine::kSlots> envDepth{};
     SceneParams params;
@@ -611,14 +634,14 @@ struct OldChain {
     void surfaceCreated() {
         motionField.reset();
         reactions.reset();
-        macroReactions.reset();
         director.reset();
         notes.reset();
     }
     // Renderer::resolveActiveScene, on a new style.
     void sceneSwitched(const std::string& id) { motionField.setVariant(viz::styleVariantSeed(id)); }
 
-    void resolve(const SceneParams& requested, const GeodeSoundFrame& soundFrame, float dt, const EngineSettings& s, float spin) {
+    void resolve(const SceneParams& requested, const GeodeSoundFrame& soundFrame, float dt, const EngineSettings& s, float spin,
+                 const std::string& styleId) {
         float morph;
         if (morphRemainSec > 0.0f) {
             morphRemainSec -= dt;
@@ -637,7 +660,6 @@ struct OldChain {
             // A section or drop the director commits at, only while it drives (Director::styleMoment).
             if (director.styleMoment()) styleMoments += 1;
         }
-        directedKnobs = director.knobs(s.knobs);
         notes.configure({s.notesOn, directorConfig.seed ^ s.noteEntropy});
         {
             const SceneParams& own = displayedParams;
@@ -652,31 +674,23 @@ struct OldChain {
         const auto& envValues = adsr.tick(dt, soundFrame);
         AdsrEngine::lfoOffsets(adsr.configs, envValues, envRate, envDepth);
         const auto& lfoValues = lfo.tick(dt, soundFrame, envRate.data(), envDepth.data());
-        SceneParams directed = viz::macros::apply(director.apply(displayedParams), directedKnobs);
-        // A Motion dial the user's own settings hold at 0 stays off under the look.
-        const SceneParams own = viz::macros::apply(displayedParams, s.knobs);
-        if (own.motionAmount <= 0.0f) directed.motionAmount = 0.0f;
-        if (own.motionBreath <= 0.0f) directed.motionBreath = 0.0f;
-        if (own.motionOrbit <= 0.0f) directed.motionOrbit = 0.0f;
-        if (own.motionDrift <= 0.0f) directed.motionDrift = 0.0f;
-        SceneParams p = lfo.apply(directed, lfoValues);
+        SceneParams p = director.applyAxes(director.apply(displayedParams));
+        if (s.bank) p = macrobank::apply(p, *s.bank, styleId);
+        p = lfo.apply(p, lfoValues);
         p = AdsrEngine::apply(p, adsr.configs, envValues);
         reactions.tick(soundFrame, dt);
         p = reactions.apply(p);
-        macroReactions.routes = viz::macros::routes(s.knobs);
-        macroReactions.tick(soundFrame, dt);
-        p = macroReactions.apply(p);
         motionField.step(soundFrame, dt);
         p = motionField.apply(p, s.reducedMotion, spin);
         p = safety::apply(p, s.reducedMotion);
         params = p;
         // Renderer::stepCamera, after the chain.
-        cameraMoves = director.moves(viz::macros::camera(directedKnobs));
+        cameraMoves = director.moves();
     }
 };
 
-// Targets the random setups draw from: the macro routes' own (Bloom, Speed, Morph, Temperature, DriftX, Twist,
-// ChromaAb), the luminance ones, the camera and dive speeds, and three chained (LFO rate and depth) targets,
+// Targets the random setups draw from: the director's axis routes' own (Bloom, Speed, Morph, DriftX, Twist,
+// ChromaAb) and Temperature, the luminance ones, the camera and dive speeds, and three chained (LFO rate and depth) targets,
 // so stages overlap on one field and run into its clamp, where their order shows.
 constexpr std::array<LfoTarget, 18> kTargets = {
     LfoTarget::Speed,      LfoTarget::Zoom,       LfoTarget::Rotation,  LfoTarget::Twist,    LfoTarget::Morph,
@@ -738,7 +752,9 @@ std::array<ReactRoute, ReactionEngine::kRoutes> randomRoutes(Rng& g) {
 
 EngineSettings randomSettings(Rng& g) {
     EngineSettings s;
-    for (float& k : s.knobs) k = g.coin() ? 0.0f : g.range(-1.0f, 1.0f);
+    macrobank::Bank bank = macrobank::defaultBank();
+    for (const auto& k : macrobank::defaultBank().knobs) bank = macrobank::setValue(bank, k.id, g.coin() ? 0.0f : g.range(-1.0f, 1.0f));
+    if (g.below(8) != 0) s.bank = shared(bank);
     static constexpr float kAmounts[] = {0.0f, 0.5f, 1.0f, 1.0f};
     s.director.amount = kAmounts[g.below(4)];
     s.director.seed = g.raw64();
@@ -815,11 +831,11 @@ float randomDt(Rng& g) {
 // Parity: the resolver gives the old chain's frames bit for bit (params, style moments, camera moves,
 // note uniforms) over 16 seeded runs of 900 frames, with configs, settings, requests,
 // style switches, preset morphs and new surfaces changing at random. Kills any two stages swapped (director/
-// macros/LFO nesting, LFO/envelope, envelope/reactions, reactions/macro routes, motion
+// director/axes/bank/LFO nesting, LFO/envelope, envelope/reactions, reactions/motion
 // field/safety), any stage dropped, the morph's x3 and <= 0, the fade's 0.01 cut, max, clamp and dt/fade,
-// the macro routes read from the user's knobs, the note seed's ^ entropy, the note inputs read from the faded
+// the note seed's ^ entropy, the note inputs read from the faded
 // params, the style moments' Section || Drop and their reset each frame, the
-// camera moves read from the directed knobs, reducedMotion and spin passed to the motion field, the style
+// camera moves read from the director's axes, the bank's reach per style, reducedMotion and spin passed to the motion field, the style
 // switch's variant, and every reset() of a stage.
 // The same frames also hold the flash caps (safety last) and, under reduced motion, the speed under
 // 0.4 x the motion field's top speed 4.
@@ -885,7 +901,7 @@ void testParityWithTheOldChain() {
             st.spin = spin;
             st.switched = switched;
             const Resolver::Frame& a = now->step(requested, f, dt, s, st);
-            old->resolve(requested, f, dt, s, spin);
+            old->resolve(requested, f, dt, s, spin, id != nullptr ? *id : std::string());
             moments += a.styleMoments;
             same = same && sameBits(wire(a.params), wire(old->params)) && a.styleMoments == old->styleMoments &&
                    std::memcmp(&a.cameraMoves, &old->cameraMoves, sizeof(a.cameraMoves)) == 0 &&
@@ -916,7 +932,7 @@ void testParityWithTheOldChain() {
 // A preset morph: a 1 s morph from saturation 0 to 1 at dt 0.1 covers a tenth of what is left each frame
 // (0.1, 0.19, 0.6513, 0.9282 at 2.5 s, 0.9529 at 2.9 s), for three times its length, then the params land on
 // the request exactly. A new surface (reset) mid-glide keeps it. Every stage is off, and saturation is a
-// field only the director, the macros and the routes write, so it shows the fade alone.
+// field only the director, the bank and the routes write, so it shows the fade alone.
 // Kills: x3 -> x1 or x2 (lands by 2.9 s), max -> min of the style's fade and the morph (cuts at once),
 // dt / fade inverted, beginMorph ignored, the morph clock never running out (still gliding at 3.2 s),
 // reset() clearing the fade or the faded params.
@@ -1165,7 +1181,7 @@ void testLiveAndExportNeverHearEachOther() {
     pinned.director.amount = 1.0f;
     pinned.director.seed = 99;
     pinned.reducedMotion = true;
-    pinned.knobs = MacroKnobs{-0.5f, 0.8f, 0.0f, -0.2f, 0.9f, -1.0f};
+    pinned.bank = shared(turned({-0.5f, 0.8f, 0.0f, -1.0f}));
     pinned.noteEntropy = 0xC0FFEEull;
     constexpr int kFrames = 600;
     Rng g(2026);
@@ -1223,6 +1239,113 @@ void testLiveAndExportNeverHearEachOther() {
 
 }  // namespace
 
+// The bank's offset reaches the resolved params whole: with nothing else writing Warp, Bend at a full turn
+// up moves it by its link's weight (0.6) times Warp's range over the same chain at centre, and a turn down
+// (Bend has no Warp down) leaves it. A knob whose links do not reach the style moves nothing there.
+void testBankReachesTheParams() {
+    EngineSettings centred;
+    centred.bank = shared(macrobank::defaultBank());
+    EngineSettings up = centred;
+    up.bank = shared(macrobank::setValue(macrobank::defaultBank(), knobId("Bend"), 1.0f));
+    EngineSettings down = centred;
+    down.bank = shared(macrobank::setValue(macrobank::defaultBank(), knobId("Bend"), -1.0f));
+    EngineSettings none;
+    auto a = std::make_unique<Resolver>();
+    auto b = std::make_unique<Resolver>();
+    auto c = std::make_unique<Resolver>();
+    auto d = std::make_unique<Resolver>();
+    const macrobank::Range warp = macrobank::rangeOf(LfoTarget::Warp);
+    const float reach = 0.6f * (warp.max - warp.min);
+    SceneParams requested;
+    requested.warp = 0.1f;
+    float t = 0.0f;
+    bool whole = true;
+    bool untouchedDown = true;
+    bool identity = true;
+    for (int i = 0; i < 300; ++i, t += kDt) {
+        const GeodeSoundFrame f = frame(t);
+        const StyleContext st = style(kStyle, i == 0);
+        const SceneParams pa = a->step(requested, f, kDt, centred, st).params;
+        const SceneParams pb = b->step(requested, f, kDt, up, st).params;
+        const SceneParams pc = c->step(requested, f, kDt, down, st).params;
+        const SceneParams pd = d->step(requested, f, kDt, none, st).params;
+        whole = whole && std::fabs((pb.warp - pa.warp) - std::min(reach, warp.max - pa.warp)) < 1e-5f;
+        untouchedDown = untouchedDown && pc.warp == pa.warp && pc.twist < pa.twist;
+        identity = identity && sameBits(wire(pa), wire(pd));
+    }
+    check(whole, "Bend up adds its whole Warp offset to the resolved params");
+    check(untouchedDown, "Bend down leaves Warp (no down weight) and turns Twist back");
+    check(identity, "a bank at centre resolves the same bits as no bank");
+    // Reach: a link on a target the style cannot show is skipped, so the knob is a no-op there.
+    check(macrobank::reachMask(kStyle) != 0, "the bank reaches the shader style");
+}
+
+// An export pins the bank it was prepared with: frames resolved from a pinned latch while the live bank flips
+// every frame equal the frames of a resolver handed that bank outright, and a live latch follows the flips.
+void testExportPinKeepsItsBank() {
+    using geode::signal::SettingsLatch;
+    const macrobank::Bank atPrepare = turned({0.7f, -0.4f, 0.9f, 0.3f});
+    macrobank::setGlobal(atPrepare);
+    SettingsLatch pinned;
+    pinned.pinForExport(true, 30'000);
+    SettingsLatch live;
+    EngineSettings fixed = geode::signal::exportSettings(true, 30'000);
+    fixed.bank = shared(atPrepare);
+    auto a = std::make_unique<Resolver>();
+    auto b = std::make_unique<Resolver>();
+    auto c = std::make_unique<Resolver>();
+    const SceneParams requested;
+    float t = 0.0f;
+    bool same = true;
+    bool heard = false;
+    for (int i = 0; i < 300; ++i, t += kDt) {
+        const float x = (i % 2 == 0) ? 1.0f : -1.0f;
+        macrobank::setGlobal(turned({x, x, x, x}));
+        const GeodeSoundFrame f = frame(t);
+        const StyleContext st = style(kStyle, i == 0);
+        const EngineSettings sp = pinned.latch(false);
+        const EngineSettings sl = live.latch(false);
+        const Wire wa = wire(a->step(requested, f, kDt, sp, st).params);
+        const Wire wb = wire(b->step(requested, f, kDt, fixed, st).params);
+        const Wire wc = wire(c->step(requested, f, kDt, sl, st).params);
+        same = same && sameBits(wa, wb);
+        heard = heard || !sameBits(wa, wc);
+    }
+    macrobank::setGlobal(macrobank::defaultBank());
+    check(same, "an export's frames keep the bank pinned at prepare while the live bank changes");
+    check(heard, "a live renderer hears the bank's edits");
+}
+
+// The director writes its axes on the params and never the user's bank: a full director run through a live
+// latch leaves the process-wide bank the very value that was set, and the frame's copy unchanged.
+void testDirectorLeavesTheBankAlone() {
+    using geode::signal::SettingsLatch;
+    const macrobank::Bank mine = turned({0.2f, -0.6f, 0.0f, 0.5f});
+    macrobank::setGlobal(mine);
+    const auto before = macrobank::global();
+    geode::viz::director::setGlobal(true, 1.0f, 77);
+    SettingsLatch live;
+    auto r = std::make_unique<Resolver>();
+    configureRich(*r);
+    const SceneParams requested;
+    float t = 0.0f;
+    bool untouched = true;
+    for (int i = 0; i < 1200; ++i, t += kDt) {
+        GeodeSoundFrame f = frame(t);
+        if (i == 900) f.drop = 0.8f;
+        const EngineSettings s = live.latch(false);
+        r->step(requested, f, kDt, s, style(kStyle, i == 0));
+        untouched = untouched && s.bank == before && *s.bank == mine;
+    }
+    check(r->director().weight() > 0.9f && r->director().commits() >= 1, "the director drove the run");
+    bool turned = false;
+    for (float v : r->director().axes()) turned = turned || v != 0.0f;
+    check(turned, "and turned its own axes");
+    check(untouched && macrobank::global() == before && *macrobank::global() == mine, "the user's bank is exactly as set");
+    geode::viz::director::setGlobal(false, 0.0f, 0);
+    macrobank::setGlobal(macrobank::defaultBank());
+}
+
 int main() {
     testOrder();
     testNoColourNarrowingNoFixedReactions();
@@ -1241,6 +1364,9 @@ int main() {
     testDisabledStagesAreExactIdentity();
     testNoteLayerOffIgnoresEntropyOnHearsIt();
     testLiveAndExportNeverHearEachOther();
+    testBankReachesTheParams();
+    testExportPinKeepsItsBank();
+    testDirectorLeavesTheBankAlone();
     if (failures) {
         std::printf("resolver_test: %d failed\n", failures);
         return 1;

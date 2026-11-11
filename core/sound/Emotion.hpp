@@ -6,8 +6,8 @@
 namespace geode::sound {
 
 // What the music feels like right now, from the sound frame the musical layer already fills. It never
-// names the feeling to the user; the auto-director (viz/Director) turns it into palette, motion, camera
-// and routing decisions.
+// names the feeling to the user; the auto-director (viz/Director) turns it into behaviour decisions (its
+// axes, camera, motion dials), never a colour or a route.
 //
 //   key + scale ─► fingerprint (EmotionTable.inc: three quarters the mode's measured emotion, a quarter
 //                  the key's historical character) ─► glides over ~3 s

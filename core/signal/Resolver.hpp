@@ -81,7 +81,7 @@ public:
     // One frame.
     const Frame& step(const viz::SceneParams& requested, const GeodeSoundFrame& sound, float dt,
                       const EngineSettings& settings, const StyleContext& style,
-                      const sound::Emotion::State* heard = nullptr);
+                      const sound::Emotion::State* heard = nullptr, float fadeDt = -1.0f);
 
     // The last step's result.
     const Frame& frame() const { return frame_; }

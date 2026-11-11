@@ -178,6 +178,8 @@ void Renderer::applyMilkRequests() {
     }
     Scene* milk = builtScene("milkdrop");
     if (!milk) return;
+    // A preset picked in silence still loads and shows: about a second of redraws.
+    if (!preset.empty() || reload || !textureDir.empty()) redrawFrames_ = 60;
     if (!textureDir.empty()) milk->setMilkTextureDir(textureDir);
     if (!preset.empty()) milk->queueMilkPreset(preset);
     if (reload) milk->reloadMilkPreset();
@@ -356,6 +358,8 @@ void Renderer::onSurfaceCreated() {
     liquidWasOn_ = false;
     lastBornSceneId_.clear();
     activeScene_ = nullptr;
+    heldScene_ = nullptr;
+    heldLayer_ = nullptr;
     outgoingScene_ = nullptr;
     outgoingParams_.reset();
     overlays_.recreate();
@@ -533,6 +537,8 @@ void Renderer::warmTransition(const std::string& id) { compositePass_.warmTransi
 
 void Renderer::cut() {
     activeScene_ = nullptr;
+    heldScene_ = nullptr;
+    heldLayer_ = nullptr;
     outgoingScene_ = nullptr;
     outgoingParams_.reset();
     layerScene_ = nullptr;
@@ -730,6 +736,8 @@ void Renderer::releaseScenes() {
     scenes_.clear();
     residency_.clear();
     activeScene_ = nullptr;
+    heldScene_ = nullptr;
+    heldLayer_ = nullptr;
     outgoingScene_ = nullptr;
     layerScene_ = nullptr;
 }

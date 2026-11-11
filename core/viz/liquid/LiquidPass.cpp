@@ -116,6 +116,8 @@ bool LiquidPass::ensure(int width, int height) {
 
 GLuint LiquidPass::run(const Frame& f) {
     if (program_ == 0 || sides_[0].fbo == 0 || sides_[1].fbo == 0) return 0;
+    // A stopped clock holds the picture: another pass would sharpen and fade it again with nothing moving.
+    if (!(f.dt > 0.0f) && !fresh_) return sides_[read_].display;
     const int write = 1 - read_;
     Side& dst = sides_[write];
     glBindFramebuffer(GL_FRAMEBUFFER, dst.fbo);

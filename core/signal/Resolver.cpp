@@ -29,20 +29,23 @@ void Resolver::reset() {
 
 const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const GeodeSoundFrame& sound, float dt,
                                       const EngineSettings& settings, const StyleContext& style,
-                                      const sound::Emotion::State* heard) {
+                                      const sound::Emotion::State* heard, float fadeDt) {
     using viz::SceneParams;
     const std::string& styleId = style.id != nullptr ? *style.id : kNoStyle;
     if (style.switched) motionField_.setVariant(viz::styleVariantSeed(styleId));
 
+    // The glide to what the user asked for runs on the caller's own step when it gives one: the renderer's
+    // dt stops in silence, and a slider moved then must still arrive.
+    const float glide = fadeDt >= 0.0f ? fadeDt : dt;
     float morph;
     if (morphRemainSec_ > 0.0f) {
-        morphRemainSec_ -= dt;
+        morphRemainSec_ -= glide;
         morph = morphFadeSec_;
     } else {
         morph = 0.0f;
     }
     const float fade = std::max(requested.paramFadeSec, morph);
-    displayed_ = fade <= 0.01f ? requested : viz::lerpParams(displayed_, requested, std::clamp(dt / fade, 0.0f, 1.0f));
+    displayed_ = fade <= 0.01f ? requested : viz::lerpParams(displayed_, requested, std::clamp(glide / fade, 0.0f, 1.0f));
 
     // The auto-director hears the frame first: its look lies under the macros, so the user's own knobs,
     // the LFOs, the reactions, the motion field and the safety clamp all still act on top of it.

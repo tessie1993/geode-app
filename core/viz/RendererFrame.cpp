@@ -1,9 +1,11 @@
 #include "viz/Renderer.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <random>
 
+#include "sound/DriveGain.hpp"
 #include "sound/Form.hpp"
 #include "viz/Catalogue.hpp"
 #include "viz/CompositeGrade.hpp"
@@ -52,7 +54,6 @@ float Renderer::beginFrame(double timeSeconds) {
     const float dt = frameStepSeconds(fixedFps_.load(std::memory_order_relaxed), lastTimeS_, timeSeconds);
     lastTimeS_ = timeSeconds;
     thermal_.onFrame(dt);
-    timeSeconds_ = std::fmod(timeSeconds_ + dt, kTimeWrapSeconds);
     {
         // Before anything reads it this frame. No engine yet (nothing written) leaves the frame silent.
         std::lock_guard<std::mutex> lock(soundLock_);
@@ -85,6 +86,10 @@ float Renderer::beginFrame(double timeSeconds) {
         }
         soundHeard_ = sound_ != nullptr;
     }
+    // No sound, no movement: the picture's clock is the frame's step times the music's rate. A renderer
+    // nothing feeds stays still.
+    musicRate_ = soundHeard_ ? sound::motionRate(soundFrame_) : 0.0f;
+    timeSeconds_ = std::fmod(timeSeconds_ + dt * musicRate_, kTimeWrapSeconds);
     applyStyleSchedule();
     std::vector<std::pair<std::string, std::string>> pending;
     {
@@ -127,13 +132,15 @@ Scene* Renderer::resolveActiveScene() {
         }
         activeScene_ = requested;
         sceneJustSwitched_ = true;
+        // A new style gets about a second of draws even in silence: its build and first load span frames.
+        redrawFrames_ = 60;
         // The resolver's motion field takes the new style's variant at its next step.
         styleSwitchPending_ = true;
     }
     return activeScene_;
 }
 
-SceneParams Renderer::resolveParams(float dt) {
+SceneParams Renderer::resolveParams(float dt, float wallDt) {
     SceneParams requested;
     {
         // The frame latch: the shell's latest params, morph and configs reach the resolver as copies.
@@ -181,7 +188,7 @@ SceneParams Renderer::resolveParams(float dt) {
     // The band trims reach the whole chain, not only the scene's own read of the frame: the reactions,
     // the motion field and the director hear the bass the user turned up.
     const signal::Resolver::Frame& out =
-        resolver_.step(requested, gainAdjusted(soundFrame_, requested), dt, frameSettings_, style, heard);
+        resolver_.step(requested, gainAdjusted(soundFrame_, requested), dt, frameSettings_, style, heard, wallDt);
     if (out.styleMoments > 0) directorStyleMoments_.fetch_add(out.styleMoments, std::memory_order_acq_rel);
     SceneParams p = out.params;
     // The device's masks, after the clamp: the thermal tier and Settings › Performance.
@@ -246,7 +253,10 @@ void Renderer::bindSecondaryTarget() {
 
 float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
     float progress = 1.0f;
-    if (layerScene_) {
+    if (layerScene_ && holds(*layerScene_, heldLayer_)) {
+        // fboB_ keeps the layer's last frame.
+    } else if (layerScene_) {
+        heldLayer_ = layerScene_;
         bindSecondaryTarget();
         wireFlow(*layerScene_, p);
         layerScene_->setParams(p);
@@ -271,7 +281,15 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
     return progress;
 }
 
+// A simulation, particle or MilkDrop style steps once per draw whatever the step, so a stopped clock keeps
+// the frame it last drew. A shader style is a function of the clock and redraws the same picture.
+bool Renderer::holds(const Scene& scene, const Scene* held) const {
+    return frameStill_ && held == &scene && scene.family() != SceneFamily::Shader;
+}
+
 void Renderer::drawSceneTarget(Scene& scene, const SceneParams& p, float dt) {
+    if (!sceneJustSwitched_ && holds(scene, heldScene_)) return;
+    heldScene_ = &scene;
     glBindFramebuffer(GL_FRAMEBUFFER, fboA_.fbo());
     glViewport(0, 0, renderWidth_, renderHeight_);
     const float keep = scene.trailRetention(p);
@@ -390,7 +408,8 @@ void Renderer::wireFlow(Scene& target, const SceneParams& p) {
 }
 
 void Renderer::render(double timeSeconds, GLuint targetFbo) {
-    const float dt = beginFrame(timeSeconds);
+    const float wallDt = beginFrame(timeSeconds);
+    const float dt = wallDt * musicRate_;
     if (thermal_.tier() != appliedTier_ || userScale_.load(std::memory_order_relaxed) != appliedUserScale_) {
         applyRenderScale();
     }
@@ -405,9 +424,19 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
         glClear(GL_COLOR_BUFFER_BIT);
         return;
     }
-    const SceneParams p = resolveParams(dt);
+    const SceneParams p = resolveParams(dt, wallDt);
     applyPendingFluidInjection();
     resolveLayerScene();
+    if (!layerScene_) heldLayer_ = nullptr;
+    // Still: the clock is stopped and nothing the scenes draw from changed since the last frame.
+    std::array<float, SceneParams::kFieldCount> wire;
+    p.toWire(wire.data());
+    const bool sameLook = wire == heldWire_ && heldWidth_ == renderWidth_ && heldHeight_ == renderHeight_;
+    if (redrawFrames_ > 0) redrawFrames_--;
+    frameStill_ = !(dt > 0.0f) && sameLook && redrawFrames_ == 0 && !outgoingScene_;
+    heldWire_ = wire;
+    heldWidth_ = renderWidth_;
+    heldHeight_ = renderHeight_;
     stepOverlays(*scene, p, dt);
     stepCamera(p, dt);
     const float progress = drawSecondaryTargets(p, dt);

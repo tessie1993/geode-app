@@ -25,4 +25,16 @@ inline float driveGain(float drive) {
 }
 inline float driveGain(const GeodeSoundFrame& f) { return driveGain(f.drive); }
 
+// The clock the picture runs on: every renderer multiplies its frame step by this. 1 while music plays and
+// exactly 0 in silence (owner's rule: no sound, no movement). presence fades over about two seconds, so a
+// pause eases the picture to a stop and the first sound eases it back in.
+inline constexpr float kMotionStill = 0.05f;
+inline constexpr float kMotionFull = 0.5f;
+
+inline float motionRate(const GeodeSoundFrame& f) {
+    if (!std::isfinite(f.presence)) return 0.0f;
+    const float t = std::clamp((f.presence - kMotionStill) / (kMotionFull - kMotionStill), 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);
+}
+
 }  // namespace geode::sound

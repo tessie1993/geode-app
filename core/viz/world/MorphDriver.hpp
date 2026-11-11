@@ -66,8 +66,9 @@ struct DriverInput {
     float intensity = 1.0f;  // emission
     std::array<float, 6> knobs{0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f};
 
-    // The music fields from a sound frame; the controls are left for the caller.
-    static DriverInput fromSound(const GeodeSoundFrame& f);
+    // The music fields from a sound frame; the controls are left for the caller. Audio drive scales the
+    // levels the world hears (energy, bass, kick), as lib_sound's helpers do for every other style.
+    static DriverInput fromSound(const GeodeSoundFrame& f, float audioDrive = 1.0f);
 };
 
 class MorphDriver {

@@ -192,9 +192,9 @@ void main() {
     vec2 uv = view();
     gT = nebTime();
     float e = nebEnergy();
-    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
-    float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.3) * e;
-    float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
+    float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
+    float bass = clamp(SND_BASS_PRESENCE * uSoundDrive, 0.0, 1.3) * e;
+    float hats = clamp(SND_HAT_ENV * uSoundDrive, 0.0, 1.0);
     gOct = nebOctaves(3.0);
     gKey = nebKeyShift(0.12) + 0.12 * (uKnob[3] - 0.5);
     gTex = 0.27 * (0.8 + 0.4 * uKnob[1]);

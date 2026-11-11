@@ -307,7 +307,7 @@ void main() {
     float t = truchetTime();
     gT = t;
     float e = truchetEnergy();
-    float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
+    float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
     float morph = truchetMorph();
     gHits = floor(SND_ONSET_COUNT);
     gP1 = 0.3 + 0.45 * morph;
@@ -315,8 +315,8 @@ void main() {
     gA = TQ_HALF * (1.0 + 0.4 * kSpace);
 
     float reliefGain = 1.0 + 1.2 * kTexture;
-    gH0 = (0.1 + 0.07 * clamp(SND_BASS_PRESENCE, 0.0, 1.5) * e) * reliefGain;
-    gKickH = 0.08 * clamp(SND_KICK_ENV, 0.0, 1.0) * (1.0 + 1.6 * kPulse) * e * reliefGain;
+    gH0 = (0.1 + 0.07 * clamp(SND_BASS_PRESENCE * uSoundDrive, 0.0, 1.5) * e) * reliefGain;
+    gKickH = 0.08 * clamp(SND_KICK_ENV * uSoundDrive, 0.0, 1.0) * (1.0 + 1.6 * kPulse) * e * reliefGain;
     gHmax = gH0 + gKickH;
 
     // The step bound (see the header): colour slope 1.5 / TQ_W per cell, in

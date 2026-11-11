@@ -22,14 +22,15 @@ float wrap01(float x) { return x - std::floor(x); }
 
 }  // namespace
 
-DriverInput DriverInput::fromSound(const GeodeSoundFrame& f) {
+DriverInput DriverInput::fromSound(const GeodeSoundFrame& f, float audioDrive) {
     DriverInput in;
+    const float drive = std::isfinite(audioDrive) ? std::max(audioDrive, 0.0f) : 1.0f;
     in.presence = clamp01(f.presence);
-    in.energy = clamp01((0.6f * f.loudness + 0.4f * f.intensity) * (0.4f + 0.6f * in.presence));
+    in.energy = clamp01(drive * (0.6f * f.loudness + 0.4f * f.intensity) * (0.4f + 0.6f * in.presence));
     in.mood = clamp01(0.5f * f.scaleBrightness + 0.5f * f.keyMajor);
     in.density = clamp01(0.6f * f.densitySlow + 0.4f * f.runDensity);
-    in.bass = std::clamp(std::isfinite(f.bassAtt) ? f.bassAtt : 0.0f, 0.0f, 2.0f);
-    in.kick = clamp01(f.kickEnv);
+    in.bass = std::clamp(drive * (std::isfinite(f.bassAtt) ? f.bassAtt : 0.0f), 0.0f, 2.0f);
+    in.kick = clamp01(drive * f.kickEnv);
     in.chordHue = wrap01(std::isfinite(f.chordHue) ? f.chordHue : 0.0f);
     in.buildUp = clamp01(f.buildUp);
     in.section = f.sectionChange > 0.5f;

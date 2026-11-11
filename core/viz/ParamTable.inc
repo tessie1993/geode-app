@@ -41,7 +41,7 @@ GEODE_PARAM(Float, turbulence, 0.0f, 0.0f, 1.5f, Fade)
 GEODE_PARAM(Float, density, 1.0f, 0.1f, 1.0f, Fade)
 // The user's Detail control; ShaderScene turns it into the march step budget.
 GEODE_PARAM(Float, marchDetail, 1.0f, catalogue::kMarchDetail.min, catalogue::kMarchDetail.max, Fade)
-GEODE_PARAM(Bool, trails, false, 0, 1, Hold)
+GEODE_PARAM(Bool, trails, true, 0, 1, Hold)
 GEODE_PARAM(Float, trailLength, 0.5f, 0.05f, 0.98f, Fade)
 GEODE_PARAM(Float, trailZoom, 0.0f, -0.5f, 0.5f, Fade)
 GEODE_PARAM(Float, trailWarp, 0.0f, 0.0f, 1.0f, Fade)

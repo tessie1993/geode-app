@@ -5,6 +5,8 @@ package dev.geode.ui
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +27,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
@@ -56,6 +59,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleStartEffect
 import dev.geode.R
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
@@ -77,6 +81,10 @@ import kotlinx.coroutines.delay
  * visual, the handle pill, a new track, a new screen) and falls asleep [fadeMs] later; [hide]
  * puts it to sleep at once (a swipe down on it). A [fadeMs] of zero means it never fades. While [held] (a PiP window, which
  * shows the visual alone) nothing wakes it.
+ *
+ * Every start of the activity wakes it ([rememberShellChrome]): the sleep timer kept running while
+ * the app was in the background, so coming back used to find the player and, on Visuals, the tab
+ * bar gone. While [covered] the timer waits, so a cold start's countdown begins when the app shows.
  */
 @Stable
 internal class ShellChromeState {
@@ -87,14 +95,20 @@ internal class ShellChromeState {
 
     val awake: Boolean get() = shown && !held
 
+    /** Set while the boot intro or a first-run page covers the shell: nothing under it is seen yet. */
+    internal var covered by mutableStateOf(false)
+
+    /** Whether the sleep timer runs: awake and in view. Turning true starts it from the top. */
+    internal val counting: Boolean get() = awake && !covered
+
     /** Bumped on every wake, so the sleep timer starts over. */
     internal var stamp by mutableLongStateOf(0L)
         private set
 
     /**
-     * Set by Visuals while its options sheet is up: the mini player is docked to the sheet and the
-     * tab bar under it stays with it, so neither fades on a stage tap. The stage icons still
-     * follow [awake].
+     * Set by Visuals while its options sheet is up: the tab bar under the sheet stays, and with it
+     * the mini player docked to the sheet when a track is loaded, so neither fades on a stage tap.
+     * The stage icons still follow [awake].
      */
     var docked by mutableStateOf(false)
 
@@ -132,16 +146,25 @@ internal class ShellChromeState {
 /**
  * The shell's chrome state, asleep [fadeSeconds] after each wake (the user's Settings value,
  * 0 = never), stretched by the accessibility timeout the user set so TalkBack users are not raced.
- * Any change in [wakeKeys] (the screen, the track) wakes it. While [held] it stays asleep.
+ * Any change in [wakeKeys] (the screen, the track) wakes it, and so does every start of the
+ * activity. While [held] it stays asleep; while [covered] it stays awake and the timer waits.
  */
 @Composable
 internal fun rememberShellChrome(
     fadeSeconds: Float,
     held: Boolean,
+    covered: Boolean,
     vararg wakeKeys: Any?,
 ): ShellChromeState {
     val state = remember { ShellChromeState() }
-    SideEffect { state.held = held }
+    SideEffect {
+        state.held = held
+        state.covered = covered
+    }
+    LifecycleStartEffect(state) {
+        state.wake()
+        onStopOrDispose { }
+    }
     val a11y = LocalAccessibilityManager.current
     // In the same frame as the new screen or track, not an effect a frame later: leaving Visuals
     // asleep would otherwise lay the dock out with the handle first, then grow it into the card.
@@ -150,8 +173,8 @@ internal fun rememberShellChrome(
         state.wake()
         true
     }
-    LaunchedEffect(state.awake, state.stamp, fadeSeconds) {
-        if (!state.awake || fadeSeconds <= 0f) return@LaunchedEffect
+    LaunchedEffect(state.counting, state.stamp, fadeSeconds) {
+        if (!state.counting || fadeSeconds <= 0f) return@LaunchedEffect
         val base = (fadeSeconds * MILLIS_PER_SECOND).toLong()
         val timeout = a11y?.calculateRecommendedTimeoutMillis(base, containsIcons = true, containsControls = true) ?: base
         delay(timeout)
@@ -163,7 +186,9 @@ internal fun rememberShellChrome(
 private const val MILLIS_PER_SECOND = 1000f
 
 /**
- * The floating mini player: art, title · artist, play/pause and next over a thin progress line.
+ * The floating mini player: the Player's seek bar ([TrackSeekBar]: tap or drag to seek, a 48 dp
+ * target) over art, title · artist, play/pause and next. A touch that starts on the bar is the
+ * bar's alone: it never opens Library or Player and never hides the card.
  * It draws no glass of its own: on a phone the dock's one slab is around it and the tab bar
  * ([DockSlab]); beside the rail the caller's modifier makes it a card. A tap opens Library, a swipe up opens Player, a swipe down hides it (the music plays
  * on). The buttons are the only way to skip, so a sideways brush never changes the song.
@@ -184,7 +209,9 @@ internal fun FloatingMiniPlayer(
     artist: String?,
     artworkUri: String?,
     isPlaying: Boolean,
-    progress: () -> Float,
+    positionMs: () -> Long,
+    durationMs: Long,
+    onSeek: (Float) -> Unit,
     onOpenLibrary: () -> Unit,
     onOpenPlayer: () -> Unit,
     onHide: () -> Unit,
@@ -192,6 +219,7 @@ internal fun FloatingMiniPlayer(
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val seekHeld = remember { mutableStateOf(false) }
     val view = LocalView.current
     val tap = { action: () -> Unit ->
         view.performStoneHaptic(StoneHapticCue.TAP)
@@ -200,10 +228,31 @@ internal fun FloatingMiniPlayer(
     Box(
         modifier
             .fillMaxWidth()
-            .miniPlayerGestures(onOpenLibrary, onOpenPlayer, onHide, progress, inset = GeodeRadius.Floating),
+            .miniPlayerGestures(onOpenLibrary, onOpenPlayer, onHide, progress = null, inset = 0.dp) { seekHeld.value },
     ) {
+        // Under the row: the bar's target reaches into the row's top edge, where the buttons still win.
+        TrackSeekBar(
+            positionMs = positionMs,
+            durationMs = durationMs,
+            loopStartMs = null,
+            loopEndMs = null,
+            onSeek = onSeek,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = GeodeRadius.Floating)
+                    .height(GeodeSpacing.TouchTarget)
+                    .semantics(mergeDescendants = true) {}
+                    .heldWhilePressed(seekHeld),
+            trackHeight = MINI_SEEK_TRACK,
+            playheadHeight = MINI_SEEK_PLAYHEAD,
+        )
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(start = GeodeSpacing.S, end = GeodeSpacing.XS),
+            Modifier
+                .padding(top = MINI_SEEK_RESERVE)
+                .fillMaxWidth()
+                .heightIn(min = MINI_PLAYER_ROW)
+                .padding(start = GeodeSpacing.S, end = GeodeSpacing.XS),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TrackArtwork(artworkUri, Modifier.size(48.dp), corner = GeodeRadius.Medium)
@@ -291,6 +340,22 @@ internal fun DockedMiniPlayer(
     }
 }
 
+/** Sets [held] while a touch that went down inside is still down, without taking the touch. */
+private fun Modifier.heldWhilePressed(held: MutableState<Boolean>): Modifier =
+    pointerInput(held) {
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false)
+            held.value = true
+            try {
+                do {
+                    val event = awaitPointerEvent()
+                } while (event.changes.any { it.pressed })
+            } finally {
+                held.value = false
+            }
+        }
+    }
+
 /**
  * Restarts [chrome]'s sleep timer on any touch down inside, without taking the touch: watched on
  * the Initial pass, so the buttons and swipes under it work as before.
@@ -311,15 +376,18 @@ internal val DOCKED_PLAYER_HEIGHT = 52.dp
 /**
  * The mini player's touch and its progress line, shared by the floating card and the docked bar:
  * a tap opens Library, a swipe of [SWIPE_DP] up opens Player and down hides it, TalkBack gets both as
- * actions, and the line runs along the top edge [inset] in from each side.
+ * actions, and the line runs along the top edge [inset] in from each side (no line without
+ * [progress]: the floating card has a seek bar instead). A swipe that starts while [seekHeld] is
+ * the seek bar's, so it is ignored here.
  */
 @Composable
 private fun Modifier.miniPlayerGestures(
     onOpenLibrary: () -> Unit,
     onOpenPlayer: () -> Unit,
     onHide: () -> Unit,
-    progress: () -> Float,
+    progress: (() -> Float)?,
     inset: Dp,
+    seekHeld: () -> Boolean = { false },
 ): Modifier {
     val accent = MaterialTheme.colorScheme.primary
     val openLabel = stringResource(R.string.mini_player_open)
@@ -337,11 +405,16 @@ private fun Modifier.miniPlayerGestures(
     }
     return pointerInput(Unit) {
         var dy = 0f
+        var onSeekBar = false
         detectVerticalDragGestures(
-            onDragStart = { dy = 0f },
+            onDragStart = {
+                dy = 0f
+                onSeekBar = seekHeld()
+            },
             onDragEnd = {
                 val far = SWIPE_DP.dp.toPx()
                 when {
+                    onSeekBar -> Unit
                     dy < -far -> confirm(onOpenPlayer)
                     dy > far -> confirm(onHide)
                 }
@@ -364,6 +437,7 @@ private fun Modifier.miniPlayerGestures(
                 },
             )
     }.drawBehind {
+        if (progress == null) return@drawBehind
         // The progress line along the top edge, inside the glass's corners.
         val edge = inset.toPx()
         val width = size.width - 2 * edge
@@ -558,3 +632,11 @@ private val HANDLE_HEIGHT = 4.dp
 
 /** The mini player's transport buttons: the 48 dp minimum touch target, not Material's 40 dp default. */
 private val MINI_PLAYER_BUTTON = 48.dp
+
+/** The floating card's row under the seek bar: the 48 dp art and buttons, 4 dp clear each side. */
+private val MINI_PLAYER_ROW = 56.dp
+
+/** Where that row starts: the seek bar's 48 dp target overlaps its top 12 dp, so the card grows 28 dp, not 48. */
+private val MINI_SEEK_RESERVE = 36.dp
+private val MINI_SEEK_TRACK = 6.dp
+private val MINI_SEEK_PLAYHEAD = 16.dp

@@ -6,9 +6,9 @@
 namespace geode::viz::config {
 
 // The config params schema (#423): the values the data stores hold beside the scene params (LFO and
-// envelope slots, macro knobs, the palette maker's gradient, the look's envelope, the Studio clip edit,
+// envelope slots, the palette maker's gradient, the look's envelope, the Studio clip edit,
 // the preset morph), one row each in viz/ConfigTable.inc. Everything here is constexpr and header-only,
-// so viz/Lfo, viz/Adsr and viz/Macros read their defaults and ranges from the rows without a new
+// so viz/Lfo and viz/Adsr read their defaults and ranges from the rows without a new
 // translation unit to link; only the shell's text table (geode_config_schema_text) lives in
 // viz/ConfigFields.cpp. The conversions the stores run on old saves are in viz/ConfigMath.hpp.
 
@@ -55,7 +55,7 @@ constexpr bool sameText(const char* a, const char* b) {
 }  // namespace detail
 
 // A row's position inside its group: for lfo and adsr the float index on the geode_viz_set_lfo /
-// geode_viz_set_adsr wire, for macro the knob index.
+// geode_viz_set_adsr wire.
 constexpr int indexInGroup(Slot s) {
     int index = 0;
     for (int i = 0; i < static_cast<int>(s); ++i) {

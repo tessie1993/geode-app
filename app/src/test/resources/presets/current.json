@@ -13,7 +13,7 @@
   "turbulence": 0.75,
   "density": 0.546875,
   "marchDetail": 0.875,
-  "trails": true,
+  "trails": false,
   "trailLength": 0.515625,
   "trailZoom": -0.25,
   "trailWarp": 0.5,

@@ -30,7 +30,7 @@ namespace geode::viz {
 // from several fields of the frame, smoothed at a musical rate; a style reads them as its own offsets
 // (the neon set through lib_neon's neonKnob), and off they are exactly 0.5.
 //
-// Order in the frame (signal/Resolver, the scene params resolver): the director's look, then this layer, then the macros, LFOs,
+// Order in the frame (signal/Resolver, the scene params resolver): the director's look, then this layer, then the director's axes and the macro bank, LFOs,
 // envelopes, reactions, motion field and the safety clamp. So the user's own settings and the flash and
 // motion limits always act on top, and the director keeps the scene-level palette and camera to itself.
 //
@@ -92,7 +92,7 @@ public:
 
     void configure(const NoteResponseConfig& config);
     void step(const GeodeSoundFrame& f, const sound::Emotion::State& e, const Inputs& in, float dt);
-    // Between the director's look and the macros: the note- and chord-level life on shared params.
+    // Between the director's look and its axes: the note- and chord-level life on shared params.
     SceneParams apply(const SceneParams& p) const;
     const NoteUniforms& uniforms() const { return out_; }
     void reset();

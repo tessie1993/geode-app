@@ -10,10 +10,12 @@
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Params.hpp"
 #include "viz/TouchTransform.hpp"
+#include "viz/WaveRandomizer.hpp"
 
 using geode::viz::SceneParams;
 namespace randomizer = geode::viz::randomizer;
 namespace customize = geode::viz::customize;
+namespace waves = geode::viz::waves;
 
 namespace {
 
@@ -106,6 +108,23 @@ int geode_customize_randomize(const char* style_id, const char* category, const 
     }
     const SceneParams rolled = customize::randomize(current, seed, *which, style_id ? style_id : "", lockedSet(locked));
     return copyOut(current, rolled, out);
+}
+
+int geode_waves_randomize(const char* style_id, const char* locked, uint64_t seed, int running_only, const float* params,
+                          const float* in, float* out) {
+    const waves::Set current = waves::fromWire(in);
+    waves::Set rolled = current;
+    if (!running_only || lockedSet(locked).count(waves::kLockKey) == 0) {
+        rolled = waves::randomize(current, SceneParams::fromWire(params), seed, style_id ? style_id : "",
+                                  running_only ? waves::Roll::Running : waves::Roll::All);
+    }
+    float was[waves::kWireFloats];
+    waves::toWire(current, was);
+    waves::toWire(rolled, out);
+    for (int i = 0; i < waves::kWireFloats; ++i) {
+        if (was[i] != out[i]) return 1;
+    }
+    return 0;
 }
 
 void geode_customize_borrow(const char* category, const float* in, const float* from, float* out) {

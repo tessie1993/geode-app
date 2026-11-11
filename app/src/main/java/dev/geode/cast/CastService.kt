@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.wifi.WifiManager
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -24,6 +25,7 @@ import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackSession
 import dev.geode.pro.ProFeature
 import dev.geode.startedInForeground
+import dev.geode.util.bestEffort
 
 /**
  * Keeps a cast running with the app in the background or the screen off (owner, 2026-11-02):
@@ -52,6 +54,17 @@ class CastService : Service() {
     private var stopAtSongEnd = false
     private var failed = false
     private val wakeLock by lazy { ServiceWakeLock(this, TAG) }
+
+    /**
+     * The TV fetches every segment from this phone: with the screen off Wi-Fi drops into power save and
+     * answers late. Android 14 and later only honour the lock with the screen on; there it costs nothing.
+     */
+    @Suppress("DEPRECATION")
+    private val wifiLock by lazy {
+        getSystemService(WifiManager::class.java)
+            ?.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "geode:$TAG")
+            ?.apply { setReferenceCounted(false) }
+    }
 
     private val keepMuted =
         object : Player.Listener {
@@ -103,6 +116,7 @@ class CastService : Service() {
         stream = s
         // The phone encodes the picture; with the music paused nothing else keeps the CPU awake.
         wakeLock.acquire(LONG_WORK_WAKE_MS)
+        bestEffort(TAG, "wifiLock.acquire()") { wifiLock?.acquire() }
         waitingSinceMs = SystemClock.elapsedRealtime()
         handler.post(waitForStream)
         handler.postDelayed(recheckPro, PRO_RECHECK_MS)
@@ -179,6 +193,7 @@ class CastService : Service() {
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
         wakeLock.release()
+        bestEffort(TAG, "wifiLock.release()") { wifiLock?.takeIf { it.isHeld }?.release() }
         unmutePhone()
         val s = stream
         stream = null

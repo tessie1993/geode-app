@@ -94,7 +94,7 @@ float smooth(float x) {
     return t * t * (3.0f - 2.0f * t);
 }
 
-// splitmix64, the house RNG (macros::surprise, ReactionDna): one stream per decision.
+// splitmix64, the house RNG (NoteResponse, ReactionDna): one stream per decision.
 struct Rng {
     uint64_t x;
     float next() {
@@ -136,6 +136,73 @@ float palBase(float hue, float range, bool palWheel) { return palWheel ? wrap01(
 // The other way: the hue at the centre of a palette.
 float palHue(float base, float range, bool palWheel) { return palWheel ? wrap01(-base - 0.5f * range) : wrap01(base + 0.5f * range); }
 
+using Axis = Director::Axis;
+
+// One field an axis turns, over the range its Customize slider covers. Each field has one axis.
+struct AxisField {
+    Axis axis;
+    float SceneParams::*field;
+    float lo;
+    float hi;
+    bool inverted;
+};
+
+// Twist is not here, on purpose. It spirals the frame about the screen centre in the shared view()
+// and in the composite, so it draws the same S-curve on every style, and it rests at 0 in the
+// middle of its range: an axis turned up pulled it toward +1 and one turned down toward -1, so
+// Complexity twisted the picture whichever way it went, on every look ("almost all visuals have a
+// yin-yang curve"). Twist stays the user's slider, the style's own reactions and the short kick below.
+constexpr std::array<AxisField, 23> kAxisFields = {{
+    {Axis::Energy, &SceneParams::reactAmount, 0.0f, 2.0f, false},
+    {Axis::Energy, &SceneParams::audioDrive, 0.2f, 2.5f, false},
+    {Axis::Energy, &SceneParams::motionAmount, 0.0f, 1.0f, false},
+    {Axis::Energy, &SceneParams::bloom, 0.0f, 0.25f, false},
+    {Axis::Energy, &SceneParams::intensity, 0.2f, 1.25f, false},
+    {Axis::Speed, &SceneParams::speed, 0.05f, 4.0f, false},
+    {Axis::Speed, &SceneParams::camFly, 0.0f, 2.0f, false},
+    {Axis::Speed, &SceneParams::cycleSpeed, 0.02f, 0.6f, false},
+    {Axis::Speed, &SceneParams::motionDrift, 0.0f, 1.0f, false},
+    {Axis::Complexity, &SceneParams::tile, 1.0f, 6.0f, false},
+    {Axis::Complexity, &SceneParams::warp, 0.0f, 1.0f, false},
+    {Axis::Complexity, &SceneParams::morph, 0.0f, 1.0f, false},
+    {Axis::Space, &SceneParams::camFov, 0.5f, 2.0f, false},
+    {Axis::Space, &SceneParams::zoom, 0.3f, 3.0f, true},
+    {Axis::Space, &SceneParams::camOrbit, 0.0f, 1.0f, false},
+    {Axis::Space, &SceneParams::motionBreath, 0.0f, 1.0f, false},
+    {Axis::Space, &SceneParams::vignette, 0.0f, 1.0f, true},
+    {Axis::Space, &SceneParams::fisheye, -1.0f, 1.0f, false},
+    {Axis::Chaos, &SceneParams::turbulence, 0.0f, 1.5f, false},
+    {Axis::Chaos, &SceneParams::chromaAb, 0.0f, 1.0f, false},
+    {Axis::Chaos, &SceneParams::ripple, 0.0f, 1.0f, false},
+    {Axis::Chaos, &SceneParams::camShake, 0.0f, 1.0f, false},
+    {Axis::Chaos, &SceneParams::grain, 0.0f, 1.0f, false},
+}};
+
+// Each axis's routes at a full turn up; the amount scales with the axis, and they are off at or below 0.
+struct AxisRoute {
+    Axis axis;
+    ReactSource source;
+    LfoTarget target;
+    float amount;
+    float attack;
+    float release;
+};
+
+constexpr std::array<AxisRoute, 6> kAxisRoutes = {{
+    {Axis::Energy, ReactSource::BassAtt, LfoTarget::Bloom, 0.3f, 0.02f, 0.3f},
+    {Axis::Speed, ReactSource::CurvedTime, LfoTarget::Speed, 0.4f, 0.3f, 0.6f},
+    {Axis::Complexity, ReactSource::DensitySlow, LfoTarget::Morph, 0.4f, 0.3f, 0.8f},
+    {Axis::Space, ReactSource::StereoPan, LfoTarget::DriftX, 0.3f, 0.3f, 0.6f},
+    // KickRandom holds its draw until the next kick, so this is a held twist, not a pulse: at 0.5
+    // it kept every style half spiralled between kicks whenever Chaos was up. 0.2 is a nudge.
+    {Axis::Chaos, ReactSource::KickRandom, LfoTarget::Twist, 0.2f, 0.05f, 0.1f},
+    {Axis::Chaos, ReactSource::SnareToggle, LfoTarget::ChromaAb, 0.4f, 0.03f, 0.03f},
+}};
+static_assert(kAxisRoutes.size() <= ReactionEngine::kRoutes, "the axis routes fit one reaction engine");
+
+float axisOf(const Director::Axes& x, Axis a) { return x[static_cast<size_t>(a)]; }
+float& axisOf(Director::Axes& x, Axis a) { return x[static_cast<size_t>(a)]; }
+
 Director::Look lerpLook(const Director::Look& a, const Director::Look& b, float k) {
     Director::Look o = b;
     o.hue = mixHue(a.hue, b.hue, k);
@@ -147,7 +214,7 @@ Director::Look lerpLook(const Director::Look& a, const Director::Look& b, float 
     o.brightness = lerp(a.brightness, b.brightness, k);
     o.temperature = lerp(a.temperature, b.temperature, k);
     o.contrast = lerp(a.contrast, b.contrast, k);
-    for (int i = 0; i < kMacroCount; ++i) o.knobs[i] = lerp(a.knobs[i], b.knobs[i], k);
+    for (int i = 0; i < Director::kAxes; ++i) o.axes[i] = lerp(a.axes[i], b.axes[i], k);
     o.camSmooth = lerp(a.camSmooth, b.camSmooth, k);
     o.motionBreath = lerp(a.motionBreath, b.motionBreath, k);
     o.motionDrift = lerp(a.motionDrift, b.motionDrift, k);
@@ -217,12 +284,14 @@ void Director::configure(const DirectorConfig& config) {
         const Look shown = now_;
         const ReactionEngine routes = incoming_;
         const Routes routesBase = incomingBase_;
+        const ReactionEngine keptAxisRoutes = axisReactions_;
         reset();
         amount_ = amount;
         presence_ = presence;
         from_ = to_ = now_ = shown;
         incoming_ = routes;
         incomingBase_ = routesBase;
+        axisReactions_ = keptAxisRoutes;
     }
     config_ = config;
     configured_ = true;
@@ -275,16 +344,15 @@ Director::Look Director::make(const Emotion::State& s, uint64_t seed, int index,
     L.temperature = std::clamp(0.35f * v + 0.5f * g[Emotion::kNostalgia] - 0.35f * g[Emotion::kSadness] + 0.1f * s.sharpness, -0.8f, 0.8f);
     L.contrast = std::clamp(0.95f + 0.35f * t + 0.25f * g[Emotion::kPower] - 0.2f * g[Emotion::kPeace], 0.7f, 1.4f);
 
-    // Behaviour: the macro knobs, the camera, the motion field. Each gets a little seeded variety.
+    // Behaviour: the axes, the camera, the motion field. Each gets a little seeded variety.
     auto knob = [&](float x) { return std::clamp(0.8f * x + 0.15f * rng.signedUnit(), -1.0f, 1.0f); };
-    L.knobs[static_cast<int>(Macro::Energy)] = knob(2.0f * e - 1.0f + 0.3f * (g[Emotion::kPower] + g[Emotion::kJoy]) - 0.3f * g[Emotion::kPeace]);
-    L.knobs[static_cast<int>(Macro::Speed)] = knob(1.6f * e - 0.8f - 0.4f * (g[Emotion::kPeace] + g[Emotion::kTranscendence]) + 0.3f * g[Emotion::kJoy]);
-    L.knobs[static_cast<int>(Macro::Complexity)] =
+    axisOf(L.axes, Axis::Energy) = knob(2.0f * e - 1.0f + 0.3f * (g[Emotion::kPower] + g[Emotion::kJoy]) - 0.3f * g[Emotion::kPeace]);
+    axisOf(L.axes, Axis::Speed) = knob(1.6f * e - 0.8f - 0.4f * (g[Emotion::kPeace] + g[Emotion::kTranscendence]) + 0.3f * g[Emotion::kJoy]);
+    axisOf(L.axes, Axis::Complexity) =
         knob(1.5f * (g[Emotion::kWonder] + g[Emotion::kTension] + g[Emotion::kJoy]) - 1.2f * (g[Emotion::kSadness] + g[Emotion::kPeace]) + 0.3f * rng.signedUnit());
-    L.knobs[static_cast<int>(Macro::Mood)] = 0.0f;  // the palette above is the director's mood
-    L.knobs[static_cast<int>(Macro::Space)] =
+    axisOf(L.axes, Axis::Space) =
         knob(1.6f * (g[Emotion::kTranscendence] + g[Emotion::kWonder] + g[Emotion::kPeace]) - 1.2f * hard);
-    L.knobs[static_cast<int>(Macro::Chaos)] =
+    axisOf(L.axes, Axis::Chaos) =
         knob(1.4f * t - 0.7f + 0.4f * g[Emotion::kPower] - 0.5f * (g[Emotion::kTenderness] + g[Emotion::kPeace]));
     L.camSmooth = std::clamp(0.5f + 0.5f * calm - 0.6f * hard + 0.1f * rng.signedUnit(), 0.1f, 0.9f);
     L.motionBreath = clamp01(0.3f + 0.9f * (g[Emotion::kTenderness] + g[Emotion::kPeace] + g[Emotion::kSadness]));
@@ -446,6 +514,10 @@ void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float
     } else {
         accent_ *= std::exp(-dt / 0.5f);
     }
+
+    // After everything the axes read (the look, buildUp_, dropBoost_).
+    axisReactions_.routes = director::axisRoutes(axes());
+    axisReactions_.tick(f, dt);
 }
 
 SceneParams Director::apply(const SceneParams& p, bool palWheel) const {
@@ -510,25 +582,26 @@ SceneParams Director::apply(const SceneParams& p, bool palWheel) const {
     return o;
 }
 
-MacroKnobs Director::knobs(const MacroKnobs& user) const {
+Director::Axes Director::axes() const {
     const float a = weight();
-    if (a <= 0.0f) return user;
+    if (a <= 0.0f) return {};
     const Emotion::State& s = feeling_;
-    MacroKnobs d = now_.knobs;
-    d[static_cast<int>(Macro::Energy)] += 0.4f * (s.energy - now_.energy) + 0.4f * dropBoost_;
-    d[static_cast<int>(Macro::Chaos)] += 0.4f * (s.tension - now_.tension) + 0.3f * dropBoost_;
-    d[static_cast<int>(Macro::Speed)] += 0.3f * buildUp_;
-    d[static_cast<int>(Macro::Space)] += 0.3f * dropBoost_ - 0.4f * buildUp_;
-    MacroKnobs out = user;
-    for (int i = 0; i < kMacroCount; ++i) out[i] = std::clamp(user[i] + a * d[i], -1.0f, 1.0f);
-    return out;
+    Axes d = now_.axes;
+    axisOf(d, Axis::Energy) += 0.4f * (s.energy - now_.energy) + 0.4f * dropBoost_;
+    axisOf(d, Axis::Chaos) += 0.4f * (s.tension - now_.tension) + 0.3f * dropBoost_;
+    axisOf(d, Axis::Speed) += 0.3f * buildUp_;
+    axisOf(d, Axis::Space) += 0.3f * dropBoost_ - 0.4f * buildUp_;
+    for (float& v : d) v = std::clamp(a * v, -1.0f, 1.0f);
+    return d;
 }
 
-CameraRig::Moves Director::moves(const CameraRig::Moves& base) const {
+SceneParams Director::applyAxes(const SceneParams& p) const { return director::applyAxes(p, axes()); }
+
+CameraRig::Moves Director::moves() const {
+    CameraRig::Moves o = director::axisMoves(axes());
     const float a = weight();
-    if (a <= 0.0f) return base;
+    if (a <= 0.0f) return o;
     const CameraRig::Moves& m = now_.moves;
-    CameraRig::Moves o = base;
     o.orbit *= lerp(1.0f, m.orbit, a);
     o.lean *= lerp(1.0f, m.lean, a);
     o.dolly *= lerp(1.0f, m.dolly, a);
@@ -540,8 +613,70 @@ CameraRig::Moves Director::moves(const CameraRig::Moves& base) const {
 }
 
 SceneParams Director::applyRoutes(const SceneParams& p) const {
-    if (weight() <= 0.0f) return p;
-    return incoming_.apply(outgoing_.apply(p));
+    const SceneParams q = axisReactions_.apply(p);
+    if (weight() <= 0.0f) return q;
+    return incoming_.apply(outgoing_.apply(q));
 }
+
+namespace director {
+
+// Base plus modulation, MilkDrop's rule: the value it is given is the base and an axis adds to it. The
+// offset is what takes the style's default to the end at a full turn, so an untouched look moves as the
+// old knobs moved it, and a slider the user moved carries its whole offset through. An axis never
+// carries a field past the end it turns toward, and never drags back a value already beyond it.
+SceneParams applyAxes(const SceneParams& p, const Director::Axes& x) {
+    static const SceneParams kDefaults{};
+    SceneParams out = p;
+    for (const AxisField& d : kAxisFields) {
+        const float v = axisOf(x, d.axis);
+        if (v == 0.0f || !std::isfinite(v)) continue;
+        const float up = d.inverted ? d.lo : d.hi;
+        const float down = d.inverted ? d.hi : d.lo;
+        const float end = v > 0.0f ? up : down;
+        const float delta = std::fabs(v) * (end - std::clamp(kDefaults.*d.field, d.lo, d.hi));
+        float& f = out.*d.field;
+        if (!std::isfinite(f)) continue;
+        if (delta > 0.0f) {
+            f = std::min(f + delta, std::max(end, f));
+        } else if (delta < 0.0f) {
+            f = std::max(f + delta, std::min(end, f));
+        }
+    }
+    return out;
+}
+
+CameraRig::Moves axisMoves(const Director::Axes& x) {
+    const float space = 1.0f + axisOf(x, Axis::Space);
+    const float chaos = axisOf(x, Axis::Chaos);
+    CameraRig::Moves m;
+    m.orbit = space;
+    m.lean = space;
+    m.dolly = space;
+    m.breath = space;
+    m.shake = std::max(0.0f, 1.0f + 1.5f * chaos);
+    m.reframe = 1.0f + chaos;
+    m.cut = 1.0f + chaos;
+    return m;
+}
+
+Director::Routes axisRoutes(const Director::Axes& x) {
+    Director::Routes out{};
+    for (size_t i = 0; i < kAxisRoutes.size(); ++i) {
+        const AxisRoute& a = kAxisRoutes[i];
+        const float v = axisOf(x, a.axis);
+        ReactRoute& r = out[i];
+        r.enabled = v > 0.0f;
+        r.source = a.source;
+        r.target = a.target;
+        r.mode = ReactMode::Follow;
+        r.amount = a.amount * std::max(v, 0.0f);
+        r.curve = ModCurve::Linear;
+        r.attackSeconds = a.attack;
+        r.releaseSeconds = a.release;
+    }
+    return out;
+}
+
+}  // namespace director
 
 }  // namespace geode::viz

@@ -11,7 +11,7 @@ namespace geode::viz {
 // moves its row's max in the same change.
 static_assert(config::spec(config::Slot::lfo_source).max == static_cast<float>(ModSource::StereoPan), "lfo source row");
 static_assert(config::spec(config::Slot::lfo_target).max == static_cast<float>(LfoTarget::EndlessZoomSpeed), "lfo target row");
-static_assert(config::spec(config::Slot::lfo_wave).max == static_cast<float>(LfoWave::Random), "lfo wave row");
+static_assert(config::spec(config::Slot::lfo_wave).max == static_cast<float>(LfoWave::RandomGlide), "lfo wave row");
 static_assert(config::spec(config::Slot::lfo_polarity).max == static_cast<float>(ModPolarity::Negative), "lfo polarity row");
 static_assert(config::spec(config::Slot::lfo_curve).max == static_cast<float>(ModCurve::Smooth), "lfo curve row");
 static_assert(config::indexInGroup(config::Slot::lfo_beats) == GEODE_LFO_CONFIG_FLOATS - 1, "one lfo row per wire float");
@@ -193,13 +193,12 @@ SceneParams LfoEngine::apply(const SceneParams& p, const std::array<float, kSlot
 }
 
 
-float LfoEngine::syncedPhase(int i, const LfoConfig& c, float dt, const GeodeSoundFrame& sound, bool& wrapped) {
+float LfoEngine::syncedPhase(int i, const LfoConfig& c, float dt, const GeodeSoundFrame& sound) {
     constexpr float kLockConf = 0.35f;
     constexpr float kEaseSeconds = 0.5f;
     const float n = std::clamp(c.beats, 1.0f, 32.0f);
     const bool locked = sound.bpm > 0.0f && sound.beatConf >= kLockConf;
-    if (sound.bpm > 0.0f) lastBpm_ = sound.bpm;
-    // The free clock keeps the last good tempo (120 before any), so silence runs on, never stops.
+    // The free clock keeps the last measured tempo, so silence runs on, never stops.
     const float hz = safety::limitLfoRate(lastBpm_ / 60.0f / n, c.target);
     const bool limited = hz < lastBpm_ / 60.0f / n;
     float ph;
@@ -220,54 +219,54 @@ float LfoEngine::syncedPhase(int i, const LfoConfig& c, float dt, const GeodeSou
     }
     syncLocked_[i] = locked && !limited;
     ph -= std::floor(ph);
-    wrapped = ph < prevPhase_[i] - 0.5f;
+    // The music clock can step back over a boundary it just crossed: that is the cycle before, not a new one.
+    if (ph < prevPhase_[i] - 0.5f) ++cycle_[i];
+    else if (ph > prevPhase_[i] + 0.5f) --cycle_[i];
     prevPhase_[i] = ph;
     return ph;
 }
 
+float LfoEngine::held(int i, std::uint32_t cycle) const {
+    std::uint32_t h = seed ^ (static_cast<std::uint32_t>(i + 1) * 0x85EBCA6Bu) ^ (cycle * 0xC2B2AE35u);
+    h ^= h >> 16;
+    h *= 0x7FEB352Du;
+    h ^= h >> 15;
+    h *= 0x846CA68Bu;
+    h ^= h >> 16;
+    return static_cast<float>(h >> 8) / 8388608.0f - 1.0f;
+}
+
 float LfoEngine::oscillator(int i, const LfoConfig& c, float dt, const GeodeSoundFrame& sound) {
-    const bool synced = c.beats >= 1.0f;
-    bool wrapped = false;
+    if (sound.bpm > 0.0f) lastBpm_ = sound.bpm;
     float ph;
-    if (synced) {
-        ph = syncedPhase(i, c, dt, sound, wrapped);
+    // Beat timing needs a tempo the music gave: before the first one the slot runs on its own period.
+    if (c.beats >= 1.0f && lastBpm_ > 0.0f) {
+        ph = syncedPhase(i, c, dt, sound);
     } else {
         const float period = std::clamp(c.rateSeconds, LfoConfig::kMinRateSeconds, LfoConfig::kMaxRateSeconds);
         const float rate = safety::limitLfoRate(std::clamp(1.0f / period + rateAdd_[i], kMinRateHz, kMaxRateHz), c.target);
-        phases_[i] = std::fmod(phases_[i] + rate * dt, 1.0f);
-        totalPhase_[i] = std::fmod(totalPhase_[i] + rate * dt, kShPhaseWrap);
-        ph = phases_[i];
-        wrapped = ph < prevPhase_[i];
+        const float turned = phases_[i] + rate * dt;
+        const float whole = std::floor(turned);
+        cycle_[i] += static_cast<std::uint32_t>(whole);
+        ph = phases_[i] = turned - whole;
+        // Where a beat-timed slot eases from once the tempo arrives.
+        syncFree_[i] = ph;
+        syncLocked_[i] = false;
         prevPhase_[i] = ph;
     }
-    std::uniform_real_distribution<float> unit(0.0f, 1.0f);
     switch (c.wave) {
         case LfoWave::Sine: return std::sin(ph * kTau);
         case LfoWave::Triangle: return 4.0f * std::fabs(ph - 0.5f) - 1.0f;
         case LfoWave::Saw: return ph * 2.0f - 1.0f;
         case LfoWave::Square: return ph < 0.5f ? 1.0f : -1.0f;
-        case LfoWave::Random: {
-            // Free slots step on each whole turn of the long phase; beat-timed ones on the cycle's wrap.
-            const int cycle = static_cast<int>(std::floor(totalPhase_[i]));
-            const bool step = synced ? (wrapped || lastCycle_[i] < 0) : cycle != lastCycle_[i];
-            if (step) {
-                lastCycle_[i] = synced ? 0 : cycle;
-                sampleHold_[i] = unit(rng_) * 2.0f - 1.0f;
-            }
-            return sampleHold_[i];
-        }
+        case LfoWave::Random: return held(i, cycle_[i]);
         case LfoWave::RandomGlide: {
-            // Each cycle ends on the value it was gliding to, which becomes the start of the next, so
-            // the output is continuous across the wrap; the first cycle leaves from rest (0).
-            if (lastCycle_[i] < 0) {
-                lastCycle_[i] = 0;
-                glideTo_[i] = unit(rng_) * 2.0f - 1.0f;
-            } else if (wrapped) {
-                glideFrom_[i] = glideTo_[i];
-                glideTo_[i] = unit(rng_) * 2.0f - 1.0f;
-            }
+            // Each cycle glides from its own value to the next one's, so the output is continuous across
+            // the wrap and a switch from Random steps carries on from the held value; the very first
+            // cycle leaves from rest (0).
+            const float from = cycle_[i] == 0 ? 0.0f : held(i, cycle_[i]);
             const float t = ph * ph * (3.0f - 2.0f * ph);
-            return glideFrom_[i] + (glideTo_[i] - glideFrom_[i]) * t;
+            return from + (held(i, cycle_[i] + 1) - from) * t;
         }
     }
     return 0.0f;

@@ -40,7 +40,7 @@ class GeodeApp : Application() {
             // ring buffer alone, where the crash report already includes them.
             RingLog.echo = { tag, line -> android.util.Log.w(tag, line) }
         }
-        // Customize › Macros are process-wide in the engine: hand the saved knobs over before any
+        // The macro bank is process-wide in the engine: hand the saved bank over before any
         // surface (the app, the wallpaper, the dream, an export) builds a renderer.
         MacroStore.get(this)
         // The auto-director's switch is process-wide too, and so is Note & key reactions'.

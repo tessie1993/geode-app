@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -13,7 +14,7 @@
 // knob still moves the picture) and held to the field's range. No sound routes, no sound tuning, no
 // camera side path.
 //
-// The bank is process-wide and the user's own: knobs can be added, renamed and removed, and what a
+// The bank is process-wide (setGlobal) and the user's own: knobs can be added, renamed and removed, and what a
 // knob moves is edited link by link. The shell keeps it as one opaque string (encode) and hands it
 // back (decode); every edit is a pure function here, so Kotlin parses and decides nothing (ADR 0003).
 // Pure: no GL, no JNI.
@@ -95,6 +96,12 @@ std::uint64_t reachMask(const std::string& styleId);
 // live link moves is returned untouched, so a bank at centre is the identity.
 SceneParams apply(const SceneParams& p, const Bank& bank, std::uint64_t reach);
 SceneParams apply(const SceneParams& p, const Bank& bank, const std::string& styleId);
+
+// The process-wide bank every live renderer reads (geode_macro_bank_set). Any thread. A renderer takes
+// the shared copy once per frame (signal::EngineSettings), and an export keeps the one it pinned at
+// prepare, so an edit never changes a bank a frame is already using. The default bank until set.
+void setGlobal(const Bank& bank);
+std::shared_ptr<const Bank> global();
 
 // The bank as the shell stores it. Rows, '|'-separated, one per line:
 //   macrobank|<kTextVersion>|<next id>

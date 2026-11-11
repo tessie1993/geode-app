@@ -16,9 +16,9 @@
 #include "api/geode_ingest_handles.hpp"
 #include "audio/ingest/LayerMix.hpp"
 #include "viz/Director.hpp"
+#include "viz/DirectorReach.hpp"
 #include "viz/GyroLook.hpp"
 #include "viz/NoteResponse.hpp"
-#include "viz/Macros.hpp"
 #include "viz/LayerState.hpp"
 #include "viz/ModTargets.hpp"
 #include "viz/ReactionDna.hpp"
@@ -246,10 +246,15 @@ void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
             return;
         }
     }
+    // Speaker sync: behind the player's sink the engine hears up to the sample the speaker plays now.
+    // steady_clock is CLOCK_MONOTONIC on Android, the clock System.nanoTime stamps the sink's reports with.
+    const auto sinceBoot = std::chrono::steady_clock::now().time_since_epoch();
+    const int64_t nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(sinceBoot).count();
+    const int64_t limit = geode_playout_listen_limit(ring->playout.load(std::memory_order_acquire), nowNs);
     // A take ends where the rate changes, so a frame that straddles one takes twice; the bound keeps a
     // writer that outruns this loop from holding the frame.
     for (int run = 0; run < kFeedRunsPerFrame; ++run) {
-        const geode::audio::ingest::Cursor::Take take = v->feedCursor->take();
+        const geode::audio::ingest::Cursor::Take take = v->feedCursor->take(limit);
         if (take.restarted) v->renderer.resetAudio();
         if (take.frames <= 0) break;
         const int channels = v->feedCursor->channels();
@@ -564,41 +569,18 @@ int geode_react_source_catalog(char* out, int capacity) {
     return need;
 }
 
-void geode_macros_set(const float* knobs, int count) { macros::setGlobal(macros::clamped(knobs, count)); }
-
 void geode_director_set(int on, float amount, long long seed) {
     director::setGlobal(on != 0, amount, static_cast<uint64_t>(seed));
 }
+
+void geode_director_reach_set(int level) { director::setReach(level); }
+
+void geode_director_keep_set(const char* keys) { director::setKept(text(keys)); }
 
 void geode_note_response_set(int enabled) { note_response::setGlobal(enabled != 0); }
 
 void geode_layer_set(const char* scene_id, float mix, int blend_mode) {
     layer_state::set(layer_state::Layer{text(scene_id), mix, blend_mode});
-}
-
-void geode_macros_surprise(const float* knobs, int count, unsigned lock_mask, long long seed, float* out) {
-    if (!out) return;
-    const MacroKnobs k = macros::surprise(macros::clamped(knobs, count), lock_mask, static_cast<uint64_t>(seed));
-    for (int i = 0; i < count && i < kMacroCount; ++i) out[i] = k[static_cast<size_t>(i)];
-}
-
-int geode_macro_starters(char* out, int capacity) {
-    std::string text;
-    for (const macros::Starter& s : macros::starters()) {
-        text += s.name;
-        for (int i = 0; i < kMacroCount; ++i) {
-            text += i == 0 ? '|' : ',';
-            text += std::to_string(s.knobs[static_cast<size_t>(i)]);
-        }
-        text += '\n';
-    }
-    const int need = static_cast<int>(text.size());
-    if (out && capacity > 0) {
-        const int n = std::min(need, capacity - 1);
-        std::memcpy(out, text.data(), static_cast<size_t>(n));
-        out[n] = '\0';
-    }
-    return need;
 }
 
 int geode_style_reactions(const char* style_id, int seed, float* out, int capacity) {

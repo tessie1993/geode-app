@@ -87,6 +87,8 @@ class TakeSaveTargetTest {
             sceneId: String,
         ) = Unit
 
+        override fun lengthLimitNote(recordedMs: Long): String? = null
+
         override fun canRecord(): Boolean = true
 
         override fun onRecordLocked() = Unit

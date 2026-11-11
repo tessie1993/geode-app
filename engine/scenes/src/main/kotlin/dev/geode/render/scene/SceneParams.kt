@@ -24,7 +24,7 @@ data class SceneParams(
      * Native ShaderScene turns it into the `uSteps` uniform every one of them breaks on.
      */
     val marchDetail: Float = 1f,
-    val trails: Boolean = false,
+    val trails: Boolean = true,
     val trailLength: Float = 0.5f,
     val trailZoom: Float = 0f,
     val trailWarp: Float = 0f,

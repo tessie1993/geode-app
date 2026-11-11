@@ -33,7 +33,7 @@ data class OffscreenRenderSpec(
     // The track the range is cut from: the export's own sound engine hears it frame by frame
     // (TrackAudio), the same way the screen's engine hears the ring. Null renders without sound.
     val audioUri: Uri? = null,
-    // An export's length: non-null pins the engine settings (macros, Note & key switch, hand mask, director)
+    // An export's length: non-null pins the engine settings (macro bank, Note & key switch, hand mask, director)
     // natively at prepare (NativeViz.pinEngineSettings, #350), so live edits never reach the render; the
     // director's free-taste rule is native. Null follows the process globals (previews, thumbnails).
     val pinDurationMs: Long? = null,

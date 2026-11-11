@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlin.random.Random
 
 /**
- * The auto-director's switch (Settings › Behaviour) and the play it is directing.
+ * The auto-director's switch (Settings › Visual playback) and the play it is directing.
  *
  * The work is native (core/viz/Director): the music's feeling decides behaviour (axes, camera, motion)
  * over every style, never colour or a reaction route. This store only tells the engine how much to

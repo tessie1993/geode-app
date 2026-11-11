@@ -115,7 +115,7 @@ internal fun VisualsHub(
     onRequestedPageShown: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    // Read once per visit, off the main thread; Settings › Behaviour is another screen, so a change
+    // Read once per visit, off the main thread; Settings is another screen, so a change
     // there is always read on the way back.
     val behaviour by produceState(BehaviourPrefs()) {
         value = withContext(Dispatchers.IO) { BehaviourStore(GeodePrefsFiles(context).general).load() }
@@ -197,7 +197,7 @@ private fun VisualsHubContent(
             Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
         }
     }
-    // Settings › Behaviour › Keep the screen on in Visuals: held while this screen is composed (#337).
+    // Settings › Displays & casting › Keep the screen on in Visuals: held while this is composed (#337).
     KeepScreenOnWhileShown(behaviour.keepScreenOnVisuals)
     val studioViewModel: StudioViewModel = geodeViewModel()
     val takes by studioViewModel.takeState.collectAsStateWithLifecycle()

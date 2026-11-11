@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Note & key reactions' switch (Settings › Behaviour), persisted, and what the engine is told.
+ * Note & key reactions' switch (Settings › Sound reaction), persisted, and what the engine is told.
  *
  * The work is native (core/viz/NoteResponse): notes, chords, key and mood drive the six style knobs each
  * style spends its own way; it writes no scene param and no colour. This store only says

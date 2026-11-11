@@ -219,7 +219,7 @@ class PlayerViewModel
             decay: Float,
         ) = session.visual.setReactivity(attack, decay)
 
-        /** Settings › Visuals › Touch › Pinch and twist: a pinch's factor on Zoom, a twist's degrees on Rotation. */
+        /** Settings › Gestures & controls › Touch › Pinch and twist: a pinch's factor on Zoom, a twist's degrees on Rotation. */
         fun nudgeTransform(
             zoomFactor: Float,
             degrees: Float,

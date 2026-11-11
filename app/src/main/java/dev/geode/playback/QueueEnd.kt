@@ -11,7 +11,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Settings › Behaviour › At queue end: stop (default), start the queue again, or keep going with
+ * Settings › Playback › At queue end: stop (default), start the queue again, or keep going with
  * similar tracks from the library ([LibraryTree.similarTo]). Repeat modes come first: with repeat on,
  * the queue never ends, and this does nothing.
  *

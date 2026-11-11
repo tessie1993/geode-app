@@ -145,7 +145,7 @@ private fun Modifier.libraryListWidth(columns: Int): Modifier =
         .fillMaxWidth()
 
 /**
- * [onOpenFolders] opens Settings › Folders and [onOpenVisuals] opens Visuals: the empty library's
+ * [onOpenFolders] opens Settings › Library and [onOpenVisuals] opens Visuals: the empty library's
  * ways out ([LibraryEmptyHost]).
  */
 @Composable

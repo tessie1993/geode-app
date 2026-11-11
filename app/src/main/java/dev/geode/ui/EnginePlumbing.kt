@@ -130,7 +130,7 @@ fun VisualizerEngineBindings(
         visualizerView.visualizerRenderer.submitLayer(sceneId, layers.mix, layers.blend)
     }
     LaunchedEffect(Unit) {
-        // Settings › Visuals › Touch › Smear: handed over as set; native draws the strokes (core/viz/TouchSmear).
+        // Settings › Gestures & controls › Touch › Smear: handed over as set; native draws the strokes (core/viz/TouchSmear).
         settingsViewModel.guiPrefs
             .map { it.touchSmear to it.touchSmearStrength }
             .distinctUntilChanged()

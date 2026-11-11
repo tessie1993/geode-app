@@ -175,14 +175,12 @@ void MilkdropScene::update(const GeodeSoundFrame& features, float dt) {
     if (p.colorCycle) cyclePhase_ = std::fmod(cyclePhase_ + p.cycleSpeed * dt, 1.0f);
     beatPulse_ = std::max(std::max(live::hit(features), beatPulse_ - dt * 3.0f), 0.0f);
     if (!engine_) return;
+    // A frame with no new PCM feeds the engine nothing (PcmHandoff's contract).
     if (pcmCount_ > 0) {
         const int n = std::min(pcmCount_, kEnginePcmSamples);
         if (n < pcmCount_) std::copy(pcm_.begin() + (pcmCount_ - n), pcm_.begin() + pcmCount_, pcm_.begin());
         pcmCount_ = 0;
         projectm_pcm_add_float(engine_.get(), pcm_.data(), static_cast<unsigned int>(n), PROJECTM_MONO);
-    } else {
-        const int n = std::min(GEODE_SOUND_WAVEFORM_POINTS, kEnginePcmSamples);
-        projectm_pcm_add_float(engine_.get(), features.waveform + (GEODE_SOUND_WAVEFORM_POINTS - n), static_cast<unsigned int>(n), PROJECTM_MONO);
     }
 }
 

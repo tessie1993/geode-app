@@ -51,6 +51,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -81,6 +82,9 @@ fun TrackSeekBar(
     loopEndMs: Long?,
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    trackHeight: Dp = 3.dp,
+    // Null: the playhead runs the bar's full height.
+    playheadHeight: Dp? = null,
 ) {
     var dragFraction by remember { mutableFloatStateOf(-1f) }
     val played =
@@ -132,15 +136,16 @@ fun TrackSeekBar(
             val to = ((loopEndMs ?: durationMs) / durationMs.toFloat()).coerceIn(0f, 1f) * size.width
             drawRect(loopTint, topLeft = Offset(from, 0f), size = Size((to - from).coerceAtLeast(2f), size.height))
         }
-        val h = 3.dp.toPx()
+        val h = trackHeight.toPx()
         val y = size.height / 2f - h / 2f
         drawRoundRect(idle, Offset(0f, y), Size(size.width, h), CornerRadius(h / 2f))
         drawRoundRect(primary, Offset(0f, y), Size(size.width * played, h), CornerRadius(h / 2f))
+        val head = playheadHeight?.toPx() ?: size.height
         val x = (size.width * played).coerceIn(1f, maxOf(1f, size.width - 1f))
         drawRoundRect(
             playhead,
-            topLeft = Offset(x - 1.dp.toPx(), 0f),
-            size = Size(2.dp.toPx(), size.height),
+            topLeft = Offset(x - 1.dp.toPx(), (size.height - head) / 2f),
+            size = Size(2.dp.toPx(), head),
             cornerRadius = CornerRadius(1.dp.toPx()),
         )
     }

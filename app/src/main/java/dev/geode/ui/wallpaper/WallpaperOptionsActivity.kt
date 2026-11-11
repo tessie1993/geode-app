@@ -29,7 +29,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import dev.geode.R
-import dev.geode.data.ThemeStore
 import dev.geode.geodeContainer
 import dev.geode.ui.CrystalMaterialTheme
 import dev.geode.ui.CrystalSegmented
@@ -63,10 +62,10 @@ class WallpaperOptionsActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
         )
         super.onCreate(savedInstanceState)
-        val gui = ThemeStore(geodeContainer.prefsFiles.general).loadGui()
+        val general = geodeContainer.general.current()
         val store = WallpaperPrefsStore(geodeContainer.prefsFiles.wallpaper)
         setContent {
-            CrystalMaterialTheme(gui) {
+            CrystalMaterialTheme(general) {
                 WallpaperOptionsScreen(store, onClose = ::finish)
             }
         }

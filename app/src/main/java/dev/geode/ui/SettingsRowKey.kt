@@ -7,7 +7,7 @@ package dev.geode.ui
  * and `SettingsMapTest` holds that, so a regroup can never drop a row or show one twice.
  *
  * A row names where it is drawn, never what it stores: its pref key stays with its store
- * (`PlayerPrefs`, `BehaviourPrefs`, `GuiPrefs` and the rest), so moving a row between tabs changes
+ * (`PlayerPrefs`, `BehaviourPrefs`, `GeneralSettings` and the rest), so moving a row between tabs changes
  * no stored value and no backup.
  */
 enum class SettingsRowKey {

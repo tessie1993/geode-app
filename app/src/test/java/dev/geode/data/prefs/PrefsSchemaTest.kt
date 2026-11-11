@@ -1,10 +1,13 @@
 package dev.geode.data.prefs
 
+import android.content.SharedPreferences
 import dev.geode.audio.AudioFxController
 import dev.geode.audio.dsp.NativeDspProcessor
 import dev.geode.billing.CachedEntitlement
 import dev.geode.billing.PrefsEntitlementStore
 import dev.geode.billing.PrefsTrialStore
+import dev.geode.data.AppState
+import dev.geode.data.AppStateCodec
 import dev.geode.data.AutoDirectorStore
 import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.BackgroundPrefs
@@ -17,10 +20,13 @@ import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportDestination
 import dev.geode.data.ExportPrefsStore
 import dev.geode.data.FavouritesStore
+import dev.geode.data.GeneralSettings
+import dev.geode.data.GeneralSettingsCodec
 import dev.geode.data.GeodePrefsFiles
-import dev.geode.data.GuiPrefs
 import dev.geode.data.LfoStore
 import dev.geode.data.LibraryPrefsStore
+import dev.geode.data.LibrarySettings
+import dev.geode.data.LibrarySettingsCodec
 import dev.geode.data.LookStore
 import dev.geode.data.MEDIA_ROOTS_PREF_KEYS
 import dev.geode.data.MacroStore
@@ -32,9 +38,12 @@ import dev.geode.data.RecordPrefs
 import dev.geode.data.RecordPrefsStore
 import dev.geode.data.RecordSaveStore
 import dev.geode.data.SaveTarget
+import dev.geode.data.SoundInputSettings
+import dev.geode.data.SoundInputSettingsCodec
 import dev.geode.data.StudioPrefsStore
 import dev.geode.data.StyleShelfStore
-import dev.geode.data.ThemeStore
+import dev.geode.data.VisualsSettings
+import dev.geode.data.VisualsSettingsCodec
 import dev.geode.data.VizUiState
 import dev.geode.data.backup.BackupFormat
 import dev.geode.data.backup.BackupSection
@@ -75,16 +84,24 @@ class PrefsSchemaTest {
 
     private val owners =
         listOf(
-            Owner("$DATA/ThemeStore.kt", ThemeStore.PREF_KEYS) {
+            Owner("$DATA/GeneralSettings.kt", GeneralSettingsCodec.keys) {
+                GeneralSettingsCodec.save(it[general], GeneralSettings(fontColorArgb = 1))
+            },
+            Owner("$DATA/SoundInputSettings.kt", SoundInputSettingsCodec.keys) {
                 val tuning = SoundTuning.fromFloats(FloatArray(SoundFrameLayout.TUNING_FLOATS))
+                SoundInputSettingsCodec.save(it[general], SoundInputSettings(soundTuning = tuning))
+            },
+            Owner("$DATA/VisualsSettings.kt", VisualsSettingsCodec.keys) {
+                VisualsSettingsCodec.save(it[general], VisualsSettings())
+            },
+            Owner("$DATA/LibrarySettings.kt", LibrarySettingsCodec.keys) {
+                LibrarySettingsCodec.save(it[general], LibrarySettings(presetMirrorUri = "content://presets"))
+            },
+            Owner("$DATA/AppState.kt", AppStateCodec.keys) {
                 val tour = TourProgress(resume = TourSpot.entries.first(), tips = setOf(GestureTip.SWIPE_STYLES))
-                ThemeStore(it[general]).saveGui(
-                    GuiPrefs(soundTuning = tuning, presetMirrorUri = "content://presets", fontColorArgb = 1, tourProgress = tour),
-                )
+                AppStateCodec.save(it[general], AppState(tourProgress = tour))
             },
-            Owner("$DATA/BehaviourPrefs.kt", BehaviourCodec.keys) {
-                it[general].edit().also { editor -> BehaviourCodec.write(editor, BehaviourPrefs()) }.apply()
-            },
+            Owner("$DATA/BehaviourPrefs.kt", BehaviourCodec.keys) { BehaviourCodec.save(it[general], BehaviourPrefs()) },
             Owner("$DATA/ExportPrefs.kt", ExportPrefsStore.PREF_KEYS) {
                 val store = ExportPrefsStore(it[general])
                 store.save(ExportDefaults())
@@ -189,7 +206,6 @@ class PrefsSchemaTest {
             "$DATA/prefs/SettingsRepository.kt",
             "$DATA/VizStateStore.kt",
             "$DATA/FavouritesRepository.kt",
-            "$DATA/UserDataRepository.kt",
             "$DATA/backup/BackupRepository.kt",
             "$APP/di/DataModule.kt",
             "$APP/cast/CastStream.kt",
@@ -307,6 +323,12 @@ class PrefsSchemaTest {
         // LookStore reaches its file through GeodePrefsFiles, so it is an owner the scan does not see.
         assertEquals(owners.map { it.source }.toSet() + passThrough - "$DATA/LookStore.kt", found)
     }
+
+    /** Writes every field of [value], as a repository's first update or a whole write does. */
+    private fun <T> PrefsCodec<T>.save(
+        prefs: SharedPreferences,
+        value: T,
+    ) = prefs.edit().also { write(it, value) }.apply()
 
     private fun typeOf(value: Any): PrefType? =
         when (value) {

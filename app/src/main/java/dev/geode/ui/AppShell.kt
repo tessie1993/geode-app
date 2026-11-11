@@ -214,7 +214,9 @@ private fun AppContent(tourViewModel: TourViewModel) {
     val paywallViewModel: PaywallViewModel = geodeViewModel()
     val context = LocalContext.current
     val visualizerView = remember { VisualizerView(context) }
-    val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
+    val general by settingsViewModel.general.collectAsStateWithLifecycle()
+    val onboarding by settingsViewModel.appState.collectAsStateWithLifecycle()
+    val visualsSettings by settingsViewModel.visuals.collectAsStateWithLifecycle()
     ConnectedDisplayWatch()
     val appState = rememberGeodeAppState()
     // Read on IO: at cold start this is the first touch of the general prefs file, and a
@@ -228,7 +230,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
     val position = viewModel.positionMs.collectAsStateWithLifecycle()
     // A connected display shows the visual alone while the switch is on and Cast's entitlement allows it.
     val proGate by paywallViewModel.gate.collectAsStateWithLifecycle()
-    val secondScreen = ConnectedDisplays.target(wanted = gui.secondScreen, entitled = proGate.allows(ProFeature.CAST))
+    val secondScreen = ConnectedDisplays.target(wanted = visualsSettings.secondScreen, entitled = proGate.allows(ProFeature.CAST))
     val onSecondScreen = secondScreen != null
     if (secondScreen != null) {
         SecondScreenCanvas(secondScreen, visualizerView)
@@ -283,11 +285,11 @@ private fun AppContent(tourViewModel: TourViewModel) {
     val tour by tourViewModel.uiState.collectAsStateWithLifecycle()
     // A pointer lights real controls, so the ones that fade stay lit while it is up.
     // Its sleep timer waits while the boot intro or a first-run page covers the shell.
-    val shellCovered = (bootAnimEnabled != false && !appState.bootDone) || !gui.safetyAcknowledged || !gui.setupDone
-    val chrome = rememberShellChrome(gui.miniPlayerFadeSeconds, inPip, tour.step != null, shellCovered, appState.dest, state.title)
+    val shellCovered = (bootAnimEnabled != false && !appState.bootDone) || !onboarding.safetyAcknowledged || !onboarding.setupDone
+    val chrome = rememberShellChrome(general.miniPlayerFadeSeconds, inPip, tour.step != null, shellCovered, appState.dest, state.title)
     var dockHeight by remember { mutableStateOf(0.dp) }
     val visualsReserve by animateDpAsState(dockHeight, motion.defaultSpatialSpec(), label = "dock")
-    CrystalMaterialTheme(gui = gui, accentSource = accent) {
+    CrystalMaterialTheme(general = general, accentSource = accent) {
         val miniPlayer: @Composable (Modifier) -> Unit = { modifier ->
             FloatingMiniPlayer(
                 title = state.title,
@@ -385,7 +387,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
                                     chrome = chrome,
                                     bottomReserve = visualsReserve,
                                     // The glass slider (Visuals quick settings) tunes only the sheet over the visual, so the change shows.
-                                    sheetOpacity = gui.barOpacity,
+                                    sheetOpacity = general.barOpacity,
                                     onOpenStudioRender = appState::openStudioRender,
                                     pip = inPip,
                                     requestedPage = appState.visualsPageRequest,
@@ -423,7 +425,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
             // Onboarding and the safety notice draw in this window, over the shell. Hiding the shell
             // from accessibility keeps TalkBack from swiping into the app beneath. (The tour is a
             // Dialog, a window of its own, so it needs no such help.)
-            val overlayUp = (bootAnimEnabled == false || appState.bootDone) && (!gui.safetyAcknowledged || !gui.setupDone)
+            val overlayUp = (bootAnimEnabled == false || appState.bootDone) && (!onboarding.safetyAcknowledged || !onboarding.setupDone)
             Box(
                 Modifier
                     .fillMaxSize()
@@ -501,7 +503,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
             }
             // Keeps the platform's own auto-enter flag (API 31+) and the PiP window's play/pause
             // remote action in step with what is actually true.
-            LaunchedEffect(gui.autoEnterPip, state.isPlaying, visualShowing) {
+            LaunchedEffect(general.autoEnterPip, state.isPlaying, visualShowing) {
                 context.findMainActivity()?.refreshPipParams()
             }
             // The aspect ratio and the source rect hint follow the canvas: after first layout, a
@@ -510,15 +512,15 @@ private fun AppContent(tourViewModel: TourViewModel) {
                 snapshotFlow { VisualizerPipCoordinator.canvasBoundsPx }
                     .collect { context.findMainActivity()?.refreshPipParams() }
             }
-            if ((bootAnimEnabled == false || appState.bootDone) && !gui.safetyAcknowledged) {
+            if ((bootAnimEnabled == false || appState.bootDone) && !onboarding.safetyAcknowledged) {
                 SafetyConsent(
-                    onAcknowledge = { settingsViewModel.setGuiPrefs(gui.copy(safetyAcknowledged = true)) },
+                    onAcknowledge = { settingsViewModel.updateAppState { s -> s.copy(safetyAcknowledged = true) } },
                 )
-            } else if ((bootAnimEnabled == false || appState.bootDone) && !gui.setupDone) {
+            } else if ((bootAnimEnabled == false || appState.bootDone) && !onboarding.setupDone) {
                 // Setup runs only after the notice is acknowledged, and only until it is done.
                 FirstRunGate(
                     onDone = {
-                        settingsViewModel.setGuiPrefs(gui.copy(setupDone = true))
+                        settingsViewModel.updateAppState { s -> s.copy(setupDone = true) }
                         appState.navigateTo(GeodeDestination.PLAYER)
                         // No Pro offer here: the tour makes it, after the first look at Visuals.
                     },
@@ -533,8 +535,8 @@ private fun AppContent(tourViewModel: TourViewModel) {
                 playing = state.isPlaying,
                 blocked =
                     (bootAnimEnabled != false && !appState.bootDone) ||
-                        !gui.safetyAcknowledged ||
-                        !gui.setupDone ||
+                        !onboarding.safetyAcknowledged ||
+                        !onboarding.setupDone ||
                         paywall.visible ||
                         inPip,
                 onNavigate = { showTourScreen(it, appState) },

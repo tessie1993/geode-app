@@ -212,11 +212,11 @@ private fun NotificationButtonsRow(
 /** Whether swiping home from the fullscreen visualizer during playback drops into PiP on its own. */
 @Composable
 internal fun PictureInPictureSection(viewModel: SettingsViewModel) {
-    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
+    val general by viewModel.general.collectAsStateWithLifecycle()
     LabeledSwitch(
         stringResource(R.string.behavior_pip_auto_enter),
-        checked = gui.autoEnterPip,
-        onCheckedChange = { viewModel.setGuiPrefs(gui.copy(autoEnterPip = it)) },
+        checked = general.autoEnterPip,
+        onCheckedChange = { viewModel.updateGeneral { s -> s.copy(autoEnterPip = it) } },
     )
     SettingsHint(stringResource(R.string.behavior_pip_auto_enter_hint))
 }
@@ -253,22 +253,22 @@ internal fun ReducedMotionRow() {
  */
 @Composable
 internal fun TouchSmearRow(viewModel: SettingsViewModel) {
-    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
+    val visuals by viewModel.visuals.collectAsStateWithLifecycle()
     Column {
         LabeledSwitch(
             stringResource(R.string.behavior_touch_smear),
-            checked = gui.touchSmear,
-            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(touchSmear = it)) },
+            checked = visuals.touchSmear,
+            onCheckedChange = { viewModel.updateVisuals { s -> s.copy(touchSmear = it) } },
         )
         SettingsHint(stringResource(R.string.behavior_touch_smear_hint))
-        if (gui.touchSmear) {
+        if (visuals.touchSmear) {
             Text(
-                stringResource(R.string.behavior_smear_strength, (gui.touchSmearStrength * 100).toInt()),
+                stringResource(R.string.behavior_smear_strength, (visuals.touchSmearStrength * 100).toInt()),
                 style = MaterialTheme.typography.labelMedium,
             )
             CrystalSlider(
-                value = gui.touchSmearStrength,
-                onValueChange = { viewModel.setGuiPrefs(gui.copy(touchSmearStrength = it)) },
+                value = visuals.touchSmearStrength,
+                onValueChange = { viewModel.updateVisuals { s -> s.copy(touchSmearStrength = it) } },
                 valueRange = 0.2f..2f,
             )
         }
@@ -278,12 +278,12 @@ internal fun TouchSmearRow(viewModel: SettingsViewModel) {
 /** Gestures & controls › Touch: pinch and twist moving Zoom and Rotation (`VisualsHub`). */
 @Composable
 internal fun TouchTransformRow(viewModel: SettingsViewModel) {
-    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
+    val visuals by viewModel.visuals.collectAsStateWithLifecycle()
     Column {
         LabeledSwitch(
             stringResource(R.string.behavior_touch_transform),
-            checked = gui.touchTransform,
-            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(touchTransform = it)) },
+            checked = visuals.touchTransform,
+            onCheckedChange = { viewModel.updateVisuals { s -> s.copy(touchTransform = it) } },
         )
         SettingsHint(stringResource(R.string.behavior_touch_transform_hint))
     }

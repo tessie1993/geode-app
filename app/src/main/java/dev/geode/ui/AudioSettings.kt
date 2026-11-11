@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.audio.MicCapture
-import dev.geode.data.ThemeStore
+import dev.geode.data.VisualsSettingsCodec
 import dev.geode.engine.audio.SoundTuning
 import kotlin.math.roundToInt
 
@@ -37,26 +37,26 @@ internal fun OtherAppsAudioRow(viewModel: PlayerViewModel) {
 /** Sound reaction › Analysis: the sound engine's tuning. */
 @Composable
 internal fun SoundAnalysisSection(viewModel: SettingsViewModel) {
-    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
+    val input by viewModel.soundInput.collectAsStateWithLifecycle()
     Column {
-        SoundTuningControls(gui.soundTuning) { viewModel.setGuiPrefs(gui.copy(soundTuning = it.clamped())) }
+        SoundTuningControls(input.soundTuning) { viewModel.updateSoundInput { s -> s.copy(soundTuning = it.clamped()) } }
     }
 }
 
 /**
  * Visual playback › Preset morph: how long one look glides into the next when a preset is applied
- * ([dev.geode.data.GuiPrefs.presetMorphSeconds]); it moved from Sound input with the regroup, since
+ * ([dev.geode.data.VisualsSettings.presetMorphSeconds]); it moved from Sound input with the regroup, since
  * it is how the visual changes, not how it hears.
  */
 @Composable
 internal fun PresetMorphRow(viewModel: SettingsViewModel) {
-    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
+    val visuals by viewModel.visuals.collectAsStateWithLifecycle()
     Column {
-        Text(stringResource(R.string.audio_preset_morph, gui.presetMorphSeconds))
+        Text(stringResource(R.string.audio_preset_morph, visuals.presetMorphSeconds))
         CrystalSlider(
-            value = gui.presetMorphSeconds,
-            onValueChange = { viewModel.setGuiPrefs(gui.copy(presetMorphSeconds = it)) },
-            valueRange = 0f..ThemeStore.PRESET_MORPH_SECONDS_MAX,
+            value = visuals.presetMorphSeconds,
+            onValueChange = { viewModel.updateVisuals { s -> s.copy(presetMorphSeconds = it) } },
+            valueRange = 0f..VisualsSettingsCodec.PRESET_MORPH_SECONDS_MAX,
         )
     }
 }

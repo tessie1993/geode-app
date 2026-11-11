@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import dev.geode.data.GuiPrefs
+import dev.geode.data.GeneralSettings
 import dev.geode.render.VisualizerView
 import dev.geode.ui.theme.GeodeColors
 import dev.geode.ui.theme.GeodeGlass
@@ -52,14 +52,14 @@ import dev.geode.ui.theme.rememberUiSounds
  */
 @Composable
 internal fun CrystalMaterialTheme(
-    gui: GuiPrefs,
+    general: GeneralSettings,
     accentSource: Color? = null,
     content: @Composable () -> Unit,
 ) {
-    val fontColor = gui.fontColorArgb?.let { Color(it) }?.takeIf { isReadableOnCanvas(it) }
+    val fontColor = general.fontColorArgb?.let { Color(it) }?.takeIf { isReadableOnCanvas(it) }
     val scheme =
         geodeColorScheme(
-            accentIntensity = gui.accentIntensity,
+            accentIntensity = general.accentIntensity,
             fontColorOverride = fontColor,
             accentSource = accentSource,
         )
@@ -70,12 +70,12 @@ internal fun CrystalMaterialTheme(
         LocalContentColor provides scheme.onBackground,
         LocalReducedMotion provides reducedMotion,
         LocalGeodeMotion provides geodeMotionScheme(reducedMotion),
-        LocalUiSounds provides rememberUiSounds(gui.uiSounds),
+        LocalUiSounds provides rememberUiSounds(general.uiSounds),
     ) {
         MaterialTheme(
             colorScheme = scheme,
-            shapes = gui.cornerStyle.shapes(),
-            typography = crystalTypography(gui.textScale),
+            shapes = general.cornerStyle.shapes(),
+            typography = crystalTypography(general.textScale),
             content = content,
         )
     }
@@ -83,7 +83,7 @@ internal fun CrystalMaterialTheme(
 
 fun crystalTypography(textScale: Float = 1f): Typography =
     geodeTypography(
-        textScale.coerceIn(GuiPrefs.TEXT_SCALE_MIN, GuiPrefs.TEXT_SCALE_MAX),
+        textScale.coerceIn(GeneralSettings.TEXT_SCALE_MIN, GeneralSettings.TEXT_SCALE_MAX),
     )
 
 fun crystalShardShape(

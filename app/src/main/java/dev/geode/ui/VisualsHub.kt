@@ -200,7 +200,7 @@ private fun VisualsHubContent(
     val studioViewModel: StudioViewModel = geodeViewModel()
     val record by studioViewModel.recordState.collectAsStateWithLifecycle()
     val settingsViewModel: SettingsViewModel = geodeViewModel()
-    val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
+    val visualsSettings by settingsViewModel.visuals.collectAsStateWithLifecycle()
     // Why a recording ended or was not kept (too short, the maximum length, a failure).
     LaunchedEffect(record.note) { record.note?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show() } }
     var macros by rememberSaveable { mutableStateOf(false) }
@@ -310,7 +310,7 @@ private fun VisualsHubContent(
             // The halves of the visual left in view above the sheet; the whole height beside the panel.
             tapSplitPx = { if (side) fullPx / 2f else (fullPx - heightPx.value - reservePx) / 2f },
             onTapDown = tapAlong,
-            onPinch = viewModel::nudgeTransform.takeIf { gui.touchTransform },
+            onPinch = viewModel::nudgeTransform.takeIf { visualsSettings.touchTransform },
         )
         // What the glass blurs: the stage icons, never the GL surface (GlassBlur.kt says why).
         Box(Modifier.matchParentSize().glassBackdrop(backdrop)) {

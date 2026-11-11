@@ -24,22 +24,22 @@ class TouchAndDreamPrefsTest {
 
     @Test
     fun touchDefaultsAreSmearOffAndPinchOn() {
-        val gui = ThemeStore(prefs).loadGui()
-        assertFalse(gui.touchSmear)
-        assertEquals(1f, gui.touchSmearStrength)
-        assertTrue(gui.touchTransform)
+        val visuals = VisualsSettingsCodec.read(prefs)
+        assertFalse(visuals.touchSmear)
+        assertEquals(1f, visuals.touchSmearStrength)
+        assertTrue(visuals.touchTransform)
     }
 
     @Test
     fun touchSettingsRoundTripUnderTheirKeys() {
-        val store = ThemeStore(prefs)
-        store.saveGui(store.loadGui().copy(touchSmear = true, touchSmearStrength = 1.6f, touchTransform = false))
-        val back = ThemeStore(prefs).loadGui()
+        val changed = VisualsSettingsCodec.read(prefs).copy(touchSmear = true, touchSmearStrength = 1.6f, touchTransform = false)
+        prefs.edit().also { VisualsSettingsCodec.write(it, changed) }.commit()
+        val back = VisualsSettingsCodec.read(prefs)
         assertTrue(back.touchSmear)
         assertEquals(1.6f, back.touchSmearStrength)
         assertFalse(back.touchTransform)
-        assertTrue(prefs.getBoolean(ThemeStore.KEY_TOUCH_SMEAR, false))
-        assertFalse(prefs.getBoolean(ThemeStore.KEY_TOUCH_TRANSFORM, true))
+        assertTrue(prefs.getBoolean(VisualsSettingsCodec.KEY_TOUCH_SMEAR, false))
+        assertFalse(prefs.getBoolean(VisualsSettingsCodec.KEY_TOUCH_TRANSFORM, true))
     }
 
     @Test

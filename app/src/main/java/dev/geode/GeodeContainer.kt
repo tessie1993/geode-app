@@ -7,13 +7,21 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
+import dev.geode.data.AppStateCodec
+import dev.geode.data.AppStateRepository
 import dev.geode.data.BehaviourCodec
 import dev.geode.data.BehaviourRepository
+import dev.geode.data.GeneralSettingsCodec
+import dev.geode.data.GeneralSettingsRepository
 import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.LibrarySettingsCodec
+import dev.geode.data.LibrarySettingsRepository
 import dev.geode.data.MediaStoreSource
 import dev.geode.data.PerformanceStore
-import dev.geode.data.SharedPrefsUserDataRepository
-import dev.geode.data.UserDataRepository
+import dev.geode.data.SoundInputSettingsCodec
+import dev.geode.data.SoundInputSettingsRepository
+import dev.geode.data.VisualsSettingsCodec
+import dev.geode.data.VisualsSettingsRepository
 import dev.geode.data.prefs.PrefsSettingsRepository
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
@@ -29,10 +37,21 @@ class GeodeContainer(
 
     val prefsFiles = GeodePrefsFiles(context)
 
-    val userData: UserDataRepository = SharedPrefsUserDataRepository(prefsFiles.general, appScope)
+    // The settings repositories (#1009): one instance each for the app, its services and the screen
+    // saver, every load started here, at process start.
 
-    /** Behaviour's options, one instance for the app, the playback service and the screen saver; read from here, at process start. */
     val behaviour: BehaviourRepository = PrefsSettingsRepository(prefsFiles.general, BehaviourCodec, appScope)
+
+    val general: GeneralSettingsRepository = PrefsSettingsRepository(prefsFiles.general, GeneralSettingsCodec, appScope)
+
+    val soundInput: SoundInputSettingsRepository = PrefsSettingsRepository(prefsFiles.general, SoundInputSettingsCodec, appScope)
+
+    val visuals: VisualsSettingsRepository = PrefsSettingsRepository(prefsFiles.general, VisualsSettingsCodec, appScope)
+
+    val library: LibrarySettingsRepository = PrefsSettingsRepository(prefsFiles.general, LibrarySettingsCodec, appScope)
+
+    /** What the app remembers about this install (onboarding, the tour); not a preference. */
+    val appState: AppStateRepository = PrefsSettingsRepository(prefsFiles.general, AppStateCodec, appScope)
 
     /** Settings › Performance; the wallpaper and dream read the same prefs through their own store. */
     val performance: PerformanceStore by lazy { PerformanceStore(prefsFiles.general, context.applicationContext) }

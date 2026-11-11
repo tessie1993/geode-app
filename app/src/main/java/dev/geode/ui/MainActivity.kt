@@ -274,7 +274,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun autoEnterPipEligible(): Boolean =
-        settingsViewModel.guiPrefs.value.autoEnterPip &&
+        settingsViewModel.general.value.autoEnterPip &&
             VisualizerPipCoordinator.visualizerShowing &&
             playerViewModel.uiState.value.isPlaying
 

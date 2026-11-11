@@ -44,6 +44,12 @@ void UiBlurPass::release() {
     quarterB_.release();
 }
 
+void UiBlurPass::releaseTargets() {
+    half_.release();
+    quarterA_.release();
+    quarterB_.release();
+}
+
 void UiBlurPass::draw(const UiBlurRegion& region, GLuint targetFbo, int width, int height, GLuint quadVao) {
     if (blurProgram_ == 0 || maskProgram_ == 0 || !region.active() || width < 8 || height < 8) return;
     const int qw = width / 4;

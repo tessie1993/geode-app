@@ -16,6 +16,7 @@ public:
     ~TrailPass() { release(); }
     bool create(const ShaderSource& assets, ProgramBinaryCache* cache, const std::string& fadeVert, std::string* error);
     void release();
+    void releaseTargets() { trail_.release(); }
     void apply(const SceneParams& p, float keep, float timeSeconds, float dt, const Framebuffer& sceneTarget, GLuint quadVao,
                int renderWidth, int renderHeight);
     void drawFadeQuad(float alpha, GLuint quadVao);

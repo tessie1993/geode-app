@@ -54,6 +54,7 @@ public:
 
     bool create(const ShaderSource& assets, ProgramBinaryCache* cache, const std::string& fadeVert, std::string* error);
     void release();
+    void releaseTargets();
     // After the composite, with `targetFbo` holding the finished frame of width × height pixels.
     void draw(const UiBlurRegion& region, GLuint targetFbo, int width, int height, GLuint quadVao);
 

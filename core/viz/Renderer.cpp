@@ -568,6 +568,14 @@ void Renderer::trimScenes(const std::string& keepId, MemoryTrim trim) {
         const Scene* s = builtScene(id);
         return s != nullptr && (s == activeScene_ || s == outgoingScene_ || s == layerScene_);
     };
+    if (trim != MemoryTrim::None) {
+        // The passes' own targets are the larger share of what a hidden app holds (the liquid's two
+        // sides alone are six screens of pixels). Each is built again by the frame that needs it.
+        liquidPass_.releaseTargets();
+        trailPass_.releaseTargets();
+        uiBlurPass_.releaseTargets();
+        bornFbo_.release();
+    }
     for (const std::string& victim : residency_.evict(pinned, SceneResidency::spareBudget(appliedTier_, trim))) {
         for (auto it = scenes_.begin(); it != scenes_.end(); ++it) {
             if (it->first != victim) continue;

@@ -41,18 +41,15 @@ import dev.geode.data.backup.BackupSection
 import dev.geode.engine.audio.SoundFrameLayout
 import dev.geode.engine.audio.SoundTuning
 import dev.geode.export.ExportQuality
-import dev.geode.model.TutorialChapter
-import dev.geode.model.TutorialPosition
-import dev.geode.model.TutorialProgress
+import dev.geode.model.GestureTip
+import dev.geode.model.TourProgress
+import dev.geode.model.TourSpot
 import dev.geode.render.MilkPresetMemory
 import dev.geode.render.scene.SceneParams
 import dev.geode.ui.ModulationController
-import dev.geode.ui.tour.GestureTip
-import dev.geode.ui.tour.GestureTips
 import dev.geode.wallpaper.WallpaperPrefsStore
 import dev.geode.wallpaper.WallpaperSettings
 import dev.geode.widget.WidgetState
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -80,9 +77,9 @@ class PrefsSchemaTest {
         listOf(
             Owner("$DATA/ThemeStore.kt", ThemeStore.PREF_KEYS) {
                 val tuning = SoundTuning.fromFloats(FloatArray(SoundFrameLayout.TUNING_FLOATS))
-                val tour = TutorialProgress(resume = TutorialPosition(TutorialChapter.WELCOME, 1))
+                val tour = TourProgress(resume = TourSpot.entries.first(), tips = setOf(GestureTip.SWIPE_STYLES))
                 ThemeStore(it[general]).saveGui(
-                    GuiPrefs(soundTuning = tuning, presetMirrorUri = "content://presets", fontColorArgb = 1, tutorialProgress = tour),
+                    GuiPrefs(soundTuning = tuning, presetMirrorUri = "content://presets", fontColorArgb = 1, tourProgress = tour),
                 )
             },
             Owner("$DATA/BehaviourPrefs.kt", BehaviourStore.PREF_KEYS) { BehaviourStore(it[general]).save(BehaviourPrefs()) },
@@ -151,11 +148,6 @@ class PrefsSchemaTest {
             },
             Owner("$DATA/RecordSaveStore.kt", RecordSaveStore.PREF_KEYS) { RecordSaveStore(it).choose(SaveTarget.VideosLibrary) },
             Owner("$APP/wallpaper/WallpaperPrefs.kt", WallpaperPrefsStore.PREF_KEYS) { WallpaperPrefsStore(it).save(WallpaperSettings()) },
-            Owner("$APP/ui/tour/GestureTips.kt", GestureTips.PREF_KEYS) {
-                runBlocking { GestureTips.attach(it) }
-                GestureTips.nudge(GestureTip.SWIPE_STYLES)
-                GestureTips.dismiss()
-            },
             Owner("$APP/widget/WidgetState.kt", WidgetState.PREF_KEYS) {
                 WidgetState.save(it, WidgetState(artPath = "/cache/art.png", styleId = "plasma"))
             },

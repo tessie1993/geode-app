@@ -45,6 +45,7 @@ add_library(geode_core STATIC
     output/FrameClock.cpp
     output/LoopPlan.cpp
     output/EncodePlan.cpp
+    output/RecordPlan.cpp
     output/Chapters.cpp
     signal/timeline/Keyframes.cpp
     signal/timeline/SpeedRamp.cpp

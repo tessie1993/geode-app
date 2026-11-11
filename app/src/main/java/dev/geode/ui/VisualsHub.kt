@@ -1,5 +1,6 @@
 package dev.geode.ui
 
+import android.widget.Toast
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
@@ -136,6 +137,8 @@ internal fun VisualsHub(
     KeepScreenOnWhileShown(behaviour.keepScreenOnVisuals)
     val studioViewModel: StudioViewModel = geodeViewModel()
     val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
+    // Why a take ended or was not kept (too short, the maximum length, a render already running).
+    LaunchedEffect(takes.note) { takes.note?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show() } }
     var macros by rememberSaveable { mutableStateOf(false) }
     // While a drop-in is up the options fade out and take no touch (UI V2 rule 6: the visual shows
     // through, not the sheet); the nav state keeps the sheet's height, so it returns as it was.

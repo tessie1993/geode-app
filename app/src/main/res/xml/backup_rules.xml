@@ -19,10 +19,12 @@
     <exclude
         domain="file"
         path="milk/textures" />
-    <!-- Takes are megabytes of JSON per long performance: same quota
-         arithmetic as the textures above. Every project's takes live under
-         project-takes/<id>/ because a rule cannot name projects/<any id>/takes
-         (#384); project.json stays in, so My videos keeps its list. -->
+    <!-- The replayed takes Record no longer makes (megabytes of JSON per
+         performance). EditorProjectStore deletes project-takes/ at the first
+         start of this version; until then a backup must not carry it, for the
+         same quota as the textures above. Recordings go to the Videos library
+         or a picked folder, and one in progress is a cacheDir scratch file,
+         so neither is backed up here. -->
     <exclude
         domain="file"
         path="project-takes" />

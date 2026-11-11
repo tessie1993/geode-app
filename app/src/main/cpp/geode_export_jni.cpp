@@ -226,16 +226,6 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordSnapMaxLen
     return geode_record_snap_max_length(requestedSec);
 }
 
-JNIEXPORT jboolean JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordLimitReached(JNIEnv*, jobject, jlong recordedMs,
-                                                                                        jint maxSec) {
-    return geode_record_limit_reached(recordedMs, maxSec) ? JNI_TRUE : JNI_FALSE;
-}
-
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordClampLengthMs(JNIEnv*, jobject, jlong lengthMs,
-                                                                                      jint maxSec) {
-    return geode_record_clamp_length_ms(lengthMs, maxSec);
-}
-
 JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_recordEstimateBytes(JNIEnv*, jobject, jint videoBps,
                                                                                       jint lengthSec) {
     return geode_record_estimate_bytes(videoBps, lengthSec, nullptr);

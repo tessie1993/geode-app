@@ -180,12 +180,6 @@ int geode_record_max_length_at(int index) { return out::record::maxLengthAt(inde
 
 int geode_record_snap_max_length(int requested_sec) { return out::record::snapMaxLength(requested_sec); }
 
-int geode_record_limit_reached(int64_t recorded_ms, int max_sec) { return out::record::reached(recorded_ms, max_sec) ? 1 : 0; }
-
-int64_t geode_record_clamp_length_ms(int64_t length_ms, int max_sec) {
-    return out::record::clampLengthMs(length_ms, max_sec);
-}
-
 int64_t geode_record_estimate_bytes(int video_bps, int length_sec, int* out_lowered) {
     const auto estimate = out::record::estimate(video_bps, length_sec);
     if (out_lowered) *out_lowered = estimate.lowered ? 1 : 0;

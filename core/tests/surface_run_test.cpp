@@ -418,6 +418,37 @@ void fps() {
 
 }  // namespace
 
+// The app's own stage (core/viz/StageRun): it draws while somebody can see it, not only while resumed, and
+// exactly one surface counts the auto-director's style moments.
+void stage() {
+    const unsigned started = GEODE_STAGE_STARTED;
+    const unsigned resumed = started | GEODE_STAGE_RESUMED;
+    const auto draws = [](unsigned f) { return (geode_stage_run(f) & GEODE_STAGE_DRAWS) != 0; };
+    const auto castLeads = [](unsigned f) { return (geode_stage_run(f) & GEODE_STAGE_CAST_LEADS_AUTO) != 0; };
+    check(draws(resumed), "resumed: the stage draws");
+    check(!draws(started), "paused behind a dialog: the stage rests");
+    check(draws(started | GEODE_STAGE_PIP), "paused in a PiP window: the stage keeps drawing");
+    check(draws(started | GEODE_STAGE_SECOND_SCREEN), "paused with a second screen: the stage keeps drawing");
+    check(!draws(0), "stopped: the stage rests");
+    check(!draws(GEODE_STAGE_PIP | GEODE_STAGE_SECOND_SCREEN | GEODE_STAGE_RESUMED), "stopped beats every reason to draw");
+    check(!draws(GEODE_STAGE_CASTING), "a cast never keeps the hidden stage drawing");
+    check(castLeads(GEODE_STAGE_CASTING), "casting in the background: the cast counts the moments");
+    check(castLeads(started | GEODE_STAGE_CASTING), "casting behind a dialog: the cast counts the moments");
+    check(!castLeads(resumed | GEODE_STAGE_CASTING), "casting with the stage on screen: the stage counts them");
+    check(!castLeads(started | GEODE_STAGE_PIP | GEODE_STAGE_CASTING), "casting from a PiP window: the stage counts them");
+    check(!castLeads(0), "no cast: nothing leads in the background");
+    // The whole table: stopped never draws; the cast leads exactly when it runs and the stage does not; and
+    // an unknown bit changes nothing.
+    for (unsigned f = 0; f < 32; ++f) {
+        const bool expectDraws = (f & GEODE_STAGE_STARTED) != 0 &&
+            (f & (GEODE_STAGE_RESUMED | GEODE_STAGE_PIP | GEODE_STAGE_SECOND_SCREEN)) != 0;
+        check(draws(f) == expectDraws, "stage table: draws");
+        check(castLeads(f) == ((f & GEODE_STAGE_CASTING) != 0 && !expectDraws), "stage table: cast leads");
+        check(!(draws(f) && castLeads(f)), "never two surfaces counting the moments");
+        check(geode_stage_run(f | (1u << 9)) == geode_stage_run(f), "an unknown bit is ignored");
+    }
+}
+
 int main() {
     priorityOrder();
     preview();
@@ -434,6 +465,7 @@ int main() {
     reducedMotion();
     settle();
     fps();
+    stage();
     if (failures == 0) std::printf("surface_run_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

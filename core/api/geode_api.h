@@ -632,6 +632,19 @@ GEODE_API void            geode_auto_timer_restart(int timer, long long now_ms);
 GEODE_API int             geode_auto_timer_due(int timer, long long now_ms, int interval_s, int running);
 GEODE_API double          geode_auto_timer_hold_s(void);
 
+/* The app's own stage (viz/StageRun): flags are the GEODE_STAGE_* bits the shell observed of its Activity and
+ * of Cast; the answer is GEODE_STAGE_DRAWS while somebody can see the stage (resumed, or started in a
+ * picture-in-picture window or on a second screen) and GEODE_STAGE_CAST_LEADS_AUTO while a cast runs and the
+ * stage does not draw, when the cast's renderer counts the auto-director's style moments instead. Pure. */
+#define GEODE_STAGE_STARTED                  (1u << 0)
+#define GEODE_STAGE_RESUMED                  (1u << 1)
+#define GEODE_STAGE_PIP                      (1u << 2)
+#define GEODE_STAGE_SECOND_SCREEN            (1u << 3)
+#define GEODE_STAGE_CASTING                  (1u << 4)
+#define GEODE_STAGE_DRAWS                    (1u << 0)
+#define GEODE_STAGE_CAST_LEADS_AUTO          (1u << 1)
+GEODE_API unsigned        geode_stage_run(unsigned flags);
+
 /* The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt it draws with.
    `state` is eight int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS). */
 #define GEODE_PACER_STATE_LONGS 8

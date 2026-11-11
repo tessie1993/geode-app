@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include <string>
 
 #include "sound/SoundFrame.h"
 #include "viz/world/WorldGenome.hpp"
@@ -99,6 +100,15 @@ public:
     // Whether the scene bound the baked maps and shape volume (WorldAssets) for the shader.
     void setAssetsBound(bool bound) { texturesBound_ = bound; }
 
+    // lib_world's optional parts (WG_PARTS) the world can need until the next retarget: bit i is the
+    // primitive PBox + i, bit kTerrainPart the landscape, set while it has weight in the world the
+    // glide comes from, goes to or is at. The scene compiles lib_world with these alone (withParts):
+    // the sixteen primitives behind uniform branches made one shader whose registers and code a mobile
+    // GPU pays for at every step, though a world draws one or two of them. Every part before the first step.
+    uint32_t parts() const;
+    static constexpr int kTerrainPart = kPrimCount;
+    static constexpr uint32_t kAllParts = (1u << (kPrimCount + 1)) - 1u;
+
     const Genome& target() const { return to_; }
     int targetSeed() const { return toSeed_; }
     int retargets() const { return retargets_; }
@@ -168,5 +178,9 @@ private:
     bool texturesBound_ = false;
     std::array<float, kUniformCount> uniforms_{};
 };
+
+// Morph World's fragment source built with only `parts` (MorphDriver::parts) of lib_world: a
+// `#define WG_PARTS` after the #version line, which lib_world reads before it defaults to every part.
+std::string withParts(const std::string& fragment, uint32_t parts);
 
 }  // namespace geode::viz::world

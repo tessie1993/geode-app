@@ -111,6 +111,7 @@ internal fun BoxScope.VisualsStage(
 @Composable
 internal fun BoxScope.StageIcons(
     chrome: ShellChromeState,
+    sheetShown: Boolean,
     sheetTopPx: () -> Float,
     endPx: () -> Float,
     onFullScreen: () -> Unit,
@@ -154,7 +155,8 @@ internal fun BoxScope.StageIcons(
         StageIconButton(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render), awake, onOpenStudioRender)
         StageIconButton(
             StoneIcon.FULLSCREEN,
-            stringResource(R.string.visuals_gesture_toggle_sheet),
+            // With the options hidden this is the visible way back to them, so it says so.
+            stringResource(if (sheetShown) R.string.visuals_gesture_toggle_sheet else R.string.visuals_show_options),
             awake,
             onClick = {
                 GestureTips.nudge(GestureTip.DOUBLE_TAP_SHEET)

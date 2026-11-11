@@ -21,9 +21,10 @@ out vec4 fragColor;
 // is still painted, not lit: every surface is drawn as ink density, wet and
 // dark at a quill's root and breaking into dry-brush streaks toward its tip,
 // pooled darker along its silhouette, and thinned toward the paper with
-// distance, the way a far stroke is a paler wash. The paper and the red seal
-// stay flat on the sheet in screen space; only the flower is in depth. The
-// palette appears only twice, as a pale wash in the heart and in the seal.
+// distance, the way a far stroke is a paler wash. The paper stays flat on the
+// sheet in screen space; only the flower is in depth. The palette appears only
+// as a pale wash in the heart. There is no red seal (hanko): its carved hashed
+// squares read as a QR code on the phone, so the owner had it removed.
 //
 // ---- camera -----------------------------------------------------------------
 //
@@ -51,8 +52,8 @@ out vec4 fragColor;
 // short quills curled over the heart (dropped on the low-quality path).
 // Chaos: uTurbulence + uWarp give every quill its own length and lift, a
 // shaggier head. uTwist hooks every quill harder. Energy: uIntensity scales
-// the bleed and the splatter. Colour: pal() tints the ink, the heart wash and
-// the seal. Space: uZoom via view(). Knobs (offsets from 0.5, so off is the
+// the bleed and the splatter. Colour: pal() tints the ink and the heart wash.
+// Space: uZoom via view(). Knobs (offsets from 0.5, so off is the
 // tuned look): k0 PULSE the splatter, k1 TEXTURE the dry-brush break, k2 FLOW
 // the bleed, k3 TONE the wash's hue, k4 BUILD how far the outer ring opens,
 // k5 SPACE the orbit distance.
@@ -306,7 +307,7 @@ vec3 normalAt(vec3 p, float eps) {
 
 void main() {
     vec2 uv = view();
-    // The sheet itself is flat: paper and seal in unwarped screen space.
+    // The sheet itself is flat: paper in unwarped screen space.
     vec2 suv = (vUv * 2.0 - 1.0) * vec2(uResolution.x / uResolution.y, 1.0);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
 
@@ -436,16 +437,8 @@ void main() {
     vec3 inkCol = mix(vec3(0.05, 0.055, 0.07), pal(hue + 0.6) * 0.15, 0.2);
     vec3 col = mix(paper, inkCol, ink);
 
-    // The colour: a pale wash in the heart of the flower...
+    // The colour: a pale wash in the heart of the flower.
     col = mix(col, col * mix(vec3(1.0), pal(hue) * 1.2, 0.55), heart);
-    // ...and the seal, stamped on the sheet.
-    vec2 sealC = vec2(-0.55 * uResolution.x / uResolution.y + 0.12, -0.72);
-    vec2 sq2 = (suv - sealC) / 0.075;
-    float box = max(abs(sq2.x), abs(sq2.y));
-    float carve = step(0.45, chrysHash(floor(sq2 * 3.0 + 7.0))) * step(box, 0.78);
-    float sealInk = smoothstep(1.0, 0.97, box) * (1.0 - carve * 0.85) * (0.85 + 0.15 * motionNoise(sq2 * 12.0));
-    vec3 sealCol = mix(vec3(0.72, 0.12, 0.08), pal(hue + 0.95), 0.25);
-    col = mix(col, sealCol, sealInk);
 
     fragColor = vec4(grade(col), 1.0);
 }

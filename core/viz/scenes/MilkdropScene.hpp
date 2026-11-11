@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "viz/Framebuffer.hpp"
+#include "viz/PcmHandoff.hpp"
 #include "viz/Program.hpp"
 #include "viz/Scene.hpp"
 #include "viz/scenes/ProgramLoader.hpp"
@@ -21,7 +22,7 @@ namespace geode::viz {
 // The engine never touches the window surface, so the scene is independent of the EGL config.
 class MilkdropScene : public Scene {
 public:
-    MilkdropScene(ProgramLoader loader, SceneHost host) : loader_(loader), host_(std::move(host)), pcm_(kPcmCapacity, 0.0f) {}
+    MilkdropScene(ProgramLoader loader, SceneHost host) : loader_(loader), host_(std::move(host)), pcm_(kPcmCapacity * 2, 0.0f) {}
     ~MilkdropScene() override { release(); }
 
     const std::string& id() const override { return id_; }
@@ -32,7 +33,7 @@ public:
     void update(const GeodeSoundFrame& features, float dt) override;
     void draw(float timeSeconds) override;
     void release() override;
-    void acceptPcm(const float* samples, int count) override;
+    void acceptPcmStereo(const float* mono, const float* side, int count) override;
     void queueMilkPreset(const std::string& path) override;
     void setMilkFallbackPreset(const std::string& path) override;
     void reloadMilkPreset() override;
@@ -71,8 +72,18 @@ private:
     std::string id_ = "milkdrop";
     ProgramLoader loader_;
     SceneHost host_;
+    // Stereo frames (L R interleaved); pcmCount_ counts frames.
     std::vector<float> pcm_;
     int pcmCount_ = 0;
+    PcmStarve pcmStarve_;
+    // The frame rate presets read as `fps`, and an export's render clock (seconds since this engine's
+    // first frame): projectM otherwise runs on the wall clock, so a render's speed would follow the encoder.
+    int engineFps_ = 0;
+    double engineClockS_ = 0.0;
+    // The texture search paths the engine was last given; setting them rebuilds its texture manager.
+    std::vector<std::string> textureDirs_;
+    // Set by a reload (under presetLock_): the next load hands the paths over again.
+    bool rescanTextures_ = false;
     Engine engine_;
     // Whether engine_ holds a preset of ours. A new engine starts on projectM's idle preset, which
     // the app never shows: until this is set the scene draws black, and the first load is a hard

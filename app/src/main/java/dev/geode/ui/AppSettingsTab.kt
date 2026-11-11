@@ -1,6 +1,5 @@
 package dev.geode.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -189,7 +188,7 @@ internal fun AppSettingsTab(
             onRequestedGroupShown()
         }
     }
-    BackHandler(enabled = group != null) { groupName = null }
+    CloseOnBack(enabled = group != null) { groupName = null }
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(Modifier.widthIn(max = SettingsMaxWidth).fillMaxSize()) {
             if (group == null) {

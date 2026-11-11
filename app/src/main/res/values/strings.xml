@@ -498,7 +498,6 @@
 
     <!-- Settings › Audio › Other apps (playback capture). -->
     <string name="ext_visualize_other_apps">Visualize other apps</string>
-    <string name="ext_needs_android10">Needs Android 10 or newer — the API that lets one app read another app\'s audio arrived with it. Live input (the microphone) works on every version and can hear the same speaker.</string>
     <string name="ext_explainer">Drives the visuals from whatever is already playing on this device — a streaming app, a video, a game — instead of from a file in your library. Android asks for capture permission first, and shows a notification the whole time it is running. Audio is analysed live and never recorded, saved or sent anywhere.</string>
     <string name="ext_waiting_permission">Waiting for the capture permission…</string>
     <string name="ext_listening_to">Listening to %1$s.</string>
@@ -511,7 +510,6 @@
     <string name="ext_refused_body">%1$s does not allow other apps to capture its audio. Android honours that, and there is no setting on either side that changes it — the capture is running and being handed digital silence. Most other apps (YouTube, podcast players, games) do allow it and work here.</string>
     <string name="ext_mic_alternative">The microphone still hears your speaker. It picks up the room with it, so it is a rougher signal — but it reacts to %1$s.</string>
     <string name="ext_use_mic_instead">Use the microphone instead</string>
-    <string name="ext_fail_unsupported">This device is older than Android 10, which introduced audio capture between apps.</string>
     <string name="ext_fail_permission">Microphone access is off for MuzViz. Android requires it for audio capture of any kind — turn it on in Android Settings › Apps › MuzViz › Permissions.</string>
     <string name="ext_fail_consent">Capture permission was not given. Nothing is being read.</string>
     <string name="ext_fail_unavailable">The device would not open an audio capture at any format — another app may be holding it.</string>
@@ -534,7 +532,6 @@
     <string name="render_cancel">Cancel</string>
     <string name="render_group_look">Look</string>
     <string name="render_look_current">Current look</string>
-    <string name="render_batch_needs_q">Rendering a queue, a playlist or chosen tracks needs Android 10 or later.</string>
     <string name="render_batch_label">Rendering %1$d tracks</string>
     <string name="render_batch_progress">Track %1$d of %2$d · %3$s</string>
     <string name="render_batch_summary">%1$d of %2$d rendered to Movies/MuzViz.</string>

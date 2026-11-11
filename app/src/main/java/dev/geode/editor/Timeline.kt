@@ -186,26 +186,6 @@ data class Lane(
     fun withClips(next: List<Clip>): Lane = copy(clips = next.sortedBy { it.startMs })
 }
 
-/**
- * How far time moved and from where, so a ripple edit can be applied to markers and keyframes as
- * well as clips. [deltaMs] is negative when time was removed.
- *
- * [scope] and [movedClips] record how wide the ripple was, which is what lets the markers and the
- * clip-scoped keyframe tracks work out whether it was theirs to follow.
- */
-data class RippleShift(
-    val fromMs: Long,
-    val deltaMs: Long,
-    val scope: RippleScope = RippleScope.ALL_LANES,
-    val movedClips: Set<ClipId> = emptySet(),
-)
-
-/** Whether a ripple pulls one lane tight or the whole programme. */
-enum class RippleScope {
-    LANE,
-    ALL_LANES,
-}
-
 data class Timeline(
     val lanes: List<Lane> = emptyList(),
     val durationMs: Long = 0L,

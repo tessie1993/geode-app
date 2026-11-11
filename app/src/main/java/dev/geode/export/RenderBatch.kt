@@ -33,19 +33,6 @@ enum class RenderScope {
 
     companion object {
         /**
-         * Android 10 (API 29), the first release where a batch can work. A batch has no
-         * destination picker: every track goes into Movies/MuzViz through MediaStore, with
-         * RELATIVE_PATH and IS_PENDING. Before scoped storage, inserting into the shared Videos
-         * collection needs WRITE_EXTERNAL_STORAGE, which Geode does not declare (it asks for
-         * nothing it can do without), so on Android 8 and 9 every track of a batch failed at
-         * the insert. A single render there can still save to a folder the user picks.
-         */
-        const val BATCH_MIN_SDK: Int = 29
-
-        /** Whether batches can run on a device at [sdkInt]; see [BATCH_MIN_SDK]. */
-        fun batchSupported(sdkInt: Int): Boolean = sdkInt >= BATCH_MIN_SDK
-
-        /**
          * The tracks [scope] renders, in order, each once: a queue or a hand-made list can hold the
          * same track twice, and rendering it twice would only make two identical files.
          */

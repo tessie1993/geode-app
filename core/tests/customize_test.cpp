@@ -195,9 +195,11 @@ void categoriesAndSectionsFollowTheStyle() {
     check(!shownSection("julia", "LIQUID/water"), "no Water section elsewhere");
     check(shownSection("fluid", "SHAPE/particles"), "Particles on a fluid style");
     check(!shownSection("julia", "SHAPE/particles"), "no Particles on a shader style");
-    check(shownSection("fluid", "EXPERT/engine"), "Fluid's engine in Expert");
-    check(shownSection("milkdrop", "EXPERT/engine"), "MilkDrop's engine in Expert");
-    check(!shownSection("julia", "EXPERT/engine"), "no engine section on a shader style");
+    check(shownSection("fluid", "EXPERT/fluid_flow") && shownSection("fluid", "EXPERT/fluid_look"), "Fluid's engine in Expert");
+    check(!shownSection("fluid", "EXPERT/plate") && !shownSection("fluid", "EXPERT/milkdrop"), "only its own engine on Fluid");
+    check(shownSection("milkdrop", "EXPERT/milkdrop"), "MilkDrop's engine in Expert");
+    check(!shownSection("julia", "EXPERT/fluid_flow") && !shownSection("julia", "EXPERT/plate") && !shownSection("julia", "EXPERT/milkdrop"),
+          "no engine section on a shader style");
     check(shownSection("julia", "EXPERT/shader_code"), "shader code on a shader style");
     check(!shownSection("milkdrop", "EXPERT/shader_code"), "no shader code on MilkDrop");
     check(shownSection("julia", "LOOK/basics"), "Look's Basics everywhere");

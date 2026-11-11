@@ -35,6 +35,12 @@ public:
     virtual void release() = 0;
 
     virtual void acceptPcm(const float* samples, int count) { (void) samples; (void) count; }
+    // The same block with its side signal ((L - R) / 2, zero for a mono source), for a scene that draws
+    // left against right. Every other scene takes the mono mix.
+    virtual void acceptPcmStereo(const float* mono, const float* side, int count) {
+        (void) side;
+        acceptPcm(mono, count);
+    }
     virtual void setFlow(GLuint texture, float strength) { (void) texture; (void) strength; }
     virtual void setPaletteLut(GLuint texture) { (void) texture; }
     virtual void setTouchField(const TouchField* field) { (void) field; }

@@ -42,15 +42,14 @@ import dev.geode.audio.PlaybackCaptureService
  * visuals should listen to something else (another app or the mic). Stateless, so a UI test can
  * draw it alone; [LibraryEmptyHost] wires it to the app.
  *
- * [onListenToApp] is null where the platform cannot capture another app (before Android 10):
- * the menu then offers the microphone alone. [minTrackSeconds] above zero adds one line saying
- * short files are hidden, since that filter is the other way songs can go missing.
+ * [minTrackSeconds] above zero adds one line saying short files are hidden, since that filter is
+ * the other way songs can go missing.
  */
 @Composable
 internal fun LibraryEmpty(
     onRescan: () -> Unit,
     onChooseFolder: () -> Unit,
-    onListenToApp: (() -> Unit)?,
+    onListenToApp: () -> Unit,
     onListenToMic: () -> Unit,
     modifier: Modifier = Modifier,
     minTrackSeconds: Int = 0,
@@ -89,19 +88,17 @@ internal fun LibraryEmpty(
         }
         Box {
             OutlinedButton(
-                onClick = { if (onListenToApp == null) onListenToMic() else listenMenu = true },
+                onClick = { listenMenu = true },
                 modifier = buttonWidth,
             ) { Text(stringResource(R.string.library_empty_listen)) }
             DropdownMenu(expanded = listenMenu, onDismissRequest = { listenMenu = false }) {
-                if (onListenToApp != null) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.library_empty_listen_app)) },
-                        onClick = {
-                            listenMenu = false
-                            onListenToApp()
-                        },
-                    )
-                }
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.library_empty_listen_app)) },
+                    onClick = {
+                        listenMenu = false
+                        onListenToApp()
+                    },
+                )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.library_empty_listen_mic)) },
                     onClick = {
@@ -157,20 +154,15 @@ internal fun LibraryEmptyHost(
     LibraryEmpty(
         onRescan = onRescan,
         onChooseFolder = onChooseFolder,
-        onListenToApp =
-            if (external.supported) {
-                {
-                    if (external.active) {
-                        onOpenVisuals()
-                    } else {
-                        capturePermissions.launch(
-                            arrayOf(android.Manifest.permission.RECORD_AUDIO, android.Manifest.permission.POST_NOTIFICATIONS),
-                        )
-                    }
-                }
+        onListenToApp = {
+            if (external.active) {
+                onOpenVisuals()
             } else {
-                null
-            },
+                capturePermissions.launch(
+                    arrayOf(android.Manifest.permission.RECORD_AUDIO, android.Manifest.permission.POST_NOTIFICATIONS),
+                )
+            }
+        },
         onListenToMic = {
             // A mic that fails to open keeps the user here rather than on a visual with nothing to hear.
             if (playerViewModel.hasMicPermission()) {

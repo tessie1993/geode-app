@@ -5,20 +5,15 @@ import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
 import android.media.projection.MediaProjection
-import android.os.Build
 import dev.geode.util.bestEffort
 
 enum class CaptureFailure {
-    UNSUPPORTED,
-
     PERMISSION,
 
     CONSENT,
 
     UNAVAILABLE,
 }
-
-val playbackCaptureSupported: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
 
 class PlaybackCapture(
     ring: dev.geode.engine.audio.SampleRing,

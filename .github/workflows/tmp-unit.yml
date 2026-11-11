@@ -1,6 +1,7 @@
 name: tmp unit
 on:
-  workflow_dispatch:
+  push:
+    branches: [test/883-robolectric-store-tests]
 permissions:
   contents: read
 jobs:

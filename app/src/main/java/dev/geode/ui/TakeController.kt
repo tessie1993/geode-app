@@ -30,10 +30,7 @@ data class TakeUiState(
     val replayEndMs: Long = 0L,
     val exportTake: String? = null,
     val note: String? = null,
-    /**
-     * A take saved on the first stop that has nowhere to render yet: the ask-once save sheet
-     * (`RecordSaveSheet`) shows while this is set, and [TakeController.chooseSaveTarget] answers it.
-     */
+    /** A take saved on the first stop with nowhere to render yet: `RecordSaveSheet` asks until [TakeController.chooseSaveTarget]. */
     val pendingSave: String? = null,
 )
 

@@ -17,7 +17,9 @@ constexpr float kSilenceHold = 0.5f;
 constexpr float kReturnAfter = 1.0f;
 constexpr float kWarmSeconds = 50.0f / 30.0f;
 constexpr float kRewarmAfter = 2.0f;  // silence this long re-arms the warm-up (a new track)
-constexpr float kStarved = 0.1f;
+// Nothing written for longer than this is a stall. Well over a decoder's block cadence (about 100 ms), so
+// a block a frame or two late is not one.
+constexpr float kStarved = 0.25f;
 // A band quieter than this holds nothing worth measuring. Absolute (about -74 dBFS), like everything that
 // says how loud the music is: a floor that followed the track's own peak made a quiet ambient master as
 // "loud" as a mastered one to every detector below it.

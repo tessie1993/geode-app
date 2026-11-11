@@ -359,6 +359,28 @@ void testStarvedGoesQuiet() {
     CHECK(f.rms == 0.0f, "rms after starving %f", f.rms);
 }
 
+// A decoder hands over about 100 ms at a time, so a block a frame or two late leaves the engine with
+// nothing new for 100 ms or more. That is jitter, not a stall: no frame between blocks may read silence
+// (kills kStarved back at 0.1 s, where the 8-frame gap's 117 ms starves).
+void testLateBlocksAreNotStarvation() {
+    for (const int gap : {7, 8, 12}) {
+        SoundEngine e(48000);
+        std::vector<float> buf(2 * 4800);
+        Noise n;
+        GeodeSoundFrame f{};
+        int zeros = 0;
+        for (int i = 0; i < 20 * gap; i++) {
+            if (i % gap == 0) {
+                for (float& v : buf) v = 0.3f * n.next();
+                e.write(buf.data(), 4800, 2);
+            }
+            e.step(1.0f / 60.0f, f);
+            if (f.rms == 0.0f) zeros++;
+        }
+        CHECK(zeros == 0, "100 ms blocks every %d frames: %d frames read silence", gap, zeros);
+    }
+}
+
 // A loud entrance after a quiet intro is MilkDrop's hard cut: it fires at once, and only once. Steady
 // music never cuts. On soft-limited ratios (below 4) the starting threshold of 5 could never be reached.
 void testHardCut() {
@@ -586,6 +608,7 @@ int main() {
     testSilenceAndReturn();
     testWaveformHoldsStill();
     testStarvedGoesQuiet();
+    testLateBlocksAreNotStarvation();
     testHardCut();
     testFadeGain();
     testPlayerSignals();

@@ -272,7 +272,10 @@ void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
     // steady_clock is CLOCK_MONOTONIC on Android, the clock System.nanoTime stamps the sink's reports with.
     const auto sinceBoot = std::chrono::steady_clock::now().time_since_epoch();
     const int64_t nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(sinceBoot).count();
-    const int64_t limit = geode_playout_listen_limit(ring->playout.load(std::memory_order_acquire), nowNs);
+    const geode_playout* playout = ring->playout.load(std::memory_order_acquire);
+    // A ring no sink plays is not the player's: its engine never takes the player's source, fade or boundary.
+    v->renderer.setFedPlayersRing(playout != nullptr);
+    const int64_t limit = geode_playout_listen_limit(playout, nowNs);
     // A take ends where the rate changes, so a frame that straddles one takes twice; the bound keeps a
     // writer that outruns this loop from holding the frame.
     for (int run = 0; run < kFeedRunsPerFrame; ++run) {

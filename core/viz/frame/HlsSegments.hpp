@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <vector>
 
 #include "viz/frame/FixedRateClock.hpp"
 
@@ -19,19 +20,33 @@ namespace geode::viz::frame::hls {
 // its trun, over the timescale that track's mdhd names. It used to be the wall time between two cuts,
 // which follows how fast the encoder happened to drain, not what the TV will play: a slow drain then a
 // quick one made a 1.4 s and a 0.6 s EXTINF for two one-second fragments, and TARGETDURATION jumped to 2.
-// TARGETDURATION is now fixed for the stream from the nominal segment length (the cast keyframe
-// interval), since RFC 8216 6.2.1 forbids changing it, and a fragment that cannot be read is listed at
-// that nominal length. Media3 1.11's FragmentedMp4Muxer writes tfhd flags 0x000001 (a base data offset),
-// trun version 1 with flags 0x701 and no tfdt; tfdt and composition offsets (0xF01) parse too.
+// TARGETDURATION is fixed for the stream (RFC 8216 6.2.1 forbids changing it), and a fragment that
+// cannot be read is listed at the nominal length.
+//
+// Media3 1.11's FragmentedMp4Muxer writes each traf as tfhd flags 0x000001 (an absolute base data
+// offset: the moof's position in the one continuous file) and trun version 1 flags 0x701, with no tfdt.
+// Served as is, a segment means nothing on its own: a receiver joining at the live edge resolves the
+// samples outside the bytes it has and has no decode time to place them (RFC 8216 3.3, CMAF). So
+// rewriteFragment turns each fragment into a self-contained one before it is served: default-base-is-moof
+// (0x020000) in place of the base offset, a version 1 tfdt with the track's running decode time, and the
+// trun data offsets and box sizes moved by what that changed. tfdt and composition offsets (0xF01) parse
+// too.
 //
 // Only the boxes on the way are read (moov/trak/{tkhd,mdia/{mdhd,hdlr}}, moov/mvex/trex,
-// moof/traf/{tfhd,trun}); a box that claims more bytes than its parent has ends the walk, so nothing is
-// read past the buffer. Pure maths, no I/O, testable on the host (core/tests/hls_segments_test.cpp).
+// moof/traf/{tfhd,tfdt,trun}); a box that claims more bytes than its parent has ends the walk (or refuses
+// the rewrite), so nothing is read past the buffer. Pure maths, no I/O, testable on the host
+// (core/tests/hls_segments_test.cpp).
 
 constexpr int kWindow = 6;          // segments kept and listed: about six seconds at one-second fragments
 constexpr int kStartSegments = 3;   // HLS players start three segments back from the live edge
 constexpr double kNominalSegmentSec = CastFormat::kKeyframeIntervalSec;   // one fragment per keyframe
 constexpr int kMaxTracks = 8;
+constexpr size_t kMaxGrowth = 20 * kMaxTracks;   // a tfdt per traf is all a rewrite adds
+// A fragment runs from one keyframe at least kNominalSegmentSec after its first to the next: one
+// interval and a frame or two, or up to two when the encoder misses one keyframe or the frame clock
+// drops slots after a stall. The target covers that (each EXTINF rounds to at most it up to 2.5 s);
+// past it the freeze watchdog (CastStream.FROZEN_MS) is what answers.
+constexpr double kLongestSegmentSec = 2 * kNominalSegmentSec;
 
 namespace detail {
 
@@ -76,6 +91,7 @@ struct TrackTiming {
     uint32_t id = 0;
     uint32_t timescale = 0;
     uint32_t defaultDuration = 0;   // trex
+    uint32_t defaultSize = 0;       // trex
     bool video = false;
 };
 
@@ -123,7 +139,10 @@ inline Tracks readTracks(const uint8_t* init, size_t n) {
             if (!isType(childType, "mvex")) return;
             forEachBox(mvex, mvexLen, [&](const uint8_t* mvexType, const uint8_t* trex, size_t trexLen) {
                 if (!isType(mvexType, "trex") || trexLen < 16) return;
-                if (TrackTiming* track = out.find(be32(trex + 4))) track->defaultDuration = be32(trex + 12);
+                TrackTiming* track = out.find(be32(trex + 4));
+                if (!track) return;
+                track->defaultDuration = be32(trex + 12);
+                if (trexLen >= 20) track->defaultSize = be32(trex + 16);
             });
         });
     });
@@ -195,11 +214,10 @@ inline double fragmentSeconds(const uint8_t* init, size_t initSize, const uint8_
     return video >= 0.0 ? video : longest;
 }
 
-// EXT-X-TARGETDURATION for a stream whose segments nominally last nominalSec: fixed for the whole
-// stream (RFC 8216 6.2.1: it MUST NOT change), never recomputed over the window, where one late keyframe
-// (a 31-frame, 1.033 s fragment) used to move it 1 -> 2 -> 1 between reloads. Rounded to the nearest
-// second like the EXTINF rule it bounds (4.3.3.1: each EXTINF rounded to the nearest integer is at most
-// it), at least 1, so fragments up to half a second over the keyframe interval stay within it.
+// EXT-X-TARGETDURATION for a stream whose segments last at most longestSec: fixed for the whole stream
+// (RFC 8216 6.2.1: it MUST NOT change), never recomputed over the window. Rounded to the nearest second
+// like the EXTINF rule it bounds (4.3.3.1: each EXTINF rounded to the nearest integer is at most it), at
+// least 1.
 inline int targetDuration(double nominalSec) {
     const int target = static_cast<int>(std::lround(nominalSec));
     return target > 1 ? target : 1;
@@ -221,7 +239,7 @@ inline std::string playlist(int64_t firstSequence, const double* durations, int 
     }
     std::string out = "#EXTM3U\n#EXT-X-VERSION:7\n";
     char line[96];
-    std::snprintf(line, sizeof line, "#EXT-X-TARGETDURATION:%d\n", targetDuration(kNominalSegmentSec));
+    std::snprintf(line, sizeof line, "#EXT-X-TARGETDURATION:%d\n", targetDuration(kLongestSegmentSec));
     out += line;
     std::snprintf(line, sizeof line, "#EXT-X-MEDIA-SEQUENCE:%lld\n", static_cast<long long>(firstSequence));
     out += line;
@@ -239,5 +257,198 @@ inline std::string playlist(int64_t firstSequence, const double* durations, int 
     }
     return out;
 }
+
+namespace detail {
+
+inline void put32(std::vector<uint8_t>& b, uint32_t v) {
+    for (int s = 24; s >= 0; s -= 8) b.push_back(static_cast<uint8_t>(v >> s));
+}
+inline void put64(std::vector<uint8_t>& b, uint64_t v) {
+    put32(b, static_cast<uint32_t>(v >> 32));
+    put32(b, static_cast<uint32_t>(v));
+}
+inline void patch32(std::vector<uint8_t>& b, size_t at, uint32_t v) {
+    for (int i = 0; i < 4; ++i) b[at + i] = static_cast<uint8_t>(v >> (24 - 8 * i));
+}
+inline void putBox(std::vector<uint8_t>& b, const uint8_t* type, const uint8_t* body, size_t len) {
+    put32(b, static_cast<uint32_t>(8 + len));
+    b.insert(b.end(), type, type + 4);
+    b.insert(b.end(), body, body + len);
+}
+
+// True when [p, p + n) is exactly a run of whole boxes, each small enough to rewrite with a 32-bit size.
+inline bool tiles(const uint8_t* p, size_t n) {
+    size_t walked = 0;
+    bool small = true;
+    forEachBox(p, n, [&](const uint8_t*, const uint8_t* body, size_t len) {
+        walked = static_cast<size_t>(body + len - p);
+        small = small && len <= UINT32_MAX - 16;
+    });
+    return small && walked == n;
+}
+
+// A trun's data offset, where it sits in the rewritten moof, and the sample bytes it names, as a
+// position in the fragment as given.
+struct Run {
+    size_t field = 0;
+    int64_t at = 0;
+    uint64_t bytes = 0;
+};
+
+// One traf rewritten into out: tfhd's base offset dropped for default-base-is-moof, a tfdt after it
+// unless it has one, everything else copied. False on anything it cannot place exactly.
+inline bool rewriteTraf(const uint8_t* p, size_t n, Tracks& tracks, int64_t moofAt, bool firstTraf,
+                        int64_t* decodeTimes, std::vector<uint8_t>& out, std::vector<Run>& runs) {
+    if (!tiles(p, n)) return false;
+    uint32_t id = 0;
+    uint64_t units = 0;
+    readTraf(p, n, tracks, id, units);
+    const TrackTiming* track = tracks.find(id);
+    if (!track) return false;
+    int64_t& decodeTime = decodeTimes[track - tracks.list];
+    bool hasTfdt = false;
+    forEachBox(p, n, [&](const uint8_t* type, const uint8_t* b, size_t len) {
+        if (!isType(type, "tfdt") || len < 8) return;
+        hasTfdt = true;
+        decodeTime = static_cast<int64_t>(b[0] == 1 && len >= 12 ? be64(b + 4) : be32(b + 4));
+    });
+    const size_t start = out.size();
+    put32(out, 0);
+    out.insert(out.end(), {'t', 'r', 'a', 'f'});
+    bool ok = true;
+    bool haveTfhd = false;
+    int64_t base = 0;
+    uint32_t defaultSize = track->defaultSize;
+    forEachBox(p, n, [&](const uint8_t* type, const uint8_t* b, size_t len) {
+        if (!ok) return;
+        if (isType(type, "tfhd")) {
+            const uint32_t flags = len >= 8 ? be32(b) & 0xFFFFFF : 0;
+            const size_t baseLen = (flags & 0x01) ? 8 : 0;
+            const size_t sizeAt = 8 + baseLen + ((flags & 0x02) ? 4 : 0) + ((flags & 0x08) ? 4 : 0);
+            const size_t need = sizeAt + ((flags & 0x10) ? 4 : 0) + ((flags & 0x20) ? 4 : 0);
+            if (haveTfhd || len < 8 || len < need) {
+                ok = false;
+                return;
+            }
+            haveTfhd = true;
+            if (flags & 0x01) {
+                const uint64_t given = be64(b + 8);
+                if (given > uint64_t{INT64_MAX >> 1}) {
+                    ok = false;
+                    return;
+                }
+                base = static_cast<int64_t>(given);
+            } else if ((flags & 0x020000) || firstTraf) {
+                base = moofAt;
+            } else {
+                ok = false;   // after the previous traf's data: not a layout any muxer here writes
+                return;
+            }
+            if (flags & 0x10) defaultSize = be32(b + sizeAt);
+            put32(out, static_cast<uint32_t>(8 + len - baseLen));
+            out.insert(out.end(), {'t', 'f', 'h', 'd'});
+            put32(out, (uint32_t{b[0]} << 24) | ((flags & ~0x01u) | 0x020000u));
+            out.insert(out.end(), b + 4, b + 8);
+            out.insert(out.end(), b + 8 + baseLen, b + len);
+            if (!hasTfdt) {
+                put32(out, 20);
+                out.insert(out.end(), {'t', 'f', 'd', 't'});
+                put32(out, 0x01000000);
+                put64(out, static_cast<uint64_t>(decodeTime));
+            }
+        } else if (isType(type, "trun")) {
+            const uint32_t flags = len >= 8 ? be32(b) & 0xFFFFFF : 0;
+            const uint64_t count = len >= 8 ? be32(b + 4) : 0;
+            size_t stride = 0;
+            for (uint32_t bit : {0x100u, 0x200u, 0x400u, 0x800u})
+                if (flags & bit) stride += 4;
+            const size_t head = 8 + 4 + ((flags & 0x004) ? 4 : 0);
+            if (!haveTfhd || !(flags & 0x001) || len < head || (stride && (len - head) / stride < count)) {
+                ok = false;
+                return;
+            }
+            Run run;
+            run.field = out.size() + 8 + 8;
+            run.at = base + static_cast<int32_t>(be32(b + 8)) - moofAt;
+            if (flags & 0x200) {
+                const size_t sizeAt = head + ((flags & 0x100) ? 4 : 0);
+                for (uint64_t i = 0; i < count; ++i) run.bytes += be32(b + sizeAt + i * stride);
+            } else {
+                run.bytes = count * defaultSize;
+            }
+            runs.push_back(run);
+            putBox(out, type, b, len);
+        } else {
+            putBox(out, type, b, len);
+        }
+    });
+    if (!ok || !haveTfhd) return false;
+    patch32(out, start, static_cast<uint32_t>(out.size() - start));
+    decodeTime += static_cast<int64_t>(units);
+    return true;
+}
+
+}  // namespace detail
+
+// Rewrites one fragment (its moof then its mdat, as cast/LiveSegments cuts them) into a self-contained
+// HLS segment: see the top of this file. moofAt is the moof's position in the muxer's continuous output
+// (what its absolute base offsets count from). decodeTimes holds each init track's running decode time
+// (kMaxTracks of them, in init order, from 0): read for the tfdt written, then moved on by this
+// fragment's samples, only when the rewrite succeeds. Returns the rewritten length written to out, or 0
+// when the input is malformed, a sample would resolve outside the segment, or cap is short (input +
+// kMaxGrowth is always enough). The mfhd, and so its sequence number, is copied as it is.
+inline size_t rewriteFragment(const uint8_t* init, size_t initSize, int64_t moofAt, const uint8_t* fragment,
+                              size_t fragmentSize, int64_t* decodeTimes, uint8_t* out, size_t cap) {
+    if (!fragment || !decodeTimes || !out || fragmentSize < 8 || moofAt < 0 || moofAt > (INT64_MAX >> 1)) return 0;
+    detail::Tracks tracks = detail::readTracks(init, initSize);
+    if (tracks.count == 0) return 0;
+    uint64_t moofSize = detail::be32(fragment);
+    size_t header = 8;
+    if (moofSize == 1) {
+        if (fragmentSize < 16) return 0;
+        moofSize = detail::be64(fragment + 8);
+        header = 16;
+    }
+    if (!detail::isType(fragment + 4, "moof") || moofSize < header || moofSize > fragmentSize) return 0;
+    const uint8_t* body = fragment + header;
+    const size_t bodyLen = static_cast<size_t>(moofSize) - header;
+    if (!detail::tiles(body, bodyLen)) return 0;
+
+    int64_t times[kMaxTracks];
+    std::memcpy(times, decodeTimes, sizeof times);
+    std::vector<uint8_t> moof;
+    moof.reserve(static_cast<size_t>(moofSize) + kMaxGrowth);
+    detail::put32(moof, 0);
+    moof.insert(moof.end(), {'m', 'o', 'o', 'f'});
+    std::vector<detail::Run> runs;
+    int trafs = 0;
+    bool ok = true;
+    detail::forEachBox(body, bodyLen, [&](const uint8_t* type, const uint8_t* b, size_t len) {
+        if (!ok) return;
+        if (detail::isType(type, "traf")) {
+            ok = ++trafs <= kMaxTracks &&
+                 detail::rewriteTraf(b, len, tracks, moofAt, trafs == 1, times, moof, runs);
+        } else {
+            detail::putBox(moof, type, b, len);
+        }
+    });
+    if (!ok) return 0;
+    detail::patch32(moof, 0, static_cast<uint32_t>(moof.size()));
+    const auto oldMoof = static_cast<int64_t>(moofSize);
+    const auto size = static_cast<int64_t>(fragmentSize);
+    for (const detail::Run& run : runs) {
+        if (run.at < oldMoof || run.at > size || run.bytes > static_cast<uint64_t>(size - run.at)) return 0;
+        const int64_t offset = run.at - oldMoof + static_cast<int64_t>(moof.size());
+        if (offset > INT32_MAX) return 0;
+        detail::patch32(moof, run.field, static_cast<uint32_t>(offset));
+    }
+    const size_t rest = fragmentSize - static_cast<size_t>(moofSize);
+    if (moof.size() + rest > cap) return 0;
+    std::memcpy(out, moof.data(), moof.size());
+    std::memcpy(out + moof.size(), fragment + moofSize, rest);
+    std::memcpy(decodeTimes, times, sizeof times);
+    return moof.size() + rest;
+}
+
 
 }  // namespace geode::viz::frame::hls

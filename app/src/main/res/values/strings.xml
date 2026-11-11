@@ -1102,6 +1102,7 @@
     <string name="visuals_gesture_show_mini_player">Show the mini player</string>
     <string name="visuals_gesture_quick_settings">Visual quick settings</string>
     <string name="visuals_gesture_toggle_sheet">Show or hide the options</string>
+    <string name="visuals_show_options">Show options</string>
     <string name="visuals_gesture_next_preset">Next preset</string>
     <string name="visuals_gesture_previous_preset">Previous preset</string>
     <string name="visuals_gesture_next_look">Next look</string>

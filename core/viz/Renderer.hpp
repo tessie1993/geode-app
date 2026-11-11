@@ -193,7 +193,8 @@ private:
     // This frame's engine settings (signal/EngineSettings): the process globals, or an export's pinned copy.
     signal::EngineSettings latchEngineSettings() { return settingsLatch_.latch(reducedMotion_.load(std::memory_order_relaxed)); }
     // Latches the requested params and configs, steps the resolver, then the device masks.
-    SceneParams resolveParams(float dt);
+    SceneParams resolveParams(float dt, float wallDt);
+    bool holds(const Scene& scene, const Scene* held) const;
     void resolveLayerScene();
     // beginFrame, under stateLock_: takes the layer layerFollower_ hands over when it changed.
     void syncLayerLocked();
@@ -421,6 +422,17 @@ private:
     double lastTimeS_ = -1.0;
     double frameNowS_ = 0.0;
     float timeSeconds_ = 0.0f;
+    // The music's rate on the picture's clock this frame (sound::motionRate): 0 in silence.
+    float musicRate_ = 0.0f;
+    // What a stopped clock holds: the scenes whose targets carry their last frame, and the look and size
+    // they were drawn at. redrawFrames_ lets a request the params do not carry (a MilkDrop preset) through.
+    bool frameStill_ = false;
+    const Scene* heldScene_ = nullptr;
+    const Scene* heldLayer_ = nullptr;
+    std::array<float, SceneParams::kFieldCount> heldWire_{};
+    int heldWidth_ = 0;
+    int heldHeight_ = 0;
+    int redrawFrames_ = 0;
     // Latched once per frame in beginFrame, so the
     // rest of the frame (composite(), drawSecondaryTargets(), ...) reads a
     // stable snapshot instead of racing pinLayer()/setTransition() on

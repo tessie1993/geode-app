@@ -60,7 +60,7 @@ inline float advance(float phase, float octavesPerSecond, float dt) {
 
 /** How hard a bass hit pushes the dive: bassAtt 2 (a strong hit) dives 1.35x as fast. */
 inline constexpr float kBassPush = 0.35f;
-/** Silence drifts at this share of Dive speed: slow, but never a full stop (owner's call). */
+/** The dive eases to this share of Dive speed as the music fades; the frame's clock then stops it (sound::motionRate). */
 inline constexpr float kSilenceRate = 0.3f;
 /** However far below its mean the bass falls, the dive never stalls or backs out. */
 inline constexpr float kMinRate = 0.25f;
@@ -75,7 +75,7 @@ inline constexpr float kMinRate = 0.25f;
  * (core/sound/DriveGain): a loud dense song dives harder than a quiet sparse one.
  *
  * presence (0..1, ~2 s fades) blends between the music's rate and the silent
- * drift, so a pause eases the dive down to kSilenceRate instead of freezing it.
+ * rate, so a pause eases the dive down to kSilenceRate before the frame's clock stops.
  * Audio drive scales the music's reach like everywhere else; at 0 the dive runs
  * at exactly Dive speed whatever plays.
  */

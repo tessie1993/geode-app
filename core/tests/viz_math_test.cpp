@@ -1121,6 +1121,21 @@ void endlessZoomFollowsTheBassNotTheLoudness() {
 // The music's absolute magnitude (the frame's drive) scales how much audio moves the picture: the same relative
 // swell on a pad (drive 0.1) moves the dive, the routes, the motion field and the camera less than on a fat
 // track (drive 0.8). The base values, and the silence drift, are untouched.
+// No sound, no movement: the picture's clock stops in silence, runs whole while music plays, and eases
+// between the two as presence fades.
+void theClockStopsInSilence() {
+    GeodeSoundFrame f = silence();
+    check(geode::sound::motionRate(f) == 0.0f, "silence stops the clock");
+    f.presence = 0.04f;
+    check(geode::sound::motionRate(f) == 0.0f, "the tail of a fade is a full stop, not a crawl");
+    f.presence = 0.25f;
+    const float easing = geode::sound::motionRate(f);
+    check(easing > 0.0f && easing < 1.0f, "a fading presence eases the clock");
+    check(geode::sound::motionRate(playing()) == 1.0f, "music runs the clock whole");
+    f.presence = std::nanf("");
+    check(geode::sound::motionRate(f) == 0.0f, "a non-finite presence is silence");
+}
+
 void driveScalesTheMagnitudeOfMotion() {
     GeodeSoundFrame fat = playing();
     fat.drive = 0.8f;
@@ -1721,6 +1736,7 @@ int main() {
     sustainHoldsLongerAtLongerTrails();
     endlessZoomPhaseWrapsForEverInBothDirections();
     endlessZoomFollowsTheBassNotTheLoudness();
+    theClockStopsInSilence();
     driveScalesTheMagnitudeOfMotion();
     endlessZoomDrivesTheRigForward();
     endlessZoomReducedMotionScalesTheDiveOnce();

@@ -185,6 +185,10 @@ vec2 camFlat(vec2 c) {
     return c / max(uCamFlat.z, 0.05) + uCamFlat.xy;
 }
 
+// Past the edge the picture is reflected, never the clamped edge texel smeared into stripes.
+// Identity inside 0..1.
+vec2 mirrorUv(vec2 p) { return 1.0 - abs(1.0 - mod(p, 2.0)); }
+
 vec2 geo(vec2 uv, vec4 gate, float camOn) {
     bool geoOn = gate.x > 0.5;
     bool mirrorOn = gate.y > 0.5;
@@ -253,9 +257,7 @@ vec2 geo(vec2 uv, vec4 gate, float camOn) {
         float px = mix(512.0, 40.0, uPostPixelate);
         p = (floor(p * px) + 0.5) / px;
     }
-    // Mirror-wrap so a camera that zooms out or tilts past the edge sees the
-    // picture reflected, never the clamped edge smeared across the frame.
-    if (camOn > 0.5) p = 1.0 - abs(1.0 - mod(p, 2.0));
+    if (camOn > 0.5) p = mirrorUv(p);
     return p;
 }
 
@@ -300,11 +302,11 @@ vec3 postFx(sampler2D tex, vec2 uv, vec4 gate, float camOn) {
     vec3 col;
     if (uChroma > 0.001) {
         vec2 dir = (p - 0.5) * uChroma * 0.03;
-        col.r = texture(tex, clamp(p + dir, 0.0, 1.0)).r;
-        col.g = texture(tex, clamp(p, 0.0, 1.0)).g;
-        col.b = texture(tex, clamp(p - dir, 0.0, 1.0)).b;
+        col.r = texture(tex, mirrorUv(p + dir)).r;
+        col.g = texture(tex, mirrorUv(p)).g;
+        col.b = texture(tex, mirrorUv(p - dir)).b;
     } else {
-        col = texture(tex, clamp(p, 0.0, 1.0)).rgb;
+        col = texture(tex, mirrorUv(p)).rgb;
     }
     // Ripple overlay glint: Blinn specular from the wave normal (same light
     // rig as water_display_frag) plus a small gradient-magnitude shimmer so
@@ -480,7 +482,7 @@ vec3 blended() {
         vec2 zUv = (vUv - 0.5) / (1.0 + sh * 2.5) + 0.5;
         vec3 bZoom = postFx(uTexB, clamp(zUv, 0.0, 1.0), uGateB, uCamGate.y);
         vec2 aUv = (vUv - 0.5) * (1.0 + (1.0 - sh) * 0.35) + 0.5;
-        vec3 aZoom = postFx(uTexA, clamp(aUv, 0.0, 1.0), uGateA, uCamGate.x);
+        vec3 aZoom = postFx(uTexA, mirrorUv(aUv), uGateA, uCamGate.x);
         return mix(bZoom, aZoom, sh);
     } else {
         float lumB = dot(texture(uTexB, vUv).rgb, vec3(0.299, 0.587, 0.114));

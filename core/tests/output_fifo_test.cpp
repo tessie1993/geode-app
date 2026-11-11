@@ -402,15 +402,67 @@ void testStopEndsWithoutAStream() {
     CHECK(fifo.positionUs(1000 + kSecondNs, none, 0) == 125'000, "never past the last frame written");
     CHECK(fifo.ended(), "ended by the clock");
 
-    // Paused after stop: the clock does not run it on.
+    // Paused before stop: the clock does not run it on.
     OutputFifo held(48000, 2, 12000);
     held.play(0);
     CHECK(held.writeFloat(signal.data(), 6000) == 6000, "wrote");
-    held.stop(0);
     held.pause();
+    held.stop(0);
     CHECK(held.positionUs(kSecondNs, none, 0) == 0 && !held.ended(), "paused: it waits");
     held.play(kSecondNs);
     CHECK(held.positionUs(kSecondNs + kSecondNs / 16, none, 0) == 62'500, "resumed: on from where it stood");
+}
+
+// After stop() the output plays out: the consumer learns when it has read the last frame (the stream
+// then stops itself), and the pause the sink sends when the position reaches the end is ignored.
+void testStopPlaysOutAndIgnoresPause() {
+    OutputFifo fifo(48000, 2, 12000);
+    const std::vector<float> signal = stereo(0, 1000);
+    std::vector<float> got(static_cast<size_t>(600) * 2);
+    StreamTime none;
+    CHECK(!fifo.stopped() && !fifo.drained(), "an empty fifo that was not stopped is not drained");
+    fifo.play(0);
+    CHECK(fifo.writeFloat(signal.data(), 1000) == 1000, "wrote");
+    fifo.read(got.data(), 600);
+    CHECK(!fifo.drained(), "not stopped yet");
+    fifo.stop(0);
+    CHECK(fifo.stopped() && !fifo.drained(), "stopped, 400 frames still wait");
+
+    // The pause is ignored: the position keeps moving to the end.
+    fifo.pause();
+    const int64_t early = fifo.positionUs(kSecondNs / 480, none, 0);  // 100 frames by the clock
+    CHECK(early > 0, "a pause after stop does not freeze the position: %lld us", static_cast<long long>(early));
+    fifo.play(kSecondNs / 480);  // ignored too: nothing starts over
+    fifo.read(got.data(), 300);
+    CHECK(!fifo.drained(), "100 frames still wait");
+    fifo.read(got.data(), 300);
+    CHECK(checkStereo(got, 300, 900) == 100, "the last 100 frames, then silence");
+    CHECK(fifo.drained(), "the consumer has read the last frame");
+    CHECK(!fifo.ended(), "drained is not ended: the tail is still on its way to the speaker");
+    CHECK(fifo.positionUs(kSecondNs, none, 0) == 1000 * 1'000'000LL / 48000, "the end is reached all the same");
+    CHECK(fifo.ended(), "ended");
+    CHECK(fifo.underruns() == 0, "playing out is not an underrun");
+
+    // A pause before stop() is an ordinary pause, and stays one after it; play() then resumes.
+    OutputFifo held(48000, 2, 12000);
+    held.play(0);
+    CHECK(held.writeFloat(signal.data(), 1000) == 1000, "wrote");
+    held.read(got.data(), 600);
+    held.positionUs(kSecondNs / 100, none, 0);
+    held.pause();
+    const int64_t frozen = held.positionUs(kSecondNs / 50, none, 0);
+    held.stop(kSecondNs / 50);
+    held.pause();
+    CHECK(held.positionUs(kSecondNs, none, 0) == frozen, "paused before stop: the position stands");
+    CHECK(!held.drained() && !held.ended(), "and nothing is drained");
+    held.play(kSecondNs);
+    held.read(got.data(), 600);
+    CHECK(held.drained(), "resumed: it plays out");
+    CHECK(held.positionUs(2 * kSecondNs, none, 0) == 1000 * 1'000'000LL / 48000 && held.ended(), "and ends");
+
+    // A flush clears the stop.
+    held.flush();
+    CHECK(!held.stopped() && !held.drained(), "a flushed fifo is not stopped");
 }
 
 void testVolumeRamp() {
@@ -610,6 +662,7 @@ int main() {
     testPositionAt(48000);
     testPositionAt(96000);
     testStopEndsWithoutAStream();
+    testStopPlaysOutAndIgnoresPause();
     testVolumeRamp();
     testStall();
     testProducerAndConsumerThreads();

@@ -1,8 +1,11 @@
 #include "audio/output/OboeOutput.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <ctime>
 #include <thread>
+
+#include <system_error>
 
 #include <android/log.h>
 
@@ -16,6 +19,9 @@ constexpr const char* kTag = "GeodeOboeOutput";
 constexpr int64_t kPollNs = 200'000'000;
 // How long a start waits for a pause still in flight before it gives the stream up.
 constexpr int64_t kSettleNs = 200'000'000;
+// How long a release waits for a stopped output's last frames to leave the device (a Bluetooth
+// link holds a few hundred ms) before it closes the stream anyway.
+constexpr int64_t kDrainNs = 1'000'000'000;
 
 int64_t nowNs() {
     timespec ts{};
@@ -138,16 +144,30 @@ void OboeOutput::play() {
     if (!startLocked() && !reopenLocked()) failed_.store(true, std::memory_order_relaxed);
 }
 
+void OboeOutput::pauseStreamLocked() {
+    if (!stream_ || !streamStarted_) return;
+    const oboe::Result result = stream_->requestPause();
+    if (result == oboe::Result::OK) {
+        streamStarted_ = false;
+    } else {
+        // Still started as far as anyone knows: the next play() must not think it has to start it.
+        __android_log_print(ANDROID_LOG_WARN, kTag, "pause failed: %s", oboe::convertToText(result));
+    }
+}
+
 void OboeOutput::pause() {
     std::lock_guard<std::mutex> lock(streamMutex_);
+    // Playing out after stop(): the sink pauses the moment the position reaches the last frame, while
+    // the stream's buffer and the device (Bluetooth above all) still hold the tail. Pausing the stream
+    // now would hold that tail back and blip or drop it later, so the stream is left to stop itself
+    // (onAudioReady), as an AudioTrack does after stop(). The play() that may follow finds the output
+    // still playing and does nothing. A pause before stop() is an ordinary pause.
+    if (wantPlaying_ && fifo_->stopped()) return;
     wantPlaying_ = false;
     // The position stands where it is now, not where it was last asked for.
     positionLocked();
     fifo_->pause();
-    if (stream_ && streamStarted_) {
-        stream_->requestPause();
-        streamStarted_ = false;
-    }
+    pauseStreamLocked();
 }
 
 void OboeOutput::flush() {
@@ -156,7 +176,8 @@ void OboeOutput::flush() {
 }
 
 void OboeOutput::stop() {
-    // The stream keeps pulling: what waits in the fifo plays out, then it is given silence.
+    // The stream keeps pulling until the fifo is empty, then stops itself from its callback and plays
+    // out what it holds. Paused, it does that once play() starts it again.
     fifo_->stop(nowNs());
 }
 
@@ -212,26 +233,55 @@ int64_t OboeOutput::bufferFrames() const {
     return static_cast<int64_t>(fifo_->capacityFrames()) + streamBufferFrames_.load(std::memory_order_relaxed);
 }
 
+void OboeOutput::awaitDrain() {
+    std::shared_ptr<oboe::AudioStream> stream;
+    {
+        std::lock_guard<std::mutex> lock(streamMutex_);
+        stream = stream_;
+    }
+    if (!stream) return;
+    const int64_t deadline = nowNs() + kDrainNs;
+    while (nowNs() < deadline) {
+        // Started while the fifo empties, Stopping while the device plays the rest; anything else is done.
+        const oboe::StreamState state = stream->getState();
+        const bool playingOut = state == oboe::StreamState::Starting || state == oboe::StreamState::Started ||
+                                state == oboe::StreamState::Stopping;
+        if (!playingOut) return;
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+}
+
 void OboeOutput::release() {
+    bool drain = false;
     {
         std::lock_guard<std::mutex> lock(streamMutex_);
         released_ = true;
+        // After stop() the stream is playing the track's tail out: that is let finish (the sink releases
+        // an output as soon as its position reaches the end, also between two formats). Otherwise
+        // silence now, since a seek must not play the old position on.
+        drain = wantPlaying_ && streamStarted_ && fifo_->stopped();
         wantPlaying_ = false;
-        // Silence now (a seek must not play the old position on); the close itself can take a while.
-        if (stream_ && streamStarted_) {
-            stream_->requestPause();
-            streamStarted_ = false;
-        }
+        if (!drain) pauseStreamLocked();
     }
-    std::thread([self = shared_from_this()] {
-        std::lock_guard<std::mutex> lock(self->streamMutex_);
-        self->closeStreamLocked();
-    }).detach();
+    // The wait and the close can take a while: on a thread of their own, never the playback thread.
+    try {
+        std::thread([self = shared_from_this(), drain] {
+            if (drain) self->awaitDrain();
+            std::lock_guard<std::mutex> lock(self->streamMutex_);
+            self->closeStreamLocked();
+        }).detach();
+    } catch (const std::system_error&) {
+        // No thread to be had. Nothing may throw through the C ABI, so close here, without the wait.
+        std::lock_guard<std::mutex> lock(streamMutex_);
+        closeStreamLocked();
+    }
 }
 
 oboe::DataCallbackResult OboeOutput::onAudioReady(oboe::AudioStream*, void* audioData, int32_t numFrames) {
     fifo_->read(static_cast<float*>(audioData), numFrames);
-    return oboe::DataCallbackResult::Continue;
+    // After stop(), once the last frame is read: Stop lets the stream play out what it holds and stop
+    // itself, as AudioTrack.stop() does. No request is made from this thread.
+    return fifo_->drained() ? oboe::DataCallbackResult::Stop : oboe::DataCallbackResult::Continue;
 }
 
 void OboeOutput::onErrorAfterClose(oboe::AudioStream*, oboe::Result error) {

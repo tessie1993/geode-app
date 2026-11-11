@@ -111,10 +111,14 @@ public:
     // ---- control ------------------------------------------------------------------------------
 
     // The device stream starts or resumes. Timestamps taken before nowNs are not trusted after it.
+    // Ignored while playing out after stop().
     void play(int64_t nowNs);
     // Freezes the position where positionUs last put it; call positionUs first for an exact stop.
+    // Ignored while playing out after stop(): the sink pauses an output the moment its position
+    // reaches the end, while the last frames are still on their way to the speaker (Media3's
+    // AudioTrackAudioOutput ignores it the same way). A pause before stop() holds until play().
     void pause();
-    // The last frame was written: what is waiting plays out, then ended() holds.
+    // The last frame was written: what is waiting plays out, then drained() and ended() hold.
     void stop(int64_t nowNs);
     // 0..1, clamped. Reached over kRampMs in the consumer; the first frames ever read start at it.
     void setVolume(float volume);
@@ -144,6 +148,13 @@ public:
 
     // positionUs' last answer in frames.
     int64_t positionFrames() const { return lastPosition_; }
+
+    // stop() was called since the last flush. Any thread.
+    bool stopped() const { return stopped_.load(std::memory_order_acquire); }
+
+    // stop() was called and the consumer has read the last frame written: the device stream can stop
+    // itself and play out what it holds. Any thread; the consumer asks after each read.
+    bool drained() const;
 
     // stop() was called and positionUs has reached the last frame written.
     bool ended() const;

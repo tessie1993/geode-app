@@ -21,7 +21,8 @@
 //
 // Threads:
 //   - the control thread (Media3's playback thread) calls everything public but the two callbacks;
-//   - Oboe's audio thread calls onAudioReady, which only reads the fifo: no lock, no allocation, no JNI;
+//   - Oboe's audio thread calls onAudioReady, which only reads the fifo (no lock, no allocation, no
+//     JNI) and, after stop(), ends the stream once the fifo is empty;
 //   - a thread Oboe makes calls onErrorAfterClose once it has closed a disconnected stream (headphones
 //     unplugged, the route changed); the stream is opened again there, on the default device, and
 //     started if the output was playing;
@@ -63,7 +64,8 @@ public:
     // OutputFifo's event bits since the last call, and kEventFailed while failed.
     int events();
     bool stalled();
-    // Stops the sound and closes the stream on a thread of its own. Nothing else may be called after.
+    // Closes the stream on a thread of its own: at once and silent, or, after stop(), once the tail
+    // has played out (a bounded wait). Nothing else may be called after.
     void release();
 
     int sessionId() const { return sessionId_.load(std::memory_order_relaxed); }
@@ -79,6 +81,9 @@ private:
 
     bool openStreamLocked();
     void closeStreamLocked();
+    void pauseStreamLocked();
+    // On the closing thread: waits, bounded, until a stream playing out after stop() has stopped.
+    void awaitDrain();
     bool startLocked();
     // Closes the stream, opens a new one and starts it if the output is playing.
     bool reopenLocked();

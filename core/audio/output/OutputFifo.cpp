@@ -113,6 +113,7 @@ void OutputFifo::flush() {
 }
 
 void OutputFifo::play(int64_t nowNs) {
+    if (playing_ && stopped_.load(std::memory_order_relaxed)) return;
     playing_ = true;
     playStartNs_ = nowNs;
     advancePending_ = true;
@@ -123,13 +124,15 @@ void OutputFifo::play(int64_t nowNs) {
 }
 
 void OutputFifo::pause() {
+    if (playing_ && stopped_.load(std::memory_order_relaxed)) return;
     playing_ = false;
     stallWatching_ = false;
 }
 
 void OutputFifo::stop(int64_t nowNs) {
     if (stopped_.load(std::memory_order_relaxed)) return;
-    stopped_.store(true, std::memory_order_relaxed);
+    // Released after the last write, so a consumer that sees it also sees every frame written.
+    stopped_.store(true, std::memory_order_release);
     stopPosition_ = lastPosition_;
     stopNs_ = nowNs;
 }
@@ -240,6 +243,11 @@ int64_t OutputFifo::positionUs(int64_t nowNs, const StreamTime& stream, int64_t 
     }
     lastPosition_ = position;
     return position * kMicrosPerSecond / rate_;
+}
+
+bool OutputFifo::drained() const {
+    // stopped_ first: the frames written before stop() are then visible too.
+    return stopped_.load(std::memory_order_acquire) && framesPlayed() >= framesWritten();
 }
 
 bool OutputFifo::ended() const {

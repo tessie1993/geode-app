@@ -286,6 +286,22 @@ private fun VisualsHubContent(
         val playerFaded by remember { derivedStateOf { playerAlpha.value == 0f } }
         val playerComposed = docked != null && (playerOn || !playerFaded)
         val insetPx = with(density) { GeodeSpacing.EdgeInset.toPx() }
+        val topInsetPx = WindowInsets.safeDrawing.getTop(density).toFloat()
+        // Which stage icons the sheet or the panel leaves room for; flips only when one changes.
+        val iconRoom by remember(side, fullWidthPx, fullPx, reservePx, topInsetPx, density) {
+            derivedStateOf {
+                stageIconRoom(
+                    stageWidthPx = fullWidthPx,
+                    stageHeightPx = fullPx,
+                    sheetPx = if (side) 0f else heightPx.value + reservePx,
+                    panelPx = if (panelPx.value > 0f) panelPx.value + insetPx else 0f,
+                    topInsetPx = topInsetPx,
+                    iconPx = with(density) { GeodeSpacing.TouchTarget.toPx() },
+                    marginPx = insetPx,
+                    arrowMarginPx = with(density) { GeodeSpacing.S.toPx() },
+                )
+            }
+        }
         VisualsStage(
             visualizerView = visualizerView,
             behaviour = behaviour,
@@ -299,6 +315,7 @@ private fun VisualsHubContent(
             StageIcons(
                 chrome = chrome,
                 sheetShown = nav.sheetShown,
+                room = iconRoom,
                 sheetTopPx = { if (side) 0f else heightPx.value + reservePx },
                 endPx = { if (panelPx.value > 0f) panelPx.value + insetPx else 0f },
                 // Full screen is the options hidden (owner: the old live view goes), the double tap's twin.

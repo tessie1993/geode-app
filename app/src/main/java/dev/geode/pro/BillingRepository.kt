@@ -41,7 +41,7 @@ interface BillingRepository {
 
     companion object {
         /** The one-time product id. Create it in Play Console under Monetize > One-time products. */
-        const val PRO_PRODUCT_ID: String = "muzviz_pro"
+        const val PRO_PRODUCT_ID: String = "beatrealms3d_pro"
     }
 }
 

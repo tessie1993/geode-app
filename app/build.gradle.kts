@@ -41,7 +41,7 @@ android {
     ndkVersion = "28.0.13004108"
 
     defaultConfig {
-        applicationId = "com.muzviz.studiopro"
+        applicationId = "com.beatrealms3d.app"
         minSdk = 33
         targetSdk = 36
         // Set once in gradle.properties and the root build.gradle.kts (release versioning).

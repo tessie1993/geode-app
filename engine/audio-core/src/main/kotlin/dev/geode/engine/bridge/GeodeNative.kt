@@ -491,6 +491,9 @@ object GeodeNative {
     /** Mirrors GEODE_FRAME_LIQUID_CHANGED: Liquid mode changed; read it with [frameLiquidMode]. */
     const val FRAME_LIQUID_CHANGED: Int = 0x4
 
+    /** Mirrors GEODE_FRAME_ERROR_CHANGED: the error text changed; read it with [vizLastError]. */
+    const val FRAME_ERROR_CHANGED: Int = 0x8
+
     /** Mirrors GEODE_FRAME_LIQUID_MODE: 0 off, 1 full, 2 lite, 3 warp, 4 paused (`liquid::Mode`). */
     fun frameLiquidMode(due: Int): Int = (due ushr 8) and 0xF
 

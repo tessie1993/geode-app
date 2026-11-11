@@ -2,6 +2,7 @@
 #include <bit>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <utility>
 
 // What a live surface's frame owes the shell, decided once per frame (#604). Pure, with no GL and no
@@ -27,6 +28,8 @@ inline constexpr uint32_t kFrameClearOnly = 1u << 0;
 inline constexpr uint32_t kFrameThermalDue = 1u << 1;
 // What Liquid mode ran changed since the last frame that said so; the mode is in the liquid field.
 inline constexpr uint32_t kFrameLiquidChanged = 1u << 2;
+// The renderer's error text changed since the last frame that said so: read it (geode_viz_last_error).
+inline constexpr uint32_t kFrameErrorChanged = 1u << 3;
 inline constexpr int kFrameLiquidShift = 8;
 inline constexpr uint32_t kFrameLiquidMask = 0xFu;
 
@@ -79,6 +82,14 @@ public:
         return due;
     }
 
+    // True when `error` differs from the text last reported, which it then becomes. A handle's first offer
+    // is always a change, an empty text too, so the shell drops what it kept from the handle before.
+    bool offerError(const std::string& error) {
+        if (reportedError_ && *reportedError_ == error) return false;
+        reportedError_ = error;
+        return true;
+    }
+
     static int liquidModeOf(uint32_t due) {
         return static_cast<int>((due >> kFrameLiquidShift) & kFrameLiquidMask);
     }
@@ -86,6 +97,7 @@ public:
 private:
     bool clearPending_ = false;
     std::optional<UserQuality> applied_;
+    std::optional<std::string> reportedError_;
 };
 
 }  // namespace geode::viz::frame

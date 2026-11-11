@@ -153,6 +153,7 @@ GEODE_API void        geode_viz_gyro_reset(geode_viz*);
 #define GEODE_FRAME_CLEAR_ONLY     0x1 /* the first frame on a new surface, cleared to black: present it, do nothing else */
 #define GEODE_FRAME_THERMAL_DUE    0x2 /* ask PowerManager's headroom and call geode_thermal_push */
 #define GEODE_FRAME_LIQUID_CHANGED 0x4 /* Liquid mode changed: GEODE_FRAME_LIQUID_MODE(due) */
+#define GEODE_FRAME_ERROR_CHANGED  0x8 /* the error text changed, or this is the handle's first frame: geode_viz_last_error */
 /* What Liquid mode ran last frame: 0 off, 1 full, 2 lite, 3 warp, 4 paused (liquid::Mode). */
 #define GEODE_FRAME_LIQUID_MODE(due) ((int)(((unsigned)(due) >> 8) & 0xFu))
 #define GEODE_FRAME_PUSH_PARAMS    0x10 /* push the scene params (geode_viz_set_params) */

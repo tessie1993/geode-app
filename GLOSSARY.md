@@ -20,7 +20,7 @@ _Avoid_: Playlist (a playlist is saved; the queue is the current run)
 A playlist defined by rules over track facts (artist, length, play count…) rather than by a fixed list.
 
 **Live input**:
-Visuals driven by the microphone instead of a track.
+Visuals driven by the microphone: layered over the track while one plays, alone while none does.
 _Avoid_: Mic mode
 
 **Capture**:

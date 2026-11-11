@@ -74,7 +74,8 @@ float Renderer::beginFrame(double timeSeconds) {
                 if (sound_) sound_->trackBoundary();
             }
             if (sound_) {
-                sound_->setPlayerSource(sound::player::playerIsSource());
+                sound_->setPlayerSource(sound::player::playerIsSource() &&
+                                        !layerAlone_.load(std::memory_order_relaxed));
                 sound_->setFadeGain(sound::player::fadeGain());
             }
         } else if (sound_) {

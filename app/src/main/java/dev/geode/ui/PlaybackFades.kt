@@ -30,8 +30,6 @@ internal class PlaybackFades(
             audible: Boolean,
             ms: Int,
         )
-
-        fun stopLiveInput()
     }
 
     /** The UI fade was last sent to silence and not yet brought back. */
@@ -65,7 +63,6 @@ internal class PlaybackFades(
 
     @OptIn(UnstableApi::class)
     fun togglePlayPauseFaded() {
-        host.stopLiveInput()
         val player = host.player
         if (player.isPlaying && host.fadeMs > 0) {
             fadeOutThen { player.pause() }

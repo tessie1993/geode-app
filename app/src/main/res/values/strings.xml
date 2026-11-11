@@ -501,7 +501,7 @@
     <string name="audio_input_trim">"Input trim (mic and other apps)  %1$s dB"</string>
     <string name="audio_preset_morph">Preset morph: %1$.1f s (0 = snap)</string>
     <string name="audio_react_mic">React to the microphone</string>
-    <string name="audio_react_mic_explainer">Plays nothing and drives the visuals from what the phone hears — a room, an instrument, a speaker across the street. Playback pauses while it is on, because the analyzer has one input and a track plus the room would just blur together. Audio is analysed live and never recorded, saved or sent anywhere.</string>
+    <string name="audio_react_mic_explainer">Drives the visuals from what the phone hears — a room, an instrument, a speaker across the street. Your music keeps playing: the visuals react to the track and the room together, and to the room alone while nothing plays. On the phone\'s own speaker the microphone hears the track too; headphones keep the two apart. Audio is analysed live and never recorded, saved or sent anywhere.</string>
     <string name="audio_mic_denied">Microphone access is off for MuzViz. Turn it on in Android Settings › Apps › MuzViz › Permissions to use live input.</string>
     <string name="audio_mic_busy">The microphone could not be opened — another app may be using it.</string>
 

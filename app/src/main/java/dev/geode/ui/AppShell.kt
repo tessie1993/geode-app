@@ -14,7 +14,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -57,6 +56,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
@@ -70,6 +70,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -83,10 +84,14 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.offset
 import androidx.compose.ui.unit.roundToIntRect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -120,6 +125,8 @@ import dev.geode.ui.theme.rememberSystemReducedMotion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
 private const val CRASH_REPORT_MAX_BYTES = 64 * 1024
@@ -255,10 +262,14 @@ fun AppRoot() {
             }
     }
     VisualizerEngineBindings(viewModel, visualizerView)
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
     // The accent follows the visual: the middle of its palette's hues; MilkDrop paints its own.
-    val accentTarget =
-        if (viz.sceneId == SceneIds.MILKDROP) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
+    // Mapped and de-duplicated outside this scope, so a slider drag (a new VizUiState each time)
+    // does not invalidate the root; it uses only the scene id and two palette floats.
+    val accentSource =
+        remember(viewModel) {
+            viewModel.vizState.map(::accentOf).distinctUntilChanged()
+        }
+    val accentTarget by accentSource.collectAsStateWithLifecycle(accentOf(viewModel.vizState.value))
     // Outside the theme, so the motion scheme is built here from the same switches the theme reads.
     // Android's "Remove animations" alone (data/SystemMotion, #336); the paywall below reads it too.
     val reducedMotion = rememberSystemReducedMotion()
@@ -562,7 +573,12 @@ private fun AppShellCompact(
         // every frame of their expand and shrink: the screen above moves up with the mini player
         // instead of being covered by it (owner: no overlap), and never jumps. Never less than the
         // bar's own place, so the first frame, before the dock is measured, is not padded short.
-        val bottom = maxOf(dockDrawn, navInset + barHeight + DOCK_GAP) + DOCK_GAP
+        // A provider, not a value: dockDrawn changes every frame of the mini player's expand and
+        // shrink, so it is read in the layout phase (dockBottomPadding, DockInsets) and only Player,
+        // which sizes its content by it, reads it in composition.
+        val bottom: () -> Dp = { maxOf(dockDrawn, navInset + barHeight + DOCK_GAP) + DOCK_GAP }
+        val latestBottom by rememberUpdatedState(bottom)
+        val dockInsets = remember { DockInsets { latestBottom() } }
         // What the Visuals options stand on: the tab bar's place, whether or not the bar is showing,
         // so the sheet never slides as the dock fades (owner: less twitchy). The mini player is not
         // in it there: Visuals docks it to the options (LocalDockedMiniPlayer).
@@ -582,14 +598,14 @@ private fun AppShellCompact(
                     } else {
                         Modifier
                             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-                            .padding(bottom = if (padsItself) 0.dp else bottom)
-                            .consumeWindowInsets(PaddingValues(bottom = bottom))
+                            .dockBottomPadding { if (padsItself) 0.dp else latestBottom() }
+                            .consumeWindowInsets(dockInsets)
                             .imePadding()
                     },
                 ),
         ) {
             CompositionLocalProvider(
-                LocalDockReserve provides if (padsItself) bottom else 0.dp,
+                LocalDockReserve provides if (padsItself) bottom() else 0.dp,
                 LocalDockedMiniPlayer provides if (onVisuals && showsPlayer && !pip) dockedPlayer else null,
             ) { content() }
         }
@@ -683,7 +699,7 @@ private fun AppShellExpanded(
             var dockDrawn by remember { mutableStateOf(0.dp) }
             val onVisuals = appState.dest == GeodeDestination.VISUALS
             // Visuals is the visual under its own options; every other screen ends above the player.
-            Box(Modifier.fillMaxSize().padding(bottom = if (onVisuals) 0.dp else dockDrawn)) { content() }
+            Box(Modifier.fillMaxSize().dockBottomPadding { if (onVisuals) 0.dp else dockDrawn }) { content() }
             Column(
                 Modifier
                     .align(Alignment.BottomCenter)
@@ -736,6 +752,10 @@ private fun NavRail(
     }
 }
 
+/** The accent the visual on screen gives; MilkDrop paints its own. */
+private fun accentOf(viz: VizUiState): Color =
+    if (viz.sceneId == SceneIds.MILKDROP) VisualAccent.Fallback else paletteAccent(viz.params.paletteBase, viz.params.paletteRange)
+
 /** The accent a palette gives: the middle of its hue span, bright enough to read on black. */
 private fun paletteAccent(
     base: Float,
@@ -748,6 +768,33 @@ private fun paletteAccent(
 private const val DEGREES = 360f
 private const val ACCENT_SATURATION = 0.85f
 private const val ACCENT_LIGHTNESS = 0.6f
+
+/** Bottom padding whose size is read when the layout runs, so a value that changes every frame never recomposes. */
+private fun Modifier.dockBottomPadding(bottom: () -> Dp): Modifier =
+    layout { measurable, constraints ->
+        val pad = bottom().roundToPx()
+        val placeable = measurable.measure(constraints.offset(vertical = -pad))
+        layout(placeable.width, constraints.constrainHeight(placeable.height + pad)) { placeable.place(0, 0) }
+    }
+
+/** The dock's bottom as window insets to consume, read lazily so its changes stay out of composition. */
+private class DockInsets(
+    private val bottom: () -> Dp,
+) : WindowInsets {
+    override fun getLeft(
+        density: Density,
+        layoutDirection: LayoutDirection,
+    ) = 0
+
+    override fun getTop(density: Density) = 0
+
+    override fun getRight(
+        density: Density,
+        layoutDirection: LayoutDirection,
+    ) = 0
+
+    override fun getBottom(density: Density) = with(density) { bottom().roundToPx() }
+}
 
 /** The gap between the floating dock and the screen's bottom edge, and between the screen and the dock. */
 private val DOCK_GAP = 8.dp

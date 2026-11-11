@@ -24,9 +24,8 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -127,8 +126,10 @@ internal fun VisualsOptions(
             )
         }
     val shape = RoundedCornerShape(GeodeRadius.Floating)
-    var bounds by remember { mutableStateOf<Rect?>(null) }
-    UiBlurRegion(visualizerView, bounds, blurActive)
+    // Not Compose state: the bounds change every frame of a drag or settle, and a state read here
+    // recomposed the options and restarted an effect each time. The sink pushes from the layout callback.
+    val blurSink = rememberUiBlurSink(visualizerView, blurActive)
+    var bounds by blurSink::bounds
     // One glass slab: the sheet, and under it the docked mini player ([bottomBar]) when there is
     // one. A hidden sheet lays out at zero height, which leaves the player alone as a pill.
     Column(
@@ -189,19 +190,51 @@ internal fun VisualsOptions(
 }
 
 /**
- * Tells the native blur where the options surface is ([bounds], in the window) so the live visual
- * frosts under it. Only a change of the bounds or of [active] calls through (one small event on
- * the GL thread each); strength is 1 while the surface is shown, 0 when it is hidden or has no
- * size, and 0 again on dispose so leaving Visuals clears it.
+ * Tells the native blur where the options surface is ([UiBlurSink.bounds], in the window) so the
+ * live visual frosts under it. Only a change of the bounds or of [active] calls through (one small
+ * event on the GL thread each); strength is 1 while the surface is shown, 0 when it is hidden or
+ * has no size, and 0 again on dispose so leaving Visuals clears it. The bounds are written from
+ * layout, outside composition, so a drag does not recompose the sheet.
  */
 @Composable
-private fun UiBlurRegion(
+private fun rememberUiBlurSink(
     view: VisualizerView,
-    bounds: Rect?,
     active: Boolean,
-) {
+): UiBlurSink {
     val cornerPx = with(LocalDensity.current) { GeodeRadius.Floating.toPx() }
-    LaunchedEffect(view, bounds, active, cornerPx) {
+    val sink = remember(view) { UiBlurSink(view) }
+    SideEffect { sink.update(active, cornerPx) }
+    DisposableEffect(view) {
+        onDispose { view.setUiBlurRegion(0f, 0f, 0f, 0f, 0f, 0f) }
+    }
+    return sink
+}
+
+private class UiBlurSink(
+    private val view: VisualizerView,
+) {
+    private var active = false
+    private var cornerPx = 0f
+
+    var bounds: Rect? = null
+        set(value) {
+            if (field != value) {
+                field = value
+                push()
+            }
+        }
+
+    fun update(
+        active: Boolean,
+        cornerPx: Float,
+    ) {
+        if (this.active == active && this.cornerPx == cornerPx) return
+        this.active = active
+        this.cornerPx = cornerPx
+        push()
+    }
+
+    private fun push() {
         val loc = IntArray(2)
         view.getLocationInWindow(loc)
         val w = view.width.toFloat()
@@ -220,9 +253,6 @@ private fun UiBlurRegion(
                 cornerPx,
             )
         }
-    }
-    DisposableEffect(view) {
-        onDispose { view.setUiBlurRegion(0f, 0f, 0f, 0f, 0f, 0f) }
     }
 }
 

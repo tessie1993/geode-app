@@ -54,6 +54,8 @@ import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalUiSounds
 import dev.geode.ui.theme.UiSound
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 /**
  * Visuals › Customize: ten categories by what their controls do (issue #333), drawn by
@@ -77,7 +79,10 @@ internal fun CustomizePanel(
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val paywall: PaywallViewModel = geodeViewModel()
     val gate by paywall.gate.collectAsStateWithLifecycle()
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    // Only the scene id, mapped and de-duplicated: a slider drag emits a new VizUiState each time and must not recompose the panel.
+    val sceneId by remember(viewModel) {
+        viewModel.vizState.map { it.sceneId }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(viewModel.vizState.value.sceneId)
     var query by rememberSaveable { mutableStateOf("") }
     var searching by rememberSaveable { mutableStateOf(false) }
     var showTips by rememberSaveable { mutableStateOf(false) }
@@ -93,7 +98,7 @@ internal fun CustomizePanel(
     val host = remember(viewModel, visualsViewModel, visualizerView) { AdvancedHost(viewModel, visualsViewModel, visualizerView) }
 
     // What this style offers, as native says.
-    val shown = remember(viz.sceneId) { CustomizeMapTable.shownOn(viz.sceneId) }
+    val shown = remember(sceneId) { CustomizeMapTable.shownOn(sceneId) }
     val categories = remember(shown) { CustomizeCategory.entries.filter { it.name in shown } }
     val sectionsOf: (CustomizeCategory) -> List<CustomizeSection> = { c -> CustomizeMapTable.sectionsOf(c).filter { it.path in shown } }
 
@@ -119,7 +124,7 @@ internal fun CustomizePanel(
             customizeNav.open(CustomizeCategory.BEHAVIOUR.name)
         },
     ) {
-        ParamSurface(sceneId = viz.sceneId, query = query) {
+        ParamSurface(sceneId = sceneId, query = query) {
             val header: @Composable (CustomizeCategory?) -> Unit = { category ->
                 CustomizeHeader(
                     viewModel = viewModel,
@@ -154,7 +159,7 @@ internal fun CustomizePanel(
                         verticalArrangement = Arrangement.spacedBy(GeodeSpacing.XS),
                     ) {
                         items(categories.flatMap(sectionsOf), key = { it.path }) { section ->
-                            Column(Modifier.fillMaxWidth()) { section.controls.forEach { CustomizeControl(it, host) } }
+                            Column(Modifier.fillMaxWidth()) { CustomizeControls(section.controls, host) }
                         }
                     }
                 }
@@ -172,7 +177,7 @@ internal fun CustomizePanel(
                     sectionLocked = { !proLock.unlocked && !FreeTier.customizeSectionFree(it.basics) },
                     modifier = Modifier.fillMaxSize(),
                     header = header,
-                ) { section -> section.controls.forEach { CustomizeControl(it, host) } }
+                ) { section -> CustomizeControls(section.controls, host) }
             }
         }
     }
@@ -214,12 +219,13 @@ private fun CustomizeHeader(
     onShowTips: (Boolean) -> Unit,
 ) {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    val changed by remember(viewModel) {
+        viewModel.vizState.map { CustomizeSummary.changedCount(it.params) }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(CustomizeSummary.changedCount(viewModel.vizState.value.params))
     val history by visualsViewModel.paramHistory.collectAsStateWithLifecycle()
     var menuOpen by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }
     var savingPreset by remember { mutableStateOf(false) }
-    val changed = remember(viz.params) { CustomizeSummary.changedCount(viz.params) }
     val context = LocalContext.current
     val macroStore = remember { MacroStore.get(context) }
     val target = category ?: CustomizeCategory.QUICK_KNOBS

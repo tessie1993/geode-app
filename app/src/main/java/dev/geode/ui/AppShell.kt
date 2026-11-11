@@ -294,7 +294,7 @@ fun AppRoot() {
                 isPlaying = state.isPlaying,
                 progress = { if (state.durationMs > 0) position.value / state.durationMs.toFloat() else 0f },
                 opacity = GeodeGlass.MATTE_FILL,
-                onPin = chrome::pin,
+                onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
                 onOpenPlayer = { appState.navigateTo(GeodeDestination.PLAYER) },
                 onHide = chrome::hide,
                 onPlayPause = viewModel::togglePlayPause,
@@ -307,7 +307,7 @@ fun AppRoot() {
                 title = state.title,
                 isPlaying = state.isPlaying,
                 progress = { if (state.durationMs > 0) position.value / state.durationMs.toFloat() else 0f },
-                onPin = chrome::pin,
+                onOpenLibrary = { appState.navigateTo(GeodeDestination.LIBRARY) },
                 onOpenPlayer = { appState.navigateTo(GeodeDestination.PLAYER) },
                 onHide = chrome::hide,
                 onPrevious = viewModel::previous,
@@ -648,7 +648,7 @@ private fun AppShellCompact(
                         enter = fadeIn(dockFade) + expandVertically(dockSize),
                         exit = fadeOut(dockFade) + shrinkVertically(dockSize),
                     ) {
-                        Box(Modifier.padding(bottom = GeodeSpacing.S)) { miniPlayer(Modifier) }
+                        miniPlayer(Modifier)
                     }
                     AnimatedVisibility(
                         showsPlayer && !chrome.awake,
@@ -675,6 +675,8 @@ private fun AppShellCompact(
                     onSelect = { appState.navigateTo(navEntries[it].destination) },
                     opacity = GeodeGlass.MATTE_FILL,
                     modifier = Modifier.onSizeChanged { if (it.height > 0) barHeight = with(density) { it.height.toDp() } },
+                    // One slab with the player above it: the floating card here, the docked one on Visuals.
+                    attached = if (onVisuals) chrome.playerAttached else showsPlayer && chrome.awake,
                 )
             }
         }

@@ -32,7 +32,7 @@ class DockedMiniPlayerTest {
                     title = "Night Drive",
                     isPlaying = true,
                     progress = { 0.5f },
-                    onPin = {},
+                    onOpenLibrary = {},
                     onOpenPlayer = {},
                     onHide = {},
                     onPrevious = { pressed += "previous" },

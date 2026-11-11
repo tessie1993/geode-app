@@ -125,7 +125,8 @@ internal fun VisualsOptions(
                 onRelease = { velocityUp -> currentSettle(settleHeight(heightPx.value, velocityUp, currentAnchors)) },
             )
         }
-    val shape = RoundedCornerShape(GeodeRadius.Floating)
+    // With the mini player docked under it the slab ends flat on the tab bar, which rounds the bottom.
+    val shape = if (bottomBar != null) ATTACHED_ABOVE else RoundedCornerShape(GeodeRadius.Floating)
     // Read by the blur's effect, never in composition: a drag moves the bounds every frame.
     val bounds = remember { mutableStateOf<Rect?>(null) }
     UiBlurRegion(visualizerView, { bounds.value }, blurActive)

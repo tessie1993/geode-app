@@ -123,9 +123,9 @@ internal fun CustomizePanel(
         LocalProLock provides proLock,
         LocalShowTips provides showTips,
         LocalReactTo provides {
-            // "Make it react to music": Behaviour, with its Reactions open.
-            openSections.value += "${CustomizeCategory.BEHAVIOUR.name}/reactions"
-            customizeNav.open(CustomizeCategory.BEHAVIOUR.name)
+            // "Make it react to music": Music, with its Reactions open.
+            openSections.value += "${CustomizeCategory.MUSIC.name}/reactions"
+            customizeNav.open(CustomizeCategory.MUSIC.name)
         },
     ) {
         ParamSurface(sceneId = sceneId, query = query) {

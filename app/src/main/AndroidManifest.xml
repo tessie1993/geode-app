@@ -86,6 +86,18 @@
     <uses-feature
         android:name="android.software.daydream"
         android:required="false" />
+    <!-- Android TV and Google TV: the same app with a remote (LEANBACK_LAUNCHER and the banner
+         below). A TV has no touchscreen, so none is required; ui/theme/Television is where the
+         shell asks whether it runs on one. -->
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.faketouch"
+        android:required="false" />
 
     <!-- "Now playing in other apps" labels the capture with the app it is hearing.
          Android 11's package visibility filtering hides other packages from
@@ -106,6 +118,7 @@
         android:name=".GeodeApp"
         android:allowBackup="true"
         android:appCategory="audio"
+        android:banner="@drawable/tv_banner"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:enableOnBackInvokedCallback="true"
         android:fullBackupContent="@xml/backup_rules"
@@ -134,6 +147,7 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
             <!--
               Shared presets and video templates. Both are self-contained

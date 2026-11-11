@@ -39,6 +39,7 @@ import dev.geode.R
 import dev.geode.cast.CastController
 import dev.geode.model.PresetLink
 import dev.geode.playback.PlaybackService
+import dev.geode.ui.theme.isTelevision
 
 /**
  * Picture-in-picture state shared across the Activity/Compose boundary.
@@ -273,8 +274,10 @@ class MainActivity : ComponentActivity() {
         runCatching { setPictureInPictureParams(buildPipParams()) }
     }
 
+    // Never on a TV: TV PiP must start from the user's own action (TV app quality, TV-IE).
     private fun autoEnterPipEligible(): Boolean =
-        settingsViewModel.guiPrefs.value.autoEnterPip &&
+        !isTelevision() &&
+            settingsViewModel.guiPrefs.value.autoEnterPip &&
             VisualizerPipCoordinator.visualizerShowing &&
             playerViewModel.uiState.value.isPlaying
 

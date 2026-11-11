@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.Typography
@@ -32,6 +33,7 @@ import dev.geode.ui.theme.GeodeColors
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.LocalReducedMotion
+import dev.geode.ui.theme.LocalTelevision
 import dev.geode.ui.theme.LocalUiSounds
 import dev.geode.ui.theme.geodeColorScheme
 import dev.geode.ui.theme.geodeMotionScheme
@@ -39,6 +41,7 @@ import dev.geode.ui.theme.geodeTypography
 import dev.geode.ui.theme.isReadableOnCanvas
 import dev.geode.ui.theme.rememberSystemReducedMotion
 import dev.geode.ui.theme.rememberUiSounds
+import dev.geode.ui.theme.televisionRipple
 
 /**
  * The app's one theme: black glass on the Material 3 type scale, with M3 Expressive motion.
@@ -76,8 +79,14 @@ internal fun CrystalMaterialTheme(
             colorScheme = scheme,
             shapes = gui.cornerStyle.shapes(),
             typography = crystalTypography(gui.textScale),
-            content = content,
-        )
+        ) {
+            // A remote's focus, lit in the accent on a TV (televisionRipple); a phone keeps Material's.
+            if (LocalTelevision.current) {
+                CompositionLocalProvider(LocalRippleConfiguration provides televisionRipple(scheme.primary), content = content)
+            } else {
+                content()
+            }
+        }
     }
 }
 

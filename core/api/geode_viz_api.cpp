@@ -303,6 +303,7 @@ double geode_pacer_on_vsync(long long* state, long long frame_time_ns, float cap
     static_assert(sizeof(long long) == sizeof(int64_t));
     auto* wire = reinterpret_cast<int64_t*>(state);
     static_assert(frame::kPacerCapSlot == GEODE_PACER_CAP_SLOT);
+    static_assert(frame::kPacerPacedSlot == GEODE_PACER_PACED_SLOT);
     frame::PacerState s = frame::unpack(wire);
     // The thermal cap is applied here, once, for every surface the shell paces (ADR 0008).
     const float cap = geode::viz::ThermalState::process().capFor(cap_fps);

@@ -20,9 +20,10 @@ import dev.geode.ui.theme.StoneIcon
  * The first-run photosensitivity notice, and the whole of first run: everything else is asked
  * where it is needed (music access on the first visit to Library).
  *
- * It takes an acknowledgement and nothing else. The flash clamp is unconditional, so there is no
- * safety level to pick here — telling someone the visuals are intense and that the rate is capped
- * in the engine is information they are owed, not a decision they are being asked to make.
+ * It takes an acknowledgement and nothing else. The engine's clamps are unconditional, so there is
+ * no safety level to pick here — telling someone the visuals are intense, what the engine limits
+ * and what it cannot (it does not measure the finished frame, so MilkDrop presets and imported
+ * shaders are not covered) is information they are owed, not a decision they are being asked to make.
  */
 @Composable
 fun SafetyConsent(

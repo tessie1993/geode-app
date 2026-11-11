@@ -135,6 +135,8 @@ class TourSetup : TestRule {
             context.getSharedPreferences(GeodePrefsFiles.GENERAL, Context.MODE_PRIVATE).edit(commit = true) {
                 putBoolean(ThemeStore.KEY_TUTORIAL_SEEN, false)
             }
+            // After Onboarded's own hand-over, so the repository holds the unseen tour too.
+            publishSeededGuiPrefs(context)
         }
         if (case.pro && BuildConfig.USE_FAKE_BILLING) {
             val store = PrefsEntitlementStore(PrefsEntitlementStore.open(context))

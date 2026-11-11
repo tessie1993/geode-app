@@ -755,7 +755,7 @@
     <string name="behavior_display_none">Nothing connected. Plug in HDMI or start casting, and the visuals move to that screen while the phone keeps the controls.</string>
     <string name="behavior_group_intent">What you\'re here for</string>
     <string name="behavior_safety_title">Flashing and motion</string>
-    <string name="behavior_flash_guidance">BeatRealms clamps how deep its strobe and flash effects go and holds its brightness modulation toward three flashes a second, the general limit in published guidance (WCAG 2.3.1). These are limits on the engine\'s own controls, on screen and in exported video alike, not a measurement of the picture: MilkDrop presets and imported shaders are not covered. It is not a setting, so there is nothing here to adjust.</string>
+    <string name="behavior_flash_guidance">BeatRealms clamps how deep its strobe and flash effects go and slows its brightness modulation. These are limits on the engine\'s own controls, on screen and in exported video alike, not a measurement of the picture: MilkDrop presets and imported shaders are not covered. It is not a setting, so there is nothing here to adjust.</string>
     <string name="behavior_wallpaper_hint">Set the visualizer as your wallpaper. It uses the style and settings the app was last showing, reacts to whatever BeatRealms is playing, and drifts gently on its own the rest of the time. It draws nothing while another app is in front, so it is not a background battery drain.</string>
     <string name="behavior_wallpaper_button">Set as live wallpaper</string>
     <string name="behavior_pip_auto_enter">Enter automatically</string>

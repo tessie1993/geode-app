@@ -25,6 +25,7 @@ SYMBOLS = [
     ("CHEVRON_RIGHT", "chevron_right"),
     ("CLOSE", "close"),
     ("CROWN", "crown"),
+    ("DISPLAY", "connected_tv"),
     ("DELETE", "delete"),
     ("EDIT", "edit"),
     ("EXPAND", "expand_more"),

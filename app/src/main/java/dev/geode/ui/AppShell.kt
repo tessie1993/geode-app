@@ -110,6 +110,7 @@ import dev.geode.model.QueueTrack
 import dev.geode.model.TutorialChapter
 import dev.geode.model.TutorialProgress
 import dev.geode.pro.PaywallTrigger
+import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
 import dev.geode.render.scene.SceneIds
 import dev.geode.ui.pro.PaywallHost
@@ -200,8 +201,8 @@ fun AppRoot() {
     val context = LocalContext.current
     val visualizerView = remember { VisualizerView(context) }
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
-    val externalDisplay = rememberExternalDisplay()
-    val appState = rememberGeodeAppState(externalDisplay)
+    ConnectedDisplayWatch()
+    val appState = rememberGeodeAppState()
     // Read on IO: at cold start this is the first touch of the general prefs file, and a
     // SharedPreferences read blocks until the whole file has been parsed. Null until it lands,
     // and nothing below that depends on it (the notice, setup, the intro) draws until then.
@@ -211,9 +212,12 @@ fun AppRoot() {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     // Not delegated: only the mini player's seek bar and progress line read .value, in their own scope.
     val position = viewModel.positionMs.collectAsStateWithLifecycle()
-    val onSecondScreen = gui.secondScreen && externalDisplay != null
-    if (onSecondScreen) {
-        SecondScreenCanvas(externalDisplay, visualizerView)
+    // A connected display shows the visual alone while the switch is on and Cast's entitlement allows it.
+    val proGate by paywallViewModel.gate.collectAsStateWithLifecycle()
+    val secondScreen = ConnectedDisplays.target(wanted = gui.secondScreen, entitled = proGate.allows(ProFeature.CAST))
+    val onSecondScreen = secondScreen != null
+    if (secondScreen != null) {
+        SecondScreenCanvas(secondScreen, visualizerView)
     }
     StageRunEffect(visualizerView, onSecondScreen, viewModel::onDirectorStyleMoment)
     // The Visuals screen's bounds, in root pixels. The one VisualizerView is hosted once below and

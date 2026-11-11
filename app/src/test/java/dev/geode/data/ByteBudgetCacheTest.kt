@@ -71,6 +71,23 @@ class ByteBudgetCacheTest {
         }
 
     @Test
+    fun nullDecodeRunsOnceAcrossRepeatedRequests() =
+        runTest {
+            val c = cache()
+            val calls = AtomicInteger()
+            repeat(50) {
+                assertNull(
+                    c.get("noart") {
+                        calls.incrementAndGet()
+                        null
+                    },
+                )
+            }
+            assertEquals(1, calls.get())
+            assertEquals(0L, c.sizeBytes)
+        }
+
+    @Test
     fun concurrentRequestsDecodeOnce() =
         runTest {
             val c = cache()

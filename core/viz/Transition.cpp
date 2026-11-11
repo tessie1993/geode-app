@@ -88,6 +88,7 @@ void TransitionPrograms::release() {
     base_ = UniformCache(0);
     for (auto& entry : lru_) glDeleteProgram(entry.second->program());
     lru_.clear();
+    failed_.clear();
     uploadedFor_ = nullptr;
     uploadedDef_ = nullptr;
 }
@@ -100,12 +101,14 @@ UniformCache& TransitionPrograms::programFor(const std::string& id) {
             return *lru_.back().second;
         }
     }
+    if (failed_.count(id) != 0) return base_;
     const TransitionCatalog::Def* def = definition(id);
     if (!def) return base_;
     std::string error;
     const GLuint program = program::build(fadeVert_, TransitionCatalog::spliceInto(source_, *def), cache_, &error);
     if (program == 0) {
         GEODE_LOGW(kTag, "\"%s\" failed to link: %s", id.c_str(), error.c_str());
+        failed_.insert(id);
         return base_;
     }
     while (lru_.size() >= kMaxPrograms) {

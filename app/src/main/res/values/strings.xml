@@ -82,7 +82,7 @@
     <string name="help_topic_touch">Touch on the visualizer</string>
     <string name="help_topic_touch_body">Every style reads where your finger is and means something by it — a vanishing point, a spawn point, a place the geometry reaches toward. Pinch and twist map onto the real Zoom and Rotation controls, so a gesture you like is saved with the preset.</string>
     <string name="help_topic_safety">Flashing and motion</string>
-    <string name="help_topic_safety_body">MuzViz clamps how deep its strobe and flash effects go and slows brightness modulation, on screen and in exported video, and that is always on. It does not measure the finished picture, so it cannot promise a flash rate, and MilkDrop presets and imported shaders are not limited. Motion follows Android: turn on Remove animations (Settings › Accessibility) and the visual, the interface and exported video all move gently.</string>
+    <string name="help_topic_safety_body">BeatRealms clamps how deep its strobe and flash effects go and slows brightness modulation, on screen and in exported video, and that is always on. It does not measure the finished picture, so it cannot promise a flash rate, and MilkDrop presets and imported shaders are not limited. Motion follows Android: turn on Remove animations (Settings › Accessibility) and the visual, the interface and exported video all move gently.</string>
     <string name="help_topic_performance">If it runs hot or stutters</string>
     <string name="help_topic_performance_body">The engine already lowers its own quality when the device heats up. The Detail control on the marched styles is the biggest single lever you have, and lowering it costs less than you would expect.</string>
 

@@ -14,6 +14,7 @@
 #include "sound/Form.hpp"
 #include "sound/Harmony.hpp"
 #include "viz/Director.hpp"
+#include "viz/Macros.hpp"
 
 using geode::sound::Emotion;
 using geode::viz::Director;
@@ -415,6 +416,42 @@ void testNoStyleMomentWhenOff() {
         check(d.styleMoment() == (amount > 0.0f), amount > 0.0f ? "Auto on: a section steps the style" : "Auto off: a section leaves the style alone");
     }
 }
+
+// The owner's report: "almost all visuals have a yin-yang curve and all seem to behave similarly".
+// Twist spirals any style about the screen centre, and the director's Complexity knob used to hold
+// it bent on every style: toward +1 for a busy feeling, toward -1 for a calm one. Whatever the key,
+// scale, song and seed, the look must leave an untouched style untwisted and a twisted one as set.
+void testNoLookTwistsEveryStyle() {
+    const Song songs[] = {{"ionian", 0, 0.85f, 132.0f, 0.6f, 0.2f}, {"aeolian", 0, 0.55f, 72.0f, 0.3f, 1.2f}, {"dorian", 0, 0.7f, 100.0f, 0.45f, 0.5f}};
+    int looks = 0;
+    int turned = 0;
+    for (int scale = 0; scale < geode::sound::scaleCount(); ++scale) {
+        for (int root = 0; root < 12; root += 4) {
+            for (const Song& base : songs) {
+                Song s = base;
+                s.scale = geode::sound::scaleInfo(scale).id;
+                s.root = root;
+                Director d;
+                d.configure({1.0f, static_cast<uint64_t>(7919 * (scale + 1) + root)});
+                float t = 0.0f;
+                run(d, s, 15.0f, t);
+                const geode::viz::MacroKnobs k = d.knobs(geode::viz::MacroKnobs{});
+                if (std::fabs(k[static_cast<int>(geode::viz::Macro::Complexity)]) > 0.2f) ++turned;
+                SceneParams styled;
+                SceneParams user;
+                user.twist = -0.3f;
+                const float a = geode::viz::macros::apply(d.apply(styled, true), k).twist;
+                const float b = geode::viz::macros::apply(d.apply(user, true), k).twist;
+                if (a != 0.0f || b != -0.3f) {
+                    check(false, std::string("a look twists the picture: ") + s.scale + " root " + std::to_string(root) + " twist " + std::to_string(a));
+                    return;
+                }
+                ++looks;
+            }
+        }
+    }
+    check(looks > 300 && turned > looks / 10, "the looks tried do turn the Complexity knob, both ways");
+}
 }  // namespace
 
 int main() {
@@ -430,6 +467,7 @@ int main() {
     testWeakDownbeatsCount();
     testLookCarriesAcrossPlays();
     testLongStretchStepsTheStyle();
+    testNoLookTwistsEveryStyle();
     if (failures) {
         std::printf("director_test: %d failed\n", failures);
         return 1;

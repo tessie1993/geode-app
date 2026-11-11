@@ -930,6 +930,31 @@ void macrosAddToTheSliderNeverReplaceIt() {
     check(macros::apply(stopped, down).camFly == stopped.camFly, "a knob never drags back a value already past its end");
 }
 
+// Twist bends every style's picture the same way, a spiral about the screen centre (the shared
+// view() and the composite), so a knob that holds it bent stamps one S-curve on every style. The
+// auto-director turns the knobs on every play, down as often as up, and Twist rests in the middle
+// of its range, so either direction of Complexity used to twist: "almost all visuals have a
+// yin-yang curve". Twist is the user's slider and the style's own reactions, never a knob's.
+void macrosNeverHoldThePictureTwisted() {
+    SceneParams styled;
+    SceneParams turned;
+    turned.twist = 0.3f;
+    for (int m = 0; m < kMacroCount; ++m) {
+        for (float turn : {-1.0f, -0.4f, 0.4f, 1.0f}) {
+            const MacroKnobs k = knobs(static_cast<Macro>(m), turn);
+            check(macros::apply(styled, k).twist == 0.0f, "no knob twists an untwisted style, either way");
+            check(macros::apply(turned, k).twist == 0.3f, "and the Twist slider is the user's alone");
+        }
+    }
+    MacroKnobs all{};
+    all.fill(1.0f);
+    float kick = 0.0f;
+    for (const ReactRoute& r : macros::routes(all)) {
+        if (r.enabled && r.target == LfoTarget::Twist) kick += std::fabs(r.amount);
+    }
+    check(kick <= 0.2f + 1e-5f, "with every knob full up the knobs' routes twist by a nudge, not a spiral");
+}
+
 void macrosScaleTheSoundAndTheCamera() {
     GeodeSoundTuning t{};
     t.reactivity = 1.0f;
@@ -1720,6 +1745,7 @@ int main() {
     macrosAtRestChangeNothing();
     macrosTurnTowardTheEndsAndStayInRange();
     macrosAddToTheSliderNeverReplaceIt();
+    macrosNeverHoldThePictureTwisted();
     macrosScaleTheSoundAndTheCamera();
     chaosDownStopsCameraCuts();
     surpriseIsSeededAndKeepsLocks();

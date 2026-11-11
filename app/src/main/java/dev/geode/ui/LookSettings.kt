@@ -38,11 +38,12 @@ import dev.geode.data.CornerStyle
 import dev.geode.data.FontColorChoice
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GuiPrefs
+import dev.geode.model.TabLabels
 import dev.geode.ui.theme.isReadableOnCanvas
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Settings › Look › Basics: the accent and the interface sounds. */
+/** Settings › Look › Basics: the accent, interface sounds and vibration. */
 @Composable
 internal fun LookBasics(viewModel: SettingsViewModel) {
     val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
@@ -56,7 +57,7 @@ internal fun LookTextSection(viewModel: SettingsViewModel) {
     TextGroup(viewModel, gui)
 }
 
-/** Settings › Look › Layout: corners and the boot animation. */
+/** Settings › Look › Layout: corners, tab bar labels, the Player's time and the boot animation. */
 @Composable
 internal fun LookLayoutSection(viewModel: SettingsViewModel) {
     val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
@@ -75,6 +76,12 @@ private fun ThemeGroup(
             onValueChange = { viewModel.setGuiPrefs(gui.copy(accentIntensity = it)) },
             valueRange = 0.5f..1.5f,
         )
+        SettingsSwitchRow(
+            title = stringResource(R.string.look_accent_follows_visual),
+            summary = stringResource(R.string.look_accent_follows_visual_hint),
+            checked = gui.accentFollowsVisual,
+            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(accentFollowsVisual = it)) },
+        )
     }
     Column {
         LabeledSwitch(
@@ -86,6 +93,12 @@ private fun ThemeGroup(
             stringResource(R.string.look_ui_sounds_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        SettingsSwitchRow(
+            title = stringResource(R.string.look_haptics),
+            summary = stringResource(R.string.look_haptics_hint),
+            checked = gui.haptics,
+            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(haptics = it)) },
         )
     }
 }
@@ -200,8 +213,29 @@ private fun LayoutGroup(
             modifier = Modifier.padding(top = 4.dp),
         )
     }
+    SettingsChoiceRow(
+        title = stringResource(R.string.look_tab_labels),
+        options = TabLabels.entries,
+        selected = gui.tabLabels,
+        label = { stringResource(it.labelRes()) },
+        onSelect = { viewModel.setGuiPrefs(gui.copy(tabLabels = it)) },
+    )
+    SettingsSwitchRow(
+        title = stringResource(R.string.look_show_time_left),
+        summary = stringResource(R.string.look_show_time_left_hint),
+        checked = gui.showTimeLeft,
+        onCheckedChange = { viewModel.setGuiPrefs(gui.copy(showTimeLeft = it)) },
+    )
     BootAnimationRow()
 }
+
+private fun TabLabels.labelRes(): Int =
+    when (this) {
+        TabLabels.AUTO -> R.string.look_tab_labels_auto
+        TabLabels.ALWAYS -> R.string.look_tab_labels_always
+        TabLabels.SELECTED -> R.string.look_tab_labels_selected
+        TabLabels.NEVER -> R.string.look_tab_labels_never
+    }
 
 @Composable
 private fun BootAnimationRow() {

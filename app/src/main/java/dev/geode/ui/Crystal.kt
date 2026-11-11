@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -33,6 +34,7 @@ import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.LocalReducedMotion
 import dev.geode.ui.theme.LocalUiSounds
+import dev.geode.ui.theme.StoneHaptics
 import dev.geode.ui.theme.geodeColorScheme
 import dev.geode.ui.theme.geodeMotionScheme
 import dev.geode.ui.theme.geodeTypography
@@ -47,8 +49,9 @@ import dev.geode.ui.theme.rememberUiSounds
  * is now plain Material with the [GeodeColors]/[GeodeGlass] tokens.
  *
  * [accentSource] is the current visual's main colour, which the accent follows
- * ([dev.geode.ui.theme.VisualAccent]); null keeps the fallback #9CC7FF. The motion scheme follows
- * the system's "Remove animations" live, or the app's own reduced-motion setting.
+ * ([dev.geode.ui.theme.VisualAccent]) unless [GuiPrefs.accentFollowsVisual] is off; null keeps the
+ * fallback #9CC7FF. The motion scheme follows the system's "Remove animations" live, or the app's
+ * own reduced-motion setting.
  */
 @Composable
 internal fun CrystalMaterialTheme(
@@ -61,10 +64,11 @@ internal fun CrystalMaterialTheme(
         geodeColorScheme(
             accentIntensity = gui.accentIntensity,
             fontColorOverride = fontColor,
-            accentSource = accentSource,
+            accentSource = accentSource.takeIf { gui.accentFollowsVisual },
         )
     // Android's "Remove animations" alone (data/SystemMotion, #336), watched live.
     val reducedMotion = rememberSystemReducedMotion()
+    SideEffect { StoneHaptics.enabled = gui.haptics }
     CompositionLocalProvider(
         LocalFontColor provides fontColor,
         LocalContentColor provides scheme.onBackground,

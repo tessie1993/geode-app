@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import dev.geode.R
 import dev.geode.model.GestureTip
+import dev.geode.model.TabLabels
 import dev.geode.model.TourSpot
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
@@ -519,6 +520,8 @@ internal data class DockItem(
  * The height stays safe at large fonts: in the compact look at most one label is drawn, one
  * line high, and the shell measures the pill (`onSizeChanged` in `AppShell`) rather than
  * assuming its height, so whatever height the bar takes the screen above it makes room.
+ *
+ * [labels] is the user's choice (Settings › Look › Layout); [TabLabels.AUTO] is the rule above.
  */
 @Composable
 internal fun FloatingTabBar(
@@ -526,6 +529,7 @@ internal fun FloatingTabBar(
     selected: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    labels: TabLabels = TabLabels.AUTO,
 ) {
     val view = LocalView.current
     val compact = compactTabLabels()
@@ -539,7 +543,7 @@ internal fun FloatingTabBar(
         ) {
             items.forEachIndexed { i, item ->
                 val isSelected = i == selected
-                val showLabel = !compact || isSelected
+                val showLabel = labels.shows(isSelected, roomIsShort = compact)
                 NavigationBarItem(
                     selected = isSelected,
                     modifier = item.tour?.let { Modifier.tourTarget(it) } ?: Modifier,

@@ -54,12 +54,14 @@ class LibraryBrowseTest {
         assertEquals(listOf("1", "2"), byArtist.tracks.map { it.uri })
         assertEquals(listOf("Beyoncé"), byArtist.artistHits.map { it.name })
         // The whole artist, in title order, not only the hits.
-        assertEquals(listOf("2", "1"), byArtist.artistHits.single().tracks.map { it.uri })
+        val byArtistTracks = byArtist.artistHits.single().tracks
+        assertEquals(listOf("2", "1"), byArtistTracks.map { it.uri })
         assertTrue(byArtist.albumHits.isEmpty())
 
         val byAlbum = LibraryBrowse.browse(index(tracks), "fierce", LibrarySort.TITLE)
         assertEquals(listOf("Fierce"), byAlbum.albumHits.map { it.name })
-        assertEquals(listOf("2", "1"), byAlbum.albumHits.single().tracks.map { it.uri })
+        val byAlbumTracks = byAlbum.albumHits.single().tracks
+        assertEquals(listOf("2", "1"), byAlbumTracks.map { it.uri })
     }
 
     @Test

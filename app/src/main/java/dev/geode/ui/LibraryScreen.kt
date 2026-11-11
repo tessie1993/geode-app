@@ -823,7 +823,8 @@ private fun LibrarySearchResults(
             }
             items(browse.albumHits, key = { "album:${it.name}" }, contentType = { "group" }) { hit ->
                 val count = hit.tracks.size
-                val artist = hit.tracks.map { it.artist }.distinct().singleOrNull() ?: variousArtists
+                val artists = hit.tracks.map { it.artist }.distinct()
+                val artist = artists.singleOrNull() ?: variousArtists
                 val tracks = pluralStringResource(R.plurals.track_count, count, count)
                 GroupRow(hit.name, "$artist \u00b7 $tracks", onClick = { openAlbum = hit.name })
             }

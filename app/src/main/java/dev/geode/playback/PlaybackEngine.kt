@@ -22,6 +22,7 @@ import dev.geode.data.SessionStore
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.audioandroid.PcmTap
 import dev.geode.engine.bridge.GeodeNative
+import dev.geode.util.bestEffort
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -51,6 +52,14 @@ class PlaybackSession internal constructor(
     internal val tap = PcmTap(sampleRing)
 
     /**
+     * Settings › Playback › Native audio output, as it applies now: on, and bit-perfect USB off (that
+     * path is the platform track's: the mixer attributes are matched against an AudioTrack's format).
+     * Read on the playback thread each time the sink builds an output.
+     */
+    @Volatile
+    private var nativeOutput = false
+
+    /**
      * The one player: ExoPlayer, with the tap first in its processor chain ([TapRenderersFactory]).
      * WAKE_MODE_LOCAL takes a partial wake lock while playback is active, so the CPU cannot doze
      * mid-track with the screen off. Not the WIFI variant: nothing streams.
@@ -59,7 +68,7 @@ class PlaybackSession internal constructor(
         ExoPlayer
             .Builder(
                 context,
-                TapRenderersFactory(context, tap, dsp = listOf(dsp)) { out ->
+                TapRenderersFactory(context, tap, dsp = listOf(dsp), nativeOutput = { nativeOutput }) { out ->
                     bitPerfect.onOutput(out.sampleRate, out.channelMask, out.encoding)
                 },
             ).setMediaSourceFactory(
@@ -152,6 +161,15 @@ class PlaybackSession internal constructor(
         player.setHandleAudioBecomingNoisy(p.pauseOnNoisy)
         replayGain.configure(p.replayGainMode, p.replayGainPreampDb, p.replayGainClipGuard)
         GeodeNative.dspSetSpeed(dsp.nativeHandle(), p.speed)
+        val native = p.nativeOutput && !(p.bitPerfect && BitPerfectOutput.supported)
+        if (native != nativeOutput) {
+            nativeOutput = native
+            // The output already open was built under the old choice. A playing item is seeked to where
+            // it stands, as for bit-perfect: Media3 rebuilds the output there, so the switch applies now.
+            if (player.playbackState != Player.STATE_IDLE && player.currentMediaItem != null) {
+                bestEffort(TAG, "reopen the audio output") { player.seekTo(player.currentPosition) }
+            }
+        }
         bitPerfect.setEnabled(p.bitPerfect, player)
         crossfade.crossfadeMs = p.crossfadeMs
     }
@@ -185,6 +203,8 @@ class PlaybackSession internal constructor(
          * the speaker is on, a pause after a fade-out waits this long so it never cuts the fade short.
          */
         const val SINK_LAG_MS = 250L
+
+        private const val TAG = "PlaybackSession"
 
         /** One file, written in order off the main thread; a daemon, like the history writer. */
         private val sessionWriter: java.util.concurrent.ExecutorService =

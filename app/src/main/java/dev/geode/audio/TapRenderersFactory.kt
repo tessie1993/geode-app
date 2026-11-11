@@ -15,6 +15,13 @@ import androidx.media3.exoplayer.audio.TeeAudioProcessor
 import dev.geode.audio.dsp.MvzAudioProcessorChain
 
 /**
+ * The player's renderers, with the tap first in the audio chain and the choice of what plays the
+ * sink's PCM: the platform's AudioTrack, or the native Oboe output ([OboeAudioOutput]) when
+ * [nativeOutput] says so (asked on the playback thread for every output) and the config is one it
+ * plays. Only [AudioOutputProvider.getAudioOutput] is answered here; format support, the output config
+ * and its buffer size stay the AudioTrack provider's, so Media3 decides everything as before. A config
+ * the native output refuses, or a stream that does not open, gets the AudioTrack.
+ *
  * [onAudioOutput] hears each output's config (rate, channel mask, encoding) on the playback thread just
  * before its AudioTrack is built: the one moment a platform choice that is fixed at track creation can
  * still be made, which `playback/BitPerfectOutput` needs (issue #353). The tap's format callback, which
@@ -25,6 +32,7 @@ class TapRenderersFactory(
     context: Context,
     private val sink: TeeAudioProcessor.AudioBufferSink,
     private val dsp: List<AudioProcessor> = emptyList(),
+    private val nativeOutput: () -> Boolean = { false },
     private val onAudioOutput: (AudioOutputProvider.OutputConfig) -> Unit = {},
 ) : DefaultRenderersFactory(context) {
     internal fun audioProcessorChain(): MvzAudioProcessorChain = MvzAudioProcessorChain(TeeAudioProcessor(sink), dsp = dsp)
@@ -44,7 +52,8 @@ class TapRenderersFactory(
                 object : ForwardingAudioOutputProvider(AudioTrackAudioOutputProvider.Builder(context).build()) {
                     override fun getAudioOutput(config: AudioOutputProvider.OutputConfig): AudioOutput {
                         onAudioOutput(config)
-                        return super.getAudioOutput(config)
+                        val native = if (nativeOutput()) OboeAudioOutput.open(config) else null
+                        return native ?: super.getAudioOutput(config)
                     }
                 },
             ).build()

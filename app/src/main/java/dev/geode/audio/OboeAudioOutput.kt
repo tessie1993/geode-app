@@ -22,7 +22,8 @@ import java.util.concurrent.CopyOnWriteArraySet
  * tunneling and auxiliary effects are the platform track's, and [open] hands such configs back to it.
  *
  * A stream that is lost and will not reopen does not fail playback. The output then reports itself
- * stalled, which makes `DefaultAudioSink` flush and ask the provider for a new output, and [open]
+ * stalled, which makes `DefaultAudioSink` flush and ask the provider for a new output (at the end of
+ * the stream, where the sink does not ask, the write throws a recoverable error instead), and [open]
  * answers null from then on, so the platform track takes over for the rest of the process.
  */
 @OptIn(UnstableApi::class)
@@ -46,6 +47,9 @@ internal class OboeAudioOutput private constructor(
         val taken = if (failed) -1 else GeodeNative.audioOutWrite(handle, buffer, buffer.position(), buffer.remaining())
         if (taken < 0) {
             fail()
+            // Mid-stream the sink sees the stall and builds a new output. Draining at the end of the
+            // stream it never asks, so there the failure is thrown as one a new output recovers from.
+            if (presentationTimeUs == C.TIME_END_OF_SOURCE) throw AudioOutput.WriteException(taken, true)
             return false
         }
         buffer.position(buffer.position() + taken)
@@ -102,7 +106,8 @@ internal class OboeAudioOutput private constructor(
 
     override fun setAuxEffectSendLevel(level: Float) = Unit
 
-    override fun setPreferredDevice(preferredDevice: AudioDeviceInfo?) = GeodeNative.audioOutSetDevice(handle, preferredDevice?.id ?: 0)
+    override fun setPreferredDevice(preferredDevice: AudioDeviceInfo?) =
+        GeodeNative.audioOutSetDevice(handle, preferredDevice?.id ?: 0)
 
     /** Native's event bits (`GEODE_AUDIO_OUT_*`) as Media3's listener calls, on the playback thread. */
     private fun report(events: Int) {

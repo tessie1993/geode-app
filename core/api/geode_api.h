@@ -826,6 +826,11 @@ GEODE_API int               geode_pcm_ring_write_s16(geode_pcm_ring*, const int1
                                                      int sample_rate, float* peak_out);
 GEODE_API int               geode_pcm_ring_write_bytes(geode_pcm_ring*, const void* data, size_t bytes, int encoding,
                                                        int channels, int sample_rate, float* peak_out);
+/* A second source layered over `ring` (the mic over the player's tap; audio/ingest/LayerMix): every renderer
+ * fed `ring` hears the two mixed while `ring` gains frames, and `layer` alone once it has not for 0.3 s.
+ * `layer` keeps its own writer and rate; begin an epoch on it when its source starts and when it stops.
+ * Other readers of `ring` (a cursor, Cast's sound) hear `ring` only. NULL removes the layer. Any thread. */
+GEODE_API void              geode_pcm_ring_set_layer(geode_pcm_ring* ring, const geode_pcm_ring* layer);
 /* A new stream (track change, seek, source switch): every cursor restarts at its next take. Any thread. */
 GEODE_API void              geode_pcm_ring_begin_epoch(geode_pcm_ring*);
 GEODE_API int64_t           geode_pcm_ring_written(const geode_pcm_ring*);   /* frames since the last epoch began */

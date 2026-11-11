@@ -74,6 +74,13 @@ int geode_pcm_ring_write_bytes(geode_pcm_ring* r, const void* data, size_t bytes
                   peak_out);
 }
 
+void geode_pcm_ring_set_layer(geode_pcm_ring* r, const geode_pcm_ring* layer) {
+    if (!r || r == layer) return;
+    std::shared_ptr<const PcmRing> shared = layer ? layer->ring : nullptr;
+    std::lock_guard<std::mutex> lock(r->layerLock);
+    r->layer = std::move(shared);
+}
+
 void geode_pcm_ring_begin_epoch(geode_pcm_ring* r) {
     if (r) r->ring->beginEpoch();
 }

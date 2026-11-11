@@ -1454,6 +1454,15 @@ object GeodeNative {
         sampleRate: Int,
     ): Int
 
+    /**
+     * Layers the ring at [layer] (0 for none) over the one at [handle]: every renderer fed [handle] hears
+     * the two mixed natively, and [layer] alone while [handle] gains nothing. The mic over the player.
+     */
+    external fun pcmRingSetLayer(
+        handle: Long,
+        layer: Long,
+    )
+
     /** A new stream: every reader restarts at its next take. Any thread. */
     external fun pcmRingBeginEpoch(handle: Long)
 

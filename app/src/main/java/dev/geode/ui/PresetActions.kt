@@ -58,7 +58,7 @@ import dev.geode.render.scene.VisualStyleCatalog
 import dev.geode.ui.theme.GeodeSpacing
 
 /**
- * The long-press sheet of a preset card. It and the dialogs below hold no state beyond what is
+ * The long-press sheet of a preset row. It and the dialogs below hold no state beyond what is
  * typed, so `PresetsTab` stays the one place that decides what an action does.
  */
 @OptIn(ExperimentalMaterial3Api::class)

@@ -33,7 +33,7 @@ class PlaybackSession internal constructor(
     context: Context,
 ) {
     /**
-     * Where the tap, mic and capture write, and what every surface's sound engine reads: the one native
+     * Where the tap or a capture writes, and what every surface's sound engine reads: the one native
      * ring every renderer hears, MilkDrop's raw PCM included. Each block carries its source's rate. The
      * ring is freed once nothing holds this object, so a surface still reading it after [release] is safe.
      * Its size is native: a live renderer reads it at the speaker ([PlaybackEngine.playout]), a sink
@@ -53,6 +53,16 @@ class PlaybackSession internal constructor(
     private val bitPerfect = BitPerfectOutput(context) { dsp.bitPerfect = it }
 
     internal val tap = PcmTap(sampleRing)
+
+    /**
+     * The mic's own ring, layered over [sampleRing] natively (`core/audio/ingest/LayerMix`): a renderer
+     * fed [sampleRing] hears the music and the room mixed, and the room alone while nothing plays. The
+     * mic never writes the player's ring, so turning it on or off leaves playback alone.
+     */
+    val micRing =
+        SampleRing(capacityFrames = 1 shl 15, channelCount = 1).also {
+            GeodeNative.pcmRingSetLayer(sampleRing.handle, it.handle)
+        }
 
     /**
      * Settings › Playback › Native audio output, as it applies now: on, and bit-perfect USB off (that

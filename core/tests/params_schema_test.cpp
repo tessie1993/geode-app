@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
 
     hostcheck::uniqueColumn(table, "param", 2);
 
-    const std::set<std::string> types = {"FLOAT", "BOOL", "INT"};
+    const std::set<std::string> types = {"FLOAT", "BOOL", "INT", "CIRCULAR"};
     int expectedSlot = 0;
     for (const auto& r : table) {
         if (r[0] != "param") continue;

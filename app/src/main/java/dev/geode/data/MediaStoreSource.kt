@@ -36,7 +36,7 @@ class MediaStoreSource(
     suspend fun keepReadAccess(uris: List<Uri>) {
         withContext(io) {
             uris.forEach { uri ->
-                runCatching { resolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+                resolver.persistGrant(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
         }
     }
@@ -44,11 +44,6 @@ class MediaStoreSource(
     /** Keeps read and write access to the picked folder [tree]; false when the provider refuses. */
     suspend fun keepFolderAccess(tree: Uri): Boolean =
         withContext(io) {
-            runCatching {
-                resolver.takePersistableUriPermission(
-                    tree,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
-                )
-            }.isSuccess
+            resolver.persistGrant(tree, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
         }
 }

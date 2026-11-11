@@ -25,19 +25,3 @@ data class VizApply(
     val customShader: String? = null,
     val sceneId: String? = null,
 )
-
-data class MilkFile(
-    val name: String,
-    val path: String,
-)
-
-data class QueueTrack(
-    val uri: String,
-    val title: String = "",
-    val artist: String = "",
-)
-
-data class QueueUiState(
-    val tracks: List<QueueTrack> = emptyList(),
-    val index: Int = 0,
-)

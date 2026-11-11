@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <random>
 
@@ -13,6 +14,7 @@
 #include "viz/FrameStep.hpp"
 #include "viz/ParamRandomizer.hpp"
 #include "viz/Quad.hpp"
+#include "viz/TransitionChoice.hpp"
 
 namespace geode::viz {
 
@@ -108,6 +110,16 @@ float Renderer::beginFrame(double timeSeconds) {
     }
     applyMilkRequests();
     applyUnderlayUpload();
+    if (transition_choice::isRandom(frameTransitionId_) && nextRandomTransition_.empty()) {
+        // Drawn and compiled a change ahead, so a library transition's build never lands on the switch frame.
+        if (transitionRng_ == 0) {
+            transitionRng_ = offscreen_.load(std::memory_order_relaxed)
+                                 ? 0x5EEDull
+                                 : static_cast<uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count()) | 1u;
+        }
+        nextRandomTransition_ = transition_choice::pick(compositePass_.catalog().allIds(), switchTransitionId_, transitionRng_);
+        compositePass_.warmTransition(nextRandomTransition_);
+    }
     return dt;
 }
 
@@ -129,6 +141,16 @@ Scene* Renderer::resolveActiveScene() {
             outgoingScene_ = activeScene_;
             outgoingParams_ = lastFinalParams_;
             transitionStartS_ = frameNowS_;
+            if (transition_choice::isRandom(frameTransitionId_)) {
+                switchTransitionId_ = nextRandomTransition_.empty() ? std::string("fade") : nextRandomTransition_;
+                nextRandomTransition_.clear();
+            } else {
+                switchTransitionId_ = frameTransitionId_;
+            }
+            // An export replays its switches as the user made them: never Auto's longer fade.
+            const bool automatic =
+                !offscreen_.load(std::memory_order_relaxed) && transition_choice::takeAuto(requested->id(), seenAutoMark_);
+            switchTransitionMs_ = transition_choice::durationMs(frameTransitionDurationMs_, automatic);
         }
         activeScene_ = requested;
         sceneJustSwitched_ = true;
@@ -264,7 +286,7 @@ float Renderer::drawSecondaryTargets(const SceneParams& p, float dt) {
         layerScene_->draw(timeSeconds_);
     }
     if (outgoingScene_) {
-        progress = std::clamp(static_cast<float>((frameNowS_ - transitionStartS_) * 1000.0 / frameTransitionDurationMs_), 0.0f, 1.0f);
+        progress = std::clamp(static_cast<float>((frameNowS_ - transitionStartS_) * 1000.0 / switchTransitionMs_), 0.0f, 1.0f);
         if (progress >= 1.0f) {
             outgoingScene_ = nullptr;
             outgoingParams_.reset();
@@ -328,8 +350,9 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.blendOrdinal = frameLayerBlend_;
     in.hasLayer = layerScene_ != nullptr;
     in.hasOutgoing = outgoingScene_ != nullptr;
-    in.transitionId = frameTransitionId_;
-    in.transitionStyle = safety::transitionStyle(TransitionCatalog::builtIn(frameTransitionId_).value_or(TransitionStyle::Fade));
+    const std::string& transitionId = outgoingScene_ ? switchTransitionId_ : frameTransitionId_;
+    in.transitionId = transitionId;
+    in.transitionStyle = safety::transitionStyle(TransitionCatalog::builtIn(transitionId).value_or(TransitionStyle::Fade));
     in.ratio = static_cast<float>(renderWidth_) / static_cast<float>(renderHeight_);
     in.timeSeconds = timeSeconds_;
     // Wave three: nothing feeds the composite pass's transient reaction any

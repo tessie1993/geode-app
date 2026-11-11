@@ -566,7 +566,8 @@ std::vector<uint8_t> uastcKtx2(uint32_t w, uint32_t h, uint32_t levels, Texel c)
             data[l].insert(data[l].end(), p, p + 16);
         }
     }
-    std::vector<uint8_t> out;
+    const uint8_t id[12] = {0xAB, 'K', 'T', 'X', ' ', '2', '0', 0xBB, 0x0D, 0x0A, 0x1A, 0x0A};
+    std::vector<uint8_t> out(id, id + 12);  // built from the identifier: GCC flags an insert into an empty vector
     auto u32 = [&out](uint32_t v) {
         for (int i = 0; i < 4; ++i) out.push_back(static_cast<uint8_t>(v >> (8 * i)));
     };
@@ -574,8 +575,6 @@ std::vector<uint8_t> uastcKtx2(uint32_t w, uint32_t h, uint32_t levels, Texel c)
         u32(static_cast<uint32_t>(v));
         u32(static_cast<uint32_t>(v >> 32));
     };
-    const uint8_t id[12] = {0xAB, 'K', 'T', 'X', ' ', '2', '0', 0xBB, 0x0D, 0x0A, 0x1A, 0x0A};
-    out.insert(out.end(), id, id + 12);
     const uint32_t dfdOffset = 80 + 24 * levels;
     u32(0);  // vkFormat: VK_FORMAT_UNDEFINED, the DFD names UASTC
     u32(1);  // typeSize

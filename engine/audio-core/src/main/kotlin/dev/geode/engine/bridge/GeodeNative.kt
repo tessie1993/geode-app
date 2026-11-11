@@ -1805,6 +1805,12 @@ object GeodeNative {
         running: Boolean,
     ): Boolean
 
+    /**
+     * Auto is about to bring [key] on (a style id or a .milk path): the switch to it plays Auto's longer
+     * fade (native `core/viz/TransitionChoice`).
+     */
+    external fun autoMarkChange(key: String)
+
     const val AUTO_TIMER_PLAYLIST = 0
     const val AUTO_TIMER_RANDOM = 1
 

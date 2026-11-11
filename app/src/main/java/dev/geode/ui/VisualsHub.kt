@@ -188,7 +188,8 @@ private fun VisualsHubContent(
     val context = LocalContext.current
     val resources = LocalResources.current
     val view = LocalView.current
-    // A MilkDrop preset that did not load: the stage says so briefly. The MilkDrop page shows it itself.
+    // A MilkDrop preset that did not load, or played without a shader that failed: the stage says so briefly.
+    // The MilkDrop page shows it itself.
     val milkError = viz.shaderError?.takeIf { viz.sceneId == SceneIds.MILKDROP }
     LaunchedEffect(milkError) {
         val onMilkPage = nav.sheetShown && nav.top == VisualsPage.MILKDROP

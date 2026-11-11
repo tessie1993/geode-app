@@ -550,6 +550,7 @@ private fun AppContent(tourViewModel: TourViewModel) {
             PaywallHost(reducedMotion = reducedMotion)
             CastHost()
             SharedLinkConfirm()
+            MilkFileOpened(appState)
         }
     }
 }

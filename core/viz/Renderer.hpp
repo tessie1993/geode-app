@@ -477,6 +477,13 @@ private:
     int frameLayerBlend_ = static_cast<int>(BlendMode::Screen);
     std::string frameTransitionId_ = "fade";
     int64_t frameTransitionDurationMs_ = 1200;
+    // The transition in flight, fixed when its switch happens (core/viz/TransitionChoice): the id "random"
+    // draws one per change, warmed ahead as nextRandomTransition_, and an automatic change fades longer.
+    std::string switchTransitionId_ = "fade";
+    int64_t switchTransitionMs_ = 1200;
+    std::string nextRandomTransition_;
+    uint64_t transitionRng_ = 0;
+    uint64_t seenAutoMark_ = 0;
     std::string lastError_;
 };
 

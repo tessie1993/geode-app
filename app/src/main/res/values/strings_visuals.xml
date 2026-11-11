@@ -14,7 +14,8 @@
     <string name="visuals_panel_narrower">Make the options narrower</string>
 
     <!-- Visuals › MilkDrop (ui/MilkDropPage.kt). -->
-    <string name="milk_load_failed">Preset didn\'t load: %1$s</string>
+    <string name="milk_load_failed">MilkDrop: %1$s</string>
+    <string name="milk_open_failed">That file couldn\'t be opened as a MilkDrop preset.</string>
     <string name="milk_unavailable">MilkDrop doesn\'t run on this device.</string>
     <string name="milk_presets">Your presets</string>
     <string name="milk_presets_none">None yet</string>

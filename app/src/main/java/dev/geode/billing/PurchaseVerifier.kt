@@ -27,8 +27,10 @@ class PurchaseVerifier(
 ) {
     private val key: PublicKey? =
         base64PublicKey.takeIf { it.isNotBlank() }?.let { encoded ->
-            runCatching { KeyFactory.getInstance(KEY_ALGORITHM).generatePublic(X509EncodedKeySpec(Base64.getMimeDecoder().decode(encoded))) }
-                .onFailure { RingLog.note(TAG, "licence key does not parse: ${it.javaClass.simpleName}") }
+            runCatching {
+                val spec = X509EncodedKeySpec(Base64.getMimeDecoder().decode(encoded))
+                KeyFactory.getInstance(KEY_ALGORITHM).generatePublic(spec)
+            }.onFailure { RingLog.note(TAG, "licence key does not parse: ${it.javaClass.simpleName}") }
                 .getOrNull()
         }
 
@@ -64,8 +66,7 @@ class PurchaseVerifier(
          * check. [ProSnapshot] needs the same rule as [PlayBillingRepository] without the injection
          * graph.
          */
-        fun forThisBuild(): PurchaseVerifier =
-            PurchaseVerifier(BuildConfig.PLAY_LICENSE_KEY, allowUnsigned = BuildConfig.USE_FAKE_BILLING)
+        fun forThisBuild(): PurchaseVerifier = PurchaseVerifier(BuildConfig.PLAY_LICENSE_KEY, allowUnsigned = BuildConfig.USE_FAKE_BILLING)
 
         private const val TAG = "PurchaseVerifier"
         private const val KEY_ALGORITHM = "RSA"

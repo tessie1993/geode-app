@@ -288,6 +288,16 @@ jobs:
             ./$t
           done
 
+      # Record's clock (core/output/Recorder): which stage frames a live recording keeps and their PTS at
+      # 30, 60 and 120 fps, where each heard sample sits, a pause, a seek, a rate change, the limits.
+      - name: Recorder host test
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub \
+            core/tests/recorder_test.cpp core/api/geode_record_api.cpp core/output/Recorder.cpp \
+            core/output/EncodePlan.cpp core/audio/dsp/PcmResampler.cpp -o recorder_test
+          ./recorder_test
+
       # The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/Params).
       - name: Params host tests
         working-directory: ${{ env.PROJECT_DIR }}

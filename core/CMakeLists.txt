@@ -39,12 +39,14 @@ add_library(geode_core STATIC
     signal/Resolver.cpp
     api/geode_export_pass_api.cpp
     api/geode_export_api.cpp
+    api/geode_record_api.cpp
     audio/dsp/PcmConvert.cpp
     audio/dsp/PcmTiming.cpp
     output/FrameClock.cpp
     output/LoopPlan.cpp
     output/EncodePlan.cpp
     output/RecordPlan.cpp
+    output/Recorder.cpp
     output/Chapters.cpp
     signal/timeline/Keyframes.cpp
     signal/timeline/SpeedRamp.cpp

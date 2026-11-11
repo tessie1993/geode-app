@@ -467,6 +467,8 @@ class PlayerSession internal constructor(
                     if (allowsStyle(sceneId)) visual.selectScene(sceneId)
                 }
 
+                override fun allowsStyle(sceneId: String) = this@PlayerSession.allowsStyle(sceneId)
+
                 override fun applyPreset(preset: Preset) {
                     if (allowsStyle(preset.sceneId)) visual.applyPreset(preset)
                 }

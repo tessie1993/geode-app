@@ -24,6 +24,9 @@ internal class AutoVisualsController(
 
         fun selectScene(sceneId: String)
 
+        /** Whether the entitlement lets the user keep [sceneId]; Auto only draws from those. */
+        fun allowsStyle(sceneId: String): Boolean
+
         fun applyPreset(preset: Preset)
 
         fun applyMilk(
@@ -40,6 +43,9 @@ internal class AutoVisualsController(
     private val randomRng = kotlin.random.Random(android.os.SystemClock.elapsedRealtime())
 
     private var cachedMilkFiles: List<MilkFile> = emptyList()
+
+    /** The style and params as Auto last left them; a difference at the next moment is the user's hand. */
+    private var leftAs: Pair<String, SceneParams>? = null
 
     fun addToVizPlaylist(entry: VizPlaylistEntry) {
         val s = host.vizState.value
@@ -173,7 +179,15 @@ internal class AutoVisualsController(
      */
     fun onDirectorMoment() {
         if (!host.isPlaying) return
-        if (host.vizState.value.vizPlaylistEnabled) stepVizPlaylist() else randomStepNow()
+        // A style picked or a control moved since Auto's last change: this moment is the user's
+        // (MilkDrop restarts its timer on a manual load and holds while a menu is up). While they
+        // keep editing every moment is skipped; Auto picks up again at the first one after they stop.
+        val now = host.vizState.value.let { it.sceneId to it.params }
+        val touched = leftAs != null && leftAs != now
+        leftAs = now
+        if (touched) return
+        // A moment changes the style, never the look: a preset would replace every Customize value.
+        if (host.vizState.value.vizPlaylistEnabled) stepVizPlaylist() else randomStepNow(keepLook = true)
     }
 
     fun advanceRandomMode() {
@@ -183,7 +197,11 @@ internal class AutoVisualsController(
         randomStepNow()
     }
 
-    fun randomStepNow() {
+    /**
+     * A draw from Auto's sources, among the styles the user may keep. With [keepLook] (a director
+     * moment) only the style changes: no preset and no colour roll, so Customize stays as set.
+     */
+    fun randomStepNow(keepLook: Boolean = false) {
         val s = host.vizState.value
         lastRandomSwitchMs = android.os.SystemClock.elapsedRealtime()
         val choices = mutableListOf<VizPlaylistEntry>()
@@ -193,11 +211,16 @@ internal class AutoVisualsController(
                 dev.geode.render.scene.VisualStyleCatalog.mycoIds +
                 dev.geode.render.scene.VisualStyleCatalog.acidIds +
                 dev.geode.render.scene.SceneCapabilities.SHADER_SCENES.keys
-        if (s.randomIncludeStyles) sceneIds.forEach { choices += VizPlaylistEntry(sceneId = it, label = it) }
-        if (s.randomIncludePresets) {
-            s.presets.forEach { choices += VizPlaylistEntry(sceneId = it.sceneId, presetName = it.name, label = it.name) }
+        // Locked styles are left out of the draw: a pick the gate then refused was a moment with no change.
+        if (s.randomIncludeStyles) {
+            sceneIds.filter(host::allowsStyle).forEach { choices += VizPlaylistEntry(sceneId = it, label = it) }
         }
-        if (s.randomIncludeMilk && MilkdropEngine.available) {
+        if (s.randomIncludePresets && !keepLook) {
+            s.presets.filter { host.allowsStyle(it.sceneId) }.forEach {
+                choices += VizPlaylistEntry(sceneId = it.sceneId, presetName = it.name, label = it.name)
+            }
+        }
+        if (s.randomIncludeMilk && MilkdropEngine.available && host.allowsStyle(SceneIds.MILKDROP)) {
             cachedMilkFiles.forEach {
                 choices += VizPlaylistEntry(sceneId = SceneIds.MILKDROP, milkPath = it.path, label = it.name)
             }
@@ -208,7 +231,7 @@ internal class AutoVisualsController(
             pick = choices[randomRng.nextInt(choices.size)]
         }
         applyVizEntry(pick)
-        if (s.randomizeColors) {
+        if (s.randomizeColors && !keepLook) {
             val palette = randomRng.nextInt(SceneParams.PALETTES.size)
             val palette2 = randomRng.nextInt(SceneParams.PALETTES.size)
             val paletteMix = if (randomRng.nextBoolean()) randomRng.nextFloat() * 0.6f else 0f
@@ -223,6 +246,7 @@ internal class AutoVisualsController(
                     )
                 cur.copy(params = PaletteStore.clear(PaletteStore.clear(rolled), second = true))
             }
+            leftAs = host.vizState.value.let { it.sceneId to it.params }
         }
     }
 
@@ -236,5 +260,7 @@ internal class AutoVisualsController(
         if (entry.milkPath != null) {
             host.applyMilk(entry.milkPath, entry.sceneId)
         }
+        // Auto's own change (a moment, the timer, the playlist) is not the user's hand.
+        leftAs = host.vizState.value.let { it.sceneId to it.params }
     }
 }

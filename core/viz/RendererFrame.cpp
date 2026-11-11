@@ -441,6 +441,7 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     shown = drawDive(*scene, p, dt, wallDt, shown);
     composite(p, progress, targetFbo, shown);
     drawEdgeGlow(targetFbo, timeSeconds, dt);
+    if (compositeHook_) compositeHook_(targetFbo, width_, height_);
     drawUiBlur(targetFbo);
 }
 

@@ -1,11 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Part 2D: the ask-once save sheet after the first recorded take. -->
-    <string name="record_save_title">Where should takes be saved?</string>
-    <string name="record_save_body">“%1$s” will render to a video in the background. Keep the answer and every later take goes to the same place.</string>
+    <!-- The ask-once save sheet after the first recording. -->
+    <string name="record_save_title">Where should recordings be saved?</string>
+    <string name="record_save_body">“%1$s” is recorded. Keep the answer and every later recording goes straight to the same place.</string>
     <string name="record_save_library">Videos library</string>
     <string name="record_save_library_hint">Movies/BeatRealms, seen by the gallery and other apps</string>
     <string name="record_save_folder">Choose a folder…</string>
-    <string name="record_save_remember">Use for every take</string>
-    <string name="record_save_later">Not now</string>
+    <string name="record_save_remember">Use for every recording</string>
+    <string name="record_save_later">Videos library, ask next time</string>
+    <!-- Notes the stage shows when a recording ends. -->
+    <string name="record_default_name">Recording</string>
+    <string name="record_too_short">Too short, not saved</string>
+    <string name="record_failed">The recording could not be saved</string>
+    <string name="record_stopped_resized">Recording stopped when the screen turned, and was saved</string>
+    <string name="record_stopped_full">Recording stopped at the largest file a video can hold, and was saved</string>
+    <string name="record_folder_refused">Can\'t save to that folder. Pick another.</string>
 </resources>

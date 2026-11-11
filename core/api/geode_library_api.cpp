@@ -2,7 +2,6 @@
 
 #include "api/geode_api.h"
 #include "library/Search.hpp"
-#include "library/StudioFiles.hpp"
 
 namespace {
 
@@ -28,11 +27,6 @@ int geode_library_search(const char* const* rows, int track_count, const char* q
         for (int i = 0; i < n && i < max_out; ++i) out[i] = hits[static_cast<size_t>(i)];
     }
     return n;
-}
-
-int geode_studio_move_takes_out(const char* projects_dir, const char* takes_dir) {
-    if (!projects_dir || !takes_dir) return 0;
-    return geode::library::studio::moveTakesOut(projects_dir, takes_dir).failed;
 }
 
 }  // extern "C"

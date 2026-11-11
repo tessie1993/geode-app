@@ -247,7 +247,6 @@ internal object EditorProjectJson {
                     .put("sceneId", c.sceneId)
                     .putOpt("presetId", c.presetId)
                     .putOpt("milkPath", c.milkPath)
-                    .putOpt("takeId", c.takeId)
                     .putOpt("beatCut", c.beatCut?.let(::beatCut))
             is ClipContent.Video -> JSONObject().put("type", "video").put("uri", c.uri).put("edit", clipEdit(c.edit))
             is ClipContent.Still -> JSONObject().put("type", "still").put("uri", c.uri).put("kenBurns", c.kenBurns.toDouble())
@@ -268,7 +267,6 @@ internal object EditorProjectJson {
                     sceneId = Catalogue.resolve(o.getString("sceneId")),
                     presetId = o.stringOrNull("presetId"),
                     milkPath = o.stringOrNull("milkPath"),
-                    takeId = o.stringOrNull("takeId"),
                     beatCut = o.optJSONObject("beatCut")?.let(::beatCut),
                 )
             "video" -> ClipContent.Video(o.getString("uri"), o.optJSONObject("edit")?.let(::clipEdit) ?: ClipEdit())

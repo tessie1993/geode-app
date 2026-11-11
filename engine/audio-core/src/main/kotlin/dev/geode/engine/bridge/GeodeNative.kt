@@ -174,15 +174,6 @@ object GeodeNative {
         out: IntArray,
     ): Int
 
-    /**
-     * Moves takes saved inside project folders ([projectsDir]`/<id>/takes/`) to [takesDir]`/<id>/`,
-     * once (core/library/StudioFiles, #384). Returns how many could not be moved.
-     */
-    external fun studioMoveTakesOut(
-        projectsDir: String,
-        takesDir: String,
-    ): Int
-
     /** [assets] is the app's `android.content.res.AssetManager`; typed as Any because this module has no Android SDK. */
     external fun vizCreate(
         assets: Any,
@@ -977,23 +968,120 @@ object GeodeNative {
     /** The requested frame rate clamped to what the export offers, 24..60. */
     external fun exportClampFps(requestedFps: Int): Int
 
+    /** Why a recording ended ([recorderStopped]); 0 while it runs. `Stop` in core/output/Recorder. */
+    const val RECORD_STOP_USER = 1
+    const val RECORD_STOP_MAX_LENGTH = 2
+    const val RECORD_STOP_RESIZED = 3
+    const val RECORD_STOP_FILE_FULL = 4
+    const val RECORD_STOP_FAILED = 5
+
+    /** The recording's audio: 48 kHz stereo, 16-bit. */
+    const val RECORD_AUDIO_RATE_HZ = 48_000
+    const val RECORD_AUDIO_CHANNELS = 2
+    const val RECORD_AUDIO_BPS = 192_000
+
+    /** The monotonic clock every `nowNs` of a recorder is read from, in ns. */
+    external fun recordNowNs(): Long
+
+    /**
+     * Record's clock (core/output/Recorder) for a stage of this size: which frames go into the file and
+     * their PTS, where each heard sample sits, when it ends. [maxSec] is Settings › Export › Record's
+     * maximum and [capMs] the entitlement's cap; 0 is none. 0 when it could not be made.
+     */
+    external fun recorderCreate(
+        stageWidth: Int,
+        stageHeight: Int,
+        fps: Int,
+        maxSec: Int,
+        capMs: Long,
+    ): Long
+
+    external fun recorderDestroy(handle: Long)
+
+    /** The video encoder put one frame out. */
+    external fun recorderVideoEncoded(handle: Long)
+
+    /** The muxer wrote [bytes] more. */
+    external fun recorderWrote(
+        handle: Long,
+        bytes: Long,
+        nowNs: Long,
+    )
+
+    /**
+     * Up to [capacityFrames] of the recording's audio into [out] (direct, native order), stamped
+     * `ptsUs[0]`. Returns the frames written; 0 once [recorderStopped] means the audio is complete.
+     */
+    external fun recorderTakeAudio(
+        handle: Long,
+        nowNs: Long,
+        out: java.nio.ByteBuffer,
+        capacityFrames: Int,
+        ptsUs: LongArray,
+    ): Int
+
+    /** Ends the recording for [why], one of `RECORD_STOP_*`; the first reason wins. */
+    external fun recorderStop(
+        handle: Long,
+        why: Int,
+        nowNs: Long,
+    )
+
+    /** 0 while it runs, else the `RECORD_STOP_*` it ended for. */
+    external fun recorderStopped(handle: Long): Int
+
+    /** The length so far, or the final length once stopped. */
+    external fun recorderRecordedMs(
+        handle: Long,
+        nowNs: Long,
+    ): Long
+
+    /** The stage frames left out because the encoder was behind. */
+    external fun recorderFramesDropped(handle: Long): Long
+
+    /** The longest this recording may run, the shorter of its two limits, in ms; 0 for none. */
+    external fun recorderLimitMs(handle: Long): Long
+
+    /**
+     * What to ask the video encoder for on try [attempt] (0 first) into [out]: width, height, bit rate.
+     * The chosen [shortSide] held to the stage, then each smaller size; false past the last.
+     */
+    external fun recordEncoderAttempt(
+        stageWidth: Int,
+        stageHeight: Int,
+        shortSide: Int,
+        fps: Int,
+        limitMs: Long,
+        attempt: Int,
+        out: IntArray,
+    ): Boolean
+
+    /** Whether a recording [recordedMs] long is kept (a shorter one is a mis-tap). */
+    external fun recordWorthKeeping(recordedMs: Long): Boolean
+
+    /**
+     * GL thread. From the next [vizRender] on, the frames [recorder]'s clock keeps are copied into
+     * [surface] (the video encoder's input `Surface`, [width] x [height]) and the sound the renderer hears
+     * goes to the recorder. [watermark] is an `exportWatermarkCreate` handle built on this thread, or 0.
+     * False when the driver would not open the surface.
+     */
+    external fun vizRecordStart(
+        handle: Long,
+        recorder: Long,
+        surface: Any,
+        width: Int,
+        height: Int,
+        watermark: Long,
+    ): Boolean
+
+    /** GL thread, or after its surface went: ends the copy. */
+    external fun vizRecordStop(handle: Long)
+
     /** The maximum take lengths Settings › Export › Record offers, in seconds; 0 is "no limit". */
     external fun recordMaxLengths(): IntArray
 
     /** A stored maximum take length made one of [recordMaxLengths]. */
     external fun recordSnapMaxLength(requestedSec: Int): Int
-
-    /** Whether a take [recordedMs] long has reached [maxSec] (never with 0, no limit). */
-    external fun recordLimitReached(
-        recordedMs: Long,
-        maxSec: Int,
-    ): Boolean
-
-    /** A take's saved length: [lengthMs], or [maxSec] when the recording tick ran past it. */
-    external fun recordClampLengthMs(
-        lengthMs: Long,
-        maxSec: Int,
-    ): Long
 
     /** The bytes [lengthSec] of video at [videoBps] takes with its AAC, the muxer's target applied. */
     external fun recordEstimateBytes(

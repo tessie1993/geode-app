@@ -266,6 +266,19 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetUiBlurRegion(handle, uiBlur[0], uiBlur[1], uiBlur[2], uiBlur[3], uiBlur[4], uiBlur[5])
     }
 
+    /** GL thread. Record's tee into the encoder's [surface]; see [GeodeNative.vizRecordStart]. */
+    fun recordStart(
+        recorder: Long,
+        surface: Any,
+        width: Int,
+        height: Int,
+        watermark: Long,
+    ): Boolean = handle != 0L && GeodeNative.vizRecordStart(handle, recorder, surface, width, height, watermark)
+
+    fun recordStop() {
+        if (handle != 0L) GeodeNative.vizRecordStop(handle)
+    }
+
     fun surfaceCreated() {
         // A new surface may be a new GL context: send every value once more, as the renderer does.
         sent.clear()

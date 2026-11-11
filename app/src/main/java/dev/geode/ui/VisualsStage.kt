@@ -114,7 +114,7 @@ internal fun BoxScope.VisualsStage(
  * They fade with the shell's chrome through the layer's alpha, never AnimatedVisibility: the Cast
  * button feeds the cast mirror while Visuals is up, so it has to stay composed (CAST decision). A
  * faded icon takes no touches and no TalkBack focus, so a tap where it was reaches the visual.
- * Record stays while a take is being recorded, red, as its stop, wherever the options leave it room.
+ * Record stays while recording, red, as its stop, wherever the options leave it room.
  */
 @Composable
 internal fun BoxScope.StageIcons(
@@ -129,14 +129,14 @@ internal fun BoxScope.StageIcons(
     onStep: (Int) -> Unit,
 ) {
     val studioViewModel: StudioViewModel = geodeViewModel()
-    val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
+    val record by studioViewModel.recordState.collectAsStateWithLifecycle()
     val nudge = LocalTourNudge.current
     val glass = Modifier.floatingGlass(RoundedCornerShape(50), fillAlpha = GeodeGlass.MATTE_FILL)
     val fade = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
     val awake = chrome.awake
     val rowOn = awake && room.topRow
     val arrowsOn = awake && room.arrows
-    val recordOn = (awake || takes.recording) && room.record
+    val recordOn = (awake || record.recording) && room.record
     val shown = animateFloatAsState(if (rowOn) 1f else 0f, fade, label = "stage-icons")
     val arrowsShown = animateFloatAsState(if (arrowsOn) 1f else 0f, fade, label = "stage-arrows")
     val recordShown = animateFloatAsState(if (recordOn) 1f else 0f, fade, label = "stage-record")
@@ -177,7 +177,7 @@ internal fun BoxScope.StageIcons(
         }
         // Visuals › Settings, a page of the options (owner: an icon, no drop-down, no gesture).
         StageIconButton(StoneIcon.SETTINGS, stringResource(R.string.visuals_qs_title), rowOn, onSettings)
-        // Export, loop render and the takes list live in Studio; this only takes you there.
+        // Export, loop render and the recordings live in Studio; this only takes you there.
         StageIconButton(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render), rowOn, onOpenStudioRender)
         StageIconButton(
             StoneIcon.FULLSCREEN,
@@ -251,11 +251,11 @@ internal fun BoxScope.StageIcons(
         )
     }
     StageIconButton(
-        icon = if (takes.recording) StoneIcon.STOP else StoneIcon.RECORD,
-        description = stringResource(if (takes.recording) R.string.visuals_stop_take else R.string.visuals_gesture_record),
+        icon = if (record.recording) StoneIcon.STOP else StoneIcon.RECORD,
+        description = stringResource(if (record.recording) R.string.visuals_stop_record else R.string.visuals_gesture_record),
         enabled = recordOn,
         onClick = {
-            if (takes.recording) {
+            if (record.recording) {
                 studioViewModel.stopRecording()
             } else {
                 nudge(GestureTip.HOLD_TO_RECORD)
@@ -271,7 +271,7 @@ internal fun BoxScope.StageIcons(
                 .tourTarget(TourSpot.STAGE_RECORD)
                 .faded(recordShown)
                 .then(glass),
-        tint = if (takes.recording) MaterialTheme.colorScheme.error else Color.Unspecified,
+        tint = if (record.recording) MaterialTheme.colorScheme.error else Color.Unspecified,
     )
 }
 

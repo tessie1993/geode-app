@@ -7,7 +7,6 @@
 namespace geode::output::record {
 
 namespace {
-constexpr int64_t kMsPerSecond = 1'000;
 constexpr int64_t kUsPerSecond = 1'000'000;
 constexpr int64_t kBitsPerByte = 8;
 }  // namespace
@@ -21,12 +20,6 @@ int snapMaxLength(int requestedSec) {
         if (std::abs(kMaxLengthSec[i] - requestedSec) < std::abs(best - requestedSec)) best = kMaxLengthSec[i];
     }
     return best;
-}
-
-bool reached(int64_t recordedMs, int maxSec) { return maxSec > 0 && recordedMs >= maxSec * kMsPerSecond; }
-
-int64_t clampLengthMs(int64_t lengthMs, int maxSec) {
-    return reached(lengthMs, maxSec) ? maxSec * kMsPerSecond : lengthMs;
 }
 
 Estimate estimate(int videoBps, int lengthSec) {

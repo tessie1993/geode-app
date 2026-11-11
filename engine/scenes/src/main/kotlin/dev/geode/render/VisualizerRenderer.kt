@@ -211,9 +211,31 @@ class VisualizerRenderer(
         width: Int,
         height: Int,
     ) {
+        surfaceWidth = width
+        surfaceHeight = height
         nativeViz.surfaceChanged(width, height)
         onSurfaceSizeChanged(width, height)
     }
+
+    /** The surface in pixels, 0 before the first one: the stage Record's clock is made for. */
+    @Volatile
+    var surfaceWidth = 0
+        private set
+
+    @Volatile
+    var surfaceHeight = 0
+        private set
+
+    /** GL thread. Record's tee into the encoder's [surface]; see [GeodeNative.vizRecordStart]. */
+    fun recordStart(
+        recorder: Long,
+        surface: Any,
+        width: Int,
+        height: Int,
+        watermark: Long,
+    ): Boolean = nativeViz.recordStart(recorder, surface, width, height, watermark)
+
+    fun recordStop() = nativeViz.recordStop()
 
     /** See [VisualizerView.setUiBlurRegion] for the contract; [NativeViz] keeps it for a new handle. */
     fun setUiBlurRegion(

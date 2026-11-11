@@ -58,7 +58,7 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/feedback_motion_test.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/viz/VisualSafety.cpp -o feedback_motion_test
           ./feedback_motion_test
           # The scene params resolver (#344): the chain's order, reduced motion once, pinned settings, an export's pin (#350), determinism, safety last.
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/resolver_test.cpp core/signal/Resolver.cpp core/signal/EngineSettings.cpp core/sound/*.cpp \
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/resolver_test.cpp core/signal/Resolver.cpp core/signal/EngineSettings.cpp core/sound/*.cpp \
             core/viz/Director.cpp core/viz/DirectorReach.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp \
             core/viz/NoteResponse.cpp core/viz/Lfo.cpp core/viz/Adsr.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
             core/viz/MacroBank.cpp core/viz/ModTargets.cpp core/viz/MotionField.cpp core/viz/CameraRig.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
@@ -66,7 +66,7 @@ jobs:
           ./resolver_test
           # The director's reach: the shuffle and its modulators over the user's params (seeded, kept controls, scope,
           # ranges, glides at 30/60/120 fps, offsets over the base, Look bit-identical, the export pin, no tempo).
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/director_reach_test.cpp core/signal/Resolver.cpp core/signal/EngineSettings.cpp core/sound/*.cpp \
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/director_reach_test.cpp core/signal/Resolver.cpp core/signal/EngineSettings.cpp core/sound/*.cpp \
             core/viz/Director.cpp core/viz/DirectorReach.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp \
             core/viz/NoteResponse.cpp core/viz/Lfo.cpp core/viz/Adsr.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
             core/viz/MacroBank.cpp core/viz/ModTargets.cpp core/viz/MotionField.cpp core/viz/CameraRig.cpp core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
@@ -94,7 +94,7 @@ jobs:
             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o director_test
           ./director_test
           # Note & key reactions: knobs by meaning, the drum weight, no param written, off = today.
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/note_response_test.cpp core/viz/NoteResponse.cpp -o note_response_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/note_response_test.cpp core/viz/NoteResponse.cpp -o note_response_test
           ./note_response_test
           # The raw-PCM hand-off: each pushed block reaches the scenes once, so a paused pulse decays.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/pcm_handoff_test.cpp -o pcm_handoff_test
@@ -148,10 +148,10 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl core/tests/edge_glow_pass_test.cpp core/viz/frame/EdgeGlowPass.cpp core/viz/Program.cpp core/viz/ShaderSource.cpp -o edge_glow_pass_test
           ./edge_glow_pass_test
           # The GL Transitions library parse the renderer and the shell share, and the shell's table (#438).
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/transition_library_test.cpp core/util/Json.cpp -o transition_library_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/transition_library_test.cpp core/util/Json.cpp -o transition_library_test
           ./transition_library_test
           # The transition programs over a faked GL context: a transition that fails to build is tried once per context, a rebuilt one gets its params again.
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/fakegl core/tests/transition_programs_test.cpp core/viz/Transition.cpp core/viz/Program.cpp core/viz/ShaderSource.cpp \
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl core/tests/transition_programs_test.cpp core/viz/Transition.cpp core/viz/Program.cpp core/viz/ShaderSource.cpp \
             core/viz/VisualSafety.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Lfo.cpp core/util/Json.cpp -o transition_programs_test
           ./transition_programs_test
           # Settings › Performance's tiers and the first-run pick for this phone (#437).
@@ -169,6 +169,12 @@ jobs:
           # Auto's style timer: the interval plus a spread per look, never sooner than the interval; and the duration a .milk preset's progress runs over.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/auto_timer_test.cpp core/api/geode_auto_api.cpp -o auto_timer_test
           ./auto_timer_test
+          # A .milk preset whose warp or composite shader failed plays on the default one; the stage's note says which.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/milk_shader_note_test.cpp -o milk_shader_note_test
+          ./milk_shader_note_test
+          # A style change's transition: "random" draws one per change, never twice running; Auto's change fades for MilkDrop's longer time, read once per renderer.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/transition_choice_test.cpp -o transition_choice_test
+          ./transition_choice_test
           # The frame clock every surface shares (#436): vsync divides, the settle window, hitches, resume, one dt clamp.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/pacer_test.cpp -o pacer_test
           ./pacer_test
@@ -210,7 +216,7 @@ jobs:
                 -c "'"$BASISU"'/$0" -o "basisu_obj/$(echo "$0" | tr / _).o"' {}
           gcc -O2 -DNDEBUG -w -c "$BASISU/zstd/zstd.c" -o basisu_obj/zstd.o
           test "$(ls basisu_obj/*.o | wc -l)" -eq 32
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Ithird_party/cgltf -Ithird_party/meshoptimizer/src -I"$BASISU" $BASISU_DEFS \
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -isystem third_party/cgltf -isystem third_party/meshoptimizer/src -isystem "$BASISU" $BASISU_DEFS \
             core/tests/gltf_import_test.cpp core/scene/object/GltfImport.cpp core/scene/object/ModelTextures.cpp \
             third_party/meshoptimizer/src/simplifier.cpp third_party/meshoptimizer/src/vertexcodec.cpp \
             third_party/meshoptimizer/src/indexcodec.cpp third_party/meshoptimizer/src/vertexfilter.cpp basisu_obj/*.o -pthread -o gltf_import_test
@@ -226,7 +232,7 @@ jobs:
           ./cast_audio_test
           # Morph World: the World Genome (bounds, lerp, seeds, 1000 random worlds open and lit, the
           # corridor at the camera), the morph driver (replayable, seeded, no flash) and lib_world's names.
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/world_genome_test.cpp core/viz/world/WorldGenome.cpp             core/viz/world/MorphDriver.cpp core/viz/world/WorldAssets.cpp core/viz/CameraRig.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp             core/viz/VisualSafety.cpp core/viz/Lfo.cpp -o world_genome_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/world_genome_test.cpp core/viz/world/WorldGenome.cpp             core/viz/world/MorphDriver.cpp core/viz/world/WorldAssets.cpp core/viz/CameraRig.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp             core/viz/VisualSafety.cpp core/viz/Lfo.cpp -o world_genome_test
           ./world_genome_test app/src/main/assets/shaders/lib_world.glsl             app/src/main/assets/shaders/world_shapes.bin app/src/main/assets/shaders/world_textures.bin
           # Cast's HLS timing (#656): segment durations from the fragment's media time, TARGETDURATION, the playlist text.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/hls_segments_test.cpp core/api/geode_frame_api.cpp -o hls_segments_test
@@ -238,12 +244,12 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/qr_code_test.cpp core/api/geode_link_api.cpp core/viz/frame/LinkShare.cpp core/util/QrCode.cpp -o qr_code_test
           ./qr_code_test
           # The config params schema (#423): LFO, envelope, palette, look, clip and morph rows; Lfo and Adsr clamp as before; the store conversions equal Kotlin's; the text.
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/config_schema_test.cpp core/viz/ConfigFields.cpp core/viz/Adsr.cpp core/viz/Lfo.cpp \
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/config_schema_test.cpp core/viz/ConfigFields.cpp core/viz/Adsr.cpp core/viz/Lfo.cpp \
             core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp \
             core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o config_schema_test
           ./config_schema_test
           # The renderer's reaction resolve (#750): DNA, or the user's routes under the hand mask, as the old Kotlin path; resolved exactly on a change of scene, seed, routes or mask.
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore -Icore/tests/stub core/tests/reaction_resolve_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o reaction_resolve_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/reaction_resolve_test.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/CameraRig.cpp core/viz/MotionField.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o reaction_resolve_test
           ./reaction_resolve_test
 
       # Moved from android.yml, which runs by hand: there a stale fixture and a failing crossfade test
@@ -259,6 +265,8 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/fakegl core/tests/style_reads_test.cpp core/viz/ShaderSource.cpp core/viz/Catalogue.cpp \
             core/viz/scenes/StyleCatalog.cpp -o style_reads_test
           ./style_reads_test app/src/main/assets/
+          # The visual gate's judge (#470): compiled so it keeps building; its render jobs left CI in #786, it runs by hand (tools/glslcheck README).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/visual_gate.cpp -o visual_gate
           # The bundled looks (#648): every value pinned to the Kotlin literals it replaced, the text read back bit for bit.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/presets_test.cpp core/viz/CataloguePresets.cpp core/viz/Catalogue.cpp \
             core/viz/scenes/StyleCatalog.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp -o presets_test
@@ -349,7 +357,7 @@ jobs:
       - name: Customize map host tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/customize_test.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o customize_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/customize_test.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o customize_test
           ./customize_test core/tests/customize.txt
 
       # The two-circle gesture's Randomize everything (core/viz/RandomizeAll): a seeded style and look, never a locked style, every category rolled, Keep held.
@@ -359,9 +367,9 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/randomize_all_test.cpp core/viz/RandomizeAll.cpp core/api/geode_randomize_all_api.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o randomize_all_test
           ./randomize_all_test
 
-      # The sound engine at 30 and 120 fps must equal 60 at every shared sample.
+      # The sound engine at 30 and 120 fps must equal 60 at every shared sample, and an export's cut equal live's.
       - name: Sound across frame rates
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_rate_test.cpp core/sound/*.cpp -o sound_rate_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/sound_rate_test.cpp core/sound/*.cpp core/output/FrameClock.cpp -o sound_rate_test
           ./sound_rate_test

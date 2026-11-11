@@ -8,7 +8,6 @@ namespace geode::output::encode {
 namespace {
 constexpr int64_t kUsPerSecond = 1'000'000;
 constexpr int64_t kBitsPerByte = 8;
-constexpr int kFallbackCeilingFps = 30;
 
 int even(int v) { return v % 2 == 0 ? v : v + 1; }
 }  // namespace
@@ -36,8 +35,6 @@ FrameSize frameSize(int shortSide, int wRatio, int hRatio) {
     }
     return landscape ? FrameSize{even(longSide), even(shortOut)} : FrameSize{even(shortOut), even(longSide)};
 }
-
-int fallbackFps(int requestedFps) { return requestedFps > kFallbackCeilingFps ? requestedFps / 2 : requestedFps; }
 
 int clampFps(int requestedFps) { return std::clamp(requestedFps, kMinFps, kMaxFps); }
 

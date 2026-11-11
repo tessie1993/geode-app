@@ -152,6 +152,39 @@
                     android:scheme="geode"
                     android:host="template" />
             </intent-filter>
+            <!--
+              A MilkDrop preset opened from a file manager. There is no registered MIME type for
+              .milk, so it is matched by the name's extension (pathPattern cannot match a dot that
+              is not the last one without these repeats); providers whose uris hide the name are
+              not reachable this way. MainActivity.receiveMilkFile treats the uri as untrusted.
+              No permission is added: the sender grants read access to its content uri.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:host="*" />
+                <data android:mimeType="*/*" />
+                <data android:pathPattern=".*\\.milk" />
+                <data android:pathPattern=".*\\..*\\.milk" />
+                <data android:pathPattern=".*\\..*\\..*\\.milk" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.milk" />
+                <data android:pathPattern=".*\\.MILK" />
+            </intent-filter>
+            <!-- The same for a view that carries no MIME type (some file managers send none). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:host="*" />
+                <data android:pathPattern=".*\\.milk" />
+                <data android:pathPattern=".*\\..*\\.milk" />
+                <data android:pathPattern=".*\\..*\\..*\\.milk" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.milk" />
+                <data android:pathPattern=".*\\.MILK" />
+            </intent-filter>
             <!-- Android Auto voice search: "play <something> on Geode" arrives here
                  with a query, and the activity plays the first library match. -->
             <intent-filter>

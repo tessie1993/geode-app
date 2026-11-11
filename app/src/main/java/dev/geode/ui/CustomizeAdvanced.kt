@@ -500,6 +500,9 @@ internal fun NoteKeyPage(
 
 private const val TRANSITION_CHIP_LIMIT = 40
 
+/** Native's transition_choice::kRandomId. */
+private const val RANDOM_TRANSITION = "random"
+
 /**
  * Effects' transition style: how one style hands over to the next. The built-in transitions,
  * then the gl-transitions library behind a search. Nothing while the renderer has no transition yet.
@@ -512,8 +515,9 @@ internal fun TransitionPicker(
     if (transitionId == null || !sectionVisible()) return
     val ctx = LocalContext.current
     val library = remember { TransitionCatalog.library(ctx) }
-    // "cut" is left out: VisualSafety always plays it as a fade, so its entry lied.
-    val builtIn = remember { TransitionCatalog.BUILT_IN_IDS.filter { it != "cut" } }
+    // "cut" is left out: VisualSafety always plays it as a fade, so its entry lied. "random" draws one
+    // per change, never the same twice running (native core/viz/TransitionChoice, MilkDrop's habit).
+    val builtIn = remember { TransitionCatalog.BUILT_IN_IDS.filter { it != "cut" } + RANDOM_TRANSITION }
     DropdownRow(
         stringResource(R.string.transition_built_in),
         builtIn,

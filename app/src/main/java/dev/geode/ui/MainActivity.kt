@@ -3,6 +3,7 @@ package dev.geode.ui
 import android.app.PictureInPictureParams
 import android.app.RemoteAction
 import android.app.SearchManager
+import android.content.ContentResolver
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
@@ -23,6 +24,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -90,6 +92,24 @@ internal const val PIP_MAX_ASPECT = 2.39f
  */
 internal object SharedLinkInbox {
     var offer by mutableStateOf<SharedLinkOffer?>(null)
+}
+
+/**
+ * A .milk a file manager opened in the app, imported and loaded: Visuals opens on its MilkDrop page,
+ * once, from `AppRoot` (which holds the app state). Process-wide like [SharedLinkInbox].
+ */
+internal object MilkFileInbox {
+    var opened by mutableStateOf(false)
+}
+
+/** Shows Visuals' MilkDrop page after [MilkFileInbox] took a .milk in. */
+@Composable
+internal fun MilkFileOpened(appState: GeodeAppState) {
+    if (!MilkFileInbox.opened) return
+    LaunchedEffect(Unit) {
+        MilkFileInbox.opened = false
+        appState.openVisualsPage(VisualsPage.MILKDROP)
+    }
 }
 
 /** "Import shared preset?" / "Replace template?" for the link waiting in [SharedLinkInbox]. */
@@ -216,6 +236,26 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * A .milk opened from a file manager (ACTION_VIEW on a content or file uri). The uri is
+     * untrusted: [VisualsViewModel.openMilkFile] reads it only through the ContentResolver, only when
+     * its name ends in .milk, capped in size and under a sanitised name, then loads it. Only the
+     * manifest's .milk filter routes a view here; anything it refuses gets a toast.
+     */
+    private fun receiveMilkFile(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_VIEW) return
+        val uri = intent.data ?: return
+        if (uri.scheme != ContentResolver.SCHEME_CONTENT && uri.scheme != ContentResolver.SCHEME_FILE) return
+        intent.data = null
+        visualsViewModel.openMilkFile(uri) { ok ->
+            if (ok) {
+                MilkFileInbox.opened = true
+            } else {
+                Toast.makeText(this, R.string.milk_open_failed, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     override fun onPictureInPictureModeChanged(
         isInPictureInPictureMode: Boolean,
         newConfig: Configuration,
@@ -290,6 +330,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         receiveSharedLink(intent)
+        receiveMilkFile(intent)
         playFromSearch(intent)
     }
 
@@ -313,6 +354,7 @@ class MainActivity : ComponentActivity() {
         }
         if (savedInstanceState == null) {
             receiveSharedLink(intent)
+            receiveMilkFile(intent)
             playFromSearch(intent)
         }
     }

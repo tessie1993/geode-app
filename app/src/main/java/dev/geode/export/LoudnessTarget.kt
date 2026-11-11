@@ -81,7 +81,7 @@ sealed interface LoudnessTarget {
     data object LeaveAsIs : LoudnessTarget {
         override val id: String = "as-is"
         override val labelRes: Int = R.string.export_loudness_as_is
-        override val summary: String = "Ship the level you mixed. Geode still measures the file and says what a platform will do."
+        override val summary: String = "Ship the level you mixed. BeatRealms still measures the file and says what a platform will do."
     }
 
     companion object {

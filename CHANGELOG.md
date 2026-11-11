@@ -1,4 +1,4 @@
-# Geode — Changelog
+# BeatRealms 3D (internal name Geode): Changelog
 
 All release notes, newest first, kept verbatim from the project README (the
 history used to sit above the README's own introduction; it now lives here).

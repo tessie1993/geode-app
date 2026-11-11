@@ -24,7 +24,7 @@ data class VoiceSearch(
         /**
          * The search [item] asks for, or null when it is something else: an item with a URI already, a
          * browse-tree id, or a play-from-URI request (`requestMetadata.mediaUri`). An item with neither a
-         * query nor an id ("play music on MuzViz") is a blank search, which plays the library.
+         * query nor an id ("play music on BeatRealms") is a blank search, which plays the library.
          */
         fun of(item: MediaItem): VoiceSearch? {
             if (item.localConfiguration != null) return null

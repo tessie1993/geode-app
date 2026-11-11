@@ -381,7 +381,7 @@ internal fun sharePreset(
         if (link != null) {
             android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                 type = "text/plain"
-                putExtra(android.content.Intent.EXTRA_SUBJECT, "MuzViz preset: $name")
+                putExtra(android.content.Intent.EXTRA_SUBJECT, "BeatRealms preset: $name")
                 putExtra(android.content.Intent.EXTRA_TEXT, link)
             }
         } else {

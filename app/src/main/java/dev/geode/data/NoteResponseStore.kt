@@ -12,8 +12,8 @@ import kotlinx.coroutines.flow.StateFlow
 /**
  * Note & key reactions' switch (Settings › Behaviour), persisted, and what the engine is told.
  *
- * The work is native (core/viz/NoteResponse): notes, chords, key and mood drive the style knobs, the note
- * colours, a tint toward the notes' colour, and a gentle shape and distortion. This store only says
+ * The work is native (core/viz/NoteResponse): notes, chords, key and mood drive the six style knobs each
+ * style spends its own way; it writes no scene param and no colour. This store only says
  * whether it runs. It is free and on by default: it is how every style hears the melody rather than just
  * the drums, so a new install should see it without hunting for a switch. A saved choice wins over the
  * default, so a user who turned it off keeps it off. How strongly each part answers is per style, in

@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
@@ -36,9 +37,21 @@ import kotlinx.coroutines.withContext
 object ArtworkCache {
     private val NONE = Any()
 
-    private val cache = LruCache<String, Any>(40)
+    // Sized in bytes, not entries: a 384 px ARGB_8888 cover is ~590 KB, so 40 entries was ~24 MB (#854).
+    // The "no art" marker counts one byte.
+    private val cache =
+        object : LruCache<String, Any>(CACHE_BYTES) {
+            override fun sizeOf(
+                key: String,
+                value: Any,
+            ): Int = (value as? ImageBitmap)?.asAndroidBitmap()?.byteCount ?: 1
+        }
 
     private const val ART_PX = 384
+    private const val CACHE_BYTES = 24 * 1024 * 1024
+
+    /** Empties the cache when the system asks for memory back (`GeodeApp.onTrimMemory`); covers redecode on demand. */
+    fun clear() = cache.evictAll()
 
     suspend fun load(
         context: Context,

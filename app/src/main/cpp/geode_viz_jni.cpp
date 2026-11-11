@@ -220,6 +220,12 @@ Java_dev_geode_engine_bridge_GeodeNative_vizWriteAudio(JNIEnv* env, jobject, jlo
     geode_viz_write_audio(vizOf(handle), data.data(), count, channels, sampleRate);
 }
 
+// An export's track audio: the feed hands the renderer's engine its frames natively.
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_vizHearTrack(JNIEnv*, jobject, jlong handle, jlong feed) {
+    return geode_viz_hear_track(vizOf(handle), reinterpret_cast<geode_track_feed*>(feed)) ? JNI_TRUE : JNI_FALSE;
+}
+
 // The live feed: the renderer takes from the ring itself, so no sample crosses JNI. A ring handle is
 // valid while its Kotlin holder is reachable, and the caller holds it for this call.
 JNIEXPORT void JNICALL

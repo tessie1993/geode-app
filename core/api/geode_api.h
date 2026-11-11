@@ -940,6 +940,42 @@ GEODE_API void              geode_pcm_cursor_reset(geode_pcm_cursor*);   /* the 
  * own cursor (and so the ring) until it is fed another ring or NULL, which drops it. Render thread, before
  * geode_viz_render. */
 GEODE_API void              geode_viz_feed_ring(geode_viz*, const geode_pcm_ring* ring);
+/* AIFF files (audio/ingest/AiffReader), which MediaExtractor does not read: an AIFF or AIFF-C (NONE, sowt)
+ * of 8, 16, 24 or 32 bits read front to back as 16-bit PCM (the top two bytes of a wider sample). open_fd
+ * takes the descriptor and closes it, also when it returns NULL (not an AIFF it reads). With length >= 0 it
+ * reads `length` bytes from start_offset on from the descriptor's position (an AssetFileDescriptor's span),
+ * with length < 0 to the end. One thread at a time per handle. */
+typedef struct geode_aiff geode_aiff;
+GEODE_API geode_aiff*       geode_aiff_open_fd(int fd, int64_t start_offset, int64_t length);
+GEODE_API void              geode_aiff_close(geode_aiff*);
+GEODE_API int               geode_aiff_channels(const geode_aiff*);
+GEODE_API int               geode_aiff_sample_rate(const geode_aiff*);
+GEODE_API int64_t           geode_aiff_total_frames(const geode_aiff*);   /* 0 = read to the end */
+GEODE_API float             geode_aiff_progress(const geode_aiff*);       /* frames read over the total, 0..1 */
+/* Up to `capacity` interleaved 16-bit samples, whole frames while the file has them; -1 at the end. */
+GEODE_API int               geode_aiff_read_s16(geode_aiff*, int16_t* out, int capacity);
+/* An export's track audio (audio/ingest/TrackFeed): the shell pushes each decoded chunk, and the renderer's
+ * sound engine hears exactly the frames up to each video frame's end, counted from the range start.
+ * Frames before start_ms are dropped. One chunk is held at a time: push only after a deliver returned 0.
+ * One thread per handle. */
+typedef struct geode_track_feed geode_track_feed;
+GEODE_API geode_track_feed* geode_track_feed_create(int64_t start_ms);
+GEODE_API void              geode_track_feed_destroy(geode_track_feed*);
+/* A decoder's output: `bytes` of interleaved float (machine order, is_float 1) or 16-bit little-endian PCM,
+ * its first frame at pts_us. */
+GEODE_API void              geode_track_feed_push_decoded(geode_track_feed*, const void* data, size_t bytes, int is_float,
+                                                          int channels, int sample_rate, int64_t pts_us);
+/* One read of an AIFF into the feed: 0 once the file has run out, else 1. */
+GEODE_API int               geode_track_feed_push_aiff(geode_track_feed*, geode_aiff*);
+GEODE_API int               geode_track_feed_has_rate(const geode_track_feed*);   /* 1 once a chunk told the rate */
+/* Aims the next delivers at end_ms into the range, at the latest chunk's rate. */
+GEODE_API void              geode_track_feed_target_ms(geode_track_feed*, int64_t end_ms);
+/* Hands sink the held frames up to the target: 1 once it is reached, 0 when the held chunk ran out first. */
+typedef void (*geode_track_sink)(void* context, const float* interleaved, int frames, int channels, int sample_rate);
+GEODE_API int               geode_track_feed_deliver(geode_track_feed*, geode_track_sink sink, void* context);
+/* geode_track_feed_deliver into this renderer's sound engine (geode_viz_write_audio); a NULL renderer hears
+ * nothing but the feed still moves on. Render thread. */
+GEODE_API int               geode_viz_hear_track(geode_viz*, geode_track_feed*);
 /* The playback output (audio/output, Android only): an Oboe stream fed through a lock-free FIFO, standing
  * where the AudioTrack stands under Media3's DefaultAudioSink. For plain PCM only: 16-bit or float (numbered
  * as GEODE_PCM_S16 and GEODE_PCM_FLOAT), mono or stereo, 8 to 192 kHz. One control thread (Media3's playback

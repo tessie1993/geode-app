@@ -1556,6 +1556,78 @@ object GeodeNative {
     /** A start after a stop: forget the gap, keep the panel's period. */
     external fun pacerResume(state: LongArray)
 
+    // AIFF files and an export's track audio (core/audio/ingest/AiffReader, TrackFeed).
+
+    /**
+     * An AIFF or AIFF-C (NONE, sowt) read as 16-bit PCM from [fd], which native takes and closes, also when it
+     * returns 0 (not an AIFF it reads). [length] >= 0 reads that many bytes from [startOffset] on (an
+     * AssetFileDescriptor's span); < 0 to the end. Freed with [aiffClose].
+     */
+    external fun aiffOpenFd(
+        fd: Int,
+        startOffset: Long,
+        length: Long,
+    ): Long
+
+    external fun aiffClose(handle: Long)
+
+    /** [out] gets the channel count, the sample rate and the COMM frame count (0 = read to the end). */
+    external fun aiffInfo(
+        handle: Long,
+        out: LongArray,
+    )
+
+    /** Frames read over the total, 0..1. */
+    external fun aiffProgress(handle: Long): Float
+
+    /** Up to [out]'s size in interleaved 16-bit samples, whole frames while the file has them; -1 at the end. */
+    external fun aiffReadS16(
+        handle: Long,
+        out: ShortArray,
+    ): Int
+
+    /** An export's track audio from [startMs] into the track; frames before it are dropped. Freed with [trackFeedDestroy]. */
+    external fun trackFeedCreate(startMs: Long): Long
+
+    external fun trackFeedDestroy(handle: Long)
+
+    /**
+     * A decoder's output: [size] bytes at [offset] in the direct [buffer], float when [isFloat] else 16-bit, its
+     * first frame at [ptsUs]. Read in place, never kept; false (nothing taken) for a heap buffer. Push only
+     * after [vizHearTrack] returned false: one chunk is held at a time.
+     */
+    external fun trackFeedPushDirect(
+        handle: Long,
+        buffer: java.nio.ByteBuffer,
+        offset: Int,
+        size: Int,
+        isFloat: Boolean,
+        channels: Int,
+        sampleRate: Int,
+        ptsUs: Long,
+    ): Boolean
+
+    /** One read of the AIFF at [aiff] into the feed; false once the file has run out. */
+    external fun trackFeedPushAiff(
+        handle: Long,
+        aiff: Long,
+    ): Boolean
+
+    /** Whether a chunk has told the rate yet. */
+    external fun trackFeedHasRate(handle: Long): Boolean
+
+    /** Aims the next [vizHearTrack] at [endMs] into the range. */
+    external fun trackFeedTargetMs(
+        handle: Long,
+        endMs: Long,
+    )
+
+    /** The feed's held frames up to its target into renderer [handle]'s sound engine; true once reached. */
+    external fun vizHearTrack(
+        handle: Long,
+        feed: Long,
+    ): Boolean
+
     // The PCM ingest ring (core/audio/ingest/PcmRing): one lock-free ring per audio source. Every write
     // carries its rate, and the int16 and 8-bit conversions to float happen inside it.
 

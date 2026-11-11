@@ -235,47 +235,29 @@ inline Motion fromSound(const Motion& base, const GeodeSoundFrame& s, bool reduc
     return m;
 }
 
-// What the renderer asks of the pass while Liquid is off (Renderer::drawDive): Dive speed and a flat
-// style's Fly as a zoom, and a shader style's Trails as MilkDrop's video echo zoom and warp.
-struct DiveAsk {
-    float octaves = 0.0f;    // per second; negative backs out
-    bool sustain = false;    // the style's Trails ride the pass
+// What the renderer asks of the pass while Liquid is off (Renderer::drawTrails): a shader style's Trails
+// as MilkDrop's video echo zoom and warp. Endless zoom is not here: it is its own stage (viz/DivePass).
+struct TrailAsk {
     float trailZoom = 0.0f;  // -0.5..0.5
     float trailWarp = 0.0f;  // 0..1
 };
 
-/** Dive speed's own ceiling, octaves a second, before the bass pushes it. */
-inline constexpr float kMaxDiveOctaves = 1.2f;
 /** Trail zoom at 1, octaves a second: the 6% a frame the particle styles' trail pass uses, at 60 Hz. */
 inline constexpr float kTrailZoomOctaves = 5.2f;
 
-inline bool asksDive(const DiveAsk& a) { return std::isfinite(a.octaves) && a.octaves != 0.0f; }
-
-inline Motion diveBase(const DiveAsk& a) {
+inline Motion trailBase(const TrailAsk& a) {
     using detail::finiteOr;
-    float octaves = std::clamp(finiteOr(a.octaves, 0.0f), -kMaxZoomOutOctaves, kMaxDiveOctaves);
     Motion m;
-    if (a.sustain) {
-        octaves += std::clamp(finiteOr(a.trailZoom, 0.0f), -0.5f, 0.5f) * kTrailZoomOctaves;
-        m.warp = std::clamp(finiteOr(a.trailWarp, 0.0f), 0.0f, 1.0f);
-    }
-    m.zoom = std::exp2(octaves);
+    m.zoom = std::exp2(std::clamp(finiteOr(a.trailZoom, 0.0f), -0.5f, 0.5f) * kTrailZoomOctaves);
+    m.warp = std::clamp(finiteOr(a.trailWarp, 0.0f), 0.0f, 1.0f);
     return sanitize(m);
 }
 
-/**
- * This frame's motion for the ask, heard. The bass, mids and treble push only a dive the user asked
- * for; Trails alone keep their own zoom and warp, held to the silence rule like everything else.
- */
-inline Motion diveMotion(const DiveAsk& a, const GeodeSoundFrame& s, bool reducedMotion) {
+/** This frame's motion for the ask: the user's own zoom and warp, held to the silence rule; no band pushes it. */
+inline Motion trailMotion(const TrailAsk& a, const GeodeSoundFrame& s, bool reducedMotion) {
     GeodeSoundFrame heard = s;
-    if (!asksDive(a)) heard.bassAtt = heard.midAtt = heard.trebleAtt = 1.0f;
-    return fromSound(diveBase(a), heard, reducedMotion);
-}
-
-/** Octaves a second the motion travels, either way: what the pour is timed by. */
-inline float travelOctaves(const Motion& m) {
-    return std::isfinite(m.zoom) && m.zoom > 0.0f ? std::fabs(std::log2(m.zoom)) : 0.0f;
+    heard.bassAtt = heard.midAtt = heard.trebleAtt = 1.0f;
+    return fromSound(trailBase(a), heard, reducedMotion);
 }
 
 /**

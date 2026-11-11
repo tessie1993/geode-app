@@ -21,6 +21,8 @@
 #include "viz/CameraRig.hpp"
 #include "viz/CompositePass.hpp"
 #include "viz/Director.hpp"
+#include "viz/DivePass.hpp"
+#include "viz/EndlessZoom.hpp"
 #include "viz/Framebuffer.hpp"
 #include "viz/GlProfile.hpp"
 #include "viz/LayerState.hpp"
@@ -185,6 +187,8 @@ private:
     // ones in use this frame.
     // `trim` other than None drops every spare (#854), whatever the thermal tier would keep.
     void trimScenes(const std::string& keepId, MemoryTrim trim = MemoryTrim::None);
+    // One logcat line when the resident scene count or the thermal tier changes (the device checklist reads it).
+    void logResidency(float wallDt);
     std::unique_ptr<Scene> buildScene(const std::string& id);
     float beginFrame(double timeSeconds);
     // Steps styleSchedule_ once per frame (after the sound engine) and requests its change, if any.
@@ -218,10 +222,12 @@ private:
     GLuint drawBorn(Scene& scene, const SceneParams& p, float dt);
     // Runs the liquid over the scene target; 0 when Liquid is off (the composite then reads the target).
     GLuint drawLiquid(Scene& scene, const SceneParams& p, float dt);
-    // A flat style's Endless zoom and Fly with Liquid off: MilkDrop's feedback motion (liquid/FeedbackMotion,
-    // heard from the sound frame, stepped on the wall clock), run through the liquid pass, in or out.
-    // 0 when its targets are not there. `ask.sustain` adds a shader style's Trails (length, echo zoom, warp).
-    GLuint drawDive(const SceneParams& p, const liquid::motion::DiveAsk& ask, float dt, float wallDt);
+    // A shader style's Trails with Liquid off (length, echo zoom, warp), run through the liquid pass on
+    // the wall clock. 0 when its targets are not there.
+    GLuint drawTrails(const SceneParams& p, float dt, float wallDt);
+    // Endless zoom (EndlessZoom.hpp, viz/DivePass): the same stage over every style's finished picture.
+    // Returns `shown` (0 = the scene target) when the dive is off, else the dived picture.
+    GLuint drawDive(const Scene& scene, const SceneParams& p, float dt, float wallDt, GLuint shown);
     bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off && liveLiquid_ != liquid::Mode::Paused; }
     void applyPendingFluidInjection();
     void applyMilkRequests();
@@ -394,7 +400,12 @@ private:
     std::string bornAsked_;
     std::string bornAskedBefore_;
     bool liquidWasOn_ = false;
-    bool diveWasOn_ = false;
+    bool trailsWereOn_ = false;
+    DivePass divePass_;
+    endless::Follow diveFollow_;
+    float divePhase_ = 0.0f;
+    // 0 the plain picture .. 1 the dive: the switch fades over kDiveFadeSeconds, never cuts.
+    float diveMix_ = 0.0f;
     // Frames since the feedback pass last drew; its targets are freed once this passes kFeedbackIdleFrames.
     int feedbackIdleFrames_ = 0;
     std::atomic<int> liquidHotPolicy_{0};
@@ -418,6 +429,9 @@ private:
     int renderHeight_ = 1;
     ThermalTier appliedTier_ = ThermalTier::Full;
     uint32_t seenTrim_ = 0;  // the SceneResidency trim signal generation this renderer acted on (GL thread)
+    // What `adb logcat -s GeodeRenderer` last showed of scene residency and the tier (logged on a change only).
+    size_t loggedResident_ = SIZE_MAX;
+    ThermalTier loggedTier_ = ThermalTier::Full;
     double lastTimeS_ = -1.0;
     double frameNowS_ = 0.0;
     float timeSeconds_ = 0.0f;

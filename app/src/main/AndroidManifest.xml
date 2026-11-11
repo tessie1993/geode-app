@@ -39,6 +39,10 @@
          in .playback.PlaybackService, and none of it involves the network:
          titles come from the file's own tags and the local library. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- Cast to TV with Live input on: the mic keeps hearing the room for the TV's visuals while
+         the app is in the background. Taken by .cast.CastService only while the mic is on, and
+         only while the app is on screen, the one time Android grants it; nothing is recorded. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <!--
       A 4K render is tens of minutes of GPU work. Android 15 added the
       mediaProcessing type for exactly this ("time-consuming operations on
@@ -279,12 +283,13 @@
         <!--
           Cast to TV: keeps the phone rendering and streaming to the TV with the app in the
           background or the screen off. mediaPlayback: it continues video playback (on the TV)
-          from the background. Declared in Play Console with the other types.
+          from the background. microphone: with Live input on, the mic keeps driving the TV's
+          visuals in the background. Both declared in Play Console with the other types.
         -->
         <service
             android:name=".cast.CastService"
             android:exported="false"
-            android:foregroundServiceType="mediaPlayback" />
+            android:foregroundServiceType="mediaPlayback|microphone" />
 
         <!-- Media3 Cast with Google's Default Media Receiver (no receiver app of our own).
              cast.CastOptionsProvider turns the Cast SDK's own notification and media session

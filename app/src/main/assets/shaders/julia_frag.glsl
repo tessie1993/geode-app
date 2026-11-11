@@ -38,9 +38,7 @@ out vec4 fragColor;
 // a whole turn and is invisible). The subject is fixed at the origin and the
 // eye's position never reads uCamPos, so there is no world z to rebase. The
 // dolly (kick punches, drop pushes) pulls the eye in; it stays outside the
-// bounding sphere at every knob and dolly value. 3D styles dive by flying the
-// rig, so this file never reads lib_zoom's layers (reading uCamBasis gets it
-// one layer).
+// bounding sphere at every knob and dolly value.
 //
 // ---- audio ------------------------------------------------------------------
 //

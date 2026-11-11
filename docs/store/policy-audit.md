@@ -14,6 +14,12 @@ Two things in it need reading with care:
   "user-initiated action"). The generator lists every transfer it was told about.
 - **It does not see the Google Cast SDK's own logging**, which is the one thing
   [data-safety.md](data-safety.md) does declare.
+- **Its dataSync use case is superseded.** Play's list puts a user-started local render under
+  "Local processing: Other", which [permissions.md](permissions.md) now uses; "Import or export"
+  is for moving files.
+- **Rechecked at 022d8dd8d** (2026-11-11): no manifest permission, service, network or SDK
+  change since the scan, so its findings stand. The one risk it rated a suggestion, the
+  `mediaProjection` declaration, is the weakest fit in the Console form; see permissions.md.
 
 To run it again: load the skill in an agent session and follow its two phases; it writes to
 `.scratch/` (git-ignored).

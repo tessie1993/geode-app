@@ -5,6 +5,7 @@ add_library(geode_core STATIC
     api/geode_library_api.cpp
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
+    api/geode_randomize_all_api.cpp
     api/geode_macro_bank_api.cpp
     api/geode_sound_api.cpp
     api/geode_underlay_api.cpp
@@ -77,6 +78,7 @@ add_library(geode_core STATIC
     viz/Lfo.cpp
     viz/ModTargets.cpp
     viz/MacroBank.cpp
+    viz/MacroControls.cpp
     viz/Director.cpp
     viz/DirectorReach.cpp
     viz/LayerState.cpp
@@ -104,6 +106,7 @@ add_library(geode_core STATIC
     viz/CataloguePresets.cpp
     viz/ParamRandomizer.cpp
     viz/CustomizeMap.cpp
+    viz/RandomizeAll.cpp
     viz/WaveRandomizer.cpp
     viz/SceneRegistry.cpp
     viz/Renderer.cpp

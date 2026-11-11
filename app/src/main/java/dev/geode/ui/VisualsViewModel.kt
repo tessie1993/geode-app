@@ -135,6 +135,9 @@ class VisualsViewModel
 
         fun randomizeWaves() = session.modulation.randomizeWaves(all = true)
 
+        /** The two-circle gesture's Randomize everything: style, preset and, with [rollParams] (Pro), every category. */
+        fun randomizeEverything(rollParams: Boolean) = session.randomizeEverything(rollParams)
+
         val paramHistory: StateFlow<ParamHistoryState> get() = session.paramHistory
 
         /** The one write path for a Customize edit, so the panel's undo covers every control. */

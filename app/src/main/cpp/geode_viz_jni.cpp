@@ -165,9 +165,8 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetTouch(JNIEnv* env, jobject, jlong
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizQueueTouchStroke(JNIEnv*, jobject, jlong handle, jfloat nx, jfloat ny, jfloat ndx, jfloat ndy,
-                                                             jfloat dt, jfloat strength) {
-    geode_viz_queue_touch_stroke(vizOf(handle), nx, ny, ndx, ndy, dt, strength);
+Java_dev_geode_engine_bridge_GeodeNative_vizSetTouchSmear(JNIEnv*, jobject, jlong handle, jboolean on, jfloat strength) {
+    geode_viz_set_touch_smear(vizOf(handle), on == JNI_TRUE ? 1 : 0, strength);
 }
 
 JNIEXPORT void JNICALL
@@ -271,6 +270,106 @@ JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_macroBankSetValue(JNIEnv* env, jobject, jstring bank, jint knobId, jfloat value) {
     Utf8Chars text(env, bank);
     return env->NewStringUTF(geode_macro_bank_set_value(text.get(), knobId, value));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankRename(JNIEnv* env, jobject, jstring bank, jint knobId, jstring name) {
+    Utf8Chars text(env, bank);
+    Utf8Chars label(env, name);
+    return env->NewStringUTF(geode_macro_bank_rename(text.get(), knobId, label.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankAddKnob(JNIEnv* env, jobject, jstring bank, jstring name) {
+    Utf8Chars text(env, bank);
+    Utf8Chars label(env, name);
+    return env->NewStringUTF(geode_macro_bank_add_knob(text.get(), label.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankRemoveKnob(JNIEnv* env, jobject, jstring bank, jint knobId) {
+    Utf8Chars text(env, bank);
+    return env->NewStringUTF(geode_macro_bank_remove_knob(text.get(), knobId));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankDuplicateKnob(JNIEnv* env, jobject, jstring bank, jint knobId) {
+    Utf8Chars text(env, bank);
+    return env->NewStringUTF(geode_macro_bank_duplicate_knob(text.get(), knobId));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankResetKnob(JNIEnv* env, jobject, jstring bank, jint knobId) {
+    Utf8Chars text(env, bank);
+    return env->NewStringUTF(geode_macro_bank_reset_knob(text.get(), knobId));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankMoveKnob(JNIEnv* env, jobject, jstring bank, jint knobId, jint delta) {
+    Utf8Chars text(env, bank);
+    return env->NewStringUTF(geode_macro_bank_move_knob(text.get(), knobId, delta));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankSetLink(JNIEnv* env, jobject, jstring bank, jint knobId, jstring target, jfloat up,
+                                                          jfloat down) {
+    Utf8Chars text(env, bank);
+    Utf8Chars name(env, target);
+    return env->NewStringUTF(geode_macro_bank_set_link(text.get(), knobId, name.get(), up, down));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankAddLink(JNIEnv* env, jobject, jstring bank, jint knobId, jstring target) {
+    Utf8Chars text(env, bank);
+    Utf8Chars name(env, target);
+    return env->NewStringUTF(geode_macro_bank_add_link(text.get(), knobId, name.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankRemoveLink(JNIEnv* env, jobject, jstring bank, jint knobId, jstring target) {
+    Utf8Chars text(env, bank);
+    Utf8Chars name(env, target);
+    return env->NewStringUTF(geode_macro_bank_remove_link(text.get(), knobId, name.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankEditor(JNIEnv* env, jobject, jstring bank, jstring styleId) {
+    Utf8Chars text(env, bank);
+    Utf8Chars style(env, styleId);
+    return env->NewStringUTF(geode_macro_bank_editor(text.get(), style.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankSetCurve(JNIEnv* env, jobject, jstring bank, jint knobId, jstring target, jstring curve) {
+    Utf8Chars text(env, bank);
+    Utf8Chars name(env, target);
+    Utf8Chars shape(env, curve);
+    return env->NewStringUTF(geode_macro_bank_set_curve(text.get(), knobId, name.get(), shape.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankAddKnobFor(JNIEnv* env, jobject, jstring bank, jstring control) {
+    Utf8Chars text(env, bank);
+    Utf8Chars key(env, control);
+    return env->NewStringUTF(geode_macro_bank_add_knob_for(text.get(), key.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankControls(JNIEnv* env, jobject, jstring bank) {
+    Utf8Chars text(env, bank);
+    return env->NewStringUTF(geode_macro_bank_controls(text.get()));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankRoll(JNIEnv* env, jobject, jstring bank, jint knobId, jlong seed) {
+    Utf8Chars text(env, bank);
+    return env->NewStringUTF(geode_macro_bank_roll(text.get(), knobId, static_cast<long long>(seed)));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_macroBankAutoName(JNIEnv* env, jobject, jstring bank, jint knobId) {
+    Utf8Chars text(env, bank);
+    return env->NewStringUTF(geode_macro_bank_auto_name(text.get(), knobId));
 }
 
 JNIEXPORT void JNICALL
@@ -716,6 +815,46 @@ Java_dev_geode_engine_bridge_GeodeNative_customizeBorrow(JNIEnv* env, jobject, j
     env->GetFloatArrayRegion(from, 0, count, source.data());
     geode_customize_borrow(categoryName.get(), input.data(), source.data(), output.data());
     env->SetFloatArrayRegion(out, 0, count, output.data());
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_randomizeAllPick(JNIEnv* env, jobject, jlong seed, jstring current, jstring lockedStyles,
+                                                          jstring lookStyles, jint milkCount, jintArray picks) {
+    if (!picks || env->GetArrayLength(picks) < 2) return nullptr;
+    Utf8Chars style(env, current);
+    Utf8Chars locked(env, lockedStyles);
+    Utf8Chars looks(env, lookStyles);
+    char picked[128];
+    int look = -1;
+    int milk = -1;
+    const int ok = geode_randomize_all_pick(static_cast<uint64_t>(seed), style.get(), locked.get(), looks.get(), milkCount, picked,
+                                            static_cast<int>(sizeof picked), &look, &milk);
+    const jint out[2] = {look, milk};
+    env->SetIntArrayRegion(picks, 0, 2, out);
+    return ok ? env->NewStringUTF(picked) : nullptr;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_randomizeAllRoll(JNIEnv* env, jobject, jstring styleId, jstring locked, jlong seed,
+                                                          jboolean rollCategories, jfloatArray before, jfloatArray base,
+                                                          jfloatArray out) {
+    const jsize count = static_cast<jsize>(geode_viz_param_count());
+    if (!before || !base || !out || env->GetArrayLength(before) < count || env->GetArrayLength(base) < count ||
+        env->GetArrayLength(out) < count) {
+        return JNI_FALSE;
+    }
+    Utf8Chars style(env, styleId);
+    Utf8Chars lockedKeys(env, locked);
+    std::vector<float> was(static_cast<size_t>(count));
+    std::vector<float> start(was.size());
+    std::vector<float> rolled(was.size());
+    env->GetFloatArrayRegion(before, 0, count, was.data());
+    env->GetFloatArrayRegion(base, 0, count, start.data());
+    const int changed =
+        geode_randomize_all_roll(style.get(), lockedKeys.get(), static_cast<uint64_t>(seed), rollCategories ? 1 : 0, was.data(),
+                                 start.data(), rolled.data());
+    env->SetFloatArrayRegion(out, 0, count, rolled.data());
+    return changed ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jstring JNICALL

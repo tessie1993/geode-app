@@ -35,6 +35,9 @@ GEODE_API void        geode_viz_begin_param_morph(geode_viz*, float seconds);
 GEODE_API void        geode_viz_set_touch(geode_viz*, const float* xy_ndc, int points);   /* 0 points = all lifted */
 /* One finger sample in 0..1 surface space with its motion, for the fluid smear and the water ripples. */
 GEODE_API void        geode_viz_queue_touch_stroke(geode_viz*, float nx, float ny, float ndx, float ndy, float dt, float strength);
+/* Settings › Visuals › Touch › Smear (core/viz/TouchSmear): on, every finger the touch field holds also drags the
+ * picture (ripples, or the pool on Water) at strength 0.2..2 (clamped; a broken value is 1). Any thread. */
+GEODE_API void        geode_viz_set_touch_smear(geode_viz*, int on, float strength);
 /* GLSL for the fluid style's force and dye injection; "" restores the built-in splat. */
 GEODE_API void        geode_viz_set_fluid_injection(geode_viz*, const char* force_source, const char* dye_source);
 GEODE_API void        geode_viz_load_milk_preset(geode_viz*, const char* path);
@@ -345,14 +348,28 @@ GEODE_API int         geode_tags_replaygain(const geode_tags*, float* track_gain
  * slot, leaves that field unchanged; "" clears it). 1 = saved, 0 = failed. */
 GEODE_API int         geode_tags_write(int fd, const char* const* texts, int year, int track);
 
-/* Voice "play X" over the library (core/library/Search). `rows` holds 3 UTF-8 strings per track, title,
- * artist, album, `track_count` tracks in library order. `query` is the spoken query; `focus`, `artist`,
+/* Voice "play X" and Android Auto's search over the library (core/library/Search), best match first. `rows`
+ * holds 3 UTF-8 strings per track, title, artist, album, `track_count` tracks in library order. `query` is the spoken query; `focus`, `artist`,
  * `album` and `title` are MediaStore's EXTRA_MEDIA_FOCUS / _ARTIST / _ALBUM / _TITLE (NULL = absent).
  * Writes up to `max_out` matching track indices to `out` and returns how many match in all, so a count
  * above `max_out` means the buffer was short. Nothing asked plays the whole library; 0 = no match. */
 GEODE_API int         geode_library_search(const char* const* rows, int track_count, const char* query,
                                            const char* focus, const char* artist, const char* album,
                                            const char* title, int* out, int max_out);
+
+/* The library index (core/library/Search, SearchIndex): the Library screen's order and search. `rows` holds
+ * 3 UTF-8 strings per track (title, artist, album); `durations_ms` and `added_sec` one value per track (NULL =
+ * zeros). Built once per library change, read from any thread, freed with _destroy (NULL is fine).
+ * _order writes every row in `sort` order (0 title, 1 artist, 2 album, 3 duration, 4 newest first) and returns
+ * the row count. _search writes three counts (tracks, albums, artists) and then those rows, best first, an
+ * album or artist as its first row; it returns the ints in all, so a value above `max_out` means the buffer
+ * was short. A blank query finds nothing. */
+typedef struct geode_library_index geode_library_index;
+GEODE_API geode_library_index* geode_library_index_create(const char* const* rows, const long long* durations_ms,
+                                                          const long long* added_sec, int track_count);
+GEODE_API void        geode_library_index_destroy(geode_library_index*);
+GEODE_API int         geode_library_index_order(const geode_library_index*, int sort, int* out, int max_out);
+GEODE_API int         geode_library_index_search(const geode_library_index*, const char* query, int* out, int max_out);
 
 /* Scene and style catalogue (core/viz/Catalogue): every style id, its renderer kind and Styles look group, the style families,
  * which Customize controls reach which styles, and the ranges the shell's controls quote, as one versioned
@@ -426,17 +443,40 @@ GEODE_API int         geode_waves_randomize(const char* style_id, const char* lo
 /* in with every field the category's controls write taken from the look in from (same wire); an unknown category
  * copies in. */
 GEODE_API void        geode_customize_borrow(const char* category, const float* in, const float* from, float* out);
+/* Randomize everything (core/viz/RandomizeAll): the two-circle gesture's new style, look and every Customize category
+ * rolled. Pure, seeded: the same arguments always give the same result; pass one seed to both calls.
+ * geode_randomize_all_pick chooses among every catalogue style not in locked_styles (newline-joined ids the entitlement
+ * locks), not current_style while another is open, MilkDrop only when milk_count > 0; then a look for it:
+ * look_styles is the style id of each of the shell's presets, one per line, and *look_out the index of one made for
+ * the chosen style (-1 when none), else on MilkDrop *milk_out a .milk file index below milk_count (-1 otherwise).
+ * Writes the style id into style_out (NUL-terminated, truncated to style_capacity); 1 when a style was picked.
+ * geode_randomize_all_roll is base with every control locked keeps (keys and "#CATEGORY" lines) put back to its value in
+ * before, then, when roll_categories is 1, every category's other controls that reach style_id rolled (0: the kept
+ * controls alone, for a user the Customize roll is Pro for). Wire as geode_params_randomize; 1 when out differs from
+ * base. */
+GEODE_API int         geode_randomize_all_pick(uint64_t seed, const char* current_style, const char* locked_styles,
+                                               const char* look_styles, int milk_count, char* style_out, int style_capacity,
+                                               int* look_out, int* milk_out);
+GEODE_API int         geode_randomize_all_roll(const char* style_id, const char* locked, uint64_t seed, int roll_categories,
+                                               const float* before, const float* base, float* out);
 /* The macro bank (core/viz/MacroBank): the user's knobs, each a name, a value -1..1 and the links that say which
  * scene params it moves and how far each way. Pure: no viz handle, any thread. A bank travels as the versioned
  * '|'-separated line table MacroBank.hpp documents; the shell stores that string and decides nothing about it.
  * Every call that takes a bank reads any text (NULL, empty or unreadable = the default bank) and every edit
  * returns the whole new bank, normalized but otherwise unchanged when the edit is refused (an unknown knob or
- * target, a non-finite number, a full bank). geode_macro_bank_default (the four built-in knobs, also Reset) and
+ * target, a non-finite number, a full bank, removing a built-in knob, resetting one that is not). geode_macro_bank_default (the four built-in knobs, also Reset) and
  * geode_macro_bank_targets_text (what a link may name: target, param, range, default, scope, and the caps) are
  * static; every other pointer stays valid until this thread's next macro bank call.
  * target is a ModTargets wire name; up and down are the offsets at a full turn each way, as signed fractions of
- * the target's range. geode_macro_bank_live lists "knob|<id>|<up 0/1>|<down 0/1>" per knob: whether turning it
- * that way moves anything on style_id. geode_macro_bank_set makes a bank the process-wide one every renderer
+ * the target's range; geode_macro_bank_add_link links a target the knob does not move yet at the starting weights. geode_macro_bank_live lists "knob|<id>|<up 0/1>|<down 0/1>" per knob: whether turning it
+ * that way moves anything on style_id. geode_macro_bank_editor is the knob editor's one read (MacroBank.hpp's
+ * editorText: the caps, what each knob offers, its links and every target, with what reaches style_id).
+ * geode_macro_bank_move_knob steps a knob delta places along the bank. geode_macro_bank_set_curve sets how a link
+ * follows the knob (curve: LINEAR, EASE_IN, EASE_OUT or S_CURVE; up and down stay its range). geode_macro_bank_add_knob_for
+ * makes a knob that moves one Customize control (a ParamKeys name), named by native after it; geode_macro_bank_controls
+ * lists every control a knob can move, its category and the knobs that move it (MacroBank.hpp's controlsText).
+ * geode_macro_bank_roll gives a knob a random set of links (the same seed, the same set); geode_macro_bank_auto_name
+ * is the name native offers when a knob is saved (not a bank: the name alone). geode_macro_bank_set makes a bank the process-wide one every renderer
  * adds to its params each frame, after the director and the note layer and before the LFOs. */
 GEODE_API void        geode_macro_bank_set(const char* bank);
 GEODE_API const char* geode_macro_bank_default(void);
@@ -446,9 +486,19 @@ GEODE_API const char* geode_macro_bank_set_value(const char* bank, int knob_id, 
 GEODE_API const char* geode_macro_bank_rename(const char* bank, int knob_id, const char* name);
 GEODE_API const char* geode_macro_bank_add_knob(const char* bank, const char* name);
 GEODE_API const char* geode_macro_bank_remove_knob(const char* bank, int knob_id);
+GEODE_API const char* geode_macro_bank_duplicate_knob(const char* bank, int knob_id);
+GEODE_API const char* geode_macro_bank_move_knob(const char* bank, int knob_id, int delta);
+GEODE_API const char* geode_macro_bank_reset_knob(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_set_link(const char* bank, int knob_id, const char* target, float up, float down);
+GEODE_API const char* geode_macro_bank_add_link(const char* bank, int knob_id, const char* target);
 GEODE_API const char* geode_macro_bank_remove_link(const char* bank, int knob_id, const char* target);
+GEODE_API const char* geode_macro_bank_set_curve(const char* bank, int knob_id, const char* target, const char* curve);
+GEODE_API const char* geode_macro_bank_add_knob_for(const char* bank, const char* control);
+GEODE_API const char* geode_macro_bank_controls(const char* bank);
+GEODE_API const char* geode_macro_bank_roll(const char* bank, int knob_id, long long seed);
+GEODE_API const char* geode_macro_bank_auto_name(const char* bank, int knob_id);
 GEODE_API const char* geode_macro_bank_live(const char* bank, const char* style_id);
+GEODE_API const char* geode_macro_bank_editor(const char* bank, const char* style_id);
 /* Background image bake (core/viz/Underlay), before geode_viz_set_underlay_rgba: pure, no viz handle, any
  * thread. The shell decodes the picture, cuts it to geode_underlay_crop_rect (out = x, y, width, height of the
  * centred crop of src to the target's aspect) and scales it to the render size, then geode_underlay_finish

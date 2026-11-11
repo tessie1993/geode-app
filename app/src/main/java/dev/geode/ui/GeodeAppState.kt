@@ -154,7 +154,7 @@ fun rememberGeodeAppState(): GeodeAppState {
     val general = remember(context) { GeodePrefsFiles(context).general }
     val state =
         rememberSaveable(saver = GeodeAppState.Saver) {
-            // A cold start opens on Settings › Behaviour's start screen, and Studio on the tab the
+            // A cold start opens on Settings › Look's start screen, and Studio on the tab the
             // user last left it on; a process-death restore keeps whatever the saver brought back
             // instead. Both read the general prefs file, already parsed by the Activity's ViewModels.
             val lastTab = StudioPrefsStore(general).lastTab()
@@ -173,7 +173,7 @@ fun rememberGeodeAppState(): GeodeAppState {
 }
 
 /**
- * The screen a cold start opens on: Settings › Behaviour's "Open on" (#337), with "Where you left
+ * The screen a cold start opens on: Settings › Look's "Open on" (#337), with "Where you left
  * off" resolved to the last screen recorded. Pure, so the rule is tested without a device.
  */
 internal fun BehaviourPrefs.startDestination(): GeodeDestination =

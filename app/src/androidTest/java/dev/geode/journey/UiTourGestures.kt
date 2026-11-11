@@ -198,7 +198,8 @@ private fun judge(
             GestureAction.STEP_PLAYLIST -> after.sceneId != before.sceneId || after.paramsHash != before.paramsHash
             GestureAction.MACROS -> after.macros && !before.macros
             GestureAction.RECORD -> after.recording || after.recordSaveAsked || paywalled
-            GestureAction.RANDOMIZE_ALL -> after.paramsHash != before.paramsHash || paywalled
+            // A new style for everyone (the roll is Pro, the style and preset are not), so no paywall.
+            GestureAction.RANDOMIZE_ALL -> after.sceneId != before.sceneId
             GestureAction.TOUCH_PLAY -> null
             GestureAction.PLAY_PAUSE -> null
         }

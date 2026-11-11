@@ -500,6 +500,12 @@ internal const val PANEL_DEFAULT_FRACTION = 0.4f
 internal val PANEL_MIN = 280.dp
 internal val PANEL_MAX = 480.dp
 
+/** The portrait bottom sheet's widest body, the mini player's cap too: a tablet's sheet is not a full-width bar. */
+internal val SHEET_MAX_WIDTH = 640.dp
+
+/** The bottom sheet's width in dp in a window [windowDp] wide: the whole width up to [SHEET_MAX_WIDTH]. */
+internal fun sheetWidthDp(windowDp: Float): Float = windowDp.coerceAtMost(SHEET_MAX_WIDTH.value)
+
 private const val PANEL_MIN_FRACTION = 0.3f
 private const val PANEL_MAX_FRACTION = 0.5f
 

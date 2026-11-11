@@ -3,7 +3,6 @@ package dev.geode.export
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
-import android.os.Build
 import android.provider.DocumentsContract
 import android.provider.MediaStore
 import androidx.annotation.StringRes
@@ -179,18 +178,13 @@ class StudioExporter(
         displayName: String,
     ): Uri? =
         runCatching {
-            // Below Q this insert needs WRITE_EXTERNAL_STORAGE, which the app does not hold;
-            // failing here rather than mid-insert keeps a half-made row out of the library.
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
             val resolver = context.contentResolver
             val values =
                 ContentValues().apply {
                     put(MediaStore.Video.Media.DISPLAY_NAME, displayName)
                     put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/MuzViz")
-                        put(MediaStore.Video.Media.IS_PENDING, 1)
-                    }
+                    put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/MuzViz")
+                    put(MediaStore.Video.Media.IS_PENDING, 1)
                 }
             val uri =
                 resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
@@ -200,14 +194,12 @@ class StudioExporter(
                     resolver.delete(uri, null, null)
                     return null
                 }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                resolver.update(
-                    uri,
-                    ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) },
-                    null,
-                    null,
-                )
-            }
+            resolver.update(
+                uri,
+                ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) },
+                null,
+                null,
+            )
             uri
         }.getOrNull()
 

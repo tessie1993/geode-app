@@ -111,10 +111,6 @@ portability, not device checks.
   `libprojectM-4-playlist.so`, so it is no longer packaged.
 - `compileSdk = 37` while the workflows install `platforms;android-36`; both
   are left as they are.
-- `docs/visualizer-v2/` is what survives of the V2 planning set: the source
-  archive and provenance registry (which the build's provenance check reads),
-  the feature ABI and the safety model. The master plan they cite is not in
-  the tree.
 
 ## Documentation
 

@@ -1369,11 +1369,14 @@ object GeodeNative {
 
     // The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt.
 
-    /** Seven longs the caller owns, zeroed at first, stepped in place: the pacer's whole state. */
-    const val PACER_STATE_LONGS = 7
+    /** Eight longs the caller owns, zeroed at first, stepped in place: the pacer's whole state. */
+    const val PACER_STATE_LONGS = 8
 
     /** The state slot holding the cap the last vsync paced to, in millihertz (0 = none). */
     const val PACER_CAP_SLOT = 6
+
+    /** The state slot holding the rate the last vsync really paced to, in millihertz (0 = every vsync). */
+    const val PACER_PACED_SLOT = 7
 
     /**
      * One vsync: the dt in seconds to draw with, or 0 to skip it. [capFps] is the surface's own cap

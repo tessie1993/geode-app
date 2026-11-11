@@ -442,8 +442,5 @@ class VisualizerWallpaperService : WallpaperService() {
 
         /** Wallpaper zoom (0 none, 1 fully zoomed out) past which the shade or recents covers it. */
         const val COVER_ZOOM = 0.9f
-
-        /** A surface this much bigger than the display is a panning one. */
-        const val PAN_SLACK = 1.1f
     }
 }

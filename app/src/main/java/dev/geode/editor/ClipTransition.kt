@@ -18,7 +18,6 @@ data class ClipTransition(
         const val MIN_TRANSITION_MS: Long = 100L
         const val MAX_TRANSITION_MS: Long = 5_000L
         const val DEFAULT_TRANSITION_MS: Long = 800L
-        val DURATION_CHOICES_MS: List<Long> = listOf(400L, 800L, 1_500L, 3_000L)
 
         /** No blend at all: the next clip simply starts. Meaningful with [onBeat]. */
         const val HARD_CUT: String = "cut"

@@ -17,7 +17,7 @@ class CachedEntitlementTest {
     /** Stands in for [PurchaseVerifier] with a key configured: only [purchase] verifies. */
     private val keyed: (String, String) -> Boolean = { json, sig -> json == purchase.json && sig == purchase.signature }
 
-    /** [PurchaseVerifier] with no key in the build passes everything. */
+    /** [PurchaseVerifier] in a fake-billing build (`allowUnsigned`) passes everything. */
     private val keyless: (String, String) -> Boolean = { _, _ -> true }
 
     private val owned = CachedEntitlement(owned = true, verifiedAtMs = 1_000L, purchase.json, purchase.signature)
@@ -38,7 +38,7 @@ class CachedEntitlementTest {
     }
 
     @Test
-    fun `with no key in the build the cache is trusted, as the live check is`() {
+    fun `in a fake-billing build the cache is trusted, as the live check is`() {
         assertTrue(CachedEntitlement(owned = true, verifiedAtMs = 0L).vouchesForPro(Long.MAX_VALUE, keyless))
     }
 

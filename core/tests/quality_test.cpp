@@ -59,11 +59,12 @@ void devicePick() {
     check(modeForDevice(8 * gb, true, 0) == QualityMode::Saver, "a low-RAM phone starts on Saver whatever its RAM");
     check(modeForDevice(4 * gb, false, 0) == QualityMode::Balanced, "4 GB starts on Balanced");
     check(modeForDevice(4 * gb, false, 33) == QualityMode::High, "performance class 33 promotes to High");
-    check(modeForDevice(8 * gb, false, 0) == QualityMode::High, "8 GB starts on High");
+    check(modeForDevice(8 * gb, false, 0) == QualityMode::Balanced, "RAM alone never picks High: 8 GB starts on Balanced");
+    check(modeForDevice(16 * gb, false, 30) == QualityMode::Balanced, "nor does a performance class under 31");
     check(modeForDevice(0, false, 0) == QualityMode::Balanced, "unknown RAM is not read as small");
     check(modeForDevice(kSaverBelowRam, false, 0) == QualityMode::Balanced, "exactly 3000 MB is Balanced");
     check(modeForDevice(kSaverBelowRam - 1, false, 31) == QualityMode::Saver, "Saver's RAM rule beats the performance class");
-    check(modeForDevice(kHighFromRam, false, 0) == QualityMode::High, "exactly 6000 MB is High");
+    check(modeForDevice(4 * gb, false, 31) == QualityMode::High, "exactly performance class 31 is High");
 }
 
 }  // namespace

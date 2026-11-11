@@ -53,8 +53,13 @@ int64_t PcmRing::writtenFrames() const {
 }
 
 void PcmRing::beginEpoch() {
-    const uint64_t number = (epoch_.load() >> kEpochShift) + 1;
-    epoch_.store((number << kEpochShift) | (static_cast<uint64_t>(head_.load()) & kStartMask));
+    // A compare-exchange, so two threads beginning an epoch at once make two epochs, not one.
+    uint64_t old = epoch_.load();
+    for (;;) {
+        const uint64_t number = (old >> kEpochShift) + 1;
+        const uint64_t next = (number << kEpochShift) | (static_cast<uint64_t>(head_.load()) & kStartMask);
+        if (epoch_.compare_exchange_weak(old, next)) return;
+    }
 }
 
 int64_t PcmRing::oldestAvailable(int64_t head, int64_t epochStart) const {
@@ -62,14 +67,20 @@ int64_t PcmRing::oldestAvailable(int64_t head, int64_t epochStart) const {
 }
 
 void PcmRing::mark(int64_t head, uint64_t format) {
-    const uint32_t count = markCount_.load();
     // Compared with the log's own tail, not a copy kept by the writer: when two sources overlap at a
-    // hand-over and one mark is lost, the next write puts it back.
-    if (count > 0 && marks_[(count - 1) % kMarks].format.load() == format) return;
+    // hand-over, each block of the other source is marked again.
+    const uint32_t tail = markCount_.load();
+    if (tail > 0 && marks_[(tail - 1) % kMarks].format.load() == format) return;
+    // An append is three stores and happens only when the format changes; the flag is never contended
+    // with one writer, and with two it keeps them out of the same slot.
+    while (markBusy_.test_and_set(std::memory_order_acquire)) {
+    }
+    const uint32_t count = markCount_.load();
     Mark& next = marks_[count % kMarks];
     next.start.store(head);
     next.format.store(format);
     markCount_.store(count + 1);
+    markBusy_.clear(std::memory_order_release);
 }
 
 PcmRing::Run PcmRing::runAt(int64_t pos, int64_t limit) const {
@@ -119,9 +130,15 @@ PcmRing::Written PcmRing::put(const unsigned char* data, int frames, int sourceC
             for (int c = stored; c < channels_; ++c) slot[c].store(0.0f, std::memory_order_relaxed);
             data += frameBytes;
         }
-        head += block;
         // Published a runway at a time, so a reader's oldest safe frame holds while a long block lands.
-        head_.store(head);
+        // From the head this block was written at: if another writer published meanwhile, this block is
+        // lost to it and the next one starts at the head that writer left, so the head only ever grows.
+        int64_t expected = head;
+        if (head_.compare_exchange_strong(expected, head + block)) {
+            head += block;
+        } else {
+            head = expected;
+        }
         out.frames += block;
     }
     return out;

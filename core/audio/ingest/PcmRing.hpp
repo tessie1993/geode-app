@@ -21,6 +21,10 @@
 // when the writer could have reached those slots, so torn audio is never handed on. The samples are
 // relaxed atomics (plain loads and stores on every target), which makes that discarded read defined.
 //
+// One writer is the contract, and the shell keeps it (PcmTap.owns). Two writers at once still cannot
+// move the head backwards or tear a format mark: a block whose publish finds the head moved is dropped
+// and its writer carries on from the new head.
+//
 // The clock is the sample count. No wall time.
 namespace geode::audio::ingest {
 
@@ -56,7 +60,7 @@ public:
     int64_t writtenFrames() const;
 
     // A new stream (track change, seek, source switch): every cursor restarts at its next take and hands
-    // out nothing written before this. Any thread.
+    // out nothing written before this. Any thread, also several at once.
     void beginEpoch();
 
     struct Written {
@@ -117,6 +121,7 @@ private:
     std::atomic<uint64_t> epoch_{0};
     Mark marks_[kMarks];
     std::atomic<uint32_t> markCount_{0};
+    std::atomic_flag markBusy_;  // held for the few stores of one append, so two writers cannot tear a slot
 };
 
 // One reader's place in a ring: every frame once, in order (SoundCursor.take's rules). The sound engine

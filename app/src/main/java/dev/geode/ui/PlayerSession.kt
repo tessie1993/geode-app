@@ -124,6 +124,8 @@ class PlayerSession internal constructor(
                 override fun pausePlayback() = player.pause()
 
                 override fun resetSound(playerOwnsRing: Boolean) {
+                    // The tap first: once this returns it writes nothing while another source has the ring.
+                    playback.tap.owns = playerOwnsRing
                     playback.sampleRing.beginEpoch()
                     bestEffort("PlayerSession", "player source") { GeodeNative.soundSetPlayerSource(playerOwnsRing) }
                 }

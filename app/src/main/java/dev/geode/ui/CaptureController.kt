@@ -42,7 +42,11 @@ internal class CaptureController(
     interface Host {
         fun pausePlayback()
 
-        /** The ring changed hands: a new epoch, and whether the player (not the mic or a capture) now writes it. */
+        /**
+         * The ring changes hands: a new epoch, and whether the player (not the mic or a capture) writes it.
+         * Called with false before a capture starts writing and with the new owner once one has stopped, so
+         * the ring never has two writers.
+         */
         fun resetSound(playerOwnsRing: Boolean)
 
         fun setMicReactivePref(on: Boolean)
@@ -85,6 +89,7 @@ internal class CaptureController(
     fun onBackground() {
         if (!micCapture.active) return
         micCapture.stop()
+        host.resetSound(!externalAudioOwnsRing())
         micPausedInBackground = true
     }
 
@@ -150,8 +155,11 @@ internal class CaptureController(
         if (micCapture.active) return null
         if (playbackCapture.active || _externalAudio.value.active) stopExternalAudio()
         host.pausePlayback()
+        // The player lets go of the ring before the mic's first block, and takes it back if the mic fails.
+        host.resetSound(playerOwnsRing = false)
         val failure = micCapture.start()
         if (failure != null) {
+            host.resetSound(!externalAudioOwnsRing())
             _micState.value = MicState(active = false, failure = failure)
             return failure
         }
@@ -182,6 +190,7 @@ internal class CaptureController(
         }
         host.pausePlayback()
         if (micCapture.active) setMicEnabled(false)
+        host.resetSound(playerOwnsRing = false)
         val failure = playbackCapture.start(projection)
         host.resetSound(!externalAudioOwnsRing())
         if (failure != null) PlaybackCaptureService.stop(application)
@@ -257,5 +266,7 @@ internal class CaptureController(
         // a pump left running here keeps an AudioRecord and its reader thread alive, writing into
         // a released playback session, for the rest of the process.
         if (playbackCapture.active || _externalAudio.value.active) stopExternalAudio()
+        // The playback session outlives this one: its tap must not stay shut out of its own ring.
+        host.resetSound(playerOwnsRing = true)
     }
 }

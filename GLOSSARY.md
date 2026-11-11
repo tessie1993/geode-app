@@ -129,8 +129,16 @@ _Avoid_: Section (that is the analyser's structure boundary)
 The reaction routes a style plays until the user edits them, generated from the style id and a seed.
 
 **Macro**:
-One knob of the macro bank (`core/viz/MacroBank`): a name, a value -1..1 with "as styled" at the centre, and up to twelve links, each a scene param and how far a full turn up and down moves it, as a fraction of its range. Global, laid over every style after the auto-director and before the LFOs; it adds to the slider's value and never writes it. Four built in (Glow, Heat, Bend, Flow); the user's own come with the knob editor.
+One knob of the macro bank (`core/viz/MacroBank`): a name, a value -1..1 with "as styled" at the centre, and up to twelve links, each a scene param and how far a full turn up and down moves it, as a fraction of its range. Global, laid over every style after the auto-director and before the LFOs; it adds to the slider's value and never writes it. Four built in (Glow, Heat, Bend, Flow), which can be edited and reset but not deleted; up to eight in all, the rest the user's own.
 _Avoid_: Meta control, master knob
+
+**Link**:
+One scene param a macro moves, with two weights: how far a full turn up and a full turn down push it, each -1..1 of the param's range (held at the safety maxima). A new link starts a quarter of the range each way.
+_Avoid_: Mapping, assignment
+
+**Knob editor**:
+Customize › Quick knobs › Edit knobs (Pro): make, copy, rename, reorder, reset and delete macros and pick their links. Native lists everything it offers (`macrobank::editorText`); every edit is saved as it is made.
+_Avoid_: Macro designer
 
 **Event recipe**:
 A named bundle of reaction routes offered in the Events tab ("Kick punch", "Snare crack"), turned on and off as one.

@@ -54,7 +54,8 @@ import kotlin.math.roundToInt
  * offsets to the params it links, on screen and in exports, the wallpaper and the dream alike; the
  * names, hints and values come from the bank, and every turn is a native edit through [MacroStore].
  *
- * Drag a knob up or down, double-tap it back to centre. Making and editing knobs is a later page.
+ * Drag a knob up or down, double-tap it back to centre. Making knobs and choosing what they move is
+ * the section under them, Edit knobs ([MacroEditor]).
  */
 @Composable
 internal fun MacrosTab(

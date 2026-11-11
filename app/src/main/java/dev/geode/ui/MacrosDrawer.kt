@@ -55,7 +55,8 @@ import dev.geode.ui.theme.floatingGlass
  * Customize's first page). The knobs are Customize › Quick knobs' own ([MacrosTab]) over the same
  * [MacroStore], so a turn here is a turn there.
  *
- * The edit icon ([onEdit]) opens Customize on Quick knobs; the drawer only turns the knobs. It closes the standard ways: Back, a tap outside, the ×, or pushing
+ * The edit icon ([onEdit]) opens Customize on Quick knobs, where Edit knobs ([MacroEditor]) is; the
+ * drawer only turns the knobs. It closes the standard ways: Back, a tap outside, the ×, or pushing
  * it back up. No scrim, as with the quick settings, so the visual stays lit while the knobs move it.
  *
  * It slides on the app's spatial spring ([LocalGeodeMotion]), which is a jump under reduced

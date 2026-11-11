@@ -342,6 +342,7 @@ internal fun VisualsHub(
             onEdit = {
                 macros = false
                 nav.openTab(VisualsPage.CUSTOMIZE)
+                nav.openCustomizeCard(CustomizeCategory.QUICK_KNOBS.name)
             },
             modifier = Modifier.fillMaxSize(),
         )

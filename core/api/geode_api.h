@@ -621,6 +621,17 @@ GEODE_API int             geode_surface_fps_choice(int requested_fps);
 /* The listed rates, ascending, for a settings row: writes up to capacity, returns how many there are. */
 GEODE_API int             geode_surface_fps_choices(int* out, int capacity);
 
+/* Auto's style timer (core/viz/AutoTimer), one per source, process-wide: the wait before the next look is the
+ * user's interval plus a random spread drawn per look (a quarter of it, 10 s at most), never shorter than the
+ * interval. now_ms is the shell's monotonic clock. restart: a look just went up. due: 1 once the wait is over
+ * (it restarts itself); running = 0 (off, paused, nothing to step to) is never due. hold_s: how long the look
+ * on screen is expected to show, 0 with no timer running; a .milk preset's `progress` runs over it. */
+#define GEODE_AUTO_TIMER_PLAYLIST            0
+#define GEODE_AUTO_TIMER_RANDOM              1
+GEODE_API void            geode_auto_timer_restart(int timer, long long now_ms);
+GEODE_API int             geode_auto_timer_due(int timer, long long now_ms, int interval_s, int running);
+GEODE_API double          geode_auto_timer_hold_s(void);
+
 /* The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt it draws with.
    `state` is eight int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS). */
 #define GEODE_PACER_STATE_LONGS 8

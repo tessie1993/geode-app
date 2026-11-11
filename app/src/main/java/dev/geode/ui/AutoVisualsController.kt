@@ -3,6 +3,7 @@ package dev.geode.ui
 import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.Preset
 import dev.geode.data.VizUiState
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.MilkFile
 import dev.geode.model.VizPlaylistEntry
 import dev.geode.render.scene.MilkdropEngine
@@ -36,9 +37,7 @@ internal class AutoVisualsController(
         fun milkFilesAsync(onDone: (List<MilkFile>) -> Unit)
     }
 
-    private var lastVizSwitchMs = 0L
     private var vizPlaylistIndex = 0
-    private var lastRandomSwitchMs = 0L
     private val randomRng = kotlin.random.Random(android.os.SystemClock.elapsedRealtime())
 
     private var cachedMilkFiles: List<MilkFile> = emptyList()
@@ -94,7 +93,7 @@ internal class AutoVisualsController(
                 randomEnabled = if (enabled) false else it.randomEnabled,
             )
         }
-        lastVizSwitchMs = android.os.SystemClock.elapsedRealtime()
+        GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_PLAYLIST, android.os.SystemClock.elapsedRealtime())
         persistAutoVisuals()
     }
 
@@ -105,10 +104,9 @@ internal class AutoVisualsController(
 
     fun advanceVizPlaylist() {
         val s = host.vizState.value
-        if (!s.vizPlaylistEnabled || s.vizPlaylist.size < 2 || !host.isPlaying) return
+        val running = s.vizPlaylistEnabled && s.vizPlaylist.size >= 2 && host.isPlaying
         val now = android.os.SystemClock.elapsedRealtime()
-        if (now - lastVizSwitchMs < s.vizPlaylistIntervalSec * 1000L) return
-        lastVizSwitchMs = now
+        if (!GeodeNative.autoTimerDue(GeodeNative.AUTO_TIMER_PLAYLIST, now, s.vizPlaylistIntervalSec, running)) return
         vizPlaylistIndex = (vizPlaylistIndex + 1) % s.vizPlaylist.size
         applyVizEntry(s.vizPlaylist[vizPlaylistIndex])
     }
@@ -122,7 +120,7 @@ internal class AutoVisualsController(
     fun stepVizPlaylist(step: Int = 1): Boolean {
         val s = host.vizState.value
         if (s.vizPlaylist.size < 2) return false
-        lastVizSwitchMs = android.os.SystemClock.elapsedRealtime()
+        GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_PLAYLIST, android.os.SystemClock.elapsedRealtime())
         vizPlaylistIndex = Math.floorMod(vizPlaylistIndex + if (step < 0) -1 else 1, s.vizPlaylist.size)
         applyVizEntry(s.vizPlaylist[vizPlaylistIndex])
         return true
@@ -135,7 +133,9 @@ internal class AutoVisualsController(
                 vizPlaylistEnabled = if (enabled) false else it.vizPlaylistEnabled,
             )
         }
-        lastRandomSwitchMs = android.os.SystemClock.elapsedRealtime()
+        GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_RANDOM, android.os.SystemClock.elapsedRealtime())
+        // The poll first, so the timer is running before the first look loads.
+        advanceRandomMode()
         if (enabled && host.vizState.value.randomIncludeMilk) refreshMilkCache()
         if (enabled) randomStepNow()
         persistAutoVisuals()
@@ -191,9 +191,9 @@ internal class AutoVisualsController(
 
     fun advanceRandomMode() {
         val s = host.vizState.value
-        if (!s.randomEnabled || !host.isPlaying) return
-        if (android.os.SystemClock.elapsedRealtime() - lastRandomSwitchMs < s.randomIntervalSec * 1000L) return
-        randomStepNow()
+        val running = s.randomEnabled && host.isPlaying
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (GeodeNative.autoTimerDue(GeodeNative.AUTO_TIMER_RANDOM, now, s.randomIntervalSec, running)) randomStepNow()
     }
 
     /**
@@ -202,7 +202,7 @@ internal class AutoVisualsController(
      */
     fun randomStepNow(keepLook: Boolean = false) {
         val s = host.vizState.value
-        lastRandomSwitchMs = android.os.SystemClock.elapsedRealtime()
+        GeodeNative.autoTimerRestart(GeodeNative.AUTO_TIMER_RANDOM, android.os.SystemClock.elapsedRealtime())
         val choices = mutableListOf<VizPlaylistEntry>()
         val sceneIds =
             dev.geode.render.scene.VisualStyleCatalog.silkIds +

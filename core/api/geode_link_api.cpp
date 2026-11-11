@@ -17,6 +17,12 @@ static_assert(share::kEnded == GEODE_LINK_PHASE_ENDED && share::kTrialEnded == G
               share::kNetwork == GEODE_LINK_REASON_NETWORK && share::kShown == GEODE_LINK_EVENT_SHOWN);
 static_assert(share::kStartStream == GEODE_LINK_DO_START_STREAM && share::kStopStream == GEODE_LINK_DO_STOP_STREAM &&
               share::kPaywall == GEODE_LINK_DO_PAYWALL && share::kHasLan == GEODE_LINK_HAS_LAN);
+static_assert(share::kWantTv == GEODE_LINK_WANT_TV && share::kWantLink == GEODE_LINK_WANT_LINK &&
+              share::kRefused == GEODE_LINK_PEER_REFUSED && share::kReceiver == GEODE_LINK_PEER_RECEIVER &&
+              share::kBrowser == GEODE_LINK_PEER_BROWSER);
+static_assert(share::kReceiverOk == GEODE_LINK_RECEIVER_OK && share::kReceiverError == GEODE_LINK_RECEIVER_ERROR &&
+              share::kReceiverGone == GEODE_LINK_RECEIVER_GONE &&
+              share::kReceiverUnreachable == GEODE_LINK_RECEIVER_UNREACHABLE);
 static_assert(qr::kMaxBytes == GEODE_QR_MAX_BYTES && qr::kMaxSide == GEODE_QR_MAX_SIDE);
 
 namespace {
@@ -66,6 +72,14 @@ int geode_link_master_playlist(const uint8_t* init, size_t init_size, char* out,
 }
 
 int geode_link_step(int* state, int event, int arg) { return share::step(state, event, arg); }
+
+int geode_link_admit(uint32_t peer, uint32_t bound, int prefix, uint32_t tv, int wants) {
+    return share::admit(peer, bound, prefix, tv, wants);
+}
+
+int geode_link_receiver_health(int64_t now_ms, int64_t load_ms, int64_t last_fetch_ms, int player_state, int idle_reason) {
+    return share::receiverHealth(now_ms, load_ms, last_fetch_ms, player_state, idle_reason);
+}
 
 int geode_qr_encode(const uint8_t* data, int size, uint8_t* out, int cap) {
     if (size < 0 || size > GEODE_QR_MAX_BYTES || (size > 0 && !data)) return 0;

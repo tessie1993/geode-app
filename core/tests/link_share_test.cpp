@@ -7,7 +7,8 @@
 // 'unsafe-inline' and no other origin, CORS only on the stream's files); the codecs read from an init segment
 // built like the encoder's (avcC profile, flags, level; esds object type and AAC audio object type) and the
 // master playlist around them; the page's files (no inline script, style or handler, nothing off the phone);
-// and the share's state machine.
+// the share's state machine; who may connect by address (a TV cast: the Cast device alone; a live link: the
+// bound subnet's site-local peers); whether the TV plays after the LOAD; and the Private Network Access answer.
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -324,9 +325,89 @@ void testAbiRoute() {
           "abi: an unknown resource has no type");
 }
 
+constexpr uint32_t ip(uint32_t a, uint32_t b, uint32_t c, uint32_t d) { return a << 24 | b << 16 | c << 8 | d; }
+
+void testAdmit() {
+    using share::admit;
+    const uint32_t phone = ip(192, 168, 1, 20), tv = ip(192, 168, 1, 30), laptop = ip(192, 168, 1, 40);
+    const int both = share::kWantTv | share::kWantLink;
+    // A TV cast: the Cast device alone. The laptop on the same Wi-Fi that read the URL from the receiver is refused.
+    check(admit(tv, phone, 24, tv, share::kWantTv) == share::kReceiver, "tv cast: the TV");
+    check(admit(laptop, phone, 24, tv, share::kWantTv) == share::kRefused, "tv cast: another device on the Wi-Fi");
+    check(admit(phone, phone, 24, tv, share::kWantTv) == share::kRefused, "tv cast: not even the phone itself");
+    check(admit(ip(8, 8, 8, 8), phone, 24, tv, share::kWantTv) == share::kRefused, "tv cast: a public address");
+    // The TV's address as the SDK names it, wherever it is (a routed network): the TV is let in.
+    check(admit(ip(10, 0, 5, 7), phone, 24, ip(10, 0, 5, 7), share::kWantTv) == share::kReceiver, "tv cast: a TV off the subnet");
+    // The SDK named no IPv4 address: the bound subnet, or the TV could never fetch.
+    check(admit(tv, phone, 24, 0, share::kWantTv) == share::kReceiver, "tv cast, address unknown: a subnet peer");
+    check(admit(ip(192, 168, 2, 30), phone, 24, 0, share::kWantTv) == share::kRefused, "tv cast, address unknown: off the subnet");
+    // A live link: any site-local peer on the bound subnet, the phone itself included.
+    check(admit(laptop, phone, 24, 0, share::kWantLink) == share::kBrowser, "link: a computer on the Wi-Fi");
+    check(admit(phone, phone, 24, 0, share::kWantLink) == share::kBrowser, "link: the phone's own browser");
+    check(admit(ip(192, 168, 2, 40), phone, 24, 0, share::kWantLink) == share::kRefused, "link: the next subnet");
+    check(admit(ip(192, 168, 2, 40), phone, 22, 0, share::kWantLink) == share::kBrowser, "link: a /22 reaches .2");
+    check(admit(ip(192, 168, 4, 40), phone, 22, 0, share::kWantLink) == share::kRefused, "link: but not .4");
+    check(admit(ip(10, 9, 9, 9), ip(10, 1, 2, 3), 8, 0, share::kWantLink) == share::kBrowser, "link: a /8");
+    check(admit(ip(172, 20, 0, 9), ip(172, 20, 0, 1), 16, 0, share::kWantLink) == share::kBrowser, "link: 172.16/12");
+    check(admit(ip(172, 32, 0, 9), ip(172, 32, 0, 1), 16, 0, share::kWantLink) == share::kRefused, "link: 172.32 is not private");
+    check(admit(ip(100, 64, 0, 9), ip(100, 64, 0, 1), 16, 0, share::kWantLink) == share::kRefused, "link: carrier NAT is not the LAN");
+    check(admit(ip(192, 168, 1, 99), phone, 0, 0, share::kWantLink) == share::kBrowser &&
+              admit(ip(192, 168, 0, 99), phone, 0, 0, share::kWantLink) == share::kRefused &&
+              admit(ip(192, 168, 0, 99), phone, 40, 0, share::kWantLink) == share::kRefused,
+          "link: a prefix outside 1..32 reads as 24");
+    check(admit(phone, phone, 32, 0, share::kWantLink) == share::kBrowser && admit(laptop, phone, 32, 0, share::kWantLink) == share::kRefused,
+          "link: a /32 is the phone alone");
+    // Both: the TV counts as the receiver, the laptop as a browser.
+    check(admit(tv, phone, 24, tv, both) == share::kReceiver && admit(laptop, phone, 24, tv, both) == share::kBrowser, "both");
+    // Nothing wants the stream, or nothing is known.
+    check(admit(tv, phone, 24, tv, 0) == share::kRefused && admit(laptop, phone, 24, tv, 0) == share::kRefused, "nobody wants it");
+    check(admit(0, phone, 24, tv, both) == share::kRefused, "an unknown peer");
+    check(admit(laptop, 0, 24, 0, share::kWantLink) == share::kRefused, "an unknown bound address");
+    check(geode_link_admit(tv, phone, 24, tv, GEODE_LINK_WANT_TV) == GEODE_LINK_PEER_RECEIVER &&
+              geode_link_admit(laptop, phone, 24, tv, GEODE_LINK_WANT_TV) == GEODE_LINK_PEER_REFUSED,
+          "abi: admit");
+}
+
+void testReceiverHealth() {
+    using share::receiverHealth;
+    const int64_t load = 100'000;
+    const int playing = share::kPlayerPlaying, idle = share::kPlayerIdle;
+    check(receiverHealth(load + 60'000, 0, 0, idle, share::kIdleError) == share::kReceiverOk, "no LOAD sent: nothing to judge");
+    // The status may still describe the last media until the receiver takes the LOAD.
+    check(receiverHealth(load + 1'000, load, 0, idle, share::kIdleError) == share::kReceiverOk, "an error inside the grace");
+    check(receiverHealth(load + 5'000, load, 0, idle, share::kIdleError) == share::kReceiverError, "the receiver could not play it");
+    check(receiverHealth(load + 9'000, load, load + 2'000, idle, share::kIdleError) == share::kReceiverError, "an error after fetches");
+    for (int why : {share::kIdleFinished, share::kIdleCanceled, share::kIdleInterrupted})
+        check(receiverHealth(load + 6'000, load, load + 1'000, idle, why) == share::kReceiverGone, "idle for another reason: gone");
+    check(receiverHealth(load + 6'000, load, 0, idle, 0) == share::kReceiverOk, "idle with no reason: still loading");
+    // Never fetched.
+    check(receiverHealth(load + 20'000, load, 0, share::kPlayerLoading, 0) == share::kReceiverOk, "20 s without a fetch: still fine");
+    check(receiverHealth(load + 20'001, load, 0, share::kPlayerLoading, 0) == share::kReceiverUnreachable, "past it: unreachable");
+    check(receiverHealth(load + 25'000, load, load - 1, share::kPlayerBuffering, 0) == share::kReceiverUnreachable,
+          "a fetch from before the LOAD does not count");
+    // Fetching, then quiet.
+    check(receiverHealth(load + 50'000, load, load + 20'000, playing, 0) == share::kReceiverOk, "30 s quiet while playing: fine");
+    check(receiverHealth(load + 50'001, load, load + 20'000, playing, 0) == share::kReceiverUnreachable, "past it: unreachable");
+    check(receiverHealth(load + 50'001, load, load + 20'000, share::kPlayerBuffering, 0) == share::kReceiverUnreachable, "buffering too");
+    check(receiverHealth(load + 600'000, load, load + 20'000, share::kPlayerPaused, 0) == share::kReceiverOk, "paused: any quiet is fine");
+    check(receiverHealth(load + 600'000, load, load + 20'000, 0, 0) == share::kReceiverOk, "no status: not judged on quiet");
+    check(receiverHealth(load - 1, load, 0, playing, 0) == share::kReceiverOk, "a clock before the LOAD");
+    check(geode_link_receiver_health(load + 21'000, load, 0, 0, 0) == GEODE_LINK_RECEIVER_UNREACHABLE, "abi: receiver health");
+}
+
+void testPrivateNetworkPreflight() {
+    const std::string pre = share::responseHead(204, Resource::Segment, 0, kToken);
+    check(has(pre, "Access-Control-Allow-Private-Network: true\r\n"), "the TV's preflight is told the private network allows it");
+    check(!has(share::responseHead(200, Resource::Segment, 9, kToken), "Private-Network"), "only on the preflight");
+    check(!has(share::responseHead(204, Resource::Page, 0, kToken), "Access-Control"), "not on the page's");
+}
+
 }  // namespace
 
 int main() {
+    testAdmit();
+    testReceiverHealth();
+    testPrivateNetworkPreflight();
     testRoutes();
     testToken();
     testHeads();

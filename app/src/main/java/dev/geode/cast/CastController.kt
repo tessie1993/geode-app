@@ -15,6 +15,7 @@ import dev.geode.pro.ProFeature
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.net.InetAddress
 
 /** Why a cast ended early; the UI words it. [linkReason] is the same end for "Show on a computer" (native). */
 enum class CastFailure(
@@ -31,6 +32,12 @@ enum class CastFailure(
 
     /** The Wi-Fi or Ethernet the stream was served from went away or changed address. */
     NETWORK_CHANGED(GeodeNative.LINK_REASON_NETWORK),
+
+    /** The TV's receiver said it could not play the stream (TV only; a link never ends this way). */
+    TV_COULD_NOT_PLAY(GeodeNative.LINK_REASON_STREAM),
+
+    /** The TV never fetched the stream, or stopped while it said it played: it can't reach the phone (TV only). */
+    TV_UNREACHABLE(GeodeNative.LINK_REASON_STREAM),
 }
 
 /**
@@ -132,6 +139,32 @@ class CastController private constructor(
         remote.play()
         mutableState.value = CastState.Casting(deviceName())
     }
+
+    /**
+     * The receiver's MediaStatus for [CastService]'s check that the TV really plays: [out] gets its player
+     * state and idle reason, 0 and 0 while there is none. Media3 drops the LOAD's result and its player never
+     * reports an error, so this is the only word from the TV.
+     */
+    internal fun receiverStatus(out: IntArray) {
+        val status =
+            CastContext
+                .getSharedInstance()
+                ?.sessionManager
+                ?.currentCastSession
+                ?.remoteMediaClient
+                ?.mediaStatus
+        out[0] = status?.playerState ?: 0
+        out[1] = status?.idleReason ?: 0
+    }
+
+    /** The Cast device's address, the one peer a TV cast lets in; null when the SDK names none. */
+    internal fun tvAddress(): InetAddress? =
+        CastContext
+            .getSharedInstance()
+            ?.sessionManager
+            ?.currentCastSession
+            ?.castDevice
+            ?.inetAddress
 
     internal fun onStreamFailed(reason: CastFailure) {
         mutableState.value = CastState.Failed(reason)

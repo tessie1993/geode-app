@@ -1164,6 +1164,17 @@ Java_dev_geode_engine_bridge_GeodeNative_linkStep(JNIEnv* env, jobject, jintArra
 }
 
 JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_linkAdmit(JNIEnv*, jobject, jint peer, jint bound, jint prefix, jint tv, jint wants) {
+    return geode_link_admit(static_cast<uint32_t>(peer), static_cast<uint32_t>(bound), prefix, static_cast<uint32_t>(tv), wants);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_linkReceiverHealth(JNIEnv*, jobject, jlong nowMs, jlong loadMs, jlong lastFetchMs,
+                                                            jint playerState, jint idleReason) {
+    return geode_link_receiver_health(nowMs, loadMs, lastFetchMs, playerState, idleReason);
+}
+
+JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_qrEncode(JNIEnv* env, jobject, jstring text, jbyteArray out) {
     if (!out || env->GetArrayLength(out) < GEODE_QR_MAX_MODULES) return 0;
     geode::jni::Utf8Chars t(env, text);

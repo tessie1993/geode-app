@@ -1904,6 +1904,43 @@ object GeodeNative {
         arg: Int,
     ): Int
 
+    /** [linkAdmit]'s wants (GEODE_LINK_WANT_*) and answers (GEODE_LINK_PEER_*). */
+    const val LINK_WANT_TV = 1
+    const val LINK_WANT_LINK = 2
+    const val LINK_PEER_REFUSED = 0
+    const val LINK_PEER_RECEIVER = 1
+    const val LINK_PEER_BROWSER = 2
+
+    /**
+     * Whether a connection from [peer] is let in (IPv4 as an int, host order, 0 = unknown), for a server bound to
+     * [bound]/[prefix] with the Cast device at [tv] and [wants] LINK_WANT_* bits; returns LINK_PEER_*.
+     */
+    external fun linkAdmit(
+        peer: Int,
+        bound: Int,
+        prefix: Int,
+        tv: Int,
+        wants: Int,
+    ): Int
+
+    /** [linkReceiverHealth]'s answers (GEODE_LINK_RECEIVER_*). */
+    const val LINK_RECEIVER_OK = 0
+    const val LINK_RECEIVER_ERROR = 1
+    const val LINK_RECEIVER_GONE = 2
+    const val LINK_RECEIVER_UNREACHABLE = 3
+
+    /**
+     * Whether the TV plays the stream: the LOAD's and the TV's last fetch's times ([nowMs]'s clock, 0 = never)
+     * and the receiver's MediaStatus [playerState] and [idleReason]; returns LINK_RECEIVER_*.
+     */
+    external fun linkReceiverHealth(
+        nowMs: Long,
+        loadMs: Long,
+        lastFetchMs: Long,
+        playerState: Int,
+        idleReason: Int,
+    ): Int
+
     /** Modules a QR code can have (GEODE_QR_MAX_MODULES), the size of [qrEncode]'s buffer. */
     const val QR_MAX_MODULES = 57 * 57
 

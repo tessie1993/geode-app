@@ -38,6 +38,8 @@ internal fun castMessage(state: CastState): Int? =
                 CastFailure.NO_LAN -> R.string.cast_failed_no_lan
                 CastFailure.BACKGROUND_START -> R.string.cast_failed_background
                 CastFailure.NETWORK_CHANGED -> R.string.cast_failed_network
+                CastFailure.TV_COULD_NOT_PLAY -> R.string.cast_failed_tv_play
+                CastFailure.TV_UNREACHABLE -> R.string.cast_failed_tv_unreachable
             }
         else -> null
     }

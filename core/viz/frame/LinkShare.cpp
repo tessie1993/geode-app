@@ -242,6 +242,9 @@ std::string responseHead(int status, Resource resource, int64_t length, std::str
         h += "Access-Control-Allow-Headers: Range, Content-Type, Accept-Encoding\r\n";
         h += "Access-Control-Expose-Headers: Content-Length\r\n";
         h += "Access-Control-Max-Age: 600\r\n";
+        // Private Network Access: the receiver's public https page fetching this private address may first
+        // send a preflight asking whether the private network allows it; only the preflight carries the answer.
+        if (status == 204) h += "Access-Control-Allow-Private-Network: true\r\n";
         h += "Accept-Ranges: none\r\n";
     }
     if (status == 405) h += "Allow: GET, HEAD, OPTIONS\r\n";
@@ -343,6 +346,38 @@ int step(int* state, int event, int arg) {
             return 0;
         default: return 0;
     }
+}
+
+bool siteLocal(uint32_t a) {
+    return (a >> 24) == 10 || (a >> 20) == ((172u << 4) | 1u) || (a >> 16) == ((192u << 8) | 168u);
+}
+
+int admit(uint32_t peer, uint32_t bound, int prefix, uint32_t tv, int wants) {
+    if (peer == 0) return kRefused;
+    const bool forTv = (wants & kWantTv) != 0;
+    const bool forLink = (wants & kWantLink) != 0;
+    if (forTv && tv != 0 && peer == tv) return kReceiver;
+    if (prefix < 1 || prefix > 32) prefix = 24;
+    const uint32_t mask = prefix == 32 ? 0xFFFFFFFFu : ~(0xFFFFFFFFu >> prefix);
+    const bool onSubnet = bound != 0 && siteLocal(peer) && siteLocal(bound) && (peer & mask) == (bound & mask);
+    if (!onSubnet) return kRefused;
+    if (forTv && tv == 0) return kReceiver;
+    if (forLink) return kBrowser;
+    return kRefused;
+}
+
+int receiverHealth(int64_t nowMs, int64_t loadMs, int64_t lastFetchMs, int playerState, int idleReason) {
+    if (loadMs <= 0 || nowMs < loadMs) return kReceiverOk;
+    const int64_t sinceLoad = nowMs - loadMs;
+    if (sinceLoad >= kReceiverStatusGraceMs && playerState == kPlayerIdle) {
+        if (idleReason == kIdleError) return kReceiverError;
+        if (idleReason == kIdleFinished || idleReason == kIdleCanceled || idleReason == kIdleInterrupted) return kReceiverGone;
+    }
+    const bool fetched = lastFetchMs > 0 && lastFetchMs >= loadMs;
+    if (!fetched) return sinceLoad > kReceiverFirstFetchMs ? kReceiverUnreachable : kReceiverOk;
+    const bool wantsData = playerState == kPlayerPlaying || playerState == kPlayerBuffering;
+    if (wantsData && nowMs - lastFetchMs > kReceiverQuietMs) return kReceiverUnreachable;
+    return kReceiverOk;
 }
 
 }  // namespace geode::viz::frame::link

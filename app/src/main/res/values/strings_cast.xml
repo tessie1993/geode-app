@@ -16,6 +16,10 @@
     <string name="cast_casting">Casting to %1$s</string>
     <string name="cast_casting_unnamed">Casting to the TV</string>
     <string name="cast_failed_network">Casting stopped because the Wi-Fi changed. The sound is back on the phone.</string>
+    <string name="cast_failed_tv_play">The TV couldn\'t play the picture, so casting stopped.</string>
+    <string name="cast_failed_tv_unreachable">The TV couldn\'t reach this phone, so casting stopped. Guest and hotel Wi-Fi often keep devices apart; try a home network.</string>
+    <string name="cast_notification_text_mic">The picture and the sound play on the TV. The mic listens only to move the visuals; nothing is recorded or sent.</string>
+    <string name="link_notification_text_mic">The picture and the sound play in the browser. The mic listens only to move the visuals; nothing is recorded or sent.</string>
     <string name="cast_trial_ended">Your Pro trial has ended, so casting stopped after this song. Go Pro to keep casting.</string>
 
     <!-- Show on a computer: the stream to a browser on the same Wi-Fi, through a link. -->

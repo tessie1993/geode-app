@@ -61,6 +61,10 @@ class CastService : Service() {
     private var forLink = false
     private var ready = false
 
+    /** When the TV was handed the playlist (SystemClock.elapsedRealtime), 0 = not yet; [checkReceiver] judges from it. */
+    private var tvLoadAtMs = 0L
+    private val receiverStatus = IntArray(2)
+
     /** Set when the trial ran out mid-cast: the cast ends when this song does. */
     private var stopAtSongEnd = false
     private var failed = false
@@ -120,6 +124,8 @@ class CastService : Service() {
         }
         if (action == ACTION_RELEASE_TV || action == ACTION_RELEASE_LINK) {
             if (action == ACTION_RELEASE_TV) forTv = false else forLink = false
+            if (!forTv) tvLoadAtMs = 0L
+            applyPeers()
             // The other one keeps the stream; its notification says who has it now.
             if (forTv || forLink) bestEffort(TAG, "startInForeground()") { startInForeground() } else stopSelf()
             return START_NOT_STICKY
@@ -142,13 +148,27 @@ class CastService : Service() {
             stream == null -> startStream()
             ready -> announceReady()
         }
+        applyPeers()
         return START_NOT_STICKY
+    }
+
+    /**
+     * Who the server lets in, by address (native, `geode_link_admit`): the Cast device alone while a TV casts,
+     * the Wi-Fi's subnet while a link is shared. Anyone on the Wi-Fi can read the playlist's URL from the TV's
+     * receiver, so on a TV cast the token alone would not keep them out.
+     */
+    private fun applyPeers() {
+        val s = stream ?: return
+        s.admit(if (forTv) CastController.get(this).tvAddress() else null, forTv, forLink)
     }
 
     /** Hands the running stream to whoever wants it: the TV its playlist, the sheet its link. */
     private fun announceReady() {
         val s = stream ?: return
-        if (forTv) CastController.get(this).onStreamReady(s.playlistUrl)
+        if (forTv) {
+            tvLoadAtMs = SystemClock.elapsedRealtime()
+            CastController.get(this).onStreamReady(s.playlistUrl)
+        }
         if (forLink) ComputerLink.onReady(s.pageUrl)
     }
 
@@ -159,6 +179,7 @@ class CastService : Service() {
         val noLan = started.exceptionOrNull() is CastStream.NoLanAddress
         val s = started.getOrNull() ?: return fail(if (noLan) CastFailure.NO_LAN else CastFailure.STREAM)
         stream = s
+        applyPeers()
         // The phone encodes the picture; with the music paused nothing else keeps the CPU awake.
         wakeLock.acquire(LONG_WORK_WAKE_MS)
         bestEffort(TAG, "wifiLock.acquire()") { wifiLock?.acquire() }
@@ -201,10 +222,39 @@ class CastService : Service() {
                     RingLog.note(TAG, "the network the stream serves from went away: ending the cast")
                     fail(CastFailure.NETWORK_CHANGED)
                 } else {
+                    checkReceiver(s)
                     handler.postDelayed(this, POLL_MS * 4)
                 }
             }
         }
+
+    /**
+     * Ends the TV's part when the TV is not playing the stream (native, `geode_link_receiver_health`): its
+     * receiver reported an error, went idle, or never fetched (or stopped fetching while it says it plays), as
+     * on a guest Wi-Fi that keeps devices apart. Without this the phone stays muted and the button says
+     * Casting while the TV shows a spinner. A browser watching the link keeps the stream.
+     */
+    private fun checkReceiver(s: CastStream) {
+        if (!forTv || tvLoadAtMs == 0L) return
+        val controller = CastController.get(this)
+        controller.receiverStatus(receiverStatus)
+        val health =
+            GeodeNative.linkReceiverHealth(
+                SystemClock.elapsedRealtime(),
+                tvLoadAtMs,
+                s.lastReceiverFetchMs,
+                receiverStatus[0],
+                receiverStatus[1],
+            )
+        if (health == GeodeNative.LINK_RECEIVER_OK) return
+        RingLog.note(TAG, "the TV is not playing the stream ($health, player ${receiverStatus[0]}, idle ${receiverStatus[1]})")
+        tvLoadAtMs = 0L
+        when (health) {
+            GeodeNative.LINK_RECEIVER_ERROR -> controller.onStreamFailed(CastFailure.TV_COULD_NOT_PLAY)
+            GeodeNative.LINK_RECEIVER_UNREACHABLE -> controller.onStreamFailed(CastFailure.TV_UNREACHABLE)
+            else -> controller.stop()
+        }
+    }
 
     private val waitForStream: Runnable =
         object : Runnable {
@@ -273,7 +323,15 @@ class CastService : Service() {
             )
         // A TV named first: with both watching, the TV is what the user picked from the system's output list too.
         val title = if (forTv) R.string.cast_notification_title else R.string.link_notification_title
-        val text = if (forTv) R.string.cast_notification_text else R.string.link_notification_text
+        // With Live input on, the notification says the mic is listening (and why): it runs on with the app closed.
+        val micOn = micWanted && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val text =
+            when {
+                forTv && micOn -> R.string.cast_notification_text_mic
+                forTv -> R.string.cast_notification_text
+                micOn -> R.string.link_notification_text_mic
+                else -> R.string.link_notification_text
+            }
         val stopLabel = if (forTv) R.string.cast_stop else R.string.link_stop
         val notification =
             Notification
@@ -289,8 +347,7 @@ class CastService : Service() {
         // the app is visible (or the service was started then); refused, the cast goes on without it.
         val playbackType = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
         val withMic =
-            micWanted &&
-                checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED &&
+            micOn &&
                 runCatching {
                     startForeground(
                         NOTIFICATION_ID,

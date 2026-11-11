@@ -1055,6 +1055,24 @@ GEODE_API int             geode_link_master_playlist(const uint8_t* init, size_t
 #define GEODE_LINK_DO_STOP_STREAM  2
 #define GEODE_LINK_DO_PAYWALL      4
 GEODE_API int             geode_link_step(int* state, int event, int arg);
+/* Who may connect, by source address, before a byte is read (LinkShare's admit): IPv4 in host order, 0 =
+ * unknown; prefix the bound address's prefix length; wants GEODE_LINK_WANT_* bits. A TV cast admits the Cast
+ * device's address alone (the bound subnet when the SDK names none), a live link any site-local peer on the
+ * bound subnet. Returns GEODE_LINK_PEER_*. */
+#define GEODE_LINK_WANT_TV   1
+#define GEODE_LINK_WANT_LINK 2
+#define GEODE_LINK_PEER_REFUSED  0
+#define GEODE_LINK_PEER_RECEIVER 1   /* the TV: its fetches count for geode_link_receiver_health */
+#define GEODE_LINK_PEER_BROWSER  2
+GEODE_API int             geode_link_admit(uint32_t peer, uint32_t bound, int prefix, uint32_t tv, int wants);
+/* Whether the TV plays the stream after the LOAD: the receiver's MediaStatus player state and idle reason, and
+ * when the TV last fetched (one monotonic clock, ms, 0 = never). Returns GEODE_LINK_RECEIVER_*. */
+#define GEODE_LINK_RECEIVER_OK          0
+#define GEODE_LINK_RECEIVER_ERROR       1   /* idle, reason ERROR: it could not play the stream */
+#define GEODE_LINK_RECEIVER_GONE        2   /* idle for another reason: our stream is off the TV */
+#define GEODE_LINK_RECEIVER_UNREACHABLE 3   /* no fetch 20 s after the LOAD, or none for 30 s while it plays */
+GEODE_API int             geode_link_receiver_health(int64_t now_ms, int64_t load_ms, int64_t last_fetch_ms,
+                                                     int player_state, int idle_reason);
 
 /* A QR code (util/QrCode): byte mode, level M, versions 1..10, the best mask. Writes side * side modules (1 =
  * dark, row-major) into out (GEODE_QR_MAX_MODULES bytes) and returns side; 0 when size > GEODE_QR_MAX_BYTES. */

@@ -162,6 +162,7 @@ void aKeptCategoryHoldsThroughARollOfEverything() {
     check(kept.count("Bloom"), "a control's own lock passes through");
     check(!kept.count("#MOTION") && !kept.count("#NO_SUCH"), "markers do not stay in the set");
     check(!kept.count("Palette") && !kept.count("Camera path"), "other categories stay free");
+    check(customize::expandLocks({"#MUSIC"}).count("@waves"), "a kept Music keeps the waves, which its roll re-rolls");
 
     const SceneParams start;
     const auto motion = fieldsOfCategory(Category::Motion);

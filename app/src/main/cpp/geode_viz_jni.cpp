@@ -724,6 +724,27 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsRandomize(JNIEnv* env, jobject, j
     return changed ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_wavesRandomize(JNIEnv* env, jobject, jstring styleId, jstring locked, jlong seed,
+                                                        jboolean runningOnly, jfloatArray params, jfloatArray in, jfloatArray out) {
+    constexpr jsize kWaves = GEODE_LFO_SLOTS * GEODE_LFO_CONFIG_FLOATS;
+    if (!params || !in || !out || env->GetArrayLength(params) < geode_viz_param_count() || env->GetArrayLength(in) < kWaves ||
+        env->GetArrayLength(out) < kWaves) {
+        return JNI_FALSE;
+    }
+    Utf8Chars style(env, styleId);
+    Utf8Chars lockedKeys(env, locked);
+    std::vector<float> look(static_cast<size_t>(geode_viz_param_count()));
+    float input[kWaves];
+    float output[kWaves];
+    env->GetFloatArrayRegion(params, 0, static_cast<jsize>(look.size()), look.data());
+    env->GetFloatArrayRegion(in, 0, kWaves, input);
+    const int changed = geode_waves_randomize(style.get(), lockedKeys.get(), static_cast<uint64_t>(seed), runningOnly ? 1 : 0,
+                                              look.data(), input, output);
+    env->SetFloatArrayRegion(out, 0, kWaves, output);
+    return changed ? JNI_TRUE : JNI_FALSE;
+}
+
 // Fixed-rate frame clock (Cast): the state is a caller-owned long[GEODE_FRAME_CLOCK_STATE], copied in and out.
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_frameClockStart(JNIEnv* env, jobject, jlongArray state, jint fps, jlong nowNs) {

@@ -238,6 +238,15 @@ jobs:
             core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp \
             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o mod_targets_test
           ./mod_targets_test core/tests/mod_targets.txt
+      # Random on waves: the two random wave shapes (a value per cycle, the same at 30/60/120 fps, per slot and seed,
+      # no assumed tempo) and the roll of a set of waves (core/viz/WaveRandomizer).
+      - name: Random waves host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/lfo_random_test.cpp core/viz/WaveRandomizer.cpp \
+            core/viz/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp \
+            core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o lfo_random_test
+          ./lfo_random_test
       # The macro bank (core/viz/MacroBank): the user's knobs as weighted offsets on scene params. Centre is
       # the identity, both ways move, the range and the safety clamp hold, edits validate, the text round trips.
       - name: Macro bank host tests

@@ -722,6 +722,22 @@ object GeodeNative {
     external fun customizeShown(styleId: String): String
 
     /**
+     * Randomize for the waves (core/viz/WaveRandomizer): [input] and [output] are the three slots in
+     * ModConfigCodec.packLfo's layout, one after another; [params] is the look on screen. [runningOnly] false is
+     * the wave editor's button (every wave on and rolled); true is a category roll, which only re-rolls the
+     * steady waves already on and none when [locked] keeps them. True when it changed something.
+     */
+    external fun wavesRandomize(
+        styleId: String?,
+        locked: String?,
+        seed: Long,
+        runningOnly: Boolean,
+        params: FloatArray,
+        input: FloatArray,
+        output: FloatArray,
+    ): Boolean
+
+    /**
      * Rolls one Customize category (core/viz/CustomizeMap; [category] by its CustomizeMap name) from
      * [input] into [output]: its controls that reach [styleId] (null = any), except the newline-joined
      * ParamKeys in [locked]. Every other control holds. True when it changed something.

@@ -31,8 +31,8 @@ GEODE_CONFIG(lfo, enabled, Bool, 0, 0, 1, None)
 GEODE_CONFIG(lfo, source, Int, 0, 0, 8, None)
 // LfoTarget: None .. EndlessZoomSpeed (ordinal 25 is the retired Glitch).
 GEODE_CONFIG(lfo, target, Int, 0, 0, 55, None)
-// LfoWave: Sine .. Random.
-GEODE_CONFIG(lfo, wave, Int, 0, 0, 4, None)
+// LfoWave: Sine .. RandomGlide.
+GEODE_CONFIG(lfo, wave, Int, 0, 0, 5, None)
 // The period, not a frequency (LfoConfig.kt and the old Lfo.hpp kDefault/kMin/kMaxRateSeconds: 2, 0.05,
 // 60). A slot saved in Hz migrates through config::lfoRateSecondsFromHz.
 GEODE_CONFIG(lfo, rateSeconds, Float, 2.0f, 0.05f, 60.0f, Seconds)

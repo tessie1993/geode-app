@@ -653,6 +653,9 @@ GEODE_API int             geode_surface_fps_choices(int* out, int capacity);
 GEODE_API void            geode_auto_timer_restart(int timer, long long now_ms);
 GEODE_API int             geode_auto_timer_due(int timer, long long now_ms, int interval_s, int running);
 GEODE_API double          geode_auto_timer_hold_s(void);
+/* Auto is about to bring `key` on (a style id, or a .milk path): the renderer that switches to it, or the
+ * MilkDrop scene that loads it, within a few seconds plays Auto's longer fade (core/viz/TransitionChoice). */
+GEODE_API void            geode_auto_mark_change(const char* key);
 
 /* The app's own stage (viz/StageRun): flags are the GEODE_STAGE_* bits the shell observed of its Activity and
  * of Cast; the answer is GEODE_STAGE_DRAWS while somebody can see the stage (resumed, or started in a

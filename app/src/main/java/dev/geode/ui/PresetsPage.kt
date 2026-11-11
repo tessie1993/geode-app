@@ -122,7 +122,7 @@ internal fun PresetsTab(
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
                 visualsViewModel.importPresetFile(uri) { name ->
-                    importNote = name?.let { "Added \"$it\" to Mine." } ?: "That file is not a MuzViz preset."
+                    importNote = name?.let { "Added \"$it\" to Mine." } ?: "That file is not a BeatRealms preset."
                 }
             }
         }
@@ -160,7 +160,7 @@ internal fun PresetsTab(
                         pasted.isNullOrBlank() -> "The clipboard is empty. Copy a shared preset link first."
                         else ->
                             visualsViewModel.importPresetLink(pasted)?.let { "Added \"$it\" to Mine." }
-                                ?: "The clipboard does not hold a MuzViz preset link."
+                                ?: "The clipboard does not hold a BeatRealms preset link."
                     }
             },
             onOpenFile = { presetFilePicker.launch(arrayOf("*/*")) },

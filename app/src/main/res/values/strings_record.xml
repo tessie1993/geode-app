@@ -4,7 +4,7 @@
     <string name="record_save_title">Where should takes be saved?</string>
     <string name="record_save_body">“%1$s” will render to a video in the background. Keep the answer and every later take goes to the same place.</string>
     <string name="record_save_library">Videos library</string>
-    <string name="record_save_library_hint">Movies/MuzViz, seen by the gallery and other apps</string>
+    <string name="record_save_library_hint">Movies/BeatRealms, seen by the gallery and other apps</string>
     <string name="record_save_folder">Choose a folder…</string>
     <string name="record_save_remember">Use for every take</string>
     <string name="record_save_later">Not now</string>

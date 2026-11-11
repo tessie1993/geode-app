@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Cast to TV (dev.geode.cast, Pro). The phone renders and streams; the sound plays on the TV. -->
 <resources>
-    <string name="cast_stream_title">MuzViz Studio Pro</string>
+    <string name="cast_stream_title">BeatRealms 3D</string>
     <string name="cast_channel_name">Cast to TV</string>
     <string name="cast_channel_description">Shown while your visuals play on a TV</string>
     <string name="cast_notification_title">Casting to your TV</string>

@@ -30,7 +30,6 @@ class AutoVisualsPrefsStore(
             randomIncludeStyles = prefs.getBoolean(KEY_RANDOM_STYLES, state.randomIncludeStyles),
             randomIncludePresets = prefs.getBoolean(KEY_RANDOM_PRESETS, state.randomIncludePresets),
             randomIncludeMilk = prefs.getBoolean(KEY_RANDOM_MILK, state.randomIncludeMilk),
-            randomizeColors = prefs.getBoolean(KEY_RANDOM_COLORS, state.randomizeColors),
             vizPlaylist = entries,
             vizPlaylistEnabled = playlistEnabled,
             vizPlaylistIntervalSec = prefs.getInt(KEY_PLAYLIST_INTERVAL, state.vizPlaylistIntervalSec).coerceIn(INTERVAL_SEC),
@@ -45,7 +44,6 @@ class AutoVisualsPrefsStore(
             .putBoolean(KEY_RANDOM_STYLES, state.randomIncludeStyles)
             .putBoolean(KEY_RANDOM_PRESETS, state.randomIncludePresets)
             .putBoolean(KEY_RANDOM_MILK, state.randomIncludeMilk)
-            .putBoolean(KEY_RANDOM_COLORS, state.randomizeColors)
             .putBoolean(KEY_PLAYLIST_ENABLED, state.vizPlaylistEnabled)
             .putInt(KEY_PLAYLIST_INTERVAL, state.vizPlaylistIntervalSec)
             .putString(KEY_PLAYLIST_ENTRIES, entriesToJson(state.vizPlaylist))
@@ -61,7 +59,6 @@ class AutoVisualsPrefsStore(
         private const val KEY_RANDOM_STYLES = "auto_random_include_styles"
         private const val KEY_RANDOM_PRESETS = "auto_random_include_presets"
         private const val KEY_RANDOM_MILK = "auto_random_include_milk"
-        private const val KEY_RANDOM_COLORS = "auto_randomize_colors"
         private const val KEY_PLAYLIST_ENABLED = "auto_playlist_enabled"
         private const val KEY_PLAYLIST_INTERVAL = "auto_playlist_interval_sec"
         private const val KEY_PLAYLIST_ENTRIES = "auto_playlist_entries"

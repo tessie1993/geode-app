@@ -11,7 +11,6 @@ import android.provider.Settings
 import android.view.WindowManager
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,10 +20,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.BehaviourPrefs
@@ -36,7 +33,6 @@ import dev.geode.data.GuiPrefs
 import dev.geode.data.NotificationButton
 import dev.geode.data.QueueEndAction
 import dev.geode.data.StartScreen
-import dev.geode.data.UserIntent
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.ui.pro.PaywallViewModel
@@ -48,10 +44,8 @@ import kotlinx.coroutines.withContext
 // Settings › Behaviour & gestures and Settings › Visuals: what the app does by itself and what each
 // gesture on the visual means ([BehaviourPrefs], `geode-prefs`, defaults the owner's), and how the
 // visual behaves around the user (touch, a second screen, safety, the wallpaper and the dream).
-// Only options the app honours get a row (#337): the prefs file also stores choices nothing reads
-// yet (shake, volume keys, tap and swipe on a song, Player art, the Visuals bar, Back twice), and a
-// switch that does nothing is worse than no switch. Visuals orientation was not chosen by the owner,
-// so it has no row either. Auto (the auto-director, the style timer and its sources) lives in Visuals'
+// Only options the app honours get a row (#337): a switch that does nothing is worse than no
+// switch. Auto (the auto-director, the style timer and its sources) lives in Visuals'
 // quick settings alone, where it is seen working.
 
 /** [BehaviourPrefs] as a page holds it: null until the first read (on IO) is back. */
@@ -178,31 +172,6 @@ internal fun NotificationButtonsSection(
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-}
-
-/** The first-run question, asked again. Changing it moves Studio in or out of the navigation. */
-@Composable
-internal fun IntentSection(viewModel: SettingsViewModel) {
-    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
-    Column {
-        Text(stringResource(R.string.settings_intent_title), style = MaterialTheme.typography.bodyMedium)
-        Text(
-            stringResource(R.string.settings_intent_body),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        CrystalSegmented(
-            options = UserIntent.entries.map { stringResource(it.labelRes) },
-            selected = UserIntent.entries.indexOf(gui.intent ?: UserIntent.BOTH),
-            onSelect = { viewModel.setGuiPrefs(gui.copy(intent = UserIntent.entries[it])) },
-            modifier = Modifier.padding(top = 4.dp),
-        )
-        Text(
-            stringResource((gui.intent ?: UserIntent.BOTH).detailRes),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
 }
 
 /** Whether swiping home from the fullscreen visualizer during playback drops into PiP on its own. */

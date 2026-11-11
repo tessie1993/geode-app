@@ -77,6 +77,14 @@ void LiquidPass::releaseSide(Side& s) {
     s = {};
 }
 
+void LiquidPass::releaseTargets() {
+    releaseSide(sides_[0]);
+    releaseSide(sides_[1]);
+    width_ = height_ = 0;
+    read_ = 0;
+    fresh_ = true;
+}
+
 bool LiquidPass::ensure(int width, int height) {
     width = std::max(width, 1);
     height = std::max(height, 1);

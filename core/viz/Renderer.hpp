@@ -394,6 +394,8 @@ private:
     std::string bornAskedBefore_;
     bool liquidWasOn_ = false;
     bool diveWasOn_ = false;
+    // Frames since the feedback pass last drew; its targets are freed once this passes kFeedbackIdleFrames.
+    int feedbackIdleFrames_ = 0;
     std::atomic<int> liquidHotPolicy_{0};
     std::atomic<int> liquidMode_{0};
     std::atomic<int> liquidModeTaken_{-1};

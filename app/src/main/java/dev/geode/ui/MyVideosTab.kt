@@ -1,11 +1,7 @@
 package dev.geode.ui
 
-import android.content.Context
-import android.graphics.Bitmap
-import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.text.format.DateUtils
-import android.util.Size
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -60,11 +56,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.editor.ProjectId
+import dev.geode.geodeContainer
 import dev.geode.ui.theme.floatingGlass
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * Studio › My videos: everything Studio made, newest first, in one grid. A render is a finished
@@ -261,14 +256,14 @@ private fun MyVideoCard(
  */
 @Composable
 private fun VideoThumbnail(uri: String?) {
-    val context = LocalContext.current
+    val mediaStore = LocalContext.current.geodeContainer.mediaStore
     var failed by remember(uri) { mutableStateOf(false) }
     val frame by produceState<ImageBitmap?>(null, uri) {
         val parsed = uri?.let(Uri::parse) ?: return@produceState
-        value = withContext(Dispatchers.IO) { context.videoFrame(parsed)?.asImageBitmap() }
+        value = mediaStore.videoFrame(parsed, THUMB_WIDTH, THUMB_HEIGHT)?.asImageBitmap()
         if (value == null) {
             delay(THUMB_RETRY_MS)
-            value = withContext(Dispatchers.IO) { context.videoFrame(parsed)?.asImageBitmap() }
+            value = mediaStore.videoFrame(parsed, THUMB_WIDTH, THUMB_HEIGHT)?.asImageBitmap()
         }
         failed = value == null
     }
@@ -290,22 +285,6 @@ private fun VideoThumbnail(uri: String?) {
         }
     }
 }
-
-/**
- * The media row's cached thumbnail, else one decoded frame (a document-tree URI or an unindexed
- * row has no cached thumbnail). Null when both fail.
- */
-private fun Context.videoFrame(uri: Uri): Bitmap? =
-    runCatching { contentResolver.loadThumbnail(uri, Size(THUMB_WIDTH, THUMB_HEIGHT), null) }.getOrNull()
-        ?: runCatching {
-            val retriever = MediaMetadataRetriever()
-            try {
-                retriever.setDataSource(this, uri)
-                retriever.getScaledFrameAtTime(-1, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, THUMB_WIDTH, THUMB_HEIGHT)
-            } finally {
-                retriever.release()
-            }
-        }.getOrNull()
 
 private const val THUMB_RETRY_MS = 2_000L
 private const val THUMB_WIDTH = 320

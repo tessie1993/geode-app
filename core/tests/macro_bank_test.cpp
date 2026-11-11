@@ -4,12 +4,16 @@
 // base, every edit validates, the text survives a round trip and garbage, and the four built-in
 // knobs move a flat style, a 3D style, Fluid and MilkDrop both ways within the safety clamp. The
 // process-wide bank (geode_macro_bank_set) starts as the default, is replaced whole, never in place.
+//   macro_bank_test --write core/tests/macro_editor.txt   rewrites the editor fixture after a deliberate change
 // Built and run by CI (.github/workflows/native-host-tests.yml, "Macro bank host tests"); no GL.
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
+#include <fstream>
+#include <iterator>
 #include <limits>
 #include <set>
 #include <string>
@@ -304,10 +308,12 @@ void editsValidate() {
     Bank full = start;
     for (int i = 0; i < 20; ++i) full = macrobank::addKnob(full, "");
     check(static_cast<int>(full.knobs.size()) == macrobank::kMaxKnobs, "the bank holds at most kMaxKnobs");
-    Bank none = start;
-    for (const Knob& knob : start.knobs) none = macrobank::removeKnob(none, knob.id);
-    check(none.knobs.empty(), "every knob can be removed");
-    check(macrobank::addKnob(none, "New").knobs.size() == 1u, "and a knob made in an empty bank");
+    Bank kept = start;
+    for (const Knob& knob : start.knobs) kept = macrobank::removeKnob(kept, knob.id);
+    check(kept == start, "a built-in knob cannot be removed");
+    Bank none;
+    none.nextId = 9;
+    check(macrobank::addKnob(none, "New").knobs.size() == 1u, "a knob can be made in an empty bank");
 
     b = macrobank::setLink(b, mine, LfoTarget::Zoom, 0.25f, -0.5f);
     check(b.knobs.back().links.size() == 1u && (b.knobs.back().links.front() == Link{LfoTarget::Zoom, 0.25f, -0.5f}), "add a link");
@@ -357,12 +363,162 @@ void editsValidate() {
     check(macrobank::normalized(fixed) == fixed, "normalized is idempotent");
 }
 
+// What the knob editor adds to the edits: a copy, a move, a built-in knob put back, and the one text
+// it draws from.
+void theEditorCopiesMovesAndResets() {
+    const Bank& def = macrobank::defaultBank();
+    const int glow = def.knobs[0].id;
+    for (const Knob& knob : def.knobs) check(macrobank::isBase(knob.id), "the default bank's knobs are built in");
+    check(!macrobank::isBase(0) && !macrobank::isBase(def.nextId), "no other id is built in");
+
+    Bank b = macrobank::setValue(def, glow, 0.5f);
+    b = macrobank::duplicateKnob(b, glow);
+    check(b.knobs.size() == def.knobs.size() + 1 && b.knobs[1].id == def.nextId, "a copy sits right after its knob with a new id");
+    check(b.knobs[1].name == "Glow 2" && b.knobs[1].hint.empty(), "a copy is named after its knob and has no hint");
+    check(b.knobs[1].links == def.knobs[0].links && b.knobs[1].value == 0.5f, "a copy moves what its knob moves");
+    check(!macrobank::isBase(b.knobs[1].id), "a copy is the user's knob");
+    check(macrobank::duplicateKnob(def, 4242) == def, "copying an unknown knob changes nothing");
+    const std::string longName(static_cast<size_t>(macrobank::kMaxNameBytes), 'x');
+    const Bank named = macrobank::duplicateKnob(macrobank::rename(def, glow, longName), glow);
+    check(static_cast<int>(named.knobs[1].name.size()) == macrobank::kMaxNameBytes, "a copy's name stays within the cap");
+    check(named.knobs[1].name.ends_with(" 2"), "and still says it is a copy");
+    Bank full = def;
+    while (static_cast<int>(full.knobs.size()) < macrobank::kMaxKnobs) full = macrobank::addKnob(full, "");
+    check(macrobank::duplicateKnob(full, glow) == full, "a full bank takes no copy");
+
+    const auto order = [](const Bank& bank) {
+        std::vector<int> ids;
+        for (const Knob& knob : bank.knobs) ids.push_back(knob.id);
+        return ids;
+    };
+    check(order(macrobank::moveKnob(def, glow, 1)) == std::vector<int>({2, 1, 3, 4}), "a knob moves one place later");
+    check(order(macrobank::moveKnob(def, 4, -1)) == std::vector<int>({1, 2, 4, 3}), "and one place earlier");
+    check(order(macrobank::moveKnob(def, glow, 99)) == std::vector<int>({2, 3, 4, 1}), "a long move stops at the end");
+    check(order(macrobank::moveKnob(def, 3, std::numeric_limits<int>::min())) == std::vector<int>({3, 1, 2, 4}),
+          "and at the start");
+    check(macrobank::moveKnob(def, glow, -1) == def && macrobank::moveKnob(def, glow, 0) == def, "a move with nowhere to go changes nothing");
+    check(macrobank::moveKnob(def, 4242, 1) == def, "moving an unknown knob changes nothing");
+    check(macrobank::moveKnob(def, glow, 2).knobs[2] == def.knobs[0], "a moved knob is unchanged");
+
+    Bank edited = macrobank::rename(def, glow, "Mine");
+    edited = macrobank::setLink(edited, glow, LfoTarget::Zoom, 0.5f, 0.0f);
+    edited = macrobank::removeLink(edited, glow, LfoTarget::Bloom);
+    edited = macrobank::setValue(edited, glow, -0.25f);
+    const Bank back = macrobank::resetKnob(edited, glow);
+    check(back.knobs[0].name == def.knobs[0].name && back.knobs[0].hint == def.knobs[0].hint, "reset puts a built-in knob's name back");
+    check(back.knobs[0].links == def.knobs[0].links, "and its links");
+    check(back.knobs[0].value == -0.25f, "and leaves its turn");
+    check(macrobank::setValue(back, glow, 0.0f) == def, "a reset bank is the default bank");
+    const Bank mine = macrobank::addKnob(def, "Mine");
+    check(macrobank::resetKnob(mine, mine.knobs.back().id) == mine, "a user's knob has nothing to reset to");
+
+    const int made = mine.knobs.back().id;
+    const Bank linked = macrobank::addLink(mine, made, LfoTarget::Zoom);
+    check(linked.knobs.back().links == std::vector<Link>({{LfoTarget::Zoom, macrobank::kNewLinkWeight, -macrobank::kNewLinkWeight}}),
+          "a new link starts a quarter of the range each way");
+    const Bank tuned = macrobank::setLink(linked, made, LfoTarget::Zoom, 0.9f, 0.0f);
+    check(macrobank::addLink(tuned, made, LfoTarget::Zoom) == tuned, "adding a link the knob has keeps its weights");
+    check(macrobank::addLink(mine, made, LfoTarget::None) == mine && macrobank::addLink(mine, 4242, LfoTarget::Zoom) == mine,
+          "an unlinkable target or an unknown knob adds nothing");
+    check(macrobank::decode(geode_macro_bank_add_link(macrobank::encode(mine).c_str(), made, "ZOOM")) == linked, "geode_macro_bank_add_link");
+    check(macrobank::resetKnob(def, 4242) == def, "resetting an unknown knob changes nothing");
+}
+
+std::vector<std::vector<std::string>> rowsOf(const std::string& text, const std::string& tag) {
+    std::vector<std::vector<std::string>> out;
+    size_t pos = 0;
+    while (pos < text.size()) {
+        const size_t end = text.find('\n', pos);
+        const std::string line = text.substr(pos, end - pos);
+        pos = end + 1;
+        std::vector<std::string> f;
+        size_t at = 0;
+        while (true) {
+            const size_t bar = line.find('|', at);
+            f.push_back(line.substr(at, bar == std::string::npos ? bar : bar - at));
+            if (bar == std::string::npos) break;
+            at = bar + 1;
+        }
+        if (f[0] == tag) out.push_back(f);
+    }
+    return out;
+}
+
+void theEditorTextSaysWhatToOffer() {
+    const Bank& def = macrobank::defaultBank();
+    const EngineStyles s = engineStyles();
+    const std::string text = macrobank::editorText(def, s.flat);
+    check(text.rfind("macroeditor|" + std::to_string(macrobank::kTextVersion) + "\n", 0) == 0, "the editor text opens with its version");
+    const auto caps = rowsOf(text, "caps");
+    check(caps.size() == 1u && caps[0][1] == std::to_string(macrobank::kMaxKnobs) && caps[0][2] == std::to_string(macrobank::kMaxLinks) &&
+              caps[0][3] == std::to_string(macrobank::kMaxNameBytes),
+          "it carries the caps");
+    check(rowsOf(text, "bank") == std::vector<std::vector<std::string>>({{"bank", "1", "1"}}), "the default bank has room and is the default");
+    const auto knobs = rowsOf(text, "knob");
+    check(knobs.size() == def.knobs.size(), "one knob row per knob");
+    for (size_t i = 0; i < knobs.size(); ++i) {
+        const auto& k = knobs[i];
+        check(k.size() == 8u && k[1] == std::to_string(def.knobs[i].id) && k[6] == def.knobs[i].name && k[7] == def.knobs[i].hint,
+              "a knob row carries its id, name and hint");
+        check(k[2] == "1" && k[3] == "1" && k[4] == "1" && k[5] == "0", "a built-in knob is as built, has room for links and is centred");
+    }
+    size_t links = 0;
+    for (const Knob& knob : def.knobs) links += knob.links.size();
+    check(rowsOf(text, "link").size() == links, "one link row per link");
+    const auto targets = rowsOf(text, "target");
+    check(targets.size() == linkableTargets().size(), "one target row per linkable target");
+    for (const auto& t : targets) {
+        const LfoTarget target = macrobank::targetNamed(t[1]);
+        check(target != LfoTarget::None && t.size() == 3u, "a target row names a linkable target: " + t[1]);
+        check((t[2] == "1") == modtargets::reaches(target, s.flat), "and whether it reaches the style: " + t[1]);
+    }
+    // FluidForce is on Flow and only reaches the fluid engine.
+    bool dimmed = false;
+    for (const auto& l : rowsOf(text, "link")) dimmed = dimmed || (l[1] == "FLUID_FORCE" && l[4] == "0");
+    check(dimmed, "a link the style cannot show says so");
+
+    Bank b = macrobank::rename(def, def.knobs[0].id, "Mine");
+    b = macrobank::setValue(b, def.knobs[1].id, 0.5f);
+    b = macrobank::addKnob(b, "New");
+    const int mine = b.knobs.back().id;
+    for (const LfoTarget t : linkableTargets()) b = macrobank::setLink(b, mine, t, 0.1f, 0.1f);
+    const auto edited = rowsOf(macrobank::editorText(b, s.flat), "knob");
+    check(edited[0][2] == "1" && edited[0][3] == "0", "an edited built-in knob can be reset");
+    check(edited[1][3] == "1" && edited[1][5] == "0.5", "a turned one is still as built");
+    check(edited.back()[2] == "0" && edited.back()[3] == "0" && edited.back()[4] == "0", "a user's knob is not built in, and full of links");
+    check(rowsOf(macrobank::editorText(b, s.flat), "bank")[0][2] == "0", "an edited bank is not the default");
+    check(rowsOf(macrobank::editorText(macrobank::moveKnob(def, 1, 1), s.flat), "bank")[0][2] == "0", "nor is a reordered one");
+    check(rowsOf(macrobank::editorText(macrobank::setValue(def, 1, 1.0f), s.flat), "bank")[0][2] == "1", "a turned one is");
+    Bank full = def;
+    while (static_cast<int>(full.knobs.size()) < macrobank::kMaxKnobs) full = macrobank::addKnob(full, "");
+    check(rowsOf(macrobank::editorText(full, s.flat), "bank")[0][1] == "0", "a full bank offers no new knob");
+    check(std::string(geode_macro_bank_editor(nullptr, nullptr)) == macrobank::editorText(def, ""), "the ABI reads NULLs as the default bank");
+}
+
+// The editor text of a bank with every kind of row, the copy JVM tests parse (geode.macroEditor):
+// an edited built-in knob, a turned one, a user's knob, a link out of reach.
+std::string editorFixture() {
+    const Bank& def = macrobank::defaultBank();
+    Bank b = macrobank::rename(def, def.knobs[0].id, "Shine");
+    b = macrobank::setValue(b, def.knobs[1].id, 0.5f);
+    b = macrobank::addKnob(b, "Mine");
+    b = macrobank::addLink(b, b.knobs.back().id, LfoTarget::Zoom);
+    b = macrobank::setLink(b, b.knobs.back().id, LfoTarget::FluidGlow, 1.0f, 0.0f);
+    return macrobank::editorText(b, engineStyles().flat);
+}
+
+void theEditorFixtureIsCurrent(const char* path) {
+    std::ifstream in(path, std::ios::binary);
+    const std::string held((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    check(held == editorFixture(), std::string("editorText differs from ") + path + "; after a deliberate change run macro_bank_test --write " + path);
+}
+
 void textRoundTrips() {
     const Bank& def = macrobank::defaultBank();
     check(macrobank::decode(macrobank::encode(def)) == def, "the default bank round trips");
     Bank edited = macrobank::setValue(def, def.knobs[1].id, -0.37f);
     edited = macrobank::rename(edited, def.knobs[2].id, "Sm\xC3\xB6rg\xC3\xA5s");
-    edited = macrobank::removeKnob(edited, def.knobs[0].id);
+    edited = macrobank::moveKnob(edited, def.knobs[0].id, 2);
     edited = macrobank::addKnob(edited, "Mine");
     edited = macrobank::setLink(edited, edited.knobs.back().id, LfoTarget::CamFov, 0.123456789f, -1.0f);
     edited = macrobank::setLink(edited, edited.knobs.back().id, LfoTarget::Zoom, 1.0f / 3.0f, 0.0f);
@@ -534,8 +690,15 @@ void theAbiEditsTextToText() {
     check(std::string(geode_macro_bank_live(nullptr, nullptr)).rfind("knob|", 0) == 0, "live on NULLs is the default bank on an unknown style");
     text = geode_macro_bank_remove_link(text.c_str(), mine, "CAM_FOV");
     check(macrobank::decode(text).knobs.back().links.empty(), "geode_macro_bank_remove_link");
+    text = geode_macro_bank_duplicate_knob(text.c_str(), mine);
+    check(macrobank::decode(text).knobs.size() == 6u, "geode_macro_bank_duplicate_knob");
+    text = geode_macro_bank_move_knob(text.c_str(), mine, -4);
+    check(macrobank::decode(text).knobs.front().id == mine, "geode_macro_bank_move_knob");
     text = geode_macro_bank_remove_knob(text.c_str(), mine);
+    text = geode_macro_bank_remove_knob(text.c_str(), macrobank::decode(text).knobs.back().id);
     check(macrobank::decode(text).knobs.size() == 4u, "geode_macro_bank_remove_knob");
+    text = geode_macro_bank_reset_knob(geode_macro_bank_rename(text.c_str(), first, "Renamed"), first);
+    check(macrobank::decode(text).knobs.front().name == macrobank::defaultBank().knobs.front().name, "geode_macro_bank_reset_knob");
     // An edit may be fed its own result: the argument is read before the held string is replaced.
     const char* chained = geode_macro_bank_set_value(geode_macro_bank_set_value(def.c_str(), first, 0.25f), first, -0.25f);
     check(macrobank::decode(chained).knobs.front().value == -0.25f, "a result can be passed straight back in");
@@ -561,7 +724,11 @@ void theGlobalBankIsSwappedWhole() {
 
 }  // namespace
 
-int main() {
+int main(int argc, char** argv) {
+    if (argc == 3 && std::strcmp(argv[1], "--write") == 0) {
+        std::ofstream(argv[2], std::ios::binary) << editorFixture();
+        return 0;
+    }
     linkableTargetsWriteLiveParams();
     centreIsTheIdentity();
     aFullTurnMovesEveryLinkByItsWeight();
@@ -571,6 +738,9 @@ int main() {
     aLinkOutOfReachIsSkipped();
     nonFiniteInputIsIgnored();
     editsValidate();
+    theEditorCopiesMovesAndResets();
+    theEditorTextSaysWhatToOffer();
+    theEditorFixtureIsCurrent(argc > 1 ? argv[1] : "core/tests/macro_editor.txt");
     textRoundTrips();
     garbageDecodesToSomethingValid();
     theDefaultBankIsFourLiveKnobs();

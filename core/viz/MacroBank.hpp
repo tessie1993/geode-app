@@ -14,8 +14,9 @@
 // knob still moves the picture) and held to the field's range. No sound routes, no sound tuning, no
 // camera side path.
 //
-// The bank is process-wide (setGlobal) and the user's own: knobs can be added, renamed and removed, and what a
-// knob moves is edited link by link. The shell keeps it as one opaque string (encode) and hands it
+// The bank is process-wide (setGlobal) and the user's own: knobs can be added, copied, renamed, reordered and
+// removed, and what a knob moves is edited link by link. The four built-in knobs can be edited and put back
+// (resetKnob) but not removed, so a bank always has the four the app is described with. The shell keeps it as one opaque string (encode) and hands it
 // back (decode); every edit is a pure function here, so Kotlin parses and decides nothing (ADR 0003).
 // Pure: no GL, no JNI.
 namespace geode::viz::macrobank {
@@ -73,6 +74,8 @@ LfoTarget targetNamed(std::string_view name);
 
 // The four built-in knobs, all at centre: Glow, Heat, Bend, Flow.
 const Bank& defaultBank();
+// Whether id is one of the built-in knobs' (ids are never handed out twice, so a user's knob never has one).
+bool isBase(int id);
 // The bank made valid: ids unique and in range, names trimmed and capped, values and weights in
 // -1..1 (a non-finite one is 0), unlinkable targets dropped, one link per target, the caps held.
 Bank normalized(const Bank& bank);
@@ -83,9 +86,21 @@ Bank setValue(const Bank& bank, int id, float value);
 Bank rename(const Bank& bank, int id, std::string_view name);
 // The new knob is last, at centre with no links; an empty name gives "Knob <id>".
 Bank addKnob(const Bank& bank, std::string_view name);
+// A copy of the knob right after it: a new id, the name with " 2", the same links and value, no hint.
+Bank duplicateKnob(const Bank& bank, int id);
+// The knob `delta` places along the bank (negative is earlier), stopping at either end.
+Bank moveKnob(const Bank& bank, int id, int delta);
+// Refused for a built-in knob.
 Bank removeKnob(const Bank& bank, int id);
+// A built-in knob's name, hint and links as defaultBank has them; its value stays. Refused for a user's knob.
+Bank resetKnob(const Bank& bank, int id);
 // Adds the link, or replaces the knob's link on the same target.
 Bank setLink(const Bank& bank, int id, LfoTarget target, float up, float down);
+// A new link at the weights a picked target starts on: a quarter of its range each way, up up and down
+// down, so the knob moves it at once and neither end is reached by one knob alone. Refused when the knob
+// already links the target.
+constexpr float kNewLinkWeight = 0.25f;
+Bank addLink(const Bank& bank, int id, LfoTarget target);
 Bank removeLink(const Bank& bank, int id, LfoTarget target);
 
 // Bit per LfoTarget ordinal a link may move on styleId (modtargets::reaches): ask once per style.
@@ -121,5 +136,14 @@ const std::string& targetsText();
 // Which way each knob can move the picture on styleId, so the shell dims a knob that cannot:
 //   knob|<id>|<up 0/1>|<down 0/1>      one row per knob, in bank order
 std::string liveText(const Bank& bank, const std::string& styleId);
+// Everything the knob editor draws and offers on styleId, so the shell decides none of it. Rows:
+//   macroeditor|<kTextVersion>
+//   caps|<max knobs>|<max links per knob>|<max name bytes>
+//   bank|<a knob can be added 0/1>|<equals the default bank, values aside 0/1>
+//   knob|<id>|<built-in 0/1>|<as built 0/1>|<a link can be added 0/1>|<value>|<name>|<hint>     bank order
+//   link|<TARGET>|<up>|<down>|<reaches the style 0/1>          the links of the knob row above
+//   target|<TARGET>|<reaches the style 0/1>                    every linkable target, wire order
+// A built-in knob can be reset unless it is as built; any other knob can be removed.
+std::string editorText(const Bank& bank, const std::string& styleId);
 
 }  // namespace geode::viz::macrobank

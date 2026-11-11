@@ -18,6 +18,8 @@ using catalogue::Scope;
 const std::vector<Section>& table() {
     static const std::vector<Section> kSections = {
         {C::QuickKnobs, "basics", true, S::Always, {"@macros"}},
+        // Turning the knobs is free; making them and choosing what they move is the deeper layer.
+        {C::QuickKnobs, "knob_editor", false, S::Always, {"@macro_editor"}},
 
         {C::Look, "basics", true, S::Always, {"Palette", "Brightness", "Saturation", "Bloom"}},
         {C::Look,
@@ -154,6 +156,7 @@ const std::vector<HeldControl>& held() {
         // Panel pieces that are not one parameter. Notes & key's amounts are SceneParams values the
         // page draws as a block, so its Reset puts them back.
         {"@macros", {}, std::nullopt},
+        {"@macro_editor", {}, std::nullopt},
         {"@palette_maker", {}, std::nullopt},
         {"@auto_moments", {}, std::nullopt},
         {"@moments", {}, std::nullopt},

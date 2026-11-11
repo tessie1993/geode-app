@@ -170,6 +170,21 @@ Bank buildDefault() {
     return normalized(bank);
 }
 
+const Seed* seedOf(int id) {
+    return id >= 1 && id <= static_cast<int>(seeds().size()) ? &seeds()[static_cast<size_t>(id - 1)] : nullptr;
+}
+
+// A knob's definition (what Reset puts back) against the built-in one: its value is the user's turn, not part of it.
+bool asBuilt(const Knob& knob) {
+    const Knob* built = nullptr;
+    for (const Knob& k : defaultBank().knobs) {
+        if (k.id == knob.id) built = &k;
+    }
+    return built && knob.name == built->name && knob.hint == built->hint && knob.links == built->links;
+}
+
+const char* flag(bool on) { return on ? "1" : "0"; }
+
 std::mutex gLock;
 std::shared_ptr<const Bank> gBank;  // guarded by gLock; null is the default bank
 
@@ -209,6 +224,8 @@ const Bank& defaultBank() {
     static const Bank kDefault = buildDefault();
     return kDefault;
 }
+
+bool isBase(int id) { return seedOf(id) != nullptr; }
 
 Bank normalized(const Bank& bank) {
     Bank out;
@@ -267,10 +284,49 @@ Bank addKnob(const Bank& bank, std::string_view name) {
     return out;
 }
 
+Bank duplicateKnob(const Bank& bank, int id) {
+    Bank out = normalized(bank);
+    const auto at = std::find_if(out.knobs.begin(), out.knobs.end(), [id](const Knob& k) { return k.id == id; });
+    if (at == out.knobs.end() || static_cast<int>(out.knobs.size()) >= kMaxKnobs || out.nextId > kMaxId) return out;
+    Knob copy = *at;
+    copy.id = out.nextId++;
+    copy.name = cleanText(cleanText(at->name, kMaxNameBytes - 2) + " 2", kMaxNameBytes);
+    copy.hint.clear();
+    out.knobs.insert(at + 1, std::move(copy));
+    return out;
+}
+
+Bank moveKnob(const Bank& bank, int id, int delta) {
+    Bank out = normalized(bank);
+    const auto at = std::find_if(out.knobs.begin(), out.knobs.end(), [id](const Knob& k) { return k.id == id; });
+    if (at == out.knobs.end()) return out;
+    const int last = static_cast<int>(out.knobs.size()) - 1;
+    const int from = static_cast<int>(at - out.knobs.begin());
+    const int to = static_cast<int>(std::clamp<long long>(static_cast<long long>(from) + delta, 0, last));
+    if (to < from) {
+        std::rotate(out.knobs.begin() + to, at, at + 1);
+    } else if (to > from) {
+        std::rotate(at, at + 1, out.knobs.begin() + to + 1);
+    }
+    return out;
+}
+
 Bank removeKnob(const Bank& bank, int id) {
     Bank out = normalized(bank);
+    if (isBase(id)) return out;
     std::erase_if(out.knobs, [id](const Knob& knob) { return knob.id == id; });
     return out;
+}
+
+Bank resetKnob(const Bank& bank, int id) {
+    Bank out = normalized(bank);
+    Knob* knob = knobById(out, id);
+    const Seed* seed = seedOf(id);
+    if (!knob || !seed) return out;
+    knob->name = seed->name;
+    knob->hint = seed->hint;
+    knob->links = seed->links;
+    return normalized(out);
 }
 
 Bank setLink(const Bank& bank, int id, LfoTarget target, float up, float down) {
@@ -288,6 +344,13 @@ Bank setLink(const Bank& bank, int id, LfoTarget target, float up, float down) {
     }
     knob->hint.clear();
     return out;
+}
+
+Bank addLink(const Bank& bank, int id, LfoTarget target) {
+    Bank out = normalized(bank);
+    Knob* knob = knobById(out, id);
+    if (!knob || linkOn(*knob, target) != knob->links.end()) return out;
+    return setLink(out, id, target, kNewLinkWeight, -kNewLinkWeight);
 }
 
 Bank removeLink(const Bank& bank, int id, LfoTarget target) {
@@ -437,6 +500,34 @@ std::string liveText(const Bank& bank, const std::string& styleId) {
             down = down || link.down != 0.0f;
         }
         out += "knob|" + std::to_string(knob.id) + "|" + (up ? "1" : "0") + "|" + (down ? "1" : "0") + "\n";
+    }
+    return out;
+}
+
+std::string editorText(const Bank& bank, const std::string& styleId) {
+    const std::uint64_t reach = reachMask(styleId);
+    const auto reaches = [reach](LfoTarget target) { return ((reach >> static_cast<int>(target)) & std::uint64_t{1}) != 0; };
+    const Bank valid = normalized(bank);
+    const bool room = static_cast<int>(valid.knobs.size()) < kMaxKnobs && valid.nextId <= kMaxId;
+    bool pristine = valid.knobs.size() == defaultBank().knobs.size();
+    for (size_t i = 0; pristine && i < valid.knobs.size(); ++i) {
+        pristine = valid.knobs[i].id == defaultBank().knobs[i].id && asBuilt(valid.knobs[i]);
+    }
+    std::string out = "macroeditor|" + std::to_string(kTextVersion) + "\n";
+    out += "caps|" + std::to_string(kMaxKnobs) + "|" + std::to_string(kMaxLinks) + "|" + std::to_string(kMaxNameBytes) + "\n";
+    out += std::string("bank|") + flag(room) + "|" + flag(pristine) + "\n";
+    for (const Knob& knob : valid.knobs) {
+        out += "knob|" + std::to_string(knob.id) + "|" + flag(isBase(knob.id)) + "|" + flag(asBuilt(knob)) + "|" +
+               flag(static_cast<int>(knob.links.size()) < kMaxLinks) + "|" + tableNumber(knob.value) + "|" + knob.name + "|" +
+               knob.hint + "\n";
+        for (const Link& link : knob.links) {
+            out += std::string("link|") + modtargets::name(link.target) + "|" + tableNumber(link.up) + "|" + tableNumber(link.down) +
+                   "|" + flag(reaches(link.target)) + "\n";
+        }
+    }
+    for (int i = 0; i < kTargetCount; ++i) {
+        const auto target = static_cast<LfoTarget>(i);
+        if (linkable(target)) out += std::string("target|") + modtargets::name(target) + "|" + flag(reaches(target)) + "\n";
     }
     return out;
 }

@@ -50,8 +50,24 @@ const char* geode_macro_bank_remove_knob(const char* bank, int knob_id) {
     return handOut(macrobank::removeKnob(bankOf(bank), knob_id));
 }
 
+const char* geode_macro_bank_duplicate_knob(const char* bank, int knob_id) {
+    return handOut(macrobank::duplicateKnob(bankOf(bank), knob_id));
+}
+
+const char* geode_macro_bank_move_knob(const char* bank, int knob_id, int delta) {
+    return handOut(macrobank::moveKnob(bankOf(bank), knob_id, delta));
+}
+
+const char* geode_macro_bank_reset_knob(const char* bank, int knob_id) {
+    return handOut(macrobank::resetKnob(bankOf(bank), knob_id));
+}
+
 const char* geode_macro_bank_set_link(const char* bank, int knob_id, const char* target, float up, float down) {
     return handOut(macrobank::setLink(bankOf(bank), knob_id, macrobank::targetNamed(target ? target : ""), up, down));
+}
+
+const char* geode_macro_bank_add_link(const char* bank, int knob_id, const char* target) {
+    return handOut(macrobank::addLink(bankOf(bank), knob_id, macrobank::targetNamed(target ? target : "")));
 }
 
 const char* geode_macro_bank_remove_link(const char* bank, int knob_id, const char* target) {
@@ -60,6 +76,10 @@ const char* geode_macro_bank_remove_link(const char* bank, int knob_id, const ch
 
 const char* geode_macro_bank_live(const char* bank, const char* style_id) {
     return handOut(macrobank::liveText(bankOf(bank), style_id ? style_id : ""));
+}
+
+const char* geode_macro_bank_editor(const char* bank, const char* style_id) {
+    return handOut(macrobank::editorText(bankOf(bank), style_id ? style_id : ""));
 }
 
 }

@@ -750,6 +750,59 @@ GEODE_API void           geode_playout_set_offset_ms(geode_playout*, int ms);
 /* The newest ring sample heard at now_ns, offset applied: never past the newest sample written. -1 when
  * nothing was handled since create or flush (and for NULL); the first handled sample until a position. */
 GEODE_API int64_t        geode_playout_speaker_frame(const geode_playout*, int64_t now_ns);
+/* The PCM ingest ring (audio/ingest/PcmRing): one lock-free ring per audio source, written by one thread
+ * at a time (the player's tap, a capture thread) and read by any number of cursors, which never change it.
+ * Every write carries its sample rate and source channel count, so a reader gets each frame with the rate
+ * it was written at. Lifetime: the handle and every cursor (a renderer's feed included) share the ring, so
+ * it is freed when the last of them goes; destroy the handle only once no thread writes through it. Every
+ * call is safe on a NULL handle. */
+typedef struct geode_pcm_ring   geode_pcm_ring;
+typedef struct geode_pcm_cursor geode_pcm_cursor;
+/* Sample encodings of geode_pcm_ring_write_bytes, numbered as Android's AudioFormat.ENCODING_PCM_*. */
+#define GEODE_PCM_S16 2     /* signed 16-bit, x / 32768 */
+#define GEODE_PCM_U8 3      /* unsigned 8-bit, (x - 128) / 128 */
+#define GEODE_PCM_FLOAT 4   /* 32-bit float */
+/* capacity_frames a power of two; the ring stores `channels` channels; max_write_frames is the runway
+ * (0 = a quarter of the ring). NULL for arguments it cannot take. */
+GEODE_API geode_pcm_ring*   geode_pcm_ring_create(int capacity_frames, int channels, int max_write_frames);
+GEODE_API void              geode_pcm_ring_destroy(geode_pcm_ring*);
+/* Interleaved frames of `channels` source channels at sample_rate (missing ring channels stored silent,
+ * extra ones dropped). Returns the frames written, 0 for a refused block; peak_out (may be NULL) gets the
+ * largest magnitude stored. write_bytes takes whole frames of `encoding` from unaligned bytes in the
+ * machine's byte order and ignores a trailing part of a frame. Writer thread only. */
+GEODE_API int               geode_pcm_ring_write_f32(geode_pcm_ring*, const float* interleaved, int frames, int channels,
+                                                     int sample_rate, float* peak_out);
+GEODE_API int               geode_pcm_ring_write_s16(geode_pcm_ring*, const int16_t* interleaved, int frames, int channels,
+                                                     int sample_rate, float* peak_out);
+GEODE_API int               geode_pcm_ring_write_bytes(geode_pcm_ring*, const void* data, size_t bytes, int encoding,
+                                                       int channels, int sample_rate, float* peak_out);
+/* A new stream (track change, seek, source switch): every cursor restarts at its next take. Any thread. */
+GEODE_API void              geode_pcm_ring_begin_epoch(geode_pcm_ring*);
+GEODE_API int64_t           geode_pcm_ring_written(const geode_pcm_ring*);   /* frames since the last epoch began */
+/* geode_silence_heard_at over the ring's newest `frames` frames: heard_at_ms unchanged when the epoch has
+ * not written that many, else now_ms when any of them is audible. */
+GEODE_API long long         geode_pcm_ring_heard_at(const geode_pcm_ring*, int frames, long long now_ms,
+                                                    long long heard_at_ms);
+/* One reader's place in a ring: every frame once, in order. max_frames is the most one take hands out
+ * (0 = the ring's runway). One thread per cursor. */
+GEODE_API geode_pcm_cursor* geode_pcm_cursor_create(const geode_pcm_ring*, int max_frames);
+GEODE_API void              geode_pcm_cursor_destroy(geode_pcm_cursor*);
+GEODE_API int               geode_pcm_cursor_max_frames(const geode_pcm_cursor*);
+GEODE_API int               geode_pcm_cursor_channels(const geode_pcm_cursor*);   /* the ring's channel count */
+/* What the ring gained since the last take, interleaved at the ring's channel count (a mono source on every
+ * channel): returns the frames, all written at *sample_rate; *restarted is 1 on a first take or a new epoch
+ * (reset the consumer first). After a stall it keeps the newest audio. A take ends where the rate changes;
+ * the rest comes with the next. -1 without taking when out holds fewer than max_frames frames. take_s16
+ * clamps to -1..1 and scales by 32767. */
+GEODE_API int               geode_pcm_cursor_take(geode_pcm_cursor*, float* out, int capacity_frames, int* restarted,
+                                                  int* sample_rate);
+GEODE_API int               geode_pcm_cursor_take_s16(geode_pcm_cursor*, int16_t* out, int capacity_frames,
+                                                      int* restarted, int* sample_rate);
+GEODE_API void              geode_pcm_cursor_reset(geode_pcm_cursor*);   /* the next take starts from the newest audio */
+/* The live renderer's feed: hands what `ring` gained since this renderer's last call to its sound engine,
+ * resetting the engine on a restart, with no copy through the shell. The renderer keeps its own cursor (and
+ * so the ring) until it is fed another ring or NULL, which drops it. Render thread, before geode_viz_render. */
+GEODE_API void              geode_viz_feed_ring(geode_viz*, const geode_pcm_ring* ring);
 /* Cast's live HLS timing (viz/frame/HlsSegments): a segment lasts the media time its fragment holds (the
  * video track's trun sample durations over its mdhd timescale), never the wall time between cuts. */
 #define GEODE_HLS_WINDOW 6           /* segments kept and listed */

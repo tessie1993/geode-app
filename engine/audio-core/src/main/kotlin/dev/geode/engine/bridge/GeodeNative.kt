@@ -265,7 +265,14 @@ object GeodeNative {
         sampleRate: Int,
     )
 
-    external fun vizResetAudio(handle: Long)
+    /**
+     * The live feed: the renderer takes what the ring at [ring] (a [pcmRingCreate] handle; 0 for none)
+     * gained since its last call straight into its sound engine, resetting it on a restart. Render thread.
+     */
+    external fun vizFeedRing(
+        handle: Long,
+        ring: Long,
+    )
 
     external fun vizSetSoundTuning(
         handle: Long,
@@ -1042,18 +1049,6 @@ object GeodeNative {
 
     // Rest when silent (core/sound/Silence): the wallpaper's and the dream's silence rule.
 
-    /**
-     * The time sound was last heard, given this poll's newest [frames] samples per channel (0 when
-     * nothing new was written): [nowMs] when any is above about -42 dBFS, else [heardAtMs].
-     */
-    external fun silenceHeardAt(
-        left: FloatArray,
-        right: FloatArray,
-        frames: Int,
-        nowMs: Long,
-        heardAtMs: Long,
-    ): Long
-
     /** Whether a surface may rest: nothing heard for 6 s. */
     external fun silenceResting(
         nowMs: Long,
@@ -1387,6 +1382,101 @@ object GeodeNative {
 
     /** A start after a stop: forget the gap, keep the panel's period. */
     external fun pacerResume(state: LongArray)
+
+    // The PCM ingest ring (core/audio/ingest/PcmRing): one lock-free ring per audio source. Every write
+    // carries its rate, and the int16 and 8-bit conversions to float happen inside it.
+
+    /** A ring of [capacityFrames] (a power of two) by [channels]; 0 for sizes it cannot take. Freed with [pcmRingDestroy]. */
+    external fun pcmRingCreate(
+        capacityFrames: Int,
+        channels: Int,
+        maxWriteFrames: Int,
+    ): Long
+
+    /** Drops the handle; the ring itself goes once no native cursor reads it. Never while a thread writes. */
+    external fun pcmRingDestroy(handle: Long)
+
+    /**
+     * Writes the whole frames in [bytes] bytes of a direct [buffer] from [position], in the machine's byte
+     * order; [encoding] is `AudioFormat.ENCODING_PCM_16BIT`, `_8BIT` or `_FLOAT`. Returns the frames
+     * written, 0 for a heap buffer or an encoding it does not read.
+     */
+    external fun pcmRingWriteDirect(
+        handle: Long,
+        buffer: java.nio.ByteBuffer,
+        position: Int,
+        bytes: Int,
+        encoding: Int,
+        channels: Int,
+        sampleRate: Int,
+    ): Int
+
+    /** Writes [frames] interleaved frames; returns the block's peak magnitude. */
+    external fun pcmRingWriteFloats(
+        handle: Long,
+        samples: FloatArray,
+        frames: Int,
+        channels: Int,
+        sampleRate: Int,
+    ): Float
+
+    /** [pcmRingWriteFloats] for 16-bit samples, scaled by 1/32768 natively. */
+    external fun pcmRingWriteShorts(
+        handle: Long,
+        samples: ShortArray,
+        frames: Int,
+        channels: Int,
+        sampleRate: Int,
+    ): Float
+
+    /** Writes the whole frames in the first [count] bytes of [samples], as [pcmRingWriteDirect] reads them. */
+    external fun pcmRingWriteBytes(
+        handle: Long,
+        samples: ByteArray,
+        count: Int,
+        encoding: Int,
+        channels: Int,
+        sampleRate: Int,
+    ): Int
+
+    /** A new stream: every reader restarts at its next take. Any thread. */
+    external fun pcmRingBeginEpoch(handle: Long)
+
+    /** Frames written since the last [pcmRingBeginEpoch]. */
+    external fun pcmRingWritten(handle: Long): Long
+
+    /**
+     * The rest-when-silent rule over the ring's newest [frames] frames: [nowMs] when any is above about
+     * -42 dBFS, else [heardAtMs] (also when the ring has not written that many).
+     */
+    external fun pcmRingHeardAt(
+        handle: Long,
+        frames: Int,
+        nowMs: Long,
+        heardAtMs: Long,
+    ): Long
+
+    /** A reader's place in the ring at [ring]; [maxFrames] 0 is the ring's runway. Freed with [pcmCursorDestroy]. */
+    external fun pcmCursorCreate(
+        ring: Long,
+        maxFrames: Int,
+    ): Long
+
+    external fun pcmCursorDestroy(handle: Long)
+
+    /** The most frames one take hands out. */
+    external fun pcmCursorMaxFrames(handle: Long): Int
+
+    /**
+     * What the ring gained since the last take, as interleaved 16-bit frames in [out] (which must hold
+     * [pcmCursorMaxFrames] frames); returns the frames. [info] gets 1 at [0] on a restart and the rate the
+     * frames were written at in [1].
+     */
+    external fun pcmCursorTakeS16(
+        handle: Long,
+        out: ShortArray,
+        info: IntArray,
+    ): Int
 
     // Playout clock (core/sound/interp/PlayoutClock, #349): the ring sample the speaker plays now.
 

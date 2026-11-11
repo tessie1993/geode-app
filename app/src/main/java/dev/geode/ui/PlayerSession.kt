@@ -119,17 +119,13 @@ class PlayerSession internal constructor(
         CaptureController(
             application,
             scope,
-            playback.captureSink,
+            playback.sampleRing,
             object : CaptureController.Host {
                 override fun pausePlayback() = player.pause()
 
                 override fun resetSound(playerOwnsRing: Boolean) {
                     playback.sampleRing.beginEpoch()
                     bestEffort("PlayerSession", "player source") { GeodeNative.soundSetPlayerSource(playerOwnsRing) }
-                }
-
-                override fun setSoundRate(rateHz: Int) {
-                    playback.sampleRateHz = rateHz
                 }
 
                 override fun setMicReactivePref(on: Boolean) {
@@ -159,10 +155,6 @@ class PlayerSession internal constructor(
     fun stopExternalAudio() = captureController.stopExternalAudio()
 
     fun notificationAccessIntent(): Intent = captureController.notificationAccessIntent()
-
-    init {
-        playback.onAudioFormat = captureController.audioFormatHook
-    }
 
     private val presetLibrary: PresetLibraryController =
         PresetLibraryController(
@@ -1176,7 +1168,6 @@ class PlayerSession internal constructor(
         playerListener?.let { player.removeListener(it) }
         queueController.release()
         playerListener = null
-        if (playback.onAudioFormat === captureController.audioFormatHook) playback.onAudioFormat = null
         if (!playback.playbackWanted) PlaybackService.stop(application)
         PlaybackEngine.releaseUi()
         scope.cancel()

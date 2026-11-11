@@ -7,7 +7,6 @@ import android.media.AudioRecord
 import android.media.projection.MediaProjection
 import android.os.Build
 import dev.geode.util.bestEffort
-import kotlin.math.abs
 
 enum class CaptureFailure {
     UNSUPPORTED,
@@ -22,8 +21,8 @@ enum class CaptureFailure {
 val playbackCaptureSupported: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
 
 class PlaybackCapture(
-    sink: dev.geode.engine.audio.PcmSink,
-) : AudioCapturePump(sink, DEFAULT_RATE) {
+    ring: dev.geode.engine.audio.SampleRing,
+) : AudioCapturePump(ring, DEFAULT_RATE) {
     @Volatile
     var blockedLikely: Boolean = false
         private set
@@ -34,26 +33,17 @@ class PlaybackCapture(
     override val threadName = "geode-playback-capture"
 
     @Synchronized
-    fun start(
-        projection: MediaProjection,
-        onSampleRate: (Int) -> Unit = {},
-    ): CaptureFailure? {
+    fun start(projection: MediaProjection): CaptureFailure? {
         if (active) return null
         val rec = openRecord(projection) ?: return CaptureFailure.UNAVAILABLE
-        if (!startPump(rec, channelCount, onSampleRate)) return CaptureFailure.UNAVAILABLE
+        if (!startPump(rec, channelCount)) return CaptureFailure.UNAVAILABLE
         return null
     }
 
     override fun noteLevel(
-        buffer: FloatArray,
-        count: Int,
+        peak: Float,
         startedAtMs: Long,
     ) {
-        var peak = 0f
-        for (i in 0 until count) {
-            val v = abs(buffer[i])
-            if (v > peak) peak = v
-        }
         val now = nowMs()
         if (peak > SILENCE_EPSILON) {
             lastAudibleAtMs = now

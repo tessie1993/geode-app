@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "api/geode_api.h"
+#include "api/geode_ingest_handles.hpp"
 #include "viz/Director.hpp"
 #include "viz/GyroLook.hpp"
 #include "viz/NoteResponse.hpp"
@@ -59,6 +60,10 @@ struct geode_viz {
     // on the render thread only when one changed. reactLock guards it: set_params may come from any thread.
     std::mutex reactLock;
     geode::viz::ReactionResolve reactions{&styleTraits};
+    // The live feed (geode_viz_feed_ring): the ring this renderer hears and its place in it. The cursor is
+    // declared after the ring it refers to. Render thread only.
+    std::shared_ptr<const geode::audio::ingest::PcmRing> feedRing;
+    std::unique_ptr<geode::audio::ingest::Cursor> feedCursor;
 
     static geode::viz::StyleTraits styleTraits(std::string_view id) {
         const std::string s(id);
@@ -69,6 +74,9 @@ struct geode_viz {
 namespace {
 
 using namespace geode::viz;
+
+// Takes per geode_viz_feed_ring: one per rate in the frame's audio, with room for a change or two.
+constexpr int kFeedRunsPerFrame = 4;
 
 static_assert(LfoEngine::kSlots == GEODE_LFO_SLOTS);
 static_assert(AdsrEngine::kCount == GEODE_ADSR_SLOTS);
@@ -203,6 +211,28 @@ void geode_viz_write_audio(geode_viz* v, const float* interleaved, int frames, i
 
 void geode_viz_reset_audio(geode_viz* v) {
     if (v) v->renderer.resetAudio();
+}
+
+void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
+    if (!v) return;
+    if (!ring) {
+        v->feedCursor.reset();
+        v->feedRing.reset();
+        return;
+    }
+    if (v->feedRing != ring->ring) {
+        v->feedCursor.reset();
+        v->feedRing = ring->ring;
+        v->feedCursor = std::make_unique<geode::audio::ingest::Cursor>(*v->feedRing);
+    }
+    // A take ends where the rate changes, so a frame that straddles one takes twice; the bound keeps a
+    // writer that outruns this loop from holding the frame.
+    for (int run = 0; run < kFeedRunsPerFrame; ++run) {
+        const geode::audio::ingest::Cursor::Take take = v->feedCursor->take();
+        if (take.restarted) v->renderer.resetAudio();
+        if (take.frames <= 0) break;
+        v->renderer.writeAudio(v->feedCursor->interleaved(), take.frames, v->feedCursor->channels(), take.sampleRateHz);
+    }
 }
 
 void geode_viz_set_sound_tuning(geode_viz* v, const GeodeSoundTuning* tuning) {

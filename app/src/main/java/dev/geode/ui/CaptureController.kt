@@ -36,7 +36,7 @@ data class ExternalAudioState(
 internal class CaptureController(
     private val application: Application,
     private val scope: CoroutineScope,
-    capture: dev.geode.engine.audio.PcmSink,
+    capture: dev.geode.engine.audio.SampleRing,
     private val host: Host,
 ) {
     interface Host {
@@ -44,8 +44,6 @@ internal class CaptureController(
 
         /** The ring changed hands: a new epoch, and whether the player (not the mic or a capture) now writes it. */
         fun resetSound(playerOwnsRing: Boolean)
-
-        fun setSoundRate(rateHz: Int)
 
         fun setMicReactivePref(on: Boolean)
 
@@ -97,15 +95,6 @@ internal class CaptureController(
         if (hasMicPermission()) setMicEnabled(true) else refreshMicState()
     }
 
-    @Volatile
-    private var tapSampleRateHz: Int = 0
-
-    val audioFormatHook: (sampleRateHz: Int, channelCount: Int, encoding: Int) -> Unit =
-        { rate, _, _ ->
-            tapSampleRateHz = rate
-            if (!externalAudioOwnsRing()) host.setSoundRate(rate)
-        }
-
     /**
      * Begins watching for a media projection.
      *
@@ -132,7 +121,6 @@ internal class CaptureController(
                     } else if (_externalAudio.value.active) {
                         playbackCapture.stop()
                         host.resetSound(!externalAudioOwnsRing())
-                        host.setSoundRate(playbackRateFallback())
                         _externalAudio.update { it.copy(active = false, refusedByApp = false) }
                     }
                 }
@@ -148,8 +136,6 @@ internal class CaptureController(
         }
     }
 
-    private fun playbackRateFallback(): Int = tapSampleRateHz.takeIf { it > 0 } ?: 44100
-
     private fun externalAudioOwnsRing(): Boolean = micCapture.active || playbackCapture.active
 
     fun setMicEnabled(enabled: Boolean): MicCapture.Failure? {
@@ -157,7 +143,6 @@ internal class CaptureController(
             micPausedInBackground = false
             micCapture.stop()
             host.resetSound(!externalAudioOwnsRing())
-            host.setSoundRate(playbackRateFallback())
             _micState.value = MicState(active = false)
             host.setMicReactivePref(false)
             return null
@@ -165,7 +150,7 @@ internal class CaptureController(
         if (micCapture.active) return null
         if (playbackCapture.active || _externalAudio.value.active) stopExternalAudio()
         host.pausePlayback()
-        val failure = micCapture.start { rate -> host.setSoundRate(rate) }
+        val failure = micCapture.start()
         if (failure != null) {
             _micState.value = MicState(active = false, failure = failure)
             return failure
@@ -197,12 +182,9 @@ internal class CaptureController(
         }
         host.pausePlayback()
         if (micCapture.active) setMicEnabled(false)
-        val failure = playbackCapture.start(projection) { rate -> host.setSoundRate(rate) }
+        val failure = playbackCapture.start(projection)
         host.resetSound(!externalAudioOwnsRing())
-        if (failure != null) {
-            host.setSoundRate(playbackRateFallback())
-            PlaybackCaptureService.stop(application)
-        }
+        if (failure != null) PlaybackCaptureService.stop(application)
         _externalAudio.update {
             it.copy(
                 active = failure == null,
@@ -216,7 +198,6 @@ internal class CaptureController(
     fun stopExternalAudio() {
         playbackCapture.stop()
         host.resetSound(!externalAudioOwnsRing())
-        host.setSoundRate(playbackRateFallback())
         PlaybackCaptureService.stop(application)
         _externalAudio.update {
             it.copy(active = false, awaitingConsent = false, refusedByApp = false)
@@ -265,7 +246,6 @@ internal class CaptureController(
     fun refreshMicState() {
         if (!_micState.value.active || micCapture.active) return
         host.resetSound(!externalAudioOwnsRing())
-        host.setSoundRate(playbackRateFallback())
         _micState.value = MicState(active = false, failure = MicCapture.Failure.UNAVAILABLE)
         host.setMicReactivePref(false)
     }

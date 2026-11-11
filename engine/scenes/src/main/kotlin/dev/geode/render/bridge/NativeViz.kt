@@ -2,6 +2,7 @@ package dev.geode.render.bridge
 
 import android.content.Context
 import android.content.res.AssetManager
+import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
@@ -12,6 +13,7 @@ import dev.geode.render.look.LookTarget
 import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.render.scene.SceneParams
 import java.io.File
+import java.lang.ref.Reference
 
 /**
  * Owns one `geode_viz` handle: the native renderer behind a GL surface or an offscreen target.
@@ -140,8 +142,15 @@ class NativeViz(
         if (handle != 0L && frames > 0) GeodeNative.vizWriteAudio(handle, interleaved, frames, channels, sampleRateHz)
     }
 
-    fun resetAudio() {
-        if (handle != 0L) GeodeNative.vizResetAudio(handle)
+    /**
+     * The live feed: the renderer's sound engine takes what [ring] gained since the last frame, natively,
+     * each sample once, and starts over on a new epoch or another ring. Null: it hears nothing and lets
+     * the last ring go.
+     */
+    fun feedRing(ring: SampleRing?) {
+        if (handle != 0L) GeodeNative.vizFeedRing(handle, ring?.handle ?: 0L)
+        // The ring's handle is only valid while the ring is held: hold it past the call.
+        Reference.reachabilityFence(ring)
     }
 
     /** Settings › Audio, as [dev.geode.engine.audio.SoundTuning.toFloats]. */

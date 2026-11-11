@@ -3,8 +3,7 @@ package dev.geode.render
 import android.content.Context
 import android.opengl.GLSurfaceView
 import android.os.SystemClock
-import dev.geode.engine.audio.SoundCursor
-import dev.geode.engine.audio.SoundInput
+import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.bridge.NativeViz
 import dev.geode.render.look.LookApplier
@@ -80,15 +79,13 @@ class VisualizerRenderer(
     var onSurfaceSizeChanged: (width: Int, height: Int) -> Unit = { _, _ -> }
 
     /**
-     * The audio this surface's sound engine hears (core/sound, owned by the native renderer). Read on the
-     * GL thread each frame through [soundCursor], so the engine gets every sample once, in order, and is
+     * The ring this surface's sound engine hears (core/sound, owned by the native renderer). Read on the
+     * GL thread each frame through the renderer's own native cursor, so the engine gets every sample once, in order, and is
      * stepped with this surface's own frame time. Asked every frame, so a playback session that comes and
      * goes under a running wallpaper is picked up. Null: the engine hears nothing and its frame stays silent.
      */
     @Volatile
-    var soundInput: () -> SoundInput? = { null }
-
-    private var soundCursor: SoundCursor? = null
+    var soundInput: () -> SampleRing? = { null }
 
     /**
      * Gyro reading in radians from [GyroLook] (NaN azimuth while off); core/viz/GyroLook makes the
@@ -207,7 +204,8 @@ class VisualizerRenderer(
         // The handle may outlive the surface, or be new: either way the next frame resends the whole look.
         lookApplier.reset()
         // A new native renderer starts a new engine: hand it a full window, not the tail of the last.
-        soundCursor = null
+        // Dropping the feed makes the next frame's cursor a new one.
+        nativeViz.feedRing(null)
     }
 
     override fun onSurfaceChanged(
@@ -277,13 +275,8 @@ class VisualizerRenderer(
         feedSound()
     }
 
-    private fun feedSound() {
-        val input = soundInput() ?: return
-        val cursor = soundCursor?.takeIf { it.ring === input.ring } ?: SoundCursor(input.ring).also { soundCursor = it }
-        val take = cursor.take()
-        if (take.restarted) nativeViz.resetAudio()
-        nativeViz.writeAudio(cursor.interleaved, take.frames, cursor.channels, input.sampleRateHz)
-    }
+    // No sample crosses here: the native renderer keeps its own cursor on the ring and takes from it.
+    private fun feedSound() = nativeViz.feedRing(soundInput())
 
     fun exportSceneFactory(sceneId: String): SceneFactory {
         val id = sceneId

@@ -52,7 +52,7 @@ data class MacroBankState(
  */
 class MacroStore internal constructor(
     private val prefs: SharedPreferences,
-    private val normalize: (String) -> String = GeodeNative::macroBankNormalize,
+    private val normalize: (String) -> String = { GeodeNative.macroBankNormalize(it) },
     private val push: (String) -> Unit = { text -> bestEffort(TAG, "push macro bank") { GeodeNative.macroBankSet(text) } },
 ) {
     private val _state = MutableStateFlow(load())

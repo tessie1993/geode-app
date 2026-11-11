@@ -79,6 +79,11 @@ Java_dev_geode_engine_bridge_GeodeNative_surfaceRunMode(JNIEnv*, jobject, jint f
     return geode_surface_run_mode(static_cast<unsigned>(flags), animateUntilMs, nowMs);
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_stageRun(JNIEnv*, jobject, jint flags) {
+    return static_cast<jint>(geode_stage_run(static_cast<unsigned>(flags)));
+}
+
 JNIEXPORT jboolean JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_surfaceListening(JNIEnv*, jobject, jint flags, jlong animateUntilMs,
                                                           jlong nowMs) {

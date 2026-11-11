@@ -1313,6 +1313,21 @@ object GeodeNative {
         lowRam: Boolean,
         mediaPerformanceClass: Int,
     ): Int
+    /**
+     * The app's own stage (core/viz/StageRun): [flags] are the STAGE_* bits the shell observed; the answer has
+     * [STAGE_DRAWS] while somebody can see the stage and [STAGE_CAST_LEADS_AUTO] while a cast's renderer
+     * counts the auto-director's style moments in its place.
+     */
+    external fun stageRun(flags: Int): Int
+
+    const val STAGE_STARTED = 1 shl 0
+    const val STAGE_RESUMED = 1 shl 1
+    const val STAGE_PIP = 1 shl 2
+    const val STAGE_SECOND_SCREEN = 1 shl 3
+    const val STAGE_CASTING = 1 shl 4
+    const val STAGE_DRAWS = 1 shl 0
+    const val STAGE_CAST_LEADS_AUTO = 1 shl 1
+
     // The live wallpaper's and the dream's run rule (core/viz/SurfaceRun). [flags] are the
     // SURFACE_* bits the shell observed; [animateUntilMs] is the wall-clock time the entitlement
     // lets the visual move until ([SURFACE_FOREVER] for Pro, a trial's end, 0 for free).

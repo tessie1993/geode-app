@@ -49,7 +49,6 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
@@ -96,9 +95,6 @@ import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.offset
 import androidx.compose.ui.unit.roundToIntRect
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.NavigationEventTransitionState
@@ -202,26 +198,6 @@ fun AppRoot() {
     val paywallViewModel: PaywallViewModel = geodeViewModel()
     val context = LocalContext.current
     val visualizerView = remember { VisualizerView(context) }
-    // GLSurfaceView renders continuously and only ever stops when its host says so. Without this
-    // the render thread keeps drawing whenever the app is visible but not resumed — behind a
-    // permission dialog, in split-screen, partially obscured — burning battery on frames nobody
-    // sees. GLSurfaceView's contract is that the owner forwards these two.
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, visualizerView) {
-        val observer =
-            LifecycleEventObserver { _, event ->
-                when (event) {
-                    Lifecycle.Event.ON_RESUME -> visualizerView.onResume()
-                    Lifecycle.Event.ON_PAUSE -> visualizerView.onPause()
-                    else -> Unit
-                }
-            }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-            visualizerView.onPause()
-        }
-    }
     val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
     val externalDisplay = rememberExternalDisplay()
     val appState = rememberGeodeAppState(externalDisplay)
@@ -238,6 +214,7 @@ fun AppRoot() {
     if (onSecondScreen) {
         SecondScreenCanvas(externalDisplay, visualizerView)
     }
+    StageRunEffect(visualizerView, onSecondScreen, viewModel::onDirectorStyleMoment)
     // The Visuals screen's bounds, in root pixels. The one VisualizerView is hosted once below and
     // laid out there, so leaving Visuals hides it rather than detaching it (VisualizerCanvasHost).
     val visualsBounds = remember { mutableStateOf(IntRect.Zero) }

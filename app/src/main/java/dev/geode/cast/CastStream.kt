@@ -114,6 +114,7 @@ internal class CastStream(
             // monitor and the shared thermal trend must not read its frames against the phone's 60 (or 120).
             val castFps = CastEncoder.FPS.toFloat()
             renderer.pacedRate = PacedRate { castFps }
+            renderer.onDirectorStyleMoment = CastMirror::directorMoment
             renderer.onSurfaceCreated(null, null)
             renderer.onSurfaceChanged(null, encoder.width, encoder.height)
             val clock = LongArray(GeodeNative.FRAME_CLOCK_STATE)

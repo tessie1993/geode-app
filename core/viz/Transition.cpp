@@ -112,6 +112,7 @@ UniformCache& TransitionPrograms::programFor(const std::string& id) {
         return base_;
     }
     while (lru_.size() >= kMaxPrograms) {
+        if (lru_.front().second.get() == uploadedFor_) uploadedFor_ = nullptr;
         glDeleteProgram(lru_.front().second->program());
         lru_.pop_front();
     }

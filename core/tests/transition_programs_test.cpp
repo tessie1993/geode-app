@@ -204,10 +204,49 @@ void aTransitionThatFailsToBuildIsTriedOncePerContext() {
     check(fake::gl.compiles > rebuilt, "release forgets the failure, so a new context tries once more");
 }
 
+// One frame of CompositePass::draw for a library transition: bind its program, upload its params.
+GLuint drawWith(TransitionPrograms& programs, const std::string& id) {
+    UniformCache& program = programs.programFor(id);
+    glUseProgram(program.program());
+    programs.uploadParamsIfNeeded(program, programs.definition(id));
+    return program.program();
+}
+
+bool hasAmount(GLuint program) {
+    const auto& uniforms = fake::gl.uniforms[program];
+    const auto it = uniforms.find("amount");
+    return it != uniforms.end() && it->second == std::vector<float>{0.75f};
+}
+
+// Kills a stale "params already uploaded" note after an eviction: a rebuilt program is a new GL program
+// with zeroed uniforms, even when its UniformCache lands on the evicted one's address. "a" is drawn, then
+// evicted by "e" (which takes its freed block), then "e" is aged to the front and evicted by "a" again.
+void aRebuiltTransitionGetsItsParamsAgain() {
+    fake::newContext();
+    const ShaderSource source(&assets);
+    TransitionPrograms programs(source, nullptr);
+    std::string error;
+    programs.create(kVert, &error);
+    const GLuint first = drawWith(programs, "a");
+    check(hasAmount(first), "a library transition's params are uploaded when it is first drawn");
+    programs.programFor("b");
+    programs.programFor("c");
+    programs.programFor("d");
+    programs.programFor("e");
+    check(fake::gl.programs.count(first) == 0, "a fifth transition evicts the oldest program");
+    programs.programFor("b");
+    programs.programFor("c");
+    programs.programFor("d");
+    const GLuint rebuilt = drawWith(programs, "a");
+    check(rebuilt != first && fake::gl.programs.count(rebuilt) == 1, "the evicted transition is built again");
+    check(hasAmount(rebuilt), "the rebuilt program gets its params again");
+}
+
 }  // namespace
 
 int main() {
     aTransitionThatFailsToBuildIsTriedOncePerContext();
+    aRebuiltTransitionGetsItsParamsAgain();
     if (failures != 0) {
         std::printf("%d transition programs check(s) failed\n", failures);
         return 1;

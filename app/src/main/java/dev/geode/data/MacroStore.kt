@@ -3,6 +3,9 @@ package dev.geode.data
 import android.content.Context
 import android.content.SharedPreferences
 import dev.geode.RingLog
+import dev.geode.data.prefs.BackupClass
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -97,6 +100,14 @@ class MacroStore private constructor(
 
         /** The old six knobs' keys: removed on load, and never backed up or restored. */
         internal val RETIRED_KEYS: Set<String> = setOf("macro_knobs", "macro_locks", "macro_presets")
+
+        internal val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.GENERAL) {
+                portable(PrefType.STRING, KEY_BANK)
+                // Read once to drop them, never restored: BackupFormat files them device-local.
+                retired(PrefType.STRING, "macro_knobs", "macro_presets", backup = BackupClass.DEVICE)
+                retired(PrefType.INT, "macro_locks", backup = BackupClass.DEVICE)
+            }
 
         @Volatile private var instance: MacroStore? = null
 

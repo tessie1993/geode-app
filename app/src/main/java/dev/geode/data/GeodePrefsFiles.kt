@@ -2,6 +2,9 @@ package dev.geode.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
+import dev.geode.render.MilkPresetMemory
 
 class GeodePrefsFiles(
     context: Context,
@@ -28,5 +31,11 @@ class GeodePrefsFiles(
         const val MODULATION = "geode-mod"
         const val LIBRARY = "geode-library"
         const val BACKGROUND = "geode-background"
+
+        /** `:engine:scenes`' [MilkPresetMemory] writes this one; it cannot name the schema, so it is listed here. */
+        internal val MILK_PRESET_PREF_KEYS =
+            prefKeys(VIZ) {
+                portable(PrefType.STRING, MilkPresetMemory.KEY)
+            }
     }
 }

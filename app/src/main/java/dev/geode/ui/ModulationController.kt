@@ -153,6 +153,25 @@ internal class ModulationController(
     }
 
     /**
+     * Randomize everything's roll (core/viz/RandomizeAll), after its style and preset are on screen:
+     * the controls Customize keeps go back to their values in [before], then, with [rollCategories],
+     * every category is rolled from [seed] and the steady waves already on with it. One undo entry.
+     */
+    fun randomizeAllRoll(
+        before: SceneParams,
+        seed: Long,
+        rollCategories: Boolean,
+    ) {
+        val out = FloatArray(SceneParamsCodec.FIELDS)
+        val locked = _lockedParams.value.joinToString("\n")
+        val base = SceneParamsCodec.pack(host.params)
+        if (GeodeNative.randomizeAllRoll(host.sceneId, locked, seed, rollCategories, SceneParamsCodec.pack(before), base, out)) {
+            commitSceneParams(SceneParamsCodec.unpack(out, host.params))
+        }
+        if (rollCategories) randomizeWaves(all = false)
+    }
+
+    /**
      * Randomize for the waves. The roll is native (core/viz/WaveRandomizer): [all] is the wave editor's
      * button, every wave switched on and rolled; otherwise a category roll, which only re-rolls the
      * steady waves already on and holds them when Music is kept. This only carries the slots there and back.

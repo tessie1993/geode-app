@@ -774,6 +774,37 @@ object GeodeNative {
         output: FloatArray,
     )
 
+    /**
+     * Randomize everything (core/viz/RandomizeAll), the two-circle gesture: a style among every catalogue
+     * style not in [lockedStyles] (newline-joined ids), not [current] while another is open, MilkDrop
+     * only when [milkCount] > 0. [picks] gets the index into [lookStyles] (each preset's style id, one
+     * per line) of a preset made for it, or -1, then on MilkDrop with no preset a .milk index, or -1.
+     * Null when no style is open. Pass the same [seed] to [randomizeAllRoll].
+     */
+    external fun randomizeAllPick(
+        seed: Long,
+        current: String,
+        lockedStyles: String,
+        lookStyles: String,
+        milkCount: Int,
+        picks: IntArray,
+    ): String?
+
+    /**
+     * [base] (the look once the pick is applied) with the controls [locked] keeps put back to their
+     * values in [before], then, with [rollCategories], every Customize category's other controls that
+     * reach [styleId] rolled, into [output]. True when it changed [base].
+     */
+    external fun randomizeAllRoll(
+        styleId: String,
+        locked: String,
+        seed: Long,
+        rollCategories: Boolean,
+        before: FloatArray,
+        base: FloatArray,
+        output: FloatArray,
+    ): Boolean
+
     // Background image bake (core/viz/Underlay): pure, any thread, before vizSetUnderlay.
 
     /** The centred crop of a [srcW]x[srcH] picture to [targetW]:[targetH]'s aspect, as `[x, y, width, height]`. */

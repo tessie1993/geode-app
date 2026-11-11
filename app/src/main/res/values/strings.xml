@@ -993,7 +993,7 @@
     <string name="visuals_gesture_previous_look">Previous look</string>
     <string name="visuals_gesture_macros">Macros</string>
     <string name="visuals_gesture_record">Record a video</string>
-    <string name="visuals_gesture_randomize">Randomize everything</string>
+    <string name="visuals_gesture_randomize">Randomize style, preset and settings</string>
     <string name="visuals_gesture_touch_play">Stir the visual</string>
     <string name="visuals_gesture_play_pause">Play or pause</string>
     <!-- The Macros drawer (ui/MacrosDrawer.kt). -->
@@ -1087,7 +1087,7 @@
     <string name="settings_gesture_action_step_playlist">Next or previous playlist look</string>
     <string name="settings_gesture_action_macros">Open Macros</string>
     <string name="settings_gesture_action_record">Record</string>
-    <string name="settings_gesture_action_randomize">Randomize</string>
+    <string name="settings_gesture_action_randomize">Randomize everything</string>
     <string name="settings_gesture_action_touch_play">Touch the visual</string>
     <string name="settings_gesture_action_play_pause">Play or pause</string>
     <string name="behavior_motion_system">Reduced motion</string>

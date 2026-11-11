@@ -2,6 +2,7 @@ package dev.geode.audio
 
 import android.media.AudioDeviceInfo
 import android.media.AudioFormat
+import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.PlaybackParameters
@@ -24,7 +25,7 @@ import java.util.concurrent.CopyOnWriteArraySet
  * A stream that is lost and will not reopen does not fail playback. The output then reports itself
  * stalled, which makes `DefaultAudioSink` flush and ask the provider for a new output (at the end of
  * the stream, where the sink does not ask, the write throws a recoverable error instead), and [open]
- * answers null from then on, so the platform track takes over for the rest of the process.
+ * answers null for the next minute, so the platform track takes over and Oboe is tried again later.
  */
 @OptIn(UnstableApi::class)
 internal class OboeAudioOutput private constructor(
@@ -120,7 +121,7 @@ internal class OboeAudioOutput private constructor(
 
     private fun fail() {
         failed = true
-        broken = true
+        brokenAtMs = SystemClock.elapsedRealtime()
     }
 
     companion object {
@@ -128,19 +129,28 @@ internal class OboeAudioOutput private constructor(
         private const val EVENT_UNDERRUN = 2
         private const val EVENT_FAILED = 4
 
-        /** A stream failed for good in this process: the platform track plays from here on. */
+        /** How long the platform track plays after a stream failed, before Oboe is tried again. */
+        private const val RETRY_AFTER_MS = 60_000L
+
+        /**
+         * When a stream last failed for good (`elapsedRealtime`; 0 = never). Not for the life of the
+         * process: a Bluetooth hand-over can fail one reopen, and the switch would then show on while
+         * the platform track played until the app was killed.
+         */
         @Volatile
-        private var broken = false
+        private var brokenAtMs = 0L
 
         /**
          * An output for [config], or null when the platform track must play it: anything but plain
          * 16-bit or float PCM in mono or stereo at a rate native takes, offload, tunneling, a
          * virtual device, a config that wants speed applied by the output, audio that is not media,
          * a device that gives no stream that is exactly the config in the player's audio session, or
-         * a stream that already failed in this process.
+         * a stream that failed within the last [RETRY_AFTER_MS].
          */
         fun open(config: AudioOutputProvider.OutputConfig): OboeAudioOutput? {
-            if (broken || !plays(config)) return null
+            val brokenAt = brokenAtMs
+            if (brokenAt != 0L && SystemClock.elapsedRealtime() - brokenAt < RETRY_AFTER_MS) return null
+            if (!plays(config)) return null
             val handle =
                 GeodeNative.audioOutOpen(
                     config.sampleRate,

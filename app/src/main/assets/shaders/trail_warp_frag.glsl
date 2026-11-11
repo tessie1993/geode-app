@@ -7,13 +7,13 @@ precision highp float;
 in vec2 vUv;
 uniform highp sampler2D uPrev;
 uniform float uDecay;   // 0..1 kept energy per frame
-uniform float uZoom;    // +in / -out per frame (small, e.g. 0.01)
-uniform float uWarp;    // sine warp amplitude 0..1
+uniform float uScale;   // this frame's resample scale about the centre; below 1 echoes inward
+uniform float uWarp;    // sine warp amplitude, scaled to this frame's length
 uniform float uTime;
 out vec4 fragColor;
 void main() {
     vec2 c = vUv - 0.5;
-    c *= (1.0 - uZoom * 0.06);
+    c *= uScale;
     vec2 uv = c + 0.5;
     if (uWarp > 0.001) {
         uv += vec2(
@@ -22,5 +22,7 @@ void main() {
         ) * uWarp * 0.004;
     }
     vec3 prev = texture(uPrev, clamp(uv, vec2(0.001), vec2(0.999))).rgb;
-    fragColor = vec4(prev * uDecay, 1.0);
+    // An 8-bit target rounds a slow decay back to the same level, so dim trails would never fade:
+    // the step below takes every level down by at least one each frame.
+    fragColor = vec4(max(prev * uDecay - 0.6 / 255.0, 0.0), 1.0);
 }

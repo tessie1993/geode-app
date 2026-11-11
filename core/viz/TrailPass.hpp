@@ -22,6 +22,7 @@ public:
 
     static float fadeAlpha(float keep, float dt);
     static float warpDecay(float retention, float dt);
+    static float warpScale(float trailZoom, float dt);
 
 private:
     void drawTrailWarp(const SceneParams& p, float retention, float timeSeconds, float dt, const Framebuffer& sceneTarget,

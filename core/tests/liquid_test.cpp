@@ -59,6 +59,16 @@ void injectWeightIsFrameRateIndependent() {
     check(injectWeight(0.0f, 1.0f / 60.0f) > injectWeight(1.0f, 1.0f / 60.0f) * 20.0f, "Liquidity spans a short smear to deep liquid");
     check(std::fabs(injectWeight(0.0f, 1.0f / 60.0f) - 0.5f) < 1e-3f, "Liquidity 0 half re-draws each 60 Hz frame");
     check(std::isfinite(injectWeight(NAN, NAN)), "non-finite input stays finite");
+    for (float k : {0.1f, 0.3f, 0.6f}) {
+        const float half = 1.0f - perFrameWeight(k, 1.0f / 120.0f);
+        const float third = 1.0f - perFrameWeight(k, 1.0f / 30.0f);
+        check(std::fabs(half * half - (1.0f - k)) < 1e-4f, "the edge pour keeps the same at 120 Hz as at 60");
+        check(std::fabs(third - (1.0f - k) * (1.0f - k)) < 1e-4f, "one 30 Hz frame pours what two 60 Hz frames pour");
+    }
+    check(std::fabs(perFrameWeight(0.6f, 1.0f / 60.0f) - 0.6f) < 1e-5f, "a 60 Hz frame pours the weight as given");
+    check(std::fabs(frames60(1.0f / 120.0f) - 0.5f) < 1e-5f && std::fabs(frames60(1.0f / 30.0f) - 2.0f) < 1e-5f,
+          "a step given per 60 Hz frame scales with the frame's length");
+    check(perFrameWeight(NAN, NAN) == 0.0f && std::fabs(frames60(NAN) - 1.0f) < 1e-5f, "non-finite weights pour nothing extra");
     check(bornRadius(1.0f) > bornRadius(0.0f) && bornRadius(0.0f) > 0.05f, "deeper liquid opens a wider born disc");
 }
 

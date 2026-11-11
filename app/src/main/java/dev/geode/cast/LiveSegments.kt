@@ -53,6 +53,9 @@ internal class LiveSegments(
     @Volatile
     private var init: ByteArray? = null
 
+    @Volatile
+    private var master: String? = null
+
     override fun isOpen(): Boolean = open
 
     override fun close() {
@@ -129,6 +132,13 @@ internal class LiveSegments(
     /** The init segment, or null until the muxer has written its header. */
     fun initSegment(): ByteArray? = init
 
+    /** A browser's master playlist (native: CODECS from [init]'s avcC and esds), or null until the header is here. */
+    fun masterPlaylist(): String? {
+        master?.let { return it }
+        val header = init ?: return null
+        return GeodeNative.linkMasterPlaylist(header)?.also { master = it }
+    }
+
     @Synchronized
     fun segment(sequence: Long): ByteArray? = segments.firstOrNull { it.sequence == sequence }?.bytes
 
@@ -141,6 +151,7 @@ internal class LiveSegments(
     }
 
     companion object {
+        // The names cast/LiveHttpServer's routes answer (core/viz/frame/LinkShare: kPlaylistName and the rest).
         const val PLAYLIST_NAME = "live.m3u8"
         const val INIT_NAME = "init.mp4"
         const val SEGMENT_PREFIX = "seg"

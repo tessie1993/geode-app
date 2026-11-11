@@ -3,6 +3,7 @@ package dev.geode.cast
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.ConnectivityManager
+import android.net.LinkAddress
 import android.net.Network
 import android.net.NetworkCapabilities
 import dev.geode.RingLog
@@ -23,7 +24,8 @@ import java.net.InetAddress
 import java.util.concurrent.locks.LockSupport
 
 /**
- * One cast: the phone draws the live look into [CastEncoder] and serves it to the TV.
+ * One cast: the phone draws the live look into [CastEncoder] and serves it to the TV, a browser through
+ * "Show on a computer" ([ComputerLink]), or both.
  *
  * The picture comes from its own [VisualizerRenderer] on its own thread and EGL context, not from
  * the screen's view: casting keeps going with the app in the background and the screen off (owner,
@@ -52,7 +54,22 @@ internal class CastStream(
     private val appContext = context.applicationContext
     private val prefsFiles = GeodePrefsFiles(appContext)
     private val segments = LiveSegments()
-    private val server = LiveHttpServer(segments, lanAddress(appContext) ?: throw NoLanAddress())
+
+    private val link: LinkAddress = lanLinkAddress(appContext) ?: throw NoLanAddress()
+
+    /** The Wi-Fi or Ethernet address the stream is served from. */
+    val address: InetAddress = link.address
+    private val server = LiveHttpServer(segments, address, link.prefixLength)
+
+    /** Who may connect: the Cast device at [tv] while [forTv], the Wi-Fi's subnet while [forLink] (native rule). */
+    fun admit(
+        tv: InetAddress?,
+        forTv: Boolean,
+        forLink: Boolean,
+    ) = server.admit(tv, forTv, forLink)
+
+    /** When the TV last fetched a file (SystemClock.elapsedRealtime, 0 = never). */
+    val lastReceiverFetchMs: Long get() = server.lastReceiverFetchMs
     private var thread: Thread? = null
 
     @Volatile
@@ -64,6 +81,9 @@ internal class CastStream(
 
     /** The URL the receiver loads; valid after [start]. */
     val playlistUrl: String get() = server.playlistUrl
+
+    /** The page a browser opens ("Show on a computer"); valid after [start]. */
+    val pageUrl: String get() = server.pageUrl
 
     /** True once the playlist lists enough segments for the receiver to start on. */
     val isReady: Boolean get() = segments.playlist() != null
@@ -268,17 +288,31 @@ internal class CastStream(
          * This phone's IPv4 address on the Wi-Fi or Ethernet the TV shares, or null. Not simply the active
          * network: with a VPN up, or cellular preferred, that one has no address the TV can reach.
          */
-        @Suppress("DEPRECATION") // allNetworks: the one synchronous list; a callback would make start async.
-        fun lanAddress(context: Context): InetAddress? {
+        fun lanAddress(context: Context): InetAddress? = lanLinkAddress(context)?.address
+
+        /** [lanAddress] with its prefix length: the subnet "Show on a computer" admits. */
+        @Suppress("DEPRECATION") // allNetworks, as in lanAddresses.
+        fun lanLinkAddress(context: Context): LinkAddress? {
             val connectivity = context.getSystemService(ConnectivityManager::class.java) ?: return null
             val candidates = (listOfNotNull(connectivity.activeNetwork) + connectivity.allNetworks).distinct()
             return candidates.firstNotNullOfOrNull { lanAddressOf(connectivity, it) }
         }
 
+        /**
+         * Every such address, the active network's first. The stream stops when the one it serves from is no
+         * longer here (the phone left that Wi-Fi, or it changed address): the link would name nothing.
+         */
+        @Suppress("DEPRECATION") // allNetworks: the one synchronous list; a callback would make start async.
+        fun lanAddresses(context: Context): List<InetAddress> {
+            val connectivity = context.getSystemService(ConnectivityManager::class.java) ?: return emptyList()
+            val candidates = (listOfNotNull(connectivity.activeNetwork) + connectivity.allNetworks).distinct()
+            return candidates.mapNotNull { lanAddressOf(connectivity, it)?.address }
+        }
+
         private fun lanAddressOf(
             connectivity: ConnectivityManager,
             network: Network,
-        ): InetAddress? {
+        ): LinkAddress? {
             val caps = connectivity.getNetworkCapabilities(network) ?: return null
             if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) return null
             val local = caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) || caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
@@ -286,8 +320,7 @@ internal class CastStream(
             return connectivity
                 .getLinkProperties(network)
                 ?.linkAddresses
-                ?.map { it.address }
-                ?.firstOrNull { it is Inet4Address && it.isSiteLocalAddress }
+                ?.firstOrNull { it.address is Inet4Address && it.address.isSiteLocalAddress }
         }
     }
 }

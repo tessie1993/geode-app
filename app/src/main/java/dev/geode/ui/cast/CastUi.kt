@@ -95,9 +95,11 @@ fun CastButton(modifier: Modifier = Modifier) {
 /**
  * Shows what a cast left behind, once, wherever the app is: a free user who picked a TV (here or in the system's
  * output switcher) gets the paywall, a failure its reason. A state reached in the background waits for the app.
+ * The same for "Show on a computer" ([ComputerLinkHost]).
  */
 @Composable
 fun CastHost() {
+    ComputerLinkHost()
     val context = LocalContext.current
     val cast by CastController.state.collectAsStateWithLifecycle()
     val paywall: PaywallViewModel = geodeViewModel()

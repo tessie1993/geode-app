@@ -58,9 +58,11 @@ bool ensureDir(const std::string& dir) {
 
 std::vector<fs::directory_entry> filesIn(const std::string& dir) {
     std::vector<fs::directory_entry> out;
+    // increment(ec), never a range-for: its ++ throws, and nothing on the writer thread catches.
     std::error_code ec;
-    for (const auto& entry : fs::directory_iterator(dir, ec)) {
-        if (entry.is_regular_file(ec)) out.push_back(entry);
+    std::error_code entryEc;
+    for (fs::directory_iterator it(dir, ec); !ec && it != fs::directory_iterator(); it.increment(ec)) {
+        if (it->is_regular_file(entryEc)) out.push_back(*it);
     }
     return out;
 }
@@ -327,15 +329,17 @@ void ProgramBinaryCache::sweep() {
 
 void ProgramBinaryCache::prune() {
     std::error_code ec;
+    std::error_code removeEc;
     const std::string live = fs::path(namespace_).filename().string();
-    for (const auto& entry : fs::directory_iterator(root_, ec)) {
-        if (entry.path().filename().string() == live) continue;
-        fs::remove_all(entry.path(), ec);
+    for (fs::directory_iterator it(root_, ec); !ec && it != fs::directory_iterator(); it.increment(ec)) {
+        if (it->path().filename().string() == live) continue;
+        fs::remove_all(it->path(), removeEc);
     }
-    for (const auto& entry : fs::directory_iterator(namespace_, ec)) {
-        const std::string name = entry.path().filename().string();
+    ec.clear();
+    for (fs::directory_iterator it(namespace_, ec); !ec && it != fs::directory_iterator(); it.increment(ec)) {
+        const std::string name = it->path().filename().string();
         if (name.rfind(kTempPrefix, 0) != 0) continue;
-        fs::remove(entry.path(), ec);
+        fs::remove(it->path(), removeEc);
     }
 }
 

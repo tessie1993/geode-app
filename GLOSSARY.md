@@ -212,6 +212,14 @@ A named instant on the timeline, often tapped in live to the beat.
 
 **Recording**:
 A live video of the stage and what it hears, made by Record (a hold on the visual, Pro) until the user stops it, then saved like a render and listed in My videos.
+
+**Shake to screenshot**:
+A firm shake of the phone on Visuals saves the visual alone (no app UI) to Pictures. Free and hidden; the decision is `core/viz/Shake`.
+_Avoid_: Screenshot button (there is none)
+
+**Tap along**:
+Taps on the visual in time with the beat the engine already heard (four in a row) roll new Music moments and reactions. Free and hidden; read only, never a tap tempo (`core/viz/TapAlong`).
+_Avoid_: Tap tempo
 _Avoid_: Take (the replayed performance it replaced), session
 
 **Template**:

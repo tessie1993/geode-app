@@ -367,6 +367,13 @@ jobs:
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/randomize_all_test.cpp core/viz/RandomizeAll.cpp core/api/geode_randomize_all_api.cpp core/viz/CustomizeMap.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o randomize_all_test
           ./randomize_all_test
 
+      # The hidden Visuals gestures: shake to screenshot's detector (core/viz/Shake) and tap along's beat matcher (core/viz/TapAlong).
+      - name: Easter egg host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/easter_eggs_test.cpp core/api/geode_shake_api.cpp -o easter_eggs_test
+          ./easter_eggs_test
+
       # The sound engine at 30 and 120 fps must equal 60 at every shared sample, and an export's cut equal live's.
       - name: Sound across frame rates
         working-directory: ${{ env.PROJECT_DIR }}

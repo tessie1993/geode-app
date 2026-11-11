@@ -183,7 +183,6 @@ object StudioClips {
         display: String,
         log: StringBuilder,
     ) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
         val resolver = context.contentResolver
         val pending = ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 1) }
         val published = ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }

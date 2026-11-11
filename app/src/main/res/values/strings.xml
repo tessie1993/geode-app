@@ -713,6 +713,7 @@
     <!-- Export: failure messages. Shared by VideoExporter, StudioExporter and LoopRender. -->
     <string name="export_error_library_insert">Your Videos library would not accept a new file. Check that storage is not full, or render to a folder you choose instead.</string>
     <string name="export_error_library_open">The new file in your Videos library could not be opened for writing.</string>
+    <string name="export_error_library_publish">The render finished but could not be added to your Videos library, so it was removed. Try again.</string>
     <string name="export_error_destination_write">The folder you chose would not let the file be written. Some cloud providers refuse this; try your Videos library or a folder on the device.</string>
     <string name="export_error_encoder_buffer_null">The video encoder returned an empty buffer (codec error state).</string>
     <string name="export_error_encoder_no_output">The video encoder produced no output — this device\'s encoder or the chosen format may not be supported.</string>
@@ -745,7 +746,6 @@
     <string name="export_error_extend_track_unreadable">One of the tracks in this mix could not be read — it may have moved or been deleted.</string>
     <string name="export_error_extend_soundtrack">The soundtrack could not be prepared.</string>
     <string name="export_error_extend_too_big">%1$.1f h at this quality would come to about %2$.1f GB, past the %3$.0f GB an MP4 written on Android can address. Render the loop at about %4$.1f Mbps (a smaller size or lower quality) or make the video shorter.</string>
-    <string name="export_error_extend_library_pre_q">On this version of Android, MuzViz cannot add to your Videos library directly. Render to a folder you choose instead.</string>
 
     <!-- Settings: Look tab. -->
     <string name="look_group_theme">Theme</string>

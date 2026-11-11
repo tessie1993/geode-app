@@ -30,7 +30,7 @@ import dev.geode.R
  *
  * The search hands the query to the browser; the app itself has no network access and stays
  * that way. What the user saves from it comes back through "Load .lrc", which keeps a copy for
- * this track ([LyricsLoader.attach]).
+ * this track ([dev.geode.data.LyricsLoader.attach]).
  */
 @Composable
 internal fun LyricsSection(viewModel: PlayerViewModel) {

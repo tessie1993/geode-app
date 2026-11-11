@@ -64,7 +64,7 @@ public:
     static constexpr int64_t kSmoothing = 8;
     static constexpr int64_t kSettleFrames = 8;
     static constexpr double kDivisorEpsilon = 0.05;
-    // The harshest sane case, a 24 fps cap on a 165 Hz panel, divides by 6, and 8 leaves room. Past
+    // The harshest sane case, a 24 fps cap on a 165 Hz panel, divides by 7, and 8 leaves room. Past
     // this the estimate is broken, and a fast visual is a better failure than a frozen one.
     static constexpr int64_t kMaxDivisor = 8;
 
@@ -91,17 +91,24 @@ public:
     }
 
     // Draws are whole-number divides of the vsync cadence, so they stay evenly spaced. A fractional
-    // divide (90 Hz to 60 by alternating 11 and 22 ms) averages out on paper and reads as judder, so a
-    // cap that doesn't divide stays at the panel rate and leaves the rest to Surface.setFrameRate.
+    // divide (90 Hz to 60 by alternating 11 and 22 ms) averages out on paper and reads as judder.
+    //
+    // The cap is a ceiling: the divide is the smallest whole number that brings the panel rate to the
+    // cap or under it. A cap the panel does not divide (60 on a 90 Hz panel) so takes the next rate
+    // down (45), not the panel rate. It used to stay at the panel rate and leave the rest to
+    // Surface.setFrameRate, which is a hint the platform may ignore: on a 90 Hz phone a 60 fps cap
+    // drew 90 frames a second, the GPU never idled and the phone reached thermal status 3. When the
+    // platform does honour the hint the panel drops to 60 Hz, the estimate follows and the divide is 1.
     static int64_t divisorFor(const PacerState& s, float capFps) {
         // Until the estimate settles, draw every vsync: guessing 2 on a 60 Hz panel would open on judder.
         // Written as !(cap > 0) so a NaN cap means no cap as well.
         if (!(capFps > 0.0f) || s.periodNs <= 0 || s.samples < kSettleFrames) return 1;
         const double panelHz = 1e9 / static_cast<double>(s.periodNs);
-        // The epsilon absorbs noise: a 120 Hz panel measuring 119.6 Hz still divides by 2. Clamped
-        // as a double before the cast, since a tiny cap's ratio would overflow int64_t (UB).
-        const double d = std::clamp(panelHz / static_cast<double>(capFps) + kDivisorEpsilon, 1.0, static_cast<double>(kMaxDivisor));
-        return static_cast<int64_t>(d);
+        // The epsilon absorbs noise before rounding up: a 60 Hz panel measuring 60.4 Hz under a 60 cap
+        // still draws every vsync, and a 120 Hz one measuring 119.6 or 120.4 Hz still divides by 2.
+        // Clamped as a double before the cast, since a tiny cap's ratio would overflow int64_t (UB).
+        const double ratio = panelHz / static_cast<double>(capFps) - kDivisorEpsilon;
+        return static_cast<int64_t>(std::clamp(std::ceil(ratio), 1.0, static_cast<double>(kMaxDivisor)));
     }
 
     static double panelHz(const PacerState& s) { return s.periodNs > 0 ? 1e9 / static_cast<double>(s.periodNs) : 0.0; }

@@ -40,9 +40,9 @@ sealed interface FrameRatePolicy {
      * Honoured by dividing the vsync cadence by a whole number, so drawn frames stay evenly
      * spaced. A fractional divide is deliberately refused: asking a 90 Hz panel for 60 fps by
      * alternating 11 ms and 22 ms frames averages out on paper and reads as judder in the eye,
-     * and uneven pacing is more visible to users than a higher steady rate. When the divide is
-     * not whole the pacer stays at the panel rate and leaves the reduction to
-     * [Surface.setFrameRate], which can ask the system for a seamless mode change instead.
+     * and uneven pacing is more visible to users than a steady rate. When the divide is not
+     * whole the pacer takes the next whole divide under the cap (45 fps on a 90 Hz panel), and
+     * [Surface.setFrameRate] asks the system for a mode change that would make it whole.
      */
     data class Capped(
         val fps: Float,

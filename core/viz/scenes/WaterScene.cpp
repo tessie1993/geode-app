@@ -17,7 +17,7 @@ void WaterScene::init() {
     choreography_.reset();
     appliedTier_ = -1;
     lastUserQuality_ = -1;
-    autoDowngrade_ = 0;
+    autoDowngrade_.reset();
     displayOk_ = false;
     if (!sim_.available()) {
         // A rejected shader is reported by create() itself; only a failed format probe is half floats.

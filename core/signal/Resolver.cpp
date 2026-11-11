@@ -23,6 +23,7 @@ void Resolver::reset() {
     motionField_.reset();
     reactions_.reset();
     director_.reset();
+    directorReach_.reset();
     notes_.reset();
 }
 
@@ -56,9 +57,26 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
         director_.step(sound, dt, settings.handMask);
     }
     frame_.styleMoments = 0;
-    if (director_.commits() != directorCommitsSeen_) {
+    const bool committed = director_.commits() != directorCommitsSeen_;
+    if (committed) {
         directorCommitsSeen_ = director_.commits();
         if (director_.styleMoment()) frame_.styleMoments = 1;
+    }
+    {
+        viz::DirectorReach::Inputs in;
+        in.reach = settings.reach;
+        in.seed = settings.director.seed;
+        in.handMask = settings.handMask;
+        in.reducedMotion = settings.reducedMotion;
+        in.kept = settings.kept;
+        in.styleId = &styleId;
+        in.weight = director_.weight();
+        in.committed = committed;
+        in.reason = director_.lastReason();
+        in.commit = director_.commits();
+        in.energy = director_.target().energy;
+        in.wallDt = glide;
+        directorReach_.step(requested, sound, dt, in);
     }
     // Note & key reactions hear the frame next, inside the director's look: its hue anchors the notes'
     // colours, and its feeling (the director's emotion, stepped whether or not it drives) is the mood. Its
@@ -80,7 +98,7 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
     const auto& envValues = adsr_.tick(dt, sound);
     viz::AdsrEngine::lfoOffsets(adsr_.configs, envValues, envRate_, envDepth_);
     const auto& lfoValues = lfo_.tick(dt, sound, envRate_.data(), envDepth_.data());
-    // Order: the director's look, the note layer inside it, the director's axes, then the user's macro bank
+    // Order: the director's shuffle, its look, the note layer inside it, its axes and modulators, then the user's macro bank
     // and LFOs over all of it. The bank adds its offsets to what the director left (base plus modulation),
     // so every stage after it (and the safety clamp) sees the knobbed look.
     if (!reachKnown_ || styleId != reachStyle_) {
@@ -88,7 +106,8 @@ const Resolver::Frame& Resolver::step(const viz::SceneParams& requested, const G
         reachStyle_ = styleId;
         reachKnown_ = true;
     }
-    SceneParams p = director_.applyAxes(notes_.apply(director_.apply(displayed_, style.shaderFamily)));
+    SceneParams p = director_.applyAxes(notes_.apply(director_.apply(directorReach_.applyShuffle(displayed_), style.shaderFamily)));
+    p = directorReach_.applyModulation(p);
     if (settings.bank) p = viz::macrobank::apply(p, *settings.bank, reach_);
     p = lfo_.apply(p, lfoValues);
     p = viz::AdsrEngine::apply(p, adsr_.configs, envValues);

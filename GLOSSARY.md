@@ -271,6 +271,10 @@ _Avoid_: State, settings, the look for one auto-director decision (that is a dir
 One auto-director decision: a palette, a behaviour and a set of routes, glided in over a bar. Never the same director look twice in a row of six. It modulates the user's look; it never changes it.
 _Avoid_: Look (alone)
 
+**Director reach**:
+How far the auto-director goes past its director look, one native setting (Visuals › Settings, under Auto). Look only: the director look alone. Shuffle: at a new section, a drop or a long stretch it also rolls some Customize categories with the randomizer, sliders gliding, toggles flipping on the moment. Shuffle and modulate: it also runs slow waves and sound followers of its own on sliders. Both are offsets over the user's look, seeded by the play, and keep off kept controls, the style's unreached controls, a control the user moved since the last moment and the hand mask's moments. `core/viz/DirectorReach`.
+_Avoid_: Auto level, auto-randomize, shuffle mode
+
 **Look snapshot**:
 Everything the user set that decides what a renderer draws (style, params, LFOs, envelopes, their own reactions, sound tuning, reduced motion, transition, background), as one value every surface draws: live, wallpaper, dream, Cast, export. An export pins one when it starts. `render/look/LookSnapshot`.
 _Avoid_: Live state, look (that is the auto-director's)
@@ -317,7 +321,7 @@ The engine's per-frame chain that turns the requested scene params into the ones
 _Avoid_: Look resolver (the look is what the user set; the resolver turns it and this frame's modulation into the scene params drawn), param pipeline
 
 **Engine settings**:
-The process-wide values the scene params resolver reads: the macro bank, the auto-director's amount and seed, the Note & key switch, the hand mask, reduced motion and the note entropy. The renderer latches one copy per frame. An export pins its own copy at prepare, built natively from what Kotlin last forwarded plus the entitlement (Pro, trial or free; native applies what it means for the auto-director), with the note entropy at 0 so a re-render is the same film. A live edit never reaches a render.
+The process-wide values the scene params resolver reads: the macro bank, the auto-director's amount, seed, reach and keep set, the Note & key switch, the hand mask, reduced motion and the note entropy. The renderer latches one copy per frame. An export pins its own copy at prepare, built natively from what Kotlin last forwarded plus the entitlement (Pro, trial or free; native applies what it means for the auto-director), with the note entropy at 0 so a re-render is the same film. A live edit never reaches a render.
 _Avoid_: Globals, settings (alone), scene params
 
 **Gain ramp**:

@@ -94,7 +94,9 @@ baselining a style.
 
 Not covered: scenes glslcheck cannot draw (MilkDrop presets, the simulation
 and compute scenes); the fluid looks and Liquid mode, which have their own
-modes (`--fluid-display`, `--liquid`) but not the gate yet; and frame time,
+modes (`--fluid-display`, `--liquid`) but not the gate yet; the endless zoom
+stage (`--dive <id> [--speed <octaves/s>] [--frames <n>]`: the style, then
+`dive_frag.glsl` over it, n frames across one octave of travel); and frame time,
 which only a device measures (`docs/DEVICE_CHECKS.md` item 43).
 
 ## What it cannot tell you

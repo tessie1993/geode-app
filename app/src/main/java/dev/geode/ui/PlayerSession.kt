@@ -75,6 +75,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
@@ -817,7 +818,13 @@ class PlayerSession internal constructor(
         musicLibrary.refresh()
         textureController.refresh()
         // The home-screen widget shows the chosen style, and its style buttons step it like the stage swipe.
-        scope.launch { vizState.map { chosenSceneId }.distinctUntilChanged().collect { WidgetStyles.publish(application, it) } }
+        // Only the style a burst of changes lands on: each publish is a prefs write and a widget redraw.
+        scope.launch {
+            vizState.map { chosenSceneId }.distinctUntilChanged().collectLatest {
+                delay(WIDGET_STYLE_SETTLE_MS)
+                WidgetStyles.publish(application, it)
+            }
+        }
         scope.launch {
             WidgetStyles.steps(application).collect { step ->
                 nextStageStyle(stageStyleOrder(), chosenSceneId, step) { !allowsStyle(it) }?.let(::selectScene)
@@ -901,5 +908,6 @@ class PlayerSession internal constructor(
     private companion object {
         const val STORE_FLUSH_BUDGET_MS = 2_000L
         const val POLL_INTERVAL_MS = 500L
+        const val WIDGET_STYLE_SETTLE_MS = 400L
     }
 }

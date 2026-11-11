@@ -321,65 +321,37 @@ void mirrorFoldReflectsTheEdges() {
           "zooming out folds the corners back inside");
 }
 
-// The renderer's glue (Renderer::drawDive): what it asks for, heard from a sound frame, stepped at 30,
-// 60 and 120 fps.
-Uv travelHeard(const DiveAsk& ask, const GeodeSoundFrame& s, Uv p, float hz, float seconds) {
-    return travel(diveMotion(ask, s, false), p, 9.0f / 16.0f, hz, seconds);
-}
-
-void theRendererDivesBothWays() {
-    DiveAsk in;
-    in.octaves = 0.6f;
-    DiveAsk out;
-    out.octaves = -0.6f;
-    const GeodeSoundFrame s = playing(1.0f, 1.0f);
-    check(near(std::log2(diveMotion(in, s, false).zoom), 0.6f, 1e-4f), "Dive speed at the bass's mean is its zoom, octaves a second");
-    check(near(std::log2(diveMotion(out, s, false).zoom), -0.6f, 1e-4f), "a negative Fly backs out by feedback too");
-    check(near(travelOctaves(diveMotion(out, s, false)), 0.6f, 1e-4f), "the pour is timed by travel either way");
-    const Uv p{0.8f, 0.3f};
-    for (float hz : {30.0f, 60.0f, 120.0f}) {
-        const Uv a = travelHeard(in, s, p, hz, 1.0f);
-        check(std::fabs(a.u - 0.5f) < std::fabs(p.u - 0.5f), "diving in samples toward the centre at any rate");
-        check(near(a, travelHeard(in, s, p, 120.0f, 1.0f), 1e-4f), "a second of the dive lands alike at 30, 60 and 120 fps");
-        const Uv b = travelHeard(out, s, p, hz, 1.0f);
-        check(std::fabs(b.u - 0.5f) > std::fabs(p.u - 0.5f), "backing out samples past the start, toward the edge");
-        const Uv f = fold(b);
-        check(f.u >= 0.0f && f.u <= 1.0f && f.v >= 0.0f && f.v <= 1.0f, "and the fold keeps it on the picture");
-    }
-    DiveAsk wild;
-    wild.octaves = 50.0f;
-    check(std::log2(diveBase(wild).zoom) <= kMaxDiveOctaves + 1e-5f, "Dive speed's ceiling holds before the bass");
-    check(diveBase(DiveAsk{}).zoom == 1.0f && !asksDive(DiveAsk{}), "nothing asked, nothing moves");
-}
-
-void theBassPushesOnlyADive() {
-    DiveAsk dive;
-    dive.octaves = 0.5f;
-    DiveAsk trails;
-    trails.sustain = true;
+// The renderer's glue (Renderer::drawTrails): a shader style's Trails, heard from a sound frame. Endless
+// zoom left this pass for its own stage (viz/DivePass), so nothing here dives and no band pushes.
+void trailsKeepTheirOwnMotion() {
+    TrailAsk trails;
     trails.trailZoom = 0.1f;
     trails.trailWarp = 0.6f;
-    const Motion t = diveMotion(trails, playing(2.5f, 1.0f), false);
-    check(near(std::log2(t.zoom), 0.1f * kTrailZoomOctaves, 1e-4f), "Trails alone keep their echo zoom whatever the bass");
+    const Motion t = trailMotion(trails, playing(2.5f, 1.0f), false);
+    check(near(std::log2(t.zoom), 0.1f * kTrailZoomOctaves, 1e-4f), "Trails keep their echo zoom whatever the bass");
     check(t.rot == 0.0f && near(t.warp, 0.6f, 1e-6f), "Trail warp is MilkDrop's warp, unpushed");
-    check(diveMotion(dive, playing(2.5f, 1.0f), false).zoom > diveMotion(dive, playing(1.0f, 1.0f), false).zoom,
-          "a dive surges on the bass");
-    DiveAsk back;
-    back.sustain = true;
+    check(trailBase(TrailAsk{}).zoom == 1.0f, "nothing asked, nothing moves");
+    TrailAsk back;
     back.trailZoom = -0.5f;
-    check(std::log2(diveBase(back).zoom) >= -kMaxZoomOutOctaves - 1e-5f, "a shrinking echo backs out within the limit");
+    check(std::log2(trailBase(back).zoom) >= -kMaxZoomOutOctaves - 1e-5f, "a shrinking echo backs out within the limit");
+    const Uv p{0.8f, 0.3f};
+    TrailAsk echo;
+    echo.trailZoom = 0.1f;
+    const Motion e = trailMotion(echo, playing(2.5f, 1.0f), false);
+    for (float hz : {30.0f, 60.0f}) {
+        check(near(travel(e, p, 9.0f / 16.0f, hz, 1.0f), travel(e, p, 9.0f / 16.0f, 120.0f, 1.0f), 1e-3f),
+              "a second of the echo lands alike at 30, 60 and 120 fps");
+    }
 }
 
-void theRendererIsStillInSilence() {
-    DiveAsk ask;
-    ask.octaves = 1.0f;
-    ask.sustain = true;
+void trailsAreStillInSilence() {
+    TrailAsk ask;
     ask.trailZoom = 0.3f;
     ask.trailWarp = 1.0f;
     GeodeSoundFrame quiet = playing(2.0f);
     quiet.presence = 0.0f;
-    const Motion m = diveMotion(ask, quiet, false);
-    check(m.zoom == 1.0f && m.rot == 0.0f && m.warp == 0.0f, "silence: the dive and the echo stop");
+    const Motion m = trailMotion(ask, quiet, false);
+    check(m.zoom == 1.0f && m.rot == 0.0f && m.warp == 0.0f, "silence: the echo stops");
     for (float hz : {30.0f, 60.0f, 120.0f}) {
         const Uv p{0.15f, 0.85f};
         check(near(uvFor(perFrame(m, 1.0f / hz), p, 1.0f, 2.0f), p, 1e-6f), "silence samples where it draws at any rate");
@@ -431,9 +403,8 @@ int main() {
     bassZoomsTheMilkDropWay();
     nothingNonFiniteGetsThrough();
     mirrorFoldReflectsTheEdges();
-    theRendererDivesBothWays();
-    theBassPushesOnlyADive();
-    theRendererIsStillInSilence();
+    trailsKeepTheirOwnMotion();
+    trailsAreStillInSilence();
     liquidDiveIsMilkDropsTransform();
     if (failures > 0) {
         std::printf("%d feedback motion check(s) failed\n", failures);

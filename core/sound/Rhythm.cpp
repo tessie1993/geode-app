@@ -219,9 +219,9 @@ void Rhythm::measurePhase() {
     // with a kick on the beat and another sound on the "and" the angle swung with the bar position.
     const float p = period_;
     const int avail = static_cast<int>(std::min<int64_t>(hops_, kPhaseWindow));
-    const int bars = static_cast<int>(static_cast<float>(avail) / (4.0f * p));
+    const int bars = static_cast<int>(static_cast<float>(avail) / (static_cast<float>(meter_) * p));
     const int halves = static_cast<int>(static_cast<float>(avail) / (2.0f * p));
-    const int m = bars >= 1    ? static_cast<int>(std::lround(static_cast<float>(bars) * 4.0f * p))
+    const int m = bars >= 1    ? static_cast<int>(std::lround(static_cast<float>(bars * meter_) * p))
                   : halves >= 1 ? static_cast<int>(std::lround(static_cast<float>(halves) * 2.0f * p))
                                 : avail;
     const std::complex<float> rot = std::polar(1.0f, 2.0f * std::numbers::pi_v<float> / p);
@@ -255,6 +255,8 @@ void Rhythm::measurePhase() {
             accentSeeded_ = false;
             pendingVotes_ = 0;
             pendingDownSlot_ = -1;
+            accentBeats_ = 0;
+            meterVotes_ = 0;
             return;
         }
     } else {
@@ -347,9 +349,12 @@ void Rhythm::finishBeatAccent(int64_t beat) {
     kickMean_ += 0.125f * (kickAccent_ - kickMean_);
     snareMean_ += 0.125f * (snareAccent_ - snareMean_);
     slotScore_[slot] = 0.85f * slotScore_[slot] + kick - 0.5f * snare;
+    beatAccent_[static_cast<size_t>(((beat % kMeterBeats) + kMeterBeats) % kMeterBeats)] = kick - 0.5f * snare;
+    accentBeats_ = std::min(accentBeats_ + 1, kMeterBeats);
+    measureMeter(beat);
     int best = 0;
     float scale = 1e-6f;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < meter_; i++) {
         if (slotScore_[i] > slotScore_[best]) best = i;
         scale = std::max(scale, std::fabs(slotScore_[i]));
     }
@@ -365,6 +370,51 @@ void Rhythm::finishBeatAccent(int64_t beat) {
     } else {
         pendingVotes_ = 0;
         pendingDownSlot_ = -1;
+    }
+}
+
+void Rhythm::measureMeter(int64_t beat) {
+    // The last whole bars of both meters: 12 beats once heard, 24 from then on.
+    const int n = accentBeats_ >= kMeterBeats ? kMeterBeats : accentBeats_ >= kMeterBeats / 2 ? kMeterBeats / 2 : 0;
+    if (!locked_ || n == 0) return;
+    auto accent = [&](int64_t b) { return beatAccent_[static_cast<size_t>(((b % kMeterBeats) + kMeterBeats) % kMeterBeats)]; };
+    // The share of the accents' spread that a pattern repeating every m beats explains: 1 when each slot
+    // of the bar always plays alike, about (m - 1) / (n - 1) for accents in no order. A pattern repeating
+    // every 2 beats repeats every 4 too, so kick-snare-kick-snare says 4, and an even pulse says nothing.
+    float mean = 0.0f;
+    for (int i = 0; i < n; i++) mean += accent(beat - i);
+    mean /= static_cast<float>(n);
+    float spread = 0.0f;
+    for (int i = 0; i < n; i++) spread += (accent(beat - i) - mean) * (accent(beat - i) - mean);
+    if (spread < 1e-6f) return;
+    auto explained = [&](int m) {
+        std::array<float, 4> slot{};
+        for (int i = 0; i < n; i++) slot[static_cast<size_t>(((beat - i) % m + m) % m)] += accent(beat - i);
+        float sum = 0.0f;
+        for (int r = 0; r < m; r++) {
+            const float d = slot[static_cast<size_t>(r)] * static_cast<float>(m) / static_cast<float>(n) - mean;
+            sum += static_cast<float>(n / m) * d * d;
+        }
+        return sum / spread;
+    };
+    const int other = meter_ == 4 ? 3 : 4;
+    const float mine = explained(meter_);
+    const float theirs = explained(other);
+    meterVotes_ = theirs > 0.5f && theirs > 2.0f * mine ? meterVotes_ + 1 : 0;
+    if (meterVotes_ < 2 * other) return;
+    // The other meter has led on every beat for two of its bars: the bar is that long now, and its
+    // downbeat is the slot whose accents lead, as the leaky score would hold it after a long run.
+    meter_ = other;
+    meterVotes_ = 0;
+    pendingVotes_ = 0;
+    pendingDownSlot_ = -1;
+    slotScore_ = {};
+    for (int i = 0; i < n; i++) {
+        slotScore_[static_cast<size_t>(slotOf(beat - i))] += accent(beat - i) * static_cast<float>(meter_) / static_cast<float>(n) / 0.15f;
+    }
+    downSlot_ = 0;
+    for (int r = 1; r < meter_; r++) {
+        if (slotScore_[static_cast<size_t>(r)] > slotScore_[static_cast<size_t>(downSlot_)]) downSlot_ = r;
     }
 }
 
@@ -436,7 +486,7 @@ void Rhythm::phases(int sinceHop, float hitTime, GeodeSoundFrame& out) const {
             std::min(theta_ + static_cast<double>(sinceHop) / hop_ / period_, static_cast<double>(lastBeat_) + 0.999);
         out.beatPhase = frac(now);
         const int inBar = slotOf(static_cast<int64_t>(std::floor(now)) - downSlot_);
-        out.barPhase = (static_cast<float>(inBar) + out.beatPhase) / 4.0f;
+        out.barPhase = (static_cast<float>(inBar) + out.beatPhase) / static_cast<float>(meter_);
         out.phrasePhase = (static_cast<float>(barInPhrase_) + out.barPhase) / 8.0f;
     } else {
         // Unlocked: the hit clock (one hit a beat, four a bar) keeps the phases moving with the music.

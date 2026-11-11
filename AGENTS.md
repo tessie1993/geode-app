@@ -1,7 +1,7 @@
-# AGENTS.md: MuzViz Studio Pro (internal name Geode)
+# AGENTS.md: BeatRealms 3D (internal name Geode)
 
 Android music player, reactive visualizer and video studio. Kotlin and Compose with Hilt, plus a C++20 native core (`libgeode.so`).
-applicationId `com.muzviz.studiopro`. Kotlin packages stay `dev.geode.*`. minSdk 33 (Android 13+), targetSdk 36, compileSdk 37.
+The product name is BeatRealms 3D ("BeatRealms" in running text, "BeatRealms Pro" for the unlock); the old name MuzViz Studio Pro survives only in ids: applicationId `com.muzviz.studiopro`, product id `muzviz_pro`, the `MUZVIZ_UPLOAD_*` secrets, `muzviz.*` Gradle properties, the backup format id. Kotlin packages stay `dev.geode.*`. minSdk 33 (Android 13+), targetSdk 36, compileSdk 37.
 
 ## Owner's hard rule: Kotlin is the shell, C++ is the app (read first)
 
@@ -136,7 +136,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 ## Build, test, CI
 
 - **Don't build locally.** Push a branch and open a PR. `.github/workflows/build-lint.yml` is the PR gate: `:app:assembleDebug`, the manifest check, every module's JVM unit tests, detekt, `:app:lintDebug`, `ktlintCheck`, in that order, so a failing unit test hides the lint results behind it. `native-host-tests.yml` (the `core/tests` host tests) runs on every PR too. `android.yml` (unit tests plus an emulator job, `connectedDebugAndroidTest`, API 36) and `ui-tour.yml` run by hand from the Actions tab (`gh workflow run <file> --ref <b>`). Read the results with `gh run list --branch <b>` and `gh run view <id> --log-failed`.
-- `ship-apk.yml` (pushes to `main`, plus the last job of a green manual `android.yml` run) publishes a debug APK as pre-release N, "Geode <base>.N" (N = releases so far + 1, reserved as tag `apk-v<base>.N` by `tools/release-number.sh`).
+- `ship-apk.yml` (pushes to `main`, plus the last job of a green manual `android.yml` run) publishes a debug APK as pre-release N, "BeatRealms 3D <base>.N" (N = releases so far + 1, reserved as tag `apk-v<base>.N` by `tools/release-number.sh`).
 - **Version.** Set only in `gradle.properties` (`geode.versionBase`, `geode.versionCodeBase`); the root `build.gradle.kts` makes versionName `<base>.N` and versionCode `codeBase + N` from `-PreleaseNumber=N`, else `<base>-dev`. `release.yml` uses the N its commit shipped as. `release.yml` builds the Play AAB only on manual runs (signed with the upload key; without it the run fails unless `allow_unsigned` asks for a dry run; it also fails unless the commit's checks are green), then checks the merged manifest, R8 and the baseline profile; `android.yml` checks the debug manifest (no INTERNET or AD_ID, targetSdk) on every PR. `arch-map.yml` holds the two gates described below and checks that `THIRD_PARTY_NOTICES` equals the shipped `assets/third_party_notices.txt`. `pages.yml` publishes `docs/site/`, `docs/privacy-policy.html` and `docs/help/` (as `/help/`, when that folder exists) to GitHub Pages on pushes to `main`.
 - Debug builds sign with the committed `app/debug.keystore` so CI APKs install over each other.
 - Submodules: `git submodule update --init --recursive`, needed only for native work. Your `local.properties` needs `sdk.dir`.
@@ -151,7 +151,7 @@ The native core is built by the root `CMakeLists.txt`, plus `core/CMakeLists.txt
 - ktlint and detekt are baselined (`config/detekt/detekt.yml`), so new code must pass them clean.
 - KDoc explains *why*, at length. Match the density of the file you're in.
 - Use `bestEffort(TAG, "what")` (`dev.geode.util`) for best-effort failures. Failures go to `RingLog`.
-- Scratch files use the prefixes `geode_aac_`, `geode_loop_` and `studio-`; `GeodeContainer` sweeps them. Renders insert with `IS_PENDING`.
+- Scratch files use the prefixes `geode_aac_`, `geode_loop_` and `studio-`; `GeodeContainer` sweeps them. Renders insert with `IS_PENDING` into `Movies/BeatRealms` as `beatrealms_*.mp4`; `Movies/MuzViz` from before the rename is still listed and swept, never moved.
 - The tap stays first in the audio chain, and the chain never gets float output.
 - Cast to TV is the app's only internet use (`INTERNET`, `ACCESS_NETWORK_STATE`; CI fails if INTERNET appears without `CastService`, if a socket or HTTP API is used outside `cast/`, if a networking, analytics or ads SDK joins the release build, or if AD_ID appears). Everything else is offline; Play Billing works over IPC to the Play Store app.
 - Runtime permissions are asked for in context through `ui/PermissionRequest.kt` (`rememberPermissionRequest`: rationale first, retry after a refusal, app Settings once Android stops asking). First run is the safety notice alone (`SafetyConsent` on `OnboardingScaffold`; `FirstRunGate` passes straight through). Music access is asked the first time Library opens.

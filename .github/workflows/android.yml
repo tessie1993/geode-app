@@ -1,4 +1,4 @@
-name: Build MuzViz Debug APK
+name: Build BeatRealms 3D Debug APK
 
 # Pull-request CI, plus a manual build when an APK is wanted from a branch.
 # Pushes to main are handled by ship-apk.yml, which runs the same build and
@@ -193,7 +193,7 @@ jobs:
             | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -n 1)
           echo "versionName=$VERSION_NAME"
           SHORT_SHA="${GITHUB_SHA::7}"
-          FILE_NAME="MuzViz-${VERSION_NAME:-debug}-${SHORT_SHA}-debug.apk"
+          FILE_NAME="BeatRealms3D-${VERSION_NAME:-debug}-${SHORT_SHA}-debug.apk"
 
           mkdir -p dist
           cp "$APK_SOURCE" "dist/$FILE_NAME"
@@ -383,7 +383,7 @@ jobs:
           retention-days: 14
 
   # The last step of every green run on a push or a manual run: ship this commit
-  # as the next pre-release ("Geode <base>.N"), so each commit that passed the
+  # as the next pre-release ("BeatRealms 3D <base>.N"), so each commit that passed the
   # build, lint, unit and emulator tests has an installable APK. Pull-request
   # runs skip it: the push run of the same commit ships it already, and a
   # fork's token cannot write releases. A newer push to the branch cancels this

@@ -230,6 +230,9 @@ private:
     bool starved_ = false;  // nothing written for a while: the window reads as silence, not a frozen loop
     LufsMeter meter_;          // absolute loudness and the one silence gate
     float trimGain_ = 1.0f;    // the input trim, linear: analysis only
+    float dcR_ = 0.0f;         // the DC blocker's pole, from the sample rate
+    std::array<float, 2> dcX_{};  // its last input and output, per channel
+    std::array<float, 2> dcY_{};
     std::array<SliceBand, kSlices> bank_;
     std::array<float, kSlices> sliceNow_{};   // this hop's slice levels
     std::array<float, kSlices> punchNow_{};   // and the highest punch each slice held

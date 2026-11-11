@@ -400,6 +400,32 @@ void testSpectrumStaysGatedUnderNoise() {
     CHECK(gated < 0.1f, "noise under the gate reached %f of full scale in the spectrum row", gated);
 }
 
+// A mic or a capture with a DC offset and nothing playing is silence: the offset must not read as level,
+// hold `presence` up or keep `silence` from firing. And the blocker (about 10 Hz) leaves the bass alone.
+void testDcOffsetIsSilence() {
+    SoundEngine e(48000);
+    int silences = 0;
+    GeodeSoundFrame last{};
+    run(e, [](int64_t, float& l, float& r) { l = r = 0.2f; }, 4.0, 60.0, [&](double, const GeodeSoundFrame& f) {
+        if (f.silence > 0) silences++;
+        last = f;
+    });
+    CHECK(silences == 1, "a constant offset of 0.2 fired silence %d times", silences);
+    CHECK(last.rms < 1e-4f && last.level == 0.0f, "the offset still reads as level: rms %f level %f", last.rms, last.level);
+    CHECK(last.presence < 0.05f, "the offset holds presence at %f", last.presence);
+
+    // 100 Hz at 40960 Hz: the 2048-sample window holds five whole cycles, so its rms is exact at any phase.
+    const int rate = 40960;
+    SoundEngine bass(rate);
+    CHECK(SoundEngine::fftSizeFor(rate) == 2048, "%d", SoundEngine::fftSizeFor(rate));
+    const Signal sine = [rate](int64_t s, float& l, float& r) {
+        l = r = 0.3f * static_cast<float>(std::sin(kTau * 100.0 * static_cast<double>(s) / rate));
+    };
+    run(bass, sine, 2.0, 60.0, [&](double, const GeodeSoundFrame& f) { last = f; });
+    const double want = 0.3 / std::sqrt(2.0);
+    CHECK(std::fabs(last.rms / want - 1.0) < 0.01, "a 100 Hz sine's rms %f, without the blocker %f", last.rms, want);
+}
+
 // A loud entrance after a quiet intro is MilkDrop's hard cut: it fires at once, and only once. Steady
 // music never cuts. On soft-limited ratios (below 4) the starting threshold of 5 could never be reached.
 void testHardCut() {
@@ -629,6 +655,7 @@ int main() {
     testStarvedGoesQuiet();
     testLateBlocksAreNotStarvation();
     testSpectrumStaysGatedUnderNoise();
+    testDcOffsetIsSilence();
     testHardCut();
     testFadeGain();
     testPlayerSignals();

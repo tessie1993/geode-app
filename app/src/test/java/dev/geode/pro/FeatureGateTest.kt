@@ -82,6 +82,38 @@ class FeatureGateTest {
     }
 
     @Test
+    fun `a clock moved back inside the hour does not replay the trial`() {
+        val hour = FreeTier.TRIAL_DURATION_MS
+        val slack = FreeTier.TRIAL_CLOCK_SLACK_MS
+        val start = 1_000L
+        val seenAt50 = start + hour * 5 / 6
+
+        assertEquals("back to minute 1", TrialState.Ended(false), TrialState.at(start, false, start + 60_000L, seenAt50))
+        assertEquals("just past the slack", TrialState.Ended(false), TrialState.at(start, false, seenAt50 - slack - 1, seenAt50))
+        assertEquals("a time correction", TrialState.Active(start + hour), TrialState.at(start, false, seenAt50 - slack, seenAt50))
+        assertEquals(
+            "inside the slack the trial reads at the latest time seen, so stepping back gains nothing",
+            TrialState.Ended(false),
+            TrialState.at(start, false, start + hour - 1, start + hour),
+        )
+    }
+
+    @Test
+    fun `an ended trial is remembered as ended whatever the clock says later`() {
+        val hour = FreeTier.TRIAL_DURATION_MS
+        val start = 1_000L
+        val running = TrialState.Active(start + hour)
+        assertEquals(start + 5L, TrialState.lastSeenAfter(running, start, nowMs = start + 5L, lastSeenMs = 0L))
+        assertEquals("never earlier than before", start + 9L, TrialState.lastSeenAfter(running, start, start + 5L, start + 9L))
+
+        // Ended by a clock set before the start: the mark still moves to the trial's end.
+        val mark = TrialState.lastSeenAfter(TrialState.Ended(false), start, nowMs = 10L, lastSeenMs = start + 5L)
+        assertEquals(start + hour, mark)
+        assertEquals(TrialState.Ended(false), TrialState.at(start, false, start + 60_000L, mark))
+        assertEquals(TrialState.Ended(false), TrialState.at(start, false, start + hour - 1, mark))
+    }
+
+    @Test
     fun `the neon set gives away one opener and keeps four for Pro`() {
         assertTrue(FreeTier.neonOpener in FreeTier.freeStyleIds)
         assertEquals(4, FreeTier.neonProIds.size)

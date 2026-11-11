@@ -1,7 +1,6 @@
 package dev.geode.ui
 
 import dev.geode.data.AutoVisualsPrefsStore
-import dev.geode.data.PaletteStore
 import dev.geode.data.Preset
 import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.GeodeNative
@@ -199,7 +198,7 @@ internal class AutoVisualsController(
 
     /**
      * A draw from Auto's sources, among the styles the user may keep. With [keepLook] (a director
-     * moment) only the style changes: no preset and no colour roll, so Customize stays as set.
+     * moment) only the style changes: no preset, so Customize stays as set.
      */
     fun randomStepNow(keepLook: Boolean = false) {
         val s = host.vizState.value
@@ -231,23 +230,6 @@ internal class AutoVisualsController(
             pick = choices[randomRng.nextInt(choices.size)]
         }
         applyVizEntry(pick)
-        if (s.randomizeColors && !keepLook) {
-            val palette = randomRng.nextInt(SceneParams.PALETTES.size)
-            val palette2 = randomRng.nextInt(SceneParams.PALETTES.size)
-            val paletteMix = if (randomRng.nextBoolean()) randomRng.nextFloat() * 0.6f else 0f
-            val colorShift = randomRng.nextFloat()
-            host.updateViz { cur ->
-                val rolled =
-                    cur.params.copy(
-                        palette = palette,
-                        palette2 = palette2,
-                        paletteMix = paletteMix,
-                        colorShift = colorShift,
-                    )
-                cur.copy(params = PaletteStore.clear(PaletteStore.clear(rolled), second = true))
-            }
-            leftAs = host.vizState.value.let { it.sceneId to it.params }
-        }
     }
 
     fun applyVizEntry(entry: VizPlaylistEntry) {

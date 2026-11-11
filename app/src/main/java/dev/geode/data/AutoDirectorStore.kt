@@ -2,6 +2,8 @@ package dev.geode.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.pro.AutoDirectorPolicy
 import dev.geode.pro.FeatureGate
@@ -100,6 +102,11 @@ class AutoDirectorStore private constructor(
         private const val TAG = "AutoDirectorStore"
         private const val KEY_ENABLED = "auto_director_enabled"
         const val DEFAULT_ENABLED = true
+
+        internal val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.GENERAL) {
+                portable(PrefType.BOOLEAN, KEY_ENABLED)
+            }
 
         @Volatile private var instance: AutoDirectorStore? = null
 

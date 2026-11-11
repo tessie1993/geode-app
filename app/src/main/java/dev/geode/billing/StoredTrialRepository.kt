@@ -1,6 +1,8 @@
 package dev.geode.billing
 
 import android.content.SharedPreferences
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.pro.TrialRepository
 import dev.geode.pro.TrialState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -44,9 +46,16 @@ class PrefsTrialStore(
         prefs.edit().putBoolean(KEY_END_NOTICE, true).apply()
     }
 
-    private companion object {
+    internal companion object {
         const val KEY_STARTED_AT = "trial_started_at"
         const val KEY_END_NOTICE = "trial_end_notice_shown"
+
+        /** The trial's facts share the purchase cache's file (`di/BillingModule`). */
+        val PREF_KEYS =
+            prefKeys(PrefsEntitlementStore.PREFS_FILE) {
+                state(PrefType.LONG, KEY_STARTED_AT)
+                state(PrefType.BOOLEAN, KEY_END_NOTICE)
+            }
     }
 }
 

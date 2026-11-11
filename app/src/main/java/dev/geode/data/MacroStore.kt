@@ -3,6 +3,8 @@ package dev.geode.data
 import android.content.Context
 import android.content.SharedPreferences
 import dev.geode.RingLog
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -123,6 +125,12 @@ class MacroStore private constructor(
 
         /** Every key this store writes: a backup files them under Creative, with the presets they shape. */
         internal val KEYS: Set<String> = setOf(KEY_KNOBS, KEY_LOCKS, KEY_PRESETS)
+
+        internal val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.GENERAL) {
+                portable(PrefType.STRING, KEY_KNOBS, KEY_PRESETS)
+                portable(PrefType.INT, KEY_LOCKS)
+            }
 
         @Volatile private var instance: MacroStore? = null
 

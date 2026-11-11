@@ -2,6 +2,8 @@ package dev.geode.billing
 
 import android.content.Context
 import android.content.SharedPreferences
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 
 /**
  * The last entitlement Play confirmed, kept so Pro survives a slow, missing or offline Play Store.
@@ -132,6 +134,13 @@ class PrefsEntitlementStore(
         private const val KEY_VERIFIED_AT = "pro_verified_at"
         private const val KEY_PURCHASE_JSON = "pro_purchase_json"
         private const val KEY_SIGNATURE = "pro_purchase_signature"
+
+        internal val PREF_KEYS =
+            prefKeys(PREFS_FILE) {
+                cache(PrefType.BOOLEAN, KEY_OWNED)
+                cache(PrefType.LONG, KEY_VERIFIED_AT)
+                cache(PrefType.STRING, KEY_PURCHASE_JSON, KEY_SIGNATURE)
+            }
 
         fun open(context: Context): SharedPreferences = context.applicationContext.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE)
     }

@@ -2,7 +2,10 @@ package dev.geode.ui
 
 import android.content.SharedPreferences
 import android.os.SystemClock
+import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.LfoStore
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
@@ -61,7 +64,7 @@ internal class ModulationController(
     val handMask: StateFlow<Int> = _handMask
 
     private val _lockedParams =
-        MutableStateFlow<Set<String>>(prefs.getStringSet("locked_params", emptySet()) ?: emptySet())
+        MutableStateFlow<Set<String>>(prefs.getStringSet(KEY_LOCKED_PARAMS, emptySet()) ?: emptySet())
     val lockedParams: StateFlow<Set<String>> = _lockedParams
 
     private val _history = MutableStateFlow(ParamHistoryState())
@@ -73,7 +76,7 @@ internal class ModulationController(
 
     fun toggleParamLock(label: String) {
         _lockedParams.update { if (label in it) it - label else it + label }
-        prefs.edit().putStringSet("locked_params", _lockedParams.value).apply()
+        prefs.edit().putStringSet(KEY_LOCKED_PARAMS, _lockedParams.value).apply()
     }
 
     /**
@@ -231,9 +234,16 @@ internal class ModulationController(
         _history.value = ParamHistoryState(canUndo = undoStack.isNotEmpty(), canRedo = redoStack.isNotEmpty())
     }
 
-    private companion object {
-        const val HISTORY_DEPTH = 64
+    companion object {
+        private const val HISTORY_DEPTH = 64
 
-        const val CHECKPOINT_GAP_MS = 700L
+        private const val CHECKPOINT_GAP_MS = 700L
+
+        private const val KEY_LOCKED_PARAMS = "locked_params"
+
+        val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.MODULATION) {
+                portable(PrefType.STRING_SET, KEY_LOCKED_PARAMS)
+            }
     }
 }

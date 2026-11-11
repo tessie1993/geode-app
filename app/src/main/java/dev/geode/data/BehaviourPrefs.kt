@@ -2,6 +2,9 @@ package dev.geode.data
 
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import dev.geode.data.prefs.BackupClass
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 
 // Settings › Behaviour: what the app does by itself, what each screen does, and what each gesture on
@@ -197,7 +200,7 @@ class BehaviourStore(
         default: E,
     ): E = prefs.getString(key, null)?.let { name -> enumValues<E>().firstOrNull { it.name == name } } ?: default
 
-    private companion object {
+    internal companion object {
         const val KEY_START_SCREEN = "behaviour_start_screen"
         const val KEY_LAST_SCREEN = "behaviour_last_screen"
         const val KEY_KEEP_SCREEN_ON_VISUALS = "behaviour_keep_screen_on_visuals"
@@ -210,5 +213,15 @@ class BehaviourStore(
         const val KEY_DREAM_NOW_PLAYING = "behaviour_dream_show_now_playing"
         const val KEY_DREAM_FPS = "behaviour_dream_fps"
         const val KEY_GESTURE_PREFIX = "behaviour_gesture_"
+
+        val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.GENERAL) {
+                portable(PrefType.STRING, KEY_START_SCREEN, KEY_LAST_SCREEN, KEY_QUEUE_END)
+                add(PrefType.STRING, BackupClass.PORTABLE, CanvasGesture.entries.map { KEY_GESTURE_PREFIX + it.name })
+                portable(PrefType.BOOLEAN, KEY_KEEP_SCREEN_ON_VISUALS, KEY_START_ON_HEADPHONES, KEY_REMEMBER_SHUFFLE_REPEAT)
+                portable(PrefType.BOOLEAN, KEY_DREAM_BRIGHT, KEY_DREAM_CLOCK, KEY_DREAM_NOW_PLAYING)
+                portable(PrefType.STRING_SET, KEY_NOTIFICATION_BUTTONS)
+                portable(PrefType.INT, KEY_DREAM_FPS)
+            }
     }
 }

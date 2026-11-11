@@ -11,6 +11,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.edit
 import dev.geode.R
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -48,6 +50,11 @@ enum class GestureTip(
 object GestureTips {
     private const val FILE = "geode-tour-tips"
     private const val KEY_SEEN = "seen"
+
+    internal val PREF_KEYS =
+        prefKeys(FILE) {
+            state(PrefType.STRING_SET, KEY_SEEN)
+        }
 
     private val counts = mutableMapOf<GestureTip, Int>()
     private var prefs: SharedPreferences? = null

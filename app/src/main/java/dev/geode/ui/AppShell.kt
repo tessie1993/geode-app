@@ -311,9 +311,12 @@ fun AppRoot() {
             )
         }
         val tutorial = rememberTutorialState()
+        // Remembered: a fresh list each recomposition would recompose the tab bar and rail with it.
+        val navLabels = GeodeDestination.entries.map { stringResource(it.labelRes) }
         val navEntries =
-            GeodeDestination.entries
-                .map { NavEntry(it, DockItem(stringResource(it.labelRes), it.icon)) }
+            remember(navLabels) {
+                GeodeDestination.entries.mapIndexed { i, destination -> NavEntry(destination, DockItem(navLabels[i], destination.icon)) }
+            }
         // Keyed by destination, not by position: rotating swaps the bar layout for the rail
         // layout, which would otherwise drop every screen's saved tab and scroll state.
         val destinationState = rememberSaveableStateHolder()
@@ -561,6 +564,7 @@ private fun AppShellCompact(
     val onVisuals = appState.dest == GeodeDestination.VISUALS
     val showsPlayer = hasMedia && !appState.onPlayer
     var barHeight by remember { mutableStateOf(0.dp) }
+    val tabItems = remember(navEntries) { navEntries.map { it.item } }
     var dockDrawn by remember { mutableStateOf(0.dp) }
     Box(Modifier.fillMaxSize()) {
         val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -646,7 +650,7 @@ private fun AppShellCompact(
                 exit = fadeOut(dockFade),
             ) {
                 FloatingTabBar(
-                    items = navEntries.map { it.item },
+                    items = tabItems,
                     // A destination can be hidden while still being the current one — reaching
                     // Studio from a track menu, say. Fall back to the first tab rather than -1.
                     selected = navEntries.indexOfFirst { it.destination == appState.dest }.coerceAtLeast(0),

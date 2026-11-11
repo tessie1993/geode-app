@@ -16,7 +16,7 @@ import dev.geode.engine.bridge.GeodeNative
  *
  * Two sources, in order:
  * 1. The app's own ring ([AudioBus.soundInput]) while something feeds it: MuzViz playing, or the
- *    app's mic or capture mode. It is the full-quality signal, so it always wins.
+ *    app's capture mode. It is the full-quality signal, so it always wins.
  * 2. Otherwise, with the user's say-so, [OutputMixCapture]: whatever any other app is playing.
  *
  * Which of the two, and when to start or stop the capture, is native (`core/sound/SoundSource`,

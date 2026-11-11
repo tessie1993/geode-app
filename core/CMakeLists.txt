@@ -23,6 +23,7 @@ add_library(geode_core STATIC
     library/Tags.cpp
     library/Search.cpp
     audio/ingest/PcmRing.cpp
+    audio/ingest/LayerMix.cpp
     audio/output/OutputFifo.cpp
     audio/output/OboeOutput.cpp
     audio/dsp/DspProcessor.cpp

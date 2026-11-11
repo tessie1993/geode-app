@@ -347,7 +347,6 @@ fun AppRoot() {
                                 Row(Modifier.fillMaxSize()) {
                                     Box(Modifier.weight(1f)) {
                                         LibraryScreen(
-                                            onOpenSearch = appState::openSearch,
                                             onOpenFolders = appState::openSettingsFolders,
                                             onOpenVisuals = { appState.navigateTo(GeodeDestination.VISUALS) },
                                         )
@@ -364,7 +363,6 @@ fun AppRoot() {
                                 }
                             } else {
                                 LibraryScreen(
-                                    onOpenSearch = appState::openSearch,
                                     onOpenFolders = appState::openSettingsFolders,
                                     onOpenVisuals = { appState.navigateTo(GeodeDestination.VISUALS) },
                                 )

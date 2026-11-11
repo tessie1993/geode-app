@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -22,18 +23,78 @@ struct SearchRequest {
     std::string_view title;
 };
 
-// The rows of `rows` a voice request plays, as indices in library order.
+// How the whole library is listed when nothing is searched.
+enum class Sort { Title = 0, Artist = 1, Album = 2, Duration = 3, Added = 4 };
+
+// What one query finds, best first, as row numbers of the library the index was built from. An album
+// or artist is named by one of its rows (the first in the library).
+struct SearchHits {
+    std::vector<int> tracks;
+    std::vector<int> albums;
+    std::vector<int> artists;
+};
+
+// The app's one library match (the Library screen, Android Auto's search and voice "play X").
+//
+// Text is folded once: lower case, accents gone, apostrophes dropped, other punctuation a word break
+// ("AC/DC" is also the word "acdc", "R.E.M." also "rem"). Every word of the query must land in the
+// title, artist or album; a lone "the" may be missing. A word lands as a whole word, as the start of
+// one, or (three letters and up) inside one. Best first: words that start a word before words found
+// inside one; then by the field the match needed (title, then artist, then album); then a field that
+// starts with the query; then whole words; then title order. A misspelling is only tried when
+// nothing matches as typed: one edit from four letters, two from eight, first letter kept, against a
+// word or the start of a longer one.
+class SearchIndex {
+public:
+    // `durationsMs` and `addedSec` may be shorter than `rows`; a missing value is 0.
+    SearchIndex(const std::vector<SearchRow>& rows, const std::vector<long long>& durationsMs,
+                const std::vector<long long>& addedSec);
+
+    int size() const { return static_cast<int>(entries_.size()); }
+
+    // Every row in `sort` order. Text orders compare folded, so "Élan" sits with the Es.
+    std::vector<int> order(Sort sort) const;
+
+    // A blank query finds nothing (the caller lists the library with `order`). Artists are those
+    // whose name holds every word, albums those whose name and artist do with a word in the name,
+    // at most `kMaxArtistHits` and `kMaxAlbumHits`.
+    SearchHits search(std::string_view query) const;
+
+    static constexpr int kMaxArtistHits = 5;
+    static constexpr int kMaxAlbumHits = 8;
+
+    struct Field {
+        std::u32string key;                 // folded words joined by one space, for order and "starts with"
+        std::vector<std::u32string> words;  // the words, plus a punctuated word run together
+    };
+    struct Entry {
+        Field title;
+        Field artist;
+        Field album;
+    };
+
+private:
+    std::vector<Entry> entries_;
+    std::vector<long long> durationsMs_;
+    std::vector<long long> addedSec_;
+    std::vector<int> titleRank_;    // each row's place in title order: the tie-break
+    std::vector<int> albumOf_;      // each row's album group
+    std::vector<int> artistOf_;     // each row's artist group
+    std::vector<int> albumFirst_;   // each album group's first row
+    std::vector<int> artistFirst_;  // each artist group's first row
+};
+
+// The rows of `rows` a voice request plays, best first (ties in library order).
 //
 // The focus extras are tried first, because they are the assistant's own parse of the sentence
 // ("Radiohead" as an artist, not a word somewhere in a title): an artist focus keeps the tracks by that
 // artist, an album focus that album (and artist when given), a song focus that title. When the focus
-// is missing, unknown, or finds nothing, the free query is matched instead, every word against title,
-// artist or album, like the Library screen's search. A request with nothing in it at all ("play music")
-// plays the whole library; a query that matches nothing returns nothing, so the caller can refuse it.
+// is missing, unknown, or finds nothing, the free query is matched instead, as `SearchIndex::search`
+// matches tracks. A request with nothing in it at all ("play music") plays the whole library; a query
+// that matches nothing returns nothing, so the caller can refuse it.
 std::vector<int> searchTracks(const std::vector<SearchRow>& rows, const SearchRequest& request);
 
-// True when `term` is in any of `fields`, case-folded, allowing a typo: none for words of three
-// letters or less, one up to five, two beyond (the Library screen's rule, `LibraryBrowse.matches`).
+// True when `term` lands in any of `fields` as typed or, failing that, as a misspelling.
 bool termMatches(std::string_view term, const std::vector<std::string_view>& fields);
 
 }  // namespace geode::library

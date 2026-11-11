@@ -163,9 +163,9 @@ object GeodeNative {
     ): Boolean
 
     /**
-     * Voice "play X" over the library (core/library/Search). [rows] holds three UTF-8 strings per track
-     * (title, artist, album) in library order; [request] the query, then MediaStore's focus, artist, album
-     * and title extras (null = absent). Writes matching track indices into [out] and returns how many
+     * Voice "play X" and Android Auto's search over the library (core/library/Search), best first. [rows]
+     * holds three UTF-8 strings per track (title, artist, album) in library order; [request] the query,
+     * then MediaStore's focus, artist, album and title extras (null = absent). Writes matching track indices into [out] and returns how many
      * match in all; nothing asked matches every track, 0 means no match.
      */
     external fun librarySearch(
@@ -173,6 +173,34 @@ object GeodeNative {
         request: Array<ByteArray?>,
         out: IntArray,
     ): Int
+
+    /**
+     * The Library screen's index (core/library/Search): [rows] as in [librarySearch], one duration and one
+     * added time per track. Built once per library change; 0 when it cannot be built. Freed with
+     * [libraryIndexDestroy].
+     */
+    external fun libraryIndexCreate(
+        rows: Array<ByteArray?>,
+        durationsMs: LongArray,
+        addedSec: LongArray,
+    ): Long
+
+    external fun libraryIndexDestroy(handle: Long)
+
+    /** Every row of the index in [sort] order: 0 title, 1 artist, 2 album, 3 duration, 4 newest first. */
+    external fun libraryIndexOrder(
+        handle: Long,
+        sort: Int,
+    ): IntArray
+
+    /**
+     * What a UTF-8 [query] finds, best first: three counts (tracks, albums, artists), then those rows, an
+     * album or artist as its first row. A blank query finds nothing.
+     */
+    external fun libraryIndexSearch(
+        handle: Long,
+        query: ByteArray,
+    ): IntArray
 
     /**
      * Moves takes saved inside project folders ([projectsDir]`/<id>/takes/`) to [takesDir]`/<id>/`,

@@ -161,7 +161,7 @@ jobs:
           # The process-wide shader overrides every renderer draws (#364): set, replace, clear, generation, copies.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/shader_overrides_test.cpp core/viz/ShaderOverrides.cpp -o shader_overrides_test
           ./shader_overrides_test
-          # Voice "play X" over the library (#382): query, focus extras, blank = everything, no match = nothing.
+          # The library's one match (Library screen, Android Auto, voice "play X", #382): folding, ranking, order, the index.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/library_search_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o library_search_test
           ./library_search_test
           # The playout clock (#349, #482): the ring sample the speaker plays at 1x and 1.5x, behind a 250 ms

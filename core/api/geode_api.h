@@ -48,8 +48,9 @@ GEODE_API int         geode_viz_take_director_style_moments(geode_viz*);
 /* The reaction source catalogue, one line per source in wire order: "NAME|Label|GROUP|event(0/1)\n".
  * Writes at most capacity bytes (NUL-terminated when it fits) and returns the length it needs. */
 GEODE_API int         geode_react_source_catalog(char* out, int capacity);
-/* The auto-director (core/viz/Director): the music's feeling deciding palette, behaviour and routing over
- * every style. on is the user's switch as set (1/0), which an export directs by (geode_viz_pin_engine_settings);
+/* The auto-director (core/viz/Director): the music's feeling deciding behaviour (its axes, camera moves,
+ * motion dials) over every style; never a colour, never a route. on is the user's switch as set (1/0), which
+ * an export directs by (geode_viz_pin_engine_settings);
  * amount 0 off .. 1 full is what live surfaces drive with now, eased in and out by each renderer; seed is the
  * play's, so a new seed is a new play (the renderer forgets the song so far) and an export pinned with it
  * makes the same film. */
@@ -61,8 +62,8 @@ GEODE_API void        geode_director_reach_set(int level);
 /* Customize's keep set, which the reach never moves: one control key or "#CATEGORY" per line (the lock set
  * geode_params_randomize takes). Null or "" keeps nothing. */
 GEODE_API void        geode_director_keep_set(const char* keys);
-/* Note & key reactions (core/viz/NoteResponse): notes, chords, key and mood driving the style knobs, note
- * colours, the tint and a gentle shape and distortion on every style. Process-wide like the director; each
+/* Note & key reactions (core/viz/NoteResponse): notes, chords, key and mood driving the six style knobs each
+ * style spends its own way; no scene param and no colour. Process-wide like the director; each
  * renderer eases it in and out, and off (0) is exactly the picture without it. The seed is the director's. */
 GEODE_API void        geode_note_response_set(int enabled);
 /* Customize › Advanced › Layers (core/viz/LayerState): a second style over the main one, process-wide like
@@ -659,6 +660,21 @@ GEODE_API double          geode_auto_timer_hold_s(void);
 #define GEODE_STAGE_DRAWS                    (1u << 0)
 #define GEODE_STAGE_CAST_LEADS_AUTO          (1u << 1)
 GEODE_API unsigned        geode_stage_run(unsigned flags);
+
+/* The connected display the stage shows on (viz/StageRun): flags per display are the GEODE_STAGE_DISPLAY_* bits
+ * plus its failures so far << GEODE_STAGE_DISPLAY_FAILURE_SHIFT. pick returns the index of the display to use
+ * (preferred_id while it qualifies) or -1; presents is 1 when the GEODE_STAGE_PRESENT_* bits all hold. Pure. */
+#define GEODE_STAGE_DISPLAY_PRESENTATION     (1u << 0)
+#define GEODE_STAGE_DISPLAY_DEFAULT          (1u << 1)
+#define GEODE_STAGE_DISPLAY_HOST             (1u << 2)
+#define GEODE_STAGE_DISPLAY_ON               (1u << 3)
+#define GEODE_STAGE_DISPLAY_FAILURE_SHIFT    8
+#define GEODE_STAGE_PRESENT_WANTED           (1u << 0)
+#define GEODE_STAGE_PRESENT_ENTITLED         (1u << 1)
+#define GEODE_STAGE_PRESENT_FOUND            (1u << 2)
+GEODE_API int             geode_stage_display_eligible(unsigned flags);
+GEODE_API int             geode_stage_pick_display(const int* ids, const unsigned* flags, int count, int preferred_id);
+GEODE_API int             geode_stage_presents(unsigned flags);
 
 /* The frame pacer (core/viz/frame/Pacer): which vsyncs a surface draws on, and the dt it draws with.
    `state` is eight int64s the shell owns, zeroed at first (GEODE_PACER_STATE_LONGS). */

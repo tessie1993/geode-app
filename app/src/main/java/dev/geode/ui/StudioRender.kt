@@ -77,6 +77,7 @@ import dev.geode.export.ExportRatio
 import dev.geode.export.LoudnessTarget
 import dev.geode.export.RenderPlaylist
 import dev.geode.export.RenderScope
+import dev.geode.model.TourSpot
 import dev.geode.pro.FeatureGate
 import dev.geode.pro.FreeTier
 import dev.geode.pro.PaywallTrigger
@@ -85,6 +86,7 @@ import dev.geode.render.VisualizerView
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.floatingGlass
+import dev.geode.ui.tour.tourTarget
 import kotlinx.coroutines.launch
 
 /**
@@ -199,6 +201,7 @@ fun StudioHub(
                 ),
             selected = section.ordinal,
             onSelect = { select(StudioSection.entries[it]) },
+            modifier = Modifier.tourTarget(TourSpot.STUDIO_MY_VIDEOS),
         )
         Box(Modifier.weight(1f).fillMaxWidth()) {
             // The previous tab (only mid-gesture) under the current one. Each tab is keyed by

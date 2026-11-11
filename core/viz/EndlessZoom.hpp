@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 #include "sound/DriveGain.hpp"
@@ -8,50 +9,31 @@
 
 namespace geode::viz::endless {
 
-// Endless zoom: a dive that never arrives, looped like a Shepard tone.
+// Endless zoom: travel through the picture that never arrives. Falling in, driving through, rising out.
 //
-// One magnification cannot do this. A law that only ever grows has to jump back
-// at the phase wrap, and that jump is a visible scale pop (the old sawtooth
-// `pow(2, phase)`). A law that stays continuous across the wrap has to come back
-// down (the triangle `pow(2, 1 - |2 phase - 1|)` that replaced it), so the
-// picture dived in to 2x and then backed out again.
+// It is one stage of its own (viz/DivePass, dive_frag.glsl), drawn over the finished picture of whatever
+// style is on screen: a flat shader, a marched 3D scene, MilkDrop, a simulation, particles. The style
+// does not know about it, and nothing else moves it: not the style's Zoom, the camera, Trails or the
+// reactions. Its only inputs are the switch and Dive speed (signed: in falls, out rises).
 //
-// The fix is the Shepard-tone trick drawn in space: two copies of the picture an
-// octave apart, both always zooming IN. The nearer copy fades out as it grows
-// while the farther copy fades in, so the pair at phase 1 is exactly the pair at
-// phase 0 and the wrap is invisible. The visible scale stays within 0.5x..2x of
-// the Zoom slider, so the subject keeps its size on average and nothing needs
-// float precision beyond one octave.
+// The picture is nested inside itself an octave apart (the Droste effect). Every copy grows at Dive
+// speed, a new one opens at the centre, the outermost passes the frame and is gone, so the pair of
+// frames at phase 1 is the pair at phase 0 and the loop has no seam. The copies are this frame's picture:
+// nothing is fed back, so the style stays live and sharp at any speed.
 //
-// The core computes the layers and uploads them as `uZoomLayers` (lib_zoom.glsl:
-// x = first layer's magnification, y = second's, z = second's weight); the
-// shaders hold no zoom maths of their own. The 3D styles (lib_camera) do not
-// draw two layers: they would march every ray twice. They dive by flying the
-// CameraRig further along its path instead (CameraRig::step).
-//
-// A flat style now dives by feedback (the `feedback` section below); the layers are what it falls
-// back to while Liquid is paused or the feedback targets will not build.
+// What it replaced, and why each failed (git log -- core/viz/EndlessZoom.hpp):
+//  - one magnification 2^phase popped at the wrap; its triangle fix zoomed in and back out;
+//  - two copies an octave apart, crossfaded: the scale only ran 1x..2x, a pulse, not travel;
+//  - MilkDrop's feedback zoom: the live style was poured over the smear at under 1% a frame and born in
+//    a disc a seventh of the frame wide, so the screen showed seconds-old blur magnified 7x, the style's
+//    own motion gone; and the bass, mids and treble pushed its zoom, turn and warp on every hit.
+
+/** Dive speed's reach either way, octaves a second (the schema's range). */
+inline constexpr float kMaxSpeed = 1.2f;
 
 /**
- * Crossfade window inside the octave. Outside it a single layer is drawn, so the
- * second pass (a whole second run of the style's main()) costs only ~40% of the
- * frames while Endless zoom is on, and nothing while it is off.
- */
-inline constexpr float kFadeStart = 0.3f;
-inline constexpr float kFadeEnd = 0.7f;
-/** Below this the second layer is skipped: it would not change a pixel at 8-bit output. */
-inline constexpr float kSkipWeight = 0.002f;
-
-struct Layers {
-    float mag0 = 1.0f;     // the dominant layer, always drawn
-    float mag1 = 1.0f;     // the other layer
-    float weight1 = 0.0f;  // the other layer's share; 0 draws only the first
-};
-
-/**
- * One frame of the dive: phase in octaves, wrapped into [0, 1). A negative speed
- * dives back out just as seamlessly; non-finite input holds the phase rather than
- * poisoning it, since the sound engine and the LFOs both reach the speed.
+ * One frame of travel: phase in octaves, wrapped into [0, 1). A negative speed backs out just as
+ * seamlessly; non-finite input holds the phase rather than poisoning it.
  */
 inline float advance(float phase, float octavesPerSecond, float dt) {
     const float step = octavesPerSecond * dt;
@@ -61,102 +43,135 @@ inline float advance(float phase, float octavesPerSecond, float dt) {
     return wrapped >= 1.0f ? 0.0f : wrapped;  // -1e-9 floors to 1.0 in float
 }
 
-/** How hard a bass hit pushes the dive: bassAtt 2 (a strong hit) dives 1.35x as fast. */
-inline constexpr float kBassPush = 0.35f;
-/** The dive eases to this share of Dive speed as the music fades; the frame's clock then stops it (sound::motionRate). */
-inline constexpr float kSilenceRate = 0.3f;
-/** However far below its mean the bass falls, the dive never stalls or backs out. */
-inline constexpr float kMinRate = 0.25f;
+// The music's hand on the dive is slow or nothing. No hit, band or beat reaches the rate: Follow reads
+// only how big the music is (the absolute drive, core/sound/DriveGain) averaged over the last kBeats
+// beats the sound engine measured, and moves the rate by at most kReach either way. Without a locked
+// beat there is no window to average over, so it lets go and the dive runs at exactly Dive speed.
 
-/**
- * The music's hand on the dive, a multiplier on Dive speed. MilkDrop dives by a
- * per-frame zoom that presets nudge with the bass, `zoom = 1 + k (bass_att - 1)`;
- * this is that idiom on the sound engine's own bassAtt (core/sound/SoundFrame.h),
- * the relative level: the band over its own running mean, 1.0 typical for this
- * song right now. So the dive surges on the hits and eases between them, and over
- * a song it averages back to the slider. The push scales with the absolute drive
- * (core/sound/DriveGain): a loud dense song dives harder than a quiet sparse one.
- *
- * presence (0..1, ~2 s fades) blends between the music's rate and the silent
- * rate, so a pause eases the dive down to kSilenceRate before the frame's clock stops.
- * Audio drive scales the music's reach like everywhere else; at 0 the dive runs
- * at exactly Dive speed whatever plays.
- */
-inline float musicRate(const GeodeSoundFrame& s, float audioDrive) {
-    auto val = [](float v, float fallback) { return std::isfinite(v) ? v : fallback; };
-    const float presence = std::clamp(val(s.presence, 0.0f), 0.0f, 1.0f);
-    const float bass = std::clamp(val(s.bassAtt, 1.0f), 0.0f, 4.0f);
-    const float drive = std::clamp(val(audioDrive, 1.0f), 0.0f, 2.0f);
-    const float silenceDrop = std::min(drive, 1.0f) * (1.0f - presence) * (1.0f - kSilenceRate);
-    // The push is the music's magnitude, so it follows the absolute drive: an ambient pad with the same
-    // relative swell as a kick moves the dive far less.
-    const float push = kBassPush * drive * presence * (bass - 1.0f) * sound::driveGain(s);
-    return std::max(1.0f - silenceDrop + push, kMinRate);
+class Follow {
+public:
+    /** Measured beats in the average. */
+    static constexpr int kBeats = 8;
+    /** The most the music moves the rate, either way. */
+    static constexpr float kReach = 0.15f;
+    /** Rhythm's lock (SoundFrame.h: beatConf). */
+    static constexpr float kLocked = 0.35f;
+    /** Seconds the multiplier takes to ease to a new average, and back to 1 when the beat is lost. */
+    static constexpr float kEaseSeconds = 2.0f;
+
+    /** Once a frame, dt its length in seconds; audioDrive (0..2) scales the reach, 0 switches it off. */
+    void step(const GeodeSoundFrame& s, float dt, float audioDrive) {
+        dt = std::isfinite(dt) ? std::clamp(dt, 0.0f, 0.1f) : 0.0f;
+        const float conf = std::isfinite(s.beatConf) ? s.beatConf : 0.0f;
+        const float phase = std::isfinite(s.beatPhase) ? s.beatPhase : 0.0f;
+        float target = 1.0f;
+        if (conf < kLocked) {
+            count_ = 0;
+            sum_ = time_ = 0.0f;
+        } else {
+            // A beat is the tracker's phase wrapping, whatever the frame rate.
+            if (phase < lastPhase_ - 0.5f && time_ > 0.0f) {
+                beats_[static_cast<size_t>(next_)] = sum_ / time_;
+                next_ = (next_ + 1) % kBeats;
+                count_ = std::min(count_ + 1, kBeats);
+                sum_ = time_ = 0.0f;
+            }
+            sum_ += (std::isfinite(s.drive) ? std::clamp(s.drive, 0.0f, 1.0f) : 0.0f) * dt;
+            time_ += dt;
+            if (count_ == kBeats) {
+                float mean = 0.0f;
+                for (float b : beats_) mean += b;
+                mean /= static_cast<float>(kBeats);
+                const float reach = kReach * (std::isfinite(audioDrive) ? std::clamp(audioDrive, 0.0f, 1.0f) : 1.0f);
+                target = 1.0f + reach * (2.0f * std::clamp(mean / sound::kDriveFull, 0.0f, 1.0f) - 1.0f);
+            }
+        }
+        lastPhase_ = phase;
+        rate_ += (target - rate_) * (1.0f - std::exp(-dt / kEaseSeconds));
+    }
+
+    /** The multiplier on Dive speed, 1 - kReach .. 1 + kReach. */
+    float rate() const { return rate_; }
+
+private:
+    std::array<float, kBeats> beats_{};
+    int next_ = 0;
+    int count_ = 0;
+    float sum_ = 0.0f;
+    float time_ = 0.0f;
+    float lastPhase_ = 0.0f;
+    float rate_ = 1.0f;
+};
+
+/** Octaves a second the dive travels: Dive speed (signed) times the slow follow. Silence is the frame clock's. */
+inline float travel(float speed, const Follow& follow) {
+    if (!std::isfinite(speed)) return 0.0f;
+    return std::clamp(speed, -kMaxSpeed, kMaxSpeed) * follow.rate();
 }
 
-inline float fadeIn(float phase) {
-    const float t = std::clamp((phase - kFadeStart) / (kFadeEnd - kFadeStart), 0.0f, 1.0f);
+// The nested copies, as dive_frag.glsl draws them: change both together.
+namespace tunnel {
+
+/** Copies inside the frame-filling one, and outside it (under the rounded corners). */
+inline constexpr int kInner = 5;
+inline constexpr int kBase = 1;
+/** A copy's soft edge, in its own half-frames. */
+inline constexpr float kFeather = 0.22f;
+/** How dark the wall just outside a copy's edge falls, and how far out, in its own half-frames. */
+inline constexpr float kShade = 0.45f;
+inline constexpr float kShadeReach = 0.5f;
+
+inline float smooth(float lo, float hi, float x) {
+    const float t = std::clamp((x - lo) / (hi - lo), 0.0f, 1.0f);
     return t * t * (3.0f - 2.0f * t);
 }
 
-/**
- * The two layers at `phase` (octaves, [0, 1)). The outgoing layer grows 1x -> 2x
- * and fades out; the incoming one grows 0.5x -> 1x and fades in. Phase 0 (and
- * Endless zoom off) is a single layer at exactly 1x.
- */
-inline Layers layers(float phase) {
-    phase = std::isfinite(phase) ? std::clamp(phase, 0.0f, 1.0f) : 0.0f;
-    const float outgoing = std::exp2(phase);
-    const float incoming = std::exp2(phase - 1.0f);
-    const float in = fadeIn(phase);
-    Layers l;
-    if (in <= 0.5f) {
-        l = {outgoing, incoming, in};
-    } else {
-        l = {incoming, outgoing, 1.0f - in};
+/** Copy k's magnification at `phase`: k = 0 fills the frame at phase 0, each next one is half the size. */
+inline float scale(float phase, int k) { return std::exp2(phase - static_cast<float>(k)); }
+
+/** The rounded frame's norm at (x, y), -1..1 across the frame: 1 on a copy's edge. */
+inline float rim(float x, float y) { return std::sqrt(std::sqrt(x * x * x * x + y * y * y * y)); }
+
+/** How much of copy k covers the screen point (x, y), before the copies inside it. */
+inline float cover(float phase, int k, float x, float y) {
+    if (k == -kBase) return 1.0f;
+    const float s = scale(phase, k);
+    float a = 1.0f - smooth(1.0f, 1.0f + kFeather, rim(x / s, y / s));
+    if (k == kInner) a *= smooth(0.0f, 1.0f, phase);
+    return a;
+}
+
+/** The shadow copy k throws on what lies outside its edge at (x, y). */
+inline float shade(float phase, int k, float x, float y) {
+    const float s = scale(phase, k);
+    const float d = rim(x / s, y / s);
+    if (d < 1.0f) return 0.0f;
+    float wall = 1.0f - smooth(1.0f, 1.0f + kShadeReach, d);
+    if (k == kInner) wall *= smooth(0.0f, 1.0f, phase);
+    return kShade * wall;
+}
+
+/** The share of the pixel at (x, y) drawn at magnification `mag`, innermost copy first. */
+inline float share(float phase, float mag, float x, float y) {
+    float left = 1.0f;
+    float sum = 0.0f;
+    for (int k = kInner; k >= -kBase; k--) {
+        const float a = cover(phase, k, x, y);
+        if (std::fabs(scale(phase, k) - mag) < 1e-4f * mag) sum += left * a;
+        left *= (1.0f - a) * (1.0f - shade(phase, k, x, y));
     }
-    if (l.weight1 < kSkipWeight) l.weight1 = 0.0f;
-    return l;
+    return sum;
 }
 
-// The feedback dive: what a flat style's Endless zoom draws while Liquid is off.
-//
-// The two layers above only ever show the picture between 1x and 2x, dissolving from one copy to
-// the next, so the eye reads a pulse, not travel. MilkDrop's dive reads as falling in because of
-// feedback: every frame the last frame is magnified a little about the centre and the new picture
-// is laid over it, so everything on screen streams outward for as long as it stays visible and the
-// zoom has no end to arrive at. That is viz/liquid/LiquidPass run with no flow: the motion is
-// viz/liquid/FeedbackMotion's (in or out, heard from the sound), the live style born small at the
-// centre while diving in. What is left here is the pour: how much of the style is laid over it.
-namespace feedback {
-
-/** How far (octaves of zoom) a pour travels before half of it is replaced: the length of the streaks. */
-inline constexpr float kTrailOctaves = 0.5f;
-/** However slow the dive, half the picture is fresh within this many seconds, so it never freezes. */
-inline constexpr float kSlowestHalfLife = 2.0f;
-/** The disc at the vanishing point the live style is born in, centred units. */
-inline constexpr float kBornRadius = 0.14f;
-
-inline float clampedDt(float dt) { return std::isfinite(dt) ? std::clamp(dt, 0.0f, 0.1f) : 0.0f; }
-inline float clampedRate(float octavesPerSecond) {
-    return std::isfinite(octavesPerSecond) ? std::clamp(octavesPerSecond, 0.0f, 2.0f) : 0.0f;
-}
-
-/**
- * The share of the style poured over the feedback this frame. Tied to the dive, not the clock: a
- * pour lasts kTrailOctaves of travel (either way), so a slow dive leaves streaks as long as a fast one.
- */
-inline float inject(float octavesPerSecond, float dt) {
-    const float t = clampedDt(dt);
-    const float byTravel = 1.0f - std::exp2(-clampedRate(octavesPerSecond) * t / kTrailOctaves);
-    const float byTime = 1.0f - std::exp2(-t / kSlowestHalfLife);
-    return std::max(byTravel, byTime);
-}
+}  // namespace tunnel
 
 // Sustain: Trails on a shader style. Those styles redraw the whole frame, so a trail kept in the
 // scene target was painted over and the four trail controls did nothing there. In the feedback pass
-// they are MilkDrop's own three: Trail length is its sustain (how long a frame lingers), Trail zoom
-// its video echo and Trail warp its warp (those two are motion, liquid::motion::diveBase).
+// (viz/liquid/LiquidPass) they are MilkDrop's own three: Trail length is its sustain (how long a frame
+// lingers), Trail zoom its video echo and Trail warp its warp (liquid::motion::trailBase).
+namespace feedback {
+
+inline float clampedDt(float dt) { return std::isfinite(dt) ? std::clamp(dt, 0.0f, 0.1f) : 0.0f; }
 
 /** Half-life of a lingering frame at Trail length 0 and at 1, seconds. */
 inline constexpr float kShortTrail = 0.12f;

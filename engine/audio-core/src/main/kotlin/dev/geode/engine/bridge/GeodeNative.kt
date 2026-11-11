@@ -300,8 +300,8 @@ object GeodeNative {
     ): String
 
     /**
-     * The auto-director (core/viz/Director): the music's feeling decides palette, behaviour and routing over
-     * every style. [on] is the user's switch as set, which an export directs by ([vizPinEngineSettings]);
+     * The auto-director (core/viz/Director): the music's feeling decides behaviour (axes, camera, motion)
+     * over every style; never a colour, never a route. [on] is the user's switch as set, which an export directs by ([vizPinEngineSettings]);
      * [amount] 0 off .. 1 full is what live surfaces drive with now; [seed] is the play's, so a new seed
      * starts the song afresh and an export pinned with it makes the same film.
      */
@@ -325,8 +325,8 @@ object GeodeNative {
     external fun directorKeepSet(keys: String)
 
     /**
-     * Note & key reactions (core/viz/NoteResponse): the notes, chords, key and mood drive the style knobs,
-     * the note colours, the tint toward them and a gentle shape and distortion. Process-wide like
+     * Note & key reactions (core/viz/NoteResponse): the notes, chords, key and mood drive the six style
+     * knobs each style spends its own way; no scene param, no colour. Process-wide like
      * the director, so the screen, an export, the wallpaper and the dream agree; off is exactly the picture
      * without it. The play's seed is the director's ([directorSet]). A live renderer mixes fresh entropy into it per play,
      * so the live note response differs every time; an export pins its settings with none
@@ -1397,6 +1397,28 @@ object GeodeNative {
     const val STAGE_CASTING = 1 shl 4
     const val STAGE_DRAWS = 1 shl 0
     const val STAGE_CAST_LEADS_AUTO = 1 shl 1
+
+    /** Whether a display with these STAGE_DISPLAY_* bits (and failures) can take the stage (core/viz/StageRun). */
+    external fun stageDisplayEligible(flags: Int): Boolean
+
+    /** The index of the connected display the stage shows on ([preferredId] while it qualifies), or -1. */
+    external fun stagePickDisplay(
+        ids: IntArray,
+        flags: IntArray,
+        preferredId: Int,
+    ): Int
+
+    /** True when the STAGE_PRESENT_* bits all hold: the stage moves to the picked display. */
+    external fun stagePresents(flags: Int): Boolean
+
+    const val STAGE_DISPLAY_PRESENTATION = 1 shl 0
+    const val STAGE_DISPLAY_DEFAULT = 1 shl 1
+    const val STAGE_DISPLAY_HOST = 1 shl 2
+    const val STAGE_DISPLAY_ON = 1 shl 3
+    const val STAGE_DISPLAY_FAILURE_SHIFT = 8
+    const val STAGE_PRESENT_WANTED = 1 shl 0
+    const val STAGE_PRESENT_ENTITLED = 1 shl 1
+    const val STAGE_PRESENT_FOUND = 1 shl 2
 
     // The live wallpaper's and the dream's run rule (core/viz/SurfaceRun). [flags] are the
     // SURFACE_* bits the shell observed; [animateUntilMs] is the wall-clock time the entitlement

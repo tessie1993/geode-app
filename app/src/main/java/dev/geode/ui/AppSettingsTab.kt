@@ -45,7 +45,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.geode.R
-import dev.geode.model.TutorialChapter
+import dev.geode.model.TourChapter
 import dev.geode.ui.pro.GoProSettingsRow
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
@@ -168,7 +168,7 @@ enum class SettingsSectionKey(
 internal fun AppSettingsTab(
     viewModel: PlayerViewModel,
     onOpenStudioRender: () -> Unit,
-    onPlayTutorial: (List<TutorialChapter>) -> Unit,
+    onPlayTutorial: (List<TourChapter>) -> Unit,
     onResetTutorials: () -> Unit,
     requestedGroup: SettingsGroupKey? = null,
     onRequestedGroupShown: () -> Unit = {},
@@ -276,7 +276,7 @@ private fun SettingsGroupPage(
     open: (SettingsSectionKey) -> Boolean,
     onToggle: (SettingsSectionKey) -> Unit,
     onOpenStudioRender: () -> Unit,
-    onPlayTutorial: (List<TutorialChapter>) -> Unit,
+    onPlayTutorial: (List<TourChapter>) -> Unit,
     onResetTutorials: () -> Unit,
 ) {
     val settings: SettingsViewModel = geodeViewModel()
@@ -324,7 +324,7 @@ private fun SettingsSectionBody(
         SettingsSectionKey.NOTIFICATION -> behaviour?.let { b -> b.prefs?.let { NotificationButtonsSection(it, b.update) } }
         SettingsSectionKey.PICTURE_IN_PICTURE -> PictureInPictureSection(settings)
         SettingsSectionKey.TOUCH -> TouchSection(settings)
-        SettingsSectionKey.CONNECTED_DISPLAY -> ConnectedDisplaySection(settings)
+        SettingsSectionKey.CONNECTED_DISPLAY -> ConnectedDisplaySection()
         SettingsSectionKey.WALLPAPER_DREAM -> behaviour?.let { b -> b.prefs?.let { WallpaperDreamSection(it, b.update) } }
         SettingsSectionKey.ANALYSIS -> SoundAnalysisSection(settings)
         SettingsSectionKey.LOOK_TEXT -> LookTextSection(settings)

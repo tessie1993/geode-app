@@ -13,8 +13,29 @@ Two folders, on purpose:
 - `docs/store/` holds what a person reads: answers to the forms with their evidence, and how
   the pictures are made.
 
-Before pasting, run `bash tools/store-check.sh` (lengths, banned words) and
-`bash tools/store-stats.sh` (the counts; if one differs from the listing, fix the listing).
+Before pasting, run `bash tools/store-check.sh` (lengths, banned words, emoji, capitals, the old
+name) and `bash tools/store-stats.sh` (the counts; if one differs from the listing, fix the
+listing).
+
+**The owner's step-by-step to get on Play is [UPLOAD.md](UPLOAD.md).** This file is the map of
+what goes in which form.
+
+## Google Play's rules, as read on 2026-11-11
+
+| Rule | Page |
+|---|---|
+| Title 30, short description 80, full description 4000 characters; contact email required | [answer/9859152](https://support.google.com/googleplay/android-developer/answer/9859152) |
+| Metadata policy: no emoji or shouting capitals, no ranking, award, price or "new" claims, no repeated or unrelated keywords, no anonymous testimonials, accurate description, general-audience imagery | [answer/9898842](https://support.google.com/googleplay/android-developer/answer/9898842) |
+| Icon 512 x 512 32-bit PNG ≤ 1024 KB; feature graphic 1024 x 500 no alpha; screenshots, alt text | [answer/9866151](https://support.google.com/googleplay/android-developer/answer/9866151) |
+| Data safety: what counts as collected, SDK data counts, privacy policy required for every app | [answer/10787469](https://support.google.com/googleplay/android-developer/answer/10787469) |
+| Google Cast SDK's own data disclosure | [developers.google.com/cast/docs/android_sender/data_disclosure](https://developers.google.com/cast/docs/android_sender/data_disclosure) |
+| Content rating (IARC) | [answer/9859655](https://support.google.com/googleplay/android-developer/answer/9859655) |
+| Target audience and content; Families policy | [answer/9867159](https://support.google.com/googleplay/android-developer/answer/9867159), [answer/9893335](https://support.google.com/googleplay/android-developer/answer/9893335) |
+| Foreground service declaration: description, impact, use case, video per type | [answer/13392821](https://support.google.com/googleplay/android-developer/answer/13392821) |
+| Health apps declaration, required of every app | [answer/14738291](https://support.google.com/googleplay/android-developer/answer/14738291) |
+| New personal accounts: closed test with 12 testers opted in for 14 days in a row before production | [answer/14151465](https://support.google.com/googleplay/android-developer/answer/14151465) |
+| Category and tags | [answer/9859673](https://support.google.com/googleplay/android-developer/answer/9859673) |
+| Release notes 500 characters | [answer/9859348](https://support.google.com/googleplay/android-developer/answer/9859348) |
 
 ## Steps in the Play Console
 
@@ -22,13 +43,13 @@ Before pasting, run `bash tools/store-check.sh` (lengths, banned words) and
 |---|---|---|---|
 | 1 | Create app | Name "BeatRealms 3D Music Visualizer", default language English (US), App, Free | `fastlane/metadata/android/en-US/title.txt` |
 | 2 | Grow › Store presence › Main store listing | Paste App name, Short description, Full description | `title.txt`, `short_description.txt`, `full_description.txt` |
-| 3 | Same page › Graphics | App icon 512, feature graphic 1024 x 500, phone screenshots (8), 7-inch tablet (8), 10-inch tablet (8), each with its alt text | [screenshots.md](screenshots.md); files from the **Store assets** workflow's artifact |
+| 3 | Same page › Graphics | App icon `docs/brand/beatrealms-icon-512.png`, feature graphic `docs/brand/beatrealms-feature-graphic-1024x500.png`, phone screenshots (8), 7-inch tablet (8), 10-inch tablet (8), each with its alt text | [screenshots.md](screenshots.md); screenshots from the **Store assets** workflow's artifact |
 | 4 | Same page › Video | Paste the YouTube URL | [promo-video.md](promo-video.md) |
 | 5 | Store settings | Category Music & Audio, tags, contact email, website | [category-tags.md](category-tags.md) |
 | 6 | Policy › App content › Privacy policy | The public URL of `docs/privacy-policy.html` | [data-safety.md](data-safety.md) › Privacy policy |
 | 7 | App content › Data safety | Answer as written | [data-safety.md](data-safety.md) |
 | 8 | App content › Content rating | Answer the questionnaire | [content-rating.md](content-rating.md) |
-| 9 | App content › Target audience, Ads, App access, News, Health, Government, Financial | Target age: 13-15, 16-17, 18 and over. The rest as written. See "A 13+ app" below | [content-rating.md](content-rating.md) |
+| 9 | App content › Target audience, Ads, App access, News, Health apps, Government, Financial | Target age: 13-15, 16-17, 18 and over. The rest as written. See "A 13+ app" below | [content-rating.md](content-rating.md) |
 | 10 | App content › Foreground service permissions (appears once a bundle is uploaded) | One description and one video per service type | [permissions.md](permissions.md) |
 | 11 | Monetize › Products › In-app products | Create the one-time product with id `beatrealms3d_pro`, set its price, activate it | owner |
 | 12 | Release › Production (or a test track first) | Upload the AAB from `release.yml`, paste the release notes | `fastlane/metadata/android/en-US/changelogs/default.txt` |
@@ -80,40 +101,54 @@ read 2026-11-11:
 - Running the **Store assets** workflow, looking at the pictures and choosing which go up.
 - Confirming the privacy policy's public URL shows the renamed text.
 
+## Placeholders the owner fills
+
+- `CONTACT_EMAIL` in `docs/privacy-policy.md`, `app/src/main/assets/privacy_policy.md` (the two
+  must stay identical, `PrivacyPolicyTest`) and `docs/privacy-policy.html`: the address shown on
+  the store page. Replace it in one commit before the policy URL goes into the Console.
+- The store listing's contact email and website (Store settings).
+- The price of Pro.
+
 ## Decisions waiting for the owner
 
-1. **Title.** "BeatRealms 3D Music Visualizer" is exactly 30 characters. The alternative is
-   the bare "BeatRealms 3D".
-2. **Data safety.** Declare the Cast SDK's anonymous logging (recommended) or answer "no data
-   collected" ([data-safety.md](data-safety.md)).
-3. **Privacy policy.** Four edits before the form goes in: the "collects nothing" opening, the
-   name, a line on deletion, the live URL ([data-safety.md](data-safety.md)).
-4. **The first-run safety notice** says nothing can flash more than three times a second, on
-   screen or in exported video. The code limits the parameters and no longer measures the
-   finished frame. The store text makes the weaker claim; the in-app text should match what the
-   code does, or the limiter should come back.
-5. **Target age: decided 2026-11-11, "13+"** (it supersedes "target 10+" of the same day):
-   tick 13-15, 16-17 and 18 and over. The Families policy does not apply.
-   [families.md](families.md) keeps why 9-12 was dropped and the four things it would need.
-6. **The content rating questions** are answered from the code, but Google does not print the
+1. **Title.** "BeatRealms 3D Music Visualizer" is exactly 30 characters and describes the app.
+   The alternative is the bare "BeatRealms 3D".
+2. **Data safety.** Declare the Cast SDK's anonymous logging (recommended, because Play counts
+   an SDK's transmissions as the app's) or answer "no data collected"
+   ([data-safety.md](data-safety.md)). The privacy policy is worded for the recommended answer.
+3. **Target age: decided 2026-11-11, "13+"**: tick 13-15, 16-17 and 18 and over. The Families
+   policy does not apply. [families.md](families.md) keeps why 9-12 was dropped.
+4. **The content rating questions** are answered from the code, but Google does not print the
    questionnaire in its help pages, so the wording there will differ from the notes.
-7. **The styles named "Acid"** in a store screenshot or the listing: harmless in the app,
-   but keep it out of store pictures if a drug reference is a worry.
-8. **Feature graphic.** With or without the wordmark; the old one says MuzViz
-   ([screenshots.md](screenshots.md)).
-9. **Screenshots: decided 2026-11-11**, "screenshots free, record pro": the screenshots show
-   the free app, the recorded clips show Pro. Still open: which styles, and whether the player
-   screenshot should be retaken on a phone with real cover art.
-10. **Promo video.** Optional for Play. The workflow's clips are silent and software-rendered;
-    a published video needs a recording from a real phone ([promo-video.md](promo-video.md)).
-11. **Tags.** Play's tag list could not be read outside the Console; pick from the order in
-    [category-tags.md](category-tags.md).
+5. **The styles named "Acid"** in a store screenshot or the listing: harmless in the app, but
+   keep them out of store pictures (the metadata policy bans depictions of drug use, and a
+   reviewer reads names).
+6. **Screenshots: decided 2026-11-11**, "screenshots free, record pro". Still open: which styles,
+   and whether the player screenshot is retaken on a phone with real cover art.
+7. **Promo video.** Optional. The workflow's clips are silent and software-rendered; a
+   published video needs a recording from a real phone ([promo-video.md](promo-video.md)).
+8. **Tags.** Play's tag list could not be read outside the Console; pick from the order in
+   [category-tags.md](category-tags.md).
+9. **"MilkDrop" and "Google Cast" in the listing.** Both are other parties' names, used only to
+   say what the app is compatible with ("a MilkDrop-compatible engine", "with Google Cast").
+   If a reviewer objects, drop the words; nothing else depends on them.
+
+## Listing sentences to revisit when pending PRs merge
+
+- **Real-time Record (#1035):** the "Record a take (Pro)" bullet describes today's take (the
+  changes are replayed and rendered in the background). Reword it to what #1035 records.
+- **Pool style (#1036):** one more style; rerun `tools/store-stats.sh` and change "244 visual
+  styles" (and the changelog's 244) to the new count. If Pool is free, "more than 60" stays true.
+- **Macro editor (#1034):** the listing says "quick knobs" only. Add "make your own knobs" to the
+  Customize bullet if the editor ships, and say whether it is Pro.
+- **Cast microphone fix:** no listing change; add the microphone foreground-service declaration
+  ([permissions.md](permissions.md) › Pending).
 
 ## What has been checked and what has not
 
 Checked: the listing's lengths and banned words (`tools/store-check.sh`); every count
-(`tools/store-stats.sh`, [stats.md](stats.md)); the icon's and old feature graphic's size and
-format; the collect script on made-up pictures; each form answer against the code lines it
+(`tools/store-stats.sh`, [stats.md](stats.md)); the icon's and the new feature graphic's size
+and format; each claim in the full description against the code on `main` at 022d8dd8d; the collect script on made-up pictures; each form answer against the code lines it
 cites; Play's rules against the help pages named in each file, read on 2026-11-11.
 
 Not checked: the screenshot tests and the workflow have never run. They were not compiled

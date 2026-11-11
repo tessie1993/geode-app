@@ -185,11 +185,29 @@ void theCatalogueFollowsTheShaders(const std::string& assetsRoot) {
     check(shaders > 0, "no shader style read under " + assetsRoot);
 }
 
+// Customize › Look on a shader style is the style's own grade() and pal(): the composite leaves the shader
+// family ungraded (grade::gateFor), so a style that stops reading one of these uniforms leaves its control dead.
+void everyShaderStyleReadsTheLookControls(const std::string& assetsRoot) {
+    static const char* const kLook[] = {"uPalBase",    "uPalRange", "uPal2Base", "uPaletteMix", "uPalLutMix",
+                                        "uColorShift", "uHueRange", "uSat",      "uBright",     "uContrast",
+                                        "uGamma",      "uIntensity", "uTemperature", "uBloom"};
+    AAssetManager assets{assetsRoot};
+    const ShaderSource source(&assets);
+    for (const std::string& id : catalogue::allIds()) {
+        if (!catalogue::isShaderStyle(id)) continue;
+        const auto src = source.load(id + "_frag.glsl", nullptr);
+        if (!src) continue;
+        const auto words = wordsReachedFromMain(*src);
+        for (const char* u : kLook) check(words.count(u) != 0, id + ": never reads " + u + ", so its Look control is dead");
+    }
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
     theReaderFollowsCallsNotDeclarations();
     theCatalogueFollowsTheShaders(argc > 1 ? argv[1] : "app/src/main/assets/");
+    everyShaderStyleReadsTheLookControls(argc > 1 ? argv[1] : "app/src/main/assets/");
     if (failures == 0) std::printf("style_reads_test: ok\n");
     return failures == 0 ? 0 : 1;
 }

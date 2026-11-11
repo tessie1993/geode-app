@@ -25,7 +25,7 @@ GEODE_PARAM(Float, speed, 1.0f, 0.05f, 4.0f, Fade)
 GEODE_PARAM(Float, zoom, 1.0f, catalogue::kTouchZoom.min, catalogue::kTouchZoom.max, Fade)
 GEODE_PARAM(Float, rotation, 0.0f, catalogue::kTouchRotation.min, catalogue::kTouchRotation.max, Fade)
 GEODE_PARAM(Bool, endlessZoom, false, 0, 1, Hold)
-GEODE_PARAM(Float, endlessZoomSpeed, 0.3f, 0.0f, 1.2f, Fade)
+GEODE_PARAM(Float, endlessZoomSpeed, 0.3f, -1.2f, 1.2f, Fade)
 GEODE_PARAM(Float, sway, 0.0f, 0.0f, 1.0f, Fade)
 // Inert since wave three; removed with the next format bump.
 GEODE_PARAM(Float, pulse, 0.0f, 0.0f, 1.0f, Fade)
@@ -229,18 +229,20 @@ GEODE_PARAM(Int, reactSeed, 0, 0, 16777215, Hold)
 // Note & key reactions (viz/NoteResponse), per style like every Customize control, so a preset, a
 // template and an export carry them. Appended so every existing wire index survives. Inert while
 // Settings › Behaviour › Note & key reactions is off: the layer then does nothing at all.
-// Customize › Advanced › Note & key (Pro): how much each source drives, 0 none .. 1 as designed .. 2.
-// The notes' colours: the whole-picture tint's spread and pull.
+// Customize › Music › Notes & key (Pro): how much each part feeds the style knobs, 0 none .. 1 as
+// designed .. 2.
+// Read by nothing: it was the tint toward the notes' colour, which is gone. Kept so the wire indices
+// and saved looks survive.
 GEODE_PARAM(Float, noteColor, 1.0f, 0.0f, 2.0f, Fade)
-// Pitch height: morph.
+// Pitch height: the TONE knob.
 GEODE_PARAM(Float, notePitch, 1.0f, 0.0f, 2.0f, Fade)
-// Leaps swing and twist, steps glide.
+// Leaps and steps: the swing and glide behind the SPACE knob.
 GEODE_PARAM(Float, noteIntervals, 1.0f, 0.0f, 2.0f, Fade)
-// Harmonic tension bends (warp, chromatic split).
+// Harmonic tension and builds: the BUILD knob.
 GEODE_PARAM(Float, noteTension, 1.0f, 0.0f, 2.0f, Fade)
-// A chord change shifts the scene (fold count, a turn).
+// A chord change turns the swing behind the SPACE knob.
 GEODE_PARAM(Float, noteChords, 1.0f, 0.0f, 2.0f, Fade)
-// The drums' push, on top of how percussive the track is.
+// The drums' push on the PULSE knob, on top of how percussive the track is.
 GEODE_PARAM(Float, noteDrums, 1.0f, 0.0f, 2.0f, Fade)
 
 // Liquid mode's pickers (viz/liquid). Appended so every existing wire index survives.

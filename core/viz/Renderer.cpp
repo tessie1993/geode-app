@@ -31,7 +31,8 @@ Renderer::Renderer(AAssetManager* assets, std::string cacheDir)
                           [this] { return marchScale_.load(std::memory_order_relaxed) * thermal_.tierInfo().marchScale; },
                           [this] { return &resolver_.noteUniforms(); },
                           [this] { return settingsLatch_.directorSeed(); },
-                          [this] { return offscreen_.load(std::memory_order_relaxed); }}),
+                          [this] { return offscreen_.load(std::memory_order_relaxed); },
+                          [this] { return thermal_.settling(); }}),
       compositePass_(assets_, &programCache_),
       pcm_(kPcmCapacity),
       pcmDeliverScratch_(kPcmCapacity, 0.0f),
@@ -179,7 +180,10 @@ void Renderer::applyMilkRequests() {
     Scene* milk = builtScene("milkdrop");
     if (!milk) return;
     // A preset picked in silence still loads and shows: about a second of redraws.
-    if (!preset.empty() || reload || !textureDir.empty()) redrawFrames_ = 60;
+    if (!preset.empty() || reload || !textureDir.empty()) {
+        redrawFrames_ = 60;
+        thermal_.noteSettling();  // projectM compiles the preset's shaders on this thread
+    }
     if (!textureDir.empty()) milk->setMilkTextureDir(textureDir);
     if (!preset.empty()) milk->queueMilkPreset(preset);
     if (reload) milk->reloadMilkPreset();
@@ -342,6 +346,7 @@ void Renderer::onSurfaceCreated() {
     compositePass_.release();
     uiBlurPass_.release();
     liquidPass_.release();
+    divePass_.release();
     overlays_.release();
     if (paletteLutTex_ != 0) {
         glDeleteTextures(1, &paletteLutTex_);
@@ -388,6 +393,8 @@ void Renderer::onSurfaceCreated() {
     if (!edgeGlowPass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "edge glow off: %s", error.c_str());
     // Liquid mode: half float where this GPU renders it, so a deep pour-back does not band.
     if (!liquidPass_.create(assets_, &programCache_, *fadeVert, fluid::probeFormats().ok, &error)) fail(error);
+    // Endless zoom is an extra: without its pass the picture shows undived.
+    if (!divePass_.create(assets_, &programCache_, *fadeVert, &error)) GEODE_LOGW(kTag, "endless zoom off: %s", error.c_str());
 
     // The cyclic palette LUT: five 256-entry RGB rows.
     const auto palette = assets_.readAsset("shaders/cyclic_palettes.bin");
@@ -578,6 +585,7 @@ void Renderer::trimScenes(const std::string& keepId, MemoryTrim trim) {
         // The passes' own targets are the larger share of what a hidden app holds (the liquid's two
         // sides alone are six screens of pixels). Each is built again by the frame that needs it.
         liquidPass_.releaseTargets();
+        divePass_.releaseTarget();
         trailPass_.releaseTargets();
         uiBlurPass_.releaseTargets();
         bornFbo_.release();
@@ -590,6 +598,18 @@ void Renderer::trimScenes(const std::string& keepId, MemoryTrim trim) {
             break;
         }
     }
+}
+
+void Renderer::logResidency(float wallDt) {
+    const ThermalTier tier = thermal_.tier();
+    if (scenes_.size() == loggedResident_ && tier == loggedTier_) return;
+    loggedResident_ = scenes_.size();
+    loggedTier_ = tier;
+    int weight = 0;
+    for (const auto& entry : residency_.entries()) weight += entry.weight;
+    GEODE_LOGI(kTag, "residency: scenes=%zu weight=%d spareBudget=%d stagerIdle=%d tier=%d settling=%d target=%dx%d frameMs=%.1f",
+               scenes_.size(), weight, SceneResidency::spareBudget(appliedTier_), stager_.idle() ? 1 : 0,
+               static_cast<int>(tier), thermal_.settling() ? 1 : 0, renderWidth_, renderHeight_, wallDt * 1000.0f);
 }
 
 Scene* Renderer::builtScene(const std::string& id) {

@@ -113,6 +113,9 @@ public:
     // The live feed hears only its layered source (the mic, the player stopped): the engine then treats
     // the source as not the player's, so its silence rule and fadeGain are the mic's (PlayerSignals).
     void setLayerAlone(bool on) { layerAlone_.store(on, std::memory_order_relaxed); }
+    // The live feed is the player's ring (one a sink plays). Off for another ring (the wallpaper's output
+    // mix): the player's source, fade and boundaries are not this engine's (PlayerSignals::heardAsPlayer).
+    void setFedPlayersRing(bool on) { fedPlayersRing_.store(on, std::memory_order_relaxed); }
     // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
     void setSoundTuning(const GeodeSoundTuning& tuning);
     void queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength);
@@ -294,6 +297,7 @@ private:
     std::atomic<bool> edgeGlowOn_{false};
     std::atomic<bool> offscreen_{false};
     std::atomic<bool> layerAlone_{false};
+    std::atomic<bool> fedPlayersRing_{true};
     std::atomic<int> fixedFps_{0};
     CameraRig camera_;
     // One engine per renderer (one per surface), so each is frame-locked to its own dt. Guarded by soundLock_

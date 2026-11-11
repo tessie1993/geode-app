@@ -4,14 +4,14 @@ Pro is one non-consumable one-time product, bought through Play Billing Library 
 
 ## Before the first upload
 
-1. **Decide the product id.** The code asks for `muzviz_pro` (`BillingRepository.PRO_PRODUCT_ID` in `app/src/main/java/dev/geode/pro/BillingRepository.kt`). Buyers never see the id, only the product's name. Play never lets an id be renamed or used again, so change the constant now if you want another one (for example `beatrealms_pro`), and create the product under the same id.
-2. **Decide the application id.** It is `com.muzviz.studiopro` and is permanent once the app is published. The product and the licence key belong to it.
+1. **The product id is `beatrealms3d_pro`** (`BillingRepository.PRO_PRODUCT_ID` in `app/src/main/java/dev/geode/pro/BillingRepository.kt`). Buyers never see the id, only the product's name. Play never lets an id be renamed or used again, so create the product under exactly this id.
+2. **The application id is `com.beatrealms3d.app`** and is permanent once the app is published. Create the Play Console app under it; the product and the licence key belong to it.
 3. **Set the licence key.** Play Console › Monetize with Play › Monetization setup › Licensing shows a Base64 public key. Save it as the repository *variable* `PLAY_LICENSE_KEY` (it is public, not a secret). `release.yml` refuses to sign a bundle without it. A build without the key refuses every purchase, so the buyer is refunded after three days.
 
 ## In Play Console
 
 1. Create the app, then upload a signed bundle from `release.yml` to **Internal testing**. Products can only be created once a bundle with the `BILLING` permission is uploaded.
-2. Monetize with Play › Products › **One-time products** › Create: id `muzviz_pro`, a name and description, one purchase option of type *Buy*, the price, all countries. **Activate** it. Until it is active the paywall shows "Pro isn't available in your country yet" with a Retry button.
+2. Monetize with Play › Products › **One-time products** › Create: id `beatrealms3d_pro`, a name and description, one purchase option of type *Buy*, the price, all countries. **Activate** it. Until it is active the paywall shows "Pro isn't available in your country yet" with a Retry button.
 3. Setup › **License testing**: add the testers' Google accounts. Their purchases cost nothing and offer test cards.
 4. Internal testing › Testers: add the same accounts, and open the opt-in link on each test device.
 

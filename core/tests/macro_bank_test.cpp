@@ -2,7 +2,8 @@
 // scene params. Centre is the identity, a full turn each way moves every linked field by its weight
 // and never past its range, a link the style cannot show is skipped, the offset rides on a moved
 // base, every edit validates, the text survives a round trip and garbage, and the four built-in
-// knobs move a flat style, a 3D style, Fluid and MilkDrop both ways within the safety clamp. The
+// knobs move a flat style, a 3D style, Fluid and MilkDrop both ways, hard, within the safety clamp, and a bank
+// saved with the first built-in knobs loads with today's. The
 // process-wide bank (geode_macro_bank_set) starts as the default, is replaced whole, never in place.
 //   macro_bank_test --write core/tests/macro_editor.txt   rewrites the editor fixture after a deliberate change
 // Built and run by CI (.github/workflows/native-host-tests.yml, "Macro bank host tests"); no GL.
@@ -375,7 +376,7 @@ void theEditorCopiesMovesAndResets() {
     Bank b = macrobank::setValue(def, glow, 0.5f);
     b = macrobank::duplicateKnob(b, glow);
     check(b.knobs.size() == def.knobs.size() + 1 && b.knobs[1].id == def.nextId, "a copy sits right after its knob with a new id");
-    check(b.knobs[1].name == "Glow 2" && b.knobs[1].hint.empty(), "a copy is named after its knob and has no hint");
+    check(b.knobs[1].name == def.knobs[0].name + " 2" && b.knobs[1].hint.empty(), "a copy is named after its knob and has no hint");
     check(b.knobs[1].links == def.knobs[0].links && b.knobs[1].value == 0.5f, "a copy moves what its knob moves");
     check(!macrobank::isBase(b.knobs[1].id), "a copy is the user's knob");
     check(macrobank::duplicateKnob(def, 4242) == def, "copying an unknown knob changes nothing");
@@ -473,7 +474,7 @@ void theEditorTextSaysWhatToOffer() {
         check(target != LfoTarget::None && t.size() == 3u, "a target row names a linkable target: " + t[1]);
         check((t[2] == "1") == modtargets::reaches(target, s.flat), "and whether it reaches the style: " + t[1]);
     }
-    // FluidForce is on Flow and only reaches the fluid engine.
+    // FluidForce is on Motion and only reaches the fluid engine.
     bool dimmed = false;
     for (const auto& l : rowsOf(text, "link")) dimmed = dimmed || (l[1] == "FLUID_FORCE" && l[4] == "0");
     check(dimmed, "a link the style cannot show says so");
@@ -552,13 +553,16 @@ void curvesAreEditedAndKept() {
     using macrobank::Curve;
     const Bank& def = macrobank::defaultBank();
     const int glow = def.knobs[0].id;
-    Bank b = macrobank::setCurve(def, glow, LfoTarget::Bloom, Curve::EaseOut);
+    // The first built-in knob's first link, and a target it does not link.
+    const LfoTarget first = def.knobs[0].links[0].target;
+    const LfoTarget other = LfoTarget::Ripple;
+    Bank b = macrobank::setCurve(def, glow, first, Curve::EaseOut);
     check(b.knobs[0].links[0].curve == Curve::EaseOut, "setCurve sets the link's curve");
     check(b.knobs[0].hint.empty(), "and clears the built-in hint");
-    check(macrobank::setCurve(b, glow, LfoTarget::Zoom, Curve::EaseIn) == b, "a curve on a target the knob does not link is refused");
-    check(macrobank::setCurve(b, 999, LfoTarget::Bloom, Curve::EaseIn) == b, "and on an unknown knob");
-    check(macrobank::setCurve(b, glow, LfoTarget::Bloom, static_cast<Curve>(9)) == b, "and an unknown curve");
-    b = macrobank::setLink(b, glow, LfoTarget::Bloom, 0.5f, -0.5f);
+    check(macrobank::setCurve(b, glow, other, Curve::EaseIn) == b, "a curve on a target the knob does not link is refused");
+    check(macrobank::setCurve(b, 999, first, Curve::EaseIn) == b, "and on an unknown knob");
+    check(macrobank::setCurve(b, glow, first, static_cast<Curve>(9)) == b, "and an unknown curve");
+    b = macrobank::setLink(b, glow, first, 0.5f, -0.5f);
     check(b.knobs[0].links[0].curve == Curve::EaseOut && b.knobs[0].links[0].up == 0.5f, "a range edit keeps the curve");
     const Bank copy = macrobank::duplicateKnob(b, glow);
     check(copy.knobs[1].links[0].curve == Curve::EaseOut, "a copy keeps its curves");
@@ -574,10 +578,10 @@ void curvesSurviveTheTextAndOldTextLoads() {
     const Bank& def = macrobank::defaultBank();
     const std::string plain = macrobank::encode(def);
     check(plain.find("LINEAR") == std::string::npos, "a linear link writes no curve, so the text reads as before curves");
-    Bank b = macrobank::setCurve(def, def.knobs[2].id, LfoTarget::Warp, Curve::SCurve);
-    b = macrobank::setCurve(b, def.knobs[3].id, LfoTarget::Speed, Curve::EaseIn);
+    Bank b = macrobank::setCurve(def, def.knobs[0].id, LfoTarget::Warp, Curve::SCurve);
+    b = macrobank::setCurve(b, def.knobs[1].id, LfoTarget::Speed, Curve::EaseIn);
     const std::string text = macrobank::encode(b);
-    check(text.find("link|WARP|0.6|0|S_CURVE\n") != std::string::npos, "a curved link writes its curve last");
+    check(text.find("link|WARP|0.8|0|S_CURVE\n") != std::string::npos, "a curved link writes its curve last");
     check(macrobank::decode(text) == b, "curves round trip");
     // Text saved before curves: four fields per link.
     const std::string old = "macrobank|1|6\nknob|5|0.5|Old|\nlink|ZOOM|0.3|-0.2\nlink|BLOOM|0.1|0.1|WOBBLE\n";
@@ -600,7 +604,9 @@ void theEditorTextShowsRangesInUnits() {
         check(about(std::stof(l[6]), std::stof(l[2]) * (r.max - r.min)) && about(std::stof(l[7]), std::stof(l[3]) * (r.max - r.min)),
               "its offsets are its range in the param's units: " + l[1]);
     }
-    check(links[0][1] == "BLOOM" && links[0][6] == "0.25", "a full turn up of Glow adds 0.25 Bloom, the safe top");
+    bool bloom = false;
+    for (const auto& l : links) bloom = bloom || (l[1] == "BLOOM" && l[6] == "0.25");
+    check(bloom, "a full turn up of the knob that links Bloom adds 0.25, the safe top");
     const auto curves = rowsOf(macrobank::editorText(def, ""), "curve");
     check(curves.size() == static_cast<size_t>(macrobank::kCurveCount) && curves[0][1] == "LINEAR" && curves[3][1] == "S_CURVE",
           "the editor lists every curve");
@@ -637,13 +643,19 @@ void aSliderMakesOrJoinsAKnob() {
             check(named.find('(') == std::string::npos && r[1].rfind(named, 0) == 0, "a knob's name drops the unit: " + named);
         }
     }
-    for (const auto& r : rows) {
-        if (r[1] == "Bloom") check(r[3] == "LOOK" && r[4] == std::to_string(def.knobs[0].id), "Bloom is moved by Glow");
-        if (r[1] == "Zoom") check(r[4].empty(), "Zoom by no knob");
+    int bloomKnob = 0;
+    for (const Knob& knob : def.knobs) {
+        for (const Link& link : knob.links) {
+            if (link.target == LfoTarget::Bloom) bloomKnob = knob.id;
+        }
     }
-    const Bank both = macrobank::addLink(macrobank::addKnobFor(def, "Zoom"), def.knobs[0].id, LfoTarget::Zoom);
+    for (const auto& r : rows) {
+        if (r[1] == "Bloom") check(r[3] == "LOOK" && r[4] == std::to_string(bloomKnob), "Bloom is moved by the built-in knob that links it");
+        if (r[1] == "Ripple") check(r[4].empty(), "Ripple by no knob");
+    }
+    const Bank both = macrobank::addLink(macrobank::addKnobFor(def, "Ripple"), def.knobs[0].id, LfoTarget::Ripple);
     for (const auto& r : rowsOf(macrobank::controlsText(both), "control")) {
-        if (r[1] == "Zoom") check(r[4] == std::to_string(def.knobs[0].id) + "," + std::to_string(both.knobs.back().id), "ids in bank order");
+        if (r[1] == "Ripple") check(r[4] == std::to_string(def.knobs[0].id) + "," + std::to_string(both.knobs.back().id), "ids in bank order");
     }
 }
 
@@ -833,6 +845,112 @@ void theDefaultBankIsFourLiveKnobs() {
     check(macrobank::liveText(fluidOnly, s.fluid) == "knob|1|1|0\n", "and is live upward on Fluid");
 }
 
+// How hard a knob turned all the way one way (up = true) moves a style: the links in reach whose param is
+// not one the safety clamp keeps small (Bloom, Brightness, Intensity stop 0.25 over neutral, so a whole range
+// of them is a small change in the picture), counted when they move at least kStrongShare of the range.
+constexpr float kStrongShare = 0.2f;
+constexpr int kStrongLinks = 2;
+constexpr float kStrongSum = 0.6f;
+
+struct Strength {
+    int strong = 0;
+    float sum = 0.0f;
+    bool enough() const { return strong >= kStrongLinks && sum >= kStrongSum; }
+};
+
+bool heldSmallBySafety(LfoTarget target) {
+    const macrobank::Range r = macrobank::rangeOf(target);
+    const ParamSpec& spec = SceneParams::schema()[static_cast<size_t>(paramSlotOf(target))];
+    return r.max < spec.max || r.min > spec.min;
+}
+
+Strength strengthOf(const Knob& knob, bool up, const std::string& styleId) {
+    Strength s;
+    for (const Link& link : knob.links) {
+        if (!modtargets::reaches(link.target, styleId) || heldSmallBySafety(link.target)) continue;
+        const float share = std::fabs(up ? link.up : link.down);
+        s.sum += share;
+        if (share >= kStrongShare) ++s.strong;
+    }
+    return s;
+}
+
+// The owner's report (2026-11-11): the four built-in knobs "dont change visuals much". Each built-in knob, each
+// way, must move at least kStrongLinks params every engine reads (a flat shader style, a 3D one, a simulation
+// and MilkDrop) by kStrongShare of their range or more, kStrongSum in all; the knobs that shipped first (Glow,
+// Heat, Bend, Flow) did not, which is what this pins against.
+void theBuiltInKnobsMoveThePictureHard() {
+    const EngineStyles s = engineStyles();
+    const Bank& def = macrobank::defaultBank();
+    for (const Knob& knob : def.knobs) {
+        for (const std::string& id : {s.flat, s.threeD, s.fluid, s.milkdrop}) {
+            for (const bool up : {true, false}) {
+                const Strength st = strengthOf(knob, up, id);
+                // MilkDrop runs on projectM's own clock (Speed does not reach it), so a knob that slows the picture
+                // down can only still the camera there: one param, hard, is what that engine has to give.
+                bool slows = false;
+                for (const Link& link : knob.links) slows = slows || (link.target == LfoTarget::Speed && (up ? link.up : link.down) < 0.0f);
+                const bool clockless = slows && !modtargets::reaches(LfoTarget::Speed, id);
+                check(clockless ? st.strong >= 1 : st.enough(), knob.name + (up ? " up" : " down") + " moves " + std::to_string(st.strong) + " params hard on " + id +
+                                       " (sum " + std::to_string(st.sum) + ")");
+            }
+        }
+    }
+    // The rule would have caught the first four: each is weak one way on some engine.
+    const std::vector<std::vector<Link>> first = {
+        {{LfoTarget::Bloom, 1.0f, 0.0f}, {LfoTarget::Intensity, 0.2f, -0.5f}, {LfoTarget::Vignette, 0.0f, 0.5f}},
+        {{LfoTarget::Temperature, 0.3f, -0.3f}, {LfoTarget::Saturation, 0.2f, -0.35f}, {LfoTarget::ColorShift, 0.06f, -0.06f}},
+        {{LfoTarget::Warp, 0.6f, 0.0f}, {LfoTarget::Twist, 0.2f, -0.2f}, {LfoTarget::Morph, 0.5f, 0.0f}, {LfoTarget::Fisheye, 0.15f, -0.25f}},
+        {{LfoTarget::Speed, 0.25f, -0.15f},
+         {LfoTarget::Rotation, 0.03f, -0.03f},
+         {LfoTarget::Sway, 0.4f, 0.0f},
+         {LfoTarget::Turbulence, 0.4f, 0.0f},
+         {LfoTarget::CamFly, 0.2f, -0.1f},
+         {LfoTarget::FluidForce, 0.3f, -0.2f}},
+    };
+    for (const auto& links : first) {
+        const Knob old = oneKnob(links, 0.0f).knobs[0];
+        bool weak = false;
+        for (const std::string& id : {s.flat, s.threeD, s.fluid, s.milkdrop}) {
+            weak = weak || !strengthOf(old, true, id).enough() || !strengthOf(old, false, id).enough();
+        }
+        check(weak, "the rule catches a first-shipped knob: " + std::string(modtargets::name(links[0].target)));
+    }
+    // And the motion the knobs add is still the safety clamp's: reduced motion scales it like any slider's.
+    const SceneParams base;
+    const SceneParams full = macrobank::apply(base, defaultsAt(1.0f), kEveryTarget);
+    const SceneParams calm = safety::apply(full, true);
+    check(calm.speed < full.speed && calm.sway < full.sway && calm.camFly < full.camFly, "reduced motion still scales what the knobs add");
+}
+
+// A bank saved before the redo: a built-in knob saved as it first shipped comes back as today's knob with its
+// id, centred; an edited one and the user's own knobs come back as saved.
+void theFirstBuiltInKnobsLoadAsTheNewOnes() {
+    const std::string saved =
+        "macrobank|1|6\n"
+        "knob|1|0.5|Glow|Down dims the picture into a dark frame, up makes it bright and blooming\n"
+        "link|BLOOM|1|0\nlink|INTENSITY|0.2|-0.5\nlink|VIGNETTE|0|0.5\n"
+        "knob|2|-0.25|Heat|Down turns the colours cool and pale, up warm and vivid\n"
+        "link|TEMPERATURE|0.3|-0.3\nlink|SATURATION|0.2|-0.35\nlink|COLOR_SHIFT|0.06|-0.06\n"
+        "knob|3|0.4|My bend|\n"
+        "link|WARP|0.6|0\nlink|TWIST|0.2|-0.2\nlink|MORPH|0.5|0\nlink|FISHEYE|0.15|-0.25\n"
+        "knob|4|0|Flow|Down slows the picture and turns it back, up speeds it up and sends it spinning\n"
+        "link|SPEED|0.25|-0.15\nlink|ROTATION|0.03|-0.03\nlink|SWAY|0.4|0\nlink|TURBULENCE|0.4|0\nlink|CAM_FLY|0.2|-0.1|EASE_IN\n"
+        "link|FLUID_FORCE|0.3|-0.2\n"
+        "knob|5|0.75|Mine|\nlink|ZOOM|0.3|-0.2\n";
+    const Bank read = macrobank::decode(saved);
+    const Bank& def = macrobank::defaultBank();
+    check(read.knobs.size() == 5u, "every saved knob loads");
+    check(read.knobs[0] == def.knobs[0] && read.knobs[1] == def.knobs[1], "an unedited first knob is today's built-in knob, centred");
+    check(read.knobs[2].name == "My bend" && read.knobs[2].value == 0.4f && read.knobs[2].links.size() == 4u &&
+              read.knobs[2].links[0] == Link{LfoTarget::Warp, 0.6f, 0.0f},
+          "a renamed one stays as the user left it");
+    check(read.knobs[3].name == "Flow" && read.knobs[3].links[4].curve == macrobank::Curve::EaseIn, "so does one with a changed curve");
+    check(read.knobs[4].name == "Mine" && read.knobs[4].value == 0.75f && read.knobs[4].links.size() == 1u, "the user's own knob loads as saved");
+    check(macrobank::decode(macrobank::encode(read)) == read, "and the loaded bank round trips");
+    check(macrobank::decode(macrobank::encode(def)) == def, "today's built-in knobs load as themselves");
+}
+
 void applyIsDeterministic() {
     SceneParams base;
     base.warp = 0.3f;
@@ -896,10 +1014,11 @@ void theAbiEditsTextToText() {
     check(macrobank::decode(text).knobs.size() == 4u, "geode_macro_bank_remove_knob");
     text = geode_macro_bank_reset_knob(geode_macro_bank_rename(text.c_str(), first, "Renamed"), first);
     check(macrobank::decode(text).knobs.front().name == macrobank::defaultBank().knobs.front().name, "geode_macro_bank_reset_knob");
-    text = geode_macro_bank_set_curve(def.c_str(), first, "BLOOM", "S_CURVE");
+    const char* firstTarget = modtargets::name(macrobank::defaultBank().knobs.front().links.front().target);
+    text = geode_macro_bank_set_curve(def.c_str(), first, firstTarget, "S_CURVE");
     check(macrobank::decode(text).knobs.front().links.front().curve == macrobank::Curve::SCurve, "geode_macro_bank_set_curve");
-    check(std::string(geode_macro_bank_set_curve(text.c_str(), first, "BLOOM", "WOBBLE")) == text &&
-              std::string(geode_macro_bank_set_curve(text.c_str(), first, "BLOOM", nullptr)) == text,
+    check(std::string(geode_macro_bank_set_curve(text.c_str(), first, firstTarget, "WOBBLE")) == text &&
+              std::string(geode_macro_bank_set_curve(text.c_str(), first, firstTarget, nullptr)) == text,
           "an unknown or NULL curve changes nothing");
     text = geode_macro_bank_add_knob_for(def.c_str(), "Zoom");
     check(macrobank::decode(text).knobs.back().name == "Zoom", "geode_macro_bank_add_knob_for");
@@ -957,6 +1076,8 @@ int main(int argc, char** argv) {
     textRoundTrips();
     garbageDecodesToSomethingValid();
     theDefaultBankIsFourLiveKnobs();
+    theBuiltInKnobsMoveThePictureHard();
+    theFirstBuiltInKnobsLoadAsTheNewOnes();
     applyIsDeterministic();
     targetsTextListsWhatALinkMayName();
     theAbiEditsTextToText();

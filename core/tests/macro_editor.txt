@@ -2,25 +2,31 @@ macroeditor|1
 caps|8|12|24
 bank|1|0
 knob|1|1|0|1|0|Shine|
+link|MORPH|0.9|0|1|LINEAR|0.9|0
+link|WARP|0.8|0|1|LINEAR|0.8|0
+link|TURBULENCE|0.5|0|1|LINEAR|0.75|0
+link|TWIST|0.6|-0.6|1|LINEAR|1.2|-1.2
+link|TILE|0|0.5|1|LINEAR|0|2.5
+knob|2|1|1|1|0.5|Motion|Down slows the picture and stills the camera, up speeds, sways and spins it
+link|SPEED|0.5|-0.22|1|LINEAR|1.975|-0.869
+link|SWAY|0.6|0|1|LINEAR|0.6|0
+link|ROTATION|0.08|0|1|LINEAR|0.48|0
+link|CAM_FLY|0.3|-0.1|1|LINEAR|1.5|-0.5
+link|CAM_ORBIT|0.3|-0.35|1|LINEAR|0.3|-0.35
+link|FLUID_FORCE|0.4|-0.25|0|LINEAR|1.2|-0.75
+knob|3|1|1|1|0|Colour|Down turns the colours cool and dim, up warm, vivid and glowing
+link|COLOR_SHIFT|0.35|-0.35|1|LINEAR|0.35|-0.35
+link|TEMPERATURE|0.5|-0.5|1|LINEAR|1|-1
+link|SATURATION|0.25|0|1|LINEAR|0.375|0
+link|PALETTE_MIX|0.7|0|1|LINEAR|0.7|0
 link|BLOOM|1|0|1|LINEAR|0.25|0
-link|INTENSITY|0.2|-0.5|1|LINEAR|0.21|-0.525
+link|INTENSITY|0.2|-0.3|1|LINEAR|0.21|-0.315
+knob|4|1|1|1|0|Depth|Down pulls in close, up opens a wide, deep view
+link|ZOOM|-0.22|0.35|1|LINEAR|-0.594|0.945
+link|CAM_FOV|0.4|-0.25|1|LINEAR|0.6|-0.375
+link|FISHEYE|0.35|-0.35|1|LINEAR|0.7|-0.7
+link|CAM_PUSH|-0.4|0.4|1|LINEAR|-0.8|0.8
 link|VIGNETTE|0|0.5|1|LINEAR|0|0.5
-knob|2|1|1|1|0.5|Heat|Down turns the colours cool and pale, up warm and vivid
-link|TEMPERATURE|0.3|-0.3|1|LINEAR|0.6|-0.6
-link|SATURATION|0.2|-0.35|1|LINEAR|0.3|-0.525
-link|COLOR_SHIFT|0.06|-0.06|1|LINEAR|0.06|-0.06
-knob|3|1|1|1|0|Bend|Down pinches and unwinds the shape, up warps, twists and bulges it
-link|WARP|0.6|0|1|LINEAR|0.6|0
-link|TWIST|0.2|-0.2|1|LINEAR|0.4|-0.4
-link|MORPH|0.5|0|1|LINEAR|0.5|0
-link|FISHEYE|0.15|-0.25|1|LINEAR|0.3|-0.5
-knob|4|1|1|1|0|Flow|Down slows the picture and turns it back, up speeds it up and sends it spinning
-link|SPEED|0.25|-0.15|1|LINEAR|0.9875|-0.5925
-link|ROTATION|0.03|-0.03|1|LINEAR|0.18|-0.18
-link|SWAY|0.4|0|1|LINEAR|0.4|0
-link|TURBULENCE|0.4|0|1|LINEAR|0.6|0
-link|CAM_FLY|0.2|-0.1|1|LINEAR|1|-0.5
-link|FLUID_FORCE|0.3|-0.2|0|LINEAR|0.9|-0.6
 knob|5|0|0|1|0|Mine|
 link|ZOOM|0.25|-0.25|1|EASE_IN|0.675|-0.675
 link|FLUID_GLOW|1|0|0|LINEAR|1.9|0

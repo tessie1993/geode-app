@@ -26,13 +26,13 @@ class MacroEditorTableTest {
 
     @Test
     fun `knobs come in bank order with what each offers`() {
-        assertEquals(listOf("Shine", "Heat", "Bend", "Flow", "Mine"), state.knobs.map { it.name })
-        val (shine, heat) = state.knobs
+        assertEquals(listOf("Shine", "Motion", "Colour", "Depth", "Mine"), state.knobs.map { it.name })
+        val (shine, motion) = state.knobs
         assertTrue(shine.builtIn && !shine.asBuilt)
         assertEquals("", shine.hint)
-        assertTrue(heat.builtIn && heat.asBuilt)
-        assertEquals(0.5f, heat.value)
-        assertTrue(heat.hint.isNotEmpty())
+        assertTrue(motion.builtIn && motion.asBuilt)
+        assertEquals(0.5f, motion.value)
+        assertTrue(motion.hint.isNotEmpty())
         val mine = state.knobs.last()
         assertFalse(mine.builtIn)
         assertTrue(mine.canLink)
@@ -40,7 +40,7 @@ class MacroEditorTableTest {
 
     @Test
     fun `links belong to the knob above them`() {
-        assertEquals(listOf("BLOOM", "INTENSITY", "VIGNETTE"), state.knobs[0].links.map { it.target })
+        assertEquals(listOf("MORPH", "WARP", "TURBULENCE", "TWIST", "TILE"), state.knobs[0].links.map { it.target })
         val mine = state.knobs.last()
         assertEquals(
             listOf(
@@ -53,8 +53,8 @@ class MacroEditorTableTest {
 
     @Test
     fun `a link's range comes in the param's units too`() {
-        val bloom = state.knobs[0].links.first()
-        assertEquals(MacroLink("BLOOM", 1f, 0f, true, MacroLink.LINEAR, 0.25f, 0f), bloom)
+        val tile = state.knobs[0].links.last()
+        assertEquals(MacroLink("TILE", 0f, 0.5f, true, MacroLink.LINEAR, 0f, 2.5f), tile)
     }
 
     @Test

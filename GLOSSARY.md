@@ -129,7 +129,7 @@ _Avoid_: Section (that is the analyser's structure boundary)
 The reaction routes a style plays until the user edits them, generated from the style id and a seed.
 
 **Macro**:
-One knob of the macro bank (`core/viz/MacroBank`): a name, a value -1..1 with "as styled" at the centre, and up to twelve links, each a scene param and how far a full turn up and down moves it, as a fraction of its range. Global, laid over every style after the auto-director and before the LFOs; it adds to the slider's value and never writes it. Four built in (Glow, Heat, Bend, Flow), which can be edited and reset but not deleted; up to eight in all, the rest the user's own.
+One knob of the macro bank (`core/viz/MacroBank`): a name, a value -1..1 with "as styled" at the centre, and up to twelve links, each a scene param and how far a full turn up and down moves it, as a fraction of its range. Global, laid over every style after the auto-director and before the LFOs; it adds to the slider's value and never writes it. Four built in (Shape, Motion, Colour, Depth), which can be edited and reset but not deleted; up to eight in all, the rest the user's own.
 _Avoid_: Meta control, master knob
 
 **Link**:

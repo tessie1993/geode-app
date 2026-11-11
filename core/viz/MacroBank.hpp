@@ -83,7 +83,7 @@ Range rangeOf(LfoTarget target);
 // By its ModTargets wire name; None for an unknown or unlinkable one.
 LfoTarget targetNamed(std::string_view name);
 
-// The four built-in knobs, all at centre: Glow, Heat, Bend, Flow.
+// The four built-in knobs, all at centre: Shape, Motion, Colour, Depth.
 const Bank& defaultBank();
 // Whether id is one of the built-in knobs' (ids are never handed out twice, so a user's knob never has one).
 bool isBase(int id);
@@ -154,6 +154,8 @@ std::shared_ptr<const Bank> global();
 //                                         Linear (encode leaves it out then, so text from before curves reads alike)
 // encode writes the normalized bank. decode never fails: text without this version's header is the
 // default bank, and a row it cannot read (an unknown target, a bad number) is dropped; an unknown curve is Linear.
+// A built-in knob saved exactly as it first shipped (Glow, Heat, Bend, Flow) comes back as the knob that now has
+// its id, centred; an edited one, and every knob the user made, comes back as saved.
 std::string encode(const Bank& bank);
 Bank decode(std::string_view text);
 

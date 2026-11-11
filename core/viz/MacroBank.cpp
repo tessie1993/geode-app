@@ -139,12 +139,51 @@ struct Seed {
     std::vector<Link> links;
 };
 
-// The built-in knobs. Four axes of a picture that do not overlap (no target is on two knobs): its
-// light, its colour, its shape and its motion. Every knob has a link that reaches every style both
-// ways (the composite's and the camera's fields), plus the ones only some engines have. Weights are
-// fractions of rangeOf, which already stops at the safety maxima.
+// The built-in knobs: four jobs that do not overlap (no target is on two knobs), its shape, its motion,
+// its colour and its depth. Each spends a full turn on params every engine shows strongly (the view's
+// geometry, the clocks and the camera, a hue turn, zoom and the lens), not on the ones the safety clamp
+// keeps small (Bloom and Intensity stop at 0.25 over neutral, so a knob made of them barely shows), and
+// most of each param's range, so a full turn is a different picture on every style. Weights are
+// fractions of rangeOf, which already stops at the safety maxima; the motion fields are the ones
+// safety::apply scales under reduced motion. core/tests/macro_bank_test.cpp pins their strength.
 const std::vector<Seed>& seeds() {
     static const std::vector<Seed> kSeeds = {
+        {"Shape", "Down twists the picture into mirrored tiles, up melts, warps and twists it",
+         {{LfoTarget::Morph, 0.9f, 0.0f},
+          {LfoTarget::Warp, 0.8f, 0.0f},
+          {LfoTarget::Turbulence, 0.5f, 0.0f},
+          {LfoTarget::Twist, 0.6f, -0.6f},
+          {LfoTarget::Tile, 0.0f, 0.5f}}},
+        {"Motion", "Down slows the picture and stills the camera, up speeds, sways and spins it",
+         {{LfoTarget::Speed, 0.5f, -0.22f},
+          {LfoTarget::Sway, 0.6f, 0.0f},
+          {LfoTarget::Rotation, 0.08f, 0.0f},
+          {LfoTarget::CamFly, 0.3f, -0.1f},
+          {LfoTarget::CamOrbit, 0.3f, -0.35f},
+          {LfoTarget::FluidForce, 0.4f, -0.25f}}},
+        {"Colour", "Down turns the colours cool and dim, up warm, vivid and glowing",
+         {{LfoTarget::ColorShift, 0.35f, -0.35f},
+          {LfoTarget::Temperature, 0.5f, -0.5f},
+          {LfoTarget::Saturation, 0.25f, 0.0f},
+          {LfoTarget::PaletteMix, 0.7f, 0.0f},
+          {LfoTarget::Bloom, 1.0f, 0.0f},
+          {LfoTarget::Intensity, 0.2f, -0.3f}}},
+        {"Depth", "Down pulls in close, up opens a wide, deep view",
+         {{LfoTarget::Zoom, -0.22f, 0.35f},
+          {LfoTarget::CamFov, 0.4f, -0.25f},
+          {LfoTarget::Fisheye, 0.35f, -0.35f},
+          {LfoTarget::CamPush, -0.4f, 0.4f},
+          {LfoTarget::Vignette, 0.0f, 0.5f}}},
+    };
+    return kSeeds;
+}
+
+// The built-in knobs as they first shipped (Glow, Heat, Bend, Flow, #1001), by id. A saved knob that still
+// matches one exactly (the user turned it but never edited it) is that built-in knob, not the user's
+// own, so decode hands it back as the knob that now has its id, centred: its old turn was a turn of a
+// different job. Anything the user edited stays as they left it.
+const std::vector<Seed>& retiredSeeds() {
+    static const std::vector<Seed> kRetired = {
         {"Glow", "Down dims the picture into a dark frame, up makes it bright and blooming",
          {{LfoTarget::Bloom, 1.0f, 0.0f}, {LfoTarget::Intensity, 0.2f, -0.5f}, {LfoTarget::Vignette, 0.0f, 0.5f}}},
         {"Heat", "Down turns the colours cool and pale, up warm and vivid",
@@ -162,7 +201,7 @@ const std::vector<Seed>& seeds() {
           {LfoTarget::CamFly, 0.2f, -0.1f},
           {LfoTarget::FluidForce, 0.3f, -0.2f}}},
     };
-    return kSeeds;
+    return kRetired;
 }
 
 Bank buildDefault() {
@@ -575,7 +614,20 @@ Bank decode(std::string_view text) {
             bank.knobs.back().links.push_back(link);
         }
     }
-    return header ? normalized(bank) : defaultBank();
+    if (!header) return defaultBank();
+    Bank out = normalized(bank);
+    for (Knob& knob : out.knobs) {
+        const auto& retired = retiredSeeds();
+        if (knob.id < 1 || knob.id > static_cast<int>(retired.size())) continue;
+        const Seed& was = retired[static_cast<size_t>(knob.id - 1)];
+        const Seed* now = seedOf(knob.id);
+        if (!now || knob.name != was.name || knob.hint != was.hint || knob.links != was.links) continue;
+        knob.name = now->name;
+        knob.hint = now->hint;
+        knob.links = now->links;
+        knob.value = 0.0f;
+    }
+    return normalized(out);
 }
 
 const std::string& targetsText() {

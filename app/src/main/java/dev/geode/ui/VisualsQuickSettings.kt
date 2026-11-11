@@ -286,6 +286,7 @@ private fun QuickSettingsRows(
         }
     }
     val rest: @Composable () -> Unit = {
+        ConnectedDisplayRows()
         if (source == TimerSource.RANDOM) {
             RandomPicksRow(viz, viewModel)
         } else {
@@ -301,6 +302,34 @@ private fun QuickSettingsRows(
     } else {
         timer()
         rest()
+    }
+}
+
+/** The connected display's switch, its state and, with more than one, which display; nothing without one. */
+@Composable
+private fun ConnectedDisplayRows() {
+    val control = rememberConnectedDisplayControl()
+    val display = control.display ?: return
+    SwitchRow(stringResource(R.string.visuals_qs_display, display.name), checked = control.on, onCheckedChange = { control.toggle() })
+    Text(
+        stringResource(control.stateRes, display.name),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    val choices = ConnectedDisplays.choices
+    if (choices.size > 1) {
+        MenuRow(label = stringResource(R.string.display_pick), value = display.name) { close ->
+            choices.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.name) },
+                    onClick = {
+                        ConnectedDisplays.choose(option.displayId)
+                        close()
+                    },
+                    leadingIcon = { CheckSlot(option.displayId == display.displayId) },
+                )
+            }
+        }
     }
 }
 

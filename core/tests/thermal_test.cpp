@@ -569,6 +569,43 @@ void theThermalCapIsNotADeficit() {
     check(g.tier() == ThermalTier::Eased, "the tier stays the platform's");
 }
 
+// The owner's report: the app stays slow after quick style changes. Stepping styles is slow frames because
+// scenes build (blocking compiles, dt clamped to 0.1 s, so every stall counts) and blend two scenes at once,
+// not because the phone cannot draw. Read as a deficit, 3 s of it at 25 fps raised the process-wide floor two
+// rungs (30 fps, 0.75 scale, one spare), and each rung took 45 s of kept-up frames to come back.
+void aBurstOfStyleChangesUsedToRaiseTheFloor() {
+    ThermalState shared;
+    shared.push(0, NAN, 100.0);
+    ThermalGovernor g(shared);
+    g.setPacedFps(60.0f);
+    for (int i = 0; i < 4 * 25; ++i) g.onFrame(0.04f);  // 4 s of builds and blends, no settling noted
+    check(shared.measuredFloor() == ThermalTier::Reduced, "unmarked, a burst of style changes reads as a severe deficit");
+    for (int i = 0; i < 80 * 60; ++i) g.onFrame(1.0f / 60.0f);
+    check(shared.measuredFloor() != ThermalTier::Full, "and 80 s of smooth frames later the phone is still capped");
+}
+
+// Kills: onFrame measuring while settling, the hold ending with the last switch (the new style's first frames
+// load textures and presets), and settling hiding a style that stays slow once it is built.
+void aBurstOfStyleChangesIsNotADeficit() {
+    ThermalState shared;
+    shared.push(0, NAN, 100.0);
+    ThermalGovernor g(shared);
+    g.setPacedFps(60.0f);
+    g.setAdaptive(true);
+    for (int i = 0; i < 6 * 25; ++i) {
+        g.noteSettling();
+        g.onFrame(0.04f);  // 6 s of style changes at 25 fps
+    }
+    check(shared.measuredFloor() == ThermalTier::Full, "frames slow from building and blending styles keep Full");
+    for (int i = 0; i < 20; ++i) g.onFrame(0.04f);
+    check(g.settling(), "the hold outlasts the last switch by more than 20 frames");
+    check(shared.measuredFloor() == ThermalTier::Full, "and the new style's first frames are not a deficit either");
+    for (int i = 0; i < 60; ++i) g.onFrame(1.0f / 60.0f);
+    check(!g.settling(), "the hold ends within a second or two");
+    for (int i = 0; i < 200; ++i) g.onFrame(0.05f);  // the new style itself draws at 20 fps
+    check(shared.measuredFloor() == ThermalTier::Reduced, "a style that stays slow once built still steps down");
+}
+
 // Kills: GEODE_PACER_STATE_LONGS left at 6 (the pacer writes past the shell's array) or GEODE_PACER_CAP_SLOT
 // naming another slot (the shell would re-ask setFrameRate from the wrong number).
 void theShellsPacerArrayHoldsTheCap() {
@@ -639,6 +676,8 @@ int main() {
     anExportsFrameTimesNeverRaiseTheFloor();
     anUnmatchedExportEndDoesNotUnpinTheNext();
     theThermalCapIsNotADeficit();
+    aBurstOfStyleChangesUsedToRaiseTheFloor();
+    aBurstOfStyleChangesIsNotADeficit();
     theShellsPacerArrayHoldsTheCap();
     everySurfaceInTheProcessReadsOneState();  // last: it uses the real process state
     if (failures == 0) std::printf("thermal_test: all checks passed\n");

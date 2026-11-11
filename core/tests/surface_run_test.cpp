@@ -449,7 +449,45 @@ void stage() {
     }
 }
 
+// The connected display (core/viz/StageRun): only a presentation display that is neither the built-in screen
+// nor the app's own; the user's pick while it qualifies; one that keeps refusing is skipped.
+void connectedDisplay() {
+    const unsigned ok = GEODE_STAGE_DISPLAY_PRESENTATION | GEODE_STAGE_DISPLAY_ON;
+    const auto failed = [](unsigned n) { return n << GEODE_STAGE_DISPLAY_FAILURE_SHIFT; };
+    check(geode_stage_display_eligible(ok) == 1, "an HDMI display qualifies");
+    check(geode_stage_display_eligible(GEODE_STAGE_DISPLAY_PRESENTATION) == 1, "a display that is off still qualifies");
+    check(geode_stage_display_eligible(GEODE_STAGE_DISPLAY_ON) == 0, "no FLAG_PRESENTATION: a presentation would be refused");
+    check(geode_stage_display_eligible(ok | GEODE_STAGE_DISPLAY_DEFAULT) == 0, "never the built-in screen");
+    check(geode_stage_display_eligible(ok | GEODE_STAGE_DISPLAY_HOST) == 0, "never the display the app itself is on");
+    check(geode_stage_display_eligible(ok | failed(2)) == 1, "two failures: try again");
+    check(geode_stage_display_eligible(ok | failed(3)) == 0, "three failures running: skipped");
+
+    const int ids[] = {0, 2, 5, 7};
+    const unsigned flags[] = {
+        ok | GEODE_STAGE_DISPLAY_DEFAULT,
+        GEODE_STAGE_DISPLAY_PRESENTATION,
+        ok,
+        ok | GEODE_STAGE_DISPLAY_HOST,
+    };
+    check(geode_stage_pick_display(ids, flags, 4, -1) == 2, "no pick: the first display switched on");
+    check(geode_stage_pick_display(ids, flags, 4, 2) == 1, "the user's pick wins, even switched off");
+    check(geode_stage_pick_display(ids, flags, 4, 7) == 2, "a pick the app is on falls back");
+    check(geode_stage_pick_display(ids, flags, 4, 0) == 2, "a pick of the built-in screen falls back");
+    check(geode_stage_pick_display(ids, flags, 2, -1) == 1, "nothing on: the first that qualifies");
+    check(geode_stage_pick_display(ids, flags, 1, -1) == -1, "only the phone: none");
+    check(geode_stage_pick_display(ids, flags, 0, -1) == -1, "no displays: none");
+    check(geode_stage_pick_display(nullptr, nullptr, 4, -1) == -1, "null arrays: none");
+    const unsigned refused[] = {flags[0], flags[1], ok | failed(3), flags[3]};
+    check(geode_stage_pick_display(ids, refused, 4, 5) == 1, "a display that keeps refusing gives way");
+
+    for (unsigned f = 0; f < 8; ++f) {
+        const bool all = f == (GEODE_STAGE_PRESENT_WANTED | GEODE_STAGE_PRESENT_ENTITLED | GEODE_STAGE_PRESENT_FOUND);
+        check(geode_stage_presents(f) == (all ? 1 : 0), "presents only when wanted, entitled and found");
+    }
+}
+
 int main() {
+    connectedDisplay();
     priorityOrder();
     preview();
     listening();

@@ -17,7 +17,7 @@ The vector stays wherever a single flat colour is needed:
 | Splash video (silent, 4.5 s cut of the owner's 10 s clip) | `tools/brand_raster.sh <source.mp4>` | `res/raw/splash_intro.mp4` |
 | Play Store icon, 512×512 32-bit PNG | Neon render | `beatrealms-icon-512.png` |
 | Launcher background layer (hidden under the opaque foreground), themed icon, status-bar icon | Vector, `tools/brand_assets.py` | `res/drawable/ic_launcher_background.xml`, `ic_launcher_monochrome.xml`, `ic_stat_muzviz.xml` |
-| Wordmark on the system splash (its branding image, 200×80 dp) | Outlined Roboto, `tools/wordmark.py` | `res/drawable/splash_wordmark.xml` |
+| Wordmark on the system splash (its branding image, 200×80 dp) and in the app (`ui/theme/Wordmark`, BootIntro) | Outlined Pacifico and Orbitron, `tools/wordmark.py` | `res/drawable/splash_wordmark.xml` |
 | Vector masters | Vector, `tools/brand_assets.py` | `beatrealms-icon.svg`, `beatrealms-mark.svg`, `beatrealms-monochrome.svg` |
 | Play feature graphic, 1024×500, no alpha | The neon eye over an indigo ground with the splash's outlined wordmark, `tools/feature_graphic.py` | `beatrealms-feature-graphic.svg` → `beatrealms-feature-graphic-1024x500.png` |
 
@@ -40,10 +40,13 @@ vector silhouette: the system tints it one colour, which a photo-like render can
 | Blue | `#82AAFF` | Vortex |
 | Amber | `#FFCB6B` | Pupil |
 
-In the app the wordmark is live text, `ui/theme/Wordmark`: the theme's sans (Roboto on stock
-Android), "Beat" Bold, "Realms" Light with no space between, then "3D" Bold in the accent
-(`#9CC7FF`). One line where it fits; where it does not, "3D" sits at 62% between two rules under
-the name. The system splash can draw no text, so it shows the same one-line lockup outlined.
+The wordmark (since 2026-11-11, after the owner's glass-script inspiration picture) is
+"BeatRealms" in Pacifico, a connected brush script, filled cyan `#4FD8FF` to violet `#B06CFF`
+with a white sheen on its top half, a light rim and a deep violet extrusion, over a squared
+"3d" in Orbitron Black, banded chrome. Both fonts are SIL OFL 1.1; only their outlines ship, as
+one vector drawable (no blur, so the glass is gradients and a rim). The system splash can draw no
+text, so that vector is its branding image, and `ui/theme/Wordmark` draws the same vector in the
+app, so the two always match.
 
 The old lockup's wordmark is Montserrat Regular (SIL Open Font License 1.1), outlined to paths and
 emboldened with a matching stroke, so no font ships and none needs to be installed.

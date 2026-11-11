@@ -9,13 +9,13 @@
 // sucked into the catch-point drains: the film behaves like liquid rather
 // than like a texture painted on top of one.
 //
-// Dissipation is renormalized per frame by RippleMath.inkDissipation, so the
+// Dissipation is renormalized per frame by ripple::inkDissipation, so the
 // colour's lifetime does not change with frame rate.
 precision highp float;
 precision highp sampler2D;
 in vec2 vUv; in vec2 vL; in vec2 vR; in vec2 vT; in vec2 vB;
 uniform sampler2D uInk;      // rgb = colour, a = coverage
-uniform sampler2D uHeight;   // R = height, G = velocity
+uniform sampler2D uHeight;   // R = height, G = its rate of change
 uniform highp vec2 uInvRes;
 uniform float uDt;
 uniform float uFlow;         // slope -> uv/s transport gain
@@ -29,7 +29,7 @@ float H(vec2 c) {
 
 void main() {
     vec2 grad = vec2(H(vR) - H(vL), H(vT) - H(vB)) * 0.5;
-    // Vertical speed of the surface (the sim's G channel) lifts the film off
+    // Vertical speed of the surface (the surface's G channel) lifts the film off
     // a rising crest and lets it pool in a falling trough, so a ring reads as
     // water moving rather than as a colour ramp sliding sideways.
     float rise = texture(uHeight, vUv).y;

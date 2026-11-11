@@ -5,15 +5,13 @@
 // gradient and absorption); Blinn specular + fresnel rim scaled by
 // uSpecular; treble-driven glints on high-curvature crests; the whole
 // lookup drifts slowly by uFlowDrift so the pool reads as moving water.
-// The refraction offset is kept in lockstep with RippleMath.refractionOffset
-// (headless-gate-verified: soft cap 0.08 UV, composite uFlow idiom).
 precision highp float;
 // GLSL ES 3.00 defaults fragment sampler2D to LOWP (range [-2,2), ~8
 // fraction bits). Half-float height values exceed that; on GPUs honoring
 // sampler precision (Mali) every read clamped and quantized.
 precision highp sampler2D;
 in vec2 vUv;
-uniform sampler2D uHeight;   // R = height (G = velocity, unused here)
+uniform sampler2D uHeight;   // R = height (ripple_surface_frag)
 uniform highp vec2 uInvRes;  // ripple grid texel size
 uniform float uAspect;
 uniform float uTime;
@@ -55,15 +53,14 @@ void main() {
     float hT = H(uv + vec2(0.0, uInvRes.y));
     float hB = H(uv - vec2(0.0, uInvRes.y));
 
-    // Surface normal from the height gradient (z scaled for visible relief).
-    vec2 grad = vec2(hR - hL, hT - hB);
-    vec3 n = normalize(vec3(-grad * 24.0, 1.0));
+    // The slope per surface unit (the frame is two units tall), whatever the grid's resolution.
+    vec2 grad = vec2(hR - hL, hT - hB) / (4.0 * uInvRes.y);
+    vec3 n = normalize(vec3(-grad * 0.1, 1.0));
 
-    // Refraction offset, lockstep with RippleMath.refractionOffset:
-    // gradient * strength, soft-capped at 0.08 UV (composite uFlow idiom).
-    vec2 off = grad * uRefract;
+    // Refraction offset: the slope bends the view, soft-capped at 0.08 UV.
+    vec2 off = grad * uRefract * 0.004;
     off *= 0.08 / (0.08 + length(off));
-    vec2 buv = uv + off;
+    vec2 buv = uv + off * vec2(uInvRes.x / uInvRes.y, 1.0);
 
     // Procedural depth-graded pool: palette-tinted shallow -> deep vertical
     // gradient with a radial deepening, plus faint refracted light bands so
@@ -101,8 +98,8 @@ void main() {
     float fresnel = pow(1.0 - clamp(n.z, 0.0, 1.0), 3.0) * uSpecular;
 
     // Treble glint: sparkle on high-curvature crests when the highs bite.
-    float curv = abs(hL + hR + hT + hB - 4.0 * hC);
-    float glint = uTreble * smoothstep(0.015, 0.12, curv) * 0.9;
+    float curv = abs(hL + hR + hT + hB - 4.0 * hC) / (4.0 * uInvRes.y * uInvRes.y);
+    float glint = uTreble * smoothstep(60.0, 480.0, curv) * 0.9;
 
     vec3 skyTint = hsv(fract(uBaseHue + 0.55 * uHueSpan), 0.25, 1.0);
     vec3 c = bg + (spec + glint) * vec3(1.0, 0.98, 0.92) + fresnel * skyTint * 0.6;

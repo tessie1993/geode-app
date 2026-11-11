@@ -373,6 +373,69 @@ function liquidJobs(args, registry) {
   return { styleVert: quadVert, styleFrag, bornFrag, liquidVert: quadVert, liquidFrag, frames, bornSeparate: args.born === 1 || args.born === 2, width: W, height: H };
 }
 
+// ---- Water ripples (--ripples <style|water> --dump <tsv>) --------------------
+//
+// Draws the drop list the native maths produced, not a copy of it: the TSV is `ripple_test --dump
+// <tap|touch|music> <fps> <seconds> <aspect>` (core/tests/ripple_test.cpp, the real ripple::Surface,
+// Wake and OnsetDrops), one line of wavelets per frame. Each frame goes through ripple_surface_frag
+// into a half-float grid, then onto the style through the overlay lines of composite_frag (between its
+// two ripple-overlay markers), or through water_display_frag for `water`. --at picks the seconds to keep.
+function rippleJobs(args, registry) {
+  const W = args.size, H = args.height ?? args.size;
+  const aspect = W / H;
+  const rows = fs.readFileSync(args.dump, 'utf8').trim().split('\n').map((l) => l.split('\t').map(Number));
+  const baseVert = fs.readFileSync(path.join(SHADERS, 'fluid_base_vert.glsl'), 'utf8');
+  const quadVert = fs.readFileSync(path.join(SHADERS, 'quad_vert.glsl'), 'utf8');
+  const surfaceFrag = fs.readFileSync(path.join(SHADERS, 'ripple_surface_frag.glsl'), 'utf8');
+  const res = args.surface > 1 ? args.surface : 256;
+  const gw = aspect >= 1 ? Math.round(res * aspect) : res, gh = aspect >= 1 ? res : Math.round(res / aspect);
+  const water = args.ripples === 'water';
+  let styleFrag = null, presentVert = quadVert, presentFrag;
+  if (water) {
+    presentVert = baseVert;
+    presentFrag = fs.readFileSync(path.join(SHADERS, 'water_display_frag.glsl'), 'utf8');
+  } else {
+    const f = path.join(SHADERS, `${args.ripples}_frag.glsl`);
+    if (!fs.existsSync(f)) throw new Error(`no such fragment style: ${args.ripples}`);
+    styleFrag = resolveIncludes(fs.readFileSync(f, 'utf8'), registry);
+    const composite = fs.readFileSync(path.join(SHADERS, 'composite_frag.glsl'), 'utf8');
+    const a = composite.indexOf('// ripple-overlay-begin'), b = composite.indexOf('// ripple-overlay-end');
+    if (a < 0 || b < a) throw new Error('composite_frag.glsl has lost its ripple-overlay markers');
+    presentFrag = `#version 300 es\nprecision highp float;\nin vec2 vUv;\nuniform sampler2D uScene;\nout vec4 fragColor;\n${composite.slice(a, b)}
+void main() {
+    vec2 slope = rippleSlope(vUv);
+    vec3 col = texture(uScene, rippleBend(vUv, slope)).rgb;
+    fragColor = vec4(rippleLight(col, slope), 1.0);
+}\n`;
+  }
+  const surfaceU = [...parseUniforms(baseVert), ...parseUniforms(surfaceFrag)];
+  const presentU = water ? [...parseUniforms(baseVert), ...parseUniforms(presentFrag)] : parseUniforms(presentFrag);
+  const styleU = styleFrag ? parseUniforms(styleFrag) : [];
+  const keep = new Set(args.at.map((t) => rows.findIndex((r) => r[0] >= t - 1e-4)).filter((i) => i >= 0));
+  const frames = rows.map((r, i) => {
+    const n = r[3];
+    const wavelets = new Array(60 * 4).fill(0), inv = new Array(60).fill(1);
+    for (let k = 0; k < n; k++) {
+      for (let c = 0; c < 4; c++) wavelets[k * 4 + c] = r[4 + k * 5 + c];
+      inv[k] = r[4 + k * 5 + 4];
+    }
+    const t = (args.time ?? 37) + r[0];
+    const surfaceValues = { uInvRes: [1 / gw, 1 / gh], uAspect: aspect, uWavelets: wavelets, uInvWavelength: inv, uWaveletCount: n, uWaveSpeed: r[1] };
+    const presentValues = water
+      ? { uInvRes: [1 / gw, 1 / gh], uAspect: aspect, uTime: t, uBaseHue: 0.55, uHueSpan: 1, uDepth: 0.6, uSpecular: 0.7, uFlowDrift: 0.3,
+          uRefract: 0.9, uTreble: 0.4, uBrightness: 1, uInkAmount: 0 }
+      : { uRippleTexel: [1 / gw, 1 / gh], uRippleStrength: args.strength, uRippleSpecular: args.glint };
+    const fixed = (list) => list.map((u) => (u.name === 'uInvRes' ? { ...u, value: [1 / gw, 1 / gh] } : u));
+    return {
+      time: r[0], energy: r[2], snap: keep.has(i),
+      style: styleFrag ? plan(styleU, { ...SHADER_VALUES, uTime: t }, SHADER_TEXTURES, W, H) : [],
+      surface: fixed(plan(surfaceU, surfaceValues, {}, gw, gh)),
+      present: fixed(plan(presentU, presentValues, water ? { uHeight: 'height', uInk: 'black' } : { uScene: 'scene', uRipple: 'height' }, W, H)),
+    };
+  });
+  return { water, styleVert: quadVert, styleFrag, surfaceVert: baseVert, surfaceFrag, presentVert, presentFrag, frames, width: W, height: H, gw, gh };
+}
+
 // ---- driving the page ------------------------------------------------------
 
 function withKeywords(src, defines) {
@@ -561,7 +624,7 @@ function parseArgs(argv) {
   const a = {
     size: 240, height: null, shaders: [], all: false, list: false, fluidDisplay: false, out: null, time: null,
     liquid: null, frames: 240, born: 1, bornStyle: null, age: 0, surface: 0, liquidity: 0.35, seed: 1, threeD: false,
-    sound: [], set: [], stills: null, shard: null, stillSize: 96, runSize: 32,
+    sound: [], set: [], stills: null, ripples: null, dump: null, at: [0.5, 1, 2, 3, 4], strength: 0.6, glint: 0.5, shard: null, stillSize: 96, runSize: 32,
   };
   for (let i = 0; i < argv.length; i++) {
     const v = argv[i];
@@ -574,6 +637,11 @@ function parseArgs(argv) {
     else if (v === '--out') a.out = argv[++i];
     else if (v === '--time') a.time = Number(argv[++i]);
     else if (v === '--liquid') a.liquid = argv[++i];
+    else if (v === '--ripples') a.ripples = argv[++i];
+    else if (v === '--dump') a.dump = argv[++i];
+    else if (v === '--at') a.at = argv[++i].split(',').map(Number);
+    else if (v === '--strength') a.strength = Number(argv[++i]);
+    else if (v === '--glint') a.glint = Number(argv[++i]);
     else if (v === '--frames') a.frames = Number(argv[++i]);
     else if (v === '--born') a.born = Number(argv[++i]);
     else if (v === '--born-style') a.bornStyle = argv[++i];
@@ -613,6 +681,30 @@ async function main() {
   }
   if (args.stills) {
     await runStills(args, registry);
+    return;
+  }
+  if (args.ripples) {
+    if (!args.dump) throw new Error('--ripples needs --dump <tsv> (ripple_test --dump ...)');
+    const job = rippleJobs(args, registry);
+    const browser = await launch();
+    try {
+      const page = await browser.openPage(pathToFileURL(path.join(HERE, 'page.html')).href);
+      const r = await page.call('__ripples', job);
+      for (const line of page.drainConsole()) console.log(`  [page] ${line}`);
+      if (r.error) {
+        console.log(`FAIL ripples ${args.ripples}: ${r.error}`);
+        process.exit(1);
+      }
+      console.log(`ok   ripples ${args.ripples} (${job.frames.length} frames, half-float grid ${r.half}, glError ${r.glError})`);
+      const dir = args.out ?? path.join(HERE, 'out', `ripples_${args.ripples}`);
+      fs.mkdirSync(dir, { recursive: true });
+      for (const f of r.frames) {
+        fs.writeFileSync(path.join(dir, `t${f.time.toFixed(2)}.png`), Buffer.from(f.png, 'base64'));
+        console.log(`     t ${f.time.toFixed(2)} s  energy ${f.energy.toFixed(5)}  changed pixels ${(f.changed * 100).toFixed(1)} %  max change ${f.maxChange.toFixed(3)}  mean luma ${f.meanLuma.toFixed(4)}`);
+      }
+    } finally {
+      await browser.close();
+    }
     return;
   }
   if (args.liquid) {

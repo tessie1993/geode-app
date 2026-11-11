@@ -10,8 +10,7 @@ namespace geode::viz::fluid {
 
 namespace {
 constexpr const char* kTag = "RippleSim";
-constexpr const char* kProgAssets[] = {"ripple_splat_frag.glsl", "ripple_update_frag.glsl", "water_ink_splat_frag.glsl",
-                                       "water_ink_advect_frag.glsl"};
+constexpr const char* kProgAssets[] = {"ripple_surface_frag.glsl", "water_ink_splat_frag.glsl", "water_ink_advect_frag.glsl"};
 }  // namespace
 
 void RippleSim::create() {
@@ -22,7 +21,7 @@ void RippleSim::create() {
     quad_.create();
     std::string error;
     const std::string baseVert = loader_.source("fluid_base_vert.glsl", &error);
-    const int wanted = inkEnabled ? kProgCount : 2;
+    const int wanted = inkEnabled ? kProgCount : 1;
     for (int i = 0; i < wanted; ++i) {
         const GLuint program = loader_.buildSource(baseVert, loader_.source(kProgAssets[i], &error), &error);
         if (program == 0) {
@@ -84,7 +83,6 @@ void RippleSim::allocGrid() {
             clearInk();
         }
     }
-    cellSize_ = 2.0f / static_cast<float>(gh);
     glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(prevFbo));
     glViewport(prevVp[0], prevVp[1], prevVp[2], prevVp[3]);
 }
@@ -107,50 +105,56 @@ void RippleSim::queueDrop(float x, float y, float radius, float amplitude, float
     pending_.push_back({x, y, radius, amplitude, r, g, b});
 }
 
-void RippleSim::queueStroke(float x, float y, float dx, float dy, float dt, float radius, float strength, float r, float g, float b) {
-    for (const auto& d : ripple::strokeDrops(x, y, dx, dy, dt, radius, strength)) queueDrop(d.x, d.y, d.radius, d.amplitude, r, g, b);
-}
-
-void RippleSim::step(float dtRaw) {
+void RippleSim::step(float dt) {
     if (!available_) return;
-    if (!grid_) {
-        std::lock_guard<std::mutex> lock(pendingLock_);
-        pending_.clear();
-        return;
-    }
-    DoubleFbo& g = *grid_;
     drained_.clear();
     {
         std::lock_guard<std::mutex> lock(pendingLock_);
         drained_.swap(pending_);
     }
-    const float dt = std::clamp(dtRaw, 0.0f, 1.0f / 30.0f);
+    if (!grid_) return;
+    DoubleFbo& g = *grid_;
+    surface_.configure(ripple::speedFor(waveSpeed), ripple::lifetimeFor(damping));
+    surface_.step(dt);
+    for (const Drop& d : drained_) surface_.add(d.x, d.y, d.radius, d.amplitude);
+
     glDisable(GL_BLEND);
     quad_.bind();
+    const int count = surface_.wavelets(aspect_, gain, wavelets_.data());
+    for (int i = 0; i < count; ++i) {
+        const ripple::Wavelet& w = wavelets_[static_cast<size_t>(i)];
+        const size_t o = static_cast<size_t>(i) * 4;
+        waveletVec_[o] = w.x;
+        waveletVec_[o + 1] = w.y;
+        waveletVec_[o + 2] = w.front;
+        waveletVec_[o + 3] = w.amplitude;
+        invWavelength_[static_cast<size_t>(i)] = w.invWavelength;
+    }
+    useProgram(kSurface, g.width(), g.height());
+    glUniform4fv(loc(kSurface, "uWavelets"), ripple::kMaxWavelets, waveletVec_.data());
+    glUniform1fv(loc(kSurface, "uInvWavelength"), ripple::kMaxWavelets, invWavelength_.data());
+    glUniform1i(loc(kSurface, "uWaveletCount"), count);
+    set1f(kSurface, "uWaveSpeed", surface_.speed());
+    blitDiscarding(g.write());
+    g.swap();
 
-    size_t i = 0;
-    while (i < drained_.size()) {
-        const int n = static_cast<int>(std::min(static_cast<size_t>(kDropsPerPass), drained_.size() - i));
-        for (int j = 0; j < n; ++j) {
-            const Drop& d = drained_[i + static_cast<size_t>(j)];
-            const size_t o = static_cast<size_t>(j) * 4;
-            dropVec_[o] = d.x;
-            dropVec_[o + 1] = d.y;
-            dropVec_[o + 2] = d.radius;
-            dropVec_[o + 3] = d.amplitude;
-            dropColorVec_[o] = d.r;
-            dropColorVec_[o + 1] = d.g;
-            dropColorVec_[o + 2] = d.b;
-            dropColorVec_[o + 3] = std::max({d.r, d.g, d.b});
-        }
-        useProgram(kSplat, g.width(), g.height());
-        bindTex("uTarget", g.read().tex(), 0, kSplat);
-        glUniform4fv(loc(kSplat, "uDrops"), kDropsPerPass, dropVec_.data());
-        glUniform1i(loc(kSplat, "uDropCount"), n);
-        blitDiscarding(g.write());
-        g.swap();
-        if (ink_) {
-            DoubleFbo& inkFbo = *ink_;
+    if (ink_) {
+        DoubleFbo& inkFbo = *ink_;
+        size_t i = 0;
+        while (i < drained_.size()) {
+            const int n = static_cast<int>(std::min(static_cast<size_t>(kDropsPerPass), drained_.size() - i));
+            for (int j = 0; j < n; ++j) {
+                const Drop& d = drained_[i + static_cast<size_t>(j)];
+                const size_t o = static_cast<size_t>(j) * 4;
+                dropVec_[o] = d.x;
+                dropVec_[o + 1] = d.y;
+                dropVec_[o + 2] = d.radius;
+                dropVec_[o + 3] = d.amplitude;
+                dropColorVec_[o] = d.r;
+                dropColorVec_[o + 1] = d.g;
+                dropColorVec_[o + 2] = d.b;
+                dropColorVec_[o + 3] = std::max({d.r, d.g, d.b});
+            }
             useProgram(kInkSplat, inkFbo.width(), inkFbo.height());
             bindTex("uTarget", inkFbo.read().tex(), 0, kInkSplat);
             glUniform4fv(loc(kInkSplat, "uDrops"), kDropsPerPass, dropVec_.data());
@@ -159,45 +163,29 @@ void RippleSim::step(float dtRaw) {
             set1f(kInkSplat, "uCeiling", kInkCeiling);
             blitDiscarding(inkFbo.write());
             inkFbo.swap();
+            i += static_cast<size_t>(n);
         }
-        i += static_cast<size_t>(n);
+        const float inkDt = std::clamp(dt, 0.0f, 1.0f / 30.0f);
+        if (inkDt > 0.0f) {
+            useProgram(kInkAdvect, inkFbo.width(), inkFbo.height());
+            bindTex("uInk", inkFbo.read().tex(), 0, kInkAdvect);
+            bindTex("uHeight", g.read().tex(), 1, kInkAdvect);
+            set1f(kInkAdvect, "uDt", inkDt);
+            set1f(kInkAdvect, "uFlow", std::clamp(inkFlow, 0.0f, 8.0f));
+            set1f(kInkAdvect, "uKeep", ripple::inkDissipation(inkDissipation, inkDt));
+            blitDiscarding(inkFbo.write());
+            inkFbo.swap();
+            glActiveTexture(GL_TEXTURE0);
+        }
     }
     drained_.clear();
-
-    if (dt > 0.0f) {
-        const float c = std::max(waveSpeed, 1e-4f);
-        const float cfl = ripple::cflClampedDt(c, dt, cellSize_);
-        const int substeps = std::clamp(static_cast<int>(std::ceil(dt / cfl)), 1, kMaxSubsteps);
-        const float subDt = ripple::cflClampedDt(c, dt / static_cast<float>(substeps), cellSize_);
-        const float clampedDamping = std::clamp(damping, 0.9f, 0.999f);
-        const float subDamping = std::pow(clampedDamping, subDt * 60.0f);
-        const float subHeightDecay = ripple::heightDecayPerSubstep(clampedDamping, subDt);
-        const float k = c * c * subDt / (cellSize_ * cellSize_);
-        useProgram(kUpdate, g.width(), g.height());
-        set1f(kUpdate, "uK", k);
-        set1f(kUpdate, "uDt", subDt);
-        set1f(kUpdate, "uDamping", subDamping);
-        set1f(kUpdate, "uHeightDecay", subHeightDecay);
-        for (int s = 0; s < substeps; ++s) {
-            bindTex("uHeight", g.read().tex(), 0, kUpdate);
-            blitDiscarding(g.write());
-            g.swap();
-        }
-    }
-
-    if (ink_ && dt > 0.0f) {
-        DoubleFbo& inkFbo = *ink_;
-        useProgram(kInkAdvect, inkFbo.width(), inkFbo.height());
-        bindTex("uInk", inkFbo.read().tex(), 0, kInkAdvect);
-        bindTex("uHeight", g.read().tex(), 1, kInkAdvect);
-        set1f(kInkAdvect, "uDt", dt);
-        set1f(kInkAdvect, "uFlow", std::clamp(inkFlow, 0.0f, 8.0f));
-        set1f(kInkAdvect, "uKeep", ripple::inkDissipation(inkDissipation, dt));
-        blitDiscarding(inkFbo.write());
-        inkFbo.swap();
-        glActiveTexture(GL_TEXTURE0);
-    }
     quad_.unbind();
+}
+
+void RippleSim::clear() {
+    surface_.clear();
+    std::lock_guard<std::mutex> lock(pendingLock_);
+    pending_.clear();
 }
 
 void RippleSim::release() {
@@ -211,6 +199,7 @@ void RippleSim::release() {
     quad_.release();
     std::lock_guard<std::mutex> lock(pendingLock_);
     pending_.clear();
+    surface_.clear();
     available_ = false;
 }
 

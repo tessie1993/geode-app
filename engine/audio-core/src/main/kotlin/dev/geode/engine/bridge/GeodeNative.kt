@@ -225,16 +225,6 @@ object GeodeNative {
         points: Int,
     )
 
-    external fun vizQueueTouchStroke(
-        handle: Long,
-        nx: Float,
-        ny: Float,
-        ndx: Float,
-        ndy: Float,
-        dt: Float,
-        strength: Float,
-    )
-
     external fun vizSetFluidInjection(
         handle: Long,
         force: String?,

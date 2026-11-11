@@ -94,7 +94,9 @@ baselining a style.
 
 Not covered: scenes glslcheck cannot draw (MilkDrop presets, the simulation
 and compute scenes); the fluid looks and Liquid mode, which have their own
-modes (`--fluid-display`, `--liquid`) but not the gate yet; and frame time,
+modes (`--fluid-display`, `--liquid`, and `--ripples <style|water> --dump <tsv>`
+for Water ripples, drawn from `ripple_test --dump <tap|touch|music> <fps> <seconds> <aspect>`)
+but not the gate yet; and frame time,
 which only a device measures (`docs/DEVICE_CHECKS.md` item 43).
 
 ## What it cannot tell you

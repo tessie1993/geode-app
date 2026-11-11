@@ -52,13 +52,12 @@ public:
     // > 0 keeps the previous frame in the scene target (Curl Flow); 0 clears it.
     virtual float trailRetention(const SceneParams& params) const { (void) params; return 0.0f; }
     virtual GLuint velocityTexture() const { return 0; }
-    // The fluid scene runs its own flow field; the water scene owns the ripples and the touch smears.
+    // The fluid scene runs its own flow field; the water scene owns its ripples.
     virtual bool isFluid() const { return false; }
     virtual void setInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc) { (void) forceSrc; (void) dyeSrc; }
     virtual bool isWater() const { return false; }
-    virtual void queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength) {
-        (void) nx; (void) ny; (void) ndx; (void) ndy; (void) dt; (void) strength;
-    }
+    // A finger's ring on the water scene's surface (x in -aspect..aspect, y in -1..1); GL thread.
+    virtual void queueRipple(float x, float y, float amplitude) { (void) x; (void) y; (void) amplitude; }
     // The surface size in pixels, which MilkDrop renders at rather than the supersampled target.
     virtual void setWindowSize(int width, int height) { (void) width; (void) height; }
     virtual void queueMilkPreset(const std::string& path) { (void) path; }

@@ -321,6 +321,94 @@ window.__liquid = async function (job) {
   }
   return out;
 };
+// ---- Water ripples (check.mjs --ripples) ---------------------------------------------------------
+//
+// Renderer::stepOverlays and the composite, or WaterScene, with nothing kept between frames: the frame's
+// wavelets go through ripple_surface_frag into a half-float grid (R height, G its rate), then the style
+// is presented through the composite's overlay lines, or the grid through water_display_frag. A kept
+// frame also reports how much of the picture the surface changed, against the same style undisturbed.
+window.__ripples = async function (job) {
+  const out = { frames: [] };
+  const progs = [];
+  try {
+    const W = job.width, H = job.height;
+    canvas.width = W; canvas.height = H;
+    const half = !!gl.getExtension('EXT_color_buffer_float');
+    out.half = half;
+    if (!half) throw new Error('no half-float colour buffer here');
+    const surfaceProg = link(job.surfaceVert, job.surfaceFrag); progs.push(surfaceProg);
+    const presentProg = link(job.presentVert, job.presentFrag); progs.push(presentProg);
+    const styleProg = job.styleFrag ? link(job.styleVert, job.styleFrag) : null;
+    if (styleProg) progs.push(styleProg);
+    const grid = target(job.gw, job.gh, true), gridFbo = fbo([grid]);
+    const scene = target(W, H, false), sceneFbo = fbo([scene]);
+    const shown = target(W, H, false), shownFbo = fbo([shown]);
+    const black = target(2, 2, false);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo([black])); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.disable(gl.BLEND);
+    const draw = (prog) => {
+      const a = gl.getAttribLocation(prog, 'aPosition');
+      if (a >= 0) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, triangle);
+        gl.enableVertexAttribArray(a);
+        gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
+      }
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      if (a >= 0) gl.disableVertexAttribArray(a);
+    };
+    const read = (f) => {
+      const px = new Uint8Array(W * H * 4);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, f);
+      gl.readBuffer(gl.COLOR_ATTACHMENT0);
+      gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      return px;
+    };
+    for (const fr of job.frames) {
+      if (!fr.snap) continue;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, gridFbo);
+      gl.viewport(0, 0, job.gw, job.gh);
+      gl.useProgram(surfaceProg);
+      bindUniforms(surfaceProg, fr.surface, {});
+      draw(surfaceProg);
+      gl.viewport(0, 0, W, H);
+      if (styleProg) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFbo);
+        gl.useProgram(styleProg);
+        bindUniforms(styleProg, fr.style, {});
+        draw(styleProg);
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, shownFbo);
+      gl.useProgram(presentProg);
+      bindUniforms(presentProg, fr.present, { scene, height: grid, black });
+      draw(presentProg);
+      const after = read(shownFbo);
+      let changed = 0, maxChange = 0, before = null;
+      if (styleProg) before = read(sceneFbo);
+      if (before) {
+        for (let i = 0; i < W * H; i++) {
+          const d = Math.max(Math.abs(after[i * 4] - before[i * 4]), Math.abs(after[i * 4 + 1] - before[i * 4 + 1]), Math.abs(after[i * 4 + 2] - before[i * 4 + 2])) / 255;
+          if (d > 0.02) changed++;
+          if (d > maxChange) maxChange = d;
+        }
+      }
+      let luma = 0;
+      for (let i = 0; i < W * H; i++) luma += (0.2126 * after[i * 4] + 0.7152 * after[i * 4 + 1] + 0.0722 * after[i * 4 + 2]) / 255;
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, shownFbo);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+      gl.blitFramebuffer(0, 0, W, H, 0, 0, W, H, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+      gl.finish();
+      out.frames.push({ time: fr.time, energy: fr.energy, changed: changed / (W * H), maxChange, meanLuma: luma / (W * H), png: canvas.toDataURL('image/png').split(',')[1] });
+    }
+    const err = gl.getError();
+    out.glError = err === gl.NO_ERROR ? 0 : err;
+  } catch (e) {
+    out.error = String(e.message || e).replace(/\n/g, ' | ');
+  } finally {
+    for (const p of progs) gl.deleteProgram(p);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+  return out;
+};
 // ---- The stills gate: one style through the sound engine's golden song (check.mjs --stills) ----------
 //
 // One program, many frames: a few stills at the report size (black and blown are judged on those), then a

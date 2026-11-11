@@ -182,15 +182,6 @@ class VisualizerRenderer(
 
     fun warmTransition(id: String) = nativeViz.warmTransition(id)
 
-    fun queueTouchStroke(
-        nx: Float,
-        ny: Float,
-        ndx: Float,
-        ndy: Float,
-        dt: Float,
-        strength: Float,
-    ) = nativeViz.queueTouchStroke(nx, ny, ndx, ndy, dt, strength)
-
     /** The pointers that are down right now, in y-up NDC; `n = 0` says every finger has lifted. */
     fun submitTouchPoints(
         xy: FloatArray,

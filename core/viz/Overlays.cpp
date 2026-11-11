@@ -2,20 +2,9 @@
 
 #include <algorithm>
 
+#include "viz/VisualSafety.hpp"
+
 namespace geode::viz {
-
-void Overlays::queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength, double nowSeconds) {
-    if (strength <= 0.0f) return;
-    std::lock_guard<std::mutex> lock(strokeLock_);
-    if (strokes_.size() >= static_cast<size_t>(kMaxTouchBacklog)) return;
-    lastTouchSeconds_ = nowSeconds;
-    strokes_.push_back({nx, ny, ndx, ndy, dt, strength});
-}
-
-bool Overlays::smearing(double nowSeconds) const {
-    std::lock_guard<std::mutex> lock(strokeLock_);
-    return nowSeconds - lastTouchSeconds_ < kTouchLingerSeconds;
-}
 
 void Overlays::recreate() {
     release();
@@ -24,7 +13,8 @@ void Overlays::recreate() {
     ripple_.emplace(loader_);
     ripple_->create();
     ripple_->applyResolution(kRippleOverlayRes);
-    rippleDrops_.reset();
+    onsetDrops_.reset();
+    wake_.reset();
 }
 
 void Overlays::resize(int width, int height) {
@@ -43,37 +33,45 @@ void Overlays::stepFlow(const GeodeSoundFrame& features, float dt, const ScenePa
     if (flow_) flow_->step(features, dt, p);
 }
 
-bool Overlays::rippleOverlayActive(const SceneParams& p, bool smearingNow, bool waterActive) const {
-    return (p.rippleOverlayEnabled || smearingNow) && ripple_ && ripple_->available() && !waterActive;
+bool Overlays::rippleOverlayActive(const SceneParams& p, bool waterActive) {
+    const bool on = p.rippleOverlayEnabled && ripple_ && ripple_->available() && !waterActive;
+    if (!on && ripple_) ripple_->clear();
+    return on;
 }
 
-void Overlays::stepRippleOverlay(const GeodeSoundFrame& features, const SceneParams& p, float dt) {
+void Overlays::stepRippleOverlay(const GeodeSoundFrame& features, const SceneParams& p, float dt, bool reducedMotion) {
     if (!ripple_) return;
     fluid::RippleSim& r = *ripple_;
-    r.waveSpeed = 1.2f * std::clamp(p.waterWaveSpeed, 0.2f, 2.0f);
-    r.damping = std::clamp(p.waterDamping, 0.9f, 0.999f);
-    rippleDrops_.tick(features, r.aspect(), [&r](float x, float y, float radius, float amp) { r.queueDrop(x, y, radius, amp); });
+    r.waveSpeed = p.waterWaveSpeed;
+    r.damping = p.waterDamping;
+    r.gain = reducedMotion ? safety::kReducedMotionScale : 1.0f;
+    const auto drop = onsetDrops_.step(features, r.aspect());
+    if (drop.drop) r.queueDrop(drop.x, drop.y, drop.radius, drop.amplitude);
     r.step(dt);
 }
 
-void Overlays::drainTouchStrokes(Scene& scene, bool toLiquid) {
-    drained_.clear();
-    {
-        std::lock_guard<std::mutex> lock(strokeLock_);
-        drained_.swap(strokes_);
-    }
-    if (drained_.empty()) return;
-    const bool water = scene.isWater();
+void Overlays::touchRipples(Scene& scene, const float* xyNdc, int fingers, float dt, bool overlayOn) {
+    struct Target {
+        Scene* scene;
+        fluid::RippleSim* overlay;
+    };
     fluid::RippleSim* r = ripple_ ? &*ripple_ : nullptr;
     const float aspect = r ? r->aspect() : 1.0f;
-    for (const TouchStroke& st : drained_) {
-        if (water) {
-            scene.queueTouchStroke(st.nx * 2.0f - 1.0f, 1.0f - st.ny * 2.0f, st.ndx * 2.0f, -st.ndy * 2.0f, st.dt, st.strength);
-        } else if (!toLiquid && r && r->available()) {
-            r->queueStroke((st.nx * 2.0f - 1.0f) * aspect, 1.0f - st.ny * 2.0f, st.ndx * 2.0f * aspect, -st.ndy * 2.0f, st.dt, kTouchRadius,
-                           st.strength);
-        }
+    float xy[fluid::ripple::Wake::kMaxFingers * 2];
+    const int n = std::clamp(fingers, 0, fluid::ripple::Wake::kMaxFingers);
+    for (int i = 0; i < n; ++i) {
+        xy[i * 2] = xyNdc[i * 2] * aspect;
+        xy[i * 2 + 1] = xyNdc[i * 2 + 1];
     }
+    Target target{scene.isWater() ? &scene : nullptr, overlayOn ? r : nullptr};
+    wake_.step(xy, n, dt, &target, [](void* ctx, float x, float y, float amplitude) {
+        const Target& t = *static_cast<const Target*>(ctx);
+        if (t.scene) {
+            t.scene->queueRipple(x, y, amplitude);
+        } else if (t.overlay) {
+            t.overlay->queueDrop(x, y, fluid::ripple::kTouchRadius, amplitude);
+        }
+    });
 }
 
 }  // namespace geode::viz

@@ -121,10 +121,6 @@ double Renderer::monotonicSeconds() {
     return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
 }
 
-void Renderer::queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength) {
-    overlays_.queueTouchStroke(nx, ny, ndx, ndy, dt, strength, monotonicSeconds());
-}
-
 void Renderer::setFluidInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc) {
     std::lock_guard<std::mutex> lock(stateLock_);
     fluidForceSrc_ = forceSrc;

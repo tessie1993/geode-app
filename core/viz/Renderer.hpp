@@ -114,7 +114,6 @@ public:
     void setLayerAlone(bool on) { layerAlone_.store(on, std::memory_order_relaxed); }
     // Settings › Audio: kept across engine rebuilds (a new sample rate builds a new engine).
     void setSoundTuning(const GeodeSoundTuning& tuning);
-    void queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength);
     void setFluidInjectionShaders(const std::string& forceSrc, const std::string& dyeSrc);
     void loadMilkPreset(const std::string& path);
     void reloadMilkPreset();
@@ -211,7 +210,7 @@ private:
     // After the composite, before the output probe: the wallpaper's edge glow, while the shell has it on.
     void drawEdgeGlow(GLuint targetFbo, double timeSeconds, float dt);
     void deliverPcm(Scene& scene);
-    void stepOverlays(Scene& scene, const SceneParams& p, float dt);
+    void stepOverlays(Scene& scene, const SceneParams& p, float dt, float wallDt);
     void stepCamera(const SceneParams& p, float dt);
     void wireFlow(Scene& target, const SceneParams& p);
     // Liquid mode (viz/liquid): the gestures, the flow field and the dive, after the touch field steps.
@@ -405,7 +404,6 @@ private:
     std::atomic<int> liquidMode_{0};
     std::atomic<int> liquidModeTaken_{-1};
     bool rippleOverlayOn_ = false;
-    bool smearing_ = false;
 
     SceneParams lastFinalParams_;
     float postRotationAngle_ = 0.0f;

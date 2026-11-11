@@ -17,7 +17,6 @@
 namespace geode::viz {
 
 namespace {
-constexpr float kTouchMinOverlayStrength = 0.35f;
 // Liquid mode's hand and sound on the flow (clip units per second into FlowField's kicks), and the
 // radius of each kind of kick: a drag moves the liquid about as fast as the finger.
 constexpr float kLiquidPush = 1.0f;
@@ -322,8 +321,7 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     in.rippleTex = rippleOn ? ripple->heightTex() : compositePass_.zeroTex();
     in.rippleTexelW = rippleOn ? ripple->texelW() : 0.0f;
     in.rippleTexelH = rippleOn ? ripple->texelH() : 0.0f;
-    const float rippleStrength = smearing_ ? std::max(p.rippleOverlayStrength, kTouchMinOverlayStrength) : p.rippleOverlayStrength;
-    in.rippleStrength = rippleOn ? std::clamp(rippleStrength, 0.0f, 1.0f) : 0.0f;
+    in.rippleStrength = rippleOn ? std::clamp(p.rippleOverlayStrength, 0.0f, 1.0f) : 0.0f;
     in.rippleSpecular = rippleOn ? std::clamp(p.rippleOverlaySpecular, 0.0f, 1.0f) : 0.0f;
     in.progress = progress;
     in.layerMix = safety::layerMix(frameLayerMix_, blendModeFromOrdinal(frameLayerBlend_));
@@ -364,15 +362,24 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     compositePass_.draw(in);
 }
 
-void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt) {
-    smearing_ = overlays_.smearing(monotonicSeconds());
+void Renderer::stepOverlays(Scene& scene, const SceneParams& p, float dt, float wallDt) {
     // Stepped once per frame ahead of every draw so each scene reads the same anchor.
     touchField_.step(dt);
-    // In Liquid mode a finger moves the liquid (stepLiquid) instead of dropping ripples.
-    overlays_.drainTouchStrokes(scene, liquidOn());
     stepLiquid(scene, p, dt);
-    rippleOverlayOn_ = overlays_.rippleOverlayActive(p, smearing_, scene.isWater());
-    if (rippleOverlayOn_) overlays_.stepRippleOverlay(gainAdjusted(soundFrame_, p), p, dt);
+    rippleOverlayOn_ = overlays_.rippleOverlayActive(p, scene.isWater());
+    // In Liquid mode a finger moves the liquid (stepLiquid) instead of dropping rings.
+    const auto& pts = touchField_.points();
+    float xy[TouchField::kMaxPoints * 2];
+    int fingers = 0;
+    for (int i = 0; i < TouchField::kMaxPoints && !liquidOn(); i++) {
+        const size_t base = static_cast<size_t>(i * TouchField::kPointStride);
+        if (pts[base + 2] < 0.999f) break;
+        xy[fingers * 2] = pts[base];
+        xy[fingers * 2 + 1] = pts[base + 1];
+        fingers++;
+    }
+    overlays_.touchRipples(scene, xy, fingers, wallDt, rippleOverlayOn_);
+    if (rippleOverlayOn_) overlays_.stepRippleOverlay(gainAdjusted(soundFrame_, p), p, wallDt, frameSettings_.reducedMotion);
 }
 
 // After stepOverlays, so the look follows this frame's touch anchor.
@@ -438,7 +445,7 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     heldWire_ = wire;
     heldWidth_ = renderWidth_;
     heldHeight_ = renderHeight_;
-    stepOverlays(*scene, p, dt);
+    stepOverlays(*scene, p, dt, wallDt);
     stepCamera(p, dt);
     const float progress = drawSecondaryTargets(p, dt);
     // Liquid mode owns the dive, so a 2D style's own endless-zoom layers step aside (nothing dives twice).

@@ -71,23 +71,10 @@ void WaterScene::queueIdleRain(float dt) {
     sim_.queueDrop(x, y * 0.85f, 0.05f, 0.28f * std::clamp(params_.waterRippleStrength, 0.0f, 2.0f), rgb_[0], rgb_[1], rgb_[2]);
 }
 
-void WaterScene::queueTouchStroke(float nx, float ny, float ndx, float ndy, float dt, float strength) {
-    std::lock_guard<std::mutex> lock(strokeLock_);
-    if (touchStrokes_.size() >= static_cast<size_t>(kMaxTouchBacklog)) return;
-    touchStrokes_.push_back({nx, ny, ndx, ndy, dt, strength});
-}
-
-void WaterScene::drainTouchStrokes(float rippleStrength, float baseHue) {
-    drainedStrokes_.clear();
-    {
-        std::lock_guard<std::mutex> lock(strokeLock_);
-        drainedStrokes_.swap(touchStrokes_);
-    }
-    for (const auto& st : drainedStrokes_) {
-        hue::rgb(baseHue + 0.5f * hue::range(params_.hueRange), 1.0f, rgb_.data());
-        sim_.queueStroke(st[0] * sim_.aspect(), st[1], st[2] * sim_.aspect(), st[3], st[4], kTouchRadius, st[5] * std::max(rippleStrength, 0.2f),
-                         rgb_[0], rgb_[1], rgb_[2]);
-    }
+void WaterScene::queueRipple(float x, float y, float amplitude) {
+    const float strength = std::max(std::clamp(params_.waterRippleStrength, 0.0f, 2.0f), 0.2f);
+    hue::rgb(hue::base(params_.paletteBase()) + 0.5f * hue::range(params_.hueRange), 1.0f, rgb_.data());
+    sim_.queueDrop(x, y, fluid::ripple::kTouchRadius, amplitude * strength, rgb_[0], rgb_[1], rgb_[2]);
 }
 
 void WaterScene::draw(float timeSeconds) {
@@ -101,8 +88,8 @@ void WaterScene::draw(float timeSeconds) {
     saveGlState();
     autoQualityTick();
 
-    sim_.waveSpeed = 1.2f * std::clamp(p.waterWaveSpeed, 0.2f, 2.0f);
-    sim_.damping = std::clamp(p.waterDamping, 0.9f, 0.999f);
+    sim_.waveSpeed = p.waterWaveSpeed;
+    sim_.damping = p.waterDamping;
     sim_.inkFlow = std::clamp(p.waterLiquidFlow, 0.0f, 4.0f);
     sim_.inkDissipation = std::clamp(p.waterLiquidFade, 0.0f, 2.0f);
 
@@ -128,8 +115,7 @@ void WaterScene::draw(float timeSeconds) {
         if (amp > 1e-4f) sim_.queueDrop(s.curX, s.curY, s.radius * 0.6f, amp, s.r * kInkGain, s.g * kInkGain, s.b * kInkGain);
     }
     if (idle) queueIdleRain(lastDt_);
-    drainTouchStrokes(rippleStrength, baseHue);
-    sim_.step(simDt);
+    sim_.step(std::max(lastDt_, 0.0f));
     hasPending_ = false;
 
     restoreFramebufferAndViewport();

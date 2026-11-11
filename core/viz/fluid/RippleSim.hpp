@@ -11,11 +11,13 @@
 #include "viz/Program.hpp"
 #include "viz/Quad.hpp"
 #include "viz/fluid/FluidBuffers.hpp"
+#include "viz/fluid/RippleMath.hpp"
 #include "viz/scenes/ProgramLoader.hpp"
 
 namespace geode::viz::fluid {
 
-// A height-field wave grid with an optional advected ink layer.
+// The water surface as a texture (R = height, G = its rate of change), drawn fresh each frame from
+// the drop list (ripple::Surface), with an optional ink layer the surface carries.
 class RippleSim {
 public:
     explicit RippleSim(const ProgramLoader& loader) : loader_(loader) {}
@@ -23,8 +25,9 @@ public:
     RippleSim(const RippleSim&) = delete;
     RippleSim& operator=(const RippleSim&) = delete;
 
-    float waveSpeed = 1.2f;
-    float damping = 0.985f;
+    float waveSpeed = 1.0f;  // Customize's Wave speed
+    float damping = 0.985f;  // Customize's Damping: how long a ring lasts
+    float gain = 1.0f;       // scales the drawn height, not the drops
     bool inkEnabled = false;
     float inkFlow = 1.0f;
     float inkDissipation = 0.35f;
@@ -44,9 +47,10 @@ public:
     bool resize(int w, int h);
     bool applyResolution(int newSimRes);
     void queueDrop(float x, float y, float radius, float amplitude, float r = 0.0f, float g = 0.0f, float b = 0.0f);
-    void queueStroke(float x, float y, float dx, float dy, float dt, float radius, float strength, float r = 0.0f, float g = 0.0f,
-                     float b = 0.0f);
-    void step(float dtRaw);
+    void step(float dt);
+    bool flat() const { return surface_.flat(); }
+    // Drops every ring and whatever is queued (GL thread).
+    void clear();
     void release();
 
 private:
@@ -59,10 +63,9 @@ private:
         float g;
         float b;
     };
-    enum Prog { kSplat, kUpdate, kInkSplat, kInkAdvect, kProgCount };
+    enum Prog { kSurface, kInkSplat, kInkAdvect, kProgCount };
     static constexpr int kMaxPending = 64;
     static constexpr int kDropsPerPass = 8;
-    static constexpr int kMaxSubsteps = 6;
     static constexpr float kInkCeiling = 6.0f;
 
     void allocGrid();
@@ -79,7 +82,6 @@ private:
     int width_ = 1;
     int height_ = 1;
     float aspect_ = 1.0f;
-    float cellSize_ = 2.0f / 384.0f;
     Formats formats_;
     std::optional<DoubleFbo> grid_;
     std::optional<DoubleFbo> ink_;
@@ -89,6 +91,10 @@ private:
     std::mutex pendingLock_;
     std::vector<Drop> pending_;
     std::vector<Drop> drained_;
+    ripple::Surface surface_;
+    std::array<ripple::Wavelet, ripple::kMaxWavelets> wavelets_{};
+    std::array<float, ripple::kMaxWavelets * 4> waveletVec_{};
+    std::array<float, ripple::kMaxWavelets> invWavelength_{};
     std::array<float, kDropsPerPass * 4> dropVec_{};
     std::array<float, kDropsPerPass * 4> dropColorVec_{};
 };

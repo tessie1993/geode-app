@@ -1,7 +1,6 @@
 #version 300 es
-// Liquid-ink injection for the WATER style: the same batched Gaussian kernel
-// ripple_splat_frag uses on the height channel, but writing COLOUR into the
-// ink field instead. RGB accumulates the splat's palette colour, A carries
+// Liquid-ink injection for the WATER style: a batched Gaussian kernel per
+// queued drop, writing COLOUR into the ink field. RGB accumulates the splat's palette colour, A carries
 // coverage so the display pass knows how much of a texel is liquid.
 //
 // Every emitter splat therefore deposits its own colour into a film that then
@@ -25,7 +24,6 @@ void main() {
         vec4 d = uDrops[i];
         float r = max(d.z, 1e-4);
         vec2 diff = vSim - d.xy;
-        // Lockstep with RippleMath.dropProfile: amp * exp(-dist^2 / r^2).
         // abs() on the amplitude: a catch-point drain dips the surface DOWN
         // (negative height) but still stains the water the colour it carries,
         // and a negative deposit would punch a hole in the film instead.

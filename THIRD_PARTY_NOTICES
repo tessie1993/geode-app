@@ -89,10 +89,14 @@ version of projectM v4.1.7. Notice of modification under LGPL-2.1 section 2a:
   frame into a framebuffer object chosen by the caller rather than the
   default framebuffer. Rendering is otherwise unchanged.
   Changed by: the BeatRealms 3D developers, 2 September 2026.
-  Where: the whole change is the patch file
-  tools/projectm-v4.1.7-render-fbo-backport.patch in the app's source
+  Also: projectm_get_dropped_shaders(), which reports which of a preset's
+  shaders projectM replaced with its default one. Changed by the same,
+  11 November 2026.
+  Where: the whole change is the patch files
+  tools/projectm-v4.1.7-render-fbo-backport.patch and
+  tools/projectm-v4.1.7-shader-fallback.patch in the app's source
   repository (https://github.com/tessie1993/geode-app). The build applies
-  it to the unmodified projectM v4.1.7 source when it configures. The
+  them to the unmodified projectM v4.1.7 source when it configures. The
   modified library's complete source is available on request from the
   developer, at no charge beyond the cost of providing it.
 

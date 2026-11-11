@@ -22,7 +22,9 @@
     <!-- First-run photosensitivity notice. Safety copy: translate carefully,
          the flash rate is factual and must survive translation. This is an
          acknowledgement, not a choice — there is no setting behind it. -->
-    <string name="boot_wordmark" translatable="false">BeatRealms</string>
+    <string name="wordmark_beat" translatable="false">Beat</string>
+    <string name="wordmark_realms" translatable="false">Realms</string>
+    <string name="wordmark_3d" translatable="false">3D</string>
     <string name="boot_tagline">Visualize the invisible</string>
     <string name="safety_title">Before the visuals start</string>
     <string name="safety_warning">BeatRealms reacts to music with light, and the visuals are intense — bright, fast and full-screen.</string>

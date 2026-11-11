@@ -268,7 +268,7 @@ jobs:
             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o mod_targets_test
           ./mod_targets_test core/tests/mod_targets.txt
       # Random on waves: the two random wave shapes (a value per cycle, the same at 30/60/120 fps, per slot and seed,
-      # no assumed tempo) and the roll of a set of waves (core/viz/WaveRandomizer).
+      # a tempo only once the music gives one) and the roll of a set of waves (core/viz/WaveRandomizer).
       - name: Random waves host tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |

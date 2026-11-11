@@ -14,25 +14,36 @@ namespace geode::sound {
 // a phone dropping to 40 and an export stepping at 1/30 s hear the same beats in the same places. Its hop
 // is the whole sound engine's analysis hop; SoundEngine::step() only reads where the oscillator is now.
 //
-//   band powers ─► dB against one shared reference ─► positive change (20 ms) ─► mean ─► onset envelope
-//      (librosa's onset_strength; each band's log over its own mean still feeds the drum accents)
-//      onset envelope ─► minus its local mean ─► 6 s ring ─┬► autocorrelation × tempo prior ─► period
+//   band powers ─► level against one shared reference ─► positive change (20 ms) ─► mean ─► onset envelope
+//      (each band's log over its own mean still feeds the drum accents)
+//      onset envelope ─► minus its local mean ─► 6 s ring ─┬► normalised autocorrelation ─► period
 //                                                          └► Fourier at that period, whole bars ─► phase
 //      period + phase ─► phase-locked oscillator ─► beats ─► kick/snare accent per beat slot ─► downbeat
 //
-// The tempogram is Grosche & Müller's autocorrelation tempogram restricted to its best lag, and the
-// phase is their predominant local pulse (PLP) read only at the newest instant, so it predicts rather than
-// describes; the oscillator is the small PLL every real-time tracker puts on top (Meier, Chiu & Müller,
-// TISMIR 2024; aubio's beattracking).
+// The tempo comes from the music alone. No tempo is preferred, weighted or assumed: every lag in the
+// search range is scored by the same normalised autocorrelation, the beat is the fastest lag about as
+// periodic as the strongest one (a rule that names no tempo), and until one is found there is no period,
+// no beat and no tick (bpm 0). tools/no-bpm-bias-gate.sh and musical_test's tempo range keep it so.
+//
+// The phase is Grosche & Müller's predominant local pulse (PLP) read only at the newest instant, so it
+// predicts rather than describes; the oscillator is the small PLL every real-time tracker puts on top
+// (Meier, Chiu & Müller, TISMIR 2024; aubio's beattracking).
 class Rhythm {
 public:
     // The filter bank bands it listens to, in SoundEngine::Slice order up to kHat.
     static constexpr int kBands = 7;
     enum Band { kLow, kMiddle, kHigh, kKick, kSnareBody, kSnareNoise, kHat };
     static constexpr float kHopSeconds = 0.01f;
+    // The search range, flat inside: what the 10 ms hop and the 6 s ring can measure, not what music
+    // is expected to be. The fastest beat is 0.2 s (20 hops); the slowest is the one whose period fits
+    // kPeriodsHeard times in the ring (2 s).
+    static constexpr float kFastestBpm = GEODE_SOUND_BPM_FASTEST;
+    static constexpr int kPeriodsHeard = 3;
+    static constexpr float kSlowestBpm = GEODE_SOUND_BPM_SLOWEST;
 
     // A beat the oscillator passed since the last read. Beats tick while unlocked too (at the last
-    // tempo), so the form tracker always has a grid; only the frame's triggers wait for a lock.
+    // tempo heard), so the form tracker has a grid; only the frame's triggers wait for a lock. Before
+    // the first tempo is heard nothing ticks.
     struct Tick {
         int64_t index;  // beats so far
         bool downbeat;
@@ -79,26 +90,26 @@ private:
     void advance();
     void finishBeatAccent(int64_t beat);
     void snapPhase();
-    float periodOrDefault() const;
     int slotOf(int64_t beat) const { return static_cast<int>(((beat % 4) + 4) % 4); }
 
     int sampleRateHz_ = 48000;
     int hop_ = 480;
     float hopHz_ = 100.0f;
-    int lagMin_ = 30;   // 200 BPM
-    int lagMax_ = 100;  // 60 BPM
-    std::vector<float> prior_;  // the tempo prior, per lag
+    int lagMin_ = 20;   // kFastestBpm
+    int lagMax_ = 200;  // kSlowestBpm
     std::vector<float> ac_;     // scratch: the autocorrelation, per lag up to 2 × lagMax_
     std::array<float, 600> line_{};  // scratch: the ring unrolled, oldest first
+    std::array<float, 601> squares_{};  // scratch: its running energy
 
     // Onset envelope.
     std::array<float, kBands> bandMean_{};
     std::array<std::array<float, 2>, kBands> bandLog_{};  // the last two hops' log level, for a 20 ms change
-    std::array<std::array<float, 2>, kBands> bandDb_{};   // ... and their dB against the shared reference
+    std::array<std::array<float, 2>, kBands> bandLevel_{};  // ... and their level against the shared reference
     float dbRef_ = 0.0f;  // the shared reference: the loudest band's power, released over ~4 s
     float localMean_ = 0.0f;
     int64_t hops_ = 0;
     static constexpr int kRing = 600;  // 6 s
+    static_assert(static_cast<int>(60.0f / kSlowestBpm / kHopSeconds + 0.5f) * kPeriodsHeard == kRing, "the slowest beat fits kPeriodsHeard times in the ring");
     std::array<float, kRing> ring_{};
     int ringHead_ = 0;  // the next slot to write
     std::array<float, 3> bandFluxPeak_{};
@@ -127,6 +138,7 @@ private:
     float snareAccent_ = 0.0f;
     float kickMean_ = 0.0f;   // the typical beat's accents, so a slot scores what sets it apart
     float snareMean_ = 0.0f;
+    bool accentSeeded_ = false;
     std::array<float, 4> slotScore_{};
     int downSlot_ = 0;
     int pendingDownSlot_ = -1;

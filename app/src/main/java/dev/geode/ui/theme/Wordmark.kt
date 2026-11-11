@@ -28,9 +28,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import dev.geode.R
 
-/** The two ways the wordmark is set: on one line, or "3D" centred between rules under the name. */
-enum class WordmarkLockup { OneLine, Stacked }
-
 /** Below this share of its asked size, one line gives way to the narrower stacked lockup. */
 private const val ONE_LINE_MIN_FIT = 0.75f
 

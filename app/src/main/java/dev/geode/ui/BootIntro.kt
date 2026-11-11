@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
@@ -48,7 +49,6 @@ import dev.geode.RingLog
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalReducedMotion
 import dev.geode.ui.theme.Wordmark
-import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -213,7 +213,7 @@ fun BootIntro(onDone: () -> Unit) {
             ) {
                 Wordmark(color = wordmark)
                 Text(
-                    stringResource(R.string.boot_tagline).uppercase(Locale.getDefault()),
+                    stringResource(R.string.boot_tagline).uppercase(LocalConfiguration.current.locales[0]),
                     color = primary.copy(alpha = 0.85f),
                     style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.16.em),
                     textAlign = TextAlign.Center,

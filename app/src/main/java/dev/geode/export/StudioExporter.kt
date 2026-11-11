@@ -14,6 +14,8 @@ import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
 import dev.geode.R
 import dev.geode.RingLog
+import dev.geode.data.pendingRows
+import dev.geode.data.publishPending
 import dev.geode.util.bestEffort
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.Dispatchers
@@ -194,13 +196,7 @@ class StudioExporter(
                     resolver.delete(uri, null, null)
                     return null
                 }
-            resolver.update(
-                uri,
-                ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) },
-                null,
-                null,
-            )
-            uri
+            uri.takeIf { publishPending(resolver.pendingRows(), it) }
         }.getOrNull()
 
     /**

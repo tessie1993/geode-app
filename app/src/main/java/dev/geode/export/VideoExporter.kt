@@ -15,6 +15,8 @@ import androidx.annotation.StringRes
 import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.billing.ProSnapshot
+import dev.geode.data.pendingRows
+import dev.geode.data.publishPending
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.pro.ProFeature
 import dev.geode.render.SceneFactory
@@ -242,10 +244,10 @@ class VideoExporter(
                 if (isCancelled()) {
                     bestEffort(TAG, "resolver.delete(outUri, null, null)") { resolver.delete(outUri, null, null) }
                     Result.Cancelled
-                } else {
-                    val done = ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }
-                    resolver.update(outUri, done, null, null)
+                } else if (publishPending(resolver.pendingRows(), outUri)) {
                     Result.Saved(outUri, measureLoudness(outUri, loudnessTarget))
+                } else {
+                    failed(R.string.export_error_library_publish)
                 }
             } catch (e: Exception) {
                 bestEffort(TAG, "resolver.delete(outUri, null, null)") { resolver.delete(outUri, null, null) }

@@ -2,6 +2,7 @@ package dev.geode.ui
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.text.format.DateUtils
 import android.util.Size
@@ -25,6 +26,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
@@ -59,8 +61,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.editor.ProjectId
 import dev.geode.ui.theme.floatingGlass
-import dev.geode.util.bestEffort
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -254,14 +256,21 @@ private fun MyVideoCard(
 
 /**
  * A frame of the video, read off the main thread. A take has no file of its own until it is
- * rendered (part 2D), so it keeps the empty tile, which also stands in while a frame loads or when
- * the file has gone.
+ * rendered (part 2D), so it keeps the empty tile while a frame loads. A render whose frame cannot
+ * be read, after one retry, shows a video icon labelled "Video unavailable" instead of a blank box.
  */
 @Composable
 private fun VideoThumbnail(uri: String?) {
     val context = LocalContext.current
+    var failed by remember(uri) { mutableStateOf(false) }
     val frame by produceState<ImageBitmap?>(null, uri) {
-        value = uri?.let { withContext(Dispatchers.IO) { context.videoFrame(Uri.parse(it))?.asImageBitmap() } }
+        val parsed = uri?.let(Uri::parse) ?: return@produceState
+        value = withContext(Dispatchers.IO) { context.videoFrame(parsed)?.asImageBitmap() }
+        if (value == null) {
+            delay(THUMB_RETRY_MS)
+            value = withContext(Dispatchers.IO) { context.videoFrame(parsed)?.asImageBitmap() }
+        }
+        failed = value == null
     }
     Box(
         Modifier
@@ -269,20 +278,35 @@ private fun VideoThumbnail(uri: String?) {
             .aspectRatio(16f / 9f)
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center,
     ) {
         frame?.let { Image(it, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
+        if (failed) {
+            Icon(
+                Icons.Filled.Videocam,
+                contentDescription = stringResource(R.string.my_videos_thumbnail_unavailable),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
-/** The cached thumbnail of the media row. Null on any failure. */
-private fun Context.videoFrame(uri: Uri): Bitmap? {
-    var frame: Bitmap? = null
-    bestEffort(TAG, "video thumbnail") {
-        frame = contentResolver.loadThumbnail(uri, Size(THUMB_WIDTH, THUMB_HEIGHT), null)
-    }
-    return frame
-}
+/**
+ * The media row's cached thumbnail, else one decoded frame (a document-tree URI or an unindexed
+ * row has no cached thumbnail). Null when both fail.
+ */
+private fun Context.videoFrame(uri: Uri): Bitmap? =
+    runCatching { contentResolver.loadThumbnail(uri, Size(THUMB_WIDTH, THUMB_HEIGHT), null) }.getOrNull()
+        ?: runCatching {
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(this, uri)
+                retriever.getScaledFrameAtTime(-1, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, THUMB_WIDTH, THUMB_HEIGHT)
+            } finally {
+                retriever.release()
+            }
+        }.getOrNull()
 
-private const val TAG = "MyVideosTab"
+private const val THUMB_RETRY_MS = 2_000L
 private const val THUMB_WIDTH = 320
 private const val THUMB_HEIGHT = 180

@@ -75,14 +75,14 @@ class VisualsJourneyTest {
     }
 
     /**
-     * Presets has one save path: "Save current look" opens a dialog, and the saved look shows as
+     * Presets has one save path: "Save look" opens a dialog, and the saved look shows as
      * a card, under Mine too.
      */
     @Test
     fun savingTheCurrentLookAddsAPresetCard() {
         openVisuals()
         compose.tap("Presets")
-        compose.tap("Save current look")
+        compose.tap("Save look")
         compose.awaitNode(hasSetTextAction())
         compose.onNode(hasSetTextAction()).performTextInput("Journey look")
         compose.tap("Save")

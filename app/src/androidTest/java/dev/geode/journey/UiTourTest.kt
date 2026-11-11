@@ -415,7 +415,7 @@ class UiTourTest {
             null
         }
         tour.back()
-        tour.step("presets", "save-dialog", "Save current look's dialog") { tour.tap(SAVE_LOOK) }
+        tour.step("presets", "save-dialog", "Save look's dialog") { tour.tap(SAVE_LOOK) }
         tour.back()
         tour.back()
     }
@@ -663,7 +663,7 @@ class UiTourTest {
         const val SHADERS = "Shaders"
         const val ARBOR = "Arbor"
         const val LOCKED_STYLE = "Halvorsen Web"
-        const val SAVE_LOOK = "Save current look"
+        const val SAVE_LOOK = "Save look"
         const val MACROS = "Macros"
         const val MOTION = "Motion"
         const val CAMERA = "Camera"

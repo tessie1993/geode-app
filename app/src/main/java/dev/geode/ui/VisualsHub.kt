@@ -255,6 +255,8 @@ internal fun VisualsHub(
                 visualizerView = visualizerView,
                 // Native blur under the glass while the options or the player's pill are up; off in PiP.
                 blurActive = (nav.sheetShown || playerOn) && !pip,
+                // The tab bar under the docked player is the slab's lower half, so it frosts too.
+                blurBelowPx = { if (playerOn) chrome.tabBarHeightPx.toFloat() else 0f },
                 bottomBar =
                     if (docked != null && playerComposed) {
                         { docked(Modifier.restartsSleepTimer(chrome)) }
@@ -293,7 +295,9 @@ internal fun VisualsHub(
                             .fillMaxWidth()
                             .padding(bottom = bottomReserve)
                             .then(swallowTaps)
-                            .padding(horizontal = GeodeSpacing.EdgeInset, vertical = GeodeSpacing.EdgeInset / 2)
+                            .padding(horizontal = GeodeSpacing.EdgeInset)
+                            // Docked, the slab ends on the tab bar's top edge: no strip of the visual between.
+                            .padding(top = GeodeSpacing.EdgeInset / 2, bottom = dockGap / 2)
                             .graphicsLayer { if (docked != null) alpha = playerAlpha.value }
                             .hiddenUnderDropIn(dropInOpen) { optionsFade.value }
                     },

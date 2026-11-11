@@ -27,6 +27,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -95,6 +96,9 @@ internal class ShellChromeState {
 
     /** Set by Visuals while its docked mini player shows: the tab bar under it joins it as one slab. */
     var playerAttached by mutableStateOf(false)
+
+    /** The tab bar's drawn height, which Visuals adds to its blur region while the bar is attached. */
+    var tabBarHeightPx by mutableIntStateOf(0)
 
     fun wake() {
         shown = true

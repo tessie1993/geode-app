@@ -94,7 +94,7 @@ import dev.geode.ui.theme.selectedGlow
  * fixed shelves (All, For this style, Mine, Built-in) as chips, then one "Folders ▾" chip whose
  * menu lists every folder and "New folder", so the row stays one row however many folders exist.
  *
- * One way to save, at the top: "Save current look" opens one dialog with the name and the
+ * One way to save, at the top: "Save look" opens one dialog with the name and the
  * folder, and calls the same [VisualsViewModel.savePreset] as Customize's "Save as preset", with
  * the stage's own shader text so a custom GLSL look is kept too.
  *
@@ -417,14 +417,21 @@ internal fun PresetsToolbar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S),
     ) {
-        Button(onClick = onSave, modifier = Modifier.weight(1f)) {
+        Button(
+            onClick = onSave,
+            modifier = Modifier.weight(1f).heightIn(min = GeodeSpacing.TouchTarget),
+            contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+        ) {
             Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-            // Wraps instead of cutting to "Save curr…" at a large font (#866).
-            Text(stringResource(R.string.presets_save_current_look))
+            // Two words, so one line on a 360 dp phone; at a large font it wraps rather than cut (#866).
+            Text(stringResource(R.string.presets_save_look))
         }
         Box {
-            FilledTonalButton(onClick = { importOpen = true }) { Text("Import") }
+            FilledTonalButton(
+                onClick = { importOpen = true },
+                modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget),
+            ) { Text("Import", maxLines = 1) }
             DropdownMenu(expanded = importOpen, onDismissRequest = { importOpen = false }) {
                 DropdownMenuItem(
                     text = { Text("Paste a shared preset link") },
@@ -615,7 +622,7 @@ private fun PresetCard(
                 .selectedGlow(applied, shape)
                 .clip(shape),
         ) {
-            StyleThumbnail(thumbnailEntry(entry, styleLabel), Modifier.fillMaxSize())
+            StyleThumbnail(thumbnailEntry(entry, styleLabel), Modifier.fillMaxSize(), artKey = entry.name)
             if (locked) ProBadge(Modifier.align(Alignment.TopEnd).padding(GeodeSpacing.XS))
             if (inPlaylist) {
                 val scrim = cs.scrim.copy(alpha = SCRIM_ALPHA)
@@ -689,8 +696,8 @@ private fun EmptyPresets(filter: PresetFilter) {
     val text =
         when (filter) {
             PresetFilter.All, PresetFilter.Mine ->
-                "You have not saved a preset yet. Set up a look you like, then tap Save current look."
-            PresetFilter.ThisStyle -> "No presets for this style yet. Save current look makes the first one."
+                "You have not saved a preset yet. Set up a look you like, then tap Save look."
+            PresetFilter.ThisStyle -> "No presets for this style yet. Save look makes the first one."
             PresetFilter.BuiltIn -> "No built-in presets here."
             is PresetFilter.Folder -> "This folder is empty. Press and hold a preset, then choose Move to folder."
         }

@@ -445,6 +445,7 @@ fun AppRoot() {
                         pip = inPip,
                         miniPlayer = miniPlayer,
                         dockedPlayer = dockedPlayer,
+                        sheetOpacity = gui.barOpacity,
                         onDock = { dockHeight = it },
                         content = { destinationContent(false) },
                     )
@@ -568,6 +569,7 @@ private fun AppShellCompact(
     pip: Boolean,
     miniPlayer: @Composable (Modifier) -> Unit,
     dockedPlayer: @Composable (Modifier) -> Unit,
+    sheetOpacity: Float,
     onDock: (Dp) -> Unit,
     content: @Composable () -> Unit,
 ) {
@@ -675,8 +677,15 @@ private fun AppShellCompact(
                     // Studio from a track menu, say. Fall back to the first tab rather than -1.
                     selected = navEntries.indexOfFirst { it.destination == appState.dest }.coerceAtLeast(0),
                     onSelect = { appState.navigateTo(navEntries[it].destination) },
-                    opacity = GeodeGlass.MATTE_FILL,
-                    modifier = Modifier.onSizeChanged { if (it.height > 0) barHeight = with(density) { it.height.toDp() } },
+                    // On Visuals the bar is the options' lower half, so it takes their glass.
+                    opacity = if (onVisuals) sheetOpacity else GeodeGlass.MATTE_FILL,
+                    modifier =
+                        Modifier.onSizeChanged {
+                            if (it.height > 0) {
+                                barHeight = with(density) { it.height.toDp() }
+                                chrome.tabBarHeightPx = it.height
+                            }
+                        },
                     // One slab with the player above it: the floating card here, the docked one on Visuals.
                     attached = if (onVisuals) chrome.playerAttached else showsPlayer && chrome.awake,
                 )

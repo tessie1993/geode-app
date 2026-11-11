@@ -474,12 +474,14 @@ private fun DrawScope.drawChosenGlass() {
  * The still of a style: `assets/thumbs/<id>.webp`, rendered on CI by
  * `StyleThumbnailRenderTest`. Until a style has one (a new style, or MilkDrop, whose look is
  * the preset's) it gets a gradient keyed to its family or kind, so the grid never shows a hole.
- * Internal because the Presets cards show their style's still too.
+ * Internal because the Presets cards show their style's still too; they pass the preset's name as
+ * [artKey], so two presets of one style without a still are not the same card twice.
  */
 @Composable
 internal fun StyleThumbnail(
     entry: StyleEntry,
     modifier: Modifier = Modifier,
+    artKey: String = entry.id,
 ) {
     val context = LocalContext.current
     val bitmap by produceState(StyleThumbs.cached(entry.id), entry.id) {
@@ -489,14 +491,17 @@ internal fun StyleThumbnail(
     if (image != null) {
         Image(image, contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier)
     } else {
-        Box(modifier.background(fallbackBrush(entry)))
+        Box(modifier.background(fallbackBrush(entry, artKey)))
     }
 }
 
-/** Two hues from the family (or kind), nudged per style so neighbours in a family still differ. */
-private fun fallbackBrush(entry: StyleEntry): Brush {
+/** Two hues from the family (or kind), nudged per [artKey] so neighbours in a family still differ. */
+private fun fallbackBrush(
+    entry: StyleEntry,
+    artKey: String,
+): Brush {
     val base = abs((entry.familyLabel ?: entry.kindLabel).hashCode()) % HUE_TURN
-    val nudge = abs(entry.id.hashCode()) % HUE_NUDGE
+    val nudge = abs(artKey.hashCode()) % HUE_NUDGE
     val a = Color.hsv(((base + nudge) % HUE_TURN).toFloat(), FALLBACK_SAT, FALLBACK_DARK)
     val b = Color.hsv(((base + nudge + HUE_SPREAD) % HUE_TURN).toFloat(), FALLBACK_SAT, FALLBACK_LIGHT)
     return Brush.linearGradient(listOf(a, b))

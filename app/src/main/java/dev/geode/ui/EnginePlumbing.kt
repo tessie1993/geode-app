@@ -9,8 +9,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.data.GuiPrefs
+import dev.geode.data.VizUiState
 import dev.geode.geodeContainer
-import dev.geode.model.VizUiState
 import dev.geode.render.AdsrConfig
 import dev.geode.render.BlendMode
 import dev.geode.render.LfoConfig

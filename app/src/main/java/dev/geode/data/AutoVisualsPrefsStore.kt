@@ -2,7 +2,6 @@ package dev.geode.data
 
 import android.content.SharedPreferences
 import dev.geode.model.VizPlaylistEntry
-import dev.geode.model.VizUiState
 import org.json.JSONArray
 import org.json.JSONObject
 

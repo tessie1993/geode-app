@@ -1,7 +1,6 @@
 package dev.geode.data
 
 import android.content.SharedPreferences
-import dev.geode.model.VizUiState
 import dev.geode.render.MilkPresetMemory
 import dev.geode.render.TransitionCatalog
 import kotlinx.coroutines.CoroutineScope

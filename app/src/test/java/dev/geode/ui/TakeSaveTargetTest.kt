@@ -4,10 +4,10 @@ import dev.geode.data.PerformanceTake
 import dev.geode.data.SaveTarget
 import dev.geode.data.TakeInfo
 import dev.geode.data.TakeRepository
+import dev.geode.data.VizUiState
 import dev.geode.editor.ProjectId
 import dev.geode.editor.ProjectRender
 import dev.geode.editor.StudioProject
-import dev.geode.model.VizUiState
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow

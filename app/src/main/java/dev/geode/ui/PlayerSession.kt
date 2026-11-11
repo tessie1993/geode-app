@@ -52,6 +52,7 @@ import dev.geode.data.TemplateWrite
 import dev.geode.data.UserDataRepository
 import dev.geode.data.VideoTemplate
 import dev.geode.data.VizStateStore
+import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.BatchTrack
 import dev.geode.export.ExportAspect
@@ -64,7 +65,6 @@ import dev.geode.model.MilkFile
 import dev.geode.model.QueueTrack
 import dev.geode.model.QueueUiState
 import dev.geode.model.VizPlaylistEntry
-import dev.geode.model.VizUiState
 import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackErrors
 import dev.geode.playback.PlaybackQueue

@@ -82,7 +82,7 @@ private:
     bool startLocked();
     // Closes the stream, opens a new one and starts it if the output is playing.
     bool reopenLocked();
-    int64_t positionLocked(bool poll);
+    int64_t positionLocked();
 
     const Config config_;
     // Made once the first stream is open (its buffer comes off the fifo's length), before any callback.
@@ -99,7 +99,7 @@ private:
     std::atomic<int> streamBufferFrames_{0};
     std::atomic<bool> failed_{false};
 
-    // The control thread's: the last timestamp read from the stream, read again every kPollNs.
+    // Under streamMutex_: the last timestamp read from the stream, read again every kPollNs.
     StreamTime streamTime_;
     int64_t polledNs_ = 0;
 };

@@ -18,9 +18,9 @@ constexpr int64_t kPollNs = 200'000'000;
 constexpr int64_t kSettleNs = 200'000'000;
 
 int64_t nowNs() {
-    timespec time{};
-    clock_gettime(CLOCK_MONOTONIC, &time);
-    return static_cast<int64_t>(time.tv_sec) * 1'000'000'000 + time.tv_nsec;
+    timespec ts{};
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return static_cast<int64_t>(ts.tv_sec) * 1'000'000'000 + ts.tv_nsec;
 }
 
 }  // namespace
@@ -126,8 +126,13 @@ bool OboeOutput::reopenLocked() {
 
 void OboeOutput::play() {
     std::lock_guard<std::mutex> lock(streamMutex_);
-    wantPlaying_ = true;
-    fifo_->play(nowNs());
+    if (!wantPlaying_) {
+        wantPlaying_ = true;
+        fifo_->play(nowNs());
+        // A timestamp from before the pause says nothing about the stream from here on.
+        streamTime_ = StreamTime{};
+        polledNs_ = 0;
+    }
     if (released_ || failed_.load(std::memory_order_relaxed)) return;
     // A stream that will not start was disconnected while it stood paused: open a new one, once.
     if (!startLocked() && !reopenLocked()) failed_.store(true, std::memory_order_relaxed);
@@ -137,7 +142,7 @@ void OboeOutput::pause() {
     std::lock_guard<std::mutex> lock(streamMutex_);
     wantPlaying_ = false;
     // The position stands where it is now, not where it was last asked for.
-    positionLocked(true);
+    positionLocked();
     fifo_->pause();
     if (stream_ && streamStarted_) {
         stream_->requestPause();
@@ -161,9 +166,9 @@ int64_t OboeOutput::write(const void* data, size_t bytes) {
     return static_cast<int64_t>(frames) * OutputFifo::bytesPerFrame(config_.encoding, config_.channelCount);
 }
 
-int64_t OboeOutput::positionLocked(bool poll) {
+int64_t OboeOutput::positionLocked() {
     const int64_t now = nowNs();
-    if (poll && stream_ && streamStarted_ && now - polledNs_ >= kPollNs) {
+    if (stream_ && streamStarted_ && now - polledNs_ >= kPollNs) {
         polledNs_ = now;
         const oboe::ResultWithValue<oboe::FrameTimestamp> stamp = stream_->getTimestamp(CLOCK_MONOTONIC);
         streamTime_.valid = stamp.error() == oboe::Result::OK;
@@ -176,9 +181,10 @@ int64_t OboeOutput::positionLocked(bool poll) {
 }
 
 int64_t OboeOutput::positionUs() {
-    // Never waits for a reopen in flight on the error thread: the last timestamp serves meanwhile.
     std::unique_lock<std::mutex> lock(streamMutex_, std::try_to_lock);
-    return positionLocked(lock.owns_lock());
+    if (lock.owns_lock()) return positionLocked();
+    // A reopen is in flight on the error thread. Never wait for it: the frames read serve meanwhile.
+    return fifo_->positionUs(nowNs(), StreamTime{}, streamBufferFrames_.load(std::memory_order_relaxed));
 }
 
 void OboeOutput::setVolume(float volume) {

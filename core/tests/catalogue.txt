@@ -272,38 +272,56 @@ override|standing_chamber|Geometry|1
 override|rosensweig|Geometry|0
 override|kundt_tube|Geometry|1
 key|Speed|SCENE_CLOCK
-key|Audio drive|AUDIO_DRIVE
-key|Bass gain|BASS_BAND
-key|Mid gain|MID_BAND
-key|Treble gain|TREBLE_BAND
-key|Detail|MARCH_DETAIL
-key|Morph|SHADER_LOOK
-key|Colour map|SHADER_LOOK
-key|Palette 2|SHADER_LOOK
-key|Palette blend|SHADER_LOOK
-key|Duotone|SHADER_LOOK
 key|Endless zoom|ENDLESS_ZOOM
 key|Dive speed|ENDLESS_ZOOM
+key|Audio drive|AUDIO_DRIVE
 key|Turbulence|TURBULENCE
 key|Density|DYE_DENSITY
+key|Detail|MARCH_DETAIL
 key|Trails|TRAIL_TOGGLE
 key|Trail length|TRAIL_LENGTH
 key|Trail zoom (echo in/out)|TRAIL_ECHO
 key|Trail warp (liquid echo)|TRAIL_ECHO
+key|Morph|SHADER_LOOK
 key|Particle shape|PARTICLE_SPRITE
 key|Particle size|PARTICLE_SPRITE
-key|Particle life (s)|PARTICLE_SPRITE
-key|Particle drag|PARTICLE_SPRITE
+key|Palette 2|SHADER_LOOK
+key|Palette blend|SHADER_LOOK
+key|Colour map|SHADER_LOOK
 key|MilkDrop palette tint|MILKDROP
 key|Blend preset changes|MILKDROP
+key|Duotone|SHADER_LOOK
+key|Bass gain|BASS_BAND
+key|Mid gain|MID_BAND
+key|Treble gain|TREBLE_BAND
+key|Fluid quality|EMITTERS
+key|Lower the quality when the phone struggles|EMITTERS
 key|Solver iterations|FLUID_SIM
 key|Pressure|FLUID_SIM
 key|Fluid curl|FLUID_SIM
 key|Motion fade|FLUID_SIM
 key|Fluid fade|FLUID_SIM
 key|Chromatic aging|FLUID_SIM
+key|Fluid splat radius|EMITTERS
+key|Fluid splat force|EMITTERS
+key|Hit pattern|EMITTERS
+key|Hit splats|EMITTERS
+key|Stirrers|EMITTERS
+key|Stirrer speed|EMITTERS
+key|Bass pump|EMITTERS
 key|Palette cycle|FLUID_SIM
+key|Treble sparkle|EMITTERS
+key|Path|JOURNEY
+key|Spawn points|JOURNEY
+key|Progression|JOURNEY
+key|Catch points|JOURNEY
+key|Catch pull|JOURNEY
+key|Catch radius|JOURNEY
+key|Particle layer|FLUID_SIM
+key|Particle life (s)|PARTICLE_SPRITE
+key|Particle drag|PARTICLE_SPRITE
 key|Particle brightness|FLUID_SIM
+key|Ink layer|FLUID_SIM
 key|Shading (embossed ink)|FLUID_SIM
 key|Glow (fluid)|FLUID_SIM
 key|Fluid glow|FLUID_SIM
@@ -313,20 +331,7 @@ key|Sunrays weight|FLUID_SIM
 key|Curl from mids|FLUID_SIM
 key|Glow from loudness|FLUID_SIM
 key|Fade when quiet|FLUID_SIM
-key|Hit pattern|EMITTERS
-key|Hit splats|EMITTERS
-key|Stirrers|EMITTERS
-key|Stirrer speed|EMITTERS
-key|Fluid splat radius|EMITTERS
-key|Fluid splat force|EMITTERS
-key|Bass pump|EMITTERS
-key|Treble sparkle|EMITTERS
 key|Radius on hit|EMITTERS
-key|Path|JOURNEY
-key|Spawn points|JOURNEY
-key|Catch points|JOURNEY
-key|Catch pull|JOURNEY
-key|Catch radius|JOURNEY
 key|Flow force|FLOW_FIELD_SIM
 key|Flow curl|FLOW_FIELD_SIM
 key|Ripple strength|WATER
@@ -336,21 +341,22 @@ key|Flow drift|WATER
 key|Liquid|WATER
 key|Liquid flow|WATER
 key|Liquid fade|WATER
-key|Ripple overlay strength|RIPPLE_OVERLAY
-key|Ripple glint|RIPPLE_OVERLAY
 key|Geometry|CYMATICS
 key|Fundamental (Hz)|CYMATICS
 key|Standing waves|CYMATICS
-key|Tonal focus|CYMATICS
 key|Plate ring|CYMATICS
+key|Tonal focus|CYMATICS
 key|Field scale|CYMATICS
-key|Wave flow|CYMATICS
-key|Field swirl|CYMATICS
 key|Fill|CYMATICS
 key|Nodal lines|CYMATICS
 key|Nodal glow|CYMATICS
 key|Iridescence|CYMATICS
 key|Caustic sheen|CYMATICS
+key|Wave flow|CYMATICS
+key|Field swirl|CYMATICS
+key|Water ripples on|RIPPLE_OVERLAY
+key|Ripple overlay strength|RIPPLE_OVERLAY
+key|Ripple glint|RIPPLE_OVERLAY
 range|Detail|0.25|1.5
 range|Fundamental (Hz)|40|440
 range|Standing waves|1|8

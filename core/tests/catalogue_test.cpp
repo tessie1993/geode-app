@@ -390,7 +390,10 @@ void textRoundTrips() {
         }
     }
     check(styleIds == catalogue::allIds(), "style rows in picker order");
-    check(kinds == catalogue::kKindCount && families == 10 && keys == 80 && overrides == 8, "row counts");
+    // 86 keys: the 80 of the old hand list plus the six held controls whose scope Customize kept to itself
+    // (Fluid quality and its auto switch, Progression, the two fluid layers, Water ripples on) until the
+    // params schema's meta rows carried every control's scope (#1005 PR 4a).
+    check(kinds == catalogue::kKindCount && families == 10 && keys == 86 && overrides == 8, "row counts");
 }
 
 std::string readFile(const char* path) {

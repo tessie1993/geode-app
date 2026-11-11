@@ -694,6 +694,17 @@
     <string name="look_corner_rounded">Rounded</string>
     <string name="look_corner_pill">Pill</string>
     <string name="look_boot_animation">Boot animation</string>
+    <string name="look_accent_follows_visual">Accent follows the visual</string>
+    <string name="look_accent_follows_visual_hint">Off keeps the accent light blue whatever the visual shows.</string>
+    <string name="look_haptics">Vibrate on touch</string>
+    <string name="look_haptics_hint">Small taps you feel on buttons, tabs and gestures. Follows the system touch-feedback setting.</string>
+    <string name="look_tab_labels">Tab bar labels</string>
+    <string name="look_tab_labels_auto">Automatic</string>
+    <string name="look_tab_labels_always">Always</string>
+    <string name="look_tab_labels_selected">Selected tab only</string>
+    <string name="look_tab_labels_never">Icons only</string>
+    <string name="look_show_time_left">Show time left</string>
+    <string name="look_show_time_left_hint">The Player shows the time left in the track instead of its length.</string>
 
     <!-- Font colour swatches. Mineral names; the argb value is what persists. -->
     <string name="font_color_auto">Auto</string>

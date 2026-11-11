@@ -1092,6 +1092,8 @@
     <string name="settings_dream_bright">Screen saver at full brightness</string>
     <string name="settings_dream_clock">Show the time and date on the screen saver</string>
     <string name="settings_dream_now_playing">Show what\'s playing on the screen saver</string>
+    <string name="settings_dream_other_apps">Screen saver reacts to any app</string>
+    <string name="settings_dream_other_apps_hint">When BeatRealms is not playing, the screen saver moves to whatever your phone plays. Android lists this under the microphone permission; only the sound your phone plays is read, and nothing is recorded or kept.</string>
     <!-- Customize: menus, dialogs and the editors' own words (CustomizePanel, CustomizeTabs, CustomizeAdvanced). -->
     <string name="customize_keep_when_randomizing">Keep when randomizing</string>
     <string name="customize_palette_from_artwork">Take the colours from the artwork</string>

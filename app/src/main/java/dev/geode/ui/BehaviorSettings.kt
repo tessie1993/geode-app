@@ -3,6 +3,7 @@
 
 package dev.geode.ui
 
+import android.Manifest
 import android.app.WallpaperManager
 import android.content.ComponentName
 import android.content.Context
@@ -305,6 +306,33 @@ internal fun WallpaperDreamSection(
         checked = prefs.dreamShowNowPlaying,
         onCheckedChange = { update(prefs.copy(dreamShowNowPlaying = it)) },
     )
+    DreamOtherAppsRow(prefs, update)
+}
+
+/**
+ * The screen saver reacting to other apps' sound ([BehaviourPrefs.dreamHearOtherApps]), as the
+ * wallpaper's "React to any app" does: turning it on asks for the permission the output-mix
+ * capture needs in place, and while it is on without it one button asks again (or opens Android's
+ * settings once it has stopped asking), so a refusal is never a switch that silently does nothing.
+ */
+@Composable
+private fun DreamOtherAppsRow(
+    prefs: BehaviourPrefs,
+    update: (BehaviourPrefs) -> Unit,
+) {
+    val permission = rememberPermissionRequest(Manifest.permission.RECORD_AUDIO)
+    SettingsSwitchRow(
+        title = stringResource(R.string.settings_dream_other_apps),
+        summary = stringResource(R.string.settings_dream_other_apps_hint),
+        checked = prefs.dreamHearOtherApps,
+        onCheckedChange = { on ->
+            update(prefs.copy(dreamHearOtherApps = on))
+            if (on && !permission.granted) permission.request()
+        },
+    )
+    if (prefs.dreamHearOtherApps && !permission.granted) {
+        CrystalButton(onClick = permission::request) { Text(stringResource(R.string.wallpaper_options_open_settings)) }
+    }
 }
 
 /**

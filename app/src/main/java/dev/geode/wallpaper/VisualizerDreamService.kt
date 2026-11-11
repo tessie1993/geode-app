@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.SharedPreferences
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
@@ -44,9 +45,10 @@ import dev.geode.util.bestEffort
  * It paces to its own fps choice, Behaviour › Dream ([dev.geode.data.BehaviourPrefs.dreamFps]),
  * not to Settings › Performance's cap, which is the live visual's.
  * A dream has no Settings page of its own (`res/xml/dream_info.xml`), so those two options are
- * on, the battery-friendly defaults of [WallpaperSettings]. It hears what the wallpaper hears:
- * the app's ring while BeatRealms feeds it, else any app's audio once the user has granted the
- * permission the output-mix capture needs.
+ * on, the battery-friendly defaults of [WallpaperSettings]. It hears the app's ring while
+ * BeatRealms feeds it, else, when Settings › Visuals › Wallpaper & screen saver says so
+ * ([dev.geode.data.BehaviourPrefs.dreamHearOtherApps]) and the permission the output-mix capture
+ * needs is granted, any app's audio, as the wallpaper's "React to any app" does.
  */
 class VisualizerDreamService : DreamService() {
     private var visualizerView: VisualizerView? = null
@@ -55,10 +57,30 @@ class VisualizerDreamService : DreamService() {
     private val handler = Handler(Looper.getMainLooper())
     private val powerManager by lazy { getSystemService(PowerManager::class.java) }
 
-    /** The wallpaper's options, minus the looks: a dream has no options screen to change them. */
-    private val settings = WallpaperSettings()
+    /**
+     * The wallpaper's options, minus the looks: a dream has no options screen to change them. Other
+     * apps' sound is Behaviour's choice, set at attach; it was a fixed default (off) before, so the
+     * dream stood still whenever another app played.
+     */
+    private var settings = WallpaperSettings()
 
     private val sound = SoundSource(this) { syncRunState() }
+
+    /** Lazy: a service has no context for its prefs until onCreate. */
+    private val generalPrefs by lazy { GeodePrefsFiles(this).general }
+
+    /** Behaviour's dream frame rate, read at attach; [applyPerformance] restates it after the cap. */
+    private var dreamFps = GeodeNative.SURFACE_DEFAULT_FPS
+
+    /**
+     * Settings › Performance, followed live like the wallpaper's: the app shares this process and
+     * the prefs file, so a change (a backup restored mid-dream, say) reaches the running dream.
+     * A field: listeners are held weakly.
+     */
+    private val performanceChanged =
+        SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key in PerformanceStore.KEYS) applyPerformance()
+        }
 
     /** Lazy: it asks for the sensor service, which a service has no context for until onCreate. */
     private val cover by lazy { DreamCover(this) { syncRunState() } }
@@ -102,6 +124,7 @@ class VisualizerDreamService : DreamService() {
         // Its own switch (Settings › Behaviour), no longer Player's keep-screen-on.
         val behaviour = BehaviourStore(prefsFiles.general).load()
         isScreenBright = behaviour.dreamScreenBright
+        settings = WallpaperSettings(hearOtherApps = behaviour.dreamHearOtherApps)
         val view = VisualizerView(this)
         visualizerView = view
         // The app's saved look in the gentle flight (owner, wave 1): the camera keeps flying without big
@@ -109,10 +132,8 @@ class VisualizerDreamService : DreamService() {
         val looks = LookStore(prefsFiles, contentResolver)
         looks.pushProcessWide()
         view.visualizerRenderer.look = looks.current().gentleFlight()
-        view.applyPerformance(PerformanceStore(prefsFiles.general, this).settings.value)
-        // After applyPerformance, which caps to the live visual's fps: the dream has its own choice,
-        // snapped natively. The view hands the rate to its surface when that is created.
-        view.framePacer.policy = FrameRatePolicy.Capped(GeodeNative.surfaceFpsChoice(behaviour.dreamFps).toFloat())
+        dreamFps = behaviour.dreamFps
+        applyPerformance()
         view.visualizerRenderer.soundInput = { sound.input }
         val stage = DreamStage(this)
         stage.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -137,6 +158,18 @@ class VisualizerDreamService : DreamService() {
         )
         receiverRegistered = true
         systemAnimations.start()
+        generalPrefs.registerOnSharedPreferenceChangeListener(performanceChanged)
+    }
+
+    /**
+     * Settings › Performance's quality on the dream's view, then the dream's own frame rate: the
+     * view's applyPerformance caps to the live visual's fps, and the dream paces to its own choice,
+     * snapped natively. The view hands the rate to its surface when that is created.
+     */
+    private fun applyPerformance() {
+        val view = visualizerView ?: return
+        view.applyPerformance(PerformanceStore(generalPrefs, this).settings.value)
+        view.framePacer.policy = FrameRatePolicy.Capped(GeodeNative.surfaceFpsChoice(dreamFps).toFloat())
     }
 
     override fun onDreamingStarted() {
@@ -164,6 +197,7 @@ class VisualizerDreamService : DreamService() {
     private fun entitled(): Boolean = GeodeNative.surfaceEntitled(animateUntilMs(), WallClock.SYSTEM.nowMs())
 
     override fun onDetachedFromWindow() {
+        generalPrefs.unregisterOnSharedPreferenceChangeListener(performanceChanged)
         handler.removeCallbacks(endStillSettle)
         handler.removeCallbacks(trialEnded)
         sound.stop()

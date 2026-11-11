@@ -128,6 +128,12 @@ data class BehaviourPrefs(
     /** The dream's "title · artist" line under the clock, while something plays. */
     val dreamShowNowPlaying: Boolean = true,
     /**
+     * The dream also reacts to other apps' sound (the output-mix capture the wallpaper's "React to
+     * any app" uses), when BeatRealms is not playing. Off by default, like the wallpaper's: Android
+     * files that capture under the microphone permission, so it is asked for when this is turned on.
+     */
+    val dreamHearOtherApps: Boolean = false,
+    /**
      * Behaviour › Dream's frame rate (ADR 0008), its own and not Settings › Performance's: 30 unless
      * the user picks another. The allowed rates and the snap are native (`GeodeNative.surfaceFpsChoice`).
      */
@@ -179,6 +185,7 @@ class BehaviourStore(
             dreamScreenBright = prefs.getBoolean(KEY_DREAM_BRIGHT, d.dreamScreenBright),
             dreamShowClock = prefs.getBoolean(KEY_DREAM_CLOCK, d.dreamShowClock),
             dreamShowNowPlaying = prefs.getBoolean(KEY_DREAM_NOW_PLAYING, d.dreamShowNowPlaying),
+            dreamHearOtherApps = prefs.getBoolean(KEY_DREAM_OTHER_APPS, d.dreamHearOtherApps),
             dreamFps = prefs.getInt(KEY_DREAM_FPS, d.dreamFps),
             gestures =
                 CanvasGesture.entries.associateWith { gesture ->
@@ -199,6 +206,7 @@ class BehaviourStore(
             putBoolean(KEY_DREAM_BRIGHT, b.dreamScreenBright)
             putBoolean(KEY_DREAM_CLOCK, b.dreamShowClock)
             putBoolean(KEY_DREAM_NOW_PLAYING, b.dreamShowNowPlaying)
+            putBoolean(KEY_DREAM_OTHER_APPS, b.dreamHearOtherApps)
             putInt(KEY_DREAM_FPS, b.dreamFps)
             for (gesture in CanvasGesture.entries) putString(KEY_GESTURE_PREFIX + gesture.name, b.actionFor(gesture).name)
         }
@@ -227,6 +235,7 @@ class BehaviourStore(
         private const val KEY_DREAM_BRIGHT = "behaviour_dream_screen_bright"
         private const val KEY_DREAM_CLOCK = "behaviour_dream_show_clock"
         private const val KEY_DREAM_NOW_PLAYING = "behaviour_dream_show_now_playing"
+        private const val KEY_DREAM_OTHER_APPS = "behaviour_dream_hear_other_apps"
         private const val KEY_DREAM_FPS = "behaviour_dream_fps"
         private const val KEY_GESTURE_PREFIX = "behaviour_gesture_"
     }

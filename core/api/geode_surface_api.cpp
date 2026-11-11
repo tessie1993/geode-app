@@ -6,6 +6,7 @@ namespace surface = geode::viz::surface;
 
 // The header's numbers are the rule's; a drift here would make the shell pass one bit and mean another.
 static_assert(surface::kReducedMotion == GEODE_SURFACE_REDUCED_MOTION);
+static_assert(surface::kDarkWhenSilent == GEODE_SURFACE_DARK_WHEN_SILENT);
 static_assert(surface::kDefaultFps == GEODE_SURFACE_DEFAULT_FPS);
 static_assert(geode::viz::stage::kCasting == GEODE_STAGE_CASTING);
 static_assert(geode::viz::stage::kCastLeadsAuto == GEODE_STAGE_CAST_LEADS_AUTO);

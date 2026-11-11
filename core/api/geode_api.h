@@ -628,8 +628,9 @@ GEODE_API int             geode_perf_mode_for_device(long long total_ram_bytes, 
 #define GEODE_SURFACE_SILENT                 (1u << 6)
 #define GEODE_SURFACE_REST_WHEN_SILENT       (1u << 7)
 #define GEODE_SURFACE_REDUCED_MOTION         (1u << 8)   /* the system's Remove animations */
+#define GEODE_SURFACE_DARK_WHEN_SILENT       (1u << 9)   /* silence shows no visual (the dream), not a still frame */
 #define GEODE_SURFACE_FOREVER                9223372036854775807LL
-GEODE_API int             geode_surface_run_mode(unsigned flags, long long animate_until_ms, long long now_ms);   /* 0 stopped, 1 still, 2 animated */
+GEODE_API int             geode_surface_run_mode(unsigned flags, long long animate_until_ms, long long now_ms);   /* 0 stopped, 1 still, 2 animated, 3 dark */
 GEODE_API int             geode_surface_listening(unsigned flags, long long animate_until_ms, long long now_ms);  /* 1 = hear sound */
 GEODE_API int             geode_surface_entitled(long long animate_until_ms, long long now_ms);                   /* 1 = may move */
 GEODE_API long long       geode_surface_recheck_in_ms(long long animate_until_ms, long long now_ms);              /* -1 = never */

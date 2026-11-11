@@ -12,6 +12,9 @@ enum class WallpaperRunMode {
 
     /** Paced frames, the live visual. */
     ANIMATED,
+
+    /** No visual: the dream in silence, covered in black, hearing so sound wakes it. */
+    DARK,
 }
 
 /**
@@ -37,6 +40,8 @@ data class WallpaperConditions(
     val settings: WallpaperSettings,
     /** Wall-clock ms the entitlement lets the visual move until ([dev.geode.billing.ProSnapshot.animateUntilMs]). */
     val animateUntilMs: Long,
+    /** The dream: silence shows no visual rather than a still frame (owner: no sound, no visuals). */
+    val darkWhenSilent: Boolean = false,
 ) {
     private val flags: Int
         get() {
@@ -50,6 +55,7 @@ data class WallpaperConditions(
             if (silent) f = f or GeodeNative.SURFACE_SILENT
             if (settings.restWhenSilent) f = f or GeodeNative.SURFACE_REST_WHEN_SILENT
             if (reducedMotion) f = f or GeodeNative.SURFACE_REDUCED_MOTION
+            if (darkWhenSilent) f = f or GeodeNative.SURFACE_DARK_WHEN_SILENT
             return f
         }
 

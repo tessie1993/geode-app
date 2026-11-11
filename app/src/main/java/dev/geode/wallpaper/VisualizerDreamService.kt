@@ -9,6 +9,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.service.dreams.DreamService
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
@@ -38,7 +39,8 @@ import dev.geode.util.bestEffort
  * thing on the same kind of screen — one that sits there for hours while nobody may be looking:
  * - covered ([DreamCover]: the proximity sensor reads near, face down or in a pocket): no frames;
  * - battery saver: a still frame;
- * - silence ([SoundSource]'s grace): a still frame, until sound comes back;
+ * - silence ([SoundSource]'s grace): no visual, faded to black under the overlay, until sound comes
+ *   back (owner: no sound, no visuals; #999);
  * - reduced motion (the system's Remove animations, [SystemAnimations]): a
  *   still frame for the whole dream (owner, ADR 0008; #389). Off, the dream keeps its gentle flight.
  * It paces to its own fps choice, Behaviour › Dream ([dev.geode.data.BehaviourPrefs.dreamFps]),
@@ -71,6 +73,10 @@ class VisualizerDreamService : DreamService() {
     private var listening = false
     private var glPaused = false
     private var runMode = WallpaperRunMode.STOPPED
+
+    /** Black over the visual while the run rule says [WallpaperRunMode.DARK]; the overlay stays above. */
+    private var darkCover: View? = null
+    private var darkShown = false
 
     /** A still frame's settle burst is running; how long is native ([settleMsFrom]). */
     private var settling = false
@@ -116,6 +122,11 @@ class VisualizerDreamService : DreamService() {
         view.visualizerRenderer.soundInput = { sound.input }
         val stage = DreamStage(this)
         stage.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        // Above the GL view (a SurfaceView's hole would clear anything below it), under the overlay.
+        val black = View(this).apply { setBackgroundColor(android.graphics.Color.BLACK) }
+        black.alpha = 0f
+        darkCover = black
+        stage.addView(black, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         if (behaviour.dreamShowClock || behaviour.dreamShowNowPlaying) {
             val dreamOverlay = DreamOverlay(this, behaviour.dreamShowClock, behaviour.dreamShowNowPlaying)
             overlay = dreamOverlay
@@ -178,6 +189,8 @@ class VisualizerDreamService : DreamService() {
         (visualizerView?.parent as? ViewGroup)?.removeView(visualizerView)
         visualizerView = null
         overlay = null
+        darkCover?.animate()?.cancel()
+        darkCover = null
         super.onDetachedFromWindow()
     }
 
@@ -203,6 +216,7 @@ class VisualizerDreamService : DreamService() {
                 reducedMotion = systemAnimations.removed,
                 settings = settings,
                 animateUntilMs = animateUntilMs(),
+                darkWhenSilent = true,
             )
         // A trial that ends mid-dream ends the dream, the same as a free user starting one
         // (owner, #376), and Android falls back to its own.
@@ -221,7 +235,10 @@ class VisualizerDreamService : DreamService() {
             handler.removeCallbacks(endStillSettle)
             settling = false
         }
+        showDark(runMode == WallpaperRunMode.DARK)
         when (runMode) {
+            // No frames under the black; the GL view is not paused, so sound wakes it at once.
+            WallpaperRunMode.DARK -> view.framePacer.stop()
             WallpaperRunMode.ANIMATED -> {
                 resumeGl(view)
                 view.framePacer.start()
@@ -249,6 +266,19 @@ class VisualizerDreamService : DreamService() {
                 }
             }
         }
+    }
+
+    /**
+     * Fades the black over the visual in or out on a change only. The platform's long animation time
+     * is scaled by the system's animator duration scale, so Remove animations makes it a cut.
+     */
+    private fun showDark(dark: Boolean) {
+        if (dark == darkShown) return
+        darkShown = dark
+        darkCover
+            ?.animate()
+            ?.alpha(if (dark) 1f else 0f)
+            ?.setDuration(resources.getInteger(android.R.integer.config_longAnimTime).toLong())
     }
 
     private fun resumeGl(view: VisualizerView) {

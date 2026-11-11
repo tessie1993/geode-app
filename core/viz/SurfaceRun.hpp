@@ -18,6 +18,10 @@
 // - battery saver (when the user keeps that option on) or silence (after core/sound/Silence's
 //   grace, when the user keeps "rest when silent" on): a still frame;
 // - otherwise: moving.
+// The dream asks for kDarkWhenSilent: there silence (with its option) means no visual at all, Dark, ahead of
+// reduced motion and battery saver, since no sound is no visuals (owner, #999 F11) and a still frame on a
+// screen saver is the burn-in it exists to prevent. The wallpaper keeps its still frame: a home screen
+// must show something.
 //
 // The entitlement is a wall-clock time the visual may move until: kForever for Pro, the trial's end
 // for a running trial, 0 for free. Nothing on the device announces a trial's end, so the caller asks
@@ -31,7 +35,8 @@
 // Pure and stateless: the caller holds every input and restates on any change.
 namespace geode::viz::surface {
 
-enum class RunMode : int { Stopped = 0, Still = 1, Animated = 2 };
+// Dark: no visual; the shell covers it in black and draws no frames, still hearing, so sound wakes it.
+enum class RunMode : int { Stopped = 0, Still = 1, Animated = 2, Dark = 3 };
 
 // Bits of what the caller observed. Values are the ABI (GEODE_SURFACE_* in geode_api.h).
 enum Flag : uint32_t {
@@ -45,6 +50,8 @@ enum Flag : uint32_t {
     kRestWhenSilent = 1u << 7,
     // The system's Remove animations, as the shell reads it.
     kReducedMotion = 1u << 8,
+    // The surface shows nothing in a silent rest rather than a still frame: the dream.
+    kDarkWhenSilent = 1u << 9,
 };
 
 inline constexpr int64_t kForever = std::numeric_limits<int64_t>::max();
@@ -62,10 +69,12 @@ inline RunMode mode(uint32_t flags, int64_t animateUntilMs, int64_t nowMs) {
     const bool preview = has(flags, kPreview);
     if (has(flags, kCovered) && !preview) return RunMode::Stopped;
     if (!entitled(animateUntilMs, nowMs)) return RunMode::Still;
+    const bool rest = has(flags, kSilent) && has(flags, kRestWhenSilent);
+    if (rest && has(flags, kDarkWhenSilent) && !preview) return RunMode::Dark;
     if (has(flags, kReducedMotion)) return RunMode::Still;
     if (preview) return RunMode::Animated;
     if (has(flags, kBatterySaver) && has(flags, kPauseInBatterySaver)) return RunMode::Still;
-    if (has(flags, kSilent) && has(flags, kRestWhenSilent)) return RunMode::Still;
+    if (rest) return RunMode::Still;
     return RunMode::Animated;
 }
 

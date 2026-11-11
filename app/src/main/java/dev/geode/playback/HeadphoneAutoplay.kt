@@ -4,7 +4,6 @@ import android.content.Context
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.Player
@@ -61,9 +60,7 @@ internal class HeadphoneAutoplay(
                 add(AudioDeviceInfo.TYPE_WIRED_HEADPHONES)
                 add(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP)
                 add(AudioDeviceInfo.TYPE_USB_HEADSET)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    add(AudioDeviceInfo.TYPE_BLE_HEADSET)
-                }
+                add(AudioDeviceInfo.TYPE_BLE_HEADSET)
             }
     }
 }

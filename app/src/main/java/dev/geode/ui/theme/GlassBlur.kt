@@ -2,7 +2,6 @@
 
 package dev.geode.ui.theme
 
-import android.os.Build
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -35,7 +34,7 @@ import androidx.compose.ui.unit.dp
 
 /**
  * The glass blur token (owner's LOOK REVISION: "Ui can have glow, matte glass and blur"): what lies
- * under a floating glass surface, blurred, on API 31+; below 31 the matte fill alone, as before.
+ * under a floating glass surface, blurred.
  *
  * WHY a recorded backdrop and not a blur of the window: Compose has no "blur what is behind me".
  * [glassBackdrop] records the content it wraps into a [GraphicsLayer] (a RenderNode) as it draws it
@@ -69,7 +68,6 @@ fun rememberGlassBackdrop(): GlassBackdrop = remember { GlassBackdrop() }
 /** Records what this draws, for the glass above it ([glassBlur]); it still draws it once, as usual. */
 @Composable
 fun Modifier.glassBackdrop(backdrop: GlassBackdrop): Modifier {
-    if (!blurSupported()) return this
     val layer = rememberGraphicsLayer()
     DisposableEffect(backdrop, layer) {
         backdrop.layer = layer
@@ -94,10 +92,11 @@ fun Modifier.glassBlur(
     radius: Dp = GlassBlurRadius,
 ): Modifier {
     val backdrop = LocalGlassBackdrop.current
-    if (!blurSupported() || backdrop == null) return this
+    if (backdrop == null) return this
     val blurred = rememberGraphicsLayer()
     val radiusPx = with(LocalDensity.current) { radius.toPx() }
-    SideEffect { blurred.renderEffect = BlurEffect(radiusPx, radiusPx, TileMode.Clamp) }
+    val effect = remember(radiusPx) { BlurEffect(radiusPx, radiusPx, TileMode.Clamp) }
+    SideEffect { blurred.renderEffect = effect }
     // State read in the draw pass only: a move redraws the blur, it never recomposes the glass.
     val here = remember { mutableStateOf(Offset.Zero) }
     return this
@@ -113,8 +112,6 @@ fun Modifier.glassBlur(
             }
         }
 }
-
-private fun blurSupported(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
 /** Enough to turn shapes into colour behind the glass while the matte fill keeps text readable. */
 val GlassBlurRadius = 24.dp

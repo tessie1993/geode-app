@@ -226,13 +226,15 @@ internal fun FloatingMiniPlayer(
                     )
                 }
             }
-            IconButton(onClick = { tap(onPlayPause) }) {
+            IconButton(onClick = { tap(onPlayPause) }, modifier = Modifier.size(MINI_PLAYER_BUTTON)) {
                 StoneIconArt(
                     if (isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
                     stringResource(if (isPlaying) R.string.action_pause else R.string.action_play),
                 )
             }
-            IconButton(onClick = { tap(onNext) }) { StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next)) }
+            IconButton(onClick = { tap(onNext) }, modifier = Modifier.size(MINI_PLAYER_BUTTON)) {
+                StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next))
+            }
         }
     }
 }
@@ -276,14 +278,18 @@ internal fun DockedMiniPlayer(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        IconButton(onClick = { tap(onPrevious) }) { StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous)) }
-        IconButton(onClick = { tap(onPlayPause) }) {
+        IconButton(onClick = { tap(onPrevious) }, modifier = Modifier.size(MINI_PLAYER_BUTTON)) {
+            StoneIconArt(StoneIcon.PREVIOUS, stringResource(R.string.action_previous))
+        }
+        IconButton(onClick = { tap(onPlayPause) }, modifier = Modifier.size(MINI_PLAYER_BUTTON)) {
             StoneIconArt(
                 if (isPlaying) StoneIcon.PAUSE else StoneIcon.PLAY,
                 stringResource(if (isPlaying) R.string.action_pause else R.string.action_play),
             )
         }
-        IconButton(onClick = { tap(onNext) }) { StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next)) }
+        IconButton(onClick = { tap(onNext) }, modifier = Modifier.size(MINI_PLAYER_BUTTON)) {
+            StoneIconArt(StoneIcon.NEXT, stringResource(R.string.action_next))
+        }
     }
 }
 
@@ -518,3 +524,6 @@ private const val TRACK_ALPHA = 0.2f
 private const val HANDLE_ALPHA = 0.7f
 private val HANDLE_WIDTH = 36.dp
 private val HANDLE_HEIGHT = 4.dp
+
+/** The mini player's transport buttons: the 48 dp minimum touch target, not Material's 40 dp default. */
+private val MINI_PLAYER_BUTTON = 48.dp

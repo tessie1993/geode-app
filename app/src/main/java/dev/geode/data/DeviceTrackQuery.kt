@@ -20,12 +20,7 @@ object DeviceTrackQuery {
         context: Context,
         minTrackSeconds: Int,
     ): List<DeviceTrack> {
-        val permission =
-            if (android.os.Build.VERSION.SDK_INT >= 33) {
-                android.Manifest.permission.READ_MEDIA_AUDIO
-            } else {
-                android.Manifest.permission.READ_EXTERNAL_STORAGE
-            }
+        val permission = android.Manifest.permission.READ_MEDIA_AUDIO
         val granted =
             androidx.core.content.ContextCompat
                 .checkSelfPermission(context, permission) ==

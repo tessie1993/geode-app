@@ -137,6 +137,7 @@
   "paletteAmount6": 0.25,
   "paletteAmount7": 0.25,
   "paletteShift": 0.25,
+  "layerMix": 0.25,
   "camOrbit": 0.5,
   "camPush": -0.5,
   "camYaw": -0.5,

@@ -279,6 +279,7 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"paletteAmount6", "a palette stack amount, rolled with the stack"},
         {"paletteAmount7", "a palette stack amount, rolled with the stack"},
         {"paletteShift", "where along the palette stack, rolled with the stack"},
+        {"layerMix", "a modulation offset on Customize › Layers' mix, which is the user's"},
         {"camPush", "a modulation offset the reaction routes drive"},
         {"camYaw", "a modulation offset the reaction routes drive"},
         {"camPitch", "a modulation offset the reaction routes drive"},

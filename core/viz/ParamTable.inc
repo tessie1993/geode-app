@@ -535,6 +535,13 @@ GEODE_PARAM_META(paletteShift, "Palette position", Universal, kMod, 0, 0)
 GEODE_PARAM(Float, kaleidoFolds, 1.0f, 1.0f, 16.0f, Fade)
 GEODE_PARAM_META(kaleidoFolds, "Kaleidoscope", Universal, kMod, 0, 0)
 
+// Customize › Layers' mix as a modulation target (LfoTarget::LayerMix): what waves, envelopes, reaction routes and
+// macro knobs add to the mix the Layers page sets (viz/LayerState), which stays the base. A look holds 0 here, so
+// nothing moves the layer until the user routes something to it; the composite holds the sum to 0..1. Appended so
+// every wire index survives. No roll deals it (the layer is the user's), and no style reads it.
+GEODE_PARAM(Float, layerMix, 0.0f, -1.0f, 1.0f, Fade)
+GEODE_PARAM_META(layerMix, "Layer mix", Universal, kMod, 0, 0)
+
 #ifdef GEODE_PARAM_TABLE_OWN_PARAM
 #undef GEODE_PARAM
 #undef GEODE_PARAM_TABLE_OWN_PARAM

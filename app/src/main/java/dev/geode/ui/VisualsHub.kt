@@ -60,6 +60,7 @@ import dev.geode.R
 import dev.geode.data.BehaviourPrefs
 import dev.geode.data.BehaviourStore
 import dev.geode.data.CanvasGesture
+import dev.geode.data.CustomizeGroupsStore
 import dev.geode.data.GestureAction
 import dev.geode.geodeContainer
 import dev.geode.model.GestureTip
@@ -163,7 +164,6 @@ private fun VisualsHubContent(
     // A page asked for from outside (the tour's replay): the sheet comes up on it.
     LaunchedEffect(requestedPage) {
         val page = requestedPage ?: return@LaunchedEffect
-        nav.closeCustomizeCard()
         nav.openTab(page)
         nav.showSheet()
         onRequestedPageShown()
@@ -440,7 +440,7 @@ private fun VisualsHubContent(
                         NavEntry(page) {
                             when (page) {
                                 VisualsPage.STYLES -> StylesTab(viewModel)
-                                VisualsPage.CUSTOMIZE -> CustomizePanel(viewModel, visualizerView, nav = nav)
+                                VisualsPage.CUSTOMIZE -> CustomizePanel(viewModel, visualizerView)
                                 VisualsPage.PRESETS -> PresetsTab(viewModel, visualizerView)
                                 VisualsPage.MILKDROP ->
                                     MilkDropTab(viewModel, visualizerView, onOpenTextures = { nav.push(VisualsPage.TEXTURES) })
@@ -462,7 +462,11 @@ private fun VisualsHubContent(
             onEdit = {
                 macros = false
                 nav.openTab(VisualsPage.CUSTOMIZE)
-                nav.openCustomizeCard(CustomizeCategory.QUICK_KNOBS.name)
+                // Customize on Quick knobs, its editor open: the groups start collapsed, and this asked for the editor.
+                CustomizeGroupsStore.get(context).run {
+                    selectTab(CustomizeCategory.QUICK_KNOBS.name)
+                    expand("${CustomizeCategory.QUICK_KNOBS.name}/knob_editor")
+                }
             },
             modifier = Modifier.fillMaxSize(),
         )

@@ -50,12 +50,16 @@ const std::vector<Section>& table() {
          false,
          S::Always,
          {"Path", "Spawn points", "Progression", "Catch points", "Catch pull", "Catch radius"}},
+        // What the hits throw, what stirs between them, and how hard the solver works: three groups, so
+        // the panel's collapsed list reads by purpose instead of one eleven-row block.
         {C::Shape,
          "emitters",
          false,
          S::Always,
-         {"Hit pattern", "Hit splats", "Stirrers", "Stirrer speed", "Fluid splat radius", "Radius on hit", "Fluid splat force",
-          "Bass pump", "Treble sparkle", "Fluid quality", "Lower the quality when the phone struggles"}},
+         {"Hit pattern", "Hit splats", "Fluid splat radius", "Radius on hit", "Fluid splat force", "Bass pump",
+          "Treble sparkle"}},
+        {C::Shape, "stirrers", false, S::Always, {"Stirrers", "Stirrer speed"}},
+        {C::Shape, "fluid_quality", false, S::Always, {"Fluid quality", "Lower the quality when the phone struggles"}},
 
         {C::Motion, "basics", true, S::Always, {"Speed", "Zoom", "Rotation"}},
         {C::Motion, "drift", false, S::Always, {"Sway", "Drift X", "Drift Y"}},
@@ -104,7 +108,8 @@ const std::vector<Section>& table() {
          false,
          S::Engine,
          {"Shading (embossed ink)", "Glow (fluid)", "Fluid glow", "Glow threshold", "Glow from loudness",
-          "Sunrays", "Sunrays weight", "Palette cycle", "Particle brightness", "Particle layer", "Ink layer"}},
+          "Sunrays", "Sunrays weight", "Palette cycle"}},
+        {C::Engine, "fluid_layers", false, S::Engine, {"Particle brightness", "Particle layer", "Ink layer"}},
         {C::Engine,
          "plate",
          false,

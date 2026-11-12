@@ -190,7 +190,7 @@ internal fun SectionHeader(
     if (!sectionVisible(scope)) return
     Text(
         title,
-        modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 4.dp).semantics { heading() },
+        modifier = Modifier.fillMaxWidth().padding(top = GeodeSpacing.S, bottom = GeodeSpacing.XS).semantics { heading() },
         style = MaterialTheme.typography.titleSmall,
         color = accentTextColor(),
     )
@@ -204,7 +204,7 @@ internal fun ControlHint(
     if (!sectionVisible(scope) || !LocalShowTips.current) return
     Text(
         text,
-        modifier = Modifier.padding(top = 4.dp, bottom = 2.dp),
+        modifier = Modifier.padding(top = GeodeSpacing.XS, bottom = GeodeSpacing.XXS),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -677,7 +677,7 @@ internal fun LabeledIntSlider(
 ) {
     if (!visible(label, scope, display)) return
     ProGated(label, display, "$value") {
-        Column(Modifier.padding(vertical = 2.dp)) {
+        Column(Modifier.padding(vertical = GeodeSpacing.XXS)) {
             ControlLabelRow("$display · $value", label)
             Slider(
                 value = value.toFloat(),
@@ -700,7 +700,7 @@ internal fun CardSubHeader(title: String) {
     if (!sectionVisible()) return
     Text(
         title,
-        modifier = Modifier.padding(top = 10.dp, bottom = 2.dp),
+        modifier = Modifier.padding(top = GeodeSpacing.S, bottom = GeodeSpacing.XXS),
         style = MaterialTheme.typography.labelLarge,
         color = accentTextColor(),
     )

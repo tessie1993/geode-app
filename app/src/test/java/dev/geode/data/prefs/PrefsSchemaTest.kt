@@ -13,6 +13,7 @@ import dev.geode.data.BehaviourPrefs
 import dev.geode.data.BehaviourStore
 import dev.geode.data.BookmarkStore
 import dev.geode.data.BootAnimationStore
+import dev.geode.data.CustomizeGroupsStore
 import dev.geode.data.ExportDefaults
 import dev.geode.data.ExportDestination
 import dev.geode.data.ExportPrefsStore
@@ -94,6 +95,11 @@ class PrefsSchemaTest {
                 StudioPrefsStore(it[general]).saveKeepAsProject(true)
             },
             Owner("$DATA/BootAnimationStore.kt", BootAnimationStore.PREF_KEYS) { BootAnimationStore(it[general]).save(false) },
+            Owner("$DATA/CustomizeGroupsStore.kt", CustomizeGroupsStore.PREF_KEYS) {
+                val store = CustomizeGroupsStore(it[general])
+                store.toggle("LOOK/basics")
+                store.selectTab("LOOK")
+            },
             Owner("$DATA/MacroStore.kt", MacroStore.PREF_KEYS) { MacroStore.get(it).commit() },
             Owner("$DATA/LfoStore.kt", LfoStore.PREF_KEYS) {
                 val store = LfoStore(it[general])

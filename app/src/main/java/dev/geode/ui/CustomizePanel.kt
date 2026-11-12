@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
@@ -31,7 +30,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +45,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
+import dev.geode.data.CustomizeGroupsStore
 import dev.geode.data.MacroStore
 import dev.geode.model.GestureTip
 import dev.geode.model.TourSpot
@@ -73,15 +72,14 @@ import kotlinx.coroutines.flow.map
  * categories and sections the style on screen has (Camera only on 3D styles,
  * Engine on Fluid, Cymatics and MilkDrop), and what a category's Randomize and Reset do.
  * This file wires that to the screen: the free tier through [ProLock] (a Pro control can be
- * tried, then springs back and the paywall offers it), the open category on the Visuals route
- * ([nav], so system back closes it first), which sections are open (several at once, saved by
- * name across rotation), and the one row of tools above it all.
+ * tried, then springs back and the paywall offers it), the tab on screen and the groups open in
+ * each ([CustomizeGroupsStore], kept across restarts: a tab is no back step, so back leaves
+ * Customize), and the one row of tools above it all.
  */
 @Composable
 internal fun CustomizePanel(
     viewModel: PlayerViewModel,
     visualizerView: VisualizerView,
-    nav: VisualsNavState? = null,
 ) {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val paywall: PaywallViewModel = geodeViewModel()
@@ -112,17 +110,13 @@ internal fun CustomizePanel(
         }
     val sectionsOf: (CustomizeCategory) -> List<CustomizeSection> = remember(sectionsByCategory) { { c -> sectionsByCategory.getValue(c) } }
 
-    val localNav = rememberLocalCustomizeNav()
-    val customizeNav = remember(nav, localNav) { nav?.let(::RouteCustomizeNav) ?: localNav }
-    // A saved category the style no longer has (Camera after a switch to a flat style) would be a back step with nothing to undo.
-    LaunchedEffect(customizeNav.openCategory, categories) {
-        val open = customizeNav.openCategory
-        if (open != null && categories.none { it.name == open }) customizeNav.close()
-    }
-    val openSections = rememberOpenSections()
-    val listState = rememberLazyListState()
+    val context = LocalContext.current
+    val groups = remember { CustomizeGroupsStore.get(context) }
+    val openGroups by groups.open.collectAsStateWithLifecycle()
+    val savedTab by groups.tab.collectAsStateWithLifecycle()
+    // A saved tab this style lacks (Engine after leaving Fluid) shows the first one, and comes back with the style.
+    val open = categories.firstOrNull { it.name == savedTab } ?: categories.firstOrNull() ?: CustomizeCategory.QUICK_KNOBS
     val locked by visualsViewModel.lockedParams.collectAsStateWithLifecycle()
-    val open = categories.firstOrNull { it.name == customizeNav.openCategory }
 
     CompositionLocalProvider(
         LocalParamLocks provides (locked to visualsViewModel::toggleParamLock),
@@ -130,19 +124,18 @@ internal fun CustomizePanel(
         LocalShowTips provides showTips,
         LocalReactTo provides {
             // "Make it react to music": Music, with its Reactions open.
-            openSections.value += "${CustomizeCategory.MUSIC.name}/reactions"
-            customizeNav.open(CustomizeCategory.MUSIC.name)
+            groups.expand("${CustomizeCategory.MUSIC.name}/reactions")
+            groups.selectTab(CustomizeCategory.MUSIC.name)
         },
     ) {
         ProvideKnobLinks(sceneId, proLock) {
             ParamSurface(sceneId = sceneId, query = query) {
-                val header: @Composable (CustomizeCategory?) -> Unit = { category ->
+                val header: @Composable (CustomizeCategory) -> Unit = { category ->
                     CustomizeHeader(
                         viewModel = viewModel,
                         visualizerView = visualizerView,
                         category = category,
-                        canRoll =
-                            category == null || category == CustomizeCategory.QUICK_KNOBS || "${category.name}:roll" in shown,
+                        canRoll = category == CustomizeCategory.QUICK_KNOBS || "${category.name}:roll" in shown,
                         proLock = proLock,
                         searching = searching,
                         onSearching = { on ->
@@ -156,7 +149,7 @@ internal fun CustomizePanel(
                         OutlinedTextField(
                             value = query,
                             onValueChange = { query = it },
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = GeodeSpacing.L),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = GeodeSpacing.S),
                             singleLine = true,
                             label = { Text(stringResource(R.string.customize_a11y_search)) },
                         )
@@ -168,7 +161,7 @@ internal fun CustomizePanel(
                         header(open)
                         LazyColumn(
                             modifier = Modifier.weight(1f).fillMaxWidth(),
-                            contentPadding = PaddingValues(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.XS),
+                            contentPadding = PaddingValues(horizontal = GeodeSpacing.S, vertical = GeodeSpacing.XS),
                             verticalArrangement = Arrangement.spacedBy(GeodeSpacing.XS),
                         ) {
                             items(categories.flatMap(sectionsOf), key = { it.path }) { section ->
@@ -179,14 +172,13 @@ internal fun CustomizePanel(
                 } else {
                     CustomizeBrowser(
                         categories = categories,
+                        selected = open,
+                        onSelect = { groups.selectTab(it.name) },
                         sectionsOf = sectionsOf,
-                        nav = customizeNav,
-                        listState = listState,
-                        openSections = openSections.value,
-                        onToggleSection = { section ->
-                            val path = section.path
-                            openSections.value = if (path in openSections.value) openSections.value - path else openSections.value + path
-                        },
+                        openGroups = openGroups,
+                        onToggleGroup = { groups.toggle(it.path) },
+                        // This tab only; groups.collapseAll(null) would close every tab's.
+                        onCollapseAll = { groups.collapseAll(it.name) },
                         sectionLocked = { !proLock.unlocked && !FreeTier.customizeSectionFree(it.basics) },
                         modifier = Modifier.fillMaxSize(),
                         header = header,
@@ -197,37 +189,19 @@ internal fun CustomizePanel(
     }
 }
 
-/** The browser's nav on the Visuals route: the open category is a [VisualsKey.CustomizeCard]. */
-private class RouteCustomizeNav(
-    private val route: VisualsNavState,
-) : CustomizeNav {
-    override val openCategory: String? get() = route.openCard
-
-    override fun open(name: String) = route.openCustomizeCard(name)
-
-    override fun close() = route.closeCustomizeCard()
-
-    override fun step(
-        order: List<String>,
-        delta: Int,
-    ) {
-        route.stepCustomizeCard(order, delta)
-    }
-}
-
 /**
- * The one row above the list: how far the look is from as styled, then search, Randomize, Undo
- * and ⋯ (Redo, Reset this category, Reset everything, Save as preset, Show tips). Randomize rolls
- * the open [category], or every category from the list; without Pro it rolls the free Basics, and
- * offers Pro where a category has none to roll. Quick knobs' Randomize is free: new turns for the
- * knobs on screen. Reset acts on the open category, or on Quick knobs from the list. Native decides
- * what each one moves and whether a category has a roll ([canRoll]).
+ * The one row above the tabs: how far the look is from as styled, then search, Randomize, Undo
+ * and ⋯ (Redo, Randomize every group, Reset this category, Keep it, Take it from a preset, Reset
+ * everything, Save as preset, Show tips). Randomize rolls the tab on screen ([category]); without
+ * Pro it rolls the free Basics, and offers Pro where a category has none to roll. Quick knobs'
+ * Randomize is free: new turns for the knobs on screen. Native decides what each one moves and
+ * whether a category has a roll ([canRoll]).
  */
 @Composable
 private fun CustomizeHeader(
     viewModel: PlayerViewModel,
     visualizerView: VisualizerView,
-    category: CustomizeCategory?,
+    category: CustomizeCategory,
     canRoll: Boolean,
     proLock: ProLock,
     searching: Boolean,
@@ -246,7 +220,7 @@ private fun CustomizeHeader(
     var borrowing by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val macroStore = remember { MacroStore.get(context) }
-    val target = category ?: CustomizeCategory.QUICK_KNOBS
+    val target = category
     val onKnobs = target == CustomizeCategory.QUICK_KNOBS
     val nudge = LocalTourNudge.current
     val randomize = {
@@ -266,7 +240,7 @@ private fun CustomizeHeader(
             } else {
                 pluralStringResource(R.plurals.customize_summary_changed, changed, changed)
             },
-            modifier = Modifier.weight(1f).padding(start = GeodeSpacing.L),
+            modifier = Modifier.weight(1f).padding(start = GeodeSpacing.M),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
@@ -280,15 +254,7 @@ private fun CustomizeHeader(
             )
         }
         IconButton(onClick = randomize, enabled = canRoll, modifier = Modifier.tourTarget(TourSpot.CUSTOMIZE_RANDOMIZE)) {
-            Icon(
-                Icons.Filled.Casino,
-                contentDescription =
-                    if (category == null) {
-                        stringResource(R.string.customize_a11y_randomize_all)
-                    } else {
-                        stringResource(R.string.customize_a11y_randomize, category.title)
-                    },
-            )
+            Icon(Icons.Filled.Casino, contentDescription = stringResource(R.string.customize_a11y_randomize, category.title))
         }
         IconButton(onClick = visualsViewModel::undoParams, enabled = history.canUndo) {
             Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.customize_a11y_undo))
@@ -305,6 +271,17 @@ private fun CustomizeHeader(
                     onClick = {
                         menuOpen = false
                         visualsViewModel.redoParams()
+                    },
+                )
+                // The old category list's dice: every category at once, now that a tab is always open.
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.customize_a11y_randomize_all)) },
+                    leadingIcon = { Icon(Icons.Filled.Casino, contentDescription = null) },
+                    onClick = {
+                        menuOpen = false
+                        nudge(GestureTip.SWIRL_RANDOMIZE)
+                        val rolled = visualsViewModel.randomizeParams(null, basicsOnly = !proLock.unlocked)
+                        if (!rolled && !proLock.unlocked) proLock.onLocked()
                     },
                 )
                 DropdownMenuItem(

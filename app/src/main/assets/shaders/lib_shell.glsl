@@ -209,6 +209,32 @@ float shellRedo3(float ignored) {
  */
 #define SHELL_FIELD3(p, F) (shellIdle(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK) ? F(p) : (shellBegin3((p), SHELL_FRONT, SHELL_BACK), shellFirst3(F(gShellQ)), (SHELL_SPAWN > 0.0 ? shellTake3(F(shellSpawnAt(SHELL_SPAWN)), shellSpawnAt(SHELL_SPAWN)) : 0.0), (SHELL_FRACTAL > 0.0 ? shellTakeChild3(F(shellChildAt()), SHELL_FRACTAL) : 0.0), (gShellWin > 0.5 ? shellRedo3(F(gShellWP)) : gShellD)))
 
+// ---- 3D: a density (a volume marched in fixed steps) ---------------------------
+//
+// For a style whose world is a density, not a distance (gas, a glow volume): the
+// copies add their density instead of taking the nearer surface. Spawn's copy
+// adds Spawn times its density; Fractal's children (the same third-size,
+// repeated read point) add Fractal times theirs, but only inside the first's
+// gas, so the finer copies grow in the clouds rather than filling the air; the
+// layers open space as for a field.
+
+/** The first copy's density, kept for the children's weight (the macro sequences it first with a comma). Returns it. */
+float shellDensityFirst3(float d) {
+    gShellPar = d;
+    return d;
+}
+
+/** Fractal's children's share: inside the first's gas, none in clear air. */
+float shellDensityChild3(float d, float fractal) {
+    return fractal * d * clamp(4.0 * gShellPar, 0.0, 1.0);
+}
+
+/**
+ * The style's density F (float F(vec3), 0 in clear air) at p with the hooks applied: exactly F(p)
+ * while all are 0, read once; each extra read sits behind its own amount.
+ */
+#define SHELL_DENSITY3(p, F) (shellIdle(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK) ? F(p) : (shellBegin3((p), SHELL_FRONT, SHELL_BACK), shellDensityFirst3(F(gShellQ)), gShellPar + (SHELL_SPAWN > 0.0 ? SHELL_SPAWN * F(shellSpawnAt(SHELL_SPAWN)) : 0.0) + (SHELL_FRACTAL > 0.0 ? shellDensityChild3(F(shellChildAt()), SHELL_FRACTAL) : 0.0)))
+
 // ---- 2D: a pattern or colour ---------------------------------------------------
 //
 // For a field F(vec2) returning a float or a vec3 (or vec4) where more is

@@ -442,13 +442,6 @@ object GeodeNative {
     /** Every Customize control a knob can move, its category, and the knobs that move it now. */
     external fun macroBankControls(bank: String): String
 
-    /** A random set of links for the knob in place of its own; the same [seed], the same set. */
-    external fun macroBankRoll(
-        bank: String,
-        knobId: Int,
-        seed: Long,
-    ): String
-
     /**
      * What the waves and envelopes on a knob add to its turn on the on-screen surface's last frame, one
      * `mod|<knob id>|<add>|<sources: 1 wave, 2 envelope, 3 both>` row per knob; the knob's second arc polls it.
@@ -794,12 +787,6 @@ object GeodeNative {
         out: FloatArray,
     )
 
-    /** The wallpaper's frame rate: [targetFps] lowered to the Performance cap ([capFps] <= 0 = none); never 0. */
-    external fun wallpaperFps(
-        targetFps: Float,
-        capFps: Float,
-    ): Float
-
     external fun vizKnows(
         handle: Long,
         sceneId: String,
@@ -1022,9 +1009,6 @@ object GeodeNative {
         current: Float,
         degrees: Float,
     ): Float
-
-    /** Every rolled control as `TAB|ParamKeys string` lines, in roll order (core/viz/ParamRandomizer). Static. */
-    external fun paramsRollKeys(): String
 
     /**
      * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
@@ -1463,9 +1447,6 @@ object GeodeNative {
         handle: Long,
         nowNs: Long,
     ): Long
-
-    /** The stage frames left out because the encoder was behind. */
-    external fun recorderFramesDropped(handle: Long): Long
 
     /** The longest this recording may run, the shorter of its two limits, in ms; 0 for none. */
     external fun recorderLimitMs(handle: Long): Long
@@ -2439,12 +2420,6 @@ object GeodeNative {
 
     /** The offset's bound in ms, for Settings' Picture delay slider. */
     external fun playoutMaxOffsetMs(): Int
-
-    /** The newest ring sample heard at [nowNs], never past the newest written; -1 with no map since a flush. */
-    external fun playoutSpeakerFrame(
-        handle: Long,
-        nowNs: Long,
-    ): Long
 
     /** Cast: while [on], the TV plays the ring as written and every reader takes the newest sample again. */
     external fun playoutSetBypass(

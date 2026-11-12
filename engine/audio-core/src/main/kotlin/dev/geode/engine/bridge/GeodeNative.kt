@@ -267,6 +267,16 @@ object GeodeNative {
         query: ByteArray,
     ): IntArray
 
+    /**
+     * A playlist file the user picked (core/library/Playlist, `geode_playlist_parse`): its name and bytes in,
+     * the text out. Record 0 is `O`, name or `E`, reason; then one record per entry: location, title, duration
+     * in ms (-1 unknown) and the file name inside the location. Fields are split by U+001F, records by U+001E.
+     */
+    external fun playlistParse(
+        fileName: ByteArray,
+        data: ByteArray,
+    ): ByteArray
+
     /** [assets] is the app's `android.content.res.AssetManager`; typed as Any because this module has no Android SDK. */
     external fun vizCreate(
         assets: Any,

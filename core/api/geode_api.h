@@ -406,6 +406,14 @@ GEODE_API int         geode_search_sheet(const char* const* tracks, const unsign
                                          const char* const* presets, int preset_count, const char* query,
                                          int* out, int max_out);
 
+/* A playlist file the user picked (core/library/Playlist): M3U, PLS or XSPF as UTF-8 bytes, `file_name` its name
+ * (a hint for the format, and the playlist's name when the file has none). Text goes into `out`, NUL-terminated;
+ * the return is the length the whole text needs. Record 0 is "O", name or "E", reason; then one record per entry:
+ * location, title, duration in ms (-1 unknown), file name inside the location with its case kept. Fields are split
+ * by U+001F, records by U+001E. A playlist with a DOCTYPE is refused. Pure, any thread. */
+GEODE_API int         geode_playlist_parse(const char* file_name, const unsigned char* data, int len, char* out,
+                                           int capacity);
+
 /* Scene and style catalogue (core/viz/Catalogue), one question per call; the shell keeps the answers. A list
  * is its items each followed by '\n'. _style_ids and _picker_names are static; every other string is valid
  * until the next catalogue call on the same thread. NULL arguments read as "". Display labels and the Pro

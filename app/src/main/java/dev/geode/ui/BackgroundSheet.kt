@@ -54,7 +54,7 @@ import androidx.window.core.layout.WindowSizeClass
 import dev.geode.R
 import dev.geode.data.BackgroundPrefs
 import dev.geode.data.BackgroundPrefsStore
-import dev.geode.render.UnderlayBlend
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
@@ -136,7 +136,8 @@ private fun BackgroundOptions(
         currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
     val blend: @Composable () -> Unit = {
-        BlendRow(prefs.blend, visualsViewModel::setBackgroundBlend)
+        val blendIndex = remember(prefs.blend) { GeodeNative.underlayBlendOf(prefs.blend) }
+        BlendRow(blendIndex, visualsViewModel::setBackgroundBlend)
     }
     val amount: @Composable () -> Unit = {
         val text = stringResource(R.string.background_amount, (prefs.amount * 100).roundToInt())
@@ -208,8 +209,8 @@ private fun BackgroundOptions(
 /** Blend is a pick from three, so it is one row with its value and ▾ rather than three buttons. */
 @Composable
 private fun BlendRow(
-    current: UnderlayBlend,
-    onSelect: (UnderlayBlend) -> Unit,
+    current: Int,
+    onSelect: (Int) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
     OptionSurface {
@@ -222,7 +223,7 @@ private fun BlendRow(
                 Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
             }
             DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                UnderlayBlend.entries.forEach { option ->
+                repeat(GeodeNative.underlayBlendCount()) { option ->
                     DropdownMenuItem(
                         text = { Text(stringResource(blendLabel(option))) },
                         leadingIcon = {
@@ -330,12 +331,11 @@ private fun OptionSurface(content: @Composable () -> Unit) {
     )
 }
 
-private fun blendLabel(blend: UnderlayBlend): Int =
-    when (blend) {
-        UnderlayBlend.SCREEN -> R.string.background_blend_screen
-        UnderlayBlend.MULTIPLY -> R.string.background_blend_multiply
-        UnderlayBlend.ADD -> R.string.background_blend_add
-    }
+/** The wording for each native blend index, in `GeodeNative.underlayBlendName` order. */
+private val BLEND_LABELS =
+    listOf(R.string.background_blend_screen, R.string.background_blend_multiply, R.string.background_blend_add)
+
+private fun blendLabel(blend: Int): Int = BLEND_LABELS.getOrElse(blend) { BLEND_LABELS.first() }
 
 /** The old compact button's padding: these sit in tight rows in a sheet. */
 private val CompactButtonPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS)

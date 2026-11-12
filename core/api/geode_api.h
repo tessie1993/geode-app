@@ -677,6 +677,11 @@ GEODE_API float       geode_underlay_clamp_amount(float amount);
 GEODE_API float       geode_underlay_clamp_dim(float dim);
 GEODE_API int         geode_underlay_clamp_blur(int radius);
 GEODE_API int         geode_underlay_blur_max(void);
+/* The blends geode_viz_set_underlay_rgba takes, 0..count-1 (0 screen, 1 multiply, 2 add), and the name each is
+ * saved under (a static string). An unknown or null name is 0; an index out of range gives 0's name. */
+GEODE_API int         geode_underlay_blend_count(void);
+GEODE_API const char* geode_underlay_blend_name(int blend);
+GEODE_API int         geode_underlay_blend_of(const char* name);
 
 /* Export resampler (audio/dsp/PcmResampler): interleaved 16-bit PCM to the AAC encoder's rate; band-limited
  * (Kaiser-windowed sinc, polyphase) both ways, cutoff below the lower Nyquist rate (#375). Streaming: state

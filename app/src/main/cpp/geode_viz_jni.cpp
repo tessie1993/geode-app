@@ -1317,6 +1317,23 @@ Java_dev_geode_engine_bridge_GeodeNative_underlayBlurMax(JNIEnv*, jobject) {
     return geode_underlay_blur_max();
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_underlayBlendCount(JNIEnv*, jobject) {
+    return geode_underlay_blend_count();
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_underlayBlendName(JNIEnv* env, jobject, jint blend) {
+    return env->NewStringUTF(geode_underlay_blend_name(blend));
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_underlayBlendOf(JNIEnv* env, jobject, jstring name) {
+    if (!name) return geode_underlay_blend_of(nullptr);
+    Utf8Chars text(env, name);
+    return geode_underlay_blend_of(text.get());
+}
+
 JNIEXPORT jfloat JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_pacerEffectiveCap(JNIEnv*, jobject, jfloat capFps) {
     return geode_pacer_effective_cap(capFps);

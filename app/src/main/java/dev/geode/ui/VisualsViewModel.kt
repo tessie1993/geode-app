@@ -25,7 +25,6 @@ import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.PresetLink
 import dev.geode.render.AdsrConfig
 import dev.geode.render.LfoConfig
-import dev.geode.render.UnderlayBlend
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
@@ -127,7 +126,7 @@ class VisualsViewModel
 
         fun clearBackgroundImage() = session.backgroundController.clear()
 
-        fun setBackgroundBlend(blend: UnderlayBlend) = session.backgroundController.setBlend(blend)
+        fun setBackgroundBlend(blend: Int) = session.backgroundController.setBlend(blend)
 
         fun setBackgroundAmount(amount: Float) = session.backgroundController.setAmount(amount)
 

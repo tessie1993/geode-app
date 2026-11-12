@@ -51,6 +51,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `export_range_test.cpp`: an export segment's clamp (`core/output/ExportRange`): the 1 s minimum, the whole track as no range.
 - `feedback_motion_test.cpp`: `core/viz/liquid/FeedbackMotion`: each term against MilkDrop's formula, 30/60/120 fps, silence, the fold.
 - `fluid_math_test.cpp`: the fluid engine's solve plan, MacCormack, heat and tracer maths, against CPU references of the passes.
+- `fx_ranges_test.cpp`: the sound effects' ranges and clamps (`core/audio/dsp/FxRanges`) and the band levels a session starts on, through `geode_dsp_fx_*` and `geode_dsp_restore_bands`.
 - `gain_ramp_test.cpp`: the playback DSP's gain ramps, ReplayGain on the boundary, crossfade, sleep fade.
 - `gltf_import_test.cpp`: glTF import: every limit, the fit and its counts, refusals and the low-detail copy.
 - `gltf_import_test.cpp` also covers the textures: caps, mips, ASTC and ETC2 decoded back, the memory fit and drops, on .glb, PNG and KTX2 fixtures the test builds itself.

@@ -6,6 +6,7 @@ import dev.geode.audio.dsp.NativeDspProcessor
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
+import dev.geode.engine.bridge.GeodeNative
 
 data class AudioFxBand(
     val label: String,
@@ -25,6 +26,8 @@ data class AudioFxState(
     val presetIndex: Int = -1,
     val bassBoost: Int = 0,
     val loudness: Int = 0,
+    val bassMax: Int = 0,
+    val loudnessMax: Int = 0,
 )
 
 object AudioFxFormat {
@@ -64,6 +67,46 @@ data class AudioFxPreset(
 )
 
 /**
+ * The effects' ranges, clamps and saved-levels resolve. They are native (`core/audio/dsp/FxRanges`); the
+ * interface is only the seam JVM tests, which have no libgeode, hand a stand-in through.
+ */
+interface AudioFxLimits {
+    val bandCount: Int
+
+    fun min(control: Int): Int
+
+    fun max(control: Int): Int
+
+    fun clamp(
+        control: Int,
+        value: Int,
+    ): Int
+
+    fun restoreBands(
+        preset: Int,
+        stored: List<Int>,
+    ): List<Int>
+
+    object Native : AudioFxLimits {
+        override val bandCount: Int get() = GeodeNative.dspBandCount()
+
+        override fun min(control: Int): Int = GeodeNative.dspFxMin(control)
+
+        override fun max(control: Int): Int = GeodeNative.dspFxMax(control)
+
+        override fun clamp(
+            control: Int,
+            value: Int,
+        ): Int = GeodeNative.dspFxClamp(control, value)
+
+        override fun restoreBands(
+            preset: Int,
+            stored: List<Int>,
+        ): List<Int> = IntArray(bandCount).also { GeodeNative.dspRestoreBands(preset, stored.toIntArray(), it) }.toList()
+    }
+}
+
+/**
  * Drives the native equalizer chain and remembers its settings.
  *
  * The chain lives inside the player's processor list, so it is always "attached"; [attach] is
@@ -73,6 +116,7 @@ class AudioFxController(
     private val prefs: SharedPreferences,
     private val presets: List<AudioFxPreset>,
     private val dsp: NativeDspProcessor,
+    private val limits: AudioFxLimits = AudioFxLimits.Native,
 ) {
     private var sessionId: Int = 0
 
@@ -97,21 +141,13 @@ class AudioFxController(
         dsp.update(dsp.settings.copy(enabled = enabled))
     }
 
-    val bandCount: Int get() = NativeDspProcessor.BANDS
-
-    fun bandRange(band: Int): Pair<Int, Int> {
-        require(band in 0 until bandCount) { "band $band" }
-        return NativeDspProcessor.MIN_MB to NativeDspProcessor.MAX_MB
-    }
-
     fun setBandLevel(
         band: Int,
         mB: Int,
     ): Boolean {
-        if (band !in 0 until bandCount) return false
-        val (lo, hi) = bandRange(band)
         val levels = dsp.settings.bandsMb.toMutableList()
-        levels[band] = mB.coerceIn(lo, hi)
+        if (band !in levels.indices) return false
+        levels[band] = limits.clamp(GeodeNative.DSP_FX_BAND, mB)
         dsp.update(dsp.settings.copy(bandsMb = levels))
         prefs
             .edit()
@@ -135,14 +171,14 @@ class AudioFxController(
     }
 
     fun setBassBoost(strength: Int): Boolean {
-        val s = strength.coerceIn(0, 1000)
+        val s = limits.clamp(GeodeNative.DSP_FX_BASS_BOOST, strength)
         dsp.update(dsp.settings.copy(bassBoost = s))
         prefs.edit().putInt(KEY_BASS, s).apply()
         return true
     }
 
     fun setLoudness(mB: Int): Boolean {
-        val g = mB.coerceIn(0, 1000)
+        val g = limits.clamp(GeodeNative.DSP_FX_LOUDNESS, mB)
         dsp.update(dsp.settings.copy(loudnessMb = g))
         prefs.edit().putInt(KEY_LOUDNESS, g).apply()
         return true
@@ -150,7 +186,8 @@ class AudioFxController(
 
     fun snapshot(): AudioFxState {
         val s = dsp.settings
-        val (lo, hi) = NativeDspProcessor.MIN_MB to NativeDspProcessor.MAX_MB
+        val lo = limits.min(GeodeNative.DSP_FX_BAND)
+        val hi = limits.max(GeodeNative.DSP_FX_BAND)
         return AudioFxState(
             available = true,
             attached = true,
@@ -170,22 +207,18 @@ class AudioFxController(
             presetIndex = prefs.getInt(KEY_PRESET, -1),
             bassBoost = s.bassBoost,
             loudness = s.loudnessMb,
+            bassMax = limits.max(GeodeNative.DSP_FX_BASS_BOOST),
+            loudnessMax = limits.max(GeodeNative.DSP_FX_LOUDNESS),
         )
     }
 
     private fun restored(): DspSettings {
-        val preset = prefs.getInt(KEY_PRESET, -1)
-        val fromPreset = presets.getOrNull(preset)?.levelsMb
         val stored = AudioFxFormat.decodeBandLevels(prefs.getString(KEY_BANDS, null))
-        val levels =
-            List(bandCount) { band ->
-                (fromPreset?.getOrNull(band) ?: stored.getOrNull(band) ?: 0).coerceIn(NativeDspProcessor.MIN_MB, NativeDspProcessor.MAX_MB)
-            }
         return dsp.settings.copy(
             enabled = prefs.getBoolean(KEY_ENABLED, false),
-            bandsMb = levels,
-            bassBoost = prefs.getInt(KEY_BASS, 0).coerceIn(0, 1000),
-            loudnessMb = prefs.getInt(KEY_LOUDNESS, 0).coerceIn(0, 1000),
+            bandsMb = limits.restoreBands(prefs.getInt(KEY_PRESET, -1), stored),
+            bassBoost = limits.clamp(GeodeNative.DSP_FX_BASS_BOOST, prefs.getInt(KEY_BASS, 0)),
+            loudnessMb = limits.clamp(GeodeNative.DSP_FX_LOUDNESS, prefs.getInt(KEY_LOUDNESS, 0)),
         )
     }
 

@@ -33,6 +33,33 @@ object GeodeNative {
         out: IntArray,
     ): Int
 
+    const val DSP_FX_BAND: Int = 0
+    const val DSP_FX_BASS_BOOST: Int = 1
+    const val DSP_FX_LOUDNESS: Int = 2
+
+    /** The equalizer's bands. */
+    external fun dspBandCount(): Int
+
+    /** A sound effect's range ([DSP_FX_BAND], [DSP_FX_BASS_BOOST], [DSP_FX_LOUDNESS]) and a value held to it. */
+    external fun dspFxMin(control: Int): Int
+
+    external fun dspFxMax(control: Int): Int
+
+    external fun dspFxClamp(
+        control: Int,
+        value: Int,
+    ): Int
+
+    /**
+     * The band levels a session starts on into [out]: saved curve [preset]'s when it names one, else the
+     * [stored] levels, a band with neither at 0, each in range. The bands written.
+     */
+    external fun dspRestoreBands(
+        preset: Int,
+        stored: IntArray,
+        out: IntArray,
+    ): Int
+
     external fun dspSetEnabled(
         handle: Long,
         enabled: Boolean,

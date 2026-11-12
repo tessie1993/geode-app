@@ -3,6 +3,9 @@ name: Shader compile check
 # Every fragment and vertex shader, the Silk bodies and every fluid look through the NDK's glslc
 # (tools/check_shaders.py), on each pull request that touches them: a shader that fails here
 # freezes a phone. Uses the runner's preinstalled NDK 28.0.13004108 and installs it only if missing.
+# glslc reads the shaders as 310 es, so a second job compiles every fragment style as the 300 es the
+# phone gets and draws one frame of it (tools/glslcheck, Chrome's ANGLE on SwiftShader). It fails on
+# a compile, link or uniform error only, never on what the frame looks like.
 
 on:
   workflow_dispatch:
@@ -46,3 +49,23 @@ jobs:
 
       - name: Shader compile check
         run: python3 tools/check_shaders.py "$GLSLC"
+
+  es300:
+    name: ES 3.00 compile and one frame
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - name: glslcheck every fragment style
+        working-directory: tools/glslcheck
+        run: |
+          export MUSICVIZ_CHROMIUM="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          # Ends with a cost table (link, first draw, draw; family medians): a report, never a failure.
+          node check.mjs --all --size 128

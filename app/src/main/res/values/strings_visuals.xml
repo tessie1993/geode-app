@@ -17,6 +17,7 @@
 
     <!-- Visuals › MilkDrop (ui/MilkDropPage.kt). -->
     <string name="milk_load_failed">MilkDrop: %1$s</string>
+    <string name="stage_style_failed">This style did not load</string>
     <string name="milk_open_failed">That file couldn\'t be opened as a MilkDrop preset.</string>
     <string name="milk_unavailable">MilkDrop doesn\'t run on this device.</string>
     <string name="milk_presets">Your presets</string>

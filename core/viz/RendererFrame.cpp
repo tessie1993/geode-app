@@ -112,6 +112,15 @@ Scene* Renderer::resolveActiveScene() {
         std::lock_guard<std::mutex> lock(stateLock_);
         requestedId = requestedSceneId_;
     }
+    // Picking a style that failed says why again; picking another takes that report down.
+    if (requestedId != reportedRequestId_) {
+        reportedRequestId_ = requestedId;
+        if (prep_.failed(requestedId)) {
+            fail(prep_.report(requestedId));
+        } else if (prep_.reported(lastError())) {
+            fail("");
+        }
+    }
     // Live, a scene not built yet comes back null for a few frames while it is staged; the frame
     // keeps drawing activeScene_ (or a clear when there is none) until it is whole.
     Scene* requested = readyScene(requestedId);

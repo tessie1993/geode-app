@@ -5,6 +5,7 @@
 #include "api/geode_api.h"
 #include "audio/dsp/DspProcessor.hpp"
 #include "audio/dsp/EqPresets.hpp"
+#include "audio/dsp/FxRanges.hpp"
 
 struct geode_dsp {
     geode::audio::DspProcessor processor;
@@ -16,6 +17,8 @@ static_assert(Equalizer::kBands == GEODE_DSP_BANDS);
 static_assert(Equalizer::kMinMillibels == GEODE_DSP_MIN_MILLIBELS);
 static_assert(Equalizer::kMaxMillibels == GEODE_DSP_MAX_MILLIBELS);
 static_assert(geode::audio::kSilenceDb == GEODE_DSP_SILENCE_DB);
+static_assert(geode::audio::fx::kBand == GEODE_DSP_FX_BAND && geode::audio::fx::kBassBoost == GEODE_DSP_FX_BASS_BOOST);
+static_assert(geode::audio::fx::kLoudness == GEODE_DSP_FX_LOUDNESS);
 static_assert(geode::audio::kTrackGain == GEODE_TAG_TRACK_GAIN && geode::audio::kTrackPeak == GEODE_TAG_TRACK_PEAK);
 static_assert(geode::audio::kAlbumGain == GEODE_TAG_ALBUM_GAIN && geode::audio::kAlbumPeak == GEODE_TAG_ALBUM_PEAK);
 
@@ -60,6 +63,28 @@ int geode_dsp_eq_preset_levels(int preset, int32_t* out, int capacity) {
     if (!out || preset < 0 || preset >= geode::audio::kEqPresets || capacity < Equalizer::kBands) return 0;
     const auto& levels = geode::audio::kEqPresetLevels[static_cast<size_t>(preset)];
     std::copy(levels.begin(), levels.end(), out);
+    return Equalizer::kBands;
+}
+
+int geode_dsp_band_count(void) {
+    return Equalizer::kBands;
+}
+
+int geode_dsp_fx_min(int control) {
+    return geode::audio::fx::rangeOf(control).min;
+}
+
+int geode_dsp_fx_max(int control) {
+    return geode::audio::fx::rangeOf(control).max;
+}
+
+int geode_dsp_fx_clamp(int control, int value) {
+    return geode::audio::fx::clamp(control, value);
+}
+
+int geode_dsp_restore_bands(int preset, const int32_t* stored, int stored_count, int32_t* out, int capacity) {
+    if (!out || capacity < Equalizer::kBands) return 0;
+    geode::audio::fx::restoreBands(preset, stored, stored_count, out);
     return Equalizer::kBands;
 }
 

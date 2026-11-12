@@ -150,8 +150,8 @@ This file is a map. Detail lives in `docs/agents/`, one fact per line:
 - A tempo not yet heard is unknown (`bpm` 0, no beats, clocks run in seconds), never a stand-in number. Do not copy a beat tracker's prior or a library's start tempo from the literature.
 - No 120 as a tempo anywhere, tests included: a test's stimulus plays other tempos (77, 93, 141, 174).
 - Android TV is the same APK: no `uses-feature` may be required (touchscreen, faketouch, microphone, leanback are `required="false"`), checked by `TelevisionManifestTest` and `tools/check-manifest.sh`; how a TV differs is in [navigation.md](docs/agents/navigation.md).
-- Cast to TV is the app's only internet use (`INTERNET`, `ACCESS_NETWORK_STATE`).
-- CI fails if INTERNET appears without `CastService`, if a socket or HTTP API is used outside `cast/`, if a networking, analytics or ads SDK joins the release build, or if AD_ID appears.
+- Cast (to a TV or a computer) is the app's only internet use (`INTERNET`, `ACCESS_NETWORK_STATE`); the one admitted networking library is libdatachannel with Mbed TLS, for Show on a computer (owner 2026-11-12).
+- CI fails if INTERNET appears without `CastService`, if a socket or HTTP API is used outside `cast/` or a socket or WebRTC header outside `core/cast/` (`tools/network-gate.sh`), if a networking, analytics or ads SDK joins the release build or a networking submodule joins `third_party/`, or if AD_ID appears.
 - Everything else is offline; Play Billing works over IPC to the Play Store app.
 - Runtime permissions are asked for in context through `ui/PermissionRequest.kt` (`rememberPermissionRequest`: rationale first, retry after a refusal, app Settings once Android stops asking).
 - First run is the safety notice alone (`SafetyConsent` on `OnboardingScaffold`; `FirstRunGate` passes straight through).
@@ -186,7 +186,7 @@ This file is a map. Detail lives in `docs/agents/`, one fact per line:
 
 ## Gates
 
-- `.github/workflows/arch-map.yml` runs `tools/layer-gate.sh` (the layer rule above), `tools/engine-kotlin-gate.sh`, `tools/no-bpm-bias-gate.sh` (the tempo rule under Conventions) and `tools/actions-pin-gate.sh` on every PR; see [build-ci.md](docs/agents/build-ci.md).
+- `.github/workflows/arch-map.yml` runs `tools/layer-gate.sh` (the layer rule above), `tools/engine-kotlin-gate.sh`, `tools/no-bpm-bias-gate.sh` (the tempo rule under Conventions), `tools/network-gate.sh` (the internet rule under Conventions) and `tools/actions-pin-gate.sh` on every PR; see [build-ci.md](docs/agents/build-ci.md).
 - There is no AGENTS.md check; keep this map current by hand.
 
 ## Keeping this map current

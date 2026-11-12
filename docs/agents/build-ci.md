@@ -9,7 +9,7 @@ One fact per line. Add a fact as a new bullet in its group.
 - So a failing unit test hides the lint results behind it.
 - The manifest check fails on INTERNET without Cast, on AD_ID, and on the wrong targetSdk, against the debug build.
 - `native-host-tests.yml` (the `core/tests` host tests) runs on every PR too.
-- `arch-map.yml` runs `tools/layer-gate.sh`, `tools/engine-kotlin-gate.sh`, `tools/no-bpm-bias-gate.sh` and `tools/actions-pin-gate.sh` (every action pinned to a commit SHA) on every PR.
+- `arch-map.yml` runs `tools/layer-gate.sh`, `tools/engine-kotlin-gate.sh`, `tools/no-bpm-bias-gate.sh`, `tools/network-gate.sh` (sockets and WebRTC headers only in `cast/` and `core/cast/`, no other networking submodule) and `tools/actions-pin-gate.sh` (every action pinned to a commit SHA) on every PR.
 - `arch-map.yml` also checks that `THIRD_PARTY_NOTICES` equals the shipped `assets/third_party_notices.txt`.
 - Read the results with `gh run list --branch <b>` and `gh run view <id> --log-failed`.
 

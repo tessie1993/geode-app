@@ -116,6 +116,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `underlay_test.cpp`: the background image's crop rect, blur, dim and clamps (#651).
 - `viz_math_test.cpp`: reaction matrix, style DNA, camera math and the endless zoom (its seamless tunnel, no hit moving it, the 8-measured-beat follow, equal travel at 30/60/120 fps).
 - `wallpaper_window_test.cpp`: the wallpaper's on-screen window and fps pick.
+- `webrtc_rule_test.cpp`: Show on a computer over WebRTC (`core/viz/frame/WebRtcRule`): the H.264 sent, the offer read, LAN-only candidates, the RTP clock.
 - `world_genome_test.cpp`: Morph World's genome and morph driver (`core/viz/world`).
 
 ## Journeys, UI tour, thumbnails, store shots

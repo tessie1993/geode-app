@@ -319,10 +319,14 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `LiveHttpServer` serves the stream on the LAN under a random token; it handles only the socket and bytes.
 - Who may connect (a TV cast the Cast device alone, a shared link the Wi-Fi's subnet), every route, the constant-time token check and each response head (no-store, nosniff, no-referrer, the page's CSP) are native in `core/viz/frame/LinkShare`.
 - It serves from the Wi-Fi or Ethernet address, never a VPN's or cellular's.
-- Show on a computer (`ComputerLink`) serves the same stream, with or without a TV, to a browser on the Wi-Fi.
+- Show on a computer (`ComputerLink`) serves the same picture, with or without a TV, to a browser on the Wi-Fi.
 - Its doors (`ComputerLinkDoor`) are Visuals › Settings' row, the stage's Share to PC icon beside Cast and the Player's tile.
 - Its sheet is `ui/cast/ComputerLinkSheet`: the link as text, a QR code from `core/util/QrCode`, Copy and Share.
-- It is served over plain HTTP. The computer's page comes from `core/viz/frame/LinkPage`: it reads one long-lived `stream.mp4` (init, then each fragment as it is cut) into MSE and holds half a second in hand (CODECS read from the encoder's init segment), or plays the HLS natively.
+- The link it shows has the host as one number (`geode_link_share_url`, the WHATWG IPv4 parser; hides the dotted address from the eye only) and a two-word label.
+- The page (`core/viz/frame/LinkPage`, plain HTTP) tries WebRTC first: it POSTs a receive-only offer to `rtc` and plays the answer from `core/cast/WebRtcLink` with a 0.5 s `jitterBufferTarget`.
+- `core/cast/WebRtcLink` is libdatachannel + Mbed TLS, the one native networking code; the media is DTLS-SRTP encrypted, the page and signalling are not.
+- Its rules are in `core/viz/frame/WebRtcRule`: the encoder's own H.264 via `CastEncoder`'s video tap, Opus from `OpusFeed` while a browser is on, host candidates on the bound address only, no STUN or TURN, mDNS names dropped.
+- Without WebRTC the page reads one long-lived `stream.mp4` into MSE with half a second in hand, or plays the HLS natively.
 - Show on a computer's state is native (`geode_link_step`); it stops on Stop, a network change or Pro's end.
 - A TV that errors, goes idle or never fetches ends the TV's part (`geode_link_receiver_health`).
 - Sound plays on the TV or computer only (phone muted); nothing else in the app changes while casting.

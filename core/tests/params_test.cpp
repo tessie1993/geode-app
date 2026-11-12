@@ -160,7 +160,7 @@ void resetTabRestoresExactlyItsFields() {
 void rollsStayUnderTheFlashClamp() {
     for (uint64_t seed = 0; seed < 300; ++seed) {
         const SceneParams p = randomizer::randomize(kDefaults, seed, std::nullopt, "", {});
-        check(p.bloom <= 0.25f, "bloom stays under the flash depth");
+        check(p.bloom <= 0.6f, "bloom stays under its safety cap");
         check(p.brightness <= 1.25f && p.contrast <= 1.25f && p.intensity <= 1.25f, "levels stay under 1 + flash depth");
         check(p.reactSeed >= 1 && p.reactSeed < (1 << 24), "the DNA seed survives the float wire");
         check(p.symmetry >= 0 && p.cymaticsModes >= 2 && p.cymaticsModes <= 8, "counts stay in range");

@@ -131,7 +131,7 @@ void linkableTargetsWriteLiveParams() {
               macrobank::targetNamed("") == LfoTarget::None,
           "an unlinkable or unknown name is None");
     // The top of a range is what safety::apply lets through, so no travel is clamped away later.
-    check(about(macrobank::rangeOf(LfoTarget::Bloom).max, safety::kMaxFlashDepth), "Bloom stops at the safety depth");
+    check(about(macrobank::rangeOf(LfoTarget::Bloom).max, safety::kMaxBloom), "Bloom stops at its safety cap");
     check(about(macrobank::rangeOf(LfoTarget::Brightness).max, 1.0f + safety::kMaxFlashDepth), "Brightness stops at the clamp");
     check(about(macrobank::rangeOf(LfoTarget::Intensity).max, 1.0f + safety::kMaxFlashDepth), "Intensity stops at the clamp");
 }
@@ -624,8 +624,8 @@ void theEditorTextShowsRangesInUnits() {
               "its offsets are its range in the param's units: " + l[1]);
     }
     bool bloom = false;
-    for (const auto& l : links) bloom = bloom || (l[1] == "BLOOM" && l[6] == "0.25");
-    check(bloom, "a full turn up of the knob that links Bloom adds 0.25, the safe top");
+    for (const auto& l : links) bloom = bloom || (l[1] == "BLOOM" && l[6] == "0.6");
+    check(bloom, "a full turn up of the knob that links Bloom adds 0.6, the safe top");
     const auto curves = rowsOf(macrobank::editorText(def, ""), "curve");
     check(curves.size() == static_cast<size_t>(macrobank::kCurveCount) && curves[0][1] == "LINEAR" && curves[3][1] == "S_CURVE",
           "the editor lists every curve");
@@ -1134,7 +1134,7 @@ void targetsTextListsWhatALinkMayName() {
     size_t rows = 0;
     for (size_t pos = text.find("\ntarget|"); pos != std::string::npos; pos = text.find("\ntarget|", pos + 1)) ++rows;
     check(rows == linkableTargets().size(), "one target row per linkable target");
-    check(text.find("\ntarget|BLOOM|bloom|0|0.25|0|UNIVERSAL\n") != std::string::npos, "the Bloom row carries its safe range");
+    check(text.find("\ntarget|BLOOM|bloom|0|0.6|0|UNIVERSAL\n") != std::string::npos, "the Bloom row carries its safe range");
     check(text.find("|PULSE|") == std::string::npos && text.find("RETIRED") == std::string::npos && text.find("LFO1_RATE") == std::string::npos, "no unlinkable target is listed");
 }
 

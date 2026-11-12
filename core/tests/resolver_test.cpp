@@ -582,7 +582,7 @@ void testSafetyLast() {
     for (int i = 0; i < 600; ++i, t += kDt) {
         const SceneParams& p = r->step(requested, frame(t), kDt, s, style(kStyle, i == 0)).params;
         held = held && p.brightness <= top && p.intensity <= top && p.contrast <= top &&
-               p.bloom <= safety::kMaxFlashDepth + 1e-6f &&
+               p.bloom <= safety::kMaxBloom + 1e-6f &&
                p.brightness >= 0.0f && p.intensity >= 0.0f && p.contrast >= 0.0f;
     }
     check(held, "no stage pushes brightness, intensity, contrast or bloom past safety::apply");
@@ -921,7 +921,7 @@ void testParityWithTheOldChain() {
                    std::memcmp(&now->noteUniforms(), &old->notes.uniforms(), sizeof(viz::NoteUniforms)) == 0;
             const SceneParams& p = a.params;
             const bool capped = p.brightness <= top && p.intensity <= top && p.contrast <= top &&
-                                p.bloom <= safety::kMaxFlashDepth + 1e-6f &&
+                                p.bloom <= safety::kMaxBloom + 1e-6f &&
                                 p.brightness >= 0.0f && p.intensity >= 0.0f && p.contrast >= 0.0f &&
                                 (!s.reducedMotion || p.speed <= 4.0f * 0.4f + 1e-6f);
             if (!capped) ++capBreaks;
@@ -1364,7 +1364,7 @@ void testAWaveTurnsAKnob() {
         check(mod != nullptr && std::fabs(mod->add) <= 0.5f + 1e-5f, "by no more than the wave's depth");
         check(mod != nullptr && mod->lo == -0.5f && mod->hi == 0.5f, "and says the range it can reach, both ways");
         const SceneParams& p = waved->frame().params;
-        check(p.bloom <= safety::kMaxFlashDepth + 1e-6f && p.intensity <= 1.0f + safety::kMaxFlashDepth + 1e-6f,
+        check(p.bloom <= safety::kMaxBloom + 1e-6f && p.intensity <= 1.0f + safety::kMaxFlashDepth + 1e-6f,
               "safety still has the last word on what the knob moves");
         check(still->frame().knobMods.count == 0, "no slot on a knob, no modulation");
     }

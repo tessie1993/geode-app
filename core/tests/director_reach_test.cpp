@@ -566,7 +566,7 @@ void testResolver() {
     check(sameBits(pb, pg), "and the same one every time: an export equals the screen");
     check(safe, "safety::apply is still last: every frame is already inside its limits");
     const float top = 1.0f + safety::kMaxFlashDepth + 1e-6f;
-    check(pb.brightness <= top && pb.intensity <= top && pb.bloom <= safety::kMaxFlashDepth + 1e-6f, "the luminance caps hold");
+    check(pb.brightness <= top && pb.intensity <= top && pb.bloom <= safety::kMaxBloom + 1e-6f, "the luminance caps hold");
 }
 
 void testExportPin() {

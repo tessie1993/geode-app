@@ -64,7 +64,7 @@ int counted(Rng& r, ParamSlot slot) {
 const std::vector<Roll>& rolls() {
     using T = Tab;
     // The roll ranges of brightness, contrast, intensity and bloom stop at the flash clamp's
-    // (1 + kMaxFlashDepth, kMaxFlashDepth): above them a roll is invisible.
+    // (1 + kMaxFlashDepth, kMaxBloom): above them a roll is invisible.
     static const std::vector<Roll> kRolls = {
         {T::Motion, "Speed", [](SceneParams& p, Rng& r) { p.speed = drawn(r, ParamSlot::speed); }},
         {T::Motion, "Zoom", [](SceneParams& p, Rng& r) { p.zoom = drawn(r, ParamSlot::zoom); }},

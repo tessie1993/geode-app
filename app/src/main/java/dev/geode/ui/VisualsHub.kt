@@ -156,7 +156,6 @@ private fun VisualsHubContent(
     // A page asked for from outside (the tour's replay): the sheet comes up on it.
     LaunchedEffect(requestedPage) {
         val page = requestedPage ?: return@LaunchedEffect
-        nav.closeCustomizeCard()
         nav.openTab(page)
         nav.showSheet()
         onRequestedPageShown()
@@ -434,7 +433,7 @@ private fun VisualsHubContent(
                         NavEntry(page) {
                             when (page) {
                                 VisualsPage.STYLES -> StylesTab(viewModel)
-                                VisualsPage.CUSTOMIZE -> CustomizePanel(viewModel, visualizerView, nav = nav)
+                                VisualsPage.CUSTOMIZE -> CustomizePanel(viewModel, visualizerView)
                                 VisualsPage.PRESETS -> PresetsTab(viewModel, visualizerView)
                                 VisualsPage.MILKDROP ->
                                     MilkDropTab(viewModel, visualizerView, onOpenTextures = { nav.push(VisualsPage.TEXTURES) })
@@ -456,7 +455,11 @@ private fun VisualsHubContent(
             onEdit = {
                 macros = false
                 nav.openTab(VisualsPage.CUSTOMIZE)
-                nav.openCustomizeCard(CustomizeCategory.QUICK_KNOBS.name)
+                // Customize on Quick knobs, its editor open: the groups start collapsed, and this asked for the editor.
+                context.geodeContainer.customizeGroups.run {
+                    selectTab(CustomizeCategory.QUICK_KNOBS.name)
+                    expand("${CustomizeCategory.QUICK_KNOBS.name}/knob_editor")
+                }
             },
             modifier = Modifier.fillMaxSize(),
         )

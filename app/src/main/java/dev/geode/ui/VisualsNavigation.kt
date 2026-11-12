@@ -37,17 +37,15 @@ internal enum class VisualsPage(
 internal val VisualsTabs = listOf(VisualsPage.STYLES, VisualsPage.CUSTOMIZE, VisualsPage.PRESETS, VisualsPage.MILKDROP)
 
 /**
- * One step of the route through Visuals: a page, or the Customize category open on it. Each has
- * exactly one key, so the route ([VisualsNavState.route]) says where the user is down to the open
- * category, and back can undo each level in turn.
+ * One step of the route through Visuals: a page. Each has exactly one key, so the route
+ * ([VisualsNavState.route]) says where the user is and back can undo each step in turn.
  *
- * A category carries its name as a string, not an enum, so a saved route only ever needs the name.
- * A name the panel no longer has (a route saved by the old seven-card panel, or Camera on a flat
- * style) is the panel's to skip. Which sections are open inside a category is not a step: several
- * can be open at once, so the panel keeps them by name beside the route ([rememberOpenSections]).
+ * Customize's category tabs are not steps (owner, 2026-11-12): switching one is a tap, not a back
+ * entry, and the panel keeps the tab and its open groups itself (`CustomizeGroupsStore`). A route
+ * saved by an older build with an open category (`customize/<NAME>`) restores without it.
  *
- * [id] is how a key is saved. A page saves as its bare name, the format of the old page-only
- * back stack, so a route saved by an older build restores as it was.
+ * [id] is how a key is saved: a page's bare name, the format of the old page-only back stack, so
+ * a route saved by an older build restores as it was.
  */
 internal sealed interface VisualsKey : NavKey {
     /** The panel page this key is drawn on. */
@@ -61,42 +59,20 @@ internal sealed interface VisualsKey : NavKey {
         override val id: String get() = page.name
     }
 
-    /**
-     * The open Customize category (Quick knobs, Look, Shape …, [CustomizeCategory]), by its name.
-     * One is open at a time, so there is at most one of these on the route: ‹ › replace it and back
-     * pops it, which is what lets back close the category first and come back to it from another tab.
-     */
-    data class CustomizeCard(
-        val name: String,
-    ) : VisualsKey {
-        override val page: VisualsPage get() = VisualsPage.CUSTOMIZE
-        override val id: String get() = "$CUSTOMIZE_PREFIX$name"
-    }
-
     companion object {
-        private const val CUSTOMIZE_PREFIX = "customize/"
-
         val root: VisualsKey = Page(VisualsPage.STYLES)
 
-        fun fromId(id: String): VisualsKey? =
-            when {
-                id.startsWith(CUSTOMIZE_PREFIX) -> id.removePrefix(CUSTOMIZE_PREFIX).takeIf { it.isNotEmpty() }?.let(::CustomizeCard)
-                else -> VisualsPage.entries.firstOrNull { it.name == id }?.let(::Page)
-            }
+        fun fromId(id: String): VisualsKey? = VisualsPage.entries.firstOrNull { it.name == id }?.let(::Page)
 
         /**
-         * The route as [VisualsNavState] keeps it: Styles first, each key once, and a sub-page
-         * only directly on its own page (or on another sub-page of it). Whatever breaks that, from
-         * an older build or a renamed page, is dropped rather than restored into a route back
-         * could not walk.
+         * The route as [VisualsNavState] keeps it: Styles first, each key once. Whatever breaks
+         * that, from an older build or a renamed page, is dropped rather than restored into a route
+         * back could not walk.
          */
         fun sanitize(keys: List<VisualsKey>): List<VisualsKey> {
             val route = mutableListOf(root)
             keys.drop(if (keys.firstOrNull() == root) 1 else keys.size).forEach { key ->
-                val fits = key is Page || route.last().page == key.page
-                // One Customize card at a time; a second one in an older route is dropped.
-                val oneCard = key !is CustomizeCard || route.none { it is CustomizeCard }
-                if (fits && oneCard && key !in route) route.add(key)
+                if (key !in route) route.add(key)
             }
             return route
         }
@@ -125,8 +101,7 @@ internal enum class SheetHeight { HIDDEN, PEEK, HALF, TALL }
  * The route is true history: opening a tab goes forward from wherever the user is, it does not
  * clear back to Styles, so back retraces the way they came (Styles → Presets → Customize, back,
  * Presets, back, Styles). [NavHistory] says why a page already on the route is returned to rather
- * than added twice. Customize's open category has a key of its own ([openCustomizeCard]); its ‹ ›
- * arrows go sideways ([stepCustomizeCard]) and add no back entries.
+ * than added twice. Customize's category tabs add no back entries: back from Customize leaves it.
  *
  * The visual always fills the screen (docs/ui-redesign); the options are a floating sheet over
  * it whose height is [sheet]. In landscape the same state drives the side panel instead
@@ -134,9 +109,7 @@ internal enum class SheetHeight { HIDDEN, PEEK, HALF, TALL }
  * turning the phone keeps the route, the page and whether the options are up.
  *
  * Back order, most recent first ([back] runs it whole): a hidden sheet
- * comes back at its last height, then the route in reverse (the open Customize category, then the
- * page before it), then the shell
- * leaves Visuals.
+ * comes back at its last height, then the route in reverse, then the shell leaves Visuals.
  */
 @Stable
 internal class VisualsNavState(
@@ -152,24 +125,11 @@ internal class VisualsNavState(
     /** The height the sheet comes back to when it is shown again. */
     private var lastShown by lastShownState
 
-    /**
-     * The pages the panel's NavDisplay draws: the route with each sub-page folded into its page.
-     * Each page is on the route once and its sub-pages sit right on it, so no page repeats here.
-     *
-     * Folded means NavDisplay's predictive pop only ever previews a page leaving. So the open
-     * Customize category takes the gesture before NavDisplay does (`rememberCardBack` in
-     * CustomizeBrowser.kt, issue #557): its preview is the card fading back into the category list,
-     * and its commit is [closeCustomizeCard]'s step, the same one [pop] would take.
-     */
-    val backStack: List<VisualsPage> by derivedStateOf {
-        buildList { route.forEach { key -> if (lastOrNull() != key.page) add(key.page) } }
-    }
+    /** The pages the panel's NavDisplay draws, the route's pages in order; each is on it once. */
+    val backStack: List<VisualsPage> by derivedStateOf { route.map { it.page } }
 
-    /** The page on screen, under any sub-page open on it. */
+    /** The page on screen. */
     val top: VisualsPage get() = history.top.page
-
-    /** The Customize category open on the route, if one is. */
-    val openCard: String? get() = route.filterIsInstance<VisualsKey.CustomizeCard>().lastOrNull()?.name
 
     /**
      * The lit tab: Textures belongs to MilkDrop (it opens it), so MilkDrop stays lit there; Settings
@@ -196,31 +156,6 @@ internal class VisualsNavState(
         openTab(page)
     }
 
-    /**
-     * Opens the Customize category [name], on Customize (which opens first if it is not on screen).
-     * The category that was open is replaced, not stacked, so one open category is one back step.
-     */
-    fun openCustomizeCard(name: String) {
-        onPage(VisualsPage.CUSTOMIZE)
-        if (history.top is VisualsKey.CustomizeCard) history.pop()
-        history.open(VisualsKey.CustomizeCard(name))
-    }
-
-    /** Closes the open Customize category: the same step back as system back takes. */
-    fun closeCustomizeCard() {
-        if (history.top is VisualsKey.CustomizeCard) history.pop()
-    }
-
-    /**
-     * Customize's ‹ ›: the open category becomes its neighbour [delta] places along [order] (the
-     * categories the list shows, in its order). It replaces the open one, so back still returns to
-     * the list in one step, and it stops at either end instead of wrapping. True when it moved.
-     */
-    fun stepCustomizeCard(
-        order: List<String>,
-        delta: Int,
-    ): Boolean = history.step(order.map(VisualsKey::CustomizeCard), delta)
-
     /** One step back along the route; false at Styles, where back leaves Visuals. */
     fun pop(): Boolean = history.pop()
 
@@ -242,11 +177,6 @@ internal class VisualsNavState(
     fun showSheet() = settleSheet(lastShown)
 
     fun hideSheet() = settleSheet(SheetHeight.HIDDEN)
-
-    /** Opens [page] unless it is already the page on screen, keeping the sub-pages open on it. */
-    private fun onPage(page: VisualsPage) {
-        if (top != page) history.open(VisualsKey.Page(page))
-    }
 }
 
 /** Saved by name, so a reordered enum cannot restore the wrong height. */

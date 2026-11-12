@@ -1,5 +1,6 @@
 package dev.geode.data.backup
 
+import dev.geode.data.CustomizeGroupsCodec
 import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.LfoStore
 import dev.geode.data.MacroStore
@@ -136,6 +137,8 @@ object BackupFormat {
      * - The old six macro knobs, their locks and saved sets ([MacroStore.RETIRED_KEYS]): dropped
      *   with no migration when the knobs became the macro bank, so an older backup's copies are
      *   skipped rather than written back.
+     * - Where Customize was left, its tab and open groups ([CustomizeGroupsCodec.KEYS]): screen
+     *   memory, like the tour's progress.
      *
      * There is no crash or permission state in prefs: the crash report is `crash-latest.txt`,
      * which is never in a backup, and runtime permissions are the system's.
@@ -151,7 +154,7 @@ object BackupFormat {
                     "gui_tutorial_resume",
                     "gui_tutorial_tips",
                     "preset_mirror_uri",
-                ) + PerformanceStore.KEYS + MacroStore.RETIRED_KEYS,
+                ) + PerformanceStore.KEYS + MacroStore.RETIRED_KEYS + CustomizeGroupsCodec.KEYS,
             GeodePrefsFiles.LIBRARY to setOf("roots"),
             GeodePrefsFiles.PLAYER to setOf(PlayerPrefsCodec.KEY_PICTURE_DELAY),
             GeodePrefsFiles.BACKGROUND to setOf("background_uri"),

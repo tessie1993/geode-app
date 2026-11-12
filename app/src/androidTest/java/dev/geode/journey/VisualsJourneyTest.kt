@@ -37,14 +37,17 @@ class VisualsJourneyTest {
     }
 
     /**
-     * Kaleidoscope is one of Shape's Basics, open at the top of the category (issue #333). Not
-     * through Customize's search: with a query, the results page never let Compose go idle on the
-     * CI emulator, and every later step waited for it until the job timed out.
+     * Kaleidoscope is one of Shape's Basics: the Shape tab, then its Basics group, which starts
+     * collapsed like every group (owner, 2026-11-12; the package data is cleared per test, so no
+     * group is remembered open). Not through Customize's search: with a query, the results page
+     * never let Compose go idle on the CI emulator, and every later step waited for it until the
+     * job timed out.
      */
     private fun openCustomizeShape() {
         openVisuals()
         compose.tap("Customize")
         compose.tap("Shape")
+        compose.tap("Basics")
     }
 
     /** The whole CheckRow is the toggleable node (role Checkbox), its label merged into it. */

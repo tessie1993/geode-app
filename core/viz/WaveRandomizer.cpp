@@ -160,7 +160,7 @@ Set fromWire(const float* values) {
         LfoConfig& o = set[static_cast<size_t>(i)];
         o.enabled = c[0] > 0.5f;
         o.source = enumAt(c[1], ModSource::StereoPan);
-        o.target = enumAt(c[2], LfoTarget::Macro);
+        o.target = enumAt(c[2], kLastLfoTarget);
         o.wave = enumAt(c[3], LfoWave::RandomGlide);
         o.rateSeconds = c[4];
         o.depth = c[5];

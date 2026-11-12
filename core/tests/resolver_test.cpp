@@ -286,9 +286,14 @@ void testNoColourNarrowingNoFixedReactions() {
     requested.paletteStop0 = 0x2244FF;
     requested.paletteStop1 = 0xFF8800;
     requested.paletteStop2 = 0x10E0A0;
+    requested.paletteAmount0 = 0.8f;
+    requested.paletteAmount1 = 0.3f;
+    requested.paletteShift = 0.2f;
     static const char* const kColour[] = {"palette", "paletteBaseOverride", "paletteRangeOverride", "paletteMix", "hueRange", "saturation",
                                           "brightness", "temperature", "contrast", "colorShift", "milkdropPaletteTint",
-                                          "paletteStop0", "paletteStop1", "paletteStop2"};
+                                          "paletteStop0", "paletteStop1", "paletteStop2",
+                                          "paletteAmount0", "paletteAmount1", "paletteAmount2", "paletteAmount3", "paletteAmount4",
+                                          "paletteAmount5", "paletteAmount6", "paletteAmount7", "paletteShift"};
     geode::sound::Emotion::State feeling;
     feeling.valence = 0.5f;
     feeling.energy = 0.8f;

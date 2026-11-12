@@ -10,7 +10,7 @@ namespace geode::viz {
 // The lfo rows' enum ranges are these enums' ordinals (viz/ConfigTable.inc): a value appended to one
 // moves its row's max in the same change.
 static_assert(config::spec(config::Slot::lfo_source).max == static_cast<float>(ModSource::StereoPan), "lfo source row");
-static_assert(config::spec(config::Slot::lfo_target).max == static_cast<float>(LfoTarget::Macro), "lfo target row");
+static_assert(config::spec(config::Slot::lfo_target).max == static_cast<float>(kLastLfoTarget), "lfo target row");
 static_assert(config::spec(config::Slot::lfo_wave).max == static_cast<float>(LfoWave::RandomGlide), "lfo wave row");
 static_assert(config::spec(config::Slot::lfo_polarity).max == static_cast<float>(ModPolarity::Negative), "lfo polarity row");
 static_assert(config::spec(config::Slot::lfo_curve).max == static_cast<float>(ModCurve::Smooth), "lfo curve row");
@@ -32,7 +32,9 @@ bool isLuminanceTarget(LfoTarget target) {
     switch (target) {
         case LfoTarget::Brightness: case LfoTarget::Intensity: case LfoTarget::Saturation: case LfoTarget::Bloom:
         case LfoTarget::Vignette: case LfoTarget::ColorShift: case LfoTarget::PaletteMix:
-        case LfoTarget::Temperature:
+        case LfoTarget::Temperature: case LfoTarget::PaletteAmount1: case LfoTarget::PaletteAmount3:
+        case LfoTarget::PaletteAmount4: case LfoTarget::PaletteAmount5: case LfoTarget::PaletteAmount6:
+        case LfoTarget::PaletteAmount7: case LfoTarget::PaletteAmount8: case LfoTarget::PaletteShift:
             return true;
         default:
             return false;
@@ -125,6 +127,14 @@ bool driveOf(LfoTarget target, Drive& out) {
         case LfoTarget::DiveTwist: GEODE_DRIVE(diveTwist, 0.5f);
         case LfoTarget::DiveAimX: GEODE_DRIVE(diveAimX, 0.5f);
         case LfoTarget::DiveAimY: GEODE_DRIVE(diveAimY, 0.5f);
+        case LfoTarget::PaletteAmount1: GEODE_DRIVE(paletteAmount0, 1.0f);
+        case LfoTarget::PaletteAmount3: GEODE_DRIVE(paletteAmount2, 1.0f);
+        case LfoTarget::PaletteAmount4: GEODE_DRIVE(paletteAmount3, 1.0f);
+        case LfoTarget::PaletteAmount5: GEODE_DRIVE(paletteAmount4, 1.0f);
+        case LfoTarget::PaletteAmount6: GEODE_DRIVE(paletteAmount5, 1.0f);
+        case LfoTarget::PaletteAmount7: GEODE_DRIVE(paletteAmount6, 1.0f);
+        case LfoTarget::PaletteAmount8: GEODE_DRIVE(paletteAmount7, 1.0f);
+        case LfoTarget::PaletteShift: GEODE_DRIVE(paletteShift, 0.5f);
         // None, the retired slots and the chained targets write no scene parameter.
         default: return false;
     }

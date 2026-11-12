@@ -1,7 +1,6 @@
 #include "viz/ModTargets.hpp"
 
 #include <array>
-#include <cstdio>
 
 #include "viz/ReactionDna.hpp"
 #include "viz/TableNumber.hpp"
@@ -76,6 +75,14 @@ constexpr std::array<const char*, kTargetCount> kTargetNames{{
     "DIVE_AIM_X",
     "DIVE_AIM_Y",
     "MACRO",
+    "PALETTE_AMOUNT_1",
+    "PALETTE_AMOUNT_3",
+    "PALETTE_AMOUNT_4",
+    "PALETTE_AMOUNT_5",
+    "PALETTE_AMOUNT_6",
+    "PALETTE_AMOUNT_7",
+    "PALETTE_AMOUNT_8",
+    "PALETTE_SHIFT",
 }};
 
 constexpr std::array kSourceNames{"LFO", "BASS", "MID", "TREBLE", "LEVEL", "BRIGHTNESS", "TRANSIENT", "STEREO_WIDTH", "STEREO_PAN"};
@@ -90,12 +97,8 @@ static_assert(kWaveNames.size() == static_cast<size_t>(LfoWave::RandomGlide) + 1
 bool known(LfoTarget t) { return static_cast<int>(t) >= 0 && static_cast<int>(t) < kTargetCount; }
 
 void reachRow(std::string& out, const std::string& id, const std::string& asId) {
-    char buf[32];
     out += "reach|" + asId;
-    for (int picker = kPickerReaction; picker < LfoEngine::kSlots; ++picker) {
-        std::snprintf(buf, sizeof buf, "|%llx", static_cast<unsigned long long>(offerMask(id, picker)));
-        out += buf;
-    }
+    for (int picker = kPickerReaction; picker < LfoEngine::kSlots; ++picker) out += "|" + hex(offerMask(id, picker));
     out += "\n";
 }
 
@@ -170,12 +173,23 @@ bool offeredTo(LfoTarget target, const std::string& styleId, int picker) {
     return picker == kPickerEnvelope || picker < slot;
 }
 
-std::uint64_t offerMask(const std::string& styleId, int picker) {
-    std::uint64_t bits = 0;
-    for (int i = 0; i < kTargetCount; ++i) {
-        if (offeredTo(static_cast<LfoTarget>(i), styleId, picker)) bits |= std::uint64_t{1} << i;
-    }
+Mask offerMask(const std::string& styleId, int picker) {
+    Mask bits;
+    for (int i = 0; i < kTargetCount; ++i) bits[static_cast<size_t>(i)] = offeredTo(static_cast<LfoTarget>(i), styleId, picker);
     return bits;
+}
+
+std::string hex(const Mask& mask) {
+    std::string out;
+    for (int nibble = (kTargetCount + 3) / 4 - 1; nibble >= 0; --nibble) {
+        int digit = 0;
+        for (int bit = 3; bit >= 0; --bit) {
+            const int i = nibble * 4 + bit;
+            digit = digit * 2 + (i < kTargetCount && mask[static_cast<size_t>(i)] ? 1 : 0);
+        }
+        if (digit != 0 || !out.empty()) out += "0123456789abcdef"[digit];
+    }
+    return out.empty() ? "0" : out;
 }
 
 std::uint32_t musicActionsFor(const std::string& styleId) {

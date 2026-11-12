@@ -56,6 +56,11 @@ const char* geode_palette_library_entry(int index) {
 
 int geode_palette_library_index(const char* id) { return id ? palette::libraryIndex(id) : -1; }
 
+const char* geode_palette_colour_map_name(int index) {
+    if (index < 0 || index >= palette::kColourMapCount) return "";
+    return palette::library()[static_cast<size_t>(palette::kColourMapFirst + index)].palette.name.c_str();
+}
+
 const char* geode_palette_stack_normalize(const char* stack) { return handOut(stackOf(stack)); }
 
 const char* geode_palette_stack_unset(void) {

@@ -473,7 +473,8 @@ GEODE_API void        geode_params_palette_preview(const float* params, int seco
  * every edit returns the edited text, valid until the calling thread's next palette call. Pure, any thread.
  * library_text: "library|<version>|<count>" then "entry|<index>|<id>|<SOURCE>|<name>|<INTERP>|<WRAP>|<SPACE>|<SINGLE>|<stops>"
  * (static); entries 0..20 are the old `palette` ramps, 21..25 the old colour maps. library_entry: that entry as
- * a palette line ("" out of range); library_index: an id's index or -1. stack_unset: the stack that draws the
+ * a palette line ("" out of range); library_index: an id's index or -1. colour_map_name: colour map i's name
+ * (`paletteLut` i), "" past the last (static). stack_unset: the stack that draws the
  * style's own palette; stack_resolve_default puts style_default in as the only layer of an unset stack.
  * stack_layer: a layer as a palette line, "" out of range. stack_set_layer at layer_count appends.
  * from_colours: a palette of `count` 0xRRGGBB colours (invalid skipped, 16 kept) from source BUILT_IN,
@@ -487,6 +488,7 @@ GEODE_API void        geode_params_palette_preview(const float* params, int seco
 GEODE_API const char* geode_palette_library_text(void);
 GEODE_API const char* geode_palette_library_entry(int index);
 GEODE_API int         geode_palette_library_index(const char* id);
+GEODE_API const char* geode_palette_colour_map_name(int index);
 GEODE_API const char* geode_palette_stack_normalize(const char* stack);
 GEODE_API const char* geode_palette_stack_unset(void);
 GEODE_API int         geode_palette_stack_is_unset(const char* stack);

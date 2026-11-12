@@ -46,6 +46,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - `Palette` (`core/viz/Palette`) is Customize › Look's palette stack, the one colour source to be; no renderer reads it yet.
 - A stack holds up to 8 palettes of up to 16 colours, each Smooth or Steps, Mirror or Loop, RGB, hue or OKLab, a place per colour and one colour's Shades, Flat or To black; Share (Soft or Hard edges) or Mix by amount, full range off.
 - Its library is `PaletteTable.inc` (old `palette` ramps 0..20, colour maps 21..25, then newer); it also reads an old look's colours as a stack and keeps the picker's recent colours; text in, text out, `geode_palette_*`.
+- How much each palette is used and where along the stack the colours sit are scene params (`paletteAmount0..7`, `paletteShift`, read by `palette::amountsOf`), so waves, envelopes, routes and the macro bank reach them; LFO targets `PALETTE_AMOUNT_1`, `_3`..`_8` and `PALETTE_SHIFT` (luminance targets: 3 Hz, the route floors). Palette 2's amount takes `PALETTE_MIX` once the renderer draws the stack.
 - `fluid/` is the stable-fluids solver: MacCormack advection, batched splats, a multigrid pressure solve, heat and buoyancy.
 - The fluid solver's pure maths is `FluidMath`.
 - `FlowField` is the velocity field Liquid mode reads, kicked by touch and drops.

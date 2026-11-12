@@ -41,7 +41,7 @@ One fact per line. Add a fact as a new bullet under its module.
 - `render/bridge/SceneParamsCodec` packs the wire by `ParamSchema`.
 - `render/scene/Catalogue` is the shell's one read of the native style catalogue (ids, kinds, `StyleFamilies`, `ParamScope`, ranges).
 - The catalogue's display labels are in `VisualStyleCatalog`.
-- `render/ModTable` (in `Lfo.kt`) is the shell's read of the native modulation-target table (`core/viz/ModTargets`: each target's scope and chained slot, slot defaults, each source's natural polarity).
+- `render/ModTable` (in `Lfo.kt`) is the shell's read of the native modulation-target table (`core/viz/ModTargets`: each target's scope and chained slot, slot defaults, each source's natural polarity; the offer masks are hex wider than 64 bits).
 - `render/EventRecipe` holds the Customize event recipes' titles; their routes, toggle and merge are native in `core/viz/ReactionDna` (`geode_event_recipe_*`, pinned by `viz_math_test`).
 - `render/scene/ParamFormat` holds the value units.
 - `render/PerformanceSettings` holds the live quality presets.

@@ -7,7 +7,11 @@ add_library(geode_core STATIC
     api/geode_params_api.cpp
     api/geode_colour_api.cpp
     api/geode_palette_api.cpp
-    api/geode_reaction_text_api.cpp
+    api/geode_modulation_api.cpp
+    viz/ModCatalog.cpp
+    viz/ModDocument.cpp
+    api/geode_studio_api.cpp
+    studio/StudioEdit.cpp
     viz/ReactionText.cpp
     api/geode_randomize_all_api.cpp
     api/geode_shake_api.cpp
@@ -58,6 +62,8 @@ add_library(geode_core STATIC
     audio/dsp/Equalizer.cpp
     audio/dsp/Crossfeed.cpp
     audio/dsp/Limiter.cpp
+    audio/dsp/PlaybackControls.cpp
+    api/geode_playback_api.cpp
     audio/dsp/PcmResampler.cpp
     audio/dsp/Loudness.cpp
     api/geode_export_dsp_api.cpp
@@ -65,6 +71,7 @@ add_library(geode_core STATIC
     signal/Resolver.cpp
     api/geode_export_pass_api.cpp
     api/geode_export_api.cpp
+    api/geode_export_run_api.cpp
     api/geode_export_job_api.cpp
     api/geode_record_api.cpp
     audio/dsp/PcmConvert.cpp
@@ -72,16 +79,25 @@ add_library(geode_core STATIC
     output/FrameClock.cpp
     output/ExportFrame.cpp
     output/LoopPlan.cpp
+    output/LoopRender.cpp
     output/LoudnessAdvice.cpp
     output/EncodePlan.cpp
     output/RecordPlan.cpp
+    output/RenderEta.cpp
     output/Recorder.cpp
     output/EncodeSink.cpp
     output/RecordSession.cpp
     output/android/MediaCodecSink.cpp
+    output/android/LoopRenderHost.cpp
+    api/geode_loop_job_api.cpp
     api/geode_record_session_api.cpp
     output/Chapters.cpp
     api/geode_output_api.cpp
+    output/ExportRange.cpp
+    output/RenderBatch.cpp
+    api/geode_render_plan_api.cpp
+    output/LoudnessScan.cpp
+    api/geode_export_audio_api.cpp
     viz/ShaderSource.cpp
     viz/GlCaps.cpp
     viz/GlProber.cpp
@@ -189,6 +205,8 @@ target_compile_options(geode_core PRIVATE ${GEODE_COMPILE_OPTIONS})
 target_link_libraries(geode_core PUBLIC projectM tag GLESv3 EGL log android nativewindow mediandk)
 # The playback output's stream (audio/output/OboeOutput.cpp); found by the root CMakeLists.txt.
 target_link_libraries(geode_core PUBLIC oboe::oboe)
+# mediandk: AMediaExtractor and AMediaCodec, an export's track decode (audio/ingest/android/TrackDecoder.cpp).
+target_link_libraries(geode_core PUBLIC mediandk)
 
 # The native stage's platform layer (docs/agents/native-stage.md): looper threads, AChoreographer, EGL on an
 # ANativeWindow, ANativeWindow_setFrameRate. Android only and in no host-test line; android, EGL and nativewindow
@@ -272,3 +290,10 @@ target_sources(geode_core PRIVATE
     cast/WebRtcLink.cpp
     api/geode_webrtc_api.cpp)
 target_link_libraries(geode_core PRIVATE LibDataChannel::LibDataChannelStatic)
+# Cast's live stream: the segment window and playlist (cast/LiveSegments) and what one HTTP connection gets
+# (cast/LiveHttp). No socket in either; both run on the host (live_segments_test, live_http_test).
+target_sources(geode_core PRIVATE cast/LiveSegments.cpp)
+target_sources(geode_core PRIVATE cast/LiveHttp.cpp)
+# The cast's HTTP server: the sockets and threads around them (cast/LiveServer; plain POSIX, no library).
+target_sources(geode_core PRIVATE cast/LiveServer.cpp)
+target_sources(geode_core PRIVATE api/geode_cast_api.cpp)

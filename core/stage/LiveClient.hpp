@@ -42,15 +42,15 @@ struct Still {
     std::vector<uint8_t> rgba;
 };
 
-// What the user's look is made of, as the shell packs it. A slot list is each slot's count, then its floats.
+// What the user's look is made of. The waves, the envelopes and the routes are their saved texts.
 struct Look {
     std::string sceneId;
     std::vector<float> params;
-    std::vector<float> lfos;
-    std::vector<float> adsrs;
+    std::string lfos;
+    std::string adsrs;
     std::vector<float> tuning;
     bool hasReactions = false;
-    std::vector<float> reactions;
+    std::string reactions;
     bool reducedMotion = false;
     std::string transitionId;
     int64_t transitionMs = 0;

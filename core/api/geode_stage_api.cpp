@@ -1,4 +1,5 @@
 #include "api/geode_stage_api.h"
+#include "api/geode_modulation_api.h"
 
 #include <algorithm>
 #include <atomic>
@@ -181,56 +182,15 @@ std::vector<float> floats(const float* data, int count) {
     return data && count > 0 ? std::vector<float>(data, data + count) : std::vector<float>();
 }
 
-// A slot list as Look carries it: the slot count, then every slot's floats.
-std::vector<float> slots(const float* data, int slotCount, int count) {
-    std::vector<float> out;
-    if (!data || slotCount <= 0 || count < slotCount) return out;
-    out.reserve(static_cast<size_t>(count) + 1);
-    out.push_back(static_cast<float>(slotCount));
-    out.insert(out.end(), data, data + count);
-    return out;
-}
-
-template <typename Set>
-void eachSlot(const std::vector<float>& list, int limit, Set set) {
-    if (list.empty()) return;
-    const int count = std::min(static_cast<int>(list[0]), limit);
-    const int each = static_cast<int>(list.size() - 1) / static_cast<int>(list[0]);
-    for (int slot = 0; slot < count; ++slot) set(slot, list.data() + 1 + slot * each, each);
-}
-
-// Slots of their own lengths: each one's float count, then its floats. A count that runs past the list ends it.
-template <typename Set>
-void eachSizedSlot(const std::vector<float>& list, int limit, Set set) {
-    size_t at = 0;
-    for (int slot = 0; slot < limit && at < list.size(); ++slot) {
-        const float size = list[at];
-        if (!(size >= 0.0f) || size > static_cast<float>(list.size() - at - 1)) return;
-        const auto count = static_cast<size_t>(size);
-        set(slot, list.data() + at + 1, static_cast<int>(count));
-        at += 1 + count;
-    }
-}
-
 void applyLook(geode_viz* v, const stage::Look& l, uint32_t parts) {
     if ((parts & stage::kLookScene) != 0) geode_viz_request_scene(v, l.sceneId.c_str());
     if ((parts & stage::kLookParams) != 0 && !l.params.empty()) geode_viz_set_params(v, l.params.data(), static_cast<int>(l.params.size()));
-    if ((parts & stage::kLookLfos) != 0) {
-        eachSlot(l.lfos, GEODE_LFO_SLOTS, [v](int slot, const float* config, int count) { geode_viz_set_lfo(v, slot, config, count); });
-    }
-    if ((parts & stage::kLookAdsrs) != 0) {
-        eachSizedSlot(l.adsrs, GEODE_ADSR_SLOTS, [v](int slot, const float* config, int count) { geode_viz_set_adsr(v, slot, config, count); });
-    }
+    if ((parts & stage::kLookLfos) != 0) geode_viz_set_lfos(v, l.lfos.c_str());
+    if ((parts & stage::kLookAdsrs) != 0) geode_viz_set_adsrs(v, l.adsrs.c_str());
     if ((parts & stage::kLookTuning) != 0) {
         geode_viz_set_sound_tuning(v, l.tuning.empty() ? nullptr : l.tuning.data(), static_cast<int>(l.tuning.size()));
     }
-    if ((parts & stage::kLookReactions) != 0) {
-        // An empty list of the user's own is still theirs: the pointer must not be null for it.
-        static const float kNone = 0.0f;
-        const float* routes = l.reactions.empty() ? &kNone : l.reactions.data();
-        geode_viz_set_user_reactions(v, l.hasReactions ? routes : nullptr, l.hasReactions ? static_cast<int>(l.reactions.size()) : 0,
-                                     l.hasReactions ? 1 : 0);
-    }
+    if ((parts & stage::kLookReactions) != 0) geode_viz_set_reactions(v, l.hasReactions ? l.reactions.c_str() : nullptr);
     if ((parts & stage::kLookReducedMotion) != 0) geode_viz_set_reduced_motion(v, l.reducedMotion ? 1 : 0);
     if ((parts & stage::kLookTransition) != 0) geode_viz_set_transition(v, l.transitionId.c_str(), l.transitionMs);
 }
@@ -401,11 +361,11 @@ void geode_stage_set_look(geode_stage* s, const geode_stage_look* look) {
         stage::Look next;
         next.sceneId = look->scene_id ? look->scene_id : "";
         next.params = floats(look->params, look->param_count);
-        next.lfos = slots(look->lfos, look->lfo_slots, look->lfo_floats);
-        next.adsrs = floats(look->adsrs, look->adsr_floats);
+        next.lfos = look->lfos ? look->lfos : "";
+        next.adsrs = look->adsrs ? look->adsrs : "";
         next.tuning = floats(look->tuning, look->tuning_count);
-        next.hasReactions = look->has_reactions != 0;
-        if (next.hasReactions) next.reactions = floats(look->reactions, look->reaction_count);
+        next.hasReactions = look->reactions != nullptr;
+        if (next.hasReactions) next.reactions = look->reactions;
         next.reducedMotion = look->reduced_motion != 0;
         next.transitionId = look->transition_id ? look->transition_id : "";
         next.transitionMs = look->transition_ms;

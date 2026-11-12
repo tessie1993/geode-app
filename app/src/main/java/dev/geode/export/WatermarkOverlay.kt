@@ -40,20 +40,36 @@ class WatermarkOverlay(
         frameHeight: Int,
         lengthMs: Long = 0L,
     ) {
-        if (placement == 0) return
+        val tile = tile(frameWidth, frameHeight) ?: return
         width = frameWidth
         height = frameHeight
-        val bitmap = rasteriseTile(minOf(frameWidth, frameHeight))
-        val pixels = ByteBuffer.allocateDirect(bitmap.byteCount).order(ByteOrder.nativeOrder())
-        bitmap.copyPixelsToBuffer(pixels)
-        handle = GeodeNative.exportWatermarkCreate(assets, pixels, bitmap.width, bitmap.height, placement, choice.corner, lengthMs)
-        bitmap.recycle()
+        handle = GeodeNative.exportWatermarkCreate(assets, tile.pixels, tile.width, tile.height, placement, choice.corner, lengthMs)
         val problem = if (handle == 0L) "out of memory" else GeodeNative.exportPassError(handle)
         if (problem.isNotEmpty()) {
             release()
             error("watermark pass failed: $problem")
         }
     }
+
+    /** The rasterised wordmark and where it goes, for a native job that draws it itself; null when these frames carry none. */
+    fun tile(
+        frameWidth: Int,
+        frameHeight: Int,
+    ): Tile? {
+        if (placement == 0) return null
+        val bitmap = rasteriseTile(minOf(frameWidth, frameHeight))
+        val pixels = ByteBuffer.allocateDirect(bitmap.byteCount).order(ByteOrder.nativeOrder())
+        bitmap.copyPixelsToBuffer(pixels)
+        return Tile(pixels, bitmap.width, bitmap.height, placement, choice.corner).also { bitmap.recycle() }
+    }
+
+    class Tile(
+        val pixels: ByteBuffer,
+        val width: Int,
+        val height: Int,
+        val placement: Int,
+        val corner: Int,
+    )
 
     /** Composites the mark over whatever is in the default framebuffer; [timeMs] is the frame's time in the video. */
     fun draw(timeMs: Long = 0L) {
@@ -66,32 +82,32 @@ class WatermarkOverlay(
         if (owned != 0L) GeodeNative.exportPassDestroy(owned)
     }
 
+    // Every size, colour and position is native; only the drawing is Android's.
     private fun rasteriseTile(shortSide: Int): Bitmap {
-        val textPx = GeodeNative.exportWatermarkTextPx(shortSide, placement)
+        val look = FloatArray(PAINT_FLOATS).also { GeodeNative.exportWatermarkPaint(shortSide, placement, it) }
+        val textPx = look[0]
         val paint =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.WHITE
-                alpha = GeodeNative.exportWatermarkAlpha(placement)
+                alpha = look[1].toInt()
                 textSize = textPx
                 typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
-                letterSpacing = LETTER_SPACING
-                setShadowLayer(textPx * SHADOW_FRACTION, 0f, 0f, Color.argb(SHADOW_ALPHA, 0, 0, 0))
+                letterSpacing = look[2]
+                setShadowLayer(look[3], 0f, 0f, Color.argb(look[4].toInt(), 0, 0, 0))
             }
-        val textWidth = paint.measureText(text)
-        val size = GeodeNative.exportWatermarkTileWidth(textWidth, textPx, placement)
-        val tileHeight = GeodeNative.exportWatermarkTileHeight(size, textPx, placement)
-        return Bitmap.createBitmap(size, tileHeight, Bitmap.Config.ARGB_8888).also { tile ->
-            Canvas(tile).apply {
-                rotate(GeodeNative.exportWatermarkAngle(placement), tile.width / 2f, tile.height / 2f)
-                val metrics = paint.fontMetrics
-                drawText(text, (tile.width - textWidth) / 2f, tile.height / 2f - (metrics.ascent + metrics.descent) / 2f, paint)
+        val metrics = paint.fontMetrics
+        val tile = FloatArray(RASTER_FLOATS)
+        GeodeNative.exportWatermarkRaster(paint.measureText(text), metrics.ascent, metrics.descent, textPx, placement, tile)
+        return Bitmap.createBitmap(tile[0].toInt(), tile[1].toInt(), Bitmap.Config.ARGB_8888).also { bitmap ->
+            Canvas(bitmap).apply {
+                rotate(tile[2], tile[3], tile[4])
+                drawText(text, tile[5], tile[6], paint)
             }
         }
     }
 
     private companion object {
-        const val SHADOW_ALPHA = 70
-        const val SHADOW_FRACTION = 0.12f
-        const val LETTER_SPACING = 0.04f
+        const val PAINT_FLOATS = 5
+        const val RASTER_FLOATS = 7
     }
 }

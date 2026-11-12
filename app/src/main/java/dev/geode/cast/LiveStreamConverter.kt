@@ -15,7 +15,7 @@ import com.google.android.gms.cast.MediaQueueItem
  * Describes the cast stream to the Default Media Receiver: live HLS with fragmented MP4 segments.
  *
  * Media3's `DefaultMediaItemConverter` can't say "fMP4": the receiver then assumes MPEG-TS
- * segments for HLS and fails on [LiveSegments]' CMAF segments. Everything else matches the
+ * segments for HLS and fails on the stream's CMAF segments. Everything else matches the
  * default: the URL is the content id and the stream type is live.
  */
 @OptIn(UnstableApi::class)

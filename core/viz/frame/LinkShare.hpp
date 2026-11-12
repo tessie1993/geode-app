@@ -7,7 +7,7 @@
 namespace geode::viz::frame::link {
 
 // "Show on a computer": the Cast stream (CastStream, CastEncoder, LiveSegments) served to a browser on the
-// same Wi-Fi as well as, or instead of, a TV. cast/LiveHttpServer (Kotlin) owns the socket and the bytes;
+// same Wi-Fi as well as, or instead of, a TV. core/cast/LiveServer owns the socket and the bytes;
 // everything it decides is here: which path is what (route), the token check, every response header, the
 // page the browser loads (LinkPage.hpp), the master playlist with the codecs read from the encoder's own init
 // segment, the share's state, who may connect at all (admit) and whether the TV is really playing
@@ -25,7 +25,7 @@ namespace geode::viz::frame::link {
 // sees the link, or the traffic, can watch; and CORS is * on the stream's own files because the TV's receiver fetches them from
 // Google's https origin.
 
-// The names the server answers under /<token>/. LiveSegments (Kotlin) writes its playlist with the same ones.
+// The names the server answers under /<token>/. core/cast/LiveSegments writes its playlist with the same ones.
 inline constexpr std::string_view kPlaylistName = "live.m3u8";
 inline constexpr std::string_view kMasterName = "index.m3u8";
 inline constexpr std::string_view kInitName = "init.mp4";
@@ -104,7 +104,7 @@ inline constexpr int64_t kNoBody = -1;
 inline constexpr int64_t kBadBody = -2;
 int64_t bodyLength(const std::string_view* headers, size_t count, int64_t max);
 
-// The status of the answer to a POST on rtc, from what the WebRTC link said (geode_webrtc_answer: a length,
+// The status of the answer to a POST on rtc, from what the WebRTC link said (WebRtcLink::answer: a length,
 // or a negative GEODE_WEBRTC_REFUSED_*): 200 with the answer; 503 while the stream has no picture yet or the
 // browsers are full (the page then uses the fMP4 feed; it is not retried there); 400 for any other refusal.
 int rtcStatus(int answerResult);

@@ -12,10 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.data.VizUiState
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
-import dev.geode.render.AdsrConfig
 import dev.geode.render.BlendMode
-import dev.geode.render.LfoConfig
-import dev.geode.render.ReactionRoute
 import dev.geode.render.look.LookSnapshot
 import dev.geode.render.look.LookUnderlay
 import dev.geode.stage.StageView
@@ -47,9 +44,9 @@ object LayersBus {
  */
 internal fun liveLook(
     viz: VizUiState,
-    lfos: List<LfoConfig>,
-    adsrs: List<AdsrConfig>,
-    reactions: List<ReactionRoute>?,
+    lfos: String,
+    adsrs: String,
+    reactions: String?,
     soundTuning: List<Float>?,
     // Android's "Remove animations" (data/SystemMotion, #336), the only reduced-motion flag.
     reducedMotion: Boolean,

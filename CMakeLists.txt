@@ -132,16 +132,22 @@ add_library(geode SHARED
     app/src/main/cpp/geode_jni.cpp
     app/src/main/cpp/geode_viz_jni.cpp
     app/src/main/cpp/geode_tags_jni.cpp
+    app/src/main/cpp/geode_studio_jni.cpp
     app/src/main/cpp/geode_export_dsp_jni.cpp
     app/src/main/cpp/geode_export_jni.cpp
+    app/src/main/cpp/geode_loop_job_jni.cpp
     app/src/main/cpp/geode_sound_jni.cpp
     app/src/main/cpp/geode_playout_jni.cpp
     app/src/main/cpp/geode_ingest_jni.cpp
     app/src/main/cpp/geode_audio_out_jni.cpp
     app/src/main/cpp/geode_webrtc_jni.cpp
+    app/src/main/cpp/geode_modulation_jni.cpp
+    app/src/main/cpp/geode_cast_jni.cpp
     app/src/main/cpp/geode_shell_port_jni.cpp
     app/src/main/cpp/geode_stage_jni.cpp
-    app/src/main/cpp/geode_milk_jni.cpp)
+    app/src/main/cpp/geode_milk_jni.cpp
+    app/src/main/cpp/geode_render_plan_jni.cpp
+    app/src/main/cpp/geode_export_audio_jni.cpp)
 target_compile_options(geode PRIVATE ${GEODE_COMPILE_OPTIONS})
 target_link_options(geode PRIVATE ${GEODE_LINK_OPTIONS})
 target_link_libraries(geode PRIVATE geode_core log android)

@@ -2,6 +2,7 @@
 
 package dev.geode.ui
 
+import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -48,24 +49,8 @@ import dev.geode.R
 import dev.geode.RingLog
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
-import dev.geode.render.AdsrConfig
 import dev.geode.render.BlendMode
-import dev.geode.render.EnvBand
-import dev.geode.render.EventRecipe
-import dev.geode.render.LfoConfig
-import dev.geode.render.LfoTarget
-import dev.geode.render.LfoWave
-import dev.geode.render.ModCurve
-import dev.geode.render.ModPolarity
-import dev.geode.render.ModSource
-import dev.geode.render.ModTable
-import dev.geode.render.ReactMode
-import dev.geode.render.ReactSource
-import dev.geode.render.ReactSourceGroup
-import dev.geode.render.ReactionRoute
-import dev.geode.render.TransitionCatalog
 import dev.geode.render.fluid.FluidShaderTemplate
-import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.render.scene.ParamFormat
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
@@ -115,10 +100,10 @@ internal fun ProCrown(modifier: Modifier = Modifier) {
 @Composable
 internal fun ReactionsSection(
     p: SceneParams,
-    reactions: List<ReactionRoute>?,
-    onReactionsChange: (List<ReactionRoute>?) -> Unit,
+    reactions: String?,
+    handMask: Int,
+    onEdit: ReactionsEdit,
     onReroll: () -> Unit,
-    handMask: Int = GeodeNative.HAND_ALL,
 ) {
     if (!sectionVisible()) return
     val sceneId = LocalSceneId.current
@@ -133,8 +118,10 @@ internal fun ReactionsSection(
     // (native's merge), so an edit here starts from the matrix as it sounds and makes the whole list the user's.
     val routes =
         remember(sceneId, p.reactSeed, reactions, handMask) {
-            BuildStyleReactionsUseCase().playing(sceneId, p.reactSeed, reactions, handMask)
+            GeodeNative.modRoutesPlaying(sceneId, p.reactSeed, reactions, handMask)
         }
+    val each = GeodeNative.MOD_ROUTE_VALUES
+    val count = routes.size / each
     val sounds = LocalUiSounds.current
     val tap: (() -> Unit) -> Unit = { action ->
         sounds.play(UiSound.TAP)
@@ -143,77 +130,107 @@ internal fun ReactionsSection(
     FlowRow(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
         FilledTonalButton(onClick = { tap(onReroll) }) { Text(stringResource(R.string.customize_reactions_shuffle)) }
         if (reactions != null) {
-            FilledTonalButton(onClick = { tap { onReactionsChange(null) } }) {
+            FilledTonalButton(onClick = { tap { onEdit(GeodeNative.MOD_EDIT_CLEAR, 0, 0, 0f) } }) {
                 Text(stringResource(R.string.customize_reactions_use_style))
             }
         }
-        if (routes.size < ReactionRoute.MAX_ROUTES) {
-            FilledTonalButton(onClick = { tap { onReactionsChange(routes + NEW_REACTION) } }) { Text(stringResource(R.string.action_add)) }
+        if (count < ModCatalog.count("routes")) {
+            FilledTonalButton(onClick = { tap { onEdit(GeodeNative.MOD_EDIT_ROUTE_ADD, 0, 0, 0f) } }) {
+                Text(stringResource(R.string.action_add))
+            }
         }
     }
-    routes.forEachIndexed { i, route ->
+    repeat(count) { i ->
         ReactionCard(
-            route = route,
-            onChange = { changed -> onReactionsChange(routes.toMutableList().also { it[i] = changed }) },
-            onRemove = { onReactionsChange(routes.filterIndexed { j, _ -> j != i }) },
+            route = routes.copyOfRange(i * each, (i + 1) * each),
+            onSet = { field, value -> onEdit(GeodeNative.MOD_EDIT_ROUTE_SET, i, field, value) },
+            onRemove = { onEdit(GeodeNative.MOD_EDIT_ROUTE_REMOVE, i, 0, 0f) },
         )
     }
 }
 
-private val NEW_REACTION =
-    ReactionRoute(source = ReactSource.ONSET, target = LfoTarget.COLOR_SHIFT, mode = ReactMode.STEP, amount = 0.15f)
+private fun FloatArray.intAt(i: Int): Int = getOrElse(i) { 0f }.toInt()
 
-// The whole range native accepts: the style's own reactions draw drop surges above 1.
-private val REACT_AMOUNT_RANGE = ReactionRoute.MIN_AMOUNT..ReactionRoute.MAX_AMOUNT
+private fun FloatArray.flagAt(i: Int): Boolean = getOrElse(i) { 0f } > 0.5f
+
+private fun Boolean.wire(): Float = if (this) 1f else 0f
+
+/** A picker over one [kind] of native's words: the row lists their labels and sends the picked ordinal. */
+@Composable
+private fun WordRow(
+    name: String,
+    kind: String,
+    ordinal: Int,
+    lockKey: String? = null,
+    onPick: (Float) -> Unit,
+) {
+    val words = ModCatalog.words(kind)
+    DropdownRow(name, words.map { it.label }, words.indexOfFirst { it.ordinal == ordinal }, lockKey = lockKey) {
+        onPick(words[it].ordinal.toFloat())
+    }
+}
 
 private enum class ReactionPick { SOURCE, TARGET }
 
+/** One route as native reads it ([GeodeNative.MOD_ROUTE_VALUES] fields); [onSet] sends one field's new value. */
 @Composable
 private fun ReactionCard(
-    route: ReactionRoute,
-    onChange: (ReactionRoute) -> Unit,
+    route: FloatArray,
+    onSet: (field: Int, value: Float) -> Unit,
     onRemove: () -> Unit,
 ) {
     // Saveable: an open card survives rotation and process death like the rest of the panel.
     var expanded by rememberSaveable { mutableStateOf(false) }
     var picking by remember { mutableStateOf<ReactionPick?>(null) }
     val sceneId = LocalSceneId.current
+    val source = route.intAt(GeodeNative.MOD_ROUTE_SOURCE)
+    val target = route.intAt(GeodeNative.MOD_ROUTE_TARGET)
+    val amount = route.getOrElse(GeodeNative.MOD_ROUTE_AMOUNT) { 0f }
+    val sourceLabel = ModCatalog.label("react", source)
+    val targetLabel = ModCatalog.label("target", target)
+    val modeLabel = ModCatalog.label("mode", route.intAt(GeodeNative.MOD_ROUTE_MODE))
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = 48.dp)) {
             Text(
-                "${EventRecipe.sentence(route)} · ${route.mode.label} ${"%+.0f %%".format(route.amount * 100f)}",
+                "When $sourceLabel → $targetLabel · $modeLabel ${"%+.0f %%".format(amount * 100f)}",
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f).clickable { expanded = !expanded },
             )
-            Switch(checked = route.enabled, onCheckedChange = { onChange(route.copy(enabled = it)) })
+            Switch(
+                checked = route.flagAt(GeodeNative.MOD_ROUTE_ENABLED),
+                onCheckedChange = { onSet(GeodeNative.MOD_ROUTE_ENABLED, it.wire()) },
+            )
         }
-        if (route.target != LfoTarget.NONE && !ModTable.offeredTo(route.target, sceneId, ModTable.REACTION)) {
-            ControlHint("${route.target.label} does nothing on this style.")
-        }
+        if (target != 0 && !route.flagAt(GeodeNative.MOD_ROUTE_REACHES)) ControlHint("$targetLabel does nothing on this style.")
         if (expanded) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = { picking = ReactionPick.SOURCE }) {
-                    Text(stringResource(R.string.customize_reaction_sound, route.source.label))
+                    Text(stringResource(R.string.customize_reaction_sound, sourceLabel))
                 }
                 TextButton(onClick = { picking = ReactionPick.TARGET }) {
-                    Text(stringResource(R.string.customize_moves, route.target.label))
+                    Text(stringResource(R.string.customize_moves, targetLabel))
                 }
             }
-            DropdownRow("Mode", ReactMode.entries.map { it.label }, ReactMode.entries.indexOf(route.mode)) {
-                onChange(route.copy(mode = ReactMode.entries[it]))
+            WordRow("Mode", "mode", route.intAt(GeodeNative.MOD_ROUTE_MODE)) { onSet(GeodeNative.MOD_ROUTE_MODE, it) }
+            // The whole range native accepts: the style's own reactions draw drop surges above 1.
+            LabeledSlider(REACT_DEPTH, amount, ModCatalog.range("route.amount"), scope = ParamScope.UNIVERSAL, unit = ParamUnit.PERCENT) {
+                onSet(GeodeNative.MOD_ROUTE_AMOUNT, it)
             }
-            LabeledSlider(REACT_DEPTH, route.amount, REACT_AMOUNT_RANGE, scope = ParamScope.UNIVERSAL, unit = ParamUnit.PERCENT) {
-                onChange(route.copy(amount = it))
-            }
-            LabeledSlider(REACT_ATTACK, route.attackSeconds, 0f..1f, scope = ParamScope.UNIVERSAL, unit = ParamUnit.SECONDS) {
-                onChange(route.copy(attackSeconds = it))
-            }
-            LabeledSlider(REACT_RELEASE, route.releaseSeconds, 0f..3f, scope = ParamScope.UNIVERSAL, unit = ParamUnit.SECONDS) {
-                onChange(route.copy(releaseSeconds = it))
-            }
-            DropdownRow("Curve", ModCurve.entries.map { it.label }, ModCurve.entries.indexOf(route.curve)) {
-                onChange(route.copy(curve = ModCurve.entries[it]))
-            }
+            LabeledSlider(
+                REACT_ATTACK,
+                route.getOrElse(GeodeNative.MOD_ROUTE_ATTACK_SECONDS) { 0f },
+                ModCatalog.range("route.attackSeconds"),
+                scope = ParamScope.UNIVERSAL,
+                unit = ParamUnit.SECONDS,
+            ) { onSet(GeodeNative.MOD_ROUTE_ATTACK_SECONDS, it) }
+            LabeledSlider(
+                REACT_RELEASE,
+                route.getOrElse(GeodeNative.MOD_ROUTE_RELEASE_SECONDS) { 0f },
+                ModCatalog.range("route.releaseSeconds"),
+                scope = ParamScope.UNIVERSAL,
+                unit = ParamUnit.SECONDS,
+            ) { onSet(GeodeNative.MOD_ROUTE_RELEASE_SECONDS, it) }
+            WordRow("Curve", "curve", route.intAt(GeodeNative.MOD_ROUTE_CURVE)) { onSet(GeodeNative.MOD_ROUTE_CURVE, it) }
             TextButton(onClick = onRemove) { Text(stringResource(R.string.action_remove)) }
         }
     }
@@ -227,31 +244,33 @@ private fun ReactionCard(
                 Column(modifier = Modifier.height(360.dp).verticalScroll(rememberScrollState())) {
                     if (which == ReactionPick.SOURCE) {
                         // The sound engine's sources, in the picker's sections (Levels, Drums, ...).
-                        ReactSourceGroup.entries.forEach { group ->
+                        val sources = ModCatalog.words("react")
+                        ModCatalog.words("group").forEach { group ->
                             Text(
                                 group.label,
                                 style = MaterialTheme.typography.labelLarge,
                                 modifier = Modifier.padding(top = 8.dp, start = 12.dp),
                             )
-                            ReactSource.entries.filter { it.group == group }.forEach { s ->
+                            sources.filter { it.more.firstOrNull() == group.name }.forEach { s ->
                                 TextButton(onClick = {
-                                    onChange(route.copy(source = s))
+                                    onSet(GeodeNative.MOD_ROUTE_SOURCE, s.ordinal.toFloat())
                                     picking = null
                                 }) {
-                                    val mark = if (s == route.source) "▶ " else ""
-                                    Text(mark + s.label + if (s.isEvent) " (event)" else "")
+                                    val mark = if (s.ordinal == source) "▶ " else ""
+                                    Text(mark + s.label + if (s.more.getOrNull(1) == "1") " (event)" else "")
                                 }
                             }
                         }
                     } else {
-                        LfoTarget.entries
-                            .filter { it != LfoTarget.NONE && ModTable.offeredTo(it, sceneId, ModTable.REACTION) }
-                            .forEach { t ->
-                                TextButton(onClick = {
-                                    onChange(route.copy(target = t))
-                                    picking = null
-                                }) { Text(if (t == route.target) "▶ ${t.label}" else t.label) }
-                            }
+                        // Native lists what a route may move on this style.
+                        val offered = remember(sceneId) { GeodeNative.modTargetsOffered(sceneId, GeodeNative.MOD_PICKER_REACTION) }
+                        offered.forEach { t ->
+                            val label = ModCatalog.label("target", t)
+                            TextButton(onClick = {
+                                onSet(GeodeNative.MOD_ROUTE_TARGET, t.toFloat())
+                                picking = null
+                            }) { Text(if (t == target) "▶ $label" else label) }
+                        }
                     }
                 }
             },
@@ -260,14 +279,18 @@ private fun ReactionCard(
     }
 }
 
+/** One wave of the saved [lfos], drawn from native's reading of it; [onChange] sends a `GeodeNative.MOD_LFO_*` field's new value. */
 @Composable
 internal fun ModulatorCard(
     index: Int,
-    config: LfoConfig,
-    onChange: (LfoConfig) -> Unit,
+    lfos: String,
+    onChange: (field: Int, value: Float) -> Unit,
 ) {
     var showTargetPicker by remember { mutableStateOf(false) }
     val sceneId = LocalSceneId.current
+    val v = remember(lfos, index, sceneId) { GeodeNative.modLfoValues(lfos, index, sceneId) }
+    val target = v.intAt(GeodeNative.MOD_LFO_TARGET)
+    val targetLabel = ModCatalog.label("target", target)
     Column(modifier = Modifier.padding(vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -275,38 +298,38 @@ internal fun ModulatorCard(
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.weight(1f),
             )
-            Switch(checked = config.enabled, onCheckedChange = { onChange(config.copy(enabled = it)) })
+            Switch(checked = v.flagAt(GeodeNative.MOD_LFO_ENABLED), onCheckedChange = { onChange(GeodeNative.MOD_LFO_ENABLED, it.wire()) })
         }
-        if (config.enabled) {
-            TextButton(onClick = { showTargetPicker = true }) { Text(stringResource(R.string.customize_moves, config.target.label)) }
-            if (config.target != LfoTarget.NONE && !ModTable.offeredTo(config.target, sceneId, index)) {
-                ControlHint("${config.target.label} does nothing on this style - pick another.")
+        if (v.flagAt(GeodeNative.MOD_LFO_ENABLED)) {
+            TextButton(onClick = { showTargetPicker = true }) { Text(stringResource(R.string.customize_moves, targetLabel)) }
+            if (target != 0 && !v.flagAt(GeodeNative.MOD_LFO_REACHES)) {
+                ControlHint("$targetLabel does nothing on this style - pick another.")
             }
-            if (config.target == LfoTarget.MACRO) MacroKnobRow(config.knob) { onChange(config.copy(knob = it)) }
-            DropdownRow("Follows", ModSource.entries.map { it.label }, ModSource.entries.indexOf(config.source)) {
-                val source = ModSource.entries[it]
-                onChange(config.copy(source = source, polarity = ModTable.naturalPolarity(source)))
+            if (target == ModCatalog.ordinal("target", "MACRO")) {
+                MacroKnobRow(v.intAt(GeodeNative.MOD_LFO_KNOB)) { onChange(GeodeNative.MOD_LFO_KNOB, it.toFloat()) }
             }
-            if (config.source == ModSource.LFO) {
-                DropdownRow("Wave shape", LfoWave.entries.map { it.label }, LfoWave.entries.indexOf(config.wave)) {
-                    onChange(config.copy(wave = LfoWave.entries[it]))
+            // Native also turns the wave the way a new source is useful.
+            val source = v.intAt(GeodeNative.MOD_LFO_SOURCE)
+            WordRow("Follows", "source", source) { onChange(GeodeNative.MOD_LFO_SOURCE, it) }
+            if (source == ModCatalog.ordinal("source", "LFO")) {
+                WordRow("Wave shape", "wave", v.intAt(GeodeNative.MOD_LFO_WAVE)) { onChange(GeodeNative.MOD_LFO_WAVE, it) }
+                val timing = ModCatalog.words("beats")
+                val beats = v.intAt(GeodeNative.MOD_LFO_BEATS)
+                DropdownRow("Timing", timing.map { it.label }, timing.indexOfFirst { it.name.toIntOrNull() == beats }) {
+                    onChange(GeodeNative.MOD_LFO_BEATS, timing[it].name.toFloatOrNull() ?: 0f)
                 }
-                val timing = listOf("Free") + LfoConfig.BEAT_CHOICES.map { if (it == 1) "1 beat" else "$it beats" }
-                DropdownRow("Timing", timing, LfoConfig.BEAT_CHOICES.indexOf(config.beats) + 1) {
-                    onChange(config.copy(beats = LfoConfig.BEAT_CHOICES.getOrElse(it - 1) { 0 }))
-                }
-                MomentTriggerRow(config.moment, stringResource(R.string.mod_moment_free)) { onChange(config.copy(moment = it)) }
+                val moment = v.intAt(GeodeNative.MOD_LFO_MOMENT)
+                MomentTriggerRow(moment, stringResource(R.string.mod_moment_free)) { onChange(GeodeNative.MOD_LFO_MOMENT, it.toFloat()) }
                 // Native runs a wave on a moment on its own period, whatever its timing says.
-                val ownPeriod = config.beats == 0 || config.moment >= 0
-                if (ownPeriod) RateSecondsSlider(config.rateSeconds) { onChange(config.copy(rateSeconds = it)) }
+                val ownPeriod = beats == 0 || moment >= 0
+                val rate = v.getOrElse(GeodeNative.MOD_LFO_RATE_SECONDS) { 0f }
+                if (ownPeriod) RateSecondsSlider(rate) { onChange(GeodeNative.MOD_LFO_RATE_SECONDS, it) }
             }
-            LabeledSlider(MOD_DEPTH, config.depth, 0f..1f) { onChange(config.copy(depth = it)) }
-            DropdownRow("Direction", ModPolarity.entries.map { it.label }, ModPolarity.entries.indexOf(config.polarity)) {
-                onChange(config.copy(polarity = ModPolarity.entries[it]))
+            LabeledSlider(MOD_DEPTH, v.getOrElse(GeodeNative.MOD_LFO_DEPTH) { 0f }, ModCatalog.range("lfo.depth")) {
+                onChange(GeodeNative.MOD_LFO_DEPTH, it)
             }
-            DropdownRow("Curve", ModCurve.entries.map { it.label }, ModCurve.entries.indexOf(config.curve)) {
-                onChange(config.copy(curve = ModCurve.entries[it]))
-            }
+            WordRow("Direction", "polarity", v.intAt(GeodeNative.MOD_LFO_POLARITY)) { onChange(GeodeNative.MOD_LFO_POLARITY, it) }
+            WordRow("Curve", "curve", v.intAt(GeodeNative.MOD_LFO_CURVE)) { onChange(GeodeNative.MOD_LFO_CURVE, it) }
         }
     }
     if (showTargetPicker) {
@@ -315,14 +338,14 @@ internal fun ModulatorCard(
             title = { Text(stringResource(R.string.customize_wave_moves, index + 1)) },
             text = {
                 Column(modifier = Modifier.height(360.dp).verticalScroll(rememberScrollState())) {
-                    LfoTarget.entries.forEach { t ->
-                        // Native decides what this wave may move (a later wave, or what reaches the style).
-                        if (ModTable.offeredTo(t, sceneId, index)) {
-                            TextButton(onClick = {
-                                onChange(config.copy(target = t))
-                                showTargetPicker = false
-                            }) { Text(if (t == config.target) "▶ ${t.label}" else t.label) }
-                        }
+                    // Native decides what this wave may move (a later wave, or what reaches the style).
+                    val offered = remember(sceneId, index) { GeodeNative.modTargetsOffered(sceneId, index) }
+                    offered.forEach { t ->
+                        val label = ModCatalog.label("target", t)
+                        TextButton(onClick = {
+                            onChange(GeodeNative.MOD_LFO_TARGET, t.toFloat())
+                            showTargetPicker = false
+                        }) { Text(if (t == target) "▶ $label" else label) }
                     }
                 }
             },
@@ -342,8 +365,9 @@ private fun RateSecondsSlider(
     seconds: Float,
     onChange: (Float) -> Unit,
 ) {
-    val lo = ModTable.minRateSeconds
-    val hi = ModTable.maxRateSeconds
+    val range = ModCatalog.range("lfo.rateSeconds")
+    val lo = range.start
+    val hi = range.endInclusive
     val t = (ln(seconds.coerceIn(lo, hi) / lo) / ln(hi / lo)).coerceIn(0f, 1f)
     val shown = ParamFormat.format(seconds, ParamUnit.SECONDS)
     val cycleLabel = stringResource(R.string.customize_a11y_one_cycle)
@@ -363,53 +387,70 @@ private fun RateSecondsSlider(
     }
 }
 
+/** One envelope of the saved [adsrs], drawn from native's reading of it; [onChange] sends a `GeodeNative.MOD_ADSR_*` field's new value. */
 @Composable
 internal fun AdsrCard(
     index: Int,
-    config: AdsrConfig,
-    onChange: (AdsrConfig) -> Unit,
+    adsrs: String,
+    onChange: (field: Int, value: Float) -> Unit,
 ) {
     val sceneId = LocalSceneId.current
+    val v = remember(adsrs, index) { GeodeNative.modAdsrValues(adsrs, index) }
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
-        CheckRow("Envelope ${index + 1} on", config.enabled) { onChange(config.copy(enabled = it)) }
-        if (!config.enabled) return@Column
+        CheckRow("Envelope ${index + 1} on", v.flagAt(GeodeNative.MOD_ADSR_ENABLED)) { onChange(GeodeNative.MOD_ADSR_ENABLED, it.wire()) }
+        if (!v.flagAt(GeodeNative.MOD_ADSR_ENABLED)) return@Column
         // What it moves: one row and a checkable menu, in place of a chip per target and a "+" chip.
-        // The ones already chosen stay listed even where this style ignores them, so they can be unticked.
-        val offered =
-            LfoTarget.entries.filter {
-                it != LfoTarget.NONE && ModTable.offered(it) && (it in config.targets || ModTable.reaches(it, sceneId))
-            }
+        // The ones already chosen stay listed even where this style ignores them, so they can be unticked (native's list).
+        val targets = v.drop(GeodeNative.MOD_ADSR_VALUES).map { it.toInt() }
+        val offered = remember(adsrs, index, sceneId) { GeodeNative.modAdsrTargetsOffered(adsrs, index, sceneId) }
         Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.envelope_moves), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
             MultiPickButton(
                 name = stringResource(R.string.envelope_moves_for, index + 1),
-                summary = config.targets.joinToString { it.label }.ifEmpty { stringResource(R.string.envelope_moves_nothing) },
-                picks = offered.map { MenuPick(it.label, it in config.targets) },
+                summary =
+                    targets.joinToString { ModCatalog.label("target", it) }.ifEmpty { stringResource(R.string.envelope_moves_nothing) },
+                picks = offered.map { MenuPick(ModCatalog.label("target", it), it in targets) },
                 modifier = Modifier.weight(1f, fill = false),
-            ) { i ->
-                val t = offered[i]
-                onChange(config.copy(targets = if (t in config.targets) config.targets - t else config.targets + t))
-            }
+            ) { i -> onChange(GeodeNative.MOD_ADSR_TARGET, offered[i].toFloat()) }
         }
-        if (LfoTarget.MACRO in config.targets) MacroKnobRow(config.knob) { onChange(config.copy(knob = it)) }
+        if (ModCatalog.ordinal("target", "MACRO") in targets) {
+            MacroKnobRow(v.intAt(GeodeNative.MOD_ADSR_KNOB)) { onChange(GeodeNative.MOD_ADSR_KNOB, it.toFloat()) }
+        }
         CardSubHeader(stringResource(R.string.customize_envelope_shape))
-        LabeledSlider(ENV_ATTACK, config.attack, 0.005f..1f, unit = ParamUnit.SECONDS) { onChange(config.copy(attack = it)) }
-        LabeledSlider(ENV_DECAY, config.decay, 0.01f..1.5f, unit = ParamUnit.SECONDS) { onChange(config.copy(decay = it)) }
-        LabeledSlider(ENV_SUSTAIN, config.sustain, 0f..1f) { onChange(config.copy(sustain = it)) }
-        LabeledSlider(ENV_RELEASE, config.release, 0.02f..2f, unit = ParamUnit.SECONDS) { onChange(config.copy(release = it)) }
-        LabeledSlider(ENV_AMOUNT, config.amount, 0f..1.5f, unit = ParamUnit.PERCENT) { onChange(config.copy(amount = it)) }
+        AdsrSlider(ENV_ATTACK, v, GeodeNative.MOD_ADSR_ATTACK, "adsr.attack", ParamUnit.SECONDS, onChange)
+        AdsrSlider(ENV_DECAY, v, GeodeNative.MOD_ADSR_DECAY, "adsr.decay", ParamUnit.SECONDS, onChange)
+        AdsrSlider(ENV_SUSTAIN, v, GeodeNative.MOD_ADSR_SUSTAIN, "adsr.sustain", null, onChange)
+        AdsrSlider(ENV_RELEASE, v, GeodeNative.MOD_ADSR_RELEASE, "adsr.release", ParamUnit.SECONDS, onChange)
+        AdsrSlider(ENV_AMOUNT, v, GeodeNative.MOD_ADSR_AMOUNT, "adsr.amount", ParamUnit.PERCENT, onChange)
         CardSubHeader(stringResource(R.string.customize_envelope_hold))
         ControlHint(
             stringResource(R.string.customize_envelope_hold_hint),
         )
-        DropdownRow(ENV_GATE_SOURCE, EnvBand.entries.map { it.label }, EnvBand.entries.indexOf(config.band), lockKey = ENV_GATE_SOURCE) {
-            onChange(config.copy(band = EnvBand.entries[it]))
+        WordRow(ENV_GATE_SOURCE, "band", v.intAt(GeodeNative.MOD_ADSR_BAND), lockKey = ENV_GATE_SOURCE) {
+            onChange(GeodeNative.MOD_ADSR_BAND, it)
         }
-        LabeledSlider(ENV_GATE_LEVEL, config.gateThreshold, 0.05f..1f) { onChange(config.copy(gateThreshold = it)) }
-        CheckRow(ENV_SUSTAIN_TRACK, config.sustainTrack) { onChange(config.copy(sustainTrack = it)) }
-        CheckRow(ENV_RETRIGGER, config.retrigger) { onChange(config.copy(retrigger = it)) }
-        MomentTriggerRow(config.moment, stringResource(R.string.mod_moment_note_start)) { onChange(config.copy(moment = it)) }
+        AdsrSlider(ENV_GATE_LEVEL, v, GeodeNative.MOD_ADSR_GATE_THRESHOLD, "adsr.gateThreshold", null, onChange)
+        CheckRow(ENV_SUSTAIN_TRACK, v.flagAt(GeodeNative.MOD_ADSR_SUSTAIN_TRACK)) {
+            onChange(GeodeNative.MOD_ADSR_SUSTAIN_TRACK, it.wire())
+        }
+        CheckRow(ENV_RETRIGGER, v.flagAt(GeodeNative.MOD_ADSR_RETRIGGER)) { onChange(GeodeNative.MOD_ADSR_RETRIGGER, it.wire()) }
+        MomentTriggerRow(v.intAt(GeodeNative.MOD_ADSR_MOMENT), stringResource(R.string.mod_moment_note_start)) {
+            onChange(GeodeNative.MOD_ADSR_MOMENT, it.toFloat())
+        }
     }
+}
+
+/** One envelope slider: the value at [field] of [values], over the reach native publishes as [range]. */
+@Composable
+private fun AdsrSlider(
+    label: String,
+    values: FloatArray,
+    field: Int,
+    range: String,
+    unit: ParamUnit?,
+    onChange: (field: Int, value: Float) -> Unit,
+) {
+    LabeledSlider(label, values.getOrElse(field) { 0f }, ModCatalog.range(range), unit = unit) { onChange(field, it) }
 }
 
 /** Expert › Layers: a second style drawn under the active one. */
@@ -506,8 +547,26 @@ internal fun NoteKeyPage(
 
 private const val TRANSITION_CHIP_LIMIT = 40
 
-/** Native's transition_choice::kRandomId. */
-private const val RANDOM_TRANSITION = "random"
+/** What the transition picker lists, as native hands it over: the built-in ids it offers, then the library's names. */
+private class TransitionChoices(
+    val builtIn: List<String>,
+    val library: List<String>,
+)
+
+/** Native's picker table (`core/viz/TransitionLibrary`, `encodeTransitionPicker`): two lists, split on RS then US. */
+private fun transitionChoices(context: Context): TransitionChoices {
+    val table = runCatching { String(GeodeNative.transitionPicker(context.assets), Charsets.UTF_8) }.getOrDefault("")
+    val lists = table.split('\u001e')
+
+    fun list(i: Int) =
+        lists
+            .getOrNull(i)
+            .orEmpty()
+            .split('\u001f')
+            .filter { it.isNotEmpty() }
+
+    return TransitionChoices(builtIn = list(0), library = list(1))
+}
 
 /**
  * Effects' transition style: how one style hands over to the next. The built-in transitions,
@@ -520,10 +579,11 @@ internal fun TransitionPicker(
 ) {
     if (transitionId == null || !sectionVisible()) return
     val ctx = LocalContext.current
-    val library = remember { TransitionCatalog.library(ctx) }
-    // "cut" is left out: VisualSafety always plays it as a fade, so its entry lied. "random" draws one
-    // per change, never the same twice running (native core/viz/TransitionChoice, MilkDrop's habit).
-    val builtIn = remember { TransitionCatalog.BUILT_IN_IDS.filter { it != "cut" } + RANDOM_TRANSITION }
+    // Native leaves "cut" out (VisualSafety plays it as a fade) and offers "random", one per change, never
+    // the same twice running (core/viz/TransitionChoice, MilkDrop's habit).
+    val choices = remember { transitionChoices(ctx) }
+    val library = choices.library
+    val builtIn = choices.builtIn
     DropdownRow(
         stringResource(R.string.transition_built_in),
         builtIn,
@@ -543,8 +603,8 @@ internal fun TransitionPicker(
         singleLine = true,
         label = { Text(stringResource(R.string.customize_search_transitions)) },
     )
-    val shown = remember(query, library) { if (query.isBlank()) library else library.filter { it.name.contains(query, ignoreCase = true) } }
-    val names = shown.take(TRANSITION_CHIP_LIMIT).map { it.name }
+    val shown = remember(query, library) { if (query.isBlank()) library else library.filter { it.contains(query, ignoreCase = true) } }
+    val names = shown.take(TRANSITION_CHIP_LIMIT)
     DropdownRow(
         stringResource(R.string.transition_library),
         names,

@@ -118,31 +118,25 @@ Java_dev_geode_engine_bridge_GeodeNative_stageSetSound(JNIEnv*, jobject, jlong s
 
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_stageSetLook(JNIEnv* env, jobject, jlong stage, jstring sceneId, jfloatArray params,
-                                                      jfloatArray lfos, jint lfoSlots, jfloatArray adsrs, jfloatArray tuning,
-                                                      jfloatArray reactions, jboolean reducedMotion, jstring transitionId,
-                                                      jlong transitionMs) {
+                                                      jstring lfos, jstring adsrs, jfloatArray tuning, jstring reactions,
+                                                      jboolean reducedMotion, jstring transitionId, jlong transitionMs) {
     Utf8Chars scene(env, sceneId);
     Utf8Chars transition(env, transitionId);
     FloatElements paramData(env, params);
-    FloatElements lfoData(env, lfos);
-    FloatElements adsrData(env, adsrs);
+    Utf8Chars lfoText(env, lfos);
+    Utf8Chars adsrText(env, adsrs);
+    Utf8Chars reactionText(env, reactions);
     FloatElements tuningData(env, tuning);
-    FloatElements reactionData(env, reactions);
-    if (reactions && !reactionData.get()) return;  // could not read the list: keep the last look
+    if (reactions && !reactionText.get()) return;  // could not read the text: keep the last look
     geode_stage_look look{};
     look.scene_id = scene.get();
     look.params = paramData.get();
     look.param_count = paramData.length();
-    look.lfos = lfoData.get();
-    look.lfo_slots = lfoSlots;
-    look.lfo_floats = lfoData.length();
-    look.adsrs = adsrData.get();
-    look.adsr_floats = adsrData.length();
+    look.lfos = lfoText.get();
+    look.adsrs = adsrText.get();
     look.tuning = tuningData.get();
     look.tuning_count = tuningData.length();
-    look.reactions = reactionData.get();
-    look.reaction_count = reactionData.length();
-    look.has_reactions = reactions ? 1 : 0;
+    look.reactions = reactionText.get();
     look.reduced_motion = reducedMotion == JNI_TRUE ? 1 : 0;
     look.transition_id = transition.get();
     look.transition_ms = transitionMs;

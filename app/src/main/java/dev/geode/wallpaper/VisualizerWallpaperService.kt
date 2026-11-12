@@ -22,7 +22,6 @@ import dev.geode.data.PerformanceStore
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.pro.ProFeature
-import dev.geode.render.TouchField
 import dev.geode.stage.Stage
 import dev.geode.util.bestEffort
 
@@ -99,7 +98,7 @@ class VisualizerWallpaperService : WallpaperService() {
          * Reused across touch events: a wallpaper is touched at the panel's rate, and this
          * runs on the main thread the launcher is also drawing on.
          */
-        private val touchPoints = FloatArray(TouchField.MAX_POINTS * 2)
+        private val touchPoints = FloatArray(GeodeNative.catalogueValue("touchPoints").toInt() * 2)
 
         /**
          * The surface, not the display: a wallpaper surface is often wider than the screen
@@ -345,7 +344,7 @@ class VisualizerWallpaperService : WallpaperService() {
             val leaving = if (action == MotionEvent.ACTION_POINTER_UP) event.actionIndex else -1
             var live = 0
             for (i in 0 until event.pointerCount) {
-                if (i != leaving && live < TouchField.MAX_POINTS) {
+                if (i != leaving && live * 2 < touchPoints.size) {
                     touchPoints[live * 2] = event.getX(i) / surfaceWidth * 2f - 1f
                     touchPoints[live * 2 + 1] = 1f - event.getY(i) / surfaceHeight * 2f
                     live++

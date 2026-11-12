@@ -14,8 +14,8 @@ import java.nio.ByteOrder
 
 /**
  * The wordmark Record's tee draws over each copied frame, as pixels: the text is the one thing that needs
- * Android. Whether a live frame is marked, where, how large and how opaque are native (`core/viz/frame/
- * WatermarkPass`); [placement] 0 is no mark and no [tile].
+ * Android. Whether a live frame is marked, where, and every size, colour and position of the drawing are
+ * native (`core/viz/frame/WatermarkPass`); [placement] 0 is no mark and no [tile].
  */
 class RecordMark(
     context: Context,
@@ -40,32 +40,33 @@ class RecordMark(
         text: String,
         shortSide: Int,
     ) {
-        val textPx = GeodeNative.exportWatermarkTextPx(shortSide, placement)
+        val look = FloatArray(PAINT_FLOATS).also { GeodeNative.exportWatermarkPaint(shortSide, placement, it) }
+        val textPx = look[0]
         val paint =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.WHITE
-                alpha = GeodeNative.exportWatermarkAlpha(placement)
+                alpha = look[1].toInt()
                 textSize = textPx
                 typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
-                letterSpacing = LETTER_SPACING
-                setShadowLayer(textPx * SHADOW_FRACTION, 0f, 0f, Color.argb(SHADOW_ALPHA, 0, 0, 0))
+                letterSpacing = look[2]
+                setShadowLayer(look[3], 0f, 0f, Color.argb(look[4].toInt(), 0, 0, 0))
             }
-        val textWidth = paint.measureText(text)
-        width = GeodeNative.exportWatermarkTileWidth(textWidth, textPx, placement)
-        height = GeodeNative.exportWatermarkTileHeight(width, textPx, placement)
+        val metrics = paint.fontMetrics
+        val raster = FloatArray(RASTER_FLOATS)
+        GeodeNative.exportWatermarkRaster(paint.measureText(text), metrics.ascent, metrics.descent, textPx, placement, raster)
+        width = raster[0].toInt()
+        height = raster[1].toInt()
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         Canvas(bitmap).apply {
-            rotate(GeodeNative.exportWatermarkAngle(placement), bitmap.width / 2f, bitmap.height / 2f)
-            val metrics = paint.fontMetrics
-            drawText(text, (bitmap.width - textWidth) / 2f, bitmap.height / 2f - (metrics.ascent + metrics.descent) / 2f, paint)
+            rotate(raster[2], raster[3], raster[4])
+            drawText(text, raster[5], raster[6], paint)
         }
         tile = ByteBuffer.allocateDirect(bitmap.byteCount).order(ByteOrder.nativeOrder()).also(bitmap::copyPixelsToBuffer)
         bitmap.recycle()
     }
 
     private companion object {
-        const val SHADOW_ALPHA = 70
-        const val SHADOW_FRACTION = 0.12f
-        const val LETTER_SPACING = 0.04f
+        const val PAINT_FLOATS = 5
+        const val RASTER_FLOATS = 7
     }
 }

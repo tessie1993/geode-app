@@ -10,6 +10,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - projectM also gets `tools/projectm-v4.1.7-shader-fallback.patch`, which reports the shaders it swapped for the default (`projectm_get_dropped_shaders`).
 - The submodules are `third_party/{projectm,taglib,cgltf,meshoptimizer,basis_universal,kissfft,libdatachannel,mbedtls}`.
 - libdatachannel and its Mbed TLS (`core/cast/mbedtls_user_config.h`) build only for `core/cast/WebRtcLink`, Show on a computer's WebRTC; `core/cast/` is the only native directory that may include them or a socket header (`tools/network-gate.sh`).
+- `core/cast/LiveServer` is the cast's HTTP server on plain POSIX sockets, bound to the phone's LAN address; `LiveHttp` (requests and answers) and `LiveSegments` (the segment window and playlist) hold its decisions and include no socket header.
 - KISS FFT's header-only `kissfft.hh` is the transform under `core/sound/Fft`.
 - cgltf is compiled in `GltfImport.cpp`.
 - meshoptimizer's simplifier and codecs build as `geode_meshopt`, in `core/CMakeLists.txt`.
@@ -119,8 +120,14 @@ The renderer runs these in order each frame.
 - The ingest ABI is `geode_pcm_ring_*`, `geode_pcm_cursor_*`, and `geode_viz_feed_ring` for a live renderer's own cursor.
 - `core/audio/ingest/TrackPump` decodes an export's track as each frame asks; its platform decoder is `core/audio/ingest/android/TrackDecoder` (`AMediaExtractor`, `AMediaCodec`, `mediandk`).
 - `core/output/ExportFrame` is an export's render order behind `geode_export_job_*` (`core/api/geode_export_job_api.h`): prepare, pre-roll, one call per frame.
+- `core/output/LoopRender` is a loop render's whole job behind `geode_loop_job_*` (`core/api/geode_loop_job_api.h`): the encoder ladder, each drift stop's frames, seam, PTS and scratch file.
+- Its phone host is `core/output/android/LoopRenderHost` (EGL on the encoder's surface, the renderer, the export job, the seam and watermark passes, `MediaCodecSink`'s codec and muxer).
+- The loop job runs on one caller thread; `cancel`, `progress` and `state` are safe from another, and native never calls back.
 - `core/audio/dsp`'s `DspProcessor` keeps a chain per format, staged at configure and live at flush, so a draining tail never meets the next format's chain.
 - `core/audio/dsp` also holds the export resampler `PcmResampler` and the BS.1770 meter `Loudness`.
+- `core/audio/dsp/EqPresets` is the built-in equalizer curves; the settings save a curve by its index, so their order is saved data.
+- `core/audio/ingest/AiffHeaderScan` (in `AiffReader`) reads an AIFF header pushed to it in small steps, for the export's reader and the player's extractor alike.
+- `core/audio/dsp/PlaybackControls` is Settings › Playback's pitch rate and slider step (`core/api/geode_playback_api.cpp`).
 - Playback is ExoPlayer; the native player (`core/audio/player`) is gone.
 - Oboe is back as the output only (`core/audio/output`, off by default).
 - `OutputFifo` is the lock-free FIFO between Media3's sink and the device callback: 16-bit to float, underrun count, volume ramp, the position the sink reads.

@@ -60,12 +60,13 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `shownOn`'s `CATEGORY:roll` lines say where the dice has something to move.
 - ⋮ › Randomize every group rolls every category; Quick knobs' dice rolls the knobs' turns.
 - Without Pro the lock `#PRO` holds all but the Basics, for the dice and the two-circle gesture alike.
-- The waves' own Randomize, which Music's roll and randomize-everything run for the waves already on, is `core/viz/WaveRandomizer` (`geode_waves_randomize`).
+- The waves' own Randomize, which Music's roll and randomize-everything run for the waves already on, is `core/viz/WaveRandomizer` (`geode_mod_waves_randomize`).
 - A kept category is native too: its ⋮ › Keep when randomizing stores `#CATEGORY` in the lock set, which `expandLocks` turns into its controls, after MilkDrop's locked mash-up bins.
 - ⋮ › Take from a preset is native (`customize::borrow`, `geode_customize_borrow`): one category of a saved look laid over this one.
 - `CustomizeMapTable` splits the map's rows.
 - `CustomizeControls` draws each control by name.
-- Widgets are in `CustomizeTabs`, editors in `CustomizeAdvanced`, knobs in `CustomizeMacros`, Music's moments in `CustomizeEvents`, list maths in `MusicMoments`.
+- Widgets are in `CustomizeTabs`, editors in `CustomizeAdvanced`, knobs in `CustomizeMacros`, Music's moments in `CustomizeEvents`, Music's rows as native reads them in `MusicMoments`.
+- `ui/ModCatalog` splits the rows of `geode_mod_catalog_text` for the wave, envelope and reaction editors, which keep no list, range or default of their own.
 - Expert › Shader code (`ShaderCodePage`) shows on Fluid only, with the custom force and dye editors.
 - Free users get every Basics (`pro/FreeTier`).
 - A Pro control is gated through `ProLock`: it can be tried, then springs back.
@@ -176,7 +177,20 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Platform FX and the media chain live here.
 - `TapRenderersFactory`'s provider hands the sink `OboeAudioOutput` (Media3's `AudioOutput` over the native Oboe output, one native call per method) when Settings › Playback › Output and more has it on and the config is plain 16-bit or float PCM, mono or stereo, not offload, tunneling, bit-perfect or output-side speed.
 - Otherwise, or when the stream will not open or fails, the sink uses the AudioTrack.
+- `AiffExtractor` plays AIFF through Media3 and only moves bytes; the header, the times and the seek offsets are native (`core/audio/ingest/AiffHeaderScan`, `geode_aiff_*`).
+- `AudioFxPresets` names the equalizer curves native lists (`core/audio/dsp/EqPresets`, `geode_dsp_eq_preset_*`).
 - `PlayoutSink` wraps that sink and reports its buffers, position, play, pause, flush and speed to the native playout clock.
+
+## `engine/audioandroid`
+
+- `PcmTap` is the Media3 PCM tap: it hands the chain's direct buffer and its format to the native ring and reads no sample.
+- `PcmTap.owns` is set by `CaptureController` through `PlayerSession`; while another source writes the ring the tap writes nothing.
+
+## `render`
+
+- The engine module's package, for the shell's own pieces of it.
+- `UnderlayBlend` is the background image's blend, saved by name; its ordinal is the underlay's wire int.
+- `fluid/FluidShaderTemplate` reads the fluid splat shader asset that Expert › Shader code starts from.
 
 ## `audio/dsp`
 
@@ -261,17 +275,20 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 ## `export`
 
-- Open first: `VideoExporter`, `LoopRender`, `ExportRun`, `ExportService`, `WatermarkOverlay`, `RenderBatch` (batch queue and render scopes, pure).
+- Open first: `VideoExporter`, `LoopRender`, `ExportRun`, `ExportService`, `WatermarkOverlay`.
 - Visualizer export: MediaCodec + offscreen GL.
 - `ExportScene` opens the export's renderer and the track's descriptor and hands the look over; the native export job (`core/output/ExportFrame`) runs the prepare order, the pre-roll, the track's decode and each frame.
-- Loop render and chapters.
-- Loudness: `LoudnessMeter` decodes; the BS.1770 maths is native.
+- Loop render.
+- Loudness: native decodes the finished file and advises (`core/output/LoudnessScan`, `LoudnessAdvice`); `ui/LoudnessAdviceText` words it.
 - `PcmResampler` takes hi-res sources down to an AAC-supported rate; it is a handle over native maths, so `close()` it.
+- The time left is native (`core/output/RenderEta`, `geode_render_eta_*`); `ExportRun.describeEta` words it.
+- A segment's clamp is native (`core/output/ExportRange`, `geode_export_range`); `ExportRange` carries the result.
 - The watermark: `WatermarkOverlay` rasterises the tile.
 - Whether there is a watermark, where (tiled, a corner, an end card), its size, its opacity and the end card's timing are native (`exportmath::watermark`).
 - An end card is a corner on a loop, a recording or a layered Studio segment.
 - The watermark's compositing and the loop seam are native Passes in `core/viz/frame/ExportPasses`.
-- The loop seam's schedule and GPU budget are `core/viz/frame/LoopSeam`, called through `geode_export_*`.
+- The loop seam's schedule and GPU budget are `core/viz/frame/LoopSeam`, driven by the native loop job.
+- `LoopRender` hands the native loop job (`loopJob*`) its values, polls its progress every 50 ms, passes a cancel on and words its outcome.
 - `MuxerBudget` caps the bit rate so a long render stays under MediaMuxer's 4 GB.
 
 ## `viz`
@@ -332,10 +349,12 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - A new stream waits up to 3 s for the stage's first copy (`geode_cast_tee_await_stage`).
 - Only while the stage draws nothing (the app in the background) does a fallback renderer (`CastFallback`, a `NativeViz` in the encoder's context) draw the saved look and the stage's last style and .milk (`CastMirror`).
 - The encoder is paced by the native `core/viz/frame/FixedRateClock`.
-- `LiveSegments` cuts the fragmented MP4 into live HLS.
+- `LiveLink` is the shell's handle on the native server: it hands the muxer's fragmented MP4 over and reads back the URLs and the stream's health.
+- `core/cast/LiveSegments` cuts the fragmented MP4 into live HLS.
 - Segment timing, the playlist and each fragment's rewrite into a self-contained segment (tfdt and moof-relative offsets) are native in `core/viz/frame/HlsSegments`.
 - The AAC feed's counts are native in `CastAudio` (`core/viz/frame/CastAudio`).
-- `LiveHttpServer` serves the stream on the LAN under a random token; it handles only the socket and bytes.
+- `core/cast/LiveServer` serves the stream on the LAN under a random token; it handles only the sockets and threads.
+- `core/cast/LiveHttp` reads each request within fixed bounds and writes each answer.
 - Who may connect (a TV cast the Cast device alone, a shared link the Wi-Fi's subnet), every route, the constant-time token check and each response head (no-store, nosniff, no-referrer, the page's CSP) are native in `core/viz/frame/LinkShare`.
 - It serves from the Wi-Fi or Ethernet address, never a VPN's or cellular's.
 - Show on a computer (`ComputerLink`) serves the same picture, with or without a TV, to a browser on the Wi-Fi.

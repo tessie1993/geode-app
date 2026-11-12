@@ -13,7 +13,7 @@ namespace geode::viz {
 // The reaction matrix: many audio features routed to many targets, each route
 // with its own amount, curve, mode and smoothing. MotionField is one fixed
 // table every style shares; this is the data-driven layer on top of it, and
-// the Kotlin side seeds it per style (BuildStyleReactionsUseCase), so two
+// viz/ReactionDna seeds it per style, so two
 // styles hear the same bar of music differently.
 //
 // Pure: no GL, no allocation, no locks. tick() runs on the render thread once
@@ -60,8 +60,8 @@ enum class ReactSource {
 constexpr int kReactSourceCount = static_cast<int>(ReactSource::FadeGain) + 1;
 
 // The source catalogue: what the Customize picker, the Events recipes and the saved formats call each
-// source. C++ owns it (the user's rule: the reaction feature lives in C++); Kotlin reads it over JNI
-// (geode_react_source_catalog) and does not keep its own list. `name` is the stable saved name,
+// source. C++ owns it (the user's rule: the reaction feature lives in C++); the shell reads it in
+// viz/ModCatalog's table and does not keep its own list. `name` is the stable saved name,
 // `group` the picker section (LEVELS, DRUMS, EVENTS, MELODY, CLOCKS, TEXTURE, EQ, RHYTHM, HARMONY, FORM), `event` a trigger
 // held as an envelope rather than a level, `circle` a value on a circle (a hue, a pitch class, a phase):
 // the route smoothing follows it round the seam (viz/Circular.hpp) instead of sweeping back across the
@@ -136,7 +136,7 @@ private:
 // mids, the stereo pan, an EQ band) are the "unclaimed" part, which only the whole-list route editor
 // (Modulate › Reactions) takes over.
 
-// Wire ordinals, in the page's order; mirrored by ui/MusicMoments.kt's labels. Append only.
+// Wire ordinals, in the page's order; the shell labels them in that order. Append only.
 enum class Moment { Kick, Snare, Hat, Bass, Drop, BuildUp, ChordChange, NewSection, Note, Loudness };
 constexpr int kMomentCount = static_cast<int>(Moment::Loudness) + 1;
 

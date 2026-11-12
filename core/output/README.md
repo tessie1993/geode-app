@@ -11,7 +11,7 @@ Part of the target in [ADR 0006](../../docs/adr/0006-fosfora-aligned-engine.md).
 - Pre-roll (landed, `PreRoll.hpp`): the analysis starts before the range, listening without drawing, so no render begins on a cold engine.
 - A frozen `RenderJob`: look, routes, hand ownership, macros, director pin, note response and the timeline, snapshotted once at start. Today a render reads live state per segment and per frame (`ui/ExportController.kt:791-794, 843`) and process-wide globals mid-render.
 
-**Kotlin keeps:** `export/VideoExporter`, `LoopRender`, `ExportScene` (the renderer, the track's descriptor and the look handed over), `EncoderSurface`, MediaCodec/Muxer and MediaStore. They drive this; they stop resolving looks and keyframes themselves.
+**Kotlin keeps:** `export/VideoExporter`, `LoopRender` (which only starts, polls and cancels the native loop job, `LoopRender.hpp`), `ExportScene` (the renderer, the track's descriptor and the look handed over), `EncoderSurface`, MediaCodec/Muxer and MediaStore. They drive this; they stop resolving looks and keyframes themselves.
 
 **fosfora:** `headless/driver.rs`, `headless/scene_renderer.rs` (calls the app's own `frame_prep` and `frame_graph`), `headless/loop_driver.rs` (phase-locked loop renders), `headless/schedule.rs`.
 

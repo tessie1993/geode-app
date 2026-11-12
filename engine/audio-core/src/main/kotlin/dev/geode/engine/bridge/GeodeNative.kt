@@ -24,6 +24,15 @@ object GeodeNative {
 
     external fun dspBandCenterHz(band: Int): Float
 
+    /** How many built-in equalizer curves there are. */
+    external fun dspEqPresetCount(): Int
+
+    /** Curve [preset]'s band levels in millibels into [out]; the bands written, 0 for no such curve. */
+    external fun dspEqPresetLevels(
+        preset: Int,
+        out: IntArray,
+    ): Int
+
     external fun dspSetEnabled(
         handle: Long,
         enabled: Boolean,
@@ -117,6 +126,15 @@ object GeodeNative {
         enabled: Boolean,
     )
 
+    /** Settings › Playback's pitch row (audio/dsp/PlaybackControls): the rate a shift of [semitones] plays at. */
+    external fun playbackPitchRatio(semitones: Float): Float
+
+    /** A Settings › Playback slider's [value] on its [step]: the nearest multiple, a half rounding up. */
+    external fun playbackSnap(
+        value: Float,
+        step: Float,
+    ): Float
+
     /**
      * Whether the platform takes the next AudioTrack bit-perfect (#353); from the next [dspFlush] the chain
      * passes every block through untouched until a flush with it off.
@@ -199,6 +217,20 @@ object GeodeNative {
      */
     external fun libraryIndexSearch(
         handle: Long,
+        query: ByteArray,
+    ): IntArray
+
+    /**
+     * The global search sheet (core/library/Search): [tracks] holds five UTF-8 cells per track (title, artist,
+     * album, one more field, and the URI every copy of a song shares), [preferred] marks the copy shown when
+     * copies meet, [playlists] and [presets] are names. Returns three counts (tracks, playlists, presets), then
+     * those rows, best first. A blank [query] finds nothing.
+     */
+    external fun searchSheet(
+        tracks: Array<ByteArray?>,
+        preferred: BooleanArray,
+        playlists: Array<ByteArray?>,
+        presets: Array<ByteArray?>,
         query: ByteArray,
     ): IntArray
 
@@ -293,9 +325,6 @@ object GeodeNative {
         handle: Long,
         saved: FloatArray?,
     )
-
-    /** The reaction source catalogue (core/viz/Reactions.cpp): a "NAME|Label|GROUP|0/1" line per source, in wire order. */
-    external fun reactSourceCatalog(): String
 
     /**
      * The macro bank (core/viz/MacroBank), as the text the store keeps: [macroBankSet] makes it the one
@@ -393,13 +422,6 @@ object GeodeNative {
     /** Every Customize control a knob can move, its category, and the knobs that move it now. */
     external fun macroBankControls(bank: String): String
 
-    /** A random set of links for the knob in place of its own; the same [seed], the same set. */
-    external fun macroBankRoll(
-        bank: String,
-        knobId: Int,
-        seed: Long,
-    ): String
-
     /**
      * What the waves and envelopes on a knob add to its turn on the on-screen surface's last frame, one
      * `mod|<knob id>|<add>|<sources: 1 wave, 2 envelope, 3 both>` row per knob; the knob's second arc polls it.
@@ -492,37 +514,6 @@ object GeodeNative {
     /** The style's shader override; null when it draws its built-in shader. */
     external fun shaderOverride(styleId: String): String?
 
-    external fun vizSetLfo(
-        handle: Long,
-        slot: Int,
-        config: FloatArray,
-    )
-
-    external fun vizSetAdsr(
-        handle: Long,
-        slot: Int,
-        config: FloatArray,
-    )
-
-    /**
-     * The user's reaction [routes] (`REACT_ROUTE_FLOATS` per route; null: none, the DNA plays)
-     * (geode_viz_set_user_reactions). Native resolves what plays from these, the scene, `reactSeed` and the hand
-     * mask ([handSet], or an export's pin), which it reads itself. Any thread.
-     */
-    external fun vizSetUserReactions(
-        handle: Long,
-        routes: FloatArray?,
-    )
-
-    /**
-     * A style's reaction DNA (core/viz/ReactionDna), `REACT_ROUTE_FLOATS` per route, in the
-     * [vizSetUserReactions] layout. Needs no viz handle: the same id and seed always give the same routes.
-     */
-    external fun styleReactions(
-        styleId: String,
-        seed: Int,
-    ): FloatArray
-
     /**
      * Customize › Music's hand mask (core/viz Reactions.hpp `hand::`): bit i is moment i set by hand,
      * [HAND_UNCLAIMED] every source no moment claims, [HAND_ALL] a whole list of the user's. Process-wide like
@@ -534,53 +525,8 @@ object GeodeNative {
         hasUser: Boolean,
     )
 
-    /**
-     * What plays (geode_style_reactions_hand): the [user]'s routes on the [mask]'s sources, the style's DNA on
-     * every other, in the [vizSetUserReactions] layout. [user] null is "all Auto", the DNA alone.
-     */
-    external fun styleReactionsHand(
-        styleId: String,
-        seed: Int,
-        user: FloatArray?,
-        mask: Int,
-    ): FloatArray
-
-    /** The saved text of the user's [routes] (core/viz/ReactionText), in the [vizSetUserReactions] layout. */
-    external fun reactionsTextEncode(routes: FloatArray): String
-
-    /** The routes saved as [text], in the [vizSetUserReactions] layout; null for text that is no list. */
-    external fun reactionsTextDecode(text: String): FloatArray?
-
-    /** Customize › Music's rows, [MUSIC_STATE_FLOATS] per moment (geode_music_state). */
-    external fun musicState(
-        styleId: String,
-        seed: Int,
-        user: FloatArray?,
-        mask: Int,
-    ): FloatArray
-
-    /**
-     * One tap on Customize › Music (geode_music_edit: [op] 0 toggle [action], 1 strength [value], 2 reset to
-     * Auto). Returns the user's new routes; writes the new mask to `outHand[0]` and 1 to `outHand[1]` while the
-     * user still has a list (0: all Auto).
-     */
-    external fun musicEdit(
-        styleId: String,
-        seed: Int,
-        user: FloatArray?,
-        mask: Int,
-        op: Int,
-        moment: Int,
-        action: Int,
-        value: Float,
-        outHand: IntArray,
-    ): FloatArray
-
     /** Bit per Music action whose target reaches [styleId] (geode_music_actions_for). */
     external fun musicActionsFor(styleId: String): Int
-
-    /** The modulation-target table (geode_mod_targets_text), parsed once by `render/ModTable`. */
-    external fun modTargetsText(): String
 
     /** Mirrors GEODE_HAND_UNCLAIMED. */
     const val HAND_UNCLAIMED: Int = 0x40000000
@@ -588,37 +534,217 @@ object GeodeNative {
     /** Mirrors GEODE_HAND_ALL: every moment and every unclaimed source, the whole list the user's. */
     const val HAND_ALL: Int = 0x400003FF
 
-    /** Mirrors GEODE_MUSIC_STATE_FLOATS: mine, route count, strength, on-action bits, fits-action bits. */
-    const val MUSIC_STATE_FLOATS: Int = 5
+    // The user's modulation (core/viz/ModDocument, api/geode_modulation_api.h): the waves, the envelopes and
+    // the reaction routes. The shell holds each as the text it saves; native reads, edits and plays them.
+
+    /** What the editors show (geode_mod_catalog_text): every name, label, range and count, as a line table. */
+    external fun modCatalogText(): String
+
+    /** The saved waves as native reads them: every slot and field, each in range. Null or broken text: the defaults. */
+    external fun modLfosRead(text: String?): String
+
+    /** The saved envelopes, likewise. */
+    external fun modAdsrsRead(text: String?): String
+
+    /** The user's saved routes as native reads them; null for text that is no route list (Auto). */
+    external fun modReactionsRead(text: String?): String?
+
+    /** One wave slot: its [MOD_LFO_ENABLED]..[MOD_LFO_MOMENT] fields, then 1 while its target moves [styleId]. */
+    external fun modLfoValues(
+        lfos: String,
+        slot: Int,
+        styleId: String,
+    ): FloatArray
+
+    /** [lfos] with one [field] of one [slot] set (geode_mod_lfo_edit); enums go as their catalog ordinal. */
+    external fun modLfoEdit(
+        lfos: String,
+        slot: Int,
+        field: Int,
+        value: Float,
+    ): String
+
+    /** One envelope: its [MOD_ADSR_ENABLED]..[MOD_ADSR_MOMENT] fields, then the ordinals of the targets it moves. */
+    external fun modAdsrValues(
+        adsrs: String,
+        slot: Int,
+    ): FloatArray
+
+    /** [adsrs] with one [field] of one [slot] set; [MOD_ADSR_TARGET] adds or takes away the target [value] names. */
+    external fun modAdsrEdit(
+        adsrs: String,
+        slot: Int,
+        field: Int,
+        value: Float,
+    ): String
+
+    /** The target ordinals a [picker] (a wave slot, or [MOD_PICKER_REACTION]) lists on [styleId]. */
+    external fun modTargetsOffered(
+        styleId: String,
+        picker: Int,
+    ): IntArray
+
+    /** The target ordinals an envelope's picker lists on [styleId]. */
+    external fun modAdsrTargetsOffered(
+        adsrs: String,
+        slot: Int,
+        styleId: String,
+    ): IntArray
 
     /**
-     * Customize › Music's ready-made [recipe]'s routes the style [styleId] can show, in the [vizSetUserReactions]
-     * layout; every route it holds for a null [styleId] (geode_event_recipe_routes).
+     * What plays on [styleId] (geode_mod_routes_playing): the user's [reactions] (null: Auto) on the hand
+     * [mask]'s sources, the style's own on the rest. [MOD_ROUTE_VALUES] per route.
      */
-    external fun eventRecipeRoutes(
-        recipe: Int,
-        styleId: String?,
+    external fun modRoutesPlaying(
+        styleId: String,
+        seed: Int,
+        reactions: String?,
+        mask: Int,
     ): FloatArray
 
-    /** [RECIPE_ON] and [RECIPE_FITS] for [recipe] on [styleId] over what plays, [current] (geode_event_recipe_state). */
-    external fun eventRecipeState(
+    /**
+     * One edit of the reactions (geode_mod_reactions_edit, [op] a `MOD_EDIT_*`). Returns the user's new routes
+     * and writes the mask to save beside them to `outMask[0]`; null (and mask 0) when every route is Auto again.
+     */
+    external fun modReactionsEdit(
+        styleId: String,
+        seed: Int,
+        reactions: String?,
+        mask: Int,
+        op: Int,
+        a: Int,
+        b: Int,
+        value: Float,
+        outMask: IntArray,
+    ): String?
+
+    /** Customize › Music's rows, [MOD_MUSIC_VALUES] per moment: mine, route count, strength, on bits, fits bits. */
+    external fun modMusicState(
+        styleId: String,
+        seed: Int,
+        reactions: String?,
+        mask: Int,
+    ): FloatArray
+
+    /** [MOD_RECIPE_ON], [MOD_RECIPE_FITS] and [MOD_RECIPE_OFFERED] for [recipe] on [styleId] over what plays. */
+    external fun modRecipeState(
         recipe: Int,
         styleId: String,
-        current: FloatArray,
+        seed: Int,
+        reactions: String?,
+        mask: Int,
     ): Int
 
-    /** [current] with [recipe] turned off if on, else on if it fits (geode_event_recipe_toggle). */
-    external fun eventRecipeToggle(
-        recipe: Int,
-        styleId: String,
-        current: FloatArray,
-    ): FloatArray
+    /**
+     * Randomize for the waves (core/viz/WaveRandomizer): [lfos] rolled on the look in [params]. [runningOnly]
+     * false is the wave editor's button (every wave on and rolled); true is a category roll, which only re-rolls
+     * the steady waves already on and none when [locked] keeps them. Null when it changed nothing.
+     */
+    external fun modWavesRandomize(
+        styleId: String?,
+        locked: String?,
+        seed: Long,
+        runningOnly: Boolean,
+        params: FloatArray,
+        lfos: String,
+    ): String?
 
-    /** Mirrors GEODE_RECIPE_ON: every route the recipe would add to the style already plays. */
-    const val RECIPE_ON: Int = 1
+    /** A renderer's waves, as the saved text (geode_viz_set_lfos). */
+    external fun vizSetLfos(
+        handle: Long,
+        lfos: String,
+    )
 
-    /** Mirrors GEODE_RECIPE_FITS: turning the recipe on stays within GEODE_REACT_ROUTES. */
-    const val RECIPE_FITS: Int = 2
+    /** A renderer's envelopes, as the saved text (geode_viz_set_adsrs). */
+    external fun vizSetAdsrs(
+        handle: Long,
+        adsrs: String,
+    )
+
+    /**
+     * A renderer's reactions (geode_viz_set_reactions): the user's saved routes (null: Auto, the style's own
+     * play). Native resolves what plays from these, the scene, `reactSeed` and the hand mask ([handSet], or an
+     * export's pin), which it reads itself. Any thread.
+     */
+    external fun vizSetReactions(
+        handle: Long,
+        reactions: String?,
+    )
+
+    // Mirrors of GEODE_MOD_LFO_*: a wave's fields.
+    const val MOD_LFO_ENABLED: Int = 0
+    const val MOD_LFO_SOURCE: Int = 1
+    const val MOD_LFO_TARGET: Int = 2
+    const val MOD_LFO_WAVE: Int = 3
+    const val MOD_LFO_RATE_SECONDS: Int = 4
+    const val MOD_LFO_DEPTH: Int = 5
+    const val MOD_LFO_POLARITY: Int = 6
+    const val MOD_LFO_CURVE: Int = 7
+    const val MOD_LFO_BEATS: Int = 8
+    const val MOD_LFO_KNOB: Int = 9
+    const val MOD_LFO_MOMENT: Int = 10
+
+    /** Where [modLfoValues] says whether the slot's target moves the style. */
+    const val MOD_LFO_REACHES: Int = 11
+
+    // Mirrors of GEODE_MOD_ADSR_*: an envelope's fields; TARGET is edit-only.
+    const val MOD_ADSR_ENABLED: Int = 0
+    const val MOD_ADSR_ATTACK: Int = 1
+    const val MOD_ADSR_DECAY: Int = 2
+    const val MOD_ADSR_SUSTAIN: Int = 3
+    const val MOD_ADSR_RELEASE: Int = 4
+    const val MOD_ADSR_AMOUNT: Int = 5
+    const val MOD_ADSR_BAND: Int = 6
+    const val MOD_ADSR_GATE_THRESHOLD: Int = 7
+    const val MOD_ADSR_SUSTAIN_TRACK: Int = 8
+    const val MOD_ADSR_RETRIGGER: Int = 9
+    const val MOD_ADSR_KNOB: Int = 10
+    const val MOD_ADSR_MOMENT: Int = 11
+    const val MOD_ADSR_TARGET: Int = 12
+
+    /** Mirrors GEODE_MOD_ADSR_VALUES: the fields [modAdsrValues] writes before the target ordinals. */
+    const val MOD_ADSR_VALUES: Int = 12
+
+    // Mirrors of GEODE_MOD_ROUTE_*: a route's fields.
+    const val MOD_ROUTE_ENABLED: Int = 0
+    const val MOD_ROUTE_SOURCE: Int = 1
+    const val MOD_ROUTE_TARGET: Int = 2
+    const val MOD_ROUTE_MODE: Int = 3
+    const val MOD_ROUTE_AMOUNT: Int = 4
+    const val MOD_ROUTE_CURVE: Int = 5
+    const val MOD_ROUTE_ATTACK_SECONDS: Int = 6
+    const val MOD_ROUTE_RELEASE_SECONDS: Int = 7
+
+    /** Where a [modRoutesPlaying] route says whether its target moves the style. */
+    const val MOD_ROUTE_REACHES: Int = 8
+
+    /** Mirrors GEODE_MOD_ROUTE_VALUES. */
+    const val MOD_ROUTE_VALUES: Int = 9
+
+    // Mirrors of GEODE_MOD_EDIT_*: [modReactionsEdit]'s op.
+    const val MOD_EDIT_ROUTE_SET: Int = 0
+    const val MOD_EDIT_ROUTE_ADD: Int = 1
+    const val MOD_EDIT_ROUTE_REMOVE: Int = 2
+    const val MOD_EDIT_RECIPE_TOGGLE: Int = 3
+    const val MOD_EDIT_MUSIC_TOGGLE: Int = 4
+    const val MOD_EDIT_MUSIC_STRENGTH: Int = 5
+    const val MOD_EDIT_MUSIC_RESET: Int = 6
+    const val MOD_EDIT_CLEAR: Int = 7
+
+    /** Mirrors GEODE_MOD_RECIPE_ON: every route the recipe would add to the style already plays. */
+    const val MOD_RECIPE_ON: Int = 1
+
+    /** Mirrors GEODE_MOD_RECIPE_FITS: turning the recipe on stays within the matrix. */
+    const val MOD_RECIPE_FITS: Int = 2
+
+    /** Mirrors GEODE_MOD_RECIPE_OFFERED: the recipe has a route the style can show. */
+    const val MOD_RECIPE_OFFERED: Int = 4
+
+    /** Mirrors GEODE_MOD_MUSIC_VALUES. */
+    const val MOD_MUSIC_VALUES: Int = 5
+
+    /** Mirrors GEODE_MOD_PICKER_REACTION: the route editor's target picker. */
+    const val MOD_PICKER_REACTION: Int = -2
 
     /** The style a live surface draws, latched: each [vizFrame] asks for it until the renderer can draw it. Any thread. */
     external fun vizRequestScene(
@@ -686,11 +812,6 @@ object GeodeNative {
         out: FloatArray,
     )
 
-    /** The wallpaper's frame rate: [targetFps] lowered to the Performance cap ([capFps] <= 0 = none); never 0. */
-    external fun wallpaperFps(
-        targetFps: Float,
-        capFps: Float,
-    ): Float
 
     external fun vizLastError(handle: Long): String
 
@@ -763,6 +884,9 @@ object GeodeNative {
         styleId: String,
         paramKey: String,
     ): Float
+
+    /** A size the controls quote: `fluidTiers`, `touchPoints`, `touchRotationPerDegree`; NaN for any other name. */
+    external fun catalogueValue(name: String): Float
 
     /** The traits [catalogueStyleIds] takes (`GEODE_STYLE_*`). */
     const val STYLE_ANY: Int = 0
@@ -873,9 +997,6 @@ object GeodeNative {
         degrees: Float,
     ): Float
 
-    /** Every rolled control as `TAB|ParamKeys string` lines, in roll order (core/viz/ParamRandomizer). Static. */
-    external fun paramsRollKeys(): String
-
     /**
      * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
      * the controls of [tab] (a ParamRandomizer roll group name; null = every group) that reach [styleId] (null = any),
@@ -903,22 +1024,6 @@ object GeodeNative {
 
     /** What the panel offers on [styleId]: `CATEGORY` and `CATEGORY/section` lines, in panel order. */
     external fun customizeShown(styleId: String): String
-
-    /**
-     * Randomize for the waves (core/viz/WaveRandomizer): [input] and [output] are the three slots in
-     * ModConfigCodec.packLfo's layout, one after another; [params] is the look on screen. [runningOnly] false is
-     * the wave editor's button (every wave on and rolled); true is a category roll, which only re-rolls the
-     * steady waves already on and none when [locked] keeps them. True when it changed something.
-     */
-    external fun wavesRandomize(
-        styleId: String?,
-        locked: String?,
-        seed: Long,
-        runningOnly: Boolean,
-        params: FloatArray,
-        input: FloatArray,
-        output: FloatArray,
-    ): Boolean
 
     /**
      * Rolls one Customize category (core/viz/CustomizeMap; [category] by its CustomizeMap name) from
@@ -1042,42 +1147,6 @@ object GeodeNative {
         ceilings: IntArray,
     ): IntArray
 
-    // Export loudness meter (core/audio/dsp/Loudness): BS.1770-4 integrated loudness and true peak.
-
-    external fun loudnessSupports(channels: Int): Boolean
-
-    /** 0 for a bad rate or a channel count [loudnessSupports] refuses. */
-    external fun loudnessCreate(
-        sampleRate: Int,
-        channels: Int,
-    ): Long
-
-    external fun loudnessDestroy(handle: Long)
-
-    /**
-     * Feeds the decoder output [buffer]'s bytes [offset] until [offset] + [size] (BufferInfo's span) to the
-     * meter where they lie: native-order s16, or float in -1..1 when [isFloat]. [buffer] must be direct, as
-     * MediaCodec's are; false, feeding nothing, when it is not or the span does not fit.
-     */
-    external fun loudnessFeedDirect(
-        handle: Long,
-        buffer: java.nio.ByteBuffer,
-        offset: Int,
-        size: Int,
-        isFloat: Boolean,
-    ): Boolean
-
-    external fun loudnessHasBlock(handle: Long): Boolean
-
-    /**
-     * Fills [out] (5 doubles: integrated LUFS, true peak dBTP, sample peak dBFS, measured ms, gated
-     * blocks); returns false when nothing cleared the -70 LUFS gate, in which case out[0] is meaningless.
-     */
-    external fun loudnessFinish(
-        handle: Long,
-        out: DoubleArray,
-    ): Boolean
-
     // Export planning and PCM maths (core/output, audio/dsp/PcmConvert and PcmTiming). Pure functions, any
     // thread; the Kotlin exporters only marshal through these.
 
@@ -1144,7 +1213,160 @@ object GeodeNative {
         targetFbo: Int,
     ): Boolean
 
-    /** Fields of the long[7] [loopSpecOf] and [loopSpecBudgeted] fill. */
+    // A loop render (core/output/LoopRender, core/api/geode_loop_job_api.h): the encoder it settles on, each
+    // drift stop's frames, seam and presentation times and the scratch file each stop goes into are native.
+    // The shell fills the job in, runs it on a worker thread and polls it from another; native never calls back.
+
+    /** A job to fill in, 0 when out of memory. Freed with [loopJobDestroy] once no call is in flight. */
+    external fun loopJobCreate(): Long
+
+    external fun loopJobDestroy(job: Long)
+
+    /**
+     * The frame, the bit rate asked for, the loop and its crossfade, how long the extended file will run
+     * ([longFormMs] 0: unknown) and the directory the scratch files go in.
+     */
+    external fun loopJobSetOutput(
+        job: Long,
+        cacheDir: String,
+        width: Int,
+        height: Int,
+        bitRate: Int,
+        loopMs: Long,
+        crossfadeMs: Long,
+        fps: Int,
+        longFormMs: Long,
+    )
+
+    /** The palette drift across the reel: [stops] loops, the last one [hueTurns] and [warmth] from the first. */
+    external fun loopJobSetDrift(
+        job: Long,
+        hueTurns: Float,
+        warmth: Float,
+        stops: Int,
+    )
+
+    /** A codec to try, in the order added: its MIME type and the device's top frame rate for it (<= 0: unsaid). */
+    external fun loopJobAddCodec(
+        job: Long,
+        mime: String,
+        topFps: Int,
+    )
+
+    /** The track every stop hears: [fd] is native's from here on; [length] < 0 is the whole descriptor. */
+    external fun loopJobSetTrack(
+        job: Long,
+        fd: Int,
+        offset: Long,
+        length: Long,
+    )
+
+    /** The renderer's inputs. [assets] is the AssetManager (typed as Any because this module has no Android SDK). */
+    external fun loopJobSetScene(
+        job: Long,
+        assets: Any,
+        milkTextureDir: String,
+        sceneId: String,
+        milkPath: String?,
+        entitled: Boolean,
+    )
+
+    external fun loopJobSetParams(
+        job: Long,
+        values: FloatArray,
+    )
+
+    external fun loopJobSetLfo(
+        job: Long,
+        slot: Int,
+        config: FloatArray,
+    )
+
+    external fun loopJobSetAdsr(
+        job: Long,
+        slot: Int,
+        config: FloatArray,
+    )
+
+    external fun loopJobSetSoundTuning(
+        job: Long,
+        tuning: FloatArray,
+    )
+
+    /** [routes] null: the user set no reactions of their own. */
+    external fun loopJobSetUserReactions(
+        job: Long,
+        routes: FloatArray?,
+    )
+
+    external fun loopJobSetMotion(
+        job: Long,
+        reducedMotion: Boolean,
+        transitionId: String,
+        transitionMs: Long,
+    )
+
+    external fun loopJobSetUnderlay(
+        job: Long,
+        pixels: IntArray?,
+        width: Int,
+        height: Int,
+        blend: Int,
+        amount: Float,
+    )
+
+    /** The wordmark's tile, a direct buffer of [tileWidth] * [tileHeight] * 4 bytes; false when it is not one. */
+    external fun loopJobSetMark(
+        job: Long,
+        rgba: java.nio.ByteBuffer,
+        tileWidth: Int,
+        tileHeight: Int,
+        placement: Int,
+        corner: Int,
+    ): Boolean
+
+    /** Renders every stop on the calling thread; returns once the job is rendered, cancelled or failed. */
+    external fun loopJobRun(job: Long)
+
+    /** From any thread. */
+    external fun loopJobCancel(job: Long)
+
+    /** 0..1 across the whole reel; from any thread. */
+    external fun loopJobProgress(job: Long): Float
+
+    /** One of the `LOOP_JOB_*` states; from any thread. */
+    external fun loopJobState(job: Long): Int
+
+    /** Why a failed job failed, one of `LOOP_FAILURE_*`; [loopJobDetail] is the text it is shown with. */
+    external fun loopJobFailure(job: Long): Int
+
+    external fun loopJobDetail(job: Long): String?
+
+    /** The frame rate the encoder took. */
+    external fun loopJobFps(job: Long): Int
+
+    /** The crossfade the stops kept. */
+    external fun loopJobCrossfadeMs(job: Long): Long
+
+    /** One file per stop, in order, once the job is rendered. */
+    external fun loopJobFileCount(job: Long): Int
+
+    external fun loopJobFile(
+        job: Long,
+        index: Int,
+    ): String?
+
+    const val LOOP_JOB_RENDERED = 2
+    const val LOOP_JOB_CANCELLED = 3
+    const val LOOP_FAILURE_ENCODER_REJECTED = 1
+    const val LOOP_FAILURE_SHADER_COMPILE = 2
+    const val LOOP_FAILURE_LOW_GPU_MEMORY = 3
+    const val LOOP_FAILURE_NO_OUTPUT = 4
+    const val LOOP_FAILURE_STALLED = 5
+    const val LOOP_FAILURE_ENCODER_FAILED = 6
+    const val LOOP_FAILURE_CACHE_WRITE = 7
+
+    /** Fields of the long[7] [loopSpecOf] and [loopSpecDerive] fill. */
     const val LOOP_SPEC_LOOP_MS = 0
     const val LOOP_SPEC_CROSSFADE_MS = 1
     const val LOOP_SPEC_FPS = 2
@@ -1170,62 +1392,12 @@ object GeodeNative {
         out: LongArray,
     )
 
-    /** The spec with its dissolve shortened to what the seam stash holds at [width] x [height]. */
-    external fun loopSpecBudgeted(
-        loopMs: Long,
-        crossfadeMs: Long,
-        fps: Int,
-        width: Int,
-        height: Int,
-        out: LongArray,
-    )
-
     /** Every repeat of a long-form loop as (offset µs, loop index) pairs. */
     external fun loopExtendPlan(
         loopUs: Long,
         totalUs: Long,
         loops: Int,
     ): LongArray
-
-    /**
-     * What an export's measured loudness asks of platform [target] (0 Leave as-is, 1 YouTube, 2 Shorts;
-     * core/output/LoudnessAdvice): returns the kind (0 nothing to measure, 1 as mixed, 2 on target,
-     * 3 normalise) and fills [out] (9 doubles): gain dB, gain the level alone needed, resulting LUFS and true
-     * peak, direction (1, -1, 0), ceiling limited (1/0), band (-1 under, 1 over, 0 in), LU under YouTube worth
-     * saying (else 0), peak over YouTube's ceiling (1/0). [gated] false: nothing above the meter's gate.
-     */
-    external fun loudnessAdvise(
-        target: Int,
-        gated: Boolean,
-        lufs: Double,
-        truePeakDbtp: Double,
-        out: DoubleArray,
-    ): Int
-
-    /** [target]'s window, aim, low, high LUFS and true-peak ceiling into [out]; false when it does not normalise. */
-    external fun loudnessWindow(
-        target: Int,
-        out: DoubleArray,
-    ): Boolean
-
-    /**
-     * A time-of-day drift's stops as (hue offset, warmth offset) pairs, none at the first and the whole
-     * drift at the last; one pair of zeros when it does not move (core/output/LoopPlan).
-     */
-    external fun loopDriftStops(
-        hueTurns: Float,
-        warmth: Float,
-        stops: Int,
-    ): FloatArray
-
-    /** One drift stop on a look: [out] gets the wrapped colorShift, then the temperature held to -1..1. */
-    external fun loopDriftApply(
-        colorShift: Float,
-        temperature: Float,
-        hueOffset: Float,
-        warmthOffset: Float,
-        out: FloatArray,
-    )
 
     /** What the long file weighs: every repeat copies [loopBytes] again, plus 2 % for the sample tables. */
     external fun loopEstimatedBytes(
@@ -1250,11 +1422,6 @@ object GeodeNative {
         limitBytes: Long,
     ): Int
 
-    external fun exportAudioBytes(
-        durationUs: Long,
-        bps: Int,
-    ): Long
-
     /** Where a long-form copy stops writing: 4 GiB less 64 MiB for the index. */
     external fun exportMuxerHardLimitBytes(): Long
 
@@ -1268,6 +1435,35 @@ object GeodeNative {
 
     /** The requested frame rate clamped to what the export offers, 24..60. */
     external fun exportClampFps(requestedFps: Int): Int
+
+    /** What [renderEtaSample] answers while it has no estimate yet. */
+    const val RENDER_ETA_UNKNOWN = -1L
+
+    /** A render's estimate of the time left, for one run after another. Freed with [renderEtaDestroy]. */
+    external fun renderEtaCreate(): Long
+
+    external fun renderEtaDestroy(handle: Long)
+
+    /** Feeds one progress sample; the seconds left, or [RENDER_ETA_UNKNOWN]. [steady] false while warming up. */
+    external fun renderEtaSample(
+        handle: Long,
+        progress: Float,
+        atMs: Long,
+        steady: Boolean,
+    ): Long
+
+    external fun renderEtaReset(handle: Long)
+
+    /** How [renderEtaPhrase] words the seconds left; the last two carry [renderEtaPhraseCount]. */
+    const val ETA_ALMOST_DONE = 0
+    const val ETA_ABOUT_A_MINUTE = 1
+    const val ETA_MINUTES = 2
+    const val ETA_HOURS = 3
+
+    external fun renderEtaPhrase(secondsRemaining: Long): Int
+
+    /** The minutes or hours the phrase names; 0 for the other two. */
+    external fun renderEtaPhraseCount(secondsRemaining: Long): Int
 
     /** Why a recording ended ([recorderStopped]); 0 while it runs. `Stop` in core/output/Recorder. */
     const val RECORD_STOP_USER = 1
@@ -1313,9 +1509,6 @@ object GeodeNative {
         handle: Long,
         nowNs: Long,
     ): Long
-
-    /** The stage frames left out because the encoder was behind. */
-    external fun recorderFramesDropped(handle: Long): Long
 
     /** The longest this recording may run, the shorter of its two limits, in ms; 0 for none. */
     external fun recorderLimitMs(handle: Long): Long
@@ -1409,17 +1602,30 @@ object GeodeNative {
         lengthSec: Int,
     ): Boolean
 
-    /** Chapter spans as (start ms, duration ms, source) triples; empty under two clips. */
-    external fun chaptersFromClips(
-        startsMs: LongArray,
-        durationsMs: LongArray,
-    ): LongArray
+    /**
+     * A Studio project's edit (timeline, markers, keyframes; core/studio) read from the JSON project.json keeps
+     * under "edit", as canonical JSON to store as it is; null when it is no edit. A null [json] is the empty edit.
+     */
+    external fun studioEditRead(json: String?): String?
 
-    /** Chapter spans from markers as triples; source -1 is the lead-in that makes the list start at 0:00. */
-    external fun chaptersFromMarkers(
-        markersMs: LongArray,
-        totalMs: Long,
-    ): LongArray
+    /** A project's kind read from its "kind" JSON, canonical; null when unknown. A null [json] is the standard kind. */
+    external fun studioKindRead(json: String?): String?
+
+    /**
+     * A new project's edit: the song [songUri] (null for none) on an audio lane and, with [sceneId], the look over
+     * the song or the render ([renderMs]), whichever is longer. Null only when native could not make it.
+     */
+    external fun studioEditNew(
+        songUri: String?,
+        songTitle: String,
+        songMs: Long,
+        sceneId: String?,
+        milkPath: String?,
+        renderMs: Long,
+    ): String?
+
+    /** The shortest clip native makes: a render range shorter than this has no stretch of song to draw over. */
+    external fun studioMinClipMs(): Long
 
     /** Interleaved s16 [frames] from [srcChannels] down to [dstChannels] (1 or 2); empty when not a downmix. */
     external fun pcmDownmixS16(
@@ -1633,29 +1839,28 @@ object GeodeNative {
         use: Int,
     ): Int
 
-    /** The wordmark's text size in pixels for a frame whose short side is [shortSide]. */
-    external fun exportWatermarkTextPx(
+    /**
+     * The wordmark's paint for a frame whose short side is [shortSide], into [out] (5 floats): text size px,
+     * alpha (0..255), letter spacing (em), shadow radius px, shadow alpha.
+     */
+    external fun exportWatermarkPaint(
         shortSide: Int,
         placement: Int,
-    ): Float
+        out: FloatArray,
+    )
 
-    /** The tile's rotation in degrees, and the text's alpha (0..255). */
-    external fun exportWatermarkAngle(placement: Int): Float
-
-    external fun exportWatermarkAlpha(placement: Int): Int
-
-    /** The tile width for the wordmark measured at [textWidth] pixels (a power of two for the tiled pattern). */
-    external fun exportWatermarkTileWidth(
+    /**
+     * The tile for the text measured with that paint ([textWidth], the font's [ascent] and [descent] at [textPx])
+     * into [out] (7 floats): width, height, rotation in degrees, its pivot x and y, where the text is drawn x and y.
+     */
+    external fun exportWatermarkRaster(
         textWidth: Float,
+        ascent: Float,
+        descent: Float,
         textPx: Float,
         placement: Int,
-    ): Int
-
-    external fun exportWatermarkTileHeight(
-        tileWidth: Int,
-        textPx: Float,
-        placement: Int,
-    ): Int
+        out: FloatArray,
+    )
 
     /**
      * [rgba]: a direct buffer of the tile's premultiplied RGBA8 pixels, top row first (Bitmap.copyPixelsToBuffer).
@@ -1679,64 +1884,12 @@ object GeodeNative {
         timeMs: Long,
     )
 
-    external fun exportSeamCreate(
-        assets: Any,
-        width: Int,
-        height: Int,
-    ): Long
-
-    /** Returns how many of [requested] stash frames fitted on the GPU. */
-    external fun exportSeamAllocate(
-        handle: Long,
-        requested: Int,
-    ): Int
-
     /**
-     * After the scene drew source [frame] of a stop of [loopFrames] + [seamFrames]: stashes an opening frame
-     * (returns -1, not presented) or blends the stash over a closing one, and returns the presentation time
-     * in ns at [fps] (core/viz/frame/LoopSeam).
-     */
-    external fun exportSeamFrame(
-        handle: Long,
-        frame: Int,
-        loopFrames: Int,
-        seamFrames: Int,
-        fps: Int,
-    ): Long
-
-    /** The crossfade a loop keeps under the seam stash's GPU budget; [crossfadeMs] when it fits. Pure. */
-    external fun exportSeamBudgetedCrossfadeMs(
-        crossfadeMs: Long,
-        crossfadeFrames: Int,
-        fps: Int,
-        width: Int,
-        height: Int,
-    ): Long
-
-    /**
-     * The fraction of a whole loop render done once source [frame] of stop [stop] of [stops] is drawn,
-     * rising in 0..1 and exactly 1 on the last frame (core/viz/frame/LoopSeam). Pure.
-     */
-    external fun exportLoopProgress(
-        stop: Int,
-        stops: Int,
-        frame: Int,
-        loopFrames: Int,
-        seamFrames: Int,
-    ): Float
-
-    /** The crossfade a finished reel reports: [seamFrames] at [fps] in whole milliseconds. Pure. */
-    external fun exportLoopReportedCrossfadeMs(
-        seamFrames: Int,
-        fps: Int,
-    ): Long
-
-    /**
-     * The GL Transitions library as UTF-8 bytes, in the control-separated table of
-     * `core/viz/TransitionLibrary.hpp`; read from the APK once per process, empty when missing.
+     * What Customize's transition picker lists, as UTF-8: the built-in ids it offers, RS (U+001E), then the
+     * GL Transitions library's names, each list's entries separated by US (U+001F); `core/viz/TransitionLibrary.hpp`.
      * [assets] is the app's `AssetManager`, typed as Any like [vizCreate]'s.
      */
-    external fun transitionsTable(assets: Any): ByteArray
+    external fun transitionPicker(assets: Any): ByteArray
 
     // Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High.
 
@@ -2028,6 +2181,71 @@ object GeodeNative {
         out: ShortArray,
     ): Int
 
+    /** What [aiffScanStep] answers: feed it again, the header is read, or this is not an AIFF that plays. */
+    const val AIFF_SCAN_MORE = 0
+    const val AIFF_SCAN_DONE = 1
+    const val AIFF_SCAN_INVALID = -1
+
+    /** The most [aiffScanRead] asks for at once. */
+    const val AIFF_SCAN_MAX_READ = 22
+
+    /** Where [aiffScanHeader] puts each value. */
+    const val AIFF_HEADER_CHANNELS = 0
+    const val AIFF_HEADER_SAMPLE_RATE = 1
+    const val AIFF_HEADER_PCM = 2
+    const val AIFF_HEADER_BYTES_PER_FRAME = 3
+    const val AIFF_HEADER_FRAMES = 4
+    const val AIFF_HEADER_DATA_START = 5
+    const val AIFF_HEADER_DATA_BYTES = 6
+    const val AIFF_HEADER_COUNT = 7
+
+    /** The header's `AIFF_HEADER_PCM`: how the samples lie, 0 for a layout the player has no encoding for. */
+    const val AIFF_PCM_S16_LE = 1
+    const val AIFF_PCM_S16_BE = 2
+    const val AIFF_PCM_S24_BE = 3
+    const val AIFF_PCM_S32_BE = 4
+
+    /**
+     * The AIFF header walk for a caller that holds the file itself (the player's extractor): skip
+     * [aiffScanSkip] bytes, read [aiffScanRead] bytes, hand them to [aiffScanStep], and repeat while it
+     * answers [AIFF_SCAN_MORE]. Freed with [aiffScanDestroy].
+     */
+    external fun aiffScanCreate(): Long
+
+    external fun aiffScanDestroy(handle: Long)
+
+    external fun aiffScanSkip(handle: Long): Long
+
+    external fun aiffScanRead(handle: Long): Int
+
+    /** The first [n] bytes of [bytes], which must be the count [aiffScanRead] asked for. */
+    external fun aiffScanStep(
+        handle: Long,
+        bytes: ByteArray,
+        n: Int,
+    ): Int
+
+    /** Fills [out] (`AIFF_HEADER_COUNT` values); false before [AIFF_SCAN_DONE]. */
+    external fun aiffScanHeader(
+        handle: Long,
+        out: LongArray,
+    ): Boolean
+
+    /** The start time of the frame [bytes] into the samples lies in. */
+    external fun aiffTimeUs(
+        bytes: Long,
+        bytesPerFrame: Int,
+        sampleRate: Int,
+    ): Long
+
+    /** The byte offset into the samples of the frame playing at [timeUs], held inside [dataBytes]. */
+    external fun aiffSeekOffset(
+        timeUs: Long,
+        bytesPerFrame: Int,
+        sampleRate: Int,
+        dataBytes: Long,
+    ): Long
+
     // The PCM ingest ring (core/audio/ingest/PcmRing): one lock-free ring per audio source. Every write
     // carries its rate, and the int16 and 8-bit conversions to float happen inside it.
 
@@ -2198,12 +2416,6 @@ object GeodeNative {
     /** The offset's bound in ms, for Settings' Picture delay slider. */
     external fun playoutMaxOffsetMs(): Int
 
-    /** The newest ring sample heard at [nowNs], never past the newest written; -1 with no map since a flush. */
-    external fun playoutSpeakerFrame(
-        handle: Long,
-        nowNs: Long,
-    ): Long
-
     /** Cast: while [on], the TV plays the ring as written and every reader takes the newest sample again. */
     external fun playoutSetBypass(
         handle: Long,
@@ -2351,111 +2563,11 @@ object GeodeNative {
         ptsUs: LongArray,
     ): Int
 
-    // Show on a computer (core/viz/frame/LinkShare, LinkPage): the browser link's routes, heads, page, master
-    // playlist and state; and its QR code (core/util/QrCode). cast/LiveHttpServer only moves the bytes.
-
-    /** Resources [linkRoute] names (GEODE_LINK_*). */
-    const val LINK_PAGE = 1
-    const val LINK_SCRIPT = 2
-    const val LINK_STYLE = 3
-    const val LINK_MASTER = 4
-    const val LINK_PLAYLIST = 5
-    const val LINK_INIT = 6
-    const val LINK_SEGMENT = 7
-
-    /** stream.mp4: the browser's live feed, the init segment then each fragment as it is cut, held open. */
-    const val LINK_STREAM = 9
-
-    /** Browsers fed at once (GEODE_LINK_MAX_STREAMS); past it the feed answers 503 and the page retries. */
-    const val LINK_MAX_STREAMS = 3
-
-    /** rtc: the page POSTs its WebRTC offer here; the answer is the body of the 200. */
-    const val LINK_RTC = 10
-
-    /** The typed path, off the token: its page at "/", its script, and POST /pair with the typed code. */
-    const val LINK_PAIR_PAGE = 11
-    const val LINK_PAIR_SCRIPT = 12
-    const val LINK_PAIR = 13
-
-    /** Most bytes a POST on [LINK_PAIR] may carry (GEODE_LINK_PAIR_BODY_MAX). */
-    const val LINK_PAIR_BODY_MAX = 64L
-
-    /** The short link a computer types (host as one number, no token); null when it cannot be made. */
-    external fun linkPairUrl(
-        address: Int,
-        port: Int,
-    ): String?
-
-    /** Opens the typed path's pairing with a fresh code, or closes it. */
-    external fun linkPairOpen(
-        open: Boolean,
-        nowMs: Long,
-    )
+    // Show on a computer (core/viz/frame/LinkShare, LinkPair): the link's state and the typed path's code; and its
+    // QR code (core/util/QrCode). The server, its routes and its pairing are native ([castServerOpen]).
 
     /** The code to show now ("ABC-DEF"), "" while closed; a new one once the last has lived its time. */
     external fun linkPairCode(nowMs: Long): String
-
-    /**
-     * One typed try, [typed] as the POST carried it: returns the HTTP status (200, 403, 404, 429) and, on 200, puts
-     * the token's path in [path]`[0]`.
-     */
-    external fun linkPairTry(
-        typed: String,
-        nowMs: Long,
-        token: String,
-        path: Array<String?>,
-    ): Int
-
-    /** [linkBodyLength]'s answers besides a length: no body announced, or one refused. */
-    const val LINK_NO_BODY = -1L
-    const val LINK_BAD_BODY = -2L
-
-    /** The body a request's [headers] (each line without its break) announce: its length, or LINK_NO_BODY / LINK_BAD_BODY. */
-    external fun linkBodyLength(
-        headers: Array<String>,
-        max: Long,
-    ): Long
-
-    /** The HTTP status for the rtc POST from [webrtcAnswer]'s result: 200, 503 (busy) or 400. */
-    external fun linkRtcStatus(answerResult: Int): Int
-
-    /**
-     * The link the user sees, copies and shares: the page's address with its IPv4 host ([address], host order)
-     * written as one decimal number, not the dotted address; null when it cannot be made.
-     */
-    external fun linkShareUrl(
-        address: Int,
-        port: Int,
-        token: String,
-    ): String?
-
-    /** A short friendly name for [token] ("Blue Comet"), shown beside the QR code. */
-    external fun linkLabel(token: String): String
-
-    /**
-     * Routes a request's [method] and [target] against [token]: returns the HTTP status and fills [out] (2 longs)
-     * with the resource and, for a segment, its sequence.
-     */
-    external fun linkRoute(
-        method: String,
-        target: String,
-        token: String,
-        out: LongArray,
-    ): Int
-
-    /** The response head (status line, headers, blank line) for [status] and [resource] with a [length]-byte body. */
-    external fun linkResponseHead(
-        status: Int,
-        resource: Int,
-        length: Long,
-        token: String,
-    ): String
-
-    /** A static file of the page ([LINK_PAGE], [LINK_SCRIPT], [LINK_STYLE], [LINK_PAIR_PAGE] or [LINK_PAIR_SCRIPT]). */
-    external fun linkAsset(resource: Int): ByteArray?
-
-    /** The master playlist, CODECS read from the encoder's [init] segment; null until they can be read. */
-    external fun linkMasterPlaylist(init: ByteArray): String?
 
     /** Size of the share's state (GEODE_LINK_STATE): phase, reason. */
     const val LINK_STATE = 2
@@ -2486,24 +2598,9 @@ object GeodeNative {
         arg: Int,
     ): Int
 
-    /** [linkAdmit]'s wants (GEODE_LINK_WANT_*) and answers (GEODE_LINK_PEER_*). */
+    /** [castServerAdmit]'s wants (GEODE_LINK_WANT_*). */
     const val LINK_WANT_TV = 1
     const val LINK_WANT_LINK = 2
-    const val LINK_PEER_REFUSED = 0
-    const val LINK_PEER_RECEIVER = 1
-    const val LINK_PEER_BROWSER = 2
-
-    /**
-     * Whether a connection from [peer] is let in (IPv4 as an int, host order, 0 = unknown), for a server bound to
-     * [bound]/[prefix] with the Cast device at [tv] and [wants] LINK_WANT_* bits; returns LINK_PEER_*.
-     */
-    external fun linkAdmit(
-        peer: Int,
-        bound: Int,
-        prefix: Int,
-        tv: Int,
-        wants: Int,
-    ): Int
 
     /** [linkReceiverHealth]'s answers (GEODE_LINK_RECEIVER_*). */
     const val LINK_RECEIVER_OK = 0
@@ -2535,12 +2632,12 @@ object GeodeNative {
     // Show on a computer over WebRTC (core/cast/WebRtcLink, rules in core/viz/frame/WebRtcRule): the browser's
     // low-delay path, its media encrypted with DTLS-SRTP. One handle per cast stream; 0 = none.
 
-    /** Largest offer [webrtcAnswer] takes (GEODE_WEBRTC_OFFER_MAX). */
+    /** Largest offer a browser may send (GEODE_WEBRTC_OFFER_MAX). */
     const val WEBRTC_OFFER_MAX = 16 * 1024
     const val WEBRTC_REFUSED_FULL = -4
     const val WEBRTC_REFUSED_NOT_READY = -5
 
-    /** Opens the link bound to the server's address: [boundDotted], and [bound]/[prefix] as [linkAdmit] reads them. */
+    /** Opens the link bound to the server's address: [boundDotted], and [bound] (IPv4, host order) with its [prefix] length. */
     external fun webrtcOpen(
         boundDotted: String,
         bound: Int,
@@ -2548,13 +2645,6 @@ object GeodeNative {
     ): Long
 
     external fun webrtcClose(handle: Long)
-
-    /** The answer to a browser's [offer], or null; [result] (1 int) gets its length or a WEBRTC_REFUSED_* code. */
-    external fun webrtcAnswer(
-        handle: Long,
-        offer: String,
-        result: IntArray,
-    ): String?
 
     /** One encoded H.264 frame (the first [size] bytes of [data], Annex B) as the cast encoder wrote it. */
     external fun webrtcVideo(
@@ -2583,36 +2673,118 @@ object GeodeNative {
     /** Browsers connected over WebRTC now. */
     external fun webrtcPeers(handle: Long): Int
 
-    // Cast's live HLS timing (core/viz/frame/HlsSegments): media-time segment durations and the playlist.
+    // The cast's HTTP server (core/cast/LiveServer, LiveHttp, LiveSegments): the live stream cut from the muxer's
+    // bytes and served on the LAN address under a random token, every request read and answered in native. One
+    // handle per cast stream; 0 = none.
 
-    /** Segments kept and listed (GEODE_HLS_WINDOW). */
-    external fun hlsWindow(): Int
+    /** [castServerText]'s texts (GEODE_CAST_TEXT_*). */
+    const val CAST_TEXT_PLAYLIST_URL = 0
+    const val CAST_TEXT_SHARE_URL = 1
+    const val CAST_TEXT_LABEL = 2
+    const val CAST_TEXT_REFUSALS = 3
+    const val CAST_TEXT_PAIR_URL = 4
 
-    /** Seconds of media time the fragment (moof, with or without its mdat) plays, read with [init]'s timescales; 0 = unknown. */
-    external fun hlsFragmentSeconds(
-        init: ByteArray,
-        fragment: ByteArray,
-    ): Double
+    /** Size of [castServerState]'s array (GEODE_CAST_STATE) and what each long is. */
+    const val CAST_STATE = 5
+    const val CAST_STATE_LAST_FETCH_MS = 0
+    const val CAST_STATE_SEGMENT_AGE_MS = 1
+    const val CAST_STATE_READY = 2
+    const val CAST_STATE_AS_MUXED = 3
+    const val CAST_STATE_BROKEN = 4
 
-    /** The live playlist for [durations] (0 = unknown) numbered from [firstSequence], or null until enough are listed. */
-    external fun hlsPlaylist(
-        firstSequence: Long,
-        durations: DoubleArray,
-        initUri: String,
-        segmentPrefix: String,
-        segmentSuffix: String,
+    /**
+     * Makes the server for the address [boundDotted] ([bound] IPv4 in host order, [prefix] its length); [webrtc] is the
+     * stream's [webrtcOpen] handle, asked for the answer to a browser's offer, and must be closed after this one.
+     */
+    external fun castServerOpen(
+        boundDotted: String,
+        bound: Int,
+        prefix: Int,
+        webrtc: Long,
+    ): Long
+
+    /** Binds and serves; the port, or 0 when the address could not be bound. */
+    external fun castServerStart(handle: Long): Int
+
+    /** Ends every connection and the server's threads; the texts and state stay readable. */
+    external fun castServerStop(handle: Long)
+
+    /** Stops and frees. */
+    external fun castServerClose(handle: Long)
+
+    /** Who may connect: the Cast device at [tv] (IPv4, host order, 0 = none named) and [wants] LINK_WANT_* bits. */
+    external fun castServerAdmit(
+        handle: Long,
+        tv: Int,
+        wants: Int,
+    )
+
+    /** The next [size] bytes of the muxer's output, in whatever pieces they come. */
+    external fun castServerWrite(
+        handle: Long,
+        data: ByteArray,
+        size: Int,
+    )
+
+    /** One of the CAST_TEXT_* texts; "" when there is none. */
+    external fun castServerText(
+        handle: Long,
+        which: Int,
     ): String?
 
-    /** Size of the decode times [hlsRewriteFragment] keeps (GEODE_HLS_TRACKS), zeroed at the stream's start. */
-    const val HLS_TRACKS = 8
+    // A render's plan (core/api/geode_render_plan_api.h).
 
-    /** [fragment] (moof + mdat, its moof at [moofAt] in the muxer's output) as a self-contained segment; null = refused. */
-    external fun hlsRewriteFragment(
-        init: ByteArray,
-        moofAt: Long,
-        fragment: ByteArray,
-        decodeTimes: LongArray,
-    ): ByteArray?
+    /** The part between slider fractions [start] and [end] of [trackMs] into [out] (start ms, duration ms); false: the whole track. */
+    external fun exportRangeOf(
+        start: Float,
+        end: Float,
+        trackMs: Long,
+        out: LongArray,
+    ): Boolean
+
+    /** A range ([durationMs] 0: the whole track) under the free tier's [capMs] (<= 0: none) into [out]; out[1] 0 is still the whole track. */
+    external fun exportRangeCapped(
+        startMs: Long,
+        durationMs: Long,
+        capMs: Long,
+        out: LongArray,
+    )
+
+    /** The shortest part a render is offered. */
+    external fun exportRangeMinMs(): Long
+
+    /** The indices of [uris] a batch renders, in order, each URI once. */
+    external fun renderBatchOrder(uris: Array<String>): IntArray
+
+    /** A batch's whole progress, 0..1: [done] of [total] tracks plus the share [within] of the one rendering. */
+    external fun renderBatchProgress(
+        done: Int,
+        total: Int,
+        within: Float,
+    ): Float
+
+    // An export's platform audio work (core/api/geode_export_audio_api.h): blocking, on the caller's thread.
+
+    /**
+     * Decodes the finished render at [fd] (detached: native closes it; [offset] and [length] its span, length
+     * < 0: the whole descriptor) and reads its loudness for target [target] (0 Leave as-is, 1 YouTube, 2 Shorts).
+     * Returns the sentence to word it with (-1: nothing measured) and fills [out] (9 doubles): LUFS, true peak,
+     * gain, the gain the level alone needed, resulting LUFS and true peak, the target's ceiling, LU under
+     * YouTube worth saying (else 0), peak over YouTube's ceiling (1/0).
+     */
+    external fun exportLoudnessMeasure(
+        fd: Int,
+        offset: Long,
+        length: Long,
+        target: Int,
+        out: DoubleArray,
+    ): Int
+
+    /** Fills [out] ([CAST_STATE] longs, CAST_STATE_*). */
+    external fun castServerState(
+        handle: Long,
+        out: LongArray,
+    )
 
     // The native stage (core/stage, core/api/geode_stage_api.h): one surface's render thread, EGL context, vsync
     // and renderer. A handle is an id that is never reused: every call on one that is gone does nothing and
@@ -2686,19 +2858,17 @@ object GeodeNative {
     )
 
     /**
-     * The user's look. Native passes on only the parts that differ from the look set last. [lfos] are their slots
-     * one after another; [adsrs] each slot's float count and then its floats; [reactions] null means the style's
-     * own routes.
+     * The user's look. Native passes on only the parts that differ from the look set last. [lfos], [adsrs] and
+     * [reactions] are the saved texts; [reactions] null means the style's own routes.
      */
     external fun stageSetLook(
         stage: Long,
         sceneId: String,
         params: FloatArray,
-        lfos: FloatArray,
-        lfoSlots: Int,
-        adsrs: FloatArray,
+        lfos: String,
+        adsrs: String,
         tuning: FloatArray?,
-        reactions: FloatArray?,
+        reactions: String?,
         reducedMotion: Boolean,
         transitionId: String,
         transitionMs: Long,

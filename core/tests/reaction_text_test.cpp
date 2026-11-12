@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 
-#include "api/geode_reaction_text_api.h"
 #include "viz/Lfo.hpp"
 #include "viz/ReactionText.hpp"
 #include "viz/Reactions.hpp"
@@ -169,25 +168,6 @@ void encodeSkipsWhatItCannotName() {
     check(text == "reactions/2\ntrue|SNARE_2|WARP|FOLLOW|0.6|LINEAR|0.03|0.45", "an unknown source is left out, an unknown curve is Linear");
 }
 
-void abi() {
-    const std::vector<float> packed = pack(kDna);
-    const size_t need = geode_reactions_text_encode(packed.data(), static_cast<int>(packed.size()), nullptr, 0);
-    check(need == std::strlen(kSavedText), "the ABI reports the text's length");
-    std::vector<char> small(need, '#');
-    geode_reactions_text_encode(packed.data(), static_cast<int>(packed.size()), small.data(), small.size());
-    check(small[0] == '#', "a buffer too small for the NUL is left alone");
-    std::vector<char> buffer(need + 1, '#');
-    geode_reactions_text_encode(packed.data(), static_cast<int>(packed.size()), buffer.data(), buffer.size());
-    check(std::strcmp(buffer.data(), kSavedText) == 0, "the ABI writes the text");
-    float out[kRoom] = {};
-    check(geode_reactions_text_decode(nullptr, out, kRoom) == -1, "null text is no list");
-    check(geode_reactions_text_decode("reactions/1", out, kRoom) == -1, "another version is no list");
-    check(geode_reactions_text_decode(kSavedText, out, kRoom) == 4, "the ABI reads the routes");
-    check(std::memcmp(out, packed.data(), packed.size() * sizeof(float)) == 0, "in the routes layout");
-    check(geode_reactions_text_decode(kSavedText, out, 2 * kFloats) == 2, "never past the capacity");
-    check(geode_reactions_text_encode(nullptr, 0, nullptr, 0) == std::strlen("reactions/2"), "no routes is the version line");
-}
-
 }  // namespace
 
 int main() {
@@ -198,7 +178,6 @@ int main() {
     numbers();
     cap();
     encodeSkipsWhatItCannotName();
-    abi();
     if (failures) {
         std::printf("%d reaction text check(s) failed\n", failures);
         return 1;

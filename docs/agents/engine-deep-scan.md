@@ -53,7 +53,7 @@ Outside `engine/` but bound to it: `app/proguard-rules.pro` line 14 keeps `Geode
 - **363 `external fun`**, 132 `const val` mirrors of `GEODE_*` constants, about 1134 comment and blank lines.
 - Not a declaration: `init { System.loadLibrary("geode") }` and one real function, `fun frameLiquidMode(due: Int): Int = (due ushr 8) and 0xF` (a bit decode of the frame's due word: logic, belongs behind a native getter or in the due-bit constants).
 - Externals by prefix: viz 50, export 25, macro 24, pcm 22, dsp 22, audio 15, playout 14, link 11, recorder 10, cast 9, loudness 8, loop 8, webrtc 7, track 7, surface 7, stage 7, sound 7, record 7, underlay 6, params 6, customize 6, library 5, colour 5, aiff 5, hls 4, frame 4, auto 4, the rest in ones to threes.
-- Referenced by 96 files outside the module; heaviest: `data/MacroStore` 26, `cast/LiveHttpServer` 25, `export/LoopRender` 23, `audio/dsp/NativeDspProcessor` 18.
+- Referenced by 96 files outside the module; heaviest: `data/MacroStore` 26, `export/LoopRender` 23, `audio/dsp/NativeDspProcessor` 18.
 - Native side: `core/api/geode_api.h` through `app/src/main/cpp/*_jni.cpp`.
 
 ### `S/render/bridge/NativeViz.kt` (509 lines)
@@ -185,11 +185,12 @@ Export
 - `export/AudioTranscoder.kt` (510): AAC transcode loop.
 - `export/LoudnessMeter.kt` (346), `export/LoudnessTarget.kt` (368): decode for BS.1770 and the platform advice (maths native).
 - `export/EncoderSurface.kt` (90): EGL14 context and encoder surface on the export and cast threads.
-- `export/RenderEta.kt` (109), `export/ExportRange.kt` (31): estimator and range clamp, still Kotlin logic.
+- `export/ExportRange.kt` (31): the segment's carrier; the clamp is native (`core/output/ExportRange`).
+- The export's time left is native (`core/output/RenderEta`); `ExportRun.describeEta` words it.
 - `export/ChapterMarkers.kt` (233), `export/MuxerBudget.kt` (37), `export/PcmResampler.kt` (61), `export/WatermarkOverlay.kt` (97): thin or mixed.
 
 Audio
-- `audio/AiffExtractor.kt` (268): Media3 extractor with a Kotlin AIFF header parse, a duplicate of native `AiffReader`.
+- `audio/AiffExtractor.kt` (172): Media3 extractor that only moves bytes; native `AiffHeaderScan` (the one `AiffReader` uses) reads the header.
 - `audio/AudioCapturePump.kt` (121), `MicCapture.kt` (98), `PlaybackCapture.kt` (82): AudioRecord worker threads that write the ring.
 - `audio/OboeAudioOutput.kt` (175), `PlayoutSink.kt` (70), `audio/dsp/NativeDspProcessor.kt` (180), `MvzAudioProcessorChain.kt` (38): Media3 glue on the playback thread (must stay Java-side).
 - `audio/AudioFxController.kt` (206): platform FX presets.
@@ -197,7 +198,7 @@ Audio
 Cast
 - `cast/CastStream.kt` (466): a "cast-render" thread with EGL; drives a fallback `VisualizerRenderer` by hand.
 - `cast/CastEncoder.kt` (253): codec drain thread.
-- `cast/LiveSegments.kt` (190), `LiveHttpServer.kt` (426), `RequestLine.kt` (148): HLS cut and LAN server (timing native).
+- `cast/LiveLink.kt` (132): the handle on the native LAN server (`core/cast/LiveServer`); the HLS cut, the request parser, the routes and the typed pairing are native.
 - `cast/WebRtcLink.kt` (145), `ComputerLink.kt` (123), `CastMirror.kt` (100).
 
 Record, wallpaper, viz, playback
@@ -235,7 +236,7 @@ Native emits text for: the 117 react sources (labels, groups, `isEvent`), scene 
 2. Native render thread with its own EGL context from `ANativeWindow_fromSurface`; `VisualizerRenderer` goes, `VisualizerView` becomes a plain `SurfaceView` shell. The wallpaper's GL view, the dream and Cast's fallback renderer follow the same host.
 3. `GyroLook` to `ASensorManager` (display rotation still handed over).
 4. `TrackAudio` and `OffscreenSceneRenderer` to `AMediaExtractor` / `AMediaCodec` with an fd from Kotlin (add `mediandk` to the link).
-5. Then the app side: export loops, `EncoderSurface`, Cast and Record encoders, capture pumps, `AiffExtractor`'s header parse.
+5. Then the app side: export loops, `EncoderSurface`, Cast and Record encoders, capture pumps.
 
 Depends-on summary: 4.2 needs 4.1 and 3.4; 3.5 needs 2 and 3.4; 4.4 is independent of the live path and can run in parallel with 3; 4.5 needs 4.2 and 4.4.
 
@@ -255,7 +256,6 @@ Depends-on summary: 4.2 needs 4.1 and 3.4; 3.5 needs 2 and 3.4; 4.4 is independe
 - Three files are dead in production (`SoundFrameLayout` but one constant, `ReactSourceCatalog`, `MilkdropEngine`), and a 177-line test exists only to check the dead offsets.
 - `ReactSource` (117), `SceneIds` (66), `ParamKeys` (about 147) and the `SceneParams` defaults are hand-kept copies of native lists, although the schema and catalogue texts already carry most of it.
 - `SearchMatcher` is a second search beside native `core/library/Search`; its KDoc says so and asks for no new callers.
-- `audio/AiffExtractor` parses the AIFF header in Kotlin beside the native `AiffReader`.
 - Cast's fallback drives `VisualizerRenderer` by calling `onSurfaceCreated(null, null)` and `onDrawFrame(null)` itself.
 - `GeodeNative` carries `link`, `webrtc` and `qr` externals ("show on a computer") that AGENTS.md does not describe.
 - AGENTS.md is stale in places: it lists `ArtPalette` in the engine's `dev.geode.analysis` (it lives in `app/.../viz/ArtPalette.kt`), names a "presentation clock" in audio-core that does not exist, and the detekt baselines name files and classes that are gone.

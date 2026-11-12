@@ -103,23 +103,18 @@ GEODE_API void     geode_stage_viz_unlock(void);
 /* The ring frames hear, or NULL. Returns once no frame reads the ring it replaced, which may then be freed. */
 GEODE_API void     geode_stage_set_sound(geode_stage*, const geode_pcm_ring* ring);
 
-/* The user's look as the shell packs it. lfos are their slots one after another, each the same number of
-   floats; adsrs are each slot's float count and then its floats (a slot's targets vary in number); tuning
-   is the saved sound tuning, none for the engine's defaults; has_reactions 0 means the style's own routes. */
+/* The user's look as the shell hands it. lfos, adsrs and reactions are the saved texts geode_viz_set_lfos,
+   _set_adsrs and _set_reactions read (NULL lfos or adsrs: none saved; NULL reactions: the style's own
+   routes); tuning is the saved sound tuning, none for the engine's defaults. */
 typedef struct geode_stage_look {
     const char*  scene_id;
     const float* params;
     int          param_count;
-    const float* lfos;
-    int          lfo_slots;
-    int          lfo_floats;
-    const float* adsrs;
-    int          adsr_floats;
+    const char*  lfos;
+    const char*  adsrs;
     const float* tuning;
     int          tuning_count;
-    const float* reactions;
-    int          reaction_count;
-    int          has_reactions;
+    const char*  reactions;
     int          reduced_motion;
     const char*  transition_id;
     long long    transition_ms;

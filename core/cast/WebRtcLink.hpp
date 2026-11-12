@@ -17,7 +17,7 @@ namespace geode::cast {
 // viz/frame/WebRtcRule.hpp (host-tested); this only drives the stack. Android build only (CMakeLists.txt).
 //
 // One per cast stream (CastStream opens it with the address the server is bound to). Each browser's offer
-// (LiveHttpServer, POST /<token>/rtc) makes one peer: a send-only H.264 track and, when the browser offered
+// (LiveHttp, POST /<token>/rtc) makes one peer: a send-only H.264 track and, when the browser offered
 // Opus, a send-only Opus track, answered with the phone's one host candidate on its Wi-Fi or Ethernet address;
 // no ICE server is configured, so nothing is asked of the internet. The cast encoder's frames are copied to
 // every connected peer as they leave the codec (no second render, no second encode), each peer starting at a

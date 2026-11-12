@@ -121,6 +121,10 @@ jobs:
           # hearing exactly its audio, an fd span.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/track_feed_test.cpp $INGEST_SRCS -o track_feed_test
           ./track_feed_test
+          # The AIFF header scan the export's reader and the player's extractor share: every layout, the chunk walk, the
+          # 80-bit rate, a header cut at every length, corrupt and four-gigabyte sizes, the seek map's times and offsets.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/aiff_header_test.cpp $INGEST_SRCS -o aiff_header_test
+          ./aiff_header_test
           # An export's track pump (TrackPump): the decode rule over a fake decoder, the pump's order against it written
           # out step by step at 24, 30 and 60 fps, the AIFF-first open over a real descriptor and its span, the decoder's rules.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/track_pump_test.cpp \
@@ -248,6 +252,12 @@ jobs:
           # The library's one match (Library screen, Android Auto, voice "play X", #382): folding, ranking, order, the index.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/library_search_test.cpp core/library/Search.cpp core/api/geode_library_api.cpp -o library_search_test
           ./library_search_test
+          # A Studio project's kind and edit (core/studio): saved edits read back the same, in order, with old
+          # defaults; newer or unknown files are refused; a new project holds its song and its look.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/studio_edit_test.cpp core/studio/StudioEdit.cpp \
+            core/api/geode_studio_api.cpp core/util/Json.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
+            core/viz/Params.cpp core/viz/ParamsFields.cpp -o studio_edit_test
+          ./studio_edit_test
           # The playout clock (#349, #482): the ring sample the speaker plays at 1x and 1.5x, behind a 250 ms
           # Bluetooth link, over pause, resume, skipped silence, a seek and the A/V offset, the same at 30/60/120 fps.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/playout_test.cpp core/sound/interp/PlayoutClock.cpp \
@@ -313,6 +323,12 @@ jobs:
           # Show on a computer over WebRTC (core/viz/frame/WebRtcRule): the encoder's H.264 as sent, the browser's offer read, the LAN-only candidates both ways, the RTP clock.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/webrtc_rule_test.cpp core/viz/frame/WebRtcRule.cpp core/viz/frame/LinkShare.cpp -o webrtc_rule_test
           ./webrtc_rule_test
+          # Cast's live stream (core/cast/LiveSegments): the muxer's bytes cut into the init segment and fragments at any write size, the window of six, the playlist's exact text, the feed's order, the watchdog's clock, boxes no muxer writes.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/live_segments_test.cpp core/cast/LiveSegments.cpp core/viz/frame/LinkShare.cpp -o live_segments_test
+          ./live_segments_test
+          # Cast's HTTP answers (core/cast/LiveHttp): the request reader's bounds, every file's exact response, hostile requests (oversize, malformed, wrong token, lying lengths), the browser's feed and its cap, the WebRTC offer's body.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/live_http_test.cpp core/cast/LiveHttp.cpp core/cast/LiveSegments.cpp core/viz/frame/LinkShare.cpp core/viz/frame/LinkPair.cpp -o live_http_test
+          ./live_http_test
           # Its QR code: the standard's vectors (RS, format and version bits, capacities) and every symbol read back by an independent reader.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/qr_code_test.cpp core/api/geode_link_api.cpp core/viz/frame/LinkShare.cpp core/util/QrCode.cpp -o qr_code_test
           ./qr_code_test
@@ -357,15 +373,26 @@ jobs:
             core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp \
             core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/VisualSafety.cpp -o mod_targets_test
           ./mod_targets_test core/tests/mod_targets.txt
-      # The saved text of the user's reaction routes (core/viz/ReactionText), pinned to the Kotlin codec it replaced.
+      # The saved text of the user's reaction routes (core/viz/ReactionText).
       - name: Reaction text host tests
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/reaction_text_test.cpp core/viz/ReactionText.cpp \
-            core/api/geode_reaction_text_api.cpp core/viz/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
+            core/viz/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
             core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
             core/viz/VisualSafety.cpp -o reaction_text_test
           ./reaction_text_test
+      # The user's modulation (core/viz/ModDocument, ModCatalog): saved waves, envelopes and routes still read,
+      # a forgiving read lands on a default or inside a range, every edit clamps, the pickers list what runs.
+      - name: Modulation document host tests
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/mod_document_test.cpp \
+            core/viz/ModDocument.cpp core/viz/ModCatalog.cpp core/api/geode_modulation_api.cpp core/util/Json.cpp \
+            core/viz/ReactionText.cpp core/viz/ModTargets.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp \
+            core/viz/Reactions.cpp core/viz/ReactionDna.cpp core/viz/Lfo.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp \
+            core/viz/VisualSafety.cpp -o mod_document_test
+          ./mod_document_test
       # Random on waves: the two random wave shapes (a value per cycle, the same at 30/60/120 fps, per slot and seed,
       # a tempo only once the music gives one) and the roll of a set of waves (core/viz/WaveRandomizer).
       - name: Random waves host tests
@@ -408,6 +435,12 @@ jobs:
           # boundary sample (#351), the crossfade's halves mirrored, the sleep fade, bit-identical at 0 dB.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/gain_ramp_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o gain_ramp_test
           ./gain_ramp_test
+          # The built-in equalizer curves: each in its saved place, and no write for a curve that is not there.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/eq_presets_test.cpp core/api/geode_dsp_api.cpp core/audio/dsp/DspProcessor.cpp core/audio/dsp/GainStage.cpp core/audio/dsp/Equalizer.cpp core/audio/dsp/Crossfeed.cpp core/audio/dsp/Limiter.cpp -o eq_presets_test
+          ./eq_presets_test
+          # Settings › Playback's speed and pitch rows: a semitone as a rate, a slider value on its step.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/playback_controls_test.cpp core/audio/dsp/PlaybackControls.cpp core/api/geode_playback_api.cpp -o playback_controls_test
+          ./playback_controls_test
 
       # Export planning and PCM maths ported from Kotlin (ADR 0003, ADR 0006 core/output): frame clock,
       # loops, encoder budget, chapters, PCM conversion and timing, each through its C ABI too; and a recorded
@@ -420,6 +453,13 @@ jobs:
             g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/$t.cpp $EXPORT_SRCS -o $t
             ./$t
           done
+          # A render's range and time left (core/output/ExportRange, RenderEta): the segment clamp and its
+          # refusals, the estimate through a lead-in and an even render, a restart, the wording's thresholds.
+          EXPORT_RUN_SRCS="core/api/geode_export_run_api.cpp core/output/RenderEta.cpp"
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/export_range_test.cpp $EXPORT_RUN_SRCS -o export_range_test
+          ./export_range_test
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore -Icore/tests/stub core/tests/render_eta_test.cpp $EXPORT_RUN_SRCS -o render_eta_test
+          ./render_eta_test
 
       # Record's clock (core/output/Recorder): which stage frames a live recording keeps and their PTS at
       # 30, 60 and 120 fps, where each heard sample sits, a pause, a seek, a rate change, the limits.
@@ -441,6 +481,17 @@ jobs:
             core/tests/encode_sink_test.cpp core/output/EncodeSink.cpp core/output/RecordSession.cpp \
             core/output/Recorder.cpp core/output/EncodePlan.cpp core/audio/dsp/PcmResampler.cpp -o encode_sink_test
           ./encode_sink_test
+
+      # The loop render job (core/output/LoopRender) on a fake host, encoder and muxer: the encoder it settles on,
+      # each stop's frame counts and presentation times, the seam the reel reports, the drift, and what a cancel
+      # and each failure leave behind.
+      - name: Loop render host test
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub \
+            core/tests/loop_render_test.cpp core/output/LoopRender.cpp core/output/LoopPlan.cpp \
+            core/output/EncodePlan.cpp -o loop_render_test
+          ./loop_render_test
 
       # The Customize randomizer, Reset tab and params wire (core/viz/ParamRandomizer, core/viz/Params).
       - name: Params host tests
@@ -515,3 +566,21 @@ jobs:
         run: |
           g++ -std=c++20 -O2 -Wall -Wextra -Werror -Icore tools/sound_bench/sound_bench.cpp core/sound/*.cpp -o sound_bench
           ./sound_bench --quick
+
+      # A render's plan (core/output/ExportRange): the part of a track a render covers and the free tier's cap.
+      - name: Render plan host test
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/render_plan_test.cpp \
+            core/output/ExportRange.cpp core/output/RenderBatch.cpp core/api/geode_render_plan_api.cpp -o render_plan_test
+          ./render_plan_test
+
+      # A finished render's loudness (core/output/LoudnessScan on a fake decoder: the meter fed every buffer, the
+      # refusals) and the sentence and numbers its advice is worded with (core/output/LoudnessAdvice readingOf).
+      - name: Loudness scan host test
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/loudness_scan_test.cpp \
+            core/output/LoudnessScan.cpp core/output/LoudnessAdvice.cpp core/audio/dsp/Loudness.cpp \
+            core/audio/dsp/PcmConvert.cpp -o loudness_scan_test
+          ./loudness_scan_test

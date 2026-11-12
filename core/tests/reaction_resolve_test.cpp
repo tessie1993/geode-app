@@ -2,8 +2,8 @@
 // ("Native host tests" in .github/workflows/native-host-tests.yml) with the system compiler; no GL, no device.
 //
 // What is pinned: what the native renderer plays equals the old Kotlin path (StyleReactionsCache): the
-// style's DNA (geode_style_reactions) with no list of the user's, else the user's routes merged with the DNA
-// under the hand mask (geode_style_reactions_hand, mergeHand). And it works the routes out again exactly when
+// style's DNA (buildStyleDna) with no list of the user's, else the user's routes merged with the DNA
+// under the hand mask (mergeHand). And it works the routes out again exactly when
 // the seed, the scene, the user's routes or the mask change: never on a repeat of the same inputs, never on
 // a mask change while the user has no list (the mask means nothing then), and once for several changes
 // made between two renders.
@@ -41,7 +41,7 @@ bool sameRoute(const ReactRoute& a, const ReactRoute& b) {
 }
 
 // The old Kotlin path. No user list: the DNA, padded with disabled routes (ModConfigCodec.packReactions).
-// A list: geode_style_reactions_hand, the hand's routes on its sources and the DNA's on the rest.
+// A list: the hand's routes on its sources and the DNA's on the rest.
 int oldPath(std::string_view scene, int seed, const HandRoutes* user, RouteArray& out) {
     out = RouteArray{};
     const StyleDna dna = buildStyleDna(scene, seed, traitsOf(scene));
@@ -107,11 +107,11 @@ void testMatchesOldPath() {
             ReactionResolve r(&traitsOf);
             r.setScene(scene);
             r.setSeed(seed);
-            check(step(r, scene, seed, nullptr, "the DNA alone equals geode_style_reactions"), "resolved the DNA");
+            check(step(r, scene, seed, nullptr, "the DNA alone equals buildStyleDna"), "resolved the DNA");
             for (std::uint32_t mask : masks) {
                 const HandRoutes user = userList(1.2f, mask);
                 r.setHand(user);
-                check(step(r, scene, seed, &user, "the merge equals geode_style_reactions_hand"), "resolved the merge");
+                check(step(r, scene, seed, &user, "the merge equals mergeHand"), "resolved the merge");
             }
         }
     }

@@ -11,16 +11,12 @@ import dev.geode.data.MilkPathPrefs
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
-import dev.geode.render.AdsrEngine
 import dev.geode.render.BlendMode
-import dev.geode.render.LfoEngine
 import dev.geode.render.PerformanceSettings
 import dev.geode.render.SceneFactory
-import dev.geode.render.bridge.ModConfigCodec
 import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.look.LookSnapshot
 import dev.geode.render.look.LookUnderlay
-import dev.geode.render.scene.BuildStyleReactionsUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -312,19 +308,14 @@ class Stage(
 
     @Synchronized
     private fun pushLook(l: LookSnapshot) {
-        val lfos = l.lfos.take(LfoEngine.SLOTS)
         GeodeNative.stageSetLook(
             handle,
             l.sceneId,
             SceneParamsCodec.pack(l.params),
-            lfos.flatMap { ModConfigCodec.packLfo(it).asList() }.toFloatArray(),
-            lfos.size,
-            l.adsrs
-                .take(AdsrEngine.COUNT)
-                .flatMap { ModConfigCodec.packAdsr(it).let { floats -> listOf(floats.size.toFloat()) + floats.asList() } }
-                .toFloatArray(),
+            l.lfos,
+            l.adsrs,
             l.soundTuning?.toFloatArray(),
-            l.reactions?.let { BuildStyleReactionsUseCase.packExact(it) },
+            l.reactions,
             l.reducedMotion,
             l.transitionId,
             l.transitionMs,

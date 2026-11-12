@@ -20,6 +20,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 ## Native host tests (`core/tests/`, run by `native-host-tests.yml` on every PR)
 
 - `absolute_level_test.cpp`: the sound engine's absolute loudness (`core/sound/LufsMeter`, the drive in `SoundEngine`).
+- `aiff_header_test.cpp`: the AIFF header scan the player and the export share (`core/audio/ingest/AiffHeaderScan`): a header cut at every length, hostile chunk sizes, bad COMM fields, the 80-bit rate, the seek map.
 - `art_palette_test.cpp`: the artwork palette's base hue, span and confidence (`core/viz/ArtPalette`), pinned to the Kotlin it replaced.
 - `auto_timer_test.cpp`: Auto's timer (interval plus spread, never sooner) and the `.milk` progress duration; Auto's draw, `core/viz/AutoDraw`, never the entry on screen.
 - `bit_perfect_test.cpp`: while the platform takes the AudioTrack bit-perfect, the playback DSP is pure pass-through.
@@ -42,10 +43,12 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `edge_glow_pass_test.cpp`: `frame::EdgeGlowPass`'s lifetime and what one wallpaper frame of it leaves in the target.
 - `edge_glow_test.cpp`: the wallpaper edge glow's options, envelope and mask.
 - `encoder_ladder_test.cpp`: the encoder fallback ladder: rungs, floor, bit rate, unknown ceiling.
+- `eq_presets_test.cpp`: the built-in equalizer curves (`core/audio/dsp/EqPresets`), each in its saved place, through `geode_dsp_eq_preset_*`.
 - `export_passes_test.cpp`: the export post-passes' maths: watermark tiling, placement, corner layout and end card, seam weights.
 - `export_pcm_test.cpp`: the export's PCM conversions (`PcmConvert`, `PcmTiming`) and their C ABI.
 - `export_frame_test.cpp`: an export's render order (`core/output/ExportFrame`): prepare up to the look, the pre-roll's plan, each frame's audio to its exact end and its draw at its exact time.
 - `export_preroll_test.cpp`: an export's start: the pre-roll runs the clock whole from frame 0 and through a loop's seam, mid-song frame 0 hears live's tempo, a track with no audio fails.
+- `export_range_test.cpp`: an export segment's clamp (`core/output/ExportRange`): the 1 s minimum, the whole track as no range.
 - `feedback_motion_test.cpp`: `core/viz/liquid/FeedbackMotion`: each term against MilkDrop's formula, 30/60/120 fps, silence, the fold.
 - `fluid_math_test.cpp`: the fluid engine's solve plan, MacCormack, heat and tracer maths, against CPU references of the passes.
 - `gain_ramp_test.cpp`: the playback DSP's gain ramps, ReplayGain on the boundary, crossfade, sleep fade.
@@ -60,11 +63,15 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `lfo_random_test.cpp`: the random wave shapes of `core/viz/Lfo`: a value per slot and cycle from the engine's seed, the same at 30/60/120 fps, a beat-timed wave on the measured tempo only.
 - `lfo_random_test.cpp` also covers `core/viz/WaveRandomizer`, the roll of a set of waves.
 - `library_search_test.cpp`: the library's match, ranking, order and index, and voice "play X".
+- `live_segments_test.cpp`: Cast's segment window: the muxer's bytes cut at any write size, the window of six, the playlist's exact text.
+- `live_http_test.cpp`: Cast's HTTP answers: the request reader's bounds and deadlines, hostile requests, every response, the per-address limit.
+- `library_search_test.cpp` also covers the global search sheet (`geode_search_sheet`): a fourth field, one hit per URI, the 30-track cap, playlists and presets.
 - `link_share_test.cpp`: Show on a computer: routes, token, heads, codecs, page, state, who may connect, whether the TV plays.
 - `link_pair_test.cpp`: its typed path for a computer (`core/viz/frame/LinkPair`): the code, one per session, its lifetime, the tries, gap and lock-out, the routes off the token, `geode_link_pair_*`.
 - `liquid_test.cpp`: `LiquidMath`; `tools/glslcheck --liquid <id>` renders the pass.
 - `live_frame_test.cpp`: `core/viz/frame/LiveFrame`, one live frame as one call: stage order, the clear-only frame, the scene retry, gyro sessions, the thermal slot, the events.
-- `loop_seam_test.cpp`: a loop render's seam driver in `core/viz/frame/LoopSeam`: stash or present, PTS, the 192 MB GPU budget; `LoopRender` only presents.
+- `loop_seam_test.cpp`: a loop render's seam driver in `core/viz/frame/LoopSeam`: stash or present, PTS, the 192 MB GPU budget; the loop job drives it.
+- `loop_render_test.cpp`: the loop render job in `core/output/LoopRender` on a fake host, encoder and muxer: the encoder it settles on, each stop's frame count and PTS, the seam, progress, cancel and every failure.
 - `loudness_test.cpp`: export DSP, the BS.1770 meter.
 - `macro_bank_test.cpp`: `core/viz/MacroBank`: the user's knobs as weighted offsets on scene params, their edits and text, the process-wide bank, C ABI `geode_macro_bank_*`.
 - `macro_bank_test.cpp` also covers the knob editor's copy, move, reset, links with range and curve, the random roll, the dice's seeded turns, the screen and its library, a knob from a slider and its name.
@@ -72,12 +79,15 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `meter_test.cpp`: `Rhythm`'s bar of 3 or 4 beats from the accents: 3/4 and 4/4 at 93 and 141 BPM read as themselves, a backbeat or an even pulse never 3.
 - `milk_shader_note_test.cpp`: the note a .milk preset gets when projectM swapped one of its shaders for the default (`core/viz/MilkShaderNote`).
 - `milk_shown_test.cpp`: when a loaded .milk preset counts as shown (`core/viz/MilkShown`).
-- `mod_targets_test.cpp`: `core/viz/ModTargets`: reach, what each picker may move, and its text against `core/tests/mod_targets.txt`, read through `geode.modTargets`; `--write` regenerates it.
+- `mod_targets_test.cpp`: `core/viz/ModTargets`: reach, what each picker may move, and its text against `core/tests/mod_targets.txt`; `--write` regenerates it.
+- `mod_document_test.cpp`: `core/viz/ModDocument` and `ModCatalog`: saved wave, envelope and reaction texts (today's and older ones) still read, forgiving reads land on a default or in range, each edit clamps, and the pickers and catalogue list what the engine runs.
 - `musical_test.cpp`: the sound engine's musical layer.
 - `note_response_test.cpp`: Note & key reactions.
 - `output_fifo_test.cpp`: the Oboe output's FIFO: odd chunks, underruns, the position at 44.1/48/96 kHz over pause, flush, a new stream and stop, the volume ramp, a flush under a running consumer, two threads.
 - `output_test.cpp`: export planning (`core/output`: `FrameClock`, `LoopPlan`, `EncodePlan`, `Chapters`) and its C ABI.
 - `output_test.cpp` also pins the frame grid and audio cut drift-free over 3 h at every offered rate, loops, the encode budget and chapters.
+- `render_plan_test.cpp`: a render's range and free-tier cap (`core/output/ExportRange`) and a batch's track order and progress (`RenderBatch`), with their C ABI.
+- `loudness_scan_test.cpp`: a finished render's loudness scan on a fake decoder (`core/output/LoudnessScan`) and the advice sentence (`LoudnessAdvice` `readingOf`).
 - `pacer_test.cpp`: `core/viz/frame/Pacer`, the frame clock every surface shares.
 - `palette_test.cpp`: `core/viz/Palette`: each gradient option, the caps, Share and Mix, the codec and edits, old looks drawn as they were, and its library text against `core/tests/palettes.txt` (`--write` regenerates it).
 - `params_schema_test.cpp`: the params schema: names, slots, defaults in range, get/set, the wire, fades, the LFO clamps, and its text against `core/tests/params_schema.txt`.
@@ -86,6 +96,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `params_test.cpp`: the Customize randomizer and Reset tab of `core/viz/ParamRandomizer`, its palette and camera path rolls over the whole schema range; Kotlin's `ParamRandomizer` only calls it.
 - `pcm_handoff_test.cpp`: MilkDrop's raw-PCM hand-off (`core/viz/PcmHandoff`).
 - `pcm_ring_test.cpp`: the PCM ingest ring: random chunk sizes and rate changes mid-stream, every sample once, in order, with its rate, also with a writer thread; the old `SoundCursorTest` cases, the encodings, the C ABI.
+- `playback_controls_test.cpp`: Settings › Playback's speed and pitch rows (`core/audio/dsp/PlaybackControls`): a semitone shift as a rate, a slider value on its step.
 - `playout_test.cpp`: the playout clock: 1× and 1.5×, Bluetooth latency, pause, skipped silence, seek, A/V offset, the same sample at 30/60/120 fps.
 - `playout_test.cpp`'s A/V offset is Settings › Output & devices › Picture delay (`PlayerPrefs.pictureDelayMs`, device-local).
 - `pool_test.cpp`: `core/viz/pool/PoolMath`, the Pool style's surface that `pool_frag` draws: caustics within one safety step, nothing repeating past 3 Hz, the slope and curvature it reads, still in silence; `--dump` gives glslcheck its uniforms.
@@ -97,6 +108,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `record_plan_test.cpp`: Record's maximum lengths and the file size estimate under the muxer's target.
 - `encode_sink_test.cpp`: `core/output/EncodeSink` and `RecordSession` on a fake codec and muxer: the encoder ladder, samples held until the muxer starts, codec-config, end of stream, errors, the stage tee's close.
 - `recorder_test.cpp`: Record's clock: the same frames and PTS at 30/60/120 fps, the hot-phone capture ladder, the heard sound placed against the picture through bursts, pauses, seeks and rate changes, the limits and a full file.
+- `render_eta_test.cpp`: the export's time left (`core/output/RenderEta`): nothing through a lead-in or the first 10 s, then near the truth and never climbing, and which phrase words it.
 - `renderer_cadence_test.cpp`: `core/viz/frame/Cadence`, what a live surface's frame owes: the clear, quality, thermal slot, Liquid label and error text.
 - `resampler_test.cpp`: export DSP, the resampler.
 - `resolver_test.cpp`: the scene params resolver as a chain: order, reduced motion once, settings pinned against the globals, determinism, safety last.
@@ -129,6 +141,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `track_feed_test.cpp`: an export's track audio and the AIFF reader against the Kotlin they replaced: every sample width and byte order, the pre-roll and lead-in cuts, each video frame hearing exactly its audio.
 - `transition_choice_test.cpp`: which transition a style change plays and for how long (`core/viz/TransitionChoice`).
 - `transition_library_test.cpp`: `core/viz/TransitionLibrary`, the GL Transitions library parse.
+- `transition_library_test.cpp` also covers the picker table the shell splits (`geode_transition_picker`), on the shipped asset too.
 - `transition_programs_test.cpp`: the base composite program and its LRU of spliced GL Transitions variants.
 - `underlay_test.cpp`: the background image's crop rect, blur, dim and clamps (#651).
 - `viz_math_test.cpp`: reaction matrix, style DNA, camera math and the endless zoom (its seamless tunnel, no hit moving it, the 8-measured-beat follow, equal travel at 30/60/120 fps).

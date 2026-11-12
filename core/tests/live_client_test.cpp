@@ -97,8 +97,8 @@ Look lookAt(float tempo) {
     Look l;
     l.sceneId = "tunnel";
     l.params = {tempo, 0.5f};
-    l.lfos = {2.0f, 1.0f, tempo};
-    l.adsrs = {1.0f, 0.25f};
+    l.lfos = "wave " + std::to_string(tempo);
+    l.adsrs = "envelope a";
     l.tuning = {0.5f};
     l.transitionId = "fade";
     l.transitionMs = 1200;
@@ -115,11 +115,11 @@ void lookParts() {
     next.transitionMs = 400;
     check(latch.take(next) == (kLookScene | kLookTransition), "a new scene and a new transition length");
     next.hasReactions = true;
-    check(latch.take(next) == kLookReactions, "an empty user list is not the style's own");
-    next.reactions = {1.0f, 2.0f};
+    check(latch.take(next) == kLookReactions, "an empty user text is not the style's own");
+    next.reactions = "route a";
     next.reducedMotion = true;
     next.tuning = {0.75f};
-    next.adsrs = {1.0f, 0.5f};
+    next.adsrs = "envelope b";
     check(latch.take(next) == (kLookReactions | kLookReducedMotion | kLookTuning | kLookAdsrs), "routes, reduced motion, tuning and envelopes");
     check(latch.look().sceneId == "bloom" && latch.look().transitionMs == 400, "and it keeps the look last taken");
 }

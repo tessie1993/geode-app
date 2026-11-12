@@ -71,7 +71,7 @@ import dev.geode.model.PresetEntry
 import dev.geode.model.PresetFilter
 import dev.geode.model.PresetFiltering
 import dev.geode.model.VizPlaylistEntry
-import dev.geode.render.VisualizerView
+import dev.geode.stage.StageView
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
@@ -103,7 +103,7 @@ import dev.geode.ui.theme.selectedGlow
 @Composable
 internal fun PresetsTab(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
 ) {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val viz by viewModel.vizState.collectAsStateWithLifecycle()
@@ -254,7 +254,7 @@ internal fun PresetsTab(
     val saveCurrent: (String, String) -> Unit = { name, folder ->
         visualsViewModel.savePreset(
             name,
-            visualizerView.visualizerRenderer.customShaderFor(viewModel.vizState.value.sceneId),
+            visualizerView.stage.customShaderFor(viewModel.vizState.value.sceneId),
             folder,
         )
         // What was just saved is what the stage shows, so its row gets the check.

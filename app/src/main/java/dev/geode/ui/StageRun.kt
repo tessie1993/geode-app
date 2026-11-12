@@ -10,10 +10,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.geode.cast.CastMirror
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.VisualizerView
+import dev.geode.stage.StageView
 
 /**
- * Runs the stage's view for as long as somebody can see it. GLSurfaceView draws until its host pauses it,
+ * Runs the stage's view for as long as somebody can see it. The stage draws until its host pauses it,
  * and the host used to pause it with the Activity, which froze the visual in a PiP window and on a second
  * screen: Android pauses an Activity there and keeps showing it. The rule is native (core/viz/StageRun);
  * this packs what the shell sees, on the lifecycle callback itself (a stopped Activity recomposes nothing),
@@ -21,7 +21,7 @@ import dev.geode.render.VisualizerView
  */
 @Composable
 internal fun StageRunEffect(
-    view: VisualizerView,
+    view: StageView,
     onSecondScreen: Boolean,
     onDirectorMoment: () -> Unit,
 ) {
@@ -55,7 +55,7 @@ internal fun StageRunEffect(
 }
 
 private class StageRun(
-    private val view: VisualizerView,
+    private val view: StageView,
 ) {
     var state = Lifecycle.State.INITIALIZED
     var pip = false

@@ -231,6 +231,12 @@ jobs:
           # The native stage's lifecycle (docs/agents/native-stage.md): the common paths action by action, then every four-event sequence and long random ones: no GL without a context, every create destroyed, one release.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/stage_lifecycle_test.cpp core/stage/StageLifecycle.cpp -o stage_lifecycle_test
           ./stage_lifecycle_test
+          # What a stage thread does with each command and each turn: the lifecycle event, window references and the hand-over's acknowledgement, a vsync's frame only while one can be drawn, the frame-rate restated, the client's service, a thread ending out of turn.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/stage_core_test.cpp core/stage/StageCore.cpp core/stage/StageLifecycle.cpp core/stage/StagePacing.cpp -o stage_core_test
+          ./stage_core_test
+          # A live stage's client: only the changed parts of a look, the ring a frame hears, what a frame reported kept until polled, a warm-up waiting for a context, Record's tee opened, failed and closed exactly once, the release.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/live_client_test.cpp core/stage/LiveClient.cpp -o live_client_test
+          ./live_client_test
           # The stage's command queue: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/command_queue_test.cpp -o command_queue_test
           ./command_queue_test
@@ -496,6 +502,9 @@ jobs:
         run: |
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/params_test.cpp core/viz/ParamRandomizer.cpp core/viz/Params.cpp core/viz/ParamsFields.cpp core/viz/Catalogue.cpp core/viz/scenes/StyleCatalog.cpp -o params_test
           ./params_test
+          # The text a Customize control shows for its value and the unit it reads in (core/viz/ParamText).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/param_text_test.cpp core/viz/ParamText.cpp core/api/geode_param_text_api.cpp -o param_text_test
+          ./param_text_test
 
       # The Customize panel's nine categories, their sections and per-category roll and reset (core/viz/CustomizeMap).
       - name: Customize map host tests

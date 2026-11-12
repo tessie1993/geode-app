@@ -453,6 +453,13 @@ GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, f
  * slots 0..count-1 in order; ints and bools as numbers, like the wire. Static: the pointer stays valid for the
  * process; the shell parses it once. Labels and page placement stay in Kotlin. */
 GEODE_API const char* geode_params_schema_text(void);
+/* The text a Customize control shows for `value` (viz/ParamText): "35 %", "1.8×", "2.5 s" or "35 ms",
+ * "110 Hz", "90°", and "Default" at `def` (NaN for a control with none). `unit` is 0 percent, 1 times,
+ * 2 seconds, 3 hertz, 4 turn degrees, 5 plain; any other value takes the control's own, by its `key` and then
+ * its range lo..hi. A range below zero signs a percentage. UTF-8 into `out`, NUL-terminated; returns the
+ * length the whole text needs. Pure, any thread. */
+GEODE_API int         geode_param_text(const char* key, int unit, float value, float lo, float hi, float def,
+                                       char* out, int capacity);
 /* The hue base and span a palette slot draws (viz/Params paletteBase, paletteRange): the override when it is
  * >= 0, else built-in palette `palette`, clamped into the table. The same for slot 2. Pure, any thread. */
 GEODE_API float       geode_params_palette_base(int palette, float base_override);
@@ -1045,6 +1052,9 @@ typedef struct geode_loop_spec {
 GEODE_API void    geode_loop_spec_of(int64_t loop_ms, int64_t crossfade_ms, int fps, geode_loop_spec* out);
 /* Fills the derived fields of a spec as given (no clamping): loop, crossfade and source frames, duration. */
 GEODE_API void    geode_loop_spec_fill(geode_loop_spec* spec);
+/* The ranges a loop render takes, for the shell's controls: the shortest and longest loop (ms), the shortest,
+ * longest and default crossfade (ms), the most drift stops. Writes min(6, capacity) and returns 6. */
+GEODE_API int     geode_loop_limits(int64_t* out, int capacity);
 GEODE_API float   geode_loop_seam_weight(int tail, int seam_frames);
 /* The repeats that fill total_us, spread over `loops` drift stops. Writes min(repeats, capacity) offsets and
  * loop indices (either may be NULL for a count) and returns the repeat count. */

@@ -143,6 +143,7 @@ add_library(geode SHARED
     app/src/main/cpp/geode_webrtc_jni.cpp
     app/src/main/cpp/geode_modulation_jni.cpp
     app/src/main/cpp/geode_cast_jni.cpp
+    app/src/main/cpp/geode_stage_jni.cpp
     app/src/main/cpp/geode_milk_jni.cpp
     app/src/main/cpp/geode_render_plan_jni.cpp
     app/src/main/cpp/geode_export_audio_jni.cpp

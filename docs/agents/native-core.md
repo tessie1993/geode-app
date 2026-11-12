@@ -200,5 +200,5 @@ The renderer runs these in order each frame.
 ## UI blur
 
 - The UI blur (`core/viz/UiBlurPass`, `ui_blur_frag` and `ui_blur_mask_frag`) frosts the live visual under the app's glass sheet after the composite.
-- Its region is a rounded rect set by `VisualizerView.setUiBlurRegion` (0..1, y down; `geode_viz_set_ui_blur_region`).
+- Its region is a rounded rect set by `StageView.setUiBlurRegion` (0..1, y down; `geode_viz_set_ui_blur_region`).
 - It blurs at quarter resolution, is free at strength 0 and is never drawn offscreen.

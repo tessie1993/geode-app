@@ -5,6 +5,7 @@ add_library(geode_core STATIC
     api/geode_library_api.cpp
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
+    api/geode_param_text_api.cpp
     api/geode_colour_api.cpp
     api/geode_palette_api.cpp
     api/geode_modulation_api.cpp
@@ -26,6 +27,8 @@ add_library(geode_core STATIC
     viz/frame/WebRtcRule.cpp
     util/QrCode.cpp
     api/geode_surface_api.cpp
+    stage/LiveClient.cpp
+    stage/StageCore.cpp
     stage/StageLifecycle.cpp
     stage/StagePacing.cpp
     api/geode_auto_api.cpp
@@ -111,6 +114,7 @@ add_library(geode_core STATIC
     viz/Framebuffer.cpp
     viz/Quad.cpp
     viz/Params.cpp
+    viz/ParamText.cpp
     viz/Palette.cpp
     viz/ParamsFields.cpp
     viz/ConfigFields.cpp

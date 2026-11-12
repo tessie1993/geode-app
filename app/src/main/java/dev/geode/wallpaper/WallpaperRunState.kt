@@ -2,7 +2,7 @@ package dev.geode.wallpaper
 
 import dev.geode.engine.bridge.GeodeNative
 
-/** What the wallpaper's (or the dream's) GL view does right now. The order is the native code. */
+/** What the wallpaper's (or the dream's) stage does right now. The order is the native code. */
 enum class WallpaperRunMode {
     /** Paused: nothing on screen to draw to, or nobody can see it. */
     STOPPED,
@@ -46,7 +46,8 @@ data class WallpaperConditions(
     /** The dream: silence shows no visual rather than a still frame (owner: no sound, no visuals). */
     val darkWhenSilent: Boolean = false,
 ) {
-    private val flags: Int
+    /** The observations as `GeodeNative.SURFACE_*` bits, for the stage and the rule alike. */
+    val flags: Int
         get() {
             var f = 0
             if (surfaceAvailable) f = f or GeodeNative.SURFACE_HAS_SURFACE
@@ -74,10 +75,3 @@ data class WallpaperConditions(
     /** When to restate because a trial ends, or null when nothing will change on its own. */
     fun recheckInMs(nowMs: Long): Long? = GeodeNative.surfaceRecheckInMs(animateUntilMs, nowMs).takeIf { it >= 0 }
 }
-
-/**
- * How long to keep pacing after moving from [previous] to [this] before the pacer stops: the native
- * still-frame settle (a scene is built across frames, so one frame could hold a half-built picture),
- * or 0 when one frame, or the plain on and off, is enough. The shell only schedules the stop.
- */
-fun WallpaperRunMode.settleMsFrom(previous: WallpaperRunMode): Long = GeodeNative.surfaceSettleMs(previous.ordinal, ordinal)

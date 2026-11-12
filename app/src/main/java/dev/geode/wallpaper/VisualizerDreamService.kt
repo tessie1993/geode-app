@@ -21,19 +21,13 @@ import dev.geode.data.PerformanceStore
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.pro.ProFeature
-import dev.geode.render.FrameRatePolicy
-import dev.geode.render.VisualizerView
+import dev.geode.stage.StageView
 import dev.geode.util.bestEffort
 
 /**
- * The visualizer as a screensaver (Daydream): the same renderer [VisualizerWallpaperService]
- * hosts, on a plain window instead of a wallpaper surface, with the time and what is playing
- * over it ([DreamOverlay], each part a Settings › Wallpaper & screen saver toggle).
- *
- * Reusing [VisualizerView] itself — rather than wiring a bare `GLSurfaceView` the way the
- * wallpaper has to — is what a Dream's window buys over a wallpaper's: it is a real window with a
- * real view hierarchy, so [VisualizerView]'s own attach/detach and window-visibility pacing, and
- * its own scene teardown on `onDetachedFromWindow`, all apply completely unmodified.
+ * The visualizer as a screensaver (Daydream): the same stage [VisualizerWallpaperService]
+ * hosts, in a [StageView] on a plain window instead of a wallpaper surface, with the time and what
+ * is playing over it ([DreamOverlay], each part a Settings › Wallpaper & screen saver toggle).
  *
  * It runs by the wallpaper's rule (native: [WallpaperConditions.runMode]), because it is the same
  * thing on the same kind of screen — one that sits there for hours while nobody may be looking:
@@ -52,7 +46,7 @@ import dev.geode.util.bestEffort
  * needs is granted, any app's audio, as the wallpaper's "React to any app" does.
  */
 class VisualizerDreamService : DreamService() {
-    private var visualizerView: VisualizerView? = null
+    private var visualizerView: StageView? = null
     private var overlay: DreamOverlay? = null
 
     private val handler = Handler(Looper.getMainLooper())
@@ -92,20 +86,10 @@ class VisualizerDreamService : DreamService() {
     /** Between onDreamingStarted and onDreamingStopped: the only time anyone can see it. */
     private var dreaming = false
     private var listening = false
-    private var glPaused = false
-    private var runMode = WallpaperRunMode.STOPPED
 
     /** Black over the visual while the run rule says [WallpaperRunMode.DARK]; the overlay stays above. */
     private var darkCover: View? = null
     private var darkShown = false
-
-    /** A still frame's settle burst is running; how long is native ([settleMsFrom]). */
-    private var settling = false
-    private val endStillSettle =
-        Runnable {
-            settling = false
-            if (runMode == WallpaperRunMode.STILL) visualizerView?.framePacer?.stop()
-        }
 
     private val powerReceiver =
         object : BroadcastReceiver() {
@@ -130,19 +114,19 @@ class VisualizerDreamService : DreamService() {
         val behaviour = geodeContainer.behaviour.current()
         isScreenBright = behaviour.dreamScreenBright
         settings = WallpaperSettings(hearOtherApps = behaviour.dreamHearOtherApps)
-        val view = VisualizerView(this)
+        val view = StageView(this, GeodeNative.STAGE_KIND_SURFACE, GeodeNative.SURFACE_DEFAULT_FPS.toFloat())
         visualizerView = view
         // The app's saved look in the gentle flight (owner, wave 1): the camera keeps flying without big
-        // moves, because a dream is watched from across a room. The MilkDrop preset is the renderer's own.
+        // moves, because a dream is watched from across a room. The MilkDrop preset is the stage's own.
         val looks = LookStore(prefsFiles, contentResolver)
         looks.pushProcessWide()
-        view.visualizerRenderer.look = looks.current().gentleFlight()
+        view.stage.look = looks.current().gentleFlight()
         dreamFps = behaviour.dreamFps
         applyPerformance()
-        view.visualizerRenderer.soundInput = { sound.input }
-        val stage = DreamStage(this)
+        view.stage.soundInput = { sound.input }
+        val stage = FrameLayout(this)
         stage.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        // Above the GL view (a SurfaceView's hole would clear anything below it), under the overlay.
+        // Above the stage's view (a SurfaceView's hole would clear anything below it), under the overlay.
         val black = View(this).apply { setBackgroundColor(android.graphics.Color.BLACK) }
         black.alpha = 0f
         darkCover = black
@@ -173,19 +157,13 @@ class VisualizerDreamService : DreamService() {
     }
 
     /**
-     * Settings › Performance's quality on the dream's view, then the dream's own frame rate: the
-     * view's applyPerformance caps to the live visual's fps, and the dream paces to its own choice,
-     * snapped natively. The view hands the rate to its surface when that is created.
+     * Settings › Performance's quality on the dream's stage, and the dream's own frame rate, snapped
+     * natively: Performance's fps cap is the live visual's, and the dream paces to its own choice.
      */
     private fun applyPerformance() {
-        val view = visualizerView ?: return
-        view.applyPerformance(PerformanceStore(generalPrefs, this).settings.value)
-        view.framePacer.policy = FrameRatePolicy.Capped(GeodeNative.surfaceFpsChoice(dreamFps).toFloat())
-        // applyPerformance just asked the surface for the live cap (up to 120); ask again for the dream's own,
-        // since the pacer re-asks only when the cap it paces to moves, and that stays the dream's.
-        view.holder.surface
-            ?.takeIf { it.isValid }
-            ?.let(view.framePacer::applyTo)
+        val stage = visualizerView?.stage ?: return
+        stage.performance = PerformanceStore(generalPrefs, this).settings.value
+        stage.capFps = GeodeNative.surfaceFpsChoice(dreamFps).toFloat()
     }
 
     override fun onDreamingStarted() {
@@ -214,7 +192,6 @@ class VisualizerDreamService : DreamService() {
 
     override fun onDetachedFromWindow() {
         generalPrefs.unregisterOnSharedPreferenceChangeListener(performanceChanged)
-        handler.removeCallbacks(endStillSettle)
         handler.removeCallbacks(trialEnded)
         sound.stop()
         cover.stop()
@@ -224,7 +201,8 @@ class VisualizerDreamService : DreamService() {
             bestEffort(TAG, "unregister power receiver") { unregisterReceiver(powerReceiver) }
             receiverRegistered = false
         }
-        // Scene teardown is VisualizerView's own onDetachedFromWindow, called by super below.
+        // The stage outlives its view, so the dream that made it ends it.
+        visualizerView?.stage?.close()
         (visualizerView?.parent as? ViewGroup)?.removeView(visualizerView)
         visualizerView = null
         overlay = null
@@ -234,12 +212,9 @@ class VisualizerDreamService : DreamService() {
     }
 
     /**
-     * Restates the run mode from scratch, as the wallpaper's engine does: on dreaming, cover,
-     * battery saver, silence, Remove animations and window visibility.
-     *
-     * [VisualizerView] starts its own pacer whenever its window shows or it resumes, which is right
-     * for the app and wrong for a still frame, so a still frame that is not settling stops the
-     * pacer again on every restate rather than trusting it stayed stopped.
+     * Restates what the dream sees to its stage, as the wallpaper's engine does: on dreaming, cover,
+     * battery saver, silence and Remove animations. The stage applies the native run rule (its
+     * pacing and a still frame's settle) and answers the mode, for the black cover.
      */
     private fun syncRunState() {
         val view = visualizerView ?: return
@@ -268,43 +243,8 @@ class VisualizerDreamService : DreamService() {
         // The native rule says when to listen: whenever the dream would move with sound, cover
         // aside, so lifting the phone for a second does not restart the silence clock.
         syncListening(conditions.listening(now))
-        val previous = runMode
-        runMode = conditions.runMode(now)
-        if (runMode != WallpaperRunMode.STILL) {
-            handler.removeCallbacks(endStillSettle)
-            settling = false
-        }
+        val runMode = WallpaperRunMode.entries[view.stage.setSurface(conditions.flags, conditions.animateUntilMs, now)]
         showDark(runMode == WallpaperRunMode.DARK)
-        when (runMode) {
-            // No frames under the black; the GL view is not paused, so sound wakes it at once.
-            WallpaperRunMode.DARK -> view.framePacer.stop()
-            WallpaperRunMode.ANIMATED -> {
-                resumeGl(view)
-                view.framePacer.start()
-            }
-            WallpaperRunMode.STILL -> {
-                resumeGl(view)
-                val settle = runMode.settleMsFrom(previous)
-                if (settle > 0) {
-                    // Paced for a moment first, as long as the native rule says: a scene is built
-                    // across frames (ScenePrep), so one frame on a fresh renderer would hold a black
-                    // or half-built picture.
-                    settling = true
-                    view.framePacer.start()
-                    handler.postDelayed(endStillSettle, settle)
-                } else if (!settling) {
-                    view.framePacer.stop()
-                    view.requestRender()
-                }
-            }
-            WallpaperRunMode.STOPPED -> {
-                view.framePacer.stop()
-                if (!glPaused) {
-                    view.onPause()
-                    glPaused = true
-                }
-            }
-        }
     }
 
     /**
@@ -320,31 +260,11 @@ class VisualizerDreamService : DreamService() {
             ?.setDuration(resources.getInteger(android.R.integer.config_longAnimTime).toLong())
     }
 
-    private fun resumeGl(view: VisualizerView) {
-        if (!glPaused) return
-        view.onResume()
-        glPaused = false
-    }
-
     /** A start counts as fresh sound, so [sound] restarts only on a real change. */
     private fun syncListening(listen: Boolean) {
         if (listen == listening) return
         listening = listen
         if (listen) sound.start(settings.hearOtherApps) else sound.stop()
-    }
-
-    /**
-     * The dream's root. [VisualizerView] restarts its pacer when its window shows again; restating
-     * the run mode just after (posted, so the child has had its own callback) puts a still or
-     * covered dream back to rest.
-     */
-    private inner class DreamStage(
-        context: Context,
-    ) : FrameLayout(context) {
-        override fun onWindowVisibilityChanged(visibility: Int) {
-            super.onWindowVisibilityChanged(visibility)
-            handler.post { syncRunState() }
-        }
     }
 
     private companion object {

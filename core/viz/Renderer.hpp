@@ -52,11 +52,12 @@
 #include "viz/frame/EdgeGlowPass.hpp"
 #include "viz/liquid/LiquidMath.hpp"
 #include "viz/liquid/LiquidPass.hpp"
+#include "viz/physics/PhysicsLayers.hpp"
 #include "viz/scenes/ProgramLoader.hpp"
 
 namespace geode::viz {
 
-// The frame graph: scene pass -> trail -> composite -> target.
+// The frame graph: scene pass -> trail -> liquid -> dive -> physics layers -> composite -> target.
 class Renderer {
 public:
     static constexpr float kTimeWrapSeconds = 7100.0f;
@@ -264,6 +265,10 @@ private:
     // Endless zoom (EndlessZoom.hpp, viz/DivePass): the same stage over every style's finished picture.
     // Returns `shown` (0 = the scene target) when the dive is off, else the dived picture.
     GLuint drawDive(const Scene& scene, const SceneParams& p, float dt, float wallDt, GLuint shown);
+    // The physics layers (viz/physics) over the finished picture: back fluid | picture | front particles. Returns
+    // `shown` untouched when no layer is on (0 = the scene target), else the layered picture; with a transition
+    // running it also lays them over the outgoing style (physicsOutgoingTex_), so they hold across the fade.
+    GLuint drawPhysics(const SceneParams& p, float dt, GLuint shown);
     bool liquidOn() const { return liveLiquid_ != liquid::Mode::Off && liveLiquid_ != liquid::Mode::Paused; }
     void applyPendingFluidInjection();
     void applyMilkRequests();
@@ -466,6 +471,10 @@ private:
     bool liquidWasOn_ = false;
     bool trailsWereOn_ = false;
     DivePass divePass_;
+    // The physics layers (viz/physics): nothing made until a layer's param turns it on.
+    physics::PhysicsLayers physicsLayers_{loader_};
+    // The outgoing style with this frame's physics layers over it; 0 when the composite reads fboB_ as it is.
+    GLuint physicsOutgoingTex_ = 0;
     endless::Follow diveFollow_;
     float divePhase_ = 0.0f;
     // 0 the plain picture .. 1 the dive: the switch fades over kDiveFadeSeconds, never cuts.

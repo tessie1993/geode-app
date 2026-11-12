@@ -34,6 +34,8 @@ const std::vector<Section>& table() {
         {C::Shape, "basics", true, S::Always, {"Morph", "Kaleidoscope", "Detail"}},
         {C::Shape, "form", false, S::Always, {"Domain warp", "Twist", "Ripple", "Turbulence"}},
         {C::Shape, "symmetry", false, S::Always, {"Mirror", "Tile", "Pixelate"}},
+        // Grow and layers: what the family libraries draw (catalogue::Scope::FamilyForm), for the music to move.
+        {C::Shape, "grow", false, S::Always, {"Spawn", "Fractal", "Front layer", "Back layer", "Formula"}},
         {C::Shape,
          "particles",
          false,
@@ -154,6 +156,12 @@ const std::vector<HeldControl>& held() {
         {"Glide time", {"paramFadeSec"}, std::nullopt},
         // Whether a turning style spins is the user's alone: no roll moves it.
         {"Spin", {"motionDrift"}, std::nullopt},
+        // Grow and layers: no roll deals them (ParamRandomizer's neverRolled); their scope is their meta row's.
+        {"Spawn", {"spawn"}, std::nullopt},
+        {"Fractal", {"fractal"}, std::nullopt},
+        {"Front layer", {"frontLayer"}, std::nullopt},
+        {"Back layer", {"backLayer"}, std::nullopt},
+        {"Formula", {"formula"}, std::nullopt},
         {"Progression", {"fluidSpawnProgress"}, Scope::Journey},
         {"Fluid quality", {"fluidQuality"}, Scope::Emitters},
         {"Lower the quality when the phone struggles", {"fluidAutoQuality"}, Scope::Emitters},
@@ -182,6 +190,59 @@ constexpr const char* kCategoryNames[] = {"QUICK_KNOBS", "LOOK",    "SHAPE",  "M
                                           "MUSIC",       "EFFECTS", "LIQUID", "ENGINE", "EXPERT"};
 static_assert(std::size(kCategoryNames) == kCategoryCount, "one name per category");
 constexpr const char* kShowNames[] = {"ALWAYS", "THREE_D", "PARTICLES", "ENGINE", "SHADER_CODE"};
+
+// The tab titles, in panel order (were the shell's CustomizeCategory words).
+constexpr const char* kCategoryTitles[] = {"Quick knobs", "Look",    "Shape",  "Motion", "Dive",  "Camera",
+                                           "Music",       "Effects", "Liquid", "Engine", "Expert"};
+static_assert(std::size(kCategoryTitles) == kCategoryCount, "one title per category");
+
+// The group headers, by section id (were the shell's SECTION_TITLES). An id with none reads as its words.
+struct SectionTitle {
+    const char* id;
+    const char* title;
+};
+constexpr SectionTitle kSectionTitles[] = {
+    {"basics", "Basics"},
+    {"knob_editor", "Edit knobs"},
+    {"colour_detail", "Colour detail"},
+    {"light_detail", "Light detail"},
+    {"palette_maker", "Your colours"},
+    {"form", "Form"},
+    {"symmetry", "Symmetry"},
+    {"grow", "Grow & layers"},
+    {"particles", "Particles"},
+    {"journey", "Journey"},
+    {"emitters", "Emitters"},
+    {"stirrers", "Stirrers"},
+    {"fluid_quality", "Quality"},
+    {"drift", "Drift"},
+    {"tunnel", "Tunnel"},
+    {"spiral_aim", "Spiral & aim"},
+    {"travel", "Travel"},
+    {"inner_motion", "Inner motion"},
+    {"framing", "Framing"},
+    {"feel", "Feel"},
+    {"moments", "Moments"},
+    {"listening", "Listening"},
+    {"notes_key", "Notes & key"},
+    {"trail_detail", "Trail detail"},
+    {"lens", "Lens"},
+    {"film", "Film"},
+    {"push_swirl", "Push & swirl"},
+    {"surface", "Surface"},
+    {"transition_detail", "Transition detail"},
+    {"reactions", "Reactions"},
+    {"envelopes", "Envelopes"},
+    {"waves", "Waves"},
+    {"fluid_flow", "Fluid: flow"},
+    {"fluid_look", "Fluid: glow"},
+    {"fluid_layers", "Fluid: layers"},
+    {"plate", "Plate"},
+    {"plate_look", "Plate: look"},
+    {"milkdrop", "MilkDrop"},
+    {"layers", "Layers"},
+    {"shader_code", "Shader code"},
+};
 
 const randomizer::RolledKey* rolled(std::string_view key) {
     for (const auto& roll : randomizer::rolledKeys()) {
@@ -269,6 +330,21 @@ std::optional<Category> categoryNamed(std::string_view categoryName) {
 const char* name(Category category) { return kCategoryNames[static_cast<int>(category)]; }
 
 const char* name(Show show) { return kShowNames[static_cast<int>(show)]; }
+
+const char* title(Category category) { return kCategoryTitles[static_cast<int>(category)]; }
+
+std::string sectionTitle(std::string_view sectionId) {
+    for (const auto& t : kSectionTitles) {
+        if (sectionId == t.id) return t.title;
+    }
+    // Its words: "trail_detail" reads "Trail detail".
+    std::string out(sectionId);
+    for (char& c : out) {
+        if (c == '_') c = ' ';
+    }
+    if (!out.empty() && out[0] >= 'a' && out[0] <= 'z') out[0] = static_cast<char>(out[0] - 'a' + 'A');
+    return out;
+}
 
 std::optional<Category> categoryOf(std::string_view key) {
     for (const auto& section : table()) {
@@ -437,7 +513,7 @@ const std::string& text() {
         std::string out = "customize|" + std::to_string(kTextVersion) + "\n";
         for (int i = 0; i < kCategoryCount; ++i) {
             const auto category = static_cast<Category>(i);
-            out += std::string("category|") + name(category) + "|" + name(categoryRule(category)) + "\n";
+            out += std::string("category|") + name(category) + "|" + name(categoryRule(category)) + "|" + title(category) + "\n";
         }
         for (const auto& section : table()) {
             out += std::string("section|") + name(section.category) + "|" + section.id + "|" + (section.basics ? "BASICS" : "PRO") +
@@ -446,7 +522,7 @@ const std::string& text() {
                 if (i > 0) out += ',';
                 out += section.controls[i];
             }
-            out += '\n';
+            out += "|" + sectionTitle(section.id) + '\n';
         }
         return out;
     }();

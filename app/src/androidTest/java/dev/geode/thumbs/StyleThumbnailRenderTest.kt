@@ -204,7 +204,7 @@ class StyleThumbnailRenderTest {
             viz.setTransition("cut", 0L)
             viz.setSoundTuning(null)
             // Default Customize values: the thumb shows the style as a new user first meets it.
-            val params = SceneParams(fluidAutoQuality = false)
+            val params = SceneParams.DEFAULT.with("fluidAutoQuality", false)
             // No user routes: native resolves the style's DNA for this scene and reactSeed before the first render.
             viz.setParams(params)
 

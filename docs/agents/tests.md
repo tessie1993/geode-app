@@ -12,7 +12,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `app/src/test/.../data/prefs/PrefsSchemaTest`: each store writes exactly its `PREF_KEYS`, no key has two owners, each backup class is what `BackupFormat` does.
 - A new prefs key or prefs file must be declared for `PrefsSchemaTest`, and its exception lists only shrink.
 - `app/src/test/.../ui/MusicMomentsTest.kt` holds the `MusicMoment` and `MusicAction` enums to native's wire order and the Music menu to native's order and groups.
-- `app/src/test/.../ui/ParamNamesTest.kt` holds every scene param name Customize's screens pass as text to a live row of the params schema fixture.
+- `app/src/test/.../ui/ParamNamesTest.kt` holds every scene param name `CustomizeAdvanced` and `CustomizeTabs` pass as text to a live row of the params schema fixture; the controls' own names are held natively by `customize_rows_test`.
 - `app/src/test/.../ui/StageIconRoomTest.kt` pins where the stage icons are drawn under each sheet height and the landscape panel.
 - Put new pure tests in a JVM module where you can.
 - Keep parsing that must be tested off-device out of `org.json`, which is a stub in local tests (the reactions' saved text is native for that reason: `core/viz/ReactionText`, `reaction_text_test.cpp`).
@@ -41,6 +41,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `config_schema_test.cpp`: the config params schema (`core/viz/ConfigTable.inc`).
 - `control_range_test.cpp`: the range a Customize slider offers for a scene param (`core/viz/ControlRange`): the schema's, cut short by the flash clamp's depth and Fly's stop; the old `ControlRangeTest` cases.
 - `customize_test.cpp`: the Customize panel's map (`core/viz/CustomizeMap`), its text against `core/tests/customize.txt` (`--write` regenerates it).
+- `customize_rows_test.cpp`: each control's widget and live field, its words, range, default, unit and steps, when it hides, the search, the panel's words, the style names and the map's titles and owner's layout (`core/viz/CustomizeRows`, `PanelText`, `StyleNames`).
 - `director_reach_test.cpp`: the director's reach: seeded, kept controls, scope, ranges, glides at 30/60/120 fps, offsets over the base, Look bit-identical, the export pin, no tempo.
 - `director_test.cpp`: the emotion table, the live feeling, the auto-director's decisions and its axes: no colour param touched, no route, held still between decisions, no tempo assumed.
 - `director_test.cpp` also plays one song at four tempos and checks the feeling is identical, and that no axis turns the reaction matrix's amount.
@@ -88,6 +89,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `link_share_test.cpp`: Show on a computer: routes, token, heads, codecs, page, state, who may connect, whether the TV plays.
 - `link_pair_test.cpp`: its typed path for a computer (`core/viz/frame/LinkPair`): the code, one per session, its lifetime, the tries, gap and lock-out, the routes off the token, `geode_link_pair_*`.
 - `liquid_test.cpp`: `LiquidMath`; `tools/glslcheck --liquid <id>` renders the pass.
+- `physics_layers_test.cpp`: the physics layers' `PhysicsPlan` (`core/viz/physics`): off in every look, the hot-phone plan, back fluid | style | front particles, the music clock, the four params and their safety rules.
 - `live_frame_test.cpp`: `core/viz/frame/LiveFrame`, one live frame as one call: stage order, the clear-only frame, the scene retry, gyro sessions, the thermal slot, the events.
 - `loop_seam_test.cpp`: a loop render's seam driver in `core/viz/frame/LoopSeam`: stash or present, PTS, the 192 MB GPU budget; the loop job drives it.
 - `loop_render_test.cpp`: the loop render job in `core/output/LoopRender` on a fake host, encoder and muxer: the encoder it settles on, each stop's frame count and PTS, the seam, progress, cancel and every failure.
@@ -110,15 +112,17 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `render_plan_test.cpp`: a render's range and free-tier cap (`core/output/ExportRange`) and a batch's track order and progress (`RenderBatch`), with their C ABI.
 - `loudness_scan_test.cpp`: a finished render's loudness scan on a fake decoder (`core/output/LoudnessScan`) and the advice sentence (`LoudnessAdvice` `readingOf`).
 - `pacer_test.cpp`: `core/viz/frame/Pacer`, the frame clock every surface shares.
+- `palette_panel_test.cpp`: Your colours' stop editor and its limits, the stack card's rows and the palette list's pick (`core/viz/PalettePanel`).
 - `palette_test.cpp`: `core/viz/Palette`: each gradient option, the caps, Share and Mix, the codec and edits, old looks drawn as they were, and its library text against `core/tests/palettes.txt` (`--write` regenerates it).
-- `params_json_test.cpp`: the params object (`core/viz/ParamsJson`, `util/Json`'s org.json rules): org.json's number and string text, its opt* coercions, round trips, retired and unknown keys, sanitize, and `app/src/test/resources/presets/*.json` read in place with PresetGoldenTest's checks.
+- `params_json_test.cpp`: the params object (`core/viz/ParamsJson`, `util/Json`'s org.json rules): org.json's number and string text, its opt* coercions, round trips, retired and unknown keys, sanitize, and `app/src/test/resources/presets/*.json` read in place.
 - `params_json_test.cpp` also pins the stored text read as org.json parsed it (a long literal's low 32 bits, a double saturating, the fallback for text that is not standard JSON) and object or array ids as org.json prints them.
 - `params_schema_test.cpp`: the params schema: names, slots, defaults in range, get/set, the wire, fades, the LFO clamps, and its text against `core/tests/params_schema.txt`.
-- `params_schema_test.cpp` also covers the retired rows (`kRetiredParams` in `core/viz/Params.hpp`): a row keeps its wire slot, takes no value, has no Kotlin field and is not saved, so an old look naming one still loads.
+- `params_schema_test.cpp` also covers the retired rows (`kRetiredParams` in `core/viz/Params.hpp`): a row keeps its wire slot, takes no value, cannot be edited by name and is not saved, so an old look naming one still loads.
 - `core/tests/params_schema.txt` is the copy JVM tests read through the `geode.paramsSchema` property; regenerate it with `params_schema_test --write`.
 - `params_test.cpp`: the Customize randomizer and Reset tab of `core/viz/ParamRandomizer`, its palette and camera path rolls over the whole schema range; Kotlin's `ParamRandomizer` only calls it.
 - `params_test.cpp` also holds `SceneParams::sanitized` (`geode_params_sanitize`), what a preset or shared link's params may become: the cases of `presets/hostile.json` and the overflowing link.
-- The JVM `PresetGoldenTest` and `SharedLinkNumbersTest` hold only the envelope around the params object (`PresetStore.writeParams` and `readParams` stand in for native); the params object is `params_json_test.cpp`'s.
+- `look_files_test.cpp`: `core/viz/LookFiles` and `ParamsPalette`: file stems, saved palettes' text and rules, presets over `app/src/test/resources/presets` (the old PresetGoldenTest's cases), template file names and starters.
+- The JVM `SharedLinkNumbersTest` holds only a template's numbers (`TemplateFormat.writeParams` and `readParams` stand in for native).
 - `param_text_test.cpp`: the text a Customize control shows for its value and the unit it reads in (`core/viz/ParamText`, `geode_param_text`).
 - `slider_map_test.cpp`: a Customize slider's Reset offer, whole-number snap and log track, both ways (`core/viz/SliderMap`, `geode_slider_*`).
 - `pcm_handoff_test.cpp`: MilkDrop's raw-PCM hand-off (`core/viz/PcmHandoff`).

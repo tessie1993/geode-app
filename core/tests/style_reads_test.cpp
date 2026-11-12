@@ -367,6 +367,13 @@ const std::vector<Carrier>& shaderCarriers() {
         {"twist", {"uTwist"}},
         // Kaleidoscope's one slider: on from 2 folds (uKaleido) at its count (uSymmetry), SceneParams::kaleidoUniforms.
         {"kaleidoFolds", {"uKaleido", "uSymmetry"}},
+        // Grow and layers (Customize › Shape › Grow), shown only on the family styles whose library draws them.
+        {"spawn", {"uSpawn"}},
+        {"fractal", {"uFractal"}},
+        {"frontLayer", {"uFrontLayer"}},
+        {"backLayer", {"uBackLayer"}},
+        // Formula: shown only on the styles that keep formulas of their own (Catalogue.cpp's kFormulaStyles).
+        {"formula", {"uFormula"}},
         {"tile", {"uTile"}},
         {"pixelate", {"uPixelate"}},
         {"mirror", {"uMirrorX"}},

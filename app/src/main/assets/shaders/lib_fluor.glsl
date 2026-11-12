@@ -32,6 +32,11 @@
 //   k0 PULSE the emission, k1 TEXTURE the paint line's width, k2 FLOW the bend,
 //   k3 TONE the palette position, k4 BUILD the paint's glow, k5 SPACE the reach.
 //
+// GROW AND LAYERS (lib_grow, fluorField): Spawn slides a second carving off
+// the first along the way, Fractal carves the relief again a third the size
+// on its raised faces, Front layer opens the carving round the eye and Back
+// layer the carving down the way. Each costs nothing at 0.
+//
 // THE SOUND, heard the way the older families hear it (lib_dive, lib_neon):
 // lib_sound's shaped reads, in fluorSetup(), on the motion only, never on a
 // colour, a brightness or a beat.
@@ -175,6 +180,8 @@ vec3 fluorEye(vec3 ro) {
     ro.z = mod(ro.z, FLUOR_PERIOD);
     float r = length(ro.xy);
     if (r > gFluorBore) ro.xy *= gFluorBore / r;
+    // Grow and layers measure their depth from here (lib_grow).
+    growEye(ro);
     return ro;
 }
 

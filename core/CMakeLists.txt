@@ -10,10 +10,14 @@ add_library(geode_core STATIC
     api/geode_params_api.cpp
     api/geode_params_json_api.cpp
     viz/ParamsJson.cpp
+    viz/ParamsPalette.cpp
+    api/geode_looks_api.cpp
+    viz/LookFiles.cpp
     api/geode_param_text_api.cpp
     api/geode_slider_api.cpp
     api/geode_colour_api.cpp
     api/geode_palette_api.cpp
+    api/geode_customize_rows_api.cpp
     api/geode_modulation_api.cpp
     viz/ModCatalog.cpp
     viz/ModDocument.cpp
@@ -175,6 +179,10 @@ add_library(geode_core STATIC
     viz/CataloguePresets.cpp
     viz/ParamRandomizer.cpp
     viz/CustomizeMap.cpp
+    viz/CustomizeRows.cpp
+    viz/PanelText.cpp
+    viz/PalettePanel.cpp
+    viz/StyleNames.cpp
     viz/RandomizeAll.cpp
     viz/WaveRandomizer.cpp
     viz/SceneRegistry.cpp
@@ -198,6 +206,8 @@ add_library(geode_core STATIC
     viz/pool/PoolMath.cpp
     viz/liquid/LiquidMath.cpp
     viz/liquid/LiquidPass.cpp
+    viz/physics/PhysicsLayers.cpp
+    viz/physics/PhysicsPlan.cpp
     viz/world/WorldGenome.cpp
     viz/world/MorphDriver.cpp
     viz/world/WorldAssets.cpp

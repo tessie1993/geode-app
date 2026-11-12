@@ -1,4 +1,4 @@
-params|4|189
+params|4|198
 param|0|speed|FLOAT|1|0.05|4|FADE|LIVE
 param|1|zoom|FLOAT|1|0.3|3|FADE|LIVE
 param|2|rotation|FLOAT|0|-3|3|FADE|LIVE
@@ -188,6 +188,15 @@ param|185|paletteAmount7|FLOAT|0.5|0|1|FADE|LIVE
 param|186|paletteShift|CIRCULAR|0|0|1|FADE|LIVE
 param|187|kaleidoFolds|FLOAT|1|1|16|FADE|LIVE
 param|188|layerMix|FLOAT|0|-1|1|FADE|LIVE
+param|189|simFluid|FLOAT|0|0|1|FADE|LIVE
+param|190|simParticles|FLOAT|0|0|1|FADE|LIVE
+param|191|simForce|FLOAT|1|0|2|FADE|LIVE
+param|192|simLayerOrder|FLOAT|0|0|1|FADE|LIVE
+param|193|spawn|FLOAT|0|0|1|FADE|LIVE
+param|194|fractal|FLOAT|0|0|1|FADE|LIVE
+param|195|frontLayer|FLOAT|0|-1|1|FADE|LIVE
+param|196|backLayer|FLOAT|0|-1|1|FADE|LIVE
+param|197|formula|FLOAT|0|0|1|FADE|LIVE
 palette|0|Spectrum
 palette|1|Neon
 palette|2|Fire

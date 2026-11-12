@@ -36,7 +36,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -53,8 +52,6 @@ import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
 import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.StyleCatalogue
-import dev.geode.render.scene.styleFamilyLabel
-import dev.geode.render.scene.styleLabel
 import dev.geode.stage.StageView
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalUiSounds
@@ -114,8 +111,8 @@ internal fun ReactionsSection(
     // What plays: with moments set on Customize › Music, the user's routes there and the live DNA elsewhere
     // (native's merge), so an edit here starts from the matrix as it sounds and makes the whole list the user's.
     val routes =
-        remember(sceneId, p.reactSeed, reactions, handMask) {
-            GeodeNative.modRoutesPlaying(sceneId, p.reactSeed, reactions, handMask)
+        remember(sceneId, p.int("reactSeed"), reactions, handMask) {
+            GeodeNative.modRoutesPlaying(sceneId, p.int("reactSeed"), reactions, handMask)
         }
     val each = GeodeNative.MOD_ROUTE_VALUES
     val count = routes.size / each
@@ -487,13 +484,12 @@ internal fun LayersPage() {
     }
     when (source) {
         GeodeNative.LAYER_SOURCE_USER -> {
-            val resources = LocalResources.current
-            val families = list(GeodeNative.LAYER_LIST_FAMILIES).map { styleFamilyLabel(resources, it) }
+            val families = list(GeodeNative.LAYER_LIST_FAMILIES).map { GeodeNative.styleFamilyLabel(it) }
             val styles = list(GeodeNative.LAYER_LIST_STYLES)
             DropdownRow(stringResource(R.string.customize_layer_family), families, values[GeodeNative.LAYER_FAMILY].toInt()) { family = it }
             DropdownRow(
                 stringResource(R.string.customize_layer_pick),
-                styles.map { styleLabel(resources, it) },
+                styles.map { GeodeNative.styleLabel(it) },
                 values[GeodeNative.LAYER_STYLE].toInt(),
                 placeholder = stringResource(R.string.customize_layer_suits),
             ) { edit(GeodeNative.LAYER_STYLE, 0f, styles[it]) }
@@ -626,15 +622,6 @@ internal fun TransitionPicker(
         ControlHint(stringResource(R.string.customize_transitions_more, shown.size - TRANSITION_CHIP_LIMIT))
     }
 }
-
-/** The hot-phone line for the renderer's liquid mode (0 off, 1 full, 2 lite, 3 warp, 4 paused), or null. */
-@Composable
-internal fun liquidHotNote(liquidMode: Int): String? =
-    when (liquidMode) {
-        2, 3 -> stringResource(R.string.customize_liquid_hot_simplified)
-        4 -> stringResource(R.string.customize_liquid_hot_paused)
-        else -> null
-    }
 
 /**
  * Expert › Shader code: the custom fluid shaders (force and dye) on Fluid. The style's own shader box

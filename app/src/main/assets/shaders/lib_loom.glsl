@@ -55,6 +55,12 @@
 // is held inside gLoomBore of the axis, where every flown style keeps open
 // air.
 //
+// GROW AND LAYERS (lib_grow, loomField): Spawn slides a second weave off the
+// first along the way, Fractal spins strands a third the size round every
+// strand, Front layer opens the weave round the eye and Back layer the weave
+// down the way, and billows the skins, the loom's own backdrop. Each costs
+// nothing at 0.
+//
 // INCLUDE ORDER: after lib_scene_uniforms (with VIEW_OWNS_SHAPE),
 // lib_scene_motion, lib_camera, lib_palette, lib_scene_grade and lib_neon.
 // The style then defines vec4 loomMap(vec3 p), its work at p (x the distance
@@ -198,6 +204,8 @@ vec3 loomEye(vec3 ro) {
     ro.z = mod(ro.z, LOOM_PERIOD);
     float r = length(ro.xy);
     if (r > gLoomBore) ro.xy *= gLoomBore / r;
+    // Grow and layers measure their depth from here (lib_grow).
+    growEye(ro);
     return ro;
 }
 

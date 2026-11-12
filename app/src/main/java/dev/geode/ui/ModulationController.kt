@@ -7,7 +7,6 @@ import dev.geode.data.LfoStore
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -136,8 +135,8 @@ internal class ModulationController(
         basicsOnly: Boolean = false,
     ): Boolean {
         if (category == CustomizeCategory.QUICK_KNOBS) return false
-        val input = SceneParamsCodec.pack(host.params)
-        val out = FloatArray(SceneParamsCodec.FIELDS)
+        val input = host.params.frame()
+        val out = FloatArray(SceneParams.FIELDS)
         val locked = (if (basicsOnly) _lockedParams.value + PRO_LOCK else _lockedParams.value).joinToString("\n")
         val seed = Random.nextLong()
         val changed =
@@ -146,7 +145,7 @@ internal class ModulationController(
             } else {
                 GeodeNative.customizeRandomize(host.sceneId, category.name, locked, seed, input, out)
             }
-        if (changed) commitSceneParams(SceneParamsCodec.unpack(out, host.params))
+        if (changed) commitSceneParams(SceneParams.fromFrame(out, host.params))
         if (!basicsOnly && category == null) randomizeWaves(all = false)
         return changed
     }
@@ -162,11 +161,11 @@ internal class ModulationController(
         seed: Long,
         basicsOnly: Boolean,
     ) {
-        val out = FloatArray(SceneParamsCodec.FIELDS)
+        val out = FloatArray(SceneParams.FIELDS)
         val locked = (if (basicsOnly) _lockedParams.value + PRO_LOCK else _lockedParams.value).joinToString("\n")
-        val base = SceneParamsCodec.pack(host.params)
-        if (GeodeNative.randomizeAllRoll(host.sceneId, locked, seed, true, SceneParamsCodec.pack(before), base, out)) {
-            commitSceneParams(SceneParamsCodec.unpack(out, host.params))
+        val base = host.params.frame()
+        if (GeodeNative.randomizeAllRoll(host.sceneId, locked, seed, true, before.frame(), base, out)) {
+            commitSceneParams(SceneParams.fromFrame(out, host.params))
         }
         if (!basicsOnly) randomizeWaves(all = false)
     }
@@ -178,7 +177,7 @@ internal class ModulationController(
      */
     fun randomizeWaves(all: Boolean) {
         val locked = _lockedParams.value.joinToString("\n")
-        val params = SceneParamsCodec.pack(host.params)
+        val params = host.params.frame()
         val rolled = GeodeNative.modWavesRandomize(host.sceneId, locked, Random.nextLong(), !all, params, _lfos.value) ?: return
         _lfos.value = rolled
         lfoStore.save(rolled)
@@ -192,9 +191,9 @@ internal class ModulationController(
     fun resetCategory(category: CustomizeCategory) {
         if (category == CustomizeCategory.QUICK_KNOBS) return
         if (category == CustomizeCategory.MUSIC) editReactions(GeodeNative.MOD_EDIT_CLEAR)
-        val out = FloatArray(SceneParamsCodec.FIELDS)
-        GeodeNative.customizeReset(category.name, SceneParamsCodec.pack(host.params), out)
-        commitSceneParams(SceneParamsCodec.unpack(out, host.params))
+        val out = FloatArray(SceneParams.FIELDS)
+        GeodeNative.customizeReset(category.name, host.params.frame(), out)
+        commitSceneParams(SceneParams.fromFrame(out, host.params))
     }
 
     /** Takes one category's controls from another look ([from], a preset's params) and leaves the rest. Native. */
@@ -203,9 +202,9 @@ internal class ModulationController(
         from: SceneParams,
     ) {
         if (category == CustomizeCategory.QUICK_KNOBS) return
-        val out = FloatArray(SceneParamsCodec.FIELDS)
-        GeodeNative.customizeBorrow(category.name, SceneParamsCodec.pack(host.params), SceneParamsCodec.pack(from), out)
-        commitSceneParams(SceneParamsCodec.unpack(out, host.params))
+        val out = FloatArray(SceneParams.FIELDS)
+        GeodeNative.customizeBorrow(category.name, host.params.frame(), from.frame(), out)
+        commitSceneParams(SceneParams.fromFrame(out, host.params))
     }
 
     fun resetAll() = commitSceneParams(SceneParams.DEFAULT)
@@ -244,7 +243,7 @@ internal class ModulationController(
         value: Float = 0f,
     ) {
         val outMask = IntArray(1)
-        val seed = host.params.reactSeed
+        val seed = host.params.int("reactSeed")
         val routes = GeodeNative.modReactionsEdit(host.sceneId, seed, _reactions.value, _handMask.value, op, a, b, value, outMask)
         val mask = if (routes == null) 0 else outMask[0]
         _reactions.value = routes
@@ -256,7 +255,7 @@ internal class ModulationController(
     /** A new personality for this style: the next DNA variant, and back to DNA if it was custom. */
     fun rerollReactions() {
         editReactions(GeodeNative.MOD_EDIT_CLEAR)
-        commitSceneParams(host.params.copy(reactSeed = host.params.reactSeed + 1))
+        commitSceneParams(host.params.with("reactSeed", host.params.int("reactSeed") + 1))
     }
 
     private fun pushUndo(params: SceneParams) {

@@ -14,7 +14,6 @@ import dev.geode.data.PerformanceSettings
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.SceneFactory
 import dev.geode.geodeContainer
-import dev.geode.render.bridge.SceneParamsCodec
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -302,7 +301,7 @@ class Stage(
         GeodeNative.stageSetLook(
             handle,
             l.sceneId,
-            SceneParamsCodec.pack(l.params),
+            l.params.frame(),
             l.lfos,
             l.adsrs,
             l.soundTuning?.toFloatArray(),

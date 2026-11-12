@@ -55,6 +55,11 @@
 // The world repeats along z every SHARD_PERIOD (16, dividing the rig's 8192),
 // and every clock phase is whole cycles per uTime wrap (SHARD_RATE).
 //
+// GROW AND LAYERS (lib_grow, shardField): Spawn slides a second hoard of
+// glass off the first along the way, Fractal splinters glass a third the size
+// off every face, Front layer opens the glass round the eye and Back layer
+// the glass down the way. Each costs nothing at 0.
+//
 // INCLUDE ORDER: after lib_scene_uniforms (with VIEW_OWNS_SHAPE),
 // lib_scene_motion, lib_camera, lib_palette, lib_scene_grade and lib_neon.
 // The style then defines vec3 shardMap(vec3 p), its pieces at p (x the signed
@@ -177,6 +182,8 @@ vec3 shardEye(vec3 ro, float bore) {
     ro.z = mod(ro.z, SHARD_PERIOD);
     float r = length(ro.xy);
     if (r > bore) ro.xy *= bore / r;
+    // Grow and layers measure their depth from here (lib_grow).
+    growEye(ro);
     return ro;
 }
 

@@ -183,6 +183,18 @@ LfoTarget landing(Builder& b, Draw& d, const std::array<LfoTarget, N>& options, 
     return free != LfoTarget::None ? free : options[0];
 }
 
+// The raymarched families whose shaders switch between alternative distance-field formulas on `formula`
+// (the owner: "music changes shape but also shader formula"). Fractal Flame, Opal and Hollows march too but
+// draw no formula of their own, so they are not here.
+constexpr std::array<std::string_view, 6> kFormulaFamilies = {"shard_", "prism_", "fluor_", "loom_", "petal_", "fold_"};
+
+bool switchesFormula(std::string_view styleId) {
+    for (const std::string_view prefix : kFormulaFamilies) {
+        if (styleId.starts_with(prefix)) return true;
+    }
+    return false;
+}
+
 // How far a musical layer moves a structural target at most: about what the groove's own layers move it.
 float structuralAmount(Draw& d, LfoTarget target) {
     switch (target) {
@@ -398,7 +410,43 @@ StyleDna buildStyleDna(std::string_view styleId, int seed, const StyleTraits& tr
     // added up, so a tight passage carries the shape on rather than pushing it out and back. Onto the shape,
     // depth, field of view, turbulence, warp or the camera's look; never a colour (the owner's rule: the palette
     // is the style's and the user's) and never a turn.
-    {
+    //
+    // A style that switches formulas hears its harmony or form in the formula instead: a new section or one coming
+    // back lands on a new formula (settled, so a run of them cannot flicker it), a chord change or every other
+    // phrase steps it on, or the chord's tension slowly pulls it. Which, how far and how fast is the style's own.
+    if (switchesFormula(styleId)) {
+        // Each draw on its own line: the order a call's arguments are worked out in is the compiler's, and the DNA
+        // must draw alike on every one.
+        ReactSource heard = ReactSource::Tension;
+        ReactMode mode = ReactMode::Follow;
+        float amount = 0.0f;
+        float rise = 0.0f;
+        float fall = 0.0f;
+        switch (d.below(5)) {
+            case 0:
+            case 1:
+                heard = d.coin() ? ReactSource::SectionChange : ReactSource::SectionReturn;
+                mode = ReactMode::JumpSettled;
+                amount = d.range(0.6f, 1.0f);
+                rise = d.range(0.4f, 0.9f);
+                fall = d.range(0.8f, 1.6f);
+                break;
+            case 2:
+            case 3:
+                heard = d.coin() ? ReactSource::HarmonicChange : ReactSource::PhraseFlip;
+                mode = ReactMode::Step;
+                amount = d.range(0.25f, 0.5f);
+                rise = d.range(0.3f, 0.8f);
+                fall = d.range(0.3f, 0.8f);
+                break;
+            default:
+                amount = d.range(0.4f, 0.8f);
+                rise = d.range(2.0f, 4.0f);
+                fall = d.range(3.0f, 6.0f);
+                break;
+        }
+        b.add(heard, LfoTarget::Formula, mode, amount, rise, fall, ModCurve::Smooth);
+    } else {
         const ReactSource heard =
             d.coin() ? pick(d, std::array{ReactSource::HarmonicChange, ReactSource::DegreeAccent, ReactSource::Tension, ReactSource::KeyClarity,
                                           ReactSource::TensionRise, ReactSource::ScaleTension, ReactSource::ChordMotion})

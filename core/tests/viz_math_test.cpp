@@ -1133,7 +1133,7 @@ void everyStyleHearsTheMusicNotTheVolume() {
             const StyleDna dna = buildStyleDna(id, 0, StyleTraits{0.0f, catalogue::isShaderStyle(id)});
             const ReactRoute& form1 = dna.routes[static_cast<size_t>(dna.count - 2)];
             const ReactRoute& feel = dna.routes[static_cast<size_t>(dna.count - 1)];
-            check(in(form1.source, harmony) || in(form1.source, form) || form1.source == S::DegreeAccent,
+            check(in(form1.source, harmony) || in(form1.source, form) || form1.source == S::DegreeAccent || form1.source == S::PhraseFlip,
                   "every style has a harmony or form route");
             check(in(feel.source, feeling) || in(feel.source, timbre) || in(feel.source, melody) || feel.source == S::ScaleBrightness,
                   "every style has a feel or timbre route");
@@ -1182,6 +1182,39 @@ void everyStyleHearsTheMusicNotTheVolume() {
                       S::KeySharpness, S::FeelingKind, S::FeelWonder}) {
         check(heard.count(static_cast<int>(s)) == 1, (std::string("some style hears ") + reactSourceInfo(s).name).c_str());
     }
+}
+
+// The owner: "music changes shape but also shader formula". The raymarched families that switch distance-field
+// formulas (Shard, Prism, Fluor, Loom, Petal, Fold) hear their harmony or form in the formula: a section change or
+// return lands a settled jump, a chord change or a phrase flip steps, the tension slowly follows. Each style draws
+// its own; no other style's DNA moves the formula.
+void formulaFamiliesHearTheMusicInTheFormula() {
+    using S = ReactSource;
+    std::set<int> sources;
+    int formulaStyles = 0;
+    for (const std::string& id : catalogue::allIds()) {
+        const bool formula = id.rfind("shard_", 0) == 0 || id.rfind("prism_", 0) == 0 || id.rfind("fluor_", 0) == 0 ||
+                             id.rfind("loom_", 0) == 0 || id.rfind("petal_", 0) == 0 || id.rfind("fold_", 0) == 0;
+        for (int seed = 0; seed < 4; ++seed) {
+            const StyleDna dna = buildStyleDna(id, seed, StyleTraits{0.0f, catalogue::isShaderStyle(id)});
+            int onFormula = 0;
+            for (int r = 0; r < dna.count; ++r) {
+                const ReactRoute& route = dna.routes[static_cast<size_t>(r)];
+                if (route.target != LfoTarget::Formula) continue;
+                ++onFormula;
+                sources.insert(static_cast<int>(route.source));
+                const bool settled = (route.source == S::SectionChange || route.source == S::SectionReturn) && route.mode == ReactMode::JumpSettled;
+                const bool stepped = (route.source == S::HarmonicChange || route.source == S::PhraseFlip) && route.mode == ReactMode::Step;
+                const bool slow = route.source == S::Tension && route.mode == ReactMode::Follow && route.attackSeconds >= 2.0f &&
+                                  route.releaseSeconds >= 3.0f;
+                check(settled || stepped || slow, "a formula route is a settled section jump, a chord or phrase step, or a slow tension");
+            }
+            check(onFormula == (formula ? 1 : 0), "the formula families have one formula route, every other style none");
+            if (formula && seed == 0) ++formulaStyles;
+        }
+    }
+    check(formulaStyles >= 30, "the six formula families were checked");
+    check(sources.size() >= 4, "the formula routes' sources are drawn per style");
 }
 
 // Music playing at a steady level, for the camera's own moves.
@@ -2499,6 +2532,7 @@ int main() {
     everyStyleHearsTransients();
     everyStyleHearsTheSongsTime();
     everyStyleHearsTheMusicNotTheVolume();
+    formulaFamiliesHearTheMusicInTheFormula();
     cameraTravelsAndStaysOrthonormal();
     cameraSpringsInsteadOfSnapping();
     cameraPathRepeatsAcrossTheWrap();

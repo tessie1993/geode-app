@@ -546,7 +546,7 @@ GEODE_API int         geode_playlist_parse(const char* file_name, const unsigned
  * _picker_names / _picker_ids: the Styles page's families in order, then one family's styles.
  * _resolve: the style a saved id opens on (a retired id's replacement; any other id is itself).
  * _preset_style: the style a saved look of this one is filed under (Fluid's and Cymatics' looks share one).
- * _scope_of: the name of the scope a Customize control (its ParamKeys string) has; "UNIVERSAL" if none.
+ * _scope_of: the name of the scope a Customize control (its Customize key) has; "UNIVERSAL" if none.
  * _reaches: 1 when a scope, by that name, moves the style (an unknown name reaches every style).
  * _override: the value a style holds a control at, NaN when the control is the user's.
  * _value: a size the shell's controls quote, by name: "fluidTiers" (the Fluid quality tiers), "touchPoints"
@@ -574,7 +574,7 @@ GEODE_API const char* geode_catalogue_presets_text(void);
 
 /* Customize randomizer and Reset tab (core/viz/ParamRandomizer) over SceneParams
  * in the geode_viz_param_name wire order: geode_viz_param_count floats, ints and flags as floats. Pure: no viz
- * handle; the same arguments always give the same result. Controls are named by their ParamKeys strings, tabs
+ * handle; the same arguments always give the same result. Controls are named by their Customize keys, tabs
  * by their CustomizeTab names (a tab the engine does not know rolls and resets nothing). in and out may alias.
  * style_id NULL or empty = any style; tab NULL = every tab; locked = newline-joined control names, NULL = none.
  * Returns 1 when the roll changed something, 0 when out is a copy of in. */
@@ -616,6 +616,63 @@ GEODE_API int         geode_param_text(const char* key, int unit, float value, f
  * >= 0, else built-in palette `palette`, clamped into the table. The same for slot 2. Pure, any thread. */
 GEODE_API float       geode_params_palette_base(int palette, float base_override);
 GEODE_API float       geode_params_palette_range(int palette, float range_override);
+/* The look's own palette in a geode_viz_set_params frame (viz/ParamsPalette): its hue overrides and your colours'
+ * stops. uses_custom_palette: 1 when an override or the first stop is set (a saved palette's id means something only
+ * then). palette_stops: how many stops are set from the first, into out[0..4]. clear_custom_palette: both overrides
+ * and every stop unset. apply_stops: cleared, then the first `count` (at most five) of `stops`. apply_gradient: no
+ * stops, base and span held to 0..1 as the overrides. Same wire in and out; in and out may alias. Pure, any thread. */
+GEODE_API int         geode_params_uses_custom_palette(const float* frame);
+GEODE_API int         geode_params_palette_stops(const float* frame, int* out);
+GEODE_API void        geode_params_clear_custom_palette(const float* in, float* out);
+GEODE_API void        geode_params_apply_stops(const float* in, const int* stops, int count, float* out);
+GEODE_API void        geode_params_apply_gradient(const float* in, float base, float span, float* out);
+/* The look files (viz/LookFiles): the shell reads and writes the bytes, every rule is here. Text out is valid until
+ * the calling thread's next call of the same function. Pure, any thread.
+ * file_safe_name: a name as a file stem (A-Z a-z 0-9 - _ space kept, anything else '_', and a changed or blank name
+ * gets '-' and four SHA-256 bytes in hex); file_safe_chars the same without the hash (a preset folder). looks_order: the indices of `names` in list order into out (count ints),
+ * caseless or by code point, ties kept; returns count.
+ * Saved palettes (files/palettes/<id>.json): read gives the file's text as this build writes it, or NULL when it is
+ * no palette; sanitize the same, the id, name, hues and colours made safe; create a new palette's text (a hue
+ * gradient, or your colours when count > 0); migrate the text the file should hold under its current id; id_for a
+ * name's id (its file stem); string its "id" or "name"; hues writes base and span to out[2]; stops writes its colours
+ * to out (at most max_stops) and returns how many; apply makes it the params frame's own palette (1, or 0 and a copy
+ * when the text is no palette); kept_id the saved palette id a look keeps once deleted_id is deleted. */
+GEODE_API const char* geode_file_safe_name(const char* name);
+GEODE_API const char* geode_file_safe_chars(const char* name);
+GEODE_API int         geode_looks_order(const char* const* names, int count, int caseless, int* out);
+GEODE_API const char* geode_saved_palette_read(const char* text);
+GEODE_API const char* geode_saved_palette_sanitize(const char* text);
+GEODE_API const char* geode_saved_palette_create(const char* name, float base, float span, const int* stops, int count);
+GEODE_API const char* geode_saved_palette_migrate(const char* text);
+GEODE_API const char* geode_saved_palette_id_for(const char* name);
+GEODE_API const char* geode_saved_palette_string(const char* text, const char* key);
+GEODE_API int         geode_saved_palette_hues(const char* text, float* out);
+GEODE_API int         geode_saved_palette_stops(const char* text, int* out);
+GEODE_API int         geode_saved_palette_max_stops(void);
+GEODE_API int         geode_saved_palette_apply(const char* text, const float* in, float* out);
+GEODE_API const char* geode_saved_palette_kept_id(const char* look_id, const char* deleted_id);
+/* Presets (files/presets/**, a geode://preset link's body, the saved live look; viz/LookFiles). read: the text as
+ * org.json read it, the params into out_frame (n at least geode_viz_param_count), out_text[5] = name, scene id (a
+ * retired style resolved), custom shader and milk preset (NULL when absent), saved palette id, and out_envelope[2] =
+ * attack and decay held to the sliders' ranges; 1, or 0 with nothing written when it is no preset. The strings stay
+ * valid until the calling thread's next read. write: the file text org.json wrote (toString(2)); custom_shader and
+ * milk_preset NULL to leave them out; NULL for a short frame. milk_file_name: the .milk file a preset mirrors to. */
+GEODE_API int         geode_preset_read(const char* text, float* out_frame, int n, const char** out_text, float* out_envelope);
+GEODE_API const char* geode_preset_write(const char* name, const char* scene_id, float attack, float decay,
+                                         const char* custom_shader, const char* milk_preset, const float* frame, int n,
+                                         const char* custom_palette_id);
+GEODE_API const char* geode_preset_milk_file_name(const char* preset_name);
+/* The template library (viz/LookFiles). file_name: a template's file, its name's stem, "--", its id's tag and `suffix`
+ * (the template format's); file_tail: what every file of that id ends with. unique_name: the name a new template
+ * takes beside the `count` names in `taken` ("<name> 2" and on when it is taken, ASCII caseless). starter_count and
+ * starter(i): the bundled starter set, each a whole template file ("" past the end); is_starter: 1 for a starter's
+ * id. Text out valid until the calling thread's next call of the same function. Pure, any thread. */
+GEODE_API const char* geode_template_file_name(const char* name, const char* id, const char* suffix);
+GEODE_API const char* geode_template_file_tail(const char* id, const char* suffix);
+GEODE_API const char* geode_template_unique_name(const char* base, const char* const* taken, int count);
+GEODE_API int         geode_template_starter_count(void);
+GEODE_API const char* geode_template_starter(int index);
+GEODE_API int         geode_template_is_starter(const char* id);
 /* Your colours (viz/Colour.hpp): a colour is a packed 0xRRGGBB int, -1 for none. Pure, any thread.
  * from_hsv: hue wraps, saturation and value clamp to 0..1. to_hsv writes hue, saturation, value (0..1) to out[3].
  * parse_hex: "#RRGGBB", "RRGGBB", "#RGB" or "RGB", or -1. hex: "#RRGGBB" ("" for -1), valid until the
@@ -734,13 +791,13 @@ GEODE_API int         geode_touch_pulse(int step, float* xy);
  * offers on style_id ("CATEGORY" and "CATEGORY/section" lines, plus "CATEGORY:roll" where the category's roll has
  * something to move); the pointer stays valid until this thread's next call.
  * geode_customize_randomize rolls one category's controls (named by its CustomizeMap name; an unknown one rolls
- * nothing), holding every other control and the newline-joined ParamKeys in locked; 1 when it changed something.
+ * nothing), holding every other control and the newline-joined Customize keys in locked; 1 when it changed something.
  * In locked, here and in geode_params_randomize, a line "#CATEGORY" keeps every control of that category and
  * "#PRO" every control below a Basics (the roll without Pro). With tab NULL geode_params_randomize rolls what the
  * panel offers on the style, as every category's roll does.
  * geode_customize_reset puts back every field the category's controls write. Wire as geode_params_randomize. */
 GEODE_API const char* geode_customize_text(void);
-/* 1 when the control named key (a ParamKeys string) is one a roll can move, so the panel offers to keep it. */
+/* 1 when the control named key (a Customize key) is one a roll can move, so the panel offers to keep it. */
 GEODE_API int         geode_customize_lockable(const char* key);
 /* Every such key, one per line, each once: the panel asks once for all its rows instead of once per row. Static. */
 GEODE_API const char* geode_customize_lockable_keys(void);
@@ -753,6 +810,40 @@ GEODE_API int         geode_customize_changed_count(const float* in);
 /* in with every field the category's controls write taken from the look in from (same wire); an unknown category
  * copies in. */
 GEODE_API void        geode_customize_borrow(const char* category, const float* in, const float* from, float* out);
+/* Customize's rows (core/viz/CustomizeRows): what each control in keys (one CustomizeMap key a line, a section's order)
+ * draws as on the look params (the geode_viz_set_params wire) and style_id: the widget, field, words, value, range,
+ * default, unit, steps, or nothing where it does not draw. query is the panel's search text, transition 1 while a style
+ * transition is chosen, liquid_mode the renderer's Liquid mode. Rows in CustomizeRows.hpp. Valid until this thread's
+ * next customize rows call. */
+GEODE_API const char* geode_customize_rows(const char* style_id, const char* keys, const char* query, int transition, int liquid_mode,
+                                           const float* params);
+/* A word or sentence the Customize panel draws, by its id (core/viz/PanelText); "" for an unknown id. Static. */
+GEODE_API const char* geode_panel_text(const char* id);
+/* A style's display name, and a Styles page family's (core/viz/StyleNames). Valid until this thread's next call. */
+GEODE_API const char* geode_style_label(const char* style_id);
+GEODE_API const char* geode_style_family_label(const char* family);
+/* Your colours' editor (core/viz/PalettePanel): the editor's text state in, text state out. _start opens the look
+ * params' own colours (its stops, else its hue ramp), _from_look its hue ramp alone, _open a saved palette's stops
+ * (else its base and span as a ramp). _edit applies op (0 select arg, 1 set the selected stop to colour arg, 2 add a
+ * copy of the selected stop, 3 remove the selected stop). _stops writes the state's colours to out (up to capacity)
+ * and returns how many; _view is the editor as the panel draws it. Each text is valid until this thread's next
+ * palette panel call. */
+GEODE_API const char* geode_palette_maker_start(const float* params);
+GEODE_API const char* geode_palette_maker_from_look(const float* params);
+GEODE_API const char* geode_palette_maker_open(const int* stops, int count, float base, float span);
+GEODE_API const char* geode_palette_maker_edit(const char* state, int op, int arg);
+GEODE_API int         geode_palette_maker_stops(const char* state, int* out, int capacity);
+GEODE_API const char* geode_palette_maker_view(const char* state);
+/* A saved palette's colours as a stack layer (its stops, else its ramp) into out; returns how many. */
+GEODE_API int         geode_palette_saved_colours(const int* stops, int count, float base, float span, int* out, int capacity);
+/* A saved palette's strip in Your palettes: "RRGGBB" joined by ','. */
+GEODE_API const char* geode_palette_saved_swatch(const int* stops, int count, float base, float span);
+/* Look's palette list on a style the stack does not draw: saved_ids and saved_names one a line, the shell's order. */
+GEODE_API const char* geode_palette_list_view(const float* params, const char* custom_id, const char* saved_ids,
+                                              const char* saved_names);
+/* The palette stack card on the look params: its rows (core/viz/PalettePanel.hpp). saved_count is how many palettes
+ * the user has saved. */
+GEODE_API const char* geode_palette_stack_card(const char* stack, const float* params, int saved_count);
 /* Randomize everything (core/viz/RandomizeAll): the two-circle gesture's new style, look and every Customize category
  * rolled. Pure, seeded: the same arguments always give the same result; pass one seed to both calls.
  * geode_randomize_all_pick chooses among every catalogue style not in locked_styles (newline-joined ids the entitlement
@@ -784,7 +875,7 @@ GEODE_API int         geode_randomize_all_roll(const char* style_id, const char*
  * editorText: the caps, what each knob offers, its links and every target, with what reaches style_id).
  * geode_macro_bank_move_knob steps a knob delta places along the screen. geode_macro_bank_set_curve sets how a link
  * follows the knob (curve: LINEAR, EASE_IN, EASE_OUT or S_CURVE; up and down stay its range). geode_macro_bank_add_knob_for
- * makes a knob that moves one Customize control (a ParamKeys name), named by native after it; geode_macro_bank_controls
+ * makes a knob that moves one Customize control (a Customize key), named by native after it; geode_macro_bank_controls
  * lists every control a knob can move, its category and the knobs that move it (MacroBank.hpp's controlsText).
  * geode_macro_bank_roll gives a knob a random set of links (the same seed, the same set); geode_macro_bank_roll_values
  * gives every knob on screen that moves something on style_id a new turn (the same seed, the same turns).

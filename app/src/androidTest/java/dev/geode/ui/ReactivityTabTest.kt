@@ -55,7 +55,7 @@ class ReactivityTabTest {
         value: Float,
     ) {
         val outMask = IntArray(1)
-        val routes = GeodeNative.modReactionsEdit(sceneId, params.reactSeed, reactions, handMask, op, a, b, value, outMask)
+        val routes = GeodeNative.modReactionsEdit(sceneId, params.int("reactSeed"), reactions, handMask, op, a, b, value, outMask)
         reactions = routes
         handMask = if (routes == null) 0 else outMask[0]
     }
@@ -76,7 +76,9 @@ class ReactivityTabTest {
         return "$source → $target"
     }
 
-    private fun recipeState(recipe: ModWord) = GeodeNative.modRecipeState(recipe.ordinal, sceneId, params.reactSeed, reactions, handMask)
+    private val seed: Int get() = params.int("reactSeed")
+
+    private fun recipeState(recipe: ModWord) = GeodeNative.modRecipeState(recipe.ordinal, sceneId, seed, reactions, handMask)
 
     private fun setTab(restoration: StateRestorationTester? = null) {
         val content: @androidx.compose.runtime.Composable () -> Unit = {
@@ -93,7 +95,7 @@ class ReactivityTabTest {
                             // What ModulationController.rerollReactions does.
                             onReroll = {
                                 edit(GeodeNative.MOD_EDIT_CLEAR, 0, 0, 0f)
-                                params = params.copy(reactSeed = params.reactSeed + 1)
+                                params = params.with("reactSeed", params.int("reactSeed") + 1)
                             },
                         )
                     }
@@ -137,7 +139,7 @@ class ReactivityTabTest {
     fun rerollShowsTheNextDna() {
         setTab()
         clickText("Shuffle reactions")
-        assertEquals(1, params.reactSeed)
+        assertEquals(1, params.int("reactSeed"))
         assertNull(reactions)
         assertShown(dna(1))
     }
@@ -221,6 +223,6 @@ class ReactivityTabTest {
     /** The routes after an edit, which must have made them the user's own. */
     private fun userRoutes(): List<List<Float>> {
         assertNotNull("an edit should make the routes the user's own", reactions)
-        return playing(params.reactSeed)
+        return playing(params.int("reactSeed"))
     }
 }

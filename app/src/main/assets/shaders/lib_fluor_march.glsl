@@ -7,8 +7,25 @@
 // INCLUDE ORDER: after lib_fluor and after the style's fluorMap.
 
 vec2 fluorField(vec3 p) {
-    vec3 q = fluorBend(p);
+    float k = growOpen(p, 0.15);
+    vec3 q = growOpened(fluorBend(p), k);
     vec2 m = fluorMap(q);
+    // Grow and layers (lib_grow), each off at its default: Spawn slides a second carving off the first
+    // along the way (half a tile at full), so every boss, spiral and panel doubles; Fractal carves the relief
+    // again a third the size on every raised face; the layers open the carving round the eye (front) and
+    // down the way (back), k at 1 while they rest.
+    if (uSpawn > 0.0) {
+        vec2 c = fluorMap(q + growSpawnShift(vec3(0.0, 0.0, 1.0), 0.5));
+        c.x = growClearEye(c.x, p, 0.4);
+        if (c.x < m.x) m = c;
+    }
+    float reach = growFractalReach(0.2);
+    if (reach > 0.0) {
+        vec2 c = fluorMap(growChildSpace(q, 3.0, 2.0));
+        c.x = growClearEye(growFractalChild(c.x / 3.0, m.x, reach), p, 0.4);
+        if (c.x < m.x) m = c;
+    }
+    m.x *= k;
     vec3 s = sin(q * 6.0 + uTime * FLUOR_RATE(1300) + vec3(0.0, 2.1, 4.2));
     m.x += gFluorChaos * 0.025 * (s.x * s.y + s.z);
     return m;

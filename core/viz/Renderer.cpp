@@ -385,6 +385,7 @@ void Renderer::onSurfaceCreated() {
     uiBlurPass_.release();
     liquidPass_.release();
     divePass_.release();
+    physicsLayers_.release();
     overlays_.release();
     if (paletteLutTex_ != 0) {
         glDeleteTextures(1, &paletteLutTex_);
@@ -638,6 +639,7 @@ void Renderer::trimScenes(const std::string& keepId, TrimShed shed) {
         divePass_.releaseTarget();
         trailPass_.releaseTargets();
         uiBlurPass_.releaseTargets();
+        physicsLayers_.releaseTargets();
         bornFbo_.release();
     }
     if (shed.sceneTargets) {

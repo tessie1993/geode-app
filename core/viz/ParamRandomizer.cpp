@@ -280,6 +280,11 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"paletteAmount7", "a palette stack amount, rolled with the stack"},
         {"paletteShift", "where along the palette stack, rolled with the stack"},
         {"layerMix", "a modulation offset on Customize › Layers' mix, which is the user's"},
+        // The physics layers (viz/physics): off in every look; the user's modulation turns them on.
+        {"simFluid", "a physics layer's mix, which the user's waves, routes and knobs move"},
+        {"simParticles", "a physics layer's mix, which the user's waves, routes and knobs move"},
+        {"simForce", "how hard the user wants the physics layers stirred"},
+        {"simLayerOrder", "where the user wants the fluid layer, behind or over the style"},
         {"camPush", "a modulation offset the reaction routes drive"},
         {"camYaw", "a modulation offset the reaction routes drive"},
         {"camPitch", "a modulation offset the reaction routes drive"},
@@ -289,6 +294,13 @@ const std::vector<std::pair<const char*, const char*>>& neverRolled() {
         {"camGyro", "an input preference, not a look"},
         {"reactAmount", "how much the user wants the music to move things"},
         {"motionDrift", "Spin: whether a turning style spins is the user's choice"},
+        // Grow and layers: shapes the music drives through the reaction routes, waves and knobs; a roll that set
+        // one would hold the subject swollen or doubled for good, so they start as designed.
+        {"spawn", "a shape the music drives through the routes"},
+        {"fractal", "a shape the music drives through the routes"},
+        {"frontLayer", "a shape the music drives through the routes"},
+        {"backLayer", "a shape the music drives through the routes"},
+        {"formula", "which of a style's formulas draws it: the music steps it through the routes"},
         // Note & key reactions: how much each source drives, the user's, never a roll's.
         {"noteColor", "a Note & key amount: how much the user wants the notes to move things"},
         {"notePitch", "a Note & key amount: how much the user wants the notes to move things"},

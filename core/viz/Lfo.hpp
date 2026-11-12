@@ -40,9 +40,16 @@ enum class LfoTarget {
     KaleidoFolds,
     // Appended: Customize › Layers' mix (the layerMix param, added to the Layers page's mix; viz/LayerState).
     LayerMix,
+    // Appended: the physics layers (viz/physics): the fluid's mix, the particles' mix, the force that stirs them
+    // and where the fluid sits (the simFluid, simParticles, simForce and simLayerOrder params).
+    SimFluid, SimParticles, SimForce, SimLayerOrder,
+    // Appended: Grow and layers (viz/ParamTable.inc), drawn by the family libraries (ordinals 74..77).
+    Spawn, Fractal, FrontLayer, BackLayer,
+    // Appended: which of a style's own distance formulas draws it (viz/ParamTable.inc formula), ordinal 78.
+    Formula,
 };
 // The last ordinal: the wire's range for a target.
-inline constexpr LfoTarget kLastLfoTarget = LfoTarget::LayerMix;
+inline constexpr LfoTarget kLastLfoTarget = LfoTarget::Formula;
 
 struct ModChain {
     int slot;

@@ -140,8 +140,8 @@ Director::Look heldLook(Director::Look o) {
 // rests in its intro, breakdown and outro, rises through a verse and a build, and peaks at a drop.
 constexpr std::array<float, 6> kArcByState = {0.15f, 0.45f, 0.75f, 1.0f, 0.1f, 0.0f};
 
-// The arc's params, by name: the one seam where the song's arc reaches a param. Fractal and Formula are
-// named as their change will name them; until then the table has no such row and they are skipped.
+// The arc's params, by name: the one seam where the song's arc reaches a param (viz/ParamTable.inc's
+// marchDetail, fractal and formula). A name the table does not hold, or a retired row, is skipped.
 struct ArcField {
     const char* name;
     Tune share;

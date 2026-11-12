@@ -34,7 +34,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -47,19 +46,17 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import dev.geode.R
 import dev.geode.data.CustomPalette
 import dev.geode.data.PaletteStore
+import dev.geode.data.SavedPaletteFiles
+import dev.geode.data.withSavedPalette
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.bridge.SceneParamsCodec
-import dev.geode.render.scene.ParamSchema
 import dev.geode.render.scene.SceneParams
 import dev.geode.ui.theme.GeodeSpacing
 import kotlinx.coroutines.CoroutineDispatcher
@@ -78,13 +75,15 @@ private val paletteIo: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(1
 /**
  * The saved palettes a Customize control shows. Nothing here touches the disk on the caller's
  * thread: the store is opened (it migrates old ids on open), listed and written in [io], and
- * [items] is empty until [load] has answered.
+ * [items] is empty until [load] has answered. [sanitize] and the store default to native's
+ * ([PaletteStore]); a JVM test, where libgeode is not loaded, hands stand-ins for both.
  */
 @Stable
 internal class SavedPalettes(
     private val scope: CoroutineScope,
     private val io: CoroutineDispatcher = paletteIo,
-    openStore: () -> PaletteStore,
+    private val sanitize: (CustomPalette) -> CustomPalette = { PaletteStore.sanitized(it) },
+    openStore: () -> SavedPaletteFiles,
 ) {
     /** Opened by its first use, which is always inside [io]. */
     private val store by lazy(openStore)
@@ -98,7 +97,7 @@ internal class SavedPalettes(
 
     /** The palette as it will be stored, at once; the file and the new list follow from [io]. */
     fun save(palette: CustomPalette): CustomPalette {
-        val clean = PaletteStore.sanitized(palette)
+        val clean = sanitize(palette)
         write { store.save(clean) }
         return clean
     }
@@ -129,43 +128,22 @@ internal fun rememberSavedPalettes(): SavedPalettes {
     return palettes
 }
 
-internal fun paletteChipIndex(
-    p: SceneParams,
-    saved: List<CustomPalette>,
-): Int {
-    // A retired built-in (not in the native list) still draws; the list shows no row for it.
-    if (!p.usesCustomPalette) return p.palette.takeIf { it in ParamSchema.paletteNames.indices } ?: -1
-    val index = saved.indexOfFirst { it.id == p.customPaletteId }
-    return if (index < 0) -1 else ParamSchema.paletteNames.size + index
-}
-
-internal fun paletteChipSelected(
-    p: SceneParams,
-    saved: List<CustomPalette>,
-    index: Int,
-): SceneParams {
-    val builtInCount = ParamSchema.paletteNames.size
-    return if (index < builtInCount) {
-        PaletteStore.clear(p.copy(palette = index))
-    } else {
-        PaletteStore.applyPalette(p, saved[index - builtInCount])
-    }
-}
-
-private const val SWATCH_SAMPLES = 24
-
 /** An opaque Compose colour from a packed 0xRRGGBB. */
 internal fun packedColour(rgb: Int): Color = Color(OPAQUE or rgb)
 
 private const val OPAQUE = 0xFF000000.toInt()
 
-/** What the look's own palette paints, before Hue shift (native: its stops, else its hue ramp). */
-internal fun slotSwatch(p: SceneParams): List<Color> =
-    GeodeNative.paramsPalettePreview(SceneParamsCodec.pack(p), SWATCH_SAMPLES).map(::packedColour)
+/** Native's strip ("RRGGBB" joined by ',') as the colours a [PaletteSwatch] draws. */
+internal fun swatchColours(text: String): List<Color> =
+    text
+        .split(',')
+        .filter { it.isNotEmpty() }
+        .map { packedColour(it.toInt(HEX)) }
 
-private fun savedSwatch(palette: CustomPalette): List<Color> = slotSwatch(PaletteStore.applyPalette(SceneParams.DEFAULT, palette))
+private const val HEX = 16
 
-private fun stopsSwatch(stops: List<Int>): List<Color> = GeodeNative.paletteRamp(stops.toIntArray(), SWATCH_SAMPLES).map(::packedColour)
+/** A native row's fields, one row a line. */
+internal fun nativeRows(text: String): List<List<String>> = text.lines().filter { it.isNotEmpty() }.map { it.split('|') }
 
 @Composable
 internal fun PaletteSwatch(
@@ -178,7 +156,7 @@ internal fun PaletteSwatch(
 
 /**
  * The one palette list on the styles the stack does not draw (UI V2 rule 2: a dropdown, not a chip wall):
- * the built-in palettes native lists, then the user's own, with what the look's palette paints under it.
+ * the built-in palettes and the user's own as native lists them, with what the look's palette paints under it.
  */
 @Composable
 internal fun PaletteDropdown(
@@ -188,29 +166,36 @@ internal fun PaletteDropdown(
     palettes: SavedPalettes,
 ) {
     val saved = palettes.items
+    val rows =
+        remember(p, saved) {
+            val ids = saved.joinToString("\n") { it.id }
+            nativeRows(GeodeNative.paletteListView(p.frame(), p.customPaletteId, ids, saved.joinToString("\n") { it.name }))
+        }
+    val head = rows.first()
+    val options = rows.drop(1)
     Column {
         DropdownRow(
             name = lockKey,
-            options = ParamSchema.paletteNames + saved.map { it.name },
-            selectedIndex = paletteChipIndex(p, saved),
+            options = options.map { it[3] },
+            selectedIndex = head[2].toInt(),
             lockKey = lockKey,
-            placeholder = stringResource(R.string.look_summary_custom),
-        ) { i -> onChange(paletteChipSelected(p, saved, i)) }
-        PaletteSwatch(slotSwatch(p), Modifier.fillMaxWidth())
+            placeholder = head[3],
+        ) { i ->
+            // Native names the pick: a built-in by its index, else one of the saved palettes by its place.
+            val own = options[i][2].toInt()
+            val picked = if (own < 0) p.with("palette", options[i][1].toFloat()).withoutCustomPalette() else p.withSavedPalette(saved[own])
+            onChange(picked)
+        }
+        PaletteSwatch(swatchColours(head[4]), Modifier.fillMaxWidth())
     }
 }
-
-/** The stops a look starts the editor on: its own colours, else the palette it paints as four stops. */
-private fun startingStops(p: SceneParams): List<Int> =
-    p.paletteStops.ifEmpty { GeodeNative.paletteStopsFromHues(p.paletteBase, p.paletteRange, STARTING_STOPS).toList() }
-
-private const val STARTING_STOPS = 4
 
 /**
  * Your colours (Customize › Look, Pro): up to five colour stops made the Photoshop way, a square and a
  * hue strip, a hex field and an eyedropper on the live visual or the artwork. Every change plays on the
  * visual at once (the stops are scene params, so the wallpaper, dream, Cast, export and presets carry
- * them as they carry any palette); Save names them and lists them beside the built-ins.
+ * them as they carry any palette); Save names them and lists them beside the built-ins. The editor is
+ * native's (core/viz/PalettePanel): the stops, the selected one, the limits and the words; this draws it.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -220,112 +205,118 @@ internal fun YourColoursCard(
     onChange: (SceneParams) -> Unit,
     palettes: SavedPalettes,
 ) {
-    var stops by remember { mutableStateOf(startingStops(p)) }
-    var selected by remember { mutableIntStateOf(0) }
+    var state by remember { mutableStateOf(GeodeNative.paletteMakerStart(p.frame())) }
     var name by rememberSaveable { mutableStateOf("") }
     var picking by remember { mutableStateOf<Bitmap?>(null) }
     val view = LocalView.current
     val scope = rememberCoroutineScope()
-    val commit = { next: List<Int> ->
-        stops = next
-        selected = selected.coerceIn(0, next.lastIndex)
-        onChange(PaletteStore.applyStops(p, next))
+    val rows = remember(state) { nativeRows(GeodeNative.paletteMakerView(state)) }
+    val head = rows.first()
+    val stops = rows.drop(1)
+    val commit = { next: String ->
+        state = next
+        onChange(p.withStops(GeodeNative.paletteMakerStops(next).toList(), ""))
     }
-    val setSelected = { rgb: Int -> commit(stops.toMutableList().also { it[selected] = rgb }) }
+    val edit = { op: Int, arg: Int -> commit(GeodeNative.paletteMakerEdit(state, op, arg)) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(stringResource(R.string.palette_explainer), style = MaterialTheme.typography.labelSmall)
-        PaletteSwatch(stopsSwatch(stops), Modifier.fillMaxWidth())
-        StopsRow(stops, selected, onSelect = { selected = it }, onAdd = {
-            commit(stops + stops[selected])
-            selected = stops.lastIndex
-        }, onRemove = { commit(stops.filterIndexed { i, _ -> i != selected }) })
-        ColourPicker(rgb = stops[selected], onChange = setSelected)
+        Text(panelText("palette_explainer"), style = MaterialTheme.typography.labelSmall)
+        PaletteSwatch(swatchColours(head[5]), Modifier.fillMaxWidth())
+        StopsRow(
+            stops,
+            removable = head[3] == "1",
+            addable = head[4] == "1",
+            onSelect = { state = GeodeNative.paletteMakerEdit(state, GeodeNative.PALETTE_MAKER_SELECT, it) },
+            onAdd = { edit(GeodeNative.PALETTE_MAKER_ADD, 0) },
+            onRemove = { edit(GeodeNative.PALETTE_MAKER_REMOVE, 0) },
+        )
+        ColourPicker(rgb = stops[head[2].toInt()][2].toInt(HEX), onChange = { edit(GeodeNative.PALETTE_MAKER_SET, it) })
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = {
                 host.visualizerView.stage
                     .requestStill { still -> view.post { picking = still } }
             }) {
                 Icon(Icons.Filled.Colorize, contentDescription = null)
-                Text(stringResource(R.string.palette_pick_visual), Modifier.padding(start = 6.dp))
+                Text(panelText("palette_pick_visual"), Modifier.padding(start = 6.dp))
             }
             OutlinedButton(onClick = { scope.launch { host.viewModel.artworkForPicking()?.let { picking = it } } }) {
                 Icon(Icons.Filled.Colorize, contentDescription = null)
-                Text(stringResource(R.string.palette_pick_artwork), Modifier.padding(start = 6.dp))
+                Text(panelText("palette_pick_artwork"), Modifier.padding(start = 6.dp))
             }
-            TextButton(onClick = { commit(GeodeNative.paletteStopsFromHues(p.paletteBase, p.paletteRange, STARTING_STOPS).toList()) }) {
-                Text(stringResource(R.string.palette_from_current))
+            TextButton(onClick = { commit(GeodeNative.paletteMakerFromLook(p.frame())) }) {
+                Text(panelText("palette_from_current"))
             }
         }
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
             singleLine = true,
-            label = { Text(stringResource(R.string.palette_name_label)) },
+            label = { Text(panelText("palette_name_label")) },
             modifier = Modifier.fillMaxWidth(),
         )
         OutlinedButton(
             onClick = {
-                val stored = palettes.save(PaletteStore.create(name, stops))
+                val stored = palettes.save(PaletteStore.create(name, GeodeNative.paletteMakerStops(state).toList()))
                 name = ""
-                onChange(PaletteStore.applyPalette(p, stored))
+                onChange(p.withSavedPalette(stored))
             },
             enabled = name.isNotBlank(),
-        ) { Text(stringResource(R.string.palette_save)) }
+        ) { Text(panelText("palette_save")) }
         SavedPaletteList(palettes, onEdit = { palette ->
             name = palette.name
-            selected = 0
-            commit(palette.stops.ifEmpty { GeodeNative.paletteStopsFromHues(palette.baseHue, palette.hueSpan, STARTING_STOPS).toList() })
+            commit(GeodeNative.paletteMakerOpen(palette.stops.toIntArray(), palette.baseHue, palette.hueSpan))
         }, onDelete = { palette ->
             palettes.delete(palette.id)
-            onChange(PaletteStore.forgetDeleted(p, palette.id))
+            onChange(p.forgetPalette(palette.id))
         })
     }
     picking?.let { image ->
         EyedropperDialog(image, onPick = { rgb ->
             picking = null
-            setSelected(rgb)
+            edit(GeodeNative.PALETTE_MAKER_SET, rgb)
         }, onDismiss = { picking = null })
     }
 }
 
+/** The stops as native lists them (`stop|<index>|<RRGGBB>|<selected>|<label>`), then remove and add. */
 @Composable
 private fun StopsRow(
-    stops: List<Int>,
-    current: Int,
+    stops: List<List<String>>,
+    removable: Boolean,
+    addable: Boolean,
     onSelect: (Int) -> Unit,
     onAdd: () -> Unit,
     onRemove: () -> Unit,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        stops.forEachIndexed { i, rgb ->
-            val label = stringResource(R.string.palette_stop, i + 1, stops.size, GeodeNative.colourHex(rgb))
+        stops.forEach { f ->
+            val on = f[3] == "1"
             Box(
                 Modifier
                     .size(GeodeSpacing.TouchTarget)
-                    .clickable(role = Role.Tab) { onSelect(i) }
+                    .clickable(role = Role.Tab) { onSelect(f[1].toInt()) }
                     .semantics {
-                        contentDescription = label
-                        selected = i == current
+                        contentDescription = f[4]
+                        selected = on
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                val ring = if (i == current) MaterialTheme.colorScheme.onSurface else Color.Transparent
+                val ring = if (on) MaterialTheme.colorScheme.onSurface else Color.Transparent
                 Box(
                     Modifier
                         .size(34.dp)
                         .border(2.dp, ring, CircleShape)
                         .padding(4.dp)
                         .clip(CircleShape)
-                        .background(packedColour(rgb)),
+                        .background(packedColour(f[2].toInt(HEX))),
                 )
             }
         }
         Spacer(Modifier.weight(1f))
-        IconButton(onClick = onRemove, enabled = stops.size > 1) {
-            Icon(Icons.Filled.Remove, contentDescription = stringResource(R.string.palette_stop_remove))
+        IconButton(onClick = onRemove, enabled = removable) {
+            Icon(Icons.Filled.Remove, contentDescription = panelText("palette_stop_remove"))
         }
-        IconButton(onClick = onAdd, enabled = stops.size < PaletteStore.MAX_STOPS) {
-            Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.palette_stop_add))
+        IconButton(onClick = onAdd, enabled = addable) {
+            Icon(Icons.Filled.Add, contentDescription = panelText("palette_stop_add"))
         }
     }
 }
@@ -337,22 +328,26 @@ private fun SavedPaletteList(
     onDelete: (CustomPalette) -> Unit,
 ) {
     Text(
-        stringResource(R.string.palette_saved_heading),
+        panelText("palette_saved_heading"),
         style = MaterialTheme.typography.labelSmall,
         modifier = Modifier.semantics { heading() },
     )
     if (palettes.items.isEmpty()) {
-        Text(stringResource(R.string.palette_none_yet), style = MaterialTheme.typography.labelSmall)
+        Text(panelText("palette_none_yet"), style = MaterialTheme.typography.labelSmall)
     }
     palettes.items.forEach { palette ->
+        val swatch =
+            remember(palette) {
+                swatchColours(GeodeNative.paletteSavedSwatch(palette.stops.toIntArray(), palette.baseHue, palette.hueSpan))
+            }
         Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
             Text(palette.name, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
-            PaletteSwatch(savedSwatch(palette), Modifier.width(64.dp))
+            PaletteSwatch(swatch, Modifier.width(64.dp))
             TextButton(onClick = { onEdit(palette) }) {
-                Text(stringResource(R.string.palette_edit), style = MaterialTheme.typography.labelSmall)
+                Text(panelText("palette_edit"), style = MaterialTheme.typography.labelSmall)
             }
             TextButton(onClick = { onDelete(palette) }) {
-                Text(stringResource(R.string.palette_delete), style = MaterialTheme.typography.labelSmall)
+                Text(panelText("palette_delete"), style = MaterialTheme.typography.labelSmall)
             }
         }
     }

@@ -47,17 +47,6 @@
 -renamesourcefileattribute SourceFile
 
 # ---------------------------------------------------------------------------
-# SceneParams reflection (the native wire codec)
-# ---------------------------------------------------------------------------
-# SceneParamsCodec finds SceneParams' fields BY NAME (declaredFields filtered
-# against the native layout's names) to pack and unpack the wire buffer. With
-# the fields renamed by R8, no name matches and every param reads its default,
-# in release builds only, invisible to the JVM test suite. Keeping the NAMES
-# (not the members wholesale) costs no shrinking: the fields are all live. Only
-# instance fields: the layout's NAMES never hold a static one.
--keepclassmembernames class dev.geode.render.scene.SceneParams { !static <fields>; }
-
-# ---------------------------------------------------------------------------
 # Glance widget
 # ---------------------------------------------------------------------------
 # Glance builds an ActionCallback (WidgetTransportAction, WidgetStyleAction) from

@@ -14,8 +14,8 @@
 //   fade     Fade: lerpParams glides it (only a Float or a Circular can). Hold: it snaps to the new
 //            value, as every Int and Bool does, the custom palette sentinels and the fade time itself.
 //
-// The row order IS the geode_viz_set_params wire: row i is wire slot i, and SceneParamsCodec packs by
-// these rows (it reads them through ParamSchema; WireLayoutTest holds the Kotlin fields to them, and
+// The row order IS the geode_viz_set_params wire: row i is wire slot i. The shell holds the frame as it is
+// and finds a name's slot through these rows (ParamSchema reads the text, so a new row needs no Kotlin edit, and
 // params_schema_test holds core/tests/params_schema.txt, the JVM tests' copy, to the text). Never insert or reorder:
 // append, and retire a field by leaving its row where it is, deleting its meta row and listing it in Params.hpp's kRetiredParams:
 // the slot keeps its place on the wire, always at its default, and no look, control, roll or modulation
@@ -26,7 +26,7 @@
 //
 //   GEODE_PARAM_META(name, label, scope, flags, rollLo, rollHi)
 //
-//   label    the Customize control that sets the field, by its key (the Kotlin ParamKeys string, the
+//   label    the Customize control that sets the field, by its key (its native label: the text on screen, the
 //            lock key and the search term); rows of one control share it ("Palette" is the palette and
 //            its two hue overrides). "" for a field no control sets.
 //   scope    the catalogue::Scope of that control: which styles it can move (Catalogue::scopeOf).
@@ -541,6 +541,57 @@ GEODE_PARAM_META(kaleidoFolds, "Kaleidoscope", Universal, kMod, 0, 0)
 // every wire index survives. No roll deals it (the layer is the user's), and no style reads it.
 GEODE_PARAM(Float, layerMix, 0.0f, -1.0f, 1.0f, Fade)
 GEODE_PARAM_META(layerMix, "Layer mix", Universal, kMod, 0, 0)
+
+// The physics layers (viz/physics): a low-res fluid the finished picture seeds and stirs, drawn behind or over
+// it, and particles that ride that fluid (or a curl drift with the fluid off), drawn in front: back fluid | style
+// | front particles. A stage over the finished picture, so every style kind can carry them. Each mix is 0 in
+// every look, so every look draws as it did and nothing is allocated; waves, envelopes, reaction routes and macro
+// knobs move them (LfoTarget::SimFluid .. SimLayerOrder), the music's only way in. Appended so every wire index
+// survives; no roll deals them (they are the user's), and no style reads them.
+GEODE_PARAM(Float, simFluid, 0.0f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(simFluid, "Fluid layer", Universal, kMod, 0, 0)
+GEODE_PARAM(Float, simParticles, 0.0f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(simParticles, "Particle layer", Universal, kMod, 0, 0)
+// How hard the picture stirs the fluid and how fast the particles drift: 1 as designed, 2 twice, 0 still.
+GEODE_PARAM(Float, simForce, 1.0f, 0.0f, 2.0f, Fade)
+GEODE_PARAM_META(simForce, "Physics force", Universal, kMod, 0, 0)
+// Where the fluid sits: 0 behind the style (it shows through the style's darks), 1 over it (screened on).
+GEODE_PARAM(Float, simLayerOrder, 0.0f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(simLayerOrder, "Fluid in front", Universal, kMod, 0, 0)
+
+// Grow and layers (Customize › Shape): four shape params the music can drive, each a modulation target
+// (LfoTarget::Spawn .. BackLayer), so a reaction route, a wave, an envelope or a macro knob can move it. Drawn
+// by the style family libraries (catalogue::Scope::FamilyForm names which), never by a colour: none of them
+// touches the palette, a brightness or a contrast, and none turns the picture. Each default is the picture
+// as it was, which every library keeps by taking its old path there. No roll deals them (ParamRandomizer).
+// Appended after the physics layers (wire slots 193..197 with Formula) so every wire index survives.
+//
+// Spawn: more of the family's subject. A second copy of the world splits off the first and eases away as
+// it rises (the petals, shards, threads or rosettes double, then drift between the first).
+GEODE_PARAM(Float, spawn, 0.0f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(spawn, "Spawn", FamilyForm, kMod, 0, 0)
+// Fractal: the subject fractals out. Smaller self-similar copies of it grow on its own surface, out to a
+// shell that thickens as it rises.
+GEODE_PARAM(Float, fractal, 0.0f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(fractal, "Fractal", FamilyForm, kMod, 0, 0)
+// Front layer and Back layer: how far the foreground and the background open or draw in. 0 is as designed;
+// up opens that layer, down draws it in. The layers are depth (lib_grow): flown through, what is round
+// the eye and what lies down the way; turned about, the subject and what lies beyond it; a family with a
+// backdrop of its own (Prism's sky, Loom's skins) moves it with the back layer. Two rows, so a route can
+// move one layer alone: the subject pulses with the kick while only the backdrop breathes with the chord.
+GEODE_PARAM(Float, frontLayer, 0.0f, -1.0f, 1.0f, Fade)
+GEODE_PARAM_META(frontLayer, "Front layer", FamilyForm, kMod, 0, 0)
+GEODE_PARAM(Float, backLayer, 0.0f, -1.0f, 1.0f, Fade)
+GEODE_PARAM_META(backLayer, "Back layer", FamilyForm, kMod, 0, 0)
+
+// Formula (Customize › Shape › Grow): which of a raymarched style's own distance formulas draws it, 0 the
+// style's first. A style that keeps two to four alternatives (another fold operator, primitive or iteration
+// rule) crossfades or steps between them along 0..1 as uFormula, so the music can change the shader's formula as
+// well as its shape (owner: "music changes shape but also shader formula"). A structural target like Morph:
+// LfoTarget::Formula, no luminance limit. It reaches the styles listed in Catalogue.cpp's kFormulaStyles
+// (Scope::Formula), none until a style reads uFormula; at 0 every style draws its first formula, as before.
+GEODE_PARAM(Float, formula, 0.0f, 0.0f, 1.0f, Fade)
+GEODE_PARAM_META(formula, "Formula", Formula, kMod, 0, 0)
 
 #ifdef GEODE_PARAM_TABLE_OWN_PARAM
 #undef GEODE_PARAM

@@ -178,7 +178,7 @@ This file is a map. Detail lives in `docs/agents/`, one fact per line:
 - Native also runs the export's track audio and AIFF reads (`core/audio/ingest/TrackFeed`, `AiffReader`; `TrackAudio` only drives MediaCodec), the loop render's drift stops and the export loudness advice (`core/output`), the built-in palettes' hues and the artwork palette (`core/viz/ArtPalette`).
 - The playout clock is native (`core/sound/interp/PlayoutClock`; the dead Kotlin clock is gone) and wired: the sink feeds it, the live feed reads it.
 - The PCM ring is native (`core/audio/ingest`, read on the GL threads until `core/sound/hop` exists).
-- Still Kotlin: the scene and style catalogue, and in export the render ETA (`RenderEta`), the range clamp (`ExportRange`) and the Media3 AIFF extractor's header parse (`audio/AiffExtractor`); the ADR's table gives each one's target and blocker.
+- Still Kotlin: the template JSON codec (`data/TemplateFormat`), the scene and style catalogue, and in export the render ETA (`RenderEta`), the range clamp (`ExportRange`) and the Media3 AIFF extractor's header parse (`audio/AiffExtractor`); the ADR's table gives each one's target and blocker.
 - **Mixed module.** `:engine:scenes` is an Android library, but most of its files are pure Kotlin.
 - `editor/*` and much of `data/*` are pure too, except for `org.json` (`TemplateFormat`, `EditorProjectJson`). There is no `kotlinx.serialization` yet.
 - **Navigation.** Enum and `when` at the top level; only the Visuals panel runs on Nav3 so far.

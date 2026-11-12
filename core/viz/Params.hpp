@@ -9,8 +9,8 @@ namespace geode::viz {
 
 // The scene params schema (#346): every field's name, kind, default, control range and wire slot is
 // one row of viz/ParamTable.inc, and everything below expands from those rows: the struct's members
-// and defaults, the wire order, get/set by name, what lerpParams glides and the LFO clamps. Kotlin's
-// SceneParams.kt mirrors the fields today; geode_params_schema_text is how the shell reads the rows.
+// and defaults, the wire order, get/set by name, what lerpParams glides and the LFO clamps. The shell keeps no
+// copy: its SceneParams holds the wire frame and finds a name's slot through geode_params_schema_text.
 
 // What a row is. Circular is a float that wraps (a hue turn): the LFO adds to it unclamped.
 enum class ParamKind { Float, Int, Bool, Circular };
@@ -160,7 +160,7 @@ struct SceneParams {
     std::array<int, 5> paletteStops() const { return {paletteStop0, paletteStop1, paletteStop2, paletteStop3, paletteStop4}; }
     int paletteStopCount() const;
 
-    // Every field, in wire order: the float count of geode_viz_set_params (Kotlin's SceneParamsCodec.FIELDS).
+    // Every field, in wire order: the float count of geode_viz_set_params (Kotlin's SceneParams.FIELDS).
     static constexpr int kFieldCount = static_cast<int>(ParamSlot::kCount);
     static const std::array<const char*, kFieldCount>& fieldNames();
     // The table, one ParamSpec per wire slot. Built once; the reference lives for the process.

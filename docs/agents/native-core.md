@@ -47,7 +47,7 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 
 ## `core/viz`: renderer, scenes, catalogue
 
-- `core/viz` holds the renderer, the scene registry, `scenes/`, `fluid/`, `liquid/` and `compute/`.
+- `core/viz` holds the renderer, the scene registry, `scenes/`, `fluid/`, `liquid/`, `physics/` and `compute/`.
 - `Catalogue` is the style catalogue: every style id, kind, family, param scope and control range.
 - Kotlin asks the catalogue one question at a time (`geode_catalogue_style_ids`, `_picker_names`, `_picker_ids`, `_resolve`, `_preset_style`, `_scope_of`, `_reaches`, `_override`).
 - `catalogue::text()` is the same catalogue as one table, for the fixture and the tools; it does not cross JNI.
@@ -70,11 +70,25 @@ One fact per line. Add a fact as a new bullet in the right group; do not merge b
 - `liquid/FeedbackMotion` is MilkDrop's per-frame UV transform (zoom, zoomexp, stretch, warp, rotation about a centre, translation) made per second, the sound's push on it, the mirror fold, and what the renderer asks of it (`TrailAsk`, `fromDive`).
 - `LiquidPass` is a full-resolution feedback ping-pong between the scene target and the composite.
 - `LiquidPass` samples the last frame through that transform (`lib_feedback`, the same maths in GLSL), then the `FlowField` velocity, folds it back at the edges, and re-pours the style through `liquid_frag`.
+- `core/viz/CustomizeMap`'s text (version 2) carries each category's tab title and each section's header (`title`, `sectionTitle`).
+- `core/viz/CustomizeRows` is what each Customize control draws as (`geode_customize_rows`): widget, field, words, value, range, default, unit and steps.
+- `CustomizeRows` also holds when a control hides: Catch pull and radius without catch points, Liquid's sliders with Liquid off, Dive speed with neither the endless zoom nor Liquid, Fluid's glow and sunray sliders with those off.
+- `CustomizeRows` hides the whole pages (Your colours, waves, envelopes, shader code, the artwork button) while the panel's search holds text, and matches the rest by key or words.
+- A Cymatics style that holds its plate shows a tip naming it (`catalogue::overrideOf`) where the Geometry pick would be.
+- `core/viz/PanelText` holds the panel's words by their old resource id (`geode_panel_text`); `panel::format` fills `%1$s` placeholders.
+- `core/viz/StyleNames` holds the style and family display names (`geode_style_label`, `geode_style_family_label`); a style with none reads as its id in words.
+- `core/viz/PalettePanel` is Your colours' stop editor as text (`geode_palette_maker_*`), the stack card's rows (`geode_palette_stack_card`) and the palette list (`geode_palette_list_view`).
+- An old hue gradient opens in Your colours as 4 stops (`kMakerHueStops`) and goes on the stack as 5 (`kStackHueStops`).
 - Expert › Shader code shows on Fluid only (`core/viz/CustomizeMap`, `Show::ShaderCode`), with the custom force and dye editors; a shader style has no box for its own fragment shader any more.
 - A look's saved custom shader still applies (`core/viz/ShaderOverrides`, `geode_shader_override_*`).
 - Your colours are native (`core/viz/Colour.hpp`, `geode_colour_*`, `geode_palette_*`): up to five stops, scene params `paletteStop0..4` (packed 0xRRGGBB), that loop seamlessly; shaders read them through `lib_palette`'s `palStops`.
 - The shell's accent seed from a palette (the middle of its hue span at fixed HSL 0.85 / 0.6) is `colour::paletteAccent`, `geode_colour_palette_accent`; `VisualAccent` (contrast lift, Material roles) is still Kotlin.
 - `core/viz/ParamsJson` (`geode_params_write_json`, `_read_json`) writes and reads the scene params object of presets, links, template looks and the saved look, in the text org.json wrote.
+- `core/viz/ParamsPalette` is the look's own palette in its params: whether it draws one, clearing it, your colours, a hue gradient (`geode_params_uses_custom_palette`, `_palette_stops`, `_clear_custom_palette`, `_apply_stops`, `_apply_gradient`).
+- `core/viz/LookFiles` holds the user's look files, text in and text out: the file stem rule (`geode_file_safe_name`, `_safe_chars`) and list order (`geode_looks_order`).
+- `LookFiles` reads and writes saved palettes (`geode_saved_palette_*`): the id rule, defaults and clamps, the old-id migration, applying one to a look.
+- `LookFiles` reads and writes presets (`geode_preset_read`, `_write`, `_milk_file_name`): the envelope beside the params object, its slider ranges and the number guard, retired styles resolved.
+- `LookFiles` names the template library's files, makes an import's name unique and holds the bundled starter templates (`geode_template_*`).
 - `core/viz/RandomizeAll` (`geode_randomize_all_*`) is the two-circle gesture's Randomize everything.
 - Customize › Layers is `core/viz/LayerState`: on, source, picked style, knob, blend and mix, process-wide; an export pins it.
 - Native keeps the layer: `geode_layer_edit` changes one field of it and returns the line the shell saves; `geode_layer_set` takes the saved line back at start.
@@ -142,6 +156,12 @@ The renderer runs these in order each frame.
 - The shaders fold by the nearest whole count of the modulated `kaleidoFolds`: `SceneParams::kaleidoUniforms` sets `uKaleido`/`uSymmetry` (ShaderScene) and `uPostKaleido`/`uPostSymmetry` (CompositePass), on from 2, the count 6 (`kDefaultSymmetryFolds`) while off.
 - A roll turns the kaleidoscope on 3 times in 10, at a count from `SceneParams::kSymmetryFolds` (`core/viz/Params.hpp`).
 - Customize's Kaleidoscope slider steps by whole folds (`GeodeNative.sliderIntSteps`) and reads "Off" or the count (`ParamUnit::Folds`, `core/viz/ParamText`).
+- Grow and layers (Customize › Shape › Grow): `spawn`, `fractal` (0..1) and `frontLayer`, `backLayer` (-1..1), appended slots 193..196 after the physics layers, default 0, each a modulation target (`SPAWN` .. `BACK_LAYER`, ordinals 74..77, one unit per unit).
+- Their reach is the per-style scope `catalogue::Scope::FamilyForm`: the families named in `Catalogue.cpp`'s `kFormFamilies` (Prism, Fluor, Loom, Shard, Petal, Fold).
+- Those libraries draw them through `lib_grow` (included by `lib_scene_uniforms`) in their one field function; at the defaults each takes its old path, bit for bit.
+- The layers are depth from the eye: `lib_camera`'s `camFly` and `camAround` set it (`growSetup`); an eye wrap (`prismEye` ..) resets the eye (`growEye`).
+- `formula` (0..1, slot 197, default 0, `LfoTarget::Formula`, `FORMULA`, ordinal 78) is `uFormula`: which of a style's own distance formulas draws it; it reaches the ids in `kFormulaStyles` (`Scope::Formula`), none yet.
+- Style DNA (`core/viz/ReactionDna`): Shard, Prism, Fluor, Loom, Petal and Fold spend their harmony-or-form route on `LfoTarget::Formula` (a settled section jump, a chord or phrase step, or a slow tension follow, drawn per style); it shows once their styles read `uFormula`.
 - Orbit, hover and pendulum do not travel (`CameraRig::travels`): no flat dive, no bank, no turn-around.
 - Strafe looks in at its track from the side; reversing carries the eye round to the other side.
 - Corkscrew rolls once per turn; under reduced motion it only leans.
@@ -236,6 +256,22 @@ The renderer runs these in order each frame.
 - A family's styles are listed by id, never matched by prefix: `prism_rain` is a loose style, not one of the Prism family.
 - Twelve styles each: `arbor_*`, `bulb_*`, `chrys_*`, `lucid_*`, `dive_*`, `glass_*`, `nebula_*`, `terra_*`, `truchet_*`, `foam_*`.
 - Ten styles each: `flame_*`, `opal_*`, `hollow_*`, `prism_*`, `fluor_*`, `loom_*`, `shard_*`, `petal_*`, `fold_*`.
+
+## Physics layers
+
+- The physics layers (`core/viz/physics`) lay a fluid and particles over the finished picture of any style, after Trails, Liquid and the dive and before the composite.
+- Their order is back fluid | style | front particles.
+- The fluid is a low-res `fluid::FluidSim`: the picture's contours stir its velocity and its lit parts pour their colour into its ink (`physics_seed_frag`, `FluidSim::applyField`).
+- The fluid sits behind the style (filling its darks) or is screened over it, by `simLayerOrder` (`physics_layer_frag`).
+- The particles are `fluid::Particles` riding the fluid's velocity, or their own curl drift with the fluid off, screened on and coloured from the picture under them (`physics_particle_vert`/`_frag`).
+- Their params are `simFluid`, `simParticles`, `simForce` and `simLayerOrder` (slots 189..192), LfoTargets `SIM_FLUID` .. `SIM_LAYER_ORDER` (ordinals 70..73), on every style.
+- Both mixes are 0 in every look, so a look draws as before and the pass makes no GL call; no roll deals them.
+- The music reaches them only through waves, envelopes, reaction routes and macro knobs; nothing in the layers hears the sound.
+- The two mixes and the fluid's place are luminance targets (3 Hz, route floors); reduced motion slows the force (`safety::apply`).
+- The plan (`PhysicsPlan`): FluidQuality's Low grids on a cool phone, its Min grids at Reduced, no fluid at Minimal; an export is always Full.
+- Grids, particles and the pass's target are made when a layer turns on (live one part a frame, an export whole) and freed 120 frames after it goes off.
+- They step on the music clock: silence holds them, an export's fixed step replays them.
+- During a style transition the same layers are laid over the outgoing style too, so they hold through the fade.
 
 ## Endless zoom, Trails, Liquid
 

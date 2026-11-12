@@ -74,6 +74,12 @@
 // scale is clamped, no root or log sees a negative number or zero, and every
 // iterated fold keeps a fixed point, so its fractal is never empty.
 //
+// GROW AND LAYERS (lib_grow, foldGrow): every march reads the map through
+// FOLD_AT. Spawn slides a second fractal off the first along the way, Fractal
+// grows the fractal again a third the size within a shell round its surface,
+// Front layer opens the fractal round the eye and Back layer down the way.
+// Each costs nothing at 0.
+//
 // INCLUDE ORDER: after lib_scene_uniforms (with VIEW_OWNS_SHAPE),
 // lib_scene_motion, lib_camera, lib_palette, lib_scene_grade and lib_neon.
 // The style then defines vec4 foldMap(vec3 p) and after it includes one
@@ -236,11 +242,46 @@ vec3 foldBend(vec3 p) {
     return p;
 }
 
+/**
+ * Grow and layers (lib_grow) on one foldMap reading m at p: `spawn` is the map a slid copy reads and
+ * `child` the map in Fractal's child space (FOLD_AT reads each only while its param is on, else passes
+ * 1.0e9). Spawn's copy is the nearer where it is; Fractal's child, a third the size, grows within its
+ * shell round the fractal; the layers open the fractal round the eye (front) and down the way (back), the
+ * distance taken back to world units by the same scale foldQ read the map at. At the defaults m comes back
+ * as it went in.
+ */
+vec4 foldGrow(vec3 p, vec4 m, vec4 spawn, vec4 child) {
+    spawn.x = growClearEye(spawn.x, p, 0.5);
+    if (spawn.x < m.x) m = spawn;
+    float reach = growFractalReach(0.15);
+    if (reach > 0.0) {
+        child.x = growClearEye(growFractalChild(child.x / 3.0, m.x, reach), p, 0.5);
+        child.zw /= 3.0;
+        if (child.x < m.x) m = child;
+    }
+    m.x *= growOpen(p, 0.18);
+    return m;
+}
+
+/** Where the style's map is read for world point p: bent, and opened by the layers (q itself at rest). */
+vec3 foldQ(vec3 p) {
+    return growOpened(foldBend(p), growOpen(p, 0.18));
+}
+
+/**
+ * The style's foldMap at world point p, bent, and grown (foldGrow). A macro, so the marches (which come
+ * after the style's map) call the map through it without a prototype; a ternary reads only the side it
+ * takes, so the off params cost no map. One line: a macro here never continues onto the next.
+ */
+#define FOLD_AT(p) foldGrow((p), foldMap(foldQ(p)), uSpawn > 0.0 ? foldMap(foldQ(p) + growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0)) : vec4(1.0e9), uFractal > 0.0 ? foldMap(growChildSpace(foldQ(p), 3.0, 2.0)) : vec4(1.0e9))
+
 /** A corridor's eye, held where the air is. */
 vec3 foldEye(vec3 ro) {
     ro.z = mod(ro.z, FOLD_PERIOD);
     float r = length(ro.xy);
     if (r > gFoldBore) ro.xy *= gFoldBore / r;
+    // Grow and layers measure their depth from here (lib_grow).
+    growEye(ro);
     return ro;
 }
 

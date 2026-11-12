@@ -8,8 +8,7 @@ import org.junit.Test
 /**
  * The reader of `geode_catalogue_presets_text`. The rows below are shaped like the native table's (the
  * Chill look whole, the Chladni plate variant trimmed); what native ships, and that its text reads back bit for bit, is
- * core/tests/presets_test.cpp's job. Here: a look's values land on the right [SceneParams] fields over
- * the defaults, exactly as the old `SceneParams(...)` literals built them.
+ * core/tests/presets_test.cpp's job. Here: a look's values land on its params by name over the defaults.
  */
 class BuiltInPresetsTest {
     private val text =
@@ -32,18 +31,17 @@ class BuiltInPresetsTest {
         assertEquals(0.4f, chill.attack, 0f)
         assertEquals(0.06f, chill.decay, 0f)
         assertEquals(
-            SceneParams(
-                speed = 0.5f,
-                audioDrive = 0.85f,
-                trails = true,
-                trailLength = 0.8f,
-                saturation = 0.8f,
-                brightness = 0.9f,
-                palette = 3,
-                sway = 0.35f,
-                vignette = 0.4f,
-                paramFadeSec = 1.5f,
-            ),
+            SceneParams.DEFAULT
+                .with("speed", 0.5f)
+                .with("audioDrive", 0.85f)
+                .with("trails", true)
+                .with("trailLength", 0.8f)
+                .with("saturation", 0.8f)
+                .with("brightness", 0.9f)
+                .with("palette", 3)
+                .with("sway", 0.35f)
+                .with("vignette", 0.4f)
+                .with("paramFadeSec", 1.5f),
             chill.params,
         )
     }
@@ -54,15 +52,14 @@ class BuiltInPresetsTest {
         assertEquals(listOf("julia · Chill", "lava · Chill", "cymatics · Chladni plate"), presets.map { it.name })
         assertSame(presets[0].params, presets[1].params)
         assertEquals(
-            SceneParams(
-                cymaticsGeometry = 1,
-                cymaticsFundamental = 82f,
-                cymaticsModes = 4,
-                cymaticsScale = 1.15f,
-                cymaticsSwirl = 0f,
-                palette = 4,
-                hueRange = 0.6f,
-            ),
+            SceneParams.DEFAULT
+                .with("cymaticsGeometry", 1)
+                .with("cymaticsFundamental", 82f)
+                .with("cymaticsModes", 4)
+                .with("cymaticsScale", 1.15f)
+                .with("cymaticsSwirl", 0f)
+                .with("palette", 4)
+                .with("hueRange", 0.6f),
             presets[2].params,
         )
         assertEquals(0.45f, presets[2].decay, 0f)

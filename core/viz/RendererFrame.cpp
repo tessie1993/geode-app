@@ -399,7 +399,7 @@ void Renderer::composite(const SceneParams& p, float progress, GLuint targetFbo,
     glDisable(GL_BLEND);
     CompositePass::Inputs& in = compositeInputs_;
     in.texA = fboA_.tex();
-    in.texB = fboB_.tex();
+    in.texB = physicsOutgoingTex_ != 0 ? physicsOutgoingTex_ : fboB_.tex();
     if (liquidTex != 0) in.texA = liquidTex;
     // The smear bends the finished picture by the flow field; Liquid mode rides that field itself.
     fluid::FlowField* ff = overlays_.flow();
@@ -546,6 +546,7 @@ void Renderer::render(double timeSeconds, GLuint targetFbo) {
     drawSceneTarget(*scene, p, dt);
     GLuint shown = trails ? drawTrails(p, dt, wallDt) : drawLiquid(*scene, p, dt);
     shown = drawDive(*scene, p, dt, wallDt, shown);
+    shown = drawPhysics(p, dt, shown);
     composite(p, progress, targetFbo, shown);
     drawEdgeGlow(targetFbo, timeSeconds, dt);
     if (compositeHook_) compositeHook_(targetFbo, width_, height_);
@@ -747,6 +748,26 @@ GLuint Renderer::drawDive(const Scene& scene, const SceneParams& p, float dt, fl
                       plain ? renderHeight_ : liquidPass_.height(), renderWidth_, renderHeight_, divePhase_,
                       diveMix_ * diveMix_ * (3.0f - 2.0f * diveMix_), look, quadVao_);
     return dived != 0 ? dived : shown;
+}
+
+GLuint Renderer::drawPhysics(const SceneParams& p, float dt, GLuint shown) {
+    physicsOutgoingTex_ = 0;
+    physics::PhysicsLayers::Frame f;
+    f.styleTex = shown != 0 ? shown : fboA_.tex();
+    f.width = renderWidth_;
+    f.height = renderHeight_;
+    // The music's clock, as every simulation steps: silence holds the layers, an export steps exactly 1/fps.
+    f.dt = dt;
+    f.time = timeSeconds_;
+    f.zeroTex = compositePass_.zeroTex();
+    f.quadVao = quadVao_;
+    f.blocking = blockingBuilds_.load(std::memory_order_relaxed);
+    // An export's tier is always Full (ThermalGovernor::tier), so its plan never follows the phone's heat.
+    const GLuint layered = physicsLayers_.run(physics::planFor(p, thermal_.tier()), f);
+    if (physicsLayers_.building()) thermal_.noteSettling();
+    if (layered == f.styleTex) return shown;
+    if (outgoingScene_) physicsOutgoingTex_ = physicsLayers_.over(fboB_.tex());
+    return layered;
 }
 
 GLuint Renderer::drawLiquid(Scene& scene, const SceneParams& p, float dt) {

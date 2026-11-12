@@ -190,17 +190,18 @@ vec3 skyAt(vec3 d, float hats) {
 
 void main() {
     vec2 uv = view();
+    nebSetup();
     gT = nebTime();
     float e = nebEnergy();
     float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
     float bass = clamp(SND_BASS_PRESENCE * uSoundDrive, 0.0, 1.3) * e;
     float hats = clamp(SND_HAT_ENV * uSoundDrive, 0.0, 1.0);
     gOct = nebOctaves(3.0);
-    gKey = nebKeyShift(0.12) + 0.12 * (uKnob[3] - 0.5);
-    gTex = 0.27 * (0.8 + 0.4 * uKnob[1]);
-    gSpin = 0.7 + 0.6 * uKnob[2];
-    gRout = HZ_ROUT * (0.85 + 0.3 * uKnob[5]);
-    float feed = (0.45 + 0.6 * clamp(swell * e, 0.0, 1.6)) * (0.7 + 0.6 * uKnob[4]);
+    gKey = nebKeyShift(0.12) + 0.12 * (gNebIn.tone - 0.5);
+    gTex = 0.27 * (0.8 + 0.4 * gNebIn.texture);
+    gSpin = 0.7 + 0.6 * gNebIn.flow;
+    gRout = HZ_ROUT * (0.85 + 0.3 * gNebIn.space);
+    float feed = (0.45 + 0.6 * clamp(swell * e, 0.0, 1.6)) * (0.7 + 0.6 * gNebIn.build);
 
     vec3 ro;
     vec3 rd;
@@ -268,7 +269,7 @@ void main() {
     // The photon ring: rays that skimmed the photon sphere.
     float ringW = 0.05 + 0.04 * bass;
     float ring = exp(-pow((minR - HZ_PHOTON * 1.04) / ringW, 2.0));
-    col += trans * nebEmission(0.08 + gKey, 0.8) * ring * (0.35 + 0.2 * bass) * feed * (0.5 + uKnob[0]);
+    col += trans * nebEmission(0.08 + gKey, 0.8) * ring * (0.35 + 0.2 * bass) * feed * (0.5 + gNebIn.pulse);
 
     if (fate == 1) col += trans * skyAt(normalize(v), hats);
 

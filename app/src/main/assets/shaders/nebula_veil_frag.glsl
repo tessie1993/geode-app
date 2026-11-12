@@ -137,6 +137,7 @@ vec3 vvWarp(vec3 p, float t) {
 
 void main() {
     vec2 uv = view();
+    nebSetup();
     gT = nebTime();
     float flow = nebFlow();
     float e = nebEnergy();
@@ -148,12 +149,12 @@ void main() {
     float oct = nebVolOctaves(3.0);
     float key = nebKeyShift(0.1);
 
-    float kPulse = clamp(1.0 + 2.0 * (uKnob[0] - 0.5), 0.0, 2.0);
-    float kTex = clamp(1.0 + 1.2 * (uKnob[1] - 0.5), 0.4, 1.6);
-    gFold = clamp(1.0 + 1.6 * (uKnob[2] - 0.5), 0.2, 1.8);
-    float tone = 0.2 * (uKnob[3] - 0.5);
-    float kBuild = clamp(1.0 + 2.0 * (uKnob[4] - 0.5), 0.0, 2.0);
-    gR0 = length(VV_C) + 2.4 + 2.0 * (uKnob[5] - 0.5);
+    float kPulse = clamp(1.0 + 2.0 * (gNebIn.pulse - 0.5), 0.0, 2.0);
+    float kTex = clamp(1.0 + 1.2 * (gNebIn.texture - 0.5), 0.4, 1.6);
+    gFold = clamp(1.0 + 1.6 * (gNebIn.flow - 0.5), 0.2, 1.8);
+    float tone = 0.2 * (gNebIn.tone - 0.5);
+    float kBuild = clamp(1.0 + 2.0 * (gNebIn.build - 0.5), 0.0, 2.0);
+    gR0 = length(VV_C) + 2.4 + 2.0 * (gNebIn.space - 0.5);
 
     vec3 ro;
     vec3 rd;

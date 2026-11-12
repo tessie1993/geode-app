@@ -71,8 +71,9 @@
 // is uIntensity as a gain on in-shader audio (nebEnergy); Colour is pal();
 // Space is view() for the flat styles and the rig for the marched ones.
 //
-// The style knobs are read in each style as offsets from 0.5 (nebKnob in the
-// newer ones), so off is the tuned look. Pillars, Web, Flight and Storm give
+// The style knobs reach each style through the normalization shell (nebIn),
+// read as offsets from 0.5 (nebKnob in the newer ones), so off is the tuned
+// look. Pillars, Web, Flight and Storm give
 // them lib_flame's, lib_opal's and lib_hollow's roles: k0 PULSE the emission,
 // k1 TEXTURE the width of a column, a band or a filament, k2 FLOW added to
 // Warp's bend (gNebFlow, which nebChaos reads), k3 TONE
@@ -160,6 +161,106 @@ float nebEnergy() {
     return clamp(uIntensity, 0.0, 2.0);
 }
 
+// ---- the normalization shell ---------------------------------------------------
+//
+// Every input a Nebula style is shaped by is read once, normalized, in nebIn()
+// (NebIn): from the params and the six knobs and NEVER from the sound frame, so
+// what moves on the music is the reaction matrix, which moves those params and
+// knobs (the owner's rule: no hardcoded reactions). The sound each style
+// already heard stays where it was, on top of the mapped values.
+//
+//   input    driver      0..1, rest
+//   pulse    k0 PULSE    0.5   the emission, a beat's knot or ring
+//   texture  k1 TEXTURE  0.5   a column's, band's, sheet's or filament's width, grain
+//   flow     k2 FLOW     0.5   added to Warp's share of Chaos (gNebFlow), a spread, a fold
+//   tone     k3 TONE     0.5   the palette position
+//   build    k4 BUILD    0.5   the glow, the heat, the feed
+//   space    k5 SPACE    0.5   the reach, an orbit's radius, a body's size
+//   warp     Warp        0     Chaos (nebChaos; read clamped 0..2, as 0..1)
+//   chaos    Turbulence  0     Chaos (the same)
+//   detail   Morph       0     octaves (nebOctaves)
+//   formula  uFormula    0     which of a style's formulas draws (NEB_FORMULA)
+//
+// Each style calls nebSetup() once in main() and maps every variable it is
+// shaped by from those inputs in one block; at rest each is exactly the
+// constant it was, so the look the family was tuned at is unchanged.
+//
+// THE FIELD. A volume style defines its medium as `NebHit nebMap(vec3 p, float
+// oct)` (oct: the octave budget of this sample; the light taps ask for fewer),
+// with `struct NebHit { float dens; ... }` holding the density the march
+// integrates and whatever else the style reads there, and includes
+// lib_nebula_field after it: nebField(p, oct) there is the one entry its march
+// and its light taps read the medium through. It writes no global. NEB_GROW is
+// where lib_grow applies once that branch merges (it carries the octave count,
+// which a volume's light tap lowers, so its hook takes three arguments).
+
+/**
+ * MERGE HOOK, lib_grow (Spawn, Fractal, Front and Back layer): F is the style's
+ * plain medium; at the merge this line becomes the grown field. Today it is F itself.
+ */
+#define NEB_GROW(p, oct, F) F(p, oct)
+/** MERGE HOOK, uFormula: 0.0 today (each style's first formula); uFormula at the merge. */
+#define NEB_FORMULA 0.0
+
+/** The normalized inputs (see above): knobs 0..1 resting at 0.5, amounts 0..1 resting at 0. */
+struct NebIn {
+    float pulse;
+    float texture;
+    float flow;
+    float tone;
+    float build;
+    float space;
+    float warp;
+    float chaos;
+    float detail;
+    float formula;
+};
+
+/** Every input from the params and the knobs, never from the sound frame. */
+NebIn nebIn() {
+    NebIn n;
+    n.pulse = clamp(uKnob[0], 0.0, 1.0);
+    n.texture = clamp(uKnob[1], 0.0, 1.0);
+    n.flow = clamp(uKnob[2], 0.0, 1.0);
+    n.tone = clamp(uKnob[3], 0.0, 1.0);
+    n.build = clamp(uKnob[4], 0.0, 1.0);
+    n.space = clamp(uKnob[5], 0.0, 1.0);
+    n.warp = 0.5 * clamp(uWarp, 0.0, 2.0);
+    n.chaos = 0.5 * clamp(uTurbulence, 0.0, 2.0);
+    n.detail = clamp(uMorph, 0.0, 1.0);
+    n.formula = NEB_FORMULA;
+    return n;
+}
+
+/** This frame's inputs (nebSetup). */
+NebIn gNebIn;
+
+/** Reads the inputs once, first thing in main(); the style maps its variables from what it returns. */
+NebIn nebSetup() {
+    gNebIn = nebIn();
+    return gNebIn;
+}
+
+/** Knob input i (0 PULSE .. 5 SPACE), 0..1, for a style that reads its knobs by index. */
+float nebKnobIn(int i) {
+    if (i == 0) return gNebIn.pulse;
+    if (i == 1) return gNebIn.texture;
+    if (i == 2) return gNebIn.flow;
+    if (i == 3) return gNebIn.tone;
+    if (i == 4) return gNebIn.build;
+    return gNebIn.space;
+}
+
+/** A knob input on its range: `rest` exactly at n = 0.5, rest * (1 -+ span) at n = 0 and 1. */
+float nebAt(float n, float rest, float span) {
+    return rest * (1.0 + span * (2.0 * n - 1.0));
+}
+
+/** A knob input as an offset: exactly 0 at n = 0.5, -+ span / 2 at n = 0 and 1. */
+float nebShift(float n, float span) {
+    return span * (n - 0.5);
+}
+
 /**
  * k2 FLOW's offset, set by a style that gives the knobs lib_flame's roles (its
  * nebKnob(2)); 0 in every other style, where nebChaos is what it always was.
@@ -168,7 +269,7 @@ float gNebFlow = 0.0;
 
 /** Chaos as one amount, 0 at the defaults: FLOW adds to Warp's share, never below none. */
 float nebChaos() {
-    return 0.5 * max(clamp(uWarp, 0.0, 2.0) + 0.5 * gNebFlow, 0.0) + 0.35 * clamp(uTurbulence, 0.0, 2.0);
+    return 0.5 * max(2.0 * gNebIn.warp + 0.5 * gNebFlow, 0.0) + 0.35 * (2.0 * gNebIn.chaos);
 }
 
 /**
@@ -178,7 +279,7 @@ float nebChaos() {
  * once in main().
  */
 float nebOctaves(float full) {
-    float n = full + 2.0 * clamp(uMorph, 0.0, 1.0);
+    float n = full + 2.0 * gNebIn.detail;
     n -= uSteps < 80.0 ? 1.0 : 0.0;
     return clamp(n, 1.0, float(NEB_MAX_OCT));
 }
@@ -200,7 +301,7 @@ float nebKeyShift(float amount) {
 
 /** Style knob i as its offset from 0.5: exactly 0 while Note & key reactions are off. */
 float nebKnob(int i) {
-    return clamp(uKnob[i], 0.0, 1.0) - 0.5;
+    return nebKnobIn(i) - 0.5;
 }
 
 // ---- noise ---------------------------------------------------------------------

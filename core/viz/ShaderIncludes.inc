@@ -66,6 +66,7 @@
 "lib_terra_field",
 "lib_truchet_field",
 "lib_glass_field",
+"lib_nebula_field",
 // The neon set (five loose styles): normalized shape controls, the palette pull, shared sound drives.
 "lib_neon",
 // Morph World's space: the World Genome's operator chain and its three render modes (core/viz/world).

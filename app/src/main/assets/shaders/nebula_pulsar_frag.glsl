@@ -99,6 +99,7 @@ float torusShape(float c, float s) {
 
 void main() {
     vec2 uv = view();
+    nebSetup();
     gT = nebTime();
     gFlow = nebFlow();
     float e = nebEnergy();
@@ -107,10 +108,10 @@ void main() {
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
     gOct = nebVolOctaves(3.0);
-    float key = nebKeyShift(0.1) + 0.12 * (uKnob[3] - 0.5);
-    gTex = 0.8 + 0.4 * uKnob[1];
-    gReach = 1.7 * (0.8 + 0.4 * uKnob[5]);
-    float build = 0.6 + 0.8 * uKnob[4];
+    float key = nebKeyShift(0.1) + 0.12 * (gNebIn.tone - 0.5);
+    gTex = 0.8 + 0.4 * gNebIn.texture;
+    gReach = 1.7 * (0.8 + 0.4 * gNebIn.space);
+    float build = 0.6 + 0.8 * gNebIn.build;
 
     // The spin axis: leaning off +y, precessing slowly about it.
     float tilt = 0.42 + 0.05 * sin(gT * 0.09);
@@ -120,8 +121,8 @@ void main() {
     gAcrossV = cross(gAxis, gAcrossU);
 
     // The beat's knot, racing out along both jets as its envelope falls.
-    gPulsePos = 0.06 + gReach * (0.55 + 0.5 * uKnob[2]) * (1.0 - beat);
-    gPulse = sqrt(beat) * e * (0.5 + uKnob[0]);
+    gPulsePos = 0.06 + gReach * (0.55 + 0.5 * gNebIn.flow) * (1.0 - beat);
+    gPulse = sqrt(beat) * e * (0.5 + gNebIn.pulse);
     gTorusW = 0.075 + 0.04 * bass;
 
     vec3 ro;

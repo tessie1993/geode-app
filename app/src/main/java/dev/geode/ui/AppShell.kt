@@ -874,18 +874,14 @@ private fun NavRail(
     }
 }
 
-/** The accent a palette gives: the middle of its hue span, bright enough to read on black. */
+/** The accent a palette gives, from native (`geode_colour_palette_accent`); [VisualAccent.Fallback] when it gives no colour. */
 private fun paletteAccent(
     base: Float,
     range: Float,
 ): Color {
-    val hue = ((base + range / 2f) % 1f + 1f) % 1f
-    return Color.hsl(hue * DEGREES, ACCENT_SATURATION, ACCENT_LIGHTNESS)
+    val rgb = GeodeNative.colourPaletteAccent(base, range)
+    return if (rgb < 0) VisualAccent.Fallback else Color(0xFF000000.toInt() or rgb)
 }
-
-private const val DEGREES = 360f
-private const val ACCENT_SATURATION = 0.85f
-private const val ACCENT_LIGHTNESS = 0.6f
 
 /** Bottom padding whose size is read when the layout runs, so a value that changes every frame never recomposes. */
 private fun Modifier.dockBottomPadding(bottom: () -> Dp): Modifier =

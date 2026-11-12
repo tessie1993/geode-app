@@ -17,6 +17,12 @@ object GeodeNative {
         channels: Int,
     ): Boolean
 
+    /** Whether the chain runs a format at all: [encoding] (`C.ENCODING_PCM_*`) 16-bit or float, 1 or 2 channels. */
+    external fun dspRuns(
+        encoding: Int,
+        channels: Int,
+    ): Boolean
+
     /** Makes the staged chain live, then clears its filter state. */
     external fun dspFlush(handle: Long)
 
@@ -162,6 +168,12 @@ object GeodeNative {
         step: Float,
     ): Float
 
+    /** What a track that will not play leads to (audio/dsp/PlaybackControls): 0 skip, 1 stop at the end, 2 stop after 3 failures. */
+    external fun playbackErrorAction(
+        consecutiveFailures: Int,
+        hasNext: Boolean,
+    ): Int
+
     /**
      * Whether the platform takes the next AudioTrack bit-perfect (#353); from the next [dspFlush] the chain
      * passes every block through untouched until a flush with it off.
@@ -260,6 +272,16 @@ object GeodeNative {
         presets: Array<ByteArray?>,
         query: ByteArray,
     ): IntArray
+
+    /**
+     * A playlist file the user picked (core/library/Playlist, `geode_playlist_parse`): its name and bytes in,
+     * the text out. Record 0 is `O`, name or `E`, reason; then one record per entry: location, title, duration
+     * in ms (-1 unknown) and the file name inside the location. Fields are split by U+001F, records by U+001E.
+     */
+    external fun playlistParse(
+        fileName: ByteArray,
+        data: ByteArray,
+    ): ByteArray
 
     /** [assets] is the app's `android.content.res.AssetManager`; typed as Any because this module has no Android SDK. */
     external fun vizCreate(
@@ -993,8 +1015,26 @@ object GeodeNative {
     /** The mean of an Android bitmap's ARGB pixels, alpha ignored: the eyedropper (`geode_colour_average_argb`). Pure. */
     external fun colourAverageArgb(argb: IntArray): Int
 
+    /** The shell's accent for a palette of hue [base] and [range]: a packed 0xRRGGBB (`geode_colour_palette_accent`). Pure. */
+    external fun colourPaletteAccent(
+        base: Float,
+        range: Float,
+    ): Int
+
     /** A cover's ARGB pixels as [base hue, span, confidence], or null when none is coloured (`geode_art_palette_extract`). Pure. */
     external fun artPaletteExtract(argb: IntArray): FloatArray?
+
+    /**
+     * The widget glow's three lights as 6 floats each: x and y (shares of the bitmap), radius (share of its width), hue in
+     * degrees, saturation, value (`geode_widget_glow`). [styleHash] is the style id's `hashCode`. Pure.
+     */
+    external fun widgetGlow(
+        artHue: Float,
+        artSpan: Float,
+        hasStyle: Boolean,
+        styleHash: Int,
+        tick: Int,
+    ): FloatArray
 
     /** Colour map [index]'s name (`paletteLut` [index]), "" past the last (`geode_palette_colour_map_name`). Pure. */
     external fun paletteColourMapName(index: Int): String
@@ -1037,6 +1077,31 @@ object GeodeNative {
         current: Float,
         degrees: Float,
     ): Float
+
+    /** Rewrites [points] (x, y) px pairs of [xy] in a [width] x [height] view as y-up NDC, in place (core/viz/TouchGesture). */
+    external fun touchToNdc(
+        xy: FloatArray,
+        points: Int,
+        width: Float,
+        height: Float,
+    )
+
+    /**
+     * Two fingers at [start], [last] and [now], each (ax, ay, bx, by) px, into [out] (6 floats): pan x, pan y and
+     * zoom since start, twist in radians since start, and the step since last as a scale factor and degrees.
+     */
+    external fun touchPair(
+        start: FloatArray,
+        last: FloatArray,
+        now: FloatArray,
+        out: FloatArray,
+    )
+
+    /** Touch play's stir: [step]'s two NDC points into [xy] (4 floats) and the ms to hold them; 0 once it is over. */
+    external fun touchPulse(
+        step: Int,
+        xy: FloatArray,
+    ): Int
 
     /**
      * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
@@ -1759,6 +1824,30 @@ object GeodeNative {
         nowMs: Long,
         heardAtMs: Long,
     ): Boolean
+
+    /** Fields of each format [captureFormats] returns, CAPTURE_FORMAT_INTS ints a format. */
+    const val CAPTURE_FORMAT_RATE = 0
+    const val CAPTURE_FORMAT_CHANNELS = 1
+    const val CAPTURE_FORMAT_FLOAT = 2
+    const val CAPTURE_FORMAT_INTS = 3
+
+    /**
+     * The formats a capture tries, first to try first (`core/audio/ingest/CapturePlan`): [deviceRateHz]
+     * (0 = unknown) then 48, 44.1 and 22.05 kHz; stereo before mono when [stereo]; float before 16-bit.
+     */
+    external fun captureFormats(
+        deviceRateHz: Int,
+        stereo: Boolean,
+    ): IntArray
+
+    /** The AudioRecord buffer for a format whose minimum is [minBufferBytes]; 0 = skip the format. */
+    external fun captureBufferBytes(
+        minBufferBytes: Int,
+        channels: Int,
+    ): Int
+
+    /** The frames one capture read takes. */
+    external fun captureReadFrames(): Int
 
     // What the player tells the sound engines that the tap cannot hear (core/sound/PlayerSignals).
 
@@ -2493,6 +2582,12 @@ object GeodeNative {
     external fun playoutRingRunway(): Int
 
     // The playback output (core/audio/output): an Oboe stream under Media3's sink, where the AudioTrack stands.
+
+    /** A stream failed for good at [nowMs] (a monotonic clock); native then closes the output for a minute. */
+    external fun audioOutNoteFailed(nowMs: Long)
+
+    /** Whether the output may be tried at [nowMs]: false for a minute after [audioOutNoteFailed]. */
+    external fun audioOutMayOpen(nowMs: Long): Boolean
 
     /** Whether the output plays [encoding] (`C.ENCODING_PCM_16BIT` or `_FLOAT`) at [channels] and [sampleRateHz]. */
     external fun audioOutSupports(

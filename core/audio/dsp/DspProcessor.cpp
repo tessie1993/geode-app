@@ -7,6 +7,10 @@
 
 namespace geode::audio {
 
+bool DspProcessor::runs(int encoding, int channels) {
+    return (encoding == kEncodingPcm16 || encoding == kEncodingFloat) && channels >= 1 && channels <= Equalizer::kMaxChannels;
+}
+
 bool DspProcessor::configure(int sampleRate, int channels) {
     const bool runs = sampleRate > 0 && channels >= 1 && channels <= Equalizer::kMaxChannels;
     DspChain* target = nullptr;

@@ -178,6 +178,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Platform FX and the media chain live here.
 - `TapRenderersFactory`'s provider hands the sink `OboeAudioOutput` (Media3's `AudioOutput` over the native Oboe output, one native call per method) when Settings › Playback › Output and more has it on and the config is plain 16-bit or float PCM, mono or stereo, not offload, tunneling, bit-perfect or output-side speed.
 - Otherwise, or when the stream will not open or fails, the sink uses the AudioTrack.
+- `OboeAudioOutput` keeps the channel-mask check (`MONO` or `STEREO` exactly): native sees only a channel count, which would also take two channels that are not a stereo pair.
 - `AiffExtractor` plays AIFF through Media3 and only moves bytes; the header, the times and the seek offsets are native (`core/audio/ingest/AiffHeaderScan`, `geode_aiff_*`).
 - `AudioFxPresets` names the equalizer curves native lists (`core/audio/dsp/EqPresets`, `geode_dsp_eq_preset_*`).
 - `PlayoutSink` wraps that sink and reports its buffers, position, play, pause, flush and speed to the native playout clock.
@@ -335,6 +336,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Glance now-playing widget in black glass (`SizeMode.Exact`, four layouts from 2x1 to 4x3+).
 - Progress moves on a slow tick while playing.
 - The style on screen shows as a picture (`WidgetVisual`: its thumbnail, else a glow from the cover's palette).
+- The glow's light positions and hues are native (`core/viz/WidgetGlow`, `geode_widget_glow`); `WidgetVisual` only paints the gradients.
 - Style buttons go to the session through `WidgetStyles` (it collects `steps`, calls `publish`); with no session they open the app.
 - Play/pause is Media3's button action, the tile's rule: nothing loaded opens the app.
 

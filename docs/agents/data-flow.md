@@ -6,7 +6,7 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 
 - ExoPlayer runs `MvzAudioProcessorChain` on its playback thread.
 - The `PcmTap` there comes first, before any DSP.
-- `NativeDspProcessor` sits after the tap and steps aside (inactive, not throwing) for formats its chain cannot run, such as 5.1 files.
+- `NativeDspProcessor` sits after the tap and steps aside (inactive, not throwing) for formats its chain cannot run, such as 5.1 files; native decides which (`geode_dsp_runs`).
 - Mic and capture use one `AudioCapturePump` worker thread each.
 - The tap, or a capture of another app in its place, writes one native ring: `PlaybackSession.sampleRing`, a `SampleRing` handle on `core/audio/ingest/PcmRing`; stereo, what every sound engine hears.
 - Each block is written with its own rate and converted to float inside the ring: Kotlin loops over no sample.

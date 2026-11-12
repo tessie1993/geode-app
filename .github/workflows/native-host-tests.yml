@@ -206,6 +206,9 @@ jobs:
           # A loaded .milk counts as shown, and is remembered for the next start, only once it has drawn clean frames.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/milk_shown_test.cpp -o milk_shown_test
           ./milk_shown_test
+          # The preset every surface restores: the bundled one on a first launch, only a reported load saved, a gone or deleted file skipped; the starter pack copied once per version, never over a file.
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -pthread -Icore core/tests/milk_memory_test.cpp core/viz/MilkMemory.cpp core/viz/MilkStarterPack.cpp -o milk_memory_test
+          ./milk_memory_test
           # A style change's transition: "random" draws one per change, never twice running; Auto's change fades for MilkDrop's longer time, read once per renderer.
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/transition_choice_test.cpp -o transition_choice_test
           ./transition_choice_test

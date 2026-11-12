@@ -1,6 +1,7 @@
 package dev.geode.render
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.opengl.GLSurfaceView
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.bridge.GeodeNative
@@ -10,6 +11,7 @@ import dev.geode.render.scene.SceneIds
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.io.File
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
@@ -77,13 +79,17 @@ class VisualizerRenderer(
     @Volatile
     var soundInput: () -> SampleRing? = { null }
 
-    // Outlives nativeViz's handle, which VisualizerView destroys on every detach, and this renderer
-    // too (shared by the process, saved across restarts); each new handle starts on the preset it
-    // remembers rather than on projectM's idle preset.
-    private val milkPreset = MilkPresetMemory.shared(context)
+    // The preset memory outlives nativeViz's handle, which VisualizerView destroys on every detach, and
+    // this renderer too (native, one per process, saved here across restarts); each new handle starts on
+    // the preset it remembers rather than on projectM's idle preset.
+    private val appContext = context.applicationContext
+    private val milkPrefs = appContext.getSharedPreferences(MILK_PREFS_FILE, Context.MODE_PRIVATE).also { seedMilkMemory(it) }
+
+    private fun milkRestorePath(): String? = GeodeNative.milkMemoryRestorePath(appContext.assets, File(appContext.filesDir, "milk").path)
+
     val nativeViz =
         NativeViz(context).also { viz ->
-            viz.onCreated = { milkPreset.restorePath?.let(viz::loadMilkPreset) }
+            viz.onCreated = { milkRestorePath()?.let(viz::loadMilkPreset) }
             // The defaults above, so a handle made before the host sets anything draws them.
             viz.setLook(LookSnapshot())
             viz.setQuality(PerformanceSettings.HIGH)
@@ -139,13 +145,13 @@ class VisualizerRenderer(
     }
 
     /**
-     * When no handle exists yet, [NativeViz.create] first queues [MilkPresetMemory.restorePath]
+     * When no handle exists yet, [NativeViz.create] first queues the remembered preset
      * through `onCreated`, and the load below then queues [path]. Native keeps one pending request
      * (`Renderer::loadMilkPreset`) and only the GL frame consumes it, so the second replaces the
      * first: the scene never loads the older preset, nor this one twice.
      */
     fun loadMilkPreset(path: String) {
-        milkPreset.request(path)
+        GeodeNative.milkMemoryRequest(path)
         nativeViz.create()
         nativeViz.loadMilkPreset(path)
     }
@@ -229,7 +235,7 @@ class VisualizerRenderer(
         if (events and GeodeNative.FRAME_ERROR_CHANGED != 0) nativeViz.pollError(onShaderError)
         if (events and GeodeNative.FRAME_MILK_LOADED != 0) {
             nativeViz.takeMilkPresetLoaded()?.let { path ->
-                milkPreset.loaded(path)
+                if (GeodeNative.milkMemoryLoaded(path)) saveMilkPath(milkPrefs, path)
                 onMilkPresetLoaded(path)
             }
         }
@@ -239,11 +245,30 @@ class VisualizerRenderer(
 
     fun exportSceneFactory(sceneId: String): SceneFactory {
         val id = sceneId
-        val preset = milkPreset.restorePath
+        val preset = milkRestorePath()
         return object : SceneFactory {
             override val sceneId: String = id
 
             override val milkPresetPath: String? = preset
+        }
+    }
+
+    companion object {
+        /** `GeodePrefsFiles.VIZ`, and the key the shown preset has always been saved under, so installs keep it. */
+        const val MILK_PREFS_FILE = "geode-viz"
+        const val MILK_PATH_KEY = "milk_path"
+
+        /** Hands native's preset memory the saved path; only a process's first seed counts. */
+        fun seedMilkMemory(prefs: SharedPreferences) = GeodeNative.milkMemorySeed(prefs.getString(MILK_PATH_KEY, null))
+
+        /** Saves the shown preset, or removes it when [path] is null. */
+        fun saveMilkPath(
+            prefs: SharedPreferences,
+            path: String?,
+        ) {
+            val edit = prefs.edit()
+            if (path == null) edit.remove(MILK_PATH_KEY) else edit.putString(MILK_PATH_KEY, path)
+            edit.apply()
         }
     }
 }

@@ -271,6 +271,39 @@ object GeodeNative {
 
     external fun vizTakeMilkPresetLoaded(handle: Long): String?
 
+    // The MilkDrop preset every surface restores (core/viz/MilkMemory), one per process. The shell seeds it
+    // with the path it saved and saves again when [milkMemoryLoaded] or [milkMemoryForget] says so.
+
+    /** The saved path, null for none; only a process's first seed counts. */
+    external fun milkMemorySeed(saved: String?)
+
+    /** The UI asked for [path]; any thread. */
+    external fun milkMemoryRequest(path: String)
+
+    /** A renderer reported [path] shown; true when it is new and must be saved. */
+    external fun milkMemoryLoaded(path: String): Boolean
+
+    /** [paths] were deleted; true when the saved path must be removed. */
+    external fun milkMemoryForget(paths: Array<String>): Boolean
+
+    /** The last preset shown, still on disk; null when none has been. */
+    external fun milkMemoryLastShown(): String?
+
+    /**
+     * What a new renderer starts on; null only when not even a bundled preset is there. With nothing shown or
+     * asked for, the starter pack goes into [milkDir] first. [assets] is the app's `AssetManager`, typed as Any like [vizCreate]'s.
+     */
+    external fun milkMemoryRestorePath(
+        assets: Any,
+        milkDir: String,
+    ): String?
+
+    /** Copies the bundled presets into [milkDir] once per pack version, never over a file; how many it wrote. */
+    external fun milkStarterInstall(
+        assets: Any,
+        milkDir: String,
+    ): Int
+
     external fun vizTakeDirectorStyleMoments(handle: Long): Int
 
     external fun vizWriteAudio(

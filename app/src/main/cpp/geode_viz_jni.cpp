@@ -240,11 +240,10 @@ Java_dev_geode_engine_bridge_GeodeNative_vizEndPreRoll(JNIEnv*, jobject, jlong h
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetSoundTuning(JNIEnv* env, jobject, jlong handle, jfloatArray tuning) {
-    if (!tuning || env->GetArrayLength(tuning) < GEODE_SOUND_TUNING_FLOATS) return;
-    GeodeSoundTuning t{};
-    env->GetFloatArrayRegion(tuning, 0, GEODE_SOUND_TUNING_FLOATS, reinterpret_cast<jfloat*>(&t));
-    geode_viz_set_sound_tuning(vizOf(handle), &t);
+Java_dev_geode_engine_bridge_GeodeNative_vizSetSoundTuning(JNIEnv* env, jobject, jlong handle, jfloatArray saved) {
+    std::vector<float> in(saved ? static_cast<size_t>(env->GetArrayLength(saved)) : 0);
+    if (!in.empty()) env->GetFloatArrayRegion(saved, 0, static_cast<jsize>(in.size()), in.data());
+    geode_viz_set_sound_tuning(vizOf(handle), saved ? in.data() : nullptr, static_cast<int>(in.size()));
 }
 
 JNIEXPORT jstring JNICALL
@@ -364,12 +363,6 @@ JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_macroBankControls(JNIEnv* env, jobject, jstring bank) {
     Utf8Chars text(env, bank);
     return env->NewStringUTF(geode_macro_bank_controls(text.get()));
-}
-
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_macroBankRoll(JNIEnv* env, jobject, jstring bank, jint knobId, jlong seed) {
-    Utf8Chars text(env, bank);
-    return env->NewStringUTF(geode_macro_bank_roll(text.get(), knobId, static_cast<long long>(seed)));
 }
 
 JNIEXPORT jstring JNICALL
@@ -662,11 +655,6 @@ Java_dev_geode_engine_bridge_GeodeNative_wallpaperWindow(JNIEnv* env, jobject, j
     float window[4] = {};
     geode_wallpaper_window(surfaceW, surfaceH, displayW, displayH, raw, static_cast<int>(count), window);
     env->SetFloatArrayRegion(out, 0, 4, reinterpret_cast<const jfloat*>(window));
-}
-
-JNIEXPORT jfloat JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_wallpaperFps(JNIEnv*, jobject, jfloat targetFps, jfloat capFps) {
-    return geode_wallpaper_fps(targetFps, capFps);
 }
 
 JNIEXPORT jboolean JNICALL
@@ -1041,11 +1029,6 @@ Java_dev_geode_engine_bridge_GeodeNative_randomizeAllRoll(JNIEnv* env, jobject, 
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_configSchemaText(JNIEnv* env, jobject) {
     return env->NewStringUTF(geode_config_schema_text());
-}
-
-JNIEXPORT jstring JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_paramsRollKeys(JNIEnv* env, jobject) {
-    return env->NewStringUTF(geode_params_roll_keys());
 }
 
 JNIEXPORT jboolean JNICALL
@@ -1634,10 +1617,6 @@ JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_recorderStopped(
 JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_recorderRecordedMs(JNIEnv*, jobject, jlong handle,
                                                                                      jlong nowNs) {
     return geode_recorder_recorded_ms(reinterpret_cast<const geode_recorder*>(handle), nowNs);
-}
-
-JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_recorderFramesDropped(JNIEnv*, jobject, jlong handle) {
-    return geode_recorder_frames_dropped(reinterpret_cast<const geode_recorder*>(handle));
 }
 
 JNIEXPORT jlong JNICALL Java_dev_geode_engine_bridge_GeodeNative_recorderLimitMs(JNIEnv*, jobject, jlong handle) {

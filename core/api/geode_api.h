@@ -77,7 +77,7 @@ GEODE_API void        geode_layer_set(const char* scene_id, float mix, int blend
 /* The renderer's own sound engine: interleaved PCM in play order, every sample once, written on the render
  * thread before geode_viz_render; the next render steps it with that frame's dt. */
 GEODE_API void        geode_viz_write_audio(geode_viz*, const float* interleaved, int frames, int channels, int sample_rate);
-GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const GeodeSoundTuning*);
+GEODE_API void        geode_viz_set_sound_tuning(geode_viz*, const float* saved, int count);  /* a saved tuning, resolved as geode_sound_tuning_resolve */
 /* Customize › Advanced › Shader code (core/viz/ShaderOverrides): the user's fragment source for a style, process-wide
  * like geode_director_set, so live, export, the wallpaper and the dream all draw it. A null or empty source clears it
  * (the built-in style again). Every renderer applies it at scene build and to its resident scenes on the next frame. */
@@ -194,16 +194,14 @@ GEODE_API void        geode_viz_set_ui_blur_region(geode_viz*, float left, float
  * frame. Off by default; an offscreen (export) renderer never draws it. */
 #define GEODE_EDGE_GLOW_FLOATS 5
 GEODE_API void        geode_viz_set_edge_glow(geode_viz*, const float* opts, int count);
-/* The live wallpaper's window and frame rate (core/viz/frame/WallpaperWindow.hpp), pure and stateless.
+/* The live wallpaper's window (core/viz/frame/WallpaperWindow.hpp), pure and stateless.
  * geode_wallpaper_window: the part of a surface_w x surface_h surface on a display_w x display_h screen,
  * from the raw WallpaperService.Engine.onOffsetsChanged values in its order (xOffset, yOffset, xOffsetStep,
  * yOffsetStep, xPixels, yPixels; fewer = unknown). Writes left, top, width, height (surface pixels, y down,
- * as geode_viz_set_edge_glow takes them) to out[4]. geode_wallpaper_fps: the wallpaper's target fps lowered
- * to the Performance cap (<= 0 or NaN = no cap); never 0 or NaN. Any thread. */
+ * as geode_viz_set_edge_glow takes them) to out[4]. Any thread. */
 #define GEODE_WALLPAPER_OFFSETS 6
 GEODE_API void        geode_wallpaper_window(float surface_w, float surface_h, float display_w, float display_h,
                                              const float* offsets, int count, float* out);
-GEODE_API float       geode_wallpaper_fps(float target_fps, float cap_fps);
 /* An export's engine settings (signal::SettingsLatch, #350), once at prepare: from now on this renderer never
  * reads geode_macro_bank_set, geode_note_response_set, geode_hand_set or geode_director_set again, so live
  * edits, the player's next track and its free taste never reach the render. The macro bank, the Note & key switch
@@ -453,9 +451,6 @@ GEODE_API const char* geode_catalogue_presets_text(void);
 GEODE_API int         geode_params_randomize(const char* style_id, const char* tab, const char* locked, uint64_t seed,
                                              const float* in, float* out);
 GEODE_API void        geode_params_reset_tab(const char* tab, const float* in, float* out);
-/* Every rolled control as "TAB|ParamKeys string" lines, in roll order: what the panel offers to lock and what
- * each tab's Randomize and Reset cover. Static: the pointer stays valid for the process. */
-GEODE_API const char* geode_params_roll_keys(void);
 /* The scene params schema (core/viz/ParamTable.inc): one row per geode_viz_param_name slot, giving the field's
  * name, kind, default, control range and whether a fade glides it, as a versioned '|'-separated line table:
  *   params|<version>|<count>
@@ -806,13 +801,15 @@ GEODE_API int             geode_sound_source_step(long long* state, long long no
 GEODE_API void            geode_sound_source_start_failed(long long* state, long long now_ms);
 /* Settings › Audio's listening tuning (sound/Tuning): the one schema of GeodeSoundTuning. A slot is one
  * float of the struct in field order, GEODE_SOUND_TUNING_FLOATS of them; each call touches the first
- * min(count, slots) and ignores the rest. Clamping puts each slot in its range and turns a NaN or an
- * infinity into the slot's default. The engine clamps whatever it is given; the shell clamps too, so a
- * slider never shows a value the engine would not use. */
+ * min(count, slots) and ignores the rest. The engine clamps each slot into its range, a NaN or an
+ * infinity becoming the slot's default. The shell keeps only the saved floats (NULL for the defaults) and
+ * resolves them here, so a slider never shows a value the engine would not use. Resolve writes every
+ * slot to out: a save of GEODE_SOUND_TUNING_FLOATS slots, or one short (from before the input trim, which
+ * then reads 0 dB), clamped; any other save the defaults. Returns 1 when the save was used. */
 GEODE_API int             geode_sound_tuning_slots(void);
 GEODE_API void            geode_sound_tuning_defaults(float* out, int count);
 GEODE_API void            geode_sound_tuning_ranges(float* min_out, float* max_out, int count);
-GEODE_API void            geode_sound_tuning_clamp(float* values, int count);   /* in place */
+GEODE_API int             geode_sound_tuning_resolve(const float* saved, int count, float* out);
 
 /* Fixed-rate frame clock (viz/frame/FixedRateClock): Cast's pacing, PTS and audio cut. Pure: the caller
  * owns GEODE_FRAME_CLOCK_STATE int64s (start ns, next slot, fps) and hands in now on one monotonic clock.

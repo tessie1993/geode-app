@@ -172,6 +172,10 @@ add_library(geode_core STATIC
     viz/scenes/FluidScene.cpp
     viz/scenes/CurlFlowScene.cpp
     viz/scenes/MilkdropScene.cpp
+    viz/MilkMemory.cpp
+    viz/MilkStarterPack.cpp
+    viz/android/AssetStarterSource.cpp
+    api/geode_milk_api.cpp
     util/Json.cpp
 )
 target_include_directories(geode_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

@@ -18,6 +18,7 @@
 #include "api/geode_api.h"
 #include "api/geode_ingest_handles.hpp"
 #include "api/geode_record_handles.hpp"
+#include "sound/Tuning.hpp"
 #include "viz/Catalogue.hpp"
 #include "audio/ingest/LayerMix.hpp"
 #include "viz/Director.hpp"
@@ -388,8 +389,13 @@ void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
     v->renderer.setLayerAlone(v->feedLayer && v->feedLayer->heardAlone());
 }
 
-void geode_viz_set_sound_tuning(geode_viz* v, const GeodeSoundTuning* tuning) {
-    if (v && tuning) v->renderer.setSoundTuning(*tuning);
+void geode_viz_set_sound_tuning(geode_viz* v, const float* saved, int count) {
+    if (!v) return;
+    float slots[GEODE_SOUND_TUNING_FLOATS];
+    geode::sound::tuning::resolve(saved, count, slots);
+    GeodeSoundTuning t;
+    std::memcpy(&t, slots, sizeof t);
+    v->renderer.setSoundTuning(t);
 }
 
 void geode_shader_override_set(const char* style_id, const char* fragment_source) {
@@ -862,10 +868,6 @@ void geode_wallpaper_window(float surface_w, float surface_h, float display_w, f
     out[1] = w.top;
     out[2] = w.width;
     out[3] = w.height;
-}
-
-float geode_wallpaper_fps(float target_fps, float cap_fps) {
-    return geode::viz::frame::wallpaper::frameRate(target_fps, cap_fps);
 }
 
 int geode_viz_knows(geode_viz* v, const char* scene_id) {

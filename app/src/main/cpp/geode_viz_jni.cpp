@@ -816,6 +816,12 @@ Java_dev_geode_engine_bridge_GeodeNative_catalogueOverride(JNIEnv* env, jobject,
     return geode_catalogue_override(style.get(), key.get());
 }
 
+JNIEXPORT jfloat JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_catalogueValue(JNIEnv* env, jobject, jstring name) {
+    Utf8Chars chars(env, name);
+    return geode_catalogue_value(chars.get());
+}
+
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_cataloguePresetsText(JNIEnv* env, jobject) {
     return env->NewStringUTF(geode_catalogue_presets_text());
@@ -1206,10 +1212,10 @@ Java_dev_geode_engine_bridge_GeodeNative_exportLoopReportedCrossfadeMs(JNIEnv*, 
 }
 
 JNIEXPORT jbyteArray JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_transitionsTable(JNIEnv* env, jobject, jobject assetManager) {
-    // Bytes, not a jstring: NewStringUTF takes modified UTF-8, and the library's text is plain UTF-8.
+Java_dev_geode_engine_bridge_GeodeNative_transitionPicker(JNIEnv* env, jobject, jobject assetManager) {
+    // Bytes, not a jstring: NewStringUTF takes modified UTF-8, and the library's names are plain UTF-8.
     AAssetManager* assets = assetManager ? AAssetManager_fromJava(env, assetManager) : nullptr;
-    const char* table = geode_transitions_table(assets);
+    const char* table = geode_transition_picker(assets);
     const auto n = static_cast<jsize>(std::strlen(table));
     jbyteArray out = env->NewByteArray(n);
     if (out) env->SetByteArrayRegion(out, 0, n, reinterpret_cast<const jbyte*>(table));

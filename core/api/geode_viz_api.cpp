@@ -34,6 +34,8 @@
 #include "viz/SceneRegistry.hpp"
 #include "viz/SceneResidency.hpp"
 #include "viz/ShaderSource.hpp"
+#include "viz/Transition.hpp"
+#include "viz/TransitionChoice.hpp"
 #include "viz/TransitionLibrary.hpp"
 #include "viz/frame/LiveFps.hpp"
 #include "viz/frame/LiveFrame.hpp"
@@ -470,17 +472,21 @@ void geode_viz_set_adsr(geode_viz* v, int slot, const float* c, int count) {
     v->renderer.setAdsrConfigs(v->adsr);
 }
 
-const char* geode_transitions_table(AAssetManager* assets) {
+const char* geode_transition_picker(AAssetManager* assets) {
+    namespace viz = geode::viz;
+    static const std::vector<std::string> builtIns = viz::transition_choice::pickerIds(viz::TransitionCatalog::builtInIds());
+    // Without the assets the built-ins alone; each string is written once, so a pointer handed out stays valid.
+    static const std::string withoutLibrary = viz::encodeTransitionPicker(builtIns, {});
     static std::mutex lock;
     static std::string table;
     static bool loaded = false;
     std::lock_guard<std::mutex> guard(lock);
     if (!loaded && assets) {
         loaded = true;
-        const auto text = geode::viz::ShaderSource(assets).readAsset("gl_transitions.json");
-        if (text) table = geode::viz::encodeTransitionTable(geode::viz::parseTransitionLibrary(*text));
+        const auto text = viz::ShaderSource(assets).readAsset("gl_transitions.json");
+        table = viz::encodeTransitionPicker(builtIns, text ? viz::parseTransitionLibrary(*text) : std::vector<viz::TransitionDef>());
     }
-    return table.c_str();
+    return loaded ? table.c_str() : withoutLibrary.c_str();
 }
 
 int geode_perf_tier(int mode, float* out, int capacity) {

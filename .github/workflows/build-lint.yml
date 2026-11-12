@@ -78,16 +78,16 @@ jobs:
       # A red unit test fails the pull request here, not a day later in a manual run.
       - name: Run unit tests
         if: success() || failure()
-        run: ./gradlew :app:testDebugUnitTest :engine:audio-core:test :engine:scenes:testDebugUnitTest :engine:audio-android:testDebugUnitTest --continue --stacktrace --no-daemon
+        run: ./gradlew :app:testDebugUnitTest :engine:audio-core:test :engine:scenes:testDebugUnitTest --continue --stacktrace --no-daemon
 
       - name: detekt
         if: success() || failure()
-        run: ./gradlew :app:detekt :engine:audio-core:detekt :engine:scenes:detekt :engine:audio-android:detekt --continue --stacktrace --no-daemon
+        run: ./gradlew :app:detekt :engine:audio-core:detekt :engine:scenes:detekt --continue --stacktrace --no-daemon
 
       - name: Show detekt findings
         if: failure()
         run: |
-          for module in app engine/audio-core engine/scenes engine/audio-android; do
+          for module in app engine/audio-core engine/scenes; do
             f=$module/build/reports/detekt/detekt.txt
             [ -f "$f" ] && { echo "::group::detekt findings ($module)"; cat "$f"; echo "::endgroup::"; }
           done

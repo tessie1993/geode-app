@@ -117,6 +117,15 @@ object GeodeNative {
         enabled: Boolean,
     )
 
+    /** Settings › Playback's pitch row (audio/dsp/PlaybackControls): the rate a shift of [semitones] plays at. */
+    external fun playbackPitchRatio(semitones: Float): Float
+
+    /** A Settings › Playback slider's [value] on its [step]: the nearest multiple, a half rounding up. */
+    external fun playbackSnap(
+        value: Float,
+        step: Float,
+    ): Float
+
     /**
      * Whether the platform takes the next AudioTrack bit-perfect (#353); from the next [dspFlush] the chain
      * passes every block through untouched until a flush with it off.
@@ -199,6 +208,20 @@ object GeodeNative {
      */
     external fun libraryIndexSearch(
         handle: Long,
+        query: ByteArray,
+    ): IntArray
+
+    /**
+     * The global search sheet (core/library/Search): [tracks] holds five UTF-8 cells per track (title, artist,
+     * album, one more field, and the URI every copy of a song shares), [preferred] marks the copy shown when
+     * copies meet, [playlists] and [presets] are names. Returns three counts (tracks, playlists, presets), then
+     * those rows, best first. A blank [query] finds nothing.
+     */
+    external fun searchSheet(
+        tracks: Array<ByteArray?>,
+        preferred: BooleanArray,
+        playlists: Array<ByteArray?>,
+        presets: Array<ByteArray?>,
         query: ByteArray,
     ): IntArray
 
@@ -874,6 +897,9 @@ object GeodeNative {
         styleId: String,
         paramKey: String,
     ): Float
+
+    /** A size the controls quote: `fluidTiers`, `touchPoints`, `touchRotationPerDegree`; NaN for any other name. */
+    external fun catalogueValue(name: String): Float
 
     /** The traits [catalogueStyleIds] takes (`GEODE_STYLE_*`). */
     const val STYLE_ANY: Int = 0
@@ -1884,11 +1910,11 @@ object GeodeNative {
     ): Long
 
     /**
-     * The GL Transitions library as UTF-8 bytes, in the control-separated table of
-     * `core/viz/TransitionLibrary.hpp`; read from the APK once per process, empty when missing.
+     * What Customize's transition picker lists, as UTF-8: the built-in ids it offers, RS (U+001E), then the
+     * GL Transitions library's names, each list's entries separated by US (U+001F); `core/viz/TransitionLibrary.hpp`.
      * [assets] is the app's `AssetManager`, typed as Any like [vizCreate]'s.
      */
-    external fun transitionsTable(assets: Any): ByteArray
+    external fun transitionPicker(assets: Any): ByteArray
 
     // Settings › Performance (core/viz/frame/Quality): mode 0 Saver, 1 Balanced, 2 High.
 

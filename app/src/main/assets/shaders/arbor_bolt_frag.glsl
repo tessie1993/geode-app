@@ -104,6 +104,8 @@ out vec4 fragColor;
 #define BO_SPREAD 18.0
 
 vec3 gEye;
+/** The flat bolt's form at rest, mapped by the shell (each strike adds its own lean and jitter). */
+ArborForm2 gBolt;
 
 /** Value noise on (x, z) whose z lattice wraps every `per` cells. */
 float boNoise2(vec2 p, float per) {
@@ -158,10 +160,13 @@ float terrainH(vec2 xz) {
     return BO_FLOOR + BO_RISE * wall + 2.0 * n1 * (0.35 + 0.65 * wall) + 0.45 * n2;
 }
 
-float map(vec3 p) {
+/** The world the march meets: the valley, carved round the eye. The strikes are flat trees met analytically (boltHit). */
+ArborHit arborMap(vec3 p) {
     float d = (p.y - terrainH(p.xz)) / BO_LIP;
-    return max(d, BO_BUBBLE - length(p - gEye));
+    return arbHit(max(d, BO_BUBBLE - length(p - gEye)));
 }
+
+//#include lib_arbor_field
 
 vec3 terrainNormal(vec2 xz, float e) {
     float hx = terrainH(xz - vec2(e, 0.0)) - terrainH(xz + vec2(e, 0.0));
@@ -190,9 +195,11 @@ void boltHit(float n, vec3 ro, vec3 rd, float grow, float chaos, float t, float 
     // The flat style's frame: the tree grows down from the cloud.
     vec2 p = -q;
     px = max(length(fwidth(p)), 1e-4);
-    float lean = 0.03 * sin(t * 1.7 + n) + (hash11(n * 2.9) - 0.5) * 0.12 + 0.14 * uTwist + arbMidBow();
-    ArborForm2 f = ArborForm2(vec2(0.14, 0.80), vec2(0.86, 0.46), lean, 0.95 + 0.6 * chaos, 0.30, 0.026, 0.85);
-    dB = arborTree2(p, f, grow, n * 13.37);
+    float lean = 0.03 * sin(t * 1.7 + n) + (hash11(n * 2.9) - 0.5) * 0.12 + arbMidBow();
+    ArborForm2 f = gBolt;
+    f.lean += lean;
+    f.jitter = 0.95 + 0.6 * chaos;
+    dB = arborTree2(p, f, grow, n * 13.37).d;
     mB = step(0.0, tB) * smoothstep(0.03, 0.2, abs(den)) * (1.0 - smoothstep(-0.03, 0.01, q.y));
     lp = c - vec3(0.0, 0.55 * (BO_CLOUD - BO_FLOOR), 0.0);
 }
@@ -221,22 +228,25 @@ void main() {
     vec2 uv = arbView();
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    // The normalization shell (lib_arbor): every variable from its driver, mapped to its range here, once.
+    ArborIn N = arborIn();
+    float chaos = arbSpan(N.chaos, 0.0, 0.0, 2.0);
+    float ahead = arbSpan(N.reach, 20.0, 15.0, 25.0);
+    float reach = arbSpan(N.emit, 1.0, 0.4, 1.6);
+    float churnK = arbSpan(N.flow, 1.0, 0.4, 1.6);
+    float buildK = arbSpan(N.glow, 1.0, 0.4, 1.6);
+    float densK = arbSpan(N.density, 1.0, 0.3, 1.7);
+    float hueShift = arbSpan(N.tone, 0.0, -0.06, 0.06);
+    gBolt = arborShape2(ArborForm2(vec2(0.14, 0.80), vec2(0.86, 0.46), 0.0, 0.0, 0.30, 0.026, 0.85), N);
 
     float energy = uIntensity;
-    float chaos = arbChaos();
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float bass = clamp(SND_BASS_PRESENCE, 0.0, 1.5) * energy;
     float air = clamp(sndSpectrum(0.93), 0.0, 1.0) * energy;
     float onset = clamp(SND_ONSET_ENV, 0.0, 1.0);
     float n = floor(SND_ONSET_COUNT);
 
-    float hue = 0.74 + 0.03 * sin(t * 0.04) + 0.12 * kTone;
+    float hue = 0.74 + 0.03 * sin(t * 0.04) + hueShift;
     vec3 core = mix(vec3(1.0), pal(hue + 0.1), 0.15);
     vec3 halo = pal(hue + 0.12);
 
@@ -250,7 +260,6 @@ void main() {
 
     // ---- the strikes --------------------------------------------------------
     float levels = arbLevels(9.0, 1.0);
-    float ahead = 20.0 + 10.0 * kSpace;
     float tN;
     float dN;
     float pxN;
@@ -265,7 +274,6 @@ void main() {
     boltHit(n - 1.0, ro, rd, levels, chaos, t, ahead, tO, dO, pxO, mO, lpO);
     float aNew = 1.0 - 0.6 * onset;
     float aOld = onset;
-    float reach = clamp(1.0 + 1.2 * kPulse, 0.3, 2.0);
 
     // ---- the valley ---------------------------------------------------------
     float tm = 0.05;
@@ -279,7 +287,7 @@ void main() {
         // Climbing above every ridge: nothing left to hit.
         if (p.y > BO_HMAX && rd.y >= 0.0) break;
         used = float(i);
-        float d = map(p);
+        float d = arborField(p).d;
         float eps = 0.0015 + 0.0012 * tm;
         if (d < eps) {
             hitT = tm;
@@ -311,7 +319,7 @@ void main() {
         float tc = (BO_CLOUD - ro.y) / max(rd.y, 1e-3);
         vec2 cp = ro.xz + rd.xz * tc;
         cp.x += t * 0.6;
-        float churn = (0.6 + 0.8 * bass) * clamp(1.0 + 1.2 * kFlow, 0.2, 2.0);
+        float churn = (0.6 + 0.8 * bass) * churnK;
         // 1/16 of a cell per unit: 16 cells over 256 units, doubling per octave.
         vec3 c3 = vec3(cp.x / 16.0, t * 0.05, cp.y / 16.0);
         float warp = boCloudFbm(c3 * 2.0 + vec3(5.2, 1.3, 0.0), 32.0, 2);
@@ -327,7 +335,6 @@ void main() {
 
     // ---- the bolts, in front of whatever the ray found ------------------------
     float sceneT = hitT > 0.0 ? hitT : 1e4;
-    float buildK = clamp(1.0 + 1.2 * kBuild, 0.2, 2.0);
     float vN = mN * step(tN, sceneT) * aNew;
     float vO = mO * step(tO, sceneT) * aOld;
     float nearN = max(dN, 0.0);
@@ -340,7 +347,7 @@ void main() {
     col = mix(col, core, arbInk(dO, pxO * 0.8) * vO);
 
     // ---- rain ---------------------------------------------------------------
-    float dens = 0.06 * (0.3 + air) * clamp(1.0 + 1.4 * kTexture, 0.1, 2.5);
+    float dens = 0.06 * (0.3 + air) * densK;
     float rain = rainLayer(rd, 256.0, 12.0, 9.0, t, dens, 2.0) * 0.08
                + rainLayer(rd, 512.0, 16.0, 13.0, t, dens, 3.0) * 0.04;
     // Near a strike the rain catches its light.

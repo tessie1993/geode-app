@@ -48,6 +48,8 @@
 "lib_petal",
 "lib_fold",
 // Their second halves, included after the style's own map: the march that calls it (no prototypes).
+// The five older families' field (the style's map through one entry point, where Grow wraps it).
+"lib_arbor_field",
 "lib_flame_march",
 "lib_opal_march",
 "lib_hollow_march",

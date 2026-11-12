@@ -1039,6 +1039,21 @@ object GeodeNative {
     external fun paramsSchemaText(): String
 
     /**
+     * The text a Customize control shows for [value] (core/viz/ParamText, `geode_param_text`): a %, ×, s or
+     * ms, Hz or °, and "Default" at [default] (NaN for a control with none). [unit] is a ParamUnit's ordinal;
+     * -1 takes the control's own, by its [key] and then its range [lo]..[hi]. A range below zero signs a
+     * percentage.
+     */
+    external fun paramText(
+        key: String,
+        unit: Int,
+        value: Float,
+        lo: Float,
+        hi: Float,
+        default: Float,
+    ): String
+
+    /**
      * The hue base a palette slot draws: [override] when it is >= 0, else built-in palette [palette]'s, the
      * index clamped into the table (`geode_params_palette_base`, core/viz/Params). Pure.
      */

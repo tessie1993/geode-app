@@ -52,7 +52,6 @@ import dev.geode.geodeContainer
 import dev.geode.render.BlendMode
 import dev.geode.render.VisualizerView
 import dev.geode.render.fluid.FluidShaderTemplate
-import dev.geode.render.scene.ParamFormat
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
 import dev.geode.render.scene.SceneParams
@@ -369,7 +368,7 @@ private fun RateSecondsSlider(
     val lo = range.start
     val hi = range.endInclusive
     val t = (ln(seconds.coerceIn(lo, hi) / lo) / ln(hi / lo)).coerceIn(0f, 1f)
-    val shown = ParamFormat.format(seconds, ParamUnit.SECONDS)
+    val shown = GeodeNative.paramText("", ParamUnit.SECONDS.ordinal, seconds, 0f, 0f, Float.NaN)
     val cycleLabel = stringResource(R.string.customize_a11y_one_cycle)
     Column(Modifier.padding(vertical = 2.dp)) {
         Text(stringResource(R.string.customize_one_cycle_value, shown), style = MaterialTheme.typography.bodyMedium)

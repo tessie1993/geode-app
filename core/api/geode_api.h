@@ -651,7 +651,7 @@ GEODE_API int         geode_saved_palette_stops(const char* text, int* out);
 GEODE_API int         geode_saved_palette_max_stops(void);
 GEODE_API int         geode_saved_palette_apply(const char* text, const float* in, float* out);
 GEODE_API const char* geode_saved_palette_kept_id(const char* look_id, const char* deleted_id);
-/* Presets (files/presets/**, a geode://preset link's body, the saved live look; viz/LookFiles). read: the text as
+/* Presets (files/presets/..., a geode://preset link's body, the saved live look; viz/LookFiles). read: the text as
  * org.json read it, the params into out_frame (n at least geode_viz_param_count), out_text[5] = name, scene id (a
  * retired style resolved), custom shader and milk preset (NULL when absent), saved palette id, and out_envelope[2] =
  * attack and decay held to the sliders' ranges; 1, or 0 with nothing written when it is no preset. The strings stay

@@ -7,6 +7,7 @@
 #include "api/geode_api.h"
 #include "api/geode_modulation_api.h"
 #include "api/geode_text_out.hpp"
+#include "viz/ControlRange.hpp"
 #include "viz/CustomizeMap.hpp"
 #include "viz/Config.hpp"
 #include "viz/ModDocument.hpp"
@@ -92,6 +93,14 @@ const char* geode_config_schema_text(void) { return geode::viz::config::schemaTe
 float geode_touch_zoom(float current, float scale_factor) { return geode::viz::touch::zoom(current, scale_factor); }
 
 float geode_touch_rotation(float current, float degrees) { return geode::viz::touch::rotation(current, degrees); }
+
+int geode_params_control_range(const char* name, float* out) {
+    geode::viz::control::Range range{};
+    if (!name || !out || !geode::viz::control::of(name, range)) return 0;
+    out[0] = range.min;
+    out[1] = range.max;
+    return 1;
+}
 
 void geode_touch_to_ndc(float* xy, int points, float width, float height) { geode::viz::touch::toNdc(xy, points, width, height); }
 

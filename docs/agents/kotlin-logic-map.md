@@ -1795,7 +1795,6 @@ All under `app/src/test/java/dev/geode/`; none under `app/src/androidTest` targe
 | `playback/PlaybackQueueTest.kt` (11) | the 1001-item window around a tapped track and its clamping at both ends |
 | `playback/ResumeSourceTest.kt` (4) | resume the saved queue or nothing; index and position clamps |
 | `playback/VoiceSearchTest.kt` (3) | which Media3 items count as a voice search |
-| `model/ControlRangeTest.kt` (3) | every control range lies inside the schema range; every cap names a real param and stops short |
 | `model/KnobSizeTest.kt` (1), `LibraryChoicesTest.kt` (2), `ScreenRotationTest.kt` (2), `TabLabelsTest.kt` (3) | saved enum names read back; unknown names fall to the old behaviour |
 | `model/OpenedAudioTest.kt` (12) | intent routing, refusal of own providers and ungranted uris, name cleaning |
 | `model/PresetLinkTest.kt` (9) | link round trip, length and inflate caps, bad payloads decode to null |
@@ -3343,7 +3342,6 @@ Kinds: **UI** (UI/shell behaviour), **ENG** (engine logic living in Kotlin), **F
 | `test/export/ExportServiceCancelTest.kt` (29, 2) | `routeCommand`, `ExportService.ACTION_CANCEL` | only the cancel action calls cancel | shell | – | stays |
 | `test/export/PcmResamplerTest.kt` (19, 1) | `main/export/PcmResampler` | equal rates = passthrough without native; `process(…, 2)` returns the first 2 frames | ENG shim (Kotlin passthrough before the native resampler) | `core/tests/resampler_test.cpp`, `export_pcm_test.cpp` | delete with `PcmResampler.kt` once the native resampler owns the equal-rate case; add an equal-rate case to `resampler_test.cpp` if missing |
 | `test/export/RenderBatchTest.kt` (92, 7) | `main/export/` `RenderScope.tracksFor`, `RenderBatch`, `BatchOutcome` | scope → track list (dedupe, order); failed track skipped; `cancelRest`; progress = (done + share)/n, clamped | ENG (export scheduling: which tracks, progress maths) | none found | port to a native batch-plan test in `core/output` when the batch moves; else stays as shell queueing |
-| `test/model/ControlRangeTest.kt` (52, 3) | `main/model/ControlRange` (`of`, `CAPS`, `FLOORS`) over `ParamSchema` (reads `core/tests/params_schema.txt`) | ranges: speed 0.05..4, flowCurl 0..50, cymaticsModes 1..8, endlessZoomSpeed -1.2..1.2; UI caps: brightness and intensity 0.2..1.25, bloom 0..0.25, camFly -2..2; every control range inside its schema range; each cap/floor strictly inside | ENG (slider range and cap table in Kotlin) + JNI (shared schema fixture) | `core/tests/params_schema_test.cpp` (schema ranges); the caps (1.25, 0.25, ±2) are Kotlin-only | port `CAPS`/`FLOORS` into the native schema as a UI-range column and pin them in `params_schema_test.cpp`; delete with `ControlRange` |
 | `test/model/KnobSizeTest.kt` (13, 1) | `KnobSize.fromName` | unknown → `SMALL` | FMT (enum name) | – | stays |
 | `test/model/LibraryChoicesTest.kt` (24, 2) | `LibraryStartTab`, `TrackTap` | unknown → `TRACKS`, `PLAY_LIST` | FMT | – | stays |
 | `test/model/OpenedAudioTest.kt` (132, 12) | `main/model/OpenedAudio` | intent routing, provider refusal, display-name sanitising (bidi/control dropped, capped at `MAX_NAME_CODE_POINTS`) | shell (intent safety) | – | stays |
@@ -3477,7 +3475,6 @@ Not covered by any fixture in this scope (so the port has no written record here
 | `test/export/ExportRunTest.kt` | `ExportRun.requestCancel` `app/src/main/java/dev/geode/export/ExportRun.kt:11,62` | the cancel flag the Kotlin frame loops poll |
 | `test/export/PcmResamplerTest.kt` | `PcmResampler.isPassthrough` / `process` `app/src/main/java/dev/geode/export/PcmResampler.kt:15,25` | equal-rate passthrough, frame count cut |
 | `test/data/ExportPresetFillTest.kt` | `ExportDefaults.filledFrom` `app/src/main/java/dev/geode/data/ExportPrefs.kt:91`; `ExportPresets.ALL` `app/src/main/java/dev/geode/export/ExportPresets.kt:18` | platform export table (quality, fps, ratio, loop-safe) |
-| `test/model/ControlRangeTest.kt` | `ControlRange.of` `app/src/main/java/dev/geode/model/ControlRange.kt:41,44`; `CAPS` `:22`; `FLOORS` `:35` | slider range per param and the UI caps |
 | `test/pro/AutoDirectorPolicyTest.kt` | `AutoDirectorPolicy.amount` `app/src/main/java/dev/geode/pro/AutoDirectorPolicy.kt:19`; `isTaste` `:33` | Auto Director amount (0 or 1) from entitlement, position and source |
 | `test/ui/StageStyleTest.kt` | `stageStyleOrder()` `app/src/main/java/dev/geode/ui/VisualsStage.kt:504` | the order of styles the stage steps through |
 | `test/data/PlayerPrefsCrossfadeTest.kt` | `PlayerPrefs.coerced()` `app/src/main/java/dev/geode/data/PlayerPrefs.kt:44`; `MAX_CROSSFADE_MS` `:58`; `crossfadeMsFromSeconds` `:67` | crossfade length range and rounding |

@@ -333,7 +333,7 @@ constexpr Starter kStarters[] = {
      R"("layout":{"ratio":"R16_9","artwork":"NONE","progress":"NONE"},)"
      R"("text":{"slots":[]},)"
      R"("export":{"quality":"UHD4K","fps":60,"loopSafe":false,"segment":{"kind":"WHOLE_TRACK"},)"
-     R"("fileNamePattern":"{artist} - {title} (4K)"})"},
+     R"json("fileNamePattern":"{artist} - {title} (4K)"})json"},
 };
 
 constexpr int kStarterCount = static_cast<int>(sizeof(kStarters) / sizeof(kStarters[0]));

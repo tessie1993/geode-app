@@ -30,7 +30,7 @@ void main() {
     vec2 uv = view();
     foamSetup();
     gFoamRadius *= 1.1;
-    gFoamBend = 0.5;
+    gFoamBend = foamAt(gFoamIn.bend, 0.5, 0.4);
     gFoamOnset = min(gFoamOnset * 1.4, 1.0);
     FoamHit h;
     vec3 col = foamBoreFrame(uv, 1, h) * 0.9;

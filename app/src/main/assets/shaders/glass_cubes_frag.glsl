@@ -77,7 +77,7 @@ float roundBox(vec3 p, vec3 b, float r) {
     return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
 }
 
-float map(vec3 p) {
+float glassDist(vec3 p) {
     vec3 c;
     vec3 q;
     float has = cellBlock(p, c, q);
@@ -88,17 +88,25 @@ float map(vec3 p) {
     return min(d, border);
 }
 
-vec3 normalAt(vec3 p, float e) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * e) + k.yyx * map(p + k.yyx * e)
-                   + k.yxy * map(p + k.yxy * e) + k.xxx * map(p + k.xxx * e));
+/** What the field holds at a point (lib_glass_field): the distance alone. */
+struct GlassHit {
+    float d;
+};
+
+GlassHit glassMap(vec3 p) {
+    GlassHit h;
+    h.d = glassDist(p);
+    return h;
 }
+
+//#include lib_glass_field
+
 
 float crossBlock(vec3 q, vec3 dir, float eps) {
     float ti = 0.03;
     for (int i = 0; i < GLASS_MAX_INNER; i++) {
         if (float(i) >= glassInnerSteps()) break;
-        float d = -map(q + dir * ti);
+        float d = -glassField(q + dir * ti).d;
         if (d < eps) break;
         ti += max(d, eps);
     }
@@ -107,14 +115,15 @@ float crossBlock(vec3 q, vec3 dir, float eps) {
 
 void main() {
     vec2 uv = view();
+    glassSetup();
     float t = glassTime();
     gT = t;
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    float kPulse = gGlassIn.pulse - 0.5;
+    float kTexture = gGlassIn.texture - 0.5;
+    float kFlow = gGlassIn.flow - 0.5;
+    float kTone = gGlassIn.tone - 0.5;
+    float kBuild = gGlassIn.build - 0.5;
+    float kSpace = gGlassIn.space - 0.5;
     gGlassFlow = kFlow;
     GlassEar ear = glassListen();
     float hue = 0.04 * sin(t * 0.021) + 0.12 * uKeyStrength * sin(GLASS_TAU * uKeyHue) + 0.6 * kTone;
@@ -122,7 +131,7 @@ void main() {
     lk.glow *= 1.0 + kBuild;
     float reachFar = CB_FAR * (1.0 + 0.4 * kSpace);
     gHalf = (0.38 + 0.05 * clamp(ear.bass, 0.0, 1.2)) * (1.0 + 0.15 * kTexture);
-    float spread = 0.015 + 0.04 * ear.sharp;
+    float spread = glassSpread(0.015 + 0.04 * ear.sharp);
     float frost = ear.frost * 0.6;
     float tintSlide = glassGlide(SND_ONSET_COUNT, SND_ONSET_ENV) * 0.07;
 
@@ -139,7 +148,7 @@ void main() {
         if (float(i) >= uSteps) break;
         if (tm > reachFar) break;
         used = float(i);
-        float d = map(ro + rd * tm);
+        float d = glassField(ro + rd * tm).d;
         float eps = glassEps(tm);
         if (d < eps) {
             hitT = tm;
@@ -154,30 +163,30 @@ void main() {
         vec3 c;
         vec3 lq;
         cellBlock(p, c, lq);
-        vec3 n = normalAt(p, eps);
+        vec3 n = glassNormal(p, eps);
         n = glassGrain(n, p, frost);
         float cosI = max(dot(n, -rd), 0.0);
-        float fr = glassFresnel(cosI, CB_IOR);
+        float fr = glassFresnel(cosI, glassIor(CB_IOR));
         vec3 refl = glassEnvRough(reflect(rd, n), lk, frost * 0.1);
         vec3 tint = mix(vec3(1.0), pal(hue + glassHash3(c) * 0.6 + tintSlide), 0.4 + 0.4 * glassComplexity());
         GlassLook inner = lk;
         inner.rough += frost * 0.2;
 
-        vec3 d1 = glassRefract(rd, n, 1.0 / CB_IOR);
+        vec3 d1 = glassRefract(rd, n, 1.0 / glassIor(CB_IOR));
         vec3 q = p - n * eps * 3.0;
         float ti = crossBlock(q, d1, eps);
         vec3 pe = q + d1 * ti;
-        vec3 n2 = normalAt(pe, eps);
+        vec3 n2 = glassNormal(pe, eps);
         vec3 absorb = glassBeer(tint, ti, 1.2);
-        vec3 iors = glassIors(CB_IOR, spread);
-        float fx = glassFresnel(max(dot(d1, n2), 0.0), CB_IOR);
+        vec3 iors = glassIors(glassIor(CB_IOR), spread);
+        float fx = glassFresnel(max(dot(d1, n2), 0.0), glassIor(CB_IOR));
         vec3 refr = glassEnv3(glassRefract(d1, -n2, iors.x), glassRefract(d1, -n2, iors.y), glassRefract(d1, -n2, iors.z), inner) * absorb * (1.0 - fx);
         vec3 d2 = reflect(d1, n2);
         if (glassMarchBounces()) {
             vec3 q2 = pe - n2 * eps * 3.0;
             float t2 = crossBlock(q2, d2, eps);
-            vec3 n3 = normalAt(q2 + d2 * t2, eps);
-            refr += glassEnv(glassRefract(d2, -n3, CB_IOR), inner) * absorb * glassBeer(tint, t2, 1.2) * fx * 1.5;
+            vec3 n3 = glassNormal(q2 + d2 * t2, eps);
+            refr += glassEnv(glassRefract(d2, -n3, glassIor(CB_IOR)), inner) * absorb * glassBeer(tint, t2, 1.2) * fx * 1.5;
         } else {
             refr += glassEnv(d2, inner) * absorb * absorb * fx * 0.8;
         }

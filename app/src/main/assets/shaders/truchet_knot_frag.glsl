@@ -120,11 +120,6 @@ float gWarpB;
 float gT;
 float gHits;
 float gEnv;
-/** Set by map(): the cell coordinate, height above the cord plane (cells), lateral distance to the nearest strand, on the ground or not. */
-vec2 gC;
-float gYc;
-float gNear;
-float gOnGround;
 
 /** Chaos: each axis bent by sines of the other, period KN_P, so the rebase lands on a whole bend. */
 vec2 knotWarp(vec2 c) {
@@ -173,7 +168,20 @@ float knotKind(float h) {
     return h < 0.5 ? 0.0 : (h < 0.75 ? 1.0 : 2.0);
 }
 
-float map(vec3 w) {
+/**
+ * What the field holds at a point (lib_truchet_field): the distance, the cell coordinate, the height
+ * above the cord plane (cells), the lateral distance to the nearest strand, and whether it is the ground.
+ */
+struct TruchetHit {
+    float d;
+    vec2 c;
+    float yc;
+    float near;
+    float onGround;
+};
+
+TruchetHit truchetMap(vec3 w) {
+    TruchetHit res;
     float up = step(0.0, w.y);
     float ay = abs(w.y);
     // Height above this half's cord plane, world units, then cells.
@@ -183,14 +191,14 @@ float map(vec3 w) {
     // The ceiling is another knot: offset half a cell, its own hash layer.
     c += 0.5 * up;
     c = knotWarp(c);
-    gC = c;
+    res.c = c;
     vec2 id = floor(c);
     vec2 f = c - id - 0.5;
     float diag = id.x + id.y;
     float parity = mod(diag, 2.0);
     vec2 key = vec2(id.x - id.y, mod(diag, 32.0) + 64.0 * up);
     float yc = yw * gCpw;
-    gYc = yc;
+    res.yc = yc;
 
     vec3 roll = truchetRoll(key, gHits, gEnv, 3.0);
     float kNew = knotKind(roll.y);
@@ -203,30 +211,28 @@ float map(vec3 w) {
         dc = mix(dOld, dc, roll.z);
         near = mix(nearOld, near, roll.z);
     }
-    gNear = near;
+    res.near = near;
     float dg = yc + KN_GROUND;
-    gOnGround = step(dg, dc);
+    res.onGround = step(dg, dc);
     float dd = min(dc, dg) / (gCpw * gLip);
     // The other half's carpet reaches no nearer the middle than its arch tops.
     float other = ay + gH - (gArch + KN_HALF) / gCpw;
-    return min(dd, other);
+    res.d = min(dd, other);
+    return res;
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
-}
+//#include lib_truchet_field
 
 void main() {
     vec2 uv = view();
+    truchetSetup();
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    float kPulse = gTruchetIn.pulse - 0.5;
+    float kTexture = gTruchetIn.texture - 0.5;
+    float kFlow = gTruchetIn.flow - 0.5;
+    float kTone = gTruchetIn.tone - 0.5;
+    float kBuild = gTruchetIn.build - 0.5;
+    float kSpace = gTruchetIn.space - 0.5;
 
     float t = truchetTime();
     float e = truchetEnergy();
@@ -236,14 +242,14 @@ void main() {
     gT = t;
     gHits = floor(SND_ONSET_COUNT);
     gEnv = SND_ONSET_ENV;
-    gScl = 1.0 + 0.6 * truchetMorph();
+    gScl = 1.0 + 0.6 * gTruchetIn.detail;
     gCpw = gScl * 0.70710678;
     gH = KN_H * truchetBreath(SND_BASS_PRESENCE * uSoundDrive) * (1.0 + 0.3 * kSpace);
     gArch = min(0.19 + 0.04 * snare * clamp(1.0 + 1.6 * kPulse, 0.2, 1.8), KN_ARCH_MAX);
     gOff = 0.085 + 0.03 * kTexture;
     gR = KN_HALF - gOff;
-    gWarpA = 0.8 * clamp(uWarp, 0.0, 2.0);
-    gWarpB = 0.18 * clamp(uTurbulence, 0.0, 2.0);
+    gWarpA = 0.8 * (2.0 * gTruchetIn.warp);
+    gWarpB = 0.18 * (2.0 * gTruchetIn.chaos);
     float stretch = 1.0 + gWarpA * (TRUCHET_TAU / KN_P) + gWarpB * (TRUCHET_TAU / (KN_P * 0.5));
     gLip = sqrt(1.0 + TRUCHET_PI * gArch * TRUCHET_PI * gArch) * stretch;
 
@@ -277,7 +283,7 @@ void main() {
             if (float(i) >= uSteps) break;
             if (tm > t1) break;
             used = float(i);
-            float d = map(ro + rd * tm);
+            float d = truchetField(ro + rd * tm).d;
             float eps = 0.0008 * tm + 0.0005;
             if (d < eps) {
                 hitT = tm;
@@ -299,9 +305,9 @@ void main() {
 
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.0015, 0.0012 * hitT));
-        // Restore the hit point's globals after the normal taps.
-        map(p);
+        vec3 n = truchetNormal(p, max(0.0015, 0.0012 * hitT));
+        // What the field holds at the hit.
+        TruchetHit hit = truchetField(p);
 
         vec3 toL = lightPos - p;
         float dl = length(toL);
@@ -313,17 +319,17 @@ void main() {
         float fres = pow(1.0 - ndv, 3.0);
         float ao = clamp(1.0 - used / max(uSteps, 1.0) * 0.8, 0.4, 1.0);
 
-        vec3 tint = pal(hue + 0.1 + 0.1 * knotField(gC));
+        vec3 tint = pal(hue + 0.1 + 0.1 * knotField(hit.c));
         vec3 base;
-        if (gOnGround > 0.5) {
+        if (hit.onGround > 0.5) {
             // The ground, in shadow under the cords as the old ground was.
             base = pal(hue + 0.62) * 0.12;
-            ao *= 0.35 + 0.65 * smoothstep(KN_HALF, KN_HALF + 0.12, gNear);
+            ao *= 0.35 + 0.65 * smoothstep(KN_HALF, KN_HALF + 0.12, hit.near);
             spec *= 0.2;
         } else {
             base = tint;
             // The dips sit in shadow, the arches in the light.
-            ao *= 0.45 + 0.55 * smoothstep(-0.3, 0.12, gYc);
+            ao *= 0.45 + 0.55 * smoothstep(-0.3, 0.12, hit.yc);
         }
         col = base * (0.05 + 1.5 * dif * atten) * ao * lightC;
         col += lightC * spec * atten * 0.55 * ao;

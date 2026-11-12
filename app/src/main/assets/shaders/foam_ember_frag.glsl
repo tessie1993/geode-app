@@ -33,7 +33,7 @@ vec3 emberColor(float x) {
 void main() {
     vec2 uv = view();
     foamSetup();
-    gFoamShell = 0.012 * (1.0 + 1.6 * gFoamKick);
+    gFoamShell = 0.012 * gFoamThick * (1.0 + 1.6 * gFoamKick);
     vec3 ro;
     vec3 rd;
     foamCamera(uv, ro, rd);

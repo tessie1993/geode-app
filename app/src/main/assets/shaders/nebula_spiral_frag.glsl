@@ -117,17 +117,67 @@ float armAt(vec2 g) {
     return pow(0.5 + 0.5 * nebSpiralWave(g, 2.0, gPitch, gWind), gSharp);
 }
 
+/**
+ * What the field holds at a point (lib_nebula_field): the arms' gas (its density here), the bulge's
+ * glow, the ring's puff, the star-forming knots and the dust lane, each an amount the march colours.
+ */
+struct NebHit {
+    float dens;
+    float bulge;
+    float ring;
+    float knots;
+    float dust;
+};
+
+NebHit nebMap(vec3 p, float oct) {
+    vec3 q = galaxy(nebWarp3(p, gT));
+    vec2 g = q.xz / GS_SCALE;
+    float r = length(g);
+    float disk = exp(-r * 2.5);
+    NebHit h;
+
+    // The ring puffs the disk up where it passes: geometry, not light.
+    h.ring = exp(-pow((r - gFront) / 0.09, 2.0)) * gRing;
+    float hgt = GS_THICK * (0.35 + 0.65 * exp(-r * 1.5)) * (1.0 + 0.7 * h.ring);
+    float hy = q.y / hgt;
+    float vert = exp(-hy * hy);
+    // The bulge: an oblate ball, the 2D r*r/0.02 law in 3D.
+    vec3 bq = vec3(g.x, q.y * 1.6 / GS_SCALE, g.y);
+    float bb = dot(bq, bq);
+    h.bulge = exp(-bb / 0.02) * 2.5 + exp(-sqrt(bb) * 6.0) * 0.35;
+
+    h.dens = 0.0;
+    h.knots = 0.0;
+    h.dust = 0.0;
+    if (vert * disk > 0.002) {
+        float clump = nebFbm3(q * 1.6 + vec3(4.0, 1.3, 2.1), oct);
+        clump = clamp(0.5 + (clump - 0.5) * gTex, 0.0, 1.0);
+        float arm = armAt(g);
+        float lane = pow(0.5 + 0.5 * nebSpiralWave(g, 2.0, gPitch, gWind + 0.8), 8.0);
+        h.dens = disk * vert * (0.12 + 0.95 * arm * (0.6 + 0.6 * clump));
+        // Star-forming knots: dense clumps that sit in an arm.
+        h.knots = smoothstep(0.6, 0.82, clump) * arm * disk * vert;
+        // The dust lane is thinner than the gas: it hugs the mid-plane.
+        float hd = hy * 1.7;
+        h.dust = lane * disk * exp(-hd * hd) * (0.6 + 0.6 * clump);
+    }
+    return h;
+}
+
+//#include lib_nebula_field
+
 void main() {
     vec2 uv = view();
+    nebSetup();
     gT = nebTime();
     float e = nebEnergy();
 
-    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
-    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
-    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
-    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
-    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
-    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    float kPulse = gNebIn.pulse - 0.5;
+    float kTexture = gNebIn.texture - 0.5;
+    float kFlow = gNebIn.flow - 0.5;
+    float kTone = gNebIn.tone - 0.5;
+    float kBuild = gNebIn.build - 0.5;
+    float kSpace = gNebIn.space - 0.5;
 
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
@@ -183,40 +233,13 @@ void main() {
             if (tt > t1) break;
             if (starTrans < 0.0 && tt >= tp) starTrans = (trans.r + trans.g + trans.b) / 3.0;
 
-            vec3 p = nebWarp3(ro + rd * tt, gT);
-            vec3 q = galaxy(p);
-            vec2 g = q.xz / GS_SCALE;
-            float r = length(g);
-            float disk = exp(-r * 2.5);
-
-            // The ring puffs the disk up where it passes: geometry, not light.
-            float ring = exp(-pow((r - gFront) / 0.09, 2.0)) * gRing;
-            float hgt = GS_THICK * (0.35 + 0.65 * exp(-r * 1.5)) * (1.0 + 0.7 * ring);
-            float hy = q.y / hgt;
-            float vert = exp(-hy * hy);
-            // The bulge: an oblate ball, the 2D r*r/0.02 law in 3D.
-            vec3 bq = vec3(g.x, q.y * 1.6 / GS_SCALE, g.y);
-            float bb = dot(bq, bq);
-            float bulge = exp(-bb / 0.02) * 2.5 + exp(-sqrt(bb) * 6.0) * 0.35;
-
-            vec3 emit = bulgeCol * bulge * (0.85 + 0.2 * swell);
+            NebHit at = nebField(ro + rd * tt, gOct);
+            vec3 emit = bulgeCol * at.bulge * (0.85 + 0.2 * swell);
             vec3 sigma = vec3(0.0);
-            if (vert * disk > 0.002) {
-                float clump = nebFbm3(q * 1.6 + vec3(4.0, 1.3, 2.1), gOct);
-                clump = clamp(0.5 + (clump - 0.5) * gTex, 0.0, 1.0);
-                float arm = armAt(g);
-                float lane = pow(0.5 + 0.5 * nebSpiralWave(g, 2.0, gPitch, gWind + 0.8), 8.0);
-
-                float gas = disk * vert * (0.12 + 0.95 * arm * (0.6 + 0.6 * clump));
-                emit += armCol * gas * (1.0 + 0.9 * ring) * GS_EMIT;
-                // Star-forming knots: dense clumps that sit in an arm.
-                float knots = smoothstep(0.6, 0.82, clump) * arm * disk * vert;
-                emit += knotCol * knots * (knotGain + 1.2 * ring) * GS_EMIT;
-
-                // The dust lane is thinner than the gas: it hugs the mid-plane.
-                float hd = hy * 1.7;
-                float dust = lane * disk * exp(-hd * hd) * (0.6 + 0.6 * clump);
-                sigma = absorb * dust * GS_DUST + vec3(0.8 * gas);
+            if (at.dens > 0.0) {
+                emit += armCol * at.dens * (1.0 + 0.9 * at.ring) * GS_EMIT;
+                emit += knotCol * at.knots * (knotGain + 1.2 * at.ring) * GS_EMIT;
+                sigma = absorb * at.dust * GS_DUST + vec3(0.8 * at.dens);
             }
 
             // Emission added in full, extinction per channel (dust reddens).

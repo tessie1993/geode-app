@@ -160,8 +160,8 @@ The renderer runs these in order each frame.
 - Their reach is the per-style scope `catalogue::Scope::FamilyForm`: the families named in `Catalogue.cpp`'s `kFormFamilies` (Prism, Fluor, Loom, Shard, Petal, Fold).
 - Those libraries draw them through `lib_grow` (included by `lib_scene_uniforms`) in their one field function; at the defaults each takes its old path, bit for bit.
 - The layers are depth from the eye: `lib_camera`'s `camFly` and `camAround` set it (`growSetup`); an eye wrap (`prismEye` ..) resets the eye (`growEye`).
-- `formula` (0..1, slot 197, default 0, `LfoTarget::Formula`, `FORMULA`, ordinal 78) is `uFormula`: which of a style's own distance formulas draws it; it reaches the ids in `kFormulaStyles` (`Scope::Formula`), none yet.
-- Style DNA (`core/viz/ReactionDna`): Shard, Prism, Fluor, Loom, Petal and Fold spend their harmony-or-form route on `LfoTarget::Formula` (a settled section jump, a chord or phrase step, or a slow tension follow, drawn per style); it shows once their styles read `uFormula`.
+- `formula` (0..1, slot 197, default 0, `LfoTarget::Formula`, `FORMULA`, ordinal 78) is `uFormula`: which of a style's own distance formulas draws it; it reaches the ids in `kFormulaStyles` (`Scope::Formula`): the sixty styles of Shard, Prism, Fluor, Loom, Petal and Fold.
+- Style DNA (`core/viz/ReactionDna`): Shard, Prism, Fluor, Loom, Petal and Fold spend their harmony-or-form route on `LfoTarget::Formula` (a settled section jump, a chord or phrase step, or a slow tension follow, drawn per style), which their styles read as `uFormula`.
 - Orbit, hover and pendulum do not travel (`CameraRig::travels`): no flat dive, no bank, no turn-around.
 - Strafe looks in at its track from the side; reversing carries the eye round to the other side.
 - Corkscrew rolls once per turn; under reduced motion it only leans.
@@ -257,6 +257,7 @@ The renderer runs these in order each frame.
 - Loom, Petal and Fold include `lib_layers` at the end of their library: a domain-warped fractal haze in front of the style's form and a far fractal behind it.
 - `lib_layers` also gives those styles three formulas each, picked by `uFormula` (Formula, 0..1) with a narrow crossfade between neighbours.
 - `lib_layers`' `gLayerIter` grows a fractal's fractional iteration count with Detail (`uSteps`), k1 TEXTURE and k4 BUILD.
+- Fractal (`uFractal`) also grows `gLayerIter` into its headroom (never past 1) and adds up to two folds to `gStrataIters` and one and a half to `gStrataFarIters`; at 0 both are unchanged.
 - Every style of the families from Flame on marches and flies the rig, by family name (`kMarchedFamilies` in `core/viz/Catalogue.cpp`); none has a spin rate.
 - A family's styles are listed by id, never matched by prefix: `prism_rain` is a loose style, not one of the Prism family.
 - Twelve styles each: `arbor_*`, `bulb_*`, `chrys_*`, `lucid_*`, `dive_*`, `glass_*`, `nebula_*`, `terra_*`, `truchet_*`, `foam_*`.

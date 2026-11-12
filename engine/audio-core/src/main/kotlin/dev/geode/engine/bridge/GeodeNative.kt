@@ -42,6 +42,9 @@ object GeodeNative {
     const val DSP_FX_BAND: Int = 0
     const val DSP_FX_BASS_BOOST: Int = 1
     const val DSP_FX_LOUDNESS: Int = 2
+    const val BOOKMARK_IGNORE: Int = 0
+    const val BOOKMARK_CLEAR: Int = 1
+    const val BOOKMARK_SAVE: Int = 2
 
     /** The equalizer's bands. */
     external fun dspBandCount(): Int
@@ -2951,6 +2954,15 @@ object GeodeNative {
         handle: Long,
         out: LongArray,
     )
+
+    /** What to do with a track's bookmark at [positionMs] of [durationMs]: [BOOKMARK_IGNORE], [BOOKMARK_CLEAR] or [BOOKMARK_SAVE]. */
+    external fun bookmarkVerdict(
+        positionMs: Long,
+        durationMs: Long,
+    ): Int
+
+    /** Whether a track that just started at [currentPositionMs] may still jump to its bookmark. */
+    external fun bookmarkResumesFrom(currentPositionMs: Long): Boolean
 
     // The native stage (core/stage, core/api/geode_stage_api.h): one surface's render thread, EGL context, vsync
     // and renderer. A handle is an id that is never reused: every call on one that is gone does nothing and

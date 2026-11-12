@@ -301,6 +301,12 @@ GEODE_API float      geode_playback_snap(float value, float step);
  * in a row, checked first). */
 GEODE_API int        geode_playback_error_action(int consecutive_failures, int has_next);
 
+/* Which track positions are remembered (audio/dsp/TrackBookmark). Pure, any thread. Verdict: 0 ignore (a track
+ * under 20 minutes, or of unknown length), 1 clear (within 10 s of either end), 2 save this position. */
+GEODE_API int        geode_bookmark_verdict(int64_t position_ms, int64_t duration_ms);
+/* 1 when a track that just started at current_position_ms is still within 10 s of its start, so it may jump to its bookmark. */
+GEODE_API int        geode_bookmark_resumes_from(int64_t current_position_ms);
+
 /* Playback gain (audio/dsp/GainStage): ReplayGain, the UI fades, the sleep fade and the track crossfade, as
  * ramps linear in dB counted in samples, before the chain (#483). The shell only says targets and lengths;
  * the curves, the dB maths and when each applies are here. "Silence" is GEODE_DSP_SILENCE_DB or below (-inf

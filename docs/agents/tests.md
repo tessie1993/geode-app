@@ -29,8 +29,9 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `cast_clock_test.cpp`: Cast's frame clock: steady slots, drop not burst, monotonic PTS, the audio cut.
 - `cast_tee_test.cpp`: Cast's tee: the stage-to-stream hand-off, the fallback after a stale copy, one copy per cast frame, the placement: a portrait stage turned and cropped, a landscape one cropped.
 - `cast_same_visual_test.cpp`: the stage's host while casting (`core/viz/StageRun`): drawing on every tab and before Visuals was ever laid out, no bars; every stage shape filling the stream; a new stream waiting for the stage's first copy.
-- `catalogue_test.cpp`: the catalogue against the old Kotlin tables, and its text against `core/tests/catalogue.txt`.
-- `core/tests/catalogue.txt` is the copy JVM tests read through the `geode.catalogue` property; regenerate it with `catalogue_test --write`.
+- `catalogue_test.cpp`: the catalogue against its tables, the answers the shell asks for, and its text against `core/tests/catalogue.txt`.
+- `core/tests/catalogue.txt` is the copy the tools read (`tools/store-stats.sh`, `tools/glslcheck`); regenerate it with `catalogue_test --write`.
+- `app/src/test/.../render/scene/TestCatalogue.kt` is a small hand-written catalogue; a JVM test that reaches `StyleCatalogue` installs it first.
 - `colour_test.cpp`: Your colours: HSV, hex, the eyedropper's average, the stops' seamless loop, the stops as params.
 - `command_queue_test.cpp`: `core/stage/CommandQueue`, how other threads hand a stage its commands: order, last-wins merging that never crosses an ordered command, a full queue, the wake, four producers.
 - `config_schema_test.cpp`: the config params schema (`core/viz/ConfigTable.inc`).

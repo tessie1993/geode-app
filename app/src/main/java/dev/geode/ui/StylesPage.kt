@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +36,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -52,9 +54,9 @@ import dev.geode.model.MilkFile
 import dev.geode.model.StyleEntry
 import dev.geode.model.VizPlaylistEntry
 import dev.geode.render.VisualizerView
-import dev.geode.render.scene.Catalogue
-import dev.geode.render.scene.SceneIds
-import dev.geode.render.scene.VisualStyleCatalog
+import dev.geode.render.scene.StyleCatalogue
+import dev.geode.render.scene.styleFamilyLabel
+import dev.geode.render.scene.styleLabel
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeRadius
@@ -68,7 +70,7 @@ import dev.geode.ui.theme.performStoneHaptic
  * Visuals › Styles: one dropdown that picks a family, and under it that family's styles as a plain
  * list (owner, 2026-11-11: "no nested families in families"; it was family › style › variation).
  *
- * The families are one flat level, in the native catalogue's order ([Catalogue.picker]): Silk,
+ * The families are one flat level, in the native catalogue's order ([StyleCatalogue.picker]): Silk,
  * Life, Mycelium, Morphing, Shaders (every shader style outside a shader family), each shader
  * family (Arbor, Bulb…), MilkDrop, Fluid, Cymatics. Which style is in which family is native.
  *
@@ -107,12 +109,13 @@ internal fun StylesTab(
     val paywall: PaywallViewModel = geodeViewModel()
     val paywallState by paywall.uiState.collectAsStateWithLifecycle()
     val paywallOpen = paywallState.visible
-    val families = remember { Catalogue.picker }
+    val families = remember { StyleCatalogue.picker }
     val familyNames = remember { families.keys.toList() }
-    val order = remember { Catalogue.styles.map { it.id } }
+    val order = remember { StyleCatalogue.ids }
     // Each style's family index, for the native draw's "Family only".
     val familyOf = remember { IntArray(order.size) { i -> familyNames.indexOfFirst { order[i] in families.getValue(it) } } }
-    val labels = remember { order.associateWith(::sceneDisplayLabel) }
+    val resources = LocalResources.current
+    val labels = remember(resources) { order.associateWith { styleLabel(resources, it) } }
     var picked by remember {
         mutableStateOf(
             StylesFamilyMemory.picked
@@ -164,8 +167,8 @@ internal fun StylesTab(
     val shuffle: () -> Unit = {
         val open = BooleanArray(order.size) { gate.allowsStyle(order[it]) }
         // MilkDrop's own variety, which Family only rolls inside when MilkDrop is its family's one style.
-        val milkPlays = visualizerView.visualizerRenderer.milkdropAvailable && gate.allowsStyle(SceneIds.MILKDROP)
-        val milk = if (milkPlays && viz.sceneId == SceneIds.MILKDROP) milkFiles else emptyList()
+        val milkPlays = visualizerView.visualizerRenderer.milkdropAvailable && gate.allowsStyle(GeodeNative.STYLE_MILKDROP)
+        val milk = if (milkPlays && viz.sceneId == GeodeNative.STYLE_MILKDROP) milkFiles else emptyList()
         val milkHere = milk.indexOfFirst { it.path == viewModel.activeMilkPath.value }
         val next = GeodeNative.stylesRandom(familyOf, open, order.indexOf(viz.sceneId), shelf.randomFamilyOnly, milk.size, milkHere)
         if (next == GeodeNative.STYLES_ROLL_INSIDE) {
@@ -183,7 +186,7 @@ internal fun StylesTab(
     // A new pick starts at its top, where the style on screen is when the pick holds it.
     LaunchedEffect(picked) { list.scrollToItem(0) }
     val yoursLabel = stringResource(R.string.styles_yours)
-    val familyLabel: (String) -> String = { if (it == YOURS) yoursLabel else VisualStyleCatalog.familyLabel(it) }
+    val familyLabel: (String) -> String = { if (it == YOURS) yoursLabel else styleFamilyLabel(resources, it) }
     Column(Modifier.fillMaxSize()) {
         Row(
             Modifier.fillMaxWidth().padding(start = GeodeSpacing.M, end = GeodeSpacing.XS),
@@ -395,11 +398,10 @@ private object StylesFamilyMemory {
     var picked: String? = null
 }
 
-internal fun sceneDisplayLabel(id: String): String {
-    val catalogued = VisualStyleCatalog.label(id)
-    if (catalogued != id) return catalogued
-    return id.split('_').joinToString(" ") { word -> word.replaceFirstChar { it.uppercase() } }
-}
+/** A style's name as people read it, in the language on screen. */
+@Composable
+@ReadOnlyComposable
+internal fun sceneDisplayLabel(id: String): String = styleLabel(LocalResources.current, id)
 
 /** The dropdown's own entry for the user's shelf; never a catalogue family name (those are lowercase words). */
 private const val YOURS = "#yours"

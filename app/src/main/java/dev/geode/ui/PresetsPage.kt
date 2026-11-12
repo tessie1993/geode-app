@@ -66,12 +66,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.BuiltInPresets
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.PresetEntry
 import dev.geode.model.PresetFilter
 import dev.geode.model.PresetFiltering
 import dev.geode.model.VizPlaylistEntry
 import dev.geode.render.VisualizerView
-import dev.geode.render.scene.SceneIds
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeRadius
 import dev.geode.ui.theme.GeodeSpacing
@@ -143,7 +143,7 @@ internal fun PresetsTab(
                     forThisStyle = builtInPresetMatchesScene(p.sceneId, viz.sceneId),
                     // Every MilkDrop preset shares the default params; only the file tells them
                     // apart, so a MilkDrop row is marked only when the user tapped it.
-                    onStage = looks && (p.sceneId != SceneIds.MILKDROP || p.name == lastTapped),
+                    onStage = looks && (p.sceneId != GeodeNative.STYLE_MILKDROP || p.name == lastTapped),
                 )
             }
         }

@@ -10,7 +10,7 @@ import dev.geode.data.TemplateRepository
 import dev.geode.data.TemplateWrite
 import dev.geode.data.VideoTemplate
 import dev.geode.data.VizUiState
-import dev.geode.render.scene.SceneIds
+import dev.geode.engine.bridge.GeodeNative
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
@@ -70,7 +70,7 @@ internal class TemplateController(
         val milkPath = host.activeMilkPath
         storeScope.launch {
             val milkSource =
-                if (s.sceneId == SceneIds.MILKDROP) {
+                if (s.sceneId == GeodeNative.STYLE_MILKDROP) {
                     milkPath?.let { src -> runCatching { File(src).readText() }.getOrNull() }
                 } else {
                     null

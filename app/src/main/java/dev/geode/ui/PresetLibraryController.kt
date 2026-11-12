@@ -10,9 +10,9 @@ import dev.geode.data.PresetRepository
 import dev.geode.data.PresetStore
 import dev.geode.data.ReadCap
 import dev.geode.data.VizUiState
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.PresetFiltering
 import dev.geode.model.PresetLink
-import dev.geode.render.scene.SceneIds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
@@ -91,7 +91,7 @@ internal class PresetLibraryController(
         val milkPath = host.activeMilkPath
         storeScope.launch {
             val milkSource =
-                if (s.sceneId == SceneIds.MILKDROP) {
+                if (s.sceneId == GeodeNative.STYLE_MILKDROP) {
                     milkPath?.let { src -> runCatching { java.io.File(src).readText() }.getOrNull() }
                 } else {
                     null
@@ -121,7 +121,7 @@ internal class PresetLibraryController(
         )
 
     suspend fun milkPresetPathFor(preset: Preset): String? {
-        if (preset.sceneId != SceneIds.MILKDROP) return null
+        if (preset.sceneId != GeodeNative.STYLE_MILKDROP) return null
         return withContext(Dispatchers.IO) { presets.materializeMilk(preset.name, preset.milkPreset) }
     }
 
@@ -236,7 +236,7 @@ internal class PresetLibraryController(
         preset: Preset,
         oldName: String,
     ): String? {
-        if (preset.sceneId != SceneIds.MILKDROP) return null
+        if (preset.sceneId != GeodeNative.STYLE_MILKDROP) return null
         return preset.milkPreset ?: runCatching { milkFileFor(oldName).takeIf { it.isFile }?.readText() }.getOrNull()
     }
 

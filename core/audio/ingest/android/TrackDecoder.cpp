@@ -65,18 +65,24 @@ public:
 
     bool feedInput() override {
         const ssize_t index = AMediaCodec_dequeueInputBuffer(codec_, kTimeoutUs);
-        if (index < 0) return false;
+        if (index == AMEDIACODEC_INFO_TRY_AGAIN_LATER) return false;
+        // Any other negative is the codec's error, not "later": waiting on it would never end.
+        if (index < 0) throw std::runtime_error("decoder input dequeue failed");
         const auto slot = static_cast<size_t>(index);
         size_t capacity = 0;
         uint8_t* buffer = AMediaCodec_getInputBuffer(codec_, slot, &capacity);
         if (!buffer) throw std::runtime_error("decoder input buffer null (codec error state)");
         const ssize_t size = AMediaExtractor_readSampleData(extractor_, buffer, capacity);
         if (size < 0) {
-            AMediaCodec_queueInputBuffer(codec_, slot, 0, 0, 0, static_cast<uint32_t>(AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM));
+            if (AMediaCodec_queueInputBuffer(codec_, slot, 0, 0, 0,
+                                             static_cast<uint32_t>(AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM)) != AMEDIA_OK)
+                throw std::runtime_error("decoder end of input refused");
             return true;
         }
         const int64_t timeUs = AMediaExtractor_getSampleTime(extractor_);
-        AMediaCodec_queueInputBuffer(codec_, slot, 0, static_cast<size_t>(size), static_cast<uint64_t>(timeUs), 0);
+        if (AMediaCodec_queueInputBuffer(codec_, slot, 0, static_cast<size_t>(size), static_cast<uint64_t>(timeUs), 0) !=
+            AMEDIA_OK)
+            throw std::runtime_error("decoder input refused");
         AMediaExtractor_advance(extractor_);
         return false;
     }
@@ -85,7 +91,10 @@ public:
         AMediaCodecBufferInfo info{};
         const ssize_t index = AMediaCodec_dequeueOutputBuffer(codec_, &info, kTimeoutUs);
         if (index == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) layoutKnown_ = false;
-        if (index < 0) return false;
+        if (index == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED || index == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED ||
+            index == AMEDIACODEC_INFO_TRY_AGAIN_LATER)
+            return false;
+        if (index < 0) throw std::runtime_error("decoder output dequeue failed");
         held_ = static_cast<size_t>(index);
         out.ptsUs = info.presentationTimeUs;
         out.endOfStream = (info.flags & static_cast<uint32_t>(AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM)) != 0;
@@ -96,6 +105,8 @@ public:
             // ignored, its size is (NdkMediaCodec, AMediaCodec_dequeueOutputBuffer).
             const uint8_t* data = AMediaCodec_getOutputBuffer(codec_, held_, &capacity);
             if (!data) throw std::runtime_error("decoder output buffer null (codec error state)");
+            if (static_cast<size_t>(info.size) > capacity)
+                throw std::runtime_error("decoder output larger than its buffer");
             out.data = data;
             out.bytes = static_cast<size_t>(info.size);
             out.isFloat = isFloat_;

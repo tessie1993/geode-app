@@ -70,6 +70,14 @@ int geode_mod_reactions_read(const char* reactions, char* out, int capacity) {
     return textOut(doc.reactionsText(), out, capacity);
 }
 
+int geode_mod_hand_load(const char* reactions, int has_mask, int saved_mask) {
+    if (!reactions) return 0;
+    ModDocument doc;
+    doc.readReactions(view(reactions), GEODE_HAND_ALL);
+    if (!doc.hand.user) return -1;
+    return has_mask ? static_cast<int>(static_cast<unsigned>(saved_mask) & GEODE_HAND_ALL) : static_cast<int>(GEODE_HAND_ALL);
+}
+
 int geode_mod_lfo_values(const char* lfos, int slot, const char* style_id, float* out, int capacity) {
     return withLfos(lfos).lfoValues(slot, text(style_id), out, capacity);
 }

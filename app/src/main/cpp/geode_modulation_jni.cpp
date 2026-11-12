@@ -179,6 +179,13 @@ Java_dev_geode_engine_bridge_GeodeNative_modWavesRandomize(JNIEnv* env, jobject,
     });
 }
 
+// -1: the saved routes no longer read and are to be dropped.
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_modHandLoad(JNIEnv* env, jobject, jstring reactions, jboolean hasMask, jint savedMask) {
+    Utf8Chars saved(env, reactions);
+    return geode_mod_hand_load(saved.get(), hasMask ? 1 : 0, savedMask);
+}
+
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_modLfoShows(JNIEnv* env, jobject, jstring lfos, jint slot) {
     Utf8Chars saved(env, lfos);

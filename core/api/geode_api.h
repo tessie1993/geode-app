@@ -303,6 +303,15 @@ GEODE_API void       geode_dsp_set_limiter(geode_dsp*, int enabled);
 GEODE_API float      geode_playback_pitch_ratio(float semitones);   /* the rate a semitone shift plays at */
 /* The nearest multiple of step (a half rounds up); a step not above 0, or a non-finite value, is left alone. */
 GEODE_API float      geode_playback_snap(float value, float step);
+/* The saved options that have a range. control: 0 fade ms, 1 crossfade ms, 2 repeat mode, 3 speed, 4 pitch
+ * semitones, 5 ReplayGain mode, 6 ReplayGain preamp dB (GEODE_PLAYBACK_CONTROLS of them). range writes
+ * min, max, step (0: none) and default into out4 and returns 1, or 0 for a control that is not one. clamp
+ * holds a value to the range, a NaN to the default; crossfade_ms is a slider position in seconds as ms. */
+#define GEODE_PLAYBACK_CONTROLS 7
+GEODE_API int        geode_playback_range(int control, float* out4);
+GEODE_API float      geode_playback_clamp(int control, float value);
+GEODE_API int        geode_playback_crossfade_ms(float seconds);
+
 /* What a track that will not play leads to: 0 skip to the next, 1 stop (nothing follows), 2 stop (3 failures
  * in a row, checked first). */
 GEODE_API int        geode_playback_error_action(int consecutive_failures, int has_next);

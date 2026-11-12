@@ -151,17 +151,17 @@ private fun modColour(sources: Int): Color =
         else -> GeodeColors.ModBoth
     }
 
+/**
+ * Who turns the knob besides the user's hand, for TalkBack. Never the live value: it changes with every poll, and
+ * a state description that changes many times a second is re-announced each time. The arc shows where it is now.
+ */
 @Composable
-private fun liveText(
-    live: MacroLiveMod?,
-    turn: Float,
-): String? {
+private fun liveText(live: MacroLiveMod?): String? {
     live ?: return null
-    val now = knobText((turn + live.add).coerceIn(-1f, 1f))
     return when (live.sources) {
-        MacroLiveMod.WAVE -> stringResource(R.string.macro_knob_moved_by_wave, now)
-        MacroLiveMod.ENVELOPE -> stringResource(R.string.macro_knob_moved_by_envelope, now)
-        else -> stringResource(R.string.macro_knob_moved_by_both, now)
+        MacroLiveMod.WAVE -> stringResource(R.string.macro_knob_moved_by_wave)
+        MacroLiveMod.ENVELOPE -> stringResource(R.string.macro_knob_moved_by_envelope)
+        else -> stringResource(R.string.macro_knob_moved_by_both)
     }
 }
 
@@ -211,7 +211,7 @@ private fun MacroKnobDial(
     val track = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
     val arc = MaterialTheme.colorScheme.primary
     val text = knobText(knob.value)
-    val spoken = liveText(live, knob.value)?.let { "$text, $it" } ?: text
+    val spoken = liveText(live)?.let { "$text, $it" } ?: text
     Column(modifier.padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
             Modifier

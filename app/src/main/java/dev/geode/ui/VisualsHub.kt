@@ -203,6 +203,7 @@ private fun VisualsHubContent(
             Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
         }
     }
+    StageWarmNote(visualizerView, pip)
     // Settings › Displays & casting › Keep the screen on in Visuals: held while this is composed (#337).
     KeepScreenOnWhileShown(behaviour.keepScreenOnVisuals)
     // The hidden gestures (EasterEggs.kt): shake to screenshot, tap along for new Music moments.

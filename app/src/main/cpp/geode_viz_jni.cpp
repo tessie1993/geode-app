@@ -1278,6 +1278,11 @@ Java_dev_geode_engine_bridge_GeodeNative_thermalPush(JNIEnv*, jobject, jint stat
     geode_thermal_push(status, headroom);
 }
 
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_thermalTakeWarmNote(JNIEnv*, jobject, jfloat capFps, jfloat pacedFps) {
+    return geode_thermal_take_warm_note(capFps, pacedFps);
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_memoryTrim(JNIEnv*, jobject, jint level) {
     geode_memory_trim(level);

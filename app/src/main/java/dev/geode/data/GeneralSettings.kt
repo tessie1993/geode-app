@@ -40,10 +40,10 @@ data class GeneralSettings(
     val textScale: Float = 1f,
     /**
      * Whether leaving the fullscreen visualizer while something is playing drops straight into
-     * picture-in-picture, instead of just backgrounding the app. Off by default, and the only way
-     * into PiP: there is no PiP button.
+     * picture-in-picture, instead of just backgrounding the app. On by default (owner, 2026-11-12,
+     * #994), and the only way into PiP: there is no PiP button.
      */
-    val autoEnterPip: Boolean = false,
+    val autoEnterPip: Boolean = true,
     /**
      * Interface sounds on taps and tab changes; still silent when the system's touch sounds are off.
      * Off on a fresh install (the owner's call): a music app should not add clicks over the music
@@ -96,7 +96,7 @@ object GeneralSettingsCodec : PrefsCodec<GeneralSettings> {
     internal const val KEY_MINI_PLAYER_FADE = "gui_mini_player_fade_sec"
     internal const val KEY_FONT_COLOR = "gui_font_color"
     internal const val KEY_TEXT_SCALE = "gui_text_scale"
-    internal const val KEY_AUTO_ENTER_PIP = "gui_auto_enter_pip"
+    internal const val KEY_AUTO_ENTER_PIP = "gui_pip_auto_enter"
     internal const val KEY_UI_SOUNDS = "gui_ui_sounds"
     internal const val KEY_ACCENT_FOLLOWS_VISUAL = "gui_accent_follows_visual"
     internal const val KEY_HAPTICS = "gui_haptics"
@@ -114,6 +114,13 @@ object GeneralSettingsCodec : PrefsCodec<GeneralSettings> {
 
     /** The font colour before it was a colour; read while [KEY_FONT_COLOR] is unset, removed on write. */
     internal const val KEY_WHITE_FONT = "gui_white_font"
+
+    /**
+     * PiP's switch while it was off by default. Every save wrote it, so a stored false cannot tell a
+     * user's off from the old default; the new key starts everyone on the new default (#994).
+     * Removed on write.
+     */
+    internal const val KEY_AUTO_ENTER_PIP_OFF_DEFAULT = "gui_auto_enter_pip"
 
     /** Retired with the app's own reduced-motion switch (#336); removed on write. */
     internal const val KEY_REDUCED_MOTION = "gui_reduced_motion"
@@ -134,7 +141,7 @@ object GeneralSettingsCodec : PrefsCodec<GeneralSettings> {
             portable(PrefType.BOOLEAN, KEY_SHOW_AB_LOOP, KEY_MINI_PLAYER_PREVIOUS, KEY_STAGE_ARROWS, KEY_STAGE_RECORD)
             retired(PrefType.BOOLEAN, KEY_WHITE_FONT)
             RETIRED_THEME_KEYS.forEach { retired(null, it) }
-            retired(null, KEY_REDUCED_MOTION)
+            retired(null, KEY_REDUCED_MOTION, KEY_AUTO_ENTER_PIP_OFF_DEFAULT)
         }
 
     override fun read(prefs: SharedPreferences): GeneralSettings {
@@ -202,6 +209,7 @@ object GeneralSettingsCodec : PrefsCodec<GeneralSettings> {
             .putBoolean(KEY_STAGE_RECORD, value.stageRecord)
             .remove(KEY_WHITE_FONT)
             .remove(KEY_REDUCED_MOTION)
+            .remove(KEY_AUTO_ENTER_PIP_OFF_DEFAULT)
         val fontColor = value.fontColorArgb
         if (fontColor != null) editor.putInt(KEY_FONT_COLOR, fontColor) else editor.remove(KEY_FONT_COLOR)
         RETIRED_THEME_KEYS.forEach { editor.remove(it) }

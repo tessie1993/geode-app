@@ -6,6 +6,7 @@ import dev.geode.data.LfoStore
 import dev.geode.data.MacroStore
 import dev.geode.data.PerformanceStore
 import dev.geode.data.PlayerPrefsCodec
+import dev.geode.wallpaper.WallpaperPrefsStore
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -69,6 +70,7 @@ enum class BackupSection(
             GeodePrefsFiles.AUDIO_FX,
             GeodePrefsFiles.LIBRARY,
             GeodePrefsFiles.BACKGROUND,
+            GeodePrefsFiles.WALLPAPER,
         ),
         emptyList(),
         emptyList(),
@@ -134,6 +136,8 @@ object BackupFormat {
      * - Settings › Performance ([PerformanceStore.KEYS]): picked for this phone's RAM and
      *   performance class at first launch. A backup from a fast phone restored onto a slow one
      *   would run it hot; the new phone keeps its own pick.
+     * - Whether this phone's output mix refused the wallpaper a capture
+     *   ([WallpaperPrefsStore.KEY_MIX_REFUSED]): a fact about this phone, not a choice.
      * - The old six macro knobs, their locks and saved sets ([MacroStore.RETIRED_KEYS]): dropped
      *   with no migration when the knobs became the macro bank, so an older backup's copies are
      *   skipped rather than written back.
@@ -158,6 +162,7 @@ object BackupFormat {
             GeodePrefsFiles.LIBRARY to setOf("roots"),
             GeodePrefsFiles.PLAYER to setOf(PlayerPrefsCodec.KEY_PICTURE_DELAY),
             GeodePrefsFiles.BACKGROUND to setOf("background_uri"),
+            GeodePrefsFiles.WALLPAPER to setOf(WallpaperPrefsStore.KEY_MIX_REFUSED),
         )
 
     /**

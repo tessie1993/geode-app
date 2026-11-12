@@ -115,6 +115,7 @@ class BackupArchiveTest {
         assertEquals(BackupSection.MUSIC, BackupFormat.sectionOf("prefs/geode-favourites.json"))
         assertEquals(BackupSection.MILK, BackupFormat.sectionOf("milk/textures/cloud.png"))
         assertEquals(BackupSection.SETTINGS, BackupFormat.sectionOf("prefs/geode-prefs.json"))
+        assertEquals(BackupSection.SETTINGS, BackupFormat.sectionOf("prefs/geode-wallpaper.json"))
         assertNull(BackupFormat.sectionOf("milk/textures/.links/p/cloud.png"))
         assertNull(BackupFormat.sectionOf("presets/a.json.tmp"))
         assertNull(BackupFormat.sectionOf("prefs/geode-widget.json"))
@@ -200,6 +201,13 @@ class BackupArchiveTest {
         assertFalse(BackupFormat.isPortableKey("geode-prefs", "gui_tutorial_seen"))
         assertFalse(BackupFormat.isPortableKey("geode-library", "roots"))
         assertTrue(BackupFormat.isPortableKey("geode-prefs", "gui_reduced_motion"))
+    }
+
+    @Test
+    fun `the wallpaper's options ride with Settings and its refused capture stays on the phone`() {
+        assertEquals(BackupSection.SETTINGS, BackupFormat.sectionOfKey("geode-wallpaper", "home_look"))
+        assertEquals(BackupSection.SETTINGS, BackupFormat.sectionOfKey("geode-wallpaper", "fps"))
+        assertNull(BackupFormat.sectionOfKey("geode-wallpaper", "mix_refused"))
     }
 
     @Test

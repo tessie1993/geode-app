@@ -106,10 +106,9 @@ every row above:
 Play needs a public, non-PDF URL. `pages.yml` publishes `docs/privacy-policy.html` to GitHub
 Pages on pushes to `main` (the address is in the workflow's header); the owner opens it and checks it shows this text before pasting it.
 
-The in-app safety notice (`res/values/strings.xml`, `safety_prompt`) says what the code does
-(it limits the engine's own effects and does not measure the finished picture), and the
-listing's photosensitivity warning says the same without naming strobe or flash effects.
-#1024 retired the pulse, shake and flash params, but the in-app strings (`safety_prompt`,
-`help_topic_safety_body`) still say "strobe and flash depth"; both params are now retired
-(`core/tests/params_schema.txt`, slots 58 and 65), so those strings should be reworded in a
-separate change to match the listing's wording.
+The in-app safety notice (`res/values/strings.xml`, `safety_prompt`, with `help_topic_safety_body`
+and `behavior_flash_guidance`) says what the code does: brightness, contrast and bloom are capped
+and brightness modulation slowed (`core/viz/VisualSafety`), nothing measures the finished picture,
+and a MilkDrop preset only gets the brightness cap (`core/viz/scenes/MilkdropScene` reads the
+clamped `brightness`), so the flashes it draws itself are not limited. The listing's
+photosensitivity warning says the same without naming strobe or flash effects (#994).

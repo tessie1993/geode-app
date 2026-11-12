@@ -42,6 +42,15 @@ namespace geode::audio {
 // freed chain, and there is at most one chain per format (a format seen again reuses its chain).
 class DspProcessor {
 public:
+    // Sample encodings, numbered as Android's AudioFormat.ENCODING_PCM_* (and Media3's C.ENCODING_PCM_*).
+    static constexpr int kEncodingPcm16 = 2;
+    static constexpr int kEncodingFloat = 4;
+
+    // Whether the chain runs a format at all: 16-bit or float, mono or stereo. The shell's processor stays
+    // inactive for any other (a 5.1 file, 24-bit PCM), so Media3 passes that track through rather than
+    // failing the sink's configure and calling the whole file unplayable.
+    static bool runs(int encoding, int channels);
+
     // Playback thread. Stages the chain for the input format queued after the next flush(). Returns false
     // when the chain cannot run that format (not mono or stereo, or no rate); flush() then makes the
     // processor pass audio through untouched.

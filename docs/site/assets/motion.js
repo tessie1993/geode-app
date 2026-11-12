@@ -87,6 +87,16 @@
     });
   }
 
+  // The hero phone leans toward the pointer.
+  const heroPhone = document.getElementById('hero-phone');
+  if (heroPhone && matchMedia('(pointer: fine)').matches) {
+    addEventListener('pointermove', (e) => {
+      const x = e.clientX / innerWidth - 0.5;
+      const y = e.clientY / innerHeight - 0.5;
+      animate(heroPhone, { rotateY: x * 16, rotateX: -y * 10 }, { type: 'spring', stiffness: 120, damping: 20 });
+    }, { passive: true });
+  }
+
   // Numbers count up once, when they come into view.
   document.querySelectorAll('[data-count]').forEach((el) => {
     const end = Number(el.dataset.count);

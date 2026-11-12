@@ -64,12 +64,17 @@
       </div>
     </div>
     <div>
-      <div class="stage" aria-hidden="true">
-        <canvas class="vortex" data-vortex></canvas>
-        <div class="halo"></div>
-        <img class="eye" src="assets/eye.webp" alt="">
+      <div class="hero-visual">
+        <canvas class="vortex" data-vortex aria-hidden="true"></canvas>
+        <div class="hero-phone" id="hero-phone">
+          <video id="hero-video" muted loop playsinline preload="auto" poster="assets/hero-loop-poster.jpg" aria-label="The app's start-up clip: a neon eye forming out of light">
+            <source src="assets/hero-loop.mp4" type="video/mp4">
+          </video>
+        </div>
+        <span class="chip c1">334 visual styles</span>
+        <span class="chip c2">4K · 60 fps video</span>
+        <span class="chip c3">No ads · works offline</span>
       </div>
-      <div class="bars" aria-hidden="true"></div>
     </div>
   </div>
 </header>
@@ -121,21 +126,6 @@
 </section>
 
 <main id="main">
-  <section>
-    <div class="wrap hero-video grid" style="align-items:center">
-      <div class="reveal">
-        <h2>Your music, made visible</h2>
-        <p class="intro">This is the app's own start-up clip. Inside the app, every style flies, folds and glows in time with what is playing. When the music stops, the picture comes to rest.</p>
-      </div>
-      <div class="phone reveal" data-drift="0.06">
-        <video id="clip" muted playsinline preload="none" poster="assets/splash-poster.jpg" aria-label="The BeatRealms 3D start-up clip: a neon eye forming out of light">
-          <source src="assets/splash.mp4" type="video/mp4">
-        </video>
-        <button class="replay" type="button" id="replay" data-again="Replay">Play</button>
-      </div>
-    </div>
-  </section>
-
   <section>
     <div class="wrap">
       <h2 class="reveal">What it does</h2>
@@ -243,31 +233,15 @@
 <script>
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const bars = document.querySelector('.bars');
-  for (let i = 0; i < 24; i++) {
-    const s = document.createElement('span');
-    s.style.animationDelay = `${-Math.random() * 1.6}s`;
-    s.style.animationDuration = `${1.1 + Math.random() * 1.2}s`;
-    bars.append(s);
-  }
-
   const seen = new IntersectionObserver(entries => entries.forEach(e => {
     if (e.isIntersecting) { e.target.classList.add('seen'); seen.unobserve(e.target); }
   }), { threshold: .15 });
   document.querySelectorAll('.reveal').forEach(el => seen.observe(el));
 
-  // The clip has one bright flash: it plays once, small, and never by itself when the
-  // visitor asked for less motion.
-  const clip = document.getElementById('clip');
-  const replay = document.getElementById('replay');
-  const play = () => { clip.currentTime = 0; clip.play().catch(() => {}); replay.textContent = replay.dataset.again; };
-  replay.addEventListener('click', play);
-  if (!still) {
-    const once = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) { play(); once.disconnect(); }
-    }, { threshold: .6 });
-    once.observe(clip);
-  }
+  // The hero loop is cut from before the splash's one bright flash (peak luma 63 of 255,
+  // no frame-to-frame jump above 5), so it may play by itself; never under reduced motion.
+  const heroVideo = document.getElementById('hero-video');
+  if (!still) heroVideo.play().catch(() => {});
 </script>
 <script type="module" src="assets/vortex.js"></script>
 <script src="assets/vendor/motion.min.js"></script>

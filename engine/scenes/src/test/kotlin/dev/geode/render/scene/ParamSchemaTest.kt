@@ -81,7 +81,7 @@ class ParamSchemaTest {
         for (field in listOf("palette", "palette2")) {
             val range = requireNotNull(ParamSchema[field]).range
             assertEquals(0f, range.start)
-            assertEquals((SceneParams.PALETTES.size - 1).toFloat(), range.endInclusive)
+            assertEquals((ParamSchema.paletteNames.size - 1).toFloat(), range.endInclusive)
         }
     }
 
@@ -96,7 +96,7 @@ class ParamSchemaTest {
 
     @Test
     fun parseReadsAMinimalTable() {
-        val text = "params|3|2\nparam|0|a|FLOAT|0.5|0|1|FADE|LIVE\nparam|1|b|BOOL|1|0|1|HOLD|RETIRED\npalette|0|Spectrum\n"
+        val text = "params|4|2\nparam|0|a|FLOAT|0.5|0|1|FADE|LIVE\nparam|1|b|BOOL|1|0|1|HOLD|RETIRED\npalette|0|Spectrum\nchoice|b|0|Off\n"
         assertEquals(
             listOf(
                 ParamSpec(0, "a", ParamSpec.Kind.FLOAT, 0.5f, 0f..1f, fades = true),
@@ -111,16 +111,28 @@ class ParamSchemaTest {
         val row = "param|0|a|FLOAT|0.5|0|1|FADE|LIVE"
         assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|2|1\n$row") }
         assertThrows(IllegalStateException::class.java) { ParamSchema.parse("catalogue|1\n$row") }
-        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|3|2\n$row") }
-        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|3|1\nparam|1|a|FLOAT|0.5|0|1|FADE|LIVE") }
-        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|3|1\nparam|0|a|FLOAT|0.5|0|1|FADE") }
+        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|3|1\n$row") }
+        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|4|2\n$row") }
+        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|4|1\nparam|1|a|FLOAT|0.5|0|1|FADE|LIVE") }
+        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|4|1\nparam|0|a|FLOAT|0.5|0|1|FADE") }
         assertThrows(IllegalStateException::class.java) { ParamSchema.parse("") }
     }
 
     @Test
     fun thePaletteNamesComeFromTheTable() {
-        assertEquals(21, SceneParams.PALETTES.size)
-        assertEquals("Spectrum", SceneParams.PALETTES.first())
-        assertEquals("Yellow", SceneParams.PALETTES.last())
+        assertEquals(21, ParamSchema.paletteNames.size)
+        assertEquals("Spectrum", ParamSchema.paletteNames.first())
+        assertEquals("Yellow", ParamSchema.paletteNames.last())
+    }
+
+    @Test
+    fun everyPickerHasOneLabelPerValue() {
+        val pickers = ParamSchema.params.filter { ParamSchema.choices(it.name).isNotEmpty() }
+        assertEquals(9, pickers.size)
+        pickers.forEach { assertEquals(it.name, 0f..(ParamSchema.choices(it.name).size - 1).toFloat(), it.range) }
+        assertEquals("Glide", ParamSchema.choices("camPath").first())
+        assertEquals("Pendulum", ParamSchema.choices("camPath").last())
+        assertEquals(listOf("Water dish", "Chladni plate"), ParamSchema.choices("cymaticsGeometry"))
+        assertTrue(ParamSchema.choices("speed").isEmpty())
     }
 }

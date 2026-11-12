@@ -61,6 +61,7 @@ import dev.geode.data.CustomPalette
 import dev.geode.data.PaletteStore
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.bridge.SceneParamsCodec
+import dev.geode.render.scene.ParamSchema
 import dev.geode.render.scene.SceneParams
 import dev.geode.ui.theme.GeodeSpacing
 import kotlinx.coroutines.CoroutineDispatcher
@@ -139,7 +140,7 @@ internal fun paletteChipIndex(
     if (!custom) return if (second) p.palette2 else p.palette
     val id = if (second) p.customPalette2Id else p.customPaletteId
     val index = saved.indexOfFirst { it.id == id }
-    return if (index < 0) -1 else SceneParams.PALETTES.size + index
+    return if (index < 0) -1 else ParamSchema.paletteNames.size + index
 }
 
 internal fun paletteChipSelected(
@@ -148,7 +149,7 @@ internal fun paletteChipSelected(
     index: Int,
     second: Boolean,
 ): SceneParams {
-    val builtInCount = SceneParams.PALETTES.size
+    val builtInCount = ParamSchema.paletteNames.size
     return if (index < builtInCount) {
         PaletteStore.clear(if (second) p.copy(palette2 = index) else p.copy(palette = index), second)
     } else {
@@ -198,7 +199,7 @@ internal fun PaletteDropdown(
     Column {
         DropdownRow(
             name = lockKey,
-            options = SceneParams.PALETTES + saved.map { it.name },
+            options = ParamSchema.paletteNames + saved.map { it.name },
             selectedIndex = paletteChipIndex(p, saved, second = false),
             lockKey = lockKey,
             placeholder = stringResource(R.string.look_summary_custom),
@@ -213,7 +214,7 @@ internal fun SecondPaletteStepper(
     p: SceneParams,
     onChange: (SceneParams) -> Unit,
 ) {
-    val names = SceneParams.PALETTES
+    val names = ParamSchema.paletteNames
     val label = if (p.usesCustomPalette2) stringResource(R.string.look_summary_custom) else names.getOrElse(p.palette2) { "" }
     val step = { by: Int -> onChange(PaletteStore.clear(p.copy(palette2 = Math.floorMod(p.palette2 + by, names.size)), second = true)) }
     Column {

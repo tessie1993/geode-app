@@ -28,7 +28,7 @@
 //
 //   label    the Customize control that sets the field, by its key (the Kotlin ParamKeys string, the
 //            lock key and the search term); rows of one control share it ("Palette" is the palette and
-//            its two hue overrides). "" for a field no control sets. Display text stays in Kotlin.
+//            its two hue overrides). "" for a field no control sets.
 //   scope    the catalogue::Scope of that control: which styles it can move (Catalogue::scopeOf).
 //   flags    kMod: an LfoTarget writes the field, so the modulation pickers and the macro bank offer
 //            it (ModTargets). 0: none.
@@ -37,7 +37,15 @@
 //            draws none: a switch, a pick over the whole schema range, or a field no roll writes.
 //
 // A retired row has no meta row, and every live row has exactly one (ParamsFields.cpp asserts both at
-// compile time). Each includer defines the macro it reads; the other expands to nothing.
+// compile time).
+//
+// Under a picker's meta row, its choices row: the label of each value, in index order, which the shell
+// shows as it is (geode_params_schema_text's choice rows) and keeps no list of its own.
+//
+//   GEODE_PARAM_CHOICES(name, "first", "second", ...)
+//
+// params_schema_test holds each row's count to its field's min..max. Each includer defines the macros
+// it reads; the others expand to nothing.
 #ifndef GEODE_PARAM
 #define GEODE_PARAM(kind, name, def, lo, hi, fade)
 #define GEODE_PARAM_TABLE_OWN_PARAM
@@ -45,6 +53,10 @@
 #ifndef GEODE_PARAM_META
 #define GEODE_PARAM_META(name, label, scope, flags, rollLo, rollHi)
 #define GEODE_PARAM_TABLE_OWN_META
+#endif
+#ifndef GEODE_PARAM_CHOICES
+#define GEODE_PARAM_CHOICES(name, ...)
+#define GEODE_PARAM_TABLE_OWN_CHOICES
 #endif
 
 GEODE_PARAM(Float, speed, 1.0f, 0.05f, 4.0f, Fade)
@@ -109,6 +121,7 @@ GEODE_PARAM_META(posterize, "Posterize", Universal, kMod, 0.2f, 0.6f)
 // Seven sprite shapes: Dot, Ring, Star, Square, Spark, Hex, Bubble.
 GEODE_PARAM(Int, particleShape, 0, 0, 6, Hold)
 GEODE_PARAM_META(particleShape, "Particle shape", ParticleSprite, 0, 0, 6)
+GEODE_PARAM_CHOICES(particleShape, "Dot", "Ring", "Star", "Square", "Spark", "Hex", "Bubble")
 GEODE_PARAM(Float, particleSize, 1.0f, 0.3f, 2.5f, Fade)
 GEODE_PARAM_META(particleSize, "Particle size", ParticleSprite, kMod, 0.5f, 1.8f)
 GEODE_PARAM(Float, tile, 1.0f, 1.0f, 6.0f, Fade)
@@ -199,6 +212,7 @@ GEODE_PARAM_META(paramFadeSec, "Glide time", Universal, 0, 0, 0)
 // A fluid::quality tier index, 0 Ultra .. Min.
 GEODE_PARAM(Int, fluidQuality, 2, 0, static_cast<float>(fluid::quality::kTierCount - 1), Hold)
 GEODE_PARAM_META(fluidQuality, "Fluid quality", Emitters, 0, 0, 0)
+GEODE_PARAM_CHOICES(fluidQuality, "Ultra", "High", "Medium", "Low", "Min")
 GEODE_PARAM(Bool, fluidAutoQuality, true, 0, 1, Hold)
 GEODE_PARAM_META(fluidAutoQuality, "Lower the quality when the phone struggles", Emitters, 0, 0, 0)
 GEODE_PARAM(Int, fluidIterations, 20, 8, 40, Hold)
@@ -220,6 +234,7 @@ GEODE_PARAM_META(fluidSplatForce, "Fluid splat force", Emitters, kMod, 0.5f, 2.0
 // Center, Ring, Random, Spectrum (FluidEmitters clamps to the same).
 GEODE_PARAM(Int, fluidBeatPattern, 1, 0, 3, Hold)
 GEODE_PARAM_META(fluidBeatPattern, "Hit pattern", Emitters, 0, 0, 3)
+GEODE_PARAM_CHOICES(fluidBeatPattern, "Center", "Ring", "Random", "Spectrum")
 GEODE_PARAM(Int, fluidBeatSplats, 3, 0, 8, Hold)
 GEODE_PARAM_META(fluidBeatSplats, "Hit splats", Emitters, 0, 1, 6)
 GEODE_PARAM(Int, fluidStirrers, 2, 0, 4, Hold)
@@ -235,6 +250,7 @@ GEODE_PARAM_META(fluidSparkle, "Treble sparkle", Emitters, 0, 0, 0)
 // Orbit, Lissajous, Rose, Bloom, Drift (fluid::Choreography::kPathCount).
 GEODE_PARAM(Int, fluidSpawnPath, 1, 0, 4, Hold)
 GEODE_PARAM_META(fluidSpawnPath, "Path", Journey, 0, 0, 4)
+GEODE_PARAM_CHOICES(fluidSpawnPath, "Orbit", "Lissajous", "Rose", "Bloom", "Drift")
 GEODE_PARAM(Int, fluidSpawnPoints, 3, 1, 8, Hold)
 GEODE_PARAM_META(fluidSpawnPoints, "Spawn points", Journey, 0, 2, 5)
 GEODE_PARAM(Float, fluidSpawnProgress, 1.0f, 0.0f, 1.0f, Fade)
@@ -299,6 +315,7 @@ GEODE_PARAM(Float, waterLiquidFade, 0.35f, 0.0f, 2.0f, Fade)
 // Water dish, Chladni plate.
 GEODE_PARAM(Int, cymaticsGeometry, 0, 0, 1, Hold)
 GEODE_PARAM_META(cymaticsGeometry, "Geometry", Cymatics, 0, 0, 1)
+GEODE_PARAM_CHOICES(cymaticsGeometry, "Water dish", "Chladni plate")
 GEODE_PARAM(Float, cymaticsFundamental, 110.0f, cymatics::kMinFundamentalHz, cymatics::kMaxFundamentalHz, Fade)
 GEODE_PARAM_META(cymaticsFundamental, "Fundamental (Hz)", Cymatics, 0, 55.0f, 260.0f)
 GEODE_PARAM(Int, cymaticsModes, 5, 1, static_cast<float>(cymatics::kMaxRenderedModes), Hold)
@@ -354,6 +371,8 @@ GEODE_PARAM_META(camFly, "Fly speed", Universal, kMod, 0.2f, 1.4f)
 // 11 pendulum (CameraRig clamps to the same).
 GEODE_PARAM(Int, camPath, 0, 0, 11, Hold)
 GEODE_PARAM_META(camPath, "Camera path", Universal, 0, 0, 0)
+GEODE_PARAM_CHOICES(camPath, "Glide", "Spiral", "Orbit", "Hover", "Drive", "Fall", "Rise", "Weave", "Corkscrew", "Swoop", "Strafe",
+                    "Pendulum")
 // Sideways swing, or the orbit's radius.
 GEODE_PARAM(Float, camOrbit, 0.35f, 0.0f, 1.0f, Fade)
 GEODE_PARAM_META(camOrbit, "Swing", Universal, kMod, 0.1f, 0.8f)
@@ -419,12 +438,15 @@ GEODE_PARAM_META(noteDrums, "@notes_key", Universal, 0, 0, 0)
 // What forms at the vanishing point: liquid::Born (0 live, 1 re-rolled, 2 next style, 3 ink forms).
 GEODE_PARAM(Int, liquidBorn, 1, 0, 3, Hold)
 GEODE_PARAM_META(liquidBorn, "Born inside", Universal, 0, 0, 0)
+GEODE_PARAM_CHOICES(liquidBorn, "Live style", "Style re-rolled", "Next style", "Forms")
 // liquid::Age: 0 pure palette, 1 fade deep, 2 ink bleed.
 GEODE_PARAM(Int, liquidAge, 0, 0, 2, Hold)
 GEODE_PARAM_META(liquidAge, "Colour age", Universal, 0, 0, 0)
+GEODE_PARAM_CHOICES(liquidAge, "Pure palette", "Fade deep", "Ink bleed")
 // liquid::Surface: 0 ink, 1 wet gloss, 2 glass.
 GEODE_PARAM(Int, liquidSurface, 0, 0, 2, Hold)
 GEODE_PARAM_META(liquidSurface, "Surface", Universal, 0, 0, 0)
+GEODE_PARAM_CHOICES(liquidSurface, "Ink", "Gloss", "Glass")
 
 // Camera travel for the flat (2D) styles: how much Fly speed (its sign too) zooms the picture in or
 // out without end, 0 off .. 1 (CameraRig::flatDive). Appended so every wire index survives.
@@ -511,4 +533,8 @@ GEODE_PARAM_META(paletteShift, "Palette position", Universal, kMod, 0, 0)
 #ifdef GEODE_PARAM_TABLE_OWN_META
 #undef GEODE_PARAM_META
 #undef GEODE_PARAM_TABLE_OWN_META
+#endif
+#ifdef GEODE_PARAM_TABLE_OWN_CHOICES
+#undef GEODE_PARAM_CHOICES
+#undef GEODE_PARAM_TABLE_OWN_CHOICES
 #endif

@@ -959,9 +959,30 @@ void motionFieldVariantsDiffer() {
         MotionField m;
         m.setVariant(styleVariantSeed(kStyleIds[i]));
         for (int k = 0; k < 600; ++k) m.step(f, 1.0f / 30.0f);
-        hues.insert(static_cast<int>(std::lround(m.state().keyHue * 100.0f)));
+        hues.insert(static_cast<int>(std::lround(m.state().hue * 100.0f)));
     }
     check(hues.size() >= 3, "styles follow different hue drivers");
+}
+
+// The bar wave rides the music's own bar while the beat is sure, the style's clock while it is not, and eases
+// between them without a jump. The clocks stand still here, so the clock's wave reads 0.
+void motionFieldBarWaveFollowsTheHeardBar() {
+    MotionField m;
+    GeodeSoundFrame f = playing();
+    f.beatConf = 0.9f;
+    f.barPhase = 0.25f;  // a quarter into the bar: the wave's crest
+    for (int k = 0; k < 300; ++k) m.step(f, 1.0f / 60.0f);
+    check(m.state().barOsc > 0.95f, "a sure beat puts the bar wave on the heard bar");
+    float last = m.state().barOsc;
+    float jump = 0.0f;
+    f.beatConf = 0.0f;
+    for (int k = 0; k < 300; ++k) {
+        m.step(f, 1.0f / 60.0f);
+        jump = std::max(jump, std::fabs(m.state().barOsc - last));
+        last = m.state().barOsc;
+    }
+    check(std::fabs(m.state().barOsc - 0.5f) < 0.02f, "with no beat heard the wave is the clock's again, not a stand-in bar");
+    check(jump < 0.05f, "losing the beat eases the wave over, never jumps it");
 }
 // ---- Speed-integrated clocks (viz/SpeedClock, MotionField::State::flowTime) ----
 
@@ -2175,6 +2196,7 @@ int main() {
     silenceAndTheMotionDialStillTheMusicMoves();
     traumaShakeIsBoundedAndFinite();
     motionFieldVariantsDiffer();
+    motionFieldBarWaveFollowsTheHeardBar();
     flowTimeIsFlowPhaseAtSpeedOne();
     flowTimeRunsAtSpeedAndNeverJumps();
     followerScalesASoundClockWithoutJumps();

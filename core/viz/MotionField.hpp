@@ -45,9 +45,11 @@ public:
         float trebRel = 1.0f;     // uTrebRel
         float bright = 0.0f;      // uBright: spectral centroid, 0..1
         float harmony = 0.5f;     // uHarmony: tonality (1 - flatness), 0..1
-        float keyHue = 0.0f;      // uKeyHue: the style's hue driver, eased round the wheel, 0..1
-        float keyStrength = 0.0f; // uKeyStrength: how much that driver is worth trusting, 0..1
-        float barOsc = 0.5f;      // uBarOsc: oscillator on a music-driven clock, 0..1
+        // The style's hue driver (the melody's pitch class, the timbre or a per-note or per-kick random; never
+        // the key), eased round the wheel, 0..1. Uploaded as uKeyHue, a name the shaders kept from before.
+        float hue = 0.0f;
+        float hueStrength = 0.0f; // uKeyStrength: how much that driver is worth trusting, 0..1
+        float barOsc = 0.5f;      // uBarOsc: a wave once a bar: Rhythm's bar while it holds a beat, else a music-driven clock, 0..1
         float orbitX = 0.0f;      // uOrbit.x, -1..1
         float orbitY = 0.0f;      // uOrbit.y, -1..1
         float drift = 0.0f;       // uDrift: accumulated angle, radians, in [0, kDriftWrap) (a shader angle, never a rate)
@@ -98,9 +100,14 @@ private:
     // Symmetric one-pole time constants (seconds).
     static constexpr float kBrightSeconds = 0.5f;
     static constexpr float kHarmonySeconds = 1.0f;
-    static constexpr float kKeyHueSeconds = 3.0f;
-    static constexpr float kKeyStrengthSeconds = 1.0f;
+    static constexpr float kHueSeconds = 3.0f;
+    static constexpr float kHueStrengthSeconds = 1.0f;
     static constexpr float kRhythmLockSeconds = 1.0f;
+    // The bar wave follows Rhythm's bar from a beat confidence of kBarBeatUnsure (its unlock line) to
+    // kBarBeatSure (its lock line), eased over kBarOnBeatSeconds.
+    static constexpr float kBarBeatUnsure = 0.2f;
+    static constexpr float kBarBeatSure = 0.35f;
+    static constexpr float kBarOnBeatSeconds = 1.0f;
     static constexpr float kBreathSeconds = 0.5f;
 
     // Orbit: target ease and radius.
@@ -147,8 +154,10 @@ private:
 
 
     float rhythmLock_ = 0.0f;
+    // How much the bar wave follows Rhythm's bar (1) rather than the style's clock (0), eased.
+    float barOnBeat_ = 0.0f;
 
-    float keyHuePhase_ = 0.0f;
+    float huePhase_ = 0.0f;
 
     float orbitTargetX_ = 0.0f;
     float orbitTargetY_ = 0.0f;

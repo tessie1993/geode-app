@@ -1533,6 +1533,17 @@ object GeodeNative {
     const val LOOP_SPEC_LOOP_DURATION_US = 6
     const val LOOP_SPEC_LONGS = 7
 
+    /** Fields of the long[6] [loopLimits] returns. */
+    const val LOOP_LIMIT_MIN_LOOP_MS = 0
+    const val LOOP_LIMIT_MAX_LOOP_MS = 1
+    const val LOOP_LIMIT_MIN_CROSSFADE_MS = 2
+    const val LOOP_LIMIT_MAX_CROSSFADE_MS = 3
+    const val LOOP_LIMIT_DEFAULT_CROSSFADE_MS = 4
+    const val LOOP_LIMIT_MAX_DRIFT_STOPS = 5
+
+    /** The ranges a loop render takes (`core/output/LoopPlan`), in LOOP_LIMIT_* order. */
+    external fun loopLimits(): LongArray
+
     /** Loose UI numbers clamped into a valid loop spec, written to [out] (LOOP_SPEC_* order). */
     external fun loopSpecOf(
         loopMs: Long,

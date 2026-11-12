@@ -9,7 +9,6 @@ import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.scene.SceneParams
-import dev.geode.util.bestEffort
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -33,6 +32,8 @@ internal class ModulationController(
     private val lfoStore: LfoStore,
     private val prefs: SharedPreferences,
     private val host: Host,
+    /** Hands the saved lock set to the director's keep set: `AutoDirectorStore.setKept`, its one writer. */
+    private val pushKept: (Set<String>) -> Unit,
 ) {
     interface Host {
         val params: SceneParams
@@ -72,8 +73,8 @@ internal class ModulationController(
     fun toggleParamLock(label: String) {
         _lockedParams.update { if (label in it) it - label else it + label }
         prefs.edit().putStringSet(KEY_LOCKED_PARAMS, _lockedParams.value).apply()
-        // The director's reach leaves a kept control alone too (AutoDirectorStore pushes the saved set at start).
-        bestEffort(TAG, "push keep set") { GeodeNative.directorKeepSet(_lockedParams.value.joinToString("\n")) }
+        // The director's reach leaves a kept control alone too; its store pushes the set, here and at start.
+        pushKept(_lockedParams.value)
     }
 
     /**
@@ -274,8 +275,6 @@ internal class ModulationController(
     }
 
     companion object {
-        private const val TAG = "ModulationController"
-
         /** Native's lock for every control below a Basics (core/viz/CustomizeMap `kProLock`). */
         const val PRO_LOCK = "#PRO"
 

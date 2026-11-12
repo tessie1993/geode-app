@@ -253,6 +253,7 @@ class PlayerSession internal constructor(
 
                 override fun setSceneParams(params: SceneParams) = visual.setSceneParams(params)
             },
+            container.autoDirector::setKept,
         )
 
     val adsrs: StateFlow<String> get() = modulation.adsrs

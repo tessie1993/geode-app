@@ -44,7 +44,9 @@ out vec4 fragColor;
 // arm count to a new plateau
 // (uFormPhase), crossfaded so no frame steps. The winding runs on uFlowPhase,
 // which only moves forward, so a loud passage spins the galaxy faster and
-// never backwards. Knobs: k0 density, k1 filament sharpness, k2 flow, k3 hue,
+// never backwards. Knobs: k0 density, k1 filament sharpness, k2 flow, k3 the
+// arms' pitch and a small hue offset (a high melody winds them into tight
+// coils round the throat, a low one lets them run out in long open sweeps),
 // k4 the eye's halo, k5 the channel's width; each is an offset from 0.5.
 //
 // ---- why the march is safe ------------------------------------------------------
@@ -210,7 +212,7 @@ void main() {
 
     // Bass tightens the wind; Warp leans it further. pitch multiplies log r,
     // never z, so it is free to move continuously.
-    float pitch = 1.35 + 0.35 * bass + 0.4 * clamp(uWarp, 0.0, 2.0);
+    float pitch = max(1.35 + 0.35 * bass + 0.4 * clamp(uWarp, 0.0, 2.0) + 1.6 * k3, 0.2);
     float sharp = clamp(1.0 - 0.45 * clamp(uMorph, 0.0, 1.5), 0.25, 1.0);
     float flowAmt = (0.18 + 0.22 * clamp(uTurbulence, 0.0, 1.5)) * (1.0 + 0.8 * k2) * (0.8 + 0.3 * swell);
     float filSharp = k1;

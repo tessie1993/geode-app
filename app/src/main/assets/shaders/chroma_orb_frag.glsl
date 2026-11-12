@@ -53,7 +53,11 @@ out vec4 fragColor;
 // bore axis so the diamond hole still lines up). Warp twists the bore and the
 // skin about the axis, more toward the ends. Turbulence ripples the glass.
 // Intensity drives the dots' emission. Knobs: PULSE kick swell, TEXTURE
-// lattice density, FLOW extra twist, TONE hue, BUILD fringe width, SPACE fog.
+// lattice density, FLOW extra twist, TONE the orbs' figure and a small hue
+// offset (a high melody draws each orb out along the flight into a long egg,
+// a low one flattens it into a wide lens; the scale only ever shrinks a
+// coordinate, so the field stays a lower bound, and the longest orb still
+// ends before the gap), BUILD fringe width, SPACE fog.
 //
 // ---- why the estimate is safe ----------------------------------------------
 //
@@ -121,6 +125,9 @@ float polyR(vec2 q, float n) {
     return length(q) * cos(a);
 }
 
+/** k3 TONE: the orb's per-axis coordinate scale (1 at rest; never above 1). */
+vec3 gShape = vec3(1.0);
+
 float map(vec3 p) {
     float idx = floor((p.z - CO_OFFSET) / CO_SPACING + 0.5);
     float cz = idx * CO_SPACING + CO_OFFSET;
@@ -129,8 +136,9 @@ float map(vec3 p) {
     // Only the orb just ahead of the eye answers the kick.
     float kick = gKick * exp(-abs(cz - gEye.z - 10.0) * 0.07);
     float r = CO_RADIUS + kick;
-    float sph = length(l) - r;
-    float gem = sdOctahedron(l, r * 1.32);
+    vec3 ls = l * gShape;
+    float sph = length(ls) - r;
+    float gem = sdOctahedron(ls, r * 1.32);
     float orb = mix(sph, gem, gGem);
     vec3 rp = l * 1.2;
     orb += gRipple * sin(rp.x + uTime * 0.4) * sin(rp.y - uTime * 0.3) * sin(rp.z + uTime * 0.2);
@@ -211,7 +219,10 @@ void main() {
     // Integrated, so loudness changes the spin RATE instead of jumping its angle.
     gSpin = uFlowPhase * 0.55 + uTime * 0.03;
     gTwist = 0.02 * (clamp(uWarp, 0.0, 1.0) * 3.0 + knob(2) * 2.0);
-    gTwistLip = sqrt(1.0 + gTwist * gTwist * CO_RMAX * CO_RMAX);
+    gShape = vec3(vec2(1.0 - 0.58 * max(-knob(3), 0.0)), 1.0 - 0.58 * max(knob(3), 0.0));
+    // A lens (TONE low) reaches further out in xy, where the bore's twist moves faster.
+    float rMax = CO_RMAX / gShape.x;
+    gTwistLip = sqrt(1.0 + gTwist * gTwist * rMax * rMax);
     gRipple = 0.3 * clamp(uTurbulence / 1.5, 0.0, 1.0);
     gRippleLip = 1.0 + gRipple * 1.2 * 1.7320508;
     gGem = clamp(uMorph, 0.0, 1.0);

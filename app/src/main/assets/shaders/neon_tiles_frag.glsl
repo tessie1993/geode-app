@@ -43,7 +43,10 @@ out vec4 fragColor;
 //                              uSymmetry still pins the face count.
 // Level (SND_LEVEL)           the neon bloom (col += k col^2).
 // Knobs: k0 PULSE kick push, k1 TEXTURE line width, k2 FLOW wall wave,
-// k3 TONE hue, k4 BUILD bloom, k5 SPACE hall width (all exactly neutral at 0.5).
+// k3 TONE the tiles' relief and a small hue offset (a high melody raises the
+// stars and crosses out of the wall in deep relief, a low one presses them
+// nearly flat; the step bound follows the height), k4 BUILD bloom, k5 SPACE
+// hall width (all exactly neutral at 0.5).
 // Morph raises the tiles, Warp waves the walls, Turbulence lights the fine lattice.
 //
 // ---- why the estimate is safe ----------------------------------------------
@@ -290,7 +293,7 @@ void main() {
     // the mid band moved.
     gSpin = uFlowPhase * 1.6 + uTime * 0.03;
     gR = 2.2 * (1.0 + 0.3 * k5);
-    gH = (0.06 + 0.1 * clamp(uMorph, 0.0, 1.0));
+    gH = (0.06 + 0.1 * clamp(uMorph, 0.0, 1.0)) * (1.0 + 1.6 * k3);
     gWave = max(0.0, 0.12 * clamp(uWarp, 0.0, 1.5) + 0.3 * k2);
     gKick = 1.2 * kick * clamp(1.0 + 2.0 * k0, 0.0, 2.0);
     float liftMax = gH * (1.0 + gKick);

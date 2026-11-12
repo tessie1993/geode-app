@@ -76,7 +76,9 @@ out vec4 fragColor;
 // Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the shells' thickness,
 // k2 FLOW added to the folds' lean (the writhe's bend), k3 TONE the palette
-// position, k4 BUILD the glow gathered along the ray, k5 SPACE the reach (far
+// position and the foam's packing (a high melody tightens the inversion into
+// fine, dense bubbles, a low one loosens it into big open cells), k4 BUILD the
+// glow gathered along the ray, k5 SPACE the reach (far
 // plane and fog).
 //
 // ---- why the estimate is safe -----------------------------------------------
@@ -248,7 +250,8 @@ void main() {
     float wedge = FT_TAU / max(gWedges, 1.0);
     gCorridor = FT_CORRIDOR * (1.0 + 0.45 * surgeBump);
     // Centroid packs the foam, the bass clock breathes it, the seed offsets it.
-    gInvS = 1.08 + 0.26 * (1.0 - smoothstep(0.2, 0.75, bright)) + 0.07 * sin(SND_BASS_TIME * 0.21) + 0.06 * (seed.z - 0.5);
+    gInvS = 1.08 + 0.26 * (1.0 - smoothstep(0.2, 0.75, bright)) + 0.07 * sin(SND_BASS_TIME * 0.21) + 0.06 * (seed.z - 0.5)
+          + 0.16 * kTone;
     // Untwisted at rest except for the seed's lean and a slow drift on the
     // loudness clock; flux adds the writhe on top.
     float lean = 0.18 * (seed.w - 0.5) + 0.10 * sin(SND_CURVED_TIME * 0.17) + 0.3 * kFlow;

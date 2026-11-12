@@ -1108,6 +1108,62 @@ object GeodeNative {
         span: Float,
     ): FloatArray
 
+    /** A name as a file stem (core/viz/LookFiles, `geode_file_safe_name`). Pure. */
+    external fun fileSafeName(name: String): String
+
+    /** The indices of [names] in list order, [caseless] or by code point, ties kept (`geode_looks_order`). Pure. */
+    external fun looksOrder(
+        names: Array<String>,
+        caseless: Boolean,
+    ): IntArray
+
+    /** A saved palette file's text as this build writes it, or null when it is no palette (`geode_saved_palette_read`). */
+    external fun savedPaletteRead(text: String): String?
+
+    /** [savedPaletteRead] with the id, name, hues and colours made safe (`geode_saved_palette_sanitize`). */
+    external fun savedPaletteSanitize(text: String): String?
+
+    /** A new saved palette's text: [stops] when not empty, else the hue gradient (`geode_saved_palette_create`). */
+    external fun savedPaletteCreate(
+        name: String,
+        base: Float,
+        span: Float,
+        stops: IntArray,
+    ): String
+
+    /** The text a palette file should hold under its current id, or null for no palette (`geode_saved_palette_migrate`). */
+    external fun savedPaletteMigrate(text: String): String?
+
+    /** A palette name's id, its file stem (`geode_saved_palette_id_for`). */
+    external fun savedPaletteIdFor(name: String): String
+
+    /** A saved palette's "id" or "name" (`geode_saved_palette_string`). */
+    external fun savedPaletteString(
+        text: String,
+        key: String,
+    ): String
+
+    /** A saved palette's hue base and span (`geode_saved_palette_hues`). */
+    external fun savedPaletteHues(text: String): FloatArray
+
+    /** A saved palette's colours, packed 0xRRGGBB (`geode_saved_palette_stops`). */
+    external fun savedPaletteStops(text: String): IntArray
+
+    /** How many colours a saved palette holds at most (`geode_saved_palette_max_stops`). */
+    external fun savedPaletteMaxStops(): Int
+
+    /** The params [frame] with saved palette [text] as its own palette, as a new frame (`geode_saved_palette_apply`). */
+    external fun savedPaletteApply(
+        text: String,
+        frame: FloatArray,
+    ): FloatArray
+
+    /** The saved palette id a look naming [lookId] keeps once [deletedId] is deleted (`geode_saved_palette_kept_id`). */
+    external fun savedPaletteKeptId(
+        lookId: String,
+        deletedId: String,
+    ): String
+
     /**
      * The scene params object of a preset, link, template look or saved live look (core/viz/ParamsJson): every live
      * row of the wire [frame] under its name as org.json wrote it, then the two palette slot ids, as compact JSON

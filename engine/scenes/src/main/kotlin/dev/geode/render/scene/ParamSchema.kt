@@ -174,6 +174,15 @@ class SceneParams private constructor(
     /** The same frame naming saved palette [id]. */
     fun withPaletteId(id: String): SceneParams = SceneParams(frame, id)
 
+    /** Saved palette [paletteText] (its file's text) as the look's own palette, named [id] (native's apply rule). */
+    fun withSavedPalette(
+        paletteText: String,
+        id: String,
+    ): SceneParams = SceneParams(GeodeNative.savedPaletteApply(paletteText, frame), id)
+
+    /** These params once saved palette [deletedId] is deleted: native says which id the look keeps. */
+    fun forgetPalette(deletedId: String): SceneParams = withPaletteId(GeodeNative.savedPaletteKeptId(customPaletteId, deletedId))
+
     override fun equals(other: Any?): Boolean =
         other is SceneParams && other.customPaletteId == customPaletteId && other.frame.contentEquals(frame)
 

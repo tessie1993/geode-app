@@ -579,6 +579,30 @@ GEODE_API int         geode_params_palette_stops(const float* frame, int* out);
 GEODE_API void        geode_params_clear_custom_palette(const float* in, float* out);
 GEODE_API void        geode_params_apply_stops(const float* in, const int* stops, int count, float* out);
 GEODE_API void        geode_params_apply_gradient(const float* in, float base, float span, float* out);
+/* The look files (viz/LookFiles): the shell reads and writes the bytes, every rule is here. Text out is valid until
+ * the calling thread's next call of the same function. Pure, any thread.
+ * file_safe_name: a name as a file stem (A-Z a-z 0-9 - _ space kept, anything else '_', and a changed or blank name
+ * gets '-' and four SHA-256 bytes in hex). looks_order: the indices of `names` in list order into out (count ints),
+ * caseless or by code point, ties kept; returns count.
+ * Saved palettes (files/palettes/<id>.json): read gives the file's text as this build writes it, or NULL when it is
+ * no palette; sanitize the same, the id, name, hues and colours made safe; create a new palette's text (a hue
+ * gradient, or your colours when count > 0); migrate the text the file should hold under its current id; id_for a
+ * name's id (its file stem); string its "id" or "name"; hues writes base and span to out[2]; stops writes its colours
+ * to out (at most max_stops) and returns how many; apply makes it the params frame's own palette (1, or 0 and a copy
+ * when the text is no palette); kept_id the saved palette id a look keeps once deleted_id is deleted. */
+GEODE_API const char* geode_file_safe_name(const char* name);
+GEODE_API int         geode_looks_order(const char* const* names, int count, int caseless, int* out);
+GEODE_API const char* geode_saved_palette_read(const char* text);
+GEODE_API const char* geode_saved_palette_sanitize(const char* text);
+GEODE_API const char* geode_saved_palette_create(const char* name, float base, float span, const int* stops, int count);
+GEODE_API const char* geode_saved_palette_migrate(const char* text);
+GEODE_API const char* geode_saved_palette_id_for(const char* name);
+GEODE_API const char* geode_saved_palette_string(const char* text, const char* key);
+GEODE_API int         geode_saved_palette_hues(const char* text, float* out);
+GEODE_API int         geode_saved_palette_stops(const char* text, int* out);
+GEODE_API int         geode_saved_palette_max_stops(void);
+GEODE_API int         geode_saved_palette_apply(const char* text, const float* in, float* out);
+GEODE_API const char* geode_saved_palette_kept_id(const char* look_id, const char* deleted_id);
 /* Your colours (viz/Colour.hpp): a colour is a packed 0xRRGGBB int, -1 for none. Pure, any thread.
  * from_hsv: hue wraps, saturation and value clamp to 0..1. to_hsv writes hue, saturation, value (0..1) to out[3].
  * parse_hex: "#RRGGBB", "RRGGBB", "#RGB" or "RGB", or -1. hex: "#RRGGBB" ("" for -1), valid until the

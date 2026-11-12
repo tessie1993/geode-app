@@ -1,0 +1,134 @@
+// JNI for the look files (core/viz/LookFiles through api/geode_api.h): file names, saved palettes, presets and the
+// template library as text in and text out. Marshals only.
+#include <jni.h>
+
+#include <string>
+#include <vector>
+
+#include "api/geode_api.h"
+#include "jni_util.hpp"
+
+namespace {
+
+using geode::jni::FloatElements;
+using geode::jni::Utf8Chars;
+using geode::jni::utf8String;
+
+const char* textOf(const Utf8Chars& chars) { return chars.get() ? chars.get() : ""; }
+
+jintArray intsOf(JNIEnv* env, const int* values, int count) {
+    const jsize n = count > 0 ? static_cast<jsize>(count) : 0;
+    jintArray out = env->NewIntArray(n);
+    if (out && n > 0) env->SetIntArrayRegion(out, 0, n, reinterpret_cast<const jint*>(values));
+    return out;
+}
+
+// The Java strings of `array` as UTF-8, null entries as "".
+std::vector<std::string> stringsOf(JNIEnv* env, jobjectArray array) {
+    std::vector<std::string> out;
+    const jsize n = array ? env->GetArrayLength(array) : 0;
+    for (jsize i = 0; i < n; ++i) {
+        auto* item = static_cast<jstring>(env->GetObjectArrayElement(array, i));
+        Utf8Chars chars(env, item);
+        out.emplace_back(textOf(chars));
+        env->DeleteLocalRef(item);
+    }
+    return out;
+}
+
+}  // namespace
+
+extern "C" {
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_fileSafeName(JNIEnv* env, jobject, jstring name) {
+    Utf8Chars text(env, name);
+    return utf8String(env, geode_file_safe_name(textOf(text)));
+}
+
+JNIEXPORT jintArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_looksOrder(JNIEnv* env, jobject, jobjectArray names, jboolean caseless) {
+    const std::vector<std::string> list = stringsOf(env, names);
+    std::vector<const char*> pointers;
+    for (const auto& s : list) pointers.push_back(s.c_str());
+    std::vector<int> order(list.size());
+    const int n = geode_looks_order(pointers.data(), static_cast<int>(pointers.size()), caseless ? 1 : 0, order.data());
+    return intsOf(env, order.data(), n);
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_savedPaletteRead(JNIEnv* env, jobject, jstring text) {
+    Utf8Chars chars(env, text);
+    return utf8String(env, geode_saved_palette_read(textOf(chars)));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_savedPaletteSanitize(JNIEnv* env, jobject, jstring text) {
+    Utf8Chars chars(env, text);
+    return utf8String(env, geode_saved_palette_sanitize(textOf(chars)));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_savedPaletteCreate(JNIEnv* env, jobject, jstring name, jfloat base,
+                                                                                    jfloat span, jintArray stops) {
+    Utf8Chars label(env, name);
+    const jsize n = stops ? env->GetArrayLength(stops) : 0;
+    std::vector<jint> rgb(static_cast<size_t>(n));
+    if (n > 0) env->GetIntArrayRegion(stops, 0, n, rgb.data());
+    return utf8String(env, geode_saved_palette_create(textOf(label), base, span, reinterpret_cast<const int*>(rgb.data()), static_cast<int>(n)));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_savedPaletteMigrate(JNIEnv* env, jobject, jstring text) {
+    Utf8Chars chars(env, text);
+    return utf8String(env, geode_saved_palette_migrate(textOf(chars)));
+}
+
+JNIEXPORT jstring JNICALL Java_dev_geode_engine_bridge_GeodeNative_savedPaletteIdFor(JNIEnv* env, jobject, jstring name) {
+    Utf8Chars chars(env, name);
+    return utf8String(env, geode_saved_palette_id_for(textOf(chars)));
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_savedPaletteString(JNIEnv* env, jobject, jstring text, jstring key) {
+    Utf8Chars chars(env, text);
+    Utf8Chars which(env, key);
+    return utf8String(env, geode_saved_palette_string(textOf(chars), textOf(which)));
+}
+
+JNIEXPORT jfloatArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_savedPaletteHues(JNIEnv* env, jobject, jstring text) {
+    Utf8Chars chars(env, text);
+    float hues[2] = {0.0f, 1.0f};
+    geode_saved_palette_hues(textOf(chars), hues);
+    jfloatArray out = env->NewFloatArray(2);
+    if (out) env->SetFloatArrayRegion(out, 0, 2, hues);
+    return out;
+}
+
+JNIEXPORT jintArray JNICALL Java_dev_geode_engine_bridge_GeodeNative_savedPaletteStops(JNIEnv* env, jobject, jstring text) {
+    Utf8Chars chars(env, text);
+    std::vector<int> stops(static_cast<size_t>(geode_saved_palette_max_stops()));
+    const int n = geode_saved_palette_stops(textOf(chars), stops.data());
+    return intsOf(env, stops.data(), n);
+}
+
+JNIEXPORT jint JNICALL Java_dev_geode_engine_bridge_GeodeNative_savedPaletteMaxStops(JNIEnv*, jobject) {
+    return geode_saved_palette_max_stops();
+}
+
+JNIEXPORT jfloatArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_savedPaletteApply(JNIEnv* env, jobject, jstring text, jfloatArray frame) {
+    Utf8Chars chars(env, text);
+    FloatElements values(env, frame);
+    const jsize count = static_cast<jsize>(geode_viz_param_count());
+    if (!values.get() || values.length() < count) return frame;
+    std::vector<float> out(static_cast<size_t>(count));
+    geode_saved_palette_apply(textOf(chars), values.get(), out.data());
+    jfloatArray result = env->NewFloatArray(count);
+    if (result) env->SetFloatArrayRegion(result, 0, count, out.data());
+    return result;
+}
+
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_savedPaletteKeptId(JNIEnv* env, jobject, jstring lookId, jstring deletedId) {
+    Utf8Chars look(env, lookId);
+    Utf8Chars deleted(env, deletedId);
+    return utf8String(env, geode_saved_palette_kept_id(textOf(look), textOf(deleted)));
+}
+
+}

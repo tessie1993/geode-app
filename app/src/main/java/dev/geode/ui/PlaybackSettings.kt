@@ -59,6 +59,7 @@ internal fun PlayerPrefsRow(
         SettingsRowKey.RESUME_LONG_TRACKS -> ResumeLongTracks(prefs, set)
         SettingsRowKey.PAUSE_UNPLUGGED ->
             PlaybackSwitchRow(stringResource(R.string.playback_pause_unplugged), prefs.pauseOnNoisy) { set(prefs.copy(pauseOnNoisy = it)) }
+        SettingsRowKey.NATIVE_OUTPUT -> NativeOutputSettings(prefs, set)
         SettingsRowKey.BIT_PERFECT -> BitPerfectSettings(prefs, set)
         SettingsRowKey.PICTURE_DELAY -> PictureDelaySlider(prefs, set)
         SettingsRowKey.KEEP_SCREEN_ON_WITH_VISUAL ->
@@ -321,6 +322,24 @@ private fun BitPerfectSettings(
             stringResource(R.string.playback_bit_perfect_paused),
             style = MaterialTheme.typography.bodySmall,
             color = if (prefs.bitPerfect) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** The Oboe output under ExoPlayer (`audio/OboeAudioOutput`); what it cannot play, the platform track plays. */
+@Composable
+private fun NativeOutputSettings(
+    prefs: PlayerPrefs,
+    onChange: (PlayerPrefs) -> Unit,
+) {
+    Column {
+        PlaybackSwitchRow(stringResource(R.string.playback_native_output), prefs.nativeOutput) {
+            onChange(prefs.copy(nativeOutput = it))
+        }
+        Text(
+            stringResource(R.string.playback_native_output_explainer),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

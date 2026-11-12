@@ -415,6 +415,8 @@
     <string name="playback_bit_perfect_paused">While the DAC plays bit-perfect, these pause so it gets the file\'s exact samples: ReplayGain, crossfade, the pause, skip and sleep fades, the equalizer and bass boost, loudness and the limiter. The visuals still react.</string>
     <string name="playback_picture_delay">Picture delay: %1$+d ms</string>
     <string name="playback_picture_delay_explainer">If the visual runs ahead of or behind what you hear on a headset or car speaker, move this until the beats line up. Positive waits for the sound; negative shows the picture sooner.</string>
+    <string name="playback_native_output">Native output (Oboe)</string>
+    <string name="playback_native_output_explainer">Experimental. Plays through Oboe instead of Android\'s AudioTrack, and falls back automatically for anything it cannot play, such as surround files or bit-perfect USB.</string>
     <string name="playback_replaygain_explainer">Evens out loudness between tracks from the ReplayGain tags in each file. Files without the tags play at their own level.</string>
 
     <!-- Settings › Audio › Equalizer. -->

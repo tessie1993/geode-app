@@ -118,6 +118,7 @@ class SettingsMapTest {
             SettingsGroupKey.OUTPUT,
             SettingsRowKey.PAUSE_UNPLUGGED,
             SettingsRowKey.HEADPHONES_AUTOPLAY,
+            SettingsRowKey.NATIVE_OUTPUT,
             SettingsRowKey.BIT_PERFECT,
         )
         assertRowsOn(SettingsGroupKey.VISUAL_PLAYBACK, SettingsRowKey.AUTO_DIRECTOR, SettingsRowKey.STYLE_TIMER)

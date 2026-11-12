@@ -8,7 +8,7 @@ import dev.geode.export.ExportPreset
 import dev.geode.export.ExportPresets
 import dev.geode.export.ExportQuality
 import dev.geode.export.ExportRatio
-import dev.geode.export.LoudnessTarget
+import dev.geode.model.LoudnessTarget
 
 /**
  * The settings an export is encoded with. One copy lives in Settings › Export per [ExportDestination]

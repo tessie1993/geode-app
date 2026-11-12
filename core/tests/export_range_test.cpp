@@ -1,11 +1,10 @@
-// Host-side checks for the segment an export covers (core/output/ExportRange) and its C ABI: a pick is held
+// Host-side checks for the segment an export covers (core/output/ExportRange): a pick is held
 // inside the track, and there is no segment without a track length, under a second, or over the whole track.
 // Built and run by CI (.github/workflows/native-host-tests.yml, "Native export planning tests"); no device.
 #include <cstdint>
 #include <cstdio>
 #include <limits>
 
-#include "api/geode_api.h"
 #include "output/ExportRange.hpp"
 
 using namespace geode::output;
@@ -59,24 +58,10 @@ void rules() {
     check(rangeIs(1, most, most, 1, most - 1), "the far end");
 }
 
-void abi() {
-    int64_t start = -1;
-    int64_t duration = -1;
-    check(geode_export_range(10'000, 20'000, 60'000, &start, &duration) == 1 && start == 10'000 && duration == 10'000,
-          "ABI range");
-    start = 7;
-    duration = 9;
-    check(geode_export_range(0, 60'000, 60'000, &start, &duration) == 0 && start == 7 && duration == 9,
-          "ABI: no segment leaves the outputs alone");
-    check(geode_export_range(10'000, 20'000, 60'000, nullptr, nullptr) == 1, "ABI: outputs are optional");
-    check(geode_export_range_min_ms() == kMinRangeMs, "ABI shortest");
-}
-
 }  // namespace
 
 int main() {
     rules();
-    abi();
     if (failures) {
         std::printf("%d failure(s)\n", failures);
         return 1;

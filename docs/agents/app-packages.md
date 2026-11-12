@@ -273,11 +273,11 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 
 ## `export`
 
-- Open first: `VideoExporter`, `LoopRender`, `ExportRun`, `ExportService`, `WatermarkOverlay`, `RenderBatch` (batch queue and render scopes, pure).
+- Open first: `VideoExporter`, `LoopRender`, `ExportRun`, `ExportService`, `WatermarkOverlay`.
 - Visualizer export: MediaCodec + offscreen GL.
 - `ExportScene` opens the export's renderer and the track's descriptor and hands the look over; the native export job (`core/output/ExportFrame`) runs the prepare order, the pre-roll, the track's decode and each frame.
-- Loop render and chapters.
-- Loudness: `LoudnessMeter` decodes; the BS.1770 maths is native.
+- Loop render.
+- Loudness: native decodes the finished file and advises (`core/output/LoudnessScan`, `LoudnessAdvice`); `ui/LoudnessAdviceText` words it.
 - `PcmResampler` takes hi-res sources down to an AAC-supported rate; it is a handle over native maths, so `close()` it.
 - The time left is native (`core/output/RenderEta`, `geode_render_eta_*`); `ExportRun.describeEta` words it.
 - A segment's clamp is native (`core/output/ExportRange`, `geode_export_range`); `ExportRange` carries the result.

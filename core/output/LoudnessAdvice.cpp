@@ -60,4 +60,35 @@ Advice advise(int target, bool gated, double lufs, double truePeakDbtp) {
     return a;
 }
 
+Sentence sentenceOf(const Advice& a) {
+    switch (a.kind) {
+    case kAsMixed: return kSayAsMixed;
+    case kOnTarget: return kSayOnTarget;
+    case kNormalise: break;
+    default: return kSayNothing;
+    }
+    if (a.direction > 0) return a.ceilingLimited ? kSayRaiseLimited : kSayRaise;
+    if (a.direction == 0) return kSayUnchanged;
+    if (a.band < 0) return kSayLowerClipping;
+    if (a.band > 0) return a.ceilingLimited ? kSayLowerLoudLimited : kSayLowerLoud;
+    return kSayLowerPeak;
+}
+
+Reading readingOf(int target, bool gated, double lufs, double truePeakDbtp) {
+    const Advice a = advise(target, gated, lufs, truePeakDbtp);
+    Reading r;
+    r.sentence = sentenceOf(a);
+    r.lufs = lufs;
+    r.truePeakDbtp = truePeakDbtp;
+    r.gainDb = a.gainDb;
+    r.gainForLevelDb = a.gainForLevelDb;
+    r.resultingLufs = a.resultingLufs;
+    r.resultingTruePeakDbtp = a.resultingTruePeakDbtp;
+    Window w;
+    if (windowOf(target, &w)) r.ceilingDbtp = w.ceilingDbtp;
+    r.quietLu = a.quietLu;
+    r.peakWarning = a.peakWarning;
+    return r;
+}
+
 }  // namespace geode::output::loudness

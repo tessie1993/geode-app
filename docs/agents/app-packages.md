@@ -259,6 +259,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `TabLabels` is Settings › Look's tab bar labels choice.
 - `ScreenRotation` is Settings › Look's and Visuals › Settings' screen rotation: follow the phone, lock portrait or landscape.
 - `ControlRange` hands every Customize slider its range from native (`core/viz/ControlRange`, `geode_params_control_range`) and keeps each answer by name.
+- `ParamEdit` reads and edits a scene param by its schema name (`get`, `int`, `flag`, `with`) through the wire codec, so Customize's controls take a name, not a Kotlin property (#1150).
 - `WatermarkChoice` is a render's watermark, pinned at its start through `RenderLimits.withMark`.
 - `OpenedAudio` is the id an audio file opened from another app plays under.
 

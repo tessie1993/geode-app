@@ -62,7 +62,6 @@ import dev.geode.ui.theme.StoneIconArt
 import dev.geode.ui.theme.UiSound
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlin.reflect.KProperty1
 
 /** What a deeper page edits, gathered once so each page reads plain values. */
 internal class AdvancedHost(
@@ -504,8 +503,8 @@ private fun NoteKeySlider(
     @StringRes name: Int,
     @StringRes hint: Int,
     p: SceneParams,
-    param: KProperty1<SceneParams, Float>,
-    onChange: (Float) -> Unit,
+    param: String,
+    onChange: (SceneParams) -> Unit,
 ) {
     val label = stringResource(name)
     LabeledSlider(label, p, param, scope = ParamScope.UNIVERSAL, unit = ParamUnit.TIMES, onChange = onChange)
@@ -527,21 +526,11 @@ internal fun NoteKeyPage(
     val running by remember { context.geodeContainer.noteResponse }.enabled.collectAsStateWithLifecycle()
     if (!running && sectionVisible()) ControlHint(stringResource(R.string.note_key_off))
     ControlHint(stringResource(R.string.note_key_intro))
-    NoteKeySlider(R.string.note_key_pitch, R.string.note_key_pitch_hint, p, SceneParams::notePitch) {
-        onChange(p.copy(notePitch = it))
-    }
-    NoteKeySlider(R.string.note_key_intervals, R.string.note_key_intervals_hint, p, SceneParams::noteIntervals) {
-        onChange(p.copy(noteIntervals = it))
-    }
-    NoteKeySlider(R.string.note_key_tension, R.string.note_key_tension_hint, p, SceneParams::noteTension) {
-        onChange(p.copy(noteTension = it))
-    }
-    NoteKeySlider(R.string.note_key_chords, R.string.note_key_chords_hint, p, SceneParams::noteChords) {
-        onChange(p.copy(noteChords = it))
-    }
-    NoteKeySlider(R.string.note_key_drums, R.string.note_key_drums_hint, p, SceneParams::noteDrums) {
-        onChange(p.copy(noteDrums = it))
-    }
+    NoteKeySlider(R.string.note_key_pitch, R.string.note_key_pitch_hint, p, "notePitch", onChange)
+    NoteKeySlider(R.string.note_key_intervals, R.string.note_key_intervals_hint, p, "noteIntervals", onChange)
+    NoteKeySlider(R.string.note_key_tension, R.string.note_key_tension_hint, p, "noteTension", onChange)
+    NoteKeySlider(R.string.note_key_chords, R.string.note_key_chords_hint, p, "noteChords", onChange)
+    NoteKeySlider(R.string.note_key_drums, R.string.note_key_drums_hint, p, "noteDrums", onChange)
 }
 
 private const val TRANSITION_CHIP_LIMIT = 40

@@ -165,7 +165,7 @@ class PresetStore(
                     p.customShader,
                     p.milkPreset,
                     p.params.frame(),
-                    p.customPaletteId,
+                    p.params.customPaletteId,
                 ),
             )
 

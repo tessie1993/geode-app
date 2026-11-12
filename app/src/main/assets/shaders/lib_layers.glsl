@@ -161,6 +161,13 @@ float layerWarpSlack(float amt) {
     return 1.0 / (1.0 + 2.5 * amt);
 }
 
+/** A fractal's light domain warp: `flow` (Warp and k2) and `chaos` (Turbulence) set its reach; returns the step's slack. */
+float layerFlowWarp(inout vec3 p, float flow, float chaos) {
+    float amt = 0.03 + 0.08 * flow + 0.04 * chaos;
+    p = layerWarp(p, amt);
+    return layerWarpSlack(amt);
+}
+
 /** p.xy folded into one of n mirrored sectors about the axis (n >= 1): the sector's middle on +x. */
 vec2 layerSector(vec2 q, float n) {
     float a = abs(q.x) + abs(q.y) > 1.0e-6 ? atan(q.y, q.x) : 0.0;

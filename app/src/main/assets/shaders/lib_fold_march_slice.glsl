@@ -27,6 +27,7 @@ vec4 foldSection(vec3 p, float t) {
 
 /** The light along one ray through planes across z, gFoldGap apart. */
 vec3 foldSlicePlanes(vec3 ro, vec3 rd) {
+    layerSetup(gFoldPal0, gFoldPal1, gFoldPal2, gFoldPal3, gFoldPal4, gFoldTone, gFoldFlow, gFoldSwell);
     float n = FOLD_SLICE_STEPS;
     float dir = rd.z < 0.0 ? -1.0 : 1.0;
     // A ray almost along the planes meets them far apart; its cuts are spaced as if it met them at a slant.
@@ -43,11 +44,13 @@ vec3 foldSlicePlanes(vec3 ro, vec3 rd) {
         through *= 1.0 - s.a;
         t += dt;
     }
-    return acc;
+    // The haze in front, the far layer through what the sections let by (lib_layers).
+    return layerCompose(acc, ro, rd, gFoldFar, gFoldFar, through);
 }
 
 /** The light along one ray through gFoldShells spheres about the origin, the outermost gFoldShellR across: every near side first, outermost in, then every far side, innermost out. */
 vec3 foldSliceShells(vec3 ro, vec3 rd) {
+    layerSetup(gFoldPal0, gFoldPal1, gFoldPal2, gFoldPal3, gFoldPal4, gFoldTone, gFoldFlow, gFoldSwell);
     float n = min(FOLD_SLICE_STEPS, 2.0 * gFoldShells);
     float gap = gFoldShellR / max(gFoldShells, 1.0);
     float b = dot(ro, rd);
@@ -69,5 +72,5 @@ vec3 foldSliceShells(vec3 ro, vec3 rd) {
         acc += through * s.rgb;
         through *= 1.0 - s.a;
     }
-    return acc;
+    return layerCompose(acc, ro, rd, gFoldFar, gFoldFar, through);
 }

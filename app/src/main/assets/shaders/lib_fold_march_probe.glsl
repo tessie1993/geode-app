@@ -19,6 +19,7 @@ vec3 foldProbeNormal(vec3 p, vec3 rd, float eps) {
 
 /** The light along one ray: strides to the first change of sign, the crossing halved in on, then the surface lit. */
 vec3 foldProbe(vec3 ro, vec3 rd) {
+    layerSetup(gFoldPal0, gFoldPal1, gFoldPal2, gFoldPal3, gFoldPal4, gFoldTone, gFoldFlow, gFoldSwell);
     float n = FOLD_PROBE_STEPS;
     float pace = gFoldFar / n;
     float t = pace * (0.1 + 0.4 * foldDither());
@@ -59,5 +60,6 @@ vec3 foldProbe(vec3 ro, vec3 rd) {
         // Nothing lights right at the eye: flying into the crust must not fill the frame.
         col = foldLit(nor, rd, t, m, occ) * smoothstep(0.02, 0.3, t);
     }
-    return foldAir(col, min(t, gFoldFar), near);
+    // The haze in front of the surface, the far layer where nothing was hit (lib_layers).
+    return layerCompose(foldAir(col, min(t, gFoldFar), near), ro, rd, min(t, gFoldFar), gFoldFar, hit ? 0.0 : 1.0);
 }

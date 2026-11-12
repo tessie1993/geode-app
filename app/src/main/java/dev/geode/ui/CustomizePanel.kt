@@ -45,6 +45,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
 import dev.geode.model.GestureTip
 import dev.geode.model.TourSpot
@@ -52,6 +53,7 @@ import dev.geode.pro.FreeTier
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
+import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.scene.SceneParams
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeSpacing
@@ -210,8 +212,8 @@ private fun CustomizeHeader(
 ) {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
     val changed by remember(viewModel) {
-        viewModel.vizState.map { CustomizeSummary.changedCount(it.params) }.distinctUntilChanged()
-    }.collectAsStateWithLifecycle(remember(viewModel) { CustomizeSummary.changedCount(viewModel.vizState.value.params) })
+        viewModel.vizState.map { GeodeNative.customizeChangedCount(SceneParamsCodec.pack(it.params)) }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(remember(viewModel) { GeodeNative.customizeChangedCount(SceneParamsCodec.pack(viewModel.vizState.value.params)) })
     val history by visualsViewModel.paramHistory.collectAsStateWithLifecycle()
     var menuOpen by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }

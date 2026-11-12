@@ -129,6 +129,10 @@ SceneParams borrow(const SceneParams& current, const SceneParams& from, Category
 // current with every field the category's controls write put back to its default.
 SceneParams reset(const SceneParams& current, Category category);
 
+// How many fields differ from SceneParams{} (the badge on the Customize header). A retired slot always
+// reads its default, so it never counts.
+int changedCount(const SceneParams& current);
+
 // The map as the shell reads it. Rows, '|'-separated, one per line, in this order:
 //   customize|<kTextVersion>
 //   category|<CATEGORY>|<SHOW>                        panel order

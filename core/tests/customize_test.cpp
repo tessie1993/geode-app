@@ -378,6 +378,23 @@ void resetPutsBackOnlyItsCategory() {
 }
 
 // MilkDrop's mash-up: one category of another look laid over this one.
+void changedCountCountsLiveFieldsOffTheDefault() {
+    const SceneParams defaults;
+    SceneParams p;
+    check(customize::changedCount(p) == 0, "the defaults change nothing");
+    p.speed = defaults.speed + 1.0f;
+    check(customize::changedCount(p) == 1, "one moved float counts once");
+    p.flowEnabled = true;
+    p.symmetry = defaults.symmetry + 1;
+    check(customize::changedCount(p) == 3, "a flag and a pick count too");
+    p.speed = defaults.speed;
+    check(customize::changedCount(p) == 2, "a value put back stops counting");
+    float wire[SceneParams::kFieldCount];
+    defaults.toWire(wire);
+    wire[SceneParams::slotOf("speed")] = defaults.speed + 1.0f;
+    check(customize::changedCount(SceneParams::fromWire(wire)) == 1, "the wire frame counts the same");
+}
+
 void borrowTakesOnlyItsCategory() {
     SceneParams from;
     from.speed = 2.0f;   // Motion
@@ -479,6 +496,7 @@ int main(int argc, char** argv) {
     theFreeRollMovesBasicsOnly();
     resetAndBorrowCoverEveryControl();
     resetPutsBackOnlyItsCategory();
+    changedCountCountsLiveFieldsOffTheDefault();
     borrowTakesOnlyItsCategory();
     categoriesAndSectionsFollowTheStyle();
     textEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/customize.txt");

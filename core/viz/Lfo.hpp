@@ -47,9 +47,11 @@ enum class LfoTarget {
     Spawn, Fractal, FrontLayer, BackLayer,
     // Appended: which of a style's own distance formulas draws it (viz/ParamTable.inc formula), ordinal 78.
     Formula,
+    // Appended: how far a raymarched style takes in the shape graph (viz/ParamTable.inc shapes), ordinal 79.
+    Shapes,
 };
 // The last ordinal: the wire's range for a target.
-inline constexpr LfoTarget kLastLfoTarget = LfoTarget::Formula;
+inline constexpr LfoTarget kLastLfoTarget = LfoTarget::Shapes;
 
 struct ModChain {
     int slot;

@@ -35,7 +35,7 @@ const std::vector<Section>& table() {
         {C::Shape, "form", false, S::Always, {"Domain warp", "Twist", "Ripple", "Turbulence"}},
         {C::Shape, "symmetry", false, S::Always, {"Mirror", "Tile", "Pixelate"}},
         // Grow and layers: what the family libraries draw (catalogue::Scope::FamilyForm), for the music to move.
-        {C::Shape, "grow", false, S::Always, {"Spawn", "Fractal", "Front layer", "Back layer", "Formula"}},
+        {C::Shape, "grow", false, S::Always, {"Spawn", "Fractal", "Front layer", "Back layer", "Formula", "Shapes"}},
         {C::Shape,
          "particles",
          false,
@@ -162,6 +162,7 @@ const std::vector<HeldControl>& held() {
         {"Front layer", {"frontLayer"}, std::nullopt},
         {"Back layer", {"backLayer"}, std::nullopt},
         {"Formula", {"formula"}, std::nullopt},
+        {"Shapes", {"shapes"}, std::nullopt},
         {"Progression", {"fluidSpawnProgress"}, Scope::Journey},
         {"Fluid quality", {"fluidQuality"}, Scope::Emitters},
         {"Lower the quality when the phone struggles", {"fluidAutoQuality"}, Scope::Emitters},

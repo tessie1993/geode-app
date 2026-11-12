@@ -374,6 +374,8 @@ const std::vector<Carrier>& shaderCarriers() {
         {"backLayer", {"uBackLayer"}},
         // Formula: shown only on the styles that keep formulas of their own (Catalogue.cpp's kFormulaStyles).
         {"formula", {"uFormula"}},
+        // Shapes: shown only on the styles that melt the shape graph in (Catalogue.cpp's kShapeStyles, lib_shapes).
+        {"shapes", {"uShapeMix"}},
         {"tile", {"uTile"}},
         {"pixelate", {"uPixelate"}},
         {"mirror", {"uMirrorX"}},

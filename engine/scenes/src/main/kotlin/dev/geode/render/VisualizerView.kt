@@ -24,7 +24,7 @@ class VisualizerView(
      */
     val framePacer: FramePacer = FramePacer { requestRender() }
 
-    private val gyroLook = GyroLook(context, visualizerRenderer)
+    private val gyroLook = GyroLook(context, visualizerRenderer) { display }
 
     /** The camera's "Tilt phone to look" setting; the sensor only runs while this view is also watched. */
     var gyroWanted: Boolean = false
@@ -33,8 +33,11 @@ class VisualizerView(
             syncPacer()
         }
 
-    /** Between the host's [onResume] and [onPause] (a new GLSurfaceView runs until first paused). Gates only the sensor. */
+    /** Between the host's [onResume] and [onPause] (a new GLSurfaceView runs until first paused). */
     private var resumed = true
+
+    /** What the last [syncPacer] found; hidden in the app while resumed (another tab, an export), it sheds as a pause does (#999). */
+    private var watched = false
 
     /**
      * GLSurfaceView installs its own holder callback; a second one is additive. The surface is
@@ -116,10 +119,7 @@ class VisualizerView(
         syncPacer()
     }
 
-    /**
-     * The activity forwards its pause here (AppShell). The sensor stops with it (left on, it keeps the sensor hub
-     * awake), and the spare scenes go first: an event queued before the pause still has the context (#854).
-     */
+    /** The host's pause (AppShell): the sensor stops, and the spares and targets go while the context is current (#854). */
     override fun onPause() {
         resumed = false
         gyroLook.setActive(false)
@@ -134,12 +134,9 @@ class VisualizerView(
     }
 
     override fun onDetachedFromWindow() {
-        // Before super, which tears down the GL thread: no point asking it for one more frame.
+        // Before super, which tears down the GL thread. Runs only when a second screen takes the view or the
+        // activity goes; isAttachedToWindow is true until super returns, so the sensor is stopped outright.
         framePacer.stop()
-        // The app now hides this view rather than detaching it (see onVisibilityChanged), so this
-        // runs only when a second screen takes it or the activity goes. isAttachedToWindow is
-        // still true until super returns, so the sensor is stopped outright; re-attaching runs
-        // syncPacer again.
         gyroLook.setActive(false)
         releaseScenesOnGlThread()
         super.onDetachedFromWindow()
@@ -196,11 +193,12 @@ class VisualizerView(
     }
 
     private fun syncPacer() {
-        // isShown: this view and every ancestor VISIBLE, in a window. Window visibility on its own
-        // misses the in-app hide (alpha 0, so setAlpha syncs too; attach-guarded as the constructor calls it).
-        val watched = isAttachedToWindow && windowVisibility == VISIBLE && isShown && alpha > 0f
-        if (watched) framePacer.start() else framePacer.stop()
-        gyroLook.setActive(gyroListens(watched, resumed, gyroWanted))
+        // isShown: this view and every ancestor VISIBLE, in a window; alpha is the in-app hide (setAlpha syncs, attach-guarded).
+        val now = isAttachedToWindow && windowVisibility == VISIBLE && isShown && alpha > 0f
+        if (watched && !now && resumed) queueEvent { visualizerRenderer.trimSpares() }
+        watched = now
+        if (now) framePacer.start() else framePacer.stop()
+        gyroLook.setActive(gyroListens(now, resumed, gyroWanted))
     }
 
     private companion object {

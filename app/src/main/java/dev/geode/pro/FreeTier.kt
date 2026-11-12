@@ -94,7 +94,7 @@ object FreeTier {
     const val TRIAL_CLOCK_SLACK_MS: Long = 2L * 60L * 1000L
 
     /**
-     * Whether trial exports are held to the free limits: one minute, full-frame watermark. On: the
+     * Whether trial exports are held to the free limits: one minute, the watermark. On: the
      * trial is for trying every style, tool and resolution, and a finished, clean, full-length video
      * is the thing Pro is bought for.
      */

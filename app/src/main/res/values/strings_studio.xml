@@ -23,19 +23,17 @@
     <string name="render_keep_yes">Add</string>
     <string name="render_keep_no">Just the video</string>
     <string name="render_keep_remember">Don\'t ask again</string>
+    <string name="settings_keep_renders">Add renders to My videos</string>
+    <string name="settings_keep_renders_ask">Ask each time</string>
+    <string name="settings_keep_renders_always">Always</string>
+    <string name="settings_keep_renders_never">Never, just the video</string>
 
     <!-- Studio › My videos -->
-    <string name="my_videos_all">All</string>
-    <string name="my_videos_renders">Renders</string>
-    <string name="my_videos_takes">Takes</string>
-    <string name="my_videos_empty">Nothing here yet. Render a video or record a take on Visuals.</string>
+    <string name="my_videos_empty">Nothing here yet. Render a video, or record one on Visuals.</string>
     <string name="my_videos_deleted">Deleted %1$s</string>
     <string name="my_videos_undo">Undo</string>
-    <string name="my_videos_kind_take">Take</string>
-    <string name="my_videos_kind_render">Video</string>
     <string name="my_videos_play">Play</string>
     <string name="my_videos_share">Share</string>
-    <string name="my_videos_render">Render</string>
     <string name="my_videos_delete">Delete</string>
     <string name="my_videos_thumbnail_unavailable">Video unavailable</string>
 

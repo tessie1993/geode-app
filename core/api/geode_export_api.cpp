@@ -1,10 +1,7 @@
-// The C ABI over the export planning and clip maths (geode_api.h, "Export planning and clip maths"). Only
-// argument checks and copies live here; the rules are in output/, signal/timeline/, viz/ClipGrade,
-// util/CubeLut and audio/dsp/PcmConvert and PcmTiming, each host-tested in core/tests.
+// The C ABI over the export planning and PCM maths (geode_api.h, "Export planning and PCM maths"). Only
+// argument checks and copies live here; the rules are in output/ and audio/dsp/PcmConvert and PcmTiming,
+// each host-tested in core/tests.
 #include <algorithm>
-#include <memory>
-#include <string_view>
-#include <utility>
 #include <vector>
 
 #include "api/geode_api.h"
@@ -14,26 +11,11 @@
 #include "output/EncodePlan.hpp"
 #include "output/FrameClock.hpp"
 #include "output/LoopPlan.hpp"
+#include "output/LoudnessAdvice.hpp"
+#include "output/PreRoll.hpp"
 #include "output/RecordPlan.hpp"
-#include "signal/timeline/Keyframes.hpp"
-#include "signal/timeline/SpeedRamp.hpp"
-#include "util/CubeLut.hpp"
-#include "viz/ClipGrade.hpp"
 
-namespace tl = geode::signal::timeline;
 namespace out = geode::output;
-
-struct geode_track {
-    tl::Track track;
-};
-
-struct geode_speed_ramp {
-    tl::SpeedRamp ramp;
-};
-
-struct geode_cube_lut {
-    geode::util::CubeLut lut;
-};
 
 namespace {
 
@@ -60,10 +42,6 @@ int copyChapters(const std::vector<out::ChapterSpan>& spans, int64_t* start, int
     return n;
 }
 
-tl::ValueKind kindOf(int kind) {
-    return kind >= 0 && kind <= 4 ? static_cast<tl::ValueKind>(kind) : tl::ValueKind::Scalar;
-}
-
 }  // namespace
 
 extern "C" {
@@ -73,6 +51,12 @@ int64_t geode_export_total_frames(int64_t duration_us, int fps) { return out::Fr
 int64_t geode_export_frame_pts_ns(int64_t frame, int fps) { return out::FrameClock(fps, 0).ptsNs(frame); }
 
 int64_t geode_export_frame_time_ms(int64_t frame, int fps) { return out::FrameClock(fps, 0).frameTimeMs(frame); }
+
+void geode_export_pre_roll(int64_t range_start_ms, int64_t* from_ms, int64_t* heard_ms) {
+    const out::PreRoll plan = out::preRollFor(range_start_ms);
+    if (from_ms) *from_ms = plan.fromMs;
+    if (heard_ms) *heard_ms = plan.heardMs;
+}
 
 void geode_loop_spec_of(int64_t loop_ms, int64_t crossfade_ms, int fps, geode_loop_spec* o) {
     if (o) fill(out::LoopSpec::of(loop_ms, crossfade_ms, fps), o);
@@ -97,6 +81,44 @@ void geode_loop_spec_fill(geode_loop_spec* spec) {
 }
 
 float geode_loop_seam_weight(int tail, int seam_frames) { return out::seamWeight(tail, seam_frames); }
+
+int geode_loudness_window(int target, double* out4) {
+    out::loudness::Window w;
+    if (!out::loudness::windowOf(target, &w)) return 0;
+    if (out4) {
+        out4[0] = w.aimLufs;
+        out4[1] = w.lowLufs;
+        out4[2] = w.highLufs;
+        out4[3] = w.ceilingDbtp;
+    }
+    return 1;
+}
+
+int geode_loudness_advise(int target, int gated, double lufs, double true_peak_dbtp, double* o) {
+    const auto a = out::loudness::advise(target, gated != 0, lufs, true_peak_dbtp);
+    if (o) {
+        const double values[GEODE_LOUDNESS_ADVICE_DOUBLES] = {
+            a.gainDb, a.gainForLevelDb, a.resultingLufs, a.resultingTruePeakDbtp, static_cast<double>(a.direction),
+            a.ceilingLimited ? 1.0 : 0.0, static_cast<double>(a.band), a.quietLu, a.peakWarning ? 1.0 : 0.0};
+        std::copy(values, values + GEODE_LOUDNESS_ADVICE_DOUBLES, o);
+    }
+    return a.kind;
+}
+
+int geode_loop_drift_stops(float hue_turns, float warmth, int stops, float* out_hue, float* out_warmth, int capacity) {
+    out::DriftStop all[out::kMaxDriftStops];
+    const int count = out::driftStops(hue_turns, warmth, stops, all, out::kMaxDriftStops);
+    const int writable = std::min({count, std::max(capacity, 0), out::kMaxDriftStops});
+    for (int i = 0; i < writable; ++i) {
+        if (out_hue) out_hue[i] = all[i].hueOffset;
+        if (out_warmth) out_warmth[i] = all[i].warmthOffset;
+    }
+    return count;
+}
+
+void geode_loop_drift_apply(float color_shift, float temperature, float hue_offset, float warmth_offset, float* out2) {
+    if (out2) out::applyDrift(color_shift, temperature, hue_offset, warmth_offset, &out2[0], &out2[1]);
+}
 
 int geode_loop_extend_plan(int64_t loop_us, int64_t total_us, int loops, int64_t* offsets, int32_t* loop_index,
                            int capacity) {
@@ -141,12 +163,6 @@ int geode_record_max_length_at(int index) { return out::record::maxLengthAt(inde
 
 int geode_record_snap_max_length(int requested_sec) { return out::record::snapMaxLength(requested_sec); }
 
-int geode_record_limit_reached(int64_t recorded_ms, int max_sec) { return out::record::reached(recorded_ms, max_sec) ? 1 : 0; }
-
-int64_t geode_record_clamp_length_ms(int64_t length_ms, int max_sec) {
-    return out::record::clampLengthMs(length_ms, max_sec);
-}
-
 int64_t geode_record_estimate_bytes(int video_bps, int length_sec, int* out_lowered) {
     const auto estimate = out::record::estimate(video_bps, length_sec);
     if (out_lowered) *out_lowered = estimate.lowered ? 1 : 0;
@@ -165,103 +181,11 @@ int geode_chapters_from_markers(const int64_t* markers_ms, int count, int64_t to
                         capacity);
 }
 
-geode_track* geode_track_create(void) { return new geode_track{}; }
-
-void geode_track_destroy(geode_track* t) { std::unique_ptr<geode_track> owned(t); }
-
-void geode_track_clear(geode_track* t) {
-    if (t) t->track.clear();
-}
-
-void geode_track_add_key(geode_track* t, int64_t at_ms, int kind, const float* value4, int interp, float c1x, float c1y,
-                         float c2x, float c2y) {
-    if (!t) return;
-    tl::Key key;
-    key.atMs = at_ms;
-    key.value.kind = kindOf(kind);
-    if (value4) {
-        for (int i = 0; i < 4; ++i) key.value.v[i] = value4[i];
-    }
-    switch (interp) {
-        case 0: key.interp = tl::Interp::hold(); break;
-        case 2: key.interp = tl::Interp::custom(tl::BezierCurve(c1x, c1y, c2x, c2y)); break;
-        default: key.interp = tl::Interp::linear(); break;
-    }
-    t->track.add(key);
-}
-
-int geode_track_value_at(const geode_track* t, int64_t t_ms, int* out_kind, float* out_value4) {
-    tl::Value v;
-    if (!t || !t->track.valueAt(t_ms, &v)) return 0;
-    if (out_kind) *out_kind = static_cast<int>(v.kind);
-    if (out_value4) {
-        for (int i = 0; i < 4; ++i) out_value4[i] = v.v[i];
-    }
-    return 1;
-}
-
-float geode_bezier_eval(float c1x, float c1y, float c2x, float c2y, float x) {
-    return tl::BezierCurve(c1x, c1y, c2x, c2y).eval(x);
-}
-
-geode_speed_ramp* geode_speed_ramp_create(const geode_track* speed_track, int64_t clip_start_ms, int64_t clip_duration_ms,
-                                          int64_t step_ms) {
-    if (!speed_track || speed_track->track.empty()) return nullptr;
-    return new geode_speed_ramp{tl::SpeedRamp::fromTrack(speed_track->track, clip_start_ms, clip_duration_ms,
-                                                         step_ms > 0 ? step_ms : tl::SpeedRamp::kDefaultStepMs)};
-}
-
-void geode_speed_ramp_destroy(geode_speed_ramp* r) { std::unique_ptr<geode_speed_ramp> owned(r); }
-
-float geode_speed_ramp_speed_at(const geode_speed_ramp* r, int64_t source_us) { return r ? r->ramp.speedAt(source_us) : 1.0f; }
-
-int64_t geode_speed_ramp_next_change_us(const geode_speed_ramp* r, int64_t source_us) {
-    return r ? r->ramp.nextChangeUs(source_us) : -1;
-}
-
-int64_t geode_speed_ramp_source_span_us(const geode_speed_ramp* r) { return r ? r->ramp.sourceSpanUs() : 0; }
-
-int geode_speed_ramp_segments(const geode_speed_ramp* r, int64_t* out_starts_us, float* out_speeds, int capacity) {
-    if (!r) return 0;
-    const auto& starts = r->ramp.startsUs();
-    const auto& speeds = r->ramp.speeds();
-    const int n = static_cast<int>(starts.size());
-    const int writable = std::min(n, std::max(capacity, 0));
-    for (int i = 0; i < writable; ++i) {
-        if (out_starts_us) out_starts_us[i] = starts[static_cast<size_t>(i)];
-        if (out_speeds) out_speeds[i] = speeds[static_cast<size_t>(i)];
-    }
-    return n;
-}
-
-float geode_clip_speed_sanitize(float speed) { return tl::sanitizeClipSpeed(speed); }
-
-void geode_clip_grade_matrix(float brightness, float contrast, float saturation_percent, float hue_degrees, float* out16) {
-    if (out16) geode::viz::clipGradeMatrix(brightness, contrast, saturation_percent, hue_degrees, out16);
-}
-
-geode_cube_lut* geode_cube_lut_parse(const char* text, size_t length) {
-    if (!text) return nullptr;
-    auto lut = geode::util::CubeLut::parse(std::string_view(text, length));
-    return lut ? new geode_cube_lut{std::move(*lut)} : nullptr;
-}
-
-geode_cube_lut* geode_cube_lut_gamma(float red, float green, float blue, int size) {
-    return new geode_cube_lut{geode::util::CubeLut::gamma(red, green, blue, size)};
-}
-
-void geode_cube_lut_destroy(geode_cube_lut* l) { std::unique_ptr<geode_cube_lut> owned(l); }
-
-int geode_cube_lut_size(const geode_cube_lut* l) { return l ? l->lut.size() : 0; }
-
-const uint32_t* geode_cube_lut_argb(const geode_cube_lut* l) { return l ? l->lut.argb().data() : nullptr; }
-
 size_t geode_pcm_downmix_s16(const int16_t* in, size_t frames, int src_channels, int dst_channels, int16_t* o) {
     return geode::audio::downmixS16(in, frames, src_channels, dst_channels, o);
 }
 
 void geode_pcm_float_to_s16(const float* in, size_t samples, int16_t* o) { geode::audio::floatToS16(in, samples, o); }
-
 
 int geode_aac_rate_for(int source_rate) { return geode::audio::aacRateFor(source_rate); }
 

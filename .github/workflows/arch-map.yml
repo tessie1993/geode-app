@@ -1,7 +1,7 @@
 name: Architecture gates
 
-# The layer rule, the engine Kotlin rule, the action pin rule and the notices copy. No path filter, so the check
-# reports on every PR.
+# The layer rule, the engine Kotlin rule, the no-BPM-bias rule, the action pin rule and the notices copy. No path
+# filter, so the check reports on every PR.
 
 on:
   pull_request:
@@ -44,6 +44,47 @@ jobs:
         shell: bash
         run: bash tools/layer-gate.sh
 
+      # Pins the no-BPM-bias gate: each shape the tempo bias came back in, and a 120 used as a tempo anywhere
+      # (tests included), must fail it; a test's other tempos, "no tempo yet", the detector's search limits and
+      # a 120 that is no tempo (fps, Hz, frames) must pass.
+      - name: Self-test the no-BPM-bias gate
+        shell: bash
+        run: |
+          set -u
+          t=$(mktemp -d)
+          mkdir -p "$t/core/sound" "$t/core/viz" "$t/core/tests" "$t/app/src/main/java" "$t/app/src/androidTest" "$t/docs" "$t/tools/glslcheck"
+          echo 'float period_ = 0.0f;  // 0 = none yet' > "$t/core/sound/Rhythm.hpp"
+          echo 'static constexpr float kFastestBpm = 300.0f;' >> "$t/core/sound/Rhythm.hpp"
+          echo 'const double bpm = 93.0;' > "$t/core/tests/musical_test.cpp"
+          echo 'for (int i = 0; i < 60 * 120; ++i) e.tick(1.0f / 120.0f);  // 30/60/120 fps, a 120 Hz panel' >> "$t/core/tests/musical_test.cpp"
+          echo 'private const val BEAT_SECONDS = 60.0 / BPM' > "$t/app/src/androidTest/Groove.kt"
+          bash tools/no-bpm-bias-gate.sh "$t" >/dev/null || { echo "::error::no-BPM-bias gate self-test: clean tree failed"; exit 1; }
+          plant() {
+            printf '%s\n' "$2" > "$t/$1"
+            if bash tools/no-bpm-bias-gate.sh "$t" >/dev/null; then echo "::error::no-BPM-bias gate self-test: passed: $2"; exit 1; fi
+            rm "$t/$1"
+          }
+          plant core/sound/Bias.cpp 'constexpr float kPriorBpm = 120.0f;'
+          plant core/sound/Bias.cpp 'const float w = std::exp(-0.5f * x * x);  // log-normal weight on the lag'
+          plant core/sound/Bias.cpp 'float periodOrDefault() const;'
+          plant core/sound/Bias.cpp 'const float preferredBpm = 100.0f;'
+          plant core/viz/Bias.hpp '    float lastBpm_ = 120.0f;'
+          plant app/src/main/java/Bias.kt '        const val LEGACY_MORPH_BPM = 120f'
+          plant docs/bias.md 'Weight the tempogram with a log-Gaussian prior centred on 120 BPM.'
+          plant docs/bias.md 'With no estimate, fall back to 120 BPM.'
+          plant docs/bias.md 'tempo = librosa.feature.tempo(onset_envelope=env, start_bpm=120)'
+          plant core/tests/Bias.cpp 'const double bpm = 120.0;'
+          plant core/tests/Bias.cpp '// A steady groove at 120 BPM.'
+          plant core/tests/Bias.cpp 'f.beatPhase = std::fmod(t * 120.0 / 60.0, 1.0);'
+          plant app/src/androidTest/Bias.kt '        private const val BEAT_SECONDS = 0.5'
+          plant app/src/main/java/Bias.kt 'val beatSeconds = 60.0f / 120.0f'
+          plant tools/glslcheck/bias.mjs '  0.5, 0.4, 120, 0.3, //        EVENNESS RUN_DENSITY BPM BEAT_PHASE'
+          echo "no-BPM-bias gate self-test passed"
+
+      - name: No tempo prior, preferred tempo or default BPM
+        shell: bash
+        run: bash tools/no-bpm-bias-gate.sh
+
       # Pins the action pin gate: a tag must fail it, a SHA and a local workflow must pass.
       - name: Self-test the action pin gate
         shell: bash
@@ -80,16 +121,16 @@ jobs:
           ok "12${T}0${T}engine/audio-core/src/main/kotlin/dev/geode/engine/bridge/GeodeNative.kt" || { echo "::error::JNI decls failed"; exit 1; }
           if ok "40${T}0${T}engine/audio-core/src/main/kotlin/dev/geode/engine/audio/PlayoutClock.kt"; then echo "::error::new engine Kotlin passed"; exit 1; fi
           if ok "20${T}5${T}app/src/main/java/dev/geode/export/LoopRender.kt"; then echo "::error::export growth passed"; exit 1; fi
-          # Spec 3.0 areas (#461): take capture and choices, the Scene model, glTF and pack import, the render job.
+          # Spec 3.0 areas (#461): Record and the timeline, the Scene model, glTF and pack import, the render job.
           A=app/src/main/java/dev/geode
-          for f in ui/TakeController.kt data/PerformanceTake.kt editor/Timeline.kt editor/Keyframes.kt \
-                   take/TakeClock.kt scene/SceneModel.kt gltf/GltfLimits.kt data/GlbImport.kt \
+          for f in ui/RecordController.kt record/RecordEncoder.kt editor/Timeline.kt editor/Keyframes.kt \
+                   record/RecordClock.kt scene/SceneModel.kt gltf/GltfLimits.kt data/GlbImport.kt \
                    data/StylePackImporter.kt data/MilkPackImporter.kt ui/ExportController.kt; do
             if ok "10${T}2${T}$A/$f"; then echo "::error::growth in $f passed"; exit 1; fi
           done
           ok "10${T}10${T}$A/ui/ExportController.kt" || { echo "::error::even UI edit in ExportController failed"; exit 1; }
-          ok "30${T}0${T}$A/ui/TakeController.kt" "0${T}40${T}$A/editor/Timeline.kt" || { echo "::error::net shrink across take files failed"; exit 1; }
-          ok "40${T}0${T}$A/data/TakeStore.kt" || { echo "::error::take storage failed"; exit 1; }
+          ok "30${T}0${T}$A/ui/RecordController.kt" "0${T}40${T}$A/editor/Timeline.kt" || { echo "::error::net shrink across Record and timeline failed"; exit 1; }
+          ok "40${T}0${T}$A/data/RecordFiles.kt" || { echo "::error::recording storage failed"; exit 1; }
           ok "40${T}0${T}$A/editor/StudioProject.kt" || { echo "::error::project list failed"; exit 1; }
           ok "40${T}0${T}$A/ui/StudioRender.kt" || { echo "::error::Studio screen failed"; exit 1; }
           echo "engine Kotlin gate self-test passed"

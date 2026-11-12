@@ -3,6 +3,7 @@
 
 package dev.geode.ui
 
+import android.Manifest
 import android.app.WallpaperManager
 import android.content.ComponentName
 import android.content.Context
@@ -25,27 +26,26 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.BehaviourPrefs
-import dev.geode.data.BehaviourStore
 import dev.geode.data.CanvasGesture
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GestureAction
 import dev.geode.data.NotificationButton
 import dev.geode.data.QueueEndAction
 import dev.geode.data.StartScreen
+import dev.geode.geodeContainer
 import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.rememberSystemReducedMotion
 import dev.geode.wallpaper.VisualizerWallpaperService
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 
-// Settings › Behaviour & gestures and Settings › Visuals: what the app does by itself and what each
-// gesture on the visual means ([BehaviourPrefs], `geode-prefs`, defaults the owner's), and how the
-// visual behaves around the user (touch, a second screen, safety, the wallpaper and the dream).
-// Only options the app honours get a row (#337): a switch that does nothing is worse than no
-// switch. Auto (the auto-director, the style timer and its sources) lives in Visuals'
-// quick settings alone, where it is seen working.
+// The rows stored in [BehaviourPrefs] (`geode-prefs`, defaults the owner's), which Settings spreads
+// over seven tabs since the regroup: Playback (queue end, shuffle and repeat), Output & devices
+// (headphones, notification buttons), Displays & casting (the screen on in Visuals), Wallpaper &
+// screen saver (the dream), Gestures & controls (the gesture map) and Look (where the app opens);
+// plus the visual's other rows that are not one store's: safety and motion, touch, a second
+// screen, the wallpaper button. Only options the app honours get a row (#337): a switch that does
+// nothing is worse than no switch.
 
 /** [BehaviourPrefs] as a page holds it: null until the first read (on IO) is back. */
 internal class BehaviourPrefsHolder(
@@ -54,51 +54,98 @@ internal class BehaviourPrefsHolder(
 )
 
 /**
- * Reads [BehaviourStore] once on IO, then keeps the page's copy and writes each change through
- * (`apply()`, already async). Nothing else writes these keys while Settings is open, apart from the
- * last screen shown, which [BehaviourStore.saveLastScreen] writes alone and [BehaviourStore.save]
- * carries over unchanged.
+ * The process's one Behaviour repository (`GeodeContainer.behaviour`, #1009 PR 4) as the page holds it:
+ * null until the file has been read, then its value. Each change shows at once and is written through
+ * the repository's `update` on the app's scope, so leaving the page never drops it. The last screen
+ * shown is not the page's to write: the update keeps whatever the repository holds for it.
  */
 @Composable
 internal fun rememberBehaviourPrefs(): BehaviourPrefsHolder {
-    val ctx = LocalContext.current
-    val store = remember { BehaviourStore(GeodePrefsFiles(ctx).general) }
+    val container = LocalContext.current.geodeContainer
+    val repository = remember(container) { container.behaviour }
     var prefs by remember { mutableStateOf<BehaviourPrefs?>(null) }
-    LaunchedEffect(store) { prefs = withContext(Dispatchers.IO) { store.load() } }
+    LaunchedEffect(repository) {
+        repository.loaded()
+        repository.value.collect { prefs = it }
+    }
     return BehaviourPrefsHolder(prefs) { next ->
         prefs = next
-        store.save(next)
+        container.appScope.launch { repository.update { next.copy(lastScreen = it.lastScreen) } }
     }
 }
 
 /**
- * Settings › Behaviour › Basics: where the app opens, the screen staying on in Visuals, playing
- * when headphones connect, what happens when the queue ends, and remembering shuffle and repeat.
+ * One [BehaviourPrefs] row by its key, whichever tab holds it. Each change writes the whole prefs
+ * through the page's [BehaviourPrefsHolder], so rows on one page never undo each other.
  */
 @Composable
-internal fun BehaviourBasics(
+internal fun BehaviourRow(
+    row: SettingsRowKey,
     prefs: BehaviourPrefs,
     update: (BehaviourPrefs) -> Unit,
 ) {
-    SettingsChoiceRow(
-        title = stringResource(R.string.settings_beh_start_screen),
-        options = StartScreen.entries,
-        selected = prefs.startScreen,
-        label = { stringResource(startScreenLabel(it)) },
-        onSelect = { update(prefs.copy(startScreen = it)) },
-    )
-    SettingsSwitchRow(
-        title = stringResource(R.string.settings_beh_keep_screen_on),
-        summary = stringResource(R.string.settings_beh_keep_screen_on_summary),
-        checked = prefs.keepScreenOnVisuals,
-        onCheckedChange = { update(prefs.copy(keepScreenOnVisuals = it)) },
-    )
-    SettingsSwitchRow(
-        title = stringResource(R.string.settings_beh_headphones),
-        summary = stringResource(R.string.settings_beh_headphones_summary),
-        checked = prefs.startOnHeadphones,
-        onCheckedChange = { update(prefs.copy(startOnHeadphones = it)) },
-    )
+    when (row) {
+        SettingsRowKey.START_SCREEN ->
+            SettingsChoiceRow(
+                title = stringResource(R.string.settings_beh_start_screen),
+                options = StartScreen.entries,
+                selected = prefs.startScreen,
+                label = { stringResource(startScreenLabel(it)) },
+                onSelect = { update(prefs.copy(startScreen = it)) },
+            )
+        SettingsRowKey.KEEP_SCREEN_ON_IN_VISUALS ->
+            SettingsSwitchRow(
+                title = stringResource(R.string.settings_beh_keep_screen_on),
+                summary = stringResource(R.string.settings_beh_keep_screen_on_summary),
+                checked = prefs.keepScreenOnVisuals,
+                onCheckedChange = { update(prefs.copy(keepScreenOnVisuals = it)) },
+            )
+        SettingsRowKey.HEADPHONES_AUTOPLAY ->
+            SettingsSwitchRow(
+                title = stringResource(R.string.settings_beh_headphones),
+                summary = stringResource(R.string.settings_beh_headphones_summary),
+                checked = prefs.startOnHeadphones,
+                onCheckedChange = { update(prefs.copy(startOnHeadphones = it)) },
+            )
+        SettingsRowKey.QUEUE_END -> QueueEndRow(prefs, update)
+        SettingsRowKey.REMEMBER_SHUFFLE ->
+            SettingsSwitchRow(
+                title = stringResource(R.string.settings_beh_remember_shuffle),
+                summary = stringResource(R.string.settings_beh_remember_shuffle_summary),
+                checked = prefs.rememberShuffleRepeat,
+                onCheckedChange = { update(prefs.copy(rememberShuffleRepeat = it)) },
+            )
+        SettingsRowKey.GESTURE_MAP -> GestureMap(prefs, update)
+        SettingsRowKey.NOTIFICATION_BUTTONS -> NotificationButtonsRow(prefs, update)
+        SettingsRowKey.DREAM_BRIGHT ->
+            SettingsSwitchRow(
+                title = stringResource(R.string.settings_dream_bright),
+                checked = prefs.dreamScreenBright,
+                onCheckedChange = { update(prefs.copy(dreamScreenBright = it)) },
+            )
+        SettingsRowKey.DREAM_CLOCK ->
+            SettingsSwitchRow(
+                title = stringResource(R.string.settings_dream_clock),
+                checked = prefs.dreamShowClock,
+                onCheckedChange = { update(prefs.copy(dreamShowClock = it)) },
+            )
+        SettingsRowKey.DREAM_NOW_PLAYING ->
+            SettingsSwitchRow(
+                title = stringResource(R.string.settings_dream_now_playing),
+                checked = prefs.dreamShowNowPlaying,
+                onCheckedChange = { update(prefs.copy(dreamShowNowPlaying = it)) },
+            )
+        SettingsRowKey.DREAM_OTHER_APPS -> DreamOtherAppsRow(prefs, update)
+        else -> Unit
+    }
+}
+
+/** Playback's "When the queue ends": stop, repeat it, or carry on with similar tracks. */
+@Composable
+private fun QueueEndRow(
+    prefs: BehaviourPrefs,
+    update: (BehaviourPrefs) -> Unit,
+) {
     SettingsChoiceRow(
         title = stringResource(R.string.settings_beh_queue_end),
         options = QueueEndAction.entries,
@@ -114,26 +161,20 @@ internal fun BehaviourBasics(
         },
         onSelect = { update(prefs.copy(queueEnd = it)) },
     )
-    SettingsSwitchRow(
-        title = stringResource(R.string.settings_beh_remember_shuffle),
-        summary = stringResource(R.string.settings_beh_remember_shuffle_summary),
-        checked = prefs.rememberShuffleRepeat,
-        onCheckedChange = { update(prefs.copy(rememberShuffleRepeat = it)) },
-    )
 }
 
 /**
- * Settings › Behaviour › Gestures on the visual: one dropdown per gesture ([BehaviourPrefs.gestures],
- * read by `VisualGestures` the next time Visuals opens). Pinch and twist do nothing by the owner's
- * decision, so they get no row.
+ * Gestures & controls: one dropdown per gesture on the visual ([BehaviourPrefs.gestures], read by
+ * `VisualGestures` the next time Visuals opens). Pinch and twist can only be given touch play: what
+ * the pinch does to the canvas itself is the Touch section's switch.
  */
 @Composable
-internal fun GesturesSection(
+private fun GestureMap(
     prefs: BehaviourPrefs,
     update: (BehaviourPrefs) -> Unit,
 ) {
     SettingsHint(stringResource(R.string.settings_gestures_hint))
-    CanvasGesture.entries.filter { it != CanvasGesture.PINCH_TWIST }.forEach { gesture ->
+    CanvasGesture.entries.forEach { gesture ->
         SettingsChoiceRow(
             title = stringResource(gestureLabel(gesture)),
             options = gestureChoices(gesture, prefs.actionFor(gesture)),
@@ -144,9 +185,9 @@ internal fun GesturesSection(
     }
 }
 
-/** Settings › Behaviour › Notification: the extra buttons beside play, previous and next. */
+/** Output & devices › Notification buttons: the extra buttons beside play, previous and next. */
 @Composable
-internal fun NotificationButtonsSection(
+private fun NotificationButtonsRow(
     prefs: BehaviourPrefs,
     update: (BehaviourPrefs) -> Unit,
 ) {
@@ -186,16 +227,20 @@ internal fun PictureInPictureSection(viewModel: SettingsViewModel) {
 }
 
 /**
- * Settings › Visuals › Basics: Note & key reactions, then flashing and motion. Both are stated
- * rather than tuned here: the flash clamp is unconditional in the render path, and reduced motion
- * follows Android's "Remove animations" alone (#336), so this row says which way it is now and opens
- * Android's page to change it.
+ * Photosensitivity & motion: the flash clamp, stated rather than tuned. It is unconditional in the
+ * render path, so there is nothing to switch; the row says what it covers and what it does not.
  */
 @Composable
-internal fun VisualsBasics() {
-    NoteResponseGroup()
-    CrystalOverline(stringResource(R.string.behavior_safety_title), color = MaterialTheme.colorScheme.onSurfaceVariant)
+internal fun FlashLimitsRow() {
     SettingsHint(stringResource(R.string.behavior_flash_guidance))
+}
+
+/**
+ * Photosensitivity & motion: reduced motion follows Android's "Remove animations" alone (#336), so
+ * this row says which way it is now and opens Android's page to change it.
+ */
+@Composable
+internal fun ReducedMotionRow() {
     val context = LocalContext.current
     val reduced = rememberSystemReducedMotion()
     SettingsRow(
@@ -207,9 +252,12 @@ internal fun VisualsBasics() {
     )
 }
 
-/** Settings › Visuals › Touch: smearing the picture with a finger, and pinch and twist. */
+/**
+ * Gestures & controls › Touch: the fingers smearing the picture (handed to native by
+ * `EnginePlumbing`, drawn by `core/viz/TouchSmear`), with its strength while it is on.
+ */
 @Composable
-internal fun TouchSection(viewModel: SettingsViewModel) {
+internal fun TouchSmearRow(viewModel: SettingsViewModel) {
     val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
     Column {
         LabeledSwitch(
@@ -219,17 +267,20 @@ internal fun TouchSection(viewModel: SettingsViewModel) {
         )
         SettingsHint(stringResource(R.string.behavior_touch_smear_hint))
         if (gui.touchSmear) {
-            Text(
-                stringResource(R.string.behavior_smear_strength, (gui.touchSmearStrength * 100).toInt()),
-                style = MaterialTheme.typography.labelMedium,
-            )
             CrystalSlider(
+                label = stringResource(R.string.behavior_smear_strength, (gui.touchSmearStrength * 100).toInt()),
                 value = gui.touchSmearStrength,
                 onValueChange = { viewModel.setGuiPrefs(gui.copy(touchSmearStrength = it)) },
                 valueRange = 0.2f..2f,
             )
         }
     }
+}
+
+/** Gestures & controls › Touch: pinch and twist moving Zoom and Rotation (`VisualsHub`). */
+@Composable
+internal fun TouchTransformRow(viewModel: SettingsViewModel) {
+    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
     Column {
         LabeledSwitch(
             stringResource(R.string.behavior_touch_transform),
@@ -240,7 +291,7 @@ internal fun TouchSection(viewModel: SettingsViewModel) {
     }
 }
 
-/** Settings › Visuals › Connected display: the visual on HDMI, USB-C or a wireless display (Pro, as Cast). */
+/** Displays & casting › Connected display: the visual on HDMI, USB-C or a wireless display (Pro, as Cast). */
 @Composable
 internal fun ConnectedDisplaySection() {
     val control = rememberConnectedDisplayControl()
@@ -259,15 +310,13 @@ internal fun ConnectedDisplaySection() {
 }
 
 /**
- * Settings › Visuals › Wallpaper and screen saver: set the live wallpaper (Pro), and the dream's
- * own switches ([BehaviourPrefs.dreamScreenBright], [BehaviourPrefs.dreamShowClock],
- * [BehaviourPrefs.dreamShowNowPlaying], read by `wallpaper/VisualizerDreamService` when it starts).
+ * Wallpaper & screen saver: set the live wallpaper (Pro). The dream's own switches beside it
+ * ([BehaviourPrefs.dreamScreenBright], [BehaviourPrefs.dreamShowClock],
+ * [BehaviourPrefs.dreamShowNowPlaying], [BehaviourPrefs.dreamHearOtherApps]) are [BehaviourRow]s,
+ * read by `wallpaper/VisualizerDreamService` when it starts.
  */
 @Composable
-internal fun WallpaperDreamSection(
-    prefs: BehaviourPrefs,
-    update: (BehaviourPrefs) -> Unit,
-) {
+internal fun LiveWallpaperRow() {
     val ctx = LocalContext.current
     val paywall: PaywallViewModel = geodeViewModel()
     val gate by paywall.gate.collectAsStateWithLifecycle()
@@ -285,26 +334,38 @@ internal fun WallpaperDreamSection(
         val ok = runCatching { ctx.startActivity(direct) }.isSuccess
         if (!ok) bestEffortStart(ctx, Intent(Intent.ACTION_SET_WALLPAPER))
     }) { Text(stringResource(R.string.behavior_wallpaper_button)) }
+}
+
+/**
+ * The screen saver reacting to other apps' sound ([BehaviourPrefs.dreamHearOtherApps]), as the
+ * wallpaper's "React to any app" does: turning it on asks for the permission the output-mix
+ * capture needs in place, and while it is on without it one button asks again (or opens Android's
+ * settings once it has stopped asking), so a refusal is never a switch that silently does nothing.
+ */
+@Composable
+private fun DreamOtherAppsRow(
+    prefs: BehaviourPrefs,
+    update: (BehaviourPrefs) -> Unit,
+) {
+    val permission = rememberPermissionRequest(Manifest.permission.RECORD_AUDIO)
     SettingsSwitchRow(
-        title = stringResource(R.string.settings_dream_bright),
-        checked = prefs.dreamScreenBright,
-        onCheckedChange = { update(prefs.copy(dreamScreenBright = it)) },
+        title = stringResource(R.string.settings_dream_other_apps),
+        summary = stringResource(R.string.settings_dream_other_apps_hint),
+        checked = prefs.dreamHearOtherApps,
+        onCheckedChange = { on ->
+            update(prefs.copy(dreamHearOtherApps = on))
+            if (on && !permission.granted) permission.request()
+        },
     )
-    SettingsSwitchRow(
-        title = stringResource(R.string.settings_dream_clock),
-        checked = prefs.dreamShowClock,
-        onCheckedChange = { update(prefs.copy(dreamShowClock = it)) },
-    )
-    SettingsSwitchRow(
-        title = stringResource(R.string.settings_dream_now_playing),
-        checked = prefs.dreamShowNowPlaying,
-        onCheckedChange = { update(prefs.copy(dreamShowNowPlaying = it)) },
-    )
+    if (prefs.dreamHearOtherApps && !permission.granted) {
+        CrystalButton(onClick = permission::request) { Text(stringResource(R.string.wallpaper_options_open_settings)) }
+    }
 }
 
 /**
  * Holds `FLAG_KEEP_SCREEN_ON` on the Activity's window while this is composed and [enabled]
- * (Settings › Behaviour › Keep the screen on in Visuals, #337); `VisualsHub` composes it, so the
+ * (Settings › Displays & casting › Keep the screen on in Visuals, #337); `VisualsHub` composes it,
+ * so the
  * flag is held only while Visuals shows and is cleared the moment it leaves. Player's own
  * keep-screen-on (`PlayerPrefs.keepScreenOn`, on the visualizer view) is a separate choice.
  */
@@ -330,7 +391,7 @@ private fun bestEffortStart(
 
 /**
  * The actions a gesture can take: a sideways swipe steps through something (a style, a preset or
- * the playlist's look); a two-finger drag moves over the visual; the taps, the other swipes, the
+ * the playlist's look); a two-finger drag and a pinch move over the visual; the taps, the other swipes, the
  * hold and the swirl each open or do one thing. Its current action always stays on the list, so a
  * choice made elsewhere is never hidden.
  */
@@ -341,7 +402,7 @@ private fun gestureChoices(
     val suited =
         when (gesture) {
             CanvasGesture.SWIPE_SIDEWAYS -> listOf(GestureAction.STEP_STYLE, GestureAction.STEP_PRESET, GestureAction.STEP_PLAYLIST)
-            CanvasGesture.TWO_FINGER_DRAG -> listOf(GestureAction.TOUCH_PLAY)
+            CanvasGesture.TWO_FINGER_DRAG, CanvasGesture.PINCH_TWIST -> listOf(GestureAction.TOUCH_PLAY)
             else -> ONE_SHOT_ACTIONS
         }
     return (suited + GestureAction.OFF).let { if (current in it) it else listOf(current) + it }

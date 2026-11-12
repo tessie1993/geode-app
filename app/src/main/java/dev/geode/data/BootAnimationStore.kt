@@ -1,6 +1,8 @@
 package dev.geode.data
 
 import android.content.SharedPreferences
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 
 class BootAnimationStore(
     private val prefs: SharedPreferences,
@@ -11,7 +13,12 @@ class BootAnimationStore(
         prefs.edit().putBoolean(KEY_BOOT_ANIM, enabled).apply()
     }
 
-    private companion object {
+    internal companion object {
         const val KEY_BOOT_ANIM = "boot_anim"
+
+        val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.GENERAL) {
+                portable(PrefType.BOOLEAN, KEY_BOOT_ANIM)
+            }
     }
 }

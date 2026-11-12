@@ -56,7 +56,8 @@ out vec4 fragColor;
 // Speed: uTime turns and sways the crystal, drifts the flakes and the
 // sparkle. Complexity: uMorph adds a level of growth (arbLevels) and the
 // background flakes' detail. Chaos: uTurbulence and uWarp etch a fine
-// irregular warp into the crystal's edges. Colour: ice, glow and sky from
+// irregular warp into the crystal's edges. Twist (uTwist) winds the arms into
+// a pinwheel, more at the rim. Colour: ice, glow and sky from
 // pal(). Energy: uIntensity scales the treble growth and the kick pulse.
 // Space: camAround, the rig's look and dolly.
 //
@@ -117,11 +118,13 @@ vec2 hexFold(vec2 p) {
 /** The crystal's outline in its own plane, crystal units. Writes gArb*, gPlate. */
 float crystal2(vec2 p) {
     p += gChaos * 0.012 * vec2(sin(p.y * 47.0 + gT), cos(p.x * 43.0 - gT * 0.7));
+    float r = length(p);
+    p = rot2(3.0 * uTwist * r) * p;
     vec2 q = hexFold(p);
     float plate = q.x - gPlateR;
     float arm = arborDendrite2(vec2(q.y, q.x - gPlateR * 0.6), gHab.x, gHab.y, gHab.z, CF_LEN, 0.10, gGrow);
     gPlate = plate - arm;
-    return min(plate, arm) / (1.0 + 0.6 * gChaos);
+    return min(plate, arm) / ((1.0 + 0.6 * gChaos) * (1.0 + 3.0 * abs(uTwist) * r));
 }
 
 /** World point into the crystal's frame: the sway, then the slow turn about its axis. */
@@ -189,9 +192,9 @@ void main() {
     gT = t;
     float energy = uIntensity;
     gChaos = arbChaos();
-    float swell = clamp(SND_INTENSITY, 0.0, 1.5);
-    float treb = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5) * energy;
-    float kick = clamp(SND_KICK_ENV * energy, 0.0, 1.0);
+    float swell = clamp(SND_INTENSITY * uSoundDrive, 0.0, 1.5);
+    float treb = clamp(SND_TREBLE_PRESENCE * uSoundDrive, 0.0, 1.5) * energy;
+    float kick = clamp(SND_KICK_ENV * uSoundDrive * energy, 0.0, 1.0);
 
     float morphIn = smoothstep(0.0, 1.0, 1.0 - clamp(SND_HELD_HARD_CUT, 0.0, 1.0));
     gHab = mix(habit(SND_CUT_COUNT - 1.0), habit(SND_CUT_COUNT), morphIn);

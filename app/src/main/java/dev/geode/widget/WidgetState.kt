@@ -1,7 +1,12 @@
 package dev.geode.widget
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.graphics.Bitmap
+import dev.geode.data.GeodePrefsFiles
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
+import dev.geode.geodeContainer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,7 +43,6 @@ data class WidgetState(
         /** [artHue] when the artwork gave no colour (none, or greyscale). */
         const val NO_HUE = -1f
 
-        private const val PREFS = "geode-widget"
         private const val KEY_TITLE = "title"
         private const val KEY_ARTIST = "artist"
         private const val KEY_PLAYING = "playing"
@@ -51,6 +55,15 @@ data class WidgetState(
         private const val KEY_TICK = "tick"
         private const val ART_FILE = "widget_art.png"
 
+        internal val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.WIDGET) {
+                cache(PrefType.STRING, KEY_TITLE, KEY_ARTIST, KEY_ART, KEY_STYLE)
+                cache(PrefType.BOOLEAN, KEY_PLAYING)
+                cache(PrefType.LONG, KEY_POSITION, KEY_DURATION)
+                cache(PrefType.FLOAT, KEY_ART_HUE, KEY_ART_SPAN)
+                cache(PrefType.INT, KEY_TICK)
+            }
+
         // The live copy for a widget session that is already composed. Glance keeps a session's
         // composition alive between updates, so state read once in provideGlance would go stale;
         // NowPlayingWidget collects this instead, and updateAll only has to start sessions.
@@ -61,7 +74,7 @@ data class WidgetState(
 
         fun load(context: Context): WidgetState {
             latest.value?.let { return it.withLiveArt() }
-            val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            val prefs = context.geodeContainer.prefsFiles.widget
             val state =
                 WidgetState(
                     title = prefs.getString(KEY_TITLE, "").orEmpty(),
@@ -82,10 +95,15 @@ data class WidgetState(
         fun save(
             context: Context,
             state: WidgetState,
+        ) = save(context.geodeContainer.prefsFiles.widget, state)
+
+        /** [save] into the widget's prefs file ([GeodePrefsFiles.widget]) as given; the schema test drives this one. */
+        internal fun save(
+            prefs: SharedPreferences,
+            state: WidgetState,
         ) {
             latest.value = state
-            context
-                .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            prefs
                 .edit()
                 .putString(KEY_TITLE, state.title)
                 .putString(KEY_ARTIST, state.artist)

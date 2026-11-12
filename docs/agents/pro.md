@@ -10,12 +10,12 @@ One fact per line. Add a gate as a new bullet.
 - What free keeps is `pro/FreeTier.kt` alone.
 - Free gets the loose shader styles, the first style of each style family and the neon opener, Neon Chrome Sea.
 - Neon Chrome Sea is also every install's first style (`FreeTier.FIRST_STYLE_ID`).
-- The other eleven styles per family are Pro (`FreeTier.familyProIds`); the catalogue names each family's opener.
-- Note & key reactions are free (Settings › Behaviour, on by default); their Customize › Advanced card is Pro like every card.
+- The others in each family are Pro (`FreeTier.familyProIds`); the catalogue names each family's opener.
+- Note & key reactions are free (Settings › Sound reaction, on by default); their Customize › Advanced card is Pro like every card.
 
 ## Gates
 
-- `PlayerViewModel.startExport`/`startLoopRender`/`startBatch`: 4K, 60 fps, the 1-minute cap, the full-frame watermark.
+- `PlayerViewModel.startExport`/`startLoopRender`/`startBatch`: 4K, 60 fps, the 1-minute cap, the watermark, placed as Settings › Preferences says.
 - Loop and batch renders need Pro.
 - `PlayerSession.selectScene`/`applyPreset` via `PlayerSessionProvider` gate styles; auto-visuals skips locked ones silently.
 - Record is gated as `ProFeature.STUDIO`, through `PlayerSessionProvider`.
@@ -25,6 +25,9 @@ One fact per line. Add a gate as a new bullet.
 - A trial that runs out mid-cast ends the cast after the song.
 - A connected display is gated as Cast (`ProFeature.CAST`).
 - `ProSnapshot` gates the wallpaper and dream services.
+- Show on a computer is Pro like Cast; it stops at Pro's end.
+- The two-circle Randomize everything is Pro; without Pro the lock `#PRO` holds all but the Basics, for the Customize dice and the gesture alike.
+- Quick knobs › Edit knobs (`MacroEditor`) is Pro.
 - The live auto-director is gated by `AutoDirectorPolicy`: Pro and trial get the whole song, free the first minute of each.
 - An export's director is native (`director::forExport`), from the switch, the entitlement and the length the export forwards: Pro and trial throughout, free only when the export fits the minute.
 

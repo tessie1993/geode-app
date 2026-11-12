@@ -2,7 +2,10 @@ package dev.geode.ui
 
 import android.content.SharedPreferences
 import android.os.SystemClock
+import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.LfoStore
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.AdsrConfig
 import dev.geode.render.AdsrEngine
@@ -68,7 +71,7 @@ internal class ModulationController(
     val handMask: StateFlow<Int> = _handMask
 
     private val _lockedParams =
-        MutableStateFlow<Set<String>>(prefs.getStringSet("locked_params", emptySet()) ?: emptySet())
+        MutableStateFlow<Set<String>>(prefs.getStringSet(KEY_LOCKED_PARAMS, emptySet()) ?: emptySet())
     val lockedParams: StateFlow<Set<String>> = _lockedParams
 
     private val _history = MutableStateFlow(ParamHistoryState())
@@ -80,7 +83,7 @@ internal class ModulationController(
 
     fun toggleParamLock(label: String) {
         _lockedParams.update { if (label in it) it - label else it + label }
-        prefs.edit().putStringSet("locked_params", _lockedParams.value).apply()
+        prefs.edit().putStringSet(KEY_LOCKED_PARAMS, _lockedParams.value).apply()
         // The director's reach leaves a kept control alone too (AutoDirectorStore pushes the saved set at start).
         bestEffort(TAG, "push keep set") { GeodeNative.directorKeepSet(_lockedParams.value.joinToString("\n")) }
     }
@@ -133,14 +136,19 @@ internal class ModulationController(
     /**
      * Rolls [category], or everything when null. The roll is native (core/viz/CustomizeMap over
      * core/viz/ParamRandomizer): the category's own controls that reach the style, minus the kept
-     * ones; this only carries the frame there and back. The knobs are not params, and Quick
-     * knobs has no roll.
+     * ones; this only carries the frame there and back. The knobs are not params: Quick knobs
+     * rolls their turns through MacroStore, and has no roll here. [basicsOnly] is the roll
+     * without Pro: native holds everything below a Basics (its `#PRO` lock) and the waves stay.
+     * True when the look changed.
      */
-    fun randomizeParams(category: CustomizeCategory? = null) {
-        if (category == CustomizeCategory.QUICK_KNOBS) return
+    fun randomizeParams(
+        category: CustomizeCategory? = null,
+        basicsOnly: Boolean = false,
+    ): Boolean {
+        if (category == CustomizeCategory.QUICK_KNOBS) return false
         val input = SceneParamsCodec.pack(host.params)
         val out = FloatArray(SceneParamsCodec.FIELDS)
-        val locked = _lockedParams.value.joinToString("\n")
+        val locked = (if (basicsOnly) _lockedParams.value + PRO_LOCK else _lockedParams.value).joinToString("\n")
         val seed = Random.nextLong()
         val changed =
             if (category == null) {
@@ -149,7 +157,28 @@ internal class ModulationController(
                 GeodeNative.customizeRandomize(host.sceneId, category.name, locked, seed, input, out)
             }
         if (changed) commitSceneParams(SceneParamsCodec.unpack(out, host.params))
-        if (category == null || category == CustomizeCategory.MUSIC) randomizeWaves(all = false)
+        if (!basicsOnly && (category == null || category == CustomizeCategory.MUSIC)) randomizeWaves(all = false)
+        return changed
+    }
+
+    /**
+     * Randomize everything's roll (core/viz/RandomizeAll), after its style and preset are on screen:
+     * the controls Customize keeps go back to their values in [before], then every category is rolled
+     * from [seed] and the steady waves already on with it. One undo entry. [basicsOnly] is the dice's
+     * free rule, as in [randomizeParams]: native's `#PRO` lock rolls the free Basics only, and the waves stay.
+     */
+    fun randomizeAllRoll(
+        before: SceneParams,
+        seed: Long,
+        basicsOnly: Boolean,
+    ) {
+        val out = FloatArray(SceneParamsCodec.FIELDS)
+        val locked = (if (basicsOnly) _lockedParams.value + PRO_LOCK else _lockedParams.value).joinToString("\n")
+        val base = SceneParamsCodec.pack(host.params)
+        if (GeodeNative.randomizeAllRoll(host.sceneId, locked, seed, true, SceneParamsCodec.pack(before), base, out)) {
+            commitSceneParams(SceneParamsCodec.unpack(out, host.params))
+        }
+        if (!basicsOnly) randomizeWaves(all = false)
     }
 
     /**
@@ -273,11 +302,21 @@ internal class ModulationController(
         _history.value = ParamHistoryState(canUndo = undoStack.isNotEmpty(), canRedo = redoStack.isNotEmpty())
     }
 
-    private companion object {
-        const val TAG = "ModulationController"
+    companion object {
+        private const val TAG = "ModulationController"
 
-        const val HISTORY_DEPTH = 64
+        /** Native's lock for every control below a Basics (core/viz/CustomizeMap `kProLock`). */
+        const val PRO_LOCK = "#PRO"
 
-        const val CHECKPOINT_GAP_MS = 700L
+        private const val HISTORY_DEPTH = 64
+
+        private const val CHECKPOINT_GAP_MS = 700L
+
+        private const val KEY_LOCKED_PARAMS = "locked_params"
+
+        val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.MODULATION) {
+                portable(PrefType.STRING_SET, KEY_LOCKED_PARAMS)
+            }
     }
 }

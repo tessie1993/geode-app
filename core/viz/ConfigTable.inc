@@ -1,6 +1,6 @@
 // The config params schema (#423): every value the data stores hold beside the scene params, written
 // once. The scene params are viz/ParamTable.inc; these are the modulation slots, the palette maker,
-// the look's envelope, the Studio clip edit and the preset morph. Not a header: it holds
+// the look's envelope and the preset morph. Not a header: it holds
 // only GEODE_CONFIG rows, and each includer defines GEODE_CONFIG, includes this file and #undefs it.
 //
 //   GEODE_CONFIG(group, name, kind, default, min, max, unit)
@@ -29,8 +29,8 @@
 GEODE_CONFIG(lfo, enabled, Bool, 0, 0, 1, None)
 // ModSource: Lfo .. StereoPan.
 GEODE_CONFIG(lfo, source, Int, 0, 0, 8, None)
-// LfoTarget: None .. EndlessZoomSpeed (ordinal 25 is the retired Glitch).
-GEODE_CONFIG(lfo, target, Int, 0, 0, 55, None)
+// LfoTarget: None .. DiveAimY (ordinal 25 is the retired Glitch).
+GEODE_CONFIG(lfo, target, Int, 0, 0, 58, None)
 // LfoWave: Sine .. RandomGlide.
 GEODE_CONFIG(lfo, wave, Int, 0, 0, 5, None)
 // The period, not a frequency (LfoConfig.kt and the old Lfo.hpp kDefault/kMin/kMaxRateSeconds: 2, 0.05,
@@ -77,16 +77,6 @@ GEODE_CONFIG(palette, hueSpan, Float, 1.0f, 0.0f, 1.0f, Turns)
 GEODE_CONFIG(look, attack, Float, 0.6f, 0.005f, 1.0f, Seconds)
 GEODE_CONFIG(look, decay, Float, 0.12f, 0.01f, 1.5f, Seconds)
 
-// ---- Studio clip edit (editor/AnimatableParams.kt clipTable, export/ClipEdit.kt) -------------------
-// Ranges AnimatableParams.kt:134-145; defaults ClipEdit.kt:85-92.
-GEODE_CONFIG(clip, brightness, Float, 0.0f, -1.0f, 1.0f, None)
-GEODE_CONFIG(clip, contrast, Float, 0.0f, -1.0f, 1.0f, None)
-GEODE_CONFIG(clip, saturation, Float, 0.0f, -100.0f, 100.0f, Points)
-GEODE_CONFIG(clip, hueDegrees, Float, 0.0f, -180.0f, 180.0f, Degrees)
-GEODE_CONFIG(clip, speed, Float, 1.0f, 0.25f, 4.0f, Times)
-GEODE_CONFIG(clip, rotationDegrees, Float, 0.0f, -180.0f, 180.0f, Degrees)
-
 // ---- Preset morph (ThemeStore.kt) ------------------------------------------------------------------
-// GuiPrefs.presetMorphSeconds: default 2 (ThemeStore.kt:39, :119), at most PRESET_MORPH_SECONDS_MAX
-// (:305). A beat count saved by an older build migrates through config::morphSecondsFromLegacyBeats.
+// GuiPrefs.presetMorphSeconds: default 2, at most PRESET_MORPH_SECONDS_MAX. Seconds, never beats.
 GEODE_CONFIG(theme, presetMorphSeconds, Float, 2.0f, 0.0f, 8.0f, Seconds)

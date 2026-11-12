@@ -48,7 +48,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the panes' hue drift. Complexity (uMorph) adds up to
+// Speed scales the panes' hue drift. Complexity (uMorph) adds up to
 // two fractal iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) bends
 // the seed bulb inside its wedge (bulbChaos, estimate divided by
 // bulbChaosLip). Energy (uIntensity) scales how far each onset re-seed moves

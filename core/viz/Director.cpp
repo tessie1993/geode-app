@@ -17,8 +17,6 @@ std::atomic<float> gAmount{0.0f};
 std::atomic<uint64_t> gSeed{0};
 std::atomic<bool> gSwitch{false};
 
-constexpr float kUntimedGlideSeconds = 2.0f;
-
 float lerp(float a, float b, float k) { return a + (b - a) * k; }
 float clamp01(float x) { return std::clamp(x, 0.0f, 1.0f); }
 float smooth(float x) {
@@ -96,7 +94,6 @@ Director::Look lerpLook(const Director::Look& a, const Director::Look& b, float 
     o.energy = lerp(a.energy, b.energy, k);
     o.camSmooth = lerp(a.camSmooth, b.camSmooth, k);
     o.motionBreath = lerp(a.motionBreath, b.motionBreath, k);
-    o.motionOrbit = lerp(a.motionOrbit, b.motionOrbit, k);
     o.motionDrift = lerp(a.motionDrift, b.motionDrift, k);
     o.moves.orbit = lerp(a.moves.orbit, b.moves.orbit, k);
     o.moves.lean = lerp(a.moves.lean, b.moves.lean, k);
@@ -172,7 +169,6 @@ Director::Look Director::make(const Emotion::State& s, uint64_t seed, int index,
         knob(1.4f * t - 0.7f + 0.4f * g[Emotion::kPower] - 0.5f * (g[Emotion::kTenderness] + g[Emotion::kPeace]));
     L.camSmooth = std::clamp(0.5f + 0.5f * calm - 0.6f * hard + 0.1f * rng.signedUnit(), 0.1f, 0.9f);
     L.motionBreath = clamp01(0.3f + 0.9f * (g[Emotion::kTenderness] + g[Emotion::kPeace] + g[Emotion::kSadness]));
-    L.motionOrbit = clamp01(0.3f + 1.2f * (g[Emotion::kTranscendence] + g[Emotion::kWonder]));
     L.motionDrift = clamp01(0.3f + 0.9f * (g[Emotion::kNostalgia] + g[Emotion::kPeace] + g[Emotion::kTranscendence]));
     auto move = [](float x) { return std::clamp(x, 0.0f, 2.5f); };
     L.moves.orbit = move(0.6f + 1.2f * (g[Emotion::kTranscendence] + g[Emotion::kWonder] + g[Emotion::kPeace]) - 0.4f * g[Emotion::kPower]);
@@ -225,9 +221,12 @@ void Director::step(const GeodeSoundFrame& f, const Emotion::State& heard, float
     // A trigger's value is its strength (the beat tracker's confidence), not a level: any downbeat
     // or phrase the tracker fires counts, as with Form's events below.
     if (f.downbeat > 0.0f) barsSinceCommit_ += 1;
-    // A look glides in over a bar of the tempo the tracker hears. With no tempo heard none is assumed:
-    // the glide is a plain two seconds.
-    const float barGlide = f.bpm > 0.0f && f.beatConf > 0.3f ? std::clamp(240.0f / f.bpm, 1.0f, 4.0f) : kUntimedGlideSeconds;
+    // A look glides in over one bar, held to 1..4 s. With no tempo known there is no bar: the glide is a
+    // plain time in seconds, the geometric middle of that range.
+    constexpr float kGlideMin = 1.0f;
+    constexpr float kGlideMax = 4.0f;
+    const bool barKnown = f.bpm > 0.0f && f.beatConf > 0.3f;
+    const float barGlide = barKnown ? std::clamp(240.0f / f.bpm, kGlideMin, kGlideMax) : std::sqrt(kGlideMin * kGlideMax);
 
     if (commits_ == 0) {
         // The first look waits for a key it can trust, or twelve seconds of music, whichever comes first:
@@ -278,7 +277,6 @@ SceneParams Director::apply(const SceneParams& p) const {
         return std::clamp(user * (1.0f + 2.0f * a * (look - base)), 0.0f, std::max(1.0f, user));
     };
     o.motionBreath = turned(p.motionBreath, L.motionBreath, kDefaults.motionBreath);
-    o.motionOrbit = turned(p.motionOrbit, L.motionOrbit, kDefaults.motionOrbit);
     o.motionDrift = turned(p.motionDrift, L.motionDrift, kDefaults.motionDrift);
     return o;
 }
@@ -297,7 +295,7 @@ SceneParams Director::applyAxes(const SceneParams& p) const {
     SceneParams o = director::applyAxes(p, axes());
     // Energy, Speed and Space turn the Motion dials too, but a dial held at 0 is the music's push
     // switched off, and stays off: the director never switches on a reaction the user switched off.
-    for (float SceneParams::*dial : {&SceneParams::motionAmount, &SceneParams::motionBreath, &SceneParams::motionOrbit, &SceneParams::motionDrift}) {
+    for (float SceneParams::*dial : {&SceneParams::motionAmount, &SceneParams::motionBreath, &SceneParams::motionDrift}) {
         if (p.*dial <= 0.0f) o.*dial = 0.0f;
     }
     return o;

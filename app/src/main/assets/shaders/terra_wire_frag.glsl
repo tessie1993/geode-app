@@ -33,7 +33,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the Chaos drift. Complexity (uMorph) fades in an
+// Speed scales the Chaos drift. Complexity (uMorph) fades in an
 // octave of hill. Chaos (uWarp, uTurbulence, uTwist) bends the hills under
 // the grid (terraChaos). Energy (uIntensity) scales the spectrum's push.
 // Colour is pal() in the grid and the sky. Space is the rig.

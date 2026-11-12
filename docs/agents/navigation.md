@@ -6,7 +6,7 @@ One fact per line, grouped by screen. Add a fact as a new bullet under its scree
 
 - `GeodeDestination` enum in `ui/GeodeAppState.kt`: PLAYER, LIBRARY, VISUALS, STUDIO, SETTINGS.
 - `GeodeAppState.dest` and `studioSection` are saved by name through `rememberSaveable`.
-- A cold start opens on Settings › Behaviour's "Open on" (`startDestination` in `ui/GeodeAppState.kt`).
+- A cold start opens on Settings › Look's "Open on" (`startDestination` in `ui/GeodeAppState.kt`).
 - "Where you left off" is recorded by `rememberGeodeAppState`.
 - Studio opens on the last tab used (`data/StudioPrefsStore`).
 - While Visuals shows, `KeepScreenOnWhileShown` holds `FLAG_KEEP_SCREEN_ON` if Behaviour asks.
@@ -39,7 +39,7 @@ One fact per line, grouped by screen. Add a fact as a new bullet under its scree
 - Studio (`StudioHub` in `ui/StudioRender.kt`) owns every render, in two tabs (`StudioSection`): Render and My videos.
 - There is no Edit tab or timeline (#227); a tab name `EDIT` saved before then restores to Render (`StudioSection.fromName`).
 - Render is one stack: Source, Look, Format, Length and Save, over `RenderBar`.
-- Source (`RenderScopePicker`): the song playing, play queue, a playlist, chosen tracks, plus which take replays.
+- Source (`RenderScopePicker`): the song playing, play queue, a playlist, chosen tracks.
 - Batches are Pro and run one track after another in `ExportController.startBatch`.
 - Look: current or a preset.
 - Format: a destination's defaults from Settings › Export, then each option; one ♛ per group.
@@ -47,12 +47,12 @@ One fact per line, grouped by screen. Add a fact as a new bullet under its scree
 - `RenderBar` shows the summary and Render, then Open, Share and Show in folder.
 - A free user's Pro choice offers the paywall or a free version.
 - A single render first asks whether to add it to My videos, which keeps it as a project (`StudioViewModel.keepNextRenderAsProject`, answer kept in `StudioPrefsStore`).
-- My videos (`ui/MyVideosTab.kt`) is one grid of renders (`StudioProject.renders`, with a frame as thumbnail) and takes.
+- My videos (`ui/MyVideosTab.kt`) is one grid of renders (`StudioProject.renders`, with a frame as thumbnail); recordings are renders too.
 - My videos has Undo on delete: the delete waits in `StudioViewModel` through `ui/PendingDeletes`, so leaving the tab mid-snackbar still deletes.
 - Back retraces the tabs taken (a `NavHistory` of `StudioSection`s in `StudioHub`), then leaves Studio; it never stops a render.
-- Settings › Export's Basics and the Visuals export icon only open Render (`GeodeAppState.openStudioRender`).
-- Settings › Export's Record section holds a take's defaults.
-- Takes are listed in Studio › My videos.
+- Settings › Export and the Visuals export icon only open Render (`GeodeAppState.openStudioRender`).
+- Settings › Export › Record holds the recording's settings.
+- Recordings are listed in Studio › My videos.
 
 ## Visuals: layout
 
@@ -73,14 +73,18 @@ One fact per line, grouped by screen. Add a fact as a new bullet under its scree
 - Every gesture is read by one detector in `ui/VisualGestures.kt`.
 - Swipes and the swirl count only from outside `WindowInsets.systemGestures`.
 - Each gesture is also a TalkBack custom action.
-- Each gesture runs the action Settings › Behaviour's map gives it (`BehaviourPrefs.actionFor`).
+- Each gesture runs the action Settings › Gestures & controls' map gives it (`BehaviourPrefs.actionFor`).
 - Default: a tap anywhere wakes the chrome.
 - Default: double tap hides or brings back the sheet.
 - Default: sideways swipe is next/previous style (‹ › step the same).
 - Default: swipe up is the mini player.
 - Default: swipe down is `MacrosDrawer` (the macro bank's knobs; its edit icon opens Customize).
-- Default: a hold through a red ring (~0.8 s) records a take.
-- Default: two circles with one finger randomize.
+- Default: a hold through a red ring (~0.8 s) records a video.
+- Default: two circles with one finger randomize everything: a style the user may keep, a preset made for it, every Customize category rolled, kept controls held (native `core/viz/RandomizeAll`, `geode_randomize_all_*`).
+- The two-circle roll is Pro.
+- Hidden and free (`ui/EasterEggs.kt`): a firm shake saves the visual alone to Pictures.
+- Hidden and free: four taps on the heard beat roll Customize › Music.
+- The shake and the tap-along are decided natively by `core/viz/Shake` and `core/viz/TapAlong`; `TapAlong` only reads the beat.
 - Default: two fingers are touch play (the visualizer's touch field).
 
 ## Visuals: pages and back
@@ -96,9 +100,11 @@ One fact per line, grouped by screen. Add a fact as a new bullet under its scree
 
 ## Visuals: Styles and Presets
 
-- Styles (`StylesTab` in `ui/StylesPage.kt`) is one vertical menu that opens level by level: family › style › variation.
-- The levels are the engine, then a style or a shader family, then that family's twelve looks; no stills, no search.
-- Styles sits under Your styles (on screen, favourites, recent, kept by `data/StyleShelfStore`), with Random as its icon.
+- Styles (`StylesTab` in `ui/StylesPage.kt`) is one family dropdown over a plain list of that family's styles (no stills, no search, no family inside a family).
+- The families are one flat level in the native catalogue's order (`Catalogue.picker`, `picker` rows of `core/viz/Catalogue`): Silk, Life, Mycelium, Morphing, Shaders for every shader style outside a family, each shader family, MilkDrop, Fluid, Cymatics.
+- The stage swipes styles in the same order.
+- Your styles (on screen, favourites, recent, kept by `data/StyleShelfStore`) is the dropdown's first entry, with Random the icon beside it.
+- Styles opens on the family on screen and keeps the last pick.
 - A tap loads the style; a Pro one plays while the paywall offers it (`PlayerSession.leaveScenePreview` puts the chosen style back).
 - Presets is `PresetsTab` in `ui/PresetsPage.kt`; its sheet, dialogs and share are in `ui/PresetActions.kt`.
 - Presets is a text list with no previews (`PresetRow`: name, style, Built-in or Mine, the applied row lit with a check; one column on a phone).
@@ -112,6 +118,7 @@ One fact per line, grouped by screen. Add a fact as a new bullet under its scree
 - There is no separate live view: full screen is Visuals with the sheet hidden (Fullscreen, the double tap).
 - Player's full-screen button opens Visuals.
 - A PiP window (auto-entered from Visuals while playing; `VisualizerPipCoordinator` in `MainActivity.kt`) shows the visual alone.
+- PiP is never auto-entered on a TV.
 - In PiP `VisualsHub(pip = true)` hides the sheet and `rememberShellChrome(held)` the chrome.
 - A connected display (HDMI, USB-C, a wireless display; `ui/ConnectedDisplays.kt`) shows the visual alone in a `Presentation` (`SecondScreenCanvas`).
 - The presentation is retried when Android drops it, and both screens are kept on.
@@ -139,5 +146,13 @@ One fact per line, grouped by screen. Add a fact as a new bullet under its scree
 - A chapter left half way resumes at its step.
 - The one-time Pro offer follows the first Visuals chapter.
 - Gesture tips (`LocalTourNudge`) are said once each: ‹ › (swipe), Fullscreen or the sheet's × (double tap), Record (hold), a tap on the mini player (swipe up), Quick knobs (swipe down), the dice (two circles).
-- `VisualsHub` drops a tip whose gesture Settings › Behaviour has moved.
-- Settings › Tutorials (`TutorialSettings`) replays any chapter, taking the user to its screen, or resets it all.
+- `VisualsHub` drops a tip whose gesture Settings › Gestures & controls has moved.
+- Settings › Backup, help & about › Tutorials (`TutorialSettings`) replays any chapter, taking the user to its screen, or resets it all.
+
+## Android TV
+
+- On a TV the shell is the rail inside the overscan margins.
+- On a TV focus glows in the accent.
+- On a TV the stage takes the remote: D-pad steps styles while full screen, centre toggles the options (`StageKeys` gives each gesture a remote key, run through the same map).
+- On a TV a key keeps the chrome awake.
+- Phones are unchanged.

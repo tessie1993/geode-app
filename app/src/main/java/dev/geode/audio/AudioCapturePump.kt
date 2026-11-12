@@ -3,6 +3,7 @@ package dev.geode.audio
 import android.media.AudioFormat
 import android.media.AudioRecord
 import androidx.annotation.AnyThread
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.util.bestEffort
 import kotlin.concurrent.thread
 
@@ -27,17 +28,12 @@ abstract class AudioCapturePump(
         protected set
 
     @Volatile
-    protected var lastAudibleAtMs: Long = 0L
+    private var heardAtMs: Long = 0L
+
+    /** Only digital zero for a while since the start (native `core/sound/Silence`): a refused capture. */
+    val quiet: Boolean get() = running && GeodeNative.captureQuiet(nowMs(), heardAtMs)
 
     protected abstract val threadName: String
-
-    /** [peak] is the largest magnitude of the block just written, as the ring measured it. */
-    protected abstract fun noteLevel(
-        peak: Float,
-        startedAtMs: Long,
-    )
-
-    protected abstract fun resetLevel()
 
     @AnyThread
     @Synchronized
@@ -56,9 +52,8 @@ abstract class AudioCapturePump(
         }
         record = rec
         val generation = ++runGeneration
+        heardAtMs = nowMs()
         running = true
-        lastAudibleAtMs = 0L
-        resetLevel()
         // The rate this record was opened at travels with every block it writes.
         val rate = sampleRateHz
         worker =
@@ -66,7 +61,6 @@ abstract class AudioCapturePump(
                 val asFloat = rec.audioFormat == AudioFormat.ENCODING_PCM_FLOAT
                 val floats = FloatArray(if (asFloat) READ_FRAMES * channels else 0)
                 val shorts = ShortArray(if (asFloat) 0 else READ_FRAMES * channels)
-                val startedAt = nowMs()
                 while (running && runGeneration == generation) {
                     val n =
                         if (asFloat) {
@@ -88,7 +82,7 @@ abstract class AudioCapturePump(
                             } else {
                                 ring.write(shorts, frames, channels, rate)
                             }
-                        noteLevel(peak, startedAt)
+                        heardAtMs = GeodeNative.captureHeardAt(peak, nowMs(), heardAtMs)
                     } else if (n < 0) {
                         android.util.Log.w(javaClass.simpleName, "AudioRecord.read error $n")
                         break
@@ -115,17 +109,12 @@ abstract class AudioCapturePump(
         worker?.let { runCatching { it.join(500) } }
         worker = null
         record = null
-        resetLevel()
     }
 
     protected companion object {
         const val READ_FRAMES = 1024
 
         const val BUFFER_MULTIPLIER = 4
-
-        const val SILENCE_EPSILON = 1e-6f
-
-        const val SILENCE_GRACE_MS = 4_000L
     }
 }
 

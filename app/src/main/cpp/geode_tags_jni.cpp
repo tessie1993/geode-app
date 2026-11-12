@@ -37,6 +37,25 @@ std::optional<std::string> stringAt(JNIEnv* env, jobjectArray texts, jsize index
     return out;
 }
 
+// A long[] as the C ABI's long long, `count` values; a null or short array reads as zeros.
+std::vector<long long> longsOf(JNIEnv* env, jlongArray values, jsize count) {
+    std::vector<long long> out(static_cast<size_t>(count), 0);
+    if (!values) return out;
+    const jsize n = std::min(count, env->GetArrayLength(values));
+    std::vector<jlong> raw(static_cast<size_t>(n));
+    if (n > 0) env->GetLongArrayRegion(values, 0, n, raw.data());
+    std::copy(raw.begin(), raw.end(), out.begin());
+    return out;
+}
+
+geode_library_index* libraryIndexOf(jlong handle) { return reinterpret_cast<geode_library_index*>(handle); }
+
+jintArray intsOf(JNIEnv* env, const std::vector<jint>& values) {
+    jintArray out = env->NewIntArray(static_cast<jsize>(values.size()));
+    if (out && !values.empty()) env->SetIntArrayRegion(out, 0, static_cast<jsize>(values.size()), values.data());
+    return out;
+}
+
 }  // namespace
 
 extern "C" {
@@ -112,12 +131,51 @@ Java_dev_geode_engine_bridge_GeodeNative_librarySearch(JNIEnv* env, jobject, job
     return total;
 }
 
-// Studio's folders (core/library/StudioFiles): only the two paths cross; the move is native.
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_studioMoveTakesOut(JNIEnv* env, jobject, jstring projectsDir, jstring takesDir) {
-    geode::jni::Utf8Chars projects(env, projectsDir);
-    geode::jni::Utf8Chars takes(env, takesDir);
-    return geode_studio_move_takes_out(projects.get(), takes.get());
+// The Library screen's index (core/library/Search): rows as in librarySearch, a duration and an added time
+// per track. Only marshalling here; folding, order and search are native.
+JNIEXPORT jlong JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_libraryIndexCreate(JNIEnv* env, jobject, jobjectArray rows,
+                                                            jlongArray durationsMs, jlongArray addedSec) {
+    if (!rows) return 0;
+    const jsize cells = env->GetArrayLength(rows);
+    std::vector<std::string> owned(static_cast<size_t>(cells));
+    std::vector<const char*> pointers(static_cast<size_t>(cells));
+    for (jsize i = 0; i < cells; ++i) {
+        owned[static_cast<size_t>(i)] = stringAt(env, rows, i).value_or(std::string());
+        pointers[static_cast<size_t>(i)] = owned[static_cast<size_t>(i)].c_str();
+    }
+    const jsize count = cells / 3;
+    const std::vector<long long> durations = longsOf(env, durationsMs, count);
+    const std::vector<long long> added = longsOf(env, addedSec, count);
+    return reinterpret_cast<jlong>(
+        geode_library_index_create(pointers.data(), durations.data(), added.data(), static_cast<int>(count)));
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_libraryIndexDestroy(JNIEnv*, jobject, jlong handle) {
+    geode_library_index_destroy(libraryIndexOf(handle));
+}
+
+JNIEXPORT jintArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_libraryIndexOrder(JNIEnv* env, jobject, jlong handle, jint sort) {
+    const geode_library_index* index = libraryIndexOf(handle);
+    std::vector<jint> rows(static_cast<size_t>(geode_library_index_order(index, sort, nullptr, 0)));
+    geode_library_index_order(index, sort, rows.data(), static_cast<int>(rows.size()));
+    return intsOf(env, rows);
+}
+
+JNIEXPORT jintArray JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_libraryIndexSearch(JNIEnv* env, jobject, jlong handle, jbyteArray query) {
+    std::string text;
+    if (query) {
+        const jsize n = env->GetArrayLength(query);
+        text.resize(static_cast<size_t>(n));
+        if (n > 0) env->GetByteArrayRegion(query, 0, n, reinterpret_cast<jbyte*>(text.data()));
+    }
+    const geode_library_index* index = libraryIndexOf(handle);
+    std::vector<jint> packed(static_cast<size_t>(geode_library_index_search(index, text.c_str(), nullptr, 0)));
+    geode_library_index_search(index, text.c_str(), packed.data(), static_cast<int>(packed.size()));
+    return intsOf(env, packed);
 }
 
 }  // extern "C"

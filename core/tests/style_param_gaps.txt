@@ -1,0 +1,269 @@
+# Customize controls shown on a style that do not move it yet: core/tests/style_reads_test.cpp fails a gap
+# missing here and a line that names a gap that has closed, so this file only shrinks. One line per style,
+# "<style>: <field> ..."; style_reads_test --gaps /dev/null --matrix prints the current set in this format.
+#
+# Why each field is here (each needs an owner decision, not an invented effect):
+#   motionDrift  Spin drift turns only a style the catalogue gives a spin rate (catalogue::spinRate, the
+#                owner's rule that bars, grids, landscapes and trees hold still); MotionField adds nothing
+#                to the others. Fix: hide it there (a scope), or give the style a spin rate.
+#   note*        Note & key reactions drive only the six style knobs (uKnob), and these styles name none:
+#                the marched families and the dedicated renderers. Fix: each style spends the knobs on its
+#                own look, as lib_neon does, or the Notes & key block hides where no knob is read.
+#   midGain      These shader styles hear no mid band field (SND_MID*, the mid presence or flux, uMidRel)
+#                and do not spin, so Mid gain reaches them only through a reaction route that picks a mid
+#                source. Fix: hide it there (a per-style band scope, as Detail is per style), or hear mids.
+silk_web: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+silk_bloom: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+silk_weave: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+silk_shell: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+silk_spiral: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+silk_fold: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+silk_hyper: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+silk_resonance: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+silk_curl: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+silk_pendulum: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+life_orbium: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+life_gyre: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+life_helix: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+life_pulsar: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+life_hydro: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+life_bug: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+life_mitosis: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+life_coral: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+life_labyrinth: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+life_worms: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+myco_polycephalum: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+myco_rivals: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+myco_symbiosis: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+myco_predator: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+myco_ghosts: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+myco_circuit: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+myco_silkroad: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+myco_sporestorm: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+myco_capillary: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+myco_frostvein: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+acid_tv: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+acid_well: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+acid_kaleid: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+acid_droste: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+acid_prism: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+acid_mosh: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+acid_scan: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+acid_solar: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+acid_mirror: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+acid_smear: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+julia: motionDrift
+mandel: midGain motionDrift
+plasma: midGain motionDrift
+bars: motionDrift
+ring: motionDrift
+scope: midGain motionDrift
+liss: motionDrift
+warp: midGain motionDrift
+grid: midGain motionDrift
+voronoi: midGain motionDrift
+metaballs: midGain motionDrift
+ripples: motionDrift
+starfield: midGain motionDrift
+waves: midGain motionDrift
+hexgrid: midGain motionDrift
+aurora: motionDrift
+solar: midGain motionDrift
+winter: motionDrift
+lava: motionDrift
+vanishing: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+morphogen: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+nebula: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+noneuclid: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+kifs: noteChords noteDrums noteIntervals notePitch noteTension
+rod_tunnel: noteChords noteDrums noteIntervals notePitch noteTension
+neon_tiles: midGain motionDrift
+blacklight_bloom: midGain motionDrift
+fractal_temple: midGain motionDrift
+curl_bloom: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+nectar_flow: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+crystal_canyon: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+neon_city: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+particle_tunnel: noteChords noteDrums noteIntervals notePitch noteTension
+chrome_nebula: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+fractal_dive: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+aurora_ocean: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+spectrum_terrain: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+outrun_drive: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+menger_core: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+gyroid_cavern: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+ringed_planet: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+jelly_abyss: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+ribbon_storm: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+prism_rain: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+supershape: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+fractal_tunnel: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+neon_chrome_sea: midGain motionDrift
+black_hole: midGain motionDrift
+mandelbox_cathedral: midGain motionDrift
+morph_world: midGain motionDrift
+arbor_grove: midGain motionDrift
+arbor_willow: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+arbor_coral: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+arbor_frost: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+arbor_bolt: midGain motionDrift
+arbor_roots: motionDrift
+arbor_bonsai: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+arbor_canopy: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+arbor_rosette: midGain motionDrift
+arbor_spire: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+arbor_synapse: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+arbor_sakura: midGain motionDrift
+bulb_classic: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+bulb_julia: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+bulb_slice: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+bulb_lotus: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+bulb_ink: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+bulb_glow: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+bulb_cavern: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+bulb_shell: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+bulb_prism: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+bulb_contour: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+bulb_chrome: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+bulb_hybrid: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+chrys_bloom: motionDrift
+chrys_phyllo: midGain motionDrift
+chrys_dahlia: motionDrift
+chrys_lotus: midGain motionDrift
+chrys_meadow: motionDrift
+chrys_corolla: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+chrys_glass: midGain motionDrift
+chrys_ink: midGain motionDrift
+chrys_neon: motionDrift
+chrys_fall: midGain motionDrift
+lucid_weave: midGain motionDrift
+lucid_hive: midGain motionDrift
+lucid_ink: motionDrift
+lucid_bulge: midGain motionDrift
+lucid_petal: motionDrift
+lucid_lattice: motionDrift
+dive_lattice: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+dive_jewel: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+dive_mushroom: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+dive_gyro: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+dive_mandala: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+dive_serpent: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+dive_helix: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+dive_accordion: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+dive_orbit: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+dive_neon: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+dive_cycle: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+dive_show: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+glass_orb: midGain motionDrift
+glass_pool: midGain motionDrift
+glass_prism: midGain motionDrift
+glass_lens: midGain motionDrift
+glass_drops: midGain motionDrift
+glass_bubbles: midGain motionDrift
+glass_marble: midGain motionDrift
+glass_caustic: midGain motionDrift
+glass_cubes: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+glass_gem: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+glass_ice: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+glass_knot: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+nebula_dust: midGain motionDrift
+nebula_spiral: motionDrift
+nebula_ring: motionDrift
+nebula_veil: midGain motionDrift
+nebula_pulsar: midGain motionDrift
+nebula_cluster: midGain motionDrift
+nebula_nova: motionDrift
+nebula_horizon: midGain motionDrift
+nebula_pillars: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+nebula_flight: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+nebula_storm: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+nebula_web: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+terra_ridge: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+terra_dunes: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+terra_canyon: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+terra_glacier: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+terra_isles: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+terra_mesa: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+terra_volcano: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+terra_terraces: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+terra_moon: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+terra_night: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+terra_topo: midGain motionDrift
+terra_wire: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+truchet_arcs: motionDrift
+truchet_hex: motionDrift
+truchet_weave: midGain motionDrift
+truchet_maze: midGain motionDrift
+truchet_tri: motionDrift
+truchet_quad: midGain motionDrift
+truchet_tubes: midGain motionDrift
+truchet_neon: motionDrift
+truchet_flow: motionDrift
+truchet_knot: midGain motionDrift
+truchet_tunnel: midGain motionDrift
+truchet_relief: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+foam_fall: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+foam_neon: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+foam_soap: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+foam_chrome: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+foam_ember: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+foam_ice: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+foam_orb: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+foam_kaleido: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+foam_ink: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+foam_coral: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+foam_ghost: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+foam_show: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+milkdrop: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+fluid: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+fluid_ink: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+fluid_oilslick: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+fluid_neon: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+fluid_chrome: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+fluid_smoke: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+fluid_lava: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+fluid_marble: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+fluid_aurora: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+curlflow: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+water: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+cymatics: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+chladni_sand: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+bessel_drum: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+harmonograph: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+faraday: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+harmonic_shell: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+caustic_sheet: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+levitator: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+standing_chamber: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+rosensweig: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+kundt_tube: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+flame_veil: motionDrift
+flame_spiral: motionDrift
+flame_orb: motionDrift
+flame_star: motionDrift
+flame_lotus: motionDrift
+flame_helix: motionDrift
+flame_knot: motionDrift
+flame_web: motionDrift
+flame_aurora: motionDrift
+flame_nova: motionDrift
+opal_bubbles: motionDrift
+opal_nautilus: motionDrift
+opal_melt: motionDrift
+opal_domes: motionDrift
+opal_pearls: motionDrift
+opal_lava: motionDrift
+opal_ribbon: motionDrift
+opal_cells: motionDrift
+opal_rings: motionDrift
+opal_drop: motionDrift
+hollow_sinew: motionDrift
+hollow_cave: motionDrift
+hollow_ribs: motionDrift
+hollow_coral: motionDrift
+hollow_roots: motionDrift
+hollow_hive: motionDrift
+hollow_throat: motionDrift
+hollow_neuron: motionDrift
+hollow_bone: motionDrift
+hollow_shell: motionDrift

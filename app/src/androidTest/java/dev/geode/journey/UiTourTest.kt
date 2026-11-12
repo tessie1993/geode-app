@@ -125,7 +125,7 @@ class UiTourTest {
         walkPointers("pointers", "studio")
         tour.step("pointers", "settings-tutorials", "Settings › Tutorials, every chapter ticked") {
             tour.tap(SETTINGS)
-            tour.tap(TUTORIALS)
+            openTutorials()
             null
         }
         tour.pages("pointers", "tutorials-list", pages = 2)
@@ -136,7 +136,7 @@ class UiTourTest {
         walkPointers("pointers", "replay-customize")
         tour.step("pointers", "replay-skip", "a replay skipped from its first pointer leaves Studio's page alone") {
             tour.tap(SETTINGS)
-            tour.tapIfPresent(TUTORIALS)
+            openTutorials()
             tour.tap(chapterRow(STUDIO))
             tour.waitFor(hasText(TOUR_SKIP) and hasClickAction(), POINTER_WAIT_MS)
             tour.tap(TOUR_SKIP)
@@ -255,12 +255,12 @@ class UiTourTest {
         for (g in tour.visualGestures().filter { it.name in wanted }) {
             tour.runGesture("gesture-pro", g) { tour.stageBaseline() }
             if (g.name == "hold") {
-                tour.pages("gesture-pro", "record-save-sheet", pages = 1)
-                tour.step("gesture-pro", "stop-take", "the take stops") {
-                    tour.back()
-                    tour.tapIfPresent(UiTour.STOP_TAKE)
+                // The hold starts a recording; the first stop saves it and asks where recordings go.
+                tour.step("gesture-pro", "stop-recording", "the recording stops and is saved") {
+                    tour.tapIfPresent(UiTour.STOP_RECORDING)
                     tour.state().summary()
                 }
+                tour.pages("gesture-pro", "record-save-sheet", pages = 1)
             }
         }
         pictureInPicture()
@@ -291,9 +291,6 @@ class UiTourTest {
             if (option in RENDER_OPTIONS_THAT_OPEN) tour.back()
         }
         tour.step("studio", "my-videos", "My videos, empty") { tour.tap(studioTab(MY_VIDEOS)) }
-        for (chip in MY_VIDEOS_CHIPS) {
-            tour.step("studio", "my-videos-${slug(chip)}", "the $chip filter") { tour.tap(chip) }
-        }
     }
 
     /**
@@ -306,7 +303,7 @@ class UiTourTest {
         tour.requireShell("settings", hasText(EMPTY_PLAYER))
         tour.step("settings", "open", "Settings, the Go Pro row on top") { tour.tap(SETTINGS) }
         for (tab in SETTINGS_TABS) {
-            tour.step("settings", "tab-${slug(tab)}", "the $tab tab") { tour.tap(tab) }
+            tour.step("settings", "tab-${slug(tab)}", "the $tab tab") { tour.tap(settingsTab(tab)) }
             tour.pages("settings", slug(tab), pages = 5)
             settingsDrillIns(tab)
             tour.tapIfPresent(SETTINGS_BACK)
@@ -393,7 +390,8 @@ class UiTourTest {
             null
         }
         tour.pages("styles", "list", pages = 3)
-        tour.step("styles", "family-silk", "the Silk family open") { tour.tap(SILK) }
+        tour.step("styles", "family-menu", "the family dropdown open") { tour.tap(STYLE_FAMILY) }
+        tour.step("styles", "family-silk", "the Silk family's styles") { tour.tap(SILK) }
         tour.step("styles", "locked-style", "a Pro style plays while the paywall offers it") {
             tour.tap(LOCKED_STYLE)
             "paywall=${tour.waitFor(hasText(UiTour.PAYWALL_RESTORE))}"
@@ -403,10 +401,13 @@ class UiTourTest {
             tour.tap(UiTour.PAYWALL_CLOSE)
             tour.state().summary()
         }
-        tour.step("styles", "family-silk-closed", "the Silk family closed again") { tour.tap(SILK) }
-        tour.step("styles", "shader-family", "a shader family's variations") {
-            tour.tap(SHADERS)
+        tour.step("styles", "shader-family", "a shader family's styles") {
+            tour.tap(STYLE_FAMILY)
             tour.tap(ARBOR)
+        }
+        tour.step("styles", "your-styles", "Your styles: on screen, favourites, recent") {
+            tour.tap(STYLE_FAMILY)
+            tour.tap(YOUR_STYLES)
         }
         tour.step("styles", "row-menu", "a style's long-press menu") {
             compose.onAllNodes(LONG_PRESSABLE).onFirst().performSemanticsAction(SemanticsActions.OnLongClick)
@@ -574,13 +575,25 @@ class UiTourTest {
 
     private fun settingsDrillIns(tab: String) {
         when (tab) {
-            ABOUT -> aboutDialogs()
+            HELP_ABOUT -> aboutDialogs()
             EXPORT -> exportLink()
             else -> Unit
         }
     }
 
+    /**
+     * Settings › Backup, help & about › Tutorials: the tab if the list shows, then the section if
+     * it is closed. The open sections are remembered, so a second visit may find it open already,
+     * and a tap on its header then would close it.
+     */
+    private fun openTutorials() {
+        tour.tapIfPresent(settingsTab(HELP_ABOUT))
+        if (!tour.has(chapterRow(CUSTOMIZE))) tour.tap(TUTORIALS)
+    }
+
     private fun aboutDialogs() {
+        // Licences and the policy are in the About section below Backup, closed until opened.
+        if (!tour.has(hasText(LICENSES) and hasClickAction())) tour.tapIfPresent(ABOUT_SECTION)
         for (dialog in listOf(LICENSES, PRIVACY)) {
             tour.step("settings", "about-${slug(dialog)}", "the $dialog dialog") { tour.tap(dialog) }
             tour.pages("settings", "about-${slug(dialog)}-body", pages = 2)
@@ -592,7 +605,7 @@ class UiTourTest {
         tour.step("settings", "export-open-studio", "Settings › Export opens Studio › Render") { tour.tap(OPEN_STUDIO_RENDER) }
         tour.step("settings", "export-return", "back in Settings, Export group") {
             tour.tap(SETTINGS)
-            tour.tapIfPresent(EXPORT)
+            tour.tapIfPresent(settingsTab(EXPORT))
             null
         }
     }
@@ -668,6 +681,9 @@ class UiTourTest {
     /** A Studio tab, not the Render button below the stack that shares its name. */
     private fun studioTab(label: String) = hasText(label) and SemanticsMatcher.keyIsDefined(SemanticsProperties.Selected)
 
+    /** A tab in Settings' list, not a nav item of the same name (Library is both). */
+    private fun settingsTab(label: String) = hasText(label) and !SemanticsMatcher.keyIsDefined(SemanticsProperties.Selected)
+
     /** A Settings › Tutorials row (it carries a done / not done state), not the nav item of that name. */
     private fun chapterRow(label: String) = hasText(label) and SemanticsMatcher.keyIsDefined(SemanticsProperties.StateDescription)
 
@@ -691,8 +707,9 @@ class UiTourTest {
         const val PRESETS = "Presets"
         const val MILKDROP = "MilkDrop"
         const val TEXTURES = "Textures"
+        const val STYLE_FAMILY = "Style family"
+        const val YOUR_STYLES = "Your styles"
         const val SILK = "Silk"
-        const val SHADERS = "Shaders"
         const val ARBOR = "Arbor"
         const val LOCKED_STYLE = "Halvorsen Web"
         const val SAVE_LOOK = "Save look"
@@ -707,12 +724,13 @@ class UiTourTest {
         const val TOUR_OPEN_LIBRARY = "Open Library"
         const val TOUR_OPEN_VISUALS = "Open Visuals"
         const val PRO_OFFER = "Make your music come to life"
-        const val TUTORIALS = "Tutorials & help"
+        const val TUTORIALS = "Tutorials"
         const val RENDER = "Render"
         const val MY_VIDEOS = "My videos"
-        const val ABOUT = "Backup & about"
+        const val HELP_ABOUT = "Backup, help & about"
+        const val ABOUT_SECTION = "About"
         const val SETTINGS_BACK = "Back to Settings"
-        const val EXPORT = "Export"
+        const val EXPORT = "Export & recording"
         const val ADVANCED = "Advanced"
         const val LICENSES = "Open source licenses"
         const val PRIVACY = "Privacy policy"
@@ -721,24 +739,34 @@ class UiTourTest {
         const val GO_PRO = "Go Pro"
 
         val LIBRARY_TABS = listOf("Tracks", "Albums", "Artists", "Folders", "Playlists", "Duplicates")
+
+        /**
+         * Settings' fifteen tabs in list order (`SettingsGroupKey`, 2026-11-11): the ten groups
+         * before them were regrouped, Tutorials & help and Backup & about becoming one tab, and
+         * Preferences added for small choices like the watermark.
+         */
         val SETTINGS_TABS =
             listOf(
                 "Playback",
-                "Behaviour & gestures",
-                "Visuals",
-                "Sound input",
+                "Sound & equalizer",
+                "Output & devices",
+                "Library",
+                "Visual playback",
+                "Sound reaction",
+                "Photosensitivity & motion",
+                "Displays & casting",
+                "Wallpaper & screen saver",
+                "Gestures & controls",
                 "Look",
                 "Performance",
-                "Library & lyrics",
                 EXPORT,
-                TUTORIALS,
-                ABOUT,
+                "Preferences",
+                HELP_ABOUT,
             )
         val RENDER_SCOPES = listOf("Play queue", "Playlist", "Chosen tracks")
         val RENDER_OPTIONS =
             listOf("Made for", "Segment", "Whole track", "Loop", "Ask where each time", "Videos library (Movies/BeatRealms)")
         val RENDER_OPTIONS_THAT_OPEN = setOf("Made for", "Loop")
-        val MY_VIDEOS_CHIPS = listOf("Renders", "Takes", "All")
 
         /**
          * Customize's pages in jump-header order, each with its sub-pages: `CustomizeSubPage` in
@@ -747,7 +775,7 @@ class UiTourTest {
         val CUSTOMIZE_PAGES =
             linkedMapOf(
                 MACROS to emptyList<String>(),
-                "Look" to listOf("Make a palette"),
+                "Look" to listOf("Your colours"),
                 "Style" to emptyList<String>(),
                 MOTION to listOf(CAMERA, "Liquid", "Water ripples"),
                 "Music" to listOf("How it listens", "Notes & key"),

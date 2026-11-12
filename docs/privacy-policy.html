@@ -25,7 +25,7 @@
 <!-- Generated from docs/privacy-policy.md; edit that file and regenerate. -->
 <h1>BeatRealms 3D — Privacy Policy</h1>
 <p class="updated">Last updated: 11 November 2026</p>
-<p>BeatRealms 3D ("BeatRealms", "the app") is a music player, music visualizer and music video studio for Android. This policy describes what the app does with your information. The short version: <strong>the app itself collects nothing, sells nothing and has no servers.</strong> Two things involve Google: buying BeatRealms Pro, which Google Play handles, and Google's Cast component, which sends Google anonymous usage logs (see <em>Cast to TV</em> below).</p>
+<p>BeatRealms 3D ("BeatRealms", "the app") is a music player, music visualizer and music video studio for Android. This policy describes what the app does with your information. The short version: <strong>the app itself collects nothing, sells nothing and has no servers.</strong> Two things involve Google: buying BeatRealms Pro, which Google Play handles, and Google's Cast component, which sends Google anonymous usage logs (see <em>Cast to TV</em> below). The optional <em>Cast to TV</em> and <em>Show on a computer</em> stream only on your own network.</p>
 
 <h2>Information the app does not collect</h2>
 <p>BeatRealms itself does <strong>not</strong> collect, transmit, sell or share personal information. The app has:</p>
@@ -33,7 +33,7 @@
   <li>no user accounts, sign-in or registration;</li>
   <li>no analytics, telemetry, crash-reporting or advertising SDKs;</li>
   <li>no advertising identifier;</li>
-  <li>no internet use except <em>Cast to TV</em>, which talks only to Google Cast and to the TV on your own Wi-Fi (see below).</li>
+  <li>no internet use except <em>Cast to TV</em> and <em>Show on a computer</em>, which talk only to Google Cast, the TV and the computer on your own Wi-Fi (see below).</li>
 </ul>
 
 <h2>Information the app uses on your device</h2>
@@ -64,6 +64,8 @@
 <p>If you cast to a TV, your phone draws the visuals and streams them, with the sound, to the TV over your own Wi-Fi. The stream goes from your phone straight to the TV on your local network; it is never sent to BeatRealms or stored anywhere. Google's own Cast receiver plays it on the TV. Only the music BeatRealms plays goes to the TV: while <em>Live input</em> or <em>Visualize other apps</em> drives the visuals, the TV gets the picture but not that sound.</p>
 <p>To find and connect to the TV the app uses the <strong>Google Cast SDK</strong>. Google says the SDK logs how it is used (discovery and session events, device and app information) and sends that to Google, aggregated, without identifiers that trace back to you, encrypted in transit and kept for a short time, to improve Cast (<a href="https://developers.google.com/cast/docs/android_sender/data_disclosure">Google's Cast SDK disclosure</a>). Neither you nor BeatRealms can turn that logging off or delete it. The SDK starts when you open the app, so that the Cast button and Android's own output switcher can find your TV, and it looks for TVs on your network while the Cast button is on screen.</p>
 <p>The stream is plain HTTP on your local network, with a random secret in its address, because Google's Cast receiver cannot play a stream from a phone over HTTPS. Anyone on the same Wi-Fi who learns that address while you cast could watch the stream. The app listens only on your Wi-Fi address, accepts short requests only, and stops when you stop casting.</p>
+<h3>Show on a computer (Pro)</h3>
+<p><em>Show on a computer</em> streams the same picture and sound to a web browser on a computer on the same Wi-Fi, without a Chromecast. The app shows an address and a QR code; the browser plays the stream straight from your phone, and the page it opens loads nothing from the internet. As for the TV, the stream is plain HTTP on your local network with a random secret in its address (no browser can trust a certificate for a phone's local address), so anyone on the same Wi-Fi who learns that address could watch. The app answers only on your Wi-Fi address, and stops serving the moment you stop sharing, the Wi-Fi changes or Pro ends.</p>
 
 <h2>Permissions</h2>
 <ul>
@@ -72,7 +74,7 @@
   <li><strong><code>POST_NOTIFICATIONS</code></strong> (Android 13+): playback controls, and the ongoing notifications Android requires while <em>Visualize other apps</em> or a video render runs.</li>
   <li><strong><code>FOREGROUND_SERVICE</code></strong> with the media-playback, media-projection, media-processing and data-sync types: lets playback, casting, capture and video rendering continue while the app is not on screen, always with a visible notification. With the microphone type, only while you cast to a TV with <em>Live input</em> on: the microphone keeps driving the TV's visuals with the app in the background, analysed in memory as above.</li>
   <li><strong><code>com.android.vending.BILLING</code></strong>: lets the app talk to the Google Play Store app to sell and restore BeatRealms Pro.</li>
-  <li><strong><code>INTERNET</code></strong> and <strong><code>ACCESS_NETWORK_STATE</code></strong>: only for <em>Cast to TV</em>: to find the TV, talk to Google Cast and stream to the TV on your Wi-Fi.</li>
+  <li><strong><code>INTERNET</code></strong> and <strong><code>ACCESS_NETWORK_STATE</code></strong>: only for <em>Cast to TV</em> and <em>Show on a computer</em>: to find the TV, talk to Google Cast and stream to the TV or the computer on your Wi-Fi.</li>
   <li><strong><code>MODIFY_AUDIO_SETTINGS</code></strong>: for bit-perfect USB audio output to an external DAC.</li>
   <li><strong><code>VIBRATE</code></strong>: haptic feedback for the app's controls.</li>
   <li><strong><code>WAKE_LOCK</code></strong>: keeps the music playing while the screen is off.</li>
@@ -92,7 +94,7 @@
 <p>Exported videos are MP4 files saved where you choose. They stay on your device unless <em>you</em> share them; the app you share to handles them under its own policy. Exports made without Pro are limited to one minute and carry a "BeatRealms 3D" watermark.</p>
 
 <h2>Backups</h2>
-<p>If Android backup is on, your BeatRealms settings, presets, playlists and listening history may be included in your Google account backup, handled by Google. The crash file, imported textures and recorded takes are excluded. You can turn backup off in your device settings.</p>
+<p>If Android backup is on, your BeatRealms settings, presets, playlists and listening history may be included in your Google account backup, handled by Google. The crash file and imported textures are excluded; recordings are saved as videos, like exports, outside the backup. You can turn backup off in your device settings.</p>
 <p>Settings › Backup can also save one zip file, only when you ask it to, to a place you choose with the system file picker. It holds your settings, presets, palettes, templates, editor projects, playlists, library list and listening history, and your MilkDrop presets. BeatRealms never sends it anywhere; restoring reads it back from where you saved it.</p>
 
 <h2>Children</h2>

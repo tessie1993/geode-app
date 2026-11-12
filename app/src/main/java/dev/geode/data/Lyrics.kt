@@ -60,7 +60,7 @@ object LyricsLoader {
         source: Uri,
     ): Boolean =
         runCatching {
-            val text = context.contentResolver.openInputStream(source)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: return false
+            val text = context.contentResolver.openInputStream(source)?.use(ReadCap.LYRICS::text) ?: return false
             val file = attachedFile(context, trackUri)
             file.parentFile?.mkdirs()
             file.writeText(text)
@@ -87,7 +87,8 @@ object LyricsLoader {
                 "file" -> {
                     val path = trackUri.path ?: return null
                     val lrc = java.io.File(path.substringBeforeLast('.', path) + ".lrc")
-                    if (lrc.isFile) parse(lrc.readText(), context.getString(R.string.lyrics_source_sidecar)) else null
+                    val text = lrc.takeIf { it.isFile }?.inputStream()?.use(ReadCap.LYRICS::text) ?: return null
+                    parse(text, context.getString(R.string.lyrics_source_sidecar))
                 }
                 "content" -> {
                     val doc = DocumentFile.fromSingleUri(context, trackUri) ?: return null
@@ -98,7 +99,7 @@ object LyricsLoader {
                             it.name.equals("$stem.lrc", ignoreCase = true)
                         } ?: return null
                     context.contentResolver.openInputStream(sibling.uri)?.use {
-                        parse(it.readBytes().toString(Charsets.UTF_8), context.getString(R.string.lyrics_source_sidecar))
+                        parse(ReadCap.LYRICS.text(it), context.getString(R.string.lyrics_source_sidecar))
                     }
                 }
                 else -> null

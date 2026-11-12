@@ -4,8 +4,16 @@ import android.content.SharedPreferences
 import androidx.annotation.StringRes
 import androidx.core.content.edit
 import dev.geode.R
+import dev.geode.data.prefs.BackupClass
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.audio.SoundTuning
+import dev.geode.model.KnobSize
+import dev.geode.model.LibraryStartTab
+import dev.geode.model.ScreenRotation
+import dev.geode.model.TabLabels
 import dev.geode.model.TourProgress
+import dev.geode.model.TrackTap
 
 enum class CornerStyle(
     @param:StringRes val labelRes: Int,
@@ -24,9 +32,7 @@ data class GuiPrefs(
     /**
      * How long a preset load takes to glide in, in SECONDS.
      *
-     * Was a count of beats, converted with the tracked tempo — so the glide was the wrong
-     * length whenever the estimate was, and fell back to a flat 120 BPM on live input where
-     * there is no estimate at all. Seconds are the thing the user is actually choosing.
+     * A duration, never a count of beats: nothing here consults or assumes a tempo.
      */
     val presetMorphSeconds: Float = 2f,
     val accentIntensity: Float = 1f,
@@ -36,7 +42,6 @@ data class GuiPrefs(
      * gives the canvas back.
      */
     val miniPlayerFadeSeconds: Float = MINI_PLAYER_FADE_DEFAULT_SECONDS,
-    val whiteFont: Boolean = false,
     val fontColorArgb: Int? = null,
     val textScale: Float = 1f,
     /**
@@ -56,15 +61,16 @@ data class GuiPrefs(
     /** The tour: chapters seen or skipped, where an unfinished one picks up, the tips said. */
     val tourProgress: TourProgress = TourProgress(),
     val micReactive: Boolean = false,
+    /** Settings › Gestures & controls › Touch: the fingers on the visual also drag the picture (core/viz/TouchSmear). */
     val touchSmear: Boolean = false,
     val touchSmearStrength: Float = 1f,
     val secondScreen: Boolean = true,
+    /** Settings › Gestures & controls › Touch: a pinch moves Zoom and a twist Rotation (core/viz/TouchTransform). */
     val touchTransform: Boolean = true,
     /**
      * Whether leaving the fullscreen visualizer while something is playing drops straight into
-     * picture-in-picture, instead of just backgrounding the app. Off by default: PiP is a
-     * deliberate action (the button on the visualizer, or the platform's own gesture on API 31+)
-     * until someone opts into it happening automatically too.
+     * picture-in-picture, instead of just backgrounding the app. Off by default, and the only way
+     * into PiP: there is no PiP button.
      */
     val autoEnterPip: Boolean = false,
     /**
@@ -73,10 +79,34 @@ data class GuiPrefs(
      * until someone asks for them.
      */
     val uiSounds: Boolean = false,
+    /** Off: the accent stays the fallback #9CC7FF instead of following the visual's palette. */
+    val accentFollowsVisual: Boolean = true,
+    /** The app's own vibration on taps; the system's touch feedback switch still applies on top. */
+    val haptics: Boolean = true,
+    val tabLabels: TabLabels = TabLabels.AUTO,
+    /** Player shows the time left (−m:ss) where the track's length is, instead of the length. */
+    val showTimeLeft: Boolean = false,
+    val screenRotation: ScreenRotation = ScreenRotation.FOLLOW,
+    val knobSize: KnobSize = KnobSize.SMALL,
+    /** Settings › Preferences › Library: the tab Library opens on. */
+    val libraryStartTab: LibraryStartTab = LibraryStartTab.TRACKS,
+    /**
+     * Settings › Preferences › Library: the order Library opens in, by `LibrarySort`'s name (that
+     * enum is the screen's, and `data` may not name `ui`). Empty or unknown is the first order,
+     * Title. A sort picked in Library itself still holds for the rest of the visit.
+     */
+    val librarySort: String = "",
+    /** Settings › Preferences › Library: what a tap on a track does. */
+    val trackTap: TrackTap = TrackTap.PLAY_LIST,
+    /** Settings › Preferences › Player: the A–B loop button under the Player's seek bar. */
+    val showAbLoop: Boolean = true,
+    /** Settings › Preferences › Player: a previous button on the floating mini player, beside play and next. */
+    val miniPlayerPrevious: Boolean = false,
+    /** Settings › Preferences › Visuals: ‹ › at the sides of the visual (the sideways swipe still steps). */
+    val stageArrows: Boolean = true,
+    /** Settings › Preferences › Visuals: the Record icon on the visual (the hold still records; a running take keeps its stop). */
+    val stageRecord: Boolean = true,
 ) {
-    val fontColorOverride: Int?
-        get() = fontColorArgb ?: FontColorChoice.WHITE_ARGB.takeIf { whiteFont }
-
     companion object {
         const val TEXT_SCALE_MIN = 0.85f
         const val TEXT_SCALE_MAX = 1.3f
@@ -88,14 +118,8 @@ data class GuiPrefs(
 class ThemeStore(
     private val prefs: SharedPreferences,
 ) {
-    /** Reads the morph length, converting a beat count saved by an older build. */
-    private fun readPresetMorphSeconds(prefs: SharedPreferences): Float {
-        if (prefs.contains(KEY_PRESET_MORPH_SEC)) {
-            return prefs.getFloat(KEY_PRESET_MORPH_SEC, 2f).coerceIn(0f, PRESET_MORPH_SECONDS_MAX)
-        }
-        val beats = prefs.getInt(LEGACY_KEY_MORPH_BEATS, 4)
-        return (beats * 60f / LEGACY_MORPH_BPM).coerceIn(0f, PRESET_MORPH_SECONDS_MAX)
-    }
+    private fun readPresetMorphSeconds(prefs: SharedPreferences): Float =
+        prefs.getFloat(KEY_PRESET_MORPH_SEC, 2f).coerceIn(0f, PRESET_MORPH_SECONDS_MAX)
 
     fun loadGui(): GuiPrefs {
         val fontColor =
@@ -132,12 +156,25 @@ class ThemeStore(
                     legacySeen = prefs.getBoolean(KEY_TUTORIAL_SEEN, false),
                 ),
             touchSmear = prefs.getBoolean(KEY_TOUCH_SMEAR, false),
-            touchSmearStrength = prefs.getFloat(KEY_TOUCH_SMEAR_STRENGTH, 1f).coerceIn(0.2f, 2f),
+            touchSmearStrength = prefs.getFloat(KEY_TOUCH_SMEAR_STRENGTH, 1f),
             touchTransform = prefs.getBoolean(KEY_TOUCH_TRANSFORM, true),
             secondScreen = prefs.getBoolean(KEY_SECOND_SCREEN, true),
             micReactive = prefs.getBoolean(KEY_MIC_REACTIVE, false),
             autoEnterPip = prefs.getBoolean(KEY_AUTO_ENTER_PIP, false),
             uiSounds = prefs.getBoolean(KEY_UI_SOUNDS, false),
+            accentFollowsVisual = prefs.getBoolean(KEY_ACCENT_FOLLOWS_VISUAL, true),
+            haptics = prefs.getBoolean(KEY_HAPTICS, true),
+            tabLabels = TabLabels.fromName(prefs.getString(KEY_TAB_LABELS, null)),
+            showTimeLeft = prefs.getBoolean(KEY_SHOW_TIME_LEFT, false),
+            screenRotation = ScreenRotation.fromName(prefs.getString(KEY_SCREEN_ROTATION, null)),
+            knobSize = KnobSize.fromName(prefs.getString(KEY_KNOB_SIZE, null)),
+            libraryStartTab = LibraryStartTab.fromName(prefs.getString(KEY_LIBRARY_START_TAB, null)),
+            librarySort = prefs.getString(KEY_LIBRARY_SORT, null).orEmpty(),
+            trackTap = TrackTap.fromName(prefs.getString(KEY_TRACK_TAP, null)),
+            showAbLoop = prefs.getBoolean(KEY_SHOW_AB_LOOP, true),
+            miniPlayerPrevious = prefs.getBoolean(KEY_MINI_PLAYER_PREVIOUS, false),
+            stageArrows = prefs.getBoolean(KEY_STAGE_ARROWS, true),
+            stageRecord = prefs.getBoolean(KEY_STAGE_RECORD, true),
         )
     }
 
@@ -167,7 +204,7 @@ class ThemeStore(
         }
 
     fun saveGui(gui: GuiPrefs) {
-        val fontColor = gui.fontColorOverride
+        val fontColor = gui.fontColorArgb
         prefs.edit {
             putString(KEY_CORNER, gui.cornerStyle.name)
             putFloat(KEY_OPACITY, gui.barOpacity)
@@ -205,6 +242,19 @@ class ThemeStore(
             putBoolean(KEY_MIC_REACTIVE, gui.micReactive)
             putBoolean(KEY_AUTO_ENTER_PIP, gui.autoEnterPip)
             putBoolean(KEY_UI_SOUNDS, gui.uiSounds)
+            putBoolean(KEY_ACCENT_FOLLOWS_VISUAL, gui.accentFollowsVisual)
+            putBoolean(KEY_HAPTICS, gui.haptics)
+            putString(KEY_TAB_LABELS, gui.tabLabels.name)
+            putBoolean(KEY_SHOW_TIME_LEFT, gui.showTimeLeft)
+            putString(KEY_SCREEN_ROTATION, gui.screenRotation.name)
+            putString(KEY_KNOB_SIZE, gui.knobSize.name)
+            putString(KEY_LIBRARY_START_TAB, gui.libraryStartTab.name)
+            putString(KEY_LIBRARY_SORT, gui.librarySort)
+            putString(KEY_TRACK_TAP, gui.trackTap.name)
+            putBoolean(KEY_SHOW_AB_LOOP, gui.showAbLoop)
+            putBoolean(KEY_MINI_PLAYER_PREVIOUS, gui.miniPlayerPrevious)
+            putBoolean(KEY_STAGE_ARROWS, gui.stageArrows)
+            putBoolean(KEY_STAGE_RECORD, gui.stageRecord)
         }
     }
 
@@ -252,10 +302,6 @@ class ThemeStore(
         }
 
         const val KEY_PRESET_MORPH_SEC = "gui_preset_morph_seconds"
-        const val LEGACY_KEY_MORPH_BEATS = "morph_beats"
-
-        /** The tempo the old beat-count morph fell back to; used only to migrate a saved value. */
-        const val LEGACY_MORPH_BPM = 120f
 
         const val PRESET_MORPH_SECONDS_MAX = 8f
 
@@ -268,5 +314,41 @@ class ThemeStore(
         const val KEY_MIC_REACTIVE = "gui_mic_reactive"
         const val KEY_AUTO_ENTER_PIP = "gui_auto_enter_pip"
         const val KEY_UI_SOUNDS = "gui_ui_sounds"
+        const val KEY_ACCENT_FOLLOWS_VISUAL = "gui_accent_follows_visual"
+        const val KEY_HAPTICS = "gui_haptics"
+        const val KEY_TAB_LABELS = "gui_tab_labels"
+        const val KEY_SHOW_TIME_LEFT = "gui_show_time_left"
+        const val KEY_SCREEN_ROTATION = "gui_screen_rotation"
+        const val KEY_KNOB_SIZE = "gui_knob_size"
+        const val KEY_LIBRARY_START_TAB = "gui_library_start_tab"
+        const val KEY_LIBRARY_SORT = "gui_library_sort"
+        const val KEY_TRACK_TAP = "gui_track_tap"
+        const val KEY_SHOW_AB_LOOP = "gui_show_ab_loop"
+        const val KEY_MINI_PLAYER_PREVIOUS = "gui_mini_player_previous"
+        const val KEY_STAGE_ARROWS = "gui_stage_arrows"
+        const val KEY_STAGE_RECORD = "gui_stage_record"
+
+        val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.GENERAL) {
+                portable(PrefType.STRING, KEY_CORNER, KEY_SOUND_TUNING, KEY_TAB_LABELS, KEY_SCREEN_ROTATION, KEY_KNOB_SIZE)
+                portable(PrefType.FLOAT, KEY_OPACITY, KEY_PRESET_MORPH_SEC, KEY_ACCENT, KEY_MINI_PLAYER_FADE, KEY_TEXT_SCALE)
+                portable(PrefType.FLOAT, KEY_TOUCH_SMEAR_STRENGTH)
+                portable(PrefType.INT, KEY_FONT_COLOR)
+                portable(PrefType.BOOLEAN, KEY_TOUCH_SMEAR, KEY_TOUCH_TRANSFORM, KEY_SECOND_SCREEN, KEY_MIC_REACTIVE)
+                portable(PrefType.BOOLEAN, KEY_AUTO_ENTER_PIP, KEY_UI_SOUNDS)
+                portable(PrefType.BOOLEAN, KEY_ACCENT_FOLLOWS_VISUAL, KEY_HAPTICS, KEY_SHOW_TIME_LEFT)
+                portable(PrefType.STRING, KEY_LIBRARY_START_TAB, KEY_LIBRARY_SORT, KEY_TRACK_TAP)
+                portable(PrefType.BOOLEAN, KEY_SHOW_AB_LOOP, KEY_MINI_PLAYER_PREVIOUS, KEY_STAGE_ARROWS, KEY_STAGE_RECORD)
+                device(PrefType.STRING, "preset_mirror_uri")
+                state(PrefType.BOOLEAN, KEY_SAFETY_ACKNOWLEDGED, KEY_SETUP_DONE)
+                state(PrefType.STRING, KEY_TUTORIAL_DONE, KEY_TUTORIAL_RESUME, KEY_TUTORIAL_TIPS)
+                retired(PrefType.STRING, KEY_INTENT, KEY_SAFETY_CHOICE)
+                retired(PrefType.BOOLEAN, KEY_WHITE_FONT)
+                // Read once to fold an old install's "tour ended" into the chapters, then removed.
+                retired(PrefType.BOOLEAN, KEY_TUTORIAL_SEEN, backup = BackupClass.STATE)
+                // The morph length in beats: no longer read (the tempo is not a setting), still in old installs' files.
+                retired(PrefType.INT, "morph_beats")
+                retired(null, KEY, KEY_DIM, KEY_FOLLOW_DARK, KEY_CLEAR_VIZ_MENU, KEY_TUTORIAL_ON_FIRST_RUN, KEY_REDUCED_MOTION)
+            }
     }
 }

@@ -1,6 +1,7 @@
 package dev.geode.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -76,6 +77,7 @@ fun VisualizerEngineBindings(
 ) {
     val settingsViewModel: SettingsViewModel = geodeViewModel()
     val visualsViewModel: VisualsViewModel = geodeViewModel()
+    val studioViewModel: StudioViewModel = geodeViewModel()
     // Only the two ids, derived: a Customize slider tick changes vizState but must not re-run this.
     val vizState = viewModel.vizState.collectAsStateWithLifecycle()
     val activeSceneId by remember { derivedStateOf { vizState.value.sceneId } }
@@ -115,6 +117,11 @@ fun VisualizerEngineBindings(
             liveLook(v, m.first, m.second, m.third, gui, reducedMotion, u)
         }.collect { visualizerView.visualizerRenderer.look = it }
     }
+    // Record copies this stage's frames; one leaving the screen ends a recording it was making.
+    DisposableEffect(visualizerView) {
+        studioViewModel.attachRecordStage(visualizerView)
+        onDispose { studioViewModel.attachRecordStage(null) }
+    }
     LaunchedEffect(Unit) {
         viewModel.vizState
             .map { it.params.camGyro }
@@ -128,6 +135,13 @@ fun VisualizerEngineBindings(
         // Process-wide (core/viz/LayerState): exports, the wallpaper and the dream draw it too (#364).
         val sceneId = if (layers.enabled) layers.sceneId else null
         visualizerView.visualizerRenderer.submitLayer(sceneId, layers.mix, layers.blend)
+    }
+    LaunchedEffect(Unit) {
+        // Settings › Gestures & controls › Touch › Smear: handed over as set; native draws the strokes (core/viz/TouchSmear).
+        settingsViewModel.guiPrefs
+            .map { it.touchSmear to it.touchSmearStrength }
+            .distinctUntilChanged()
+            .collect { (on, strength) -> visualizerView.visualizerRenderer.setTouchSmear(on, strength) }
     }
     LaunchedEffect(playerPrefs.keepScreenOn) {
         visualizerView.keepScreenOn = playerPrefs.keepScreenOn

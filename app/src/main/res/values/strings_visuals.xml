@@ -8,13 +8,14 @@
     <string name="visuals_tab_textures">Textures</string>
 
     <!-- The stage icons and the landscape side panel (ui/VisualsStage.kt, ui/VisualsSheet.kt). -->
-    <string name="visuals_stop_take">Stop recording this take</string>
+    <string name="visuals_stop_record">Stop recording</string>
     <string name="visuals_panel_handle">Options panel edge</string>
     <string name="visuals_panel_wider">Make the options wider</string>
     <string name="visuals_panel_narrower">Make the options narrower</string>
 
     <!-- Visuals › MilkDrop (ui/MilkDropPage.kt). -->
-    <string name="milk_load_failed">Preset didn\'t load: %1$s</string>
+    <string name="milk_load_failed">MilkDrop: %1$s</string>
+    <string name="milk_open_failed">That file couldn\'t be opened as a MilkDrop preset.</string>
     <string name="milk_unavailable">MilkDrop doesn\'t run on this device.</string>
     <string name="milk_presets">Your presets</string>
     <string name="milk_presets_none">None yet</string>

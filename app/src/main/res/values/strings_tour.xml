@@ -35,13 +35,13 @@
     <string name="tour_customize_list_title">A group for each part</string>
     <string name="tour_customize_list_body">Look, Shape, Motion, Music and more. Each opens on the basics, with more below.</string>
     <string name="tour_customize_randomize_title">Roll the dice</string>
-    <string name="tour_customize_randomize_body">In a group, the dice rolls new settings for it. Undo, next to it, takes them back.</string>
+    <string name="tour_customize_randomize_body">The dice rolls new settings: for every group here, or for the one you open. Undo, next to it, takes them back.</string>
 
     <!-- Studio. -->
     <string name="tour_studio_render_title">Make a video</string>
     <string name="tour_studio_render_body">Pick a song and a look, then tap Render. It keeps going if you leave the app.</string>
     <string name="tour_studio_videos_title">Your videos</string>
-    <string name="tour_studio_videos_body">Your renders and takes are kept under My videos.</string>
+    <string name="tour_studio_videos_body">Your renders and recordings are kept under My videos.</string>
 
     <!-- One-time gesture tips. -->
     <string name="tour_tip_swipe_styles">Tip: swipe sideways on the visual to change style.</string>
@@ -49,7 +49,7 @@
     <string name="tour_tip_hold_to_record">Tip: hold the visual to start recording.</string>
     <string name="tour_tip_swipe_up_player">Tip: swipe the mini player up to open Player.</string>
     <string name="tour_tip_swipe_down_knobs">Tip: swipe down on the visual for the quick knobs.</string>
-    <string name="tour_tip_swirl_randomize">Tip: draw two circles on the visual for a whole new look.</string>
+    <string name="tour_tip_swirl_randomize">Tip: draw two circles on the visual for a random style, preset and settings.</string>
     <string name="tour_tip_got_it">Got it</string>
 
     <!-- Settings › Tutorials. -->

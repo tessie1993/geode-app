@@ -24,7 +24,7 @@
 "lib_feedback",
 // The simulation scenes' shared 2.5D look (parallax relief, light, eight materials); after lib_sound.
 "lib_relief",
-// One library per style family (StyleFamilies.kt): the twelve styles of a family share it.
+// One library per style family (StyleFamilies.kt): the styles of a family share it.
 "lib_arbor",
 "lib_bulb",
 "lib_chrys",
@@ -35,6 +35,9 @@
 "lib_terra",
 "lib_truchet",
 "lib_foam",
+"lib_flame",
+"lib_opal",
+"lib_hollow",
 // The neon set (five loose styles): normalized shape controls, the palette pull, shared sound drives.
 "lib_neon",
 // Morph World's space: the World Genome's operator chain and its three render modes (core/viz/world).

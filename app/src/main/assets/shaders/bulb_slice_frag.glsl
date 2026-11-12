@@ -43,7 +43,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed (uSpeed) scales the knife's breathing. Complexity (uMorph) adds up to two fractal
+// Speed scales the knife's breathing. Complexity (uMorph) adds up to two fractal
 // iterations (bulbIters). Chaos (uWarp, uTurbulence, uTwist) warps and twists
 // space before the fractal (bulbChaos, estimate divided by bulbChaosLip).
 // Energy (uIntensity) scales the kick's push on the knife. Colour is tone(),
@@ -81,8 +81,8 @@ float map(vec3 p) {
 
 void main() {
     vec2 uv = view();
-    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
-    float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE * uSoundDrive + SND_MID_PRESENCE * uSoundDrive)), 0.0, 1.5);
+    float kick = clamp(SND_KICK_ENV * uSoundDrive, 0.0, 1.0);
     gIters = bulbIters(6);
 
     // The rig's turn picks the knife's direction; the knife faces it, tilted

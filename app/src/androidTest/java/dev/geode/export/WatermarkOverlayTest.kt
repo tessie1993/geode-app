@@ -9,7 +9,9 @@ import android.opengl.EGLSurface
 import android.opengl.GLES20
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import dev.geode.model.WatermarkChoice
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -19,8 +21,9 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 /**
- * The non-Pro watermark on a real GL context: drawn over a black frame, it must mark every
- * quadrant (it is full-frame, not a corner badge) while leaving most of the picture visible.
+ * The watermark on a real GL context, over a black frame: the tiled default must mark every
+ * quadrant while leaving most of the picture visible; a corner mark only its corner; an end card
+ * nothing until the video's last seconds, then the centre.
  *
  * The rendered frame is also saved as `watermark_<w>x<h>.png` into the instrumentation's
  * additional test output, which AGP pulls into
@@ -88,14 +91,7 @@ class WatermarkOverlayTest {
         width: Int,
         height: Int,
     ) {
-        GLES20.glViewport(0, 0, width, height)
-        GLES20.glClearColor(0f, 0f, 0f, 1f)
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-        val overlay = WatermarkOverlay("BeatRealms 3D", InstrumentationRegistry.getInstrumentation().targetContext.assets)
-        overlay.prepare(width, height)
-        overlay.draw()
-        val pixels = readPixels(width, height)
-        overlay.release()
+        val pixels = drawMark(WatermarkChoice(required = true), width, height)
         save(pixels, width, height)
 
         val halfW = width / 2
@@ -109,6 +105,38 @@ class WatermarkOverlayTest {
         }
         val overall = litFraction(pixels, width, 0, 0, width, height)
         assertTrue("watermark hides too much of the frame ($overall)", overall < MAX_LIT)
+    }
+
+    @Test
+    fun aCornerMarkStaysInItsCorner() {
+        val choice = WatermarkChoice(required = true, placement = WatermarkChoice.CORNER, corner = WatermarkChoice.BOTTOM_RIGHT)
+        val pixels = drawMark(choice, 1280, 720)
+        assertTrue(litFraction(pixels, 1280, 640, 360, 640, 360) > 0f)
+        assertEquals(0f, litFraction(pixels, 1280, 0, 0, 640, 720))
+        assertEquals(0f, litFraction(pixels, 1280, 640, 0, 640, 360))
+    }
+
+    @Test
+    fun anEndCardWaitsForTheEnd() {
+        val choice = WatermarkChoice(required = true, placement = WatermarkChoice.END_CARD)
+        assertEquals(0f, litFraction(drawMark(choice, 1280, 720, timeMs = 0L), 1280, 0, 0, 1280, 720))
+        val end = drawMark(choice, 1280, 720, timeMs = END_MS - 1L)
+        assertTrue(litFraction(end, 1280, 320, 180, 640, 360) > MIN_LIT)
+    }
+
+    private fun drawMark(
+        choice: WatermarkChoice,
+        width: Int,
+        height: Int,
+        timeMs: Long = 0L,
+    ): IntArray {
+        GLES20.glViewport(0, 0, width, height)
+        GLES20.glClearColor(0f, 0f, 0f, 1f)
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+        val overlay = WatermarkOverlay(choice, InstrumentationRegistry.getInstrumentation().targetContext)
+        overlay.prepare(width, height, END_MS)
+        overlay.draw(timeMs)
+        return readPixels(width, height).also { overlay.release() }
     }
 
     private fun readPixels(
@@ -169,5 +197,6 @@ class WatermarkOverlayTest {
         const val LIT_THRESHOLD = 24
         const val MIN_LIT = 0.005f
         const val MAX_LIT = 0.5f
+        const val END_MS = 60_000L
     }
 }

@@ -3,6 +3,7 @@ package dev.geode.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -20,30 +21,41 @@ import dev.geode.data.ThemeStore
 import dev.geode.engine.audio.SoundTuning
 import kotlin.math.roundToInt
 
-/** Settings › Sound input › Basics: the microphone, then other apps' audio. */
+/** Sound reaction › Basics: the microphone, a layer over whatever plays. */
 @Composable
-internal fun SoundInputBasics(viewModel: PlayerViewModel) {
+internal fun LiveInputRow(viewModel: PlayerViewModel) {
     CrystalOverline(stringResource(R.string.source_live_input), color = MaterialTheme.colorScheme.onSurfaceVariant)
     LiveInputGroup(viewModel)
+}
+
+/** Sound reaction › Basics: other apps' audio, and naming what they play. */
+@Composable
+internal fun OtherAppsAudioRow(viewModel: PlayerViewModel) {
     CrystalOverline(stringResource(R.string.source_other_apps), color = MaterialTheme.colorScheme.onSurfaceVariant)
     ExternalAudioSettings(viewModel)
 }
 
-/** Settings › Sound input › How the visual listens: the sound engine's tuning and the preset morph. */
+/** Sound reaction › Analysis: the sound engine's tuning. */
 @Composable
 internal fun SoundAnalysisSection(viewModel: SettingsViewModel) {
-    AnalysisGroup(viewModel)
-}
-
-@Composable
-private fun AnalysisGroup(viewModel: SettingsViewModel) {
     val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
     Column {
         SoundTuningControls(gui.soundTuning) { viewModel.setGuiPrefs(gui.copy(soundTuning = it.clamped())) }
     }
+}
+
+/**
+ * Visual playback › Preset morph: how long one look glides into the next when a preset is applied
+ * ([dev.geode.data.GuiPrefs.presetMorphSeconds]); it moved from Sound input with the regroup, since
+ * it is how the visual changes, not how it hears.
+ */
+@Composable
+internal fun PresetMorphRow(viewModel: SettingsViewModel) {
+    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
     Column {
-        Text(stringResource(R.string.audio_preset_morph, gui.presetMorphSeconds))
         CrystalSlider(
+            label = stringResource(R.string.audio_preset_morph, gui.presetMorphSeconds),
+            labelStyle = LocalTextStyle.current,
             value = gui.presetMorphSeconds,
             onValueChange = { viewModel.setGuiPrefs(gui.copy(presetMorphSeconds = it)) },
             valueRange = 0f..ThemeStore.PRESET_MORPH_SECONDS_MAX,
@@ -165,8 +177,10 @@ private fun AdvancedTuning(
     listOf(R.string.audio_drum_kick, R.string.audio_drum_snare, R.string.audio_drum_hat).forEachIndexed { i, label ->
         val drum = SoundTuning.DRUM + i
         val decay = SoundTuning.DRUM_DECAY + i
-        TuningSlot(stringResource(label, "%.2f".format(tuning[drum]), ms(tuning[decay])), tuning, drum, onChange)
+        val drumLine = stringResource(label, "%.2f".format(tuning[drum]), ms(tuning[decay]))
+        TuningSlot(drumLine, tuning, drum, onChange)
         CrystalSlider(
+            valueDescription = drumLine,
             value = tuning[decay],
             onValueChange = { onChange(tuning.withSlot(decay, it)) },
             valueRange = SoundTuning.range(decay),
@@ -205,6 +219,5 @@ private fun TuningSlider(
     range: ClosedFloatingPointRange<Float>,
     onChange: (Float) -> Unit,
 ) {
-    Text(label, style = MaterialTheme.typography.labelMedium)
-    CrystalSlider(value = value, onValueChange = onChange, valueRange = range)
+    CrystalSlider(value = value, onValueChange = onChange, valueRange = range, label = label)
 }

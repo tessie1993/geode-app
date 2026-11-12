@@ -38,4 +38,13 @@ class StudioPrefsStoreTest {
         assertEquals(true, store.keepAsProject())
         assertEquals(true, prefs.getBoolean("studio_keep_as_project", false))
     }
+
+    @Test
+    fun settingsCanAskAgainAfterAnAnswer() {
+        val store = StudioPrefsStore(prefs)
+        store.saveKeepAsProject(true)
+        store.saveKeepAsProject(null)
+        assertNull(store.keepAsProject())
+        assertEquals(false, prefs.contains("studio_keep_as_project"))
+    }
 }

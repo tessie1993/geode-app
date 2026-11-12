@@ -1,5 +1,7 @@
 #include "viz/CustomizeMap.hpp"
 
+#include <algorithm>
+#include <iterator>
 
 #include "viz/ParamRandomizer.hpp"
 
@@ -18,16 +20,20 @@ using catalogue::Scope;
 const std::vector<Section>& table() {
     static const std::vector<Section> kSections = {
         {C::QuickKnobs, "basics", true, S::Always, {"@macros"}},
+        // Turning the knobs is free; making them and choosing what they move is the deeper layer.
+        {C::QuickKnobs, "knob_editor", false, S::Always, {"@macro_editor"}},
 
         {C::Look, "basics", true, S::Always, {"Palette", "Brightness", "Saturation", "Bloom"}},
+        // Your colours: the colour picker and eyedropper, first under the one palette list they add to.
+        {C::Look, "palette_maker", false, S::Always, {"@palette_maker"}},
+        // The blend before its second palette, which only shows once the blend is up.
         {C::Look,
          "colour_detail",
          false,
          S::Always,
-         {"Palette 2", "Palette blend", "Colour map", "Hue shift", "Hue range", "Temperature"}},
+         {"Palette blend", "Palette 2", "Colour map", "Hue shift", "Hue range", "Temperature"}},
         {C::Look, "colour_cycle", false, S::Always, {"Color cycle", "Cycle speed"}},
         {C::Look, "light_detail", false, S::Always, {"Contrast", "Gamma", "Intensity"}},
-        {C::Look, "palette_maker", false, S::Always, {"@palette_maker"}},
 
         {C::Shape, "basics", true, S::Always, {"Morph", "Kaleidoscope", "Detail"}},
         {C::Shape, "form", false, S::Always, {"Domain warp", "Twist", "Ripple", "Turbulence"}},
@@ -53,8 +59,13 @@ const std::vector<Section>& table() {
 
         {C::Motion, "basics", true, S::Always, {"Speed", "Zoom", "Rotation"}},
         {C::Motion, "drift", false, S::Always, {"Sway", "Drift X", "Drift Y"}},
-        {C::Motion, "endless_dive", false, S::Always, {"Endless zoom", "Dive speed", "Travel zoom"}},
         {C::Motion, "inner_motion", false, S::Always, {"Motion amount", "Breath", "Spin drift"}},
+
+        // The endless zoom (viz/EndlessZoom.hpp): on, and how fast, then the tunnel it draws.
+        {C::Dive, "basics", true, S::Always, {"Endless zoom", "Dive speed"}},
+        {C::Dive, "tunnel", false, S::Always, {"Ring spacing", "Tunnel shape", "Dive blend", "Depth fade"}},
+        {C::Dive, "spiral_aim", false, S::Always, {"Dive twist", "Dive aim X", "Dive aim Y", "Dive lens"}},
+        {C::Dive, "travel", false, S::Always, {"Music follow", "Travel zoom"}},
 
         {C::Camera, "basics", true, S::Always, {"Camera path", "Fly speed"}},
         {C::Camera, "framing", false, S::ThreeD, {"Field of view", "Swing", "Push in", "Look turn", "Look tilt", "Roll"}},
@@ -92,36 +103,37 @@ const std::vector<Section>& table() {
          S::Water,
          {"Ripple strength", "Depth", "Specular", "Flow drift", "Liquid", "Liquid flow", "Liquid fade"}},
 
-        // One section per engine, split so no list runs past a dozen rows; each shows only where its
-        // controls reach.
-        {C::Expert,
+        // The style's own engine (Fluid, Cymatics, MilkDrop): one section each, split so no list runs
+        // past a dozen rows; each shows only where its controls reach, and the category only with one.
+        {C::Engine,
          "fluid_flow",
          false,
          S::Engine,
          {"Solver iterations", "Fluid curl", "Motion fade", "Fluid fade", "Chromatic aging", "Pressure",
           "Curl from mids", "Fade when quiet"}},
-        {C::Expert,
+        {C::Engine,
          "fluid_look",
          false,
          S::Engine,
          {"Shading (embossed ink)", "Glow (fluid)", "Fluid glow", "Glow threshold", "Glow from loudness",
           "Sunrays", "Sunrays weight", "Palette cycle", "Particle brightness", "Particle layer", "Ink layer"}},
-        {C::Expert,
+        {C::Engine,
          "plate",
          false,
          S::Engine,
          {"Geometry", "Fundamental (Hz)", "Standing waves", "Tonal focus", "Plate ring", "Field scale", "Wave flow",
           "Field swirl"}},
-        {C::Expert,
+        {C::Engine,
          "plate_look",
          false,
          S::Engine,
          {"Fill", "Nodal lines", "Nodal glow", "Iridescence", "Caustic sheen"}},
-        {C::Expert,
+        {C::Engine,
          "milkdrop",
          false,
          S::Engine,
          {"Blend preset changes", "MilkDrop palette tint"}},
+
         {C::Expert, "layers", false, S::Always, {"@layers"}},
         {C::Expert, "shader_code", false, S::ShaderCode, {"@shader_code"}},
     };
@@ -132,6 +144,9 @@ const std::vector<HeldControl>& held() {
     static const std::vector<HeldControl> kHeld = {
         {"Detail", {"marchDetail"}, std::nullopt},
         {"Travel zoom", {"camFlat"}, std::nullopt},
+        {"Dive aim X", {"diveAimX"}, std::nullopt},
+        {"Dive aim Y", {"diveAimY"}, std::nullopt},
+        {"Music follow", {"diveFollow"}, std::nullopt},
         {"Push in", {"camPush"}, std::nullopt},
         {"Look turn", {"camYaw"}, std::nullopt},
         {"Look tilt", {"camPitch"}, std::nullopt},
@@ -154,6 +169,7 @@ const std::vector<HeldControl>& held() {
         // Panel pieces that are not one parameter. Notes & key's amounts are SceneParams values the
         // page draws as a block, so its Reset puts them back.
         {"@macros", {}, std::nullopt},
+        {"@macro_editor", {}, std::nullopt},
         {"@palette_maker", {}, std::nullopt},
         {"@auto_moments", {}, std::nullopt},
         {"@moments", {}, std::nullopt},
@@ -170,8 +186,9 @@ const std::vector<HeldControl>& held() {
     return kHeld;
 }
 
-constexpr const char* kCategoryNames[] = {"QUICK_KNOBS", "LOOK",    "SHAPE",  "MOTION", "CAMERA",
-                                          "MUSIC",       "EFFECTS", "LIQUID", "EXPERT"};
+constexpr const char* kCategoryNames[] = {"QUICK_KNOBS", "LOOK",    "SHAPE",  "MOTION", "DIVE",  "CAMERA",
+                                          "MUSIC",       "EFFECTS", "LIQUID", "ENGINE", "EXPERT"};
+static_assert(std::size(kCategoryNames) == kCategoryCount, "one name per category");
 constexpr const char* kShowNames[] = {"ALWAYS", "THREE_D", "PARTICLES", "WATER", "ENGINE", "SHADER_CODE"};
 
 const randomizer::RolledKey* rolled(std::string_view key) {
@@ -202,6 +219,45 @@ bool rule(Show show, const std::string& styleId) {
         case Show::ShaderCode: return kind == Kind::Fluid;
     }
     return true;
+}
+
+// A switch and the controls the picture reads only while it is on.
+struct Gate {
+    const char* opener;
+    const char* field;
+    std::vector<const char*> controls;
+};
+
+const std::vector<Gate>& gates() {
+    static const std::vector<Gate> kGates = {
+        {"Endless zoom",
+         "endlessZoom",
+         {"Dive speed", "Ring spacing", "Tunnel shape", "Dive blend", "Depth fade", "Dive twist", "Dive aim X", "Dive aim Y",
+          "Dive lens"}},
+        {"Flow field on", "flowEnabled", {"Flow strength", "Flow force", "Flow curl", "Born inside", "Colour age", "Surface"}},
+        {"Water ripples on", "rippleOverlayEnabled", {"Ripple overlay strength", "Ripple glint", "Wave speed", "Damping"}},
+        {"Trails", "trails", {"Trail length", "Trail zoom (echo in/out)", "Trail warp (liquid echo)"}},
+        {"Color cycle", "colorCycle", {"Cycle speed"}},
+    };
+    return kGates;
+}
+
+const Gate* gateOf(std::string_view key) {
+    for (const auto& gate : gates()) {
+        for (const char* control : gate.controls) {
+            if (key == control) return &gate;
+        }
+    }
+    return nullptr;
+}
+
+// The switches a category is named for, in the order its roll tries to open them.
+std::vector<const char*> masters(Category category) {
+    switch (category) {
+        case Category::Dive: return {"Endless zoom"};
+        case Category::Liquid: return {"Flow field on", "Water ripples on"};
+        default: return {};
+    }
 }
 
 // Camera shows on every style now: Fly speed and the path pan and tilt a flat picture too. Only its
@@ -241,6 +297,12 @@ std::set<std::string> expandLocks(const std::set<std::string>& locked) {
             out.insert(key);
             continue;
         }
+        if (key == kProLock) {
+            for (const auto& section : table()) {
+                if (!section.basics) out.insert(section.controls.begin(), section.controls.end());
+            }
+            continue;
+        }
         const auto category = categoryNamed(std::string_view(key).substr(1));
         if (!category) continue;
         for (const auto& section : table()) {
@@ -249,6 +311,12 @@ std::set<std::string> expandLocks(const std::set<std::string>& locked) {
         }
     }
     return out;
+}
+
+std::set<std::string> expandKeeps(const std::set<std::string>& locked) {
+    std::set<std::string> keeps = locked;
+    keeps.erase(kProLock);
+    return expandLocks(keeps);
 }
 
 bool reaches(std::string_view key, const std::string& styleId) {
@@ -272,6 +340,31 @@ bool shows(Category category, const std::string& styleId) {
     return false;
 }
 
+bool offered(std::string_view key, const std::string& styleId) {
+    if (styleId.empty()) return true;
+    if (!reaches(key, styleId)) return false;
+    for (const auto& section : table()) {
+        for (const char* control : section.controls) {
+            if (key == control) return rule(section.show, styleId) && rule(categoryRule(section.category), styleId);
+        }
+    }
+    return false;
+}
+
+bool live(std::string_view key, const SceneParams& params, const std::string& styleId) {
+    const Gate* gate = gateOf(key);
+    // A switch the style does not have gates nothing there: Water's own surface reads Wave speed.
+    if (!gate || !reaches(gate->opener, styleId)) return true;
+    return params.get(gate->field) != 0.0f;
+}
+
+bool rolls(Category category, const std::string& styleId) {
+    for (const auto& roll : randomizer::rolledKeys()) {
+        if (categoryOf(roll.key) == category && offered(roll.key, styleId)) return true;
+    }
+    return false;
+}
+
 std::vector<const char*> fieldsOf(std::string_view key) {
     std::vector<const char*> out;
     if (const auto* roll = rolled(key)) {
@@ -290,7 +383,37 @@ SceneParams randomize(const SceneParams& current, uint64_t seed, Category catego
     // what this category does not own, the same way a lock holds a control.
     std::set<std::string> held = locked;
     for (const auto& roll : randomizer::rolledKeys()) {
-        if (categoryOf(roll.key) != category) held.insert(roll.key);
+        if (categoryOf(roll.key) != category || !offered(roll.key, styleId)) held.insert(roll.key);
+    }
+    const auto switches = masters(category);
+    held.insert(switches.begin(), switches.end());
+    SceneParams out = randomizer::randomize(current, seed, std::nullopt, styleId, held);
+
+    const Gate* closed = nullptr;
+    for (const auto& roll : randomizer::rolledKeys()) {
+        if (held.count(roll.key)) continue;
+        bool moved = false;
+        for (const char* field : roll.fields) moved = moved || (field && out.get(field) != current.get(field));
+        if (!moved) continue;
+        if (live(roll.key, out, styleId)) return out;
+        const Gate* gate = gateOf(roll.key);
+        const bool better = !closed || std::find(switches.begin(), switches.end(), std::string_view(gate->opener)) <
+                                           std::find(switches.begin(), switches.end(), std::string_view(closed->opener));
+        if (better) closed = gate;
+    }
+    // Everything the roll moved sits behind a switch that is off: open the category's own.
+    if (closed && !locked.count(closed->opener) &&
+        std::find(switches.begin(), switches.end(), std::string_view(closed->opener)) != switches.end()) {
+        out.set(closed->field, 1.0f);
+    }
+    return out;
+}
+
+SceneParams randomizeAll(const SceneParams& current, uint64_t seed, const std::string& styleId,
+                         const std::set<std::string>& locked) {
+    std::set<std::string> held = locked;
+    for (const auto& roll : randomizer::rolledKeys()) {
+        if (!offered(roll.key, styleId)) held.insert(roll.key);
     }
     return randomizer::randomize(current, seed, std::nullopt, styleId, held);
 }
@@ -335,6 +458,7 @@ std::string shownOn(const std::string& styleId) {
         const auto category = static_cast<Category>(i);
         if (!shows(category, styleId)) continue;
         out += std::string(name(category)) + "\n";
+        if (rolls(category, styleId)) out += std::string(name(category)) + ":roll\n";
         for (const auto& section : table()) {
             if (section.category == category && shows(section, styleId)) {
                 out += std::string(name(category)) + "/" + section.id + "\n";

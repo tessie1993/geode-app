@@ -34,8 +34,11 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -63,6 +66,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -73,21 +77,29 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.collapse
 import androidx.compose.ui.semantics.expand
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -98,8 +110,10 @@ import dev.geode.R
 import dev.geode.data.MusicPlaylist
 import dev.geode.data.PlaylistImportResult
 import dev.geode.model.DeviceTrack
+import dev.geode.model.LibraryStartTab
 import dev.geode.model.LibraryTrack
 import dev.geode.model.QueueTrack
+import dev.geode.model.TrackTap
 import dev.geode.playback.PlaybackQueue
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
@@ -111,6 +125,23 @@ import kotlin.math.roundToInt
 /** Playlists sit last and behave differently: hand-ordered, so search and sort do not apply. */
 private const val PLAYLISTS_TAB = 4
 private const val DUPLICATES_TAB = 5
+
+/** The tab row's position of each tab Settings › Preferences can open Library on. */
+private fun LibraryStartTab.tabIndex(): Int =
+    when (this) {
+        LibraryStartTab.TRACKS -> 0
+        LibraryStartTab.ALBUMS -> 1
+        LibraryStartTab.ARTISTS -> 2
+        LibraryStartTab.FOLDERS -> 3
+        LibraryStartTab.PLAYLISTS -> PLAYLISTS_TAB
+    }
+
+/**
+ * Settings › Preferences › Library's tap on a track, provided once by [LibraryScreen]: the rows sit
+ * four lists deep (tracks, an album or artist, search, favourites), and none of the lists between
+ * has any other use for it.
+ */
+private val LocalTrackTap = staticCompositionLocalOf { TrackTap.PLAY_LIST }
 
 /**
  * The pane width from which a landscape or expanded window splits the library into two columns
@@ -145,14 +176,34 @@ private fun Modifier.libraryListWidth(columns: Int): Modifier =
         .fillMaxWidth()
 
 /**
- * [onOpenFolders] opens Settings › Folders and [onOpenVisuals] opens Visuals: the empty library's
+ * [onOpenFolders] opens Settings › Library and [onOpenVisuals] opens Visuals: the empty library's
  * ways out ([LibraryEmptyHost]).
+ *
+ * Search is the library's own: the header's icon turns the header into the field, and while it is
+ * open the tabs step aside for one result list (artists, albums, tracks). Back, or the arrow,
+ * closes it and returns to the tab that was open.
  */
 @Composable
 fun LibraryScreen(
-    onOpenSearch: () -> Unit,
     onOpenFolders: () -> Unit = {},
     onOpenVisuals: () -> Unit = {},
+) {
+    val settings: SettingsViewModel = geodeViewModel()
+    val gui by settings.guiPrefs.collectAsStateWithLifecycle()
+    CompositionLocalProvider(LocalTrackTap provides gui.trackTap) {
+        LibraryContent(onOpenFolders, onOpenVisuals, gui.libraryStartTab)
+    }
+}
+
+/**
+ * [startTab] is where the tabs stand until one is picked; read live rather than seeded once, since
+ * the prefs may finish loading after the screen first draws.
+ */
+@Composable
+private fun LibraryContent(
+    onOpenFolders: () -> Unit,
+    onOpenVisuals: () -> Unit,
+    startTab: LibraryStartTab,
 ) {
     val libraryViewModel: LibraryViewModel = geodeViewModel()
     val playerViewModel: PlayerViewModel = geodeViewModel()
@@ -168,8 +219,19 @@ fun LibraryScreen(
     // The field shows every keystroke; the list follows the debounced query in [state].
     val query by libraryViewModel.query.collectAsStateWithLifecycle()
     val duplicates by libraryViewModel.duplicates.collectAsStateWithLifecycle()
+    val hiddenShort by libraryViewModel.hiddenShortTracks.collectAsStateWithLifecycle()
     LaunchedEffect(granted, reloadKey) { if (granted) libraryViewModel.refreshDeviceTracks() }
-    var tab by rememberSaveable { mutableStateOf(0) }
+    var pickedTab by rememberSaveable { mutableStateOf<Int?>(null) }
+    val tab = pickedTab ?: startTab.tabIndex()
+    var searchOpen by rememberSaveable { mutableStateOf(false) }
+    // A query kept across process death reopens the search it belongs to.
+    val searching = searchOpen || query.isNotEmpty()
+    val closeSearch = {
+        libraryViewModel.setQuery("")
+        searchOpen = false
+    }
+    // Declared before the lists, so an album or artist opened from the results closes first.
+    rememberPredictiveDismiss(enabled = searching, onDismiss = closeSearch)
     val tabs =
         listOf(
             stringResource(R.string.library_tab_tracks),
@@ -185,20 +247,18 @@ fun LibraryScreen(
     val landscapeOrExpanded = libraryLandscapeOrExpanded()
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    stringResource(R.string.app_name),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    stringResource(R.string.nav_library),
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.semantics { heading() },
-                )
-            }
-            IconButton(onClick = onOpenSearch) { StoneIconArt(StoneIcon.SEARCH, stringResource(R.string.action_search)) }
+        if (searching) {
+            LibrarySearchField(
+                query,
+                onQueryChange = {
+                    libraryViewModel.setQuery(it)
+                    // Emptying the field keeps the search open to type again.
+                    searchOpen = true
+                },
+                onClose = closeSearch,
+            )
+        } else {
+            LibraryHeader(onSearch = { searchOpen = true })
         }
         if (!granted) {
             val canAskAgain = access.status != PermissionStatus.PERMANENTLY_DENIED
@@ -223,6 +283,15 @@ fun LibraryScreen(
             }
             return
         }
+        // The results outlive a closed search by the moment the library takes to list itself again:
+        // better than the tabs flashing the last hits.
+        if (searching || state.isSearching) {
+            BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
+                val columns = if (landscapeOrExpanded && maxWidth >= LIBRARY_SPLIT_WIDTH) 2 else 1
+                LibrarySearchResults(state, typed = query, playerViewModel, libraryViewModel, columns)
+            }
+            return
+        }
         if (state.showEmptyLibrary && tab != PLAYLISTS_TAB) {
             // Granted, asked, and nothing: the ways out instead of an empty list (#340). Playlists
             // stay reachable, since a playlist can hold imported files MediaStore does not list.
@@ -237,44 +306,30 @@ fun LibraryScreen(
                 onOpenVisuals = onOpenVisuals,
                 modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = { tab = PLAYLISTS_TAB }, modifier = Modifier.padding(horizontal = 16.dp)) {
+            HiddenShortTracks(hiddenShort, onOpenFolders)
+            TextButton(onClick = { pickedTab = PLAYLISTS_TAB }, modifier = Modifier.padding(horizontal = 16.dp)) {
                 Text(stringResource(R.string.library_tab_playlists))
             }
             return
         }
         PrimaryScrollableTabRow(selectedTabIndex = tab, containerColor = Color.Transparent, divider = {}) {
-            tabs.forEachIndexed { i, t -> Tab(selected = i == tab, onClick = { tab = i }, text = { Text(t) }) }
+            tabs.forEachIndexed { i, t -> Tab(selected = i == tab, onClick = { pickedTab = i }, text = { Text(t) }) }
         }
         // Measured below the tabs, where the lists live: the pane's own width decides the split.
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
             val wide = landscapeOrExpanded && maxWidth >= LIBRARY_SPLIT_WIDTH
             val columns = if (wide) 2 else 1
             Column(Modifier.fillMaxSize()) {
-                // Search and sort belong to the track-shaped tabs. Playlists are ordered by hand, and
+                // Sort belongs to the track-shaped tabs. Playlists are ordered by hand, and
                 // re-sorting someone's running order out from under them would be a bug, not a feature.
                 if (tab != PLAYLISTS_TAB && tab != DUPLICATES_TAB) {
-                    // One row in a wide pane: landscape is short, and two stacked rows of controls
-                    // there would leave the list a strip.
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        OutlinedTextField(
-                            value = query,
-                            onValueChange = libraryViewModel::setQuery,
-                            singleLine = true,
-                            label = { Text(stringResource(R.string.library_search_hint)) },
-                            modifier = Modifier.weight(1f),
-                        )
-                        if (wide) SortPicker(state.sort, libraryViewModel::setSort)
-                    }
-                    if (!wide) SortPicker(state.sort, libraryViewModel::setSort, Modifier.padding(horizontal = 8.dp))
+                    SortPicker(state.sort, libraryViewModel::setSort, Modifier.padding(horizontal = GeodeSpacing.S))
                 }
-                // Grouping walks the whole library, so the ViewModel does it off the main thread with
-                // the search (LibraryBrowse.browse); the tabs only draw the groups.
+                if (tab == 0) HiddenShortTracks(hiddenShort, onOpenFolders)
+                // Grouping walks the whole library, so the ViewModel does it off the main thread
+                // (LibraryBrowse.browse); the tabs only draw the groups.
                 when (tab) {
-                    0 -> TrackList(shown, playerViewModel, libraryViewModel, state.isSearching, columns)
+                    0 -> TrackList(shown, playerViewModel, libraryViewModel, columns)
                     1 -> GroupList(state.browse.albums, playerViewModel, libraryViewModel, columns)
                     2 -> GroupList(state.browse.artists, playerViewModel, libraryViewModel, columns)
                     3 -> FoldersTab(state.browse.folders, playerViewModel, wide)
@@ -283,6 +338,18 @@ fun LibraryScreen(
                 }
             }
         }
+    }
+}
+
+/** "N short tracks hidden · Settings": the minimum length's count, opening Settings › Library where it is set. */
+@Composable
+private fun HiddenShortTracks(
+    count: Int,
+    onOpenSettings: () -> Unit,
+) {
+    if (count <= 0) return
+    TextButton(onClick = onOpenSettings, modifier = Modifier.padding(horizontal = GeodeSpacing.S)) {
+        Text(pluralStringResource(R.plurals.library_short_hidden, count, count), style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -311,8 +378,8 @@ private fun SortPicker(
 /**
  * One pick from a list, Material's way: the current value and a ▾ on a 48 dp row, and an M3
  * [DropdownMenu] with a check on the chosen item (TalkBack hears it as selected). Shared by the
- * library's sort and the smart playlist editor's rule pickers, which replaced their chip walls
- * with it.
+ * library's sort, the smart playlist editor's rule pickers and the Styles page's family pick;
+ * [detail] is a quiet note at an item's end (a family's style count).
  */
 @Composable
 internal fun <T> LibraryDropdownRow(
@@ -323,6 +390,7 @@ internal fun <T> LibraryDropdownRow(
     onPick: (T) -> Unit,
     modifier: Modifier = Modifier,
     leading: (@Composable () -> Unit)? = null,
+    detail: ((T) -> String)? = null,
 ) {
     var open by remember { mutableStateOf(false) }
     Box(modifier) {
@@ -350,8 +418,20 @@ internal fun <T> LibraryDropdownRow(
                     },
                     modifier = Modifier.semantics { selected = chosen },
                     trailingIcon =
-                        if (chosen) {
-                            { Icon(Icons.Filled.Check, contentDescription = null) }
+                        if (chosen || detail != null) {
+                            {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    detail?.let {
+                                        Text(
+                                            it(option),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    // The check's place is kept on every item, so the notes line up.
+                                    if (chosen) Icon(Icons.Filled.Check, contentDescription = null) else Spacer(Modifier.size(24.dp))
+                                }
+                            }
                         } else {
                             null
                         },
@@ -366,7 +446,6 @@ private fun TrackList(
     tracks: List<DeviceTrack>,
     viewModel: PlayerViewModel,
     libraryViewModel: LibraryViewModel,
-    searching: Boolean = false,
     columns: Int = 1,
 ) {
     val queue = remember(tracks) { tracks.map(PlaybackQueue::queueTrack) }
@@ -379,13 +458,26 @@ private fun TrackList(
             TrackRow(t, viewModel, libraryViewModel, overrides[t.uri], t.uri in favourites, queue = queue)
         }
         if (tracks.isEmpty()) {
-            // An empty library and an empty result set are different problems, and telling
-            // someone "no music found" mid-search would send them looking for the wrong fix.
-            val empty = if (searching) R.string.library_no_results else R.string.library_no_music
             item(key = "empty", span = { GridItemSpan(maxLineSpan) }, contentType = "empty") {
-                Text(stringResource(empty), Modifier.padding(16.dp))
+                Text(stringResource(R.string.library_no_music), Modifier.padding(16.dp))
             }
         }
+    }
+}
+
+/** A tap on [track] as Settings › Preferences › Library says; with nothing loaded every choice plays. */
+private fun PlayerViewModel.tapTrack(
+    tap: TrackTap,
+    track: DeviceTrack,
+    queue: List<QueueTrack>,
+) {
+    val loaded = uiState.value.hasMedia
+    when {
+        tap == TrackTap.PLAY_NEXT && loaded -> playNext(track.uri)
+        tap == TrackTap.ADD_TO_QUEUE && loaded -> enqueue(track.uri)
+        tap == TrackTap.PLAY_ALONE -> playFrom(listOf(PlaybackQueue.queueTrack(track)), track.uri)
+        queue.isEmpty() -> playTrack(track.uri)
+        else -> playFrom(queue, track.uri)
     }
 }
 
@@ -412,12 +504,12 @@ private fun TrackRow(
     var menu by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
     var addingToPlaylist by remember { mutableStateOf(false) }
+    val tap = LocalTrackTap.current
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable {
-                if (queue.isEmpty()) viewModel.playTrack(t.uri) else viewModel.playFrom(queue, t.uri)
-            }.padding(horizontal = 16.dp, vertical = 8.dp),
+            .clickable { viewModel.tapTrack(tap, t, queue) }
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TrackArtwork(t.uri, Modifier.size(44.dp), corner = 8.dp, decodeSize = 44.dp)
@@ -551,77 +643,309 @@ private fun GroupList(
     val sel = open
     val dismiss = rememberPredictiveDismiss(enabled = sel != null) { open = null }
     if (sel != null && groups.containsKey(sel)) {
-        val overrides by libraryViewModel.trackOverrides.collectAsStateWithLifecycle()
-        val favourites by libraryViewModel.favourites.collectAsStateWithLifecycle()
-        Column(Modifier.dismissTransform(dismiss)) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                // A real button rather than a text link: the link's touch target was its 24 dp line height.
-                TextButton(
-                    onClick = { open = null },
-                    colors = ButtonDefaults.textButtonColors(contentColor = accentTextColor()),
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(stringResource(R.string.action_back))
-                }
-                Text(
-                    sel,
-                    Modifier.padding(end = 12.dp),
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            val queue = remember(sel, groups) { groups.getValue(sel).map(PlaybackQueue::queueTrack) }
-            Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { viewModel.playAll(queue) },
-                    contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
-                ) { Text(stringResource(R.string.library_play_all)) }
-                FilledTonalButton(
-                    onClick = { viewModel.playAll(queue, shuffled = true) },
-                    contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
-                ) { Text(stringResource(R.string.action_shuffle)) }
-            }
-            LazyVerticalGrid(GridCells.Fixed(columns), Modifier.libraryListWidth(columns)) {
-                items(groups.getValue(sel), key = { it.uri }, contentType = { "track" }) { t ->
-                    TrackRow(
-                        t,
-                        viewModel,
-                        libraryViewModel,
-                        overrides[t.uri],
-                        t.uri in favourites,
-                        subtitleOverride = t.album,
-                        queue = queue,
-                    )
-                }
-            }
-        }
+        GroupDetail(
+            sel,
+            groups.getValue(sel),
+            viewModel,
+            libraryViewModel,
+            columns,
+            onBack = { open = null },
+            Modifier.dismissTransform(dismiss),
+        )
     } else {
         val names = remember(groups) { groups.keys.sorted() }
         LazyVerticalGrid(GridCells.Fixed(columns), Modifier.libraryListWidth(columns)) {
             items(names, key = { it }, contentType = { "group" }) { g ->
-                Row(
-                    Modifier.fillMaxWidth().clickable { open = g }.padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            g.ifEmpty { stringResource(R.string.library_group_unnamed) },
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            pluralStringResource(
-                                R.plurals.track_count,
-                                groups.getValue(g).size,
-                                groups.getValue(g).size,
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
+                val count = groups.getValue(g).size
+                GroupRow(g, pluralStringResource(R.plurals.track_count, count, count), onClick = { open = g })
+            }
+        }
+    }
+}
+
+/** One album or artist as a row: its name over [subtitle]. */
+@Composable
+private fun GroupRow(
+    name: String,
+    subtitle: String,
+    onClick: () -> Unit,
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .heightIn(min = 48.dp)
+            .padding(horizontal = GeodeSpacing.L, vertical = 10.dp),
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(name.ifEmpty { stringResource(R.string.library_group_unnamed) }, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(
+            subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** An album's or artist's tracks, opened in place: back, Play all, Shuffle, then the list. */
+@Composable
+private fun GroupDetail(
+    name: String,
+    tracks: List<DeviceTrack>,
+    viewModel: PlayerViewModel,
+    libraryViewModel: LibraryViewModel,
+    columns: Int,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val overrides by libraryViewModel.trackOverrides.collectAsStateWithLifecycle()
+    val favourites by libraryViewModel.favourites.collectAsStateWithLifecycle()
+    Column(modifier) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            // A real button rather than a text link: the link's touch target was its 24 dp line height.
+            TextButton(
+                onClick = onBack,
+                colors = ButtonDefaults.textButtonColors(contentColor = accentTextColor()),
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(stringResource(R.string.action_back))
+            }
+            Text(
+                name.ifEmpty { stringResource(R.string.library_group_unnamed) },
+                Modifier.padding(end = 12.dp),
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        val queue = remember(tracks) { tracks.map(PlaybackQueue::queueTrack) }
+        Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { viewModel.playAll(queue) },
+                contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
+            ) { Text(stringResource(R.string.library_play_all)) }
+            FilledTonalButton(
+                onClick = { viewModel.playAll(queue, shuffled = true) },
+                contentPadding = PaddingValues(horizontal = GeodeSpacing.M, vertical = GeodeSpacing.XS),
+            ) { Text(stringResource(R.string.action_shuffle)) }
+        }
+        LazyVerticalGrid(GridCells.Fixed(columns), Modifier.libraryListWidth(columns)) {
+            items(tracks, key = { it.uri }, contentType = { "track" }) { t ->
+                TrackRow(
+                    t,
+                    viewModel,
+                    libraryViewModel,
+                    overrides[t.uri],
+                    t.uri in favourites,
+                    subtitleOverride = t.album,
+                    queue = queue,
+                )
+            }
+        }
+    }
+}
+
+/** The library's title and the icon that opens its search. */
+@Composable
+private fun LibraryHeader(onSearch: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.S),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                stringResource(R.string.app_name),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                stringResource(R.string.nav_library),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.semantics { heading() },
+            )
+        }
+        IconButton(onClick = onSearch) { StoneIconArt(StoneIcon.SEARCH, stringResource(R.string.action_search)) }
+    }
+}
+
+/**
+ * The header while searching: ← closes the search, × empties the field and keeps it open. It takes
+ * the keyboard when opened empty; a query restored with the screen does not raise it again. The
+ * keyboard's Search key only puts the keyboard away: the results are already there.
+ */
+@Composable
+private fun LibrarySearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onClose: () -> Unit,
+) {
+    val focus = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = GeodeSpacing.XS, end = GeodeSpacing.L, top = GeodeSpacing.S, bottom = GeodeSpacing.S),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onClose) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.search_close))
+        }
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            singleLine = true,
+            placeholder = {
+                Text(stringResource(R.string.library_search_hint), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            },
+            trailingIcon =
+                if (query.isEmpty()) {
+                    null
+                } else {
+                    {
+                        IconButton(onClick = {
+                            onQueryChange("")
+                            focus.requestFocus()
+                        }) { StoneIconArt(StoneIcon.CLOSE, stringResource(R.string.library_search_clear)) }
                     }
+                },
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Search),
+            // Clearing focus puts the keyboard away with it.
+            keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+            modifier = Modifier.weight(1f).focusRequester(focus),
+        )
+    }
+    LaunchedEffect(Unit) { if (query.isEmpty()) focus.requestFocus() }
+}
+
+/**
+ * What the query found, as one list whatever tab was open: the artists and albums it names, then
+ * the tracks, best first (ranked natively, `core/library/Search`). An artist or album opens in
+ * place with all its tracks; a tapped track plays the result list from there. [typed] is the
+ * field's text, which the results in [state] trail by the debounce.
+ */
+@Composable
+private fun LibrarySearchResults(
+    state: LibraryUiState,
+    typed: String,
+    viewModel: PlayerViewModel,
+    libraryViewModel: LibraryViewModel,
+    columns: Int,
+) {
+    val browse = state.browse
+    // Keyed by the query: typing on closes whatever was opened from the last results.
+    var openAlbum by rememberSaveable(state.query) { mutableStateOf<String?>(null) }
+    var openArtist by rememberSaveable(state.query) { mutableStateOf<String?>(null) }
+    val opened =
+        browse.albumHits.firstOrNull { it.name == openAlbum } ?: browse.artistHits.firstOrNull { it.name == openArtist }
+    val closeGroup = {
+        openAlbum = null
+        openArtist = null
+    }
+    val dismiss = rememberPredictiveDismiss(enabled = opened != null, onDismiss = closeGroup)
+    // Kept above the branch so coming back from an album returns to where the list was; a new
+    // query starts at the top, where its best match is.
+    val grid = rememberLazyGridState()
+    var scrolledFor by rememberSaveable { mutableStateOf(state.query) }
+    LaunchedEffect(state.query) {
+        if (scrolledFor != state.query) {
+            grid.scrollToItem(0)
+            scrolledFor = state.query
+        }
+    }
+    if (opened != null) {
+        GroupDetail(
+            opened.name,
+            opened.tracks,
+            viewModel,
+            libraryViewModel,
+            columns,
+            onBack = closeGroup,
+            Modifier.dismissTransform(dismiss),
+        )
+        return
+    }
+    val queue = remember(browse.tracks) { browse.tracks.map(PlaybackQueue::queueTrack) }
+    val overrides by libraryViewModel.trackOverrides.collectAsStateWithLifecycle()
+    val favourites by libraryViewModel.favourites.collectAsStateWithLifecycle()
+    val variousArtists = stringResource(R.string.library_search_various_artists)
+    LazyVerticalGrid(GridCells.Fixed(columns), Modifier.libraryListWidth(columns), state = grid) {
+        if (!state.isSearching) {
+            // Nothing typed yet. Mid-debounce the list stays empty for a moment instead of flashing the tip.
+            if (typed.isBlank()) {
+                item(key = "prompt", span = { GridItemSpan(maxLineSpan) }, contentType = "note") {
+                    SearchNote(stringResource(R.string.library_search_prompt))
                 }
             }
+            return@LazyVerticalGrid
+        }
+        if (browse.nothingFound) {
+            item(key = "none", span = { GridItemSpan(maxLineSpan) }, contentType = "note") {
+                SearchNote(
+                    stringResource(R.string.library_no_results),
+                    Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    stringResource(R.string.library_search_no_results_hint),
+                )
+            }
+        }
+        if (browse.artistHits.isNotEmpty()) {
+            item(key = "heading:artists", span = { GridItemSpan(maxLineSpan) }, contentType = "heading") {
+                ResultsHeading(stringResource(R.string.library_tab_artists))
+            }
+            items(browse.artistHits, key = { "artist:${it.name}" }, contentType = { "group" }) { hit ->
+                val count = hit.tracks.size
+                val tracks = pluralStringResource(R.plurals.track_count, count, count)
+                GroupRow(hit.name, tracks, onClick = { openArtist = hit.name })
+            }
+        }
+        if (browse.albumHits.isNotEmpty()) {
+            item(key = "heading:albums", span = { GridItemSpan(maxLineSpan) }, contentType = "heading") {
+                ResultsHeading(stringResource(R.string.library_tab_albums))
+            }
+            items(browse.albumHits, key = { "album:${it.name}" }, contentType = { "group" }) { hit ->
+                val count = hit.tracks.size
+                val artists = hit.tracks.map { it.artist }.distinct()
+                val artist = artists.singleOrNull() ?: variousArtists
+                val tracks = pluralStringResource(R.plurals.track_count, count, count)
+                GroupRow(hit.name, "$artist \u00b7 $tracks", onClick = { openAlbum = hit.name })
+            }
+        }
+        if (browse.tracks.isNotEmpty()) {
+            item(key = "heading:tracks", span = { GridItemSpan(maxLineSpan) }, contentType = "heading") {
+                ResultsHeading(stringResource(R.string.search_heading_tracks, browse.tracks.size))
+            }
+            items(browse.tracks, key = { it.uri }, contentType = { "track" }) { t ->
+                TrackRow(t, viewModel, libraryViewModel, overrides[t.uri], t.uri in favourites, queue = queue)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResultsHeading(text: String) {
+    Text(
+        text,
+        Modifier
+            .padding(start = GeodeSpacing.L, end = GeodeSpacing.L, top = GeodeSpacing.M, bottom = GeodeSpacing.XS)
+            .semantics { heading() },
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+    )
+}
+
+/** A line or two in place of results: the tip before typing, or that nothing matched. */
+@Composable
+private fun SearchNote(
+    title: String,
+    modifier: Modifier = Modifier,
+    detail: String? = null,
+) {
+    Column(modifier.padding(GeodeSpacing.L), verticalArrangement = Arrangement.spacedBy(GeodeSpacing.XS)) {
+        Text(title)
+        if (detail != null) {
+            Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

@@ -1,6 +1,6 @@
 // Host-side checks for the config params schema (core/viz/ConfigTable.inc, expanded by core/viz/Config.hpp
 // and written out by core/viz/ConfigFields.cpp, #423): the LFO and envelope slots, the palette maker's
-// gradient, the look's envelope, the Studio clip edit and the preset morph. The rows are well formed,
+// gradient, the look's envelope and the preset morph. The rows are well formed,
 // viz/Lfo and viz/Adsr clamp exactly as their old literals did, the store
 // conversions in viz/ConfigMath.hpp equal the Kotlin formulas, and the text reads back to the rows.
 // Built and run by CI (.github/workflows/android.yml, "Native host tests") with the system compiler; no GL.
@@ -178,11 +178,6 @@ float kotlinRateFromHz(float hz) {
     return s < 0.05f ? 0.05f : (s > 60.0f ? 60.0f : s);  // coerceIn(MIN_RATE_SECONDS, MAX_RATE_SECONDS)
 }
 
-float kotlinMorphSeconds(int beats) {
-    const float s = static_cast<float>(beats) * 60.0f / 120.0f;  // beats * 60f / LEGACY_MORPH_BPM
-    return s < 0.0f ? 0.0f : (s > 8.0f ? 8.0f : s);              // coerceIn(0f, PRESET_MORPH_SECONDS_MAX)
-}
-
 float kotlinSampleHue(float baseHue, float hueSpan, int index, int stops) {
     const float t = stops <= 1 ? 0.0f : static_cast<float>(index) / static_cast<float>(stops - 1);
     const float h = baseHue + hueSpan * t;
@@ -196,12 +191,6 @@ void conversionsMatchKotlin() {
     check(config::lfoRateSecondsFromHz(0.5f) == 2.0f && config::lfoRateSecondsFromHz(4.0f) == 0.25f, "0.5 Hz is 2 s, 4 Hz is 0.25 s");
     check(config::lfoRateSecondsFromHz(100.0f) == 0.05f && config::lfoRateSecondsFromHz(0.001f) == 60.0f, "held to 0.05..60 s");
     check(config::lfoRateSecondsFromHz(std::nanf("")) == 2.0f, "a NaN rate reads as the default period");
-
-    for (int beats : {0, 1, 3, 4, 8, 16, 17, 32, -4}) {
-        check(config::morphSecondsFromLegacyBeats(beats) == kotlinMorphSeconds(beats), std::to_string(beats) + " beats migrate as ThemeStore does");
-    }
-    check(config::morphSecondsFromLegacyBeats(config::kLegacyMorphBeats) == 2.0f, "the old default 4 beats is the new default 2 s");
-    static_assert(config::morphSecondsFromLegacyBeats(32) == 8.0f, "the migration is constexpr and capped at 8 s");
 
     struct Hue {
         float base, span;
@@ -221,8 +210,10 @@ void conversionsMatchKotlin() {
 }
 
 void clampHelpers() {
-    check(config::clampTo(Slot::clip_speed, 10.0f) == 4.0f && config::clampTo(Slot::clip_speed, 0.0f) == 0.25f, "clampTo holds the range");
-    check(config::clampTo(Slot::clip_hueDegrees, 90.0f) == 90.0f, "clampTo keeps a value inside");
+    check(config::clampTo(Slot::look_decay, 10.0f) == 1.5f && config::clampTo(Slot::look_decay, 0.0f) == 0.01f, "clampTo holds the range");
+    check(config::clampTo(Slot::look_attack, 0.3f) == 0.3f, "clampTo keeps a value inside");
+    // The six Studio clip-edit rows went with the Studio project render (ADR 0007): no store held them.
+    check(rowsIn("clip") == 0, "no clip rows");
     check(std::isnan(config::clampTo(Slot::look_attack, std::nanf(""))), "clampTo lets a NaN through, as coerceIn does");
     check(config::sanitized(Slot::look_attack, std::nanf("")) == 0.6f, "sanitized reads a NaN as the default");
     check(config::sanitized(Slot::look_decay, 9.0f) == 1.5f, "sanitized clamps a finite value");

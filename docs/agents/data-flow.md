@@ -41,7 +41,8 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - DNA draws from the 117 `ReactSource`s, one per `GeodeSoundFrame` value.
 - DNA is fetched through `BuildStyleReactionsUseCase` (`geode_style_reactions`) and resolved on the GL thread by `StyleReactionsCache`.
 - `OffscreenSceneRenderer` resolves reactions the same way, so exports react like the screen.
-- `GyroLook` (in `VisualizerView`) feeds the camera's look while it is visible.
+- `GyroLook` (in `VisualizerView`) feeds the camera's look while it is visible: the game rotation vector and the display rotation.
+- `core/viz/GyroLook` reads them as the screen's own azimuth and pitch.
 - Each frame the GL thread has the native renderer take the ring's new PCM (`AudioBus.soundInput`, `NativeViz.feedRing`; no Kotlin array) into its own `core/sound` engine.
 - The engine analyses every 10 ms of samples inside `write`; `beginFrame` only reads.
 - So every value, and the feeling the director and Note & key read from `SoundEngine::emotion`, depends on the samples, not the frame rate.
@@ -62,18 +63,13 @@ One fact per line, grouped by stage. Add a fact as a new bullet in its stage.
 - `OffscreenSceneRenderer` pins its engine settings once at prepare (`geode_viz_pin_engine_settings`, #350): the macro bank, the Note & key switch, the hand mask and the director, no note entropy.
 - So live edits never reach a render in progress.
 - Its own sound engine hears the track frame by frame (`TrackAudio`, stepped at 1/fps), so export equals live.
-- A take's style switches and a clip's beat cut reach it as one `StyleSchedule` per segment (`geode_viz_set_style_schedule`).
-- `core/viz/StyleSchedule` times the schedule on the render clock and that engine's beat count.
+- Before frame 0 the engine hears a pre-roll (`core/output/PreRoll`): up to 8 s before the range, or the track's opening and then a track boundary, so the first frame is as warm as live playing on.
+- A track the engine cannot hear fails the render.
+- An export's style switches would reach it as a `StyleSchedule` (`geode_viz_set_style_schedule`, timed by `core/viz/StyleSchedule`), but nothing sets one since the Studio project render went.
 - Frames go through `EncoderSurface` (EGL on the export thread) into MediaCodec and MediaMuxer.
 - Exports write MediaStore rows with `IS_PENDING` set.
-- `StudioExporter` uses Media3 `Transformer`.
-- One render path (#232): every render is a project.
-- `ProjectComposition.plan` says how each clip renders: footage, offscreen scene, caption, mix, or skipped with a reason.
-- `ExportController.render` runs the plan under `ExportRun` + `ExportService`.
-- One visual over one song (the one-tap Render) goes straight through `VideoExporter`.
-- Anything else draws each scene segment to a `studio-` scratch MP4, and `ProjectComposition.compose` layers them for `Transformer`.
-- `ExportController.renderProject` is the Studio entry point.
-- The skipped-clip report is `StudioUiState.notice` and a toast.
+- The one-tap Render (`ExportController.startExport`) is one visual over the song or a part of it, straight through `VideoExporter` under `ExportRun` + `ExportService`.
+- The Studio project render, its plan, Transformer composition and clip effects went with video editing (ADR 0007, #999 F7).
 
 ## 5. Persistence
 

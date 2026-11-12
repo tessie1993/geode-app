@@ -49,6 +49,7 @@ import dev.geode.data.CanvasGesture
 import dev.geode.data.GestureAction
 import dev.geode.pro.FeatureGate
 import dev.geode.render.TouchField
+import dev.geode.ui.theme.StoneHaptics
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
@@ -70,7 +71,7 @@ internal class HoldRingState {
 
 /**
  * The things a gesture on the visual can do, one lambda per [GestureAction]. The detector only
- * says which [CanvasGesture] happened; [run] looks the action up in Settings › Behaviour's gesture
+ * says which [CanvasGesture] happened; [run] looks the action up in Settings › Gestures & controls'
  * map, so any gesture can be given any action and the detector never learns what they mean.
  * [stepStyle], [stepPreset] and [stepPlaylist] take +1 for next and -1 for previous; a gesture with
  * no direction of its own steps forward.
@@ -121,8 +122,10 @@ internal class VisualActions(
  * they move together, and a pinch / twist from the moment their spread or angle changes past its
  * threshold; whichever of the two is given [GestureAction.TOUCH_PLAY] hands the fingers to the
  * visualizer's touch field ([onTouchPoints], in y-up NDC) while it lasts, which is what touch play
- * is, so with the defaults a pinch does nothing at all. One finger never touches the visual
- * (ui-flow decisions).
+ * is. While [onPinch] is given (Settings › Gestures & controls › Touch › Pinch and twist the canvas), a pinch also
+ * hands it each event's scale factor and twist in degrees, which move the Zoom and Rotation sliders
+ * (clamped natively, `core/viz/TouchTransform`). One finger never touches the visual (ui-flow
+ * decisions).
  *
  * A swipe, a swirl, a two-finger drag or a pinch only counts when it starts outside
  * `WindowInsets.safeGestures`, and for two fingers only when both downs do: those strips stay
@@ -169,13 +172,17 @@ internal fun Modifier.visualGestures(
     holdArmed: Boolean,
     onGesture: (CanvasGesture, Int) -> Unit,
     onTouchPoints: (FloatArray, Int) -> Unit,
+    onPinch: ((zoomFactor: Float, degrees: Float) -> Unit)?,
     a11yActions: List<CustomAccessibilityAction>,
+    onTapDown: (Long) -> Unit = {},
 ): Modifier {
     val action by rememberUpdatedState(actionFor)
+    val tapDown by rememberUpdatedState(onTapDown)
     val split by rememberUpdatedState(tapSplitPx)
     val armed by rememberUpdatedState(holdArmed)
     val fire by rememberUpdatedState(onGesture)
     val touch by rememberUpdatedState(onTouchPoints)
+    val pinch by rememberUpdatedState(onPinch)
     val haptics = LocalHapticFeedback.current
     val edges = WindowInsets.safeGestures
     val direction = LocalLayoutDirection.current
@@ -224,6 +231,7 @@ internal fun Modifier.visualGestures(
                     // moment it reads as something else they let go of it.
                     val publishTo: (PointerEvent) -> Unit = { event ->
                         val kind = read.pairKind
+                        read.pinchStep()?.let { (factor, degrees) -> pinch?.invoke(factor, degrees) }
                         if (kind != null && action(kind) == GestureAction.TOUCH_PLAY) {
                             publish(event, points, size.width.toFloat(), size.height.toFloat(), touch)
                             read.published = true
@@ -238,11 +246,11 @@ internal fun Modifier.visualGestures(
                             downId = down.id,
                             ring = ring,
                             onHold = {
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                if (StoneHaptics.enabled) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 fire(CanvasGesture.LONG_PRESS, 0)
                             },
                             onSwirl = {
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                if (StoneHaptics.enabled) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 fire(CanvasGesture.SWIRL, 0)
                             },
                             publishTo = publishTo,
@@ -261,6 +269,7 @@ internal fun Modifier.visualGestures(
                         read.moved -> Unit
                         read.ringShown || read.now - read.startMs > read.showMs -> Unit
                         else -> {
+                            tapDown(down.uptimeMillis)
                             val tap = if (start.y < split()) CanvasGesture.TAP_TOP else CanvasGesture.TAP_BOTTOM
                             val second =
                                 if (action(CanvasGesture.DOUBLE_TAP) != GestureAction.OFF) {
@@ -268,6 +277,7 @@ internal fun Modifier.visualGestures(
                                 } else {
                                     SecondTap.NONE
                                 }
+                            if (second.double) tapDown(second.downMs)
                             fire(if (second.double) CanvasGesture.DOUBLE_TAP else tap, 0)
                             next = second.next
                         }
@@ -323,10 +333,10 @@ private suspend fun AwaitPointerEventScope.follow(
 private class SecondTap(
     val double: Boolean,
     val next: PointerInputChange?,
+    val downMs: Long = 0L,
 ) {
     companion object {
         val NONE = SecondTap(double = false, next = null)
-        val DOUBLE = SecondTap(double = true, next = null)
     }
 }
 
@@ -362,7 +372,7 @@ private suspend fun AwaitPointerEventScope.awaitSecondTap(
             return SecondTap(double = false, next = second)
         }
     } while (change != null && change.pressed)
-    return SecondTap.DOUBLE
+    return SecondTap(double = true, next = null, downMs = second.uptimeMillis)
 }
 
 /**
@@ -493,6 +503,8 @@ private class GestureRead(
     private var pan = Offset.Zero
     private var zoom = 1f
     private var twist = 0f
+    private var lastZoom = 1f
+    private var lastTwist = 0f
 
     /**
      * What two fingers are doing, once they have shown it: [CanvasGesture.TWO_FINGER_DRAG] when
@@ -555,6 +567,20 @@ private class GestureRead(
                 else -> pairKind
             }
         return false
+    }
+
+    /**
+     * A pinch's scale factor and twist in degrees since the last event, once the pair reads as a
+     * pinch ([pairKind]); null before, or when nothing changed. A pinch is taken from the event it is
+     * recognised on, never from the pair's start, so the canvas does not jump when it is.
+     */
+    fun pinchStep(): Pair<Float, Float>? {
+        val factor = zoom / lastZoom
+        val degrees = Math.toDegrees(wrap(twist - lastTwist).toDouble()).toFloat()
+        lastZoom = zoom
+        lastTwist = twist
+        if (pairKind != CanvasGesture.PINCH_TWIST || (factor == 1f && degrees == 0f)) return null
+        return factor to degrees
     }
 
     /** One finger moved to [pos]. True when this move completes the swirl. */
@@ -700,7 +726,7 @@ internal fun rememberTouchPulse(onTouchPoints: (FloatArray, Int) -> Unit): () ->
 
 /**
  * The mapped actions as TalkBack custom actions, one per action (a step gives next and previous),
- * in the gesture map's order. Recording leaves the list while a take runs: the red Record icon is
+ * in the gesture map's order. Recording leaves the list while one runs: the red Record icon is
  * its stop.
  */
 @Composable

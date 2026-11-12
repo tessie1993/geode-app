@@ -3,9 +3,9 @@
 
 namespace geode::output {
 
-// What an export asks the encoder for (ADR 0006, core/output): the frame size, the frame-rate retry and
-// the bit rate that keeps the file inside what MediaMuxer can write. Ported from the Kotlin MuxerBudget,
-// ExportAspect.of and fallbackExportFps; MediaCodec configuration stays Kotlin and calls this.
+// What an export asks the encoder for (ADR 0006, core/output): the frame size and the bit rate that keeps
+// the file inside what MediaMuxer can write (the frame-rate retry is output/EncoderLadder). Ported from the
+// Kotlin MuxerBudget and ExportAspect.of; MediaCodec configuration stays Kotlin and calls this.
 namespace encode {
 
 // MediaMuxer writes 32-bit chunk offsets: past 4 GiB a file is indexed wrong and does not play. Two numbers
@@ -43,10 +43,6 @@ struct FrameSize {
 // The encoded frame for a quality's short side and an aspect ratio: the long side follows the ratio, both
 // shrink together when the long side passes kMaxAvcDim, and each is rounded up to even.
 FrameSize frameSize(int shortSide, int wRatio, int hRatio);
-
-// The rate an export retries at when the encoder refuses the request: half of a 50 or 60, so the retry
-// stays in the request's cadence family (50 -> 25), the request itself at 30 and below.
-int fallbackFps(int requestedFps);
 
 // A requested rate clamped into what the export offers.
 int clampFps(int requestedFps);

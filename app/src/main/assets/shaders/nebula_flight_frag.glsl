@@ -37,7 +37,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales the cloud's slow churn and the twinkle (the flight is
+// Speed scales the cloud's slow churn and the twinkle (the flight is
 // the rig's). Complexity: uMorph adds a noise octave (nebVolOctaves, at most
 // four). Chaos: uWarp/uTurbulence swirl the cloud through nebWarp3; uTwist
 // via view(). Colour: every hue is pal(). Energy: uIntensity scales the key's

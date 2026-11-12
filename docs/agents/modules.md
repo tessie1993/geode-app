@@ -37,6 +37,7 @@ One fact per line. Add a fact as a new bullet under its module.
 - Offscreen rendering for export lives here.
 - Scene ids and params live here.
 - `render/scene/ParamSchema` is the shell's one read of the native params schema (each `SceneParams` field's slot, kind, default, range and fade, from `geode_params_schema_text`).
+- `ParamSchema` also reads the built-in palettes' names from the same text.
 - `render/bridge/SceneParamsCodec` packs the wire by `ParamSchema`.
 - `render/scene/Catalogue` is the shell's one read of the native style catalogue (ids, kinds, `StyleFamilies`, `ParamScope`, ranges).
 - The catalogue's display labels are in `VisualStyleCatalog`.

@@ -23,6 +23,7 @@ class ModTableTest {
     @Test
     fun readsTheColumns() {
         assertFalse(ModTable.offered(LfoTarget.RETIRED_25))
+        assertFalse(ModTable.offered(LfoTarget.RETIRED_5))
         assertEquals(ModPolarity.POSITIVE, ModTable.naturalPolarity(ModSource.BASS))
         assertEquals(ModPolarity.BIPOLAR, ModTable.naturalPolarity(ModSource.STEREO_PAN))
         assertEquals(ModTable.defaultRateSeconds, LfoConfig().rateSeconds, 0f)
@@ -35,6 +36,7 @@ class ModTableTest {
         assertFalse(ModTable.reaches(LfoTarget.MORPH, "silk_web"))
         assertTrue(ModTable.reaches(LfoTarget.LFO2_DEPTH, "milkdrop"))
         assertFalse(ModTable.reaches(LfoTarget.RETIRED_25, "julia"))
+        assertFalse(ModTable.reaches(LfoTarget.RETIRED_5, "julia"))
     }
 
     @Test

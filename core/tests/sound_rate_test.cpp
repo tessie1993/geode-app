@@ -1,7 +1,7 @@
 // Frame-rate test for the sound engine (core/sound): 20 s of synthetic music run at 30, 60 and 120 fps.
 // Built with the runner's own compiler in CI:
-//   g++ -std=c++20 -O1 -Wall -Wextra -Icore core/tests/sound_rate_test.cpp core/sound/*.cpp -o sound_rate_test
-//   ./sound_rate_test                          the synthetic song across frame rates
+//   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore core/tests/sound_rate_test.cpp core/sound/*.cpp core/output/FrameClock.cpp -o sound_rate_test
+//   ./sound_rate_test                          the synthetic song across frame rates, and export against live
 //   ./sound_rate_test --pcm <file.f32> <rate>  a real track (stereo float32) across frame rates, with a report
 //   ./sound_rate_test --write <file.tsv>       every frame's scalars at 60 fps, for tools/glslcheck --stills
 //
@@ -26,40 +26,18 @@
 #include <string>
 #include <vector>
 
+#include "output/FrameClock.hpp"
 #include "sound/SoundEngine.hpp"
+#include "tests/SoundFields.hpp"
 
 using geode::sound::SoundEngine;
 
 namespace {
 
-// Every scalar of GeodeSoundFrame, in declaration order. The arrays (eq, spectrum, waveform, chroma) are
-// left out: they are derived from the same spectra as the scalars and would only multiply the golden.
-#define GEODE_SOUND_SCALAR_FIELDS(X)                                                                         \
-    X(bass) X(mid) X(treble) X(vol) X(bassAtt) X(midAtt) X(trebleAtt) X(volAtt) X(sub) X(subAtt) X(midHigh) \
-    X(midHighAtt) X(low) X(middle) X(high) X(level) X(bassPresence) X(midPresence) X(treblePresence)        \
-    X(intensity) X(bassTime) X(midTime) X(trebleTime) X(curvedTime) X(hitTime) X(noteTime) X(presence)      \
-    X(rms) X(loudness) X(centroid) X(rolloff) X(flatness) X(densitySlow) X(densityFast) X(flux)             \
-    X(energyTrend) X(peakFreq) X(peakMag) X(stereoWidth) X(stereoPan) X(kickEnv) X(snareEnv) X(hatEnv)      \
-    X(onsetEnv) X(kickToggle) X(snareToggle) X(kickRandom) X(noteRandom) X(kick) X(snare) X(hat) X(kick2)   \
-    X(kick4) X(kick8) X(kick16) X(snare2) X(snare4) X(hardCut) X(onset) X(silence) X(returned) X(surge)     \
-    X(noteChange) X(legato) X(reattack) X(pitch) X(pitchClass) X(pitchHeight) X(pitchConfidence)            \
-    X(interval) X(glide) X(vibrato) X(evenness) X(runDensity) X(bpm) X(beatPhase) X(beatConf) X(beat)       \
-    X(beatCount) X(downbeat) X(barPhase) X(barCount) X(phrase) X(phraseIndex) X(phrasePhase) X(fluxLow)     \
-    X(fluxMid) X(fluxHigh) X(hfc) X(keyHue) X(keyRoot) X(keyMajor) X(keyClarity) X(chordHue) X(tension)     \
-    X(harmonicChange) X(scale) X(scaleRoot) X(scaleBrightness) X(scaleTension) X(scaleFit) X(novelty)       \
-    X(sectionChange) X(sectionId) X(sectionState) X(sectionBars) X(buildUp) X(drop) X(fadeGain)            \
-    X(loudnessM) X(loudnessS) X(busy) X(drive)
-
-struct Field {
-    const char* name;
-    float GeodeSoundFrame::* member;
-};
-#define GEODE_FIELD_ENTRY(n) Field{#n, &GeodeSoundFrame::n},
-constexpr Field kFields[] = {GEODE_SOUND_SCALAR_FIELDS(GEODE_FIELD_ENTRY)};
-#undef GEODE_FIELD_ENTRY
-constexpr int kFieldCount = static_cast<int>(sizeof(kFields) / sizeof(kFields[0]));
-static_assert(kFieldCount == GEODE_SOUND_SCALARS, "a GeodeSoundFrame scalar was added or removed: update the list");
-static_assert(offsetof(GeodeSoundFrame, eq) == GEODE_SOUND_SCALARS * sizeof(float), "scalars come first");
+using geode::sound::test::Field;
+using geode::sound::test::fieldIndex;
+using geode::sound::test::kFieldCount;
+using geode::sound::test::kFields;
 
 // One-frame triggers: > 0 on the frame after the hop that fired them, so a coarser frame holds the strongest
 // of the finer frames it spans.
@@ -97,12 +75,12 @@ constexpr double kTau = 2.0 * std::numbers::pi;
 
 // ---- The synthetic song ---------------------------------------------------------------------------------
 //
-// 120 BPM (a beat is 0.5 s, a bar 2 s), ten bars:
-//   0–8 s    verse in C major, C–Am–F–G, kick on 1 and 3, snare on 2 and 4, eighth hats, an eighth bass
-//   8–10 s   build: no kick or bass, a snare roll that speeds up, a rising noise sweep, chords held
-//   10–16 s  drop in E♭ major (the key change), Eb–Cm–Ab–Bb, four on the floor, sixteenth hats, louder
-//   16–17 s  silence
-//   17–20 s  back in E♭ at verse level
+// 141 BPM (a bar 1.70 s), in bars:
+//   0–5      verse in C major, C–Am–F–G, kick on 1 and 3, snare on 2 and 4, eighth hats, an eighth bass
+//   5–6      build: no kick or bass, a snare roll that speeds up, a rising noise sweep, chords held
+//   6–9.5    drop in E♭ major (the key change), Eb–Cm–Ab–Bb, four on the floor, sixteenth hats, louder
+//   9.5–10   silence
+//   10–20 s  back in E♭ at verse level
 // Every random number comes from one LCG with a fixed seed, so the song is identical on every run.
 
 struct Lcg {
@@ -121,31 +99,43 @@ struct Section {
     bool kick, bass, roll, sweep, sixteenths, fourOnFloor;
     double gain;
 };
+constexpr double kBeat = 60.0 / 141.0;
+constexpr double kBar = 4 * kBeat;
 constexpr Section kSections[] = {
-    {0.0, 8.0, 0, true, true, false, false, false, false, 0.7},
-    {8.0, 10.0, 0, false, false, true, true, false, false, 0.75},
-    {10.0, 16.0, 3, true, true, false, false, true, true, 1.25},
-    {16.0, 17.0, 3, false, false, false, false, false, false, 0.0},
-    {17.0, 20.0, 3, true, true, false, false, false, false, 0.7},
+    {0.0, 5 * kBar, 0, true, true, false, false, false, false, 0.7},
+    {5 * kBar, 6 * kBar, 0, false, false, true, true, false, false, 0.75},
+    {6 * kBar, 9.5 * kBar, 3, true, true, false, false, true, true, 1.25},
+    {9.5 * kBar, 10 * kBar, 3, false, false, false, false, false, false, 0.0},
+    {10 * kBar, kSeconds, 3, true, true, false, false, false, false, 0.7},
 };
 
 // I–vi–IV–V as (root, minor) above the key, one chord per bar.
 constexpr int kChordRoot[4] = {0, 9, 5, 7};
 constexpr bool kChordMinor[4] = {false, true, false, false};
 
-std::vector<float> buildSong() {
-    const int64_t total = static_cast<int64_t>(kSeconds * kRate);
+// `bandLimited`: the noise (snare rattle, hats, the sweep) becomes clusters of sines below 16 kHz, a function
+// of time rather than of the sample index, so the song is the same signal at every rate.
+std::vector<float> buildSong(int rate = kRate, bool bandLimited = false) {
+    const int64_t total = static_cast<int64_t>(kSeconds * rate);
     std::vector<float> out(static_cast<size_t>(2 * total));
     Lcg noise;
     double hatPrev = 0.0;
-    const double beat = 0.5;
+    const double beat = kBeat;
     for (int64_t s = 0; s < total; s++) {
-        const double t = static_cast<double>(s) / kRate;
+        const double t = static_cast<double>(s) / rate;
         const Section* sec = &kSections[0];
         for (const Section& c : kSections) if (t >= c.from && t < c.to) sec = &c;
-        const double n = noise.next();  // drawn every sample, so later sections never shift earlier noise
-        const double hatNoise = n - hatPrev;  // a first difference: noise tilted toward the top
+        double n = noise.next();  // drawn every sample, so later sections never shift earlier noise
+        double hatNoise = n - hatPrev;  // a first difference: noise tilted toward the top
         hatPrev = n;
+        if (bandLimited) {
+            n = 0.0;
+            hatNoise = 0.0;
+            for (int k = 0; k < 6; k++) {
+                n += 0.4 * std::sin(kTau * (1100.0 + 1370.0 * k) * t + k);
+                hatNoise += 0.5 * std::sin(kTau * (8300.0 + 1270.0 * k) * t + 2 * k);
+            }
+        }
         if (sec->gain == 0.0) continue;
 
         const int bar = static_cast<int>(t / (4 * beat));
@@ -169,8 +159,8 @@ std::vector<float> buildSong() {
             double step = 0.0;
             double offset = 0.0;
             if (sec->roll) {
-                const double into = t - sec->from;
-                step = into < 1.0 ? beat / 2 : (into < 1.5 ? beat / 4 : beat / 8);
+                const double into = (t - sec->from) / (sec->to - sec->from);
+                step = into < 0.5 ? beat / 2 : (into < 0.75 ? beat / 4 : beat / 8);
             } else if (sec->kick) {
                 step = 2 * beat;
                 offset = beat;
@@ -179,7 +169,7 @@ std::vector<float> buildSong() {
                 const double since = std::fmod(t - sec->from - offset, step);
                 const double body = 0.25 * std::sin(kTau * 190.0 * since) * std::exp(-since / 0.05);
                 const double rattle = 0.3 * n * std::exp(-since / 0.08);
-                const double roll = sec->roll ? 0.5 + 0.25 * (t - sec->from) : 1.0;
+                const double roll = sec->roll ? 0.5 + 0.5 * (t - sec->from) / (sec->to - sec->from) : 1.0;
                 left += roll * (body + rattle);
                 right += roll * (body + rattle);
             }
@@ -351,18 +341,206 @@ int compareRates(const Run& base, const Run& other, double fps) {
     return bad;
 }
 
+// ---- Hi-res sources ---------------------------------------------------------------------------------------
+//
+// 88.2 kHz and up is analysed at half the rate (or a quarter), behind a half-band decimator
+// (core/sound/Decimate.hpp, SoundEngine::analysisRateFor). The filter must be flat through the audible band
+// and shut above it, and the same band-limited song written at 96 kHz must read as it does at 48 kHz: the
+// same tempo, beats, drums, key and scale, and levels within a hair (the decimator's 0.24 ms delay moves
+// the hops a little against the music; nothing else differs).
+
+double halfBandGainDb(double cycles) {  // a sine at `cycles` of the input rate, through one HalfBand
+    geode::sound::HalfBand h;
+    double in = 0.0;
+    double out = 0.0;
+    float y = 0.0f;
+    for (int i = 0; i < 8000; i++) {
+        const float x = static_cast<float>(std::sin(kTau * cycles * i));
+        if (h.push(x, y) && i >= 4000) out += static_cast<double>(y) * y;
+        if (i >= 4000) in += 0.5 * static_cast<double>(x) * x;
+    }
+    return 10.0 * std::log10(std::max(out, 1e-30) / in);
+}
+
+int compareHiRes(const Run& at48, const Run& at96) {
+    int bad = 0;
+    auto check = [&](bool ok, const char* what, double value) {
+        if (!ok) {
+            std::printf("  FAIL %s (%.4g)\n", what, value);
+            bad++;
+        }
+    };
+    std::printf("\nHalf-band decimator and a 96 kHz song against the same song at 48 kHz\n");
+    for (double c : {0.01, 0.1, 0.2}) check(std::fabs(halfBandGainDb(c)) < 0.1, "half-band flat to 0.2 of the rate", halfBandGainDb(c));
+    for (double c : {0.32, 0.4, 0.49}) check(halfBandGainDb(c) < -70.0, "half-band shut from 0.32 of the rate", halfBandGainDb(c));
+    check(SoundEngine::analysisRateFor(44100) == 44100 && SoundEngine::analysisRateFor(48000) == 48000 &&
+              SoundEngine::analysisRateFor(88200) == 44100 && SoundEngine::analysisRateFor(96000) == 48000 &&
+              SoundEngine::analysisRateFor(176400) == 44100 && SoundEngine::analysisRateFor(192000) == 48000,
+          "88.2 kHz and up analysed at 44.1/48 kHz", 0.0);
+    check(SoundEngine(96000).sampleRateHz() == 96000, "the engine still names its input rate", 0.0);
+
+    const size_t n = std::min(at48.values.size(), at96.values.size());
+    struct Limit {
+        const char* name;
+        double meanAbs;  // the mean |96k - 48k| over every frame
+    };
+    // About ten times what was measured when the decimator landed, so a real regression fails and a libm does not.
+    for (const Limit& l : {Limit{"bpm", 0.1}, Limit{"beatPhase", 0.01}, Limit{"keyRoot", 0.01}, Limit{"keyMajor", 0.01},
+                           Limit{"scale", 0.05}, Limit{"level", 0.01}, Limit{"loudnessS", 0.01}, Limit{"bass", 0.05},
+                           Limit{"mid", 0.05}, Limit{"treble", 0.1}, Limit{"centroid", 0.01}, Limit{"flatness", 0.02},
+                           Limit{"pitch", 0.05}, Limit{"drive", 0.03}}) {
+        const int k = fieldIndex(l.name);
+        double d = 0.0;
+        for (size_t i = 0; i < n; i++) d += std::fabs(at96.values[i][k] - at48.values[i][k]);
+        d /= std::max<size_t>(1, n);
+        std::printf("  %-10s mean |96k - 48k| %.4f\n", l.name, d);
+        check(d <= l.meanAbs, l.name, d);
+    }
+    for (const char* name : {"kick", "snare", "hat", "onset", "beat", "downbeat", "noteChange", "sectionChange", "drop"}) {
+        const int k = fieldIndex(name);
+        int a = 0;
+        int b = 0;
+        for (size_t i = 0; i < n; i++) {
+            a += at48.values[i][k] > 0.0f;
+            b += at96.values[i][k] > 0.0f;
+        }
+        std::printf("  %-10s %d at 48 kHz, %d at 96 kHz\n", name, a, b);
+        check(std::abs(a - b) <= 1, name, b - a);
+    }
+    if (bad == 0) std::printf("  96 kHz reads as 48 kHz\n");
+    return bad;
+}
+
+// ---- Export equals live -----------------------------------------------------------------------------------
+//
+// The same samples must give the same sound frame whoever cut them. The export writes, per frame, exactly
+// the audio up to the frame's end on its whole-ms clock (OffscreenSceneRenderer: TrackAudio.deliverUntilMs(
+// FrameClock::frameTimeMs(n + 1))) and steps 1/fps. Live writes the tap's blocks as they arrive, in sizes
+// that never line up with a frame (several in one frame, none in another), and steps by a measured, jittered
+// frame time. At checkpoints where both have been written the same samples (every 15th export frame), every
+// state field and feeling value must be equal bit for bit, and every trigger equal to the strongest since
+// the previous checkpoint on each side.
+
+struct Checkpoints {
+    std::vector<std::vector<float>> values;
+    std::vector<std::vector<float>> feel;
+};
+
+// Folds one step into the open window: state fields as they stand now, triggers as the strongest so far.
+void fold(std::vector<float>& window, const std::vector<float>& row, bool fresh, bool (*trigger)(int)) {
+    for (size_t k = 0; k < row.size(); k++) {
+        window[k] = fresh || !trigger(static_cast<int>(k)) ? row[k] : std::max(window[k], row[k]);
+    }
+}
+bool frameTrigger(int k) { return isTrigger(kFields[k].name); }
+bool feelTrigger(int k) { return isTrigger(feelName(k)); }
+
+struct Window {
+    std::vector<float> values = std::vector<float>(kFieldCount);
+    std::vector<float> feel = std::vector<float>(kFeelCount);
+    bool fresh = true;
+    void take(const GeodeSoundFrame& f, const geode::sound::Emotion::State& e) {
+        std::vector<float> row(kFieldCount);
+        for (int k = 0; k < kFieldCount; k++) row[k] = f.*kFields[k].member;
+        fold(values, row, fresh, frameTrigger);
+        fold(feel, feelRow(e), fresh, feelTrigger);
+        fresh = false;
+    }
+    void close(Checkpoints& out) {
+        out.values.push_back(values);
+        out.feel.push_back(feel);
+        fresh = true;
+    }
+};
+
+constexpr int kExportFps = 60;
+constexpr int kCheckpointEvery = 15;
+
+// The export's cut of each frame, and the checkpoints: the cut at every kCheckpointEvery-th frame.
+std::vector<int64_t> exportCuts(int64_t total) {
+    const geode::output::FrameClock clock(kExportFps, kRate);
+    std::vector<int64_t> cuts;
+    for (int64_t n = 0;; n++) {
+        const int64_t end = clock.frameTimeMs(n + 1) * kRate / 1000;
+        if (end > total) break;
+        cuts.push_back(end);
+    }
+    return cuts;
+}
+
+Checkpoints runExport(const std::vector<float>& song, const std::vector<int64_t>& cuts) {
+    SoundEngine engine(kRate);
+    Checkpoints out;
+    Window w;
+    GeodeSoundFrame f{};
+    int64_t done = 0;
+    for (size_t n = 0; n < cuts.size(); n++) {
+        engine.write(song.data() + 2 * done, static_cast<int>(cuts[n] - done), 2);
+        done = cuts[n];
+        engine.step(1.0f / kExportFps, f);
+        w.take(f, engine.emotion());
+        if ((n + 1) % kCheckpointEvery == 0) w.close(out);
+    }
+    return out;
+}
+
+Checkpoints runLive(const std::vector<float>& song, const std::vector<int64_t>& cuts, uint32_t seed) {
+    SoundEngine engine(kRate);
+    Lcg rng;
+    rng.state = seed;
+    const auto uniform = [&rng](double lo, double hi) { return lo + (hi - lo) * 0.5 * (rng.next() + 1.0); };
+    Checkpoints out;
+    Window w;
+    GeodeSoundFrame f{};
+    int64_t done = 0;
+    int empty = 0;
+    for (size_t c = kCheckpointEvery - 1; c < cuts.size(); c += kCheckpointEvery) {
+        const int64_t checkpoint = cuts[c];
+        while (done < checkpoint) {
+            // A live frame: none of the tap's blocks (at most twice running, well under the starve time) or
+            // up to ~40 ms of them, cut short at the checkpoint.
+            int64_t end = done;
+            if (empty >= 2 || rng.next() > -0.6) end = std::min(checkpoint, done + static_cast<int64_t>(uniform(1.0, 1920.0)));
+            empty = end == done ? empty + 1 : 0;
+            while (done < end) {
+                const int block = static_cast<int>(std::min<int64_t>(end - done, static_cast<int64_t>(uniform(32.0, 1024.0))));
+                engine.write(song.data() + 2 * done, block, 2);
+                done += block;
+            }
+            engine.step(static_cast<float>(uniform(0.004, 0.05)), f);
+            w.take(f, engine.emotion());
+        }
+        w.close(out);
+    }
+    return out;
+}
+
+int compareExportLive(const Checkpoints& ex, const Checkpoints& live, uint32_t seed) {
+    int bad = 0;
+    if (ex.values.size() != live.values.size() || ex.values.empty()) {
+        std::printf("  FAIL export has %zu checkpoints, live %zu\n", ex.values.size(), live.values.size());
+        return 1;
+    }
+    auto report = [&](const std::vector<std::vector<float>>& a, const std::vector<std::vector<float>>& b, int k,
+                      const std::string& name) {
+        double max = 0.0;
+        for (size_t i = 0; i < a.size(); i++) max = std::max(max, std::fabs(static_cast<double>(a[i][k]) - b[i][k]));
+        if (max == 0.0) return;
+        bad++;
+        std::printf("  FAIL %-16s max|d| %10.4g\n", name.c_str(), max);
+    };
+    std::printf("\nexport vs live (seed %08x) over %zu checkpoints (every field must agree)\n", seed, ex.values.size());
+    for (int k = 0; k < kFieldCount; k++) report(ex.values, live.values, k, kFields[k].name);
+    for (int k = 0; k < kFeelCount; k++) report(ex.feel, live.feel, k, feelName(k));
+    if (bad == 0) std::printf("  all %d fields and feeling values equal\n", kFieldCount + kFeelCount);
+    return bad;
+}
+
 // ---- Real music (--pcm) -----------------------------------------------------------------------------------
 //
 // A decoded track (raw interleaved stereo float32, e.g. `ffmpeg -i t.mp3 -f f32le -ac 2 -ar 44100 t.f32`)
 // through the same frame-rate check as the synthetic song, plus what the engine heard, for an ear to judge:
 // there are no labels to assert against.
-
-int fieldIndex(const char* name) {
-    for (int k = 0; k < kFieldCount; k++) {
-        if (std::strcmp(kFields[k].name, name) == 0) return k;
-    }
-    return -1;
-}
 
 std::string keyName(float root, float major) {
     static const char* kNames[12] = {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"};
@@ -424,6 +602,10 @@ int main(int argc, char** argv) {
     }
     int failures = compareRates(at60, run(song, 30.0), 30.0);
     failures += compareRates(at60, run(song, 120.0), 120.0);
+    failures += compareHiRes(run(buildSong(kRate, true), 60.0), run(buildSong(96000, true), 60.0, 96000));
+    const std::vector<int64_t> cuts = exportCuts(static_cast<int64_t>(song.size() / 2));
+    const Checkpoints exported = runExport(song, cuts);
+    for (uint32_t seed : {0x1u, 0xC0FFEEu}) failures += compareExportLive(exported, runLive(song, cuts, seed), seed);
     if (failures == 0) std::printf("\nsound_rate_test: all checks passed\n");
     return failures == 0 ? 0 : 1;
 }

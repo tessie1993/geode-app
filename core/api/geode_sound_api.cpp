@@ -50,6 +50,14 @@ int geode_silence_resting(long long now_ms, long long heard_at_ms) {
     return geode::sound::silence::resting(now_ms, heard_at_ms) ? 1 : 0;
 }
 
+long long geode_capture_heard_at(float peak, long long now_ms, long long heard_at_ms) {
+    return geode::sound::silence::captureHeardAt(peak, now_ms, heard_at_ms);
+}
+
+int geode_capture_quiet(long long now_ms, long long heard_at_ms) {
+    return geode::sound::silence::captureQuiet(now_ms, heard_at_ms) ? 1 : 0;
+}
+
 long long geode_sound_track_boundary(long long seed) {
     return static_cast<long long>(geode::sound::player::trackBoundary(static_cast<uint64_t>(seed)));
 }

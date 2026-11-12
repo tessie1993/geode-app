@@ -17,10 +17,12 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "viz/Catalogue.hpp"
 #include "viz/Lfo.hpp"
+#include "viz/ParamRandomizer.hpp"
 #include "viz/Params.hpp"
 #include "viz/scenes/CymaticsMath.hpp"
 
@@ -39,7 +41,7 @@ void check(bool ok, const std::string& what) {
 
 // The geode_viz_set_params frame size. Kotlin's SceneParamsCodec.FIELDS says the same number; a row
 // added to the table changes both, never one.
-constexpr int kWireFloats = 164;
+constexpr int kWireFloats = 178;
 
 bool integral(float v) { return std::floor(v) == v; }
 
@@ -61,7 +63,9 @@ void theTableIsTheWire() {
     check(SceneParams::spec(ParamSlot::speed).name == std::string("speed"), "ParamSlot::speed is slot 0");
     check(static_cast<int>(ParamSlot::speed) == 0, "speed is the wire's first float");
     check(SceneParams::spec(ParamSlot::flowCurl).name == std::string("flowCurl"), "ParamSlot::flowCurl names flowCurl");
-    check(static_cast<int>(ParamSlot::camFlat) == kWireFloats - 1, "camFlat is the wire's last float");
+    check(static_cast<int>(ParamSlot::camFlat) == 163, "camFlat keeps its slot");
+    check(static_cast<int>(ParamSlot::paletteStop4) == 168, "paletteStop4 keeps its slot");
+    check(static_cast<int>(ParamSlot::diveFollow) == kWireFloats - 1, "diveFollow is the wire's last float");
 }
 
 void everyRowIsWellFormed() {
@@ -90,6 +94,7 @@ void getAndSetRoundTripByNameAndSlot() {
     for (int slot = 0; slot < SceneParams::kFieldCount; ++slot) {
         const ParamSpec& s = SceneParams::schema()[static_cast<size_t>(slot)];
         const std::string name = s.name;
+        if (SceneParams::retired(static_cast<ParamSlot>(slot))) continue;  // anOldLookWithRetiredNamesStillLoads
         for (float v : probes(s)) {
             SceneParams p;
             check(p.set(name, v), name + ": set by name knows it");
@@ -120,10 +125,47 @@ void getAndSetRoundTripByNameAndSlot() {
     check(p.trails, "0.6 is on");
 }
 
+// A look saved before the rows were retired names them still (and a later build's look may name rows this
+// one has never heard of). Loading it by name, the way the bundled looks and Kotlin's preset reader do,
+// keeps every live value, drops the rest and moves no slot.
+void anOldLookWithRetiredNamesStillLoads() {
+    const std::pair<const char*, float> kOldLook[] = {
+        {"speed", 1.4f},     {"pulse", 0.6f},       {"shake", 0.4f},  {"flash", 0.6f},        {"strobe", 0.5f},
+        {"glitch", 0.75f},   {"formDrive", 0.2f},   {"bloom", 0.5f},  {"motionOrbit", 0.9f},  {"beatFlash", 0.5f},
+        {"motionDrift", 0.8f},
+    };
+    const SceneParams fresh;
+    SceneParams p;
+    for (const auto& [name, value] : kOldLook) {
+        const int slot = SceneParams::slotOf(name);
+        const bool dead = slot < 0 || SceneParams::retired(static_cast<ParamSlot>(slot));
+        check(p.set(name, value) == !dead, std::string(name) + (dead ? " is dropped" : " is read"));
+    }
+    check(p.speed == 1.4f && p.bloom == 0.5f && p.motionDrift == 0.8f, "the live values land");
+    check(static_cast<int>(ParamSlot::pulse) == 6 && static_cast<int>(ParamSlot::strobe) > static_cast<int>(ParamSlot::flash),
+          "a retired row keeps its slot");
+    for (const ParamSlot slot : kRetiredParams) {
+        const int i = static_cast<int>(slot);
+        check(p.getSlot(i) == fresh.getSlot(i), std::string(SceneParams::spec(slot).name) + " stays at its default");
+        check(SceneParams::slotOf(SceneParams::spec(slot).name) == i, "and is still a known name");
+    }
+    // The same over the wire: an old shell's frame carrying values in the retired slots.
+    std::vector<float> wire(kWireFloats);
+    p.toWire(wire.data());
+    for (const ParamSlot slot : kRetiredParams) wire[static_cast<size_t>(slot)] = 0.9f;
+    const SceneParams q = SceneParams::fromWire(wire.data());
+    std::vector<float> a(kWireFloats);
+    std::vector<float> b(kWireFloats);
+    p.toWire(a.data());
+    q.toWire(b.data());
+    check(a == b, "a retired slot's wire value is ignored");
+    check(!SceneParams::retired(ParamSlot::beatResponse), "beatResponse is not retired");
+}
+
 void theWireRoundTrips() {
     SceneParams p;
     for (int slot = 0; slot < SceneParams::kFieldCount; ++slot) {
-        p.setSlot(slot, probes(SceneParams::schema()[static_cast<size_t>(slot)]).back());
+        p.setSlot(slot, probes(SceneParams::schema()[static_cast<size_t>(slot)]).back());  // a retired slot keeps its default
     }
     std::vector<float> wire(kWireFloats);
     p.toWire(wire.data());
@@ -171,6 +213,7 @@ void fadeGlidesAndHoldSnaps() {
     const SceneParams half = lerpParams(from, to, 0.5f);
     for (int slot = 0; slot < SceneParams::kFieldCount; ++slot) {
         const ParamSpec& s = SceneParams::schema()[static_cast<size_t>(slot)];
+        if (SceneParams::retired(static_cast<ParamSlot>(slot))) continue;
         const float want = s.fade == ParamFade::Fade ? s.min + (s.max - s.min) * 0.5f : s.max;
         check(std::fabs(half.getSlot(slot) - want) <= 1e-6f * std::fmax(1.0f, std::fabs(want)),
               std::string(s.name) + (s.fade == ParamFade::Fade ? " glides halfway" : " snaps to the new value"));
@@ -192,7 +235,7 @@ struct OldClamp {
 constexpr OldClamp kOldClamps[] = {
     {LfoTarget::Speed, "speed", 0.05f, 4.0f},           {LfoTarget::Zoom, "zoom", 0.3f, 3.0f},
     {LfoTarget::Rotation, "rotation", -3.0f, 3.0f},     {LfoTarget::Sway, "sway", 0.0f, 1.0f},
-    {LfoTarget::Pulse, "pulse", 0.0f, 1.0f},            {LfoTarget::DriftX, "driftX", -1.0f, 1.0f},
+    {LfoTarget::DriftX, "driftX", -1.0f, 1.0f},
     {LfoTarget::DriftY, "driftY", -1.0f, 1.0f},         {LfoTarget::Warp, "warp", 0.0f, 1.0f},
     {LfoTarget::Ripple, "ripple", 0.0f, 1.0f},          {LfoTarget::Morph, "morph", 0.0f, 1.0f},
     {LfoTarget::Twist, "twist", -1.0f, 1.0f},           {LfoTarget::Tile, "tile", 1.0f, 6.0f},
@@ -214,6 +257,8 @@ constexpr OldClamp kOldClamps[] = {
     {LfoTarget::CamFov, "camFov", 0.5f, 2.0f},          {LfoTarget::CamShake, "camShake", 0.0f, 1.0f},
     {LfoTarget::FlowCurl, "flowCurl", 0.0f, 50.0f},     {LfoTarget::FlowForce, "flowForce", 0.0f, 3.0f},
     {LfoTarget::EndlessZoomSpeed, "endlessZoomSpeed", -1.2f, 1.2f},
+    {LfoTarget::DiveTwist, "diveTwist", -1.0f, 1.0f},   {LfoTarget::DiveAimX, "diveAimX", -0.6f, 0.6f},
+    {LfoTarget::DiveAimY, "diveAimY", -0.6f, 0.6f},
 };
 
 void theLfoClampsAreTheTablesRanges() {
@@ -241,7 +286,7 @@ void theLfoClampsAreTheTablesRanges() {
     std::vector<float> before(kWireFloats);
     std::vector<float> after(kWireFloats);
     base.toWire(before.data());
-    for (LfoTarget t : {LfoTarget::None, LfoTarget::Retired25, LfoTarget::Lfo1Rate, LfoTarget::Lfo3Depth}) {
+    for (LfoTarget t : {LfoTarget::None, LfoTarget::Retired5, LfoTarget::Retired25, LfoTarget::Lfo1Rate, LfoTarget::Lfo3Depth}) {
         applyLfoTarget(base, t, 1.0f).toWire(after.data());
         check(after == before, "a target with no scene field changes nothing");
     }
@@ -274,15 +319,24 @@ void theTextIsTheTable() {
     check(line == "params|" + std::to_string(SceneParams::kSchemaTextVersion) + "|" + std::to_string(kWireFloats),
           "the text starts with its version and row count: " + line);
     int slot = 0;
+    size_t palette = 0;
     while (std::getline(lines, line)) {
         const auto f = split(line);
+        if (!f.empty() && f[0] == "palette") {
+            const auto& names = SceneParams::palettes();
+            check(slot == kWireFloats, "the palette names follow every param row: " + line);
+            check(f.size() == 3 && f[1] == std::to_string(palette) && palette < names.size() && f[2] == names[palette].name,
+                  "a palette row names the built-in at its index: " + line);
+            ++palette;
+            continue;
+        }
         if (slot >= SceneParams::kFieldCount) {
             check(false, "a row past the wire: " + line);
             break;
         }
         const ParamSpec& s = SceneParams::schema()[static_cast<size_t>(slot)];
-        if (f.size() != 8) {
-            check(false, "eight fields: " + line);
+        if (f.size() != 9) {
+            check(false, "nine fields: " + line);
             ++slot;
             continue;
         }
@@ -295,12 +349,14 @@ void theTextIsTheTable() {
         check(std::strtof(f[5].c_str(), nullptr) == s.min, "min reads back exactly: " + line);
         check(std::strtof(f[6].c_str(), nullptr) == s.max, "max reads back exactly: " + line);
         check(f[7] == (s.fade == ParamFade::Fade ? "FADE" : "HOLD"), "the row says FADE or HOLD: " + line);
+        check(f[8] == (SceneParams::retired(static_cast<ParamSlot>(slot)) ? "RETIRED" : "LIVE"), "the row says LIVE or RETIRED: " + line);
         ++slot;
     }
     check(slot == kWireFloats, "one row per slot");
+    check(palette == SceneParams::palettes().size(), "one name per built-in palette");
     // The largest seed is a whole number on the wire, not "1.67772e+07".
-    check(SceneParams::schemaText().find("|reactSeed|INT|0|0|16777215|HOLD\n") != std::string::npos, "reactSeed's max is exact");
-    check(SceneParams::schemaText().find("|waterDamping|FLOAT|0.985|0.9|0.999|FADE\n") != std::string::npos, "short numbers stay short");
+    check(SceneParams::schemaText().find("|reactSeed|INT|0|0|16777215|HOLD|LIVE\n") != std::string::npos, "reactSeed's max is exact");
+    check(SceneParams::schemaText().find("|waterDamping|FLOAT|0.985|0.9|0.999|FADE|LIVE\n") != std::string::npos, "short numbers stay short");
 }
 
 std::string readFile(const char* path) {
@@ -337,6 +393,92 @@ void textEqualsTheFixture(const char* path) {
 
 }  // namespace
 
+// The palette a slot draws, pinned to the Kotlin SceneParams.PALETTES table and its paletteBase/paletteRange
+// getters it replaces (the shell now asks geode_params_palette_base/_range): the override when >= 0, else
+// the built-in palette, the index clamped into the 21 rows; and the table as long as the schema's range.
+void palettesAreTheShellsOldTable() {
+    struct Row {
+        float base, range;
+    };
+    const Row kotlin[] = {{0.0f, 1.0f},   {0.5f, 0.45f},  {0.0f, 0.14f}, {0.5f, 0.2f},   {0.6f, 0.02f},  {0.85f, 0.5f},
+                          {0.33f, 0.18f}, {0.45f, 0.7f},  {0.05f, 0.3f}, {0.55f, 0.15f}, {0.78f, 0.35f}, {0.25f, 0.25f},
+                          {0.7f, 0.25f},  {0.93f, 0.12f}, {0.07f, 0.1f}, {0.4f, 0.12f},  {0.65f, 0.5f},  {0.97f, 0.08f},
+                          {0.5f, 0.08f},  {0.833f, 0.08f}, {0.167f, 0.08f}};
+    constexpr int kRows = static_cast<int>(sizeof(kotlin) / sizeof(kotlin[0]));
+    check(static_cast<int>(SceneParams::palettes().size()) == kRows, "21 built-in palettes, as Kotlin listed");
+    const ParamSpec& palette = SceneParams::spec(ParamSlot::palette);
+    check(static_cast<int>(palette.max) == kRows - 1 && static_cast<int>(palette.min) == 0,
+          "the palette field's range is the table's rows");
+    auto at = [&](int palette, float baseOverride, float rangeOverride, bool second) {
+        SceneParams p;
+        if (second) {
+            p.palette2 = palette;
+            p.palette2BaseOverride = baseOverride;
+            p.palette2RangeOverride = rangeOverride;
+            return Row{p.palette2Base(), p.palette2Range()};
+        }
+        p.palette = palette;
+        p.paletteBaseOverride = baseOverride;
+        p.paletteRangeOverride = rangeOverride;
+        return Row{p.paletteBase(), p.paletteRange()};
+    };
+    for (int second = 0; second < 2; ++second) {
+        for (int i = -3; i < kRows + 3; ++i) {
+            const Row want = kotlin[i < 0 ? 0 : (i >= kRows ? kRows - 1 : i)];
+            const Row got = at(i, SceneParams::kUnsetOverride, SceneParams::kUnsetOverride, second != 0);
+            check(got.base == want.base && got.range == want.range,
+                  "palette " + std::to_string(i) + " reads the Kotlin row, clamped into the table");
+        }
+        const Row custom = at(4, 0.31f, 0.0f, second != 0);
+        check(custom.base == 0.31f && custom.range == 0.0f, "an override >= 0 wins, 0 included");
+        const Row half = at(4, 0.31f, -1.0f, second != 0);
+        check(half.base == 0.31f && half.range == 0.02f, "each override stands alone");
+    }
+}
+
+// The meta rows (#1005 PR 4a): every live row has one, a retired row none (ParamsFields.cpp also asserts
+// it at compile time), the rows one control labels agree on its scope and are few enough for a roll's
+// fields (randomizer::kMaxRollFields), and a roll range sits inside the field's own range.
+void everyLiveRowHasOneMeta() {
+    std::vector<std::string> labels;
+    for (int slot = 0; slot < SceneParams::kFieldCount; ++slot) {
+        const auto s = static_cast<ParamSlot>(slot);
+        const ParamMeta& m = SceneParams::meta(s);
+        const ParamSpec& spec = SceneParams::spec(s);
+        const std::string field = spec.name;
+        check(m.live == !SceneParams::retired(s), field + ": a live row has a meta row, a retired one none");
+        check(m.label != nullptr, field + ": a label, \"\" for none");
+        if (!m.live) {
+            check(m.label[0] == '\0' && m.flags == 0u && m.rollLo == 0.0f && m.rollHi == 0.0f, field + ": a retired row's meta is empty");
+            continue;
+        }
+        if (m.rollLo != 0.0f || m.rollHi != 0.0f) {
+            check(m.rollLo < m.rollHi, field + ": a roll range runs low to high");
+            check(m.rollLo >= spec.min && m.rollHi <= spec.max, field + ": the roll range is inside the field's range");
+        }
+        if (m.label[0] == '\0') continue;
+        int shared = 0;
+        for (int other = 0; other < SceneParams::kFieldCount; ++other) {
+            const ParamMeta& o = SceneParams::meta(static_cast<ParamSlot>(other));
+            if (!o.live || std::strcmp(o.label, m.label) != 0) continue;
+            ++shared;
+            check(o.scope == m.scope, field + ": the fields of " + m.label + " share its scope");
+        }
+        // A panel piece ("@notes_key") is drawn as a block and rolls nothing; a slider or a picker is rolled
+        // as one RolledKey, which carries three fields at most.
+        check(m.label[0] == '@' || shared <= static_cast<int>(randomizer::kMaxRollFields),
+              std::string(m.label) + ": no more fields per control than a roll's RolledKey holds");
+    }
+    check(std::string(SceneParams::meta(ParamSlot::speed).label) == "Speed", "speed's control is Speed");
+    check(SceneParams::meta(ParamSlot::speed).scope == catalogue::Scope::SceneClock, "Speed paces the scene clock");
+    check(std::string(SceneParams::meta(ParamSlot::paletteBaseOverride).label) == "Palette", "a hue override belongs to Palette");
+    check(std::string(SceneParams::meta(ParamSlot::paletteStop4).label) == "Palette", "your colours' stops belong to Palette");
+    check(std::string(SceneParams::meta(ParamSlot::beatResponse).label).empty(), "beatResponse has no control");
+    check((SceneParams::meta(ParamSlot::camYaw).flags & kMod) != 0 && (SceneParams::meta(ParamSlot::camTouch).flags & kMod) == 0,
+          "a modulation target is flagged, a switch is not");
+    check(!SceneParams::meta(ParamSlot::pulse).live && !SceneParams::meta(ParamSlot::glitch).live, "retired rows have no meta");
+}
+
 int main(int argc, char** argv) {
     if (argc == 3 && std::strcmp(argv[1], "--write") == 0) {
         std::ofstream(argv[2], std::ios::binary) << SceneParams::schemaText();
@@ -345,12 +487,15 @@ int main(int argc, char** argv) {
     theTableIsTheWire();
     everyRowIsWellFormed();
     getAndSetRoundTripByNameAndSlot();
+    anOldLookWithRetiredNamesStillLoads();
     theWireRoundTrips();
     aBrokenWireKeepsTheDefaults();
     fadeGlidesAndHoldSnaps();
     theLfoClampsAreTheTablesRanges();
     theCataloguesRangesAgree();
     theTextIsTheTable();
+    palettesAreTheShellsOldTable();
+    everyLiveRowHasOneMeta();
     textEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/params_schema.txt");
     if (failures == 0) std::printf("params_schema_test: all checks passed\n");
     return failures;

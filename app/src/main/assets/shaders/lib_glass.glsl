@@ -87,7 +87,7 @@
 // uSteps), its interior loop (GLASS_MAX_INNER, breaking on glassInnerSteps())
 // and its tetrahedral normal itself, from glassEps and glassStepAO below.
 //
-// INCLUDE ORDER: after lib_scene_uniforms (uTime, uSpeed, uIntensity, uMorph,
+// INCLUDE ORDER: after lib_scene_uniforms (uTime, uIntensity, uMorph,
 // uWarp, uTurbulence, uSteps, and the SND_* names it pastes) and lib_palette
 // (pal()). It includes nothing itself.
 //
@@ -118,7 +118,7 @@
 
 // ---- the Customize macros ---------------------------------------------------
 //
-// At their defaults each is the identity: Speed (uSpeed 1) scales animation
+// At their defaults each is the identity: Speed (1) scales animation
 // time, Complexity (uMorph 0) adds pieces or detail per style, Chaos (uWarp,
 // uTurbulence 0) wobbles surfaces as if the glass were poured and not yet set,
 // Energy (uIntensity 1) scales how far the music moves a style. Colour is pal();

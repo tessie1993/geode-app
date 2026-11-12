@@ -1,10 +1,10 @@
 // Host-side checks for core/output/EncoderLadder (#607): the frame rates and bit rates an export asks the
 // video encoder for, which used to be Kotlin (export/LoopRender `negotiate`, export/VideoExporter, both over
 // data/ExportPrefs `fallbackExportFps`). Built and run by CI ("Native host tests" in
-// .github/workflows/android.yml) with the system compiler, through the C ABI as well as the header.
+// .github/workflows/native-host-tests.yml) with the system compiler, through the C ABI as well as the header.
 //
-// What is pinned: with no ceiling the rungs equal the Kotlin's two attempts exactly (the request clamped to
-// 24..60 at the full rate, then the cadence-family fallback at 2/3), and a known ceiling only skips rungs.
+// What is pinned: with no ceiling, two rungs (the request clamped to 24..60 at the full rate, then the
+// cadence-family fallback at 2/3, never under 24), and a known ceiling only skips rungs.
 #include <cstdio>
 
 #include "api/geode_api.h"
@@ -38,8 +38,8 @@ bool rung(const Ladder& l, int i, int fps, int bitRate) {
     return i < l.count && l.rungs[i].fps == fps && l.rungs[i].bitRate == bitRate;
 }
 
-// The Kotlin it replaces: `if (requested > 30) requested / 2 else requested`.
-int kotlinFallback(int requested) { return requested > 30 ? requested / 2 : requested; }
+// The fallback rule: half above 30, never under the 24 an export offers; the request itself at 30 and below.
+int expectedFallback(int requested) { return requested > 30 ? (requested / 2 < 24 ? 24 : requested / 2) : requested; }
 
 void fallbackStaysInTheCadenceFamily() {
     check(out::fallbackFps(24) == 24, "24 retries at 24");
@@ -47,15 +47,15 @@ void fallbackStaysInTheCadenceFamily() {
     check(out::fallbackFps(30) == 30, "30 retries at 30");
     check(out::fallbackFps(50) == 25, "50 retries at 25, not 30");
     check(out::fallbackFps(60) == 30, "60 retries at 30");
-    // Between 31 and 47 the Kotlin halved below the 24 a request is clamped to, and nothing clamped
-    // the result again: the fallback keeps that, so the ladder matches what shipped.
-    check(out::fallbackFps(31) == 15, "31 retries at 15, as the Kotlin did");
-    check(out::fallbackFps(40) == 20, "40 retries at 20, as the Kotlin did");
-    check(out::fallbackFps(47) == 23, "47 retries at 23, as the Kotlin did");
+    // Between 31 and 47 a bare halving lands under 24 (the old Kotlin retried 31 at 15): the floor holds.
+    check(out::fallbackFps(31) == 24, "31 retries at 24, not 15");
+    check(out::fallbackFps(40) == 24, "40 retries at 24, not 20");
+    check(out::fallbackFps(47) == 24, "47 retries at 24, not 23");
     check(out::fallbackFps(48) == 24, "48 retries at 24");
     for (int fps = out::kLadderMinFps; fps <= out::kLadderMaxFps; ++fps) {
         check(out::fallbackFps(fps) <= fps, "a fallback never raises the rate");
-        check(out::fallbackFps(fps) == kotlinFallback(fps), "fallback equals the Kotlin");
+        check(out::fallbackFps(fps) >= out::kLadderMinFps, "a fallback never drops under 24");
+        check(out::fallbackFps(fps) == expectedFallback(fps), "fallback follows the rule");
     }
 }
 
@@ -103,12 +103,13 @@ void floorIsAlwaysTried() {
         for (int ceiling : {-1, 0, 1, 24, 25, 30, 50, 60, 1000}) {
             const Ladder any = ladder(fps, 1'000'000, ceiling);
             check(any.count >= 1 && any.count <= out::kLadderMaxRungs, "one or two rungs");
-            // The last rung is always the Kotlin's fallback of the clamped request (which can be below
-            // 24 for a 31..47 request), at 2/3 of the bits, whatever the ceiling says.
+            // The last rung is always the fallback of the clamped request, at 2/3 of the bits, whatever
+            // the ceiling says.
             const int clamped = fps < out::kLadderMinFps ? out::kLadderMinFps
                                 : fps > out::kLadderMaxFps ? out::kLadderMaxFps
                                                            : fps;
-            check(any.rungs[any.count - 1].fps == kotlinFallback(clamped), "the last rung is the Kotlin's fallback");
+            check(any.rungs[any.count - 1].fps == expectedFallback(clamped), "the last rung is the fallback");
+            check(any.rungs[any.count - 1].fps >= out::kLadderMinFps, "the last rung is at or above 24");
             check(any.rungs[any.count - 1].bitRate == 666'666, "the last rung is at 2/3 of the bits");
             check(any.rungs[any.count - 1].fps <= out::kLadderFloorFps, "the last rung is at or below 30");
             check(any.rungs[0].fps == clamped || any.count == 1, "a full ladder starts at the clamped request");

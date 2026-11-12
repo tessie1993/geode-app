@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -41,6 +42,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -57,8 +60,8 @@ import dev.geode.R
 import dev.geode.data.BehaviourPrefs
 import dev.geode.data.BehaviourStore
 import dev.geode.data.CanvasGesture
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GestureAction
+import dev.geode.geodeContainer
 import dev.geode.model.GestureTip
 import dev.geode.render.VisualizerView
 import dev.geode.render.scene.SceneIds
@@ -66,6 +69,7 @@ import dev.geode.ui.theme.GeodeMotionScheme
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.LocalGlassBackdrop
+import dev.geode.ui.theme.LocalTelevision
 import dev.geode.ui.theme.StoneHapticCue
 import dev.geode.ui.theme.glassBackdrop
 import dev.geode.ui.theme.performStoneHaptic
@@ -84,7 +88,7 @@ import kotlinx.coroutines.withContext
  *   the bottom or the top wakes the shell's chrome (the mini player, the tab bar and the [StageIcons],
  *   which fade together) and, with the options hidden and the chrome already awake, brings the options
  *   back (the Fullscreen icon reads "Show options" then), a double tap hides or brings back the
- *   options, a sideways swipe steps the style, a swipe up wakes the chrome, a swipe down pulls the Macros drawer ([MacrosDrawer]), a hold records a take, a swirl
+ *   options, a sideways swipe steps the style, a swipe up wakes the chrome, a swipe down pulls the Macros drawer ([MacrosDrawer]), a hold records a video, a swirl
  *   randomizes and two fingers play with the visual.
  * - The options ([VisualsOptions], VisualsSheet.kt): matte glass over the visual. In portrait a
  *   bottom sheet of three heights; in landscape (the window wider than tall, from the medium width
@@ -115,10 +119,10 @@ internal fun VisualsHub(
     onRequestedPageShown: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    // Read once per visit, off the main thread; Settings › Behaviour is another screen, so a change
+    // Read once per visit, off the main thread; Settings is another screen, so a change
     // there is always read on the way back.
     val behaviour by produceState(BehaviourPrefs()) {
-        value = withContext(Dispatchers.IO) { BehaviourStore(GeodePrefsFiles(context).general).load() }
+        value = withContext(Dispatchers.IO) { BehaviourStore(context.geodeContainer.prefsFiles.general).load() }
     }
     // A gesture tip is said only while the user's gesture map still has that gesture do that thing.
     val nudge = LocalTourNudge.current
@@ -188,7 +192,8 @@ private fun VisualsHubContent(
     val context = LocalContext.current
     val resources = LocalResources.current
     val view = LocalView.current
-    // A MilkDrop preset that did not load: the stage says so briefly. The MilkDrop page shows it itself.
+    // A MilkDrop preset that did not load, or played without a shader that failed: the stage says so briefly.
+    // The MilkDrop page shows it itself.
     val milkError = viz.shaderError?.takeIf { viz.sceneId == SceneIds.MILKDROP }
     LaunchedEffect(milkError) {
         val onMilkPage = nav.sheetShown && nav.top == VisualsPage.MILKDROP
@@ -197,12 +202,18 @@ private fun VisualsHubContent(
             Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
         }
     }
-    // Settings › Behaviour › Keep the screen on in Visuals: held while this screen is composed (#337).
+    // Settings › Displays & casting › Keep the screen on in Visuals: held while this is composed (#337).
     KeepScreenOnWhileShown(behaviour.keepScreenOnVisuals)
+    // The hidden gestures (EasterEggs.kt): shake to screenshot, tap along for new Music moments.
+    val visualsViewModel: VisualsViewModel = geodeViewModel()
+    ShakeToScreenshot(enabled = !pip, visualizerView = visualizerView, viewModel = visualsViewModel)
+    val tapAlong = rememberTapAlong(visualizerView, visualsViewModel)
     val studioViewModel: StudioViewModel = geodeViewModel()
-    val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
-    // Why a take ended or was not kept (too short, the maximum length, a render already running).
-    LaunchedEffect(takes.note) { takes.note?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show() } }
+    val record by studioViewModel.recordState.collectAsStateWithLifecycle()
+    val settingsViewModel: SettingsViewModel = geodeViewModel()
+    val gui by settingsViewModel.guiPrefs.collectAsStateWithLifecycle()
+    // Why a recording ended or was not kept (too short, the maximum length, a failure).
+    LaunchedEffect(record.note) { record.note?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show() } }
     var macros by rememberSaveable { mutableStateOf(false) }
     // While a drop-in is up the options fade out and take no touch (UI V2 rule 6: the visual shows
     // through, not the sheet); the nav state keeps the sheet's height, so it returns as it was.
@@ -220,8 +231,13 @@ private fun VisualsHubContent(
             onQuickSettings = { nav.openTab(VisualsPage.SETTINGS) },
             onToggleSheet = { if (nav.sheetShown) nav.hideSheet() else nav.showSheet() },
             onMacros = { macros = true },
-            onRecord = { if (!takes.recording) studioViewModel.startRecording() },
+            onRecord = { if (!record.recording) studioViewModel.startRecording() },
         )
+    // A TV's remote: the stage takes focus whenever the options go (full screen), so the D-pad steps
+    // the visual at once, and enters the options from the stage while they are up (StageRemote).
+    val television = LocalTelevision.current
+    val stageFocus = remember { FocusRequester() }
+    val optionsFocus = remember { FocusRequester() }
     val sizeClass = currentWindowAdaptiveInfo().windowSizeClass
     val backdrop = rememberGlassBackdrop()
     // The side panel's share of the width, kept across turns of the phone.
@@ -306,16 +322,25 @@ private fun VisualsHubContent(
             visualizerView = visualizerView,
             behaviour = behaviour,
             actions = actions,
-            recording = takes.recording,
+            recording = record.recording,
             // The halves of the visual left in view above the sheet; the whole height beside the panel.
             tapSplitPx = { if (side) fullPx / 2f else (fullPx - heightPx.value - reservePx) / 2f },
+            onTapDown = tapAlong,
+            onPinch = viewModel::nudgeTransform.takeIf { gui.touchTransform },
+            remote = if (television) StageRemote(stageFocus, optionsFocus, optionsShown = nav.sheetShown && !pip, side = side) else null,
         )
+        // Here, beside the stage, so its requester is attached by the time the effect runs.
+        LaunchedEffect(television, nav.sheetShown, pip) {
+            if (television && !nav.sheetShown && !pip) stageFocus.requestFocus()
+        }
         // What the glass blurs: the stage icons, never the GL surface (GlassBlur.kt says why).
         Box(Modifier.matchParentSize().glassBackdrop(backdrop)) {
             StageIcons(
                 chrome = chrome,
                 sheetShown = nav.sheetShown,
                 room = iconRoom,
+                showArrows = gui.stageArrows,
+                showRecord = gui.stageRecord,
                 sheetTopPx = { if (side) 0f else heightPx.value + reservePx },
                 endPx = { if (panelPx.value > 0f) panelPx.value + insetPx else 0f },
                 // Full screen is the options hidden (owner: the old live view goes), the double tap's twin.
@@ -333,6 +358,8 @@ private fun VisualsHubContent(
         // sheet's: a tap there must not reach the stage's top or bottom tap or its double tap. Only
         // while shown, so a hidden sheet's empty strip never blocks the stage's bottom tap.
         val swallowTaps = if (nav.sheetShown || playerComposed) Modifier.pointerInput(Unit) { detectTapGestures { } } else Modifier
+        // On a TV the options are one focus group the remote enters from the stage (StageRemote).
+        val remoteEntry = if (television) Modifier.focusRequester(optionsFocus).focusGroup() else Modifier
         CompositionLocalProvider(LocalGlassBackdrop provides backdrop) {
             VisualsOptions(
                 nav = nav,
@@ -379,6 +406,7 @@ private fun VisualsHubContent(
                             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.End))
                             .padding(GeodeSpacing.EdgeInset)
                             .hiddenUnderDropIn(dropInOpen) { optionsFade.value }
+                            .then(remoteEntry)
                     } else {
                         Modifier
                             .align(Alignment.BottomCenter)
@@ -391,6 +419,7 @@ private fun VisualsHubContent(
                             .padding(top = GeodeSpacing.EdgeInset / 2, bottom = dockGap / 2)
                             .graphicsLayer { if (docked != null) alpha = playerAlpha.value }
                             .hiddenUnderDropIn(dropInOpen) { optionsFade.value }
+                            .then(remoteEntry)
                     },
             ) {
                 val pageMotion = LocalGeodeMotion.current
@@ -423,10 +452,12 @@ private fun VisualsHubContent(
         CloseOnBack(enabled = !nav.sheetShown, onBack = nav::showSheet)
         MacrosDrawer(
             visible = macros,
+            sceneId = viz.sceneId,
             onDismiss = { macros = false },
             onEdit = {
                 macros = false
                 nav.openTab(VisualsPage.CUSTOMIZE)
+                nav.openCustomizeCard(CustomizeCategory.QUICK_KNOBS.name)
             },
             modifier = Modifier.fillMaxSize(),
         )

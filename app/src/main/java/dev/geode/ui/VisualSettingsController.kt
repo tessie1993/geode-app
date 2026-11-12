@@ -3,6 +3,7 @@ package dev.geode.ui
 import dev.geode.data.GuiPrefs
 import dev.geode.data.Preset
 import dev.geode.data.VizStateStore
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.render.TransitionCatalog
 import dev.geode.render.scene.SceneParams
 import kotlinx.coroutines.CoroutineScope
@@ -98,6 +99,24 @@ internal class VisualSettingsController(
         vizStateStore.persist()
     }
 
+    /**
+     * A pinch and twist on the visual move the real Zoom and Rotation params, not a view-only
+     * transform, so a gesture is kept in presets. The maths and the clamp to each
+     * slider's range are native (`core/viz/TouchTransform`).
+     */
+    fun nudgeTransform(
+        zoomFactor: Float,
+        degrees: Float,
+    ) {
+        val p = state.value.params
+        val next =
+            p.copy(
+                zoom = GeodeNative.touchZoom(p.zoom, zoomFactor),
+                rotation = GeodeNative.touchRotation(p.rotation, degrees),
+            )
+        if (next != p) setSceneParams(next)
+    }
+
     fun reportShaderError(error: String?) {
         state.update { it.copy(shaderError = error) }
     }
@@ -153,9 +172,7 @@ internal class VisualSettingsController(
     /**
      * How long a preset load glides in for.
      *
-     * The length used to be a count of beats divided by the tracked tempo, which made the glide
-     * as wrong as the estimate and silently used 120 BPM on live input, where there is no
-     * estimate. It is a duration the user set, in seconds, and nothing consults the analyser.
+     * It is a duration the user set, in seconds; nothing consults the analyser or assumes a tempo.
      */
     private fun emitPresetMorph() {
         val seconds = host.guiPrefs.presetMorphSeconds

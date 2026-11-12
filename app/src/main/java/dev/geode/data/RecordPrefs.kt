@@ -2,11 +2,13 @@ package dev.geode.data
 
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.ExportQuality
 
 /**
- * What a recorded take renders at, and how long it may run: Settings › Export › Record.
+ * What a recording is encoded at, and how long it may run: Settings › Export › Record.
  *
  * [maxLengthSec] is one of the lengths native offers (`core/output/RecordPlan`), 0 for no limit: a
  * recording that reaches it stops and saves like a manual stop.
@@ -15,17 +17,13 @@ data class RecordPrefs(
     val quality: ExportQuality,
     val fps: Int,
     val maxLengthSec: Int = 0,
-) {
-    /** [defaults] with the take's resolution and frame rate; ratio, codec, loudness and folder stay. */
-    fun applyTo(defaults: ExportDefaults): ExportDefaults = defaults.copy(quality = quality, fps = fps)
-}
+)
 
 /**
  * The three Record choices, in the general prefs beside the export defaults (so the manual backup
  * carries them like those).
  *
- * A choice never made reads as what a take did before these rows existed: the resolution and frame
- * rate of the Custom export defaults ([ExportPrefsStore.loadFor] of [ExportDestination.CUSTOM],
+ * A choice never made reads as the resolution and frame rate of the Custom export defaults ([ExportPrefsStore.loadFor] of [ExportDestination.CUSTOM],
  * handed in as `fallback`), and no maximum length. So nothing changes for anyone until they pick,
  * and an untouched row keeps following the Custom defaults.
  *
@@ -62,5 +60,11 @@ class RecordPrefsStore(
 
         /** Every key this store writes. */
         val KEYS: Set<String> = setOf(KEY_QUALITY, KEY_FPS, KEY_MAX_SEC)
+
+        internal val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.GENERAL) {
+                portable(PrefType.STRING, KEY_QUALITY)
+                portable(PrefType.INT, KEY_FPS, KEY_MAX_SEC)
+            }
     }
 }

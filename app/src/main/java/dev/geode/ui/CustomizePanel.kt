@@ -65,13 +65,13 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
 /**
- * Visuals › Customize: ten categories by what their controls do (issue #333), drawn by
+ * Visuals › Customize: eleven categories by what their controls do (issue #333), drawn by
  * [CustomizeBrowser].
  *
  * Everything about the controls is native (core/viz/CustomizeMap): which category and section
  * each sits in, which sections are Basics (open at the top, free) and which are Pro, which
  * categories and sections the style on screen has (Camera only on 3D styles, Water on Water,
- * Expert's engine on Fluid, Cymatics and MilkDrop), and what a category's Randomize and Reset do.
+ * Engine on Fluid, Cymatics and MilkDrop), and what a category's Randomize and Reset do.
  * This file wires that to the screen: the free tier through [ProLock] (a Pro control can be
  * tried, then springs back and the paywall offers it), the open category on the Visuals route
  * ([nav], so system back closes it first), which sections are open (several at once, saved by
@@ -134,60 +134,64 @@ internal fun CustomizePanel(
             customizeNav.open(CustomizeCategory.MUSIC.name)
         },
     ) {
-        ParamSurface(sceneId = sceneId, query = query) {
-            val header: @Composable (CustomizeCategory?) -> Unit = { category ->
-                CustomizeHeader(
-                    viewModel = viewModel,
-                    visualizerView = visualizerView,
-                    category = category,
-                    proLock = proLock,
-                    searching = searching,
-                    onSearching = { on ->
-                        searching = on
-                        if (!on) query = ""
-                    },
-                    showTips = showTips,
-                    onShowTips = { showTips = it },
-                )
-                if (searching) {
-                    OutlinedTextField(
-                        value = query,
-                        onValueChange = { query = it },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = GeodeSpacing.L),
-                        singleLine = true,
-                        label = { Text(stringResource(R.string.customize_a11y_search)) },
+        ProvideKnobLinks(sceneId, proLock) {
+            ParamSurface(sceneId = sceneId, query = query) {
+                val header: @Composable (CustomizeCategory?) -> Unit = { category ->
+                    CustomizeHeader(
+                        viewModel = viewModel,
+                        visualizerView = visualizerView,
+                        category = category,
+                        canRoll =
+                            category == null || category == CustomizeCategory.QUICK_KNOBS || "${category.name}:roll" in shown,
+                        proLock = proLock,
+                        searching = searching,
+                        onSearching = { on ->
+                            searching = on
+                            if (!on) query = ""
+                        },
+                        showTips = showTips,
+                        onShowTips = { showTips = it },
                     )
-                }
-            }
-            if (query.isNotBlank()) {
-                // A search shows every match at once, in every category; each control hides itself unless it matches.
-                Column(Modifier.fillMaxSize()) {
-                    header(open)
-                    LazyColumn(
-                        modifier = Modifier.weight(1f).fillMaxWidth(),
-                        contentPadding = PaddingValues(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.XS),
-                        verticalArrangement = Arrangement.spacedBy(GeodeSpacing.XS),
-                    ) {
-                        items(categories.flatMap(sectionsOf), key = { it.path }) { section ->
-                            Column(Modifier.fillMaxWidth()) { CustomizeControls(section.controls, host) }
-                        }
+                    if (searching) {
+                        OutlinedTextField(
+                            value = query,
+                            onValueChange = { query = it },
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = GeodeSpacing.L),
+                            singleLine = true,
+                            label = { Text(stringResource(R.string.customize_a11y_search)) },
+                        )
                     }
                 }
-            } else {
-                CustomizeBrowser(
-                    categories = categories,
-                    sectionsOf = sectionsOf,
-                    nav = customizeNav,
-                    listState = listState,
-                    openSections = openSections.value,
-                    onToggleSection = { section ->
-                        val path = section.path
-                        openSections.value = if (path in openSections.value) openSections.value - path else openSections.value + path
-                    },
-                    sectionLocked = { !proLock.unlocked && !FreeTier.customizeSectionFree(it.basics) },
-                    modifier = Modifier.fillMaxSize(),
-                    header = header,
-                ) { section -> CustomizeControls(section.controls, host) }
+                if (query.isNotBlank()) {
+                    // A search shows every match at once, in every category; each control hides itself unless it matches.
+                    Column(Modifier.fillMaxSize()) {
+                        header(open)
+                        LazyColumn(
+                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = GeodeSpacing.L, vertical = GeodeSpacing.XS),
+                            verticalArrangement = Arrangement.spacedBy(GeodeSpacing.XS),
+                        ) {
+                            items(categories.flatMap(sectionsOf), key = { it.path }) { section ->
+                                Column(Modifier.fillMaxWidth()) { CustomizeControls(section.controls, host) }
+                            }
+                        }
+                    }
+                } else {
+                    CustomizeBrowser(
+                        categories = categories,
+                        sectionsOf = sectionsOf,
+                        nav = customizeNav,
+                        listState = listState,
+                        openSections = openSections.value,
+                        onToggleSection = { section ->
+                            val path = section.path
+                            openSections.value = if (path in openSections.value) openSections.value - path else openSections.value + path
+                        },
+                        sectionLocked = { !proLock.unlocked && !FreeTier.customizeSectionFree(it.basics) },
+                        modifier = Modifier.fillMaxSize(),
+                        header = header,
+                    ) { section -> CustomizeControls(section.controls, host) }
+                }
             }
         }
     }
@@ -213,15 +217,18 @@ private class RouteCustomizeNav(
 
 /**
  * The one row above the list: how far the look is from as styled, then search, Randomize, Undo
- * and ⋯ (Redo, Reset this category, Reset everything, Save as preset, Show tips). Randomize and
- * Reset act on the open [category], or on Quick knobs from the list; Quick knobs' are free (the
- * knobs' Surprise), every other category's Randomize is Pro. Native decides what each one moves.
+ * and ⋯ (Redo, Reset this category, Reset everything, Save as preset, Show tips). Randomize rolls
+ * the open [category], or every category from the list; without Pro it rolls the free Basics, and
+ * offers Pro where a category has none to roll. Quick knobs' Randomize is free: new turns for the
+ * knobs on screen. Reset acts on the open category, or on Quick knobs from the list. Native decides
+ * what each one moves and whether a category has a roll ([canRoll]).
  */
 @Composable
 private fun CustomizeHeader(
     viewModel: PlayerViewModel,
     visualizerView: VisualizerView,
     category: CustomizeCategory?,
+    canRoll: Boolean,
     proLock: ProLock,
     searching: Boolean,
     onSearching: (Boolean) -> Unit,
@@ -244,7 +251,13 @@ private fun CustomizeHeader(
     val nudge = LocalTourNudge.current
     val randomize = {
         nudge(GestureTip.SWIRL_RANDOMIZE)
-        if (proLock.unlocked) visualsViewModel.randomizeParams(target) else proLock.onLocked()
+        if (category == CustomizeCategory.QUICK_KNOBS) {
+            // The knobs' turns, as before the bank (#1001): free, and native rolls them (core/viz/MacroBank).
+            macroStore.rollValues(viewModel.vizState.value.sceneId)
+        } else {
+            val rolled = visualsViewModel.randomizeParams(category, basicsOnly = !proLock.unlocked)
+            if (!rolled && !proLock.unlocked) proLock.onLocked()
+        }
     }
     Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
         Text(
@@ -266,9 +279,16 @@ private fun CustomizeHeader(
                     stringResource(if (searching) R.string.customize_a11y_close_search else R.string.customize_a11y_search),
             )
         }
-        // The knobs have no roll: the bank is the user's own (core/viz/MacroBank).
-        IconButton(onClick = randomize, enabled = !onKnobs, modifier = Modifier.tourTarget(TourSpot.CUSTOMIZE_RANDOMIZE)) {
-            Icon(Icons.Filled.Casino, contentDescription = stringResource(R.string.customize_a11y_randomize, target.title))
+        IconButton(onClick = randomize, enabled = canRoll, modifier = Modifier.tourTarget(TourSpot.CUSTOMIZE_RANDOMIZE)) {
+            Icon(
+                Icons.Filled.Casino,
+                contentDescription =
+                    if (category == null) {
+                        stringResource(R.string.customize_a11y_randomize_all)
+                    } else {
+                        stringResource(R.string.customize_a11y_randomize, category.title)
+                    },
+            )
         }
         IconButton(onClick = visualsViewModel::undoParams, enabled = history.canUndo) {
             Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = stringResource(R.string.customize_a11y_undo))

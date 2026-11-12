@@ -21,6 +21,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Casino
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -43,6 +48,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.MacroStore
+import dev.geode.pro.FreeTier
+import dev.geode.pro.PaywallTrigger
+import dev.geode.pro.ProFeature
+import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
 import dev.geode.ui.theme.StoneIcon
@@ -55,7 +64,9 @@ import dev.geode.ui.theme.floatingGlass
  * Customize's first page). The knobs are Customize › Quick knobs' own ([MacrosTab]) over the same
  * [MacroStore], so a turn here is a turn there.
  *
- * The edit icon ([onEdit]) opens Customize on Quick knobs; the drawer only turns the knobs. It closes the standard ways: Back, a tap outside, the ×, or pushing
+ * The dice gives the knobs new turns (native, free like Customize's), and the edit icon ([onEdit]) opens Customize
+ * on Quick knobs, where Edit knobs ([MacroEditor]) is. Here a knob turns, a long press opens its editor, and Add
+ * macro makes one (gated like Customize's knob editor) or puts one back. It closes the standard ways: Back, a tap outside, the ×, or pushing
  * it back up. No scrim, as with the quick settings, so the visual stays lit while the knobs move it.
  *
  * It slides on the app's spatial spring ([LocalGeodeMotion]), which is a jump under reduced
@@ -65,6 +76,7 @@ import dev.geode.ui.theme.floatingGlass
 @Composable
 internal fun MacrosDrawer(
     visible: Boolean,
+    sceneId: String,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
     modifier: Modifier = Modifier,
@@ -87,19 +99,32 @@ internal fun MacrosDrawer(
             enter = slideInVertically(motion.defaultSpatialSpec()) { -it } + fadeIn(motion.fastEffectsSpec()),
             exit = slideOutVertically(motion.fastSpatialSpec()) { -it } + fadeOut(motion.fastEffectsSpec()),
         ) {
-            MacrosDrawerPanel(onDismiss, onEdit)
+            MacrosDrawerPanel(sceneId, onDismiss, onEdit)
         }
     }
 }
 
 @Composable
 private fun MacrosDrawerPanel(
+    sceneId: String,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
 ) {
     val context = LocalContext.current
     val store = remember { MacroStore.get(context) }
     val macros by store.state.collectAsStateWithLifecycle()
+    // The same gate as Customize's knob editor, which the drawer sits outside of.
+    val paywall: PaywallViewModel = geodeViewModel()
+    val gate by paywall.gate.collectAsStateWithLifecycle()
+    val unlocked = gate.allows(ProFeature.ADVANCED_CUSTOMIZATION)
+    val lock =
+        remember(unlocked, paywall) {
+            ProLock(
+                unlocked = unlocked,
+                free = FreeTier.freeCustomizeControls(CustomizeMapTable.basicControls),
+                onLocked = { paywall.open(PaywallTrigger.Feature(ProFeature.ADVANCED_CUSTOMIZATION)) },
+            )
+        }
     val closePx = with(LocalDensity.current) { CLOSE_DRAG.toPx() }
     var dragged by remember { mutableFloatStateOf(0f) }
     val drag = rememberDraggableState { delta -> dragged += delta }
@@ -129,6 +154,9 @@ private fun MacrosDrawerPanel(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            IconButton(onClick = { store.rollValues(sceneId) }) {
+                Icon(Icons.Filled.Casino, contentDescription = stringResource(R.string.macro_randomize_turns))
+            }
             IconButton(onClick = onEdit) {
                 StoneIconArt(StoneIcon.EDIT, stringResource(R.string.macros_drawer_edit))
             }
@@ -136,7 +164,12 @@ private fun MacrosDrawerPanel(
                 StoneIconArt(StoneIcon.CLOSE, close)
             }
         }
-        MacrosTab(macros, store)
+        // A landscape phone is shorter than eight knobs: then, and only then, they scroll, so a
+        // push up on a bank that fits still closes the drawer.
+        val scroll = rememberScrollState()
+        Column(Modifier.weight(1f, fill = false).verticalScroll(scroll, enabled = scroll.maxValue > 0)) {
+            MacrosTab(macros, store, sceneId, lock)
+        }
     }
 }
 

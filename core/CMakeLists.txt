@@ -5,10 +5,16 @@ add_library(geode_core STATIC
     api/geode_library_api.cpp
     api/geode_catalogue_api.cpp
     api/geode_params_api.cpp
+    api/geode_colour_api.cpp
+    api/geode_randomize_all_api.cpp
+    api/geode_shake_api.cpp
     api/geode_macro_bank_api.cpp
     api/geode_sound_api.cpp
     api/geode_underlay_api.cpp
     api/geode_frame_api.cpp
+    api/geode_link_api.cpp
+    viz/frame/LinkShare.cpp
+    util/QrCode.cpp
     api/geode_surface_api.cpp
     api/geode_auto_api.cpp
     api/geode_playout_api.cpp
@@ -24,8 +30,11 @@ add_library(geode_core STATIC
     sound/Tuning.cpp
     library/Tags.cpp
     library/Search.cpp
+    audio/ingest/AiffReader.cpp
     audio/ingest/PcmRing.cpp
+    audio/ingest/TrackFeed.cpp
     audio/ingest/LayerMix.cpp
+    audio/ingest/SnapshotStitch.cpp
     audio/output/OutputFifo.cpp
     audio/output/OboeOutput.cpp
     audio/dsp/DspProcessor.cpp
@@ -40,16 +49,16 @@ add_library(geode_core STATIC
     signal/Resolver.cpp
     api/geode_export_pass_api.cpp
     api/geode_export_api.cpp
+    api/geode_record_api.cpp
     audio/dsp/PcmConvert.cpp
     audio/dsp/PcmTiming.cpp
     output/FrameClock.cpp
     output/LoopPlan.cpp
+    output/LoudnessAdvice.cpp
     output/EncodePlan.cpp
     output/RecordPlan.cpp
+    output/Recorder.cpp
     output/Chapters.cpp
-    signal/timeline/Keyframes.cpp
-    signal/timeline/SpeedRamp.cpp
-    util/CubeLut.cpp
     api/geode_output_api.cpp
     viz/ShaderSource.cpp
     viz/GlCaps.cpp
@@ -71,6 +80,7 @@ add_library(geode_core STATIC
     viz/Lfo.cpp
     viz/ModTargets.cpp
     viz/MacroBank.cpp
+    viz/MacroControls.cpp
     viz/Director.cpp
     viz/DirectorReach.cpp
     viz/LayerState.cpp
@@ -80,6 +90,7 @@ add_library(geode_core STATIC
     viz/Underlay.cpp
     viz/frame/ExportPasses.cpp
     viz/frame/EdgeGlowPass.cpp
+    viz/frame/RecordTap.cpp
     viz/Adsr.cpp
     viz/MotionField.cpp
     viz/ReactionDna.cpp
@@ -90,13 +101,13 @@ add_library(geode_core STATIC
     viz/TouchField.cpp
     viz/Transition.cpp
     viz/CompositeGrade.cpp
-    viz/ClipGrade.cpp
     viz/CompositePass.cpp
     viz/TrailPass.cpp
     viz/Catalogue.cpp
     viz/CataloguePresets.cpp
     viz/ParamRandomizer.cpp
     viz/CustomizeMap.cpp
+    viz/RandomizeAll.cpp
     viz/WaveRandomizer.cpp
     viz/SceneRegistry.cpp
     viz/Renderer.cpp

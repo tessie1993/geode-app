@@ -2,6 +2,8 @@ package dev.geode.data
 
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import dev.geode.data.prefs.PrefType
+import dev.geode.data.prefs.prefKeys
 
 /**
  * Studio's own small memory, kept across restarts.
@@ -14,7 +16,7 @@ import androidx.core.content.edit
  * `StudioSection` type.
  *
  * [keepAsProject] answers Render's "add it to My videos?" once and for all: null until the
- * user ticks "don't ask again", then their answer.
+ * user ticks "don't ask again", then their answer. Settings › Export changes it, null asking again.
  */
 class StudioPrefsStore(
     private val prefs: SharedPreferences,
@@ -25,10 +27,16 @@ class StudioPrefsStore(
 
     fun keepAsProject(): Boolean? = if (prefs.contains(KEY_KEEP)) prefs.getBoolean(KEY_KEEP, false) else null
 
-    fun saveKeepAsProject(keep: Boolean) = prefs.edit { putBoolean(KEY_KEEP, keep) }
+    fun saveKeepAsProject(keep: Boolean?) = prefs.edit { if (keep == null) remove(KEY_KEEP) else putBoolean(KEY_KEEP, keep) }
 
-    private companion object {
+    internal companion object {
         const val KEY_TAB = "studio_last_tab"
         const val KEY_KEEP = "studio_keep_as_project"
+
+        val PREF_KEYS =
+            prefKeys(GeodePrefsFiles.GENERAL) {
+                portable(PrefType.STRING, KEY_TAB)
+                portable(PrefType.BOOLEAN, KEY_KEEP)
+            }
     }
 }

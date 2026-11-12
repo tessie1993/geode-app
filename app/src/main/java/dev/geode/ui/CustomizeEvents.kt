@@ -140,7 +140,7 @@ internal fun EventsTab(
 private typealias MomentEdit = (sceneId: String, seed: Int, hand: HandReactions) -> HandReactions
 
 /** The light actions first, then the ones that move the picture; a divider sits between the groups. */
-private val LIGHT_ACTIONS = listOf(MusicAction.PULSE, MusicAction.FLASH, MusicAction.COLOUR)
+private val LIGHT_ACTIONS = listOf(MusicAction.FLASH, MusicAction.COLOUR)
 private val MOTION_ACTIONS = listOf(MusicAction.ZOOM, MusicAction.SHAKE, MusicAction.CAMERA, MusicAction.WARP)
 
 /**

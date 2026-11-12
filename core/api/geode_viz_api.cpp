@@ -14,10 +14,12 @@
 
 #include "api/geode_api.h"
 #include "api/geode_ingest_handles.hpp"
+#include "api/geode_record_handles.hpp"
 #include "audio/ingest/LayerMix.hpp"
 #include "viz/Director.hpp"
 #include "viz/DirectorReach.hpp"
 #include "viz/GyroLook.hpp"
+#include "viz/TapAlong.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/LayerState.hpp"
 #include "viz/ModTargets.hpp"
@@ -33,6 +35,7 @@
 #include "viz/frame/PushVersions.hpp"
 #include "viz/frame/Thermal.hpp"
 #include "viz/frame/Quality.hpp"
+#include "viz/frame/RecordTap.hpp"
 #include "viz/ShaderOverrides.hpp"
 #include "viz/frame/WallpaperWindow.hpp"
 
@@ -46,6 +49,47 @@ struct geode_viz {
             reactions.setScene(id);
             if (reactions.resolve(routes)) renderer.setReactionRoutes(routes);
         });
+        renderer.setCompositeHook([this](GLuint fbo, int width, int height) {
+            recordFrame(fbo, width, height);
+            stillFrame(fbo, width, height);
+        });
+    }
+
+    // Shake to screenshot (geode_viz_still_request): the finished visual read back once, flipped to rows
+    // top first. Render thread only, apart from the request flag.
+    void stillFrame(GLuint fbo, int width, int height) {
+        if (!stillWanted.exchange(false) || width <= 0 || height <= 0) return;
+        const size_t row = static_cast<size_t>(width) * 4u;
+        still.assign(row * static_cast<size_t>(height), 0);
+        GLint previous = 0;
+        glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &previous);
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+        glPixelStorei(GL_PACK_ALIGNMENT, 4);
+        glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, still.data());
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(previous));
+        std::vector<uint8_t> swap(row);
+        for (int y = 0; y < height / 2; ++y) {
+            uint8_t* a = still.data() + row * static_cast<size_t>(y);
+            uint8_t* b = still.data() + row * static_cast<size_t>(height - 1 - y);
+            std::memcpy(swap.data(), a, row);
+            std::memcpy(a, b, row);
+            std::memcpy(b, swap.data(), row);
+        }
+        stillWidth = width;
+        stillHeight = height;
+    }
+
+    // Record's tee (geode_viz_record_start): the finished visual into the encoder's surface, when the
+    // recorder's clock kept this frame (recordPtsNs, asked in geode_viz_render). A frame the driver will not
+    // take ends the recording. Render thread only.
+    void recordFrame(GLuint fbo, int width, int height) {
+        if (!recorder || recordPtsNs < 0) return;
+        bool ok = recordTap.begin(fbo, width, height);
+        if (ok) {
+            if (recordWatermark) geode_export_watermark_draw(recordWatermark, recordTap.width(), recordTap.height(), 0);
+            ok = recordTap.present(recordPtsNs, fbo);
+        }
+        if (!ok) recorder->stop(geode::output::record::Stop::Failed, geode_record_now_ns());
     }
 
     geode::viz::Renderer renderer;
@@ -70,6 +114,19 @@ struct geode_viz {
     // The ring layered over it (geode_pcm_ring_set_layer) and this renderer's mix of the two.
     std::shared_ptr<const geode::audio::ingest::PcmRing> feedLayerRing;
     std::unique_ptr<geode::audio::ingest::LayerMix> feedLayer;
+    // Record (geode_viz_record_start): the recording's clock, shared with the encoder thread's handle, the
+    // GL copy into the encoder and the frame's PTS, -1 for a frame the clock left out. Render thread only.
+    std::shared_ptr<geode::output::record::Recorder> recorder;
+    geode::viz::frame::RecordTap recordTap;
+    geode_export_pass* recordWatermark = nullptr;
+    int64_t recordPtsNs = -1;
+    std::atomic<bool> stillWanted{false};
+    std::vector<uint8_t> still;
+    int stillWidth = 0;
+    int stillHeight = 0;
+    // Tap along: the beat as the last frame heard it, against the shell's taps. tapLock: taps come from the UI thread.
+    std::mutex tapLock;
+    geode::viz::TapAlong tapAlong;
 
     static geode::viz::StyleTraits styleTraits(std::string_view id) {
         const std::string s(id);
@@ -102,7 +159,7 @@ static_assert(frame::kFramePushTuning < (1u << frame::kFrameLiquidShift), "the p
 static_assert(GEODE_FRAME_LIQUID_MODE(frame::kFrameLiquidMask << frame::kFrameLiquidShift) == static_cast<int>(frame::kFrameLiquidMask));
 
 constexpr int kModSourceCount = static_cast<int>(ModSource::StereoPan) + 1;
-constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::EndlessZoomSpeed) + 1;
+constexpr int kLfoTargetCount = static_cast<int>(LfoTarget::DiveAimY) + 1;
 constexpr int kLfoWaveCount = static_cast<int>(LfoWave::RandomGlide) + 1;
 constexpr int kModPolarityCount = static_cast<int>(ModPolarity::Negative) + 1;
 
@@ -180,6 +237,10 @@ void geode_viz_queue_touch_stroke(geode_viz* v, float nx, float ny, float ndx, f
     if (v) v->renderer.queueTouchStroke(nx, ny, ndx, ndy, dt, strength);
 }
 
+void geode_viz_set_touch_smear(geode_viz* v, int on, float strength) {
+    if (v) v->renderer.setTouchSmear(on != 0, strength);
+}
+
 void geode_viz_set_fluid_injection(geode_viz* v, const char* force_source, const char* dye_source) {
     if (v) v->renderer.setFluidInjectionShaders(text(force_source), text(dye_source));
 }
@@ -213,6 +274,19 @@ int geode_viz_take_director_style_moments(geode_viz* v) {
 
 void geode_viz_write_audio(geode_viz* v, const float* interleaved, int frames, int channels, int sample_rate) {
     if (v) v->renderer.writeAudio(interleaved, frames, channels, sample_rate);
+}
+
+int geode_viz_hear_track(geode_viz* v, geode_track_feed* feed) {
+    // With no renderer the frames are still handed out (to nobody), so the feed keeps its place.
+    const geode_track_sink sink = [](void* context, const float* interleaved, int frames, int channels,
+                                     int sample_rate) {
+        geode_viz_write_audio(static_cast<geode_viz*>(context), interleaved, frames, channels, sample_rate);
+    };
+    return geode_track_feed_deliver(feed, v ? sink : nullptr, v);
+}
+
+int geode_viz_end_pre_roll(geode_viz* v, int64_t range_start_ms) {
+    return v && v->renderer.endPreRoll(range_start_ms) ? 1 : 0;
 }
 
 void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
@@ -258,17 +332,25 @@ void geode_viz_feed_ring(geode_viz* v, const geode_pcm_ring* ring) {
     // writer that outruns this loop from holding the frame.
     for (int run = 0; run < kFeedRunsPerFrame; ++run) {
         const geode::audio::ingest::Cursor::Take take = v->feedCursor->take(limit);
-        if (take.restarted) v->renderer.resetAudio();
+        if (take.restarted) {
+            v->renderer.resetAudio();
+            if (v->recorder) v->recorder->restarted();
+        }
         if (take.frames <= 0) break;
         const int channels = v->feedCursor->channels();
         const float* block = v->feedCursor->interleaved();
         if (v->feedLayer) block = v->feedLayer->mixed(block, take.frames, channels, take.sampleRateHz);
         v->renderer.writeAudio(block, take.frames, channels, take.sampleRateHz);
+        // Record's sound is exactly this: what the engine just heard, the mic layer included.
+        if (v->recorder) v->recorder->hear(block, take.frames, channels, take.sampleRateHz, geode_record_now_ns());
     }
     if (v->feedLayer) {
         // With the ring's own source stopped, the layer is what this renderer hears.
         const geode::audio::ingest::LayerMix::Alone alone = v->feedLayer->takeAlone();
         v->renderer.writeAudio(alone.interleaved, alone.frames, alone.channels, alone.sampleRateHz);
+        if (v->recorder && alone.frames > 0) {
+            v->recorder->hear(alone.interleaved, alone.frames, alone.channels, alone.sampleRateHz, geode_record_now_ns());
+        }
     }
     v->renderer.setLayerAlone(v->feedLayer && v->feedLayer->heardAlone());
 }
@@ -592,9 +674,9 @@ int geode_style_reactions(const char* style_id, int seed, float* out, int capaci
     return writeRoutes(dna.routes, dna.count, out, capacity);
 }
 
-void geode_viz_gyro_sample(geode_viz* v, float azimuth, float pitch) {
+void geode_viz_gyro_sample(geode_viz* v, float x, float y, float z, float w, int display_rotation) {
     if (!v) return;
-    const GyroLook::Look look = v->gyro.sample(azimuth, pitch);
+    const GyroLook::Look look = v->gyro.sampleScreen(x, y, z, w, display_rotation);
     v->renderer.setLook(look.yaw, look.pitch);
 }
 
@@ -777,7 +859,57 @@ void geode_viz_cut(geode_viz* v) {
 void geode_viz_render(geode_viz* v, double time_seconds, uint32_t target_fbo) {
     if (!v) return;
     syncReactions(v);
+    v->recordPtsNs = v->recorder
+        ? v->recorder->frame(geode_record_now_ns(), v->renderer.width(), v->renderer.height(),
+                             static_cast<int>(geode::viz::ThermalState::process().tier()))
+        : -1;
     v->renderer.render(time_seconds, target_fbo);
+    const GeodeSoundFrame& heard = v->renderer.soundFrame();
+    std::lock_guard<std::mutex> lock(v->tapLock);
+    v->tapAlong.frame(static_cast<double>(geode_record_now_ns()) * 1e-9, heard.beatPhase, heard.bpm, heard.beatConf,
+                      heard.presence);
+}
+
+void geode_viz_still_request(geode_viz* v) {
+    if (v) v->stillWanted.store(true);
+}
+
+int geode_viz_still_size(geode_viz* v, int* width, int* height) {
+    if (!v || v->still.empty()) return 0;
+    if (width) *width = v->stillWidth;
+    if (height) *height = v->stillHeight;
+    return 1;
+}
+
+int geode_viz_still_read(geode_viz* v, void* out, size_t capacity) {
+    if (!v || !out || v->still.empty() || capacity < v->still.size()) return 0;
+    std::memcpy(out, v->still.data(), v->still.size());
+    std::vector<uint8_t>().swap(v->still);
+    return 1;
+}
+
+int geode_viz_tap_along(geode_viz* v, int64_t uptime_ns) {
+    if (!v) return 0;
+    std::lock_guard<std::mutex> lock(v->tapLock);
+    return v->tapAlong.tap(static_cast<double>(uptime_ns) * 1e-9) ? 1 : 0;
+}
+
+int geode_viz_record_start(geode_viz* v, const geode_recorder* recorder, void* native_window, int width, int height,
+                           geode_export_pass* watermark) {
+    if (!v || !recorder || !recorder->recorder) return 0;
+    if (!v->recordTap.start(native_window, width, height)) return 0;
+    v->recorder = recorder->recorder;
+    v->recordWatermark = watermark;
+    v->recordPtsNs = -1;
+    return 1;
+}
+
+void geode_viz_record_stop(geode_viz* v) {
+    if (!v) return;
+    v->recordTap.stop();
+    v->recorder.reset();
+    v->recordWatermark = nullptr;
+    v->recordPtsNs = -1;
 }
 
 void geode_viz_prepare_offscreen(geode_viz* v) {

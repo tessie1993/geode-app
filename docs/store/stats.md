@@ -1,14 +1,14 @@
 # Stats: the numbers the listing may quote
 
 Every number comes from the code or the catalogue and is recounted by `tools/store-stats.sh`
-(run from the repo root). Counted on `origin/main` at b8ac569b5 and recounted, unchanged, at 022d8dd8d, 2026-11-11:
+(run from the repo root). Counted on `origin/main` at b8ac569b5 and recounted, unchanged, at 022d8dd8d, 2026-11-11; the style rows recounted on 2026-11-12 with the Flame, Opal and Hollow families (30 styles):
 
 ```
-styles                      244
-  by kind                   SHADER 181, CYMATICS 11, SILK 10, MYCELIUM 10, LIFE 10, ACID 10, FLUID 9, WATER 1, MILKDROP 1, CURL_FLOW 1
-style families              10 (120 styles, 12 each)
-free styles                 67 (shader 181 - family non-openers 110 - neon Pro 4)
-Pro-only styles             177
+styles                      274
+  by kind                   SHADER 211, CYMATICS 11, SILK 10, MYCELIUM 10, LIFE 10, ACID 10, FLUID 9, WATER 1, MILKDROP 1, CURL_FLOW 1
+style families              13 (150 styles: 10 x 12, 3 x 10)
+free styles                 70 (shader 211 - family non-openers 137 - neon Pro 4)
+Pro-only styles             204
 bundled looks (presets)     763 (12 generic x 61 loose shader styles + 31 hand-tuned)
 bundled MilkDrop presets    6
 Customize categories        9
@@ -27,9 +27,9 @@ How to read them, and what the listing says:
 
 | Number | Counted from | Command | In the listing as |
 |---|---|---|---|
-| 244 styles | `core/tests/catalogue.txt`, the native catalogue's text, pinned by `core/tests/catalogue_test.cpp` | `grep -c '^style\|' core/tests/catalogue.txt` | "244 visual styles". MilkDrop counts as one style, whatever presets are loaded |
-| 10 families of 12 | the same file's `family\|` rows | `grep -c '^family\|' core/tests/catalogue.txt` | "ten style families" |
-| 67 free styles | shader styles, minus each family's eleven non-openers, minus the four Pro neon styles (`pro/FreeTier.kt:20-45`) | the script's arithmetic | "more than 60 styles" free. Rounded down on purpose, so one style moving to Pro does not make the page false |
+| 274 styles | `core/tests/catalogue.txt`, the native catalogue's text, pinned by `core/tests/catalogue_test.cpp` | `grep -c '^style\|' core/tests/catalogue.txt` | "274 visual styles". MilkDrop counts as one style, whatever presets are loaded |
+| 13 families: ten of 12, three of 10 | the same file's `family\|` rows | `grep -c '^family\|' core/tests/catalogue.txt` | "thirteen style families" |
+| 70 free styles | shader styles, minus each family's non-openers (eleven or nine), minus the four Pro neon styles (`pro/FreeTier.kt:20-45`) | the script's arithmetic | "more than 60 styles" free. Rounded down on purpose, so one style moving to Pro does not make the page false |
 | 763 bundled looks | `core/viz/CataloguePresets.cpp`: 12 generic looks for each of the 61 loose shader styles, plus 31 hand-tuned; `core/tests/presets_test.cpp:73` asserts the same sum | the script | "more than 700 bundled looks" |
 | 6 MilkDrop presets | `app/src/main/assets/milk/` | `find app/src/main/assets/milk -name '*.milk' \| wc -l` | not quoted; the listing says "bring your own .milk files" |
 | 9 Customize categories | `ui/CustomizeCategory.kt` | the script | "nine groups" |

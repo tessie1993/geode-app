@@ -39,7 +39,7 @@ out vec4 fragColor;
 //
 // ---- macros -----------------------------------------------------------------
 //
-// Speed: uSpeed scales every clock (curtain sway, water lap, fireflies).
+// Speed scales every clock (curtain sway, water lap, fireflies).
 // Complexity: uMorph adds a fold level (arbLevels) and a fourth curtain ring.
 // Chaos: uTurbulence and uWarp shake the per-level twist and the strands'
 // sway into a wind-torn curtain; uTwist winds the canopy into a spiral.
@@ -116,10 +116,10 @@ void main() {
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float energy = uIntensity;
     float chaos = arbChaos();
-    float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
-    float mid = clamp(SND_MID_PRESENCE, 0.0, 1.5) * energy;
-    float kick = clamp(SND_KICK_ENV * energy, 0.0, 1.0);
-    float hat = clamp(SND_HAT_ENV * energy, 0.0, 1.0);
+    float swell = clamp((0.5 * (SND_BASS_PRESENCE * uSoundDrive + SND_MID_PRESENCE * uSoundDrive)), 0.0, 1.5);
+    float mid = clamp(SND_MID_PRESENCE * uSoundDrive, 0.0, 1.5) * energy;
+    float kick = clamp(SND_KICK_ENV * uSoundDrive * energy, 0.0, 1.0);
+    float hat = clamp(SND_HAT_ENV * uSoundDrive * energy, 0.0, 1.0);
 
     gTime = t;
     gGrow = arbLevels(7.0, 1.0);

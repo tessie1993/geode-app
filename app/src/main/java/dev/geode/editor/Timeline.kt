@@ -1,6 +1,5 @@
 package dev.geode.editor
 
-import dev.geode.export.ClipEdit
 import kotlin.math.abs
 
 /*
@@ -73,34 +72,28 @@ sealed interface ClipContent {
     val laneKind: LaneKind
 
     /**
-     * A generated visual. The three visual clip kinds of a Studio project are all this one type, so
-     * every lane, strip and render path that knows a scene clip keeps working when a new kind lands:
+     * A generated visual. The visual clip kinds of a Studio project are all this one type, so every
+     * lane, strip and render path that knows a scene clip keeps working when a new kind lands:
      *
      * - a **look**: [sceneId] with its [presetId] or [milkPath], animated by the keyframe sheet;
-     * - a **take**: [takeId] names a recorded performance in the project folder (`takes/<id>.json`).
-     *   Its events replace the look as the clip plays: the take's time is the clip's source time
-     *   ([Clip.sourceInMs] onwards), which is track time from where the recording started, so a take
-     *   that sits under its audio stays in step with the song. [sceneId] is the take's first style,
-     *   the fallback a renderer that cannot read takes draws;
      * - a **beat-cut sequence**: [beatCut] steps through its styles on the beat, starting at [sceneId].
      */
     data class Scene(
         val sceneId: String,
         val presetId: String? = null,
         val milkPath: String? = null,
-        val takeId: String? = null,
         val beatCut: BeatCut? = null,
     ) : ClipContent {
         override val laneKind: LaneKind = LaneKind.Visual
     }
 
     /**
-     * A video file. [edit] carries the existing export-side look (grade, speed, rotation, ratio);
-     * the in/out points live on the [Clip] instead, so trimming works the same on every lane.
+     * A video file. The in/out points live on the [Clip], so trimming works the same on every lane.
+     * Only a project saved by the dropped video editor (#227) holds one: nothing makes or renders it
+     * now, so the grade it once carried is not read back.
      */
     data class Video(
         val uri: String,
-        val edit: ClipEdit = ClipEdit(),
     ) : ClipContent {
         override val laneKind: LaneKind = LaneKind.Media
     }
@@ -156,8 +149,6 @@ data class Clip(
     val endMs: Long get() = startMs + durationMs
 
     val hasBoundedSource: Boolean get() = sourceDurationMs > 0L
-
-    fun overlaps(other: Clip): Boolean = startMs < other.endMs && other.startMs < endMs
 
     /** Move the tail to [newEndMs], never past the end of the available source material. */
     fun trimmedToEnd(newEndMs: Long): Clip? {

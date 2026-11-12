@@ -3,17 +3,20 @@ category|QUICK_KNOBS|ALWAYS
 category|LOOK|ALWAYS
 category|SHAPE|ALWAYS
 category|MOTION|ALWAYS
+category|DIVE|ALWAYS
 category|CAMERA|ALWAYS
 category|MUSIC|ALWAYS
 category|EFFECTS|ALWAYS
 category|LIQUID|ALWAYS
+category|ENGINE|ALWAYS
 category|EXPERT|ALWAYS
 section|QUICK_KNOBS|basics|BASICS|ALWAYS|@macros
+section|QUICK_KNOBS|knob_editor|PRO|ALWAYS|@macro_editor
 section|LOOK|basics|BASICS|ALWAYS|Palette,Brightness,Saturation,Bloom
-section|LOOK|colour_detail|PRO|ALWAYS|Palette 2,Palette blend,Colour map,Hue shift,Hue range,Temperature
+section|LOOK|palette_maker|PRO|ALWAYS|@palette_maker
+section|LOOK|colour_detail|PRO|ALWAYS|Palette blend,Palette 2,Colour map,Hue shift,Hue range,Temperature
 section|LOOK|colour_cycle|PRO|ALWAYS|Color cycle,Cycle speed
 section|LOOK|light_detail|PRO|ALWAYS|Contrast,Gamma,Intensity
-section|LOOK|palette_maker|PRO|ALWAYS|@palette_maker
 section|SHAPE|basics|BASICS|ALWAYS|Morph,Kaleidoscope,Detail
 section|SHAPE|form|PRO|ALWAYS|Domain warp,Twist,Ripple,Turbulence
 section|SHAPE|symmetry|PRO|ALWAYS|Mirror,Tile,Pixelate
@@ -22,8 +25,11 @@ section|SHAPE|journey|PRO|ALWAYS|Path,Spawn points,Progression,Catch points,Catc
 section|SHAPE|emitters|PRO|ALWAYS|Hit pattern,Hit splats,Stirrers,Stirrer speed,Fluid splat radius,Radius on hit,Fluid splat force,Bass pump,Treble sparkle,Fluid quality,Lower the quality when the phone struggles
 section|MOTION|basics|BASICS|ALWAYS|Speed,Zoom,Rotation
 section|MOTION|drift|PRO|ALWAYS|Sway,Drift X,Drift Y
-section|MOTION|endless_dive|PRO|ALWAYS|Endless zoom,Dive speed,Travel zoom
 section|MOTION|inner_motion|PRO|ALWAYS|Motion amount,Breath,Spin drift
+section|DIVE|basics|BASICS|ALWAYS|Endless zoom,Dive speed
+section|DIVE|tunnel|PRO|ALWAYS|Ring spacing,Tunnel shape,Dive blend,Depth fade
+section|DIVE|spiral_aim|PRO|ALWAYS|Dive twist,Dive aim X,Dive aim Y,Dive lens
+section|DIVE|travel|PRO|ALWAYS|Music follow,Travel zoom
 section|CAMERA|basics|BASICS|ALWAYS|Camera path,Fly speed
 section|CAMERA|framing|PRO|THREE_D|Field of view,Swing,Push in,Look turn,Look tilt,Roll
 section|CAMERA|feel|PRO|THREE_D|Handheld shake,Tilt phone to look,Drag to look,Camera smoothing
@@ -44,10 +50,10 @@ section|LIQUID|push_swirl|PRO|ALWAYS|Flow force,Flow curl
 section|LIQUID|surface|PRO|ALWAYS|Born inside,Colour age,Surface
 section|LIQUID|ripples|PRO|ALWAYS|Water ripples on,Ripple overlay strength,Ripple glint,Wave speed,Damping
 section|LIQUID|water|PRO|WATER|Ripple strength,Depth,Specular,Flow drift,Liquid,Liquid flow,Liquid fade
-section|EXPERT|fluid_flow|PRO|ENGINE|Solver iterations,Fluid curl,Motion fade,Fluid fade,Chromatic aging,Pressure,Curl from mids,Fade when quiet
-section|EXPERT|fluid_look|PRO|ENGINE|Shading (embossed ink),Glow (fluid),Fluid glow,Glow threshold,Glow from loudness,Sunrays,Sunrays weight,Palette cycle,Particle brightness,Particle layer,Ink layer
-section|EXPERT|plate|PRO|ENGINE|Geometry,Fundamental (Hz),Standing waves,Tonal focus,Plate ring,Field scale,Wave flow,Field swirl
-section|EXPERT|plate_look|PRO|ENGINE|Fill,Nodal lines,Nodal glow,Iridescence,Caustic sheen
-section|EXPERT|milkdrop|PRO|ENGINE|Blend preset changes,MilkDrop palette tint
+section|ENGINE|fluid_flow|PRO|ENGINE|Solver iterations,Fluid curl,Motion fade,Fluid fade,Chromatic aging,Pressure,Curl from mids,Fade when quiet
+section|ENGINE|fluid_look|PRO|ENGINE|Shading (embossed ink),Glow (fluid),Fluid glow,Glow threshold,Glow from loudness,Sunrays,Sunrays weight,Palette cycle,Particle brightness,Particle layer,Ink layer
+section|ENGINE|plate|PRO|ENGINE|Geometry,Fundamental (Hz),Standing waves,Tonal focus,Plate ring,Field scale,Wave flow,Field swirl
+section|ENGINE|plate_look|PRO|ENGINE|Fill,Nodal lines,Nodal glow,Iridescence,Caustic sheen
+section|ENGINE|milkdrop|PRO|ENGINE|Blend preset changes,MilkDrop palette tint
 section|EXPERT|layers|PRO|ALWAYS|@layers
 section|EXPERT|shader_code|PRO|SHADER_CODE|@shader_code

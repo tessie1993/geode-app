@@ -36,14 +36,15 @@ import dev.geode.R
 import dev.geode.data.BootAnimationStore
 import dev.geode.data.CornerStyle
 import dev.geode.data.FontColorChoice
-import dev.geode.data.GeodePrefsFiles
 import dev.geode.data.GuiPrefs
+import dev.geode.geodeContainer
+import dev.geode.model.KnobSize
+import dev.geode.model.TabLabels
 import dev.geode.ui.theme.isReadableOnCanvas
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlin.math.roundToInt
 
-/** Settings › Look › Basics: the accent and the interface sounds. */
+/** Settings › Look › Basics: the accent, interface sounds and vibration. */
 @Composable
 internal fun LookBasics(viewModel: SettingsViewModel) {
     val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
@@ -57,7 +58,7 @@ internal fun LookTextSection(viewModel: SettingsViewModel) {
     TextGroup(viewModel, gui)
 }
 
-/** Settings › Look › Layout: the glass, the player's place, corners, the boot animation. */
+/** Settings › Look › Layout: corners, tab bar labels, the Player's time, screen rotation, Quick knobs' size and the boot animation. */
 @Composable
 internal fun LookLayoutSection(viewModel: SettingsViewModel) {
     val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
@@ -70,14 +71,17 @@ private fun ThemeGroup(
     gui: GuiPrefs,
 ) {
     Column {
-        Text(
-            stringResource(R.string.look_accent_intensity, (gui.accentIntensity * 100).toInt()),
-            style = MaterialTheme.typography.labelMedium,
-        )
         CrystalSlider(
+            label = stringResource(R.string.look_accent_intensity, (gui.accentIntensity * 100).toInt()),
             value = gui.accentIntensity,
             onValueChange = { viewModel.setGuiPrefs(gui.copy(accentIntensity = it)) },
             valueRange = 0.5f..1.5f,
+        )
+        SettingsSwitchRow(
+            title = stringResource(R.string.look_accent_follows_visual),
+            summary = stringResource(R.string.look_accent_follows_visual_hint),
+            checked = gui.accentFollowsVisual,
+            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(accentFollowsVisual = it)) },
         )
     }
     Column {
@@ -91,6 +95,12 @@ private fun ThemeGroup(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        SettingsSwitchRow(
+            title = stringResource(R.string.look_haptics),
+            summary = stringResource(R.string.look_haptics_hint),
+            checked = gui.haptics,
+            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(haptics = it)) },
+        )
     }
 }
 
@@ -101,11 +111,8 @@ private fun TextGroup(
 ) {
     FontColorRow(viewModel, gui)
     Column {
-        Text(
-            stringResource(R.string.look_text_size, (gui.textScale * 100).toInt()),
-            style = MaterialTheme.typography.labelMedium,
-        )
         CrystalSlider(
+            label = stringResource(R.string.look_text_size, (gui.textScale * 100).toInt()),
             value = gui.textScale,
             onValueChange = { viewModel.setGuiPrefs(gui.copy(textScale = it)) },
             valueRange = GuiPrefs.TEXT_SCALE_MIN..GuiPrefs.TEXT_SCALE_MAX,
@@ -133,7 +140,7 @@ private fun FontColorRow(
                 FontColorSwatch(
                     choice = choice,
                     selected = gui.fontColorArgb == choice.argb,
-                    onSelect = { viewModel.setGuiPrefs(gui.copy(fontColorArgb = choice.argb, whiteFont = false)) },
+                    onSelect = { viewModel.setGuiPrefs(gui.copy(fontColorArgb = choice.argb)) },
                 )
             }
         }
@@ -198,18 +205,6 @@ private fun LayoutGroup(
     viewModel: SettingsViewModel,
     gui: GuiPrefs,
 ) {
-    // The glass's own clamp, shared with Visuals' quick settings (#559): the old 0.2..1 range had a
-    // dead bottom (floatingGlass draws no less than 35 %) and named fills that were never drawn. The
-    // label shows the clamped value, rounded as quick settings rounds it, so both read the same %.
-    val drawnOpacity = gui.barOpacity.coerceIn(SHEET_OPACITY_RANGE)
-    Column {
-        Text(stringResource(R.string.look_bar_opacity, (drawnOpacity * 100).roundToInt()), style = MaterialTheme.typography.labelMedium)
-        CrystalSlider(
-            value = drawnOpacity,
-            onValueChange = { viewModel.setGuiPrefs(gui.copy(barOpacity = it)) },
-            valueRange = SHEET_OPACITY_RANGE,
-        )
-    }
     Column {
         Text(stringResource(R.string.look_corner_style), style = MaterialTheme.typography.labelMedium)
         CrystalSegmented(
@@ -219,13 +214,49 @@ private fun LayoutGroup(
             modifier = Modifier.padding(top = 4.dp),
         )
     }
+    SettingsChoiceRow(
+        title = stringResource(R.string.look_tab_labels),
+        options = TabLabels.entries,
+        selected = gui.tabLabels,
+        label = { stringResource(it.labelRes()) },
+        onSelect = { viewModel.setGuiPrefs(gui.copy(tabLabels = it)) },
+    )
+    SettingsSwitchRow(
+        title = stringResource(R.string.look_show_time_left),
+        summary = stringResource(R.string.look_show_time_left_hint),
+        checked = gui.showTimeLeft,
+        onCheckedChange = { viewModel.setGuiPrefs(gui.copy(showTimeLeft = it)) },
+    )
+    ScreenRotationRow(gui, viewModel::setGuiPrefs)
+    SettingsChoiceRow(
+        title = stringResource(R.string.look_knob_size),
+        options = KnobSize.entries,
+        selected = gui.knobSize,
+        label = { stringResource(it.labelRes()) },
+        onSelect = { viewModel.setGuiPrefs(gui.copy(knobSize = it)) },
+    )
     BootAnimationRow()
 }
+
+private fun KnobSize.labelRes(): Int =
+    when (this) {
+        KnobSize.SMALL -> R.string.look_knob_size_small
+        KnobSize.MEDIUM -> R.string.look_knob_size_medium
+        KnobSize.LARGE -> R.string.look_knob_size_large
+    }
+
+private fun TabLabels.labelRes(): Int =
+    when (this) {
+        TabLabels.AUTO -> R.string.look_tab_labels_auto
+        TabLabels.ALWAYS -> R.string.look_tab_labels_always
+        TabLabels.SELECTED -> R.string.look_tab_labels_selected
+        TabLabels.NEVER -> R.string.look_tab_labels_never
+    }
 
 @Composable
 private fun BootAnimationRow() {
     val ctx = LocalContext.current
-    val store = remember { BootAnimationStore(GeodePrefsFiles(ctx).general) }
+    val store = remember { BootAnimationStore(ctx.geodeContainer.prefsFiles.general) }
     // Read on IO: opening a prefs file is disk I/O, and this runs in composition. The switch
     // stays disabled for the moment that takes. save() uses apply(), which is already async.
     var bootAnim by remember { mutableStateOf<Boolean?>(null) }

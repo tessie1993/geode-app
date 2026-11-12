@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Customize › Quick knobs › Edit knobs (ui/MacroEditor.kt): the macro bank's knob editor. -->
+    <string name="macro_editor_title">Edit knobs</string>
+    <plurals name="macro_knob_moves">
+        <item quantity="one">Moves %1$d parameter</item>
+        <item quantity="other">Moves %1$d parameters</item>
+    </plurals>
+    <string name="macro_knob_moves_none">Moves nothing yet</string>
+    <string name="macro_knob_open">Edit %1$s</string>
+    <string name="macro_knob_close">Close %1$s</string>
+    <string name="macro_move_earlier">Move earlier</string>
+    <string name="macro_move_later">Move later</string>
+    <string name="macro_duplicate">Duplicate</string>
+    <string name="macro_reset_knob">Reset to original</string>
+    <string name="macro_delete">Delete</string>
+    <string name="macro_name">Name</string>
+    <string name="macro_name_empty">Give it a name</string>
+    <string name="macro_turn">Turn</string>
+    <string name="macro_turn_a11y">Turn %1$s</string>
+    <string name="macro_moves">What it moves</string>
+    <string name="macro_link_up">Turned up</string>
+    <string name="macro_link_down">Turned down</string>
+    <string name="macro_link_a11y">%1$s, %2$s</string>
+    <string name="macro_link_remove">Stop moving %1$s</string>
+    <string name="macro_link_unreached">Not on this style</string>
+    <string name="macro_add_link">Add a parameter</string>
+    <string name="macro_links_full">A knob moves up to %1$d parameters.</string>
+    <string name="macro_pick_title">What should %1$s move?</string>
+    <string name="macro_pick_other">Other</string>
+    <string name="macro_pick_none">This knob already moves every parameter.</string>
+    <string name="macro_pick_close">Close</string>
+    <string name="macro_new_knob">New macro</string>
+    <string name="macro_new_title">New macro</string>
+    <string name="macro_empty_hint">Add parameters one by one, or press Random for a surprise.</string>
+    <string name="macro_random">Random</string>
+    <string name="macro_save_as">Save macro as</string>
+    <string name="macro_save">Save</string>
+    <string name="macro_discard">Discard</string>
+    <string name="macro_discard_title">Discard this macro?</string>
+    <string name="macro_discard_text">It is not saved yet, so it goes away.</string>
+    <string name="macro_done">Done</string>
+    <string name="macro_curve_a11y">How %1$s follows the knob</string>
+    <string name="macro_curve_linear">Linear</string>
+    <string name="macro_curve_ease_in">Ease in</string>
+    <string name="macro_curve_ease_out">Ease out</string>
+    <string name="macro_curve_s">S-curve</string>
+    <string name="macro_edit_knob">Edit knob</string>
+    <string name="macro_add_to_knob">Add to knob</string>
+    <string name="macro_add_to_knob_title">Which knob moves %1$s?</string>
+    <string name="macro_moved_by">Moved by %1$s</string>
+    <string name="macro_knob_moves_it">Moves it now; tap to stop</string>
+    <string name="macro_bank_full">You have %1$d knobs on screen, the most there can be.</string>
+    <string name="macro_add_macro">Add macro</string>
+    <string name="macro_remove_from_screen">Remove from screen</string>
+    <string name="macro_randomize_turns">Randomize the knobs</string>
+    <string name="macro_reset_all">Reset all knobs</string>
+    <string name="macro_reset_all_title">Reset all knobs?</string>
+    <string name="macro_reset_all_text">Your own knobs are deleted and the four original knobs go back to how they came.</string>
+    <string name="macro_reset_confirm">Reset</string>
+    <string name="macro_delete_title">Delete %1$s?</string>
+    <string name="macro_delete_text">The knob is gone for good. Your looks and presets stay as they are.</string>
+    <string name="macro_reset_knob_title">Reset %1$s?</string>
+    <string name="macro_reset_knob_text">Its name and what it moves go back to how they came.</string>
+</resources>

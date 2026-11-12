@@ -1,7 +1,9 @@
 package dev.geode.ui
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -22,11 +24,20 @@ import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.WindowInsetsRulers
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalView
@@ -36,6 +47,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.geode.R
 import dev.geode.data.BehaviourPrefs
@@ -43,15 +55,11 @@ import dev.geode.data.CanvasGesture
 import dev.geode.data.GestureAction
 import dev.geode.model.GestureTip
 import dev.geode.model.TourSpot
-import dev.geode.pro.PaywallTrigger
 import dev.geode.pro.ProFeature
 import dev.geode.render.VisualizerView
-import dev.geode.render.scene.SceneCapabilities
+import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.SceneIds
-import dev.geode.render.scene.StyleFamilies
-import dev.geode.render.scene.VisualStyleCatalog
 import dev.geode.ui.cast.CastButton
-import dev.geode.ui.pro.PaywallViewModel
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.LocalGeodeMotion
@@ -65,12 +73,15 @@ import kotlin.math.roundToInt
 
 /**
  * The stage: the live visual, full screen, and the gestures on it ([visualGestures],
- * ui/VisualGestures.kt), each doing what Settings › Behaviour's gesture map gives it
+ * ui/VisualGestures.kt), each doing what Settings › Gestures & controls' map gives it
  * ([BehaviourPrefs.actionFor]). A swipe that starts in the system's gesture strips is left to
  * Android (back, home, the shade), and TalkBack gets every gesture as a custom action.
  *
  * [tapSplitPx] is where a tap stops counting as the top of the visual (quick settings) and starts
- * counting as the bottom (the mini player): the middle of what the options leave in view.
+ * counting as the bottom (the mini player): the middle of what the options leave in view. [onPinch]
+ * is Settings › Gestures & controls › Touch's pinch and twist (null while it is off).
+ *
+ * [remote] is given on a TV only ([stageRemote]): the stage then takes focus and the remote's keys.
  */
 @Composable
 internal fun BoxScope.VisualsStage(
@@ -79,6 +90,9 @@ internal fun BoxScope.VisualsStage(
     actions: VisualActions,
     recording: Boolean,
     tapSplitPx: () -> Float,
+    onTapDown: (Long) -> Unit,
+    onPinch: ((zoomFactor: Float, degrees: Float) -> Unit)?,
+    remote: StageRemote? = null,
 ) {
     // The visual itself is not drawn here: the shell hosts the one VisualizerView beneath every
     // screen (VisualizerCanvasHost) and shows it through this transparent stage.
@@ -93,8 +107,10 @@ internal fun BoxScope.VisualsStage(
                 holdArmed = !(recording && behaviour.actionFor(CanvasGesture.LONG_PRESS) == GestureAction.RECORD),
                 onGesture = { gesture, step -> actions.run(behaviour.actionFor(gesture), step) },
                 onTouchPoints = visualizerView.visualizerRenderer::submitTouchPoints,
+                onPinch = onPinch,
                 a11yActions = rememberVisualA11yActions(behaviour::actionFor, actions, recording),
-            ),
+                onTapDown = onTapDown,
+            ).then(if (remote != null) Modifier.stageRemote(remote, behaviour, actions) else Modifier),
     )
     HoldRing(ring)
 }
@@ -114,13 +130,20 @@ internal fun BoxScope.VisualsStage(
  * They fade with the shell's chrome through the layer's alpha, never AnimatedVisibility: the Cast
  * button feeds the cast mirror while Visuals is up, so it has to stay composed (CAST decision). A
  * faded icon takes no touches and no TalkBack focus, so a tap where it was reaches the visual.
- * Record stays while a take is being recorded, red, as its stop, wherever the options leave it room.
+ * Record stays while recording, red, as its stop, wherever the options leave it room.
+ *
+ * [showArrows] and [showRecord] are Settings › Preferences' (both on by default): off, the icon is
+ * not composed at all, so the tour passes over its step and a tap there reaches the visual. The
+ * gestures they twin (the sideways swipe, the hold) are the gesture map's and stay. A running take
+ * keeps its stop either way.
  */
 @Composable
 internal fun BoxScope.StageIcons(
     chrome: ShellChromeState,
     sheetShown: Boolean,
     room: StageIconRoom,
+    showArrows: Boolean,
+    showRecord: Boolean,
     sheetTopPx: () -> Float,
     endPx: () -> Float,
     onFullScreen: () -> Unit,
@@ -129,14 +152,14 @@ internal fun BoxScope.StageIcons(
     onStep: (Int) -> Unit,
 ) {
     val studioViewModel: StudioViewModel = geodeViewModel()
-    val takes by studioViewModel.takeState.collectAsStateWithLifecycle()
+    val record by studioViewModel.recordState.collectAsStateWithLifecycle()
     val nudge = LocalTourNudge.current
     val glass = Modifier.floatingGlass(RoundedCornerShape(50), fillAlpha = GeodeGlass.MATTE_FILL)
     val fade = LocalGeodeMotion.current.defaultEffectsSpec<Float>()
     val awake = chrome.awake
     val rowOn = awake && room.topRow
     val arrowsOn = awake && room.arrows
-    val recordOn = (awake || takes.recording) && room.record
+    val recordOn = (awake || record.recording) && room.record
     val shown = animateFloatAsState(if (rowOn) 1f else 0f, fade, label = "stage-icons")
     val arrowsShown = animateFloatAsState(if (arrowsOn) 1f else 0f, fade, label = "stage-arrows")
     val recordShown = animateFloatAsState(if (recordOn) 1f else 0f, fade, label = "stage-record")
@@ -177,7 +200,7 @@ internal fun BoxScope.StageIcons(
         }
         // Visuals › Settings, a page of the options (owner: an icon, no drop-down, no gesture).
         StageIconButton(StoneIcon.SETTINGS, stringResource(R.string.visuals_qs_title), rowOn, onSettings)
-        // Export, loop render and the takes list live in Studio; this only takes you there.
+        // Export, loop render and the recordings live in Studio; this only takes you there.
         StageIconButton(StoneIcon.STUDIO, stringResource(R.string.visuals_open_render), rowOn, onOpenStudioRender)
         StageIconButton(
             StoneIcon.FULLSCREEN,
@@ -197,83 +220,140 @@ internal fun BoxScope.StageIcons(
     // landscape panel open › sits mid-window, and in the expanded shell ‹ sits beside the rail, so a
     // fixed `windowInsetsPadding(safeGestures)` would push them in for nothing (and, being made of
     // insets the shell's `safeDrawingPadding` did not consume, by the wrong amount). The
-    // `WindowInsetsRulers.SafeGestures` rulers give each strip's inner edge in this layout's own
+    // `WindowInsetsRulers.SafeContent` rulers give each strip's inner edge in this layout's own
     // coordinates (Compose reference, `WindowInsetsRulers`; the edge-to-edge skill's rulers route),
-    // so the visible area is cut only by the part of a strip that overlaps it. Rulers are read in
+    // so the visible area is cut only by the part of a strip that overlaps it. SafeContent, not
+    // SafeGestures: in landscape the camera cutout sits mid-way down a side edge, exactly where an
+    // arrow centres, and with three-button navigation no gesture strip covers it. Rulers are read in
     // the placement block, which is why the child is measured there (the reference's own sample).
-    Box(
-        Modifier
-            .matchParentSize()
-            .layout { measurable, constraints ->
-                layout(constraints.maxWidth, constraints.maxHeight) {
-                    val strips = WindowInsetsRulers.SafeGestures.current
-                    val end = endPx().roundToInt()
-                    val ltr = layoutDirection == LayoutDirection.Ltr
-                    // The visible part of the stage, in physical px: the panel is on the end side.
-                    val visibleLeft = if (ltr) 0 else end
-                    val visibleRight = constraints.maxWidth - if (ltr) end else 0
-                    val left = (strips.left.current(0f).roundToInt() - visibleLeft).coerceAtLeast(0)
-                    val right = (visibleRight - strips.right.current(constraints.maxWidth.toFloat()).roundToInt()).coerceAtLeast(0)
-                    val width = (visibleRight - visibleLeft - left - right).coerceAtLeast(0)
-                    val height = (constraints.maxHeight - sheetTopPx().roundToInt()).coerceAtLeast(0)
-                    measurable.measure(Constraints.fixed(width, height)).place(visibleLeft + left, 0)
+    if (showArrows) {
+        Box(
+            Modifier
+                .matchParentSize()
+                .layout { measurable, constraints ->
+                    layout(constraints.maxWidth, constraints.maxHeight) {
+                        val strips = WindowInsetsRulers.SafeContent.current
+                        val end = endPx().roundToInt()
+                        val ltr = layoutDirection == LayoutDirection.Ltr
+                        // The visible part of the stage, in physical px: the panel is on the end side.
+                        val visibleLeft = if (ltr) 0 else end
+                        val visibleRight = constraints.maxWidth - if (ltr) end else 0
+                        val left = (strips.left.current(0f).roundToInt() - visibleLeft).coerceAtLeast(0)
+                        val right = (visibleRight - strips.right.current(constraints.maxWidth.toFloat()).roundToInt()).coerceAtLeast(0)
+                        val width = (visibleRight - visibleLeft - left - right).coerceAtLeast(0)
+                        val height = (constraints.maxHeight - sheetTopPx().roundToInt()).coerceAtLeast(0)
+                        measurable.measure(Constraints.fixed(width, height)).place(visibleLeft + left, 0)
+                    }
+                },
+        ) {
+            StageIconButton(
+                StoneIcon.CHEVRON_LEFT,
+                stringResource(R.string.visuals_previous_style),
+                arrowsOn,
+                {
+                    nudge(GestureTip.SWIPE_STYLES)
+                    onStep(-1)
+                },
+                Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(GeodeSpacing.S)
+                    .faded(arrowsShown)
+                    .then(glass),
+            )
+            StageIconButton(
+                StoneIcon.CHEVRON_RIGHT,
+                stringResource(R.string.visuals_next_style),
+                arrowsOn,
+                {
+                    nudge(GestureTip.SWIPE_STYLES)
+                    onStep(1)
+                },
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(GeodeSpacing.S)
+                    .tourTarget(TourSpot.STAGE_ARROWS)
+                    .faded(arrowsShown)
+                    .then(glass),
+            )
+        }
+    }
+    if (showRecord || record.recording) {
+        StageIconButton(
+            icon = if (record.recording) StoneIcon.STOP else StoneIcon.RECORD,
+            description = stringResource(if (record.recording) R.string.visuals_stop_record else R.string.visuals_gesture_record),
+            enabled = recordOn,
+            onClick = {
+                if (record.recording) {
+                    studioViewModel.stopRecording()
+                } else {
+                    nudge(GestureTip.HOLD_TO_RECORD)
+                    studioViewModel.startRecording()
                 }
             },
-    ) {
-        StageIconButton(
-            StoneIcon.CHEVRON_LEFT,
-            stringResource(R.string.visuals_previous_style),
-            arrowsOn,
-            {
-                nudge(GestureTip.SWIPE_STYLES)
-                onStep(-1)
-            },
-            Modifier
-                .align(Alignment.CenterStart)
-                .padding(GeodeSpacing.S)
-                .faded(arrowsShown)
-                .then(glass),
-        )
-        StageIconButton(
-            StoneIcon.CHEVRON_RIGHT,
-            stringResource(R.string.visuals_next_style),
-            arrowsOn,
-            {
-                nudge(GestureTip.SWIPE_STYLES)
-                onStep(1)
-            },
-            Modifier
-                .align(Alignment.CenterEnd)
-                .padding(GeodeSpacing.S)
-                .tourTarget(TourSpot.STAGE_ARROWS)
-                .faded(arrowsShown)
-                .then(glass),
+            modifier =
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset { IntOffset(-endPx().roundToInt(), -sheetTopPx().roundToInt()) }
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.End))
+                    .padding(GeodeSpacing.EdgeInset)
+                    .tourTarget(TourSpot.STAGE_RECORD)
+                    .faded(recordShown)
+                    .then(glass),
+            tint = if (record.recording) MaterialTheme.colorScheme.error else Color.Unspecified,
         )
     }
-    StageIconButton(
-        icon = if (takes.recording) StoneIcon.STOP else StoneIcon.RECORD,
-        description = stringResource(if (takes.recording) R.string.visuals_stop_take else R.string.visuals_gesture_record),
-        enabled = recordOn,
-        onClick = {
-            if (takes.recording) {
-                studioViewModel.stopRecording()
-            } else {
-                nudge(GestureTip.HOLD_TO_RECORD)
-                studioViewModel.startRecording()
-            }
-        },
-        modifier =
-            Modifier
-                .align(Alignment.BottomEnd)
-                .offset { IntOffset(-endPx().roundToInt(), -sheetTopPx().roundToInt()) }
-                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.End))
-                .padding(GeodeSpacing.EdgeInset)
-                .tourTarget(TourSpot.STAGE_RECORD)
-                .faded(recordShown)
-                .then(glass),
-        tint = if (takes.recording) MaterialTheme.colorScheme.error else Color.Unspecified,
-    )
 }
+
+/**
+ * What the stage needs to take a TV remote: [stage] is its own focus, [options] the options'
+ * (a focus group the remote enters), [optionsShown] whether they are up and [side] whether they
+ * are the landscape panel at the end side rather than the sheet below.
+ */
+internal class StageRemote(
+    val stage: FocusRequester,
+    val options: FocusRequester,
+    val optionsShown: Boolean,
+    val side: Boolean,
+)
+
+/**
+ * The stage as a focus target on a TV: the keys of [stageKeyGesture] run their gesture's action
+ * from the map, first press only (a held key does not race through every style). The stage covers
+ * the window, so spatial search can never find the options lying over it: while they are up the
+ * arrow toward them (the end side for the panel, down for the sheet) is set to enter them, and
+ * left still finds the rail beside the stage. Focused under the options it draws the accent's
+ * hairline round the visual, so the remote's place is never invisible; full screen draws nothing.
+ */
+@Composable
+private fun Modifier.stageRemote(
+    remote: StageRemote,
+    behaviour: BehaviourPrefs,
+    actions: VisualActions,
+): Modifier {
+    var focused by remember { mutableStateOf(false) }
+    val ring = MaterialTheme.colorScheme.primary
+    return focusRequester(remote.stage)
+        .focusProperties {
+            if (remote.optionsShown) {
+                if (remote.side) end = remote.options else down = remote.options
+            }
+        }.onFocusChanged { focused = it.isFocused }
+        .onKeyEvent { event ->
+            val key = event.nativeKeyEvent
+            val gesture = stageKeyGesture(key.keyCode, remote.optionsShown)
+            when {
+                gesture == null -> false
+                event.type != KeyEventType.KeyDown -> true
+                else -> {
+                    if (key.repeatCount == 0) actions.run(behaviour.actionFor(gesture.first), gesture.second)
+                    true
+                }
+            }
+        }.focusable()
+        .then(if (focused && remote.optionsShown) Modifier.border(STAGE_FOCUS_RING, ring) else Modifier)
+}
+
+private val STAGE_FOCUS_RING = 2.dp
 
 /** Which of the stage's icons the options leave room for: the top row, ‹ ›, and Record. */
 internal data class StageIconRoom(
@@ -368,8 +448,10 @@ private fun StageIconButton(
 
 /**
  * What the visual's gestures can do here, for the gesture map to choose from ([VisualActions]).
- * Randomize everything is Customize's roll with no page given (`randomizeParams()`, the native
- * randomizer), which is Pro there; a free user meets the same paywall Customize's roll shows.
+ * Randomize everything is a new style, a preset for it and every Customize category rolled
+ * (`randomizeEverything`, native core/viz/RandomizeAll). Everyone gets the style and preset among
+ * what they may keep; without Pro the roll follows Customize's dice (native's `#PRO` lock): the free
+ * Basics roll, the rest stays as the preset made it, and no paywall interrupts the gesture.
  */
 @Composable
 internal fun rememberStageActions(
@@ -383,7 +465,6 @@ internal fun rememberStageActions(
     onRecord: () -> Unit,
 ): VisualActions {
     val visualsViewModel: VisualsViewModel = geodeViewModel()
-    val paywall: PaywallViewModel = geodeViewModel()
     val touchPulse = rememberTouchPulse(visualizerView.visualizerRenderer::submitTouchPoints)
     val gate = { viewModel.gate.value }
     return VisualActions(
@@ -396,13 +477,7 @@ internal fun rememberStageActions(
         stepPlaylist = { step -> if (!viewModel.stepVizPlaylist(step)) stepStyle(step) },
         macros = onMacros,
         record = onRecord,
-        randomizeAll = {
-            if (gate().allows(ProFeature.ADVANCED_CUSTOMIZATION)) {
-                visualsViewModel.randomizeParams()
-            } else {
-                paywall.open(PaywallTrigger.Feature(ProFeature.ADVANCED_CUSTOMIZATION))
-            }
-        },
+        randomizeAll = { visualsViewModel.randomizeEverything(basicsOnly = !gate().allows(ProFeature.ADVANCED_CUSTOMIZATION)) },
         touchPulse = touchPulse,
         playPause = viewModel::togglePlayPause,
     )
@@ -412,16 +487,11 @@ internal fun rememberStageActions(
 internal val STEP_ACTIONS = setOf(GestureAction.STEP_STYLE, GestureAction.STEP_PRESET, GestureAction.STEP_PLAYLIST)
 
 /**
- * Every style the stage swipes through, in the order the Styles page lists them. MilkDrop is left
- * out: its presets are a library of their own, picked from the MilkDrop page.
+ * Every style the stage swipes through, in the order the Styles page lists them (the native
+ * picker's families one after another). MilkDrop is left out: its presets are a library of their
+ * own, picked from the MilkDrop page.
  */
-internal fun stageStyleOrder(): List<String> =
-    (
-        StyleFamilies.ids +
-            VisualStyleCatalog.silkIds + VisualStyleCatalog.lifeIds + VisualStyleCatalog.mycoIds + VisualStyleCatalog.acidIds +
-            SceneCapabilities.SHADER_SCENES.keys.filterNot { it in StyleFamilies.ids } +
-            VisualStyleCatalog.fluidIds + listOf(SceneIds.CURLFLOW, SceneIds.WATER) + VisualStyleCatalog.cymaticsIds
-    ).distinct()
+internal fun stageStyleOrder(): List<String> = Catalogue.picker.values.flatten() - SceneIds.MILKDROP
 
 /**
  * The style [step] places (+1 next, -1 previous) from [current] in [order], wrapping at the ends

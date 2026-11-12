@@ -198,7 +198,8 @@ private fun judge(
             GestureAction.STEP_PLAYLIST -> after.sceneId != before.sceneId || after.paramsHash != before.paramsHash
             GestureAction.MACROS -> after.macros && !before.macros
             GestureAction.RECORD -> after.recording || after.recordSaveAsked || paywalled
-            GestureAction.RANDOMIZE_ALL -> after.paramsHash != before.paramsHash || paywalled
+            // A new style for everyone (the roll is Pro, the style and preset are not), so no paywall.
+            GestureAction.RANDOMIZE_ALL -> after.sceneId != before.sceneId
             GestureAction.TOUCH_PLAY -> null
             GestureAction.PLAY_PAUSE -> null
         }
@@ -216,18 +217,19 @@ private fun point(p: PointF) =
         .put("y", p.y.toDouble())
 
 /**
- * Back to the visual alone: overlays closed with back (as a user would), a running take
+ * Back to the visual alone: overlays closed with back (as a user would), a running recording
  * stopped, the sheet hidden with its ×, and the chrome left to fall asleep, so a tap on the
  * bottom is judged on waking it rather than on a chrome that was already awake.
  */
 fun UiTour.stageBaseline() {
+    // Stop first: the first stop opens the save sheet, which the loop below closes.
+    if (state().recording) runCatching { tap(UiTour.STOP_RECORDING) }
     for (i in 0 until MAX_DISMISSALS) {
         val s = state()
         if (!(s.quickSettings || s.macros || s.paywall || s.recordSaveAsked)) break
         back()
     }
     if (!has(hasContentDescription(LIVE_VISUAL))) runCatching { tap(VISUALS) }
-    if (state().recording) runCatching { tap(UiTour.STOP_TAKE) }
     hideSheet()
     val deadline = SystemClock.uptimeMillis() + CHROME_SLEEP_MS
     while (has(hasContentDescription(UiTour.FULLSCREEN) and hasClickAction()) && SystemClock.uptimeMillis() < deadline) {

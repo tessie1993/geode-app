@@ -11,7 +11,9 @@
 #include "viz/CompositeGrade.hpp"
 #include "viz/LiveSignal.hpp"
 #include "viz/MilkProgress.hpp"
+#include "viz/MilkShaderNote.hpp"
 #include "viz/Quad.hpp"
+#include "viz/TransitionChoice.hpp"
 
 namespace geode::viz {
 
@@ -155,7 +157,7 @@ void MilkdropScene::ensureEngine(double now) {
         textureDirs_.clear();
         pcmStarve_ = PcmStarve{};
         projectm_set_mesh_size(engine_.get(), 48, 32);
-        projectm_set_soft_cut_duration(engine_.get(), 3.0);
+        projectm_set_soft_cut_duration(engine_.get(), transition_choice::kManualSeconds);
         // The duration only feeds the preset's `progress` (loadPendingPreset sets it per load); with no
         // easter egg projectM takes it as given instead of drawing around it.
         projectm_set_preset_duration(engine_.get(), milk::kHeldSeconds);
@@ -264,11 +266,16 @@ void MilkdropScene::loadPendingPreset(double now) {
     } else {
         // Before the load: projectM reads the duration once, when the preset starts.
         projectm_set_preset_duration(engine_.get(), milk::progressSeconds(auto_timer::liveHoldSeconds(), offscreen));
+        // MilkDrop's two blend times: Auto's change fades longer than one by hand. projectM draws the blend
+        // itself, at random per change, as MilkDrop does.
+        const bool automatic = !offscreen && transition_choice::takeAuto(path, seenAutoMark_);
+        projectm_set_soft_cut_duration(engine_.get(), automatic ? transition_choice::kAutoSeconds : transition_choice::kManualSeconds);
         projectm_load_preset_file(engine_.get(), path.c_str(), engineHasPreset_ && params_.milkdropBlendPresets);
         projectm_set_preset_locked(engine_.get(), true);
     }
     const auto error = takeError();
-    host_.onShaderError(error.value_or(""));
+    // A shader that failed was swapped for the default and the preset loaded: a note, not an error.
+    host_.onShaderError(error ? *error : milk::droppedShaderNote(path, projectm_get_dropped_shaders(engine_.get())));
     if (error && !engineHasPreset_) {
         // projectM keeps the preset it had when a load fails, and a new engine's is the idle one.
         // The last preset that did load goes back on instead, on the next frame.
@@ -290,7 +297,7 @@ void MilkdropScene::loadPendingPreset(double now) {
             std::lock_guard<std::mutex> lock(errorLock_);
             lastLoggedError_.clear();
         }
-        if (host_.onMilkPresetLoaded) host_.onMilkPresetLoaded(path);
+        shown_.loaded(path);
     }
 }
 
@@ -318,7 +325,9 @@ void MilkdropScene::draw(float timeSeconds) {
     // The engine composites its frame straight into the scene's FBO. The window surface is never
     // read or written here, so the result does not depend on the EGL config the host chose.
     projectm_opengl_render_frame_fbo(engine_.get(), frame_.fbo());
-    if (const auto error = takeError()) host_.onShaderError(*error);
+    const auto drawError = takeError();
+    if (drawError) host_.onShaderError(*drawError);
+    if (const std::string shown = shown_.drew(!drawError); !shown.empty() && host_.onMilkPresetLoaded) host_.onMilkPresetLoaded(shown);
     diagnoseBlackFrame();
     drainEngineErrors();
 

@@ -49,6 +49,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -73,7 +74,9 @@ import dev.geode.data.AutoDirectorStore
 import dev.geode.data.AutoVisualsPrefsStore
 import dev.geode.data.GuiPrefs
 import dev.geode.data.VizUiState
+import dev.geode.model.ScreenRotation
 import dev.geode.render.scene.MilkdropEngine
+import dev.geode.ui.cast.ComputerLinkRow
 import dev.geode.ui.theme.GeodeGlass
 import dev.geode.ui.theme.GeodeSpacing
 import dev.geode.ui.theme.StoneIcon
@@ -86,7 +89,8 @@ import kotlin.math.roundToInt
  * a page, not a drop-down over the visual, and no gesture for it). It holds the settings a listener
  * reaches for while watching, split from Customize by kind: what changes the look by itself (Auto,
  * the style timer and what it steps through, the visual playlist) and how the glass over the visual
- * behaves (the sheet's opacity, how long the mini player stays).
+ * behaves (the sheet's opacity, how long the mini player stays), and "Show on a computer" (the Cast stream to a
+ * browser, `ui/cast/ComputerLinkRow`), since the ⚙ sits beside the Cast icon.
  *
  * It owns no state of its own. Every row reads and writes the store the matching Settings row uses,
  * so the two can never disagree: Auto is [AutoDirectorStore], the timer, its sources and the
@@ -237,11 +241,64 @@ private fun QuickSettingsRows(
     onOpenPlaylist: (() -> Unit)?,
     twoColumns: Boolean,
 ) {
+    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    val timer = rememberTimerSource(viz)
+    val left: @Composable () -> Unit = {
+        AutoDirectorRows()
+        TimerRows(viewModel, viz, timer)
+        RotationRow(gui, onGuiChange)
+    }
+    val right: @Composable () -> Unit = {
+        ConnectedDisplayRows()
+        TimerPoolRow(viewModel, viz, timer.source, onOpenPlaylist)
+        GlassRows(gui, onGuiChange)
+        // Beside the Cast icon's ⚙: the stream to a browser, for a computer without a Chromecast.
+        ComputerLinkRow()
+    }
+    if (twoColumns) {
+        Row(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.L)) {
+            Column(Modifier.weight(1f)) { left() }
+            Column(Modifier.weight(1f)) { right() }
+        }
+    } else {
+        left()
+        right()
+    }
+}
+
+/**
+ * Settings › Visual playback's style timer: the same rows as here, from the same stores, in one
+ * column: the switch, its interval, what it steps through and what Random picks from (or how many
+ * looks the playlist holds).
+ */
+@Composable
+internal fun StyleTimerRows(viewModel: PlayerViewModel) {
+    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    val timer = rememberTimerSource(viz)
+    TimerRows(viewModel, viz, timer)
+    TimerPoolRow(viewModel, viz, timer.source, onOpenPlaylist = null)
+}
+
+/** Auto, the auto-director ([AutoDirectorStore]), and how far it reaches while it is on. */
+@Composable
+internal fun AutoDirectorRows() {
     val context = LocalContext.current
     val director = remember { AutoDirectorStore.get(context) }
     val directorOn by director.enabled.collectAsStateWithLifecycle()
     val reach by director.reach.collectAsStateWithLifecycle()
-    val viz by viewModel.vizState.collectAsStateWithLifecycle()
+    SwitchRow(stringResource(R.string.visuals_qs_auto), checked = directorOn, onCheckedChange = director::setEnabled)
+    if (directorOn) ReachRow(reach, director::setReach)
+}
+
+/** The timer's source as the rows show it, and the user's own pick while the timer is off. */
+private class TimerSourceState(
+    val source: TimerSource,
+    val running: Boolean,
+    val pick: (TimerSource) -> Unit,
+)
+
+@Composable
+private fun rememberTimerSource(viz: VizUiState): TimerSourceState {
     var picked by rememberSaveable { mutableStateOf(if (viz.vizPlaylistEnabled) TimerSource.PLAYLIST else TimerSource.RANDOM) }
     // A mode started elsewhere (Settings, the Now Playing Auto button) wins over the local pick.
     val source =
@@ -250,58 +307,62 @@ private fun QuickSettingsRows(
             viz.randomEnabled -> TimerSource.RANDOM
             else -> picked
         }
-    val running = viz.randomEnabled || viz.vizPlaylistEnabled
-    val timer: @Composable () -> Unit = {
-        SwitchRow(stringResource(R.string.visuals_qs_auto), checked = directorOn, onCheckedChange = director::setEnabled)
-        if (directorOn) ReachRow(reach, director::setReach)
-        SwitchRow(
-            stringResource(R.string.visuals_qs_timer),
-            checked = running,
-            onCheckedChange = { on ->
-                when {
-                    on && source == TimerSource.PLAYLIST -> viewModel.setVizPlaylistEnabled(true)
-                    on -> viewModel.setRandomEnabled(true)
-                    viz.vizPlaylistEnabled -> viewModel.setVizPlaylistEnabled(false)
-                    else -> viewModel.setRandomEnabled(false)
-                }
-            },
-        )
-        val interval = if (source == TimerSource.PLAYLIST) viz.vizPlaylistIntervalSec else viz.randomIntervalSec
-        SliderRow(
-            label = stringResource(R.string.visuals_qs_every),
-            valueText = stringResource(R.string.visuals_qs_seconds, interval),
-            value = interval.toFloat(),
-            valueRange = INTERVAL_RANGE,
-            onValueChange = {
-                val seconds = it.roundToInt()
-                if (source == TimerSource.PLAYLIST) viewModel.setVizPlaylistInterval(seconds) else viewModel.setRandomInterval(seconds)
-            },
-        )
-        SourceRow(source) { next ->
-            picked = next
-            // Switching while the timer runs moves it to the other mode; the controller stops the first.
-            if (running && next != source) {
-                if (next == TimerSource.PLAYLIST) viewModel.setVizPlaylistEnabled(true) else viewModel.setRandomEnabled(true)
+    return TimerSourceState(source, viz.randomEnabled || viz.vizPlaylistEnabled) { picked = it }
+}
+
+/** The timer switch, its interval and what it steps through. */
+@Composable
+private fun TimerRows(
+    viewModel: PlayerViewModel,
+    viz: VizUiState,
+    timer: TimerSourceState,
+) {
+    val source = timer.source
+    val running = timer.running
+    SwitchRow(
+        stringResource(R.string.visuals_qs_timer),
+        checked = running,
+        onCheckedChange = { on ->
+            when {
+                on && source == TimerSource.PLAYLIST -> viewModel.setVizPlaylistEnabled(true)
+                on -> viewModel.setRandomEnabled(true)
+                viz.vizPlaylistEnabled -> viewModel.setVizPlaylistEnabled(false)
+                else -> viewModel.setRandomEnabled(false)
             }
+        },
+    )
+    val interval = if (source == TimerSource.PLAYLIST) viz.vizPlaylistIntervalSec else viz.randomIntervalSec
+    SliderRow(
+        label = stringResource(R.string.visuals_qs_every),
+        valueText = stringResource(R.string.visuals_qs_seconds, interval),
+        value = interval.toFloat(),
+        valueRange = INTERVAL_RANGE,
+        onValueChange = {
+            val seconds = it.roundToInt()
+            if (source == TimerSource.PLAYLIST) viewModel.setVizPlaylistInterval(seconds) else viewModel.setRandomInterval(seconds)
+        },
+    )
+    SourceRow(source) { next ->
+        timer.pick(next)
+        // Switching while the timer runs moves it to the other mode; the controller stops the first.
+        if (running && next != source) {
+            if (next == TimerSource.PLAYLIST) viewModel.setVizPlaylistEnabled(true) else viewModel.setRandomEnabled(true)
         }
     }
-    val rest: @Composable () -> Unit = {
-        ConnectedDisplayRows()
-        if (source == TimerSource.RANDOM) {
-            RandomPicksRow(viz, viewModel)
-        } else {
-            PlaylistRow(viz.vizPlaylist.size, onOpenPlaylist)
-        }
-        GlassRows(gui, onGuiChange)
-    }
-    if (twoColumns) {
-        Row(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.L)) {
-            Column(Modifier.weight(1f)) { timer() }
-            Column(Modifier.weight(1f)) { rest() }
-        }
+}
+
+/** What the timer draws from: Random's picks, or the visual playlist. */
+@Composable
+private fun TimerPoolRow(
+    viewModel: PlayerViewModel,
+    viz: VizUiState,
+    source: TimerSource,
+    onOpenPlaylist: (() -> Unit)?,
+) {
+    if (source == TimerSource.RANDOM) {
+        RandomPicksRow(viz, viewModel)
     } else {
-        timer()
-        rest()
+        PlaylistRow(viz.vizPlaylist.size, onOpenPlaylist)
     }
 }
 
@@ -330,6 +391,38 @@ private fun ConnectedDisplayRows() {
                 )
             }
         }
+    }
+}
+
+/** Settings › Look's screen rotation, the same key; where Android ignores it (600 dp and wider) the row says so. */
+@Composable
+private fun RotationRow(
+    gui: GuiPrefs,
+    onGuiChange: (GuiPrefs) -> Unit,
+) {
+    MenuRow(
+        label = stringResource(R.string.look_screen_rotation),
+        value = stringResource(gui.screenRotation.labelRes()),
+    ) { close ->
+        ScreenRotation.entries.forEach { option ->
+            val isSelected = option == gui.screenRotation
+            DropdownMenuItem(
+                text = { Text(stringResource(option.labelRes())) },
+                onClick = {
+                    onGuiChange(gui.copy(screenRotation = option))
+                    close()
+                },
+                leadingIcon = { CheckSlot(isSelected) },
+                modifier = Modifier.semantics { selected = isSelected },
+            )
+        }
+    }
+    if (LocalConfiguration.current.smallestScreenWidthDp >= LARGE_SCREEN_DP) {
+        Text(
+            stringResource(R.string.look_screen_rotation_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -655,13 +748,16 @@ private const val LABEL_WEIGHT = 1f
 private const val SLIDER_WEIGHT = 1.2f
 private const val CLAIM_SLOP_FACTOR = 2f
 
+/** Android 16 ignores an app's orientation request on a display this wide (smallest width, dp). */
+private const val LARGE_SCREEN_DP = 600
+
 private val INTERVAL_RANGE =
     AutoVisualsPrefsStore.INTERVAL_SEC.first.toFloat()..AutoVisualsPrefsStore.INTERVAL_SEC.last.toFloat()
 
 /**
- * The range the sheet-opacity setting ([GuiPrefs.barOpacity]) moves in, here and in Settings › Look
- * › Layout: exactly the range [floatingGlass] clamps its fill to, so every stop of either slider
- * changes what is drawn and the % shown is the fill drawn (#559).
+ * The range the sheet-opacity setting ([GuiPrefs.barOpacity]) moves in: exactly the range
+ * [floatingGlass] clamps its fill to, so every stop of the slider changes what is drawn and the %
+ * shown is the fill drawn (#559).
  */
 internal val SHEET_OPACITY_RANGE = GeodeGlass.MATTE_FILL_MIN..GeodeGlass.MATTE_FILL_MAX
 

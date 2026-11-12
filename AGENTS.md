@@ -13,6 +13,7 @@ This file is a map. Detail lives in `docs/agents/`, one fact per line:
 - [`docs/agents/modules.md`](docs/agents/modules.md): Gradle modules and what each holds.
 - [`docs/agents/native-core.md`](docs/agents/native-core.md): `core/`, the per-frame chain, safety, shaders, endless zoom.
 - [`docs/agents/app-packages.md`](docs/agents/app-packages.md): every `:app` package.
+- [`docs/agents/entry-points.md`](docs/agents/entry-points.md): the manifest's activities, services, receivers and the intents the app takes.
 - [`docs/agents/data-flow.md`](docs/agents/data-flow.md): sound in, render, export, persistence, by thread.
 - [`docs/agents/navigation.md`](docs/agents/navigation.md): screens, back order, gestures, the tour.
 - [`docs/agents/pro.md`](docs/agents/pro.md): the unlock, the free tier, every gate.
@@ -22,12 +23,14 @@ This file is a map. Detail lives in `docs/agents/`, one fact per line:
 
 ## Owner's standing rules
 
-- No bias on BPM, ever: tempo never steers or weights a visual choice.
+- No bias on BPM, ever: tempo never steers or weights a visual choice (details under Conventions; `tools/no-bpm-bias-gate.sh` fails the PR).
 - No colour narrowing: the palette, saturation, brightness, temperature and contrast are the style's and the user's (`core/viz/Director.hpp`, `core/viz/NoteResponse.hpp`).
 - No hardcoded reactions: what moves on a kick, a note or a drop is the reaction matrix alone, which the user can see and edit.
 - Smallest fix possible.
 - Always ask why: before deleting a caller or a file, understand what it did, how its absence breaks things and why.
-- If the build breaks because a file was cut, do not put the file back; edit the test (or caller) so it no longer asks for it.
+- If the build breaks because a file was cut, do not put the file back; edit the test (or caller) so it no longer asks for it, after understanding what it asked for and why.
+- No building, compiling, linting or testing in an agent container: CI tests; prechecks are done by reading.
+- Clean room for ideas from other projects: take no code, names or strings from them, and the repo names no such project.
 - Dead code may be deleted once verified unreferenced.
 - Macros: 4 base knobs (`core/viz/MacroBank`: Glow, Heat, Bend, Flow), global, editable and saveable (`MacroStore`).
 - Record is Pro (`ProFeature.STUDIO`); screenshots are free.
@@ -65,7 +68,7 @@ This file is a map. Detail lives in `docs/agents/`, one fact per line:
 ## Where code lives (owner rule, no exceptions)
 
 - **Kotlin runs on the main thread only:** Compose UI, ViewModels' UI state, and the thin Android glue that has to be Kotlin.
-- That glue is Activity and Service lifecycle, Media3 session and player wiring, permissions, the MediaStore, MediaCodec and Transformer calls, billing IPC, and the widget, tile, wallpaper and dream shells.
+- That glue is Activity and Service lifecycle, Media3 session and player wiring, permissions, the MediaStore and MediaCodec calls, billing IPC, and the widget, tile, wallpaper and dream shells.
 - **Everything else is C++ in `core/`, behind `core/api/geode_api.h`, never Kotlin.** That means:
   - every worker, GL, audio and export thread
   - all logic and decisions
@@ -79,7 +82,7 @@ This file is a map. Detail lives in `docs/agents/`, one fact per line:
   - `core/viz`: the renderer, scenes, params, Director, NoteResponse, Reactions, CameraRig, Catalogue and safety
   - `core/audio/dsp`: playback and export DSP
   - `core/audio/ingest`: the PCM ring every source writes and every sound engine reads (`PcmRing`, `Cursor`)
-  - `core/studio`: the programme clock
+  - `core/output`: export and Record planning and timing (`FrameClock`, `PreRoll`, `Recorder`, `RecordPlan`)
   - `core/signal`: the scene params resolver (`Resolver`), the per-frame chain from requested to drawn params, and the engine settings it reads (`EngineSettings`: `SettingsLatch` hands it the process globals live, or an export's copy pinned once at prepare)
   - `app/src/main/cpp/*_jni.cpp`: only marshals values
 - **Why:**
@@ -107,21 +110,11 @@ This file is a map. Detail lives in `docs/agents/`, one fact per line:
 
 ## Entry points (`app/src/main/AndroidManifest.xml`)
 
-- `GeodeApp`: `@HiltAndroidApp`. It installs the crash handler, and its lazy `GeodeContainer` sweeps leftover render scratch and pending MediaStore rows.
-- `ui.MainActivity`: the only `@AndroidEntryPoint`, the launcher, and PiP of Visuals; the only other activities are `ui.wallpaper.WallpaperOptionsActivity` and `tile.TileLongPressActivity`.
-- `ui.MainActivity` handles `geode://preset`, `geode://template` and `MEDIA_PLAY_FROM_SEARCH`, then calls `AppRoot()` in `ui/AppShell.kt`.
-- `playback.PlaybackService`: exported Media3 library service, also used by Android Auto. Media3's `MediaButtonReceiver` handles resumption.
-- `audio.PlaybackCaptureService`: MediaProjection foreground service.
-- `audio.GeodeNotificationListener` (in `NowPlayingBridge.kt`): lets the app name what another app is playing.
-- `export.ExportService`: keeps the process in the foreground during a render. It does not own the render; `ExportRun.scope` does.
-- `wallpaper.VisualizerWallpaperService` and `wallpaper.VisualizerDreamService`.
-- `ui.wallpaper.WallpaperOptionsActivity`: the wallpaper picker's Settings button (`android:settingsActivity` in `res/xml/wallpaper.xml`), a plain `ComponentActivity` outside Hilt.
-- `widget.NowPlayingWidgetReceiver` (in `NowPlayingWidget.kt`).
-- `cast.CastService`: foreground service that keeps a cast streaming in the background; started by `CastController` when a Cast session starts.
-- `cast.CastService` is typed `mediaPlayback`, plus `microphone` while Live input is on, taken while the app is visible so the mic keeps driving the TV in the background (`CaptureController.onBackground` keeps it then).
-- Media3's `MediaTransferReceiver` (declared) lets the system output switcher start a cast.
-- `tile.PlaybackTileService`: the Quick Settings tile (`BIND_QUICK_SETTINGS_TILE`); `tile.TileLongPressActivity` beside it answers the tile's long press by opening the app.
-- `FileProvider` `${applicationId}.presets`, for sharing presets.
+- `GeodeApp` (`@HiltAndroidApp`) installs the crash handler; its lazy `GeodeContainer` sweeps leftover render scratch and pending MediaStore rows.
+- `ui.MainActivity` is the only `@AndroidEntryPoint`: the phone and Android TV launcher, PiP of Visuals, and every intent the app takes (presets, templates, `.milk` files, audio files, play-from-search).
+- Services: `playback.PlaybackService` (Media3 library service, Android Auto), `audio.PlaybackCaptureService`, `audio.GeodeNotificationListener`, `export.ExportService`, `cast.CastService`, `tile.PlaybackTileService`, `wallpaper.VisualizerWallpaperService`, `wallpaper.VisualizerDreamService`.
+- Also declared: `ui.wallpaper.WallpaperOptionsActivity`, `tile.TileLongPressActivity`, `widget.NowPlayingWidgetReceiver`, Media3's `MediaTransferReceiver`, `FileProvider` `${applicationId}.presets`.
+- Every entry point, intent and service type: [entry-points.md](docs/agents/entry-points.md).
 
 ## Data flow, navigation, Pro
 
@@ -153,6 +146,10 @@ This file is a map. Detail lives in `docs/agents/`, one fact per line:
 - Renders insert with `IS_PENDING` into `Movies/BeatRealms` as `beatrealms_*.mp4`.
 - `Movies/MuzViz` from before the rename is still listed and swept, never moved.
 - The tap stays first in the audio chain, and the chain never gets float output.
+- No bias on BPM, ever (owner's rule; `tools/no-bpm-bias-gate.sh` fails the PR): the tempo comes from the music alone; nothing prefers, weights or centres on a tempo.
+- A tempo not yet heard is unknown (`bpm` 0, no beats, clocks run in seconds), never a stand-in number. Do not copy a beat tracker's prior or a library's start tempo from the literature.
+- No 120 as a tempo anywhere, tests included: a test's stimulus plays other tempos (77, 93, 141, 174).
+- Android TV is the same APK: no `uses-feature` may be required (touchscreen, faketouch, microphone, leanback are `required="false"`), checked by `TelevisionManifestTest` and `tools/check-manifest.sh`; how a TV differs is in [navigation.md](docs/agents/navigation.md).
 - Cast to TV is the app's only internet use (`INTERNET`, `ACCESS_NETWORK_STATE`).
 - CI fails if INTERNET appears without `CastService`, if a socket or HTTP API is used outside `cast/`, if a networking, analytics or ads SDK joins the release build, or if AD_ID appears.
 - Everything else is offline; Play Billing works over IPC to the Play Store app.
@@ -169,28 +166,34 @@ This file is a map. Detail lives in `docs/agents/`, one fact per line:
 - **God object.** Every ViewModel reads `PlayerSession`, which builds 15 controllers and its repositories by hand.
 - That's a service locator (`GeodeContainer`, `context.geodeContainer`) sitting beside Hilt.
 - **Layer rule (enforced).** Nothing outside `ui/` and `di/` may name `dev.geode.ui`; `tools/layer-gate.sh` fails the PR otherwise. Move a type down instead: `model` if it is pure, `data` if it touches storage.
+- The same script holds the prefs files to one owner (#1009): `data/GeodePrefsFiles` names every file, `GeodeContainer` builds it once, everything else reads `context.geodeContainer.prefsFiles`; only `data/` and the container call `getSharedPreferences` or build a `GeodePrefsFiles`.
 - **Engine Kotlin only shrinks (enforced).** `tools/engine-kotlin-gate.sh` fails a PR whose net Kotlin lines grow under `engine/*/src/main/`, `export/` or `audio/dsp/`, or in the Spec 3.0 areas (#461).
-- The Spec 3.0 areas: the take's capture and choices (`ui/TakeController`, `data/PerformanceTake`, `editor/{Timeline,Keyframes,AnimatableParams}`, a future `take/` or `record/`), the Scene model (`scene/`), glTF and pack import (`gltf/`, `*Gltf*`, `*Glb*`, `*Pack*Import*`) and the render job (`ui/ExportController`); the script header lists them.
+- The Spec 3.0 areas: Record (`ui/RecordController`, `record/`; the deleted `ui/TakeController` and `data/PerformanceTake` stay listed only until #1035 lands) and the timeline (`editor/{Timeline,Keyframes,AnimatableParams}`), the Scene model (`scene/`), glTF and pack import (`gltf/`, `*Gltf*`, `*Glb*`, `*Pack*Import*`) and the render job (`ui/ExportController`); the script header lists them.
 - A UI edit in a watched file lands if it removes as much as it adds; only `GeodeNative.kt` and `NativeViz.kt`, the JNI declarations, are exempt. Write the logic in `core/` and call it through `geode_api.h`.
 - **Data layer lives in `ui`.** Stores and MediaStore access in the `*Controller`s sit there (`VizStateStore`, `AutoVisualsPrefsStore` and `BuiltInPresets` now live in `data`).
 - `MyVideosTab` (thumbnails), `TrackInfoEditor`, `DuplicatesTab`, `FolderSettings` and `LoopRenderSheet` go through `data/MediaStoreSource` (`context.geodeContainer.mediaStore`).
 - **One-shot events.** `PlayerViewModel` exposes `vizApply` and `morphFade` as `SharedFlow`.
 - **Engine logic in Kotlin (ADR 0003).** Engine internals belong in `core/`; GLOSSARY › Code has the words.
 - Native already runs the touch field, the pinch and twist (`core/viz/TouchTransform`, #654), Customize's randomizer, reset and category map, the flash clamp, the cymatics plate, the export resampler and the BS.1770 loudness meter (their Kotlin copies are gone).
+- Native also runs the export's track audio and AIFF reads (`core/audio/ingest/TrackFeed`, `AiffReader`; `TrackAudio` only drives MediaCodec), the loop render's drift stops and the export loudness advice (`core/output`), and the built-in palettes' hues.
 - The playout clock is native (`core/sound/interp/PlayoutClock`; the dead Kotlin clock is gone) and wired: the sink feeds it, the live feed reads it.
 - The PCM ring is native (`core/audio/ingest`, read on the GL threads until `core/sound/hop` exists).
-- Still Kotlin: the scene and style catalogue; the ADR's table gives each one's target and blocker.
+- Still Kotlin: the scene and style catalogue, and in export the render ETA (`RenderEta`), the range clamp (`ExportRange`) and the Media3 AIFF extractor's header parse (`audio/AiffExtractor`); the ADR's table gives each one's target and blocker.
 - **Mixed module.** `:engine:scenes` is an Android library, but most of its files are pure Kotlin.
-- `editor/*` and much of `data/*` are pure too, except for `org.json` (`TemplateFormat`, `EditorProjectJson`, `PerformanceTake`). There is no `kotlinx.serialization` yet.
+- `editor/*` and much of `data/*` are pure too, except for `org.json` (`TemplateFormat`, `EditorProjectJson`). There is no `kotlinx.serialization` yet.
 - **Navigation.** Enum and `when` at the top level; only the Visuals panel runs on Nav3 so far.
 - **Quality items not set up:** two use cases so far (`pro/GetFeatureGateUseCase`, `render/scene/BuildStyleReactionsUseCase`), almost no ViewModel or repository tests, a hand-written (not generated) baseline profile (`app/src/main/baseline-prof.txt`), no `reportFullyDrawn`, JankStats, Macrobenchmark or GWP-ASan.
+
+## Gates
+
+- `.github/workflows/arch-map.yml` runs `tools/layer-gate.sh` (the layer rule above), `tools/engine-kotlin-gate.sh`, `tools/no-bpm-bias-gate.sh` (the tempo rule under Conventions) and `tools/actions-pin-gate.sh` on every PR; see [build-ci.md](docs/agents/build-ci.md).
+- There is no AGENTS.md check; keep this map current by hand.
 
 ## Keeping this map current
 
 - **One fact per line.** Every bullet here and in `docs/agents/` holds one fact. Add a fact as a new line in its group; never grow a line into a paragraph or a table cell.
 - **Why:** when one line holds many facts, every PR edits it and every PR conflicts with every other. Separate lines let two PRs add different facts without touching the same line.
 - **Where detail goes:** AGENTS.md stays a short map under 200 lines. Put detail in the matching `docs/agents/*.md` file; add a new file there (and a link above) for a new area.
-- **Gates.** `.github/workflows/arch-map.yml` runs `tools/layer-gate.sh` (the layer rule above) and `tools/engine-kotlin-gate.sh` on every PR. There is no AGENTS.md check; keep this map current by hand.
 - **When you refactor,** update the module, package, entry point, thread and large-file lines in the same PR. Then update the "breaks the guide" list.
 - When a split step from ADR 0001 lands, rewrite the Modules section and `docs/agents/modules.md` to match, and record any change of plan as a new ADR.
 - Verify every path you name.

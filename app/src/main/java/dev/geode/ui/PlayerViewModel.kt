@@ -124,6 +124,9 @@ class PlayerViewModel
 
         fun applyArtworkPalette() = session.trackColor.applyArtworkPalette()
 
+        /** The playing track's artwork for the eyedropper, or null (nothing playing, no artwork). Off the main thread. */
+        suspend fun artworkForPicking(): android.graphics.Bitmap? = session.trackColor.artworkBitmap()
+
         fun startSleepTimer(minutes: Int) = session.startSleepTimer(minutes)
 
         fun cancelSleepTimer() = session.cancelSleepTimer()
@@ -176,6 +179,12 @@ class PlayerViewModel
 
         fun playFromSearch(query: String) = session.playFromSearch(query)
 
+        /** An audio file another app opened; [onResult] is false when it was refused. */
+        fun openAudio(
+            uri: Uri,
+            onResult: (Boolean) -> Unit,
+        ) = session.openAudio(uri, onResult)
+
         fun enqueue(uri: String) = session.queueController.enqueue(uri)
 
         fun shuffleAllHistory() = session.shuffleAllHistory()
@@ -219,6 +228,12 @@ class PlayerViewModel
             decay: Float,
         ) = session.visual.setReactivity(attack, decay)
 
+        /** Settings › Gestures & controls › Touch › Pinch and twist: a pinch's factor on Zoom, a twist's degrees on Rotation. */
+        fun nudgeTransform(
+            zoomFactor: Float,
+            degrees: Float,
+        ) = session.visual.nudgeTransform(zoomFactor, degrees)
+
         fun reportShaderError(error: String?) = session.visual.reportShaderError(error)
 
         fun reportLiquidMode(mode: Int) = session.reportLiquidMode(mode)
@@ -237,13 +252,12 @@ class PlayerViewModel
             sceneFactory: SceneFactory,
             destination: Uri? = null,
             range: ExportRange? = null,
-            sceneFactoryFor: ((String) -> SceneFactory)? = null,
             codec: ExportCodec = ExportCodec.H264,
         ) {
             if (openPaywallIfLocked(aspect, fps)) return
             val limits = gate.value
             val capped = capRange(range, limits.exportCapMs)
-            session.startExport(aspect, fps, sceneFactory, destination, capped, sceneFactoryFor, codec, limits.watermarksExports)
+            session.startExport(aspect, fps, sceneFactory, destination, capped, codec, pinnedWatermark())
         }
 
         /**
@@ -263,7 +277,7 @@ class PlayerViewModel
                 paywall.open(PaywallTrigger.Feature(ProFeature.FULL_LENGTH_EXPORT))
                 return
             }
-            session.exportController.startBatch(tracks, aspect, fps, sceneFactory, sceneParams, codec, gate.value.watermarksExports)
+            session.exportController.startBatch(tracks, aspect, fps, sceneFactory, sceneParams, codec, pinnedWatermark())
         }
 
         fun startLoopRender(
@@ -293,9 +307,15 @@ class PlayerViewModel
                 drift,
                 audioClips,
                 destination,
-                gate.value.watermarksExports,
+                pinnedWatermark(),
             )
         }
+
+        /** The entitlement's wordmark, placed as Settings › Preferences says now; the render keeps this one. */
+        private fun pinnedWatermark() =
+            gate.value.renderLimits
+                .withMark(session.watermarkPrefs.value.value)
+                .watermark
 
         /**
          * Without Pro an export stops at [capMs]: the requested range, shortened, or the track's first

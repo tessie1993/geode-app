@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Library search: the header's field and the one result list under it. -->
+    <string name="library_search_clear">Clear search</string>
+    <string name="library_search_prompt">Find a song, an album or an artist. Every word has to match, in any order.</string>
+    <string name="library_search_no_results_hint">Check the spelling or try fewer words. Search reads titles, artists and albums.</string>
+    <string name="library_search_various_artists">Various artists</string>
+</resources>

@@ -540,6 +540,9 @@ jobs:
           # The text a Customize control shows for its value and the unit it reads in (core/viz/ParamText).
           g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/param_text_test.cpp core/viz/ParamText.cpp core/api/geode_param_text_api.cpp -o param_text_test
           ./param_text_test
+          # A Customize slider's Reset offer, whole-number snap and log track (core/viz/SliderMap).
+          g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/slider_map_test.cpp core/api/geode_slider_api.cpp -o slider_map_test
+          ./slider_map_test
 
       # The Customize panel's nine categories, their sections and per-category roll and reset (core/viz/CustomizeMap).
       - name: Customize map host tests

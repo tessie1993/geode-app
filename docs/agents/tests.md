@@ -103,6 +103,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `params_test.cpp`: the Customize randomizer and Reset tab of `core/viz/ParamRandomizer`, its palette and camera path rolls over the whole schema range; Kotlin's `ParamRandomizer` only calls it.
 - `params_test.cpp` also holds `SceneParams::sanitized` (`geode_params_sanitize`), what a preset or shared link's params may become: the cases of `presets/hostile.json` and the overflowing link; the JVM `PresetGoldenTest` and `SharedLinkNumbersTest` pass the frame through `PresetStore.sanitize` and hold the format only.
 - `param_text_test.cpp`: the text a Customize control shows for its value and the unit it reads in (`core/viz/ParamText`, `geode_param_text`).
+- `slider_map_test.cpp`: a Customize slider's Reset offer, whole-number snap and log track, both ways (`core/viz/SliderMap`, `geode_slider_*`).
 - `pcm_handoff_test.cpp`: MilkDrop's raw-PCM hand-off (`core/viz/PcmHandoff`).
 - `pcm_ring_test.cpp`: the PCM ingest ring: random chunk sizes and rate changes mid-stream, every sample once, in order, with its rate, also with a writer thread; the old `SoundCursorTest` cases, the encodings, the C ABI.
 - `playback_controls_test.cpp`: Settings › Playback's rows (`core/audio/dsp/PlaybackControls`): a semitone shift as a rate, a slider value on its step, the saved options' ranges and defaults (`PlayerPrefs.coerced` reads them), the crossfade slider's rounding.

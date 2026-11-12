@@ -1,10 +1,12 @@
-package dev.geode.render.bridge
+package dev.geode.viz
 
 import android.content.Context
 import android.content.res.AssetManager
+import dev.geode.data.LookSnapshot
+import dev.geode.data.LookUnderlay
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.look.LookSnapshot
+import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.scene.SceneParams
 import java.io.File
 import java.lang.ref.Cleaner
@@ -14,8 +16,8 @@ import java.lang.ref.Reference
  * Owns one `geode_viz` handle: the native renderer behind a GL surface or an offscreen target.
  *
  * Every call is a no-op until [create] (or [surfaceCreated]) has run; the GL-thread rules of the
- * C API apply unchanged. The look and Settings › Performance are pushed when they change, from any
- * thread, into the handle's own latches; a live frame is then one [frame] call.
+ * C API apply unchanged. The look and Settings › Performance are pushed from any thread into the
+ * handle's own latches, which keep what changed; a live frame is then one [frame] call.
  */
 class NativeViz(
     context: Context,
@@ -46,11 +48,12 @@ class NativeViz(
     }
 
     private val paramFrame = FloatArray(SceneParamsCodec.FIELDS)
-    private var reportedError = ""
 
     // What the owner last set, kept for the next handle: a handle is destroyed on every detach, and the new
     // renderer knows none of it. Guarded by this object's monitor, like the handle's create and destroy.
     private var look: LookSnapshot? = null
+    private var sentUnderlay: LookUnderlay? = null
+    private var underlaySent = false
     private var quality: () -> Unit = {}
 
     /**
@@ -68,7 +71,8 @@ class NativeViz(
             if (handle != 0L) {
                 GeodeNative.vizSetMilkTextureDir(handle, milkTextureDir)
                 quality()
-                look?.let { pushLook(it, was = null) }
+                underlaySent = false
+                look?.let(::pushLook)
                 onCreated()
             }
         }
@@ -97,32 +101,35 @@ class NativeViz(
 
     /**
      * What this renderer draws, from any thread, kept for the next handle ([create] gives it the whole look).
-     * Only the parts that are new objects cross JNI, each into one of the handle's any-thread latches: the
-     * stores make a new instance for a change, so an unrelated edit costs nothing. The scene is a request the
-     * next live frame applies once the renderer can draw it.
+     * The whole look crosses; native passes on only the parts that differ from the look this handle was set
+     * last. The scene is a request the next live frame applies once the renderer can draw it.
      */
     @Synchronized
     fun setLook(next: LookSnapshot) {
-        val was = look
         look = next
-        if (handle != 0L) pushLook(next, was)
+        if (handle != 0L) pushLook(next)
     }
 
-    private fun pushLook(
-        l: LookSnapshot,
-        was: LookSnapshot?,
-    ) {
-        if (l.sceneId != was?.sceneId) GeodeNative.vizRequestScene(handle, l.sceneId)
-        if (l.params !== was?.params) setParams(l.params)
-        if (l.lfos != was?.lfos) setLfoConfigs(l.lfos)
-        if (l.adsrs != was?.adsrs) setAdsrConfigs(l.adsrs)
-        if (was == null || l.soundTuning !== was.soundTuning) setSoundTuning(l.soundTuning)
-        if (was == null || l.reactions != was.reactions) setUserReactions(l.reactions)
-        if (l.reducedMotion != was?.reducedMotion) setReducedMotion(l.reducedMotion)
-        if (l.transitionId != was?.transitionId || l.transitionMs != was?.transitionMs) setTransition(l.transitionId, l.transitionMs)
-        if (was == null || l.underlay !== was.underlay) {
-            val u = l.underlay
+    private fun pushLook(l: LookSnapshot) {
+        SceneParamsCodec.pack(l.params, paramFrame)
+        GeodeNative.vizSetLook(
+            handle,
+            l.sceneId,
+            paramFrame,
+            l.lfos,
+            l.adsrs,
+            l.soundTuning?.toFloatArray(),
+            l.reactions,
+            l.reducedMotion,
+            l.transitionId,
+            l.transitionMs,
+        )
+        // The picture is megabytes, so it crosses only as a new object, as the stores make one for a change.
+        val u = l.underlay
+        if (!underlaySent || u !== sentUnderlay) {
             setUnderlay(u?.pixels, u?.width ?: 0, u?.height ?: 0, u?.blend ?: 0, u?.amount ?: 0f)
+            sentUnderlay = u
+            underlaySent = true
         }
     }
 
@@ -144,10 +151,6 @@ class NativeViz(
         if (handle == 0L) return
         SceneParamsCodec.pack(p, paramFrame)
         GeodeNative.vizSetParams(handle, paramFrame)
-    }
-
-    fun setReducedMotion(on: Boolean) {
-        if (handle != 0L) GeodeNative.vizSetReducedMotion(handle, on)
     }
 
     fun setTransition(
@@ -200,19 +203,6 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetSoundTuning(handle, saved?.toFloatArray())
     }
 
-    fun setLfoConfigs(lfos: String) {
-        if (handle != 0L) GeodeNative.vizSetLfos(handle, lfos)
-    }
-
-    fun setAdsrConfigs(adsrs: String) {
-        if (handle != 0L) GeodeNative.vizSetAdsrs(handle, adsrs)
-    }
-
-    /** The user's saved routes (null: the style's DNA); native merges them under the hand mask it reads itself. */
-    fun setUserReactions(routes: String?) {
-        if (handle != 0L) GeodeNative.vizSetReactions(handle, routes)
-    }
-
     fun setOffscreen(on: Boolean) {
         if (handle != 0L) GeodeNative.vizSetOffscreen(handle, on)
     }
@@ -244,7 +234,7 @@ class NativeViz(
      * Full-frame RGBA8 underlay blended UNDER/INTO the scene: blend 0 = replace scene where scene is
      * black (screen), 1 = multiply, 2 = add; amount 0..1. null clears. Any thread; latched.
      */
-    fun setUnderlay(
+    private fun setUnderlay(
         pixels: IntArray?,
         width: Int,
         height: Int,
@@ -254,14 +244,8 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetUnderlay(handle, pixels, width, height, blend, amount)
     }
 
-    /** Reports the native error state once per change: a message, or null when it clears. */
-    fun pollError(onChange: (String?) -> Unit) {
-        if (handle == 0L) return
-        val error = GeodeNative.vizLastError(handle)
-        if (error == reportedError) return
-        reportedError = error
-        onChange(error.ifEmpty { null })
-    }
+    /** The native error, null when clean. A live frame says when it changed (`FRAME_ERROR_CHANGED`). */
+    fun lastError(): String? = if (handle == 0L) null else GeodeNative.vizLastError(handle).ifEmpty { null }
 
     private companion object {
         /** One daemon thread for every renderer in the process. */

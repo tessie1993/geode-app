@@ -50,7 +50,7 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `AiffPcm` | 57 | pending |
 | `PcmTap` | 55 | pending |
 | `AiffPcm` | 57 | **deleted**: a handle over `geode_aiff_*` whose last caller is `export/AudioTranscoder`, which now opens the descriptor and holds the handle itself; the export's track opens AIFF natively (`core/audio/ingest/TrackPump`). |
-| `LookSnapshot` | 70 | pending |
+| `LookSnapshot` | 70 | **moved to `:app`** (`data/LookSnapshot`, beside `LookStore`): a value; its first style and fade are native's (`core/viz/LookSnapshot.hpp`, `geode_viz_look_defaults`, test `core/tests/look_snapshot_test.cpp`). |
 | `SceneIds` | 70 | pending |
 | `SoundTuning` | 76 | **deleted** (#1134): the shell keeps the saved floats; `geode_sound_tuning_resolve` reads them, pinned by `core/tests/sound_tuning_test.cpp`. |
 | `TransitionCatalog` | 79 | **deleted**: native hands Customize's picker its lists (`geode_transition_picker`: the built-ins offered, from `TransitionCatalog::builtInIds` and `transition_choice::pickerIds`, then the library's names); `ui/CustomizeAdvanced` only splits them. The full-table read and its parser are gone, as is `VizUiState.transitionStyle`, which nothing read. Pinned in `transition_library_test.cpp` and `transition_choice_test.cpp`. |
@@ -82,5 +82,5 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `FramePacer` | 248 | pending |
 | `SceneParams` | 272 | pending |
 | `VisualizerRenderer` | 313 | pending |
-| `NativeViz` | 522 | pending |
+| `NativeViz` | 522 | **moved to `:app`** (`viz/NativeViz`, for Cast's fallback, the export scene and the render tests): the look crosses whole and native passes on only the parts that changed (`geode_viz_set_look`, `core/viz/LookSnapshot.hpp`'s `LookLatch`, test `core/tests/look_snapshot_test.cpp`; the stage's look takes the same latch); `pollError`'s change check is gone (`lastError`; a live frame reports the change). |
 | `GeodeNative` | 2,736 | declarations; its non-declaration members pending |

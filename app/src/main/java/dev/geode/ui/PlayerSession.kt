@@ -18,6 +18,7 @@ import dev.geode.data.FileSessionRepository
 import dev.geode.data.FileTemplateRepository
 import dev.geode.data.LfoStore
 import dev.geode.data.LibraryState
+import dev.geode.data.LookSource
 import dev.geode.data.Lyrics
 import dev.geode.data.LyricsLoader
 import dev.geode.data.MilkPackImporter
@@ -58,7 +59,6 @@ import dev.geode.playback.PlaybackEngine
 import dev.geode.playback.PlaybackErrors
 import dev.geode.playback.PlaybackQueue
 import dev.geode.playback.PlaybackService
-import dev.geode.render.look.LookSource
 import dev.geode.render.scene.SceneParams
 import dev.geode.render.scene.StyleCatalogue
 import dev.geode.util.bestEffort

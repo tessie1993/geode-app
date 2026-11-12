@@ -2,12 +2,12 @@ package dev.geode.cast
 
 import android.content.Context
 import dev.geode.audio.AudioBus
+import dev.geode.data.LookSnapshot
 import dev.geode.data.MilkPathPrefs
 import dev.geode.data.PerformanceSettings
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.geodeContainer
-import dev.geode.render.bridge.NativeViz
-import dev.geode.render.look.LookSnapshot
+import dev.geode.viz.NativeViz
 import java.io.File
 
 /**

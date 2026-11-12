@@ -3,8 +3,6 @@ package dev.geode.data
 import android.content.ContentResolver
 import dev.geode.data.prefs.PrefType
 import dev.geode.data.prefs.prefKeys
-import dev.geode.render.look.LookSnapshot
-import dev.geode.render.look.LookSource
 
 /**
  * The look as the app last saved it (#345), for the surfaces that run without the app's session: the

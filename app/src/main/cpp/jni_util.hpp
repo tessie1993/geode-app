@@ -4,6 +4,8 @@
 #include <cstring>
 #include <string>
 
+#include "api/geode_api.h"
+
 namespace geode::jni {
 
 // Text crosses as standard UTF-8, coded by java.lang.String itself. JNI's own UTF calls speak Modified
@@ -72,6 +74,43 @@ private:
     jfloatArray array_;
     jfloat* data_;
     jsize length_;
+};
+
+// A look from Java (GeodeNative.vizSetLook, stageSetLook), held for one call. Not ok() when the routes' text
+// could not be read: the caller then keeps the last look.
+class LookArgs {
+public:
+    LookArgs(JNIEnv* env, jstring sceneId, jfloatArray params, jstring lfos, jstring adsrs, jfloatArray tuning,
+             jstring reactions, jboolean reducedMotion, jstring transitionId, jlong transitionMs)
+        : scene_(env, sceneId), transition_(env, transitionId), params_(env, params), lfos_(env, lfos),
+          adsrs_(env, adsrs), reactions_(env, reactions), tuning_(env, tuning), ok_(!reactions || reactions_.get()) {
+        look_.scene_id = scene_.get();
+        look_.params = params_.get();
+        look_.param_count = params_.length();
+        look_.lfos = lfos_.get();
+        look_.adsrs = adsrs_.get();
+        look_.tuning = tuning_.get();
+        look_.tuning_count = tuning_.length();
+        look_.reactions = reactions_.get();
+        look_.reduced_motion = reducedMotion == JNI_TRUE ? 1 : 0;
+        look_.transition_id = transition_.get();
+        look_.transition_ms = transitionMs;
+    }
+    LookArgs(const LookArgs&) = delete;
+    LookArgs& operator=(const LookArgs&) = delete;
+    bool ok() const { return ok_; }
+    const geode_viz_look* get() const { return &look_; }
+
+private:
+    Utf8Chars scene_;
+    Utf8Chars transition_;
+    FloatElements params_;
+    Utf8Chars lfos_;
+    Utf8Chars adsrs_;
+    Utf8Chars reactions_;
+    FloatElements tuning_;
+    bool ok_;
+    geode_viz_look look_{};
 };
 
 }  // namespace geode::jni

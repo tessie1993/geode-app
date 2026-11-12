@@ -42,44 +42,6 @@ struct Still {
     std::vector<uint8_t> rgba;
 };
 
-// What the user's look is made of. The waves, the envelopes and the routes are their saved texts.
-struct Look {
-    std::string sceneId;
-    std::vector<float> params;
-    std::string lfos;
-    std::string adsrs;
-    std::vector<float> tuning;
-    bool hasReactions = false;
-    std::string reactions;
-    bool reducedMotion = false;
-    std::string transitionId;
-    int64_t transitionMs = 0;
-};
-
-enum LookPart : uint32_t {
-    kLookScene = 1u << 0,
-    kLookParams = 1u << 1,
-    kLookLfos = 1u << 2,
-    kLookAdsrs = 1u << 3,
-    kLookTuning = 1u << 4,
-    kLookReactions = 1u << 5,
-    kLookReducedMotion = 1u << 6,
-    kLookTransition = 1u << 7,
-    kLookAll = (1u << 8) - 1,
-};
-
-// Which parts of a look differ from the one before, so only those reach the renderer: a scene asked for again
-// would restart nothing, but a transition or a morph set again would. The first look is all of them.
-class LookLatch {
-public:
-    uint32_t take(Look next);
-    const Look& look() const { return look_; }
-
-private:
-    Look look_;
-    bool any_ = false;
-};
-
 // The renderer, on the stage thread unless said otherwise. Destroying it frees the renderer.
 class LiveViz {
 public:

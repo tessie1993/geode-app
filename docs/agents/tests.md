@@ -69,6 +69,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `lfo_random_test.cpp`: the random wave shapes of `core/viz/Lfo`: a value per slot and cycle from the engine's seed, the same at 30/60/120 fps, a beat-timed wave on the measured tempo only.
 - `lfo_random_test.cpp` also covers `core/viz/WaveRandomizer`, the roll of a set of waves.
 - `library_search_test.cpp`: the library's match, ranking, order and index, and voice "play X".
+- `look_snapshot_test.cpp`: `core/viz/LookSnapshot`, the look a renderer is handed whole: only the parts that differ pass (all on a new renderer), equal copies pass nothing, and the defaults the shell reads.
 - `lyrics_test.cpp`: the .lrc parse (stamps, fractions, headers, plain lyrics, the wire form) and the line sung at a position.
 - `playlist_test.cpp`: `core/library/Playlist`: M3U, PLS and XSPF reads, names, durations, base names, the DOCTYPE refusal and the wire text.
 - `live_segments_test.cpp`: Cast's segment window: the muxer's bytes cut at any write size, the window of six, the playlist's exact text.
@@ -138,7 +139,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `sound_test.cpp`: the sound engine.
 - `sound_test.cpp` and `musical_test.cpp` also play click tracks from 60 to 190 BPM, each read as itself and treated alike, and an ambiguous beat read at the same level at every tempo.
 - `speaker_sync_test.cpp`: a reader held to the speaker: the start, pause, seek, gapless, 192 kHz over Bluetooth, the mic and Cast, and another app's audio in the player's ring with the player paused.
-- `live_client_test.cpp`: `core/stage/LiveClient`, a live stage's client: only the changed parts of a look, the ring a frame hears, events kept until polled, a warm-up waiting for a context, Record's tee opened, failed and closed on release.
+- `live_client_test.cpp`: `core/stage/LiveClient`, a live stage's client: the ring a frame hears, events kept until polled, a warm-up waiting for a context, Record's tee opened, failed and closed on release.
 - `stage_lifecycle_test.cpp`: `core/stage/StageLifecycle`, when a stage makes, uses and frees its EGL context and surface: the common paths action by action, then every four-event sequence and long random ones (no GL without a context, every create destroyed, one release).
 - `stage_pacing_test.cpp`: `core/stage/StagePacing`, a stage's pacer on the vsync thread: the bare pacer's divides and dt at 60/90/120 Hz under every cap and thermal step, start and stop, the frame-rate hint.
 - `stage_step_test.cpp`: what the stage's next/previous style steps per tab, the walk, the `.milk` history.

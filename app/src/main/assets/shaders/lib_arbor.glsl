@@ -67,8 +67,8 @@
 // ArborHit, the distance with everything the walk and the style found there
 // (the limb's level, along, path and tip, and the style's material), and it
 // writes no global. ARBOR_GROW there is the one line where Grow (lib_grow:
-// Spawn, Fractal, Front and Back layer) and Formula will wrap the style's map
-// once they land.
+// Spawn, Fractal, Front and Back layer) wraps the style's map (arborGrow);
+// Formula has no alternatives in the family yet.
 //
 // The mid band bows the limbs (arbMidBow): sndShaped(SND_MIDDLE), times SND_DRIVE,
 // added to a 3D form's bend, a 2D form's lean or a dendrite's side angle, so

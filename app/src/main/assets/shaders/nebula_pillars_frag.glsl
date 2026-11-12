@@ -126,7 +126,9 @@ void main() {
     vec3 dustAmb = mix(vec3(0.05, 0.035, 0.03), pal(0.6 + key) * 0.04, 0.4);
 
     vec4 acc = vec4(0.0, 0.0, 0.0, 1.0);
-    vec2 tb = nebSphere(ro, rd, PL_CENTRE, 2.3);
+    // The bounding sphere, widened by growSlack while a grow control is on (lib_grow: a twin, children, a
+    // layer opened); as it was at rest.
+    vec2 tb = nebSphere(ro, rd, PL_CENTRE, 2.3 + growSlack(2.3, 1.0, 0.2));
     if (tb.y > 0.0) {
         float tt = tb.x + nebDither() * 0.04;
         for (int i = 0; i < NEB_VOL_MAX; i++) {

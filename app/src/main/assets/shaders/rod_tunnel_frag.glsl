@@ -147,12 +147,22 @@ float rodField(vec3 p) {
     return sdCapsule(q, vec3(0.0, 0.0, -0.4), vec3(0.0, 0.0, 0.4), r);
 }
 
+/** rodField through lib_shell's hooks: exactly rodField(p) at rest, and rodField read once, in a loop the compiler cannot unroll. */
+float rodFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, rodField(shellAt3(i)));
+    }
+    return r;
+}
+
 /**
  * The field every march, normal and occlusion tap reads: rodField, the style's
  * own, through lib_shell's hook (the identity until the shell drives it).
  */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, rodField);
+    return rodFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -209,6 +219,8 @@ void main() {
     float fly = ro.z;
     gFly = fly;
     ro.xy = dmtTunnelPath(fly) + vec2(0.25 * sin(uTime * 0.31), 0.25 * cos(uTime * 0.23));
+    // The grow hooks (lib_shell) open round this eye, back on the tube's centreline, not the rig's.
+    shellSetup3(ro, 3.0, 0.5 * ROD_CELL, false);
     // Framing: the bend's tangent and the old slow roll, so the horizon of the
     // tube turns as it banks. The rig's own look is applied inside it.
     float roll = uTime * 0.08 + 0.25 * sin(uTime * 0.031);

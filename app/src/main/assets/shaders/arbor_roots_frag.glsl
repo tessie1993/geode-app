@@ -216,6 +216,8 @@ void main() {
     // this shift is invisible, and it keeps highp z precise far down the
     // 8192 travel.
     ro.z = mod(ro.z, RT_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)

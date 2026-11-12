@@ -300,6 +300,8 @@ void main() {
     camFly(uv, ro, rd);
     // Every z term tiles with a period dividing 64 (see the header): exact, invisible, and z keeps its precision.
     ro.z = mod(ro.z, GD_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     float tGround = (rd.y < -1e-4 && ro.y > GD_GROUND) ? (GD_GROUND - ro.y) / rd.y : 1e4;

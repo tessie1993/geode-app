@@ -227,6 +227,8 @@ void main() {
     mat3 basis = turn * pitch * uCamBasis;
     vec3 ro = -basis[2] * radius;
     vec3 rd = normalize(basis * vec3(uv, uCamFocal));
+    // Grow and layers (lib_grow): the flower at the origin is the subject, as camAround would say.
+    growSetup(ro, 1.5 * radius, true);
 
     // Background: the flat style's dark wash and the halo the flower sits in.
     float sr = length(uv);
@@ -234,7 +236,10 @@ void main() {
     vec3 col = bg;
 
     float b = dot(ro, rd);
-    float disc = b * b - (dot(ro, ro) - BL_BOUND * BL_BOUND);
+    // The grown world (lib_grow: a twin aside, children, a layer opened) reaches past the bound by growSlack
+    // while a control is on; the bound itself at rest.
+    float boundR = BL_BOUND + growSlack(BL_BOUND, 1.0, 0.2);
+    float disc = b * b - (dot(ro, ro) - boundR * boundR);
     if (disc > 0.0) {
         float sq = sqrt(disc);
         float tm = max(-b - sq, 0.01);

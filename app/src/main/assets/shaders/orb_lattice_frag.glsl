@@ -144,12 +144,22 @@ float olField(vec3 w) {
     return d;
 }
 
+/** olField through lib_shell's hooks: exactly olField(p) at rest, and olField read once, in a loop the compiler cannot unroll. */
+float olFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, olField(shellAt3(i)));
+    }
+    return r;
+}
+
 /**
  * The field every march, normal and occlusion tap reads: olField, the style's
  * own, through lib_shell's hook (the identity until the shell drives it).
  */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, olField);
+    return olFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -220,6 +230,8 @@ void main() {
     // little fraction left for the cells and the normals.
     ro.z = mod(ro.z, OL_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 2.0, false);
 
     float t = 0.04;
     float hitT = -1.0;

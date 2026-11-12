@@ -59,7 +59,7 @@ out vec4 fragColor;
 //   sCamR       k5 SPACE         the eye's distance 7.59 .. 6.6 .. 5.61
 //
 // A blob blends by gK only once it is at least 0.4 across, as the bud does, so
-// one growing in never leaves a nub. The chrome goes through SHELL_FIELD3, so
+// one growing in never leaves a nub. The chrome goes through its shell wrapper, so
 // the shell's spawn, fractal, front and back hooks reach it.
 // Shapes melts the shape graph (core/viz/ShapeGraph, lib_shapes) into the
 // chrome: its shapes run into the blobs as more chrome, tinted by their own
@@ -98,13 +98,23 @@ float mapField(vec3 p) {
     return smin(d, sdSphere(p - gBud, gBudR), gK * clamp(gBudR * 2.5, 0.0, 1.0));
 }
 
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
 /**
  * The chrome as the shell sees it: spawn, fractal, front and back route through here (identity at rest), and
  * the shape graph melts in by Shapes (lib_shapes; the blobs alone at 0).
  */
 float map(vec3 p) {
     gShapeHue = 0.0;
-    return shapesInto(SHELL_FIELD3(p, mapField), p, gShapeHue);
+    return shapesInto(mapFieldGrown(p), p, gShapeHue);
 }
 
 vec3 normalAt(vec3 p, float eps) {

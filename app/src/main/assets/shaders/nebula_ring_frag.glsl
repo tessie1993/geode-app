@@ -214,7 +214,9 @@ void main() {
     float tStar = -dot(ro, rd);
     float aStar = 1.0;
     bool starSeen = false;
-    vec2 tb = nebSphere(ro, rd, vec3(0.0), NR_BOUND);
+    // The bounding sphere, widened by growSlack while a grow control is on (lib_grow: a twin, children, a
+    // layer opened); as it was at rest.
+    vec2 tb = nebSphere(ro, rd, vec3(0.0), NR_BOUND + growSlack(NR_BOUND, 1.0, 0.2));
     if (tb.y > 0.0) {
         float tt = tb.x + nebDither() * 0.04;
         for (int i = 0; i < NEB_VOL_MAX; i++) {

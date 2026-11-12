@@ -64,7 +64,7 @@ out vec4 fragColor;
 // The cell (1) and its hash wrap (1024) stay constants: the walk is a unit
 // DDA and the wrap is the power of two the eye's rebase relies on. Which
 // cells hold particles is a 3D field (the shell, ptShell) routed through
-// SHELL_FIELD3, so the shell's spawn, fractal, front and back hooks reshape
+// its shell wrapper, so the shell's spawn, fractal, front and back hooks reshape
 // the swarm; the walk's early exit holds only while those hooks rest.
 
 /** Cells walked per ray: the compile-time ceiling. uSteps is the runtime budget. */
@@ -94,6 +94,16 @@ float ptShell(vec3 cc) {
     return abs(length(rel) - gRadius) - sShell;
 }
 
+/** ptShell through lib_shell's hooks: exactly ptShell(p) at rest, and ptShell read once, in a loop the compiler cannot unroll. */
+float ptShellGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, ptShell(shellAt3(i)));
+    }
+    return r;
+}
+
 void main() {
     // ---- shape inputs: each normalized input mapped to its range, here only (see the header).
     gBend = shellMap(shellKnob(2), 0.75, 1.0, 1.25);
@@ -118,6 +128,8 @@ void main() {
     // travel a highp z has ~0.001 of fraction left: every sample and the
     // finite-difference normals quantise into speckle.
     ro.z = mod(ro.z, PT_ZWRAP);
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5, false);
 
     float swell = clamp(SND_LEVEL, 0.0, 1.5);
     float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5);
@@ -148,7 +160,7 @@ void main() {
         // Outside the shell and heading further out: this ray is done (unless
         // the shell's hooks have spawned or folded copies beyond it).
         if (shellAtRest && rr > gRadius + sShell + 0.9 && dot(rel, rd.xy) > 0.0) break;
-        if (SHELL_FIELD3(cc, ptShell) > 0.0) continue;
+        if (ptShellGrown(cc) > 0.0) continue;
 
         uint u = uhash3(uvec3(ivec3(int(c.x), int(c.y), int(mod(c.z, PT_ZWRAP)))));
         if (uhashUnit(u) < sEmpty) continue;

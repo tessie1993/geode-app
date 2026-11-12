@@ -88,7 +88,7 @@ out vec4 fragColor;
 //
 // Every angular count and z rate stays a whole number on the tile (see "the
 // world wrap"), and gLip follows gAmp, gDim and gDimS. The bore goes through
-// SHELL_FIELD3 and the far eye's web through SHELL_FIELD2, so the shell's
+// its shell wrapper and the far eye's web through its shell wrapper, so the shell's
 // spawn, fractal, front and back hooks reach both.
 //
 // ---- why the distance estimate is safe ---------------------------------------
@@ -234,14 +234,24 @@ float mapField(vec3 p) {
     return max((wall - ra.x) / gLip, (gR - gAmp - ra.x) / gBendLip);
 }
 
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
 /** The bore as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, mapField);
+    return mapFieldGrown(p);
 }
 
 /**
  * The far eye's web at its log-polar plane point pp: the two spiral families
- * as one 2D pattern (SHELL_FIELD2). Reads gPx, gArms, gFlow, gEyeTwist, gHue0.
+ * as one 2D pattern (its shell wrapper). Reads gPx, gArms, gFlow, gEyeTwist, gHue0.
  */
 vec3 gvEyeWeb(vec2 pp) {
     float lp = max(length(pp), 1e-4);
@@ -268,6 +278,18 @@ vec3 swirlCol(vec2 sp) {
     float swirl = 0.5 + 0.5 * sin(ang * 3.0 + log(r) * 4.0 - uTime * 0.2);
     swirl *= 0.5 + 0.5 * sin(ang * 5.0 - log(r) * 2.0 + uTime * 0.13);
     return mix(vec3(0.035, 0.01, 0.08), vec3(0.0, 0.05, 0.06), swirl) * (0.6 + 0.8 * swirl);
+}
+
+/** The pattern gvEyeWeb through lib_shell's hooks: exactly gvEyeWeb(uv) at rest, and gvEyeWeb read once, in a loop the compiler cannot unroll. */
+vec3 gvEyeWebGrown(vec2 uv) {
+    shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    vec3 r = vec3(0.0);
+    for (int i = SHELL_FROM; i < 3; i++) {
+        if (!shellPass2(i)) continue;
+        vec3 v = gvEyeWeb(shellAt2(uv, i, SHELL_ROUND2));
+        r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));
+    }
+    return r;
 }
 
 void main() {
@@ -339,6 +361,8 @@ void main() {
     float er = length(ro.xy);
     float maxR = max(gR - 1.3, 0.3);
     if (er > maxR) ro.xy *= maxR / er;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 1.0, false);
 
     float t = 0.05;
     bool hit = false;
@@ -453,7 +477,7 @@ void main() {
         float lp = max(length(pp), 1e-4);
         gEyeTwist = mix(0.55, 1.6, kFlow);
         gHue0 = hue0;
-        vec3 web = SHELL_FIELD2(pp, gvEyeWeb);
+        vec3 web = gvEyeWebGrown(pp);
         web *= smoothstep(1.3, 0.25, lp) * (0.5 + 0.7 * clamp(kBuild, 0.0, 1.0));
         float core = exp(-lp * 6.0 * sCoreK);
         col += (web * 0.7 * glow + eyeCol * core * (0.15 + 1.0 * kPulse)) * esc;

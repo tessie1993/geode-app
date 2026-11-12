@@ -113,6 +113,8 @@ void main() {
     vec3 ro;
     vec3 rd;
     bulbAim(uv, eye, eye + fwd, ro, rd);
+    // Grow and layers (lib_grow): the body at the origin is the subject, measured from this eye, kept off it.
+    growSetup(ro, 3.0, true);
 
     float hue = 0.08 * uKeyStrength * sin(BULB_TAU * uKeyHue);
     vec3 sunCol = mix(tone(hue), vec3(1.0, 0.9, 0.7), 0.45) * (1.3 + 0.4 * swell);
@@ -126,7 +128,9 @@ void main() {
     float winD = 1.0;
     float endT = 1e9;
     vec4 trap = vec4(1.0);
-    vec2 tb = bulbBound(ro, rd, vec3(0.0), BH_BOUND);
+    // The grown body (lib_grow: a twin aside, children out of the crust, a layer opened) reaches past the
+    // bound by growSlack while a control is on; BH_BOUND itself at rest.
+    vec2 tb = bulbBound(ro, rd, vec3(0.0), BH_BOUND + growSlack(BH_BOUND, 1.0, 0.2));
     if (tb.y > 0.0) {
         float t = tb.x;
         float tEnd = min(tb.y, coreT);

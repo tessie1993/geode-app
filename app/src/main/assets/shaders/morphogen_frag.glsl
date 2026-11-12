@@ -721,12 +721,22 @@ float morphField(vec3 p) {
     return min(body, sat);
 }
 
+/** morphField through lib_shell's hooks: exactly morphField(p) at rest, and morphField read once, in a loop the compiler cannot unroll. */
+float morphFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, morphField(shellAt3(i)));
+    }
+    return r;
+}
+
 /**
  * The field every march, normal and occlusion tap reads: morphField, the style's
  * own, through lib_shell's hook (the identity until the shell drives it).
  */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, morphField);
+    return morphFieldGrown(p);
 }
 
 /** Tetrahedral normal: four map() taps instead of the six a central
@@ -940,7 +950,11 @@ void main() {
     // is most of the screen, and the difference between this style running on
     // a phone and not.
     float b = dot(ro, rd);
-    float cc = dot(ro, ro) - SCENE_BOUND * SCENE_BOUND;
+    // The grown body (lib_shell's twin, Fractal's children, a layer opened) reaches out of the scene's
+    // sphere by the shell's slack while a hook is on; SCENE_BOUND itself at rest. The body's own clip is
+    // read at the moved point and moves with it.
+    float sceneBound = SCENE_BOUND + SHELL_SLACK(SCENE_BOUND);
+    float cc = dot(ro, ro) - sceneBound * sceneBound;
     float h = b * b - cc;
 
     // The palette coordinate walks with the morph clock rather than with the

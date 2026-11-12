@@ -92,7 +92,7 @@ out vec4 fragColor;
 // shells' radius (SPACE), is one normalized input (lib_shell) set in one block
 // at the top of main and mapped there to its range; at rest each is the
 // constant the body was tuned with. The outside (membrane, core, satellites)
-// is the field the grow hooks act on (SHELL_FIELD3, about the origin): Spawn
+// is the field the grow hooks act on (its shell wrapper, about the origin): Spawn
 // sets a twin body beside it, Fractal grows bodies a third the size on the
 // membrane, Front layer swells the body and Back layer what lies past it. A
 // hook that is on widens the scene sphere the march is clipped to.
@@ -247,9 +247,19 @@ float ssOuter(vec3 p) {
     return d;
 }
 
+/** ssOuter through lib_shell's hooks: exactly ssOuter(p) at rest, and ssOuter read once, in a loop the compiler cannot unroll. */
+float ssOuterGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, ssOuter(shellAt3(i)));
+    }
+    return r;
+}
+
 /** The outside through the grow hooks (lib_shell). */
 float mapOuter(vec3 p) {
-    return SHELL_FIELD3(p, ssOuter);
+    return ssOuterGrown(p);
 }
 
 /** The inside of the membrane: the core, or the far wall (the body's field, negated). */
@@ -505,8 +515,9 @@ void main() {
 
     // ---- outside march, inside the scene sphere only ----
     float b = dot(ro, rd);
-    // A hook that is on reaches past the scene: a twin 0.6 aside, a layer opened 18%.
-    float sceneR = shellIdle(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK) ? SS_SCENE_R : 1.2 * SS_SCENE_R + 0.6;
+    // A hook that is on reaches past the scene (a twin aside, children out of the surface, a layer
+    // opened) by lib_shell's slack, 0 at rest.
+    float sceneR = SS_SCENE_R + SHELL_SLACK(SS_SCENE_R);
     float disc = b * b - (dot(ro, ro) - sceneR * sceneR);
     float hitT = -1.0;
     float used = 0.0;

@@ -74,7 +74,7 @@ out vec4 fragColor;
 //   gRough      Turbulence         height roughness 1 .. 2.5 (at Turbulence 1.5)
 //
 // The cell size (2) stays a constant: 512 cells of it are the 1024 the z hash
-// and the eye's rebase wrap on. The columns go through SHELL_FIELD3, so the
+// and the eye's rebase wrap on. The columns go through its shell wrapper, so the
 // shell's spawn, fractal, front and back hooks reach them.
 //
 // ---- why the estimate is safe ----------------------------------------------
@@ -238,9 +238,19 @@ float mapField(vec3 p) {
     return d;
 }
 
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
 /** The causeway as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, mapField);
+    return mapFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -275,6 +285,8 @@ void main() {
     // exact and invisible, and keeps z precise for the cells and the normals.
     ro.z = mod(ro.z, VC_ZWRAP);
     gEye = ro;
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5 * VC_CELL, false);
 
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);

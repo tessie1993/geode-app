@@ -56,7 +56,7 @@ out vec4 fragColor;
 // and the ground haze (SPACE), is one normalized input (lib_shell) set in one
 // block at the top of main and mapped there to its range; at rest each is the
 // constant the band was tuned with. The distance to the nearest sheet is the
-// field the grow hooks act on (SHELL_FIELD3), its glow carried beside it from
+// field the grow hooks act on (its shell wrapper), its glow carried beside it from
 // the nearest copy: Spawn slides a second band of curtains down the flight,
 // Fractal hangs curtains a third the size through the first, the layers open
 // the near and far curtains. While a hook is on the march samples outside the
@@ -134,7 +134,7 @@ float sheetRays(int i, float z) {
 
 /**
  * The four sheets at p: the distance to the nearest (the field the grow hooks act on, through
- * SHELL_FIELD3) and, in gAuE, the glow they give off there.
+ * its shell wrapper) and, in gAuE, the glow they give off there.
  */
 float auSheets(vec3 p) {
     float dMin = 1e3;
@@ -166,6 +166,16 @@ vec3 skyColour(vec3 rd) {
     float star = (1.0 - smoothstep(0.0, 0.3, length(fract(sp) - 0.5))) * step(0.996, s);
     col += vec3(0.75, 0.8, 0.9) * star * smoothstep(0.05, 0.3, up) * (0.6 + 0.4 * sin(uTime * 2.0 + s * 500.0));
     return col;
+}
+
+/** auSheets through lib_shell's hooks: exactly auSheets(p) at rest, and auSheets read once, in a loop the compiler cannot unroll. */
+float auSheetsGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, auSheets(shellAt3(i)));
+    }
+    return r;
 }
 
 void main() {
@@ -245,7 +255,7 @@ void main() {
         float dMin = 0.0;
         vec3 e = vec3(0.0);
         if (dSlab <= 0.0) {
-            dMin = SHELL_FIELD3(p, auSheets);
+            dMin = auSheetsGrown(p);
             e = gAuE;
         }
         // Fade near the eye so flying through a curtain is a veil, and haze far off.

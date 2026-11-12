@@ -64,6 +64,38 @@ void growEye(vec3 eye) {
     gGrowEye = eye;
 }
 
+/** Whether all four rest at exactly 0 (their default): a library's field is then its map alone, read once, as before. */
+bool growIdle() {
+    return uSpawn == 0.0 && uFractal == 0.0 && uFrontLayer == 0.0 && uBackLayer == 0.0;
+}
+
+/**
+ * The frame for a style that frames its own view (no camFly or camAround this pixel, and no growSetup):
+ * taken as built round a subject at the origin, which its own eye orbits. A style that flies an eye of
+ * its own says so with growSetup(eye, 3.0, false) instead. Only called while a control is on.
+ */
+void growFrame() {
+    if (!gGrowSet) gGrowAround = true;
+}
+
+/** The point a library's world opens about: the subject at the origin, or the axis the eye rides. */
+vec3 growCentre() {
+    return gGrowAround ? vec3(0.0) : vec3(gGrowEye.xy, 0.0);
+}
+
+/**
+ * How much farther than `extent` (a march shortcut's size: a bound's radius, a slab's half-height, a
+ * give-up height) a library's grown world reaches, world units, for a library whose Spawn slides `span`
+ * and whose Fractal reaches `reach` at full: the slide, the children and the layers' 18% (11% drawn in).
+ * Exactly 0.0 while all four rest, so `extent + slack` is `extent`, bit for bit.
+ */
+float growSlack(float extent, float span, float reach) {
+    if (growIdle()) return 0.0;
+    growFrame();
+    float grown = (gGrowAround ? 0.3 * gGrowNear : span) * clamp(uSpawn, 0.0, 1.0) + reach * clamp(uFractal, 0.0, 1.0);
+    return grown + 0.18 * max(abs(uFrontLayer), abs(uBackLayer)) * (abs(extent) + grown);
+}
+
 /**
  * Spawn's copy: how far it has slid at world point offset. A flown world slides along `axis` (unit),
  * `span` world units at full Spawn, so the copy lands between the first's cells and the way stays

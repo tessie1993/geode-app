@@ -172,12 +172,22 @@ float seField(vec3 p) {
     return dens(p, gArmsA, gArmsB, gArmBlend, gPitch, gSharp, gFlowAmt, gSwellD, gFilSharp, gR0);
 }
 
+/** The density seField through lib_shell's hooks: exactly seField(p) at rest, and seField read once, in a loop the compiler cannot unroll. */
+float seFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 3; i++) {
+        if (shellPass3(i)) r = shellKeepDensity3(i, seField(shellAt3(i)));
+    }
+    return r;
+}
+
 /**
  * The density the march reads: seField through lib_shell's density hook (the identity at rest), so a
  * spawned copy and Fractal's children add their dye to the first's rather than thinning it.
  */
 float seDensity(vec3 p) {
-    return SHELL_DENSITY3(p, seField);
+    return seFieldGrown(p);
 }
 
 /** Larger root of |o + t d| = R in the xy plane, or -1 when the ray never meets it. */

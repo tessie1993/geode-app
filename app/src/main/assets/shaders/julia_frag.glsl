@@ -72,7 +72,7 @@ out vec4 fragColor;
 // grain draws more of the crust), is one normalized input (lib_shell) set in
 // one block at the top of main and mapped there to its range; at rest each is
 // the constant the body was tuned with. The body is the field the grow hooks
-// act on (SHELL_FIELD3, about the origin): Spawn sets a twin body beside it,
+// act on (its shell wrapper, about the origin): Spawn sets a twin body beside it,
 // Fractal grows bodies a third the size on the crust, Front layer swells the
 // body and Back layer what lies past it. A hook that is on widens the
 // bounding sphere so the copies are not clipped.
@@ -106,7 +106,7 @@ int gIters;
 float gTrap;
 float gEsc;
 
-/** The body: the field the grow hooks act on (map() hands it to SHELL_FIELD3). */
+/** The body: the field the grow hooks act on (map() hands it to its shell wrapper). */
 float juliaField(vec3 p) {
     vec4 z = vec4(p / gScale, gSlice);
     float dz2 = 1.0;
@@ -128,8 +128,18 @@ float juliaField(vec3 p) {
     return d * gScale;
 }
 
+/** juliaField through lib_shell's hooks: exactly juliaField(p) at rest, and juliaField read once, in a loop the compiler cannot unroll. */
+float juliaFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, juliaField(shellAt3(i)));
+    }
+    return r;
+}
+
 float map(vec3 p) {
-    return SHELL_FIELD3(p, juliaField);
+    return juliaFieldGrown(p);
 }
 
 vec3 normalAt(vec3 p, float eps) {

@@ -83,8 +83,8 @@ out vec4 fragColor;
 //
 // The fold scale stays in its narrow band (see Morph above), the bay (2), the
 // fractal period (8) and the tile (16) stay: they divide the 16 the eye is
-// rebased by. The church goes through SHELL_FIELD3 and the far rose through
-// SHELL_FIELD2, so the shell's spawn, fractal, front and back hooks reach both.
+// rebased by. The church goes through its shell wrapper and the far rose through
+// its shell wrapper, so the shell's spawn, fractal, front and back hooks reach both.
 //
 // ---- sound ---------------------------------------------------------------------
 //
@@ -291,9 +291,19 @@ float mapField(vec3 p) {
     return d;
 }
 
+/** mapField through lib_shell's hooks: exactly mapField(p) at rest, and mapField read once, in a loop the compiler cannot unroll. */
+float mapFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, mapField(shellAt3(i)));
+    }
+    return r;
+}
+
 /** The church as the shell sees it: spawn, fractal, front and back route through here (identity at rest). */
 float map(vec3 p) {
-    return SHELL_FIELD3(p, mapField);
+    return mapFieldGrown(p);
 }
 
 vec3 calcNormal(vec3 p, float t) {
@@ -470,13 +480,25 @@ vec3 stoneColour(vec3 rd, vec3 n, float y, float occ) {
     return (vec3(0.025, 0.012, 0.05) + irid * 0.12 + env * fres * 0.9) * occ;
 }
 
-/** The great rose at the end of the nave, in its plane rp: rings and petals, a 2D pattern (SHELL_FIELD2). */
+/** The great rose at the end of the nave, in its plane rp: rings and petals, a 2D pattern (its shell wrapper). */
 float mcRose(vec2 rp) {
     float rr = length(rp);
     float ra = atan(rp.y, rp.x) + uTime * 0.03;
     float petal = abs(fract(ra / MC_TAU * sPetals) - 0.5);
     return inlay(rr - 0.55, 0.02) + inlay(rr - 0.35, 0.015) + inlay(rr - 0.12, 0.02)
         + inlay(petal * rr * 2.0 - 0.02, 0.01) * step(rr, 0.55) * step(0.12, rr);
+}
+
+/** The pattern mcRose through lib_shell's hooks: exactly mcRose(uv) at rest, and mcRose read once, in a loop the compiler cannot unroll. */
+float mcRoseGrown(vec2 uv) {
+    shellStart2(SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = float(0.0);
+    for (int i = SHELL_FROM; i < 3; i++) {
+        if (!shellPass2(i)) continue;
+        float v = mcRose(shellAt2(uv, i, SHELL_ROUND2));
+        r = i == 0 ? v : shellBlend2(r, v, shellWeight2(i));
+    }
+    return r;
 }
 
 void main() {
@@ -494,6 +516,8 @@ void main() {
     vec3 rd;
     camFly(uv, ro, rd);
     ro.z = mod(ro.z, MC_TILE);
+    // The grow hooks (lib_shell) open round this eye, in the rebased frame the world is read in.
+    shellSetup3(ro, 3.0, 0.5 * MC_PERIOD, false);
 
     // Note & key reactions' style knobs ride on top (lib_neon): PULSE the
     // ribs, TEXTURE the form, FLOW the sway, TONE the ramp, BUILD the light.
@@ -572,7 +596,7 @@ void main() {
     if (rd.z > 0.0) {
         vec2 rp = rd.xy / rd.z * 4.0 - vec2(0.0, 0.25);
         float rr = length(rp);
-        float rose = SHELL_FIELD2(rp, mcRose);
+        float rose = mcRoseGrown(rp);
         float beat = 0.7 + 0.6 * kick + 1.2 * surge;
         fogCol += neon(0.3 + rr * 0.6 + stain) * rose * smoothstep(0.75, 0.2, rr) * 0.6 * beat * awake * glowGain;
     }

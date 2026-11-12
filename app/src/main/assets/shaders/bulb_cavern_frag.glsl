@@ -90,6 +90,8 @@ void main() {
     mat3 frame = bulbFrame(tang, vec3(0.0, 1.0, 0.0));
     vec3 ro = path + frame * vec3(clamp(uCamPos.xy, -2.0, 2.0) * 0.12, 0.0);
     vec3 rd = normalize(frame * (uCamBasis * vec3(uv, uCamFocal)));
+    // Grow and layers (lib_grow): the body at the origin is the subject, measured from this eye, kept off it.
+    growSetup(ro, 3.0, true);
 
     float hue = 0.48 + 0.03 * sin(bulbTime() * 0.019);
     vec3 fog = tone(hue) * 0.09 + vec3(0.01, 0.05, 0.06);

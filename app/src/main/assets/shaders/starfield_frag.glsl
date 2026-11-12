@@ -59,7 +59,7 @@ out vec4 fragColor;
 // reach (FLOW) and the gas's extinction (SPACE), is one normalized input
 // (lib_shell) set in one block at the top of main and mapped there to its
 // range; at rest each is the constant the region was tuned with. The gas is
-// the density the grow hooks act on (SHELL_DENSITY3): Spawn adds a second
+// the density the grow hooks act on (its shell wrapper): Spawn adds a second
 // nebula slid down the flight, Fractal grows third-size filaments inside the
 // clouds, the layers open the near and far gas.
 //
@@ -138,9 +138,19 @@ float nebula(vec3 p) {
     return d * gCover;
 }
 
+/** The density nebula through lib_shell's hooks: exactly nebula(p) at rest, and nebula read once, in a loop the compiler cannot unroll. */
+float nebulaGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 3; i++) {
+        if (shellPass3(i)) r = shellKeepDensity3(i, nebula(shellAt3(i)));
+    }
+    return r;
+}
+
 /** The gas through the grow hooks (lib_shell). */
 float nebulaAt(vec3 p) {
-    return SHELL_DENSITY3(p, nebula);
+    return nebulaGrown(p);
 }
 
 void main() {

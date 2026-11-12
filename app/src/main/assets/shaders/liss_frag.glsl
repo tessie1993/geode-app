@@ -71,7 +71,7 @@ out vec4 fragColor;
 // graticule's density, is one normalized input (lib_shell) set in one block at
 // the top of main and mapped there to its range; at rest each is the constant
 // the figure was tuned with. The beam is the field the grow hooks act on
-// (SHELL_FIELD3, about the origin): Spawn sets a twin figure beside it, Fractal
+// (its shell wrapper, about the origin): Spawn sets a twin figure beside it, Fractal
 // grows figures a third the size along the tube, the layers swell the figure
 // and what lies past it. A hook that is on turns the ray cull off (a copy is
 // read away from the ray) and widens the bounding sphere.
@@ -143,7 +143,7 @@ float capsule(vec3 p, vec3 a, vec3 b, out float h) {
     return length(pa - ba * h);
 }
 
-/** The beam: the field the grow hooks act on (map() hands it to SHELL_FIELD3). */
+/** The beam: the field the grow hooks act on (map() hands it to its shell wrapper). */
 float lissField(vec3 p) {
     float d = LS_CULL;
     gS = 0.0;
@@ -159,10 +159,20 @@ float lissField(vec3 p) {
     return d;
 }
 
+/** lissField through lib_shell's hooks: exactly lissField(p) at rest, and lissField read once, in a loop the compiler cannot unroll. */
+float lissFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, lissField(shellAt3(i)));
+    }
+    return r;
+}
+
 // The shape graph melts into the beam by Shapes (lib_shapes; the beam alone at 0).
 float map(vec3 p) {
     gShapeHue = 0.0;
-    return shapesInto(SHELL_FIELD3(p, lissField), p, gShapeHue);
+    return shapesInto(lissFieldGrown(p), p, gShapeHue);
 }
 
 vec3 normalAt(vec3 p) {

@@ -248,19 +248,24 @@ void main() {
     // Every z term tiles with a period dividing 256, so this shift is exact
     // and invisible, and z keeps its precision far down the travel.
     ro.z = mod(ro.z, CM_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     vec3 sky = skyColour(rd, hue);
     vec3 col = sky;
 
-    // Skip the empty air above the flowers; a ray rising from up there is sky.
+    // Skip the empty air above the flowers; a ray rising from up there is sky. A grown meadow (lib_grow:
+    // a layer drawn in lifts it toward the eye, children reach above it) rises past gTop by growSlack
+    // while a control is on; gTop itself at rest.
+    float topY = gTop + growSlack(abs(gTop - ro.y), 1.0, 0.2);
     float t = 0.03;
     bool march = true;
-    if (ro.y > gTop) {
+    if (ro.y > topY) {
         if (rd.y > -1e-3) {
             march = false;
         } else {
-            t = max(t, (ro.y - gTop) / -rd.y);
+            t = max(t, (ro.y - topY) / -rd.y);
         }
     }
 
@@ -273,7 +278,7 @@ void main() {
             used = float(i);
             vec3 p = ro + rd * t;
             // Climbing out above the flowers: nothing left to hit.
-            if (rd.y > 0.0 && p.y > gTop) break;
+            if (rd.y > 0.0 && p.y > topY) break;
             fld = chrysField(p);
             float d = fld.d;
             float eps = 0.0008 * t + 0.0008;

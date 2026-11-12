@@ -68,7 +68,7 @@ out vec4 fragColor;
 // fog (SPACE) and the wall's bulge (TEXTURE), is one normalized input
 // (lib_shell) set in one block at the top of main and mapped there to its
 // range; at rest each is the constant the lamp was tuned with. The wax is the
-// field the grow hooks act on (SHELL_FIELD3): Spawn slides a second procession
+// field the grow hooks act on (its shell wrapper): Spawn slides a second procession
 // half a period down the flight, Fractal grows blobs a third the size on the
 // wax, the layers open the near and far lamp.
 //
@@ -129,7 +129,7 @@ vec3 ballCentre(int i, float n) {
     return vec3(xy, n * MB_P + float(i) * (MB_P / 7.0) + bob);
 }
 
-/** The wax: the field the grow hooks act on (map() hands it to SHELL_FIELD3). */
+/** The wax: the field the grow hooks act on (map() hands it to its shell wrapper). */
 float metaField(vec3 w) {
     float d = MB_CLAMP;
     for (int i = 0; i < MB_BALLS; i++) {
@@ -153,8 +153,18 @@ float metaField(vec3 w) {
     return smax(d, gTube - rr, 0.5);
 }
 
+/** metaField through lib_shell's hooks: exactly metaField(p) at rest, and metaField read once, in a loop the compiler cannot unroll. */
+float metaFieldGrown(vec3 p) {
+    shellStart3(p, SHELL_SPAWN, SHELL_FRACTAL, SHELL_FRONT, SHELL_BACK);
+    float r = 0.0;
+    for (int i = SHELL_FROM; i < 4; i++) {
+        if (shellPass3(i)) r = shellKeep3(i, metaField(shellAt3(i)));
+    }
+    return r;
+}
+
 float map(vec3 w) {
-    return max(SHELL_FIELD3(w, metaField), MB_BUBBLE - length(w - gEye));
+    return max(metaFieldGrown(w), MB_BUBBLE - length(w - gEye));
 }
 
 vec3 normalAt(vec3 p, float eps) {

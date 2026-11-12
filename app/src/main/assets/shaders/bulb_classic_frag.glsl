@@ -80,7 +80,9 @@ void main() {
     float used = 0.0;
     float near = 1e3;
     vec4 trap = vec4(1.0);
-    vec2 tb = bulbBound(ro, rd, vec3(0.0), BC_BOUND);
+    // The grown body (lib_grow: a twin aside, children out of the crust, a layer opened) reaches past the
+    // bound by growSlack while a control is on; BC_BOUND itself at rest.
+    vec2 tb = bulbBound(ro, rd, vec3(0.0), BC_BOUND + growSlack(BC_BOUND, 1.0, 0.2));
     if (tb.y > 0.0) {
         float t = tb.x;
         for (int i = 0; i < BC_MAX_STEPS; i++) {

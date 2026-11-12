@@ -217,6 +217,8 @@ void main() {
     // invisible and exact (power of two). Without it, far down the 8192
     // travel a highp z has ~0.001 of fraction left and the cells speckle.
     ro.z = mod(ro.z, LH_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     // Skip the empty bore: nothing of the comb comes nearer the axis than LH_R.

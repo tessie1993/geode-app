@@ -182,6 +182,8 @@ void main() {
     // Every geometry z term tiles with a period dividing 16, so this rebase
     // is exact; the nest's crossfade below hides it for the colour too.
     ro.z = mod(ro.z, LS_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     float tm = 0.03;

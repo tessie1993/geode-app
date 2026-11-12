@@ -149,7 +149,9 @@ void main() {
     vec3 boltCol = mix(nebEmission(0.78 + key, 0.6), vec3(1.0), 0.45);
 
     vec4 acc = vec4(0.0, 0.0, 0.0, 1.0);
-    vec2 tb = nebSphere(ro, rd, vec3(0.0), 1.65);
+    // The bounding sphere, widened by growSlack while a grow control is on (lib_grow: a twin, children, a
+    // layer opened); as it was at rest.
+    vec2 tb = nebSphere(ro, rd, vec3(0.0), 1.65 + growSlack(1.65, 1.0, 0.2));
     if (tb.y > 0.0) {
         float tt = tb.x + nebDither() * 0.035;
         for (int i = 0; i < NEB_VOL_MAX; i++) {

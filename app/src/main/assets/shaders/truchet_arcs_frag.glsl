@@ -195,6 +195,8 @@ void main() {
     camFly(uv, ro, rd);
     // Exact and invisible (see the header); keeps z's precision far down the travel.
     ro.z = mod(ro.z, TA_ZWRAP);
+    // Grow and layers (lib_grow) measure from the eye in the frame the world is read in.
+    growEye(ro);
     gEye = ro;
 
     float tm = 0.05;

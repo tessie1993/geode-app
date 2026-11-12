@@ -15,6 +15,7 @@
 #include "api/geode_api.h"
 #include "api/geode_ingest_handles.hpp"
 #include "api/geode_record_handles.hpp"
+#include "viz/Catalogue.hpp"
 #include "audio/ingest/LayerMix.hpp"
 #include "viz/Director.hpp"
 #include "viz/DirectorReach.hpp"
@@ -253,14 +254,6 @@ void geode_viz_begin_param_morph(geode_viz* v, float seconds) {
 void geode_viz_set_touch(geode_viz* v, const float* xy_ndc, int points) {
     if (!v) return;
     v->renderer.submitTouchPoints(xy_ndc ? xy_ndc : nullptr, xy_ndc ? std::max(points, 0) : 0);
-}
-
-void geode_viz_queue_touch_stroke(geode_viz* v, float nx, float ny, float ndx, float ndy, float dt, float strength) {
-    if (v) v->renderer.queueTouchStroke(nx, ny, ndx, ndy, dt, strength);
-}
-
-void geode_viz_set_touch_smear(geode_viz* v, int on, float strength) {
-    if (v) v->renderer.setTouchSmear(on != 0, strength);
 }
 
 void geode_viz_set_fluid_injection(geode_viz* v, const char* force_source, const char* dye_source) {
@@ -855,9 +848,8 @@ void geode_viz_surface_changed(geode_viz* v, int width, int height) {
 int geode_viz_set_scene(geode_viz* v, const char* scene_id) {
     if (!v || !scene_id) return 0;
     {
-        // The routes follow the scene asked for, drawable or not, as the Kotlin cache did.
         std::lock_guard<std::mutex> lock(v->reactLock);
-        v->reactions.setScene(scene_id);
+        v->reactions.setScene(geode::viz::catalogue::resolveId(scene_id));
     }
     return v->renderer.setScene(scene_id) ? 1 : 0;
 }

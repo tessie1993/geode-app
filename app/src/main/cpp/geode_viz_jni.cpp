@@ -174,11 +174,6 @@ Java_dev_geode_engine_bridge_GeodeNative_vizSetTouch(JNIEnv* env, jobject, jlong
 }
 
 JNIEXPORT void JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_vizSetTouchSmear(JNIEnv*, jobject, jlong handle, jboolean on, jfloat strength) {
-    geode_viz_set_touch_smear(vizOf(handle), on == JNI_TRUE ? 1 : 0, strength);
-}
-
-JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_vizSetFluidInjection(JNIEnv* env, jobject, jlong handle, jstring force, jstring dye) {
     Utf8Chars forceSrc(env, force);
     Utf8Chars dyeSrc(env, dye);

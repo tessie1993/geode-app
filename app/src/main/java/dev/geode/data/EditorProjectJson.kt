@@ -31,6 +31,7 @@ import dev.geode.editor.ProjectTemplate
 import dev.geode.editor.StudioProject
 import dev.geode.editor.Timeline
 import dev.geode.export.ExportCodec
+import dev.geode.render.scene.Catalogue
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -259,7 +260,7 @@ internal object EditorProjectJson {
         when (val type = o.getString("type")) {
             "scene" ->
                 ClipContent.Scene(
-                    sceneId = o.getString("sceneId"),
+                    sceneId = Catalogue.resolve(o.getString("sceneId")),
                     presetId = o.stringOrNull("presetId"),
                     milkPath = o.stringOrNull("milkPath"),
                     beatCut = o.optJSONObject("beatCut")?.let(::beatCut),

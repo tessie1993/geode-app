@@ -340,7 +340,7 @@ const std::vector<Carrier>& shaderCarriers() {
 
 // Fields a shared stage applies to every shader style's finished picture, so no style has to read them:
 // the composite's lens and film (chromaAb .. fisheye), Trails and Liquid (LiquidPass), the dive (DivePass),
-// the ripple overlay, the flat camera (the composite's camFlat, or the rig on a style that flies it, which
+// the flat camera (the composite's camFlat, or the rig on a style that flies it, which
 // theCatalogueFollowsTheShaders pins), and the reaction and glide settings that move other fields.
 const std::set<std::string>& sharedStageFields() {
     static const std::set<std::string> kShared = {
@@ -350,7 +350,6 @@ const std::set<std::string>& sharedStageFields() {
         "endlessZoom", "endlessZoomSpeed", "camFlat",
         // The dive's tunnel (Customize › Dive): DivePass draws it over every style kind's finished picture.
         "diveSpacing", "diveTwist", "diveAimX", "diveAimY", "diveShape", "diveBlend", "diveFog", "diveLens", "diveFollow",
-        "rippleOverlayEnabled", "rippleOverlayStrength", "rippleOverlaySpecular", "waterWaveSpeed", "waterDamping",
         "camPath", "camFly", "camOrbit", "camFov", "camShake", "camPush", "camYaw", "camPitch", "camRoll", "camSmooth",
         "camTouch", "camGyro",
         "reactAmount", "reactSeed", "paramFadeSec",
@@ -412,6 +411,13 @@ bool worldCarries(const std::string& styleId, const std::string& field) {
     return styleId == catalogue::kMorphWorld && kWorld.count(field) != 0;
 }
 
+// Pool spends Morph (the eye's tilt), Warp (the depth) and Turbulence (the chop) on its surface through
+// core/viz/pool (ShaderScene feeds pool::Controls), which reaches the shader as uPoolWaves and uPoolView.
+bool poolCarries(const std::string& styleId, const std::string& field) {
+    static const std::set<std::string> kPool = {"morph", "warp", "turbulence"};
+    return styleId == catalogue::kPool && kPool.count(field) != 0;
+}
+
 bool readsField(const std::string& styleId, const std::string& field, const std::set<std::string>& words,
                 const std::set<std::string>& heard) {
     // MotionField's spin only turns a style the catalogue gives a spin rate; mids turn it too.
@@ -419,6 +425,7 @@ bool readsField(const std::string& styleId, const std::string& field, const std:
     if (field == "motionDrift") return spins && words.count("uRotation") != 0;
     if (field == "midGain" && spins && words.count("uRotation") != 0) return true;
     if (worldCarries(styleId, field)) return words.count("uWorld") != 0;
+    if (poolCarries(styleId, field)) return words.count("uPoolWaves") != 0 && words.count("uPoolView") != 0;
     const Carrier* c = carrierOf(field);
     if (c == nullptr) return false;
     for (const char* u : c->anyOf) {
@@ -432,7 +439,7 @@ std::vector<std::string> kindSources(catalogue::Kind kind) {
     using K = catalogue::Kind;
     const std::vector<std::string> fluid = {"viz/scenes/FluidSceneBase.cpp", "viz/fluid/FluidMath.cpp",     "viz/fluid/FluidEmitters.cpp",
                                             "viz/fluid/FluidChoreography.cpp", "viz/fluid/FluidLook.cpp", "viz/fluid/FluidParticles.cpp",
-                                            "viz/fluid/FluidSim.cpp",       "viz/fluid/RippleSim.cpp",      "viz/fluid/RippleMath.cpp"};
+                                            "viz/fluid/FluidSim.cpp"};
     auto with = [&](std::vector<std::string> own) {
         own.insert(own.end(), fluid.begin(), fluid.end());
         return own;
@@ -446,7 +453,6 @@ std::vector<std::string> kindSources(catalogue::Kind kind) {
         case K::Cymatics: return {"viz/scenes/CymaticsScene.cpp", "viz/scenes/CymaticsMath.cpp"};
         case K::Fluid: return with({"viz/scenes/FluidScene.cpp"});
         case K::CurlFlow: return with({"viz/scenes/CurlFlowScene.cpp"});
-        case K::Water: return with({"viz/scenes/WaterScene.cpp"});
         case K::Shader: break;
     }
     return {};

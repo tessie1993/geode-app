@@ -66,21 +66,16 @@ enum class ParamScope {
     /** The Fluid solver itself. */
     FLUID_SIM,
 
-    /** Splat emitters: Fluid and Water. */
+    /** Splat emitters: Fluid. */
     EMITTERS,
 
-    /** Spawn/catch choreography: Fluid, Curl Flow and Water. */
+    /** Spawn/catch choreography: Fluid and Curl Flow. */
     JOURNEY,
-
-    WATER,
 
     CYMATICS,
 
     /** The standalone FlowField sim. Fluid drives the field from its own solver instead. */
     FLOW_FIELD_SIM,
-
-    /** The shared ripple overlay. Water's own surface already refracts, so it stays off there. */
-    RIPPLE_OVERLAY,
     ;
 
     fun appliesTo(sceneId: String): Boolean = Catalogue.reaches(this, sceneId)

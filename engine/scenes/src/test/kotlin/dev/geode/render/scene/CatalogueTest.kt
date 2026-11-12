@@ -34,6 +34,13 @@ class CatalogueTest {
     }
 
     @Test
+    fun aRetiredStyleOpensOnItsReplacement() {
+        assertEquals(SceneIds.POOL, Catalogue.resolve("water"))
+        assertEquals(SceneIds.PLASMA, Catalogue.resolve(SceneIds.PLASMA))
+        assertEquals("no_such_style", Catalogue.resolve("no_such_style"))
+    }
+
+    @Test
     fun everyStyleCarriesItsLookGroup() {
         // The look column sits between the kind and the per-style scopes; a shifted field would show
         // up here as a scope name read as a look, or Detail lost from a marched style.
@@ -71,11 +78,11 @@ class CatalogueTest {
 
     @Test
     fun everyScopedControlIsAParamKey() {
-        // 80 of the native table's controls that are not universal are ParamKeys (the other six are
-        // Customize's own keys: Fluid quality, its auto switch, Progression, the two fluid layers and
-        // Water ripples on); each must be the same string Kotlin labels, locks and searches by, or a
-        // control would silently go universal.
-        assertEquals(80, paramKeys.count { ParamScope.of(it) != ParamScope.UNIVERSAL })
+        // 71 of the native table's controls that are not universal are ParamKeys (the other five are
+        // Customize's own keys: Fluid quality, its auto switch, Progression and the two fluid layers);
+        // each must be the same string Kotlin labels, locks and searches by, or a control would
+        // silently go universal.
+        assertEquals(71, paramKeys.count { ParamScope.of(it) != ParamScope.UNIVERSAL })
         assertEquals(ParamScope.MARCH_DETAIL, ParamScope.of(ParamKeys.MARCH_DETAIL))
         assertEquals(ParamScope.UNIVERSAL, ParamScope.of(ParamKeys.ZOOM))
     }

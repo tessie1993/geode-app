@@ -252,31 +252,6 @@ internal fun ReducedMotionRow() {
     )
 }
 
-/**
- * Gestures & controls › Touch: the fingers smearing the picture (handed to native by
- * `EnginePlumbing`, drawn by `core/viz/TouchSmear`), with its strength while it is on.
- */
-@Composable
-internal fun TouchSmearRow(viewModel: SettingsViewModel) {
-    val gui by viewModel.guiPrefs.collectAsStateWithLifecycle()
-    Column {
-        LabeledSwitch(
-            stringResource(R.string.behavior_touch_smear),
-            checked = gui.touchSmear,
-            onCheckedChange = { viewModel.setGuiPrefs(gui.copy(touchSmear = it)) },
-        )
-        SettingsHint(stringResource(R.string.behavior_touch_smear_hint))
-        if (gui.touchSmear) {
-            CrystalSlider(
-                label = stringResource(R.string.behavior_smear_strength, (gui.touchSmearStrength * 100).toInt()),
-                value = gui.touchSmearStrength,
-                onValueChange = { viewModel.setGuiPrefs(gui.copy(touchSmearStrength = it)) },
-                valueRange = 0.2f..2f,
-            )
-        }
-    }
-}
-
 /** Gestures & controls › Touch: pinch and twist moving Zoom and Rotation (`VisualsHub`). */
 @Composable
 internal fun TouchTransformRow(viewModel: SettingsViewModel) {

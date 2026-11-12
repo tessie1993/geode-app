@@ -102,6 +102,7 @@ neon_chrome_sea: midGain motionDrift
 black_hole: midGain motionDrift
 mandelbox_cathedral: midGain motionDrift
 morph_world: midGain motionDrift
+pool: midGain motionDrift
 arbor_grove: midGain motionDrift
 arbor_willow: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
 arbor_coral: midGain motionDrift noteChords noteDrums noteIntervals notePitch noteTension
@@ -225,7 +226,6 @@ fluid_lava: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
 fluid_marble: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
 fluid_aurora: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
 curlflow: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
-water: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
 cymatics: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
 chladni_sand: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
 bessel_drum: motionDrift noteChords noteDrums noteIntervals notePitch noteTension

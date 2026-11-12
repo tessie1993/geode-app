@@ -202,6 +202,7 @@ private fun VisualsHubContent(
             Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
         }
     }
+    StageBuildNote(viz.shaderError?.takeIf { viz.sceneId != GeodeNative.STYLE_MILKDROP }, pip)
     StageWarmNote(visualizerView, pip)
     // Settings › Displays & casting › Keep the screen on in Visuals: held while this is composed (#337).
     KeepScreenOnWhileShown(behaviour.keepScreenOnVisuals)

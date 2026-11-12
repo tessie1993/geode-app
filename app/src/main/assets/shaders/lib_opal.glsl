@@ -80,7 +80,11 @@ float gOpalLines;
 float gOpalTone;
 /** The share of a step taken: under 1 where a style's distance is only a bound. */
 float gOpalStride;
-vec3 gOpalPal[5];
+vec3 gOpalPal0;
+vec3 gOpalPal1;
+vec3 gOpalPal2;
+vec3 gOpalPal3;
+vec3 gOpalPal4;
 
 mat2 opalRot(float a) {
     float c = cos(a);
@@ -100,8 +104,10 @@ float opalHash(vec2 c) {
 /** The user's palette at t, from the five reads of opalSetup(): there and back, so no seam. */
 vec3 opalCol(float t) {
     float x = 4.0 * abs(2.0 * fract(0.5 * t) - 1.0);
-    int i = int(min(floor(x), 3.0));
-    return mix(gOpalPal[i], gOpalPal[i + 1], smoothstep(0.0, 1.0, x - float(i)));
+    vec3 c = mix(gOpalPal0, gOpalPal1, smoothstep(0.0, 1.0, clamp(x, 0.0, 1.0)));
+    c = mix(c, gOpalPal2, smoothstep(0.0, 1.0, clamp(x - 1.0, 0.0, 1.0)));
+    c = mix(c, gOpalPal3, smoothstep(0.0, 1.0, clamp(x - 2.0, 0.0, 1.0)));
+    return mix(c, gOpalPal4, smoothstep(0.0, 1.0, clamp(x - 3.0, 0.0, 1.0)));
 }
 
 void opalSetup() {
@@ -117,7 +123,11 @@ void opalSetup() {
     float drive = clamp(SND_DRIVE, 0.0, 1.0);
     gOpalTurn = 0.6 * sndShaped(SND_MIDDLE) * drive;
     gOpalSwell = sndShaped(SND_LOW) * drive;
-    for (int i = 0; i < 5; i++) gOpalPal[i] = pal(0.25 * float(i));
+    gOpalPal0 = pal(0.0);
+    gOpalPal1 = pal(0.25);
+    gOpalPal2 = pal(0.5);
+    gOpalPal3 = pal(0.75);
+    gOpalPal4 = pal(1.0);
 }
 
 /** Warp on space: a twist about z that comes and goes along the way (and the mids' push), and a sideways swell (and the lows'). */

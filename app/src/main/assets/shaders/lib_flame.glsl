@@ -92,7 +92,11 @@ vec2 gFlamePeriod;
 float gFlameTone;
 /** Veils whose weight is under this are not drawn (BUILD lowers it). */
 float gFlameGate;
-vec3 gFlamePal[5];
+vec3 gFlamePal0;
+vec3 gFlamePal1;
+vec3 gFlamePal2;
+vec3 gFlamePal3;
+vec3 gFlamePal4;
 
 mat2 flameRot(float a) {
     float c = cos(a);
@@ -103,8 +107,10 @@ mat2 flameRot(float a) {
 /** The user's palette at t, from the five reads of flameSetup(): there and back, so no seam. */
 vec3 flameCol(float t) {
     float x = 4.0 * abs(2.0 * fract(0.5 * t) - 1.0);
-    int i = int(min(floor(x), 3.0));
-    return mix(gFlamePal[i], gFlamePal[i + 1], smoothstep(0.0, 1.0, x - float(i)));
+    vec3 c = mix(gFlamePal0, gFlamePal1, smoothstep(0.0, 1.0, clamp(x, 0.0, 1.0)));
+    c = mix(c, gFlamePal2, smoothstep(0.0, 1.0, clamp(x - 1.0, 0.0, 1.0)));
+    c = mix(c, gFlamePal3, smoothstep(0.0, 1.0, clamp(x - 2.0, 0.0, 1.0)));
+    return mix(c, gFlamePal4, smoothstep(0.0, 1.0, clamp(x - 3.0, 0.0, 1.0)));
 }
 
 void flameSetup() {
@@ -124,7 +130,11 @@ void flameSetup() {
     float drive = clamp(SND_DRIVE, 0.0, 1.0);
     gFlameTurn = 0.6 * sndShaped(SND_MIDDLE) * drive;
     gFlameSwell = sndShaped(SND_LOW) * drive;
-    for (int i = 0; i < 5; i++) gFlamePal[i] = pal(0.25 * float(i));
+    gFlamePal0 = pal(0.0);
+    gFlamePal1 = pal(0.25);
+    gFlamePal2 = pal(0.5);
+    gFlamePal3 = pal(0.75);
+    gFlamePal4 = pal(1.0);
 }
 
 /** Warp and Turbulence on the structure: a twist about z that comes and goes along the way (and the mids' push), a sideways sway (and the lows' swell), a ripple. */

@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "viz/Catalogue.hpp"
+#include "viz/TouchField.hpp"
 #include "viz/scenes/StyleCatalog.hpp"
 
 using namespace geode::viz;
@@ -482,6 +483,14 @@ void textEqualsTheFixture(const char* path) {
     }
 }
 
+// The engine numbers the shell sizes things by: the touch field's finger slots are what the gestures and the
+// wallpaper collect, so they come from the field itself.
+void valuesTheShellReads() {
+    const std::string& text = catalogue::text();
+    check(text.find("\nvalue|touchPoints|" + std::to_string(TouchField::kMaxPoints) + "\n") != std::string::npos,
+          "the touch field's slots are a catalogue value");
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -497,6 +506,7 @@ int main(int argc, char** argv) {
     everyStyleKeepsItsOldLookGroup();
     pickerFamiliesAreFlatAndCoverEveryStyleOnce();
     textRoundTrips();
+    valuesTheShellReads();
     textEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/catalogue.txt");
     if (failures == 0) std::printf("catalogue_test: all checks passed\n");
     return failures;

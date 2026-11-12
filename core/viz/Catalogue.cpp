@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "viz/Params.hpp"
+#include "viz/TouchField.hpp"
 #include "viz/fluid/FluidQuality.hpp"
 #include "viz/scenes/CymaticsMath.hpp"
 #include "viz/scenes/StyleCatalog.hpp"
@@ -390,6 +391,8 @@ std::string build() {
     // The Fluid tab's quality chips are labelled in Kotlin; this says how many tiers they index.
     out += "value|fluidTiers|" + std::to_string(fluid::quality::kTierCount) + "\n";
     out += "value|touchRotationPerDegree|" + number(kTouchRotationPerDegree) + "\n";
+    // The fingers the touch field takes (geode_viz_set_touch); the shell collects no more than this.
+    out += "value|touchPoints|" + std::to_string(TouchField::kMaxPoints) + "\n";
     return out;
 }
 

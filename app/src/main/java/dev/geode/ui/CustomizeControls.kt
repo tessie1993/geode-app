@@ -23,7 +23,6 @@ import dev.geode.render.AdsrEngine
 import dev.geode.render.HandReactions
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
-import dev.geode.render.fluid.FluidQuality
 import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.ParamScope
@@ -186,7 +185,7 @@ private fun ShapeControl(
         ParamKeys.TREBLE_SPARKLE -> CheckRow(key, p.fluidSparkle) { onChange(p.copy(fluidSparkle = it)) }
         FLUID_QUALITY ->
             if (visible(key, ParamScope.EMITTERS)) {
-                val labels = FluidQuality.LABELS
+                val labels = FLUID_QUALITY_LABELS.take(Catalogue.value("fluidTiers").toInt())
                 val quality = p.fluidQuality.coerceIn(0, labels.size - 1)
                 ProGated(key, value = labels[quality]) { DropdownRow(key, labels, quality) { onChange(p.copy(fluidQuality = it)) } }
             }
@@ -690,6 +689,12 @@ private fun colourMapNames(): List<String> =
 internal const val REACTION_DNA = "Reaction DNA"
 private const val PROGRESSION = "Progression"
 private const val FLUID_QUALITY = "Fluid quality"
+
+/**
+ * The fluid quality chips' names, finest first; a stored quality is an index. The tiers behind them (and
+ * how many there are, the catalogue's `fluidTiers`) are native's, `core/viz/fluid/FluidQuality`.
+ */
+private val FLUID_QUALITY_LABELS = listOf("Ultra", "High", "Medium", "Low", "Min")
 private const val AUTO_QUALITY = "Lower the quality when the phone struggles"
 private const val PARTICLE_LAYER = "Particle layer"
 private const val INK_LAYER = "Ink layer"

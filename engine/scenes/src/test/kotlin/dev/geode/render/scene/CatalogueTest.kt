@@ -1,6 +1,5 @@
 package dev.geode.render.scene
 
-import dev.geode.render.fluid.FluidQuality
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -104,6 +103,8 @@ class CatalogueTest {
         assertEquals(1f..8f, Catalogue.range(ParamKeys.STANDING_WAVES))
         assertEquals(1f, Catalogue.override("kundt_tube", ParamKeys.GEOMETRY))
         assertEquals(null, Catalogue.override(SceneIds.CYMATICS, ParamKeys.GEOMETRY))
-        assertEquals(FluidQuality.LABELS.size, Catalogue.value("fluidTiers").toInt())
+        // The five quality chips Customize labels, and the fingers the gestures and the wallpaper collect.
+        assertEquals(5, Catalogue.value("fluidTiers").toInt())
+        assertEquals(5, Catalogue.value("touchPoints").toInt())
     }
 }

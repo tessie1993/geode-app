@@ -17,14 +17,14 @@ Status: **ported** (C++ owns it, Kotlin class deleted), **deleted** (dead or a d
 | `ReactSourceCatalog` | 29 | **deleted**: a parser of `geode_react_source_catalog`'s text that only its own two tests called; no screen read it. The device test that holds the `ReactSource` mirror to the native catalogue now compares the lines themselves. |
 | `SoundFrameLayout` | 131 | **deleted**: 109 float offsets into `GeodeSoundFrame` and its array sizes that no Kotlin read (the frame no longer crosses JNI). Its test's cases (scalars in order, `lib_sound.glsl` naming each in its slot) are in `core/tests/sound_test.cpp`; the tuning's slots that Settings › Audio names are still held to the header by `SoundTuningTest`. |
 | `TransitionStyle` | 9 | pending |
-| `TouchField` | 13 | pending |
-| `FluidQuality` | 13 | pending |
+| `TouchField` | 13 | **deleted**: the finger slots are native's (`TouchField::kMaxPoints`), published as the catalogue's `touchPoints` value; the gestures and the wallpaper size their buffer by it. Pinned in `catalogue_test.cpp` and the fixture. |
+| `FluidQuality` | 13 | **moved to UI**: the chips' names are private to `ui/CustomizeControls`, shown for the catalogue's `fluidTiers`. |
 | `SceneFactory` | 14 | pending |
 | `FluidShaderTemplate` | 15 | pending |
 | `PlaybackMath` | 18 | **ported**: the pitch rate and the slider step are `core/audio/dsp/PlaybackControls` (`geode_playback_pitch_ratio`, `geode_playback_snap`), test `core/tests/playback_controls_test.cpp`; the sleep timer's m:ss countdown is display text, now private to `ui/PlaybackSettings`. |
 | `BestEffort` | 18 | pending |
-| `UnderlayBlend` | 22 | pending |
-| `BlendMode` | 24 | pending |
+| `UnderlayBlend` | 22 | **moved to UI**: to `:app`, same package; its names are saved data (Background, Studio projects) and its ordinals the underlay's wire int, clamped natively. The unused `fromOrdinal` is gone. |
+| `BlendMode` | 24 | **shrunk** (20): the unused `fromOrdinal` is gone; the enum stays while `VisualizerRenderer.submitLayer` takes it. |
 | `StyleSchedule` | 31 | pending |
 | `Adsr` (`EnvBand`, `AdsrConfig`, `AdsrEngine`) | 33 | pending |
 | `SceneCapabilities` (`SceneKind`) | 37 | pending |

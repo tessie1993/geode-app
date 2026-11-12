@@ -177,6 +177,11 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Otherwise, or when the stream will not open or fails, the sink uses the AudioTrack.
 - `PlayoutSink` wraps that sink and reports its buffers, position, play, pause, flush and speed to the native playout clock.
 
+## `render`
+
+- The engine module's package, for the shell's own pieces of it.
+- `UnderlayBlend` is the background image's blend, saved by name; its ordinal is the underlay's wire int.
+
 ## `audio/dsp`
 
 - Open first: `MvzAudioProcessorChain`.

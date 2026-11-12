@@ -24,6 +24,9 @@
 "lib_feedback",
 // The simulation scenes' shared 2.5D look (parallax relief, light, eight materials); after lib_sound.
 "lib_relief",
+// A simulation presented in 3D on the camera rig (core/viz/present/FieldPresent); its march comes after the present's colours.
+"lib_field3d",
+"lib_field3d_march",
 // One library per style family (core/viz/Catalogue.cpp): the styles of a family share it.
 "lib_arbor",
 "lib_bulb",

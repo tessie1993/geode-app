@@ -50,6 +50,9 @@ public:
     virtual void setCamera(const CameraPose* pose) { (void) pose; }
     // True when the scene draws the rig's 3D pose itself, so the composite must not also apply its flat projection.
     virtual bool drawsCamera() const { return false; }
+    // A held scene (Renderer::holds) that draws the rig itself, when the rig moved since the frame it holds:
+    // draw what it holds again from the new pose without stepping it, so the eye never freezes with the field.
+    virtual void redrawHeld() {}
     virtual void setFragmentSource(const std::string& source) { (void) source; }
     // > 0 keeps the previous frame in the scene target (Curl Flow); 0 clears it.
     virtual float trailRetention(const SceneParams& params) const { (void) params; return 0.0f; }

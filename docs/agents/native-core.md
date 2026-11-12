@@ -179,6 +179,12 @@ The renderer runs these in order each frame.
 - Each neon style spends Morph, Warp, Turbulence and Intensity on its own geometry through normalized reads, so Customize, the macro bank and DNA reach it, and adds each style knob's offset from 0.5 on top.
 - The simulation scenes (Silk, Fluid, Life, Morphing (ids `acid_*`, `AcidScene`), Cymatics) present their field as a lit 3D surface through `lib_relief`.
 - `lib_relief` gives parallax, a sound-driven light and tilt, and eight material looks taken from the families.
+- `core/viz/present/FieldPresent` presents a simulation in 3D: `field_prep_frag` writes its state into a mipmapped field (height, tint, age), and a `ShaderScene` fed that field (`ShaderScene::Field`) draws it, so the present reads the whole shared block like a style.
+- That present shader includes `lib_field3d`, defines its colours, then `lib_field3d_march`: the field marched as a terrain on `camFly` or a torus or sphere on `camAround`, with finer copies of the field as fractal detail.
+- In it Kaleidoscope, Twist, Tile, Warp and Ripple bend the 3D shape (`VIEW_BENDS_IN_3D` keeps them out of `view()`).
+- `core/viz/present/FieldGeometry` is its pure maths: each surface's size and eye, and where a finger lands on the field (`field_present_test`).
+- The composite applies no geometry, mirror or grade to a scene that draws the rig itself (`grade::gateFor`, `Scene::drawsCamera`).
+- A held simulation that draws the rig redraws its held field when the rig moves (`Scene::redrawHeld`); it is not stepped.
 - A style family's styles share `lib_<family>` and are listed in `core/viz/Catalogue.cpp`; a family carries its own count.
 - Flame, Opal and Hollows also include `lib_<family>_march`, after the style's own map: no style declares a function ahead of its body.
 - Twelve styles each: `arbor_*`, `bulb_*`, `chrys_*`, `lucid_*`, `dive_*`, `glass_*`, `nebula_*`, `terra_*`, `truchet_*`, `foam_*`.

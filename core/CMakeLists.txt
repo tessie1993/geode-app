@@ -196,6 +196,8 @@ add_library(geode_core STATIC
     viz/scenes/CymaticsScene.cpp
     viz/scenes/SilkScene.cpp
     viz/scenes/LifeScene.cpp
+    viz/present/FieldGeometry.cpp
+    viz/present/FieldPresent.cpp
     viz/scenes/MycoScene.cpp
     viz/scenes/AcidScene.cpp
     viz/scenes/FluidSceneBase.cpp

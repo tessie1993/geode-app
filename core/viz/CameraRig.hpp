@@ -34,6 +34,8 @@ struct CameraPose {
     // a 2D picture (composite pass): pan, zoom multiplier, tilt and roll.
     std::array<float, 4> flat{0.0f, 0.0f, 1.0f, 0.0f};  // panX, panY, zoom, roll
     std::array<float, 2> tilt{0.0f, 0.0f};              // yaw, pitch for the plane
+
+    bool operator==(const CameraPose&) const = default;
 };
 
 class CameraRig {

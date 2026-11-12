@@ -246,6 +246,8 @@ void main() {
     }
     float hitT = -1.0;
     float glow = 0.0;
+    // The glow's depth, weighted like the glow, so it can be coloured by how far off it hangs.
+    float glowT = 0.0;
     float used = 0.0;
     for (int i = 0; i < MB_MAX_STEPS; i++) {
         // uSteps is the user's Detail; this loop's own bound is the constant.
@@ -258,9 +260,16 @@ void main() {
             hitT = t;
             break;
         }
-        // The filaments' rims shine through the gaps between the cliffs.
-        if (gInside < 0.5 && gMat < 0.5) glow += exp(-d * 10.0) * gIter * 0.02;
-        t += max(d * 0.8, eps);
+        // The filaments' rims shine through the gaps between the cliffs: light
+        // gathered along the ray by step length (so Detail does not change it)
+        // and thinned by the air, the way the Flame family hangs its veils in depth.
+        float stepLen = max(d * 0.8, eps);
+        if (gInside < 0.5 && gMat < 0.5) {
+            float w = exp(-d * 6.0) * gIter * stepLen * exp(-t * 0.025);
+            glow += w;
+            glowT += w * t;
+        }
+        t += stepLen;
     }
     // Out of budget on a grazing ray over the mesa or the cliffs: the ray was
     // still closing in, so it lands where it stopped instead of showing sky
@@ -299,9 +308,12 @@ void main() {
             vec3 base = pal(smoothF * 2.0 + flow + hue) * (0.2 + f * 1.4 + sndSpectrum(f) * 0.7);
             col = base * (0.25 + 0.75 * dif) * ao + pal(hue + 0.3) * fres * 0.12 + vec3(spec) * 0.2 * ao;
         }
-        col = mix(col, sky, 1.0 - exp(-hitT * fogK));
+        // Depth haze: the air's colour runs on round the palette with distance,
+        // as the Hollows' does, so near cliffs and far islands read apart.
+        col = mix(col, skyColour(rd, hue + 0.3 * hitT / MB_FAR), 1.0 - exp(-hitT * fogK));
     }
-    col += pal(hue + 0.15) * glow * (0.5 + 0.6 * (mbKnob(4) + 0.5)) * (0.7 + 0.3 * swell);
+    float glowFar = glow > 1e-5 ? glowT / (glow * MB_FAR) : 0.0;
+    col += pal(hue + 0.15 + 0.4 * glowFar) * glow * 0.12 * (0.5 + 0.6 * (mbKnob(4) + 0.5)) * (0.7 + 0.3 * swell);
 
     col *= 0.8 + 0.25 * swell;
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));

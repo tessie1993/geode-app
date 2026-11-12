@@ -209,14 +209,13 @@ class AudioFxController(
         )
     }
 
-    private fun restored(): DspSettings {
-        return dsp.settings.copy(
+    private fun restored(): DspSettings =
+        dsp.settings.copy(
             enabled = prefs.getBoolean(KEY_ENABLED, false),
             bandsMb = limits.restoreBands(prefs.getInt(KEY_PRESET, -1), prefs.getString(KEY_BANDS, null)),
             bassBoost = limits.clamp(GeodeNative.DSP_FX_BASS_BOOST, prefs.getInt(KEY_BASS, 0)),
             loudnessMb = limits.clamp(GeodeNative.DSP_FX_LOUDNESS, prefs.getInt(KEY_LOUDNESS, 0)),
         )
-    }
 
     internal companion object {
         const val KEY_ENABLED = "enabled"

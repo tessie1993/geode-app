@@ -126,10 +126,10 @@ class PrefsSchemaTest {
             },
             Owner("$DATA/MacroStore.kt", MacroStore.PREF_KEYS) { MacroBankCodec { bank -> bank }.save(it[general], "macrobank|1|1\n") },
             Owner("$DATA/LfoStore.kt", LfoStore.PREF_KEYS) {
-                val store = LfoStore(it[general], encodeReactions = { "reactions/2" }, decodeReactions = { null })
+                val store = LfoStore(it[general], readReactions = { null })
                 store.save(store.load())
                 store.saveAdsrs(store.loadAdsrs())
-                store.saveReactions(emptyList())
+                store.saveReactions("reactions/2")
             },
             Owner("$DATA/AutoDirectorStore.kt", AutoDirectorCodec.keys) {
                 AutoDirectorCodec.save(it[general], AutoDirectorSettings(enabled = false))
@@ -170,7 +170,7 @@ class PrefsSchemaTest {
 
                         override fun setSceneParams(params: SceneParams) = Unit
                     }
-                val lfos = LfoStore(it[general], encodeReactions = { "reactions/2" }, decodeReactions = { null })
+                val lfos = LfoStore(it[general], readReactions = { null })
                 ModulationController(lfos, it[GeodePrefsFiles.MODULATION], host).toggleParamLock("speed")
             },
             Owner("$DATA/RecordPrefs.kt", RecordPrefsStore.PREF_KEYS) {

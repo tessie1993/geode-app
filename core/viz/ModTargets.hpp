@@ -8,21 +8,26 @@
 
 // The modulation-target table (#642): what the shell needs to know about every LfoTarget, ModSource,
 // ModPolarity, ModCurve and LfoWave to offer them, and nothing it would have to keep a copy of.
-// Per target: its wire name (the name saved presets and LfoStore write), the catalogue scope that
+// Per target: its wire name (the name the saved waves and routes hold), the catalogue scope that
 // says which styles it reaches, the slot a chained target steers and whether it is offered at all.
 // Per source: the polarity that makes it useful the moment it is picked. Plus a slot's defaults and
 // rate range (LfoConfig). Pure: the host tests build it beside the catalogue.
 //
-// Kotlin reads all of it once through text() (geode_mod_targets_text), the way render/scene/Catalogue
-// reads the style catalogue; its enums keep only their labels, which Android translates.
+// viz/ModDocument and viz/ModCatalog answer the editors from it; text() is the whole table in one piece,
+// which mod_targets_test holds to its fixture.
 namespace geode::viz::modtargets {
 
-// Bumped whenever a row type or field changes meaning; Kotlin refuses a table it cannot read.
+// Bumped whenever a row type or field changes meaning.
 constexpr int kTextVersion = 3;
 constexpr int kTargetCount = static_cast<int>(kLastLfoTarget) + 1;
 
 // The wire name; "" outside the enum.
 const char* name(LfoTarget target);
+// The names a saved wave carries for its source, direction, curve and shape; "" outside the enum.
+const char* sourceName(ModSource source);
+const char* polarityName(ModPolarity polarity);
+const char* curveName(ModCurve curve);
+const char* waveName(LfoWave wave);
 catalogue::Scope scopeOf(LfoTarget target);
 // False for the retired Pulse and Glitch slots, which only hold later ordinals in place. Macro (a knob) is offered
 // to the waves and the envelopes on every style, never to a reaction route.

@@ -54,8 +54,8 @@ constexpr bool sameText(const char* a, const char* b) {
 }
 }  // namespace detail
 
-// A row's position inside its group: for lfo and adsr the float index on the geode_viz_set_lfo /
-// geode_viz_set_adsr wire.
+// A row's position inside its group: for lfo and adsr the float index on the slot's
+// wire.
 constexpr int indexInGroup(Slot s) {
     int index = 0;
     for (int i = 0; i < static_cast<int>(s); ++i) {

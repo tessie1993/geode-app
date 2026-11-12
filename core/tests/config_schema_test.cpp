@@ -71,18 +71,18 @@ void everyRowIsWellFormed() {
 }
 
 void theGroupsAreTheWires() {
-    check(rowsIn("lfo") == GEODE_LFO_CONFIG_FLOATS, "one lfo row per geode_viz_set_lfo float");
-    check(rowsIn("adsr") == GEODE_ADSR_CONFIG_FLOATS, "one adsr row per geode_viz_set_adsr float before the targets");
+    check(rowsIn("lfo") == GEODE_LFO_CONFIG_FLOATS, "one lfo row per wire float");
+    check(rowsIn("adsr") == GEODE_ADSR_CONFIG_FLOATS, "one adsr row per wire float before the targets");
     // The six macro rows went with the old knobs: the macro bank (viz/MacroBank) keeps its own text.
     check(rowsIn("macro") == 0, "no macro rows");
-    // geode_viz_set_lfo: enabled, source, target, wave, rate_seconds, depth, polarity, curve, beats, knob, moment.
+    // A wave: enabled, source, target, wave, rate_seconds, depth, polarity, curve, beats, knob, moment.
     check(config::indexInGroup(Slot::lfo_enabled) == 0, "lfo enabled is float 0");
     check(config::indexInGroup(Slot::lfo_rateSeconds) == 4, "lfo rate is float 4");
     check(config::indexInGroup(Slot::lfo_depth) == 5, "lfo depth is float 5");
     check(config::indexInGroup(Slot::lfo_curve) == 7, "lfo curve is float 7");
     check(config::indexInGroup(Slot::lfo_beats) == 8, "lfo beats is float 8");
     check(config::indexInGroup(Slot::lfo_knob) == 9 && config::indexInGroup(Slot::lfo_moment) == 10, "lfo knob and moment are floats 9 and 10");
-    // geode_viz_set_adsr: enabled, attack, decay, sustain, release, amount, band, gate, sustain track, retrigger.
+    // An envelope: enabled, attack, decay, sustain, release, amount, band, gate, sustain track, retrigger.
     check(config::indexInGroup(Slot::adsr_attack) == 1, "adsr attack is float 1");
     check(config::indexInGroup(Slot::adsr_band) == 6, "adsr band is float 6");
     check(config::indexInGroup(Slot::adsr_gateThreshold) == 7, "adsr gate is float 7");

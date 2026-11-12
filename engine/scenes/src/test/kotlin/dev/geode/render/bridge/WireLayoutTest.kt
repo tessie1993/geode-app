@@ -1,11 +1,5 @@
 package dev.geode.render.bridge
 
-import dev.geode.render.AdsrConfig
-import dev.geode.render.LfoConfig
-import dev.geode.render.LfoTarget
-import dev.geode.render.ReactMode
-import dev.geode.render.ReactSource
-import dev.geode.render.ReactionRoute
 import dev.geode.render.scene.ParamSchema
 import dev.geode.render.scene.ParamSpec
 import dev.geode.render.scene.SceneParams
@@ -120,69 +114,5 @@ class WireLayoutTest {
         assertEquals(177, slot("diveFollow"))
         val tail = ParamSchema.params.takeLast(3).map { it.name }
         assertEquals(listOf("paletteAmount6", "paletteAmount7", "paletteShift"), tail)
-    }
-
-    @Test
-    fun reactionsPackEverySlotAndDisableTheRest() {
-        val route =
-            ReactionRoute(true, ReactSource.HARD_CUT, LfoTarget.CAM_FLY, ReactMode.STEP, 0.8f, attackSeconds = 0.2f, releaseSeconds = 2f)
-        val out = ModConfigCodec.packReactions(listOf(route))
-        assertEquals(ReactionRoute.MAX_ROUTES * ModConfigCodec.REACT_ROUTE_FLOATS, out.size)
-        assertEquals(1f, out[0])
-        assertEquals(ReactSource.HARD_CUT.ordinal.toFloat(), out[1])
-        assertEquals(LfoTarget.CAM_FLY.ordinal.toFloat(), out[2])
-        assertEquals(ReactMode.STEP.ordinal.toFloat(), out[3])
-        assertEquals(0.8f, out[4])
-        assertEquals(2f, out[7])
-        // The second slot was never written: native must see it disabled.
-        assertEquals(0f, out[ModConfigCodec.REACT_ROUTE_FLOATS])
-    }
-
-    @Test
-    fun styleDnaUnpacksWhatPackWrote() {
-        val routes =
-            listOf(
-                ReactionRoute(true, ReactSource.KICK, LfoTarget.COLOR_SHIFT, ReactMode.JUMP, 0.4f, attackSeconds = 0.08f),
-                ReactionRoute(true, ReactSource.HARD_CUT, LfoTarget.CAM_FLY, ReactMode.FOLLOW, 1.2f, releaseSeconds = 2.2f),
-            )
-        val packed = ModConfigCodec.packReactions(routes).copyOf(routes.size * ModConfigCodec.REACT_ROUTE_FLOATS)
-        assertEquals(routes, ModConfigCodec.unpackReactions(packed))
-    }
-
-    @Test
-    fun unknownOrdinalsFromNativeAreDropped() {
-        val packed = ModConfigCodec.packReactions(listOf(ReactionRoute(target = LfoTarget.ZOOM))).copyOf(ModConfigCodec.REACT_ROUTE_FLOATS)
-        packed[1] = 999f
-        assertEquals(emptyList<ReactionRoute>(), ModConfigCodec.unpackReactions(packed))
-    }
-
-    @Test
-    fun enumOrdinalsMatchTheNativeEnums() {
-        // core/viz/Reactions.hpp: Eq22k is last, Toggle is last; core/viz/Lfo.hpp: PaletteShift is last.
-        assertEquals(118, ReactSource.entries.size)
-        assertEquals(72, ReactSource.EQ_25.ordinal)
-        assertEquals(46, ReactSource.KICK.ordinal)
-        assertEquals(55, ReactSource.HARD_CUT.ordinal)
-        assertEquals(5, ReactMode.entries.size)
-        assertEquals(3, ReactMode.JUMP.ordinal)
-        assertEquals(4, ReactMode.TOGGLE.ordinal)
-        assertEquals(LfoTarget.entries.last(), LfoTarget.PALETTE_SHIFT)
-        assertEquals(67, LfoTarget.PALETTE_SHIFT.ordinal)
-        assertEquals(60, LfoTarget.PALETTE_AMOUNT_1.ordinal)
-        assertEquals(59, LfoTarget.MACRO.ordinal)
-        assertEquals(52, LfoTarget.CAM_SHAKE.ordinal)
-        assertEquals(55, LfoTarget.DIVE_SPEED.ordinal)
-        assertEquals(58, LfoTarget.DIVE_AIM_Y.ordinal)
-    }
-
-    @Test
-    fun aWaveAndAnEnvelopeCarryTheirKnobAndMoment() {
-        // geode_viz_set_lfo floats 9 and 10, geode_viz_set_adsr floats 10 and 11 (GEODE_*_CONFIG_FLOATS).
-        val lfo = ModConfigCodec.packLfo(LfoConfig(target = LfoTarget.MACRO, knob = 5, moment = 4))
-        assertEquals(11, lfo.size)
-        assertEquals(listOf(59f, 5f, 4f), listOf(lfo[2], lfo[9], lfo[10]))
-        assertEquals(-1f, ModConfigCodec.packLfo(LfoConfig())[10])
-        val env = ModConfigCodec.packAdsr(AdsrConfig(targets = listOf(LfoTarget.MACRO), knob = 3, moment = 0))
-        assertEquals(listOf(3f, 0f, 59f), listOf(env[10], env[11], env[12]))
     }
 }

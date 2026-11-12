@@ -42,7 +42,7 @@ constexpr int kKinds = 5;
 constexpr int kCameraKind = 3;
 int kindOf(LfoTarget target);
 
-// The slots as geode_viz_set_lfo reads them, one after another.
+// The slots as floats (the lfo rows of viz/ConfigTable.inc), one after another.
 constexpr int kWireFloats = LfoEngine::kSlots * GEODE_LFO_CONFIG_FLOATS;
 Set fromWire(const float* values);
 void toWire(const Set& set, float* out);

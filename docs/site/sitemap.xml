@@ -1,6 +1,160 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://beatrealms3d.pages.dev/</loc></url>
-  <url><loc>https://beatrealms3d.pages.dev/features.html</loc></url>
-  <url><loc>https://beatrealms3d.pages.dev/privacy-policy.html</loc></url>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://beatrealms3d.pages.dev/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://beatrealms3d.pages.dev/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://beatrealms3d.pages.dev/de/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://beatrealms3d.pages.dev/fr/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://beatrealms3d.pages.dev/es/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://beatrealms3d.pages.dev/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://beatrealms3d.pages.dev/ja/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://beatrealms3d.pages.dev/it/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://beatrealms3d.pages.dev/"/>
+  </url>
+  <url>
+    <loc>https://beatrealms3d.pages.dev/de/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://beatrealms3d.pages.dev/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://beatrealms3d.pages.dev/de/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://beatrealms3d.pages.dev/fr/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://beatrealms3d.pages.dev/es/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://beatrealms3d.pages.dev/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://beatrealms3d.pages.dev/ja/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://beatrealms3d.pages.dev/it/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://beatrealms3d.pages.dev/"/>
+  </url>
+  <url>
+    <loc>https://beatrealms3d.pages.dev/fr/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://beatrealms3d.pages.dev/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://beatrealms3d.pages.dev/de/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://beatrealms3d.pages.dev/fr/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://beatrealms3d.pages.dev/es/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://beatrealms3d.pages.dev/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://beatrealms3d.pages.dev/ja/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://beatrealms3d.pages.dev/it/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://beatrealms3d.pages.dev/"/>
+  </url>
+  <url>
+    <loc>https://beatrealms3d.pages.dev/es/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://beatrealms3d.pages.dev/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://beatrealms3d.pages.dev/de/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://beatrealms3d.pages.dev/fr/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://beatrealms3d.pages.dev/es/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://beatrealms3d.pages.dev/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://beatrealms3d.pages.dev/ja/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://beatrealms3d.pages.dev/it/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://beatrealms3d.pages.dev/"/>
+  </url>
+  <url>
+    <loc>https://beatrealms3d.pages.dev/pt-br/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://beatrealms3d.pages.dev/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://beatrealms3d.pages.dev/de/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://beatrealms3d.pages.dev/fr/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://beatrealms3d.pages.dev/es/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://beatrealms3d.pages.dev/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://beatrealms3d.pages.dev/ja/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://beatrealms3d.pages.dev/it/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://beatrealms3d.pages.dev/"/>
+  </url>
+  <url>
+    <loc>https://beatrealms3d.pages.dev/ja/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://beatrealms3d.pages.dev/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://beatrealms3d.pages.dev/de/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://beatrealms3d.pages.dev/fr/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://beatrealms3d.pages.dev/es/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://beatrealms3d.pages.dev/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://beatrealms3d.pages.dev/ja/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://beatrealms3d.pages.dev/it/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://beatrealms3d.pages.dev/"/>
+  </url>
+  <url>
+    <loc>https://beatrealms3d.pages.dev/it/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://beatrealms3d.pages.dev/"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://beatrealms3d.pages.dev/de/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://beatrealms3d.pages.dev/fr/"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://beatrealms3d.pages.dev/es/"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://beatrealms3d.pages.dev/pt-br/"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://beatrealms3d.pages.dev/ja/"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://beatrealms3d.pages.dev/it/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://beatrealms3d.pages.dev/"/>
+  </url>
+  <url>
+    <loc>https://beatrealms3d.pages.dev/features.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://beatrealms3d.pages.dev/features.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://beatrealms3d.pages.dev/de/features.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://beatrealms3d.pages.dev/fr/features.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://beatrealms3d.pages.dev/es/features.html"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://beatrealms3d.pages.dev/pt-br/features.html"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://beatrealms3d.pages.dev/ja/features.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://beatrealms3d.pages.dev/it/features.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://beatrealms3d.pages.dev/features.html"/>
+  </url>
+  <url>
+    <loc>https://beatrealms3d.pages.dev/de/features.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://beatrealms3d.pages.dev/features.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://beatrealms3d.pages.dev/de/features.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://beatrealms3d.pages.dev/fr/features.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://beatrealms3d.pages.dev/es/features.html"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://beatrealms3d.pages.dev/pt-br/features.html"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://beatrealms3d.pages.dev/ja/features.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://beatrealms3d.pages.dev/it/features.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://beatrealms3d.pages.dev/features.html"/>
+  </url>
+  <url>
+    <loc>https://beatrealms3d.pages.dev/fr/features.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://beatrealms3d.pages.dev/features.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://beatrealms3d.pages.dev/de/features.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://beatrealms3d.pages.dev/fr/features.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://beatrealms3d.pages.dev/es/features.html"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://beatrealms3d.pages.dev/pt-br/features.html"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://beatrealms3d.pages.dev/ja/features.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://beatrealms3d.pages.dev/it/features.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://beatrealms3d.pages.dev/features.html"/>
+  </url>
+  <url>
+    <loc>https://beatrealms3d.pages.dev/es/features.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://beatrealms3d.pages.dev/features.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://beatrealms3d.pages.dev/de/features.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://beatrealms3d.pages.dev/fr/features.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://beatrealms3d.pages.dev/es/features.html"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://beatrealms3d.pages.dev/pt-br/features.html"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://beatrealms3d.pages.dev/ja/features.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://beatrealms3d.pages.dev/it/features.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://beatrealms3d.pages.dev/features.html"/>
+  </url>
+  <url>
+    <loc>https://beatrealms3d.pages.dev/pt-br/features.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://beatrealms3d.pages.dev/features.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://beatrealms3d.pages.dev/de/features.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://beatrealms3d.pages.dev/fr/features.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://beatrealms3d.pages.dev/es/features.html"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://beatrealms3d.pages.dev/pt-br/features.html"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://beatrealms3d.pages.dev/ja/features.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://beatrealms3d.pages.dev/it/features.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://beatrealms3d.pages.dev/features.html"/>
+  </url>
+  <url>
+    <loc>https://beatrealms3d.pages.dev/ja/features.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://beatrealms3d.pages.dev/features.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://beatrealms3d.pages.dev/de/features.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://beatrealms3d.pages.dev/fr/features.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://beatrealms3d.pages.dev/es/features.html"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://beatrealms3d.pages.dev/pt-br/features.html"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://beatrealms3d.pages.dev/ja/features.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://beatrealms3d.pages.dev/it/features.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://beatrealms3d.pages.dev/features.html"/>
+  </url>
+  <url>
+    <loc>https://beatrealms3d.pages.dev/it/features.html</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://beatrealms3d.pages.dev/features.html"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://beatrealms3d.pages.dev/de/features.html"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://beatrealms3d.pages.dev/fr/features.html"/>
+    <xhtml:link rel="alternate" hreflang="es" href="https://beatrealms3d.pages.dev/es/features.html"/>
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://beatrealms3d.pages.dev/pt-br/features.html"/>
+    <xhtml:link rel="alternate" hreflang="ja" href="https://beatrealms3d.pages.dev/ja/features.html"/>
+    <xhtml:link rel="alternate" hreflang="it" href="https://beatrealms3d.pages.dev/it/features.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://beatrealms3d.pages.dev/features.html"/>
+  </url>
+  <url>
+    <loc>https://beatrealms3d.pages.dev/privacy-policy.html</loc>
+  </url>
 </urlset>

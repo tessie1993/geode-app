@@ -371,3 +371,6 @@
   .tag.free { color: #04121a; background: var(--cyan); }
   .custom-list b .tag { font-size: .66rem; }
   [id] { scroll-margin-top: 5rem; }
+
+/* Japanese has no spaces: break headings between phrases, not inside them */
+:lang(ja) :is(h1, h2, h3, .subhead, .lede) { word-break: auto-phrase; text-wrap: balance; }

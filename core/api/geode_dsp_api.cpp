@@ -190,6 +190,14 @@ void geode_dsp_process_pcm16(geode_dsp* d, int16_t* interleaved, size_t capacity
     if (d) d->processor.processPcm16(interleaved, capacity_samples, frames, channels);
 }
 
+int geode_dsp_process_bytes(geode_dsp* d, void* pcm, size_t capacity_bytes, int bytes, int encoding, int channels) {
+    if (bytes <= 0) return 0;
+    const auto n = static_cast<size_t>(bytes);
+    using geode::audio::DspProcessor;
+    return static_cast<int>(d && pcm ? d->processor.processBytes(pcm, capacity_bytes, n, encoding, channels)
+                                     : DspProcessor::wholeFrameBytes(n, encoding, channels));
+}
+
 void geode_dsp_set_bit_perfect(geode_dsp* d, int on) {
     if (d) d->processor.setBitPerfect(on != 0);
 }

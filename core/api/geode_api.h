@@ -834,7 +834,6 @@ GEODE_API int             geode_capture_read_frames(void);
  * another app's audio takes it; a pause then holds the tempo, key and sections (no 2 s silence re-warm),
  * and fadeGain reads 1 under the others. All process-wide and latched, any thread; an export reads none. */
 GEODE_API long long       geode_sound_track_boundary(long long seed);
-GEODE_API void            geode_sound_set_fade_gain(float gain);
 GEODE_API void            geode_sound_set_player_source(int on);
 /* Which sound the wallpaper and the dream hear (sound/SoundSource): the app's ring while it is fed, else the
  * output-mix capture when permitted. The caller keeps the state (GEODE_SOUND_SOURCE_STATE_LONGS int64s, zeroed

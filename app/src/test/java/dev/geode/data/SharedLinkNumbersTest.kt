@@ -1,6 +1,7 @@
 package dev.geode.data
 
 import dev.geode.render.scene.SceneParams
+import dev.geode.render.scene.TestCatalogue
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -12,6 +13,10 @@ import org.junit.Test
  * It reads unquoted `NaN` as a string and falls back, so NaN is covered through [PresetStore.finiteOr].
  */
 class SharedLinkNumbersTest {
+    init {
+        TestCatalogue.install()
+    }
+
     @Test
     fun finiteOrRejectsNaNInfinityAndFloatOverflow() {
         assertEquals(0.5f, PresetStore.finiteOr(Double.NaN, 0.5f))

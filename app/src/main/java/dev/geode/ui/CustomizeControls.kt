@@ -24,12 +24,11 @@ import dev.geode.render.HandReactions
 import dev.geode.render.LfoConfig
 import dev.geode.render.LfoEngine
 import dev.geode.render.fluid.FluidQuality
-import dev.geode.render.scene.Catalogue
 import dev.geode.render.scene.ParamKeys
 import dev.geode.render.scene.ParamScope
 import dev.geode.render.scene.ParamUnit
-import dev.geode.render.scene.SceneCapabilities
 import dev.geode.render.scene.SceneParams
+import dev.geode.render.scene.StyleCatalogue
 import dev.geode.ui.theme.LocalUiSounds
 import dev.geode.ui.theme.UiSound
 
@@ -359,7 +358,7 @@ private fun EngineControl(
         ParamKeys.SOLVER_ITERATIONS ->
             LabeledIntSlider(key, p, SceneParams::fluidIterations, display = "Accuracy") { onChange(p.copy(fluidIterations = it)) }
         ParamKeys.FLUID_CURL ->
-            if (SceneCapabilities.isFluid(sceneId)) {
+            if (StyleCatalogue.isFluid(sceneId)) {
                 LabeledSlider(key, p, SceneParams::fluidCurl, display = "Fluid swirl") { onChange(p.copy(fluidCurl = it)) }
             }
         ParamKeys.MOTION_FADE ->
@@ -609,8 +608,8 @@ private fun CymaticsGeometry(
     onChange: (SceneParams) -> Unit,
 ) {
     val sceneId = LocalSceneId.current
-    if (!SceneCapabilities.isCymatics(sceneId)) return
-    val forced = Catalogue.override(sceneId, ParamKeys.GEOMETRY)?.let { SceneParams.CYMATICS_GEOMETRIES.getOrNull(it.toInt()) }
+    if (!StyleCatalogue.isCymatics(sceneId)) return
+    val forced = StyleCatalogue.held(sceneId, ParamKeys.GEOMETRY)?.let { SceneParams.CYMATICS_GEOMETRIES.getOrNull(it.toInt()) }
     if (forced != null) {
         ControlHint("Shape set by this style: $forced.", ParamScope.CYMATICS)
     } else {

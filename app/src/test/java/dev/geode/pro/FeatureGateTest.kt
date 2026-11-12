@@ -1,8 +1,9 @@
 package dev.geode.pro
 
+import dev.geode.engine.bridge.GeodeNative
 import dev.geode.model.WatermarkChoice
-import dev.geode.render.scene.SceneIds
-import dev.geode.render.scene.StyleFamilies
+import dev.geode.render.scene.StyleCatalogue
+import dev.geode.render.scene.TestCatalogue
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -10,6 +11,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FeatureGateTest {
+    init {
+        TestCatalogue.install()
+    }
+
     private val free = FeatureGate.FREE
     private val trial = FeatureGate(Entitlement.Trial(endsAtMs = 1L))
     private val pro = FeatureGate(Entitlement.Pro)
@@ -46,18 +51,18 @@ class FeatureGateTest {
     fun `the free styles are the shader family and include the fallback`() {
         assertTrue(FreeTier.FALLBACK_STYLE_ID in FreeTier.freeStyleIds)
         assertTrue(free.allowsStyle(FreeTier.FALLBACK_STYLE_ID))
-        assertFalse("silk is a Pro renderer", free.allowsStyle(SceneIds.DEFAULT))
+        assertFalse("silk is a Pro renderer", free.allowsStyle(StyleCatalogue.DEFAULT_ID))
     }
 
     @Test
     fun `each style family gives away its first style and keeps the rest for Pro`() {
-        StyleFamilies.all.forEach { family ->
-            assertTrue(family.opener, free.allowsStyle(family.opener))
-            (family.ids - family.opener).forEach { id ->
-                assertFalse(id, free.allowsStyle(id))
-                assertTrue(id, trial.allowsStyle(id))
-                assertTrue(id, pro.allowsStyle(id))
-            }
+        TestCatalogue.OPENERS.forEach { assertTrue(it, free.allowsStyle(it)) }
+        val followers = StyleCatalogue.ids(GeodeNative.STYLE_FAMILY_FOLLOWER)
+        assertTrue(followers.isNotEmpty())
+        followers.forEach { id ->
+            assertFalse(id, free.allowsStyle(id))
+            assertTrue(id, trial.allowsStyle(id))
+            assertTrue(id, pro.allowsStyle(id))
         }
     }
 

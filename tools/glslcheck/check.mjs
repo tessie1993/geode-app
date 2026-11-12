@@ -6,7 +6,7 @@
 // looked at rather than trusted.
 //
 // The fragment style ids are the SHADER-kind `style|` lines of
-// core/tests/catalogue.txt, the catalogue's text table (geode_catalogue_text).
+// core/tests/catalogue.txt, the catalogue's text table (catalogue::text()).
 // catalogue_test checks that file against core/viz/Catalogue.cpp, so the list
 // here is the list the app ships.
 //

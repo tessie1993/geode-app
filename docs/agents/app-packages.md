@@ -256,7 +256,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `Tour` holds the tour's chapters, steps, rules and saved progress.
 - `TabLabels` is Settings › Look's tab bar labels choice.
 - `ScreenRotation` is Settings › Look's and Visuals › Settings' screen rotation: follow the phone, lock portrait or landscape.
-- `ControlRange` is every Customize slider's and scene keyframe track's range: the params schema's, with its few UI caps.
+- `ControlRange` hands every Customize slider its range from native (`core/viz/ControlRange`, `geode_params_control_range`) and keeps each answer by name.
 - `WatermarkChoice` is a render's watermark, pinned at its start through `RenderLimits.withMark`.
 - `OpenedAudio` is the id an audio file opened from another app plays under.
 

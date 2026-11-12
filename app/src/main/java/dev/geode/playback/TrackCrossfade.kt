@@ -24,8 +24,8 @@ internal class TrackCrossfade(
 ) : Player.Listener {
     var crossfadeMs: Int = 0
         set(value) {
-            field = value.coerceAtLeast(0)
-            GeodeNative.dspSetCrossfade(dsp.nativeHandle(), field)
+            field = value
+            GeodeNative.dspSetCrossfade(dsp.nativeHandle(), value)
             pushFollowsOn()
         }
 

@@ -3,6 +3,7 @@
 #include "api/geode_api.h"
 #include "audio/output/OboeOutput.hpp"
 #include "audio/output/OutputFifo.hpp"
+#include "audio/output/RetryBackoff.hpp"
 
 // The playback output's C ABI (audio/output). Android only: OboeOutput includes Oboe.
 
@@ -17,7 +18,19 @@ static_assert(GEODE_AUDIO_OUT_ADVANCING == geode::audio::output::kEventAdvancing
 static_assert(GEODE_AUDIO_OUT_UNDERRUN == geode::audio::output::kEventUnderrun);
 static_assert(GEODE_AUDIO_OUT_FAILED == OboeOutput::kEventFailed);
 
+namespace {
+geode::audio::output::RetryBackoff gBackoff;
+}
+
 extern "C" {
+
+void geode_audio_out_note_failed(int64_t now_ms) {
+    gBackoff.noteFailed(now_ms);
+}
+
+int geode_audio_out_may_open(int64_t now_ms) {
+    return gBackoff.mayOpen(now_ms) ? 1 : 0;
+}
 
 int geode_audio_out_supports(int encoding, int channels, int sample_rate) {
     return OutputFifo::supports(encoding, channels, sample_rate) ? 1 : 0;

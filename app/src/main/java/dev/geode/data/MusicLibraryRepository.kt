@@ -499,14 +499,14 @@ internal class MusicLibraryRepository(
     override suspend fun importPlaylistFile(uri: Uri): PlaylistImportResult =
         withContext(Dispatchers.IO) {
             val fileName = openableInfoFor(uri).first.ifBlank { uri.lastPathSegment.orEmpty() }
-            val text =
+            val bytes =
                 runCatching {
-                    application.contentResolver.openInputStream(uri)?.use(ReadCap.PLAYLIST::text)
+                    application.contentResolver.openInputStream(uri)?.use(ReadCap.PLAYLIST::read)
                 }.getOrNull()
-            if (text == null) {
+            if (bytes == null) {
                 return@withContext PlaylistImportResult.Failed("could not open the picked file")
             }
-            when (val parsed = PlaylistFormats.parse(fileName, text)) {
+            when (val parsed = PlaylistFormats.parse(fileName, bytes)) {
                 is PlaylistParse.Unreadable -> PlaylistImportResult.Failed(parsed.why)
                 is PlaylistParse.Parsed -> {
                     val urisByFileName =

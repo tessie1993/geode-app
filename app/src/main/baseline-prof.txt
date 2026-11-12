@@ -26,8 +26,8 @@ HSPLdev/geode/data/ThemeStore**;->**(**)**
 HSPLdev/geode/data/GeodePrefsFiles;->**(**)**
 HSPLdev/geode/data/PlayerPrefs**;->**(**)**
 HSPLdev/geode/playback/PlaybackEngine**;->**(**)**
-HSPLdev/geode/render/VisualizerView**;->**(**)**
-HSPLdev/geode/render/VisualizerRenderer**;->**(**)**
+HSPLdev/geode/stage/StageView**;->**(**)**
+HSPLdev/geode/stage/Stage**;->**(**)**
 HSPLdev/geode/pro/**;->**(**)**
 HSPLdev/geode/billing/**;->**(**)**
 HPLdev/geode/ui/pro/**;->**(**)**
@@ -51,4 +51,4 @@ HPLdev/geode/ui/VisualsHubKt**;->**(**)**
 Ldev/geode/GeodeApp;
 Ldev/geode/ui/MainActivity;
 Ldev/geode/ui/PlayerViewModel;
-Ldev/geode/render/VisualizerView;
+Ldev/geode/stage/StageView;

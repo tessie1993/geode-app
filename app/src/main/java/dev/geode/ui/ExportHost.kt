@@ -21,7 +21,7 @@ import dev.geode.R
 import dev.geode.export.ExportAspect
 import dev.geode.export.ExportCodec
 import dev.geode.export.TimeOfDayDrift
-import dev.geode.render.VisualizerView
+import dev.geode.stage.StageView
 
 private val PendingExportSaver =
     listSaver<PendingExport?, Any>(
@@ -185,7 +185,7 @@ internal fun rememberRenderNotificationAsk(): () -> Unit {
 @Composable
 internal fun rememberVisualizerExport(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
 ): (PendingExport, Boolean) -> Unit {
     val askNotifications = rememberRenderNotificationAsk()
     var pendingExport by rememberSaveable(stateSaver = PendingExportSaver) {
@@ -195,7 +195,7 @@ internal fun rememberVisualizerExport(
         viewModel.startExport(
             req.aspect,
             req.fps,
-            visualizerView.visualizerRenderer.exportSceneFactory(req.sceneId),
+            visualizerView.stage.exportSceneFactory(req.sceneId),
             destination = dest,
             range = req.range,
             codec = req.codec,
@@ -225,7 +225,7 @@ internal fun rememberVisualizerExport(
 @Composable
 fun ExportHost(
     viewModel: PlayerViewModel,
-    visualizerView: VisualizerView,
+    visualizerView: StageView,
     onDismiss: () -> Unit,
 ) {
     val studioViewModel: StudioViewModel = geodeViewModel()
@@ -244,7 +244,7 @@ fun ExportHost(
                     ExportAspect(req.width, req.height, req.bitRate),
                     ExportCodec.valueOf(req.codec),
                     req.fps,
-                    visualizerView.visualizerRenderer.exportSceneFactory(viz.sceneId),
+                    visualizerView.stage.exportSceneFactory(viz.sceneId),
                     req.loopMs,
                     req.crossfadeMs,
                     TimeOfDayDrift(req.driftHueTurns, req.driftWarmth, req.driftStops),
@@ -261,7 +261,7 @@ fun ExportHost(
                 req.aspect,
                 req.codec,
                 req.fps,
-                visualizerView.visualizerRenderer.exportSceneFactory(viz.sceneId),
+                visualizerView.stage.exportSceneFactory(viz.sceneId),
                 req.loopMs,
                 req.crossfadeMs,
                 req.drift,

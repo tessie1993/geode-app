@@ -54,7 +54,7 @@
 
 namespace geode::viz {
 
-// Port of VisualizerRenderer.kt's frame graph: scene pass -> trail -> composite -> target.
+// The frame graph: scene pass -> trail -> composite -> target.
 class Renderer {
 public:
     static constexpr float kTimeWrapSeconds = 7100.0f;

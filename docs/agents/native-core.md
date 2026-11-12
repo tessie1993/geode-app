@@ -154,6 +154,7 @@ The renderer runs these in order each frame.
 - Those libraries draw them through `lib_grow` (included by `lib_scene_uniforms`) in their one field function; at the defaults each takes its old path, bit for bit.
 - The layers are depth from the eye: `lib_camera`'s `camFly` and `camAround` set it (`growSetup`); an eye wrap (`prismEye` ..) resets the eye (`growEye`).
 - `formula` (0..1, slot 197, default 0, `LfoTarget::Formula`, `FORMULA`, ordinal 78) is `uFormula`: which of a style's own distance formulas draws it; it reaches the ids in `kFormulaStyles` (`Scope::Formula`), none yet.
+- Style DNA (`core/viz/ReactionDna`): Shard, Prism, Fluor, Loom, Petal and Fold spend their harmony-or-form route on `LfoTarget::Formula` (a settled section jump, a chord or phrase step, or a slow tension follow, drawn per style); it shows once their styles read `uFormula`.
 - Orbit, hover and pendulum do not travel (`CameraRig::travels`): no flat dive, no bank, no turn-around.
 - Strafe looks in at its track from the side; reversing carries the eye round to the other side.
 - Corkscrew rolls once per turn; under reduced motion it only leans.

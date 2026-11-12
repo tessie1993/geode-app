@@ -107,7 +107,7 @@ float gGa;
 float gGz;
 vec3 gEye;
 
-float map(vec3 w) {
+float mapAt(vec3 w, inout LucidHit found) {
     float r = length(w.xy);
     // atan(0, 0) is undefined in GLSL ES; the guard only matters on the axis,
     // deep in the open core where the wall is far.
@@ -126,11 +126,15 @@ float map(vec3 w) {
     return max(d, LS_BUBBLE - length(w - gEye));
 }
 
-vec3 normalAt(vec3 p, float eps) {
-    vec2 k = vec2(1.0, -1.0);
-    return normalize(k.xyy * map(p + k.xyy * eps) + k.yyx * map(p + k.yyx * eps)
-                   + k.yxy * map(p + k.yxy * eps) + k.xxx * map(p + k.xxx * eps));
+/** The style's world at p, through mapAt: the distance and what was found there (the slots: see mapAt). */
+LucidHit lucidMap(vec3 p) {
+    LucidHit h = lucidHit(0.0);
+    float d = mapAt(p, h);
+    h.d = d;
+    return h;
 }
+
+//#include lib_lucid_field
 
 /** The 2D style's field on the strip: smooth simplex warp, creases read ridged at the end. */
 vec4 lsField(vec2 q, int depth, int oct, float strength, float t) {
@@ -143,11 +147,14 @@ vec4 lsField(vec2 q, int depth, int oct, float strength, float t) {
 }
 
 void main() {
+    LucidHit fld = lucidHit(0.0);
     vec2 uv = lucidView(false);
     float t = uTime;  // uTime already integrates Speed (ShaderScene::update)
     float treb = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5);
     float swell = clamp((0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)), 0.0, 1.5);
-    float hue = (uKnob[3] - 0.5) * 0.3;
+    // The normalization shell (lib_lucid): every variable from its driver, mapped to its range at its one site.
+    LucidIn N = lucidIn();
+    float hue = lucidSpan(N.tone, 0.0, -0.15, 0.15);
 
     int depth = lucidDetail(2, 1);
     int oct = lucidDetail(3, 2);
@@ -156,12 +163,12 @@ void main() {
     gSeg = LUCID_TAU / arms;
     float chaos = lucidChaos();
     // The kick's push, eased: 0 at the hit, peak mid-decay, gone as it dies.
-    float push = 1.8 * clamp(uIntensity, 0.0, 2.0) * lucidBump(SND_KICK_ENV) * (0.5 + uKnob[0]);
+    float push = 1.8 * clamp(uIntensity, 0.0, 2.0) * lucidBump(SND_KICK_ENV) * lucidSpan(N.emit, 1.0, 0.5, 1.5);
     // The steady screw away into the depth. The pattern repeats every 2*pi of
     // phase (arm parity included, the arm count being even), so the wrap of
     // the mod is exact and keeps the phase small for highp.
     gPhase = LS_KZ * push - mod(t * 0.15, LUCID_TAU);
-    gR = 4.2 + 1.4 * (uKnob[5] - 0.5);
+    gR = lucidSpan(N.reach, 4.2, 3.5, 4.9);
     gWobA = 0.1 + 0.16 * (chaos - 1.0);
     gWobT = mod(t * 0.5, LUCID_TAU);
     float ridgeSlope = LS_RIDGE * 4.0 / gSeg;
@@ -182,7 +189,8 @@ void main() {
         // uSteps is the user's Detail; this loop's own bound is the constant.
         if (float(i) >= uSteps) break;
         if (tm > LS_FAR) break;
-        float d = map(ro + rd * tm);
+        fld = lucidField(ro + rd * tm);
+        float d = fld.d;
         float eps = 0.0008 * tm + 0.0005;
         if (d < eps) {
             hitT = tm;
@@ -196,7 +204,7 @@ void main() {
     vec3 col = fogCol;
     if (hitT > 0.0) {
         vec3 p = ro + rd * hitT;
-        vec3 n = normalAt(p, max(0.002, 0.0015 * hitT));
+        vec3 n = lucidNormal(p, max(0.002, 0.0015 * hitT));
         float r = length(p.xy);
         float ang = r > 2e-3 ? atan(p.y, p.x) : 0.0;
         float a = ang + LS_KZ * p.z + gPhase;
@@ -207,8 +215,8 @@ void main() {
         // style's (u, v). Crossfaded into its copy one period back before the
         // rebase seam, so the noise is continuous across it.
         float zz = mod(p.z, LS_ZWRAP);
-        vec2 q = vec2(zz * LS_NZ, v * (1.9 + 1.2 * (uKnob[1] - 0.5)));
-        float strength = 0.9 * chaos * (0.75 + 0.5 * uKnob[2]);
+        vec2 q = vec2(zz * LS_NZ, v * lucidSpan(N.scale, 1.9, 1.3, 2.5));
+        float strength = 0.9 * chaos * lucidSpan(N.flow, 1.0, 0.75, 1.25);
         vec4 f = lsField(q, depth, oct, strength, t);
         float s = smoothstep(LS_ZWRAP - LS_BLEND, LS_ZWRAP, zz);
         if (s > 0.0) {
@@ -232,14 +240,14 @@ void main() {
         float sc = 1.0;
         for (int k = 0; k < 2; k++) {
             float hk = 0.12 + 0.22 * float(k);
-            occ += (hk - map(p + n * hk)) * sc;
+            occ += (hk - lucidField(p + n * hk).d) * sc;
             sc *= 0.6;
         }
         float ao = clamp(1.0 - 1.5 * occ, 0.3, 1.0);
         float dif = max(dot(n, -rd), 0.0);
         float spec = pow(max(dot(reflect(rd, n), -rd), 0.0), 24.0);
         vec3 lit = base * (0.45 + 0.65 * dif) * ao
-                 + base * (crease + 0.5 * crest) * (0.15 + 0.5 * uKnob[4])
+                 + base * (crease + 0.5 * crest) * lucidSpan(N.glow, 0.4, 0.15, 0.65)
                  + pal(0.95 + hue) * spec * 0.2 * ao;
         col = mix(lit, fogCol, 1.0 - exp(-hitT * LS_FOG));
     }

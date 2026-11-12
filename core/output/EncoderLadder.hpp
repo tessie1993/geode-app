@@ -1,16 +1,15 @@
 #pragma once
 
 // The encoder fallback ladder (#607): which frame rate and bit rate an export asks the video encoder
-// for, rung by rung, until MediaCodec.configure accepts one. It used to be two Kotlin copies
-// (export/LoopRender `negotiate`, export/VideoExporter's attempt list, both over data/ExportPrefs
-// `fallbackExportFps`); one source here keeps the loop render and the one-tap render from drifting.
+// for, rung by rung, until the encoder's configure accepts one. The loop render (output/LoopRender) and the
+// one-tap render both walk this one ladder, so the two cannot drift apart.
 //
 // encoderAttempts gives the whole attempt list an export walks: each candidate codec's ladder in turn (the
-// requested codec, then H.264), so Kotlin only iterates it.
+// requested codec, then H.264), so the caller only walks it.
 //
-// Kotlin still asks the platform what the encoder can do (MediaCodecInfo.VideoCapabilities
+// The shell asks the platform what the encoder can do (MediaCodecInfo.VideoCapabilities
 // .getSupportedFrameRatesFor, the coding standard's limit for the size, not a performance promise)
-// and hands the upper bound in as `ceilingFps`. It still tries each rung with configure, because the
+// and hands the upper bound in as `ceilingFps`. Each rung is still tried with configure, because the
 // capability table can be wrong in either direction; the ceiling only skips a rung the table says
 // is out of reach, so a 4K60 request on an encoder that lists 30 does not pay a refused configure.
 //
@@ -20,7 +19,7 @@
 // - Rung 1 is the fallback: half the rate above 30 fps (50 -> 25, 60 -> 30, so the retry stays in the
 //   request's cadence family), the rate itself at 30 and below, at 2/3 of the bit rate. One halving
 //   always lands at or below 30, the floor above which a rate is halved, and never below the 24 an
-//   export offers: a request of 31..47 retries at 24 (the Kotlin's bare `requested / 2` gave 15..23).
+//   export offers: a request of 31..47 retries at 24 (a bare `requested / 2` would give 15..23).
 // - A ceiling of 0 or less is "unknown": every rung is offered.
 // - A known ceiling drops the rungs above it, but never the last one: when even the floor is over
 //   the ceiling, the floor is still tried, since configure, not the table, has the final word.

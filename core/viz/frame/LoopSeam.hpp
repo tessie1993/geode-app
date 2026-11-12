@@ -2,12 +2,9 @@
 
 // The loop render's seam driver (#603): which source frames a loop stashes and which it presents, at what
 // presentation time, and how long a seam the GPU can afford. Pure maths, no GL, so core/tests/loop_seam_test.cpp
-// pins it on the host; geode_export_seam_frame and geode_export_seam_budgeted_crossfade_ms
-// (core/api/geode_export_pass_api.cpp) run it beside the SeamPass of ExportPasses.hpp, and
-// geode_export_loop_progress and geode_export_loop_reported_crossfade_ms give the shell its report (#752).
-// Each function is a
-// port of the Kotlin it replaced (export/LoopRender.kt's drawFrames and budgetedSpec), integer for integer,
-// because a loop rendered before and after the move must be the same file.
+// pins it on the host; the loop render job (core/output/LoopRender) runs it beside the SeamPass of
+// ExportPasses.hpp and takes its progress and its reported crossfade from here (#752). The schedule and
+// its times are whole integer arithmetic, so the same request always renders the same file.
 //
 // The schedule. A stop renders loopFrames + seamFrames source frames. The opening seamFrames are drawn but
 // not presented: they are copied into the stash and laid back over the closing seamFrames at the dissolve's
@@ -42,8 +39,7 @@ inline Step step(int frame, int loopFrames, int seamFrames) {
     return {};
 }
 
-// Kotlin's `1_000_000_000L / fps`: whole nanoseconds per frame, truncated (a 30 fps frame is 33 333 333 ns).
-// No frame rate reads as one frame a second rather than a division by zero.
+// Whole nanoseconds per frame, truncated (a 30 fps frame is 33 333 333 ns). No frame rate reads as one frame a second rather than a division by zero.
 inline int64_t frameDurationNs(int fps) { return 1'000'000'000LL / (fps > 0 ? fps : 1); }
 
 // The presentation time of a presented source frame: the output frame's index times the truncated frame
@@ -54,7 +50,7 @@ inline int64_t ptsNs(int frame, int seamFrames, int fps) {
 
 // How many full-resolution stash frames fit kStashBudgetBytes at width x height; never under one, so even
 // a frame past the budget keeps a one-frame seam rather than none. An empty frame costs nothing, so its
-// budget is unbounded (the Kotlin divided by zero there; no render reaches it).
+// budget is unbounded rather than a division by zero (no render reaches it).
 inline int affordableFrames(int width, int height) {
     const int64_t perFrame = static_cast<int64_t>(width) * height * kBytesPerPixel;
     if (perFrame <= 0) return 2147483647;
@@ -74,10 +70,9 @@ inline int64_t budgetedCrossfadeMs(int64_t crossfadeMs, int crossfadeFrames, int
     return shortened < 1 ? 1 : shortened;
 }
 
-// The crossfade a finished reel reports: seamFrames at fps in whole milliseconds, truncated (Kotlin's
-// `seamFrames * 1000L / fps`, which renderStops used to work out). seamFrames is the shortest seam any stop
-// of the reel kept, so when the stash budget cut the seam this is budgetedCrossfadeMs's own figure. No frame
-// rate reads as one frame a second, as frameDurationNs does.
+// The crossfade a finished reel reports: seamFrames at fps in whole milliseconds, truncated. seamFrames is
+// the shortest seam any stop of the reel kept, so when the stash budget cut the seam this is
+// budgetedCrossfadeMs's own figure. No frame rate reads as one frame a second, as frameDurationNs does.
 inline int64_t reportedCrossfadeMs(int seamFrames, int fps) {
     return static_cast<int64_t>(seamFrames) * 1000LL / (fps > 0 ? fps : 1);
 }

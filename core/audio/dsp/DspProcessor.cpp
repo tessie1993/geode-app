@@ -89,6 +89,32 @@ void DspProcessor::processPcm16(int16_t* interleaved, size_t capacitySamples, si
     }
 }
 
+namespace {
+size_t sampleBytes(int encoding) {
+    if (encoding == DspProcessor::kEncodingPcm16) return sizeof(int16_t);
+    if (encoding == DspProcessor::kEncodingFloat) return sizeof(float);
+    return 0;
+}
+}  // namespace
+
+size_t DspProcessor::wholeFrameBytes(size_t bytes, int encoding, int channels) {
+    const size_t frame = channels > 0 ? sampleBytes(encoding) * static_cast<size_t>(channels) : 0;
+    return frame == 0 ? bytes : bytes / frame * frame;
+}
+
+size_t DspProcessor::processBytes(void* pcm, size_t capacityBytes, size_t bytes, int encoding, int channels) {
+    const size_t whole = wholeFrameBytes(std::min(bytes, capacityBytes), encoding, channels);
+    const size_t sample = sampleBytes(encoding);
+    if (!pcm || sample == 0 || channels <= 0 || whole == 0) return whole;
+    const size_t frames = whole / (sample * static_cast<size_t>(channels));
+    if (encoding == kEncodingFloat) {
+        process(static_cast<float*>(pcm), capacityBytes / sizeof(float), frames, channels);
+    } else {
+        processPcm16(static_cast<int16_t*>(pcm), capacityBytes / sizeof(int16_t), frames, channels);
+    }
+    return whole;
+}
+
 void DspProcessor::setBitPerfect(bool on) {
     bitPerfectWanted_.store(on, std::memory_order_release);
 }

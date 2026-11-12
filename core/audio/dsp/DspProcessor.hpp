@@ -67,6 +67,13 @@ public:
     // chain does not run, including every block while bit-perfect is live, is never touched: not a byte.
     void processPcm16(int16_t* interleaved, size_t capacitySamples, size_t frames, int channels);
 
+    // The shell's raw block: `bytes` of `encoding` at `channels`. wholeFrameBytes is what the shell passes on,
+    // a trailing part frame dropped; all of `bytes` for an encoding other than these two or no channels, which
+    // runs() keeps from ever being queued. processBytes runs those whole frames in place through process or
+    // processPcm16, `bytes` first held to `capacityBytes`; playback thread, RT-safe.
+    static size_t wholeFrameBytes(size_t bytes, int encoding, int channels);
+    size_t processBytes(void* pcm, size_t capacityBytes, size_t bytes, int encoding, int channels);
+
     // Any thread. Whether the platform takes the next AudioTrack bit-perfect; applies from the next flush().
     void setBitPerfect(bool on);
 

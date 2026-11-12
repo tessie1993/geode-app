@@ -832,6 +832,38 @@ Java_dev_geode_engine_bridge_GeodeNative_touchRotation(JNIEnv*, jobject, jfloat 
     return geode_touch_rotation(current, degrees);
 }
 
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_touchToNdc(JNIEnv* env, jobject, jfloatArray xy, jint points, jfloat width, jfloat height) {
+    if (!xy) return;
+    const jsize n = std::clamp<jsize>(points, 0, env->GetArrayLength(xy) / 2);
+    if (n == 0) return;
+    std::vector<float> buf(static_cast<size_t>(n) * 2);
+    env->GetFloatArrayRegion(xy, 0, n * 2, buf.data());
+    geode_touch_to_ndc(buf.data(), static_cast<int>(n), width, height);
+    env->SetFloatArrayRegion(xy, 0, n * 2, buf.data());
+}
+
+JNIEXPORT void JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_touchPair(JNIEnv* env, jobject, jfloatArray start, jfloatArray last, jfloatArray now, jfloatArray out) {
+    if (!start || !last || !now || !out) return;
+    if (env->GetArrayLength(start) < 4 || env->GetArrayLength(last) < 4 || env->GetArrayLength(now) < 4 || env->GetArrayLength(out) < 6) return;
+    float s[4], l[4], n[4], r[6];
+    env->GetFloatArrayRegion(start, 0, 4, s);
+    env->GetFloatArrayRegion(last, 0, 4, l);
+    env->GetFloatArrayRegion(now, 0, 4, n);
+    geode_touch_pair(s, l, n, r);
+    env->SetFloatArrayRegion(out, 0, 6, r);
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_touchPulse(JNIEnv* env, jobject, jint step, jfloatArray xy) {
+    if (!xy || env->GetArrayLength(xy) < 4) return 0;
+    float p[4];
+    const int holdMs = geode_touch_pulse(step, p);
+    if (holdMs > 0) env->SetFloatArrayRegion(xy, 0, 4, p);
+    return holdMs;
+}
+
 JNIEXPORT jstring JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_customizeText(JNIEnv* env, jobject) {
     return env->NewStringUTF(geode_customize_text());

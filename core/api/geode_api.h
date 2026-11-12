@@ -538,6 +538,14 @@ GEODE_API const char* geode_config_schema_text(void);
  * degrees added to Rotation, each clamped to its schema range; a broken gesture value returns current unchanged. */
 GEODE_API float       geode_touch_zoom(float current, float scale_factor);
 GEODE_API float       geode_touch_rotation(float current, float degrees);
+/* The fingers on the visual (core/viz/TouchGesture). _to_ndc: points (x, y) px pairs of a width x height view,
+ * rewritten in place as y-up NDC (geode_viz_set_touch's frame). _pair: two fingers at start, last and now, each
+ * (ax, ay, bx, by) px, into out[6]: pan x, pan y and zoom since start, twist in radians since start, and the step
+ * since last as a scale factor and degrees (for geode_touch_zoom / _rotation). _pulse: touch play's stir, step's
+ * two points (4 floats, NDC) into xy and the ms to hold them; 0, xy untouched, once the stir is over. */
+GEODE_API void        geode_touch_to_ndc(float* xy, int points, float width, float height);
+GEODE_API void        geode_touch_pair(const float* start, const float* last, const float* now, float* out);
+GEODE_API int         geode_touch_pulse(int step, float* xy);
 
 /* Customize panel map (core/viz/CustomizeMap): eleven categories, each a free Basics section and Pro sections, and
  * which control lives in which. geode_customize_text is its versioned '|'-separated line table (rows in

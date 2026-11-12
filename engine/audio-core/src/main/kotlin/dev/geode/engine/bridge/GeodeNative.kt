@@ -1147,6 +1147,31 @@ object GeodeNative {
         degrees: Float,
     ): Float
 
+    /** Rewrites [points] (x, y) px pairs of [xy] in a [width] x [height] view as y-up NDC, in place (core/viz/TouchGesture). */
+    external fun touchToNdc(
+        xy: FloatArray,
+        points: Int,
+        width: Float,
+        height: Float,
+    )
+
+    /**
+     * Two fingers at [start], [last] and [now], each (ax, ay, bx, by) px, into [out] (6 floats): pan x, pan y and
+     * zoom since start, twist in radians since start, and the step since last as a scale factor and degrees.
+     */
+    external fun touchPair(
+        start: FloatArray,
+        last: FloatArray,
+        now: FloatArray,
+        out: FloatArray,
+    )
+
+    /** Touch play's stir: [step]'s two NDC points into [xy] (4 floats) and the ms to hold them; 0 once it is over. */
+    external fun touchPulse(
+        step: Int,
+        xy: FloatArray,
+    ): Int
+
     /**
      * Rolls a new look (core/viz/ParamRandomizer) from [input], a SceneParamsCodec frame, into [output]:
      * the controls of [tab] (a ParamRandomizer roll group name; null = every group) that reach [styleId] (null = any),

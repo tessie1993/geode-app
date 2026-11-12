@@ -136,6 +136,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `surface_run_test.cpp`: the wallpaper's and dream's run rule and the trial's end, and the stage's (`core/viz/StageRun`).
 - `thermal_test.cpp`: the process's one thermal state (`core/viz/frame/Thermal`): the fps-first ladder, the thermal cap on the pacer, every renderer reading one tier, the once-per-process "Phone is warm" note `ui/StageWarmNote` toasts, `geode_thermal_take_warm_note`.
 - `touch_smear_test.cpp`: Settings › Touch › Smear (`core/viz/TouchSmear`): the fingers' kicks, the bend, its linger, silence, reduced motion.
+- `touch_gesture_test.cpp`: the fingers on the visual (`core/viz/TouchGesture`): touch play's points in NDC, the two-finger reading and pinch step, the stir.
 - `touch_transform_test.cpp`: the two-finger pinch and twist of `core/viz/TouchTransform`, clamped to the schema ranges.
 - `track_pump_test.cpp`: an export's track pump (`core/audio/ingest/TrackPump`): the decode rule over a fake decoder, the hand-out order, the AIFF-first open over a descriptor.
 - `track_feed_test.cpp`: an export's track audio and the AIFF reader against the Kotlin they replaced: every sample width and byte order, the pre-roll and lead-in cuts, each video frame hearing exactly its audio.

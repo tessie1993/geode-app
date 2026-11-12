@@ -18,47 +18,79 @@ namespace geode::viz::macrobank {
 namespace {
 
 constexpr int kTargetCount = modtargets::kTargetCount;
-static_assert(kTargetCount <= 64, "reachMask is a bit per target");
+constexpr int kSlotCount = SceneParams::kFieldCount;
 // A raw text may repeat a target; normalized keeps one link each, so parsing stops well short of a flood.
 constexpr size_t kMaxParsedLinks = 64;
 
+// Per param slot: whether a link may move it (slot >= 0), the range its fractions are of, and the modulation
+// target that writes it (None when no target does).
 struct TargetInfo {
     int slot = -1;
     float lo = 0.0f;
     float hi = 0.0f;
     bool circular = false;
+    LfoTarget lfo = LfoTarget::None;
 };
 
-std::array<TargetInfo, kTargetCount> buildInfos() {
-    std::array<TargetInfo, kTargetCount> out{};
+// A float the look glides that a Customize control sets; see Target.
+bool offsettable(int slot) {
+    const auto at = static_cast<ParamSlot>(slot);
+    const ParamMeta& meta = SceneParams::meta(at);
+    const ParamSpec& spec = SceneParams::spec(at);
+    const bool glides = (spec.kind == ParamKind::Float || spec.kind == ParamKind::Circular) && spec.fade == ParamFade::Fade;
+    return meta.live && glides && meta.label != nullptr && meta.label[0] != '\0' && meta.label[0] != '@';
+}
+
+std::array<TargetInfo, kSlotCount> buildInfos() {
+    std::array<TargetInfo, kSlotCount> out{};
     for (int i = 0; i < kTargetCount; ++i) {
         const auto target = static_cast<LfoTarget>(i);
         const int slot = paramSlotOf(target);
-        if (slot < 0 || !modtargets::offered(target)) continue;
+        if (slot >= 0 && modtargets::offered(target)) out[static_cast<size_t>(slot)].lfo = target;
+    }
+    for (int slot = 0; slot < kSlotCount; ++slot) {
+        if (!offsettable(slot)) continue;
         const ParamSpec& spec = SceneParams::schema()[static_cast<size_t>(slot)];
         SceneParams top;
         top.setSlot(slot, spec.max);
         SceneParams bottom;
         bottom.setSlot(slot, spec.min);
-        TargetInfo& info = out[static_cast<size_t>(i)];
-        info.slot = slot;
+        TargetInfo& info = out[static_cast<size_t>(slot)];
         info.lo = std::max(spec.min, safety::apply(bottom).getSlot(slot));
         info.hi = std::min(spec.max, safety::apply(top).getSlot(slot));
         info.circular = spec.kind == ParamKind::Circular;
+        if (info.hi > info.lo) info.slot = slot;
     }
     return out;
 }
 
-const std::array<TargetInfo, kTargetCount>& infos() {
-    static const std::array<TargetInfo, kTargetCount> kInfos = buildInfos();
+const std::array<TargetInfo, kSlotCount>& infos() {
+    static const std::array<TargetInfo, kSlotCount> kInfos = buildInfos();
     return kInfos;
 }
 
-const TargetInfo* infoOf(LfoTarget target) {
-    const int i = static_cast<int>(target);
-    if (i < 0 || i >= kTargetCount) return nullptr;
-    const TargetInfo& info = infos()[static_cast<size_t>(i)];
+const TargetInfo* infoOf(Target target) {
+    if (target.slot < 0 || target.slot >= kSlotCount) return nullptr;
+    const TargetInfo& info = infos()[static_cast<size_t>(target.slot)];
     return info.slot >= 0 ? &info : nullptr;
+}
+
+bool inReach(const Reach& reach, Target target) {
+    return target.slot >= 0 && target.slot < kSlotCount && reach.test(static_cast<size_t>(target.slot));
+}
+
+std::vector<Target> buildLinkable() {
+    std::vector<Target> out;
+    for (int i = 0; i < kTargetCount; ++i) {
+        const auto lfo = static_cast<LfoTarget>(i);
+        const Target t(lfo);
+        if (infoOf(t) && infos()[static_cast<size_t>(t.slot)].lfo == lfo) out.push_back(t);
+    }
+    for (int slot = 0; slot < kSlotCount; ++slot) {
+        const Target t = Target::ofSlot(slot);
+        if (infoOf(t) && infos()[static_cast<size_t>(slot)].lfo == LfoTarget::None) out.push_back(t);
+    }
+    return out;
 }
 
 float unit(float v) { return std::isfinite(v) ? std::clamp(v, -1.0f, 1.0f) : 0.0f; }
@@ -98,7 +130,7 @@ Knob* knobById(Bank& bank, int id) {
     return nullptr;
 }
 
-std::vector<Link>::iterator linkOn(Knob& knob, LfoTarget target) {
+std::vector<Link>::iterator linkOn(Knob& knob, Target target) {
     return std::find_if(knob.links.begin(), knob.links.end(), [target](const Link& l) { return l.target == target; });
 }
 
@@ -255,19 +287,41 @@ std::shared_ptr<const Bank> gBank;  // guarded by gLock; null is the default ban
 std::string buildTargetsText() {
     std::string out = "macrotargets|" + std::to_string(kTextVersion) + "\n";
     out += "caps|" + std::to_string(kMaxKnobs) + "|" + std::to_string(kMaxLinks) + "|" + std::to_string(kMaxNameBytes) + "\n";
-    for (int i = 0; i < kTargetCount; ++i) {
-        const auto target = static_cast<LfoTarget>(i);
+    for (const Target target : linkableTargets()) {
         const TargetInfo* info = infoOf(target);
-        if (!info) continue;
-        const ParamSpec& spec = SceneParams::schema()[static_cast<size_t>(info->slot)];
-        out += std::string("target|") + modtargets::name(target) + "|" + spec.name + "|" + tableNumber(info->lo) + "|" +
-               tableNumber(info->hi) + "|" + tableNumber(spec.defaultValue) + "|" + catalogue::name(modtargets::scopeOf(target)) +
-               "\n";
+        const auto slot = static_cast<ParamSlot>(info->slot);
+        const ParamSpec& spec = SceneParams::spec(slot);
+        out += "target|" + name(target) + "|" + spec.name + "|" + tableNumber(info->lo) + "|" + tableNumber(info->hi) + "|" +
+               tableNumber(spec.defaultValue) + "|" + catalogue::name(SceneParams::meta(slot).scope) + "\n";
     }
     return out;
 }
 
 }  // namespace
+
+Target::Target(LfoTarget target) : slot(paramSlotOf(target)) {}
+
+Target Target::ofSlot(int slot) {
+    Target t;
+    t.slot = slot >= 0 && slot < kSlotCount ? slot : -1;
+    return t;
+}
+
+std::string name(Target target) {
+    if (target.slot < 0 || target.slot >= kSlotCount) return {};
+    const LfoTarget lfo = infos()[static_cast<size_t>(target.slot)].lfo;
+    return lfo != LfoTarget::None ? modtargets::name(lfo) : SceneParams::schema()[static_cast<size_t>(target.slot)].name;
+}
+
+const char* controlOf(Target target) {
+    if (!infoOf(target)) return "";
+    return SceneParams::meta(static_cast<ParamSlot>(target.slot)).label;
+}
+
+const std::vector<Target>& linkableTargets() {
+    static const std::vector<Target> kTargets = buildLinkable();
+    return kTargets;
+}
 
 const char* name(Curve curve) { return kCurveNames[static_cast<size_t>(validCurve(curve))]; }
 
@@ -293,19 +347,19 @@ float shape(Curve curve, float t) {
     return x;
 }
 
-bool linkable(LfoTarget target) { return infoOf(target) != nullptr; }
+bool linkable(Target target) { return infoOf(target) != nullptr; }
 
-Range rangeOf(LfoTarget target) {
+Range rangeOf(Target target) {
     const TargetInfo* info = infoOf(target);
     return info ? Range{info->lo, info->hi} : Range{0.0f, 0.0f};
 }
 
-LfoTarget targetNamed(std::string_view name) {
-    for (int i = 0; i < kTargetCount; ++i) {
-        const auto target = static_cast<LfoTarget>(i);
-        if (linkable(target) && name == modtargets::name(target)) return target;
+Target targetNamed(std::string_view wire) {
+    if (wire.empty()) return {};
+    for (const Target target : linkableTargets()) {
+        if (wire == name(target) || wire == SceneParams::schema()[static_cast<size_t>(target.slot)].name) return target;
     }
-    return LfoTarget::None;
+    return {};
 }
 
 const Bank& defaultBank() {
@@ -467,7 +521,7 @@ Bank resetKnob(const Bank& bank, int id) {
     return normalized(out);
 }
 
-Bank setLink(const Bank& bank, int id, LfoTarget target, float up, float down) {
+Bank setLink(const Bank& bank, int id, Target target, float up, float down) {
     Bank out = normalized(bank);
     Knob* knob = knobById(out, id);
     if (!knob || !linkable(target) || !std::isfinite(up) || !std::isfinite(down)) return out;
@@ -485,14 +539,14 @@ Bank setLink(const Bank& bank, int id, LfoTarget target, float up, float down) {
     return out;
 }
 
-Bank addLink(const Bank& bank, int id, LfoTarget target) {
+Bank addLink(const Bank& bank, int id, Target target) {
     Bank out = normalized(bank);
     Knob* knob = knobById(out, id);
     if (!knob || linkOn(*knob, target) != knob->links.end()) return out;
     return setLink(out, id, target, kNewLinkWeight, -kNewLinkWeight);
 }
 
-Bank removeLink(const Bank& bank, int id, LfoTarget target) {
+Bank removeLink(const Bank& bank, int id, Target target) {
     Bank out = normalized(bank);
     Knob* knob = knobById(out, id);
     if (!knob) return out;
@@ -516,36 +570,86 @@ float between(std::uint64_t& state, float lo, float hi) {
     return lo + (hi - lo) * static_cast<float>(splitmix(state) >> 40) / static_cast<float>(std::uint64_t{1} << 24);
 }
 
+// A random link on target: its own direction, a full turn moving it 15-60 % of its range, the other way none or
+// up to as much back, and a curve.
+Link rolledLink(Target target, std::uint64_t& state) {
+    const float sign = (splitmix(state) & 1u) ? 1.0f : -1.0f;
+    const float up = sign * between(state, 0.15f, 0.6f);
+    const float down = (splitmix(state) & 1u) ? -up * between(state, 0.5f, 1.0f) : 0.0f;
+    const auto curve = static_cast<Curve>(splitmix(state) % kCurveCount);
+    return {target, up, down, curve};
+}
+
+// The linkable targets the knob does not move yet that the style reaches.
+std::vector<Target> freeTargets(const Knob& knob, const Reach& reach) {
+    std::vector<Target> pool;
+    for (const Target target : linkableTargets()) {
+        if (!inReach(reach, target)) continue;
+        if (std::any_of(knob.links.begin(), knob.links.end(), [target](const Link& l) { return l.target == target; })) continue;
+        pool.push_back(target);
+    }
+    return pool;
+}
+
 }  // namespace
 
 Bank roll(const Bank& bank, int id, std::uint64_t seed) {
     Bank out = normalized(bank);
     Knob* knob = knobById(out, id);
     if (!knob) return out;
-    std::vector<LfoTarget> pool;
-    for (int i = 0; i < kTargetCount; ++i) {
-        const TargetInfo& info = infos()[static_cast<size_t>(i)];
-        if (info.slot >= 0 && info.hi > info.lo) pool.push_back(static_cast<LfoTarget>(i));
-    }
+    std::vector<Target> pool = linkableTargets();
     std::uint64_t state = seed;
     const int count = std::min({2 + static_cast<int>(splitmix(state) % 4), kMaxLinks, static_cast<int>(pool.size())});
     std::vector<Link> links;
     for (int n = 0; n < count; ++n) {
         const size_t pick = static_cast<size_t>(splitmix(state) % pool.size());
-        const LfoTarget target = pool[pick];
+        const Target target = pool[pick];
         pool.erase(pool.begin() + static_cast<long>(pick));
-        const float sign = (splitmix(state) & 1u) ? 1.0f : -1.0f;
-        const float up = sign * between(state, 0.15f, 0.6f);
-        const float down = (splitmix(state) & 1u) ? -up * between(state, 0.5f, 1.0f) : 0.0f;
-        const auto curve = static_cast<Curve>(splitmix(state) % kCurveCount);
-        links.push_back({target, up, down, curve});
+        links.push_back(rolledLink(target, state));
     }
     knob->links = std::move(links);
     knob->hint.clear();
     return normalized(out);
 }
 
-Bank rollValues(const Bank& bank, std::uint64_t reach, std::uint64_t seed) {
+Bank rollRanges(const Bank& bank, int id, std::uint64_t seed) {
+    Bank out = normalized(bank);
+    Knob* knob = knobById(out, id);
+    if (!knob || knob->links.empty()) return out;
+    std::uint64_t state = seed;
+    for (Link& link : knob->links) link = rolledLink(link.target, state);
+    knob->hint.clear();
+    return normalized(out);
+}
+
+int addRandomRoom(const Bank& bank, int id, const Reach& reach) {
+    const Bank valid = normalized(bank);
+    const Knob* knob = knobIn(valid, id);
+    if (!knob) return 0;
+    const int room = kMaxLinks - static_cast<int>(knob->links.size());
+    return std::max(0, std::min(room, static_cast<int>(freeTargets(*knob, reach).size())));
+}
+
+Bank addRandom(const Bank& bank, int id, int count, const Reach& reach, const std::set<std::string>& kept, std::uint64_t seed) {
+    Bank out = normalized(bank);
+    Knob* knob = knobById(out, id);
+    if (!knob || count <= 0) return out;
+    std::vector<Target> pool = freeTargets(*knob, reach);
+    std::erase_if(pool, [&kept](Target t) { return kept.count(controlOf(t)) != 0; });
+    const int adding = std::min({count, kMaxLinks - static_cast<int>(knob->links.size()), static_cast<int>(pool.size())});
+    if (adding <= 0) return out;
+    std::uint64_t state = seed;
+    for (int n = 0; n < adding; ++n) {
+        const size_t pick = static_cast<size_t>(splitmix(state) % pool.size());
+        const Target target = pool[pick];
+        pool.erase(pool.begin() + static_cast<long>(pick));
+        knob->links.push_back(rolledLink(target, state));
+    }
+    knob->hint.clear();
+    return normalized(out);
+}
+
+Bank rollValues(const Bank& bank, const Reach& reach, std::uint64_t seed) {
     Bank out = normalized(bank);
     for (Knob& knob : out.knobs) {
         if (!knob.shown) continue;
@@ -556,7 +660,7 @@ Bank rollValues(const Bank& bank, std::uint64_t reach, std::uint64_t seed) {
         bool up = false;
         bool down = false;
         for (const Link& link : knob.links) {
-            if (((reach >> static_cast<int>(link.target)) & std::uint64_t{1}) == 0) continue;
+            if (!inReach(reach, link.target)) continue;
             up = up || link.up != 0.0f;
             down = down || link.down != 0.0f;
         }
@@ -570,7 +674,7 @@ Bank rollValues(const Bank& bank, const std::string& styleId, std::uint64_t seed
     return rollValues(bank, reachMask(styleId), seed);
 }
 
-Bank setCurve(const Bank& bank, int id, LfoTarget target, Curve curve) {
+Bank setCurve(const Bank& bank, int id, Target target, Curve curve) {
     Bank out = normalized(bank);
     Knob* knob = knobById(out, id);
     const int c = static_cast<int>(curve);
@@ -582,18 +686,19 @@ Bank setCurve(const Bank& bank, int id, LfoTarget target, Curve curve) {
     return out;
 }
 
-std::uint64_t reachMask(const std::string& styleId) {
-    std::uint64_t bits = 0;
-    for (int i = 0; i < kTargetCount; ++i) {
-        const auto target = static_cast<LfoTarget>(i);
-        if (linkable(target) && modtargets::reaches(target, styleId)) bits |= std::uint64_t{1} << i;
+Reach reachMask(const std::string& styleId) {
+    Reach bits;
+    for (const Target target : linkableTargets()) {
+        if (catalogue::reaches(SceneParams::meta(static_cast<ParamSlot>(target.slot)).scope, styleId)) {
+            bits.set(static_cast<size_t>(target.slot));
+        }
     }
     return bits;
 }
 
-SceneParams apply(const SceneParams& p, const Bank& bank, std::uint64_t reach) {
-    std::array<float, kTargetCount> offset{};
-    std::uint64_t moved = 0;
+SceneParams apply(const SceneParams& p, const Bank& bank, const Reach& reach) {
+    std::array<float, kSlotCount> offset{};
+    Reach moved;
     int knobs = 0;
     for (const Knob& knob : bank.knobs) {
         if (knobs++ >= kMaxKnobs) break;
@@ -601,20 +706,18 @@ SceneParams apply(const SceneParams& p, const Bank& bank, std::uint64_t reach) {
         const float value = std::clamp(knob.value, -1.0f, 1.0f);
         for (const Link& link : knob.links) {
             const TargetInfo* info = infoOf(link.target);
-            if (!info) continue;
-            const int t = static_cast<int>(link.target);
-            if (((reach >> t) & std::uint64_t{1}) == 0) continue;
+            if (!info || !inReach(reach, link.target)) continue;
             const float weight = shape(link.curve, std::fabs(value)) * (value >= 0.0f ? link.up : link.down);
             if (!std::isfinite(weight) || weight == 0.0f) continue;
-            offset[static_cast<size_t>(t)] += std::clamp(weight, -1.0f, 1.0f) * (info->hi - info->lo);
-            moved |= std::uint64_t{1} << t;
+            offset[static_cast<size_t>(info->slot)] += std::clamp(weight, -1.0f, 1.0f) * (info->hi - info->lo);
+            moved.set(static_cast<size_t>(info->slot));
         }
     }
-    if (moved == 0) return p;
+    if (moved.none()) return p;
     SceneParams out = p;
-    for (int t = 0; t < kTargetCount; ++t) {
+    for (int t = 0; t < kSlotCount; ++t) {
         const float add = offset[static_cast<size_t>(t)];
-        if (((moved >> t) & std::uint64_t{1}) == 0 || add == 0.0f) continue;
+        if (!moved.test(static_cast<size_t>(t)) || add == 0.0f) continue;
         const TargetInfo& info = infos()[static_cast<size_t>(t)];
         const float base = p.getSlot(info.slot);
         if (!std::isfinite(base)) continue;
@@ -649,7 +752,7 @@ std::string encode(const Bank& bank) {
         out += "knob|" + std::to_string(knob.id) + "|" + tableNumber(knob.value) + "|" + knob.name + "|" + knob.hint + "\n";
         if (!knob.shown) out += "shelf|" + std::to_string(knob.id) + "\n";
         for (const Link& link : knob.links) {
-            out += std::string("link|") + modtargets::name(link.target) + "|" + tableNumber(link.up) + "|" + tableNumber(link.down);
+            out += "link|" + name(link.target) + "|" + tableNumber(link.up) + "|" + tableNumber(link.down);
             if (link.curve != Curve::Linear) out += std::string("|") + name(link.curve);
             out += "\n";
         }
@@ -695,7 +798,7 @@ Bank decode(std::string_view text) {
             Link link;
             if ((f.size() != 4 && f.size() != 5) || bank.knobs.back().links.size() >= kMaxParsedLinks) continue;
             link.target = targetNamed(f[1]);
-            if (link.target == LfoTarget::None || !parseFloat(f[2], link.up) || !parseFloat(f[3], link.down)) continue;
+            if (!linkable(link.target) || !parseFloat(f[2], link.up) || !parseFloat(f[3], link.down)) continue;
             if (f.size() == 5) link.curve = curveNamed(f[4]).value_or(Curve::Linear);
             bank.knobs.back().links.push_back(link);
         } else if (f[0] == "shelf" && f.size() == 2) {
@@ -728,7 +831,7 @@ const std::string& targetsText() {
 }
 
 std::string liveText(const Bank& bank, const std::string& styleId) {
-    const std::uint64_t reach = reachMask(styleId);
+    const Reach reach = reachMask(styleId);
     const Bank valid = normalized(bank);
     std::string out;
     for (const Knob& knob : valid.knobs) {
@@ -736,7 +839,7 @@ std::string liveText(const Bank& bank, const std::string& styleId) {
         bool up = false;
         bool down = false;
         for (const Link& link : knob.links) {
-            if (((reach >> static_cast<int>(link.target)) & std::uint64_t{1}) == 0) continue;
+            if (!inReach(reach, link.target)) continue;
             up = up || link.up != 0.0f;
             down = down || link.down != 0.0f;
         }
@@ -746,8 +849,8 @@ std::string liveText(const Bank& bank, const std::string& styleId) {
 }
 
 std::string editorText(const Bank& bank, const std::string& styleId) {
-    const std::uint64_t reach = reachMask(styleId);
-    const auto reaches = [reach](LfoTarget target) { return ((reach >> static_cast<int>(target)) & std::uint64_t{1}) != 0; };
+    const Reach reach = reachMask(styleId);
+    const auto reaches = [&reach](Target target) { return inReach(reach, target); };
     const Bank valid = normalized(bank);
     bool pristine = valid.knobs.size() == defaultBank().knobs.size();
     for (size_t i = 0; pristine && i < valid.knobs.size(); ++i) {
@@ -765,14 +868,15 @@ std::string editorText(const Bank& bank, const std::string& styleId) {
         for (const Link& link : knob.links) {
             const Range range = rangeOf(link.target);
             const float width = range.max - range.min;
-            out += std::string("link|") + modtargets::name(link.target) + "|" + tableNumber(link.up) + "|" + tableNumber(link.down) +
-                   "|" + flag(reaches(link.target)) + "|" + name(link.curve) + "|" + units(link.up * width) + "|" +
-                   units(link.down * width) + "\n";
+            out += "link|" + name(link.target) + "|" + tableNumber(link.up) + "|" + tableNumber(link.down) + "|" +
+                   flag(reaches(link.target)) + "|" + name(link.curve) + "|" + units(link.up * width) + "|" + units(link.down * width) +
+                   "\n";
         }
+        const int room = addRandomRoom(valid, knob.id, reach);
+        out += "addrandom|" + std::to_string(std::min(kAddRandomDefault, room)) + "|" + std::to_string(room) + "\n";
     }
-    for (int i = 0; i < kTargetCount; ++i) {
-        const auto target = static_cast<LfoTarget>(i);
-        if (linkable(target)) out += std::string("target|") + modtargets::name(target) + "|" + flag(reaches(target)) + "\n";
+    for (const Target target : linkableTargets()) {
+        out += "target|" + name(target) + "|" + flag(reaches(target)) + "|" + controlOf(target) + "\n";
     }
     for (const char* curve : kCurveNames) out += std::string("curve|") + curve + "\n";
     const auto libraryRow = [&out](const Knob& knob) {

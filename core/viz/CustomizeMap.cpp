@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <mutex>
 
 #include "viz/ParamRandomizer.hpp"
 
@@ -466,6 +467,33 @@ std::string shownOn(const std::string& styleId) {
         }
     }
     return out;
+}
+
+namespace {
+std::mutex gKeptLock;
+std::shared_ptr<const std::set<std::string>> gKept;  // guarded by gKeptLock; null keeps nothing
+}  // namespace
+
+void setKept(std::string_view lines) {
+    std::set<std::string> keys;
+    size_t start = 0;
+    while (start <= lines.size()) {
+        const size_t end = std::min(lines.find('\n', start), lines.size());
+        if (end > start) keys.emplace(lines.substr(start, end - start));
+        start = end + 1;
+    }
+    auto next = std::make_shared<const std::set<std::string>>(expandLocks(keys));
+    std::lock_guard<std::mutex> guard(gKeptLock);
+    gKept = std::move(next);
+}
+
+std::shared_ptr<const std::set<std::string>> kept() {
+    {
+        std::lock_guard<std::mutex> guard(gKeptLock);
+        if (gKept) return gKept;
+    }
+    static const std::shared_ptr<const std::set<std::string>> kNone = std::make_shared<const std::set<std::string>>();
+    return kNone;
 }
 
 }  // namespace geode::viz::customize

@@ -103,7 +103,7 @@ internal fun MacroEditor(
                     ),
                 onToggle = { openId = if (open) NO_KNOB else knob.id },
             )
-            if (open) KnobPage(knob, editor, store)
+            if (open) KnobPage(knob, editor, store, sceneId)
         }
         if (!editor.canAdd && editor.maxKnobs > 0) Note(stringResource(R.string.macro_bank_full, editor.maxKnobs))
         val resetAll = Ask.resetAll { store.resetAll() }
@@ -269,17 +269,20 @@ private fun KnobActionsMenu(
 }
 
 /**
- * The open knob: its name (a draft gets its name when saved instead), a Turn to try it with, its links, and
- * the two ways to fill it: Add a parameter, or Random (native rolls a new set of links on each press).
+ * The open knob: its name (a draft gets its name when saved instead), a Turn to try it with, its links with New
+ * ranges beside them (native re-rolls the range and curve of each link it has), and the two ways to fill it: Add a
+ * parameter, or Add random (a count, then native links that many more params it picks at random).
  */
 @Composable
 private fun KnobPage(
     knob: MacroEditorKnob,
     editor: MacroEditorState,
     store: MacroStore,
+    sceneId: String,
     draft: Boolean = false,
 ) {
     var picking by remember(knob.id) { mutableStateOf(false) }
+    val controls = remember(editor.targets) { editor.targets.associate { it.name to it.control } }
     Column(Modifier.fillMaxWidth().padding(start = GeodeSpacing.M, bottom = GeodeSpacing.M)) {
         if (!draft) KnobName(knob, editor.maxNameBytes) { store.rename(knob.id, it) }
         AmountSlider(
@@ -289,28 +292,18 @@ private fun KnobPage(
             onChange = { store.setValue(knob.id, it, persist = false) },
             onDone = store::commit,
         )
-        Text(
-            stringResource(R.string.macro_moves),
-            modifier = Modifier.padding(top = GeodeSpacing.S).semantics { heading() },
-            style = MaterialTheme.typography.labelLarge,
-            color = accentTextColor(),
-        )
+        MovesHeading(knob) { store.rollRanges(knob.id) }
         if (knob.links.isEmpty()) Note(stringResource(R.string.macro_empty_hint))
-        knob.links.forEach { link -> LinkRows(knob.id, link, editor.curves, store) }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
-            TextButton(
-                onClick = { picking = true },
-                enabled = knob.canLink,
-                modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget),
-            ) {
-                StoneIconArt(StoneIcon.ADD, null)
-                Text(stringResource(R.string.macro_add_link), Modifier.padding(start = GeodeSpacing.S))
-            }
-            TextButton(onClick = { store.roll(knob.id) }, modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget)) {
-                StoneIconArt(StoneIcon.SHUFFLE, null)
-                Text(stringResource(R.string.macro_random), Modifier.padding(start = GeodeSpacing.S))
-            }
+        knob.links.forEach { link -> LinkRows(knob.id, link, targetLabel(link.target, controls[link.target]), editor.curves, store) }
+        TextButton(
+            onClick = { picking = true },
+            enabled = knob.canLink,
+            modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget),
+        ) {
+            StoneIconArt(StoneIcon.ADD, null)
+            Text(stringResource(R.string.macro_add_link), Modifier.padding(start = GeodeSpacing.S))
         }
+        AddRandomRow(knob) { count -> store.addRandom(knob.id, sceneId, count) }
         if (!knob.canLink && editor.maxLinks > 0) Note(stringResource(R.string.macro_links_full, editor.maxLinks))
     }
     if (picking) {
@@ -318,6 +311,7 @@ private fun KnobPage(
             knob = knob,
             editor = editor,
             categories = remember(editor) { store.controls().values.associate { it.target to it.category } },
+            controls = controls,
             onPick = { target ->
                 picking = false
                 store.addLink(knob.id, target)
@@ -325,6 +319,70 @@ private fun KnobPage(
             onDismiss = { picking = false },
         )
     }
+}
+
+/** "What it moves", with New ranges beside it: a second, smaller Random that keeps the params and re-rolls their ranges. */
+@Composable
+private fun MovesHeading(
+    knob: MacroEditorKnob,
+    onRollRanges: () -> Unit,
+) {
+    Row(Modifier.fillMaxWidth().padding(top = GeodeSpacing.S), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            stringResource(R.string.macro_moves),
+            modifier = Modifier.weight(1f).semantics { heading() },
+            style = MaterialTheme.typography.labelLarge,
+            color = accentTextColor(),
+        )
+        val spoken = stringResource(R.string.macro_random_ranges_a11y, knob.name)
+        TextButton(
+            onClick = onRollRanges,
+            enabled = knob.links.isNotEmpty(),
+            modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget).semantics { contentDescription = spoken },
+        ) {
+            StoneIconArt(StoneIcon.SHUFFLE, null)
+            Text(stringResource(R.string.macro_random_ranges), Modifier.padding(start = GeodeSpacing.S))
+        }
+    }
+}
+
+/**
+ * Add random: a minus / plus stepper for how many params, within the most native says fit ([MacroEditorKnob.addMax]),
+ * then a button that has native link that many more, picked at random.
+ */
+@Composable
+private fun AddRandomRow(
+    knob: MacroEditorKnob,
+    onAdd: (Int) -> Unit,
+) {
+    val max = knob.addMax
+    var count by rememberSaveable(knob.id) { mutableIntStateOf(knob.addCount) }
+    val shown = count.coerceIn(minOf(1, max), max)
+    val spoken = stringResource(R.string.macro_add_random_count_a11y)
+    val fewer = stringResource(R.string.macro_add_random_fewer)
+    val more = stringResource(R.string.macro_add_random_more)
+    Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.macro_add_random), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        IconButton(onClick = { count = shown - 1 }, enabled = shown > 1, modifier = Modifier.semantics { contentDescription = fewer }) {
+            Text(STEP_DOWN, style = MaterialTheme.typography.titleMedium)
+        }
+        Text(
+            shown.toString(),
+            Modifier.width(COUNT_WIDTH).semantics {
+                contentDescription = spoken
+                stateDescription = shown.toString()
+            },
+            style = MaterialTheme.typography.titleMedium,
+        )
+        IconButton(onClick = { count = shown + 1 }, enabled = shown < max, modifier = Modifier.semantics { contentDescription = more }) {
+            Text(STEP_UP, style = MaterialTheme.typography.titleMedium)
+        }
+        TextButton(onClick = { onAdd(shown) }, enabled = shown > 0, modifier = Modifier.heightIn(min = GeodeSpacing.TouchTarget)) {
+            StoneIconArt(StoneIcon.SHUFFLE, null)
+            Text(pluralStringResource(R.plurals.macro_add_random_go, shown, shown), Modifier.padding(start = GeodeSpacing.S))
+        }
+    }
+    if (max == 0 && knob.canLink) Note(stringResource(R.string.macro_add_random_none))
 }
 
 /**
@@ -361,10 +419,10 @@ private fun KnobName(
 private fun LinkRows(
     knobId: Int,
     link: MacroLink,
+    name: String,
     curves: List<String>,
     store: MacroStore,
 ) {
-    val name = targetLabel(link.target)
     Column(Modifier.fillMaxWidth().alpha(if (link.reaches) 1f else UNREACHED_ALPHA)) {
         Row(Modifier.fillMaxWidth().heightIn(min = GeodeSpacing.TouchTarget), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -487,6 +545,7 @@ private fun TargetPicker(
     knob: MacroEditorKnob,
     editor: MacroEditorState,
     categories: Map<String, String>,
+    controls: Map<String, String>,
     onPick: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -505,7 +564,7 @@ private fun TargetPicker(
             Column(Modifier.heightIn(max = PICKER_MAX_HEIGHT).verticalScroll(rememberScrollState())) {
                 if (free.isEmpty()) Text(stringResource(R.string.macro_pick_none))
                 val other = stringResource(R.string.macro_pick_other)
-                groups.forEach { (title, targets) -> TargetGroup(title ?: other, targets, onPick) }
+                groups.forEach { (title, targets) -> TargetGroup(title ?: other, targets, controls, onPick) }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.macro_pick_close)) } },
@@ -516,6 +575,7 @@ private fun TargetPicker(
 private fun TargetGroup(
     title: String,
     targets: List<MacroTarget>,
+    controls: Map<String, String>,
     onPick: (String) -> Unit,
 ) {
     if (targets.isEmpty()) return
@@ -535,7 +595,7 @@ private fun TargetGroup(
                 .padding(vertical = GeodeSpacing.S)
                 .alpha(if (target.reaches) 1f else UNREACHED_ALPHA),
         ) {
-            Text(targetLabel(target.name), style = MaterialTheme.typography.bodyLarge)
+            Text(targetLabel(target.name, controls[target.name]), style = MaterialTheme.typography.bodyLarge)
             if (!target.reaches) Note(elsewhere)
         }
     }
@@ -546,12 +606,18 @@ private fun Note(text: String) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
-/** A target's label, the modulation pickers' own; its wire name if this shell does not know it. */
-private fun targetLabel(wire: String): String =
+/**
+ * A target's label: the modulation pickers' own, else the Customize control that sets it ([control], its ParamKeys
+ * key, which is its name on screen), else its wire name.
+ */
+private fun targetLabel(
+    wire: String,
+    control: String?,
+): String =
     LfoTarget.entries
         .firstOrNull { it.name == wire }
         ?.label
-        ?.ifEmpty { wire } ?: wire
+        ?.ifEmpty { null } ?: control?.ifEmpty { null } ?: wire
 
 private const val NO_KNOB = -1
 private const val UNITS_EPSILON = 1e-6f
@@ -560,6 +626,9 @@ private const val UNREACHED_ALPHA = 0.6f
 private val LABEL_WIDTH = 88.dp
 private val VALUE_WIDTH = 56.dp
 private val PICKER_MAX_HEIGHT = 420.dp
+private val COUNT_WIDTH = 32.dp
+private const val STEP_DOWN = "\u2212"
+private const val STEP_UP = "+"
 
 /**
  * "Add macro" (+): a menu of New macro, an empty knob as a draft, then its editor ([MacroDraftDialog]) to fill it
@@ -676,7 +745,7 @@ private fun MacroDraftDialog(
         title = { Text(stringResource(R.string.macro_new_title)) },
         text = {
             Column(Modifier.heightIn(max = DIALOG_MAX_HEIGHT).verticalScroll(rememberScrollState())) {
-                KnobPage(knob, editor, store, draft = true)
+                KnobPage(knob, editor, store, sceneId, draft = true)
                 OutlinedTextField(
                     value = name,
                     onValueChange = { if (it.toByteArray().size <= editor.maxNameBytes) typed = it },
@@ -730,7 +799,7 @@ internal fun KnobEditorDialog(
         title = { Text(knob.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         text = {
             Column(Modifier.heightIn(max = DIALOG_MAX_HEIGHT).verticalScroll(rememberScrollState())) {
-                KnobPage(knob, editor, store)
+                KnobPage(knob, editor, store, sceneId)
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.macro_done)) } },

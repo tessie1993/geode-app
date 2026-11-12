@@ -401,6 +401,22 @@ object GeodeNative {
         seed: Long,
     ): String
 
+    /** New ranges and curves for the links the knob has, their params kept; the same [seed], the same ranges. */
+    external fun macroBankRollRanges(
+        bank: String,
+        knobId: Int,
+        seed: Long,
+    ): String
+
+    /** Up to [count] more params on the knob, picked at random among those [styleId] reaches and Customize does not keep. */
+    external fun macroBankAddRandom(
+        bank: String,
+        knobId: Int,
+        styleId: String,
+        count: Int,
+        seed: Long,
+    ): String
+
     /** A new turn for every knob on screen that moves something on [styleId]; the same [seed], the same turns. */
     external fun macroBankRollValues(
         bank: String,

@@ -8,6 +8,7 @@ link|WARP|0.8|0|1|LINEAR|0.8|0
 link|TURBULENCE|0.5|0|1|LINEAR|0.75|0
 link|TWIST|0.6|-0.6|1|LINEAR|1.2|-1.2
 link|TILE|0|0.5|1|LINEAR|0|2.5
+addrandom|3|7
 knob|2|1|1|1|0.5|Motion|Down slows the picture and stills the camera, up speeds, sways and spins it
 link|SPEED|0.5|-0.22|1|LINEAR|1.975|-0.869
 link|SWAY|0.6|0|1|LINEAR|0.6|0
@@ -15,6 +16,7 @@ link|ROTATION|0.08|0|1|LINEAR|0.48|0
 link|CAM_FLY|0.3|-0.1|1|LINEAR|1.5|-0.5
 link|CAM_ORBIT|0.3|-0.35|1|LINEAR|0.3|-0.35
 link|FLUID_FORCE|0.4|-0.25|0|LINEAR|1.2|-0.75
+addrandom|3|6
 knob|3|1|1|1|0|Colour|Down turns the colours cool and dim, up warm, vivid and glowing
 link|COLOR_SHIFT|0.35|-0.35|1|LINEAR|0.35|-0.35
 link|TEMPERATURE|0.5|-0.5|1|LINEAR|1|-1
@@ -22,65 +24,131 @@ link|SATURATION|0.25|0|1|LINEAR|0.375|0
 link|PALETTE_MIX|0.7|0|1|LINEAR|0.7|0
 link|BLOOM|1|0|1|LINEAR|0.25|0
 link|INTENSITY|0.2|-0.3|1|LINEAR|0.21|-0.315
+addrandom|3|6
 knob|4|1|1|1|0|Depth|Down pulls in close, up opens a wide, deep view
 link|ZOOM|-0.22|0.35|1|LINEAR|-0.594|0.945
 link|CAM_FOV|0.4|-0.25|1|LINEAR|0.6|-0.375
 link|FISHEYE|0.35|-0.35|1|LINEAR|0.7|-0.7
 link|CAM_PUSH|-0.4|0.4|1|LINEAR|-0.8|0.8
 link|VIGNETTE|0|0.5|1|LINEAR|0|0.5
+addrandom|3|7
 knob|5|0|0|1|0|Mine|
 link|ZOOM|0.25|-0.25|1|EASE_IN|0.675|-0.675
 link|FLUID_GLOW|1|0|0|LINEAR|1.9|0
-target|SPEED|1
-target|ZOOM|1
-target|ROTATION|1
-target|SWAY|1
-target|DRIFT_X|1
-target|DRIFT_Y|1
-target|WARP|1
-target|RIPPLE|1
-target|MORPH|1
-target|TWIST|1
-target|TILE|1
-target|PIXELATE|1
-target|POSTERIZE|1
-target|COLOR_SHIFT|1
-target|PALETTE_MIX|1
-target|SATURATION|1
-target|BRIGHTNESS|1
-target|INTENSITY|1
-target|BLOOM|1
-target|TEMPERATURE|1
-target|TURBULENCE|1
-target|CHROMA_AB|1
-target|VIGNETTE|1
-target|FISHEYE|1
-target|PARTICLE_SIZE|0
-target|TRAIL_LENGTH|1
-target|FLUID_CURL|0
-target|FLUID_RADIUS|0
-target|FLUID_FORCE|0
-target|FLUID_GLOW|0
-target|FLUID_FADE|0
-target|FLUID_CATCH_PULL|0
-target|FLUID_CATCH_RADIUS|0
-target|FLOW_STRENGTH|1
-target|WATER_RIPPLE|0
-target|RIPPLE_OVERLAY|1
-target|CAM_FLY|1
-target|CAM_ORBIT|1
-target|CAM_PUSH|1
-target|CAM_YAW|1
-target|CAM_PITCH|1
-target|CAM_ROLL|1
-target|CAM_FOV|1
-target|CAM_SHAKE|1
-target|FLOW_CURL|1
-target|FLOW_FORCE|1
-target|DIVE_SPEED|1
-target|DIVE_TWIST|1
-target|DIVE_AIM_X|1
-target|DIVE_AIM_Y|1
+addrandom|3|10
+target|SPEED|1|Speed
+target|ZOOM|1|Zoom
+target|ROTATION|1|Rotation
+target|SWAY|1|Sway
+target|DRIFT_X|1|Drift X
+target|DRIFT_Y|1|Drift Y
+target|WARP|1|Domain warp
+target|RIPPLE|1|Ripple
+target|MORPH|1|Morph
+target|TWIST|1|Twist
+target|TILE|1|Tile
+target|PIXELATE|1|Pixelate
+target|POSTERIZE|1|Posterize
+target|COLOR_SHIFT|1|Hue shift
+target|PALETTE_MIX|1|Palette blend
+target|SATURATION|1|Saturation
+target|BRIGHTNESS|1|Brightness
+target|INTENSITY|1|Intensity
+target|BLOOM|1|Bloom
+target|TEMPERATURE|1|Temperature
+target|TURBULENCE|1|Turbulence
+target|CHROMA_AB|1|Chromatic aberration
+target|VIGNETTE|1|Vignette
+target|FISHEYE|1|Fisheye
+target|PARTICLE_SIZE|0|Particle size
+target|TRAIL_LENGTH|1|Trail length
+target|FLUID_CURL|0|Fluid curl
+target|FLUID_RADIUS|0|Fluid splat radius
+target|FLUID_FORCE|0|Fluid splat force
+target|FLUID_GLOW|0|Fluid glow
+target|FLUID_FADE|0|Fluid fade
+target|FLUID_CATCH_PULL|0|Catch pull
+target|FLUID_CATCH_RADIUS|0|Catch radius
+target|FLOW_STRENGTH|1|Flow strength
+target|WATER_RIPPLE|0|Ripple strength
+target|RIPPLE_OVERLAY|1|Ripple overlay strength
+target|CAM_FLY|1|Fly speed
+target|CAM_ORBIT|1|Swing
+target|CAM_PUSH|1|Push in
+target|CAM_YAW|1|Look turn
+target|CAM_PITCH|1|Look tilt
+target|CAM_ROLL|1|Roll
+target|CAM_FOV|1|Field of view
+target|CAM_SHAKE|1|Handheld shake
+target|FLOW_CURL|1|Flow curl
+target|FLOW_FORCE|1|Flow force
+target|DIVE_SPEED|1|Dive speed
+target|DIVE_TWIST|1|Dive twist
+target|DIVE_AIM_X|1|Dive aim X
+target|DIVE_AIM_Y|1|Dive aim Y
+target|audioDrive|1|Audio drive
+target|density|0|Density
+target|marchDetail|0|Detail
+target|trailZoom|1|Trail zoom (echo in/out)
+target|trailWarp|1|Trail warp (liquid echo)
+target|milkdropPaletteTint|0|MilkDrop palette tint
+target|hueRange|1|Hue range
+target|contrast|1|Contrast
+target|gamma|1|Gamma
+target|cycleSpeed|1|Cycle speed
+target|bassGain|1|Bass gain
+target|midGain|1|Mid gain
+target|trebGain|1|Treble gain
+target|scanlines|1|Scanlines
+target|grain|1|Film grain
+target|fluidPressure|0|Pressure
+target|fluidVelocityDissipation|0|Motion fade
+target|fluidChromaticAging|0|Chromatic aging
+target|fluidStirrerSpeed|0|Stirrer speed
+target|fluidPaletteCycleSpeed|0|Palette cycle
+target|fluidSpawnProgress|0|Progression
+target|fluidParticleLife|0|Particle life (s)
+target|fluidParticleDrag|0|Particle drag
+target|fluidParticleBrightness|0|Particle brightness
+target|fluidBloomThreshold|0|Glow threshold
+target|fluidSunraysWeight|0|Sunrays weight
+target|fluidCurlAudio|0|Curl from mids
+target|fluidBloomAudio|0|Glow from loudness
+target|fluidFadeAudio|0|Fade when quiet
+target|fluidRadiusPulse|0|Radius on hit
+target|waterWaveSpeed|1|Wave speed
+target|waterDamping|1|Damping
+target|waterDepth|0|Depth
+target|waterSpecular|0|Specular
+target|waterFlow|0|Flow drift
+target|waterLiquid|0|Liquid
+target|waterLiquidFlow|0|Liquid flow
+target|waterLiquidFade|0|Liquid fade
+target|cymaticsFundamental|0|Fundamental (Hz)
+target|cymaticsRing|0|Plate ring
+target|cymaticsFocus|0|Tonal focus
+target|cymaticsScale|0|Field scale
+target|cymaticsFill|0|Fill
+target|cymaticsLine|0|Nodal lines
+target|cymaticsGlow|0|Nodal glow
+target|cymaticsIridescence|0|Iridescence
+target|cymaticsCaustic|0|Caustic sheen
+target|cymaticsFlow|0|Wave flow
+target|cymaticsSwirl|0|Field swirl
+target|rippleOverlaySpecular|1|Ripple glint
+target|motionAmount|1|Motion amount
+target|motionBreath|1|Breath
+target|motionDrift|1|Spin drift
+target|motionHue|1|Key colour
+target|camSmooth|1|Camera smoothing
+target|reactAmount|1|Reaction strength
+target|camFlat|1|Travel zoom
+target|diveSpacing|1|Ring spacing
+target|diveShape|1|Tunnel shape
+target|diveBlend|1|Dive blend
+target|diveFog|1|Depth fade
+target|diveLens|1|Dive lens
+target|diveFollow|1|Music follow
 curve|LINEAR
 curve|EASE_IN
 curve|EASE_OUT

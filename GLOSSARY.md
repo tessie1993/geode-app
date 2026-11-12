@@ -169,6 +169,19 @@ _Avoid_: Beat timer, tempo clock (nothing here runs on a tempo it has not heard)
 **Melody contour**:
 Whether the tune is climbing or falling, -1..1: a fast follower of the pitch over a slow one, resting at 0 when no note sounds. A reaction source.
 
+**Kind of feeling**:
+Which of the nine GEMS feelings leads right now (wonder, transcendence, tenderness, nostalgia, peace, power, joy, tension, sadness), held until another clearly leads. A reaction source; five of the kinds also have a share of their own.
+
+**Section progress**:
+How far through its section the music is, 0..1, against how long the song's sections have run so far. A reaction source.
+_Avoid_: Song position (that is the player's time)
+
+**Section return**:
+A section heard before comes back: the analyser names a new section with an old section's number. A reaction source.
+
+**Chord motion**:
+How fast the chords move round the circle of fifths, 0..1. A reaction source.
+
 **Phrase**:
 Eight bars of music, or fewer when the analyser hears a section change. Phrase beat A fires on the beat in even phrases and phrase beat B in odd ones, so a style can answer the beat one way, then another.
 _Avoid_: Section (that is the analyser's structure boundary)

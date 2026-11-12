@@ -115,11 +115,19 @@ const std::string& SceneParams::schemaText() {
                 out += std::string("choice|") + rows[static_cast<size_t>(slot)].name + "|" + std::to_string(i) + "|" + std::string(labels[i]) + "\n";
             }
         }
-        // The kaleidoscope's Folds menu.
-        for (size_t i = 0; i < kSymmetryFolds.size(); ++i) out += "fold|" + std::to_string(i) + "|" + std::to_string(kSymmetryFolds[i]) + "\n";
         return out;
     }();
     return kText;
+}
+
+std::string SceneParams::kaleidoscopeMenu(bool on, int symmetry) {
+    int selected = -1;
+    std::string labels;
+    for (size_t i = 0; i < kSymmetryFolds.size(); ++i) {
+        if (kSymmetryFolds[i] == symmetry) selected = static_cast<int>(i);
+        labels += "\n" + std::to_string(kSymmetryFolds[i]);
+    }
+    return std::string(on ? "1|" : "0|") + std::to_string(selected) + "|" + std::to_string(kaleidoscopeFolds(!on, symmetry)) + labels;
 }
 
 }  // namespace geode::viz

@@ -96,8 +96,7 @@ class ParamSchemaTest {
 
     @Test
     fun parseReadsAMinimalTable() {
-        val rows = "params|5|2\nparam|0|a|FLOAT|0.5|0|1|FADE|LIVE\nparam|1|b|BOOL|1|0|1|HOLD|RETIRED\n"
-        val text = "${rows}palette|0|Spectrum\nchoice|b|0|Off\nfold|0|2\n"
+        val text = "params|4|2\nparam|0|a|FLOAT|0.5|0|1|FADE|LIVE\nparam|1|b|BOOL|1|0|1|HOLD|RETIRED\npalette|0|Spectrum\nchoice|b|0|Off\n"
         assertEquals(
             listOf(
                 ParamSpec(0, "a", ParamSpec.Kind.FLOAT, 0.5f, 0f..1f, fades = true),
@@ -112,10 +111,10 @@ class ParamSchemaTest {
         val row = "param|0|a|FLOAT|0.5|0|1|FADE|LIVE"
         assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|2|1\n$row") }
         assertThrows(IllegalStateException::class.java) { ParamSchema.parse("catalogue|1\n$row") }
-        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|4|1\n$row") }
-        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|5|2\n$row") }
-        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|5|1\nparam|1|a|FLOAT|0.5|0|1|FADE|LIVE") }
-        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|5|1\nparam|0|a|FLOAT|0.5|0|1|FADE") }
+        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|3|1\n$row") }
+        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|4|2\n$row") }
+        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|4|1\nparam|1|a|FLOAT|0.5|0|1|FADE|LIVE") }
+        assertThrows(IllegalStateException::class.java) { ParamSchema.parse("params|4|1\nparam|0|a|FLOAT|0.5|0|1|FADE") }
         assertThrows(IllegalStateException::class.java) { ParamSchema.parse("") }
     }
 
@@ -135,12 +134,6 @@ class ParamSchemaTest {
         assertEquals("Pendulum", ParamSchema.choices("camPath").last())
         assertEquals(listOf("Water dish", "Chladni plate"), ParamSchema.choices("cymaticsGeometry"))
         assertTrue(ParamSchema.choices("speed").isEmpty())
-    }
-
-    @Test
-    fun theFoldsComeFromTheTable() {
-        assertEquals(listOf(2, 3, 4, 5, 6, 7, 8, 9, 12, 16), ParamSchema.folds)
-        assertTrue(requireNotNull(ParamSchema["symmetry"]).default.toInt() in ParamSchema.folds)
     }
 
     @Test

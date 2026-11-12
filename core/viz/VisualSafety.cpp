@@ -62,6 +62,8 @@ SceneParams apply(const SceneParams& p, bool reducedMotion) {
         // render path once.
         out.camFly *= kReducedMotionScale;
         out.endlessZoomSpeed *= kReducedMotionScale;
+        // The physics layers' stir (viz/physics): the fluid's push and the particles' drift.
+        out.simForce *= kReducedMotionScale;
     }
     return out;
 }

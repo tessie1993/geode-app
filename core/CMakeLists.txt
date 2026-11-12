@@ -196,6 +196,7 @@ add_library(geode_core STATIC
     viz/pool/PoolMath.cpp
     viz/liquid/LiquidMath.cpp
     viz/liquid/LiquidPass.cpp
+    viz/physics/PhysicsPlan.cpp
     viz/world/WorldGenome.cpp
     viz/world/MorphDriver.cpp
     viz/world/WorldAssets.cpp

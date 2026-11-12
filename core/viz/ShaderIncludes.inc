@@ -85,3 +85,9 @@
 // Every style's shape as normalized inputs (shellMap, shellKnob) and the grow hooks on its own field
 // (SHELL_FIELD3, SHELL_FIELD2); after lib_scene_uniforms.
 "lib_shell",
+// The shading pass (soft shadows, step glow, escape colour) the raymarched families share; lib_strata, lib_loom,
+// lib_petal, lib_fold and lib_bulb include it. Its two halves that read a field come after it: Fold's surface
+// marches include lib_fold_shade, the lit Bulb members lib_bulb_shade after lib_bulb_field.
+"lib_shade",
+"lib_fold_shade",
+"lib_bulb_shade",

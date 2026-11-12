@@ -33,7 +33,8 @@ vec3 foldGlow(vec3 ro, vec3 rd) {
         float near = 1.0 - smoothstep(0.0, gFoldEdge, m.x);
         // Nothing lights right at the eye: flying through a thread must not fill the frame.
         float fade = smoothstep(0.05, 0.8, t) * exp(-2.4 * t / gFoldFar) * near * span;
-        float hue = gFoldTone + m.y + 0.2 * t / gFoldFar;
+        // Escape colour (lib_shade): the two traps as one value move the threads' hue along the palette.
+        float hue = gFoldTone + m.y + 0.2 * t / gFoldFar + shadeEscape(shadeTrapPair(m.zw));
         vec3 e = foldCol(hue) * prof.x + foldCol(hue + 0.35) * 0.5 * prof.y;
         acc += through * fade * (0.07 * gFoldBuild * e + 0.06 * foldCol(hue + 0.6));
         through *= exp(-gFoldDense * near * span);

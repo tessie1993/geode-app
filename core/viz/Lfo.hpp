@@ -49,9 +49,12 @@ enum class LfoTarget {
     Formula,
     // Appended: how far a raymarched style takes in the shape graph (viz/ParamTable.inc shapes), ordinal 79.
     Shapes,
+    // Appended: the soft shadows' darkness and the escape colour's reach (viz/ParamTable.inc shadow, escapeColor),
+    // ordinals 80 and 81.
+    Shadow, EscapeColor,
 };
 // The last ordinal: the wire's range for a target.
-inline constexpr LfoTarget kLastLfoTarget = LfoTarget::Shapes;
+inline constexpr LfoTarget kLastLfoTarget = LfoTarget::EscapeColor;
 
 struct ModChain {
     int slot;

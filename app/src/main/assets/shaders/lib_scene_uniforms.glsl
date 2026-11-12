@@ -86,6 +86,9 @@ uniform float uFormula;
 // 0 is the style's own distance and colour, untouched. ParamTable.inc shapes. The graph's own uniforms and
 // lib_shapes come with the first style that reads it.
 uniform float uShapeMix;
+// uShadow 0..1, uEscapeColor 0..1: Soft shadows and Escape colour (ParamTable.inc shadow, escapeColor), lib_shade's.
+uniform float uShadow;
+uniform float uEscapeColor;
 // The rules the family libraries share for Grow and layers (growSwell, growSpawnShift ..).
 //#include lib_grow
 

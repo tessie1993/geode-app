@@ -183,6 +183,8 @@ const SHADER_VALUES = {
   uSpawn: 0, uFractal: 0, uFrontLayer: 0, uBackLayer: 0, uFormula: 0,
   // Shapes (lib_scene_uniforms) at its default: off, every style its own form.
   uShapeMix: 0,
+  // The shading pass (lib_shade) at its defaults: Soft shadows 0.6, Escape colour 0.5.
+  uShadow: 0.6, uEscapeColor: 0.5,
   uTouchAnchor: [0, 0, 0, 0], uTouchPoints: [0, 0, 0, 0], uTouchCount: 0, uTouchGesture: 0, uTouchAxis: [0, 0],
   uTouchSpin: 0,
   // The style knobs (lib_scene_uniforms): every knob at the 0.5 ShaderScene holds them at (array fill).

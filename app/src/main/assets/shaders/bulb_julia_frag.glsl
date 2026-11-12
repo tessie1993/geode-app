@@ -135,12 +135,15 @@ void main() {
         float fPoint = sqrt(trap.x);
         float fPlane = smoothstep(0.0, 0.6, trap.y);
         float fAxis = (1.0 - smoothstep(0.0, 0.35, trap.z));
-        vec3 field = tone(hue + spread * (0.8 * fPoint + 0.35 * trap.w));
+        // Escape colour (lib_shade): the smoothed escape count moves the field further along the ramp.
+        vec3 field = tone(hue + spread * (0.8 * fPoint + 0.35 * trap.w) + shadeEscape(trap.w));
         field = mix(field, tone(hue + 0.5 + 0.3 * fPlane), 0.35 * (1.0 - fPlane));
         field = mix(field, vec3(1.0, 0.97, 0.88), 0.45 * fAxis);
         float ao = bulbStepAO(used) * (0.55 + 0.45 * smoothstep(0.05, 0.7, trap.x));
         col = field * ao;
     }
+    // The step glow (lib_shade): a halo where a ray crept along the body, by Bloom.
+    col += tone(hue + 0.4) * 0.4 * shadeStepGlow(used, uSteps);
 
     col *= 0.8 + 0.22 * swell;
     fragColor = vec4(grade(col), 1.0);

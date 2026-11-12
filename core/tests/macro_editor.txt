@@ -104,6 +104,8 @@ target|FRONT_LAYER|0|Front layer
 target|BACK_LAYER|0|Back layer
 target|FORMULA|0|Formula
 target|SHAPES|0|Shapes
+target|SHADOW|0|Soft shadows
+target|ESCAPE_COLOR|0|Escape colour
 target|audioDrive|1|Audio drive
 target|density|0|Density
 target|marchDetail|0|Detail

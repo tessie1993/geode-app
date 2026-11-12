@@ -80,15 +80,26 @@
 // Front layer opens the fractal round the eye and Back layer down the way.
 // Each costs nothing at 0.
 //
+// THE SHADING PASS (lib_shade). Every march colours by escape: the two orbit traps (foldMap's zw) as one
+// value (shadeTrapPair) move the hue along the palette by Escape colour (uEscapeColor), on a surface, a
+// section and a thread alike. The three surface marches (cone, pair, probe) shadow the key light softly
+// (lib_fold_shade's foldShadow, by Soft shadows, uShadow) on the sun's light and the gloss, never on the
+// seams' own glow; the cone and pair marches add the step glow (by Bloom) where a ray crept along the crust.
+//
 // INCLUDE ORDER: after lib_scene_uniforms (with VIEW_OWNS_SHAPE),
 // lib_scene_motion, lib_camera, lib_palette, lib_scene_grade and lib_neon.
 // The style then defines vec4 foldMap(vec3 p) and after it includes one
 // lib_fold_march_<kind>, which calls it.
 
+// The shading pass's rules (soft shadows, step glow, escape colour); lib_layers, at the end, reads them too.
+//#include lib_shade
+
 #define FOLD_TAU 6.2831853
 #define FOLD_PERIOD 16.0
 /** k whole cycles per uTime wrap (7100 s, ShaderScene). */
 #define FOLD_RATE(k) (FOLD_TAU * float(k) / 7100.0)
+/** The key light a surface march lights by (foldLit) and shadows from (lib_fold_shade). */
+#define FOLD_KEY normalize(vec3(0.45, 0.8, -0.35))
 // uSteps (64..128 by Detail, 102 at its default, less on a hot phone) on each march's loop.
 #define FOLD_GLOW_MAX 64
 #define FOLD_GLOW_STEPS (min(uSteps * 0.5, float(FOLD_GLOW_MAX)))
@@ -303,20 +314,22 @@ float foldSeams(vec2 v, float w) {
 
 /**
  * A surface point lit: a lamp at the eye that falls off with distance, one key light, a rim on every edge
- * that turns away, the glowing seams, a gloss. `nor` is unit, m is foldMap there, occ its occlusion 0..1.
+ * that turns away, the glowing seams, a gloss. `nor` is unit, m is foldMap there, occ its occlusion 0..1,
+ * `keyLight` the key's light there 0..1 (lib_fold_shade's soft shadow), on the sun and the gloss alone. The
+ * hue moves with the orbit traps by Escape colour (lib_shade).
  */
-vec3 foldLit(vec3 nor, vec3 rd, float t, vec4 m, float occ) {
-    vec3 key = normalize(vec3(0.45, 0.8, -0.35));
+vec3 foldLit(vec3 nor, vec3 rd, float t, vec4 m, float occ, float keyLight) {
+    vec3 key = FOLD_KEY;
     float ndv = clamp(dot(nor, -rd), 0.0, 1.0);
     float rim = (1.0 - ndv) * (1.0 - ndv) * (1.0 - ndv);
-    float hue = gFoldTone + m.y + 0.3 * t / gFoldFar;
+    float hue = gFoldTone + m.y + 0.3 * t / gFoldFar + shadeEscape(shadeTrapPair(m.zw));
     float lamp = ndv / (1.0 + 0.08 * t * t);
-    float sun = clamp(dot(nor, key), 0.0, 1.0);
+    float sun = clamp(dot(nor, key), 0.0, 1.0) * keyLight;
     vec3 col = foldCol(hue) * (0.04 + 0.5 * lamp + 0.4 * sun) * (0.25 + 0.75 * occ);
     col += foldCol(hue + 0.45) * rim * (0.15 + 0.7 * occ);
     col += foldCol(hue + 0.25) * foldSeams(m.zw, foldWidth(t)) * gFoldBuild * gFoldSeam * (0.5 + 0.5 * occ);
     float gloss = clamp(dot(reflect(rd, nor), key), 0.0, 1.0);
-    col += foldCol(hue + 0.6) * pow(gloss, 24.0) * gFoldGloss;
+    col += foldCol(hue + 0.6) * pow(gloss, 24.0) * gFoldGloss * keyLight;
     return col;
 }
 

@@ -39,6 +39,8 @@ bool isLuminanceTarget(LfoTarget target) {
         case LfoTarget::LayerMix:
         // The physics layers lay a fluid and particles over or under the picture: as much light as a layer.
         case LfoTarget::SimFluid: case LfoTarget::SimParticles: case LfoTarget::SimLayerOrder:
+        // The soft shadows darken the lit surface; the escape colour moves it along the palette, as Palette position.
+        case LfoTarget::Shadow: case LfoTarget::EscapeColor:
             return true;
         default:
             return false;
@@ -155,6 +157,9 @@ bool driveOf(LfoTarget target, Drive& out) {
         case LfoTarget::Formula: GEODE_DRIVE(formula, 1.0f);
         // The whole of Shapes per unit: how far the shape graph melts into the style's form, a structural target.
         case LfoTarget::Shapes: GEODE_DRIVE(shapes, 1.0f);
+        // The whole of Soft shadows and of Escape colour per unit: a full wave from 0 reaches either end.
+        case LfoTarget::Shadow: GEODE_DRIVE(shadow, 1.0f);
+        case LfoTarget::EscapeColor: GEODE_DRIVE(escapeColor, 1.0f);
         // None, the retired slots and the chained targets write no scene parameter.
         default: return false;
     }

@@ -44,7 +44,7 @@ void check(bool ok, const std::string& what) {
 }
 // The geode_viz_set_params frame size. Kotlin's SceneParams.FIELDS counts the schema text's rows; a row
 // added to the table changes both, never one.
-constexpr int kWireFloats = 199;
+constexpr int kWireFloats = 201;
 
 bool integral(float v) { return std::floor(v) == v; }
 
@@ -84,7 +84,9 @@ void theTableIsTheWire() {
           "Grow and layers follow them");
     check(static_cast<int>(ParamSlot::backLayer) == 196, "backLayer keeps its slot");
     check(static_cast<int>(ParamSlot::formula) == 197, "formula keeps its slot");
-    check(static_cast<int>(ParamSlot::shapes) == kWireFloats - 1, "shapes is the wire's last float");
+    check(static_cast<int>(ParamSlot::shapes) == 198, "shapes keeps its slot");
+    check(static_cast<int>(ParamSlot::shadow) == 199, "shadow follows it");
+    check(static_cast<int>(ParamSlot::escapeColor) == kWireFloats - 1, "escapeColor is the wire's last float");
 }
 
 void everyRowIsWellFormed() {
@@ -285,6 +287,8 @@ constexpr OldClamp kOldClamps[] = {
     {LfoTarget::Formula, "formula", 0.0f, 1.0f},
     // Shapes: how far the shape graph melts into the form, 0..1.
     {LfoTarget::Shapes, "shapes", 0.0f, 1.0f},
+    // The shading pass: the soft shadows' darkness and the escape colour's reach, 0..1 each.
+    {LfoTarget::Shadow, "shadow", 0.0f, 1.0f},          {LfoTarget::EscapeColor, "escapeColor", 0.0f, 1.0f},
 };
 
 void theLfoClampsAreTheTablesRanges() {
@@ -639,6 +643,15 @@ void everyLiveRowHasOneMeta() {
     check(std::string(shapes.label) == "Shapes" && shapes.scope == catalogue::Scope::Shapes && (shapes.flags & kMod) != 0 &&
               shapes.rollLo == 0.0f && shapes.rollHi == 0.0f && SceneParams::spec(ParamSlot::shapes).defaultValue == 0.0f,
           "Shapes: a target on its own scope, off by default, never dealt by the param roll");
+    // The shading pass (lib_shade): each a target on its own per-style scope, on by default, never rolled.
+    const ParamMeta& shadow = SceneParams::meta(ParamSlot::shadow);
+    check(std::string(shadow.label) == "Soft shadows" && shadow.scope == catalogue::Scope::Shadow && (shadow.flags & kMod) != 0 &&
+              shadow.rollLo == 0.0f && shadow.rollHi == 0.0f && SceneParams::spec(ParamSlot::shadow).defaultValue == 0.6f,
+          "Soft shadows: a target on its own scope, 0.6 by default, never dealt by the param roll");
+    const ParamMeta& escape = SceneParams::meta(ParamSlot::escapeColor);
+    check(std::string(escape.label) == "Escape colour" && escape.scope == catalogue::Scope::Escape && (escape.flags & kMod) != 0 &&
+              escape.rollLo == 0.0f && escape.rollHi == 0.0f && SceneParams::spec(ParamSlot::escapeColor).defaultValue == 0.5f,
+          "Escape colour: a target on its own scope, 0.5 by default, never dealt by the param roll");
 }
 
 int main(int argc, char** argv) {

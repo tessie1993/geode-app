@@ -122,6 +122,7 @@ void main() {
 
     float hitT = -1.0;
     float used = 0.0;
+    vec4 trap = vec4(1.0);
     vec2 tb = bulbBound(ro, rd, vec3(0.0), BM_BOUND);
     if (tb.y > 0.0) {
         float t = tb.x;
@@ -134,6 +135,7 @@ void main() {
             float eps = bulbEps(t);
             if (d < eps) {
                 hitT = t;
+                trap = h.trap;
                 break;
             }
             t += max(d * 0.85, eps * 0.5);
@@ -149,9 +151,11 @@ void main() {
         vec3 metal = mix(vec3(0.9, 0.92, 0.95), tone(gHue + 0.1), 0.12);
         float fres = 0.75 + 0.25 * pow(1.0 - ndv, 4.0);
         col = studio(reflect(rd, n)) * metal * fres * ao;
-        // Heat-blued film at mid angles.
-        col += tone(gHue + 0.6 + 0.5 * ndv) * ndv * (1.0 - ndv) * 0.35 * ao;
+        // Heat-blued film at mid angles; Escape colour (lib_shade) moves it along the ramp by the escape count.
+        col += tone(gHue + 0.6 + 0.5 * ndv + shadeEscape(trap.w)) * ndv * (1.0 - ndv) * 0.35 * ao;
     }
+    // The step glow (lib_shade): a halo where a ray crept along the metal, by Bloom.
+    col += tone(gHue + 0.6) * 0.4 * shadeStepGlow(used, uSteps);
 
     col *= 0.85 + 0.15 * swell;
     fragColor = vec4(grade(col), 1.0);

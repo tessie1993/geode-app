@@ -68,12 +68,13 @@ vec3 prismNormal(vec3 p, vec3 rd, float eps) {
  */
 float prismShadow(vec3 p, vec3 nor) {
     if (!shadeShadowOn()) return 1.0;
-    float steps = shadeShadowSteps();
+    // A loop bound from a uniform (lib_shade): the driver keeps one loop and one field call, never unrolled.
+    int count = shadeShadowCount();
     vec3 o = p + nor * 0.01;
     float res = 1.0;
     float t = 0.03;
-    for (int i = 0; i < SHADE_SHADOW_MAX; i++) {
-        if (float(i) >= steps || t > PRISM_SHADOW_REACH) break;
+    for (int i = 0; i < count; i++) {
+        if (t > PRISM_SHADOW_REACH) break;
         float h = prismField(o + PRISM_KEY * t).x;
         res = shadePenumbra(res, h, t);
         if (res < 0.01) break;

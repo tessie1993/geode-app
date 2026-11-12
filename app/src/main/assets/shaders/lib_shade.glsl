@@ -11,12 +11,14 @@
 // way and skips the ray, 1 lets the shadow take all of the key's light. Only the key's own light is shadowed:
 // a family's emission (paint, threads, seams, edges, fibres) shines in the dark as it did.
 //
-// COST. The shadow ray takes shadeShadowSteps() steps: uSteps (Detail, 64..128 on a cool phone) times 0.16,
-// so 10 at the lowest Detail, 16 at its default and SHADE_SHADOW_MAX (20) at the highest. uSteps already
-// carries the hot phone's cut (viz/frame/Thermal.hpp: the Minimal tier scales the march by 0.6, floored at 24
-// steps), so on a hot phone it takes 10 at the default and never fewer than 4. It runs once per pixel whose
-// ray met a lit surface (the first face for a family that traces on through), and not at all at Soft
-// shadows 0. No other uniform carries the phone's heat to a shader.
+// COST. The shadow ray runs only at Detail's full path: uSteps 80 and over (the line lib_bulb's bulbIters and
+// bulbEps draw between lean and full), so the lowest Detail and a hot phone (viz/frame/Thermal.hpp: the
+// Minimal tier scales uSteps by 0.6, so 61 at the default Detail) skip it whole, and so does Soft shadows 0.
+// No other uniform carries the phone's heat to a shader. On the full path it takes uSteps * 0.16 steps: 16 at
+// the default Detail (102), SHADE_SHADOW_MAX (20) at the highest, once per pixel whose ray met a lit surface
+// (the first face for a family that traces on through). Its loop is bounded by that count, an int from a
+// uniform, not a constant, and calls the family's field from one site, so the compiler keeps one loop and
+// never pastes the map once per step (CI's ES 3.00 compile is already near its budget on these families).
 //
 // STEP GLOW. A ray that skims a surface creeps along it and spends many steps; one that meets a face square
 // on, or crosses open air, spends few. shadeStepGlow() turns the share of its budget a ray spent before it
@@ -41,14 +43,17 @@
 /** How much of the palette a whole escape range sweeps at Escape colour 1. */
 #define SHADE_ESCAPE_SPAN 1.0
 
-/** The shadow ray's step budget: Detail and the hot-phone cut, through uSteps (see COST). */
-float shadeShadowSteps() {
-    return clamp(uSteps * 0.16, 4.0, float(SHADE_SHADOW_MAX));
+/** Whether a shadow ray is traced at all: Soft shadows above 0, and Detail's full path (see COST). */
+bool shadeShadowOn() {
+    return uShadow > 0.0 && uSteps >= 80.0;
 }
 
-/** Whether a shadow ray is worth tracing at all: Soft shadows above 0. */
-bool shadeShadowOn() {
-    return uShadow > 0.0;
+/**
+ * The shadow ray's step count, the bound of its loop: an int from uSteps (Detail and the hot-phone cut), so
+ * the driver cannot unroll the loop and paste the field once per step. 0 where shadeShadowOn() says no.
+ */
+int shadeShadowCount() {
+    return shadeShadowOn() ? clamp(int(uSteps * 0.16), 1, SHADE_SHADOW_MAX) : 0;
 }
 
 /** One step of the shadow ray: res the light let through so far, h the field t along the ray. */

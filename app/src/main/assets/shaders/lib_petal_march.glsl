@@ -63,13 +63,14 @@ vec3 petalNormal(vec3 p, vec3 rd, float eps) {
  */
 float petalShadow(vec3 p, vec3 n, vec3 l, float dl) {
     if (!shadeShadowOn()) return 1.0;
-    float steps = shadeShadowSteps();
+    // A loop bound from a uniform (lib_shade): the driver keeps one loop and one field call, never unrolled.
+    int count = shadeShadowCount();
     float reach = min(dl, PETAL_SHADOW_REACH);
     vec3 o = p + (dot(n, l) >= 0.0 ? n : -n) * (2.0 * gPetalThick + 0.01);
     float res = 1.0;
     float t = 0.02;
-    for (int i = 0; i < SHADE_SHADOW_MAX; i++) {
-        if (float(i) >= steps || t > reach) break;
+    for (int i = 0; i < count; i++) {
+        if (t > reach) break;
         float h = abs(petalField(o + l * t).x) - gPetalThick;
         res = shadePenumbra(res, h, t);
         if (res < 0.01) break;

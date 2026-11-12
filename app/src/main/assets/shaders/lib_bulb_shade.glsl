@@ -12,12 +12,13 @@
 /** The key's light at p (on a surface of normal n, hit within eps) from the unit way l, `reach` at most. */
 float bulbShadow(vec3 p, vec3 n, vec3 l, float reach, float eps) {
     if (!shadeShadowOn()) return 1.0;
-    float steps = shadeShadowSteps();
+    // A loop bound from a uniform (lib_shade): the driver keeps one loop and one field call, never unrolled.
+    int count = shadeShadowCount();
     vec3 o = p + n * max(0.004, 3.0 * eps);
     float res = 1.0;
     float t = 0.01;
-    for (int i = 0; i < SHADE_SHADOW_MAX; i++) {
-        if (float(i) >= steps || t > reach) break;
+    for (int i = 0; i < count; i++) {
+        if (t > reach) break;
         float h = bulbField(o + l * t).d;
         res = shadePenumbra(res, h, t);
         if (res < 0.01) break;

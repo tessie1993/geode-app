@@ -17,12 +17,13 @@
 /** The key's light at p on a surface of normal nor, hit within eps (lib_shade); 1 without a ray at Soft shadows 0. */
 float foldShadow(vec3 p, vec3 nor, float eps) {
     if (!shadeShadowOn()) return 1.0;
-    float steps = shadeShadowSteps();
+    // A loop bound from a uniform (lib_shade): the driver keeps one loop and one field call, never unrolled.
+    int count = shadeShadowCount();
     vec3 o = p + nor * max(0.01, 3.0 * eps);
     float res = 1.0;
     float t = 0.02;
-    for (int i = 0; i < SHADE_SHADOW_MAX; i++) {
-        if (float(i) >= steps || t > FOLD_SHADOW_REACH) break;
+    for (int i = 0; i < count; i++) {
+        if (t > FOLD_SHADOW_REACH) break;
         float h = FOLD_AT((o + FOLD_KEY * t)).x;
         res = shadePenumbra(res, h, t);
         if (res < 0.01) break;

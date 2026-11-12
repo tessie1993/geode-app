@@ -607,8 +607,8 @@ GEODE_PARAM_META(shapes, "Shapes", Shapes, kMod, 0, 0)
 // Soft shadows (Customize › Look › Light detail): how dark the key light's soft shadows fall on a raymarched
 // style's lit surface (lib_shade: a shadow ray toward the key keeps min(k d / t), so the penumbra widens with
 // distance from what casts it). 0 lights everything as if nothing stood in the way and traces no shadow ray; 1
-// lets a shadow take all of the key's light (a glass or a petal lets some through). Its steps follow Detail and
-// the hot-phone cut (uSteps). The default, 0.6, is the new look the owner chose: soft shadows on by default, a
+// lets a shadow take all of the key's light (a glass or a petal lets some through). It runs at Detail's full
+// path only (uSteps 80 and over, so low Detail and the hot-phone cut skip it) and its steps follow uSteps. The default, 0.6, is the new look the owner chose: soft shadows on by default, a
 // family's emission (edges, paint, seams, fibres) untouched. A luminance target (LfoTarget::Shadow: held to the
 // flash rate). It reaches the styles listed in Catalogue.cpp's kShadowStyles (Scope::Shadow), the ones with a
 // key-lit surface. No roll deals it. Appended at wire slot 199 so every wire index survives.

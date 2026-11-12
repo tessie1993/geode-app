@@ -64,12 +64,13 @@ vec3 shardNormal(vec3 p, vec3 rd, float eps) {
  */
 float shardShadow(vec3 p, vec3 n) {
     if (!shadeShadowOn()) return 1.0;
-    float steps = shadeShadowSteps();
+    // A loop bound from a uniform (lib_shade): the driver keeps one loop and one field call, never unrolled.
+    int count = shadeShadowCount();
     vec3 o = p + n * 0.01;
     float res = 1.0;
     float t = 0.03;
-    for (int i = 0; i < SHADE_SHADOW_MAX; i++) {
-        if (float(i) >= steps || t > SHARD_SHADOW_REACH) break;
+    for (int i = 0; i < count; i++) {
+        if (t > SHARD_SHADOW_REACH) break;
         float h = abs(shardField(o + SHARD_KEY * t).x);
         res = shadePenumbra(res, h, t);
         if (res < 0.01) break;

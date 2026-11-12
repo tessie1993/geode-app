@@ -184,6 +184,8 @@ const SHADER_VALUES = {
   // The style knobs (lib_scene_uniforms): every knob at the 0.5 ShaderScene holds them at (array fill).
   uKnob: [0.5],
   uSteps: 96,
+  // The Formula param (lib_scene_uniforms) at its first formula.
+  uFormula: 0,
   uPalLutMix: 0, uPalLutRow: 0.5,
   // Your colours (lib_palette): none picked, so the cosine ramp draws.
   uPalStops: new Array(15).fill(0), uPalStopCount: 0,

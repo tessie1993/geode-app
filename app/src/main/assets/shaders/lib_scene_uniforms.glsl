@@ -120,6 +120,13 @@ uniform float uTouchSpin;
  */
 uniform float uSteps;
 
+/**
+ * The Formula param, 0..1: which of a style's three formulas draws its
+ * geometry (0, 0.5 and 1 each one; lib_strata's strataFormula crossfades
+ * between neighbours). The styles that have no formulas never read it.
+ */
+uniform float uFormula;
+
 vec2 view() {
     vec2 uv = vUv * 2.0 - 1.0;
     uv.x *= uResolution.x / uResolution.y;

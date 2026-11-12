@@ -47,6 +47,8 @@
 "lib_shard",
 "lib_petal",
 "lib_fold",
+// The depth layers (far fractal, warped haze) and the Formula folds the Shard, Prism and Fluor families share.
+"lib_strata",
 // Their second halves, included after the style's own map: the march that calls it (no prototypes).
 "lib_flame_march",
 "lib_opal_march",

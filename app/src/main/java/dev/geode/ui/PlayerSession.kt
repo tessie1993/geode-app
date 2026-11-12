@@ -148,6 +148,7 @@ class PlayerSession internal constructor(
         PresetLibraryController(
             application,
             presetRepository,
+            container.mediaStore,
             scope,
             storeScope,
             object : PresetLibraryController.Host {
@@ -170,6 +171,7 @@ class PlayerSession internal constructor(
         TemplateController(
             application,
             templateRepository,
+            container.mediaStore,
             scope,
             storeScope,
             object : TemplateController.Host {
@@ -272,7 +274,7 @@ class PlayerSession internal constructor(
         onReady: (String) -> Unit,
     ) = textureController.useTexture(name, onReady)
 
-    internal val milkImport = MilkImportController(application, scope)
+    internal val milkImport = MilkImportController(application, container.mediaStore, scope)
 
     fun milkPresetFilesAsync(onDone: (List<MilkFile>) -> Unit) = milkImport.milkPresetFilesAsync(onDone)
 
@@ -544,6 +546,7 @@ class PlayerSession internal constructor(
     internal val queueController: QueueController =
         QueueController(
             application,
+            container.mediaStore,
             object : QueueController.Host {
                 override val player: Player get() = this@PlayerSession.player
                 override val libraryTracks: List<LibraryTrack> get() = library.value.tracks
@@ -810,7 +813,7 @@ class PlayerSession internal constructor(
 
     // W02: the background image behind the scene - see BackgroundController for why it takes no Host.
     internal val backgroundController: BackgroundController =
-        BackgroundController(application, storeScope, BackgroundPrefsStore(prefsFiles.background)).also { it.start() }
+        BackgroundController(application, storeScope, BackgroundPrefsStore(prefsFiles.background), container.mediaStore).also { it.start() }
 
     val backgroundPush: StateFlow<BackgroundPushState> get() = backgroundController.push
 

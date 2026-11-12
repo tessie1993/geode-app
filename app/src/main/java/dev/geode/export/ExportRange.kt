@@ -1,5 +1,7 @@
 package dev.geode.export
 
+import dev.geode.engine.bridge.GeodeNative
+
 data class ExportRange(
     val startMs: Long,
     val durationMs: Long,
@@ -12,20 +14,18 @@ data class ExportRange(
     val endMs: Long get() = startMs + durationMs
 
     companion object {
-        const val MIN_DURATION_MS: Long = 1_000
+        /** The shortest segment worth rendering (core/output/ExportRange). */
+        val MIN_DURATION_MS: Long get() = GeodeNative.exportRangeMinMs()
 
-        @Suppress("ReturnCount")
+        /** The picked span held inside the track, or null when native finds no segment to render in it. */
         fun of(
             startMs: Long,
             endMs: Long,
             trackDurationMs: Long,
         ): ExportRange? {
-            if (trackDurationMs <= 0) return null
-            val start = startMs.coerceIn(0, trackDurationMs)
-            val end = endMs.coerceIn(0, trackDurationMs)
-            if (end - start < MIN_DURATION_MS) return null
-            if (start == 0L && end >= trackDurationMs) return null
-            return ExportRange(start, end - start)
+            val span = LongArray(2)
+            if (!GeodeNative.exportRange(startMs, endMs, trackDurationMs, span)) return null
+            return ExportRange(span[0], span[1])
         }
     }
 }

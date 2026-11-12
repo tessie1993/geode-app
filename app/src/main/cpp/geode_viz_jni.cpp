@@ -1177,40 +1177,6 @@ Java_dev_geode_engine_bridge_GeodeNative_exportWatermarkDraw(JNIEnv*, jobject, j
     geode_export_watermark_draw(passOf(handle), frameWidth, frameHeight, timeMs);
 }
 
-JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportSeamCreate(JNIEnv* env, jobject, jobject assetManager, jint width, jint height) {
-    return reinterpret_cast<jlong>(geode_export_seam_create(assetsOf(env, assetManager), width, height));
-}
-
-JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportSeamAllocate(JNIEnv*, jobject, jlong handle, jint requested) {
-    return geode_export_seam_allocate(passOf(handle), requested);
-}
-
-JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportSeamFrame(JNIEnv*, jobject, jlong handle, jint frame, jint loopFrames,
-                                                        jint seamFrames, jint fps) {
-    return geode_export_seam_frame(passOf(handle), frame, loopFrames, seamFrames, fps);
-}
-
-JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportSeamBudgetedCrossfadeMs(JNIEnv*, jobject, jlong crossfadeMs,
-                                                                      jint crossfadeFrames, jint fps, jint width,
-                                                                      jint height) {
-    return geode_export_seam_budgeted_crossfade_ms(crossfadeMs, crossfadeFrames, fps, width, height);
-}
-
-JNIEXPORT jfloat JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportLoopProgress(JNIEnv*, jobject, jint stop, jint stops, jint frame,
-                                                           jint loopFrames, jint seamFrames) {
-    return geode_export_loop_progress(stop, stops, frame, loopFrames, seamFrames);
-}
-
-JNIEXPORT jlong JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_exportLoopReportedCrossfadeMs(JNIEnv*, jobject, jint seamFrames, jint fps) {
-    return geode_export_loop_reported_crossfade_ms(seamFrames, fps);
-}
-
 JNIEXPORT jbyteArray JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_transitionPicker(JNIEnv* env, jobject, jobject assetManager) {
     // Bytes, not a jstring: NewStringUTF takes modified UTF-8, and the library's names are plain UTF-8.

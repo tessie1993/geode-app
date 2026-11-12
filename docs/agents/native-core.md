@@ -107,6 +107,10 @@ The renderer runs these in order each frame.
 - The Camera path chips' labels are `camPath`'s `GEODE_PARAM_CHOICES` row in `core/viz/ParamTable.inc`, by index.
 - `CameraRig.cpp` static_asserts that row's count (`choiceCount`) against `CameraRig::kPathCount`.
 - Every picker's labels (`GEODE_PARAM_CHOICES`) reach the shell as `choice|name|index|label` rows of `geode_params_schema_text` (version 4), read by `ParamSchema.choices`.
+- The kaleidoscope's Folds menu is `SceneParams::kSymmetryFolds` (`core/viz/Params.hpp`), which the randomizer deals from.
+- Switching the kaleidoscope on below 2 folds takes the default folds: `SceneParams::kaleidoscopeFolds`.
+- Customize's Kaleidoscope control asks `geode_customize_kaleidoscope` once (`SceneParams::kaleidoscopeMenu`): whether Folds shows, its row, what a flip leaves, the labels.
+- A Folds row picked goes back through `geode_params_kaleidoscope_pick` (`SceneParams::kaleidoscopePick`).
 - Orbit, hover and pendulum do not travel (`CameraRig::travels`): no flat dive, no bank, no turn-around.
 - Strafe looks in at its track from the side; reversing carries the eye round to the other side.
 - Corkscrew rolls once per turn; under reduced motion it only leans.

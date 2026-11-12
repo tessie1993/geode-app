@@ -65,7 +65,7 @@ object ParamSchema {
      * misread schema would put every param in the wrong wire slot.
      */
     internal fun parse(text: String): List<ParamSpec> {
-        val rows = text.lines().filter { it.isNotBlank() && !it.startsWith("palette|") && !it.startsWith("choice|") }.map { it.split('|') }
+        val rows = text.lines().filter { it.startsWith("param") }.map { it.split('|') }
         val header = rows.firstOrNull().orEmpty()
         check(header.size == 3 && header[0] == "params" && header[1] == VERSION.toString()) {
             "native params schema is $header, this shell reads version $VERSION"

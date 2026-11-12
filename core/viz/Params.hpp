@@ -99,6 +99,22 @@ struct SceneParams {
     static constexpr int kNoPaletteLut = -1;
     static constexpr int kNoStop = -1;
     static constexpr int kDefaultSymmetryFolds = 6;
+    // The kaleidoscope's folds, fewest first: its Folds menu and what a roll deals.
+    static constexpr std::array<int, 10> kSymmetryFolds = {2, 3, 4, 5, 6, 7, 8, 9, 12, 16};
+    // The folds once the kaleidoscope's switch is set to `on`: switched on with fewer than the fewest, the default.
+    static constexpr int kaleidoscopeFolds(bool on, int symmetry) {
+        return on && symmetry < kSymmetryFolds.front() ? kDefaultSymmetryFolds : symmetry;
+    }
+    // The folds the Folds menu's `row` sets; a row off either end is held to the menu.
+    static constexpr int kaleidoscopePick(int row) {
+        const int last = static_cast<int>(kSymmetryFolds.size()) - 1;
+        return kSymmetryFolds[static_cast<size_t>(row < 0 ? 0 : (row > last ? last : row))];
+    }
+    // What Customize's Kaleidoscope control draws, its switch `on` at `symmetry` (geode_customize_kaleidoscope):
+    //   <shown>|<selected>|<flipped>
+    // shown 1 when the Folds menu shows, selected the menu row of `symmetry` (-1 for a count not on the menu),
+    // flipped the folds the switch leaves when it is flipped; then one label per menu row, fewest folds first.
+    static std::string kaleidoscopeMenu(bool on, int symmetry);
 
 #define GEODE_PARAM(kind, name, def, lo, hi, fade) GEODE_PARAM_TYPE_##kind name = def;
 #include "viz/ParamTable.inc"

@@ -624,6 +624,16 @@ Java_dev_geode_engine_bridge_GeodeNative_paramsPaletteRange(JNIEnv*, jobject, ji
     return geode_params_palette_range(palette, override);
 }
 
+JNIEXPORT jstring JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_customizeKaleidoscope(JNIEnv* env, jobject, jboolean on, jint symmetry) {
+    return env->NewStringUTF(geode_customize_kaleidoscope(on ? 1 : 0, symmetry));
+}
+
+JNIEXPORT jint JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsKaleidoscopePick(JNIEnv*, jobject, jint row) {
+    return geode_params_kaleidoscope_pick(row);
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_paramsSanitize(JNIEnv* env, jobject, jfloatArray in, jfloatArray out) {
     const jsize count = static_cast<jsize>(geode_viz_param_count());

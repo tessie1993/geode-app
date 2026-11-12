@@ -1068,6 +1068,15 @@ object GeodeNative {
         override: Float,
     ): Float
 
+    /** Customize's Kaleidoscope control: `shown|selected|flipped`, then the Folds labels (`geode_customize_kaleidoscope`). */
+    external fun customizeKaleidoscope(
+        on: Boolean,
+        symmetry: Int,
+    ): String
+
+    /** The `symmetry` Folds menu [row] sets (`geode_params_kaleidoscope_pick`). Pure. */
+    external fun paramsKaleidoscopePick(row: Int): Int
+
     /**
      * A scene params frame read from a saved look or a shared link, made safe into [output]: non-finite and
      * retired slots to their defaults, every row held to its schema range but a circular one

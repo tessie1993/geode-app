@@ -60,12 +60,13 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `shownOn`'s `CATEGORY:roll` lines say where the dice has something to move.
 - ⋮ › Randomize every group rolls every category; Quick knobs' dice rolls the knobs' turns.
 - Without Pro the lock `#PRO` holds all but the Basics, for the dice and the two-circle gesture alike.
-- The waves' own Randomize, which Music's roll and randomize-everything run for the waves already on, is `core/viz/WaveRandomizer` (`geode_waves_randomize`).
+- The waves' own Randomize, which Music's roll and randomize-everything run for the waves already on, is `core/viz/WaveRandomizer` (`geode_mod_waves_randomize`).
 - A kept category is native too: its ⋮ › Keep when randomizing stores `#CATEGORY` in the lock set, which `expandLocks` turns into its controls, after MilkDrop's locked mash-up bins.
 - ⋮ › Take from a preset is native (`customize::borrow`, `geode_customize_borrow`): one category of a saved look laid over this one.
 - `CustomizeMapTable` splits the map's rows.
 - `CustomizeControls` draws each control by name.
-- Widgets are in `CustomizeTabs`, editors in `CustomizeAdvanced`, knobs in `CustomizeMacros`, Music's moments in `CustomizeEvents`, list maths in `MusicMoments`.
+- Widgets are in `CustomizeTabs`, editors in `CustomizeAdvanced`, knobs in `CustomizeMacros`, Music's moments in `CustomizeEvents`, Music's rows as native reads them in `MusicMoments`.
+- `ui/ModCatalog` splits the rows of `geode_mod_catalog_text` for the wave, envelope and reaction editors, which keep no list, range or default of their own.
 - Expert › Shader code (`ShaderCodePage`) shows on Fluid only, with the custom force and dye editors.
 - Free users get every Basics (`pro/FreeTier`).
 - A Pro control is gated through `ProLock`: it can be tried, then springs back.

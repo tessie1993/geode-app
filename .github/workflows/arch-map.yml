@@ -205,13 +205,13 @@ jobs:
           if ok "12${T}0${T}engine/scenes/src/main/kotlin/dev/geode/render/bridge/NativeViz.kt"; then echo "::error::NativeViz growth passed"; exit 1; fi
           # The list: a listed file passes, a new file in an engine module fails, and so does a new entry.
           t=$(mktemp -d)
-          mkdir -p "$t/engine/scenes/src/main/kotlin/dev/geode/render" "$t/engine/scenes/src/test/kotlin"
-          touch "$t/engine/scenes/src/main/kotlin/dev/geode/render/Lfo.kt" "$t/engine/scenes/src/test/kotlin/NewTest.kt"
+          mkdir -p "$t/engine/scenes/src/main/kotlin/dev/geode/render/bridge" "$t/engine/scenes/src/test/kotlin"
+          touch "$t/engine/scenes/src/main/kotlin/dev/geode/render/bridge/NativeViz.kt" "$t/engine/scenes/src/test/kotlin/NewTest.kt"
           bash tools/engine-kotlin-gate.sh --files "$t" >/dev/null || { echo "::error::a listed file failed"; exit 1; }
           touch "$t/engine/scenes/src/main/kotlin/dev/geode/render/NewEngine.kt"
           if bash tools/engine-kotlin-gate.sh --files "$t" >/dev/null; then echo "::error::an unlisted engine file passed"; exit 1; fi
           grew() { printf '%s\n' "$@" | bash tools/engine-kotlin-gate.sh --list-grew >/dev/null; }
-          grew '--- a/tools/engine-kotlin-gate.sh' '+++ b/tools/engine-kotlin-gate.sh' '-    "$S/render/Lfo.kt"' '+# a comment' \
+          grew '--- a/tools/engine-kotlin-gate.sh' '+++ b/tools/engine-kotlin-gate.sh' '-    "$S/render/bridge/NativeViz.kt"' '+# a comment' \
             || { echo "::error::a shrinking list failed"; exit 1; }
           if grew '+    "$S/render/NewEngine.kt"'; then echo "::error::a new entry passed"; exit 1; fi
           if grew '+    "engine/audio-core/src/main/kotlin/dev/geode/engine/audio/New.kt"'; then echo "::error::a new full-path entry passed"; exit 1; fi

@@ -71,7 +71,7 @@ The JNI boundary is 373 `external fun` against 373 JNI functions, an exact match
 |---|---|---|---|---|
 | `export/ExportPresets.kt` (28), `VideoExporter.kt:77–97` | Bit-rate, ratio and preset tables | `core/output` table, read as text | L | Pref values must keep their names |
 | `data/PaletteStore.kt` (176) | `applyGradient`, `applyPalette`, `applyStops`, `clear`, `forgetDeleted` 82–131 write scene params | `core/viz` params | L | Palette JSON unchanged |
-| `ui/ModulationController.kt` (324) | Wire unpack 189–216, undo checkpoint rule 101–105. Rolls are native | Mostly fine | L | None |
+| `ui/ModulationController.kt` (293) | Undo checkpoint rule. Rolls are native | Mostly fine | L | None |
 | `ui/VisualSettingsController.kt` (182) | Transition length clamp 141 | Params schema | L | None |
 | `pro/AutoDirectorPolicy.kt` (34) | Free "taste" rule 19–30. An export's twin is native (`director::forExport`, per `AGENTS.md`) | One native rule | L | None |
 | `widget/WidgetVisual.kt` (161) | Draws a "glow" picture with its own lights and hues 92–122 | Could stay (a widget is a `RemoteViews` bitmap) or become a native still | L | None |

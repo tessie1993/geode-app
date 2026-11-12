@@ -11,7 +11,7 @@ namespace geode::viz {
 
 enum class EnvBand { Bass, Mid, Treble, Rms, Brightness, Width };
 
-// One envelope as geode_viz_set_adsr hands it over. Defaults are the adsr rows of viz/ConfigTable.inc
+// One envelope. Defaults are the adsr rows of viz/ConfigTable.inc
 // (#423), the same numbers the stores and the sliders read.
 struct AdsrConfig {
     bool enabled = false;

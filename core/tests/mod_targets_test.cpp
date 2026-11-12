@@ -6,10 +6,9 @@
 //   mod_targets_test core/tests/mod_targets.txt           checks, including text() against the fixture
 //   mod_targets_test --write core/tests/mod_targets.txt   rewrites the fixture after a deliberate change
 //
-// The fixture is what the shell's JVM tests read in place of geode_mod_targets_text (the geode.modTargets
-// property, dev.geode.render.ModTable). The expected scopes below are the Kotlin LfoTarget table this
-// replaced, so the port changed no target's reach; since the scopes are read from the params schema's meta
-// rows (#1005 PR 4a), the three Liquid and dive targets carry their Customize control's scope.
+// The fixture pins the table's text. The expected scopes below are each target's reach as first shipped,
+// so no target's reach moves unseen; since the scopes are read from the params schema's meta rows
+// (#1005 PR 4a), the three Liquid and dive targets carry their Customize control's scope.
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -38,7 +37,7 @@ void check(bool ok, const std::string& what) {
     }
 }
 
-// The old Kotlin LfoTarget rows (name, ParamScope), in wire order.
+// Every target as first shipped (name, scope), in wire order.
 const std::vector<std::pair<const char*, const char*>> kOldTargets = {
     {"NONE", "UNIVERSAL"}, {"SPEED", "SCENE_CLOCK"}, {"ZOOM", "UNIVERSAL"}, {"ROTATION", "UNIVERSAL"},
     {"SWAY", "UNIVERSAL"}, {"RETIRED_5", "UNIVERSAL"}, {"DRIFT_X", "UNIVERSAL"}, {"DRIFT_Y", "UNIVERSAL"},

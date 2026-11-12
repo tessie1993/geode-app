@@ -12,7 +12,7 @@
 //   target NONE), drops that route;
 // - an unknown mode or curve, a flag that is not true/false, or a number that does not parse or is
 //   not finite takes its default; numbers are clamped to what the reaction matrix accepts.
-// Routes cross as ReactionEngine::kConfigFloats floats each, the layout of geode_viz_set_user_reactions.
+// Routes cross as ReactionEngine::kConfigFloats floats each, the layout ReactionEngine takes.
 namespace geode::viz::reactiontext {
 
 constexpr float kMinAmount = -2.0f;

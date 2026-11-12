@@ -5,15 +5,9 @@ import android.content.res.AssetManager
 import android.graphics.Bitmap
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.AdsrConfig
-import dev.geode.render.AdsrEngine
-import dev.geode.render.LfoConfig
-import dev.geode.render.LfoEngine
 import dev.geode.render.PacedRate
 import dev.geode.render.PerformanceSettings
-import dev.geode.render.ReactionRoute
 import dev.geode.render.look.LookSnapshot
-import dev.geode.render.scene.BuildStyleReactionsUseCase
 import dev.geode.render.scene.SceneParams
 import java.io.File
 import java.lang.ref.Cleaner
@@ -139,10 +133,10 @@ class NativeViz(
     ) {
         if (l.sceneId != was?.sceneId) GeodeNative.vizRequestScene(handle, l.sceneId)
         if (l.params !== was?.params) setParams(l.params)
-        if (l.lfos !== was?.lfos) setLfoConfigs(l.lfos)
-        if (l.adsrs !== was?.adsrs) setAdsrConfigs(l.adsrs)
+        if (l.lfos != was?.lfos) setLfoConfigs(l.lfos)
+        if (l.adsrs != was?.adsrs) setAdsrConfigs(l.adsrs)
         if (was == null || l.soundTuning !== was.soundTuning) setSoundTuning(l.soundTuning)
-        if (was == null || l.reactions !== was.reactions) setUserReactions(l.reactions)
+        if (was == null || l.reactions != was.reactions) setUserReactions(l.reactions)
         if (l.reducedMotion != was?.reducedMotion) setReducedMotion(l.reducedMotion)
         if (l.transitionId != was?.transitionId || l.transitionMs != was?.transitionMs) setTransition(l.transitionId, l.transitionMs)
         if (was == null || l.underlay !== was.underlay) {
@@ -266,19 +260,19 @@ class NativeViz(
         if (handle != 0L) GeodeNative.vizSetSoundTuning(handle, saved?.toFloatArray())
     }
 
-    fun setLfoConfigs(configs: List<LfoConfig>) {
+    fun setLfoConfigs(lfos: String) {
         if (handle == 0L) return
-        configs.take(LfoEngine.SLOTS).forEachIndexed { slot, c -> GeodeNative.vizSetLfo(handle, slot, ModConfigCodec.packLfo(c)) }
+        GeodeNative.vizSetLfos(handle, lfos)
     }
 
-    fun setAdsrConfigs(configs: List<AdsrConfig>) {
+    fun setAdsrConfigs(adsrs: String) {
         if (handle == 0L) return
-        configs.take(AdsrEngine.COUNT).forEachIndexed { slot, c -> GeodeNative.vizSetAdsr(handle, slot, ModConfigCodec.packAdsr(c)) }
+        GeodeNative.vizSetAdsrs(handle, adsrs)
     }
 
-    /** The user's routes (null: the style's DNA); native merges them under the hand mask it reads itself. */
-    fun setUserReactions(routes: List<ReactionRoute>?) {
-        if (handle != 0L) GeodeNative.vizSetUserReactions(handle, routes?.let { BuildStyleReactionsUseCase.packExact(it) })
+    /** The user's saved routes (null: the style's DNA); native merges them under the hand mask it reads itself. */
+    fun setUserReactions(routes: String?) {
+        if (handle != 0L) GeodeNative.vizSetReactions(handle, routes)
     }
 
     /** [dev.geode.render.GyroLook]'s reading: the rotation vector's x, y, z, w and the display rotation. Any thread. */

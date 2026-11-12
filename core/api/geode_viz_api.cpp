@@ -17,6 +17,8 @@
 
 #include "api/geode_api.h"
 #include "api/geode_ingest_handles.hpp"
+#include "api/geode_modulation_api.h"
+#include "api/geode_text_out.hpp"
 #include "api/geode_record_handles.hpp"
 #include "sound/Tuning.hpp"
 #include "viz/Catalogue.hpp"
@@ -27,6 +29,7 @@
 #include "viz/TapAlong.hpp"
 #include "viz/NoteResponse.hpp"
 #include "viz/LayerState.hpp"
+#include "viz/ModDocument.hpp"
 #include "viz/ModTargets.hpp"
 #include "viz/ReactionDna.hpp"
 #include "viz/ReactionResolve.hpp"
@@ -190,11 +193,6 @@ static_assert(frame::kEventMilkLoaded == GEODE_FRAME_MILK_LOADED);
 static_assert(frame::kEventDirectorMoment == GEODE_FRAME_DIRECTOR_MOMENT);
 static_assert(frame::kEventStillReady == GEODE_FRAME_STILL_READY);
 
-constexpr int kModSourceCount = static_cast<int>(ModSource::StereoPan) + 1;
-constexpr int kLfoTargetCount = static_cast<int>(kLastLfoTarget) + 1;
-constexpr int kLfoWaveCount = static_cast<int>(LfoWave::RandomGlide) + 1;
-constexpr int kModPolarityCount = static_cast<int>(ModPolarity::Negative) + 1;
-
 // The thermal state's clock: CLOCK_MONOTONIC on Android, the same base as System.nanoTime. Only the gaps
 // between calls matter, and steady_clock never jumps with the wall clock.
 double monotonicSeconds() {
@@ -208,15 +206,6 @@ double bootSeconds() {
     clock_gettime(CLOCK_BOOTTIME, &ts);
     return static_cast<double>(ts.tv_sec) + static_cast<double>(ts.tv_nsec) * 1e-9;
 }
-constexpr int kModCurveCount = static_cast<int>(ModCurve::Smooth) + 1;
-constexpr int kEnvBandCount = static_cast<int>(EnvBand::Width) + 1;
-
-template <typename E>
-E enumAt(float value, int count) {
-    return static_cast<E>(std::clamp(static_cast<int>(std::lround(value)), 0, count - 1));
-}
-
-bool flag(float value) { return value > 0.5f; }
 
 std::string text(const char* s) { return s ? std::string(s) : std::string(); }
 
@@ -415,63 +404,6 @@ size_t geode_shader_override(const char* style_id, char* out, size_t capacity) {
     return source.size();
 }
 
-// A knob id the macro bank can hold; anything else is none.
-static int knobOf(float v) { return std::isfinite(v) && v >= 1.0f && v <= 999999.0f ? static_cast<int>(v) : 0; }
-
-// A Moment ordinal; anything else is none (-1).
-static int momentOf(float v) {
-    return std::isfinite(v) && v >= 0.0f && v < static_cast<float>(geode::viz::kMomentCount) ? static_cast<int>(v) : -1;
-}
-
-// Only the periods the editor offers; anything else is free timing.
-static float beatsOf(float v) {
-    for (float b : {1.0f, 2.0f, 4.0f, 8.0f, 16.0f, 32.0f}) if (v == b) return b;
-    return 0.0f;
-}
-
-void geode_viz_set_lfo(geode_viz* v, int slot, const float* c, int count) {
-    if (!v || !c || slot < 0 || slot >= GEODE_LFO_SLOTS || count < 8) return;
-    LfoConfig cfg;
-    cfg.enabled = flag(c[0]);
-    cfg.source = enumAt<ModSource>(c[1], kModSourceCount);
-    cfg.target = enumAt<LfoTarget>(c[2], kLfoTargetCount);
-    cfg.wave = enumAt<LfoWave>(c[3], kLfoWaveCount);
-    cfg.rateSeconds = c[4];
-    cfg.depth = c[5];
-    cfg.polarity = enumAt<ModPolarity>(c[6], kModPolarityCount);
-    cfg.curve = enumAt<ModCurve>(c[7], kModCurveCount);
-    // Float 9 (beat timing) is absent from a shorter array: that slot stays free; so are the knob and the moment.
-    if (count >= 9) cfg.beats = beatsOf(c[8]);
-    if (count >= 10) cfg.knob = knobOf(c[9]);
-    if (count >= GEODE_LFO_CONFIG_FLOATS) cfg.moment = momentOf(c[10]);
-    std::lock_guard<std::mutex> lock(v->configLock);
-    v->lfo[static_cast<size_t>(slot)] = cfg;
-    v->renderer.setLfoConfigs(v->lfo);
-}
-
-void geode_viz_set_adsr(geode_viz* v, int slot, const float* c, int count) {
-    if (!v || !c || slot < 0 || slot >= GEODE_ADSR_SLOTS || count < GEODE_ADSR_CONFIG_FLOATS) return;
-    AdsrConfig cfg;
-    cfg.enabled = flag(c[0]);
-    cfg.attack = c[1];
-    cfg.decay = c[2];
-    cfg.sustain = c[3];
-    cfg.release = c[4];
-    cfg.amount = c[5];
-    cfg.band = enumAt<EnvBand>(c[6], kEnvBandCount);
-    cfg.gateThreshold = c[7];
-    cfg.sustainTrack = flag(c[8]);
-    cfg.retrigger = flag(c[9]);
-    cfg.knob = knobOf(c[10]);
-    cfg.moment = momentOf(c[11]);
-    for (int i = GEODE_ADSR_CONFIG_FLOATS; i < count; ++i) {
-        cfg.targets.push_back(enumAt<LfoTarget>(c[i], kLfoTargetCount));
-    }
-    std::lock_guard<std::mutex> lock(v->configLock);
-    v->adsr[static_cast<size_t>(slot)] = std::move(cfg);
-    v->renderer.setAdsrConfigs(v->adsr);
-}
-
 const char* geode_transition_picker(AAssetManager* assets) {
     namespace viz = geode::viz;
     static const std::vector<std::string> builtIns = viz::transition_choice::pickerIds(viz::TransitionCatalog::builtInIds());
@@ -560,53 +492,13 @@ void geode_pacer_resume(long long* state) {
 
 namespace {
 
-// The routes layout (GEODE_REACT_ROUTE_FLOATS per route) in; returns how many routes were read.
-int readRoutes(const float* c, int count, RouteArray& routes) {
-    routes = RouteArray{};
-    if (!c || count < 0) return 0;
-    const int n = std::min(count / GEODE_REACT_ROUTE_FLOATS, ReactionEngine::kRoutes);
-    for (int i = 0; i < n; ++i) {
-        const float* r = c + i * GEODE_REACT_ROUTE_FLOATS;
-        ReactRoute& out = routes[static_cast<size_t>(i)];
-        out.enabled = flag(r[0]);
-        out.source = enumAt<ReactSource>(r[1], kReactSourceCount);
-        out.target = enumAt<LfoTarget>(r[2], kLfoTargetCount);
-        out.mode = enumAt<ReactMode>(r[3], kReactModeCount);
-        out.amount = std::clamp(r[4], -2.0f, 2.0f);
-        out.curve = enumAt<ModCurve>(r[5], kModCurveCount);
-        out.attackSeconds = std::clamp(r[6], 0.0f, 5.0f);
-        out.releaseSeconds = std::clamp(r[7], 0.0f, 10.0f);
-    }
-    return n;
-}
-
-// The same layout out, at most capacity / ROUTE_FLOATS routes; returns how many were written.
-int writeRoutes(const RouteArray& routes, int count, float* out, int capacity) {
-    if (!out || capacity < GEODE_REACT_ROUTE_FLOATS) return 0;
-    const int n = std::min(count, capacity / GEODE_REACT_ROUTE_FLOATS);
-    for (int i = 0; i < n; ++i) {
-        const ReactRoute& r = routes[static_cast<size_t>(i)];
-        float* o = out + i * GEODE_REACT_ROUTE_FLOATS;
-        o[0] = r.enabled ? 1.0f : 0.0f;
-        o[1] = static_cast<float>(r.source);
-        o[2] = static_cast<float>(r.target);
-        o[3] = static_cast<float>(r.mode);
-        o[4] = r.amount;
-        o[5] = static_cast<float>(r.curve);
-        o[6] = r.attackSeconds;
-        o[7] = r.releaseSeconds;
-    }
-    return n;
-}
-
 StyleDna dnaOf(const std::string& id, int seed) { return buildStyleDna(id, seed, geode_viz::styleTraits(id)); }
 
-HandRoutes handOf(const float* user, int user_floats, int has_user, unsigned mask) {
-    HandRoutes h;
-    h.user = has_user != 0;
-    if (h.user) h.count = readRoutes(user, user_floats, h.routes);
-    h.mask = h.user ? (static_cast<std::uint32_t>(mask) & hand::kAll) : 0u;
-    return h;
+// The user's reactions as saved: no text, or text that is no route list, is Auto.
+ModDocument reactionsOf(const char* reactions, unsigned mask) {
+    ModDocument doc;
+    if (reactions) doc.readReactions(reactions, static_cast<std::uint32_t>(mask));
+    return doc;
 }
 
 // Before a render: what plays, worked out again only when the scene, seed, routes or mask changed.
@@ -663,109 +555,58 @@ static_assert(hand::kAll == GEODE_HAND_ALL && hand::kUnclaimed == GEODE_HAND_UNC
 
 extern "C" {
 
-void geode_viz_set_user_reactions(geode_viz* v, const float* routes, int count, int has_user) {
+void geode_viz_set_lfos(geode_viz* v, const char* lfos) {
+    if (!v) return;
+    ModDocument doc;
+    doc.readLfos(text(lfos));
+    std::lock_guard<std::mutex> lock(v->configLock);
+    v->lfo = doc.lfos;
+    v->renderer.setLfoConfigs(v->lfo);
+}
+
+void geode_viz_set_adsrs(geode_viz* v, const char* adsrs) {
+    if (!v) return;
+    ModDocument doc;
+    doc.readAdsrs(text(adsrs));
+    std::lock_guard<std::mutex> lock(v->configLock);
+    v->adsr = std::move(doc.adsrs);
+    v->renderer.setAdsrConfigs(v->adsr);
+}
+
+void geode_viz_set_reactions(geode_viz* v, const char* reactions) {
     if (!v) return;
     // The mask is filled in before each render (syncReactions).
-    const HandRoutes h = handOf(routes, count, has_user, 0u);
+    const ModDocument doc = reactionsOf(reactions, 0u);
     std::lock_guard<std::mutex> lock(v->reactLock);
-    v->userHand = h;
+    v->userHand = doc.hand;
 }
 
 void geode_hand_set(unsigned mask, int has_user) { hand::setGlobal(static_cast<std::uint32_t>(mask), has_user != 0); }
 
-int geode_style_reactions_hand(const char* style_id, int seed, const float* user, int user_floats, int has_user, unsigned mask,
-                               float* out, int capacity) {
+int geode_mod_routes_playing(const char* style_id, int seed, const char* reactions, unsigned mask, float* out, int capacity) {
     if (!style_id) return 0;
-    RouteArray playing;
-    const int n = mergeHand(handOf(user, user_floats, has_user, mask), dnaOf(style_id, seed), playing);
-    return writeRoutes(playing, n, out, capacity);
+    return reactionsOf(reactions, mask).playingValues(dnaOf(style_id, seed), style_id, out, capacity);
 }
 
-int geode_music_state(const char* style_id, int seed, const float* user, int user_floats, int has_user, unsigned mask, float* out,
-                      int capacity) {
-    if (!style_id || !out) return 0;
-    const HandRoutes h = handOf(user, user_floats, has_user, mask);
-    RouteArray playing;
-    const int n = mergeHand(h, dnaOf(style_id, seed), playing);
-    const int moments = std::min(kMomentCount, capacity / GEODE_MUSIC_STATE_FLOATS);
-    for (int m = 0; m < moments; ++m) {
-        const MomentState s = momentState(h, playing, n, static_cast<Moment>(m));
-        float* o = out + m * GEODE_MUSIC_STATE_FLOATS;
-        o[0] = s.mine ? 1.0f : 0.0f;
-        o[1] = static_cast<float>(s.routes);
-        o[2] = s.strength;
-        o[3] = static_cast<float>(s.on);
-        o[4] = static_cast<float>(s.fits);
-    }
-    return moments;
+int geode_mod_reactions_edit(const char* style_id, int seed, const char* reactions, unsigned mask, int op, int a, int b,
+                             float value, char* out, int capacity, unsigned* out_mask) {
+    ModDocument doc = reactionsOf(reactions, mask);
+    if (style_id) doc.editReactions(dnaOf(style_id, seed), style_id, op, a, b, value);
+    if (out_mask) *out_mask = doc.handMask();
+    return geode::api::textOut(doc.reactionsText(), out, capacity);
 }
 
-int geode_music_edit(const char* style_id, int seed, const float* user, int user_floats, int has_user, unsigned mask, int op,
-                     int moment, int action, float value, float* out, int capacity, unsigned* out_mask, int* out_has_user) {
-    const HandRoutes h = handOf(user, user_floats, has_user, mask);
-    HandRoutes next = h;
-    if (style_id && op >= 0 && op < kMusicEditCount && moment >= 0 && moment < kMomentCount && action >= 0 &&
-        action < kMusicActionCount) {
-        next = editMusic(h, dnaOf(style_id, seed), static_cast<MusicEdit>(op), static_cast<Moment>(moment),
-                         static_cast<MusicAction>(action), value);
-    }
-    if (out_mask) *out_mask = next.user ? next.mask : 0u;
-    if (out_has_user) *out_has_user = next.user ? 1 : 0;
-    return next.user ? writeRoutes(next.routes, next.count, out, capacity) : 0;
+int geode_mod_music_state(const char* style_id, int seed, const char* reactions, unsigned mask, float* out, int capacity) {
+    if (!style_id) return 0;
+    return reactionsOf(reactions, mask).musicValues(dnaOf(style_id, seed), out, capacity);
+}
+
+unsigned geode_mod_recipe_state(int recipe, const char* style_id, int seed, const char* reactions, unsigned mask) {
+    if (!style_id) return 0u;
+    return reactionsOf(reactions, mask).recipeState(dnaOf(style_id, seed), style_id, recipe);
 }
 
 unsigned geode_music_actions_for(const char* style_id) { return style_id ? modtargets::musicActionsFor(style_id) : 0u; }
-
-const char* geode_mod_targets_text(void) { return modtargets::text().c_str(); }
-
-static_assert(kEventRecipeCount == GEODE_EVENT_RECIPES);
-
-int geode_event_recipe_routes(int recipe, const char* style_id, float* out, int capacity) {
-    if (recipe < 0 || recipe >= kEventRecipeCount) return 0;
-    const auto r = static_cast<EventRecipe>(recipe);
-    const RecipeRoutes routes = style_id ? recipeRoutesFor(r, style_id) : recipeRoutes(r);
-    RouteArray all{};
-    for (int i = 0; i < routes.count; ++i) all[static_cast<size_t>(i)] = routes.routes[static_cast<size_t>(i)];
-    return writeRoutes(all, routes.count, out, capacity);
-}
-
-unsigned geode_event_recipe_state(int recipe, const char* style_id, const float* current, int current_floats) {
-    if (!style_id || recipe < 0 || recipe >= kEventRecipeCount) return 0u;
-    const auto r = static_cast<EventRecipe>(recipe);
-    const std::string id(style_id);
-    RouteArray routes;
-    const int n = readRoutes(current, current_floats, routes);
-    return (recipeIsOn(r, routes, n, id) ? GEODE_RECIPE_ON : 0u) | (recipeFits(r, routes, n, id) ? GEODE_RECIPE_FITS : 0u);
-}
-
-int geode_event_recipe_toggle(int recipe, const char* style_id, const float* current, int current_floats, float* out, int capacity) {
-    RouteArray routes;
-    const int n = readRoutes(current, current_floats, routes);
-    if (!style_id || recipe < 0 || recipe >= kEventRecipeCount) return writeRoutes(routes, n, out, capacity);
-    RouteArray next;
-    const int k = toggleRecipe(static_cast<EventRecipe>(recipe), routes, n, style_id, next);
-    return writeRoutes(next, k, out, capacity);
-}
-
-int geode_react_source_catalog(char* out, int capacity) {
-    std::string text;
-    for (int i = 0; i < kReactSourceCount; ++i) {
-        const ReactSourceInfo& s = reactSourceInfo(static_cast<ReactSource>(i));
-        text += s.name;
-        text += '|';
-        text += s.label;
-        text += '|';
-        text += s.group;
-        text += s.event ? "|1\n" : "|0\n";
-    }
-    const int need = static_cast<int>(text.size());
-    if (out && capacity > 0) {
-        const int n = std::min(need, capacity - 1);
-        std::memcpy(out, text.data(), static_cast<size_t>(n));
-        out[n] = '\0';
-    }
-    return need;
-}
 
 void geode_director_set(int on, float amount, long long seed) {
     director::setGlobal(on != 0, amount, static_cast<uint64_t>(seed));
@@ -779,12 +620,6 @@ void geode_note_response_set(int enabled) { note_response::setGlobal(enabled != 
 
 void geode_layer_set(const char* scene_id, float mix, int blend_mode) {
     layer_state::set(layer_state::Layer{text(scene_id), mix, blend_mode});
-}
-
-int geode_style_reactions(const char* style_id, int seed, float* out, int capacity) {
-    if (!style_id) return 0;
-    const StyleDna dna = dnaOf(style_id, seed);
-    return writeRoutes(dna.routes, dna.count, out, capacity);
 }
 
 void geode_viz_gyro_push(geode_viz* v, float x, float y, float z, float w, int display_rotation) {

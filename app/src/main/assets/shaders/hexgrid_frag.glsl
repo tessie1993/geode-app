@@ -36,7 +36,10 @@ out vec4 fragColor;
 // symmetrically. Kick (SND_KICK_ENV) punches the columns just ahead of the eye
 // up a little more. Highs (sndShaped(SND_HIGH)) brighten the cap rims. A pitch
 // change (SND_HELD_NOTE_CHANGE) slides the hue. Overall level rides
-// SND_ENERGY_TREND.
+// SND_ENERGY_TREND. The mid band (SND_MIDDLE) turns the eye about the vertical
+// while the mids climb and eases it back as they fall, as lib_flame's
+// gFlameTurn turns its structure (0.6 x sndShaped x SND_DRIVE, 0.9 rad at
+// most, 0 in silence); the hall holds still. Mid gain scales it.
 //
 // Knobs: k0 PULSE the kick lift, k1 TEXTURE the rim width, k2 FLOW the side
 // glow band, k3 TONE a hue offset, k4 BUILD the cap glow, k5 SPACE the hall's
@@ -179,6 +182,8 @@ void main() {
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
+    // The mids turn the eye about the vertical (see the header).
+    rd.xz = rot2(0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0)) * rd.xz;
     // Every z term tiles with a period dividing 1024, so this shift is
     // invisible and exact (power of two). Without it, far down the 8192
     // travel a highp z has ~0.001 of fraction left and the cells speckle.

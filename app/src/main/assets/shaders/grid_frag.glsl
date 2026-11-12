@@ -42,7 +42,11 @@ out vec4 fragColor;
 // of light that roll down the lanes away from the eye: their phase is the
 // Speed-scaled bass clock (uSoundTimeSped.x), so a heavy bass makes the floor
 // race the way the flat style's bass pumped its scroll, and the kick
-// (SND_KICK_ENV) flares them. Overall level rides SND_ENERGY_TREND.
+// (SND_KICK_ENV) flares them. Overall level rides SND_ENERGY_TREND. The mid
+// band (SND_MIDDLE) turns the eye about the vertical while the mids climb and
+// eases it back as they fall, as lib_flame's gFlameTurn turns its structure
+// (0.6 x sndShaped x SND_DRIVE, 0.9 rad at most, 0 in silence); the corridor
+// and its bars hold still. Mid gain scales it.
 //
 // ---- knobs ------------------------------------------------------------------
 //
@@ -162,6 +166,8 @@ void main() {
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
+    // The mids turn the eye about the vertical (see the header).
+    rd.xz = rot2(0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0)) * rd.xz;
     // Every z term tiles with a period dividing 256, so this shift is invisible
     // and exact (power of two). Without it, far down the 8192 travel a highp z
     // has ~0.001 of fraction left and the grid lines quantise into speckle.

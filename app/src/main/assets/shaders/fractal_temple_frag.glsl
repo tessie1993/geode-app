@@ -65,6 +65,11 @@ out vec4 fragColor;
 //                          the old spike re-seed and form phase did.
 // Drop (SND_HELD_SURGE)    swings the palette to its far side, as a hump.
 // SND_ENERGY_TREND         overall level.
+// Mids (SND_MIDDLE)        turn the eye about the vertical while they climb,
+//                          easing back as they fall, as lib_flame's gFlameTurn
+//                          turns its structure (0.6 x sndShaped x SND_DRIVE,
+//                          0.9 rad at most, 0 in silence); the temple holds
+//                          still. Mid gain scales it.
 //
 // Params: Morph deepens the scallops between the spire tiers, Warp bends the
 // whole nave from side to side, Turbulence sways the spires, Intensity and the
@@ -303,6 +308,8 @@ void main() {
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
+    // The mids turn the eye about the vertical (see the header).
+    rd.xz = rot2(0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0)) * rd.xz;
     // Every z term tiles with a period dividing 64 (see the header), so this
     // rebase is exact and invisible, and z keeps its precision far down the
     // 8192 travel.

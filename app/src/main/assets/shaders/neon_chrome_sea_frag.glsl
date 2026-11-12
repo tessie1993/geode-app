@@ -39,6 +39,10 @@ out vec4 fragColor;
 // - altitude: in silence (neonQuiet) the eye rises for a calm, wide view;
 //   the drop brings it down to skim the water.
 // - Intensity (neonGlow) is the neon's emission.
+// - mids (SND_MIDDLE) turn the eye about the vertical while they climb and
+//   ease it back as they fall, as lib_flame's gFlameTurn turns its structure
+//   (0.6 x sndShaped x SND_DRIVE, 0.9 rad at most, 0 in silence); the sea and
+//   its horizon hold still. Mid gain scales it.
 //
 // Provenance: written from scratch for BeatRealms from general techniques - a sum
 // of exp(sin) waves (sharp crests, broad troughs) where each wave's slope drags
@@ -207,6 +211,8 @@ void main() {
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
+    // The mids turn the eye about the vertical (see the header).
+    rd.xz = rot2(0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0)) * rd.xz;
     ro.z = mod(ro.z, 64.0);
 
     // The six looks the sea was drawn around, each 0..1 with 0.5 as tuned,

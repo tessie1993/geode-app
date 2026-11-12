@@ -49,26 +49,12 @@ acid_scan: noteChords noteDrums noteIntervals notePitch noteTension
 acid_solar: noteChords noteDrums noteIntervals notePitch noteTension
 acid_mirror: noteChords noteDrums noteIntervals notePitch noteTension
 acid_smear: noteChords noteDrums noteIntervals notePitch noteTension
-mandel: midGain
-plasma: midGain
-scope: midGain
-warp: midGain
-grid: midGain
-voronoi: midGain
-metaballs: midGain
-starfield: midGain
-waves: midGain
-hexgrid: midGain
-solar: midGain
 vanishing: noteChords noteDrums noteIntervals notePitch noteTension
 morphogen: noteChords noteDrums noteIntervals notePitch noteTension
 nebula: noteChords noteDrums noteIntervals notePitch noteTension
 noneuclid: noteChords noteDrums noteIntervals notePitch noteTension
 kifs: noteChords noteDrums noteIntervals notePitch noteTension
 rod_tunnel: noteChords noteDrums noteIntervals notePitch noteTension
-neon_tiles: midGain
-blacklight_bloom: midGain
-fractal_temple: midGain
 curl_bloom: midGain noteChords noteDrums noteIntervals notePitch noteTension
 nectar_flow: noteChords noteDrums noteIntervals notePitch noteTension
 crystal_canyon: midGain noteChords noteDrums noteIntervals notePitch noteTension
@@ -87,9 +73,6 @@ ribbon_storm: noteChords noteDrums noteIntervals notePitch noteTension
 prism_rain: noteChords noteDrums noteIntervals notePitch noteTension
 supershape: midGain noteChords noteDrums noteIntervals notePitch noteTension
 fractal_tunnel: midGain noteChords noteDrums noteIntervals notePitch noteTension
-neon_chrome_sea: midGain
-black_hole: midGain
-mandelbox_cathedral: midGain
 morph_world: midGain
 pool: midGain
 milkdrop: noteChords noteDrums noteIntervals notePitch noteTension

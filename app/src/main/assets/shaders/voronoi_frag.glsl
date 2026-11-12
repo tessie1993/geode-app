@@ -35,6 +35,11 @@ out vec4 fragColor;
 // Hat (SND_HAT_ENV)        the seed cores on the end faces sparkle.
 // Pitch (SND_HELD_NOTE_CHANGE) slides the palette.
 // SND_ENERGY_TREND         overall level.
+// Mids (SND_MIDDLE)        turn the eye about the vertical while they climb,
+//                          easing back as they fall, as lib_flame's gFlameTurn
+//                          turns its structure (0.6 x sndShaped x SND_DRIVE,
+//                          0.9 rad at most, 0 in silence); the causeway holds
+//                          still. Mid gain scales it.
 //
 // ---- controls ---------------------------------------------------------------
 //
@@ -226,6 +231,8 @@ void main() {
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
+    // The mids turn the eye about the vertical (see the header).
+    rd.xz = rot2(0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0)) * rd.xz;
     // The cells repeat every 1024 along z (512 cells of 2), so this rebase is
     // exact and invisible, and keeps z precise for the cells and the normals.
     ro.z = mod(ro.z, VC_ZWRAP);

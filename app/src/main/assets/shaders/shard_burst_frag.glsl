@@ -101,9 +101,9 @@ vec3 shardMap(vec3 p) {
     }
     if (strataUses(2)) {
         c = burstBall(p, 1.0);
-        float sponge = strataSponge(p, 2.3, gStrataIters);
-        c.z = min(c.z, length(vec2(c.x, sponge)));
-        c.x = max(c.x, sponge);
+        float holes = strataHoles(p, 2.3, gStrataIters);
+        c.z = min(c.z, length(vec2(c.x, holes)));
+        c.x = max(c.x, -holes);
     }
     return strataBlend(a, b, c);
 }

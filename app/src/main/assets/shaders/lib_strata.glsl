@@ -262,6 +262,16 @@ float strataSponge(vec3 p, float size, float iters) {
 }
 
 /**
+ * The holes a Menger sponge of half-size `size` leaves in its cube, as a solid: its distance.
+ * A form cut by them, max(d, -holes), is pierced inside the cube and whole outside it.
+ */
+float strataHoles(vec3 p, float size, float iters) {
+    vec3 b = abs(p) - size;
+    float box = length(max(b, 0.0)) + min(max(b.x, max(b.y, b.z)), 0.0);
+    return max(box, -strataSponge(p, size, iters));
+}
+
+/**
  * Shells within shells: p brought into the band of the outermost shell, radius r0, by a geometric
  * repetition about the origin (each shell inside the last 1 / g its size, g over 1). `iters`
  * shells nest inside the first (fractional: the innermost grows in as `grow` goes 0 to 1). The

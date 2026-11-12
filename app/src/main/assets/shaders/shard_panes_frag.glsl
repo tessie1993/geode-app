@@ -82,8 +82,8 @@ vec3 shardMap(vec3 p) {
     if (strataUses(1)) {
         // The pane lies in the sponge's top layer, where its cut is a carpet, and the sponge's middle
         // tunnel, a third of its half-size wide, keeps the way open.
-        float sponge = strataSponge(vec3(p.xy, p.z - 2.0 * floor(p.z * 0.5) + 1.2), 3.3, gStrataIters);
-        b = vec3(min(max(m.x, sponge), m.w), m.y, min(m.z, length(vec2(m.x, sponge))));
+        float holes = strataHoles(vec3(p.xy, p.z - 2.0 * floor(p.z * 0.5) + 1.2), 3.3, gStrataIters);
+        b = vec3(min(max(m.x, -holes), m.w), m.y, min(m.z, length(vec2(m.x, holes))));
     }
     if (strataUses(2)) {
         vec4 twin = paneAt(p, SHARD_TAU / 14.0, 1.35);

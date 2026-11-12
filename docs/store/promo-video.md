@@ -19,7 +19,7 @@ Video.
 | Time | Shot | On screen text |
 |---|---|---|
 | 0-3 s | The visual full screen, already moving, on a loud part of the song | none |
-| 3-8 s | Swipe to the next style, twice (Pro styles) | "274 styles with Pro" |
+| 3-8 s | Swipe to the next style, twice (Pro styles) | "334 styles with Pro" |
 | 8-12 s | Tap: the Styles menu slides up over the visual, pick a family | none |
 | 12-16 s | Customize: turn one quick knob, the picture changes | "Shape every look" |
 | 16-20 s | Two fingers on the visual in liquid mode | none |

@@ -48,19 +48,20 @@ out vec4 fragColor;
 // - SND_BASS_TIME streams the foam toward the eye (an extra fall on top of
 //   the rig's flight) and breathes the inversion radius: spheres grow, split
 //   and merge on the bass clock.
-// - SND_MID_TIME turns the whole cross-section slowly about the bore.
-// - SND_FLUX (sndLevel) WRITHES the packing: it turns the folds between the
-//   inversions on two axes, and the turn compounds down the levels, so a busy,
-//   changing spectrum sets the foam squirming while a held chord hangs still.
+// - Nothing turns to the music (owner rule: no style spins to the sound). The
+//   cross-section's slow turn about the bore and the folds' drifting lean run
+//   on uTime alone, so they follow Speed and nothing else; the user's Spin
+//   dial rolls the view on top as everywhere.
+// - SND_FLUX (sndLevel) WRITHES the packing: it shifts the copies inside each
+//   fold before the inversion, and the shift compounds down the levels, so a
+//   busy, changing spectrum sets the foam squirming while a held chord hangs
+//   still. A shift, not a turn: the foam reshapes but never rotates.
 // - Spectral centroid (uMotionBright, the eased SND_CENTROID) sets the
 //   inversion radius: a bright timbre packs the foam dense and fine, a dark
 //   one opens it into few large spheres.
 // - SND_SUB_ATT fattens the shells: sub-bass turns thin shells into beads.
 // - SND_KICK_ENV sends a ring down the tunnel: a pinch of the bore that runs
 //   away from the eye as the envelope falls, lit as it goes.
-// - SND_SNARE_ENV steps the cross-section one wedge round, snapping and
-//   settling. One wedge is the fold's own symmetry, so the step starts from a
-//   pose identical to the last.
 // - SND_HAT_ENV lights sparkles on the shells; SND_TREBLE_TIME twinkles them.
 // - SND_HIT_TIME drives the light pulses outward through the nested levels.
 // - SND_HELD_SURGE (a drop) opens the tunnel wide on its envelope's bump and
@@ -75,7 +76,7 @@ out vec4 fragColor;
 //
 // Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
 // is the tuned look: k0 PULSE the emission, k1 TEXTURE the shells' thickness,
-// k2 FLOW added to the folds' lean (the writhe's bend), k3 TONE the palette
+// k2 FLOW added to the writhe's shift, k3 TONE the palette
 // position and the foam's packing (a high melody tightens the inversion into
 // fine, dense bubbles, a low one loosens it into big open cells), k4 BUILD the
 // glow gathered along the ray, k5 SPACE the reach (far
@@ -83,7 +84,8 @@ out vec4 fragColor;
 //
 // ---- why the estimate is safe -----------------------------------------------
 //
-// Repetition, the fold rotations, the wedge fold and the spin are isometries;
+// Repetition, the fold rotations, the writhe's shift, the wedge fold and the
+// spin are isometries;
 // each inversion is conformal with factor s / r2, floored. The estimate is the
 // plane distance pulled back through those factors times FT_DE_FUDGE, and the
 // march takes FT_STEP of it for the twist, the bore bend and the kick pinch,
@@ -126,6 +128,8 @@ float gInvS;
 float gIters;
 mat2 gFoldA;
 mat2 gFoldB;
+/** The writhe: the copies' shift inside each fold, from the flux and FLOW (0 in silence at rest). */
+vec3 gWrithe;
 vec3 gShift;
 float gSpin;
 float gWedges;
@@ -161,9 +165,11 @@ float foam(vec3 q) {
     for (int i = 0; i < FT_MAX_ITERS; i++) {
         if (float(i) >= gIters) break;
         q = 2.0 * fract(0.5 * q + 0.5) - 1.0;
-        // The writhe: two turns between the folds, compounding down the levels.
+        // The seed's lean (a fixed turn per section, drifting on uTime), then the
+        // writhe's shift, compounding down the levels.
         q.xy = gFoldA * q.xy;
         q.yz = gFoldB * q.yz;
+        q += gWrithe;
         float r2 = dot(q, q);
         gOrb = min(gOrb, vec4(abs(q), r2));
         float k = gInvS / max(r2, FT_INV_FLOOR);
@@ -234,7 +240,6 @@ void main() {
     float swell = clamp(SND_ENERGY_TREND, 0.0, 1.5);
     float flux = clamp(sndLevel(SND_FLUX), 0.0, 1.0) * uIntensity;
     float kick = clamp(SND_KICK_ENV, 0.0, 1.0);
-    float snare = clamp(SND_SNARE_ENV, 0.0, 1.0);
     float hats = clamp(SND_HAT_ENV, 0.0, 1.0);
     float surge = clamp(SND_HELD_SURGE, 0.0, 1.0);
     float surgeBump = 4.0 * surge * (1.0 - surge);
@@ -252,15 +257,19 @@ void main() {
     // Centroid packs the foam, the bass clock breathes it, the seed offsets it.
     gInvS = 1.08 + 0.26 * (1.0 - smoothstep(0.2, 0.75, bright)) + 0.07 * sin(SND_BASS_TIME * 0.21) + 0.06 * (seed.z - 0.5)
           + 0.16 * kTone;
-    // Untwisted at rest except for the seed's lean and a slow drift on the
-    // loudness clock; flux adds the writhe on top.
-    float lean = 0.18 * (seed.w - 0.5) + 0.10 * sin(SND_CURVED_TIME * 0.17) + 0.3 * kFlow;
-    gFoldA = rot2(lean + 0.42 * flux * uMorph + 0.30 * flux);
-    gFoldB = rot2(0.5 * lean + 0.16 * flux);
+    // Untwisted at rest except for the seed's lean and a slow drift on uTime
+    // (Speed's clock, never a sound clock: nothing turns to the music). The
+    // flux and FLOW reshape the foam by a shift inside each fold instead.
+    float lean = 0.18 * (seed.w - 0.5) + 0.10 * sin(uTime * 0.17);
+    gFoldA = rot2(lean);
+    gFoldB = rot2(0.5 * lean);
+    float writhe = max(0.30 * flux + 0.42 * flux * uMorph + 0.3 * kFlow, 0.0);
+    gWrithe = writhe * vec3(0.25, 0.15, 0.20);
     // The stream wraps on the foam's own z span, so the cell hash wraps with it.
     gShift = vec3(1.6 * seed.x, 1.6 * seed.y, mod(SND_BASS_TIME * 0.9, FT_FOAM_SPAN));
-    // Mid clock spin, wrapped on the wedge (invisible); the snare's one-wedge step on top.
-    gSpin = mod(SND_MID_TIME * 0.12, wedge) + wedge * (1.0 - snare * snare);
+    // A slow turn on uTime alone, wrapped on the wedge (invisible): it follows
+    // Speed, never the music.
+    gSpin = mod(uTime * 0.12, wedge);
     gShell = FT_SHELL * (1.0 + 2.2 * sub) * (1.0 + kTexture);
     float detail = clamp((uSteps - 64.0) / 64.0, 0.0, 1.0);
     gIters = 6.0 + floor(detail * 2.0 + 0.5);

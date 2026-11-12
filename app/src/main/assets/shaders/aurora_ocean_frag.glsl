@@ -30,6 +30,17 @@ out vec4 fragColor;
 // sends a bright shimmer running along the curtains. Hats (SND_HAT_ENV) scatter
 // sparkles on the water. A drop (SND_HELD_SURGE) leans the curtains over and lights
 // one patch of them, never the whole frame. Overall level follows SND_INTENSITY.
+// The mid band (SND_MIDDLE) turns the eye about the vertical while the mids
+// climb and eases it back as they fall, as lib_flame's gFlameTurn turns its
+// structure (0.6 x sndShaped x SND_DRIVE, 0.9 rad at most, 0 in silence); the
+// sea and the sky hold still. Mid gain scales it.
+//
+// ---- knobs ------------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the curtains' ribbon
+// width, k2 FLOW how far the curtains bend, k3 TONE the palette position, k4
+// BUILD the curtains' glow, k5 SPACE the reach (the far plane and the haze).
 
 #define AO_MAX_STEPS 96
 #define AO_LAYERS 12
@@ -45,6 +56,11 @@ out vec4 fragColor;
 #define AO_QK 0.04261057
 
 float gAmp;
+/** k1 TEXTURE and k2 FLOW: the ribbons' width and the curtains' bend, each 0.5..1.5 (1 at rest). */
+float gRibW = 1.0;
+float gBend = 1.0;
+/** k4 BUILD: the curtains' glow, 0.5..1.5 (1 at rest). */
+float gGlow = 1.0;
 
 /** Height of the sea above AO_SEA_Y at xz. Four crested octaves, each warped by the last. */
 float sea(vec2 xz) {
@@ -97,8 +113,8 @@ vec3 sky(vec3 rd, vec3 ro, float hue, float drop, float dropLean, float snare) {
             // The drop leans the curtain: every layer slides further along x.
             q.x += fi * 0.06 * dropLean;
             float tm = uTime * 0.06;
-            float v = q.x + 0.9 * sin(q.y * (13.0 * AO_QK) + tm * 2.0) + 0.35 * sin(q.y * (40.0 * AO_QK) - tm * 3.0 + q.x * 0.6);
-            float rib = (1.0 - smoothstep(0.0, 0.24, abs(fract(v * 0.35) - 0.5)));
+            float v = q.x + 0.9 * gBend * sin(q.y * (13.0 * AO_QK) + tm * 2.0) + 0.35 * sin(q.y * (40.0 * AO_QK) - tm * 3.0 + q.x * 0.6);
+            float rib = (1.0 - smoothstep(0.0, 0.24 * gRibW, abs(fract(v * 0.35) - 0.5)));
             // Vertical rays inside the ribbon.
             rib *= 0.65 + 0.35 * sin(v * 23.0 + q.y * (70.0 * AO_QK) + tm * 5.0);
             // The snare's shimmer: a bright pulse racing along the ribbon's length.
@@ -110,7 +126,7 @@ vec3 sky(vec3 rd, vec3 ro, float hue, float drop, float dropLean, float snare) {
         }
         // Bright enough to read as aurora on a phone: at 0.16 the curtains were a
         // faint teal smudge and the style read as a black screen.
-        acc *= 0.45 * smoothstep(0.02, 0.18, rd.y);
+        acc *= 0.45 * smoothstep(0.02, 0.18, rd.y) * gGlow;
         acc *= 1.0 + drop * 1.8 * patchMask;
         col += acc;
     }
@@ -119,6 +135,16 @@ vec3 sky(vec3 rd, vec3 ro, float hue, float drop, float dropLean, float snare) {
 
 void main() {
     vec2 uv = view();
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    gRibW = 1.0 + kTexture;
+    gBend = 1.0 + kFlow;
+    gGlow = 1.0 + kBuild;
+    float reach = 1.0 + 0.4 * kSpace;
 
     float swell = clamp(SND_INTENSITY, 0.0, 1.5);
     float bass = clamp(sndShaped(SND_LOW), 0.0, 1.5);
@@ -128,7 +154,7 @@ void main() {
     // A bump on the envelope: 0 at the drop's instant and at its end, 1 in
     // between, so the lean glides in and out instead of snapping.
     float dropLean = 4.0 * drop * (1.0 - drop);
-    float hue = 0.33 + 0.04 * sin(uTime * 0.02);
+    float hue = 0.33 + 0.04 * sin(uTime * 0.02) + 0.6 * kTone;
 
     gAmp = 0.22 * (1.0 + 0.7 * bass + 0.25 * clamp(sndSpectrum(0.23), 0.0, 1.0));
     float waveTop = AO_SEA_Y + gAmp * 0.95;
@@ -136,6 +162,8 @@ void main() {
     vec3 ro;
     vec3 rd;
     camFly(uv, ro, rd);
+    // The mids turn the eye about the vertical (see the header).
+    rd.xz = rot2(0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0)) * rd.xz;
     // The sky parallaxes on the true eye; the sea is marched with z rebased
     // into one 64 tile (exact, power of two), since far down the 8192 travel
     // a highp z has ~0.001 of fraction left and the normals would speckle.
@@ -153,7 +181,7 @@ void main() {
         float hPrev = 1.0;
         for (int i = 0; i < AO_MAX_STEPS; i++) {
             if (float(i) >= uSteps) break;
-            if (t > AO_FAR) break;
+            if (t > AO_FAR * reach) break;
             vec3 p = ro + rd * t;
             float h = p.y - (AO_SEA_Y + sea(p.xz));
             if (h < 0.002 * t) {
@@ -187,7 +215,7 @@ void main() {
         float glint = step(0.93, sh) * (1.0 - smoothstep(0.0, 0.3, length(fract(g) - 0.5)));
         glint *= smoothstep(0.1, 0.5, r.y) * exp(-hitT * 0.06);
         col += mix(pal(hue + 0.1), vec3(1.0), 0.5) * glint * hats * 1.5;
-        col = mix(col, horizon, 1.0 - exp(-hitT * 0.045));
+        col = mix(col, horizon, 1.0 - exp(-hitT * 0.045 / reach));
     } else if (rd.y < 0.0) {
         col = horizon;
     } else {
@@ -196,5 +224,5 @@ void main() {
 
     col *= 0.8 + 0.25 * swell;
     col *= 0.75 + 0.25 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
 }

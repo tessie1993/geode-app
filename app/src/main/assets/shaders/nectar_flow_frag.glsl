@@ -51,6 +51,13 @@ out vec4 fragColor;
 // (0.5 * (SND_BASS_PRESENCE + SND_MID_PRESENCE)) sets the dye's density, sndShaped(SND_LOW) the fold depth, SND_TREBLE_PRESENCE the
 // filament sharpness. A spike re-aims the flight (uMoveDir), re-seeds the dye
 // (uSpawnSeed) and moves the fold count to a new plateau (uFormPhase).
+//
+// ---- knobs ------------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the filaments' width,
+// k2 FLOW added to the stir's bend (fluidWarp3's amount), k3 TONE the palette
+// position, k4 BUILD the core's glow, k5 SPACE how deep the slab reaches.
 
 #define NF_MAX_STEPS 96
 #define NF_FOCAL 1.35
@@ -94,6 +101,12 @@ float density(vec3 p, float bend, float squash, float sharp, float scale, float 
 
 void main() {
     vec2 uv = view();
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float tone = 0.6 * (clamp(uKnob[3], 0.0, 1.0) - 0.5);
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
 
     float bass = clamp(sndShaped(SND_LOW), 0.0, 1.5);
     float treb = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5);
@@ -107,9 +120,10 @@ void main() {
     // volume is fog; above it the trap outruns its own scale correction and
     // the structure turns to noise.
     float squash = 1.26 + 0.12 * clamp(bass, 0.0, 1.0);
-    float sharp = 22.0 + 26.0 * clamp(treb, 0.0, 1.0);
+    // TEXTURE widens the filaments (a softer shell), never past half or 1.5 times.
+    float sharp = (22.0 + 26.0 * clamp(treb, 0.0, 1.0)) / (1.0 + kTexture);
     float warpScale = 0.95 + 0.30 * swell;
-    float warpAmount = 0.13 + 0.10 * bass + 0.06 * finger;
+    float warpAmount = max(0.13 + 0.10 * bass + 0.06 * finger + 0.1 * kFlow, 0.0);
 
     // The flight. Position is INTEGRATED on uFlowPhase - loudness sets how fast
     // the camera travels, never where it is - and the path banks the heading.
@@ -126,7 +140,7 @@ void main() {
     // boundaries scatter into grain instead of banding into visible shells,
     // and the jitter walks with the spawn so the grain is not a fixed screen
     // pattern.
-    float span = NF_FAR - NF_NEAR;
+    float span = NF_FAR * (1.0 + 0.4 * kSpace) - NF_NEAR;
     float dt = span / float(NF_MAX_STEPS);
     float jitter = hash13(vec3(uv * 811.0, uSpawnSeed * 37.0));
     float t = NF_NEAR + jitter * dt;
@@ -145,7 +159,7 @@ void main() {
             // so the thin outskirts and the bright core are different hues
             // rather than the same hue at two brightnesses.
             float depth = (t - NF_NEAR) / span;
-            vec3 emit = pal(fract(0.12 + depth * 0.42 + uFormPhase * 0.25 + d * 0.30));
+            vec3 emit = pal(fract(0.12 + depth * 0.42 + uFormPhase * 0.25 + d * 0.30 + tone));
             // The filament highlight: the top of the density range only.
             emit += vec3(1.0) * smoothstep(0.72, 0.98, d) * (0.25 + 0.7 * treb);
             float sigma = d * (2.6 + 2.2 * swell);
@@ -160,19 +174,19 @@ void main() {
 
     vec3 col = acc;
     // The mandala behind the dye, seen through what the dye did not absorb.
-    col += dmtChrysanthemum(transpose(flight) * rd, 0.68, swell) * trans;
+    col += dmtChrysanthemum(transpose(flight) * rd, 0.68 + tone, swell) * trans;
 
     // The core the flight is aimed at: a small bright sun on the axis, its
     // halo swelling on a spike rather than flashing.
     float axis = pow(max(1.0 - length(uv) * 0.9, 0.0), 6.0);
-    col += pal(0.06) * axis * 0.16 * trans;
+    col += pal(0.06 + tone) * axis * 0.16 * trans * (1.0 + kBuild);
 
     // The particle layer, matching the rest of the family.
-    col += mix(pal(0.50), vec3(1.0), 0.35) * fluidMotes(uv * 1.1, 6.0, 0.14) * 0.22;
+    col += mix(pal(0.50 + tone), vec3(1.0), 0.35) * fluidMotes(uv * 1.1, 6.0, 0.14) * 0.22;
 
     if (!touchIdle()) {
         col += pal(0.5 + 0.15 * sin(uTime * 0.05)) * min(touchWake(uv), 3.0) * 0.05;
     }
     col *= 0.70 + 0.30 * smoothstep(2.2, 0.4, length(uv));
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
 }

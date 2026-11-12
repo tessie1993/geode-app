@@ -27,6 +27,18 @@ out vec4 fragColor;
 // which the CPU re-targets on a section boundary and eases over 3 s: there is
 // no section counter to hash, so that is the held step. The section envelope
 // (SND_HELD_HARD_CUT) swells the inner folds on the same bump shape while it lands. Brightness follows SND_ENERGY_TREND only.
+// The mid band (SND_MIDDLE) rolls the corridor about the way ahead while the
+// mids climb and eases it back as they fall: lib_flame's gFlameTurn, 0.6 x
+// sndShaped x SND_DRIVE (0.9 rad at most, 0 in silence). Mid gain scales it.
+//
+// ---- knobs ------------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the width of the
+// filigree's trap glow, k2 FLOW a bend of the whole world along the way (a
+// corkscrew of period 4, so the wrap holds; its slope divides the estimate),
+// k3 TONE the palette position, k4 BUILD the light threaded past the walls,
+// k5 SPACE the reach (the far plane and the fog).
 
 #define FD_MAX_STEPS 96
 #define FD_ITERS 7
@@ -41,8 +53,13 @@ float gBox;
 mat2 gTwA;
 mat2 gTwB;
 float gTrap;
+/** k2 FLOW: the corkscrew's radius, world units (0 at rest), and the estimate's divisor for its slope. */
+float gBendA = 0.0;
+float gBendL = 1.0;
 
 float map(vec3 w) {
+    // FLOW's corkscrew: period 4 along z, the world tile, so the rebase stays exact.
+    w.xy += gBendA * vec2(sin(w.z * 1.5707963), cos(w.z * 1.5707963));
     vec3 p = w * FD_WSCALE;
     float scale = 1.0;
     float trap = 1e9;
@@ -64,7 +81,7 @@ float map(vec3 w) {
     float de = 0.25 * abs(p.y) / scale / FD_WSCALE;
     // Bore the corridor. smax overestimates inside the cavity a little, which
     // the 0.75 step scale below absorbs.
-    return smax(de, FD_HOLE - length(w.xy), 0.35);
+    return smax(de, FD_HOLE - length(w.xy), 0.35) / gBendL;
 }
 
 vec3 normalAt(vec3 p, float eps) {
@@ -75,6 +92,16 @@ vec3 normalAt(vec3 p, float eps) {
 
 void main() {
     vec2 uv = view();
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float kSpace = clamp(uKnob[5], 0.0, 1.0) - 0.5;
+    gBendA = 0.5 * kFlow;
+    // The offset's slope along z is gBendA * pi / 2.
+    gBendL = sqrt(1.0 + gBendA * gBendA * 2.4674011);
+    float reach = 1.0 + 0.4 * kSpace;
 
     float swell = clamp(SND_ENERGY_TREND * uSoundDrive, 0.0, 1.5);
     float kick = clamp(SND_KICK_ENV * uSoundDrive, 0.0, 1.0);
@@ -96,7 +123,9 @@ void main() {
 
     vec3 ro;
     vec3 rd;
-    camFly(uv, ro, rd);
+    // The mids roll the view about the way ahead (see the header).
+    float midTurn = 0.6 * sndShaped(SND_MIDDLE) * clamp(SND_DRIVE, 0.0, 1.0);
+    camFly(rot2(midTurn) * uv, ro, rd);
     // The world tiles every 4 along z, so this shift is invisible and exact
     // (power of two). Without it, far down the 8192 travel a highp z has only
     // ~0.001 of fraction left, which quantises every sample and the normals.
@@ -109,7 +138,7 @@ void main() {
     float used = 0.0;
     for (int i = 0; i < FD_MAX_STEPS; i++) {
         if (float(i) >= uSteps) break;
-        if (t > FD_FAR) break;
+        if (t > FD_FAR * reach) break;
         used = float(i);
         float d = map(ro + rd * t);
         float eps = 0.0009 * t + 0.0004;
@@ -122,7 +151,7 @@ void main() {
         t += max(d * 0.75, eps);
     }
 
-    float hue = 0.62 + 0.04 * sin(uTime * 0.03) + 0.06 * uOrbit.y;
+    float hue = 0.62 + 0.04 * sin(uTime * 0.03) + 0.06 * uOrbit.y + 0.6 * kTone;
     // The fog glows toward the far end of the corridor, so the dive has a
     // destination rather than a black hole.
     float ahead = pow(max(rd.z, 0.0), 12.0);
@@ -141,13 +170,13 @@ void main() {
         float ao = clamp(1.0 - used / max(uSteps, 1.0) * 1.2, 0.25, 1.0);
         col = base * (0.3 + 0.9 * diff) * ao + pal(hue + 0.5) * fill * 0.12 * ao + vec3(spec) * 0.35 * ao;
         // Trap glow on the thinnest shells: the filigree lights up.
-        col += pal(hue + 0.1) * (1.0 - smoothstep(0.0, 0.06, trap)) * 0.25;
-        col = mix(col, fogCol, 1.0 - exp(-hitT * FD_FOG));
+        col += pal(hue + 0.1) * (1.0 - smoothstep(0.0, 0.06 * (1.0 + kTexture), trap)) * 0.25;
+        col = mix(col, fogCol, 1.0 - exp(-hitT * FD_FOG / reach));
     }
     // Light threaded past the walls, coloured off the corridor's hue.
-    col += pal(hue + 0.15) * glow * (0.6 + 0.3 * swell);
+    col += pal(hue + 0.15) * glow * (0.6 + 0.3 * swell) * (1.0 + kBuild);
 
     col *= 0.85 + 0.2 * swell;
     col *= 0.72 + 0.28 * (1.0 - smoothstep(0.4, 2.2, length(uv)));
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
 }

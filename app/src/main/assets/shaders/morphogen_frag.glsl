@@ -54,6 +54,13 @@ out vec4 fragColor;
 // of the transformation - and that is the part of the body that glows. When
 // the morph settles onto a single skeleton the glow goes out, so the frame
 // tells you at a glance whether the organism is resting or changing.
+//
+// THE KNOBS have Flame's, Opal's and Hollow's roles, each read as its offset
+// from 0.5 so off is the tuned look: k0 PULSE the emission, k1 TEXTURE the
+// seam line's width (FRONT_WIDTH 0.5..1.5 times, still under the 0.03 that
+// washed), k2 FLOW added to the wring's twist about the view axis (gLip
+// follows it), k3 TONE the palette position, k4 BUILD the glow the body leaks
+// into the room, k5 SPACE how far that glow reaches.
 
 // ---- framing --------------------------------------------------------------
 
@@ -407,7 +414,8 @@ out vec4 fragColor;
 /** uTouchSpin is clamped to +-8 rad/s by TouchField.MAX_SPEED; this is the
  *  gain onto the vortex angle, held so the deform's Lipschitz bound
  *  sqrt(1 + k^2) stays under 1.3 even when someone spins as fast as the
- *  digitizer will report. */
+ *  digitizer will report (k2 FLOW adds up to 0.15 more, which gLip divides
+ *  out the same way). */
 #define SPIN_GAIN 0.10
 
 // ---- what map() hands back ------------------------------------------------
@@ -425,6 +433,8 @@ float gFuse;
 /** Frontier heat: 1 where the two skeletons disagree most, and 0 whenever the
  *  morph has settled onto one of them. */
 float gFront;
+/** k1 TEXTURE: the seam line's width (FRONT_WIDTH at rest). */
+float gFrontW = FRONT_WIDTH;
 
 // ---- per-frame values, computed once in main() ---------------------------
 
@@ -677,7 +687,7 @@ float map(vec3 p) {
         // 4t(1-t) puts it out entirely once the body has settled onto one
         // skeleton, because then there is nothing being negotiated.
         float sep = abs(dA - dB);
-        gFront = (FRONT_WIDTH / (sep + FRONT_WIDTH)) * (4.0 * gMt * (1.0 - gMt));
+        gFront = (gFrontW / (sep + gFrontW)) * (4.0 * gMt * (1.0 - gMt));
     }
 
     // Bass relief: a shallow triple-sine skin over whatever the body currently
@@ -791,6 +801,12 @@ void main() {
     float mid = clamp(sndShaped(SND_MIDDLE), 0.0, 1.2);
     float treb = clamp(sndShaped(SND_HIGH), 0.0, 1.5);
     float energy = clamp(sndShaped(SND_LEVEL), 0.0, 1.5);
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kFlow = clamp(uKnob[2], 0.0, 1.0) - 0.5;
+    float kTone = clamp(uKnob[3], 0.0, 1.0) - 0.5;
+    float kBuild = clamp(uKnob[4], 0.0, 1.0) - 0.5;
+    float reach = 1.0 + 0.4 * (clamp(uKnob[5], 0.0, 1.0) - 0.5);
+    gFrontW = FRONT_WIDTH * (1.0 + (clamp(uKnob[1], 0.0, 1.0) - 0.5));
 
     // Thicker weave under bass: the sheets swell toward each other and the
     // gyroid closes up, which is the one deformation this skeleton has.
@@ -846,7 +862,7 @@ void main() {
     gFoldIters = int(clamp(floor(uSteps * 0.046875), 3.0, float(FOLD_MAX_ITERS)));
     gRelief = RELIEF_AMP * bass;
 
-    gSpinK = SPIN_GAIN * clamp(uTouchSpin, -8.0, 8.0);
+    gSpinK = SPIN_GAIN * clamp(uTouchSpin, -8.0, 8.0) + 0.3 * kFlow;
 
     // The organism's own slow turn, on two unrelated rates so it never returns
     // to the same attitude. This is the motion that has to hold the screen
@@ -899,7 +915,7 @@ void main() {
     // colour identity, and because the clock is continuous the identity slides
     // into the next one instead of cutting at the segment wrap (an index-based
     // hue jumped a quarter of the ramp on every change).
-    float baseHue = 0.08 + clock * 0.22 + 0.10 * mid;
+    float baseHue = 0.08 + clock * 0.22 + 0.10 * mid + 0.6 * kTone;
     // Once, not twice: this is two octaves of 3D value noise, and the fog mix
     // below wants the same room the miss branch draws.
     vec3 roomCol = room(rd, uv, baseHue);
@@ -945,7 +961,7 @@ void main() {
             // segment length is capped inside the integral only - capping the
             // step itself would waste budget crossing the empty part of the
             // bounding sphere.
-            glow += exp(-d * 7.0) * min(adv, 0.12);
+            glow += exp(-d * 7.0 / reach) * min(adv, 0.12);
             t += adv;
             if (t > tExit) break;
         }
@@ -1017,7 +1033,7 @@ void main() {
         }
     }
 
-    col += pal(baseHue + 0.42) * glow * 0.45 * (0.45 + 0.55 * energy);
+    col += pal(baseHue + 0.42) * glow * 0.45 * (0.45 + 0.55 * energy) * (1.0 + kBuild);
 
     // Body, rim, specular, seam, core, touch and haze all added
     // together: HDR by construction. Clipping would flatten every rim and every
@@ -1025,7 +1041,7 @@ void main() {
     // being bounded by 1, is also what guarantees that no combination of audio
     // can produce a full-screen white frame. Energy leans on the exposure by a
     // tenth and no more, for the same reason.
-    float exposure = 0.98 * (0.92 + 0.16 * energy);
+    float exposure = 0.98 * (0.92 + 0.16 * energy) * (1.0 + 0.5 * kPulse);
     col = vec3(1.0) - exp(-max(col, vec3(0.0)) * exposure);
 
     // A soft vignette. Gentle rather than kaleido's hard fade to black: this

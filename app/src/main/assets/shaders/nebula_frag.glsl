@@ -410,6 +410,15 @@ out vec4 fragColor;
 #define NEB_TUMBLE_Y 0.017
 #define NEB_TUMBLE_X 0.011
 
+// ---- knobs ----------------------------------------------------------------
+//
+// Flame's, Opal's and Hollow's roles, each read as its offset from 0.5 so off
+// is the tuned look: k0 PULSE the emission, k1 TEXTURE the veins' width (the
+// band of the field they light), k2 FLOW added to the domain warp's bend
+// (gWarpAmp; a volume has no estimate to overshoot), k3 TONE the palette
+// position, k4 BUILD the medium's own glow (the ambient emission), k5 SPACE
+// how far the core's light reaches.
+
 // ---- touch ----------------------------------------------------------------
 
 /** Reach of the anchor well, in view() units. */
@@ -484,6 +493,9 @@ out vec4 fragColor;
 #define NEB_VIGNETTE_INNER 0.25
 #define NEB_VIGNETTE_OUTER 2.0
 
+/** k2 FLOW: the domain warp's amplitude (NEB_WARP_AMP at rest). */
+float gWarpAmp = NEB_WARP_AMP;
+
 /**
  * The cloud's envelope at squared radius rSq.
  *
@@ -512,7 +524,7 @@ vec3 nebWarpCoord(vec3 p) {
         fbm3(pw + vec3(23.7, 8.3, 47.1), NEB_WARP_OCTAVES),
         fbm3(pw + vec3(5.9, 63.7, 13.1), NEB_WARP_OCTAVES)
     ) - 0.5;
-    return p * NEB_DENSITY_SCALE + w * NEB_WARP_AMP;
+    return p * NEB_DENSITY_SCALE + w * gWarpAmp;
 }
 
 void main() {
@@ -552,6 +564,12 @@ void main() {
     float treble = clamp(SND_TREBLE_PRESENCE, 0.0, 1.5);
     float energy = clamp(((SND_BASS_PRESENCE + SND_MID_PRESENCE + SND_TREBLE_PRESENCE) / 3.0), 0.0, 1.5);
     float beatEnv = clamp(SND_KICK_ENV, 0.0, 1.0);
+    float kPulse = clamp(uKnob[0], 0.0, 1.0) - 0.5;
+    float kTexture = clamp(uKnob[1], 0.0, 1.0) - 0.5;
+    float hueBase = NEB_HUE_BASE + 0.6 * (clamp(uKnob[3], 0.0, 1.0) - 0.5);
+    float ambient = NEB_AMBIENT_EMIT * (1.0 + (clamp(uKnob[4], 0.0, 1.0) - 0.5));
+    float falloff = NEB_CORE_FALLOFF / (1.0 + 0.8 * (clamp(uKnob[5], 0.0, 1.0) - 0.5));
+    gWarpAmp = NEB_WARP_AMP + 0.8 * (clamp(uKnob[2], 0.0, 1.0) - 0.5);
 
     float radius = NEB_RADIUS * (1.0 + NEB_BASS_INFLATE * bass);
     float extinction = NEB_EXTINCTION * (1.0 + NEB_BASS_EXTINCT * bass);
@@ -790,14 +808,14 @@ void main() {
 
             // Inverse-square from a soft core, floored so the centre is a
             // bright lamp rather than a singularity.
-            float geom = 1.0 / (1.0 + NEB_CORE_FALLOFF * rSq);
+            float geom = 1.0 / (1.0 + falloff * rSq);
             float lit = geom * coreShadow * ltrans;
 
             // The ridge tops of the field that already passed the mask: thin
             // bright veins along the spine of each strand. Squared, so the
             // light lands on a line and not on the region around it - which is
             // also why treble reads as detail here rather than as brightness.
-            float vein = smoothstep(NEB_VEIN_THRESHOLD, NEB_VEIN_TOP, f);
+            float vein = smoothstep(NEB_VEIN_THRESHOLD - 0.16 * kTexture, NEB_VEIN_TOP, f);
 
             // pal() may sample the cyclic-palette atlas, and this is inside
             // non-uniform control flow, where GLSL ES leaves an implicit-LOD
@@ -808,7 +826,7 @@ void main() {
             // every empty sample instead, which is most of them.
             float shade = clamp(dens * NEB_HUE_DENS_NORM, 0.0, 1.0);
             vec3 tint = pal(
-                NEB_HUE_BASE
+                hueBase
                     + NEB_HUE_DENSITY * shade
                     + NEB_HUE_DEPTH * lod
                     + NEB_HUE_MID * mid
@@ -816,7 +834,7 @@ void main() {
                     + NEB_SHOCK_HUE * shock
             );
 
-            float emit = NEB_AMBIENT_EMIT
+            float emit = ambient
                 + NEB_CORE_EMIT * lit
                 + NEB_VEIN_EMIT * vein * vein * (NEB_VEIN_BASE + treble)
                 // touchWake sums every slot and is unbounded above - five
@@ -842,7 +860,7 @@ void main() {
 
     // A satellite, through whatever the dye in front of it did not absorb.
     if (satT > 0.0) {
-        vec3 body = dmtSatelliteColor(roW + rdW * satT, rdW, NEB_HUE_BASE + 0.30 + NEB_HUE_MID * mid, treble, satCount,
+        vec3 body = dmtSatelliteColor(roW + rdW * satT, rdW, hueBase + 0.30 + NEB_HUE_MID * mid, treble, satCount,
                                       NEB_SAT_ORBIT, NEB_SAT_RADIUS, NEB_SAT_PERIOD);
         col += body * trans * glowGain * 0.6;
         trans = 0.0;
@@ -855,12 +873,12 @@ void main() {
     // frame, so the mandala sits behind the cloud from every side of it,
     // tilted through the palette by height as the old ramp was. It carries
     // its own floor, so a thin nebula still sits in a space that is not black.
-    vec3 sky = dmtChrysanthemum(rd, NEB_SKY_HUE + NEB_SKY_TILT * rd.y, energy) * glowGain;
+    vec3 sky = dmtChrysanthemum(rd, NEB_SKY_HUE + (hueBase - NEB_HUE_BASE) + NEB_SKY_TILT * rd.y, energy) * glowGain;
     col += sky * trans;
 
     // Corner falloff, floored: on a wide aspect a fade to zero would black out
     // a third of the frame.
     col *= mix(NEB_VIGNETTE_FLOOR, 1.0, smoothstep(NEB_VIGNETTE_OUTER, NEB_VIGNETTE_INNER, length(uv)));
 
-    fragColor = vec4(grade(col), 1.0);
+    fragColor = vec4(grade(col * (1.0 + 0.5 * kPulse)), 1.0);
 }

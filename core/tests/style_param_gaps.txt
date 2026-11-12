@@ -49,30 +49,9 @@ acid_scan: noteChords noteDrums noteIntervals notePitch noteTension
 acid_solar: noteChords noteDrums noteIntervals notePitch noteTension
 acid_mirror: noteChords noteDrums noteIntervals notePitch noteTension
 acid_smear: noteChords noteDrums noteIntervals notePitch noteTension
-vanishing: noteChords noteDrums noteIntervals notePitch noteTension
-morphogen: noteChords noteDrums noteIntervals notePitch noteTension
-nebula: noteChords noteDrums noteIntervals notePitch noteTension
-noneuclid: noteChords noteDrums noteIntervals notePitch noteTension
-kifs: noteChords noteDrums noteIntervals notePitch noteTension
-rod_tunnel: noteChords noteDrums noteIntervals notePitch noteTension
-curl_bloom: midGain noteChords noteDrums noteIntervals notePitch noteTension
-nectar_flow: noteChords noteDrums noteIntervals notePitch noteTension
-crystal_canyon: midGain noteChords noteDrums noteIntervals notePitch noteTension
-neon_city: noteChords noteDrums noteIntervals notePitch noteTension
-particle_tunnel: noteChords noteDrums noteIntervals notePitch noteTension
-chrome_nebula: noteChords noteDrums noteIntervals notePitch noteTension
-fractal_dive: midGain noteChords noteDrums noteIntervals notePitch noteTension
-aurora_ocean: midGain noteChords noteDrums noteIntervals notePitch noteTension
-spectrum_terrain: noteChords noteDrums noteIntervals notePitch noteTension
 outrun_drive: noteChords noteDrums noteIntervals notePitch noteTension
-menger_core: midGain noteChords noteDrums noteIntervals notePitch noteTension
-gyroid_cavern: midGain noteChords noteDrums noteIntervals notePitch noteTension
 ringed_planet: midGain noteChords noteDrums noteIntervals notePitch noteTension
-jelly_abyss: noteChords noteDrums noteIntervals notePitch noteTension
 ribbon_storm: noteChords noteDrums noteIntervals notePitch noteTension
-prism_rain: noteChords noteDrums noteIntervals notePitch noteTension
-supershape: midGain noteChords noteDrums noteIntervals notePitch noteTension
-fractal_tunnel: midGain noteChords noteDrums noteIntervals notePitch noteTension
 morph_world: midGain
 pool: midGain
 milkdrop: noteChords noteDrums noteIntervals notePitch noteTension

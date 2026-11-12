@@ -86,6 +86,42 @@ add_subdirectory(third_party/taglib)
 # project), which the Android Gradle plugin packages beside libgeode.so.
 find_package(oboe REQUIRED CONFIG)
 
+# Show on a computer over WebRTC (core/cast/WebRtcLink, owner 2026-11-12): libdatachannel v0.24.6 (MPL-2.0) with
+# its own submodules (libjuice for ICE, libsrtp, usrsctp, plog), and Mbed TLS v3.6.7 (Apache-2.0) for DTLS, all
+# static inside libgeode, so they get its 16 KB page alignment. Unmodified submodules under third_party/; the one
+# setting changed is Mbed TLS's use_srtp extension, turned on by core/cast/mbedtls_user_config.h (it also leaves out
+# Mbed TLS's own socket helpers, which nothing uses). No ICE server is ever configured (WebRtcLink), so nothing in
+# here talks to the internet. Not WebSocket, not the examples, not the tests; libSRTP's built-in AES-CM and
+# HMAC-SHA1, the one profile libdatachannel negotiates with Mbed TLS (SRTP_AES128_CM_HMAC_SHA1_80).
+set(ENABLE_PROGRAMS OFF CACHE BOOL "" FORCE)
+set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+set(GEN_FILES OFF CACHE BOOL "" FORCE)
+set(MBEDTLS_FATAL_WARNINGS OFF CACHE BOOL "" FORCE)
+set(USE_STATIC_MBEDTLS_LIBRARY ON CACHE BOOL "" FORCE)
+set(USE_SHARED_MBEDTLS_LIBRARY OFF CACHE BOOL "" FORCE)
+set(MBEDTLS_USER_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/core/cast/mbedtls_user_config.h" CACHE FILEPATH "" FORCE)
+add_subdirectory(third_party/mbedtls EXCLUDE_FROM_ALL)
+# libdatachannel asks for MbedTLS::MbedTLS only when no such target exists; an imported one (it appears in
+# libdatachannel's export set by name only) over the three static libraries above.
+add_library(MbedTLS::MbedTLS INTERFACE IMPORTED)
+set_property(TARGET MbedTLS::MbedTLS PROPERTY INTERFACE_LINK_LIBRARIES mbedtls mbedx509 mbedcrypto)
+set(USE_MBEDTLS ON CACHE BOOL "" FORCE)
+set(USE_GNUTLS OFF CACHE BOOL "" FORCE)
+set(USE_NICE OFF CACHE BOOL "" FORCE)
+set(ENABLE_MBEDTLS OFF CACHE BOOL "" FORCE)
+set(ENABLE_OPENSSL OFF CACHE BOOL "" FORCE)
+set(NO_WEBSOCKET ON CACHE BOOL "" FORCE)
+set(NO_MEDIA OFF CACHE BOOL "" FORCE)
+set(NO_EXAMPLES ON CACHE BOOL "" FORCE)
+set(NO_TESTS ON CACHE BOOL "" FORCE)
+set(NO_SERVER ON CACHE BOOL "" FORCE)
+set(PREFER_SYSTEM_LIB OFF CACHE BOOL "" FORCE)
+# libSRTP's own warnings-as-errors (on by default in its newer CMake) would fail on a newer NDK's warnings.
+set(ENABLE_WARNINGS_AS_ERRORS OFF CACHE BOOL "" FORCE)
+set(BUILD_WITH_WARNINGS OFF CACHE BOOL "" FORCE)
+set(LIBSRTP_TEST_APPS OFF CACHE BOOL "" FORCE)
+add_subdirectory(third_party/libdatachannel EXCLUDE_FROM_ALL)
+
 add_subdirectory(core)
 
 add_library(geode SHARED
@@ -97,7 +133,8 @@ add_library(geode SHARED
     app/src/main/cpp/geode_sound_jni.cpp
     app/src/main/cpp/geode_playout_jni.cpp
     app/src/main/cpp/geode_ingest_jni.cpp
-    app/src/main/cpp/geode_audio_out_jni.cpp)
+    app/src/main/cpp/geode_audio_out_jni.cpp
+    app/src/main/cpp/geode_webrtc_jni.cpp)
 target_compile_options(geode PRIVATE ${GEODE_COMPILE_OPTIONS})
 target_link_options(geode PRIVATE ${GEODE_LINK_OPTIONS})
 target_link_libraries(geode PRIVATE geode_core log android)

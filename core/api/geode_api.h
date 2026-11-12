@@ -1304,6 +1304,7 @@ GEODE_API int64_t         geode_cast_audio_feed_take(int64_t* state, int64_t buf
 #define GEODE_LINK_REDIRECT 8   /* /<token>: 308 to /<token>/ */
 #define GEODE_LINK_STREAM   9   /* stream.mp4: the browser's live feed, init then each fragment as it is cut */
 #define GEODE_LINK_MAX_STREAMS 3   /* browsers fed at once; past it 503 (the page retries) */
+#define GEODE_LINK_RTC     10   /* rtc: POST the browser's WebRTC offer (application/sdp), the answer comes back */
 /* A request's method and request-target against the token: returns the status (200, 204, 308, 404, 405) and
  * fills *resource (GEODE_LINK_*) and *sequence (a segment's, else -1). */
 GEODE_API int             geode_link_route(const char* method, const char* target, const char* token, int* resource,
@@ -1339,6 +1340,21 @@ GEODE_API int             geode_link_master_playlist(const uint8_t* init, size_t
 #define GEODE_LINK_DO_STOP_STREAM  2
 #define GEODE_LINK_DO_PAYWALL      4
 GEODE_API int             geode_link_step(int* state, int event, int arg);
+/* The body a request announces in its count header lines (each NUL-terminated, without its line break): the
+ * Content-Length, GEODE_LINK_NO_BODY for none, GEODE_LINK_BAD_BODY for a Transfer-Encoding, two lengths, a
+ * malformed one or one over max. */
+#define GEODE_LINK_NO_BODY  (-1)
+#define GEODE_LINK_BAD_BODY (-2)
+GEODE_API int64_t         geode_link_body_length(const char* const* headers, int count, int64_t max);
+/* The HTTP status for a POST on GEODE_LINK_RTC from geode_webrtc_answer's result: 200, 503 (busy: no picture
+ * yet, or GEODE_WEBRTC_MAX_PEERS browsers), else 400. */
+GEODE_API int             geode_link_rtc_status(int answer_result);
+/* The link the user sees, copies and shares: the page's address with its IPv4 host as one decimal number (the
+ * WHATWG URL standard reads it as the whole address; no DNS, no internet), size-query convention; 0 when
+ * address is 0 or port out of range. It hides the dotted address from the eye, not from the network. */
+GEODE_API int             geode_link_share_url(uint32_t address, int port, const char* token, char* out, int cap);
+/* A short friendly name for the token ("Blue Comet"), the sheet's label beside the QR code; same convention. */
+GEODE_API int             geode_link_label(const char* token, char* out, int cap);
 /* Who may connect, by source address, before a byte is read (LinkShare's admit): IPv4 in host order, 0 =
  * unknown; prefix the bound address's prefix length; wants GEODE_LINK_WANT_* bits. A TV cast admits the Cast
  * device's address alone (the bound subnet when the SDK names none), a live link any site-local peer on the
@@ -1357,6 +1373,38 @@ GEODE_API int             geode_link_admit(uint32_t peer, uint32_t bound, int pr
 #define GEODE_LINK_RECEIVER_UNREACHABLE 3   /* no fetch 20 s after the LOAD, or none for 30 s while it plays */
 GEODE_API int             geode_link_receiver_health(int64_t now_ms, int64_t load_ms, int64_t last_fetch_ms,
                                                      int player_state, int idle_reason);
+
+/* Show on a computer over WebRTC (core/cast/WebRtcLink, rules in viz/frame/WebRtcRule; libdatachannel): the
+ * browser's low-delay path, its media encrypted with DTLS-SRTP. One handle per cast stream, bound to the
+ * phone's Wi-Fi or Ethernet address (dotted, and in host order with its prefix length, as geode_link_admit
+ * reads it); no STUN or TURN server, host candidates on that address only. Any thread; every call is cheap
+ * except answer, which waits up to GEODE_WEBRTC_GATHER_MS for the phone's candidate.
+ *   answer: the browser's offer in, the answer NUL-terminated into out (cap bytes; GEODE_WEBRTC_ANSWER_CAP is
+ *           always enough); returns its length, or a negative GEODE_WEBRTC_REFUSED_* (the page then falls back
+ *           to the fMP4 feed). Not a size query: each call makes a peer, so an answer that does not fit is
+ *           refused and that peer closed.
+ *   video: one encoded H.264 frame as MediaCodec wrote it (Annex B), its PTS, whether it is a keyframe; config
+ *          the codec config buffer (SPS and PPS), kept for keyframes that come without it.
+ *   audio: one Opus packet and its PTS (48 kHz stereo).
+ *   peers: browsers connected now (the shell runs the Opus encoder only while there are any). */
+#define GEODE_WEBRTC_MAX_PEERS 3
+#define GEODE_WEBRTC_GATHER_MS 2000
+#define GEODE_WEBRTC_ANSWER_CAP (16 * 1024)
+#define GEODE_WEBRTC_OFFER_MAX (16 * 1024)
+#define GEODE_WEBRTC_JITTER_TARGET_MS 500
+#define GEODE_WEBRTC_REFUSED_MALFORMED (-1)
+#define GEODE_WEBRTC_REFUSED_NO_VIDEO  (-2)
+#define GEODE_WEBRTC_REFUSED_NO_H264   (-3)
+#define GEODE_WEBRTC_REFUSED_FULL      (-4)   /* GEODE_WEBRTC_MAX_PEERS browsers already */
+#define GEODE_WEBRTC_REFUSED_NOT_READY (-5)   /* no SPS from the encoder yet: the page retries */
+#define GEODE_WEBRTC_REFUSED_FAILED    (-6)   /* the stack refused it or no candidate came */
+GEODE_API int64_t         geode_webrtc_open(const char* bound_dotted, uint32_t bound, int prefix);
+GEODE_API void            geode_webrtc_close(int64_t handle);
+GEODE_API int             geode_webrtc_answer(int64_t handle, const char* offer, char* out, int cap);
+GEODE_API void            geode_webrtc_video(int64_t handle, const uint8_t* data, size_t size, int64_t pts_us, int key);
+GEODE_API void            geode_webrtc_video_config(int64_t handle, const uint8_t* data, size_t size);
+GEODE_API void            geode_webrtc_audio(int64_t handle, const uint8_t* data, size_t size, int64_t pts_us);
+GEODE_API int             geode_webrtc_peers(int64_t handle);
 
 /* A QR code (util/QrCode): byte mode, level M, versions 1..10, the best mask. Writes side * side modules (1 =
  * dark, row-major) into out (GEODE_QR_MAX_MODULES bytes) and returns side; 0 when size > GEODE_QR_MAX_BYTES. */

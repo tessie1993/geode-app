@@ -215,8 +215,9 @@ private fun shareLink(
 }
 
 /**
- * The live share: the address as text (selectable, to copy) and as a QR code made on the phone, whether it is
- * starting or live, the one line on who can watch (plain HTTP on the LAN: anyone on this Wi-Fi with the link),
+ * The live share: the link's short name, the link as a QR code made on the phone and as text (selectable, to
+ * copy; its host written as one number, not the dotted address), whether it is starting or live, who can watch
+ * and what is encrypted (the WebRTC media is; the plain-http link, page and fallback feed are not),
  * where the sound plays, and Stop. Dismissing the sheet keeps the share running; the notification and the row
  * stop it too.
  */
@@ -241,10 +242,18 @@ internal fun ComputerLinkSheet(
             )
             if (state is LinkState.Live) {
                 val context = LocalContext.current
+                if (state.label.isNotEmpty()) {
+                    Text(stringResource(R.string.link_sheet_label, state.label), style = MaterialTheme.typography.titleSmall)
+                }
                 LinkQrCode(state.url)
                 SelectionContainer {
-                    Text(state.url, style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace))
+                    Text(state.url, style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace))
                 }
+                Text(
+                    stringResource(R.string.link_sheet_address),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(GeodeSpacing.S)) {
                     CrystalButton(onClick = { copyLink(context, state.url) }, modifier = Modifier.weight(1f), filled = false) {
                         Text(stringResource(R.string.link_copy))

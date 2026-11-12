@@ -428,6 +428,42 @@ void anOldBlendRidesPaletteTwosAmount() {
     check(settled.paletteMix == 0.65f && settled.paletteAmount1 == 0.8f, "what moved it lands on the blend; the row gets its own value back");
 }
 
+void theStackAsLookDrawsIt() {
+    const std::string unset = geode_palette_stack_unset();
+    std::string text = geode_palette_stack_editor(unset.c_str());
+    const int picks = static_cast<int>(pl::library().size());
+    check(text.rfind("palettestack|1|0|8|SHARE\n", 0) == 0, "an unset stack: no layer, room for eight");
+    check(text.find("layer|") == std::string::npos, "no layer row while unset");
+    check(std::count(text.begin(), text.end(), '\n') == picks + 1, "a pick row per library palette");
+    const std::string one = geode_palette_stack_add_library(unset.c_str(), 2);
+    const std::string twoLayers = geode_palette_stack_add_library(one.c_str(), 3);
+    text = geode_palette_stack_editor(twoLayers.c_str());
+    check(text.rfind("palettestack|1|2|6|SHARE\n", 0) == 0, "two layers leave room for six");
+    check(text.find("layer|0|" + pl::library()[2].palette.name + "\n") != std::string::npos &&
+              text.find("layer|1|" + pl::library()[3].palette.name + "\n") != std::string::npos,
+          "the layers by name, the primary first");
+    check(std::string(geode_palette_stack_add_library(twoLayers.c_str(), -1)) == twoLayers &&
+              std::string(geode_palette_stack_add_library(twoLayers.c_str(), picks)) == twoLayers,
+          "a palette the library does not have adds nothing");
+    std::string full = unset;
+    for (int i = 0; i < 12; ++i) full = geode_palette_stack_add_library(full.c_str(), i);
+    check(geode_palette_stack_layer_count(full.c_str()) == pl::kMaxLayers, "the stack stops at eight");
+    int layer[5] = {};
+    int library[5] = {};
+    geode_palette_stack_layer_swatch(twoLayers.c_str(), 1, 5, layer);
+    geode_palette_library_swatch(3, 5, library);
+    check(std::equal(layer, layer + 5, library), "a layer's swatch is its library palette's");
+    layer[0] = 7;
+    geode_palette_stack_layer_swatch(twoLayers.c_str(), 2, 5, layer);
+    check(layer[0] == 0, "no such layer: zeros");
+    const int mine[] = {0xFF0000, 0x00FF00, 0x0000FF};
+    const std::string withMine = geode_palette_stack_add_colours(unset.c_str(), "Mine", mine, 3);
+    check(geode_palette_stack_layer_count(withMine.c_str()) == 1 &&
+              std::string(geode_palette_stack_editor(withMine.c_str())).find("layer|0|Mine\n") != std::string::npos,
+          "the user's own colours stack as one palette under their name");
+    check(std::string(geode_palette_stack_add_colours(unset.c_str(), "Mine", nullptr, 0)) == unset, "no colours: the stack unchanged");
+}
+
 int main(int argc, char** argv) {
     if (argc == 3 && std::strcmp(argv[1], "--write") == 0) {
         std::ofstream(argv[2], std::ios::binary) << pl::libraryText();
@@ -449,6 +485,7 @@ int main(int argc, char** argv) {
     recentColours();
     theRampARendererUploads();
     anOldBlendRidesPaletteTwosAmount();
+    theStackAsLookDrawsIt();
     libraryTextEqualsTheFixture(argc > 1 ? argv[1] : "core/tests/palettes.txt");
     if (failures) {
         std::printf("%d failure(s)\n", failures);

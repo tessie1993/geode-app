@@ -567,6 +567,7 @@ private fun PaletteControl(
         ProGated(ParamKeys.PALETTE) {
             PaletteDropdown(ParamKeys.PALETTE, p, onChange, rememberSavedPalettes())
         }
+        PaletteStackCard(p, onChange)
     }
 }
 

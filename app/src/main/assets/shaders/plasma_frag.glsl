@@ -61,7 +61,9 @@ out vec4 fragColor;
 // Warp        a sine domain warp of space, the 2D style's swirl in 3D.
 // Turbulence  a fine sixth wave that ripples the blob skins.
 // Knobs: k0 PULSE kick swell, k1 TEXTURE colour band density, k2 FLOW warp depth,
-// k3 TONE hue, k4 BUILD air glow, k5 SPACE channel width. All neutral at 0.5.
+// k3 TONE the grain of the plasma (a high melody draws the blobs up into tall
+// columns, a low one lays them out in long horizontal strata; a small hue
+// offset too), k4 BUILD air glow, k5 SPACE channel width. All neutral at 0.5.
 //
 // ---- why the distance estimate is safe --------------------------------------
 //
@@ -120,8 +122,12 @@ float field(vec3 p) {
     return f;
 }
 
+/** TONE: the per-axis scale of the field (1 at rest; never above 1). */
+vec3 gGrain;
+
 float map(vec3 w) {
-    vec3 p = warpP(w);
+    // TONE's grain: each factor is at most 1, so gLip still bounds the gradient.
+    vec3 p = warpP(w) * gGrain;
     float f = field(p);
     gF = f;
     float d = (gLevel - f) / gLip;
@@ -168,6 +174,7 @@ void main() {
     float kSpace = uKnob[5] - 0.5;
 
     gT = uTime * 0.6;
+    gGrain = vec3(1.0 + 1.3 * min(kTone, 0.0), 1.0 - 1.3 * max(kTone, 0.0), 1.0);
     gRingK = 1.4 + 1.4 * clamp(bass, 0.0, 1.5);
     gMorph = clamp(uMorph, 0.0, 1.0) * 0.6;
     gTurb = clamp(uTurbulence, 0.0, 2.0);

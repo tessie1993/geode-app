@@ -61,7 +61,11 @@ out vec4 fragColor;
 //                            it glides in and out.
 // Pitch (SND_HELD_NOTE_CHANGE) slides the wax hue a little, as a hump.
 // Knobs                      k0 PULSE the rim, k1 TEXTURE the wobble depth,
-//                            k2 FLOW how far the blobs sway, k3 TONE the hue,
+//                            k2 FLOW how far the blobs sway, k3 TONE where
+//                            the wax lingers on its rise (a high melody holds
+//                            the blobs up under the cap, a low one keeps them
+//                            down by the pool; the travel itself is unchanged)
+//                            and a small hue offset,
 //                            k4 BUILD the core heat, k5 SPACE the fog (more
 //                            space, thinner liquid). Each is read as an offset
 //                            from 0.5, never as a clock rate.
@@ -109,6 +113,8 @@ float gFreq;
 float gBlend;
 float gSway;
 float gLip;
+/** TONE's bias of the rise curve: an exponent, 1 at rest. */
+float gLinger;
 /** The eye, z rebased into 0..64. */
 vec3 gEye;
 
@@ -128,7 +134,7 @@ vec2 blob(vec3 p, vec2 cell) {
     // Own slow clock: one full rise-and-sink takes 18-40 s, cosine eased.
     float period = mix(18.0, 40.0, h0);
     float u = fract(gT / period + h1 * 1.7);
-    float yc = (LV_FLOOR - 0.35) + (LV_CEIL - LV_FLOOR + 0.1) * (0.5 - 0.5 * cos(LV_TAU * u));
+    float yc = (LV_FLOOR - 0.35) + (LV_CEIL - LV_FLOOR + 0.1) * pow(0.5 - 0.5 * cos(LV_TAU * u), gLinger);
 
     // Life envelope: dissolves to nothing and regrows in its own home.
     float lifePeriod = mix(45.0, 90.0, h2);
@@ -219,6 +225,7 @@ void main() {
     gBlend = 0.35 + 0.35 * clamp(uMorph, 0.0, 1.0);
     gSway = 0.22 * (0.5 + clamp(k2, 0.0, 1.0));
     gLip = 1.0 + gAmp * LV_RMAX * gFreq * 1.06;
+    gLinger = exp2(-2.4 * (clamp(k3, 0.0, 1.0) - 0.5));
 
     vec3 ro;
     vec3 rd;

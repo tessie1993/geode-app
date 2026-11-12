@@ -57,7 +57,9 @@ out vec4 fragColor;
 // Turbulence  each blob's own jitter, beside its orbit.
 // Intensity and the rest of the grade through lib_scene_grade.
 // k0 PULSE    how hard the kick fuses.     k1 TEXTURE  a resting skin ripple.
-// k2 FLOW     the orbit's in-and-out swing. k3 TONE   the hue offset.
+// k2 FLOW     the orbit's in-and-out swing. k3 TONE   which blobs swell:
+//             a high melody fattens the treble blobs and thins the bass ones,
+//             a low melody the reverse (and a small hue offset).
 // k4 BUILD    the blobs' size.             k5 SPACE    the orbit radius.
 // Each knob is read as a continuous value about 0.5; none multiplies a clock,
 // so a moving knob never makes the picture jump.
@@ -183,7 +185,8 @@ void main() {
     for (int i = 0; i < MB_BALLS; i++) {
         float b = clamp(sndSpectrum(float(i) / 7.0), 0.0, 1.0);
         // Capped at 1.3: the lattice bound above assumes it.
-        gRad[i] = min((0.3 + 0.85 * b) * (0.8 + 0.4 * kBuild), 1.3);
+        float tilt = max(1.0 + 1.3 * (kTone - 0.5) * (2.0 * float(i) / 6.0 - 1.0), 0.35);
+        gRad[i] = min((0.3 + 0.85 * b) * (0.8 + 0.4 * kBuild) * tilt, 1.3);
     }
     gK = min(0.25 + 0.55 * clamp(uMorph, 0.0, 1.0) + 0.45 * kick * (0.5 + kPulse), 1.2);
     gSwing = 0.25 + 0.3 * kFlow;

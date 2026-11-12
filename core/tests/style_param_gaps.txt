@@ -12,6 +12,9 @@
 #   midGain      These shader styles hear no mid band field (SND_MID*, the mid presence or flux, uMidRel)
 #                and do not spin, so Mid gain reaches them only through a reaction route that picks a mid
 #                source. Fix: hide it there (a per-style band scope, as Detail is per style), or hear mids.
+#   audioDrive   The Flame, Opal and Hollow styles read no sound value themselves (no built-in reaction), so
+#                Audio drive reaches them only through the reaction matrix, the motion dials and the camera.
+#                Fix: hide it there, or let each family spend the drive on its own look.
 silk_web: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
 silk_bloom: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
 silk_weave: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
@@ -237,3 +240,33 @@ levitator: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
 standing_chamber: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
 rosensweig: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
 kundt_tube: motionDrift noteChords noteDrums noteIntervals notePitch noteTension
+flame_veil: audioDrive midGain motionDrift
+flame_spiral: audioDrive midGain motionDrift
+flame_orb: audioDrive midGain motionDrift
+flame_star: audioDrive midGain motionDrift
+flame_lotus: audioDrive midGain motionDrift
+flame_helix: audioDrive midGain motionDrift
+flame_knot: audioDrive midGain motionDrift
+flame_web: audioDrive midGain motionDrift
+flame_aurora: audioDrive midGain motionDrift
+flame_nova: audioDrive midGain motionDrift
+opal_bubbles: audioDrive midGain motionDrift
+opal_nautilus: audioDrive midGain motionDrift
+opal_melt: audioDrive midGain motionDrift
+opal_domes: audioDrive midGain motionDrift
+opal_pearls: audioDrive midGain motionDrift
+opal_lava: audioDrive midGain motionDrift
+opal_ribbon: audioDrive midGain motionDrift
+opal_cells: audioDrive midGain motionDrift
+opal_rings: audioDrive midGain motionDrift
+opal_drop: audioDrive midGain motionDrift
+hollow_sinew: audioDrive midGain motionDrift
+hollow_cave: audioDrive midGain motionDrift
+hollow_ribs: audioDrive midGain motionDrift
+hollow_coral: audioDrive midGain motionDrift
+hollow_roots: audioDrive midGain motionDrift
+hollow_hive: audioDrive midGain motionDrift
+hollow_throat: audioDrive midGain motionDrift
+hollow_neuron: audioDrive midGain motionDrift
+hollow_bone: audioDrive midGain motionDrift
+hollow_shell: audioDrive midGain motionDrift

@@ -34,6 +34,7 @@
 #include "viz/MacroBank.hpp"
 #include "viz/MotionField.hpp"
 #include "viz/NoteResponse.hpp"
+#include "viz/Palette.hpp"
 #include "viz/Reactions.hpp"
 #include "viz/VisualSafety.hpp"
 
@@ -684,6 +685,10 @@ struct OldChain {
         AdsrEngine::lfoOffsets(adsr.configs, envValues, envRate, envDepth);
         const auto& lfoValues = lfo.tick(dt, soundFrame, envRate.data(), envDepth.data());
         SceneParams p = director.applyAxes(director.apply(displayedParams));
+        // The old chain's Palette blend target wrote paletteMix; it writes Palette 2's amount now, which a
+        // look without a stack carries the blend on.
+        const float ownAmount = p.paletteAmount1;
+        p = geode::viz::palette::carryBlend(p);
         if (s.bank) p = macrobank::apply(p, *s.bank, styleId);
         p = lfo.apply(p, lfoValues);
         p = AdsrEngine::apply(p, adsr.configs, envValues);
@@ -692,6 +697,7 @@ struct OldChain {
         motionField.step(soundFrame, dt);
         p = motionField.apply(p, s.reducedMotion, spin);
         p = safety::apply(p, s.reducedMotion);
+        p = geode::viz::palette::settleBlend(p, ownAmount);
         params = p;
         // Renderer::stepCamera, after the chain.
         cameraMoves = director.moves();

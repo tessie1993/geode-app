@@ -25,7 +25,7 @@
 // the history is a fixed ring and the statistics run on a stack copy, so nothing allocates. A steady tone's
 // ripple (a low note's waveform shows in the fast follower) raises its own band's bar above it.
 //
-// Then TouchDesigner's trigger rules, per sample: fire past the threshold, re-arm only once the band that
+// Then the trigger rule, per sample: fire past the threshold, re-arm only once the band that
 // fired is back under half of it (in dB), and not again within the refractory time, so one attack seen in
 // several bands is one transient. The attack is measured for a few milliseconds after the crossing (its
 // peak ratio), and the hop that holds the end of that window reports it: the strength (the peak over twice

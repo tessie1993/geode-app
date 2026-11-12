@@ -40,6 +40,8 @@ class DreamOverlay(
     /** Settings › Wallpaper & screen saver's toggles (`BehaviourPrefs.dreamShowClock`, `dreamShowNowPlaying`). */
     private val showClock: Boolean,
     private val showNowPlaying: Boolean,
+    /** Settings › Look's text size, which scales this text as it does the app's. */
+    private val textScale: Float = 1f,
 ) : LinearLayout(context) {
     private val handler = Handler(Looper.getMainLooper())
     private val driftPx = dp(DRIFT_DP)
@@ -136,7 +138,7 @@ class DreamOverlay(
         face: Typeface,
     ) {
         setTextColor(Color.WHITE)
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp * textScale)
         typeface = face
         gravity = Gravity.CENTER_HORIZONTAL
         setShadowLayer(dp(SHADOW_DP), 0f, 0f, Color.argb(SHADOW_ALPHA, 0, 0, 0))

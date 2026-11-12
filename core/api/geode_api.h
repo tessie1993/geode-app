@@ -1439,6 +1439,9 @@ GEODE_API int64_t         geode_cast_audio_feed_take(int64_t* state, int64_t buf
 #define GEODE_LINK_STREAM   9   /* stream.mp4: the browser's live feed, init then each fragment as it is cut */
 #define GEODE_LINK_MAX_STREAMS 3   /* browsers fed at once; past it 503 (the page retries) */
 #define GEODE_LINK_RTC     10   /* rtc: POST the browser's WebRTC offer (application/sdp), the answer comes back */
+#define GEODE_LINK_PAIR_PAGE   11   /* "/": the typed path's page, off the token (geode_link_pair_*) */
+#define GEODE_LINK_PAIR_SCRIPT 12   /* "/pair.js" */
+#define GEODE_LINK_PAIR        13   /* "/pair": POST the typed code, the token's path comes back */
 /* A request's method and request-target against the token: returns the status (200, 204, 308, 404, 405) and
  * fills *resource (GEODE_LINK_*) and *sequence (a segment's, else -1). */
 GEODE_API int             geode_link_route(const char* method, const char* target, const char* token, int* resource,
@@ -1447,7 +1450,8 @@ GEODE_API int             geode_link_route(const char* method, const char* targe
  * convention of geode_hls_playlist (returns the length; nothing written when length + 1 > cap). */
 GEODE_API int             geode_link_response_head(int status, int resource, int64_t length, const char* token,
                                                    char* out, int cap);
-/* A static file's bytes (GEODE_LINK_PAGE, _SCRIPT or _STYLE), UTF-8, *size set; null for any other resource. */
+/* A static file's bytes (GEODE_LINK_PAGE, _SCRIPT, _STYLE, _PAIR_PAGE or _PAIR_SCRIPT), UTF-8, *size set; null
+ * for any other resource. */
 GEODE_API const char*     geode_link_asset(int resource, size_t* size);
 /* The master playlist for an init segment (CODECS read from its avcC and esds), same convention; 0 = not yet. */
 GEODE_API int             geode_link_master_playlist(const uint8_t* init, size_t init_size, char* out, int cap);
@@ -1489,6 +1493,22 @@ GEODE_API int             geode_link_rtc_status(int answer_result);
 GEODE_API int             geode_link_share_url(uint32_t address, int port, const char* token, char* out, int cap);
 /* A short friendly name for the token ("Blue Comet"), the sheet's label beside the QR code; same convention. */
 GEODE_API int             geode_link_label(const char* token, char* out, int cap);
+/* The typed path (viz/frame/LinkPair, for a computer with no scanner): the short link with no token, the host
+ * as one number (size-query convention, 0 on the terms of geode_link_share_url), and the code that unlocks it.
+ * One pairing per process, any thread. open (1) starts it with a fresh code from the OS's secure random, a no-op
+ * while open; open (0) closes it. code: the code to show now ("ABC-DEF"; size-query convention, 0 while
+ * closed), a new one once the last has lived GEODE_LINK_PAIR_CODE_LIFE_MS. try: one POST on GEODE_LINK_PAIR,
+ * its body as typed (at most GEODE_LINK_PAIR_BODY_MAX bytes); returns the status (200 right: a single-session
+ * code, spent at once; 403 wrong; 404 closed; 429 too soon after a wrong try or locked out) and on 200 writes
+ * the token's path "/<token>/" into out, NUL-terminated (cap at least GEODE_LINK_TOKEN_CHARS + 3; a try spends
+ * the code, so it is no size query). Clocks
+ * are one monotonic clock in ms. */
+#define GEODE_LINK_PAIR_BODY_MAX     64
+#define GEODE_LINK_PAIR_CODE_LIFE_MS 300000
+GEODE_API int             geode_link_pair_url(uint32_t address, int port, char* out, int cap);
+GEODE_API void            geode_link_pair_open(int open, int64_t now_ms);
+GEODE_API int             geode_link_pair_code(int64_t now_ms, char* out, int cap);
+GEODE_API int             geode_link_pair_try(const char* typed, int64_t now_ms, const char* token, char* out, int cap);
 /* Who may connect, by source address, before a byte is read (LinkShare's admit): IPv4 in host order, 0 =
  * unknown; prefix the bound address's prefix length; wants GEODE_LINK_WANT_* bits. A TV cast admits the Cast
  * device's address alone (the bound subnet when the SDK names none), a live link any site-local peer on the

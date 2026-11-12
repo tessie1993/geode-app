@@ -60,6 +60,7 @@ One test file per line, in alphabetical order. Add a new test as its own bullet 
 - `library_search_test.cpp`: the library's match, ranking, order and index, and voice "play X".
 - `library_search_test.cpp` also covers the global search sheet (`geode_search_sheet`): a fourth field, one hit per URI, the 30-track cap, playlists and presets.
 - `link_share_test.cpp`: Show on a computer: routes, token, heads, codecs, page, state, who may connect, whether the TV plays.
+- `link_pair_test.cpp`: its typed path for a computer (`core/viz/frame/LinkPair`): the code, one per session, its lifetime, the tries, gap and lock-out, the routes off the token, `geode_link_pair_*`.
 - `liquid_test.cpp`: `LiquidMath`; `tools/glslcheck --liquid <id>` renders the pass.
 - `live_frame_test.cpp`: `core/viz/frame/LiveFrame`, one live frame as one call: stage order, the clear-only frame, the scene retry, gyro sessions, the thermal slot, the events.
 - `loop_seam_test.cpp`: a loop render's seam driver in `core/viz/frame/LoopSeam`: stash or present, PTS, the 192 MB GPU budget; `LoopRender` only presents.

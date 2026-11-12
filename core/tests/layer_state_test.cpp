@@ -121,7 +121,7 @@ void theTextRoundTrips() {
     check(ls::decode(ls::encode(l) + "\n") == l, "a trailing line break is read too");
     for (const char* bad : {"layer|2|1|USER|kifs|0|1|0.5", "layer|1|1|NOPE|kifs|0|1|0.5", "layer|1|2|USER|kifs|0|1|0.5",
                             "layer|1|1|USER|kifs|0|1|x", "layer|1|1|USER|kifs|0|1", "palettestack|1"}) {
-        check(ls::decode(bad) == ls::Layer{}, std::string("unreadable text is the default layer: ") + bad);
+        check(ls::decode(bad) == ls::Layer{}, (std::string("unreadable text is the default layer: ") + bad).c_str());
     }
     const ls::Layer wild = ls::decode("layer|1|1|DIRECTOR|a|b\nc|-4|99|7");
     check(wild == ls::Layer{}, "a field split by a separator is unreadable");

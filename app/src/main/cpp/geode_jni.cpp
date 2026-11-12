@@ -73,18 +73,6 @@ Java_dev_geode_engine_bridge_GeodeNative_dspFxClamp(JNIEnv*, jobject, jint contr
 }
 
 JNIEXPORT jint JNICALL
-Java_dev_geode_engine_bridge_GeodeNative_dspRestoreBands(JNIEnv* env, jobject, jint preset, jintArray stored, jintArray out) {
-    if (out == nullptr || env->GetArrayLength(out) < GEODE_DSP_BANDS) return 0;
-    jint* saved = stored ? env->GetIntArrayElements(stored, nullptr) : nullptr;
-    int32_t levels[GEODE_DSP_BANDS] = {};
-    const int n = geode_dsp_restore_bands(preset, static_cast<const int32_t*>(saved), saved ? env->GetArrayLength(stored) : 0, levels,
-                                          GEODE_DSP_BANDS);
-    if (saved) env->ReleaseIntArrayElements(stored, saved, JNI_ABORT);
-    env->SetIntArrayRegion(out, 0, n, static_cast<const jint*>(levels));
-    return n;
-}
-
-JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_dspRestoreBandsText(JNIEnv* env, jobject, jint preset, jstring csv, jintArray out) {
     if (out == nullptr || env->GetArrayLength(out) < GEODE_DSP_BANDS) return 0;
     const char* text = csv ? env->GetStringUTFChars(csv, nullptr) : nullptr;

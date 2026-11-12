@@ -142,8 +142,9 @@ void CompositePass::uploadGradeUniforms(UniformCache& p, const Inputs& inputs) {
     glUniform1f(p.loc("uFisheye"), fx.fisheye);
     glUniform1f(p.loc("uPostWarp"), fx.warp);
     glUniform1f(p.loc("uPostRipple"), fx.ripple);
-    glUniform1f(p.loc("uPostSymmetry"), static_cast<float>(fx.symmetry));
-    glUniform1f(p.loc("uPostKaleido"), fx.kaleidoscope ? 1.0f : 0.0f);
+    const SceneParams::KaleidoUniforms kaleido = SceneParams::kaleidoUniforms(fx.kaleidoFolds);
+    glUniform1f(p.loc("uPostSymmetry"), kaleido.folds);
+    glUniform1f(p.loc("uPostKaleido"), kaleido.on);
     glUniform1f(p.loc("uPostPixelate"), fx.pixelate);
     glUniform1f(p.loc("uPostTile"), fx.tile);
     glUniform1f(p.loc("uPostTwist"), fx.twist);

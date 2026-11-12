@@ -503,6 +503,9 @@ internal fun ParamChips(
  *
  * A Pro control the user may not keep is try-then-pay: dimmed, but the slider still moves and the
  * picture follows while it is held; on release it springs back and the paywall offers to keep it.
+ *
+ * [steps] is Material's tick count between the ends (0, the default, slides freely): a param that moves in whole
+ * counts but stays a float, so a knob or a wave can still move it (Kaleidoscope), stops on each count by hand.
  */
 @Composable
 internal fun LabeledSlider(
@@ -513,6 +516,7 @@ internal fun LabeledSlider(
     scope: ParamScope = ParamScope.of(label),
     default: Float? = null,
     unit: ParamUnit? = null,
+    steps: Int = 0,
     onChange: (Float) -> Unit,
 ) {
     val name = display.removeSuffix(" (s)").removeSuffix(" (Hz)")
@@ -571,6 +575,7 @@ internal fun LabeledSlider(
                 onChange(v)
             },
             valueRange = range,
+            steps = steps,
             onValueChangeFinished =
                 if (locked) {
                     {
@@ -606,6 +611,7 @@ internal fun LabeledSlider(
     display: String = label,
     scope: ParamScope = ParamScope.of(label),
     unit: ParamUnit? = null,
+    steps: Int = 0,
     onChange: (SceneParams) -> Unit,
 ) {
     LabeledSlider(
@@ -616,6 +622,7 @@ internal fun LabeledSlider(
         scope = scope,
         default = SceneParams.DEFAULT[name],
         unit = unit,
+        steps = steps,
     ) { onChange(params.with(name, it)) }
 }
 

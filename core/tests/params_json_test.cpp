@@ -214,8 +214,9 @@ void keysTypesRetiredUnknownAndSanitize() {
 
     const SceneParams typed = read(R"({"particleShape":2.75,"kaleidoscope":"true","endlessZoomSpeed":"abc",
         "symmetry":"7.9","mirror":1,"speed":"1.5","palette":true})");
-    check(typed.particleShape == 2 && typed.symmetry == 7, "an int reads through optInt");
-    check(typed.kaleidoscope && typed.mirror == kDefaults.mirror, "a flag takes \"true\", not 1");
+    // The retired Kaleidoscope switch and count still read this way, into kaleidoFolds: on ("true") at 7.
+    check(typed.particleShape == 2 && typed.kaleidoFolds == 7.0f, "an int reads through optInt");
+    check(typed.kaleidoFolds != 1.0f && typed.mirror == kDefaults.mirror, "a flag takes \"true\", not 1");
     check(typed.endlessZoomSpeed == kDefaults.endlessZoomSpeed && typed.speed == 1.5f, "a float takes a numeric string only");
     check(typed.palette == kDefaults.palette, "a bool where an int goes is the default");
 
@@ -236,8 +237,19 @@ void keysTypesRetiredUnknownAndSanitize() {
         check(written.count(SceneParams::schema()[slot].name) == 0, std::string("retired ") + SceneParams::schema()[slot].name + " is not written");
     }
 
-    const SceneParams wild = read(R"({"speed":99,"zoom":-5,"camFov":1e39,"symmetry":40,"colorShift":1.5,"rotation":"Infinity"})");
-    check(wild.speed == 4.0f && wild.zoom == 0.3f && wild.symmetry == 16, "sanitized: held to the schema ranges");
+    const SceneParams wild = read(R"({"speed":99,"zoom":-5,"camFov":1e39,"kaleidoFolds":40,"colorShift":1.5,"rotation":"Infinity"})");
+    check(wild.speed == 4.0f && wild.zoom == 0.3f && wild.kaleidoFolds == 16.0f, "sanitized: held to the schema ranges");
+
+    // A look saved before kaleidoFolds opens as it was: switched off is 1 whatever its count, on is its count held
+    // to 2..16, and a kaleidoFolds the look carries wins over the old keys.
+    check(read(R"({"kaleidoscope":false,"symmetry":8})").kaleidoFolds == 1.0f, "an old look switched off is off");
+    check(read(R"({"kaleidoscope":true,"symmetry":8})").kaleidoFolds == 8.0f, "an old look switched on keeps its folds");
+    check(read(R"({"kaleidoscope":true,"symmetry":0})").kaleidoFolds == 2.0f &&
+              read(R"({"kaleidoscope":true,"symmetry":99})").kaleidoFolds == 16.0f,
+          "an old count is held to 2..16");
+    check(read(R"({"kaleidoscope":true})").kaleidoFolds == static_cast<float>(SceneParams::kDefaultSymmetryFolds),
+          "an old switch with no count takes the old default count");
+    check(read(R"({"kaleidoscope":true,"symmetry":8,"kaleidoFolds":3})").kaleidoFolds == 3.0f, "kaleidoFolds wins over the old keys");
     check(wild.camFov == kDefaults.camFov && wild.rotation == kDefaults.rotation, "sanitized: an overflow reads as the default");
     check(wild.colorShift == 1.5f, "sanitized: a circular value is left to wrap");
 
@@ -370,8 +382,9 @@ void thePresetFixturesReadAsBefore(const std::string& dir) {
     const std::string legacyText = fixture(dir, "legacy.json");
     SceneParams legacy;
     check(viz::readParamsJson(legacyText, legacy, a, b), "legacy.json reads");
-    check(legacy.speed == 1.5f && legacy.zoom == 1.25f && legacy.palette == 3 && legacy.symmetry == 8, "legacy.json: its values");
-    check(legacy.trails && legacy.kaleidoscope && a == "old-palette", "legacy.json: flags and id");
+    check(legacy.speed == 1.5f && legacy.zoom == 1.25f && legacy.palette == 3, "legacy.json: its values");
+    check(legacy.trails && a == "old-palette", "legacy.json: flags and id");
+    check(legacy.kaleidoFolds == 8.0f, "legacy.json: its kaleidoscope, on at 8 folds, opens as kaleidoFolds 8");
     check(legacy.flowCurl == kDefaults.flowCurl && legacy.camFly == kDefaults.camFly &&
               legacy.fluidCatchPoints == kDefaults.fluidCatchPoints && legacy.liquidBorn == kDefaults.liquidBorn &&
               legacy.noteDrums == kDefaults.noteDrums,
@@ -379,7 +392,8 @@ void thePresetFixturesReadAsBefore(const std::string& dir) {
     const std::set<std::string> retired = {"pulse", "shake", "beatResponse", "flash", "glitch", "strobe", "waterWaveSpeed",
                                            "waterDamping", "waterRippleStrength", "waterDepth", "waterSpecular", "waterFlow",
                                            "waterLiquid", "waterLiquidFlow", "waterLiquidFade", "rippleOverlayEnabled",
-                                           "rippleOverlayStrength", "rippleOverlaySpecular", "formDrive", "motionOrbit"};
+                                           "rippleOverlayStrength", "rippleOverlaySpecular", "formDrive", "motionOrbit",
+                                           "symmetry", "kaleidoscope"};
     std::set<std::string> retiredNow;
     const auto legacyWire = wire(legacy);
     for (ParamSlot r : viz::kRetiredParams) {
@@ -387,7 +401,7 @@ void thePresetFixturesReadAsBefore(const std::string& dir) {
         retiredNow.insert(SceneParams::schema()[slot].name);
         check(legacyWire[slot] == defaults[slot], std::string("legacy.json: retired ") + SceneParams::schema()[slot].name);
     }
-    check(retiredNow == retired, "the retired rows are the twenty PresetGoldenTest named");
+    check(retiredNow == retired, "the retired rows are the twenty PresetGoldenTest named and the old Kaleidoscope pair");
     const auto legacyWritten = entries(viz::writeParamsJson(legacy, a, b));
     for (const auto& name : retired) check(legacyWritten.count(name) == 0, "legacy.json: " + name + " not written again");
     check(legacyWritten.count("beatFlash") == 0, "legacy.json: an unknown key is not written");
@@ -403,8 +417,8 @@ void thePresetFixturesReadAsBefore(const std::string& dir) {
     check(hostile.speed == 4.0f && hostile.zoom == 0.3f, "hostile.json: speed and zoom held to their ranges");
     check(hostile.rotation == kDefaults.rotation && hostile.warp == kDefaults.warp && hostile.camFov == kDefaults.camFov,
           "hostile.json: infinities and NaN read as the default");
-    check(hostile.symmetry == 16 && hostile.palette == 0 && hostile.reactSeed == 16777215 && hostile.paletteLut == 4,
-          "hostile.json: ints held to their ranges");
+    check(hostile.palette == 0 && hostile.reactSeed == 16777215 && hostile.paletteLut == 4, "hostile.json: ints held to their ranges");
+    check(hostile.kaleidoFolds == 16.0f, "hostile.json: an old kaleidoscope's count of 40 opens held to 16 folds");
     check(hostile.intensity == 2.0f && hostile.cymaticsFundamental == 40.0f && hostile.flowCurl == 50.0f,
           "hostile.json: floats held to their ranges");
     check(hostile.colorShift == 1.5f, "hostile.json: a circular value wraps where it is drawn");

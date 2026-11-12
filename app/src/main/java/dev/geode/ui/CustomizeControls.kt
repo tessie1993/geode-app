@@ -469,22 +469,18 @@ private fun PaletteControl(
     }
 }
 
+/**
+ * Kaleidoscope as one slider of whole folds over the schema's range, 1 to 16: native words the value ("Off" at 1,
+ * else the count) and rounds it for the shaders, and a knob, a wave or a route moves it like any slider.
+ */
 @Composable
 private fun KaleidoscopeControl(
     p: SceneParams,
     onChange: (SceneParams) -> Unit,
 ) {
-    val rows = GeodeNative.customizeKaleidoscope(p.kaleidoscope, p.symmetry).lines()
-    val head = rows.first().split('|')
-    if (head.size != 3) return
-    CheckRow(ParamKeys.KALEIDOSCOPE, p.kaleidoscope) { on -> onChange(p.copy(kaleidoscope = on, symmetry = head[2].toInt())) }
-    if (head[0] == "1" && visible(ParamKeys.KALEIDOSCOPE, ParamScope.of(ParamKeys.KALEIDOSCOPE))) {
-        ProGated(ParamKeys.KALEIDOSCOPE, "Folds", "${p.symmetry}") {
-            DropdownRow("Folds", rows.drop(1), selectedIndex = head[1].toInt()) { idx ->
-                onChange(p.copy(symmetry = GeodeNative.paramsKaleidoscopePick(idx)))
-            }
-        }
-    }
+    val range = ControlRange.of(KALEIDO_FOLDS)
+    val steps = remember(range) { GeodeNative.sliderIntSteps(range.start.toInt(), range.endInclusive.toInt()) }
+    LabeledSlider(ParamKeys.KALEIDOSCOPE, p, KALEIDO_FOLDS, steps = steps, onChange = onChange)
 }
 
 @Composable
@@ -580,6 +576,9 @@ private fun ChoiceChips(
 
 /** Above this the second palette is in the picture, so its controls show. */
 private const val PALETTE_MIX_SHOWN = 0.001f
+
+/** The Kaleidoscope slider's scene param (core/viz/ParamTable.inc). */
+private const val KALEIDO_FOLDS = "kaleidoFolds"
 
 /** The colour maps' names in `paletteLut` order, from the native palette library. */
 private fun colourMapNames(): List<String> =

@@ -25,7 +25,7 @@ constexpr std::array<const char*, modtargets::kTargetCount> kTargetLabels{{
     "Camera speed", "Camera swing", "Camera push", "Camera turn", "Camera tilt", "Camera roll", "Camera FOV",
     "Camera shake", "Swirl", "Push", "Dive", "Dive twist", "Dive aim sideways", "Dive aim up and down", "Macro knob",
     "Palette 1 amount", "Palette 3 amount", "Palette 4 amount", "Palette 5 amount", "Palette 6 amount",
-    "Palette 7 amount", "Palette 8 amount", "Palette position",
+    "Palette 7 amount", "Palette 8 amount", "Palette position", "Kaleidoscope",
 }};
 
 constexpr std::array<const char*, kSourceCount> kSourceLabels{{

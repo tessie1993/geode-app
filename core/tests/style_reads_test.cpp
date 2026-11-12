@@ -366,8 +366,8 @@ const std::vector<Carrier>& shaderCarriers() {
         {"ripple", {"uRipple"}},
         {"morph", {"uMorph"}},
         {"twist", {"uTwist"}},
-        {"kaleidoscope", {"uKaleido"}},
-        {"symmetry", {"uSymmetry"}},
+        // Kaleidoscope's one slider: on from 2 folds (uKaleido) at its count (uSymmetry), SceneParams::kaleidoUniforms.
+        {"kaleidoFolds", {"uKaleido", "uSymmetry"}},
         {"tile", {"uTile"}},
         {"pixelate", {"uPixelate"}},
         {"mirror", {"uMirrorX"}},
@@ -553,7 +553,7 @@ std::string readFile(const std::string& path) {
 // the geometry and stylize group to MilkDrop and the fluid family alike, mirror, invert and the colour grade
 // (zoom and rotation with it) to the fluid family only; MilkDrop's own post pass does those.
 bool compositeApplies(catalogue::Kind kind, const std::string& field) {
-    static const std::set<std::string> kGeo = {"warp",  "ripple",    "kaleidoscope", "symmetry", "pixelate", "tile",        "twist",
+    static const std::set<std::string> kGeo = {"warp",  "ripple",    "kaleidoFolds", "pixelate", "tile",        "twist",
                                                "bloom", "posterize", "driftX",       "driftY",   "sway",     "temperature", "solarize"};
     static const std::set<std::string> kFluidOnly = {"mirror",   "invert",     "zoom",  "rotation",   "saturation", "brightness",
                                                      "intensity", "contrast", "gamma", "colorShift", "colorCycle", "cycleSpeed"};

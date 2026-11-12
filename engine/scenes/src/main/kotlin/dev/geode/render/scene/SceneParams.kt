@@ -23,8 +23,6 @@ data class SceneParams(
     val mirror: Boolean = false,
     val warp: Float = 0f,
     val ripple: Float = 0f,
-    val symmetry: Int = 6,
-    val kaleidoscope: Boolean = false,
     val morph: Float = 0f,
     val pixelate: Float = 0f,
     val posterize: Float = 0f,
@@ -199,6 +197,8 @@ data class SceneParams(
     val paletteAmount6: Float = 0.5f,
     val paletteAmount7: Float = 0.5f,
     val paletteShift: Float = 0f,
+    // Customize › Shape › Kaleidoscope: 1 off, 2..16 folds (core/viz/ParamTable.inc kaleidoFolds).
+    val kaleidoFolds: Float = 1f,
 ) {
     companion object {
         const val UNSET_OVERRIDE: Float = -1f

@@ -163,9 +163,10 @@ void rollsStayUnderTheFlashClamp() {
         check(p.bloom <= 0.25f, "bloom stays under the flash depth");
         check(p.brightness <= 1.25f && p.contrast <= 1.25f && p.intensity <= 1.25f, "levels stay under 1 + flash depth");
         check(p.reactSeed >= 1 && p.reactSeed < (1 << 24), "the DNA seed survives the float wire");
-        check(p.symmetry >= 0 && p.cymaticsModes >= 2 && p.cymaticsModes <= 8, "counts stay in range");
+        check(p.cymaticsModes >= 2 && p.cymaticsModes <= 8, "counts stay in range");
         const auto& folds = SceneParams::kSymmetryFolds;
-        check(!p.kaleidoscope || std::find(folds.begin(), folds.end(), p.symmetry) != folds.end(), "a kaleidoscope gets a fold on the menu");
+        check(p.kaleidoFolds == 1.0f || std::find(folds.begin(), folds.end(), static_cast<int>(p.kaleidoFolds)) != folds.end(),
+              "a kaleidoscope is off or gets a whole fold count from kSymmetryFolds");
     }
 }
 
@@ -233,7 +234,7 @@ void aHostilePresetIsClampedToTheSchemaRanges() {
         {"warp", -kInf},
         {"endlessZoomSpeed", kNaN},
         {"trails", 1.0f},
-        {"symmetry", 40.0f},
+        {"kaleidoFolds", 40.0f},
         {"palette", -3.0f},
         {"particleShape", 2.0f},
         {"reactSeed", 99999999.0f},
@@ -250,10 +251,10 @@ void aHostilePresetIsClampedToTheSchemaRanges() {
     check(p.rotation == kDefaults.rotation && p.warp == kDefaults.warp, "hostile: infinities read as the default");
     check(p.endlessZoomSpeed == kDefaults.endlessZoomSpeed && p.camFov == kDefaults.camFov, "hostile: NaN reads as the default");
     check(p.trails, "hostile: a flag over 0.5 is on");
-    check(p.symmetry == 16 && p.palette == 0 && p.particleShape == 2, "hostile: ints held to their ranges");
+    check(p.palette == 0 && p.particleShape == 2, "hostile: ints held to their ranges");
     check(p.reactSeed == 16777215 && p.paletteLut == 4, "hostile: wide ints held to their ranges");
     check(p.brightness == 1.875f && p.bloom == 0.625f && p.intensity == 2.0f, "hostile: the schema's range, not the slider's");
-    check(p.cymaticsFundamental == 40.0f && p.flowCurl == 50.0f, "hostile: floats held to their ranges");
+    check(p.cymaticsFundamental == 40.0f && p.flowCurl == 50.0f && p.kaleidoFolds == 16.0f, "hostile: floats held to their ranges");
     check(p.colorShift == 1.5f, "hostile: a circular value wraps where it is drawn and is not clamped");
     const auto once = wire(p);
     check(wire(SceneParams::sanitized(once.data())) == once, "a sanitized frame saves and reads back the same");

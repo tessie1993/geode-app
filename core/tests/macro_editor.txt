@@ -92,6 +92,7 @@ target|PALETTE_AMOUNT_6|1|Palette 6 amount
 target|PALETTE_AMOUNT_7|1|Palette 7 amount
 target|PALETTE_AMOUNT_8|1|Palette 8 amount
 target|PALETTE_SHIFT|1|Palette position
+target|KALEIDO_FOLDS|1|Kaleidoscope
 target|audioDrive|1|Audio drive
 target|density|0|Density
 target|marchDetail|0|Detail

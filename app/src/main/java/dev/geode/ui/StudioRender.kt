@@ -762,16 +762,16 @@ private fun RenderLengthGroup(
                     value = length.start..length.end,
                     onValueChange = { r -> onLength(length.copy(start = r.start, end = r.endInclusive)) },
                 )
-                val range = length.rangeFor(trackDurationMs)
+                val part = LongArray(3)
                 OptionHint(
-                    if (range == null) {
+                    if (!GeodeNative.exportRangeOf(length.start, length.end, trackDurationMs, part)) {
                         stringResource(R.string.export_segment_hint, (GeodeNative.exportRangeMinMs() / 1000).toInt())
                     } else {
                         stringResource(
                             R.string.export_segment_summary,
-                            formatClock(range.startMs),
-                            formatClock(range.startMs + range.durationMs),
-                            formatClock(range.durationMs),
+                            formatClock(part[0]),
+                            formatClock(part[2]),
+                            formatClock(part[1]),
                         )
                     },
                 )

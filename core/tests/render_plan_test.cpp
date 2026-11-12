@@ -34,6 +34,7 @@ void ranges() {
     check(rangeFromFractions(0.0f, 0.5f, 2'000, &r) && same(r, 0, 1'000), "exactly a second is a range");
     check(rangeFromFractions(-0.1f, 0.5f, 10'000, &r) && same(r, 0, 5'000), "a start before the track clamps to 0");
     check(rangeFromFractions(0.5f, 1.5f, 10'000, &r) && same(r, 5'000, 5'000), "an end past the track clamps to it");
+    check(r.endMs() == 10'000, "a part's end is its start plus its length");
     check(!rangeFromFractions(0.7f, 0.2f, 10'000, &r), "an end before the start is no range");
     // The product is a float and is cut toward zero: 0.1f * 33 333 is 3 333.3.
     check(rangeFromFractions(0.1f, 0.9f, 33'333, &r) && r.startMs == 3'333, "the start is cut toward zero");
@@ -66,10 +67,13 @@ void batches() {
 void abi() {
     int64_t start = -1;
     int64_t duration = -1;
-    check(geode_export_range_of(0.25f, 0.75f, 200'000, &start, &duration) == 1 && start == 50'000 &&
-              duration == 100'000,
+    int64_t end = -1;
+    check(geode_export_range_of(0.25f, 0.75f, 200'000, &start, &duration, &end) == 1 && start == 50'000 &&
+              duration == 100'000 && end == 150'000,
           "ABI range");
-    check(geode_export_range_of(0.0f, 1.0f, 200'000, &start, &duration) == 0, "ABI whole track");
+    check(geode_export_range_of(0.25f, 0.75f, 200'000, nullptr, nullptr, nullptr) == 1, "ABI range without outs");
+    end = -1;
+    check(geode_export_range_of(0.0f, 1.0f, 200'000, &start, &duration, &end) == 0 && end == -1, "ABI whole track");
     geode_export_range_capped(0, 0, 60'000, &start, &duration);
     check(start == 0 && duration == 60'000, "ABI cap");
     check(geode_export_range_min_ms() == 1'000, "ABI shortest range");

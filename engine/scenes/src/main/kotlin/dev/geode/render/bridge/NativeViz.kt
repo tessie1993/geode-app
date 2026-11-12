@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.res.AssetManager
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.bridge.GeodeNative
-import dev.geode.render.PerformanceSettings
 import dev.geode.render.look.LookSnapshot
 import dev.geode.render.scene.SceneParams
 import java.io.File
@@ -52,7 +51,7 @@ class NativeViz(
     // What the owner last set, kept for the next handle: a handle is destroyed on every detach, and the new
     // renderer knows none of it. Guarded by this object's monitor, like the handle's create and destroy.
     private var look: LookSnapshot? = null
-    private var quality: PerformanceSettings? = null
+    private var quality: () -> Unit = {}
 
     /**
      * Runs once per new handle, inside [create], on whichever thread created it. A handle is
@@ -68,7 +67,7 @@ class NativeViz(
             owned.handle = handle
             if (handle != 0L) {
                 GeodeNative.vizSetMilkTextureDir(handle, milkTextureDir)
-                quality?.let(::pushQuality)
+                quality()
                 look?.let { pushLook(it, was = null) }
                 onCreated()
             }
@@ -129,13 +128,16 @@ class NativeViz(
 
     /** Settings › Performance for a live surface, from any thread; kept for the next handle. An export never sets it. */
     @Synchronized
-    fun setQuality(settings: PerformanceSettings) {
-        quality = settings
-        if (handle != 0L) pushQuality(settings)
+    fun setQuality(
+        renderScale: Float,
+        marchScale: Float,
+        postFx: Boolean,
+        adaptive: Boolean,
+        liquidHotPolicy: Int,
+    ) {
+        quality = { if (handle != 0L) GeodeNative.vizSetQuality(handle, renderScale, marchScale, postFx, adaptive, liquidHotPolicy) }
+        quality()
     }
-
-    private fun pushQuality(s: PerformanceSettings) =
-        GeodeNative.vizSetQuality(handle, s.renderScale, s.marchScale, s.postFx, s.adaptive, s.liquidHot.native)
 
     @Synchronized
     fun setParams(p: SceneParams) {
@@ -199,13 +201,11 @@ class NativeViz(
     }
 
     fun setLfoConfigs(lfos: String) {
-        if (handle == 0L) return
-        GeodeNative.vizSetLfos(handle, lfos)
+        if (handle != 0L) GeodeNative.vizSetLfos(handle, lfos)
     }
 
     fun setAdsrConfigs(adsrs: String) {
-        if (handle == 0L) return
-        GeodeNative.vizSetAdsrs(handle, adsrs)
+        if (handle != 0L) GeodeNative.vizSetAdsrs(handle, adsrs)
     }
 
     /** The user's saved routes (null: the style's DNA); native merges them under the hand mask it reads itself. */

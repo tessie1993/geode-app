@@ -5,9 +5,15 @@
 namespace style_pick = geode::viz::style_pick;
 namespace auto_draw = geode::viz::auto_draw;
 
+static_assert(style_pick::kRollInside == GEODE_STYLES_ROLL_INSIDE);
+
 extern "C" {
 
-int geode_styles_random(const int* family, const unsigned char* open, int count, int on_screen, int family_only) {
+int geode_styles_random(const int* family, const unsigned char* open, int count, int on_screen, int family_only,
+                        int inner_count, int inner_on_screen) {
+    if (style_pick::rollsInside(family, count, on_screen, family_only != 0, inner_count, inner_on_screen)) {
+        return GEODE_STYLES_ROLL_INSIDE;
+    }
     const auto candidates = style_pick::pool(family, open, count, on_screen, family_only != 0);
     // Auto's process-wide draw, so the page and Auto share one seeded source.
     const int k = auto_draw::pick(static_cast<int>(candidates.size()), -1);

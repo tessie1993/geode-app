@@ -806,10 +806,14 @@ GEODE_API int             geode_auto_pick(int count, int on_screen);
 /* Visuals › Styles (core/viz/StylePick). random: Random's draw among count styles (family[i] the family index of
  * each, open[i] nonzero when the entitlement keeps it; either may be null), never on_screen (-1 for none); every
  * family, or with family_only the on-screen style's family alone; a kept style while the pool has one. -1 for
- * none. lead: writes into out (count ints) the order a list shows, lead first (the item on screen, or the family
- * holding it), the rest in order; lead outside the list keeps the order. */
+ * none. With family_only in a family of one style it never leaves the family: GEODE_STYLES_ROLL_INSIDE when that
+ * style has variety of its own to roll (inner_count: its variations, the .milk presets for MilkDrop, 0 for none;
+ * inner_on_screen: the one showing, -1 for none; it rolls when one is not on screen), else -1. lead: writes
+ * into out (count ints) the order a list shows, lead first (the item on screen, or the family holding it), the
+ * rest in order; lead outside the list keeps the order. */
+#define GEODE_STYLES_ROLL_INSIDE             (-2)
 GEODE_API int             geode_styles_random(const int* family, const unsigned char* open, int count, int on_screen,
-                                              int family_only);
+                                              int family_only, int inner_count, int inner_on_screen);
 GEODE_API void            geode_styles_lead(int count, int lead, int* out);
 
 /* The app's own stage (viz/StageRun): flags are the GEODE_STAGE_* bits the shell observed of its Activity and

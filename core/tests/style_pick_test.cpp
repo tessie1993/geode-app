@@ -9,6 +9,8 @@
 // - a free user lands on a style the entitlement keeps while the pool has one; a pool of locked styles only is
 //   offered whole (the page previews it under the paywall), and the toggle's family is never left for that;
 // - an empty pool says -1;
+// - with "This family only" a family of one style never leaves the family ("Random style within family"): it
+//   rolls inside the style (MilkDrop's .milk presets) when that style has another variation to show, else -1;
 // - every list leads with what is on screen and keeps the rest in order.
 #include <cstdio>
 #include <set>
@@ -75,11 +77,31 @@ void emptyAndOne() {
 void abiDraws() {
     const unsigned char open[] = {1, 1, 1, 1, 1, 1};
     std::set<int> seen;
-    for (int i = 0; i < 2000; ++i) seen.insert(geode_styles_random(kFamily, open, kCount, 3, 1));
+    for (int i = 0; i < 2000; ++i) seen.insert(geode_styles_random(kFamily, open, kCount, 3, 1, 0, -1));
     check(seen == std::set<int>{4}, "ABI: family only from style 3 gives 4");
     seen.clear();
-    for (int i = 0; i < 2000; ++i) seen.insert(geode_styles_random(kFamily, open, kCount, 3, 0));
+    for (int i = 0; i < 2000; ++i) seen.insert(geode_styles_random(kFamily, open, kCount, 3, 0, 0, -1));
     check(seen == std::set<int>{0, 1, 2, 4, 5}, "ABI: every family but the one on screen");
+    check(geode_styles_random(kFamily, open, kCount, 5, 1, 9, 2) == GEODE_STYLES_ROLL_INSIDE,
+          "ABI: family of one with presets rolls inside");
+    check(geode_styles_random(kFamily, open, kCount, 5, 1, 0, -1) == -1, "ABI: family of one, no variety: -1");
+}
+
+void familyOfOneRollsInside() {
+    auto_draw::Draw draw(141);
+    check(pick::pick(draw, kFamily, nullptr, kCount, 5, true, 30, 4) == pick::kRollInside,
+          "family only, family of one, presets to roll: inside");
+    check(pick::pick(draw, kFamily, nullptr, kCount, 5, true, 30, -1) == pick::kRollInside,
+          "family only, family of one, none of its presets showing: inside");
+    check(pick::pick(draw, kFamily, nullptr, kCount, 5, true, 1, -1) == pick::kRollInside,
+          "one preset, not showing: inside");
+    check(pick::pick(draw, kFamily, nullptr, kCount, 5, true, 1, 0) == -1, "one preset, already showing: -1");
+    check(pick::pick(draw, kFamily, nullptr, kCount, 5, true, 0, -1) == -1, "family of one with no variety: -1");
+    const int on = pick::pick(draw, kFamily, nullptr, kCount, 5, false, 30, 4);
+    check(on >= 0 && on != 5, "toggle off: a style from another family, never inside");
+    const int big = pick::pick(draw, kFamily, nullptr, kCount, 1, true, 30, 4);
+    check(big == 0 || big == 2, "family of three: another style of the family, never inside");
+    check(pick::pick(draw, kFamily, nullptr, kCount, -1, true, 30, 4) >= 0, "nothing on screen: a style");
 }
 
 std::vector<int> led(int count, int lead) {
@@ -106,6 +128,7 @@ int main() {
     keptStylesFirst();
     emptyAndOne();
     abiDraws();
+    familyOfOneRollsInside();
     listsLeadWithOnScreen();
     if (failures == 0) std::printf("style_pick_test: ok\n");
     return failures == 0 ? 0 : 1;

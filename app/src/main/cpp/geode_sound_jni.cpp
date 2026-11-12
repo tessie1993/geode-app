@@ -216,7 +216,8 @@ Java_dev_geode_engine_bridge_GeodeNative_autoPick(JNIEnv*, jobject, jint count, 
 
 JNIEXPORT jint JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_stylesRandom(JNIEnv* env, jobject, jintArray family, jbooleanArray open,
-                                                      jint onScreen, jboolean familyOnly) {
+                                                      jint onScreen, jboolean familyOnly, jint innerCount,
+                                                      jint innerOnScreen) {
     if (family == nullptr || open == nullptr) return -1;
     const jsize count = env->GetArrayLength(family);
     if (env->GetArrayLength(open) != count) return -1;
@@ -228,7 +229,8 @@ Java_dev_geode_engine_bridge_GeodeNative_stylesRandom(JNIEnv* env, jobject, jint
     }
     std::vector<int> fam(families.begin(), families.end());
     std::vector<unsigned char> flags(raw.begin(), raw.end());
-    return geode_styles_random(fam.data(), flags.data(), count, onScreen, familyOnly ? 1 : 0);
+    return geode_styles_random(fam.data(), flags.data(), count, onScreen, familyOnly ? 1 : 0, innerCount,
+                               innerOnScreen);
 }
 
 JNIEXPORT jintArray JNICALL

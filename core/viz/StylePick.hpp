@@ -31,10 +31,27 @@ inline std::vector<int> pool(const int* family, const unsigned char* open, int c
     return kept.empty() ? all : kept;
 }
 
-// One draw from [pool]: an index into the page's styles, -1 when the pool is empty (a family of one style with
-// the toggle on, or a page of one style).
+// [pick]'s answer when Random should roll inside the style on screen instead of changing style.
+inline constexpr int kRollInside = -2;
+
+// Owner, 2026-11-12, on "Family only" in a family of one style: "Random style within family". The toggle never
+// leaves the family, so a family of one rolls inside its style when that style has variety of its own (MilkDrop:
+// its .milk presets). [innerCount] is how many the style on screen has (0 for none, or while it cannot play
+// them) and [innerOnScreen] the one showing (-1 for none); it rolls only when one of them is not on screen.
+inline bool rollsInside(const int* family, int count, int onScreen, bool familyOnly, int innerCount,
+                        int innerOnScreen) {
+    if (!familyOnly || onScreen < 0 || onScreen >= count) return false;
+    for (int i = 0; i < count; ++i) {
+        if (i != onScreen && (family == nullptr || family[i] == family[onScreen])) return false;
+    }
+    return innerCount > 1 || (innerCount == 1 && innerOnScreen != 0);
+}
+
+// One draw from [pool]: an index into the page's styles; [kRollInside] for a family of one that rolls inside its
+// style ([rollsInside]); -1 when there is nothing to draw (a family of one with no variety, or a page of one).
 inline int pick(auto_draw::Draw& draw, const int* family, const unsigned char* open, int count, int onScreen,
-                bool familyOnly) {
+                bool familyOnly, int innerCount = 0, int innerOnScreen = -1) {
+    if (rollsInside(family, count, onScreen, familyOnly, innerCount, innerOnScreen)) return kRollInside;
     const std::vector<int> candidates = pool(family, open, count, onScreen, familyOnly);
     const int k = draw.pick(static_cast<int>(candidates.size()), -1);
     return k < 0 ? -1 : candidates[static_cast<size_t>(k)];

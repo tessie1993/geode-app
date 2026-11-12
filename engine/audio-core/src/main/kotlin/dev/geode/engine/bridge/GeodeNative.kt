@@ -2986,6 +2986,15 @@ object GeodeNative {
         out: LongArray,
     )
 
+    /**
+     * The range Customize's slider offers for the scene param [name] (core/viz/ControlRange): min and max into
+     * [out] (two floats). False, [out] untouched, for a name the schema lacks.
+     */
+    external fun paramsControlRange(
+        name: String,
+        out: FloatArray,
+    ): Boolean
+
     /** What to do with a track's bookmark at [positionMs] of [durationMs]: [BOOKMARK_IGNORE], [BOOKMARK_CLEAR] or [BOOKMARK_SAVE]. */
     external fun bookmarkVerdict(
         positionMs: Long,

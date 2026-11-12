@@ -695,6 +695,16 @@ Java_dev_geode_engine_bridge_GeodeNative_touchRotation(JNIEnv*, jobject, jfloat 
     return geode_touch_rotation(current, degrees);
 }
 
+JNIEXPORT jboolean JNICALL
+Java_dev_geode_engine_bridge_GeodeNative_paramsControlRange(JNIEnv* env, jobject, jstring name, jfloatArray out) {
+    if (!out || env->GetArrayLength(out) < 2) return JNI_FALSE;
+    Utf8Chars key(env, name);
+    float range[2];
+    if (!geode_params_control_range(key.get(), range)) return JNI_FALSE;
+    env->SetFloatArrayRegion(out, 0, 2, range);
+    return JNI_TRUE;
+}
+
 JNIEXPORT void JNICALL
 Java_dev_geode_engine_bridge_GeodeNative_touchToNdc(JNIEnv* env, jobject, jfloatArray xy, jint points, jfloat width, jfloat height) {
     if (!xy) return;

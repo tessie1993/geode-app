@@ -8,11 +8,11 @@ import android.os.SystemClock
 import android.view.Choreographer
 import android.view.Surface
 import dev.geode.data.MilkPathPrefs
+import dev.geode.data.PerformanceSettings
 import dev.geode.engine.audio.SampleRing
 import dev.geode.engine.bridge.GeodeNative
 import dev.geode.export.SceneFactory
 import dev.geode.geodeContainer
-import dev.geode.render.PerformanceSettings
 import dev.geode.render.bridge.SceneParamsCodec
 import dev.geode.render.look.LookSnapshot
 import dev.geode.render.look.LookUnderlay

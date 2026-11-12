@@ -22,7 +22,7 @@ One fact per line. Add an entry point or an intent the app takes as a new bullet
 
 ## Services
 
-- `playback.PlaybackService`: exported Media3 library service, also used by Android Auto. Media3's `MediaButtonReceiver` handles resumption.
+- `playback.PlaybackService`: exported Media3 library service (notification, Bluetooth, Assistant; no Android Auto declaration in 1.0). Media3's `MediaButtonReceiver` handles resumption.
 - `audio.PlaybackCaptureService`: MediaProjection foreground service.
 - `audio.GeodeNotificationListener` (in `NowPlayingBridge.kt`): lets the app name what another app is playing.
 - `export.ExportService`: keeps the process in the foreground during a render. It does not own the render; `ExportRun.scope` does.

@@ -153,7 +153,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - That includes the native-output switch: on, and not bit-perfect, it lets `audio/TapRenderersFactory` hand the sink the Oboe output.
 - `BitPerfectOutput` is USB DAC bit-perfect via `setPreferredMixerAttributes`, API 34+.
 - `PlaybackService` is a MediaLibraryService.
-- Android Auto browses `LibraryTree` and searches it natively (`geode_library_search`) through `onSearch`/`onGetSearchResult`.
+- Media browsers (Bluetooth, Assistant; Android Auto is not declared in 1.0) browse `LibraryTree` and searches it natively (`geode_library_search`) through `onSearch`/`onGetSearchResult`.
 - Queue, sleep timer and ReplayGain live here.
 - `AutoDirectorFeed` is the auto-director's play feed: a seed per track, the position for the free taste.
 - The Behaviour options that run with the app closed live here.

@@ -2916,7 +2916,7 @@ object GeodeNative {
         lfos: FloatArray,
         lfoSlots: Int,
         adsrs: FloatArray,
-        tuning: FloatArray,
+        tuning: FloatArray?,
         reactions: FloatArray?,
         reducedMotion: Boolean,
         transitionId: String,
@@ -3084,5 +3084,6 @@ object GeodeNative {
     const val STAGE_VIEW_SHOWN = 1 shl 2
     const val STAGE_VIEW_OPAQUE = 1 shl 3
     const val STAGE_STATE_SURFACE = 1 shl 2
+    const val STAGE_STATE_VSYNC = 1 shl 4
     const val STAGE_STATE_REFUSED = 1 shl 6
 }

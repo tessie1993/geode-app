@@ -221,10 +221,8 @@ void applyLook(geode_viz* v, const stage::Look& l, uint32_t parts) {
     if ((parts & stage::kLookAdsrs) != 0) {
         eachSizedSlot(l.adsrs, GEODE_ADSR_SLOTS, [v](int slot, const float* config, int count) { geode_viz_set_adsr(v, slot, config, count); });
     }
-    if ((parts & stage::kLookTuning) != 0 && l.tuning.size() >= static_cast<size_t>(GEODE_SOUND_TUNING_FLOATS)) {
-        GeodeSoundTuning tuning{};
-        std::memcpy(&tuning, l.tuning.data(), sizeof(float) * GEODE_SOUND_TUNING_FLOATS);
-        geode_viz_set_sound_tuning(v, &tuning);
+    if ((parts & stage::kLookTuning) != 0) {
+        geode_viz_set_sound_tuning(v, l.tuning.empty() ? nullptr : l.tuning.data(), static_cast<int>(l.tuning.size()));
     }
     if ((parts & stage::kLookReactions) != 0) {
         // An empty list of the user's own is still theirs: the pointer must not be null for it.

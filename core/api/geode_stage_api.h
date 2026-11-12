@@ -104,8 +104,8 @@ GEODE_API void     geode_stage_viz_unlock(void);
 GEODE_API void     geode_stage_set_sound(geode_stage*, const geode_pcm_ring* ring);
 
 /* The user's look as the shell packs it. lfos are their slots one after another, each the same number of
-   floats; adsrs are each slot's float count and then its floats (a slot's targets vary in number);
-   has_reactions 0 means the style's own routes. */
+   floats; adsrs are each slot's float count and then its floats (a slot's targets vary in number); tuning
+   is the saved sound tuning, none for the engine's defaults; has_reactions 0 means the style's own routes. */
 typedef struct geode_stage_look {
     const char*  scene_id;
     const float* params;

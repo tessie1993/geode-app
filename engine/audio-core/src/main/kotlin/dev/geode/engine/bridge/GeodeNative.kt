@@ -3040,4 +3040,51 @@ object GeodeNative {
         handle: Long,
         out: LongArray,
     )
+
+    /** The stack as Customize › Look draws it: its layers by name and the library's palettes (`geode_palette_stack_editor`). Pure. */
+    external fun paletteStackEditor(stack: String): String
+
+    /** [stack] as native keeps it; unreadable text is the unset stack (`geode_palette_stack_normalize`). Pure. */
+    external fun paletteStackNormalize(stack: String): String
+
+    /** [stack] with library palette [index] added last (`geode_palette_stack_add_library`). Pure. */
+    external fun paletteStackAddLibrary(
+        stack: String,
+        index: Int,
+    ): String
+
+    /** [stack] without [layer] (`geode_palette_stack_remove`). Pure. */
+    external fun paletteStackRemove(
+        stack: String,
+        layer: Int,
+    ): String
+
+    /** [stack] with [layer] moved [delta] places (`geode_palette_stack_move`). Pure. */
+    external fun paletteStackMove(
+        stack: String,
+        layer: Int,
+        delta: Int,
+    ): String
+
+    /** [stack] sharing by [blend], SHARE or MIX (`geode_palette_stack_set_blend`). Pure. */
+    external fun paletteStackSetBlend(
+        stack: String,
+        blend: String,
+    ): String
+
+    /** [samples] colours of [layer]'s own run (`geode_palette_stack_layer_swatch`). Pure. */
+    external fun paletteStackLayerSwatch(
+        stack: String,
+        layer: Int,
+        samples: Int,
+    ): IntArray
+
+    /** [samples] colours of library palette [index] (`geode_palette_library_swatch`). Pure. */
+    external fun paletteLibrarySwatch(
+        index: Int,
+        samples: Int,
+    ): IntArray
+
+    /** The stack every renderer of the process draws; the unset stack draws the look's own colours (`geode_palette_stack_set`). */
+    external fun paletteStackSet(stack: String)
 }

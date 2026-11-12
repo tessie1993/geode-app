@@ -82,6 +82,48 @@ const char* geode_palette_stack_resolve_default(const char* stack, const char* s
     return handOut(palette::resolveDefault(stackOf(stack), paletteOf(style_default)));
 }
 
+const char* geode_palette_stack_editor(const char* stack) {
+    const palette::Stack s = stackOf(stack);
+    const int layers = static_cast<int>(s.layers.size());
+    // A name is free text: a '|' or a line end in it would break the row.
+    const auto cell = [](std::string name) {
+        for (char& c : name) {
+            if (c == '|' || c == '\n' || c == '\r') c = ' ';
+        }
+        return name;
+    };
+    std::string out = "palettestack|1|" + std::to_string(layers) + "|" + std::to_string(palette::kMaxLayers - layers) + "|" +
+                      palette::name(s.blend) + "\n";
+    for (int i = 0; i < layers; ++i) {
+        out += "layer|" + std::to_string(i) + "|" + cell(s.layers[static_cast<size_t>(i)].name) + "\n";
+    }
+    const auto& lib = palette::library();
+    for (size_t i = 0; i < lib.size(); ++i) out += "pick|" + std::to_string(i) + "|" + cell(lib[i].palette.name) + "\n";
+    return handOut(std::move(out));
+}
+
+const char* geode_palette_stack_add_library(const char* stack, int index) {
+    const auto& lib = palette::library();
+    if (index < 0 || index >= static_cast<int>(lib.size())) return handOut(stackOf(stack));
+    return handOut(palette::addLayer(stackOf(stack), lib[static_cast<size_t>(index)].palette));
+}
+
+void geode_palette_stack_layer_swatch(const char* stack, int layer, int samples, int* out) {
+    if (!out || samples <= 0) return;
+    const palette::Stack s = stackOf(stack);
+    std::fill(out, out + samples, 0);
+    if (layer < 0 || layer >= static_cast<int>(s.layers.size())) return;
+    geode_palette_swatch(palette::encode(s.layers[static_cast<size_t>(layer)]).c_str(), samples, out);
+}
+
+void geode_palette_library_swatch(int index, int samples, int* out) {
+    if (!out || samples <= 0) return;
+    const auto& lib = palette::library();
+    std::fill(out, out + samples, 0);
+    if (index < 0 || index >= static_cast<int>(lib.size())) return;
+    geode_palette_swatch(palette::encode(lib[static_cast<size_t>(index)].palette).c_str(), samples, out);
+}
+
 const char* geode_palette_stack_add(const char* stack, const char* palette_line) {
     return handOut(palette::addLayer(stackOf(stack), paletteOf(palette_line)));
 }

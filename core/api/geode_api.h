@@ -519,6 +519,14 @@ GEODE_API const char* geode_palette_stack_set_blend(const char* stack, const cha
 GEODE_API const char* geode_palette_stack_set_edge(const char* stack, const char* edge);
 GEODE_API const char* geode_palette_stack_set_full_range(const char* stack, int on);
 GEODE_API void        geode_palette_stack_set(const char* stack);
+/* The stack as Customize › Look draws it: "palettestack|1|<layers>|<room>|<BLEND>", a "layer|<i>|<name>" per
+ * layer and a "pick|<index>|<name>" per library palette. add_library appends library palette `index` (the
+ * stack unchanged out of range or when full). layer_swatch and library_swatch: `samples` colours of that
+ * palette's own run, zeros out of range. Pure, any thread. */
+GEODE_API const char* geode_palette_stack_editor(const char* stack);
+GEODE_API const char* geode_palette_stack_add_library(const char* stack, int index);
+GEODE_API void        geode_palette_stack_layer_swatch(const char* stack, int layer, int samples, int* out);
+GEODE_API void        geode_palette_library_swatch(int index, int samples, int* out);
 GEODE_API const char* geode_palette_from_colours(const char* source, const char* ref, const char* name, const int* rgb, int count);
 GEODE_API const char* geode_palette_set_stop(const char* palette_line, int stop, int rgb, float pos);
 GEODE_API const char* geode_palette_add_stop(const char* palette_line, int rgb, float pos);

@@ -26,6 +26,8 @@ import dev.geode.data.MediaStoreSource
 import dev.geode.data.NoteResponseCodec
 import dev.geode.data.NoteResponseStore
 import dev.geode.data.OpenedAudioSource
+import dev.geode.data.PaletteStackCodec
+import dev.geode.data.PaletteStackStore
 import dev.geode.data.PerformanceStore
 import dev.geode.data.SoundInputSettingsCodec
 import dev.geode.data.SoundInputSettingsRepository
@@ -69,6 +71,8 @@ class GeodeContainer(
     // read is back, so the app, the wallpaper, the dream and an export all start from it.
 
     val macros = MacroStore(PrefsSettingsRepository(prefsFiles.general, MacroBankCodec(), appScope), appScope)
+
+    val paletteStack = PaletteStackStore(PrefsSettingsRepository(prefsFiles.general, PaletteStackCodec(), appScope), appScope)
 
     val autoDirector =
         AutoDirectorStore(PrefsSettingsRepository(prefsFiles.general, AutoDirectorCodec, appScope), appScope) {

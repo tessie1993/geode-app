@@ -55,6 +55,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - Look has one palette list (`PaletteDropdown`, built-ins then the user's own); the blend's second slot steps through the built-ins.
 - Look's Your colours (`PaletteMaker`, `ColourPicker`): up to five colour stops, picked Photoshop-style or with an eyedropper on a still of the visual (`geode_viz_still_request`) or the artwork.
 - The stops are scene params `paletteStop0..4` that loop natively (see native-core.md); the user's palettes are saved in `files/palettes/`.
+- Look's Palettes card (`ui/PaletteStack.kt`, shader styles) is the palette stack: layers from the native library, + to add one, an amount each (`paletteAmount0..7`), Side by side or Mixed. `data/PaletteStackStore` keeps the stack text (`palette_stack` in `geode-prefs`, Creative in a backup) and pushes it process-wide (`geode_palette_stack_set`); every edit and the card's rows are native (`geode_palette_stack_editor`). Presets do not carry the stack yet.
 - Which control is where, what is free, which styles show what, and each category's Randomize and Reset are native (`core/viz/CustomizeMap`).
 - A roll moves only what the panel offers on the style, and keeps or opens Dive's and Liquid's own switch.
 - `shownOn`'s `CATEGORY:roll` lines say where the dice has something to move.

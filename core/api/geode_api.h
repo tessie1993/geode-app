@@ -929,6 +929,14 @@ GEODE_API const char*     geode_transition_picker(AAssetManager* assets);
 GEODE_API int             geode_perf_tier(int mode, float* out, int capacity);
 /* The first-run mode for this phone. total_ram_bytes 0 = unknown. */
 GEODE_API int             geode_perf_mode_for_device(long long total_ram_bytes, int low_ram, int media_performance_class);
+/* The mode these values are (the tier's fps cap as an int, flags 0/1), or -1 for none: the tab reads "Custom".
+   Liquid's hot-phone policy is not part of a mode. */
+GEODE_API int             geode_perf_mode_of(float render_scale, int fps_cap, float march_scale, int post_fx, int adaptive);
+/* The render and march scales the tab offers, ascending, into out (up to capacity); returns how many. */
+#define GEODE_PERF_SCALE_CHOICES 3
+GEODE_API int             geode_perf_scale_choices(float* out, int capacity);
+/* A stored Liquid hot-phone policy as the renderer reads it (liquid::HotPolicy): 0..2, anything else 0. */
+GEODE_API int             geode_perf_liquid_hot(int stored);
 /* Settings › Performance's live frame-rate cap (core/viz/frame/LiveFps): the in-app stage only, never the
    wallpaper, the dream, an export or Cast. `rates` are the refresh rates the stage's display can switch to
    seamlessly (its current mode's and Display.Mode.getAlternativeRefreshRates), `count` of them; NULL or 0 is

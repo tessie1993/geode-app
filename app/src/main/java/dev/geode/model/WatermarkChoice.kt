@@ -22,7 +22,6 @@ data class WatermarkChoice(
         const val BOTTOM_LEFT = 2
         const val BOTTOM_RIGHT = 3
         const val USE_WHOLE = 0
-        const val USE_SEGMENT = 1
         const val USE_LOOP = 2
         const val USE_LIVE = 3
 

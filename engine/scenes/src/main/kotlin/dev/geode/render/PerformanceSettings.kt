@@ -30,18 +30,21 @@ data class PerformanceSettings(
      */
     val liquidHot: LiquidHotPolicy = LiquidHotPolicy.SIMPLIFY,
 ) {
-    /** The preset these values match, or null when the user has customised them. */
+    /** The preset these values match natively, or null when the user has customised them. */
     val mode: PerformanceMode?
-        get() = PerformanceMode.entries.firstOrNull { it.settings == copy(liquidHot = it.settings.liquidHot) }
+        get() =
+            PerformanceMode.entries.getOrNull(
+                runCatching { GeodeNative.perfModeOf(renderScale, fpsCap, marchScale, postFx, adaptive) }.getOrDefault(-1),
+            )
 
     companion object {
-        // Tiers, first-run pick and the fps caps a display is offered are native (core/viz/frame/Quality, LiveFps; ADR 0008).
+        // Tiers, the scale choices, first-run pick and the fps caps are native (core/viz/frame/Quality, LiveFps; ADR 0008).
         val SAVER get() = PerformanceMode.SAVER.settings
         val BALANCED get() = PerformanceMode.BALANCED.settings
         val HIGH get() = PerformanceMode.HIGH.settings
 
-        val RENDER_SCALES = listOf(0.5f, 0.75f, 1f)
-        val MARCH_SCALES = listOf(0.5f, 0.75f, 1f)
+        /** The render and march scales the tab offers, ascending. */
+        val SCALES: List<Float> by lazy { runCatching { GeodeNative.perfScaleChoices().toList() }.getOrDefault(emptyList()) }
 
         internal val tiers by lazy {
             PerformanceMode.entries.map { mode ->
@@ -78,8 +81,8 @@ enum class LiquidHotPolicy(
     ;
 
     companion object {
-        /** The policy for a stored int; anything unknown (a value from a newer build) falls back to the default. */
-        fun fromNative(value: Int): LiquidHotPolicy = entries.firstOrNull { it.native == value } ?: SIMPLIFY
+        /** The policy for a stored int, as native reads it: anything unknown (a newer build's) is the default. */
+        fun fromNative(value: Int): LiquidHotPolicy = entries[runCatching { GeodeNative.perfLiquidHot(value) }.getOrDefault(0)]
     }
 }
 

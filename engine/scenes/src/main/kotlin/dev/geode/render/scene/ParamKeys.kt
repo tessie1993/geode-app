@@ -48,7 +48,7 @@ object ParamKeys {
     const val CAM_GYRO = "Tilt phone to look"
     const val MOTION_AMOUNT = "Motion amount"
     const val MOTION_BREATH = "Breath"
-    const val MOTION_DRIFT = "Spin drift"
+    const val SPIN = "Spin"
     const val MOTION_HUE = "Key colour"
     const val REACT_AMOUNT = "Reaction strength"
     const val DENSITY = "Density"

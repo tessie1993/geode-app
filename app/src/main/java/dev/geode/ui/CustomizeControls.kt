@@ -226,7 +226,7 @@ private fun MotionControl(
             LabeledSlider(key, p, SceneParams::motionAmount) { onChange(p.copy(motionAmount = it)) }
         ParamKeys.MOTION_BREATH ->
             LabeledSlider(key, p, SceneParams::motionBreath) { onChange(p.copy(motionBreath = it)) }
-        ParamKeys.MOTION_DRIFT -> LabeledSlider(key, p, SceneParams::motionDrift) { onChange(p.copy(motionDrift = it)) }
+        ParamKeys.SPIN -> LabeledSlider(key, p, SceneParams::motionDrift) { onChange(p.copy(motionDrift = it)) }
         ParamKeys.CAM_PATH -> ChoiceChips(key, SceneParams::camPath, p, ParamScope.UNIVERSAL) { onChange(p.copy(camPath = it)) }
         // Below zero the camera travels backward, and a flat style zooms out instead of in.
         ParamKeys.CAM_FLY -> LabeledSlider(key, p, SceneParams::camFly) { onChange(p.copy(camFly = it)) }

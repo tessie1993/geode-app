@@ -286,6 +286,12 @@ void paramScopesMatchTheOldParamScope() {
     check(!catalogue::reaches(Scope::Turbulence, "silk_web"), "turbulence misses silk");
     check(catalogue::reaches(Scope::MarchDetail, "vanishing"), "detail reaches a marched style");
     check(!catalogue::reaches(Scope::MarchDetail, "outrun_drive"), "detail misses an unmarched shader");
+    // Spin (the old Spin drift) shows only where a style turns: bars, grids, landscapes and trees hold still.
+    check(catalogue::scopeOf("Spin") == Scope::Spin && catalogue::scopeOf("Spin drift") == Scope::Universal, "Spin, and no Spin drift");
+    check(catalogue::reaches(Scope::Spin, "bead_vortex") && catalogue::reaches(Scope::Spin, "tunnel"), "spin reaches a turning style");
+    check(!catalogue::reaches(Scope::Spin, "bars") && !catalogue::reaches(Scope::Spin, "terra_ridge") &&
+              !catalogue::reaches(Scope::Spin, "arbor_grove") && !catalogue::reaches(Scope::Spin, "silk_web"),
+          "spin misses a style that holds still");
     check(!catalogue::reaches(Scope::FlowFieldSim, "fluid_ink"), "fluid drives its own field");
     check(catalogue::reaches(Scope::FlowFieldSim, "silk_web"), "flow field reaches silk");
     check(!catalogue::reaches(Scope::ShaderLook, "milkdrop"), "milkdrop has no shader look");
@@ -396,7 +402,10 @@ void textRoundTrips() {
             styleIds.push_back(f[1]);
             check(f[2] == catalogue::name(catalogue::kindOf(f[1])), "kind row of " + f[1]);
             check(f.size() >= 4 && f[3] == catalogue::name(catalogue::lookOf(f[1])), "look field of " + f[1]);
-            check((f.size() == 5 && f[4] == "MARCH_DETAIL") == catalogue::isMarched(f[1]), "marched field of " + f[1]);
+            std::vector<std::string> perStyle;
+            if (catalogue::isMarched(f[1])) perStyle.emplace_back("MARCH_DETAIL");
+            if (catalogue::spinRate(f[1]) != 0.0f) perStyle.emplace_back("SPIN");
+            check(f.size() >= 4 && std::vector<std::string>(f.begin() + 4, f.end()) == perStyle, "per-style scopes of " + f[1]);
         } else if (f[0] == "kind") {
             ++kinds;
         } else if (f[0] == "family") {
@@ -422,8 +431,9 @@ void textRoundTrips() {
     // (Fluid quality and its auto switch, Progression, the two fluid layers, Water ripples on) until the
     // params schema's meta rows carried every control's scope (#1005 PR 4a); 95 with the dive's nine
     // tunnel controls (Customize › Dive), all on the endless zoom's scope; 85 once Pool replaced Water
-    // (#1036): Water's seven controls and the ripple overlay's three are retired.
-    check(kinds == catalogue::kKindCount && families == 13 && keys == 86 && overrides == 8, "row counts");
+    // (#1036): Water's seven controls and the ripple overlay's three are retired; 87 with Spin, which
+    // took over Spin drift's field on the turning styles' own scope.
+    check(kinds == catalogue::kKindCount && families == 13 && keys == 87 && overrides == 8, "row counts");
 }
 
 // The Styles page's dropdown: one flat level, every style once, in the order the stage swipes.

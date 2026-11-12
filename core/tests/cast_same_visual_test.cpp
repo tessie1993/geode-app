@@ -98,9 +98,12 @@ tee::Placement checkPlace(int srcW, int srcH, const char* what) {
     const int h = c.y1 - c.y0;
     check(w > 0 && h > 0 && c.x0 >= 0 && c.y0 >= 0 && c.x1 <= srcW && c.y1 <= srcH, what);
     check(w == srcW || h == srcH, what);
-    // Aspect kept: w / h equals slotW / slotH to within the half pixel rounding costs on the cut side.
+    // Aspect kept: w / h equals slotW / slotH to within the half pixel rounding costs on the side cover computed.
+    // That side can round to the whole picture (a stage within half a pixel of the slot's shape), so the side left
+    // whole does not say which one it was: half a pixel on h is slotW / 2 of cross, on w slotH / 2.
     const long long cross = static_cast<long long>(w) * p.slotH - static_cast<long long>(h) * p.slotW;
-    check(std::llabs(cross) * 2 <= (w == srcW ? p.slotW : p.slotH) + 1, what);
+    const int computed = w != srcW ? p.slotH : h != srcH ? p.slotW : (p.slotW > p.slotH ? p.slotW : p.slotH);
+    check(std::llabs(cross) * 2 <= computed + 1, what);
     check(std::abs((c.x0 + c.x1) - srcW) <= 1 && std::abs((c.y0 + c.y1) - srcH) <= 1, what);
     return p;
 }

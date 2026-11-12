@@ -146,6 +146,7 @@ internal fun rememberRenderNotificationAsk(): () -> Unit {
     var rationaleVisible by rememberSaveable { mutableStateOf(false) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     if (rationaleVisible) {
+        PermissionRationales.Shown()
         AlertDialog(
             onDismissRequest = { rationaleVisible = false },
             title = { Text(stringResource(R.string.export_notification_permission_title)) },

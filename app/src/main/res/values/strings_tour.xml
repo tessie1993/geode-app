@@ -51,6 +51,7 @@
     <string name="tour_tip_swipe_down_knobs">Tip: swipe down on the visual for the quick knobs.</string>
     <string name="tour_tip_swirl_randomize">Tip: draw two circles on the visual for a random style, preset and settings.</string>
     <string name="tour_tip_got_it">Got it</string>
+    <string name="tour_tips_off">Don\'t show tips</string>
 
     <!-- Settings › Tutorials. -->
     <string name="tour_chapter_start">First steps</string>
@@ -59,6 +60,8 @@
     <string name="tour_chapter_studio">Studio</string>
     <string name="tutorials_group">Tour</string>
     <string name="tutorials_progress">%1$d of %2$d seen</string>
+    <string name="tutorials_show_tips">Show tips</string>
+    <string name="tutorials_show_tips_summary">Gesture tips, and each part of the tour the first time you open it.</string>
     <string name="tutorials_play_all">Play the whole tour</string>
     <string name="tutorials_reset">Reset all</string>
     <string name="tutorials_reset_done">Cleared. The tour starts again next time you open the app.</string>

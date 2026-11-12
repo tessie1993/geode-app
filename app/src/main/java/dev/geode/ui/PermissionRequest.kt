@@ -7,12 +7,15 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -122,6 +125,26 @@ fun rememberPermissionRequest(
             },
             settings = { context.openAppSettings() },
         )
+    }
+}
+
+/**
+ * Whether one of the app's own permission rationales is on screen. Snapshot state, read by the
+ * tour, which shows no pointer or tip over the reason for an ask (the system's dialog pauses the
+ * activity, which the tour reads apart). A screen calls [Shown] where it draws its rationale.
+ */
+object PermissionRationales {
+    private var count by mutableIntStateOf(0)
+
+    val shown: Boolean get() = count > 0
+
+    /** Counts as on screen while composed. */
+    @Composable
+    fun Shown() {
+        DisposableEffect(Unit) {
+            count++
+            onDispose { count-- }
+        }
     }
 }
 

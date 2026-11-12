@@ -9,6 +9,7 @@
 //   g++ -std=c++20 -O1 -Wall -Wextra -Werror -Icore -Icore/tests/stub core/tests/track_pump_test.cpp
 //     core/audio/ingest/TrackPump.cpp core/audio/ingest/TrackFeed.cpp core/audio/ingest/AiffReader.cpp
 //     core/output/FrameClock.cpp -o track_pump_test && ./track_pump_test
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>

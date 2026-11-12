@@ -68,6 +68,7 @@ One fact per line. Each package has an "Open first" line and then its facts. Add
 - `CustomizeControls` draws each control by name.
 - Widgets are in `CustomizeTabs`, editors in `CustomizeAdvanced`, knobs in `CustomizeMacros`, Music's moments in `CustomizeEvents`, Music's rows as native reads them in `MusicMoments`.
 - `ui/ModCatalog` splits the rows of `geode_mod_catalog_text` for the wave, envelope and reaction editors, which keep no list, range or default of their own.
+- Customize › Music's action menu takes its order and dividers from `ModCatalog`'s `music` rows (`MusicMoments.chips`).
 - Expert › Shader code (`ShaderCodePage`) shows on Fluid only, with the custom force and dye editors.
 - Free users get every Basics (`pro/FreeTier`).
 - A Pro control is gated through `ProLock`: it can be tried, then springs back.

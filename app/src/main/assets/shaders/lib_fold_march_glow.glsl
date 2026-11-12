@@ -13,6 +13,8 @@
 //
 // INCLUDE ORDER: after lib_fold and after the style's foldMap.
 
+//#include lib_fold_at
+
 /** The light gathered along one ray. */
 vec3 foldGlow(vec3 ro, vec3 rd) {
     layerSetup(gFoldPal0, gFoldPal1, gFoldPal2, gFoldPal3, gFoldPal4, gFoldTone, gFoldFlow, gFoldSwell);

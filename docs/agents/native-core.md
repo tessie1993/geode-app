@@ -260,6 +260,7 @@ The renderer runs these in order each frame.
 - Foam's one field entry is `foamField` in `lib_foam`; it returns a `FoamSample` and writes no global.
 - Foam, Glass, Nebula, Terra and Truchet read the params and the six knobs once, normalized, in `<family>In()` (the normalization shell, at rest exactly the tuned constants); `<FAMILY>_GROW` and `<FAMILY>_FORMULA` are the one-line hooks for lib_grow and uFormula.
 - Fold's styles include one of five marches after their map instead, one to a kind of fractal: `lib_fold_march_glow`, `_cone`, `_slice`, `_pair` and `_probe`.
+- Each Fold march includes `lib_fold_at` first: `foldAt`, the one read of the style's map (`FOLD_AT`), with the base, Spawn and Fractal passes in one loop so the fractal compiles once per read.
 - Shard, Prism and Fluor also include `lib_strata` before `lib_<family>`: a far fractal lattice and a domain-warped haze round the marched form, and the folds, sponge and nested shells a style's form is built from.
 - `uFormula` (lib_scene_uniforms) picks one of three formulas in a Shard, Prism or Fluor style, crossfaded in two narrow bands (`strataFormula`); 0 is each style's original geometry.
 - Loom, Petal and Fold include `lib_layers` at the end of their library: a domain-warped fractal haze in front of the style's form and a far fractal behind it.

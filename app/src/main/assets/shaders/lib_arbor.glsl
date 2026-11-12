@@ -142,7 +142,9 @@ ArborHit arbHit(float d) {
 
 /** The nearer of two hits. */
 ArborHit arbNear(ArborHit a, ArborHit b) {
-    return b.d < a.d ? b : a;
+    // An if, not ?: — WebGL refuses a ternary on a struct.
+    if (b.d < a.d) return b;
+    return a;
 }
 
 /**

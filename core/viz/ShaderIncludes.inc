@@ -67,6 +67,8 @@
 "lib_loom_march",
 "lib_shard_march",
 "lib_petal_march",
+// Fold's read of the style's map (foldAt, the one FOLD_AT names), which every Fold march includes first.
+"lib_fold_at",
 // Fold has five marches, one to a kind of fractal; each style includes lib_fold and one of them.
 "lib_fold_march_glow",
 "lib_fold_march_cone",

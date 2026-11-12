@@ -269,11 +269,10 @@ vec3 foldQ(vec3 p) {
 }
 
 /**
- * The style's foldMap at world point p, bent, and grown (foldGrow). A macro, so the marches (which come
- * after the style's map) call the map through it without a prototype; a ternary reads only the side it
- * takes, so the off params cost no map. One line: a macro here never continues onto the next.
+ * The style's foldMap at world point p, bent, and grown (foldGrow): lib_fold_at's foldAt, which each
+ * Fold march includes after the style's map. A macro, so the marches keep one name for it.
  */
-#define FOLD_AT(p) foldGrow((p), foldMap(foldQ(p)), uSpawn > 0.0 ? foldMap(foldQ(p) + growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0)) : vec4(1.0e9), uFractal > 0.0 ? foldMap(growChildSpace(foldQ(p), 3.0, 2.0)) : vec4(1.0e9))
+#define FOLD_AT(p) foldAt(p)
 
 /** A corridor's eye, held where the air is. */
 vec3 foldEye(vec3 ro) {

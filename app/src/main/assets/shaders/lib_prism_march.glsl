@@ -18,21 +18,29 @@ vec2 prismField(vec3 p) {
     // mids): the chrome flows in place. Along the way a whole number of cycles per 16.
     q += 0.04 * gStrataWarp * sin(q.yzx * vec3(1.9, 1.5708, 1.9) + vec3(0.0, 2.0, 4.0) + uTime * PRISM_RATE(110));
     q = growOpened(q, k);
-    vec2 m = prismMap(q);
     // Grow and layers (lib_grow), each off at its default: Spawn slides a second chrome world off the first
     // along the way (half a rosette cell at full), Fractal grows chrome a third the size out of every surface,
     // and the layers open the chrome round the eye (front) and down the way (back), k at 1 while they rest.
-    if (uSpawn > 0.0) {
-        vec2 c = prismMap(q + growSpawnShift(vec3(0.0, 0.0, 1.0), 2.0));
-        c.x = growClearEye(c.x, p, 0.6);
-        if (c.x < m.x) m = c;
-    }
+    // One map call, in a loop the compiler cannot unroll (it starts at a uniform): the base world, then
+    // Spawn's copy and Fractal's child while each is on. Three inlined calls put the families past the
+    // GPU's compile budget (CI lost its WebGL context on them).
     float reach = growFractalReach(0.2);
-    if (reach > 0.0) {
-        vec2 c = prismMap(growChildSpace(q, 3.0, 2.0)) / 3.0;
-        c.x = growClearEye(growFractalChild(c.x, m.x, reach), p, 0.6);
-        // A child's ribbons light only right at the child: its mirror lines run on through the air.
-        c.y = max(c.y, 4.0 * c.x);
+    vec2 m = vec2(0.0);
+    for (int i = min(int(uSteps), 0); i < 3; i++) {
+        if ((i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0))) continue;
+        vec2 c = prismMap(i == 0 ? q : (i == 1 ? q + growSpawnShift(vec3(0.0, 0.0, 1.0), 2.0) : growChildSpace(q, 3.0, 2.0)));
+        if (i == 0) {
+            m = c;
+            continue;
+        }
+        if (i == 1) {
+            c.x = growClearEye(c.x, p, 0.6);
+        } else {
+            c /= 3.0;
+            c.x = growClearEye(growFractalChild(c.x, m.x, reach), p, 0.6);
+            // A child's ribbons light only right at the child: its mirror lines run on through the air.
+            c.y = max(c.y, 4.0 * c.x);
+        }
         if (c.x < m.x) m = c;
     }
     m.x *= k;
@@ -44,8 +52,13 @@ vec2 prismField(vec3 p) {
 /** The solid's normal at p, unit length; straight back along the ray where the field is flat. */
 vec3 prismNormal(vec3 p, vec3 rd, float eps) {
     vec2 e = vec2(1.0, -1.0) * eps;
-    vec3 g = e.xyy * prismField(p + e.xyy).x + e.yyx * prismField(p + e.yyx).x +
-        e.yxy * prismField(p + e.yxy).x + e.xxx * prismField(p + e.xxx).x;
+    // The four taps in one loop the compiler cannot unroll (it starts at a uniform), so the field is
+    // compiled once here, not four times: the inlined copies were past the GPU's compile budget.
+    vec3 g = vec3(0.0);
+    for (int i = min(int(uSteps), 0); i < 4; i++) {
+        vec3 s = e.x * (2.0 * vec3(float(((i + 3) >> 1) & 1), float((i >> 1) & 1), float(i & 1)) - 1.0);
+        g += s * prismField(p + s).x;
+    }
     float l = length(g);
     return l > 1.0e-9 ? g / l : -rd;
 }

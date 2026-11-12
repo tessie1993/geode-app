@@ -11,6 +11,8 @@
 //
 // INCLUDE ORDER: after lib_fold and after the style's foldMap.
 
+//#include lib_fold_at
+
 /** One section at p, seen from t: its light, and in a its opacity. */
 vec4 foldSection(vec3 p, float t) {
     vec4 m = FOLD_AT((p));

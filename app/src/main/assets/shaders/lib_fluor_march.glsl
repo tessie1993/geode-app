@@ -16,20 +16,23 @@ vec2 fluorField(vec3 p) {
     // mids): the carving sways in place. Along the way a whole number of cycles per 16.
     q += 0.03 * gStrataWarp * sin(q.yzx * vec3(1.7, 1.5708, 1.7) + vec3(0.0, 2.0, 4.0) + uTime * FLUOR_RATE(110));
     q = growOpened(q, k);
-    vec2 m = fluorMap(q);
     // Grow and layers (lib_grow), each off at its default: Spawn slides a second carving off the first
     // along the way (half a tile at full), so every boss, spiral and panel doubles; Fractal carves the relief
     // again a third the size on every raised face; the layers open the carving round the eye (front) and
     // down the way (back), k at 1 while they rest.
-    if (uSpawn > 0.0) {
-        vec2 c = fluorMap(q + growSpawnShift(vec3(0.0, 0.0, 1.0), 0.5));
-        c.x = growClearEye(c.x, p, 0.4);
-        if (c.x < m.x) m = c;
-    }
+    // One map call, in a loop the compiler cannot unroll (it starts at a uniform): the base world, then
+    // Spawn's copy and Fractal's child while each is on. Three inlined calls put the families past the
+    // GPU's compile budget (CI lost its WebGL context on them).
     float reach = growFractalReach(0.2);
-    if (reach > 0.0) {
-        vec2 c = fluorMap(growChildSpace(q, 3.0, 2.0));
-        c.x = growClearEye(growFractalChild(c.x / 3.0, m.x, reach), p, 0.4);
+    vec2 m = vec2(0.0);
+    for (int i = min(int(uSteps), 0); i < 3; i++) {
+        if ((i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0))) continue;
+        vec2 c = fluorMap(i == 0 ? q : (i == 1 ? q + growSpawnShift(vec3(0.0, 0.0, 1.0), 0.5) : growChildSpace(q, 3.0, 2.0)));
+        if (i == 0) {
+            m = c;
+            continue;
+        }
+        c.x = i == 1 ? growClearEye(c.x, p, 0.4) : growClearEye(growFractalChild(c.x / 3.0, m.x, reach), p, 0.4);
         if (c.x < m.x) m = c;
     }
     m.x *= k;
@@ -46,16 +49,21 @@ vec2 fluorField(vec3 p) {
  */
 float fluorShape(vec3 p, vec3 rd, float f0, float e, out vec3 nor) {
     vec2 k = vec2(1.0, -1.0) * e;
-    float a = fluorField(p + k.xyy).x;
-    float b = fluorField(p + k.yyx).x;
-    float c = fluorField(p + k.yxy).x;
-    float d = fluorField(p + k.xxx).x;
-    vec3 g = k.xyy * a + k.yyx * b + k.yxy * c + k.xxx * d;
+    // The four taps in one loop the compiler cannot unroll (it starts at a uniform), so the field is
+    // compiled once here, not four times: the inlined copies were past the GPU's compile budget.
+    vec3 g = vec3(0.0);
+    float sum = 0.0;
+    for (int i = min(int(uSteps), 0); i < 4; i++) {
+        vec3 s = k.x * (2.0 * vec3(float(((i + 3) >> 1) & 1), float((i >> 1) & 1), float(i & 1)) - 1.0);
+        float f = fluorField(p + s).x;
+        g += s * f;
+        sum += f;
+    }
     float l = length(g);
     nor = l > 1.0e-9 ? g / l : -rd;
     // The four taps sit at the corners of a tetrahedron, so their sum less four
     // times the middle is 2 e^2 times the Laplacian.
-    return clamp((a + b + c + d - 4.0 * f0) / (2.0 * e), -2.0, 2.0);
+    return clamp((sum - 4.0 * f0) / (2.0 * e), -2.0, 2.0);
 }
 
 /** The light along one ray: sphere traced to the relief, then the stone lit from the eye and its edges painted. */

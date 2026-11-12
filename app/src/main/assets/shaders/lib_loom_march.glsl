@@ -13,22 +13,28 @@ vec4 loomField(vec3 p) {
     // A domain warp over the bend: always a little, more with Warp (and k2 FLOW) and Turbulence (lib_layers).
     float amt = 0.05 + 0.14 * gLoomFlow + 0.08 * gLoomChaos;
     vec3 q = growOpened(layerWarp(loomBend(p), amt), k);
-    vec4 m = loomMap(q);
     // Grow and layers (lib_grow), each off at its default. Spawn slides a second weave off the first along the
     // way, so the strands and skins double; Fractal spins thinner strands a third the size round every strand.
     // The layers: Front layer opens the weave round the eye, Back layer the weave down the way, and it
     // billows the skins, the loom's own backdrop.
-    if (uSpawn > 0.0) {
-        vec4 c = loomMap(q + growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0));
-        c.x = growClearEye(c.x, p, 0.5);
-        if (c.x < m.x) m = vec4(c.x, c.y, m.z, c.w);
-        if (abs(c.z) < abs(m.z)) m.z = c.z;
-    }
+    // One map call, in a loop the compiler cannot unroll (it starts at a uniform): the base world, then
+    // Spawn's copy and Fractal's child while each is on. Three inlined calls put the families past the
+    // GPU's compile budget (CI lost its WebGL context on them).
     float reach = growFractalReach(0.15);
-    if (reach > 0.0) {
-        vec4 c = loomMap(growChildSpace(q, 3.0, 2.0));
-        c.x = growClearEye(growFractalChild(c.x / 3.0, m.x, reach), p, 0.5);
-        if (c.x < m.x) m = vec4(c.x, c.y, m.z, c.w);
+    vec4 m = vec4(0.0);
+    for (int i = min(int(uSteps), 0); i < 3; i++) {
+        if ((i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0))) continue;
+        vec4 c = loomMap(i == 0 ? q : (i == 1 ? q + growSpawnShift(vec3(0.0, 0.0, 1.0), 1.0) : growChildSpace(q, 3.0, 2.0)));
+        if (i == 0) {
+            m = c;
+        } else if (i == 1) {
+            c.x = growClearEye(c.x, p, 0.5);
+            if (c.x < m.x) m = vec4(c.x, c.y, m.z, c.w);
+            if (abs(c.z) < abs(m.z)) m.z = c.z;
+        } else {
+            c.x = growClearEye(growFractalChild(c.x / 3.0, m.x, reach), p, 0.5);
+            if (c.x < m.x) m = vec4(c.x, c.y, m.z, c.w);
+        }
     }
     // The warp's slack keeps a step safe in the stretched space (lib_layers); k the layers' opening.
     float slack = layerWarpSlack(amt);
@@ -41,8 +47,13 @@ vec4 loomField(vec3 p) {
 /** The strand's normal at p, unit length; straight back along the ray where the field is flat. */
 vec3 loomNormal(vec3 p, vec3 rd, float eps) {
     vec2 e = vec2(1.0, -1.0) * eps;
-    vec3 g = e.xyy * loomField(p + e.xyy).x + e.yyx * loomField(p + e.yyx).x +
-        e.yxy * loomField(p + e.yxy).x + e.xxx * loomField(p + e.xxx).x;
+    // The four taps in one loop the compiler cannot unroll (it starts at a uniform), so the field is
+    // compiled once here, not four times: the inlined copies were past the GPU's compile budget.
+    vec3 g = vec3(0.0);
+    for (int i = min(int(uSteps), 0); i < 4; i++) {
+        vec3 s = e.x * (2.0 * vec3(float(((i + 3) >> 1) & 1), float((i >> 1) & 1), float(i & 1)) - 1.0);
+        g += s * loomField(p + s).x;
+    }
     float l = length(g);
     return l > 1.0e-9 ? g / l : -rd;
 }

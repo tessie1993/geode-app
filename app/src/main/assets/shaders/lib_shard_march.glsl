@@ -16,19 +16,23 @@ vec3 shardField(vec3 p) {
     // mids): the pieces drift and flex in place. Along the way a whole number of cycles per 16.
     b += 0.05 * gStrataWarp * sin(b.yzx * vec3(1.7, 1.5708, 1.7) + vec3(0.0, 2.0, 4.0) + uTime * SHARD_RATE(110));
     vec3 q = growOpened(b, k);
-    vec3 m = shardMap(q);
     // Grow and layers (lib_grow), each off at its default: Spawn slides a second hoard of glass off the first
     // along the way, Fractal splinters glass a third the size off every face, and the layers open the
     // glass round the eye (front) and down the way (back), k at 1 while they rest.
-    if (uSpawn > 0.0) {
-        vec3 c = shardMap(q + growSpawnShift(vec3(0.0, 0.0, 1.0), 1.5));
-        c.x = growClearEye(c.x, p, 0.8);
-        if (c.x < m.x) m = c;
-    }
+    // One map call, in a loop the compiler cannot unroll (it starts at a uniform): the base world, then
+    // Spawn's copy and Fractal's child while each is on. Three inlined calls put the families past the
+    // GPU's compile budget (CI lost its WebGL context on them).
     float reach = growFractalReach(0.15);
-    if (reach > 0.0) {
-        vec3 c = shardMap(growChildSpace(q, 3.0, 2.0));
-        c = vec3(growClearEye(growFractalChild(c.x / 3.0, m.x, reach), p, 0.8), c.y, c.z / 3.0);
+    vec3 m = vec3(0.0);
+    for (int i = min(int(uSteps), 0); i < 3; i++) {
+        if ((i == 1 && !(uSpawn > 0.0)) || (i == 2 && !(reach > 0.0))) continue;
+        vec3 c = shardMap(i == 0 ? q : (i == 1 ? q + growSpawnShift(vec3(0.0, 0.0, 1.0), 1.5) : growChildSpace(q, 3.0, 2.0)));
+        if (i == 0) {
+            m = c;
+            continue;
+        }
+        if (i == 1) c.x = growClearEye(c.x, p, 0.8);
+        else c = vec3(growClearEye(growFractalChild(c.x / 3.0, m.x, reach), p, 0.8), c.y, c.z / 3.0);
         if (c.x < m.x) m = c;
     }
     m.xz *= k;
@@ -38,8 +42,13 @@ vec3 shardField(vec3 p) {
 /** The field's gradient at p, unit length; straight back along the ray where the field is flat. */
 vec3 shardNormal(vec3 p, vec3 rd, float eps) {
     vec2 e = vec2(1.0, -1.0) * eps;
-    vec3 g = e.xyy * shardField(p + e.xyy).x + e.yyx * shardField(p + e.yyx).x +
-        e.yxy * shardField(p + e.yxy).x + e.xxx * shardField(p + e.xxx).x;
+    // The four taps in one loop the compiler cannot unroll (it starts at a uniform), so the field is
+    // compiled once here, not four times: the inlined copies were past the GPU's compile budget.
+    vec3 g = vec3(0.0);
+    for (int i = min(int(uSteps), 0); i < 4; i++) {
+        vec3 s = e.x * (2.0 * vec3(float(((i + 3) >> 1) & 1), float((i >> 1) & 1), float(i & 1)) - 1.0);
+        g += s * shardField(p + s).x;
+    }
     float l = length(g);
     return l > 1.0e-9 ? g / l : -rd;
 }

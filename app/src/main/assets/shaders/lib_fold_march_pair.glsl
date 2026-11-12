@@ -10,11 +10,18 @@
 //
 // INCLUDE ORDER: after lib_fold and after the style's foldMap.
 
+//#include lib_fold_at
+
 /** The surface's normal at p, unit length; straight back along the ray where the field is flat. */
 vec3 foldPairNormal(vec3 p, vec3 rd, float eps) {
     vec2 e = vec2(1.0, -1.0) * eps;
-    vec3 g = e.xyy * FOLD_AT((p + e.xyy)).x + e.yyx * FOLD_AT((p + e.yyx)).x +
-        e.yxy * FOLD_AT((p + e.yxy)).x + e.xxx * FOLD_AT((p + e.xxx)).x;
+    // The four taps in one loop the compiler cannot unroll (it starts at a uniform), so the field is
+    // compiled once here, not four times: the inlined copies were past the GPU's compile budget.
+    vec3 g = vec3(0.0);
+    for (int i = min(int(uSteps), 0); i < 4; i++) {
+        vec3 s = e.x * (2.0 * vec3(float(((i + 3) >> 1) & 1), float((i >> 1) & 1), float(i & 1)) - 1.0);
+        g += s * FOLD_AT((p + s)).x;
+    }
     float l = length(g);
     return l > 1.0e-9 ? g / l : -rd;
 }
